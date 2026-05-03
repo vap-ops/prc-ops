@@ -1,4 +1,10 @@
-@AGENTS.md
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
+
+<!-- END:nextjs-agent-rules -->
 
 - This project uses TDD. For any new feature, write a failing test first, then make it pass. No production code without a test.
 - Database is Postgres via Supabase. Every table has Row Level Security enabled. No exceptions.

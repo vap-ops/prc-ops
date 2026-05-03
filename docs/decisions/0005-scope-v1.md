@@ -29,16 +29,16 @@ Run **2 pilot projects end-to-end** with:
 
 ### Out of Scope for v1
 
-| Feature                     | Rationale                              |
-| --------------------------- | -------------------------------------- |
-| DC (Daily Check) entries    | Complex; schema designed but not built |
-| Biometric data              | Regulatory sensitivity; deferred       |
-| Profit-share calculations   | Dependent on DC data                   |
-| Gamification / leaderboards | Nice-to-have; v2                       |
-| Technician LIFF Mini App    | LINE Mini App platform; v2             |
-| Drone / CCTV integration    | Hardware dependency; v2                |
-| Task-level tracking         | Granularity not needed for pilot       |
-| Google Sheets auto-sync     | Manual import sufficient for v1        |
+| Feature                     | Rationale                                                                                              |
+| --------------------------- | ------------------------------------------------------------------------------------------------------ |
+| DC (Daily Charges) entries  | Timestamped clock-in/out records for cost tracking and profit-share. Schema designed; not built in v1. |
+| Biometric data              | Regulatory sensitivity; deferred                                                                       |
+| Profit-share calculations   | Dependent on DC data                                                                                   |
+| Gamification / leaderboards | Nice-to-have; v2                                                                                       |
+| Technician LIFF Mini App    | LINE Mini App platform; v2                                                                             |
+| Drone / CCTV integration    | Hardware dependency; v2                                                                                |
+| Task-level tracking         | Granularity not needed for pilot                                                                       |
+| Google Sheets auto-sync     | Manual import sufficient for v1                                                                        |
 
 ### Schema Strategy
 

@@ -9,10 +9,15 @@ Regulatory and operational requirements demand a reliable audit trail for all si
 
 ## Decision
 
-### Audit Log
+### Audit Log Enforcement (Defense in Depth)
 
-- An `audit_log` table records every status change, photo upload, approval action, and import event.
-- The table is **append-only**: `UPDATE` and `DELETE` on `audit_log` are prohibited at the application layer and enforced via RLS policy (no UPDATE/DELETE privilege granted to the application role).
+Immutability of `audit_log` is enforced at three layers:
+
+1. **Privilege level (primary):** The application database role is granted only `INSERT` and `SELECT` on `audit_log`. `UPDATE` and `DELETE` are explicitly REVOKED. Migrations enforce this.
+2. **RLS policies (secondary):** Row Level Security policies on `audit_log` permit `SELECT` (scoped by role) and `INSERT` only. No `UPDATE` or `DELETE` policies exist.
+3. **Trigger (tertiary):** A `BEFORE UPDATE OR DELETE` trigger on `audit_log` raises an exception if either operation is attempted, providing a final safeguard against misconfiguration.
+
+The supersede pattern for `photo_logs` and `dc_entries` uses RLS to permit `INSERT` only; updates to existing rows are blocked by the same three-layer pattern when those tables are created.
 
 ### Supersede Pattern for Mutable Entities
 
