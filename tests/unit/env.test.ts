@@ -2,8 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { parseEnv } from "@/lib/env";
 
 describe("env schema — parseEnv", () => {
-  it("parses an empty env without throwing (all vars optional in v0)", () => {
-    expect(() => parseEnv({})).not.toThrow();
+  it("parses a valid env without throwing", () => {
+    expect(() =>
+      parseEnv({
+        NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key",
+        SUPABASE_SERVICE_ROLE_KEY: "service-key",
+      }),
+    ).not.toThrow();
   });
 
   it("rejects a malformed NEXT_PUBLIC_APP_URL", () => {
