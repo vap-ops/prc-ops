@@ -17,3 +17,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Before implementing any feature, read /docs/decisions/ in full. Architecture decisions there override defaults.
 - Commit messages follow Conventional Commits (feat:, fix:, test:, docs:, refactor:, chore:).
 - Every PR runs the test suite. PRs that don't pass tests do not get reviewed.
+
+### Library and architecture discipline
+
+- Do NOT silently swap libraries, frameworks, or fundamental approaches when implementing a spec.
+- If a library named in the spec proves unworkable, STOP and report the blocker. Do not implement a fallback unless explicitly approved.
+- "It was simpler with X" is not a reason. The spec specifies the library because the spec specifies the question being answered.
+- Architectural choices that are not in the spec must be raised before implementation, not after.
+- This rule applies equally to spikes and production code.
