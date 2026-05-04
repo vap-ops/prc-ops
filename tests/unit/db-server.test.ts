@@ -2,12 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const mockCreateServerClient = vi.fn();
+const { mockCreateServerClient, cookieStore } = vi.hoisted(() => ({
+  mockCreateServerClient: vi.fn(),
+  cookieStore: new Map<string, string>(),
+}));
+
 vi.mock("@supabase/ssr", () => ({
   createServerClient: mockCreateServerClient,
 }));
-
-const cookieStore = vi.hoisted(() => new Map<string, string>());
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn().mockResolvedValue({
@@ -29,7 +31,7 @@ describe("db/server createClient", () => {
     await createClient();
 
     expect(mockCreateServerClient).toHaveBeenCalledOnce();
-    const [url, key] = mockCreateServerClient.mock.calls[0];
+    const [url, key] = mockCreateServerClient.mock.calls[0]!;
     expect(url).toBe("https://test.supabase.co");
     expect(key).toBe("test-anon-key");
   });
@@ -38,14 +40,14 @@ describe("db/server createClient", () => {
     cookieStore.set("session", "abc");
     await createClient();
 
-    const cookiesArg = mockCreateServerClient.mock.calls[0][2].cookies;
+    const cookiesArg = mockCreateServerClient.mock.calls[0]![2].cookies;
     expect(cookiesArg.getAll()).toEqual([{ name: "session", value: "abc" }]);
   });
 
   it("setAll forwards each cookie to the store via set()", async () => {
     await createClient();
 
-    const cookiesArg = mockCreateServerClient.mock.calls[0][2].cookies;
+    const cookiesArg = mockCreateServerClient.mock.calls[0]![2].cookies;
     cookiesArg.setAll([{ name: "auth", value: "token", options: { httpOnly: true } }]);
     expect(cookieStore.get("auth")).toBe("token");
   });
