@@ -19,7 +19,10 @@
     "test:e2e:ui": "playwright test --ui",
     "spike:fixtures": "tsx spikes/01-pdf-generation/generate-fixtures.ts",
     "spike:test": "vitest run --config vitest.spike.config.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "db:link": "supabase link --project-ref btbfzhnvzruvxlgbeqnl",
+    "db:push": "supabase db push",
+    "db:types": "supabase gen types typescript --linked > src/lib/db/database.types.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
@@ -54,10 +57,18 @@
     "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "sharp": "^0.34.5",
+    "supabase": "^2.98.1",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5",
     "vitest": "^4.1.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "supabase",
+      "sharp",
+      "@playwright/test"
+    ]
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,mjs,cjs}": [
