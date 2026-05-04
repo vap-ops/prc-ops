@@ -11,9 +11,11 @@ We need a web platform for PRC site admins (PWA) and project managers (PM web). 
 
 ### Frontend
 
-- **Next.js 15 App Router** as a single application serving both audiences via different route segments.
+- **Next.js 16.x App Router** as a single application serving both audiences via different route segments.
   - Site admins use the PWA-optimised routes (installable, offline-capable).
   - PMs use standard web routes within the same app.
+
+> Updated 2026-05-04: stack moved to Next.js 16.x during initial scaffold. cookies() from next/headers is async-only in 16, which matches the contract @supabase/ssr expects for the App Router. No other API changes are relevant to the v1 scope.
 
 ### Backend / Infrastructure
 

@@ -8,6 +8,12 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
+    env: {
+      NEXT_PUBLIC_SUPABASE_URL: "https://test.supabase.co",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "test-anon-key",
+      SUPABASE_SERVICE_ROLE_KEY: "test-service-role-key",
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000",
+    },
     // Spike tests are excluded by design: they validate one-time questions,
     // require gitignored fixtures, and must not run in CI on every future PR.
     // The include patterns below are sufficient — spikes/ is simply not listed.

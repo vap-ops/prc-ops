@@ -44,3 +44,7 @@ next-env.d.ts
 # spike artifacts (regenerate with `pnpm spike:fixtures`)
 /spikes/*/fixtures/
 /spikes/*/output/
+
+# Supabase local dev
+supabase/.branches
+supabase/.temp
