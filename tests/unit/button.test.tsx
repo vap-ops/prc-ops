@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
-import { Button } from "./button";
+import { Button } from "@/components/ui/button";
 
 describe("Button", () => {
   it("renders with default variant", () => {
@@ -12,7 +12,7 @@ describe("Button", () => {
     render(
       <Button asChild>
         <a href="/">Link</a>
-      </Button>
+      </Button>,
     );
     expect(screen.getByRole("link", { name: /link/i })).toBeInTheDocument();
   });
