@@ -8,6 +8,10 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
+    // Spike tests are excluded by design: they validate one-time questions,
+    // require gitignored fixtures, and must not run in CI on every future PR.
+    // The include patterns below are sufficient — spikes/ is simply not listed.
+    // Run spike tests manually with: pnpm spike:test
     include: [
       "tests/unit/**/*.{test,spec}.{ts,tsx}",
       "tests/integration/**/*.{test,spec}.{ts,tsx}",

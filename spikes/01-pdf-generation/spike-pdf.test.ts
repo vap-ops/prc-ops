@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { existsSync, statSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const FIXTURES_DIR = resolve(__dirname, "../../spikes/01-pdf-generation/fixtures");
+const FIXTURES_DIR = resolve(__dirname, "fixtures");
 const PHASES = ["Before", "During", "After"] as const;
 type Phase = (typeof PHASES)[number];
 
@@ -34,19 +34,19 @@ describe("Spike 1: PDF generation with embedded images", () => {
   });
 
   it("generates a PDF file at the expected path", async () => {
-    const { generatePdf } = await import("../../spikes/01-pdf-generation/generate-pdf");
+    const { generatePdf } = await import("./generate-pdf");
     const path = await generatePdf(loadFixturePhotos());
     expect(existsSync(path)).toBe(true);
   }, 60_000);
 
   it("generated PDF is under 50MB", async () => {
-    const { generatePdf } = await import("../../spikes/01-pdf-generation/generate-pdf");
+    const { generatePdf } = await import("./generate-pdf");
     const path = await generatePdf(loadFixturePhotos());
     expect(statSync(path).size).toBeLessThan(50 * 1024 * 1024);
   }, 60_000);
 
   it("PDF embeds images, not external links (works offline)", async () => {
-    const { generatePdf } = await import("../../spikes/01-pdf-generation/generate-pdf");
+    const { generatePdf } = await import("./generate-pdf");
     const path = await generatePdf(loadFixturePhotos());
     const buffer = readFileSync(path);
     const content = buffer.toString("latin1");
@@ -58,7 +58,7 @@ describe("Spike 1: PDF generation with embedded images", () => {
   }, 60_000);
 
   it("generates within 30 seconds", async () => {
-    const { generatePdf } = await import("../../spikes/01-pdf-generation/generate-pdf");
+    const { generatePdf } = await import("./generate-pdf");
     const start = Date.now();
     await generatePdf(loadFixturePhotos());
     expect(Date.now() - start).toBeLessThan(30_000);

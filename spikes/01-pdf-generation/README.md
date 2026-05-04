@@ -16,7 +16,7 @@ This path matters because:
 
 ## Result
 
-**PASS.** All four assertions in `tests/integration/spike-pdf.test.ts` pass.
+**PASS.** All four assertions in `spikes/01-pdf-generation/spike-pdf.test.ts` pass.
 
 | Metric        | Measured                                   | Budget  |
 | ------------- | ------------------------------------------ | ------- |
@@ -49,9 +49,11 @@ Server 2019, headless Chromium 147 (chromium-headless-shell v1217), Node 20.
 pnpm install
 pnpm exec playwright install chromium   # one time
 pnpm spike:fixtures                     # generate 30 fixtures
-pnpm test tests/integration/spike-pdf.test.ts
+pnpm spike:test
 pnpm exec tsx spikes/01-pdf-generation/bench.ts   # for clean timing
 ```
+
+> **Note:** Spike tests are NOT run by `pnpm test` (the default suite). They are intentionally excluded from CI; spikes are validated once and frozen.
 
 ## Notes / open follow-ups (not part of the spike)
 

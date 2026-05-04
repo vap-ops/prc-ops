@@ -18,6 +18,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "spike:fixtures": "tsx spikes/01-pdf-generation/generate-fixtures.ts",
+    "spike:test": "vitest run --config vitest.spike.config.ts",
     "prepare": "husky"
   },
   "dependencies": {
