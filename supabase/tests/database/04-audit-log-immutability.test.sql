@@ -24,11 +24,13 @@ select throws_ok(
   'trigger raises on DELETE attempt'
 );
 
--- Layer 3: trigger blocks TRUNCATE
+-- Layer 3: trigger blocks TRUNCATE. Match P0001 + message so we know
+-- it was the trigger (not e.g. a missing privilege from layer 1) that
+-- raised — otherwise this could pass for the wrong reason.
 select throws_ok(
   $$ truncate table public.audit_log $$,
-  NULL,
-  NULL,
+  'P0001',
+  'audit_log is append-only',
   'trigger raises on TRUNCATE attempt'
 );
 
