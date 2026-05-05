@@ -44,14 +44,30 @@ function runSupabaseQuery(args: string[]): CliResult {
 }
 
 function parseResultJson(stdout: string): QueryResult | null {
-  const start = stdout.indexOf("{");
-  if (start < 0) return null;
+  // Skip preamble like "Initialising login role..." by locating whichever
+  // JSON delimiter (`[` or `{`) appears first. The CLI returns a bare array
+  // for plain `db query` and a `{ rows, ... }` object in agent mode.
+  const objStart = stdout.indexOf("{");
+  const arrStart = stdout.indexOf("[");
+  let start = -1;
+  let open = "";
+  let close = "";
+  if (objStart < 0 && arrStart < 0) return null;
+  if (objStart < 0 || (arrStart >= 0 && arrStart < objStart)) {
+    start = arrStart;
+    open = "[";
+    close = "]";
+  } else {
+    start = objStart;
+    open = "{";
+    close = "}";
+  }
   let depth = 0;
   let end = -1;
   for (let i = start; i < stdout.length; i++) {
     const c = stdout[i];
-    if (c === "{") depth++;
-    else if (c === "}") {
+    if (c === open) depth++;
+    else if (c === close) {
       depth--;
       if (depth === 0) {
         end = i;
@@ -61,7 +77,16 @@ function parseResultJson(stdout: string): QueryResult | null {
   }
   if (end < 0) return null;
   try {
-    return JSON.parse(stdout.slice(start, end + 1)) as QueryResult;
+    const parsed = JSON.parse(stdout.slice(start, end + 1)) as unknown;
+    if (open === "[") {
+      if (!Array.isArray(parsed)) return null;
+      return { rows: parsed as Array<Record<string, unknown>> };
+    }
+    if (typeof parsed === "object" && parsed !== null && "rows" in parsed) {
+      const rows = (parsed as { rows: unknown }).rows;
+      if (Array.isArray(rows)) return parsed as QueryResult;
+    }
+    return null;
   } catch {
     return null;
   }
