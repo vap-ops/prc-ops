@@ -13,9 +13,9 @@ We do not run Docker locally (multi-machine workflow, remote-first). The local S
 
 Database tests are pgTAP SQL files under `supabase/tests/database/`, executed against the linked remote project via `supabase db query --linked` (Supabase Management API — no Docker required). The runner is `scripts/run-pgtap.ts`, invoked as `pnpm db:test`.
 
-Each test file is authored in standard pgTAP form (`begin; select plan(N); ... ; select * from finish(); rollback;`). The runner transforms each file at load time, redirecting every assertion `select` into a temp collector table and emitting the final TAP stream as a single result set (a workaround for the Management API returning only the last result set in a multi-statement script). The transaction is still wrapped in `BEGIN; … ROLLBACK;` so no rows commit.
+Each test file is authored in standard pgTAP form (`begin; select plan(N); ... ; select * from finish(); rollback;`). The runner transforms each file at load time, redirecting every assertion `select` into a temp collector table and emitting the final TAP stream as a single result set (a workaround for the Management API returning only the last result set in a multi-statement script). The transaction is still wrapped in `BEGIN; … ROLLBACK;` so no rows commit. The runner refuses any test file containing `COMMIT` or missing a closing `ROLLBACK`, so the only paths through the transformer end in rollback.
 
-The runner ensures the `pgtap` extension is enabled (`create extension if not exists pgtap with schema extensions`) before running tests.
+The `pgtap` extension is enabled by a dedicated migration (`supabase/migrations/<ts>_enable_pgtap.sql`), so the remote schema is fully reproducible from `supabase/migrations/` without runner-time DDL.
 
 ## Consequences
 

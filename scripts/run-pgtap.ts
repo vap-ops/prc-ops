@@ -67,18 +67,6 @@ function parseResultJson(stdout: string): QueryResult | null {
   }
 }
 
-function ensurePgtap(tmpDir: string): boolean {
-  const path = join(tmpDir, "00-ensure-pgtap.sql");
-  writeFileSync(path, "create extension if not exists pgtap with schema extensions;\n");
-  const r = runSupabaseQuery(["--file", path]);
-  if (r.code !== 0) {
-    console.error("Failed to ensure pgtap extension:");
-    console.error(r.stderr || r.stdout);
-    return false;
-  }
-  return true;
-}
-
 // Split SQL into top-level statements, respecting `$$ ... $$` dollar quotes
 // and `-- line` comments. Adequate for the pgTAP test idioms we use.
 function splitStatements(sql: string): string[] {
@@ -129,22 +117,34 @@ function transformPgtap(sql: string): string {
   const stmts = splitStatements(sql);
   const out: string[] = [];
   let beginSeen = false;
+  let rollbackSeen = false;
   for (const stmt of stmts) {
     const k = normalizeForKeyword(stmt);
+    // Safety: a stray COMMIT (or SAVEPOINT/RELEASE that could end the
+    // test transaction) would let test data persist. Refuse the file.
+    if (k === "commit;" || k.startsWith("commit ")) {
+      throw new Error(
+        "Test file contains COMMIT — test transactions must end with ROLLBACK so no data persists.",
+      );
+    }
     if (
       k === "begin;" ||
       k === "begin transaction;" ||
       k.startsWith("begin ") ||
       k === "start transaction;"
     ) {
+      if (beginSeen) {
+        throw new Error("Test file has more than one BEGIN statement.");
+      }
       out.push(stmt);
       out.push("create temp table if not exists _tap_buf (ord serial primary key, line text);");
       beginSeen = true;
       continue;
     }
-    if (k === "rollback;" || k.startsWith("rollback ") || k === "commit;") {
+    if (k === "rollback;" || k.startsWith("rollback ")) {
       out.push("select line from _tap_buf order by ord;");
       out.push(stmt);
+      rollbackSeen = true;
       continue;
     }
     if (k.startsWith("select ")) {
@@ -156,6 +156,9 @@ function transformPgtap(sql: string): string {
   }
   if (!beginSeen) {
     throw new Error("Test file must start with begin;");
+  }
+  if (!rollbackSeen) {
+    throw new Error("Test file must end with rollback; (no commit, no implicit close).");
   }
   return out.join("\n") + "\n";
 }
@@ -244,7 +247,6 @@ function runTest(file: string, tmpDir: string): TestRunResult {
 
 function main(): void {
   const tmp = mkdtempSync(join(tmpdir(), "pgtap-"));
-  if (!ensurePgtap(tmp)) process.exit(2);
 
   let files: string[];
   try {
