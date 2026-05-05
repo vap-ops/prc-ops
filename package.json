@@ -22,7 +22,8 @@
     "prepare": "husky",
     "db:link": "supabase link --project-ref btbfzhnvzruvxlgbeqnl",
     "db:push": "supabase db push",
-    "db:types": "supabase gen types typescript --linked > src/lib/db/database.types.ts"
+    "db:types": "supabase gen types typescript --linked > src/lib/db/database.types.ts",
+    "db:test": "tsx scripts/run-pgtap.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
