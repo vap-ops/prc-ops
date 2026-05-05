@@ -48,3 +48,18 @@ next-env.d.ts
 # Supabase local dev
 supabase/.branches
 supabase/.temp
+
+# Rogue AI skill installers (e.g. ui-ux-pro-max) — quarantined 2026-05-05
+.agent/
+.codebuddy/
+.codex/
+.continue/
+.cursor/
+.gemini/
+.kiro/
+.opencode/
+.qoder/
+.roo/
+.trae/
+.windsurf/
+.github/prompts/
