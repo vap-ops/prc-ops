@@ -1,6 +1,29 @@
 {
   "permissions": {
     "allow": [
+      "Bash(pnpm test)",
+      "Bash(pnpm test:watch)",
+      "Bash(pnpm typecheck)",
+      "Bash(pnpm lint)",
+      "Bash(pnpm lint:fix)",
+      "Bash(pnpm format)",
+      "Bash(pnpm build)",
+      "Bash(pnpm db:types)",
+      "Bash(pnpm db:test)",
+      "Bash(git status)",
+      "Bash(git status:*)",
+      "Bash(git diff)",
+      "Bash(git diff:*)",
+      "Bash(git log)",
+      "Bash(git log:*)",
+      "Bash(git branch)",
+      "Bash(git branch:*)",
+      "Bash(git show:*)",
+      "Bash(git grep:*)",
+      "Bash(ls)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(pwd)",
       "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('type:', p.type || '\\(none\\)'\\)\")"
     ]
   },
