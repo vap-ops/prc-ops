@@ -1,12 +1,12 @@
 begin;
 select plan(12);
 
--- enum type exists with the three expected values
+-- enum type exists with the nine expected values
 select has_type('public', 'user_role', 'user_role enum exists');
 select enum_has_labels(
   'public', 'user_role',
-  array['site_admin', 'pm', 'super_admin'],
-  'user_role has the three expected values'
+  array['site_admin', 'project_manager', 'super_admin', 'project_coordinator', 'procurement', 'technician', 'hr', 'subcon_manager', 'accounting'],
+  'user_role has the nine expected values'
 );
 
 -- table shape

@@ -71,9 +71,6 @@ enum/auth prerequisites as separate units before items 4–6.
   verbatim per this spec (frontmatter and body as given); the contradiction in
   ADR 0004 should be reconciled — likely an ADR amendment — before any code
   writes to `photo_logs`/`dc_entries`.
-- **`user_role` enum expansion.** Reaching the 8 roles CLAUDE.md documents
-  needs an ADR plus a migration (CLAUDE.md forbids enum changes without an
-  ADR). Prerequisite for items 4–6.
 - **LINE auth flow.** Items 4–6 assume "LINE OAuth is already wired" — it is
   not. The auth callback / middleware must exist first.
 - **`users.display_name`.** Item 4's coming-soon page reads `display_name`; the
@@ -82,3 +79,44 @@ enum/auth prerequisites as separate units before items 4–6.
   `.claude/`. Adding `.claude/**` to `globalIgnores` in `eslint.config.mjs`
   would be the principled fix, but is outside this unit's spec. Surfaced here
   per CLAUDE.md scope discipline.
+
+### Resolved
+
+- **`user_role` enum expansion.** Resolved by ADR 0008 and the Role enum
+  expansion unit (2026-05-20) — the enum now has 9 values. See the unit below.
+
+---
+
+## Unit: Role enum expansion (ADR 0008)
+
+- **Status:** Complete — 2026-05-20.
+- **Spec:** Provided inline by the operator.
+- **ADR:** `docs/decisions/0008-role-enum-expansion.md`.
+
+### Done
+
+- The `user_role` enum was expanded from 3 to 9 values, deployed to the remote
+  DB on 2026-05-20: `site_admin`, `project_manager` (renamed from `pm`),
+  `super_admin`, `project_coordinator`, `procurement`, `technician`, `hr`,
+  `subcon_manager`, `accounting` — the 8 PRC roles in CLAUDE.md plus the
+  operational `super_admin` (see ADR 0008).
+- Migrations applied to the remote DB:
+  `20260520143000_rename_pm_role_to_project_manager.sql` and
+  `20260520143100_add_six_new_user_roles.sql`.
+- `src/lib/db/database.types.ts` regenerated from the live schema.
+- pgTAP test `01-users.test.sql` updated to assert the 9 values; plan count
+  unchanged at 12. `pnpm db:test` (5 files, 29 assertions) and
+  `pnpm lint && pnpm typecheck && pnpm test` all pass.
+
+### Decisions made
+
+- In `01-users.test.sql`, the SQL comment labelling the `enum_has_labels`
+  assertion ("...the three expected values") was updated to "...nine" so it
+  stays consistent with the assertion below it. No other lines changed.
+
+### Still blocked
+
+Serving the unserved roles still depends on prerequisites outside this unit:
+
+- **LINE auth flow** — no auth callback / middleware / login route exists yet.
+- **`/coming-soon` redirect** — not implemented; depends on the auth flow.

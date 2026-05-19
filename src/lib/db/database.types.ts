@@ -117,7 +117,16 @@ export type Database = {
         | "reject"
         | "export"
         | "other";
-      user_role: "site_admin" | "pm" | "super_admin";
+      user_role:
+        | "site_admin"
+        | "project_manager"
+        | "super_admin"
+        | "project_coordinator"
+        | "procurement"
+        | "technician"
+        | "hr"
+        | "subcon_manager"
+        | "accounting";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -260,7 +269,17 @@ export const Constants = {
         "export",
         "other",
       ],
-      user_role: ["site_admin", "pm", "super_admin"],
+      user_role: [
+        "site_admin",
+        "project_manager",
+        "super_admin",
+        "project_coordinator",
+        "procurement",
+        "technician",
+        "hr",
+        "subcon_manager",
+        "accounting",
+      ],
     },
   },
 } as const;
