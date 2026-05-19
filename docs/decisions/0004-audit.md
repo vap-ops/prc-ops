@@ -2,6 +2,7 @@
 
 Date: 2026-05-03  
 Status: Accepted
+Amended by ADR 0009 (current-state query pattern, 2026-05-20).
 
 ## Context
 
