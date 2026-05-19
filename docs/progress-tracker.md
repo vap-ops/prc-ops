@@ -62,15 +62,6 @@ enum/auth prerequisites as separate units before items 4–6.
 
 ### Open questions
 
-- **Supersede direction inconsistency.** This unit's spec for `SKILL.md`
-  describes a logical edit as: INSERT a new row, then UPDATE the _old_ row's
-  `superseded_by` to point at the _new_ row (so `WHERE superseded_by IS NULL`
-  returns current state). ADR 0004 and CLAUDE.md instead describe "a new row
-  with `superseded_by` pointing at the old one," and ADR 0004 states "the
-  superseded row is never modified." These contradict. `SKILL.md` was written
-  verbatim per this spec (frontmatter and body as given); the contradiction in
-  ADR 0004 should be reconciled — likely an ADR amendment — before any code
-  writes to `photo_logs`/`dc_entries`.
 - **LINE auth flow.** Items 4–6 assume "LINE OAuth is already wired" — it is
   not. The auth callback / middleware must exist first.
 - **`users.display_name`.** Item 4's coming-soon page reads `display_name`; the
@@ -84,6 +75,9 @@ enum/auth prerequisites as separate units before items 4–6.
 
 - **`user_role` enum expansion.** Resolved by ADR 0008 and the Role enum
   expansion unit (2026-05-20) — the enum now has 9 values. See the unit below.
+- **Supersede direction inconsistency.** Fixed 2026-05-20. ADR 0009 added to
+  amend ADR 0004's read pattern (anti-join, not IS NULL). SKILL.md rewritten.
+  ADR 0004 Status annotated. CLAUDE.md Supersede bullet updated.
 
 ---
 
@@ -120,3 +114,21 @@ Serving the unserved roles still depends on prerequisites outside this unit:
 
 - **LINE auth flow** — no auth callback / middleware / login route exists yet.
 - **`/coming-soon` redirect** — not implemented; depends on the auth flow.
+
+---
+
+## Unit: Supersede current-state query correction (ADR 0009)
+
+- **Status:** Complete — 2026-05-20.
+- **Spec:** Provided inline by the operator.
+- **Entry:** ADR 0009 — Supersede current-state query correction (2026-05-20).
+
+### Done
+
+- Created `docs/decisions/0009-supersede-query-correction.md` amending ADR
+  0004's current-state read pattern from `WHERE superseded_by IS NULL` to an
+  anti-join.
+- Rewrote `.claude/skills/supersede-pattern/SKILL.md` to teach the anti-join
+  pattern.
+- Annotated ADR 0004's Status line to reference ADR 0009.
+- Updated the CLAUDE.md Supersede pattern bullet.
