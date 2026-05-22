@@ -1,62 +1,89 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { parseEnv } from "@/lib/env";
+import { describe, it, expect, vi } from "vitest";
 
-describe("env schema — parseEnv", () => {
-  it("parses a valid env without throwing", () => {
+// `server-only` throws at module load outside of a React Server Components
+// bundler context. Vitest runs in plain Node (jsdom env), so importing
+// `@/lib/env.server` would crash without this mock.
+vi.mock("server-only", () => ({}));
+
+import { parseClientEnv } from "@/lib/env";
+import { parseServerEnv } from "@/lib/env.server";
+
+describe("parseClientEnv", () => {
+  it("parses a valid client env without throwing", () => {
     expect(() =>
-      parseEnv({
+      parseClientEnv({
         NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
         NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key",
-        SUPABASE_SERVICE_ROLE_KEY: "service-key",
       }),
     ).not.toThrow();
   });
 
-  it("rejects a malformed NEXT_PUBLIC_APP_URL", () => {
-    expect(() => parseEnv({ NEXT_PUBLIC_APP_URL: "not-a-url" })).toThrow(
-      /Invalid environment variables/,
-    );
+  it("applies the NEXT_PUBLIC_APP_URL default when omitted", () => {
+    const env = parseClientEnv({
+      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key",
+    });
+    expect(env.NEXT_PUBLIC_APP_URL).toBe("http://localhost:3000");
   });
 
-  it("rejects a malformed NEXT_PUBLIC_SUPABASE_URL when provided", () => {
-    expect(() => parseEnv({ NEXT_PUBLIC_SUPABASE_URL: "not-a-url" })).toThrow(
-      /Invalid environment variables/,
-    );
+  it("accepts an overridden NEXT_PUBLIC_APP_URL", () => {
+    const env = parseClientEnv({
+      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key",
+      NEXT_PUBLIC_APP_URL: "https://prc.example.com",
+    });
+    expect(env.NEXT_PUBLIC_APP_URL).toBe("https://prc.example.com");
+  });
+
+  it("rejects a malformed NEXT_PUBLIC_APP_URL", () => {
+    expect(() =>
+      parseClientEnv({
+        NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key",
+        NEXT_PUBLIC_APP_URL: "not-a-url",
+      }),
+    ).toThrow(/Invalid client environment variables/);
+  });
+
+  it("rejects a malformed NEXT_PUBLIC_SUPABASE_URL", () => {
+    expect(() =>
+      parseClientEnv({
+        NEXT_PUBLIC_SUPABASE_URL: "not-a-url",
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key",
+      }),
+    ).toThrow(/Invalid client environment variables/);
+  });
+
+  it("rejects a missing NEXT_PUBLIC_SUPABASE_URL", () => {
+    expect(() =>
+      parseClientEnv({
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key",
+      }),
+    ).toThrow(/Invalid client environment variables/);
+  });
+
+  it("rejects an empty NEXT_PUBLIC_SUPABASE_ANON_KEY", () => {
+    expect(() =>
+      parseClientEnv({
+        NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: "",
+      }),
+    ).toThrow(/Invalid client environment variables/);
   });
 });
 
-describe("env schema — required Supabase vars at boot", () => {
-  beforeEach(() => {
-    vi.resetModules();
+describe("parseServerEnv", () => {
+  it("parses a valid server env without throwing", () => {
+    expect(() => parseServerEnv({ SUPABASE_SERVICE_ROLE_KEY: "service-key" })).not.toThrow();
   });
 
-  afterEach(() => {
-    vi.unstubAllEnvs();
+  it("rejects a missing SUPABASE_SERVICE_ROLE_KEY", () => {
+    expect(() => parseServerEnv({})).toThrow(/Invalid server environment variables/);
   });
 
-  it("throws when NEXT_PUBLIC_SUPABASE_URL is missing", async () => {
-    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", undefined as unknown as string);
-    await expect(import("@/lib/env")).rejects.toThrow(/Invalid environment variables/);
-  });
-
-  it("throws when NEXT_PUBLIC_SUPABASE_URL is a non-URL string", async () => {
-    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "not-a-url");
-    await expect(import("@/lib/env")).rejects.toThrow(/Invalid environment variables/);
-  });
-
-  it("throws when NEXT_PUBLIC_SUPABASE_ANON_KEY is missing or empty", async () => {
-    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "");
-    await expect(import("@/lib/env")).rejects.toThrow(/Invalid environment variables/);
-  });
-
-  it("throws when SUPABASE_SERVICE_ROLE_KEY is missing or empty", async () => {
-    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
-    await expect(import("@/lib/env")).rejects.toThrow(/Invalid environment variables/);
-  });
-
-  it("does NOT throw when LINE_CHANNEL_ID and LINE_CHANNEL_SECRET are absent", async () => {
-    vi.stubEnv("LINE_CHANNEL_ID", undefined as unknown as string);
-    vi.stubEnv("LINE_CHANNEL_SECRET", undefined as unknown as string);
-    await expect(import("@/lib/env")).resolves.toBeDefined();
+  it("rejects an empty SUPABASE_SERVICE_ROLE_KEY", () => {
+    expect(() => parseServerEnv({ SUPABASE_SERVICE_ROLE_KEY: "" })).toThrow(
+      /Invalid server environment variables/,
+    );
   });
 });

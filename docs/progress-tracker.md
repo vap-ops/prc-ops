@@ -364,3 +364,111 @@ line_user_id, created_at, updated_at` per
   POST `/auth/logout` → land on `/`. PR 3's 404 destinations for the
   role landings (which don't exist yet) are expected during this PR's
   manual smoke.
+
+---
+
+## Unit: Bug fix — split env validation into client/server modules
+
+- **Status:** Complete — 2026-05-23.
+- **Started / completed:** 2026-05-23.
+- **Spec:** Provided inline by the operator. No
+  `docs/feature-specs/NN-name.md` — this is a bug-fix unit, not a feature.
+- **Trigger:** Live testing of PR 2 (`feat/auth-core` → `main` `940f412`)
+  white-screened the `/login` page on Vercel.
+
+### Root cause
+
+`src/lib/env.ts` defined a single merged `envSchema` (server + client) and
+ran `parseEnv(process.env)` at module load. Client Components
+(`src/lib/db/browser.ts`, `src/app/login/login-button.tsx`) imported the
+exported `env` constant, which dragged the whole module — including the
+server schema and its `SUPABASE_SERVICE_ROLE_KEY` validation — into the
+browser bundle. In the browser, server-only vars are correctly
+`undefined`, so the Zod parse threw "expected string, received undefined"
+at first paint and the page never rendered. There was no `server-only`
+guard on `env.ts`, so the bundler had no way to catch this at build time.
+
+### Resolution
+
+Split env validation into two modules. Build-time guarantee replaces
+runtime hope: client components literally cannot import server vars
+without breaking the build.
+
+- `src/lib/env.ts` — client-safe. Validates `NEXT_PUBLIC_*` only. Exports
+  `clientEnv`, `parseClientEnv`, and `ClientEnv`. No `server-only`
+  directive — must be importable from Client Components.
+- `src/lib/env.server.ts` — new. Starts with `import "server-only"`.
+  Validates `SUPABASE_SERVICE_ROLE_KEY` only. Exports `serverEnv`,
+  `parseServerEnv`, and `ServerEnv`. Any client-side import path that
+  reaches this file fails the bundler (build break).
+
+### Importers updated
+
+- `src/lib/db/admin.ts` — imports both: `serverEnv.SUPABASE_SERVICE_ROLE_KEY`
+  and `clientEnv.NEXT_PUBLIC_SUPABASE_URL`. The file is already
+  `server-only`; importing `@/lib/env.server` is fine and gives a second
+  layer of guarantee.
+- `src/lib/db/server.ts` — `clientEnv` only (URL + anon key).
+- `src/lib/db/browser.ts` — `clientEnv` only. This is the client-side
+  importer that broke before; now it pulls a tree that contains zero
+  references to server secrets.
+- `src/app/login/login-button.tsx` — `clientEnv` only (`NEXT_PUBLIC_APP_URL`).
+  This Client Component was the immediate crash site.
+- `proxy.ts` — `clientEnv` only. Proxy runs in Node, but reads only
+  `NEXT_PUBLIC_*` values (URL + anon key), so it doesn't need the server
+  module.
+
+### Tests
+
+`tests/unit/env.test.ts` rewritten to call `parseClientEnv` and
+`parseServerEnv` directly with crafted input objects — no more
+import-side-effect tests. Coverage is broader than before: missing/empty
+required vars, default applies when omitted, override is accepted,
+malformed URLs rejected, separately on both client and server validators.
+Test count: 15 → 17.
+
+### Decisions made
+
+- **`vi.mock("server-only", () => ({}))` is per-file, not global.** The
+  test imports `@/lib/env.server`; `server-only`'s `index.js`
+  unconditionally `throw`s in non-RSC contexts (vitest is Node + jsdom,
+  no `react-server` export condition), so an import would crash at
+  module load. The mock is the narrowest fix. If future test files
+  exercise other `server-only` modules they can add the same one-line
+  mock, or promote it into `src/test/setup.ts` if it becomes routine —
+  not done here to keep this fix surgical.
+- **Test file rewrite drops the vestigial `LINE_CHANNEL_*` assertion.**
+  The old test asserted "does NOT throw when LINE_CHANNEL_ID and
+  LINE_CHANNEL_SECRET are absent" — but those fields were removed from
+  the schema in PR 1 and the test became meaningless. It can't survive
+  the rewrite (there's no schema field to assert against), so it's gone.
+  Previously flagged as a follow-up in the PR 1 tracker entry; resolved
+  here as a consequence of the larger rewrite.
+- **`server-only` in `admin.ts` was already present.** The bug was
+  specifically about `env.ts` (which had no guard). Keeping
+  `admin.ts`'s existing `import "server-only"` plus adding it to the
+  new `env.server.ts` gives defense in depth: even if a future admin
+  helper accidentally drops its own guard, it still can't reach the
+  client bundle through the env module.
+
+### Verification
+
+- `pnpm lint && pnpm typecheck && pnpm test && pnpm build` — all pass.
+  Tests: 17/17. Build: 5 routes (`/`, `/login`, `/auth/callback`,
+  `/auth/logout`, `/_not-found`), no `server-only` violations reported.
+- The build passing is the load-bearing check. If any client-side import
+  path reached `@/lib/env.server`, the bundler would error on the
+  `import "server-only"` statement; it didn't.
+- The white-screen bug cannot be exercised in this environment (it
+  required a real browser hitting the deployed `/login`). The operator
+  will re-verify on Vercel after merge: load `/login`, confirm the page
+  renders the LINE button without console errors.
+
+### Open questions
+
+None blocking. Surfaced for the record:
+
+- **Should `server-only` be globally mocked in `src/test/setup.ts`?**
+  Not done here (one test file needs it; a global mock affects every
+  test run). Worth revisiting if a second test starts needing the same
+  mock.

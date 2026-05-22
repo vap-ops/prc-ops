@@ -1,10 +1,15 @@
 // Bypasses RLS. Server-only. Never import from a Client Component or a route that runs in the browser bundle.
 import "server-only";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import { env } from "@/lib/env";
+import { clientEnv } from "@/lib/env";
+import { serverEnv } from "@/lib/env.server";
 
 export function createClient() {
-  return createSupabaseClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  return createSupabaseClient(
+    clientEnv.NEXT_PUBLIC_SUPABASE_URL,
+    serverEnv.SUPABASE_SERVICE_ROLE_KEY,
+    {
+      auth: { autoRefreshToken: false, persistSession: false },
+    },
+  );
 }

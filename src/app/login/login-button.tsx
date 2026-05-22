@@ -3,7 +3,7 @@
 import type { Provider } from "@supabase/supabase-js";
 import { useState } from "react";
 import { createClient } from "@/lib/db/browser";
-import { env } from "@/lib/env";
+import { clientEnv } from "@/lib/env";
 
 // supabase-js v2's `Provider` union does not list `custom:*` entries even though
 // the JSDoc on `Provider` documents the `custom:` prefix for custom OIDC
@@ -19,7 +19,7 @@ export function LoginButton() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: LINE_PROVIDER,
       options: {
-        redirectTo: `${env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+        redirectTo: `${clientEnv.NEXT_PUBLIC_APP_URL}/auth/callback`,
       },
     });
     if (error) {
