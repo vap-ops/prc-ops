@@ -472,3 +472,75 @@ None blocking. Surfaced for the record:
   Not done here (one test file needs it; a global mock affects every
   test run). Worth revisiting if a second test starts needing the same
   mock.
+
+---
+
+## Unit: Bug fix — inline NEXT*PUBLIC*\* vars into the client bundle
+
+- **Status:** Complete — 2026-05-23.
+- **Started / completed:** 2026-05-23.
+- **Spec:** Provided inline by the operator.
+- **Trigger:** After the env-split fix merged as `b4bc3fe`, the `/login`
+  page still white-screened on Vercel with
+  `NEXT_PUBLIC_SUPABASE_URL: expected string, received undefined`. The
+  vars were correctly set in the Vercel dashboard and the build passed.
+
+### Root cause
+
+`src/lib/env.ts` ended with `export const clientEnv = parseClientEnv(process.env)`,
+passing the whole `process.env` object to the parser. Next.js's client-side
+env inlining only triggers on **literal** references like
+`process.env.NEXT_PUBLIC_FOO` that the bundler can detect at parse time.
+Passing `process.env` whole is opaque to the bundler — none of the
+`NEXT_PUBLIC_*` values get inlined into the client bundle. At build time
+the parse succeeds (Node has the full `process.env`); at runtime in the
+browser, `process.env` is essentially empty and Zod rejects every
+required `NEXT_PUBLIC_*` field.
+
+This was a **pre-existing latent bug** that lived dormant in `env.ts`
+since the file's creation. The merged-schema version (before the
+client/server split) had the same defect — but no client component
+imported it cleanly enough for it to surface. The env-split fix
+(`b4bc3fe`) made `env.ts` properly importable from Client Components,
+which exposed the latent bug instead of causing it.
+
+### Fix
+
+One-statement change in `src/lib/env.ts`: replace `parseClientEnv(process.env)`
+with an object literal that references each `NEXT_PUBLIC_*` var by name:
+
+```ts
+export const clientEnv = parseClientEnv({
+  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+});
+```
+
+Schema and `parseClientEnv` signature untouched. Tests were unaffected
+(they call `parseClientEnv` with crafted input objects, never via
+`process.env` directly).
+
+### Decisions made
+
+- **`env.server.ts` left untouched.** The same pattern would be cosmetic
+  there: server-only vars (`SUPABASE_SERVICE_ROLE_KEY`) are read at
+  runtime from a real Node `process.env`, never inlined into a bundle.
+  Per the spec's "do not over-engineer" guidance, no change.
+- **Inlining confirmed by grep.** Spot-check after `pnpm build`:
+  `grep -r -l "btbfzhnvzruvxlgbeqnl" .next/static` returned a client
+  chunk hit (the Supabase project-ref from `db:link`). Before this fix
+  that string would have been absent from `.next/static`.
+
+### Verification
+
+- `pnpm lint && pnpm typecheck && pnpm test && pnpm build` — all pass.
+  Tests still 17/17 (no test changes needed; the spec's hypothesis held).
+- Client-bundle inlining verified by grep against `.next/static`.
+- Live `/login` verification on Vercel is the operator's manual step
+  after merge — this is the bug's actual repro surface and cannot be
+  exercised from a local Node `next build` alone.
+
+### Open questions
+
+None.
