@@ -13,7 +13,7 @@ insert into auth.users (id, email, raw_user_meta_data)
 select results_eq(
   $$ select id, role::text from public.users
      where id = '00000000-0000-0000-0000-000000000001' $$,
-  $$ values ('00000000-0000-0000-0000-000000000001'::uuid, 'site_admin') $$,
+  $$ values ('00000000-0000-0000-0000-000000000001'::uuid, 'visitor') $$,
   'trigger creates public.users row with default role'
 );
 

@@ -1,12 +1,12 @@
 begin;
 select plan(12);
 
--- enum type exists with the nine expected values
+-- enum type exists with the ten expected values
 select has_type('public', 'user_role', 'user_role enum exists');
 select enum_has_labels(
   'public', 'user_role',
-  array['site_admin', 'project_manager', 'super_admin', 'project_coordinator', 'procurement', 'technician', 'hr', 'subcon_manager', 'accounting'],
-  'user_role has the nine expected values'
+  array['site_admin', 'project_manager', 'super_admin', 'project_coordinator', 'procurement', 'technician', 'hr', 'subcon_manager', 'accounting', 'visitor'],
+  'user_role has the ten expected values'
 );
 
 -- table shape
@@ -17,8 +17,8 @@ select col_type_is('public', 'users', 'role', 'user_role', 'role is user_role');
 select col_not_null('public', 'users', 'role', 'role is NOT NULL');
 select col_has_default('public', 'users', 'role', 'role has a default');
 select col_default_is(
-  'public', 'users', 'role', 'site_admin'::user_role,
-  'role defaults to site_admin'
+  'public', 'users', 'role', 'visitor'::user_role,
+  'role defaults to visitor'
 );
 
 -- foreign key to auth.users

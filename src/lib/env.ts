@@ -4,9 +4,6 @@ import { z } from "zod";
 const serverSchema = z.object({
   // Required: Supabase service role key. Never expose to browser bundles.
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
-  // Becomes required when LINE Login ships
-  LINE_CHANNEL_ID: z.string().optional(),
-  LINE_CHANNEL_SECRET: z.string().optional(),
 });
 
 // Client-safe variables (NEXT_PUBLIC_ prefix — inlined into the JS bundle at build time)
