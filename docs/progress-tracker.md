@@ -229,3 +229,138 @@ technician, hr, subcon_manager, accounting, visitor`.
 - **Admin UI for promoting visitors.** Manual SQL promotion is fine for
   the v1 pilot; will not scale past it. Tracked in ADR 0010's open
   questions. Future unit.
+
+---
+
+## Unit: LINE auth — PR 2 of 4: auth core
+
+- **Status:** Complete — 2026-05-22.
+- **Started / completed:** 2026-05-22.
+- **Spec:** `docs/feature-specs/01-line-auth.md` (PR 2 of 4 section), with
+  two operator-approved corrections applied at the top of the prompt:
+  provider identifier is `custom:line` (not `line`), and the profile write
+  uses the admin client (not the anon SSR client).
+
+### Done
+
+- `proxy.ts` at project root (Next.js 16 convention; not `middleware.ts`,
+  not under `src/`). Uses `@supabase/ssr` `createServerClient` with the
+  canonical `getAll`/`setAll` cookie pattern from the official
+  `vercel/next.js/examples/with-supabase/lib/supabase/proxy.ts` template:
+  `setAll` writes onto `request.cookies` and re-creates
+  `supabaseResponse = NextResponse.next({ request })` before writing the
+  same cookies onto `supabaseResponse.cookies`. `supabase.auth.getUser()`
+  is invoked immediately after `createServerClient` with no intermediate
+  code (the "do not run code between" warning is load-bearing — it
+  prevents random sign-outs). Unauthenticated requests to anything other
+  than `/`, `/login`, `/auth/callback` redirect to `/login`. Matcher
+  excludes `_next/static`, `_next/image`, `favicon.ico`, and common image
+  extensions.
+- `/login` server component at `src/app/login/page.tsx`. Reads the
+  session via `src/lib/db/server.ts`; if a user is present, looks up
+  `users.role` and redirects to `/sa` (`site_admin`), `/pm`
+  (`project_manager`), or `/coming-soon` (anything else). If
+  unauthenticated, renders the dark-themed page with a `LoginButton` and
+  optional error banner (codes: `oauth_failed`, `session_failed`,
+  `unknown`). All error copy is generic — no provider error details leak.
+- `LoginButton` client component at `src/app/login/login-button.tsx`.
+  Creates a browser supabase client and calls
+  `signInWithOAuth({ provider: "custom:line", options: { redirectTo:
+${NEXT_PUBLIC_APP_URL}/auth/callback } })`. `NEXT_PUBLIC_APP_URL` comes
+  from the existing zod-validated env so the redirect works on both
+  localhost and Vercel — no hardcoded domain.
+- `/auth/callback` route handler at `src/app/auth/callback/route.ts`.
+  Validates `?code` / `?error`, calls `exchangeCodeForSession`, fetches
+  the user, reads `users.role / line_user_id / full_name` via the
+  RLS-respecting SSR client (the user can read their own row), retries
+  on missing row (50ms × 3 attempts, for the trigger-race window), then
+  redirects by role. Error paths redirect to
+  `/login?error=oauth_failed` (missing/oauth error),
+  `/login?error=session_failed` (exchange failure / no user), and
+  `/login?error=unknown` (users row never appeared — also logged to
+  `console.error`).
+- **Profile write — admin client (per operator correction).** When
+  `line_user_id` or `full_name` is currently NULL on the user's
+  `public.users` row, the callback populates it via the service-role
+  admin client (`src/lib/db/admin.ts`). The write is a single UPDATE
+  scoped to `eq("id", user.id)` that only includes columns currently
+  NULL — non-NULL values are never overwritten (an admin may have
+  corrected them). Profile-write failures are non-fatal: they're
+  `console.error`'d but the user is still redirected to their role
+  destination.
+- `/auth/logout` route handler at `src/app/auth/logout/route.ts`. POST
+  signs out via the SSR client and 303-redirects to `/`. GET returns 405
+  with `Allow: POST`. The 303 status is important — it forces the
+  browser to follow with a GET, which keeps the redirect safe for both
+  fetch-based and form-submit-based callers.
+- `LogoutButton` at `src/components/auth/logout-button.tsx`. Plain
+  server-rendered HTML form (`method="post" action="/auth/logout"`) with
+  a submit button — no `"use client"`, no JS. Works in JS-disabled
+  environments. Accepts a `label` prop, defaults to "Log out". Not
+  mounted anywhere in this PR (PR 3 wires it into the role landings).
+- `pnpm lint && pnpm typecheck && pnpm test && pnpm build` all pass.
+  Build output shows the 5 expected routes: `/` (static), `/login`,
+  `/auth/callback`, `/auth/logout`, `/_not-found`.
+
+### Decisions made
+
+- **Profile write uses the admin client (service role), not the
+  RLS-respecting SSR client.** Per operator correction at the top of
+  the PR 2 prompt: writing profile fields via the user's own session
+  would require an RLS self-update policy. Such a policy would let an
+  attacker who controlled their own session update any column they have
+  write access to — including, in the worst case, fields that gate
+  feature access. Using the admin client confines the write to the
+  server-side callback handler, with no policy change, and lets us
+  enforce the NULL-only rule in application code rather than RLS. The
+  admin client bypasses RLS by design and is `server-only`, so it never
+  reaches the browser bundle.
+- **No RLS policy added or changed in this PR.** The existing
+  "users read self" SELECT policy from `20260505143544_create_users.sql`
+  is sufficient for the callback's role lookup (the SSR client reads
+  the user's own row). The profile write goes through the admin client
+  and so doesn't require a write policy at all.
+- **`Provider` type cast through `unknown`.** supabase-js v2.105's
+  `Provider` union does not list `custom:*` providers, but its JSDoc
+  explicitly documents the `custom:` prefix and the `SignInWithIdToken`
+  variant uses the `custom:${string}` template type. The narrowest cast
+  that compiles under strict TS without `any` is
+  `"custom:line" as unknown as Provider`. Confined to one constant
+  (`LINE_PROVIDER`) in `login-button.tsx`. The callback handler uses the
+  raw string `"custom:line"` only for an identity-array lookup, so no
+  cast is needed there.
+- **Logout uses HTTP 303 on the POST→GET redirect.** Plain
+  `NextResponse.redirect(url)` defaults to 307 (preserves the method).
+  A 307 after a POST would re-POST to `/`, which is wrong for a logout
+  redirect. 303 forces a GET — the standard pattern for form-post
+  redirects.
+
+### Open questions
+
+- **`public.users.email` column does not exist** (resolved as
+  Option A — drop the email write). Spec section 5 said the profile
+  write should populate `email` if NULL, but the column was never added
+  in PR 1's schema work; `public.users` has only `id, role, full_name,
+line_user_id, created_at, updated_at` per
+  `20260505143544_create_users.sql` and the regenerated
+  `database.types.ts`. The operator approved Option A: drop `email`
+  from the profile write, ship `line_user_id` and `full_name` only.
+  The user's email is still available at runtime via
+  `auth.users.email` (read with `supabase.auth.getUser()`), so no
+  information is lost — it just isn't denormalized into `public.users`.
+  If a future feature needs to join on email, filter by email, or
+  reference it from RLS, ship a tiny follow-up: one migration adding
+  `email text`, one line in this callback to populate it. **The
+  operative spec text in `01-line-auth.md` PR 2 step 3 and the
+  callback's "Scope (in)" point 5 are stale on this point** — worth a
+  one-line annotation if PR 2's spec is ever re-read by a future
+  Claude session.
+- **Verification by live OAuth bounce.** The OAuth handshake itself
+  cannot be exercised in this environment (it requires hitting LINE's
+  authorization endpoint in a real browser with Phase 0's channel).
+  The operator will manually test the full flow after merge: load
+  `/login` → click "Log in with LINE" → bounce to LINE → return to
+  `/auth/callback` → land on `/sa` / `/pm` / `/coming-soon` per role →
+  POST `/auth/logout` → land on `/`. PR 3's 404 destinations for the
+  role landings (which don't exist yet) are expected during this PR's
+  manual smoke.
