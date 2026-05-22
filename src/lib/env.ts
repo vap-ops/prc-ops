@@ -23,4 +23,12 @@ export function parseClientEnv(raw: Record<string, string | undefined>): ClientE
   return result.data;
 }
 
-export const clientEnv = parseClientEnv(process.env);
+// Reference each NEXT_PUBLIC_* var by literal name so Next.js can statically
+// detect them and inline the values into the client bundle at build time.
+// Passing `process.env` whole defeats this detection — the browser sees
+// `undefined` and Zod throws at first render.
+export const clientEnv = parseClientEnv({
+  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+});
