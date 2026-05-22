@@ -1,30 +1,26 @@
+// Client-safe environment validation.
+//
+// Only NEXT_PUBLIC_* variables live here. This module is safe to import from
+// Client Components and is bundled into the browser. Server-only secrets are
+// validated in `src/lib/env.server.ts` behind an `import "server-only"` guard.
+
 import { z } from "zod";
 
-// Server-only variables (no NEXT_PUBLIC_ prefix — never sent to the browser)
-const serverSchema = z.object({
-  // Required: Supabase service role key. Never expose to browser bundles.
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
-});
-
-// Client-safe variables (NEXT_PUBLIC_ prefix — inlined into the JS bundle at build time)
 const clientSchema = z.object({
-  // Required: Supabase project URL and anon key.
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
   NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
 });
 
-export const envSchema = serverSchema.merge(clientSchema);
+export type ClientEnv = z.infer<typeof clientSchema>;
 
-export type Env = z.infer<typeof envSchema>;
-
-export function parseEnv(raw: Record<string, string | undefined>): Env {
-  const result = envSchema.safeParse(raw);
+export function parseClientEnv(raw: Record<string, string | undefined>): ClientEnv {
+  const result = clientSchema.safeParse(raw);
   if (!result.success) {
     const issues = result.error.issues.map((i) => `  ${i.path.join(".")}: ${i.message}`).join("\n");
-    throw new Error(`Invalid environment variables:\n${issues}`);
+    throw new Error(`Invalid client environment variables:\n${issues}`);
   }
   return result.data;
 }
 
-export const env = parseEnv(process.env);
+export const clientEnv = parseClientEnv(process.env);

@@ -142,7 +142,12 @@ Three clients in `src/lib/db/`; choosing wrong is a security bug:
 
 ### Environment variables
 
-`src/lib/env.ts` validates `process.env` with Zod at import time and **throws on missing/invalid vars** — a misconfigured env fails fast at boot. Import config from `env` (`import { env } from "@/lib/env"`), never read `process.env` directly. `NEXT_PUBLIC_*` vars are client-safe; everything else is server-only. Copy `.env.example` to `.env.local` for local dev.
+Env validation is split so client bundles never include or validate server secrets:
+
+- `src/lib/env.ts` — client-safe schema (`NEXT_PUBLIC_*` only). Exports `clientEnv` and `parseClientEnv`. Importable anywhere, including Client Components.
+- `src/lib/env.server.ts` — server-only schema. Starts with `import "server-only"` so any client-side import fails the build. Exports `serverEnv` and `parseServerEnv`. Import only from server code (Route Handlers, Server Components, `proxy.ts`, server-only utility modules).
+
+Both modules validate via Zod at import time and **throw on missing/invalid vars** — a misconfigured env fails fast at boot. Server code that needs both client and server vars (e.g. `src/lib/db/admin.ts`) imports both: `clientEnv` from `@/lib/env` for `NEXT_PUBLIC_*` values, `serverEnv` from `@/lib/env.server` for secrets. Never read `process.env` directly. Copy `.env.example` to `.env.local` for local dev.
 
 ### Database schema & immutability
 
