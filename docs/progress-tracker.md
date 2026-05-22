@@ -132,3 +132,100 @@ Serving the unserved roles still depends on prerequisites outside this unit:
   pattern.
 - Annotated ADR 0004's Status line to reference ADR 0009.
 - Updated the CLAUDE.md Supersede pattern bullet.
+
+---
+
+## Unit: LINE auth — PR 1 of 4: schema prep (ADR 0010)
+
+- **Status:** Complete — 2026-05-22.
+- **Started / completed:** 2026-05-22.
+- **Spec:** `docs/feature-specs/01-line-auth.md` (PR 1 of 4 section).
+- **ADR:** `docs/decisions/0010-visitor-default-role.md` — amends ADR 0007.
+- **Phase 0 (LINE Developers + Supabase Custom OIDC Provider setup):**
+  completed and verified by the operator before this PR. OAuth bounce to LINE
+  confirmed working.
+
+### Done
+
+- Added `visitor` as the 10th value of `public.user_role`. Final enum order:
+  `site_admin, project_manager, super_admin, project_coordinator, procurement,
+technician, hr, subcon_manager, accounting, visitor`.
+- Changed the `public.users.role` column default from `'site_admin'` to
+  `'visitor'`. The `handle_new_user()` trigger function was not touched —
+  it inserts only `id` and relies on the column default, so altering the
+  column default was sufficient (spec branch B).
+- Migrations applied to the remote DB:
+  `20260522223813_add_visitor_role.sql` and
+  `20260522223814_change_user_default_role.sql`. Split into two files
+  because `ALTER TYPE ADD VALUE` cannot run in the same transaction as
+  statements that use the new value (same pattern ADR 0008 established).
+- `src/lib/db/database.types.ts` regenerated — now shows 10 enum values.
+- pgTAP `01-users.test.sql` updated: `enum_has_labels` array extended to 10
+  values, comment + descriptions updated to "ten", `col_default_is` now
+  asserts `'visitor'`. Plan count unchanged at 12.
+- `src/lib/env.ts`: removed the optional `LINE_CHANNEL_ID` and
+  `LINE_CHANNEL_SECRET` fields and their "Becomes required when LINE Login
+  ships" comment. LINE credentials live in Supabase's Custom OIDC Provider
+  now, not in app env.
+- `CLAUDE.md` Roles section: added `visitor` as a v1 default-state role
+  beneath the 8 PRC roles; intro line rephrased to note "8 PRC roles plus
+  a `visitor` default state for new signups". ADR 0007 Status annotated to
+  reference ADR 0010.
+- `pnpm db:test` (5 files, 29 assertions) and
+  `pnpm lint && pnpm typecheck && pnpm test` (15/15) all pass.
+
+### Decisions made
+
+- **Default-role mechanism (spec branch A vs B).** The current `users.role`
+  default is set by the column default on `public.users.role`
+  (`20260505143544_create_users.sql:7`), not in the trigger function body
+  (`handle_new_user()` inserts only `id`). The spec explicitly allowed
+  altering the column default in that case; migration 2 is therefore
+  `ALTER TABLE public.users ALTER COLUMN role SET DEFAULT 'visitor';` and
+  the trigger function is untouched.
+- **Phase 0 discovery — Supabase provider identifier is `custom:line`, not
+  `line`.** The spec's PR 2 section currently calls
+  `supabase.auth.signInWithOAuth({ provider: 'line', ... })`. PR 2 must
+  use `'custom:line'` instead — Supabase prefixes custom-provider
+  identifiers with `custom:`. This affects every `signInWithOAuth` call,
+  the `/auth/callback` handler if it references the provider, and any
+  test fixtures. Flag at the top of PR 2's branch.
+- **Sibling pgTAP file fix.** `supabase/tests/database/02-users-trigger.test.sql`
+  asserts that the auto-create trigger lands a row with role `site_admin`.
+  That assertion is directly broken by the default change, so the
+  expected value was updated to `'visitor'` to keep `pnpm db:test` green.
+  The spec only named `01-users.test.sql`, but the spec's verification
+  checklist requires `db:test` to pass — this is the minimum fix to
+  satisfy that, and it's the same class of change as the spec's
+  "Update any other assertion affected by the default change" line.
+
+### Open questions
+
+- **`CLAUDE.md` architecture section stale line.** Line ~150 in
+  `CLAUDE.md` says "A trigger on `auth.users` insert auto-creates a
+  `public.users` row (role defaults to `site_admin`). See ADR 0007." The
+  default is now `visitor`, so the parenthetical is stale. Not updated in
+  this PR (strict scope: spec named only the Roles section). One-word fix
+  worth picking up in PR 2 or a tiny chore PR.
+- **`.env.example` and the LINE channel secret (resolved at commit time,
+  rotation question open).** During this session, `git diff .env.example`
+  showed local-only edits placing real-looking LINE values into the
+  tracked template (`LINE_CHANNEL_ID=2009971313` and
+  `LINE_CHANNEL_SECRET=c3f9c353bd79d591483934770d4db569`). The operator
+  reverted the file mid-session, so the tree at commit time matches
+  `origin/main` — empty placeholders. **Open question for the operator:**
+  if those values were ever committed/pushed/shared anywhere (the file
+  was open in the IDE; secret may have been visible in screenshots,
+  Claude chat transcripts, or git stashes), rotate the LINE channel
+  secret in the LINE Developers console and re-paste into Supabase's
+  Custom OIDC Provider. After this PR these env vars are no longer
+  referenced by any application code (removed from `env.ts`), so the
+  only remaining concern is leak, not runtime.
+- **`tests/unit/env.test.ts` vestigial assertion.** The test
+  `does NOT throw when LINE_CHANNEL_ID and LINE_CHANNEL_SECRET are absent`
+  still passes (Zod ignores undeclared env vars) but no longer
+  corresponds to anything in the schema. Worth deleting in a tiny
+  follow-up; not removed here to stay strictly within spec.
+- **Admin UI for promoting visitors.** Manual SQL promotion is fine for
+  the v1 pilot; will not scale past it. Tracked in ADR 0010's open
+  questions. Future unit.

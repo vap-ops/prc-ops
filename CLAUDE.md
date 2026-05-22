@@ -70,7 +70,7 @@ Every feature unit follows this loop:
 
 ## Roles
 
-The `users.role` enum contains all 8 PRC roles even though v1 features only target `site_admin` and `project_manager`:
+The `users.role` enum contains all 8 PRC roles plus a `visitor` default state for new signups, even though v1 features only target `site_admin` and `project_manager`:
 
 - `site_admin` (SA) — v1 ✅
 - `project_manager` (PM) — v1 ✅
@@ -80,6 +80,7 @@ The `users.role` enum contains all 8 PRC roles even though v1 features only targ
 - `hr` — v3
 - `subcon_manager` — v3
 - `accounting` — v3
+- `visitor` — v1 — default for new signups; awaits manual promotion to a real role (see ADR 0010)
 
 Do not add or remove enum values without an ADR. After LINE login, users whose role is not `site_admin` or `project_manager` are redirected to `/coming-soon` — a single static page that acknowledges their account exists and tells them tools for their role are not yet live. v2 work removes the redirect for whichever role is being served.
 
