@@ -69,6 +69,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      projects: {
+        Row: {
+          code: string;
+          created_at: string;
+          id: string;
+          name: string;
+          status: Database["public"]["Enums"]["project_status"];
+          updated_at: string;
+        };
+        Insert: {
+          code: string;
+          created_at?: string;
+          id?: string;
+          name: string;
+          status?: Database["public"]["Enums"]["project_status"];
+          updated_at?: string;
+        };
+        Update: {
+          code?: string;
+          created_at?: string;
+          id?: string;
+          name?: string;
+          status?: Database["public"]["Enums"]["project_status"];
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       users: {
         Row: {
           created_at: string;
@@ -120,6 +147,7 @@ export type Database = {
         | "reject"
         | "export"
         | "other";
+      project_status: "active" | "on_hold" | "completed" | "archived";
       user_role:
         | "site_admin"
         | "project_manager"
@@ -273,6 +301,7 @@ export const Constants = {
         "export",
         "other",
       ],
+      project_status: ["active", "on_hold", "completed", "archived"],
       user_role: [
         "site_admin",
         "project_manager",

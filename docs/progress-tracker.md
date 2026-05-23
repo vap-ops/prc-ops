@@ -1320,3 +1320,163 @@ None blocking.
 ### Open questions
 
 None.
+
+---
+
+## Unit: projects table — first domain table (ADR 0013)
+
+- **Status:** Complete — 2026-05-24.
+- **Started / completed:** 2026-05-24.
+- **Spec:** Provided inline by the operator. No
+  `docs/feature-specs/NN-name.md` — locked design decisions specified
+  in the prompt.
+- **ADR:** [`docs/decisions/0013-project-access-model.md`](decisions/0013-project-access-model.md)
+  — establishes the role-level access model for `projects` and, by
+  extension, every domain table that hangs off it in v1
+  (`work_packages`, `photo_logs`).
+- **Branch:** `feat/projects-table`.
+
+### Done
+
+- **ADR 0013 written.** Documents the role-level (model C) decision,
+  the falsifiable triggers that would require switching to membership
+  (external PMs, subcontractor accounts, customer-review accounts,
+  project count outgrowing trusted memory), the upgrade path that
+  preserves all existing data and only tightens existing RLS policies,
+  and the explicit commitment to build nothing v1 that would obstruct
+  that upgrade. Cross-links ADR 0005 (v1 scope), 0007 (users), 0010
+  (visitor default), 0011 (role-helper).
+- **Migration**
+  [`supabase/migrations/20260524000000_create_projects.sql`](../supabase/migrations/20260524000000_create_projects.sql)
+  applied via `pnpm db:push`. Creates:
+  - `public.project_status` enum: `active`, `on_hold`, `completed`,
+    `archived` — no v1 logic gates on the value; it is accurate
+    metadata for the future archive UX.
+  - `public.projects` table: `id uuid pk default gen_random_uuid()`,
+    `code text unique not null` (human-assigned `PRC-YYYY-NNN`,
+    not DB-generated), `name text not null`,
+    `status project_status not null default 'active'`,
+    `created_at`, `updated_at` (both timestamptz, default `now()`).
+  - `projects_set_updated_at` trigger BEFORE UPDATE → existing
+    `public.set_updated_at()` function from
+    `20260505143544_create_users.sql`. The function is **not**
+    redefined.
+  - RLS enabled. Three policies, all gated on
+    `public.current_user_role()` (ADR 0011) — never self-joining
+    `public.users`: - SELECT: `current_user_role() in ('site_admin',
+'project_manager', 'super_admin')` - INSERT: `current_user_role() = 'super_admin'` - UPDATE: `current_user_role() = 'super_admin'` in both USING and
+    WITH CHECK. - **No DELETE policy.** Load-bearing per ADR 0013 — projects are
+    archived via status, never hard-deleted via the app.
+- **Seed** [`supabase/seed.sql`](../supabase/seed.sql) created (no
+  prior seed file existed). Inserts the two pilot projects
+  (`PRC-2026-001 TFG Lam Sonthi`, `PRC-2026-002 TFG Kham Muang`) with
+  `ON CONFLICT (code) DO NOTHING` for idempotence. Application
+  mechanism documented in the file header (and below).
+- Both seed rows applied to the linked DB and verified
+  (`status='active'` on both).
+- `pnpm db:types` regenerated
+  [`src/lib/db/database.types.ts`](../src/lib/db/database.types.ts) —
+  `projects` Row/Insert/Update + `project_status` enum
+  (`["active","on_hold","completed","archived"]`) both present.
+- **pgTAP** [`supabase/tests/database/07-projects.test.sql`](../supabase/tests/database/07-projects.test.sql)
+  — 28 assertions covering:
+  - Enum existence + exact labels (2).
+  - Table shape — PK, column types, NOT NULL, defaults, UNIQUE on
+    `code` (14).
+  - `projects_set_updated_at` trigger exists (1).
+  - RLS enabled (1).
+  - Policy-cmd enumeration: exactly SELECT/INSERT/UPDATE — **no
+    DELETE policy** (1).
+  - Authenticated context with `set local role authenticated` +
+    JWT-claims impersonation (pattern reused from
+    [`supabase/tests/database/06-users-rls.test.sql`](../supabase/tests/database/06-users-rls.test.sql)
+    including the `_tap_buf` grants):
+    - super_admin can INSERT (1).
+    - site_admin / project_manager INSERT denied with SQLSTATE 42501
+      (2).
+    - super_admin / site_admin / project_manager can SELECT (3).
+    - visitor sees zero rows (1).
+    - super_admin DELETE has no effect — row remains (1).
+    - `set_updated_at` trigger advances `updated_at` on UPDATE (1).
+- Full pgTAP suite: **7 files, 64 assertions, all green** (previously
+  6 files / 36 assertions).
+- `pnpm lint && pnpm typecheck && pnpm test && pnpm build` all pass
+  (21/21 vitest tests; 9 routes built — no app code changed).
+
+### Decisions made
+
+- **Migration timestamp.** UTC clock here returned `20260523172849`,
+  which would sort _before_ the most recent existing migration
+  (`20260523213246`). Used `20260524000000` instead to keep the
+  filename-as-history monotonic with today's calendar date
+  (2026-05-24). Migrations apply in filename-sorted order so a
+  timestamp older than the existing latest would have caused the
+  Supabase CLI to skip or mis-order it.
+- **No-DELETE-policy verified two ways.** A schema-level assertion
+  (`pg_policies.cmd` set on `projects` is exactly
+  `{INSERT, SELECT, UPDATE}`) catches any future migration that adds
+  a DELETE policy by accident. A functional assertion (super_admin
+  DELETE leaves the target row in place) confirms the runtime
+  behavior. Both because the contract is load-bearing.
+- **`set_updated_at` trigger test uses a fixed past
+  `updated_at = '2020-01-01'`** on the fixture row. `now()` returns
+  `transaction_timestamp()`, which is frozen within a single
+  transaction, so an INSERT + UPDATE in the same test transaction
+  would otherwise share a timestamp and the trigger's effect would
+  be unobservable. Asserting `updated_at > '2020-01-01'` after the
+  UPDATE makes the trigger's effect visible regardless of when the
+  test runs.
+- **`throws_ok` four-argument form.** Three-argument
+  `throws_ok(query, errcode, description)` does not exist — pgTAP
+  treats the third argument as the expected error _message_, not a
+  test description, so the assertion fails on the message-text
+  mismatch even when the SQLSTATE matches. Used
+  `throws_ok(query, errcode, null, description)` instead. Worth
+  remembering for any future RLS-deny assertion.
+- **`code` not auto-generated.** Per the locked design,
+  `PRC-YYYY-NNN` codes are human-assigned. The two pilot codes are
+  flagged in the seed file as provisional — the operator updates
+  them via a super_admin UPDATE once the real project numbers are
+  confirmed.
+
+### Seed application mechanism (operator note)
+
+`pnpm db:push` does **NOT** run `supabase/seed.sql`. Supabase only
+runs seed files during `supabase db reset`, which this repo does not
+use (no local Docker stack per ADR 0006). For this unit the seed was
+applied via:
+
+```
+pnpm exec supabase db query --linked --file supabase/seed.sql
+```
+
+The script is idempotent (`ON CONFLICT (code) DO NOTHING`), so
+re-running it is safe. Pasting the file's contents into the Supabase
+SQL editor is an equivalent route. Documented in the seed file
+header as well.
+
+### Next domain unit
+
+**work_packages.** Will reference `projects` via
+`work_packages.project_id uuid not null references public.projects(id)`,
+inherit the same role-level RLS pattern per ADR 0013 (read for
+site_admin/project_manager/super_admin; writes scoped to whichever
+roles author WPs in v1 — to be specified in that unit's prompt), and
+land alongside the WP-import feature deferred from ADR 0002. The
+membership-model upgrade documented in ADR 0013 remains **deferred**
+— it is triggered by the appearance of external / non-team accounts,
+not by a date.
+
+### Open questions
+
+None blocking.
+
+- **Provisional project codes.** `PRC-2026-001` / `PRC-2026-002` are
+  placeholders. The operator updates them to the real project
+  numbers via a super_admin UPDATE once those are confirmed; the
+  unique constraint on `code` prevents collisions.
+- **Hard delete of a project.** If ever needed (incident response,
+  data deletion request), requires a service-role context — a
+  migration or a manual SQL session — because no DELETE policy
+  exists. Intentional per ADR 0013; surfacing the operational
+  detail.
