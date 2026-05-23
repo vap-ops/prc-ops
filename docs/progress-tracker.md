@@ -622,11 +622,117 @@ amend ADR 0007 because it changes how role checks compose.
 
 ### Pending
 
-- **ADR 0011** ("LINE auth via custom flow because Supabase OIDC
-  rejects HS256") — pending. Once the RLS recursion is fixed and the
-  real implementation lands, ADR 0011 captures the architectural
-  decision and supersedes
-  [`docs/feature-specs/01-line-auth.md`](feature-specs/01-line-auth.md)
-  decision #4 (Supabase Custom OIDC Provider).
-- **Real implementation** of the custom flow at `/auth/start` +
-  `/auth/callback` — pending. Blocked on the RLS recursion fix.
+- ~~**ADR 0011** ("LINE auth via custom flow because Supabase OIDC
+  rejects HS256")~~ — superseded note: ADR 0011 was instead assigned
+  to the RLS role-helper fix (see next unit). The custom-flow ADR will
+  be the **next available number** (ADR 0012) when the real
+  implementation lands. The FINDINGS doc has been updated to reflect
+  this renumbering.
+- ~~**Real implementation** of the custom flow at `/auth/start` +
+  `/auth/callback`~~ — still pending, but **no longer blocked** by the
+  RLS recursion: see next unit.
+
+---
+
+## Unit: RLS infinite recursion on `public.users` (ADR 0011)
+
+- **Status:** Complete — 2026-05-23.
+- **Started / completed:** 2026-05-23.
+- **Spec:** Provided inline by the operator. No
+  `docs/feature-specs/NN-name.md` for this unit (it's a targeted
+  DB-only bug fix). Background and discovery in
+  [`docs/feature-specs/01-line-auth-FINDINGS.md`](feature-specs/01-line-auth-FINDINGS.md).
+- **ADR:** [`docs/decisions/0011-rls-role-helper.md`](decisions/0011-rls-role-helper.md)
+  — amends ADR 0007.
+
+### Done
+
+- Introduced **`public.current_user_role()`** — a SECURITY DEFINER,
+  STABLE, `search_path`-pinned helper that returns the caller's own
+  `public.user_role`. It bypasses RLS by design (which breaks the
+  recursion); it is safe because it takes no parameters, returns only
+  the caller's own row, has its `search_path` pinned to `public`, and
+  is granted EXECUTE only to `authenticated`. The five safety
+  conditions are spelled out in ADR 0011 so future reviewers have an
+  explicit checklist for any change to the function.
+- **Rewrote the recursive policy.** `super_admin full access on users`
+  now uses `public.current_user_role() = 'super_admin'` in both
+  `using` and `with check` instead of self-joining `public.users`.
+  Same semantics, no recursion.
+- **The "users read self" policy was not touched.** It never queried
+  the table, so it never recurred.
+- Migration:
+  [`supabase/migrations/20260523213246_fix_users_rls_recursion.sql`](../supabase/migrations/20260523213246_fix_users_rls_recursion.sql).
+  Existing `20260505143544_create_users.sql` was NOT edited
+  (migrations are immutable history per CLAUDE.md); the fix ships as
+  a forward migration that drops and recreates the policy.
+- Applied to the remote DB via `pnpm db:push`. Types regenerated via
+  `pnpm db:types` — only substantive change to
+  `src/lib/db/database.types.ts` is the new
+  `Functions.current_user_role: { Args: never; Returns: user_role }`
+  surface; the rest of the diff is supabase-CLI vs prettier
+  cosmetic formatting (semicolon stripping).
+- ADR 0007 Status annotated with one line referencing ADR 0011 (same
+  pattern ADRs 0009 and 0010 used).
+- New pgTAP file
+  [`supabase/tests/database/06-users-rls.test.sql`](../supabase/tests/database/06-users-rls.test.sql)
+  with **7 assertions**:
+  - **Catalog (2):** function exists; function is SECURITY DEFINER
+    (`pg_proc.prosecdef`).
+  - **Direct function call (2):** set jwt claim, call
+    `current_user_role()` directly, assert the return value matches
+    the seeded role for two different uuids — independent of the
+    role-switch mechanics.
+  - **REGRESSION GUARD (1, load-bearing):** `lives_ok` wrapping the
+    exact `select from public.users where id = …` shape that
+    previously raised `infinite recursion detected in policy for
+relation users`, under `set local role authenticated` with the
+    jwt claim set.
+  - **Role visibility under RLS (2):** super_admin sees both seeded
+    rows; non-super (site_admin) sees only its own row. Both also run
+    under `set local role authenticated`.
+- All 36 pgTAP assertions across 6 files pass (previously 29 across
+  5 files). `pnpm lint && pnpm typecheck && pnpm test && pnpm build`
+  also all pass; 17/17 vitest tests.
+- The bug logged in the previous unit ("Real bug discovered: RLS
+  infinite recursion on `public.users`") is **resolved**.
+
+### Decisions made
+
+- **`current_user_role()` is the canonical role-check primitive
+  going forward.** All future RLS policies that gate on the caller's
+  role must call it instead of self-joining `public.users` — the same
+  recursion failure would otherwise recur in any new policy. ADR 0011
+  documents this as a project-wide rule, not just a one-off fix.
+- **pgTAP auth-context pattern established.** Before this unit, no
+  pgTAP test simulated an authenticated session. The new file uses
+  `set local role authenticated` + `set local "request.jwt.claims" = …`
+  (JSON form, durable across Supabase versions), with one-time
+  grants on the runner's temp result buffer (`_tap_buf` and its
+  `_tap_buf_ord_seq` sequence) so role-switched assertions can still
+  record TAP output. `reset role` runs unconditionally before
+  `finish()` — pgTAP wrappers absorb per-assertion failures into TAP
+  output rather than raising, so the cleanup always reaches that
+  line, and the rollback at end-of-test is the final belt-and-braces.
+  This pattern is local to `06-users-rls.test.sql`; if future tests
+  need it, lift the grants into the runner.
+- **FINDINGS-doc ADR-number renumbering** ([`docs/feature-specs/01-line-auth-FINDINGS.md`](feature-specs/01-line-auth-FINDINGS.md)).
+  That doc previously reserved "ADR 0011" for the future custom-flow
+  ADR. ADR 0011 is now this RLS-helper ADR, so the FINDINGS doc was
+  edited in this same commit to point the custom-flow ADR at the
+  next available number (ADR 0012). Out-of-scope per strict reading
+  of the spec, but in-scope as a direct consistency fix caused by
+  this PR's number assignment — the same principle applied when
+  PR 1's pgTAP changes adjusted an adjacent stale comment.
+
+### Open questions
+
+None blocking.
+
+- **Performance note (for future review, not action):** the policy
+  planner now executes one `current_user_role()` call per row tested
+  against the super_admin policy. STABLE caching makes this trivial,
+  but if a future hot path scans many rows under a super_admin
+  session and shows up in slow-query logs, the fix is to add an
+  index-aware variant or move role-gating into the application layer
+  for that specific path. Not anticipated for v1 scale.
