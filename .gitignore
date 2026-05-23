@@ -45,6 +45,10 @@ next-env.d.ts
 /spikes/*/fixtures/
 /spikes/*/output/
 
+# Playwright E2E artifacts
+/playwright-report/
+/test-results/
+
 # Supabase local dev
 supabase/.branches
 supabase/.temp
