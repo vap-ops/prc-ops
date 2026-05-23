@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { roleHome, type UserRole } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { LoginButton } from "./login-button";
 
@@ -24,10 +25,7 @@ export default async function LoginPage({
       .select("role")
       .eq("id", user.id)
       .maybeSingle();
-    const role = row?.role;
-    if (role === "site_admin") redirect("/sa");
-    if (role === "project_manager") redirect("/pm");
-    redirect("/coming-soon");
+    redirect(row ? roleHome(row.role as UserRole) : "/coming-soon");
   }
 
   const params = await searchParams;
