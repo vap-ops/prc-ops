@@ -35,7 +35,10 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
-  if (!user && !PUBLIC_PATHS.has(pathname)) {
+  // TEMPORARY spike bypass — REMOVE when spike/line-auth-custom-flow is deleted.
+  // Without this, any future /spikes/* route is unauthenticated. Do not leave in production.
+  const isPublic = PUBLIC_PATHS.has(pathname) || pathname.startsWith("/spikes/");
+  if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = "";
