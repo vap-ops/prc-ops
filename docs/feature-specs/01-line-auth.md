@@ -3,6 +3,7 @@
 ## Status
 
 Draft — 2026-05-20
+Revised 2026-05-23: PR 1 schema work merged. Decision #4 (integration mechanism) superseded by [ADR 0012](../decisions/0012-custom-flow-line-auth.md) — see custom-flow implementation in PR 2 below. Decision #14 reversed by the same ADR. RLS recursion blocker fixed by [ADR 0011](../decisions/0011-rls-role-helper.md).
 
 ## Goal
 
@@ -19,7 +20,7 @@ These were settled in conversation before drafting. They are not open for re-lit
 1. **LINE Login is the sole auth method.** No email/password fallback. No Google, Apple, or GitHub. Both site admins (PWA) and project managers (web) authenticate the same way.
 2. **Signup is open.** Anyone with a LINE account can complete the OAuth flow and end up with a row in `public.users`.
 3. **New users default to `visitor`.** A `visitor` is an authenticated LINE user awaiting role assignment. Their only permitted destination is `/coming-soon`. Promotion to a real role is manual (a `super_admin` updates `users.role` via SQL or, eventually, an admin UI).
-4. **Integration mechanism: Supabase Custom OIDC Provider.** LINE is not a native Supabase provider. As of April 2026, Supabase supports custom OIDC providers in the dashboard. PKCE is enabled by default. We use this mechanism — not a hand-rolled OAuth flow, not Supabase native (it doesn't exist for LINE).
+4. ~~**Integration mechanism: Supabase Custom OIDC Provider.**~~ **Superseded by [ADR 0012](../decisions/0012-custom-flow-line-auth.md) — custom flow (app-handled LINE OAuth + admin session minting).** Supabase's Custom OIDC Provider rejects LINE's `id_token` because LINE signs with HS256 and Supabase's OIDC verifier requires ES256/RS256. `signInWithIdToken` is also unusable for the same reason. Adopted mechanism: the app runs LINE's OAuth handshake itself, verifies the HS256 `id_token` server-side, provisions/locates an `auth.users` row via the admin client, and mints a Supabase session via `admin.generateLink({ type: 'magiclink' })` + `verifyOtp`. See ADR 0012 for the full mechanism and [`./01-line-auth-FINDINGS.md`](./01-line-auth-FINDINGS.md) for the live evidence.
 5. **Login UX:**
    - One shared `/login` route for all roles.
    - "Log in with LINE" button is reachable from `/login` and from the homepage `/`.
@@ -45,7 +46,7 @@ These were settled in conversation before drafting. They are not open for re-lit
     - Update the `on_auth_user_created` trigger to default new `public.users` rows to `'visitor'` instead of `'site_admin'`
     - Both changes ship in one PR
     - Requires ADR 0010 (amends ADR 0007 — same pattern as ADR 0009 amending 0004)
-14. **`src/lib/env.ts` cleanup:** Remove `LINE_CHANNEL_ID` and `LINE_CHANNEL_SECRET` optional fields. They were forward-looking placeholders from before Supabase Custom OIDC Providers shipped. LINE credentials now live in Supabase's dashboard, not your app's env.
+14. ~~**`src/lib/env.ts` cleanup:** Remove `LINE_CHANNEL_ID` and `LINE_CHANNEL_SECRET` optional fields.~~ **Reversed by [ADR 0012](../decisions/0012-custom-flow-line-auth.md).** PR 1 did remove these from `env.ts` as originally specified. The custom flow runs LINE OAuth and HS256 verification **in the app**, so both vars are required server-side again. PR 2 re-introduces them into `src/lib/env.server.ts` (zod-required, server-only; the env-split fix from PR #16 keeps them out of the client bundle).
 
 ## Implementation plan: 4 PRs
 
@@ -56,6 +57,8 @@ PRs ship strictly in this order. Each PR's prerequisites are the previous PRs.
 ---
 
 ### Phase 0: Manual prerequisites (no code; you do this in browser dashboards)
+
+**Revised 2026-05-23 per [ADR 0012](../decisions/0012-custom-flow-line-auth.md).** The original Phase 0 also walked the operator through configuring a Supabase Custom OIDC Provider for LINE. That provider is now **unused** — the app runs LINE OAuth itself. The Phase 0 steps below are kept for history but annotated where they no longer apply. The only currently-load-bearing step is **Step 0.1** (creating the LINE channel and noting its credentials) plus the **revised Step 0.3** (which now points the LINE callback URL at the app, not at Supabase).
 
 These must be complete before PR 1 is even started. Claude Code cannot do these — they involve clicking around in LINE Developers and Supabase consoles.
 
@@ -76,44 +79,34 @@ These must be complete before PR 1 is even started. Claude Code cannot do these 
    - Userinfo endpoint: `https://api.line.me/v2/profile`
 7. Do NOT set the callback URL in LINE yet — you'll do that in Step 0.3 after Supabase generates it.
 
-**Step 0.2 — Add Custom OIDC Provider in Supabase:**
+**Step 0.2 — ~~Add Custom OIDC Provider in Supabase~~ (UNUSED per ADR 0012; skip for new setups):**
 
-1. Open the Supabase dashboard, navigate to your prc-ops project.
-2. Authentication → Sign In / Providers → scroll to **Custom Providers** section.
-3. Click **New Provider**.
-4. Configure:
-   - **Provider type:** OIDC
-   - **Identifier:** `line` (this is the string you'll pass to `signInWithOAuth({ provider: ... })`)
-   - **Display name:** LINE
-   - **Issuer:** `https://access.line.me`
-   - **Client ID:** the Channel ID from Step 0.1
-   - **Client secret:** the Channel secret from Step 0.1
-   - **Scopes:** `openid profile email` (request email; tolerate missing)
-   - **Email optional:** `true` (allows sign-in without email)
-   - **PKCE:** leave default (enabled)
-5. Save. Supabase will generate a **Callback URL** that looks like `https://<project-ref>.supabase.co/auth/v1/callback`. Copy this exact URL.
+The originally-specified Supabase Custom OIDC Provider configuration is unused under the custom-flow auth adopted in ADR 0012. If you already created the provider during the OIDC attempt, leave it in place (harmless; the app never calls into it) — **do not delete it**, since dashboard state changes are out of any PR's scope. For new setups, skip this step entirely; the LINE credentials live in `src/lib/env.server.ts` instead, populated by Vercel + `.env.local` as `LINE_CHANNEL_ID` / `LINE_CHANNEL_SECRET`.
 
-**Step 0.3 — Configure callback URL in LINE:**
+**Step 0.3 — Configure callback URL in LINE (REVISED per ADR 0012):**
 
-1. Back in LINE Developers console, your channel's LINE Login Settings tab.
-2. Add the Supabase callback URL from Step 0.2 to "Callback URL" field.
-3. Save.
+1. In the LINE Developers console, open the channel's LINE Login Settings tab.
+2. Add the **app's** callback URL to the "Callback URL" field — the path is `/auth/line/callback` and the origin is whichever environment you want LINE login to work on:
+   - Production: `https://<your-app-host>/auth/line/callback`
+   - Every long-lived Vercel preview you want to test from: `https://<that-preview-host>/auth/line/callback`
+   - Local dev (if used): `http://localhost:3000/auth/line/callback`
+3. LINE accepts multiple callback URLs per channel; add each as a separate entry. **LINE does not support wildcards** — ephemeral per-PR preview URLs cannot all be allowlisted; pick one stable preview URL for testing.
+4. (Legacy, only if Step 0.2 was completed during the OIDC attempt) The Supabase-side callback `https://<project-ref>.supabase.co/auth/v1/callback` can stay in the LINE allowlist — it does nothing now, but removing it is operator's choice.
+5. Save.
 
-**Step 0.4 — Verify:**
+**Step 0.4 — Verify (REVISED per ADR 0012):**
 
-In a fresh browser session, navigate manually to:
+Verification is now folded into PR 2's manual smoke test on the live deploy. There is no useful pre-PR-2 verification of LINE auth — the app code that actually exercises the channel doesn't exist until PR 2 ships. The original `<project-ref>.supabase.co/auth/v1/authorize?provider=line` check verified the dead OIDC path and no longer applies.
 
-`https://<your-project-ref>.supabase.co/auth/v1/authorize?provider=line`
-
-You should be redirected to LINE's login screen. Do not complete the login — just verify the redirect happens. If it does, Phase 0 is complete.
-
-If you get an error from LINE ("Channel not allowed" or similar), the channel ID/secret or callback URL is misconfigured in either system. Fix before proceeding.
+The only Phase 0 invariant that must hold before PR 2 starts: **`LINE_CHANNEL_ID` and `LINE_CHANNEL_SECRET` are set correctly in `.env.local` (for local dev) and in the Vercel environment (server-only — do not check the `NEXT_PUBLIC_` box)**.
 
 **Phase 0 deliverable:** confirm to the operator when Phase 0 is complete. Do not start PR 1 until Phase 0 is verified.
 
 ---
 
-### PR 1 of 4: Schema — visitor enum + trigger update + ADR 0010
+### PR 1 of 4: Schema — visitor enum + trigger update + ADR 0010 — **COMPLETE**
+
+**Status:** ✅ Merged 2026-05-22 (PR #14, commit `86ea03d`). ADR 0010 written; visitor role added as the 10th enum value; column default on `public.users.role` changed from `'site_admin'` to `'visitor'`; `LINE_CHANNEL_*` removed from `env.ts` (later reversed in PR 2 per [ADR 0012](../decisions/0012-custom-flow-line-auth.md)).
 
 **Branch:** `feat/auth-schema-prep`
 
@@ -184,79 +177,90 @@ If you get an error from LINE ("Channel not allowed" or similar), the channel ID
 
 ---
 
-### PR 2 of 4: Auth core — middleware, callback, login, logout
+### PR 2 of 4: Custom-flow auth core — `/auth/line/start`, `/auth/line/callback`, logout, login UI
 
-**Branch:** `feat/auth-core` (created from main _after_ PR 1 merges)
+**Rewritten 2026-05-23 per [ADR 0012](../decisions/0012-custom-flow-line-auth.md).** The original PR 2 (Supabase OIDC + client-side `signInWithOAuth({ provider: 'custom:line' })` + `/auth/callback` `exchangeCodeForSession`) shipped to main as the initial implementation. It is dead code under the OIDC dead-end; this PR replaces it with the custom-flow implementation proven in the line-auth spike. Read [`./01-line-auth-FINDINGS.md`](./01-line-auth-FINDINGS.md) for the spike's exact mechanism and live test result.
 
-**Prerequisites:** PR 1 merged. Phase 0 verified.
+**Branch:** `feat/auth-core-custom-flow`
+
+**Prerequisites:**
+
+- PR 1 (schema, ADR 0010) **merged** — already done.
+- [ADR 0011](../decisions/0011-rls-role-helper.md) (RLS role helper) **merged** — already done. Without it the role read after session mint raises `infinite recursion detected in policy for relation users`.
+- Phase 0 revised — the LINE channel's "Callback URL" allowlist must contain the app's `/auth/line/callback` URL for every origin you want to test (see revised Step 0.3 above).
 
 **Scope (in):**
 
-1. **Middleware/proxy at project root.** Per CLAUDE.md's Next.js 16 note: the file is `proxy.ts` at the project root (not `middleware.ts`). It uses `@supabase/ssr` to refresh the session on every request and redirects unauthenticated users away from protected routes.
+1. **Env config.** Add `LINE_CHANNEL_ID` and `LINE_CHANNEL_SECRET` to `src/lib/env.server.ts`'s zod schema as required strings (`z.string().min(1)`). Both server-only (the env-split work from PR #16 keeps them out of the client bundle). Boot fails if either is missing.
 
-   Public routes (do not require auth): `/`, `/login`, `/auth/callback`. Static assets and Next.js internals are bypassed via the matcher config.
+2. **proxy.ts.** Update `PUBLIC_PATHS` to `["/", "/login", "/auth/line/start", "/auth/line/callback"]`. Remove the now-obsolete `/auth/callback` entry. No structural change to the proxy itself — same `getAll`/`setAll` cookie pattern, same matcher.
 
-   All other routes require an authenticated session. Unauthenticated requests to protected routes are redirected to `/login`.
+3. **`/auth/line/start` route handler** at `src/app/auth/line/start/route.ts` (`GET`):
+   - Reads `LINE_CHANNEL_ID` from `serverEnv` (env.server.ts).
+   - Derives `redirect_uri` from `request.nextUrl.origin` — never from `NEXT_PUBLIC_APP_URL`. Multi-env safe per ADR 0012; same as the spike.
+   - Generates 16-byte hex `state` via `crypto.randomBytes(16).toString('hex')`. Stores in an httpOnly, secure, `sameSite=lax` cookie scoped to `path: "/auth/line"`, `max-age: 600`.
+   - Builds the LINE authorize URL: `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=<channelId>&redirect_uri=<origin>/auth/line/callback&state=<random>&scope=openid%20profile`.
+   - 302 redirect to that URL.
 
-2. **`/login` route at `src/app/login/page.tsx`** (Server Component):
-   - Reads the session via `src/lib/db/server.ts`
-   - If already authenticated: redirect by role to `/sa`, `/pm`, or `/coming-soon`
-   - If unauthenticated: render a minimal login page with a single "Log in with LINE" button
-   - The button is a Client Component (`src/app/login/login-button.tsx`) that calls `supabase.auth.signInWithOAuth({ provider: 'line', options: { redirectTo: <full URL to /auth/callback> } })`
-   - Accept optional `?error=<code>` query param and display a banner. Error codes: `oauth_failed`, `session_failed`, `unknown`. Keep messages generic — do not leak provider error details.
-   - Use existing dark theme (zinc-950 background, zinc-100 text, plain Tailwind, no shadcn for this PR)
+4. **`/auth/line/callback` route handler** at `src/app/auth/line/callback/route.ts` (`GET`):
+   - Reads `?code`, `?state`, `?error` from `request.nextUrl.searchParams`.
+   - Verifies the `state` cookie matches `?state`. Deletes the cookie on success or mismatch (single-use). Mismatch → 400 with a generic message; do **not** proceed to token exchange.
+   - If LINE returned `?error` or `?code` is missing → redirect to `/login?error=oauth_failed`.
+   - POSTs to LINE's token endpoint `https://api.line.me/oauth2/v2.1/token` with `application/x-www-form-urlencoded` body: `grant_type=authorization_code`, `code`, `redirect_uri` (derived the same way as `/start` — must match exactly), `client_id`, `client_secret`. On non-2xx → `/login?error=oauth_failed`, log the response body server-side.
+   - Verifies the returned `id_token`. HS256 with `LINE_CHANNEL_SECRET` as the HMAC key; comparison via `crypto.timingSafeEqual` (constant-time); `iss === 'https://access.line.me'`; `aud === LINE_CHANNEL_ID`; `exp > now`; `iat <= now + 60s`; `sub` is a non-empty string. Use **`jose`** (preferred) or inline `node:crypto` (the spike's approach). On verification failure → `/login?error=oauth_failed`.
+   - Provisions or locates the auth user via the admin (service-role) client: `admin.auth.admin.createUser({ email: 'line_<sub>@line.local', email_confirm: true, user_metadata: { provider: 'line', line_sub, name } })`. `email_exists` and `user_already_exists` are treated as "already provisioned, continue"; any other error → `/login?error=unknown`, log server-side. The ADR 0007 trigger creates the matching `public.users` row automatically with role `visitor` (ADR 0010 default).
+   - Mints the Supabase session: `admin.auth.admin.generateLink({ type: 'magiclink', email })` → `properties.hashed_token`, then `supabase.auth.verifyOtp({ type: 'magiclink', token_hash })` on the SSR server client. The SSR client's `setAll` callback writes `sb-*` cookies onto the response via `cookies()` from `next/headers`. On either-call failure → `/login?error=session_failed`.
+   - Reads `public.users.role` (and `line_user_id`, `full_name` for the NULL-only profile write) via the SSR client. If the row is missing — race with the `on_auth_user_created` trigger — retry 3× with 50ms backoff. Still missing → `/login?error=unknown`, log server-side. (Post-ADR-0011 the read no longer recurses; this retry is purely for the trigger-race window.)
+   - **Profile write (admin client, NULL-only):** for each of `line_user_id` (← verified JWT `sub`) and `full_name` (← verified JWT `name`) that's currently NULL, UPDATE via the admin client. Never overwrite non-NULL. Same pattern as PR #15's previous callback.
+   - Redirects by role: `site_admin` → `/sa`, `project_manager` → `/pm`, every other role (including `visitor`, `super_admin`, etc.) → `/coming-soon`.
 
-3. **`/auth/callback` route at `src/app/auth/callback/route.ts`** (Route Handler):
-   - Reads `?code=<...>` from query string. If absent or `?error=<...>` is present, redirect to `/login?error=oauth_failed`.
-   - Calls `supabase.auth.exchangeCodeForSession(code)`. If it fails, redirect to `/login?error=session_failed`.
-   - On success: read the user from the resulting session, query `public.users` for `role` and `full_name`.
-   - If `users` row doesn't exist (race with the `on_auth_user_created` trigger), wait briefly (50ms × 3 retries) and re-query. If still missing, redirect to `/login?error=unknown` and log server-side.
-   - Once role is known, redirect:
-     - `site_admin` → `/sa`
-     - `project_manager` → `/pm`
-     - all others → `/coming-soon`
-   - Update `public.users` with `line_user_id` (= JWT `sub`), `full_name` (= JWT `name`), `email` (if present in the JWT) — only if these fields are currently NULL. Do not overwrite if the user has been edited. This handles the case where the trigger created a minimal row and we're populating profile data from the first login.
+5. **`/auth/logout` route handler** at `src/app/auth/logout/route.ts`. **Unchanged from the existing implementation on main** (works regardless of how the session was minted): POST calls `supabase.auth.signOut()`, 303-redirects to `/`. GET returns 405 with `Allow: POST`.
 
-4. **`/auth/logout` route at `src/app/auth/logout/route.ts`** (Route Handler, POST only):
-   - Calls `supabase.auth.signOut()`
-   - Clears session cookies
-   - Redirects to `/`
-   - GET requests return 405 Method Not Allowed (logout must be a POST to prevent CSRF via image tags)
+6. **`LogoutButton`** at `src/components/auth/logout-button.tsx`. **Unchanged.** Plain server-rendered POST form, no `"use client"`. Re-used by PR 3's landings.
 
-5. **Logout button helper** at `src/components/auth/logout-button.tsx` (Client Component):
-   - Renders a button that POSTs to `/auth/logout` (form submission, no JS fetch — survives JS-disabled environments)
-   - Accepts a `label` prop, defaults to "Log out"
-   - Used in PR 3's nav shell
+7. **Login button (replaces dead client-side `signInWithOAuth`).** Delete or rewrite `src/app/login/login-button.tsx`. The replacement is a **plain server-rendered** anchor or form pointing at `/auth/line/start`. **No `"use client"`. No `signInWithOAuth`. No `'custom:line'` reference.** Either:
+   - Anchor: `<a href="/auth/line/start" className="…">Log in with LINE</a>` directly in the `/login` Server Component, or
+   - Form: `<form action="/auth/line/start" method="get"><button type="submit">Log in with LINE</button></form>` if a button-shaped element is preferred for styling consistency.
+
+8. **`/login` page** at `src/app/login/page.tsx` — minor revision. Server Component reads the session via `src/lib/db/server.ts`; if authenticated, reads `users.role` (now works under ADR 0011's helper) and redirects to `/sa`, `/pm`, or `/coming-soon`. Otherwise renders the page with the new server-rendered LINE button. Optional `?error=<code>` banner with generic copy (`oauth_failed`, `session_failed`, `unknown`). Dark theme (zinc-950 / zinc-100, plain Tailwind, no shadcn).
+
+9. **Remove dead OIDC code.**
+   - Delete `src/app/auth/callback/route.ts` (the old `exchangeCodeForSession` handler — points at the dead OIDC provider).
+   - Confirm `src/app/login/login-button.tsx` no longer contains `signInWithOAuth` or the `'custom:line'` string.
+   - `proxy.ts` `PUBLIC_PATHS` no longer references `/auth/callback`.
+
+10. **Error handling philosophy** (unchanged): user-visible error banners on `/login` carry generic strings only. Detailed diagnostics go to `console.error` server-side and only there. Token bodies, JWT payloads, and the `hashed_token` from `generateLink` are never logged.
 
 **Scope (out):**
 
-- `/sa` and `/pm` routes — placeholders in PR 3
-- `/coming-soon` — PR 3
-- Homepage login button — PR 3
-- Tests — PR 4
-- Profile picture handling — not part of v1
-- Logout from LINE globally — never (hostile UX)
-- Any RLS policy changes
-- Do NOT push or PR — operator handles those manually
+- `/sa`, `/pm`, `/coming-soon` pages and the `requireRole` helper — PR 3.
+- Homepage login button — PR 3.
+- Tests — PR 4.
+- Profile picture handling — not in v1.
+- LINE-wide logout (we only clear the Supabase session) — never; hostile UX.
+- Custom JWT claims via Supabase Auth Hooks — not needed; role is read from `public.users`, not from the access token.
+- Any RLS policy change — none required; ADR 0011's helper is already in place.
 
 **Verification checklist:**
 
-- [ ] Branch created from up-to-date main
-- [ ] `proxy.ts` exists at project root (not under `src/`)
-- [ ] Public routes work logged-out (`/`, `/login`, `/auth/callback`)
-- [ ] Protected routes redirect logged-out users to `/login`
-- [ ] `/login` page renders with LINE button when unauthenticated
-- [ ] `/login` redirects to role home when already authenticated (manually test this by hitting `/login` while logged in)
-- [ ] Clicking the LINE button initiates the OAuth flow (you reach LINE's actual login screen)
-- [ ] After successful LINE login, you're redirected to the right destination by role
-- [ ] Logout button POSTs to `/auth/logout`, clears session, lands on `/`
-- [ ] After logout, visiting any protected route redirects to `/login`
+- [ ] Branch from up-to-date main
+- [ ] `LINE_CHANNEL_ID` and `LINE_CHANNEL_SECRET` in `src/lib/env.server.ts` (zod-required; boot fails on missing)
+- [ ] `proxy.ts` `PUBLIC_PATHS` is `["/", "/login", "/auth/line/start", "/auth/line/callback"]`; old `/auth/callback` removed
+- [ ] `/auth/line/start` builds the LINE authorize URL with a `state` cookie, derives `redirect_uri` from `request.nextUrl.origin`, 302s to LINE
+- [ ] `/auth/line/callback` validates state, exchanges code at LINE, verifies HS256 `id_token` (alg + signature via `timingSafeEqual` + iss + aud + exp + iat + sub), provisions/locates via admin client, mints session via `generateLink` + `verifyOtp`, reads role, NULL-only profile-write via admin, redirects by role
+- [ ] `src/app/auth/callback/route.ts` deleted (dead OIDC handler)
+- [ ] `src/app/login/login-button.tsx` replaced with a plain server-rendered link/form (no `"use client"`, no `signInWithOAuth`, no `'custom:line'`)
 - [ ] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` all pass
-- [ ] Manual test: full login → land somewhere → logout → repeat. No errors in server logs.
+- [ ] Manual end-to-end test on a Vercel preview: load `/login` → click LINE button → complete LINE consent → land on `/sa` / `/pm` / `/coming-soon` per role → POST `/auth/logout` → land on `/`. No errors in the Vercel function logs. (PR 3 destinations will 404 until that PR ships — that's expected.)
 - [ ] Progress tracker updated
-- [ ] Commit message: `feat: wire LINE auth via Supabase Custom OIDC Provider`
+- [ ] Commit message: `feat: wire LINE auth via custom flow (ADR 0012)`
 
-**If blocked:** common blockers — `@supabase/ssr` API drift (verify against current docs), proxy.ts vs middleware.ts naming (Next.js 16 specific), cookie issues across local/Vercel (different domains), LINE callback URL mismatch between LINE console and Supabase.
+**If blocked:** common blockers —
+
+- LINE callback URL not allowlisted for the test environment's origin (LINE Developers console → channel → LINE Login Settings → Callback URL).
+- HS256 signature mismatch — usually the channel secret in env doesn't match the LINE channel (e.g., quoted/escaped, or pasted with whitespace).
+- `verifyOtp` fails despite a valid `hashed_token` — verify the SSR client is the one with `cookies()` from `next/headers` (not the admin client; the admin client doesn't manage user sessions).
+- Role read returns the "infinite recursion" error — ADR 0011 hasn't merged into the environment you're testing against; re-pull and apply the migration.
 
 ---
 
@@ -264,7 +268,11 @@ If you get an error from LINE ("Channel not allowed" or similar), the channel ID
 
 **Branch:** `feat/auth-role-gating` (from main, after PR 2 merges)
 
-**Prerequisites:** PR 2 merged. You can log in and out, but logged-in users land at 404s (`/sa` and `/pm` don't exist; `/coming-soon` doesn't exist).
+**Prerequisites:** PR 2 (custom-flow auth core, [ADR 0012](../decisions/0012-custom-flow-line-auth.md)) merged. ADR 0011 (RLS role helper) merged. You can log in and out via `/auth/line/start` → LINE → `/auth/line/callback` → role redirect; the role redirect currently lands at 404s (`/sa`, `/pm`, `/coming-soon` don't exist) — this PR fills those in.
+
+**Note for the homepage update + `requireRole` helper:** both read `public.users.role` via the SSR client. That read works without recursion because ADR 0011's `public.current_user_role()` is already in place. No additional RLS work in this PR.
+
+**Note for the homepage's login button:** match PR 2's pattern — a plain server-rendered anchor or form pointing at `/auth/line/start`. No client-side Supabase call, no `signInWithOAuth`.
 
 **Scope (in):**
 
@@ -352,10 +360,10 @@ If you get an error from LINE ("Channel not allowed" or similar), the channel ID
 
 1. **Test infrastructure decisions to make before writing tests** — this is a Phase 0 within PR 4:
    - LINE OAuth cannot be cleanly automated in CI. Two options:
-     - **(A)** Mock the Supabase callback by directly creating sessions via the service-role key (bypassing LINE entirely). Tests cover everything _after_ the OAuth bounce.
+     - **(A)** Mint sessions directly via the same `admin.generateLink({ type: 'magiclink' })` + `verifyOtp` pattern the production callback uses — see [ADR 0012](../decisions/0012-custom-flow-line-auth.md) for the call shape. Tests cover everything _after_ the OAuth bounce. The helper uses the service-role admin client and creates an authentic Supabase session (same `sb-*` cookies the real callback produces); RLS and `auth.uid()` behave identically to a real login.
      - **(B)** Use a dedicated test LINE account with stored credentials. CI uses real LINE auth. Slower, more fragile.
    - **Recommended: A.** B is real-world but the maintenance burden of a real LINE account in CI is not worth it for v1.
-   - If A is chosen, write a helper in `tests/e2e/helpers/auth.ts` that uses the service-role admin client to: create a test user in `auth.users`, ensure the `public.users` row exists with the desired role, return cookies that simulate a logged-in session.
+   - If A is chosen, write a helper in `tests/e2e/helpers/auth.ts` that uses the service-role admin client to: (i) `createUser` with a synthetic email such as `e2e_<test-name>@line.local` (the same convention the production callback uses, just with a `e2e_` prefix to avoid collision); (ii) ensure the `public.users` row exists with the desired role (set via direct UPDATE under the admin client, which bypasses RLS); (iii) `generateLink` + `verifyOtp` to obtain valid session cookies; (iv) return those cookies for the Playwright context to load. The helper is essentially a programmatic replay of the custom-flow callback's last three steps.
    - This helper is gitignored from non-test contexts and must NEVER be used outside `tests/e2e/`.
 
 2. **Test cases** at `tests/e2e/auth.spec.ts`:
@@ -415,7 +423,12 @@ If you get an error from LINE ("Channel not allowed" or similar), the channel ID
 - ADR 0007 — Users and auth (foundational user model)
 - ADR 0008 — Role enum expansion to 9 values
 - ADR 0009 — Supersede current-state query correction
-- ADR 0010 (to be written in PR 1) — Visitor default role amends ADR 0007
-- Supabase Custom OIDC Providers docs: https://supabase.com/blog/custom-oauth-oidc-providers
+- [ADR 0010](../decisions/0010-visitor-default-role.md) — Visitor default role (amends ADR 0007) — written and merged in PR 1
+- [ADR 0011](../decisions/0011-rls-role-helper.md) — RLS role-check helper to break self-referential policy recursion (amends ADR 0007) — prerequisite for PR 2
+- [ADR 0012](../decisions/0012-custom-flow-line-auth.md) — LINE auth via custom app-handled flow (supersedes decision #4) — adopted in PR 2
+- [`01-line-auth-FINDINGS.md`](./01-line-auth-FINDINGS.md) — line-auth spike findings; the live evidence that the custom flow works end-to-end
+- Supabase Custom OIDC Providers docs (no longer applicable — kept for historical reference): https://supabase.com/blog/custom-oauth-oidc-providers
 - LINE Login OIDC: https://developers.line.biz/en/docs/line-login/integrate-line-login/
+- LINE ID token verification: https://developers.line.biz/en/docs/line-login/verify-id-token/
 - `@supabase/ssr` for App Router: https://supabase.com/docs/guides/auth/server-side/nextjs
+- [Supabase Discussion #11854](https://github.com/orgs/supabase/discussions/11854) — open feature request for a direct admin-mints-session API; the absence of which drives the `generateLink` + `verifyOtp` mechanism
