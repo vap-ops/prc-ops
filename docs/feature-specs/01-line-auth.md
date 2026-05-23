@@ -350,58 +350,55 @@ The only Phase 0 invariant that must hold before PR 2 starts: **`LINE_CHANNEL_ID
 
 ---
 
-### PR 4 of 4: Playwright E2E
+### PR 4 of 4: Playwright E2E — **scoped to unauthenticated/protection paths only**
 
-**Branch:** `test/auth-e2e` (from main, after PR 3 merges)
+**Revised 2026-05-23.** The original PR 4 plan called for option (A) (mint Supabase sessions via the same `admin.generateLink` + `verifyOtp` recipe the production callback uses) so the suite could cover authenticated role-routing. After PR 2 shipped, the implication of that plan became unworkable: Playwright runs against the **linked remote Supabase project** (no local DB per ADR 0006), so option (A)'s helper would write fake users into the **production `auth.users` table** on every test run, and a crashed test would orphan rows. PR 4 is therefore narrowed to the cases that need no session and write nothing.
 
-**Prerequisites:** PR 3 merged. The full auth flow works end-to-end manually.
+**Branch:** `test/auth-e2e-unauthenticated`
+
+**Prerequisites:** PR 3 merged. The unauthenticated paths reach a stable terminal state without ever touching the DB.
 
 **Scope (in):**
 
-1. **Test infrastructure decisions to make before writing tests** — this is a Phase 0 within PR 4:
-   - LINE OAuth cannot be cleanly automated in CI. Two options:
-     - **(A)** Mint sessions directly via the same `admin.generateLink({ type: 'magiclink' })` + `verifyOtp` pattern the production callback uses — see [ADR 0012](../decisions/0012-custom-flow-line-auth.md) for the call shape. Tests cover everything _after_ the OAuth bounce. The helper uses the service-role admin client and creates an authentic Supabase session (same `sb-*` cookies the real callback produces); RLS and `auth.uid()` behave identically to a real login.
-     - **(B)** Use a dedicated test LINE account with stored credentials. CI uses real LINE auth. Slower, more fragile.
-   - **Recommended: A.** B is real-world but the maintenance burden of a real LINE account in CI is not worth it for v1.
-   - If A is chosen, write a helper in `tests/e2e/helpers/auth.ts` that uses the service-role admin client to: (i) `createUser` with a synthetic email such as `e2e_<test-name>@line.local` (the same convention the production callback uses, just with a `e2e_` prefix to avoid collision); (ii) ensure the `public.users` row exists with the desired role (set via direct UPDATE under the admin client, which bypasses RLS); (iii) `generateLink` + `verifyOtp` to obtain valid session cookies; (iv) return those cookies for the Playwright context to load. The helper is essentially a programmatic replay of the custom-flow callback's last three steps.
-   - This helper is gitignored from non-test contexts and must NEVER be used outside `tests/e2e/`.
+1. **`tests/e2e/auth-unauthenticated.spec.ts`** with these cases — all run logged out, no session, no DB writes:
+   - `GET /sa` → redirects to `/login` (proxy protection)
+   - `GET /pm` → redirects to `/login` (proxy protection)
+   - `GET /coming-soon` → redirects to `/login` (proxy protection)
+   - `GET /` → renders the PRC Ops placeholder with a "Log in with LINE" link pointing at `/auth/line/start`
+   - `GET /login` → renders the LINE login link (anchor to `/auth/line/start`)
+   - `GET /login?error=oauth_failed` → error banner with generic copy
+   - `GET /login?error=session_failed` → error banner with generic copy
+   - `GET /login?error=unknown` → error banner with generic copy
 
-2. **Test cases** at `tests/e2e/auth.spec.ts`:
-   - Unauthenticated user visits `/sa` → redirected to `/login`
-   - Unauthenticated user visits `/pm` → redirected to `/login`
-   - Unauthenticated user visits `/coming-soon` → redirected to `/login`
-   - Unauthenticated user visits `/` → sees the homepage with a login button
-   - Unauthenticated user visits `/login` → sees the LINE login button
-   - Authenticated `site_admin` user visits `/login` → redirected to `/sa`
-   - Authenticated `project_manager` user visits `/login` → redirected to `/pm`
-   - Authenticated `visitor` user visits `/login` → redirected to `/coming-soon`
-   - Authenticated `site_admin` user visits `/pm` → redirected to `/sa`
-   - Authenticated `project_manager` user visits `/sa` → redirected to `/pm`
-   - Authenticated `visitor` user visits `/sa` → redirected to `/coming-soon`
-   - Logout flow: authenticated user POSTs to `/auth/logout` → redirected to `/` → re-visiting `/sa` redirects to `/login`
-   - Error banner: visiting `/login?error=oauth_failed` shows the error banner with generic copy
+   Assertions use `expect(page).toHaveURL(…)` for redirects and `getByRole("link" | "alert" | "heading", …)` for content (resilient to styling churn).
 
-3. **Update CI workflow** at `.github/workflows/ci.yml` (per CLAUDE.md, CI currently only runs `lint`, `typecheck`, `test` — it does NOT run E2E). Decision: leave CI as-is for this PR. The new E2E tests run locally only. We'll add E2E to CI when we have the dedicated test infrastructure (separate Supabase project for E2E). For now, document in the test file's header that they require a clean local DB state.
+2. **CI: unchanged.** `.github/workflows/ci.yml` continues to run only `lint`, `typecheck`, `test`. E2E is local-only via `pnpm test:e2e`. Wiring E2E into CI is its own infra unit (needs Playwright browsers + a running dev server + the right env vars and a test Supabase project). The new spec file's header notes the local-run requirement.
 
-4. **Update progress tracker:** mark all 4 PRs of the LINE auth unit as complete.
+3. **No session-minting / admin-client / DB-writing test code anywhere.** If any test idea needs auth, it belongs in the deferred unit below.
+
+**Deferred to a future unit (NOT done here):**
+
+- **Authenticated-path E2E.** Visitor → `/coming-soon`, SA → `/sa`, PM → `/pm`, the role-mismatch redirects (SA on `/pm` → `/sa`, etc.), and the logout flow. Together with the test helper that programmatically mints sessions via `admin.generateLink` + `verifyOtp`. **Prerequisite:** a dedicated test Supabase project (separate `project-ref` from prod) so test data lives in its own `auth.users` table and a crashed test cannot orphan rows in production. The work shape is the option-(A) plan from the original spec; the only thing that changed is the prerequisite. Tracked in the progress tracker.
 
 **Scope (out):**
 
-- E2E in CI (deferred until separate test DB exists)
-- Testing the actual LINE OAuth bounce (deferred indefinitely — too fragile)
-- Real load testing or performance benchmarks
-- Do NOT push or PR — operator handles those manually
+- Authenticated-session tests (see "Deferred" above).
+- Real LINE OAuth bounce in tests (deferred indefinitely — too fragile).
+- E2E in CI (deferred with the authenticated-path work).
+- Do NOT push or PR — operator handles those manually.
 
 **Verification checklist:**
 
-- [ ] Branch created from up-to-date main
-- [ ] Test helper for service-role session creation works
-- [ ] All 13 test cases pass locally via `pnpm test:e2e`
-- [ ] Existing tests still pass: `pnpm lint && pnpm typecheck && pnpm test`
-- [ ] Progress tracker updated
-- [ ] Commit message: `test: Playwright E2E for LINE auth flows`
+- [ ] Branch `test/auth-e2e-unauthenticated` created from up-to-date main
+- [ ] `tests/e2e/auth-unauthenticated.spec.ts` covers the 8 cases above
+- [ ] No session-minting / admin-client / DB-writing code in the test file
+- [ ] `tests/e2e/home.spec.ts` left as-is (or trivially updated if stale — report which)
+- [ ] `pnpm test:e2e` passes locally (the operator runs this on their laptop; the author of the PR confirms the tests compile and the spec is correct)
+- [ ] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` all pass
+- [ ] Progress tracker updated: this PR done, authenticated-path E2E logged as the deferred unit
+- [ ] Commit message: `test: Playwright E2E for unauthenticated auth-protection paths`
 
-**If blocked:** common blocker — the service-role session injection technique drifted between Supabase versions. If it doesn't work, fall back to option (B) only with explicit approval. Do not skip E2E.
+**If blocked:** the most likely blocker is that the dev server fails to start during `pnpm test:e2e` because `.env.local` is missing or has stale Supabase / LINE vars. Verify env vars before chasing a Playwright-config bug.
 
 ---
 
