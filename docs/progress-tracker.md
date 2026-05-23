@@ -847,3 +847,152 @@ None blocking.
 - The real PR 2 unit is now unblocked. The branch name suggested in
   the spec is `feat/auth-core-custom-flow` to distinguish it from
   the original `feat/auth-core` which shipped the OIDC code.
+
+---
+
+## Unit: LINE auth — real PR 2 of 4: custom-flow auth core (ADR 0012)
+
+- **Status:** Complete — 2026-05-23.
+- **Started / completed:** 2026-05-23.
+- **Spec:** [`docs/feature-specs/01-line-auth.md`](feature-specs/01-line-auth.md)
+  PR 2 section (rewritten in the prior unit per
+  [ADR 0012](decisions/0012-custom-flow-line-auth.md)).
+- **Branch:** `feat/auth-core-custom-flow`.
+
+### Done
+
+- **Env additions.** [src/lib/env.server.ts](../src/lib/env.server.ts)
+  serverSchema now requires `LINE_CHANNEL_ID` and `LINE_CHANNEL_SECRET`
+  (both `z.string().min(1)`). Server-only — the env-split work from
+  PR #16 keeps them out of the client bundle, and the existing
+  `import "server-only"` guard fails the build if they're ever pulled
+  into a client component.
+- **`/auth/line/start`** at
+  [src/app/auth/line/start/route.ts](../src/app/auth/line/start/route.ts) —
+  GET route handler. Generates a 16-byte hex CSRF `state`, stores in an
+  httpOnly+secure+sameSite=lax cookie scoped to `/auth/line` (max-age
+  600s), builds LINE's authorize URL with `redirect_uri` derived from
+  `request.nextUrl.origin` (multi-env safe per ADR 0012; both routes
+  compute the same value on a given request so LINE's exact-match
+  check passes), 302s to LINE.
+- **`/auth/line/callback`** at
+  [src/app/auth/line/callback/route.ts](../src/app/auth/line/callback/route.ts) —
+  GET route handler implementing the full spike-proven flow:
+  1. Validate state cookie vs query param; cookie is single-use
+     (deleted regardless of outcome).
+  2. Exchange `?code` at LINE's token endpoint
+     (`https://api.line.me/oauth2/v2.1/token`).
+  3. Verify the returned HS256 `id_token` via the helper below.
+  4. Provision-or-locate via admin `createUser` with synthetic email
+     `line_<sub>@line.local` (`email_confirm: true`, `user_metadata`
+     captures `provider: 'line'`, `line_sub`, `name`). Duplicate-email
+     errors (`email_exists` / `user_already_exists` / message contains
+     "already") are treated as the idempotent "already provisioned"
+     branch.
+  5. Mint a session via `admin.generateLink({type:'magiclink'})` →
+     `supabase.auth.verifyOtp({type:'magiclink', token_hash})` on the
+     SSR server client — that client's `setAll` callback writes the
+     `sb-*` cookies onto the route handler's response.
+  6. Read `public.users.role` for the now-authenticated user with
+     50ms × 3-retry backoff for the trigger-race window. Works
+     unrecursively post-ADR-0011.
+  7. NULL-only profile write via the admin client: populate
+     `line_user_id` (= verified JWT `sub`) and `full_name` (= verified
+     JWT `name`) only if currently NULL. Failure is logged and
+     non-fatal — the user is signed in, the redirect proceeds.
+  8. Redirect by role: `site_admin` → `/sa`, `project_manager` →
+     `/pm`, anything else → `/coming-soon`.
+- **HS256 verifier** at
+  [src/lib/auth/verify-line-id-token.ts](../src/lib/auth/verify-line-id-token.ts) —
+  isolated `server-only` module. Uses `node:crypto`'s `createHmac` +
+  `timingSafeEqual`. Validates `alg === 'HS256'`, signature against
+  channel secret, `iss === 'https://access.line.me'`,
+  `aud === LINE_CHANNEL_ID`, `exp > now`, `iat <= now + 60s`,
+  `sub` non-empty. Returns only `{ sub, name }`. Throws on any
+  failure; the callback catches, logs server-side, and redirects to
+  `/login?error=oauth_failed`.
+- **proxy.ts `PUBLIC_PATHS`** updated to
+  `["/", "/login", "/auth/line/start", "/auth/line/callback"]`. The
+  old `/auth/callback` entry is gone. `/auth/logout` is POST-only and
+  intentionally not public (the existing POST form authenticates
+  through the user's session cookies; unauthenticated POSTs would
+  redirect to `/login`, which is correct).
+- **Login button rewritten.**
+  [src/app/login/login-button.tsx](../src/app/login/login-button.tsx)
+  is now a plain server-rendered `<a href="/auth/line/start">`. No
+  `"use client"`, no `signInWithOAuth`, no `'custom:line'` reference,
+  no browser Supabase client. Plain `<a>` (not `next/link`) so route
+  prefetching can't accidentally trigger the OAuth state cookie set.
+  Existing styling preserved.
+- **Dead OIDC route deleted.**
+  `src/app/auth/callback/route.ts` (the previous
+  `exchangeCodeForSession` handler against the dead Supabase Custom
+  OIDC Provider) is removed.
+- **/auth/logout untouched** — the POST→signOut→303 redirect pattern
+  works regardless of how the session was minted.
+- **Test env synced.** Both `tests/unit/env.test.ts` and
+  `vitest.config.ts` were updated to include `LINE_CHANNEL_ID` and
+  `LINE_CHANNEL_SECRET` (otherwise the static
+  `import "@/lib/env.server"` in the env test would throw at module
+  load — server vars are validated at import time). Added 4 new
+  parseServerEnv assertions (missing/empty for both LINE vars);
+  total test count went from 17 → 21.
+
+### Decisions made
+
+- **HS256 verifier extracted to `src/lib/auth/verify-line-id-token.ts`.**
+  The callback route is already ~200 lines of flow control; extracting
+  the security-sensitive verifier keeps that route focused and
+  isolates the trust boundary. The verifier is `import "server-only"`
+  so it cannot reach a client bundle even by accident. `node:crypto`
+  (not `jose`) per the spike's proven approach — ADR 0012 explicitly
+  allows either.
+- **All Supabase clients created inside the GET handler** (Fluid
+  Compute requirement). Both `createClient` factories — `admin.ts`
+  and `server.ts` — already return a new client per call with no
+  module-scope state; the callback simply calls them inside its
+  handler body. No module-scope client anywhere in the auth surface.
+- **Plain `<a>`, not `next/link`, for the login button.** `next/link`
+  can prefetch routes on hover; if a prefetched request hit
+  `/auth/line/start`, the OAuth state cookie would be set and the
+  302 followed — defeating the CSRF protection. Plain anchor avoids
+  this entirely.
+- **`/auth/logout` left as a protected route.** It's a POST-only form
+  whose action requires an existing session to do anything useful;
+  unauthenticated POSTs hit the proxy redirect to `/login`. That's
+  correct behavior — no need to public-list it.
+- **profile write checks `claims.name` truthiness, but `claims.sub`
+  is unconditional.** The verifier guarantees `sub` is a non-empty
+  string (it throws otherwise), so `if (row.line_user_id === null)`
+  is sufficient — no extra guard. `name` is `string | null` (LINE
+  may not always send it), so the assignment guards on it.
+
+### Operator follow-up (post-merge)
+
+The OAuth bounce can't be exercised here — operator must validate
+the full flow on a Vercel preview deployment:
+
+1. Confirm `LINE_CHANNEL_ID` and `LINE_CHANNEL_SECRET` are set in
+   the Vercel environment (Production + Preview), **server-only** (no
+   `NEXT_PUBLIC_` flag).
+2. Confirm the LINE channel's "Callback URL" allowlist includes
+   `https://<preview-host>/auth/line/callback` for the preview you're
+   testing against (and production once merged).
+3. Load `/login`, click "Log in with LINE", complete consent on
+   LINE, expect to land on `/sa` / `/pm` / `/coming-soon` per the
+   `public.users.role` value. PR 3 destinations 404 — that's
+   expected; PR 3 fills them in.
+4. POST `/auth/logout` (via the eventual nav button once PR 3 wires
+   it in, or via curl with the session cookies), expect to land on
+   `/`. Re-visiting `/sa` redirects to `/login`.
+
+### Open questions
+
+None blocking.
+
+- **Branch naming.** `feat/auth-core-custom-flow` distinguishes this
+  PR from the earlier `feat/auth-core` (which shipped the OIDC code
+  that's deleted here). Recorded so the GitHub log stays legible.
+- **Manual LINE allowlist policy.** Documented in ADR 0012 and the
+  spec's revised Phase 0. No code change in this PR; it's purely
+  operational.

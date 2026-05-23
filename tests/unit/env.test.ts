@@ -73,17 +73,74 @@ describe("parseClientEnv", () => {
 });
 
 describe("parseServerEnv", () => {
+  const SERVICE_ROLE = "service-key";
+  const CHANNEL_ID = "1234567890";
+  const CHANNEL_SECRET = "channel-secret";
+
   it("parses a valid server env without throwing", () => {
-    expect(() => parseServerEnv({ SUPABASE_SERVICE_ROLE_KEY: "service-key" })).not.toThrow();
+    expect(() =>
+      parseServerEnv({
+        SUPABASE_SERVICE_ROLE_KEY: SERVICE_ROLE,
+        LINE_CHANNEL_ID: CHANNEL_ID,
+        LINE_CHANNEL_SECRET: CHANNEL_SECRET,
+      }),
+    ).not.toThrow();
   });
 
   it("rejects a missing SUPABASE_SERVICE_ROLE_KEY", () => {
-    expect(() => parseServerEnv({})).toThrow(/Invalid server environment variables/);
+    expect(() =>
+      parseServerEnv({
+        LINE_CHANNEL_ID: CHANNEL_ID,
+        LINE_CHANNEL_SECRET: CHANNEL_SECRET,
+      }),
+    ).toThrow(/Invalid server environment variables/);
   });
 
   it("rejects an empty SUPABASE_SERVICE_ROLE_KEY", () => {
-    expect(() => parseServerEnv({ SUPABASE_SERVICE_ROLE_KEY: "" })).toThrow(
-      /Invalid server environment variables/,
-    );
+    expect(() =>
+      parseServerEnv({
+        SUPABASE_SERVICE_ROLE_KEY: "",
+        LINE_CHANNEL_ID: CHANNEL_ID,
+        LINE_CHANNEL_SECRET: CHANNEL_SECRET,
+      }),
+    ).toThrow(/Invalid server environment variables/);
+  });
+
+  it("rejects a missing LINE_CHANNEL_ID", () => {
+    expect(() =>
+      parseServerEnv({
+        SUPABASE_SERVICE_ROLE_KEY: SERVICE_ROLE,
+        LINE_CHANNEL_SECRET: CHANNEL_SECRET,
+      }),
+    ).toThrow(/Invalid server environment variables/);
+  });
+
+  it("rejects an empty LINE_CHANNEL_ID", () => {
+    expect(() =>
+      parseServerEnv({
+        SUPABASE_SERVICE_ROLE_KEY: SERVICE_ROLE,
+        LINE_CHANNEL_ID: "",
+        LINE_CHANNEL_SECRET: CHANNEL_SECRET,
+      }),
+    ).toThrow(/Invalid server environment variables/);
+  });
+
+  it("rejects a missing LINE_CHANNEL_SECRET", () => {
+    expect(() =>
+      parseServerEnv({
+        SUPABASE_SERVICE_ROLE_KEY: SERVICE_ROLE,
+        LINE_CHANNEL_ID: CHANNEL_ID,
+      }),
+    ).toThrow(/Invalid server environment variables/);
+  });
+
+  it("rejects an empty LINE_CHANNEL_SECRET", () => {
+    expect(() =>
+      parseServerEnv({
+        SUPABASE_SERVICE_ROLE_KEY: SERVICE_ROLE,
+        LINE_CHANNEL_ID: CHANNEL_ID,
+        LINE_CHANNEL_SECRET: "",
+      }),
+    ).toThrow(/Invalid server environment variables/);
   });
 });
