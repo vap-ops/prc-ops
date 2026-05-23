@@ -12,6 +12,11 @@ import { z } from "zod";
 
 const serverSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  // LINE Login (server-side only). The app runs LINE's OAuth and HS256
+  // id_token verification itself per ADR 0012. Channel secret is the HMAC
+  // key for verification; channel id is the audience claim.
+  LINE_CHANNEL_ID: z.string().min(1),
+  LINE_CHANNEL_SECRET: z.string().min(1),
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;
