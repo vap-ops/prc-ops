@@ -26,6 +26,7 @@ import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { createClient as createServerSupabase } from "@/lib/db/server";
+import { roleHome, type UserRole } from "@/lib/auth/role-home";
 import { serverEnv } from "@/lib/env.server";
 import { verifyLineIdToken, type LineIdTokenClaims } from "@/lib/auth/verify-line-id-token";
 
@@ -46,16 +47,10 @@ function redirectToLogin(request: NextRequest, error: string): NextResponse {
   return NextResponse.redirect(url);
 }
 
-function redirectByRole(request: NextRequest, role: string): NextResponse {
+function redirectByRole(request: NextRequest, role: UserRole): NextResponse {
   const url = request.nextUrl.clone();
   url.search = "";
-  if (role === "site_admin") {
-    url.pathname = "/sa";
-  } else if (role === "project_manager") {
-    url.pathname = "/pm";
-  } else {
-    url.pathname = "/coming-soon";
-  }
+  url.pathname = roleHome(role);
   return NextResponse.redirect(url);
 }
 
@@ -237,5 +232,5 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   // ---- 9. Redirect by role ----
-  return redirectByRole(request, row.role);
+  return redirectByRole(request, row.role as UserRole);
 }

@@ -996,3 +996,167 @@ None blocking.
 - **Manual LINE allowlist policy.** Documented in ADR 0012 and the
   spec's revised Phase 0. No code change in this PR; it's purely
   operational.
+
+---
+
+## Unit: LINE auth — PR 3 of 4: role gating + landings
+
+- **Status:** Complete — 2026-05-23.
+- **Started / completed:** 2026-05-23.
+- **Spec:** [`docs/feature-specs/01-line-auth.md`](feature-specs/01-line-auth.md)
+  PR 3 section (revised by [ADR 0012](decisions/0012-custom-flow-line-auth.md)).
+- **Branch:** `feat/auth-role-gating`.
+
+### Done
+
+- **`src/lib/auth/role-home.ts`** — single source of truth for the
+  role → landing-path mapping. Exports `UserRole` (alias of the
+  generated `Database["public"]["Enums"]["user_role"]`) and
+  `roleHome(role): string`. `site_admin → /sa`,
+  `project_manager → /pm`, anything else → `/coming-soon`.
+- **`src/lib/auth/require-role.ts`** — Server-Component gate.
+  `import "server-only"`. Creates the SSR client inside the function
+  (no module-scope client — Fluid Compute requirement), `getUser()`,
+  reads `users.role + full_name` for the authenticated user. Unauth
+  → `redirect("/login")`. Row missing (defensive — post-login the
+  ADR 0007 trigger ensures it's there) → `console.error` +
+  `redirect("/login")`. Role not in `allowedRoles` →
+  `redirect(roleHome(role))` (the not-allowed branch routes through
+  the shared helper, so a `site_admin` who lands on `/pm` goes to
+  `/sa`, never blanket-redirected to `/coming-soon`). Returns
+  `{ id, role: UserRole, fullName: string | null }`.
+- **`src/app/coming-soon/page.tsx`** — Server Component.
+  Auth-required (the proxy already enforces this; the page double-
+  checks defensively). For `site_admin` / `project_manager`, early
+  `redirect("/sa")` / `redirect("/pm")` so they land where their
+  tools live. All other roles render the page with greeting + role
+  display name + the body paragraph from the spec + `LogoutButton`.
+  Role-display-name map is hardcoded in the file and typed as
+  `Record<Exclude<UserRole, "site_admin" | "project_manager">,
+string>`, so adding/removing/renaming an enum value triggers a
+  compile error here — no silent drift.
+- **`src/app/sa/page.tsx`** — `requireRole(["site_admin"])`, then
+  the spec's greeting + "Photo upload tools coming soon." +
+  `LogoutButton`.
+- **`src/app/pm/page.tsx`** — `requireRole(["project_manager"])`,
+  greeting + "Approval queue coming soon." + `LogoutButton`.
+- **`src/app/page.tsx` (homepage)** — Now async. Reads the session;
+  if authenticated and the `public.users` row exists,
+  `redirect(roleHome(role))`. Otherwise renders the original PRC Ops
+  placeholder plus the existing `LoginButton` (reused — already a
+  plain server-rendered `<a href="/auth/line/start">` from PR 2).
+- **`src/app/login/page.tsx`** — refactored to use `roleHome` for
+  the role-based redirect of already-authenticated visitors. Same
+  semantics as before; one line of inline if/if/else replaced with
+  `redirect(row ? roleHome(...) : "/coming-soon")`. The
+  `?error=<code>` banner logic and the unauthenticated render are
+  unchanged.
+- **`src/app/auth/line/callback/route.ts`** — trivial refactor: the
+  callback's `redirectByRole` helper now imports and calls
+  `roleHome` instead of carrying its own copy of the role → path
+  branching. Same input, same output, less code. Allowed by the
+  spec as a trivial import-only change; not a behavior change.
+- **`proxy.ts`** unchanged. `/sa`, `/pm`, `/coming-soon` are not in
+  `PUBLIC_PATHS`, so the proxy already redirects unauthenticated
+  requests to `/login` before they reach the page's own
+  `requireRole` / inline check. Belt-and-suspenders: the page does
+  its own auth check too, for paths that bypass middleware (e.g.,
+  any future internal navigation that skips the proxy).
+- **Build output verified.** `pnpm build` shows 9 routes: `/`,
+  `/_not-found`, `/auth/line/callback`, `/auth/line/start`,
+  `/auth/logout`, `/coming-soon` (new), `/login`, `/pm` (new),
+  `/sa` (new). All dynamic except `/_not-found`. `pnpm lint`,
+  `pnpm typecheck`, `pnpm test` (21/21) all pass.
+
+### Redirect-loop analysis (every path traced; no cycles)
+
+Notation: `→ /x` means HTTP redirect; `render` means terminal.
+
+| Origin role                            | Path           | Outcome                                     |
+| -------------------------------------- | -------------- | ------------------------------------------- |
+| unauthenticated                        | `/`            | render homepage with login link             |
+| unauthenticated                        | `/login`       | render login page                           |
+| unauthenticated                        | `/sa`          | proxy → `/login` (then render)              |
+| unauthenticated                        | `/pm`          | proxy → `/login` (then render)              |
+| unauthenticated                        | `/coming-soon` | proxy → `/login` (then render)              |
+| `site_admin`                           | `/`            | → `/sa` → render                            |
+| `site_admin`                           | `/login`       | → `/sa` → render                            |
+| `site_admin`                           | `/sa`          | render                                      |
+| `site_admin`                           | `/pm`          | → `roleHome=/sa` → render                   |
+| `site_admin`                           | `/coming-soon` | → `/sa` → render                            |
+| `project_manager`                      | `/`            | → `/pm` → render                            |
+| `project_manager`                      | `/login`       | → `/pm` → render                            |
+| `project_manager`                      | `/sa`          | → `roleHome=/pm` → render                   |
+| `project_manager`                      | `/pm`          | render                                      |
+| `project_manager`                      | `/coming-soon` | → `/pm` → render                            |
+| `visitor` (or any other unserved role) | `/`            | → `roleHome=/coming-soon` → render          |
+| `visitor`                              | `/login`       | → `roleHome=/coming-soon` → render          |
+| `visitor`                              | `/sa`          | → `roleHome=/coming-soon` → render          |
+| `visitor`                              | `/pm`          | → `roleHome=/coming-soon` → render          |
+| `visitor`                              | `/coming-soon` | render (no further redirect — load-bearing) |
+
+No cycles. Every traversal terminates in at most one render after one
+redirect. The load-bearing invariant is that `/coming-soon` does not
+redirect for any non-SA/non-PM role; if it did (e.g., for `visitor`),
+visitor at `/coming-soon` → `roleHome(visitor) = /coming-soon` would
+loop. The early-return on `site_admin` / `project_manager` is the
+only redirect on `/coming-soon`.
+
+### Decisions made
+
+- **`/coming-soon` role-display map is typed as `Record<Exclude<UserRole,
+"site_admin" | "project_manager">, string>`.** Adding, removing, or
+  renaming a role in the database enum will compile-fail this file
+  rather than silently fall back to displaying the raw enum key. The
+  fallback `?? role` is kept as a runtime safety net for genuine drift
+  (e.g., the DB returning an unexpected string), but the type is the
+  primary guarantee.
+- **Callback refactored to use `roleHome` (trivial import-only).**
+  The spec allowed it explicitly if low-risk. Eliminates the
+  duplicated role → path branching; the spike-proven flow is otherwise
+  unchanged. No behavioral difference; the role-string `as UserRole`
+  cast is unchecked at runtime but the previous code's else-branch and
+  `roleHome`'s else-branch both handle unexpected roles by routing to
+  `/coming-soon` — identical fallback semantics.
+- **Plain `<a>` for the homepage login link** — reused the existing
+  `LoginButton` from PR 2. Same anti-prefetch reasoning as PR 2's
+  decision (avoid `next/link` so route prefetching can't accidentally
+  trigger the OAuth `state` cookie set on hover).
+- **`requireRole` row-missing branch redirects to `/login`** rather
+  than guessing a role. The ADR 0007 trigger guarantees the row
+  exists post-login, so reaching this branch means something is
+  badly broken (session valid, but no `public.users` row) and the
+  safest user-visible action is to start over.
+
+### Operator follow-up (post-merge)
+
+The full role-gated flow can finally be tested end-to-end on a Vercel
+preview:
+
+1. Log in as a freshly-created LINE account. Expect to land on
+   `/coming-soon` (role defaults to `visitor` per ADR 0010). Greeting
+   uses the LINE display name; role label reads "Visitor"; logout
+   button works and returns to `/`.
+2. Promote yourself to `site_admin` via SQL
+   (`UPDATE public.users SET role = 'site_admin' WHERE id = '<your-id>'`).
+   Log out, log back in. Expect to land on `/sa` with "Site Admin"
+   greeting.
+3. Try the role mismatch paths: visit `/pm` as `site_admin` — should
+   bounce to `/sa`. Visit `/coming-soon` as `site_admin` — should
+   bounce to `/sa`. Visit `/sa` as `project_manager` — should bounce
+   to `/pm`.
+4. Log out from any of the landings. Expect to land on `/` and the
+   homepage to show the login link (no longer redirecting since the
+   session is gone).
+
+### Open questions
+
+None blocking.
+
+- **`requireRole`'s `allowedRoles` parameter is `ReadonlyArray<UserRole>`.**
+  This allows literal tuples (`["site_admin"]`) to be passed without
+  TS complaining about widening. If a future caller wants to compose
+  arrays dynamically, the readonly is still safe.
+- **Real SA / PM features (photo upload, approval queue)** are
+  out-of-scope per the spec; the current landings are placeholders.
+  Tracked separately as future units.
