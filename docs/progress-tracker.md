@@ -1817,3 +1817,108 @@ None blocking.
   carry an `import` action; the right time to wire it is when the
   back-office UI lands and the full event surface is being
   designed end-to-end.
+
+---
+
+## Unit: Feature spec 02 — photos and approvals (docs-only)
+
+- **Status:** Complete — 2026-05-24.
+- **Started / completed:** 2026-05-24.
+- **Spec written, no schema, no code.** Captures the locked design
+  for the `photo_logs` and `approvals` tables so the build units
+  that follow are mechanical.
+- **Spec:** [`docs/feature-specs/02-photos-and-approvals.md`](feature-specs/02-photos-and-approvals.md).
+- **Branch:** `docs/02-photos-and-approvals-spec`.
+
+### Done
+
+- New feature spec written, matching the structure of
+  [`docs/feature-specs/01-line-auth.md`](feature-specs/01-line-auth.md)
+  (Status → Goal → Locked design decisions → table specs → build
+  plan → deferred / out of scope → references).
+- All decisions from the design session captured:
+  - **Grain and relationships** — one `photo_logs` row = one
+    photo; FK to `work_packages`; `phase` enum (before / during /
+    after) with multiple photos per phase allowed; approval is
+    per-WP (not per-photo, not per-phase); WP reviewability is
+    derived from "After photos exist," not stored.
+  - **Photo storage** — `photo_logs` stores only `storage_path`,
+    never image bytes; the Storage bucket itself is a separate
+    later unit; originals stored unmodified, watermark rendered
+    on-demand server-side.
+  - **Append-only + tombstone-supersede** (the key architectural
+    decision; ADR 0015 reserved for the build PR): triple-enforced
+    exactly like `audit_log`; removal uses a tombstone (a
+    superseding row with `storage_path IS NULL`); replacement =
+    tombstone + new insert; current-state = ADR 0009 anti-join
+    filtered to `storage_path IS NOT NULL`.
+  - **`photo_logs` columns + RLS** — full column list with notes,
+    triple-enforcement, INSERT for SA / PM / super, SELECT for the
+    same set, no UPDATE / no DELETE policies. Tombstone row shape
+    documented for clarity.
+  - **`approvals` columns + RLS** — append-only event log (NOT
+    supersede; "current decision" is the row with `max(decided_at)`
+    per WP); CHECK constraint requiring a non-blank `comment` on
+    `rejected` / `needs_revision`; INSERT for PM + super only (SA
+    explicitly cannot approve); SELECT for SA + PM + super.
+  - **Self-approval allowed in v1.** Separation-of-duties documented
+    as an explicit future concern, not built.
+  - **Build plan** — PR 1 (photo_logs + ADR 0015) first, PR 2
+    (approvals) after. PR-shape detail covers migration columns,
+    triple-enforcement layers, pgTAP assertion list (mirroring
+    07 / 08), types regen, skill update.
+  - **Deferred** — Supabase Storage bucket + signed URLs, watermark
+    rendering, SA upload UI, `work_packages.status` auto-transition
+    on first After photo, PM approval UI, PDF generation,
+    separation-of-duties guard, all rich-photo metadata.
+- `pnpm lint && pnpm typecheck && pnpm test` all pass (docs-only,
+  nothing should be affected — confirmed).
+
+### Decisions made
+
+- **ADR 0015 is reserved for the PR 1 build unit, not written
+  here.** Same pattern previous build units used (ADR 0010 written
+  in the schema-prep PR; ADR 0011 written in the recursion-fix PR;
+  ADR 0013 written in the projects-table PR). Writing the ADR in
+  the build PR keeps the rationale close to the code that
+  implements it, and avoids drift between the ADR and the migration
+  if anything moves during the build.
+- **`approvals` may or may not get its own ADR.** Folded into the
+  build PR's description by default; flagged as worth a short ADR
+  only if the CHECK-constraint contract or the SA-cannot-approve
+  split surface anything material during the build. Spec records
+  the call as "PR-time judgment," not pre-locked.
+- **No CHECK constraint on `photo_logs` row shape pre-locked.** The
+  obvious candidate is "real photos cannot themselves carry a
+  `superseded_by`" (`storage_path IS NOT NULL AND superseded_by IS
+NOT NULL` → reject). Discussed in the spec but left to the build
+  PR to decide — the runtime cost is trivial, but it's a constraint
+  worth justifying in the ADR rather than retrofitting later.
+- **Indexing detail.** Partial index on `superseded_by WHERE
+superseded_by IS NOT NULL` is locked (required by ADR 0009).
+  `work_package_id` index is locked. The composite WP/phase index
+  is not pre-locked — the build PR measures and decides.
+
+### Next build unit
+
+**PR 1 — `photo_logs` + ADR 0015.** Schema + triple-enforcement +
+tombstone-supersede + pgTAP + types regen + skill update. Branch
+name proposed in the spec is `feat/photo-logs-table` — finalized
+when the PR is opened.
+
+### Open questions
+
+None blocking.
+
+- **Index sizing.** The composite `(work_package_id, phase)` (or
+  `(work_package_id, phase, created_at)`) index for `photo_logs` is
+  left to the build PR to measure. The read-path for the upload UI
+  is "list current photos for WP X, grouped by phase" — the right
+  index is whatever makes that one query a sub-millisecond hit.
+- **`uploaded_by` / `decided_by` FK target.** The spec records
+  these as "likely FK → `public.users(id)`." The choice between
+  `public.users(id)` and `auth.users(id)` is a build-PR detail —
+  `public.users(id)` is the conventional choice for app-layer
+  audit columns (`audit_log.actor_id` uses `auth.users(id)` because
+  it's a system-level table) and aligns with how `decided_by`
+  needs to participate in role checks via `current_user_role()`.
