@@ -1480,3 +1480,167 @@ None blocking.
   migration or a manual SQL session — because no DELETE policy
   exists. Intentional per ADR 0013; surfacing the operational
   detail.
+
+---
+
+## Unit: work_packages table — lean v1 child of projects
+
+- **Status:** Complete — 2026-05-24.
+- **Started / completed:** 2026-05-24.
+- **Spec:** Provided inline by the operator. No
+  `docs/feature-specs/NN-name.md` — schema-only unit. Access model
+  inherited from [ADR 0013](decisions/0013-project-access-model.md);
+  no new ADR required (the role-level decision already governs
+  `work_packages`).
+- **Branch:** `feat/work-packages-table`.
+
+### Done
+
+- **Migration**
+  [`supabase/migrations/20260524010000_create_work_packages.sql`](../supabase/migrations/20260524010000_create_work_packages.sql)
+  applied via `pnpm db:push`. Creates:
+  - `public.work_package_status` enum:
+    `not_started, in_progress, on_hold, complete, pending_approval`.
+    `pending_approval` is present in the enum but **no v1 logic
+    transitions to it** — that belongs to the future photo-upload
+    unit. In this unit status is manual-only metadata.
+  - `public.work_packages` table: `id uuid pk default
+gen_random_uuid()`, `project_id uuid not null references
+public.projects(id) on delete cascade`, `code text not null`,
+    `name text not null`, `description text` (nullable),
+    `status work_package_status not null default 'not_started'`,
+    `created_at`, `updated_at` (timestamptz, default `now()`).
+  - Composite unique constraint
+    `work_packages_project_code_unique unique (project_id, code)` —
+    a WP code is unique _within_ a project, not globally; two
+    different projects may carry the same code.
+  - Index `work_packages_project_id_idx on (project_id)`. The unique
+    constraint already creates a leading-`project_id` index, so this
+    is mostly redundant for selectivity — kept explicit so the FK
+    lookup intent is visible and so a future change to the unique
+    constraint cannot accidentally remove the index.
+  - `work_packages_set_updated_at` trigger BEFORE UPDATE → existing
+    `public.set_updated_at()` function from
+    `20260505143544_create_users.sql`. The function is **not**
+    redefined.
+  - RLS enabled. Three policies, all gated on
+    `public.current_user_role()` (ADR 0011) — never self-joining
+    `public.users`: - SELECT: `current_user_role() in ('site_admin',
+'project_manager', 'super_admin')`. - INSERT: `current_user_role() in ('project_manager',
+'super_admin')`. - UPDATE: `current_user_role() in ('project_manager',
+'super_admin')` in both USING and WITH CHECK. - **No DELETE policy.** Load-bearing — same archive-not-delete
+    contract as `projects` (ADR 0013).
+- `pnpm db:types` regenerated
+  [`src/lib/db/database.types.ts`](../src/lib/db/database.types.ts) —
+  `work_packages` Row/Insert/Update with FK relationship, and
+  `work_package_status` enum
+  (`["not_started","in_progress","on_hold","complete","pending_approval"]`)
+  both present.
+- **pgTAP** [`supabase/tests/database/08-work-packages.test.sql`](../supabase/tests/database/08-work-packages.test.sql)
+  — 40 assertions covering:
+  - Enum existence + exact labels (2).
+  - Table shape — PK, every column's type, NOT NULL / NULL
+    constraints, defaults (17).
+  - Foreign key: `project_id` → `projects.id` (1).
+  - Composite unique constraint on `(project_id, code)` (1).
+  - `work_packages_set_updated_at` trigger exists (1).
+  - RLS enabled (1).
+  - Policy-cmd enumeration: exactly SELECT/INSERT/UPDATE — **no
+    DELETE policy** (1).
+  - Authenticated-context simulation (`set local role authenticated`
+    - JWT claims + `_tap_buf` grants, pattern from
+      [`06-users-rls.test.sql`](../supabase/tests/database/06-users-rls.test.sql)
+      / [`07-projects.test.sql`](../supabase/tests/database/07-projects.test.sql)):
+    * **INSERT:** super_admin + project_manager succeed (2);
+      site_admin + visitor denied with SQLSTATE 42501 (2).
+    * **Composite-unique behavior:** as super_admin, insert
+      `WP-UNQ-001` under project A (lives_ok); duplicate insert
+      under project A is rejected with SQLSTATE 23505
+      (unique_violation); same code under project B succeeds (3).
+      This is the key behavioral assertion proving the constraint is
+      `(project_id, code)`, not `code` alone.
+    * **SELECT:** super_admin / site_admin / project_manager see
+      rows (3); visitor sees zero rows (1).
+    * **UPDATE:** project_manager + super_admin succeed (assert row
+      value changed) (2); site_admin attempt is silently filtered by
+      the USING clause — assert row value unchanged from previous
+      super_admin update (1).
+    * `set_updated_at` trigger fired during the project_manager /
+      super_admin UPDATEs — assert `updated_at > '2020-01-01'`
+      baseline (1).
+    * super_admin DELETE has no effect (row remains) (1).
+- Full pgTAP suite: **8 files, 104 assertions, all green**
+  (previously 7 files / 64).
+- `pnpm lint && pnpm typecheck && pnpm test && pnpm build` all pass
+  (21/21 vitest tests; 9 routes built — no app code changed).
+
+### Decisions made
+
+- **Migration timestamp `20260524010000`.** UTC clock here returned
+  `20260523181452`, which would sort _before_ the previous
+  `20260524000000_create_projects.sql`. Used a UTC-tomorrow timestamp
+  to keep filename-as-history monotonic with today's calendar date
+  (2026-05-24 in the operator's tz) and the previous migration's
+  ordering. Same workaround applied in the projects unit.
+- **Negative UPDATE test asserts state, not error.** When a USING
+  clause excludes all rows for a role, the UPDATE returns silently
+  with 0 rows affected — no SQLSTATE is raised. The site_admin
+  negative test therefore asserts that the row's `name` is unchanged
+  after the attempted UPDATE, mirroring the no-DELETE-policy pattern
+  from [`07-projects.test.sql`](../supabase/tests/database/07-projects.test.sql).
+  `throws_ok` is only useful for WITH CHECK violations on INSERT /
+  UPDATE-of-visible-row, where Postgres does raise 42501.
+- **`ON DELETE CASCADE` on `project_id`.** ADR 0013 forbids hard
+  deletes of projects through the app path (no DELETE policy on
+  `projects` either), so this CASCADE is a _defensive consistency
+  default_ for the case where a project is hard-deleted at the
+  service-role layer (migration / console). The application never
+  invokes this path. Documented inline in the migration.
+- **Explicit `project_id` index alongside the composite unique.**
+  PostgreSQL's unique constraint creates an index on
+  `(project_id, code)`, which is also usable for `project_id`-only
+  lookups. Keeping the standalone `work_packages_project_id_idx` is
+  belt-and-braces: if a future migration changes the unique
+  constraint's column order or removes the constraint entirely, the
+  FK-lookup index survives.
+- **`pending_approval` in the enum, but no transitions.** The enum
+  value is shipped now so the future photo-upload unit's transition
+  code is a behavior change rather than a schema migration. This
+  unit builds zero logic on status — including no triggers that
+  branch on it.
+
+### Deferred (tracked as future units)
+
+- **CSV import script (PR B).** The next domain unit. Will land
+  alongside its own ADR documenting the import contract (column
+  mapping, conflict handling for re-imports, idempotency, audit
+  trail). No dependency added in this unit; the importer brings its
+  own.
+- **Rich WP model (cost, progress, subcon, QA, tasks, equipment,
+  risk).** Explicitly out of v1 per the locked design. The current
+  five-column WP is sufficient for the photo → approval → PDF flow.
+  Additional columns / child tables land as the features that need
+  them ship — adding nullable columns / sibling tables to the
+  existing `work_packages` is a forward-compatible change.
+- **Photo-driven status transitions.** When a photo is uploaded
+  against a WP, the photo-upload unit will transition status to
+  `pending_approval`; the approval unit will transition to
+  `complete`. None of that is built here.
+- **`photo_logs` table.** Will reference `work_packages.id`. Future
+  unit, same role-level RLS pattern per ADR 0013.
+
+### Open questions
+
+None blocking.
+
+- **Should the SELECT policy gate on visibility to the WP's parent
+  project?** In v1 it doesn't matter — role-level access means every
+  privileged user sees every project too. When membership is
+  introduced (per ADR 0013's upgrade path), the WP SELECT policy
+  will tighten to require either super_admin **or** membership in
+  `project_members` keyed on `work_packages.project_id`. The
+  current policy shape is forward-compatible with that change.
+- **Is `description` worth its own column vs. deferring until
+  needed?** Kept because it's free (a nullable text column with no
+  index), the CSV import is likely to carry per-WP free text, and
+  removing it later is harder than declining to populate it.
