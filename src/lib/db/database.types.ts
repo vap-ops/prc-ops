@@ -123,6 +123,47 @@ export type Database = {
         };
         Relationships: [];
       };
+      work_packages: {
+        Row: {
+          code: string;
+          created_at: string;
+          description: string | null;
+          id: string;
+          name: string;
+          project_id: string;
+          status: Database["public"]["Enums"]["work_package_status"];
+          updated_at: string;
+        };
+        Insert: {
+          code: string;
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          name: string;
+          project_id: string;
+          status?: Database["public"]["Enums"]["work_package_status"];
+          updated_at?: string;
+        };
+        Update: {
+          code?: string;
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          name?: string;
+          project_id?: string;
+          status?: Database["public"]["Enums"]["work_package_status"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "work_packages_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -159,6 +200,12 @@ export type Database = {
         | "subcon_manager"
         | "accounting"
         | "visitor";
+      work_package_status:
+        | "not_started"
+        | "in_progress"
+        | "on_hold"
+        | "complete"
+        | "pending_approval";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -313,6 +360,13 @@ export const Constants = {
         "subcon_manager",
         "accounting",
         "visitor",
+      ],
+      work_package_status: [
+        "not_started",
+        "in_progress",
+        "on_hold",
+        "complete",
+        "pending_approval",
       ],
     },
   },
