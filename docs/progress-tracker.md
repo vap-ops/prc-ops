@@ -736,3 +736,114 @@ None blocking.
   session and shows up in slow-query logs, the fix is to add an
   index-aware variant or move role-gating into the application layer
   for that specific path. Not anticipated for v1 scale.
+
+---
+
+## Unit: ADR 0012 — adopt custom-flow LINE auth, revise spec 01 plan (docs-only)
+
+- **Status:** Complete — 2026-05-23.
+- **Started / completed:** 2026-05-23.
+- **Spec:** Provided inline by the operator. No
+  `docs/feature-specs/NN-name.md` — docs-only unit, no code.
+- **ADR:** [`docs/decisions/0012-custom-flow-line-auth.md`](decisions/0012-custom-flow-line-auth.md)
+  — supersedes [`docs/feature-specs/01-line-auth.md`](feature-specs/01-line-auth.md)
+  decision #4. Does **not** annotate ADR 0007 (user model + trigger
+  are unaffected; ADR 0011 already amended 0007 for the RLS helper).
+
+### Done
+
+- **ADR 0012 written.** Documents: (a) why the OIDC approach is dead
+  (HS256 vs ES256/RS256, exact Supabase auth-log error quoted), (b)
+  why `signInWithIdToken` is also unusable, (c) the proven mechanism
+  in step order (LINE OAuth handshake → HS256 verify → admin
+  `createUser` → `generateLink` → `verifyOtp` → role read → role
+  redirect) with the exact session-minting code, (d) the locked
+  route shape (`/auth/line/start`, `/auth/line/callback`, plain-link
+  login button — no client-side Supabase call), (e) env: `LINE_CHANNEL_ID`
+  and `LINE_CHANNEL_SECRET` graduate to `env.server.ts`, (f) safety
+  conditions for the load-bearing pieces (state/CSRF, HS256
+  `timingSafeEqual` + aud/iss/exp validation, admin client is
+  server-only, `hashed_token` never reaches the browser, synthetic
+  email is opaque), and (g) the operational LINE-allowlist policy.
+- **Spec 01 revised in place** to match the new plan:
+  - Status block updated with a 2026-05-23 revision line.
+  - Decision #4 marked superseded with a one-line pointer to ADR 0012.
+  - Decision #14 marked reversed by ADR 0012 (`LINE_CHANNEL_*` come
+    back to env.server.ts in PR 2).
+  - Phase 0 annotated: Step 0.2 (Supabase OIDC provider config) is
+    unused — leave existing dashboard state in place but skip for
+    new setups. Step 0.3 (LINE callback URL) rewritten to point at
+    the app's `/auth/line/callback`, with the allowlist policy spelled
+    out (multiple URLs allowed, no wildcards). Step 0.4 (verification)
+    folded into PR 2's manual smoke (the original pre-PR-2 verify
+    URL probed the dead OIDC path).
+  - PR 1 marked **COMPLETE** with the merge commit referenced.
+  - PR 2 fully rewritten for the custom flow: env additions, proxy
+    `PUBLIC_PATHS` update, `/auth/line/start` + `/auth/line/callback`
+    route handlers, `/auth/logout` unchanged, `LogoutButton` unchanged,
+    login button replaced with a server-rendered link/form, dead
+    OIDC code removal (`/auth/callback` + `login-button.tsx`'s
+    `signInWithOAuth`), verification checklist rewritten.
+  - PR 3 prerequisites and notes updated: now sits on top of PR 2's
+    custom-flow session and ADR 0011's RLS helper. The homepage
+    login button matches PR 2's plain-link pattern.
+  - PR 4 test-helper option (A) updated: the helper uses the same
+    admin `generateLink` + `verifyOtp` calls the production callback
+    uses (programmatic replay of the last three steps), not an OIDC
+    mock.
+  - References section: ADRs 0010, 0011, 0012 added with links;
+    findings doc cross-linked; the Supabase OIDC blog post kept but
+    flagged as no-longer-applicable.
+
+### Decisions made
+
+- **No annotation of ADR 0007.** Spec was explicit, and 0007's
+  content (the `auth.users` → `public.users` trigger + linkage) is
+  unaffected by this ADR. 0007 is already annotated by ADR 0011 for
+  the RLS-helper amendment, which is the appropriate place.
+- **Original PR 2 text replaced, not struck-through.** The original
+  PR 2 (OIDC-based) is partially preserved by the git history of
+  this file. Keeping it inline as strikethrough would make the spec
+  harder to read for the people who actually need to ship PR 2 next.
+  Status block points at the revision date; the FINDINGS doc and
+  ADR 0012 carry the deep historical context.
+- **`jose` is recommended, `node:crypto` is acceptable** for HS256
+  verification — spec PR 2 says so explicitly. The spike used
+  `node:crypto`; real PR 2 may continue using it or switch to `jose`.
+  Either way the safety conditions in ADR 0012 must be met.
+
+### Dead code currently on main (to be removed in real PR 2)
+
+The original (OIDC-based) PR 2 shipped to main in PR #15 (`940f412`)
+and the env-split + env-inline fixes that followed (#16, #17) kept
+that code building. The following files contain dead code that the
+real PR 2 will delete or rewrite:
+
+- `src/app/auth/callback/route.ts` — calls `exchangeCodeForSession`
+  against the Supabase Custom OIDC Provider, which rejects LINE's
+  HS256 `id_token`. Delete in PR 2.
+- `src/app/login/login-button.tsx` — contains the client-side
+  `signInWithOAuth({ provider: "custom:line" })` call. Replace with
+  a plain server-rendered anchor or form pointing at
+  `/auth/line/start`.
+- `proxy.ts` `PUBLIC_PATHS` references `/auth/callback` — update to
+  reference `/auth/line/start` and `/auth/line/callback` instead.
+
+### Verification
+
+- `pnpm lint && pnpm typecheck && pnpm test` all pass — docs-only
+  change should not affect them, and confirmed locally.
+- Build verified (no docs reference is consumed by a build step
+  that would break on the renumbering).
+
+### Open questions
+
+None blocking.
+
+- The Supabase Custom OIDC Provider configured in Phase 0 is dead
+  state in the Supabase dashboard. Removing it is the operator's
+  call; ADR 0012 does **not** instruct deletion (dashboard state is
+  out of any PR's scope).
+- The real PR 2 unit is now unblocked. The branch name suggested in
+  the spec is `feat/auth-core-custom-flow` to distinguish it from
+  the original `feat/auth-core` which shipped the OIDC code.
