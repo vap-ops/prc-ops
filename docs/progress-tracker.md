@@ -544,3 +544,89 @@ Schema and `parseClientEnv` signature untouched. Tests were unaffected
 ### Open questions
 
 None.
+
+---
+
+## Unit: LINE custom-flow auth spike (complete and removed)
+
+- **Status:** Complete — spike merged 2026-05-23 as `c4e03a1` (#18);
+  spike code removed 2026-05-23 in `chore/remove-line-auth-spike` once
+  the operator confirmed the live test on a Vercel preview proved the
+  mechanism end-to-end.
+- **Spec:** Provided inline by the operator. Spike artifact at
+  `docs/feature-specs/01-line-auth-FINDINGS.md` (moved from the
+  spike's working file in `spikes/line-auth-FINDINGS.md` so the record
+  survives the spike-code deletion).
+- **Question answered:** Can the app run its own LINE OAuth 2.1 flow,
+  verify LINE's HS256 id_token server-side, and mint a real Supabase
+  Auth session for the resolved user? **Yes.**
+
+### Done
+
+- Spike implemented under `src/app/spikes/line-auth/` (start, callback,
+  result routes) on `spike/line-auth-custom-flow`. Live-tested on a
+  Vercel preview deployment.
+- Live test (2026-05-23) returned `session_exists: true`, resolved
+  `auth_user_id` to `623f2da5-…`, synthetic email
+  `line_<sub>@line.local` worked, LINE profile captured in
+  `user_metadata { provider: 'line', line_sub, name }`. The
+  generateLink → verifyOtp pattern minted real Supabase session
+  cookies and `supabase.auth.getUser()` resolved server-side.
+- Spike code fully removed in this PR. The temporary
+  `pathname.startsWith("/spikes/")` bypass in `proxy.ts` removed in the
+  same commit (along with both `TEMPORARY spike bypass` comment lines).
+  `proxy.ts` is back to its pre-spike protection logic: any
+  unauthenticated request to anything other than `/`, `/login`, or
+  `/auth/callback` is redirected to `/login`.
+- Findings preserved at
+  [docs/feature-specs/01-line-auth-FINDINGS.md](feature-specs/01-line-auth-FINDINGS.md)
+  with the proven mechanism, the live-test evidence, the multi-env
+  `redirect_uri` derivation, the real-bug discovery (see next unit),
+  and the real-implementation recommendation.
+
+### Real bug discovered (next unit) — RLS infinite recursion on `public.users`
+
+The only failure in the live test was the result page's read of
+`public.users`. The query returned
+`"infinite recursion detected in policy for relation \"users\""`. The
+Supabase session itself is valid (`auth.uid()` resolved correctly).
+The cause is almost certainly the `super_admin full access on users`
+policy in `supabase/migrations/20260505143544_create_users.sql` — it
+self-joins `public.users` inside the `using` clause, which re-enters
+the same policy. This blocks both the spike's result page and the real
+auth implementation (which will need to read `users.role` after
+`exchangeCodeForSession` / session mint to redirect by role).
+
+**This is the next unit.** Fix lives in a dedicated PR (the spike
+removal does not fix it). Expected shape: rewrite the super_admin
+policy to use a `SECURITY DEFINER` helper that reads
+`public.users.role` while bypassing RLS, instead of self-joining. Will
+amend ADR 0007 because it changes how role checks compose.
+
+### Decisions made
+
+- **Findings doc preserved, not abandoned.** The spike's findings file
+  was the deliverable feeding ADR 0011 and the real-impl PR. Moving it
+  to `docs/feature-specs/01-line-auth-FINDINGS.md` (rather than letting
+  it die with the spike branch) keeps the proven session-minting
+  recipe, the live-test evidence, and the RLS-recursion discovery in
+  the spec set where the next implementer will look.
+- **LINE_CHANNEL_ID / LINE_CHANNEL_SECRET retained.** The spike read
+  these directly from `process.env`. They graduate to the real
+  implementation (which will reify them into `src/lib/env.server.ts`).
+  **Do not remove from `.env.local` or Vercel.**
+- **Top-level `spikes/` directory kept.** It still contains the
+  unrelated `spikes/01-pdf-generation/` artifacts plus the
+  `vitest.spike.config.ts` infrastructure. Only `spikes/line-auth-FINDINGS.md`
+  was removed; `01-pdf-generation/` is unaffected.
+
+### Pending
+
+- **ADR 0011** ("LINE auth via custom flow because Supabase OIDC
+  rejects HS256") — pending. Once the RLS recursion is fixed and the
+  real implementation lands, ADR 0011 captures the architectural
+  decision and supersedes
+  [`docs/feature-specs/01-line-auth.md`](feature-specs/01-line-auth.md)
+  decision #4 (Supabase Custom OIDC Provider).
+- **Real implementation** of the custom flow at `/auth/start` +
+  `/auth/callback` — pending. Blocked on the RLS recursion fix.
