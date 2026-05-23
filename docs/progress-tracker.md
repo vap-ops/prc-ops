@@ -1644,3 +1644,176 @@ None blocking.
   needed?** Kept because it's free (a nullable text column with no
   index), the CSV import is likely to carry per-WP free text, and
   removing it later is harder than declining to populate it.
+
+---
+
+## Unit: work_packages CSV import script (ADR 0014)
+
+- **Status:** Complete — 2026-05-24.
+- **Started / completed:** 2026-05-24.
+- **Spec:** Provided inline by the operator. Locked design decisions
+  → captured verbatim in
+  [`docs/decisions/0014-wp-import-contract.md`](decisions/0014-wp-import-contract.md).
+- **ADR:** [`docs/decisions/0014-wp-import-contract.md`](decisions/0014-wp-import-contract.md)
+  — references ADR 0013 (the WP access model the importer
+  deliberately bypasses via the admin client).
+- **Branch:** `feat/wp-import-script`.
+
+### Done
+
+- **Dependency added:** `papaparse@^5.5.3` (runtime) +
+  `@types/papaparse@^5.5.2` (dev). The approved single new
+  dependency. Picked over a hand-rolled CSV parser because real WP
+  CSVs will eventually carry quoted fields, embedded commas /
+  newlines, and UTF-8 (Thai project names) — all four properties
+  papaparse handles correctly.
+- **Pure validator**
+  [`src/lib/wp-import/parse.ts`](../src/lib/wp-import/parse.ts) —
+  `parseAndValidate(csvText, existingCodes): { rows, errors }`. No
+  I/O — no DB calls, no filesystem reads. The split between this
+  module and the CLI script is the load-bearing reason every
+  validation rule is testable from a crafted string.
+- **CLI script** [`scripts/import-wp.ts`](../scripts/import-wp.ts) —
+  thin I/O shell. Reads argv (project code + file path), opens the
+  CSV with `node:fs.readFileSync`, builds a local service-role
+  Supabase client (see "Decisions made" — `src/lib/db/admin.ts`
+  cannot be reused), looks up the project by code, fetches the
+  existing WP codes for that project, calls the pure validator,
+  reports all errors at once on failure, and batch-inserts on
+  success. `status` is intentionally omitted from the insert
+  payload — every imported row gets the column default
+  `not_started` (per ADR 0014).
+- **pnpm script** `import:wp` added:
+  `tsx --env-file=.env.local scripts/import-wp.ts`. Node 20.6+ and
+  tsx 4+ are required (the repo runs Node 22+ / tsx 4.21 — confirmed
+  via `pnpm exec tsx --version`). `.env.local` is loaded by Node's
+  built-in env-file mechanism, passed through by tsx; no new dotenv
+  dependency was added.
+- **Operator-facing template**
+  [`data/work-packages-template.csv`](../data/work-packages-template.csv) —
+  the three headers `code,name,description` with two example rows
+  (no real pilot data) — and
+  [`data/README.md`](../data/README.md) with the UTF-8 requirement
+  ("Excel: Save as → CSV UTF-8", "Sheets: File → Download → CSV"),
+  the one-file-per-project rule, the run command, the fail-all
+  semantics, and a link to ADR 0014.
+- **Unit tests**
+  [`tests/unit/wp-import-parse.test.ts`](../tests/unit/wp-import-parse.test.ts) —
+  13 cases against the pure validator. No DB or filesystem touched;
+  every test crafts a CSV string and an existing-codes Set inline.
+  Coverage:
+  - **Happy path (5):** two valid rows; blank description → NULL;
+    missing description column entirely → NULL; surrounding
+    whitespace trimmed; header-only file → empty rows / empty errors.
+  - **Validation rules (5):** missing code → error with row number;
+    missing name → error; in-file duplicate → error on the
+    duplicate row; existing-code conflict → error; multiple errors
+    across rows collected in one run, in row order.
+  - **papaparse robustness (3):** unknown extra columns ignored
+    (`cost`, `subcon`, `qa` carried over from a richer sheet);
+    quoted fields with embedded commas parsed correctly; Thai
+    characters in UTF-8 round-trip cleanly.
+- **Smoke check.** `pnpm import:wp` with no args loads cleanly via
+  tsx, prints the usage banner, exits 1. Confirms the path-alias
+  resolution (`@/lib/...`) works under tsx and that the
+  `--env-file=.env.local` flag passes through correctly. No real
+  import was run against the DB in this unit (per spec).
+- `pnpm lint && pnpm typecheck && pnpm test && pnpm build` all
+  pass. Vitest count: 21 → **34** (six test files now); build
+  output unchanged (9 routes — the importer is a script, not a
+  route).
+
+### Decisions made
+
+- **Local service-role client, not `src/lib/db/admin.ts`.**
+  `admin.ts` starts with `import "server-only"`, which throws at
+  module load outside the Next bundler — a plain `tsx scripts/...`
+  invocation would crash before reaching `main()`. The script
+  therefore builds its own client from `@supabase/supabase-js` +
+  `process.env.NEXT_PUBLIC_SUPABASE_URL` +
+  `process.env.SUPABASE_SERVICE_ROLE_KEY`. Same reasoning rules out
+  `src/lib/env.server.ts` (also `server-only`). The script is small
+  enough that the duplication is fine; the alternative would be
+  carving the admin client into a server-only-free core, which is
+  out of scope and would weaken the Next-side guard for the sake
+  of a single script.
+- **`.env.local` loaded via `--env-file`, not via a dotenv
+  package.** Node 20.6+ + tsx 4+ support this natively; the repo's
+  Node 22 / tsx 4.21 satisfies the requirement. No new dependency
+  was added for env loading. If a future tooling shift breaks the
+  `--env-file` path, falling back to a ~10-line manual `.env.local`
+  loader inside the script (no new dep) is the safe move — but it
+  is not needed today.
+- **Pure validator lives in `src/lib/wp-import/parse.ts`, not
+  alongside the script.** `src/lib/...` is the conventional home
+  for reusable pure logic in this repo; the path alias `@/*` makes
+  it importable by both the script (via tsx) and the test suite
+  (via vitest's matching alias) without per-file relative paths.
+  Future surfaces — e.g. an in-app drag-and-drop CSV importer for
+  the back-office UI — can reuse the exact same validator.
+- **papaparse `TooManyFields` / `TooFewFields` warnings are
+  ignored.** They fire on rows whose value count differs from the
+  header column count. Extra columns are part of the contract
+  ("unknown columns ignored"), and the per-field checks
+  (blank/missing `code`, blank/missing `name`) catch the
+  too-few-fields case as a meaningful row-level error. Other
+  papaparse errors (e.g. quoting failures) ARE surfaced as
+  validation errors with the row number.
+- **Row numbering is over non-empty data rows, 1-based.** Row 1 =
+  first non-empty row after the header. `skipEmptyLines: true`
+  means blank rows in the source don't shift the count, which
+  matches what the operator sees when scrolling through a typical
+  CSV (blank rows are visually skipped). Mentioned in the
+  function's doc-comment so future readers understand the mapping.
+
+### Operator follow-up (post-merge)
+
+The end-to-end import path could not be exercised in this session —
+running it would write to the linked DB. After merge, the operator
+runs the importer against a real WP file:
+
+```
+pnpm import:wp PRC-2026-001 ./data/lamsonthi-wps.csv
+```
+
+Expected outcomes:
+
+1. **Happy path:** "Imported N work_package(s) into PRC-2026-001
+   (TFG Lam Sonthi)." All rows visible in the DB; status
+   `not_started` on every row.
+2. **Bad row:** "Import failed — N validation error(s) in …",
+   followed by per-row error lines, then "No rows inserted. Fix
+   the file and re-run." DB unchanged.
+3. **Wrong project code:** `No project with code "X".` exit 1.
+
+### Deferred (tracked as future units)
+
+- **Photo logs (next domain unit).** Needs its own design session
+  to cover the supersede pattern (already established in
+  `.claude/skills/supersede-pattern`), the approval model
+  (`pending_approval` → `complete` transitions on WPs, who can
+  approve, audit-log entries), and the watermark-on-demand storage
+  pattern from ADR 0003.
+- **Back-office UI for WP CRUD.** The long-term successor to this
+  CLI importer. Will likely also handle ongoing edits of imported
+  WPs — the in-app surface for the "no upsert / sync" gap ADR 0014
+  leaves open.
+- **Upsert / bulk re-sync.** Explicitly v2; will need its own ADR
+  with diff semantics, deletion handling, and audit-log entries.
+
+### Open questions
+
+None blocking.
+
+- **Should the importer also re-print the operator's effective
+  project lookup before inserting?** Currently it prints the
+  result only on success. A "Importing N rows into PRC-2026-001
+  (TFG Lam Sonthi) — confirm with [y/N]" prompt is a future
+  ergonomics tweak if the operator wants a safety net; out of
+  scope here per "don't add features beyond what the task
+  requires."
+- **Should `import:wp` also log to `audit_log`?** Skipped for v1
+  per scope. The audit_log table is in place (ADR 0004) and could
+  carry an `import` action; the right time to wire it is when the
+  back-office UI lands and the full event surface is being
+  designed end-to-end.
