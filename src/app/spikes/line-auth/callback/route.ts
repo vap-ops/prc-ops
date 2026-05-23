@@ -135,19 +135,18 @@ export async function GET(request: NextRequest) {
 
   const channelId = process.env.LINE_CHANNEL_ID;
   const channelSecret = process.env.LINE_CHANNEL_SECRET;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-  if (!channelId || !channelSecret || !appUrl) {
-    return plain(
-      "Spike misconfigured: LINE_CHANNEL_ID / LINE_CHANNEL_SECRET / NEXT_PUBLIC_APP_URL missing.",
-      500,
-    );
+  if (!channelId || !channelSecret) {
+    return plain("Spike misconfigured: LINE_CHANNEL_ID / LINE_CHANNEL_SECRET missing.", 500);
   }
 
   // ---- 2. Exchange code at LINE's token endpoint ----
+  // redirect_uri must EXACTLY match the value /start sent to LINE's authorize endpoint.
+  // Both are derived from the request's own origin so the flow works on any domain
+  // (localhost, Vercel Preview, production) without per-environment env vars.
   const tokenBody = new URLSearchParams({
     grant_type: "authorization_code",
     code,
-    redirect_uri: `${appUrl}/spikes/line-auth/callback`,
+    redirect_uri: `${request.nextUrl.origin}/spikes/line-auth/callback`,
     client_id: channelId,
     client_secret: channelSecret,
   });

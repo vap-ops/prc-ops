@@ -69,6 +69,16 @@ Deterministic synthetic email `line_<sub>@line.local`. On every login, the callb
 
 `state` is a 16-byte hex string from `crypto.randomBytes(16).toString('hex')`. Stored in an httpOnly, `secure`, `sameSite=lax` cookie scoped to `/spikes/line-auth`, max-age 600s. Callback verifies and deletes it. On mismatch, returns plain-text 400 with both values for diagnostics.
 
+### Multi-environment `redirect_uri` (no env coupling)
+
+The `redirect_uri` sent to LINE's authorize endpoint (in `/start`) and to LINE's token endpoint (in `/callback`) is derived from `request.nextUrl.origin` — the incoming request's own origin — not from `process.env.NEXT_PUBLIC_APP_URL`. This was a deliberate change after the first spike commit: `NEXT_PUBLIC_APP_URL` is set once per Vercel project and points at the production domain, so Preview deployments would compute the wrong `redirect_uri` and fail LINE's `redirect_uri` exact-match check.
+
+Both routes derive the same string (`${request.nextUrl.origin}/spikes/line-auth/callback`), so the two values are guaranteed identical on a given request — they're built from the same input. The cookie set in `/start` and read in `/callback` happens to be on the same origin too, so `sameSite=lax` continues to work without further changes.
+
+The only requirement this places on operations is that the LINE channel's "Callback URL" allowlist must include every domain we want the spike to work on (production, every long-lived preview URL we test, and `localhost` if we ever exercise it locally). LINE accepts multiple callback URLs per channel, so this is a config-only concern.
+
+The trade-off: any host that can reach the route handler can ask LINE to redirect back to that same host's `/spikes/line-auth/callback`. That's fine here because LINE's allowlist is the actual gate — only allowlisted origins succeed. If a future production implementation wants belt-and-suspenders, it can add a server-side origin allowlist in addition.
+
 ## What surprised me
 
 1. **No direct admin-session API in 2026.** I expected one to exist by now. It still doesn't. The community-blessed workaround is the only path.
@@ -92,6 +102,7 @@ If the operator wants to ship this as the real LINE auth (replacing the failed C
 - **`/auth/start`** and **`/auth/callback`** stay as the only public-by-design auth surface. **Remove** the `pathname.startsWith("/spikes/")` proxy bypass at the same time the spike code is deleted.
 - **Reify** `LINE_CHANNEL_ID` and `LINE_CHANNEL_SECRET` into `src/lib/env.server.ts` (server-only — they must never reach the client bundle). The spike reads `process.env` directly because the spec scoped that out; real implementation needs zod-validated env.
 - **Use `jose`** for production JWT verification, not hand-rolled `node:crypto`. The spike's inline verifier is correct as written but is the kind of code that should live behind a library boundary in prod. `jose` is the modern, tree-shakable, Auth.js-blessed choice.
+- **Keep the request-origin `redirect_uri` derivation** in the real implementation. It removes a class of "Preview deployment works but Production doesn't" (or vice versa) bugs that come from a single `NEXT_PUBLIC_APP_URL` env var pointing at one specific domain. The only operational cost is keeping the LINE channel's "Callback URL" allowlist in sync with the domains you actually deploy to — Vercel Preview URLs that you test against must be added; ephemeral preview URLs for every PR cannot be (LINE doesn't support wildcards). Document the allowlist policy in the ADR.
 
 ### Schema follow-ups (not part of the spike's scope, but worth flagging)
 
