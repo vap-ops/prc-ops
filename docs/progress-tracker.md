@@ -3283,3 +3283,254 @@ key off.
 - **Watermark-on-demand rendering** (ADR 0003).
 - **PDF report generation** — filters on the latest
   `approvals.decision = 'approved'` per WP.
+
+---
+
+## Unit: PM approval UI
+
+- **Status:** Complete — 2026-05-24. The end-to-end human
+  flow (SA upload → PM approve) is now wired.
+- **Started / completed:** 2026-05-24.
+- **Spec:** Inline operator prompt; consumes
+  [`docs/feature-specs/02-photos-and-approvals.md`](feature-specs/02-photos-and-approvals.md)
+  approvals section + the patterns spec 03 PR 2
+  established (option-(a) guarded transition, signed-URL
+  viewing, Server Components + one Client form).
+- **Branch:** `feat/pm-approval-ui`.
+
+### Locked behaviour
+
+- Review state is **derived** from the latest `approvals`
+  row per WP (max `decided_at`). No `is_reviewable`
+  column, no submission record — same shape spec 02
+  already locked.
+- The ONLY new automated status transition is the
+  **approved → complete** flip on the parent WP. Mirrors
+  spec 03 decision 15 option (a): a single guarded
+  admin-client UPDATE inside the action,
+  `status='complete'` only, only from `pending_approval`.
+  `needs_revision` and `rejected` never change WP
+  status — the WP stays at `pending_approval` and gets a
+  new latest decision label.
+- `/pm` is a **flat, cross-project queue** of every WP
+  at `pending_approval`. Approved WPs are `complete` and
+  fall off automatically. Each item shows project
+  context + the latest-decision label
+  (`Awaiting first review` / `Revision requested` /
+  `Rejected`).
+- `/pm/work-packages/[workPackageId]` is the review
+  screen: project + WP context, current photos via the
+  existing signed-URL helpers (READ-ONLY for PM),
+  decision history newest-first with decider name +
+  comment + timestamp, and a record-decision form.
+- Routes are role-gated to `project_manager` /
+  `super_admin`. Site admins cannot reach these pages
+  (`requireRole` redirects them per `roleHome`); the
+  `approvals` INSERT RLS already excludes `site_admin`
+  as the load-bearing backstop.
+
+### Done
+
+- **`src/lib/approvals/predicates.ts`** — pure shared
+  predicates: `commentRequiredFor`,
+  `isCommentValid` (trim-non-empty mirror of the DB
+  CHECK), `shouldTransitionToComplete` (mirrors
+  `shouldTransitionToPendingApproval` from spec 03 PR 2),
+  and the `APPROVAL_DECISIONS` constant the form's radio
+  group depends on.
+- **`src/lib/approvals/latest-decision.ts`** — three
+  helpers:
+  - `selectLatestDecisionByWorkPackage(rows)` — pure
+    reducer, order-independent over the input, returns
+    `Map<wpId, ApprovalRow>` of max-`decided_at` per WP.
+  - `getLatestDecisionsForWorkPackages(supabase, wpIds)`
+    — fetch + reduce; the queue's read.
+  - `getDecisionHistoryForWorkPackage(supabase, wpId)` —
+    full history newest-first; the review screen's read.
+    Threading the `SupabaseClient<Database>` through
+    these helpers is what gives the page typed enum rows
+    (db/server.ts is not generic-typed; helpers like
+    this are the codebase pattern for typed reads —
+    mirrors current-photos.ts).
+- **`src/app/pm/work-packages/[workPackageId]/actions.ts`**
+  — `recordDecision` server action (file-scoped
+  `"use server"`): uuid + decision + comment validation;
+  explicit role check (SSR `users` row, role ∈
+  `{project_manager, super_admin}`) on top of the
+  approvals-INSERT RLS backstop; refuses if the WP isn't
+  `pending_approval`; comment normalised (trim → null if
+  blank); SSR-INSERT approvals; guarded admin UPDATE
+  `status='complete'` only from `pending_approval`;
+  `revalidatePath` for both `/pm` and the review screen;
+  discriminated `{ ok, ... }` result.
+- **`src/app/pm/page.tsx`** — replaces the placeholder
+  with the queue. Two-query fetch (WPs at
+  `pending_approval`, then `projects` keyed by id —
+  matches the codebase pattern; no PostgREST join
+  inflection) and per-item latest-decision label.
+  Logout button retained.
+- **`src/app/pm/work-packages/[workPackageId]/page.tsx`**
+  — the review screen. Reuses
+  `getCurrentPhotosForWorkPackage` +
+  `mintSignedUrlsForPhotos` as-is (the photo_logs /
+  bucket policies admit PM/super). Decision history with
+  pill colour + decider name + timestamp + comment.
+  Record-decision form rendered only when
+  `status === 'pending_approval'`; otherwise a
+  not-up-for-review notice.
+- **`src/app/pm/work-packages/[workPackageId]/record-decision-form.tsx`**
+  — Client Component. Native styled radios for the three
+  decisions, shadcn `Textarea` for the comment,
+  client-side validation gated by `isCommentValid`,
+  submit disabled until valid. On success →
+  `router.push('/pm')` + `router.refresh()`. On error →
+  inline alert with the action's message.
+- **shadcn primitive added** via the CLI: `textarea` —
+  one new file at `src/components/ui/textarea.tsx`. The
+  decision picker is native radios styled with Tailwind
+  (one use site; `radio-group` would have been extra
+  weight).
+
+### Decider-name lookup
+
+`public.users` SELECT under the SSR client is gated to
+`users read self` plus the super_admin policy. A PM
+reading another PM's name through their own session
+returns zero rows. Options:
+
+- **Add an RLS policy admitting PMs to read
+  `users.full_name`.** Broadens row visibility for the
+  whole table; out of this unit's scope and the prompt
+  says "no RLS change."
+- **Admin-client lookup, narrow** — exactly the shape
+  [`src/lib/photos/signed-urls.ts`](../src/lib/photos/signed-urls.ts)
+  established: the page is already past
+  `requireRole(["project_manager","super_admin"])`, the
+  input set is the decider ids appearing in this WP's
+  approvals (RLS-readable for the PM), and the output is
+  just display names. Pure application-layer auth +
+  service-role data fetch.
+
+Chose the latter. `fetchDeciderNames(ids)` lives inline
+in the review page; the admin client is created
+locally and never leaves the function. If more PM-
+facing surfaces need cross-user name visibility later,
+the cleaner long-term shape is an RLS policy admitting
+privileged roles to read `users.full_name` — not more
+admin-client sprinkles.
+
+### Tests
+
+- **`tests/unit/approvals-helpers.test.ts`** (14
+  assertions):
+  - `selectLatestDecisionByWorkPackage`: empty input;
+    single-row WP; multi-row WP returns max-`decided_at`;
+    order-independent over input; multiple WPs each get
+    their own latest independently.
+  - `commentRequiredFor`: only `rejected` and
+    `needs_revision`.
+  - `isCommentValid`: every (decision × null / empty /
+    whitespace / real-text) combination, including the
+    edge case of `approved` with a whitespace-only
+    comment (accepted).
+  - `shouldTransitionToComplete`: only true for
+    `approved` + `pending_approval`; false for every
+    other (decision × status) pair, including the
+    non-regression cases (`approved` from `complete` or
+    other non-pending statuses).
+  - `APPROVAL_DECISIONS` constant shape — locks the
+    alphabetised order the form's radio group depends
+    on.
+- 68/68 total tests passing (14 new + 54 from prior
+  units).
+
+### Decisions made
+
+- **Two-query fetch instead of a PostgREST join.** The
+  joined-relation typing inflated to an array in our
+  setup; the codebase pattern (mirrored from
+  current-photos.ts) is two simple queries plus a map.
+  Cleaner types, identical round-trip cost at pilot
+  scale.
+- **Native radios styled with Tailwind, not shadcn
+  `radio-group`.** One use site; adding the dep would be
+  extra weight. Keyboard accessible via native
+  semantics; matches the dark/zinc aesthetic from PR 1 +
+  PR 2 of spec 03.
+- **`status !== 'pending_approval'` shows a notice, not
+  a redirect.** A PM landing on a WP that someone else
+  just approved sees the full decision history and the
+  new status without being booted out.
+- **Comment normalised to NULL for approved with blank
+  input.** The CHECK only requires non-blank text for
+  negative decisions; storing `""` or `"  "` on
+  approved would be noise.
+- **`recordDecision` returns `{ transitioned }` on
+  success** even though the form doesn't display it.
+  Parity with `addPhoto`; future surfaces (toast,
+  analytics) can consume it without changing the
+  action's shape.
+
+### Open questions
+
+- **PM separation-of-duties** still open per spec 02 (a
+  PM who uploaded photos to a WP can still approve that
+  WP). Documented v1 gap; not enforced here.
+- **Authenticated UI E2E** still not added — same
+  posture as the SA UI PRs; operator's manual smoke on
+  a Vercel preview against `WP-TEST-001` is the
+  verification step.
+- **`next/image` for signed URLs.** Plain `<img>` again
+  to avoid the `remotePatterns` dependency in this PR;
+  revisit when a surface needs the optimization.
+- **Decider names via admin lookup.** Narrow and
+  defensible. If broader PM ↔ PM name visibility is
+  needed, the right move is an RLS policy admitting
+  privileged roles to read `users.full_name`, not more
+  admin-client lookups.
+
+### Verification
+
+- `pnpm lint` — clean.
+- `pnpm typecheck` — clean.
+- `pnpm test` — 68/68 passing (14 new + 54 existing).
+- `pnpm build` — succeeds. All 12 routes compile,
+  including the new `/pm` and
+  `/pm/work-packages/[workPackageId]`.
+- **End-to-end behaviour against the live remote DB is
+  the operator's manual smoke** on a Vercel preview:
+  load `/pm`, see `WP-TEST-001` in the queue, open the
+  review screen, see the photos + decision history +
+  form; record a `needs_revision` (comment required, WP
+  stays in queue with the "Revision requested" pill);
+  then record an `approved` (WP flips to `complete` via
+  the guarded admin UPDATE and drops off the queue).
+
+### Feature status — human flow
+
+**The SA upload → PM approve human flow is now COMPLETE
+end-to-end.** SAs upload Before/During/After photos
+against a WP; the first After photo flips the WP to
+`pending_approval` (spec 03 PR 2); PMs see the WP in
+their queue, review the photos, and record a decision;
+`approved` flips the WP to `complete` (this unit). Every
+decision is preserved in `approvals` as an append-only
+event; the WP's "current decision" is the row with
+max(`decided_at`).
+
+### Next units (not started)
+
+- **Supersede-pattern skill update** (still deferred —
+  re-flagged). The tombstone variant has had production
+  consumers since spec 03 PR 2;
+  [`.claude/skills/supersede-pattern/SKILL.md`](../.claude/skills/supersede-pattern/SKILL.md)
+  still teaches only the replacement framing.
+- **Watermark-on-demand rendering** (ADR 0003) — the
+  next reader-side concern now that the PDF report has
+  approved rows to filter on.
+- **PDF report generation** — filters on the latest
+  `approvals.decision = 'approved'` per WP, joins the
+  current photos, and lays them out. Approved WPs from
+  this unit are its first real input.
+- **PM separation-of-duties guard** — documented gap;
+  may land alongside another approvals-related unit.
