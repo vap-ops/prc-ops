@@ -3534,3 +3534,241 @@ max(`decided_at`).
   this unit are its first real input.
 - **PM separation-of-duties guard** — documented gap;
   may land alongside another approvals-related unit.
+
+---
+
+## Unit: reports table + private reports Storage bucket
+
+- **Status:** Complete — 2026-05-25.
+- **Started / completed:** 2026-05-25.
+- **Spec:** Provided inline by the operator. Schema-only
+  unit — the Railway PDF worker and the PM report UI
+  are separate later units.
+- **Branch:** `feat/reports-table`.
+
+### Locked behaviour
+
+- `reports` is a **job record** for async PDF
+  generation. A PM inserts a row at
+  `status='requested'`; a Railway worker (service role)
+  picks it up, generates the PDF, uploads to the
+  `reports` Storage bucket, and updates the row to
+  `complete` (with `storage_path`) or `failed` (with
+  `error`).
+- **Mutable** table — NOT append-only. The worker
+  rewrites `status`, `storage_path`, `error`,
+  `updated_at` in place. Shape mirrors `projects`
+  (set_updated_at trigger + role-level RLS via
+  `current_user_role()`), **not** the photo_logs /
+  approvals triple-enforcement.
+- **Access model (ADR 0013):**
+  - SELECT: `project_manager` + `super_admin`. **Not
+    `site_admin`** — SAs don't consume reports in v1.
+    Load-bearing visibility split.
+  - INSERT: `project_manager` + `super_admin`. Initial
+    state (`status='requested'`, `storage_path=null`,
+    `error=null`) is enforced by column defaults.
+  - **No UPDATE policy.** App users cannot mutate
+    reports through their own session. The Railway
+    worker uses the service role, which bypasses RLS
+    by design — that is the only mutation path.
+  - **No DELETE policy.** Same archive-not-delete
+    posture as projects / work_packages.
+- **Reports bucket:** private, 50 MiB ceiling,
+  `application/pdf` only. **No** `storage.objects`
+  policies for the bucket — service-role-only access
+  (worker writes; PM-report UI will mint signed URLs
+  server-side via service role). Mirrors the
+  photos-bucket posture (no broad authenticated SELECT
+  / INSERT policies).
+
+### Done
+
+- **Migration**
+  [`supabase/migrations/20260525000000_create_reports.sql`](../supabase/migrations/20260525000000_create_reports.sql):
+  - `create type public.report_status as enum
+('requested','processing','complete','failed');`
+  - `create table public.reports (id uuid pk,
+project_id uuid FK projects ON DELETE CASCADE,
+status report_status default 'requested',
+storage_path text null, error text null,
+requested_by uuid FK users, created_at timestamptz
+default now(), updated_at timestamptz default
+now());`
+  - `reports_set_updated_at` trigger attached to the
+    existing `public.set_updated_at()` function (NOT
+    redefined).
+  - Indexes: `reports_project_id_idx` (plain, for the
+    future PM UI's "list reports for project X"
+    query) and `reports_active_status_idx` (partial on
+    `status WHERE status in
+('requested','processing')` for the worker's
+    poll-for-work hot path; storage cost bounded to
+    the in-flight job queue, not the full report
+    archive).
+  - RLS enabled; INSERT + SELECT policies via
+    `public.current_user_role()` per ADR 0011 (never
+    self-joining `public.users`).
+  - Private `reports` bucket (idempotent
+    `on conflict (id) do nothing`), 50 MiB,
+    `['application/pdf']` MIME allowlist. No
+    `storage.objects` policies — service-role-only by
+    design.
+- **`pnpm db:push`** clean apply.
+- **`pnpm db:types`** regenerated — `reports` and
+  `report_status` appear in
+  [`src/lib/db/database.types.ts`](../src/lib/db/database.types.ts).
+  The Supabase CLI's output is no-semicolons /
+  single-quotes; the file diff is large purely from
+  formatting, with the real change being the new
+  `reports` Tables entry and the `report_status` enum
+  entry.
+- **pgTAP test**
+  [`supabase/tests/database/12-reports.test.sql`](../supabase/tests/database/12-reports.test.sql)
+  (42 assertions, mirroring the 07/08 mutable-table
+  pattern + the 11 bucket-catalog pattern):
+  - **Catalog (B, 24):** enum exists + four labels;
+    table shape; every column's type / NULL / default;
+    both FKs; the `set_updated_at` trigger; both
+    indexes (including the partial one).
+  - **RLS (C, 2):** `relrowsecurity = true`;
+    `pg_policies` for `reports` enumerates EXACTLY
+    `[INSERT, SELECT]` — no UPDATE, no DELETE.
+  - **INSERT (D, 4):** super_admin and PM `lives_ok`;
+    site_admin and visitor `throws_ok` 42501.
+  - **SELECT (E, 4):** super_admin and PM see ≥1 row;
+    **site_admin sees 0** (the load-bearing
+    visibility split); visitor sees 0.
+  - **No app UPDATE (F, 1):** PM UPDATE under their
+    own session affects zero rows; the fixture row's
+    `status` remains `'requested'`. Same pattern
+    07-projects uses for "no DELETE policy" — assert
+    on row state, not on errors, since RLS-filtered
+    UPDATEs are silent.
+  - **No app DELETE (G, 1):** super_admin DELETE
+    affects zero rows; the fixture remains.
+  - **set_updated_at trigger (H, 1):** `reset role` to
+    postgres (mirroring the Railway worker's
+    service-role context, the only mutation path),
+    UPDATE the fixture, assert `updated_at` moved
+    past the seeded `2020-01-01`.
+  - **Bucket catalog (I, 5):** bucket row exists; is
+    private; 50 MiB ceiling; `['application/pdf']`
+    MIME allowlist; **no** `storage.objects` policies
+    whose name starts with `reports` (the
+    absence-of-policies invariant for the
+    service-role-only posture).
+  - 244/244 assertions across 12 files passing.
+- `pnpm lint && pnpm typecheck && pnpm test && pnpm
+build` all green. Vitest still 68/68 (no app code
+  touched in this unit — the table will be consumed by
+  the worker and the future PM-report UI).
+
+### Decisions made
+
+- **Mutable-table pattern, not append-only.** A reports
+  row's whole reason to exist is to be updated by the
+  worker (requested → processing → complete | failed +
+  storage_path or error). Triple-enforcement (REVOKE +
+  no policies + trigger-raise) would have prevented
+  the worker from doing its job. Instead the worker
+  runs as service role and bypasses RLS; app users get
+  the narrow INSERT-and-read RLS that prevents direct
+  tampering with in-flight jobs.
+- **Partial index on active statuses.** The worker
+  polls "give me a row at `requested` or `processing`"
+  on every cycle; the index's WHERE clause filters out
+  the terminal `complete` / `failed` rows so the
+  index stays small as the report archive grows.
+  Plain `(status)` would still answer the query, but
+  would bloat to the size of the archive over time.
+- **`reset role` to postgres for the trigger test.**
+  App users cannot UPDATE the table (correct
+  behaviour), so the trigger's effect is only
+  observable in a context that bypasses RLS — which
+  is exactly the worker's running context. Testing
+  under `postgres` (the runner's outer role) is the
+  closest faithful simulation that pgTAP can express.
+- **`error` column, not `error_message` / `last_error`
+  / a separate `report_failures` table.** Spec asked
+  for a single column with a short reason for
+  debugging; one text column is the right grain for
+  "what should the operator see when they peek at this
+  row?". A separate failures-log table would be
+  over-engineering for v1.
+- **`storage_path` is `text`, not `text not null` with
+  a sentinel.** Mirrors `photo_logs.storage_path`'s
+  shape: NULL is the "no object yet" state. Initial
+  rows have it NULL; the worker fills it on success
+  and never on failure.
+
+### Open questions
+
+- **Worker auth / retry / poison-pill.** Out of scope
+  for this PR. The Railway worker (separate unit) will
+  decide: how to claim a job (presumably an UPDATE
+  WHERE status='requested' RETURNING…), the retry
+  policy on transient failures, the cap on retry count
+  before terminal `failed`, and what `error` text
+  looks like for the PM-facing UI. None of these
+  change the schema.
+- **Per-PM visibility scoping.** v1's SELECT policy
+  admits every PM to every report. Same posture as
+  the rest of the v1 domain tables — if cross-PM
+  isolation becomes a requirement (external PM,
+  etc.), the membership upgrade in ADR 0013 covers
+  it.
+- **Bucket lifecycle / retention.** Generated PDFs
+  accumulate forever in v1. A future cleanup unit (or
+  Supabase Storage lifecycle rules) can age them out;
+  no v1 blocker.
+
+### Verification
+
+- `pnpm db:push` — clean.
+- `pnpm db:types` — `reports` + `report_status`
+  present.
+- `pnpm db:test` — 244/244 across 12 files (42 new).
+- `pnpm lint` — clean.
+- `pnpm typecheck` — clean.
+- `pnpm test` — 68/68 (no app code changes; the table
+  has no callers yet).
+- `pnpm build` — succeeds. 12 routes unchanged.
+
+### Next units (not started)
+
+- **Railway PDF worker** — a new `/worker`
+  subdirectory in this repo, deployed to Railway.
+  Polls `public.reports` for rows at
+  `status='requested'` under the service role, claims
+  a row (UPDATE → status `processing`), gathers the
+  project's `complete` WPs + their current After
+  photos (current-photos helper semantics,
+  server-side), generates the PDF, uploads to the
+  `reports` Storage bucket, and updates the row to
+  `complete` with `storage_path` (or `failed` with
+  `error`). Decides its own retry / poison-pill
+  policy.
+- **PM report UI** — "Generate report" button on a
+  project surface (inserts a `reports` row); status
+  display of in-flight + recent jobs for the project;
+  signed-URL download when `complete` (server-minted
+  via service role, short TTL, same shape as the
+  signed-URL helper at
+  [`src/lib/photos/signed-urls.ts`](../src/lib/photos/signed-urls.ts)).
+- **Supersede-pattern skill update** — still
+  deferred, re-flagged. Tombstone variant has had
+  production consumers since spec 03 PR 2; the skill
+  still teaches only the replacement framing.
+- **Watermark-on-demand rendering** (ADR 0003) — once
+  the PDF worker exists, the watermark renderer can
+  sit in front of the same signed-URL helper as a
+  transformation step.
+- **v2 deferrals (re-flagged):** PM image-curation
+  per report; deliverable-grouping of WPs in the PDF;
+  multi-project reports; watermark; Before / During
+  photos in the report (v1 PDF is After-only,
+  matching the spec-02 "what was approved" framing).
+- **PM separation-of-duties guard** — documented v1
+  gap; may land alongside another approvals-related
+  unit.
