@@ -33,6 +33,48 @@ export type Database = {
   };
   public: {
     Tables: {
+      approvals: {
+        Row: {
+          comment: string | null;
+          decided_at: string;
+          decided_by: string;
+          decision: Database["public"]["Enums"]["approval_decision"];
+          id: string;
+          work_package_id: string;
+        };
+        Insert: {
+          comment?: string | null;
+          decided_at?: string;
+          decided_by: string;
+          decision: Database["public"]["Enums"]["approval_decision"];
+          id?: string;
+          work_package_id: string;
+        };
+        Update: {
+          comment?: string | null;
+          decided_at?: string;
+          decided_by?: string;
+          decision?: Database["public"]["Enums"]["approval_decision"];
+          id?: string;
+          work_package_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "approvals_decided_by_fkey";
+            columns: ["decided_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "approvals_work_package_id_fkey";
+            columns: ["work_package_id"];
+            isOneToOne: false;
+            referencedRelation: "work_packages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       audit_log: {
         Row: {
           action: Database["public"]["Enums"]["audit_action"];
@@ -230,6 +272,7 @@ export type Database = {
       };
     };
     Enums: {
+      approval_decision: "approved" | "rejected" | "needs_revision";
       audit_action:
         | "insert"
         | "update"
@@ -390,6 +433,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      approval_decision: ["approved", "rejected", "needs_revision"],
       audit_action: [
         "insert",
         "update",
