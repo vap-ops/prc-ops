@@ -2993,3 +2993,293 @@ transition privilege) — propose one of (a) / (b) / (c) and
 stop for operator decision before writing the transition
 code. Then ship `addPhoto` + `removePhoto` server actions
 and wire the photo screen's add/remove controls.
+
+---
+
+## Unit: SA upload UI — PR 2 of 2: upload, removal, pending_approval transition
+
+- **Status:** Complete — 2026-05-24. Feature spec 03 is now
+  complete end-to-end.
+- **Started / completed:** 2026-05-24.
+- **Spec:** [`docs/feature-specs/03-sa-upload-ui.md`](feature-specs/03-sa-upload-ui.md)
+  PR 2 section.
+- **Branch:** `feat/sa-upload-write`.
+
+### Resolved opener — spec 03 decision 15
+
+The SA-triggered WP status transition uses **option (a) —
+admin-client escalation INSIDE the upload server action**.
+Rationale: smallest surface, the escalation is one guarded
+UPDATE in one function, `work_packages` RLS unchanged, no
+new migration / trigger / ADR required. The UPDATE is
+narrow:
+
+- only the `status` column;
+- only to `'pending_approval'`;
+- only when the WP's current `status` is
+  `not_started | in_progress | on_hold` — enforced as a SQL
+  `.in("status", TRANSITIONABLE_FROM_STATUSES)` clause on
+  top of the JS predicate, so the rule lives in two
+  independent layers and can't be widened by a future
+  caller.
+
+The admin client is otherwise NOT a general WP-update path —
+this is the single guarded transition the spec authorised.
+Option (b) (widen `work_packages` UPDATE RLS to `site_admin`)
+was rejected as a strictly larger surface for no win; option
+(c) (DB trigger) was rejected as out of proportion for one
+transition.
+
+### Done
+
+- **`src/lib/photos/path.ts`** — pure path / input validators:
+  - `PHOTO_EXTS = ['jpeg','png','webp','heic']` (matching the
+    bucket's `allowed_mime_types`); `PhotoExt` is the union.
+  - `isValidPhotoExt(value)` and `isValidUuid(value)` —
+    type-narrowing guards; UUID regex catches the standard
+    8-4-4-4-12 hex form. The UUID guard rejects path-traversal
+    style inputs (`"../etc/passwd"`, a uuid with appended
+    `/extra`).
+  - `buildPhotoStoragePath(projectId, wpId, photoId, ext)` —
+    canonical `{project_id}/{work_package_id}/{photo_id}.{ext}`
+    builder; the single source of truth for the path shape on
+    both client and server (the action reconstructs it from
+    validated inputs and the WP's own `project_id`).
+  - `mimeToPhotoExt(mime)` — maps `image/jpeg|png|webp|heic`
+    to the canonical ext. The client derives ext from
+    `file.type` (not from the file name), so casing /
+    extension aliasing (`.JPG` → `image/jpeg`) can never
+    produce a path the server would reject.
+- **`src/lib/photos/transitions.ts`** —
+  `shouldTransitionToPendingApproval(phase, currentStatus)`
+  pure predicate + `TRANSITIONABLE_FROM_STATUSES` constant.
+  Used by `addPhoto` to predicate the transition and by the
+  SQL guard to enforce it in the UPDATE clause.
+- **`src/lib/photos/tombstone.ts`** —
+  `buildTombstoneRow({ workPackageId, phase, targetPhotoId,
+uploadedBy })` returns an `INSERT` payload with
+  `storage_path: null, superseded_by: targetPhotoId`. Pure
+  so the row shape can be asserted against the ADR 0015
+  well-formedness invariant `(path NULL) = (superseded_by
+NOT NULL)` in unit tests.
+- **`src/app/sa/projects/[projectId]/work-packages/[workPackageId]/actions.ts`** —
+  server actions (file-scoped `"use server"`):
+  - **`addPhoto({ workPackageId, phase, photoId, ext,
+capturedAtClient? }): AddPhotoResult`** - validates uuid / phase / ext; - looks up the WP via the SSR client under the user's
+    RLS context — if it can't read it, refuses without
+    leaking whether the row exists; - reconstructs the canonical storage path from the
+    validated inputs and the WP's own `project_id` — the
+    client never sends a path string, so there is nothing
+    to "verify"; - INSERTs the `photo_logs` row under the user's session
+    (RLS admits SA/PM/super_admin per ADR 0015); - if and only if `shouldTransitionToPendingApproval`
+    returns true, runs a single guarded UPDATE on
+    `work_packages` via the admin client:
+    `.update({ status: 'pending_approval' })
+        .eq('id', wp.id)
+        .in('status', TRANSITIONABLE_FROM_STATUSES)`.
+    The IN clause is the load-bearing safety net — even
+    if the JS predicate above were buggy, this UPDATE
+    will still no-op on `pending_approval` and `complete`. - `revalidatePath('/sa/projects/.../work-packages/...')`
+    after success; - returns `{ ok: true, photoId, transitioned } |
+{ ok: false, error }` — discriminated so the UI can
+    pattern-match without exception handling.
+  - **`removePhoto({ photoLogId }): RemovePhotoResult`** —
+    validates uuid; reads the target under the user's RLS
+    (RLS-rejected reads surface as "not found", which is
+    the right semantic); refuses if the target is already a
+    tombstone (`storage_path === null`); also checks
+    nothing else already supersedes it (defends against
+    double-remove racing a stale UI); INSERTs the tombstone
+    under the user's session; `revalidatePath` and return.
+    **Removal does NOT change WP status** in v1 — the
+    one-way rule the spec locked.
+- **`phase-uploader.tsx`** — single Client Component owning
+  the per-phase interactive surface (Add control, pending
+  upload tiles with status, remove ✕ button on each existing
+  thumbnail). Sequential uploads (one at a time per file
+  picked) with per-photo status: `uploading → uploaded →
+inserting → done` on the happy path; `upload-error`
+  (Storage upload failed — retry re-uploads with the same
+  uuid) or `insert-error` (Storage succeeded but the action
+  failed — retry replays only the action; the object is
+  already in Storage at the canonical path). After a
+  successful action call, removes the pending tile and
+  `router.refresh()` so the server re-renders with fresh
+  signed URLs from the now-real `photo_logs` row.
+- **Photo screen page** updated to render `<PhaseUploader>`
+  instead of the read-only `<PhaseSection>`. Server data
+  flow is unchanged — page still server-renders the WP
+  fetch, the current-photos query, and the batched
+  signed-URL minting; the uploader Client Component
+  receives `{ id, url }[]` per phase and owns nothing
+  beyond the local pending-upload state.
+- **Path conventions on the wire.** File bytes go DIRECT
+  from the browser to Storage (`supabase.storage
+.from('photos').upload(path, file, { contentType,
+upsert: false })`). Only metadata (workPackageId,
+  phase, photoId, ext, capturedAtClient) flows to the
+  server action. Admin client + service-role key never
+  reach the browser bundle (the action module is
+  `server-only`).
+- **Orphan-recovery UX.** Per spec decision 9, an upload
+  that succeeds but whose `photo_logs` insert fails
+  produces an orphaned Storage object (invisible to the
+  app). The UI surfaces this as
+  `"Upload saved but failed to record — <error>"` with a
+  Retry button that re-invokes ONLY the server action with
+  the same uuid + path — succeeds on the second try, the
+  row matches the existing object, no re-upload.
+
+### Tests
+
+- **`tests/unit/photo-write-helpers.test.ts`** (15 assertions):
+  - `isValidPhotoExt`: accepts the four canonical exts,
+    rejects `jpg` (must be normalised by the client),
+    rejects unrelated / mis-cased / non-string values.
+  - `isValidUuid`: accepts well-formed v4 uuids; rejects
+    empty / mis-shaped / path-traversal style inputs;
+    rejects non-strings.
+  - `buildPhotoStoragePath`: canonical concat form.
+  - `mimeToPhotoExt`: the four supported MIMEs map to their
+    exts; everything else returns `null`.
+  - `shouldTransitionToPendingApproval`: transitions ONLY
+    when `phase='after'` AND status is in
+    `{not_started, in_progress, on_hold}`; never on
+    `before`/`during` regardless of status; never regresses
+    `pending_approval` or `complete`.
+  - `buildTombstoneRow`: produces `storage_path NULL,
+superseded_by = targetId`; satisfies the ADR 0015
+    `(path NULL) = (superseded_by NOT NULL)` invariant.
+
+  No tests for the server-action wiring or Storage I/O —
+  those are exercised by manual smoke against the deploy.
+  The PURE decision logic (path, transition, tombstone) is
+  unit-covered, which is the spec's specific ask.
+
+### Decisions made
+
+- **Option (a) escalation, with a SQL guard layered on top
+  of the JS predicate.** The JS check
+  (`shouldTransitionToPendingApproval`) decides whether to
+  run the UPDATE at all; the `.in('status',
+TRANSITIONABLE_FROM_STATUSES)` clause inside the UPDATE
+  guarantees the rule even if the predicate is later
+  broadened. Two independent layers, both ADR-0013-aware,
+  no work_packages RLS change.
+- **Photo INSERT under the user's session, transition via
+  admin client.** The photo_logs INSERT goes through the
+  SSR (anon-key + cookies) client so RLS is the
+  authorisation primitive — it's the same RLS that admits
+  uploads to the Storage bucket, so by construction
+  anyone who could upload can also INSERT. The status
+  UPDATE goes via the admin (service-role) client because
+  `work_packages` UPDATE RLS does not admit `site_admin`.
+  The two clients exist in the same action; the admin
+  client is created locally inside the function and never
+  exposed beyond it.
+- **Sequential uploads, single file input.** Multi-file
+  picks queue and process one at a time. Easier per-photo
+  status; less bucket pressure; matches the "simple is
+  fine" guidance in the spec.
+- **Two retry paths.** Upload-error retries re-upload
+  (the object isn't in Storage yet). Insert-error retries
+  only the server action (the object IS in Storage at the
+  canonical path; replaying the insert lets the row match
+  the existing object without re-uploading bytes). This
+  is the failure-mode story spec decision 9 specifies.
+- **`<img>` thumbnails, not `next/image`.** Same call PR
+  1 made — `next/image` against signed Supabase URLs
+  would need a `remotePatterns` entry in `next.config.*`
+  for the Storage host. Out of scope for this PR; if a
+  future surface needs the optimization, ship the config
+  alongside it.
+- **`capture` attribute omitted on the file input.** With
+  `accept="image/jpeg,image/png,image/webp,image/heic"`
+  alone, mobile OSes prompt the user with both camera and
+  gallery options. Adding `capture="environment"` would
+  force camera on some devices and short-circuit the
+  picker; omitting it is the friendlier default. Allowing
+  HEIC matches the bucket's MIME allowlist.
+- **`captured_at_client = file.lastModified`.** Best
+  available client-side capture time without extra
+  permissions. Untrusted (per the spec — the column is
+  for display only), stored as ISO string. If the future
+  PDF report wants a more authoritative timestamp it
+  belongs server-side anyway.
+
+### Open questions
+
+- **Authenticated UI E2E still not added.** Same posture as
+  PR 1: the project's Playwright suite is unauthenticated-
+  only and an authenticated UI E2E pattern is deferred
+  infra. Manual smoke against a Vercel preview is the
+  verification step.
+- **`next/image` remotePatterns for signed Storage URLs.**
+  Still deferred. Plain `<img>` is fine for the v1 phone
+  surface; revisit if a future surface needs the
+  optimization (or if the LCP measurement says so).
+- **Orphaned Storage objects from tombstones AND from
+  failed inserts.** Per spec 02 / spec 03, orphan cleanup
+  is a v2 concern. The bucket already accumulates orphans
+  from every removed photo (tombstones leave bytes); the
+  failed-insert path adds an even smaller stream. A
+  scheduled function or manual sweep walks objects whose
+  `photo_logs` row is missing-or-tombstoned and deletes
+  them. Not a v1 blocker.
+- **Supersede-pattern skill still deferred.**
+  [`.claude/skills/supersede-pattern/SKILL.md`](../.claude/skills/supersede-pattern/SKILL.md)
+  still teaches the replacement-only framing of the
+  supersede pattern. ADR 0015 added the tombstone variant;
+  feature spec 02 PR 1 noted the skill update as
+  deferred; this PR is the first real consumer of the
+  tombstone pattern in production code (`removePhoto` +
+  `buildTombstoneRow`). Worth updating in a tiny
+  follow-up so the skill catches up with the code.
+
+### Verification
+
+- `pnpm lint` — clean.
+- `pnpm typecheck` — clean.
+- `pnpm test` — 54/54 passing (15 new + 39 existing).
+- `pnpm build` — succeeds. All 11 routes compile,
+  including the updated photo screen.
+- **End-to-end behaviour against real Storage + a real WP
+  is the operator's manual smoke** on a Vercel preview,
+  per spec 03 PR 2 verification: upload one Before, one
+  During, one After photo on a clean WP and confirm
+  (i) all three appear as thumbnails, (ii) the WP's
+  status flipped to `pending_approval` after the After
+  upload (and not before), (iii) remove the After photo
+  and confirm it disappears, (iv) confirm
+  `photo_logs` has 4 rows for that WP (3 real + 1
+  tombstone) and the anti-join returns 2 (Before +
+  During — After tombstoned), (v) confirm
+  `work_packages.status` did NOT regress from
+  `pending_approval` after the After was removed (the
+  rule is one-way for v1).
+
+### Feature status
+
+**Feature spec 03 — SA upload UI — is COMPLETE.** Both PRs
+are in; SA + PM + super_admin can navigate projects → WPs →
+photo screen, view current photos as signed-URL thumbnails,
+upload new photos by phase, and remove photos via
+tombstone. The first After photo on a `not_started |
+in_progress | on_hold` WP transitions it to
+`pending_approval` — the signal the PM approval UI will
+key off.
+
+### Next units (not started)
+
+- **Supersede-pattern skill update** (tiny follow-up) —
+  add the tombstone variant to
+  [`.claude/skills/supersede-pattern/SKILL.md`](../.claude/skills/supersede-pattern/SKILL.md)
+  now that `removePhoto` + `buildTombstoneRow` are in
+  production. Cite ADR 0015 + the new helpers as the
+  reference.
+- **PM approval UI** — the surface that produces
+  `approvals` rows for WPs at `pending_approval`. Separate
+  unit, separate spec (feature spec 02 PR 2 territory).
+- **Watermark-on-demand rendering** (ADR 0003).
+- **PDF report generation** — filters on the latest
+  `approvals.decision = 'approved'` per WP.
