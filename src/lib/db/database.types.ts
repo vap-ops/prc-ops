@@ -69,6 +69,61 @@ export type Database = {
         };
         Relationships: [];
       };
+      photo_logs: {
+        Row: {
+          captured_at_client: string | null;
+          created_at: string;
+          id: string;
+          phase: Database["public"]["Enums"]["photo_phase"];
+          storage_path: string | null;
+          superseded_by: string | null;
+          uploaded_by: string;
+          work_package_id: string;
+        };
+        Insert: {
+          captured_at_client?: string | null;
+          created_at?: string;
+          id?: string;
+          phase: Database["public"]["Enums"]["photo_phase"];
+          storage_path?: string | null;
+          superseded_by?: string | null;
+          uploaded_by: string;
+          work_package_id: string;
+        };
+        Update: {
+          captured_at_client?: string | null;
+          created_at?: string;
+          id?: string;
+          phase?: Database["public"]["Enums"]["photo_phase"];
+          storage_path?: string | null;
+          superseded_by?: string | null;
+          uploaded_by?: string;
+          work_package_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "photo_logs_superseded_by_fkey";
+            columns: ["superseded_by"];
+            isOneToOne: false;
+            referencedRelation: "photo_logs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "photo_logs_uploaded_by_fkey";
+            columns: ["uploaded_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "photo_logs_work_package_id_fkey";
+            columns: ["work_package_id"];
+            isOneToOne: false;
+            referencedRelation: "work_packages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       projects: {
         Row: {
           code: string;
@@ -188,6 +243,7 @@ export type Database = {
         | "reject"
         | "export"
         | "other";
+      photo_phase: "before" | "during" | "after";
       project_status: "active" | "on_hold" | "completed" | "archived";
       user_role:
         | "site_admin"
@@ -348,6 +404,7 @@ export const Constants = {
         "export",
         "other",
       ],
+      photo_phase: ["before", "during", "after"],
       project_status: ["active", "on_hold", "completed", "archived"],
       user_role: [
         "site_admin",

@@ -1922,3 +1922,241 @@ None blocking.
   audit columns (`audit_log.actor_id` uses `auth.users(id)` because
   it's a system-level table) and aligns with how `decided_by`
   needs to participate in role checks via `current_user_role()`.
+
+---
+
+## Unit: photo_logs table — tombstone-supersede append-only (ADR 0015)
+
+- **Status:** Complete — 2026-05-24.
+- **Started / completed:** 2026-05-24.
+- **Spec:** [`docs/feature-specs/02-photos-and-approvals.md`](feature-specs/02-photos-and-approvals.md)
+  PR 1 section. The locked design (one row = one photo;
+  triple-enforced append-only like `audit_log`; tombstone-supersede
+  for removal; ADR 0009 anti-join + tombstone filter for current
+  state; role-level RLS via `current_user_role()`) is implemented
+  exactly as written, plus the well-formedness CHECK that the spec
+  left to the build PR.
+- **ADR:** [`docs/decisions/0015-photo-logs-tombstone-supersede.md`](decisions/0015-photo-logs-tombstone-supersede.md)
+  — extends ADR 0004 (append-only / supersede write pattern) and
+  ADR 0009 (anti-join read pattern). Inherits ADR 0013 (role-level
+  access) and ADR 0011 (role helper).
+- **Branch:** `feat/photo-logs-table`.
+
+### Done
+
+- **ADR 0015 written.** Documents the tombstone-supersede mechanism
+  (removal = INSERT a tombstone with `storage_path NULL` and
+  `superseded_by` set; replacement = tombstone + new INSERT = two
+  appends), the well-formedness CHECK
+  `((storage_path is null) = (superseded_by is not null))` and why
+  the two malformed combinations are rejected, the
+  anti-join + `storage_path IS NOT NULL` current-state read with a
+  worked example (two photos uploaded, one tombstoned, query
+  returns only the surviving photo), the triple-enforcement layers
+  unchanged from ADR 0004, the inherited ADR 0013 role-level access,
+  and the explicit transaction note for app code doing a
+  "replacement" (two INSERTs are not atomic by default — wrap in a
+  transaction if both must commit together). Cross-links ADRs 0004,
+  0009, 0011, 0013, and feature spec 02.
+- **Migration**
+  [`supabase/migrations/20260524020000_create_photo_logs.sql`](../supabase/migrations/20260524020000_create_photo_logs.sql)
+  applied via `pnpm db:push`. Creates:
+  - `public.photo_phase` enum: `before`, `during`, `after`.
+  - `public.photo_logs` table with columns
+    `id uuid pk default gen_random_uuid()`,
+    `work_package_id uuid not null references work_packages(id)
+on delete cascade`,
+    `phase photo_phase not null`,
+    `storage_path text` (nullable — NULL = tombstone),
+    `superseded_by uuid references photo_logs(id)` (nullable),
+    `uploaded_by uuid not null references public.users(id)`,
+    `created_at timestamptz not null default now()` (server-authoritative),
+    `captured_at_client timestamptz` (UNTRUSTED device time),
+    and the
+    `photo_logs_path_supersede_well_formed`
+    CHECK invariant from ADR 0015.
+  - Partial index
+    `photo_logs_superseded_by_idx ON (superseded_by) WHERE
+superseded_by IS NOT NULL` (ADR 0009 anti-join requirement).
+  - Index `photo_logs_work_package_id_idx ON (work_package_id)` for
+    the standard "list photos for WP X" scope.
+  - **Triple-enforcement** mirroring audit_log
+    (`20260505143800_create_audit_log.sql`): - **Layer 1 (privilege):** `REVOKE ALL FROM authenticated,
+anon; GRANT INSERT, SELECT TO authenticated`. Exact REVOKE
+    target matches audit_log's. - **Layer 2 (RLS):** INSERT + SELECT policies only — no UPDATE
+    policy, no DELETE policy. Both policies gate on
+    `current_user_role() IN ('site_admin', 'project_manager',
+'super_admin')` (ADR 0011 helper — never self-joins
+    `public.users`). - **Layer 3 (trigger):** new function
+    `public.photo_logs_block_write()` raises `P0001` with message
+    `"photo_logs is append-only"`; bound to
+    `BEFORE UPDATE` and `BEFORE DELETE` triggers on
+    `photo_logs`. Same shape as `audit_log_block_write()`;
+    defined as a separate function because the existing one
+    hard-codes the audit_log message — not generic enough to
+    reuse without changing audit_log's behavior, which the
+    protect-audit-log hook forbids and CLAUDE.md immutability
+    rules forbid anyway.
+- **Types regen** via `pnpm db:types`. `database.types.ts` now
+  exposes `photo_logs` Row/Insert/Update with relationships
+  (`work_package_id` → `work_packages.id`, `superseded_by` → self,
+  `uploaded_by` → `users.id`) and the `photo_phase` enum
+  (`["before", "during", "after"]`).
+- **pgTAP** [`supabase/tests/database/09-photo-logs.test.sql`](../supabase/tests/database/09-photo-logs.test.sql)
+  — **48 assertions**, all green:
+  - **Catalog (26):** enum existence + labels; table existence; PK
+    - every column type / NOT NULL or NULL constraints + the `id`
+      default; three FKs (`work_package_id` → `work_packages.id`,
+      `superseded_by` → `photo_logs.id`, `uploaded_by` →
+      `public.users.id`); CHECK constraint existence by name; both
+      indexes existence by name.
+  - **RLS config (2):** RLS enabled; policy-cmd set is exactly
+    `{INSERT, SELECT}` — no UPDATE policy, no DELETE policy
+    (load-bearing).
+  - **REVOKE privileges (2):** authenticated lacks UPDATE; lacks
+    DELETE.
+  - **Trigger as last line of defense (2):** insert a fixture row
+    as postgres (bypasses REVOKE + RLS), then assert UPDATE raises
+    `P0001`/"photo_logs is append-only" and DELETE raises the same.
+    Mirrors the audit_log immutability test exactly.
+  - **CHECK constraint behavioral (4):** real photo
+    (`storage_path` set, `superseded_by` NULL) lives; tombstone
+    (`storage_path` NULL, `superseded_by` set) lives; both-NULL
+    rejected with `23514`; both-set rejected with `23514`.
+  - **Tombstone + anti-join current-state (2):** insert two real
+    photos for an isolated WP/phase, then a tombstone superseding
+    one. The anti-join + `storage_path IS NOT NULL` query returns
+    exactly the surviving real photo (count = 1; id matches the
+    un-tombstoned one — not the tombstoned photo, not the
+    tombstone row itself). The worked example in ADR 0015 is the
+    exact scenario this test encodes.
+  - **RLS INSERT role gating (4):** super_admin / site_admin /
+    project_manager succeed; visitor denied with `42501`.
+  - **RLS SELECT visibility (4):** super_admin / site_admin /
+    project_manager see rows; visitor sees zero.
+  - **Phase enum + FK rejection (2):** invalid enum value
+    rejected (`22P02`); non-existent `work_package_id` rejected
+    (`23503`).
+  - Setup uses the same authenticated-context simulation
+    established in 06/07/08 (`set local role authenticated` +
+    `set local "request.jwt.claims"` + the `_tap_buf` grants).
+- Full pgTAP suite: **9 files, 152 assertions, all green**
+  (previously 8 files / 104 assertions; this PR adds 1 file and
+  48 assertions).
+- `pnpm lint && pnpm typecheck && pnpm test && pnpm build` all
+  pass (34/34 vitest tests; 9 routes built — no app code changed).
+
+### Decisions made
+
+- **CHECK constraint
+  `((storage_path is null) = (superseded_by is not null))`
+  added.** The spec left this to the build PR. The constraint
+  forecloses both malformed combinations: a row with both NULL
+  (neither photo nor tombstone — no application use) and a row
+  with both set (real photo carrying a `superseded_by`, which
+  would let a single row serve two roles and undermine the
+  either-or the anti-join + tombstone filter relies on). Cost is
+  one biexpression evaluated at INSERT; benefit is that the read
+  pattern can trust that every row matches one of two shapes
+  without defensive checks. Documented in ADR 0015 as the
+  load-bearing well-formedness invariant.
+- **Separate `photo_logs_block_write()` function, not reuse of
+  `audit_log_block_write()`.** The existing function raises with
+  the literal message `"audit_log is append-only"`. Reusing it
+  on `photo_logs` would either misidentify the table in the
+  error or require generalising the audit_log function to read
+  `TG_TABLE_NAME`. That generalisation is a change to audit_log
+  — blocked by `.claude/hooks/protect-audit-log.js` and by the
+  CLAUDE.md immutability rule for `audit_log`. Defining a
+  separate `photo_logs_block_write()` is the strictly-in-scope
+  fix; the cost is one extra function definition; the benefit is
+  audit_log's enforcement code stays untouched and the
+  photo_logs error message correctly names the table.
+- **Migration timestamp `20260524020000`.** Monotonic after the
+  previous migration (`20260524010000_create_work_packages.sql`)
+  per the same convention the projects and work_packages units
+  used (calendar-day prefix `20260524` plus a within-day suffix).
+- **No composite `(work_package_id, phase)` index in this PR.**
+  The spec listed it as "build PR measures and decides." The
+  current `work_package_id` index already covers WP-scoped
+  reads; without a real consumer of the upload UI yet, there is
+  no real query plan to measure against. Surfaced below as a
+  follow-up that the photo-upload unit picks up.
+- **`uploaded_by uuid not null references public.users(id)`.**
+  Per spec note: `public.users(id)` is the conventional choice
+  for app-layer audit columns. Not nullable because every
+  upload AND every tombstone is performed by a known
+  authenticated user — there is no anonymous write path.
+- **`captured_at_client` is nullable, `created_at` is
+  server-authoritative.** Per the locked design: device times
+  may be wrong / time-shifted / spoofed; the schema records
+  them and the application labels them as "device reported"
+  wherever displayed. `created_at` (`default now()`) is the
+  canonical event time for ordering, audit, and any
+  "most-recent-decision-wins" rule.
+
+### Follow-ups (deferred — surfaced for the next units)
+
+- **`.claude/skills/supersede-pattern/SKILL.md` does not yet
+  teach the tombstone variant.** The skill currently frames
+  supersede as replacement-only. It must be extended to teach
+  the tombstone shape, the `storage_path IS NULL` sentinel, the
+  `WHERE storage_path IS NOT NULL` filter on current-state
+  queries, and the well-formedness CHECK. **Not done in this
+  PR** — deferred so the skill update lands alongside the first
+  real consumer (the photo-upload UI unit), where the change
+  can be reviewed against actual query/UI code rather than in
+  the abstract.
+- **Supabase Storage bucket.** `photo_logs.storage_path` is
+  currently just text — references to paths that the Storage
+  unit will make real. That unit ships the bucket policy, the
+  signed-upload-URL minting endpoint, and storage-side RLS.
+- **Composite `(work_package_id, phase)` index.** Add when the
+  upload UI surfaces and the "list current photos for WP X,
+  grouped by phase" hot path is real. Measure first; the
+  partial-superseded_by + work_package_id indexes already in
+  place may be sufficient.
+- **Approvals table (PR 2 of feature spec 02).** The next
+  domain unit. Will reference `work_packages.id` and follow the
+  same role-level RLS pattern. CHECK constraint requiring a
+  non-blank comment on `rejected` / `needs_revision`; INSERT
+  for PM + super only (SA explicitly cannot approve); SELECT
+  for SA + PM + super. Spec section already locks the design.
+- **`work_packages.status` auto-transition on first After
+  photo.** Belongs to the photo-upload UI unit, not this one.
+  The enum value `'pending_approval'` is in place from the
+  work_packages migration; only the trigger/behavior is
+  deferred.
+
+### Operator follow-up (post-merge)
+
+This is a schema-only unit; nothing user-visible changes. The
+operator's smoke check is purely DB:
+
+1. `pnpm db:test` green (9 files, 152 assertions).
+2. `select * from pg_policies where tablename = 'photo_logs'`
+   shows exactly INSERT + SELECT policies (no UPDATE, no
+   DELETE).
+3. `select pg_get_triggerdef(oid) from pg_trigger where tgname
+in ('photo_logs_block_update', 'photo_logs_block_delete')`
+   shows both triggers bound to
+   `public.photo_logs_block_write()`.
+
+### Open questions
+
+None blocking.
+
+- **Should `photo_logs` carry an `audit_log` entry on each
+  tombstone?** Probably yes — the supersede event is exactly
+  the kind of write the audit_log is for. Out of scope here
+  (the photo-upload UI is the right surface to wire it from,
+  and `audit_action` already has the `photo_supersede`
+  enum value). Tracked here so the photo-upload unit picks it
+  up.
+- **Should the trigger raise `42501` instead of `P0001`?**
+  audit_log uses `P0001` with a custom message; this PR
+  mirrors that exactly so the two append-only tables emit
+  recognisably identical errors. If a future unit decides
+  `42501` (insufficient_privilege) is the more honest error
+  code for "this table refuses your write", both tables
+  should change together.
