@@ -193,6 +193,54 @@ export type Database = {
         };
         Relationships: [];
       };
+      reports: {
+        Row: {
+          created_at: string;
+          error: string | null;
+          id: string;
+          project_id: string;
+          requested_by: string;
+          status: Database["public"]["Enums"]["report_status"];
+          storage_path: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          error?: string | null;
+          id?: string;
+          project_id: string;
+          requested_by: string;
+          status?: Database["public"]["Enums"]["report_status"];
+          storage_path?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          error?: string | null;
+          id?: string;
+          project_id?: string;
+          requested_by?: string;
+          status?: Database["public"]["Enums"]["report_status"];
+          storage_path?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "reports_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reports_requested_by_fkey";
+            columns: ["requested_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       users: {
         Row: {
           created_at: string;
@@ -288,6 +336,7 @@ export type Database = {
         | "other";
       photo_phase: "before" | "during" | "after";
       project_status: "active" | "on_hold" | "completed" | "archived";
+      report_status: "requested" | "processing" | "complete" | "failed";
       user_role:
         | "site_admin"
         | "project_manager"
@@ -450,6 +499,7 @@ export const Constants = {
       ],
       photo_phase: ["before", "during", "after"],
       project_status: ["active", "on_hold", "completed", "archived"],
+      report_status: ["requested", "processing", "complete", "failed"],
       user_role: [
         "site_admin",
         "project_manager",
