@@ -2422,3 +2422,228 @@ None blocking.
   carries `approve` / `reject` enum values. Right place to
   wire this is the approval UI unit, when the full event
   surface is being designed end-to-end. Not built here.
+
+---
+
+## Unit: photos Storage bucket — private, role-gated uploads
+
+- **Status:** Complete — 2026-05-24.
+- **Started / completed:** 2026-05-24.
+- **Spec:** Provided inline by the operator; locked design from a
+  design session. No new feature-spec file — the storage half is
+  already documented under "Deferred / out of scope" in
+  [`docs/feature-specs/02-photos-and-approvals.md`](feature-specs/02-photos-and-approvals.md)
+  and this unit ships it.
+- **ADR:** None. Conventional Supabase Storage setup; no novel
+  design decisions worth their own ADR.
+- **Branch:** `feat/storage-bucket`.
+
+### Done
+
+- **Migration**
+  [`supabase/migrations/20260524040000_create_photos_bucket.sql`](../supabase/migrations/20260524040000_create_photos_bucket.sql)
+  applied via `pnpm db:push`. Creates:
+  - **`photos` bucket row** in `storage.buckets`: - `id = 'photos'`, `name = 'photos'`, `public = false`
+    (private). - `file_size_limit = 26214400` (25 MiB) — comfortable for
+    modern phone JPEGs / HEIC originals. - `allowed_mime_types = {image/jpeg, image/png, image/webp,
+image/heic}` — the four image formats v1 needs. - `type` defaulted to `STANDARD` (the Supabase
+    `storage.buckettype` enum value used for normal buckets). - INSERT uses `ON CONFLICT (id) DO NOTHING` so re-running
+    the migration is a no-op. Reconfiguration in the future
+    ships as its own explicit ALTER / UPDATE migration.
+  - **Upload policy** on `storage.objects`,
+    `"photos uploads by sa/pm/super"`: - `for insert`, `to authenticated` — does not apply to
+    `anon` (no upload right) or `service_role` (bypasses RLS
+    by design). - `with check (bucket_id = 'photos' and
+public.current_user_role() in ('site_admin', 'project_manager',
+'super_admin'))` — same role set as `photo_logs` INSERT,
+    since the three privileged roles upload AND tombstone.
+  - **No SELECT policy** on `storage.objects` for this bucket.
+    Reads will be served via signed URLs minted by the service
+    role (which bypasses Storage RLS) in the upload UI unit;
+    the absence of a read policy keeps every read going
+    through that application path.
+  - **No UPDATE / no DELETE policies** on `storage.objects`.
+    Append-only posture matching `photo_logs`. Tombstoned
+    objects are LEFT in place for v1 — `photo_logs` tombstone
+    rows are the source of truth for visibility; orphaned
+    objects are a v2 cleanup concern.
+- **Bucket row + policy verified** via direct SELECT against
+  the linked DB (recorded in commit history of this session,
+  not persisted as scripts):
+  - `select * from storage.buckets where id = 'photos'`
+    returns one row with the expected configuration.
+  - `select policyname, cmd, roles, with_check from
+pg_policies where schemaname = 'storage' and tablename =
+'objects'` returns one row,
+    `"photos uploads by sa/pm/super" INSERT {authenticated}`
+    with the expected check expression.
+- **Catalog-only pgTAP** at
+  [`supabase/tests/database/11-photos-bucket.test.sql`](../supabase/tests/database/11-photos-bucket.test.sql)
+  — **5 assertions**, all green:
+  1. Bucket row exists with `id = 'photos'`.
+  2. Bucket is private (`public = false`) — load-bearing.
+  3. `file_size_limit = 26214400` (25 MiB).
+  4. `allowed_mime_types` equals the exact 4-MIME array.
+  5. INSERT policy `"photos uploads by sa/pm/super"` exists on
+     `storage.objects` for the `authenticated` role.
+     No auth-context simulation; behavioral RLS proof against
+     `storage.objects` is deferred to the upload UI unit (which
+     will exercise the policy through a real authenticated
+     upload).
+- Full pgTAP suite: **11 files, 202 assertions, all green**
+  (previously 10 files / 197 assertions; this PR adds 1 file
+  and 5 assertions).
+- `pnpm db:types` regenerated — diff was purely cosmetic
+  (Supabase CLI's emitter stripped semicolons; the
+  `lint-staged` Prettier hook normalises them back on commit).
+  No semantic change — Supabase CLI types the `public` schema
+  only, so `storage.buckets` / `storage.objects` do not appear
+  in the generated types. The Supabase JS client reaches the
+  Storage API through `supabase.storage`, which has its own
+  separate type surface.
+- `pnpm lint && pnpm typecheck && pnpm test && pnpm build` all
+  pass (34/34 vitest tests; 9 routes built — no app code
+  changed).
+
+### Decisions made
+
+- **`public.current_user_role()` worked inside a
+  `storage.objects` policy.** Verified: the policy applies and
+  the helper resolves correctly when called from this context.
+  The function is `SECURITY DEFINER` + STABLE + `search_path =
+public`, so calling it from the storage schema is safe and
+  does not introduce a new recursion vector — `storage.objects`
+  RLS does not read `public.users`, and the helper reads
+  `public.users` with RLS bypassed. The function is fully
+  qualified in the policy expression to avoid any
+  search-path ambiguity.
+- **`to authenticated` clause on the policy.** The idiomatic
+  Supabase storage-policy form. Confines the policy to the
+  authenticated role; `anon` has no upload right and
+  `service_role` bypasses Storage RLS by design — neither
+  needs the policy to apply.
+- **25 MiB file size limit (`26214400` bytes).** Modern phone
+  JPEGs are typically 3–8 MB; HEIC originals can run larger
+  (10–20 MB). 25 MiB is comfortable headroom without inviting
+  casual abuse. Trivially raisable later via an ALTER
+  migration if construction-quality cameras turn out to
+  produce larger originals in practice.
+- **Bucket configuration via user migration, not Dashboard.**
+  Supabase managed instances grant the migration runner
+  (`postgres` role) sufficient privilege to INSERT into
+  `storage.buckets` and CREATE POLICY on `storage.objects`.
+  `pnpm db:push` applied cleanly. Keeping the configuration in
+  the migration file means the bucket definition is part of
+  schema history — reproducible, reviewable, version-pinned.
+- **`ON CONFLICT (id) DO NOTHING`**, not `DO UPDATE`. A `DO
+UPDATE` form would silently overwrite a hand-applied bucket
+  config (e.g. an emergency change made via the Dashboard);
+  `DO NOTHING` preserves whatever the current bucket state is
+  if re-applied. Future intentional reconfiguration ships as
+  its own explicit migration.
+- **Catalog-only pgTAP, no behavioral test.** The existing
+  pgTAP harness simulates `public.users` auth context via
+  `set local role authenticated` + `set local
+"request.jwt.claims"`. Reaching the same level of
+  simulation against `storage.objects` would need a real
+  upload via the Storage API, which is out of scope here
+  and naturally lands in the upload UI unit's test plan.
+  Catalog-level guards (bucket row exists, policy exists with
+  the right cmd + role) are still worth ~80% of the value
+  with ~5% of the effort and zero added test infrastructure.
+- **No `storage.objects` SELECT policy.** Read access will be
+  served via signed URLs minted by the service role in the
+  upload UI unit. The service role bypasses Storage RLS, so
+  granting `authenticated` a broad SELECT here would be
+  meaningless overlap at best and a leak at worst (signed
+  URLs are the chosen auth mechanism; an RLS read carve-out
+  would let any authenticated user enumerate objects through
+  the Storage REST surface). Keeping the policy set
+  intentionally narrow.
+
+### Path convention (NOT enforced — documented for the upload UI unit)
+
+The upload UI will mint paths of the shape
+`{project_id}/{work_package_id}/{photo_log_id}.{ext}`. UUID-
+based; no human-readable names. The bucket does not enforce
+this — the application's signed-URL minting endpoint will.
+`photo_logs.storage_path` records whatever path the
+application chose; that column is the authoritative reference.
+
+### Photos + approvals + storage — overall state
+
+The schema layer for the photo → approval → PDF flow is now
+complete:
+
+- [photo_logs](decisions/0015-photo-logs-tombstone-supersede.md)
+  table (PR 1 of feature spec 02).
+- approvals table (PR 2 of feature spec 02).
+- `photos` Storage bucket + upload policy (this PR).
+
+Remaining work before PDFs ship:
+
+- **SA upload UI.** Direct client → Storage upload via the
+  signed-upload-URL endpoint; INSERT `photo_logs` row; render
+  Before / During / After galleries. Will exercise the
+  storage policy this PR ships and the photo_logs INSERT
+  policy from PR 1. Will also wire the `photo_logs` tombstone
+  flow (the supersede skill update lands here — still
+  deferred).
+- **Photo-driven `pending_approval` transition.** When the
+  first After photo lands on a WP,
+  `work_packages.status` → `pending_approval`. Enum value is
+  in place; transition logic lives in the upload UI unit.
+- **Signed-URL helper.** Server-side helper that mints
+  short-lived signed URLs for the `photos` bucket using the
+  service role. The watermark renderer (later) will sit in
+  front of this helper.
+- **PM approval UI.** Produces `approvals` rows.
+- **Watermark-on-demand renderer.** Renders a watermark
+  server-side at view / export time per ADR 0003.
+  Originals in the bucket are never modified.
+- **PDF generation.** Filters on the latest
+  `approvals.decision = 'approved'` per WP.
+
+### Still-deferred follow-ups (carried forward)
+
+- **`.claude/skills/supersede-pattern/SKILL.md` tombstone
+  update.** Still deferred to the SA upload UI unit.
+- **Self-approval guard on approvals.** v1 deferral.
+- **Orphan-object cleanup.** Tombstoned `photo_logs` rows
+  leave their underlying `storage.objects` in place in v1.
+  A v2 cleanup job (or scheduled function) walks orphan
+  objects whose path's `photo_log_id` is tombstoned.
+
+### Operator follow-up (post-merge)
+
+Schema / config-only unit. No user-visible behavior changes.
+Smoke check is purely catalog:
+
+1. `pnpm db:test` green (11 files, 202 assertions).
+2. `select id, public, file_size_limit, allowed_mime_types
+from storage.buckets where id = 'photos'` returns the
+   expected row.
+3. `select policyname, cmd, roles from pg_policies where
+schemaname = 'storage' and tablename = 'objects'` returns
+   exactly one row,
+   `"photos uploads by sa/pm/super" INSERT {authenticated}`.
+
+### Open questions
+
+None blocking.
+
+- **Bucket configuration via Dashboard later.** The Supabase
+  Dashboard's Storage UI can edit bucket settings out-of-band.
+  If the operator changes settings there, the change is NOT
+  reflected in migration history and the catalog-pgTAP guard
+  will catch the drift. Right move on detection: ship a
+  migration that re-applies the canonical values, or update
+  the migration's spec if the drift is intentional.
+- **Service-role key exposure for the signed-URL endpoint.**
+  The upload UI unit will mint signed URLs using
+  `SUPABASE_SERVICE_ROLE_KEY` from `src/lib/db/admin.ts`. That
+  client is already `server-only` and reachable only from
+  server code paths (RSC, route handlers). The unit that
+  ships the endpoint should make sure the signed URL's TTL
+  is short (single-digit minutes) and that the endpoint
+  itself is auth-gated — neither belongs here.
