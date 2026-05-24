@@ -2160,3 +2160,265 @@ None blocking.
   `42501` (insufficient_privilege) is the more honest error
   code for "this table refuses your write", both tables
   should change together.
+
+---
+
+## Unit: approvals table — append-only decision event log
+
+- **Status:** Complete — 2026-05-24.
+- **Started / completed:** 2026-05-24.
+- **Spec:** [`docs/feature-specs/02-photos-and-approvals.md`](feature-specs/02-photos-and-approvals.md)
+  PR 2 section. Implements the locked design exactly: one row =
+  one decision event; pure chronological log (not supersede);
+  current decision per WP = `max(decided_at)`; triple-enforced
+  append-only like `audit_log` / `photo_logs`; INSERT restricted
+  to PM + super_admin (SA explicitly cannot approve); SELECT for
+  SA + PM + super_admin (SA reads `needs_revision` comments on
+  WPs they uploaded to); comment required AND non-blank when
+  decision is `rejected` or `needs_revision`.
+- **ADR:** None. Spec 02 left this as optional; the approvals
+  design is a conventional append-only event log (no novel
+  decisions like photo_logs' tombstone) so the rationale lives
+  in the migration SQL comments and this tracker entry. If
+  separation-of-duties or current-decision-derivation is ever
+  re-litigated, that's the right time to write one.
+- **Branch:** `feat/approvals-table`.
+
+### Done
+
+- **Migration**
+  [`supabase/migrations/20260524030000_create_approvals.sql`](../supabase/migrations/20260524030000_create_approvals.sql)
+  applied via `pnpm db:push`. Creates:
+  - `public.approval_decision` enum:
+    `approved, rejected, needs_revision`.
+  - `public.approvals` table:
+    `id uuid pk default gen_random_uuid()`,
+    `work_package_id uuid not null references work_packages(id)
+on delete cascade`,
+    `decision approval_decision not null`,
+    `comment text` (nullable at column level; constrained by
+    the CHECK below),
+    `decided_by uuid not null references public.users(id)`,
+    `decided_at timestamptz not null default now()`
+    (server-authoritative — the canonical ordering key for
+    "latest decision per WP").
+  - **CHECK constraint
+    `approvals_comment_required_when_negative`:**
+    `decision = 'approved' OR (comment IS NOT NULL AND
+length(trim(comment)) > 0)`. The `length(trim(comment)) > 0`
+    half is load-bearing — it rejects whitespace-only comments
+    on `rejected` / `needs_revision`, not just NULL. Future
+    application code can trust the DB to reject blank-comment
+    negatives without a parallel validation layer.
+  - **Composite index** `(work_package_id, decided_at DESC)`.
+    Serves both hot reads — "latest decision for WP X" (index
+    seek + first entry) and "history for WP X" (range scan,
+    pre-sorted) — without a sort step. A plain `work_package_id`
+    index would also work; the composite was chosen because the
+    extra column costs essentially nothing (one row per decision)
+    and exactly matches the access pattern.
+  - **Triple-enforcement** mirroring photo_logs
+    (`20260524020000_create_photo_logs.sql`): - **Layer 1 (privilege):** `REVOKE ALL FROM authenticated,
+anon; GRANT INSERT, SELECT TO authenticated`. Exact same
+    REVOKE targets as photo_logs. - **Layer 2 (RLS):** INSERT + SELECT policies only — no
+    UPDATE policy, no DELETE policy. Policies gate on
+    `public.current_user_role()` (ADR 0011 helper): - INSERT: `current_user_role() IN ('project_manager',
+'super_admin')` — `site_admin` CANNOT approve. This is the
+    load-bearing access difference from `photo_logs`, where
+    SA can upload. - SELECT: `current_user_role() IN ('site_admin',
+'project_manager', 'super_admin')` — SA is in the read set
+    so they can see `needs_revision` comments on WPs they
+    uploaded to. - **Layer 3 (trigger):** new function
+    `public.approvals_block_write()` raises `P0001` with
+    message `"approvals is append-only"`; bound to
+    `BEFORE UPDATE` and `BEFORE DELETE` triggers on
+    `approvals`. Same shape as
+    `photo_logs_block_write()` / `audit_log_block_write()`;
+    defined as a separate function so the error correctly
+    names the offending table.
+- **Types regen** via `pnpm db:types`. `database.types.ts` now
+  exposes `approvals` Row/Insert/Update with relationships
+  (`work_package_id` → `work_packages.id`, `decided_by` →
+  `users.id`) and the `approval_decision` enum
+  (`["approved", "rejected", "needs_revision"]`).
+- **pgTAP** [`supabase/tests/database/10-approvals.test.sql`](../supabase/tests/database/10-approvals.test.sql)
+  — **45 assertions**, all green:
+  - **Catalog (20):** enum existence + labels; table existence;
+    PK + every column type / NOT NULL or NULL constraints + the
+    `id` default; two FKs (`work_package_id` →
+    `work_packages.id`, `decided_by` → `public.users.id`);
+    CHECK constraint existence by name; composite index
+    existence by name.
+  - **RLS config (2):** RLS enabled; policy-cmd set is exactly
+    `{INSERT, SELECT}` — no UPDATE policy, no DELETE policy.
+  - **REVOKE privileges (2):** authenticated lacks UPDATE;
+    lacks DELETE.
+  - **Trigger as last line of defense (2):** insert a fixture
+    row as postgres (bypasses REVOKE + RLS), then assert UPDATE
+    raises `P0001`/"approvals is append-only" and DELETE raises
+    the same. Mirrors the photo_logs immutability test exactly.
+  - **Comment CHECK behavioral (7):** approved + NULL comment
+    lives; approved + non-blank comment lives; rejected +
+    non-blank comment lives; needs_revision + non-blank comment
+    lives; rejected + NULL rejected with `23514`;
+    needs_revision + NULL rejected; **rejected +
+    whitespace-only comment rejected** (load-bearing — proves
+    the `length(trim(…)) > 0` half is enforced, not just a
+    NULL check).
+  - **RLS INSERT role gating (4):** project_manager and
+    super_admin succeed; **site_admin denied with `42501`**
+    (load-bearing — SA cannot approve); visitor denied.
+  - **RLS SELECT visibility (4):** super_admin / site_admin /
+    project_manager see rows; visitor sees zero. The
+    site_admin assertion is load-bearing for the
+    needs_revision flow (SA reads the comment to know what to
+    re-upload).
+  - **History model (2):** isolated WP with two explicit
+    `decided_at` timestamps (`now()` is frozen at
+    `transaction_timestamp()` within the test transaction so
+    explicit values are needed to disambiguate "latest").
+    Insert `needs_revision` then `approved`; assert both rows
+    persist (append-only event log, nothing is overwritten);
+    assert `order by decided_at desc limit 1` returns the
+    approved row (pins the current-decision query shape for
+    the future PDF unit).
+  - **Enum + FK rejection (2):** invalid enum value rejected
+    (`22P02`); non-existent `work_package_id` rejected
+    (`23503`).
+  - Same authenticated-context simulation pattern as 06–09
+    (`set local role authenticated` + `set local
+"request.jwt.claims"` + the `_tap_buf` grants).
+- Full pgTAP suite: **10 files, 197 assertions, all green**
+  (previously 9 files / 152 assertions; this PR adds 1 file
+  and 45 assertions).
+- `pnpm lint && pnpm typecheck && pnpm test && pnpm build` all
+  pass (34/34 vitest tests; 9 routes built — no app code
+  changed).
+
+### Decisions made
+
+- **No new ADR.** Spec 02 left this as optional; the design
+  here is a conventional append-only event log without any
+  novel mechanic on the level of photo_logs' tombstone. The
+  rationale (event-log not supersede; current = latest by
+  decided_at; comment-present-and-non-blank CHECK; SA in the
+  read set but not the write set) is captured in the
+  migration's SQL comment block and in this tracker entry. If
+  separation-of-duties is ever lifted out of v1, that decision
+  warrants its own ADR.
+- **Composite `(work_package_id, decided_at DESC)` index, not
+  plain `(work_package_id)`.** Both serve the access patterns;
+  the composite removes the sort step from the "latest
+  decision for WP X" hot path that the eventual PDF generator
+  will run on every WP. Storage cost is negligible (one
+  composite entry per decision, and decisions are sparse — at
+  most a small handful per WP). If profile data later shows a
+  plain index is enough, the composite can be replaced with
+  zero application impact.
+- **`comment` is nullable at the column level even though
+  negative decisions require it.** The CHECK constraint
+  encodes "required when negative"; a NOT NULL column would
+  force `approved` rows to carry a non-meaningful empty
+  string. The CHECK is the load-bearing rule; the column
+  nullability is incidental.
+- **`length(trim(comment)) > 0`, not just `comment IS NOT
+NULL`.** The spec called out "required = present AND
+  non-whitespace" explicitly. A NULL check alone would let
+  `'   '` slip through. The trim-then-length form rejects
+  empty strings, all-space strings, tabs, and newlines via
+  one expression. The cost is one function call per INSERT —
+  free at any realistic decision rate.
+- **Separate `approvals_block_write()` function, not reuse of
+  `audit_log_block_write()` or `photo_logs_block_write()`.**
+  Same reasoning as for photo_logs: the existing functions
+  hard-code their table name in the error message, so reuse
+  would either misidentify the table or require generalising
+  one of them. Three small near-identical functions is the
+  strictly-in-scope choice; if a fourth append-only table
+  ever ships, that's the time to refactor into a generic
+  `raise_append_only(table_name text)`.
+- **Migration timestamp `20260524030000`.** Monotonic after
+  `20260524020000_create_photo_logs.sql` per the convention
+  the prior units established (calendar-day prefix
+  `20260524` plus a within-day suffix).
+
+### v1 deferral (documented, not enforced)
+
+- **Self-approval is acceptable in v1.** A
+  `project_manager` who uploaded photos to a WP can still
+  record an approval on that same WP. The team is small and
+  trusted; adding a separation-of-duties guard would require
+  either a tracking column on approvals or an EXISTS
+  subquery against `photo_logs` in the INSERT policy. Both
+  out of v1 scope per spec 02. The trigger to revisit is the
+  appearance of any external / non-team account that could
+  approve their own work — same trigger as the ADR 0013
+  membership upgrade.
+
+### Photos + approvals pair — overall status
+
+[Feature spec 02](feature-specs/02-photos-and-approvals.md)
+ships in two PRs: PR 1
+([photo_logs + ADR 0015](decisions/0015-photo-logs-tombstone-supersede.md))
+and PR 2 (this unit). **Both are complete.** The schema for
+the photo → approval → PDF flow is now in place. What remains
+to ship before PDFs can be generated:
+
+- **Supabase Storage bucket + signed upload URLs.** The next
+  unit. Makes `photo_logs.storage_path` reference real
+  objects, and ships the upload-URL minting endpoint plus
+  storage-side RLS.
+- **SA upload UI** (the PWA Before / During / After surface
+  that creates `photo_logs` rows).
+- **Photo-driven WP status transition.** When the first
+  After photo lands on a WP, `work_packages.status` →
+  `pending_approval`. The enum value is already in place
+  (work_packages migration); only the transition trigger /
+  application logic is deferred.
+- **PM approval UI** (the surface that produces
+  `approvals` rows).
+- **Watermark-on-demand rendering.** Originals stored
+  unmodified; watermark rendered server-side at view /
+  export time. ADR 0003 is the foundational doc; the
+  rendering pipeline is its own unit.
+- **PDF generation.** Filters on the latest
+  `approvals.decision = 'approved'` per WP — the query
+  shape pinned by this unit's history-model pgTAP
+  assertion.
+
+### Still-deferred follow-ups (carried forward from PR 1)
+
+- **`.claude/skills/supersede-pattern/SKILL.md` tombstone
+  update.** Still deferred; the skill change should land
+  alongside the first real consumer (the photo-upload UI
+  unit) so it can be reviewed against actual query/UI code
+  rather than in the abstract.
+
+### Operator follow-up (post-merge)
+
+Schema-only unit; no user-visible behavior changes. Smoke
+check is purely DB:
+
+1. `pnpm db:test` green (10 files, 197 assertions).
+2. `select * from pg_policies where tablename = 'approvals'`
+   shows exactly INSERT + SELECT policies (no UPDATE, no
+   DELETE).
+3. `select pg_get_triggerdef(oid) from pg_trigger
+where tgname in ('approvals_block_update',
+'approvals_block_delete')` shows both triggers bound to
+   `public.approvals_block_write()`.
+
+### Open questions
+
+None blocking.
+
+- **Self-approval guard.** Tracked above as a v1 deferral.
+  The schema is forward-compatible — adding an EXISTS
+  subquery to the INSERT policy is a one-line policy
+  tightening with zero application impact.
+- **`audit_log` write on each decision.** Same question as
+  for `photo_logs` tombstones: the decision event is exactly
+  what the audit_log is for, and `audit_action` already
+  carries `approve` / `reject` enum values. Right place to
+  wire this is the approval UI unit, when the full event
+  surface is being designed end-to-end. Not built here.
