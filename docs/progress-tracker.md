@@ -2787,3 +2787,209 @@ forward-looking flags:
 **PR 1 of feature spec 03 — `feat/sa-upload-nav-and-read`.**
 Project list, filterable WP list, read-only photo screen
 backed by signed URLs. No write surface yet.
+
+---
+
+## Unit: SA upload UI — PR 1 of 2: navigation + read-only photo viewing
+
+- **Status:** Complete — 2026-05-24.
+- **Started / completed:** 2026-05-24.
+- **Spec:** [`docs/feature-specs/03-sa-upload-ui.md`](feature-specs/03-sa-upload-ui.md)
+  PR 1 section.
+- **Branch:** `feat/sa-upload-nav-and-read`.
+
+### Done
+
+- **Three-level navigation under `/sa/*`, all role-gated to
+  `site_admin / project_manager / super_admin`** (matches the
+  photo_logs and bucket INSERT policies per ADR 0015):
+  - **`src/app/sa/page.tsx`** — replaces the previous "coming
+    soon" placeholder. Lists every project the user can read
+    (RLS scopes the result) as tappable cards: code (mono),
+    name, and a status pill. Empty state when no projects.
+    Retains the `LogoutButton` from the previous page in the
+    header.
+  - **`src/app/sa/projects/[projectId]/page.tsx`** — fetches
+    the project (`notFound()` if unreadable / not present)
+    and its work packages ordered by `code`. Renders the
+    list via the small Client Component below. Back link to
+    `/sa`.
+  - **`src/app/sa/projects/[projectId]/work-package-list.tsx`** —
+    Client Component (only client-side surface in PR 1). Local
+    `useState` text filter; `useMemo` over `code`/`name`
+    (case-insensitive `includes`). No debounce, no server
+    search — spec locks ~80 WPs per project, in-memory filter
+    is sufficient. Empty state distinguishes "no WPs in this
+    project" from "no matches for current filter".
+  - **`src/app/sa/projects/[projectId]/work-packages/[workPackageId]/page.tsx`** —
+    photo screen. Fetches the WP (`notFound()` if unreadable;
+    also rejects if `wp.project_id !== params.projectId`, so a
+    crafted URL can't show a WP under a wrong project). Three
+    `<PhaseSection>`s (Before / During / After), each showing
+    the current photos as a 2- (sm: 3-) column grid of
+    square-aspect thumbnails. Per-phase empty state. Back
+    link to the WP list. **No write controls in PR 1.**
+- **`src/lib/photos/current-photos.ts`** — current-photos
+  read helper (ADR 0015 + ADR 0009):
+  - **`getCurrentPhotosForWorkPackage(supabase, wpId)`** runs
+    one SELECT `photo_logs` for the WP under the user's RLS
+    context (SSR client) and returns photos grouped by phase.
+  - **`selectCurrentPhotosByPhase(rows)`** is the pure-function
+    core: builds the set of `superseded_by` values, filters out
+    rows whose id is in that set (the ADR 0009 anti-join, JS
+    side) AND rows whose `storage_path` is NULL (tombstones
+    per ADR 0015), then groups the survivors by phase.
+  - **Why JS-side filtering, not a single SQL anti-join.**
+    PostgREST does not express `WHERE NOT EXISTS (…)` as a
+    composable filter; the choices are an RPC, a server-side
+    SQL view, or fetch-and-filter. At the WP scale the spec
+    locks (≤30 photos per WP across all phases), fetching
+    every row and filtering in JS is one round-trip, RLS still
+    gates the read, and the load-bearing logic stays in a pure
+    function that is trivial to unit-test.
+- **`src/lib/photos/signed-urls.ts`** — `server-only`
+  helper that batches signed-URL minting against the private
+  `photos` bucket per ADR 0015 / spec 03 decision 17:
+  - **`mintSignedUrlsForPhotos(photos)`** filters out
+    tombstones (storage_path NULL — nothing to sign for),
+    then calls `admin.storage.from('photos').createSignedUrls(
+paths, 120)` once for every path the page needs. Returns
+    a `Map<photoLogId, signedUrl>` the page reads when
+    rendering thumbnails. One round-trip per page, never
+    per thumbnail.
+  - **TTL is 120s** — middle of the 60–300s window the spec
+    allows. The page only needs the URL alive while the
+    browser fetches the thumbnail; a leaked URL has very
+    little value at 2-minute TTL.
+  - **Uses the admin (service-role) client** because Storage
+    has no SELECT policy on `storage.objects` (intentional —
+    spec 02 / bucket migration). The application-layer
+    authorisation is the `photo_logs` SELECT RLS the caller
+    already passed; the admin client never reaches a client
+    bundle (`server-only` directive + module is only imported
+    from the photo screen Server Component).
+- **shadcn primitives added via the CLI**
+  (`pnpm dlx shadcn@latest add card input skeleton`) — three
+  new files under `src/components/ui/` (card, input,
+  skeleton). Only `Input` is actually used in PR 1 (in the
+  WP filter); `Card` and `Skeleton` are pulled in for PR 2 /
+  later units that the spec already names. No
+  `package.json` change (the dlx pull was self-contained).
+- **Plain `<img>`, not `next/image`, for thumbnails.** Using
+  `next/image` with signed Supabase Storage URLs would
+  require adding a `remotePatterns` entry in `next.config.ts`
+  for the Storage host. PR 1 keeps the surface tight; PR 2 (or
+  a follow-up that ships real photos) may revisit. Lazy
+  loading is preserved via `loading="lazy"`. Inline
+  eslint-disable for the `next/image` lint rule, narrowly
+  scoped to the one `<img>` element.
+
+### Tests
+
+- **`tests/unit/current-photos.test.ts`** (5 assertions):
+  - empty input → empty buckets;
+  - groups real photos by phase;
+  - excludes tombstones (storage_path NULL);
+  - excludes superseded rows along an A→B→C replacement
+    chain (only C is current);
+  - the ADR 0015 worked example end-to-end (A uploaded, B
+    uploaded, A tombstoned → only B remains).
+  - Mocks `server-only` per the project's established
+    test-file pattern.
+- **No test added for `mintSignedUrlsForPhotos`.** The
+  load-bearing logic is the Storage SDK call itself; the
+  surrounding code (tombstone-skipping, result-map
+  assembly) is mechanical and clearly typed. A meaningful
+  test would require mocking `@supabase/supabase-js`'s
+  storage chain end-to-end, which the spec explicitly says
+  is unnecessary for PR 1: "No behavioral test needed for
+  the Storage call in this PR." PR 2 may add tests when the
+  server actions exercise this surface more substantively.
+
+### Decisions made
+
+- **Same `/sa/*` routes admit SA + PM + super_admin** (the
+  spec leaned share-and-admit; PR 1 commits to it). Every
+  page calls
+  `requireRole(["site_admin","project_manager","super_admin"])`.
+  PM lands on `/pm` after login and never reaches `/sa` in
+  normal navigation, but if they (or super_admin) deep-link
+  to a `/sa/*` URL the gate admits them, matching the table
+  and bucket policies. PR 2's `addPhoto` server action will
+  follow the same admit-set.
+- **`notFound()` for unreadable / mismatched routes.** The
+  WP page rejects a request where `wp.project_id` doesn't
+  match the URL's `projectId` segment with `notFound()`
+  (not a 403). The user is already authorised at the role
+  level — the WP either exists under the project or it
+  doesn't — so 404 is the right semantic. RLS-blocked rows
+  also surface as `notFound()` because the select returns
+  zero rows.
+- **JS-side anti-join over server-side SQL.** The
+  alternatives — an RPC function or a SQL view that wraps
+  the anti-join — would each be a new migration and a new
+  RLS surface. With the photo-per-WP ceiling the spec locks
+  (~30), fetching every row for the WP and filtering in JS
+  is one round-trip, RLS still gates the rows, and the
+  pure filter function is trivially unit-testable. Worth
+  revisiting only if a future query touches more rows or
+  needs to project columns the JS filter doesn't already.
+- **Plain `<a>` for the back links, not `next/link`.**
+  Actually `next/link` is fine here (the back links don't
+  set CSRF cookies the way `/auth/line/start` does). Used
+  `next/link` everywhere for the prefetching benefit and
+  the small reduction in full-page reloads.
+- **WP filter is a single Client Component file** colocated
+  with the project page (`work-package-list.tsx`) rather
+  than promoted to `src/components/features/`. It is
+  specific to this surface, has no callers elsewhere, and
+  colocating it is consistent with Next.js App Router
+  conventions for route-local children.
+
+### Open questions
+
+- **Decision 15 — SA-triggered WP status transition
+  privilege.** Unresolved by design; PR 2 picks one of
+  options (a) admin-client escalation, (b) widen
+  `work_packages` UPDATE RLS to `site_admin` (likely
+  discarded — see spec), or (c) DB trigger on `photo_logs`
+  INSERT. **PR 2 must propose one and stop for operator
+  decision before writing code.** This was deliberately
+  left for PR 2 by the spec; PR 1 does not need it.
+- **`next/image` for signed Supabase URLs.** Deferred to
+  PR 2 (or a tiny follow-up) — would require adding the
+  Storage host to `remotePatterns` in `next.config.ts`. PR
+  1 uses plain `<img>` to avoid the config dependency in
+  the first surface that touches signed URLs.
+- **Live photo display unverified end-to-end.** No real
+  photos exist in the `photos` bucket yet (uploads ship in
+  PR 2). PR 1's photo screen will show "No before/during/
+  after photos yet" empty states until PR 2 enables
+  uploads. Live signed-URL rendering will be exercised the
+  first time a real photo lands in the bucket — most
+  likely during PR 2's manual smoke against a Vercel
+  preview.
+
+### Verification
+
+- `pnpm lint` — clean.
+- `pnpm typecheck` — clean.
+- `pnpm test` — 39/39 passing (5 new + 34 existing).
+- `pnpm build` — succeeds. Build output shows the three new
+  routes: `/sa`, `/sa/projects/[projectId]`,
+  `/sa/projects/[projectId]/work-packages/[workPackageId]`
+  alongside the existing 8.
+- Authenticated UI E2E **not added** (the project's
+  Playwright suite is unauthenticated-only so far; an
+  authenticated E2E pattern is deferred infra per the LINE
+  auth PR 4 notes). Manual smoke against a Vercel preview
+  is the operator's verification step post-merge.
+
+### Next build unit
+
+**PR 2 of feature spec 03 — `feat/sa-upload-write`.** Must
+open with the spec's decision 15 (SA-triggered WP status
+transition privilege) — propose one of (a) / (b) / (c) and
+stop for operator decision before writing the transition
+code. Then ship `addPhoto` + `removePhoto` server actions
+and wire the photo screen's add/remove controls.
