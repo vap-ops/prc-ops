@@ -8,6 +8,7 @@ import {
   type PhotoPhase,
 } from "@/lib/photos/current-photos";
 import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
+import { PhaseUploader } from "./phase-uploader";
 
 interface PageProps {
   params: Promise<{ projectId: string; workPackageId: string }>;
@@ -74,57 +75,19 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
 
       <div className="mx-auto flex max-w-2xl flex-col gap-6 px-5 py-6">
         {PHASES.map(({ phase, label }) => (
-          <PhaseSection
+          <PhaseUploader
             key={phase}
+            projectId={wp.project_id}
+            workPackageId={wp.id}
+            phase={phase}
             label={label}
-            photos={photosByPhase[phase]}
-            signedUrls={signedUrls}
+            photos={photosByPhase[phase].map((p) => ({
+              id: p.id,
+              url: signedUrls.get(p.id) ?? null,
+            }))}
           />
         ))}
       </div>
     </main>
-  );
-}
-
-interface PhaseSectionProps {
-  label: string;
-  photos: ReadonlyArray<PhotoLogRow>;
-  signedUrls: ReadonlyMap<string, string>;
-}
-
-function PhaseSection({ label, photos, signedUrls }: PhaseSectionProps) {
-  return (
-    <section>
-      <h2 className="mb-3 text-sm font-medium text-zinc-400">{label}</h2>
-      {photos.length === 0 ? (
-        <p className="rounded-md border border-zinc-800 bg-zinc-900/50 px-4 py-6 text-center text-sm text-zinc-500">
-          No {label.toLowerCase()} photos yet.
-        </p>
-      ) : (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {photos.map((p) => {
-            const url = signedUrls.get(p.id);
-            return (
-              <li
-                key={p.id}
-                className="aspect-square overflow-hidden rounded-md border border-zinc-800 bg-zinc-900"
-              >
-                {url ? (
-                  // Plain <img> in PR 1 — using next/image with signed
-                  // Supabase URLs would require remotePatterns config in
-                  // next.config.* for the Storage host. PR 2 may revisit.
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={url} alt="" className="h-full w-full object-cover" loading="lazy" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-xs text-zinc-600">
-                    unavailable
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </section>
   );
 }
