@@ -3772,3 +3772,293 @@ build` all green. Vitest still 68/68 (no app code
 - **PM separation-of-duties guard** — documented v1
   gap; may land alongside another approvals-related
   unit.
+
+---
+
+## Unit: PDF report worker — local-first, isolated `/worker`, PDFKit, atomic job claim
+
+- **Status:** Code built — 2026-05-25. NOT yet deployed
+  to Railway (that's the next unit). Operator will
+  verify locally next.
+- **Started / completed:** 2026-05-25.
+- **Spec:** Provided inline by the operator (continuation
+  of the prior `reports` table unit).
+- **Branch:** `feat/pdf-worker`.
+
+### Locked design recap
+
+- `/worker` is an **isolated deployable** sibling of the
+  Next app: own `package.json`, own `node_modules`, own
+  `pnpm-lock.yaml`, own copy of `database.types.ts`. The
+  worker does NOT import from the app's `src/` — Railway
+  will deploy with Root Directory = `/worker` and files
+  outside that won't be in the bundle.
+- Service-role Supabase client built locally (same shape
+  as [`scripts/import-wp.ts`](../scripts/import-wp.ts)
+  — separate-process scripts don't import the Next-
+  coupled, `server-only`-guarded `src/lib/db/admin.ts`).
+- PDF library: **PDFKit** (programmatic — no headless
+  browser, no Chromium dep).
+- Execution model: **run-once-and-exit**. A single
+  `run()` claims jobs until the queue drains, then
+  exits 0. Cron-friendly shape for Railway's eventual
+  scheduled invocation. NOT an always-on loop in this
+  unit.
+- Atomic job claim via Postgres `FOR UPDATE SKIP
+LOCKED` wrapped in a SECURITY DEFINER function
+  (`public.claim_next_report()`), invoked from the
+  worker via `supabase.rpc('claim_next_report')`.
+  supabase-js can't express `FOR UPDATE SKIP LOCKED`
+  directly through PostgREST, so the RPC is the
+  natural carrier.
+
+### Done
+
+- **Migration**
+  [`supabase/migrations/20260525010000_claim_next_report.sql`](../supabase/migrations/20260525010000_claim_next_report.sql):
+  `public.claim_next_report()` — SECURITY DEFINER,
+  `search_path = public` pinned, RETURNS SETOF
+  `public.reports`. Body is one UPDATE that picks a
+  single eligible row via `select … where status =
+'requested' order by created_at limit 1 for update
+skip locked`, flips it to `processing` and bumps
+  `updated_at`, RETURNing the claimed row. EXECUTE is
+  REVOKEd from PUBLIC **and** from `authenticated, anon`
+  (Supabase's default privileges grant new public
+  functions EXECUTE to authenticated; the revoke from
+  PUBLIC alone wasn't enough — discovered when the
+  pgTAP "authenticated cannot execute" assertion
+  failed first). Granted to `service_role` only.
+- **pgTAP test**
+  [`supabase/tests/database/13-claim-next-report.test.sql`](../supabase/tests/database/13-claim-next-report.test.sql)
+  (10 assertions). Proves: function exists; is
+  SECURITY DEFINER; `search_path = public` pinned;
+  `authenticated` cannot execute (42501); FIFO claim
+  by `created_at` across three calls; each claim
+  flips its target to `processing`; a fourth call on
+  an empty queue returns zero rows; a pre-existing
+  `complete` row is never touched.
+- **`pnpm db:push`** clean; **`pnpm db:types`**
+  regenerated (the function now shows up in
+  [`src/lib/db/database.types.ts`](../src/lib/db/database.types.ts)
+  too — fine, app-side is read-only on it via
+  type-only references); **`pnpm db:test`** 254/254
+  across 13 files (10 new).
+- **`/worker` subdirectory** — own project:
+  - [`worker/package.json`](../worker/package.json)
+    — `type: module`, `pnpm@10.33.0`, deps
+    `@supabase/supabase-js` + `pdfkit`, dev deps
+    `@types/node` + `@types/pdfkit` + `tsx` +
+    `typescript` + `vitest`. Scripts: `start =
+tsx src/index.ts` (Railway uses this; reads
+    `process.env` directly), `dev = tsx
+--env-file=../.env.local src/index.ts` (local
+    convenience that shares the Next app's
+    `.env.local`), `typecheck = tsc --noEmit`,
+    `test = vitest run`.
+  - [`worker/tsconfig.json`](../worker/tsconfig.json)
+    — strict, `noUncheckedIndexedAccess`,
+    `exactOptionalPropertyTypes`, `noImplicitOverride`
+    (matches root strictness). `target: ES2022`,
+    `module: esnext`, `moduleResolution: bundler`,
+    `types: ["node"]`.
+  - [`worker/src/database.types.ts`](../worker/src/database.types.ts)
+    — copy of the app's
+    `src/lib/db/database.types.ts`. The dual-copy
+    is required by Railway's Root-Directory =
+    `/worker` deploy shape. The regen rule is
+    documented in
+    [`worker/README.md`](../worker/README.md): when
+    the schema changes, run `pnpm db:types` at the
+    root and then `cp src/lib/db/database.types.ts
+worker/src/database.types.ts`.
+  - [`worker/src/supabase.ts`](../worker/src/supabase.ts)
+    — `createServiceRoleClient()` builds the
+    service-role client from `process.env`
+    (`SUPABASE_URL` falling back to
+    `NEXT_PUBLIC_SUPABASE_URL` for local
+    `.env.local` sharing; `SUPABASE_SERVICE_ROLE_KEY`).
+    Throws clearly if either var is missing.
+  - [`worker/src/report.ts`](../worker/src/report.ts)
+    — pure PDFKit composition. NO I/O. Takes a
+    `ReportInput` (project metadata + array of
+    `{code, name, afterPhotos: Buffer[]}` for the
+    complete WPs) and returns a PDF buffer. Header
+    line per project, one page per WP with its
+    After photos at `fit: [500, 500]`. WPs with
+    zero After photos are skipped defensively even
+    though `index.ts` also pre-filters them.
+  - [`worker/src/index.ts`](../worker/src/index.ts)
+    — the run-once entry point. Calls
+    `claim_next_report()` in a loop; for each
+    claimed job: fetches the project, its
+    `complete` work_packages, every
+    `photo_logs` row per WP (then filters to
+    current After in JS — same anti-join +
+    tombstone-filter shape as
+    [`src/lib/photos/current-photos.ts`](../src/lib/photos/current-photos.ts),
+    duplicated here because of the isolated-deploy
+    constraint), downloads each photo from the
+    `photos` bucket via the service-role client,
+    builds the PDF, uploads to the `reports`
+    bucket at `{project_id}/{report_id}.pdf`,
+    and marks the row `complete` with the
+    `storage_path`. On any error during a job,
+    marks the row `failed` with a truncated
+    error message and continues — one bad job
+    can't kill the batch.
+  - [`worker/tests/unit/report.test.ts`](../worker/tests/unit/report.test.ts)
+    — 3 vitest unit tests against `buildReportPdf`:
+    the output is a valid PDF buffer (starts with
+    `%PDF`); a WP with no After photos is skipped
+    (PDF size strictly smaller than the with-photo
+    version); an empty project still produces a
+    valid header-only PDF.
+  - [`worker/vitest.config.ts`](../worker/vitest.config.ts)
+    — minimal: node env, `tests/unit/**`.
+  - [`worker/README.md`](../worker/README.md) —
+    docs the run-once model, local-run command,
+    required env vars, regen rule for
+    `database.types.ts`, and the root-isolation
+    surface.
+- **Root isolation from `/worker`** (so the root
+  `pnpm lint && typecheck && test && build` still
+  passes and never touches the worker):
+  - [`tsconfig.json`](../tsconfig.json) — added
+    `"worker"` to `exclude`.
+  - [`eslint.config.mjs`](../eslint.config.mjs) —
+    added `"worker/**"` to `globalIgnores`.
+  - [`.prettierignore`](../.prettierignore) — added
+    `worker/`.
+  - [`.gitignore`](../.gitignore) — added
+    `/worker/node_modules`.
+  - `vitest.config.ts` and the Next build don't
+    need changes: the vitest `include` patterns
+    already scope to `tests/unit/**` +
+    `tests/integration/**` at the root, and
+    Next.js routes from `src/app/`.
+- **Verification:**
+  - Worker: `pnpm exec tsc --noEmit` clean;
+    `pnpm exec vitest run` 3/3 passing.
+  - Root: `pnpm lint` clean; `pnpm typecheck`
+    clean; `pnpm test` 68/68 (unchanged — no
+    app code touched); `pnpm build` 12 routes
+    succeeds; `pnpm db:test` 254/254 across 13
+    files.
+
+### Decisions made / things to report
+
+- **pnpm vs npm for `/worker`.** Chose **pnpm**
+  (consistent with the rest of the repo; the
+  worker carries its own `pnpm-lock.yaml`).
+  Installs use `pnpm install
+--ignore-workspace` because the root
+  `pnpm-workspace.yaml` (which exists for the
+  `allowBuilds` config) would otherwise make
+  pnpm treat the worker as part of the root
+  workspace and skip the worker's local install.
+  `--ignore-workspace` keeps the worker's
+  install / lockfile fully separate. Documented
+  in `worker/README.md`.
+- **Root-isolation surface.** Listed above. The
+  smallest possible set of changes that prevents
+  the root tooling from picking up `/worker`: one
+  `exclude` entry in `tsconfig`, one
+  `globalIgnores` entry in eslint, one line in
+  `.prettierignore`, one line in `.gitignore`.
+  No restructuring of the root's pnpm workspace,
+  no changes to `vitest.config.ts` (its include
+  patterns are already scoped to `tests/`), no
+  changes to Next.js config (routes come from
+  `src/app/`).
+- **Privilege denial discovered during pgTAP.**
+  The first migration only had `revoke execute …
+from public`. Supabase's default privileges
+  additionally grant new public-schema functions
+  EXECUTE to `authenticated`, so the denial
+  assertion failed (no exception was raised; the
+  RPC actually claimed a row from the test
+  fixtures). Fixed by adding `revoke execute on
+function public.claim_next_report() from
+authenticated, anon` to the migration. The
+  failing test's side-effect of consuming a row
+  also masked the FIFO assertions — adding the
+  revoke fixed all four failures in one go.
+- **`database.types.ts` dual-copy + regen rule.**
+  Required by the isolated-deploy shape; both
+  copies must move together. Documented in the
+  worker README and re-flagged here.
+- **No Railway artifacts in this PR.** No
+  `Dockerfile`, no `railway.toml` — those land
+  with the deploy unit. The spec explicitly
+  permitted a small marker file if helpful; we
+  didn't add one because the worker's `pnpm
+start` script + Railway's auto-detection of
+  Node projects with a `package.json` should be
+  enough to wire up the deploy without a config
+  file in this unit.
+
+### v2 deferrals (re-flagged)
+
+- **Watermark on rendered photos** (ADR 0003) —
+  originals are stored unmodified; the
+  watermark layer sits between the worker and
+  PDFKit, not before storage. Not built here.
+- **Before / During photos in the PDF.** v1 is
+  After-only — the "what was approved"
+  framing from spec 02. Adding Before / During
+  is a render-side change in `report.ts` plus
+  matching fetches in `index.ts`.
+- **PM image curation per report.** Today the
+  worker takes every current After photo. Image
+  curation (PM picks the subset that ships in
+  this particular report) is its own data model
+  change (likely a `report_photos` join table)
+  - its own UI.
+- **Deliverable-grouping of WPs.** Today every
+  complete WP becomes its own page. Grouping
+  WPs by deliverable / area / phase is a
+  presentation-layer change once the WP data
+  model carries the grouping field.
+- **Stale-`processing` recovery.** If a worker
+  process crashes mid-job, the row stays at
+  `processing` forever. v2 should add either a
+  reaper job (resurrect rows whose
+  `updated_at` is older than some threshold) or
+  a heartbeat column. Not built here.
+- **Always-on worker loop.** The run-once shape
+  is intentional — Railway cron drives it. If
+  we need always-on later, that's a trivial
+  while(true)+sleep wrapper around `run()`.
+
+### Operator follow-up (next steps in chat)
+
+1. Operator runs `cd worker && pnpm install
+--ignore-workspace` (one time per machine),
+   then `pnpm dev` to do a local end-to-end
+   smoke against the linked Supabase project.
+   Insert a `reports` row with `status =
+'requested'` for an existing project that has
+   `complete` WPs with current After photos,
+   then run the worker, then check that the
+   row is `complete` with a `storage_path`
+   pointing at `{project_id}/{report_id}.pdf`
+   in the `reports` bucket.
+2. After local verification, the next unit
+   wires up Railway: a small Dockerfile or
+   `railway.toml` if needed, the env vars on
+   Railway, the cron schedule.
+
+### Next units (not started)
+
+- **Railway deployment of the PDF worker** —
+  the next unit. Dockerfile / `railway.toml`,
+  env vars in Railway, cron schedule, optional
+  log-drain wiring.
+- **PM report UI** — "Generate report"
+  button (inserts a `reports` row); status
+  display of in-flight + recent jobs; signed-
+  URL download when `complete`.
+- **Supersede-pattern skill update** — still
+  deferred; tombstone variant has had
+  production consumers since spec 03 PR 2.

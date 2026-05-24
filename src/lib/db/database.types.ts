@@ -314,6 +314,25 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      claim_next_report: {
+        Args: never;
+        Returns: {
+          created_at: string;
+          error: string | null;
+          id: string;
+          project_id: string;
+          requested_by: string;
+          status: Database["public"]["Enums"]["report_status"];
+          storage_path: string | null;
+          updated_at: string;
+        }[];
+        SetofOptions: {
+          from: "*";
+          to: "reports";
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
       current_user_role: {
         Args: never;
         Returns: Database["public"]["Enums"]["user_role"];
