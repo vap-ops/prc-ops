@@ -2647,3 +2647,143 @@ None blocking.
   ships the endpoint should make sure the signed URL's TTL
   is short (single-digit minutes) and that the endpoint
   itself is auth-gated — neither belongs here.
+
+---
+
+## Unit: Feature spec 03 — SA upload UI (docs-only)
+
+- **Status:** Complete — 2026-05-24.
+- **Started / completed:** 2026-05-24.
+- **Spec written, no code, no schema.** Captures the locked
+  design for the SA photo upload UI so the build (planned as
+  2 PRs) is mechanical.
+- **Spec:** [`docs/feature-specs/03-sa-upload-ui.md`](feature-specs/03-sa-upload-ui.md).
+- **Branch:** `docs/03-sa-upload-ui-spec`.
+
+### Done
+
+- New feature spec written, matching the structure of
+  [`docs/feature-specs/01-line-auth.md`](feature-specs/01-line-auth.md)
+  and [`02-photos-and-approvals.md`](feature-specs/02-photos-and-approvals.md)
+  (Status → Goal → Context & platform → Locked design
+  decisions → Build plan → Deferred → Recommendation →
+  References).
+- All decisions from the design session captured:
+  - **Platform.** SA-facing PWA surface at `/sa/*` served by
+    the same Next.js app PMs use; mobile-first; tolerates
+    poor connectivity via per-photo retry; PM and super_admin
+    admitted on the same routes (matches the photo_logs +
+    bucket INSERT policies).
+  - **Three-level drill.** Project list → flat,
+    text-filterable WP list → photo screen with Before /
+    During / After phase sections. Deliverable-grouping is
+    explicitly v2 and not built here.
+  - **Photo grain + current-state.** One row = one photo;
+    current photos = ADR 0009 anti-join PLUS
+    `storage_path IS NOT NULL` (the exact query the photo
+    screen runs).
+  - **Option C upload sequencing.** Client mints a UUID v4;
+    that uuid is BOTH the Storage object key suffix AND the
+    `photo_logs.id`. Order is **upload first, row insert
+    second** so the only "orphan" failure mode is an
+    object-without-row (invisible to the app, acceptable
+    until v2 cleanup). The inverse — row-without-object —
+    is never produced.
+  - **Server actions for writes.** Storage upload is direct
+    client → Storage (the bytes never pass through the Next
+    server), but the `photo_logs` INSERT and the tombstone
+    INSERT go through server actions
+    (`addPhoto` / `removePhoto`) so validation is a single
+    chokepoint.
+  - **Photo-driven `pending_approval` transition.** When the
+    first After photo lands on a WP whose status is
+    `not_started | in_progress | on_hold`, the `addPhoto`
+    action also transitions the WP to `pending_approval`.
+    One-way for v1 (no regression on remove).
+  - **OPEN IMPLEMENTATION QUESTION** flagged for PR 2 to
+    resolve before writing code: the SA-triggered transition
+    cannot run under the SA's session (work_packages UPDATE
+    RLS admits only PM + super_admin). Spec enumerates three
+    options — (a) admin-client escalation for just the
+    status update, (b) widen work_packages UPDATE RLS to
+    site_admin (discarded unless paired with a column-grant
+    restriction), (c) a Postgres trigger on photo_logs that
+    fires the status update under the table-owner privilege.
+    PR 2 must surface one and stop for operator decision.
+  - **Viewing photos.** Server-minted short-lived (60–300s)
+    signed URLs against the private `photos` bucket using
+    the service role; batched per-page (one round-trip for
+    all photos on a WP); URLs are never cached / persisted.
+    This is the "signed-URL read helper" the prior units
+    deferred to the UI unit.
+  - **Replacement.** ADR 0015's "two appends" rule —
+    `removePhoto` + `addPhoto` — with the UI wrapping both
+    behind a Replace button that surfaces partial failure
+    (remove succeeded but add failed = old photo gone, UI
+    prompts to retry the add).
+- **Build plan (2 PRs):**
+  - **PR 1 — navigation + read-only viewing.** Project list,
+    WP list (filterable), photo screen with signed-URL
+    thumbnail rendering. Exercises the read path.
+  - **PR 2 — upload + remove + status transition.** Starts
+    with the privilege-question resolution; ships the two
+    server actions and the auto-transition.
+- **Deferred** (documented): deliverable-grouping (v2),
+  offline upload queue (v2), photo annotations / captions /
+  ordering / EXIF, watermark rendering (later unit), PM
+  approval UI, PDF generation, WP edits beyond status
+  transition, atomic photo replacement (ADR 0015 explicitly
+  deferred), orphaned-object cleanup (v2).
+- **Recommendation** (not built here): if PR 2 picks option
+  (c) for the privilege question, write ADR 0016 alongside
+  the migration that adds the trigger — same pattern ADR
+  0015 used. Options (a) and (b) are small implementation
+  choices that fit a PR description without an ADR.
+- `pnpm lint && pnpm typecheck && pnpm test` all pass
+  (docs-only — confirmed below).
+
+### Decisions made
+
+- **No new ADR in this PR.** Same pattern as the photos +
+  approvals spec write-up (spec 02): the ADR — if needed —
+  lives in the build PR that exercises the decision, not in
+  the spec doc. The status-transition privilege question
+  (decision 15) might earn ADR 0016 in PR 2 if option (c)
+  is chosen; flagged as a recommendation in the spec.
+- **2-PR split, not 3 or 4.** The read-only viewing PR
+  exercises the full read path (signed URLs, anti-join
+  current-state, the three-level navigation) without
+  touching any write surface. The write PR adds upload,
+  remove, and the auto-transition together because they
+  share the same server-action chokepoint and the same
+  client UUID + path-derivation logic — splitting them
+  further would duplicate machinery for two consecutive
+  micro-PRs.
+- **Same routes for SA / PM / super_admin.** Spec leans
+  share-and-admit (the bucket and table policies admit all
+  three roles, so the auth gate is "in the privileged set"
+  rather than "is site_admin"). Final PR-time call; the
+  spec doesn't lock it because the read-only PR can prove
+  out either shape before the write PR commits.
+
+### Open questions
+
+None blocking — the spec itself is complete. The two
+forward-looking flags:
+
+- **Decision 15 (SA-triggered WP status transition
+  privilege).** PR 2 picks one of options (a) / (b) / (c)
+  and stops for operator decision before writing code. This
+  is the single biggest implementation risk in the build —
+  silently widening `work_packages` UPDATE RLS would be a
+  significant security regression and is the wrong default.
+- **Deliverable-grouping** as a v2 schema + import change.
+  Trigger to revisit: SA / PM workflow research surfaces a
+  real grouping need on the 80-WP scale that filter alone
+  can't address.
+
+### Next build unit
+
+**PR 1 of feature spec 03 — `feat/sa-upload-nav-and-read`.**
+Project list, filterable WP list, read-only photo screen
+backed by signed URLs. No write surface yet.
