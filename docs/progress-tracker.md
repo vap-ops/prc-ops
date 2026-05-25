@@ -4062,3 +4062,272 @@ start` script + Railway's auto-detection of
 - **Supersede-pattern skill update** — still
   deferred; tombstone variant has had
   production consumers since spec 03 PR 2.
+
+---
+
+## Unit: PM report generation UI with status polling and download
+
+- **Status:** Complete — 2026-05-25. **The v1
+  in-app feature set is COMPLETE end-to-end:**
+  SA upload → PM approve → PM generate + download
+  PDF report.
+- **Started / completed:** 2026-05-25.
+- **Spec:** Provided inline by the operator.
+- **Branch:** `feat/pm-report-ui`.
+
+### Locked behaviour
+
+- Reports are per-project (all complete WPs' current
+  After photos — the worker already handles
+  generation; this UI just requests + displays).
+- Navigation: PM project list at
+  [`/pm/projects`](../src/app/pm/projects/page.tsx)
+  → per-project report surface at
+  [`/pm/projects/[projectId]/reports`](../src/app/pm/projects/[projectId]/reports/page.tsx).
+- Reports page: a project context card, a "Generate
+  report" button, and a list of this project's
+  reports (newest first) with status pills and
+  per-row Download (when `complete`) / error
+  message (when `failed`).
+- Access: `requireRole(["project_manager",
+"super_admin"])` on both pages. **`site_admin`
+  is intentionally excluded** — matches the
+  `reports` table SELECT/INSERT policy from the
+  reports-table unit.
+- Auto-poll while any visible report is `requested`
+  or `processing`; STOPS as soon as every report
+  is terminal. ~12s interval (the Railway cron
+  cadence is ~5 min — 12s surfaces state changes
+  within one screen-look without spamming).
+
+### Done
+
+- **Pure predicates** at
+  [`src/lib/reports/predicates.ts`](../src/lib/reports/predicates.ts):
+  `REPORT_IN_FLIGHT_STATUSES` (= `['requested',
+'processing']`), `isReportInFlight(status)`,
+  `canGenerateReport(existingStatuses)` (returns
+  false iff any existing report is in-flight),
+  `REPORT_STATUS_LABEL` (Queued / Generating /
+  Ready / Failed). Same shape as
+  `src/lib/approvals/predicates.ts` — predicate
+  decides, server action reinforces.
+- **Unit tests** at
+  [`tests/unit/reports-predicates.test.ts`](../tests/unit/reports-predicates.test.ts)
+  (10 assertions): in-flight set membership;
+  every-terminal allows generate; any in-flight
+  blocks generate; status label coverage and
+  distinctness.
+- **Server actions** at
+  [`src/app/pm/projects/[projectId]/reports/actions.ts`](../src/app/pm/projects/[projectId]/reports/actions.ts):
+  - **`generateReport({ projectId })`** — validates
+    role + project exists (under user RLS) + the
+    duplicate guard (fetches every report row for
+    the project, applies `canGenerateReport`),
+    then INSERTs a `reports` row under the user's
+    SSR session (column defaults supply
+    `status='requested'`, `storage_path=null`,
+    `error=null`; RLS WITH CHECK gates the
+    insert). Revalidates the reports page on
+    success. Returns a discriminated `{ ok: true
+} | { ok: false; reason: string }`.
+  - **`getReportDownloadUrl({ reportId })`** —
+    role check; reads the report under user RLS
+    (the SELECT policy is the visibility
+    contract); refuses if not `complete` /
+    missing `storage_path`; otherwise mints a
+    120s signed URL via the admin client against
+    the private `reports` bucket. Mirrors
+    [`src/lib/photos/signed-urls.ts`](../src/lib/photos/signed-urls.ts).
+    Returns `{ ok: true; url: string } | { ok:
+false; reason: string }`. The admin client
+    never reaches the browser; only the URL
+    string crosses.
+- **`/pm/projects`** at
+  [`src/app/pm/projects/page.tsx`](../src/app/pm/projects/page.tsx):
+  Server Component. `requireRole(PM/super)`,
+  lists projects under user RLS (code + name +
+  status pill), each card links to that
+  project's reports. Empty / error states match
+  the existing `/pm` queue shape. Includes the
+  nav strip from this unit's nav requirement.
+- **`/pm/projects/[projectId]/reports`** at
+  [`src/app/pm/projects/[projectId]/reports/page.tsx`](../src/app/pm/projects/[projectId]/reports/page.tsx):
+  Server Component. Renders the project context
+  card, the Generate button (with the
+  initially-disabled hint computed server-side
+  from `canGenerateReport`), and the reports
+  list. Fetches reports under user RLS ordered
+  by `created_at desc`.
+- **Client components** in the same route folder:
+  - [`generate-report-button.tsx`](../src/app/pm/projects/[projectId]/reports/generate-report-button.tsx)
+    — calls `generateReport`, surfaces pending
+    state and the duplicate-guard message, calls
+    `router.refresh()` on success so the new row
+    appears.
+  - [`reports-list.tsx`](../src/app/pm/projects/[projectId]/reports/reports-list.tsx)
+    — renders the per-report rows (status pill,
+    created-at, Download or error text);
+    auto-polls with `router.refresh()` while any
+    visible report is in-flight, clearing the
+    interval when the snapshot drains.
+    Download click calls
+    `getReportDownloadUrl` and `window.open`s
+    the signed URL in a new tab.
+- **Nav** — added a thin nav strip to
+  [`src/app/pm/page.tsx`](../src/app/pm/page.tsx)
+  pointing to `/pm/projects`, mirrored on both
+  new pages with reciprocal links (Review queue
+  ↔ All projects ↔ specific project's reports).
+
+### Decisions made
+
+- **Auto-poll approach (`router.refresh()` on
+  interval).** A single `setInterval` in the
+  reports-list client component re-renders the
+  Server Component every 12 s while any visible
+  report is in-flight; the Server Component
+  re-fetches `reports` under the user's RLS, so
+  the worker's status flips reach the screen
+  without a manual reload. The interval is
+  cleared as soon as the server snapshot shows
+  no in-flight rows (and on unmount). Picked
+  over a dedicated `/api/status` route to keep
+  the surface small — the Server Component is
+  already the authority on what the page
+  displays; polling it directly avoids a
+  parallel JSON surface that could drift.
+- **Status-pill colours.** Reused the same
+  palette as the approval pills (zinc for
+  neutral / queued, amber for in-progress,
+  emerald for terminal-success, red for
+  failed). Keeps the two surfaces visually
+  consistent.
+- **No new shadcn primitives added.** The
+  Generate button and Download button are
+  plain `<button>` tags styled inline — matches
+  the existing
+  [`record-decision-form.tsx`](../src/app/pm/work-packages/[workPackageId]/record-decision-form.tsx)
+  submit button style. The status pills are
+  the same inline-pill pattern the `/pm` queue
+  uses. Adding a shadcn `<Badge>` would have
+  bought nothing concrete and forked the
+  approval / report aesthetics.
+- **Server-rendered "initially disabled" hint.**
+  When the page loads with an in-flight report
+  already present, the Generate button starts
+  disabled with the duplicate-guard reason
+  shown — saves a wasted server-action
+  round-trip while the snapshot is stale. The
+  server action is the load-bearing
+  authoriser; the disabled hint is purely UX.
+- **Signed-URL TTL is 120 s.** Mirrors
+  `signed-urls.ts` for photos. Long enough for
+  the browser to start the download after the
+  user clicks; short enough that a leaked URL
+  has limited value.
+- **No image curation, no Before/During in the
+  report.** Spec-locked v2.
+
+### Feature status — full v1 flow
+
+**SA upload → PM approve → PM generate +
+download report is now COMPLETE end-to-end in
+the app.** SAs upload Before/During/After
+photos against a WP; the first After photo
+flips the WP to `pending_approval`; PMs review
+the photos and record a decision (`approved`
+flips the WP to `complete`); PMs then
+generate a per-project PDF report (worker
+gathers the complete WPs' current After
+photos, builds the PDF, uploads it); PMs
+download the finished PDF via signed URL.
+Every step is RLS-gated, audit-logged via
+append-only / supersede semantics where
+appropriate, and stays within the v1 role
+matrix (no membership table; ADR 0013).
+
+### Remaining v1 work (no in-app gap — these
+
+are pilot-readiness + polish)
+
+1. **Real WP-data import.** The CSV importer
+   exists (`pnpm import:wp`) but the pilot's
+   real two-project WP lists haven't been
+   loaded yet.
+2. **Real user onboarding.** Each pilot user
+   logs in via LINE once so their `public.users`
+   row gets created, then a super_admin
+   promotes them to their role.
+3. **End-to-end dry run with real Railway
+   worker.** This unit's UI was verified
+   locally against the worker run-by-hand
+   (`cd worker && pnpm dev`); once the Railway
+   cron is wired up the same UI should work
+   untouched.
+4. **Human-readable report date.** The PDF
+   currently labels "Generated: <ISO 8601>"
+   ([`worker/src/report.ts`](../worker/src/report.ts)).
+   A locale-formatted date would read better
+   for the pilot end-recipients. Tiny PR.
+5. **Optional `worker/railway.toml`.**
+   Reproducible deploy config alongside the
+   Railway deployment unit. Not strictly
+   necessary (Railway auto-detects Node), but
+   worth committing for repeatability.
+
+### v2 candidates (re-flagged + one new)
+
+- **NEW: LINE profile picture / display name
+  refresh via the LINE Login `profile` scope.**
+  Add `profile` to the OAuth scope list at
+  [`/auth/line/start`](../src/app/auth/line/start/route.ts);
+  call LINE's `/v2/profile` (or read it from
+  the ID token's `picture` claim if it's
+  included with `profile` scope) in
+  [`/auth/line/callback`](../src/app/auth/line/callback/route.ts);
+  add an `avatar_url text` column to
+  `public.users` and populate it NULL-only the
+  same way `line_user_id` / `full_name` are
+  populated today. Cosmetic polish — gives
+  the approval queue and report-list surfaces
+  a small avatar next to the decider's name.
+  Not pilot-critical. **Source-technique
+  caveat:** the original article describing
+  this is a Messaging-API/bot + Google-Sheets
+  pattern; only the Login-scoped profile
+  fetch fits our OAuth architecture — the
+  webhook / Sheets machinery does not apply
+  here. Drop it from any future copy-paste.
+- **Supersede-pattern skill update** — still
+  deferred; tombstone variant has had
+  production consumers since spec 03 PR 2.
+- **Watermark on rendered photos** (ADR 0003).
+- **Before / During photos in the PDF**
+  (v1 report is After-only).
+- **PM image curation per report** (subset
+  selection before generate).
+- **Deliverable-grouping of WPs** in the PDF.
+- **Stale-`processing` recovery** for crashed
+  workers.
+- **Separation-of-duties guard** so a PM who
+  uploaded photos to a WP cannot approve
+  that WP themselves (documented v1 gap).
+
+### Verification
+
+- `pnpm lint` — clean.
+- `pnpm typecheck` — clean.
+- `pnpm test` — **78/78** (up from 68/68; the
+  10 new assertions are the reports-predicates
+  tests).
+- `pnpm build` — 14 routes (was 12; added
+  `/pm/projects` and
+  `/pm/projects/[projectId]/reports`).
+- End-to-end local verification by the
+  operator: load `/pm` → "Projects & reports"
+  link → click a project → "Generate report"
+  → watch the auto-poll flip the row from
+  Queued → Generating (when the worker runs
+  locally) → Ready, then click Download and
+  see the PDF.

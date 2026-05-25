@@ -59,6 +59,18 @@ export default async function ProjectManagerLandingPage() {
         </div>
       </header>
 
+      <nav className="border-b border-zinc-800/60 bg-zinc-900/30 px-5 py-2">
+        <div className="mx-auto flex max-w-3xl items-center gap-4 text-xs">
+          <span className="text-zinc-100">Review queue</span>
+          <Link
+            href="/pm/projects"
+            className="text-zinc-500 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
+          >
+            Projects &amp; reports →
+          </Link>
+        </div>
+      </nav>
+
       <section className="mx-auto max-w-3xl px-5 py-6">
         <h2 className="mb-3 text-sm font-medium text-zinc-400">Awaiting review</h2>
 
