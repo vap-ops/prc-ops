@@ -4395,3 +4395,149 @@ test && pnpm build` all green (worker is
 - Operator verification: generate a fresh
   report after the Railway redeploy and
   check the PDF header.
+
+---
+
+## Unit: v1 go-live / dry-run checklist (docs-only)
+
+- **Status:** Complete — 2026-05-26. Docs-only;
+  no code, no schema.
+- **Started / completed:** 2026-05-26.
+- **Spec:** Provided inline by the operator.
+- **Branch:** `docs/go-live-checklist`.
+
+### Done
+
+- New runbook at
+  [`docs/go-live-checklist.md`](./go-live-checklist.md)
+  — the operator's step-by-step for taking
+  the two pilot projects live, validating
+  end-to-end with real users, and signing
+  off. Sections (in order): current state;
+  pre-go-live test-data cleanup (highest-
+  risk step); user onboarding & role
+  promotion; per-project WP adjustments;
+  the dry-run script (both approval paths +
+  report download); known v1 limitations to
+  communicate to pilot users; rollback /
+  where-to-look notes; consolidated v2
+  backlog.
+- The **real pilot WP data is already
+  loaded** for both projects (81 WPs each):
+  - `PRC-2026-001` — TFG Lam Sonthi.
+  - `PRC-2026-002` — TFG Kham Muang.
+- The **outstanding test-data cleanup** is
+  recorded in the checklist as the highest-
+  risk step, with the verified inventory:
+  `WP-TEST-001` id
+  `eaa45bd1-2990-4097-8e9b-2041d0335760`
+  under PRC-2026-001; its 7 `photo_logs`
+  rows (4 real / 3 tombstones) listed by
+  short id; its 1 `approvals` row
+  `90cfa068…`; 3 test `reports` rows
+  `7887e9eb…`, `5bdbabc4…`, `1bda8473…`; 4
+  photo objects under
+  `c2cc7c02-…/eaa45bd1-…/` in the `photos`
+  bucket; 3 PDF objects in the `reports`
+  bucket. PRC-2026-002 is presumed clean;
+  the checklist's pre-cleanup verify step
+  catches anything missed.
+
+### Decisions made
+
+- **Cleanup SQL is NOT in the checklist.**
+  The `photo_logs` / `approvals` block-write
+  triggers (P0001 on UPDATE/DELETE) plus
+  the `work_packages → photo_logs` `ON
+DELETE CASCADE` interaction mean a stale
+  or loosely-remembered DELETE will fail in
+  unexpected ways. The checklist describes
+  WHAT to delete and the ORDER (children →
+  parent, FK-safe), names the
+  trigger-bypass requirement (`DISABLE
+TRIGGER USER` inside a single
+  `BEGIN/COMMIT` block under the Supabase
+  SQL editor / service role), and routes
+  the actual SQL composition to a focused
+  session with Claude against the
+  verified-live schema. Encoding the SQL
+  into the doc would invite copy-paste of
+  stale assumptions later.
+- **Section ordering: cleanup BEFORE
+  onboarding.** Onboarding real users
+  before the test-data is removed would
+  mean those users' first-touch screens
+  carry test state (test WP in the SA
+  list, test report in the PM list).
+  Cleanup must precede onboarding so the
+  first impression is clean.
+- **LINE profile picture v2 candidate**
+  consolidated into the doc's v2 backlog
+  alongside the other deferred items. The
+  source-technique caveat (the article it
+  came from is a Messaging-API + Sheets
+  pattern; only the Login-scoped profile
+  fetch fits our OAuth architecture) is
+  preserved verbatim.
+- **No per-WP-divergence path in v1.** The
+  importer is error-on-conflict
+  (`src/lib/wp-import/parse.ts:70`); the
+  checklist documents the
+  add-new-codes-only path and explicitly
+  flags bulk per-project WP edits as v2
+  back-office territory.
+
+### Verification
+
+- `pnpm lint` — clean.
+- `pnpm typecheck` — clean.
+- `pnpm test` — 78/78 (docs-only change;
+  no test surface touched).
+
+### Open questions
+
+None blocking. Surfaced for the record:
+
+- **Who runs the cleanup window?** Only
+  the operator (super_admin). Schedule it
+  for a quiet hour and treat it as a
+  deliberate maintenance window.
+- **When does the project-membership
+  upgrade (ADR 0013) land?** Triggered by
+  the first external account
+  (PM/subcon/customer) — not by a
+  calendar date. The checklist sets
+  expectations on this so pilot users
+  aren't surprised when an external joins
+  later.
+
+### Next units (not started)
+
+The checklist's Section 7 is the canonical
+v2 backlog. Re-listed here for completeness:
+
+- Deliverable grouping in reports (schema +
+  importer + PDF layout; source CSVs
+  already carry `DeliverableID` D01–D30,
+  ready to backfill).
+- PM image curation per report.
+- Multi-project reports.
+- Watermark-on-demand rendering (ADR 0003).
+- Before / During photos in reports.
+- Stale-`processing` sweep for crashed
+  worker jobs.
+- LINE profile picture / display-name
+  refresh via the Login `profile` scope.
+- In-app admin UI for visitor promotion
+  (ADR 0010 trigger).
+- Airtable-like WP back-office + WP edit /
+  remove UI.
+- Separation-of-duties guard on approvals
+  (documented spec-02 gap).
+- Project-membership scoping (ADR 0013
+  upgrade path) when the first external
+  account joins.
+- Optional `worker/railway.toml` for
+  reproducible deploy config.
+- Supersede-pattern SKILL tombstone
+  update (re-flagged from spec 02 PR 1).
