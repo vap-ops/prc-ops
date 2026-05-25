@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildReportPdf, type ReportInput } from "../../src/report.js";
+import { buildReportPdf, formatGeneratedDate, type ReportInput } from "../../src/report.js";
 
 const PDF_MAGIC = "%PDF";
 
@@ -97,5 +97,15 @@ describe("buildReportPdf", () => {
     expect(Buffer.isBuffer(pdf)).toBe(true);
     expect(pdf.length).toBeGreaterThan(100);
     expect(pdf.subarray(0, 4).toString("ascii")).toBe(PDF_MAGIC);
+  });
+});
+
+describe("formatGeneratedDate", () => {
+  it("formats a Date as 'D Month YYYY' (en-GB style)", () => {
+    expect(formatGeneratedDate(new Date("2026-05-24T18:40:38.171Z"))).toBe("24 May 2026");
+  });
+
+  it("uses the full month name and no leading zero on the day", () => {
+    expect(formatGeneratedDate(new Date("2026-06-01T00:00:00Z"))).toBe("1 June 2026");
   });
 });

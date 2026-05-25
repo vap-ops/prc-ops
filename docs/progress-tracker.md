@@ -4265,12 +4265,7 @@ are pilot-readiness + polish)
    (`cd worker && pnpm dev`); once the Railway
    cron is wired up the same UI should work
    untouched.
-4. **Human-readable report date.** The PDF
-   currently labels "Generated: <ISO 8601>"
-   ([`worker/src/report.ts`](../worker/src/report.ts)).
-   A locale-formatted date would read better
-   for the pilot end-recipients. Tiny PR.
-5. **Optional `worker/railway.toml`.**
+4. **Optional `worker/railway.toml`.**
    Reproducible deploy config alongside the
    Railway deployment unit. Not strictly
    necessary (Railway auto-detects Node), but
@@ -4331,3 +4326,72 @@ are pilot-readiness + polish)
   Queued → Generating (when the worker runs
   locally) → Ready, then click Download and
   see the PDF.
+
+---
+
+## Unit: format report generated-date as human-readable
+
+- **Status:** Complete — 2026-05-25. Worker-only
+  polish. Auto-redeploys to Railway on push
+  (Watch Paths = `worker/**`).
+- **Started / completed:** 2026-05-25.
+- **Spec:** Provided inline by the operator.
+- **Branch:** `chore/report-date-format`.
+
+### Done
+
+- Extracted a tiny `formatGeneratedDate(date)`
+  helper in
+  [`worker/src/report.ts`](../worker/src/report.ts)
+  using `Intl.DateTimeFormat('en-GB', { day:
+'numeric', month: 'long', year: 'numeric',
+timeZone: 'UTC' })` — yields strings like
+  `"24 May 2026"` / `"1 June 2026"` (day,
+  full month name, year; no time, no
+  timezone label). The PDF header line now
+  reads `Generated: 24 May 2026` instead of
+  `Generated: 2026-05-24T18:40:38.171Z`.
+- Two assertions appended to
+  [`worker/tests/unit/report.test.ts`](../worker/tests/unit/report.test.ts)
+  cover the formatter shape (`24 May 2026`,
+  `1 June 2026`). Worker test count 3 → 5.
+- No date library added (no dayjs / date-fns).
+- Only the display changed — the timestamp
+  source (`new Date()` in
+  [`worker/src/index.ts`](../worker/src/index.ts))
+  is untouched.
+
+### Decisions made
+
+- **Pinned `timeZone: 'UTC'` in the formatter.**
+  The same `Date` must render to the same
+  string regardless of which timezone the
+  process runs in. Railway Linux containers
+  default to UTC; local dev (Asia/Bangkok)
+  doesn't. Without a pinned zone, a generate
+  shortly after midnight UTC would render as
+  one date on Railway and a different date if
+  re-run locally. UTC is the safest portable
+  choice and is documented in the helper's
+  comment. If a future report-recipient
+  audience prefers Asia/Bangkok, swapping the
+  `timeZone` string is a one-line change with
+  matching test updates.
+- **Helper exported, not inlined.** Lets the
+  format be asserted directly in the unit
+  tests rather than parsing it back out of
+  the PDF bytes.
+
+### Verification
+
+- `cd worker && pnpm exec tsc --noEmit` clean.
+- `cd worker && pnpm exec vitest run` 5/5
+  passing.
+- Root: `pnpm lint && pnpm typecheck && pnpm
+test && pnpm build` all green (worker is
+  excluded from root tooling, so this is a
+  no-op for the app — confirming it stays
+  one).
+- Operator verification: generate a fresh
+  report after the Railway redeploy and
+  check the PDF header.
