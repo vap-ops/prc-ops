@@ -4710,3 +4710,145 @@ remaining polish items)
   must cover which columns are
   user-writable and which stay
   admin-only.
+
+---
+
+## Unit: super_admin operator hub on /coming-soon
+
+- **Status:** Complete — 2026-05-26.
+  Closes the third of four operator
+  polish items. The last remaining
+  item is **user profile management**
+  (still needs its own design pass +
+  ADR for a column-scoped
+  `public.users` write policy).
+- **Started / completed:** 2026-05-26.
+- **Spec:** Provided inline by the
+  operator.
+- **Branch:** `feat/super-admin-hub`.
+
+### Done
+
+- Added a `super_admin` render branch
+  to
+  [`src/app/coming-soon/page.tsx`](../src/app/coming-soon/page.tsx).
+  When the authenticated user's role
+  is `super_admin`, the page now
+  renders an **Operator console** hub
+  with three labelled link cards:
+  - `/sa` — "Site admin / Project
+    list, work packages, photo
+    upload."
+  - `/pm` — "Approval queue / Work
+    packages awaiting PM review."
+  - `/pm/projects` — "Projects &
+    reports / Generate and download
+    project PDF reports."
+- The existing `LogoutButton` stays
+  at the bottom of the hub.
+- Every other role (`visitor`,
+  `project_coordinator`,
+  `procurement`, `technician`, `hr`,
+  `subcon_manager`, `accounting`)
+  renders **exactly as before** —
+  same generic "tools for your role
+  aren't ready yet" copy + role label
+  - logout. The branch falls through
+    to the original render when
+    `role !== "super_admin"`.
+- Existing early-redirects unchanged:
+  `site_admin` still redirects to
+  `/sa`, `project_manager` still
+  redirects to `/pm` — those roles
+  never see this page.
+- **Confirmed during the work that
+  `/sa`, `/pm`, and `/pm/projects`
+  already admit `super_admin` via
+  their existing `requireRole()`
+  guards** (`["site_admin",
+"project_manager", "super_admin"]`
+  on `/sa`; `["project_manager",
+"super_admin"]` on `/pm` and
+  `/pm/projects`). No `requireRole`
+  change in this unit; the hub is
+  purely a render branch.
+
+### Decisions made
+
+- **Hub lives at `/coming-soon`,
+  not a new `/admin` route.**
+  `roleHome("super_admin")` sends
+  super_admins to `/coming-soon`
+  today (per
+  `src/lib/auth/role-home.ts`). A
+  separate `/admin` route would
+  duplicate the role-home plumbing
+  and force every super_admin login
+  redirect through a new code path;
+  folding the hub into the existing
+  `/coming-soon` branch keeps the
+  diff to a single page file.
+- **No `<OperatorHub>` component
+  extraction.** Kept it as a local
+  function in the same file —
+  one use site, no reuse benefit,
+  and pulling it into
+  `src/components/` would fork the
+  file structure for no gain.
+- **Plain `next/link`, prefetching
+  fine.** These are internal app
+  links with no state-changing
+  side effects; no need for the
+  CSRF-shielded `<a>` pattern the
+  login button uses.
+- **No `requireRole` change.** The
+  spec was explicit: STOP if any
+  target didn't admit super_admin
+  rather than relaxing auth. All
+  three already admit it — verified
+  by direct re-read of the
+  `requireRole(...)` arrays.
+
+### Verification
+
+- `pnpm lint` — clean.
+- `pnpm typecheck` — clean.
+- `pnpm test` — **94/94** (no test
+  surface touched; presentational
+  change only).
+- `pnpm build` — 14 routes,
+  unchanged.
+- Operator visual verification: log
+  in as a super_admin LINE account,
+  confirm the hub appears on
+  `/coming-soon` with three
+  working link cards + logout. Log
+  in as a `visitor` LINE account
+  (or any other unserved role),
+  confirm the page renders the
+  unchanged generic copy. Confirm
+  SA / PM accounts still bounce to
+  `/sa` / `/pm` and never see the
+  hub.
+
+### Next units (not started — last
+
+operator polish item)
+
+- **User profile management.**
+  Display-name edit at minimum;
+  possibly an avatar surface once
+  the LINE-profile-scope v2 item
+  lands. Needs an ADR for the RLS
+  shape: today the model is
+  "admin-client writes from the
+  callback, NULL-only" with no
+  user-write path on
+  `public.users`. The ADR must
+  specify which columns are
+  user-writable (probably
+  `full_name`) and which stay
+  admin-only (`role`,
+  `line_user_id`, `id`), then
+  ship the matching UPDATE policy
+  - server-action surface.
