@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
+import { projectStatusPillClasses } from "@/lib/status-colors";
 
 const PROJECT_STATUS_LABEL: Record<string, string> = {
   active: "Active",
@@ -54,7 +55,9 @@ export default async function SitAdminLandingPage() {
                     <p className="font-mono text-xs text-zinc-500">{p.code}</p>
                     <p className="truncate text-base font-medium text-zinc-100">{p.name}</p>
                   </div>
-                  <span className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-0.5 text-xs font-medium text-zinc-300">
+                  <span
+                    className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium ${projectStatusPillClasses(p.status)}`}
+                  >
                     {PROJECT_STATUS_LABEL[p.status] ?? p.status}
                   </span>
                 </Link>
