@@ -1,14 +1,24 @@
 "use client";
 
-// Client Component: text filter over an already-loaded WP list. Spec
-// locks the filter at ~80 rows, so all filtering is in-memory (no
-// server search, no debounce).
+// Client Component: text filter + hide-completed toggle over an already-
+// loaded WP list. Spec locks the filter at ~80 rows, so all filtering
+// is in-memory (no server search, no debounce). Both filters compose:
+// a WP is shown iff it matches the text query AND isn't hidden by the
+// completed toggle.
+//
+// "Hide completed" defaults OFF — nothing disappears unless the user
+// asks. The toggle is local client state, same as the text query, so
+// the URL stays stable and there's no server round-trip.
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
+import type { Database } from "@/lib/db/database.types";
+import { workPackageStatusPillClasses } from "@/lib/status-colors";
 
-const WP_STATUS_LABEL: Record<string, string> = {
+type WorkPackageStatus = Database["public"]["Enums"]["work_package_status"];
+
+const WP_STATUS_LABEL: Record<WorkPackageStatus, string> = {
   not_started: "Not started",
   in_progress: "In progress",
   on_hold: "On hold",
@@ -20,7 +30,7 @@ export interface WorkPackageListItem {
   id: string;
   code: string;
   name: string;
-  status: string;
+  status: WorkPackageStatus;
 }
 
 interface WorkPackageListProps {
@@ -30,29 +40,53 @@ interface WorkPackageListProps {
 
 export function WorkPackageList({ projectId, workPackages }: WorkPackageListProps) {
   const [query, setQuery] = useState("");
+  const [hideCompleted, setHideCompleted] = useState(false);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return workPackages;
-    return workPackages.filter(
-      (wp) => wp.code.toLowerCase().includes(q) || wp.name.toLowerCase().includes(q),
-    );
-  }, [query, workPackages]);
+    return workPackages.filter((wp) => {
+      if (hideCompleted && wp.status === "complete") return false;
+      if (!q) return true;
+      return wp.code.toLowerCase().includes(q) || wp.name.toLowerCase().includes(q);
+    });
+  }, [query, workPackages, hideCompleted]);
+
+  // Empty-state copy depends on what's actually empty: no WPs at all,
+  // text filter zeroed the list, hide-completed zeroed the list, or
+  // both combined zeroed it. The user gets the most specific message
+  // that applies.
+  const emptyMessage =
+    workPackages.length === 0
+      ? "No work packages yet."
+      : hideCompleted && workPackages.every((wp) => wp.status === "complete")
+        ? "All work packages are complete."
+        : "No matching work packages.";
 
   return (
     <div className="flex flex-col gap-4">
-      <Input
-        type="search"
-        placeholder="Filter by code or name…"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        className="border-zinc-800 bg-zinc-900/60 text-zinc-100 placeholder:text-zinc-500"
-        aria-label="Filter work packages"
-      />
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Input
+          type="search"
+          placeholder="Filter by code or name…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="border-zinc-800 bg-zinc-900/60 text-zinc-100 placeholder:text-zinc-500 sm:flex-1"
+          aria-label="Filter work packages"
+        />
+        <label className="flex shrink-0 cursor-pointer items-center gap-2 rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-xs text-zinc-300 select-none has-[input:checked]:border-zinc-600 has-[input:checked]:bg-zinc-800 has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-zinc-500">
+          <input
+            type="checkbox"
+            checked={hideCompleted}
+            onChange={(e) => setHideCompleted(e.target.checked)}
+            className="accent-zinc-100"
+          />
+          Hide completed
+        </label>
+      </div>
 
       {filtered.length === 0 ? (
         <p className="rounded-md border border-zinc-800 bg-zinc-900/50 px-4 py-6 text-center text-sm text-zinc-400">
-          {workPackages.length === 0 ? "No work packages yet." : "No matches."}
+          {emptyMessage}
         </p>
       ) : (
         <ul className="flex flex-col gap-2">
@@ -66,7 +100,9 @@ export function WorkPackageList({ projectId, workPackages }: WorkPackageListProp
                   <p className="font-mono text-xs text-zinc-500">{wp.code}</p>
                   <p className="truncate text-base font-medium text-zinc-100">{wp.name}</p>
                 </div>
-                <span className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-0.5 text-xs font-medium text-zinc-300">
+                <span
+                  className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium ${workPackageStatusPillClasses(wp.status)}`}
+                >
                   {WP_STATUS_LABEL[wp.status] ?? wp.status}
                 </span>
               </Link>

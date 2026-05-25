@@ -4541,3 +4541,172 @@ v2 backlog. Re-listed here for completeness:
   reproducible deploy config.
 - Supersede-pattern SKILL tombstone
   update (re-flagged from spec 02 PR 1).
+
+---
+
+## Unit: SA status pills color-coded + "Hide completed" toggle
+
+- **Status:** Complete — 2026-05-26. Two of
+  the four operator-requested polish items
+  done; the remaining two (a super_admin
+  navigation hub, and user profile
+  management — the latter needs its own
+  design pass + likely an ADR for a
+  column-scoped users write policy) are
+  the next units.
+- **Started / completed:** 2026-05-26.
+- **Spec:** Provided inline by the operator.
+- **Branch:** `feat/sa-status-colors-and-filter`.
+
+### Done
+
+- **Shared status-color helper** at
+  [`src/lib/status-colors.ts`](../src/lib/status-colors.ts):
+  `projectStatusPillClasses(status)` and
+  `workPackageStatusPillClasses(status)`.
+  Both are pure, typed, and exhaustive on
+  the enum unions via a `const _exhaustive:
+never = status` check in the default
+  branch — adding a new enum value to the
+  database fails TypeScript here, exactly
+  where the map needs updating.
+- **Palette identical to the existing PM
+  pills** (zinc / amber / emerald) plus a
+  fourth muted slot for `archived`. PM
+  files were NOT touched — the helper just
+  hard-codes the same class strings.
+- **Project-status mapping:**
+  `active` → zinc (resting default — most
+  projects sit here, no reason for every
+  row to scream); `on_hold` → amber
+  (paused, needs attention); `completed` →
+  emerald (positive terminal); `archived`
+  → muted zinc (`border-zinc-800
+bg-zinc-900 text-zinc-500`, drops back
+  visually from active rows).
+- **Work-package-status mapping:**
+  `not_started` → zinc; `in_progress` /
+  `on_hold` / `pending_approval` → amber
+  (all three are "in flight" from the
+  SA's perspective; the pill text label
+  differentiates them precisely);
+  `complete` → emerald.
+- **Helper applied to**
+  [`src/app/sa/page.tsx`](../src/app/sa/page.tsx)
+  (project list — the status pill on each
+  card) and
+  [`src/app/sa/projects/[projectId]/work-package-list.tsx`](../src/app/sa/projects/[projectId]/work-package-list.tsx)
+  (WP list — the per-row status pill).
+- **"Hide completed" toggle** added next
+  to the existing text-filter input on the
+  WP list. **Default OFF** so nothing
+  disappears unless the user opts in.
+  Composes with the text filter: a WP is
+  shown iff it matches the text query AND
+  isn't hidden by the toggle. Empty-state
+  copy picks the most specific message
+  ("No work packages yet." / "All work
+  packages are complete." / "No matching
+  work packages."). Client-side state
+  (this was already a Client Component),
+  no URL or server round-trip.
+- **Unit tests** at
+  [`tests/unit/status-colors.test.ts`](../tests/unit/status-colors.test.ts)
+  drive every enum value through both
+  helpers (via the generated
+  `Constants.public.Enums.*` arrays — adding
+  a new enum value automatically extends
+  the test surface), assert the unknown-
+  value default path is non-empty, and pin
+  the load-bearing palette choices
+  (`complete` / `completed` → emerald;
+  `on_hold` → amber; in-flight WP states
+  → amber; `not_started` → zinc). 16 new
+  assertions; total 78 → 94.
+
+### Decisions made
+
+- **Label `Record<string, string>`, not
+  `Record<ProjectStatus, string>`.** The
+  Supabase row's `status` column widens to
+  `any` at the call site (column-list
+  `.select(...)` doesn't preserve the
+  enum union through to the React JSX in
+  the same predictable way the WP list's
+  typed props interface does), so a typed
+  Record fails `noUncheckedIndexedAccess`
+  on `record[any]`. The label map is
+  decorative; the load-bearing
+  exhaustiveness lives in the color
+  helper. Kept the label map as the
+  established `Record<string, string>`
+  pattern the rest of the repo uses, and
+  let the helper carry the strictness.
+- **PM pills untouched.** The helper just
+  emits the same Tailwind class strings
+  the PM pills already use, so SA and PM
+  match without restyling the PM
+  surfaces. A future "extract the pill
+  component" refactor can fold both
+  sides in, but it's out of scope here.
+- **Default OFF for "Hide completed"**
+  per spec. The operator's principle
+  (nothing disappears unless asked)
+  matters more for an SA on a phone
+  scanning their WPs than the
+  power-user convenience of having
+  completed ones already gone.
+- **Three amber WP states is fine.**
+  `in_progress` / `on_hold` /
+  `pending_approval` all carry the same
+  amber pill; the text label is the
+  precise signal. Trying to invent a
+  fourth color (yellow, orange) to
+  separate them would fork from the PM
+  palette and lose the consistency
+  this unit is buying.
+
+### Verification
+
+- `pnpm lint` — clean.
+- `pnpm typecheck` — clean (after
+  reverting the typed label record on
+  sa/page.tsx — see decisions).
+- `pnpm test` — **94/94** (78 → 94; 16
+  new assertions for status-colors).
+- `pnpm build` — 14 routes, unchanged.
+- Operator visual verification: load
+  `/sa`, see project pills colored;
+  open a project, see WP pills colored;
+  toggle "Hide completed" on a project
+  with completed WPs, confirm they
+  disappear (and reappear when off);
+  cross-check `/pm` queue + reports
+  list to confirm the SA and PM
+  palettes match.
+
+### Next units (not started — operator's
+
+remaining polish items)
+
+- **Super_admin navigation hub.** A
+  small landing for the super_admin
+  role (currently SAs land on `/sa`,
+  PMs on `/pm`, super_admins go
+  wherever their last destination
+  was). Likely a `/super` route with
+  cross-links to both `/sa` and `/pm`
+  surfaces plus any admin-only future
+  destinations.
+- **User profile management** (display
+  name, etc.). Needs its own design
+  pass and likely an ADR for the RLS
+  shape — letting a user update their
+  own `public.users` row is a
+  column-scoped write that doesn't
+  exist in v1 (the current model is
+  "admin-client writes from the
+  callback, NULL-only"). The ADR
+  must cover which columns are
+  user-writable and which stay
+  admin-only.
