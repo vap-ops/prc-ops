@@ -37,6 +37,22 @@ export interface ReportInput {
   workPackages: ReportInputWorkPackage[];
 }
 
+// "24 May 2026" — date only, day / full month name / year, no time, no
+// timezone label. Pinned to UTC so the same Date renders the same string
+// regardless of where the worker process runs (Railway containers default
+// to UTC; local dev may not). en-GB gives the day-month-year order with
+// no leading zero on the day; locale-correct month names come from Intl.
+const DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+export function formatGeneratedDate(date: Date): string {
+  return DATE_FORMATTER.format(date);
+}
+
 function streamToBuffer(doc: PDFKit.PDFDocument): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -55,7 +71,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Buffer> {
     align: "left",
   });
   doc.moveDown(0.5);
-  doc.fontSize(10).text(`Generated: ${input.project.generatedAt.toISOString()}`);
+  doc.fontSize(10).text(`Generated: ${formatGeneratedDate(input.project.generatedAt)}`);
   doc.moveDown(1);
 
   // Per-WP sections. Skip WPs with no After photos so we never emit an
