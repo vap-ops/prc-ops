@@ -4852,3 +4852,147 @@ operator polish item)
   `line_user_id`, `id`), then
   ship the matching UPDATE policy
   - server-action surface.
+
+---
+
+## Unit: v2 handoff / context-bridge document (docs-only)
+
+- **Status:** Complete — 2026-05-26.
+  Docs-only; no code, no schema.
+- **Started / completed:** 2026-05-26.
+- **Spec:** Provided inline by the
+  operator.
+- **Branch:** `docs/v2-handoff`.
+
+### Done
+
+- New "start here" doc at
+  [`docs/v2-handoff.md`](./v2-handoff.md)
+  — the context bridge for a fresh
+  Claude chat (or future-you)
+  picking up v2 work and the
+  remaining go-live steps via the
+  GitHub connector. Points to the
+  authoritative docs
+  (`CLAUDE.md`, ADRs, feature
+  specs, `go-live-checklist.md`,
+  this tracker) rather than
+  duplicating them; captures only
+  the things that aren't already
+  written down anywhere else.
+- Sections: current state (v1
+  feature-complete + deployed; 81
+  WPs per pilot; LINE channel
+  published); outstanding go-live
+  steps (pointing to checklist
+  §§1–4); **operational gotchas
+  discovered during the build**
+  (the LINE-publish trap, the
+  preview-host callback allowlist,
+  the `pnpm install
+--ignore-workspace` requirement,
+  Railway Watch Paths auto-redeploy
+  semantics, Railway's misleading
+  auto-diagnosis when Root
+  Directory wasn't `worker`, the
+  branch-delete-no-leading-slash
+  friction point, and the
+  always-on cron note); the v2
+  backlog with **profile-management
+  written up in design detail**
+  (full_name-only scope, the
+  load-bearing WITH-CHECK
+  privilege-escalation risk, three
+  mechanism options analysed,
+  lean = server-action via admin
+  client (option b), open
+  design-grilling questions,
+  needs-ADR before building); and
+  a how-to-work-in-v2 discipline
+  recap (source-of-truth, workflow,
+  architecture invariants).
+
+### Why this doc exists
+
+The build conversation surfaced
+several things that were
+load-bearing operationally but
+**weren't recorded anywhere**:
+
+- The LINE-channel publish trap
+  (channel must be Published, not
+  Developing, for non-tester users
+  to authenticate). Discovered live
+  during user onboarding; would
+  have been an "unknown error from
+  access.line.me" hunt for the
+  next chat.
+- The profile-management security
+  analysis (RLS `WITH CHECK`
+  validates the resulting row, not
+  which columns changed → a naive
+  self-update policy ships
+  privilege escalation to
+  super_admin). Done in
+  conversation; no ADR yet because
+  the unit hasn't been built; the
+  analysis would have been
+  re-derived from scratch
+  otherwise.
+- Operational gotchas around the
+  worker (pnpm workspace
+  interaction, Railway diagnostic
+  noise) that don't justify their
+  own ADR but would cost a future
+  chat real time.
+
+Capturing them in a single
+referenced doc means the next
+chat reads one file and is
+oriented, instead of crawling 4000+
+lines of tracker history.
+
+### Decisions made
+
+- **Point-to-don't-duplicate.** The
+  go-live checklist and the ADR
+  set are the canonical sources;
+  the handoff doc links to them
+  rather than restating their
+  contents. Only the things that
+  exist nowhere else (the gotchas
+  - the profile-management design
+    notes) are written in full.
+- **Profile-management write-up
+  belongs here, not in an ADR.**
+  The ADR is written when the unit
+  is built; this doc preserves the
+  conversation-derived analysis so
+  the ADR author isn't starting
+  from scratch.
+
+### Verification
+
+- `pnpm lint` — clean.
+- `pnpm typecheck` — clean.
+- `pnpm test` — **94/94** (docs-only;
+  no test surface touched).
+
+### Closing notes
+
+- 3 of 4 mid-go-live polish items
+  shipped (SA status colors + Hide
+  completed toggle; super_admin
+  operator hub). Profile management
+  is the 4th, deferred to v2 with
+  design notes in
+  [`docs/v2-handoff.md` §4](./v2-handoff.md).
+- LINE Login channel is **published**
+  — login is live for any LINE
+  user, not just registered
+  testers.
+- Real WP data is loaded for both
+  pilots (81 each); test-data
+  cleanup is the highest-risk
+  remaining step before pilot
+  go-live.
