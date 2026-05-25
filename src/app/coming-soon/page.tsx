@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { createClient } from "@/lib/db/server";
@@ -46,6 +47,16 @@ export default async function ComingSoonPage() {
   const displayName = UNSERVED_ROLE_LABEL[role] ?? role;
   const greeting = row.full_name ?? "there";
 
+  // super_admin is the only "unserved" role that genuinely needs to
+  // *reach* the served surfaces — every other unserved role waits for
+  // its own tools to ship. Give super_admin an operator hub instead of
+  // the wait-for-tools copy. /sa and /pm and /pm/projects all admit
+  // super_admin via their existing requireRole() guards (no auth
+  // change in this unit; this is purely a render branch).
+  if (role === "super_admin") {
+    return <OperatorHub greeting={greeting} displayName={displayName} />;
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-6 text-zinc-100">
       <div className="w-full max-w-md space-y-6 text-center">
@@ -57,6 +68,74 @@ export default async function ComingSoonPage() {
           process.
         </p>
         <div className="flex justify-center pt-2">
+          <LogoutButton />
+        </div>
+      </div>
+    </main>
+  );
+}
+
+interface OperatorHubProps {
+  greeting: string;
+  displayName: string;
+}
+
+interface HubLink {
+  href: string;
+  label: string;
+  hint: string;
+}
+
+const HUB_LINKS: ReadonlyArray<HubLink> = [
+  {
+    href: "/sa",
+    label: "Site admin",
+    hint: "Project list, work packages, photo upload.",
+  },
+  {
+    href: "/pm",
+    label: "Approval queue",
+    hint: "Work packages awaiting PM review.",
+  },
+  {
+    href: "/pm/projects",
+    label: "Projects & reports",
+    hint: "Generate and download project PDF reports.",
+  },
+];
+
+function OperatorHub({ greeting, displayName }: OperatorHubProps) {
+  return (
+    <main className="min-h-screen bg-zinc-950 px-6 py-10 text-zinc-100">
+      <div className="mx-auto flex w-full max-w-md flex-col gap-6">
+        <header className="space-y-1">
+          <p className="text-xs tracking-wider text-zinc-500 uppercase">Operator console</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Hi, {greeting}</h1>
+          <p className="text-sm text-zinc-500">Signed in as {displayName}.</p>
+        </header>
+
+        <nav aria-label="Operator destinations" className="flex flex-col gap-2">
+          {HUB_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="group flex items-start justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-3 transition-colors hover:bg-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+            >
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-base font-medium text-zinc-100">{link.label}</p>
+                <p className="text-xs text-zinc-500">{link.hint}</p>
+              </div>
+              <span
+                aria-hidden="true"
+                className="mt-0.5 shrink-0 text-zinc-600 transition-colors group-hover:text-zinc-300"
+              >
+                →
+              </span>
+            </Link>
+          ))}
+        </nav>
+
+        <div className="flex justify-end pt-2">
           <LogoutButton />
         </div>
       </div>
