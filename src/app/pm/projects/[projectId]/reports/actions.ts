@@ -1,0 +1,173 @@
+"use server";
+
+// Server actions for the PM report UI:
+//
+//   generateReport({ projectId }) — PM/super requests a new PDF report.
+//     Validates role + project visibility + the duplicate guard (no
+//     in-flight report exists for this project), then INSERTs a
+//     reports row under the user's session (RLS gates the insert to
+//     PM + super_admin; column defaults supply status='requested',
+//     storage_path NULL, error NULL). On success, revalidates the
+//     reports page so the new row appears on the next render.
+//
+//   getReportDownloadUrl({ reportId }) — mints a short-TTL signed URL
+//     against the private `reports` Storage bucket. Caller role-gated;
+//     report must be readable under the user's RLS and at status
+//     'complete' with a storage_path. The signed URL is minted via the
+//     admin client (mirrors src/lib/photos/signed-urls.ts) — the
+//     reports bucket has no authenticated RLS on storage.objects by
+//     design, so all reads flow through service-role-minted URLs. The
+//     admin client itself never reaches the browser bundle.
+
+import "server-only";
+
+import { revalidatePath } from "next/cache";
+import { createClient as createAdminClient } from "@/lib/db/admin";
+import { createClient as createServerSupabase } from "@/lib/db/server";
+import { canGenerateReport, type ReportStatus } from "@/lib/reports/predicates";
+import type { UserRole } from "@/lib/auth/role-home";
+
+const PM_ROLES: ReadonlyArray<UserRole> = ["project_manager", "super_admin"];
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isValidUuid(value: unknown): value is string {
+  return typeof value === "string" && UUID_REGEX.test(value);
+}
+
+const REPORTS_BUCKET = "reports";
+
+// 120 seconds: same TTL as the photo helper (signed-urls.ts). Long enough
+// for the browser to start the download after the user clicks; short
+// enough that a leaked URL has very little value.
+const SIGNED_URL_TTL_SECONDS = 120;
+
+export interface GenerateReportInput {
+  projectId: string;
+}
+
+export type GenerateReportResult = { ok: true } | { ok: false; reason: string };
+
+export async function generateReport(input: GenerateReportInput): Promise<GenerateReportResult> {
+  if (!isValidUuid(input.projectId)) {
+    return { ok: false, reason: "Invalid project id." };
+  }
+
+  const supabase = await createServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, reason: "Not signed in." };
+
+  // Explicit role check before any DB write so the error surface is
+  // clean. RLS on reports INSERT is the load-bearing backstop — a
+  // site_admin's session would be refused there too, with a less
+  // useful error.
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!userRow || !(PM_ROLES as readonly string[]).includes(userRow.role)) {
+    return { ok: false, reason: "Only project managers can generate reports." };
+  }
+
+  // Verify the project exists and is visible under the user's RLS.
+  // Same shape as the WP fetch in recordDecision (work-packages actions).
+  const { data: project } = await supabase
+    .from("projects")
+    .select("id")
+    .eq("id", input.projectId)
+    .maybeSingle();
+  if (!project) return { ok: false, reason: "Project not found." };
+
+  // Duplicate guard: fetch the project's reports (RLS-scoped, but that
+  // matches the visibility we're guarding) and apply the pure
+  // predicate. The "any in-flight report blocks generation" rule is in
+  // src/lib/reports/predicates.ts; this action just supplies the data.
+  const { data: existing } = await supabase
+    .from("reports")
+    .select("status")
+    .eq("project_id", project.id);
+  const statuses: ReportStatus[] = (existing ?? []).map((r) => r.status);
+  if (!canGenerateReport(statuses)) {
+    return {
+      ok: false,
+      reason: "A report is already being generated for this project.",
+    };
+  }
+
+  // INSERT under the user's session. column defaults supply
+  // status='requested', storage_path NULL, error NULL. requested_by
+  // is the authenticated user (the RLS WITH CHECK already gates this,
+  // but pinning it here makes the audit trail trivially readable).
+  const { error: insertError } = await supabase.from("reports").insert({
+    project_id: project.id,
+    requested_by: user.id,
+  });
+  if (insertError) {
+    return { ok: false, reason: "Couldn't queue the report. Please try again." };
+  }
+
+  revalidatePath(`/pm/projects/${project.id}/reports`);
+  return { ok: true };
+}
+
+export interface GetReportDownloadUrlInput {
+  reportId: string;
+}
+
+export type GetReportDownloadUrlResult = { ok: true; url: string } | { ok: false; reason: string };
+
+export async function getReportDownloadUrl(
+  input: GetReportDownloadUrlInput,
+): Promise<GetReportDownloadUrlResult> {
+  if (!isValidUuid(input.reportId)) {
+    return { ok: false, reason: "Invalid report id." };
+  }
+
+  const supabase = await createServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, reason: "Not signed in." };
+
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!userRow || !(PM_ROLES as readonly string[]).includes(userRow.role)) {
+    return { ok: false, reason: "Only project managers can download reports." };
+  }
+
+  // Read the report under the user's RLS. The reports SELECT policy
+  // already restricts visibility to PM + super_admin; this fetch is
+  // both an authorisation check (the row is invisible to anyone
+  // outside the SELECT policy) and a state check (the file only
+  // exists once status flipped to complete).
+  const { data: report } = await supabase
+    .from("reports")
+    .select("status, storage_path")
+    .eq("id", input.reportId)
+    .maybeSingle();
+  if (!report) return { ok: false, reason: "Report not found." };
+  if (report.status !== "complete" || !report.storage_path) {
+    return { ok: false, reason: "Report isn't ready yet." };
+  }
+
+  // Mint the signed URL via the admin client. The reports bucket has
+  // no authenticated SELECT policy by design (see the bucket
+  // migration); all reads must go through service-role-minted URLs.
+  // The admin client lives behind `server-only`; this action runs
+  // server-side and only the resulting URL string crosses to the
+  // browser.
+  const admin = createAdminClient();
+  const { data: signed, error: signedError } = await admin.storage
+    .from(REPORTS_BUCKET)
+    .createSignedUrl(report.storage_path, SIGNED_URL_TTL_SECONDS);
+  if (signedError || !signed?.signedUrl) {
+    return { ok: false, reason: "Couldn't create a download link. Please try again." };
+  }
+
+  return { ok: true, url: signed.signedUrl };
+}
