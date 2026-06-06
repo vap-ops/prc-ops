@@ -1480,6 +1480,7 @@ None blocking.
   migration or a manual SQL session — because no DELETE policy
   exists. Intentional per ADR 0013; surfacing the operational
   detail.
+  <<<<<<< HEAD
 
 ---
 
@@ -4996,3 +4997,5 @@ lines of tracker history.
   cleanup is the highest-risk
   remaining step before pilot
   go-live.
+  =======
+  > > > > > > > origin/feat/projects-table
