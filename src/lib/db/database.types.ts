@@ -33,6 +33,48 @@ export type Database = {
   };
   public: {
     Tables: {
+      approvals: {
+        Row: {
+          comment: string | null;
+          decided_at: string;
+          decided_by: string;
+          decision: Database["public"]["Enums"]["approval_decision"];
+          id: string;
+          work_package_id: string;
+        };
+        Insert: {
+          comment?: string | null;
+          decided_at?: string;
+          decided_by: string;
+          decision: Database["public"]["Enums"]["approval_decision"];
+          id?: string;
+          work_package_id: string;
+        };
+        Update: {
+          comment?: string | null;
+          decided_at?: string;
+          decided_by?: string;
+          decision?: Database["public"]["Enums"]["approval_decision"];
+          id?: string;
+          work_package_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "approvals_decided_by_fkey";
+            columns: ["decided_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "approvals_work_package_id_fkey";
+            columns: ["work_package_id"];
+            isOneToOne: false;
+            referencedRelation: "work_packages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       audit_log: {
         Row: {
           action: Database["public"]["Enums"]["audit_action"];
@@ -69,6 +111,99 @@ export type Database = {
         };
         Relationships: [];
       };
+      deliverables: {
+        Row: {
+          code: string;
+          created_at: string;
+          id: string;
+          name: string;
+          project_id: string;
+          sort_order: number;
+          updated_at: string;
+        };
+        Insert: {
+          code: string;
+          created_at?: string;
+          id?: string;
+          name: string;
+          project_id: string;
+          sort_order: number;
+          updated_at?: string;
+        };
+        Update: {
+          code?: string;
+          created_at?: string;
+          id?: string;
+          name?: string;
+          project_id?: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "deliverables_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      photo_logs: {
+        Row: {
+          captured_at_client: string | null;
+          created_at: string;
+          id: string;
+          phase: Database["public"]["Enums"]["photo_phase"];
+          storage_path: string | null;
+          superseded_by: string | null;
+          uploaded_by: string;
+          work_package_id: string;
+        };
+        Insert: {
+          captured_at_client?: string | null;
+          created_at?: string;
+          id?: string;
+          phase: Database["public"]["Enums"]["photo_phase"];
+          storage_path?: string | null;
+          superseded_by?: string | null;
+          uploaded_by: string;
+          work_package_id: string;
+        };
+        Update: {
+          captured_at_client?: string | null;
+          created_at?: string;
+          id?: string;
+          phase?: Database["public"]["Enums"]["photo_phase"];
+          storage_path?: string | null;
+          superseded_by?: string | null;
+          uploaded_by?: string;
+          work_package_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "photo_logs_superseded_by_fkey";
+            columns: ["superseded_by"];
+            isOneToOne: false;
+            referencedRelation: "photo_logs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "photo_logs_uploaded_by_fkey";
+            columns: ["uploaded_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "photo_logs_work_package_id_fkey";
+            columns: ["work_package_id"];
+            isOneToOne: false;
+            referencedRelation: "work_packages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       projects: {
         Row: {
           code: string;
@@ -95,6 +230,54 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
+      };
+      reports: {
+        Row: {
+          created_at: string;
+          error: string | null;
+          id: string;
+          project_id: string;
+          requested_by: string;
+          status: Database["public"]["Enums"]["report_status"];
+          storage_path: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          error?: string | null;
+          id?: string;
+          project_id: string;
+          requested_by: string;
+          status?: Database["public"]["Enums"]["report_status"];
+          storage_path?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          error?: string | null;
+          id?: string;
+          project_id?: string;
+          requested_by?: string;
+          status?: Database["public"]["Enums"]["report_status"];
+          storage_path?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "reports_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reports_requested_by_fkey";
+            columns: ["requested_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       users: {
         Row: {
@@ -123,17 +306,88 @@ export type Database = {
         };
         Relationships: [];
       };
+      work_packages: {
+        Row: {
+          code: string;
+          created_at: string;
+          deliverable_id: string | null;
+          description: string | null;
+          id: string;
+          name: string;
+          project_id: string;
+          status: Database["public"]["Enums"]["work_package_status"];
+          updated_at: string;
+        };
+        Insert: {
+          code: string;
+          created_at?: string;
+          deliverable_id?: string | null;
+          description?: string | null;
+          id?: string;
+          name: string;
+          project_id: string;
+          status?: Database["public"]["Enums"]["work_package_status"];
+          updated_at?: string;
+        };
+        Update: {
+          code?: string;
+          created_at?: string;
+          deliverable_id?: string | null;
+          description?: string | null;
+          id?: string;
+          name?: string;
+          project_id?: string;
+          status?: Database["public"]["Enums"]["work_package_status"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "work_packages_deliverable_id_fkey";
+            columns: ["deliverable_id"];
+            isOneToOne: false;
+            referencedRelation: "deliverables";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "work_packages_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
+      claim_next_report: {
+        Args: never;
+        Returns: {
+          created_at: string;
+          error: string | null;
+          id: string;
+          project_id: string;
+          requested_by: string;
+          status: Database["public"]["Enums"]["report_status"];
+          storage_path: string | null;
+          updated_at: string;
+        }[];
+        SetofOptions: {
+          from: "*";
+          to: "reports";
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
       current_user_role: {
         Args: never;
         Returns: Database["public"]["Enums"]["user_role"];
       };
     };
     Enums: {
+      approval_decision: "approved" | "rejected" | "needs_revision";
       audit_action:
         | "insert"
         | "update"
@@ -147,7 +401,9 @@ export type Database = {
         | "reject"
         | "export"
         | "other";
+      photo_phase: "before" | "during" | "after";
       project_status: "active" | "on_hold" | "completed" | "archived";
+      report_status: "requested" | "processing" | "complete" | "failed";
       user_role:
         | "site_admin"
         | "project_manager"
@@ -159,6 +415,12 @@ export type Database = {
         | "subcon_manager"
         | "accounting"
         | "visitor";
+      work_package_status:
+        | "not_started"
+        | "in_progress"
+        | "on_hold"
+        | "complete"
+        | "pending_approval";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -287,6 +549,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      approval_decision: ["approved", "rejected", "needs_revision"],
       audit_action: [
         "insert",
         "update",
@@ -301,7 +564,9 @@ export const Constants = {
         "export",
         "other",
       ],
+      photo_phase: ["before", "during", "after"],
       project_status: ["active", "on_hold", "completed", "archived"],
+      report_status: ["requested", "processing", "complete", "failed"],
       user_role: [
         "site_admin",
         "project_manager",
@@ -313,6 +578,13 @@ export const Constants = {
         "subcon_manager",
         "accounting",
         "visitor",
+      ],
+      work_package_status: [
+        "not_started",
+        "in_progress",
+        "on_hold",
+        "complete",
+        "pending_approval",
       ],
     },
   },

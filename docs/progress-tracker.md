@@ -622,6 +622,8 @@ amend ADR 0007 because it changes how role checks compose.
 
 ### Pending
 
+<<<<<<< HEAD
+
 - ~~**ADR 0011** ("LINE auth via custom flow because Supabase OIDC
   rejects HS256")~~ — superseded note: ADR 0011 was instead assigned
   to the RLS role-helper fix (see next unit). The custom-flow ADR will
@@ -4998,4 +5000,13 @@ lines of tracker history.
   remaining step before pilot
   go-live.
   =======
-  > > > > > > > origin/feat/projects-table
+  > > > > > > > # origin/feat/projects-table
+- **ADR 0011** ("LINE auth via custom flow because Supabase OIDC
+  rejects HS256") — pending. Once the RLS recursion is fixed and the
+  real implementation lands, ADR 0011 captures the architectural
+  decision and supersedes
+  [`docs/feature-specs/01-line-auth.md`](feature-specs/01-line-auth.md)
+  decision #4 (Supabase Custom OIDC Provider).
+- **Real implementation** of the custom flow at `/auth/start` +
+  `/auth/callback` — pending. Blocked on the RLS recursion fix.
+  > > > > > > > origin/chore/remove-line-auth-spike

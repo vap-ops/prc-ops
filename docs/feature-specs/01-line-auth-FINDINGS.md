@@ -1,6 +1,6 @@
 # Feature Spec 01 — LINE custom-flow auth findings (from removed spike)
 
-**Source spike:** `spike/line-auth-custom-flow` — merged as `c4e03a1` on 2026-05-23; spike code removed in `chore/remove-line-auth-spike` once the live test proved the mechanism. This document preserves the spike's findings for the future custom-flow ADR (ADR 0012 — ADR 0011 was taken by the RLS-helper fix that unblocked this work) and the real-implementation PR. Read alongside [`01-line-auth.md`](./01-line-auth.md) — that spec's decision #4 (Supabase Custom OIDC Provider) is superseded by the mechanism described here.
+**Source spike:** `spike/line-auth-custom-flow` — merged as `c4e03a1` on 2026-05-23; spike code removed in `chore/remove-line-auth-spike` once the live test proved the mechanism. This document preserves the spike's findings for ADR 0011 and the real-implementation PR. Read alongside [`01-line-auth.md`](./01-line-auth.md) — that spec's decision #4 (Supabase Custom OIDC Provider) is superseded by the mechanism described here.
 
 **Status:** Mechanism **PROVEN** by Vercel preview live test on 2026-05-23 (see "Live test result" below). One **real bug** was discovered during that test and is tracked as the next unit — see "Real bug discovered: RLS infinite recursion on `public.users`".
 
@@ -207,7 +207,7 @@ When the operator builds the real LINE auth (replacing the failed Custom OIDC Pr
 
 ### ADR
 
-This file feeds **ADR 0012** ("LINE auth via custom flow because Supabase OIDC rejects HS256"). (ADR 0011 was assigned to the RLS role-helper fix that this finding's "real bug discovered" section triggered — see [`docs/decisions/0011-rls-role-helper.md`](../decisions/0011-rls-role-helper.md).) The ADR should:
+This file feeds **ADR 0011** ("LINE auth via custom flow because Supabase OIDC rejects HS256"). The ADR should:
 
 1. Document why Supabase Custom OIDC Provider doesn't work (HS256 vs ES256/RS256, confirmed against live Supabase auth logs).
 2. Document the `generateLink` + `verifyOtp` mechanism and its known limitation (no first-class admin-mints-session API; this is the supported workaround).
