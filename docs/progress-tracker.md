@@ -5307,9 +5307,53 @@ column_name='line_avatar_url';` → returns one row.
 ### Open questions
 
 - **Post-merge delegated steps (operator):**
-  1. `supabase db push --linked` — applies `20260608130000_add_purchase_request_decision_audit_action.sql`.
-  2. `pnpm db:types` — regenerates `src/lib/db/database.types.ts` (supersedes the manual patch; should produce a no-op canonical diff for the audit_action enum).
-  3. `pnpm db:test` — all assertions pass: `03-` enum_has_labels with 14 labels; `17-` I.1 + I.2.
+  1. `supabase db push --linked` — applies both `20260608130000_…` (enum value) and `20260608130100_…` (trigger function + trigger).
+  2. `pnpm db:types` — regenerates `src/lib/db/database.types.ts` (supersedes the manual patch; trigger functions don't appear in generated types — expected no-op for the trigger, plus the canonical enum extension).
+  3. `pnpm db:test` — all assertions pass: `03-` enum_has_labels with 14 labels; `17-` section I (7 invariant assertions).
   4. `supabase db push --dry-run --linked` — should return "Remote database is up to date."
+  5. `select tgname from pg_trigger where tgrelid='public.purchase_requests'::regclass;` — should include `purchase_requests_audit_decision` alongside `purchase_requests_set_updated_at`.
 - **`users.email` bridge** — still future. P1b shows the email literally as a fallback (per the operator's spec for the requester column), but does not resolve it to a display name.
-- **Audit row coverage.** P1b only audits decisions, not `createPurchaseRequest`. If audit-on-create becomes a v2 requirement, the action layer's structure leaves an obvious extension point.
+- **Audit row coverage.** P1b only audits decisions, not `createPurchaseRequest`. If audit-on-create becomes a v2 requirement, an INSERT-time trigger parallel to the decision trigger is the obvious extension point.
+
+### Rework — audit mechanism: TS-side INSERT → atomic AFTER UPDATE trigger (2026-06-08, same day)
+
+The initial P1b commit (`c0658ea`) wrote the audit row from TypeScript after the guarded UPDATE returned, with a non-rollback failure mode (console.error and continue). Operator review surfaced the problem: "an audit log you can't guarantee wrote is a weak audit log." Reworked the audit path to be atomic — written by an AFTER UPDATE trigger inside the same transaction as the decision. Now "exactly one row per decision, never on a non-transition" is a DB invariant testable in pgTAP, not a TS guarantee no test ever reached.
+
+#### Done (rework)
+
+- **`supabase/migrations/20260608130100_create_purchase_requests_audit_decision_trigger.sql`** — new migration adding `public.purchase_requests_audit_decision()` (SECURITY DEFINER, `set search_path = public`, mirrors `update_my_display_name`'s shape) and the matching `AFTER UPDATE ... FOR EACH ROW WHEN (OLD.status='requested' AND NEW.status IN ('approved','rejected'))` trigger. Body inserts one `audit_log` row with `action='purchase_request_decision'`, `actor_id=auth.uid()`, `actor_role=public.current_user_role()`, `target_table='purchase_requests'`, `target_id=NEW.id`, `payload={work_package_id, decision, comment, decided_by}`.
+- **Separate migration file** — `ALTER TYPE ... ADD VALUE` (the prior 20260608130000) cannot share a transaction with statements that reference the new enum value, so the trigger lives in its own file/transaction. Same split pattern as the `profile_update` enum value + the `update_my_display_name` RPC.
+- **`src/app/requests/actions.ts`** — `decidePurchaseRequest` audit INSERT block removed. `.select()` reverted from `'id, work_package_id'` to `'id'` (the `work_package_id` was only pulled for the audit payload; the trigger reads `NEW.work_package_id` directly from the row). `revalidatePath('/pm/requests')` retained (it's load-bearing for the PM queue's "row drops after decision" behavior, not audit-related). Header comment rewritten to point at the trigger.
+- **`supabase/tests/database/17-purchase-requests.test.sql`** — section I replaced. Plan `77 → 82` (`75` original + 7 new invariant assertions). Fixture `a5555` added to section A (a fresh requested PR for the reject-transition test).
+  - I.1 + I.2: PM transitions a2222 `requested → approved`; UPDATE lives; exactly one `audit_log` row exists with `action='purchase_request_decision'`, `target_id=a2222`.
+  - I.3: that row's `actor_role` is `'project_manager'` — proves `current_user_role()` resolves under SECURITY DEFINER to the caller's identity, and that `actor_role` is non-null.
+  - I.4 + I.5: PM transitions a5555 `requested → rejected with comment`; UPDATE lives; exactly one `audit_log` row for `target_id=a5555`.
+  - I.6 + I.7: PM UPDATEs a4444 (already approved) touching `decision_comment` only (status unchanged); UPDATE lives; zero `audit_log` rows for `target_id=a4444` — proves the WHEN clause precision (the trigger does NOT write on a non-transition UPDATE).
+
+#### Verification (rework)
+
+- `pnpm lint` — clean.
+- `pnpm typecheck` — clean (no types change; the manual `database.types.ts` patch from the prior commit is still in scope and unchanged — triggers don't appear in generated types).
+- `pnpm test` — **152/152** unchanged (no TS unit tests touched — the action is shorter, but no new pure helper appeared).
+- `pnpm db:test` — still deferred to post-merge. Pre-merge run would correctly fail file 17 section I (new assertions require the trigger to exist in the linked DB) and file 03 (label-set mismatch from the prior commit).
+- **CLI pin** — `pnpm exec supabase --version` reports `2.98.1`, unchanged.
+
+#### Decisions made (rework)
+
+- **Trigger, not RPC.** Two viable shapes for atomic audit + UPDATE: (a) wrap both in a SECURITY DEFINER RPC and have the action call the RPC; (b) put the audit in an AFTER UPDATE trigger on `purchase_requests`. Chose (b): it preserves the existing two-layer guard at the SQL level (`.eq('status','requested')`) without re-implementing it inside an RPC, and it lets the WHEN clause encode the transition contract declaratively. Option (a) would have required moving the guard into PL/pgSQL, duplicating the application-side check.
+- **`SECURITY DEFINER` even though authenticated already has INSERT on `audit_log`.** Decouples the trigger's write path from the caller's privilege set. The append-only `audit_log` grant matrix admits `authenticated` and `anon` today; future writers (an internal maintenance role, a P2 service role) may not have direct INSERT. SECURITY DEFINER makes the trigger correct under any caller that can run the UPDATE. ADR 0011 safety checklist applies: pinned `search_path = public`, no row-selecting parameters (trigger functions never take parameters), single INSERT side effect, no GRANT EXECUTE needed (trigger functions are not directly callable).
+- **`auth.uid()` and `public.current_user_role()` resolve to the caller under SECURITY DEFINER.** `auth.uid()` reads a GUC (`request.jwt.claims`) which is session-scoped, not role-scoped. `current_user_role()` is itself SECURITY DEFINER and reads `users.role WHERE id = auth.uid()` — so it returns the caller's role. Same forensic-identity shape as the `update_my_display_name` RPC's audit INSERT.
+- **`WHEN` clause owns the transition contract.** Two halves: `OLD.status = 'requested'` (only the initial decision boundary ever fires the trigger — a future P2 AppSheet UPDATE from `approved → purchased` never matches), and `NEW.status IN ('approved','rejected')` (the two native decision outcomes from `validate-purchase-request.ts`). Together they encode the entire "this is a decision" predicate in the database.
+- **Atomic posture chosen, the non-rollback note retracted.** The earlier P1b shape mirrored `addPhoto`'s status-transition non-rollback posture, which was wrong for an audit log. A decision that can't be audited must not commit. The trigger raising — for any reason — rolls back the UPDATE; the action's existing error path surfaces it to the user.
+- **Plan count breakdown** — `82 = 75 (P1a baseline) + 7 (new section I)`. The earlier `77` reflected the now-superseded TS-INSERT-shape assertions (lives_ok + count of a manual INSERT) — replaced wholesale, not preserved.
+
+#### Open questions (rework)
+
+- **Post-merge delegated steps (operator) — updated:**
+  1. `supabase db push --linked` — applies both new migrations.
+  2. `pnpm db:types` — regenerates types. Expected diff vs. the manual patch: none (the trigger isn't in generated types; the enum value already matches).
+  3. `pnpm db:test` — file 03 + file 17 sections A–I all pass.
+  4. `select tgname, tgenabled from pg_trigger where tgrelid='public.purchase_requests'::regclass and not tgisinternal;` — should list `purchase_requests_set_updated_at` (BEFORE UPDATE) and `purchase_requests_audit_decision` (AFTER UPDATE), both enabled (`tgenabled='O'`).
+  5. `supabase db push --dry-run --linked` — "Remote database is up to date."
+- **`users.email` bridge** — unchanged (still future).
+- **Audit row coverage** — same (createPurchaseRequest still not audited; an INSERT-time trigger would now be the natural extension point if needed).

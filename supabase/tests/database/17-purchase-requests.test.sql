@@ -1,5 +1,5 @@
 begin;
-select plan(77);
+select plan(82);
 
 -- ============================================================================
 -- A. Setup as postgres (the test transaction's outer role, which bypasses
@@ -83,6 +83,17 @@ values
    '33333333-3333-3333-3333-333333333333',
    '2020-01-02 00:00:00+00',
    null);
+
+-- a5555… requested by SA1 — used by section I's reject-transition test
+-- (a fresh 'requested' row that hasn't been touched by sections F/G/H).
+insert into public.purchase_requests
+  (id, work_package_id, item_description, quantity, unit, requested_by, status)
+values
+  ('a5555555-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+   'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+   'Gravel', 2, 'tonne',
+   '22222222-2222-2222-2222-222222222222',
+   'requested');
 
 -- Grant the runner's temp result buffer to authenticated, so the assertions
 -- that run under `set local role authenticated` can still record their TAP
@@ -666,48 +677,118 @@ select throws_ok(
 );
 
 -- ============================================================================
--- I. Audit-log integration. decidePurchaseRequest writes one audit_log row
---    per successful approve/reject — mirroring the profile_update path
---    (the only other app-originated audit write in the repo). This pgTAP
---    section pins the DB-side guarantees the action relies on:
---      1. an authenticated PM session is permitted to INSERT into audit_log
---         with action = 'purchase_request_decision' (the new enum value).
---      2. the row is readable afterwards under the audit_log SELECT policy.
---    The action's atomicity contract (exactly one row per decision) is
---    a TS-side guarantee — pgTAP only proves the DB doesn't reject the
---    write or hide the resulting row.
+-- I. Decision audit logging via AFTER UPDATE trigger.
+--
+--    `purchase_requests_audit_decision` (AFTER UPDATE FOR EACH ROW, WHEN
+--    OLD.status='requested' AND NEW.status IN ('approved','rejected'))
+--    writes one immutable audit_log row per decision transition. The
+--    trigger function is SECURITY DEFINER (set search_path = public),
+--    runs as the migration owner, and inserts mirroring the
+--    update_my_display_name RPC's column shape (actor_id = auth.uid(),
+--    actor_role = public.current_user_role(), action, target_table,
+--    target_id, payload).
+--
+--    The atomicity contract (exactly one row per decision, never on a
+--    non-transition update) is now a DB invariant — the action layer
+--    does NOT INSERT audit_log; it just runs the guarded UPDATE.
+--
+--    This section pins:
+--      1. requested → approved transitions write exactly one row.
+--      2. requested → rejected transitions write exactly one row.
+--      3. actor_role on the written row is the caller's current_user_role()
+--         (non-null + value), so forensic identity is preserved.
+--      4. a non-transition UPDATE (touching a non-status column on a row
+--         whose status stays out of 'requested') writes ZERO audit rows
+--         — proves the WHEN clause precision.
 -- ============================================================================
 
--- I.1 PM-authenticated INSERT into audit_log with the new enum value succeeds.
---     audit_log INSERT policy is `with check (true)` for authenticated; the
---     grant carries INSERT for authenticated (see audit_log create migration).
+-- I.1 PM transitions PR_SA2 (a2222) from requested → approved. The trigger
+--     fires; the UPDATE itself lives (does not raise).
 set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333333333"}';
 select lives_ok(
-  $$ insert into public.audit_log
-       (actor_id, action, target_table, target_id, payload)
-     values ('33333333-3333-3333-3333-333333333333'::uuid,
-             'purchase_request_decision', 'purchase_requests',
-             'a3333333-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid,
-             jsonb_build_object(
-               'work_package_id', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
-               'decision',        'approved',
-               'decider',         '33333333-3333-3333-3333-333333333333',
-               'comment',         null
-             )) $$,
-  'PM-authenticated INSERT into audit_log with action=purchase_request_decision succeeds'
+  $$ update public.purchase_requests
+       set status      = 'approved',
+           approved_by = '33333333-3333-3333-3333-333333333333'::uuid,
+           decided_at  = now()
+     where id = 'a2222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid
+       and status = 'requested' $$,
+  'PM transitions PR (requested → approved) — guarded UPDATE lives, trigger does not raise'
 );
 
--- I.2 The audit_log row is readable via the SELECT policy — exactly one row
---     with action=purchase_request_decision targeting the just-decided PR.
---     The aggregate count verifies both the write landed and the read works.
-set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333333333"}';
+-- I.2 Exactly one audit_log row was written for the transition.
+--     This is the DB invariant the application layer used to enforce in TS;
+--     now it's enforced by the trigger's FOR EACH ROW + AFTER UPDATE timing
+--     and the WHEN clause's old/new status guards.
 select is(
   (select count(*)::int from public.audit_log
      where action = 'purchase_request_decision'
        and target_table = 'purchase_requests'
-       and target_id = 'a3333333-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
+       and target_id = 'a2222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
   1,
-  'exactly one audit_log row with action=purchase_request_decision targets the decided PR'
+  'exactly one audit_log row written for the requested → approved transition'
+);
+
+-- I.3 The trigger populated actor_role via public.current_user_role().
+--     auth.uid() and current_user_role() resolve under the SECURITY DEFINER
+--     function the same way they do in update_my_display_name — to the
+--     caller's identity, not the function owner's.
+select is(
+  (select actor_role::text from public.audit_log
+     where action = 'purchase_request_decision'
+       and target_id = 'a2222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
+  'project_manager',
+  'actor_role on the audit row is the caller''s current_user_role() (non-null + correct)'
+);
+
+-- I.4 PM transitions PR_SA1_NEW (a5555) from requested → rejected with a
+--     non-blank comment — the second transition the trigger handles.
+set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333333333"}';
+select lives_ok(
+  $$ update public.purchase_requests
+       set status           = 'rejected',
+           approved_by      = '33333333-3333-3333-3333-333333333333'::uuid,
+           decided_at       = now(),
+           decision_comment = 'over budget'
+     where id = 'a5555555-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid
+       and status = 'requested' $$,
+  'PM transitions PR (requested → rejected with comment) — guarded UPDATE lives'
+);
+
+-- I.5 Exactly one audit_log row was written for the rejection too.
+select is(
+  (select count(*)::int from public.audit_log
+     where action = 'purchase_request_decision'
+       and target_table = 'purchase_requests'
+       and target_id = 'a5555555-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
+  1,
+  'exactly one audit_log row written for the requested → rejected transition'
+);
+
+-- I.6 Non-transition UPDATE: PR_PM_APPROVED (a4444) was inserted as
+--     'approved' in section A and was never transitioned (G.5's guarded
+--     UPDATE matched zero rows). PM touches a non-status column —
+--     decision_comment — leaving status='approved'. The trigger's WHEN
+--     clause (OLD.status = 'requested') is false, so the trigger does
+--     NOT fire. The UPDATE itself lives.
+set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333333333"}';
+select lives_ok(
+  $$ update public.purchase_requests
+       set decision_comment = 'post-decision note'
+     where id = 'a4444444-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid $$,
+  'PM non-transition UPDATE on an approved row (status unchanged) lives'
+);
+
+-- I.7 Zero audit_log rows for the non-transition target — the WHEN clause
+--     kept the trigger from firing. This is the precision half of the
+--     invariant: the trigger does not write spurious rows on any UPDATE,
+--     only on the requested → approved | rejected boundary.
+select is(
+  (select count(*)::int from public.audit_log
+     where action = 'purchase_request_decision'
+       and target_table = 'purchase_requests'
+       and target_id = 'a4444444-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
+  0,
+  'zero audit_log rows for a non-transition UPDATE — WHEN precision'
 );
 
 -- ============================================================================
