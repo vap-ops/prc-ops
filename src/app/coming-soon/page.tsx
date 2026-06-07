@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { createClient } from "@/lib/db/server";
 import { type UserRole } from "@/lib/auth/role-home";
+import { DisplayNameForm } from "./display-name-form";
 
 // Display labels for every role that lands here. site_admin and project_manager
 // are redirected away (their landings exist), so they're intentionally absent.
@@ -46,6 +47,7 @@ export default async function ComingSoonPage() {
 
   const displayName = UNSERVED_ROLE_LABEL[role] ?? role;
   const greeting = row.full_name ?? "there";
+  const initialName = row.full_name ?? "";
 
   // super_admin is the only "unserved" role that genuinely needs to
   // *reach* the served surfaces — every other unserved role waits for
@@ -54,7 +56,7 @@ export default async function ComingSoonPage() {
   // super_admin via their existing requireRole() guards (no auth
   // change in this unit; this is purely a render branch).
   if (role === "super_admin") {
-    return <OperatorHub greeting={greeting} displayName={displayName} />;
+    return <OperatorHub greeting={greeting} displayName={displayName} initialName={initialName} />;
   }
 
   return (
@@ -67,6 +69,9 @@ export default async function ComingSoonPage() {
           we&apos;ll let you know when they go live. For now, please continue using your current
           process.
         </p>
+        <div className="text-left">
+          <DisplayNameForm initialName={initialName} />
+        </div>
         <div className="flex justify-center pt-2">
           <LogoutButton />
         </div>
@@ -78,6 +83,7 @@ export default async function ComingSoonPage() {
 interface OperatorHubProps {
   greeting: string;
   displayName: string;
+  initialName: string;
 }
 
 interface HubLink {
@@ -104,7 +110,7 @@ const HUB_LINKS: ReadonlyArray<HubLink> = [
   },
 ];
 
-function OperatorHub({ greeting, displayName }: OperatorHubProps) {
+function OperatorHub({ greeting, displayName, initialName }: OperatorHubProps) {
   return (
     <main className="min-h-screen bg-zinc-950 px-6 py-10 text-zinc-100">
       <div className="mx-auto flex w-full max-w-md flex-col gap-6">
@@ -134,6 +140,8 @@ function OperatorHub({ greeting, displayName }: OperatorHubProps) {
             </Link>
           ))}
         </nav>
+
+        <DisplayNameForm initialName={initialName} />
 
         <div className="flex justify-end pt-2">
           <LogoutButton />
