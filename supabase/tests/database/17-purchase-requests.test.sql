@@ -1,5 +1,5 @@
 begin;
-select plan(75);
+select plan(77);
 
 -- ============================================================================
 -- A. Setup as postgres (the test transaction's outer role, which bypasses
@@ -666,7 +666,52 @@ select throws_ok(
 );
 
 -- ============================================================================
--- I. Tear down. Reset role to postgres before finish() / the runner's
+-- I. Audit-log integration. decidePurchaseRequest writes one audit_log row
+--    per successful approve/reject — mirroring the profile_update path
+--    (the only other app-originated audit write in the repo). This pgTAP
+--    section pins the DB-side guarantees the action relies on:
+--      1. an authenticated PM session is permitted to INSERT into audit_log
+--         with action = 'purchase_request_decision' (the new enum value).
+--      2. the row is readable afterwards under the audit_log SELECT policy.
+--    The action's atomicity contract (exactly one row per decision) is
+--    a TS-side guarantee — pgTAP only proves the DB doesn't reject the
+--    write or hide the resulting row.
+-- ============================================================================
+
+-- I.1 PM-authenticated INSERT into audit_log with the new enum value succeeds.
+--     audit_log INSERT policy is `with check (true)` for authenticated; the
+--     grant carries INSERT for authenticated (see audit_log create migration).
+set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333333333"}';
+select lives_ok(
+  $$ insert into public.audit_log
+       (actor_id, action, target_table, target_id, payload)
+     values ('33333333-3333-3333-3333-333333333333'::uuid,
+             'purchase_request_decision', 'purchase_requests',
+             'a3333333-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid,
+             jsonb_build_object(
+               'work_package_id', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+               'decision',        'approved',
+               'decider',         '33333333-3333-3333-3333-333333333333',
+               'comment',         null
+             )) $$,
+  'PM-authenticated INSERT into audit_log with action=purchase_request_decision succeeds'
+);
+
+-- I.2 The audit_log row is readable via the SELECT policy — exactly one row
+--     with action=purchase_request_decision targeting the just-decided PR.
+--     The aggregate count verifies both the write landed and the read works.
+set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333333333"}';
+select is(
+  (select count(*)::int from public.audit_log
+     where action = 'purchase_request_decision'
+       and target_table = 'purchase_requests'
+       and target_id = 'a3333333-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
+  1,
+  'exactly one audit_log row with action=purchase_request_decision targets the decided PR'
+);
+
+-- ============================================================================
+-- J. Tear down. Reset role to postgres before finish() / the runner's
 --    appended dump from _tap_buf, so those run with full privileges.
 -- ============================================================================
 

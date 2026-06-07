@@ -505,7 +505,8 @@ export type Database = {
         | "reject"
         | "export"
         | "other"
-        | "profile_update";
+        | "profile_update"
+        | "purchase_request_decision";
       photo_phase: "before" | "during" | "after";
       project_status: "active" | "on_hold" | "completed" | "archived";
       purchase_request_status: "requested" | "approved" | "rejected" | "purchased" | "delivered";
@@ -670,6 +671,7 @@ export const Constants = {
         "export",
         "other",
         "profile_update",
+        "purchase_request_decision",
       ],
       photo_phase: ["before", "during", "after"],
       project_status: ["active", "on_hold", "completed", "archived"],

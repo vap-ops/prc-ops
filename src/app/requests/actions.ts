@@ -14,6 +14,14 @@
 //      against a row that's actually 'requested'.
 // 0 rows returned from the UPDATE means the row was already decided (or
 // the caller's RLS doesn't see it); both surface as "not in requested state."
+//
+// After a successful UPDATE the action writes one audit_log row recording
+// the decision (P1b, closing the open question on ADR 0022). Mirrors the
+// profile_update path — direct INSERT into audit_log under the session
+// client, using the new 'purchase_request_decision' enum value. The write
+// failure mode mirrors addPhoto's status-transition: console.error and
+// continue. The UPDATE is the load-bearing operation; an audit miss is a
+// recoverable forensic gap, not a reason to refuse the decision.
 
 import "server-only";
 
@@ -111,7 +119,7 @@ export async function decidePurchaseRequest(
     })
     .eq("id", input.id)
     .eq("status", "requested")
-    .select("id");
+    .select("id, work_package_id");
 
   if (error) {
     return { ok: false, error: "Couldn't save the decision. Please try again." };
@@ -120,6 +128,34 @@ export async function decidePurchaseRequest(
     return { ok: false, error: "This request isn't currently in 'requested' state." };
   }
 
+  const updatedRow = data[0]!;
+
+  // Audit the decision — one row per successful approve/reject. Direct
+  // INSERT under the session client mirrors the profile_update mechanism
+  // (the RPC writes its audit row via the same INSERT shape under the
+  // caller's session). A failure here logs and continues — the UPDATE
+  // is the load-bearing operation.
+  const { error: auditError } = await supabase.from("audit_log").insert({
+    actor_id: user.id,
+    action: "purchase_request_decision",
+    target_table: "purchase_requests",
+    target_id: input.id,
+    payload: {
+      work_package_id: updatedRow.work_package_id,
+      decision: input.decision,
+      decider: user.id,
+      comment: normalisedComment,
+    },
+  });
+  if (auditError) {
+    console.error("[decidePurchaseRequest] audit_log write failed", {
+      purchaseRequestId: input.id,
+      decision: input.decision,
+      error: auditError.message,
+    });
+  }
+
   revalidatePath("/requests");
+  revalidatePath("/pm/requests");
   return { ok: true, status: input.decision };
 }
