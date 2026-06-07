@@ -23,6 +23,14 @@ the dashboard SQL editor, not dashboard toggles, not ad-hoc `psql`.
 - `supabase db pull` is not a substitute for committing the migration —
   the migration file is the artifact of record.
 
+**Who runs `db push`.** Applying a migration to prod with `supabase db push`
+may be delegated to the agent (Claude Code), but ONLY for migrations already
+merged to `main` via reviewed PR, and the agent MUST verify post-apply
+(`db:test` / targeted check) and report. The agent never applies un-merged or
+un-reviewed migrations, never mutates prod via the dashboard SQL editor, and
+emergency/out-of-band changes remain operator-only with an `audit_log` row.
+`git push` and merges to `main` remain operator-only.
+
 **The dashboard SQL editor is read-only / diagnostics only.** Use it to
 inspect, audit, and verify — never to mutate shared state.
 
