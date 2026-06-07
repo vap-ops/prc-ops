@@ -385,6 +385,10 @@ export type Database = {
         Args: never;
         Returns: Database["public"]["Enums"]["user_role"];
       };
+      update_my_display_name: {
+        Args: { p_full_name: string };
+        Returns: undefined;
+      };
     };
     Enums: {
       approval_decision: "approved" | "rejected" | "needs_revision";
@@ -400,7 +404,8 @@ export type Database = {
         | "approve"
         | "reject"
         | "export"
-        | "other";
+        | "other"
+        | "profile_update";
       photo_phase: "before" | "during" | "after";
       project_status: "active" | "on_hold" | "completed" | "archived";
       report_status: "requested" | "processing" | "complete" | "failed";
@@ -563,6 +568,7 @@ export const Constants = {
         "reject",
         "export",
         "other",
+        "profile_update",
       ],
       photo_phase: ["before", "during", "after"],
       project_status: ["active", "on_hold", "completed", "archived"],
