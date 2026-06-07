@@ -19,22 +19,25 @@ const UNSERVED_ROLE_LABEL: Record<Exclude<UserRole, "site_admin" | "project_mana
   accounting: "Accounting",
 };
 
+// Session check uses getClaims() — local JWT verify against the cached JWKS,
+// no Auth-server round-trip on the render path. See ADR 0021. The middleware
+// keeps getUser() once per request for the authoritative refresh.
+
 export default async function ComingSoonPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  const { data: claimsData } = await supabase.auth.getClaims();
+  if (!claimsData) {
     redirect("/login");
   }
+  const userId = claimsData.claims.sub;
 
   const { data: row } = await supabase
     .from("users")
     .select("role, full_name, line_avatar_url")
-    .eq("id", user.id)
+    .eq("id", userId)
     .maybeSingle();
   if (!row) {
-    console.error("[/coming-soon] users row missing", { userId: user.id });
+    console.error("[/coming-soon] users row missing", { userId });
     redirect("/login");
   }
 

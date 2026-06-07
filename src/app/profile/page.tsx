@@ -13,23 +13,26 @@ import { createClient } from "@/lib/db/server";
 // unserved roles to their roleHome, which is /coming-soon for visitor and
 // defeats the unit's purpose). The proxy already protects this path; the page
 // double-checks defensively.
+//
+// Session check uses getClaims() — local JWT verify against cached JWKS, no
+// Auth-server round-trip on the render path. See ADR 0021. The middleware
+// keeps getUser() once per request for the authoritative refresh.
 
 export default async function ProfilePage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  const { data: claimsData } = await supabase.auth.getClaims();
+  if (!claimsData) {
     redirect("/login");
   }
+  const userId = claimsData.claims.sub;
 
   const { data: row } = await supabase
     .from("users")
     .select("role, full_name, line_avatar_url")
-    .eq("id", user.id)
+    .eq("id", userId)
     .maybeSingle();
   if (!row) {
-    console.error("[/profile] users row missing", { userId: user.id });
+    console.error("[/profile] users row missing", { userId });
     redirect("/login");
   }
 
