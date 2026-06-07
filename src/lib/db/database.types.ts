@@ -231,6 +231,103 @@ export type Database = {
         };
         Relationships: [];
       };
+      purchase_requests: {
+        Row: {
+          amount: number | null;
+          approved_by: string | null;
+          created_at: string;
+          decided_at: string | null;
+          decision_comment: string | null;
+          delivered_at: string | null;
+          delivery_note: string | null;
+          id: string;
+          item_description: string;
+          order_ref: string | null;
+          purchased_at: string | null;
+          quantity: number;
+          received_by: string | null;
+          requested_at: string;
+          requested_by: string | null;
+          requested_by_email: string | null;
+          source: string;
+          status: Database["public"]["Enums"]["purchase_request_status"];
+          supplier: string | null;
+          unit: string;
+          updated_at: string;
+          work_package_id: string;
+        };
+        Insert: {
+          amount?: number | null;
+          approved_by?: string | null;
+          created_at?: string;
+          decided_at?: string | null;
+          decision_comment?: string | null;
+          delivered_at?: string | null;
+          delivery_note?: string | null;
+          id?: string;
+          item_description: string;
+          order_ref?: string | null;
+          purchased_at?: string | null;
+          quantity: number;
+          received_by?: string | null;
+          requested_at?: string;
+          requested_by?: string | null;
+          requested_by_email?: string | null;
+          source?: string;
+          status?: Database["public"]["Enums"]["purchase_request_status"];
+          supplier?: string | null;
+          unit: string;
+          updated_at?: string;
+          work_package_id: string;
+        };
+        Update: {
+          amount?: number | null;
+          approved_by?: string | null;
+          created_at?: string;
+          decided_at?: string | null;
+          decision_comment?: string | null;
+          delivered_at?: string | null;
+          delivery_note?: string | null;
+          id?: string;
+          item_description?: string;
+          order_ref?: string | null;
+          purchased_at?: string | null;
+          quantity?: number;
+          received_by?: string | null;
+          requested_at?: string;
+          requested_by?: string | null;
+          requested_by_email?: string | null;
+          source?: string;
+          status?: Database["public"]["Enums"]["purchase_request_status"];
+          supplier?: string | null;
+          unit?: string;
+          updated_at?: string;
+          work_package_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "purchase_requests_approved_by_fkey";
+            columns: ["approved_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_requests_requested_by_fkey";
+            columns: ["requested_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_requests_work_package_id_fkey";
+            columns: ["work_package_id"];
+            isOneToOne: false;
+            referencedRelation: "work_packages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       reports: {
         Row: {
           created_at: string;
@@ -411,6 +508,7 @@ export type Database = {
         | "profile_update";
       photo_phase: "before" | "during" | "after";
       project_status: "active" | "on_hold" | "completed" | "archived";
+      purchase_request_status: "requested" | "approved" | "rejected" | "purchased" | "delivered";
       report_status: "requested" | "processing" | "complete" | "failed";
       user_role:
         | "site_admin"

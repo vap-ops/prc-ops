@@ -5201,3 +5201,55 @@ column_name='line_avatar_url';` → returns one row.
 - **Spec:** Inline brief from operator (no numbered feature spec — auth-perf change, not a domain feature).
 - **ADR:** [`docs/decisions/0021-getclaims-local-jwt-verify.md`](./decisions/0021-getclaims-local-jwt-verify.md) (Accepted 2026-06-08).
 - **Branch:** `feat/getclaims-perf` (from `9d0dcf7` = `origin/main` after PR #52).
+
+---
+
+## Unit: Purchasing — data layer (P1a)
+
+- **Status:** Complete (code + tests; migration pre-merge; pgTAP 17 pending post-merge `db push`).
+- **Started / completed:** 2026-06-08.
+- **Spec:** [`docs/feature-specs/09-purchasing.md`](./feature-specs/09-purchasing.md) (Locked 2026-06-08).
+- **ADR (new):** [`docs/decisions/0022-purchasing-domain.md`](./decisions/0022-purchasing-domain.md) (Accepted 2026-06-08).
+- **ADR (updated):** [`docs/decisions/0018-appsheet-db-role.md`](./decisions/0018-appsheet-db-role.md) — DRAFT → Accepted (model A: direct DB role `appsheet_writer` over the Supabase Session Pooler). `purchase_requests` added to the grant matrix; P2 work, NOT this PR.
+- **Branch:** `feat/purchasing-p1a` (from `efccd92` = `origin/main` after PR #53).
+
+### Done
+
+- **Step 0 drift check.** `supabase db push --dry-run --linked` reported "Remote database is up to date." Pre-existence check via `information_schema` / `pg_type` / `pg_roles` confirmed `public.purchase_requests`, enum `public.purchase_request_status`, and any `appsheet*` role did NOT pre-exist.
+- **`supabase/migrations/20260608120000_create_purchase_requests.sql`** — lifecycle enum (`requested → approved | rejected → purchased → delivered`); single STATEFUL table with three column groups (requisition / approval / P2 purchase + delivery); six CHECK constraints (`pr_source_valid`, `pr_native_has_requester`, `pr_item_nonblank`, `pr_unit_nonblank`, `pr_quantity_positive`, `pr_reject_has_comment`); two indexes (`wp_idx`, `(status, requested_at desc)`); `updated_at` trigger reusing the existing `public.set_updated_at()`; three RLS policies (SELECT own-or-privileged, INSERT pinned to wp-readers + self + native source, UPDATE PM/super); explicit `revoke all` + `grant select, insert, update` to authenticated. No DELETE policy.
+- **`supabase/tests/database/17-purchase-requests.test.sql`** — `plan(75)` covering catalog (enum + table + 22 columns + 3 FKs + 2 indexes + trigger), RLS configuration (enabled + exactly SELECT/INSERT/UPDATE policies), CHECK behavioural (6 negative + 1 positive: AppSheet flow `source='appsheet'` + null `requested_by` + email is permitted), INSERT RLS (SA self / SA foreign-requester denied / SA `source='appsheet'` denied / PM / super / procurement denied / visitor denied), SELECT RLS (SA1 sees own, NOT SA2's; PM / procurement / super see both; visitor sees nothing), UPDATE RLS + two-layer guard (PM `requested → approved`; PM `requested → rejected` with comment; SA / procurement no-op; guarded `WHERE status='requested'` returns 0 rows on an already-approved row; `set_updated_at` trigger moves `updated_at` forward), DELETE no-op for PM + super.
+- **`src/lib/purchasing/validate-purchase-request.ts`** — pure `validateCreatePurchaseRequest` (trim + length + numeric positive + UUID shape, returns trimmed values); `PURCHASE_DECISIONS`, `isPurchaseDecision`, `commentRequiredForDecision`, `isDecisionCommentValid` predicates. Mirrors the DB CHECK rules.
+- **`tests/unit/validate-purchase-request.test.ts`** — 21 Vitest tests: happy path, trim/preserve-internal-whitespace, empty / whitespace / non-positive / NaN / Infinity / bad-UUID rejection paths, fractional quantity accepted; predicate coverage for the two-valued decision space.
+- **`src/app/requests/actions.ts`** — `createPurchaseRequest` (session-client INSERT with `requested_by = user.id`, `source = 'app'`; RLS enforces the pins) and `decidePurchaseRequest` (two-layer guarded UPDATE: JS predicate + `.eq('status','requested')` SQL clause; 0 rows ⇒ "not in requested state"). No admin client. `revalidatePath('/requests')`.
+- **`src/lib/db/database.types.ts`** — manually patched to add `purchase_requests` table types and `purchase_request_status` enum. Will be superseded by `pnpm db:types` after the delegated post-merge `db push`.
+- **Docs:** new spec 09, new ADR 0022, ADR 0018 updated (DRAFT → Accepted with the load-bearing connection-model question resolved and the grant matrix extended).
+
+### Verification
+
+- `pnpm lint` — clean.
+- `pnpm typecheck` — clean (manual `database.types.ts` patch in scope).
+- `pnpm test` — **152/152** (131 prior + 21 new validator/predicate tests).
+- `pnpm db:test` — **prior assertions still pass; 75 new (file 17) fail pending migration apply.** Expected pre-merge.
+
+### Decisions made
+
+- **Single STATEFUL table, not append-only and not supersede.** Purchasing is one logical record walking a known lifecycle; the auditability of decisions is preserved via `approved_by` / `decided_at` / `decision_comment` columns and (post-P1a) `audit_log` rows. Justified in ADR 0022 (Q1).
+- **Dual-identity requester.** `requested_by` (FK) + `requested_by_email` + `source` discriminator. Native rows carry the FK; AppSheet rows (P2) carry the email. Enforced by `pr_source_valid` and `pr_native_has_requester` CHECKs. Justified in ADR 0022 (Q2).
+- **v1 requester base narrowed to wp-readers.** SA / PM / super only. Owner decision 2026-06-07 from the diagnostic on `public.work_packages` SELECT — the requester pool starts where the WP read pool is. Broadening is a future unit. Justified in ADR 0022 (Q3).
+- **Two-layer transition guard, not RLS column scoping.** The UPDATE policy admits PM / super to write at all; the action layer's JS predicate + `.eq('status','requested')` SQL clause does the transition gating. Mirrors `recordDecision`.
+- **Procurement reads but does not write the decision.** Procurement is the back-office reviewer in v1; the decision write stays with PM / super (and AppSheet for purchase/delivery in P2).
+- **`appsheet_writer` role name (rename in ADR 0018).** "\_writer" suffix makes the principal's purpose explicit alongside future read-only roles.
+- **`database.types.ts` manually patched.** Same pattern as the line-avatar unit — `pnpm db:types` supersedes after the delegated post-merge `db push`.
+
+### Open questions
+
+- **Post-merge delegated steps (operator):**
+  1. `supabase db push --linked` — applies `20260608120000_create_purchase_requests.sql`.
+  2. `pnpm db:types` — regenerates `src/lib/db/database.types.ts` (supersedes the manual patch).
+  3. `pnpm db:test` — all assertions including 75 in file 17 should pass.
+  4. Confirm live: `select * from information_schema.tables where table_schema='public' and table_name='purchase_requests';` returns one row; `select polname from pg_policy where polrelid='public.purchase_requests'::regclass;` returns the three policy names.
+  5. Re-run `supabase db push --dry-run --linked` — should return "Remote database is up to date."
+- **Audit-log integration.** Whether decisions write an `audit_log` row. Strong lean toward yes; deferred to P1b so the action layer can attach the row in one place alongside the UI.
+- **P1b (UI).** Routes / forms / list under `/requests`. Out of scope for this unit.
+- **P2 (AppSheet writer role + grants + policies).** Role + per-table GRANTs + `TO appsheet_writer` policies on every table AppSheet touches, including `purchase_requests` (SELECT + INSERT + column-scoped UPDATE on the purchase / delivery columns). Out of scope for this unit; covered by ADR 0018's updated grant matrix.
+- **`users.email` bridge.** Resolving an AppSheet `requested_by_email` back to a `public.users` display name. Future unit.

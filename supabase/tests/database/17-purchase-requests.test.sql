@@ -1,0 +1,650 @@
+begin;
+select plan(75);
+
+-- ============================================================================
+-- A. Setup as postgres (the test transaction's outer role, which bypasses
+--    RLS). Insert six auth.users; the on_auth_user_created trigger creates
+--    six matching public.users rows with default role 'visitor' (ADR 0010).
+--    Promote five to the privileged roles tested below; the sixth stays
+--    'visitor'.
+--
+--    Insert one parent project and one parent work_package, then four
+--    purchase_request fixtures used by the SELECT-visibility, UPDATE-guard,
+--    and set_updated_at-trigger assertions later in the file.
+-- ============================================================================
+
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('11111111-1111-1111-1111-111111111111', 'super@pr-test.local',   '{}'::jsonb),
+  ('22222222-2222-2222-2222-222222222222', 'sa1@pr-test.local',     '{}'::jsonb),
+  ('33333333-3333-3333-3333-333333333333', 'pm@pr-test.local',      '{}'::jsonb),
+  ('44444444-4444-4444-4444-444444444444', 'visitor@pr-test.local', '{}'::jsonb),
+  ('55555555-5555-5555-5555-555555555555', 'sa2@pr-test.local',     '{}'::jsonb),
+  ('66666666-6666-6666-6666-666666666666', 'proc@pr-test.local',    '{}'::jsonb);
+
+update public.users set role = 'super_admin'
+  where id = '11111111-1111-1111-1111-111111111111';
+update public.users set role = 'site_admin'
+  where id = '22222222-2222-2222-2222-222222222222';
+update public.users set role = 'project_manager'
+  where id = '33333333-3333-3333-3333-333333333333';
+-- '4444…' keeps the default 'visitor' role from the trigger.
+update public.users set role = 'site_admin'
+  where id = '55555555-5555-5555-5555-555555555555';
+update public.users set role = 'procurement'
+  where id = '66666666-6666-6666-6666-666666666666';
+
+-- Parent project + work_package.
+insert into public.projects (id, code, name) values
+  ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'PRC-TEST-PR-A', 'PR fixture project');
+
+insert into public.work_packages (id, project_id, code, name) values
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+   'cccccccc-cccc-cccc-cccc-cccccccccccc',
+   'WP-PR-A1', 'PR fixture WP');
+
+-- PR fixtures.
+--   a1111… requested by SA1 — visibility tests (F.1, F.3-F.5).
+--   a2222… requested by SA2 — cross-user isolation (F.2).
+--   a3333… requested by PM, updated_at backdated — trigger test (G.6).
+--   a4444… already approved by PM — two-layer guard no-op test (G.5).
+insert into public.purchase_requests
+  (id, work_package_id, item_description, quantity, unit, requested_by, status)
+values
+  ('a1111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+   'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+   'Cement bag 50kg', 10, 'bag',
+   '22222222-2222-2222-2222-222222222222',
+   'requested'),
+  ('a2222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+   'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+   'Rebar 12mm', 50, 'rod',
+   '55555555-5555-5555-5555-555555555555',
+   'requested');
+
+insert into public.purchase_requests
+  (id, work_package_id, item_description, quantity, unit, requested_by, status, updated_at)
+values
+  ('a3333333-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+   'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+   'Sand', 5, 'tonne',
+   '33333333-3333-3333-3333-333333333333',
+   'requested',
+   '2020-01-01 00:00:00+00');
+
+insert into public.purchase_requests
+  (id, work_package_id, item_description, quantity, unit,
+   requested_by, status, approved_by, decided_at, decision_comment)
+values
+  ('a4444444-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+   'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+   'Bricks', 100, 'piece',
+   '33333333-3333-3333-3333-333333333333',
+   'approved',
+   '33333333-3333-3333-3333-333333333333',
+   '2020-01-02 00:00:00+00',
+   null);
+
+-- Grant the runner's temp result buffer to authenticated, so the assertions
+-- that run under `set local role authenticated` can still record their TAP
+-- output via the runner's `insert into _tap_buf(line) select <pgtap>` rewrite.
+-- Same pattern established in 06/07/08/09/10.
+grant insert on _tap_buf to authenticated;
+grant select on _tap_buf to authenticated;
+grant usage  on sequence _tap_buf_ord_seq to authenticated;
+
+-- ============================================================================
+-- B. Catalog: enum, table shape, columns, FKs, indexes, trigger.
+-- ============================================================================
+
+select has_type('public', 'purchase_request_status', 'purchase_request_status enum exists');
+select enum_has_labels(
+  'public', 'purchase_request_status',
+  array['requested', 'approved', 'rejected', 'purchased', 'delivered'],
+  'purchase_request_status has the five lifecycle values'
+);
+
+select has_table('public', 'purchase_requests', 'public.purchase_requests exists');
+
+select col_is_pk('public', 'purchase_requests', 'id', 'id is primary key');
+select col_type_is('public', 'purchase_requests', 'id', 'uuid', 'id is uuid');
+select col_has_default('public', 'purchase_requests', 'id', 'id has a default (gen_random_uuid)');
+
+select col_type_is('public', 'purchase_requests', 'work_package_id', 'uuid', 'work_package_id is uuid');
+select col_not_null('public', 'purchase_requests', 'work_package_id', 'work_package_id is NOT NULL');
+
+select col_type_is('public', 'purchase_requests', 'item_description', 'text', 'item_description is text');
+select col_not_null('public', 'purchase_requests', 'item_description', 'item_description is NOT NULL');
+
+select col_type_is('public', 'purchase_requests', 'quantity', 'numeric', 'quantity is numeric (fractional materials allowed)');
+select col_not_null('public', 'purchase_requests', 'quantity', 'quantity is NOT NULL');
+
+select col_type_is('public', 'purchase_requests', 'unit', 'text', 'unit is text');
+select col_not_null('public', 'purchase_requests', 'unit', 'unit is NOT NULL');
+
+select col_type_is('public', 'purchase_requests', 'status', 'purchase_request_status', 'status is purchase_request_status');
+select col_not_null('public', 'purchase_requests', 'status', 'status is NOT NULL');
+select col_default_is(
+  'public', 'purchase_requests', 'status', 'requested'::public.purchase_request_status,
+  'status defaults to requested'
+);
+
+select col_type_is('public', 'purchase_requests', 'source', 'text', 'source is text');
+select col_not_null('public', 'purchase_requests', 'source', 'source is NOT NULL');
+select col_default_is('public', 'purchase_requests', 'source', 'app', 'source defaults to app');
+
+select col_type_is('public', 'purchase_requests', 'requested_by', 'uuid', 'requested_by is uuid');
+select col_is_null('public', 'purchase_requests', 'requested_by', 'requested_by is NULLABLE (dual-identity)');
+
+select col_type_is('public', 'purchase_requests', 'requested_by_email', 'text', 'requested_by_email is text');
+select col_is_null('public', 'purchase_requests', 'requested_by_email', 'requested_by_email is NULLABLE');
+
+select col_type_is(
+  'public', 'purchase_requests', 'requested_at',
+  'timestamp with time zone',
+  'requested_at is timestamptz'
+);
+select col_not_null('public', 'purchase_requests', 'requested_at', 'requested_at is NOT NULL');
+
+select col_type_is('public', 'purchase_requests', 'approved_by', 'uuid', 'approved_by is uuid');
+select col_is_null('public', 'purchase_requests', 'approved_by', 'approved_by is NULLABLE');
+
+select col_type_is(
+  'public', 'purchase_requests', 'decided_at',
+  'timestamp with time zone',
+  'decided_at is timestamptz'
+);
+select col_is_null('public', 'purchase_requests', 'decided_at', 'decided_at is NULLABLE');
+
+select col_type_is('public', 'purchase_requests', 'decision_comment', 'text', 'decision_comment is text');
+select col_is_null('public', 'purchase_requests', 'decision_comment', 'decision_comment is NULLABLE');
+
+-- Phase-2 columns (representative — pin existence + type so P2 needs no ALTER).
+select col_type_is('public', 'purchase_requests', 'supplier', 'text', 'supplier (P2) is text');
+select col_type_is('public', 'purchase_requests', 'amount', 'numeric', 'amount (P2) is numeric');
+select col_type_is(
+  'public', 'purchase_requests', 'purchased_at',
+  'timestamp with time zone',
+  'purchased_at (P2) is timestamptz'
+);
+select col_type_is(
+  'public', 'purchase_requests', 'delivered_at',
+  'timestamp with time zone',
+  'delivered_at (P2) is timestamptz'
+);
+
+select col_type_is(
+  'public', 'purchase_requests', 'created_at',
+  'timestamp with time zone',
+  'created_at is timestamptz'
+);
+select col_type_is(
+  'public', 'purchase_requests', 'updated_at',
+  'timestamp with time zone',
+  'updated_at is timestamptz'
+);
+
+select fk_ok(
+  'public', 'purchase_requests', 'work_package_id',
+  'public', 'work_packages', 'id',
+  'work_package_id FK references work_packages.id'
+);
+select fk_ok(
+  'public', 'purchase_requests', 'requested_by',
+  'public', 'users', 'id',
+  'requested_by FK references public.users.id'
+);
+select fk_ok(
+  'public', 'purchase_requests', 'approved_by',
+  'public', 'users', 'id',
+  'approved_by FK references public.users.id'
+);
+
+select has_index(
+  'public', 'purchase_requests', 'purchase_requests_wp_idx',
+  'purchase_requests_wp_idx exists'
+);
+select has_index(
+  'public', 'purchase_requests', 'purchase_requests_status_requested_at_idx',
+  'composite (status, requested_at desc) index exists'
+);
+
+select has_trigger(
+  'public', 'purchase_requests', 'purchase_requests_set_updated_at',
+  'purchase_requests_set_updated_at trigger exists'
+);
+
+-- ============================================================================
+-- C. RLS configuration.
+-- ============================================================================
+
+select is(
+  (select relrowsecurity from pg_class where oid = 'public.purchase_requests'::regclass),
+  true,
+  'RLS enabled on public.purchase_requests'
+);
+
+-- Policy commands on purchase_requests are exactly SELECT/INSERT/UPDATE — NO
+-- DELETE. Stateful table, archive-via-status semantics (lifecycle column).
+select results_eq(
+  $$ select cmd::text from pg_policies
+     where schemaname = 'public' and tablename = 'purchase_requests'
+     order by cmd $$,
+  array['INSERT'::text, 'SELECT'::text, 'UPDATE'::text],
+  'purchase_requests has exactly SELECT/INSERT/UPDATE policies — no DELETE policy'
+);
+
+-- ============================================================================
+-- D. CHECK constraints behavioral. Run as postgres (the outer role, bypasses
+--    RLS) so any failure is unambiguously from the constraint being tested.
+--    23514 is check_violation.
+-- ============================================================================
+
+-- D.1 blank item_description rejected.
+select throws_ok(
+  $$ insert into public.purchase_requests
+       (work_package_id, item_description, quantity, unit, requested_by)
+     values ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'::uuid,
+             '   ', 1, 'each',
+             '22222222-2222-2222-2222-222222222222'::uuid) $$,
+  '23514',
+  null,
+  'blank item_description is rejected by CHECK'
+);
+
+-- D.2 blank unit rejected.
+select throws_ok(
+  $$ insert into public.purchase_requests
+       (work_package_id, item_description, quantity, unit, requested_by)
+     values ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'::uuid,
+             'Cement', 1, '   ',
+             '22222222-2222-2222-2222-222222222222'::uuid) $$,
+  '23514',
+  null,
+  'blank unit is rejected by CHECK'
+);
+
+-- D.3 quantity = 0 rejected (pr_quantity_positive: quantity > 0).
+select throws_ok(
+  $$ insert into public.purchase_requests
+       (work_package_id, item_description, quantity, unit, requested_by)
+     values ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'::uuid,
+             'Cement', 0, 'bag',
+             '22222222-2222-2222-2222-222222222222'::uuid) $$,
+  '23514',
+  null,
+  'quantity = 0 is rejected by CHECK (pr_quantity_positive)'
+);
+
+-- D.4 source='app' with NULL requested_by rejected (pr_native_has_requester).
+select throws_ok(
+  $$ insert into public.purchase_requests
+       (work_package_id, item_description, quantity, unit, source, requested_by)
+     values ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'::uuid,
+             'Cement', 1, 'bag', 'app', null) $$,
+  '23514',
+  null,
+  'native (source=app) with NULL requested_by is rejected by CHECK'
+);
+
+-- D.5 status='rejected' + NULL decision_comment rejected (pr_reject_has_comment).
+select throws_ok(
+  $$ insert into public.purchase_requests
+       (work_package_id, item_description, quantity, unit, requested_by,
+        status, decision_comment)
+     values ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'::uuid,
+             'Cement', 1, 'bag',
+             '22222222-2222-2222-2222-222222222222'::uuid,
+             'rejected', null) $$,
+  '23514',
+  null,
+  'rejected + NULL decision_comment is rejected by CHECK'
+);
+
+-- D.6 status='rejected' + whitespace decision_comment rejected (non-blank half).
+select throws_ok(
+  $$ insert into public.purchase_requests
+       (work_package_id, item_description, quantity, unit, requested_by,
+        status, decision_comment)
+     values ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'::uuid,
+             'Cement', 1, 'bag',
+             '22222222-2222-2222-2222-222222222222'::uuid,
+             'rejected', '   ') $$,
+  '23514',
+  null,
+  'rejected + whitespace-only decision_comment is rejected by CHECK (non-blank half)'
+);
+
+-- D.7 AppSheet flow positive: source='appsheet' with NULL requested_by and
+--     a requested_by_email is permitted by the dual-identity contract.
+--     Pinning forward-compat with P2 (the AppSheet stage writes here).
+select lives_ok(
+  $$ insert into public.purchase_requests
+       (work_package_id, item_description, quantity, unit,
+        source, requested_by, requested_by_email)
+     values ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'::uuid,
+             'Paint', 2, 'litre',
+             'appsheet', null, 'site-foreman@example.com') $$,
+  'appsheet source with null requested_by + email satisfies dual-identity CHECK'
+);
+
+-- ============================================================================
+-- E. Role-gated INSERT under authenticated. From here every assertion's
+--    TAP-recording insert hits _tap_buf as the authenticated role; hence
+--    the grants in section A.
+--
+--    The WITH CHECK pins three things at once:
+--      role in (site_admin, project_manager, super_admin)
+--      AND requested_by = auth.uid()
+--      AND source = 'app'
+--    Any one of these failing → 42501 (insufficient_privilege).
+-- ============================================================================
+
+set local role authenticated;
+
+-- E.1 site_admin self-insert OK (requested_by = auth.uid()).
+set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222222222"}';
+select lives_ok(
+  $$ insert into public.purchase_requests
+       (work_package_id, item_description, quantity, unit, requested_by)
+     values ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'::uuid,
+             'Steel bar', 3, 'rod',
+             '22222222-2222-2222-2222-222222222222'::uuid) $$,
+  'site_admin self-insert (requested_by = auth.uid()) is permitted'
+);
+
+-- E.2 site_admin foreign-requester INSERT denied. The WITH CHECK refuses a
+--     row whose requested_by ≠ auth.uid() — the requester-pinning half.
+set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222222222"}';
+select throws_ok(
+  $$ insert into public.purchase_requests
+       (work_package_id, item_description, quantity, unit, requested_by)
+     values ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'::uuid,
+             'Steel bar', 3, 'rod',
+             '33333333-3333-3333-3333-333333333333'::uuid) $$,
+  '42501',
+  null,
+  'site_admin INSERT with foreign requested_by is denied by RLS (requester-pin)'
+);
+
+-- E.3 site_admin INSERT with source='appsheet' denied from a JWT session —
+--     the native-only pin. The AppSheet stage uses its own DB role, not an
+--     authenticated user session, so this path is always wrong here.
+set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222222222"}';
+select throws_ok(
+  $$ insert into public.purchase_requests
+       (work_package_id, item_description, quantity, unit, source, requested_by)
+     values ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'::uuid,
+             'Steel bar', 3, 'rod', 'appsheet',
+             '22222222-2222-2222-2222-222222222222'::uuid) $$,
+  '42501',
+  null,
+  'INSERT with source=appsheet from a JWT session is denied by RLS (native-only pin)'
+);
+
+-- E.4 project_manager can INSERT.
+set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333333333"}';
+select lives_ok(
+  $$ insert into public.purchase_requests
+       (work_package_id, item_description, quantity, unit, requested_by)
+     values ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'::uuid,
+             'Plywood', 4, 'sheet',
+             '33333333-3333-3333-3333-333333333333'::uuid) $$,
+  'project_manager can INSERT a purchase_request'
+);
+
+-- E.5 super_admin can INSERT.
+set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111111111"}';
+select lives_ok(
+  $$ insert into public.purchase_requests
+       (work_package_id, item_description, quantity, unit, requested_by)
+     values ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'::uuid,
+             'Nails', 5, 'kg',
+             '11111111-1111-1111-1111-111111111111'::uuid) $$,
+  'super_admin can INSERT a purchase_request'
+);
+
+-- E.6 procurement INSERT denied — procurement is a reviewer/viewer in v1,
+--     not a requester. Narrowed requester base per the owner's 2026-06-07
+--     decision.
+set local "request.jwt.claims" = '{"sub": "66666666-6666-6666-6666-666666666666"}';
+select throws_ok(
+  $$ insert into public.purchase_requests
+       (work_package_id, item_description, quantity, unit, requested_by)
+     values ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'::uuid,
+             'Nails', 5, 'kg',
+             '66666666-6666-6666-6666-666666666666'::uuid) $$,
+  '42501',
+  null,
+  'procurement INSERT on purchase_requests is denied by RLS (not in v1 requester base)'
+);
+
+-- E.7 visitor INSERT denied.
+set local "request.jwt.claims" = '{"sub": "44444444-4444-4444-4444-444444444444"}';
+select throws_ok(
+  $$ insert into public.purchase_requests
+       (work_package_id, item_description, quantity, unit, requested_by)
+     values ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'::uuid,
+             'Nails', 5, 'kg',
+             '44444444-4444-4444-4444-444444444444'::uuid) $$,
+  '42501',
+  null,
+  'visitor INSERT on purchase_requests is denied by RLS'
+);
+
+-- ============================================================================
+-- F. SELECT visibility.
+--   - SA1 sees own (PR_SA1) but NOT SA2's row (PR_SA2) — the "requester sees
+--     own" half of the SELECT policy.
+--   - PM, procurement, super_admin see all rows (role-level read).
+--   - visitor sees nothing.
+-- ============================================================================
+
+-- F.1 SA1 sees PR_SA1 (own row).
+set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222222222"}';
+select is(
+  (select count(*)::int from public.purchase_requests
+     where id = 'a1111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
+  1,
+  'site_admin sees own purchase_request via requested_by = auth.uid()'
+);
+
+-- F.2 SA1 does NOT see PR_SA2 (cross-user isolation, load-bearing).
+set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222222222"}';
+select is(
+  (select count(*)::int from public.purchase_requests
+     where id = 'a2222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
+  0,
+  'site_admin does NOT see another site_admin''s purchase_request (cross-user isolation)'
+);
+
+-- F.3 project_manager sees both PR_SA1 and PR_SA2 (role-level read).
+set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333333333"}';
+select is(
+  (select count(*)::int from public.purchase_requests
+     where id in (
+       'a1111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid,
+       'a2222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid
+     )),
+  2,
+  'project_manager sees all purchase_requests (role-level read)'
+);
+
+-- F.4 procurement sees both rows.
+set local "request.jwt.claims" = '{"sub": "66666666-6666-6666-6666-666666666666"}';
+select is(
+  (select count(*)::int from public.purchase_requests
+     where id in (
+       'a1111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid,
+       'a2222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid
+     )),
+  2,
+  'procurement sees all purchase_requests (role-level read)'
+);
+
+-- F.5 super_admin sees both rows.
+set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111111111"}';
+select is(
+  (select count(*)::int from public.purchase_requests
+     where id in (
+       'a1111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid,
+       'a2222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid
+     )),
+  2,
+  'super_admin sees all purchase_requests (role-level read)'
+);
+
+-- F.6 visitor sees nothing.
+set local "request.jwt.claims" = '{"sub": "44444444-4444-4444-4444-444444444444"}';
+select is(
+  (select count(*)::int from public.purchase_requests),
+  0,
+  'visitor sees no purchase_requests'
+);
+
+-- ============================================================================
+-- G. UPDATE RLS + transition guard + set_updated_at trigger.
+--    The UPDATE policy gates SELECT-FOR-UPDATE via USING: when USING returns
+--    false for all candidate rows, the UPDATE statement affects 0 rows
+--    silently (no SQLSTATE). Negative tests assert on row state, positive
+--    ones on row state. Mirrors 07-projects / 08-work-packages.
+-- ============================================================================
+
+-- G.1 project_manager transitions PR_PM_UPDATE from requested → approved.
+set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333333333"}';
+update public.purchase_requests
+  set status = 'approved',
+      approved_by = '33333333-3333-3333-3333-333333333333'::uuid,
+      decided_at = now()
+  where id = 'a3333333-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid;
+select is(
+  (select status::text from public.purchase_requests
+     where id = 'a3333333-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
+  'approved',
+  'project_manager UPDATE on purchase_requests succeeds (requested → approved)'
+);
+
+-- G.2 project_manager transitions PR_SA1 from requested → rejected with comment.
+set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333333333"}';
+update public.purchase_requests
+  set status = 'rejected',
+      approved_by = '33333333-3333-3333-3333-333333333333'::uuid,
+      decided_at = now(),
+      decision_comment = 'budget exceeded'
+  where id = 'a1111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid;
+select is(
+  (select status::text from public.purchase_requests
+     where id = 'a1111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
+  'rejected',
+  'project_manager UPDATE on purchase_requests succeeds (requested → rejected with comment)'
+);
+
+-- G.3 site_admin UPDATE is silently filtered by the USING clause —
+--     0 rows affected, no error, row value unchanged.
+set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222222222"}';
+update public.purchase_requests
+  set status = 'approved',
+      approved_by = '22222222-2222-2222-2222-222222222222'::uuid,
+      decided_at = now()
+  where id = 'a2222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid;
+select is(
+  (select status::text from public.purchase_requests
+     where id = 'a2222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
+  'requested',
+  'site_admin UPDATE on purchase_requests has no effect — status unchanged'
+);
+
+-- G.4 procurement UPDATE is denied by USING — procurement reads but does NOT
+--     write the decision in v1 (PM/super only).
+set local "request.jwt.claims" = '{"sub": "66666666-6666-6666-6666-666666666666"}';
+update public.purchase_requests
+  set status = 'approved',
+      approved_by = '66666666-6666-6666-6666-666666666666'::uuid,
+      decided_at = now()
+  where id = 'a2222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid;
+select is(
+  (select status::text from public.purchase_requests
+     where id = 'a2222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
+  'requested',
+  'procurement UPDATE on purchase_requests has no effect — status unchanged (PM/super-only writers)'
+);
+
+-- G.5 Two-layer transition guard: PR_PM_APPROVED is already 'approved'
+--     (set up in section A). A guarded UPDATE that includes
+--     `... AND status = 'requested'` must affect 0 rows — the canonical
+--     concurrent-decision protection the server action relies on
+--     (mirrors recordDecision's `.eq('status','pending_approval')` clause).
+set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333333333"}';
+with attempted as (
+  update public.purchase_requests
+    set status = 'rejected',
+        approved_by = '33333333-3333-3333-3333-333333333333'::uuid,
+        decided_at = now(),
+        decision_comment = 'too late'
+    where id = 'a4444444-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid
+      and status = 'requested'
+    returning id
+)
+select is(
+  (select count(*)::int from attempted),
+  0,
+  'two-layer guard: UPDATE …WHERE status=''requested'' affects 0 rows on an already-approved row'
+);
+
+-- And the row itself is unchanged.
+select is(
+  (select status::text from public.purchase_requests
+     where id = 'a4444444-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
+  'approved',
+  'two-layer guard: the already-approved row remains ''approved'' after the guarded UPDATE attempt'
+);
+
+-- G.6 set_updated_at trigger advanced updated_at on the G.1 UPDATE of
+--     PR_PM_UPDATE (whose fixture updated_at was backdated to 2020-01-01).
+--     transaction_timestamp() is frozen within a test transaction, but is
+--     still > 2020-01-01.
+set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111111111"}';
+select cmp_ok(
+  (select updated_at from public.purchase_requests
+     where id = 'a3333333-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
+  '>',
+  '2020-01-01 00:00:00+00'::timestamptz,
+  'set_updated_at trigger moves updated_at forward on UPDATE'
+);
+
+-- ============================================================================
+-- H. No DELETE policy — every DELETE through the application path affects
+--    zero rows, including super_admin. Hard deletes require a service-role
+--    context (migration / console action).
+-- ============================================================================
+
+-- H.1 project_manager DELETE has no effect.
+set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333333333"}';
+delete from public.purchase_requests
+  where id = 'a1111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid;
+select is(
+  (select count(*)::int from public.purchase_requests
+     where id = 'a1111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
+  1,
+  'project_manager DELETE has no effect — row remains (no DELETE policy)'
+);
+
+-- H.2 super_admin DELETE has no effect.
+set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111111111"}';
+delete from public.purchase_requests
+  where id = 'a2222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid;
+select is(
+  (select count(*)::int from public.purchase_requests
+     where id = 'a2222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
+  1,
+  'super_admin DELETE has no effect — row remains (no DELETE policy)'
+);
+
+-- ============================================================================
+-- I. Tear down. Reset role to postgres before finish() / the runner's
+--    appended dump from _tap_buf, so those run with full privileges.
+-- ============================================================================
+
+reset role;
+
+select * from finish();
+rollback;
