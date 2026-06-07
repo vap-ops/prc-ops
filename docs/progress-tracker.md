@@ -5191,3 +5191,13 @@ column_name='line_avatar_url';` → returns one row.
   point. Revisit only if real-world usage shows users without LINE pictures
   who want a custom avatar. ADR 0018 and spec 06 remain reserved for the
   appsheet unit.
+
+---
+
+## Unit: getClaims local JWT verification (cut per-page Auth round-trip)
+
+- **Status:** In progress — 2026-06-08.
+- **Started:** 2026-06-08.
+- **Spec:** Inline brief from operator (no numbered feature spec — auth-perf change, not a domain feature).
+- **ADR:** [`docs/decisions/0021-getclaims-local-jwt-verify.md`](./decisions/0021-getclaims-local-jwt-verify.md) (Accepted 2026-06-08).
+- **Branch:** `feat/getclaims-perf` (from `9d0dcf7` = `origin/main` after PR #52).
