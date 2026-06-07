@@ -5010,3 +5010,42 @@ lines of tracker history.
 - **Real implementation** of the custom flow at `/auth/start` +
   `/auth/callback` — pending. Blocked on the RLS recursion fix.
   > > > > > > > origin/chore/remove-line-auth-spike
+
+---
+
+## Unit: profile management — display-name self-edit (v2)
+
+- **Status:** Complete (DB + code + tests; live browser checks pending operator).
+- **Started:** 2026-06-07.
+- **Completed:** 2026-06-07.
+- **Spec:** [`docs/feature-specs/05-profile-management.md`](./feature-specs/05-profile-management.md) (Locked 2026-06-07; renumbered from spec 04 after deliverables claimed 04 on `main`).
+- **ADR:** [`docs/decisions/0017-profile-self-edit.md`](./decisions/0017-profile-self-edit.md) (Accepted 2026-06-07; renumbered from ADR 0016 after deliverables claimed 0016 on `main`).
+- **Branch:** `claude/crazy-jackson-aa151b` (rebased on `main` after PR #45 landed).
+
+### Done
+
+- Two migrations applied to remote:
+  - `20260607143000_add_profile_update_audit_action.sql` — new `profile_update` value on `public.audit_action`.
+  - `20260607143001_create_update_my_display_name.sql` — SECURITY DEFINER RPC exactly per ADR 0017 (one `text` param; hardcoded `where id = auth.uid()`; single-column SET; audit INSERT in the same statement; `revoke execute ... from public` + `grant execute ... to authenticated`).
+- `src/lib/db/database.types.ts` regenerated via `pnpm db:types` (RPC signature + new enum value).
+- `src/lib/profile/validate-display-name.ts` — pure UX validator (trim, empty/whitespace reject, >80 reject). The SQL function is the security authority; this mirrors its rules for inline UX only.
+- `src/app/coming-soon/actions.ts` — `'use server'` action that resolves the session, validates, and calls the RPC on the **session (anon-key) client** (not admin). Returns a discriminated `{ ok, value | error }`.
+- `src/app/coming-soon/display-name-form.tsx` — `'use client'` panel (justified: owns input state, pending state, inline error, transient "Saved" confirmation that only appears after an actual in-session save).
+- Panel mounted on `/coming-soon` in both branches: the unserved-role tile and the `super_admin` `OperatorHub`.
+- `supabase/tests/database/14-update-my-display-name.test.sql` — 13 assertions: catalog (exists, SECURITY DEFINER, `search_path` pinned, EXECUTE granted to `authenticated` + revoked from `public`), behaviour (trim, role-unchanged escalation guard, other-user untouched, empty/whitespace raises `22023`, >80 raises `22001`), audit (one `profile_update` row appended, payload `from`/`to`).
+- `supabase/tests/database/03-audit-log-shape.test.sql` updated to expect `profile_update` in the `audit_action` enum (landmine called out in the unit briefing).
+
+### Verification
+
+- `pnpm lint` — clean.
+- `pnpm typecheck` — clean (after `pnpm db:types`).
+- `pnpm test` — **103/103** (94 prior + 9 new validator tests).
+- `pnpm db:test` — **266 / 267** pgTAP assertions pass, including all 13 new in test 14 and the updated 03. The one pre-existing failure (`11-photos-bucket.test.sql` "photos bucket is private") is unrelated to this unit — the live DB has `photos.public = true` while the migration declares `public = false`. Dashboard drift, predates this branch. See open questions.
+- DB-level escalation probe (independent of the browser): under `set local role authenticated` with a `request.jwt.claims.sub` for a fresh visitor user, `UPDATE public.users SET role='super_admin' WHERE id=auth.uid()` updates **0 rows** and the role stays `visitor`. Confirms RLS blocks self-promotion at the layer the ADR claims.
+
+### Open questions
+
+- **Live browser checks pending operator** (laptop-only; cannot be run from this session): (1) edit name on `/coming-soon` as a visitor / self-promoted test user → "Saved" → reload → persists; (2) confirm an `audit_log` row was written for the change (DB query covers this — `select * from public.audit_log where action='profile_update' order by created_at desc limit 1`); (3) negative live check: `supabase.rpc('update_my_display_name', { p_full_name: '<81 chars>' })` from browser console errors at DB level (pgTAP test 14 assertion #11 already covers this server-side).
+- **SA/PM unreachability (spec §"Known gap").** `/coming-soon` redirects `site_admin -> /sa` and `project_manager -> /pm`, so the two live pilot roles can't reach this panel. Their names come from LINE at first login — this is a correction gap, not a blocker. Follow-up trivial unit: mount the same component on `/sa` and `/pm`, or add a shared `/profile` route. **Not built here** per scope discipline.
+- **Photos bucket is public on the live DB** (`storage.buckets.photos.public = true`). The migration `20260524040000_create_photos_bucket.sql` declares `public = false`; the live state was changed via the Supabase dashboard. This causes `11-photos-bucket.test.sql` assertion #2 to fail. **Pre-existing drift, unrelated to this unit.** Separate unit warranted: either flip the bucket back to private in the dashboard (security default per spec 02) or amend the migration + test if the public posture is intentional. Out of scope here.
+- **`authenticated` role has UPDATE table privilege on `public.users`** (Supabase default), so the no-user-UPDATE-on-public.users invariant ADR 0007 / 0017 describe is upheld by RLS, not by GRANT. RLS denies (probe above confirms 0 rows updated). The privilege column-grant claim in earlier ADR copy could be tightened to reflect this — flagged but **not edited here** (would broaden the unit's diff into ADR-revision work).
