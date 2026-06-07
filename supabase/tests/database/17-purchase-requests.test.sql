@@ -539,18 +539,23 @@ select is(
 );
 
 -- G.3 site_admin UPDATE is silently filtered by the USING clause —
---     0 rows affected, no error, row value unchanged.
+--     0 rows affected, no error, row value unchanged. PR_SA2 is owned
+--     by SA2 and the cross-user SELECT isolation (F.2) hides it from
+--     SA1; so the UPDATE attempt runs as SA1, then the verification
+--     SELECT switches to super_admin (PM/procurement/super see all)
+--     to read the row's state.
 set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222222222"}';
 update public.purchase_requests
   set status = 'approved',
       approved_by = '22222222-2222-2222-2222-222222222222'::uuid,
       decided_at = now()
   where id = 'a2222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid;
+set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111111111"}';
 select is(
   (select status::text from public.purchase_requests
      where id = 'a2222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
   'requested',
-  'site_admin UPDATE on purchase_requests has no effect — status unchanged'
+  'site_admin UPDATE on purchase_requests has no effect — status unchanged (verified under super_admin)'
 );
 
 -- G.4 procurement UPDATE is denied by USING — procurement reads but does NOT
@@ -570,25 +575,36 @@ select is(
 
 -- G.5 Two-layer transition guard: PR_PM_APPROVED is already 'approved'
 --     (set up in section A). A guarded UPDATE that includes
---     `... AND status = 'requested'` must affect 0 rows — the canonical
---     concurrent-decision protection the server action relies on
---     (mirrors recordDecision's `.eq('status','pending_approval')` clause).
+--     `... AND status = 'requested'` must NOT change the row — the
+--     canonical concurrent-decision protection the server action
+--     relies on (mirrors recordDecision's
+--     `.eq('status','pending_approval')` clause).
+--
+--     Plain UPDATE form (no CTE): the runner's pgTAP rewrite wraps
+--     only top-level `select`-leading statements, so a `with … select`
+--     assertion is silently dropped. Sanity-check before + state-check
+--     after fence the test from that runner quirk and keep the plan
+--     count honest.
 set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333333333"}';
-with attempted as (
-  update public.purchase_requests
-    set status = 'rejected',
-        approved_by = '33333333-3333-3333-3333-333333333333'::uuid,
-        decided_at = now(),
-        decision_comment = 'too late'
-    where id = 'a4444444-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid
-      and status = 'requested'
-    returning id
-)
+
+-- Sanity: confirm PR_PM_APPROVED is 'approved' before the attempt.
 select is(
-  (select count(*)::int from attempted),
-  0,
-  'two-layer guard: UPDATE …WHERE status=''requested'' affects 0 rows on an already-approved row'
+  (select status::text from public.purchase_requests
+     where id = 'a4444444-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
+  'approved',
+  'two-layer guard fixture: PR_PM_APPROVED is initially ''approved'''
 );
+
+-- The guarded UPDATE. The `... AND status = 'requested'` clause
+-- is the SQL safety net; the row's status is 'approved', so the
+-- statement matches zero rows.
+update public.purchase_requests
+  set status = 'rejected',
+      approved_by = '33333333-3333-3333-3333-333333333333'::uuid,
+      decided_at = now(),
+      decision_comment = 'too late'
+  where id = 'a4444444-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid
+    and status = 'requested';
 
 -- And the row itself is unchanged.
 select is(
@@ -612,31 +628,41 @@ select cmp_ok(
 );
 
 -- ============================================================================
--- H. No DELETE policy — every DELETE through the application path affects
---    zero rows, including super_admin. Hard deletes require a service-role
---    context (migration / console action).
+-- H. DELETE is denied at the privilege layer (REVOKE), NOT at RLS.
+--    The migration's grants block REVOKEs ALL from authenticated then
+--    GRANTs only SELECT/INSERT/UPDATE — DELETE is not granted. So a
+--    DELETE attempt under the authenticated role raises 42501
+--    (insufficient_privilege) BEFORE RLS gets a say. Same posture as
+--    approvals (see 10-approvals.test.sql section D), NOT the
+--    work_packages silent-no-op pattern.
+--
+--    With the REVOKE in place, there's no "no DELETE policy → 0 rows"
+--    semantic to test — the privilege denial fires first. service_role
+--    is the only remaining DELETE path (hard deletes via migration /
+--    console action).
 -- ============================================================================
 
--- H.1 project_manager DELETE has no effect.
+-- H.1 project_manager DELETE raises 42501 (REVOKE — privilege layer).
 set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333333333"}';
-delete from public.purchase_requests
-  where id = 'a1111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid;
-select is(
-  (select count(*)::int from public.purchase_requests
-     where id = 'a1111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
-  1,
-  'project_manager DELETE has no effect — row remains (no DELETE policy)'
+select throws_ok(
+  $$ delete from public.purchase_requests
+       where id = 'a1111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid $$,
+  '42501',
+  null,
+  'project_manager DELETE on purchase_requests is denied by REVOKE (privilege layer)'
 );
 
--- H.2 super_admin DELETE has no effect.
+-- H.2 super_admin DELETE raises 42501 as well — the REVOKE binds the
+--     authenticated role and a super_admin's session runs under
+--     authenticated; super-admin status only matters at the RLS layer,
+--     which is never reached.
 set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111111111"}';
-delete from public.purchase_requests
-  where id = 'a2222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid;
-select is(
-  (select count(*)::int from public.purchase_requests
-     where id = 'a2222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
-  1,
-  'super_admin DELETE has no effect — row remains (no DELETE policy)'
+select throws_ok(
+  $$ delete from public.purchase_requests
+       where id = 'a2222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid $$,
+  '42501',
+  null,
+  'super_admin DELETE on purchase_requests is denied by REVOKE (privilege layer)'
 );
 
 -- ============================================================================

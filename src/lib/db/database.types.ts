@@ -673,6 +673,7 @@ export const Constants = {
       ],
       photo_phase: ["before", "during", "after"],
       project_status: ["active", "on_hold", "completed", "archived"],
+      purchase_request_status: ["requested", "approved", "rejected", "purchased", "delivered"],
       report_status: ["requested", "processing", "complete", "failed"],
       user_role: [
         "site_admin",
