@@ -11,7 +11,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { validateDisplayName } from "@/lib/profile/validate-display-name";
-import { updateDisplayName } from "./actions";
+import { updateDisplayName } from "@/app/coming-soon/actions";
 
 interface DisplayNameFormProps {
   initialName: string;

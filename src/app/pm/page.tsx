@@ -55,7 +55,15 @@ export default async function ProjectManagerLandingPage() {
             <p className="text-xs tracking-wider text-zinc-500 uppercase">Project manager</p>
             <h1 className="text-lg font-semibold tracking-tight">Hi, {ctx.fullName ?? "there"}.</h1>
           </div>
-          <LogoutButton />
+          <div className="flex items-center gap-3">
+            <Link
+              href="/profile"
+              className="text-sm text-zinc-400 transition-colors hover:text-zinc-100 focus:outline-none focus-visible:underline"
+            >
+              Profile
+            </Link>
+            <LogoutButton />
+          </div>
         </div>
       </header>
 
