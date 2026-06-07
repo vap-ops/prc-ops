@@ -5098,3 +5098,96 @@ lines of tracker history.
 None blocking. Surfaced for the record:
 
 - The `.claude/worktrees/` gitignore add is purely defensive — PR #47's eslint `globalIgnores` change already prevents the worktree files from being linted. The gitignore prevents accidental `git add .` of worktree files in the future.
+
+---
+
+## Unit: LINE profile picture as avatar (self-view MVP)
+
+- **Status:** Complete (code + tests; migration pre-merge; pgTAP 16 pending post-merge
+  db push; live browser checks pending operator).
+- **Started / completed:** 2026-06-08.
+- **Spec:** [`docs/feature-specs/08-profile-image.md`](./feature-specs/08-profile-image.md) (Locked 2026-06-08).
+- **ADR:** [`docs/decisions/0020-line-avatar.md`](./decisions/0020-line-avatar.md) (Accepted 2026-06-08; amends ADR 0007).
+- **Branch:** `feat/line-avatar` (from `5f29ece` = `origin/main` after PR #50).
+
+### Done
+
+- **`supabase/migrations/20260608000000_add_line_avatar_url.sql`** — single
+  `ALTER TABLE public.users ADD COLUMN line_avatar_url text;`. Applied
+  post-merge (delegated per change-management policy).
+- **`src/lib/db/database.types.ts`** — manually patched to add
+  `line_avatar_url: string | null` to users Row/Insert/Update. Will be
+  superseded by `pnpm db:types` after the delegated db push.
+- **`src/lib/auth/verify-line-id-token.ts`** — `picture: string | null`
+  added to `LineIdTokenClaims` and `RawJwtPayload`; parsed with the same
+  defensive style as `name` (non-empty string → value, else null).
+- **`src/lib/profile/resolve-avatar.ts`** — pure `resolveAvatar` (precedence
+  uploaded > LINE > initials) + `getInitials` (first 1–2 words, uppercased,
+  null-safe).
+- **`src/components/features/avatar-surface.tsx`** — Server Component with
+  plain `<img referrerPolicy="no-referrer" loading="lazy">` for uploaded/LINE
+  (not next/image — avoids remote-domain allowlisting and referrer leakage)
+  and initials `<span>` fallback. `uploadedUrl` prop is the future uploader
+  plug-in point.
+- **`src/app/auth/line/callback/route.ts`** — SELECT widened to include
+  `line_avatar_url`; REFRESH-on-login write: `updates.line_avatar_url =
+claims.picture` when it differs from stored value (handles initial set,
+  refresh, and clear-to-null). `full_name`/`line_user_id` stay NULL-only.
+  No audit row (system-owned field, like `line_user_id`).
+- **`src/app/profile/page.tsx`** — SELECT widened; `<AvatarSurface>` rendered
+  beside the page heading.
+- **`src/app/coming-soon/page.tsx`** — SELECT widened; `<AvatarSurface>`
+  rendered in both the unserved-role tile and the `OperatorHub` header.
+- **`supabase/tests/database/16-users-line-avatar-url.test.sql`** — 3 pgTAP
+  assertions: column exists, type text, nullable. These 3 fail pre-merge
+  (migration not yet applied); all 273 prior assertions still pass.
+- **`tests/unit/resolve-avatar.test.ts`** — 14 Vitest tests covering
+  precedence and `getInitials` edge cases.
+- **`tests/unit/verify-line-id-token.test.ts`** — 8 Vitest tests: picture
+  parses to string when present, null when absent/null/non-string/empty;
+  sub/name smoke.
+
+### Verification
+
+- `pnpm lint` — clean.
+- `pnpm typecheck` — clean.
+- `pnpm test` — **125/125** (103 prior + 14 resolve-avatar + 8 verify-line-id-token).
+- `pnpm db:test` — **273 prior assertions pass; 3 new (file 16) fail pending
+  migration apply.** This is expected pre-merge.
+
+### Decisions made
+
+- **REFRESH-on-login for `line_avatar_url`, NOT NULL-only.** LINE owns
+  this field (reflects the user's current LINE account state). `full_name`
+  is user-authored and user-correctable via the ADR 0017 RPC — its NULL-only
+  callback semantics are correct. `line_avatar_url` has the opposite contract.
+- **Plain `<img>` not `next/image`.** Avoids maintaining a `remotePatterns`
+  allowlist for LINE CDN subdomains. `referrerPolicy="no-referrer"` prevents
+  Referer header leakage. For the self-view use case this is the right call;
+  cross-user display (future) will need a proxy.
+- **No audit row for `line_avatar_url`.** System-sourced field; the user
+  didn't author the change. Matches treatment of `line_user_id`.
+- **`database.types.ts` manually patched.** The delegated post-merge
+  `db push` + `pnpm db:types` will supersede the patch with the real
+  generated output.
+- **pgTAP in a new file (16), not bumping `01-users.test.sql`.** Avoids
+  changing the plan count of a file that's not part of this unit's diff.
+
+### Open questions
+
+- **Post-merge delegated steps (for the operator to perform):**
+  1. `supabase db push --linked` — applies `20260608000000_add_line_avatar_url.sql`.
+  2. `pnpm db:types` — regenerates `src/lib/db/database.types.ts` (supersedes
+     the manual patch; commit the regenerated file separately or as part of a
+     post-merge fixup).
+  3. `pnpm db:test` — all 276 assertions (including the 3 in file 16) should pass.
+  4. Confirm: `select column_name from information_schema.columns
+where table_schema='public' and table_name='users' and
+column_name='line_avatar_url';` → returns one row.
+- **User-uploaded avatar override (deferred — do NOT build without sign-off):**
+  `avatar_url` column + private `avatars` bucket + own-folder storage RLS +
+  `update_my_avatar_url` SECURITY DEFINER RPC + `AvatarUploader` client
+  component. `AvatarSurface`'s `uploadedUrl` prop is the defined extension
+  point. Revisit only if real-world usage shows users without LINE pictures
+  who want a custom avatar. ADR 0018 and spec 06 remain reserved for the
+  appsheet unit.
