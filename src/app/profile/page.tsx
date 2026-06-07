@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { AvatarSurface } from "@/components/features/avatar-surface";
 import { DisplayNameForm } from "@/components/features/display-name-form";
 import { roleHome, type UserRole } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
@@ -24,7 +25,7 @@ export default async function ProfilePage() {
 
   const { data: row } = await supabase
     .from("users")
-    .select("role, full_name")
+    .select("role, full_name, line_avatar_url")
     .eq("id", user.id)
     .maybeSingle();
   if (!row) {
@@ -46,8 +47,13 @@ export default async function ProfilePage() {
           >
             <span aria-hidden="true">←</span> Back
           </Link>
-          <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
-          <p className="text-sm text-zinc-500">Edit your display name.</p>
+          <div className="flex items-center gap-4 pt-1">
+            <AvatarSurface lineUrl={row.line_avatar_url} fullName={row.full_name} size={64} />
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
+              <p className="text-sm text-zinc-500">Edit your display name.</p>
+            </div>
+          </div>
         </header>
 
         <DisplayNameForm initialName={initialName} />

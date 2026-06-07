@@ -284,6 +284,7 @@ export type Database = {
           created_at: string;
           full_name: string | null;
           id: string;
+          line_avatar_url: string | null;
           line_user_id: string | null;
           role: Database["public"]["Enums"]["user_role"];
           updated_at: string;
@@ -292,6 +293,7 @@ export type Database = {
           created_at?: string;
           full_name?: string | null;
           id: string;
+          line_avatar_url?: string | null;
           line_user_id?: string | null;
           role?: Database["public"]["Enums"]["user_role"];
           updated_at?: string;
@@ -300,6 +302,7 @@ export type Database = {
           created_at?: string;
           full_name?: string | null;
           id?: string;
+          line_avatar_url?: string | null;
           line_user_id?: string | null;
           role?: Database["public"]["Enums"]["user_role"];
           updated_at?: string;

@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { AvatarSurface } from "@/components/features/avatar-surface";
+import { DisplayNameForm } from "@/components/features/display-name-form";
 import { createClient } from "@/lib/db/server";
 import { type UserRole } from "@/lib/auth/role-home";
-import { DisplayNameForm } from "@/components/features/display-name-form";
 
 // Display labels for every role that lands here. site_admin and project_manager
 // are redirected away (their landings exist), so they're intentionally absent.
@@ -29,7 +30,7 @@ export default async function ComingSoonPage() {
 
   const { data: row } = await supabase
     .from("users")
-    .select("role, full_name")
+    .select("role, full_name, line_avatar_url")
     .eq("id", user.id)
     .maybeSingle();
   if (!row) {
@@ -48,6 +49,7 @@ export default async function ComingSoonPage() {
   const displayName = UNSERVED_ROLE_LABEL[role] ?? role;
   const greeting = row.full_name ?? "there";
   const initialName = row.full_name ?? "";
+  const lineAvatarUrl = row.line_avatar_url;
 
   // super_admin is the only "unserved" role that genuinely needs to
   // *reach* the served surfaces — every other unserved role waits for
@@ -56,12 +58,23 @@ export default async function ComingSoonPage() {
   // super_admin via their existing requireRole() guards (no auth
   // change in this unit; this is purely a render branch).
   if (role === "super_admin") {
-    return <OperatorHub greeting={greeting} displayName={displayName} initialName={initialName} />;
+    return (
+      <OperatorHub
+        greeting={greeting}
+        displayName={displayName}
+        initialName={initialName}
+        lineAvatarUrl={lineAvatarUrl}
+        fullName={row.full_name}
+      />
+    );
   }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-6 text-zinc-100">
       <div className="w-full max-w-md space-y-6 text-center">
+        <div className="flex justify-center">
+          <AvatarSurface lineUrl={lineAvatarUrl} fullName={row.full_name} size={72} />
+        </div>
         <h1 className="text-3xl font-semibold tracking-tight">Hi, {greeting}</h1>
         <p className="text-lg text-zinc-400">You&apos;re signed in as {displayName}.</p>
         <p className="text-sm text-zinc-500">
@@ -84,6 +97,8 @@ interface OperatorHubProps {
   greeting: string;
   displayName: string;
   initialName: string;
+  lineAvatarUrl: string | null;
+  fullName: string | null;
 }
 
 interface HubLink {
@@ -115,14 +130,25 @@ const HUB_LINKS: ReadonlyArray<HubLink> = [
   },
 ];
 
-function OperatorHub({ greeting, displayName, initialName }: OperatorHubProps) {
+function OperatorHub({
+  greeting,
+  displayName,
+  initialName,
+  lineAvatarUrl,
+  fullName,
+}: OperatorHubProps) {
   return (
     <main className="min-h-screen bg-zinc-950 px-6 py-10 text-zinc-100">
       <div className="mx-auto flex w-full max-w-md flex-col gap-6">
         <header className="space-y-1">
           <p className="text-xs tracking-wider text-zinc-500 uppercase">Operator console</p>
-          <h1 className="text-2xl font-semibold tracking-tight">Hi, {greeting}</h1>
-          <p className="text-sm text-zinc-500">Signed in as {displayName}.</p>
+          <div className="flex items-center gap-3">
+            <AvatarSurface lineUrl={lineAvatarUrl} fullName={fullName} size={48} />
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight">Hi, {greeting}</h1>
+              <p className="text-sm text-zinc-500">Signed in as {displayName}.</p>
+            </div>
+          </div>
         </header>
 
         <nav aria-label="Operator destinations" className="flex flex-col gap-2">

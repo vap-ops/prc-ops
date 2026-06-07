@@ -16,6 +16,7 @@ const CLOCK_SKEW_SECONDS = 60;
 export interface LineIdTokenClaims {
   sub: string;
   name: string | null;
+  picture: string | null;
 }
 
 interface RawJwtHeader {
@@ -30,6 +31,7 @@ interface RawJwtPayload {
   exp?: unknown;
   iat?: unknown;
   name?: unknown;
+  picture?: unknown;
 }
 
 function decodeBase64UrlToUtf8(segment: string): string {
@@ -90,5 +92,7 @@ export function verifyLineIdToken(
   return {
     sub: payload.sub,
     name: typeof payload.name === "string" && payload.name.length > 0 ? payload.name : null,
+    picture:
+      typeof payload.picture === "string" && payload.picture.length > 0 ? payload.picture : null,
   };
 }

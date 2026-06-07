@@ -194,11 +194,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     role: string;
     line_user_id: string | null;
     full_name: string | null;
+    line_avatar_url: string | null;
   } | null = null;
   for (let attempt = 0; attempt < PROFILE_READ_MAX_ATTEMPTS; attempt++) {
     const { data } = await supabase
       .from("users")
-      .select("role, line_user_id, full_name")
+      .select("role, line_user_id, full_name, line_avatar_url")
       .eq("id", user.id)
       .maybeSingle();
     if (data) {
@@ -216,10 +217,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return redirectToLogin(request, "unknown");
   }
 
-  // ---- 8. NULL-only profile write (admin client) ----
-  const updates: { line_user_id?: string; full_name?: string } = {};
+  // ---- 8. Profile write (admin client) ----
+  // line_user_id / full_name: NULL-only (set once at first login, never overwritten).
+  // line_avatar_url: REFRESH-on-login (update whenever claims.picture differs from
+  //   stored value, including clearing to null if the user removed their LINE picture).
+  //   LINE owns this field; the user owns full_name. See ADR 0020.
+  const updates: { line_user_id?: string; full_name?: string; line_avatar_url?: string | null } =
+    {};
   if (row.line_user_id === null) updates.line_user_id = claims.sub;
   if (row.full_name === null && claims.name) updates.full_name = claims.name;
+  if (claims.picture !== row.line_avatar_url) updates.line_avatar_url = claims.picture;
   if (Object.keys(updates).length > 0) {
     const { error: updateError } = await admin.from("users").update(updates).eq("id", user.id);
     if (updateError) {
