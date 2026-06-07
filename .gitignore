@@ -72,3 +72,6 @@ debug.txt
 .claude/settings.local.json
 *.pyc
 __pycache__/
+
+# local git worktrees created by the agent — never part of the repo
+.claude/worktrees/
