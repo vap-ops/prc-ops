@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { createClient } from "@/lib/db/server";
 import { type UserRole } from "@/lib/auth/role-home";
-import { DisplayNameForm } from "./display-name-form";
+import { DisplayNameForm } from "@/components/features/display-name-form";
 
 // Display labels for every role that lands here. site_admin and project_manager
 // are redirected away (their landings exist), so they're intentionally absent.
@@ -107,6 +107,11 @@ const HUB_LINKS: ReadonlyArray<HubLink> = [
     href: "/pm/projects",
     label: "Projects & reports",
     hint: "Generate and download project PDF reports.",
+  },
+  {
+    href: "/profile",
+    label: "Profile",
+    hint: "Edit your display name.",
   },
 ];
 

@@ -5046,6 +5046,55 @@ lines of tracker history.
 ### Open questions
 
 - **Live browser checks pending operator** (laptop-only; cannot be run from this session): (1) edit name on `/coming-soon` as a visitor / self-promoted test user → "Saved" → reload → persists; (2) confirm an `audit_log` row was written for the change (DB query covers this — `select * from public.audit_log where action='profile_update' order by created_at desc limit 1`); (3) negative live check: `supabase.rpc('update_my_display_name', { p_full_name: '<81 chars>' })` from browser console errors at DB level (pgTAP test 14 assertion #11 already covers this server-side).
-- **SA/PM unreachability (spec §"Known gap").** `/coming-soon` redirects `site_admin -> /sa` and `project_manager -> /pm`, so the two live pilot roles can't reach this panel. Their names come from LINE at first login — this is a correction gap, not a blocker. Follow-up trivial unit: mount the same component on `/sa` and `/pm`, or add a shared `/profile` route. **Not built here** per scope discipline.
+- **SA/PM unreachability (spec §"Known gap").** `/coming-soon` redirects `site_admin -> /sa` and `project_manager -> /pm`, so the two live pilot roles can't reach this panel. Their names come from LINE at first login — this is a correction gap, not a blocker. Follow-up trivial unit: mount the same component on `/sa` and `/pm`, or add a shared `/profile` route. **Not built here** per scope discipline. **[Resolved 2026-06-07 by spec 07 — `/profile` route. See unit at bottom of tracker.]**
 - **Photos bucket is public on the live DB** (`storage.buckets.photos.public = true`). The migration `20260524040000_create_photos_bucket.sql` declares `public = false`; the live state was changed via the Supabase dashboard. This causes `11-photos-bucket.test.sql` assertion #2 to fail. **Pre-existing drift, unrelated to this unit.** Separate unit warranted: either flip the bucket back to private in the dashboard (security default per spec 02) or amend the migration + test if the public posture is intentional. Out of scope here.
 - **`authenticated` role has UPDATE table privilege on `public.users`** (Supabase default), so the no-user-UPDATE-on-public.users invariant ADR 0007 / 0017 describe is upheld by RLS, not by GRANT. RLS denies (probe above confirms 0 rows updated). The privilege column-grant claim in earlier ADR copy could be tightened to reflect this — flagged but **not edited here** (would broaden the unit's diff into ADR-revision work).
+
+---
+
+## Unit: /profile route (universal display-name reach) + .claude/worktrees gitignore
+
+- **Status:** Complete — 2026-06-07.
+- **Started / completed:** 2026-06-07.
+- **Spec:** [`docs/feature-specs/07-profile-route.md`](feature-specs/07-profile-route.md) (locked in this same unit).
+- **ADR:** None — reuses ADR 0017's RPC unchanged; no new database surface.
+- **Branch:** `feat/profile-route` (from `058d3fc` = `origin/main` after PR #48).
+
+### Done
+
+- **`.gitignore`** appended with `.claude/worktrees/` (local agent worktrees, never repo content). Verified `git ls-files .claude/worktrees/` was empty before adding — no tracked files to `git rm --cached`.
+- **`docs/feature-specs/07-profile-route.md`** — verbatim locked spec per the unit briefing. Extends spec 05 / ADR 0017 with NO new ADR.
+- **`src/components/features/display-name-form.tsx`** — moved here from `src/app/coming-soon/display-name-form.tsx` so both `/coming-soon` and `/profile` import from a single canonical location. One line changed inside: the action import switched from `./actions` → `@/app/coming-soon/actions`. The action itself stays at `src/app/coming-soon/actions.ts` — moving it would touch `revalidatePath('/coming-soon')` and the existing test coverage, which is OUT of scope. (The unit briefing explicitly authorized the form move as "the only refactor allowed if you move it".)
+- **`src/app/coming-soon/page.tsx`** — `DisplayNameForm` import updated to the new path; `/profile` added as the 4th `HUB_LINKS` entry in the super_admin `OperatorHub`. The unserved-role-tile branch and the rest of the page unchanged.
+- **`src/app/profile/page.tsx`** — Server Component. EVERY authenticated role can reach it including `visitor` (locked decision 1). Auth pattern mirrors `/coming-soon`: `createClient` → `auth.getUser` → `/login` if none; read `users.role + full_name` → `/login` if missing; render. Does NOT use `requireRole` — would bounce unserved roles to their `roleHome` and defeat the unit's purpose. Renders the existing `DisplayNameForm` and a "← Back" link computed via `roleHome(role)`. Reuses the dark-theme styling already used by `/coming-soon`.
+- **Nav links added (matching existing styling):**
+  - `src/app/sa/page.tsx` — "Profile" link in the header next to the LogoutButton.
+  - `src/app/pm/page.tsx` — "Profile" link in the same header position.
+  - `src/app/coming-soon/page.tsx` — `/profile` added to `OperatorHub`'s `HUB_LINKS` (4th entry).
+- **`/coming-soon` inline panel preserved** — visitors keep inline edit (locked decision 4, no regression).
+- **`tests/e2e/profile-unauthenticated.spec.ts`** — new Playwright suite mirroring `tests/e2e/auth-unauthenticated.spec.ts`: unauthenticated `GET /profile` redirects to `/login`. The TDD "failing first" artifact, written before `src/app/profile/page.tsx`.
+
+### Verification
+
+- `pnpm lint` — clean.
+- `pnpm typecheck` — clean.
+- `pnpm test` — 12 files / 103 tests pass (unchanged — no new unit tests; form reuses existing coverage).
+- `pnpm test:e2e` — the new redirect spec passes alongside the existing auth-unauthenticated suite.
+- No migration → no `db push`, no `db:test` needed for this unit (spec 07 has zero SQL changes — only routing, docs, and gitignore).
+- Live (deferred to operator on the laptop): visit `/profile` as each role; confirm edit + "Saved" + reload persistence; confirm "Back" returns to `roleHome(role)`; confirm the new "Profile" links from `/sa`, `/pm`, and OperatorHub work.
+
+### Decisions made
+
+- **Moved `DisplayNameForm` to `src/components/features/`** (allowed-refactor per the unit briefing): once the form is used by two routes, owning it under `src/components/features/` matches CLAUDE.md's "feature components live there" convention better than cross-importing from `/coming-soon`. Diff is small: one file move, one inner import update, one importer update.
+- **No `requireRole` on `/profile`** — using it would bounce unserved roles to `roleHome(role)`, which for `visitor` is `/coming-soon`, defeating the unit's whole purpose. The page implements its own minimal auth check (mirroring `/coming-soon`'s pattern).
+- **"← Back" target = `roleHome(role)`** — visitor → `/coming-soon`, SA → `/sa`, PM → `/pm`, super_admin → `/coming-soon`. Single source of truth, same helper used everywhere else.
+
+### Resolved (spec 05 follow-up)
+
+- **Spec 05's SA/PM unreachability open question** is resolved by this unit: SA and PM can now reach the display-name editor via the new "Profile" link on `/sa` and `/pm`. See spec 05's open questions section above (annotated inline as resolved).
+
+### Open questions
+
+None blocking. Surfaced for the record:
+
+- The `.claude/worktrees/` gitignore add is purely defensive — PR #47's eslint `globalIgnores` change already prevents the worktree files from being linted. The gitignore prevents accidental `git add .` of worktree files in the future.
