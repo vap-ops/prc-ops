@@ -30,9 +30,19 @@ Today there is no user-write path to `public.users`:
   policy resolves via `current_user_role()` (ADR 0011).
 - **Writes** — only the auth callback writes, via the admin
   (service-role) client, and only NULL-only (`line_user_id`,
-  `full_name`). No authenticated session can UPDATE the table:
-  there is no UPDATE RLS policy for non-super_admins and no UPDATE
-  column privilege granted to `authenticated`.
+  `full_name`). No authenticated session can UPDATE the table —
+  **but the block is RLS, not the privilege layer.** Verified live
+  on 2026-06-07:
+  `has_table_privilege('authenticated','public.users','UPDATE')` is
+  `TRUE` (Supabase grants `authenticated` table-level UPDATE on
+  `public.*` by default), and `has_column_privilege(... ,'role', ...)`
+  is `TRUE` for the same reason. The escalation guard is that **there
+  is no permissive UPDATE RLS policy for non-super_admins**, so any
+  UPDATE issued through an authenticated session affects **0 rows**
+  silently. A DB-level escalation probe on 2026-06-07 confirmed
+  `UPDATE public.users SET role='super_admin' WHERE id=auth.uid()`
+  under `set local role authenticated` returns `ROW_COUNT=0` and the
+  caller's `role` is unchanged.
 
 Adding self-edit is therefore the first user-reachable write into the
 **most security-sensitive table in the schema** — the table that
@@ -181,6 +191,20 @@ because all three are airtight _today_:
   SECURITY DEFINER checklist. Users hold EXECUTE on a function, never
   UPDATE on the table.
 
+The privilege-vs-policy point above (see Context) is **precisely why
+(c) is the correct mechanism here.** `authenticated` already holds the
+table-level UPDATE privilege from Supabase's defaults; the only thing
+keeping that privilege un-exercisable for escalation is the absence of
+a permissive UPDATE RLS policy on `public.users`. Mechanism (a) would
+add exactly such a policy (gated on `id = auth.uid()`) and then rely
+on a column-level GRANT to keep `role` out of bounds — a defence the
+pre-existing table-level privilege can paper over the moment a future
+migration broadens it. Mechanism (c) adds **no permissive UPDATE
+policy at all**, so the pre-existing table privilege never becomes
+exercisable for any user-reachable UPDATE, regardless of whose column
+grants drift. The escalation surface stays exactly as narrow as it
+was before this ADR.
+
 (c) also **reuses an existing, reviewed primitive shape**
 (`current_user_role()`, ADR 0011) rather than introducing a new write
 pattern. The handoff (`docs/v2-handoff.md` §4) recommended (b) for
@@ -228,8 +252,12 @@ null` guard fails closed even if the grant were ever widened.
   construction, fails closed, and reuses a reviewed pattern.
 - Every display-name change is audited atomically with the change.
 - No new RLS write policy and no column GRANT on the most sensitive
-  table — the "no user-UPDATE-privilege on `public.users`" invariant
-  literally still holds; users hold a function EXECUTE instead.
+  table — the **"no user-reachable UPDATE path on `public.users`"**
+  invariant still holds. (The phrasing here is deliberate: the
+  underlying `authenticated` UPDATE privilege already exists from
+  Supabase defaults — see Context — and is held un-exercisable by the
+  absence of a permissive UPDATE policy. This ADR preserves that
+  posture; users hold a function EXECUTE, not a UPDATE policy.)
 
 **Negative**
 
@@ -257,6 +285,15 @@ null` guard fails closed even if the grant were ever widened.
   not a blocker. A trivial follow-up — mount the same panel on `/sa`
   and `/pm`, or add a shared `/profile` route — would close it. Not
   built in this unit per scope discipline; flagged for Project Owner.
+- **Hardening follow-up: revoke the unused UPDATE privilege.**
+  `REVOKE UPDATE ON public.users FROM authenticated` (and the matching
+  `... FROM anon`) would restore defense-in-depth — the table-level
+  privilege Supabase grants by default is unused under this ADR, so
+  revoking it costs nothing and adds a second line of defence ahead
+  of the no-permissive-policy guard. Tracked separately, **not in this
+  unit**: changing role grants is the kind of cross-cutting edit that
+  warrants its own ADR (touches ADR 0007's invariant phrasing and any
+  future table whose access model assumes the Supabase default).
 
 ## References
 
