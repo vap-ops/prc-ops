@@ -7,7 +7,7 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   prettier,
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "worker/**"]),
+  globalIgnores([".next/**", ".claude/**", "out/**", "build/**", "next-env.d.ts", "worker/**"]),
   {
     rules: {
       "@typescript-eslint/no-explicit-any": "error",

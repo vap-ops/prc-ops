@@ -23,6 +23,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - TypeScript: use `unknown` and narrow. Never widen with `any`.
 - Server Components by default. Adding `'use client'` requires justification in the PR description.
 - Before implementing any feature, read `/docs/decisions/` in full. Architecture decisions there override defaults.
+- Before changing the database, schema, Storage, or DB roles, read `/docs/policies/change-management.md` — binding. All such changes go through a migration + reviewed PR + `supabase db push`; never the dashboard SQL editor or toggles.
 - Commit messages follow Conventional Commits (feat:, fix:, test:, docs:, refactor:, chore:).
 
 ## Scope discipline
