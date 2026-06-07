@@ -4,6 +4,7 @@ Date: 2026-05-05
 Status: Accepted
 Amended by ADR 0010 (visitor default role, 2026-05-21).
 Amended by ADR 0011 (RLS role helper, 2026-05-23).
+Amended by ADR 0019 (revoke UPDATE privilege from authenticated/anon, 2026-06-07).
 
 ## Context
 
