@@ -137,7 +137,7 @@ Covers what pgTAP cannot test:
 - **Privilege 42501s** — `UPDATE status`, `UPDATE item_description`, `INSERT` all return `42501`.
 - **Principal capture** — `payload->>'principal' = 'appsheet_writer'` under a real direct-DB session (proves `session_user ≠ current_user` under SECURITY DEFINER).
 
-See `docs/go-live-checklist.md` § AppSheet writer activation for the operator ritual.
+The Tier-2 ritual is committed to `supabase/scripts/smoke/appsheet_writer_p2.sql` and is the re-runnable regression check for any password rotation or role-touching migration. See `docs/go-live-checklist.md` § 2a for the operator steps.
 
 **This note supersedes the prior "SET SESSION AUTHORIZATION" doctrine**, which is infeasible on this substrate.
 

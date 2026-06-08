@@ -300,81 +300,52 @@ psql "postgresql://appsheet_writer:<password>@<supabase-session-pooler-host>:543
 
 A successful `psql` prompt means the role is NOLOGIN→LOGIN transition worked.
 
-### Step 3 — Smoke test (run as appsheet_writer in the same psql session)
+### Step 3 — Run the smoke script
 
-These three checks are the Tier-2 out-of-band verification that pgTAP cannot
-cover (see ADR 0025 § Testing note). Run them against a **real approved PR** in
-the live DB — use `SELECT id FROM public.purchase_requests WHERE status = 'approved' LIMIT 1`
-first to find one. Substitute `<approved-id>` with the actual UUID.
-
-**Check 1 — Row-visibility gate:** only `approved/purchased/delivered` appear.
-
-```sql
-SELECT DISTINCT status FROM public.purchase_requests ORDER BY 1;
--- Expected: only 'approved', 'purchased', 'delivered'.
--- 'requested' and 'rejected' must NOT appear.
+```bash
+psql "postgres://appsheet_writer:<password>@<session-pooler-host>:5432/<db-name>" \
+  -f supabase/scripts/smoke/appsheet_writer_p2.sql
 ```
 
-**Check 2 — Happy-path purchase transition + audit principal:**
+The script is the committed, re-runnable Tier-2 ritual (see ADR 0025 § Testing
+note). It is wrapped in `BEGIN … ROLLBACK` — no production data is changed.
 
-```sql
-UPDATE public.purchase_requests
-   SET supplier     = 'Smoke Test Supplier',
-       order_ref    = 'SMOKE-001',
-       amount       = 1.00,
-       purchased_at = now()
- WHERE id = '<approved-id>';
--- Expected: UPDATE 1
+What it proves (things pgTAP cannot verify from its postgres session):
 
-SELECT action, actor_id, actor_role, payload->>'principal' AS principal
-  FROM public.audit_log
- WHERE target_id = '<approved-id>'::uuid
-   AND action = 'purchase_request_purchase'
- ORDER BY created_at DESC
- LIMIT 1;
--- Expected:
---   action    = 'purchase_request_purchase'
---   actor_id  = NULL
---   actor_role = NULL
---   principal = 'appsheet_writer'   ← this is the principal-capture proof
-```
+| Check  | What it verifies                                                                |
+| ------ | ------------------------------------------------------------------------------- |
+| `[1]`  | RLS visibility: `requested`/`rejected` rows are invisible                       |
+| `[2a]` | Purchase transition: setting `purchased_at` auto-advances status to `purchased` |
+| `[3a]` | `UPDATE status` → 42501                                                         |
+| `[3b]` | `UPDATE item_description` → 42501                                               |
+| `[3c]` | `INSERT` → 42501                                                                |
 
-**Check 3 — Privilege denials:**
+**Expected output: every labelled line reads `[PASS]`.** Any `[FAIL]` line
+requires investigation before sign-off. The `[MANUAL][2b]` line is
+informational — it is handled in Step 4 below.
 
-```sql
-UPDATE public.purchase_requests SET status = 'approved' WHERE id = '<approved-id>';
--- Expected: ERROR 42501 permission denied for column "status"
+### Step 4 — Verify audit principal (Tier-2b, one-time)
 
-UPDATE public.purchase_requests SET item_description = 'tampered' WHERE id = '<approved-id>';
--- Expected: ERROR 42501 permission denied for column "item_description"
+`appsheet_writer` has no `SELECT` on `audit_log`, so the principal-capture
+assertion (`payload->>'principal' = 'appsheet_writer'`) is not automatable
+within the script. Run the **Tier-2b** steps at the end of
+`supabase/scripts/smoke/appsheet_writer_p2.sql` — the file has the exact SQL
+for each step, including the reset. In summary:
 
-INSERT INTO public.purchase_requests (work_package_id, item_description, quantity, unit)
-VALUES ('<any-wp-uuid>', 'smoke', 1, 'each');
--- Expected: ERROR 42501 permission denied for table purchase_requests
-```
-
-### Step 4 — Roll back the smoke row
-
-The smoke UPDATE is a real database write. Roll it back:
-
-```sql
--- Back in the Supabase SQL editor (as super_admin / postgres):
-UPDATE public.purchase_requests
-   SET supplier = NULL, order_ref = NULL, amount = NULL, purchased_at = NULL,
-       status = 'approved'
- WHERE id = '<approved-id>';
--- This is a privileged correction, acceptable as a post-smoke clean-up.
--- Note: the audit row written in Check 2 is append-only and stays.
-```
+1. As `appsheet_writer` in psql: commit a real purchase UPDATE (no `ROLLBACK`).
+2. As `super_admin` in the SQL editor: assert `principal = 'appsheet_writer'`
+   in the `audit_log` row for that `target_id`.
+3. As `super_admin` in the SQL editor: reset the smoke row (`status` back to
+   `'approved'`, fact columns to `NULL`). The audit_log row is append-only
+   and stays.
 
 ### Checklist
 
 - [ ] Password set in Supabase SQL editor; audit log row inserted
 - [ ] psql connection as appsheet_writer succeeded
-- [ ] Check 1: only approved/purchased/delivered visible — no requested/rejected
-- [ ] Check 2: status auto-advanced to 'purchased'; audit row has principal = 'appsheet_writer'
-- [ ] Check 3: all three 42501s confirmed
-- [ ] Smoke UPDATE rolled back (status restored to 'approved', fact columns cleared)
+- [ ] Smoke script: all checks returned `[PASS]`, no `[FAIL]` lines
+- [ ] Tier-2b: audit row confirmed `principal = 'appsheet_writer'`
+- [ ] Smoke row reset (status back to `'approved'`, fact columns cleared)
 
 ---
 
