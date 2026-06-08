@@ -245,41 +245,53 @@ rollback;
 --
 --   payload->>'principal' = 'appsheet_writer'
 --
--- cannot be made from within this script. Run the three steps below in the
--- Supabase SQL editor (or psql as postgres/super_admin) after the Tier-2
--- script above passes all checks.
+-- cannot be made from within this script. Run the steps below after the
+-- Tier-2 script above passes all checks.
 --
 -- WHY THIS MATTERS: the SECURITY DEFINER audit trigger captures session_user,
 -- not current_user. Under SECURITY DEFINER, current_user = function owner
 -- (postgres). If the trigger ever captured current_user instead of
--- session_user, every audit row would read 'postgres' — a silent forensic
+-- session_user, every audit row would silently read 'postgres' — a forensic
 -- failure invisible to pgTAP. This step is the only way to prove the correct
--- variable is used with a real appsheet_writer session.
+-- variable is used under a real appsheet_writer session.
 -- ==========================================================================
 --
--- STEP 1 — Commit a real purchase (as appsheet_writer in psql, no ROLLBACK):
+-- STEP 1 — Create a dedicated throwaway requisition and commit the purchase.
 --
---   First, find an approved row if you don't have one from the SETUP output:
+--   DO NOT use an existing approved row — smoke data must never be committed
+--   onto a real pilot requisition.
 --
---     SELECT id FROM public.purchase_requests WHERE status = 'approved' LIMIT 1;
+--   a. Log in to the native app as a project_manager (or site_admin, depending
+--      on who can create requisitions in the pilot).
+--   b. Create a new purchase requisition with:
+--        item_description = 'SMOKE TEST — appsheet_writer principal check — safe to leave'
+--      (any work_package, quantity, and unit are fine).
+--   c. As a project_manager, approve it through the native PM review flow.
+--   d. Retrieve its id (run as super_admin in the SQL editor):
 --
---   Then execute (this commits — no surrounding BEGIN/ROLLBACK):
+--        SELECT id, item_description, status
+--          FROM public.purchase_requests
+--         WHERE item_description LIKE 'SMOKE TEST%'
+--         ORDER BY requested_at DESC
+--         LIMIT 1;
 --
---     UPDATE public.purchase_requests
---        SET supplier     = 'SMOKE-SUPPLIER',
---            order_ref    = 'SMOKE-001',
---            amount       = 1.00,
---            purchased_at = now()
---      WHERE id = '<approved-id>';
+--   e. As appsheet_writer in psql, commit the purchase (no BEGIN/ROLLBACK):
 --
--- STEP 2 — Verify the audit row (as super_admin in Supabase SQL editor):
+--        UPDATE public.purchase_requests
+--           SET supplier     = 'SMOKE-SUPPLIER',
+--               order_ref    = 'SMOKE-001',
+--               amount       = 1.00,
+--               purchased_at = now()
+--         WHERE id = '<throwaway-id>';
+--
+-- STEP 2 — Verify the audit row (as super_admin in the Supabase SQL editor):
 --
 --     SELECT action,
 --            actor_id,
 --            actor_role,
 --            payload->>'principal' AS principal
 --       FROM public.audit_log
---      WHERE target_id = '<approved-id>'::uuid
+--      WHERE target_id = '<throwaway-id>'::uuid
 --        AND action    = 'purchase_request_purchase'
 --      ORDER BY created_at DESC
 --      LIMIT 1;
@@ -291,20 +303,20 @@ rollback;
 --
 --   If principal = 'postgres': the trigger is capturing current_user instead
 --   of session_user. Raise as a defect — the audit forensics are wrong.
---   If no row is returned: the AFTER trigger did not fire. Check that the
---   BEFORE trigger advanced status to 'purchased' (Step 1 UPDATE must have
---   made a null→non-null transition on purchased_at from an 'approved' row).
+--   If no row is returned: the AFTER trigger did not fire. Verify that
+--   STEP 1e advanced status to 'purchased' (the UPDATE must have made a
+--   null→non-null transition on purchased_at from an 'approved' row).
 --
--- STEP 3 — Reset the smoke row (as super_admin in SQL editor):
+-- NO RESET — leave the throwaway requisition in its 'purchased' state.
 --
---     UPDATE public.purchase_requests
---        SET supplier     = NULL,
---            order_ref    = NULL,
---            amount       = NULL,
---            purchased_at = NULL,
---            status       = 'approved'
---      WHERE id = '<approved-id>';
+--   The row is self-identifying test data (item_description begins with
+--   'SMOKE TEST'). The audit_log row written in STEP 1e is correct and
+--   append-only; reversing it is not possible or desirable.
 --
---   The audit_log row written in STEP 1 is append-only and stays — this is
---   correct. The purchase_requests row returns to its pre-smoke state.
+--   Do NOT reset the purchase_requests row with an ad-hoc SQL-editor UPDATE:
+--   that violates change-management.md §1 (direct dashboard mutation outside
+--   the normal write path) and would write a spurious 'update' audit row.
+--   If the row must be removed later (e.g. it appears in a pilot report),
+--   use the controlled service-role path from §1 of go-live-checklist.md,
+--   with its own audit_log entry documenting the removal.
 -- ==========================================================================

@@ -330,22 +330,30 @@ informational — it is handled in Step 4 below.
 assertion (`payload->>'principal' = 'appsheet_writer'`) is not automatable
 within the script. Run the **Tier-2b** steps at the end of
 `supabase/scripts/smoke/appsheet_writer_p2.sql` — the file has the exact SQL
-for each step, including the reset. In summary:
+and sub-steps. In summary:
 
-1. As `appsheet_writer` in psql: commit a real purchase UPDATE (no `ROLLBACK`).
-2. As `super_admin` in the SQL editor: assert `principal = 'appsheet_writer'`
-   in the `audit_log` row for that `target_id`.
-3. As `super_admin` in the SQL editor: reset the smoke row (`status` back to
-   `'approved'`, fact columns to `NULL`). The audit_log row is append-only
-   and stays.
+1. In the **native app**: create a new purchase requisition with
+   `item_description = 'SMOKE TEST — appsheet_writer principal check — safe to leave'`
+   and approve it through the native PM review flow. Do not use an existing
+   pilot requisition — smoke data must not commit onto a real row.
+2. As **`appsheet_writer` in psql**: commit the purchase UPDATE on that row
+   (no `ROLLBACK`). The exact SQL is in the script.
+3. As **`super_admin`** in the SQL editor: assert `principal = 'appsheet_writer'`
+   in the `audit_log` row for that `target_id`. Expected result is in the script.
+
+**No reset step.** Leave the throwaway requisition in its `'purchased'` state —
+it is self-identifying test data. Do not reverse it with an ad-hoc SQL-editor
+`UPDATE`: that violates `change-management.md §1` and writes a spurious audit
+row. If it must be removed later, use the controlled service-role path from
+§1 of this checklist.
 
 ### Checklist
 
 - [ ] Password set in Supabase SQL editor; audit log row inserted
 - [ ] psql connection as appsheet_writer succeeded
 - [ ] Smoke script: all checks returned `[PASS]`, no `[FAIL]` lines
+- [ ] Tier-2b: throwaway requisition created + approved via native app
 - [ ] Tier-2b: audit row confirmed `principal = 'appsheet_writer'`
-- [ ] Smoke row reset (status back to `'approved'`, fact columns cleared)
 
 ---
 
