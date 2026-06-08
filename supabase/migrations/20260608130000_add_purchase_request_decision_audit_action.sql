@@ -1,0 +1,21 @@
+-- Purchasing P1b — add 'purchase_request_decision' to public.audit_action.
+--
+-- decidePurchaseRequest (src/app/requests/actions.ts) writes one audit_log
+-- row per successful approve/reject — mirroring the profile_update path
+-- (the only other app-originated audit write in the repo, established in
+-- migration 20260607143000 and the update_my_display_name RPC that ships
+-- with it). The write itself happens from the session client, not a
+-- SECURITY DEFINER RPC: the audit_log INSERT policy and GRANT both
+-- already admit authenticated sessions, and the action layer needs the
+-- "audit-write failure does NOT roll back the decision" non-atomic
+-- posture (mirroring addPhoto's status-transition).
+--
+-- Mirrors the profile_update migration shape exactly — ALTER TYPE ... ADD
+-- VALUE cannot share a transaction with statements that reference the new
+-- value, so this migration carries only the enum extension. The action
+-- layer that uses the new value lands in the same PR but in TS.
+--
+-- See: ADR 0022 (Purchasing domain) — open question on audit_log
+-- integration closed by this unit (P1b).
+
+alter type public.audit_action add value if not exists 'purchase_request_decision';

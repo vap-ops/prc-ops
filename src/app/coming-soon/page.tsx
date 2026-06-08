@@ -127,6 +127,16 @@ const HUB_LINKS: ReadonlyArray<HubLink> = [
     hint: "Generate and download project PDF reports.",
   },
   {
+    href: "/requests",
+    label: "Raise a request",
+    hint: "Submit a purchase request against a work package.",
+  },
+  {
+    href: "/pm/requests",
+    label: "Purchase requests",
+    hint: "Approve or reject purchase requests awaiting review.",
+  },
+  {
     href: "/profile",
     label: "Profile",
     hint: "Edit your display name.",

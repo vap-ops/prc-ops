@@ -76,6 +76,18 @@ export default async function ProjectManagerLandingPage() {
           >
             Projects &amp; reports →
           </Link>
+          <Link
+            href="/pm/requests"
+            className="text-zinc-500 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
+          >
+            Purchase requests →
+          </Link>
+          <Link
+            href="/requests"
+            className="text-zinc-500 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
+          >
+            Raise a request →
+          </Link>
         </div>
       </nav>
 

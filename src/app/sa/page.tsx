@@ -40,6 +40,18 @@ export default async function SitAdminLandingPage() {
         </div>
       </header>
 
+      <nav className="border-b border-zinc-800/60 bg-zinc-900/30 px-5 py-2">
+        <div className="mx-auto flex max-w-2xl items-center gap-4 text-xs">
+          <span className="text-zinc-100">Projects</span>
+          <Link
+            href="/requests"
+            className="text-zinc-500 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
+          >
+            Raise a request →
+          </Link>
+        </div>
+      </nav>
+
       <section className="mx-auto max-w-2xl px-5 py-6">
         <h2 className="mb-3 text-sm font-medium text-zinc-400">Projects</h2>
 

@@ -5253,3 +5253,107 @@ column_name='line_avatar_url';` → returns one row.
 - **P1b (UI).** Routes / forms / list under `/requests`. Out of scope for this unit.
 - **P2 (AppSheet writer role + grants + policies).** Role + per-table GRANTs + `TO appsheet_writer` policies on every table AppSheet touches, including `purchase_requests` (SELECT + INSERT + column-scoped UPDATE on the purchase / delivery columns). Out of scope for this unit; covered by ADR 0018's updated grant matrix.
 - **`users.email` bridge.** Resolving an AppSheet `requested_by_email` back to a `public.users` display name. Future unit.
+
+---
+
+## Unit: Purchasing — native UI + decision audit logging (P1b)
+
+- **Status:** Complete (code + tests; migration pre-merge; new pgTAP assertions pending post-merge `db push`).
+- **Started / completed:** 2026-06-08.
+- **Spec:** [`docs/feature-specs/09-purchasing.md`](./feature-specs/09-purchasing.md) (P1a spec — P1b implements the deferred UI + audit decision items listed in its "Scope — out" / "Open questions").
+- **ADR:** [`docs/decisions/0022-purchasing-domain.md`](./decisions/0022-purchasing-domain.md) — closes the open question on `audit_log` integration (decisions DO write one audit_log row each).
+- **Branch:** `feat/purchasing-p1b` (from `c967d5a` = `origin/main` after PR #55).
+
+### Done
+
+- **`supabase/migrations/20260608130000_add_purchase_request_decision_audit_action.sql`** — adds `purchase_request_decision` to the `public.audit_action` enum. Mirrors the `profile_update` migration shape exactly (ALTER TYPE ADD VALUE in its own file, separate from any statement that references the new value).
+- **`src/lib/db/database.types.ts`** — manually patched: `purchase_request_decision` added to both the `audit_action` Enum type and the runtime `Constants.public.Enums.audit_action` array. Superseded post-merge by `pnpm db:types`.
+- **`src/app/requests/actions.ts`** — extended `decidePurchaseRequest`: after the guarded UPDATE returns 1 row, writes one `audit_log` row via the session client (`action='purchase_request_decision'`, `actor_id=decider`, `target_table='purchase_requests'`, `target_id=PR.id`, `payload={work_package_id, decision, decider, comment}`). Mirrors the `profile_update` write target; non-rollback failure posture from `addPhoto`'s status-transition (`console.error` + continue — UPDATE is load-bearing, audit miss is a recoverable forensic gap). UPDATE `.select()` widened to include `work_package_id` for the payload. `revalidatePath('/pm/requests')` added so the PM queue drops the row after a decision. `createPurchaseRequest` untouched per scope.
+- **`src/components/features/purchase-request-form.tsx`** — `"use client"` request-submission form. Mirrors `DisplayNameForm` shape (`useState` + `useTransition` + pure validator + pessimistic "Saved" + `router.refresh()`). WP picker populated from a `workPackages` prop (parent Server Component fetches under the caller's RLS on `work_packages`). Reuses `validateCreatePurchaseRequest` from P1a — no duplicate validation. Inline error strip. Disables submit when invalid; resets fields on success.
+- **`src/components/features/purchase-request-decision.tsx`** — `"use client"` per-row Approve / Reject control. Comment textarea + two buttons. Reject button disabled until comment is non-blank (`isDecisionCommentValid('rejected', comment)` from P1a). On submit, calls `decidePurchaseRequest({ id, decision, comment })`, then `router.refresh()`. Pending state per-decision so the active button shows "Approving…" / "Rejecting…".
+- **`src/app/requests/page.tsx`** — Server Component, `requireRole(["site_admin", "project_manager", "super_admin"])`. Two queries: readable WPs for the picker, caller's own purchase_requests for the "My requests" list (`requested_by = ctx.id`, newest first). WP code/name resolved via a second query keyed by `work_package_id`. Inline status pill (zinc/emerald/red/amber). Empty + error states for both sections. Header + profile/logout in the same shell as `/sa` / `/pm`.
+- **`src/app/pm/requests/page.tsx`** — Server Component, `requireRole(["project_manager", "super_admin"])`. Queries `purchase_requests` where `status='requested'` oldest-first, joins WP code/name via a second query, resolves requester `full_name` via the admin client (precedent: `fetchDeciderNames` in `pm/work-packages/[workPackageId]/page.tsx`; PM cannot read other users via the session client per ADR 0011). Falls back to `requested_by_email` (AppSheet path, P2) then `"—"`. Empty + error states. Renders `PurchaseRequestDecision` per row.
+- **Entry links** — `/pm` nav: added `Purchase requests →` and `Raise a request →` beside `Projects & reports →`. `/sa` landing: added a small nav row with `Raise a request →`. `OperatorHub.HUB_LINKS` (in `coming-soon/page.tsx`): added `/requests` and `/pm/requests` for super_admin.
+- **`supabase/tests/database/03-audit-log-shape.test.sql`** — `enum_has_labels` array extended with `purchase_request_decision`. No plan() change.
+- **`supabase/tests/database/17-purchase-requests.test.sql`** — new section I (Audit-log integration), plan `75 → 77`: PM-authenticated INSERT into `audit_log` with `action='purchase_request_decision'` succeeds (lives_ok); aggregate `count(*)` = 1 verifies the row is readable under the SELECT policy and targets the decided PR. Section comment renumbered (existing teardown was "I.", now "J.").
+
+### Verification
+
+- `pnpm lint` — clean.
+- `pnpm typecheck` — clean (with the manual `database.types.ts` patch).
+- `pnpm test` — **152/152** unchanged (no new TS unit tests — the decision-audit write is inline in the action; no new pure helper was extracted, so per CLAUDE.md scope discipline no new TS test was added).
+- `pnpm db:test` — **deferred to post-merge.** The new pgTAP assertions require the new enum value in the linked DB, which can only be applied via `supabase db push --linked` after merge. Pre-merge run would correctly fail the modified `03-` (label-set mismatch) and the new I.1 in `17-`.
+- **Component-test harness** — RTL + jsdom exists (`tests/unit/button.test.tsx`), but no precedent for testing `"use client"` forms that import server actions. Per CLAUDE.md scope discipline (don't add new testing patterns mid-unit), the form / decision component are not covered by component tests in this unit; pure-helper unit tests (already shipped in P1a) + typecheck carry the contract.
+- **CLI pin** — `pnpm exec supabase --version` reports `2.98.1`, matching the `^2.98.1` floor in `package.json`. The future `pnpm db:types` regen will produce a canonical diff (no cosmetic CLI drift).
+- **Routing matrix** (by construction, via `requireRole` + `roleHome`):
+  - visitor / procurement / technician / hr / accounting / subcon_manager / project_coordinator → bounced from `/requests` and `/pm/requests` to `/coming-soon`.
+  - site_admin → admitted to `/requests` (can submit), bounced from `/pm/requests` to `/sa`.
+  - project_manager → admitted to both.
+  - super_admin → admitted to both.
+- **Reject-needs-comment** — client side: `Reject` button disabled when `!isDecisionCommentValid('rejected', comment)`. Server side: `decidePurchaseRequest` runs the same predicate; bypassing the disabled button returns `{ ok: false, error: "A comment is required when rejecting." }`.
+- **One audit_log row per decision** — the action does exactly one `supabase.from('audit_log').insert(...)` after a successful UPDATE; the audit_log table is append-only (REVOKE + RLS + trigger per ADR 0004) so the row cannot be modified or removed by the application path.
+- **Entry links** — `/pm` nav: `Review queue` (current) + `Projects & reports →` (`/pm/projects`) + `Purchase requests →` (`/pm/requests`) + `Raise a request →` (`/requests`). `/sa` nav: `Projects` + `Raise a request →` (`/requests`). `OperatorHub`: `/requests` and `/pm/requests` added to the link grid.
+- `git status` — only intended files: 7 modified + 5 new (1 migration, 1 SC + 1 SC, 2 client components, plus the actions/types/tracker edits). No drift.
+
+### Decisions made
+
+- **Audit write mechanism = session-client INSERT.** The repo's only other app-originated audit_log write is inside the `update_my_display_name` SECURITY DEFINER RPC; that RPC issues a direct `INSERT INTO public.audit_log (...)` under the caller's session. For `decidePurchaseRequest` the same write target (direct INSERT) is used from TypeScript — the RLS policy `with check (true)` for authenticated + the `INSERT` GRANT both already admit it. A SECURITY DEFINER RPC was considered but rejected: it would force the audit into the same transaction as the UPDATE, which conflicts with the operator's instruction "do NOT fail the decision if the audit write fails" (mirroring `addPhoto`'s status-transition non-rollback posture).
+- **`actor_role` left NULL.** The RPC populates it via `public.current_user_role()` (a free PL/pgSQL call). From TypeScript it would require an extra round-trip; `actor_id` is the load-bearing identity and the role can be derived from `users.role` post-hoc. Per scope discipline ("Do not add fields … beyond what the task requires"), kept minimal.
+- **Payload shape.** `{ work_package_id, decision, decider, comment }` — matches the operator's "at minimum" list. `work_package_id` pulled from the UPDATE's `.select('id, work_package_id')` (replacing P1a's `.select('id')`) so no extra round-trip.
+- **No new TS unit test.** No new pure helper was extracted; the audit write is a four-line direct INSERT inline in the action. Per CLAUDE.md scope discipline, no test added for code that doesn't have a discrete unit boundary.
+- **Status pill helper inline in `/requests/page.tsx`.** Same precedent as `pm/page.tsx`'s `decisionPillClasses`. `status-colors.ts` was not extended because the purchase_request_status enum only appears on this one page in v1 (the PM queue is filtered to `status='requested'` and renders no pill).
+- **Inline nav rows** for entry links on `/sa` and `/pm` rather than introducing a shared layout component. Mirrors the existing `/pm` nav shape exactly; introducing an abstraction for two more links would be premature.
+
+### Open questions
+
+- **Post-merge delegated steps (operator):**
+  1. `supabase db push --linked` — applies both `20260608130000_…` (enum value) and `20260608130100_…` (trigger function + trigger).
+  2. `pnpm db:types` — regenerates `src/lib/db/database.types.ts` (supersedes the manual patch; trigger functions don't appear in generated types — expected no-op for the trigger, plus the canonical enum extension).
+  3. `pnpm db:test` — all assertions pass: `03-` enum_has_labels with 14 labels; `17-` section I (7 invariant assertions).
+  4. `supabase db push --dry-run --linked` — should return "Remote database is up to date."
+  5. `select tgname from pg_trigger where tgrelid='public.purchase_requests'::regclass;` — should include `purchase_requests_audit_decision` alongside `purchase_requests_set_updated_at`.
+- **`users.email` bridge** — still future. P1b shows the email literally as a fallback (per the operator's spec for the requester column), but does not resolve it to a display name.
+- **Audit row coverage.** P1b only audits decisions, not `createPurchaseRequest`. If audit-on-create becomes a v2 requirement, an INSERT-time trigger parallel to the decision trigger is the obvious extension point.
+
+### Rework — audit mechanism: TS-side INSERT → atomic AFTER UPDATE trigger (2026-06-08, same day)
+
+The initial P1b commit (`c0658ea`) wrote the audit row from TypeScript after the guarded UPDATE returned, with a non-rollback failure mode (console.error and continue). Operator review surfaced the problem: "an audit log you can't guarantee wrote is a weak audit log." Reworked the audit path to be atomic — written by an AFTER UPDATE trigger inside the same transaction as the decision. Now "exactly one row per decision, never on a non-transition" is a DB invariant testable in pgTAP, not a TS guarantee no test ever reached.
+
+#### Done (rework)
+
+- **`supabase/migrations/20260608130100_create_purchase_requests_audit_decision_trigger.sql`** — new migration adding `public.purchase_requests_audit_decision()` (SECURITY DEFINER, `set search_path = public`, mirrors `update_my_display_name`'s shape) and the matching `AFTER UPDATE ... FOR EACH ROW WHEN (OLD.status='requested' AND NEW.status IN ('approved','rejected'))` trigger. Body inserts one `audit_log` row with `action='purchase_request_decision'`, `actor_id=auth.uid()`, `actor_role=public.current_user_role()`, `target_table='purchase_requests'`, `target_id=NEW.id`, `payload={work_package_id, decision, comment, decided_by}`.
+- **Separate migration file** — `ALTER TYPE ... ADD VALUE` (the prior 20260608130000) cannot share a transaction with statements that reference the new enum value, so the trigger lives in its own file/transaction. Same split pattern as the `profile_update` enum value + the `update_my_display_name` RPC.
+- **`src/app/requests/actions.ts`** — `decidePurchaseRequest` audit INSERT block removed. `.select()` reverted from `'id, work_package_id'` to `'id'` (the `work_package_id` was only pulled for the audit payload; the trigger reads `NEW.work_package_id` directly from the row). `revalidatePath('/pm/requests')` retained (it's load-bearing for the PM queue's "row drops after decision" behavior, not audit-related). Header comment rewritten to point at the trigger.
+- **`supabase/tests/database/17-purchase-requests.test.sql`** — section I replaced. Plan `77 → 82` (`75` original + 7 new invariant assertions). Fixture `a5555` added to section A (a fresh requested PR for the reject-transition test).
+  - I.1 + I.2: PM transitions a2222 `requested → approved`; UPDATE lives; exactly one `audit_log` row exists with `action='purchase_request_decision'`, `target_id=a2222`.
+  - I.3: that row's `actor_role` is `'project_manager'` — proves `current_user_role()` resolves under SECURITY DEFINER to the caller's identity, and that `actor_role` is non-null.
+  - I.4 + I.5: PM transitions a5555 `requested → rejected with comment`; UPDATE lives; exactly one `audit_log` row for `target_id=a5555`.
+  - I.6 + I.7: PM UPDATEs a4444 (already approved) touching `decision_comment` only (status unchanged); UPDATE lives; zero `audit_log` rows for `target_id=a4444` — proves the WHEN clause precision (the trigger does NOT write on a non-transition UPDATE).
+
+#### Verification (rework)
+
+- `pnpm lint` — clean.
+- `pnpm typecheck` — clean (no types change; the manual `database.types.ts` patch from the prior commit is still in scope and unchanged — triggers don't appear in generated types).
+- `pnpm test` — **152/152** unchanged (no TS unit tests touched — the action is shorter, but no new pure helper appeared).
+- `pnpm db:test` — still deferred to post-merge. Pre-merge run would correctly fail file 17 section I (new assertions require the trigger to exist in the linked DB) and file 03 (label-set mismatch from the prior commit).
+- **CLI pin** — `pnpm exec supabase --version` reports `2.98.1`, unchanged.
+
+#### Decisions made (rework)
+
+- **Trigger, not RPC.** Two viable shapes for atomic audit + UPDATE: (a) wrap both in a SECURITY DEFINER RPC and have the action call the RPC; (b) put the audit in an AFTER UPDATE trigger on `purchase_requests`. Chose (b): it preserves the existing two-layer guard at the SQL level (`.eq('status','requested')`) without re-implementing it inside an RPC, and it lets the WHEN clause encode the transition contract declaratively. Option (a) would have required moving the guard into PL/pgSQL, duplicating the application-side check.
+- **`SECURITY DEFINER` even though authenticated already has INSERT on `audit_log`.** Decouples the trigger's write path from the caller's privilege set. The append-only `audit_log` grant matrix admits `authenticated` and `anon` today; future writers (an internal maintenance role, a P2 service role) may not have direct INSERT. SECURITY DEFINER makes the trigger correct under any caller that can run the UPDATE. ADR 0011 safety checklist applies: pinned `search_path = public`, no row-selecting parameters (trigger functions never take parameters), single INSERT side effect, no GRANT EXECUTE needed (trigger functions are not directly callable).
+- **`auth.uid()` and `public.current_user_role()` resolve to the caller under SECURITY DEFINER.** `auth.uid()` reads a GUC (`request.jwt.claims`) which is session-scoped, not role-scoped. `current_user_role()` is itself SECURITY DEFINER and reads `users.role WHERE id = auth.uid()` — so it returns the caller's role. Same forensic-identity shape as the `update_my_display_name` RPC's audit INSERT.
+- **`WHEN` clause owns the transition contract.** Two halves: `OLD.status = 'requested'` (only the initial decision boundary ever fires the trigger — a future P2 AppSheet UPDATE from `approved → purchased` never matches), and `NEW.status IN ('approved','rejected')` (the two native decision outcomes from `validate-purchase-request.ts`). Together they encode the entire "this is a decision" predicate in the database.
+- **Atomic posture chosen, the non-rollback note retracted.** The earlier P1b shape mirrored `addPhoto`'s status-transition non-rollback posture, which was wrong for an audit log. A decision that can't be audited must not commit. The trigger raising — for any reason — rolls back the UPDATE; the action's existing error path surfaces it to the user.
+- **Plan count breakdown** — `82 = 75 (P1a baseline) + 7 (new section I)`. The earlier `77` reflected the now-superseded TS-INSERT-shape assertions (lives_ok + count of a manual INSERT) — replaced wholesale, not preserved.
+
+#### Open questions (rework)
+
+- **Post-merge delegated steps (operator) — updated:**
+  1. `supabase db push --linked` — applies both new migrations.
+  2. `pnpm db:types` — regenerates types. Expected diff vs. the manual patch: none (the trigger isn't in generated types; the enum value already matches).
+  3. `pnpm db:test` — file 03 + file 17 sections A–I all pass.
+  4. `select tgname, tgenabled from pg_trigger where tgrelid='public.purchase_requests'::regclass and not tgisinternal;` — should list `purchase_requests_set_updated_at` (BEFORE UPDATE) and `purchase_requests_audit_decision` (AFTER UPDATE), both enabled (`tgenabled='O'`).
+  5. `supabase db push --dry-run --linked` — "Remote database is up to date."
+- **`users.email` bridge** — unchanged (still future).
+- **Audit row coverage** — same (createPurchaseRequest still not audited; an INSERT-time trigger would now be the natural extension point if needed).

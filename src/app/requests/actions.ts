@@ -14,6 +14,15 @@
 //      against a row that's actually 'requested'.
 // 0 rows returned from the UPDATE means the row was already decided (or
 // the caller's RLS doesn't see it); both surface as "not in requested state."
+//
+// Audit logging is NOT done here. The
+// `purchase_requests_audit_decision` AFTER UPDATE trigger (migration
+// 20260608130100) writes one audit_log row per successful
+// requested→approved | rejected transition, atomically inside the same
+// transaction as the UPDATE. A decision that fails to audit cannot
+// commit — the trigger's exception propagates and rolls back the
+// UPDATE. "Exactly one row per decision, never on a non-transition
+// update" is therefore a DB invariant, tested in pgTAP 17 section I.
 
 import "server-only";
 
@@ -121,5 +130,6 @@ export async function decidePurchaseRequest(
   }
 
   revalidatePath("/requests");
+  revalidatePath("/pm/requests");
   return { ok: true, status: input.decision };
 }
