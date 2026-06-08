@@ -1,5 +1,5 @@
 begin;
-select plan(82);
+select plan(87);
 
 -- ============================================================================
 -- A. Setup as postgres (the test transaction's outer role, which bypasses
@@ -234,15 +234,46 @@ select is(
   'RLS enabled on public.purchase_requests'
 );
 
--- Policy commands on purchase_requests are exactly SELECT/INSERT/UPDATE — NO
--- DELETE. Stateful table, archive-via-status semantics (lifecycle column).
-select results_eq(
-  $$ select cmd::text from pg_policies
+-- No DELETE policy — count-independent assertion. Intentionally survives a
+-- future P3 appsheet INSERT policy being added without turning false-green.
+select is(
+  (select count(*)::int from pg_policies
      where schemaname = 'public' and tablename = 'purchase_requests'
-     order by cmd $$,
-  array['INSERT'::text, 'SELECT'::text, 'UPDATE'::text],
-  'purchase_requests has exactly SELECT/INSERT/UPDATE policies — no DELETE policy'
+       and cmd = 'DELETE'),
+  0,
+  'no DELETE policy on purchase_requests (count-independent — survives future policy additions)'
 );
+
+-- All five current policies by name + cmd — individual existence checks.
+-- Using is(count,1) per policy avoids name/text collation issues in results_eq.
+-- Update this list whenever a policy ships; the no-DELETE check above is the durable gate.
+--   3 native (P1a): select own-or-privileged, insert by wp-readers, update by pm/super
+--   2 appsheet_writer (P2): select by status, update by status
+select is(
+  (select count(*)::int from pg_policies
+     where schemaname='public' and tablename='purchase_requests'
+       and policyname='appsheet_writer select by status' and cmd::text='SELECT'),
+  1, 'policy "appsheet_writer select by status" (SELECT) exists');
+select is(
+  (select count(*)::int from pg_policies
+     where schemaname='public' and tablename='purchase_requests'
+       and policyname='appsheet_writer update by status' and cmd::text='UPDATE'),
+  1, 'policy "appsheet_writer update by status" (UPDATE) exists');
+select is(
+  (select count(*)::int from pg_policies
+     where schemaname='public' and tablename='purchase_requests'
+       and policyname='purchase_requests insert by wp-readers' and cmd::text='INSERT'),
+  1, 'policy "purchase_requests insert by wp-readers" (INSERT) exists');
+select is(
+  (select count(*)::int from pg_policies
+     where schemaname='public' and tablename='purchase_requests'
+       and policyname='purchase_requests select own or privileged' and cmd::text='SELECT'),
+  1, 'policy "purchase_requests select own or privileged" (SELECT) exists');
+select is(
+  (select count(*)::int from pg_policies
+     where schemaname='public' and tablename='purchase_requests'
+       and policyname='purchase_requests update by pm or super' and cmd::text='UPDATE'),
+  1, 'policy "purchase_requests update by pm or super" (UPDATE) exists');
 
 -- ============================================================================
 -- D. CHECK constraints behavioral. Run as postgres (the outer role, bypasses

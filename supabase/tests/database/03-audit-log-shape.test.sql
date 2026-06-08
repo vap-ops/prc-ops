@@ -8,8 +8,9 @@ select enum_has_labels(
   'public', 'audit_action',
   array['insert', 'update', 'delete', 'login', 'logout', 'role_change',
         'photo_upload', 'photo_supersede', 'approve', 'reject',
-        'export', 'other', 'profile_update', 'purchase_request_decision'],
-  'audit_action has the expected v1+profile_update+purchase_request_decision labels'
+        'export', 'other', 'profile_update', 'purchase_request_decision',
+        'purchase_request_purchase', 'purchase_request_delivery'],
+  'audit_action has the expected v1+profile_update+purchasing labels'
 );
 
 -- table shape

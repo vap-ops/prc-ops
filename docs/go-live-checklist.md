@@ -271,6 +271,113 @@ Repeat for every pilot user.
 
 ---
 
+## 2a. AppSheet writer activation & smoke test
+
+The `appsheet_writer` DB role ships `NOLOGIN`. After `pnpm db:push` merges the
+Purchasing P2 migrations, the operator must set a password out-of-band (the
+password must **never** appear in git or migrations — see ADR 0018 § Password
+handling) and then run the smoke ritual below to confirm the integration path
+end-to-end.
+
+### Step 1 — Set the password (Supabase SQL editor, as super_admin)
+
+```sql
+alter role appsheet_writer with login password '<generate-a-secret>';
+insert into public.audit_log (action, target_table, payload)
+values ('other', null,
+  jsonb_build_object('event', 'set appsheet_writer password', 'at', now()));
+```
+
+Generate the password with a password manager — never reuse credentials from
+other roles. Record the hash out-of-band (e.g. in your team vault). The audit
+log insert is the compliance record that the action was taken.
+
+### Step 2 — Confirm connectivity (psql via Session Pooler)
+
+```bash
+psql "postgresql://appsheet_writer:<password>@<supabase-session-pooler-host>:5432/<db-name>"
+```
+
+A successful `psql` prompt means the role is NOLOGIN→LOGIN transition worked.
+
+### Step 3 — Smoke test (run as appsheet_writer in the same psql session)
+
+These three checks are the Tier-2 out-of-band verification that pgTAP cannot
+cover (see ADR 0025 § Testing note). Run them against a **real approved PR** in
+the live DB — use `SELECT id FROM public.purchase_requests WHERE status = 'approved' LIMIT 1`
+first to find one. Substitute `<approved-id>` with the actual UUID.
+
+**Check 1 — Row-visibility gate:** only `approved/purchased/delivered` appear.
+
+```sql
+SELECT DISTINCT status FROM public.purchase_requests ORDER BY 1;
+-- Expected: only 'approved', 'purchased', 'delivered'.
+-- 'requested' and 'rejected' must NOT appear.
+```
+
+**Check 2 — Happy-path purchase transition + audit principal:**
+
+```sql
+UPDATE public.purchase_requests
+   SET supplier     = 'Smoke Test Supplier',
+       order_ref    = 'SMOKE-001',
+       amount       = 1.00,
+       purchased_at = now()
+ WHERE id = '<approved-id>';
+-- Expected: UPDATE 1
+
+SELECT action, actor_id, actor_role, payload->>'principal' AS principal
+  FROM public.audit_log
+ WHERE target_id = '<approved-id>'::uuid
+   AND action = 'purchase_request_purchase'
+ ORDER BY created_at DESC
+ LIMIT 1;
+-- Expected:
+--   action    = 'purchase_request_purchase'
+--   actor_id  = NULL
+--   actor_role = NULL
+--   principal = 'appsheet_writer'   ← this is the principal-capture proof
+```
+
+**Check 3 — Privilege denials:**
+
+```sql
+UPDATE public.purchase_requests SET status = 'approved' WHERE id = '<approved-id>';
+-- Expected: ERROR 42501 permission denied for column "status"
+
+UPDATE public.purchase_requests SET item_description = 'tampered' WHERE id = '<approved-id>';
+-- Expected: ERROR 42501 permission denied for column "item_description"
+
+INSERT INTO public.purchase_requests (work_package_id, item_description, quantity, unit)
+VALUES ('<any-wp-uuid>', 'smoke', 1, 'each');
+-- Expected: ERROR 42501 permission denied for table purchase_requests
+```
+
+### Step 4 — Roll back the smoke row
+
+The smoke UPDATE is a real database write. Roll it back:
+
+```sql
+-- Back in the Supabase SQL editor (as super_admin / postgres):
+UPDATE public.purchase_requests
+   SET supplier = NULL, order_ref = NULL, amount = NULL, purchased_at = NULL,
+       status = 'approved'
+ WHERE id = '<approved-id>';
+-- This is a privileged correction, acceptable as a post-smoke clean-up.
+-- Note: the audit row written in Check 2 is append-only and stays.
+```
+
+### Checklist
+
+- [ ] Password set in Supabase SQL editor; audit log row inserted
+- [ ] psql connection as appsheet_writer succeeded
+- [ ] Check 1: only approved/purchased/delivered visible — no requested/rejected
+- [ ] Check 2: status auto-advanced to 'purchased'; audit row has principal = 'appsheet_writer'
+- [ ] Check 3: all three 42501s confirmed
+- [ ] Smoke UPDATE rolled back (status restored to 'approved', fact columns cleared)
+
+---
+
 ## 3. Per-project WP adjustments (if needed)
 
 Both pilots got the **same 81-WP template** from the seed import.
@@ -562,10 +669,11 @@ Once every checkbox above is ticked, the v1 pilot is live.
 
 - [ ] Section 1 — test-data cleanup done
 - [ ] Section 2 — every real pilot user is logged in and promoted
+- [ ] Section 2a — AppSheet writer activated and smoke-tested
 - [ ] Section 3 — WP lists per pilot are correct
 - [ ] Section 4 — dry run completed end-to-end with real users
 - [ ] Section 5 — limitations communicated to pilot users
 - [ ] Section 6 — rollback / where-to-look notes shared with anyone
       else who might be on-call
 
-Date pilot went live: ******\_\_******
+Date pilot went live: **\*\***\_\_**\*\***

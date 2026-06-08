@@ -113,15 +113,33 @@ A pointer was added to ADR 0018 under the `purchase_requests` grant matrix row.
 - AppSheet-originated requisitions remain a deferred unit. The growth seam is marked with `-- future:` comments.
 - The operator must set the role password out-of-band after `db push` (per change-management.md and ADR 0018 §Password handling).
 
-## Testing note — principal capture must use SET SESSION AUTHORIZATION, not SET ROLE
+## Testing note — two-tier test strategy for NOLOGIN DB roles on Supabase
 
-**Rule:** pgTAP tests that exercise the SECURITY DEFINER audit trigger for `appsheet_writer` must simulate the role with `SET [LOCAL] SESSION AUTHORIZATION appsheet_writer`, not `SET [LOCAL] ROLE appsheet_writer`.
+Testing a `NOLOGIN` direct-DB-role on Supabase is **two-tier**, because:
 
-**Rationale:** the trigger captures `session_user` (the connected principal), not `current_user` (which changes under `SET ROLE` to `appsheet_writer` but `session_user` remains the superuser). Under `SET ROLE`, the `payload->>'principal'` assertion `= 'appsheet_writer'` would pass vacuously if the superuser is also named `appsheet_writer` or silently test the wrong identity. Under `SET SESSION AUTHORIZATION`, both `session_user` and `current_user` become `appsheet_writer`, so the assertion tests the correct identity.
+1. Supabase's `postgres` role is **not a PostgreSQL superuser** — `SET SESSION AUTHORIZATION appsheet_writer` is unavailable (requires superuser or membership, and the Supabase `db query` API blocks the transaction-local `GRANT <role> TO current_user` that would grant membership).
+2. The audit trigger is `SECURITY DEFINER` — inside the trigger body `current_user` collapses to the function owner (`postgres`), so `current_user = session_user = postgres` in any in-DB test. The `session_user`-vs-`current_user` distinction is invisible from pgTAP.
 
-**How to apply:** any new test file that includes a `payload->>'principal'` check against `appsheet_writer` must open its impersonation block with `SET LOCAL SESSION AUTHORIZATION appsheet_writer` and close it with `SET LOCAL SESSION AUTHORIZATION DEFAULT`. The `set local role appsheet_writer` form is wrong for principal-capture assertions and is rejected in review.
+### Tier 1 — pgTAP (as `postgres`, no impersonation)
 
-**Provenance:** the P2 implementation prompt instructed `SET ROLE`, which is wrong for the principal assertion. This section is the corrected, binding convention for every subsequent AppSheet-role unit.
+Covers everything provable without role-switching:
+
+- **Trigger logic** — derive transitions (approved→purchased, purchased→delivered), illegal-move guards (P0001), field-correction diff payload, no-op WHEN tightening.
+- **Grant matrix** — `has_column_privilege` / `has_table_privilege` spot-checks for all 7 permitted and 3 protected columns.
+- **Policy quals** — `pg_policies.qual LIKE` assertions confirm the `status IN ('approved','purchased','delivered')` status gate on both TO-appsheet_writer policies.
+- **Audit columns** — `actor_id IS NULL`, `actor_role IS NULL`, `payload->>'principal' = session_user` (proves the trigger writes `session_user`, but in this context `session_user = 'postgres'`; production value is verified by Tier 2).
+
+### Tier 2 — out-of-band smoke (real `appsheet_writer` login, once at enablement)
+
+Covers what pgTAP cannot test:
+
+- **RLS row-visibility effect** — appsheet_writer sees only `approved/purchased/delivered`; `requested/rejected` are invisible.
+- **Privilege 42501s** — `UPDATE status`, `UPDATE item_description`, `INSERT` all return `42501`.
+- **Principal capture** — `payload->>'principal' = 'appsheet_writer'` under a real direct-DB session (proves `session_user ≠ current_user` under SECURITY DEFINER).
+
+See `docs/go-live-checklist.md` § AppSheet writer activation for the operator ritual.
+
+**This note supersedes the prior "SET SESSION AUTHORIZATION" doctrine**, which is infeasible on this substrate.
 
 ## References
 
