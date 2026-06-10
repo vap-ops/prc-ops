@@ -5468,3 +5468,33 @@ Read-only audit over `supabase db query --linked` (Management API, postgres cont
 ### Open questions
 
 - None blocking. If users later want the form inline on the WP screen itself (zero navigation), that is a follow-up spec.
+
+---
+
+## Unit: Deliverable-grouped WP list — UI (spec 11)
+
+- **Status:** Complete — 2026-06-11.
+- **Spec:** [`docs/feature-specs/11-deliverable-grouped-wp-list.md`](./feature-specs/11-deliverable-grouped-wp-list.md) (Locked 2026-06-11 from the operator's chat brief). Consumes spec 04 Phase 1 (ADR 0016 schema, live since 2026-05-31).
+- **Branch:** `feat/deliverable-grouped-wp-list` (from `2773ad2` = `origin/main` after PR #59).
+
+### Done
+
+- **Writing failing test first** — `tests/unit/group-work-packages.test.ts` (8 cases) written and run RED (module absent), then GREEN after the helper landed. First unit in a while with a genuine pure seam.
+- **`src/lib/deliverables/group-work-packages.ts`** — pure, generic `groupWorkPackagesByDeliverable(wps, deliverables)`: groups ordered `sort_order` asc tie-broken by `code`; WP input order preserved within groups; zero-WP deliverables omitted; null/unknown `deliverable_id` → final `deliverable: null` "Ungrouped" group (mirrors spec 04 Phase 3's PDF bucket rule).
+- **`work-package-list.tsx` reworked** — deliverable sections with full-width header buttons (chevron, `code · name`, right-aligned `n WPs` + `k complete` summary, `aria-expanded`/`aria-controls`, ≥44px touch target). **Collapsed by default** (the landing view is the deliverable overview). Active text query force-expands matching groups without mutating the user's collapse state; groups emptied by query/hide-completed disappear. **Zero deliverables ⇒ the exact pre-grouping flat list** (today's live state).
+- **`/sa/projects/[projectId]/page.tsx`** — WP select gains `deliverable_id`; new `deliverables` query ordered by `sort_order`; snake→camel mapped at the boundary.
+- PM queue untouched per spec (short pending-approval list).
+
+### Verification
+
+- New test: RED before implementation, GREEN after. `pnpm lint` clean, `pnpm typecheck` clean, `pnpm test` **160/160** (152 prior + 8 new).
+- No diff under `supabase/` — schema already live; no migration.
+
+### Blocked prerequisite surfaced (operator decision needed)
+
+- **The live `deliverables` table is empty** (verified read-only 2026-06-11: 0 rows, 0/162 WPs linked) — the grouped view stays in degraded flat mode until **spec 04 Phase 2** (importer/backfill) runs. Phase 2 is blocked on the operator's real source CSVs: the in-repo `data/work-packages-template.csv` is a 3-column example without deliverable columns, so the importer contract (column names for DeliverableID / name / order) cannot be written until the operator shares a real header or file. Question put to the operator in-session.
+
+### Open questions
+
+- Spec 04 Phase 2 importer mini-spec — pending the operator's CSV header/file.
+- Expand-all/collapse-all and collapse-state persistence — deliberately out of scope; revisit after field feedback.
