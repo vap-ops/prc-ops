@@ -3,8 +3,10 @@
 ## Status
 
 Phase 1 (schema) **as-built** — shipped to prod 2026-05-31, recovered
-from drift 2026-06-07. Phases 2 (importer) and 3 (PDF layout) are
-**unstarted**.
+from drift 2026-06-07. Phase 2 (data backfill) **implemented
+2026-06-11** as a committed idempotent seed (see below) — applied to
+the live DB once the operator approves the run. Phase 3 (PDF layout)
+is **unstarted**.
 
 This spec is documented after the schema phase landed in the live DB
 without a committed spec. It is written from the recovered SQL plus
@@ -55,16 +57,37 @@ on `chore/recover-migration-drift` on 2026-06-07:
 For the full table / column / policy / trigger inventory, see ADR 0016. **Phase 1 needs no further work** — it is documented here for
 completeness.
 
-### Phase 2 — Importer (NOT STARTED)
+### Phase 2 — Data backfill (IMPLEMENTED 2026-06-11 — seed, not importer)
 
-Backfill deliverables from the source CSVs and populate
-`work_packages.deliverable_id`. Source CSVs carry `DeliverableID`
-D01–D30 per WP. The importer follows the same shape as the existing
-WP import (`scripts/import-wp.ts`, ADR 0014).
+This spec originally sketched a CSV importer mirroring
+`scripts/import-wp.ts` and deferred the contract to pickup time. At
+pickup, the source turned out to be the operator's AppSheet master
+**Google Sheet** (not per-project CSVs), and the dataset is fixed and
+small (30 deliverables × 2 projects + 81 WP links applied identically
+to both pilots). A general importer would be speculative tooling; the
+chosen mechanism is the repo's existing seed precedent
+(`supabase/seed.sql`, applied via `supabase db query --linked`):
 
-Not specified in detail here — when the unit is picked up, a
-dedicated mini-spec covers the importer's contract, idempotency,
-ordering, and validation rules.
+- **`supabase/seed-deliverables.sql`** — committed, idempotent,
+  generated 2026-06-11 from the sheet's tab 1 (deliverables master,
+  D01–D30 + names + `DeliverableOrder` 1–30) and tab 2 (WP master,
+  WP01–WP81 → DeliverableID).
+- **Version guard:** the sheet's later tabs carry a different plan
+  revision (a `D00` deliverable and ~124 WPs whose codes collide with
+  different meanings). The live DB's WP names were verified against
+  tab 2 (WP01 'งานปักฝัง' … WP81 'งานส่งมอบ', both pilots) before
+  generation; the later tabs are excluded.
+- **Idempotency:** deliverables upsert `on conflict (project_id, code)
+do update set name, sort_order` — re-running after a sheet
+  correction converges on the file (deliberate deviation from
+  seed.sql's `do nothing`: names/order must track the file of
+  record). The WP link UPDATE likewise converges `deliverable_id`.
+- **Built-in verification:** the file ends with a count SELECT —
+  expected `60 / 162 / 0` (deliverable rows / linked WPs / unlinked
+  WPs).
+- **Application:** `pnpm exec supabase db query --linked --file
+supabase/seed-deliverables.sql` after the PR merges (same channel
+  and context as seed.sql). Operator-approved run; re-runnable.
 
 ### Phase 3 — PDF layout (NOT STARTED)
 
@@ -106,8 +129,10 @@ PDFKit changes are spec'd against current report fidelity rules.
 ## Known gaps
 
 - **The `deliverables` table is empty on the live DB.** No row links
-  back from any WP. Grouping has zero visible effect until Phase 2
-  ships the importer.
+  back from any WP. Grouping has zero visible effect until the Phase 2
+  seed is applied (file committed 2026-06-11; gap closes at apply
+  time — verify with the seed's built-in count SELECT, expect
+  60 / 162 / 0).
 - **No pgTAP coverage for Phase 1.** The shipped migrations have no
   paired test file under `supabase/tests/database/`. Worth adding
   when the importer (Phase 2) wants to assert constraint shape from

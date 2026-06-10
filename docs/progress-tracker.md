@@ -5496,5 +5496,35 @@ Read-only audit over `supabase db query --linked` (Management API, postgres cont
 
 ### Open questions
 
-- Spec 04 Phase 2 importer mini-spec — pending the operator's CSV header/file.
+- ~~Spec 04 Phase 2 importer mini-spec — pending the operator's CSV header/file.~~ Resolved same day: the source is the operator's AppSheet master Google Sheet; Phase 2 implemented as a committed seed (next unit).
 - Expand-all/collapse-all and collapse-state persistence — deliberately out of scope; revisit after field feedback.
+
+---
+
+## Unit: Deliverables backfill — spec 04 Phase 2 (seed)
+
+- **Status:** Complete (file committed; live apply pending operator approval) — 2026-06-11.
+- **Spec:** [`docs/feature-specs/04-deliverable-grouping.md`](./feature-specs/04-deliverable-grouping.md) Phase 2 section, rewritten in place from "importer sketch" to the as-implemented seed contract.
+- **Branch:** `feat/deliverables-backfill` (from `84fea5c` = `origin/main` after PR #60).
+
+### Done
+
+- **Source located and verified.** The operator's AppSheet master Google Sheet (id `18Q8mr1eCpDcYMjIF0a8ygen…`, shared in-session) — tab 1 = deliverables master (D01–D30, Thai names, `DeliverableOrder` 1–30, single `PJ0001` project key), tab 2 = WP master (WP01–WP81 → DeliverableID).
+- **Version guard — the critical finding.** The sheet's later tabs carry a **different plan revision** (a `D00` deliverable, ~124 WPs, and WP codes that collide with different meanings — tab 5's `WP01` is a different task than tab 2's `WP01`). Live WP names were checked against tab 2 before generation (`WP01 งานปักฝัง` … `WP81 งานส่งมอบ`, identical on both pilots; no `WP00` in the DB) — tab 2 is the version the DB was seeded from; later tabs excluded.
+- **`supabase/seed-deliverables.sql`** — generated programmatically from the sheet (no manual transcription of 111 Thai rows): 30-deliverable upsert `on conflict (project_id, code) do update` (deliberate deviation from seed.sql's `do nothing` — re-runs converge name/sort_order on the file of record), cross-joined to both pilot projects; 81-row WP→deliverable UPDATE joined on `(code, project_id)`; single transaction; trailing verification SELECT (expect **60 / 162 / 0**).
+- Generation-time validation: 30 unique codes, orders exactly 1–30, 81 unique WP codes, zero mappings to unknown deliverables.
+
+### Decisions made
+
+- **Seed, not importer.** Spec 04's sketch deferred the contract to pickup; at pickup the source is a Google Sheet (not CSVs) and the dataset is fixed and one-shot for two identically-templated pilots. Committed idempotent seed via the established `supabase db query --linked --file` channel (seed.sql precedent) beats speculative importer tooling. Recorded in spec 04 Phase 2.
+- **Apply step is operator-gated.** Data mutation against prod — per change-management posture, the run happens on explicit approval after the PR merges (asked in-session). Re-runnable thereafter.
+
+### Verification
+
+- `pnpm lint` / `pnpm typecheck` / `pnpm test` — unaffected surfaces (SQL + docs only); suite stays 160/160.
+- Post-apply: the seed's count SELECT must read 60 / 162 / 0; then `/sa/projects/<id>` renders the deliverable groups (spec 11 UI lights up with zero code changes).
+
+### Open questions
+
+- pgTAP catalog coverage for `deliverables` (spec 04 "known gap") — still deferred; natural slot is a future file 19 when any deliverables-touching migration next ships.
+- Spec 04 Phase 3 (PDF grouping by deliverable) — unstarted; now unblocked once the seed is applied.
