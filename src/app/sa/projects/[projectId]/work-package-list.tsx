@@ -23,6 +23,7 @@ import { ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import type { Database } from "@/lib/db/database.types";
+import { deriveDeliverableProgress } from "@/lib/deliverables/derive-progress";
 import {
   groupWorkPackagesByDeliverable,
   type GroupDeliverable,
@@ -75,6 +76,20 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
     () => groupWorkPackagesByDeliverable(filtered, deliverables),
     [filtered, deliverables],
   );
+
+  // Header progress per group, derived from the UNFILTERED list (spec 12):
+  // the pill, k/n count, and progress strip describe the deliverable's
+  // true state even while query / hide-completed are hiding rows.
+  const progressByKey = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof deriveDeliverableProgress>>();
+    for (const group of groupWorkPackagesByDeliverable(workPackages, deliverables)) {
+      map.set(
+        group.deliverable?.id ?? UNGROUPED_KEY,
+        deriveDeliverableProgress(group.workPackages.map((wp) => wp.status)),
+      );
+    }
+    return map;
+  }, [workPackages, deliverables]);
 
   const searching = query.trim().length > 0;
 
@@ -157,9 +172,13 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
           {groups.map((group) => {
             const key = group.deliverable?.id ?? UNGROUPED_KEY;
             const isOpen = searching || expanded.has(key);
-            const completeCount = group.workPackages.filter(
-              (wp) => wp.status === "complete",
-            ).length;
+            // Progress is derived from the FULL membership (spec 12) so the
+            // header tells the truth while the text filter or
+            // "Hide completed" is hiding rows below it.
+            const progress =
+              progressByKey.get(key) ??
+              deriveDeliverableProgress(group.workPackages.map((wp) => wp.status));
+            const groupName = group.deliverable?.name ?? "Ungrouped";
             const contentId = `wp-group-${key}`;
             return (
               <section key={key} className="overflow-hidden rounded-lg border border-zinc-800">
@@ -168,33 +187,53 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
                   onClick={() => toggleGroup(key)}
                   aria-expanded={isOpen}
                   aria-controls={contentId}
-                  className="flex min-h-12 w-full items-center gap-3 bg-zinc-900/80 px-4 py-3 text-left transition-colors hover:bg-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+                  className="flex min-h-12 w-full cursor-pointer flex-col gap-2 bg-zinc-900/80 px-4 py-3 text-left transition-colors hover:bg-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
                 >
-                  <ChevronRight
-                    aria-hidden
-                    className={`size-4 shrink-0 text-zinc-500 transition-transform ${isOpen ? "rotate-90" : ""}`}
-                  />
-                  <span className="min-w-0 flex-1">
-                    {group.deliverable ? (
-                      <>
-                        <span className="font-mono text-xs text-zinc-500">
-                          {group.deliverable.code}
+                  <span className="flex w-full items-center gap-3">
+                    <ChevronRight
+                      aria-hidden
+                      className={`size-4 shrink-0 text-zinc-500 transition-transform motion-reduce:transition-none ${isOpen ? "rotate-90" : ""}`}
+                    />
+                    <span className="min-w-0 flex-1">
+                      {group.deliverable ? (
+                        <>
+                          <span className="font-mono text-xs text-zinc-500">
+                            {group.deliverable.code}
+                          </span>
+                          <span className="block truncate text-sm font-medium text-zinc-100">
+                            {group.deliverable.name}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="block truncate text-sm font-medium text-zinc-400">
+                          Ungrouped
                         </span>
-                        <span className="block truncate text-sm font-medium text-zinc-100">
-                          {group.deliverable.name}
-                        </span>
-                      </>
-                    ) : (
-                      <span className="block truncate text-sm font-medium text-zinc-400">
-                        Ungrouped
+                      )}
+                    </span>
+                    <span className="flex shrink-0 flex-col items-end gap-1">
+                      <span
+                        className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${workPackageStatusPillClasses(progress.status)}`}
+                      >
+                        {WP_STATUS_LABEL[progress.status]}
                       </span>
-                    )}
+                      <span className="text-xs text-zinc-500">
+                        {progress.completeCount}/{progress.totalCount}{" "}
+                        {progress.totalCount === 1 ? "WP" : "WPs"}
+                      </span>
+                    </span>
                   </span>
-                  <span className="shrink-0 text-right text-xs text-zinc-500">
-                    {group.workPackages.length} {group.workPackages.length === 1 ? "WP" : "WPs"}
-                    {completeCount > 0 ? (
-                      <span className="block text-emerald-400">{completeCount} complete</span>
-                    ) : null}
+                  <span
+                    role="progressbar"
+                    aria-valuenow={progress.percent}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label={`${groupName} — ${progress.percent}% complete`}
+                    className="block h-1 w-full overflow-hidden rounded-full bg-zinc-800"
+                  >
+                    <span
+                      className="block h-full rounded-full bg-emerald-500/80 transition-[width] motion-reduce:transition-none"
+                      style={{ width: `${progress.percent}%` }}
+                    />
                   </span>
                 </button>
                 {isOpen ? (

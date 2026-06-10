@@ -5528,3 +5528,27 @@ Read-only audit over `supabase db query --linked` (Management API, postgres cont
 
 - pgTAP catalog coverage for `deliverables` (spec 04 "known gap") — still deferred; natural slot is a future file 19 when any deliverables-touching migration next ships.
 - Spec 04 Phase 3 (PDF grouping by deliverable) — unstarted; now unblocked once the seed is applied.
+
+---
+
+## Unit: /requests back nav + deliverable progress + ui-ux-pro-max pass (spec 12)
+
+- **Status:** Complete — 2026-06-11.
+- **Spec:** [`docs/feature-specs/12-back-nav-and-deliverable-progress.md`](./feature-specs/12-back-nav-and-deliverable-progress.md) (Locked 2026-06-11 from the operator's three-item chat brief).
+- **Branch:** `feat/back-nav-deliverable-progress` (from `9c5d49a` = `origin/main` after PR #61).
+
+### Done
+
+- **Item 1 — back navigation on `/requests`.** New sub-nav strip (same pattern as `/pm/requests`): pinned mode links `← Back to work package` → `/sa/projects/{project_id}/work-packages/{id}` (WP lookup gains `project_id`; the SA WP screen admits sa/pm/super so the target is valid for every form-capable role); bare mode links `← Back` → `roleHome(ctx.role)`. Lucide `ArrowLeft`, `min-h-10` hit area.
+- **Item 2 — deliverable progress.** Writing failing test first: `tests/unit/derive-deliverable-progress.test.ts` (7 cases) RED → GREEN. Pure `src/lib/deliverables/derive-progress.ts`: `complete` iff all WPs complete, `not_started` iff all not_started (or empty), else `in_progress`; `percent = round(100·complete/total)`. Group headers now show a status pill (reusing `workPackageStatusPillClasses` + the WP status labels), a `k/n WPs` count, and a thin `role="progressbar"` strip (emerald on zinc-800, aria-valuenow/min/max + label). **Computed from the UNFILTERED membership** so headers stay truthful while query / hide-completed are active (component memoizes a full-list grouping alongside the filtered one).
+- **Item 3 — ui-ux-pro-max applied (bounded).** The installed skill's database was queried directly (its Python runner needs an interpreter this box lacks; the CSVs are the data). Applied: predictable back nav (High), progress indicators (Medium), ≥44px-class touch targets (High), `motion-reduce:transition-none` on the chevron rotation and bar width (High), explicit `cursor-pointer` on header buttons (Tailwind v4 preflight no longer sets it), retained `focus-visible` rings, lucide-only icons. Deliberately NOT applied: whole-app restyle, h-10 input sample (app-wide h-9 convention outranks it). Boundary recorded in spec 12.
+
+### Verification
+
+- New test RED before the helper existed, GREEN after. `pnpm lint` clean, `pnpm typecheck` clean, `pnpm test` **167/167** (160 prior + 7 new).
+- No diff under `supabase/`.
+
+### Open questions
+
+- Whole-app ui-ux-pro-max design-system pass (styles/palette/typography beyond these two surfaces) — separate unit if the operator wants it.
+- Deliverable progress on PM screens / PDFs — spec 04 Phase 3 territory.
