@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { roleHome } from "@/lib/auth/role-home";
 import {
   PurchaseRequestForm,
   type PurchaseRequestFormWorkPackage,
@@ -76,16 +78,27 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // RLS filters the row out, so "not found" and "not allowed" look the
   // same here — intentionally.
   let pinnedWp: PurchaseRequestFormWorkPackage | null = null;
+  let pinnedProjectId: string | null = null;
   if (typeof wpParam === "string" && isValidUuid(wpParam)) {
     const { data } = await supabase
       .from("work_packages")
-      .select("id, code, name")
+      .select("id, code, name, project_id")
       .eq("id", wpParam)
       .maybeSingle();
     if (data) {
       pinnedWp = { id: data.id, code: data.code, name: data.name };
+      pinnedProjectId = data.project_id;
     }
   }
+
+  // Back affordance (spec 12): pinned → the WP screen the user came from
+  // (the SA WP route admits sa/pm/super, so it is valid for every role
+  // that can reach this form); bare → the caller's role home.
+  const backHref =
+    pinnedWp && pinnedProjectId
+      ? `/sa/projects/${pinnedProjectId}/work-packages/${pinnedWp.id}`
+      : roleHome(ctx.role);
+  const backLabel = pinnedWp && pinnedProjectId ? "Back to work package" : "Back";
 
   const { data: myRequests, error: myError } = await supabase
     .from("purchase_requests")
@@ -123,6 +136,18 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
           </div>
         </div>
       </header>
+
+      <nav className="border-b border-zinc-800/60 bg-zinc-900/30 px-5 py-1">
+        <div className="mx-auto flex max-w-3xl items-center">
+          <Link
+            href={backHref}
+            className="inline-flex min-h-10 items-center gap-1.5 text-xs text-zinc-400 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
+          >
+            <ArrowLeft aria-hidden className="size-3.5" />
+            {backLabel}
+          </Link>
+        </div>
+      </nav>
 
       <section className="mx-auto max-w-3xl space-y-8 px-5 py-6">
         <div>
