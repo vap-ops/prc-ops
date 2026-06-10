@@ -207,20 +207,22 @@ technician, hr, subcon_manager, accounting, visitor`.
   default is now `visitor`, so the parenthetical is stale. Not updated in
   this PR (strict scope: spec named only the Roles section). One-word fix
   worth picking up in PR 2 or a tiny chore PR.
-- **`.env.example` and the LINE channel secret (resolved at commit time,
-  rotation question open).** During this session, `git diff .env.example`
+- **`.env.example` and the LINE channel secret (rotation REQUIRED —
+  trigger condition met).** During this session, `git diff .env.example`
   showed local-only edits placing real-looking LINE values into the
-  tracked template (`LINE_CHANNEL_ID=2009971313` and
-  `LINE_CHANNEL_SECRET=c3f9c353bd79d591483934770d4db569`). The operator
-  reverted the file mid-session, so the tree at commit time matches
-  `origin/main` — empty placeholders. **Open question for the operator:**
-  if those values were ever committed/pushed/shared anywhere (the file
-  was open in the IDE; secret may have been visible in screenshots,
-  Claude chat transcripts, or git stashes), rotate the LINE channel
-  secret in the LINE Developers console and re-paste into Supabase's
-  Custom OIDC Provider. After this PR these env vars are no longer
-  referenced by any application code (removed from `env.ts`), so the
-  only remaining concern is leak, not runtime.
+  tracked template (`LINE_CHANNEL_ID=2009971313` and the real
+  `LINE_CHANNEL_SECRET`). The operator reverted the file mid-session, so
+  the tree at commit time matches `origin/main` — empty placeholders.
+  The original open question said: rotate IF the values were ever
+  committed anywhere. **2026-06-11 audit finding: they were — an earlier
+  revision of this very tracker entry recorded the secret verbatim, and
+  it sits in git history even after redaction.** The literal has been
+  scrubbed from the current file (2026-06-11), but the rotation
+  condition is met: rotate the channel secret in the LINE Developers
+  console and update the live runtime env (Vercel `LINE_CHANNEL_SECRET`,
+  per ADR 0012 — the custom flow DOES use it at runtime; this entry's
+  original "no longer referenced by any application code" note described
+  the pre-ADR-0012 OIDC plan and is itself stale).
 - **`tests/unit/env.test.ts` vestigial assertion.** The test
   `does NOT throw when LINE_CHANNEL_ID and LINE_CHANNEL_SECRET are absent`
   still passes (Zod ignores undeclared env vars) but no longer
@@ -621,8 +623,6 @@ amend ADR 0007 because it changes how role checks compose.
   was removed; `01-pdf-generation/` is unaffected.
 
 ### Pending
-
-<<<<<<< HEAD
 
 - ~~**ADR 0011** ("LINE auth via custom flow because Supabase OIDC
   rejects HS256")~~ — superseded note: ADR 0011 was instead assigned
@@ -1482,7 +1482,6 @@ None blocking.
   migration or a manual SQL session — because no DELETE policy
   exists. Intentional per ADR 0013; surfacing the operational
   detail.
-  <<<<<<< HEAD
 
 ---
 
@@ -4999,17 +4998,6 @@ lines of tracker history.
   cleanup is the highest-risk
   remaining step before pilot
   go-live.
-  =======
-  > > > > > > > # origin/feat/projects-table
-- **ADR 0011** ("LINE auth via custom flow because Supabase OIDC
-  rejects HS256") — pending. Once the RLS recursion is fixed and the
-  real implementation lands, ADR 0011 captures the architectural
-  decision and supersedes
-  [`docs/feature-specs/01-line-auth.md`](feature-specs/01-line-auth.md)
-  decision #4 (Supabase Custom OIDC Provider).
-- **Real implementation** of the custom flow at `/auth/start` +
-  `/auth/callback` — pending. Blocked on the RLS recursion fix.
-  > > > > > > > origin/chore/remove-line-auth-spike
 
 ---
 
@@ -5503,7 +5491,7 @@ Read-only audit over `supabase db query --linked` (Management API, postgres cont
 
 ## Unit: Deliverables backfill — spec 04 Phase 2 (seed)
 
-- **Status:** Complete (file committed; live apply pending operator approval) — 2026-06-11.
+- **Status:** Complete — 2026-06-11. The seed was applied to the live DB on 2026-06-10 (UTC, per `deliverables.created_at`); post-apply verification passed 2026-06-11 — see the live-state refresh unit below. (An earlier revision of this entry read "live apply pending operator approval"; that was stale.)
 - **Spec:** [`docs/feature-specs/04-deliverable-grouping.md`](./feature-specs/04-deliverable-grouping.md) Phase 2 section, rewritten in place from "importer sketch" to the as-implemented seed contract.
 - **Branch:** `feat/deliverables-backfill` (from `84fea5c` = `origin/main` after PR #60).
 
@@ -5527,7 +5515,7 @@ Read-only audit over `supabase db query --linked` (Management API, postgres cont
 ### Open questions
 
 - pgTAP catalog coverage for `deliverables` (spec 04 "known gap") — still deferred; natural slot is a future file 19 when any deliverables-touching migration next ships.
-- Spec 04 Phase 3 (PDF grouping by deliverable) — unstarted; now unblocked once the seed is applied.
+- Spec 04 Phase 3 (PDF grouping by deliverable) — unstarted; genuinely unblocked as of 2026-06-10 (seed applied and verified live).
 
 ---
 
@@ -5552,3 +5540,44 @@ Read-only audit over `supabase db query --linked` (Management API, postgres cont
 
 - Whole-app ui-ux-pro-max design-system pass (styles/palette/typography beyond these two surfaces) — separate unit if the operator wants it.
 - Deliverable progress on PM screens / PDFs — spec 04 Phase 3 territory.
+
+---
+
+## Unit: Live-state refresh, tracker repairs, types regen (session-only audit + housekeeping)
+
+- **Status:** Complete — 2026-06-11.
+- **Spec:** None — orientation/housekeeping session, not a feature unit. All DB access read-only (sanctioned by `change-management.md` — "inspect, audit, verify"); no schema, Storage, or role changes.
+
+### Verified live (read-only, `supabase db query --linked`)
+
+- **Spec 04 Phase 2 seed IS APPLIED** — applied 2026-06-10 (UTC, per `deliverables.created_at`): 60 deliverables (30 per pilot, `sort_order` 1–30 each), 162/162 WPs linked, 0 unlinked — the seed contract exactly. The backfill unit's "live apply pending operator approval" status above was stale and has been corrected in place. The spec 11/12 deliverable-grouped UI is therefore live-fed (no longer in degraded flat mode).
+- **WP01 (PRC-2026-001) stray Before photo still visible** (1 current-state row) — the §1-tail in-app removal is still pending (operator).
+- **Roster unchanged since the 2026-06-10 audit:** 3 × super_admin, 2 × site_admin, 2 × visitor, **0 × project_manager** — §2 roster resolution and the §4 dry run still need a real PM.
+- **Dry run not started:** approvals 0, reports 0. purchase_requests 1 = the known Tier-2b throwaway (`fcf4179d…`, `purchased`).
+
+### NEW finding — PDF worker silently garbles Thai (confirmed by repro; gates a meaningful §4 dry run)
+
+- Repro (throwaway script through `buildReportPdf` with a Thai project + WP name; not committed): the worker produces a PDF with **no error**, but the content stream dumps the raw Thai codepoints into a single-byte WinAnsi hex string — PDF viewers render Latin mojibake. PDFKit's built-in Helvetica cannot encode Thai; **every live WP and deliverable name is Thai**; reports=0 means this path has never run against real data.
+- Failure mode is **silent success**: the §4 dry-run report would generate, upload, and deliver garbage — no failed job to notice.
+- Fix shape: embed a Thai font (e.g. Sarabun / Noto Sans Thai) via `doc.registerFont` in `worker/src/report.ts`; failing worker test first using real Thai strings (the existing worker test uses only English names — a test blind spot). **Recommended next dev unit** — the only dev-actionable item on the go-live critical path. Needs a small locked spec first, per workflow.
+
+### Repairs in this commit
+
+- **Tracker merge-conflict corruption fixed:** two stray `<<<<<<< HEAD` markers (auth-spike unit "Pending" section; projects-table open questions) and one spliced stale block (`=======` … `>>>>>>> origin/chore/remove-line-auth-spike` — spike-era ADR-0011 notes duplicated inside the v2-handoff unit) removed. Content loss: none — the removed block duplicated notes already resolved in the custom-flow auth-core unit.
+- **LINE channel secret scrubbed from this file.** The PR-1 unit's open-questions bullet had recorded the secret verbatim — meaning that bullet's own rotation trigger condition ("rotate IF the values were ever committed anywhere") is **met**; the literal remains in git history even after redaction. Operator: rotate in the LINE Developers console and update Vercel `LINE_CHANNEL_SECRET` (a live runtime secret — token exchange + ID-token verification in `/auth/line/callback`, per ADR 0012).
+- **`src/lib/db/database.types.ts` regen committed** (separate chore commit): two `audit_action` enum values from the merged ADR-0025 migrations (`purchase_request_purchase`, `purchase_request_delivery`) existed in the live schema — and in live audit rows — but in no committed copy of the types file. The post-merge `pnpm db:types` had been run on 2026-06-10 but never committed (found as uncommitted drift in the main checkout; regenerated fresh + prettier-formatted). The worker's copy (`worker/src/database.types.ts`) is still stale (no `deliverables` table, no `work_packages.deliverable_id`) — refresh it inside the next worker unit per the `worker/README.md` regen rule.
+
+### Housekeeping
+
+- Deleted six fully-merged local branches after verifying each tip's tree byte-identical to its squash commit on main: `feat/wp-centric-requests-ui` (#59), `feat/deliverable-grouped-wp-list` (#60), `feat/deliverables-backfill` (#61), `feat/back-nav-deliverable-progress` (#62), `claude/laughing-austin-87688b` (#57), `claude/lucid-edison-137cc7` (#56).
+- `origin/claude/distracted-ptolemy-554622` (PR #58) verified byte-identical to squash commit `7c8512b` — fully merged; left in place (remote deletion is a push-side op for the operator's browser/laptop flow).
+- Deleted untracked `test-out.txt` (a pgTAP output dump from 2026-06-08) from the repo root.
+- Committed directly to main per the operator's standing instruction for this session ("merge auto, don't need to ask").
+
+### Open questions / handoff
+
+- **Operator (go-live, unchanged):** roster (≥ 1 real PM; likely demote the two extra super_admins), WP01 photo removal in-app, smoke-script `[PASS]` attestation + wiring the real AppSheet app to the Session Pooler, §3 template confirmation, §4 dry run, §5 sign-off. **NEW:** rotate the LINE channel secret (above). **NEW:** the §4 dry run is not meaningful until the Thai-font fix lands — the report PDF step would silently produce mojibake.
+- **Dev next-unit queue (recommended order):**
+  1. **Thai-font fix in the PDF worker** — small, scoped, go-live-critical; worker-local TDD (worker is excluded from root suite and CI — verification checklist must include worker-local `pnpm typecheck && pnpm test`).
+  2. **Spec 04 Phase 3 (PDF deliverable grouping)** — data-unblocked but **spec-blocked**: the Phase 3 section is a deliberate stub with no verification checklist. The mini-spec must lock: progress counts in group headers or not (changes the worker fetch from complete-only to all-WPs — `derive-progress.ts` needs full membership), page-break semantics, empty-group rule, within-group order, Ungrouped label language, and the helper-reuse mechanism (the worker cannot import app `src/` — copy per the `selectCurrentAfterPhotos` precedent in `worker/src/index.ts`).
+  3. **Docs refresh unit:** `docs/v2-handoff.md` (frozen 2026-05-26 — lists shipped profile-management and deliverable work as future backlog; calls completed go-live §1/§2a "outstanding"), `README.md` (says Next.js 15 vs actual 16; ADR table stops at 0005 of 25; structure/commands stale), CLAUDE.md Roles section (omits `super_admin` entirely; its "non-SA/PM → /coming-soon" rule contradicts the shipped super_admin operator hub), and the supersede-pattern SKILL tombstone variant (deferred 6×).
