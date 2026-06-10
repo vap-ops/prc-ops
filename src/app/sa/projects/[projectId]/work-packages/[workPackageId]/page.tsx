@@ -15,7 +15,9 @@ interface PageProps {
 }
 
 const PHASES: ReadonlyArray<{ phase: PhotoPhase; label: string }> = [
-  { phase: "before", label: "Before" },
+  // "Preparation" is the display label for the `before` enum value —
+  // equipment and raw-material staging (spec 10). The DB enum is untouched.
+  { phase: "before", label: "Preparation" },
   { phase: "during", label: "During" },
   { phase: "after", label: "After" },
 ];
@@ -70,6 +72,12 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
               {WP_STATUS_LABEL[wp.status] ?? wp.status}
             </span>
           </div>
+          <Link
+            href={`/requests?wp=${wp.id}`}
+            className="w-fit text-xs text-zinc-400 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
+          >
+            Raise purchase request →
+          </Link>
         </div>
       </header>
 

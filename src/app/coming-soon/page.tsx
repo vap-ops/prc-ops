@@ -128,8 +128,8 @@ const HUB_LINKS: ReadonlyArray<HubLink> = [
   },
   {
     href: "/requests",
-    label: "Raise a request",
-    hint: "Submit a purchase request against a work package.",
+    label: "My requests",
+    hint: "Track your purchase requests. New requests start from a work package.",
   },
   {
     href: "/pm/requests",
