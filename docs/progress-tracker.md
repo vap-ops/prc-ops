@@ -5581,3 +5581,13 @@ Read-only audit over `supabase db query --linked` (Management API, postgres cont
   1. **Thai-font fix in the PDF worker** — small, scoped, go-live-critical; worker-local TDD (worker is excluded from root suite and CI — verification checklist must include worker-local `pnpm typecheck && pnpm test`).
   2. **Spec 04 Phase 3 (PDF deliverable grouping)** — data-unblocked but **spec-blocked**: the Phase 3 section is a deliberate stub with no verification checklist. The mini-spec must lock: progress counts in group headers or not (changes the worker fetch from complete-only to all-WPs — `derive-progress.ts` needs full membership), page-break semantics, empty-group rule, within-group order, Ungrouped label language, and the helper-reuse mechanism (the worker cannot import app `src/` — copy per the `selectCurrentAfterPhotos` precedent in `worker/src/index.ts`).
   3. **Docs refresh unit:** `docs/v2-handoff.md` (frozen 2026-05-26 — lists shipped profile-management and deliverable work as future backlog; calls completed go-live §1/§2a "outstanding"), `README.md` (says Next.js 15 vs actual 16; ADR table stops at 0005 of 25; structure/commands stale), CLAUDE.md Roles section (omits `super_admin` entirely; its "non-SA/PM → /coming-soon" rule contradicts the shipped super_admin operator hub), and the supersede-pattern SKILL tombstone variant (deferred 6×).
+
+---
+
+## Unit: Spec 13 — Thai-capable PDF font (spec draft)
+
+- **Status:** Spec drafted — 2026-06-11, **awaiting operator lock**. No code written (per workflow: spec locks before test/implementation).
+- **Spec:** [`docs/feature-specs/13-thai-pdf-font.md`](./feature-specs/13-thai-pdf-font.md). Addresses the "PDF worker silently garbles Thai" finding from the live-state refresh unit above — item 1 of the dev next-unit queue.
+- **Proposal in one line:** embed Sarabun (OFL; Regular + Bold, committed under `worker/assets/fonts/sarabun/` with `OFL.txt`) via `doc.registerFont` in `worker/src/report.ts`; failing Thai round-trip test first in `worker/tests/unit/report.test.ts` using `pdfjs-dist` (worker-local dev dep) to extract reader-visible text; housekeeping rider refreshes `worker/src/database.types.ts` per the README regen rule.
+- **Decisions needing the lock:** Sarabun over Noto Sans Thai (looped letterforms, formal-document standard, Latin coverage); headings go Bold (the one visual change beyond the typeface swap).
+- **Next after lock:** failing test → implement → worker-local `pnpm typecheck && pnpm test` (worker excluded from root CI).
