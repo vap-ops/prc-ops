@@ -5433,3 +5433,38 @@ Read-only audit over `supabase db query --linked` (Management API, postgres cont
 4. §3: confirm both pilots really want the exact 81-WP template.
 5. §4: the dry run with one real SA + one real PM — the main remaining gate.
 6. §5: communicate v1 limitations; sign off and date the checklist.
+
+---
+
+## Unit: WP-centric purchase requests, mobile form fix, phase relabel (spec 10)
+
+- **Status:** Complete — 2026-06-11.
+- **Spec:** [`docs/feature-specs/10-wp-centric-requests-ui.md`](./feature-specs/10-wp-centric-requests-ui.md) (Locked 2026-06-11 from the operator's chat brief: "WP is the main place we deal with things").
+- **Branch:** `feat/wp-centric-requests-ui` (stacked on `claude/distracted-ptolemy-554622` / PR #58).
+
+### Done
+
+- **Item 1 — Unit field overflow (mobile).** `purchase-request-form.tsx` Quantity/Unit row: flex children gained `min-w-0`, inputs gained `w-full min-w-0` (text inputs have an intrinsic min-width that `flex-1` alone cannot shrink past — the Unit input was pushed off-screen at phone widths). Item-description input got `w-full min-w-0` for the same reason.
+- **Item 2 — requests are raised FROM the WP.**
+  - SA photo screen + PM WP review screen: `Raise purchase request →` header link to `/requests?wp=<id>`.
+  - `/requests` accepts `?wp=`: valid UUID + readable under RLS → form pinned to that WP (static `code · name` line, no picker); param present but unresolvable → "Work package not found." strip + guidance card; no param → guidance card only. "My requests" list unchanged in all modes.
+  - `PurchaseRequestForm` prop: `workPackages` list → single `workPackage`; `<select>` and `workPackageId` state removed. Server action, validator, RLS untouched.
+  - Entry links relabelled to match (`/sa` + `/pm` navs and the OperatorHub `/requests` card → "My requests"; hub hint now says new requests start from a work package).
+- **Item 3 — "Before" → "Preparation"** (display-only). Both `PHASES` arrays (SA photo screen, PM WP page) relabelled; the label prop already flows into `PhaseUploader` / `PhaseGallery`. `photo_phase` enum, storage paths, and the PDF worker untouched.
+
+### Verification
+
+- `pnpm lint` — clean. `pnpm typecheck` — clean. `pnpm test` — **152/152** unchanged.
+- No diff under `supabase/`, `src/app/requests/actions.ts`, or `src/lib/purchasing/` (spec 10 checklist).
+- UUID shape check reuses `isValidUuid` from `@/lib/photos/path` (already unit-tested) — no new pure helper, hence **no new unit test** (P1b precedent; posture recorded in spec 10).
+- Post-deploy eyeball (operator, phone): form at `/requests?wp=…` fits the viewport; WP screens show Preparation / During / After.
+
+### Decisions made
+
+- **Picker removed, not kept alongside.** The operator's brief rejects the "request outside then select WP" flow outright; keeping a parallel picker would preserve exactly the UX being retired. Bare `/requests` keeps the "My requests" list and points users at the WP screens.
+- **Link-out to a pinned form rather than embedding the form on WP screens** — one form, one route, no duplicated submit surface; the WP context travels in the URL.
+- **"not found" and "not allowed" intentionally indistinguishable** on `/requests?wp=` (`maybeSingle()` under RLS) — no information leak about WP existence outside the caller's read set.
+
+### Open questions
+
+- None blocking. If users later want the form inline on the WP screen itself (zero navigation), that is a follow-up spec.

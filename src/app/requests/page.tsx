@@ -6,15 +6,19 @@ import {
 } from "@/components/features/purchase-request-form";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
+import { isValidUuid } from "@/lib/photos/path";
 import type { Database } from "@/lib/db/database.types";
 
-// /requests — native UI for raising purchase requests against work packages.
+// /requests — purchase requests: the caller's own list, plus the request
+// form when arriving FROM a work package (spec 10: ?wp=<id> pins the WP;
+// there is no picker — WP screens carry the "Raise purchase request" link).
 // Authorized: site_admin, project_manager, super_admin — the v1 requester
 // base (ADR 0022). Other roles are bounced via requireRole's roleHome().
 //
-// Two server-side fetches feed the page:
-//   1. work_packages the caller can SELECT — drives the form's picker.
-//      RLS on work_packages already gates this to wp-readers.
+// Server-side fetches:
+//   1. the ?wp= work package (only when the param has UUID shape) — RLS on
+//      work_packages already gates readability to wp-readers; an
+//      unreadable or unknown id resolves to null and the form is withheld.
 //   2. the caller's OWN purchase_requests — the "My requests" list.
 //      RLS on purchase_requests admits requested_by = auth.uid() for any
 //      role, so this works for SA's own rows too (SAs can't see other
@@ -55,20 +59,33 @@ function statusPillClasses(status: PurchaseRequestStatus): string {
   }
 }
 
-export default async function RequestsPage() {
+interface RequestsPageProps {
+  searchParams: Promise<{ wp?: string | string[] }>;
+}
+
+export default async function RequestsPage({ searchParams }: RequestsPageProps) {
   const ctx = await requireRole(["site_admin", "project_manager", "super_admin"]);
   const supabase = await createClient();
 
-  const { data: wpRows, error: wpError } = await supabase
-    .from("work_packages")
-    .select("id, code, name")
-    .order("code", { ascending: true });
+  const { wp: wpParam } = await searchParams;
+  const wpRequested = wpParam !== undefined;
 
-  const workPackages: ReadonlyArray<PurchaseRequestFormWorkPackage> = (wpRows ?? []).map((wp) => ({
-    id: wp.id,
-    code: wp.code,
-    name: wp.name,
-  }));
+  // Resolve the pinned WP only for a well-formed single UUID; anything
+  // else (missing, repeated, garbage, or unreadable under RLS) leaves the
+  // form withheld. maybeSingle() returns null rather than erroring when
+  // RLS filters the row out, so "not found" and "not allowed" look the
+  // same here — intentionally.
+  let pinnedWp: PurchaseRequestFormWorkPackage | null = null;
+  if (typeof wpParam === "string" && isValidUuid(wpParam)) {
+    const { data } = await supabase
+      .from("work_packages")
+      .select("id, code, name")
+      .eq("id", wpParam)
+      .maybeSingle();
+    if (data) {
+      pinnedWp = { id: data.id, code: data.code, name: data.name };
+    }
+  }
 
   const { data: myRequests, error: myError } = await supabase
     .from("purchase_requests")
@@ -110,12 +127,20 @@ export default async function RequestsPage() {
       <section className="mx-auto max-w-3xl space-y-8 px-5 py-6">
         <div>
           <h2 className="mb-3 text-sm font-medium text-zinc-400">Raise a request</h2>
-          {wpError ? (
-            <p className="rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-              Couldn&apos;t load work packages. Please try again.
-            </p>
+          {pinnedWp ? (
+            <PurchaseRequestForm workPackage={pinnedWp} />
           ) : (
-            <PurchaseRequestForm workPackages={workPackages} />
+            <div className="space-y-2">
+              {wpRequested ? (
+                <p className="rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+                  Work package not found.
+                </p>
+              ) : null}
+              <p className="rounded-md border border-zinc-800 bg-zinc-900/50 px-4 py-4 text-sm text-zinc-400">
+                Requests are raised from a work package. Open the work package and tap{" "}
+                <span className="text-zinc-200">Raise purchase request</span>.
+              </p>
+            </div>
           )}
         </div>
 

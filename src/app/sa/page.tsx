@@ -47,7 +47,7 @@ export default async function SitAdminLandingPage() {
             href="/requests"
             className="text-zinc-500 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
           >
-            Raise a request →
+            My requests →
           </Link>
         </div>
       </nav>

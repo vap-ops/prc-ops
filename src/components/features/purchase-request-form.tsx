@@ -1,6 +1,6 @@
 "use client";
 
-// 'use client' justification (feature spec 09, ADR 0022):
+// 'use client' justification (feature spec 09, ADR 0022; reshaped by spec 10):
 //
 // This form owns input state, inline validation, a useTransition pending
 // state, and a "Saved" confirmation that must appear only AFTER an actual
@@ -8,10 +8,11 @@
 // those — the post-save signal is a transient client-only flag, not
 // derived from server-rendered props. Mirrors DisplayNameForm.
 //
-// The work-package picker is populated from the parent Server Component
-// (the caller's RLS on work_packages already gates the list). The pure
-// validator from src/lib/purchasing/validate-purchase-request.ts is the
-// single source of truth for shape — the action layer runs the same one.
+// Spec 10: the form is pinned to ONE work package, resolved by the parent
+// Server Component from the ?wp= searchParam (requests are raised FROM a
+// WP screen, never via a picker). The pure validator from
+// src/lib/purchasing/validate-purchase-request.ts is the single source of
+// truth for shape — the action layer runs the same one.
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -25,12 +26,11 @@ export interface PurchaseRequestFormWorkPackage {
 }
 
 interface PurchaseRequestFormProps {
-  workPackages: ReadonlyArray<PurchaseRequestFormWorkPackage>;
+  workPackage: PurchaseRequestFormWorkPackage;
 }
 
-export function PurchaseRequestForm({ workPackages }: PurchaseRequestFormProps) {
+export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
   const router = useRouter();
-  const [workPackageId, setWorkPackageId] = useState<string>("");
   const [itemDescription, setItemDescription] = useState<string>("");
   const [quantityText, setQuantityText] = useState<string>("");
   const [unit, setUnit] = useState<string>("");
@@ -45,12 +45,12 @@ export function PurchaseRequestForm({ workPackages }: PurchaseRequestFormProps) 
   const quantity = quantityText.trim().length === 0 ? Number.NaN : Number.parseFloat(quantityText);
 
   const localValidation = validateCreatePurchaseRequest({
-    workPackageId,
+    workPackageId: workPackage.id,
     itemDescription,
     quantity,
     unit,
   });
-  const canSubmit = !submitting && workPackages.length > 0 && localValidation.ok;
+  const canSubmit = !submitting && localValidation.ok;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -59,7 +59,7 @@ export function PurchaseRequestForm({ workPackages }: PurchaseRequestFormProps) 
     setSavedAt(null);
     startSubmit(async () => {
       const result = await createPurchaseRequest({
-        workPackageId,
+        workPackageId: workPackage.id,
         itemDescription,
         quantity,
         unit,
@@ -69,13 +69,12 @@ export function PurchaseRequestForm({ workPackages }: PurchaseRequestFormProps) 
         return;
       }
       // Pessimistic confirmation: only after the round-trip succeeded.
-      // Clear the inputs so the form is ready for the next request; the
-      // router.refresh() re-runs the Server Component so the "My
-      // requests" list above us picks up the new row.
+      // Clear the inputs so the form is ready for the next request on the
+      // same WP; the router.refresh() re-runs the Server Component so the
+      // "My requests" list picks up the new row.
       setItemDescription("");
       setQuantityText("");
       setUnit("");
-      setWorkPackageId("");
       setSavedAt(Date.now());
       router.refresh();
     });
@@ -83,12 +82,8 @@ export function PurchaseRequestForm({ workPackages }: PurchaseRequestFormProps) 
 
   // Inline validation only after the user has touched the field (any
   // non-empty input). Same shape as DisplayNameForm — keeps an untouched
-  // form quiet.
-  const userTyped =
-    workPackageId.length > 0 ||
-    itemDescription.length > 0 ||
-    quantityText.length > 0 ||
-    unit.length > 0;
+  // form quiet. The pinned WP id never counts as "typed".
+  const userTyped = itemDescription.length > 0 || quantityText.length > 0 || unit.length > 0;
   const inlineError = error ?? (!localValidation.ok && userTyped ? localValidation.error : null);
 
   return (
@@ -96,33 +91,13 @@ export function PurchaseRequestForm({ workPackages }: PurchaseRequestFormProps) 
       onSubmit={handleSubmit}
       className="flex flex-col gap-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-4"
     >
-      <div className="flex flex-col gap-1">
-        <label htmlFor="pr-wp" className="text-sm font-medium text-zinc-200">
-          Work package
-        </label>
-        <select
-          id="pr-wp"
-          value={workPackageId}
-          onChange={(e) => {
-            setWorkPackageId(e.target.value);
-            setError(null);
-            setSavedAt(null);
-          }}
-          disabled={submitting || workPackages.length === 0}
-          className="h-9 rounded-md border border-zinc-800 bg-zinc-900/60 px-2 text-sm text-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
-        >
-          <option value="">Select a work package…</option>
-          {workPackages.map((wp) => (
-            <option key={wp.id} value={wp.id}>
-              {wp.code} · {wp.name}
-            </option>
-          ))}
-        </select>
-        {workPackages.length === 0 ? (
-          <p className="text-xs text-zinc-500">
-            No work packages available — ask your project manager.
-          </p>
-        ) : null}
+      <div className="flex min-w-0 flex-col gap-1">
+        <span className="text-sm font-medium text-zinc-200">Work package</span>
+        <p className="truncate rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm">
+          <span className="font-mono text-zinc-500">{workPackage.code}</span>
+          <span className="mx-1 text-zinc-600">·</span>
+          <span className="text-zinc-100">{workPackage.name}</span>
+        </p>
       </div>
 
       <div className="flex flex-col gap-1">
@@ -140,13 +115,13 @@ export function PurchaseRequestForm({ workPackages }: PurchaseRequestFormProps) 
             setSavedAt(null);
           }}
           disabled={submitting}
-          className="h-9 rounded-md border border-zinc-800 bg-zinc-900/60 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+          className="h-9 w-full min-w-0 rounded-md border border-zinc-800 bg-zinc-900/60 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
           placeholder="Cement bag 50kg"
         />
       </div>
 
       <div className="flex gap-3">
-        <div className="flex flex-1 flex-col gap-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <label htmlFor="pr-qty" className="text-sm font-medium text-zinc-200">
             Quantity
           </label>
@@ -161,11 +136,11 @@ export function PurchaseRequestForm({ workPackages }: PurchaseRequestFormProps) 
               setSavedAt(null);
             }}
             disabled={submitting}
-            className="h-9 rounded-md border border-zinc-800 bg-zinc-900/60 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+            className="h-9 w-full min-w-0 rounded-md border border-zinc-800 bg-zinc-900/60 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
             placeholder="10"
           />
         </div>
-        <div className="flex flex-1 flex-col gap-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <label htmlFor="pr-unit" className="text-sm font-medium text-zinc-200">
             Unit
           </label>
@@ -180,7 +155,7 @@ export function PurchaseRequestForm({ workPackages }: PurchaseRequestFormProps) 
               setSavedAt(null);
             }}
             disabled={submitting}
-            className="h-9 rounded-md border border-zinc-800 bg-zinc-900/60 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+            className="h-9 w-full min-w-0 rounded-md border border-zinc-800 bg-zinc-900/60 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
             placeholder="bag"
           />
         </div>
