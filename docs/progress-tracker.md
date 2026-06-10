@@ -5581,3 +5581,43 @@ Read-only audit over `supabase db query --linked` (Management API, postgres cont
   1. **Thai-font fix in the PDF worker** — small, scoped, go-live-critical; worker-local TDD (worker is excluded from root suite and CI — verification checklist must include worker-local `pnpm typecheck && pnpm test`).
   2. **Spec 04 Phase 3 (PDF deliverable grouping)** — data-unblocked but **spec-blocked**: the Phase 3 section is a deliberate stub with no verification checklist. The mini-spec must lock: progress counts in group headers or not (changes the worker fetch from complete-only to all-WPs — `derive-progress.ts` needs full membership), page-break semantics, empty-group rule, within-group order, Ungrouped label language, and the helper-reuse mechanism (the worker cannot import app `src/` — copy per the `selectCurrentAfterPhotos` precedent in `worker/src/index.ts`).
   3. **Docs refresh unit:** `docs/v2-handoff.md` (frozen 2026-05-26 — lists shipped profile-management and deliverable work as future backlog; calls completed go-live §1/§2a "outstanding"), `README.md` (says Next.js 15 vs actual 16; ADR table stops at 0005 of 25; structure/commands stale), CLAUDE.md Roles section (omits `super_admin` entirely; its "non-SA/PM → /coming-soon" rule contradicts the shipped super_admin operator hub), and the supersede-pattern SKILL tombstone variant (deferred 6×).
+
+---
+
+## Unit: Thai-capable font in the PDF report worker (spec 13)
+
+- **Status:** Complete — 2026-06-11 (started and completed same session, immediately after the live-state refresh unit above).
+- **Spec:** [`docs/feature-specs/13-thai-pdf-font.md`](./feature-specs/13-thai-pdf-font.md) — written this session, locked by the operator's "Proceed as planned, then merge" instruction (the plan named this unit, the font approach, and the types rider explicitly).
+- **Branch:** committed directly to main per the same instruction.
+
+### Done
+
+- **Writing failing test first** — new Thai-rendering test in `worker/tests/unit/report.test.ts`, run RED on the WinAnsi path (no `/FontFile2`, Helvetica BaseFont) before any implementation, GREEN after.
+- **`worker/fonts/Sarabun-Regular.ttf`** (90 KB TrueType, SIL OFL 1.1, `OFL.txt` alongside; source: `google/fonts` repo `ofl/sarabun/`) committed. `worker/src/report.ts` reads it once at module scope (`import.meta.url`-relative — CWD-independent under Railway Root Directory `/worker`), registers it per document, and selects it for **all** text. Sizes/layout untouched.
+- **Rider per spec:** `worker/src/database.types.ts` refreshed from the app copy (byte-identical post-copy; the worker copy had predated `deliverables`, `work_packages.deliverable_id`, `purchase_requests`, and the ADR-0025 `audit_action` values).
+
+### Adversarial verification (3-lens skeptic pass before merge)
+
+- **Correctness lens — found a real test weakness, fixed pre-merge.** The first version of the Thai test searched the whole inflated PDF for `Sarabun`/`0E42` — empirically shown to be satisfiable by the WinAnsi nibble-dump itself and by a constructed partial regression (header in Sarabun, WP sections in Times-Roman passed all four original assertions). Hardened: the codepoint check is now anchored inside the `/ToUnicode` CMap stream (`beginbfchar`/`beginbfrange`), and **every** `/BaseFont` entry in the document must be (subset-)Sarabun. Hardened test re-proven GREEN with the fix and RED against the stashed pre-fix implementation.
+- **Deployment lens — pass.** `*.ttf` not gitignored; git's binary heuristic protects it from autocrlf (TTF magic `00 01 00 00`); tsx runtime ships `fonts/` as-is (no build step to strip it); lint-staged patterns don't touch `.ttf`.
+- **Spec-compliance lens — tracker entry + sample-PDF evidence were the gaps;** both closed (this entry; before/after sample PDFs delivered to the operator in-session: mojibake repro, then correct Thai via embedded subset font).
+
+### Verification (spec 13 checklist)
+
+- New Thai test RED before implementation, GREEN after — and re-proven both ways after hardening. ✔
+- Worker-local `pnpm typecheck` clean; `pnpm test` **6/6** (5 prior + Thai). ✔
+- Repro decode shows embedded subset font (`/BaseFont /XXXXXX+Sarabun-Regular`, `/FontFile2`) + ToUnicode CMap with Thai codepoints; visual sample sent to operator. ✔
+- Root `pnpm lint && pnpm typecheck && pnpm test` — 167/167, unaffected. ✔
+- No diff under `supabase/` or app `src/`. ✔
+- `report.ts` "Deferred to v2" list untouched (deliverable grouping stays deferred to spec 04 Phase 3). ✔
+
+### Decisions made
+
+- **Sarabun over Noto Sans Thai** — the de-facto Thai document face with full Latin coverage, so a single Regular face serves the whole report (current layout uses no bold).
+- **Font buffer loaded at module scope** — the one static-asset exception to `report.ts`'s "no I/O" rule, documented in the module header.
+- **`.gitattributes` (`*.ttf -text`) deliberately NOT added** — suggested by the deployment skeptic, but out of spec scope; git's NUL-byte heuristic is verified sufficient. Surfaced here per scope discipline; fold into a future hygiene unit if desired.
+
+### Open questions
+
+- The Thai regression guard lives in the worker-local suite only (worker is excluded from root tooling and CI by design) — any future report change needs the worker-local `pnpm test` run, as the spec checklist already requires.
+- §4 dry-run sequencing is back in the operator's hands: the report path now renders Thai correctly, so the flat-layout dry run can proceed ahead of spec 04 Phase 3.
