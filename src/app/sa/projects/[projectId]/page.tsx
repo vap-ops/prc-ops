@@ -25,9 +25,18 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
 
   const { data: workPackages } = await supabase
     .from("work_packages")
-    .select("id, code, name, status")
+    .select("id, code, name, status, deliverable_id")
     .eq("project_id", project.id)
     .order("code", { ascending: true });
+
+  // Deliverables for the grouping headers (spec 11). RLS admits
+  // sa/pm/super SELECT (spec 04 Phase 1). Empty today — the list
+  // degrades to flat until spec 04 Phase 2 backfills the data.
+  const { data: deliverables } = await supabase
+    .from("deliverables")
+    .select("id, code, name, sort_order")
+    .eq("project_id", project.id)
+    .order("sort_order", { ascending: true });
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -46,7 +55,22 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
 
       <section className="mx-auto max-w-2xl px-5 py-6">
         <h2 className="mb-3 text-sm font-medium text-zinc-400">Work packages</h2>
-        <WorkPackageList projectId={project.id} workPackages={workPackages ?? []} />
+        <WorkPackageList
+          projectId={project.id}
+          workPackages={(workPackages ?? []).map((wp) => ({
+            id: wp.id,
+            code: wp.code,
+            name: wp.name,
+            status: wp.status,
+            deliverableId: wp.deliverable_id,
+          }))}
+          deliverables={(deliverables ?? []).map((d) => ({
+            id: d.id,
+            code: d.code,
+            name: d.name,
+            sortOrder: d.sort_order,
+          }))}
+        />
       </section>
     </main>
   );
