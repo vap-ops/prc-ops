@@ -5196,7 +5196,7 @@ column_name='line_avatar_url';` → returns one row.
 
 ## Unit: getClaims local JWT verification (cut per-page Auth round-trip)
 
-- **Status:** In progress — 2026-06-08.
+- **Status:** Complete — merged 2026-06-08 as PR #53 (`efccd92`, `perf(auth): swap getUser → getClaims on read-render path`). _Status backfilled 2026-06-10; the entry was left at "In progress" when the unit merged._
 - **Started:** 2026-06-08.
 - **Spec:** Inline brief from operator (no numbered feature spec — auth-perf change, not a domain feature).
 - **ADR:** [`docs/decisions/0021-getclaims-local-jwt-verify.md`](./decisions/0021-getclaims-local-jwt-verify.md) (Accepted 2026-06-08).
@@ -5357,3 +5357,79 @@ The initial P1b commit (`c0658ea`) wrote the audit row from TypeScript after the
   5. `supabase db push --dry-run --linked` — "Remote database is up to date."
 - **`users.email` bridge** — unchanged (still future).
 - **Audit row coverage** — same (createPurchaseRequest still not audited; an INSERT-time trigger would now be the natural extension point if needed).
+
+---
+
+## Unit: Purchasing — AppSheet writer role, derive/audit triggers (P2)
+
+- **Status:** Complete — merged 2026-06-08 as PR #57 (`ab9cc3f`); post-merge migrations applied to the linked DB; `pnpm db:test` **409/409** (363 prior + 46 file 18, recorded in `b4adf79`). _Entry backfilled 2026-06-10 from git history — the unit shipped without a tracker entry._
+- **Spec:** [`docs/feature-specs/09-purchasing.md`](./feature-specs/09-purchasing.md) P2 scope + [`docs/feature-specs/06-appsheet-role.md`](./feature-specs/06-appsheet-role.md).
+- **ADR (new):** [`docs/decisions/0025-appsheet-purchase-delivery-write-path.md`](./decisions/0025-appsheet-purchase-delivery-write-path.md) (Accepted 2026-06-08) — supersedes ADR 0018's source-gated SELECT and INSERT-now grant-matrix entries.
+- **Commits:** `ab9cc3f` (PR #57), then direct-to-main follow-ups `b4adf79` (post-P2 test fixes + two-tier restructure), `c84f302` (Tier-2 smoke script), `9448c9c` (Tier-2b throwaway-requisition rework).
+
+### Done
+
+- **Migration `20260608140000`** — `ALTER TYPE` ×2: `purchase_request_purchase` + `purchase_request_delivery` added to `audit_action`.
+- **Migration `20260608140100`** — `CREATE ROLE appsheet_writer` (noinherit, **nologin**); SELECT grant; column-scoped UPDATE grant on the 7 fact columns (`supplier`, `order_ref`, `amount`, `purchased_at`, `delivered_at`, `received_by`, `delivery_note`); two `TO appsheet_writer` RLS policies gated `status IN ('approved','purchased','delivered')`; INSERT seam marked `-- future:`.
+- **Migration `20260608140200`** — BEFORE UPDATE derive/guard trigger: fact-column null→non-null advances `status` (`approved→purchased`, `purchased→delivered`); illegal moves raise `P0001`; corrections (no null→non-null transition) pass with status unchanged.
+- **Migration `20260608140300`** — AFTER UPDATE SECURITY DEFINER audit trigger: `session_user` captured as `payload.principal`; `actor_id`/`actor_role` NULL (no JWT); WHEN clause disjoint from P1b's decision trigger — no double-audit possible.
+- **pgTAP** — file 18 new (plan 46 after restructure); file 17 plan 82→87 (count-independent policy checks after P2's two new policies); file 03 `enum_has_labels` extended with the two new actions.
+- **Two-tier test strategy discovered and adopted** (`b4adf79`): `SET SESSION AUTHORIZATION` is infeasible on Supabase (postgres is not superuser; the db-query API blocks transaction-local GRANT-to-self). Tier 1 = pgTAP as postgres (trigger logic, grant matrix, policy quals, audit columns); Tier 2 = out-of-band smoke under a real `appsheet_writer` login at enablement (RLS row visibility, 42501 denials, principal capture). ADR 0025's testing note rewritten as the binding doctrine.
+- **Tier-2 smoke ritual committed** — `supabase/scripts/smoke/appsheet_writer_p2.sql` (`c84f302`), wrapped `BEGIN…ROLLBACK`; Tier-2b principal check reworked (`9448c9c`) to use a dedicated throwaway requisition created + approved through the native app, left in `purchased` state (no ad-hoc reset — change-management §1 applies to any later removal).
+- **`docs/go-live-checklist.md` §2a added** — AppSheet writer activation ritual: set password out-of-band, psql connectivity over the Session Pooler, smoke script (all `[PASS]`), Tier-2b principal assertion.
+
+### Verification
+
+- Post-merge `pnpm db:test` **409/409**, all files green (recorded in `b4adf79`'s commit body). Migrations confirmed applied to the linked remote DB.
+
+### Open questions / remaining
+
+- **Operator activation pending** — go-live checklist §2a: password, psql smoke, Tier-2b. The role stays NOLOGIN until then.
+- Wiring the actual AppSheet app to the Session Pooler happens after §2a sign-off.
+- `users.email` bridge and the AppSheet-originated INSERT seam — still future units.
+
+---
+
+## Unit: Go-live §1 — cleanup verification + SQL composition (session-only, no production code)
+
+- **Status:** Complete — 2026-06-10, in two acts. Act 1: the focused session go-live-checklist §1 prescribes — re-verified all six runbook items against migrations and composed the pre-flight + self-aborting destructive SQL (chat-only; never committed, per the compose-at-execution-time doctrine). Act 2: a live read-only audit (sanctioned by change-management.md — "inspect, audit, verify") revealed **the cleanup had already been executed 2026-06-07** via the policy's emergency path (audit_log `56a4d80e…`, cited as the exemplar in change-management.md §1), so the composed destructive block was retired unused — its identity assertions would have correctly refused to run against the already-clean DB.
+
+### Verified against migrations (all six §1 runbook items)
+
+- `photo_logs` block triggers: `photo_logs_block_update` / `photo_logs_block_delete` (BEFORE, FOR EACH ROW, raise P0001) — `20260524020000`.
+- `approvals` block triggers: `approvals_block_update` / `approvals_block_delete` — `20260524030000`.
+- `work_packages → photo_logs` and `→ approvals` FKs: both `ON DELETE CASCADE` (trigger still fires on cascade-driven DELETE, confirming the runbook's disable-wrap requirement).
+- `reports.project_id → projects` is `ON DELETE CASCADE`; **nothing references reports**; no block triggers on reports → per-row DELETE unobstructed.
+- Bucket paths: photos `{project_id}/{wp_id}/{photo_log_id}.{ext}` (`src/lib/photos/path.ts`); report PDFs `{project_id}/{report_id}.pdf` (`worker/src/index.ts:128`).
+
+### New facts the runbook inventory predates (purchasing landed 2026-06-08, after §1 was written)
+
+- `purchase_requests.work_package_id → work_packages` is `ON DELETE CASCADE` — a test requisition referencing WP-TEST-001 would cascade-delete silently. The composed destructive block **asserts zero** such rows and aborts otherwise.
+- The pre-flight script lists **all** `purchase_requests` rows so any test requisitions from P1b validation can be identified; cleaning those is a separate follow-up decision, not part of the composed block.
+- `photo_logs.superseded_by` self-FK is default NO ACTION (end-of-statement check) → a single-statement DELETE of all 7 rows is legal.
+- No `FORCE ROW LEVEL SECURITY` anywhere → the SQL editor's postgres (table-owner) context deletes once the two append-only trigger pairs are disabled.
+- All four `purchase_requests` triggers are UPDATE-only — nothing fires on DELETE, so a cascade would write no audit rows.
+
+### Decisions made
+
+- The destructive block is **self-aborting**: identity assertions (project code + WP code + WP id must agree) and per-DELETE `GET DIAGNOSTICS` count checks raise on any mismatch with the §1 inventory (7 photo_logs / 4 real / 1 approval / 3 reports / 0 purchase_requests), rolling back everything including the trigger disables. If it commits, the counts matched — no eyeballing required.
+- `audit_log` untouched, as always. Audit rows referencing deleted test entities remain as forensic residue by design.
+
+### Addendum — live-state audit (2026-06-10, same session)
+
+Read-only audit over `supabase db query --linked` (Management API, postgres context) plus `supabase db push --dry-run --linked`. Findings:
+
+- **§1 COMPLETE.** WP-TEST-001 row gone; 0 photo_logs / 0 approvals for it; 0 reports rows on PRC-2026-001; 0 photo objects and 0 PDFs under the project prefix (only zero-byte `.emptyFolderPlaceholder` dashboard artifacts remain — cosmetic); all append-only block triggers enabled (photo_logs 2, approvals 2, audit_log 3); PRC-2026-002 clean; maintenance audit row `56a4d80e…` (`action='other'` @ 2026-06-07) present. Drift check: "Remote database is up to date."
+- **§2a COMPLETE except one attestation.** `appsheet_writer` has LOGIN; password-set compliance audit row dated 2026-06-08; Tier-2b throwaway requisition `fcf4179d…` sits at `purchased` with both expected audit rows — `purchase_request_decision` (native approve) and `purchase_request_purchase` whose `payload->>'principal' = 'appsheet_writer'` (the exact Tier-2b assertion), re-verified live 2026-06-10. The smoke script's `[PASS]` lines roll back by design and cannot be confirmed from the DB — operator attests that box.
+- **Out-of-inventory test data found:** WP01 (PRC-2026-001) carries 3 photo_logs by Pattrawut @ 2026-05-25 — one visible Before photo, plus a During photo already tombstoned. Removable **in-app** (SA Remove control appends a tombstone); no SQL needed.
+- **Role roster findings:** 3 × super_admin (Pattrawut + MMApichai + Natch.r) vs the runbook's "Pattrawut only"; **0 × project_manager** (the §4 dry run needs one); 2 × site_admin (Preston Inter, Neno); 2 × visitor pending (Nichap., นัด). Likely resolution: demote the two extra super_admins to `project_manager` — fixes both findings at once; operator's call.
+- **Usage state:** approvals 0, reports 0 → the §4 dry run has not started. WPs 81/81 per pilot (template intact).
+
+### Remaining to launch (operator-only items)
+
+1. §2 roster: resolve the super_admin × 3 finding; promote or park the 2 visitors; ensure at least one real `project_manager` exists.
+2. §1 tail: remove the stray WP01 Before photo in-app, then tick the §1 spot-check box.
+3. §2a tail: tick the smoke-script `[PASS]` box if the script was run (the Tier-2b evidence says the ritual happened); wire the actual AppSheet app to the Session Pooler.
+4. §3: confirm both pilots really want the exact 81-WP template.
+5. §4: the dry run with one real SA + one real PM — the main remaining gate.
+6. §5: communicate v1 limitations; sign off and date the checklist.

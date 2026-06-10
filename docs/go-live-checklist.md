@@ -34,6 +34,21 @@ than an irreversible mistake against production.
 
 ## 1. Pre-go-live test-data cleanup ⚠️ **HIGHEST-RISK STEP**
 
+> **STATUS — COMPLETE (verified live 2026-06-10).** Executed 2026-06-07 via
+> the change-management emergency path and logged as `audit_log` row
+> `56a4d80e-…` (`action='other'`; cited as the exemplar in
+> `docs/policies/change-management.md` §1). Read-only audit 2026-06-10
+> confirmed: WP-TEST-001 gone, zero child rows, zero reports rows, zero
+> photo/PDF objects under the project prefix (only zero-byte
+> `.emptyFolderPlaceholder` dashboard artifacts remain — cosmetic), all
+> append-only block triggers re-enabled, PRC-2026-002 clean, and
+> `db push --dry-run` reports "Remote database is up to date."
+>
+> **One out-of-inventory item found:** WP01 on PRC-2026-001 carries test
+> photos by Pattrawut dated 2026-05-25 — one **visible Before photo** plus a
+> During photo already tombstoned. Remove the visible one **in-app** (open
+> WP01 as SA → Remove). No SQL — the append-only rows stay, as designed.
+
 You uploaded test photos and ran test reports while validating the
 build. That test data is sitting in the same tables as the real
 pilot data and needs to be removed **before** real users start
@@ -181,12 +196,13 @@ composing the SQL**.
    `WP-TEST-001` in the WP list. Load `/pm/projects/<PRC-2026-001>/reports`
    — no reports listed.
 
-- [ ] Re-verified trigger names + FK behaviour against current migrations
-- [ ] Re-verified `PRC-2026-002` has no surprise test data
-- [ ] Composed the cleanup SQL with Claude in a focused session
-- [ ] Ran the SQL — row counts matched the inventory
-- [ ] Deleted the 4 test photos from the `photos` bucket
-- [ ] Deleted the 3 test PDFs from the `reports` bucket
+- [x] Re-verified trigger names + FK behaviour against current migrations _(re-verified 2026-06-10)_
+- [x] Re-verified `PRC-2026-002` has no surprise test data _(live audit 2026-06-10: clean)_
+- [x] Composed the cleanup SQL with Claude in a focused session
+- [x] Ran the SQL — row counts matched the inventory _(2026-06-07; audit row `56a4d80e-…`)_
+- [x] Deleted the 4 test photos from the `photos` bucket _(verified: 0 objects remain)_
+- [x] Deleted the 3 test PDFs from the `reports` bucket _(verified: 0 objects remain)_
+- [ ] Removed the stray WP01 Before photo in-app _(out-of-inventory find, 2026-06-10 — see STATUS note above)_
 - [ ] Spot-checked `/sa` and `/pm/projects` — no test data visible
 
 ---
@@ -260,6 +276,23 @@ Roles for the v1 pilot:
   `SUPABASE_SERVICE_ROLE_KEY` from `.env.local` anywhere outside
   Vercel / Railway / your local machine.
 
+### Roster snapshot — live audit 2026-06-10
+
+| User               | Role        | Created    | Note                                                                       |
+| ------------------ | ----------- | ---------- | -------------------------------------------------------------------------- |
+| Pattrawut          | super_admin | 2026-05-23 | Operator ✓                                                                 |
+| MMApichai (อภิชัย) | super_admin | 2026-05-28 | ⚠️ Runbook says Pattrawut only — demote to `project_manager` or record why |
+| Natch.r 🙃         | super_admin | 2026-05-30 | ⚠️ Same                                                                    |
+| Preston Inter      | site_admin  | 2026-05-25 | ✓                                                                          |
+| Neno               | site_admin  | 2026-06-06 | ✓                                                                          |
+| Nichap.            | visitor     | 2026-06-07 | Pending promotion (or intentionally parked)                                |
+| นัด 🅽🅰︎🅳🅳🅰︎ 🧿     | visitor     | 2026-06-09 | Pending promotion (or intentionally parked)                                |
+
+**No `project_manager` exists yet** — the §4 dry run requires one real PM.
+Likely resolution: the two extra super_admins are the PM candidates; the §2
+promotion SQL works for demotion too (`set role = 'project_manager'`), and
+doing that resolves both findings at once. Operator's call.
+
 ### Checklist (per user)
 
 - [ ] User logged in once at /login and landed on /coming-soon
@@ -272,6 +305,19 @@ Repeat for every pilot user.
 ---
 
 ## 2a. AppSheet writer activation & smoke test
+
+> **STATUS — COMPLETE except one attestation (verified live 2026-06-10).**
+> Password was set 2026-06-08 with the compliance audit row
+> (`payload.event = 'set appsheet_writer password'`); the role now has
+> LOGIN. Tier-2b ran end-to-end on 2026-06-08: throwaway requisition
+> `fcf4179d-…` ("SMOKE TEST — … safe to leave") was approved through the
+> native flow (`purchase_request_decision` audit row) and purchased by a
+> real `appsheet_writer` session — its `purchase_request_purchase` audit
+> row reads `principal = 'appsheet_writer'`, re-verified live 2026-06-10.
+> Only the smoke script's `[PASS]` output cannot be verified from the DB
+> (the script rolls back by design) — tick that box yourself if you ran it.
+> Next integration step (outside this checklist): point the actual AppSheet
+> app at the Session Pooler with these credentials.
 
 The `appsheet_writer` DB role ships `NOLOGIN`. After `pnpm db:push` merges the
 Purchasing P2 migrations, the operator must set a password out-of-band (the
@@ -349,11 +395,11 @@ row. If it must be removed later, use the controlled service-role path from
 
 ### Checklist
 
-- [ ] Password set in Supabase SQL editor; audit log row inserted
-- [ ] psql connection as appsheet_writer succeeded
-- [ ] Smoke script: all checks returned `[PASS]`, no `[FAIL]` lines
-- [ ] Tier-2b: throwaway requisition created + approved via native app
-- [ ] Tier-2b: audit row confirmed `principal = 'appsheet_writer'`
+- [x] Password set in Supabase SQL editor; audit log row inserted _(2026-06-08; role has LOGIN)_
+- [x] psql connection as appsheet*writer succeeded *(implied by the committed Tier-2b purchase)\_
+- [ ] Smoke script: all checks returned `[PASS]`, no `[FAIL]` lines _(not DB-verifiable — operator attests)_
+- [x] Tier-2b: throwaway requisition created + approved via native app _(`fcf4179d-…`, 2026-06-08)_
+- [x] Tier-2b: audit row confirmed `principal = 'appsheet_writer'` _(re-verified live 2026-06-10)_
 
 ---
 
