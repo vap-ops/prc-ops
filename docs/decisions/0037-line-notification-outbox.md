@@ -110,6 +110,13 @@ friend (push to a non-friend fails per-recipient and is counted).
 ## Consequences
 
 - New enums/table/triggers are additive; no existing table changes.
+- **Deliberate breadth (review finding, recorded):** the PR capture
+  trigger emits `pr_cancelled` on ANY transition into `cancelled`, while
+  spec 32 §2 names only `approved→cancelled` (the only path that exists
+  today, app-guarded). If a future cancellation path lands (e.g.
+  requester self-cancel from `requested`), it will notify without a
+  spec change — but note the cancellation AUDIT trigger is gated on
+  `approved→cancelled`, so that future unit must widen audit too.
 - LINE message quota is plan-dependent (operator picks the OA plan;
   volumes at pilot scale are tens/day).
 - Recorded seams: per-user notification preferences/opt-out; LINE Flex

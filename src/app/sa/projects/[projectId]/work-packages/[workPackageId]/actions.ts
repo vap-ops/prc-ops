@@ -115,7 +115,7 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
       .from("work_packages")
       .update({ status: "pending_approval" })
       .eq("id", wp.id)
-      .in("status", TRANSITIONABLE_FROM_STATUSES as unknown as string[])
+      .in("status", TRANSITIONABLE_FROM_STATUSES)
       .select("id");
     // We deliberately don't roll back the photo_logs insert if the
     // status update fails — the photo is real and recorded; the

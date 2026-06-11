@@ -143,4 +143,38 @@ describe("parseServerEnv", () => {
       }),
     ).toThrow(/Invalid server environment variables/);
   });
+
+  it("parses with both optional notification vars absent (spec 32 env gate)", () => {
+    const env = parseServerEnv({
+      SUPABASE_SERVICE_ROLE_KEY: SERVICE_ROLE,
+      LINE_CHANNEL_ID: CHANNEL_ID,
+      LINE_CHANNEL_SECRET: CHANNEL_SECRET,
+    });
+    expect(env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN).toBeUndefined();
+    expect(env.NOTIFICATION_DRAIN_SECRET).toBeUndefined();
+  });
+
+  it("treats EMPTY notification vars as absent — a copied .env.example or a blank Vercel value must not crash boot", () => {
+    const env = parseServerEnv({
+      SUPABASE_SERVICE_ROLE_KEY: SERVICE_ROLE,
+      LINE_CHANNEL_ID: CHANNEL_ID,
+      LINE_CHANNEL_SECRET: CHANNEL_SECRET,
+      LINE_MESSAGING_CHANNEL_ACCESS_TOKEN: "",
+      NOTIFICATION_DRAIN_SECRET: "",
+    });
+    expect(env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN).toBeUndefined();
+    expect(env.NOTIFICATION_DRAIN_SECRET).toBeUndefined();
+  });
+
+  it("accepts configured notification vars", () => {
+    const env = parseServerEnv({
+      SUPABASE_SERVICE_ROLE_KEY: SERVICE_ROLE,
+      LINE_CHANNEL_ID: CHANNEL_ID,
+      LINE_CHANNEL_SECRET: CHANNEL_SECRET,
+      LINE_MESSAGING_CHANNEL_ACCESS_TOKEN: "messaging-token",
+      NOTIFICATION_DRAIN_SECRET: "drain-secret-32-chars-aaaaaaaaaa",
+    });
+    expect(env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN).toBe("messaging-token");
+    expect(env.NOTIFICATION_DRAIN_SECRET).toBe("drain-secret-32-chars-aaaaaaaaaa");
+  });
 });

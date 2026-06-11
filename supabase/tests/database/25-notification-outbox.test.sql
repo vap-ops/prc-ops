@@ -1,5 +1,5 @@
 begin;
-select plan(26);
+select plan(37);
 
 -- ============================================================================
 -- Spec 32 / ADR 0037 — LINE notification outbox.
@@ -42,9 +42,9 @@ values
    'Steel', 5, 'ton', '22222222-2222-2222-2222-22222222feed', 'approved',
    '33333333-3333-3333-3333-33333333feed', now());
 
-grant insert on _tap_buf to authenticated;
-grant select on _tap_buf to authenticated;
-grant usage  on sequence _tap_buf_ord_seq to authenticated;
+grant insert on _tap_buf to authenticated, anon;
+grant select on _tap_buf to authenticated, anon;
+grant usage  on sequence _tap_buf_ord_seq to authenticated, anon;
 
 -- ============================================================================
 -- B. Catalog.
@@ -82,8 +82,37 @@ select throws_ok(
   $$ insert into public.notification_outbox (event_type)
      values ('pr_created') $$,
   '42501', null, 'authenticated INSERT on outbox is denied (privilege revoked)');
+select throws_ok(
+  $$ update public.notification_outbox set status = 'sent' $$,
+  '42501', null, 'authenticated UPDATE on outbox is denied (privilege revoked)');
+select throws_ok(
+  $$ delete from public.notification_outbox $$,
+  '42501', null, 'authenticated DELETE on outbox is denied (privilege revoked)');
+
+set local role anon;
+select throws_ok(
+  $$ select count(*) from public.notification_outbox $$,
+  '42501', null, 'anon SELECT on outbox is denied');
 
 reset role;
+
+select policies_are('public', 'notification_outbox', array[]::name[],
+  'outbox has ZERO RLS policies on purpose (no user access path)');
+select ok(
+  not has_function_privilege('authenticated', 'public.invoke_notification_drain()', 'execute'),
+  'authenticated cannot execute invoke_notification_drain (no PostgREST RPC exposure)');
+select ok(
+  not has_function_privilege('anon', 'public.invoke_notification_drain()', 'execute'),
+  'anon cannot execute invoke_notification_drain');
+select is(
+  (select count(*)::int from pg_proc p
+     join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname in ('notify_wp_pending_approval', 'notify_wp_decision',
+                        'notify_pr_created', 'notify_pr_status_change')
+      and p.prosecdef
+      and array_to_string(p.proconfig, ',') like '%search_path=public%'),
+  4, 'all four capture functions are SECURITY DEFINER with pinned search_path');
 
 -- ============================================================================
 -- D. Capture triggers exist.
@@ -148,6 +177,22 @@ select is(
        and payload->'transition' = '["requested", "approved"]'::jsonb
        and payload->>'decided_by' = '33333333-3333-3333-3333-33333333feed'),
   1, 'decision produced one pr_decision row with transition + decided_by');
+
+-- E.2b WHEN-guard negative: an INSERT that lands in a non-requested
+--      status must produce no pr_created row.
+insert into public.purchase_requests
+  (id, work_package_id, item_description, quantity, unit, requested_by, status,
+   approved_by, decided_at)
+values
+  ('b5000000-0000-4000-8000-00000000feed',
+   'eeeeeeee-eeee-eeee-eeee-eeeeeeeefeed',
+   'Direct approved', 1, 'ea', '22222222-2222-2222-2222-22222222feed', 'approved',
+   '33333333-3333-3333-3333-33333333feed', now());
+
+select is(
+  (select count(*)::int from public.notification_outbox
+     where purchase_request_id = 'b5000000-0000-4000-8000-00000000feed'::uuid),
+  0, 'INSERT with non-requested status produces no outbox row (WHEN guard)');
 
 -- E.3 Derive-driven transition (the AppSheet write path shape): setting
 --     purchased_at flips approved→purchased via the derive trigger; the
@@ -218,6 +263,36 @@ select is(
        and payload->>'comment' = 'แก้ไขรูปช่วงหลัง'
        and payload->>'decided_by' = '33333333-3333-3333-3333-33333333feed'),
   1, 'approvals insert produced one wp_decision row with snapshot payload');
+
+-- ============================================================================
+-- F2. Failure-swallowing posture (ADR 0037's headline divergence from the
+--     audit triggers): a capture failure must NOT block the domain write.
+--     Renaming the outbox away makes every capture insert fail; the WP
+--     status write must still land, with only a WARNING raised.
+-- ============================================================================
+
+insert into public.work_packages (id, project_id, code, name) values
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeee2feed',
+   'cccccccc-cccc-cccc-cccc-ccccccccfeed', 'WP-NOTIF-2', 'Swallow fixture WP');
+
+alter table public.notification_outbox rename to notification_outbox_hidden;
+
+select lives_ok(
+  $$ update public.work_packages
+       set status = 'pending_approval'
+     where id = 'eeeeeeee-eeee-eeee-eeee-eeeeeee2feed' $$,
+  'WP write lives while the outbox insert fails (capture failure swallowed)');
+
+alter table public.notification_outbox_hidden rename to notification_outbox;
+
+select is(
+  (select status::text from public.work_packages
+     where id = 'eeeeeeee-eeee-eeee-eeee-eeeeeee2feed'),
+  'pending_approval', 'the status transition landed despite the capture failure');
+select is(
+  (select count(*)::int from public.notification_outbox
+     where work_package_id = 'eeeeeeee-eeee-eeee-eeee-eeeeeee2feed'::uuid),
+  0, 'no outbox row was written during the failure window');
 
 -- ============================================================================
 -- G. Drain schedule (migration B) is in place.

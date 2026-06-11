@@ -181,6 +181,63 @@ export type Database = {
           },
         ];
       };
+      notification_outbox: {
+        Row: {
+          attempts: number;
+          claimed_at: string | null;
+          created_at: string;
+          event_type: Database["public"]["Enums"]["notification_event_type"];
+          id: string;
+          last_error: string | null;
+          payload: Json;
+          purchase_request_id: string | null;
+          sent_at: string | null;
+          status: Database["public"]["Enums"]["notification_status"];
+          work_package_id: string | null;
+        };
+        Insert: {
+          attempts?: number;
+          claimed_at?: string | null;
+          created_at?: string;
+          event_type: Database["public"]["Enums"]["notification_event_type"];
+          id?: string;
+          last_error?: string | null;
+          payload?: Json;
+          purchase_request_id?: string | null;
+          sent_at?: string | null;
+          status?: Database["public"]["Enums"]["notification_status"];
+          work_package_id?: string | null;
+        };
+        Update: {
+          attempts?: number;
+          claimed_at?: string | null;
+          created_at?: string;
+          event_type?: Database["public"]["Enums"]["notification_event_type"];
+          id?: string;
+          last_error?: string | null;
+          payload?: Json;
+          purchase_request_id?: string | null;
+          sent_at?: string | null;
+          status?: Database["public"]["Enums"]["notification_status"];
+          work_package_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notification_outbox_purchase_request_id_fkey";
+            columns: ["purchase_request_id"];
+            isOneToOne: false;
+            referencedRelation: "purchase_requests";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "notification_outbox_work_package_id_fkey";
+            columns: ["work_package_id"];
+            isOneToOne: false;
+            referencedRelation: "work_packages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       photo_logs: {
         Row: {
           captured_at_client: string | null;
@@ -791,6 +848,7 @@ export type Database = {
         Args: never;
         Returns: Database["public"]["Enums"]["user_role"];
       };
+      invoke_notification_drain: { Args: never; Returns: undefined };
       pr_attachment_tombstone_target_ok: {
         Args: { p_caller: string; p_parent: string; p_target: string };
         Returns: boolean;
@@ -823,6 +881,14 @@ export type Database = {
         | "purchase_request_decision"
         | "purchase_request_purchase"
         | "purchase_request_delivery";
+      notification_event_type:
+        | "wp_pending_approval"
+        | "wp_decision"
+        | "pr_created"
+        | "pr_decision"
+        | "pr_progress"
+        | "pr_cancelled";
+      notification_status: "pending" | "sending" | "sent" | "failed" | "expired";
       photo_phase: "before" | "during" | "after";
       project_status: "active" | "on_hold" | "completed" | "archived";
       purchase_request_attachment_kind: "image" | "link";
@@ -1001,6 +1067,15 @@ export const Constants = {
         "purchase_request_purchase",
         "purchase_request_delivery",
       ],
+      notification_event_type: [
+        "wp_pending_approval",
+        "wp_decision",
+        "pr_created",
+        "pr_decision",
+        "pr_progress",
+        "pr_cancelled",
+      ],
+      notification_status: ["pending", "sending", "sent", "failed", "expired"],
       photo_phase: ["before", "during", "after"],
       project_status: ["active", "on_hold", "completed", "archived"],
       purchase_request_attachment_kind: ["image", "link"],

@@ -710,6 +710,58 @@ them later. None of these block the pilot.
 
 ---
 
+## 8. LINE notifications activation (spec 32 / ADR 0037)
+
+Shipped 2026-06-11, **dormant until you do this section.** The DB is
+already capturing events into `notification_outbox` and pg_cron pings
+the drain endpoint every minute; the endpoint answers 503 (and rows
+expire after 24 h) until the four configuration values below exist.
+Nothing here is destructive and every step is reversible by removing
+the value again.
+
+1. **Create the Messaging API channel.** LINE Developers console →
+   the same provider as the Login channel → "Create a Messaging API
+   channel". This is a SEPARATE channel from LINE Login — do not touch
+   the Login channel. Under the new channel's **Messaging API** tab,
+   issue a **channel access token (long-lived)** and copy it.
+2. **Generate the drain secret.** Any 32+ character random string
+   (password generator is fine). It is shared between Vercel and
+   Supabase Vault — nowhere else.
+3. **Vercel env vars** (Project → Settings → Environment Variables,
+   Production):
+   - `LINE_MESSAGING_CHANNEL_ACCESS_TOKEN` = the token from step 1
+   - `NOTIFICATION_DRAIN_SECRET` = the secret from step 2
+
+   Then **Redeploy** so the running app picks them up.
+
+4. **Supabase Vault secrets** (Dashboard → Project Settings → Vault):
+   - `notification_drain_url` =
+     `https://prc-ops.vercel.app/api/notifications/drain`
+   - `notification_drain_secret` = the SAME value as step 2
+
+   (Vault entries are configuration, not schema/data/roles — adding
+   them via the dashboard is in-policy.)
+
+5. **Users add the OA as friend.** The channel's QR code is under the
+   Messaging API tab. Send it to the pilot LINE group; anyone who has
+   not added the OA simply gets no pushes (counted as a per-recipient
+   failure, nothing breaks). Fold into §2 onboarding for new users.
+6. **Acceptance probe.** Upload an After photo on a test-safe WP (or
+   raise a throwaway purchase request): every PM phone should get a
+   LINE message within ~1 minute. Then check
+   `select status, count(*) from notification_outbox group by status;`
+   in the SQL editor (read-only) — expect `sent` rows and no `failed`.
+7. **If nothing arrives:** check Vercel function logs for
+   `/api/notifications/drain` (401 = secret mismatch between Vault and
+   Vercel; 503 = env vars missing/not redeployed), then
+   `select * from cron.job_run_details order by start_time desc limit 10;`
+   (read-only) for scheduler errors.
+
+- [ ] Section 8 — LINE notifications activated and probe message
+      received
+
+---
+
 ## Sign-off
 
 Once every checkbox above is ticked, the v1 pilot is live.

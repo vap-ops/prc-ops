@@ -10,6 +10,11 @@
 import "server-only";
 import { z } from "zod";
 
+const optionalNonEmpty = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z.string().min(1).optional(),
+);
+
 const serverSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   // LINE Login (server-side only). The app runs LINE's OAuth and HS256
@@ -17,6 +22,14 @@ const serverSchema = z.object({
   // key for verification; channel id is the audience claim.
   LINE_CHANNEL_ID: z.string().min(1),
   LINE_CHANNEL_SECRET: z.string().min(1),
+  // LINE Messaging API (spec 32 / ADR 0037). Both OPTIONAL on purpose:
+  // the notification drain endpoint answers 503 until the operator
+  // configures the Messaging channel — deploys must keep booting without
+  // these. Distinct channel from LINE Login above. Empty string counts
+  // as absent: a copied .env.example line or a blank Vercel value must
+  // not crash boot.
+  LINE_MESSAGING_CHANNEL_ACCESS_TOKEN: optionalNonEmpty,
+  NOTIFICATION_DRAIN_SECRET: optionalNonEmpty,
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;
