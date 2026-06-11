@@ -58,7 +58,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
   const { data: wpRequests } = await supabase
     .from("purchase_requests")
     .select(
-      "id, item_description, quantity, unit, status, requested_at, decided_at, purchased_at, shipped_at, delivered_at, eta",
+      "id, pr_number, item_description, quantity, unit, status, requested_at, decided_at, purchased_at, shipped_at, delivered_at, eta",
     )
     .eq("work_package_id", wp.id)
     .order("requested_at", { ascending: false });
@@ -115,6 +115,9 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <p className="min-w-0 truncate text-sm text-zinc-900">
+                        <span className="mr-1.5 font-mono text-xs text-zinc-500">
+                          PR-{String(r.pr_number).padStart(4, "0")}
+                        </span>
                         {r.item_description}
                         <span className="mx-2 text-zinc-400">·</span>
                         <span className="text-zinc-700">

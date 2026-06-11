@@ -37,11 +37,14 @@ const STAGE_LABEL: Record<Stage, string> = {
 };
 
 // How far along the pipeline each status reaches (index into STAGES).
-// rejected reaches the decision stage (index 1) and terminates there.
+// rejected reaches the decision stage (index 1) and terminates there;
+// cancelled (spec 27) also stops after the decision stage but keeps the
+// approve stage green — it was approved, then administratively closed.
 const STATUS_RANK: Record<PurchaseRequestStatus, number> = {
   requested: 0,
   approved: 1,
   rejected: 1,
+  cancelled: 1,
   purchased: 2,
   on_route: 3,
   delivered: 4,
@@ -60,6 +63,7 @@ export function PurchaseRequestTracker({
 }: PurchaseRequestTrackerProps) {
   const rank = STATUS_RANK[status];
   const rejected = status === "rejected";
+  const cancelled = status === "cancelled";
   const stageDate: Record<Stage, string | null> = {
     requested: requestedAt,
     approved: decidedAt,
@@ -77,9 +81,13 @@ export function PurchaseRequestTracker({
             : i === 1
               ? "rejected"
               : "cancelled"
-          : i <= rank
-            ? "done"
-            : "pending";
+          : cancelled
+            ? i <= rank
+              ? "done"
+              : "cancelled"
+            : i <= rank
+              ? "done"
+              : "pending";
         const isCurrent = rejected ? i === 1 : i === rank;
         const date = stageDate[stage];
         const label = rejected && stage === "approved" ? "ไม่อนุมัติ" : STAGE_LABEL[stage];

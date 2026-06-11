@@ -144,6 +144,10 @@ export function purchaseRequestStatusPillClasses(status: PurchaseRequestStatus):
       // Negative terminal — the only red pill in the purchasing flow.
       // The rejection comment block on /requests explains why.
       return PILL_RED;
+    case "cancelled":
+      // Administrative close (ADR 0031) — muted like archived projects,
+      // not red: nothing was refused, the need simply went away.
+      return PILL_MUTED;
     case "purchased":
       // In flight with the back office (AppSheet) — goods ordered but
       // not yet on site. Amber, like the in-flight WP statuses.

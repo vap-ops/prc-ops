@@ -140,6 +140,50 @@ export async function decidePurchaseRequest(
   return { ok: true, status: input.decision };
 }
 
+// cancelPurchaseRequest (spec 27 / ADR 0031): PM/super closes an
+// approved request that will never be purchased. Same two-layer guard
+// as decidePurchaseRequest — JS shape check + SQL .eq(status,'approved')
+// safety net; the audit row is written by the
+// purchase_requests_audit_cancellation trigger inside the same txn.
+export interface CancelPurchaseRequestInput {
+  id: string;
+}
+
+export type CancelPurchaseRequestResult = { ok: true } | { ok: false; error: string };
+
+export async function cancelPurchaseRequest(
+  input: CancelPurchaseRequestInput,
+): Promise<CancelPurchaseRequestResult> {
+  if (!UUID_REGEX.test(input.id)) return { ok: false, error: "รหัสคำขอไม่ถูกต้อง" };
+
+  const supabase = await createServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+
+  const { data, error } = await supabase
+    .from("purchase_requests")
+    .update({
+      status: "cancelled",
+      cancelled_at: new Date().toISOString(),
+      cancelled_by: user.id,
+    })
+    .eq("id", input.id)
+    .eq("status", "approved")
+    .select("id");
+
+  if (error) {
+    return { ok: false, error: "ยกเลิกคำขอไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+  if (!data || data.length === 0) {
+    return { ok: false, error: "คำขอนี้ไม่อยู่ในสถานะที่ยกเลิกได้" };
+  }
+
+  revalidatePath("/requests");
+  return { ok: true };
+}
+
 // --- Delivery-confirmation photos (spec 23 / ADR 0028) -------------------
 //
 // addDeliveryConfirmationPhoto: metadata-only — the browser has already

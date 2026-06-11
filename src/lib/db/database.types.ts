@@ -347,6 +347,9 @@ export type Database = {
         Row: {
           amount: number | null;
           approved_by: string | null;
+          cancellation_reason: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
           created_at: string;
           decided_at: string | null;
           decision_comment: string | null;
@@ -357,6 +360,7 @@ export type Database = {
           item_description: string;
           needed_by: string | null;
           order_ref: string | null;
+          pr_number: number;
           priority: Database["public"]["Enums"]["purchase_request_priority"];
           purchased_at: string | null;
           quantity: number;
@@ -375,6 +379,9 @@ export type Database = {
         Insert: {
           amount?: number | null;
           approved_by?: string | null;
+          cancellation_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
           created_at?: string;
           decided_at?: string | null;
           decision_comment?: string | null;
@@ -385,6 +392,7 @@ export type Database = {
           item_description: string;
           needed_by?: string | null;
           order_ref?: string | null;
+          pr_number?: number;
           priority?: Database["public"]["Enums"]["purchase_request_priority"];
           purchased_at?: string | null;
           quantity: number;
@@ -403,6 +411,9 @@ export type Database = {
         Update: {
           amount?: number | null;
           approved_by?: string | null;
+          cancellation_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
           created_at?: string;
           decided_at?: string | null;
           decision_comment?: string | null;
@@ -413,6 +424,7 @@ export type Database = {
           item_description?: string;
           needed_by?: string | null;
           order_ref?: string | null;
+          pr_number?: number;
           priority?: Database["public"]["Enums"]["purchase_request_priority"];
           purchased_at?: string | null;
           quantity?: number;
@@ -432,6 +444,13 @@ export type Database = {
           {
             foreignKeyName: "purchase_requests_approved_by_fkey";
             columns: ["approved_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_requests_cancelled_by_fkey";
+            columns: ["cancelled_by"];
             isOneToOne: false;
             referencedRelation: "users";
             referencedColumns: ["id"];
@@ -714,6 +733,7 @@ export type Database = {
         | "requested"
         | "approved"
         | "rejected"
+        | "cancelled"
         | "purchased"
         | "on_route"
         | "delivered";
@@ -891,6 +911,7 @@ export const Constants = {
         "requested",
         "approved",
         "rejected",
+        "cancelled",
         "purchased",
         "on_route",
         "delivered",

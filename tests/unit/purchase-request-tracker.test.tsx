@@ -85,6 +85,20 @@ describe("PurchaseRequestTracker (spec 22)", () => {
     expect(onRoute).toHaveTextContent("—");
   });
 
+  it("cancelled renders approve as done and the rest as muted cancelled stages (spec 27)", () => {
+    render(
+      <PurchaseRequestTracker status="cancelled" {...BASE} decidedAt="2026-06-02T08:00:00Z" />,
+    );
+    const byStage = Object.fromEntries(steps().map((li) => [li.getAttribute("data-stage"), li]));
+    expect(byStage["requested"]).toHaveAttribute("data-state", "done");
+    expect(byStage["approved"]).toHaveAttribute("data-state", "done");
+    expect(byStage["purchased"]).toHaveAttribute("data-state", "cancelled");
+    expect(byStage["on_route"]).toHaveAttribute("data-state", "cancelled");
+    expect(byStage["delivered"]).toHaveAttribute("data-state", "cancelled");
+    // Administrative close, not a refusal — no red ไม่อนุมัติ rendering.
+    expect(screen.queryByText("ไม่อนุมัติ")).not.toBeInTheDocument();
+  });
+
   it("shows ETA under the delivery stage while undelivered, and not after delivery", () => {
     const { rerender } = render(
       <PurchaseRequestTracker

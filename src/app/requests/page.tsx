@@ -42,6 +42,7 @@ import {
 } from "@/lib/status-colors";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { PurchaseRequestDecision } from "@/components/features/purchase-request-decision";
+import { PurchaseRequestCancel } from "@/components/features/purchase-request-cancel";
 import { PurchaseRequestTracker } from "@/components/features/purchase-request-tracker";
 import { DeliveryPhotoUploader } from "@/components/features/delivery-photo-uploader";
 import { PurchaseRequestAttachmentStager } from "@/components/features/purchase-request-attachment-stager";
@@ -112,7 +113,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   const { data: visibleRequests, error: myError } = await supabase
     .from("purchase_requests")
     .select(
-      "id, work_package_id, item_description, quantity, unit, status, requested_at, requested_by, requested_by_email, decision_comment, decided_at, purchased_at, shipped_at, supplier, delivered_at, received_by, delivery_note, needed_by, eta, priority",
+      "id, pr_number, work_package_id, item_description, quantity, unit, status, requested_at, requested_by, requested_by_email, decision_comment, decided_at, purchased_at, shipped_at, supplier, delivered_at, received_by, delivery_note, needed_by, eta, priority",
     )
     .order("requested_at", { ascending: false });
 
@@ -313,6 +314,11 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                           </p>
                         ) : null}
                         <p className="truncate text-base text-zinc-900">
+                          {/* PR running number (spec 27) — the phone-callable
+                              identity for site ↔ procurement talk. */}
+                          <span className="mr-1.5 font-mono text-xs text-zinc-500">
+                            PR-{String(r.pr_number).padStart(4, "0")}
+                          </span>
                           {r.item_description}
                           <span className="mx-2 text-zinc-400">·</span>
                           <span className="text-zinc-700">
@@ -488,6 +494,11 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                     {isDecider && status === "requested" ? (
                       <div className="mt-3 border-t border-zinc-300 pt-3">
                         <PurchaseRequestDecision requestId={r.id} />
+                      </div>
+                    ) : null}
+                    {isDecider && status === "approved" ? (
+                      <div className="mt-3 border-t border-zinc-300 pt-3">
+                        <PurchaseRequestCancel requestId={r.id} />
                       </div>
                     ) : null}
                   </li>
