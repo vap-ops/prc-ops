@@ -5727,3 +5727,17 @@ Read-only audit over `supabase db query --linked` (Management API, postgres cont
 - Structural UX items still queued from spec 14: shared app-header refactor (three-pattern split), palette/theme identity + outdoor light theme (wants operator input), super_admin hub as a real route, themed confirm dialogs/toasts (replaces `window.confirm`; would carry the lightbox focus-trap work), progressive disclosure on `/pm/requests`, PWA manifest/icons/theme-color (needs icon assets).
 - Docs refresh unit (v2-handoff, README, CLAUDE.md roles) still queued from the 2026-06-11 audit.
 - Live browser checks pending operator: (1) `/requests` as an SA with a rejected request → comment block renders; (2) a purchased/delivered row (AppSheet-written facts) renders dates/supplier/receiver; (3) tap a review photo → lightbox; Escape and backdrop close it; (4) throttle the network → skeletons appear on route loads.
+
+---
+
+## Unit: spec 16 design draft — purchase-request enrichment (docs-only; awaiting operator lock)
+
+- **Status:** Draft committed 2026-06-11; awaiting operator answers to spec 16 SS9 (Q1-Q4, defaults stated) before lock + ADR 0026.
+- **Spec:** [`docs/feature-specs/16-purchase-request-enrichment.md`](./feature-specs/16-purchase-request-enrichment.md) - iteration 3 of the standing whole-app-upgrade brief: unit dropdown + free-text other, needed_by, eta (AppSheet-written), reference image/link attachments.
+- **Method:** 12-agent design pass - 5 constraint readers (data layer / app UX / storage precedent / AppSheet mechanics / guardrails), 3 design lenses (minimal-diff, security-first, workflow-first), 1 synthesis, 3 adversarial skeptics (RLS-security, AppSheet-compat, repo-discipline). All verified findings folded into the draft:
+  - [major] attachments table now TRIPLE-enforced append-only (block-write trigger added; two layers were claimed as "immutable" - audit_log/photo_logs precedent requires three).
+  - [major] storage upload policy is PATH-BOUND to the caller's own pending request (project_id + PR id segments verified in WITH CHECK) - the photos bucket's role-only looseness must not carry over to a client-built path.
+  - [major] recovery-expander projectId data flow corrected (pinned query already selects project_id; the own-rows WP lookup is the one that must add it).
+  - eta audited in ONE canonical shape (case-3 correction diff only; bundled-transition gap recorded as the accepted pre-existing posture); grant + audit amendment in one migration; function body AND trigger WHEN both amended (dual hard-coded column lists verified at 20260608140300).
+  - Tier-2 smoke amendments phase-tagged with an operator fixture protocol (no vacuous-pass on an empty attachments table); AppSheet read-only column config for needed_by made a REQUIREMENT (42501-wholesale trap); protect-audit-log hook claim corrected (path-regex only); ADR 0026 must carry in-place back-pointer edits (ADR 0018 matrix, ADR 0022 x2, ADR 0025); verified-by-checklist posture sentence added for non-pure surfaces; late-ETA badge gated behind operator Q4 (amount-display precedent).
+- **Next:** operator answers Q1-Q4 (or accepts defaults) -> write ADR 0026 -> implement P1 (dates + unit picker) then P2 (attachments) as separate units.
