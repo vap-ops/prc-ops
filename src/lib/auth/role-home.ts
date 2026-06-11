@@ -8,6 +8,9 @@ export type UserRole = Database["public"]["Enums"]["user_role"];
 
 export function roleHome(role: UserRole): string {
   if (role === "site_admin") return "/sa";
-  if (role === "project_manager") return "/pm";
+  // super_admin is admitted to every v1 surface (requireRole lists it
+  // everywhere) and the bottom tab bar gives it the PM set (spec 19) —
+  // so it lands on /pm, never /coming-soon.
+  if (role === "project_manager" || role === "super_admin") return "/pm";
   return "/coming-soon";
 }
