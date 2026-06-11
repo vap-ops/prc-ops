@@ -1,0 +1,222 @@
+begin;
+select plan(24);
+
+-- ============================================================================
+-- Spec 32 / ADR 0037 — LINE notification outbox.
+-- Capture layer: enums + table shape, zero-user-access posture, and the four
+-- SECURITY DEFINER capture triggers (WP pending_approval, approvals decision,
+-- PR created, PR status transitions incl. derive-driven and cancellation).
+-- ============================================================================
+
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('11111111-1111-1111-1111-11111111feed', 'super@notif-test.local', '{}'::jsonb),
+  ('22222222-2222-2222-2222-22222222feed', 'sa@notif-test.local',    '{}'::jsonb),
+  ('33333333-3333-3333-3333-33333333feed', 'pm@notif-test.local',    '{}'::jsonb);
+
+update public.users set role = 'super_admin'     where id = '11111111-1111-1111-1111-11111111feed';
+update public.users set role = 'site_admin'      where id = '22222222-2222-2222-2222-22222222feed';
+update public.users set role = 'project_manager' where id = '33333333-3333-3333-3333-33333333feed';
+
+insert into public.projects (id, code, name) values
+  ('cccccccc-cccc-cccc-cccc-ccccccccfeed', 'PRC-TEST-NOTIF', 'Notification fixture project');
+insert into public.work_packages (id, project_id, code, name) values
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeefeed',
+   'cccccccc-cccc-cccc-cccc-ccccccccfeed', 'WP-NOTIF-1', 'Notification fixture WP');
+
+-- q1: approved (purchased-derive fixture). q2: requested (decision fixture).
+-- q4: approved (cancellation fixture). q3 is created in-test by the SA.
+insert into public.purchase_requests
+  (id, work_package_id, item_description, quantity, unit, requested_by, status,
+   approved_by, decided_at)
+values
+  ('b1000000-0000-4000-8000-00000000feed',
+   'eeeeeeee-eeee-eeee-eeee-eeeeeeeefeed',
+   'Cement', 10, 'bag', '22222222-2222-2222-2222-22222222feed', 'approved',
+   '33333333-3333-3333-3333-33333333feed', now()),
+  ('b2000000-0000-4000-8000-00000000feed',
+   'eeeeeeee-eeee-eeee-eeee-eeeeeeeefeed',
+   'Sand', 2, 'truck', '22222222-2222-2222-2222-22222222feed', 'requested',
+   null, null),
+  ('b4000000-0000-4000-8000-00000000feed',
+   'eeeeeeee-eeee-eeee-eeee-eeeeeeeefeed',
+   'Steel', 5, 'ton', '22222222-2222-2222-2222-22222222feed', 'approved',
+   '33333333-3333-3333-3333-33333333feed', now());
+
+grant insert on _tap_buf to authenticated;
+grant select on _tap_buf to authenticated;
+grant usage  on sequence _tap_buf_ord_seq to authenticated;
+
+-- ============================================================================
+-- B. Catalog.
+-- ============================================================================
+
+select has_table('public', 'notification_outbox', 'notification_outbox exists');
+select enum_has_labels('public', 'notification_event_type',
+  array['wp_pending_approval', 'wp_decision', 'pr_created',
+        'pr_decision', 'pr_progress', 'pr_cancelled'],
+  'notification_event_type labels');
+select enum_has_labels('public', 'notification_status',
+  array['pending', 'sent', 'failed', 'expired'],
+  'notification_status labels');
+select has_column('public', 'notification_outbox', 'event_type', 'event_type exists');
+select has_column('public', 'notification_outbox', 'payload',    'payload exists');
+select has_column('public', 'notification_outbox', 'attempts',   'attempts exists');
+select has_column('public', 'notification_outbox', 'sent_at',    'sent_at exists');
+select ok(
+  (select relrowsecurity from pg_class
+     where oid = 'public.notification_outbox'::regclass),
+  'RLS is enabled on notification_outbox');
+
+-- ============================================================================
+-- C. Zero user access (privileges revoked; no policies).
+-- ============================================================================
+
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-11111111feed"}';
+
+select throws_ok(
+  $$ select count(*) from public.notification_outbox $$,
+  '42501', null, 'authenticated SELECT on outbox is denied (privilege revoked)');
+select throws_ok(
+  $$ insert into public.notification_outbox (event_type)
+     values ('pr_created') $$,
+  '42501', null, 'authenticated INSERT on outbox is denied (privilege revoked)');
+
+reset role;
+
+-- ============================================================================
+-- D. Capture triggers exist.
+-- ============================================================================
+
+select has_trigger('public', 'work_packages',
+  'work_packages_notify_pending_approval', 'WP pending_approval capture trigger exists');
+select has_trigger('public', 'approvals',
+  'approvals_notify_decision', 'approvals decision capture trigger exists');
+select has_trigger('public', 'purchase_requests',
+  'purchase_requests_notify_created', 'PR created capture trigger exists');
+select has_trigger('public', 'purchase_requests',
+  'purchase_requests_notify_status_change', 'PR status-change capture trigger exists');
+
+-- ============================================================================
+-- E. Capture behavior — purchase requests.
+-- ============================================================================
+
+set local role authenticated;
+
+-- E.1 SA raises a PR through the real RLS path → pr_created row.
+set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-22222222feed"}';
+select lives_ok(
+  $$ insert into public.purchase_requests
+       (id, work_package_id, item_description, quantity, unit, requested_by, source)
+     values
+       ('b3000000-0000-4000-8000-00000000feed',
+        'eeeeeeee-eeee-eeee-eeee-eeeeeeeefeed',
+        'Notify cement', 3, 'bag', '22222222-2222-2222-2222-22222222feed', 'app') $$,
+  'SA creates a PR (capture trigger must not block the insert)');
+
+-- E.2 PM decides q2 through the real RLS path → pr_decision row.
+set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-33333333feed"}';
+select lives_ok(
+  $$ update public.purchase_requests
+       set status = 'approved',
+           approved_by = '33333333-3333-3333-3333-33333333feed',
+           decided_at = now()
+     where id = 'b2000000-0000-4000-8000-00000000feed'
+       and status = 'requested' $$,
+  'PM approves a PR (capture trigger must not block the decide path)');
+
+reset role;
+
+select is(
+  (select count(*)::int from public.notification_outbox
+     where event_type = 'pr_created'
+       and purchase_request_id = 'b3000000-0000-4000-8000-00000000feed'::uuid
+       and payload->>'item_description' = 'Notify cement'
+       and payload->>'requested_by' = '22222222-2222-2222-2222-22222222feed'),
+  1, 'PR insert produced one pr_created outbox row with snapshot payload');
+
+select is(
+  (select status::text || '/' || attempts::text from public.notification_outbox
+     where purchase_request_id = 'b3000000-0000-4000-8000-00000000feed'::uuid),
+  'pending/0', 'new outbox rows default to pending with zero attempts');
+
+select is(
+  (select count(*)::int from public.notification_outbox
+     where event_type = 'pr_decision'
+       and purchase_request_id = 'b2000000-0000-4000-8000-00000000feed'::uuid
+       and payload->'transition' = '["requested", "approved"]'::jsonb
+       and payload->>'decided_by' = '33333333-3333-3333-3333-33333333feed'),
+  1, 'decision produced one pr_decision row with transition + decided_by');
+
+-- E.3 Derive-driven transition (the AppSheet write path shape): setting
+--     purchased_at flips approved→purchased via the derive trigger; the
+--     capture trigger must see it even though no client wrote `status`.
+update public.purchase_requests
+   set purchased_at = now()
+ where id = 'b1000000-0000-4000-8000-00000000feed';
+
+select is(
+  (select count(*)::int from public.notification_outbox
+     where event_type = 'pr_progress'
+       and purchase_request_id = 'b1000000-0000-4000-8000-00000000feed'::uuid
+       and payload->'transition' = '["approved", "purchased"]'::jsonb),
+  1, 'derive-driven approved→purchased produced one pr_progress row');
+
+-- E.4 Cancellation → pr_cancelled with the reason snapshot.
+update public.purchase_requests
+   set status = 'cancelled',
+       cancelled_at = now(),
+       cancelled_by = '33333333-3333-3333-3333-33333333feed',
+       cancellation_reason = 'ไม่ต้องการแล้ว'
+ where id = 'b4000000-0000-4000-8000-00000000feed';
+
+select is(
+  (select count(*)::int from public.notification_outbox
+     where event_type = 'pr_cancelled'
+       and purchase_request_id = 'b4000000-0000-4000-8000-00000000feed'::uuid
+       and payload->>'cancellation_reason' = 'ไม่ต้องการแล้ว'),
+  1, 'cancellation produced one pr_cancelled row with the reason');
+
+-- ============================================================================
+-- F. Capture behavior — work packages + approvals.
+-- ============================================================================
+
+-- F.1 WP flips to pending_approval (admin-client path shape: direct UPDATE).
+update public.work_packages
+   set status = 'pending_approval'
+ where id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeefeed';
+
+select is(
+  (select count(*)::int from public.notification_outbox
+     where event_type = 'wp_pending_approval'
+       and work_package_id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeefeed'::uuid
+       and payload->>'code' = 'WP-NOTIF-1'),
+  1, 'WP → pending_approval produced one wp_pending_approval row with code');
+
+-- F.2 A WP update that does NOT change status must not produce a second row.
+update public.work_packages
+   set name = 'Notification fixture WP (renamed)'
+ where id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeefeed';
+
+select is(
+  (select count(*)::int from public.notification_outbox
+     where event_type = 'wp_pending_approval'
+       and work_package_id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeefeed'::uuid),
+  1, 'status-unchanged WP update produced no extra wp_pending_approval row');
+
+-- F.3 Approvals insert → wp_decision with decision + comment snapshot.
+insert into public.approvals (work_package_id, decision, comment, decided_by)
+values ('eeeeeeee-eeee-eeee-eeee-eeeeeeeefeed', 'needs_revision', 'แก้ไขรูปช่วงหลัง',
+        '33333333-3333-3333-3333-33333333feed');
+
+select is(
+  (select count(*)::int from public.notification_outbox
+     where event_type = 'wp_decision'
+       and work_package_id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeefeed'::uuid
+       and payload->>'decision' = 'needs_revision'
+       and payload->>'comment' = 'แก้ไขรูปช่วงหลัง'
+       and payload->>'decided_by' = '33333333-3333-3333-3333-33333333feed'),
+  1, 'approvals insert produced one wp_decision row with snapshot payload');
+
+select * from finish();
+rollback;
