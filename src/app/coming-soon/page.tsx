@@ -63,14 +63,14 @@ export default async function ComingSoonPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-6 text-zinc-100">
+    <main className="flex min-h-screen items-center justify-center bg-white px-6 text-zinc-900">
       <div className="w-full max-w-md space-y-6 text-center">
         <div className="flex justify-center">
           <AvatarSurface lineUrl={lineAvatarUrl} fullName={row.full_name} size={72} />
         </div>
         <h1 className="text-3xl font-semibold tracking-tight">{greeting}</h1>
-        <p className="text-lg text-zinc-400">คุณเข้าสู่ระบบในบทบาท{displayName}</p>
-        <p className="text-sm text-zinc-500">
+        <p className="text-lg text-zinc-600">คุณเข้าสู่ระบบในบทบาท{displayName}</p>
+        <p className="text-sm text-zinc-600">
           PRC Ops กำลังทยอยเปิดใช้งานทีละส่วน เครื่องมือสำหรับบทบาทของคุณยังไม่พร้อมใช้งาน —
           เมื่อเปิดใช้แล้วเราจะแจ้งให้ทราบ ระหว่างนี้กรุณาใช้ช่องทางการทำงานเดิมไปก่อน
         </p>
@@ -135,15 +135,17 @@ function OperatorHub({
   fullName,
 }: OperatorHubProps) {
   return (
-    <main className="min-h-screen bg-zinc-950 px-6 py-10 text-zinc-100">
+    <main className="min-h-screen bg-white px-6 py-10 text-zinc-900">
       <div className="mx-auto flex w-full max-w-md flex-col gap-6">
         <header className="space-y-1">
-          <p className="text-xs tracking-wider text-zinc-500 uppercase">ศูนย์ควบคุม</p>
+          <p className="text-xs font-semibold tracking-wider text-blue-700 uppercase">
+            ศูนย์ควบคุม
+          </p>
           <div className="flex items-center gap-3">
             <AvatarSurface lineUrl={lineAvatarUrl} fullName={fullName} size={48} />
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">{greeting}</h1>
-              <p className="text-sm text-zinc-500">เข้าสู่ระบบในบทบาท{displayName}</p>
+              <p className="text-sm text-zinc-600">เข้าสู่ระบบในบทบาท{displayName}</p>
             </div>
           </div>
         </header>
@@ -153,15 +155,15 @@ function OperatorHub({
             <Link
               key={link.href}
               href={link.href}
-              className="group flex items-start justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-3 transition-colors hover:bg-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+              className="group flex items-start justify-between gap-3 rounded-lg border border-zinc-300 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
             >
               <div className="min-w-0 space-y-0.5">
-                <p className="text-base font-medium text-zinc-100">{link.label}</p>
-                <p className="text-xs text-zinc-500">{link.hint}</p>
+                <p className="text-base font-medium text-zinc-900">{link.label}</p>
+                <p className="text-xs text-zinc-600">{link.hint}</p>
               </div>
               <span
                 aria-hidden="true"
-                className="mt-0.5 shrink-0 text-zinc-600 transition-colors group-hover:text-zinc-300"
+                className="mt-0.5 shrink-0 text-zinc-400 transition-colors group-hover:text-zinc-600"
               >
                 →
               </span>

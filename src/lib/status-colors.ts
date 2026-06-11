@@ -27,11 +27,17 @@ export type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_reques
 export type ApprovalDecision = Database["public"]["Enums"]["approval_decision"];
 export type ReportStatus = Database["public"]["Enums"]["report_status"];
 
-const PILL_ZINC = "border-zinc-700 bg-zinc-800 text-zinc-300";
-const PILL_AMBER = "border-amber-900/60 bg-amber-950/40 text-amber-200";
-const PILL_EMERALD = "border-emerald-900/60 bg-emerald-950/40 text-emerald-200";
-const PILL_RED = "border-red-900/60 bg-red-950/40 text-red-200";
-const PILL_MUTED = "border-zinc-800 bg-zinc-900 text-zinc-500";
+// Spec 20 sun palette: solid saturated fills, not dark translucent
+// tints — a pill must be identifiable by hue at arm's length in glare.
+// Amber carries ink text (white-on-amber fails contrast); emerald/red
+// carry white text on 600-weight fills.
+const PILL_ZINC = "border-zinc-400 bg-zinc-200 text-zinc-900";
+const PILL_AMBER = "border-amber-600 bg-amber-400 text-zinc-950";
+// emerald-700 fill: white-on-emerald-600 is 3.67:1 (AA fail); 700 gives
+// 5.37:1 (AA pass) while keeping the positive hue identifiable.
+const PILL_EMERALD = "border-emerald-800 bg-emerald-700 text-white";
+const PILL_RED = "border-red-700 bg-red-600 text-white";
+const PILL_MUTED = "border-zinc-300 bg-zinc-100 text-zinc-600";
 
 export function projectStatusPillClasses(status: ProjectStatus): string {
   switch (status) {

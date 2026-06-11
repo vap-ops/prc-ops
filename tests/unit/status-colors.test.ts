@@ -121,6 +121,17 @@ describe("purchaseRequestStatusPillClasses", () => {
     expect(purchaseRequestStatusPillClasses("approved")).toContain("emerald");
     expect(purchaseRequestStatusPillClasses("delivered")).toContain("emerald");
   });
+
+  // Spec 20 sun palette: the four slots are solid fills with white/ink
+  // text — identifiable by hue at arm's length in glare.
+  it("pins the sun-rated solid fills (spec 20)", () => {
+    expect(purchaseRequestStatusPillClasses("requested")).toContain("bg-zinc-200");
+    expect(purchaseRequestStatusPillClasses("requested")).toContain("text-zinc-900");
+    expect(purchaseRequestStatusPillClasses("approved")).toContain("bg-emerald-700");
+    expect(purchaseRequestStatusPillClasses("approved")).toContain("text-white");
+    expect(purchaseRequestStatusPillClasses("rejected")).toContain("bg-red-600");
+    expect(purchaseRequestStatusPillClasses("purchased")).toContain("bg-amber-400");
+  });
 });
 
 describe("purchaseRequestPriorityPillClasses", () => {
@@ -136,6 +147,16 @@ describe("purchaseRequestPriorityPillClasses", () => {
     expect(purchaseRequestPriorityPillClasses("normal")).toContain("zinc");
     expect(purchaseRequestPriorityPillClasses("urgent")).toContain("amber");
     expect(purchaseRequestPriorityPillClasses("critical")).toContain("red");
+  });
+
+  // Spec 20 sun palette: solid saturated fills readable in sunlight,
+  // not dark translucent tints. Exact-literal pins so a palette
+  // regression is loud.
+  it("pins the sun-rated solid fills (spec 20)", () => {
+    expect(purchaseRequestPriorityPillClasses("critical")).toContain("bg-red-600");
+    expect(purchaseRequestPriorityPillClasses("critical")).toContain("text-white");
+    expect(purchaseRequestPriorityPillClasses("urgent")).toContain("bg-amber-400");
+    expect(purchaseRequestPriorityPillClasses("urgent")).toContain("text-zinc-950");
   });
 
   it("falls back to neutral classes for an unknown value", () => {

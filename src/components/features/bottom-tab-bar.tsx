@@ -61,7 +61,7 @@ export function BottomTabBar({ role }: { role: string }) {
   return (
     <nav
       aria-label="เมนูหลัก"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-800 bg-zinc-950/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-300 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_3px_rgba(0,0,0,0.1)] backdrop-blur sm:hidden"
     >
       <div className="mx-auto flex h-16 max-w-2xl items-stretch">
         {tabs.map((tab) => {
@@ -71,10 +71,16 @@ export function BottomTabBar({ role }: { role: string }) {
               <span
                 key={tab.href}
                 aria-current="page"
-                className="flex flex-1 flex-col items-center justify-center gap-1 text-zinc-100"
+                className="relative flex flex-1 flex-col items-center justify-center gap-1 text-blue-700"
               >
-                <Icon aria-hidden className="size-5 text-emerald-400" />
-                <span className="text-[11px] font-medium">{tab.label}</span>
+                {/* Visible active signal (spec 20) — a tint alone washes
+                    out in sunlight; the indicator bar survives glare. */}
+                <span
+                  aria-hidden
+                  className="absolute inset-x-4 top-0 h-1 rounded-b-full bg-blue-700"
+                />
+                <Icon aria-hidden className="size-6" />
+                <span className="text-xs font-bold">{tab.label}</span>
               </span>
             );
           }
@@ -82,10 +88,10 @@ export function BottomTabBar({ role }: { role: string }) {
             <Link
               key={tab.href}
               href={tab.href}
-              className="flex flex-1 flex-col items-center justify-center gap-1 text-zinc-500 transition-colors hover:text-zinc-300 focus:outline-none focus-visible:text-zinc-200"
+              className="flex flex-1 flex-col items-center justify-center gap-1 text-zinc-600 transition-colors hover:text-zinc-900 focus:outline-none focus-visible:text-zinc-900"
             >
-              <Icon aria-hidden className="size-5" />
-              <span className="text-[11px] font-medium">{tab.label}</span>
+              <Icon aria-hidden className="size-6" />
+              <span className="text-xs font-medium">{tab.label}</span>
             </Link>
           );
         })}

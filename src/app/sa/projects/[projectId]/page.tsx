@@ -42,23 +42,23 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
     .order("sort_order", { ascending: true });
 
   return (
-    <main className="min-h-screen bg-zinc-950 pb-20 text-zinc-100 sm:pb-0">
+    <main className="min-h-screen bg-white pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
-      <header className="border-b border-zinc-800 px-5 py-4">
+      <header className="border-b border-zinc-300 px-5 py-4">
         <div className="mx-auto flex max-w-2xl flex-col gap-1">
           <Link
             href="/sa"
-            className="w-fit text-xs text-zinc-500 hover:text-zinc-300 focus:outline-none focus-visible:underline"
+            className="w-fit text-xs font-medium text-blue-700 hover:underline focus:outline-none focus-visible:underline"
           >
             ← โครงการ
           </Link>
-          <p className="font-mono text-xs text-zinc-500">{project.code}</p>
-          <h1 className="text-lg font-semibold tracking-tight">{project.name}</h1>
+          <p className="font-mono text-xs text-zinc-600">{project.code}</p>
+          <h1 className="text-xl font-semibold tracking-tight">{project.name}</h1>
         </div>
       </header>
 
       <section className="mx-auto max-w-2xl px-5 py-6">
-        <h2 className="mb-3 text-sm font-medium text-zinc-400">รายการงาน</h2>
+        <h2 className="mb-3 text-base font-semibold text-zinc-900">รายการงาน</h2>
         <WorkPackageList
           projectId={project.id}
           workPackages={(workPackages ?? []).map((wp) => ({

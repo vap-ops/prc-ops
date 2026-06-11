@@ -94,6 +94,12 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    /* Spec 20: the app is sun-mode light by design. Declaring the
+       scheme opts out of Chrome Android's force-dark ("also darken
+       websites") auto-inversion, which would re-darken the UI. */
+    color-scheme: light;
+  }
   body {
     @apply bg-background text-foreground;
   }

@@ -60,21 +60,21 @@ export default async function ProjectReportsPage({ params }: PageProps) {
   const canGenerate = canGenerateReport(statuses);
 
   return (
-    <main className="min-h-screen bg-zinc-950 pb-20 text-zinc-100 sm:pb-0">
+    <main className="min-h-screen bg-white pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
       <AppHeader kicker="ผู้จัดการโครงการ" title="รายงาน" maxWidthClass="max-w-2xl" />
 
-      <nav className="border-b border-zinc-800/60 bg-zinc-900/30 px-5 py-2">
+      <nav className="border-b border-zinc-300 bg-zinc-100 px-5 py-2">
         <div className="mx-auto flex max-w-2xl items-center gap-4 text-xs">
           <Link
             href="/pm"
-            className="text-zinc-500 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
+            className="inline-flex min-h-11 items-center font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline"
           >
             รายการรอตรวจ
           </Link>
           <Link
             href="/pm/projects"
-            className="text-zinc-500 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
+            className="inline-flex min-h-11 items-center font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline"
           >
             ← โครงการทั้งหมด
           </Link>
@@ -83,11 +83,11 @@ export default async function ProjectReportsPage({ params }: PageProps) {
 
       <div className="mx-auto flex max-w-2xl flex-col gap-8 px-5 py-6">
         <section>
-          <div className="mb-4 rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-3">
-            <p className="font-mono text-xs text-zinc-500">{project.code}</p>
-            <p className="truncate text-base font-medium text-zinc-100">{project.name}</p>
+          <div className="mb-4 rounded-lg border border-zinc-300 bg-white px-4 py-3 shadow-sm">
+            <p className="font-mono text-xs text-zinc-600">{project.code}</p>
+            <p className="truncate text-base font-medium text-zinc-900">{project.name}</p>
           </div>
-          <p className="mb-3 text-sm text-zinc-400">
+          <p className="mb-3 text-sm text-zinc-600">
             สร้างรายงาน PDF รวมรายการงานที่เสร็จสิ้นพร้อมรูปช่วงแล้วเสร็จล่าสุดของแต่ละงาน
             รายงานจะเข้าคิวทันที โดยปกติใช้เวลาสร้างไม่กี่นาที
           </p>
@@ -95,7 +95,7 @@ export default async function ProjectReportsPage({ params }: PageProps) {
         </section>
 
         <section>
-          <h2 className="mb-3 text-sm font-medium text-zinc-400">รายงาน</h2>
+          <h2 className="mb-3 text-base font-semibold text-zinc-900">รายงาน</h2>
           {reportsError ? (
             <ErrorNotice>โหลดรายการรายงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</ErrorNotice>
           ) : (

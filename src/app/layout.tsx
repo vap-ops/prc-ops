@@ -25,9 +25,9 @@ export const metadata: Metadata = {
   description: "ระบบบริหารงานก่อสร้าง — รูปถ่ายความคืบหน้า อนุมัติงาน และรายงานโครงการ",
 };
 
-// Status-bar / splash chrome matches the app's zinc-950 ground (spec 18).
+// Status-bar / splash chrome matches the app's white ground (spec 20).
 export const viewport: Viewport = {
-  themeColor: "#09090b",
+  themeColor: "#ffffff",
 };
 
 export default function RootLayout({

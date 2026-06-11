@@ -193,8 +193,8 @@ export function PhaseUploader({
   return (
     <section>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-sm font-medium text-zinc-400">{label}</h2>
-        <label className="inline-flex h-9 cursor-pointer items-center justify-center rounded-md border border-zinc-700 bg-zinc-900 px-3 text-sm font-medium text-zinc-100 transition-colors focus-within:ring-2 focus-within:ring-zinc-500 hover:bg-zinc-800">
+        <h2 className="text-base font-semibold text-zinc-900">{label}</h2>
+        <label className="inline-flex h-11 cursor-pointer items-center justify-center rounded-md border border-zinc-400 bg-white px-3 text-sm font-medium text-zinc-900 transition-colors focus-within:ring-2 focus-within:ring-blue-700 hover:bg-zinc-50">
           <span aria-hidden="true" className="mr-1.5">
             +
           </span>
@@ -213,14 +213,14 @@ export function PhaseUploader({
       {topLevelError && (
         <div
           role="alert"
-          className="mb-3 rounded-md border border-red-900/60 bg-red-950/40 px-3 py-2 text-xs text-red-200"
+          className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-900"
         >
           {topLevelError}
         </div>
       )}
 
       {!hasContent ? (
-        <EmptyNotice className="text-zinc-500">ยังไม่มีรูปช่วง{label}</EmptyNotice>
+        <EmptyNotice className="text-zinc-600">ยังไม่มีรูปช่วง{label}</EmptyNotice>
       ) : (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {photos.map((p) => (
@@ -258,7 +258,7 @@ interface ThumbnailProps {
 
 function Thumbnail({ photo, isRemoving, onRemove }: ThumbnailProps) {
   return (
-    <li className="relative aspect-square overflow-hidden rounded-md border border-zinc-800 bg-zinc-900">
+    <li className="relative aspect-square overflow-hidden rounded-md border border-zinc-300 bg-zinc-100">
       {photo.url ? (
         <ZoomablePhoto src={photo.url} />
       ) : (
@@ -271,7 +271,7 @@ function Thumbnail({ photo, isRemoving, onRemove }: ThumbnailProps) {
         onClick={onRemove}
         disabled={isRemoving}
         aria-label="ลบรูป"
-        className="absolute top-1.5 right-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/80 text-zinc-100 backdrop-blur-sm transition-colors hover:bg-red-950/80 hover:text-red-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-50"
+        className="absolute top-1.5 right-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full border border-red-700 bg-red-600 font-semibold text-white transition-colors hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 disabled:opacity-50"
       >
         {isRemoving ? (
           <Spinner />
@@ -294,27 +294,29 @@ function PendingTile({ upload, onRetry }: PendingTileProps) {
   const isError = upload.status === "upload-error" || upload.status === "insert-error";
   const inProgress = upload.status === "uploading" || upload.status === "inserting";
   return (
-    <li className="relative aspect-square overflow-hidden rounded-md border border-zinc-800 bg-zinc-900">
+    <li className="relative aspect-square overflow-hidden rounded-md border border-zinc-300 bg-zinc-100">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={upload.previewUrl} alt="" className="h-full w-full object-cover opacity-50" />
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-2 text-center">
         {inProgress && (
           <>
             <Spinner />
-            <span className="text-[11px] font-medium text-zinc-200">
+            {/* White plate keeps the label readable over DARK photos —
+                the ink sits on the plate, not the dimmed image. */}
+            <span className="rounded bg-white/85 px-1.5 py-0.5 text-[11px] font-medium text-zinc-900">
               {upload.status === "uploading" ? "กำลังอัปโหลด…" : "กำลังบันทึก…"}
             </span>
           </>
         )}
         {isError && (
           <>
-            <span className="text-[11px] font-medium text-red-200">
+            <span className="rounded bg-white/85 px-1.5 py-0.5 text-[11px] font-medium text-red-900">
               {upload.errorMessage ?? "ล้มเหลว"}
             </span>
             <button
               type="button"
               onClick={onRetry}
-              className="rounded border border-zinc-600 bg-zinc-900/90 px-2 py-0.5 text-[11px] font-medium text-zinc-100 hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
+              className="rounded border border-zinc-400 bg-white px-2 py-0.5 text-[11px] font-medium text-zinc-900 hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
             >
               ลองใหม่
             </button>
@@ -329,7 +331,7 @@ function Spinner() {
   return (
     <span
       aria-hidden="true"
-      className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-zinc-500 border-t-zinc-100"
+      className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-zinc-400 border-t-zinc-900"
     />
   );
 }

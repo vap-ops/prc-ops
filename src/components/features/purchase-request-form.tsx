@@ -122,19 +122,19 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-4"
+      className="flex flex-col gap-3 rounded-lg border border-zinc-300 bg-zinc-50 p-4 shadow-sm"
     >
       <div className="flex min-w-0 flex-col gap-1">
-        <span className="text-sm font-medium text-zinc-200">รายการงาน</span>
-        <p className="truncate rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm">
-          <span className="font-mono text-zinc-500">{workPackage.code}</span>
-          <span className="mx-1 text-zinc-600">·</span>
-          <span className="text-zinc-100">{workPackage.name}</span>
+        <span className="text-sm font-medium text-zinc-900">รายการงาน</span>
+        <p className="truncate rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm">
+          <span className="font-mono text-zinc-600">{workPackage.code}</span>
+          <span className="mx-1 text-zinc-400">·</span>
+          <span className="text-zinc-900">{workPackage.name}</span>
         </p>
       </div>
 
       <div className="flex flex-col gap-1">
-        <label htmlFor="pr-item" className="text-sm font-medium text-zinc-200">
+        <label htmlFor="pr-item" className="text-sm font-medium text-zinc-900">
           รายการวัสดุ
         </label>
         <input
@@ -148,14 +148,14 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
             setSavedAt(null);
           }}
           disabled={submitting}
-          className="h-9 w-full min-w-0 rounded-md border border-zinc-800 bg-zinc-900/60 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+          className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
           placeholder="ปูนถุง 50 กก."
         />
       </div>
 
       <div className="flex gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <label htmlFor="pr-qty" className="text-sm font-medium text-zinc-200">
+          <label htmlFor="pr-qty" className="text-sm font-medium text-zinc-900">
             จำนวน
           </label>
           <input
@@ -169,12 +169,12 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
               setSavedAt(null);
             }}
             disabled={submitting}
-            className="h-9 w-full min-w-0 rounded-md border border-zinc-800 bg-zinc-900/60 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+            className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
             placeholder="10"
           />
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <label htmlFor="pr-unit" className="text-sm font-medium text-zinc-200">
+          <label htmlFor="pr-unit" className="text-sm font-medium text-zinc-900">
             หน่วย
           </label>
           <select
@@ -186,7 +186,7 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
               setSavedAt(null);
             }}
             disabled={submitting}
-            className="h-9 w-full min-w-0 rounded-md border border-zinc-800 bg-zinc-900/60 px-2 text-sm text-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+            className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-2 text-sm text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
           >
             <option value="" disabled>
               เลือกหน่วย
@@ -203,7 +203,7 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
 
       {unitChoice === UNIT_OTHER_VALUE ? (
         <div className="flex flex-col gap-1">
-          <label htmlFor="pr-unit-other" className="text-sm font-medium text-zinc-200">
+          <label htmlFor="pr-unit-other" className="text-sm font-medium text-zinc-900">
             ระบุหน่วย
           </label>
           <input
@@ -217,7 +217,7 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
               setSavedAt(null);
             }}
             disabled={submitting}
-            className="h-9 w-full min-w-0 rounded-md border border-zinc-800 bg-zinc-900/60 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+            className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
             placeholder="ระบุหน่วย"
           />
         </div>
@@ -225,7 +225,7 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
 
       <div className="flex gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <label htmlFor="pr-needed-by" className="text-sm font-medium text-zinc-200">
+          <label htmlFor="pr-needed-by" className="text-sm font-medium text-zinc-900">
             ต้องการรับของภายใน (ไม่บังคับ)
           </label>
           <input
@@ -239,11 +239,11 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
               setSavedAt(null);
             }}
             disabled={submitting}
-            className="h-9 w-full min-w-0 rounded-md border border-zinc-800 bg-zinc-900/60 px-3 text-sm text-zinc-100 [color-scheme:dark] focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+            className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-3 text-sm text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
           />
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <label htmlFor="pr-priority" className="text-sm font-medium text-zinc-200">
+          <label htmlFor="pr-priority" className="text-sm font-medium text-zinc-900">
             ความเร่งด่วน
           </label>
           <select
@@ -255,7 +255,7 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
               setSavedAt(null);
             }}
             disabled={submitting}
-            className="h-9 w-full min-w-0 rounded-md border border-zinc-800 bg-zinc-900/60 px-2 text-sm text-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+            className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-2 text-sm text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
           >
             {PURCHASE_PRIORITIES.map((p) => (
               <option key={p} value={p}>
@@ -269,7 +269,7 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
       {inlineError ? (
         <div
           role="alert"
-          className="rounded-md border border-red-900/60 bg-red-950/40 px-3 py-2 text-xs text-red-200"
+          className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs font-medium text-red-900"
         >
           {inlineError}
         </div>
@@ -277,14 +277,14 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
 
       <div className="flex items-center justify-end gap-3">
         {savedAt !== null && !submitting ? (
-          <span className="text-xs text-emerald-400" role="status">
+          <span className="text-xs font-medium text-emerald-700" role="status">
             บันทึกแล้ว
           </span>
         ) : null}
         <button
           type="submit"
           disabled={!canSubmit}
-          className="inline-flex h-9 items-center justify-center rounded-md border border-zinc-700 bg-zinc-100 px-4 text-sm font-medium text-zinc-900 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
         >
           {submitting ? "กำลังส่ง…" : "ส่งคำขอซื้อ"}
         </button>

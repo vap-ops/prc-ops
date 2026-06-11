@@ -15,7 +15,7 @@ export function StatusPill({ pillClasses, className, children }: StatusPillProps
   return (
     <span
       className={cn(
-        "shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium",
+        "shrink-0 rounded-full border px-3 py-1 text-sm font-semibold",
         pillClasses,
         className,
       )}

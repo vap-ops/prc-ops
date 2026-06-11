@@ -114,11 +114,11 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
   const rowLink = (wp: WorkPackageListItem) => (
     <Link
       href={`/sa/projects/${projectId}/work-packages/${wp.id}`}
-      className="flex min-h-14 items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-3 transition-colors hover:bg-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+      className="flex min-h-14 items-center justify-between gap-3 rounded-lg border border-zinc-300 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
     >
       <div className="min-w-0">
-        <p className="font-mono text-xs text-zinc-500">{wp.code}</p>
-        <p className="truncate text-base font-medium text-zinc-100">{wp.name}</p>
+        <p className="font-mono text-xs text-zinc-600">{wp.code}</p>
+        <p className="truncate text-base font-medium text-zinc-900">{wp.name}</p>
       </div>
       <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)}>
         {WORK_PACKAGE_STATUS_LABEL[wp.status] ?? wp.status}
@@ -134,15 +134,15 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
           placeholder="ค้นหาด้วยรหัสหรือชื่องาน…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="border-zinc-800 bg-zinc-900/60 text-zinc-100 placeholder:text-zinc-500 sm:flex-1"
+          className="h-11 border-zinc-400 bg-white text-zinc-900 placeholder:text-zinc-400 sm:flex-1"
           aria-label="ค้นหารายการงาน"
         />
-        <label className="flex shrink-0 cursor-pointer items-center gap-2 rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-xs text-zinc-300 select-none has-[input:checked]:border-zinc-600 has-[input:checked]:bg-zinc-800 has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-zinc-500">
+        <label className="flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-md border border-zinc-400 bg-white px-3 py-2 text-xs text-zinc-700 select-none has-[input:checked]:border-blue-700 has-[input:checked]:bg-blue-700 has-[input:checked]:font-semibold has-[input:checked]:text-white has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-blue-700 has-[input:focus-visible]:ring-offset-2">
           <input
             type="checkbox"
             checked={hideCompleted}
             onChange={(e) => setHideCompleted(e.target.checked)}
-            className="accent-zinc-100"
+            className="accent-blue-700"
           />
           ซ่อนงานที่เสร็จแล้ว
         </label>
@@ -172,31 +172,34 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
             const groupName = group.deliverable?.name ?? "ยังไม่จัดกลุ่ม";
             const contentId = `wp-group-${key}`;
             return (
-              <section key={key} className="overflow-hidden rounded-lg border border-zinc-800">
+              <section
+                key={key}
+                className="overflow-hidden rounded-lg border border-zinc-300 shadow-sm"
+              >
                 <button
                   type="button"
                   onClick={() => toggleGroup(key)}
                   aria-expanded={isOpen}
                   aria-controls={contentId}
-                  className="flex min-h-12 w-full cursor-pointer flex-col gap-2 bg-zinc-900/80 px-4 py-3 text-left transition-colors hover:bg-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+                  className="flex min-h-12 w-full cursor-pointer flex-col gap-2 bg-zinc-50 px-4 py-3 text-left transition-colors hover:bg-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
                 >
                   <span className="flex w-full items-center gap-3">
                     <ChevronRight
                       aria-hidden
-                      className={`size-4 shrink-0 text-zinc-500 transition-transform motion-reduce:transition-none ${isOpen ? "rotate-90" : ""}`}
+                      className={`size-4 shrink-0 text-zinc-600 transition-transform motion-reduce:transition-none ${isOpen ? "rotate-90" : ""}`}
                     />
                     <span className="min-w-0 flex-1">
                       {group.deliverable ? (
                         <>
-                          <span className="font-mono text-xs text-zinc-500">
+                          <span className="font-mono text-xs text-zinc-600">
                             {group.deliverable.code}
                           </span>
-                          <span className="block truncate text-sm font-medium text-zinc-100">
+                          <span className="block truncate text-sm font-medium text-zinc-900">
                             {group.deliverable.name}
                           </span>
                         </>
                       ) : (
-                        <span className="block truncate text-sm font-medium text-zinc-400">
+                        <span className="block truncate text-sm font-medium text-zinc-600">
                           ยังไม่จัดกลุ่ม
                         </span>
                       )}
@@ -205,7 +208,7 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
                       <StatusPill pillClasses={workPackageStatusPillClasses(progress.status)}>
                         {WORK_PACKAGE_STATUS_LABEL[progress.status]}
                       </StatusPill>
-                      <span className="text-xs text-zinc-500">
+                      <span className="text-xs text-zinc-600">
                         {progress.completeCount}/{progress.totalCount} รายการ
                       </span>
                     </span>
@@ -216,16 +219,16 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
                     aria-valuemin={0}
                     aria-valuemax={100}
                     aria-label={`${groupName} — เสร็จแล้ว ${progress.percent}%`}
-                    className="block h-1 w-full overflow-hidden rounded-full bg-zinc-800"
+                    className="block h-1 w-full overflow-hidden rounded-full bg-zinc-200"
                   >
                     <span
-                      className="block h-full rounded-full bg-emerald-500/80 transition-[width] motion-reduce:transition-none"
+                      className="block h-full rounded-full bg-emerald-600 transition-[width] motion-reduce:transition-none"
                       style={{ width: `${progress.percent}%` }}
                     />
                   </span>
                 </button>
                 {isOpen ? (
-                  <ul id={contentId} className="flex flex-col gap-2 border-t border-zinc-800 p-2">
+                  <ul id={contentId} className="flex flex-col gap-2 border-t border-zinc-300 p-2">
                     {group.workPackages.map((wp) => (
                       <li key={wp.id}>{rowLink(wp)}</li>
                     ))}

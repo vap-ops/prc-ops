@@ -36,15 +36,15 @@ export default async function LoginPage({
     : null;
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-6 text-zinc-100">
+    <main className="flex min-h-screen items-center justify-center bg-white px-6 text-zinc-900">
       <div className="w-full max-w-sm space-y-6 text-center">
         <h1 className="text-3xl font-semibold tracking-tight">PRC Ops</h1>
-        <p className="text-sm text-zinc-400">เข้าสู่ระบบด้วยบัญชี LINE ของคุณเพื่อเข้าใช้งาน</p>
+        <p className="text-sm text-zinc-600">เข้าสู่ระบบด้วยบัญชี LINE ของคุณเพื่อเข้าใช้งาน</p>
         {errorMessage && (
           <div
             role="alert"
             data-testid="login-error"
-            className="rounded border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200"
+            className="rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900"
           >
             {errorMessage}
           </div>

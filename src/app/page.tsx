@@ -21,10 +21,10 @@ export default async function Home() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-6 text-zinc-100">
+    <main className="flex min-h-screen items-center justify-center bg-white px-6 text-zinc-900">
       <div className="max-w-md space-y-6 text-center">
         <h1 className="text-4xl font-semibold tracking-tight">PRC Ops</h1>
-        <p className="text-lg text-zinc-400">
+        <p className="text-lg text-zinc-600">
           ระบบบริหารงานก่อสร้าง — รูปถ่ายความคืบหน้า อนุมัติงาน และรายงานโครงการ
         </p>
         <p className="text-sm text-zinc-600">เวอร์ชันแรก เริ่มใช้กับโครงการนำร่อง 2 โครงการ</p>

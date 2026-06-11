@@ -161,15 +161,15 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   const wpById = new Map((wpForRequests ?? []).map((wp) => [wp.id, wp]));
 
   return (
-    <main className="min-h-screen bg-zinc-950 pb-20 text-zinc-100 sm:pb-0">
+    <main className="min-h-screen bg-white pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
       <AppHeader kicker="คำขอซื้อ" fullName={ctx.fullName} maxWidthClass="max-w-2xl" />
 
-      <nav className="border-b border-zinc-800/60 bg-zinc-900/30 px-5 py-1">
+      <nav className="border-b border-zinc-300 bg-zinc-100 px-5 py-1">
         <div className="mx-auto flex max-w-2xl items-center">
           <Link
             href={backHref}
-            className="inline-flex min-h-10 items-center gap-1.5 text-xs text-zinc-400 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
+            className="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline"
           >
             <ArrowLeft aria-hidden className="size-3.5" />
             {backLabel}
@@ -179,15 +179,15 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
 
       <section className="mx-auto max-w-2xl space-y-8 px-5 py-6">
         <div>
-          <h2 className="mb-3 text-sm font-medium text-zinc-400">สร้างคำขอซื้อ</h2>
+          <h2 className="mb-3 text-base font-semibold text-zinc-900">สร้างคำขอซื้อ</h2>
           {pinnedWp ? (
             <PurchaseRequestForm workPackage={pinnedWp} />
           ) : (
             <div className="space-y-2">
               {wpRequested ? <ErrorNotice>ไม่พบรายการงาน</ErrorNotice> : null}
-              <p className="rounded-md border border-zinc-800 bg-zinc-900/50 px-4 py-4 text-sm text-zinc-400">
+              <p className="rounded-md border border-zinc-300 bg-zinc-50 px-4 py-4 text-sm text-zinc-600">
                 คำขอซื้อเริ่มจากหน้ารายการงาน — เปิดรายการงานที่ต้องการ แล้วกด{" "}
-                <span className="text-zinc-200">สร้างคำขอซื้อ</span>{" "}
+                <span className="font-medium text-zinc-900">สร้างคำขอซื้อ</span>{" "}
                 จากนั้นผู้จัดการโครงการจะเป็นผู้พิจารณาอนุมัติ —
                 หากไม่อนุมัติจะมีความเห็นแจ้งเหตุผลเสมอ
               </p>
@@ -197,7 +197,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
 
         <div>
           <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-sm font-medium text-zinc-400">คำขอซื้อ</h2>
+            <h2 className="text-base font-semibold text-zinc-900">คำขอซื้อ</h2>
             {/* ของฉัน filter chip (spec 16 A1) — site staff see the whole
                 site's requests; the chip narrows back to their own. A live
                 pinned WP survives the toggle (chips are a filter, not
@@ -206,10 +206,10 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
               <Link
                 href={pinnedWp ? `/requests?wp=${pinnedWp.id}` : "/requests"}
                 aria-current={!mineOnly ? "true" : undefined}
-                className={`inline-flex min-h-10 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 ${
+                className={`inline-flex min-h-11 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 ${
                   !mineOnly
-                    ? "border-zinc-600 bg-zinc-800 text-zinc-100"
-                    : "border-zinc-800 bg-zinc-900/60 text-zinc-500 hover:text-zinc-300"
+                    ? "border-blue-700 bg-blue-700 font-semibold text-white"
+                    : "border-zinc-400 bg-white text-zinc-700 hover:bg-zinc-50"
                 }`}
               >
                 ทั้งหมด
@@ -217,10 +217,10 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
               <Link
                 href={pinnedWp ? `/requests?wp=${pinnedWp.id}&mine=1` : "/requests?mine=1"}
                 aria-current={mineOnly ? "true" : undefined}
-                className={`inline-flex min-h-10 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 ${
+                className={`inline-flex min-h-11 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 ${
                   mineOnly
-                    ? "border-zinc-600 bg-zinc-800 text-zinc-100"
-                    : "border-zinc-800 bg-zinc-900/60 text-zinc-500 hover:text-zinc-300"
+                    ? "border-blue-700 bg-blue-700 font-semibold text-white"
+                    : "border-zinc-400 bg-white text-zinc-700 hover:bg-zinc-50"
                 }`}
               >
                 ของฉัน
@@ -240,34 +240,34 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                 return (
                   <li
                     key={r.id}
-                    className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-3"
+                    className="rounded-lg border border-zinc-300 bg-white px-4 py-3 shadow-sm"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 space-y-0.5">
                         {wp ? (
-                          <p className="truncate text-xs text-zinc-500">
+                          <p className="truncate text-xs text-zinc-600">
                             <span className="font-mono">{wp.code}</span>
                             <span className="mx-1">·</span>
                             {wp.name}
                           </p>
                         ) : null}
-                        <p className="truncate text-base text-zinc-100">
+                        <p className="truncate text-base text-zinc-900">
                           {r.item_description}
-                          <span className="mx-2 text-zinc-700">·</span>
-                          <span className="text-zinc-300">
+                          <span className="mx-2 text-zinc-400">·</span>
+                          <span className="text-zinc-700">
                             {r.quantity} {r.unit}
                           </span>
                         </p>
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-zinc-600">
                           ขอซื้อโดย{" "}
                           {(r.requested_by ? requesterNames.get(r.requested_by) : null) ??
                             r.requested_by_email ??
                             "—"}
-                          <span className="mx-1 text-zinc-700">·</span>
+                          <span className="mx-1 text-zinc-400">·</span>
                           ขอเมื่อ {formatThaiDateTime(r.requested_at)}
                         </p>
                         {r.needed_by ? (
-                          <p className="text-xs text-zinc-400">
+                          <p className="text-xs text-zinc-600">
                             ต้องการรับของภายใน {formatThaiDate(r.needed_by)}
                           </p>
                         ) : null}
@@ -284,47 +284,47 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                       </span>
                     </div>
                     {status === "approved" && r.decided_at ? (
-                      <p className="mt-2 text-xs text-zinc-400">
+                      <p className="mt-2 text-xs text-zinc-600">
                         อนุมัติเมื่อ {formatThaiDateTime(r.decided_at)}
                       </p>
                     ) : null}
                     {(status === "approved" || status === "purchased") && r.eta ? (
-                      <p className="mt-1 text-xs text-zinc-400">
+                      <p className="mt-1 text-xs text-zinc-600">
                         คาดว่าจะได้รับของ {formatThaiDate(r.eta)}
                       </p>
                     ) : null}
                     {status === "rejected" && r.decision_comment ? (
-                      <div className="mt-2 rounded-md border border-red-900/60 bg-red-950/30 px-3 py-2">
-                        <p className="text-xs font-medium text-red-200">เหตุผลที่ไม่อนุมัติ</p>
-                        <p className="mt-0.5 text-sm whitespace-pre-wrap text-red-100">
+                      <div className="mt-2 rounded-md border border-red-300 bg-red-50 px-3 py-2">
+                        <p className="text-xs font-medium text-red-900">เหตุผลที่ไม่อนุมัติ</p>
+                        <p className="mt-0.5 text-sm whitespace-pre-wrap text-red-800">
                           {r.decision_comment}
                         </p>
                         {r.decided_at ? (
-                          <p className="mt-1 text-xs text-red-200/70">
+                          <p className="mt-1 text-xs text-red-700">
                             พิจารณาเมื่อ {formatThaiDateTime(r.decided_at)}
                           </p>
                         ) : null}
                       </div>
                     ) : null}
                     {(status === "purchased" || status === "delivered") && r.purchased_at ? (
-                      <p className="mt-2 text-xs text-zinc-400">
+                      <p className="mt-2 text-xs text-zinc-600">
                         สั่งซื้อเมื่อ {formatThaiDateTime(r.purchased_at)}
                         {r.supplier ? ` · ผู้ขาย ${r.supplier}` : ""}
                       </p>
                     ) : null}
                     {status === "delivered" && r.delivered_at ? (
-                      <p className="mt-1 text-xs text-emerald-200/80">
+                      <p className="mt-1 text-xs font-medium text-emerald-700">
                         ได้รับของเมื่อ {formatThaiDateTime(r.delivered_at)}
                         {r.received_by ? ` · ผู้รับของ ${r.received_by}` : ""}
                       </p>
                     ) : null}
                     {status === "delivered" && r.delivery_note ? (
-                      <p className="mt-1 text-xs whitespace-pre-wrap text-zinc-400">
+                      <p className="mt-1 text-xs whitespace-pre-wrap text-zinc-600">
                         {r.delivery_note}
                       </p>
                     ) : null}
                     {isDecider && status === "requested" ? (
-                      <div className="mt-3 border-t border-zinc-800 pt-3">
+                      <div className="mt-3 border-t border-zinc-300 pt-3">
                         <PurchaseRequestDecision requestId={r.id} />
                       </div>
                     ) : null}
@@ -334,7 +334,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
             </ul>
           )}
           {myRequests && myRequests.length > 0 ? (
-            <p className="mt-3 text-xs text-zinc-500">
+            <p className="mt-3 text-xs text-zinc-600">
               เมื่อผู้จัดการโครงการอนุมัติคำขอแล้ว ฝ่ายจัดซื้อจะดำเนินการต่อในระบบหลังบ้าน — สถานะ
               &ldquo;สั่งซื้อแล้ว&rdquo; และ &ldquo;ได้รับของแล้ว&rdquo;
               จะอัปเดตอัตโนมัติจากบันทึกของฝ่ายจัดซื้อ ไม่สามารถแก้ไขในแอปนี้ได้

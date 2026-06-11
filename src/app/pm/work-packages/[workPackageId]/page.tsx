@@ -86,25 +86,25 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
   const deciderNames = await fetchDisplayNames(deciderIds, "[pm/work-packages]");
 
   return (
-    <main className="min-h-screen bg-zinc-950 pb-20 text-zinc-100 sm:pb-0">
+    <main className="min-h-screen bg-white pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
-      <header className="border-b border-zinc-800 px-5 py-4">
+      <header className="border-b border-zinc-300 bg-white px-5 py-4">
         <div className="mx-auto flex max-w-3xl flex-col gap-1">
           <Link
             href="/pm"
-            className="w-fit text-xs text-zinc-500 hover:text-zinc-300 focus:outline-none focus-visible:underline"
+            className="w-fit text-xs font-medium text-blue-700 hover:underline focus:outline-none focus-visible:underline"
           >
             ← รายการรอตรวจ
           </Link>
-          <p className="truncate text-xs text-zinc-500">
+          <p className="truncate text-xs text-zinc-600">
             <span className="font-mono">{project.code}</span>
             <span className="mx-1">·</span>
             {project.name}
           </p>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="font-mono text-xs text-zinc-500">{wp.code}</p>
-              <h1 className="truncate text-lg font-semibold tracking-tight">{wp.name}</h1>
+              <p className="font-mono text-xs text-zinc-600">{wp.code}</p>
+              <h1 className="truncate text-xl font-semibold tracking-tight">{wp.name}</h1>
             </div>
             <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)} className="mt-1">
               {WORK_PACKAGE_STATUS_LABEL[wp.status as keyof typeof WORK_PACKAGE_STATUS_LABEL] ??
@@ -113,7 +113,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
           </div>
           <Link
             href={`/requests?wp=${wp.id}`}
-            className="w-fit text-xs text-zinc-400 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
+            className="w-fit text-xs font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline"
           >
             สร้างคำขอซื้อ →
           </Link>
@@ -122,7 +122,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
 
       <div className="mx-auto flex max-w-3xl flex-col gap-8 px-5 py-6">
         <section>
-          <h2 className="mb-3 text-sm font-medium text-zinc-400">รูปถ่าย</h2>
+          <h2 className="mb-3 text-base font-semibold text-zinc-900">รูปถ่าย</h2>
           <div className="flex flex-col gap-5">
             {PHASES.map(({ phase, label }) => (
               <PhaseGallery
@@ -136,29 +136,29 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
         </section>
 
         <section>
-          <h2 className="mb-3 text-sm font-medium text-zinc-400">ประวัติการตรวจ</h2>
+          <h2 className="mb-3 text-base font-semibold text-zinc-900">ประวัติการตรวจ</h2>
           {approvalsRows.length === 0 ? (
-            <EmptyNotice className="text-zinc-500">ยังไม่มีการตรวจ</EmptyNotice>
+            <EmptyNotice className="text-zinc-600">ยังไม่มีการตรวจ</EmptyNotice>
           ) : (
             <ul className="flex flex-col gap-2">
               {approvalsRows.map((a) => (
                 <li
                   key={a.id}
-                  className="rounded-md border border-zinc-800 bg-zinc-900/40 px-4 py-3"
+                  className="rounded-md border border-zinc-300 bg-white px-4 py-3 shadow-sm"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <StatusPill pillClasses={approvalDecisionPillClasses(a.decision)}>
                       {APPROVAL_DECISION_LABEL[a.decision]}
                     </StatusPill>
-                    <span className="text-xs text-zinc-500">
+                    <span className="text-xs text-zinc-600">
                       {formatThaiDateTime(a.decided_at)}
                     </span>
                   </div>
-                  <p className="mt-1 text-xs text-zinc-400">
+                  <p className="mt-1 text-xs text-zinc-600">
                     {deciderNames.get(a.decided_by) ?? "ไม่ทราบชื่อผู้ตรวจ"}
                   </p>
                   {a.comment && (
-                    <p className="mt-2 text-sm whitespace-pre-wrap text-zinc-200">{a.comment}</p>
+                    <p className="mt-2 text-sm whitespace-pre-wrap text-zinc-900">{a.comment}</p>
                   )}
                 </li>
               ))}
@@ -167,11 +167,11 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
         </section>
 
         <section>
-          <h2 className="mb-3 text-sm font-medium text-zinc-400">บันทึกผลการตรวจ</h2>
+          <h2 className="mb-3 text-base font-semibold text-zinc-900">บันทึกผลการตรวจ</h2>
           {wp.status === "pending_approval" ? (
             <RecordDecisionForm workPackageId={wp.id} />
           ) : (
-            <EmptyNotice className="text-zinc-500">รายการงานนี้ไม่ได้อยู่ในสถานะรอตรวจ</EmptyNotice>
+            <EmptyNotice className="text-zinc-600">รายการงานนี้ไม่ได้อยู่ในสถานะรอตรวจ</EmptyNotice>
           )}
         </section>
       </div>
@@ -188,9 +188,9 @@ interface PhaseGalleryProps {
 function PhaseGallery({ label, photos, signedUrls }: PhaseGalleryProps) {
   return (
     <div>
-      <h3 className="mb-2 text-xs font-medium tracking-wider text-zinc-500 uppercase">{label}</h3>
+      <h3 className="mb-2 text-xs font-medium tracking-wider text-zinc-600 uppercase">{label}</h3>
       {photos.length === 0 ? (
-        <EmptyNotice className="text-zinc-500">ไม่มีรูปช่วง{label}</EmptyNotice>
+        <EmptyNotice className="text-zinc-600">ไม่มีรูปช่วง{label}</EmptyNotice>
       ) : (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {photos.map((p) => {
@@ -198,7 +198,7 @@ function PhaseGallery({ label, photos, signedUrls }: PhaseGalleryProps) {
             return (
               <li
                 key={p.id}
-                className="aspect-square overflow-hidden rounded-md border border-zinc-800 bg-zinc-900"
+                className="aspect-square overflow-hidden rounded-md border border-zinc-300 bg-zinc-100"
               >
                 {url ? (
                   <ZoomablePhoto src={url} />

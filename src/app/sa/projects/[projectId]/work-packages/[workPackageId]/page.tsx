@@ -52,20 +52,20 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
   const signedUrls = await mintSignedUrlsForPhotos(allPhotos);
 
   return (
-    <main className="min-h-screen bg-zinc-950 pb-20 text-zinc-100 sm:pb-0">
+    <main className="min-h-screen bg-white pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
-      <header className="border-b border-zinc-800 px-5 py-4">
+      <header className="border-b border-zinc-300 px-5 py-4">
         <div className="mx-auto flex max-w-2xl flex-col gap-1">
           <Link
             href={`/sa/projects/${projectId}`}
-            className="w-fit text-xs text-zinc-500 hover:text-zinc-300 focus:outline-none focus-visible:underline"
+            className="w-fit text-xs font-medium text-blue-700 hover:underline focus:outline-none focus-visible:underline"
           >
             ← รายการงาน
           </Link>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="font-mono text-xs text-zinc-500">{wp.code}</p>
-              <h1 className="truncate text-lg font-semibold tracking-tight">{wp.name}</h1>
+              <p className="font-mono text-xs text-zinc-600">{wp.code}</p>
+              <h1 className="truncate text-xl font-semibold tracking-tight">{wp.name}</h1>
             </div>
             <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)} className="mt-1">
               {WORK_PACKAGE_STATUS_LABEL[wp.status as keyof typeof WORK_PACKAGE_STATUS_LABEL] ??
@@ -74,7 +74,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
           </div>
           <Link
             href={`/requests?wp=${wp.id}`}
-            className="w-fit text-xs text-zinc-400 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
+            className="w-fit text-xs font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline"
           >
             สร้างคำขอซื้อ →
           </Link>

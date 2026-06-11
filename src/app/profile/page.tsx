@@ -44,13 +44,13 @@ export default async function ProfilePage() {
   const backHref = roleHome(role);
 
   return (
-    <main className="min-h-screen bg-zinc-950 px-6 py-10 pb-20 text-zinc-100 sm:pb-10">
+    <main className="min-h-screen bg-white px-6 py-10 pb-20 text-zinc-900 sm:pb-10">
       <BottomTabBar role={role} />
       <div className="mx-auto flex w-full max-w-md flex-col gap-6">
         <header className="space-y-2">
           <Link
             href={backHref}
-            className="inline-flex items-center gap-1 text-xs text-zinc-500 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
+            className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline"
           >
             <span aria-hidden="true">←</span> กลับ
           </Link>
@@ -58,7 +58,7 @@ export default async function ProfilePage() {
             <AvatarSurface lineUrl={row.line_avatar_url} fullName={row.full_name} size={64} />
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">โปรไฟล์</h1>
-              <p className="text-sm text-zinc-500">แก้ไขชื่อที่แสดง</p>
+              <p className="text-sm text-zinc-600">แก้ไขชื่อที่แสดง</p>
             </div>
           </div>
         </header>

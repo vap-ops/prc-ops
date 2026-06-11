@@ -1,7 +1,7 @@
-// Shape pins for the PWA manifest (spec 18 item D). The manifest is what
-// makes the app installable; these pins keep the load-bearing fields from
-// drifting (Thai locale, standalone display, zinc-950 theme, 512 icon +
-// maskable entry).
+// Shape pins for the PWA manifest (spec 18 item D; theme flipped white
+// by spec 20). The manifest is what makes the app installable; these
+// pins keep the load-bearing fields from drifting (Thai locale,
+// standalone display, white sun theme, 512 icon + maskable entry).
 
 import { describe, expect, it } from "vitest";
 import manifest from "@/app/manifest";
@@ -21,9 +21,11 @@ describe("PWA manifest", () => {
     expect(m.start_url).toBe("/");
   });
 
-  it("uses the zinc-950 ground for theme and splash", () => {
-    expect(m.theme_color).toBe("#09090b");
-    expect(m.background_color).toBe("#09090b");
+  // Spec 20: white sun-readable ground — splash/status bar must not
+  // flash dark against the light app.
+  it("uses the white ground for theme and splash (spec 20)", () => {
+    expect(m.theme_color).toBe("#ffffff");
+    expect(m.background_color).toBe("#ffffff");
   });
 
   it("carries a 512x512 icon and a maskable entry", () => {

@@ -51,14 +51,14 @@ export default async function ProjectManagerLandingPage() {
   );
 
   return (
-    <main className="min-h-screen bg-zinc-950 pb-20 text-zinc-100 sm:pb-0">
+    <main className="min-h-screen bg-white pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
       <AppHeader kicker="ผู้จัดการโครงการ" fullName={ctx.fullName} maxWidthClass="max-w-2xl" />
 
       <HubNav maxWidthClass="max-w-2xl" items={PM_HUB_NAV} currentHref="/pm" />
 
       <section className="mx-auto max-w-2xl px-5 py-6">
-        <h2 className="mb-3 text-sm font-medium text-zinc-400">รอตรวจ</h2>
+        <h2 className="mb-3 text-base font-semibold text-zinc-900">รอตรวจ</h2>
 
         {wpError ? (
           <ErrorNotice>โหลดรายการรอตรวจไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</ErrorNotice>
@@ -74,22 +74,22 @@ export default async function ProjectManagerLandingPage() {
                 <li key={wp.id}>
                   <Link
                     href={`/pm/work-packages/${wp.id}`}
-                    className="flex min-h-16 items-start justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-3 transition-colors hover:bg-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+                    className="flex min-h-16 items-start justify-between gap-3 rounded-lg border border-zinc-300 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
                   >
                     <div className="min-w-0 space-y-0.5">
                       {project && (
-                        <p className="truncate text-xs text-zinc-500">
+                        <p className="truncate text-xs text-zinc-600">
                           <span className="font-mono">{project.code}</span>
                           <span className="mx-1">·</span>
                           {project.name}
                         </p>
                       )}
                       <p className="truncate">
-                        <span className="font-mono text-xs text-zinc-500">{wp.code}</span>
-                        <span className="mx-2 text-zinc-700">·</span>
-                        <span className="text-base font-medium text-zinc-100">{wp.name}</span>
+                        <span className="font-mono text-xs text-zinc-600">{wp.code}</span>
+                        <span className="mx-2 text-zinc-400">·</span>
+                        <span className="text-base font-medium text-zinc-900">{wp.name}</span>
                       </p>
-                      <p className="text-xs text-zinc-500">
+                      <p className="text-xs text-zinc-600">
                         เข้าคิวเมื่อ {formatThaiDateTime(wp.updated_at)}
                       </p>
                     </div>

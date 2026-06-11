@@ -74,13 +74,13 @@ export function PurchaseRequestDecision({ requestId }: PurchaseRequestDecisionPr
         rows={2}
         maxLength={1000}
         placeholder="ความเห็น (ต้องใส่เมื่อไม่อนุมัติ)…"
-        className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+        className="rounded-md border border-zinc-400 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
       />
 
       {error ? (
         <div
           role="alert"
-          className="rounded-md border border-red-900/60 bg-red-950/40 px-3 py-2 text-xs text-red-200"
+          className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-900"
         >
           {error}
         </div>
@@ -91,7 +91,7 @@ export function PurchaseRequestDecision({ requestId }: PurchaseRequestDecisionPr
           type="button"
           onClick={() => handleDecide("rejected")}
           disabled={!canReject}
-          className="inline-flex h-9 items-center justify-center rounded-md border border-red-900/70 bg-red-950/40 px-3 text-sm font-medium text-red-200 transition-colors hover:bg-red-950/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-11 items-center justify-center rounded-md bg-red-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
         >
           {submitting && pendingDecision === "rejected" ? "กำลังบันทึก…" : "ไม่อนุมัติ"}
         </button>
@@ -99,7 +99,7 @@ export function PurchaseRequestDecision({ requestId }: PurchaseRequestDecisionPr
           type="button"
           onClick={() => handleDecide("approved")}
           disabled={!canApprove}
-          className="inline-flex h-9 items-center justify-center rounded-md border border-zinc-700 bg-zinc-100 px-3 text-sm font-medium text-zinc-900 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-3 text-sm font-semibold text-white transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
         >
           {submitting && pendingDecision === "approved" ? "กำลังบันทึก…" : "อนุมัติ"}
         </button>

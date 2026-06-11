@@ -5924,3 +5924,45 @@ Read-only audit over `supabase db query --linked` (Management API, postgres cont
 - Decided-history pagination (re-recorded from spec 19).
 - Carried: ของฉัน band label/queue-clear note, dialog a11y foundation, real logo, palette/outdoor theme, LINE notification unit, skeleton width one-liner.
 - **Next per spec-16 implementation order:** P2 (attachments — load `.claude/skills/supersede-pattern` first) → ADR 0027 → P3.
+
+---
+
+## Unit: sun-readable redesign — light theme + nav identity (spec 20, iteration 8)
+
+- **Status:** Complete - 2026-06-11 (operator brief: "ui is bland and hard to identify anything, due to colors, contrasts, sizes; redesign navigation as well; most users are on site, in the sun"). Spec-16 P2 deferred one iteration — the operator brief takes the slot; closes the palette/outdoor-theme item carried since iteration 3.
+- **Spec:** [`docs/feature-specs/20-sun-readable-redesign.md`](./feature-specs/20-sun-readable-redesign.md) — written this unit from the brief; amended in place by the adversarial pass (see below).
+
+### Done
+
+- **Writing failing test first** — RED: sun-fill palette pins (status-colors ×2) and the tab-bar indicator/bg-white/size-6 pin failed against the dark theme; GREEN after implementation. Three legacy dark pins (ErrorNotice/EmptyNotice classes, manifest `#09090b`) updated to the new values at identical assertion strength — the spec-sanctioned named UPDATE-tests. Final suite **263/263**.
+- **Theme flip** — every authenticated + public surface goes `bg-zinc-950` dark → white ground / near-black ink per the §3 recipe table (~30 files; three agents swept SA/PM/misc surfaces, purchasing surfaces done in-session). Two recorded dark exceptions: ConfirmDialog + lightbox scrims/chrome. LINE login button untouched (brand).
+- **Status identity** — five PILL slots become solid saturated fills (`status-colors.ts`); StatusPill geometry up to `px-3 py-1 text-sm font-semibold`; notices light; skeleton zinc-200.
+- **Nav redesign** — BottomTabBar: white bar + shadow, size-6 icons, text-xs labels, active = blue-700 + visible top indicator bar (replaces the emerald tint); HubNav: text-sm light strip, current page = blue underline + semibold ink; AppHeader: blue kicker (the brand moment), text-xl heading, blue โปรไฟล์ link. Sets/hrefs/active rule/aria byte-unchanged.
+- **PWA chrome** — manifest + viewport `#ffffff`; `html { color-scheme: light }` opts out of Chrome Android force-dark (adversarial-pass addition).
+- **Live verification** — /login inspected on the dev server: white ground (`rgb(255,255,255)`), ink text, 30px h1, theme-color meta `#ffffff`, manifest white. Auth-gated pages not visually exercisable on this machine (no login) — **operator outdoor phone pass is the acceptance step**; preview screenshot tool was wedged (renderer), DOM-level checks used instead.
+
+### Adversarial verification (3-lens) — and fixes landed pre-commit
+
+- **Contrast/a11y lens — FAIL → fixed.** Computed real Tailwind-v4 ratios: PILL_EMERALD white-on-emerald-600 was **3.67:1 (AA fail)** → fill bumped to emerald-700 (5.37:1); PILL_MUTED zinc-500-on-zinc-100 4.39:1 → zinc-600 (7.02:1); focus rings were same-hue-on-same-fill (1.0:1, invisible) → `ring-offset-2` added at every solid-fill site; `color-scheme: light` added. Spec §0's "blue-700 ≈ 8.6:1" was a v3-era number — corrected to 6.82:1 with the trade-off recorded.
+- **UX/locked-behavior lens — pass-with-minors, fixed.** Copy/routes/aria verified byte-identical (className-residue diff check); all locked behaviors intact. Fixed: pending-tile labels got white plates (ink over dark photos was ~2.3:1), download button's opacity-fade disabled state → explicit gray, back-link treatment unified to blue-700 across surfaces, SA local h1s → text-xl.
+- **Discipline lens — pass-with-minors.** Spec §1a's "local pill literals on PM pages" claim was FALSE (all three pages already used the shared helpers) — spec amended in place. No unreported scope creep beyond the judgment calls below.
+
+### Decisions made / recorded deviations (spec §3 judgment calls)
+
+- White-on-emerald-700/red-600 pills sit at 5.37/4.76:1 — AA-pass but under the 7:1 sun floor; accepted: hue + semibold label carry identification, darker fills kill the hue. Same posture for blue-700 actions (6.82:1).
+- Purchase-request form card uses `bg-zinc-50` (not the card recipe's white) so its white inputs keep an edge against the card.
+- Filter-chip pattern extended to the hide-completed checkbox label (work-package-list); checkbox accent-blue-700; selected radio cards = blue-50 tint (record-decision-form); OperatorHub kicker on coming-soon shares the blue kicker treatment; emerald meta texts (บันทึกแล้ว, ได้รับของเมื่อ) → emerald-700 medium; progress fill emerald-600 (2.89:1 vs track — non-text, aria + count carry it; recorded shortfall).
+- Thumbnail remove button = solid destructive red (the lightbox close stays dark per §1d) — asymmetric by design: one floats on photos inside a dark viewer, the other on a light tile grid.
+- ConfirmDialog destructive confirm keeps a red ring (+offset) — red identity on the destructive control; everything else rings blue.
+
+### Verification (spec 20 §8 checklist)
+
+- RED → GREEN per above; suite **263/263**. ✓ §8 greps: dark survivors = the two scrim exceptions + lightbox chrome + `text-zinc-950` on amber/LINE fills; mid-gray survivors are placeholders/disabled/dividers/PILL_MUTED only. ✓ No route/copy/aria/item-set change (class-residue diff). ✓ build + e2e **27/27**. ✓ No diff under `supabase/`/`worker/`. ✓ Manifest/viewport white, served live. ✓ 3-lens pass recorded above. ⏳ **Operator: outdoor phone pass** (the real acceptance test) on next deploy.
+
+### Open questions / iteration-9 queue
+
+- Sub-44px tap targets in phase-uploader (retry ~22px, remove 28px) + reports breadcrumb/header text-xs links — geometry pass for gloved hands.
+- ZoomablePhoto focus ring clipped by `overflow-hidden` (pre-existing, now blue) — joins the dialog-foundation a11y pass.
+- Spinner track on the red remove button ~1.8:1 (shared one-class spinner) — give Spinner a className prop or a white variant.
+- Dark/night-shift toggle (tokens make it cheap) — operator decision.
+- Carried: spec-16 P2 attachments (next per implementation order), length caps, browser/admin client typing, pending-band ordering test, pagination, ของฉัน band label, real logo, LINE notification unit, skeleton width.

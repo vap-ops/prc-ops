@@ -67,16 +67,16 @@ export function ReportsList({ reports }: ReportsListProps) {
 
 function ReportRow({ report }: { report: ReportListItem }) {
   return (
-    <li className="rounded-md border border-zinc-800 bg-zinc-900/40 px-4 py-3">
+    <li className="rounded-md border border-zinc-300 bg-white px-4 py-3 shadow-sm">
       <div className="flex items-center justify-between gap-3">
         <StatusPill pillClasses={reportStatusPillClasses(report.status)}>
           {REPORT_STATUS_LABEL[report.status]}
         </StatusPill>
-        <span className="text-xs text-zinc-500">{formatThaiDateTime(report.createdAt)}</span>
+        <span className="text-xs text-zinc-600">{formatThaiDateTime(report.createdAt)}</span>
       </div>
       {report.status === "complete" && <DownloadButton reportId={report.id} />}
       {report.status === "failed" && report.error && (
-        <p className="mt-2 text-xs whitespace-pre-wrap text-red-300/80">{report.error}</p>
+        <p className="mt-2 text-xs whitespace-pre-wrap text-red-800">{report.error}</p>
       )}
     </li>
   );
@@ -108,14 +108,14 @@ function DownloadButton({ reportId }: { reportId: string }) {
         type="button"
         onClick={handleClick}
         disabled={pending}
-        className="inline-flex h-8 w-fit items-center justify-center rounded-md border border-zinc-700 bg-zinc-800 px-3 text-xs font-medium text-zinc-100 transition-colors hover:bg-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex h-11 w-fit items-center justify-center rounded-md border border-zinc-400 bg-white px-3 text-xs font-medium text-zinc-900 transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
       >
         {pending ? "กำลังเตรียมไฟล์…" : "ดาวน์โหลด PDF"}
       </button>
       {error && (
         <p
           role="alert"
-          className="rounded-md border border-red-900/60 bg-red-950/40 px-2 py-1 text-xs text-red-200"
+          className="rounded-md border border-red-300 bg-red-50 px-2 py-1 text-xs text-red-900"
         >
           {error}
         </p>
