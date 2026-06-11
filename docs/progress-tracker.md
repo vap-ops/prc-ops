@@ -6022,3 +6022,7 @@ Status: COMPLETE. ADR 0032 (extends ADR 0013 - membership is display metadata, N
 ## Spec 29 - create-form embeds in WP detail (2026-06-11)
 
 Status: COMPLETE. Operator: two WP links (สร้างคำขอซื้อ + ดูรายละเอียดคำขอซื้อทั้งหมด) pointed at the SAME URL (/requests?wp=X) and creating a request teleported users out of the โครงการ tab. Site map drawn in chat. Fix: PurchaseRequestForm now mounts inside the WP detail right rail as a สร้างคำขอซื้อ details-expander (component already took workPackage+projectId props — zero form changes); duplicate header link removed; list link renamed ดูในแท็บคำขอซื้อ → plain /requests (explicit tab switch). /requests?wp= pinned mode remains functional but NO in-app link produces it — recorded seam (candidate for removal in a future cleanup spec). 283 unit green.
+
+## Spec 30 (partial) - WP page zone headers + link removal (2026-06-11)
+
+Status: items 1+2 COMPLETE; item 3 (contractor owners) awaiting operator decision. 1) ดูในแท็บคำขอซื้อ link removed (operator). 2) WP detail gets three zone headers (icon + bold + heavy underline rule): รูปถ่ายงาน (Camera) / คำขอซื้อ (ShoppingCart: create expander + list) / ข้อมูลงาน (FileText: description + approval history) — fixes 'everything looks like the same category'. คำขอซื้อของงานนี้ h2 absorbed into the zone header. 283 unit green. PENDING DECISION (item 3): operator says มอบหมายงาน should assign WP OWNERS = outsiders (subcontractor crews) — needs contractors master table; question asked whether spec-28 internal owner/team stays alongside or is replaced.

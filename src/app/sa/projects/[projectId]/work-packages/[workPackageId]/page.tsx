@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Camera, FileText, ShoppingCart } from "lucide-react";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import {
@@ -212,7 +213,13 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
           max width steps up to 4xl ONLY at md so phones keep the
           familiar 2xl measure. */}
       <div className="mx-auto grid max-w-2xl grid-cols-1 gap-6 px-5 py-6 md:max-w-4xl md:grid-cols-[1.6fr_1fr] md:items-start">
-        <div className="flex min-w-0 flex-col gap-6">
+        <div className="flex min-w-0 flex-col gap-4">
+          {/* Spec 30: zone headers — icon + bold title + rule line so the
+              three content categories read as distinct at a glance. */}
+          <h2 className="flex items-center gap-2 border-b-2 border-zinc-900 pb-1 text-base font-bold text-zinc-900">
+            <Camera aria-hidden className="size-5 text-blue-700" />
+            รูปถ่ายงาน
+          </h2>
           {PHASES.map(({ phase, label }) => (
             <PhaseUploader
               key={phase}
@@ -228,15 +235,11 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
           ))}
         </div>
 
-        <div className="flex min-w-0 flex-col gap-6">
-          {wp.description ? (
-            <details className="rounded-lg border border-zinc-300 bg-white px-4 py-3 shadow-sm">
-              <summary className="cursor-pointer text-sm font-semibold text-zinc-900">
-                รายละเอียดงาน
-              </summary>
-              <p className="mt-2 text-sm whitespace-pre-wrap text-zinc-700">{wp.description}</p>
-            </details>
-          ) : null}
+        <div className="flex min-w-0 flex-col gap-4">
+          <h2 className="flex items-center gap-2 border-b-2 border-zinc-900 pb-1 text-base font-bold text-zinc-900">
+            <ShoppingCart aria-hidden className="size-5 text-blue-700" />
+            คำขอซื้อ
+          </h2>
           {/* Spec 29: the create form lives HERE now — raising a request
               no longer teleports the user to the คำขอซื้อ tab
               (operator-reported disorientation; site map 2026-06-11).
@@ -255,7 +258,6 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
           </details>
           {(wpRequests ?? []).length > 0 ? (
             <section>
-              <h2 className="mb-2 text-base font-semibold text-zinc-900">คำขอซื้อของงานนี้</h2>
               <ul className="flex flex-col gap-2">
                 {(wpRequests ?? []).map((r) => {
                   const status = r.status as PurchaseRequestStatus;
@@ -294,13 +296,19 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
                   );
                 })}
               </ul>
-              <Link
-                href="/requests"
-                className="mt-2 inline-flex text-xs font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline"
-              >
-                ดูในแท็บคำขอซื้อ →
-              </Link>
             </section>
+          ) : null}
+          <h2 className="mt-2 flex items-center gap-2 border-b-2 border-zinc-900 pb-1 text-base font-bold text-zinc-900">
+            <FileText aria-hidden className="size-5 text-blue-700" />
+            ข้อมูลงาน
+          </h2>
+          {wp.description ? (
+            <details className="rounded-lg border border-zinc-300 bg-white px-4 py-3 shadow-sm">
+              <summary className="cursor-pointer text-sm font-semibold text-zinc-900">
+                รายละเอียดงาน
+              </summary>
+              <p className="mt-2 text-sm whitespace-pre-wrap text-zinc-700">{wp.description}</p>
+            </details>
           ) : null}
           {approvals.length > 0 ? (
             <details className="rounded-lg border border-zinc-300 bg-white px-4 py-3 shadow-sm">
