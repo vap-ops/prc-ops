@@ -333,7 +333,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                             r.requested_by_email ??
                             "—"}
                           <span className="mx-1 text-zinc-400">·</span>
-                          ขอเมื่อ {formatThaiDateTime(r.requested_at)}
+                          ขอเมื่อ {formatThaiDate(r.requested_at)}
                         </p>
                         {r.needed_by ? (
                           <p className="text-xs text-zinc-600">
@@ -422,17 +422,11 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                         </div>
                       </details>
                     ) : null}
-                    {status === "approved" && r.decided_at ? (
-                      <p className="mt-2 text-xs text-zinc-600">
-                        อนุมัติเมื่อ {formatThaiDateTime(r.decided_at)}
-                      </p>
-                    ) : null}
-                    {(status === "approved" || status === "purchased" || status === "on_route") &&
-                    r.eta ? (
-                      <p className="mt-1 text-xs text-zinc-600">
-                        คาดว่าจะได้รับของ {formatThaiDate(r.eta)}
-                      </p>
-                    ) : null}
+                    {/* Spec 26 slimming: the tracker already carries the
+                        stage dates + ETA — the old อนุมัติเมื่อ /
+                        คาดว่าจะได้รับของ / สั่งซื้อเมื่อ / ได้รับของเมื่อ
+                        text lines duplicated it. Only facts the tracker
+                        does NOT show remain: supplier, receiver, notes. */}
                     {status === "rejected" && r.decision_comment ? (
                       <div className="mt-2 rounded-md border border-red-300 bg-red-50 px-3 py-2">
                         <p className="text-xs font-medium text-red-900">เหตุผลที่ไม่อนุมัติ</p>
@@ -446,17 +440,13 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                         ) : null}
                       </div>
                     ) : null}
-                    {(status === "purchased" || status === "on_route" || status === "delivered") &&
-                    r.purchased_at ? (
+                    {r.supplier || (status === "delivered" && r.received_by) ? (
                       <p className="mt-2 text-xs text-zinc-600">
-                        สั่งซื้อเมื่อ {formatThaiDateTime(r.purchased_at)}
-                        {r.supplier ? ` · ผู้ขาย ${r.supplier}` : ""}
-                      </p>
-                    ) : null}
-                    {status === "delivered" && r.delivered_at ? (
-                      <p className="mt-1 text-xs font-medium text-emerald-700">
-                        ได้รับของเมื่อ {formatThaiDateTime(r.delivered_at)}
-                        {r.received_by ? ` · ผู้รับของ ${r.received_by}` : ""}
+                        {r.supplier ? `ผู้ขาย ${r.supplier}` : ""}
+                        {r.supplier && status === "delivered" && r.received_by ? " · " : ""}
+                        {status === "delivered" && r.received_by
+                          ? `ผู้รับของ ${r.received_by}`
+                          : ""}
                       </p>
                     ) : null}
                     {status === "delivered" && r.delivery_note ? (
