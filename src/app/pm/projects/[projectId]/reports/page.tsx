@@ -60,12 +60,7 @@ export default async function ProjectReportsPage({ params }: PageProps) {
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
-      <AppHeader
-        kicker="ผู้จัดการโครงการ"
-        title="รายงาน"
-        maxWidthClass="max-w-2xl"
-        showProfileLink={false}
-      />
+      <AppHeader kicker="ผู้จัดการโครงการ" title="รายงาน" maxWidthClass="max-w-2xl" />
 
       <nav className="border-b border-zinc-800/60 bg-zinc-900/30 px-5 py-2">
         <div className="mx-auto flex max-w-2xl items-center gap-4 text-xs">

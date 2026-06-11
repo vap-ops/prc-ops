@@ -16,6 +16,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { createClient as createBrowserSupabase } from "@/lib/db/browser";
+import { ConfirmDialog } from "@/components/features/confirm-dialog";
 import { EmptyNotice } from "@/components/features/notices";
 import { ZoomablePhoto } from "@/components/features/photo-lightbox";
 import { mimeToPhotoExt, type PhotoExt, buildPhotoStoragePath } from "@/lib/photos/path";
@@ -63,6 +64,9 @@ export function PhaseUploader({
   const [pending, setPending] = useState<ReadonlyArray<PendingUpload>>([]);
   const [topLevelError, setTopLevelError] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  // Photo id awaiting removal confirmation in the themed dialog
+  // (replaces window.confirm — spec 18).
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   function updatePending(id: string, patch: Partial<PendingUpload>) {
@@ -168,8 +172,12 @@ export function PhaseUploader({
     }
   }
 
-  async function handleRemove(photoId: string) {
-    if (!window.confirm("ลบรูปนี้หรือไม่? การลบไม่สามารถย้อนกลับได้")) return;
+  async function handleRemoveConfirmed(photoId: string) {
+    // Always close the dialog; then serialize removals — while one
+    // removal's server action is in flight, confirming another is a
+    // no-op (deliberate: one tombstone round-trip at a time).
+    setConfirmRemoveId(null);
+    if (removingId !== null) return;
     setRemovingId(photoId);
     const result = await removePhoto({ photoLogId: photoId });
     setRemovingId(null);
@@ -220,7 +228,7 @@ export function PhaseUploader({
               key={p.id}
               photo={p}
               isRemoving={removingId === p.id}
-              onRemove={() => void handleRemove(p.id)}
+              onRemove={() => setConfirmRemoveId(p.id)}
             />
           ))}
           {pending.map((up) => (
@@ -228,6 +236,16 @@ export function PhaseUploader({
           ))}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={confirmRemoveId !== null}
+        message={"ลบรูปนี้หรือไม่? การลบไม่สามารถย้อนกลับได้"}
+        confirmLabel="ลบรูป"
+        onConfirm={() => {
+          if (confirmRemoveId) void handleRemoveConfirmed(confirmRemoveId);
+        }}
+        onCancel={() => setConfirmRemoveId(null)}
+      />
     </section>
   );
 }

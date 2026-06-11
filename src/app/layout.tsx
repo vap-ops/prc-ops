@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Sarabun } from "next/font/google";
+import { SwRegister } from "@/components/features/sw-register";
 import "./globals.css";
 
 // Sarabun matches the PDF reports (spec 13) — one Thai face across web
@@ -24,6 +25,11 @@ export const metadata: Metadata = {
   description: "ระบบบริหารงานก่อสร้าง — รูปถ่ายความคืบหน้า อนุมัติงาน และรายงานโครงการ",
 };
 
+// Status-bar / splash chrome matches the app's zinc-950 ground (spec 18).
+export const viewport: Viewport = {
+  themeColor: "#09090b",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -31,7 +37,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="th" className={`${sarabun.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        {children}
+        <SwRegister />
+      </body>
     </html>
   );
 }

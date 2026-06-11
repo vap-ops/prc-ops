@@ -7,10 +7,9 @@ import { LogoutButton } from "@/components/auth/logout-button";
 // headers) and the bespoke landing/login/profile/coming-soon layouts do
 // NOT use this component.
 //
-// `maxWidthClass` is the page's existing container width passed through
-// verbatim — unifying the 2xl/3xl split is a recorded operator question,
-// not this refactor's call. Same for `showProfileLink`: /pm/projects and
-// the reports page historically render only the logout button.
+// Every hub header carries the โปรไฟล์ link + logout (spec 18
+// normalized away the two historical hide-sites). `maxWidthClass`
+// remains a prop for the hub/detail width split.
 
 interface AppHeaderProps {
   kicker: string;
@@ -19,16 +18,9 @@ interface AppHeaderProps {
   /** Fixed-title variant — overrides the greeting (reports page). */
   title?: string;
   maxWidthClass: "max-w-2xl" | "max-w-3xl";
-  showProfileLink?: boolean;
 }
 
-export function AppHeader({
-  kicker,
-  fullName,
-  title,
-  maxWidthClass,
-  showProfileLink = true,
-}: AppHeaderProps) {
+export function AppHeader({ kicker, fullName, title, maxWidthClass }: AppHeaderProps) {
   const heading = title ?? (fullName ? `สวัสดี คุณ${fullName}` : "สวัสดี");
   return (
     <header className="border-b border-zinc-800 px-5 py-4">
@@ -38,14 +30,12 @@ export function AppHeader({
           <h1 className="text-lg font-semibold tracking-tight">{heading}</h1>
         </div>
         <div className="flex items-center gap-3">
-          {showProfileLink ? (
-            <Link
-              href="/profile"
-              className="text-sm text-zinc-400 transition-colors hover:text-zinc-100 focus:outline-none focus-visible:underline"
-            >
-              โปรไฟล์
-            </Link>
-          ) : null}
+          <Link
+            href="/profile"
+            className="text-sm text-zinc-400 transition-colors hover:text-zinc-100 focus:outline-none focus-visible:underline"
+          >
+            โปรไฟล์
+          </Link>
           <LogoutButton />
         </div>
       </div>

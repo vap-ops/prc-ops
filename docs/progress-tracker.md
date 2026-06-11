@@ -5791,3 +5791,42 @@ Read-only audit over `supabase db query --linked` (Management API, postgres cont
 - **Status:** Complete - 2026-06-11 (autonomous block). Closes the ADR 0015 follow-up queued since 2026-05-24 ("skill teaches replacement-only framing").
 - **Done:** `.claude/skills/supersede-pattern/SKILL.md` now teaches the tombstone variant per ADR 0015: payload-NULL sentinel (generalized to multi-payload tables like the spec-16 attachments design), mandatory well-formedness CHECK, two-filter current-state read (anti-join + tombstone filter, with the canonical SQL), two-append replacement + transaction note, orphan-accepted Storage posture, the table-qualified-outer-reference policy hazard from the spec-16 review, tombstone test requirements, and ADR 0015 added to sources of truth. Frontmatter triggers extended (tombstone, attachments, remove photo).
 - **Why now:** spec 16 P2 (attachment removal) loads this skill; it must teach the right pattern before that unit starts.
+
+---
+
+## Unit: UX coherence + PWA installability (spec 18, iteration 5)
+
+- **Status:** Complete — 2026-06-11 (operator brief: "revise uxui"; merge-auto standing instruction).
+- **Spec:** [`docs/feature-specs/18-ux-coherence-pwa.md`](./feature-specs/18-ux-coherence-pwa.md) — header normalization (profile link everywhere, hub width unification), shared HubNav with the consistent 4-item PM / 2-item SA sets, themed ConfirmDialog replacing window.confirm, PWA manifest/icons/SW/theme-color.
+
+### Done
+
+- **Writing failing test first** — RED: 3 new test files failed module-absent (hub-nav, confirm-dialog, manifest); GREEN after implementation. The app-shell-primitives update is a relaxation (prop removal), recorded honestly — it could not break first. Final suite **232/232** (216 prior + 16 new incl. the canonical nav-set pins).
+- **A. Header normalization** — `showProfileLink` prop deleted (โปรไฟล์ on every hub incl. /pm/projects + reports); hubs unified to `max-w-2xl` (/pm, /pm/requests, /requests narrowed from 3xl).
+- **B. HubNav** — canonical `PM_HUB_NAV` (4 items) / `SA_HUB_NAV` (2 items) exported beside the component and pinned by test; every PM hub now shows all four destinations (was 2-of-4 on two pages); arrows dropped; min-h-11 tap targets.
+- **C. ConfirmDialog** — replaces `window.confirm` on photo removal (English browser chrome with raw origin — the least app-like moment). Same overlay language as the lightbox; Escape/backdrop/ยกเลิก cancel; initial focus on cancel; `aria-labelledby` on the message. Spec 16 P2 reuses it for attachment removal.
+- **D. PWA installability** — `manifest.ts` (Thai, standalone, zinc-950 theme), generated PRC placeholder icons (192/512/apple-180 — replace PNGs with the real logo any time), network-only `sw.js` + production-gated registration, `viewport.themeColor`. Verified live on the dev server: `/manifest.webmanifest` 200 with correct fields, icons serve, theme-color/manifest/apple-touch-icon tags emitted.
+
+### Adversarial verification (3-lens workflow over the uncommitted diff)
+
+- **UX/locked-behavior lens — pass.** No destination lost vs the deleted nav strips; /requests spec-12 back-bar untouched (both modes); reports back-nav intact; ConfirmDialog message byte-identical to the old confirm string; zero leftover `max-w-3xl` on converted pages; no route/redirect/query change.
+- **PWA/client lens — pass** with minors, all fixed: dialog now closes BEFORE the serialize guard (a second photo's confirm is never a silent dead button); focus effect split from the Escape-listener effect (parent re-renders no longer yank focus); `aria-labelledby` added. Icons byte-inspected (PNG headers + visual).
+- **Discipline lens — pass.** Canonical nav sets now test-pinned per its suggestion; the removal-serialization guard recorded as deliberate (one tombstone round-trip at a time — old window.confirm allowed concurrent removals).
+
+### Decisions made
+
+- **Removals serialize** — while one removal's server action is in flight, confirming another is a no-op (dialog still closes). Deliberate change from the synchronous-confirm era; prevents interleaved tombstone writes from one screen.
+- **Skeleton width left at 3xl** — `page-skeleton.tsx` now mismatches the 2xl hubs (pre-existing partial mismatch made consistent-in-the-wrong-direction by this unit). Per the discipline lens: recorded as a follow-up, not absorbed (one-class change next iteration).
+- **No focus trap / focus-restore in ConfirmDialog** — beyond spec C's contract; joins the lightbox's recorded a11y follow-up (one shared dialog-foundation pass).
+
+### Verification (spec 18 checklist)
+
+- RED → GREEN per above. ✔ lint/typecheck/test — 232/232. ✔ build — manifest + apple-icon routes emitted, route table otherwise unchanged. ✔ e2e — 27/27. ✔ Manifest/icons/SW fetched live; icon visually inspected. ✔ Locked behaviors intact (lens 1). ✔ No diff under `supabase/`/`worker/`. ✔
+
+### Open questions / iteration-6 queue
+
+- `page-skeleton.tsx` width → `max-w-2xl` (one-class follow-up).
+- Dialog-foundation a11y pass: focus trap + focus restore shared by ConfirmDialog + ZoomablePhoto.
+- Real logo to replace the placeholder icon PNGs (paths/sizes stay).
+- Operator install test: real-iPhone LINE-login round-trip in standalone mode, then the Thai install guide (app-feel doc step 1).
+- Still queued: palette/outdoor theme (operator-visible), /pm/requests progressive disclosure, row-link extraction, LINE notification unit (`?openExternalBrowser=1` belongs there).

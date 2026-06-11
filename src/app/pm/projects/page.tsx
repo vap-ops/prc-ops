@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppHeader } from "@/components/features/app-header";
+import { HubNav, PM_HUB_NAV } from "@/components/features/hub-nav";
 import { EmptyNotice, ErrorNotice } from "@/components/features/notices";
 import { StatusPill } from "@/components/features/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
@@ -27,24 +28,9 @@ export default async function PmProjectsPage() {
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
-      <AppHeader
-        kicker="ผู้จัดการโครงการ"
-        fullName={ctx.fullName}
-        maxWidthClass="max-w-2xl"
-        showProfileLink={false}
-      />
+      <AppHeader kicker="ผู้จัดการโครงการ" fullName={ctx.fullName} maxWidthClass="max-w-2xl" />
 
-      <nav className="border-b border-zinc-800/60 bg-zinc-900/30 px-5 py-2">
-        <div className="mx-auto flex max-w-2xl items-center gap-4 text-xs">
-          <Link
-            href="/pm"
-            className="text-zinc-500 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
-          >
-            รายการรอตรวจ
-          </Link>
-          <span className="text-zinc-100">โครงการและรายงาน</span>
-        </div>
-      </nav>
+      <HubNav maxWidthClass="max-w-2xl" items={PM_HUB_NAV} currentHref="/pm/projects" />
 
       <section className="mx-auto max-w-2xl px-5 py-6">
         <h2 className="mb-3 text-sm font-medium text-zinc-400">โครงการ</h2>

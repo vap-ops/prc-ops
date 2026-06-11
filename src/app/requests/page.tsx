@@ -101,10 +101,10 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
-      <AppHeader kicker="คำขอซื้อ" fullName={ctx.fullName} maxWidthClass="max-w-3xl" />
+      <AppHeader kicker="คำขอซื้อ" fullName={ctx.fullName} maxWidthClass="max-w-2xl" />
 
       <nav className="border-b border-zinc-800/60 bg-zinc-900/30 px-5 py-1">
-        <div className="mx-auto flex max-w-3xl items-center">
+        <div className="mx-auto flex max-w-2xl items-center">
           <Link
             href={backHref}
             className="inline-flex min-h-10 items-center gap-1.5 text-xs text-zinc-400 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
@@ -115,7 +115,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         </div>
       </nav>
 
-      <section className="mx-auto max-w-3xl space-y-8 px-5 py-6">
+      <section className="mx-auto max-w-2xl space-y-8 px-5 py-6">
         <div>
           <h2 className="mb-3 text-sm font-medium text-zinc-400">สร้างคำขอซื้อ</h2>
           {pinnedWp ? (

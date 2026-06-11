@@ -29,7 +29,6 @@ describe("AppHeader", () => {
         title="รายงาน"
         fullName="สมชาย"
         maxWidthClass="max-w-2xl"
-        showProfileLink={false}
       />,
     );
     const heading = screen.getByRole("heading", { level: 1 });
@@ -37,21 +36,9 @@ describe("AppHeader", () => {
     expect(heading).not.toHaveTextContent("สวัสดี");
   });
 
-  it("shows the profile link by default and hides it when disabled", () => {
-    const { unmount } = render(
-      <AppHeader kicker="คำขอซื้อ" fullName="สมชาย" maxWidthClass="max-w-3xl" />,
-    );
+  it("always shows the profile link (spec 18 normalization — no hide prop)", () => {
+    render(<AppHeader kicker="คำขอซื้อ" fullName="สมชาย" maxWidthClass="max-w-3xl" />);
     expect(screen.getByRole("link", { name: "โปรไฟล์" })).toHaveAttribute("href", "/profile");
-    unmount();
-    render(
-      <AppHeader
-        kicker="ผู้จัดการโครงการ"
-        fullName="สมชาย"
-        maxWidthClass="max-w-2xl"
-        showProfileLink={false}
-      />,
-    );
-    expect(screen.queryByRole("link", { name: "โปรไฟล์" })).not.toBeInTheDocument();
   });
 });
 
