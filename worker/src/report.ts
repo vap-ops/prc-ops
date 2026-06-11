@@ -1,7 +1,9 @@
 // PDF report composition for the PDF worker. PURE-ish: takes already-fetched
 // project metadata + WP/photo data (the photos are raw bytes the caller has
 // already downloaded from Storage) and returns a PDF buffer. NO I/O —
-// DB queries and Storage downloads live in index.ts.
+// DB queries and Storage downloads live in index.ts. (The one exception is
+// the embedded font asset, read from disk once at module load — a static
+// asset bundled with the code, not data I/O.)
 //
 // v1 content (locked):
 //   - Header: project code + name + generated-at date.
@@ -18,7 +20,19 @@
 //   - PM image curation per report.
 //   - Deliverable-grouping of WPs.
 
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import PDFDocument from "pdfkit";
+
+// Sarabun Regular (SIL OFL 1.1 — license at worker/fonts/OFL.txt). PDFKit's
+// built-in Helvetica is WinAnsi-encoded and silently garbles Thai, and every
+// live WP/deliverable name is Thai (spec 13). All report text uses this face.
+// Path is resolved relative to this module, not the process CWD — the worker
+// runs under Railway with Root Directory /worker, and locally from varying
+// directories.
+const SARABUN_REGULAR = readFileSync(
+  fileURLToPath(new URL("../fonts/Sarabun-Regular.ttf", import.meta.url)),
+);
 
 export interface ReportInputProject {
   code: string;
@@ -64,6 +78,8 @@ function streamToBuffer(doc: PDFKit.PDFDocument): Promise<Buffer> {
 
 export async function buildReportPdf(input: ReportInput): Promise<Buffer> {
   const doc = new PDFDocument({ size: "A4", margin: 50 });
+  doc.registerFont("Sarabun", SARABUN_REGULAR);
+  doc.font("Sarabun");
   const done = streamToBuffer(doc);
 
   // Header.
