@@ -68,12 +68,21 @@ export function validateCreatePurchaseRequest(input: {
   if (itemDescription.length === 0) {
     return { ok: false, error: "รายการวัสดุต้องไม่ว่าง" };
   }
+  // Server-side caps (spec 36): the client maxLength attributes were
+  // the only bound — a forged action payload could bloat the site-wide
+  // /requests SSR. DB CHECK constraints are a recorded follow-up.
+  if (itemDescription.length > 500) {
+    return { ok: false, error: "รายการวัสดุต้องไม่เกิน 500 ตัวอักษร" };
+  }
   if (!Number.isFinite(input.quantity) || input.quantity <= 0) {
     return { ok: false, error: "จำนวนต้องเป็นตัวเลขมากกว่าศูนย์" };
   }
   const unit = input.unit.trim();
   if (unit.length === 0) {
     return { ok: false, error: "หน่วยต้องไม่ว่าง" };
+  }
+  if (unit.length > 40) {
+    return { ok: false, error: "หน่วยต้องไม่เกิน 40 ตัวอักษร" };
   }
 
   // needed_by is optional (spec 16 §2): blank collapses to null; when

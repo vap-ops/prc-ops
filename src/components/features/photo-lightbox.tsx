@@ -30,11 +30,13 @@ export function ZoomablePhoto({ src }: ZoomablePhotoProps) {
 
   return (
     <>
+      {/* Spec 36: ring-inset — thumbnail wrappers use overflow-hidden,
+          which clipped the (keyboard-only) focus ring entirely. */}
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-label="ดูรูปขยาย"
-        className="block h-full w-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+        className="block h-full w-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-inset"
       >
         {/* Plain <img> — signed Supabase URLs; same call as the existing
             thumbnails (next/image would need a remotePatterns entry). */}

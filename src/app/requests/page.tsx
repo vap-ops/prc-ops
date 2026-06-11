@@ -49,6 +49,7 @@ import {
 } from "@/components/features/purchase-record-form";
 import { PurchaseRequestShip } from "@/components/features/purchase-request-ship";
 import { isBackOfficeRole } from "@/lib/purchasing/back-office";
+import { comparePendingRequests } from "@/lib/purchasing/pending-order";
 import { PurchaseRequestTracker } from "@/components/features/purchase-request-tracker";
 import { DeliveryPhotoUploader } from "@/components/features/delivery-photo-uploader";
 import { PurchaseRequestAttachmentStager } from "@/components/features/purchase-request-attachment-stager";
@@ -134,19 +135,11 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // band (critical → urgent → normal) then oldest-first; decided rows
   // below newest-first (the history). In-process sort, not SQL ORDER BY:
   // one fetch serves both bands' opposite date orders (deviation from
-  // A2's "order by" wording, recorded in the tracker).
-  const PRIORITY_RANK: Record<PurchaseRequestPriority, number> = {
-    critical: 0,
-    urgent: 1,
-    normal: 2,
-  };
+  // A2's "order by" wording, recorded in the tracker). Comparator
+  // extracted + pinned by unit test (spec 36).
   const pendingRows = allVisible
     .filter((r) => r.status === "requested")
-    .sort(
-      (a, b) =>
-        PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] ||
-        a.requested_at.localeCompare(b.requested_at),
-    );
+    .sort(comparePendingRequests);
   const decidedRows = allVisible.filter((r) => r.status !== "requested");
   const myRequests = [...pendingRows, ...decidedRows];
 

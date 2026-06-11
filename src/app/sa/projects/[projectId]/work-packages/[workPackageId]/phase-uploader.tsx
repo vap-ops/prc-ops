@@ -366,20 +366,27 @@ function Thumbnail({ photo, isRemoving, onRemove }: ThumbnailProps) {
           ไม่พร้อมแสดง
         </div>
       )}
+      {/* Spec 36 tap-target pass: the BUTTON is a 44px transparent
+          square (real hit area, inside the tile so the li's
+          overflow-hidden cannot clip it); the red disc stays 28px
+          visually. Spinner gets the white variant — the default dark
+          track was ~1.8:1 on this red fill. */}
       <button
         type="button"
         onClick={onRemove}
         disabled={isRemoving}
         aria-label="ลบรูป"
-        className="absolute top-1.5 right-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full border border-red-700 bg-red-600 font-semibold text-white transition-colors hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 disabled:opacity-50"
+        className="group absolute top-0 right-0 inline-flex h-11 w-11 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 disabled:opacity-50"
       >
-        {isRemoving ? (
-          <Spinner />
-        ) : (
-          <span aria-hidden="true" className="text-base leading-none">
-            ×
-          </span>
-        )}
+        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-red-700 bg-red-600 font-semibold text-white transition-colors group-hover:bg-red-700">
+          {isRemoving ? (
+            <Spinner className="border-white/40 border-t-white" />
+          ) : (
+            <span aria-hidden="true" className="text-base leading-none">
+              ×
+            </span>
+          )}
+        </span>
       </button>
     </li>
   );
@@ -413,10 +420,11 @@ function PendingTile({ upload, onRetry }: PendingTileProps) {
             <span className="rounded bg-white/85 px-1.5 py-0.5 text-[11px] font-medium text-red-900">
               {upload.errorMessage ?? "ล้มเหลว"}
             </span>
+            {/* Spec 36 tap-target pass: 44px min height for gloved hands. */}
             <button
               type="button"
               onClick={onRetry}
-              className="rounded border border-zinc-400 bg-white px-2 py-0.5 text-[11px] font-medium text-zinc-900 hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+              className="inline-flex min-h-11 items-center rounded border border-zinc-400 bg-white px-3 text-xs font-medium text-zinc-900 hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
             >
               ลองใหม่
             </button>
@@ -427,11 +435,16 @@ function PendingTile({ upload, onRetry }: PendingTileProps) {
   );
 }
 
-function Spinner() {
+// Spec 36: track colors are overridable — the default dark track was
+// ~1.8:1 against the red remove button; that call site passes a white
+// variant.
+function Spinner({ className }: { className?: string }) {
   return (
     <span
       aria-hidden="true"
-      className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-zinc-400 border-t-zinc-900"
+      className={`inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 ${
+        className ?? "border-zinc-400 border-t-zinc-900"
+      }`}
     />
   );
 }

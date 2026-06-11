@@ -345,3 +345,26 @@ describe("isDecisionCommentValid", () => {
     expect(isDecisionCommentValid("rejected", "budget exceeded")).toBe(true);
   });
 });
+
+describe("length caps (spec 36 — server-side, client maxLength was the only bound)", () => {
+  const base = {
+    workPackageId: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+    itemDescription: "Cement",
+    quantity: 1,
+    unit: "bag",
+  };
+
+  it("rejects an item description over 500 characters", () => {
+    expect(validateCreatePurchaseRequest({ ...base, itemDescription: "x".repeat(501) }).ok).toBe(
+      false,
+    );
+    expect(validateCreatePurchaseRequest({ ...base, itemDescription: "x".repeat(500) }).ok).toBe(
+      true,
+    );
+  });
+
+  it("rejects a unit over 40 characters", () => {
+    expect(validateCreatePurchaseRequest({ ...base, unit: "x".repeat(41) }).ok).toBe(false);
+    expect(validateCreatePurchaseRequest({ ...base, unit: "x".repeat(40) }).ok).toBe(true);
+  });
+});
