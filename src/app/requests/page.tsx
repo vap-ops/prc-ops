@@ -43,6 +43,12 @@ import {
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { PurchaseRequestDecision } from "@/components/features/purchase-request-decision";
 import { PurchaseRequestCancel } from "@/components/features/purchase-request-cancel";
+import {
+  PurchaseRecordForm,
+  type SupplierOption,
+} from "@/components/features/purchase-record-form";
+import { PurchaseRequestShip } from "@/components/features/purchase-request-ship";
+import { isBackOfficeRole } from "@/lib/purchasing/back-office";
 import { PurchaseRequestTracker } from "@/components/features/purchase-request-tracker";
 import { DeliveryPhotoUploader } from "@/components/features/delivery-photo-uploader";
 import { PurchaseRequestAttachmentStager } from "@/components/features/purchase-request-attachment-stager";
@@ -145,6 +151,18 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   const myRequests = [...pendingRows, ...decidedRows];
 
   const isDecider = ctx.role === "project_manager" || ctx.role === "super_admin";
+  // Spec 33 / ADR 0038: back-office recording gate (PM/procurement/super).
+  // The RPCs re-enforce server-side; suppliers are only fetched when the
+  // viewer can actually use the form.
+  const isBackOffice = isBackOfficeRole(ctx.role);
+  let suppliers: SupplierOption[] = [];
+  if (isBackOffice) {
+    const { data: supplierRows } = await supabase
+      .from("suppliers")
+      .select("id, name, phone")
+      .order("name", { ascending: true });
+    suppliers = supplierRows ?? [];
+  }
   // Site-wide visibility (A1): every viewer sees requester names now —
   // the operator-sanctioned name exposure recorded in ADR 0026.
   const requesterNames = await fetchDisplayNames(
@@ -496,6 +514,18 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                         <PurchaseRequestDecision requestId={r.id} />
                       </div>
                     ) : null}
+                    {isBackOffice && status === "approved" ? (
+                      <div className="mt-3 border-t border-zinc-300 pt-3">
+                        {/* Spec 33: in-app purchase recording — parallel
+                            path to AppSheet (ADR 0034 amendment). */}
+                        <PurchaseRecordForm requestId={r.id} suppliers={suppliers} />
+                      </div>
+                    ) : null}
+                    {isBackOffice && status === "purchased" ? (
+                      <div className="mt-3 border-t border-zinc-300 pt-3">
+                        <PurchaseRequestShip requestId={r.id} />
+                      </div>
+                    ) : null}
                     {isDecider && status === "approved" ? (
                       <div className="mt-3 border-t border-zinc-300 pt-3">
                         <PurchaseRequestCancel requestId={r.id} />
@@ -508,12 +538,11 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
           )}
           {myRequests && myRequests.length > 0 ? (
             <p className="mt-3 text-xs text-zinc-600">
-              เมื่อผู้จัดการโครงการอนุมัติคำขอแล้ว ฝ่ายจัดซื้อจะดำเนินการต่อในระบบหลังบ้าน — สถานะ
-              &ldquo;สั่งซื้อแล้ว&rdquo; และ &ldquo;กำลังจัดส่ง&rdquo;
-              จะอัปเดตอัตโนมัติจากบันทึกของฝ่ายจัดซื้อ
-              ฝ่ายจัดซื้อจะอัปเดตวันที่คาดว่าจะได้รับของจากระบบหลังบ้าน เมื่อของถึงหน้างาน
-              ถ่ายรูปยืนยันการรับของได้ทันทีที่สถานะ &ldquo;กำลังจัดส่ง&rdquo; — ระบบจะบันทึกเป็น
-              &ldquo;ได้รับของแล้ว&rdquo; ให้อัตโนมัติ
+              เมื่อผู้จัดการโครงการอนุมัติคำขอแล้ว
+              ฝ่ายจัดซื้อบันทึกการสั่งซื้อและการจัดส่งได้ทั้งในหน้านี้และในระบบหลังบ้าน — สถานะ
+              &ldquo;สั่งซื้อแล้ว&rdquo; และ &ldquo;กำลังจัดส่ง&rdquo; จะอัปเดตอัตโนมัติจากบันทึก
+              เมื่อของถึงหน้างาน ถ่ายรูปยืนยันการรับของได้ทันทีที่สถานะ &ldquo;กำลังจัดส่ง&rdquo; —
+              ระบบจะบันทึกเป็น &ldquo;ได้รับของแล้ว&rdquo; ให้อัตโนมัติ
             </p>
           ) : null}
         </div>

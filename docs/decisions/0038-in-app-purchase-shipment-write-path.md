@@ -81,7 +81,25 @@ confirm action on `purchased` cards.
 - **Auto-demoting AppSheet on ship** — explicitly out per the ADR 0034
   amendment.
 
-## Consequences
+## Consequences (incl. in-build amendments from the adversarial review)
+
+- **Coalesce semantics:** `record_purchase` sets optional facts only
+  when provided — recording must never erase an AppSheet-pre-set value
+  (an eta wipe would be audit-invisible: the purchase audit payload
+  carries no eta and the correction branch is skipped on transition).
+  Clearing a recorded fact = the corrections seam.
+- **Column-scoped privileges:** authenticated's table-level
+  INSERT/UPDATE on purchase_requests is revoked and re-granted with
+  explicit column lists (exactly the create/decide/cancel sets). The
+  back-office fact columns are writable only via the RPCs and
+  appsheet_writer — the privilege layer now enforces what RLS cannot.
+- **Read-freeze clarification:** ADR 0034's column freeze is a WRITE
+  freeze — appsheet_writer's table-level SELECT does cover the new
+  `supplier_id` column (harmless: a uuid for a name it already reads).
+- **Procurement page access deferred:** `/requests` requireRole still
+  excludes `procurement`; the role cannot reach the form until its own
+  onboarding spec (requireRole + roleHome + tab set). PM/super_admin
+  are the live audience today.
 
 - `eta` becomes dual-writer (app at purchase time, AppSheet
   corrections). Field corrections after recording remain AppSheet-only

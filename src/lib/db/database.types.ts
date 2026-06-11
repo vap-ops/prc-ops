@@ -461,6 +461,7 @@ export type Database = {
           source: string;
           status: Database["public"]["Enums"]["purchase_request_status"];
           supplier: string | null;
+          supplier_id: string | null;
           unit: string;
           updated_at: string;
           work_package_id: string;
@@ -493,6 +494,7 @@ export type Database = {
           source?: string;
           status?: Database["public"]["Enums"]["purchase_request_status"];
           supplier?: string | null;
+          supplier_id?: string | null;
           unit: string;
           updated_at?: string;
           work_package_id: string;
@@ -525,6 +527,7 @@ export type Database = {
           source?: string;
           status?: Database["public"]["Enums"]["purchase_request_status"];
           supplier?: string | null;
+          supplier_id?: string | null;
           unit?: string;
           updated_at?: string;
           work_package_id?: string;
@@ -549,6 +552,13 @@ export type Database = {
             columns: ["requested_by"];
             isOneToOne: false;
             referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_requests_supplier_id_fkey";
+            columns: ["supplier_id"];
+            isOneToOne: false;
+            referencedRelation: "suppliers";
             referencedColumns: ["id"];
           },
           {
@@ -602,6 +612,38 @@ export type Database = {
           {
             foreignKeyName: "reports_requested_by_fkey";
             columns: ["requested_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      suppliers: {
+        Row: {
+          created_at: string;
+          created_by: string;
+          id: string;
+          name: string;
+          phone: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          created_by: string;
+          id?: string;
+          name: string;
+          phone?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string;
+          id?: string;
+          name?: string;
+          phone?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_created_by_fkey";
+            columns: ["created_by"];
             isOneToOne: false;
             referencedRelation: "users";
             referencedColumns: ["id"];
@@ -852,6 +894,20 @@ export type Database = {
       pr_attachment_tombstone_target_ok: {
         Args: { p_caller: string; p_parent: string; p_target: string };
         Returns: boolean;
+      };
+      record_purchase: {
+        Args: {
+          p_amount?: number;
+          p_eta?: string;
+          p_order_ref?: string;
+          p_purchase_request_id: string;
+          p_supplier_id: string;
+        };
+        Returns: undefined;
+      };
+      record_shipment: {
+        Args: { p_purchase_request_id: string };
+        Returns: undefined;
       };
       set_work_package_contractor: {
         Args: { p_contractor_id?: string; p_work_package_id: string };

@@ -42,7 +42,21 @@ super_admin` viewers, on `/requests` (site-wide + pinned modes).
 AppSheet-only; future audited correction RPC), bulk/grid entry mode
 (ADR 0034 amendment — only if usage data demands), supplier
 merge/dedup + detail pages, supplier on WP-inline request cards,
-spend analytics, AppSheet supplier_id backfill.
+spend analytics, AppSheet supplier_id backfill. **Procurement-role
+PAGE access (review finding, amended in-build):** `/requests` still
+requires sa/pm/super — a `procurement` user is redirected to
+/coming-soon before the render gate runs. Serving that role needs
+requireRole + roleHome + bottom-tab set together — its own spec when a
+procurement user actually exists. Until then the gate's procurement
+branch is forward-provisioning; PM/super are the live audience.
+
+**Amended in-build (adversarial review):** `record_purchase` preserves
+pre-set optional facts (`coalesce` — omitting order_ref/amount/eta no
+longer wipes AppSheet-written values; eta wipes were audit-invisible);
+authenticated's purchase_requests INSERT/UPDATE privileges are now
+column-scoped (fact columns are RPC/AppSheet-only at the privilege
+layer — closes SA-sets-supplier_id-at-INSERT and PM-desyncs-snapshot
+paths).
 
 ## 2. Validation (locked)
 

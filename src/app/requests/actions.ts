@@ -37,6 +37,7 @@ import {
   isPurchaseDecision,
   type PurchaseDecision,
 } from "@/lib/purchasing/validate-purchase-request";
+import { validateRecordPurchase } from "@/lib/purchasing/validate-record-purchase";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -377,6 +378,123 @@ export async function removePurchaseRequestAttachment(
   });
   if (error) {
     return { ok: false, error: "ลบรายการแนบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  revalidatePath("/requests");
+  return { ok: true };
+}
+
+// --- In-app purchase/shipment recording (spec 33 / ADR 0038) --------------
+//
+// createSupplier: RLS-relay INSERT (createContractor pattern) — the
+// "suppliers insert by back office" policy pins role + created_by.
+//
+// recordPurchase / recordShipment: SECURITY DEFINER RPC relays. The RPC
+// owns the role gate (PM/procurement/super), the stage guard
+// (approved+unpurchased / purchased+unshipped), the supplier-name
+// snapshot, and the input re-checks; status flips, audit rows, and
+// notification outbox rows come from the existing trigger chain — no
+// writes happen here beyond the RPC call. AppSheet's write path is
+// untouched (parallel-path posture, ADR 0034 amendment).
+
+export interface CreateSupplierInput {
+  name: string;
+  phone: string;
+}
+
+export type CreateSupplierResult = { ok: true; id: string } | { ok: false; error: string };
+
+export async function createSupplier(input: CreateSupplierInput): Promise<CreateSupplierResult> {
+  const name = input.name.trim();
+  if (name.length === 0) return { ok: false, error: "ชื่อผู้ขายต้องไม่ว่าง" };
+  if (name.length > 200) return { ok: false, error: "ชื่อผู้ขายต้องไม่เกิน 200 ตัวอักษร" };
+  const phone = input.phone.trim();
+  if (phone.length > 50) return { ok: false, error: "เบอร์โทรต้องไม่เกิน 50 ตัวอักษร" };
+
+  const supabase = await createServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+
+  const { data, error } = await supabase
+    .from("suppliers")
+    .insert({ name, phone: phone.length > 0 ? phone : null, created_by: user.id })
+    .select("id")
+    .single();
+  if (error || !data) {
+    return { ok: false, error: "เพิ่มผู้ขายไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  revalidatePath("/requests");
+  return { ok: true, id: data.id };
+}
+
+export interface RecordPurchaseInput {
+  requestId: string;
+  supplierId: string;
+  orderRef: string;
+  amount: number | null;
+  eta: string | null;
+}
+
+export type RecordActionResult = { ok: true } | { ok: false; error: string };
+
+export async function recordPurchase(input: RecordPurchaseInput): Promise<RecordActionResult> {
+  const validated = validateRecordPurchase(input);
+  if (!validated.ok) return validated;
+
+  const supabase = await createServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+
+  const { error } = await supabase.rpc("record_purchase", {
+    p_purchase_request_id: validated.value.requestId,
+    p_supplier_id: validated.value.supplierId,
+    ...(validated.value.orderRef !== null ? { p_order_ref: validated.value.orderRef } : {}),
+    ...(validated.value.amount !== null ? { p_amount: validated.value.amount } : {}),
+    ...(validated.value.eta !== null ? { p_eta: validated.value.eta } : {}),
+  });
+  if (error) {
+    if (error.code === "42501") {
+      return { ok: false, error: "ไม่มีสิทธิ์บันทึกการสั่งซื้อ" };
+    }
+    if (error.code === "P0001") {
+      return { ok: false, error: "คำขอนี้ไม่อยู่ในสถานะที่บันทึกการสั่งซื้อได้" };
+    }
+    return { ok: false, error: "บันทึกการสั่งซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  revalidatePath("/requests");
+  return { ok: true };
+}
+
+export interface RecordShipmentInput {
+  requestId: string;
+}
+
+export async function recordShipment(input: RecordShipmentInput): Promise<RecordActionResult> {
+  if (!UUID_REGEX.test(input.requestId)) return { ok: false, error: "รหัสคำขอไม่ถูกต้อง" };
+
+  const supabase = await createServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+
+  const { error } = await supabase.rpc("record_shipment", {
+    p_purchase_request_id: input.requestId,
+  });
+  if (error) {
+    if (error.code === "42501") {
+      return { ok: false, error: "ไม่มีสิทธิ์บันทึกการจัดส่ง" };
+    }
+    if (error.code === "P0001") {
+      return { ok: false, error: "คำขอนี้ไม่อยู่ในสถานะที่บันทึกการจัดส่งได้" };
+    }
+    return { ok: false, error: "บันทึกการจัดส่งไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
 
   revalidatePath("/requests");
