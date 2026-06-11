@@ -155,7 +155,7 @@ function OperatorHub({
             <Link
               key={link.href}
               href={link.href}
-              className="group flex items-start justify-between gap-3 rounded-lg border border-zinc-300 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+              className="group flex items-start justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
             >
               <div className="min-w-0 space-y-0.5">
                 <p className="text-base font-medium text-zinc-900">{link.label}</p>

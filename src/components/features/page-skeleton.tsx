@@ -7,9 +7,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 // Skeleton's theme-token default (the screens hardcode the light palette).
 export function PageSkeleton() {
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen bg-zinc-50">
       <p className="sr-only">กำลังโหลด…</p>
-      <header className="border-b border-zinc-300 px-5 py-4">
+      <header className="border-b border-zinc-200 bg-white px-5 py-4">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
           <div className="space-y-2">
             <Skeleton className="h-3 w-20 bg-zinc-200" />

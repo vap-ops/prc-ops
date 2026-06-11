@@ -85,7 +85,7 @@ export function PurchaseRecordForm({ requestId, suppliers }: PurchaseRecordFormP
   }
 
   return (
-    <details className="rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2">
+    <details className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
       <summary className="cursor-pointer text-xs font-medium text-blue-700 underline-offset-2 hover:underline">
         บันทึกการสั่งซื้อ
       </summary>
@@ -98,7 +98,7 @@ export function PurchaseRecordForm({ requestId, suppliers }: PurchaseRecordFormP
           value={supplierId}
           onChange={(e) => setSupplierId(e.target.value)}
           disabled={pending}
-          className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-2 text-sm text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+          className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-2 text-sm text-zinc-900 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
         >
           <option value="">— เลือกผู้ขาย —</option>
           {allSuppliers.map((s) => (
@@ -121,7 +121,7 @@ export function PurchaseRecordForm({ requestId, suppliers }: PurchaseRecordFormP
               onChange={(e) => setNameDraft(e.target.value)}
               disabled={pending}
               placeholder="ชื่อผู้ขาย / ร้านค้า"
-              className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+              className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
             />
             <input
               type="tel"
@@ -130,7 +130,7 @@ export function PurchaseRecordForm({ requestId, suppliers }: PurchaseRecordFormP
               onChange={(e) => setPhoneDraft(e.target.value)}
               disabled={pending}
               placeholder="เบอร์โทร (ไม่บังคับ)"
-              className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+              className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
             />
             <button
               type="button"
@@ -153,7 +153,7 @@ export function PurchaseRecordForm({ requestId, suppliers }: PurchaseRecordFormP
           maxLength={80}
           onChange={(e) => setOrderRef(e.target.value)}
           disabled={pending}
-          className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-3 text-sm text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+          className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 text-sm text-zinc-900 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
         />
 
         <label htmlFor={`amount-${requestId}`} className="text-xs font-medium text-zinc-900">
@@ -169,7 +169,7 @@ export function PurchaseRecordForm({ requestId, suppliers }: PurchaseRecordFormP
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           disabled={pending}
-          className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-3 text-sm text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+          className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 text-sm text-zinc-900 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
         />
 
         <label htmlFor={`eta-${requestId}`} className="text-xs font-medium text-zinc-900">
@@ -181,14 +181,14 @@ export function PurchaseRecordForm({ requestId, suppliers }: PurchaseRecordFormP
           value={eta}
           onChange={(e) => setEta(e.target.value)}
           disabled={pending}
-          className="h-11 w-full min-w-0 appearance-none rounded-md border border-zinc-400 bg-white px-3 text-sm text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+          className="h-11 w-full min-w-0 appearance-none rounded-lg border border-zinc-400 bg-white px-3 text-sm text-zinc-900 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
         />
 
         <button
           type="button"
           onClick={handleSubmit}
           disabled={pending || supplierId === ""}
-          className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
+          className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
         >
           {pending ? "กำลังบันทึก…" : "บันทึกการสั่งซื้อ"}
         </button>

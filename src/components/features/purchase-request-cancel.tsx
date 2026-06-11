@@ -35,7 +35,7 @@ export function PurchaseRequestCancel({ requestId }: PurchaseRequestCancelProps)
         type="button"
         onClick={handleCancel}
         disabled={pending}
-        className="inline-flex h-11 items-center justify-center rounded-md border border-zinc-400 bg-white px-3 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex h-11 items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 text-sm font-medium text-red-700 shadow-xs transition-colors hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {pending ? "กำลังยกเลิก…" : "ยกเลิกคำขอ"}
       </button>

@@ -226,7 +226,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   );
 
   return (
-    <main className="min-h-screen bg-white pb-20 text-zinc-900 sm:pb-0">
+    <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
       <AppHeader kicker="คำขอซื้อ" fullName={ctx.fullName} maxWidthClass="max-w-2xl" />
 
@@ -235,7 +235,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
           are the way out and a bare กลับ reads as broken UX (operator
           report 2026-06-11), so the strip is desktop-only there. */}
       <nav
-        className={`border-b border-zinc-300 bg-zinc-100 px-5 py-1 ${
+        className={`border-b border-zinc-200 bg-zinc-100 px-5 py-1 ${
           pinnedWp && pinnedProjectId ? "" : "hidden sm:block"
         }`}
       >
@@ -262,7 +262,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
           ) : (
             <div className="space-y-2">
               {wpRequested ? <ErrorNotice>ไม่พบรายการงาน</ErrorNotice> : null}
-              <p className="rounded-md border border-zinc-300 bg-zinc-50 px-4 py-4 text-sm text-zinc-600">
+              <p className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-4 text-sm text-zinc-600">
                 คำขอซื้อเริ่มจากหน้ารายการงาน — เปิดรายการงานที่ต้องการ แล้วกด{" "}
                 <span className="font-medium text-zinc-900">สร้างคำขอซื้อ</span>{" "}
                 จากนั้นผู้จัดการโครงการจะเป็นผู้พิจารณาอนุมัติ —
@@ -317,7 +317,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                 return (
                   <li
                     key={r.id}
-                    className="rounded-lg border border-zinc-300 bg-white px-4 py-3 shadow-sm"
+                    className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 space-y-0.5">
@@ -393,7 +393,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                             if (!photo.id || !url) return null;
                             return (
                               <li key={photo.id} className="flex flex-col items-center gap-0.5">
-                                <span className="block h-20 w-20 overflow-hidden rounded-md border border-zinc-300">
+                                <span className="block h-20 w-20 overflow-hidden rounded-lg border border-zinc-200">
                                   <ZoomablePhoto src={url} />
                                 </span>
                                 {status === "requested" && photo.created_by === ctx.id ? (
@@ -487,7 +487,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                                 if (!photo.id || !url) return null;
                                 return (
                                   <li key={photo.id} className="flex flex-col items-center gap-0.5">
-                                    <span className="block h-20 w-20 overflow-hidden rounded-md border border-zinc-300">
+                                    <span className="block h-20 w-20 overflow-hidden rounded-lg border border-zinc-200">
                                       <ZoomablePhoto src={url} />
                                     </span>
                                     {photo.created_by === ctx.id ? (

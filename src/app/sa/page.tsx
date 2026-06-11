@@ -21,7 +21,7 @@ export default async function SitAdminLandingPage() {
     .order("code", { ascending: true });
 
   return (
-    <main className="min-h-screen bg-white pb-20 text-zinc-900 sm:pb-0">
+    <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
       <AppHeader kicker="หน้างาน" fullName={ctx.fullName} maxWidthClass="max-w-2xl" />
 
@@ -40,7 +40,7 @@ export default async function SitAdminLandingPage() {
               <li key={p.id}>
                 <Link
                   href={`/sa/projects/${p.id}`}
-                  className="flex min-h-14 items-center justify-between gap-3 rounded-lg border border-zinc-300 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+                  className="flex min-h-14 items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
                 >
                   <div className="min-w-0">
                     <p className="font-mono text-xs text-zinc-600">{p.code}</p>

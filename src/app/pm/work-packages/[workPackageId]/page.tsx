@@ -86,9 +86,9 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
   const deciderNames = await fetchDisplayNames(deciderIds, "[pm/work-packages]");
 
   return (
-    <main className="min-h-screen bg-white pb-20 text-zinc-900 sm:pb-0">
+    <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
-      <header className="border-b border-zinc-300 bg-white px-5 py-4">
+      <header className="border-b border-zinc-200 bg-white px-5 py-4">
         <div className="mx-auto flex max-w-3xl flex-col gap-1">
           <Link
             href="/pm"
@@ -144,7 +144,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
               {approvalsRows.map((a) => (
                 <li
                   key={a.id}
-                  className="rounded-md border border-zinc-300 bg-white px-4 py-3 shadow-sm"
+                  className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <StatusPill pillClasses={approvalDecisionPillClasses(a.decision)}>
@@ -198,7 +198,7 @@ function PhaseGallery({ label, photos, signedUrls }: PhaseGalleryProps) {
             return (
               <li
                 key={p.id}
-                className="aspect-square overflow-hidden rounded-md border border-zinc-300 bg-zinc-100"
+                className="aspect-square overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100"
               >
                 {url ? (
                   <ZoomablePhoto src={url} />

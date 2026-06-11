@@ -152,7 +152,7 @@ export function DeliveryPhotoUploader({
         type="button"
         onClick={() => fileInputRef.current?.click()}
         disabled={busy}
-        className="inline-flex h-11 items-center justify-center rounded-md border border-zinc-400 bg-white px-3 text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex h-11 items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900 shadow-xs transition-colors hover:bg-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {phase === "uploading"
           ? "กำลังอัปโหลด…"

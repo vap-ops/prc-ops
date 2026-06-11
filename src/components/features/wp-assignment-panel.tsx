@@ -77,7 +77,7 @@ export function WpAssignmentPanel({
   }
 
   return (
-    <details className="rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2">
+    <details className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
       <summary className="cursor-pointer text-xs font-medium text-blue-700 underline-offset-2 hover:underline">
         มอบหมายงาน
       </summary>
@@ -90,7 +90,7 @@ export function WpAssignmentPanel({
           value={contractorId ?? ""}
           onChange={(e) => assign(e.target.value === "" ? null : e.target.value)}
           disabled={pending}
-          className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-2 text-sm text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+          className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-2 text-sm text-zinc-900 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
         >
           <option value="">— ไม่ระบุ —</option>
           {contractors.map((c) => (
@@ -113,7 +113,7 @@ export function WpAssignmentPanel({
               onChange={(e) => setNameDraft(e.target.value)}
               disabled={pending}
               placeholder="ชื่อผู้รับเหมา"
-              className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+              className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
             />
             <input
               type="tel"
@@ -122,13 +122,13 @@ export function WpAssignmentPanel({
               onChange={(e) => setPhoneDraft(e.target.value)}
               disabled={pending}
               placeholder="เบอร์โทร (ไม่บังคับ)"
-              className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+              className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
             />
             <button
               type="button"
               onClick={handleCreateAndAssign}
               disabled={pending || nameDraft.trim().length === 0}
-              className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
+              className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
             >
               {pending ? "กำลังบันทึก…" : "สร้างและมอบหมาย"}
             </button>

@@ -118,9 +118,9 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
   const signedUrls = await mintSignedUrlsForPhotos(allPhotos);
 
   return (
-    <main className="min-h-screen bg-white pb-20 text-zinc-900 sm:pb-0">
+    <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
-      <header className="border-b border-zinc-300 px-5 py-4">
+      <header className="border-b border-zinc-200 bg-white px-5 py-4">
         <div className="mx-auto flex max-w-2xl flex-col gap-1 md:max-w-4xl lg:max-w-6xl">
           <Link
             href={`/sa/projects/${projectId}`}
@@ -240,7 +240,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
               (operator-reported disorientation; site map 2026-06-11).
               /requests?wp= pinned mode remains functional but no in-app
               link produces it. */}
-          <details className="rounded-lg border border-zinc-300 bg-white px-4 py-3 shadow-sm">
+          <details className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
             <summary className="cursor-pointer text-sm font-semibold text-zinc-900">
               สร้างคำขอซื้อ
             </summary>
@@ -260,7 +260,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
                   return (
                     <li
                       key={r.id}
-                      className="rounded-lg border border-zinc-300 bg-white px-4 py-3 shadow-sm"
+                      className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <p className="min-w-0 truncate text-sm text-zinc-900">
@@ -299,7 +299,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
             ข้อมูลงาน
           </h2>
           {wp.description ? (
-            <details className="rounded-lg border border-zinc-300 bg-white px-4 py-3 shadow-sm">
+            <details className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
               <summary className="cursor-pointer text-sm font-semibold text-zinc-900">
                 รายละเอียดงาน
               </summary>
@@ -307,7 +307,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
             </details>
           ) : null}
           {approvals.length > 0 ? (
-            <details className="rounded-lg border border-zinc-300 bg-white px-4 py-3 shadow-sm">
+            <details className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
               <summary className="cursor-pointer text-sm font-semibold text-zinc-900">
                 ประวัติการตรวจ ({approvals.length})
               </summary>

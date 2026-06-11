@@ -2,15 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { clientEnv } from "@/lib/env";
 
-const PUBLIC_PATHS = new Set([
-  "/",
-  "/login",
-  "/auth/line/start",
-  "/auth/line/callback",
-  // TEMPORARY (design-directions-2026-06.md): static zero-data style
-  // preview the operator reviews on a phone — removed with spec 38.
-  "/design-preview",
-]);
+const PUBLIC_PATHS = new Set(["/", "/login", "/auth/line/start", "/auth/line/callback"]);
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });

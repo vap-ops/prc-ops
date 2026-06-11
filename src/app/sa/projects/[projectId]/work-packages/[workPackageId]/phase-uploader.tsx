@@ -277,7 +277,7 @@ export function PhaseUploader({
     <section>
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold text-zinc-900">{label}</h2>
-        <label className="inline-flex h-11 cursor-pointer items-center justify-center rounded-md border border-zinc-400 bg-white px-3 text-sm font-medium text-zinc-900 transition-colors focus-within:ring-2 focus-within:ring-blue-700 hover:bg-zinc-50">
+        <label className="inline-flex h-11 cursor-pointer items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900 shadow-xs transition-colors focus-within:ring-2 focus-within:ring-blue-700 hover:bg-zinc-50">
           <span aria-hidden="true" className="mr-1.5">
             +
           </span>
@@ -341,7 +341,7 @@ interface ThumbnailProps {
 
 function Thumbnail({ photo, isRemoving, onRemove }: ThumbnailProps) {
   return (
-    <li className="relative aspect-square overflow-hidden rounded-md border border-zinc-300 bg-zinc-100">
+    <li className="relative aspect-square overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100">
       {photo.url ? (
         <ZoomablePhoto src={photo.url} />
       ) : (
@@ -384,7 +384,7 @@ function PendingTile({ upload, onRetry }: PendingTileProps) {
   const isError = upload.status === "upload-error" || upload.status === "insert-error";
   const inProgress = upload.status === "uploading" || upload.status === "inserting";
   return (
-    <li className="relative aspect-square overflow-hidden rounded-md border border-zinc-300 bg-zinc-100">
+    <li className="relative aspect-square overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={upload.previewUrl} alt="" className="h-full w-full object-cover opacity-50" />
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-2 text-center">

@@ -67,7 +67,7 @@ export function ReportsList({ reports }: ReportsListProps) {
 
 function ReportRow({ report }: { report: ReportListItem }) {
   return (
-    <li className="rounded-md border border-zinc-300 bg-white px-4 py-3 shadow-sm">
+    <li className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
       <div className="flex items-center justify-between gap-3">
         <StatusPill pillClasses={reportStatusPillClasses(report.status)}>
           {REPORT_STATUS_LABEL[report.status]}
@@ -108,7 +108,7 @@ function DownloadButton({ reportId }: { reportId: string }) {
         type="button"
         onClick={handleClick}
         disabled={pending}
-        className="inline-flex h-11 w-fit items-center justify-center rounded-md border border-zinc-400 bg-white px-3 text-xs font-medium text-zinc-900 transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
+        className="inline-flex h-11 w-fit items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 text-xs font-medium text-zinc-900 shadow-xs transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
       >
         {pending ? "กำลังเตรียมไฟล์…" : "ดาวน์โหลด PDF"}
       </button>

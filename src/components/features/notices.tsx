@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 export function ErrorNotice({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded-md border border-red-600 bg-red-50 px-4 py-3 text-sm font-medium text-red-900">
+    <p className="rounded-lg border border-red-600 bg-red-50 px-4 py-3 text-sm font-medium text-red-900">
       {children}
     </p>
   );
@@ -23,7 +23,7 @@ export function EmptyNotice({
   return (
     <p
       className={cn(
-        "rounded-md border border-zinc-300 bg-zinc-50 px-4 py-6 text-center text-sm text-zinc-600",
+        "rounded-lg border border-zinc-200 bg-white px-4 py-6 text-center text-sm text-zinc-600 shadow-xs",
         className,
       )}
     >

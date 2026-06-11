@@ -42,9 +42,9 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
     .order("sort_order", { ascending: true });
 
   return (
-    <main className="min-h-screen bg-white pb-20 text-zinc-900 sm:pb-0">
+    <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
-      <header className="border-b border-zinc-300 px-5 py-4">
+      <header className="border-b border-zinc-200 bg-white px-5 py-4">
         <div className="mx-auto flex max-w-2xl flex-col gap-1">
           <Link
             href="/sa"

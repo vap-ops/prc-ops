@@ -114,7 +114,7 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
   const rowLink = (wp: WorkPackageListItem) => (
     <Link
       href={`/sa/projects/${projectId}/work-packages/${wp.id}`}
-      className="flex min-h-14 items-center justify-between gap-3 rounded-lg border border-zinc-300 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+      className="flex min-h-14 items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
     >
       <div className="min-w-0">
         <p className="font-mono text-xs text-zinc-600">{wp.code}</p>
@@ -137,7 +137,7 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
           className="h-11 border-zinc-400 bg-white text-zinc-900 placeholder:text-zinc-400 sm:flex-1"
           aria-label="ค้นหารายการงาน"
         />
-        <label className="flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-md border border-zinc-400 bg-white px-3 py-2 text-xs text-zinc-700 select-none has-[input:checked]:border-blue-700 has-[input:checked]:bg-blue-700 has-[input:checked]:font-semibold has-[input:checked]:text-white has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-blue-700 has-[input:focus-visible]:ring-offset-2">
+        <label className="flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-700 shadow-xs select-none has-[input:checked]:border-blue-700 has-[input:checked]:bg-blue-700 has-[input:checked]:font-semibold has-[input:checked]:text-white has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-blue-700 has-[input:focus-visible]:ring-offset-2">
           <input
             type="checkbox"
             checked={hideCompleted}

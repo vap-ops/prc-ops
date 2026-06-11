@@ -23,23 +23,29 @@ interface AppHeaderProps {
 export function AppHeader({ kicker, fullName, title, maxWidthClass }: AppHeaderProps) {
   const heading = title ?? (fullName ? `สวัสดี คุณ${fullName}` : "สวัสดี");
   return (
-    <header className="border-b border-zinc-300 bg-white px-5 py-4">
+    // Spec 38: the brand band (direction ข) — the one dark surface in
+    // the app. White heading on slate-900 is ~17:1; the amber wordmark
+    // accent is decorative bold text on near-black (≈10:1).
+    <header className="border-b border-slate-800 bg-slate-900 px-5 py-4">
       <div className={`mx-auto flex ${maxWidthClass} items-center justify-between gap-3`}>
         <div>
-          {/* The kicker is the one brand moment per page (spec 20). */}
-          <p className="text-xs font-semibold tracking-wider text-blue-700 uppercase">{kicker}</p>
-          <h1 className="text-xl font-semibold tracking-tight">{heading}</h1>
+          <p className="text-xs font-bold tracking-wide text-white">
+            PRC <span className="text-amber-400">Ops</span>
+            <span className="mx-2 font-normal text-slate-500">·</span>
+            <span className="font-semibold tracking-wider text-amber-400 uppercase">{kicker}</span>
+          </p>
+          <h1 className="text-xl font-semibold tracking-tight text-white">{heading}</h1>
         </div>
         <div className="flex items-center gap-3">
           {/* Desktop-only: the bottom tab bar carries โปรไฟล์ on phones
               (spec 19 §2 — one profile affordance per viewport). */}
           <Link
             href="/profile"
-            className="hidden text-sm font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline sm:inline"
+            className="hidden text-sm font-medium text-white transition-colors hover:text-amber-300 hover:underline focus:outline-none focus-visible:underline sm:inline"
           >
             โปรไฟล์
           </Link>
-          <LogoutButton />
+          <LogoutButton variant="dark" />
         </div>
       </div>
     </header>

@@ -176,7 +176,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
             setSavedAt(null);
           }}
           disabled={submitting}
-          className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+          className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
           placeholder="ปูนถุง 50 กก."
         />
       </div>
@@ -197,7 +197,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
               setSavedAt(null);
             }}
             disabled={submitting}
-            className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+            className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
             placeholder="10"
           />
         </div>
@@ -214,7 +214,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
               setSavedAt(null);
             }}
             disabled={submitting}
-            className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-2 text-sm text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+            className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-2 text-sm text-zinc-900 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
           >
             <option value="" disabled>
               เลือกหน่วย
@@ -245,7 +245,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
               setSavedAt(null);
             }}
             disabled={submitting}
-            className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+            className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
             placeholder="ระบุหน่วย"
           />
         </div>
@@ -272,7 +272,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
               setSavedAt(null);
             }}
             disabled={submitting}
-            className="h-11 w-full max-w-full min-w-0 appearance-none rounded-md border border-zinc-400 bg-white px-3 text-sm text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+            className="h-11 w-full max-w-full min-w-0 appearance-none rounded-lg border border-zinc-400 bg-white px-3 text-sm text-zinc-900 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
           />
         </div>
         <fieldset className="flex min-w-0 flex-col gap-1">
@@ -340,7 +340,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
         <button
           type="submit"
           disabled={!canSubmit}
-          className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
+          className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
         >
           {submitting ? "กำลังส่ง…" : "ส่งคำขอซื้อ"}
         </button>

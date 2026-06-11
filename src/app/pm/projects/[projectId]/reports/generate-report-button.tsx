@@ -47,14 +47,14 @@ export function GenerateReportButton({ projectId, initiallyDisabled }: GenerateR
         type="button"
         onClick={handleClick}
         disabled={disabled}
-        className="inline-flex h-11 w-fit items-center justify-center rounded-md bg-blue-700 px-5 text-sm font-semibold text-white transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
+        className="inline-flex h-11 w-fit items-center justify-center rounded-lg bg-blue-700 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
       >
         {pending ? "กำลังเข้าคิว…" : "สร้างรายงาน"}
       </button>
       {reason && (
         <p
           role="status"
-          className="rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-xs text-zinc-600"
+          className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600"
         >
           {reason}
         </p>

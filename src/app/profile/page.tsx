@@ -44,7 +44,7 @@ export default async function ProfilePage() {
   const backHref = roleHome(role);
 
   return (
-    <main className="min-h-screen bg-white px-6 py-10 pb-20 text-zinc-900 sm:pb-10">
+    <main className="min-h-screen bg-zinc-50 px-6 py-10 pb-20 text-zinc-900 sm:pb-10">
       <BottomTabBar role={role} />
       <div className="mx-auto flex w-full max-w-md flex-col gap-6">
         <header className="space-y-2">

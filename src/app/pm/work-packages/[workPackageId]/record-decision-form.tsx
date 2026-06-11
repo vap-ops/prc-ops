@@ -71,7 +71,7 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-4 rounded-lg border border-zinc-300 bg-white p-5 shadow-sm"
+      className="flex flex-col gap-4 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm"
     >
       <fieldset className="flex flex-col gap-2" disabled={submitting}>
         <legend className="mb-1 text-sm font-medium text-zinc-900">ผลการตรวจ</legend>
@@ -133,7 +133,7 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
         <button
           type="submit"
           disabled={!canSubmit}
-          className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
+          className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
         >
           {submitting ? "กำลังบันทึก…" : "บันทึกผลการตรวจ"}
         </button>

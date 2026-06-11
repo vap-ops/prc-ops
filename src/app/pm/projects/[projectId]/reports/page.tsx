@@ -60,11 +60,11 @@ export default async function ProjectReportsPage({ params }: PageProps) {
   const canGenerate = canGenerateReport(statuses);
 
   return (
-    <main className="min-h-screen bg-white pb-20 text-zinc-900 sm:pb-0">
+    <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
       <AppHeader kicker="ผู้จัดการโครงการ" title="รายงาน" maxWidthClass="max-w-2xl" />
 
-      <nav className="border-b border-zinc-300 bg-zinc-100 px-5 py-2">
+      <nav className="border-b border-zinc-200 bg-zinc-100 px-5 py-2">
         <div className="mx-auto flex max-w-2xl items-center gap-4 text-xs">
           <Link
             href="/pm"
@@ -94,7 +94,7 @@ export default async function ProjectReportsPage({ params }: PageProps) {
 
       <div className="mx-auto flex max-w-2xl flex-col gap-8 px-5 py-6">
         <section>
-          <div className="mb-4 rounded-lg border border-zinc-300 bg-white px-4 py-3 shadow-sm">
+          <div className="mb-4 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
             <p className="font-mono text-xs text-zinc-600">{project.code}</p>
             <p className="truncate text-base font-medium text-zinc-900">{project.name}</p>
           </div>
