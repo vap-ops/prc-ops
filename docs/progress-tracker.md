@@ -5683,3 +5683,47 @@ Read-only audit over `supabase db query --linked` (Management API, postgres cont
 - `global-error.tsx` for root-layout throws (built-in English page theoretically reachable; segment `error.tsx` doesn't cover the root layout).
 - Structural UX items deliberately deferred to iteration 2+: palette/theme identity + outdoor light theme, shared app-header refactor (three-pattern split), super_admin hub as a real route, photo tap-to-enlarge on review screens, toasts/themed confirm dialogs, progressive disclosure on /pm/requests, requested-at + rejection-comment display, queue ordering by wait time, `loading.tsx` skeletons, PWA manifest/icons/theme-color.
 - Docs refresh unit (v2-handoff, README, CLAUDE.md roles) still queued from the 2026-06-11 audit.
+
+---
+
+## Unit: Purchasing visibility + review ergonomics — iteration 2 of the whole-app upgrade (spec 15)
+
+- **Status:** Complete — 2026-06-11 (code + tests; live browser checks pending operator).
+- **Spec:** [`docs/feature-specs/15-purchasing-visibility-review-ergonomics.md`](./feature-specs/15-purchasing-visibility-review-ergonomics.md) — iteration 2 under the operator's standing chat brief; scope drawn from spec 14's recorded iteration-2 queue. UI layer only — no DB/RLS/enum/route/redirect change.
+- **Branch:** committed directly to main per the operator's standing merge instruction (commit local-only; push is laptop-only per CLAUDE.md).
+
+### Done
+
+- **Writing failing test first** — `tests/unit/status-colors.test.ts` (extended) + `tests/unit/photo-lightbox.test.tsx` (new) RED (10 failures: helper + component absent) → GREEN after implementation. 15 new assertions total.
+- **A. Requester feedback loop on `/requests`** — the my-requests query now also reads `decision_comment, decided_at, purchased_at, supplier, delivered_at, received_by, delivery_note` (own-row SELECT already admits them; ADR 0022). Rows render ขอเมื่อ on every card; rejected → red block เหตุผลที่ไม่อนุมัติ + the PM's mandatory comment + พิจารณาเมื่อ; approved → อนุมัติเมื่อ; purchased/delivered → สั่งซื้อเมื่อ (+ ผู้ขาย); delivered → ได้รับของเมื่อ (+ ผู้รับของ) + `delivery_note`. The AppSheet back office's work is now _visible_ to the requester instead of a bare pill flip. `amount` deliberately NOT displayed (open question below).
+- **B. `/pm/requests`** — each queue row shows ขอเมื่อ `formatThaiDateTime(requested_at)` (field was fetched but never rendered).
+- **C. `/pm` queue ordered by wait time** — `updated_at` asc (status flip to pending_approval is the last app write to a queued WP) with `code` tiebreak, replacing code-order; rows show เข้าคิวเมื่อ. The recorded iteration-2 "queue ordering by wait time" item.
+- **D. Photo tap-to-enlarge** — new `src/components/features/photo-lightbox.tsx` (`'use client'`: open/close state + document Escape listener). `ZoomablePhoto` consumed by the PM review `PhaseGallery` and the SA `phase-uploader` `Thumbnail` (remove × overlay retained). Closes on backdrop/ปิด/Escape; clicking the photo doesn't dismiss. No portal — no transformed ancestors on consuming screens.
+- **E. `loading.tsx` skeletons** — shared `src/components/features/page-skeleton.tsx` (server component, sr-only กำลังโหลด…) + nine route `loading.tsx` files (/sa, /sa/projects/[id], SA WP photo screen, /pm, /pm/requests, /pm/projects, reports, PM WP review, /requests).
+- **F. Fixed-Thai Storage upload error** — `phase-uploader.tsx` tile shows อัปโหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง; raw SDK message → `console.error` only. Closes the spec-14 carve-out.
+- **G. `src/app/global-error.tsx`** — root-layout error boundary ('use client' + own `<html lang="th">`/`<body>` per Next.js; inline styles because the root layout's font vars aren't mounted). Same copy family as `error.tsx`.
+- **H. `purchaseRequestStatusPillClasses`** centralized in `src/lib/status-colors.ts` (PILL_RED named constant added); `/requests`'s inline map deleted — the last inline pill map in `src/` is gone.
+
+### Verification (spec 15 checklist)
+
+- New tests RED before implementation, GREEN after. ✔
+- `pnpm lint` / `pnpm typecheck` / `pnpm test` — **191/191** (176 prior + 15 new). ✔
+- `pnpm build` — 17 routes incl. static `/_not-found`; all nine `loading.tsx` compile. (No `.env.local` on this machine — process-local placeholder env for page-data collection only, nothing written to disk; same posture as spec 14.) ✔
+- `pnpm test:e2e` — **27/27** chromium/firefox/webkit. ✔
+- No diff under `supabase/` or `worker/`; no enum/route/redirect change; `/pm` order is the only query-order change. ✔
+- Null-fact rendering on `/requests`: every conditional line is truthiness-guarded; `formatThaiDateTime` only ever receives non-null values. ✔
+
+### Decisions made
+
+- **`amount` not displayed on `/requests`** — the requester _can_ read it via the own-row SELECT policy (RLS is row-level, not column-level), but showing purchase amounts to every requester is a money-visibility policy the operator hasn't made. Display withheld; recorded here rather than silently shipped.
+- **`updated_at` as queue-entry proxy on `/pm`** — no "entered queue at" column exists; the status flip is the last app-path write to a queued WP, so `updated_at` is accurate today. If a future unit adds app-path WP writes that touch queued rows, revisit (a dedicated timestamp or the first `after` photo_log would be the honest upgrade).
+- **No portal for the lightbox** — `position: fixed` escapes the tiles' `overflow-hidden` because no consuming screen has a transformed ancestor; a portal would add complexity for no current gain. If a transform ever lands on those trees, move the overlay to a portal.
+- **No focus trap in the lightbox** — Escape/backdrop/button close is shipped; full focus management (trap + return) joins the themed-dialog item in the iteration-3 queue rather than half-shipping here.
+- **`prettier --write` side effect reverted** — a blanket format pass reflowed the untouched shadcn `button.tsx` (stale pre-printWidth-100 formatting); reverted to keep the diff scoped. Note for future units: format only the files you touched (lint-staged covers commits).
+
+### Open questions / iteration-3 queue
+
+- **`amount` display policy on `/requests`** — operator decision: show purchase amounts to requesters, to PMs only, or not at all (note: the column is already readable via the API regardless — this is display policy, not access policy).
+- Structural UX items still queued from spec 14: shared app-header refactor (three-pattern split), palette/theme identity + outdoor light theme (wants operator input), super_admin hub as a real route, themed confirm dialogs/toasts (replaces `window.confirm`; would carry the lightbox focus-trap work), progressive disclosure on `/pm/requests`, PWA manifest/icons/theme-color (needs icon assets).
+- Docs refresh unit (v2-handoff, README, CLAUDE.md roles) still queued from the 2026-06-11 audit.
+- Live browser checks pending operator: (1) `/requests` as an SA with a rejected request → comment block renders; (2) a purchased/delivered row (AppSheet-written facts) renders dates/supplier/receiver; (3) tap a review photo → lightbox; Escape and backdrop close it; (4) throttle the network → skeletons appear on route loads.

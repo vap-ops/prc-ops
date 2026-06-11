@@ -26,36 +26,12 @@ import type { Database } from "@/lib/db/database.types";
 //      role, so this works for SA's own rows too (SAs can't see other
 //      SAs' rows, per the cross-user isolation pinned in ADR 0022).
 
-import { PURCHASE_REQUEST_STATUS_LABEL } from "@/lib/i18n/labels";
+import { PURCHASE_REQUEST_STATUS_LABEL, formatThaiDateTime } from "@/lib/i18n/labels";
+import { purchaseRequestStatusPillClasses } from "@/lib/status-colors";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
 
 export const metadata = { title: "คำขอซื้อของฉัน" };
-
-// Pill palette — zinc / amber / emerald / red, mirroring the SA-side
-// pills and the inline pm/page.tsx decisionPillClasses. Inline because
-// purchase_request_status only appears on this page in v1 (the
-// /pm/requests queue is filtered to status='requested' and doesn't need
-// a per-row pill).
-function statusPillClasses(status: PurchaseRequestStatus): string {
-  switch (status) {
-    case "requested":
-      return "border-zinc-700 bg-zinc-800 text-zinc-300";
-    case "approved":
-      return "border-emerald-900/60 bg-emerald-950/40 text-emerald-200";
-    case "rejected":
-      return "border-red-900/60 bg-red-950/40 text-red-200";
-    case "purchased":
-      return "border-amber-900/60 bg-amber-950/40 text-amber-200";
-    case "delivered":
-      return "border-emerald-900/60 bg-emerald-950/40 text-emerald-200";
-    default: {
-      const _exhaustive: never = status;
-      void _exhaustive;
-      return "border-zinc-700 bg-zinc-800 text-zinc-300";
-    }
-  }
-}
 
 interface RequestsPageProps {
   searchParams: Promise<{ wp?: string | string[] }>;
@@ -96,9 +72,17 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
       : roleHome(ctx.role);
   const backLabel = pinnedWp && pinnedProjectId ? "กลับไปหน้ารายการงาน" : "กลับ";
 
+  // The own-row SELECT policy (ADR 0022) admits the whole row, so the
+  // decision + back-office fact columns are readable here. The PM's
+  // rejection comment is mandatory at the DB layer
+  // (pr_reject_has_comment); purchased_at / supplier / delivered_at /
+  // received_by / delivery_note are written by procurement in AppSheet
+  // (ADR 0025) and are null until that stage.
   const { data: myRequests, error: myError } = await supabase
     .from("purchase_requests")
-    .select("id, work_package_id, item_description, quantity, unit, status, requested_at")
+    .select(
+      "id, work_package_id, item_description, quantity, unit, status, requested_at, decision_comment, decided_at, purchased_at, supplier, delivered_at, received_by, delivery_note",
+    )
     .eq("requested_by", ctx.id)
     .order("requested_at", { ascending: false });
 
@@ -187,29 +171,69 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                 return (
                   <li
                     key={r.id}
-                    className="flex items-start justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-3"
+                    className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-3"
                   >
-                    <div className="min-w-0 space-y-0.5">
-                      {wp ? (
-                        <p className="truncate text-xs text-zinc-500">
-                          <span className="font-mono">{wp.code}</span>
-                          <span className="mx-1">·</span>
-                          {wp.name}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 space-y-0.5">
+                        {wp ? (
+                          <p className="truncate text-xs text-zinc-500">
+                            <span className="font-mono">{wp.code}</span>
+                            <span className="mx-1">·</span>
+                            {wp.name}
+                          </p>
+                        ) : null}
+                        <p className="truncate text-base text-zinc-100">
+                          {r.item_description}
+                          <span className="mx-2 text-zinc-700">·</span>
+                          <span className="text-zinc-300">
+                            {r.quantity} {r.unit}
+                          </span>
                         </p>
-                      ) : null}
-                      <p className="truncate text-base text-zinc-100">
-                        {r.item_description}
-                        <span className="mx-2 text-zinc-700">·</span>
-                        <span className="text-zinc-300">
-                          {r.quantity} {r.unit}
-                        </span>
-                      </p>
+                        <p className="text-xs text-zinc-500">
+                          ขอเมื่อ {formatThaiDateTime(r.requested_at)}
+                        </p>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium ${purchaseRequestStatusPillClasses(status)}`}
+                      >
+                        {PURCHASE_REQUEST_STATUS_LABEL[status]}
+                      </span>
                     </div>
-                    <span
-                      className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusPillClasses(status)}`}
-                    >
-                      {PURCHASE_REQUEST_STATUS_LABEL[status]}
-                    </span>
+                    {status === "approved" && r.decided_at ? (
+                      <p className="mt-2 text-xs text-zinc-400">
+                        อนุมัติเมื่อ {formatThaiDateTime(r.decided_at)}
+                      </p>
+                    ) : null}
+                    {status === "rejected" && r.decision_comment ? (
+                      <div className="mt-2 rounded-md border border-red-900/60 bg-red-950/30 px-3 py-2">
+                        <p className="text-xs font-medium text-red-200">เหตุผลที่ไม่อนุมัติ</p>
+                        <p className="mt-0.5 text-sm whitespace-pre-wrap text-red-100">
+                          {r.decision_comment}
+                        </p>
+                        {r.decided_at ? (
+                          <p className="mt-1 text-xs text-red-200/70">
+                            พิจารณาเมื่อ {formatThaiDateTime(r.decided_at)}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {(status === "purchased" || status === "delivered") && r.purchased_at ? (
+                      <p className="mt-2 text-xs text-zinc-400">
+                        สั่งซื้อเมื่อ {formatThaiDateTime(r.purchased_at)}
+                        {r.supplier ? ` · ผู้ขาย ${r.supplier}` : ""}
+                      </p>
+                    ) : null}
+                    {status === "delivered" && r.delivered_at ? (
+                      <p className="mt-1 text-xs text-emerald-200/80">
+                        ได้รับของเมื่อ {formatThaiDateTime(r.delivered_at)}
+                        {r.received_by ? ` · ผู้รับของ ${r.received_by}` : ""}
+                      </p>
+                    ) : null}
+                    {status === "delivered" && r.delivery_note ? (
+                      <p className="mt-1 text-xs whitespace-pre-wrap text-zinc-400">
+                        {r.delivery_note}
+                      </p>
+                    ) : null}
                   </li>
                 );
               })}

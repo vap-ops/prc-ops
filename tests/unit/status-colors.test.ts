@@ -15,7 +15,11 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import { Constants } from "@/lib/db/database.types";
-import { projectStatusPillClasses, workPackageStatusPillClasses } from "@/lib/status-colors";
+import {
+  projectStatusPillClasses,
+  purchaseRequestStatusPillClasses,
+  workPackageStatusPillClasses,
+} from "@/lib/status-colors";
 
 describe("projectStatusPillClasses", () => {
   for (const value of Constants.public.Enums.project_status) {
@@ -77,5 +81,41 @@ describe("workPackageStatusPillClasses", () => {
 
   it("uses the zinc palette for 'not_started' (idle default)", () => {
     expect(workPackageStatusPillClasses("not_started")).toContain("zinc");
+  });
+});
+
+describe("purchaseRequestStatusPillClasses", () => {
+  for (const value of Constants.public.Enums.purchase_request_status) {
+    it(`returns a non-empty class string for purchase_request_status='${value}'`, () => {
+      const classes = purchaseRequestStatusPillClasses(value);
+      expect(typeof classes).toBe("string");
+      expect(classes.length).toBeGreaterThan(0);
+    });
+  }
+
+  it("falls back to neutral classes for an unknown value", () => {
+    const unknown = "not-a-pr-status" as unknown as Parameters<
+      typeof purchaseRequestStatusPillClasses
+    >[0];
+    const classes = purchaseRequestStatusPillClasses(unknown);
+    expect(typeof classes).toBe("string");
+    expect(classes.length).toBeGreaterThan(0);
+  });
+
+  it("uses the zinc palette for 'requested' (idle default)", () => {
+    expect(purchaseRequestStatusPillClasses("requested")).toContain("zinc");
+  });
+
+  it("uses the red palette for 'rejected' (negative terminal)", () => {
+    expect(purchaseRequestStatusPillClasses("rejected")).toContain("red");
+  });
+
+  it("uses the amber palette for 'purchased' (in flight with the back office)", () => {
+    expect(purchaseRequestStatusPillClasses("purchased")).toContain("amber");
+  });
+
+  it("uses the emerald palette for 'approved' and 'delivered' (positive states)", () => {
+    expect(purchaseRequestStatusPillClasses("approved")).toContain("emerald");
+    expect(purchaseRequestStatusPillClasses("delivered")).toContain("emerald");
   });
 });

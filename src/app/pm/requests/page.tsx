@@ -4,6 +4,7 @@ import { PurchaseRequestDecision } from "@/components/features/purchase-request-
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { createClient } from "@/lib/db/server";
+import { formatThaiDateTime } from "@/lib/i18n/labels";
 
 // /pm/requests — PM (and super_admin) review queue for purchase requests.
 // site_admin lands on /requests for their own queue but cannot reach this
@@ -123,7 +124,11 @@ export default async function PmRequestsPage() {
                         {r.quantity} {r.unit}
                       </span>
                     </p>
-                    <p className="text-xs text-zinc-500">ขอซื้อโดย {requesterName}</p>
+                    <p className="text-xs text-zinc-500">
+                      ขอซื้อโดย {requesterName}
+                      <span className="mx-1 text-zinc-700">·</span>
+                      ขอเมื่อ {formatThaiDateTime(r.requested_at)}
+                    </p>
                   </div>
                   <PurchaseRequestDecision requestId={r.id} />
                 </li>

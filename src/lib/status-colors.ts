@@ -23,10 +23,12 @@ import type { Database } from "@/lib/db/database.types";
 
 export type ProjectStatus = Database["public"]["Enums"]["project_status"];
 export type WorkPackageStatus = Database["public"]["Enums"]["work_package_status"];
+export type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
 
 const PILL_ZINC = "border-zinc-700 bg-zinc-800 text-zinc-300";
 const PILL_AMBER = "border-amber-900/60 bg-amber-950/40 text-amber-200";
 const PILL_EMERALD = "border-emerald-900/60 bg-emerald-950/40 text-emerald-200";
+const PILL_RED = "border-red-900/60 bg-red-950/40 text-red-200";
 const PILL_MUTED = "border-zinc-800 bg-zinc-900 text-zinc-500";
 
 export function projectStatusPillClasses(status: ProjectStatus): string {
@@ -49,6 +51,34 @@ export function projectStatusPillClasses(status: ProjectStatus): string {
     default: {
       // Exhaustiveness check + defensive runtime fallback for any
       // future enum value that lands before this file is updated.
+      const _exhaustive: never = status;
+      void _exhaustive;
+      return PILL_ZINC;
+    }
+  }
+}
+
+export function purchaseRequestStatusPillClasses(status: PurchaseRequestStatus): string {
+  switch (status) {
+    case "requested":
+      // Idle default — sitting in the PM's queue, same zinc as
+      // `not_started` on the WP side.
+      return PILL_ZINC;
+    case "approved":
+      // Positive: the PM said yes; procurement takes over from here.
+      return PILL_EMERALD;
+    case "rejected":
+      // Negative terminal — the only red pill in the purchasing flow.
+      // The rejection comment block on /requests explains why.
+      return PILL_RED;
+    case "purchased":
+      // In flight with the back office (AppSheet) — goods ordered but
+      // not yet on site. Amber, like the in-flight WP statuses.
+      return PILL_AMBER;
+    case "delivered":
+      // Positive terminal — goods received on site.
+      return PILL_EMERALD;
+    default: {
       const _exhaustive: never = status;
       void _exhaustive;
       return PILL_ZINC;

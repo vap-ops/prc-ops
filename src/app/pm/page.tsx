@@ -3,7 +3,7 @@ import { LogoutButton } from "@/components/auth/logout-button";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { getLatestDecisionsForWorkPackages } from "@/lib/approvals/latest-decision";
-import { APPROVAL_DECISION_LABEL } from "@/lib/i18n/labels";
+import { APPROVAL_DECISION_LABEL, formatThaiDateTime } from "@/lib/i18n/labels";
 import type { Database } from "@/lib/db/database.types";
 
 type ApprovalDecision = Database["public"]["Enums"]["approval_decision"];
@@ -26,10 +26,14 @@ export default async function ProjectManagerLandingPage() {
   // fetch the pending WPs, then fetch their projects in one go. The
   // typed shape is clearer than relying on PostgREST's foreign-table
   // inflection.
+  // Oldest-waiting first (spec 15 item C): the status flip to
+  // pending_approval is the last app write to a queued WP, so
+  // updated_at marks queue entry. Code is the deterministic tiebreak.
   const { data: pendingWps, error: wpError } = await supabase
     .from("work_packages")
-    .select("id, code, name, project_id")
+    .select("id, code, name, project_id, updated_at")
     .eq("status", "pending_approval")
+    .order("updated_at", { ascending: true })
     .order("code", { ascending: true });
 
   const projectIds = Array.from(new Set((pendingWps ?? []).map((wp) => wp.project_id)));
@@ -125,6 +129,9 @@ export default async function ProjectManagerLandingPage() {
                         <span className="font-mono text-xs text-zinc-500">{wp.code}</span>
                         <span className="mx-2 text-zinc-700">·</span>
                         <span className="text-base font-medium text-zinc-100">{wp.name}</span>
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        เข้าคิวเมื่อ {formatThaiDateTime(wp.updated_at)}
                       </p>
                     </div>
                     <span

@@ -17,6 +17,7 @@ import {
   formatThaiDateTime,
 } from "@/lib/i18n/labels";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
+import { ZoomablePhoto } from "@/components/features/photo-lightbox";
 import type { Database } from "@/lib/db/database.types";
 import { RecordDecisionForm } from "./record-decision-form";
 
@@ -215,8 +216,7 @@ function PhaseGallery({ label, photos, signedUrls }: PhaseGalleryProps) {
                 className="aspect-square overflow-hidden rounded-md border border-zinc-800 bg-zinc-900"
               >
                 {url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                  <ZoomablePhoto src={url} />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-xs text-zinc-600">
                     ไม่พร้อมแสดง

@@ -16,6 +16,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { createClient as createBrowserSupabase } from "@/lib/db/browser";
+import { ZoomablePhoto } from "@/components/features/photo-lightbox";
 import { mimeToPhotoExt, type PhotoExt, buildPhotoStoragePath } from "@/lib/photos/path";
 import type { PhotoPhase } from "@/lib/photos/transitions";
 import { addPhoto, removePhoto } from "./actions";
@@ -84,9 +85,12 @@ export function PhaseUploader({
         upsert: false,
       });
     if (uploadError) {
+      // Fixed Thai on the tile; the raw SDK message (English) goes to
+      // the console only (spec 15 item F).
+      console.error("[phase-uploader] storage upload failed", uploadError.message);
       updatePending(upload.id, {
         status: "upload-error",
-        errorMessage: uploadError.message || "อัปโหลดไม่สำเร็จ",
+        errorMessage: "อัปโหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
       });
       return;
     }
@@ -239,11 +243,7 @@ function Thumbnail({ photo, isRemoving, onRemove }: ThumbnailProps) {
   return (
     <li className="relative aspect-square overflow-hidden rounded-md border border-zinc-800 bg-zinc-900">
       {photo.url ? (
-        // Plain <img> — using next/image with signed Supabase URLs
-        // would require a remotePatterns entry in next.config.* for
-        // the Storage host. PR 1 made the same call; carried forward.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={photo.url} alt="" className="h-full w-full object-cover" loading="lazy" />
+        <ZoomablePhoto src={photo.url} />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-xs text-zinc-600">
           ไม่พร้อมแสดง
