@@ -6034,3 +6034,21 @@ Status: COMPLETE. ADR 0033 (supersedes ADR 0032's user-owner UI; operator decisi
 ## Spec 31 amendment + layout fixes (2026-06-11)
 
 Status: COMPLETE. Operator screenshot (desktop): 1) WP page wasted side space — header/attention/grid wrappers gain lg:max-w-6xl (+ lg:gap-8). 2) SA could not add/assign ผู้รับเหมา — contractors INSERT/UPDATE policies widened to staff (sa/pm/super); assignment moved to SECURITY DEFINER RPC set_work_package_contractor (writes contractor_id ONLY — widening the WP UPDATE policy would hand SA every column); p_contractor_id DEFAULT NULL fix-forward so typegen marks it optional (clearing = omit arg). pgTAP 24 rewritten (14 asserts incl. visitor 42501 + SA-direct-update-still-filtered); suite 555 green. 3) Form cramped in the narrow right rail — date/priority row sm:flex-row removed (viewport variants lie about CONTAINER width; the form's primary home is the rail since spec 29). Lesson: prefer container-relative layout for components that move between containers. 283 unit green.
+
+## Unit: architecture revision doc — entrepreneur lens (2026-06-11)
+
+- **Status:** COMPLETE (doc-only, advisory). Operator brief: "revise the architecture of this app; think like an entrepreneur, not just technical."
+- **Deliverable:** [`docs/architecture-revision-2026-06.md`](./architecture-revision-2026-06.md) — strategic assessment of the whole system by business criteria (cost/month, ops burden per change, engagement, sellability, moat).
+
+### Key positions taken (all pending operator sign-off — §6 of the doc)
+
+1. **AppSheet = rented ground.** Stop investing: cancel the unwritten ADR 0029 image bridge, build the in-app procurement surface + suppliers table instead (derive triggers are already writer-agnostic per ADR 0025; `procurement` role waits in the enum), demote AppSheet to read-only, then retire. Kills the per-schema-change operator tax, the Tier-2 write smoke, the EMAXCONNSESSION incident class, and the licence line.
+2. **LINE notification outbox promoted to next feature slot** — audit triggers already detect every hand-off event; they just don't deliver. Outbox table + drainer + LINE Messaging API channel.
+3. **Railway retired when touched** — PDF on-demand (route handler spike first) or Edge Function; end-state two platforms.
+4. **Tenancy decided on purpose:** instance-per-customer for now + tenant-clean discipline + spin-up runbook; multi-tenant schema deferred until customer #2 is real.
+5. Migration rehearsal stage (preview branch/scratch project) before destructive pushes; photo client-side downscale question raised; crew capability-URL uploads parked as v2 differentiator; dormant owner_id/work_package_members cleanup listed.
+
+### Open questions
+
+- The four §6 operator decisions (AppSheet sunset, notifications next, tenancy posture, photo downscale).
+- No code/schema/test change this unit; suites untouched (555 pgTAP / 283 unit as of a42f083).
