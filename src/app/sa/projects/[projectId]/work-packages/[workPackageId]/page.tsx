@@ -90,7 +90,9 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
   );
   const displayNames = await fetchDisplayNames(nameIds, "[wp-detail]");
 
-  const isAssigner = ctx.role === "project_manager" || ctx.role === "super_admin";
+  // Spec-31 amendment: every role this page admits may manage
+  // contractors (field staff included) — the RPC enforces server-side.
+  const isAssigner = true;
 
   // Spec 25: this WP's purchase requests render inline — the operator's
   // "delivery status must show inside each WP, not having to go to the
@@ -119,7 +121,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
     <main className="min-h-screen bg-white pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
       <header className="border-b border-zinc-300 px-5 py-4">
-        <div className="mx-auto flex max-w-2xl flex-col gap-1">
+        <div className="mx-auto flex max-w-2xl flex-col gap-1 md:max-w-4xl lg:max-w-6xl">
           <Link
             href={`/sa/projects/${projectId}`}
             className="w-fit text-xs font-medium text-blue-700 hover:underline focus:outline-none focus-visible:underline"
@@ -168,7 +170,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
       {attention ? (
         <div className="border-b border-zinc-300 px-5 py-3">
           <div
-            className={`mx-auto max-w-2xl rounded-md border px-3 py-2 ${
+            className={`mx-auto max-w-2xl rounded-md border px-3 py-2 md:max-w-4xl lg:max-w-6xl ${
               attention.decision === "rejected"
                 ? "border-red-300 bg-red-50"
                 : "border-amber-400 bg-amber-50"
@@ -204,7 +206,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
           SA's job); ≥md two columns — photos wide left, facts right.
           max width steps up to 4xl ONLY at md so phones keep the
           familiar 2xl measure. */}
-      <div className="mx-auto grid max-w-2xl grid-cols-1 gap-6 px-5 py-6 md:max-w-4xl md:grid-cols-[1.6fr_1fr] md:items-start">
+      <div className="mx-auto grid max-w-2xl grid-cols-1 gap-6 px-5 py-6 md:max-w-4xl md:grid-cols-[1.6fr_1fr] md:items-start lg:max-w-6xl lg:gap-8">
         <div className="flex min-w-0 flex-col gap-4">
           {/* Spec 30: zone headers — icon + bold title + rule line so the
               three content categories read as distinct at a glance. */}

@@ -248,8 +248,13 @@ export function PurchaseRequestForm({ workPackage, projectId }: PurchaseRequestF
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="flex min-w-0 flex-col gap-1 sm:flex-1">
+      {/* Always stacked: the form's primary home is the WP page's narrow
+          right rail (spec 29), where sm: viewport variants lie about the
+          available CONTAINER width — the side-by-side row cramped the
+          date input and wrapped the urgency buttons (operator screenshot
+          2026-06-11). */}
+      <div className="flex flex-col gap-3">
+        <div className="flex min-w-0 flex-col gap-1">
           <label htmlFor="pr-needed-by" className="text-sm font-medium text-zinc-900">
             ต้องการรับของภายใน (ไม่บังคับ)
           </label>
@@ -267,7 +272,7 @@ export function PurchaseRequestForm({ workPackage, projectId }: PurchaseRequestF
             className="h-11 w-full max-w-full min-w-0 appearance-none rounded-md border border-zinc-400 bg-white px-3 text-sm text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
           />
         </div>
-        <fieldset className="flex min-w-0 flex-col gap-1 sm:flex-1">
+        <fieldset className="flex min-w-0 flex-col gap-1">
           <legend className="text-sm font-medium text-zinc-900">ความเร่งด่วน</legend>
           <div className="flex gap-1.5">
             {PURCHASE_PRIORITIES.map((p) => (

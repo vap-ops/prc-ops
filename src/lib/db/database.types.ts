@@ -795,6 +795,10 @@ export type Database = {
         Args: { p_caller: string; p_parent: string; p_target: string };
         Returns: boolean;
       };
+      set_work_package_contractor: {
+        Args: { p_contractor_id?: string; p_work_package_id: string };
+        Returns: boolean;
+      };
       update_my_display_name: {
         Args: { p_full_name: string };
         Returns: undefined;

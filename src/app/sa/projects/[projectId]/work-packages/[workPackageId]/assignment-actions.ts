@@ -69,12 +69,18 @@ export async function setWorkPackageContractor(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
 
-  const { data, error } = await supabase
-    .from("work_packages")
-    .update({ contractor_id: input.contractorId })
-    .eq("id", input.workPackageId)
-    .select("id");
-  if (error || !data || data.length === 0) {
+  // RPC, not a direct UPDATE: site admins have no work_packages UPDATE
+  // policy, and the SECURITY DEFINER function writes contractor_id ONLY
+  // (spec-31 amendment — field staff assign crews too).
+  // Omitting p_contractor_id uses the SQL DEFAULT NULL — that's how an
+  // assignment is cleared (typegen marks default args optional).
+  const { data, error } = await supabase.rpc(
+    "set_work_package_contractor",
+    input.contractorId === null
+      ? { p_work_package_id: input.workPackageId }
+      : { p_work_package_id: input.workPackageId, p_contractor_id: input.contractorId },
+  );
+  if (error || data !== true) {
     return { ok: false, error: "บันทึกผู้รับเหมาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
 
