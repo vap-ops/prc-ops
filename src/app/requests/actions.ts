@@ -256,7 +256,24 @@ export async function addDeliveryConfirmationPhoto(
     created_by: user.id,
   });
   if (error) {
-    return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    // Spec 37 / ADR 0039: idempotent replay (identity-complete — the
+    // spec-35 lesson: an id-only check would let a forged replay claim
+    // a foreign row). Nothing is ever UPDATEd.
+    if (error.code !== "23505") {
+      return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    }
+    const { data: existing } = await supabase
+      .from("purchase_request_attachments")
+      .select("id")
+      .eq("id", input.attachmentId)
+      .eq("purchase_request_id", input.purchaseRequestId)
+      .eq("kind", "image")
+      .eq("purpose", "delivery_confirmation")
+      .eq("storage_path", storagePath)
+      .maybeSingle();
+    if (!existing) {
+      return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    }
   }
 
   revalidatePath("/requests");
@@ -313,7 +330,7 @@ export async function addPurchaseRequestAttachment(
     .eq("id", input.purchaseRequestId)
     .maybeSingle();
   const projectId = pr?.work_packages?.project_id;
-  if (!pr || pr.status !== "requested" || !projectId) {
+  if (!pr || !projectId) {
     return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
 
@@ -327,6 +344,29 @@ export async function addPurchaseRequestAttachment(
     return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
 
+  if (pr.status !== "requested") {
+    // Spec 37 review fix: a queued replay whose insert LANDED but whose
+    // response was lost can arrive after the PM decided — the row exists
+    // and must confirm as success (identity-complete, read-only). A
+    // never-landed photo on a decided parent stays refusable: the
+    // reference window closes at decision time (recorded seam; discard
+    // is the designed out).
+    const { data: landed } = await supabase
+      .from("purchase_request_attachments")
+      .select("id")
+      .eq("id", input.attachmentId)
+      .eq("purchase_request_id", input.purchaseRequestId)
+      .eq("kind", "image")
+      .eq("purpose", "reference")
+      .eq("storage_path", storagePath)
+      .maybeSingle();
+    if (landed) {
+      revalidatePath("/requests");
+      return { ok: true };
+    }
+    return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
   const { error } = await supabase.from("purchase_request_attachments").insert({
     id: input.attachmentId,
     purchase_request_id: input.purchaseRequestId,
@@ -335,7 +375,24 @@ export async function addPurchaseRequestAttachment(
     storage_path: storagePath,
     created_by: user.id,
   });
-  if (error) return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  if (error) {
+    // Spec 37 / ADR 0039: idempotent replay (identity-complete).
+    if (error.code !== "23505") {
+      return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    }
+    const { data: existing } = await supabase
+      .from("purchase_request_attachments")
+      .select("id")
+      .eq("id", input.attachmentId)
+      .eq("purchase_request_id", input.purchaseRequestId)
+      .eq("kind", "image")
+      .eq("purpose", "reference")
+      .eq("storage_path", storagePath)
+      .maybeSingle();
+    if (!existing) {
+      return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    }
+  }
 
   revalidatePath("/requests");
   return { ok: true };

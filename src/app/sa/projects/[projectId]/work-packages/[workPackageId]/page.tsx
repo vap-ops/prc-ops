@@ -248,6 +248,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
               <PurchaseRequestForm
                 workPackage={{ id: wp.id, code: wp.code, name: wp.name }}
                 projectId={wp.project_id}
+                userId={ctx.id}
               />
             </div>
           </details>

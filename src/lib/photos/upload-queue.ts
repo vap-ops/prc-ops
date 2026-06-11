@@ -14,32 +14,62 @@
 import type { PhotoExt } from "@/lib/photos/path";
 import type { PhotoPhase } from "@/lib/photos/transitions";
 
-export interface QueuedPhoto {
-  /** Pre-assigned photo uuid — photo_logs id AND the storage object key. */
+export type QueuedUploadKind = "phase_photo" | "reference_attachment" | "delivery_photo";
+
+interface QueuedUploadBase {
+  /** Pre-assigned uuid — the metadata row id AND the storage object key. */
   id: string;
   /** Enqueuing user — the runner SKIPS items whose owner is not the
    *  current session (shared-device attribution guard, ADR 0039). */
   userId: string;
-  workPackageId: string;
-  phase: PhotoPhase;
   ext: PhotoExt;
   /** Prepared bytes (spec 34) — what gets stored, forever. */
   blob: Blob;
   lastModifiedMs: number;
-  /** Display label, persisted ahead of need for the manual-discard seam. */
+  /** Display label for the discard list. */
   fileName: string;
   storagePath: string;
-  /** Next pipeline step: bytes first, then the addPhoto metadata row. */
+  /** Next pipeline step: bytes first, then the metadata action. */
   step: "upload" | "insert";
   attempts: number;
   lastError: string | null;
   enqueuedAtMs: number;
 }
 
+// Spec 37: one queue, three photo kinds — the metadata action and the
+// bucket follow the kind; everything else (steps, attempts, idempotent
+// replay) is shared.
+export type QueuedUpload =
+  | (QueuedUploadBase & { kind: "phase_photo"; workPackageId: string; phase: PhotoPhase })
+  | (QueuedUploadBase & { kind: "reference_attachment"; purchaseRequestId: string })
+  | (QueuedUploadBase & { kind: "delivery_photo"; purchaseRequestId: string });
+
+export function bucketForKind(kind: QueuedUploadKind): "photos" | "pr-attachments" {
+  return kind === "phase_photo" ? "photos" : "pr-attachments";
+}
+
+// Items persisted by spec 35 predate `kind` — IDB is schemaless, so no
+// version bump: normalize on read. A kind-less item can only be a
+// phase photo (the only kind that existed).
+export function normalizeQueuedUpload(
+  raw:
+    | QueuedUpload
+    | (Omit<Extract<QueuedUpload, { kind: "phase_photo" }>, "kind"> & { kind?: undefined }),
+): QueuedUpload {
+  if (raw.kind === undefined) {
+    return { ...raw, kind: "phase_photo" };
+  }
+  return raw;
+}
+
 export interface QueueStore {
-  all(): Promise<QueuedPhoto[]>;
-  put(item: QueuedPhoto): Promise<void>;
+  all(): Promise<QueuedUpload[]>;
+  put(item: QueuedUpload): Promise<void>;
   remove(id: string): Promise<void>;
+  /** Existence check — processQueue consults it before every put-back
+   *  so a discard during an in-flight pass can never resurrect the
+   *  item (spec 37 discard race). */
+  has(id: string): Promise<boolean>;
   count(): Promise<number>;
 }
 
@@ -48,8 +78,8 @@ export type UploadBytesResult =
   | { ok: false; alreadyExists: boolean; message: string };
 
 export interface ProcessDeps {
-  uploadBytes(item: QueuedPhoto): Promise<UploadBytesResult>;
-  insertMeta(item: QueuedPhoto): Promise<{ ok: true } | { ok: false; message: string }>;
+  uploadBytes(item: QueuedUpload): Promise<UploadBytesResult>;
+  insertMeta(item: QueuedUpload): Promise<{ ok: true } | { ok: false; message: string }>;
   /** The session user, or null when logged out — foreign/ownerless
    *  items are skipped untouched, never processed or dropped. */
   currentUserId: string | null;
@@ -74,33 +104,44 @@ export async function processQueue(store: QueueStore, deps: ProcessDeps): Promis
       continue;
     }
 
+    // Discard race (spec 37): the snapshot above may be stale — an item
+    // the user discarded must never be processed or put back.
+    if (!(await store.has(item.id))) continue;
+
     let current = item;
 
     if (current.step === "upload") {
       const uploaded = await deps.uploadBytes(current);
       if (!uploaded.ok && !uploaded.alreadyExists) {
-        await store.put({
-          ...current,
-          attempts: current.attempts + 1,
-          lastError: uploaded.message,
-        });
-        remaining += 1;
+        if (await store.has(current.id)) {
+          await store.put({
+            ...current,
+            attempts: current.attempts + 1,
+            lastError: uploaded.message,
+          });
+          remaining += 1;
+        }
         continue;
       }
       // Bytes are in Storage (fresh upload or an earlier pass's) —
       // persist the step advance so a crash here never re-uploads.
+      // A discard during the upload stops here (bucket orphan accepted,
+      // photos precedent).
+      if (!(await store.has(current.id))) continue;
       current = { ...current, step: "insert" };
       await store.put(current);
     }
 
     const inserted = await deps.insertMeta(current);
     if (!inserted.ok) {
-      await store.put({
-        ...current,
-        attempts: current.attempts + 1,
-        lastError: inserted.message,
-      });
-      remaining += 1;
+      if (await store.has(current.id)) {
+        await store.put({
+          ...current,
+          attempts: current.attempts + 1,
+          lastError: inserted.message,
+        });
+        remaining += 1;
+      }
       continue;
     }
 
@@ -141,7 +182,7 @@ export function backoffMs(attempts: number): number {
 
 // The runner sleeps until the most-ready item's backoff elapses.
 // null = queue empty, nothing to schedule.
-export function nextPassDelayMs(items: ReadonlyArray<QueuedPhoto>): number | null {
+export function nextPassDelayMs(items: ReadonlyArray<QueuedUpload>): number | null {
   if (items.length === 0) return null;
   return Math.min(...items.map((item) => backoffMs(item.attempts)));
 }

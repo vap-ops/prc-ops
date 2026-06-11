@@ -22,7 +22,11 @@ const WP = { id: "00000000-0000-0000-0000-000000000001", code: "WP01", name: "�
 describe("PurchaseRequestForm priority segmented control (spec 21)", () => {
   it("renders all three priorities as radios with Thai labels, normal preselected", () => {
     render(
-      <PurchaseRequestForm workPackage={WP} projectId="00000000-0000-0000-0000-000000000002" />,
+      <PurchaseRequestForm
+        workPackage={WP}
+        projectId="00000000-0000-0000-0000-000000000002"
+        userId="00000000-0000-0000-0000-0000000000aa"
+      />,
     );
     const normal = screen.getByRole("radio", { name: "ปกติ" });
     const urgent = screen.getByRole("radio", { name: "ด่วน" });
@@ -35,7 +39,11 @@ describe("PurchaseRequestForm priority segmented control (spec 21)", () => {
   it("selecting ด่วนมาก checks it and unchecks the rest", async () => {
     const user = userEvent.setup();
     render(
-      <PurchaseRequestForm workPackage={WP} projectId="00000000-0000-0000-0000-000000000002" />,
+      <PurchaseRequestForm
+        workPackage={WP}
+        projectId="00000000-0000-0000-0000-000000000002"
+        userId="00000000-0000-0000-0000-0000000000aa"
+      />,
     );
     await user.click(screen.getByRole("radio", { name: "ด่วนมาก" }));
     expect(screen.getByRole("radio", { name: "ด่วนมาก" })).toBeChecked();

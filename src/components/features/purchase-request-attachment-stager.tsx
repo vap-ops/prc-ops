@@ -27,6 +27,12 @@ import { addPurchaseRequestAttachment } from "@/app/requests/actions";
 import { createClient } from "@/lib/db/browser";
 import { photoExtToMime, type PhotoExt } from "@/lib/photos/path";
 import { preparePhotoForUpload } from "@/lib/photos/downscale";
+import {
+  classifyStorageUploadError,
+  queueNowMs,
+  type QueuedUpload,
+} from "@/lib/photos/upload-queue";
+import { notifyQueueChanged, safeQueuePut, safeQueueRemove } from "@/lib/photos/upload-queue-idb";
 import { buildPrAttachmentStoragePath } from "@/lib/purchasing/attachment-path";
 import { validateAttachmentLink } from "@/lib/purchasing/validate-attachment";
 
@@ -59,13 +65,19 @@ export interface AttachmentStagerHandle {
 interface PurchaseRequestAttachmentStagerProps {
   projectId: string;
   purchaseRequestId?: string;
+  /** Session user — enables the offline-queue bracket (spec 37). When
+   *  absent, items stay in-memory only (today's pre-spec-37 behavior). */
+  userId?: string;
   disabled?: boolean;
 }
 
 export const PurchaseRequestAttachmentStager = forwardRef<
   AttachmentStagerHandle,
   PurchaseRequestAttachmentStagerProps
->(function PurchaseRequestAttachmentStager({ projectId, purchaseRequestId, disabled }, ref) {
+>(function PurchaseRequestAttachmentStager(
+  { projectId, purchaseRequestId, userId, disabled },
+  ref,
+) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<StagedItem[]>([]);
@@ -110,30 +122,70 @@ export const PurchaseRequestAttachmentStager = forwardRef<
       return false;
     }
 
+    const path = buildPrAttachmentStoragePath(projectId, prId, item.id, ext);
+    if (!path) {
+      patchItem(item.id, { status: "upload-error" });
+      return false;
+    }
+
+    // Spec 37: queue bracket — only possible once the parent id exists
+    // (deferred chips queue at flush time, immediate ones right away).
+    // Rebuilt per call ON PURPOSE: a manual ลองใหม่ resets the persisted
+    // attempts/backoff (user-initiated = fresh start). lastModifiedMs is
+    // synthetic (enqueue time) — no reference-attachment consumer reads
+    // it as capture time.
+    const queueItem: QueuedUpload | null = userId
+      ? {
+          kind: "reference_attachment",
+          id: item.id,
+          userId,
+          purchaseRequestId: prId,
+          ext,
+          blob,
+          lastModifiedMs: queueNowMs(),
+          fileName: item.label,
+          storagePath: path,
+          step: "upload",
+          attempts: 0,
+          lastError: null,
+          enqueuedAtMs: queueNowMs(),
+        }
+      : null;
+
     if (item.status !== "insert-error") {
       patchItem(item.id, { status: "uploading" });
-      const path = buildPrAttachmentStoragePath(projectId, prId, item.id, ext);
-      if (!path) {
-        patchItem(item.id, { status: "upload-error" });
-        return false;
-      }
+      if (queueItem) await safeQueuePut(queueItem);
       const supabase = createClient();
       const { error } = await supabase.storage
         .from("pr-attachments")
         .upload(path, blob, { upsert: false, contentType: photoExtToMime(ext) });
-      if (error) {
+      if (error && !classifyStorageUploadError(error).alreadyExists) {
+        if (queueItem) notifyQueueChanged();
         patchItem(item.id, { status: "upload-error" });
         return false;
       }
+      if (queueItem) await safeQueuePut({ ...queueItem, step: "insert" });
     }
 
     patchItem(item.id, { status: "saving" });
-    const result = await addPurchaseRequestAttachment({
-      purchaseRequestId: prId,
-      kind: "image",
-      attachmentId: item.id,
-      ext,
-    });
+    let result: Awaited<ReturnType<typeof addPurchaseRequestAttachment>>;
+    try {
+      result = await addPurchaseRequestAttachment({
+        purchaseRequestId: prId,
+        kind: "image",
+        attachmentId: item.id,
+        ext,
+      });
+    } catch (err) {
+      console.error("[attachment-stager] action invocation failed", err);
+      result = { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    }
+    if (result.ok && queueItem) {
+      await safeQueueRemove(item.id);
+      notifyQueueChanged();
+    } else if (!result.ok && queueItem) {
+      notifyQueueChanged();
+    }
     patchItem(item.id, { status: result.ok ? "done" : "insert-error" });
     return result.ok;
   }

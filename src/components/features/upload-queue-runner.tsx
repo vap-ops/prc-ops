@@ -16,28 +16,35 @@ import { useRouter } from "next/navigation";
 import { createClient as createBrowserSupabase } from "@/lib/db/browser";
 import { photoExtToMime } from "@/lib/photos/path";
 import {
+  bucketForKind,
   classifyStorageUploadError,
   nextPassDelayMs,
   processQueue,
   type ProcessDeps,
+  type QueuedUpload,
 } from "@/lib/photos/upload-queue";
-import { createIdbQueueStore, QUEUE_CHANGED_EVENT } from "@/lib/photos/upload-queue-idb";
+import {
+  createIdbQueueStore,
+  QUEUE_CHANGED_EVENT,
+  safeQueueRemove,
+} from "@/lib/photos/upload-queue-idb";
 import { addPhoto } from "@/app/sa/projects/[projectId]/work-packages/[workPackageId]/actions";
+import { addDeliveryConfirmationPhoto, addPurchaseRequestAttachment } from "@/app/requests/actions";
 
 const LOCK_NAME = "prc-photo-upload-queue";
-const PHOTOS_BUCKET = "photos";
 
-async function buildDeps(): Promise<ProcessDeps> {
+async function buildDeps(): Promise<{ deps: ProcessDeps; sessionUserId: string | null }> {
   const supabase = createBrowserSupabase();
   // Shared-device guard (ADR 0039): resolve the session user once per
   // pass; foreign/ownerless items are skipped inside processQueue.
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  return {
+  const sessionUserId = user?.id ?? null;
+  const deps: ProcessDeps = {
     async uploadBytes(item) {
       const { error } = await supabase.storage
-        .from(PHOTOS_BUCKET)
+        .from(bucketForKind(item.kind))
         .upload(item.storagePath, item.blob, {
           contentType: photoExtToMime(item.ext),
           upsert: false,
@@ -48,13 +55,32 @@ async function buildDeps(): Promise<ProcessDeps> {
     },
     async insertMeta(item) {
       try {
-        const result = await addPhoto({
-          workPackageId: item.workPackageId,
-          phase: item.phase,
-          photoId: item.id,
-          ext: item.ext,
-          capturedAtClient: new Date(item.lastModifiedMs).toISOString(),
-        });
+        // Spec 37: the metadata action follows the kind; every action
+        // has the identity-complete 23505 replay path, so re-running a
+        // landed insert returns ok.
+        let result: { ok: true } | { ok: false; error: string };
+        if (item.kind === "phase_photo") {
+          result = await addPhoto({
+            workPackageId: item.workPackageId,
+            phase: item.phase,
+            photoId: item.id,
+            ext: item.ext,
+            capturedAtClient: new Date(item.lastModifiedMs).toISOString(),
+          });
+        } else if (item.kind === "delivery_photo") {
+          result = await addDeliveryConfirmationPhoto({
+            purchaseRequestId: item.purchaseRequestId,
+            attachmentId: item.id,
+            ext: item.ext,
+          });
+        } else {
+          result = await addPurchaseRequestAttachment({
+            purchaseRequestId: item.purchaseRequestId,
+            kind: "image",
+            attachmentId: item.id,
+            ext: item.ext,
+          });
+        }
         return result.ok ? { ok: true } : { ok: false, message: result.error };
       } catch (err) {
         // Server action invocation itself failed (offline, dead session
@@ -62,13 +88,17 @@ async function buildDeps(): Promise<ProcessDeps> {
         return { ok: false, message: err instanceof Error ? err.message : String(err) };
       }
     },
-    currentUserId: user?.id ?? null,
+    currentUserId: sessionUserId,
   };
+  return { deps, sessionUserId };
 }
 
 export function UploadQueueRunner() {
   const router = useRouter();
-  const [count, setCount] = useState(0);
+  const [items, setItems] = useState<ReadonlyArray<QueuedUpload>>([]);
+  // For the discard list: foreign items render read-only (ADR 0039 —
+  // another user's un-sent evidence must not be discardable here).
+  const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   const runningRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -76,17 +106,19 @@ export function UploadQueueRunner() {
     const store = createIdbQueueStore();
     if (!store) return;
 
-    const refreshCount = async () => setCount(await store.count());
+    const refreshCount = async () => setItems(await store.all());
 
     if ((await store.count()) === 0) {
-      setCount(0);
+      setItems([]);
       return;
     }
     if (runningRef.current) return;
     runningRef.current = true;
 
     const work = async () => {
-      const result = await processQueue(store, await buildDeps());
+      const { deps, sessionUserId: uid } = await buildDeps();
+      setSessionUserId(uid);
+      const result = await processQueue(store, deps);
       await refreshCount();
       if (result.sent > 0) router.refresh();
       const remaining = await store.all();
@@ -156,14 +188,54 @@ export function UploadQueueRunner() {
     };
   }, [runPass]);
 
-  if (count === 0) return null;
+  async function discard(id: string) {
+    // Honest copy: a send that is ALREADY mid-flight may still complete
+    // (the core skips put-backs after a discard, but cannot recall a
+    // request already on the wire).
+    if (!window.confirm("ลบรูปที่ยังไม่ได้ส่งนี้หรือไม่?")) return;
+    await safeQueueRemove(id);
+    // Recount via the runner's own trigger path (also re-checks the
+    // whole queue) instead of a second hand-rolled IDB read here.
+    window.dispatchEvent(new Event(QUEUE_CHANGED_EVENT));
+  }
+
+  if (items.length === 0) return null;
 
   return (
-    <div
-      role="status"
-      className="fixed inset-x-0 bottom-16 z-30 mx-auto w-fit rounded-full border border-amber-400 bg-amber-50 px-4 py-1.5 text-xs font-medium text-amber-900 shadow sm:bottom-4"
-    >
-      รอส่งรูป {count} รูป — จะส่งอัตโนมัติเมื่อมีสัญญาณ
-    </div>
+    <details className="fixed inset-x-0 bottom-16 z-30 mx-auto w-fit max-w-[90vw] rounded-2xl border border-amber-400 bg-amber-50 px-4 py-1.5 text-xs font-medium text-amber-900 shadow sm:bottom-4">
+      <summary className="cursor-pointer">
+        {/* role=status on the count text only — a live region must not
+            swallow the disclosure semantics or the buttons below. */}
+        <span role="status">รอส่งรูป {items.length} รูป — จะส่งอัตโนมัติเมื่อมีสัญญาณ</span>
+      </summary>
+      {/* Spec 37: the manual-discard seam — the ONLY way an item ever
+          leaves the queue without landing; confirm-guarded. Foreign
+          items (other users' evidence, ADR 0039) are read-only. */}
+      <ul className="mt-2 flex max-h-40 flex-col gap-1 overflow-y-auto border-t border-amber-300 pt-2">
+        {items.map((item) => (
+          <li key={item.id} className="flex min-h-11 items-center gap-2">
+            {item.userId === sessionUserId ? (
+              <>
+                <span className="min-w-0 flex-1 truncate">{item.fileName}</span>
+                {item.lastError ? (
+                  <span className="shrink-0 text-[10px] text-amber-700">รอส่งใหม่</span>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => void discard(item.id)}
+                  className="inline-flex min-h-11 shrink-0 items-center font-semibold text-red-700 hover:underline focus:outline-none focus-visible:underline"
+                >
+                  ลบ
+                </button>
+              </>
+            ) : (
+              <span className="min-w-0 flex-1 truncate text-amber-700">
+                รูปของผู้ใช้อื่น — รอเจ้าของเข้าสู่ระบบ
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }

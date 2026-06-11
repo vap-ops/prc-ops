@@ -95,5 +95,8 @@ requirement.
 - Queue I/O failures (quota, private-mode IDB) are non-fatal to the
   live pipeline by construction — the safety net never breaks the
   thing it protects.
-- Recorded seams: reference/delivery photo queueing, manual discard
-  UI, Web-Worker downscale offload, SW Background Sync enhancement.
+- Recorded seams: Web-Worker downscale offload, SW Background Sync
+  enhancement. (Reference/delivery queueing + the manual discard UI
+  shipped in spec 37; the reference-photo window closes when the
+  parent PR is decided — landed replays confirm ok, never-landed items
+  are discard-only, recorded there.)

@@ -2,7 +2,11 @@
 // core lives in upload-queue.ts). Raw IDB, no dependencies. Import
 // only from client components — there is no IDB on the server.
 
-import type { QueueStore, QueuedPhoto } from "@/lib/photos/upload-queue";
+import {
+  normalizeQueuedUpload,
+  type QueueStore,
+  type QueuedUpload,
+} from "@/lib/photos/upload-queue";
 
 const DB_NAME = "prc-ops";
 const STORE_NAME = "photo-upload-queue";
@@ -41,13 +45,14 @@ class IdbQueueStore implements QueueStore {
     return db.transaction(STORE_NAME, mode).objectStore(STORE_NAME);
   }
 
-  async all(): Promise<QueuedPhoto[]> {
+  async all(): Promise<QueuedUpload[]> {
     const store = await this.store("readonly");
-    const rows = await requestToPromise(store.getAll() as IDBRequest<QueuedPhoto[]>);
-    return rows.sort((a, b) => a.enqueuedAtMs - b.enqueuedAtMs);
+    const rows = await requestToPromise(store.getAll() as IDBRequest<QueuedUpload[]>);
+    // Spec 37: items persisted by spec 35 carry no `kind` — normalize.
+    return rows.map(normalizeQueuedUpload).sort((a, b) => a.enqueuedAtMs - b.enqueuedAtMs);
   }
 
-  async put(item: QueuedPhoto): Promise<void> {
+  async put(item: QueuedUpload): Promise<void> {
     const store = await this.store("readwrite");
     await requestToPromise(store.put(item));
   }
@@ -55,6 +60,11 @@ class IdbQueueStore implements QueueStore {
   async remove(id: string): Promise<void> {
     const store = await this.store("readwrite");
     await requestToPromise(store.delete(id));
+  }
+
+  async has(id: string): Promise<boolean> {
+    const store = await this.store("readonly");
+    return (await requestToPromise(store.count(id))) > 0;
   }
 
   async count(): Promise<number> {
@@ -68,4 +78,23 @@ class IdbQueueStore implements QueueStore {
 export function createIdbQueueStore(): QueueStore | null {
   if (typeof indexedDB === "undefined") return null;
   return new IdbQueueStore();
+}
+
+// Queue I/O is a SAFETY NET — a broken IndexedDB (quota, private mode)
+// must never break the live upload pipelines it protects (spec 35
+// review lesson). Shared by every uploader.
+export async function safeQueuePut(item: QueuedUpload): Promise<void> {
+  try {
+    await createIdbQueueStore()?.put(item);
+  } catch (err) {
+    console.error("[upload-queue] put failed (live flow continues)", err);
+  }
+}
+
+export async function safeQueueRemove(id: string): Promise<void> {
+  try {
+    await createIdbQueueStore()?.remove(id);
+  } catch (err) {
+    console.error("[upload-queue] remove failed", err);
+  }
 }

@@ -29,27 +29,9 @@ import { preparePhotoForUpload } from "@/lib/photos/downscale";
 import {
   classifyStorageUploadError,
   queueNowMs,
-  type QueuedPhoto,
+  type QueuedUpload,
 } from "@/lib/photos/upload-queue";
-import { createIdbQueueStore, notifyQueueChanged } from "@/lib/photos/upload-queue-idb";
-
-// Queue I/O is a SAFETY NET — a broken IndexedDB (quota, private mode)
-// must never break the live upload pipeline that worked before spec 35.
-async function safeQueuePut(item: QueuedPhoto): Promise<void> {
-  try {
-    await createIdbQueueStore()?.put(item);
-  } catch (err) {
-    console.error("[phase-uploader] queue put failed (live flow continues)", err);
-  }
-}
-
-async function safeQueueRemove(id: string): Promise<void> {
-  try {
-    await createIdbQueueStore()?.remove(id);
-  } catch (err) {
-    console.error("[phase-uploader] queue remove failed", err);
-  }
-}
+import { notifyQueueChanged, safeQueuePut, safeQueueRemove } from "@/lib/photos/upload-queue-idb";
 import type { PhotoPhase } from "@/lib/photos/transitions";
 import { addPhoto, removePhoto } from "./actions";
 
@@ -124,8 +106,9 @@ export function PhaseUploader({
   // queue — put at selection, step-advance after bytes land, remove
   // after the metadata row lands. A crash/offline/navigation at any
   // point leaves a queue item the global runner resumes (idempotently).
-  function toQueueItem(upload: PendingUpload): QueuedPhoto {
+  function toQueueItem(upload: PendingUpload): QueuedUpload {
     return {
+      kind: "phase_photo",
       id: upload.id,
       userId,
       workPackageId,

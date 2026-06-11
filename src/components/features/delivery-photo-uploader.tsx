@@ -13,8 +13,9 @@
 //   3. call addDeliveryConfirmationPhoto (metadata only — the server
 //      rebuilds the path; a client path is never trusted);
 //   4. router.refresh() so the Server Component re-reads the list.
-// An upload that succeeds but whose action fails leaves a quiet bucket
-// orphan — accepted (the table is the source of truth, photos precedent).
+// Spec 37: the pipeline is bracketed by the offline queue — a failed
+// step leaves a queue item the global runner replays (idempotently),
+// so failures here are "queued, will auto-send", not dead ends.
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -23,10 +24,18 @@ import { createClient } from "@/lib/db/browser";
 import { photoExtToMime } from "@/lib/photos/path";
 import { preparePhotoForUpload } from "@/lib/photos/downscale";
 import { buildPrAttachmentStoragePath } from "@/lib/purchasing/attachment-path";
+import {
+  classifyStorageUploadError,
+  queueNowMs,
+  type QueuedUpload,
+} from "@/lib/photos/upload-queue";
+import { notifyQueueChanged, safeQueuePut, safeQueueRemove } from "@/lib/photos/upload-queue-idb";
 
 interface DeliveryPhotoUploaderProps {
   purchaseRequestId: string;
   projectId: string;
+  /** Session user — stamped on queue items (ADR 0039 attribution guard). */
+  userId: string;
 }
 
 type UploadPhase = "idle" | "uploading" | "saving" | "error";
@@ -34,6 +43,7 @@ type UploadPhase = "idle" | "uploading" | "saving" | "error";
 export function DeliveryPhotoUploader({
   purchaseRequestId,
   projectId,
+  userId,
 }: DeliveryPhotoUploaderProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -62,28 +72,62 @@ export function DeliveryPhotoUploader({
         continue;
       }
 
+      // Spec 37: queue bracket — from here the photo survives a crash,
+      // an offline failure, or leaving the page; the global runner
+      // resumes it (idempotently).
+      const queueItem: QueuedUpload = {
+        kind: "delivery_photo",
+        id: attachmentId,
+        userId,
+        purchaseRequestId,
+        ext,
+        blob: prepared.blob,
+        lastModifiedMs: file.lastModified,
+        fileName: file.name,
+        storagePath: path,
+        step: "upload",
+        attempts: 0,
+        lastError: null,
+        enqueuedAtMs: queueNowMs(),
+      };
+      await safeQueuePut(queueItem);
+
       setPhase("uploading");
       const supabase = createClient();
       const { error: uploadError } = await supabase.storage
         .from("pr-attachments")
         .upload(path, prepared.blob, { upsert: false, contentType: photoExtToMime(ext) });
-      if (uploadError) {
+      if (uploadError && !classifyStorageUploadError(uploadError).alreadyExists) {
+        // The photo is QUEUED — "try again" copy here would make the
+        // user re-pick the file under a new uuid and produce a
+        // duplicate when both land (spec-37 review finding).
+        notifyQueueChanged();
         setPhase("error");
-        setError("อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+        setError("ส่งรูปไม่สำเร็จ — รูปถูกเก็บไว้แล้ว ระบบจะส่งให้อัตโนมัติเมื่อมีสัญญาณ");
         continue;
       }
+      await safeQueuePut({ ...queueItem, step: "insert" });
 
       setPhase("saving");
-      const result = await addDeliveryConfirmationPhoto({
-        purchaseRequestId,
-        attachmentId,
-        ext,
-      });
+      let result: Awaited<ReturnType<typeof addDeliveryConfirmationPhoto>>;
+      try {
+        result = await addDeliveryConfirmationPhoto({
+          purchaseRequestId,
+          attachmentId,
+          ext,
+        });
+      } catch (err) {
+        console.error("[delivery-photo-uploader] action invocation failed", err);
+        result = { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+      }
       if (!result.ok) {
+        notifyQueueChanged();
         setPhase("error");
-        setError(result.error);
+        setError("ส่งรูปไม่สำเร็จ — รูปถูกเก็บไว้แล้ว ระบบจะส่งให้อัตโนมัติเมื่อมีสัญญาณ");
         continue;
       }
+      await safeQueueRemove(attachmentId);
+      notifyQueueChanged();
       setPhase("idle");
     }
 

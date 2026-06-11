@@ -1,16 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   backoffMs,
+  bucketForKind,
   classifyStorageUploadError,
   nextPassDelayMs,
+  normalizeQueuedUpload,
   processQueue,
   type ProcessDeps,
   type QueueStore,
-  type QueuedPhoto,
+  type QueuedUpload,
 } from "@/lib/photos/upload-queue";
 
-function makeItem(overrides: Partial<QueuedPhoto> = {}): QueuedPhoto {
+function makeItem(overrides: Partial<QueuedUpload> = {}): QueuedUpload {
   return {
+    kind: "phase_photo",
     id: "11111111-0000-4000-8000-000000000001",
     userId: "user-a",
     workPackageId: "wp",
@@ -25,19 +28,22 @@ function makeItem(overrides: Partial<QueuedPhoto> = {}): QueuedPhoto {
     lastError: null,
     enqueuedAtMs: 0,
     ...overrides,
-  };
+  } as QueuedUpload;
 }
 
 class MemoryStore implements QueueStore {
-  items = new Map<string, QueuedPhoto>();
-  async all(): Promise<QueuedPhoto[]> {
+  items = new Map<string, QueuedUpload>();
+  async all(): Promise<QueuedUpload[]> {
     return [...this.items.values()].sort((a, b) => a.enqueuedAtMs - b.enqueuedAtMs);
   }
-  async put(item: QueuedPhoto): Promise<void> {
+  async put(item: QueuedUpload): Promise<void> {
     this.items.set(item.id, item);
   }
   async remove(id: string): Promise<void> {
     this.items.delete(id);
+  }
+  async has(id: string): Promise<boolean> {
+    return this.items.has(id);
   }
   async count(): Promise<number> {
     return this.items.size;
@@ -160,6 +166,26 @@ describe("processQueue", () => {
     expect(store.items.size).toBe(1);
   });
 
+  it("never resurrects an item discarded mid-pass (spec 37 discard race)", async () => {
+    const store = new MemoryStore();
+    await store.put(makeItem());
+
+    const result = await processQueue(
+      store,
+      deps({
+        insertMeta: async (item) => {
+          // Simulates the user discarding from the banner while the
+          // pass is mid-flight: the put-back must be skipped.
+          await store.remove(item.id);
+          return { ok: false, message: "network down" };
+        },
+      }),
+    );
+
+    expect(store.items.size).toBe(0);
+    expect(result).toEqual({ sent: 0, remaining: 0 });
+  });
+
   it("never drops an item regardless of attempt count", async () => {
     const store = new MemoryStore();
     await store.put(makeItem({ attempts: 99 }));
@@ -199,6 +225,55 @@ describe("processQueue", () => {
 
     expect(seen).toEqual(["a", "b"]);
     expect(result).toEqual({ sent: 1, remaining: 1 });
+  });
+});
+
+describe("kinds (spec 37)", () => {
+  it("maps kinds to their buckets", () => {
+    expect(bucketForKind("phase_photo")).toBe("photos");
+    expect(bucketForKind("reference_attachment")).toBe("pr-attachments");
+    expect(bucketForKind("delivery_photo")).toBe("pr-attachments");
+  });
+
+  it("normalizes legacy spec-35 items (no kind) to phase_photo", () => {
+    const item = makeItem() as Extract<QueuedUpload, { kind: "phase_photo" }>;
+    const legacy = { ...item, kind: undefined };
+    expect(normalizeQueuedUpload(legacy).kind).toBe("phase_photo");
+  });
+
+  it("passes modern items through normalization unchanged", () => {
+    const item = makeItem({
+      kind: "delivery_photo",
+      purchaseRequestId: "pr-1",
+    } as Partial<QueuedUpload>);
+    expect(normalizeQueuedUpload(item)).toEqual(item);
+  });
+
+  it("processes a mixed-kind queue, dispatching each item to insertMeta with its kind", async () => {
+    const store = new MemoryStore();
+    await store.put(makeItem({ enqueuedAtMs: 1 }));
+    await store.put(
+      makeItem({
+        id: "11111111-0000-4000-8000-000000000002",
+        kind: "delivery_photo",
+        purchaseRequestId: "pr-1",
+        enqueuedAtMs: 2,
+      } as Partial<QueuedUpload>),
+    );
+
+    const kinds: string[] = [];
+    const result = await processQueue(
+      store,
+      deps({
+        insertMeta: async (item) => {
+          kinds.push(item.kind);
+          return { ok: true };
+        },
+      }),
+    );
+
+    expect(kinds).toEqual(["phase_photo", "delivery_photo"]);
+    expect(result).toEqual({ sent: 2, remaining: 0 });
   });
 });
 

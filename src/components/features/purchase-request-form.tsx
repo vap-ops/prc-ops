@@ -55,9 +55,12 @@ interface PurchaseRequestFormProps {
   // for the direct-to-bucket upload; the parent Server Component already
   // knows the pinned WP's project.
   projectId: string;
+  /** Session user — enables the stager's offline-queue bracket at flush
+   *  time (spec 37). */
+  userId: string;
 }
 
-export function PurchaseRequestForm({ workPackage, projectId }: PurchaseRequestFormProps) {
+export function PurchaseRequestForm({ workPackage, projectId, userId }: PurchaseRequestFormProps) {
   const router = useRouter();
   const [itemDescription, setItemDescription] = useState<string>("");
   const [quantityText, setQuantityText] = useState<string>("");
@@ -309,6 +312,7 @@ export function PurchaseRequestForm({ workPackage, projectId }: PurchaseRequestF
         <PurchaseRequestAttachmentStager
           ref={stagerRef}
           projectId={projectId}
+          userId={userId}
           disabled={submitting}
         />
       </div>

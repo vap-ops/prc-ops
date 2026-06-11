@@ -254,7 +254,11 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         <div>
           <h2 className="mb-3 text-base font-semibold text-zinc-900">สร้างคำขอซื้อ</h2>
           {pinnedWp && pinnedProjectId ? (
-            <PurchaseRequestForm workPackage={pinnedWp} projectId={pinnedProjectId} />
+            <PurchaseRequestForm
+              workPackage={pinnedWp}
+              projectId={pinnedProjectId}
+              userId={ctx.id}
+            />
           ) : (
             <div className="space-y-2">
               {wpRequested ? <ErrorNotice>ไม่พบรายการงาน</ErrorNotice> : null}
@@ -435,6 +439,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                           <PurchaseRequestAttachmentStager
                             projectId={wp.project_id}
                             purchaseRequestId={r.id}
+                            userId={ctx.id}
                           />
                         </div>
                       </details>
@@ -498,6 +503,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                           <DeliveryPhotoUploader
                             purchaseRequestId={r.id}
                             projectId={wp.project_id}
+                            userId={ctx.id}
                           />
                         ) : null}
                       </div>
