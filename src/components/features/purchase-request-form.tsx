@@ -14,9 +14,13 @@
 // src/lib/purchasing/validate-purchase-request.ts is the single source of
 // truth for shape — the action layer runs the same one.
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createPurchaseRequest } from "@/app/requests/actions";
+import {
+  PurchaseRequestAttachmentStager,
+  type AttachmentStagerHandle,
+} from "@/components/features/purchase-request-attachment-stager";
 import { COMMON_UNITS, UNIT_OTHER_VALUE } from "@/lib/purchasing/units";
 import {
   PURCHASE_PRIORITIES,
@@ -47,9 +51,13 @@ export interface PurchaseRequestFormWorkPackage {
 
 interface PurchaseRequestFormProps {
   workPackage: PurchaseRequestFormWorkPackage;
+  // Spec 16 P2: the stager builds the canonical storage path client-side
+  // for the direct-to-bucket upload; the parent Server Component already
+  // knows the pinned WP's project.
+  projectId: string;
 }
 
-export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
+export function PurchaseRequestForm({ workPackage, projectId }: PurchaseRequestFormProps) {
   const router = useRouter();
   const [itemDescription, setItemDescription] = useState<string>("");
   const [quantityText, setQuantityText] = useState<string>("");
@@ -62,7 +70,9 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
   const [priority, setPriority] = useState<PurchasePriority>("normal");
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [attachmentNote, setAttachmentNote] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
+  const stagerRef = useRef<AttachmentStagerHandle>(null);
 
   const unit = unitChoice === UNIT_OTHER_VALUE ? unitOther : unitChoice;
 
@@ -100,6 +110,13 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
         setError(result.error);
         return;
       }
+      // Staged attachments flush AFTER the request exists; failures never
+      // roll back the request (spec 16 §4) — failed items stay in the
+      // stager with ลองใหม่ and a note appears beside บันทึกแล้ว.
+      const failedAttachments = (await stagerRef.current?.flush(result.id)) ?? 0;
+      setAttachmentNote(
+        failedAttachments > 0 ? "บางรายการแนบไม่สำเร็จ — กดลองใหม่ในรายการด้านบน" : null,
+      );
       // Pessimistic confirmation: only after the round-trip succeeded.
       // Clear the inputs so the form is ready for the next request on the
       // same WP; the router.refresh() re-runs the Server Component so the
@@ -282,6 +299,15 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
         </fieldset>
       </div>
 
+      <div className="flex flex-col gap-1">
+        <span className="text-sm font-medium text-zinc-900">รูปและลิงก์อ้างอิง (ไม่บังคับ)</span>
+        <PurchaseRequestAttachmentStager
+          ref={stagerRef}
+          projectId={projectId}
+          disabled={submitting}
+        />
+      </div>
+
       {inlineError ? (
         <div
           role="alert"
@@ -292,6 +318,11 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
       ) : null}
 
       <div className="flex items-center justify-end gap-3">
+        {attachmentNote !== null && !submitting ? (
+          <span className="text-xs font-medium text-amber-700" role="status">
+            {attachmentNote}
+          </span>
+        ) : null}
         {savedAt !== null && !submitting ? (
           <span className="text-xs font-medium text-emerald-700" role="status">
             บันทึกแล้ว

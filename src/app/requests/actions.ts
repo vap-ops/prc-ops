@@ -30,6 +30,7 @@ import { revalidatePath } from "next/cache";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import { isValidPhotoExt, type PhotoExt } from "@/lib/photos/path";
 import { buildPrAttachmentStoragePath } from "@/lib/purchasing/attachment-path";
+import { validateAttachmentLink } from "@/lib/purchasing/validate-attachment";
 import {
   validateCreatePurchaseRequest,
   isDecisionCommentValid,
@@ -208,6 +209,84 @@ export async function addDeliveryConfirmationPhoto(
   if (error) {
     return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
+
+  revalidatePath("/requests");
+  return { ok: true };
+}
+
+// addPurchaseRequestAttachment (spec 16 §4 P2): reference attachments
+// staged at create time or added via the pending-card expander. Image
+// rows: the browser already uploaded the bytes; the server REBUILDS the
+// canonical path. Link rows: validated, no storage involved. The RLS
+// reference branch pins role + created_by + own parent + status='requested'.
+
+export type AddPurchaseRequestAttachmentInput =
+  | { purchaseRequestId: string; kind: "image"; attachmentId: string; ext: string }
+  | { purchaseRequestId: string; kind: "link"; url: string };
+
+export async function addPurchaseRequestAttachment(
+  input: AddPurchaseRequestAttachmentInput,
+): Promise<AttachmentActionResult> {
+  if (!UUID_REGEX.test(input.purchaseRequestId)) {
+    return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  const supabase = await createServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+
+  if (input.kind === "link") {
+    const link = validateAttachmentLink(input.url);
+    if (!link.ok) return { ok: false, error: link.error };
+    const { error } = await supabase.from("purchase_request_attachments").insert({
+      purchase_request_id: input.purchaseRequestId,
+      kind: "link",
+      purpose: "reference",
+      url: link.value,
+      created_by: user.id,
+    });
+    if (error) return { ok: false, error: "บันทึกลิงก์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    revalidatePath("/requests");
+    return { ok: true };
+  }
+
+  if (!UUID_REGEX.test(input.attachmentId) || !isValidPhotoExt(input.ext)) {
+    return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  // Parent read under caller RLS (maybeSingle — no existence leak) to
+  // rebuild the canonical path from project_id.
+  const { data: pr } = await supabase
+    .from("purchase_requests")
+    .select("id, status, work_packages ( project_id )")
+    .eq("id", input.purchaseRequestId)
+    .maybeSingle();
+  const projectId = pr?.work_packages?.project_id;
+  if (!pr || pr.status !== "requested" || !projectId) {
+    return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  const storagePath = buildPrAttachmentStoragePath(
+    projectId,
+    input.purchaseRequestId,
+    input.attachmentId,
+    input.ext as PhotoExt,
+  );
+  if (!storagePath) {
+    return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  const { error } = await supabase.from("purchase_request_attachments").insert({
+    id: input.attachmentId,
+    purchase_request_id: input.purchaseRequestId,
+    kind: "image",
+    purpose: "reference",
+    storage_path: storagePath,
+    created_by: user.id,
+  });
+  if (error) return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
 
   revalidatePath("/requests");
   return { ok: true };

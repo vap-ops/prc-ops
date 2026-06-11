@@ -44,6 +44,7 @@ import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { PurchaseRequestDecision } from "@/components/features/purchase-request-decision";
 import { PurchaseRequestTracker } from "@/components/features/purchase-request-tracker";
 import { DeliveryPhotoUploader } from "@/components/features/delivery-photo-uploader";
+import { PurchaseRequestAttachmentStager } from "@/components/features/purchase-request-attachment-stager";
 import { AttachmentRemoveButton } from "@/components/features/attachment-remove-button";
 import { ZoomablePhoto } from "@/components/features/photo-lightbox";
 import { mintSignedUrlsForAttachments } from "@/lib/purchasing/attachment-signed-urls";
@@ -165,37 +166,51 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     .in("id", wpIdsInRequests);
   const wpById = new Map((wpForRequests ?? []).map((wp) => [wp.id, wp]));
 
-  // Delivery-confirmation photos (spec 23): one query against the
+  // Attachments (spec 23 + spec 16 P2): ONE query against the
   // current-state view (ADR 0009/0015 anti-join pre-encoded) for every
-  // delivered row, then batched signed URLs for exactly the rows being
-  // rendered.
-  const deliveredIds = myRequests.filter((r) => r.status === "delivered").map((r) => r.id);
-  interface ConfirmationPhotoRow {
+  // visible request, split by purpose/kind for render, then batched
+  // signed URLs for exactly the image rows being rendered.
+  interface AttachmentRow {
     id: string | null;
     purchase_request_id: string | null;
+    kind: string | null;
+    purpose: string | null;
     storage_path: string | null;
+    url: string | null;
     created_by: string | null;
     created_at: string | null;
   }
-  let confirmationPhotos: ConfirmationPhotoRow[] = [];
-  if (deliveredIds.length > 0) {
+  let attachmentRows: AttachmentRow[] = [];
+  if (myRequests.length > 0) {
     const { data } = await supabase
       .from("purchase_request_attachments_current")
-      .select("id, purchase_request_id, storage_path, created_by, created_at")
-      .eq("purpose", "delivery_confirmation")
-      .in("purchase_request_id", deliveredIds)
+      .select("id, purchase_request_id, kind, purpose, storage_path, url, created_by, created_at")
+      .in(
+        "purchase_request_id",
+        myRequests.map((r) => r.id),
+      )
       .order("created_at", { ascending: true });
-    confirmationPhotos = data ?? [];
+    attachmentRows = data ?? [];
   }
-  const confirmationsByRequest = new Map<string, ConfirmationPhotoRow[]>();
-  for (const photo of confirmationPhotos) {
-    if (!photo.purchase_request_id) continue;
-    const list = confirmationsByRequest.get(photo.purchase_request_id) ?? [];
-    list.push(photo);
-    confirmationsByRequest.set(photo.purchase_request_id, list);
+  const confirmationsByRequest = new Map<string, AttachmentRow[]>();
+  const referenceImagesByRequest = new Map<string, AttachmentRow[]>();
+  const referenceLinksByRequest = new Map<string, AttachmentRow[]>();
+  for (const row of attachmentRows) {
+    if (!row.purchase_request_id) continue;
+    const bucket =
+      row.purpose === "delivery_confirmation"
+        ? confirmationsByRequest
+        : row.kind === "image"
+          ? referenceImagesByRequest
+          : referenceLinksByRequest;
+    const list = bucket.get(row.purchase_request_id) ?? [];
+    list.push(row);
+    bucket.set(row.purchase_request_id, list);
   }
-  const confirmationUrls = await mintSignedUrlsForAttachments(
-    confirmationPhotos.map((p) => ({ id: p.id ?? "", storage_path: p.storage_path })),
+  const attachmentUrls = await mintSignedUrlsForAttachments(
+    attachmentRows
+      .filter((row) => row.kind === "image")
+      .map((row) => ({ id: row.id ?? "", storage_path: row.storage_path })),
   );
 
   return (
@@ -218,8 +233,8 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
       <section className="mx-auto max-w-2xl space-y-8 px-5 py-6">
         <div>
           <h2 className="mb-3 text-base font-semibold text-zinc-900">สร้างคำขอซื้อ</h2>
-          {pinnedWp ? (
-            <PurchaseRequestForm workPackage={pinnedWp} />
+          {pinnedWp && pinnedProjectId ? (
+            <PurchaseRequestForm workPackage={pinnedWp} projectId={pinnedProjectId} />
           ) : (
             <div className="space-y-2">
               {wpRequested ? <ErrorNotice>ไม่พบรายการงาน</ErrorNotice> : null}
@@ -332,6 +347,65 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                         eta={r.eta}
                       />
                     </div>
+                    {(referenceImagesByRequest.get(r.id) ?? []).length > 0 ? (
+                      <div className="mt-2">
+                        <p className="text-xs font-medium text-zinc-700">รูปอ้างอิง</p>
+                        <ul className="mt-1 flex flex-wrap gap-2">
+                          {(referenceImagesByRequest.get(r.id) ?? []).map((photo) => {
+                            const url = photo.id ? attachmentUrls.get(photo.id) : undefined;
+                            if (!photo.id || !url) return null;
+                            return (
+                              <li key={photo.id} className="flex flex-col items-center gap-0.5">
+                                <span className="block h-20 w-20 overflow-hidden rounded-md border border-zinc-300">
+                                  <ZoomablePhoto src={url} />
+                                </span>
+                                {status === "requested" && photo.created_by === ctx.id ? (
+                                  <AttachmentRemoveButton attachmentId={photo.id} />
+                                ) : null}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {(referenceLinksByRequest.get(r.id) ?? []).length > 0 ? (
+                      <div className="mt-2">
+                        <p className="text-xs font-medium text-zinc-700">ลิงก์อ้างอิง</p>
+                        <ul className="mt-1 flex flex-col gap-1">
+                          {(referenceLinksByRequest.get(r.id) ?? []).map((link) => {
+                            if (!link.id || !link.url) return null;
+                            return (
+                              <li key={link.id} className="flex items-center gap-2">
+                                <a
+                                  href={link.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer nofollow"
+                                  className="min-w-0 flex-1 truncate text-xs text-blue-700 underline-offset-2 hover:underline"
+                                >
+                                  {link.url}
+                                </a>
+                                {status === "requested" && link.created_by === ctx.id ? (
+                                  <AttachmentRemoveButton attachmentId={link.id} />
+                                ) : null}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {status === "requested" && r.requested_by === ctx.id && wp ? (
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-xs font-medium text-blue-700 underline-offset-2 hover:underline">
+                          เพิ่มรูปหรือลิงก์
+                        </summary>
+                        <div className="mt-2">
+                          <PurchaseRequestAttachmentStager
+                            projectId={wp.project_id}
+                            purchaseRequestId={r.id}
+                          />
+                        </div>
+                      </details>
+                    ) : null}
                     {status === "approved" && r.decided_at ? (
                       <p className="mt-2 text-xs text-zinc-600">
                         อนุมัติเมื่อ {formatThaiDateTime(r.decided_at)}
@@ -381,7 +455,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                             <p className="text-xs font-medium text-zinc-700">รูปยืนยันการรับของ</p>
                             <ul className="mt-1 flex flex-wrap gap-2">
                               {(confirmationsByRequest.get(r.id) ?? []).map((photo) => {
-                                const url = photo.id ? confirmationUrls.get(photo.id) : undefined;
+                                const url = photo.id ? attachmentUrls.get(photo.id) : undefined;
                                 if (!photo.id || !url) return null;
                                 return (
                                   <li key={photo.id} className="flex flex-col items-center gap-0.5">
