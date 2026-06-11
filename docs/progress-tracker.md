@@ -6093,3 +6093,7 @@ App: validate-record-purchase + isBackOfficeRole pure modules test-first (RED co
 - Discipline (FAIL → fixed): procurement role cannot reach /requests (requireRole excludes; roleHome → /coming-soon) — recorded as deferred seam in spec+ADR, NOT silently widened (needs requireRole+roleHome+tab-set spec together); record_shipment role gate + shipment audit row were untested (added); createSupplier missing phone-length server check (added); this tracker entry itself (was missing at review time).
 
 Suite state: 325 unit / 27 e2e / pgTAP 26 files (34 asserts in file 26) — db:test rerun after the two review-fix migrations push. Open seams: procurement-role onboarding spec, in-app fact corrections (audited RPC), bulk/grid mode (usage-data-driven), supplier merge/dedup, spend analytics, AppSheet supplier_id backfill. OPERATOR: nothing required — feature is live for PM/super on next deploy; AppSheet keeps working unchanged.
+
+### Spec 33 post-push fix-forward
+
+File 17 G.7/G.8 pinned the superseded spec-16 P1 posture (table-level eta UPDATE grant) and failed against the column-scope migration — rewritten as named UPDATE-tests asserting the ADR 0038 reversal (super_admin direct eta UPDATE now 42501; no case-3 diff from a denied write; appsheet eta-audit coverage lives on in file 18 + smoke [4a]). File 26 plan corrected to 35. Final suite: 627 pgTAP / 325 unit / 27 e2e, all green. Lesson re-learned from spec 27: when a posture flips, grep ALL pgTAP files that PIN the old posture, not just enum pins.

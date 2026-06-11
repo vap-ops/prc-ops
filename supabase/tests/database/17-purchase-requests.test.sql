@@ -726,32 +726,31 @@ select cmp_ok(
   'set_updated_at trigger moves updated_at forward on UPDATE'
 );
 
--- G.7 Spec 16 P1: an eta-only UPDATE on an approved row passes through the
---     derive trigger (eta is a fact column, not a transition driver) —
---     status unchanged. Runs as super_admin (the open pm/super UPDATE
---     policy admits it; the table-level authenticated UPDATE grant covers
---     the column — the recorded two-layer-guard posture).
+-- G.7 NAMED UPDATE-TEST (spec 33 / ADR 0038 reverses the spec-16 P1
+--     posture this slot used to pin): authenticated sessions lost the
+--     table-level UPDATE grant — fact columns like eta are now
+--     RPC/appsheet_writer-only at the privilege layer. A super_admin
+--     direct eta UPDATE is refused at 42501 (was: passed through the
+--     derive trigger). appsheet_writer's eta write + its case-3 audit
+--     diff stay covered by file 18 and smoke probe [4a].
 set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111111111"}';
-update public.purchase_requests
-  set eta = current_date + 14
-  where id = 'a3333333-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid;
-select is(
-  (select status::text from public.purchase_requests
-     where id = 'a3333333-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
-  'approved',
-  'derive trigger passes an eta-only update through (status unchanged)'
-);
+select throws_ok(
+  $$ update public.purchase_requests
+       set eta = current_date + 14
+     where id = 'a3333333-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid $$,
+  '42501', null,
+  'super_admin direct eta UPDATE is denied at the column-privilege layer (ADR 0038)');
 
--- G.8 The appsheet audit trigger recorded the G.7 eta write as a case-3
---     correction diff — ADR 0026 Decision C's one canonical shape.
+-- G.8 The denied statement wrote nothing — no case-3 correction diff
+--     appears for this PR (was: exactly one, when the write succeeded).
 select is(
   (select count(*)::int from public.audit_log
      where target_table = 'purchase_requests'
        and target_id = 'a3333333-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid
        and action = 'update'
        and payload->'changed' ? 'eta'),
-  1,
-  'eta correction audited as a case-3 update diff containing eta'
+  0,
+  'denied eta UPDATE produced no case-3 audit diff'
 );
 
 -- ============================================================================

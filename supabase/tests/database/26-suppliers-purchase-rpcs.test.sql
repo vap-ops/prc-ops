@@ -1,5 +1,5 @@
 begin;
-select plan(34);
+select plan(35);
 
 -- ============================================================================
 -- Spec 33 / ADR 0038 — suppliers master + in-app purchase/shipment RPCs.
