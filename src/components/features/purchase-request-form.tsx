@@ -223,8 +223,8 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
         </div>
       ) : null}
 
-      <div className="flex gap-3">
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="flex min-w-0 flex-col gap-1 sm:flex-1">
           <label htmlFor="pr-needed-by" className="text-sm font-medium text-zinc-900">
             ต้องการรับของภายใน (ไม่บังคับ)
           </label>
@@ -242,7 +242,7 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
             className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-3 text-sm text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
           />
         </div>
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1 sm:flex-1">
           <label htmlFor="pr-priority" className="text-sm font-medium text-zinc-900">
             ความเร่งด่วน
           </label>
