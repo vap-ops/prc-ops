@@ -231,6 +231,118 @@ export type Database = {
         };
         Relationships: [];
       };
+      purchase_request_attachment_tokens: {
+        Row: {
+          access_token: string;
+          attachment_id: string;
+          rotated_at: string | null;
+        };
+        Insert: {
+          access_token?: string;
+          attachment_id: string;
+          rotated_at?: string | null;
+        };
+        Update: {
+          access_token?: string;
+          attachment_id?: string;
+          rotated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "purchase_request_attachment_tokens_attachment_id_fkey";
+            columns: ["attachment_id"];
+            isOneToOne: true;
+            referencedRelation: "purchase_request_attachments";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_request_attachment_tokens_attachment_id_fkey";
+            columns: ["attachment_id"];
+            isOneToOne: true;
+            referencedRelation: "purchase_request_attachments_appsheet";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_request_attachment_tokens_attachment_id_fkey";
+            columns: ["attachment_id"];
+            isOneToOne: true;
+            referencedRelation: "purchase_request_attachments_current";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      purchase_request_attachments: {
+        Row: {
+          created_at: string;
+          created_by: string;
+          id: string;
+          kind: Database["public"]["Enums"]["purchase_request_attachment_kind"];
+          purchase_request_id: string;
+          purpose: Database["public"]["Enums"]["purchase_request_attachment_purpose"];
+          storage_path: string | null;
+          superseded_by: string | null;
+          url: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          created_by: string;
+          id?: string;
+          kind: Database["public"]["Enums"]["purchase_request_attachment_kind"];
+          purchase_request_id: string;
+          purpose?: Database["public"]["Enums"]["purchase_request_attachment_purpose"];
+          storage_path?: string | null;
+          superseded_by?: string | null;
+          url?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string;
+          id?: string;
+          kind?: Database["public"]["Enums"]["purchase_request_attachment_kind"];
+          purchase_request_id?: string;
+          purpose?: Database["public"]["Enums"]["purchase_request_attachment_purpose"];
+          storage_path?: string | null;
+          superseded_by?: string | null;
+          url?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "pra_supersede_fk";
+            columns: ["superseded_by", "purchase_request_id", "kind"];
+            isOneToOne: false;
+            referencedRelation: "purchase_request_attachments";
+            referencedColumns: ["id", "purchase_request_id", "kind"];
+          },
+          {
+            foreignKeyName: "pra_supersede_fk";
+            columns: ["superseded_by", "purchase_request_id", "kind"];
+            isOneToOne: false;
+            referencedRelation: "purchase_request_attachments_appsheet";
+            referencedColumns: ["id", "purchase_request_id", "kind"];
+          },
+          {
+            foreignKeyName: "pra_supersede_fk";
+            columns: ["superseded_by", "purchase_request_id", "kind"];
+            isOneToOne: false;
+            referencedRelation: "purchase_request_attachments_current";
+            referencedColumns: ["id", "purchase_request_id", "kind"];
+          },
+          {
+            foreignKeyName: "purchase_request_attachments_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_request_attachments_purchase_request_id_fkey";
+            columns: ["purchase_request_id"];
+            isOneToOne: false;
+            referencedRelation: "purchase_requests";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       purchase_requests: {
         Row: {
           amount: number | null;
@@ -471,7 +583,75 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      purchase_request_attachments_appsheet: {
+        Row: {
+          access_token: string | null;
+          created_at: string | null;
+          id: string | null;
+          kind: Database["public"]["Enums"]["purchase_request_attachment_kind"] | null;
+          purchase_request_id: string | null;
+          purpose: Database["public"]["Enums"]["purchase_request_attachment_purpose"] | null;
+          storage_path: string | null;
+          url: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "purchase_request_attachments_purchase_request_id_fkey";
+            columns: ["purchase_request_id"];
+            isOneToOne: false;
+            referencedRelation: "purchase_requests";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      purchase_request_attachments_current: {
+        Row: {
+          created_at: string | null;
+          created_by: string | null;
+          id: string | null;
+          kind: Database["public"]["Enums"]["purchase_request_attachment_kind"] | null;
+          purchase_request_id: string | null;
+          purpose: Database["public"]["Enums"]["purchase_request_attachment_purpose"] | null;
+          storage_path: string | null;
+          url: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          created_by?: string | null;
+          id?: string | null;
+          kind?: Database["public"]["Enums"]["purchase_request_attachment_kind"] | null;
+          purchase_request_id?: string | null;
+          purpose?: Database["public"]["Enums"]["purchase_request_attachment_purpose"] | null;
+          storage_path?: string | null;
+          url?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          created_by?: string | null;
+          id?: string | null;
+          kind?: Database["public"]["Enums"]["purchase_request_attachment_kind"] | null;
+          purchase_request_id?: string | null;
+          purpose?: Database["public"]["Enums"]["purchase_request_attachment_purpose"] | null;
+          storage_path?: string | null;
+          url?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "purchase_request_attachments_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_request_attachments_purchase_request_id_fkey";
+            columns: ["purchase_request_id"];
+            isOneToOne: false;
+            referencedRelation: "purchase_requests";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Functions: {
       claim_next_report: {
@@ -496,6 +676,10 @@ export type Database = {
       current_user_role: {
         Args: never;
         Returns: Database["public"]["Enums"]["user_role"];
+      };
+      pr_attachment_tombstone_target_ok: {
+        Args: { p_caller: string; p_parent: string; p_target: string };
+        Returns: boolean;
       };
       update_my_display_name: {
         Args: { p_full_name: string };
@@ -523,6 +707,8 @@ export type Database = {
         | "purchase_request_delivery";
       photo_phase: "before" | "during" | "after";
       project_status: "active" | "on_hold" | "completed" | "archived";
+      purchase_request_attachment_kind: "image" | "link";
+      purchase_request_attachment_purpose: "reference" | "delivery_confirmation";
       purchase_request_priority: "normal" | "urgent" | "critical";
       purchase_request_status:
         | "requested"
@@ -698,6 +884,8 @@ export const Constants = {
       ],
       photo_phase: ["before", "during", "after"],
       project_status: ["active", "on_hold", "completed", "archived"],
+      purchase_request_attachment_kind: ["image", "link"],
+      purchase_request_attachment_purpose: ["reference", "delivery_confirmation"],
       purchase_request_priority: ["normal", "urgent", "critical"],
       purchase_request_status: [
         "requested",

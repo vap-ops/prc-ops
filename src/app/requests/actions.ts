@@ -28,6 +28,8 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 import { createClient as createServerSupabase } from "@/lib/db/server";
+import { isValidPhotoExt, type PhotoExt } from "@/lib/photos/path";
+import { buildPrAttachmentStoragePath } from "@/lib/purchasing/attachment-path";
 import {
   validateCreatePurchaseRequest,
   isDecisionCommentValid,
@@ -135,4 +137,121 @@ export async function decidePurchaseRequest(
 
   revalidatePath("/requests");
   return { ok: true, status: input.decision };
+}
+
+// --- Delivery-confirmation photos (spec 23 / ADR 0028) -------------------
+//
+// addDeliveryConfirmationPhoto: metadata-only — the browser has already
+// uploaded the bytes to pr-attachments at the canonical path. The server
+// REBUILDS that path itself (a client-supplied path is never trusted)
+// from the parent row read under caller RLS, then INSERTs the content
+// row under the user session — the RLS branch pins role + created_by +
+// parent status='delivered'.
+//
+// removePurchaseRequestAttachment: a tombstone INSERT, never a DELETE
+// (ADR 0015). RLS enforces creator-only removal for confirmation photos.
+
+export interface AddDeliveryConfirmationPhotoInput {
+  purchaseRequestId: string;
+  attachmentId: string;
+  ext: string;
+}
+
+export type AttachmentActionResult = { ok: true } | { ok: false; error: string };
+
+export async function addDeliveryConfirmationPhoto(
+  input: AddDeliveryConfirmationPhotoInput,
+): Promise<AttachmentActionResult> {
+  if (!UUID_REGEX.test(input.purchaseRequestId) || !UUID_REGEX.test(input.attachmentId)) {
+    return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+  if (!isValidPhotoExt(input.ext)) {
+    return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  const supabase = await createServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+
+  // Read the parent under caller RLS (maybeSingle — no existence leak),
+  // joined to the WP for project_id, to rebuild the canonical path.
+  const { data: pr } = await supabase
+    .from("purchase_requests")
+    .select("id, status, work_packages ( project_id )")
+    .eq("id", input.purchaseRequestId)
+    .maybeSingle();
+  const projectId = pr?.work_packages?.project_id;
+  if (!pr || pr.status !== "delivered" || !projectId) {
+    return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  const storagePath = buildPrAttachmentStoragePath(
+    projectId,
+    input.purchaseRequestId,
+    input.attachmentId,
+    input.ext as PhotoExt,
+  );
+  if (!storagePath) {
+    return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  const { error } = await supabase.from("purchase_request_attachments").insert({
+    id: input.attachmentId,
+    purchase_request_id: input.purchaseRequestId,
+    kind: "image",
+    purpose: "delivery_confirmation",
+    storage_path: storagePath,
+    created_by: user.id,
+  });
+  if (error) {
+    return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  revalidatePath("/requests");
+  return { ok: true };
+}
+
+export interface RemovePurchaseRequestAttachmentInput {
+  attachmentId: string;
+}
+
+export async function removePurchaseRequestAttachment(
+  input: RemovePurchaseRequestAttachmentInput,
+): Promise<AttachmentActionResult> {
+  if (!UUID_REGEX.test(input.attachmentId)) {
+    return { ok: false, error: "ลบรายการแนบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  const supabase = await createServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+
+  // Read the target under caller RLS to mirror its parent/kind/purpose
+  // into the tombstone (the composite FK requires same parent + kind).
+  const { data: target } = await supabase
+    .from("purchase_request_attachments")
+    .select("id, purchase_request_id, kind, purpose")
+    .eq("id", input.attachmentId)
+    .maybeSingle();
+  if (!target) {
+    return { ok: false, error: "ลบรายการแนบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  const { error } = await supabase.from("purchase_request_attachments").insert({
+    purchase_request_id: target.purchase_request_id,
+    kind: target.kind,
+    purpose: target.purpose,
+    superseded_by: target.id,
+    created_by: user.id,
+  });
+  if (error) {
+    return { ok: false, error: "ลบรายการแนบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  revalidatePath("/requests");
+  return { ok: true };
 }

@@ -43,6 +43,10 @@ import {
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { PurchaseRequestDecision } from "@/components/features/purchase-request-decision";
 import { PurchaseRequestTracker } from "@/components/features/purchase-request-tracker";
+import { DeliveryPhotoUploader } from "@/components/features/delivery-photo-uploader";
+import { AttachmentRemoveButton } from "@/components/features/attachment-remove-button";
+import { ZoomablePhoto } from "@/components/features/photo-lightbox";
+import { mintSignedUrlsForAttachments } from "@/lib/purchasing/attachment-signed-urls";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
@@ -157,9 +161,42 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   const wpIdsInRequests = Array.from(new Set(myRequests.map((r) => r.work_package_id)));
   const { data: wpForRequests } = await supabase
     .from("work_packages")
-    .select("id, code, name")
+    .select("id, code, name, project_id")
     .in("id", wpIdsInRequests);
   const wpById = new Map((wpForRequests ?? []).map((wp) => [wp.id, wp]));
+
+  // Delivery-confirmation photos (spec 23): one query against the
+  // current-state view (ADR 0009/0015 anti-join pre-encoded) for every
+  // delivered row, then batched signed URLs for exactly the rows being
+  // rendered.
+  const deliveredIds = myRequests.filter((r) => r.status === "delivered").map((r) => r.id);
+  interface ConfirmationPhotoRow {
+    id: string | null;
+    purchase_request_id: string | null;
+    storage_path: string | null;
+    created_by: string | null;
+    created_at: string | null;
+  }
+  let confirmationPhotos: ConfirmationPhotoRow[] = [];
+  if (deliveredIds.length > 0) {
+    const { data } = await supabase
+      .from("purchase_request_attachments_current")
+      .select("id, purchase_request_id, storage_path, created_by, created_at")
+      .eq("purpose", "delivery_confirmation")
+      .in("purchase_request_id", deliveredIds)
+      .order("created_at", { ascending: true });
+    confirmationPhotos = data ?? [];
+  }
+  const confirmationsByRequest = new Map<string, ConfirmationPhotoRow[]>();
+  for (const photo of confirmationPhotos) {
+    if (!photo.purchase_request_id) continue;
+    const list = confirmationsByRequest.get(photo.purchase_request_id) ?? [];
+    list.push(photo);
+    confirmationsByRequest.set(photo.purchase_request_id, list);
+  }
+  const confirmationUrls = await mintSignedUrlsForAttachments(
+    confirmationPhotos.map((p) => ({ id: p.id ?? "", storage_path: p.storage_path })),
+  );
 
   return (
     <main className="min-h-screen bg-white pb-20 text-zinc-900 sm:pb-0">
@@ -336,6 +373,37 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                       <p className="mt-1 text-xs whitespace-pre-wrap text-zinc-600">
                         {r.delivery_note}
                       </p>
+                    ) : null}
+                    {status === "delivered" ? (
+                      <div className="mt-3 flex flex-col gap-2 border-t border-zinc-200 pt-3">
+                        {(confirmationsByRequest.get(r.id) ?? []).length > 0 ? (
+                          <div>
+                            <p className="text-xs font-medium text-zinc-700">รูปยืนยันการรับของ</p>
+                            <ul className="mt-1 flex flex-wrap gap-2">
+                              {(confirmationsByRequest.get(r.id) ?? []).map((photo) => {
+                                const url = photo.id ? confirmationUrls.get(photo.id) : undefined;
+                                if (!photo.id || !url) return null;
+                                return (
+                                  <li key={photo.id} className="flex flex-col items-center gap-0.5">
+                                    <span className="block h-20 w-20 overflow-hidden rounded-md border border-zinc-300">
+                                      <ZoomablePhoto src={url} />
+                                    </span>
+                                    {photo.created_by === ctx.id ? (
+                                      <AttachmentRemoveButton attachmentId={photo.id} />
+                                    ) : null}
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                        ) : null}
+                        {wp ? (
+                          <DeliveryPhotoUploader
+                            purchaseRequestId={r.id}
+                            projectId={wp.project_id}
+                          />
+                        ) : null}
+                      </div>
                     ) : null}
                     {isDecider && status === "requested" ? (
                       <div className="mt-3 border-t border-zinc-300 pt-3">
