@@ -110,8 +110,8 @@ grant usage  on sequence _tap_buf_ord_seq to authenticated;
 select has_type('public', 'purchase_request_status', 'purchase_request_status enum exists');
 select enum_has_labels(
   'public', 'purchase_request_status',
-  array['requested', 'approved', 'rejected', 'purchased', 'on_route', 'delivered'],
-  'purchase_request_status has the six lifecycle values (on_route per ADR 0027)'
+  array['requested', 'approved', 'rejected', 'cancelled', 'purchased', 'on_route', 'delivered'],
+  'purchase_request_status has the seven lifecycle values (cancelled per ADR 0031)'
 );
 
 select has_table('public', 'purchase_requests', 'public.purchase_requests exists');
