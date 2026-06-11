@@ -46,3 +46,19 @@ export function mimeToPhotoExt(mime: string): PhotoExt | null {
       return null;
   }
 }
+
+// Inverse of mimeToPhotoExt — the upload contentType for a prepared
+// photo (spec 34: a re-encoded photo is image/jpeg regardless of the
+// camera's original MIME).
+export function photoExtToMime(ext: PhotoExt): string {
+  switch (ext) {
+    case "jpeg":
+      return "image/jpeg";
+    case "png":
+      return "image/png";
+    case "webp":
+      return "image/webp";
+    case "heic":
+      return "image/heic";
+  }
+}

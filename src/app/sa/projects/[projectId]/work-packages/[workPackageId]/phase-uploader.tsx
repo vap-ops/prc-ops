@@ -19,7 +19,8 @@ import { createClient as createBrowserSupabase } from "@/lib/db/browser";
 import { ConfirmDialog } from "@/components/features/confirm-dialog";
 import { EmptyNotice } from "@/components/features/notices";
 import { ZoomablePhoto } from "@/components/features/photo-lightbox";
-import { mimeToPhotoExt, type PhotoExt, buildPhotoStoragePath } from "@/lib/photos/path";
+import { photoExtToMime, type PhotoExt, buildPhotoStoragePath } from "@/lib/photos/path";
+import { preparePhotoForUpload } from "@/lib/photos/downscale";
 import type { PhotoPhase } from "@/lib/photos/transitions";
 import { addPhoto, removePhoto } from "./actions";
 
@@ -39,7 +40,11 @@ interface PendingUpload {
   status: UploadStatus;
   errorMessage: string | null;
   // Stored so retry can rebuild the upload OR replay just the insert.
-  file: File;
+  // `blob` is the PREPARED bytes (spec 34 downscale) — retries must not
+  // re-decode; no raw File survives in state (spec 34 checklist), only
+  // the lastModified scalar for capturedAtClient.
+  blob: Blob;
+  lastModifiedMs: number;
   ext: PhotoExt;
   storagePath: string;
 }
@@ -85,8 +90,8 @@ export function PhaseUploader({
     const supabase = createBrowserSupabase();
     const { error: uploadError } = await supabase.storage
       .from(PHOTOS_BUCKET)
-      .upload(upload.storagePath, upload.file, {
-        contentType: upload.file.type,
+      .upload(upload.storagePath, upload.blob, {
+        contentType: photoExtToMime(upload.ext),
         upsert: false,
       });
     if (uploadError) {
@@ -110,7 +115,7 @@ export function PhaseUploader({
       phase,
       photoId: upload.id,
       ext: upload.ext,
-      capturedAtClient: new Date(upload.file.lastModified).toISOString(),
+      capturedAtClient: new Date(upload.lastModifiedMs).toISOString(),
     });
     if (!result.ok) {
       updatePending(upload.id, {
@@ -132,8 +137,11 @@ export function PhaseUploader({
     // Sequential uploads — easier to reason about per-photo status
     // than parallel; spec accepts either.
     for (const file of Array.from(files)) {
-      const ext = mimeToPhotoExt(file.type);
-      if (!ext) {
+      // Spec 34 / ADR 0036: downscale before upload — the prepared blob
+      // IS the original we store. Failure paths inside return the file
+      // unchanged; null = non-photo MIME (the existing rejection).
+      const prepared = await preparePhotoForUpload(file);
+      if (!prepared) {
         setTopLevelError(
           `ไฟล์ "${file.name}" ไม่ใช่รูปภาพที่รองรับ — ใช้ JPEG, PNG, WebP หรือ HEIC`,
         );
@@ -143,12 +151,13 @@ export function PhaseUploader({
       const upload: PendingUpload = {
         id,
         fileName: file.name,
-        previewUrl: URL.createObjectURL(file),
+        previewUrl: URL.createObjectURL(prepared.blob),
         status: "uploading",
         errorMessage: null,
-        file,
-        ext,
-        storagePath: buildPhotoStoragePath(projectId, workPackageId, id, ext),
+        blob: prepared.blob,
+        lastModifiedMs: file.lastModified,
+        ext: prepared.ext,
+        storagePath: buildPhotoStoragePath(projectId, workPackageId, id, prepared.ext),
       };
       setPending((prev) => [...prev, upload]);
       await uploadOne(upload);

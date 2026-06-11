@@ -6097,3 +6097,17 @@ Suite state: 325 unit / 27 e2e / pgTAP 26 files (34 asserts in file 26) — db:t
 ### Spec 33 post-push fix-forward
 
 File 17 G.7/G.8 pinned the superseded spec-16 P1 posture (table-level eta UPDATE grant) and failed against the column-scope migration — rewritten as named UPDATE-tests asserting the ADR 0038 reversal (super_admin direct eta UPDATE now 42501; no case-3 diff from a denied write; appsheet eta-audit coverage lives on in file 18 + smoke [4a]). File 26 plan corrected to 35. Final suite: 627 pgTAP / 325 unit / 27 e2e, all green. Lesson re-learned from spec 27: when a posture flips, grep ALL pgTAP files that PIN the old posture, not just enum pins.
+
+## Spec 34 - client photo downscale (2026-06-11)
+
+Status: COMPLETE (operator phone pass = acceptance, spec §3). Implements ADR 0036: the downscaled file IS the original; max 2000px long edge, JPEG 0.8; downscale is an optimization NEVER a gate — every failure path (HEIC on non-Safari, decode/encode errors, toBlob null) uploads the original unchanged; small files pass through with EXIF intact (orientation correct either way: re-encode bakes orientation via createImageBitmap imageOrientation:'from-image', passthrough keeps EXIF).
+
+Built: src/lib/photos/downscale.ts (computeDownscaleTarget PURE + preparePhotoForUpload browser seam) + photoExtToMime in path.ts — RED confirmed pre-impl, 11 unit tests. Integrated in ALL THREE uploaders at the ext-derivation point (ext flips to jpeg on re-encode BEFORE path building): phase-uploader (PendingUpload now stores prepared blob + lastModifiedMs scalar — no raw File in state; retries reuse prepared bytes), attachment stager, delivery uploader. No DB/storage diff.
+
+### Adversarial verification (2-lens) — fixes landed pre-commit
+
+- Transparent PNG/WebP over the cap re-encoded onto a BLACK background (canvas default substrate under toBlob jpeg) → white fill before drawImage.
+- REAL race (stager deferred mode): awaiting prepare BEFORE staging the chip meant a create-form submit during a slow phone decode flushed without the in-flight photo — orphaned 'staged' chip, and a SECOND submission would have attached it to the WRONG purchase request. Fix: chips stage synchronously as 'preparing' (new status + กำลังเตรียมรูป… display), prepare jobs tracked in a ref, flush() awaits outstanding prepares THEN reads a fresh items ref (the closure's items is stale after an await — itemsRef pattern).
+- createImageBitmap orientation made explicit (imageOrientation:'from-image' — old Firefox/WebViews don't default to it); ext! assertions narrowed; stager header comment de-drifted; rounding test now exercises a genuinely fractional edge (3000×1000 → 667).
+
+Suite: 336 unit / 27 e2e green; pgTAP untouched (627). OPERATOR (acceptance): fresh camera photo on a test-safe WP → renders correctly oriented; Storage object ~hundreds of KB not MB (dashboard read-only check). Open seams: Web Worker offload (with the offline-queue spec), HEIC polyfill, quality/size UI, retroactive processing (never — append-only).

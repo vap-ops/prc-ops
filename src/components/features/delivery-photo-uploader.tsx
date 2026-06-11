@@ -5,8 +5,9 @@
 // precedent. Shown only on delivered request cards.
 //
 // Pipeline per selected file (spec 23 / spec 16 §4 staging contract):
-//   1. derive ext from MIME (mimeToPhotoExt — filename casing never
-//      decides), pre-assign the attachment uuid client-side;
+//   1. prepare the photo (spec 34 downscale; ext comes from the
+//      prepared result — filename casing never decides), pre-assign
+//      the attachment uuid client-side;
 //   2. upload bytes DIRECT to pr-attachments under the user session at
 //      the canonical path (upsert:false — append-only bucket posture);
 //   3. call addDeliveryConfirmationPhoto (metadata only — the server
@@ -19,7 +20,8 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { addDeliveryConfirmationPhoto } from "@/app/requests/actions";
 import { createClient } from "@/lib/db/browser";
-import { mimeToPhotoExt } from "@/lib/photos/path";
+import { photoExtToMime } from "@/lib/photos/path";
+import { preparePhotoForUpload } from "@/lib/photos/downscale";
 import { buildPrAttachmentStoragePath } from "@/lib/purchasing/attachment-path";
 
 interface DeliveryPhotoUploaderProps {
@@ -44,12 +46,14 @@ export function DeliveryPhotoUploader({
     setError(null);
 
     for (const file of Array.from(files)) {
-      const ext = mimeToPhotoExt(file.type);
-      if (!ext) {
+      // Spec 34 / ADR 0036: downscale before upload (failure → original).
+      const prepared = await preparePhotoForUpload(file);
+      if (!prepared) {
         setPhase("error");
         setError("ไฟล์นี้ไม่รองรับ กรุณาเลือกรูปภาพ (JPEG, PNG, WebP, HEIC)");
         continue;
       }
+      const ext = prepared.ext;
       const attachmentId = crypto.randomUUID();
       const path = buildPrAttachmentStoragePath(projectId, purchaseRequestId, attachmentId, ext);
       if (!path) {
@@ -62,7 +66,7 @@ export function DeliveryPhotoUploader({
       const supabase = createClient();
       const { error: uploadError } = await supabase.storage
         .from("pr-attachments")
-        .upload(path, file, { upsert: false, contentType: file.type });
+        .upload(path, prepared.blob, { upsert: false, contentType: photoExtToMime(ext) });
       if (uploadError) {
         setPhase("error");
         setError("อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");

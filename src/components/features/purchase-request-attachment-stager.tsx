@@ -11,25 +11,39 @@
 //   • IMMEDIATE (pending-card expander, purchaseRequestId set): each
 //     added item uploads/saves right away against the known parent.
 //
-// Pipeline per image (spec 16 §4): ext from MIME (mimeToPhotoExt),
-// pre-assigned crypto.randomUUID(), browser uploads bytes direct to
+// Pipeline per image (spec 16 §4, amended by spec 34): the photo is
+// PREPARED first (downscale via preparePhotoForUpload — ext comes from
+// the prepared result, filename casing never decides), pre-assigned
+// crypto.randomUUID(), browser uploads the prepared bytes direct to
 // pr-attachments (upsert:false) at the canonical path, then the
 // metadata-only server action — never a client-supplied path.
+// Chips stage SYNCHRONOUSLY (status "preparing") before the async
+// prepare so a deferred flush() can never miss an in-flight photo;
+// flush awaits all outstanding prepares first.
 
 import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addPurchaseRequestAttachment } from "@/app/requests/actions";
 import { createClient } from "@/lib/db/browser";
-import { mimeToPhotoExt, type PhotoExt } from "@/lib/photos/path";
+import { photoExtToMime, type PhotoExt } from "@/lib/photos/path";
+import { preparePhotoForUpload } from "@/lib/photos/downscale";
 import { buildPrAttachmentStoragePath } from "@/lib/purchasing/attachment-path";
 import { validateAttachmentLink } from "@/lib/purchasing/validate-attachment";
 
-type ItemStatus = "staged" | "uploading" | "saving" | "upload-error" | "insert-error" | "done";
+type ItemStatus =
+  | "preparing"
+  | "staged"
+  | "uploading"
+  | "saving"
+  | "upload-error"
+  | "insert-error"
+  | "done";
 
 interface StagedItem {
   id: string;
   kind: "image" | "link";
-  file?: File;
+  // Prepared bytes (spec 34 downscale) — retries reuse them, no re-decode.
+  blob?: Blob;
   ext?: PhotoExt;
   url?: string;
   label: string;
@@ -62,6 +76,14 @@ export const PurchaseRequestAttachmentStager = forwardRef<
   const flushedIdRef = useRef<string | null>(null);
   const immediate = typeof purchaseRequestId === "string";
   const retryTarget = purchaseRequestId ?? flushedIdRef.current;
+  // In-flight prepare jobs (spec 34): flush() awaits these so a submit
+  // during a slow phone-photo decode cannot orphan the chip or attach
+  // it to a LATER request.
+  const preparesRef = useRef<Set<Promise<void>>>(new Set());
+  // Fresh items snapshot for flush(): after awaiting prepares, the
+  // closure's `items` is stale — the ref always holds the last render's.
+  const itemsRef = useRef<StagedItem[]>(items);
+  itemsRef.current = items;
 
   function patchItem(id: string, patch: Partial<StagedItem>) {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
@@ -82,17 +104,23 @@ export const PurchaseRequestAttachmentStager = forwardRef<
       return result.ok;
     }
 
+    const { blob, ext } = item;
+    if (!blob || !ext) {
+      patchItem(item.id, { status: "upload-error" });
+      return false;
+    }
+
     if (item.status !== "insert-error") {
       patchItem(item.id, { status: "uploading" });
-      const path = buildPrAttachmentStoragePath(projectId, prId, item.id, item.ext!);
-      if (!path || !item.file) {
+      const path = buildPrAttachmentStoragePath(projectId, prId, item.id, ext);
+      if (!path) {
         patchItem(item.id, { status: "upload-error" });
         return false;
       }
       const supabase = createClient();
       const { error } = await supabase.storage
         .from("pr-attachments")
-        .upload(path, item.file, { upsert: false, contentType: item.file.type });
+        .upload(path, blob, { upsert: false, contentType: photoExtToMime(ext) });
       if (error) {
         patchItem(item.id, { status: "upload-error" });
         return false;
@@ -104,7 +132,7 @@ export const PurchaseRequestAttachmentStager = forwardRef<
       purchaseRequestId: prId,
       kind: "image",
       attachmentId: item.id,
-      ext: item.ext!,
+      ext,
     });
     patchItem(item.id, { status: result.ok ? "done" : "insert-error" });
     return result.ok;
@@ -112,8 +140,11 @@ export const PurchaseRequestAttachmentStager = forwardRef<
 
   async function flush(prId: string): Promise<number> {
     flushedIdRef.current = prId;
+    // Wait for in-flight prepares so every selected photo is staged with
+    // its bytes before the snapshot below (spec 34 race fix).
+    await Promise.all([...preparesRef.current]);
     let failed = 0;
-    for (const item of items.filter((it) => it.status !== "done")) {
+    for (const item of itemsRef.current.filter((it) => it.status !== "done")) {
       const ok = await runItem(item, prId);
       if (!ok) failed += 1;
     }
@@ -125,27 +156,46 @@ export const PurchaseRequestAttachmentStager = forwardRef<
 
   async function handleFiles(files: FileList | null) {
     if (!files) return;
-    for (const file of Array.from(files)) {
-      const ext = mimeToPhotoExt(file.type);
-      if (!ext) {
-        setLinkError("ไฟล์นี้ไม่รองรับ กรุณาเลือกรูปภาพ (JPEG, PNG, WebP, HEIC)");
-        continue;
-      }
-      const item: StagedItem = {
-        id: crypto.randomUUID(),
-        kind: "image",
-        file,
-        ext,
-        label: file.name,
-        status: "staged",
-      };
-      setItems((prev) => [...prev, item]);
-      if (immediate) {
-        await runItem(item, purchaseRequestId!);
-        router.refresh();
-      }
-    }
+    // Stage EVERY chip synchronously (status "preparing") before any
+    // async work — a deferred flush during a slow decode must see them.
+    const fileArr = Array.from(files);
+    const stagedChips: StagedItem[] = fileArr.map((file) => ({
+      id: crypto.randomUUID(),
+      kind: "image",
+      label: file.name,
+      status: "preparing",
+    }));
+    setItems((prev) => [...prev, ...stagedChips]);
     if (fileInputRef.current) fileInputRef.current.value = "";
+
+    const job = (async () => {
+      for (let i = 0; i < fileArr.length; i += 1) {
+        const file = fileArr[i];
+        const chip = stagedChips[i];
+        if (!file || !chip) continue;
+        // Spec 34 / ADR 0036: downscale before upload (failure → original).
+        const prepared = await preparePhotoForUpload(file);
+        if (!prepared) {
+          setItems((prev) => prev.filter((it) => it.id !== chip.id));
+          setLinkError("ไฟล์นี้ไม่รองรับ กรุณาเลือกรูปภาพ (JPEG, PNG, WebP, HEIC)");
+          continue;
+        }
+        patchItem(chip.id, { blob: prepared.blob, ext: prepared.ext, status: "staged" });
+        if (immediate) {
+          await runItem(
+            { ...chip, blob: prepared.blob, ext: prepared.ext, status: "staged" },
+            purchaseRequestId!,
+          );
+          router.refresh();
+        }
+      }
+    })();
+    preparesRef.current.add(job);
+    try {
+      await job;
+    } finally {
+      preparesRef.current.delete(job);
+    }
   }
 
   async function handleAddLink() {
@@ -227,7 +277,9 @@ export const PurchaseRequestAttachmentStager = forwardRef<
               className="flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs"
             >
               <span className="min-w-0 flex-1 truncate text-zinc-900">{item.label}</span>
-              {item.status === "uploading" ? (
+              {item.status === "preparing" ? (
+                <span className="shrink-0 text-zinc-600">กำลังเตรียมรูป…</span>
+              ) : item.status === "uploading" ? (
                 <span className="shrink-0 text-zinc-600">กำลังอัปโหลด…</span>
               ) : item.status === "saving" ? (
                 <span className="shrink-0 text-zinc-600">กำลังบันทึก…</span>
