@@ -8,27 +8,23 @@ import {
   type PhotoPhase,
 } from "@/lib/photos/current-photos";
 import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
+import { PHOTO_PHASE_LABEL, WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
+import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import { PhaseUploader } from "./phase-uploader";
 
 interface PageProps {
   params: Promise<{ projectId: string; workPackageId: string }>;
 }
 
-const PHASES: ReadonlyArray<{ phase: PhotoPhase; label: string }> = [
-  // "Preparation" is the display label for the `before` enum value —
-  // equipment and raw-material staging (spec 10). The DB enum is untouched.
-  { phase: "before", label: "Preparation" },
-  { phase: "during", label: "During" },
-  { phase: "after", label: "After" },
-];
+export const metadata = { title: "รูปถ่ายงาน" };
 
-const WP_STATUS_LABEL: Record<string, string> = {
-  not_started: "Not started",
-  in_progress: "In progress",
-  on_hold: "On hold",
-  complete: "Complete",
-  pending_approval: "Pending approval",
-};
+const PHASES: ReadonlyArray<{ phase: PhotoPhase; label: string }> = [
+  // เตรียมงาน is the display label for the `before` enum value —
+  // equipment and raw-material staging (spec 10). The DB enum is untouched.
+  { phase: "before", label: PHOTO_PHASE_LABEL.before },
+  { phase: "during", label: PHOTO_PHASE_LABEL.during },
+  { phase: "after", label: PHOTO_PHASE_LABEL.after },
+];
 
 export default async function WorkPackagePhotoScreen({ params }: PageProps) {
   const { projectId, workPackageId } = await params;
@@ -61,22 +57,25 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
             href={`/sa/projects/${projectId}`}
             className="w-fit text-xs text-zinc-500 hover:text-zinc-300 focus:outline-none focus-visible:underline"
           >
-            ← Work packages
+            ← รายการงาน
           </Link>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="font-mono text-xs text-zinc-500">{wp.code}</p>
               <h1 className="truncate text-lg font-semibold tracking-tight">{wp.name}</h1>
             </div>
-            <span className="mt-1 shrink-0 rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-0.5 text-xs font-medium text-zinc-300">
-              {WP_STATUS_LABEL[wp.status] ?? wp.status}
+            <span
+              className={`mt-1 shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium ${workPackageStatusPillClasses(wp.status)}`}
+            >
+              {WORK_PACKAGE_STATUS_LABEL[wp.status as keyof typeof WORK_PACKAGE_STATUS_LABEL] ??
+                wp.status}
             </span>
           </div>
           <Link
             href={`/requests?wp=${wp.id}`}
             className="w-fit text-xs text-zinc-400 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
           >
-            Raise purchase request →
+            สร้างคำขอซื้อ →
           </Link>
         </div>
       </header>

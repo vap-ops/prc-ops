@@ -23,6 +23,8 @@ interface PageProps {
   params: Promise<{ projectId: string }>;
 }
 
+export const metadata = { title: "รายงาน" };
+
 export default async function ProjectReportsPage({ params }: PageProps) {
   const { projectId } = await params;
   await requireRole(["project_manager", "super_admin"]);
@@ -60,8 +62,8 @@ export default async function ProjectReportsPage({ params }: PageProps) {
       <header className="border-b border-zinc-800 px-5 py-4">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
           <div>
-            <p className="text-xs tracking-wider text-zinc-500 uppercase">Project manager</p>
-            <h1 className="text-lg font-semibold tracking-tight">Reports</h1>
+            <p className="text-xs tracking-wider text-zinc-500 uppercase">ผู้จัดการโครงการ</p>
+            <h1 className="text-lg font-semibold tracking-tight">รายงาน</h1>
           </div>
           <LogoutButton />
         </div>
@@ -73,13 +75,13 @@ export default async function ProjectReportsPage({ params }: PageProps) {
             href="/pm"
             className="text-zinc-500 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
           >
-            Review queue
+            รายการรอตรวจ
           </Link>
           <Link
             href="/pm/projects"
             className="text-zinc-500 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
           >
-            ← All projects
+            ← โครงการทั้งหมด
           </Link>
         </div>
       </nav>
@@ -91,18 +93,17 @@ export default async function ProjectReportsPage({ params }: PageProps) {
             <p className="truncate text-base font-medium text-zinc-100">{project.name}</p>
           </div>
           <p className="mb-3 text-sm text-zinc-400">
-            Generate a PDF report covering the project&apos;s completed work packages and their
-            current After photos. Reports queue immediately; generation typically completes within a
-            few minutes.
+            สร้างรายงาน PDF รวมรายการงานที่เสร็จสิ้นพร้อมรูปช่วงแล้วเสร็จล่าสุดของแต่ละงาน
+            รายงานจะเข้าคิวทันที โดยปกติใช้เวลาสร้างไม่กี่นาที
           </p>
           <GenerateReportButton projectId={project.id} initiallyDisabled={!canGenerate} />
         </section>
 
         <section>
-          <h2 className="mb-3 text-sm font-medium text-zinc-400">Reports</h2>
+          <h2 className="mb-3 text-sm font-medium text-zinc-400">รายงาน</h2>
           {reportsError ? (
             <p className="rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-              Couldn&apos;t load reports. Please try again.
+              โหลดรายการรายงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง
             </p>
           ) : (
             <ReportsList reports={reports} />

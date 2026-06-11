@@ -3,22 +3,19 @@ import { LogoutButton } from "@/components/auth/logout-button";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { getLatestDecisionsForWorkPackages } from "@/lib/approvals/latest-decision";
+import { APPROVAL_DECISION_LABEL } from "@/lib/i18n/labels";
 import type { Database } from "@/lib/db/database.types";
 
 type ApprovalDecision = Database["public"]["Enums"]["approval_decision"];
 
-const DECISION_LABEL: Record<ApprovalDecision, string> = {
-  approved: "Approved",
-  rejected: "Rejected",
-  needs_revision: "Revision requested",
-};
+export const metadata = { title: "รายการรอตรวจ" };
 
 // The label PMs read when scanning the queue: tells "first review" apart
 // from "send-back coming back round". Approved WPs are 'complete' and
 // drop off the queue, so 'approved' never appears here in practice — the
 // map covers it for type safety.
 function statusLabelForDecision(d: ApprovalDecision | null): string {
-  return d ? DECISION_LABEL[d] : "Awaiting first review";
+  return d ? APPROVAL_DECISION_LABEL[d] : "รอตรวจครั้งแรก";
 }
 
 export default async function ProjectManagerLandingPage() {
@@ -52,15 +49,17 @@ export default async function ProjectManagerLandingPage() {
       <header className="border-b border-zinc-800 px-5 py-4">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
           <div>
-            <p className="text-xs tracking-wider text-zinc-500 uppercase">Project manager</p>
-            <h1 className="text-lg font-semibold tracking-tight">Hi, {ctx.fullName ?? "there"}.</h1>
+            <p className="text-xs tracking-wider text-zinc-500 uppercase">ผู้จัดการโครงการ</p>
+            <h1 className="text-lg font-semibold tracking-tight">
+              {ctx.fullName ? `สวัสดี คุณ${ctx.fullName}` : "สวัสดี"}
+            </h1>
           </div>
           <div className="flex items-center gap-3">
             <Link
               href="/profile"
               className="text-sm text-zinc-400 transition-colors hover:text-zinc-100 focus:outline-none focus-visible:underline"
             >
-              Profile
+              โปรไฟล์
             </Link>
             <LogoutButton />
           </div>
@@ -69,38 +68,38 @@ export default async function ProjectManagerLandingPage() {
 
       <nav className="border-b border-zinc-800/60 bg-zinc-900/30 px-5 py-2">
         <div className="mx-auto flex max-w-3xl items-center gap-4 text-xs">
-          <span className="text-zinc-100">Review queue</span>
+          <span className="text-zinc-100">รายการรอตรวจ</span>
           <Link
             href="/pm/projects"
             className="text-zinc-500 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
           >
-            Projects &amp; reports →
+            โครงการและรายงาน →
           </Link>
           <Link
             href="/pm/requests"
             className="text-zinc-500 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
           >
-            Purchase requests →
+            คำขอซื้อ →
           </Link>
           <Link
             href="/requests"
             className="text-zinc-500 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
           >
-            My requests →
+            คำขอซื้อของฉัน →
           </Link>
         </div>
       </nav>
 
       <section className="mx-auto max-w-3xl px-5 py-6">
-        <h2 className="mb-3 text-sm font-medium text-zinc-400">Awaiting review</h2>
+        <h2 className="mb-3 text-sm font-medium text-zinc-400">รอตรวจ</h2>
 
         {wpError ? (
           <p className="rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-            Couldn&apos;t load the review queue. Please try again.
+            โหลดรายการรอตรวจไม่สำเร็จ กรุณาลองใหม่อีกครั้ง
           </p>
         ) : !pendingWps || pendingWps.length === 0 ? (
           <p className="rounded-md border border-zinc-800 bg-zinc-900/50 px-4 py-6 text-center text-sm text-zinc-400">
-            Nothing awaiting review.
+            ไม่มีรายการรอตรวจ
           </p>
         ) : (
           <ul className="flex flex-col gap-2">

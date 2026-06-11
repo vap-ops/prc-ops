@@ -86,7 +86,7 @@ export function PhaseUploader({
     if (uploadError) {
       updatePending(upload.id, {
         status: "upload-error",
-        errorMessage: uploadError.message || "Upload failed.",
+        errorMessage: uploadError.message || "อัปโหลดไม่สำเร็จ",
       });
       return;
     }
@@ -106,7 +106,7 @@ export function PhaseUploader({
     if (!result.ok) {
       updatePending(upload.id, {
         status: "insert-error",
-        errorMessage: `Upload saved but failed to record — ${result.error}`,
+        errorMessage: `อัปโหลดสำเร็จแต่บันทึกข้อมูลไม่สำเร็จ — ${result.error}`,
       });
       return;
     }
@@ -126,7 +126,7 @@ export function PhaseUploader({
       const ext = mimeToPhotoExt(file.type);
       if (!ext) {
         setTopLevelError(
-          `"${file.name}" is not a supported image type. Use JPEG, PNG, WebP, or HEIC.`,
+          `ไฟล์ "${file.name}" ไม่ใช่รูปภาพที่รองรับ — ใช้ JPEG, PNG, WebP หรือ HEIC`,
         );
         continue;
       }
@@ -164,7 +164,7 @@ export function PhaseUploader({
   }
 
   async function handleRemove(photoId: string) {
-    if (!window.confirm("Remove this photo? This can't be undone.")) return;
+    if (!window.confirm("ลบรูปนี้หรือไม่? การลบไม่สามารถย้อนกลับได้")) return;
     setRemovingId(photoId);
     const result = await removePhoto({ photoLogId: photoId });
     setRemovingId(null);
@@ -185,7 +185,7 @@ export function PhaseUploader({
           <span aria-hidden="true" className="mr-1.5">
             +
           </span>
-          Add photo
+          เพิ่มรูป
           <input
             ref={fileInputRef}
             type="file"
@@ -208,7 +208,7 @@ export function PhaseUploader({
 
       {!hasContent ? (
         <p className="rounded-md border border-zinc-800 bg-zinc-900/50 px-4 py-6 text-center text-sm text-zinc-500">
-          No {label.toLowerCase()} photos yet.
+          ยังไม่มีรูปช่วง{label}
         </p>
       ) : (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -246,14 +246,14 @@ function Thumbnail({ photo, isRemoving, onRemove }: ThumbnailProps) {
         <img src={photo.url} alt="" className="h-full w-full object-cover" loading="lazy" />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-xs text-zinc-600">
-          unavailable
+          ไม่พร้อมแสดง
         </div>
       )}
       <button
         type="button"
         onClick={onRemove}
         disabled={isRemoving}
-        aria-label="Remove photo"
+        aria-label="ลบรูป"
         className="absolute top-1.5 right-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/80 text-zinc-100 backdrop-blur-sm transition-colors hover:bg-red-950/80 hover:text-red-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-50"
       >
         {isRemoving ? (
@@ -285,21 +285,21 @@ function PendingTile({ upload, onRetry }: PendingTileProps) {
           <>
             <Spinner />
             <span className="text-[11px] font-medium text-zinc-200">
-              {upload.status === "uploading" ? "Uploading…" : "Saving…"}
+              {upload.status === "uploading" ? "กำลังอัปโหลด…" : "กำลังบันทึก…"}
             </span>
           </>
         )}
         {isError && (
           <>
             <span className="text-[11px] font-medium text-red-200">
-              {upload.errorMessage ?? "Failed."}
+              {upload.errorMessage ?? "ล้มเหลว"}
             </span>
             <button
               type="button"
               onClick={onRetry}
               className="rounded border border-zinc-600 bg-zinc-900/90 px-2 py-0.5 text-[11px] font-medium text-zinc-100 hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
             >
-              Retry
+              ลองใหม่
             </button>
           </>
         )}

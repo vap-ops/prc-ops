@@ -26,13 +26,13 @@ describe("validateDisplayName", () => {
   it("rejects an empty string", () => {
     const r = validateDisplayName("");
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error).toMatch(/empty/i);
+    if (!r.ok) expect(r.error).toMatch(/ว่าง/);
   });
 
   it("rejects whitespace-only input (empty after trim)", () => {
     const r = validateDisplayName("   \t\n  ");
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error).toMatch(/empty/i);
+    if (!r.ok) expect(r.error).toMatch(/ว่าง/);
   });
 
   it("accepts exactly 80 chars", () => {

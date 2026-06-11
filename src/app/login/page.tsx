@@ -4,10 +4,12 @@ import { createClient } from "@/lib/db/server";
 import { LoginButton } from "./login-button";
 
 const ERROR_MESSAGES: Record<string, string> = {
-  oauth_failed: "Sign-in didn't complete. Please try again.",
-  session_failed: "We couldn't establish your session. Please try again.",
-  unknown: "Something went wrong. Please try again.",
+  oauth_failed: "เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+  session_failed: "ไม่สามารถเริ่มเซสชันได้ กรุณาลองใหม่อีกครั้ง",
+  unknown: "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง",
 };
+
+export const metadata = { title: "เข้าสู่ระบบ" };
 
 export default async function LoginPage({
   searchParams,
@@ -37,7 +39,7 @@ export default async function LoginPage({
     <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-6 text-zinc-100">
       <div className="w-full max-w-sm space-y-6 text-center">
         <h1 className="text-3xl font-semibold tracking-tight">PRC Ops</h1>
-        <p className="text-sm text-zinc-400">Sign in with your LINE account to continue.</p>
+        <p className="text-sm text-zinc-400">เข้าสู่ระบบด้วยบัญชี LINE ของคุณเพื่อเข้าใช้งาน</p>
         {errorMessage && (
           <div
             role="alert"

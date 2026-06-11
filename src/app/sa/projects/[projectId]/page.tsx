@@ -8,6 +8,8 @@ interface PageProps {
   params: Promise<{ projectId: string }>;
 }
 
+export const metadata = { title: "รายการงาน" };
+
 export default async function ProjectWorkPackagesPage({ params }: PageProps) {
   const { projectId } = await params;
   await requireRole(["site_admin", "project_manager", "super_admin"]);
@@ -46,7 +48,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
             href="/sa"
             className="w-fit text-xs text-zinc-500 hover:text-zinc-300 focus:outline-none focus-visible:underline"
           >
-            ← Projects
+            ← โครงการ
           </Link>
           <p className="font-mono text-xs text-zinc-500">{project.code}</p>
           <h1 className="text-lg font-semibold tracking-tight">{project.name}</h1>
@@ -54,7 +56,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
       </header>
 
       <section className="mx-auto max-w-2xl px-5 py-6">
-        <h2 className="mb-3 text-sm font-medium text-zinc-400">Work packages</h2>
+        <h2 className="mb-3 text-sm font-medium text-zinc-400">รายการงาน</h2>
         <WorkPackageList
           projectId={project.id}
           workPackages={(workPackages ?? []).map((wp) => ({

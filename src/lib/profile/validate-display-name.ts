@@ -10,12 +10,12 @@ const MAX_LENGTH = 80;
 export function validateDisplayName(input: string): ValidateResult {
   const trimmed = input.trim();
   if (trimmed.length === 0) {
-    return { ok: false, error: "Display name can't be empty." };
+    return { ok: false, error: "ชื่อที่แสดงต้องไม่ว่าง" };
   }
   if (trimmed.length > MAX_LENGTH) {
     return {
       ok: false,
-      error: `Display name must be ${MAX_LENGTH} characters or fewer.`,
+      error: `ชื่อที่แสดงต้องไม่เกิน ${MAX_LENGTH} ตัวอักษร`,
     };
   }
   return { ok: true, value: trimmed };

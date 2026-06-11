@@ -20,7 +20,7 @@ export function GenerateReportButton({ projectId, initiallyDisabled }: GenerateR
   const router = useRouter();
   const [pending, startSubmit] = useTransition();
   const [reason, setReason] = useState<string | null>(
-    initiallyDisabled ? "A report is already being generated for this project." : null,
+    initiallyDisabled ? "มีรายงานของโครงการนี้กำลังสร้างอยู่แล้ว" : null,
   );
 
   // Once the user actually clicks, the server action is authoritative.
@@ -49,7 +49,7 @@ export function GenerateReportButton({ projectId, initiallyDisabled }: GenerateR
         disabled={disabled}
         className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-zinc-700 bg-zinc-100 px-5 text-sm font-medium text-zinc-900 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {pending ? "Queueing…" : "Generate report"}
+        {pending ? "กำลังเข้าคิว…" : "สร้างรายงาน"}
       </button>
       {reason && (
         <p

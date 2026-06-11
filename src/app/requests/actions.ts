@@ -56,7 +56,7 @@ export async function createPurchaseRequest(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Not signed in." };
+  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
 
   const { data, error } = await supabase
     .from("purchase_requests")
@@ -72,7 +72,7 @@ export async function createPurchaseRequest(
     .single();
 
   if (error || !data) {
-    return { ok: false, error: "Couldn't create the request. Please try again." };
+    return { ok: false, error: "สร้างคำขอซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
 
   revalidatePath("/requests");
@@ -92,19 +92,19 @@ export type DecidePurchaseRequestResult =
 export async function decidePurchaseRequest(
   input: DecidePurchaseRequestInput,
 ): Promise<DecidePurchaseRequestResult> {
-  if (!UUID_REGEX.test(input.id)) return { ok: false, error: "Invalid request id." };
-  if (!isPurchaseDecision(input.decision)) return { ok: false, error: "Invalid decision." };
+  if (!UUID_REGEX.test(input.id)) return { ok: false, error: "รหัสคำขอไม่ถูกต้อง" };
+  if (!isPurchaseDecision(input.decision)) return { ok: false, error: "ผลการพิจารณาไม่ถูกต้อง" };
 
   const comment = input.comment ?? null;
   if (!isDecisionCommentValid(input.decision, comment)) {
-    return { ok: false, error: "A comment is required when rejecting." };
+    return { ok: false, error: "ต้องใส่ความเห็นเมื่อไม่อนุมัติ" };
   }
 
   const supabase = await createServerSupabase();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Not signed in." };
+  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
 
   // Whitespace-only / null collapses to null. The predicate above already
   // forbids that case for rejected, so this branch only triggers for approved.
@@ -123,10 +123,10 @@ export async function decidePurchaseRequest(
     .select("id");
 
   if (error) {
-    return { ok: false, error: "Couldn't save the decision. Please try again." };
+    return { ok: false, error: "บันทึกผลการพิจารณาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
   if (!data || data.length === 0) {
-    return { ok: false, error: "This request isn't currently in 'requested' state." };
+    return { ok: false, error: "คำขอนี้ได้รับการพิจารณาไปแล้ว" };
   }
 
   revalidatePath("/requests");

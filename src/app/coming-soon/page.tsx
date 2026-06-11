@@ -4,20 +4,10 @@ import { LogoutButton } from "@/components/auth/logout-button";
 import { AvatarSurface } from "@/components/features/avatar-surface";
 import { DisplayNameForm } from "@/components/features/display-name-form";
 import { createClient } from "@/lib/db/server";
+import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
 import { type UserRole } from "@/lib/auth/role-home";
 
-// Display labels for every role that lands here. site_admin and project_manager
-// are redirected away (their landings exist), so they're intentionally absent.
-const UNSERVED_ROLE_LABEL: Record<Exclude<UserRole, "site_admin" | "project_manager">, string> = {
-  visitor: "Visitor",
-  super_admin: "Super Admin",
-  project_coordinator: "Project Coordinator",
-  procurement: "Procurement",
-  technician: "Technician",
-  hr: "HR",
-  subcon_manager: "Subcontractor Manager",
-  accounting: "Accounting",
-};
+export const metadata = { title: "เร็ว ๆ นี้" };
 
 // Session check uses getClaims() — local JWT verify against the cached JWKS,
 // no Auth-server round-trip on the render path. See ADR 0021. The middleware
@@ -49,8 +39,8 @@ export default async function ComingSoonPage() {
   if (role === "site_admin") redirect("/sa");
   if (role === "project_manager") redirect("/pm");
 
-  const displayName = UNSERVED_ROLE_LABEL[role] ?? role;
-  const greeting = row.full_name ?? "there";
+  const displayName = USER_ROLE_LABEL[role] ?? role;
+  const greeting = row.full_name ? `สวัสดี คุณ${row.full_name}` : "สวัสดี";
   const initialName = row.full_name ?? "";
   const lineAvatarUrl = row.line_avatar_url;
 
@@ -78,12 +68,11 @@ export default async function ComingSoonPage() {
         <div className="flex justify-center">
           <AvatarSurface lineUrl={lineAvatarUrl} fullName={row.full_name} size={72} />
         </div>
-        <h1 className="text-3xl font-semibold tracking-tight">Hi, {greeting}</h1>
-        <p className="text-lg text-zinc-400">You&apos;re signed in as {displayName}.</p>
+        <h1 className="text-3xl font-semibold tracking-tight">{greeting}</h1>
+        <p className="text-lg text-zinc-400">คุณเข้าสู่ระบบในบทบาท{displayName}</p>
         <p className="text-sm text-zinc-500">
-          PRC Ops is rolling out features in phases. Tools for your role aren&apos;t ready yet —
-          we&apos;ll let you know when they go live. For now, please continue using your current
-          process.
+          PRC Ops กำลังทยอยเปิดใช้งานทีละส่วน เครื่องมือสำหรับบทบาทของคุณยังไม่พร้อมใช้งาน —
+          เมื่อเปิดใช้แล้วเราจะแจ้งให้ทราบ ระหว่างนี้กรุณาใช้ช่องทางการทำงานเดิมไปก่อน
         </p>
         <div className="text-left">
           <DisplayNameForm initialName={initialName} />
@@ -113,33 +102,33 @@ interface HubLink {
 const HUB_LINKS: ReadonlyArray<HubLink> = [
   {
     href: "/sa",
-    label: "Site admin",
-    hint: "Project list, work packages, photo upload.",
+    label: "หน้างาน",
+    hint: "รายการโครงการ รายการงาน และอัปโหลดรูปถ่าย",
   },
   {
     href: "/pm",
-    label: "Approval queue",
-    hint: "Work packages awaiting PM review.",
+    label: "รายการรอตรวจ",
+    hint: "รายการงานที่รอผู้จัดการโครงการตรวจสอบ",
   },
   {
     href: "/pm/projects",
-    label: "Projects & reports",
-    hint: "Generate and download project PDF reports.",
+    label: "โครงการและรายงาน",
+    hint: "สร้างและดาวน์โหลดรายงานโครงการ (PDF)",
   },
   {
     href: "/requests",
-    label: "My requests",
-    hint: "Track your purchase requests. New requests start from a work package.",
+    label: "คำขอซื้อของฉัน",
+    hint: "ติดตามคำขอซื้อของคุณ — คำขอใหม่เริ่มจากหน้ารายการงาน",
   },
   {
     href: "/pm/requests",
-    label: "Purchase requests",
-    hint: "Approve or reject purchase requests awaiting review.",
+    label: "คำขอซื้อ",
+    hint: "พิจารณาคำขอซื้อที่รออนุมัติ",
   },
   {
     href: "/profile",
-    label: "Profile",
-    hint: "Edit your display name.",
+    label: "โปรไฟล์",
+    hint: "แก้ไขชื่อที่แสดง",
   },
 ];
 
@@ -154,17 +143,17 @@ function OperatorHub({
     <main className="min-h-screen bg-zinc-950 px-6 py-10 text-zinc-100">
       <div className="mx-auto flex w-full max-w-md flex-col gap-6">
         <header className="space-y-1">
-          <p className="text-xs tracking-wider text-zinc-500 uppercase">Operator console</p>
+          <p className="text-xs tracking-wider text-zinc-500 uppercase">ศูนย์ควบคุม</p>
           <div className="flex items-center gap-3">
             <AvatarSurface lineUrl={lineAvatarUrl} fullName={fullName} size={48} />
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">Hi, {greeting}</h1>
-              <p className="text-sm text-zinc-500">Signed in as {displayName}.</p>
+              <h1 className="text-2xl font-semibold tracking-tight">{greeting}</h1>
+              <p className="text-sm text-zinc-500">เข้าสู่ระบบในบทบาท{displayName}</p>
             </div>
           </div>
         </header>
 
-        <nav aria-label="Operator destinations" className="flex flex-col gap-2">
+        <nav aria-label="เมนูศูนย์ควบคุม" className="flex flex-col gap-2">
           {HUB_LINKS.map((link) => (
             <Link
               key={link.href}

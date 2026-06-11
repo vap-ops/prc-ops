@@ -26,15 +26,11 @@ import type { Database } from "@/lib/db/database.types";
 //      role, so this works for SA's own rows too (SAs can't see other
 //      SAs' rows, per the cross-user isolation pinned in ADR 0022).
 
+import { PURCHASE_REQUEST_STATUS_LABEL } from "@/lib/i18n/labels";
+
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
 
-const STATUS_LABEL: Record<PurchaseRequestStatus, string> = {
-  requested: "Requested",
-  approved: "Approved",
-  rejected: "Rejected",
-  purchased: "Purchased",
-  delivered: "Delivered",
-};
+export const metadata = { title: "คำขอซื้อของฉัน" };
 
 // Pill palette — zinc / amber / emerald / red, mirroring the SA-side
 // pills and the inline pm/page.tsx decisionPillClasses. Inline because
@@ -98,7 +94,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     pinnedWp && pinnedProjectId
       ? `/sa/projects/${pinnedProjectId}/work-packages/${pinnedWp.id}`
       : roleHome(ctx.role);
-  const backLabel = pinnedWp && pinnedProjectId ? "Back to work package" : "Back";
+  const backLabel = pinnedWp && pinnedProjectId ? "กลับไปหน้ารายการงาน" : "กลับ";
 
   const { data: myRequests, error: myError } = await supabase
     .from("purchase_requests")
@@ -122,15 +118,17 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
       <header className="border-b border-zinc-800 px-5 py-4">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
           <div>
-            <p className="text-xs tracking-wider text-zinc-500 uppercase">Purchase requests</p>
-            <h1 className="text-lg font-semibold tracking-tight">Hi, {ctx.fullName ?? "there"}.</h1>
+            <p className="text-xs tracking-wider text-zinc-500 uppercase">คำขอซื้อ</p>
+            <h1 className="text-lg font-semibold tracking-tight">
+              {ctx.fullName ? `สวัสดี คุณ${ctx.fullName}` : "สวัสดี"}
+            </h1>
           </div>
           <div className="flex items-center gap-3">
             <Link
               href="/profile"
               className="text-sm text-zinc-400 transition-colors hover:text-zinc-100 focus:outline-none focus-visible:underline"
             >
-              Profile
+              โปรไฟล์
             </Link>
             <LogoutButton />
           </div>
@@ -151,33 +149,35 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
 
       <section className="mx-auto max-w-3xl space-y-8 px-5 py-6">
         <div>
-          <h2 className="mb-3 text-sm font-medium text-zinc-400">Raise a request</h2>
+          <h2 className="mb-3 text-sm font-medium text-zinc-400">สร้างคำขอซื้อ</h2>
           {pinnedWp ? (
             <PurchaseRequestForm workPackage={pinnedWp} />
           ) : (
             <div className="space-y-2">
               {wpRequested ? (
                 <p className="rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-                  Work package not found.
+                  ไม่พบรายการงาน
                 </p>
               ) : null}
               <p className="rounded-md border border-zinc-800 bg-zinc-900/50 px-4 py-4 text-sm text-zinc-400">
-                Requests are raised from a work package. Open the work package and tap{" "}
-                <span className="text-zinc-200">Raise purchase request</span>.
+                คำขอซื้อเริ่มจากหน้ารายการงาน — เปิดรายการงานที่ต้องการ แล้วกด{" "}
+                <span className="text-zinc-200">สร้างคำขอซื้อ</span>{" "}
+                จากนั้นผู้จัดการโครงการจะเป็นผู้พิจารณาอนุมัติ —
+                หากไม่อนุมัติจะมีความเห็นแจ้งเหตุผลเสมอ
               </p>
             </div>
           )}
         </div>
 
         <div>
-          <h2 className="mb-3 text-sm font-medium text-zinc-400">My requests</h2>
+          <h2 className="mb-3 text-sm font-medium text-zinc-400">คำขอซื้อของฉัน</h2>
           {myError ? (
             <p className="rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-              Couldn&apos;t load your requests. Please try again.
+              โหลดรายการคำขอซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง
             </p>
           ) : !myRequests || myRequests.length === 0 ? (
             <p className="rounded-md border border-zinc-800 bg-zinc-900/50 px-4 py-6 text-center text-sm text-zinc-400">
-              You haven&apos;t raised any requests yet.
+              คุณยังไม่เคยสร้างคำขอซื้อ
             </p>
           ) : (
             <ul className="flex flex-col gap-2">
@@ -208,13 +208,20 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                     <span
                       className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusPillClasses(status)}`}
                     >
-                      {STATUS_LABEL[status]}
+                      {PURCHASE_REQUEST_STATUS_LABEL[status]}
                     </span>
                   </li>
                 );
               })}
             </ul>
           )}
+          {myRequests && myRequests.length > 0 ? (
+            <p className="mt-3 text-xs text-zinc-500">
+              เมื่อผู้จัดการโครงการอนุมัติคำขอแล้ว ฝ่ายจัดซื้อจะดำเนินการต่อในระบบหลังบ้าน — สถานะ
+              &ldquo;สั่งซื้อแล้ว&rdquo; และ &ldquo;ได้รับของแล้ว&rdquo;
+              จะอัปเดตอัตโนมัติจากบันทึกของฝ่ายจัดซื้อ ไม่สามารถแก้ไขในแอปนี้ได้
+            </p>
+          ) : null}
         </div>
       </section>
     </main>

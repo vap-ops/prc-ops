@@ -92,7 +92,7 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
       className="flex flex-col gap-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-4"
     >
       <div className="flex min-w-0 flex-col gap-1">
-        <span className="text-sm font-medium text-zinc-200">Work package</span>
+        <span className="text-sm font-medium text-zinc-200">รายการงาน</span>
         <p className="truncate rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm">
           <span className="font-mono text-zinc-500">{workPackage.code}</span>
           <span className="mx-1 text-zinc-600">·</span>
@@ -102,7 +102,7 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
 
       <div className="flex flex-col gap-1">
         <label htmlFor="pr-item" className="text-sm font-medium text-zinc-200">
-          Item description
+          รายการวัสดุ
         </label>
         <input
           id="pr-item"
@@ -116,14 +116,14 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
           }}
           disabled={submitting}
           className="h-9 w-full min-w-0 rounded-md border border-zinc-800 bg-zinc-900/60 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
-          placeholder="Cement bag 50kg"
+          placeholder="ปูนถุง 50 กก."
         />
       </div>
 
       <div className="flex gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <label htmlFor="pr-qty" className="text-sm font-medium text-zinc-200">
-            Quantity
+            จำนวน
           </label>
           <input
             id="pr-qty"
@@ -142,7 +142,7 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <label htmlFor="pr-unit" className="text-sm font-medium text-zinc-200">
-            Unit
+            หน่วย
           </label>
           <input
             id="pr-unit"
@@ -156,7 +156,7 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
             }}
             disabled={submitting}
             className="h-9 w-full min-w-0 rounded-md border border-zinc-800 bg-zinc-900/60 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
-            placeholder="bag"
+            placeholder="ถุง"
           />
         </div>
       </div>
@@ -173,7 +173,7 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
       <div className="flex items-center justify-end gap-3">
         {savedAt !== null && !submitting ? (
           <span className="text-xs text-emerald-400" role="status">
-            Saved
+            บันทึกแล้ว
           </span>
         ) : null}
         <button
@@ -181,7 +181,7 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
           disabled={!canSubmit}
           className="inline-flex h-9 items-center justify-center rounded-md border border-zinc-700 bg-zinc-100 px-4 text-sm font-medium text-zinc-900 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {submitting ? "Submitting…" : "Submit request"}
+          {submitting ? "กำลังส่ง…" : "ส่งคำขอซื้อ"}
         </button>
       </div>
     </form>

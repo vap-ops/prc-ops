@@ -30,8 +30,8 @@ export function canGenerateReport(existingStatuses: ReadonlyArray<ReportStatus>)
 // Human label for each enum value. Used by the status pill in the
 // reports list and by any future surface that displays a report's state.
 export const REPORT_STATUS_LABEL: Record<ReportStatus, string> = {
-  requested: "Queued",
-  processing: "Generating",
-  complete: "Ready",
-  failed: "Failed",
+  requested: "อยู่ในคิว",
+  processing: "กำลังสร้าง",
+  complete: "พร้อมดาวน์โหลด",
+  failed: "ล้มเหลว",
 };

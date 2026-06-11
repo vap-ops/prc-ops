@@ -19,7 +19,7 @@ export function AvatarSurface({ uploadedUrl, lineUrl, fullName, size = 64 }: Ava
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={result.url}
-        alt={fullName ?? "Avatar"}
+        alt={fullName ?? "รูปโปรไฟล์"}
         width={size}
         height={size}
         referrerPolicy="no-referrer"
@@ -34,7 +34,7 @@ export function AvatarSurface({ uploadedUrl, lineUrl, fullName, size = 64 }: Ava
   const initials = getInitials(fullName);
   return (
     <span
-      aria-label={fullName ?? "Avatar"}
+      aria-label={fullName ?? "รูปโปรไฟล์"}
       className="inline-flex items-center justify-center rounded-full bg-zinc-700 font-semibold text-zinc-100"
       style={{ width: size, height: size, fontSize: Math.round(size * 0.38) }}
     >

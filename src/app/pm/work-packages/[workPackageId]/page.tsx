@@ -10,6 +10,13 @@ import {
 } from "@/lib/photos/current-photos";
 import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
 import { getDecisionHistoryForWorkPackage } from "@/lib/approvals/latest-decision";
+import {
+  APPROVAL_DECISION_LABEL,
+  PHOTO_PHASE_LABEL,
+  WORK_PACKAGE_STATUS_LABEL,
+  formatThaiDateTime,
+} from "@/lib/i18n/labels";
+import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import type { Database } from "@/lib/db/database.types";
 import { RecordDecisionForm } from "./record-decision-form";
 
@@ -19,27 +26,15 @@ interface PageProps {
   params: Promise<{ workPackageId: string }>;
 }
 
+export const metadata = { title: "ตรวจรายการงาน" };
+
 const PHASES: ReadonlyArray<{ phase: PhotoPhase; label: string }> = [
-  // "Preparation" is the display label for the `before` enum value —
+  // เตรียมงาน is the display label for the `before` enum value —
   // equipment and raw-material staging (spec 10). The DB enum is untouched.
-  { phase: "before", label: "Preparation" },
-  { phase: "during", label: "During" },
-  { phase: "after", label: "After" },
+  { phase: "before", label: PHOTO_PHASE_LABEL.before },
+  { phase: "during", label: PHOTO_PHASE_LABEL.during },
+  { phase: "after", label: PHOTO_PHASE_LABEL.after },
 ];
-
-const WP_STATUS_LABEL: Record<string, string> = {
-  not_started: "Not started",
-  in_progress: "In progress",
-  on_hold: "On hold",
-  complete: "Complete",
-  pending_approval: "Pending approval",
-};
-
-const DECISION_LABEL: Record<ApprovalDecision, string> = {
-  approved: "Approved",
-  rejected: "Rejected",
-  needs_revision: "Revision requested",
-};
 
 const DECISION_CLASSES: Record<ApprovalDecision, string> = {
   approved: "border-emerald-900/60 bg-emerald-950/40 text-emerald-200",
@@ -103,7 +98,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
             href="/pm"
             className="w-fit text-xs text-zinc-500 hover:text-zinc-300 focus:outline-none focus-visible:underline"
           >
-            ← Review queue
+            ← รายการรอตรวจ
           </Link>
           <p className="truncate text-xs text-zinc-500">
             <span className="font-mono">{project.code}</span>
@@ -115,22 +110,25 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
               <p className="font-mono text-xs text-zinc-500">{wp.code}</p>
               <h1 className="truncate text-lg font-semibold tracking-tight">{wp.name}</h1>
             </div>
-            <span className="mt-1 shrink-0 rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-0.5 text-xs font-medium text-zinc-300">
-              {WP_STATUS_LABEL[wp.status] ?? wp.status}
+            <span
+              className={`mt-1 shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium ${workPackageStatusPillClasses(wp.status)}`}
+            >
+              {WORK_PACKAGE_STATUS_LABEL[wp.status as keyof typeof WORK_PACKAGE_STATUS_LABEL] ??
+                wp.status}
             </span>
           </div>
           <Link
             href={`/requests?wp=${wp.id}`}
             className="w-fit text-xs text-zinc-400 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
           >
-            Raise purchase request →
+            สร้างคำขอซื้อ →
           </Link>
         </div>
       </header>
 
       <div className="mx-auto flex max-w-3xl flex-col gap-8 px-5 py-6">
         <section>
-          <h2 className="mb-3 text-sm font-medium text-zinc-400">Photos</h2>
+          <h2 className="mb-3 text-sm font-medium text-zinc-400">รูปถ่าย</h2>
           <div className="flex flex-col gap-5">
             {PHASES.map(({ phase, label }) => (
               <PhaseGallery
@@ -144,10 +142,10 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
         </section>
 
         <section>
-          <h2 className="mb-3 text-sm font-medium text-zinc-400">Decision history</h2>
+          <h2 className="mb-3 text-sm font-medium text-zinc-400">ประวัติการตรวจ</h2>
           {approvalsRows.length === 0 ? (
             <p className="rounded-md border border-zinc-800 bg-zinc-900/50 px-4 py-6 text-center text-sm text-zinc-500">
-              No prior decisions.
+              ยังไม่มีการตรวจ
             </p>
           ) : (
             <ul className="flex flex-col gap-2">
@@ -160,12 +158,14 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
                     <span
                       className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium ${DECISION_CLASSES[a.decision]}`}
                     >
-                      {DECISION_LABEL[a.decision]}
+                      {APPROVAL_DECISION_LABEL[a.decision]}
                     </span>
-                    <span className="text-xs text-zinc-500">{formatDateTime(a.decided_at)}</span>
+                    <span className="text-xs text-zinc-500">
+                      {formatThaiDateTime(a.decided_at)}
+                    </span>
                   </div>
                   <p className="mt-1 text-xs text-zinc-400">
-                    {deciderNames.get(a.decided_by) ?? "Unknown reviewer"}
+                    {deciderNames.get(a.decided_by) ?? "ไม่ทราบชื่อผู้ตรวจ"}
                   </p>
                   {a.comment && (
                     <p className="mt-2 text-sm whitespace-pre-wrap text-zinc-200">{a.comment}</p>
@@ -177,12 +177,12 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
         </section>
 
         <section>
-          <h2 className="mb-3 text-sm font-medium text-zinc-400">Record decision</h2>
+          <h2 className="mb-3 text-sm font-medium text-zinc-400">บันทึกผลการตรวจ</h2>
           {wp.status === "pending_approval" ? (
             <RecordDecisionForm workPackageId={wp.id} />
           ) : (
             <p className="rounded-md border border-zinc-800 bg-zinc-900/50 px-4 py-6 text-center text-sm text-zinc-500">
-              This work package isn&apos;t currently up for review.
+              รายการงานนี้ไม่ได้อยู่ในสถานะรอตรวจ
             </p>
           )}
         </section>
@@ -203,7 +203,7 @@ function PhaseGallery({ label, photos, signedUrls }: PhaseGalleryProps) {
       <h3 className="mb-2 text-xs font-medium tracking-wider text-zinc-500 uppercase">{label}</h3>
       {photos.length === 0 ? (
         <p className="rounded-md border border-zinc-800 bg-zinc-900/50 px-4 py-6 text-center text-sm text-zinc-500">
-          No {label.toLowerCase()} photos.
+          ไม่มีรูปช่วง{label}
         </p>
       ) : (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -219,7 +219,7 @@ function PhaseGallery({ label, photos, signedUrls }: PhaseGalleryProps) {
                   <img src={url} alt="" className="h-full w-full object-cover" loading="lazy" />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-xs text-zinc-600">
-                    unavailable
+                    ไม่พร้อมแสดง
                   </div>
                 )}
               </li>
@@ -247,16 +247,4 @@ async function fetchDeciderNames(userIds: ReadonlyArray<string>): Promise<Map<st
     if (u.full_name) result.set(u.id, u.full_name);
   }
   return result;
-}
-
-function formatDateTime(value: string): string {
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }

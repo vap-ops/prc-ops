@@ -20,6 +20,8 @@ import { createClient } from "@/lib/db/server";
 // fetchDeciderNames. Failure to resolve is non-fatal — the row falls
 // back to the email (AppSheet path, P2) or em-dash.
 
+export const metadata = { title: "คำขอซื้อ" };
+
 export default async function PmRequestsPage() {
   const ctx = await requireRole(["project_manager", "super_admin"]);
   const supabase = await createClient();
@@ -53,15 +55,17 @@ export default async function PmRequestsPage() {
       <header className="border-b border-zinc-800 px-5 py-4">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
           <div>
-            <p className="text-xs tracking-wider text-zinc-500 uppercase">Purchase requests</p>
-            <h1 className="text-lg font-semibold tracking-tight">Hi, {ctx.fullName ?? "there"}.</h1>
+            <p className="text-xs tracking-wider text-zinc-500 uppercase">คำขอซื้อ</p>
+            <h1 className="text-lg font-semibold tracking-tight">
+              {ctx.fullName ? `สวัสดี คุณ${ctx.fullName}` : "สวัสดี"}
+            </h1>
           </div>
           <div className="flex items-center gap-3">
             <Link
               href="/profile"
               className="text-sm text-zinc-400 transition-colors hover:text-zinc-100 focus:outline-none focus-visible:underline"
             >
-              Profile
+              โปรไฟล์
             </Link>
             <LogoutButton />
           </div>
@@ -74,22 +78,22 @@ export default async function PmRequestsPage() {
             href="/pm"
             className="text-zinc-500 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
           >
-            ← Review queue
+            ← รายการรอตรวจ
           </Link>
-          <span className="text-zinc-100">Purchase requests</span>
+          <span className="text-zinc-100">คำขอซื้อ</span>
         </div>
       </nav>
 
       <section className="mx-auto max-w-3xl px-5 py-6">
-        <h2 className="mb-3 text-sm font-medium text-zinc-400">Awaiting approval</h2>
+        <h2 className="mb-3 text-sm font-medium text-zinc-400">รออนุมัติ</h2>
 
         {error ? (
           <p className="rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-            Couldn&apos;t load the request queue. Please try again.
+            โหลดรายการคำขอซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง
           </p>
         ) : !requests || requests.length === 0 ? (
           <p className="rounded-md border border-zinc-800 bg-zinc-900/50 px-4 py-6 text-center text-sm text-zinc-400">
-            Nothing awaiting approval.
+            ไม่มีคำขอซื้อรออนุมัติ
           </p>
         ) : (
           <ul className="flex flex-col gap-3">
@@ -119,7 +123,7 @@ export default async function PmRequestsPage() {
                         {r.quantity} {r.unit}
                       </span>
                     </p>
-                    <p className="text-xs text-zinc-500">Requested by {requesterName}</p>
+                    <p className="text-xs text-zinc-500">ขอซื้อโดย {requesterName}</p>
                   </div>
                   <PurchaseRequestDecision requestId={r.id} />
                 </li>

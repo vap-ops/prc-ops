@@ -28,17 +28,10 @@ import {
   groupWorkPackagesByDeliverable,
   type GroupDeliverable,
 } from "@/lib/deliverables/group-work-packages";
+import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
 
 type WorkPackageStatus = Database["public"]["Enums"]["work_package_status"];
-
-const WP_STATUS_LABEL: Record<WorkPackageStatus, string> = {
-  not_started: "Not started",
-  in_progress: "In progress",
-  on_hold: "On hold",
-  complete: "Complete",
-  pending_approval: "Pending approval",
-};
 
 const UNGROUPED_KEY = "__ungrouped__";
 
@@ -111,10 +104,10 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
   // that applies.
   const emptyMessage =
     workPackages.length === 0
-      ? "No work packages yet."
+      ? "ยังไม่มีรายการงาน"
       : hideCompleted && workPackages.every((wp) => wp.status === "complete")
-        ? "All work packages are complete."
-        : "No matching work packages.";
+        ? "รายการงานทั้งหมดเสร็จสิ้นแล้ว"
+        : "ไม่พบรายการงานที่ตรงกับเงื่อนไข";
 
   const rowLink = (wp: WorkPackageListItem) => (
     <Link
@@ -128,7 +121,7 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
       <span
         className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium ${workPackageStatusPillClasses(wp.status)}`}
       >
-        {WP_STATUS_LABEL[wp.status] ?? wp.status}
+        {WORK_PACKAGE_STATUS_LABEL[wp.status] ?? wp.status}
       </span>
     </Link>
   );
@@ -138,11 +131,11 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <Input
           type="search"
-          placeholder="Filter by code or name…"
+          placeholder="ค้นหาด้วยรหัสหรือชื่องาน…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="border-zinc-800 bg-zinc-900/60 text-zinc-100 placeholder:text-zinc-500 sm:flex-1"
-          aria-label="Filter work packages"
+          aria-label="ค้นหารายการงาน"
         />
         <label className="flex shrink-0 cursor-pointer items-center gap-2 rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-xs text-zinc-300 select-none has-[input:checked]:border-zinc-600 has-[input:checked]:bg-zinc-800 has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-zinc-500">
           <input
@@ -151,7 +144,7 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
             onChange={(e) => setHideCompleted(e.target.checked)}
             className="accent-zinc-100"
           />
-          Hide completed
+          ซ่อนงานที่เสร็จแล้ว
         </label>
       </div>
 
@@ -178,7 +171,7 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
             const progress =
               progressByKey.get(key) ??
               deriveDeliverableProgress(group.workPackages.map((wp) => wp.status));
-            const groupName = group.deliverable?.name ?? "Ungrouped";
+            const groupName = group.deliverable?.name ?? "ยังไม่จัดกลุ่ม";
             const contentId = `wp-group-${key}`;
             return (
               <section key={key} className="overflow-hidden rounded-lg border border-zinc-800">
@@ -206,7 +199,7 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
                         </>
                       ) : (
                         <span className="block truncate text-sm font-medium text-zinc-400">
-                          Ungrouped
+                          ยังไม่จัดกลุ่ม
                         </span>
                       )}
                     </span>
@@ -214,11 +207,10 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
                       <span
                         className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${workPackageStatusPillClasses(progress.status)}`}
                       >
-                        {WP_STATUS_LABEL[progress.status]}
+                        {WORK_PACKAGE_STATUS_LABEL[progress.status]}
                       </span>
                       <span className="text-xs text-zinc-500">
-                        {progress.completeCount}/{progress.totalCount}{" "}
-                        {progress.totalCount === 1 ? "WP" : "WPs"}
+                        {progress.completeCount}/{progress.totalCount} รายการ
                       </span>
                     </span>
                   </span>
@@ -227,7 +219,7 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
                     aria-valuenow={progress.percent}
                     aria-valuemin={0}
                     aria-valuemax={100}
-                    aria-label={`${groupName} — ${progress.percent}% complete`}
+                    aria-label={`${groupName} — เสร็จแล้ว ${progress.percent}%`}
                     className="block h-1 w-full overflow-hidden rounded-full bg-zinc-800"
                   >
                     <span

@@ -27,18 +27,18 @@ export function validateCreatePurchaseRequest(input: {
   unit: string;
 }): ValidateCreatePurchaseRequestResult {
   if (!UUID_REGEX.test(input.workPackageId)) {
-    return { ok: false, error: "Invalid work package id." };
+    return { ok: false, error: "รหัสรายการงานไม่ถูกต้อง" };
   }
   const itemDescription = input.itemDescription.trim();
   if (itemDescription.length === 0) {
-    return { ok: false, error: "Item description can't be empty." };
+    return { ok: false, error: "รายการวัสดุต้องไม่ว่าง" };
   }
   if (!Number.isFinite(input.quantity) || input.quantity <= 0) {
-    return { ok: false, error: "Quantity must be a positive number." };
+    return { ok: false, error: "จำนวนต้องเป็นตัวเลขมากกว่าศูนย์" };
   }
   const unit = input.unit.trim();
   if (unit.length === 0) {
-    return { ok: false, error: "Unit can't be empty." };
+    return { ok: false, error: "หน่วยต้องไม่ว่าง" };
   }
   return {
     ok: true,

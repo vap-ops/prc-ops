@@ -19,15 +19,15 @@ import {
 import { recordDecision } from "./actions";
 
 const DECISION_LABEL: Record<ApprovalDecision, string> = {
-  approved: "Approve",
-  needs_revision: "Request revision",
-  rejected: "Reject",
+  approved: "อนุมัติ",
+  needs_revision: "ให้แก้ไข",
+  rejected: "ไม่อนุมัติ",
 };
 
 const DECISION_HINT: Record<ApprovalDecision, string> = {
-  approved: "Marks the work package complete.",
-  needs_revision: "Sends back for re-shoot. Comment required.",
-  rejected: "Rejects the work as-is. Comment required.",
+  approved: "รายการงานจะเปลี่ยนเป็นเสร็จสิ้น",
+  needs_revision: "ส่งกลับให้ถ่ายรูปใหม่ — ต้องใส่ความเห็น",
+  rejected: "ไม่อนุมัติงานตามที่ส่งมา — ต้องใส่ความเห็น",
 };
 
 interface RecordDecisionFormProps {
@@ -74,7 +74,7 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
       className="flex flex-col gap-4 rounded-lg border border-zinc-800 bg-zinc-900/40 p-5"
     >
       <fieldset className="flex flex-col gap-2" disabled={submitting}>
-        <legend className="mb-1 text-sm font-medium text-zinc-200">Decision</legend>
+        <legend className="mb-1 text-sm font-medium text-zinc-200">ผลการตรวจ</legend>
         {APPROVAL_DECISIONS.map((d) => (
           <label
             key={d}
@@ -102,11 +102,11 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="approval-comment" className="text-sm font-medium text-zinc-200">
-          Comment{" "}
+          ความเห็น{" "}
           {needsComment ? (
             <span className="text-red-300">*</span>
           ) : (
-            <span className="text-zinc-500">(optional)</span>
+            <span className="text-zinc-500">(ไม่บังคับ)</span>
           )}
         </label>
         <Textarea
@@ -115,9 +115,7 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
           onChange={(e) => setComment(e.target.value)}
           required={needsComment}
           disabled={submitting}
-          placeholder={
-            needsComment ? "Explain what needs to change." : "Optional notes for the record."
-          }
+          placeholder={needsComment ? "อธิบายสิ่งที่ต้องแก้ไข" : "บันทึกเพิ่มเติม (ถ้ามี)"}
           className="min-h-24 border-zinc-800 bg-zinc-900/60 text-zinc-100 placeholder:text-zinc-500"
         />
       </div>
@@ -137,7 +135,7 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
           disabled={!canSubmit}
           className="inline-flex h-9 items-center justify-center rounded-md border border-zinc-700 bg-zinc-100 px-4 text-sm font-medium text-zinc-900 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {submitting ? "Recording…" : "Record decision"}
+          {submitting ? "กำลังบันทึก…" : "บันทึกผลการตรวจ"}
         </button>
       </div>
     </form>

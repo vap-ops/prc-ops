@@ -19,6 +19,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { REPORT_STATUS_LABEL, isReportInFlight, type ReportStatus } from "@/lib/reports/predicates";
+import { formatThaiDateTime } from "@/lib/i18n/labels";
 import { getReportDownloadUrl } from "./actions";
 
 const POLL_INTERVAL_MS = 12_000;
@@ -58,7 +59,7 @@ export function ReportsList({ reports }: ReportsListProps) {
   if (reports.length === 0) {
     return (
       <p className="rounded-md border border-zinc-800 bg-zinc-900/50 px-4 py-6 text-center text-sm text-zinc-400">
-        No reports yet.
+        ยังไม่มีรายงาน
       </p>
     );
   }
@@ -81,7 +82,7 @@ function ReportRow({ report }: { report: ReportListItem }) {
         >
           {REPORT_STATUS_LABEL[report.status]}
         </span>
-        <span className="text-xs text-zinc-500">{formatDateTime(report.createdAt)}</span>
+        <span className="text-xs text-zinc-500">{formatThaiDateTime(report.createdAt)}</span>
       </div>
       {report.status === "complete" && <DownloadButton reportId={report.id} />}
       {report.status === "failed" && report.error && (
@@ -119,7 +120,7 @@ function DownloadButton({ reportId }: { reportId: string }) {
         disabled={pending}
         className="inline-flex h-8 w-fit items-center justify-center rounded-md border border-zinc-700 bg-zinc-800 px-3 text-xs font-medium text-zinc-100 transition-colors hover:bg-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {pending ? "Preparing…" : "Download PDF"}
+        {pending ? "กำลังเตรียมไฟล์…" : "ดาวน์โหลด PDF"}
       </button>
       {error && (
         <p
@@ -131,16 +132,4 @@ function DownloadButton({ reportId }: { reportId: string }) {
       )}
     </div>
   );
-}
-
-function formatDateTime(value: string): string {
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }

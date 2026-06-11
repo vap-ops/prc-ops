@@ -49,14 +49,14 @@ export type GenerateReportResult = { ok: true } | { ok: false; reason: string };
 
 export async function generateReport(input: GenerateReportInput): Promise<GenerateReportResult> {
   if (!isValidUuid(input.projectId)) {
-    return { ok: false, reason: "Invalid project id." };
+    return { ok: false, reason: "รหัสโครงการไม่ถูกต้อง" };
   }
 
   const supabase = await createServerSupabase();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { ok: false, reason: "Not signed in." };
+  if (!user) return { ok: false, reason: "ยังไม่ได้เข้าสู่ระบบ" };
 
   // Explicit role check before any DB write so the error surface is
   // clean. RLS on reports INSERT is the load-bearing backstop — a
@@ -68,7 +68,7 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
     .eq("id", user.id)
     .maybeSingle();
   if (!userRow || !(PM_ROLES as readonly string[]).includes(userRow.role)) {
-    return { ok: false, reason: "Only project managers can generate reports." };
+    return { ok: false, reason: "เฉพาะผู้จัดการโครงการเท่านั้นที่สร้างรายงานได้" };
   }
 
   // Verify the project exists and is visible under the user's RLS.
@@ -78,7 +78,7 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
     .select("id")
     .eq("id", input.projectId)
     .maybeSingle();
-  if (!project) return { ok: false, reason: "Project not found." };
+  if (!project) return { ok: false, reason: "ไม่พบโครงการ" };
 
   // Duplicate guard: fetch the project's reports (RLS-scoped, but that
   // matches the visibility we're guarding) and apply the pure
@@ -92,7 +92,7 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
   if (!canGenerateReport(statuses)) {
     return {
       ok: false,
-      reason: "A report is already being generated for this project.",
+      reason: "มีรายงานของโครงการนี้กำลังสร้างอยู่แล้ว",
     };
   }
 
@@ -105,7 +105,7 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
     requested_by: user.id,
   });
   if (insertError) {
-    return { ok: false, reason: "Couldn't queue the report. Please try again." };
+    return { ok: false, reason: "ส่งรายงานเข้าคิวไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
 
   revalidatePath(`/pm/projects/${project.id}/reports`);
@@ -122,14 +122,14 @@ export async function getReportDownloadUrl(
   input: GetReportDownloadUrlInput,
 ): Promise<GetReportDownloadUrlResult> {
   if (!isValidUuid(input.reportId)) {
-    return { ok: false, reason: "Invalid report id." };
+    return { ok: false, reason: "รหัสรายงานไม่ถูกต้อง" };
   }
 
   const supabase = await createServerSupabase();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { ok: false, reason: "Not signed in." };
+  if (!user) return { ok: false, reason: "ยังไม่ได้เข้าสู่ระบบ" };
 
   const { data: userRow } = await supabase
     .from("users")
@@ -137,7 +137,7 @@ export async function getReportDownloadUrl(
     .eq("id", user.id)
     .maybeSingle();
   if (!userRow || !(PM_ROLES as readonly string[]).includes(userRow.role)) {
-    return { ok: false, reason: "Only project managers can download reports." };
+    return { ok: false, reason: "เฉพาะผู้จัดการโครงการเท่านั้นที่ดาวน์โหลดรายงานได้" };
   }
 
   // Read the report under the user's RLS. The reports SELECT policy
@@ -150,9 +150,9 @@ export async function getReportDownloadUrl(
     .select("status, storage_path")
     .eq("id", input.reportId)
     .maybeSingle();
-  if (!report) return { ok: false, reason: "Report not found." };
+  if (!report) return { ok: false, reason: "ไม่พบรายงาน" };
   if (report.status !== "complete" || !report.storage_path) {
-    return { ok: false, reason: "Report isn't ready yet." };
+    return { ok: false, reason: "รายงานยังไม่พร้อมดาวน์โหลด" };
   }
 
   // Mint the signed URL via the admin client. The reports bucket has
@@ -166,7 +166,7 @@ export async function getReportDownloadUrl(
     .from(REPORTS_BUCKET)
     .createSignedUrl(report.storage_path, SIGNED_URL_TTL_SECONDS);
   if (signedError || !signed?.signedUrl) {
-    return { ok: false, reason: "Couldn't create a download link. Please try again." };
+    return { ok: false, reason: "สร้างลิงก์ดาวน์โหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
 
   return { ok: true, url: signed.signedUrl };

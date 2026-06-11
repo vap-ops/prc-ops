@@ -5632,3 +5632,54 @@ Read-only audit over `supabase db query --linked` (Management API, postgres cont
   - **Bold headings** — the draft proposed Sarabun Bold for project/WP headings; the shipped spec locks one Regular face, layout untouched, bold explicitly out of scope. Stays out unless the operator requests it as a future micro-unit.
   - **Test mechanism** — the draft proposed `pdfjs-dist` text-extraction (reader-visible assertion); the shipped tests assert ToUnicode-CMap-anchored Thai codepoints + every `/BaseFont` subset-Sarabun, hardened against a constructed false-green. Equivalent protection for this regression, zero added dependency. No action.
 - **Independent re-verification on the merged tree (this session):** worker-local `pnpm typecheck` clean + `pnpm test` 6/6; root `pnpm lint && pnpm typecheck && pnpm test` 167/167; fresh Thai sample PDF generated through `buildReportPdf` (WP01 "งานปักฝัง" + tone-mark-heavy strings) and delivered to the operator for visual confirmation.
+
+---
+
+## Unit: Thai-first UI + UX coherence pass — iteration 1 of the whole-app upgrade (spec 14)
+
+- **Status:** Complete — 2026-06-11.
+- **Spec:** [`docs/feature-specs/14-thai-first-ui.md`](./feature-specs/14-thai-first-ui.md) — written this session from the operator's three-point chat brief (UX not intuitive / AppSheet is the back office / Thai users → Thai UI; "Upgrade the system as a whole, design a better version each time"), locked by that brief. Iteration 1 of a standing multi-session mandate.
+- **Branch:** committed directly to main per the operator's standing merge instruction.
+
+### Done
+
+- **Writing failing test first** — `tests/unit/i18n-labels.test.ts` RED (module absent) → GREEN; later extended RED → GREEN again for the invalid-date guard. 9 cases: every enum totally covered with distinct Thai labels (driven off the generated `Constants` arrays, so a new enum value fails here first), Buddhist-era + Asia/Bangkok determinism incl. a date rollover, raw-string degradation on unparseable input.
+- **`src/lib/i18n/labels.ts`** — central Thai label maps (WP status, project status, purchase status, photo phase, approval decision, user role) replacing the five duplicated per-file STATUS_LABEL maps, plus `formatThaiDateTime` (explicit `th-TH-u-ca-buddhist`, pinned `Asia/Bangkok`) replacing the two divergent per-file `formatDateTime` helpers (one server-locale, one browser-locale — a latent SSR/CSR mismatch, now gone). `REPORT_STATUS_LABEL` translated in place in `predicates.ts` (existing home; its distinctness test is copy-agnostic).
+- **Every user-facing string in `src/` is now Thai** — all screens (landing, login, coming-soon + operator hub, profile, SA ×3 levels + uploader, PM queue/review/projects/reports/requests, /requests), all server-action error strings, validators, form labels/placeholders, empty states, pills, aria-labels, `window.confirm`, avatar alt. Latin kept per spec: PRC Ops, LINE, codes, PDF, file-format names, the digit 80.
+- **Sarabun webfont + `lang="th"`** — `next/font/google`, subsets thai+latin, weights 400/500/600 (non-variable font — weight mandatory), `--font-sans` token swap; Geist Mono retained for codes. Matches the PDF font (spec 13) for brand coherence. Metadata: title template `%s — PRC Ops`, Thai description, per-page Thai titles.
+- **`src/app/not-found.tsx` + `src/app/error.tsx`** — localized 404 and error boundary (`'use client'` on error.tsx is required by Next.js for error boundaries — that is the justification). `notFound()` calls no longer fall through to the built-in English page.
+- **AppSheet flow copy (spec E)** — /requests guidance card + status hint now state the true lifecycle: raise from the WP screen → the PM decides (a rejection always carries a comment) → on approval, procurement takes over in the back office; สั่งซื้อแล้ว / ได้รับของแล้ว update automatically from the back-office record and cannot be set in-app. Wording respects ADR 0025 truthfulness rules (no claim that procurement sees pre-approval rows; no cross-user visibility claim).
+- **Pill consistency (spec F)** — the three hardcoded-zinc status pills (SA photo screen, PM review screen, /pm/projects) now use the shared `workPackageStatusPillClasses` / `projectStatusPillClasses` helpers.
+- Tests updated with the copy they assert (spec'd): `validate-display-name` (/ว่าง/, digit 80 kept), `validate-purchase-request` (Thai field-term regexes), `auth-unauthenticated` e2e (LINE button + three login banners).
+
+### Adversarial verification (4-lens skeptic pass before merge)
+
+- **Thai-native lens** — caught a garden-path sentence ("…สถานะส่งคำขอแล้ว" misparses; now "คำขอนี้ได้รับการพิจารณาไปแล้ว"), a glossary mix on the hub hint (ตรวจ vs อนุมัติ domains; now "พิจารณาคำขอซื้อที่รออนุมัติ"), and the spec-E copy omitting WHO approves (now names ผู้จัดการโครงการ in both card and hint). Wording nits applied: spacing on the landing tagline, รอตรวจ uniformity, หน้างาน (not งานหน้างาน), ศูนย์ควบคุม terminology closed, login subtitle เพื่อเข้าใช้งาน.
+- **Completeness lens — pass.** No surviving repo-string English; exempt Latin intact; titles + `lang="th"` verified.
+- **Locked-behavior lens — pass.** Routes/redirects/pinned-form modes/grouping semantics/enums/RLS/supabase/worker untouched; h-9 input convention retained. Its nit (formatThaiDateTime dropped the replaced formatters' invalid-date guard, silently changing the failure mode) was fixed test-first.
+- **Spec-compliance lens** — tracker entry (this) and the 12th page title were the findings; see decisions.
+
+### Verification (spec 14 checklist)
+
+- New label/date tests RED before the module existed, GREEN after. ✔
+- `pnpm lint` / `pnpm typecheck` / `pnpm test` — **176/176** (167 prior + 9 new). ✔
+- `pnpm build` — passes; Sarabun resolves; 16 routes + static `/_not-found`. (No `.env.local` on this machine — server env supplied as process-local placeholders for page-data collection only; nothing written to disk.) ✔
+- `pnpm test:e2e` — **27/27** across chromium/firefox/webkit with the Thai assertions. ✔
+- English-remnant sweep — clean (see lens above). ✔
+- No diff under `supabase/` or `worker/`; no enum/route/redirect change. ✔
+
+### Decisions made
+
+- **No i18n library, single-language Thai** — hardcoded Thai + central label maps per the established "enum values are storage keys, labels are presentation" doctrine (spec 10). A library would violate library discipline without buying anything for a single-locale app.
+- **Buddhist-era dates, pinned to Asia/Bangkok** — what Thai users read everywhere; pinning locale + calendar + zone makes server and client renders identical (the old formatters disagreed).
+- **Sarabun over the skill's Noto Sans Thai suggestion** — brand coherence with the spec-13 PDF font.
+- **12th page title added beyond spec G's 11** — `ตรวจรายการงาน` on the PM WP-review route; the spec list omitted that route (an enumeration gap, not a scope decision). Recorded here per scope discipline rather than silently absorbed.
+- **Date test asserts containment (era year, Thai month, wall clock), not the exact string** — exact `Intl` output varies across ICU builds; the containment set still pins era + zone determinism.
+- **`Method Not Allowed` (logout GET) and DB-raised SQL messages untouched** — protocol/DB surfaces per spec carve-outs.
+
+### Open questions / iteration-2 queue (from the UX audit + this unit's review)
+
+- Raw Supabase Storage error text (English) can still reach the upload tile (`phase-uploader.tsx` passes `uploadError.message` through; pre-existing shape, spec carve-out) — convert to fixed Thai + console.error the raw message.
+- `global-error.tsx` for root-layout throws (built-in English page theoretically reachable; segment `error.tsx` doesn't cover the root layout).
+- Structural UX items deliberately deferred to iteration 2+: palette/theme identity + outdoor light theme, shared app-header refactor (three-pattern split), super_admin hub as a real route, photo tap-to-enlarge on review screens, toasts/themed confirm dialogs, progressive disclosure on /pm/requests, requested-at + rejection-comment display, queue ordering by wait time, `loading.tsx` skeletons, PWA manifest/icons/theme-color.
+- Docs refresh unit (v2-handoff, README, CLAUDE.md roles) still queued from the 2026-06-11 audit.

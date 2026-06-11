@@ -37,7 +37,7 @@ export function PurchaseRequestDecision({ requestId }: PurchaseRequestDecisionPr
 
   function handleDecide(decision: PurchaseDecision) {
     if (decision === "rejected" && !rejectCommentValid) {
-      setError("A comment is required when rejecting.");
+      setError("ต้องใส่ความเห็นเมื่อไม่อนุมัติ");
       return;
     }
     setError(null);
@@ -63,7 +63,7 @@ export function PurchaseRequestDecision({ requestId }: PurchaseRequestDecisionPr
   return (
     <div className="flex flex-col gap-2">
       <textarea
-        aria-label="Decision comment"
+        aria-label="ความเห็นประกอบการพิจารณา"
         value={comment}
         onChange={(e) => {
           setComment(e.target.value);
@@ -72,7 +72,7 @@ export function PurchaseRequestDecision({ requestId }: PurchaseRequestDecisionPr
         disabled={submitting}
         rows={2}
         maxLength={1000}
-        placeholder="Comment (required to reject)…"
+        placeholder="ความเห็น (ต้องใส่เมื่อไม่อนุมัติ)…"
         className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
       />
 
@@ -92,7 +92,7 @@ export function PurchaseRequestDecision({ requestId }: PurchaseRequestDecisionPr
           disabled={!canReject}
           className="inline-flex h-9 items-center justify-center rounded-md border border-red-900/70 bg-red-950/40 px-3 text-sm font-medium text-red-200 transition-colors hover:bg-red-950/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {submitting && pendingDecision === "rejected" ? "Rejecting…" : "Reject"}
+          {submitting && pendingDecision === "rejected" ? "กำลังบันทึก…" : "ไม่อนุมัติ"}
         </button>
         <button
           type="button"
@@ -100,7 +100,7 @@ export function PurchaseRequestDecision({ requestId }: PurchaseRequestDecisionPr
           disabled={!canApprove}
           className="inline-flex h-9 items-center justify-center rounded-md border border-zinc-700 bg-zinc-100 px-3 text-sm font-medium text-zinc-900 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {submitting && pendingDecision === "approved" ? "Approving…" : "Approve"}
+          {submitting && pendingDecision === "approved" ? "กำลังบันทึก…" : "อนุมัติ"}
         </button>
       </div>
     </div>

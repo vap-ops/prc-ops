@@ -62,16 +62,16 @@ export type AddPhotoResult =
   | { ok: false; error: string };
 
 export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
-  if (!isValidUuid(input.workPackageId)) return { ok: false, error: "Invalid work package id." };
-  if (!isValidUuid(input.photoId)) return { ok: false, error: "Invalid photo id." };
-  if (!isValidPhase(input.phase)) return { ok: false, error: "Invalid phase." };
-  if (!isValidPhotoExt(input.ext)) return { ok: false, error: "Unsupported image type." };
+  if (!isValidUuid(input.workPackageId)) return { ok: false, error: "รหัสรายการงานไม่ถูกต้อง" };
+  if (!isValidUuid(input.photoId)) return { ok: false, error: "รหัสรูปไม่ถูกต้อง" };
+  if (!isValidPhase(input.phase)) return { ok: false, error: "ช่วงงานไม่ถูกต้อง" };
+  if (!isValidPhotoExt(input.ext)) return { ok: false, error: "ไม่รองรับไฟล์รูปแบบนี้" };
 
   const supabase = await createServerSupabase();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Not signed in." };
+  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
 
   // Look up the WP under the caller's RLS context. If the caller
   // can't read it (wrong role, RLS rejects), the lookup returns null
@@ -81,7 +81,7 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
     .select("id, project_id, status")
     .eq("id", input.workPackageId)
     .maybeSingle();
-  if (wpError || !wp) return { ok: false, error: "Work package not found." };
+  if (wpError || !wp) return { ok: false, error: "ไม่พบรายการงาน" };
 
   // Server reconstructs the canonical storage path from validated
   // inputs and the WP's own project_id. The client never sends a
@@ -99,7 +99,7 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
     captured_at_client: input.capturedAtClient ?? null,
   });
   if (insertError) {
-    return { ok: false, error: "Couldn't record the photo. Please try again." };
+    return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
 
   let transitioned = false;
@@ -142,13 +142,13 @@ export interface RemovePhotoInput {
 export type RemovePhotoResult = { ok: true } | { ok: false; error: string };
 
 export async function removePhoto(input: RemovePhotoInput): Promise<RemovePhotoResult> {
-  if (!isValidUuid(input.photoLogId)) return { ok: false, error: "Invalid photo id." };
+  if (!isValidUuid(input.photoLogId)) return { ok: false, error: "รหัสรูปไม่ถูกต้อง" };
 
   const supabase = await createServerSupabase();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Not signed in." };
+  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
 
   // Validate the target is a real photo on a WP the caller can read.
   // RLS gates this select; if the caller can't see the row, we
@@ -159,9 +159,9 @@ export async function removePhoto(input: RemovePhotoInput): Promise<RemovePhotoR
     .select("id, work_package_id, phase, storage_path")
     .eq("id", input.photoLogId)
     .maybeSingle();
-  if (targetError || !target) return { ok: false, error: "Photo not found." };
+  if (targetError || !target) return { ok: false, error: "ไม่พบรูป" };
   if (target.storage_path === null) {
-    return { ok: false, error: "Photo already removed." };
+    return { ok: false, error: "รูปนี้ถูกลบไปแล้ว" };
   }
 
   // Anti-join guard: refuse if some other row already supersedes
@@ -171,9 +171,9 @@ export async function removePhoto(input: RemovePhotoInput): Promise<RemovePhotoR
     .select("id")
     .eq("superseded_by", target.id)
     .limit(1);
-  if (supersededError) return { ok: false, error: "Couldn't verify photo state." };
+  if (supersededError) return { ok: false, error: "ตรวจสอบสถานะรูปไม่สำเร็จ" };
   if (supersedingRows && supersedingRows.length > 0) {
-    return { ok: false, error: "Photo already removed." };
+    return { ok: false, error: "รูปนี้ถูกลบไปแล้ว" };
   }
 
   const { error: tombstoneError } = await supabase.from("photo_logs").insert(
@@ -185,7 +185,7 @@ export async function removePhoto(input: RemovePhotoInput): Promise<RemovePhotoR
     }),
   );
   if (tombstoneError) {
-    return { ok: false, error: "Couldn't remove the photo. Please try again." };
+    return { ok: false, error: "ลบรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
 
   // Look up the WP's project_id only for revalidatePath — the

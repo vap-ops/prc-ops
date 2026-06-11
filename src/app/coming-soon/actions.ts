@@ -40,7 +40,7 @@ export async function updateDisplayName(input: string): Promise<UpdateDisplayNam
       code: error.code,
       message: error.message,
     });
-    return { ok: false, error: "Couldn't save. Please try again." };
+    return { ok: false, error: "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
 
   revalidatePath("/coming-soon");

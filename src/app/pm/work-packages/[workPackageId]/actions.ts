@@ -47,19 +47,19 @@ export type RecordDecisionResult =
   | { ok: false; error: string };
 
 export async function recordDecision(input: RecordDecisionInput): Promise<RecordDecisionResult> {
-  if (!isValidUuid(input.workPackageId)) return { ok: false, error: "Invalid work package id." };
-  if (!isValidDecision(input.decision)) return { ok: false, error: "Invalid decision." };
+  if (!isValidUuid(input.workPackageId)) return { ok: false, error: "รหัสรายการงานไม่ถูกต้อง" };
+  if (!isValidDecision(input.decision)) return { ok: false, error: "ผลการตรวจไม่ถูกต้อง" };
 
   const comment = input.comment ?? null;
   if (!isCommentValid(input.decision, comment)) {
-    return { ok: false, error: "A comment is required for this decision." };
+    return { ok: false, error: "ผลการตรวจนี้ต้องใส่ความเห็น" };
   }
 
   const supabase = await createServerSupabase();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Not signed in." };
+  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
 
   // Explicit role check so the error surface is clean. RLS on
   // approvals INSERT is the load-bearing backstop — site_admin's
@@ -70,7 +70,7 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
     .eq("id", user.id)
     .maybeSingle();
   if (!userRow || !(PM_ROLES as readonly string[]).includes(userRow.role)) {
-    return { ok: false, error: "Only project managers can record decisions." };
+    return { ok: false, error: "เฉพาะผู้จัดการโครงการเท่านั้นที่บันทึกผลการตรวจได้" };
   }
 
   // Verify the WP exists under the caller's RLS and is at
@@ -81,9 +81,9 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
     .select("id, status")
     .eq("id", input.workPackageId)
     .maybeSingle();
-  if (wpError || !wp) return { ok: false, error: "Work package not found." };
+  if (wpError || !wp) return { ok: false, error: "ไม่พบรายการงาน" };
   if (wp.status !== "pending_approval") {
-    return { ok: false, error: "This work package isn't currently up for review." };
+    return { ok: false, error: "รายการงานนี้ไม่ได้อยู่ในสถานะรอตรวจ" };
   }
 
   // Trim to the visible text; whitespace-only or null collapses to null.
@@ -98,7 +98,7 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
     decided_by: user.id,
   });
   if (insertError) {
-    return { ok: false, error: "Couldn't record the decision. Please try again." };
+    return { ok: false, error: "บันทึกผลการตรวจไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
 
   let transitioned = false;

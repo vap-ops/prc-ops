@@ -18,6 +18,8 @@ import { createClient } from "@/lib/db/server";
 // Auth-server round-trip on the render path. See ADR 0021. The middleware
 // keeps getUser() once per request for the authoritative refresh.
 
+export const metadata = { title: "โปรไฟล์" };
+
 export default async function ProfilePage() {
   const supabase = await createClient();
   const { data: claimsData } = await supabase.auth.getClaims();
@@ -48,13 +50,13 @@ export default async function ProfilePage() {
             href={backHref}
             className="inline-flex items-center gap-1 text-xs text-zinc-500 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
           >
-            <span aria-hidden="true">←</span> Back
+            <span aria-hidden="true">←</span> กลับ
           </Link>
           <div className="flex items-center gap-4 pt-1">
             <AvatarSurface lineUrl={row.line_avatar_url} fullName={row.full_name} size={64} />
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
-              <p className="text-sm text-zinc-500">Edit your display name.</p>
+              <h1 className="text-2xl font-semibold tracking-tight">โปรไฟล์</h1>
+              <p className="text-sm text-zinc-500">แก้ไขชื่อที่แสดง</p>
             </div>
           </div>
         </header>

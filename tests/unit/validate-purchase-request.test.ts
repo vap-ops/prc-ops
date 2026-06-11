@@ -70,7 +70,7 @@ describe("validateCreatePurchaseRequest", () => {
       unit: "bag",
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error).toMatch(/item/i);
+    if (!r.ok) expect(r.error).toMatch(/วัสดุ/);
   });
 
   it("rejects whitespace-only item_description (mirrors length(trim(...)) > 0)", () => {
@@ -81,7 +81,7 @@ describe("validateCreatePurchaseRequest", () => {
       unit: "bag",
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error).toMatch(/item/i);
+    if (!r.ok) expect(r.error).toMatch(/วัสดุ/);
   });
 
   it("rejects an empty unit", () => {
@@ -92,7 +92,7 @@ describe("validateCreatePurchaseRequest", () => {
       unit: "",
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error).toMatch(/unit/i);
+    if (!r.ok) expect(r.error).toMatch(/หน่วย/);
   });
 
   it("rejects whitespace-only unit", () => {
@@ -103,7 +103,7 @@ describe("validateCreatePurchaseRequest", () => {
       unit: "   ",
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error).toMatch(/unit/i);
+    if (!r.ok) expect(r.error).toMatch(/หน่วย/);
   });
 
   it("rejects quantity = 0 (mirrors quantity > 0 CHECK)", () => {
@@ -114,7 +114,7 @@ describe("validateCreatePurchaseRequest", () => {
       unit: "bag",
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error).toMatch(/quantity/i);
+    if (!r.ok) expect(r.error).toMatch(/จำนวน/);
   });
 
   it("rejects negative quantity", () => {
@@ -125,7 +125,7 @@ describe("validateCreatePurchaseRequest", () => {
       unit: "bag",
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error).toMatch(/quantity/i);
+    if (!r.ok) expect(r.error).toMatch(/จำนวน/);
   });
 
   it("rejects NaN quantity", () => {
@@ -136,7 +136,7 @@ describe("validateCreatePurchaseRequest", () => {
       unit: "bag",
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error).toMatch(/quantity/i);
+    if (!r.ok) expect(r.error).toMatch(/จำนวน/);
   });
 
   it("rejects Infinity quantity", () => {
@@ -147,7 +147,7 @@ describe("validateCreatePurchaseRequest", () => {
       unit: "bag",
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error).toMatch(/quantity/i);
+    if (!r.ok) expect(r.error).toMatch(/จำนวน/);
   });
 
   it("accepts fractional quantity (numeric column, not integer)", () => {
@@ -169,7 +169,7 @@ describe("validateCreatePurchaseRequest", () => {
       unit: "bag",
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error).toMatch(/work package/i);
+    if (!r.ok) expect(r.error).toMatch(/รายการงาน/);
   });
 });
 

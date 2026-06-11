@@ -1,4 +1,4 @@
-export function LogoutButton({ label = "Log out" }: { label?: string }) {
+export function LogoutButton({ label = "ออกจากระบบ" }: { label?: string }) {
   return (
     <form method="post" action="/auth/logout">
       <button

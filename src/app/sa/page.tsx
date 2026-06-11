@@ -2,14 +2,10 @@ import Link from "next/link";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
+import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
 import { projectStatusPillClasses } from "@/lib/status-colors";
 
-const PROJECT_STATUS_LABEL: Record<string, string> = {
-  active: "Active",
-  on_hold: "On hold",
-  completed: "Completed",
-  archived: "Archived",
-};
+export const metadata = { title: "โครงการ" };
 
 export default async function SitAdminLandingPage() {
   const ctx = await requireRole(["site_admin", "project_manager", "super_admin"]);
@@ -25,15 +21,17 @@ export default async function SitAdminLandingPage() {
       <header className="border-b border-zinc-800 px-5 py-4">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
           <div>
-            <p className="text-xs tracking-wider text-zinc-500 uppercase">Site admin</p>
-            <h1 className="text-lg font-semibold tracking-tight">Hi, {ctx.fullName ?? "there"}.</h1>
+            <p className="text-xs tracking-wider text-zinc-500 uppercase">หน้างาน</p>
+            <h1 className="text-lg font-semibold tracking-tight">
+              {ctx.fullName ? `สวัสดี คุณ${ctx.fullName}` : "สวัสดี"}
+            </h1>
           </div>
           <div className="flex items-center gap-3">
             <Link
               href="/profile"
               className="text-sm text-zinc-400 transition-colors hover:text-zinc-100 focus:outline-none focus-visible:underline"
             >
-              Profile
+              โปรไฟล์
             </Link>
             <LogoutButton />
           </div>
@@ -42,26 +40,26 @@ export default async function SitAdminLandingPage() {
 
       <nav className="border-b border-zinc-800/60 bg-zinc-900/30 px-5 py-2">
         <div className="mx-auto flex max-w-2xl items-center gap-4 text-xs">
-          <span className="text-zinc-100">Projects</span>
+          <span className="text-zinc-100">โครงการ</span>
           <Link
             href="/requests"
             className="text-zinc-500 transition-colors hover:text-zinc-200 focus:outline-none focus-visible:underline"
           >
-            My requests →
+            คำขอซื้อของฉัน →
           </Link>
         </div>
       </nav>
 
       <section className="mx-auto max-w-2xl px-5 py-6">
-        <h2 className="mb-3 text-sm font-medium text-zinc-400">Projects</h2>
+        <h2 className="mb-3 text-sm font-medium text-zinc-400">โครงการ</h2>
 
         {error ? (
           <p className="rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-            Couldn&apos;t load projects. Please try again.
+            โหลดรายการโครงการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง
           </p>
         ) : !projects || projects.length === 0 ? (
           <p className="rounded-md border border-zinc-800 bg-zinc-900/50 px-4 py-6 text-center text-sm text-zinc-400">
-            No projects yet.
+            ยังไม่มีโครงการ
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -78,7 +76,8 @@ export default async function SitAdminLandingPage() {
                   <span
                     className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium ${projectStatusPillClasses(p.status)}`}
                   >
-                    {PROJECT_STATUS_LABEL[p.status] ?? p.status}
+                    {PROJECT_STATUS_LABEL[p.status as keyof typeof PROJECT_STATUS_LABEL] ??
+                      p.status}
                   </span>
                 </Link>
               </li>

@@ -58,7 +58,7 @@ export function DisplayNameForm({ initialName }: DisplayNameFormProps) {
       className="flex flex-col gap-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-4"
     >
       <label htmlFor="display-name" className="text-sm font-medium text-zinc-200">
-        Display name
+        ชื่อที่แสดง
       </label>
       <input
         id="display-name"
@@ -72,7 +72,7 @@ export function DisplayNameForm({ initialName }: DisplayNameFormProps) {
         }}
         disabled={submitting}
         className="h-9 rounded-md border border-zinc-800 bg-zinc-900/60 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
-        placeholder="Your name"
+        placeholder="ชื่อของคุณ"
       />
 
       {inlineError ? (
@@ -87,7 +87,7 @@ export function DisplayNameForm({ initialName }: DisplayNameFormProps) {
       <div className="flex items-center justify-end gap-3">
         {savedAt !== null && !submitting ? (
           <span className="text-xs text-emerald-400" role="status">
-            Saved
+            บันทึกแล้ว
           </span>
         ) : null}
         <button
@@ -95,7 +95,7 @@ export function DisplayNameForm({ initialName }: DisplayNameFormProps) {
           disabled={!canSubmit}
           className="inline-flex h-9 items-center justify-center rounded-md border border-zinc-700 bg-zinc-100 px-4 text-sm font-medium text-zinc-900 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {submitting ? "Saving…" : "Save"}
+          {submitting ? "กำลังบันทึก…" : "บันทึก"}
         </button>
       </div>
     </form>

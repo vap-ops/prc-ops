@@ -41,7 +41,7 @@ test.describe("auth — unauthenticated paths", () => {
     await page.goto("/");
     await expect(page).toHaveURL("/");
     await expect(page.getByRole("heading", { name: "PRC Ops", level: 1 })).toBeVisible();
-    const loginLink = page.getByRole("link", { name: /log in with line/i });
+    const loginLink = page.getByRole("link", { name: /เข้าสู่ระบบด้วย LINE/ });
     await expect(loginLink).toBeVisible();
     await expect(loginLink).toHaveAttribute("href", "/auth/line/start");
   });
@@ -49,7 +49,7 @@ test.describe("auth — unauthenticated paths", () => {
   test("GET /login renders the LINE login link", async ({ page }) => {
     await page.goto("/login");
     await expect(page).toHaveURL("/login");
-    const loginLink = page.getByRole("link", { name: /log in with line/i });
+    const loginLink = page.getByRole("link", { name: /เข้าสู่ระบบด้วย LINE/ });
     await expect(loginLink).toBeVisible();
     await expect(loginLink).toHaveAttribute("href", "/auth/line/start");
   });
@@ -64,20 +64,20 @@ test.describe("auth — unauthenticated paths", () => {
     await page.goto("/login?error=oauth_failed");
     const banner = page.getByTestId("login-error");
     await expect(banner).toBeVisible();
-    await expect(banner).toContainText(/sign-in didn'?t complete/i);
+    await expect(banner).toContainText(/เข้าสู่ระบบไม่สำเร็จ/);
   });
 
   test("GET /login?error=session_failed renders the error banner", async ({ page }) => {
     await page.goto("/login?error=session_failed");
     const banner = page.getByTestId("login-error");
     await expect(banner).toBeVisible();
-    await expect(banner).toContainText(/couldn'?t establish your session/i);
+    await expect(banner).toContainText(/ไม่สามารถเริ่มเซสชันได้/);
   });
 
   test("GET /login?error=unknown renders the error banner", async ({ page }) => {
     await page.goto("/login?error=unknown");
     const banner = page.getByTestId("login-error");
     await expect(banner).toBeVisible();
-    await expect(banner).toContainText(/something went wrong/i);
+    await expect(banner).toContainText(/เกิดข้อผิดพลาด/);
   });
 });
