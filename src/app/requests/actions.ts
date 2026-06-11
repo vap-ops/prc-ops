@@ -130,6 +130,5 @@ export async function decidePurchaseRequest(
   }
 
   revalidatePath("/requests");
-  revalidatePath("/pm/requests");
   return { ok: true, status: input.decision };
 }

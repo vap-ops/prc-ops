@@ -36,6 +36,10 @@ the top recommendation from `docs/app-feel-options.md`.
 
 ### B. `HubNav` — one consistent nav strip
 
+> **Superseded in part by spec 19 §4 (2026-06-11):** `/pm/requests`
+> merged into `/requests`; `PM_HUB_NAV` is now three items with a
+> single purchasing entry, and the strip itself is desktop-only.
+
 New `src/components/features/hub-nav.tsx`: same visual language as the
 current strips (border-b zinc-800/60, bg zinc-900/30, text-xs; current
 page = text-zinc-100 span, others = zinc-500→200 links) with two

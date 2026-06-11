@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppHeader } from "@/components/features/app-header";
+import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { ErrorNotice } from "@/components/features/notices";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
@@ -28,7 +29,7 @@ export const metadata = { title: "รายงาน" };
 
 export default async function ProjectReportsPage({ params }: PageProps) {
   const { projectId } = await params;
-  await requireRole(["project_manager", "super_admin"]);
+  const ctx = await requireRole(["project_manager", "super_admin"]);
   const supabase = await createClient();
 
   const { data: project } = await supabase
@@ -59,7 +60,8 @@ export default async function ProjectReportsPage({ params }: PageProps) {
   const canGenerate = canGenerateReport(statuses);
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-100">
+    <main className="min-h-screen bg-zinc-950 pb-20 text-zinc-100 sm:pb-0">
+      <BottomTabBar role={ctx.role} />
       <AppHeader kicker="ผู้จัดการโครงการ" title="รายงาน" maxWidthClass="max-w-2xl" />
 
       <nav className="border-b border-zinc-800/60 bg-zinc-900/30 px-5 py-2">

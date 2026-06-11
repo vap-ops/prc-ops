@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppHeader } from "@/components/features/app-header";
+import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { HubNav, SA_HUB_NAV } from "@/components/features/hub-nav";
 import { EmptyNotice, ErrorNotice } from "@/components/features/notices";
 import { StatusPill } from "@/components/features/status-pill";
@@ -20,7 +21,8 @@ export default async function SitAdminLandingPage() {
     .order("code", { ascending: true });
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-100">
+    <main className="min-h-screen bg-zinc-950 pb-20 text-zinc-100 sm:pb-0">
+      <BottomTabBar role={ctx.role} />
       <AppHeader kicker="หน้างาน" fullName={ctx.fullName} maxWidthClass="max-w-2xl" />
 
       <HubNav maxWidthClass="max-w-2xl" items={SA_HUB_NAV} currentHref="/sa" />

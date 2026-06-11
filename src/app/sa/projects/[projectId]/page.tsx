@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { WorkPackageList } from "./work-package-list";
@@ -12,7 +13,7 @@ export const metadata = { title: "รายการงาน" };
 
 export default async function ProjectWorkPackagesPage({ params }: PageProps) {
   const { projectId } = await params;
-  await requireRole(["site_admin", "project_manager", "super_admin"]);
+  const ctx = await requireRole(["site_admin", "project_manager", "super_admin"]);
   const supabase = await createClient();
 
   const { data: project } = await supabase
@@ -41,7 +42,8 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
     .order("sort_order", { ascending: true });
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-100">
+    <main className="min-h-screen bg-zinc-950 pb-20 text-zinc-100 sm:pb-0">
+      <BottomTabBar role={ctx.role} />
       <header className="border-b border-zinc-800 px-5 py-4">
         <div className="mx-auto flex max-w-2xl flex-col gap-1">
           <Link

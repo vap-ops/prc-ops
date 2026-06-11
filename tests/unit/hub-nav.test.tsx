@@ -6,11 +6,12 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { HubNav, PM_HUB_NAV, SA_HUB_NAV } from "@/components/features/hub-nav";
 
+// Spec 19 §4: /pm/requests merged into /requests — the PM set drops to
+// three items with exactly one purchasing entry.
 const PM_ITEMS = [
   { label: "รายการรอตรวจ", href: "/pm" },
   { label: "โครงการและรายงาน", href: "/pm/projects" },
-  { label: "คำขอซื้อ", href: "/pm/requests" },
-  { label: "คำขอซื้อของฉัน", href: "/requests" },
+  { label: "คำขอซื้อ", href: "/requests" },
 ];
 
 describe("canonical nav sets", () => {
@@ -21,7 +22,7 @@ describe("canonical nav sets", () => {
   it("pins the SA set's destinations and order", () => {
     expect(SA_HUB_NAV).toEqual([
       { label: "โครงการ", href: "/sa" },
-      { label: "คำขอซื้อของฉัน", href: "/requests" },
+      { label: "คำขอซื้อ", href: "/requests" },
     ]);
   });
 });
@@ -33,11 +34,7 @@ describe("HubNav", () => {
     expect(current.tagName).toBe("SPAN");
     expect(screen.queryByRole("link", { name: "โครงการและรายงาน" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "รายการรอตรวจ" })).toHaveAttribute("href", "/pm");
-    expect(screen.getByRole("link", { name: "คำขอซื้อ" })).toHaveAttribute("href", "/pm/requests");
-    expect(screen.getByRole("link", { name: "คำขอซื้อของฉัน" })).toHaveAttribute(
-      "href",
-      "/requests",
-    );
+    expect(screen.getByRole("link", { name: "คำขอซื้อ" })).toHaveAttribute("href", "/requests");
   });
 
   it("renders no directional arrow glyphs", () => {

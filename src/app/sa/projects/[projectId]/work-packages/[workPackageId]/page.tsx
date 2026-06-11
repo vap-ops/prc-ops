@@ -8,6 +8,7 @@ import {
   type PhotoPhase,
 } from "@/lib/photos/current-photos";
 import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
+import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { StatusPill } from "@/components/features/status-pill";
 import { PHOTO_PHASE_LABEL, WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
@@ -29,7 +30,7 @@ const PHASES: ReadonlyArray<{ phase: PhotoPhase; label: string }> = [
 
 export default async function WorkPackagePhotoScreen({ params }: PageProps) {
   const { projectId, workPackageId } = await params;
-  await requireRole(["site_admin", "project_manager", "super_admin"]);
+  const ctx = await requireRole(["site_admin", "project_manager", "super_admin"]);
   const supabase = await createClient();
 
   const { data: wp } = await supabase
@@ -51,7 +52,8 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
   const signedUrls = await mintSignedUrlsForPhotos(allPhotos);
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-100">
+    <main className="min-h-screen bg-zinc-950 pb-20 text-zinc-100 sm:pb-0">
+      <BottomTabBar role={ctx.role} />
       <header className="border-b border-zinc-800 px-5 py-4">
         <div className="mx-auto flex max-w-2xl flex-col gap-1">
           <Link

@@ -15,16 +15,16 @@ export interface HubNavItem {
 
 // The canonical item sets — every consuming page passes one of these so
 // the destinations and their order never drift between pages again.
+// Spec 19 §4 merged /pm/requests into /requests: one purchasing entry.
 export const PM_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "รายการรอตรวจ", href: "/pm" },
   { label: "โครงการและรายงาน", href: "/pm/projects" },
-  { label: "คำขอซื้อ", href: "/pm/requests" },
-  { label: "คำขอซื้อของฉัน", href: "/requests" },
+  { label: "คำขอซื้อ", href: "/requests" },
 ];
 
 export const SA_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "โครงการ", href: "/sa" },
-  { label: "คำขอซื้อของฉัน", href: "/requests" },
+  { label: "คำขอซื้อ", href: "/requests" },
 ];
 
 interface HubNavProps {
@@ -35,7 +35,8 @@ interface HubNavProps {
 
 export function HubNav({ maxWidthClass, items, currentHref }: HubNavProps) {
   return (
-    <nav className="border-b border-zinc-800/60 bg-zinc-900/30 px-5 py-1">
+    // Desktop-only (spec 19 §2): phones navigate via the bottom tab bar.
+    <nav className="hidden border-b border-zinc-800/60 bg-zinc-900/30 px-5 py-1 sm:block">
       <div className={`mx-auto flex ${maxWidthClass} flex-wrap items-center gap-x-4 text-xs`}>
         {items.map((item) =>
           item.href === currentHref ? (

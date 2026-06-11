@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { AvatarSurface } from "@/components/features/avatar-surface";
+import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { DisplayNameForm } from "@/components/features/display-name-form";
 import { roleHome, type UserRole } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
@@ -43,7 +44,8 @@ export default async function ProfilePage() {
   const backHref = roleHome(role);
 
   return (
-    <main className="min-h-screen bg-zinc-950 px-6 py-10 text-zinc-100">
+    <main className="min-h-screen bg-zinc-950 px-6 py-10 pb-20 text-zinc-100 sm:pb-10">
+      <BottomTabBar role={role} />
       <div className="mx-auto flex w-full max-w-md flex-col gap-6">
         <header className="space-y-2">
           <Link

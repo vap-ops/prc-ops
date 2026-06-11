@@ -30,10 +30,19 @@ import type { Database } from "@/lib/db/database.types";
 
 import { PURCHASE_REQUEST_STATUS_LABEL, formatThaiDateTime } from "@/lib/i18n/labels";
 import { purchaseRequestStatusPillClasses } from "@/lib/status-colors";
+import { BottomTabBar } from "@/components/features/bottom-tab-bar";
+import { PurchaseRequestDecision } from "@/components/features/purchase-request-decision";
+import { fetchDisplayNames } from "@/lib/users/display-names";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
 
-export const metadata = { title: "คำขอซื้อของฉัน" };
+// Spec 19 §4: the single purchasing surface for every role. PM/super
+// see the decision controls inline on requested rows (the old
+// /pm/requests queue, merged here); the list is pending-first
+// (requested asc — the priority band joins in spec-16 P1), decided
+// rows below newest-first. SA visibility stays own-rows-only until
+// spec-16 addendum A1 widens the SELECT policy.
+export const metadata = { title: "คำขอซื้อ" };
 
 interface RequestsPageProps {
   searchParams: Promise<{ wp?: string | string[] }>;
@@ -80,19 +89,43 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // (pr_reject_has_comment); purchased_at / supplier / delivered_at /
   // received_by / delivery_note are written by procurement in AppSheet
   // (ADR 0025) and are null until that stage.
-  const { data: myRequests, error: myError } = await supabase
+  // RLS decides visibility (own rows for SA until addendum A1; all rows
+  // for PM/procurement/super) — no .eq(requested_by) filter since the
+  // spec-19 merge: PMs decide here now.
+  const { data: visibleRequests, error: myError } = await supabase
     .from("purchase_requests")
     .select(
-      "id, work_package_id, item_description, quantity, unit, status, requested_at, decision_comment, decided_at, purchased_at, supplier, delivered_at, received_by, delivery_note",
+      "id, work_package_id, item_description, quantity, unit, status, requested_at, requested_by, requested_by_email, decision_comment, decided_at, purchased_at, supplier, delivered_at, received_by, delivery_note",
     )
-    .eq("requested_by", ctx.id)
     .order("requested_at", { ascending: false });
 
-  // Resolve WP code/name for the "My requests" list. PostgREST's foreign-
-  // table inflection would also work, but a separate query mirrors the
+  // Pending-first: requested rows oldest-first (the queue), decided
+  // rows below newest-first (the history).
+  const pendingRows = (visibleRequests ?? [])
+    .filter((r) => r.status === "requested")
+    .sort((a, b) => a.requested_at.localeCompare(b.requested_at));
+  const decidedRows = (visibleRequests ?? []).filter((r) => r.status !== "requested");
+  const myRequests = [...pendingRows, ...decidedRows];
+
+  const isDecider = ctx.role === "project_manager" || ctx.role === "super_admin";
+  const requesterNames = isDecider
+    ? await fetchDisplayNames(
+        Array.from(
+          new Set(
+            myRequests
+              .map((r) => r.requested_by)
+              .filter((id): id is string => typeof id === "string"),
+          ),
+        ),
+        "[requests]",
+      )
+    : new Map<string, string>();
+
+  // Resolve WP code/name for the list. PostgREST's foreign-table
+  // inflection would also work, but a separate query mirrors the
   // pm/page.tsx + current-photos.ts convention and keeps the typed shape
   // legible to readers.
-  const wpIdsInRequests = Array.from(new Set((myRequests ?? []).map((r) => r.work_package_id)));
+  const wpIdsInRequests = Array.from(new Set(myRequests.map((r) => r.work_package_id)));
   const { data: wpForRequests } = await supabase
     .from("work_packages")
     .select("id, code, name")
@@ -100,7 +133,8 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   const wpById = new Map((wpForRequests ?? []).map((wp) => [wp.id, wp]));
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-100">
+    <main className="min-h-screen bg-zinc-950 pb-20 text-zinc-100 sm:pb-0">
+      <BottomTabBar role={ctx.role} />
       <AppHeader kicker="คำขอซื้อ" fullName={ctx.fullName} maxWidthClass="max-w-2xl" />
 
       <nav className="border-b border-zinc-800/60 bg-zinc-900/30 px-5 py-1">
@@ -134,11 +168,15 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         </div>
 
         <div>
-          <h2 className="mb-3 text-sm font-medium text-zinc-400">คำขอซื้อของฉัน</h2>
+          <h2 className="mb-3 text-sm font-medium text-zinc-400">
+            {isDecider ? "คำขอซื้อ" : "คำขอซื้อของฉัน"}
+          </h2>
           {myError ? (
             <ErrorNotice>โหลดรายการคำขอซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</ErrorNotice>
-          ) : !myRequests || myRequests.length === 0 ? (
-            <EmptyNotice>คุณยังไม่เคยสร้างคำขอซื้อ</EmptyNotice>
+          ) : myRequests.length === 0 ? (
+            <EmptyNotice>
+              {isDecider ? "ยังไม่มีคำขอซื้อ" : "คุณยังไม่เคยสร้างคำขอซื้อ"}
+            </EmptyNotice>
           ) : (
             <ul className="flex flex-col gap-2">
               {myRequests.map((r) => {
@@ -166,6 +204,15 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                           </span>
                         </p>
                         <p className="text-xs text-zinc-500">
+                          {isDecider ? (
+                            <>
+                              ขอซื้อโดย{" "}
+                              {(r.requested_by ? requesterNames.get(r.requested_by) : null) ??
+                                r.requested_by_email ??
+                                "—"}
+                              <span className="mx-1 text-zinc-700">·</span>
+                            </>
+                          ) : null}
                           ขอเมื่อ {formatThaiDateTime(r.requested_at)}
                         </p>
                       </div>
@@ -207,6 +254,11 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                       <p className="mt-1 text-xs whitespace-pre-wrap text-zinc-400">
                         {r.delivery_note}
                       </p>
+                    ) : null}
+                    {isDecider && status === "requested" ? (
+                      <div className="mt-3 border-t border-zinc-800 pt-3">
+                        <PurchaseRequestDecision requestId={r.id} />
+                      </div>
                     ) : null}
                   </li>
                 );

@@ -2,10 +2,11 @@
 
 // 'use client' justification (feature spec 09, ADR 0022):
 //
-// Per-row Approve / Reject control on /pm/requests. Owns the comment
-// textarea state, the decision-in-flight state, and the inline error
-// strip. Mirrors DisplayNameForm in shape (useState + useTransition +
-// pure validator + router.refresh()).
+// Per-row Approve / Reject control on the /requests pending rows
+// (spec 19 §4 merged the old /pm/requests queue there). Owns the
+// comment textarea state, the decision-in-flight state, and the inline
+// error strip. Mirrors DisplayNameForm in shape (useState +
+// useTransition + pure validator + router.refresh()).
 //
 // The reject-needs-comment rule is checked client-side via the pure
 // isDecisionCommentValid predicate so the button shows as disabled
@@ -53,8 +54,8 @@ export function PurchaseRequestDecision({ requestId }: PurchaseRequestDecisionPr
         setPendingDecision(null);
         return;
       }
-      // On success, the row leaves the queue (status is no longer
-      // 'requested'), so router.refresh() drops it from /pm/requests.
+      // On success, the row leaves the pending band (status is no
+      // longer 'requested'), so router.refresh() re-sorts it below.
       // We don't clear local state — the component is about to unmount.
       router.refresh();
     });

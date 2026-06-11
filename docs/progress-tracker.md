@@ -5839,3 +5839,40 @@ Read-only audit over `supabase db query --linked` (Management API, postgres cont
 - **Specs:** [`16-purchase-request-enrichment.md` Addendum](./feature-specs/16-purchase-request-enrichment.md), [`19-bottom-tabs-nav.md`](./feature-specs/19-bottom-tabs-nav.md).
 - **Adversarial pass (1 skeptic over both docs):** 2 majors fixed pre-commit - the naive prefix active-tab rule would have double-lit tabs on every /pm/projects/\* page (now longest-prefix-wins, single aria-current, test-pinned), and the signed-URL exposure radius in spec 16 item (f) contradicted A1 the day it shipped (amended in place). 9 minors folded: enumerated src/ artifacts the visibility flip invalidates (incl. the hub-nav test toEqual pins), pgTAP F.2 flip wording, ADR-0026 in-place pointers at the reversed isolation paragraph, migration rename folded into SS6, nulls-last confusion dropped, SS8 Thai strings for priority, cross-doc ordering reconciliation (spec 19 SS4 supersedes A1's requested_at desc), permanentRedirect(308) + SA-landing delta + dead revalidatePath, super_admin tab set + per-page mounting.
 - **Implementation order (next sessions):** ADR 0026 -> spec 16 P1 (now incl. visibility + priority) -> P2 -> ADR 0027 -> P3; spec 19 SS1-SS3 any time after operator answers the SS4 veto question.
+
+---
+
+## Unit: bottom tab bar + purchasing-surface consolidation (spec 19, iteration 6 nav)
+
+- **Status:** Complete — 2026-06-11 (operator approved the spec; §4 merge proceeded — operator reply raised no veto; merge-auto standing instruction).
+- **Spec:** [`docs/feature-specs/19-bottom-tabs-nav.md`](./feature-specs/19-bottom-tabs-nav.md).
+- **Note:** §4 ships with requested_at-only band ordering; the priority band joins when spec-16 P1 lands. /requests keeps the SA in-page heading until addendum A1 widens visibility.
+
+### Done
+
+- **Writing failing test first** — RED: new `tests/unit/bottom-tab-bar.test.tsx` failed module-absent, and the `hub-nav.test.tsx` `toEqual` pins broke against the four-item constants (the named UPDATE-test). GREEN after implementation; final suite **240/240** (232 prior + 8 net new).
+- **§1 BottomTabBar** — phone-only fixed bottom bar (safe-area padded for the PWA), role-aware `SA_TABS` (3) / `PM_TABS` (4, super uses PM), longest-prefix active rule (exactly one `aria-current`, test-pinned at a nested path + zero on cross-surface), mounted per-page on all 9 authenticated surfaces with `pb-20 sm:pb-0`.
+- **§2** — HubNav strip and the header โปรไฟล์ link are now desktop-only (one affordance per viewport).
+- **§4 merge** — `/requests` is the single purchasing surface: pending rows first (oldest-first queue) with inline decision controls + ขอซื้อโดย line for pm/super, decided history below newest-first; role-conditional heading; `PM_HUB_NAV` → 3 items; operator-hub link updated; dead `revalidatePath` removed.
+
+### Decisions made
+
+- **Route handler instead of page-level `permanentRedirect`** (spec-text deviation, improvement): a page redirect streams as HTTP 200 under `/pm`'s `loading.tsx` Suspense boundary — browsers navigate but the promised 308 never hits the wire. `/pm/requests/route.ts` + `NextResponse.redirect(…, 308)` delivers a REAL 308 (verified live on the dev server); the segment's `loading.tsx` deleted (route handlers don't stream).
+- **No band heading in the merged list** (skeptic note): the old รออนุมัติ heading and queue-empty notice have no direct equivalent; pending-first ordering carries the signal. A รออนุมัติ band label / "queue clear" note for pm/super is a recorded one-liner follow-up if the operator misses it.
+- **Unbounded fetch recorded:** PM/super now fetch all rows with no limit; acceptable at pilot scale — pagination joins spec-16 P1's ordering rework.
+
+### Adversarial verification (3-lens workflow)
+
+- **Security lens — pass.** SA visibility unchanged (RLS own-rows; `fetchDisplayNames` gated behind `isDecider`); a forged SA decide call is refused by the RLS UPDATE policy (0 rows → "already decided", audit trigger never fires); the 308 route leaks nothing and the proxy still gates it; the partition sort proven chronologically correct; tie-breaking in the prefix rule impossible by construction.
+- **UX/locked lens — pass.** Spec-12 back-bar and spec-10 pinned-form intact; spec-18 §B amendment note added; stale comments fixed.
+- **Discipline lens** — its major was this missing completion record; written now.
+
+### Verification (spec 19 checklist)
+
+- RED → GREEN per above. ✔ lint/typecheck/test — **240/240**. ✔ build (route table: /pm/requests now a route handler). ✔ e2e — **27/27**. ✔ Live: `/pm/requests` returns HTTP **308 → /requests** on the dev server. ✔ No diff under `supabase/`/`worker/`. ⏳ Phone-width visual pass (tab bar/safe-area/active states) — auth-gated, placeholder env cannot log in; **pending operator on the next production deploy** (unit pins + e2e cover behavior).
+
+### Open questions / iteration-7 queue
+
+- รออนุมัติ band label or queue-clear note for pm/super (one-liner, if wanted).
+- Decided-history pagination (joins spec-16 P1).
+- Carried: skeleton width one-liner, dialog a11y foundation, real logo, palette/outdoor theme, LINE notification unit.
