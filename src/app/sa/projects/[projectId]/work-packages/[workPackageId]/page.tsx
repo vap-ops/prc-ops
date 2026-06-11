@@ -26,6 +26,7 @@ import {
 } from "@/lib/status-colors";
 import { fetchAssignableStaff, fetchDisplayNames } from "@/lib/users/display-names";
 import { WpAssignmentPanel } from "@/components/features/wp-assignment-panel";
+import { PurchaseRequestForm } from "@/components/features/purchase-request-form";
 import { PhaseUploader } from "./phase-uploader";
 
 interface PageProps {
@@ -159,12 +160,6 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
               </>
             ) : null}
           </p>
-          <Link
-            href={`/requests?wp=${wp.id}`}
-            className="w-fit text-xs font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline"
-          >
-            สร้างคำขอซื้อ →
-          </Link>
           {isAssigner ? (
             <WpAssignmentPanel
               projectId={wp.project_id}
@@ -242,6 +237,22 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
               <p className="mt-2 text-sm whitespace-pre-wrap text-zinc-700">{wp.description}</p>
             </details>
           ) : null}
+          {/* Spec 29: the create form lives HERE now — raising a request
+              no longer teleports the user to the คำขอซื้อ tab
+              (operator-reported disorientation; site map 2026-06-11).
+              /requests?wp= pinned mode remains functional but no in-app
+              link produces it. */}
+          <details className="rounded-lg border border-zinc-300 bg-white px-4 py-3 shadow-sm">
+            <summary className="cursor-pointer text-sm font-semibold text-zinc-900">
+              สร้างคำขอซื้อ
+            </summary>
+            <div className="mt-3">
+              <PurchaseRequestForm
+                workPackage={{ id: wp.id, code: wp.code, name: wp.name }}
+                projectId={wp.project_id}
+              />
+            </div>
+          </details>
           {(wpRequests ?? []).length > 0 ? (
             <section>
               <h2 className="mb-2 text-base font-semibold text-zinc-900">คำขอซื้อของงานนี้</h2>
@@ -284,10 +295,10 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
                 })}
               </ul>
               <Link
-                href={`/requests?wp=${wp.id}`}
+                href="/requests"
                 className="mt-2 inline-flex text-xs font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline"
               >
-                ดูรายละเอียดคำขอซื้อทั้งหมด →
+                ดูในแท็บคำขอซื้อ →
               </Link>
             </section>
           ) : null}
