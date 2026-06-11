@@ -1,8 +1,10 @@
 # ADR 0034 — AppSheet sunset: procurement moves in-app; image bridge cancelled
 
-**Status:** Accepted — 2026-06-11. Source:
-`docs/architecture-revision-2026-06.md` §3.1 + §6; operator granted
-decision authority in chat ("you are allowed to make the calls").
+**Status:** Accepted — 2026-06-11. **Amended same day — retirement is
+now usage-driven ("atrophy model"), not scheduled; see Amendment.**
+Source: `docs/architecture-revision-2026-06.md` §3.1 + §6; operator
+granted decision authority in chat ("you are allowed to make the
+calls").
 
 ## Context
 
@@ -37,7 +39,40 @@ been in the enum since ADR 0008.
 5. After the in-app surface reaches write parity, **AppSheet is demoted
    to read-only viewer** (write grants revoked from `appsheet_writer`),
    then retired when the operator stops using it. Revocation is its own
-   migration + checklist update.
+   migration + checklist update. _(Superseded by the Amendment below:
+   demotion is no longer automatic at parity.)_
+
+## Amendment — 2026-06-11 (atrophy model)
+
+Operator asked for a pros/cons weighing of the hybrid before
+retirement; the evidence pass (chat, 2026-06-11) showed the hybrid is
+sounder than the original urgency credited: AppSheet writes only 9
+fact columns on one table, the derive/audit/notification triggers are
+writer-agnostic (spec 24's dual delivery path + spec 32's capture
+triggers already treat multiple writers as normal), and the grid/bulk
+entry surface may have real value at back-office volumes nobody can
+quantify yet. Operator could not determine the volume question and
+delegated the call.
+
+**Revised posture — retirement by atrophy, not by decree:**
+
+- Points 1–4 above stand unchanged (bridge cancelled, in-app
+  procurement surface gets built, suppliers in-app only, AppSheet
+  column set frozen).
+- **Parity does NOT auto-demote AppSheet.** Once the in-app
+  purchase/shipment form ships, both write paths coexist — the
+  architecture already supports this safely.
+- **The volume question answers itself by measurement:** every fact
+  write records its principal in `audit_log` (`appsheet_writer` vs the
+  app path). Demote to read-only when the in-app share of
+  purchase/delivery fact-writes stays ≳80–90% over several consecutive
+  weeks — or immediately on a forcing event: a second customer signs
+  (instance-cloning cost) or another AppSheet-caused outage.
+- The three currently-open AppSheet column TODOs are cleared once
+  (saves are broken until then regardless of this ADR).
+- If usage shows back office genuinely prefers the grid (batch entry),
+  a future in-app bulk/table-entry mode is the answer — specced then,
+  not preemptively.
 
 ## Consequences
 

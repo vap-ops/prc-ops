@@ -6073,3 +6073,7 @@ Open questions / seams: per-user notification preferences/opt-out; Flex message 
 - **Discipline:** payload.ts (5th pure module) had no tests → notification-payload.test.ts added (key mapping, type-narrowing drops, malformed input); recorded here as declared addition alongside the admin.ts typing pull-in. pr_cancelled trigger breadth (any→cancelled vs spec's approved→cancelled) recorded in ADR 0037 as deliberate, with the audit-widening caveat for any future self-cancel unit.
 
 Final suite state: 318 unit / 592 pgTAP / 27 e2e, typecheck+lint clean, drain endpoint live-probed 503 not_configured pre-activation.
+
+## ADR 0034 amendment - atrophy model (2026-06-11)
+
+Operator asked for hybrid pros/cons before AppSheet retirement; evidence pass (2-agent inventory) found the hybrid sounder than the architecture-revision urgency credited: AppSheet write surface = 9 fact columns on ONE table (decide/cancel/create/delivery-by-photo already in-app), derive/audit/notification triggers writer-agnostic, grid bulk-entry value unquantifiable yet (operator: "cannot determine"). ADR 0034 amended: parity build proceeds (in-app purchase/shipment form + suppliers still NEXT) but parity does NOT auto-demote — both paths coexist; demotion when audit_log principal split shows in-app carrying >80-90% of fact-writes for several weeks, or on forcing event (customer #2 / next AppSheet outage). Column freeze + 3 open TODOs unchanged. Volume question converted to measurement (audit principal field) instead of a bet.
