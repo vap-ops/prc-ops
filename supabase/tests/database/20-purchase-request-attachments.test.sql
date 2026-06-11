@@ -102,11 +102,11 @@ select is(has_table_privilege('appsheet_writer', 'public.purchase_request_attach
 
 -- Policy text pins (name-capture + branch regression guards).
 select ok(
-  (select with_check like '%purchase_request_attachments.superseded_by%'
+  (select with_check like '%pr_attachment_tombstone_target_ok%'
      from pg_policies
      where schemaname = 'public' and tablename = 'purchase_request_attachments'
        and policyname = 'insert reference while pending or confirmation when delivered'),
-  'INSERT policy keeps the TABLE-QUALIFIED outer superseded_by reference (name-capture guard)'
+  'INSERT policy validates tombstone targets via the SECURITY DEFINER helper (42P17 recursion fix)'
 );
 select ok(
   (select with_check like '%delivery_confirmation%' and with_check like '%delivered%'
