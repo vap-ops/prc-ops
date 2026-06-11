@@ -17,7 +17,19 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createPurchaseRequest } from "@/app/requests/actions";
-import { validateCreatePurchaseRequest } from "@/lib/purchasing/validate-purchase-request";
+import { COMMON_UNITS, UNIT_OTHER_VALUE } from "@/lib/purchasing/units";
+import {
+  PURCHASE_PRIORITIES,
+  validateCreatePurchaseRequest,
+  type PurchasePriority,
+} from "@/lib/purchasing/validate-purchase-request";
+import { PURCHASE_REQUEST_PRIORITY_LABEL } from "@/lib/i18n/labels";
+
+// Today as yyyy-mm-dd in Asia/Bangkok for the date input's soft floor —
+// mirrors the validator's clock (spec 16 §2).
+function bangkokToday(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date());
+}
 
 export interface PurchaseRequestFormWorkPackage {
   id: string;
@@ -33,10 +45,18 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
   const router = useRouter();
   const [itemDescription, setItemDescription] = useState<string>("");
   const [quantityText, setQuantityText] = useState<string>("");
-  const [unit, setUnit] = useState<string>("");
+  // Unit = dropdown of COMMON_UNITS + the อื่น ๆ sentinel revealing a
+  // free-text input (spec 16 §1). The derived `unit` string is what the
+  // validator/action/DB see — the sentinel is never persisted.
+  const [unitChoice, setUnitChoice] = useState<string>("");
+  const [unitOther, setUnitOther] = useState<string>("");
+  const [neededBy, setNeededBy] = useState<string>("");
+  const [priority, setPriority] = useState<PurchasePriority>("normal");
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [submitting, startSubmit] = useTransition();
+
+  const unit = unitChoice === UNIT_OTHER_VALUE ? unitOther : unitChoice;
 
   // Quantity is a numeric column at the DB and the validator wants a
   // finite positive number. The input is a free-text field so users can
@@ -49,6 +69,8 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
     itemDescription,
     quantity,
     unit,
+    neededBy: neededBy.length > 0 ? neededBy : null,
+    priority,
   });
   const canSubmit = !submitting && localValidation.ok;
 
@@ -63,6 +85,8 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
         itemDescription,
         quantity,
         unit,
+        neededBy: neededBy.length > 0 ? neededBy : null,
+        priority,
       });
       if (!result.ok) {
         setError(result.error);
@@ -71,19 +95,28 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
       // Pessimistic confirmation: only after the round-trip succeeded.
       // Clear the inputs so the form is ready for the next request on the
       // same WP; the router.refresh() re-runs the Server Component so the
-      // "My requests" list picks up the new row.
+      // list picks up the new row.
       setItemDescription("");
       setQuantityText("");
-      setUnit("");
+      setUnitChoice("");
+      setUnitOther("");
+      setNeededBy("");
+      setPriority("normal");
       setSavedAt(Date.now());
       router.refresh();
     });
   }
 
   // Inline validation only after the user has touched the field (any
-  // non-empty input). Same shape as DisplayNameForm — keeps an untouched
-  // form quiet. The pinned WP id never counts as "typed".
-  const userTyped = itemDescription.length > 0 || quantityText.length > 0 || unit.length > 0;
+  // non-empty input; a unit selection counts — spec 16 §1). Same shape
+  // as DisplayNameForm — keeps an untouched form quiet. The pinned WP id
+  // never counts as "typed".
+  const userTyped =
+    itemDescription.length > 0 ||
+    quantityText.length > 0 ||
+    unitChoice.length > 0 ||
+    unitOther.length > 0 ||
+    neededBy.length > 0;
   const inlineError = error ?? (!localValidation.ok && userTyped ? localValidation.error : null);
 
   return (
@@ -144,20 +177,92 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
           <label htmlFor="pr-unit" className="text-sm font-medium text-zinc-200">
             หน่วย
           </label>
-          <input
+          <select
             id="pr-unit"
+            value={unitChoice}
+            onChange={(e) => {
+              setUnitChoice(e.target.value);
+              setError(null);
+              setSavedAt(null);
+            }}
+            disabled={submitting}
+            className="h-9 w-full min-w-0 rounded-md border border-zinc-800 bg-zinc-900/60 px-2 text-sm text-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+          >
+            <option value="" disabled>
+              เลือกหน่วย
+            </option>
+            {COMMON_UNITS.map((u) => (
+              <option key={u} value={u}>
+                {u}
+              </option>
+            ))}
+            <option value={UNIT_OTHER_VALUE}>อื่น ๆ (ระบุเอง)</option>
+          </select>
+        </div>
+      </div>
+
+      {unitChoice === UNIT_OTHER_VALUE ? (
+        <div className="flex flex-col gap-1">
+          <label htmlFor="pr-unit-other" className="text-sm font-medium text-zinc-200">
+            ระบุหน่วย
+          </label>
+          <input
+            id="pr-unit-other"
             type="text"
-            value={unit}
+            value={unitOther}
             maxLength={50}
             onChange={(e) => {
-              setUnit(e.target.value);
+              setUnitOther(e.target.value);
               setError(null);
               setSavedAt(null);
             }}
             disabled={submitting}
             className="h-9 w-full min-w-0 rounded-md border border-zinc-800 bg-zinc-900/60 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
-            placeholder="ถุง"
+            placeholder="ระบุหน่วย"
           />
+        </div>
+      ) : null}
+
+      <div className="flex gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <label htmlFor="pr-needed-by" className="text-sm font-medium text-zinc-200">
+            ต้องการรับของภายใน (ไม่บังคับ)
+          </label>
+          <input
+            id="pr-needed-by"
+            type="date"
+            value={neededBy}
+            min={bangkokToday()}
+            onChange={(e) => {
+              setNeededBy(e.target.value);
+              setError(null);
+              setSavedAt(null);
+            }}
+            disabled={submitting}
+            className="h-9 w-full min-w-0 rounded-md border border-zinc-800 bg-zinc-900/60 px-3 text-sm text-zinc-100 [color-scheme:dark] focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+          />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <label htmlFor="pr-priority" className="text-sm font-medium text-zinc-200">
+            ความเร่งด่วน
+          </label>
+          <select
+            id="pr-priority"
+            value={priority}
+            onChange={(e) => {
+              setPriority(e.target.value as PurchasePriority);
+              setError(null);
+              setSavedAt(null);
+            }}
+            disabled={submitting}
+            className="h-9 w-full min-w-0 rounded-md border border-zinc-800 bg-zinc-900/60 px-2 text-sm text-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+          >
+            {PURCHASE_PRIORITIES.map((p) => (
+              <option key={p} value={p}>
+                {PURCHASE_REQUEST_PRIORITY_LABEL[p]}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

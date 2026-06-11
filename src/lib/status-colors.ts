@@ -101,6 +101,27 @@ export function reportStatusPillClasses(status: ReportStatus): string {
   }
 }
 
+export type PurchaseRequestPriority = Database["public"]["Enums"]["purchase_request_priority"];
+
+// Requester-set urgency (spec 16). normal renders no pill on the cards
+// (the quiet default — only escalations draw the eye); the map still
+// covers it for completeness and the fallback path.
+export function purchaseRequestPriorityPillClasses(priority: PurchaseRequestPriority): string {
+  switch (priority) {
+    case "normal":
+      return PILL_ZINC;
+    case "urgent":
+      return PILL_AMBER;
+    case "critical":
+      return PILL_RED;
+    default: {
+      const _exhaustive: never = priority;
+      void _exhaustive;
+      return PILL_ZINC;
+    }
+  }
+}
+
 export function purchaseRequestStatusPillClasses(status: PurchaseRequestStatus): string {
   switch (status) {
     case "requested":

@@ -13,23 +13,33 @@ import { createClient } from "@/lib/db/server";
 import { isValidUuid } from "@/lib/photos/path";
 import type { Database } from "@/lib/db/database.types";
 
-// /requests — purchase requests: the caller's own list, plus the request
-// form when arriving FROM a work package (spec 10: ?wp=<id> pins the WP;
-// there is no picker — WP screens carry the "Raise purchase request" link).
-// Authorized: site_admin, project_manager, super_admin — the v1 requester
-// base (ADR 0022). Other roles are bounced via requireRole's roleHome().
+// /requests — THE purchasing surface for every role (spec 19 §4 merged
+// the PM decision queue here; spec 16 A1 / ADR 0026 made the list
+// site-wide). The request form appears when arriving FROM a work package
+// (spec 10: ?wp=<id> pins the WP; there is no picker — WP screens carry
+// the "Raise purchase request" link). Authorized: site_admin,
+// project_manager, super_admin — the v1 requester base (ADR 0022).
 //
 // Server-side fetches:
 //   1. the ?wp= work package (only when the param has UUID shape) — RLS on
 //      work_packages already gates readability to wp-readers; an
 //      unreadable or unknown id resolves to null and the form is withheld.
-//   2. the caller's OWN purchase_requests — the "My requests" list.
-//      RLS on purchase_requests admits requested_by = auth.uid() for any
-//      role, so this works for SA's own rows too (SAs can't see other
-//      SAs' rows, per the cross-user isolation pinned in ADR 0022).
+//   2. ALL visible purchase_requests — RLS decides (site_admin/PM/
+//      procurement/super see every row since ADR 0026; the own-row
+//      branch remains for future narrower roles). The ?mine=1 chip
+//      narrows back to the caller's own rows.
 
-import { PURCHASE_REQUEST_STATUS_LABEL, formatThaiDateTime } from "@/lib/i18n/labels";
-import { purchaseRequestStatusPillClasses } from "@/lib/status-colors";
+import {
+  PURCHASE_REQUEST_PRIORITY_LABEL,
+  PURCHASE_REQUEST_STATUS_LABEL,
+  formatThaiDate,
+  formatThaiDateTime,
+} from "@/lib/i18n/labels";
+import {
+  purchaseRequestPriorityPillClasses,
+  purchaseRequestStatusPillClasses,
+  type PurchaseRequestPriority,
+} from "@/lib/status-colors";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { PurchaseRequestDecision } from "@/components/features/purchase-request-decision";
 import { fetchDisplayNames } from "@/lib/users/display-names";
@@ -39,20 +49,20 @@ type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_statu
 // Spec 19 §4: the single purchasing surface for every role. PM/super
 // see the decision controls inline on requested rows (the old
 // /pm/requests queue, merged here); the list is pending-first
-// (requested asc — the priority band joins in spec-16 P1), decided
-// rows below newest-first. SA visibility stays own-rows-only until
-// spec-16 addendum A1 widens the SELECT policy.
+// (priority band then requested asc — spec-16 A2), decided rows below
+// newest-first. The whole list is site-wide for every role since
+// spec-16 addendum A1 / ADR 0026 widened the SELECT policy.
 export const metadata = { title: "คำขอซื้อ" };
 
 interface RequestsPageProps {
-  searchParams: Promise<{ wp?: string | string[] }>;
+  searchParams: Promise<{ wp?: string | string[]; mine?: string | string[] }>;
 }
 
 export default async function RequestsPage({ searchParams }: RequestsPageProps) {
   const ctx = await requireRole(["site_admin", "project_manager", "super_admin"]);
   const supabase = await createClient();
 
-  const { wp: wpParam } = await searchParams;
+  const { wp: wpParam, mine: mineParam } = await searchParams;
   const wpRequested = wpParam !== undefined;
 
   // Resolve the pinned WP only for a well-formed single UUID; anything
@@ -83,43 +93,61 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
       : roleHome(ctx.role);
   const backLabel = pinnedWp && pinnedProjectId ? "กลับไปหน้ารายการงาน" : "กลับ";
 
-  // The own-row SELECT policy (ADR 0022) admits the whole row, so the
-  // decision + back-office fact columns are readable here. The PM's
-  // rejection comment is mandatory at the DB layer
+  // The SELECT policy (ADR 0022, widened by ADR 0026) admits the whole
+  // row, so the decision + back-office fact columns are readable here.
+  // The PM's rejection comment is mandatory at the DB layer
   // (pr_reject_has_comment); purchased_at / supplier / delivered_at /
   // received_by / delivery_note are written by procurement in AppSheet
   // (ADR 0025) and are null until that stage.
-  // RLS decides visibility (own rows for SA until addendum A1; all rows
-  // for PM/procurement/super) — no .eq(requested_by) filter since the
-  // spec-19 merge: PMs decide here now.
+  // RLS decides visibility (site-wide for sa/pm/procurement/super since
+  // ADR 0026; the own-row branch remains for future narrower roles) —
+  // no .eq(requested_by) filter since the spec-19 merge: PMs decide
+  // here now.
   const { data: visibleRequests, error: myError } = await supabase
     .from("purchase_requests")
     .select(
-      "id, work_package_id, item_description, quantity, unit, status, requested_at, requested_by, requested_by_email, decision_comment, decided_at, purchased_at, supplier, delivered_at, received_by, delivery_note",
+      "id, work_package_id, item_description, quantity, unit, status, requested_at, requested_by, requested_by_email, decision_comment, decided_at, purchased_at, supplier, delivered_at, received_by, delivery_note, needed_by, eta, priority",
     )
     .order("requested_at", { ascending: false });
 
-  // Pending-first: requested rows oldest-first (the queue), decided
-  // rows below newest-first (the history).
-  const pendingRows = (visibleRequests ?? [])
+  // ของฉัน filter chip (spec 16 A1): ?mine=1 narrows to the caller's own
+  // rows. Server-side via searchParams — same zero-client-JS pattern as
+  // the rest of the page (deviation from A1's "client-side" wording,
+  // recorded in the tracker).
+  const mineOnly = mineParam === "1";
+  const allVisible = (visibleRequests ?? []).filter((r) => !mineOnly || r.requested_by === ctx.id);
+
+  // Pending-first (spec 19 §4 + addendum A2): requested rows by priority
+  // band (critical → urgent → normal) then oldest-first; decided rows
+  // below newest-first (the history). In-process sort, not SQL ORDER BY:
+  // one fetch serves both bands' opposite date orders (deviation from
+  // A2's "order by" wording, recorded in the tracker).
+  const PRIORITY_RANK: Record<PurchaseRequestPriority, number> = {
+    critical: 0,
+    urgent: 1,
+    normal: 2,
+  };
+  const pendingRows = allVisible
     .filter((r) => r.status === "requested")
-    .sort((a, b) => a.requested_at.localeCompare(b.requested_at));
-  const decidedRows = (visibleRequests ?? []).filter((r) => r.status !== "requested");
+    .sort(
+      (a, b) =>
+        PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] ||
+        a.requested_at.localeCompare(b.requested_at),
+    );
+  const decidedRows = allVisible.filter((r) => r.status !== "requested");
   const myRequests = [...pendingRows, ...decidedRows];
 
   const isDecider = ctx.role === "project_manager" || ctx.role === "super_admin";
-  const requesterNames = isDecider
-    ? await fetchDisplayNames(
-        Array.from(
-          new Set(
-            myRequests
-              .map((r) => r.requested_by)
-              .filter((id): id is string => typeof id === "string"),
-          ),
-        ),
-        "[requests]",
-      )
-    : new Map<string, string>();
+  // Site-wide visibility (A1): every viewer sees requester names now —
+  // the operator-sanctioned name exposure recorded in ADR 0026.
+  const requesterNames = await fetchDisplayNames(
+    Array.from(
+      new Set(
+        myRequests.map((r) => r.requested_by).filter((id): id is string => typeof id === "string"),
+      ),
+    ),
+    "[requests]",
+  );
 
   // Resolve WP code/name for the list. PostgREST's foreign-table
   // inflection would also work, but a separate query mirrors the
@@ -168,20 +196,47 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         </div>
 
         <div>
-          <h2 className="mb-3 text-sm font-medium text-zinc-400">
-            {isDecider ? "คำขอซื้อ" : "คำขอซื้อของฉัน"}
-          </h2>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-sm font-medium text-zinc-400">คำขอซื้อ</h2>
+            {/* ของฉัน filter chip (spec 16 A1) — site staff see the whole
+                site's requests; the chip narrows back to their own. A live
+                pinned WP survives the toggle (chips are a filter, not
+                navigation — the form and spec-12 back-bar stay mounted). */}
+            <div className="flex gap-1 text-xs">
+              <Link
+                href={pinnedWp ? `/requests?wp=${pinnedWp.id}` : "/requests"}
+                aria-current={!mineOnly ? "true" : undefined}
+                className={`inline-flex min-h-10 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 ${
+                  !mineOnly
+                    ? "border-zinc-600 bg-zinc-800 text-zinc-100"
+                    : "border-zinc-800 bg-zinc-900/60 text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                ทั้งหมด
+              </Link>
+              <Link
+                href={pinnedWp ? `/requests?wp=${pinnedWp.id}&mine=1` : "/requests?mine=1"}
+                aria-current={mineOnly ? "true" : undefined}
+                className={`inline-flex min-h-10 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 ${
+                  mineOnly
+                    ? "border-zinc-600 bg-zinc-800 text-zinc-100"
+                    : "border-zinc-800 bg-zinc-900/60 text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                ของฉัน
+              </Link>
+            </div>
+          </div>
           {myError ? (
             <ErrorNotice>โหลดรายการคำขอซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</ErrorNotice>
           ) : myRequests.length === 0 ? (
-            <EmptyNotice>
-              {isDecider ? "ยังไม่มีคำขอซื้อ" : "คุณยังไม่เคยสร้างคำขอซื้อ"}
-            </EmptyNotice>
+            <EmptyNotice>{mineOnly ? "คุณยังไม่เคยสร้างคำขอซื้อ" : "ยังไม่มีคำขอซื้อ"}</EmptyNotice>
           ) : (
             <ul className="flex flex-col gap-2">
               {myRequests.map((r) => {
                 const wp = wpById.get(r.work_package_id);
                 const status = r.status as PurchaseRequestStatus;
+                const priority = r.priority as PurchaseRequestPriority;
                 return (
                   <li
                     key={r.id}
@@ -204,25 +259,38 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                           </span>
                         </p>
                         <p className="text-xs text-zinc-500">
-                          {isDecider ? (
-                            <>
-                              ขอซื้อโดย{" "}
-                              {(r.requested_by ? requesterNames.get(r.requested_by) : null) ??
-                                r.requested_by_email ??
-                                "—"}
-                              <span className="mx-1 text-zinc-700">·</span>
-                            </>
-                          ) : null}
+                          ขอซื้อโดย{" "}
+                          {(r.requested_by ? requesterNames.get(r.requested_by) : null) ??
+                            r.requested_by_email ??
+                            "—"}
+                          <span className="mx-1 text-zinc-700">·</span>
                           ขอเมื่อ {formatThaiDateTime(r.requested_at)}
                         </p>
+                        {r.needed_by ? (
+                          <p className="text-xs text-zinc-400">
+                            ต้องการรับของภายใน {formatThaiDate(r.needed_by)}
+                          </p>
+                        ) : null}
                       </div>
-                      <StatusPill pillClasses={purchaseRequestStatusPillClasses(status)}>
-                        {PURCHASE_REQUEST_STATUS_LABEL[status]}
-                      </StatusPill>
+                      <span className="flex shrink-0 flex-col items-end gap-1">
+                        <StatusPill pillClasses={purchaseRequestStatusPillClasses(status)}>
+                          {PURCHASE_REQUEST_STATUS_LABEL[status]}
+                        </StatusPill>
+                        {priority !== "normal" ? (
+                          <StatusPill pillClasses={purchaseRequestPriorityPillClasses(priority)}>
+                            {PURCHASE_REQUEST_PRIORITY_LABEL[priority]}
+                          </StatusPill>
+                        ) : null}
+                      </span>
                     </div>
                     {status === "approved" && r.decided_at ? (
                       <p className="mt-2 text-xs text-zinc-400">
                         อนุมัติเมื่อ {formatThaiDateTime(r.decided_at)}
+                      </p>
+                    ) : null}
+                    {(status === "approved" || status === "purchased") && r.eta ? (
+                      <p className="mt-1 text-xs text-zinc-400">
+                        คาดว่าจะได้รับของ {formatThaiDate(r.eta)}
                       </p>
                     ) : null}
                     {status === "rejected" && r.decision_comment ? (
@@ -270,6 +338,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
               เมื่อผู้จัดการโครงการอนุมัติคำขอแล้ว ฝ่ายจัดซื้อจะดำเนินการต่อในระบบหลังบ้าน — สถานะ
               &ldquo;สั่งซื้อแล้ว&rdquo; และ &ldquo;ได้รับของแล้ว&rdquo;
               จะอัปเดตอัตโนมัติจากบันทึกของฝ่ายจัดซื้อ ไม่สามารถแก้ไขในแอปนี้ได้
+              ฝ่ายจัดซื้อจะอัปเดตวันที่คาดว่าจะได้รับของจากระบบหลังบ้าน
             </p>
           ) : null}
         </div>

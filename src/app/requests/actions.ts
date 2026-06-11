@@ -42,6 +42,8 @@ export interface CreatePurchaseRequestInput {
   itemDescription: string;
   quantity: number;
   unit: string;
+  neededBy?: string | null | undefined;
+  priority?: string | null | undefined;
 }
 
 export type CreatePurchaseRequestResult = { ok: true; id: string } | { ok: false; error: string };
@@ -65,6 +67,8 @@ export async function createPurchaseRequest(
       item_description: validated.value.itemDescription,
       quantity: validated.value.quantity,
       unit: validated.value.unit,
+      needed_by: validated.value.neededBy,
+      priority: validated.value.priority,
       requested_by: user.id,
       source: "app",
     })

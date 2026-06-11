@@ -30,6 +30,13 @@ export const PURCHASE_REQUEST_STATUS_LABEL: Record<Enums["purchase_request_statu
   delivered: "ได้รับของแล้ว",
 };
 
+// Requester-set urgency (spec 16 addendum A2).
+export const PURCHASE_REQUEST_PRIORITY_LABEL: Record<Enums["purchase_request_priority"], string> = {
+  normal: "ปกติ",
+  urgent: "ด่วน",
+  critical: "ด่วนมาก",
+};
+
 // Display labels only — the photo_phase enum and storage paths keep
 // before/during/after (spec 10 item 3 established the relabel seam).
 export const PHOTO_PHASE_LABEL: Record<Enums["photo_phase"], string> = {

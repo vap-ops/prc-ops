@@ -18,6 +18,7 @@ import { Constants } from "@/lib/db/database.types";
 import {
   approvalDecisionPillClasses,
   projectStatusPillClasses,
+  purchaseRequestPriorityPillClasses,
   purchaseRequestStatusPillClasses,
   reportStatusPillClasses,
   workPackageStatusPillClasses,
@@ -119,6 +120,29 @@ describe("purchaseRequestStatusPillClasses", () => {
   it("uses the emerald palette for 'approved' and 'delivered' (positive states)", () => {
     expect(purchaseRequestStatusPillClasses("approved")).toContain("emerald");
     expect(purchaseRequestStatusPillClasses("delivered")).toContain("emerald");
+  });
+});
+
+describe("purchaseRequestPriorityPillClasses", () => {
+  for (const value of Constants.public.Enums.purchase_request_priority) {
+    it(`returns a non-empty class string for purchase_request_priority='${value}'`, () => {
+      const classes = purchaseRequestPriorityPillClasses(value);
+      expect(typeof classes).toBe("string");
+      expect(classes.length).toBeGreaterThan(0);
+    });
+  }
+
+  it("pins the palette: normal zinc, urgent amber, critical red", () => {
+    expect(purchaseRequestPriorityPillClasses("normal")).toContain("zinc");
+    expect(purchaseRequestPriorityPillClasses("urgent")).toContain("amber");
+    expect(purchaseRequestPriorityPillClasses("critical")).toContain("red");
+  });
+
+  it("falls back to neutral classes for an unknown value", () => {
+    const unknown = "not-a-priority" as unknown as Parameters<
+      typeof purchaseRequestPriorityPillClasses
+    >[0];
+    expect(purchaseRequestPriorityPillClasses(unknown).length).toBeGreaterThan(0);
   });
 });
 

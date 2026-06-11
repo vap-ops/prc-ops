@@ -240,9 +240,12 @@ export type Database = {
           decision_comment: string | null;
           delivered_at: string | null;
           delivery_note: string | null;
+          eta: string | null;
           id: string;
           item_description: string;
+          needed_by: string | null;
           order_ref: string | null;
+          priority: Database["public"]["Enums"]["purchase_request_priority"];
           purchased_at: string | null;
           quantity: number;
           received_by: string | null;
@@ -264,9 +267,12 @@ export type Database = {
           decision_comment?: string | null;
           delivered_at?: string | null;
           delivery_note?: string | null;
+          eta?: string | null;
           id?: string;
           item_description: string;
+          needed_by?: string | null;
           order_ref?: string | null;
+          priority?: Database["public"]["Enums"]["purchase_request_priority"];
           purchased_at?: string | null;
           quantity: number;
           received_by?: string | null;
@@ -288,9 +294,12 @@ export type Database = {
           decision_comment?: string | null;
           delivered_at?: string | null;
           delivery_note?: string | null;
+          eta?: string | null;
           id?: string;
           item_description?: string;
+          needed_by?: string | null;
           order_ref?: string | null;
+          priority?: Database["public"]["Enums"]["purchase_request_priority"];
           purchased_at?: string | null;
           quantity?: number;
           received_by?: string | null;
@@ -511,6 +520,7 @@ export type Database = {
         | "purchase_request_delivery";
       photo_phase: "before" | "during" | "after";
       project_status: "active" | "on_hold" | "completed" | "archived";
+      purchase_request_priority: "normal" | "urgent" | "critical";
       purchase_request_status: "requested" | "approved" | "rejected" | "purchased" | "delivered";
       report_status: "requested" | "processing" | "complete" | "failed";
       user_role:
@@ -679,6 +689,7 @@ export const Constants = {
       ],
       photo_phase: ["before", "during", "after"],
       project_status: ["active", "on_hold", "completed", "archived"],
+      purchase_request_priority: ["normal", "urgent", "critical"],
       purchase_request_status: ["requested", "approved", "rejected", "purchased", "delivered"],
       report_status: ["requested", "processing", "complete", "failed"],
       user_role: [

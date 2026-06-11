@@ -56,7 +56,11 @@ using (
   `current_user_role()`).
 - **Name exposure (operator-sanctioned):** the site-wide list shows
   ขอซื้อโดย display names to SAs via the admin-client
-  `fetchDisplayNames` helper.
+  `fetchDisplayNames` helper — and, per the spec A1 fallback chain
+  (name → email → em-dash), the requester's login email
+  (`requested_by_email`) where no display name exists. The exposure
+  radius is display name OR login email, to every role that can read
+  the row (security-lens amendment, 2026-06-11).
 - **Attachments follow automatically** (P2): the child SELECT policy's
   EXISTS runs under the caller's parent RLS, so SAs will also see
   colleagues' attachments — and the pr-attachments **signed-URL

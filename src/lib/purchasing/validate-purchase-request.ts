@@ -56,8 +56,10 @@ export function validateCreatePurchaseRequest(input: {
   itemDescription: string;
   quantity: number;
   unit: string;
-  neededBy?: string | null;
-  priority?: string | null;
+  // `| undefined` is explicit for exactOptionalPropertyTypes — callers
+  // may pass the property as undefined, not just omit it.
+  neededBy?: string | null | undefined;
+  priority?: string | null | undefined;
 }): ValidateCreatePurchaseRequestResult {
   if (!UUID_REGEX.test(input.workPackageId)) {
     return { ok: false, error: "รหัสรายการงานไม่ถูกต้อง" };

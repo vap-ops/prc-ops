@@ -5881,7 +5881,46 @@ Read-only audit over `supabase db query --linked` (Management API, postgres cont
 
 ## Unit: spec 16 P1 - dates, priority, unit picker, site-wide visibility (ADR 0026)
 
-- **Status:** In progress - started 2026-06-11. Supabase CLI linked from this machine this session (operator chose option 1; an access token was already present - `pnpm db:link` succeeded; remote migration list verified in sync at 20260608140300).
+- **Status:** Complete - 2026-06-11 (schema half committed 9578a09 mid-unit; code half this entry). Supabase CLI linked from this machine this session (operator chose option 1; an access token was already present - `pnpm db:link` succeeded; remote migration list verified in sync at 20260608140300).
 - **Spec:** [`docs/feature-specs/16-purchase-request-enrichment.md`](./feature-specs/16-purchase-request-enrichment.md) P1 + Addendum; ADR 0026 written this unit with in-place pointer edits to ADR 0018/0022/0025.
 - **Plan:** ADR -> migrations x3 -> adversarial SQL review -> db:push -> db:types -> pgTAP 17/18 updates -> db:test -> code test-first (units, formatThaiDate, validator, priority pill, form, /requests) -> full gate -> final adversarial pass -> commit.
 - **Note:** the addendum asked for a pointer edit inside applied migration 20260608120000 - REFUSED as written (applied migrations are checksummed/immutable); ADR 0026 carries the supersession instead. Recorded as a correction to the addendum.
+
+### Done (code half)
+
+- **Writing failing test first** — RED: `purchaseRequestPriorityPillClasses` cases failed export-absent in `tests/unit/status-colors.test.ts`; the `purchase_request_priority` map row failed in `tests/unit/i18n-labels.test.ts`. GREEN after implementation. (The pure-module tests — units list, formatThaiDate, validator neededBy/priority — shipped RED→GREEN inside the schema commit.) Final suite **260/260** (240 prior + 20 net new across both halves).
+- **§1 unit picker** — `<select>` of the 25 `COMMON_UNITS` + `อื่น ๆ (ระบุเอง)` sentinel revealing a free-text input; derived `unit` string feeds the unchanged validator/action/DB contract; sentinel never persisted by the form; select counts toward `userTyped`.
+- **§2 needed_by** — date input with Bangkok-today soft floor (`bangkokToday()` mirrors the validator clock); card fact line `ต้องการรับของภายใน {formatThaiDate}`.
+- **§3 eta** — fact line `คาดว่าจะได้รับของ {formatThaiDate}` on approved|purchased only (hidden once delivered, Q4 no-badge); footer gains the back-office update sentence.
+- **A1 site-wide visibility** — `.eq(requested_by)` filter removed; requester line (name → email → em-dash via `fetchDisplayNames`) for EVERY viewer; ของฉัน/ทั้งหมด filter chips (active chip `aria-current`, `min-h-10` tap targets, pinned `?wp=` survives the toggle); empty-state wording switches on the chip; stale own-rows comments rewritten. ADR 0026 name-exposure sentence amended to record the email-fallback radius (security-lens finding).
+- **A2 priority** — `purchaseRequestPriorityPillClasses` (critical red / urgent amber / normal zinc, ปกติ renders no pill); ความเร่งด่วน select defaulting ปกติ; pending band ordering critical → urgent → normal then requested_at asc; `PURCHASE_REQUEST_PRIORITY_LABEL` map pinned total/Thai/distinct.
+- **Typed server client (discovered blocker, minimal fix)** — `createServerClient` in `src/lib/db/server.ts` had NO `<Database>` generic: every server-side query row has been silently `any` since the file was written (downstream casts masked it; the strict `Record<PurchaseRequestPriority, number>` band map exposed it). One-line generic added — empirically zero blast radius (full gate green), type-level only, no runtime/auth change. Without it the spec's new columns could only flow to the UI as `any`, violating the repo TS rule. `browser.ts` and `admin.ts` have the same gap — recorded below, NOT fixed (out of unit path).
+
+### Decisions made / recorded deviations
+
+- **ของฉัน chip is server-side** (`?mine=1` via searchParams) — deviation from A1's "client-side filter chip" wording; zero-client-JS pattern of the rest of the page, no `'use client'` island needed.
+- **Priority band sort is in-process**, not A2's `order by priority desc, requested_at asc` — one fetch serves both bands' opposite date orders (pending asc within band, decided history desc), which a single SQL ORDER BY cannot.
+- **Priority control is a native `<select>`**, not A2's "segmented" select — same iOS-Safari/LINE-browser rationale §1 records for the unit dropdown; flag if the operator wants real segments.
+- **`select(...)` is the named 19-column list** per A1 — an interim `select("*")` workaround (with a wrong justification comment) turned out to be an artifact of the untyped client and was removed once the generic landed.
+- **ระบุหน่วย visible label** added above the other-unit input (spec lists only the placeholder) — a11y-consistent with every other field's label.
+- **Spec-19's decided-history pagination deferral re-recorded:** spec 16 P1's ordering rework shipped WITHOUT pagination (spec 16 does not ask for it) — still open, see queue.
+
+### Adversarial verification (3-lens, over the uncommitted diff)
+
+- **UX/locked-behavior lens — FAIL → fixed.** Major: the filter chips dropped a live `?wp=` (pinned-mode form unmounted, typed input destroyed, spec-12 back-bar flipped) — fixed, chips now carry the pinned id. Minors fixed: `aria-current` on the active chip (spec-19 precedent), chip tap target `min-h-8` → `min-h-10`. Thai strings hex-verified byte-exact vs §8/A2; Q4 eta rule, comparator correctness, form ergonomics, spec-10/12/15/19 locked behaviors all confirmed.
+- **Discipline lens — FAIL → resolved.** Completeness 100% (every P1 requirement traced). Its select("*") major was *refuted with evidence\* (the named select genuinely failed typecheck — but because of the untyped client, which the lens probe missed by typing its own probe client; the real fix was the generic, after which the named select compiles). Its missing-tracker-records major is satisfied by this entry. Honest residual it flagged: nothing pins the pending-band ordering — a regression there is invisible to `pnpm test` (queued).
+- **Security lens — pass-with-minors.** fetchDisplayNames radius exactly ADR 0026 (server-only, id-scoped, RLS-admitted rows only); `?mine` can only narrow, never widen; hostile action invocations gain nothing (validator + INSERT policy + CHECKs); `<Database>` generic confirmed type-level only. Minors/nits queued below; ADR 0026 email-fallback amendment made in-place.
+
+### Verification (spec 16 §11 checklist, P1 items)
+
+- ADR 0026 merged before P1 code incl. in-place back-pointers. ✓ New unit tests RED→GREEN per phase. ✓ lint/typecheck/test — **260/260**. ✓ db:push → db:types → db:test — **428 pgTAP assertions, 0 failures** (17→100, 18→52, incl. visibility flip, qual pin, priority pins, eta grant/audit pins). ✓ build (route table unchanged). ✓ e2e — **27/27**. ✓ Locked behaviors intact (UX lens). ✓ No dashboard changes. ✓ ⏳ Tier-2 smoke re-run + AppSheet column config (`needed_by` + `priority` read-only, go-live §2a) — **operator step before AppSheet next touches these views**.
+
+### Open questions / iteration-8 queue
+
+- **Server-side length caps for `unit`/`item_description`** (security minor): client maxLength is the only bound today; a hostile authenticated insert can bloat the now site-wide /requests SSR. Validator + CHECK follow-up.
+- Type the **browser.ts / admin.ts** Supabase clients (`<Database>` generic) — same silent-`any` gap as server.ts had; one line each plus whatever it surfaces.
+- **Pending-band ordering has no unit test** — extract the comparator to a pure module or pin via component test.
+- Sentinel literal `__other__` is persistable via a direct action call (cosmetic only); non-string `neededBy` in a forged action payload 500s instead of returning the error union (fail-closed) — both validator hardening one-liners if wanted.
+- Decided-history pagination (re-recorded from spec 19).
+- Carried: ของฉัน band label/queue-clear note, dialog a11y foundation, real logo, palette/outdoor theme, LINE notification unit, skeleton width one-liner.
+- **Next per spec-16 implementation order:** P2 (attachments — load `.claude/skills/supersede-pattern` first) → ADR 0027 → P3.
