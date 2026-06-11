@@ -706,3 +706,117 @@ dialogs).
 - [ ] No dashboard changes; bucket created private and pgTAP-pinned.
 - [ ] P3: route 404s on bad id/token/tombstone, 302s on good pair, both
       `no-store`; image renders inside AppSheet via the virtual column.
+
+---
+
+## Addendum — locked 2026-06-11 (operator's iteration-6 brief)
+
+Two additions from the operator's follow-up ("people on site must see
+statuses of all the purchases related to the site, not just the ones
+they requested" / "critical level"). Both fold into the existing
+phases — no new phase.
+
+### A1. Site-wide purchase visibility (P1) — REVERSES the 2026-06-07 isolation decision
+
+The owner decision recorded in ADR 0022 / migration `20260608120000`
+("site_admin sees rows they requested but NOT another SA's rows") is
+**reversed by explicit operator decision 2026-06-11**. Site staff must
+see the status of every purchase related to the site. Access remains
+role-level (ADR 0013 — no project membership exists; both pilots share
+all staff), so:
+
+- **Policy change (new migration — `20260613100050_widen_purchase_requests_select_site_admin.sql`, inserted into the §6 P1 list between migrations 1 and 2):**
+  DROP + recreate `"purchase_requests select own or privileged"` with
+  `site_admin` added to the privileged role list (the
+  `requested_by = auth.uid()` branch stays for future narrower roles).
+  The UPDATE policy and every appsheet_writer policy are untouched. The
+  attachments `"select via parent"` policy follows automatically (its
+  EXISTS runs under the caller's parent RLS) — SAs will also see
+  colleagues' attachments; recorded in ADR 0026. **Amendment to
+  governance item (f):** the pr-attachments signed-URL exposure radius
+  is project-wide for PM/procurement/super **and site_admin** once this
+  lands — ADR 0026 records the wider radius, and the in-place pointer
+  duty extends to ADR 0022's isolation paragraph (~lines 118–119) and
+  the migration `20260608120000` header note (~lines 113–115): both get
+  "reversed by ADR 0026 (operator decision 2026-06-11)" pointers.
+- **Name exposure (recorded in ADR 0026):** the site-wide list shows
+  ขอซื้อโดย per row via `fetchDisplayNames` (admin client) — SAs now
+  see colleagues' display names on purchase rows. Operator-sanctioned
+  by the brief.
+- **UI (`src/app/requests/page.tsx`):** the `.eq("requested_by",
+ctx.id)` filter is removed; the select gains `requested_by` +
+  `requested_by_email` (needed for the requester line with the
+  pm/requests-style name → email → em-dash fallback via
+  `fetchDisplayNames`, for the ของฉัน client-side filter chip, and for
+  own-row-only expander gating). Default order `requested_at desc`
+  (superseded by spec 19 §4's pending-first ordering if that ships).
+  Title คำขอซื้อ (was คำขอซื้อของฉัน). Creation flow, pinned-WP mode,
+  and own-row-only removal/attachment expanders unchanged (INSERT
+  policies pin ownership regardless of what is visible).
+- **Copy/test sweep (enumerated):** empty state คุณยังไม่เคยสร้างคำขอซื้อ
+  → site-wide wording; the page's own-rows header comment block and the
+  คำขอซื้อของฉัน heading; metadata title; `PM_HUB_NAV`/`SA_HUB_NAV`
+  labels (the `toEqual` pins in `tests/unit/hub-nav.test.tsx` break
+  first — named UPDATE-test) and the coming-soon `HUB_LINKS` label; the
+  PM nav's 4th item is resolved by spec 19 — until then it reads
+  คำขอซื้อทั้งหมด.
+- **pgTAP (test 17):** ADD a qual pin (the SELECT policy qual contains
+  `site_admin`); FLIP assertion F.2 (SA-cannot-see-foreign, currently
+  load-bearing) to SA-sees-foreign and retitle it; fix G.3's comment
+  which cites F.2's isolation; attachments test 19 gains an
+  SA-sees-foreign-attachment case.
+
+### A2. Critical level / priority (P1)
+
+- **Enum** (status-field doctrine): `purchase_request_priority` —
+  declared in the order `'normal', 'urgent', 'critical'` (declaration
+  order IS the sort order for enum comparison). Thai labels ปกติ /
+  ด่วน / ด่วนมาก. Column `priority … not null default 'normal'` on
+  `purchase_requests` — CREATE TYPE + column join migration 1, which
+  §6 renames to
+  `20260613100000_add_purchase_requests_needed_by_eta_priority.sql`
+  (a plain CREATE TYPE in the same migration is fine — the
+  two-migration split discipline applies only to
+  `ALTER TYPE … ADD VALUE`; precedent: `20260608120000` creates
+  `purchase_request_status` + the table in one file). §7's
+  happy-path `toEqual` pin gains `priority: "normal"` alongside
+  `neededBy: null`.
+- **Writer:** requester at INSERT (form control: three-option segmented
+  select, default ปกติ; validator admits only enum values, defaults
+  `normal` when omitted — failing-first cases join the
+  validate-purchase-request update). NOT editable post-insert in v1;
+  NOT writable by appsheet_writer (column-scoped grant excludes it —
+  protected set grows to 5; pgTAP pin + AppSheet read-only column
+  config requirement extends to `priority`).
+- **Display:** pill via new `purchaseRequestPriorityPillClasses`
+  (status-colors home, exhaustive switch, failing-first):
+  critical→red, urgent→amber, normal→zinc — shown on `/requests` rows
+  and the PM decision queue. ปกติ renders no pill (the quiet default;
+  only escalations draw the eye).
+- **Queue ordering:** the PM decision surface orders
+  critical → urgent → normal, then `requested_at` asc within each band
+  — plain `order by priority desc, requested_at asc` (NOT NULL column;
+  no nulls clause needed). Applies to `/pm/requests` if spec 19 §4 is
+  vetoed, or to the merged `/requests` pending section if it ships.
+  Note: `purchase_requests_status_requested_at_idx` no longer serves
+  the full ORDER BY (filter-via-index + sort is fine at pilot scale);
+  the "purpose-built" comments in migration `20260608120000` and
+  `pm/requests/page.tsx` get updated.
+- **Audit:** insert-only field captured on the row; no audit-trigger
+  change (same posture as needed_by).
+- **Thai strings (§8 additions):** form label ความเร่งด่วน; option
+  labels ปกติ / ด่วน / ด่วนมาก; validator error
+  ระดับความเร่งด่วนไม่ถูกต้อง (copy pinned in the validator tests per
+  spec-14 discipline).
+
+### Addendum verification additions
+
+- [ ] pgTAP: SELECT policy qual contains `site_admin`; SA role-sim sees
+      foreign rows; priority column/enum/default pins;
+      `has_column_privilege('appsheet_writer', …, 'priority',
+    'UPDATE') = false`.
+- [ ] Validator: priority + omitted-default cases RED→GREEN; existing
+      pins untouched.
+- [ ] Copy sweep: no surviving "own requests only" claims.
+- [ ] AppSheet column config: `priority` + `needed_by` read-only before
+      the Tier-2 re-run (go-live §2a).

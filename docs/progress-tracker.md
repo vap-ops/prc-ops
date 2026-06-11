@@ -5830,3 +5830,12 @@ Read-only audit over `supabase db query --linked` (Management API, postgres cont
 - Real logo to replace the placeholder icon PNGs (paths/sizes stay).
 - Operator install test: real-iPhone LINE-login round-trip in standalone mode, then the Thai install guide (app-feel doc step 1).
 - Still queued: palette/outdoor theme (operator-visible), /pm/requests progressive disclosure, row-link extraction, LINE notification unit (`?openExternalBrowser=1` belongs there).
+
+---
+
+## Unit: iteration-6 design - spec 16 addendum + spec 19 draft (docs-only)
+
+- **Status:** Designs committed 2026-06-11. Spec 16 Addendum LOCKED by the operator brief (site-wide purchase visibility - explicit reversal of the 2026-06-07 isolation decision; priority/critical-level enum). Spec 19 DRAFT (bottom tab bar locked by the "navigation still confusing" brief; the /pm/requests-into-/requests merge is RECOMMENDED, one operator veto gates it).
+- **Specs:** [`16-purchase-request-enrichment.md` Addendum](./feature-specs/16-purchase-request-enrichment.md), [`19-bottom-tabs-nav.md`](./feature-specs/19-bottom-tabs-nav.md).
+- **Adversarial pass (1 skeptic over both docs):** 2 majors fixed pre-commit - the naive prefix active-tab rule would have double-lit tabs on every /pm/projects/\* page (now longest-prefix-wins, single aria-current, test-pinned), and the signed-URL exposure radius in spec 16 item (f) contradicted A1 the day it shipped (amended in place). 9 minors folded: enumerated src/ artifacts the visibility flip invalidates (incl. the hub-nav test toEqual pins), pgTAP F.2 flip wording, ADR-0026 in-place pointers at the reversed isolation paragraph, migration rename folded into SS6, nulls-last confusion dropped, SS8 Thai strings for priority, cross-doc ordering reconciliation (spec 19 SS4 supersedes A1's requested_at desc), permanentRedirect(308) + SA-landing delta + dead revalidatePath, super_admin tab set + per-page mounting.
+- **Implementation order (next sessions):** ADR 0026 -> spec 16 P1 (now incl. visibility + priority) -> P2 -> ADR 0027 -> P3; spec 19 SS1-SS3 any time after operator answers the SS4 veto question.
