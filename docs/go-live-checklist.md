@@ -358,6 +358,16 @@ psql "postgresql://appsheet_writer:<password>@<supabase-session-pooler-host>:543
 
 A successful `psql` prompt means the role is NOLOGIN→LOGIN transition worked.
 
+> **Port split (incident 2026-06-11):** port **5432 (session pooler) is for
+> this psql ritual ONLY** — it needs session mode for DO blocks and explicit
+> ROLLBACK. The **AppSheet data source must use port 6543 (transaction
+> pooler)** on the same host. AppSheet opens many parallel connections per
+> app load/sync; in session mode each one pins a pool slot and a burst
+> exhausts the per-user pool (`EMAXCONNSESSION … pool_size: 48` — every
+> table read fails and the app refuses to load). Transaction mode
+> multiplexes those bursts. If AppSheet shows EMAXCONNSESSION, check its
+> data source port first.
+
 ### Step 3 — Run the smoke script
 
 ```bash
