@@ -99,7 +99,27 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
     captured_at_client: input.capturedAtClient ?? null,
   });
   if (insertError) {
-    return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    // Spec 35 / ADR 0039: idempotent replay — the offline queue may
+    // re-run a step whose first attempt actually landed. A unique
+    // violation alone is NOT enough (photo ids are readable role-wide,
+    // so a forged replay could claim a foreign row and ride the
+    // transition below): the existing row must match the FULL replayed
+    // identity — same WP, same phase, same canonical path. Nothing is
+    // ever UPDATEd; the transition guard below re-checks WP status.
+    if (insertError.code !== "23505") {
+      return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    }
+    const { data: existing } = await supabase
+      .from("photo_logs")
+      .select("id")
+      .eq("id", input.photoId)
+      .eq("work_package_id", wp.id)
+      .eq("phase", input.phase)
+      .eq("storage_path", storagePath)
+      .maybeSingle();
+    if (!existing) {
+      return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    }
   }
 
   let transitioned = false;

@@ -12,6 +12,11 @@
 //   uploading → upload-error (retry re-uploads with the same uuid)
 //   inserting → insert-error (retry calls addPhoto only; object is
 //   already in Storage so no re-upload is needed)
+//
+// Spec 35: every selected photo ALSO persists to the offline queue at
+// selection — error states are no longer terminal; the global
+// UploadQueueRunner retries leftovers (idempotently) independent of
+// this UI, including after a crash, offline failure, or navigation.
 
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
@@ -21,6 +26,30 @@ import { EmptyNotice } from "@/components/features/notices";
 import { ZoomablePhoto } from "@/components/features/photo-lightbox";
 import { photoExtToMime, type PhotoExt, buildPhotoStoragePath } from "@/lib/photos/path";
 import { preparePhotoForUpload } from "@/lib/photos/downscale";
+import {
+  classifyStorageUploadError,
+  queueNowMs,
+  type QueuedPhoto,
+} from "@/lib/photos/upload-queue";
+import { createIdbQueueStore, notifyQueueChanged } from "@/lib/photos/upload-queue-idb";
+
+// Queue I/O is a SAFETY NET — a broken IndexedDB (quota, private mode)
+// must never break the live upload pipeline that worked before spec 35.
+async function safeQueuePut(item: QueuedPhoto): Promise<void> {
+  try {
+    await createIdbQueueStore()?.put(item);
+  } catch (err) {
+    console.error("[phase-uploader] queue put failed (live flow continues)", err);
+  }
+}
+
+async function safeQueueRemove(id: string): Promise<void> {
+  try {
+    await createIdbQueueStore()?.remove(id);
+  } catch (err) {
+    console.error("[phase-uploader] queue remove failed", err);
+  }
+}
 import type { PhotoPhase } from "@/lib/photos/transitions";
 import { addPhoto, removePhoto } from "./actions";
 
@@ -45,6 +74,8 @@ interface PendingUpload {
   // the lastModified scalar for capturedAtClient.
   blob: Blob;
   lastModifiedMs: number;
+  /** Queue ordering timestamp, captured once at selection (spec 35). */
+  enqueuedAtMs: number;
   ext: PhotoExt;
   storagePath: string;
 }
@@ -52,6 +83,8 @@ interface PendingUpload {
 interface PhaseUploaderProps {
   projectId: string;
   workPackageId: string;
+  /** Session user — stamped on queue items (ADR 0039 attribution guard). */
+  userId: string;
   phase: PhotoPhase;
   label: string;
   photos: ReadonlyArray<ThumbnailPhoto>;
@@ -60,6 +93,7 @@ interface PhaseUploaderProps {
 export function PhaseUploader({
   projectId,
   workPackageId,
+  userId,
   phase,
   label,
   photos,
@@ -86,6 +120,28 @@ export function PhaseUploader({
     });
   }
 
+  // Spec 35 / ADR 0039: the live pipeline is bracketed by the offline
+  // queue — put at selection, step-advance after bytes land, remove
+  // after the metadata row lands. A crash/offline/navigation at any
+  // point leaves a queue item the global runner resumes (idempotently).
+  function toQueueItem(upload: PendingUpload): QueuedPhoto {
+    return {
+      id: upload.id,
+      userId,
+      workPackageId,
+      phase,
+      ext: upload.ext,
+      blob: upload.blob,
+      lastModifiedMs: upload.lastModifiedMs,
+      fileName: upload.fileName,
+      storagePath: upload.storagePath,
+      step: "upload",
+      attempts: 0,
+      lastError: null,
+      enqueuedAtMs: upload.enqueuedAtMs,
+    };
+  }
+
   async function uploadOne(upload: PendingUpload) {
     const supabase = createBrowserSupabase();
     const { error: uploadError } = await supabase.storage
@@ -94,38 +150,58 @@ export function PhaseUploader({
         contentType: photoExtToMime(upload.ext),
         upsert: false,
       });
-    if (uploadError) {
+    if (uploadError && !classifyStorageUploadError(uploadError).alreadyExists) {
       // Fixed Thai on the tile; the raw SDK message (English) goes to
-      // the console only (spec 15 item F).
+      // the console only (spec 15 item F). The queue item stays —
+      // the runner will retry it even if the user leaves this page.
       console.error("[phase-uploader] storage upload failed", uploadError.message);
+      notifyQueueChanged();
       updatePending(upload.id, {
         status: "upload-error",
         errorMessage: "อัปโหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
       });
       return;
     }
+    // Bytes landed (now, or earlier by the runner — a 409 duplicate is
+    // OUR object under this uuid path, ADR 0039 idempotency). Persist
+    // the step advance so a recovery pass never re-uploads.
+    await safeQueuePut({ ...toQueueItem(upload), step: "insert" });
     updatePending(upload.id, { status: "uploaded" });
     await insertOne({ ...upload, status: "uploaded" });
   }
 
   async function insertOne(upload: PendingUpload) {
     updatePending(upload.id, { status: "inserting" });
-    const result = await addPhoto({
-      workPackageId,
-      phase,
-      photoId: upload.id,
-      ext: upload.ext,
-      capturedAtClient: new Date(upload.lastModifiedMs).toISOString(),
-    });
+    let result: Awaited<ReturnType<typeof addPhoto>>;
+    try {
+      result = await addPhoto({
+        workPackageId,
+        phase,
+        photoId: upload.id,
+        ext: upload.ext,
+        capturedAtClient: new Date(upload.lastModifiedMs).toISOString(),
+      });
+    } catch (err) {
+      // The action INVOCATION failed (connectivity dropped between the
+      // bytes landing and this POST — the flaky-signal target case).
+      // The queue item (step=insert) survives for the runner.
+      console.error("[phase-uploader] addPhoto invocation failed", err);
+      result = { ok: false, error: "บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    }
     if (!result.ok) {
+      // Queue item stays (step=insert) — the runner replays the action.
+      notifyQueueChanged();
       updatePending(upload.id, {
         status: "insert-error",
         errorMessage: `อัปโหลดสำเร็จแต่บันทึกข้อมูลไม่สำเร็จ — ${result.error}`,
       });
       return;
     }
-    // Drop the pending tile; the refreshed server data will surface
-    // the real thumbnail.
+    // Fully landed — release the queue item (and let the runner's
+    // banner refresh), drop the pending tile; the refreshed server
+    // data will surface the real thumbnail.
+    await safeQueueRemove(upload.id);
+    notifyQueueChanged();
     removePending(upload.id);
     startTransition(() => router.refresh());
   }
@@ -156,11 +232,26 @@ export function PhaseUploader({
         errorMessage: null,
         blob: prepared.blob,
         lastModifiedMs: file.lastModified,
+        enqueuedAtMs: queueNowMs(),
         ext: prepared.ext,
         storagePath: buildPhotoStoragePath(projectId, workPackageId, id, prepared.ext),
       };
       setPending((prev) => [...prev, upload]);
-      await uploadOne(upload);
+      try {
+        // Persist BEFORE attempting — from here the photo survives a
+        // crash, an offline failure, or leaving the page (spec 35).
+        await safeQueuePut(toQueueItem(upload));
+        await uploadOne(upload);
+      } catch (err) {
+        // One photo's unexpected failure must never abort the loop —
+        // the remaining selected files still get queued and uploaded.
+        console.error("[phase-uploader] unexpected per-file failure", err);
+        updatePending(upload.id, {
+          status: "upload-error",
+          errorMessage: "อัปโหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+        });
+        notifyQueueChanged();
+      }
     }
 
     // Allow re-selecting the same file (e.g. after a Retry that fully

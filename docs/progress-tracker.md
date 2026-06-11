@@ -6111,3 +6111,19 @@ Built: src/lib/photos/downscale.ts (computeDownscaleTarget PURE + preparePhotoFo
 - createImageBitmap orientation made explicit (imageOrientation:'from-image' — old Firefox/WebViews don't default to it); ext! assertions narrowed; stager header comment de-drifted; rounding test now exercises a genuinely fractional edge (3000×1000 → 667).
 
 Suite: 336 unit / 27 e2e green; pgTAP untouched (627). OPERATOR (acceptance): fresh camera photo on a test-safe WP → renders correctly oriented; Storage object ~hundreds of KB not MB (dashboard read-only check). Open seams: Web Worker offload (with the offline-queue spec), HEIC polyfill, quality/size UI, retroactive processing (never — append-only).
+
+## Spec 35 - offline-tolerant upload queue, WP phase photos (2026-06-12)
+
+Status: COMPLETE (operator phone pass = acceptance: airplane mode -> photo -> banner -> close browser -> signal -> reopen -> photo lands). ADR 0039. A selected phase photo is never lost: persisted to IndexedDB at selection (survives crash/close/navigation, iOS + Android — NO Background Sync dependency), uploads live exactly as before on good signal, global UploadQueueRunner (root layout; banner รอส่งรูป N รูป only when items wait) drains leftovers on mount/online/visibility/event/backoff (5s·2^n cap 5min).
+
+Architecture: replay is IDEMPOTENT end-to-end so live-path/runner/multi-tab overlap is harmless BY DESIGN — bytes 409 ⇒ alreadyExists ⇒ advance; addPhoto gains a 23505 replay path. Pure core (processQueue/QueueStore/classify/backoff) test-first vs in-memory store — 15 unit tests; IDB store + runner are browser seams (house posture). Items NEVER auto-dropped (evidence); attempts only widen backoff.
+
+### Adversarial verification (2-lens, verdict FAIL -> all fixed pre-commit)
+
+- MAJOR (security): the 23505 verify originally checked id-exists only — photo ids are readable role-wide, so a forged replay with a foreign photo id (e.g. a before-photo id + phase='after') would return ok AND flip the WP to pending_approval with zero after photos. Verify now requires the FULL replayed identity (id + work_package_id + phase + canonical storage_path).
+- MAJOR (shared device): queue items now carry userId; the runner SKIPS foreign/ownerless items (uploaded_by is append-only — misattribution is uncorrectable). Post-logout blob persistence recorded in ADR 0039 as an accepted tradeoff; discard UI = seam.
+- MAJOR (live-path resilience): addPhoto invocation throw (the exact flaky-signal case) stuck the tile and ABORTED the multi-file loop (remaining files never queued — silent loss) -> try/catch in insertOne + per-iteration isolation in handleFiles. Queue I/O (quota/private-mode IDB) wrapped non-fatal — the safety net can't break the live pipeline.
+- MAJOR (idempotency gap): live uploadOne wasn't 409-tolerant — a runner/live overlap left a permanently-failing retry tile; now classifies alreadyExists and proceeds.
+- Minors: banner staleness (notify after live remove; lock-unavailable branch refreshes count + short retry), pass-failure now reschedules (30s) instead of freezing, dead nowMs dep removed, projectId dropped from the persisted item (fileName kept for the discard seam, recorded), header lifecycle comment updated.
+
+Suites: 349 unit / 27 e2e green; pgTAP untouched (627); no DB schema diff (addPhoto change is app-layer only). Open seams: reference/delivery photo queueing, manual discard UI, SW Background Sync, Web Worker downscale. OPERATOR: phone acceptance pass for specs 34+35 together (one outdoor session covers both).

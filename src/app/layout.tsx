@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Sarabun } from "next/font/google";
 import { SwRegister } from "@/components/features/sw-register";
+import { UploadQueueRunner } from "@/components/features/upload-queue-runner";
 import "./globals.css";
 
 // Sarabun matches the PDF reports (spec 13) — one Thai face across web
@@ -40,6 +41,9 @@ export default function RootLayout({
       <body className="flex min-h-full flex-col">
         {children}
         <SwRegister />
+        {/* Spec 35: drains the offline photo queue (leftovers from
+            crash/offline/navigation); renders only when items wait. */}
+        <UploadQueueRunner />
       </body>
     </html>
   );

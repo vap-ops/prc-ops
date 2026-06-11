@@ -219,6 +219,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
               key={phase}
               projectId={wp.project_id}
               workPackageId={wp.id}
+              userId={ctx.id}
               phase={phase}
               label={label}
               photos={photosByPhase[phase].map((p) => ({
