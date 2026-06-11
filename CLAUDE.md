@@ -152,7 +152,7 @@ Both modules validate via Zod at import time and **throw on missing/invalid vars
 
 ### Database schema & immutability
 
-Five v1 tables (see `docs/specs/v1-entities.md`): `projects`, `work_packages`, `photo_logs`, `users`, `audit_log`. Schema lives in `supabase/migrations/`.
+Core tables (see `docs/specs/v1-entities.md` for the original five, and the ADRs for the rest): `projects`, `work_packages`, `photo_logs`, `users`, `audit_log`, `approvals`, `reports`, `deliverables` (ADR 0016), `purchase_requests` (ADR 0022/0025 — also writable by the `appsheet_writer` DB role). Schema lives in `supabase/migrations/`.
 
 - **`users`** — `id` is both PK and FK to `auth.users(id)`. A trigger on `auth.users` insert auto-creates a `public.users` row (role defaults to `visitor`). See ADR 0007 and ADR 0010.
 - **`audit_log`** — append-only, enforced in three layers: REVOKEd UPDATE/DELETE privileges, RLS with no UPDATE/DELETE policies, and a `BEFORE UPDATE/DELETE/TRUNCATE` trigger that raises `P0001`. See ADR 0004.

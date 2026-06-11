@@ -25,6 +25,43 @@ them.** For full detail follow the links:
 
 ---
 
+## 0. State refresh — 2026-06-11 (read this, then the tracker tail)
+
+Sections 1–5 below describe the **2026-05-26** state and are kept for
+history. Shipped since then (each with a numbered spec + tracker entry;
+the tracker tail is authoritative):
+
+- **Deliverable grouping** — schema + backfill + grouped SA WP list +
+  per-group progress (specs 04/11/12, ADR 0016).
+- **Profile management** — `/profile` route, display-name self-edit via
+  SECURITY DEFINER RPC, LINE avatar (specs 05/07/08, ADR 0017/0020/0021).
+- **Purchasing domain** — `purchase_requests` end-to-end: SA/PM raise
+  from the WP screen, PM decides, AppSheet back office records
+  purchase/delivery via the `appsheet_writer` DB role with derived
+  status + SECURITY DEFINER audit (specs 09/10, ADR 0018/0022/0025).
+- **Thai-first UI** — every user-facing string Thai, Sarabun webfont,
+  central label maps + Buddhist-era date formatting; Thai-capable PDF
+  (specs 13/14).
+- **Iteration 2** — purchasing visibility (rejection comments,
+  back-office facts on `/requests`), queue wait-time ordering, photo
+  lightbox, route loading skeletons (spec 15).
+- **Iteration 4** — shared app-shell components (AppHeader, StatusPill,
+  notices, central pill maps, `fetchDisplayNames`) — behavior-preserving
+  refactor (spec 17).
+- **Spec 16 locked, not yet built** — purchase-request enrichment
+  (unit dropdown, needed_by, AppSheet-written eta, image/link
+  attachments, AppSheet image bridge). Next implementation chain:
+  ADR 0026 → P1 → P2 → ADR 0027 → P3.
+- **App-feel decision doc** — `docs/app-feel-options.md` (PWA vs LINE
+  Mini App vs store wrappers; PWA recommended first).
+
+Test surface now: **216 Vitest unit tests, 27 Playwright e2e, 20 pgTAP
+files** (`pnpm db:test` against the linked remote for current counts).
+Operational conventions that changed: the operator's standing
+**"merge auto"** instruction (commit to `main`, push allowed; `main`
+auto-deploys on Vercel) and per-unit specs written from operator chat
+briefs (specs 14–17 precedent).
+
 ## 1. Current state (2026-05-26)
 
 **v1 is FEATURE-COMPLETE and DEPLOYED.** The full flow works

@@ -1,11 +1,12 @@
 # prc-ops
 
-Construction project operations platform for PRC site admins and project managers.
+Construction project operations platform for PRC site admins and project managers. The UI is Thai-first (spec 14) — users are Thai construction-site staff.
 
-- **Site admins** use the PWA to upload progress photos and update work package status from the field.
-- **Project managers** use the web app to approve work packages and generate PDF reports.
+- **Site admins** upload progress photos, track work packages (grouped by deliverable), and raise purchase requests from the field.
+- **Project managers** review and approve work packages, decide purchase requests, and generate PDF reports.
+- **Procurement (back office)** records purchases and deliveries in AppSheet, writing directly to the database via a restricted Postgres role (ADR 0018/0025).
 
-Built with Next.js 15 App Router, Supabase (Postgres + Auth + Storage), Tailwind CSS v4, and shadcn/ui.
+Built with Next.js 16 App Router, Supabase (Postgres + Auth via LINE Login + Storage), Tailwind CSS v4, and shadcn/ui. A separate worker (`worker/`, deployed on Railway) generates the PDF reports.
 
 ## Local Setup
 
@@ -57,25 +58,24 @@ src/
   components/
     ui/                 shadcn/ui primitives only
     features/           Feature-level components
-  lib/                  Shared utilities
-  lib/db/               Database client and types
+  lib/                  Shared utilities (i18n labels, status colors, domain helpers)
+  lib/db/               Database clients (browser / server / admin) and generated types
+supabase/
+  migrations/           Schema (timestamped SQL; the only write path to the DB)
+  tests/database/       pgTAP tests (`pnpm db:test`)
+worker/                 PDF report worker (isolated subproject, Railway)
 tests/
   unit/                 Vitest unit tests
   integration/          Vitest integration tests
   e2e/                  Playwright E2E tests
 docs/
-  decisions/            Architecture Decision Records (ADRs)
-  specs/                Feature specifications
+  decisions/            Architecture Decision Records (ADRs) — binding
+  feature-specs/        Numbered, locked feature specs
 ```
 
-## Architecture Decision Log
+## Where to start reading
 
-See [docs/decisions/](docs/decisions/) for all ADRs. Start here before implementing any feature.
-
-| ADR                                        | Title                             |
-| ------------------------------------------ | --------------------------------- |
-| [0001](docs/decisions/0001-stack.md)       | Technology Stack                  |
-| [0002](docs/decisions/0002-data-import.md) | WP Data Import Strategy           |
-| [0003](docs/decisions/0003-photos.md)      | Photo Upload and Watermarking     |
-| [0004](docs/decisions/0004-audit.md)       | Audit Trail and Data Immutability |
-| [0005](docs/decisions/0005-scope-v1.md)    | v1 Scope                          |
+1. [`CLAUDE.md`](CLAUDE.md) — project rules, workflow, architecture invariants (binding).
+2. [`docs/v2-handoff.md`](docs/v2-handoff.md) — the start-here context bridge.
+3. [`docs/decisions/`](docs/decisions/) — all ADRs (0001 stack through the latest; read before implementing any feature). The list grows; the directory is the source of truth, not a table here.
+4. The tail of [`docs/progress-tracker.md`](docs/progress-tracker.md) — the most recent unit's state and its open-questions queue.

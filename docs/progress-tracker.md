@@ -5775,3 +5775,11 @@ Read-only audit over `supabase db query --linked` (Management API, postgres cont
 - Row-link card extraction (3 near-identical sites + 1 variant) — recorded candidate, not done.
 - Nav-strip extraction — strips genuinely differ; revisit only if a fourth pattern appears.
 - PWA unit (manifest/icons/SW) — queued; see `docs/app-feel-options.md` for the locked-in recommendation and the operator decisions it needs.
+
+---
+
+## Unit: docs refresh 2026-06-11 (docs-only)
+
+- **Status:** Complete - 2026-06-11 (autonomous block). Closes the "docs refresh unit" queued since the 2026-06-11 audit.
+- **Done:** README modernized (Next.js 16, Thai-first + purchasing + worker described, structure block corrected to feature-specs/ + supabase/ + worker/, the stale 5-row ADR table replaced with a where-to-start-reading list); v2-handoff gains a dated "State refresh 2026-06-11" section 0 (everything shipped since 2026-05-26, current test surface, the merge-auto convention) while sections 1-5 are kept as history; CLAUDE.md schema sentence updated from "five v1 tables" to the current table list with ADR pointers.
+- **Verification:** docs-only; `pnpm lint` (prettier via lint-staged on commit) and no src/ diff.
