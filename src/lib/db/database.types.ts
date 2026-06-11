@@ -549,6 +549,49 @@ export type Database = {
         };
         Relationships: [];
       };
+      work_package_members: {
+        Row: {
+          added_at: string;
+          added_by: string;
+          user_id: string;
+          work_package_id: string;
+        };
+        Insert: {
+          added_at?: string;
+          added_by: string;
+          user_id: string;
+          work_package_id: string;
+        };
+        Update: {
+          added_at?: string;
+          added_by?: string;
+          user_id?: string;
+          work_package_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "work_package_members_added_by_fkey";
+            columns: ["added_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "work_package_members_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "work_package_members_work_package_id_fkey";
+            columns: ["work_package_id"];
+            isOneToOne: false;
+            referencedRelation: "work_packages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       work_packages: {
         Row: {
           code: string;
@@ -557,6 +600,7 @@ export type Database = {
           description: string | null;
           id: string;
           name: string;
+          owner_id: string | null;
           project_id: string;
           status: Database["public"]["Enums"]["work_package_status"];
           updated_at: string;
@@ -568,6 +612,7 @@ export type Database = {
           description?: string | null;
           id?: string;
           name: string;
+          owner_id?: string | null;
           project_id: string;
           status?: Database["public"]["Enums"]["work_package_status"];
           updated_at?: string;
@@ -579,6 +624,7 @@ export type Database = {
           description?: string | null;
           id?: string;
           name?: string;
+          owner_id?: string | null;
           project_id?: string;
           status?: Database["public"]["Enums"]["work_package_status"];
           updated_at?: string;
@@ -589,6 +635,13 @@ export type Database = {
             columns: ["deliverable_id"];
             isOneToOne: false;
             referencedRelation: "deliverables";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "work_packages_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
             referencedColumns: ["id"];
           },
           {
