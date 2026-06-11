@@ -26,7 +26,9 @@ Ship the locked spec-16 §4 schema now, with one extension:
 - **Second INSERT-policy branch** (operator decision 2026-06-11,
   reversing spec-16 Q2 for this purpose only):
   `purpose = 'delivery_confirmation'` rows require kind `image`, parent
-  `status = 'delivered'`, `created_by = auth.uid()`, requester-capable
+  `status = 'delivered'` _(amended by ADR 0030: widened to
+  `on_route|delivered`, and the photo itself now completes the
+  delivery)_, `created_by = auth.uid()`, requester-capable
   role. ANY staff member may confirm receipt — the receiver is often not
   the requester — so this branch deliberately omits the
   `requested_by = auth.uid()` ownership check that the reference branch

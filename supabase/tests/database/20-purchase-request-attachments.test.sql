@@ -1,5 +1,5 @@
 begin;
-select plan(52);
+select plan(60);
 
 -- ============================================================================
 -- Spec 23 / ADR 0028 — purchase_request_attachments (spec 16 §4 locked
@@ -15,7 +15,8 @@ insert into auth.users (id, email, raw_user_meta_data) values
 
 update public.users set role = 'super_admin'  where id = '11111111-1111-1111-1111-11111111aaaa';
 update public.users set role = 'site_admin'   where id = '22222222-2222-2222-2222-22222222aaaa';
-update public.users set role = 'site_admin'   where id = '55555555-5555-5555-5555-55555555aaaa';
+update public.users set role = 'site_admin', full_name = 'SA Two'
+  where id = '55555555-5555-5555-5555-55555555aaaa';
 -- 4444…aaaa keeps default 'visitor'.
 
 insert into public.projects (id, code, name) values
@@ -43,6 +44,29 @@ values
    'Rebar', 50, 'rod', '22222222-2222-2222-2222-22222222aaaa', 'delivered',
    '11111111-1111-1111-1111-11111111aaaa',
    now() - interval '3 days', now() - interval '2 days', now() - interval '1 day');
+
+-- p3: ON_ROUTE, requested by SA1 — the spec-24 photo-completes-delivery
+-- fixture (SA2 confirms receipt).
+insert into public.purchase_requests
+  (id, work_package_id, item_description, quantity, unit, requested_by, status,
+   approved_by, decided_at, purchased_at, shipped_at)
+values
+  ('a3000000-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+   'eeeeeeee-eeee-eeee-eeee-eeeeeeeeaaaa',
+   'Paint', 12, 'can', '22222222-2222-2222-2222-22222222aaaa', 'on_route',
+   '11111111-1111-1111-1111-11111111aaaa',
+   now() - interval '3 days', now() - interval '2 days', now() - interval '1 day');
+
+-- p4: PURCHASED (not yet shipped) — confirmation photos must stay denied.
+insert into public.purchase_requests
+  (id, work_package_id, item_description, quantity, unit, requested_by, status,
+   approved_by, decided_at, purchased_at)
+values
+  ('a4000000-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+   'eeeeeeee-eeee-eeee-eeee-eeeeeeeeaaaa',
+   'Wire', 5, 'roll', '22222222-2222-2222-2222-22222222aaaa', 'purchased',
+   '11111111-1111-1111-1111-11111111aaaa',
+   now() - interval '2 days', now() - interval '1 day');
 
 grant insert on _tap_buf to authenticated;
 grant select on _tap_buf to authenticated;
@@ -123,6 +147,13 @@ select ok(
        and policyname = 'appsheet_writer select via parent status'),
   'appsheet SELECT policy lists all four post-decision statuses explicitly (incl. on_route)'
 );
+
+-- Spec 24 / ADR 0030: the photo-completes-delivery trigger.
+select has_function('public', 'purchase_request_attachments_complete_delivery',
+  'completion trigger function exists (spec 24)');
+select has_trigger('public', 'purchase_request_attachments',
+  'purchase_request_attachments_complete_delivery',
+  'AFTER INSERT completion trigger attached (spec 24)');
 
 -- Views.
 select has_view('public', 'purchase_request_attachments_current', '_current view exists');
@@ -332,6 +363,55 @@ select lives_ok(
              'f2000000-ffff-ffff-ffff-ffffffffffff',
              '55555555-5555-5555-5555-55555555aaaa') $$,
   'creator tombstone of own confirmation photo is permitted');
+
+-- D.9 (spec 24) SA2 attaches a confirmation photo while p3 is ON_ROUTE —
+--     permitted by the widened branch; the completion trigger fires.
+set local "request.jwt.claims" = '{"sub": "55555555-5555-5555-5555-55555555aaaa"}';
+select lives_ok(
+  $$ insert into public.purchase_request_attachments
+       (purchase_request_id, kind, purpose, storage_path, created_by)
+     values ('a3000000-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'image', 'delivery_confirmation',
+             'p/confirm-onroute.jpg', '55555555-5555-5555-5555-55555555aaaa') $$,
+  'confirmation photo on an on_route parent is permitted (spec 24)');
+
+-- D.10 (spec 24) Confirmation photo on a PURCHASED parent stays denied.
+set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-22222222aaaa"}';
+select throws_ok(
+  $$ insert into public.purchase_request_attachments
+       (purchase_request_id, kind, purpose, storage_path, created_by)
+     values ('a4000000-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'image', 'delivery_confirmation',
+             'p/deny-purchased.jpg', '22222222-2222-2222-2222-22222222aaaa') $$,
+  '42501', null, 'confirmation photo on a purchased parent is denied (flow starts at on_route)');
+
+-- ============================================================================
+-- E. Spec 24 outcomes (back as postgres).
+-- ============================================================================
+reset role;
+
+select is(
+  (select status::text from public.purchase_requests
+     where id = 'a3000000-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+  'delivered',
+  'the photo completed the delivery: p3 advanced on_route→delivered');
+
+select isnt(
+  (select delivered_at from public.purchase_requests
+     where id = 'a3000000-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+  null,
+  'delivered_at was stamped by the completion trigger');
+
+select is(
+  (select received_by from public.purchase_requests
+     where id = 'a3000000-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+  'SA Two',
+  'received_by = the confirming user''s full_name');
+
+select is(
+  (select count(*)::int from public.audit_log
+     where action = 'purchase_request_delivery'
+       and target_id = 'a3000000-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
+  1,
+  'the existing audit trigger wrote exactly one purchase_request_delivery row');
 
 select * from finish();
 rollback;
