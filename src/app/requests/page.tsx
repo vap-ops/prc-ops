@@ -448,7 +448,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                         {r.delivery_note}
                       </p>
                     ) : null}
-                    {status === "delivered" ? (
+                    {status === "delivered" || status === "on_route" ? (
                       <div className="mt-3 flex flex-col gap-2 border-t border-zinc-200 pt-3">
                         {(confirmationsByRequest.get(r.id) ?? []).length > 0 ? (
                           <div>
@@ -492,9 +492,11 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
           {myRequests && myRequests.length > 0 ? (
             <p className="mt-3 text-xs text-zinc-600">
               เมื่อผู้จัดการโครงการอนุมัติคำขอแล้ว ฝ่ายจัดซื้อจะดำเนินการต่อในระบบหลังบ้าน — สถานะ
-              &ldquo;สั่งซื้อแล้ว&rdquo; และ &ldquo;ได้รับของแล้ว&rdquo;
-              จะอัปเดตอัตโนมัติจากบันทึกของฝ่ายจัดซื้อ ไม่สามารถแก้ไขในแอปนี้ได้
-              ฝ่ายจัดซื้อจะอัปเดตวันที่คาดว่าจะได้รับของจากระบบหลังบ้าน
+              &ldquo;สั่งซื้อแล้ว&rdquo; และ &ldquo;กำลังจัดส่ง&rdquo;
+              จะอัปเดตอัตโนมัติจากบันทึกของฝ่ายจัดซื้อ
+              ฝ่ายจัดซื้อจะอัปเดตวันที่คาดว่าจะได้รับของจากระบบหลังบ้าน เมื่อของถึงหน้างาน
+              ถ่ายรูปยืนยันการรับของได้ทันทีที่สถานะ &ldquo;กำลังจัดส่ง&rdquo; — ระบบจะบันทึกเป็น
+              &ldquo;ได้รับของแล้ว&rdquo; ให้อัตโนมัติ
             </p>
           ) : null}
         </div>
