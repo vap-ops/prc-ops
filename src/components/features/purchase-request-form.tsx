@@ -239,7 +239,7 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
               setSavedAt(null);
             }}
             disabled={submitting}
-            className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-3 text-sm text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+            className="h-11 w-full max-w-full min-w-0 appearance-none rounded-md border border-zinc-400 bg-white px-3 text-sm text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
           />
         </div>
         <div className="flex min-w-0 flex-col gap-1 sm:flex-1">
