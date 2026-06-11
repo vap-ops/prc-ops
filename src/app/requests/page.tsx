@@ -42,6 +42,7 @@ import {
 } from "@/lib/status-colors";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { PurchaseRequestDecision } from "@/components/features/purchase-request-decision";
+import { PurchaseRequestTracker } from "@/components/features/purchase-request-tracker";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
@@ -106,7 +107,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   const { data: visibleRequests, error: myError } = await supabase
     .from("purchase_requests")
     .select(
-      "id, work_package_id, item_description, quantity, unit, status, requested_at, requested_by, requested_by_email, decision_comment, decided_at, purchased_at, supplier, delivered_at, received_by, delivery_note, needed_by, eta, priority",
+      "id, work_package_id, item_description, quantity, unit, status, requested_at, requested_by, requested_by_email, decision_comment, decided_at, purchased_at, shipped_at, supplier, delivered_at, received_by, delivery_note, needed_by, eta, priority",
     )
     .order("requested_at", { ascending: false });
 
@@ -283,12 +284,24 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                         ) : null}
                       </span>
                     </div>
+                    <div className="mt-3">
+                      <PurchaseRequestTracker
+                        status={status}
+                        requestedAt={r.requested_at}
+                        decidedAt={r.decided_at}
+                        purchasedAt={r.purchased_at}
+                        shippedAt={r.shipped_at}
+                        deliveredAt={r.delivered_at}
+                        eta={r.eta}
+                      />
+                    </div>
                     {status === "approved" && r.decided_at ? (
                       <p className="mt-2 text-xs text-zinc-600">
                         อนุมัติเมื่อ {formatThaiDateTime(r.decided_at)}
                       </p>
                     ) : null}
-                    {(status === "approved" || status === "purchased") && r.eta ? (
+                    {(status === "approved" || status === "purchased" || status === "on_route") &&
+                    r.eta ? (
                       <p className="mt-1 text-xs text-zinc-600">
                         คาดว่าจะได้รับของ {formatThaiDate(r.eta)}
                       </p>
@@ -306,7 +319,8 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                         ) : null}
                       </div>
                     ) : null}
-                    {(status === "purchased" || status === "delivered") && r.purchased_at ? (
+                    {(status === "purchased" || status === "on_route" || status === "delivered") &&
+                    r.purchased_at ? (
                       <p className="mt-2 text-xs text-zinc-600">
                         สั่งซื้อเมื่อ {formatThaiDateTime(r.purchased_at)}
                         {r.supplier ? ` · ผู้ขาย ${r.supplier}` : ""}

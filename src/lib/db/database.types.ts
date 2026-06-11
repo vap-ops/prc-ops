@@ -252,6 +252,7 @@ export type Database = {
           requested_at: string;
           requested_by: string | null;
           requested_by_email: string | null;
+          shipped_at: string | null;
           source: string;
           status: Database["public"]["Enums"]["purchase_request_status"];
           supplier: string | null;
@@ -279,6 +280,7 @@ export type Database = {
           requested_at?: string;
           requested_by?: string | null;
           requested_by_email?: string | null;
+          shipped_at?: string | null;
           source?: string;
           status?: Database["public"]["Enums"]["purchase_request_status"];
           supplier?: string | null;
@@ -306,6 +308,7 @@ export type Database = {
           requested_at?: string;
           requested_by?: string | null;
           requested_by_email?: string | null;
+          shipped_at?: string | null;
           source?: string;
           status?: Database["public"]["Enums"]["purchase_request_status"];
           supplier?: string | null;
@@ -521,7 +524,13 @@ export type Database = {
       photo_phase: "before" | "during" | "after";
       project_status: "active" | "on_hold" | "completed" | "archived";
       purchase_request_priority: "normal" | "urgent" | "critical";
-      purchase_request_status: "requested" | "approved" | "rejected" | "purchased" | "delivered";
+      purchase_request_status:
+        | "requested"
+        | "approved"
+        | "rejected"
+        | "purchased"
+        | "on_route"
+        | "delivered";
       report_status: "requested" | "processing" | "complete" | "failed";
       user_role:
         | "site_admin"
@@ -690,7 +699,14 @@ export const Constants = {
       photo_phase: ["before", "during", "after"],
       project_status: ["active", "on_hold", "completed", "archived"],
       purchase_request_priority: ["normal", "urgent", "critical"],
-      purchase_request_status: ["requested", "approved", "rejected", "purchased", "delivered"],
+      purchase_request_status: [
+        "requested",
+        "approved",
+        "rejected",
+        "purchased",
+        "on_route",
+        "delivered",
+      ],
       report_status: ["requested", "processing", "complete", "failed"],
       user_role: [
         "site_admin",

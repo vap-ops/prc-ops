@@ -27,6 +27,7 @@ export const PURCHASE_REQUEST_STATUS_LABEL: Record<Enums["purchase_request_statu
   approved: "อนุมัติแล้ว",
   rejected: "ไม่อนุมัติ",
   purchased: "สั่งซื้อแล้ว",
+  on_route: "กำลังจัดส่ง",
   delivered: "ได้รับของแล้ว",
 };
 

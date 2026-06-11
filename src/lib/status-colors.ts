@@ -37,6 +37,9 @@ const PILL_AMBER = "border-amber-600 bg-amber-400 text-zinc-950";
 // 5.37:1 (AA pass) while keeping the positive hue identifiable.
 const PILL_EMERALD = "border-emerald-800 bg-emerald-700 text-white";
 const PILL_RED = "border-red-700 bg-red-600 text-white";
+// sky-700 fill: white-on-sky-600 is ~3.7:1 (AA fail); 700 passes while
+// staying clearly "in transit" blue, distinct from the blue-700 action hue.
+const PILL_SKY = "border-sky-800 bg-sky-700 text-white";
 const PILL_MUTED = "border-zinc-300 bg-zinc-100 text-zinc-600";
 
 export function projectStatusPillClasses(status: ProjectStatus): string {
@@ -145,6 +148,10 @@ export function purchaseRequestStatusPillClasses(status: PurchaseRequestStatus):
       // In flight with the back office (AppSheet) — goods ordered but
       // not yet on site. Amber, like the in-flight WP statuses.
       return PILL_AMBER;
+    case "on_route":
+      // Goods physically moving (shipped_at set by the back office,
+      // ADR 0027). Sky — between amber "ordered" and emerald "received".
+      return PILL_SKY;
     case "delivered":
       // Positive terminal — goods received on site.
       return PILL_EMERALD;
