@@ -21,17 +21,17 @@ headers (they are content, not chrome).
 
 ### Mechanical class map (page sweep)
 
-| Current                                                             | New                                                                            |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `<main … bg-white` (pages w/ AppHeader or tab bar)                  | `bg-zinc-50`                                                                   |
-| page-local `<header className="border-b border-zinc-300`            | `border-b border-zinc-200 bg-white`                                            |
-| card: `rounded-lg border border-zinc-300 bg-white`                  | `rounded-xl border border-zinc-200 bg-white shadow-sm`                         |
-| card/list item: `rounded-md border border-zinc-300 bg-white`        | `rounded-xl border border-zinc-200 bg-white shadow-sm`                         |
-| sub-panel: `rounded-md border border-zinc-300 bg-zinc-50`           | `rounded-lg border border-zinc-200 bg-zinc-50`                                 |
-| primary btn: `rounded-md bg-blue-700`                               | `rounded-lg bg-blue-700 shadow-sm` (+ keep hover; add `active:translate-y-px`) |
-| secondary btn: `rounded-md border border-zinc-400 bg-white`         | `rounded-lg border border-zinc-300 bg-white shadow-xs`                         |
-| input/select/textarea: `rounded-md border border-zinc-400 bg-white` | `rounded-lg border border-zinc-300 bg-white shadow-xs`                         |
-| nav strip: `border-zinc-300 bg-zinc-100`                            | `border-zinc-200 bg-zinc-100` (strip bg stays — sits on zinc-50)               |
+| Current                                                             | New                                                                                                                                                                    |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<main … bg-white` (pages w/ AppHeader or tab bar)                  | `bg-zinc-50`                                                                                                                                                           |
+| page-local `<header className="border-b border-zinc-300`            | `border-b border-zinc-200 bg-white`                                                                                                                                    |
+| card: `rounded-lg border border-zinc-300 bg-white`                  | `rounded-xl border border-zinc-200 bg-white shadow-sm`                                                                                                                 |
+| card/list item: `rounded-md border border-zinc-300 bg-white`        | `rounded-xl border border-zinc-200 bg-white shadow-sm`                                                                                                                 |
+| sub-panel: `rounded-md border border-zinc-300 bg-zinc-50`           | `rounded-lg border border-zinc-200 bg-zinc-50`                                                                                                                         |
+| primary btn: `rounded-md bg-blue-700`                               | `rounded-lg bg-blue-700 shadow-sm` (+ keep hover; add `active:translate-y-px`)                                                                                         |
+| secondary btn: `rounded-md border border-zinc-400 bg-white`         | `rounded-lg border border-zinc-300 bg-white shadow-xs`                                                                                                                 |
+| input/select/textarea: `rounded-md border border-zinc-400 bg-white` | `rounded-lg border border-zinc-400 bg-white shadow-xs` — fields KEEP zinc-400 (1.4.11 boundary ≥ spec-20 lineage; the zinc-300 draft regressed to 1.48:1, lens-caught) |
+| nav strip: `border-zinc-300 bg-zinc-100`                            | `border-zinc-200 bg-zinc-100` (strip bg stays — sits on zinc-50)                                                                                                       |
 
 **Do NOT touch:** `status-colors.ts`, StatusPill geometry,
 BottomTabBar, the LINE login button, ConfirmDialog/lightbox scrims,
