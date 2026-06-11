@@ -16,6 +16,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { createClient as createBrowserSupabase } from "@/lib/db/browser";
+import { EmptyNotice } from "@/components/features/notices";
 import { ZoomablePhoto } from "@/components/features/photo-lightbox";
 import { mimeToPhotoExt, type PhotoExt, buildPhotoStoragePath } from "@/lib/photos/path";
 import type { PhotoPhase } from "@/lib/photos/transitions";
@@ -211,9 +212,7 @@ export function PhaseUploader({
       )}
 
       {!hasContent ? (
-        <p className="rounded-md border border-zinc-800 bg-zinc-900/50 px-4 py-6 text-center text-sm text-zinc-500">
-          ยังไม่มีรูปช่วง{label}
-        </p>
+        <EmptyNotice className="text-zinc-500">ยังไม่มีรูปช่วง{label}</EmptyNotice>
       ) : (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {photos.map((p) => (

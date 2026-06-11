@@ -24,6 +24,8 @@ import type { Database } from "@/lib/db/database.types";
 export type ProjectStatus = Database["public"]["Enums"]["project_status"];
 export type WorkPackageStatus = Database["public"]["Enums"]["work_package_status"];
 export type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
+export type ApprovalDecision = Database["public"]["Enums"]["approval_decision"];
+export type ReportStatus = Database["public"]["Enums"]["report_status"];
 
 const PILL_ZINC = "border-zinc-700 bg-zinc-800 text-zinc-300";
 const PILL_AMBER = "border-amber-900/60 bg-amber-950/40 text-amber-200";
@@ -51,6 +53,47 @@ export function projectStatusPillClasses(status: ProjectStatus): string {
     default: {
       // Exhaustiveness check + defensive runtime fallback for any
       // future enum value that lands before this file is updated.
+      const _exhaustive: never = status;
+      void _exhaustive;
+      return PILL_ZINC;
+    }
+  }
+}
+
+// Latest-decision pill on the PM queue and the decision-history pill on
+// the review screen. null = no decision yet (awaiting first review).
+export function approvalDecisionPillClasses(decision: ApprovalDecision | null): string {
+  switch (decision) {
+    case "approved":
+      return PILL_EMERALD;
+    case "rejected":
+      return PILL_RED;
+    case "needs_revision":
+      return PILL_AMBER;
+    case null:
+      // Awaiting first review — idle default.
+      return PILL_ZINC;
+    default: {
+      const _exhaustive: never = decision;
+      void _exhaustive;
+      return PILL_ZINC;
+    }
+  }
+}
+
+export function reportStatusPillClasses(status: ReportStatus): string {
+  switch (status) {
+    case "requested":
+      // Queued, worker hasn't picked it up — idle default.
+      return PILL_ZINC;
+    case "processing":
+      // Worker is generating the PDF — in flight.
+      return PILL_AMBER;
+    case "complete":
+      return PILL_EMERALD;
+    case "failed":
+      return PILL_RED;
+    default: {
       const _exhaustive: never = status;
       void _exhaustive;
       return PILL_ZINC;

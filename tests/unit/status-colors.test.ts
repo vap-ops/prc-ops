@@ -16,8 +16,10 @@ vi.mock("server-only", () => ({}));
 
 import { Constants } from "@/lib/db/database.types";
 import {
+  approvalDecisionPillClasses,
   projectStatusPillClasses,
   purchaseRequestStatusPillClasses,
+  reportStatusPillClasses,
   workPackageStatusPillClasses,
 } from "@/lib/status-colors";
 
@@ -117,5 +119,57 @@ describe("purchaseRequestStatusPillClasses", () => {
   it("uses the emerald palette for 'approved' and 'delivered' (positive states)", () => {
     expect(purchaseRequestStatusPillClasses("approved")).toContain("emerald");
     expect(purchaseRequestStatusPillClasses("delivered")).toContain("emerald");
+  });
+});
+
+describe("approvalDecisionPillClasses", () => {
+  for (const value of Constants.public.Enums.approval_decision) {
+    it(`returns a non-empty class string for approval_decision='${value}'`, () => {
+      const classes = approvalDecisionPillClasses(value);
+      expect(typeof classes).toBe("string");
+      expect(classes.length).toBeGreaterThan(0);
+    });
+  }
+
+  it("uses the zinc palette for null (awaiting first review)", () => {
+    expect(approvalDecisionPillClasses(null)).toContain("zinc");
+  });
+
+  it("uses the emerald palette for 'approved'", () => {
+    expect(approvalDecisionPillClasses("approved")).toContain("emerald");
+  });
+
+  it("uses the red palette for 'rejected'", () => {
+    expect(approvalDecisionPillClasses("rejected")).toContain("red");
+  });
+
+  it("uses the amber palette for 'needs_revision'", () => {
+    expect(approvalDecisionPillClasses("needs_revision")).toContain("amber");
+  });
+});
+
+describe("reportStatusPillClasses", () => {
+  for (const value of Constants.public.Enums.report_status) {
+    it(`returns a non-empty class string for report_status='${value}'`, () => {
+      const classes = reportStatusPillClasses(value);
+      expect(typeof classes).toBe("string");
+      expect(classes.length).toBeGreaterThan(0);
+    });
+  }
+
+  it("falls back to neutral classes for an unknown value", () => {
+    const unknown = "not-a-report-status" as unknown as Parameters<
+      typeof reportStatusPillClasses
+    >[0];
+    const classes = reportStatusPillClasses(unknown);
+    expect(typeof classes).toBe("string");
+    expect(classes.length).toBeGreaterThan(0);
+  });
+
+  it("pins the palette: requested zinc, processing amber, complete emerald, failed red", () => {
+    expect(reportStatusPillClasses("requested")).toContain("zinc");
+    expect(reportStatusPillClasses("processing")).toContain("amber");
+    expect(reportStatusPillClasses("complete")).toContain("emerald");
+    expect(reportStatusPillClasses("failed")).toContain("red");
   });
 });

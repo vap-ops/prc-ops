@@ -8,6 +8,7 @@ import {
   type PhotoPhase,
 } from "@/lib/photos/current-photos";
 import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
+import { StatusPill } from "@/components/features/status-pill";
 import { PHOTO_PHASE_LABEL, WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import { PhaseUploader } from "./phase-uploader";
@@ -64,12 +65,10 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
               <p className="font-mono text-xs text-zinc-500">{wp.code}</p>
               <h1 className="truncate text-lg font-semibold tracking-tight">{wp.name}</h1>
             </div>
-            <span
-              className={`mt-1 shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium ${workPackageStatusPillClasses(wp.status)}`}
-            >
+            <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)} className="mt-1">
               {WORK_PACKAGE_STATUS_LABEL[wp.status as keyof typeof WORK_PACKAGE_STATUS_LABEL] ??
                 wp.status}
-            </span>
+            </StatusPill>
           </div>
           <Link
             href={`/requests?wp=${wp.id}`}

@@ -18,7 +18,10 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { EmptyNotice } from "@/components/features/notices";
+import { StatusPill } from "@/components/features/status-pill";
 import { REPORT_STATUS_LABEL, isReportInFlight, type ReportStatus } from "@/lib/reports/predicates";
+import { reportStatusPillClasses } from "@/lib/status-colors";
 import { formatThaiDateTime } from "@/lib/i18n/labels";
 import { getReportDownloadUrl } from "./actions";
 
@@ -37,13 +40,6 @@ interface ReportsListProps {
   reports: ReportListItem[];
 }
 
-const STATUS_PILL_CLASSES: Record<ReportStatus, string> = {
-  requested: "border-zinc-700 bg-zinc-800 text-zinc-300",
-  processing: "border-amber-900/60 bg-amber-950/40 text-amber-200",
-  complete: "border-emerald-900/60 bg-emerald-950/40 text-emerald-200",
-  failed: "border-red-900/60 bg-red-950/40 text-red-200",
-};
-
 export function ReportsList({ reports }: ReportsListProps) {
   const router = useRouter();
   const anyInFlight = reports.some((r) => isReportInFlight(r.status));
@@ -57,11 +53,7 @@ export function ReportsList({ reports }: ReportsListProps) {
   }, [anyInFlight, router]);
 
   if (reports.length === 0) {
-    return (
-      <p className="rounded-md border border-zinc-800 bg-zinc-900/50 px-4 py-6 text-center text-sm text-zinc-400">
-        ยังไม่มีรายงาน
-      </p>
-    );
+    return <EmptyNotice>ยังไม่มีรายงาน</EmptyNotice>;
   }
 
   return (
@@ -77,11 +69,9 @@ function ReportRow({ report }: { report: ReportListItem }) {
   return (
     <li className="rounded-md border border-zinc-800 bg-zinc-900/40 px-4 py-3">
       <div className="flex items-center justify-between gap-3">
-        <span
-          className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium ${STATUS_PILL_CLASSES[report.status]}`}
-        >
+        <StatusPill pillClasses={reportStatusPillClasses(report.status)}>
           {REPORT_STATUS_LABEL[report.status]}
-        </span>
+        </StatusPill>
         <span className="text-xs text-zinc-500">{formatThaiDateTime(report.createdAt)}</span>
       </div>
       {report.status === "complete" && <DownloadButton reportId={report.id} />}

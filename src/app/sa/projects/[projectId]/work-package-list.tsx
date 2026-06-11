@@ -21,6 +21,8 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
+import { EmptyNotice } from "@/components/features/notices";
+import { StatusPill } from "@/components/features/status-pill";
 import { Input } from "@/components/ui/input";
 import type { Database } from "@/lib/db/database.types";
 import { deriveDeliverableProgress } from "@/lib/deliverables/derive-progress";
@@ -118,11 +120,9 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
         <p className="font-mono text-xs text-zinc-500">{wp.code}</p>
         <p className="truncate text-base font-medium text-zinc-100">{wp.name}</p>
       </div>
-      <span
-        className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium ${workPackageStatusPillClasses(wp.status)}`}
-      >
+      <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)}>
         {WORK_PACKAGE_STATUS_LABEL[wp.status] ?? wp.status}
-      </span>
+      </StatusPill>
     </Link>
   );
 
@@ -149,9 +149,7 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
       </div>
 
       {filtered.length === 0 ? (
-        <p className="rounded-md border border-zinc-800 bg-zinc-900/50 px-4 py-6 text-center text-sm text-zinc-400">
-          {emptyMessage}
-        </p>
+        <EmptyNotice>{emptyMessage}</EmptyNotice>
       ) : deliverables.length === 0 ? (
         // Degraded mode (spec 11): no deliverables on the project yet —
         // flat list, exactly the pre-grouping behaviour.
@@ -204,11 +202,9 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
                       )}
                     </span>
                     <span className="flex shrink-0 flex-col items-end gap-1">
-                      <span
-                        className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${workPackageStatusPillClasses(progress.status)}`}
-                      >
+                      <StatusPill pillClasses={workPackageStatusPillClasses(progress.status)}>
                         {WORK_PACKAGE_STATUS_LABEL[progress.status]}
-                      </span>
+                      </StatusPill>
                       <span className="text-xs text-zinc-500">
                         {progress.completeCount}/{progress.totalCount} รายการ
                       </span>

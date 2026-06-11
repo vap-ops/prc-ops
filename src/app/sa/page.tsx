@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { LogoutButton } from "@/components/auth/logout-button";
+import { AppHeader } from "@/components/features/app-header";
+import { EmptyNotice, ErrorNotice } from "@/components/features/notices";
+import { StatusPill } from "@/components/features/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
@@ -18,25 +20,7 @@ export default async function SitAdminLandingPage() {
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
-      <header className="border-b border-zinc-800 px-5 py-4">
-        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
-          <div>
-            <p className="text-xs tracking-wider text-zinc-500 uppercase">หน้างาน</p>
-            <h1 className="text-lg font-semibold tracking-tight">
-              {ctx.fullName ? `สวัสดี คุณ${ctx.fullName}` : "สวัสดี"}
-            </h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/profile"
-              className="text-sm text-zinc-400 transition-colors hover:text-zinc-100 focus:outline-none focus-visible:underline"
-            >
-              โปรไฟล์
-            </Link>
-            <LogoutButton />
-          </div>
-        </div>
-      </header>
+      <AppHeader kicker="หน้างาน" fullName={ctx.fullName} maxWidthClass="max-w-2xl" />
 
       <nav className="border-b border-zinc-800/60 bg-zinc-900/30 px-5 py-2">
         <div className="mx-auto flex max-w-2xl items-center gap-4 text-xs">
@@ -54,13 +38,9 @@ export default async function SitAdminLandingPage() {
         <h2 className="mb-3 text-sm font-medium text-zinc-400">โครงการ</h2>
 
         {error ? (
-          <p className="rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-            โหลดรายการโครงการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง
-          </p>
+          <ErrorNotice>โหลดรายการโครงการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</ErrorNotice>
         ) : !projects || projects.length === 0 ? (
-          <p className="rounded-md border border-zinc-800 bg-zinc-900/50 px-4 py-6 text-center text-sm text-zinc-400">
-            ยังไม่มีโครงการ
-          </p>
+          <EmptyNotice>ยังไม่มีโครงการ</EmptyNotice>
         ) : (
           <ul className="flex flex-col gap-2">
             {projects.map((p) => (
@@ -73,12 +53,10 @@ export default async function SitAdminLandingPage() {
                     <p className="font-mono text-xs text-zinc-500">{p.code}</p>
                     <p className="truncate text-base font-medium text-zinc-100">{p.name}</p>
                   </div>
-                  <span
-                    className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium ${projectStatusPillClasses(p.status)}`}
-                  >
+                  <StatusPill pillClasses={projectStatusPillClasses(p.status)}>
                     {PROJECT_STATUS_LABEL[p.status as keyof typeof PROJECT_STATUS_LABEL] ??
                       p.status}
-                  </span>
+                  </StatusPill>
                 </Link>
               </li>
             ))}

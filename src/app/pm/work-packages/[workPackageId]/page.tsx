@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { EmptyNotice } from "@/components/features/notices";
+import { StatusPill } from "@/components/features/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
-import { createClient as createAdminClient } from "@/lib/db/admin";
 import { createClient } from "@/lib/db/server";
+import { fetchDisplayNames } from "@/lib/users/display-names";
 import {
   getCurrentPhotosForWorkPackage,
   type PhotoLogRow,
@@ -16,12 +18,9 @@ import {
   WORK_PACKAGE_STATUS_LABEL,
   formatThaiDateTime,
 } from "@/lib/i18n/labels";
-import { workPackageStatusPillClasses } from "@/lib/status-colors";
+import { approvalDecisionPillClasses, workPackageStatusPillClasses } from "@/lib/status-colors";
 import { ZoomablePhoto } from "@/components/features/photo-lightbox";
-import type { Database } from "@/lib/db/database.types";
 import { RecordDecisionForm } from "./record-decision-form";
-
-type ApprovalDecision = Database["public"]["Enums"]["approval_decision"];
 
 interface PageProps {
   params: Promise<{ workPackageId: string }>;
@@ -36,12 +35,6 @@ const PHASES: ReadonlyArray<{ phase: PhotoPhase; label: string }> = [
   { phase: "during", label: PHOTO_PHASE_LABEL.during },
   { phase: "after", label: PHOTO_PHASE_LABEL.after },
 ];
-
-const DECISION_CLASSES: Record<ApprovalDecision, string> = {
-  approved: "border-emerald-900/60 bg-emerald-950/40 text-emerald-200",
-  rejected: "border-red-900/60 bg-red-950/40 text-red-200",
-  needs_revision: "border-amber-900/60 bg-amber-950/40 text-amber-200",
-};
 
 export default async function WorkPackageReviewScreen({ params }: PageProps) {
   const { workPackageId } = await params;
@@ -89,7 +82,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
   // page is server-rendered, and only display names appear in the
   // result. Same shape as src/lib/photos/signed-urls.ts.
   const deciderIds = Array.from(new Set(approvalsRows.map((r) => r.decided_by)));
-  const deciderNames = await fetchDeciderNames(deciderIds);
+  const deciderNames = await fetchDisplayNames(deciderIds, "[pm/work-packages]");
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -111,12 +104,10 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
               <p className="font-mono text-xs text-zinc-500">{wp.code}</p>
               <h1 className="truncate text-lg font-semibold tracking-tight">{wp.name}</h1>
             </div>
-            <span
-              className={`mt-1 shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium ${workPackageStatusPillClasses(wp.status)}`}
-            >
+            <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)} className="mt-1">
               {WORK_PACKAGE_STATUS_LABEL[wp.status as keyof typeof WORK_PACKAGE_STATUS_LABEL] ??
                 wp.status}
-            </span>
+            </StatusPill>
           </div>
           <Link
             href={`/requests?wp=${wp.id}`}
@@ -145,9 +136,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
         <section>
           <h2 className="mb-3 text-sm font-medium text-zinc-400">ประวัติการตรวจ</h2>
           {approvalsRows.length === 0 ? (
-            <p className="rounded-md border border-zinc-800 bg-zinc-900/50 px-4 py-6 text-center text-sm text-zinc-500">
-              ยังไม่มีการตรวจ
-            </p>
+            <EmptyNotice className="text-zinc-500">ยังไม่มีการตรวจ</EmptyNotice>
           ) : (
             <ul className="flex flex-col gap-2">
               {approvalsRows.map((a) => (
@@ -156,11 +145,9 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
                   className="rounded-md border border-zinc-800 bg-zinc-900/40 px-4 py-3"
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <span
-                      className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium ${DECISION_CLASSES[a.decision]}`}
-                    >
+                    <StatusPill pillClasses={approvalDecisionPillClasses(a.decision)}>
                       {APPROVAL_DECISION_LABEL[a.decision]}
-                    </span>
+                    </StatusPill>
                     <span className="text-xs text-zinc-500">
                       {formatThaiDateTime(a.decided_at)}
                     </span>
@@ -182,9 +169,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
           {wp.status === "pending_approval" ? (
             <RecordDecisionForm workPackageId={wp.id} />
           ) : (
-            <p className="rounded-md border border-zinc-800 bg-zinc-900/50 px-4 py-6 text-center text-sm text-zinc-500">
-              รายการงานนี้ไม่ได้อยู่ในสถานะรอตรวจ
-            </p>
+            <EmptyNotice className="text-zinc-500">รายการงานนี้ไม่ได้อยู่ในสถานะรอตรวจ</EmptyNotice>
           )}
         </section>
       </div>
@@ -203,9 +188,7 @@ function PhaseGallery({ label, photos, signedUrls }: PhaseGalleryProps) {
     <div>
       <h3 className="mb-2 text-xs font-medium tracking-wider text-zinc-500 uppercase">{label}</h3>
       {photos.length === 0 ? (
-        <p className="rounded-md border border-zinc-800 bg-zinc-900/50 px-4 py-6 text-center text-sm text-zinc-500">
-          ไม่มีรูปช่วง{label}
-        </p>
+        <EmptyNotice className="text-zinc-500">ไม่มีรูปช่วง{label}</EmptyNotice>
       ) : (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {photos.map((p) => {
@@ -229,22 +212,4 @@ function PhaseGallery({ label, photos, signedUrls }: PhaseGalleryProps) {
       )}
     </div>
   );
-}
-
-async function fetchDeciderNames(userIds: ReadonlyArray<string>): Promise<Map<string, string>> {
-  const result = new Map<string, string>();
-  if (userIds.length === 0) return result;
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("users")
-    .select("id, full_name")
-    .in("id", userIds as string[]);
-  if (error) {
-    console.error("[pm/work-packages] failed to read decider names", error.message);
-    return result;
-  }
-  for (const u of data ?? []) {
-    if (u.full_name) result.set(u.id, u.full_name);
-  }
-  return result;
 }

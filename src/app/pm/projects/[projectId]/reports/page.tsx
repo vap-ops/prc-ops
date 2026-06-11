@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { LogoutButton } from "@/components/auth/logout-button";
+import { AppHeader } from "@/components/features/app-header";
+import { ErrorNotice } from "@/components/features/notices";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { canGenerateReport, type ReportStatus } from "@/lib/reports/predicates";
@@ -59,15 +60,12 @@ export default async function ProjectReportsPage({ params }: PageProps) {
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
-      <header className="border-b border-zinc-800 px-5 py-4">
-        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
-          <div>
-            <p className="text-xs tracking-wider text-zinc-500 uppercase">ผู้จัดการโครงการ</p>
-            <h1 className="text-lg font-semibold tracking-tight">รายงาน</h1>
-          </div>
-          <LogoutButton />
-        </div>
-      </header>
+      <AppHeader
+        kicker="ผู้จัดการโครงการ"
+        title="รายงาน"
+        maxWidthClass="max-w-2xl"
+        showProfileLink={false}
+      />
 
       <nav className="border-b border-zinc-800/60 bg-zinc-900/30 px-5 py-2">
         <div className="mx-auto flex max-w-2xl items-center gap-4 text-xs">
@@ -102,9 +100,7 @@ export default async function ProjectReportsPage({ params }: PageProps) {
         <section>
           <h2 className="mb-3 text-sm font-medium text-zinc-400">รายงาน</h2>
           {reportsError ? (
-            <p className="rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-              โหลดรายการรายงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง
-            </p>
+            <ErrorNotice>โหลดรายการรายงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</ErrorNotice>
           ) : (
             <ReportsList reports={reports} />
           )}

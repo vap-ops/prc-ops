@@ -5742,3 +5742,36 @@ Read-only audit over `supabase db query --linked` (Management API, postgres cont
   - eta audited in ONE canonical shape (case-3 correction diff only; bundled-transition gap recorded as the accepted pre-existing posture); grant + audit amendment in one migration; function body AND trigger WHEN both amended (dual hard-coded column lists verified at 20260608140300).
   - Tier-2 smoke amendments phase-tagged with an operator fixture protocol (no vacuous-pass on an empty attachments table); AppSheet read-only column config for needed_by made a REQUIREMENT (42501-wholesale trap); protect-audit-log hook claim corrected (path-regex only); ADR 0026 must carry in-place back-pointer edits (ADR 0018 matrix, ADR 0022 x2, ADR 0025); verified-by-checklist posture sentence added for non-pure surfaces; late-ETA badge gated behind operator Q4 (amount-display precedent).
 - **Next:** operator answers Q1-Q4 (or accepts defaults) -> write ADR 0026 -> implement P1 (dates + unit picker) then P2 (attachments) as separate units.
+
+---
+
+## Unit: app-shell structural refactor (spec 17, iteration 4)
+
+- **Status:** Complete — 2026-06-11 (operator-authorized autonomous block; "merge auto" standing instruction).
+- **Spec:** [`docs/feature-specs/17-app-shell-refactor.md`](./feature-specs/17-app-shell-refactor.md) — behavior-preserving extraction of AppHeader, StatusPill, ErrorNotice/EmptyNotice, approvalDecisionPillClasses/reportStatusPillClasses, fetchDisplayNames.
+
+### Done
+
+- **Writing failing test first** — RED evidence: `pnpm exec vitest run` over the three test surfaces exited 1 with 10 failures before any module existed (helpers + components absent); GREEN 51/51 immediately after implementation; full suite **216/216** (191 prior + 25 new).
+- **AppHeader** (`src/components/features/app-header.tsx`) — replaces the six hand-rolled hub headers (/sa, /pm, /pm/requests, /requests, /pm/projects, reports). Each page's existing width (2xl/3xl), kicker, greeting-vs-title, and profile-link presence pass through as props — the historical inconsistencies are preserved, now visible as props (normalization = recorded iteration-5 operator question).
+- **StatusPill** — **10 consumers** (the spec's original nine-site inventory missed the SA WP photo-screen header pill; enumeration gap caught by the adversarial pass and recorded per the spec-14 "12th page title" precedent, then converted).
+- **ErrorNotice/EmptyNotice** — all standard-geometry notice sites (7 error + 11 empty, incl. the four text-zinc-500 overrides). The two small-size error variants stay local by design.
+- **approvalDecisionPillClasses + reportStatusPillClasses** in `status-colors.ts` — the last two pill maps outside the declared home (pm/page local fn, PM WP DECISION_CLASSES, reports-list STATUS_PILL_CLASSES) deleted.
+- **fetchDisplayNames** (`src/lib/users/display-names.ts`, server-only) — consolidates the byte-identical fetchRequesterNames/fetchDeciderNames admin-client helpers; call-site fallback chains and dedupe untouched.
+
+### Adversarial verification (3-lens workflow over the uncommitted diff)
+
+- **Fidelity lens — pass.** Programmatic check: every Thai string in deleted-vs-added lines byte-matches (21 distinct strings, balanced counts); executed the project's real `cn()` against every palette constant — outputs byte-identical to the old literal class attributes; all six headers structurally identical.
+- **Behavior lens — pass.** No route/redirect/query change; helper consolidation verbatim; no client/server boundary break (build is the conclusive check). One stale comment found → fixed.
+- **Discipline lens** — findings all folded in: the logout flex-div wrap + console.error wording added to the spec's recorded-delta list; the 10th pill site converted + recorded; the AppHeader title-override test strengthened (now passes title AND fullName, asserts title wins); RED→GREEN evidence recorded here; `docs/app-feel-options.md` committed separately (not bundled into the refactor commit).
+
+### Verification (spec 17 checklist)
+
+- New tests RED → GREEN. ✔ `pnpm lint`/`typecheck`/`test` — 216/216. ✔ `pnpm build` — 17 routes unchanged. ✔ `pnpm test:e2e` — 27/27. ✔ No diff under `supabase/`/`worker/`. ✔ Recorded deltas only (5 listed in the spec checklist). ✔ Touched routes serve on the dev server (auth-gated pages stream the loading shell then redirect — pre-existing spec-15 streaming behavior, browser lands on /login per e2e). ✔
+
+### Open questions / iteration-5 queue
+
+- **Header normalization (operator):** should /pm/projects + reports gain the โปรไฟล์ link, and should the 2xl/3xl container split unify? Now a one-prop change per page.
+- Row-link card extraction (3 near-identical sites + 1 variant) — recorded candidate, not done.
+- Nav-strip extraction — strips genuinely differ; revisit only if a fourth pattern appears.
+- PWA unit (manifest/icons/SW) — queued; see `docs/app-feel-options.md` for the locked-in recommendation and the operator decisions it needs.

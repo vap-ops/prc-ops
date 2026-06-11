@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { LogoutButton } from "@/components/auth/logout-button";
+import { AppHeader } from "@/components/features/app-header";
+import { EmptyNotice, ErrorNotice } from "@/components/features/notices";
+import { StatusPill } from "@/components/features/status-pill";
 import { roleHome } from "@/lib/auth/role-home";
 import {
   PurchaseRequestForm,
@@ -99,25 +101,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
-      <header className="border-b border-zinc-800 px-5 py-4">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
-          <div>
-            <p className="text-xs tracking-wider text-zinc-500 uppercase">คำขอซื้อ</p>
-            <h1 className="text-lg font-semibold tracking-tight">
-              {ctx.fullName ? `สวัสดี คุณ${ctx.fullName}` : "สวัสดี"}
-            </h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/profile"
-              className="text-sm text-zinc-400 transition-colors hover:text-zinc-100 focus:outline-none focus-visible:underline"
-            >
-              โปรไฟล์
-            </Link>
-            <LogoutButton />
-          </div>
-        </div>
-      </header>
+      <AppHeader kicker="คำขอซื้อ" fullName={ctx.fullName} maxWidthClass="max-w-3xl" />
 
       <nav className="border-b border-zinc-800/60 bg-zinc-900/30 px-5 py-1">
         <div className="mx-auto flex max-w-3xl items-center">
@@ -138,11 +122,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
             <PurchaseRequestForm workPackage={pinnedWp} />
           ) : (
             <div className="space-y-2">
-              {wpRequested ? (
-                <p className="rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-                  ไม่พบรายการงาน
-                </p>
-              ) : null}
+              {wpRequested ? <ErrorNotice>ไม่พบรายการงาน</ErrorNotice> : null}
               <p className="rounded-md border border-zinc-800 bg-zinc-900/50 px-4 py-4 text-sm text-zinc-400">
                 คำขอซื้อเริ่มจากหน้ารายการงาน — เปิดรายการงานที่ต้องการ แล้วกด{" "}
                 <span className="text-zinc-200">สร้างคำขอซื้อ</span>{" "}
@@ -156,13 +136,9 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         <div>
           <h2 className="mb-3 text-sm font-medium text-zinc-400">คำขอซื้อของฉัน</h2>
           {myError ? (
-            <p className="rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-              โหลดรายการคำขอซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง
-            </p>
+            <ErrorNotice>โหลดรายการคำขอซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</ErrorNotice>
           ) : !myRequests || myRequests.length === 0 ? (
-            <p className="rounded-md border border-zinc-800 bg-zinc-900/50 px-4 py-6 text-center text-sm text-zinc-400">
-              คุณยังไม่เคยสร้างคำขอซื้อ
-            </p>
+            <EmptyNotice>คุณยังไม่เคยสร้างคำขอซื้อ</EmptyNotice>
           ) : (
             <ul className="flex flex-col gap-2">
               {myRequests.map((r) => {
@@ -193,11 +169,9 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                           ขอเมื่อ {formatThaiDateTime(r.requested_at)}
                         </p>
                       </div>
-                      <span
-                        className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium ${purchaseRequestStatusPillClasses(status)}`}
-                      >
+                      <StatusPill pillClasses={purchaseRequestStatusPillClasses(status)}>
                         {PURCHASE_REQUEST_STATUS_LABEL[status]}
-                      </span>
+                      </StatusPill>
                     </div>
                     {status === "approved" && r.decided_at ? (
                       <p className="mt-2 text-xs text-zinc-400">
