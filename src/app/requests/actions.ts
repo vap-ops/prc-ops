@@ -184,7 +184,11 @@ export async function addDeliveryConfirmationPhoto(
     .eq("id", input.purchaseRequestId)
     .maybeSingle();
   const projectId = pr?.work_packages?.project_id;
-  if (!pr || pr.status !== "delivered" || !projectId) {
+  // on_route joined delivered as a legal photo state in ADR 0030 — the
+  // photo on an on_route parent is what COMPLETES the delivery (the
+  // delivered-only check here outlived the policy widening; operator-
+  // reported bug 2026-06-11).
+  if (!pr || (pr.status !== "delivered" && pr.status !== "on_route") || !projectId) {
     return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
 

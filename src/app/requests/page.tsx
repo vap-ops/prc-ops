@@ -320,6 +320,14 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                           </span>
                         </p>
                         <p className="text-xs text-zinc-600">
+                          {/* Own-row marker (spec 25): in the site-wide list,
+                              the viewer's requests must be identifiable at a
+                              glance, not only via the ของฉัน filter chip. */}
+                          {r.requested_by === ctx.id ? (
+                            <span className="mr-1.5 inline-flex items-center rounded-full border border-blue-700 bg-blue-50 px-1.5 text-[10px] font-semibold text-blue-700">
+                              ของฉัน
+                            </span>
+                          ) : null}
                           ขอซื้อโดย{" "}
                           {(r.requested_by ? requesterNames.get(r.requested_by) : null) ??
                             r.requested_by_email ??
