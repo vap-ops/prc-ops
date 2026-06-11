@@ -118,6 +118,8 @@ Reuses `public.current_user_role()` (ADR 0011 — never self-join
   Site_admins see rows they requested but NOT another SA's rows
   (cross-user isolation within the SA tier). Procurement reads but does
   not write the decision — the back-office reviewer role.
+  **⚠ REVERSED by ADR 0026 (operator decision 2026-06-11):** the
+  privileged list gains `site_admin` — site staff see every request.
 - **INSERT** admits `current_user_role() in
 ('site_admin','project_manager','super_admin')` AND pins
   `requested_by = auth.uid()` AND pins `source = 'app'`. The three pins
@@ -159,9 +161,10 @@ Two functions in `src/app/requests/actions.ts`, both using the session
 `supplier`, `order_ref`, `amount`, `purchased_at`, `delivered_at`,
 `received_by`, `delivery_note` are created NULLABLE in this unit. The
 AppSheet writer role in P2 will GRANT column-scoped UPDATE on the
-purchase / delivery subset; no further ALTER expected. The pgTAP catalog
-section pins existence + type for each of these columns so a P2 column
-rename surfaces as a test failure.
+purchase / delivery subset; no further ALTER expected (**amended by
+ADR 0026:** spec 16 adds `needed_by`, `eta`, `priority`). The pgTAP
+catalog section pins existence + type for each of these columns so a
+P2 column rename surfaces as a test failure.
 
 ## Relationship to ADR 0018 (AppSheet writer role)
 
@@ -193,13 +196,16 @@ native (authenticated) path only.
   unknown `source` value is rejected.
 - The v1 requester narrowing is enforced at the policy, not in the UI —
   bypassing the form does not bypass the rule.
-- Forward-compatible with P2's AppSheet stages (no further ALTER).
+- Forward-compatible with P2's AppSheet stages (no further ALTER —
+  amended by ADR 0026, which adds three spec-16 columns).
 
 **Negative**
 
 - A site_admin who requests an item cannot see other SAs' requests. PM
   / procurement / super sees everything. This is the intended scoping
   but reviewers should know the rule before reading the UI.
+  **⚠ REVERSED by ADR 0026** — site_admin joined the privileged SELECT
+  list on the operator's 2026-06-11 decision.
 - The two-layer guard pattern requires discipline — the server action
   is the place where transition scoping lives, not RLS. Mirrors
   `recordDecision`; if the project ever needs a stricter contract,

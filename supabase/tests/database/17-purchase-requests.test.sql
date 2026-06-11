@@ -1,5 +1,5 @@
 begin;
-select plan(87);
+select plan(100);
 
 -- ============================================================================
 -- A. Setup as postgres (the test transaction's outer role, which bypasses
@@ -224,6 +224,26 @@ select has_trigger(
   'purchase_requests_set_updated_at trigger exists'
 );
 
+-- Spec 16 P1 columns (ADR 0026 Decision A): needed_by / eta / priority.
+select has_column('public', 'purchase_requests', 'needed_by', 'needed_by column exists');
+select has_column('public', 'purchase_requests', 'eta', 'eta column exists');
+select has_column('public', 'purchase_requests', 'priority', 'priority column exists');
+select col_type_is('public', 'purchase_requests', 'needed_by', 'date', 'needed_by is date');
+select col_type_is('public', 'purchase_requests', 'eta', 'date', 'eta is date');
+select col_type_is(
+  'public', 'purchase_requests', 'priority',
+  'purchase_request_priority', 'priority is purchase_request_priority'
+);
+select col_not_null('public', 'purchase_requests', 'priority', 'priority is NOT NULL');
+-- Behavioral default: the section-A fixtures never specify priority, so the
+-- column default must have filled 'normal' on every seeded row.
+select is(
+  (select priority::text from public.purchase_requests
+     where id = 'a1111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
+  'normal',
+  'priority defaults to ''normal'' on INSERT'
+);
+
 -- ============================================================================
 -- C. RLS configuration.
 -- ============================================================================
@@ -274,6 +294,16 @@ select is(
      where schemaname='public' and tablename='purchase_requests'
        and policyname='purchase_requests update by pm or super' and cmd::text='UPDATE'),
   1, 'policy "purchase_requests update by pm or super" (UPDATE) exists');
+
+-- Spec 16 A1 / ADR 0026: the native SELECT policy's privileged list includes
+-- site_admin (site-wide visibility). Qual-text pin so a future policy rewrite
+-- that drops it is caught here, not in production.
+select ok(
+  (select qual from pg_policies
+     where schemaname='public' and tablename='purchase_requests'
+       and policyname='purchase_requests select own or privileged') like '%site_admin%',
+  'native SELECT policy qual admits site_admin (ADR 0026 site-wide visibility)'
+);
 
 -- ============================================================================
 -- D. CHECK constraints behavioral. Run as postgres (the outer role, bypasses
@@ -473,10 +503,36 @@ select throws_ok(
   'visitor INSERT on purchase_requests is denied by RLS'
 );
 
+-- E.8 Spec 16 P1: an SA INSERT carrying needed_by + priority persists both
+--     (the authenticated INSERT grant is table-level — no grant change).
+set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222222222"}';
+insert into public.purchase_requests
+  (id, work_package_id, item_description, quantity, unit, requested_by,
+   needed_by, priority)
+values
+  ('a7777777-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid,
+   'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'::uuid,
+   'Cement', 10, 'bag',
+   '22222222-2222-2222-2222-222222222222'::uuid,
+   current_date + 7, 'urgent');
+select is(
+  (select needed_by from public.purchase_requests
+     where id = 'a7777777-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
+  current_date + 7,
+  'needed_by persists on a requester INSERT'
+);
+select is(
+  (select priority::text from public.purchase_requests
+     where id = 'a7777777-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
+  'urgent',
+  'priority persists on a requester INSERT'
+);
+
 -- ============================================================================
 -- F. SELECT visibility.
---   - SA1 sees own (PR_SA1) but NOT SA2's row (PR_SA2) — the "requester sees
---     own" half of the SELECT policy.
+--   - SA1 sees own (PR_SA1) AND SA2's row (PR_SA2) — site-wide visibility
+--     (ADR 0026 reversed the 2026-06-07 cross-user isolation; operator
+--     decision 2026-06-11).
 --   - PM, procurement, super_admin see all rows (role-level read).
 --   - visitor sees nothing.
 -- ============================================================================
@@ -490,13 +546,14 @@ select is(
   'site_admin sees own purchase_request via requested_by = auth.uid()'
 );
 
--- F.2 SA1 does NOT see PR_SA2 (cross-user isolation, load-bearing).
+-- F.2 SA1 SEES PR_SA2 (site-wide visibility — ADR 0026, load-bearing;
+--     this assertion was count=0 cross-user isolation before 20260613100050).
 set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222222222"}';
 select is(
   (select count(*)::int from public.purchase_requests
      where id = 'a2222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
-  0,
-  'site_admin does NOT see another site_admin''s purchase_request (cross-user isolation)'
+  1,
+  'site_admin SEES another site_admin''s purchase_request (site-wide visibility, ADR 0026)'
 );
 
 -- F.3 project_manager sees both PR_SA1 and PR_SA2 (role-level read).
@@ -581,11 +638,11 @@ select is(
 );
 
 -- G.3 site_admin UPDATE is silently filtered by the USING clause —
---     0 rows affected, no error, row value unchanged. PR_SA2 is owned
---     by SA2 and the cross-user SELECT isolation (F.2) hides it from
---     SA1; so the UPDATE attempt runs as SA1, then the verification
---     SELECT switches to super_admin (PM/procurement/super see all)
---     to read the row's state.
+--     0 rows affected, no error, row value unchanged. SA1 can now SEE
+--     PR_SA2 (F.2, site-wide visibility per ADR 0026), but the UPDATE
+--     policy admits only pm/super, so the UPDATE attempt as SA1 matches
+--     0 rows; the verification SELECT switches to super_admin to read
+--     the row's state.
 set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222222222"}';
 update public.purchase_requests
   set status = 'approved',
@@ -667,6 +724,34 @@ select cmp_ok(
   '>',
   '2020-01-01 00:00:00+00'::timestamptz,
   'set_updated_at trigger moves updated_at forward on UPDATE'
+);
+
+-- G.7 Spec 16 P1: an eta-only UPDATE on an approved row passes through the
+--     derive trigger (eta is a fact column, not a transition driver) —
+--     status unchanged. Runs as super_admin (the open pm/super UPDATE
+--     policy admits it; the table-level authenticated UPDATE grant covers
+--     the column — the recorded two-layer-guard posture).
+set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111111111"}';
+update public.purchase_requests
+  set eta = current_date + 14
+  where id = 'a3333333-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid;
+select is(
+  (select status::text from public.purchase_requests
+     where id = 'a3333333-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
+  'approved',
+  'derive trigger passes an eta-only update through (status unchanged)'
+);
+
+-- G.8 The appsheet audit trigger recorded the G.7 eta write as a case-3
+--     correction diff — ADR 0026 Decision C's one canonical shape.
+select is(
+  (select count(*)::int from public.audit_log
+     where target_table = 'purchase_requests'
+       and target_id = 'a3333333-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid
+       and action = 'update'
+       and payload->'changed' ? 'eta'),
+  1,
+  'eta correction audited as a case-3 update diff containing eta'
 );
 
 -- ============================================================================

@@ -1,5 +1,5 @@
 begin;
-select plan(46);
+select plan(52);
 
 -- ============================================================================
 -- A. Setup (as postgres / BYPASSRLS).
@@ -127,6 +127,8 @@ select is(has_column_privilege('appsheet_writer', 'public.purchase_requests', 'p
 select is(has_column_privilege('appsheet_writer', 'public.purchase_requests', 'delivered_at',  'UPDATE'), true, 'appsheet_writer has UPDATE on delivered_at');
 select is(has_column_privilege('appsheet_writer', 'public.purchase_requests', 'received_by',   'UPDATE'), true, 'appsheet_writer has UPDATE on received_by');
 select is(has_column_privilege('appsheet_writer', 'public.purchase_requests', 'delivery_note', 'UPDATE'), true, 'appsheet_writer has UPDATE on delivery_note');
+-- 8th fact column since spec 16 P1 (ADR 0026, migration 20260613100100).
+select is(has_column_privilege('appsheet_writer', 'public.purchase_requests', 'eta',           'UPDATE'), true, 'appsheet_writer has UPDATE on eta (ADR 0026)');
 
 -- B.6 Column-scoped UPDATE grant: FALSE for protected columns (spot-check).
 --     These three are the privilege-layer guarantee that AppSheet cannot alter
@@ -134,6 +136,25 @@ select is(has_column_privilege('appsheet_writer', 'public.purchase_requests', 'd
 select is(has_column_privilege('appsheet_writer', 'public.purchase_requests', 'status',           'UPDATE'), false, 'appsheet_writer has NO UPDATE on status (privilege-layer guarantee)');
 select is(has_column_privilege('appsheet_writer', 'public.purchase_requests', 'source',           'UPDATE'), false, 'appsheet_writer has NO UPDATE on source');
 select is(has_column_privilege('appsheet_writer', 'public.purchase_requests', 'item_description', 'UPDATE'), false, 'appsheet_writer has NO UPDATE on item_description');
+-- Requester-set spec-16 columns — protected set grows to 5 (ADR 0026).
+select is(has_column_privilege('appsheet_writer', 'public.purchase_requests', 'needed_by',        'UPDATE'), false, 'appsheet_writer has NO UPDATE on needed_by (requester column, ADR 0026)');
+select is(has_column_privilege('appsheet_writer', 'public.purchase_requests', 'priority',         'UPDATE'), false, 'appsheet_writer has NO UPDATE on priority (requester column, ADR 0026)');
+
+-- Silent-audit-gap regression guards (spec 16 §7): both hard-coded column
+-- lists — the function's case-3 diff body AND the trigger's WHEN clause —
+-- must name eta, or eta-only corrections silently stop being audited.
+select ok(
+  pg_get_functiondef('public.purchase_requests_audit_appsheet()'::regprocedure)
+    like '%new.eta%',
+  'audit function diff body names eta (8th branch, ADR 0026)'
+);
+select ok(
+  (select pg_get_triggerdef(oid) from pg_trigger
+     where tgname = 'purchase_requests_audit_appsheet'
+       and tgrelid = 'public.purchase_requests'::regclass)
+    like '%eta%',
+  'audit trigger WHEN clause names eta (8th predicate, ADR 0026)'
+);
 
 -- B.7 New audit enum values exist.
 select enum_has_labels(
@@ -273,6 +294,20 @@ select is(
        and target_id = 'd3000001-dddd-dddd-dddd-dddddddddddd'::uuid),
   1,
   'exactly one purchase_request_purchase audit row for approved→purchased (d3)'
+);
+
+-- Payload-shape pin (ADR 0026 Decision C — one canonical shape): the
+-- purchase payload's keys are EXACTLY the original five; eta is audited
+-- only as a case-3 correction diff, never in the transition payload.
+select is(
+  (select array_agg(k order by k)
+     from jsonb_object_keys(
+       (select payload from public.audit_log
+          where action = 'purchase_request_purchase'
+            and target_id = 'd3000001-dddd-dddd-dddd-dddddddddddd'::uuid
+          limit 1)) as k),
+  array['amount', 'order_ref', 'principal', 'purchased_at', 'supplier'],
+  'purchase payload keys are exactly {amount,order_ref,principal,purchased_at,supplier} — no eta'
 );
 
 -- D.2 actor_id IS NULL (no auth.uid() in a direct-DB session).

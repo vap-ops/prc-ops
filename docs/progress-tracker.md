@@ -5876,3 +5876,12 @@ Read-only audit over `supabase db query --linked` (Management API, postgres cont
 - รออนุมัติ band label or queue-clear note for pm/super (one-liner, if wanted).
 - Decided-history pagination (joins spec-16 P1).
 - Carried: skeleton width one-liner, dialog a11y foundation, real logo, palette/outdoor theme, LINE notification unit.
+
+---
+
+## Unit: spec 16 P1 - dates, priority, unit picker, site-wide visibility (ADR 0026)
+
+- **Status:** In progress - started 2026-06-11. Supabase CLI linked from this machine this session (operator chose option 1; an access token was already present - `pnpm db:link` succeeded; remote migration list verified in sync at 20260608140300).
+- **Spec:** [`docs/feature-specs/16-purchase-request-enrichment.md`](./feature-specs/16-purchase-request-enrichment.md) P1 + Addendum; ADR 0026 written this unit with in-place pointer edits to ADR 0018/0022/0025.
+- **Plan:** ADR -> migrations x3 -> adversarial SQL review -> db:push -> db:types -> pgTAP 17/18 updates -> db:test -> code test-first (units, formatThaiDate, validator, priority pill, form, /requests) -> full gate -> final adversarial pass -> commit.
+- **Note:** the addendum asked for a pointer edit inside applied migration 20260608120000 - REFUSED as written (applied migrations are checksummed/immutable); ADR 0026 carries the supersession instead. Recorded as a correction to the addendum.

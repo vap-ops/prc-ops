@@ -78,3 +78,19 @@ export function formatThaiDateTime(iso: string): string {
   if (Number.isNaN(d.getTime())) return iso;
   return THAI_DATE_TIME.format(d);
 }
+
+// Date-only sibling for `date` columns (needed_by, eta — spec 16):
+// formatThaiDateTime would render a phantom 00:00. Same era/zone pins,
+// same raw-string degradation.
+const THAI_DATE = new Intl.DateTimeFormat("th-TH-u-ca-buddhist", {
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+  timeZone: "Asia/Bangkok",
+});
+
+export function formatThaiDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return THAI_DATE.format(d);
+}

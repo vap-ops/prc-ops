@@ -8,6 +8,12 @@ Purchasing P2 unit. Establishes the three load-bearing decisions that shape how 
 
 **Supersedes two parts of ADR 0018's grant matrix** (see "Supersedes ADR 0018" section below).
 
+**Amended by ADR 0026 (spec 16, 2026-06-11):** the column-scoped UPDATE
+grant gains `eta` (8 columns) with its audit handled as a case-3
+correction diff; `needed_by`/`priority` are explicitly NOT writable by
+`appsheet_writer`; the native SELECT policy gains `site_admin`
+(unrelated to this role's own policies, which are unchanged).
+
 ## Context
 
 P1a (ADR 0022) shipped the `purchase_requests` table with the full lifecycle enum (`requested → approved | rejected → purchased → delivered`) and seven nullable P2 fact columns. The `appsheet_writer` role (ADR 0018) was deferred to P2.
@@ -20,7 +26,7 @@ P1a (ADR 0022) shipped the `purchase_requests` table with the full lifecycle enu
 
 ## Decision A — status is DERIVED, never granted
 
-`appsheet_writer` receives no privilege on the `status` column. It writes only fact columns (`supplier`, `order_ref`, `amount`, `purchased_at`, `delivered_at`, `received_by`, `delivery_note`). A BEFORE UPDATE trigger (`purchase_requests_derive_appsheet_status`) advances `status` when a fact-column null→non-null transition signals a lifecycle move:
+`appsheet_writer` receives no privilege on the `status` column. It writes only fact columns (`supplier`, `order_ref`, `amount`, `purchased_at`, `delivered_at`, `received_by`, `delivery_note`; **+ `eta` since ADR 0026**). A BEFORE UPDATE trigger (`purchase_requests_derive_appsheet_status`) advances `status` when a fact-column null→non-null transition signals a lifecycle move:
 
 - `status='approved'` AND `purchased_at` null→non-null ⇒ `NEW.status := 'purchased'`
 - `status='purchased'` AND `delivered_at` null→non-null ⇒ `NEW.status := 'delivered'`
@@ -65,7 +71,7 @@ The P1b decision trigger fires WHEN `OLD.status = 'requested'`. This trigger fir
 
 - `approved→purchased` ⇒ action `purchase_request_purchase`, payload `{principal, supplier, order_ref, amount, purchased_at}`.
 - `purchased→delivered` ⇒ action `purchase_request_delivery`, payload `{principal, delivered_at, received_by, delivery_note}`.
-- Field correction (status unchanged, any of the 7 columns changed) ⇒ action `update`, payload `{principal, changed:{col:[old,new],...}}`. Money edits must be visible.
+- Field correction (status unchanged, any of the 7 columns changed — **8 since ADR 0026 added `eta`**) ⇒ action `update`, payload `{principal, changed:{col:[old,new],...}}`. Money edits must be visible.
 
 ### Rejected alternatives
 

@@ -319,6 +319,18 @@ Repeat for every pilot user.
 > Next integration step (outside this checklist): point the actual AppSheet
 > app at the Session Pooler with these credentials.
 
+> **⚠ Spec 16 P1 amendment (2026-06-11, ADR 0026 — MANDATORY before the
+> Tier-2 re-run):** migrations `20260613100000`/`100050`/`100100` add
+> `needed_by`, `eta`, and `priority` to `purchase_requests` and grant
+> `appsheet_writer` UPDATE on `eta` only. When you regenerate the
+> AppSheet table structure, you MUST mark **`needed_by` and `priority`
+> (and every other non-granted column) READ-ONLY** in the AppSheet
+> column config — AppSheet row saves SET every editable column, so one
+> editable unguarded column fails every save wholesale (42501). `eta`
+> may be marked editable (date type). Then re-run the smoke ritual:
+> it now includes the P1 probes (eta UPDATE permitted on an approved
+> row; `needed_by`/`priority` UPDATE → [PASS] on 42501).
+
 The `appsheet_writer` DB role ships `NOLOGIN`. After `pnpm db:push` merges the
 Purchasing P2 migrations, the operator must set a password out-of-band (the
 password must **never** appear in git or migrations — see ADR 0018 § Password

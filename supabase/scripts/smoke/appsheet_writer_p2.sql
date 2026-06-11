@@ -27,6 +27,9 @@
 --   [3a] UPDATE status        → 42501.
 --   [3b] UPDATE item_description → 42501.
 --   [3c] INSERT               → 42501.
+--   [4a] UPDATE eta permitted (spec 16 P1 / ADR 0026 — the 8th fact column).
+--   [4b] UPDATE needed_by     → 42501 (requester-only column).
+--   [4c] UPDATE priority      → 42501 (requester-only column).
 -- Audit principal (payload->>'principal' = 'appsheet_writer') requires a
 -- super_admin session to read audit_log; see Tier-2b at the end.
 -- ==========================================================================
@@ -165,7 +168,8 @@ $$;
 -- --------------------------------------------------------------------------
 -- [3a] 42501: UPDATE status column denied
 -- --------------------------------------------------------------------------
--- appsheet_writer's UPDATE grant is column-scoped to the 7 fact columns only.
+-- appsheet_writer's UPDATE grant is column-scoped to the fact columns only
+-- (7 at P2; 8 since spec 16 P1 added eta).
 -- Status is explicitly excluded (Decision A of ADR 0025: privilege-layer
 -- guarantee that AppSheet cannot directly write 'approved', 'rejected', etc.).
 -- --------------------------------------------------------------------------
@@ -231,6 +235,70 @@ begin
       raise notice '[PASS][3c] INSERT: denied (42501 insufficient_privilege)';
     when others then
       raise notice '[FAIL][3c] INSERT: unexpected error % — %', sqlstate, sqlerrm;
+  end;
+end;
+$$;
+
+-- --------------------------------------------------------------------------
+-- [4a] eta UPDATE permitted (spec 16 P1 / ADR 0026)
+-- --------------------------------------------------------------------------
+-- eta joined the column-scoped UPDATE grant in 20260613100100. Writing it
+-- on a visible (purchased, from 2a) row must succeed; the audit case-3
+-- 'update' row this writes rolls back with the transaction.
+-- --------------------------------------------------------------------------
+do $$
+declare
+  v_id uuid;
+begin
+  v_id := current_setting('smoke.target_id')::uuid;
+  begin
+    update public.purchase_requests set eta = current_date + 7 where id = v_id;
+    raise notice '[PASS][4a] UPDATE eta: permitted (grant + row gate admit it)';
+  exception
+    when insufficient_privilege then
+      raise notice '[FAIL][4a] UPDATE eta: denied — the 20260613100100 grant is missing';
+    when others then
+      raise notice '[FAIL][4a] UPDATE eta: unexpected error % — %', sqlstate, sqlerrm;
+  end;
+end;
+$$;
+
+-- --------------------------------------------------------------------------
+-- [4b] 42501: UPDATE needed_by denied (requester-set column)
+-- --------------------------------------------------------------------------
+do $$
+declare
+  v_id uuid;
+begin
+  v_id := current_setting('smoke.target_id')::uuid;
+  begin
+    update public.purchase_requests set needed_by = current_date where id = v_id;
+    raise notice '[FAIL][4b] UPDATE needed_by: succeeded — column grant is broader than expected';
+  exception
+    when insufficient_privilege then
+      raise notice '[PASS][4b] UPDATE needed_by: denied (42501 insufficient_privilege)';
+    when others then
+      raise notice '[FAIL][4b] UPDATE needed_by: unexpected error % — %', sqlstate, sqlerrm;
+  end;
+end;
+$$;
+
+-- --------------------------------------------------------------------------
+-- [4c] 42501: UPDATE priority denied (requester-set column)
+-- --------------------------------------------------------------------------
+do $$
+declare
+  v_id uuid;
+begin
+  v_id := current_setting('smoke.target_id')::uuid;
+  begin
+    update public.purchase_requests set priority = 'critical' where id = v_id;
+    raise notice '[FAIL][4c] UPDATE priority: succeeded — column grant is broader than expected';
+  exception
+    when insufficient_privilege then
+      raise notice '[PASS][4c] UPDATE priority: denied (42501 insufficient_privilege)';
+    when others then
+      raise notice '[FAIL][4c] UPDATE priority: unexpected error % — %', sqlstate, sqlerrm;
   end;
 end;
 $$;

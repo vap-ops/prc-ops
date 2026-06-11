@@ -8,12 +8,43 @@
 // the same string the CHECK constraints see at the DB.
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+// Requester-set urgency (spec 16 addendum A2). Declaration order mirrors
+// the DB enum (normal < urgent < critical) — keep them in sync.
+export type PurchasePriority = "normal" | "urgent" | "critical";
+
+export const PURCHASE_PRIORITIES: ReadonlyArray<PurchasePriority> = [
+  "normal",
+  "urgent",
+  "critical",
+];
+
+export function isPurchasePriority(value: unknown): value is PurchasePriority {
+  return typeof value === "string" && (PURCHASE_PRIORITIES as readonly string[]).includes(value);
+}
+
+// Today as yyyy-mm-dd in Asia/Bangkok — the validator's one clock
+// dependence (spec 16 §2). en-CA gives ISO date formatting.
+function bangkokToday(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date());
+}
+
+// Real-calendar check: shape alone admits 2026-02-31 (Date rolls it
+// over); the UTC round-trip exposes the rollover.
+function isRealIsoDate(value: string): boolean {
+  if (!ISO_DATE_REGEX.test(value)) return false;
+  const d = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
+}
 
 export type ValidatedPurchaseRequestInput = {
   workPackageId: string;
   itemDescription: string;
   quantity: number;
   unit: string;
+  neededBy: string | null;
+  priority: PurchasePriority;
 };
 
 export type ValidateCreatePurchaseRequestResult =
@@ -25,6 +56,8 @@ export function validateCreatePurchaseRequest(input: {
   itemDescription: string;
   quantity: number;
   unit: string;
+  neededBy?: string | null;
+  priority?: string | null;
 }): ValidateCreatePurchaseRequestResult {
   if (!UUID_REGEX.test(input.workPackageId)) {
     return { ok: false, error: "รหัสรายการงานไม่ถูกต้อง" };
@@ -40,6 +73,32 @@ export function validateCreatePurchaseRequest(input: {
   if (unit.length === 0) {
     return { ok: false, error: "หน่วยต้องไม่ว่าง" };
   }
+
+  // needed_by is optional (spec 16 §2): blank collapses to null; when
+  // present it must be a real yyyy-mm-dd not before today in Bangkok.
+  // UX-only — there is deliberately no DB CHECK (ADR 0026).
+  const neededByRaw = input.neededBy?.trim() ?? "";
+  let neededBy: string | null = null;
+  if (neededByRaw.length > 0) {
+    if (!isRealIsoDate(neededByRaw)) {
+      return { ok: false, error: "วันที่ต้องการรับของไม่ถูกต้อง" };
+    }
+    if (neededByRaw < bangkokToday()) {
+      return { ok: false, error: "วันที่ต้องการรับของต้องไม่เป็นวันที่ผ่านมาแล้ว" };
+    }
+    neededBy = neededByRaw;
+  }
+
+  // priority defaults to normal; anything outside the declared set is
+  // rejected (the DB enum is the authority — this mirrors it for UX).
+  let priority: PurchasePriority = "normal";
+  if (input.priority !== undefined && input.priority !== null) {
+    if (!isPurchasePriority(input.priority)) {
+      return { ok: false, error: "ระดับความเร่งด่วนไม่ถูกต้อง" };
+    }
+    priority = input.priority;
+  }
+
   return {
     ok: true,
     value: {
@@ -47,6 +106,8 @@ export function validateCreatePurchaseRequest(input: {
       itemDescription,
       quantity: input.quantity,
       unit,
+      neededBy,
+      priority,
     },
   };
 }
