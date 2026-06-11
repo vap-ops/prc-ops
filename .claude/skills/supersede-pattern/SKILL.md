@@ -1,6 +1,6 @@
 ---
 name: supersede-pattern
-description: This skill should be used when writing or modifying code that touches photo_logs, dc_entries, or any append-only table. Covers the supersede pattern: never UPDATE any row, ever. A logical edit is a new row whose `superseded_by` column points at the row being replaced. Current-state queries use an anti-join, not `IS NULL`. Trigger terms include supersede, photo_logs, dc_entries, append-only, edit photo, edit log entry.
+description: This skill should be used when writing or modifying code that touches photo_logs, dc_entries, purchase_request_attachments, or any append-only table. Covers the supersede pattern: never UPDATE any row, ever. A logical edit is a new row whose `superseded_by` column points at the row being replaced; a logical REMOVAL is a tombstone row (payload NULL + superseded_by set, ADR 0015). Current-state queries use an anti-join (not `IS NULL`) plus a tombstone filter. Trigger terms include supersede, tombstone, photo_logs, dc_entries, attachments, append-only, edit photo, remove photo, edit log entry.
 ---
 
 # Supersede pattern for append-only tables
@@ -55,6 +55,56 @@ Equivalent variants are listed in ADR 0009. Use `NOT EXISTS` by default.
 
 **User-facing views must use the anti-join pattern.** Never expose the full history of a logical entity to users unless explicitly displaying an audit trail.
 
+## Tombstone variant — removal without replacement (ADR 0015)
+
+Accumulating collections (photos on a WP/phase; attachments on a purchase
+request) need **removal**, not just replacement. Removal is ALSO an
+INSERT — a **tombstone** row:
+
+- **Tombstone shape:** the payload column(s) are NULL and `superseded_by`
+  points at the row being removed. For `photo_logs` the sentinel is
+  `storage_path IS NULL`; for tables with multiple payload columns (e.g.
+  `purchase_request_attachments`: `storage_path` XOR `url`), ALL payload
+  columns are NULL on a tombstone.
+- **A well-formedness CHECK is mandatory** so every row is provably
+  either real content or a valid tombstone — the two malformed shapes
+  (no payload + supersedes nothing; payload + supersedes something) are
+  rejected at INSERT time. photo_logs canonical form:
+
+```sql
+constraint photo_logs_path_supersede_well_formed
+  check ((storage_path is null) = (superseded_by is not null))
+```
+
+This deliberately forecloses atomic replacement (one row that both
+carries new content AND supersedes an old row). Replacement = TWO
+appends (tombstone + fresh insert), wrapped in a transaction by the
+caller when they must commit together.
+
+- **Current-state read = anti-join PLUS tombstone filter.** Both filters
+  are necessary: the anti-join alone still surfaces tombstone rows
+  (nothing supersedes a tombstone); the payload-not-null filter alone
+  still surfaces replaced rows.
+
+```sql
+select pl.*
+from photo_logs pl
+where pl.storage_path is not null            -- exclude tombstones
+  and not exists (
+    select 1 from photo_logs newer
+    where newer.superseded_by = pl.id
+  );
+```
+
+- The removed row's Storage object (if any) stays in the bucket —
+  orphan-accepted; the table is the source of truth, never a bucket
+  listing.
+- **Policy hazard:** when an INSERT policy's WITH CHECK validates a
+  tombstone via a subquery FROM the same table, outer-row references
+  MUST be table-qualified (`<table>.superseded_by`), or SQL name capture
+  silently rewrites the predicate against the subquery's alias (found
+  the hard way in the spec-16 design review).
+
 ## Walking history backwards
 
 To reconstruct the full edit history of a logical entity, start at the current (head) row and walk backwards via `superseded_by`:
@@ -74,11 +124,12 @@ SELECT * FROM history ORDER BY created_at DESC;
 
 ## Tests required
 
-Any feature that writes to `photo_logs` or `dc_entries` must include tests verifying:
+Any feature that writes to an append-only table using this pattern must include tests verifying:
 
 - A logical edit produces a new row with the correct `superseded_by` value pointing at the row being replaced. The replaced row is unchanged.
 - An attempt to UPDATE any row raises (triple-enforcement test).
 - The current-state anti-join query returns only head rows for each logical entity (verify with a 3-row chain A then B then C, anti-join returns only C).
+- Tombstone tables additionally: the well-formedness CHECK rejects both malformed shapes (`throws_ok`); a tombstone removes its target from the current-state read; the current-state query carries BOTH filters.
 - A naive `WHERE superseded_by IS NULL` query is **not** used in production code (grep or lint check). This pattern is a common bug and worth a guard.
 - The full history of a logical entity is reconstructible by walking the `superseded_by` chain backwards from the head row.
 
@@ -86,5 +137,6 @@ Any feature that writes to `photo_logs` or `dc_entries` must include tests verif
 
 - **ADR 0004** — establishes append-only enforcement and the write pattern. Foundational.
 - **ADR 0009** — corrects the current-state read pattern from `IS NULL` (incorrect) to anti-join. Amends ADR 0004.
+- **ADR 0015** — adds the tombstone-removal variant, the payload-NULL sentinel, the well-formedness CHECK, and the two-filter current-state read. Extends 0004/0009.
 
-When implementing, both ADRs apply. If anything in this skill contradicts either ADR, the ADRs win and this skill should be updated to match.
+When implementing, all three ADRs apply. If anything in this skill contradicts an ADR, the ADRs win and this skill should be updated to match.

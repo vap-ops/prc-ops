@@ -5783,3 +5783,11 @@ Read-only audit over `supabase db query --linked` (Management API, postgres cont
 - **Status:** Complete - 2026-06-11 (autonomous block). Closes the "docs refresh unit" queued since the 2026-06-11 audit.
 - **Done:** README modernized (Next.js 16, Thai-first + purchasing + worker described, structure block corrected to feature-specs/ + supabase/ + worker/, the stale 5-row ADR table replaced with a where-to-start-reading list); v2-handoff gains a dated "State refresh 2026-06-11" section 0 (everything shipped since 2026-05-26, current test surface, the merge-auto convention) while sections 1-5 are kept as history; CLAUDE.md schema sentence updated from "five v1 tables" to the current table list with ADR pointers.
 - **Verification:** docs-only; `pnpm lint` (prettier via lint-staged on commit) and no src/ diff.
+
+---
+
+## Unit: supersede-pattern skill tombstone update (skill-only)
+
+- **Status:** Complete - 2026-06-11 (autonomous block). Closes the ADR 0015 follow-up queued since 2026-05-24 ("skill teaches replacement-only framing").
+- **Done:** `.claude/skills/supersede-pattern/SKILL.md` now teaches the tombstone variant per ADR 0015: payload-NULL sentinel (generalized to multi-payload tables like the spec-16 attachments design), mandatory well-formedness CHECK, two-filter current-state read (anti-join + tombstone filter, with the canonical SQL), two-append replacement + transaction note, orphan-accepted Storage posture, the table-qualified-outer-reference policy hazard from the spec-16 review, tombstone test requirements, and ADR 0015 added to sources of truth. Frontmatter triggers extended (tombstone, attachments, remove photo).
+- **Why now:** spec 16 P2 (attachment removal) loads this skill; it must teach the right pattern before that unit starts.
