@@ -48,9 +48,13 @@ export default async function ProfilePage() {
       <BottomTabBar role={role} />
       <div className="mx-auto flex w-full max-w-md flex-col gap-6">
         <header className="space-y-2">
+          {/* Desktop-only: /profile is a tab root — on phones the bottom
+              tabs ARE the way out, and a กลับ on a root reads as broken
+              UX (operator report 2026-06-11). Desktop has no tab bar, so
+              the link stays. */}
           <Link
             href={backHref}
-            className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline"
+            className="hidden items-center gap-1 text-xs font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline sm:inline-flex"
           >
             <span aria-hidden="true">←</span> กลับ
           </Link>

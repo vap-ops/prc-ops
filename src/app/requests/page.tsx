@@ -218,7 +218,15 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
       <BottomTabBar role={ctx.role} />
       <AppHeader kicker="คำขอซื้อ" fullName={ctx.fullName} maxWidthClass="max-w-2xl" />
 
-      <nav className="border-b border-zinc-300 bg-zinc-100 px-5 py-1">
+      {/* Pinned mode keeps the contextual spec-12 back-bar everywhere; in
+          bare mode /requests is a TAB ROOT — on phones the bottom tabs
+          are the way out and a bare กลับ reads as broken UX (operator
+          report 2026-06-11), so the strip is desktop-only there. */}
+      <nav
+        className={`border-b border-zinc-300 bg-zinc-100 px-5 py-1 ${
+          pinnedWp && pinnedProjectId ? "" : "hidden sm:block"
+        }`}
+      >
         <div className="mx-auto flex max-w-2xl items-center">
           <Link
             href={backHref}

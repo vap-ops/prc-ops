@@ -63,10 +63,32 @@ describe("BottomTabBar", () => {
     expect(active[0]?.textContent).toContain("รอตรวจ");
   });
 
-  it("lights no tab on a cross-surface path (PM on /sa/...)", () => {
+  // UPDATED (operator report 2026-06-11, reverses the spec-19 "match no
+  // tab" acceptance): PM/super browse /sa/* surfaces routinely now
+  // (รายการงาน link, WP details, /requests back-targets) — the โครงการ
+  // tab must stay lit there or the bar reads as "you are nowhere".
+  it("keeps โครงการ lit on cross-surface project paths (PM on /sa/...)", () => {
     mockUsePathname.mockReturnValue("/sa/projects/abc");
     const { container } = render(<BottomTabBar role="project_manager" />);
-    expect(activeTabs(container)).toHaveLength(0);
+    const active = activeTabs(container);
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toContain("โครงการ");
+  });
+
+  it("keeps โครงการ lit for super_admin deep in an /sa work-package screen", () => {
+    mockUsePathname.mockReturnValue("/sa/projects/abc/work-packages/xyz");
+    const { container } = render(<BottomTabBar role="super_admin" />);
+    const active = activeTabs(container);
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toContain("โครงการ");
+  });
+
+  it("still lights exactly one tab when match prefixes overlap (/pm beats /sa on /pm pages)", () => {
+    mockUsePathname.mockReturnValue("/pm/projects");
+    const { container } = render(<BottomTabBar role="project_manager" />);
+    const active = activeTabs(container);
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toContain("โครงการ");
   });
 
   it("renders the SA set for site_admin and super uses the PM set", () => {

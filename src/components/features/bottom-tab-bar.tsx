@@ -24,6 +24,12 @@ export interface TabItem {
   label: string;
   href: string;
   icon: LucideIcon;
+  // Extra path prefixes this tab claims beyond its own href. Lets a tab
+  // stay lit on cross-surface paths (operator report 2026-06-11: PM/super
+  // browsing /sa/* project screens lost the highlight entirely —
+  // reverses spec 19's "cross-surface matches no tab" acceptance).
+  // Longest-prefix-wins still guarantees exactly one active tab.
+  match?: ReadonlyArray<string>;
 }
 
 export const SA_TABS: ReadonlyArray<TabItem> = [
@@ -34,7 +40,9 @@ export const SA_TABS: ReadonlyArray<TabItem> = [
 
 export const PM_TABS: ReadonlyArray<TabItem> = [
   { label: "รอตรวจ", href: "/pm", icon: ClipboardCheck },
-  { label: "โครงการ", href: "/pm/projects", icon: FolderKanban },
+  // /sa: PM/super reach the project WP list and WP detail screens on the
+  // SA surface (รายการงาน link, spec-12 back-targets) — still โครงการ.
+  { label: "โครงการ", href: "/pm/projects", icon: FolderKanban, match: ["/sa"] },
   { label: "คำขอซื้อ", href: "/requests", icon: ShoppingCart },
   { label: "โปรไฟล์", href: "/profile", icon: CircleUserRound },
 ];
@@ -50,11 +58,18 @@ export function BottomTabBar({ role }: { role: string }) {
   const tabs = tabsForRole(role);
   if (!tabs) return null;
 
+  // Longest matching prefix across href + extra match prefixes — still
+  // exactly one active tab; the longest claim wins regardless of which
+  // tab owns it.
   let active: TabItem | null = null;
+  let activeLen = -1;
   for (const tab of tabs) {
-    const matches = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
-    if (matches && (!active || tab.href.length > active.href.length)) {
-      active = tab;
+    for (const prefix of [tab.href, ...(tab.match ?? [])]) {
+      const matches = pathname === prefix || pathname.startsWith(`${prefix}/`);
+      if (matches && prefix.length > activeLen) {
+        active = tab;
+        activeLen = prefix.length;
+      }
     }
   }
 
