@@ -69,6 +69,12 @@ the admin client.
   notification must never block a photo upload, a decision, or an
   AppSheet write. Divergence from audit triggers is deliberate
   (ADR 0037).
+- **Claim before push (amended in-build — drain-race finding):** the
+  drainer claims its batch (`pending` → `sending` + `claimed_at`,
+  status-guarded UPDATE) so an overlapping run cannot double-send; a
+  reclaim pass returns `sending` rows older than 10 min to `pending`
+  (crashed run; attempts unchanged). Enum value `sending` ships in its
+  own migration (spec-27 precedent).
 - Drain: any successful push ⇒ `sent`; all failed ⇒ attempt++, retry
   next minute, `failed` at 3 attempts with `last_error`.
 - Expiry: `pending` older than 24 h ⇒ `expired` before each drain

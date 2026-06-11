@@ -1,5 +1,5 @@
 begin;
-select plan(24);
+select plan(26);
 
 -- ============================================================================
 -- Spec 32 / ADR 0037 — LINE notification outbox.
@@ -56,12 +56,13 @@ select enum_has_labels('public', 'notification_event_type',
         'pr_decision', 'pr_progress', 'pr_cancelled'],
   'notification_event_type labels');
 select enum_has_labels('public', 'notification_status',
-  array['pending', 'sent', 'failed', 'expired'],
+  array['pending', 'sending', 'sent', 'failed', 'expired'],
   'notification_status labels');
 select has_column('public', 'notification_outbox', 'event_type', 'event_type exists');
 select has_column('public', 'notification_outbox', 'payload',    'payload exists');
 select has_column('public', 'notification_outbox', 'attempts',   'attempts exists');
 select has_column('public', 'notification_outbox', 'sent_at',    'sent_at exists');
+select has_column('public', 'notification_outbox', 'claimed_at', 'claimed_at exists (drain claim)');
 select ok(
   (select relrowsecurity from pg_class
      where oid = 'public.notification_outbox'::regclass),
@@ -217,6 +218,15 @@ select is(
        and payload->>'comment' = 'แก้ไขรูปช่วงหลัง'
        and payload->>'decided_by' = '33333333-3333-3333-3333-33333333feed'),
   1, 'approvals insert produced one wp_decision row with snapshot payload');
+
+-- ============================================================================
+-- G. Drain schedule (migration B) is in place.
+-- ============================================================================
+
+select is(
+  (select count(*)::int from cron.job
+     where jobname = 'notification-drain' and schedule = '* * * * *'),
+  1, 'notification-drain cron job is scheduled every minute');
 
 select * from finish();
 rollback;

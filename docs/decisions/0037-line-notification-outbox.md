@@ -71,6 +71,14 @@ no joins in triggers; enrichment happens at drain time.
   `sent`; all pushes failed ⇒ `attempts+1`, `pending` until 3 attempts,
   then `failed` with `last_error`. Per-recipient failures (user hasn't
   friended the OA) never abort the run.
+- **Claim semantics (amended in-build):** a run slower than the cron
+  minute would let the next run re-read the same `pending` rows and
+  double-send. The drainer claims its batch first (`pending` →
+  `sending` + `claimed_at`, status-guarded UPDATE returns only the rows
+  this run claimed); `sending` rows whose claim is older than 10 min
+  are reclaimed to `pending` at the start of every run (crash
+  recovery, attempts unchanged). `notification_status` gains `sending`
+  in its own migration.
 
 ### Scheduling — pg_cron + pg_net, no new platform
 
