@@ -5966,3 +5966,7 @@ Read-only audit over `supabase db query --linked` (Management API, postgres cont
 - Spinner track on the red remove button ~1.8:1 (shared one-class spinner) — give Spinner a className prop or a white variant.
 - Dark/night-shift toggle (tokens make it cheap) — operator decision.
 - Carried: spec-16 P2 attachments (next per implementation order), length caps, browser/admin client typing, pending-band ordering test, pagination, ของฉัน band label, real logo, LINE notification unit, skeleton width.
+
+## Spec 21 - urgency segmented control (2026-06-11)
+
+Status: COMPLETE. Priority select replaced with a fieldset of 3 native radios styled as h-11 segmented buttons (sr-only inputs, label-as-button). Selected-only coloring: normal=zinc-700, urgent=amber-500, critical=red-600; unselected stay neutral outline. Same priority state, no validator/enum/DB change. Test-first: tests/unit/purchase-request-form-priority.test.tsx (default normal checked; selecting critical unchecks rest). lint/typecheck/test all green (265 tests). Also shipped same-day, pre-spec: mobile stacking fix for date/priority row (5bdacf7) and appearance-none on the date input to stop iOS width overflow (d28816a). Open question: request list ships pills already; consider same segmented control on any future edit form.

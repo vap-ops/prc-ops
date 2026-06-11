@@ -31,6 +31,14 @@ function bangkokToday(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date());
 }
 
+// Selected-segment colors mirror the request list's status pills (spec 21):
+// color only the chosen urgency so the row doesn't read as an alert at rest.
+const PRIORITY_SELECTED_CLASS: Record<PurchasePriority, string> = {
+  normal: "border-zinc-700 bg-zinc-700 text-white",
+  urgent: "border-amber-500 bg-amber-500 text-zinc-950",
+  critical: "border-red-600 bg-red-600 text-white",
+};
+
 export interface PurchaseRequestFormWorkPackage {
   id: string;
   code: string;
@@ -242,28 +250,36 @@ export function PurchaseRequestForm({ workPackage }: PurchaseRequestFormProps) {
             className="h-11 w-full max-w-full min-w-0 appearance-none rounded-md border border-zinc-400 bg-white px-3 text-sm text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
           />
         </div>
-        <div className="flex min-w-0 flex-col gap-1 sm:flex-1">
-          <label htmlFor="pr-priority" className="text-sm font-medium text-zinc-900">
-            ความเร่งด่วน
-          </label>
-          <select
-            id="pr-priority"
-            value={priority}
-            onChange={(e) => {
-              setPriority(e.target.value as PurchasePriority);
-              setError(null);
-              setSavedAt(null);
-            }}
-            disabled={submitting}
-            className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-2 text-sm text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
-          >
+        <fieldset className="flex min-w-0 flex-col gap-1 sm:flex-1">
+          <legend className="text-sm font-medium text-zinc-900">ความเร่งด่วน</legend>
+          <div className="flex gap-1.5">
             {PURCHASE_PRIORITIES.map((p) => (
-              <option key={p} value={p}>
+              <label
+                key={p}
+                className={`inline-flex h-11 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-md border text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-blue-700 focus-within:ring-offset-1 ${
+                  priority === p
+                    ? PRIORITY_SELECTED_CLASS[p]
+                    : "border-zinc-400 bg-white text-zinc-900"
+                } ${submitting ? "cursor-not-allowed opacity-60" : ""}`}
+              >
+                <input
+                  type="radio"
+                  name="pr-priority"
+                  value={p}
+                  checked={priority === p}
+                  onChange={() => {
+                    setPriority(p);
+                    setError(null);
+                    setSavedAt(null);
+                  }}
+                  disabled={submitting}
+                  className="sr-only"
+                />
                 {PURCHASE_REQUEST_PRIORITY_LABEL[p]}
-              </option>
+              </label>
             ))}
-          </select>
-        </div>
+          </div>
+        </fieldset>
       </div>
 
       {inlineError ? (
