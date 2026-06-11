@@ -1,10 +1,10 @@
 "use server";
 
-// WP assignment actions (spec 28 Part A / ADR 0032). Authorization is
-// the DB's: owner_id flows through the existing PM/super work_packages
-// UPDATE policy (0 rows for anyone else); members INSERT/DELETE have
-// their own PM/super policies with added_by pinned to auth.uid().
-// The actions only validate shape and relay.
+// WP contractor-owner actions (spec 31 / ADR 0033 — replaced the spec-28
+// user-owner actions). Authorization is the DB's: contractors INSERT is
+// PM/super with created_by pinned; contractor_id flows through the
+// existing PM/super work_packages UPDATE policy (0 rows for anyone
+// else). Actions validate shape and relay.
 
 import "server-only";
 
@@ -14,22 +14,53 @@ import { createClient as createServerSupabase } from "@/lib/db/server";
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type AssignmentResult = { ok: true } | { ok: false; error: string };
+export type CreateContractorResult = { ok: true; id: string } | { ok: false; error: string };
 
 function wpPath(projectId: string, workPackageId: string): string {
   return `/sa/projects/${projectId}/work-packages/${workPackageId}`;
 }
 
-export async function setWorkPackageOwner(input: {
+export async function createContractor(input: {
+  name: string;
+  phone: string;
+}): Promise<CreateContractorResult> {
+  const name = input.name.trim();
+  const phone = input.phone.trim();
+  if (name.length === 0 || name.length > 200) {
+    return { ok: false, error: "ชื่อผู้รับเหมาต้องไม่ว่าง" };
+  }
+  if (phone.length > 50) {
+    return { ok: false, error: "บันทึกผู้รับเหมาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  const supabase = await createServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+
+  const { data, error } = await supabase
+    .from("contractors")
+    .insert({ name, phone: phone.length > 0 ? phone : null, created_by: user.id })
+    .select("id")
+    .single();
+  if (error || !data) {
+    return { ok: false, error: "บันทึกผู้รับเหมาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+  return { ok: true, id: data.id };
+}
+
+export async function setWorkPackageContractor(input: {
   projectId: string;
   workPackageId: string;
-  ownerId: string | null;
+  contractorId: string | null;
 }): Promise<AssignmentResult> {
   if (
     !UUID_REGEX.test(input.workPackageId) ||
     !UUID_REGEX.test(input.projectId) ||
-    (input.ownerId !== null && !UUID_REGEX.test(input.ownerId))
+    (input.contractorId !== null && !UUID_REGEX.test(input.contractorId))
   ) {
-    return { ok: false, error: "บันทึกผู้รับผิดชอบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    return { ok: false, error: "บันทึกผู้รับเหมาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
 
   const supabase = await createServerSupabase();
@@ -40,79 +71,11 @@ export async function setWorkPackageOwner(input: {
 
   const { data, error } = await supabase
     .from("work_packages")
-    .update({ owner_id: input.ownerId })
+    .update({ contractor_id: input.contractorId })
     .eq("id", input.workPackageId)
     .select("id");
   if (error || !data || data.length === 0) {
-    return { ok: false, error: "บันทึกผู้รับผิดชอบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
-  }
-
-  revalidatePath(wpPath(input.projectId, input.workPackageId));
-  return { ok: true };
-}
-
-export async function addWorkPackageMember(input: {
-  projectId: string;
-  workPackageId: string;
-  userId: string;
-}): Promise<AssignmentResult> {
-  if (
-    !UUID_REGEX.test(input.workPackageId) ||
-    !UUID_REGEX.test(input.projectId) ||
-    !UUID_REGEX.test(input.userId)
-  ) {
-    return { ok: false, error: "เพิ่มสมาชิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
-  }
-
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
-
-  const { error } = await supabase.from("work_package_members").insert({
-    work_package_id: input.workPackageId,
-    user_id: input.userId,
-    added_by: user.id,
-  });
-  if (error) {
-    // 23505 = already a member — surface as success-shaped no-op copy.
-    if (error.code === "23505") {
-      return { ok: false, error: "เป็นสมาชิกอยู่แล้ว" };
-    }
-    return { ok: false, error: "เพิ่มสมาชิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
-  }
-
-  revalidatePath(wpPath(input.projectId, input.workPackageId));
-  return { ok: true };
-}
-
-export async function removeWorkPackageMember(input: {
-  projectId: string;
-  workPackageId: string;
-  userId: string;
-}): Promise<AssignmentResult> {
-  if (
-    !UUID_REGEX.test(input.workPackageId) ||
-    !UUID_REGEX.test(input.projectId) ||
-    !UUID_REGEX.test(input.userId)
-  ) {
-    return { ok: false, error: "ลบสมาชิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
-  }
-
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
-
-  const { error } = await supabase
-    .from("work_package_members")
-    .delete()
-    .eq("work_package_id", input.workPackageId)
-    .eq("user_id", input.userId);
-  if (error) {
-    return { ok: false, error: "ลบสมาชิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    return { ok: false, error: "บันทึกผู้รับเหมาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
 
   revalidatePath(wpPath(input.projectId, input.workPackageId));

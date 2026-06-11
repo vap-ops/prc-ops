@@ -111,6 +111,38 @@ export type Database = {
         };
         Relationships: [];
       };
+      contractors: {
+        Row: {
+          created_at: string;
+          created_by: string;
+          id: string;
+          name: string;
+          phone: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          created_by: string;
+          id?: string;
+          name: string;
+          phone?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string;
+          id?: string;
+          name?: string;
+          phone?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "contractors_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       deliverables: {
         Row: {
           code: string;
@@ -595,6 +627,7 @@ export type Database = {
       work_packages: {
         Row: {
           code: string;
+          contractor_id: string | null;
           created_at: string;
           deliverable_id: string | null;
           description: string | null;
@@ -607,6 +640,7 @@ export type Database = {
         };
         Insert: {
           code: string;
+          contractor_id?: string | null;
           created_at?: string;
           deliverable_id?: string | null;
           description?: string | null;
@@ -619,6 +653,7 @@ export type Database = {
         };
         Update: {
           code?: string;
+          contractor_id?: string | null;
           created_at?: string;
           deliverable_id?: string | null;
           description?: string | null;
@@ -630,6 +665,13 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "work_packages_contractor_id_fkey";
+            columns: ["contractor_id"];
+            isOneToOne: false;
+            referencedRelation: "contractors";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "work_packages_deliverable_id_fkey";
             columns: ["deliverable_id"];

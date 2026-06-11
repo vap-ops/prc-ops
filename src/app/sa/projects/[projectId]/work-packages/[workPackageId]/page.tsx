@@ -25,7 +25,7 @@ import {
   workPackageStatusPillClasses,
   type PurchaseRequestStatus,
 } from "@/lib/status-colors";
-import { fetchAssignableStaff, fetchDisplayNames } from "@/lib/users/display-names";
+import { fetchDisplayNames } from "@/lib/users/display-names";
 import { WpAssignmentPanel } from "@/components/features/wp-assignment-panel";
 import { PurchaseRequestForm } from "@/components/features/purchase-request-form";
 import { PhaseUploader } from "./phase-uploader";
@@ -51,7 +51,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
 
   const { data: wp } = await supabase
     .from("work_packages")
-    .select("id, code, name, status, project_id, description, owner_id")
+    .select("id, code, name, status, project_id, description, contractor_id")
     .eq("id", workPackageId)
     .maybeSingle();
 
@@ -59,13 +59,16 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
     notFound();
   }
 
-  // Spec 28: owner/team, approval history, and the attention strip all
-  // come from data that already existed but was never shown here.
-  const { data: memberRows } = await supabase
-    .from("work_package_members")
-    .select("user_id")
-    .eq("work_package_id", wp.id);
-  const memberIds = (memberRows ?? []).map((m) => m.user_id);
+  // Spec 31 / ADR 0033: WP owner = contractor entity (outsider crew).
+  // One read serves both the header line and the assignment picker.
+  const { data: contractorRows } = await supabase
+    .from("contractors")
+    .select("id, name, phone")
+    .order("name", { ascending: true });
+  const contractors = contractorRows ?? [];
+  const assignedContractor = wp.contractor_id
+    ? (contractors.find((c) => c.id === wp.contractor_id) ?? null)
+    : null;
 
   const { data: approvalRows } = await supabase
     .from("approvals")
@@ -82,15 +85,12 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
 
   const nameIds = Array.from(
     new Set(
-      [wp.owner_id, ...memberIds, ...approvals.map((a) => a.decided_by)].filter(
-        (id): id is string => typeof id === "string",
-      ),
+      approvals.map((a) => a.decided_by).filter((id): id is string => typeof id === "string"),
     ),
   );
   const displayNames = await fetchDisplayNames(nameIds, "[wp-detail]");
 
   const isAssigner = ctx.role === "project_manager" || ctx.role === "super_admin";
-  const staff = isAssigner ? await fetchAssignableStaff("[wp-detail]") : [];
 
   // Spec 25: this WP's purchase requests render inline — the operator's
   // "delivery status must show inside each WP, not having to go to the
@@ -143,21 +143,14 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
             คำขอซื้อ {openRequestCount} ค้าง
           </p>
           <p className="text-xs text-zinc-600">
-            ผู้รับผิดชอบ{" "}
-            <span className="font-medium text-zinc-900">
-              {wp.owner_id ? (displayNames.get(wp.owner_id) ?? "—") : "—"}
-            </span>
-            {memberIds.length > 0 ? (
+            ผู้รับเหมา{" "}
+            <span className="font-medium text-zinc-900">{assignedContractor?.name ?? "—"}</span>
+            {assignedContractor?.phone ? (
               <>
                 <span className="mx-1 text-zinc-400">·</span>
-                ทีม{" "}
-                <span className="text-zinc-900">
-                  {memberIds
-                    .map((id) => displayNames.get(id) ?? "—")
-                    .slice(0, 4)
-                    .join(", ")}
-                  {memberIds.length > 4 ? ` +${memberIds.length - 4}` : ""}
-                </span>
+                <a href={`tel:${assignedContractor.phone}`} className="text-blue-700">
+                  {assignedContractor.phone}
+                </a>
               </>
             ) : null}
           </p>
@@ -165,9 +158,8 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
             <WpAssignmentPanel
               projectId={wp.project_id}
               workPackageId={wp.id}
-              staff={staff}
-              ownerId={wp.owner_id}
-              memberIds={memberIds}
+              contractors={contractors}
+              contractorId={wp.contractor_id}
             />
           ) : null}
         </div>

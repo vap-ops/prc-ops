@@ -1,47 +1,77 @@
 "use client";
 
-// 'use client' justification (spec 28 Part A): two selects + pending
-// state around the three assignment actions. Rendered only for PM/super
-// (the page gates); RLS re-enforces server-side.
+// 'use client' justification (spec 31): contractor select + inline
+// create form + pending state around the assignment actions. Rendered
+// only for PM/super (the page gates); RLS re-enforces server-side.
+// Replaced the spec-28 user-owner/team panel (ADR 0033).
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  addWorkPackageMember,
-  removeWorkPackageMember,
-  setWorkPackageOwner,
+  createContractor,
+  setWorkPackageContractor,
 } from "@/app/sa/projects/[projectId]/work-packages/[workPackageId]/assignment-actions";
-import type { StaffOption } from "@/lib/users/display-names";
+
+export interface ContractorOption {
+  id: string;
+  name: string;
+  phone: string | null;
+}
 
 interface WpAssignmentPanelProps {
   projectId: string;
   workPackageId: string;
-  staff: StaffOption[];
-  ownerId: string | null;
-  memberIds: string[];
+  contractors: ContractorOption[];
+  contractorId: string | null;
 }
 
 export function WpAssignmentPanel({
   projectId,
   workPackageId,
-  staff,
-  ownerId,
-  memberIds,
+  contractors,
+  contractorId,
 }: WpAssignmentPanelProps) {
   const router = useRouter();
-  const [memberDraft, setMemberDraft] = useState<string>("");
+  const [nameDraft, setNameDraft] = useState<string>("");
+  const [phoneDraft, setPhoneDraft] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const nameOf = new Map(staff.map((s) => [s.id, s.name]));
 
-  function run(action: () => Promise<{ ok: boolean } | { ok: false; error: string }>) {
+  function assign(id: string | null) {
     setError(null);
     startTransition(async () => {
-      const result = await action();
+      const result = await setWorkPackageContractor({
+        projectId,
+        workPackageId,
+        contractorId: id,
+      });
       if (!result.ok) {
-        setError("error" in result ? result.error : "ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+        setError(result.error);
         return;
       }
+      router.refresh();
+    });
+  }
+
+  function handleCreateAndAssign() {
+    setError(null);
+    startTransition(async () => {
+      const created = await createContractor({ name: nameDraft, phone: phoneDraft });
+      if (!created.ok) {
+        setError(created.error);
+        return;
+      }
+      const assigned = await setWorkPackageContractor({
+        projectId,
+        workPackageId,
+        contractorId: created.id,
+      });
+      if (!assigned.ok) {
+        setError(assigned.error);
+        return;
+      }
+      setNameDraft("");
+      setPhoneDraft("");
       router.refresh();
     });
   }
@@ -52,88 +82,58 @@ export function WpAssignmentPanel({
         มอบหมายงาน
       </summary>
       <div className="mt-2 flex flex-col gap-2">
-        <label htmlFor="wp-owner" className="text-xs font-medium text-zinc-900">
-          ผู้รับผิดชอบ
+        <label htmlFor="wp-contractor" className="text-xs font-medium text-zinc-900">
+          ผู้รับเหมา
         </label>
         <select
-          id="wp-owner"
-          value={ownerId ?? ""}
-          onChange={(e) =>
-            run(() =>
-              setWorkPackageOwner({
-                projectId,
-                workPackageId,
-                ownerId: e.target.value === "" ? null : e.target.value,
-              }),
-            )
-          }
+          id="wp-contractor"
+          value={contractorId ?? ""}
+          onChange={(e) => assign(e.target.value === "" ? null : e.target.value)}
           disabled={pending}
           className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-2 text-sm text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
         >
           <option value="">— ไม่ระบุ —</option>
-          {staff.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
+          {contractors.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+              {c.phone ? ` · ${c.phone}` : ""}
             </option>
           ))}
         </select>
 
-        <label htmlFor="wp-member-add" className="text-xs font-medium text-zinc-900">
-          เพิ่มสมาชิกทีม
-        </label>
-        <div className="flex gap-2">
-          <select
-            id="wp-member-add"
-            value={memberDraft}
-            onChange={(e) => setMemberDraft(e.target.value)}
-            disabled={pending}
-            className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-2 text-sm text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
-          >
-            <option value="">เลือกสมาชิก</option>
-            {staff
-              .filter((s) => !memberIds.includes(s.id))
-              .map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-          </select>
-          <button
-            type="button"
-            disabled={pending || memberDraft === ""}
-            onClick={() => {
-              const userId = memberDraft;
-              setMemberDraft("");
-              run(() => addWorkPackageMember({ projectId, workPackageId, userId }));
-            }}
-            className="inline-flex h-11 shrink-0 items-center justify-center rounded-md border border-zinc-400 bg-white px-3 text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            เพิ่ม
-          </button>
-        </div>
-
-        {memberIds.length > 0 ? (
-          <ul className="flex flex-col gap-1">
-            {memberIds.map((id) => (
-              <li
-                key={id}
-                className="flex items-center justify-between gap-2 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs"
-              >
-                <span className="min-w-0 truncate text-zinc-900">{nameOf.get(id) ?? id}</span>
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={() =>
-                    run(() => removeWorkPackageMember({ projectId, workPackageId, userId: id }))
-                  }
-                  className="shrink-0 font-medium text-red-700 hover:underline disabled:opacity-60"
-                >
-                  ลบ
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : null}
+        <details>
+          <summary className="cursor-pointer text-xs font-medium text-blue-700 underline-offset-2 hover:underline">
+            เพิ่มผู้รับเหมาใหม่
+          </summary>
+          <div className="mt-2 flex flex-col gap-2">
+            <input
+              type="text"
+              value={nameDraft}
+              maxLength={200}
+              onChange={(e) => setNameDraft(e.target.value)}
+              disabled={pending}
+              placeholder="ชื่อผู้รับเหมา"
+              className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+            />
+            <input
+              type="tel"
+              value={phoneDraft}
+              maxLength={50}
+              onChange={(e) => setPhoneDraft(e.target.value)}
+              disabled={pending}
+              placeholder="เบอร์โทร (ไม่บังคับ)"
+              className="h-11 w-full min-w-0 rounded-md border border-zinc-400 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+            />
+            <button
+              type="button"
+              onClick={handleCreateAndAssign}
+              disabled={pending || nameDraft.trim().length === 0}
+              className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
+            >
+              {pending ? "กำลังบันทึก…" : "สร้างและมอบหมาย"}
+            </button>
+          </div>
+        </details>
 
         {error ? (
           <p role="alert" className="text-xs font-medium text-red-700">
