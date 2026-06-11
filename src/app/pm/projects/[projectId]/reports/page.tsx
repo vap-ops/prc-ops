@@ -78,6 +78,17 @@ export default async function ProjectReportsPage({ params }: PageProps) {
           >
             ← โครงการทั้งหมด
           </Link>
+          {/* PM path to the project's WP list (operator report 2026-06-11:
+              "PM cannot see WP"). The SA project page already admits
+              PM/super (requireRole) and is the WP review screen's spec-12
+              back-target — this link closes the navigation gap without a
+              new page. */}
+          <Link
+            href={`/sa/projects/${project.id}`}
+            className="inline-flex min-h-11 items-center font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline"
+          >
+            รายการงาน
+          </Link>
         </div>
       </nav>
 
