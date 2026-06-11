@@ -22,8 +22,11 @@
 -- [MANUAL][2b] is informational — see the Tier-2b section at the bottom.
 --
 -- WHAT THIS PROVES (what pgTAP cannot — see ADR 0025 § Testing note):
---   [1]  RLS row-visibility: only approved/purchased/delivered rows visible.
+--   [1]  RLS row-visibility: only approved/purchased/on_route/delivered
+--        rows visible (on_route since ADR 0027).
 --   [2a] Purchase transition fires under a real appsheet_writer session.
+--   [2c] Ship transition (purchased → on_route via shipped_at) fires and
+--        the on_route row stays visible/updatable (ADR 0027).
 --   [3a] UPDATE status        → 42501.
 --   [3b] UPDATE item_description → 42501.
 --   [3c] INSERT               → 42501.
@@ -86,7 +89,7 @@ $$;
 -- [1] Row-visibility gate
 -- --------------------------------------------------------------------------
 -- The appsheet_writer SELECT policy restricts to
---   status IN ('approved', 'purchased', 'delivered').
+--   status IN ('approved', 'purchased', 'on_route', 'delivered').
 -- 'requested' and 'rejected' rows must be invisible.
 -- This is the RLS effect that pgTAP cannot test (pgTAP runs as postgres,
 -- which has BYPASSRLS and sees everything).
@@ -107,7 +110,7 @@ begin
 
   select count(*)::int into v_visible
     from public.purchase_requests
-   where status::text in ('approved', 'purchased', 'delivered');
+   where status::text in ('approved', 'purchased', 'on_route', 'delivered');
 
   if v_leaked = 0 then
     raise notice '[PASS][1] Row-visibility: 0 requested/rejected rows visible; % row(s) in allowed set',
@@ -166,6 +169,45 @@ end;
 $$;
 
 -- --------------------------------------------------------------------------
+-- [2c] Ship transition: purchased → on_route (ADR 0027)
+-- --------------------------------------------------------------------------
+-- The row is 'purchased' after 2a. Setting shipped_at must derive
+-- status = 'on_route', and the row must REMAIN visible afterwards —
+-- proving the widened RLS stage gate under a real appsheet_writer session
+-- (the WITH CHECK on the UPDATE policy would reject the transition if the
+-- gate still listed only approved/purchased/delivered).
+-- --------------------------------------------------------------------------
+do $$
+declare
+  v_id         uuid;
+  v_new_status text;
+begin
+  v_id := current_setting('smoke.target_id')::uuid;
+  begin
+    update public.purchase_requests
+       set shipped_at = now()
+     where id = v_id;
+
+    select status::text into v_new_status
+      from public.purchase_requests
+     where id = v_id;
+
+    if v_new_status = 'on_route' then
+      raise notice '[PASS][2c] Ship transition: status = ''on_route'' and row still visible for %', v_id;
+    else
+      raise notice '[FAIL][2c] Ship transition: status = ''%'', expected ''on_route'' — trigger or RLS gate broken',
+                   coalesce(v_new_status, 'NULL (row no longer visible — SELECT gate missing on_route)');
+    end if;
+  exception
+    when insufficient_privilege then
+      raise notice '[FAIL][2c] UPDATE shipped_at: denied — the 20260614000100 grant is missing';
+    when others then
+      raise notice '[FAIL][2c] UPDATE shipped_at: unexpected error % — %', sqlstate, sqlerrm;
+  end;
+end;
+$$;
+
+-- --------------------------------------------------------------------------
 -- [3a] 42501: UPDATE status column denied
 -- --------------------------------------------------------------------------
 -- appsheet_writer's UPDATE grant is column-scoped to the fact columns only
@@ -179,7 +221,7 @@ declare
 begin
   v_id := current_setting('smoke.target_id')::uuid;
   begin
-    -- Row is now 'purchased' (from check 2a). Attempting to set it back
+    -- Row is now 'on_route' (from check 2c). Attempting to set it back
     -- to 'approved' must raise 42501 — status has no UPDATE grant.
     update public.purchase_requests set status = 'approved' where id = v_id;
     raise notice '[FAIL][3a] UPDATE status: succeeded — column grant is broader than expected';
