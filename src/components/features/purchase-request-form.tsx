@@ -71,6 +71,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
   const [unitOther, setUnitOther] = useState<string>("");
   const [neededBy, setNeededBy] = useState<string>("");
   const [priority, setPriority] = useState<PurchasePriority>("normal");
+  const [notes, setNotes] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [attachmentNote, setAttachmentNote] = useState<string | null>(null);
@@ -92,6 +93,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
     unit,
     neededBy: neededBy.length > 0 ? neededBy : null,
     priority,
+    notes: notes.length > 0 ? notes : null,
   });
   const canSubmit = !submitting && localValidation.ok;
 
@@ -108,6 +110,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
         unit,
         neededBy: neededBy.length > 0 ? neededBy : null,
         priority,
+        notes: notes.length > 0 ? notes : null,
       });
       if (!result.ok) {
         setError(result.error);
@@ -130,6 +133,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
       setUnitOther("");
       setNeededBy("");
       setPriority("normal");
+      setNotes("");
       setSavedAt(Date.now());
       router.refresh();
     });
@@ -144,7 +148,8 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
     quantityText.length > 0 ||
     unitChoice.length > 0 ||
     unitOther.length > 0 ||
-    neededBy.length > 0;
+    neededBy.length > 0 ||
+    notes.length > 0;
   const inlineError = error ?? (!localValidation.ok && userTyped ? localValidation.error : null);
 
   return (
@@ -305,6 +310,26 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
             ))}
           </div>
         </fieldset>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor="pr-notes" className="text-sm font-medium text-zinc-900">
+          หมายเหตุ (ไม่บังคับ)
+        </label>
+        <textarea
+          id="pr-notes"
+          value={notes}
+          maxLength={1000}
+          rows={3}
+          onChange={(e) => {
+            setNotes(e.target.value);
+            setError(null);
+            setSavedAt(null);
+          }}
+          disabled={submitting}
+          className="w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 py-2 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+          placeholder="เช่น ยี่ห้อ รุ่น หรือข้อความถึงฝ่ายจัดซื้อ"
+        />
       </div>
 
       <div className="flex flex-col gap-1">

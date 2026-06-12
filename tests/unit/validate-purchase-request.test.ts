@@ -49,8 +49,60 @@ describe("validateCreatePurchaseRequest", () => {
         unit: "bag",
         neededBy: null,
         priority: "normal",
+        notes: null,
       },
     });
+  });
+
+  // Spec 48: requester notes — optional free text, trimmed, blank → null,
+  // server-side 1000-char cap (spec-36 shape; DB CHECK stays queued).
+  it("collapses omitted and blank notes to null", () => {
+    for (const notes of [undefined, null, "", "   "]) {
+      const r = validateCreatePurchaseRequest({
+        workPackageId: VALID_WP,
+        itemDescription: "Cement",
+        quantity: 1,
+        unit: "bag",
+        notes,
+      });
+      expect(r.ok).toBe(true);
+      if (r.ok) expect(r.value.notes).toBeNull();
+    }
+  });
+
+  it("returns trimmed notes", () => {
+    const r = validateCreatePurchaseRequest({
+      workPackageId: VALID_WP,
+      itemDescription: "Cement",
+      quantity: 1,
+      unit: "bag",
+      notes: "  ยี่ห้อเดิม ส่งหลังบ่ายสอง  ",
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.notes).toBe("ยี่ห้อเดิม ส่งหลังบ่ายสอง");
+  });
+
+  it("rejects notes longer than 1000 characters with the Thai message", () => {
+    const r = validateCreatePurchaseRequest({
+      workPackageId: VALID_WP,
+      itemDescription: "Cement",
+      quantity: 1,
+      unit: "bag",
+      notes: "ก".repeat(1001),
+    });
+    expect(r).toEqual({ ok: false, error: "หมายเหตุต้องไม่เกิน 1000 ตัวอักษร" });
+  });
+
+  it("accepts notes at exactly 1000 characters", () => {
+    const r = validateCreatePurchaseRequest({
+      workPackageId: VALID_WP,
+      itemDescription: "Cement",
+      quantity: 1,
+      unit: "bag",
+      notes: "ก".repeat(1000),
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.notes).toHaveLength(1000);
   });
 
   it("accepts today and future neededBy dates (Bangkok)", () => {

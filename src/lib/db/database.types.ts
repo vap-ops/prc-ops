@@ -561,6 +561,7 @@ export type Database = {
           id: string;
           item_description: string;
           needed_by: string | null;
+          notes: string | null;
           order_ref: string | null;
           pr_number: number;
           priority: Database["public"]["Enums"]["purchase_request_priority"];
@@ -594,6 +595,7 @@ export type Database = {
           id?: string;
           item_description: string;
           needed_by?: string | null;
+          notes?: string | null;
           order_ref?: string | null;
           pr_number?: number;
           priority?: Database["public"]["Enums"]["purchase_request_priority"];
@@ -627,6 +629,7 @@ export type Database = {
           id?: string;
           item_description?: string;
           needed_by?: string | null;
+          notes?: string | null;
           order_ref?: string | null;
           pr_number?: number;
           priority?: Database["public"]["Enums"]["purchase_request_priority"];

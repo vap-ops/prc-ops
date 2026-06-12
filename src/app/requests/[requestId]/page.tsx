@@ -64,7 +64,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
   const { data: request } = await supabase
     .from("purchase_requests")
     .select(
-      "id, pr_number, work_package_id, item_description, quantity, unit, status, requested_at, requested_by, requested_by_email, decision_comment, decided_at, purchased_at, shipped_at, supplier, delivered_at, received_by, delivery_note, needed_by, eta, priority",
+      "id, pr_number, work_package_id, item_description, quantity, unit, status, requested_at, requested_by, requested_by_email, decision_comment, decided_at, purchased_at, shipped_at, supplier, delivered_at, received_by, delivery_note, needed_by, eta, priority, notes",
     )
     .eq("id", requestId)
     .maybeSingle();
@@ -194,6 +194,12 @@ export default async function RequestDetailPage({ params }: PageProps) {
           {request.needed_by ? (
             <p className="mt-1 text-xs text-zinc-600">
               ต้องการรับของภายใน {formatThaiDate(request.needed_by)}
+            </p>
+          ) : null}
+          {request.notes ? (
+            /* Spec 48: requester note — write-once at creation. */
+            <p className="mt-1 text-xs whitespace-pre-wrap text-zinc-600">
+              หมายเหตุ: {request.notes}
             </p>
           ) : null}
           <div className="mt-3">

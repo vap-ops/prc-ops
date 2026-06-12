@@ -45,6 +45,7 @@ export type ValidatedPurchaseRequestInput = {
   unit: string;
   neededBy: string | null;
   priority: PurchasePriority;
+  notes: string | null;
 };
 
 export type ValidateCreatePurchaseRequestResult =
@@ -60,6 +61,7 @@ export function validateCreatePurchaseRequest(input: {
   // may pass the property as undefined, not just omit it.
   neededBy?: string | null | undefined;
   priority?: string | null | undefined;
+  notes?: string | null | undefined;
 }): ValidateCreatePurchaseRequestResult {
   if (!UUID_REGEX.test(input.workPackageId)) {
     return { ok: false, error: "รหัสรายการงานไม่ถูกต้อง" };
@@ -110,6 +112,15 @@ export function validateCreatePurchaseRequest(input: {
     priority = input.priority;
   }
 
+  // notes is optional (spec 48): blank collapses to null; server-side
+  // 1000-char cap mirrors the item_description posture (spec 36 — DB
+  // CHECK is a recorded follow-up).
+  const notesRaw = input.notes?.trim() ?? "";
+  if (notesRaw.length > 1000) {
+    return { ok: false, error: "หมายเหตุต้องไม่เกิน 1000 ตัวอักษร" };
+  }
+  const notes = notesRaw.length > 0 ? notesRaw : null;
+
   return {
     ok: true,
     value: {
@@ -119,6 +130,7 @@ export function validateCreatePurchaseRequest(input: {
       unit,
       neededBy,
       priority,
+      notes,
     },
   };
 }
