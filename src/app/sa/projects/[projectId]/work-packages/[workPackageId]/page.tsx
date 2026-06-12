@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
-import { Camera, FileText, ShoppingCart, Users } from "lucide-react";
+import { ArrowLeft, Camera, FileText, ShoppingCart, Users } from "lucide-react";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import {
@@ -19,7 +19,11 @@ import {
   PHOTO_PHASE_LABEL,
   WORK_PACKAGE_STATUS_LABEL,
   formatThaiDateTime,
+  formatThaiTime,
 } from "@/lib/i18n/labels";
+import { AttentionCard } from "@/components/features/attention-card";
+import { CountChip } from "@/components/features/count-chip";
+import { PhaseProgressBar } from "@/components/features/phase-progress-bar";
 import {
   approvalDecisionPillClasses,
   workPackageStatusPillClasses,
@@ -115,9 +119,9 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
   );
   const displayNames = await fetchDisplayNames(nameIds, "[wp-detail]");
 
-  const openRequestCount = (wpRequests ?? []).filter(
-    (r) => !["delivered", "rejected", "cancelled"].includes(r.status),
-  ).length;
+  // Spec 54: the chip counts rows actually waiting on a PM decision
+  // (mockup label คำขอซื้อรออนุมัติ) — replaces the old open-count line.
+  const requestedCount = (wpRequests ?? []).filter((r) => r.status === "requested").length;
 
   // Spec 46: labor capture data (presence-only — the helper's explicit
   // column lists are the app-layer half of the money posture).
@@ -134,14 +138,17 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
   return (
     <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
+      {/* Spec 54 header (operator mockup): back chip + refresh, code over
+          a large bold name with the status pill, phase progress bar. */}
       <header className="border-b border-zinc-200 bg-white px-5 py-4">
-        <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-1`}>
+        <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-3`}>
           <div className="flex items-center justify-between gap-3">
             <Link
               href={`/sa/projects/${projectId}`}
-              className="w-fit text-xs font-medium text-blue-700 hover:underline focus:outline-none focus-visible:underline"
+              aria-label="กลับไปรายการงาน"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-900 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
             >
-              ← รายการงาน
+              <ArrowLeft aria-hidden className="h-5 w-5" />
             </Link>
             {/* Spec 53: the PWA's only reload affordance. */}
             <RefreshButton variant="light" />
@@ -149,74 +156,86 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="font-mono text-xs text-zinc-600">{wp.code}</p>
-              <h1 className="truncate text-xl font-semibold tracking-tight">{wp.name}</h1>
+              <h1 className="truncate text-2xl font-bold tracking-tight">{wp.name}</h1>
             </div>
             <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)} className="mt-1">
               {WORK_PACKAGE_STATUS_LABEL[wp.status as keyof typeof WORK_PACKAGE_STATUS_LABEL] ??
                 wp.status}
             </StatusPill>
           </div>
-          {/* Spec 28 Part B: at-a-glance completeness + accountability. */}
-          <p className="text-xs text-zinc-600">
-            รูป {PHASES.filter(({ phase }) => photosByPhase[phase].length > 0).length}/3 ช่วง
-            <span className="mx-1 text-zinc-400">·</span>
-            คำขอซื้อ {openRequestCount} ค้าง
-          </p>
-          <p className="text-xs text-zinc-600">
-            ผู้รับเหมา{" "}
-            <span className="font-medium text-zinc-900">{assignedContractor?.name ?? "—"}</span>
-            {assignedContractor?.phone ? (
-              <>
-                <span className="mx-1 text-zinc-400">·</span>
-                <a href={`tel:${assignedContractor.phone}`} className="text-blue-700">
-                  {assignedContractor.phone}
-                </a>
-              </>
-            ) : null}
-          </p>
-          {isAssigner ? (
-            <WpAssignmentPanel
-              projectId={wp.project_id}
-              workPackageId={wp.id}
-              contractors={contractors}
-              contractorId={wp.contractor_id}
-            />
+          {assignedContractor ? (
+            <>
+              <p className="text-xs text-zinc-600">
+                ผู้รับเหมา{" "}
+                <span className="font-medium text-zinc-900">{assignedContractor.name}</span>
+                {assignedContractor.phone ? (
+                  <>
+                    <span className="mx-1 text-zinc-400">·</span>
+                    <a href={`tel:${assignedContractor.phone}`} className="text-blue-700">
+                      {assignedContractor.phone}
+                    </a>
+                  </>
+                ) : null}
+              </p>
+              {/* Re-assignment stays reachable once assigned — the
+                  attention card (below) only carries the UNASSIGNED case. */}
+              {isAssigner ? (
+                <WpAssignmentPanel
+                  projectId={wp.project_id}
+                  workPackageId={wp.id}
+                  contractors={contractors}
+                  contractorId={wp.contractor_id}
+                />
+              ) : null}
+            </>
           ) : null}
         </div>
       </header>
 
-      {attention ? (
-        <div className="border-b border-zinc-300 px-5 py-3">
-          <div
-            className={`mx-auto ${PAGE_MAX_W} rounded-md border px-3 py-2 ${
-              attention.decision === "rejected"
-                ? "border-red-300 bg-red-50"
-                : "border-amber-400 bg-amber-50"
-            }`}
-            role="alert"
-          >
-            <p
-              className={`text-xs font-semibold ${
-                attention.decision === "rejected" ? "text-red-900" : "text-amber-900"
-              }`}
+      <div className="border-b border-zinc-200 bg-white px-5 py-3">
+        <div className={`mx-auto ${PAGE_MAX_W}`}>
+          <PhaseProgressBar
+            counts={{
+              before: photosByPhase.before.length,
+              during: photosByPhase.during.length,
+              after: photosByPhase.after.length,
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Spec 54 attention stack: PM decision feedback, the unassigned-
+          contractor card (mockup), and the pending-requests chip. */}
+      {attention || !assignedContractor || requestedCount > 0 ? (
+        <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-3 px-5 pt-5`}>
+          {attention ? (
+            <AttentionCard
+              tone={attention.decision === "rejected" ? "red" : "amber"}
+              title={APPROVAL_DECISION_LABEL[attention.decision]}
             >
-              {APPROVAL_DECISION_LABEL[attention.decision]}
-              <span className="mx-1 font-normal">·</span>
-              <span className="font-normal">
+              <p className="text-xs text-zinc-600">
                 {displayNames.get(attention.decided_by) ?? "—"} ·{" "}
                 {formatThaiDateTime(attention.decided_at)}
-              </span>
-            </p>
-            {attention.comment ? (
-              <p
-                className={`mt-1 text-sm whitespace-pre-wrap ${
-                  attention.decision === "rejected" ? "text-red-800" : "text-amber-800"
-                }`}
-              >
-                {attention.comment}
               </p>
-            ) : null}
-          </div>
+              {attention.comment ? (
+                <p className="mt-1 whitespace-pre-wrap">{attention.comment}</p>
+              ) : null}
+            </AttentionCard>
+          ) : null}
+          {!assignedContractor && isAssigner ? (
+            <AttentionCard tone="amber" title="ต้องมอบหมายผู้รับเหมาก่อนเริ่มงาน">
+              <p>งานนี้ยังไม่มีผู้รับเหมา — เลือกจากรายชื่อ หรือเพิ่มใหม่</p>
+              <div className="mt-2">
+                <WpAssignmentPanel
+                  projectId={wp.project_id}
+                  workPackageId={wp.id}
+                  contractors={contractors}
+                  contractorId={wp.contractor_id}
+                />
+              </div>
+            </AttentionCard>
+          ) : null}
+          <CountChip count={requestedCount} label="คำขอซื้อรออนุมัติ" href="#wp-requests" />
         </div>
       ) : null}
 
@@ -234,20 +253,31 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
             <Camera aria-hidden className="size-5 text-blue-700" />
             รูปถ่ายงาน
           </h2>
-          {PHASES.map(({ phase, label }) => (
-            <PhaseUploader
-              key={phase}
-              projectId={wp.project_id}
-              workPackageId={wp.id}
-              userId={ctx.id}
-              phase={phase}
-              label={label}
-              photos={photosByPhase[phase].map((p) => ({
-                id: p.id,
-                url: signedUrls.get(p.id) ?? null,
-              }))}
-            />
-          ))}
+          {PHASES.map(({ phase, label }) => {
+            const rows = photosByPhase[phase];
+            // Spec 54: tile overlay = capture time (client clock when
+            // known, else upload time); sub-line = latest upload time.
+            const latest = rows.reduce<string | null>(
+              (acc, p) => (acc === null || p.created_at > acc ? p.created_at : acc),
+              null,
+            );
+            return (
+              <PhaseUploader
+                key={phase}
+                projectId={wp.project_id}
+                workPackageId={wp.id}
+                userId={ctx.id}
+                phase={phase}
+                label={label}
+                photos={rows.map((p) => ({
+                  id: p.id,
+                  url: signedUrls.get(p.id) ?? null,
+                  timeLabel: formatThaiTime(p.captured_at_client ?? p.created_at),
+                }))}
+                lastUpdatedLabel={latest ? formatThaiTime(latest) : null}
+              />
+            );
+          })}
 
           {/* Spec 46: daily crew presence. Field UI is presence-only —
               rates/costs never reach this page (C3 column grants). */}
@@ -266,7 +296,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
           />
         </div>
 
-        <div className="flex min-w-0 flex-col gap-4">
+        <div id="wp-requests" className="flex min-w-0 scroll-mt-4 flex-col gap-4">
           <h2 className="flex items-center gap-2 border-b-2 border-zinc-900 pb-1 text-base font-bold text-zinc-900">
             <ShoppingCart aria-hidden className="size-5 text-blue-700" />
             คำขอซื้อ

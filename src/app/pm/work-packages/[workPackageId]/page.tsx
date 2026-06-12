@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
+import { ArrowLeft, Check } from "lucide-react";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { EmptyNotice } from "@/components/features/notices";
 import { StatusPill } from "@/components/features/status-pill";
@@ -20,7 +21,9 @@ import {
   PHOTO_PHASE_LABEL,
   WORK_PACKAGE_STATUS_LABEL,
   formatThaiDateTime,
+  formatThaiTime,
 } from "@/lib/i18n/labels";
+import { PhaseProgressBar } from "@/components/features/phase-progress-bar";
 import { approvalDecisionPillClasses, workPackageStatusPillClasses } from "@/lib/status-colors";
 import { ZoomablePhoto } from "@/components/features/photo-lightbox";
 import { PhotoStrip, PHOTO_STRIP_TILE } from "@/components/features/photo-strip";
@@ -98,14 +101,18 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
   return (
     <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
+      {/* Spec 54 header (operator mockup) — same shape as the SA page:
+          back chip + refresh, code over a large bold name with the
+          status pill, then the phase progress band. */}
       <header className="border-b border-zinc-200 bg-white px-5 py-4">
-        <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-1`}>
+        <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-3`}>
           <div className="flex items-center justify-between gap-3">
             <Link
               href="/pm"
-              className="w-fit text-xs font-medium text-blue-700 hover:underline focus:outline-none focus-visible:underline"
+              aria-label="กลับไปรายการรอตรวจ"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-900 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
             >
-              ← รายการรอตรวจ
+              <ArrowLeft aria-hidden className="h-5 w-5" />
             </Link>
             {/* Spec 53: the PWA's only reload affordance. */}
             <RefreshButton variant="light" />
@@ -118,26 +125,38 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="font-mono text-xs text-zinc-600">{wp.code}</p>
-              <h1 className="truncate text-xl font-semibold tracking-tight">{wp.name}</h1>
+              <h1 className="truncate text-2xl font-bold tracking-tight">{wp.name}</h1>
             </div>
             <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)} className="mt-1">
               {WORK_PACKAGE_STATUS_LABEL[wp.status as keyof typeof WORK_PACKAGE_STATUS_LABEL] ??
                 wp.status}
             </StatusPill>
           </div>
-          <Link
-            href={`/requests?wp=${wp.id}`}
-            className="w-fit text-xs font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline"
-          >
-            สร้างคำขอซื้อ →
-          </Link>
-          {/* Spec 52: PM-and-up hold toggle — renders nothing on
-              pending_approval/complete. */}
-          <div className="mt-1">
+          <div className="flex items-center justify-between gap-3">
+            <Link
+              href={`/requests?wp=${wp.id}`}
+              className="w-fit text-xs font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline"
+            >
+              สร้างคำขอซื้อ →
+            </Link>
+            {/* Spec 52: PM-and-up hold toggle — renders nothing on
+                pending_approval/complete. */}
             <HoldToggle workPackageId={wp.id} status={wp.status} />
           </div>
         </div>
       </header>
+
+      <div className="border-b border-zinc-200 bg-white px-5 py-3">
+        <div className={`mx-auto ${PAGE_MAX_W}`}>
+          <PhaseProgressBar
+            counts={{
+              before: photosByPhase.before.length,
+              during: photosByPhase.during.length,
+              after: photosByPhase.after.length,
+            }}
+          />
+        </div>
+      </div>
 
       <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-8 px-5 py-6`}>
         <section>
@@ -217,55 +236,86 @@ interface PhaseGalleryProps {
   signedUrls: ReadonlyMap<string, string>;
 }
 
+// Spec 54 timeline row — the read-only sibling of the SA uploader's
+// treatment: status disc + bold label + count, rail-indented body with
+// the last-updated line and the filmstrip (no add tile on the PM side).
 function PhaseGallery({ label, photos, signedUrls }: PhaseGalleryProps) {
+  const hasPhotos = photos.length > 0;
+  const latest = photos.reduce<string | null>(
+    (acc, p) => (acc === null || p.created_at > acc ? p.created_at : acc),
+    null,
+  );
   return (
     <div>
-      <h3 className="mb-2 text-xs font-medium tracking-wider text-zinc-600 uppercase">
-        {label}
-        {photos.length > 0 ? (
-          /* Spec 49: the strip hides its tail — announce the total. */
-          <span className="ml-1.5 font-normal normal-case">({photos.length})</span>
+      <div className="mb-1.5 flex items-center gap-3">
+        {hasPhotos ? (
+          <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-600 text-white">
+            <Check aria-hidden className="h-4 w-4" strokeWidth={3} />
+          </span>
+        ) : (
+          <span
+            aria-hidden
+            className="h-7 w-7 shrink-0 rounded-full border-2 border-zinc-300 bg-white"
+          />
+        )}
+        <h3 className="text-base font-bold text-zinc-900">
+          {label}
+          {hasPhotos ? (
+            /* Spec 49: the strip hides its tail — announce the total. */
+            <span className="ml-1.5 text-sm font-normal text-zinc-600">{photos.length} รูป</span>
+          ) : null}
+        </h3>
+      </div>
+      <div
+        className={`ml-[13px] flex flex-col gap-2 border-l-2 pb-1 pl-5 ${
+          hasPhotos ? "border-green-600" : "border-zinc-200"
+        }`}
+      >
+        <p className="text-sm text-zinc-600">
+          {latest ? `อัปเดตล่าสุด ${formatThaiTime(latest)}` : "ยังไม่มีรูป"}
+        </p>
+        {hasPhotos ? (
+          /* Spec 49: filmstrip — page height stays constant per phase.
+             Spec 50: the phase's loaded photos form one lightbox group. */
+          <PhotoStrip>
+            {(() => {
+              const loaded = photos.flatMap((p) => {
+                const u = signedUrls.get(p.id);
+                return u ? [{ id: p.id, url: u }] : [];
+              });
+              const loadedUrls = loaded.map((l) => l.url);
+              /* Spec 51: ids aligned with urls — markup follows navigation. */
+              const loadedPhotoIds = loaded.map((l) => l.id);
+              let loadedIndex = 0;
+              return photos.map((p) => {
+                const url = signedUrls.get(p.id);
+                const groupIndex = url ? loadedIndex++ : 0;
+                return (
+                  <li key={p.id} className={PHOTO_STRIP_TILE}>
+                    {url ? (
+                      <ZoomablePhoto
+                        src={url}
+                        group={loadedUrls}
+                        groupPhotoIds={loadedPhotoIds}
+                        groupIndex={groupIndex}
+                        photoId={p.id}
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-xs text-zinc-600">
+                        ไม่พร้อมแสดง
+                      </div>
+                    )}
+                    {/* Spec 54: capture-time overlay (mockup tiles). */}
+                    <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 pt-4 pb-1 text-[11px] font-medium text-white">
+                      {formatThaiTime(p.captured_at_client ?? p.created_at)}
+                    </span>
+                  </li>
+                );
+              });
+            })()}
+          </PhotoStrip>
         ) : null}
-      </h3>
-      {photos.length === 0 ? (
-        <EmptyNotice className="text-zinc-600">ไม่มีรูปช่วง{label}</EmptyNotice>
-      ) : (
-        /* Spec 49: filmstrip — page height stays constant per phase.
-           Spec 50: the phase's loaded photos form one lightbox group. */
-        <PhotoStrip>
-          {(() => {
-            const loaded = photos.flatMap((p) => {
-              const u = signedUrls.get(p.id);
-              return u ? [{ id: p.id, url: u }] : [];
-            });
-            const loadedUrls = loaded.map((l) => l.url);
-            /* Spec 51: ids aligned with urls — markup follows navigation. */
-            const loadedPhotoIds = loaded.map((l) => l.id);
-            let loadedIndex = 0;
-            return photos.map((p) => {
-              const url = signedUrls.get(p.id);
-              const groupIndex = url ? loadedIndex++ : 0;
-              return (
-                <li key={p.id} className={PHOTO_STRIP_TILE}>
-                  {url ? (
-                    <ZoomablePhoto
-                      src={url}
-                      group={loadedUrls}
-                      groupPhotoIds={loadedPhotoIds}
-                      groupIndex={groupIndex}
-                      photoId={p.id}
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-xs text-zinc-600">
-                      ไม่พร้อมแสดง
-                    </div>
-                  )}
-                </li>
-              );
-            });
-          })()}
-        </PhotoStrip>
-      )}
+      </div>
     </div>
   );
 }

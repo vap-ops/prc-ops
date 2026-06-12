@@ -20,9 +20,9 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
+import { Camera, Check } from "lucide-react";
 import { createClient as createBrowserSupabase } from "@/lib/db/browser";
 import { ConfirmDialog } from "@/components/features/confirm-dialog";
-import { EmptyNotice } from "@/components/features/notices";
 import { ZoomablePhoto } from "@/components/features/photo-lightbox";
 import { PhotoStrip, PHOTO_STRIP_TILE } from "@/components/features/photo-strip";
 import { photoExtToMime, type PhotoExt, buildPhotoStoragePath } from "@/lib/photos/path";
@@ -41,6 +41,8 @@ const PHOTOS_BUCKET = "photos";
 interface ThumbnailPhoto {
   id: string;
   url: string | null;
+  /** HH:MM capture-time overlay (spec 54) — null hides the overlay. */
+  timeLabel: string | null;
 }
 
 type UploadStatus = "uploading" | "uploaded" | "inserting" | "upload-error" | "insert-error";
@@ -71,6 +73,8 @@ interface PhaseUploaderProps {
   phase: PhotoPhase;
   label: string;
   photos: ReadonlyArray<ThumbnailPhoto>;
+  /** Latest upload time, HH:MM (spec 54 timeline sub-line); null = none. */
+  lastUpdatedLabel: string | null;
 }
 
 export function PhaseUploader({
@@ -80,6 +84,7 @@ export function PhaseUploader({
   phase,
   label,
   photos,
+  lastUpdatedLabel,
 }: PhaseUploaderProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -272,7 +277,7 @@ export function PhaseUploader({
     startTransition(() => router.refresh());
   }
 
-  const hasContent = photos.length > 0 || pending.length > 0;
+  const hasPhotos = photos.length > 0;
 
   // Spec 50: the loaded photos of THIS phase form one lightbox group —
   // swipe stays inside the strip the user tapped. Missing-URL and
@@ -288,45 +293,67 @@ export function PhaseUploader({
   }
 
   return (
+    /* Spec 54 timeline row: status disc + label/count header, then the
+       rail-indented body (sub-line + strip). The upload machinery below
+       is byte-equivalent to the pre-54 version — only the trigger moved
+       into the strip's first tile. */
     <section>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold text-zinc-900">
+      <div className="mb-1.5 flex items-center gap-3">
+        {hasPhotos ? (
+          <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-600 text-white">
+            <Check aria-hidden className="h-4 w-4" strokeWidth={3} />
+          </span>
+        ) : (
+          <span
+            aria-hidden
+            className="h-7 w-7 shrink-0 rounded-full border-2 border-zinc-300 bg-white"
+          />
+        )}
+        <h2 className="text-base font-bold text-zinc-900">
           {label}
-          {photos.length > 0 ? (
+          {hasPhotos ? (
             /* Spec 49: the strip hides its tail — announce the total. */
-            <span className="ml-1.5 text-sm font-normal text-zinc-600">({photos.length})</span>
+            <span className="ml-1.5 text-sm font-normal text-zinc-600">{photos.length} รูป</span>
           ) : null}
         </h2>
-        <label className="inline-flex h-11 cursor-pointer items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900 shadow-xs transition-colors focus-within:ring-2 focus-within:ring-blue-700 hover:bg-zinc-50">
-          <span aria-hidden="true" className="mr-1.5">
-            +
-          </span>
-          เพิ่มรูป
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/heic"
-            multiple
-            className="sr-only"
-            onChange={(e) => void handleFiles(e.target.files)}
-          />
-        </label>
       </div>
 
-      {topLevelError && (
-        <div
-          role="alert"
-          className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-900"
-        >
-          {topLevelError}
-        </div>
-      )}
+      <div
+        className={`ml-[13px] flex flex-col gap-2 border-l-2 pb-1 pl-5 ${
+          hasPhotos ? "border-green-600" : "border-zinc-200"
+        }`}
+      >
+        <p className="text-sm text-zinc-600">
+          {lastUpdatedLabel ? `อัปเดตล่าสุด ${lastUpdatedLabel}` : "ยังไม่มีรูป"}
+        </p>
 
-      {!hasContent ? (
-        <EmptyNotice className="text-zinc-600">ยังไม่มีรูปช่วง{label}</EmptyNotice>
-      ) : (
-        /* Spec 49: filmstrip — page height stays constant per phase. */
+        {topLevelError && (
+          <div
+            role="alert"
+            className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-900"
+          >
+            {topLevelError}
+          </div>
+        )}
+
+        {/* Spec 49 filmstrip; spec 54 puts the add-photo tile FIRST so
+            the strip is never empty and the affordance reads as "next
+            photo goes here" (mockup ถ่ายเพิ่ม tile). */}
         <PhotoStrip>
+          <li className="relative h-28 w-28 shrink-0 snap-start rounded-lg border-2 border-dashed border-zinc-300 bg-white">
+            <label className="flex h-full w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg transition-colors focus-within:ring-2 focus-within:ring-blue-700 hover:bg-zinc-50">
+              <Camera aria-hidden className="h-6 w-6 text-zinc-500" />
+              <span className="text-sm font-medium text-blue-700">ถ่ายเพิ่ม</span>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/heic"
+                multiple
+                className="sr-only"
+                onChange={(e) => void handleFiles(e.target.files)}
+              />
+            </label>
+          </li>
           {photos.map((p) => (
             <Thumbnail
               key={p.id}
@@ -342,7 +369,7 @@ export function PhaseUploader({
             <PendingTile key={up.id} upload={up} onRetry={() => void retry(up.id)} />
           ))}
         </PhotoStrip>
-      )}
+      </div>
 
       <ConfirmDialog
         open={confirmRemoveId !== null}
@@ -389,6 +416,13 @@ function Thumbnail({
           ไม่พร้อมแสดง
         </div>
       )}
+      {/* Spec 54: capture-time overlay (mockup 09:12 tiles).
+          pointer-events-none — taps fall through to the lightbox. */}
+      {photo.timeLabel ? (
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 pt-4 pb-1 text-[11px] font-medium text-white">
+          {photo.timeLabel}
+        </span>
+      ) : null}
       {/* Spec 36 tap-target pass: the BUTTON is a 44px transparent
           square (real hit area, inside the tile so the li's
           overflow-hidden cannot clip it); the red disc stays 28px

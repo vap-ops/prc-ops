@@ -103,3 +103,19 @@ export function formatThaiDate(iso: string): string {
   if (Number.isNaN(d.getTime())) return iso;
   return THAI_DATE.format(d);
 }
+
+// Time-only sibling (spec 54 photo-tile overlays + last-updated lines).
+// 24h HH:MM — Thai users read clock time, not the Buddhist-era date.
+// Same zone pin and raw-string degradation as the two formatters above.
+const THAI_TIME = new Intl.DateTimeFormat("th-TH", {
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+  timeZone: "Asia/Bangkok",
+});
+
+export function formatThaiTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return THAI_TIME.format(d);
+}
