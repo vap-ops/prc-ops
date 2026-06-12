@@ -41,6 +41,16 @@ describe("AppHeader", () => {
     render(<AppHeader kicker="คำขอซื้อ" fullName="สมชาย" maxWidthClass={PAGE_MAX_W} />);
     expect(screen.getByRole("link", { name: "โปรไฟล์" })).toHaveAttribute("href", "/profile");
   });
+
+  it("hides the logout button in standalone display-mode (spec 42)", () => {
+    // Accidental logout in the installed PWA forces the expensive
+    // re-login path; the header logout is CSS-hidden there. Deliberate
+    // logout stays on /profile (reachable via the bottom tab).
+    render(<AppHeader kicker="หน้างาน" fullName="สมชาย" maxWidthClass={PAGE_MAX_W} />);
+    const logout = screen.getByRole("button", { name: "ออกจากระบบ" });
+    const wrapper = logout.closest("form")?.parentElement;
+    expect(wrapper?.className).toContain("[@media(display-mode:standalone)]:hidden");
+  });
 });
 
 describe("StatusPill", () => {

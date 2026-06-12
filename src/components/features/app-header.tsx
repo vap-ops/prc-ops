@@ -46,7 +46,12 @@ export function AppHeader({ kicker, fullName, title, maxWidthClass }: AppHeaderP
           >
             โปรไฟล์
           </Link>
-          <LogoutButton variant="dark" />
+          {/* Spec 42: hidden in the installed PWA — accidental logout
+              there forces the expensive LINE re-login path. Deliberate
+              logout lives on /profile (bottom tab). */}
+          <div className="[@media(display-mode:standalone)]:hidden">
+            <LogoutButton variant="dark" />
+          </div>
         </div>
       </div>
     </header>

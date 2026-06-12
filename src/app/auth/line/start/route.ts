@@ -14,6 +14,7 @@ import { serverEnv } from "@/lib/env.server";
 const LINE_AUTHORIZE_URL = "https://access.line.me/oauth2/v2.1/authorize";
 const STATE_COOKIE_NAME = "line_oauth_state";
 const STATE_COOKIE_MAX_AGE_SECONDS = 600;
+const IOS_UA_PATTERN = /iPhone|iPad|iPod/;
 
 export function GET(request: NextRequest) {
   const state = randomBytes(16).toString("hex");
@@ -25,6 +26,17 @@ export function GET(request: NextRequest) {
   authorizeUrl.searchParams.set("redirect_uri", redirectUri);
   authorizeUrl.searchParams.set("state", state);
   authorizeUrl.searchParams.set("scope", "openid profile");
+
+  // Spec 42: the installed iOS PWA has its own cookie jar — LINE's
+  // auto-login deep-link would land the callback (and the session) in
+  // the system browser instead. disable_auto_login keeps the whole flow
+  // in the PWA's in-app overlay via LINE's web login. iOS-gated: Android
+  // WebAPKs share Chrome's jar, where auto-login already works.
+  const isStandaloneLaunch = request.nextUrl.searchParams.get("standalone") === "1";
+  const isIos = IOS_UA_PATTERN.test(request.headers.get("user-agent") ?? "");
+  if (isStandaloneLaunch && isIos) {
+    authorizeUrl.searchParams.set("disable_auto_login", "true");
+  }
 
   const response = NextResponse.redirect(authorizeUrl.toString(), { status: 302 });
   response.cookies.set(STATE_COOKIE_NAME, state, {
