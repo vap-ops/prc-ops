@@ -12,18 +12,17 @@ import {
 import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { StatusPill } from "@/components/features/status-pill";
-import { PurchaseRequestTracker } from "@/components/features/purchase-request-tracker";
+import { PurchaseRequestCard } from "@/components/features/purchase-request-card";
 import {
   APPROVAL_DECISION_LABEL,
   PHOTO_PHASE_LABEL,
-  PURCHASE_REQUEST_STATUS_LABEL,
   WORK_PACKAGE_STATUS_LABEL,
   formatThaiDateTime,
 } from "@/lib/i18n/labels";
 import {
   approvalDecisionPillClasses,
-  purchaseRequestStatusPillClasses,
   workPackageStatusPillClasses,
+  type PurchaseRequestPriority,
   type PurchaseRequestStatus,
 } from "@/lib/status-colors";
 import { fetchDisplayNames } from "@/lib/users/display-names";
@@ -86,27 +85,34 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
       ? latestDecision
       : null;
 
-  const nameIds = Array.from(
-    new Set(
-      approvals.map((a) => a.decided_by).filter((id): id is string => typeof id === "string"),
-    ),
-  );
-  const displayNames = await fetchDisplayNames(nameIds, "[wp-detail]");
-
   // Spec-31 amendment: every role this page admits may manage
   // contractors (field staff included) — the RPC enforces server-side.
   const isAssigner = true;
 
   // Spec 25: this WP's purchase requests render inline — the operator's
   // "delivery status must show inside each WP, not having to go to the
-  // request page." Same RLS-decided visibility as /requests.
+  // request page." Same RLS-decided visibility as /requests. Spec 47
+  // amendment: rows render through PurchaseRequestCard (tap opens
+  // /requests/[id]), so the select carries the card's full prop set.
   const { data: wpRequests } = await supabase
     .from("purchase_requests")
     .select(
-      "id, pr_number, item_description, quantity, unit, status, requested_at, decided_at, purchased_at, shipped_at, delivered_at, eta",
+      "id, pr_number, item_description, quantity, unit, status, priority, requested_at, requested_by, requested_by_email, needed_by, decided_at, purchased_at, shipped_at, delivered_at, eta",
     )
     .eq("work_package_id", wp.id)
     .order("requested_at", { ascending: false });
+
+  // One display-name lookup serves the approval history AND the request
+  // cards' requester lines.
+  const nameIds = Array.from(
+    new Set(
+      [
+        ...approvals.map((a) => a.decided_by),
+        ...(wpRequests ?? []).map((r) => r.requested_by),
+      ].filter((id): id is string => typeof id === "string"),
+    ),
+  );
+  const displayNames = await fetchDisplayNames(nameIds, "[wp-detail]");
 
   const openRequestCount = (wpRequests ?? []).filter(
     (r) => !["delivered", "rejected", "cancelled"].includes(r.status),
@@ -279,43 +285,40 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
           </details>
           {(wpRequests ?? []).length > 0 ? (
             <section>
+              {/* Spec 47 amendment (operator: "this is from WP detail
+                  page"): the same slim card as /requests — tap opens the
+                  order detail screen. WP line omitted; this zone IS the
+                  WP context. */}
               <ul className="flex flex-col gap-2">
-                {(wpRequests ?? []).map((r) => {
-                  const status = r.status as PurchaseRequestStatus;
-                  return (
-                    <li
-                      key={r.id}
-                      className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <p className="min-w-0 truncate text-sm text-zinc-900">
-                          <span className="mr-1.5 font-mono text-xs text-zinc-500">
-                            PR-{String(r.pr_number).padStart(4, "0")}
-                          </span>
-                          {r.item_description}
-                          <span className="mx-2 text-zinc-400">·</span>
-                          <span className="text-zinc-700">
-                            {r.quantity} {r.unit}
-                          </span>
-                        </p>
-                        <StatusPill pillClasses={purchaseRequestStatusPillClasses(status)}>
-                          {PURCHASE_REQUEST_STATUS_LABEL[status]}
-                        </StatusPill>
-                      </div>
-                      <div className="mt-2">
-                        <PurchaseRequestTracker
-                          status={status}
-                          requestedAt={r.requested_at}
-                          decidedAt={r.decided_at}
-                          purchasedAt={r.purchased_at}
-                          shippedAt={r.shipped_at}
-                          deliveredAt={r.delivered_at}
-                          eta={r.eta}
-                        />
-                      </div>
-                    </li>
-                  );
-                })}
+                {(wpRequests ?? []).map((r) => (
+                  <li key={r.id}>
+                    <PurchaseRequestCard
+                      request={{
+                        id: r.id,
+                        pr_number: r.pr_number,
+                        item_description: r.item_description,
+                        quantity: r.quantity,
+                        unit: r.unit,
+                        status: r.status as PurchaseRequestStatus,
+                        priority: r.priority as PurchaseRequestPriority,
+                        requested_at: r.requested_at,
+                        needed_by: r.needed_by,
+                        decided_at: r.decided_at,
+                        purchased_at: r.purchased_at,
+                        shipped_at: r.shipped_at,
+                        delivered_at: r.delivered_at,
+                        eta: r.eta,
+                      }}
+                      workPackage={null}
+                      requesterName={
+                        (r.requested_by ? displayNames.get(r.requested_by) : null) ??
+                        r.requested_by_email ??
+                        null
+                      }
+                      isMine={r.requested_by === ctx.id}
+                    />
+                  </li>
+                ))}
               </ul>
             </section>
           ) : null}

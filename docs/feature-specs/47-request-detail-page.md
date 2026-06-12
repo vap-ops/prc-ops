@@ -65,6 +65,16 @@ Recorded consequence: PM decisions and back-office recording are now one
 tap deeper (list → detail). Accepted — the list becomes scannable, and
 the actions gain room on their own screen.
 
+### C. Amendment (operator, 2026-06-12): WP-detail rows too
+
+The original brief was about the **WP detail page** — its คำขอซื้อ zone
+rendered the same inert cards. The zone now renders `PurchaseRequestCard`
+per row (workPackage prop null — the zone IS the WP context), so tapping
+any request, on either surface, opens `/requests/[id]`. The page's select
+widens to the card's prop set (priority, needed-by, requester), and the
+existing approval-history display-name lookup unions in the requester
+ids — still one query. Covered by the same component test contract.
+
 ### Out of scope
 
 No DB/RLS/enum change, no new status, no list pagination (queued small),
