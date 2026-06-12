@@ -24,6 +24,7 @@ import { createClient as createBrowserSupabase } from "@/lib/db/browser";
 import { ConfirmDialog } from "@/components/features/confirm-dialog";
 import { EmptyNotice } from "@/components/features/notices";
 import { ZoomablePhoto } from "@/components/features/photo-lightbox";
+import { PhotoStrip, PHOTO_STRIP_TILE } from "@/components/features/photo-strip";
 import { photoExtToMime, type PhotoExt, buildPhotoStoragePath } from "@/lib/photos/path";
 import { preparePhotoForUpload } from "@/lib/photos/downscale";
 import {
@@ -276,7 +277,13 @@ export function PhaseUploader({
   return (
     <section>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold text-zinc-900">{label}</h2>
+        <h2 className="text-base font-semibold text-zinc-900">
+          {label}
+          {photos.length > 0 ? (
+            /* Spec 49: the strip hides its tail — announce the total. */
+            <span className="ml-1.5 text-sm font-normal text-zinc-600">({photos.length})</span>
+          ) : null}
+        </h2>
         <label className="inline-flex h-11 cursor-pointer items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900 shadow-xs transition-colors focus-within:ring-2 focus-within:ring-blue-700 hover:bg-zinc-50">
           <span aria-hidden="true" className="mr-1.5">
             +
@@ -305,7 +312,8 @@ export function PhaseUploader({
       {!hasContent ? (
         <EmptyNotice className="text-zinc-600">ยังไม่มีรูปช่วง{label}</EmptyNotice>
       ) : (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        /* Spec 49: filmstrip — page height stays constant per phase. */
+        <PhotoStrip>
           {photos.map((p) => (
             <Thumbnail
               key={p.id}
@@ -317,7 +325,7 @@ export function PhaseUploader({
           {pending.map((up) => (
             <PendingTile key={up.id} upload={up} onRetry={() => void retry(up.id)} />
           ))}
-        </ul>
+        </PhotoStrip>
       )}
 
       <ConfirmDialog
@@ -341,7 +349,7 @@ interface ThumbnailProps {
 
 function Thumbnail({ photo, isRemoving, onRemove }: ThumbnailProps) {
   return (
-    <li className="relative aspect-square overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100">
+    <li className={PHOTO_STRIP_TILE}>
       {photo.url ? (
         <ZoomablePhoto src={photo.url} />
       ) : (
@@ -384,7 +392,7 @@ function PendingTile({ upload, onRetry }: PendingTileProps) {
   const isError = upload.status === "upload-error" || upload.status === "insert-error";
   const inProgress = upload.status === "uploading" || upload.status === "inserting";
   return (
-    <li className="relative aspect-square overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100">
+    <li className={PHOTO_STRIP_TILE}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={upload.previewUrl} alt="" className="h-full w-full object-cover opacity-50" />
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-2 text-center">

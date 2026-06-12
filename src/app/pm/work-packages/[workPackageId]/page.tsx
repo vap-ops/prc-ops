@@ -22,6 +22,7 @@ import {
 } from "@/lib/i18n/labels";
 import { approvalDecisionPillClasses, workPackageStatusPillClasses } from "@/lib/status-colors";
 import { ZoomablePhoto } from "@/components/features/photo-lightbox";
+import { PhotoStrip, PHOTO_STRIP_TILE } from "@/components/features/photo-strip";
 import { LaborLogZone } from "@/components/features/labor-log-zone";
 import { fetchLaborZoneData } from "@/lib/labor/fetch-zone-data";
 import { RecordDecisionForm } from "./record-decision-form";
@@ -208,18 +209,22 @@ interface PhaseGalleryProps {
 function PhaseGallery({ label, photos, signedUrls }: PhaseGalleryProps) {
   return (
     <div>
-      <h3 className="mb-2 text-xs font-medium tracking-wider text-zinc-600 uppercase">{label}</h3>
+      <h3 className="mb-2 text-xs font-medium tracking-wider text-zinc-600 uppercase">
+        {label}
+        {photos.length > 0 ? (
+          /* Spec 49: the strip hides its tail — announce the total. */
+          <span className="ml-1.5 font-normal normal-case">({photos.length})</span>
+        ) : null}
+      </h3>
       {photos.length === 0 ? (
         <EmptyNotice className="text-zinc-600">ไม่มีรูปช่วง{label}</EmptyNotice>
       ) : (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        /* Spec 49: filmstrip — page height stays constant per phase. */
+        <PhotoStrip>
           {photos.map((p) => {
             const url = signedUrls.get(p.id);
             return (
-              <li
-                key={p.id}
-                className="aspect-square overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100"
-              >
+              <li key={p.id} className={PHOTO_STRIP_TILE}>
                 {url ? (
                   <ZoomablePhoto src={url} />
                 ) : (
@@ -230,7 +235,7 @@ function PhaseGallery({ label, photos, signedUrls }: PhaseGalleryProps) {
               </li>
             );
           })}
-        </ul>
+        </PhotoStrip>
       )}
     </div>
   );
