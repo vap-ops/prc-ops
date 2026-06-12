@@ -1,6 +1,7 @@
 "use client";
 
-// Spec 43 / ADR 0041 — the installed PWA's login control.
+// Spec 43 / ADR 0041 — the installed PWA's login control; spec 44
+// hardening for iOS process death.
 //
 // 'use client' justification: this is handoff orchestration — POST to
 // /auth/handoff/start, window.open to LINE, then a poll loop against
@@ -8,34 +9,61 @@
 // jar. None of that is expressible server-side; the browser flow keeps
 // its plain server-rendered anchor (ADR 0012) in login-button.tsx.
 //
-// The device_code survives a PWA reload via sessionStorage (iOS may
-// reload the standalone webview while the user is off in LINE/Safari).
+// The device_code lives in localStorage with an expiry stamp (spec 44):
+// iOS routinely KILLS the backgrounded PWA while the user is off in
+// LINE/Safari, and sessionStorage does not survive that — the relaunch
+// (at any page rendering LoginButton) resumes the poll from
+// localStorage instead. The popup is opened synchronously inside the
+// tap gesture and navigated after the start POST — window.open after an
+// await can fall outside iOS's transient user activation and be
+// silently blocked; if it is blocked anyway, same-window navigation is
+// a safe fallback precisely because the stored code survives the trip.
+//
 // Polling runs only while the page is visible, plus an immediate check
 // on visibilitychange/focus — the common path is "user returns to the
 // app, first poll wins".
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 
-const STORAGE_KEY = "line_handoff_device_code";
+const CODE_STORAGE_KEY = "line_handoff_device_code";
+const EXPIRES_STORAGE_KEY = "line_handoff_expires_at";
+// Matches the server-side login_handoffs TTL.
+const HANDOFF_TTL_MS = 600_000;
 const POLL_INTERVAL_MS = 2500;
 // TTL is 600 s server-side; stop a little after it can no longer succeed.
 const MAX_POLLS = 260;
 
 type Phase = "idle" | "waiting" | "error";
 
+// Read-only in render (useSyncExternalStore snapshot): a stale or
+// malformed stamp just reads as "nothing stored" — clearing happens in
+// event handlers, never here.
 function readStoredCode(): string | null {
   try {
-    return sessionStorage.getItem(STORAGE_KEY);
+    const code = localStorage.getItem(CODE_STORAGE_KEY);
+    const expiresAt = Number(localStorage.getItem(EXPIRES_STORAGE_KEY));
+    if (!code || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) return null;
+    return code;
   } catch {
     return null;
   }
 }
 
-function clearStoredCode(): void {
+function storeCode(code: string): void {
   try {
-    sessionStorage.removeItem(STORAGE_KEY);
+    localStorage.setItem(CODE_STORAGE_KEY, code);
+    localStorage.setItem(EXPIRES_STORAGE_KEY, String(Date.now() + HANDOFF_TTL_MS));
   } catch {
     // private-mode storage failures must never break login
+  }
+}
+
+function clearStoredCode(): void {
+  try {
+    localStorage.removeItem(CODE_STORAGE_KEY);
+    localStorage.removeItem(EXPIRES_STORAGE_KEY);
+  } catch {
+    // see storeCode
   }
 }
 
@@ -50,10 +78,10 @@ export function StandaloneLoginButton({
   const [explicitPhase, setPhase] = useState<Phase>("idle");
   const [explicitCode, setDeviceCode] = useState<string | null>(null);
 
-  // Resume a flow the PWA reload interrupted. useSyncExternalStore keeps
-  // this hydration-safe (server snapshot null, client re-reads after
-  // hydration) without a setState-in-effect; cancel/fail clear the
-  // storage and re-render, so the snapshot follows.
+  // Resume a flow that iOS's PWA kill interrupted. useSyncExternalStore
+  // keeps this hydration-safe (server snapshot null, client re-reads
+  // after hydration) without a setState-in-effect; cancel/fail clear
+  // the storage and re-render, so the snapshot follows.
   const storedCode = useSyncExternalStore(
     () => () => {},
     readStoredCode,
@@ -131,20 +159,31 @@ export function StandaloneLoginButton({
     };
   }, [phase, deviceCode, go]);
 
-  async function start() {
+  // Synchronous slice of the tap gesture: the popup must be opened
+  // before any await or iOS may revoke the transient user activation.
+  function start() {
+    const popup = window.open("", "_blank");
+    if (popup) popup.opener = null;
+    void completeStart(popup);
+  }
+
+  async function completeStart(popup: Window | null) {
     try {
       const response = await fetch("/auth/handoff/start", { method: "POST" });
       if (!response.ok) throw new Error(`start failed: ${response.status}`);
       const json = (await response.json()) as { device_code: string; authorize_url: string };
-      try {
-        sessionStorage.setItem(STORAGE_KEY, json.device_code);
-      } catch {
-        // private mode — the in-memory code still drives this visit
-      }
+      storeCode(json.device_code);
       setDeviceCode(json.device_code);
       setPhase("waiting");
-      window.open(json.authorize_url, "_blank", "noopener");
+      if (popup) {
+        popup.location.href = json.authorize_url;
+      } else {
+        // Popup blocked: leave this window for LINE. The stored code
+        // resumes the poll when the PWA relaunches on return.
+        go(json.authorize_url);
+      }
     } catch {
+      popup?.close();
       setPhase("error");
     }
   }
@@ -179,7 +218,7 @@ export function StandaloneLoginButton({
           หมดเวลาหรือเข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง
         </p>
       )}
-      <button type="button" onClick={() => void start()} className={className}>
+      <button type="button" onClick={start} className={className}>
         {phase === "error" ? "ลองอีกครั้ง" : "เข้าสู่ระบบด้วย LINE"}
       </button>
     </div>
