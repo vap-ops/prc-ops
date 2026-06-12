@@ -14,7 +14,10 @@ import {
   PHOTO_EXTS,
   type PhotoExt,
 } from "@/lib/photos/path";
-import { shouldTransitionToPendingApproval } from "@/lib/photos/transitions";
+import {
+  shouldTransitionToInProgress,
+  shouldTransitionToPendingApproval,
+} from "@/lib/photos/transitions";
 import { buildTombstoneRow } from "@/lib/photos/tombstone";
 
 describe("isValidPhotoExt", () => {
@@ -119,6 +122,33 @@ describe("shouldTransitionToPendingApproval", () => {
   it("does NOT regress 'pending_approval' or 'complete' on an After photo", () => {
     expect(shouldTransitionToPendingApproval("after", "pending_approval")).toBe(false);
     expect(shouldTransitionToPendingApproval("after", "complete")).toBe(false);
+  });
+});
+
+describe("shouldTransitionToInProgress", () => {
+  it("transitions ONLY for phase 'during' on a 'not_started' WP (one true cell in the matrix)", () => {
+    for (const phase of ["before", "during", "after"] as const) {
+      for (const status of [
+        "not_started",
+        "in_progress",
+        "on_hold",
+        "pending_approval",
+        "complete",
+      ] as const) {
+        expect(shouldTransitionToInProgress(phase, status)).toBe(
+          phase === "during" && status === "not_started",
+        );
+      }
+    }
+  });
+
+  it("does NOT release 'on_hold' — hold is a deliberate PM flag (spec 52)", () => {
+    expect(shouldTransitionToInProgress("during", "on_hold")).toBe(false);
+  });
+
+  it("never regresses 'pending_approval' or 'complete'", () => {
+    expect(shouldTransitionToInProgress("during", "pending_approval")).toBe(false);
+    expect(shouldTransitionToInProgress("during", "complete")).toBe(false);
   });
 });
 

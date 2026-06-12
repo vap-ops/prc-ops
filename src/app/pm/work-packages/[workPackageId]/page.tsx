@@ -26,6 +26,7 @@ import { PhotoStrip, PHOTO_STRIP_TILE } from "@/components/features/photo-strip"
 import { LaborLogZone } from "@/components/features/labor-log-zone";
 import { fetchLaborZoneData } from "@/lib/labor/fetch-zone-data";
 import { RecordDecisionForm } from "./record-decision-form";
+import { HoldToggle } from "./hold-toggle";
 
 interface PageProps {
   params: Promise<{ workPackageId: string }>;
@@ -125,6 +126,11 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
           >
             สร้างคำขอซื้อ →
           </Link>
+          {/* Spec 52: PM-and-up hold toggle — renders nothing on
+              pending_approval/complete. */}
+          <div className="mt-1">
+            <HoldToggle workPackageId={wp.id} status={wp.status} />
+          </div>
         </div>
       </header>
 

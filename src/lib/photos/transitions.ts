@@ -24,3 +24,14 @@ export function shouldTransitionToPendingApproval(
   if (phase !== "after") return false;
   return (TRANSITIONABLE_FROM_STATUSES as readonly string[]).includes(currentStatus);
 }
+
+// Spec 52: the first During photo flips a not_started WP to in_progress.
+// From not_started ONLY — a During upload must not release on_hold (the
+// hold is a deliberate PM flag, spec 52 part B), unlike the After rule
+// above, which does transition out of on_hold by spec-03 decision.
+export function shouldTransitionToInProgress(
+  phase: PhotoPhase,
+  currentStatus: WorkPackageStatus,
+): boolean {
+  return phase === "during" && currentStatus === "not_started";
+}

@@ -17,7 +17,9 @@
 //     guarded: the JS condition (shouldTransitionToPendingApproval) +
 //     a SQL `where status in (...)` clause so the rule is enforced in
 //     two independent layers and the update can never regress an
-//     already-pending / already-complete WP.
+//     already-pending / already-complete WP. Spec 52 adds the same
+//     shape for the first During photo: not_started → in_progress
+//     (never out of on_hold — that release is the PM's toggle).
 //
 // removePhoto:
 //   - Validates that the target is a current, real (non-tombstone,
@@ -39,6 +41,7 @@ import {
 } from "@/lib/photos/path";
 import { buildTombstoneRow } from "@/lib/photos/tombstone";
 import {
+  shouldTransitionToInProgress,
   shouldTransitionToPendingApproval,
   TRANSITIONABLE_FROM_STATUSES,
   type PhotoPhase,
@@ -143,6 +146,32 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
     // a future PM action). Logged for the operator.
     if (updateError) {
       console.error("[addPhoto] WP status transition failed", {
+        workPackageId: wp.id,
+        error: updateError.message,
+      });
+    } else if (updated && updated.length > 0) {
+      transitioned = true;
+    }
+  }
+
+  // Spec 52: first During photo flips not_started → in_progress. Same
+  // option-(a) shape as the After branch above; the two predicates are
+  // mutually exclusive by phase. The .eq("status", "not_started") SQL
+  // guard is the second layer — it can never release on_hold or regress
+  // a pending/complete WP, even if the JS predicate changes.
+  if (shouldTransitionToInProgress(input.phase, wp.status)) {
+    const admin = createAdminClient();
+    const { data: updated, error: updateError } = await admin
+      .from("work_packages")
+      .update({ status: "in_progress" })
+      .eq("id", wp.id)
+      .eq("status", "not_started")
+      .select("id");
+    // Same non-rollback posture as the After branch: the photo is real
+    // and recorded; the status flip is recoverable on the next During
+    // upload (or the PM hold toggle).
+    if (updateError) {
+      console.error("[addPhoto] WP in_progress transition failed", {
         workPackageId: wp.id,
         error: updateError.message,
       });

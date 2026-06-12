@@ -23,6 +23,13 @@ import {
   shouldTransitionToComplete,
   type ApprovalDecision,
 } from "@/lib/approvals/predicates";
+import { getCurrentPhotosForWorkPackage } from "@/lib/photos/current-photos";
+import {
+  canHold,
+  canRelease,
+  deriveReleaseStatus,
+  HOLDABLE_FROM_STATUSES,
+} from "@/lib/work-packages/hold";
 import type { UserRole } from "@/lib/auth/role-home";
 
 const PM_ROLES: ReadonlyArray<UserRole> = ["project_manager", "super_admin"];
@@ -127,4 +134,94 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
   revalidatePath("/pm");
   revalidatePath(`/pm/work-packages/${wp.id}`);
   return { ok: true, transitioned };
+}
+
+// setHoldStatus: the PM on-hold toggle (spec 52 part B).
+//
+// Unlike the photo path there is NO admin escalation here —
+// work_packages UPDATE RLS already admits project_manager/super_admin,
+// so the UPDATE runs under the caller's own session and RLS is the
+// load-bearing backstop. Each direction is double-guarded: the
+// canHold/canRelease predicate plus a SQL WHERE clause on the current
+// status, so a stale UI can never hold a pending/complete WP or
+// "release" one that isn't held.
+//
+// Release re-derives the landing status from current During photos
+// (deriveReleaseStatus) instead of snapshotting — see hold.ts.
+
+export interface SetHoldStatusInput {
+  workPackageId: string;
+  hold: boolean;
+}
+
+export type SetHoldStatusResult = { ok: true } | { ok: false; error: string };
+
+export async function setHoldStatus(input: SetHoldStatusInput): Promise<SetHoldStatusResult> {
+  if (!isValidUuid(input.workPackageId)) return { ok: false, error: "รหัสรายการงานไม่ถูกต้อง" };
+
+  const supabase = await createServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!userRow || !(PM_ROLES as readonly string[]).includes(userRow.role)) {
+    return { ok: false, error: "เฉพาะผู้จัดการโครงการเท่านั้นที่พักงานได้" };
+  }
+
+  const { data: wp, error: wpError } = await supabase
+    .from("work_packages")
+    .select("id, project_id, status")
+    .eq("id", input.workPackageId)
+    .maybeSingle();
+  if (wpError || !wp) return { ok: false, error: "ไม่พบรายการงาน" };
+
+  if (input.hold) {
+    if (!canHold(wp.status)) {
+      return { ok: false, error: "รายการงานนี้พักไม่ได้ในสถานะปัจจุบัน" };
+    }
+    const { data: updated, error: updateError } = await supabase
+      .from("work_packages")
+      .update({ status: "on_hold" })
+      .eq("id", wp.id)
+      .in("status", [...HOLDABLE_FROM_STATUSES])
+      .select("id");
+    if (updateError || !updated || updated.length === 0) {
+      return { ok: false, error: "พักงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    }
+  } else {
+    if (!canRelease(wp.status)) {
+      return { ok: false, error: "รายการงานนี้ไม่ได้พักอยู่" };
+    }
+    // getCurrentPhotosForWorkPackage throws on a query error — catch it
+    // so the action keeps its result-object error contract (spec-35
+    // lesson: server-action throws surface as opaque digests).
+    let hasDuring: boolean;
+    try {
+      const photos = await getCurrentPhotosForWorkPackage(supabase, wp.id);
+      hasDuring = photos.during.length > 0;
+    } catch {
+      return { ok: false, error: "กลับมาดำเนินการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    }
+    const target = deriveReleaseStatus(hasDuring);
+    const { data: updated, error: updateError } = await supabase
+      .from("work_packages")
+      .update({ status: target })
+      .eq("id", wp.id)
+      .eq("status", "on_hold")
+      .select("id");
+    if (updateError || !updated || updated.length === 0) {
+      return { ok: false, error: "กลับมาดำเนินการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    }
+  }
+
+  revalidatePath("/pm");
+  revalidatePath(`/pm/work-packages/${wp.id}`);
+  revalidatePath(`/sa/projects/${wp.project_id}/work-packages/${wp.id}`);
+  return { ok: true };
 }
