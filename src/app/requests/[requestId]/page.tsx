@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { StatusPill } from "@/components/features/status-pill";
@@ -41,6 +42,7 @@ import { ZoomablePhoto } from "@/components/features/photo-lightbox";
 import { mintSignedUrlsForAttachments } from "@/lib/purchasing/attachment-signed-urls";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { RefreshButton } from "@/components/features/refresh-button";
+import { AttentionCard } from "@/components/features/attention-card";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
 
@@ -139,11 +141,13 @@ export default async function RequestDetailPage({ params }: PageProps) {
       <header className="border-b border-zinc-200 bg-white px-5 py-4">
         <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-1`}>
           <div className="flex items-center justify-between gap-3">
+            {/* Spec 55: the spec-54 back chip. */}
             <Link
               href="/requests"
-              className="w-fit text-xs font-medium text-blue-700 hover:underline focus:outline-none focus-visible:underline"
+              aria-label="กลับไปคำขอซื้อ"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-900 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
             >
-              ← คำขอซื้อ
+              <ArrowLeft aria-hidden className="h-5 w-5" />
             </Link>
             {/* Spec 53: the PWA's only reload affordance. */}
             <RefreshButton variant="light" />
@@ -163,7 +167,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
               <p className="font-mono text-xs text-zinc-600">
                 PR-{String(request.pr_number).padStart(4, "0")}
               </p>
-              <h1 className="truncate text-xl font-semibold tracking-tight">
+              <h1 className="truncate text-2xl font-bold tracking-tight">
                 {request.item_description}
               </h1>
             </div>
@@ -219,16 +223,16 @@ export default async function RequestDetailPage({ params }: PageProps) {
             />
           </div>
           {status === "rejected" && request.decision_comment ? (
-            <div className="mt-3 rounded-md border border-red-300 bg-red-50 px-3 py-2">
-              <p className="text-xs font-medium text-red-900">เหตุผลที่ไม่อนุมัติ</p>
-              <p className="mt-0.5 text-sm whitespace-pre-wrap text-red-800">
-                {request.decision_comment}
-              </p>
-              {request.decided_at ? (
-                <p className="mt-1 text-xs text-red-700">
-                  พิจารณาเมื่อ {formatThaiDateTime(request.decided_at)}
-                </p>
-              ) : null}
+            /* Spec 55: the one attention pattern (spec 54). */
+            <div className="mt-3">
+              <AttentionCard tone="red" title="เหตุผลที่ไม่อนุมัติ">
+                <p className="whitespace-pre-wrap">{request.decision_comment}</p>
+                {request.decided_at ? (
+                  <p className="mt-1 text-xs text-zinc-600">
+                    พิจารณาเมื่อ {formatThaiDateTime(request.decided_at)}
+                  </p>
+                ) : null}
+              </AttentionCard>
             </div>
           ) : null}
           {request.supplier || (status === "delivered" && request.received_by) ? (

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
@@ -49,17 +50,19 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
       <header className="border-b border-zinc-200 bg-white px-5 py-4">
         <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-1`}>
           <div className="flex items-center justify-between gap-3">
+            {/* Spec 55: the spec-54 back chip. */}
             <Link
               href="/sa"
-              className="w-fit text-xs font-medium text-blue-700 hover:underline focus:outline-none focus-visible:underline"
+              aria-label="กลับไปโครงการ"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-900 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
             >
-              ← โครงการ
+              <ArrowLeft aria-hidden className="h-5 w-5" />
             </Link>
             {/* Spec 53: the PWA's only reload affordance. */}
             <RefreshButton variant="light" />
           </div>
           <p className="font-mono text-xs text-zinc-600">{project.code}</p>
-          <h1 className="text-xl font-semibold tracking-tight">{project.name}</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{project.name}</h1>
         </div>
       </header>
 
