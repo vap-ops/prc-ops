@@ -22,6 +22,8 @@ import {
 } from "@/lib/i18n/labels";
 import { approvalDecisionPillClasses, workPackageStatusPillClasses } from "@/lib/status-colors";
 import { ZoomablePhoto } from "@/components/features/photo-lightbox";
+import { LaborLogZone } from "@/components/features/labor-log-zone";
+import { fetchLaborZoneData } from "@/lib/labor/fetch-zone-data";
 import { RecordDecisionForm } from "./record-decision-form";
 
 interface PageProps {
@@ -76,6 +78,10 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
   // WP under their own session. Helper threads the Database type
   // through so a.decision is the enum union, not any.
   const approvalsRows = await getDecisionHistoryForWorkPackage(supabase, wp.id);
+
+  // Spec 46: daily crew presence — PM sees the same presence-only zone
+  // plus the self-log flags (costs live in P2's requireRole-gated view).
+  const labor = await fetchLaborZoneData(supabase, wp.id);
 
   // public.users SELECT is gated to "users read self" + super_admin
   // (ADR 0011), so the SSR client can't resolve other PMs' names for
@@ -134,6 +140,19 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
               />
             ))}
           </div>
+        </section>
+
+        <section>
+          <h2 className="mb-3 text-base font-semibold text-zinc-900">บันทึกแรงงานรายวัน</h2>
+          <LaborLogZone
+            projectId={wp.project_id}
+            workPackageId={wp.id}
+            revalidate={`/pm/work-packages/${workPackageId}`}
+            roster={labor.roster}
+            rows={labor.rows}
+            showFlags
+            locked={wp.status === "complete"}
+          />
         </section>
 
         <section>

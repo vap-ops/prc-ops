@@ -181,6 +181,86 @@ export type Database = {
           },
         ];
       };
+      labor_logs: {
+        Row: {
+          contractor_id_snapshot: string | null;
+          correction_reason: string | null;
+          created_at: string;
+          day_fraction: Database["public"]["Enums"]["day_fraction"] | null;
+          day_rate_snapshot: number;
+          entered_by: string;
+          id: string;
+          self_logged: boolean;
+          superseded_by: string | null;
+          work_date: string;
+          work_package_id: string;
+          worker_id: string;
+          worker_name_snapshot: string;
+          worker_type_snapshot: Database["public"]["Enums"]["worker_type"];
+        };
+        Insert: {
+          contractor_id_snapshot?: string | null;
+          correction_reason?: string | null;
+          created_at?: string;
+          day_fraction?: Database["public"]["Enums"]["day_fraction"] | null;
+          day_rate_snapshot: number;
+          entered_by: string;
+          id?: string;
+          self_logged?: boolean;
+          superseded_by?: string | null;
+          work_date: string;
+          work_package_id: string;
+          worker_id: string;
+          worker_name_snapshot: string;
+          worker_type_snapshot: Database["public"]["Enums"]["worker_type"];
+        };
+        Update: {
+          contractor_id_snapshot?: string | null;
+          correction_reason?: string | null;
+          created_at?: string;
+          day_fraction?: Database["public"]["Enums"]["day_fraction"] | null;
+          day_rate_snapshot?: number;
+          entered_by?: string;
+          id?: string;
+          self_logged?: boolean;
+          superseded_by?: string | null;
+          work_date?: string;
+          work_package_id?: string;
+          worker_id?: string;
+          worker_name_snapshot?: string;
+          worker_type_snapshot?: Database["public"]["Enums"]["worker_type"];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "labor_logs_entered_by_fkey";
+            columns: ["entered_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "labor_logs_superseded_by_fkey";
+            columns: ["superseded_by"];
+            isOneToOne: false;
+            referencedRelation: "labor_logs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "labor_logs_work_package_id_fkey";
+            columns: ["work_package_id"];
+            isOneToOne: false;
+            referencedRelation: "work_packages";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "labor_logs_worker_id_fkey";
+            columns: ["worker_id"];
+            isOneToOne: false;
+            referencedRelation: "workers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       login_handoffs: {
         Row: {
           created_at: string;
@@ -827,6 +907,64 @@ export type Database = {
           },
         ];
       };
+      workers: {
+        Row: {
+          active: boolean;
+          contractor_id: string | null;
+          created_at: string;
+          created_by: string;
+          day_rate: number;
+          id: string;
+          name: string;
+          user_id: string | null;
+          worker_type: Database["public"]["Enums"]["worker_type"];
+        };
+        Insert: {
+          active?: boolean;
+          contractor_id?: string | null;
+          created_at?: string;
+          created_by: string;
+          day_rate?: number;
+          id?: string;
+          name: string;
+          user_id?: string | null;
+          worker_type: Database["public"]["Enums"]["worker_type"];
+        };
+        Update: {
+          active?: boolean;
+          contractor_id?: string | null;
+          created_at?: string;
+          created_by?: string;
+          day_rate?: number;
+          id?: string;
+          name?: string;
+          user_id?: string | null;
+          worker_type?: Database["public"]["Enums"]["worker_type"];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "workers_contractor_id_fkey";
+            columns: ["contractor_id"];
+            isOneToOne: false;
+            referencedRelation: "contractors";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "workers_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "workers_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       purchase_request_attachments_appsheet: {
@@ -919,11 +1057,39 @@ export type Database = {
           isSetofReturn: true;
         };
       };
+      correct_labor_log: {
+        Args: {
+          p_fraction?: Database["public"]["Enums"]["day_fraction"];
+          p_log: string;
+          p_reason: string;
+          p_tombstone?: boolean;
+        };
+        Returns: string;
+      };
+      create_worker: {
+        Args: {
+          p_contractor?: string;
+          p_day_rate: number;
+          p_name: string;
+          p_type: Database["public"]["Enums"]["worker_type"];
+          p_user?: string;
+        };
+        Returns: string;
+      };
       current_user_role: {
         Args: never;
         Returns: Database["public"]["Enums"]["user_role"];
       };
       invoke_notification_drain: { Args: never; Returns: undefined };
+      log_labor_day: {
+        Args: {
+          p_date: string;
+          p_fraction: Database["public"]["Enums"]["day_fraction"];
+          p_worker: string;
+          p_wp: string;
+        };
+        Returns: string;
+      };
       pr_attachment_tombstone_target_ok: {
         Args: { p_caller: string; p_parent: string; p_target: string };
         Returns: boolean;
@@ -950,8 +1116,21 @@ export type Database = {
         Args: { p_contractor_id?: string; p_work_package_id: string };
         Returns: boolean;
       };
+      set_worker_day_rate: {
+        Args: { p_id: string; p_rate: number };
+        Returns: undefined;
+      };
       update_my_display_name: {
         Args: { p_full_name: string };
+        Returns: undefined;
+      };
+      update_worker: {
+        Args: {
+          p_active?: boolean;
+          p_contractor?: string;
+          p_id: string;
+          p_name?: string;
+        };
         Returns: undefined;
       };
     };
@@ -973,7 +1152,9 @@ export type Database = {
         | "profile_update"
         | "purchase_request_decision"
         | "purchase_request_purchase"
-        | "purchase_request_delivery";
+        | "purchase_request_delivery"
+        | "worker_change";
+      day_fraction: "full" | "half";
       login_handoff_status: "pending" | "approved" | "consumed";
       notification_event_type:
         | "wp_pending_approval"
@@ -1014,6 +1195,7 @@ export type Database = {
         | "on_hold"
         | "complete"
         | "pending_approval";
+      worker_type: "own" | "dc";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -1160,7 +1342,9 @@ export const Constants = {
         "purchase_request_decision",
         "purchase_request_purchase",
         "purchase_request_delivery",
+        "worker_change",
       ],
+      day_fraction: ["full", "half"],
       login_handoff_status: ["pending", "approved", "consumed"],
       notification_event_type: [
         "wp_pending_approval",
@@ -1205,6 +1389,7 @@ export const Constants = {
         "complete",
         "pending_approval",
       ],
+      worker_type: ["own", "dc"],
     },
   },
 } as const;

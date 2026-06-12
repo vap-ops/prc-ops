@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
-import { Camera, FileText, ShoppingCart } from "lucide-react";
+import { Camera, FileText, ShoppingCart, Users } from "lucide-react";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import {
@@ -29,6 +29,8 @@ import {
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { WpAssignmentPanel } from "@/components/features/wp-assignment-panel";
 import { PurchaseRequestForm } from "@/components/features/purchase-request-form";
+import { LaborLogZone } from "@/components/features/labor-log-zone";
+import { fetchLaborZoneData } from "@/lib/labor/fetch-zone-data";
 import { PhaseUploader } from "./phase-uploader";
 
 interface PageProps {
@@ -109,6 +111,10 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
   const openRequestCount = (wpRequests ?? []).filter(
     (r) => !["delivered", "rejected", "cancelled"].includes(r.status),
   ).length;
+
+  // Spec 46: labor capture data (presence-only — the helper's explicit
+  // column lists are the app-layer half of the money posture).
+  const labor = await fetchLaborZoneData(supabase, wp.id);
 
   const photosByPhase = await getCurrentPhotosForWorkPackage(supabase, wp.id);
   const allPhotos: PhotoLogRow[] = [
@@ -231,6 +237,22 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
               }))}
             />
           ))}
+
+          {/* Spec 46: daily crew presence. Field UI is presence-only —
+              rates/costs never reach this page (C3 column grants). */}
+          <h2 className="mt-2 flex items-center gap-2 border-b-2 border-zinc-900 pb-1 text-base font-bold text-zinc-900">
+            <Users aria-hidden className="size-5 text-blue-700" />
+            บันทึกแรงงานรายวัน
+          </h2>
+          <LaborLogZone
+            projectId={wp.project_id}
+            workPackageId={wp.id}
+            revalidate={`/sa/projects/${projectId}/work-packages/${workPackageId}`}
+            roster={labor.roster}
+            rows={labor.rows}
+            showFlags={ctx.role !== "site_admin"}
+            locked={wp.status === "complete"}
+          />
         </div>
 
         <div className="flex min-w-0 flex-col gap-4">
