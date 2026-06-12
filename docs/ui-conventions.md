@@ -129,8 +129,12 @@ shadow-sm` (rows min-h-16).
   slate-900 name, mono code; WPs are divided rows inside with hover wash
   and `ring-inset` focus. Flat mode (no deliverables) keeps standalone
   cards. (spec 40 §3)
-- Photo gallery: `grid grid-cols-2 gap-3 sm:grid-cols-3`, aspect-square
-  tiles.
+- Photo galleries: horizontal filmstrip, never a growing grid (spec 49).
+  Use `PhotoStrip` + `PHOTO_STRIP_TILE` from
+  [photo-strip.tsx](../src/components/features/photo-strip.tsx) —
+  fixed-square `h-28 w-28 shrink-0 snap-start` tiles in one
+  `overflow-x-auto snap-x` row; phase headings announce the count
+  `({n})`. Page height stays constant regardless of photo volume.
 
 ## 6. Shared chrome
 
