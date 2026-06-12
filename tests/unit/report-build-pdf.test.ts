@@ -20,13 +20,13 @@ describe("formatGeneratedDate", () => {
   });
 });
 
-describe("buildReportPdf (in-app port, spec 39)", () => {
+describe("buildReportPdf (in-app port, spec 39; photo groups since spec 61)", () => {
   it("produces a real PDF with the embedded Sarabun face", async () => {
     const pdf = await buildReportPdf({
       project: { code: "PRC-TEST-001", name: "โครงการทดสอบ", generatedAt: new Date(0) },
       workPackages: [
-        { code: "WP-001", name: "งานเทพื้น", afterPhotos: [TINY_PNG] },
-        { code: "WP-EMPTY", name: "ข้าม", afterPhotos: [] },
+        { code: "WP-001", name: "งานเทพื้น", photoGroups: [{ label: null, photos: [TINY_PNG] }] },
+        { code: "WP-EMPTY", name: "ข้าม", photoGroups: [] },
       ],
     });
 
@@ -41,6 +41,26 @@ describe("buildReportPdf (in-app port, spec 39)", () => {
     const pdf = await buildReportPdf({
       project: { code: "PRC-TEST-002", name: "ว่าง", generatedAt: new Date(0) },
       workPackages: [],
+    });
+    expect(pdf.subarray(0, 4).toString("latin1")).toBe("%PDF");
+  });
+
+  it("spec 61: text listing keeps photo-less WPs; labelled groups render", async () => {
+    const pdf = await buildReportPdf({
+      project: { code: "PRC-TEST-003", name: "ทดสอบตัวเลือก", generatedAt: new Date(0) },
+      workPackages: [
+        { code: "WP-A", name: "ยังไม่เริ่มงาน", statusLabel: "ยังไม่เริ่ม", photoGroups: [] },
+        {
+          code: "WP-B",
+          name: "มีรูปสองช่วง",
+          statusLabel: "กำลังดำเนินการ",
+          photoGroups: [
+            { label: "เตรียมงาน", photos: [TINY_PNG] },
+            { label: "ระหว่างทำ", photos: [TINY_PNG] },
+          ],
+        },
+      ],
+      includeEmptyWorkPackages: true,
     });
     expect(pdf.subarray(0, 4).toString("latin1")).toBe("%PDF");
   });

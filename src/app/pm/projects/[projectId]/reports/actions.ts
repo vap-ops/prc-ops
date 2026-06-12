@@ -26,6 +26,7 @@ import { createClient as createAdminClient } from "@/lib/db/admin";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import { canGenerateReport, type ReportStatus } from "@/lib/reports/predicates";
 import { buildReportFileName } from "@/lib/reports/file-name";
+import { parseReportParams } from "@/lib/reports/params";
 import { runReportJob } from "@/lib/reports/run-report-job";
 import type { UserRole } from "@/lib/auth/role-home";
 
@@ -45,6 +46,9 @@ const SIGNED_URL_TTL_SECONDS = 120;
 
 export interface GenerateReportInput {
   projectId: string;
+  /** Spec 61: PM-chosen content; anything malformed parses to the
+   * legacy defaults (parseReportParams never throws). */
+  params?: unknown;
 }
 
 export type GenerateReportResult = { ok: true } | { ok: false; reason: string };
@@ -102,9 +106,16 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
   // status='requested', storage_path NULL, error NULL. requested_by
   // is the authenticated user (the RLS WITH CHECK already gates this,
   // but pinning it here makes the audit trail trivially readable).
+  // Spec 61: normalise whatever arrived into a valid params object —
+  // the row always stores a canonical shape.
+  const params = parseReportParams(input.params);
+
   const { error: insertError } = await supabase.from("reports").insert({
     project_id: project.id,
     requested_by: user.id,
+    // Literal spread keeps the Json type happy (interfaces carry no
+    // index signature) while storing the canonical shape.
+    params: { scope: params.scope, photos: params.photos },
   });
   if (insertError) {
     return { ok: false, reason: "ส่งรายงานเข้าคิวไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };

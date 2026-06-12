@@ -10,7 +10,9 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Tables } from "@/lib/db/database.types";
 import { getCurrentPhotosForWorkPackage } from "@/lib/photos/current-photos";
-import { buildReportPdf, type ReportInputWorkPackage } from "./build-pdf";
+import { PHOTO_PHASE_LABEL, WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
+import { buildReportPdf, type ReportInputWorkPackage, type ReportPhotoGroup } from "./build-pdf";
+import { parseReportParams } from "./params";
 
 type ReportRow = Tables<"reports">;
 
@@ -25,6 +27,9 @@ async function downloadPhoto(
 }
 
 async function processJob(supabase: SupabaseClient<Database>, job: ReportRow): Promise<void> {
+  // Spec 61: PM-chosen content. Pre-61 rows carry '{}' → legacy report.
+  const params = parseReportParams(job.params);
+
   const { data: project, error: projectErr } = await supabase
     .from("projects")
     .select("id, code, name")
@@ -33,30 +38,54 @@ async function processJob(supabase: SupabaseClient<Database>, job: ReportRow): P
   if (projectErr) throw new Error(`fetch project: ${projectErr.message}`);
   if (!project) throw new Error(`project ${job.project_id} not found`);
 
-  const { data: wps, error: wpsErr } = await supabase
+  let wpQuery = supabase
     .from("work_packages")
-    .select("id, code, name")
+    .select("id, code, name, status")
     .eq("project_id", project.id)
-    .eq("status", "complete")
     .order("code");
+  if (params.scope === "complete") {
+    wpQuery = wpQuery.eq("status", "complete");
+  }
+  const { data: wps, error: wpsErr } = await wpQuery;
   if (wpsErr) throw new Error(`fetch work packages: ${wpsErr.message}`);
 
   const sections: ReportInputWorkPackage[] = [];
   for (const wp of wps ?? []) {
-    const photos = await getCurrentPhotosForWorkPackage(supabase, wp.id);
-    const afterPhotos: Buffer[] = [];
-    for (const photo of photos.after) {
-      // The helper filters tombstones, but narrow instead of asserting
-      // (worker parity; survives a future helper refactor).
-      if (photo.storage_path === null) continue;
-      afterPhotos.push(await downloadPhoto(supabase, photo.storage_path));
+    const photoGroups: ReportPhotoGroup[] = [];
+    if (params.photos !== "none") {
+      const photos = await getCurrentPhotosForWorkPackage(supabase, wp.id);
+      const phases =
+        params.photos === "after" ? (["after"] as const) : (["before", "during", "after"] as const);
+      for (const phase of phases) {
+        const buffers: Buffer[] = [];
+        for (const photo of photos[phase]) {
+          // The helper filters tombstones, but narrow instead of asserting
+          // (worker parity; survives a future helper refactor).
+          if (photo.storage_path === null) continue;
+          buffers.push(await downloadPhoto(supabase, photo.storage_path));
+        }
+        photoGroups.push({
+          // Legacy after-only mode keeps the unlabelled group.
+          label: params.photos === "after" ? null : PHOTO_PHASE_LABEL[phase],
+          photos: buffers,
+        });
+      }
     }
-    sections.push({ code: wp.code, name: wp.name, afterPhotos });
+    sections.push({
+      code: wp.code,
+      name: wp.name,
+      // Status only matters when mixed statuses can appear (scope=all).
+      ...(params.scope === "all"
+        ? { statusLabel: WORK_PACKAGE_STATUS_LABEL[wp.status] ?? wp.status }
+        : {}),
+      photoGroups,
+    });
   }
 
   const pdf = await buildReportPdf({
     project: { code: project.code, name: project.name, generatedAt: new Date() },
     workPackages: sections,
+    includeEmptyWorkPackages: params.photos === "none",
   });
 
   const storagePath = `${project.id}/${job.id}.pdf`;

@@ -750,6 +750,7 @@ export type Database = {
           created_at: string;
           error: string | null;
           id: string;
+          params: Json;
           project_id: string;
           requested_by: string;
           status: Database["public"]["Enums"]["report_status"];
@@ -760,6 +761,7 @@ export type Database = {
           created_at?: string;
           error?: string | null;
           id?: string;
+          params?: Json;
           project_id: string;
           requested_by: string;
           status?: Database["public"]["Enums"]["report_status"];
@@ -770,6 +772,7 @@ export type Database = {
           created_at?: string;
           error?: string | null;
           id?: string;
+          params?: Json;
           project_id?: string;
           requested_by?: string;
           status?: Database["public"]["Enums"]["report_status"];
@@ -1148,6 +1151,7 @@ export type Database = {
           created_at: string;
           error: string | null;
           id: string;
+          params: Json;
           project_id: string;
           requested_by: string;
           status: Database["public"]["Enums"]["report_status"];

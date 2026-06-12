@@ -96,8 +96,8 @@ export default async function ProjectReportsPage({ params }: PageProps) {
       <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-8 px-5 py-6`}>
         <section>
           <p className="mb-3 text-sm text-zinc-600">
-            สร้างรายงาน PDF รวมรายการงานที่เสร็จสิ้นพร้อมรูปช่วงแล้วเสร็จล่าสุดของแต่ละงาน
-            รายงานจะเข้าคิวทันที โดยปกติเสร็จภายในไม่กี่วินาที
+            เลือกเนื้อหาที่ต้องการ แล้วกดสร้างรายงาน PDF — รายงานจะเข้าคิวทันที
+            โดยปกติเสร็จภายในไม่กี่วินาที
           </p>
           <GenerateReportButton projectId={project.id} initiallyDisabled={!canGenerate} />
         </section>

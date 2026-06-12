@@ -17,15 +17,26 @@ export interface ReportInputProject {
   generatedAt: Date;
 }
 
+export interface ReportPhotoGroup {
+  /** Phase label printed above the group; null = unlabelled (legacy). */
+  label: string | null;
+  photos: Buffer[];
+}
+
 export interface ReportInputWorkPackage {
   code: string;
   name: string;
-  afterPhotos: Buffer[];
+  /** Printed in the section heading when present (spec 61 scope=all). */
+  statusLabel?: string;
+  photoGroups: ReportPhotoGroup[];
 }
 
 export interface ReportInput {
   project: ReportInputProject;
   workPackages: ReportInputWorkPackage[];
+  /** Spec 61 photos=none: keep photo-less WPs as text rows instead of
+   * skipping them — the listing IS the report. */
+  includeEmptyWorkPackages?: boolean;
 }
 
 // "24 May 2026" — worker parity: date only, UTC-pinned so the same Date
@@ -64,23 +75,43 @@ export async function buildReportPdf(input: ReportInput): Promise<Buffer> {
   doc.fontSize(10).text(`Generated: ${formatGeneratedDate(input.project.generatedAt)}`);
   doc.moveDown(1);
 
-  // Per-WP sections. Skip WPs with no After photos so we never emit an
-  // empty section heading.
+  // Per-WP sections. Legacy rule: skip WPs with no photos so we never
+  // emit an empty section heading — unless the caller asked for the
+  // text listing (spec 61 photos=none).
   for (const wp of input.workPackages) {
-    if (wp.afterPhotos.length === 0) continue;
+    const photoCount = wp.photoGroups.reduce((n, g) => n + g.photos.length, 0);
+    if (photoCount === 0 && !input.includeEmptyWorkPackages) continue;
+
+    const heading = wp.statusLabel
+      ? `${wp.code} — ${wp.name} (${wp.statusLabel})`
+      : `${wp.code} — ${wp.name}`;
+
+    if (input.includeEmptyWorkPackages && photoCount === 0) {
+      // Text listing: compact rows, no page per WP.
+      doc.fontSize(12).text(heading);
+      doc.moveDown(0.5);
+      continue;
+    }
 
     doc.addPage();
-    doc.fontSize(16).text(`${wp.code} — ${wp.name}`);
+    doc.fontSize(16).text(heading);
     doc.moveDown(0.5);
-    doc.fontSize(10).text(`After photos: ${wp.afterPhotos.length}`);
+    doc.fontSize(10).text(`Photos: ${photoCount}`);
     doc.moveDown(0.5);
 
     // Simple stacked layout, fit-to-width. PDFKit throws on a bad image —
     // propagate so the caller marks the job failed (worker parity) rather
     // than emitting a corrupted PDF.
-    for (const photo of wp.afterPhotos) {
-      doc.image(photo, { fit: [500, 500], align: "center", valign: "center" });
-      doc.moveDown(1);
+    for (const group of wp.photoGroups) {
+      if (group.photos.length === 0) continue;
+      if (group.label) {
+        doc.fontSize(12).text(group.label);
+        doc.moveDown(0.5);
+      }
+      for (const photo of group.photos) {
+        doc.image(photo, { fit: [500, 500], align: "center", valign: "center" });
+        doc.moveDown(1);
+      }
     }
   }
 

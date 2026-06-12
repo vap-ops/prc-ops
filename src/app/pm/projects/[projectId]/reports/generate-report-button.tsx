@@ -1,15 +1,31 @@
 "use client";
 
-// PM "Generate report" button. Calls the generateReport server action,
-// surfaces pending state + a duplicate-guard message when refused, and
-// triggers a router.refresh() on success so the new row appears in the
-// list (the ReportsList client component then takes over polling). The
-// server action is the load-bearing validator; this UI just gives fast
-// feedback.
+// PM "Generate report" controls (spec 61): two radio groups choose what
+// the report includes, then the button calls the generateReport server
+// action. Defaults reproduce the legacy report. Pending state + the
+// duplicate-guard message surface here; the server action is the
+// load-bearing validator.
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import {
+  DEFAULT_REPORT_PARAMS,
+  type ReportParams,
+  type ReportPhotosMode,
+  type ReportScope,
+} from "@/lib/reports/params";
 import { generateReport } from "./actions";
+
+const SCOPE_OPTIONS: ReadonlyArray<{ value: ReportScope; label: string }> = [
+  { value: "complete", label: "เฉพาะงานเสร็จสิ้น" },
+  { value: "all", label: "ทุกงาน (แสดงสถานะ)" },
+];
+
+const PHOTO_OPTIONS: ReadonlyArray<{ value: ReportPhotosMode; label: string }> = [
+  { value: "after", label: "รูปช่วงแล้วเสร็จ" },
+  { value: "all_phases", label: "รูปทุกช่วง" },
+  { value: "none", label: "ไม่ใส่รูป" },
+];
 
 interface GenerateReportButtonProps {
   projectId: string;
@@ -19,6 +35,7 @@ interface GenerateReportButtonProps {
 export function GenerateReportButton({ projectId, initiallyDisabled }: GenerateReportButtonProps) {
   const router = useRouter();
   const [pending, startSubmit] = useTransition();
+  const [params, setParams] = useState<ReportParams>(DEFAULT_REPORT_PARAMS);
   const [reason, setReason] = useState<string | null>(
     initiallyDisabled ? "มีรายงานของโครงการนี้กำลังสร้างอยู่แล้ว" : null,
   );
@@ -30,11 +47,11 @@ export function GenerateReportButton({ projectId, initiallyDisabled }: GenerateR
   function handleClick(): void {
     setReason(null);
     startSubmit(async () => {
-      // The action now BUILDS the PDF in-request (spec 39) — a platform
+      // The action BUILDS the PDF in-request (spec 39) — a platform
       // timeout on a photo-heavy project rejects here; the reaper/sweeper
       // recover server-side, so degrade softly instead of error.tsx.
       try {
-        const result = await generateReport({ projectId });
+        const result = await generateReport({ projectId, params });
         if (!result.ok) {
           setReason(result.reason);
           return;
@@ -49,7 +66,38 @@ export function GenerateReportButton({ projectId, initiallyDisabled }: GenerateR
   const disabled = pending || (reason !== null && initiallyDisabled);
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+        <fieldset className="flex flex-col gap-1.5" disabled={pending}>
+          <legend className="mb-1 text-sm font-medium text-zinc-900">งานที่รวมในรายงาน</legend>
+          <div className="flex flex-wrap gap-2">
+            {SCOPE_OPTIONS.map((opt) => (
+              <RadioChip
+                key={opt.value}
+                name="report-scope"
+                label={opt.label}
+                checked={params.scope === opt.value}
+                onSelect={() => setParams((p) => ({ ...p, scope: opt.value }))}
+              />
+            ))}
+          </div>
+        </fieldset>
+        <fieldset className="flex flex-col gap-1.5" disabled={pending}>
+          <legend className="mb-1 text-sm font-medium text-zinc-900">รูปถ่าย</legend>
+          <div className="flex flex-wrap gap-2">
+            {PHOTO_OPTIONS.map((opt) => (
+              <RadioChip
+                key={opt.value}
+                name="report-photos"
+                label={opt.label}
+                checked={params.photos === opt.value}
+                onSelect={() => setParams((p) => ({ ...p, photos: opt.value }))}
+              />
+            ))}
+          </div>
+        </fieldset>
+      </div>
+
       <button
         type="button"
         onClick={handleClick}
@@ -67,5 +115,29 @@ export function GenerateReportButton({ projectId, initiallyDisabled }: GenerateR
         </p>
       )}
     </div>
+  );
+}
+
+interface RadioChipProps {
+  name: string;
+  label: string;
+  checked: boolean;
+  onSelect: () => void;
+}
+
+// Spec-21 segmented-control lineage: label-wrapped radio, 44px target,
+// solid slate fill when selected.
+function RadioChip({ name, label, checked, onSelect }: RadioChipProps) {
+  return (
+    <label
+      className={`inline-flex min-h-11 cursor-pointer items-center rounded-lg border px-3 text-sm transition-colors has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-blue-700 ${
+        checked
+          ? "border-slate-900 bg-slate-900 font-semibold text-white"
+          : "border-zinc-300 bg-white font-medium text-zinc-700 hover:bg-zinc-50"
+      }`}
+    >
+      <input type="radio" name={name} checked={checked} onChange={onSelect} className="sr-only" />
+      {label}
+    </label>
   );
 }

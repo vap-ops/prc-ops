@@ -1,5 +1,5 @@
 begin;
-select plan(42);
+select plan(44);
 
 -- ============================================================================
 -- A. Setup as postgres (the test transaction's outer role, which bypasses
@@ -64,6 +64,11 @@ select enum_has_labels(
 );
 
 select has_table('public', 'reports', 'public.reports exists');
+
+-- Spec 61: PM report-content params — jsonb, '{}' default (pre-61 rows
+-- and the frozen worker's inserts both read as the legacy report).
+select col_type_is('public', 'reports', 'params', 'jsonb', 'params is jsonb (spec 61)');
+select col_has_default('public', 'reports', 'params', 'params has a default');
 
 select col_is_pk('public', 'reports', 'id', 'id is primary key');
 select col_type_is('public', 'reports', 'id', 'uuid', 'id is uuid');
