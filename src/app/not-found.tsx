@@ -1,10 +1,11 @@
+import { PageShell } from "@/components/features/page-shell";
 import Link from "next/link";
 
 // Localized 404 — without this, notFound() falls through to Next.js's
 // built-in English page and ships mixed-language UI (spec 14 item D).
 export default function NotFound() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-white px-6 text-zinc-900">
+    <PageShell variant="card">
       <div className="max-w-md space-y-6 text-center">
         <p className="text-sm font-medium tracking-wide text-zinc-600 uppercase">404</p>
         <h1 className="text-2xl font-semibold tracking-tight">ไม่พบหน้าที่ต้องการ</h1>
@@ -20,6 +21,6 @@ export default function NotFound() {
           </Link>
         </div>
       </div>
-    </main>
+    </PageShell>
   );
 }

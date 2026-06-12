@@ -103,14 +103,18 @@ form screens at `max-w-md`.
 ### Page anatomy
 
 ```
-<main class="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
-  <header class="border-b border-zinc-200 bg-white px-5 py-4">
-    <div class="mx-auto {PAGE_MAX_W} ...">
-      back link · code · title (+ status pill right)
+<PageShell>                                ← THE scroller (spec 64); body is locked
+  <DetailHeader …> | <AppHeader …>         ← sticky chrome (spec 62/63)
   <section class="mx-auto {PAGE_MAX_W} px-5 py-6">   ← gap-8 between sections
 ```
 
-- `pb-20 sm:pb-0` clears the phone tab bar.
+- Every route renders `PageShell`
+  ([page-shell.tsx](../src/components/features/page-shell.tsx), spec 64)
+  — the body is `overflow-hidden`; the shell's `<main>` is the only
+  scroll container, so sticky headers and fixed chrome cannot drift on
+  iOS bounce. Variants: `app` (content pages), `card` (single-card
+  screens), `bare`. Hand-rolling a `<main>` is a review reject.
+- The `app` variant's `pb-20 sm:pb-0` clears the phone tab bar.
 - Back link: `text-xs font-medium text-blue-700 hover:underline`, text
   `← {ชื่อหน้าก่อนหน้า}` (back-nav targets are locked behavior, spec 12).
 - Title: `text-xl font-semibold tracking-tight`; code above it in

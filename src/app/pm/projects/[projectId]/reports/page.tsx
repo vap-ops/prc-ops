@@ -1,3 +1,4 @@
+import { PageShell } from "@/components/features/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
@@ -65,7 +66,7 @@ export default async function ProjectReportsPage({ params }: PageProps) {
   const canGenerate = canGenerateReport(statuses);
 
   return (
-    <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
+    <PageShell>
       <BottomTabBar role={ctx.role} />
       {/* Spec 60 detail header via the spec-63 shell — this is a
           project-scoped surface entered from the project page's
@@ -96,6 +97,6 @@ export default async function ProjectReportsPage({ params }: PageProps) {
           )}
         </section>
       </div>
-    </main>
+    </PageShell>
   );
 }

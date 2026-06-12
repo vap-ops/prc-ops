@@ -1,3 +1,4 @@
+import { PageShell } from "@/components/features/page-shell";
 // Spec 46 P1 — /workers: roster management, pm/super only. The ONE
 // surface where day rates render: the page is requireRole-gated and
 // the rates are fetched with the service-role client (the column has
@@ -35,7 +36,7 @@ export default async function WorkersPage() {
     .order("name", { ascending: true });
 
   return (
-    <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
+    <PageShell>
       <BottomTabBar role={ctx.role} />
       <AppHeader
         kicker="คนงาน"
@@ -46,6 +47,6 @@ export default async function WorkersPage() {
       <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
         <WorkerRosterManager workers={workers} contractors={contractorRows ?? []} />
       </div>
-    </main>
+    </PageShell>
   );
 }

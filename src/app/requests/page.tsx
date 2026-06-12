@@ -1,3 +1,4 @@
+import { PageShell } from "@/components/features/page-shell";
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { ArrowLeft } from "lucide-react";
@@ -143,7 +144,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   const wpById = new Map((wpForRequests ?? []).map((wp) => [wp.id, wp]));
 
   return (
-    <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
+    <PageShell>
       <BottomTabBar role={ctx.role} />
       <AppHeader kicker="คำขอซื้อ" fullName={ctx.fullName} maxWidthClass={PAGE_MAX_W} />
 
@@ -275,6 +276,6 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
           ) : null}
         </div>
       </section>
-    </main>
+    </PageShell>
   );
 }

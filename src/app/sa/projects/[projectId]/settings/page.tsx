@@ -1,3 +1,4 @@
+import { PageShell } from "@/components/features/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
@@ -35,7 +36,7 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
   }
 
   return (
-    <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
+    <PageShell>
       <BottomTabBar role={ctx.role} />
       {/* Spec 63: the consolidated shell. */}
       <DetailHeader backHref={`/sa/projects/${project.id}`} backLabel="กลับไปรายการงาน">
@@ -63,6 +64,6 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
           initialStatus={project.status as ProjectStatus}
         />
       </div>
-    </main>
+    </PageShell>
   );
 }

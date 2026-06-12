@@ -1,3 +1,4 @@
+import { PageShell } from "@/components/features/page-shell";
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
@@ -47,7 +48,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
     .order("sort_order", { ascending: true });
 
   return (
-    <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
+    <PageShell>
       <BottomTabBar role={ctx.role} />
       {/* Spec 63: the consolidated shell — spec-59 back target, the
           spec-58/59 pm/super chips ride the actions slot. SA never
@@ -101,6 +102,6 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
           }))}
         />
       </section>
-    </main>
+    </PageShell>
   );
 }

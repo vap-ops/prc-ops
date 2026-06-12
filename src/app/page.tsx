@@ -1,3 +1,4 @@
+import { PageShell } from "@/components/features/page-shell";
 import { redirect } from "next/navigation";
 import { roleHome, type UserRole } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
@@ -21,7 +22,7 @@ export default async function Home() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-white px-6 text-zinc-900">
+    <PageShell variant="card">
       <div className="max-w-md space-y-6 text-center">
         <h1 className="text-4xl font-semibold tracking-tight">PRC Ops</h1>
         <p className="text-lg text-zinc-600">
@@ -32,6 +33,6 @@ export default async function Home() {
           <LoginButton />
         </div>
       </div>
-    </main>
+    </PageShell>
   );
 }

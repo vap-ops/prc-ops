@@ -1,3 +1,4 @@
+import { PageShell } from "@/components/features/page-shell";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LogoutButton } from "@/components/auth/logout-button";
@@ -63,7 +64,7 @@ export default async function ComingSoonPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-white px-6 text-zinc-900">
+    <PageShell variant="card">
       <div className="w-full max-w-md space-y-6 text-center">
         <div className="flex justify-center">
           <AvatarSurface lineUrl={lineAvatarUrl} fullName={row.full_name} size={72} />
@@ -81,7 +82,7 @@ export default async function ComingSoonPage() {
           <LogoutButton />
         </div>
       </div>
-    </main>
+    </PageShell>
   );
 }
 
@@ -135,7 +136,7 @@ function OperatorHub({
   fullName,
 }: OperatorHubProps) {
   return (
-    <main className="min-h-screen bg-white px-6 py-10 text-zinc-900">
+    <PageShell variant="bare" className="bg-white px-6 py-10">
       <div className="mx-auto flex w-full max-w-md flex-col gap-6">
         <header className="space-y-1">
           <p className="text-xs font-semibold tracking-wider text-blue-700 uppercase">
@@ -177,6 +178,6 @@ function OperatorHub({
           <LogoutButton />
         </div>
       </div>
-    </main>
+    </PageShell>
   );
 }

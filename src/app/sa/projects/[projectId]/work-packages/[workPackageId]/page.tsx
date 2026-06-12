@@ -1,3 +1,4 @@
+import { PageShell } from "@/components/features/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
 import { Camera, FileText, ShoppingCart, Users } from "lucide-react";
@@ -135,7 +136,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
   const signedUrls = await mintSignedUrlsForPhotos(allPhotos);
 
   return (
-    <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
+    <PageShell>
       <BottomTabBar role={ctx.role} />
       {/* Spec 54 header (operator mockup) via the spec-63 shell; the
           progress band below scrolls. */}
@@ -382,6 +383,6 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
           ) : null}
         </div>
       </div>
-    </main>
+    </PageShell>
   );
 }

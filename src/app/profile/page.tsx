@@ -1,3 +1,4 @@
+import { PageShell } from "@/components/features/page-shell";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LogoutButton } from "@/components/auth/logout-button";
@@ -44,7 +45,7 @@ export default async function ProfilePage() {
   const backHref = roleHome(role);
 
   return (
-    <main className="min-h-screen bg-zinc-50 px-6 py-10 pb-20 text-zinc-900 sm:pb-10">
+    <PageShell variant="bare" className="bg-zinc-50 px-6 py-10 pb-20 sm:pb-10">
       <BottomTabBar role={role} />
       <div className="mx-auto flex w-full max-w-md flex-col gap-6">
         <header className="space-y-2">
@@ -73,6 +74,6 @@ export default async function ProfilePage() {
           <LogoutButton />
         </div>
       </div>
-    </main>
+    </PageShell>
   );
 }

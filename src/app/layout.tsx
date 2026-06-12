@@ -38,7 +38,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="th" className={`${sarabun.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col">
+      {/* Spec 64: the body is LOCKED — PageShell's <main> is the only
+          scroller, so sticky/fixed chrome cannot drift on iOS bounce. */}
+      <body className="h-full overflow-hidden">
         {children}
         <SwRegister />
         {/* Spec 35: drains the offline photo queue (leftovers from

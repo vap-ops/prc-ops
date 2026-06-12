@@ -1,3 +1,4 @@
+import { PageShell } from "@/components/features/page-shell";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
@@ -135,7 +136,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
     (isDecider && status === "approved");
 
   return (
-    <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
+    <PageShell>
       <BottomTabBar role={ctx.role} />
       {/* Spec 63: the consolidated shell. */}
       <DetailHeader backHref="/requests" backLabel="กลับไปคำขอซื้อ">
@@ -379,6 +380,6 @@ export default async function RequestDetailPage({ params }: PageProps) {
           </div>
         ) : null}
       </section>
-    </main>
+    </PageShell>
   );
 }

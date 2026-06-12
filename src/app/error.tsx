@@ -1,12 +1,14 @@
 "use client";
 
+import { PageShell } from "@/components/features/page-shell";
+
 // Localized error boundary — Next.js requires error boundaries to be
 // Client Components; that requirement is the 'use client' justification
 // (spec 14 item D). Without this file, unhandled render errors fall
 // through to Next.js's built-in English page.
 export default function GlobalError({ reset }: { error: Error; reset: () => void }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-white px-6 text-zinc-900">
+    <PageShell variant="card">
       <div className="max-w-md space-y-6 text-center">
         <h1 className="text-2xl font-semibold tracking-tight">เกิดข้อผิดพลาด</h1>
         <p className="text-sm text-zinc-600">มีบางอย่างผิดพลาด กรุณาลองใหม่อีกครั้ง</p>
@@ -20,6 +22,6 @@ export default function GlobalError({ reset }: { error: Error; reset: () => void
           </button>
         </div>
       </div>
-    </main>
+    </PageShell>
   );
 }
