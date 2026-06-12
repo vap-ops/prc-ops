@@ -6205,3 +6205,7 @@ Status: COMPLETE (operator iPhone re-test = acceptance). Spec-44 field test: hom
 ### Specs 43-45 operator acceptance (2026-06-12)
 
 Operator iPhone pass CONFIRMED: installed-PWA LINE login via device-code handoff works end-to-end (tap -> LINE app one-tap -> return -> auto signed in). The spec-42/43/44/45 arc is closed; PWA re-login is no longer a blocker for field rollout. Remaining handoff seams unchanged (poll rate limiting, confirm-tap hardening, Android pass when a device exists).
+
+### Operator decision 2026-06-12: AppSheet config edits DEFERRED
+
+Operator: 'Keep all appsheet edit as pending, we can edit later.' The 3 outstanding AppSheet console TODOs (mark pr_number + cancelled_at/by/reason read-only, shipped_at editable column) stay pending indefinitely. Accepted consequence: AppSheet saves can break on rows touching those columns until done - consistent with ADR 0034 atrophy posture (in-app is the primary write path; AppSheet usage winding down).
