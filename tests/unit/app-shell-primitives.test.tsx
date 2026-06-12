@@ -49,6 +49,15 @@ describe("AppHeader", () => {
     expect(screen.getByRole("link", { name: "โปรไฟล์" })).toHaveAttribute("href", "/profile");
   });
 
+  it("is sticky chrome — pinned to the top while scrolling (spec 62)", () => {
+    const { container } = render(
+      <AppHeader kicker="หน้างาน" fullName="สมชาย" maxWidthClass={PAGE_MAX_W} />,
+    );
+    const header = container.querySelector("header");
+    expect(header?.className).toContain("sticky");
+    expect(header?.className).toContain("top-0");
+  });
+
   it("carries the refresh button, NOT hidden in standalone (spec 53)", () => {
     // The installed PWA has no reload chrome — the refresh button is
     // the one header control that must stay visible there.

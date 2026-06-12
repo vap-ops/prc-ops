@@ -28,7 +28,9 @@ export function AppHeader({ kicker, fullName, title, maxWidthClass }: AppHeaderP
     // Spec 38: the brand band (direction ข) — the one dark surface in
     // the app. White heading on slate-900 is ~17:1; the amber wordmark
     // accent is decorative bold text on near-black (≈10:1).
-    <header className="border-b border-slate-800 bg-slate-900 px-5 py-4">
+    // Spec 62: sticky chrome — z-20 sits under the queue banner (30),
+    // tab bar (40), and dialog scrims (50).
+    <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-900 px-5 py-4">
       <div className={`mx-auto flex ${maxWidthClass} items-center justify-between gap-3`}>
         <div>
           <p className="text-xs font-bold tracking-wide text-white">

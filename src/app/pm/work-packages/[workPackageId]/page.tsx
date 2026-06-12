@@ -104,7 +104,8 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
       {/* Spec 54 header (operator mockup) — same shape as the SA page:
           back chip + refresh, code over a large bold name with the
           status pill, then the phase progress band. */}
-      <header className="border-b border-zinc-200 bg-white px-5 py-4">
+      {/* Spec 62: sticky chrome (the progress band below scrolls). */}
+      <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white px-5 py-4">
         <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-3`}>
           <div className="flex items-center justify-between gap-3">
             <Link

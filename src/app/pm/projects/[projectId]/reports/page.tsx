@@ -72,7 +72,8 @@ export default async function ProjectReportsPage({ params }: PageProps) {
       {/* Spec 60: detail header (spec-54 shape) replaces the hub
           AppHeader + link row — this is a project-scoped surface
           entered from the project page's รายงาน chip (spec 59). */}
-      <header className="border-b border-zinc-200 bg-white px-5 py-4">
+      {/* Spec 62: sticky chrome. */}
+      <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white px-5 py-4">
         <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-3`}>
           <div className="flex items-center justify-between gap-3">
             <Link

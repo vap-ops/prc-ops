@@ -48,7 +48,8 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
   return (
     <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
-      <header className="border-b border-zinc-200 bg-white px-5 py-4">
+      {/* Spec 62: sticky chrome. */}
+      <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white px-5 py-4">
         <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-1`}>
           <div className="flex items-center justify-between gap-3">
             {/* Spec 55 back chip; spec 59: role-aware target — back
