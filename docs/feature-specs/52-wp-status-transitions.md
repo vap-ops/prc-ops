@@ -1,6 +1,6 @@
 # Spec 52 — WP status transitions: during → in_progress, manual on-hold toggle
 
-**Status:** in progress
+**Status:** complete (2026-06-13)
 **Date:** 2026-06-13
 **Origin:** operator request 2026-06-12: "in_progress when during images are
 uploaded; as for on_hold, allow PM and up to toggle on/off."
