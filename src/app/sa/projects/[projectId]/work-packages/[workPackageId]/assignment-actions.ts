@@ -9,9 +9,8 @@
 import "server-only";
 
 import { revalidatePath } from "next/cache";
-import { createClient as createServerSupabase } from "@/lib/db/server";
-
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
+import { UUID_REGEX } from "@/lib/validate/uuid";
 
 export type AssignmentResult = { ok: true } | { ok: false; error: string };
 export type CreateContractorResult = { ok: true; id: string } | { ok: false; error: string };
@@ -33,11 +32,9 @@ export async function createContractor(input: {
     return { ok: false, error: "บันทึกผู้รับเหมาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
 
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
 
   const { data, error } = await supabase
     .from("contractors")
@@ -63,11 +60,9 @@ export async function setWorkPackageContractor(input: {
     return { ok: false, error: "บันทึกผู้รับเหมาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
 
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase } = auth;
 
   // RPC, not a direct UPDATE: site admins have no work_packages UPDATE
   // policy, and the SECURITY DEFINER function writes contractor_id ONLY

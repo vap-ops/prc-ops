@@ -1,6 +1,6 @@
 "use client";
 
-import { BUTTON_PRIMARY } from "@/lib/ui/classes";
+import { BUTTON_PRIMARY, FIELD_INPUT, FIELD_SELECT, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
 
 // 'use client' justification (spec 33): supplier select + inline create
 // form + controlled inputs + pending state around the record_purchase
@@ -100,7 +100,7 @@ export function PurchaseRecordForm({ requestId, suppliers }: PurchaseRecordFormP
           value={supplierId}
           onChange={(e) => setSupplierId(e.target.value)}
           disabled={pending}
-          className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-2 text-sm text-zinc-900 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+          className={FIELD_SELECT}
         >
           <option value="">— เลือกผู้ขาย —</option>
           {allSuppliers.map((s) => (
@@ -123,7 +123,7 @@ export function PurchaseRecordForm({ requestId, suppliers }: PurchaseRecordFormP
               onChange={(e) => setNameDraft(e.target.value)}
               disabled={pending}
               placeholder="ชื่อผู้ขาย / ร้านค้า"
-              className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+              className={FIELD_INPUT}
             />
             <input
               type="tel"
@@ -132,7 +132,7 @@ export function PurchaseRecordForm({ requestId, suppliers }: PurchaseRecordFormP
               onChange={(e) => setPhoneDraft(e.target.value)}
               disabled={pending}
               placeholder="เบอร์โทร (ไม่บังคับ)"
-              className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+              className={FIELD_INPUT}
             />
             <button
               type="button"
@@ -196,7 +196,7 @@ export function PurchaseRecordForm({ requestId, suppliers }: PurchaseRecordFormP
         </button>
 
         {error ? (
-          <p role="alert" className="text-xs font-medium text-red-700">
+          <p role="alert" className={INLINE_ALERT_TEXT}>
             {error}
           </p>
         ) : null}

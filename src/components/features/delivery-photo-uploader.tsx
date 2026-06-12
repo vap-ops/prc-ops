@@ -21,7 +21,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { addDeliveryConfirmationPhoto } from "@/app/requests/actions";
 import { createClient } from "@/lib/db/browser";
-import { photoExtToMime } from "@/lib/photos/path";
+import { PHOTO_ACCEPT_MIME, photoExtToMime } from "@/lib/photos/path";
 import { preparePhotoForUpload } from "@/lib/photos/downscale";
 import { buildPrAttachmentStoragePath } from "@/lib/purchasing/attachment-path";
 import {
@@ -30,6 +30,7 @@ import {
   type QueuedUpload,
 } from "@/lib/photos/upload-queue";
 import { notifyQueueChanged, safeQueuePut, safeQueueRemove } from "@/lib/photos/upload-queue-idb";
+import { BUTTON_SECONDARY_MUTED, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
 
 interface DeliveryPhotoUploaderProps {
   purchaseRequestId: string;
@@ -142,7 +143,7 @@ export function DeliveryPhotoUploader({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/heic"
+        accept={PHOTO_ACCEPT_MIME}
         multiple
         className="sr-only"
         onChange={(e) => void handleFiles(e.target.files)}
@@ -152,7 +153,7 @@ export function DeliveryPhotoUploader({
         type="button"
         onClick={() => fileInputRef.current?.click()}
         disabled={busy}
-        className="inline-flex h-11 items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900 shadow-xs transition-colors hover:bg-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+        className={BUTTON_SECONDARY_MUTED}
       >
         {phase === "uploading"
           ? "กำลังอัปโหลด…"
@@ -161,7 +162,7 @@ export function DeliveryPhotoUploader({
             : "ยืนยันการรับของด้วยรูป"}
       </button>
       {error ? (
-        <p role="alert" className="text-xs font-medium text-red-700">
+        <p role="alert" className={INLINE_ALERT_TEXT}>
           {error}
         </p>
       ) : null}

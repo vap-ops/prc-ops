@@ -10,10 +10,9 @@
 // SQL guard in the action mirrors it so the rule is enforced in two
 // independent layers).
 
-import type { Database } from "@/lib/db/database.types";
+import type { PhotoPhase, WorkPackageStatus } from "@/lib/db/enums";
 
-export type WorkPackageStatus = Database["public"]["Enums"]["work_package_status"];
-export type PhotoPhase = Database["public"]["Enums"]["photo_phase"];
+export type { PhotoPhase, WorkPackageStatus };
 
 export const TRANSITIONABLE_FROM_STATUSES = ["not_started", "in_progress", "on_hold"] as const;
 

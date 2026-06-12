@@ -6,8 +6,6 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("server-only", () => ({}));
-
 const { mockCreateClient } = vi.hoisted(() => ({ mockCreateClient: vi.fn() }));
 
 vi.mock("@/lib/db/admin", () => ({

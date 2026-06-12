@@ -12,33 +12,6 @@ import "server-only";
 
 import { createClient as createAdminClient } from "@/lib/db/admin";
 
-// Staff option list for assignment pickers (spec 28 / ADR 0032): id +
-// display name of every requester-capable user. Same exposure class as
-// fetchDisplayNames (names only), recorded in ADR 0032.
-export interface StaffOption {
-  id: string;
-  name: string;
-}
-
-export async function fetchAssignableStaff(logTag: string): Promise<StaffOption[]> {
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("users")
-    .select("id, full_name")
-    .in("role", ["site_admin", "project_manager", "super_admin"])
-    .order("full_name", { ascending: true });
-  if (error) {
-    console.error(`${logTag} failed to read assignable staff`, error.message);
-    return [];
-  }
-  // public.users has no email column — the uuid head is the last-resort
-  // label for never-named accounts (same fallback class as the cards).
-  return (data ?? []).map((u) => ({
-    id: u.id,
-    name: u.full_name ?? u.id.slice(0, 8),
-  }));
-}
-
 export async function fetchDisplayNames(
   userIds: ReadonlyArray<string>,
   logTag: string,

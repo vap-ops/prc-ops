@@ -3,9 +3,7 @@
 // financial data. The RPCs enforce the same set server-side; this pure
 // helper is the render condition's testable seam.
 
-import type { Database } from "@/lib/db/database.types";
-
-type UserRole = Database["public"]["Enums"]["user_role"];
+import type { UserRole } from "@/lib/db/enums";
 
 const BACK_OFFICE_ROLES: ReadonlyArray<UserRole> = [
   "project_manager",

@@ -17,7 +17,7 @@ function label(map: Record<string, string>, value: string | undefined): string {
   return map[value] ?? value;
 }
 
-export function formatPrNumber(prNumber: number | undefined): string {
+function formatPrNumber(prNumber: number | undefined): string {
   return `PR-${String(prNumber ?? 0).padStart(4, "0")}`;
 }
 

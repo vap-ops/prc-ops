@@ -16,7 +16,6 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 import { createClient as createAdminClient } from "@/lib/db/admin";
-import { createClient as createServerSupabase } from "@/lib/db/server";
 import {
   APPROVAL_DECISIONS,
   isCommentValid,
@@ -30,17 +29,12 @@ import {
   deriveReleaseStatus,
   HOLDABLE_FROM_STATUSES,
 } from "@/lib/work-packages/hold";
-import type { UserRole } from "@/lib/auth/role-home";
-
-const PM_ROLES: ReadonlyArray<UserRole> = ["project_manager", "super_admin"];
+import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
+import { PM_ROLES } from "@/lib/auth/role-home";
+import { isValidUuid } from "@/lib/validate/uuid";
 
 function isValidDecision(value: unknown): value is ApprovalDecision {
   return typeof value === "string" && (APPROVAL_DECISIONS as readonly string[]).includes(value);
-}
-
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function isValidUuid(value: unknown): value is string {
-  return typeof value === "string" && UUID_REGEX.test(value);
 }
 
 export interface RecordDecisionInput {
@@ -62,11 +56,9 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
     return { ok: false, error: "ผลการตรวจนี้ต้องใส่ความเห็น" };
   }
 
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
 
   // Explicit role check so the error surface is clean. RLS on
   // approvals INSERT is the load-bearing backstop — site_admin's
@@ -76,7 +68,7 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  if (!userRow || !(PM_ROLES as readonly string[]).includes(userRow.role)) {
+  if (!userRow || !PM_ROLES.includes(userRow.role)) {
     return { ok: false, error: "เฉพาะผู้จัดการโครงการเท่านั้นที่บันทึกผลการตรวจได้" };
   }
 
@@ -159,18 +151,16 @@ export type SetHoldStatusResult = { ok: true } | { ok: false; error: string };
 export async function setHoldStatus(input: SetHoldStatusInput): Promise<SetHoldStatusResult> {
   if (!isValidUuid(input.workPackageId)) return { ok: false, error: "รหัสรายการงานไม่ถูกต้อง" };
 
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
 
   const { data: userRow } = await supabase
     .from("users")
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  if (!userRow || !(PM_ROLES as readonly string[]).includes(userRow.role)) {
+  if (!userRow || !PM_ROLES.includes(userRow.role)) {
     return { ok: false, error: "เฉพาะผู้จัดการโครงการเท่านั้นที่พักงานได้" };
   }
 

@@ -16,6 +16,12 @@ import {
   type WorkerActionResult,
 } from "@/app/workers/actions";
 import type { Database } from "@/lib/db/database.types";
+import {
+  BUTTON_PRIMARY_COMPACT,
+  BUTTON_SECONDARY_COMPACT,
+  CARD,
+  FIELD_STACKED,
+} from "@/lib/ui/classes";
 
 type WorkerType = Database["public"]["Enums"]["worker_type"];
 
@@ -27,13 +33,6 @@ export type ManagedWorker = {
   day_rate: number;
   active: boolean;
 };
-
-const FIELD_CLASSES =
-  "mt-1 w-full rounded-lg border border-zinc-400 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700";
-const PRIMARY_BUTTON =
-  "inline-flex min-h-11 items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-xs transition-colors hover:bg-slate-800 active:translate-y-px disabled:opacity-50";
-const SECONDARY_BUTTON =
-  "inline-flex min-h-11 items-center justify-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50";
 
 function AddWorkerForm({ contractors }: { contractors: { id: string; name: string }[] }) {
   const router = useRouter();
@@ -66,7 +65,7 @@ function AddWorkerForm({ contractors }: { contractors: { id: string; name: strin
   }
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
+    <div className={CARD}>
       <p className="text-sm font-semibold text-zinc-900">เพิ่มคนงาน</p>
       <label className="mt-2 block text-sm text-zinc-700">
         ชื่อ
@@ -74,7 +73,7 @@ function AddWorkerForm({ contractors }: { contractors: { id: string; name: strin
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={120}
-          className={FIELD_CLASSES}
+          className={FIELD_STACKED}
         />
       </label>
       <div className="mt-2 flex gap-2" role="radiogroup" aria-label="ประเภทคนงาน">
@@ -106,7 +105,7 @@ function AddWorkerForm({ contractors }: { contractors: { id: string; name: strin
           <select
             value={contractorId}
             onChange={(e) => setContractorId(e.target.value)}
-            className={`${FIELD_CLASSES} appearance-none`}
+            className={`${FIELD_STACKED} appearance-none`}
           >
             <option value="">— เลือกผู้รับเหมา —</option>
             {contractors.map((c) => (
@@ -123,7 +122,7 @@ function AddWorkerForm({ contractors }: { contractors: { id: string; name: strin
           value={rate}
           onChange={(e) => setRate(e.target.value)}
           inputMode="decimal"
-          className={FIELD_CLASSES}
+          className={FIELD_STACKED}
         />
       </label>
       {error ? <p className="mt-2 text-sm text-red-700">{error}</p> : null}
@@ -131,7 +130,7 @@ function AddWorkerForm({ contractors }: { contractors: { id: string; name: strin
         type="button"
         disabled={busy || name.trim().length === 0 || rate.trim().length === 0}
         onClick={() => void submit()}
-        className={`mt-3 w-full ${PRIMARY_BUTTON}`}
+        className={`mt-3 w-full ${BUTTON_PRIMARY_COMPACT}`}
       >
         เพิ่มคนงาน
       </button>
@@ -224,7 +223,7 @@ function WorkerRow({
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={120}
-              className={FIELD_CLASSES}
+              className={FIELD_STACKED}
             />
           </label>
           <label className="mt-2 block text-sm text-zinc-700">
@@ -233,7 +232,7 @@ function WorkerRow({
               value={rate}
               onChange={(e) => setRate(e.target.value)}
               inputMode="decimal"
-              className={FIELD_CLASSES}
+              className={FIELD_STACKED}
             />
           </label>
           {error ? <p className="mt-2 text-sm text-red-700">{error}</p> : null}
@@ -242,11 +241,15 @@ function WorkerRow({
               type="button"
               disabled={busy}
               onClick={() => void save()}
-              className={PRIMARY_BUTTON}
+              className={BUTTON_PRIMARY_COMPACT}
             >
               บันทึก
             </button>
-            <button type="button" onClick={() => setEditing(false)} className={SECONDARY_BUTTON}>
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className={BUTTON_SECONDARY_COMPACT}
+            >
               ยกเลิก
             </button>
           </div>
@@ -277,10 +280,7 @@ export function WorkerRosterManager({
         ] as const
       ).map(({ label, list }) =>
         list.length > 0 ? (
-          <div
-            key={label}
-            className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm"
-          >
+          <div key={label} className={CARD}>
             <p className="text-sm font-semibold text-zinc-900">{label}</p>
             <ul className="mt-2 flex flex-col">
               {list.map((w) => (

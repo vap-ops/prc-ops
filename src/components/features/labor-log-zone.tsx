@@ -16,17 +16,15 @@ import { bangkokTodayIso } from "@/lib/labor/dates";
 import { validateCorrection } from "@/lib/labor/validate";
 import { formatThaiDate } from "@/lib/i18n/labels";
 import type { GroupedRoster, RosterWorker } from "@/lib/labor/group-workers";
+import type { LaborDisplayRow } from "@/lib/labor/types";
 import type { Database } from "@/lib/db/database.types";
+import { BUTTON_SECONDARY_COMPACT, CARD, FIELD_STACKED } from "@/lib/ui/classes";
 
 type DayFraction = Database["public"]["Enums"]["day_fraction"];
 
-export type LaborDisplayRow = {
-  id: string;
-  workDate: string;
-  workerName: string;
-  fraction: DayFraction;
-  selfLogged: boolean;
-};
+// Moved to @/lib/labor/types in spec 65 (server-only lib code imports
+// it); re-exported so existing import sites keep working.
+export type { LaborDisplayRow } from "@/lib/labor/types";
 
 const FRACTION_LABEL: Record<DayFraction, string> = {
   full: "เต็มวัน",
@@ -155,7 +153,7 @@ function CorrectionDialog({
           onChange={(e) => setReason(e.target.value)}
           rows={2}
           maxLength={300}
-          className="mt-1 w-full rounded-lg border border-zinc-400 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+          className={FIELD_STACKED}
         />
       </label>
       {error ? <p className="mt-2 text-xs text-red-700">{error}</p> : null}
@@ -168,11 +166,7 @@ function CorrectionDialog({
         >
           บันทึกการแก้ไข
         </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
-        >
+        <button type="button" onClick={onClose} className={BUTTON_SECONDARY_COMPACT}>
           ยกเลิก
         </button>
       </div>
@@ -188,7 +182,6 @@ export function LaborLogZone({
   showFlags,
   locked,
 }: {
-  projectId: string;
   workPackageId: string;
   revalidate: string;
   roster: GroupedRoster;
@@ -254,7 +247,7 @@ export function LaborLogZone({
   return (
     <section className="flex flex-col gap-3">
       {!locked ? (
-        <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
+        <div className={CARD}>
           <label className="block text-sm text-zinc-700">
             วันที่ทำงาน
             <input
@@ -331,7 +324,7 @@ export function LaborLogZone({
       ) : null}
 
       {dates.length > 0 ? (
-        <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
+        <div className={CARD}>
           <p className="text-sm font-semibold text-zinc-900">บันทึกล่าสุด</p>
           <ul className="mt-2 flex flex-col gap-1">
             {dates.map((date) => (

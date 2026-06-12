@@ -2,9 +2,7 @@
 // action wiring is thin glue over these predicates plus the existing
 // RLS posture (work_packages UPDATE admits pm/super only).
 
-import { describe, it, expect, vi } from "vitest";
-
-vi.mock("server-only", () => ({}));
+import { describe, it, expect } from "vitest";
 
 import {
   HOLDABLE_FROM_STATUSES,

@@ -1,10 +1,8 @@
 // @vitest-environment node
 // (pdfkit/fontkit type-check Buffers across realms — jsdom's globals fail
 // the check; the PDF path only ever runs server-side anyway.)
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-// server-only throws outside an RSC bundler context (env.test.ts precedent).
-vi.mock("server-only", () => ({}));
 import { buildReportPdf, formatGeneratedDate } from "@/lib/reports/build-pdf";
 
 // Minimum-viable real PNG (1×1 transparent) — PDFKit sniffs image bytes

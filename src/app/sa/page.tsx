@@ -7,14 +7,16 @@ import { HubNav, SA_HUB_NAV } from "@/components/features/hub-nav";
 import { EmptyNotice, ErrorNotice } from "@/components/features/notices";
 import { StatusPill } from "@/components/features/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
+import { SITE_STAFF_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
+import { SECTION_HEADING } from "@/lib/ui/classes";
 import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
 import { projectStatusPillClasses } from "@/lib/status-colors";
 
 export const metadata = { title: "โครงการ" };
 
 export default async function SitAdminLandingPage() {
-  const ctx = await requireRole(["site_admin", "project_manager", "super_admin"]);
+  const ctx = await requireRole(SITE_STAFF_ROLES);
   const supabase = await createClient();
 
   const { data: projects, error } = await supabase
@@ -30,7 +32,7 @@ export default async function SitAdminLandingPage() {
       <HubNav maxWidthClass={PAGE_MAX_W} items={SA_HUB_NAV} currentHref="/sa" />
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
-        <h2 className="mb-3 text-base font-semibold text-zinc-900">โครงการ</h2>
+        <h2 className={SECTION_HEADING}>โครงการ</h2>
 
         {error ? (
           <ErrorNotice>โหลดรายการโครงการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</ErrorNotice>

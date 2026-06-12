@@ -10,9 +10,9 @@
 // has photos), zinc for everything else — including a skipped middle
 // phase (gap stays visibly un-shot).
 
-import type { Database } from "@/lib/db/database.types";
+import type { PhotoPhase } from "@/lib/db/enums";
 
-export type PhotoPhase = Database["public"]["Enums"]["photo_phase"];
+export type { PhotoPhase };
 
 export const PHASE_ORDER: ReadonlyArray<PhotoPhase> = ["before", "during", "after"];
 

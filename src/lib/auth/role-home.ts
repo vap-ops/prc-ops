@@ -2,9 +2,22 @@
 // Used by the LINE callback, /login, the homepage, and requireRole's
 // not-allowed branch. Keep all role-based landing logic routed through here.
 
-import type { Database } from "@/lib/db/database.types";
+import type { UserRole } from "@/lib/db/enums";
 
-export type UserRole = Database["public"]["Enums"]["user_role"];
+export type { UserRole };
+
+// Spec 65: canonical role allowlists — the arrays every gate previously
+// inlined. role-home.ts is the recorded role-doctrine home.
+
+/** Review/back-office surfaces: PM and super_admin. */
+export const PM_ROLES: ReadonlyArray<UserRole> = ["project_manager", "super_admin"];
+
+/** All site staff: SA plus the PM set. */
+export const SITE_STAFF_ROLES: ReadonlyArray<UserRole> = [
+  "site_admin",
+  "project_manager",
+  "super_admin",
+];
 
 export function roleHome(role: UserRole): string {
   if (role === "site_admin") return "/sa";

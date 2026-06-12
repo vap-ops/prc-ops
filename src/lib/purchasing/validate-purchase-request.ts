@@ -7,8 +7,8 @@
 // result union). The trimmed values are returned in `value` so callers use
 // the same string the CHECK constraints see at the DB.
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+import { ISO_DATE_REGEX, bangkokTodayIso } from "@/lib/dates";
+import { UUID_REGEX } from "@/lib/validate/uuid";
 
 // Requester-set urgency (spec 16 addendum A2). Declaration order mirrors
 // the DB enum (normal < urgent < critical) — keep them in sync.
@@ -22,12 +22,6 @@ export const PURCHASE_PRIORITIES: ReadonlyArray<PurchasePriority> = [
 
 export function isPurchasePriority(value: unknown): value is PurchasePriority {
   return typeof value === "string" && (PURCHASE_PRIORITIES as readonly string[]).includes(value);
-}
-
-// Today as yyyy-mm-dd in Asia/Bangkok — the validator's one clock
-// dependence (spec 16 §2). en-CA gives ISO date formatting.
-function bangkokToday(): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date());
 }
 
 // Real-calendar check: shape alone admits 2026-02-31 (Date rolls it
@@ -96,7 +90,7 @@ export function validateCreatePurchaseRequest(input: {
     if (!isRealIsoDate(neededByRaw)) {
       return { ok: false, error: "วันที่ต้องการรับของไม่ถูกต้อง" };
     }
-    if (neededByRaw < bangkokToday()) {
+    if (neededByRaw < bangkokTodayIso()) {
       return { ok: false, error: "วันที่ต้องการรับของต้องไม่เป็นวันที่ผ่านมาแล้ว" };
     }
     neededBy = neededByRaw;

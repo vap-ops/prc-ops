@@ -11,9 +11,9 @@
 // whichever side of that line it is actually on. Before photos are
 // staging (เตรียมงาน, spec 10), not work happening.
 
-import type { Database } from "@/lib/db/database.types";
+import type { WorkPackageStatus } from "@/lib/db/enums";
 
-export type WorkPackageStatus = Database["public"]["Enums"]["work_package_status"];
+export type { WorkPackageStatus };
 
 export const HOLDABLE_FROM_STATUSES = ["not_started", "in_progress"] as const;
 

@@ -2,9 +2,7 @@
 // write path. The server-action wiring and the Storage I/O aren't
 // unit-testable here; these helpers are.
 
-import { describe, it, expect, vi } from "vitest";
-
-vi.mock("server-only", () => ({}));
+import { describe, it, expect } from "vitest";
 
 import {
   isValidPhotoExt,

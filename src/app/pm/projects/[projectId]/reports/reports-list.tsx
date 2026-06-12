@@ -23,6 +23,7 @@ import { StatusPill } from "@/components/features/status-pill";
 import { REPORT_STATUS_LABEL, isReportInFlight, type ReportStatus } from "@/lib/reports/predicates";
 import { reportStatusPillClasses } from "@/lib/status-colors";
 import { formatThaiDateTime } from "@/lib/i18n/labels";
+import { CARD } from "@/lib/ui/classes";
 import { getReportDownloadUrl } from "./actions";
 
 const POLL_INTERVAL_MS = 12_000;
@@ -67,7 +68,7 @@ export function ReportsList({ reports }: ReportsListProps) {
 
 function ReportRow({ report }: { report: ReportListItem }) {
   return (
-    <li className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
+    <li className={CARD}>
       <div className="flex items-center justify-between gap-3">
         <StatusPill pillClasses={reportStatusPillClasses(report.status)}>
           {REPORT_STATUS_LABEL[report.status]}

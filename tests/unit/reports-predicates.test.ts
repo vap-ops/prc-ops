@@ -8,9 +8,7 @@
 // project). Centralising it here means the action and any future surface
 // share one implementation.
 
-import { describe, it, expect, vi } from "vitest";
-
-vi.mock("server-only", () => ({}));
+import { describe, it, expect } from "vitest";
 
 import {
   REPORT_IN_FLIGHT_STATUSES,

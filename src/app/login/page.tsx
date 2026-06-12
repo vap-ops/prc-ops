@@ -1,6 +1,7 @@
 import { PageShell } from "@/components/features/page-shell";
 import { redirect } from "next/navigation";
-import { roleHome, type UserRole } from "@/lib/auth/role-home";
+import { roleHome } from "@/lib/auth/role-home";
+import { BANNER_ERROR } from "@/lib/ui/classes";
 import { createClient } from "@/lib/db/server";
 import { LoginButton } from "./login-button";
 
@@ -28,7 +29,7 @@ export default async function LoginPage({
       .select("role")
       .eq("id", user.id)
       .maybeSingle();
-    redirect(row ? roleHome(row.role as UserRole) : "/coming-soon");
+    redirect(row ? roleHome(row.role) : "/coming-soon");
   }
 
   const params = await searchParams;
@@ -54,11 +55,7 @@ export default async function LoginPage({
           </div>
         )}
         {errorMessage && (
-          <div
-            role="alert"
-            data-testid="login-error"
-            className="rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900"
-          >
+          <div role="alert" data-testid="login-error" className={BANNER_ERROR}>
             {errorMessage}
           </div>
         )}

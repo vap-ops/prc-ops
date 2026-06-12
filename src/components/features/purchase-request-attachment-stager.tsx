@@ -25,7 +25,7 @@ import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addPurchaseRequestAttachment } from "@/app/requests/actions";
 import { createClient } from "@/lib/db/browser";
-import { photoExtToMime, type PhotoExt } from "@/lib/photos/path";
+import { PHOTO_ACCEPT_MIME, photoExtToMime, type PhotoExt } from "@/lib/photos/path";
 import { preparePhotoForUpload } from "@/lib/photos/downscale";
 import {
   classifyStorageUploadError,
@@ -35,6 +35,7 @@ import {
 import { notifyQueueChanged, safeQueuePut, safeQueueRemove } from "@/lib/photos/upload-queue-idb";
 import { buildPrAttachmentStoragePath } from "@/lib/purchasing/attachment-path";
 import { validateAttachmentLink } from "@/lib/purchasing/validate-attachment";
+import { BUTTON_SECONDARY_MUTED, FIELD_INPUT, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
 
 type ItemStatus =
   | "preparing"
@@ -280,7 +281,7 @@ export const PurchaseRequestAttachmentStager = forwardRef<
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/heic"
+          accept={PHOTO_ACCEPT_MIME}
           multiple
           className="sr-only"
           onChange={(e) => void handleFiles(e.target.files)}
@@ -290,7 +291,7 @@ export const PurchaseRequestAttachmentStager = forwardRef<
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={disabled}
-          className="inline-flex h-11 items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900 shadow-xs transition-colors hover:bg-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className={BUTTON_SECONDARY_MUTED}
         >
           แนบรูป
         </button>
@@ -305,7 +306,7 @@ export const PurchaseRequestAttachmentStager = forwardRef<
           }}
           disabled={disabled}
           placeholder="https://…"
-          className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+          className={FIELD_INPUT}
         />
         <button
           type="button"
@@ -317,7 +318,7 @@ export const PurchaseRequestAttachmentStager = forwardRef<
         </button>
       </div>
       {linkError ? (
-        <p role="alert" className="text-xs font-medium text-red-700">
+        <p role="alert" className={INLINE_ALERT_TEXT}>
           {linkError}
         </p>
       ) : null}

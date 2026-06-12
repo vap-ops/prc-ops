@@ -4,9 +4,9 @@
 // Pure module so the segmented control maps over WP_LIST_VIEWS and any
 // future list surface imports instead of copying.
 
-import type { Database } from "@/lib/db/database.types";
+import type { WorkPackageStatus } from "@/lib/db/enums";
 
-export type WorkPackageStatus = Database["public"]["Enums"]["work_package_status"];
+export type { WorkPackageStatus };
 
 export type WpListView = "outstanding" | "pending_approval" | "complete" | "all";
 

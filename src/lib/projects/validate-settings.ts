@@ -3,9 +3,9 @@
 // on blank/oversized) — this module is the form's fast feedback and the
 // server action's first gate.
 
-import type { Database } from "@/lib/db/database.types";
+import type { ProjectStatus } from "@/lib/db/enums";
 
-export type ProjectStatus = Database["public"]["Enums"]["project_status"];
+export type { ProjectStatus };
 
 export const PROJECT_NAME_MAX = 200;
 

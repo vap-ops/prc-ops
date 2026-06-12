@@ -9,9 +9,7 @@
 // is empty — degenerate, empty groups never render); `in_progress`
 // otherwise (mixes, on_hold, pending_approval).
 
-import type { Database } from "@/lib/db/database.types";
-
-type WorkPackageStatus = Database["public"]["Enums"]["work_package_status"];
+import type { WorkPackageStatus } from "@/lib/db/enums";
 
 export type DeliverableProgressStatus = "not_started" | "in_progress" | "complete";
 

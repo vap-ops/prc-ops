@@ -50,7 +50,7 @@ export async function requireRole(allowedRoles: ReadonlyArray<UserRole>): Promis
     redirect("/login");
   }
 
-  const role = row.role as UserRole;
+  const role = row.role;
   if (!allowedRoles.includes(role)) {
     redirect(roleHome(role));
   }

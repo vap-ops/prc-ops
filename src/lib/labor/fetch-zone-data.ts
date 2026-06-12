@@ -8,7 +8,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/database.types";
-import type { LaborDisplayRow } from "@/components/features/labor-log-zone";
+import type { LaborDisplayRow } from "@/lib/labor/types";
 import { currentLaborLogs } from "./current-logs";
 import { groupRoster, type GroupedRoster } from "./group-workers";
 

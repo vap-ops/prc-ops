@@ -6,7 +6,6 @@ import { AvatarSurface } from "@/components/features/avatar-surface";
 import { DisplayNameForm } from "@/components/features/display-name-form";
 import { createClient } from "@/lib/db/server";
 import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
-import { type UserRole } from "@/lib/auth/role-home";
 
 export const metadata = { title: "เร็ว ๆ นี้" };
 
@@ -32,7 +31,7 @@ export default async function ComingSoonPage() {
     redirect("/login");
   }
 
-  const role = row.role as UserRole;
+  const role = row.role;
 
   // Bounce served roles to their proper home. Each branch ends in redirect()
   // which returns `never`, so after these two lines `role` is narrowed to the

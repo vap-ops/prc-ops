@@ -4,11 +4,11 @@
 // resolved in Asia/Bangkok (C7).
 
 import type { Database } from "@/lib/db/database.types";
+import type { UserRole } from "@/lib/db/enums";
+import { ISO_DATE_REGEX } from "@/lib/dates";
 
-type UserRole = Database["public"]["Enums"]["user_role"];
 type DayFraction = Database["public"]["Enums"]["day_fraction"];
 
-const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const BACKDATE_LIMIT_DAYS = 14;
 const REASON_MAX_LENGTH = 300;
 
@@ -25,7 +25,7 @@ export function validateLaborEntry(
   entry: { workDate: string; workerIds: string[] },
   context: { today: string; role: UserRole },
 ): string | null {
-  if (!ISO_DATE_PATTERN.test(entry.workDate) || Number.isNaN(Date.parse(entry.workDate))) {
+  if (!ISO_DATE_REGEX.test(entry.workDate) || Number.isNaN(Date.parse(entry.workDate))) {
     return "วันที่ไม่ถูกต้อง";
   }
   if (entry.workDate > context.today) {

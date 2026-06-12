@@ -1,7 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("server-only", () => ({}));
-
 const { mockCreateClient } = vi.hoisted(() => ({ mockCreateClient: vi.fn() }));
 
 vi.mock("@supabase/supabase-js", () => ({

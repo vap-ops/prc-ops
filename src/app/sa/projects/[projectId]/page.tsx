@@ -3,8 +3,8 @@ import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
 import { FileText, Settings } from "lucide-react";
-import { projectHubHref } from "@/lib/auth/role-home";
-import { ICON_CHIP_MUTED } from "@/lib/ui/classes";
+import { projectHubHref, SITE_STAFF_ROLES } from "@/lib/auth/role-home";
+import { ICON_CHIP_MUTED, SECTION_HEADING } from "@/lib/ui/classes";
 import { DetailHeader } from "@/components/features/detail-header";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { requireRole } from "@/lib/auth/require-role";
@@ -19,7 +19,7 @@ export const metadata = { title: "รายการงาน" };
 
 export default async function ProjectWorkPackagesPage({ params }: PageProps) {
   const { projectId } = await params;
-  const ctx = await requireRole(["site_admin", "project_manager", "super_admin"]);
+  const ctx = await requireRole(SITE_STAFF_ROLES);
   const supabase = await createClient();
 
   const { data: project } = await supabase
@@ -84,7 +84,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
       </DetailHeader>
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
-        <h2 className="mb-3 text-base font-semibold text-zinc-900">รายการงาน</h2>
+        <h2 className={SECTION_HEADING}>รายการงาน</h2>
         <WorkPackageList
           projectId={project.id}
           workPackages={(workPackages ?? []).map((wp) => ({

@@ -13,6 +13,7 @@
 
 import type { PhotoExt } from "@/lib/photos/path";
 import type { PhotoPhase } from "@/lib/photos/transitions";
+import { PHOTOS_BUCKET, PR_ATTACHMENTS_BUCKET } from "@/lib/storage/buckets";
 
 export type QueuedUploadKind = "phase_photo" | "reference_attachment" | "delivery_photo";
 
@@ -45,7 +46,7 @@ export type QueuedUpload =
   | (QueuedUploadBase & { kind: "delivery_photo"; purchaseRequestId: string });
 
 export function bucketForKind(kind: QueuedUploadKind): "photos" | "pr-attachments" {
-  return kind === "phase_photo" ? "photos" : "pr-attachments";
+  return kind === "phase_photo" ? PHOTOS_BUCKET : PR_ATTACHMENTS_BUCKET;
 }
 
 // Items persisted by spec 35 predate `kind` — IDB is schemaless, so no

@@ -31,8 +31,8 @@
 import "server-only";
 
 import { revalidatePath } from "next/cache";
+import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
 import { createClient as createAdminClient } from "@/lib/db/admin";
-import { createClient as createServerSupabase } from "@/lib/db/server";
 import {
   buildPhotoStoragePath,
   isValidPhotoExt,
@@ -70,11 +70,9 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
   if (!isValidPhase(input.phase)) return { ok: false, error: "ช่วงงานไม่ถูกต้อง" };
   if (!isValidPhotoExt(input.ext)) return { ok: false, error: "ไม่รองรับไฟล์รูปแบบนี้" };
 
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
 
   // Look up the WP under the caller's RLS context. If the caller
   // can't read it (wrong role, RLS rejects), the lookup returns null
@@ -193,11 +191,9 @@ export type RemovePhotoResult = { ok: true } | { ok: false; error: string };
 export async function removePhoto(input: RemovePhotoInput): Promise<RemovePhotoResult> {
   if (!isValidUuid(input.photoLogId)) return { ok: false, error: "รหัสรูปไม่ถูกต้อง" };
 
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
 
   // Validate the target is a real photo on a WP the caller can read.
   // RLS gates this select; if the caller can't see the row, we

@@ -7,6 +7,7 @@ import { ErrorNotice } from "@/components/features/notices";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { canGenerateReport, type ReportStatus } from "@/lib/reports/predicates";
+import { DETAIL_TITLE, SECTION_HEADING } from "@/lib/ui/classes";
 import { GenerateReportButton } from "./generate-report-button";
 import { ReportsList, type ReportListItem } from "./reports-list";
 
@@ -55,7 +56,7 @@ export default async function ProjectReportsPage({ params }: PageProps) {
 
   const reports: ReportListItem[] = (rows ?? []).map((r) => ({
     id: r.id,
-    status: r.status as ReportStatus,
+    status: r.status,
     storagePath: r.storage_path,
     error: r.error,
     createdAt: r.created_at,
@@ -74,7 +75,7 @@ export default async function ProjectReportsPage({ params }: PageProps) {
       <DetailHeader backHref={`/sa/projects/${project.id}`} backLabel="กลับไปหน้าโครงการ">
         <div className="min-w-0">
           <p className="font-mono text-xs text-zinc-600">{project.code}</p>
-          <h1 className="text-2xl font-bold tracking-tight break-words">รายงาน</h1>
+          <h1 className={DETAIL_TITLE}>รายงาน</h1>
           <p className="mt-0.5 text-xs text-zinc-600">{project.name}</p>
         </div>
       </DetailHeader>
@@ -89,7 +90,7 @@ export default async function ProjectReportsPage({ params }: PageProps) {
         </section>
 
         <section>
-          <h2 className="mb-3 text-base font-semibold text-zinc-900">รายงาน</h2>
+          <h2 className={SECTION_HEADING}>รายงาน</h2>
           {reportsError ? (
             <ErrorNotice>โหลดรายการรายงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</ErrorNotice>
           ) : (

@@ -10,6 +10,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Tables } from "@/lib/db/database.types";
 import { getCurrentPhotosForWorkPackage } from "@/lib/photos/current-photos";
+import { PHOTOS_BUCKET, REPORTS_BUCKET } from "@/lib/storage/buckets";
 import { PHOTO_PHASE_LABEL, WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 import { buildReportPdf, type ReportInputWorkPackage, type ReportPhotoGroup } from "./build-pdf";
 import { parseReportParams } from "./params";
@@ -20,7 +21,7 @@ async function downloadPhoto(
   supabase: SupabaseClient<Database>,
   storagePath: string,
 ): Promise<Buffer> {
-  const { data, error } = await supabase.storage.from("photos").download(storagePath);
+  const { data, error } = await supabase.storage.from(PHOTOS_BUCKET).download(storagePath);
   if (error) throw new Error(`download photo ${storagePath}: ${error.message}`);
   if (!data) throw new Error(`download photo ${storagePath}: empty response`);
   return Buffer.from(await data.arrayBuffer());
@@ -89,10 +90,12 @@ async function processJob(supabase: SupabaseClient<Database>, job: ReportRow): P
   });
 
   const storagePath = `${project.id}/${job.id}.pdf`;
-  const { error: uploadErr } = await supabase.storage.from("reports").upload(storagePath, pdf, {
-    contentType: "application/pdf",
-    upsert: true,
-  });
+  const { error: uploadErr } = await supabase.storage
+    .from(REPORTS_BUCKET)
+    .upload(storagePath, pdf, {
+      contentType: "application/pdf",
+      upsert: true,
+    });
   if (uploadErr) throw new Error(`upload PDF: ${uploadErr.message}`);
 
   const { error: completeErr } = await supabase

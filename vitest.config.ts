@@ -32,6 +32,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": resolve(__dirname, "./src"),
+      // Neutralize the server-only poison once for the whole suite
+      // (spec 65) — replaces the 14 per-file vi.mock("server-only") lines.
+      "server-only": resolve(__dirname, "./src/test/server-only-stub.ts"),
     },
   },
 });

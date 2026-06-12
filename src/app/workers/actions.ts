@@ -10,10 +10,10 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import type { Database } from "@/lib/db/database.types";
+import { UUID_REGEX } from "@/lib/validate/uuid";
 
 type WorkerType = Database["public"]["Enums"]["worker_type"];
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const GENERIC_ERROR = "บันทึกคนงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
 export type WorkerActionResult = { ok: true } | { ok: false; error: string };

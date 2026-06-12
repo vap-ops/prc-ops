@@ -5,7 +5,7 @@ import { LogoutButton } from "@/components/auth/logout-button";
 import { AvatarSurface } from "@/components/features/avatar-surface";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { DisplayNameForm } from "@/components/features/display-name-form";
-import { roleHome, type UserRole } from "@/lib/auth/role-home";
+import { roleHome } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 
 // Universal profile route — reachable by EVERY authenticated role, including
@@ -40,7 +40,7 @@ export default async function ProfilePage() {
     redirect("/login");
   }
 
-  const role = row.role as UserRole;
+  const role = row.role;
   const initialName = row.full_name ?? "";
   const backHref = roleHome(role);
 

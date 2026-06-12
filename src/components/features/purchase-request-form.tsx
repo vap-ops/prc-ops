@@ -1,6 +1,6 @@
 "use client";
 
-import { BUTTON_PRIMARY } from "@/lib/ui/classes";
+import { BUTTON_PRIMARY, FIELD_INPUT, INLINE_ERROR } from "@/lib/ui/classes";
 
 // 'use client' justification (feature spec 09, ADR 0022; reshaped by spec 10):
 //
@@ -30,12 +30,7 @@ import {
   type PurchasePriority,
 } from "@/lib/purchasing/validate-purchase-request";
 import { PURCHASE_REQUEST_PRIORITY_LABEL } from "@/lib/i18n/labels";
-
-// Today as yyyy-mm-dd in Asia/Bangkok for the date input's soft floor —
-// mirrors the validator's clock (spec 16 §2).
-function bangkokToday(): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date());
-}
+import { bangkokTodayIso } from "@/lib/dates";
 
 // Selected-segment colors mirror the request list's status pills (spec 21):
 // color only the chosen urgency so the row doesn't read as an alert at rest.
@@ -183,7 +178,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
             setSavedAt(null);
           }}
           disabled={submitting}
-          className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+          className={FIELD_INPUT}
           placeholder="ปูนถุง 50 กก."
         />
       </div>
@@ -204,7 +199,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
               setSavedAt(null);
             }}
             disabled={submitting}
-            className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+            className={FIELD_INPUT}
             placeholder="10"
           />
         </div>
@@ -252,7 +247,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
               setSavedAt(null);
             }}
             disabled={submitting}
-            className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+            className={FIELD_INPUT}
             placeholder="ระบุหน่วย"
           />
         </div>
@@ -272,7 +267,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
             id="pr-needed-by"
             type="date"
             value={neededBy}
-            min={bangkokToday()}
+            min={bangkokTodayIso()}
             onChange={(e) => {
               setNeededBy(e.target.value);
               setError(null);
@@ -345,10 +340,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
       </div>
 
       {inlineError ? (
-        <div
-          role="alert"
-          className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs font-medium text-red-900"
-        >
+        <div role="alert" className={`${INLINE_ERROR} font-medium`}>
           {inlineError}
         </div>
       ) : null}

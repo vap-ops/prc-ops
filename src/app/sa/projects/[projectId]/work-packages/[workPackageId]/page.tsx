@@ -1,14 +1,12 @@
 import { PageShell } from "@/components/features/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
+import { CARD, DETAIL_TITLE } from "@/lib/ui/classes";
 import { notFound } from "next/navigation";
 import { Camera, FileText, ShoppingCart, Users } from "lucide-react";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
-import {
-  getCurrentPhotosForWorkPackage,
-  type PhotoLogRow,
-  type PhotoPhase,
-} from "@/lib/photos/current-photos";
+import { getCurrentPhotosForWorkPackage, type PhotoLogRow } from "@/lib/photos/current-photos";
+import { latestCreatedAt, PHASES } from "@/lib/photos/phases";
 import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { StatusPill } from "@/components/features/status-pill";
@@ -16,7 +14,6 @@ import { DetailHeader } from "@/components/features/detail-header";
 import { PurchaseRequestCard } from "@/components/features/purchase-request-card";
 import {
   APPROVAL_DECISION_LABEL,
-  PHOTO_PHASE_LABEL,
   WORK_PACKAGE_STATUS_LABEL,
   formatThaiDateTime,
   formatThaiTime,
@@ -42,14 +39,6 @@ interface PageProps {
 }
 
 export const metadata = { title: "รูปถ่ายงาน" };
-
-const PHASES: ReadonlyArray<{ phase: PhotoPhase; label: string }> = [
-  // เตรียมงาน is the display label for the `before` enum value —
-  // equipment and raw-material staging (spec 10). The DB enum is untouched.
-  { phase: "before", label: PHOTO_PHASE_LABEL.before },
-  { phase: "during", label: PHOTO_PHASE_LABEL.during },
-  { phase: "after", label: PHOTO_PHASE_LABEL.after },
-];
 
 export default async function WorkPackagePhotoScreen({ params }: PageProps) {
   const { projectId, workPackageId } = await params;
@@ -145,7 +134,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
           <div className="min-w-0">
             <p className="font-mono text-xs text-zinc-600">{wp.code}</p>
             {/* Spec 57: WP name never truncates — full wrap. */}
-            <h1 className="text-2xl font-bold tracking-tight break-words">{wp.name}</h1>
+            <h1 className={DETAIL_TITLE}>{wp.name}</h1>
           </div>
           <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)} className="mt-1">
             {WORK_PACKAGE_STATUS_LABEL[wp.status as keyof typeof WORK_PACKAGE_STATUS_LABEL] ??
@@ -245,10 +234,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
             const rows = photosByPhase[phase];
             // Spec 54: tile overlay = capture time (client clock when
             // known, else upload time); sub-line = latest upload time.
-            const latest = rows.reduce<string | null>(
-              (acc, p) => (acc === null || p.created_at > acc ? p.created_at : acc),
-              null,
-            );
+            const latest = latestCreatedAt(rows);
             return (
               <PhaseUploader
                 key={phase}
@@ -274,7 +260,6 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
             บันทึกแรงงานรายวัน
           </h2>
           <LaborLogZone
-            projectId={wp.project_id}
             workPackageId={wp.id}
             revalidate={`/sa/projects/${projectId}/work-packages/${workPackageId}`}
             roster={labor.roster}
@@ -292,9 +277,10 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
           {/* Spec 29: the create form lives HERE now — raising a request
               no longer teleports the user to the คำขอซื้อ tab
               (operator-reported disorientation; site map 2026-06-11).
-              /requests?wp= pinned mode remains functional but no in-app
-              link produces it. */}
-          <details className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
+              The PM WP review screen (/pm/work-packages/[workPackageId])
+              is the remaining in-app producer of /requests?wp= pinned
+              mode. */}
+          <details className={CARD}>
             <summary className="cursor-pointer text-sm font-semibold text-zinc-900">
               สร้างคำขอซื้อ
             </summary>
@@ -350,7 +336,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
             ข้อมูลงาน
           </h2>
           {wp.description ? (
-            <details className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
+            <details className={CARD}>
               <summary className="cursor-pointer text-sm font-semibold text-zinc-900">
                 รายละเอียดงาน
               </summary>
@@ -358,7 +344,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
             </details>
           ) : null}
           {approvals.length > 0 ? (
-            <details className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
+            <details className={CARD}>
               <summary className="cursor-pointer text-sm font-semibold text-zinc-900">
                 ประวัติการตรวจ ({approvals.length})
               </summary>

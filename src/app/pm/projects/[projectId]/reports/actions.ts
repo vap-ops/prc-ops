@@ -23,21 +23,14 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 import { createClient as createAdminClient } from "@/lib/db/admin";
-import { createClient as createServerSupabase } from "@/lib/db/server";
 import { canGenerateReport, type ReportStatus } from "@/lib/reports/predicates";
 import { buildReportFileName } from "@/lib/reports/file-name";
 import { parseReportParams } from "@/lib/reports/params";
 import { runReportJob } from "@/lib/reports/run-report-job";
-import type { UserRole } from "@/lib/auth/role-home";
-
-const PM_ROLES: ReadonlyArray<UserRole> = ["project_manager", "super_admin"];
-
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function isValidUuid(value: unknown): value is string {
-  return typeof value === "string" && UUID_REGEX.test(value);
-}
-
-const REPORTS_BUCKET = "reports";
+import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
+import { PM_ROLES } from "@/lib/auth/role-home";
+import { REPORTS_BUCKET } from "@/lib/storage/buckets";
+import { isValidUuid } from "@/lib/validate/uuid";
 
 // 120 seconds: same TTL as the photo helper (signed-urls.ts). Long enough
 // for the browser to start the download after the user clicks; short
@@ -58,11 +51,9 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
     return { ok: false, reason: "รหัสโครงการไม่ถูกต้อง" };
   }
 
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, reason: "ยังไม่ได้เข้าสู่ระบบ" };
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, reason: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
 
   // Explicit role check before any DB write so the error surface is
   // clean. RLS on reports INSERT is the load-bearing backstop — a
@@ -73,7 +64,7 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  if (!userRow || !(PM_ROLES as readonly string[]).includes(userRow.role)) {
+  if (!userRow || !PM_ROLES.includes(userRow.role)) {
     return { ok: false, reason: "เฉพาะผู้จัดการโครงการเท่านั้นที่สร้างรายงานได้" };
   }
 
@@ -159,18 +150,16 @@ export async function getReportDownloadUrl(
     return { ok: false, reason: "รหัสรายงานไม่ถูกต้อง" };
   }
 
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, reason: "ยังไม่ได้เข้าสู่ระบบ" };
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, reason: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
 
   const { data: userRow } = await supabase
     .from("users")
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  if (!userRow || !(PM_ROLES as readonly string[]).includes(userRow.role)) {
+  if (!userRow || !PM_ROLES.includes(userRow.role)) {
     return { ok: false, reason: "เฉพาะผู้จัดการโครงการเท่านั้นที่ดาวน์โหลดรายงานได้" };
   }
 

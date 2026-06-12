@@ -54,10 +54,8 @@ export type ApprovalHistoryRow = Pick<
 >;
 
 // Full decision history for one WP, newest first. Used by the review
-// screen. The typed return is the reason this lives here rather than
-// being inlined on the page — db/server.ts doesn't thread Database
-// through to .from() callers, so generic helpers like this are how
-// typed enum rows reach the UI.
+// screen. Lives here (not inlined on the page) so the read pattern sits
+// next to its latest-decision sibling and stays unit-testable.
 export async function getDecisionHistoryForWorkPackage(
   supabase: SupabaseClient<Database>,
   workPackageId: string,

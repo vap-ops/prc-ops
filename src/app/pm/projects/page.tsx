@@ -7,7 +7,9 @@ import { HubNav, PM_HUB_NAV } from "@/components/features/hub-nav";
 import { EmptyNotice, ErrorNotice } from "@/components/features/notices";
 import { StatusPill } from "@/components/features/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
+import { PM_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
+import { SECTION_HEADING } from "@/lib/ui/classes";
 
 // PM project list. Each project links to THE project page — the WP
 // list at /sa/projects/[id] (spec 59: one project page for every
@@ -20,7 +22,7 @@ import { projectStatusPillClasses } from "@/lib/status-colors";
 export const metadata = { title: "โครงการและรายงาน" };
 
 export default async function PmProjectsPage() {
-  const ctx = await requireRole(["project_manager", "super_admin"]);
+  const ctx = await requireRole(PM_ROLES);
   const supabase = await createClient();
 
   const { data: projects, error } = await supabase
@@ -36,7 +38,7 @@ export default async function PmProjectsPage() {
       <HubNav maxWidthClass={PAGE_MAX_W} items={PM_HUB_NAV} currentHref="/pm/projects" />
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
-        <h2 className="mb-3 text-base font-semibold text-zinc-900">โครงการ</h2>
+        <h2 className={SECTION_HEADING}>โครงการ</h2>
 
         {error ? (
           <ErrorNotice>โหลดรายการโครงการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</ErrorNotice>

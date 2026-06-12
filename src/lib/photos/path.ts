@@ -13,14 +13,13 @@
 export const PHOTO_EXTS = ["jpeg", "png", "webp", "heic"] as const;
 export type PhotoExt = (typeof PHOTO_EXTS)[number];
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Spec 65: the UUID validator moved to the domain-neutral
+// src/lib/validate/uuid.ts; re-exported here so pre-spec-65 import sites
+// keep working.
+export { isValidUuid } from "@/lib/validate/uuid";
 
 export function isValidPhotoExt(value: unknown): value is PhotoExt {
   return typeof value === "string" && (PHOTO_EXTS as readonly string[]).includes(value);
-}
-
-export function isValidUuid(value: unknown): value is string {
-  return typeof value === "string" && UUID_REGEX.test(value);
 }
 
 export function buildPhotoStoragePath(
@@ -62,3 +61,7 @@ export function photoExtToMime(ext: PhotoExt): string {
       return "image/heic";
   }
 }
+
+// Spec 65: the <input accept> list the three photo uploaders previously
+// hand-wrote. Derived so PHOTO_EXTS stays the single source of truth.
+export const PHOTO_ACCEPT_MIME = PHOTO_EXTS.map(photoExtToMime).join(",");

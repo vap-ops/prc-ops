@@ -10,9 +10,7 @@
 // generated database.types.ts so adding a new enum value would surface
 // here).
 
-import { describe, expect, it, vi } from "vitest";
-
-vi.mock("server-only", () => ({}));
+import { describe, expect, it } from "vitest";
 
 import { Constants } from "@/lib/db/database.types";
 import {

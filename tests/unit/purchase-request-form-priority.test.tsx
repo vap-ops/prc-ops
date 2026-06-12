@@ -7,9 +7,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: vi.fn() }),
-}));
+vi.mock("next/navigation", async () => await import("../helpers/router-refresh"));
 
 vi.mock("@/app/requests/actions", () => ({
   createPurchaseRequest: vi.fn(async () => ({ ok: true })),

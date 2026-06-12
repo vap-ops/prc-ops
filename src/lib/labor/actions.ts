@@ -12,13 +12,13 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import type { Database } from "@/lib/db/database.types";
-import type { UserRole } from "@/lib/auth/role-home";
+import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
+import { UUID_REGEX } from "@/lib/validate/uuid";
 import { bangkokTodayIso } from "./dates";
 import { validateCorrection, validateLaborEntry } from "./validate";
 
 type DayFraction = Database["public"]["Enums"]["day_fraction"];
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const GENERIC_ERROR = "บันทึกแรงงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
 export type LogLaborDaysResult =
@@ -47,18 +47,16 @@ export async function logLaborDays(input: {
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
 
   const { data: me } = await supabase.from("users").select("role").eq("id", user.id).maybeSingle();
   if (!me) return { ok: false, error: GENERIC_ERROR };
 
   const validation = validateLaborEntry(
     { workDate: input.workDate, workerIds: input.entries.map((e) => e.workerId) },
-    { today: bangkokTodayIso(), role: me.role as UserRole },
+    { today: bangkokTodayIso(), role: me.role },
   );
   if (validation) return { ok: false, error: validation };
 

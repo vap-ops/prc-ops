@@ -4,7 +4,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { ArrowLeft } from "lucide-react";
 import { AppHeader } from "@/components/features/app-header";
 import { EmptyNotice, ErrorNotice } from "@/components/features/notices";
-import { roleHome } from "@/lib/auth/role-home";
+import { roleHome, SITE_STAFF_ROLES } from "@/lib/auth/role-home";
 import {
   PurchaseRequestForm,
   type PurchaseRequestFormWorkPackage,
@@ -12,7 +12,8 @@ import {
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { isValidUuid } from "@/lib/photos/path";
-import type { Database } from "@/lib/db/database.types";
+import { PR_LIST_COLUMNS } from "@/lib/purchasing/columns";
+import { SECTION_HEADING } from "@/lib/ui/classes";
 
 // /requests — THE purchasing surface for every role (spec 19 §4 merged
 // the PM decision queue here; spec 16 A1 / ADR 0026 made the list
@@ -30,13 +31,10 @@ import type { Database } from "@/lib/db/database.types";
 //      branch remains for future narrower roles). The ?mine=1 chip
 //      narrows back to the caller's own rows.
 
-import type { PurchaseRequestPriority } from "@/lib/status-colors";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { comparePendingRequests } from "@/lib/purchasing/pending-order";
 import { PurchaseRequestCard } from "@/components/features/purchase-request-card";
 import { fetchDisplayNames } from "@/lib/users/display-names";
-
-type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
 
 // Spec 19 §4: the single purchasing surface for every role. The list is
 // pending-first (priority band then requested asc — spec-16 A2), decided
@@ -51,7 +49,7 @@ interface RequestsPageProps {
 }
 
 export default async function RequestsPage({ searchParams }: RequestsPageProps) {
-  const ctx = await requireRole(["site_admin", "project_manager", "super_admin"]);
+  const ctx = await requireRole(SITE_STAFF_ROLES);
   const supabase = await createClient();
 
   const { wp: wpParam, mine: mineParam } = await searchParams;
@@ -97,9 +95,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // here now.
   const { data: visibleRequests, error: myError } = await supabase
     .from("purchase_requests")
-    .select(
-      "id, pr_number, work_package_id, item_description, quantity, unit, status, requested_at, requested_by, requested_by_email, decision_comment, decided_at, purchased_at, shipped_at, supplier, delivered_at, received_by, delivery_note, needed_by, eta, priority",
-    )
+    .select(PR_LIST_COLUMNS)
     .order("requested_at", { ascending: false });
 
   // ของฉัน filter chip (spec 16 A1): ?mine=1 narrows to the caller's own
@@ -170,7 +166,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
 
       <section className={`mx-auto ${PAGE_MAX_W} space-y-8 px-5 py-6`}>
         <div>
-          <h2 className="mb-3 text-base font-semibold text-zinc-900">สร้างคำขอซื้อ</h2>
+          <h2 className={SECTION_HEADING}>สร้างคำขอซื้อ</h2>
           {pinnedWp && pinnedProjectId ? (
             <PurchaseRequestForm
               workPackage={pinnedWp}
@@ -242,8 +238,8 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                         item_description: r.item_description,
                         quantity: r.quantity,
                         unit: r.unit,
-                        status: r.status as PurchaseRequestStatus,
-                        priority: r.priority as PurchaseRequestPriority,
+                        status: r.status,
+                        priority: r.priority,
                         requested_at: r.requested_at,
                         needed_by: r.needed_by,
                         decided_at: r.decided_at,

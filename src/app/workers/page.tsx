@@ -6,6 +6,7 @@ import { PageShell } from "@/components/features/page-shell";
 
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
+import { PM_ROLES } from "@/lib/auth/role-home";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import { AppHeader } from "@/components/features/app-header";
@@ -18,7 +19,7 @@ import {
 export const metadata = { title: "คนงาน" };
 
 export default async function WorkersPage() {
-  const ctx = await requireRole(["project_manager", "super_admin"]);
+  const ctx = await requireRole(PM_ROLES);
 
   // Admin client: this page needs day_rate, which authenticated cannot
   // read by design. The requireRole gate above is what authorizes it.

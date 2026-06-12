@@ -3,8 +3,6 @@
 
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from "vitest";
 
-vi.mock("server-only", () => ({}));
-
 import { createHmac } from "node:crypto";
 import { exchangeLineCode } from "@/lib/auth/line-token-exchange";
 

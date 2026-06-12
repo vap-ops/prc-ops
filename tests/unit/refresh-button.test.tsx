@@ -5,12 +5,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 
-const refreshMock = vi.fn();
+vi.mock("next/navigation", async () => await import("../helpers/router-refresh"));
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: refreshMock }),
-}));
-
+import { refreshMock } from "../helpers/router-refresh";
 import { RefreshButton } from "@/components/features/refresh-button";
 
 beforeEach(() => {

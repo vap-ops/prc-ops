@@ -5,9 +5,7 @@
 // that no other row's `superseded_by` references (ADR 0009 anti-join).
 // Tombstones (storage_path NULL) and superseded photos are excluded.
 
-import { describe, it, expect, vi } from "vitest";
-
-vi.mock("server-only", () => ({}));
+import { describe, it, expect } from "vitest";
 
 import { selectCurrentPhotosByPhase, type PhotoLogRow } from "@/lib/photos/current-photos";
 

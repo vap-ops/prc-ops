@@ -16,7 +16,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { createClient as createServerSupabase } from "@/lib/db/server";
-import { roleHome, type UserRole } from "@/lib/auth/role-home";
+import { roleHome } from "@/lib/auth/role-home";
 
 type PollBody = { device_code?: unknown };
 type LineClaimsStash = { sub?: unknown; name?: unknown; picture?: unknown };
@@ -115,6 +115,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  const redirect = profile ? roleHome(profile.role as UserRole) : "/coming-soon";
+  const redirect = profile ? roleHome(profile.role) : "/coming-soon";
   return NextResponse.json({ status: "ok", redirect });
 }

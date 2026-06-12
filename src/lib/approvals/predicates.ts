@@ -5,10 +5,9 @@
 // and the SQL guard in the action mirrors a JS predicate that's
 // individually testable.
 
-import type { Database } from "@/lib/db/database.types";
+import type { ApprovalDecision, WorkPackageStatus } from "@/lib/db/enums";
 
-export type ApprovalDecision = Database["public"]["Enums"]["approval_decision"];
-export type WorkPackageStatus = Database["public"]["Enums"]["work_package_status"];
+export type { ApprovalDecision, WorkPackageStatus };
 
 // Sorted alphabetically — matches the enum's natural order and gives
 // the form a deterministic radio ordering.

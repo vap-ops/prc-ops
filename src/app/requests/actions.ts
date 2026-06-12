@@ -27,7 +27,7 @@
 import "server-only";
 
 import { revalidatePath } from "next/cache";
-import { createClient as createServerSupabase } from "@/lib/db/server";
+import { getActionUser, NOT_SIGNED_IN, type ActionAuth } from "@/lib/auth/action-gate";
 import { isValidPhotoExt, type PhotoExt } from "@/lib/photos/path";
 import { buildPrAttachmentStoragePath } from "@/lib/purchasing/attachment-path";
 import { validateAttachmentLink } from "@/lib/purchasing/validate-attachment";
@@ -38,8 +38,14 @@ import {
   type PurchaseDecision,
 } from "@/lib/purchasing/validate-purchase-request";
 import { validateRecordPurchase } from "@/lib/purchasing/validate-record-purchase";
+import { UUID_REGEX } from "@/lib/validate/uuid";
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Spec 65: file-local consts for the Thai error strings this module
+// repeats (the workers/actions.ts pattern). Single-use strings stay
+// inline at their call sites.
+const ERR_INVALID_REQUEST_ID = "รหัสคำขอไม่ถูกต้อง";
+const ERR_SAVE_PHOTO_FAILED = "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+const ERR_REMOVE_ATTACHMENT_FAILED = "ลบรายการแนบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
 export interface CreatePurchaseRequestInput {
   workPackageId: string;
@@ -59,11 +65,9 @@ export async function createPurchaseRequest(
   const validated = validateCreatePurchaseRequest(input);
   if (!validated.ok) return validated;
 
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
 
   const { data, error } = await supabase
     .from("purchase_requests")
@@ -102,7 +106,7 @@ export type DecidePurchaseRequestResult =
 export async function decidePurchaseRequest(
   input: DecidePurchaseRequestInput,
 ): Promise<DecidePurchaseRequestResult> {
-  if (!UUID_REGEX.test(input.id)) return { ok: false, error: "รหัสคำขอไม่ถูกต้อง" };
+  if (!UUID_REGEX.test(input.id)) return { ok: false, error: ERR_INVALID_REQUEST_ID };
   if (!isPurchaseDecision(input.decision)) return { ok: false, error: "ผลการพิจารณาไม่ถูกต้อง" };
 
   const comment = input.comment ?? null;
@@ -110,11 +114,9 @@ export async function decidePurchaseRequest(
     return { ok: false, error: "ต้องใส่ความเห็นเมื่อไม่อนุมัติ" };
   }
 
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
 
   // Whitespace-only / null collapses to null. The predicate above already
   // forbids that case for rejected, so this branch only triggers for approved.
@@ -157,13 +159,11 @@ export type CancelPurchaseRequestResult = { ok: true } | { ok: false; error: str
 export async function cancelPurchaseRequest(
   input: CancelPurchaseRequestInput,
 ): Promise<CancelPurchaseRequestResult> {
-  if (!UUID_REGEX.test(input.id)) return { ok: false, error: "รหัสคำขอไม่ถูกต้อง" };
+  if (!UUID_REGEX.test(input.id)) return { ok: false, error: ERR_INVALID_REQUEST_ID };
 
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
 
   const { data, error } = await supabase
     .from("purchase_requests")
@@ -199,6 +199,41 @@ export async function cancelPurchaseRequest(
 // removePurchaseRequestAttachment: a tombstone INSERT, never a DELETE
 // (ADR 0015). RLS enforces creator-only removal for confirmation photos.
 
+// Read the parent under caller RLS (maybeSingle — no existence leak),
+// joined to the WP for project_id, to rebuild the canonical path.
+async function readPrParent(supabase: ActionAuth["supabase"], purchaseRequestId: string) {
+  return await supabase
+    .from("purchase_requests")
+    .select("id, status, work_packages ( project_id )")
+    .eq("id", purchaseRequestId)
+    .maybeSingle();
+}
+
+// Spec 37 / ADR 0039: identity-complete replay check (the spec-35
+// lesson: an id-only check would let a forged replay claim a foreign
+// row). Read-only — nothing is ever UPDATEd; true when a row matching
+// every identity column already landed.
+async function findLandedAttachment(
+  supabase: ActionAuth["supabase"],
+  args: {
+    attachmentId: string;
+    purchaseRequestId: string;
+    purpose: "delivery_confirmation" | "reference";
+    storagePath: string;
+  },
+): Promise<boolean> {
+  const { data } = await supabase
+    .from("purchase_request_attachments")
+    .select("id")
+    .eq("id", args.attachmentId)
+    .eq("purchase_request_id", args.purchaseRequestId)
+    .eq("kind", "image")
+    .eq("purpose", args.purpose)
+    .eq("storage_path", args.storagePath)
+    .maybeSingle();
+  return data !== null;
+}
+
 export interface AddDeliveryConfirmationPhotoInput {
   purchaseRequestId: string;
   attachmentId: string;
@@ -211,32 +246,24 @@ export async function addDeliveryConfirmationPhoto(
   input: AddDeliveryConfirmationPhotoInput,
 ): Promise<AttachmentActionResult> {
   if (!UUID_REGEX.test(input.purchaseRequestId) || !UUID_REGEX.test(input.attachmentId)) {
-    return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
   }
   if (!isValidPhotoExt(input.ext)) {
-    return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
   }
 
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
 
-  // Read the parent under caller RLS (maybeSingle — no existence leak),
-  // joined to the WP for project_id, to rebuild the canonical path.
-  const { data: pr } = await supabase
-    .from("purchase_requests")
-    .select("id, status, work_packages ( project_id )")
-    .eq("id", input.purchaseRequestId)
-    .maybeSingle();
+  const { data: pr } = await readPrParent(supabase, input.purchaseRequestId);
   const projectId = pr?.work_packages?.project_id;
   // on_route joined delivered as a legal photo state in ADR 0030 — the
   // photo on an on_route parent is what COMPLETES the delivery (the
   // delivered-only check here outlived the policy widening; operator-
   // reported bug 2026-06-11).
   if (!pr || (pr.status !== "delivered" && pr.status !== "on_route") || !projectId) {
-    return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
   }
 
   const storagePath = buildPrAttachmentStoragePath(
@@ -246,7 +273,7 @@ export async function addDeliveryConfirmationPhoto(
     input.ext as PhotoExt,
   );
   if (!storagePath) {
-    return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
   }
 
   const { error } = await supabase.from("purchase_request_attachments").insert({
@@ -258,23 +285,18 @@ export async function addDeliveryConfirmationPhoto(
     created_by: user.id,
   });
   if (error) {
-    // Spec 37 / ADR 0039: idempotent replay (identity-complete — the
-    // spec-35 lesson: an id-only check would let a forged replay claim
-    // a foreign row). Nothing is ever UPDATEd.
+    // Spec 37 / ADR 0039: idempotent replay (identity-complete).
     if (error.code !== "23505") {
-      return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+      return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
     }
-    const { data: existing } = await supabase
-      .from("purchase_request_attachments")
-      .select("id")
-      .eq("id", input.attachmentId)
-      .eq("purchase_request_id", input.purchaseRequestId)
-      .eq("kind", "image")
-      .eq("purpose", "delivery_confirmation")
-      .eq("storage_path", storagePath)
-      .maybeSingle();
-    if (!existing) {
-      return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    const landed = await findLandedAttachment(supabase, {
+      attachmentId: input.attachmentId,
+      purchaseRequestId: input.purchaseRequestId,
+      purpose: "delivery_confirmation",
+      storagePath,
+    });
+    if (!landed) {
+      return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
     }
   }
 
@@ -296,14 +318,12 @@ export async function addPurchaseRequestAttachment(
   input: AddPurchaseRequestAttachmentInput,
 ): Promise<AttachmentActionResult> {
   if (!UUID_REGEX.test(input.purchaseRequestId)) {
-    return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
   }
 
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
 
   if (input.kind === "link") {
     const link = validateAttachmentLink(input.url);
@@ -321,19 +341,13 @@ export async function addPurchaseRequestAttachment(
   }
 
   if (!UUID_REGEX.test(input.attachmentId) || !isValidPhotoExt(input.ext)) {
-    return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
   }
 
-  // Parent read under caller RLS (maybeSingle — no existence leak) to
-  // rebuild the canonical path from project_id.
-  const { data: pr } = await supabase
-    .from("purchase_requests")
-    .select("id, status, work_packages ( project_id )")
-    .eq("id", input.purchaseRequestId)
-    .maybeSingle();
+  const { data: pr } = await readPrParent(supabase, input.purchaseRequestId);
   const projectId = pr?.work_packages?.project_id;
   if (!pr || !projectId) {
-    return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
   }
 
   const storagePath = buildPrAttachmentStoragePath(
@@ -343,7 +357,7 @@ export async function addPurchaseRequestAttachment(
     input.ext as PhotoExt,
   );
   if (!storagePath) {
-    return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
   }
 
   if (pr.status !== "requested") {
@@ -353,20 +367,17 @@ export async function addPurchaseRequestAttachment(
     // never-landed photo on a decided parent stays refusable: the
     // reference window closes at decision time (recorded seam; discard
     // is the designed out).
-    const { data: landed } = await supabase
-      .from("purchase_request_attachments")
-      .select("id")
-      .eq("id", input.attachmentId)
-      .eq("purchase_request_id", input.purchaseRequestId)
-      .eq("kind", "image")
-      .eq("purpose", "reference")
-      .eq("storage_path", storagePath)
-      .maybeSingle();
+    const landed = await findLandedAttachment(supabase, {
+      attachmentId: input.attachmentId,
+      purchaseRequestId: input.purchaseRequestId,
+      purpose: "reference",
+      storagePath,
+    });
     if (landed) {
       revalidatePath("/requests");
       return { ok: true };
     }
-    return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
   }
 
   const { error } = await supabase.from("purchase_request_attachments").insert({
@@ -380,19 +391,16 @@ export async function addPurchaseRequestAttachment(
   if (error) {
     // Spec 37 / ADR 0039: idempotent replay (identity-complete).
     if (error.code !== "23505") {
-      return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+      return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
     }
-    const { data: existing } = await supabase
-      .from("purchase_request_attachments")
-      .select("id")
-      .eq("id", input.attachmentId)
-      .eq("purchase_request_id", input.purchaseRequestId)
-      .eq("kind", "image")
-      .eq("purpose", "reference")
-      .eq("storage_path", storagePath)
-      .maybeSingle();
-    if (!existing) {
-      return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    const landed = await findLandedAttachment(supabase, {
+      attachmentId: input.attachmentId,
+      purchaseRequestId: input.purchaseRequestId,
+      purpose: "reference",
+      storagePath,
+    });
+    if (!landed) {
+      return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
     }
   }
 
@@ -408,14 +416,12 @@ export async function removePurchaseRequestAttachment(
   input: RemovePurchaseRequestAttachmentInput,
 ): Promise<AttachmentActionResult> {
   if (!UUID_REGEX.test(input.attachmentId)) {
-    return { ok: false, error: "ลบรายการแนบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    return { ok: false, error: ERR_REMOVE_ATTACHMENT_FAILED };
   }
 
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
 
   // Read the target under caller RLS to mirror its parent/kind/purpose
   // into the tombstone (the composite FK requires same parent + kind).
@@ -425,7 +431,7 @@ export async function removePurchaseRequestAttachment(
     .eq("id", input.attachmentId)
     .maybeSingle();
   if (!target) {
-    return { ok: false, error: "ลบรายการแนบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    return { ok: false, error: ERR_REMOVE_ATTACHMENT_FAILED };
   }
 
   const { error } = await supabase.from("purchase_request_attachments").insert({
@@ -436,7 +442,7 @@ export async function removePurchaseRequestAttachment(
     created_by: user.id,
   });
   if (error) {
-    return { ok: false, error: "ลบรายการแนบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    return { ok: false, error: ERR_REMOVE_ATTACHMENT_FAILED };
   }
 
   revalidatePath("/requests");
@@ -470,11 +476,9 @@ export async function createSupplier(input: CreateSupplierInput): Promise<Create
   const phone = input.phone.trim();
   if (phone.length > 50) return { ok: false, error: "เบอร์โทรต้องไม่เกิน 50 ตัวอักษร" };
 
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
 
   const { data, error } = await supabase
     .from("suppliers")
@@ -503,11 +507,9 @@ export async function recordPurchase(input: RecordPurchaseInput): Promise<Record
   const validated = validateRecordPurchase(input);
   if (!validated.ok) return validated;
 
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase } = auth;
 
   const { error } = await supabase.rpc("record_purchase", {
     p_purchase_request_id: validated.value.requestId,
@@ -535,13 +537,11 @@ export interface RecordShipmentInput {
 }
 
 export async function recordShipment(input: RecordShipmentInput): Promise<RecordActionResult> {
-  if (!UUID_REGEX.test(input.requestId)) return { ok: false, error: "รหัสคำขอไม่ถูกต้อง" };
+  if (!UUID_REGEX.test(input.requestId)) return { ok: false, error: ERR_INVALID_REQUEST_ID };
 
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase } = auth;
 
   const { error } = await supabase.rpc("record_shipment", {
     p_purchase_request_id: input.requestId,

@@ -19,13 +19,23 @@
 // of each switch) means adding a new enum value to the database will
 // cause a TypeScript error here — exactly the place to update the map.
 
-import type { Database } from "@/lib/db/database.types";
+import type {
+  ApprovalDecision,
+  ProjectStatus,
+  PurchaseRequestPriority,
+  PurchaseRequestStatus,
+  ReportStatus,
+  WorkPackageStatus,
+} from "@/lib/db/enums";
 
-export type ProjectStatus = Database["public"]["Enums"]["project_status"];
-export type WorkPackageStatus = Database["public"]["Enums"]["work_package_status"];
-export type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
-export type ApprovalDecision = Database["public"]["Enums"]["approval_decision"];
-export type ReportStatus = Database["public"]["Enums"]["report_status"];
+export type {
+  ApprovalDecision,
+  ProjectStatus,
+  PurchaseRequestPriority,
+  PurchaseRequestStatus,
+  ReportStatus,
+  WorkPackageStatus,
+};
 
 // Spec 20 sun palette: solid saturated fills, not dark translucent
 // tints — a pill must be identifiable by hue at arm's length in glare.
@@ -109,8 +119,6 @@ export function reportStatusPillClasses(status: ReportStatus): string {
     }
   }
 }
-
-export type PurchaseRequestPriority = Database["public"]["Enums"]["purchase_request_priority"];
 
 // Requester-set urgency (spec 16). normal renders no pill on the cards
 // (the quiet default — only escalations draw the eye); the map still

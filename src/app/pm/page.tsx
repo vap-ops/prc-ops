@@ -7,7 +7,9 @@ import { HubNav, PM_HUB_NAV } from "@/components/features/hub-nav";
 import { EmptyNotice, ErrorNotice } from "@/components/features/notices";
 import { StatusPill } from "@/components/features/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
+import { PM_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
+import { SECTION_HEADING } from "@/lib/ui/classes";
 import { getLatestDecisionsForWorkPackages } from "@/lib/approvals/latest-decision";
 import { APPROVAL_DECISION_LABEL, formatThaiDateTime } from "@/lib/i18n/labels";
 import { approvalDecisionPillClasses, type ApprovalDecision } from "@/lib/status-colors";
@@ -23,7 +25,7 @@ function statusLabelForDecision(d: ApprovalDecision | null): string {
 }
 
 export default async function ProjectManagerLandingPage() {
-  const ctx = await requireRole(["project_manager", "super_admin"]);
+  const ctx = await requireRole(PM_ROLES);
   const supabase = await createClient();
 
   // Two simple queries match the codebase pattern (see current-photos.ts):
@@ -60,7 +62,7 @@ export default async function ProjectManagerLandingPage() {
       <HubNav maxWidthClass={PAGE_MAX_W} items={PM_HUB_NAV} currentHref="/pm" />
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
-        <h2 className="mb-3 text-base font-semibold text-zinc-900">รอตรวจ</h2>
+        <h2 className={SECTION_HEADING}>รอตรวจ</h2>
 
         {wpError ? (
           <ErrorNotice>โหลดรายการรอตรวจไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</ErrorNotice>

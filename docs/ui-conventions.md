@@ -127,9 +127,15 @@ form screens at `max-w-md`.
 - **Shared chrome classes live in
   [classes.ts](../src/lib/ui/classes.ts)** (spec 63): `BUTTON_PRIMARY`,
   `BUTTON_SECONDARY`, `ICON_CHIP`, `ICON_CHIP_MUTED`, `INLINE_ERROR`,
-  `CARD`. Copying these class strings inline is a review reject —
-  import the constant.
-- Section heading: `mb-3 text-base font-semibold text-zinc-900`.
+  `CARD`, and (spec 65) `SECTION_HEADING`, `DETAIL_TITLE`,
+  `FIELD_INPUT`, `FIELD_SELECT`, `FIELD_STACKED`,
+  `BUTTON_PRIMARY_COMPACT`, `BUTTON_SECONDARY_COMPACT`,
+  `BUTTON_SECONDARY_MUTED`, `INLINE_ALERT_TEXT`, `BANNER_ERROR`.
+  Copying these class strings inline is a review reject — import the
+  constant. Every value is pinned byte-for-byte in
+  `tests/unit/ui-classes-spec65.test.ts`.
+- Section heading: `SECTION_HEADING`
+  (`mb-3 text-base font-semibold text-zinc-900`).
 
 ### Names and truncation (spec 57)
 

@@ -10,20 +10,17 @@ import { DetailHeader } from "@/components/features/detail-header";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { fetchDisplayNames } from "@/lib/users/display-names";
-import {
-  getCurrentPhotosForWorkPackage,
-  type PhotoLogRow,
-  type PhotoPhase,
-} from "@/lib/photos/current-photos";
+import { getCurrentPhotosForWorkPackage, type PhotoLogRow } from "@/lib/photos/current-photos";
+import { PHASES, latestCreatedAt } from "@/lib/photos/phases";
 import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
 import { getDecisionHistoryForWorkPackage } from "@/lib/approvals/latest-decision";
 import {
   APPROVAL_DECISION_LABEL,
-  PHOTO_PHASE_LABEL,
   WORK_PACKAGE_STATUS_LABEL,
   formatThaiDateTime,
   formatThaiTime,
 } from "@/lib/i18n/labels";
+import { CARD, DETAIL_TITLE, SECTION_HEADING } from "@/lib/ui/classes";
 import { PhaseProgressBar } from "@/components/features/phase-progress-bar";
 import { approvalDecisionPillClasses, workPackageStatusPillClasses } from "@/lib/status-colors";
 import { ZoomablePhoto } from "@/components/features/photo-lightbox";
@@ -38,14 +35,6 @@ interface PageProps {
 }
 
 export const metadata = { title: "ตรวจรายการงาน" };
-
-const PHASES: ReadonlyArray<{ phase: PhotoPhase; label: string }> = [
-  // เตรียมงาน is the display label for the `before` enum value —
-  // equipment and raw-material staging (spec 10). The DB enum is untouched.
-  { phase: "before", label: PHOTO_PHASE_LABEL.before },
-  { phase: "during", label: PHOTO_PHASE_LABEL.during },
-  { phase: "after", label: PHOTO_PHASE_LABEL.after },
-];
 
 export default async function WorkPackageReviewScreen({ params }: PageProps) {
   const { workPackageId } = await params;
@@ -114,7 +103,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
           <div className="min-w-0">
             <p className="font-mono text-xs text-zinc-600">{wp.code}</p>
             {/* Spec 57: WP name never truncates — full wrap. */}
-            <h1 className="text-2xl font-bold tracking-tight break-words">{wp.name}</h1>
+            <h1 className={DETAIL_TITLE}>{wp.name}</h1>
           </div>
           <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)} className="mt-1">
             {WORK_PACKAGE_STATUS_LABEL[wp.status as keyof typeof WORK_PACKAGE_STATUS_LABEL] ??
@@ -148,7 +137,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
 
       <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-8 px-5 py-6`}>
         <section>
-          <h2 className="mb-3 text-base font-semibold text-zinc-900">รูปถ่าย</h2>
+          <h2 className={SECTION_HEADING}>รูปถ่าย</h2>
           <div className="flex flex-col gap-5">
             {PHASES.map(({ phase, label }) => (
               <PhaseGallery
@@ -162,9 +151,8 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
         </section>
 
         <section>
-          <h2 className="mb-3 text-base font-semibold text-zinc-900">บันทึกแรงงานรายวัน</h2>
+          <h2 className={SECTION_HEADING}>บันทึกแรงงานรายวัน</h2>
           <LaborLogZone
-            projectId={wp.project_id}
             workPackageId={wp.id}
             revalidate={`/pm/work-packages/${workPackageId}`}
             roster={labor.roster}
@@ -175,16 +163,13 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
         </section>
 
         <section>
-          <h2 className="mb-3 text-base font-semibold text-zinc-900">ประวัติการตรวจ</h2>
+          <h2 className={SECTION_HEADING}>ประวัติการตรวจ</h2>
           {approvalsRows.length === 0 ? (
             <EmptyNotice className="text-zinc-600">ยังไม่มีการตรวจ</EmptyNotice>
           ) : (
             <ul className="flex flex-col gap-2">
               {approvalsRows.map((a) => (
-                <li
-                  key={a.id}
-                  className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm"
-                >
+                <li key={a.id} className={CARD}>
                   <div className="flex items-center justify-between gap-3">
                     <StatusPill pillClasses={approvalDecisionPillClasses(a.decision)}>
                       {APPROVAL_DECISION_LABEL[a.decision]}
@@ -206,7 +191,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
         </section>
 
         <section>
-          <h2 className="mb-3 text-base font-semibold text-zinc-900">บันทึกผลการตรวจ</h2>
+          <h2 className={SECTION_HEADING}>บันทึกผลการตรวจ</h2>
           {wp.status === "pending_approval" ? (
             <RecordDecisionForm workPackageId={wp.id} />
           ) : (
@@ -229,10 +214,7 @@ interface PhaseGalleryProps {
 // the last-updated line and the filmstrip (no add tile on the PM side).
 function PhaseGallery({ label, photos, signedUrls }: PhaseGalleryProps) {
   const hasPhotos = photos.length > 0;
-  const latest = photos.reduce<string | null>(
-    (acc, p) => (acc === null || p.created_at > acc ? p.created_at : acc),
-    null,
-  );
+  const latest = latestCreatedAt(photos);
   return (
     <div>
       <div className="mb-1.5 flex items-center gap-3">

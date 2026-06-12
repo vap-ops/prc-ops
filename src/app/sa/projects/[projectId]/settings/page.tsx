@@ -8,7 +8,6 @@ import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
 import { projectStatusPillClasses } from "@/lib/status-colors";
-import type { ProjectStatus } from "@/lib/projects/validate-settings";
 import { SettingsForm } from "./settings-form";
 
 // Project settings (spec 58 / ADR 0042) — back office only. SA never
@@ -47,7 +46,7 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
             <h1 className="text-2xl font-bold tracking-tight break-words">ตั้งค่าโครงการ</h1>
           </div>
           <StatusPill pillClasses={projectStatusPillClasses(project.status)} className="mt-1">
-            {PROJECT_STATUS_LABEL[project.status as ProjectStatus] ?? project.status}
+            {PROJECT_STATUS_LABEL[project.status] ?? project.status}
           </StatusPill>
         </div>
         <p className="text-xs text-zinc-600">
@@ -61,7 +60,7 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
         <SettingsForm
           projectId={project.id}
           initialName={project.name}
-          initialStatus={project.status as ProjectStatus}
+          initialStatus={project.status}
         />
       </div>
     </PageShell>

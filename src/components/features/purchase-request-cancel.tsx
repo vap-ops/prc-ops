@@ -6,6 +6,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cancelPurchaseRequest } from "@/app/requests/actions";
+import { INLINE_ALERT_TEXT } from "@/lib/ui/classes";
 
 interface PurchaseRequestCancelProps {
   requestId: string;
@@ -40,7 +41,7 @@ export function PurchaseRequestCancel({ requestId }: PurchaseRequestCancelProps)
         {pending ? "กำลังยกเลิก…" : "ยกเลิกคำขอ"}
       </button>
       {error ? (
-        <p role="alert" className="text-xs font-medium text-red-700">
+        <p role="alert" className={INLINE_ALERT_TEXT}>
           {error}
         </p>
       ) : null}

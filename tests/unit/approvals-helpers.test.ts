@@ -2,9 +2,7 @@
 // reducer + the validation / transition predicates the server action
 // and the form share.
 
-import { describe, it, expect, vi } from "vitest";
-
-vi.mock("server-only", () => ({}));
+import { describe, it, expect } from "vitest";
 
 import {
   selectLatestDecisionByWorkPackage,

@@ -1,7 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("server-only", () => ({}));
-
 const { mockCreateServerClient, cookieStore } = vi.hoisted(() => ({
   mockCreateServerClient: vi.fn(),
   cookieStore: new Map<string, string>(),

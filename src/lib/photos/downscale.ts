@@ -11,7 +11,7 @@
 import { mimeToPhotoExt, type PhotoExt } from "@/lib/photos/path";
 
 export const DOWNSCALE_MAX_EDGE = 2000;
-export const DOWNSCALE_QUALITY = 0.8;
+const DOWNSCALE_QUALITY = 0.8;
 
 export interface DownscaleTarget {
   width: number;

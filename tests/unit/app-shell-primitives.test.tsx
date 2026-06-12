@@ -7,10 +7,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 // Spec 53: AppHeader now embeds RefreshButton (useRouter).
-const refreshMock = vi.fn();
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: refreshMock }),
-}));
+vi.mock("next/navigation", async () => await import("../helpers/router-refresh"));
 
 import { AppHeader } from "@/components/features/app-header";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";

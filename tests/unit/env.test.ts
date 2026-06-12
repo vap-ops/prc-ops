@@ -1,9 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
-
-// `server-only` throws at module load outside of a React Server Components
-// bundler context. Vitest runs in plain Node (jsdom env), so importing
-// `@/lib/env.server` would crash without this mock.
-vi.mock("server-only", () => ({}));
+import { describe, it, expect } from "vitest";
 
 import { parseClientEnv } from "@/lib/env";
 import { parseServerEnv } from "@/lib/env.server";

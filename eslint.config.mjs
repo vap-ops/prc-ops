@@ -11,8 +11,6 @@ const eslintConfig = defineConfig([
     "src/lib/reports/sarabun-font.ts",
     ".next/**",
     ".claude/**",
-    "out/**",
-    "build/**",
     "next-env.d.ts",
     "worker/**",
   ]),

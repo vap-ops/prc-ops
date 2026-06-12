@@ -14,10 +14,9 @@ vi.mock("@/lib/labor/actions", () => ({
   correctLaborLog: vi.fn(),
 }));
 
-const refreshMock = vi.fn();
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: refreshMock }),
-}));
+vi.mock("next/navigation", async () => await import("../helpers/router-refresh"));
+
+import { refreshMock } from "../helpers/router-refresh";
 
 const ROSTER = {
   own: [
@@ -54,7 +53,6 @@ const ROWS: LaborDisplayRow[] = [
 function renderZone(overrides: Partial<Parameters<typeof LaborLogZone>[0]> = {}) {
   return render(
     <LaborLogZone
-      projectId="p1"
       workPackageId="wp1"
       revalidate="/sa/projects/p1/work-packages/wp1"
       roster={ROSTER}

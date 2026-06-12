@@ -23,6 +23,8 @@
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 
+import { BANNER_ERROR } from "@/lib/ui/classes";
+
 const CODE_STORAGE_KEY = "line_handoff_device_code";
 const EXPIRES_STORAGE_KEY = "line_handoff_expires_at";
 // Matches the server-side login_handoffs TTL.
@@ -214,9 +216,7 @@ export function StandaloneLoginButton({
   return (
     <div className="space-y-3">
       {phase === "error" && (
-        <p className="rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
-          หมดเวลาหรือเข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง
-        </p>
+        <p className={BANNER_ERROR}>หมดเวลาหรือเข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</p>
       )}
       <button type="button" onClick={() => void start()} className={className}>
         {phase === "error" ? "ลองอีกครั้ง" : "เข้าสู่ระบบด้วย LINE"}

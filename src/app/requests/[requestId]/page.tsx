@@ -7,7 +7,8 @@ import { StatusPill } from "@/components/features/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { isValidUuid } from "@/lib/photos/path";
-import type { Database } from "@/lib/db/database.types";
+import { PR_LIST_COLUMNS } from "@/lib/purchasing/columns";
+import { DETAIL_TITLE } from "@/lib/ui/classes";
 
 // /requests/[requestId] — the order detail screen (spec 47). The list
 // card is a slim summary now; every fact and action moved here. Same
@@ -24,7 +25,6 @@ import {
 import {
   purchaseRequestPriorityPillClasses,
   purchaseRequestStatusPillClasses,
-  type PurchaseRequestPriority,
 } from "@/lib/status-colors";
 import { PurchaseRequestTracker } from "@/components/features/purchase-request-tracker";
 import { PurchaseRequestDecision } from "@/components/features/purchase-request-decision";
@@ -43,8 +43,6 @@ import { mintSignedUrlsForAttachments } from "@/lib/purchasing/attachment-signed
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { DetailHeader } from "@/components/features/detail-header";
 import { AttentionCard } from "@/components/features/attention-card";
-
-type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
 
 export const metadata = { title: "รายละเอียดคำขอซื้อ" };
 
@@ -66,9 +64,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
   const supabase = await createClient();
   const { data: request } = await supabase
     .from("purchase_requests")
-    .select(
-      "id, pr_number, work_package_id, item_description, quantity, unit, status, requested_at, requested_by, requested_by_email, decision_comment, decided_at, purchased_at, shipped_at, supplier, delivered_at, received_by, delivery_note, needed_by, eta, priority, notes",
-    )
+    .select(`${PR_LIST_COLUMNS}, notes`)
     .eq("id", requestId)
     .maybeSingle();
 
@@ -76,8 +72,8 @@ export default async function RequestDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const status = request.status as PurchaseRequestStatus;
-  const priority = request.priority as PurchaseRequestPriority;
+  const status = request.status;
+  const priority = request.priority;
   const isMine = request.requested_by === ctx.id;
 
   const { data: wp } = await supabase
@@ -156,9 +152,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
               PR-{String(request.pr_number).padStart(4, "0")}
             </p>
             {/* Spec 57: the page's subject never truncates. */}
-            <h1 className="text-2xl font-bold tracking-tight break-words">
-              {request.item_description}
-            </h1>
+            <h1 className={DETAIL_TITLE}>{request.item_description}</h1>
           </div>
           <span className="mt-1 flex shrink-0 flex-col items-end gap-1">
             <StatusPill pillClasses={purchaseRequestStatusPillClasses(status)}>

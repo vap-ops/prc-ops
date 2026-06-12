@@ -2,8 +2,9 @@
 // The record_purchase RPC re-checks everything server-side (two-layer
 // guard, decide-pattern); this layer exists for fast, friendly errors.
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ETA_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+import { ISO_DATE_REGEX } from "@/lib/dates";
+import { UUID_REGEX } from "@/lib/validate/uuid";
+
 const ORDER_REF_MAX = 80;
 
 export interface ValidatedRecordPurchase {
@@ -38,7 +39,7 @@ export function validateRecordPurchase(input: {
   if (input.amount !== null && (!Number.isFinite(input.amount) || input.amount <= 0)) {
     return { ok: false, error: "จำนวนเงินต้องเป็นตัวเลขมากกว่าศูนย์" };
   }
-  if (input.eta !== null && input.eta !== "" && !ETA_REGEX.test(input.eta)) {
+  if (input.eta !== null && input.eta !== "" && !ISO_DATE_REGEX.test(input.eta)) {
     return { ok: false, error: "วันที่คาดว่าจะได้รับของไม่ถูกต้อง" };
   }
   return {

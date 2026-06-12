@@ -5,10 +5,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-const refreshMock = vi.fn();
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: refreshMock }),
-}));
+vi.mock("next/navigation", async () => await import("../helpers/router-refresh"));
 
 import { DetailHeader } from "@/components/features/detail-header";
 

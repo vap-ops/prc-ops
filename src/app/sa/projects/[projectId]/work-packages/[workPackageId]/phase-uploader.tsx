@@ -27,7 +27,12 @@ import { createClient as createBrowserSupabase } from "@/lib/db/browser";
 import { ConfirmDialog } from "@/components/features/confirm-dialog";
 import { ZoomablePhoto } from "@/components/features/photo-lightbox";
 import { PhotoStrip, PHOTO_STRIP_TILE } from "@/components/features/photo-strip";
-import { photoExtToMime, type PhotoExt, buildPhotoStoragePath } from "@/lib/photos/path";
+import {
+  photoExtToMime,
+  type PhotoExt,
+  buildPhotoStoragePath,
+  PHOTO_ACCEPT_MIME,
+} from "@/lib/photos/path";
 import { preparePhotoForUpload } from "@/lib/photos/downscale";
 import {
   classifyStorageUploadError,
@@ -346,7 +351,7 @@ export function PhaseUploader({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/jpeg,image/png,image/webp,image/heic"
+                accept={PHOTO_ACCEPT_MIME}
                 multiple
                 className="sr-only"
                 onChange={(e) => void handleFiles(e.target.files)}

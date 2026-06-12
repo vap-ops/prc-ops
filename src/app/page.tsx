@@ -1,6 +1,6 @@
 import { PageShell } from "@/components/features/page-shell";
 import { redirect } from "next/navigation";
-import { roleHome, type UserRole } from "@/lib/auth/role-home";
+import { roleHome } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { LoginButton } from "./login/login-button";
 
@@ -16,7 +16,7 @@ export default async function Home() {
       .eq("id", user.id)
       .maybeSingle();
     if (row) {
-      redirect(roleHome(row.role as UserRole));
+      redirect(roleHome(row.role));
     }
     // Row missing (edge case): fall through to the unauth UI rather than guess.
   }

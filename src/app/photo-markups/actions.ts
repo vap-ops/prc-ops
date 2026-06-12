@@ -8,12 +8,17 @@
 
 import "server-only";
 
-import { createClient as createServerSupabase } from "@/lib/db/server";
+import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
 import type { Json } from "@/lib/db/database.types";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { validatePhotoMarkup, type MarkupStroke } from "@/lib/photos/validate-markup";
+import { UUID_REGEX } from "@/lib/validate/uuid";
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Spec 65: file-local consts for the Thai error strings this module
+// repeats (the workers/actions.ts pattern).
+const ERR_LOAD_FAILED = "โหลดความเห็นไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+const ERR_SAVE_FAILED = "บันทึกความเห็นไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+const ERR_REMOVE_FAILED = "ลบความเห็นไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
 export interface PhotoMarkupRow {
   id: string;
@@ -32,13 +37,11 @@ export async function listPhotoMarkups(input: {
   photoLogId: string;
 }): Promise<ListPhotoMarkupsResult> {
   if (!UUID_REGEX.test(input.photoLogId)) {
-    return { ok: false, error: "โหลดความเห็นไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    return { ok: false, error: ERR_LOAD_FAILED };
   }
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
 
   const { data, error } = await supabase
     .from("photo_markups_current")
@@ -46,7 +49,7 @@ export async function listPhotoMarkups(input: {
     .eq("photo_log_id", input.photoLogId)
     .order("created_at", { ascending: true });
   if (error || !data) {
-    return { ok: false, error: "โหลดความเห็นไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    return { ok: false, error: ERR_LOAD_FAILED };
   }
 
   const names = await fetchDisplayNames(
@@ -84,16 +87,14 @@ export async function addPhotoMarkup(input: {
   comment: string | null;
 }): Promise<MarkupActionResult> {
   if (!UUID_REGEX.test(input.photoLogId)) {
-    return { ok: false, error: "บันทึกความเห็นไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    return { ok: false, error: ERR_SAVE_FAILED };
   }
   const validated = validatePhotoMarkup({ strokes: input.strokes, comment: input.comment });
   if (!validated.ok) return validated;
 
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
 
   const { error } = await supabase.from("photo_markups").insert({
     photo_log_id: input.photoLogId,
@@ -104,20 +105,18 @@ export async function addPhotoMarkup(input: {
     created_by: user.id,
   });
   if (error) {
-    return { ok: false, error: "บันทึกความเห็นไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    return { ok: false, error: ERR_SAVE_FAILED };
   }
   return { ok: true };
 }
 
 export async function removePhotoMarkup(input: { markupId: string }): Promise<MarkupActionResult> {
   if (!UUID_REGEX.test(input.markupId)) {
-    return { ok: false, error: "ลบความเห็นไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    return { ok: false, error: ERR_REMOVE_FAILED };
   }
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
 
   // Read the target under caller RLS to mirror its parent into the
   // tombstone (the composite FK requires same parent); creator-only is
@@ -128,7 +127,7 @@ export async function removePhotoMarkup(input: { markupId: string }): Promise<Ma
     .eq("id", input.markupId)
     .maybeSingle();
   if (!target) {
-    return { ok: false, error: "ลบความเห็นไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    return { ok: false, error: ERR_REMOVE_FAILED };
   }
 
   const { error } = await supabase.from("photo_markups").insert({
@@ -137,7 +136,7 @@ export async function removePhotoMarkup(input: { markupId: string }): Promise<Ma
     created_by: user.id,
   });
   if (error) {
-    return { ok: false, error: "ลบความเห็นไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    return { ok: false, error: ERR_REMOVE_FAILED };
   }
   return { ok: true };
 }

@@ -15,7 +15,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Tables } from "@/lib/db/database.types";
 
 export type PhotoLogRow = Tables<"photo_logs">;
-export type PhotoPhase = Database["public"]["Enums"]["photo_phase"];
+export type { PhotoPhase } from "@/lib/db/enums";
 
 export interface CurrentPhotosByPhase {
   before: PhotoLogRow[];

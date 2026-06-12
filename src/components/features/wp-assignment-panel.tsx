@@ -1,6 +1,6 @@
 "use client";
 
-import { BUTTON_PRIMARY } from "@/lib/ui/classes";
+import { BUTTON_PRIMARY, FIELD_INPUT, FIELD_SELECT, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
 
 // 'use client' justification (spec 31): contractor select + inline
 // create form + pending state around the assignment actions. Rendered
@@ -92,7 +92,7 @@ export function WpAssignmentPanel({
           value={contractorId ?? ""}
           onChange={(e) => assign(e.target.value === "" ? null : e.target.value)}
           disabled={pending}
-          className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-2 text-sm text-zinc-900 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+          className={FIELD_SELECT}
         >
           <option value="">— ไม่ระบุ —</option>
           {contractors.map((c) => (
@@ -115,7 +115,7 @@ export function WpAssignmentPanel({
               onChange={(e) => setNameDraft(e.target.value)}
               disabled={pending}
               placeholder="ชื่อผู้รับเหมา"
-              className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+              className={FIELD_INPUT}
             />
             <input
               type="tel"
@@ -124,7 +124,7 @@ export function WpAssignmentPanel({
               onChange={(e) => setPhoneDraft(e.target.value)}
               disabled={pending}
               placeholder="เบอร์โทร (ไม่บังคับ)"
-              className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+              className={FIELD_INPUT}
             />
             <button
               type="button"
@@ -138,7 +138,7 @@ export function WpAssignmentPanel({
         </details>
 
         {error ? (
-          <p role="alert" className="text-xs font-medium text-red-700">
+          <p role="alert" className={INLINE_ALERT_TEXT}>
             {error}
           </p>
         ) : null}
