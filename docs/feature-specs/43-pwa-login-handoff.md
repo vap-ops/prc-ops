@@ -1,7 +1,8 @@
 # Spec 43 — Device-code handoff login for the installed PWA
 
-**Status:** built — 2026-06-12; awaiting migration push + operator
-iPhone pass. Operator (after spec 42): "now,
+**Status:** shipped — 2026-06-12 (398f8da + 1fd8df2; migration applied,
+pgTAP 656/656; operator iPhone pass = acceptance). Operator (after
+spec 42): "now,
 the login button takes us to another login page where it requires
 either QR login or email pass." LINE web login is unusable for
 password-less LINE accounts; QR cannot be scanned by the same phone.
@@ -87,7 +88,7 @@ handoff for any future second OAuth provider.
 
 ## Verification checklist
 
-- [ ] pgTAP file 28 green post-push (`pnpm db:test`).
+- [x] pgTAP file 28 green post-push (656/656 incl. 16 new).
 - [x] Unit: line-token-exchange (ok / HTTP error / missing id_token /
       forged signature / unreachable endpoint).
 - [x] Unit: handoff start route (codes returned, row inserted with
