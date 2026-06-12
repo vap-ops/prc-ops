@@ -1,11 +1,12 @@
-// Spec 43 + 44 — StandaloneLoginButton: the installed PWA's login
-// control. Tap → handoff start → open LINE → poll until the session
-// lands. Spec 44 hardening pins: the device_code lives in localStorage
-// with an expiry stamp (iOS kills backgrounded PWAs — sessionStorage
-// does not survive), and the popup is opened synchronously in the tap
-// gesture (async window.open loses iOS user activation).
-// jsdom: fetch and window.open are stubbed; navigation goes through the
-// injectable `navigate` prop (window.location.assign is unmockable).
+// Spec 43 + 44 + 45 — StandaloneLoginButton: the installed PWA's login
+// control. Tap → handoff start → SAME-WINDOW navigation to LINE
+// (spec 45: standalone PWAs have no tab model — window.open swaps the
+// view to about:blank, the operator's white screen) → on return or
+// relaunch, resume the poll from localStorage (spec 44: iOS kills
+// backgrounded PWAs; sessionStorage does not survive) until the
+// session lands.
+// jsdom: fetch is stubbed; all navigation goes through the injectable
+// `navigate` prop (window.location.assign is unmockable).
 
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -17,12 +18,6 @@ const EXPIRES_KEY = "line_handoff_expires_at";
 
 const fetchMock = vi.fn();
 const openMock = vi.fn();
-
-type FakePopup = { location: { href: string }; opener: unknown; close: ReturnType<typeof vi.fn> };
-
-function makePopup(): FakePopup {
-  return { location: { href: "" }, opener: {}, close: vi.fn() };
-}
 
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -50,51 +45,32 @@ describe("StandaloneLoginButton", () => {
     expect(screen.getByRole("button", { name: "เข้าสู่ระบบด้วย LINE" })).toBeInTheDocument();
   });
 
-  it("tap → opens the popup synchronously, then starts and navigates it to LINE", async () => {
-    const popup = makePopup();
-    openMock.mockReturnValue(popup);
+  it("tap → starts the handoff, stores the code, then navigates THIS window to LINE", async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({ device_code: "dc1", authorize_url: "https://access.line.me/x" }),
-    );
-    render(<StandaloneLoginButton className="x" />);
-    await userEvent.click(screen.getByRole("button", { name: "เข้าสู่ระบบด้วย LINE" }));
-
-    // Synchronous open in the gesture: blank target, opener severed.
-    expect(openMock).toHaveBeenCalledWith("", "_blank");
-    expect(popup.opener).toBeNull();
-    await waitFor(() => expect(popup.location.href).toBe("https://access.line.me/x"));
-
-    expect(fetchMock).toHaveBeenCalledWith("/auth/handoff/start", { method: "POST" });
-    // localStorage + expiry stamp (survives iOS process death).
-    expect(localStorage.getItem(CODE_KEY)).toBe("dc1");
-    expect(Number(localStorage.getItem(EXPIRES_KEY))).toBeGreaterThan(Date.now());
-    expect(screen.getByText(/เปิดแอป LINE/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "ยกเลิก" })).toBeInTheDocument();
-  });
-
-  it("falls back to same-window navigation when the popup is blocked", async () => {
-    openMock.mockReturnValue(null);
-    fetchMock.mockResolvedValue(
-      jsonResponse({ device_code: "dc1b", authorize_url: "https://access.line.me/y" }),
     );
     const navigate = vi.fn();
     render(<StandaloneLoginButton className="x" navigate={navigate} />);
     await userEvent.click(screen.getByRole("button", { name: "เข้าสู่ระบบด้วย LINE" }));
 
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith("https://access.line.me/y"));
-    // The code is stored BEFORE leaving — the relaunch resumes from it.
-    expect(localStorage.getItem(CODE_KEY)).toBe("dc1b");
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("https://access.line.me/x"));
+    expect(fetchMock).toHaveBeenCalledWith("/auth/handoff/start", { method: "POST" });
+    // The code is stored BEFORE leaving — the return trip resumes from it.
+    expect(localStorage.getItem(CODE_KEY)).toBe("dc1");
+    expect(Number(localStorage.getItem(EXPIRES_KEY))).toBeGreaterThan(Date.now());
+    // Standalone PWAs have no tabs: window.open must never run (spec 45).
+    expect(openMock).not.toHaveBeenCalled();
   });
 
-  it("closes the orphan popup when the start call fails", async () => {
-    const popup = makePopup();
-    openMock.mockReturnValue(popup);
+  it("shows the error state when the start call fails", async () => {
     fetchMock.mockRejectedValue(new Error("offline"));
-    render(<StandaloneLoginButton className="x" />);
+    const navigate = vi.fn();
+    render(<StandaloneLoginButton className="x" navigate={navigate} />);
     await userEvent.click(screen.getByRole("button", { name: "เข้าสู่ระบบด้วย LINE" }));
 
     await waitFor(() => expect(screen.getByText(/ไม่สำเร็จ/)).toBeInTheDocument());
-    expect(popup.close).toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(localStorage.getItem(CODE_KEY)).toBeNull();
   });
 
   it("resumes polling from an unexpired stored code and navigates on ok", async () => {
@@ -130,13 +106,10 @@ describe("StandaloneLoginButton", () => {
   });
 
   it("cancel returns to idle and clears the stored code", async () => {
-    const popup = makePopup();
-    openMock.mockReturnValue(popup);
-    fetchMock.mockResolvedValue(
-      jsonResponse({ device_code: "dc4", authorize_url: "https://access.line.me/x" }),
-    );
+    // Resumed waiting state (the post-return shape) — cancel must reset it.
+    storeCode("dc4", 60_000);
+    fetchMock.mockResolvedValue(jsonResponse({ status: "pending" }));
     render(<StandaloneLoginButton className="x" />);
-    await userEvent.click(screen.getByRole("button", { name: "เข้าสู่ระบบด้วย LINE" }));
     await userEvent.click(await screen.findByRole("button", { name: "ยกเลิก" }));
 
     expect(localStorage.getItem(CODE_KEY)).toBeNull();

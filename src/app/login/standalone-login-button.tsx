@@ -13,11 +13,9 @@
 // iOS routinely KILLS the backgrounded PWA while the user is off in
 // LINE/Safari, and sessionStorage does not survive that — the relaunch
 // (at any page rendering LoginButton) resumes the poll from
-// localStorage instead. The popup is opened synchronously inside the
-// tap gesture and navigated after the start POST — window.open after an
-// await can fall outside iOS's transient user activation and be
-// silently blocked; if it is blocked anyway, same-window navigation is
-// a safe fallback precisely because the stored code survives the trip.
+// localStorage instead. LINE opens via SAME-WINDOW navigation (spec
+// 45): standalone PWAs have no tab model, so window.open swaps the
+// view to a dead about:blank — never use it here.
 //
 // Polling runs only while the page is visible, plus an immediate check
 // on visibilitychange/focus — the common path is "user returns to the
@@ -34,6 +32,21 @@ const POLL_INTERVAL_MS = 2500;
 const MAX_POLLS = 260;
 
 type Phase = "idle" | "waiting" | "error";
+
+// Minimal external store over localStorage: mutations notify
+// subscribers so a resumed waiting state can leave via cancel/fail even
+// when no React state changes (the snapshot is the only thing that
+// changed).
+const storeListeners = new Set<() => void>();
+
+function subscribeToStore(listener: () => void): () => void {
+  storeListeners.add(listener);
+  return () => storeListeners.delete(listener);
+}
+
+function emitStoreChange(): void {
+  for (const listener of storeListeners) listener();
+}
 
 // Read-only in render (useSyncExternalStore snapshot): a stale or
 // malformed stamp just reads as "nothing stored" — clearing happens in
@@ -56,6 +69,7 @@ function storeCode(code: string): void {
   } catch {
     // private-mode storage failures must never break login
   }
+  emitStoreChange();
 }
 
 function clearStoredCode(): void {
@@ -65,6 +79,7 @@ function clearStoredCode(): void {
   } catch {
     // see storeCode
   }
+  emitStoreChange();
 }
 
 export function StandaloneLoginButton({
@@ -82,11 +97,7 @@ export function StandaloneLoginButton({
   // keeps this hydration-safe (server snapshot null, client re-reads
   // after hydration) without a setState-in-effect; cancel/fail clear
   // the storage and re-render, so the snapshot follows.
-  const storedCode = useSyncExternalStore(
-    () => () => {},
-    readStoredCode,
-    () => null,
-  );
+  const storedCode = useSyncExternalStore(subscribeToStore, readStoredCode, () => null);
   const deviceCode = explicitCode ?? storedCode;
   const phase: Phase = explicitPhase === "idle" && storedCode ? "waiting" : explicitPhase;
 
@@ -159,15 +170,11 @@ export function StandaloneLoginButton({
     };
   }, [phase, deviceCode, go]);
 
-  // Synchronous slice of the tap gesture: the popup must be opened
-  // before any await or iOS may revoke the transient user activation.
-  function start() {
-    const popup = window.open("", "_blank");
-    if (popup) popup.opener = null;
-    void completeStart(popup);
-  }
-
-  async function completeStart(popup: Window | null) {
+  // Spec 45: SAME-WINDOW navigation, never window.open — standalone
+  // PWAs have no tab model; iOS swaps the visible view to about:blank
+  // (a dead white screen). Leaving this window is safe because the
+  // stored code resumes the poll when the PWA returns or relaunches.
+  async function start() {
     try {
       const response = await fetch("/auth/handoff/start", { method: "POST" });
       if (!response.ok) throw new Error(`start failed: ${response.status}`);
@@ -175,15 +182,8 @@ export function StandaloneLoginButton({
       storeCode(json.device_code);
       setDeviceCode(json.device_code);
       setPhase("waiting");
-      if (popup) {
-        popup.location.href = json.authorize_url;
-      } else {
-        // Popup blocked: leave this window for LINE. The stored code
-        // resumes the poll when the PWA relaunches on return.
-        go(json.authorize_url);
-      }
+      go(json.authorize_url);
     } catch {
-      popup?.close();
       setPhase("error");
     }
   }
@@ -218,7 +218,7 @@ export function StandaloneLoginButton({
           หมดเวลาหรือเข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง
         </p>
       )}
-      <button type="button" onClick={start} className={className}>
+      <button type="button" onClick={() => void start()} className={className}>
         {phase === "error" ? "ลองอีกครั้ง" : "เข้าสู่ระบบด้วย LINE"}
       </button>
     </div>
