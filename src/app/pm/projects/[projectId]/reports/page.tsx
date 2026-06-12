@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
-import { AppHeader } from "@/components/features/app-header";
+import { ArrowLeft } from "lucide-react";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { ErrorNotice } from "@/components/features/notices";
+import { RefreshButton } from "@/components/features/refresh-button";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { canGenerateReport, type ReportStatus } from "@/lib/reports/predicates";
@@ -68,42 +69,32 @@ export default async function ProjectReportsPage({ params }: PageProps) {
   return (
     <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
-      <AppHeader kicker="ผู้จัดการโครงการ" title="รายงาน" maxWidthClass={PAGE_MAX_W} />
-
-      <nav className="border-b border-zinc-200 bg-zinc-100 px-5 py-2">
-        <div className={`mx-auto flex ${PAGE_MAX_W} items-center gap-4 text-xs`}>
-          <Link
-            href="/pm"
-            className="inline-flex min-h-11 items-center font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline"
-          >
-            รายการรอตรวจ
-          </Link>
-          <Link
-            href="/pm/projects"
-            className="inline-flex min-h-11 items-center font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline"
-          >
-            ← โครงการทั้งหมด
-          </Link>
-          {/* PM path to the project's WP list (operator report 2026-06-11:
-              "PM cannot see WP"). The SA project page already admits
-              PM/super (requireRole) and is the WP review screen's spec-12
-              back-target — this link closes the navigation gap without a
-              new page. */}
-          <Link
-            href={`/sa/projects/${project.id}`}
-            className="inline-flex min-h-11 items-center font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline"
-          >
-            รายการงาน
-          </Link>
+      {/* Spec 60: detail header (spec-54 shape) replaces the hub
+          AppHeader + link row — this is a project-scoped surface
+          entered from the project page's รายงาน chip (spec 59). */}
+      <header className="border-b border-zinc-200 bg-white px-5 py-4">
+        <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-3`}>
+          <div className="flex items-center justify-between gap-3">
+            <Link
+              href={`/sa/projects/${project.id}`}
+              aria-label="กลับไปหน้าโครงการ"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-900 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+            >
+              <ArrowLeft aria-hidden className="h-5 w-5" />
+            </Link>
+            {/* Spec 53: the PWA's only reload affordance. */}
+            <RefreshButton variant="light" />
+          </div>
+          <div className="min-w-0">
+            <p className="font-mono text-xs text-zinc-600">{project.code}</p>
+            <h1 className="text-2xl font-bold tracking-tight break-words">รายงาน</h1>
+            <p className="mt-0.5 text-xs text-zinc-600">{project.name}</p>
+          </div>
         </div>
-      </nav>
+      </header>
 
       <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-8 px-5 py-6`}>
         <section>
-          <div className="mb-4 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
-            <p className="font-mono text-xs text-zinc-600">{project.code}</p>
-            <p className="truncate text-base font-medium text-zinc-900">{project.name}</p>
-          </div>
           <p className="mb-3 text-sm text-zinc-600">
             สร้างรายงาน PDF รวมรายการงานที่เสร็จสิ้นพร้อมรูปช่วงแล้วเสร็จล่าสุดของแต่ละงาน
             รายงานจะเข้าคิวทันที โดยปกติเสร็จภายในไม่กี่วินาที

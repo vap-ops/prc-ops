@@ -25,6 +25,7 @@ import { revalidatePath } from "next/cache";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import { canGenerateReport, type ReportStatus } from "@/lib/reports/predicates";
+import { buildReportFileName } from "@/lib/reports/file-name";
 import { runReportJob } from "@/lib/reports/run-report-job";
 import type { UserRole } from "@/lib/auth/role-home";
 
@@ -136,7 +137,9 @@ export interface GetReportDownloadUrlInput {
   reportId: string;
 }
 
-export type GetReportDownloadUrlResult = { ok: true; url: string } | { ok: false; reason: string };
+export type GetReportDownloadUrlResult =
+  | { ok: true; url: string; fileName: string }
+  | { ok: false; reason: string };
 
 export async function getReportDownloadUrl(
   input: GetReportDownloadUrlInput,
@@ -167,13 +170,17 @@ export async function getReportDownloadUrl(
   // exists once status flipped to complete).
   const { data: report } = await supabase
     .from("reports")
-    .select("status, storage_path")
+    .select("status, storage_path, created_at, projects ( code )")
     .eq("id", input.reportId)
     .maybeSingle();
   if (!report) return { ok: false, reason: "ไม่พบรายงาน" };
   if (report.status !== "complete" || !report.storage_path) {
     return { ok: false, reason: "รายงานยังไม่พร้อมดาวน์โหลด" };
   }
+
+  // Spec 60: the filename rides the signed URL as an attachment
+  // disposition AND returns to the client for the share-sheet File.
+  const fileName = buildReportFileName(report.projects?.code ?? "report", report.created_at);
 
   // Mint the signed URL via the admin client. The reports bucket has
   // no authenticated SELECT policy by design (see the bucket
@@ -184,10 +191,10 @@ export async function getReportDownloadUrl(
   const admin = createAdminClient();
   const { data: signed, error: signedError } = await admin.storage
     .from(REPORTS_BUCKET)
-    .createSignedUrl(report.storage_path, SIGNED_URL_TTL_SECONDS);
+    .createSignedUrl(report.storage_path, SIGNED_URL_TTL_SECONDS, { download: fileName });
   if (signedError || !signed?.signedUrl) {
     return { ok: false, reason: "สร้างลิงก์ดาวน์โหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
 
-  return { ok: true, url: signed.signedUrl };
+  return { ok: true, url: signed.signedUrl, fileName };
 }

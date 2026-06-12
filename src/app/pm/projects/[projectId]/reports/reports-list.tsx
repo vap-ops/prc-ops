@@ -94,11 +94,38 @@ function DownloadButton({ reportId }: { reportId: string }) {
         setError(result.reason);
         return;
       }
-      // Open the signed URL in a new tab. Mobile browsers treat this
-      // as a download for application/pdf; desktop opens the PDF
-      // in-tab via the platform PDF viewer. Either is acceptable for
-      // the v1 PM flow.
-      window.open(result.url, "_blank", "noopener,noreferrer");
+      // Spec 60: NO window.open — the spec-45 lesson: the installed PWA
+      // has no tab model, and iOS transient activation is spent after
+      // the await above. Fetch the bytes and hand them over in-page:
+      // share sheet on devices that take files (iOS PWA — Save to
+      // Files / LINE / AirDrop), object-URL anchor download elsewhere.
+      try {
+        const resp = await fetch(result.url);
+        if (!resp.ok) throw new Error(`download fetch ${resp.status}`);
+        const blob = await resp.blob();
+        const file = new File([blob], result.fileName, { type: "application/pdf" });
+        if (typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({ files: [file] });
+          } catch (shareErr) {
+            // User closed the sheet — not an error.
+            if (shareErr instanceof DOMException && shareErr.name === "AbortError") return;
+            throw shareErr;
+          }
+          return;
+        }
+        const objectUrl = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = objectUrl;
+        anchor.download = result.fileName;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(objectUrl);
+      } catch (e) {
+        console.error("[reports] download failed", e);
+        setError("ดาวน์โหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+      }
     });
   }
 

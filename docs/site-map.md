@@ -36,7 +36,7 @@ surface from a hub, the back affordance returns to that same hub.
 | `/sa/projects/[id]` — **THE project page** (WP list, view filter)            | sa/pm/super | WP → WP detail · รายงาน chip (pm/super) → reports · gear (pm/super) → settings | `projectHubHref(role)`: SA → `/sa`, pm/super → `/pm/projects` (spec 59) |
 | `/sa/projects/[id]/work-packages/[id]` — WP detail (photos, requests, labor) | sa/pm/super | photos/requests/labor zones · request card → `/requests/[id]`                  | `/sa/projects/[id]`                                                     |
 | `/sa/projects/[id]/settings`                                                 | pm/super    | name/status form (ADR 0042)                                                    | `/sa/projects/[id]`                                                     |
-| `/pm/projects/[id]/reports`                                                  | pm/super    | generate/download PDFs                                                         | nav row: `/pm` · `/pm/projects` · `/sa/projects/[id]`                   |
+| `/pm/projects/[id]/reports`                                                  | pm/super    | generate/download PDFs                                                         | back chip → `/sa/projects/[id]` (spec 60; the link row is gone)         |
 
 ## Review surfaces
 
