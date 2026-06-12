@@ -1,35 +1,38 @@
 "use client";
 
-// Client Component: text filter + hide-completed toggle + deliverable
-// grouping over an already-loaded WP list. Spec locks the filter at ~80
-// rows, so all filtering is in-memory (no server search, no debounce).
-// Both filters compose: a WP is shown iff it matches the text query AND
-// isn't hidden by the completed toggle.
+// Client Component: status-view filter + deliverable grouping over an
+// already-loaded WP list (~80 rows, all in-memory).
+//
+// Spec 56: the old search box + hide-completed checkbox are replaced by
+// a four-view segmented control (งานค้าง default / รอตรวจ / เสร็จแล้ว /
+// ทั้งหมด) — finished WPs are hidden by default, shown on request.
 //
 // Spec 11 grouping: when the project has deliverables, WPs render under
 // per-deliverable headers that toggle show/hide (collapsed by default —
-// the landing view is the deliverable overview with counts). An active
-// text query overrides collapse so matches are never hidden; groups
-// emptied by the filters disappear (the pure helper never returns empty
-// groups). With ZERO deliverables — today's live state until spec 04
-// Phase 2 backfills — the list renders flat, exactly as before.
+// the landing view is the deliverable overview with counts). Groups
+// emptied by the view disappear (the pure helper never returns empty
+// groups). With ZERO deliverables the list renders flat.
 //
-// "Hide completed" defaults OFF — nothing disappears unless the user
-// asks. Collapse state, the toggle, and the text query are all local
-// client state, so the URL stays stable and there's no server round-trip.
+// Collapse state and the view are local client state — the URL stays
+// stable, no server round-trip.
 
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import { EmptyNotice } from "@/components/features/notices";
 import { StatusPill } from "@/components/features/status-pill";
-import { Input } from "@/components/ui/input";
 import type { Database } from "@/lib/db/database.types";
 import { deriveDeliverableProgress } from "@/lib/deliverables/derive-progress";
 import {
   groupWorkPackagesByDeliverable,
   type GroupDeliverable,
 } from "@/lib/deliverables/group-work-packages";
+import {
+  DEFAULT_WP_LIST_VIEW,
+  WP_LIST_VIEWS,
+  filterByView,
+  type WpListView,
+} from "@/lib/work-packages/list-filter";
 import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
 
@@ -52,20 +55,12 @@ interface WorkPackageListProps {
 }
 
 export function WorkPackageList({ projectId, workPackages, deliverables }: WorkPackageListProps) {
-  const [query, setQuery] = useState("");
-  const [hideCompleted, setHideCompleted] = useState(false);
+  const [view, setView] = useState<WpListView>(DEFAULT_WP_LIST_VIEW);
   // Keys of groups the user has opened (deliverable id, or UNGROUPED_KEY).
   // Default empty = all collapsed.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return workPackages.filter((wp) => {
-      if (hideCompleted && wp.status === "complete") return false;
-      if (!q) return true;
-      return wp.code.toLowerCase().includes(q) || wp.name.toLowerCase().includes(q);
-    });
-  }, [query, workPackages, hideCompleted]);
+  const filtered = useMemo(() => filterByView(workPackages, view), [workPackages, view]);
 
   const groups = useMemo(
     () => groupWorkPackagesByDeliverable(filtered, deliverables),
@@ -86,8 +81,6 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
     return map;
   }, [workPackages, deliverables]);
 
-  const searching = query.trim().length > 0;
-
   function toggleGroup(key: string) {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -100,14 +93,12 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
     });
   }
 
-  // Empty-state copy depends on what's actually empty: no WPs at all,
-  // text filter zeroed the list, hide-completed zeroed the list, or
-  // both combined zeroed it. The user gets the most specific message
-  // that applies.
+  // Empty-state copy: no WPs at all, every WP finished under the
+  // default outstanding view, or the chosen view has no matches.
   const emptyMessage =
     workPackages.length === 0
       ? "ยังไม่มีรายการงาน"
-      : hideCompleted && workPackages.every((wp) => wp.status === "complete")
+      : view === "outstanding" && workPackages.every((wp) => wp.status === "complete")
         ? "รายการงานทั้งหมดเสร็จสิ้นแล้ว"
         : "ไม่พบรายการงานที่ตรงกับเงื่อนไข";
 
@@ -135,24 +126,32 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <Input
-          type="search"
-          placeholder="ค้นหาด้วยรหัสหรือชื่องาน…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="h-11 border-zinc-400 bg-white text-zinc-900 placeholder:text-zinc-400 sm:flex-1"
-          aria-label="ค้นหารายการงาน"
-        />
-        <label className="flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-700 shadow-xs select-none has-[input:checked]:border-slate-900 has-[input:checked]:bg-slate-900 has-[input:checked]:font-semibold has-[input:checked]:text-white has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-blue-700 has-[input:focus-visible]:ring-offset-2">
-          <input
-            type="checkbox"
-            checked={hideCompleted}
-            onChange={(e) => setHideCompleted(e.target.checked)}
-            className="accent-slate-900"
-          />
-          ซ่อนงานที่เสร็จแล้ว
-        </label>
+      {/* Spec 56: four-view segmented control (the spec-21 shape) —
+          replaces the search box + hide-completed checkbox. */}
+      <div
+        role="radiogroup"
+        aria-label="กรองรายการงาน"
+        className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg border border-zinc-300 bg-white p-1 shadow-xs"
+      >
+        {WP_LIST_VIEWS.map(({ value, label }) => {
+          const active = view === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              onClick={() => setView(value)}
+              className={`inline-flex min-h-9 shrink-0 items-center rounded-md px-3 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 ${
+                active
+                  ? "bg-slate-900 font-semibold text-white"
+                  : "font-medium text-zinc-700 hover:bg-zinc-100"
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       {filtered.length === 0 ? (
@@ -169,7 +168,7 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
         <div className="flex flex-col gap-3">
           {groups.map((group) => {
             const key = group.deliverable?.id ?? UNGROUPED_KEY;
-            const isOpen = searching || expanded.has(key);
+            const isOpen = expanded.has(key);
             // Progress is derived from the FULL membership (spec 12) so the
             // header tells the truth while the text filter or
             // "Hide completed" is hiding rows below it.
