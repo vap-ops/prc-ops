@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Settings } from "lucide-react";
+import { ArrowLeft, FileText, Settings } from "lucide-react";
+import { projectHubHref } from "@/lib/auth/role-home";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
@@ -50,9 +51,10 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
       <header className="border-b border-zinc-200 bg-white px-5 py-4">
         <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-1`}>
           <div className="flex items-center justify-between gap-3">
-            {/* Spec 55: the spec-54 back chip. */}
+            {/* Spec 55 back chip; spec 59: role-aware target — back
+                returns to the hub this role entered from. */}
             <Link
-              href="/sa"
+              href={projectHubHref(ctx.role)}
               aria-label="กลับไปโครงการ"
               className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-900 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
             >
@@ -63,13 +65,24 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
                   SA never sees the gear; the settings page also
                   requireRole-gates pm/super. */}
               {ctx.role === "project_manager" || ctx.role === "super_admin" ? (
-                <Link
-                  href={`/sa/projects/${project.id}/settings`}
-                  aria-label="ตั้งค่าโครงการ"
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 shadow-sm transition-colors hover:bg-zinc-50 hover:text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
-                >
-                  <Settings aria-hidden className="h-5 w-5" />
-                </Link>
+                <>
+                  {/* Spec 59: reports moved out of the "project" slot —
+                      this chip is how PM/super reach them now. */}
+                  <Link
+                    href={`/pm/projects/${project.id}/reports`}
+                    aria-label="รายงานโครงการ"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 shadow-sm transition-colors hover:bg-zinc-50 hover:text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+                  >
+                    <FileText aria-hidden className="h-5 w-5" />
+                  </Link>
+                  <Link
+                    href={`/sa/projects/${project.id}/settings`}
+                    aria-label="ตั้งค่าโครงการ"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 shadow-sm transition-colors hover:bg-zinc-50 hover:text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+                  >
+                    <Settings aria-hidden className="h-5 w-5" />
+                  </Link>
+                </>
               ) : null}
               {/* Spec 53: the PWA's only reload affordance. */}
               <RefreshButton variant="light" />

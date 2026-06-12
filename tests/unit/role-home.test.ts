@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { roleHome } from "@/lib/auth/role-home";
+import { projectHubHref, roleHome } from "@/lib/auth/role-home";
 
 describe("roleHome", () => {
   it("sends each served role to its real surface", () => {
@@ -23,5 +23,24 @@ describe("roleHome", () => {
     expect(roleHome("visitor")).toBe("/coming-soon");
     expect(roleHome("procurement")).toBe("/coming-soon");
     expect(roleHome("technician")).toBe("/coming-soon");
+  });
+});
+
+// Spec 59: the WP-list back-chip target — the round-trip "enter a
+// project from your hub, back returns to THAT hub" (the operator's
+// "pressing back takes user to a different page" defect).
+describe("projectHubHref", () => {
+  it("SA returns to the SA project list", () => {
+    expect(projectHubHref("site_admin")).toBe("/sa");
+  });
+
+  it("PM and super_admin return to the PM project list", () => {
+    expect(projectHubHref("project_manager")).toBe("/pm/projects");
+    expect(projectHubHref("super_admin")).toBe("/pm/projects");
+  });
+
+  it("non-project roles fall back to their role home", () => {
+    expect(projectHubHref("visitor")).toBe(roleHome("visitor"));
+    expect(projectHubHref("technician")).toBe(roleHome("technician"));
   });
 });

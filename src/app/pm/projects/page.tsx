@@ -8,11 +8,10 @@ import { StatusPill } from "@/components/features/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 
-// PM project list. Each project links to the reports surface
-// (/pm/projects/[id]/reports). Mirrors the SA project list shape so the
-// two role-side flows feel like part of the same product, but gated to
-// PM + super_admin (SA is intentionally excluded — SAs don't consume
-// reports in v1, matching the reports table RLS).
+// PM project list. Each project links to THE project page — the WP
+// list at /sa/projects/[id] (spec 59: one project page for every
+// role; reports are a header chip there). Mirrors the SA project list
+// shape; gated to PM + super_admin.
 
 import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
 import { projectStatusPillClasses } from "@/lib/status-colors";
@@ -46,8 +45,11 @@ export default async function PmProjectsPage() {
           <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3">
             {projects.map((p) => (
               <li key={p.id}>
+                {/* Spec 59: a project opens the PROJECT page (WP list) —
+                    reports are a chip on that page now, no longer the
+                    row destination. */}
                 <Link
-                  href={`/pm/projects/${p.id}/reports`}
+                  href={`/sa/projects/${p.id}`}
                   className="flex min-h-14 items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
                 >
                   <div className="min-w-0">

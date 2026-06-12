@@ -14,3 +14,13 @@ export function roleHome(role: UserRole): string {
   if (role === "project_manager" || role === "super_admin") return "/pm";
   return "/coming-soon";
 }
+
+// Spec 59: where "back" from a project page (the WP list) returns —
+// the project hub the role entered from. Before this, the back chip
+// was hardcoded to /sa, so a PM arriving via /pm/projects bounced to
+// the SA home (the operator's "different page" report).
+export function projectHubHref(role: UserRole): string {
+  if (role === "site_admin") return "/sa";
+  if (role === "project_manager" || role === "super_admin") return "/pm/projects";
+  return roleHome(role);
+}
