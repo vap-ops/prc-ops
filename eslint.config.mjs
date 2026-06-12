@@ -7,7 +7,15 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   prettier,
-  globalIgnores([".next/**", ".claude/**", "out/**", "build/**", "next-env.d.ts", "worker/**"]),
+  globalIgnores([
+    "src/lib/reports/sarabun-font.ts",
+    ".next/**",
+    ".claude/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    "worker/**",
+  ]),
   {
     rules: {
       "@typescript-eslint/no-explicit-any": "error",

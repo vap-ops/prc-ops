@@ -17,8 +17,10 @@ behavior (cron sweeper) or is freed by the reaper.
 - `src/lib/reports/`: `sarabun-font.ts` (base64 module, OFL notice,
   generated from worker/fonts — prettier/eslint-ignored),
   `build-pdf.ts` (PDFKit composition — port of worker/report.ts,
-  same layout), `current-after-photos.ts` (the ADR 0009 anti-join
-  filter — PURE, test-first port of the worker's filter + its tests),
+  same layout), the existing tested `src/lib/photos/current-photos.ts` helper is
+  REUSED for the after-photos filter (recorded deviation — equivalent
+  semantics, covered by tests/unit/current-photos.test.ts; no duplicate
+  port),
   `run-report-job.ts` (fetch → download → build → upload → mark,
   service-role client injected).
 - `generateReport` action fast path: after the existing insert —
@@ -39,7 +41,8 @@ Edge Functions.
 
 ## 2. Verification checklist
 
-- [ ] RED→GREEN on the ported filter tests; suites green; pgTAP 27
+- [ ] RED→GREEN on build-pdf tests; filter covered by the existing
+      current-photos suite (recorded deviation); suites green; pgTAP 27
       green post-push; dry-run before work.
 - [ ] `claim_next_report` is the ONLY claim path in the app code (no
       direct status writes from the action besides the ported

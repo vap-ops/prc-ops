@@ -30,10 +30,17 @@ export function GenerateReportButton({ projectId, initiallyDisabled }: GenerateR
   function handleClick(): void {
     setReason(null);
     startSubmit(async () => {
-      const result = await generateReport({ projectId });
-      if (!result.ok) {
-        setReason(result.reason);
-        return;
+      // The action now BUILDS the PDF in-request (spec 39) — a platform
+      // timeout on a photo-heavy project rejects here; the reaper/sweeper
+      // recover server-side, so degrade softly instead of error.tsx.
+      try {
+        const result = await generateReport({ projectId });
+        if (!result.ok) {
+          setReason(result.reason);
+          return;
+        }
+      } catch {
+        setReason("ระบบกำลังสร้างรายงานอยู่ — รีเฟรชหน้านี้ในอีกสักครู่");
       }
       router.refresh();
     });
@@ -49,7 +56,7 @@ export function GenerateReportButton({ projectId, initiallyDisabled }: GenerateR
         disabled={disabled}
         className="inline-flex h-11 w-fit items-center justify-center rounded-lg bg-blue-700 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
       >
-        {pending ? "กำลังเข้าคิว…" : "สร้างรายงาน"}
+        {pending ? "กำลังสร้าง…" : "สร้างรายงาน"}
       </button>
       {reason && (
         <p

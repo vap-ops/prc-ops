@@ -1,5 +1,5 @@
 begin;
-select plan(11);
+select plan(13);
 
 -- ============================================================================
 -- Spec 39 / ADR 0040 — stale-report reaper. Stale 'processing' rows flip
@@ -23,6 +23,9 @@ insert into public.reports (id, project_id, status, requested_by) values
   ('a3000000-0000-4000-8000-000000005bbb',
    'cccccccc-cccc-cccc-cccc-cccccccc5bbb', 'requested',
    '33333333-3333-3333-3333-333333335bbb'),
+  ('a5000000-0000-4000-8000-000000005bbb',
+   'cccccccc-cccc-cccc-cccc-cccccccc5bbb', 'requested',
+   '33333333-3333-3333-3333-333333335bbb'),
   ('a4000000-0000-4000-8000-000000005bbb',
    'cccccccc-cccc-cccc-cccc-cccccccc5bbb', 'complete',
    '33333333-3333-3333-3333-333333335bbb');
@@ -33,7 +36,8 @@ insert into public.reports (id, project_id, status, requested_by) values
 alter table public.reports disable trigger user;
 update public.reports
    set updated_at = now() - interval '30 minutes'
- where id = 'a1000000-0000-4000-8000-000000005bbb';
+ where id in ('a1000000-0000-4000-8000-000000005bbb',
+              'a5000000-0000-4000-8000-000000005bbb');
 alter table public.reports enable trigger user;
 
 -- ============================================================================
@@ -62,7 +66,7 @@ select is(
 
 select is(
   (select public.reap_stale_reports()),
-  1, 'reap flips exactly the one stale processing row');
+  2, 'reap flips the stale processing AND stale requested rows (spec-39 amendment)');
 
 select is(
   (select status::text from public.reports
@@ -80,7 +84,15 @@ select is(
 select is(
   (select status::text from public.reports
      where id = 'a3000000-0000-4000-8000-000000005bbb'),
-  'requested', 'requested row untouched (sweeper territory, not reaper)');
+  'requested', 'FRESH requested row untouched');
+select is(
+  (select status::text from public.reports
+     where id = 'a5000000-0000-4000-8000-000000005bbb'),
+  'failed', 'STALE requested row reaped (Railway-pause safety, spec-39 amendment)');
+select ok(
+  (select error like '%stale requested%' from public.reports
+     where id = 'a5000000-0000-4000-8000-000000005bbb'),
+  'stale-requested row carries the distinguishing reaper message');
 select is(
   (select status::text from public.reports
      where id = 'a4000000-0000-4000-8000-000000005bbb'),

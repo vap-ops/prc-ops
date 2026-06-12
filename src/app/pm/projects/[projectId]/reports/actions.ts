@@ -25,6 +25,7 @@ import { revalidatePath } from "next/cache";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import { canGenerateReport, type ReportStatus } from "@/lib/reports/predicates";
+import { runReportJob } from "@/lib/reports/run-report-job";
 import type { UserRole } from "@/lib/auth/role-home";
 
 const PM_ROLES: ReadonlyArray<UserRole> = ["project_manager", "super_admin"];
@@ -106,6 +107,25 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
   });
   if (insertError) {
     return { ok: false, reason: "ส่งรายงานเข้าคิวไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  // Spec 39 / ADR 0040 — on-demand fast path. claim_next_report() is the
+  // same atomic RPC the Railway worker polls (FIFO + SKIP LOCKED), so the
+  // two can never double-build. Every failure mode degrades safely:
+  // claim fails/races → the row stays 'requested' for the cron sweeper;
+  // the job errors → runReportJob marks it 'failed' (worker parity);
+  // a hard crash mid-processing → reap_stale_reports frees it.
+  try {
+    const admin = createAdminClient();
+    const { data: claimed, error: claimErr } = await admin.rpc("claim_next_report");
+    if (claimErr) {
+      console.error("[generateReport] fast-path claim failed (sweeper will run)", claimErr.message);
+    } else {
+      const job = Array.isArray(claimed) ? claimed[0] : null;
+      if (job) await runReportJob(admin, job);
+    }
+  } catch (e) {
+    console.error("[generateReport] fast path errored (sweeper/reaper will recover)", e);
   }
 
   revalidatePath(`/pm/projects/${project.id}/reports`);

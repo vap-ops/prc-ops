@@ -27,6 +27,11 @@ interface PageProps {
 
 export const metadata = { title: "รายงาน" };
 
+// Spec 39: the generate action builds the PDF in-request (photo downloads
+// + PDFKit) — needs more than the default function duration. The cron
+// sweeper/reaper recover anything that still exceeds this.
+export const maxDuration = 60;
+
 export default async function ProjectReportsPage({ params }: PageProps) {
   const { projectId } = await params;
   const ctx = await requireRole(["project_manager", "super_admin"]);
@@ -100,7 +105,7 @@ export default async function ProjectReportsPage({ params }: PageProps) {
           </div>
           <p className="mb-3 text-sm text-zinc-600">
             สร้างรายงาน PDF รวมรายการงานที่เสร็จสิ้นพร้อมรูปช่วงแล้วเสร็จล่าสุดของแต่ละงาน
-            รายงานจะเข้าคิวทันที โดยปกติใช้เวลาสร้างไม่กี่นาที
+            รายงานจะเข้าคิวทันที โดยปกติเสร็จภายในไม่กี่วินาที
           </p>
           <GenerateReportButton projectId={project.id} initiallyDisabled={!canGenerate} />
         </section>
