@@ -274,6 +274,16 @@ export function PhaseUploader({
 
   const hasContent = photos.length > 0 || pending.length > 0;
 
+  // Spec 50: the loaded photos of THIS phase form one lightbox group —
+  // swipe stays inside the strip the user tapped. Missing-URL and
+  // pending tiles are not members.
+  const loadedUrls = photos.flatMap((p) => (p.url !== null ? [p.url] : []));
+  const loadedIndexById = new Map<string, number>();
+  {
+    let i = 0;
+    for (const p of photos) if (p.url !== null) loadedIndexById.set(p.id, i++);
+  }
+
   return (
     <section>
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -318,6 +328,8 @@ export function PhaseUploader({
             <Thumbnail
               key={p.id}
               photo={p}
+              group={loadedUrls}
+              groupIndex={loadedIndexById.get(p.id) ?? 0}
               isRemoving={removingId === p.id}
               onRemove={() => setConfirmRemoveId(p.id)}
             />
@@ -343,15 +355,17 @@ export function PhaseUploader({
 
 interface ThumbnailProps {
   photo: ThumbnailPhoto;
+  group: ReadonlyArray<string>;
+  groupIndex: number;
   isRemoving: boolean;
   onRemove: () => void;
 }
 
-function Thumbnail({ photo, isRemoving, onRemove }: ThumbnailProps) {
+function Thumbnail({ photo, group, groupIndex, isRemoving, onRemove }: ThumbnailProps) {
   return (
     <li className={PHOTO_STRIP_TILE}>
       {photo.url ? (
-        <ZoomablePhoto src={photo.url} />
+        <ZoomablePhoto src={photo.url} group={group} groupIndex={groupIndex} />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-xs text-zinc-600">
           ไม่พร้อมแสดง

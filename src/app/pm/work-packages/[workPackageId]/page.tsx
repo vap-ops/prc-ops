@@ -219,22 +219,31 @@ function PhaseGallery({ label, photos, signedUrls }: PhaseGalleryProps) {
       {photos.length === 0 ? (
         <EmptyNotice className="text-zinc-600">ไม่มีรูปช่วง{label}</EmptyNotice>
       ) : (
-        /* Spec 49: filmstrip — page height stays constant per phase. */
+        /* Spec 49: filmstrip — page height stays constant per phase.
+           Spec 50: the phase's loaded photos form one lightbox group. */
         <PhotoStrip>
-          {photos.map((p) => {
-            const url = signedUrls.get(p.id);
-            return (
-              <li key={p.id} className={PHOTO_STRIP_TILE}>
-                {url ? (
-                  <ZoomablePhoto src={url} />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-xs text-zinc-600">
-                    ไม่พร้อมแสดง
-                  </div>
-                )}
-              </li>
-            );
-          })}
+          {(() => {
+            const loadedUrls = photos.flatMap((p) => {
+              const u = signedUrls.get(p.id);
+              return u ? [u] : [];
+            });
+            let loadedIndex = 0;
+            return photos.map((p) => {
+              const url = signedUrls.get(p.id);
+              const groupIndex = url ? loadedIndex++ : 0;
+              return (
+                <li key={p.id} className={PHOTO_STRIP_TILE}>
+                  {url ? (
+                    <ZoomablePhoto src={url} group={loadedUrls} groupIndex={groupIndex} />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-xs text-zinc-600">
+                      ไม่พร้อมแสดง
+                    </div>
+                  )}
+                </li>
+              );
+            });
+          })()}
         </PhotoStrip>
       )}
     </div>

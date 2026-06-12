@@ -251,13 +251,20 @@ export default async function RequestDetailPage({ params }: PageProps) {
               <div className="mt-2">
                 <p className="text-xs font-medium text-zinc-700">รูปอ้างอิง</p>
                 <ul className="mt-1 flex flex-wrap gap-2">
-                  {referenceImages.map((photo) => {
+                  {referenceImages.map((photo, idx, arr) => {
                     const url = photo.id ? attachmentUrls.get(photo.id) : undefined;
                     if (!photo.id || !url) return null;
+                    /* Spec 50: reference images form one lightbox group. */
+                    const groupUrls = arr.flatMap((a) =>
+                      a.id && attachmentUrls.get(a.id) ? [attachmentUrls.get(a.id) as string] : [],
+                    );
+                    const groupIndex = arr
+                      .slice(0, idx)
+                      .filter((a) => a.id && attachmentUrls.get(a.id)).length;
                     return (
                       <li key={photo.id} className="flex flex-col items-center gap-0.5">
                         <span className="block h-20 w-20 overflow-hidden rounded-lg border border-zinc-200">
-                          <ZoomablePhoto src={url} />
+                          <ZoomablePhoto src={url} group={groupUrls} groupIndex={groupIndex} />
                         </span>
                         {status === "requested" && photo.created_by === ctx.id ? (
                           <AttachmentRemoveButton attachmentId={photo.id} />
@@ -318,13 +325,22 @@ export default async function RequestDetailPage({ params }: PageProps) {
                 <div>
                   <p className="text-xs font-medium text-zinc-700">รูปยืนยันการรับของ</p>
                   <ul className="mt-1 flex flex-wrap gap-2">
-                    {confirmations.map((photo) => {
+                    {confirmations.map((photo, idx, arr) => {
                       const url = photo.id ? attachmentUrls.get(photo.id) : undefined;
                       if (!photo.id || !url) return null;
+                      /* Spec 50: confirmation photos form a separate group. */
+                      const groupUrls = arr.flatMap((a) =>
+                        a.id && attachmentUrls.get(a.id)
+                          ? [attachmentUrls.get(a.id) as string]
+                          : [],
+                      );
+                      const groupIndex = arr
+                        .slice(0, idx)
+                        .filter((a) => a.id && attachmentUrls.get(a.id)).length;
                       return (
                         <li key={photo.id} className="flex flex-col items-center gap-0.5">
                           <span className="block h-20 w-20 overflow-hidden rounded-lg border border-zinc-200">
-                            <ZoomablePhoto src={url} />
+                            <ZoomablePhoto src={url} group={groupUrls} groupIndex={groupIndex} />
                           </span>
                           {photo.created_by === ctx.id ? (
                             <AttachmentRemoveButton attachmentId={photo.id} />
