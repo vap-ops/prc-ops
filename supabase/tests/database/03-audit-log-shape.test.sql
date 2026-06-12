@@ -9,8 +9,9 @@ select enum_has_labels(
   array['insert', 'update', 'delete', 'login', 'logout', 'role_change',
         'photo_upload', 'photo_supersede', 'approve', 'reject',
         'export', 'other', 'profile_update', 'purchase_request_decision',
-        'purchase_request_purchase', 'purchase_request_delivery'],
-  'audit_action has the expected v1+profile_update+purchasing labels'
+        'purchase_request_purchase', 'purchase_request_delivery',
+        'worker_change'],
+  'audit_action has the expected v1+profile_update+purchasing+labor labels'
 );
 
 -- table shape

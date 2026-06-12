@@ -156,14 +156,15 @@ select ok(
   'audit trigger WHEN clause names eta (8th predicate, ADR 0026)'
 );
 
--- B.7 New audit enum values exist.
+-- B.7 New audit enum values exist (full label set — spec 46 added
+-- worker_change).
 select enum_has_labels(
   'public', 'audit_action',
   array[
     'insert', 'update', 'delete', 'login', 'logout', 'role_change',
     'photo_upload', 'photo_supersede', 'approve', 'reject', 'export', 'other',
     'profile_update', 'purchase_request_decision',
-    'purchase_request_purchase', 'purchase_request_delivery'
+    'purchase_request_purchase', 'purchase_request_delivery', 'worker_change'
   ],
   'audit_action enum includes purchase_request_purchase + purchase_request_delivery'
 );
