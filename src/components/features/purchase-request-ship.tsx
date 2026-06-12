@@ -35,7 +35,7 @@ export function PurchaseRequestShip({ requestId }: PurchaseRequestShipProps) {
         type="button"
         onClick={handleShip}
         disabled={pending}
-        className="inline-flex h-11 items-center justify-center rounded-md border border-blue-700 bg-white px-3 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex h-11 items-center justify-center rounded-md border border-slate-900 bg-white px-3 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {pending ? "กำลังบันทึก…" : "บันทึกว่าจัดส่งแล้ว"}
       </button>

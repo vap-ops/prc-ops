@@ -136,7 +136,7 @@ export function PurchaseRecordForm({ requestId, suppliers }: PurchaseRecordFormP
               type="button"
               onClick={handleCreateSupplier}
               disabled={pending || nameDraft.trim().length === 0}
-              className="inline-flex h-11 items-center justify-center rounded-md border border-blue-700 bg-white px-4 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:text-zinc-500"
+              className="inline-flex h-11 items-center justify-center rounded-md border border-slate-900 bg-white px-4 text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:text-zinc-500"
             >
               {pending ? "กำลังบันทึก…" : "เพิ่มและเลือก"}
             </button>
@@ -188,7 +188,7 @@ export function PurchaseRecordForm({ requestId, suppliers }: PurchaseRecordFormP
           type="button"
           onClick={handleSubmit}
           disabled={pending || supplierId === ""}
-          className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
+          className="inline-flex h-11 items-center justify-center rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
         >
           {pending ? "กำลังบันทึก…" : "บันทึกการสั่งซื้อ"}
         </button>

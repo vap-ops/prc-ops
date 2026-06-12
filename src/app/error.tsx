@@ -14,7 +14,7 @@ export default function GlobalError({ reset }: { error: Error; reset: () => void
           <button
             type="button"
             onClick={reset}
-            className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-md bg-blue-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 motion-reduce:transition-none"
+            className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-md bg-slate-900 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 motion-reduce:transition-none"
           >
             ลองใหม่
           </button>

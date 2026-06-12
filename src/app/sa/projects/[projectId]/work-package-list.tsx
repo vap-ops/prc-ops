@@ -111,10 +111,17 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
         ? "รายการงานทั้งหมดเสร็จสิ้นแล้ว"
         : "ไม่พบรายการงานที่ตรงกับเงื่อนไข";
 
-  const rowLink = (wp: WorkPackageListItem) => (
+  // Two presentations (spec 40): a standalone card in flat mode, a
+  // contained divided row inside a deliverable group — the visual
+  // hierarchy the operator asked for (groups frame, rows belong).
+  const rowLink = (wp: WorkPackageListItem, contained = false) => (
     <Link
       href={`/sa/projects/${projectId}/work-packages/${wp.id}`}
-      className="flex min-h-14 items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+      className={
+        contained
+          ? "flex min-h-14 items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-inset"
+          : "flex min-h-14 items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+      }
     >
       <div className="min-w-0">
         <p className="font-mono text-xs text-zinc-600">{wp.code}</p>
@@ -137,12 +144,12 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
           className="h-11 border-zinc-400 bg-white text-zinc-900 placeholder:text-zinc-400 sm:flex-1"
           aria-label="ค้นหารายการงาน"
         />
-        <label className="flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-700 shadow-xs select-none has-[input:checked]:border-blue-700 has-[input:checked]:bg-blue-700 has-[input:checked]:font-semibold has-[input:checked]:text-white has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-blue-700 has-[input:focus-visible]:ring-offset-2">
+        <label className="flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-700 shadow-xs select-none has-[input:checked]:border-slate-900 has-[input:checked]:bg-slate-900 has-[input:checked]:font-semibold has-[input:checked]:text-white has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-blue-700 has-[input:focus-visible]:ring-offset-2">
           <input
             type="checkbox"
             checked={hideCompleted}
             onChange={(e) => setHideCompleted(e.target.checked)}
-            className="accent-blue-700"
+            className="accent-slate-900"
           />
           ซ่อนงานที่เสร็จแล้ว
         </label>
@@ -174,14 +181,14 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
             return (
               <section
                 key={key}
-                className="overflow-hidden rounded-lg border border-zinc-300 shadow-sm"
+                className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm"
               >
                 <button
                   type="button"
                   onClick={() => toggleGroup(key)}
                   aria-expanded={isOpen}
                   aria-controls={contentId}
-                  className="flex min-h-12 w-full cursor-pointer flex-col gap-2 bg-zinc-50 px-4 py-3 text-left transition-colors hover:bg-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+                  className="flex min-h-12 w-full cursor-pointer flex-col gap-2 border-l-4 border-amber-400 bg-slate-50 px-4 py-3 text-left transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-inset"
                 >
                   <span className="flex w-full items-center gap-3">
                     <ChevronRight
@@ -191,10 +198,10 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
                     <span className="min-w-0 flex-1">
                       {group.deliverable ? (
                         <>
-                          <span className="font-mono text-xs text-zinc-600">
+                          <span className="font-mono text-xs font-semibold text-slate-500">
                             {group.deliverable.code}
                           </span>
-                          <span className="block truncate text-sm font-medium text-zinc-900">
+                          <span className="block truncate text-base font-bold tracking-tight text-slate-900">
                             {group.deliverable.name}
                           </span>
                         </>
@@ -228,9 +235,9 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
                   </span>
                 </button>
                 {isOpen ? (
-                  <ul id={contentId} className="flex flex-col gap-2 border-t border-zinc-300 p-2">
+                  <ul id={contentId} className="divide-y divide-zinc-100 border-t border-zinc-200">
                     {group.workPackages.map((wp) => (
-                      <li key={wp.id}>{rowLink(wp)}</li>
+                      <li key={wp.id}>{rowLink(wp, true)}</li>
                     ))}
                   </ul>
                 ) : null}

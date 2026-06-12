@@ -228,7 +228,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   return (
     <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
-      <AppHeader kicker="คำขอซื้อ" fullName={ctx.fullName} maxWidthClass="max-w-2xl" />
+      <AppHeader kicker="คำขอซื้อ" fullName={ctx.fullName} maxWidthClass="max-w-2xl lg:max-w-5xl" />
 
       {/* Pinned mode keeps the contextual spec-12 back-bar everywhere; in
           bare mode /requests is a TAB ROOT — on phones the bottom tabs
@@ -239,7 +239,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
           pinnedWp && pinnedProjectId ? "" : "hidden sm:block"
         }`}
       >
-        <div className="mx-auto flex max-w-2xl items-center">
+        <div className="mx-auto flex max-w-2xl items-center lg:max-w-5xl">
           <Link
             href={backHref}
             className="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline"
@@ -250,7 +250,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         </div>
       </nav>
 
-      <section className="mx-auto max-w-2xl space-y-8 px-5 py-6">
+      <section className="mx-auto max-w-2xl space-y-8 px-5 py-6 lg:max-w-5xl">
         <div>
           <h2 className="mb-3 text-base font-semibold text-zinc-900">สร้างคำขอซื้อ</h2>
           {pinnedWp && pinnedProjectId ? (
@@ -285,7 +285,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                 aria-current={!mineOnly ? "true" : undefined}
                 className={`inline-flex min-h-11 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 ${
                   !mineOnly
-                    ? "border-blue-700 bg-blue-700 font-semibold text-white"
+                    ? "border-slate-900 bg-slate-900 font-semibold text-white"
                     : "border-zinc-400 bg-white text-zinc-700 hover:bg-zinc-50"
                 }`}
               >
@@ -296,7 +296,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                 aria-current={mineOnly ? "true" : undefined}
                 className={`inline-flex min-h-11 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 ${
                   mineOnly
-                    ? "border-blue-700 bg-blue-700 font-semibold text-white"
+                    ? "border-slate-900 bg-slate-900 font-semibold text-white"
                     : "border-zinc-400 bg-white text-zinc-700 hover:bg-zinc-50"
                 }`}
               >
@@ -309,7 +309,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
           ) : myRequests.length === 0 ? (
             <EmptyNotice>{mineOnly ? "คุณยังไม่เคยสร้างคำขอซื้อ" : "ยังไม่มีคำขอซื้อ"}</EmptyNotice>
           ) : (
-            <ul className="flex flex-col gap-2">
+            <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
               {myRequests.map((r) => {
                 const wp = wpById.get(r.work_package_id);
                 const status = r.status as PurchaseRequestStatus;

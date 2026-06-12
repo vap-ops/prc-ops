@@ -30,11 +30,19 @@ export default async function PmProjectsPage() {
   return (
     <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
-      <AppHeader kicker="ผู้จัดการโครงการ" fullName={ctx.fullName} maxWidthClass="max-w-2xl" />
+      <AppHeader
+        kicker="ผู้จัดการโครงการ"
+        fullName={ctx.fullName}
+        maxWidthClass="max-w-2xl lg:max-w-5xl"
+      />
 
-      <HubNav maxWidthClass="max-w-2xl" items={PM_HUB_NAV} currentHref="/pm/projects" />
+      <HubNav
+        maxWidthClass="max-w-2xl lg:max-w-5xl"
+        items={PM_HUB_NAV}
+        currentHref="/pm/projects"
+      />
 
-      <section className="mx-auto max-w-2xl px-5 py-6">
+      <section className="mx-auto max-w-2xl px-5 py-6 lg:max-w-5xl">
         <h2 className="mb-3 text-base font-semibold text-zinc-900">โครงการ</h2>
 
         {error ? (
@@ -42,7 +50,7 @@ export default async function PmProjectsPage() {
         ) : !projects || projects.length === 0 ? (
           <EmptyNotice>ยังไม่มีโครงการ</EmptyNotice>
         ) : (
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3">
             {projects.map((p) => (
               <li key={p.id}>
                 <Link

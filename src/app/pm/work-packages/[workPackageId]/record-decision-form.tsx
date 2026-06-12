@@ -90,7 +90,7 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
               value={d}
               checked={decision === d}
               onChange={() => setDecision(d)}
-              className="mt-1 accent-blue-700"
+              className="mt-1 accent-slate-900"
             />
             <span className="flex flex-col">
               <span className="text-sm font-medium text-zinc-900">{DECISION_LABEL[d]}</span>
@@ -133,7 +133,7 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
         <button
           type="submit"
           disabled={!canSubmit}
-          className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
+          className="inline-flex h-11 items-center justify-center rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
         >
           {submitting ? "กำลังบันทึก…" : "บันทึกผลการตรวจ"}
         </button>

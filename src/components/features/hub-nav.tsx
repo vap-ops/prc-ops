@@ -28,7 +28,7 @@ export const SA_HUB_NAV: ReadonlyArray<HubNavItem> = [
 ];
 
 interface HubNavProps {
-  maxWidthClass: "max-w-2xl" | "max-w-3xl";
+  maxWidthClass: "max-w-2xl" | "max-w-3xl" | "max-w-2xl lg:max-w-5xl" | "max-w-3xl lg:max-w-5xl";
   items: ReadonlyArray<HubNavItem>;
   currentHref: string;
 }

@@ -67,10 +67,10 @@ export default async function ProjectReportsPage({ params }: PageProps) {
   return (
     <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
-      <AppHeader kicker="ผู้จัดการโครงการ" title="รายงาน" maxWidthClass="max-w-2xl" />
+      <AppHeader kicker="ผู้จัดการโครงการ" title="รายงาน" maxWidthClass="max-w-2xl lg:max-w-5xl" />
 
       <nav className="border-b border-zinc-200 bg-zinc-100 px-5 py-2">
-        <div className="mx-auto flex max-w-2xl items-center gap-4 text-xs">
+        <div className="mx-auto flex max-w-2xl items-center gap-4 text-xs lg:max-w-5xl">
           <Link
             href="/pm"
             className="inline-flex min-h-11 items-center font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline"
@@ -97,7 +97,7 @@ export default async function ProjectReportsPage({ params }: PageProps) {
         </div>
       </nav>
 
-      <div className="mx-auto flex max-w-2xl flex-col gap-8 px-5 py-6">
+      <div className="mx-auto flex max-w-2xl flex-col gap-8 px-5 py-6 lg:max-w-5xl">
         <section>
           <div className="mb-4 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
             <p className="font-mono text-xs text-zinc-600">{project.code}</p>

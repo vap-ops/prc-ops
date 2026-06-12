@@ -121,7 +121,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
     <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
       <header className="border-b border-zinc-200 bg-white px-5 py-4">
-        <div className="mx-auto flex max-w-2xl flex-col gap-1 md:max-w-4xl lg:max-w-6xl">
+        <div className="mx-auto flex max-w-2xl flex-col gap-1 md:max-w-4xl lg:max-w-6xl xl:max-w-7xl">
           <Link
             href={`/sa/projects/${projectId}`}
             className="w-fit text-xs font-medium text-blue-700 hover:underline focus:outline-none focus-visible:underline"
@@ -170,7 +170,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
       {attention ? (
         <div className="border-b border-zinc-300 px-5 py-3">
           <div
-            className={`mx-auto max-w-2xl rounded-md border px-3 py-2 md:max-w-4xl lg:max-w-6xl ${
+            className={`mx-auto max-w-2xl rounded-md border px-3 py-2 md:max-w-4xl lg:max-w-6xl xl:max-w-7xl ${
               attention.decision === "rejected"
                 ? "border-red-300 bg-red-50"
                 : "border-amber-400 bg-amber-50"

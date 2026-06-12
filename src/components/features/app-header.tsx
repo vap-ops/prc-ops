@@ -17,7 +17,7 @@ interface AppHeaderProps {
   fullName?: string | null;
   /** Fixed-title variant — overrides the greeting (reports page). */
   title?: string;
-  maxWidthClass: "max-w-2xl" | "max-w-3xl";
+  maxWidthClass: "max-w-2xl" | "max-w-3xl" | "max-w-2xl lg:max-w-5xl" | "max-w-3xl lg:max-w-5xl";
 }
 
 export function AppHeader({ kicker, fullName, title, maxWidthClass }: AppHeaderProps) {

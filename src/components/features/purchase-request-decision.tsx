@@ -99,7 +99,7 @@ export function PurchaseRequestDecision({ requestId }: PurchaseRequestDecisionPr
           type="button"
           onClick={() => handleDecide("approved")}
           disabled={!canApprove}
-          className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-700 px-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
+          className="inline-flex h-11 items-center justify-center rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
         >
           {submitting && pendingDecision === "approved" ? "กำลังบันทึก…" : "อนุมัติ"}
         </button>

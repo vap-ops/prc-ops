@@ -45,7 +45,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
     <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
       <header className="border-b border-zinc-200 bg-white px-5 py-4">
-        <div className="mx-auto flex max-w-2xl flex-col gap-1">
+        <div className="mx-auto flex max-w-2xl flex-col gap-1 lg:max-w-5xl">
           <Link
             href="/sa"
             className="w-fit text-xs font-medium text-blue-700 hover:underline focus:outline-none focus-visible:underline"
@@ -57,7 +57,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
         </div>
       </header>
 
-      <section className="mx-auto max-w-2xl px-5 py-6">
+      <section className="mx-auto max-w-2xl px-5 py-6 lg:max-w-5xl">
         <h2 className="mb-3 text-base font-semibold text-zinc-900">รายการงาน</h2>
         <WorkPackageList
           projectId={project.id}
