@@ -3,7 +3,6 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { ArrowLeft } from "lucide-react";
 import { AppHeader } from "@/components/features/app-header";
 import { EmptyNotice, ErrorNotice } from "@/components/features/notices";
-import { StatusPill } from "@/components/features/status-pill";
 import { roleHome } from "@/lib/auth/role-home";
 import {
   PurchaseRequestForm,
@@ -30,43 +29,20 @@ import type { Database } from "@/lib/db/database.types";
 //      branch remains for future narrower roles). The ?mine=1 chip
 //      narrows back to the caller's own rows.
 
-import {
-  PURCHASE_REQUEST_PRIORITY_LABEL,
-  PURCHASE_REQUEST_STATUS_LABEL,
-  formatThaiDate,
-  formatThaiDateTime,
-} from "@/lib/i18n/labels";
-import {
-  purchaseRequestPriorityPillClasses,
-  purchaseRequestStatusPillClasses,
-  type PurchaseRequestPriority,
-} from "@/lib/status-colors";
+import type { PurchaseRequestPriority } from "@/lib/status-colors";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
-import { PurchaseRequestDecision } from "@/components/features/purchase-request-decision";
-import { PurchaseRequestCancel } from "@/components/features/purchase-request-cancel";
-import {
-  PurchaseRecordForm,
-  type SupplierOption,
-} from "@/components/features/purchase-record-form";
-import { PurchaseRequestShip } from "@/components/features/purchase-request-ship";
-import { isBackOfficeRole } from "@/lib/purchasing/back-office";
 import { comparePendingRequests } from "@/lib/purchasing/pending-order";
-import { PurchaseRequestTracker } from "@/components/features/purchase-request-tracker";
-import { DeliveryPhotoUploader } from "@/components/features/delivery-photo-uploader";
-import { PurchaseRequestAttachmentStager } from "@/components/features/purchase-request-attachment-stager";
-import { AttachmentRemoveButton } from "@/components/features/attachment-remove-button";
-import { ZoomablePhoto } from "@/components/features/photo-lightbox";
-import { mintSignedUrlsForAttachments } from "@/lib/purchasing/attachment-signed-urls";
+import { PurchaseRequestCard } from "@/components/features/purchase-request-card";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
 
-// Spec 19 §4: the single purchasing surface for every role. PM/super
-// see the decision controls inline on requested rows (the old
-// /pm/requests queue, merged here); the list is pending-first
-// (priority band then requested asc — spec-16 A2), decided rows below
-// newest-first. The whole list is site-wide for every role since
-// spec-16 addendum A1 / ADR 0026 widened the SELECT policy.
+// Spec 19 §4: the single purchasing surface for every role. The list is
+// pending-first (priority band then requested asc — spec-16 A2), decided
+// rows below newest-first; site-wide for every role since spec-16
+// addendum A1 / ADR 0026. Spec 47: each row is a slim card linking to
+// /requests/[id] — facts and every action zone (decision, recording,
+// shipping, cancel, attachments) render on the detail screen.
 export const metadata = { title: "คำขอซื้อ" };
 
 interface RequestsPageProps {
@@ -144,19 +120,6 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   const decidedRows = allVisible.filter((r) => r.status !== "requested");
   const myRequests = [...pendingRows, ...decidedRows];
 
-  const isDecider = ctx.role === "project_manager" || ctx.role === "super_admin";
-  // Spec 33 / ADR 0038: back-office recording gate (PM/procurement/super).
-  // The RPCs re-enforce server-side; suppliers are only fetched when the
-  // viewer can actually use the form.
-  const isBackOffice = isBackOfficeRole(ctx.role);
-  let suppliers: SupplierOption[] = [];
-  if (isBackOffice) {
-    const { data: supplierRows } = await supabase
-      .from("suppliers")
-      .select("id, name, phone")
-      .order("name", { ascending: true });
-    suppliers = supplierRows ?? [];
-  }
   // Site-wide visibility (A1): every viewer sees requester names now —
   // the operator-sanctioned name exposure recorded in ADR 0026.
   const requesterNames = await fetchDisplayNames(
@@ -178,53 +141,6 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     .select("id, code, name, project_id")
     .in("id", wpIdsInRequests);
   const wpById = new Map((wpForRequests ?? []).map((wp) => [wp.id, wp]));
-
-  // Attachments (spec 23 + spec 16 P2): ONE query against the
-  // current-state view (ADR 0009/0015 anti-join pre-encoded) for every
-  // visible request, split by purpose/kind for render, then batched
-  // signed URLs for exactly the image rows being rendered.
-  interface AttachmentRow {
-    id: string | null;
-    purchase_request_id: string | null;
-    kind: string | null;
-    purpose: string | null;
-    storage_path: string | null;
-    url: string | null;
-    created_by: string | null;
-    created_at: string | null;
-  }
-  let attachmentRows: AttachmentRow[] = [];
-  if (myRequests.length > 0) {
-    const { data } = await supabase
-      .from("purchase_request_attachments_current")
-      .select("id, purchase_request_id, kind, purpose, storage_path, url, created_by, created_at")
-      .in(
-        "purchase_request_id",
-        myRequests.map((r) => r.id),
-      )
-      .order("created_at", { ascending: true });
-    attachmentRows = data ?? [];
-  }
-  const confirmationsByRequest = new Map<string, AttachmentRow[]>();
-  const referenceImagesByRequest = new Map<string, AttachmentRow[]>();
-  const referenceLinksByRequest = new Map<string, AttachmentRow[]>();
-  for (const row of attachmentRows) {
-    if (!row.purchase_request_id) continue;
-    const bucket =
-      row.purpose === "delivery_confirmation"
-        ? confirmationsByRequest
-        : row.kind === "image"
-          ? referenceImagesByRequest
-          : referenceLinksByRequest;
-    const list = bucket.get(row.purchase_request_id) ?? [];
-    list.push(row);
-    bucket.set(row.purchase_request_id, list);
-  }
-  const attachmentUrls = await mintSignedUrlsForAttachments(
-    attachmentRows
-      .filter((row) => row.kind === "image")
-      .map((row) => ({ id: row.id ?? "", storage_path: row.storage_path })),
-  );
 
   return (
     <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
@@ -313,224 +229,36 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
             <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
               {myRequests.map((r) => {
                 const wp = wpById.get(r.work_package_id);
-                const status = r.status as PurchaseRequestStatus;
-                const priority = r.priority as PurchaseRequestPriority;
+                // Spec 47: the card is a slim tappable summary linking to
+                // /requests/[id] — facts and actions live on the detail
+                // screen now.
                 return (
-                  <li
-                    key={r.id}
-                    className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 space-y-0.5">
-                        {wp ? (
-                          <p className="truncate text-xs text-zinc-600">
-                            <span className="font-mono">{wp.code}</span>
-                            <span className="mx-1">·</span>
-                            {wp.name}
-                          </p>
-                        ) : null}
-                        <p className="truncate text-base text-zinc-900">
-                          {/* PR running number (spec 27) — the phone-callable
-                              identity for site ↔ procurement talk. */}
-                          <span className="mr-1.5 font-mono text-xs text-zinc-500">
-                            PR-{String(r.pr_number).padStart(4, "0")}
-                          </span>
-                          {r.item_description}
-                          <span className="mx-2 text-zinc-400">·</span>
-                          <span className="text-zinc-700">
-                            {r.quantity} {r.unit}
-                          </span>
-                        </p>
-                        <p className="text-xs text-zinc-600">
-                          {/* Own-row marker (spec 25): in the site-wide list,
-                              the viewer's requests must be identifiable at a
-                              glance, not only via the ของฉัน filter chip. */}
-                          {r.requested_by === ctx.id ? (
-                            <span className="mr-1.5 inline-flex items-center rounded-full border border-blue-700 bg-blue-50 px-1.5 text-[10px] font-semibold text-blue-700">
-                              ของฉัน
-                            </span>
-                          ) : null}
-                          ขอซื้อโดย{" "}
-                          {(r.requested_by ? requesterNames.get(r.requested_by) : null) ??
-                            r.requested_by_email ??
-                            "—"}
-                          <span className="mx-1 text-zinc-400">·</span>
-                          ขอเมื่อ {formatThaiDate(r.requested_at)}
-                        </p>
-                        {r.needed_by ? (
-                          <p className="text-xs text-zinc-600">
-                            ต้องการรับของภายใน {formatThaiDate(r.needed_by)}
-                          </p>
-                        ) : null}
-                      </div>
-                      <span className="flex shrink-0 flex-col items-end gap-1">
-                        <StatusPill pillClasses={purchaseRequestStatusPillClasses(status)}>
-                          {PURCHASE_REQUEST_STATUS_LABEL[status]}
-                        </StatusPill>
-                        {priority !== "normal" ? (
-                          <StatusPill pillClasses={purchaseRequestPriorityPillClasses(priority)}>
-                            {PURCHASE_REQUEST_PRIORITY_LABEL[priority]}
-                          </StatusPill>
-                        ) : null}
-                      </span>
-                    </div>
-                    <div className="mt-3">
-                      <PurchaseRequestTracker
-                        status={status}
-                        requestedAt={r.requested_at}
-                        decidedAt={r.decided_at}
-                        purchasedAt={r.purchased_at}
-                        shippedAt={r.shipped_at}
-                        deliveredAt={r.delivered_at}
-                        eta={r.eta}
-                      />
-                    </div>
-                    {(referenceImagesByRequest.get(r.id) ?? []).length > 0 ? (
-                      <div className="mt-2">
-                        <p className="text-xs font-medium text-zinc-700">รูปอ้างอิง</p>
-                        <ul className="mt-1 flex flex-wrap gap-2">
-                          {(referenceImagesByRequest.get(r.id) ?? []).map((photo) => {
-                            const url = photo.id ? attachmentUrls.get(photo.id) : undefined;
-                            if (!photo.id || !url) return null;
-                            return (
-                              <li key={photo.id} className="flex flex-col items-center gap-0.5">
-                                <span className="block h-20 w-20 overflow-hidden rounded-lg border border-zinc-200">
-                                  <ZoomablePhoto src={url} />
-                                </span>
-                                {status === "requested" && photo.created_by === ctx.id ? (
-                                  <AttachmentRemoveButton attachmentId={photo.id} />
-                                ) : null}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </div>
-                    ) : null}
-                    {(referenceLinksByRequest.get(r.id) ?? []).length > 0 ? (
-                      <div className="mt-2">
-                        <p className="text-xs font-medium text-zinc-700">ลิงก์อ้างอิง</p>
-                        <ul className="mt-1 flex flex-col gap-1">
-                          {(referenceLinksByRequest.get(r.id) ?? []).map((link) => {
-                            if (!link.id || !link.url) return null;
-                            return (
-                              <li key={link.id} className="flex items-center gap-2">
-                                <a
-                                  href={link.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer nofollow"
-                                  className="min-w-0 flex-1 truncate text-xs text-blue-700 underline-offset-2 hover:underline"
-                                >
-                                  {link.url}
-                                </a>
-                                {status === "requested" && link.created_by === ctx.id ? (
-                                  <AttachmentRemoveButton attachmentId={link.id} />
-                                ) : null}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </div>
-                    ) : null}
-                    {status === "requested" && r.requested_by === ctx.id && wp ? (
-                      <details className="mt-2">
-                        <summary className="cursor-pointer text-xs font-medium text-blue-700 underline-offset-2 hover:underline">
-                          เพิ่มรูปหรือลิงก์
-                        </summary>
-                        <div className="mt-2">
-                          <PurchaseRequestAttachmentStager
-                            projectId={wp.project_id}
-                            purchaseRequestId={r.id}
-                            userId={ctx.id}
-                          />
-                        </div>
-                      </details>
-                    ) : null}
-                    {/* Spec 26 slimming: the tracker already carries the
-                        stage dates + ETA — the old อนุมัติเมื่อ /
-                        คาดว่าจะได้รับของ / สั่งซื้อเมื่อ / ได้รับของเมื่อ
-                        text lines duplicated it. Only facts the tracker
-                        does NOT show remain: supplier, receiver, notes. */}
-                    {status === "rejected" && r.decision_comment ? (
-                      <div className="mt-2 rounded-md border border-red-300 bg-red-50 px-3 py-2">
-                        <p className="text-xs font-medium text-red-900">เหตุผลที่ไม่อนุมัติ</p>
-                        <p className="mt-0.5 text-sm whitespace-pre-wrap text-red-800">
-                          {r.decision_comment}
-                        </p>
-                        {r.decided_at ? (
-                          <p className="mt-1 text-xs text-red-700">
-                            พิจารณาเมื่อ {formatThaiDateTime(r.decided_at)}
-                          </p>
-                        ) : null}
-                      </div>
-                    ) : null}
-                    {r.supplier || (status === "delivered" && r.received_by) ? (
-                      <p className="mt-2 text-xs text-zinc-600">
-                        {r.supplier ? `ผู้ขาย ${r.supplier}` : ""}
-                        {r.supplier && status === "delivered" && r.received_by ? " · " : ""}
-                        {status === "delivered" && r.received_by
-                          ? `ผู้รับของ ${r.received_by}`
-                          : ""}
-                      </p>
-                    ) : null}
-                    {status === "delivered" && r.delivery_note ? (
-                      <p className="mt-1 text-xs whitespace-pre-wrap text-zinc-600">
-                        {r.delivery_note}
-                      </p>
-                    ) : null}
-                    {status === "delivered" || status === "on_route" ? (
-                      <div className="mt-3 flex flex-col gap-2 border-t border-zinc-200 pt-3">
-                        {(confirmationsByRequest.get(r.id) ?? []).length > 0 ? (
-                          <div>
-                            <p className="text-xs font-medium text-zinc-700">รูปยืนยันการรับของ</p>
-                            <ul className="mt-1 flex flex-wrap gap-2">
-                              {(confirmationsByRequest.get(r.id) ?? []).map((photo) => {
-                                const url = photo.id ? attachmentUrls.get(photo.id) : undefined;
-                                if (!photo.id || !url) return null;
-                                return (
-                                  <li key={photo.id} className="flex flex-col items-center gap-0.5">
-                                    <span className="block h-20 w-20 overflow-hidden rounded-lg border border-zinc-200">
-                                      <ZoomablePhoto src={url} />
-                                    </span>
-                                    {photo.created_by === ctx.id ? (
-                                      <AttachmentRemoveButton attachmentId={photo.id} />
-                                    ) : null}
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          </div>
-                        ) : null}
-                        {wp ? (
-                          <DeliveryPhotoUploader
-                            purchaseRequestId={r.id}
-                            projectId={wp.project_id}
-                            userId={ctx.id}
-                          />
-                        ) : null}
-                      </div>
-                    ) : null}
-                    {isDecider && status === "requested" ? (
-                      <div className="mt-3 border-t border-zinc-300 pt-3">
-                        <PurchaseRequestDecision requestId={r.id} />
-                      </div>
-                    ) : null}
-                    {isBackOffice && status === "approved" ? (
-                      <div className="mt-3 border-t border-zinc-300 pt-3">
-                        {/* Spec 33: in-app purchase recording — parallel
-                            path to AppSheet (ADR 0034 amendment). */}
-                        <PurchaseRecordForm requestId={r.id} suppliers={suppliers} />
-                      </div>
-                    ) : null}
-                    {isBackOffice && status === "purchased" ? (
-                      <div className="mt-3 border-t border-zinc-300 pt-3">
-                        <PurchaseRequestShip requestId={r.id} />
-                      </div>
-                    ) : null}
-                    {isDecider && status === "approved" ? (
-                      <div className="mt-3 border-t border-zinc-300 pt-3">
-                        <PurchaseRequestCancel requestId={r.id} />
-                      </div>
-                    ) : null}
+                  <li key={r.id}>
+                    <PurchaseRequestCard
+                      request={{
+                        id: r.id,
+                        pr_number: r.pr_number,
+                        item_description: r.item_description,
+                        quantity: r.quantity,
+                        unit: r.unit,
+                        status: r.status as PurchaseRequestStatus,
+                        priority: r.priority as PurchaseRequestPriority,
+                        requested_at: r.requested_at,
+                        needed_by: r.needed_by,
+                        decided_at: r.decided_at,
+                        purchased_at: r.purchased_at,
+                        shipped_at: r.shipped_at,
+                        delivered_at: r.delivered_at,
+                        eta: r.eta,
+                      }}
+                      workPackage={wp ? { code: wp.code, name: wp.name } : null}
+                      requesterName={
+                        (r.requested_by ? requesterNames.get(r.requested_by) : null) ??
+                        r.requested_by_email ??
+                        null
+                      }
+                      isMine={r.requested_by === ctx.id}
+                    />
                   </li>
                 );
               })}
@@ -538,11 +266,11 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
           )}
           {myRequests && myRequests.length > 0 ? (
             <p className="mt-3 text-xs text-zinc-600">
-              เมื่อผู้จัดการโครงการอนุมัติคำขอแล้ว
-              ฝ่ายจัดซื้อบันทึกการสั่งซื้อและการจัดส่งได้ทั้งในหน้านี้และในระบบหลังบ้าน — สถานะ
-              &ldquo;สั่งซื้อแล้ว&rdquo; และ &ldquo;กำลังจัดส่ง&rdquo; จะอัปเดตอัตโนมัติจากบันทึก
-              เมื่อของถึงหน้างาน ถ่ายรูปยืนยันการรับของได้ทันทีที่สถานะ &ldquo;กำลังจัดส่ง&rdquo; —
-              ระบบจะบันทึกเป็น &ldquo;ได้รับของแล้ว&rdquo; ให้อัตโนมัติ
+              กดที่คำขอเพื่อดูรายละเอียดและดำเนินการ — เมื่อผู้จัดการโครงการอนุมัติคำขอแล้ว
+              ฝ่ายจัดซื้อบันทึกการสั่งซื้อและการจัดส่งได้ในหน้ารายละเอียดคำขอและในระบบหลังบ้าน —
+              สถานะ &ldquo;สั่งซื้อแล้ว&rdquo; และ &ldquo;กำลังจัดส่ง&rdquo;
+              จะอัปเดตอัตโนมัติจากบันทึก เมื่อของถึงหน้างาน ถ่ายรูปยืนยันการรับของได้ทันทีที่สถานะ
+              &ldquo;กำลังจัดส่ง&rdquo; — ระบบจะบันทึกเป็น &ldquo;ได้รับของแล้ว&rdquo; ให้อัตโนมัติ
             </p>
           ) : null}
         </div>
