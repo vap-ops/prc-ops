@@ -14,7 +14,7 @@ export const metadata = { title: "เข้าสู่ระบบ" };
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; handoff?: string }>;
 }) {
   const supabase = await createClient();
   const {
@@ -34,12 +34,24 @@ export default async function LoginPage({
   const errorMessage = params.error
     ? (ERROR_MESSAGES[params.error] ?? ERROR_MESSAGES.unknown)
     : null;
+  // Spec 43: the handoff callback drops the user in a browser tab that
+  // holds no session — tell them to return to the installed app.
+  const handoffApproved = params.handoff === "approved";
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-white px-6 text-zinc-900">
       <div className="w-full max-w-sm space-y-6 text-center">
         <h1 className="text-3xl font-semibold tracking-tight">PRC Ops</h1>
         <p className="text-sm text-zinc-600">เข้าสู่ระบบด้วยบัญชี LINE ของคุณเพื่อเข้าใช้งาน</p>
+        {handoffApproved && (
+          <div
+            role="status"
+            data-testid="login-handoff-success"
+            className="rounded border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+          >
+            เข้าสู่ระบบสำเร็จแล้ว กลับไปที่แอปบนหน้าจอหลักได้เลย
+          </div>
+        )}
         {errorMessage && (
           <div
             role="alert"

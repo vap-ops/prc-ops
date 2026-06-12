@@ -1,6 +1,9 @@
 # Spec 42 — PWA standalone LINE re-login (iOS)
 
-**Status:** shipped — 2026-06-12 (operator phone pass = acceptance). Operator: "Adding to home is
+**Status:** shipped — 2026-06-12; **items 1–2 superseded same day by
+spec 43 / ADR 0041** (operator hit the web-login limitation
+immediately — QR/email-password is unusable for most users). Item 3
+(logout hiding) stands. Operator: "Adding to home is
 problematic due to LINE login. It works fine until user logout
 (intentionally or not). Logging back in requires redirect, then LINE
 takes the user back to the browser again, and that login session is

@@ -2,7 +2,15 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { clientEnv } from "@/lib/env";
 
-const PUBLIC_PATHS = new Set(["/", "/login", "/auth/line/start", "/auth/line/callback"]);
+const PUBLIC_PATHS = new Set([
+  "/",
+  "/login",
+  "/auth/line/start",
+  "/auth/line/callback",
+  // Spec 43 — device-code handoff (unauthenticated by definition).
+  "/auth/handoff/start",
+  "/auth/handoff/poll",
+]);
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });

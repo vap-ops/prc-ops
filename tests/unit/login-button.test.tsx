@@ -1,34 +1,36 @@
-// Spec 42 — LoginButton renders two CSS-toggled anchors so the
-// installed PWA (display-mode: standalone) starts the OAuth flow with
-// ?standalone=1 while the browser keeps the plain URL. jsdom cannot
-// evaluate the display-mode media query, so these tests pin the hrefs
-// and the Tailwind arbitrary-variant classes that do the toggling.
+// Spec 43 (named update of the spec-42 pins) — LoginButton renders the
+// plain browser anchor plus the standalone handoff control, toggled by
+// the display-mode media query. The spec-42 ?standalone=1 anchor is
+// gone: standalone launches go through /auth/handoff/start instead.
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { LoginButton } from "@/app/login/login-button";
 
 const STANDALONE_HIDDEN = "[@media(display-mode:standalone)]:hidden";
-const STANDALONE_SHOWN = "[@media(display-mode:standalone)]:inline-flex";
+const STANDALONE_SHOWN = "[@media(display-mode:standalone)]:block";
 
 describe("LoginButton", () => {
   it("renders the browser anchor, hidden in standalone display-mode", () => {
     render(<LoginButton />);
-    const links = screen.getAllByRole("link", { name: "เข้าสู่ระบบด้วย LINE" });
-    const browserAnchor = links.find((a) => a.getAttribute("href") === "/auth/line/start");
-    expect(browserAnchor).toBeDefined();
-    expect(browserAnchor?.className).toContain(STANDALONE_HIDDEN);
+    const anchor = screen.getByRole("link", { name: "เข้าสู่ระบบด้วย LINE" });
+    expect(anchor).toHaveAttribute("href", "/auth/line/start");
+    expect(anchor.className).toContain(STANDALONE_HIDDEN);
   });
 
-  it("renders the standalone anchor with ?standalone=1, shown only in standalone", () => {
+  it("renders the standalone handoff button, shown only in standalone", () => {
     render(<LoginButton />);
-    const links = screen.getAllByRole("link", { name: "เข้าสู่ระบบด้วย LINE" });
-    const standaloneAnchor = links.find(
-      (a) => a.getAttribute("href") === "/auth/line/start?standalone=1",
-    );
-    expect(standaloneAnchor).toBeDefined();
-    // Hidden by default, swapped in by the media query.
-    expect(standaloneAnchor?.className).toContain("hidden");
-    expect(standaloneAnchor?.className).toContain(STANDALONE_SHOWN);
+    const button = screen.getByRole("button", { name: "เข้าสู่ระบบด้วย LINE" });
+    // The client control sits in a CSS-toggled wrapper above it.
+    const wrapper = button.closest('[class*="standalone)]:block"]');
+    expect(wrapper).not.toBeNull();
+    expect(wrapper?.className).toContain("hidden");
+    expect(wrapper?.className).toContain(STANDALONE_SHOWN);
+  });
+
+  it("no longer renders the dead ?standalone=1 anchor (spec 42 → 43)", () => {
+    render(<LoginButton />);
+    const links = screen.getAllByRole("link");
+    expect(links.map((a) => a.getAttribute("href"))).not.toContain("/auth/line/start?standalone=1");
   });
 });

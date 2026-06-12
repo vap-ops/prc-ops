@@ -1,21 +1,26 @@
-// Custom-flow LINE auth — Step 2 of 2 (callback). See ADR 0012.
+// Custom-flow LINE auth — Step 2 of 2 (callback). See ADR 0012 + 0041.
 //
-// Flow:
+// Two flows share this endpoint, resolved by resolveCallbackFlow():
+//
+// BROWSER (ADR 0012, unchanged behavior):
 //   1. Validate CSRF state (cookie vs query param). Cookie is single-use.
-//   2. Exchange ?code at LINE's token endpoint.
-//   3. Verify the HS256 id_token (alg, signature via timingSafeEqual, iss,
-//      aud, exp, iat, sub) — see src/lib/auth/verify-line-id-token.ts.
-//   4. Provision-or-locate the auth.users row via the admin (service-role)
-//      client. Synthetic email line_<sub>@line.local; email_confirm true.
-//      Duplicates are idempotent.
-//   5. Mint a Supabase session via admin.generateLink({type:'magiclink'})
+//   2. Exchange ?code + verify the HS256 id_token (shared lib).
+//   3. Provision-or-locate the auth.users row (admin client; synthetic
+//      email line_<sub>@line.local; duplicates idempotent).
+//   4. Mint a Supabase session via admin.generateLink({type:'magiclink'})
 //      then verifyOtp({type:'magiclink', token_hash}) on the SSR client so
 //      the sb-* cookies are written onto the route handler's response.
-//   6. Read public.users.role for the user (retried for the trigger-race
-//      window; RLS recursion fixed by ADR 0011 so the read works).
-//   7. NULL-only profile write (admin client): populate line_user_id /
-//      full_name only if currently NULL.
-//   8. Redirect by role.
+//   5. Read public.users.role (retried for the trigger-race window).
+//   6. Profile write: NULL-only line_user_id/full_name; avatar refresh.
+//   7. Redirect by role.
+//
+// HANDOFF (spec 43 / ADR 0041 — flow started inside the installed PWA,
+// landing context unpredictable): state validates against a pending,
+// unexpired login_handoffs row instead of the cookie. Steps 2–3 run the
+// same, then the row is atomically bound (user_email + claims stash,
+// status → approved) and the user is told to return to the app. NO
+// session is minted here — /auth/handoff/poll mints it in the PWA's own
+// cookie jar, and runs the profile write from the stashed claims.
 //
 // Security: all Supabase clients are created INSIDE this handler (no
 // module-scope instances — Vercel Fluid Compute reuses warm processes
@@ -26,18 +31,14 @@ import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { createClient as createServerSupabase } from "@/lib/db/server";
+import { resolveCallbackFlow } from "@/lib/auth/handoff-flow";
+import { exchangeLineCode } from "@/lib/auth/line-token-exchange";
 import { roleHome, type UserRole } from "@/lib/auth/role-home";
 import { serverEnv } from "@/lib/env.server";
-import { verifyLineIdToken, type LineIdTokenClaims } from "@/lib/auth/verify-line-id-token";
 
-const LINE_TOKEN_URL = "https://api.line.me/oauth2/v2.1/token";
 const STATE_COOKIE_NAME = "line_oauth_state";
 const PROFILE_READ_MAX_ATTEMPTS = 3;
 const PROFILE_READ_RETRY_DELAY_MS = 50;
-
-interface TokenEndpointResponse {
-  id_token?: unknown;
-}
 
 function redirectToLogin(request: NextRequest, error: string): NextResponse {
   const url = request.nextUrl.clone();
@@ -55,15 +56,27 @@ function redirectByRole(request: NextRequest, role: UserRole): NextResponse {
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  // ---- 1. Validate state (CSRF) ----
+  // ---- 1. Resolve the flow from the state channel (cookie or DB row) ----
   const cookieStore = await cookies();
   const stateCookie = cookieStore.get(STATE_COOKIE_NAME)?.value ?? null;
   const stateParam = request.nextUrl.searchParams.get("state");
   // Single-use: clear the cookie regardless of outcome.
   cookieStore.delete(STATE_COOKIE_NAME);
 
-  if (!stateCookie || !stateParam || stateCookie !== stateParam) {
-    console.error("[auth/line/callback] state mismatch");
+  const admin = createAdminSupabase();
+  let handoffRow: { id: string; status: string; expires_at: string } | null = null;
+  if (stateParam && (!stateCookie || stateCookie !== stateParam)) {
+    const { data } = await admin
+      .from("login_handoffs")
+      .select("id, status, expires_at")
+      .eq("state", stateParam)
+      .maybeSingle();
+    handoffRow = data;
+  }
+
+  const flow = resolveCallbackFlow({ stateParam, stateCookie, handoffRow, nowMs: Date.now() });
+  if (flow.kind === "invalid") {
+    console.error("[auth/line/callback] state mismatch (no cookie, no handoff row)");
     return redirectToLogin(request, "oauth_failed");
   }
 
@@ -82,61 +95,24 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return redirectToLogin(request, "oauth_failed");
   }
 
-  // ---- 3. Exchange code at LINE token endpoint ----
-  const redirectUri = `${request.nextUrl.origin}/auth/line/callback`;
-  const tokenBody = new URLSearchParams({
-    grant_type: "authorization_code",
+  // ---- 3. Exchange code + verify id_token (shared lib, ADR 0012 §2–3) ----
+  const exchange = await exchangeLineCode({
     code,
-    redirect_uri: redirectUri,
-    client_id: serverEnv.LINE_CHANNEL_ID,
-    client_secret: serverEnv.LINE_CHANNEL_SECRET,
+    redirectUri: `${request.nextUrl.origin}/auth/line/callback`,
+    channelId: serverEnv.LINE_CHANNEL_ID,
+    channelSecret: serverEnv.LINE_CHANNEL_SECRET,
   });
+  if (!exchange.ok) {
+    console.error("[auth/line/callback] code exchange failed", {
+      reason: exchange.reason,
+      detail: exchange.detail,
+    });
+    return redirectToLogin(request, "oauth_failed");
+  }
+  const claims = exchange.claims;
 
-  let tokenResp: Response;
-  try {
-    tokenResp = await fetch(LINE_TOKEN_URL, {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: tokenBody,
-    });
-  } catch (err) {
-    console.error("[auth/line/callback] LINE token endpoint fetch failed", {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return redirectToLogin(request, "oauth_failed");
-  }
-  if (!tokenResp.ok) {
-    const responseBody = await tokenResp.text();
-    console.error("[auth/line/callback] LINE token exchange failed", {
-      status: tokenResp.status,
-      body: responseBody,
-    });
-    return redirectToLogin(request, "oauth_failed");
-  }
-  const tokenJson = (await tokenResp.json()) as TokenEndpointResponse;
-  if (typeof tokenJson.id_token !== "string") {
-    console.error("[auth/line/callback] LINE token response missing id_token");
-    return redirectToLogin(request, "oauth_failed");
-  }
-
-  // ---- 4. Verify HS256 id_token ----
-  let claims: LineIdTokenClaims;
-  try {
-    claims = verifyLineIdToken(
-      tokenJson.id_token,
-      serverEnv.LINE_CHANNEL_SECRET,
-      serverEnv.LINE_CHANNEL_ID,
-    );
-  } catch (err) {
-    console.error("[auth/line/callback] id_token verification failed", {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return redirectToLogin(request, "oauth_failed");
-  }
-
-  // ---- 5. Provision or locate auth.users (idempotent on synthetic email) ----
+  // ---- 4. Provision or locate auth.users (idempotent on synthetic email) ----
   const syntheticEmail = `line_${claims.sub}@line.local`;
-  const admin = createAdminSupabase();
   const createResult = await admin.auth.admin.createUser({
     email: syntheticEmail,
     email_confirm: true,
@@ -147,14 +123,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     },
   });
   if (createResult.error) {
-    const code = createResult.error.code ?? "";
+    const errorCode = createResult.error.code ?? "";
     const isDuplicate =
-      code === "email_exists" ||
-      code === "user_already_exists" ||
+      errorCode === "email_exists" ||
+      errorCode === "user_already_exists" ||
       createResult.error.message.toLowerCase().includes("already");
     if (!isDuplicate) {
       console.error("[auth/line/callback] admin.createUser failed", {
-        code,
+        code: errorCode,
         message: createResult.error.message,
       });
       return redirectToLogin(request, "unknown");
@@ -162,7 +138,33 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // Duplicate → user already provisioned from a prior login. Continue.
   }
 
-  // ---- 6. Mint session: generateLink(magiclink) → verifyOtp(token_hash) ----
+  // ---- HANDOFF: bind identity to the row; the PWA's poll mints ----
+  if (flow.kind === "handoff") {
+    const { data: bound } = await admin
+      .from("login_handoffs")
+      .update({
+        status: "approved",
+        user_email: syntheticEmail,
+        line_claims: { sub: claims.sub, name: claims.name, picture: claims.picture },
+      })
+      .eq("id", flow.rowId)
+      .eq("status", "pending")
+      .gt("expires_at", new Date().toISOString())
+      .select("id");
+    if (!bound || bound.length === 0) {
+      console.error("[auth/line/callback] handoff bind lost (expired or replayed)", {
+        rowId: flow.rowId,
+      });
+      return redirectToLogin(request, "oauth_failed");
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.search = "";
+    url.searchParams.set("handoff", "approved");
+    return NextResponse.redirect(url);
+  }
+
+  // ---- BROWSER: 5. Mint session (generateLink → verifyOtp) ----
   const linkResult = await admin.auth.admin.generateLink({
     type: "magiclink",
     email: syntheticEmail,
@@ -189,7 +191,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
   const user = verifyResult.data.user;
 
-  // ---- 7. Read public.users.role (retry for trigger-race) ----
+  // ---- 6. Read public.users.role (retry for trigger-race) ----
   let row: {
     role: string;
     line_user_id: string | null;
@@ -217,7 +219,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return redirectToLogin(request, "unknown");
   }
 
-  // ---- 8. Profile write (admin client) ----
+  // ---- 7. Profile write (admin client) ----
   // line_user_id / full_name: NULL-only (set once at first login, never overwritten).
   // line_avatar_url: REFRESH-on-login (update whenever claims.picture differs from
   //   stored value, including clearing to null if the user removed their LINE picture).
@@ -238,6 +240,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // ---- 9. Redirect by role ----
+  // ---- 8. Redirect by role ----
   return redirectByRole(request, row.role as UserRole);
 }

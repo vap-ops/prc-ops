@@ -181,6 +181,39 @@ export type Database = {
           },
         ];
       };
+      login_handoffs: {
+        Row: {
+          created_at: string;
+          device_code: string;
+          expires_at: string;
+          id: string;
+          line_claims: Json;
+          state: string;
+          status: Database["public"]["Enums"]["login_handoff_status"];
+          user_email: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          device_code: string;
+          expires_at: string;
+          id?: string;
+          line_claims?: Json;
+          state: string;
+          status?: Database["public"]["Enums"]["login_handoff_status"];
+          user_email?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          device_code?: string;
+          expires_at?: string;
+          id?: string;
+          line_claims?: Json;
+          state?: string;
+          status?: Database["public"]["Enums"]["login_handoff_status"];
+          user_email?: string | null;
+        };
+        Relationships: [];
+      };
       notification_outbox: {
         Row: {
           attempts: number;
@@ -937,6 +970,7 @@ export type Database = {
         | "purchase_request_decision"
         | "purchase_request_purchase"
         | "purchase_request_delivery";
+      login_handoff_status: "pending" | "approved" | "consumed";
       notification_event_type:
         | "wp_pending_approval"
         | "wp_decision"
@@ -1123,6 +1157,7 @@ export const Constants = {
         "purchase_request_purchase",
         "purchase_request_delivery",
       ],
+      login_handoff_status: ["pending", "approved", "consumed"],
       notification_event_type: [
         "wp_pending_approval",
         "wp_decision",
