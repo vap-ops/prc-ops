@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PAGE_MAX_W } from "@/lib/ui/page-width";
 
 // Shared hub nav strip (spec 18). One consistent item set per role
 // surface — the PM pages all show the same four destinations, /sa shows
@@ -28,7 +29,7 @@ export const SA_HUB_NAV: ReadonlyArray<HubNavItem> = [
 ];
 
 interface HubNavProps {
-  maxWidthClass: "max-w-2xl" | "max-w-3xl" | "max-w-2xl lg:max-w-5xl" | "max-w-3xl lg:max-w-5xl";
+  maxWidthClass: typeof PAGE_MAX_W;
   items: ReadonlyArray<HubNavItem>;
   currentHref: string;
 }

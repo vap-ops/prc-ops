@@ -5,6 +5,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { HubNav, PM_HUB_NAV, SA_HUB_NAV } from "@/components/features/hub-nav";
+import { PAGE_MAX_W } from "@/lib/ui/page-width";
 
 // Spec 19 §4: /pm/requests merged into /requests — the PM set drops to
 // three items with exactly one purchasing entry.
@@ -29,7 +30,7 @@ describe("canonical nav sets", () => {
 
 describe("HubNav", () => {
   it("renders every item, with the current page as a span and the rest as links", () => {
-    render(<HubNav maxWidthClass="max-w-2xl" items={PM_ITEMS} currentHref="/pm/projects" />);
+    render(<HubNav maxWidthClass={PAGE_MAX_W} items={PM_ITEMS} currentHref="/pm/projects" />);
     const current = screen.getByText("โครงการและรายงาน");
     expect(current.tagName).toBe("SPAN");
     expect(screen.queryByRole("link", { name: "โครงการและรายงาน" })).not.toBeInTheDocument();
@@ -39,13 +40,13 @@ describe("HubNav", () => {
 
   it("renders no directional arrow glyphs", () => {
     const { container } = render(
-      <HubNav maxWidthClass="max-w-2xl" items={PM_ITEMS} currentHref="/pm" />,
+      <HubNav maxWidthClass={PAGE_MAX_W} items={PM_ITEMS} currentHref="/pm" />,
     );
     expect(container.textContent).not.toMatch(/[→←]/);
   });
 
   it("gives links a min-h-11 tap target", () => {
-    render(<HubNav maxWidthClass="max-w-2xl" items={PM_ITEMS} currentHref="/pm" />);
+    render(<HubNav maxWidthClass={PAGE_MAX_W} items={PM_ITEMS} currentHref="/pm" />);
     expect(screen.getByRole("link", { name: "คำขอซื้อ" }).className).toContain("min-h-11");
   });
 });

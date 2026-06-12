@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
 import { Camera, FileText, ShoppingCart } from "lucide-react";
 import { requireRole } from "@/lib/auth/require-role";
@@ -121,7 +122,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
     <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
       <header className="border-b border-zinc-200 bg-white px-5 py-4">
-        <div className="mx-auto flex max-w-2xl flex-col gap-1 md:max-w-4xl lg:max-w-6xl xl:max-w-7xl">
+        <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-1`}>
           <Link
             href={`/sa/projects/${projectId}`}
             className="w-fit text-xs font-medium text-blue-700 hover:underline focus:outline-none focus-visible:underline"
@@ -170,7 +171,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
       {attention ? (
         <div className="border-b border-zinc-300 px-5 py-3">
           <div
-            className={`mx-auto max-w-2xl rounded-md border px-3 py-2 md:max-w-4xl lg:max-w-6xl xl:max-w-7xl ${
+            className={`mx-auto ${PAGE_MAX_W} rounded-md border px-3 py-2 ${
               attention.decision === "rejected"
                 ? "border-red-300 bg-red-50"
                 : "border-amber-400 bg-amber-50"
@@ -206,7 +207,9 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
           SA's job); ≥md two columns — photos wide left, facts right.
           max width steps up to 4xl ONLY at md so phones keep the
           familiar 2xl measure. */}
-      <div className="mx-auto grid max-w-2xl grid-cols-1 gap-6 px-5 py-6 md:max-w-4xl md:grid-cols-[1.6fr_1fr] md:items-start lg:max-w-6xl lg:gap-8">
+      <div
+        className={`mx-auto grid ${PAGE_MAX_W} grid-cols-1 gap-6 px-5 py-6 md:grid-cols-[1.6fr_1fr] md:items-start lg:gap-8`}
+      >
         <div className="flex min-w-0 flex-col gap-4">
           {/* Spec 30: zone headers — icon + bold title + rule line so the
               three content categories read as distinct at a glance. */}

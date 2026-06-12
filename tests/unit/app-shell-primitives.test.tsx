@@ -6,18 +6,19 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { AppHeader } from "@/components/features/app-header";
+import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { StatusPill } from "@/components/features/status-pill";
 import { EmptyNotice, ErrorNotice } from "@/components/features/notices";
 
 describe("AppHeader", () => {
   it("renders the kicker and the greeting with the user's name", () => {
-    render(<AppHeader kicker="หน้างาน" fullName="สมชาย" maxWidthClass="max-w-2xl" />);
+    render(<AppHeader kicker="หน้างาน" fullName="สมชาย" maxWidthClass={PAGE_MAX_W} />);
     expect(screen.getByText("หน้างาน")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("สวัสดี คุณสมชาย");
   });
 
   it("falls back to a bare greeting without a name", () => {
-    render(<AppHeader kicker="หน้างาน" fullName={null} maxWidthClass="max-w-3xl" />);
+    render(<AppHeader kicker="หน้างาน" fullName={null} maxWidthClass={PAGE_MAX_W} />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^สวัสดี$/);
   });
 
@@ -28,7 +29,7 @@ describe("AppHeader", () => {
         kicker="ผู้จัดการโครงการ"
         title="รายงาน"
         fullName="สมชาย"
-        maxWidthClass="max-w-2xl"
+        maxWidthClass={PAGE_MAX_W}
       />,
     );
     const heading = screen.getByRole("heading", { level: 1 });
@@ -37,7 +38,7 @@ describe("AppHeader", () => {
   });
 
   it("always shows the profile link (spec 18 normalization — no hide prop)", () => {
-    render(<AppHeader kicker="คำขอซื้อ" fullName="สมชาย" maxWidthClass="max-w-3xl" />);
+    render(<AppHeader kicker="คำขอซื้อ" fullName="สมชาย" maxWidthClass={PAGE_MAX_W} />);
     expect(screen.getByRole("link", { name: "โปรไฟล์" })).toHaveAttribute("href", "/profile");
   });
 });

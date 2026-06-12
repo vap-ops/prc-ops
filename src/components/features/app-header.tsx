@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { LogoutButton } from "@/components/auth/logout-button";
 
 // Shared hub-page header (spec 17). One source for the kicker + greeting
@@ -17,7 +18,7 @@ interface AppHeaderProps {
   fullName?: string | null;
   /** Fixed-title variant — overrides the greeting (reports page). */
   title?: string;
-  maxWidthClass: "max-w-2xl" | "max-w-3xl" | "max-w-2xl lg:max-w-5xl" | "max-w-3xl lg:max-w-5xl";
+  maxWidthClass: typeof PAGE_MAX_W;
 }
 
 export function AppHeader({ kicker, fullName, title, maxWidthClass }: AppHeaderProps) {

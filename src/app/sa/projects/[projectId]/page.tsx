@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { requireRole } from "@/lib/auth/require-role";
@@ -45,7 +46,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
     <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
       <header className="border-b border-zinc-200 bg-white px-5 py-4">
-        <div className="mx-auto flex max-w-2xl flex-col gap-1 lg:max-w-5xl">
+        <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-1`}>
           <Link
             href="/sa"
             className="w-fit text-xs font-medium text-blue-700 hover:underline focus:outline-none focus-visible:underline"
@@ -57,7 +58,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
         </div>
       </header>
 
-      <section className="mx-auto max-w-2xl px-5 py-6 lg:max-w-5xl">
+      <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
         <h2 className="mb-3 text-base font-semibold text-zinc-900">รายการงาน</h2>
         <WorkPackageList
           projectId={project.id}

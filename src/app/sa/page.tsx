@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { AppHeader } from "@/components/features/app-header";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { HubNav, SA_HUB_NAV } from "@/components/features/hub-nav";
@@ -23,11 +24,11 @@ export default async function SitAdminLandingPage() {
   return (
     <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
-      <AppHeader kicker="หน้างาน" fullName={ctx.fullName} maxWidthClass="max-w-2xl lg:max-w-5xl" />
+      <AppHeader kicker="หน้างาน" fullName={ctx.fullName} maxWidthClass={PAGE_MAX_W} />
 
-      <HubNav maxWidthClass="max-w-2xl lg:max-w-5xl" items={SA_HUB_NAV} currentHref="/sa" />
+      <HubNav maxWidthClass={PAGE_MAX_W} items={SA_HUB_NAV} currentHref="/sa" />
 
-      <section className="mx-auto max-w-2xl px-5 py-6 lg:max-w-5xl">
+      <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
         <h2 className="mb-3 text-base font-semibold text-zinc-900">โครงการ</h2>
 
         {error ? (

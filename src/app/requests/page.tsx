@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { ArrowLeft } from "lucide-react";
 import { AppHeader } from "@/components/features/app-header";
 import { EmptyNotice, ErrorNotice } from "@/components/features/notices";
@@ -228,7 +229,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   return (
     <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
-      <AppHeader kicker="คำขอซื้อ" fullName={ctx.fullName} maxWidthClass="max-w-2xl lg:max-w-5xl" />
+      <AppHeader kicker="คำขอซื้อ" fullName={ctx.fullName} maxWidthClass={PAGE_MAX_W} />
 
       {/* Pinned mode keeps the contextual spec-12 back-bar everywhere; in
           bare mode /requests is a TAB ROOT — on phones the bottom tabs
@@ -239,7 +240,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
           pinnedWp && pinnedProjectId ? "" : "hidden sm:block"
         }`}
       >
-        <div className="mx-auto flex max-w-2xl items-center lg:max-w-5xl">
+        <div className={`mx-auto flex ${PAGE_MAX_W} items-center`}>
           <Link
             href={backHref}
             className="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline"
@@ -250,7 +251,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         </div>
       </nav>
 
-      <section className="mx-auto max-w-2xl space-y-8 px-5 py-6 lg:max-w-5xl">
+      <section className={`mx-auto ${PAGE_MAX_W} space-y-8 px-5 py-6`}>
         <div>
           <h2 className="mb-3 text-base font-semibold text-zinc-900">สร้างคำขอซื้อ</h2>
           {pinnedWp && pinnedProjectId ? (
