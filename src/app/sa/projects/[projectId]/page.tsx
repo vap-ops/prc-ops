@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Settings } from "lucide-react";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
@@ -58,8 +58,22 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
             >
               <ArrowLeft aria-hidden className="h-5 w-5" />
             </Link>
-            {/* Spec 53: the PWA's only reload affordance. */}
-            <RefreshButton variant="light" />
+            <div className="flex items-center gap-2">
+              {/* Spec 58: project settings — back office only (ADR 0042).
+                  SA never sees the gear; the settings page also
+                  requireRole-gates pm/super. */}
+              {ctx.role === "project_manager" || ctx.role === "super_admin" ? (
+                <Link
+                  href={`/sa/projects/${project.id}/settings`}
+                  aria-label="ตั้งค่าโครงการ"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 shadow-sm transition-colors hover:bg-zinc-50 hover:text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+                >
+                  <Settings aria-hidden className="h-5 w-5" />
+                </Link>
+              ) : null}
+              {/* Spec 53: the PWA's only reload affordance. */}
+              <RefreshButton variant="light" />
+            </div>
           </div>
           <p className="font-mono text-xs text-zinc-600">{project.code}</p>
           <h1 className="text-2xl font-bold tracking-tight">{project.name}</h1>

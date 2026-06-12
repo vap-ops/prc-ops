@@ -1228,6 +1228,14 @@ export type Database = {
         Args: { p_full_name: string };
         Returns: undefined;
       };
+      update_project_settings: {
+        Args: {
+          p_name: string;
+          p_project_id: string;
+          p_status: Database["public"]["Enums"]["project_status"];
+        };
+        Returns: boolean;
+      };
       update_worker: {
         Args: {
           p_active?: boolean;
