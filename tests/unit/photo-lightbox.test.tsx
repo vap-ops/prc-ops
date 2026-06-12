@@ -6,7 +6,18 @@
 // doesn't dismiss the view).
 
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// Spec 51 made the lightbox import the markup server actions; the
+// module carries `import "server-only"`, so client-component tests mock
+// it (the established action-module pattern). No test here passes a
+// photoId, so the mocks are never called.
+vi.mock("@/app/photo-markups/actions", () => ({
+  listPhotoMarkups: vi.fn(),
+  addPhotoMarkup: vi.fn(),
+  removePhotoMarkup: vi.fn(),
+}));
+
 import { ZoomablePhoto } from "@/components/features/photo-lightbox";
 
 const SRC = "https://example.test/storage/photo-1.jpg";

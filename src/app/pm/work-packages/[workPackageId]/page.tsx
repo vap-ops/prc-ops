@@ -223,10 +223,13 @@ function PhaseGallery({ label, photos, signedUrls }: PhaseGalleryProps) {
            Spec 50: the phase's loaded photos form one lightbox group. */
         <PhotoStrip>
           {(() => {
-            const loadedUrls = photos.flatMap((p) => {
+            const loaded = photos.flatMap((p) => {
               const u = signedUrls.get(p.id);
-              return u ? [u] : [];
+              return u ? [{ id: p.id, url: u }] : [];
             });
+            const loadedUrls = loaded.map((l) => l.url);
+            /* Spec 51: ids aligned with urls — markup follows navigation. */
+            const loadedPhotoIds = loaded.map((l) => l.id);
             let loadedIndex = 0;
             return photos.map((p) => {
               const url = signedUrls.get(p.id);
@@ -234,7 +237,13 @@ function PhaseGallery({ label, photos, signedUrls }: PhaseGalleryProps) {
               return (
                 <li key={p.id} className={PHOTO_STRIP_TILE}>
                   {url ? (
-                    <ZoomablePhoto src={url} group={loadedUrls} groupIndex={groupIndex} />
+                    <ZoomablePhoto
+                      src={url}
+                      group={loadedUrls}
+                      groupPhotoIds={loadedPhotoIds}
+                      groupIndex={groupIndex}
+                      photoId={p.id}
+                    />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-xs text-zinc-600">
                       ไม่พร้อมแสดง

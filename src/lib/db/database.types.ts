@@ -406,6 +406,65 @@ export type Database = {
           },
         ];
       };
+      photo_markups: {
+        Row: {
+          comment: string | null;
+          created_at: string;
+          created_by: string;
+          id: string;
+          photo_log_id: string;
+          strokes: Json | null;
+          superseded_by: string | null;
+        };
+        Insert: {
+          comment?: string | null;
+          created_at?: string;
+          created_by: string;
+          id?: string;
+          photo_log_id: string;
+          strokes?: Json | null;
+          superseded_by?: string | null;
+        };
+        Update: {
+          comment?: string | null;
+          created_at?: string;
+          created_by?: string;
+          id?: string;
+          photo_log_id?: string;
+          strokes?: Json | null;
+          superseded_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "photo_markups_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "photo_markups_photo_log_id_fkey";
+            columns: ["photo_log_id"];
+            isOneToOne: false;
+            referencedRelation: "photo_logs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "photo_markups_supersede_fk";
+            columns: ["superseded_by", "photo_log_id"];
+            isOneToOne: false;
+            referencedRelation: "photo_markups";
+            referencedColumns: ["id", "photo_log_id"];
+          },
+          {
+            foreignKeyName: "photo_markups_supersede_fk";
+            columns: ["superseded_by", "photo_log_id"];
+            isOneToOne: false;
+            referencedRelation: "photo_markups_current";
+            referencedColumns: ["id", "photo_log_id"];
+          },
+        ];
+      };
       projects: {
         Row: {
           code: string;
@@ -970,6 +1029,48 @@ export type Database = {
       };
     };
     Views: {
+      photo_markups_current: {
+        Row: {
+          comment: string | null;
+          created_at: string | null;
+          created_by: string | null;
+          id: string | null;
+          photo_log_id: string | null;
+          strokes: Json | null;
+        };
+        Insert: {
+          comment?: string | null;
+          created_at?: string | null;
+          created_by?: string | null;
+          id?: string | null;
+          photo_log_id?: string | null;
+          strokes?: Json | null;
+        };
+        Update: {
+          comment?: string | null;
+          created_at?: string | null;
+          created_by?: string | null;
+          id?: string | null;
+          photo_log_id?: string | null;
+          strokes?: Json | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "photo_markups_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "photo_markups_photo_log_id_fkey";
+            columns: ["photo_log_id"];
+            isOneToOne: false;
+            referencedRelation: "photo_logs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       purchase_request_attachments_appsheet: {
         Row: {
           access_token: string | null;
