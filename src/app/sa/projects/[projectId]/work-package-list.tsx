@@ -116,7 +116,9 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
     >
       <div className="min-w-0">
         <p className="font-mono text-xs text-zinc-600">{wp.code}</p>
-        <p className="truncate text-base font-medium text-zinc-900">{wp.name}</p>
+        {/* Spec 57: clamp-2, never single-line truncate — the name is
+            the row's information. */}
+        <p className="line-clamp-2 text-base font-medium break-words text-zinc-900">{wp.name}</p>
       </div>
       <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)}>
         {WORK_PACKAGE_STATUS_LABEL[wp.status] ?? wp.status}

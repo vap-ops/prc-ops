@@ -167,7 +167,8 @@ export default async function RequestDetailPage({ params }: PageProps) {
               <p className="font-mono text-xs text-zinc-600">
                 PR-{String(request.pr_number).padStart(4, "0")}
               </p>
-              <h1 className="truncate text-2xl font-bold tracking-tight">
+              {/* Spec 57: the page's subject never truncates. */}
+              <h1 className="text-2xl font-bold tracking-tight break-words">
                 {request.item_description}
               </h1>
             </div>

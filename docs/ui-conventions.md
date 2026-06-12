@@ -114,8 +114,25 @@ form screens at `max-w-md`.
 - Back link: `text-xs font-medium text-blue-700 hover:underline`, text
   `← {ชื่อหน้าก่อนหน้า}` (back-nav targets are locked behavior, spec 12).
 - Title: `text-xl font-semibold tracking-tight`; code above it in
-  `font-mono text-xs text-zinc-600`.
+  `font-mono text-xs text-zinc-600`. DETAIL pages (WP, request) use the
+  spec-54 scale instead: `text-2xl font-bold tracking-tight`, and the
+  back affordance is the 44px chip (`h-11 w-11 rounded-xl border
+border-zinc-200 bg-white shadow-sm` + ArrowLeft), not the text link
+  (specs 54/55).
 - Section heading: `mb-3 text-base font-semibold text-zinc-900`.
+
+### Names and truncation (spec 57)
+
+The WP is the center of information — scope, time, and resource all map
+against it (operator principle, 2026-06-13). Its identity must stay
+readable:
+
+- Detail-page subject (WP name, request item description): NEVER
+  truncate — `break-words`, full wrap, no clamp.
+- List rows (WP list, PM queue): `line-clamp-2 break-words` — bounded
+  rows, never single-line `truncate`.
+- Meta/context lines (project line, WP link on a request) may truncate —
+  they are context, not the page's subject.
 
 ### Cards, lists, panels (spec 38 class map)
 

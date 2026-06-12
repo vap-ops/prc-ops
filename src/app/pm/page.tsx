@@ -85,7 +85,8 @@ export default async function ProjectManagerLandingPage() {
                           {project.name}
                         </p>
                       )}
-                      <p className="truncate">
+                      {/* Spec 57: clamp-2, never single-line truncate. */}
+                      <p className="line-clamp-2 break-words">
                         <span className="font-mono text-xs text-zinc-600">{wp.code}</span>
                         <span className="mx-2 text-zinc-400">·</span>
                         <span className="text-base font-medium text-zinc-900">{wp.name}</span>

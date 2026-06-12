@@ -125,7 +125,8 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="font-mono text-xs text-zinc-600">{wp.code}</p>
-              <h1 className="truncate text-2xl font-bold tracking-tight">{wp.name}</h1>
+              {/* Spec 57: WP name never truncates — full wrap. */}
+              <h1 className="text-2xl font-bold tracking-tight break-words">{wp.name}</h1>
             </div>
             <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)} className="mt-1">
               {WORK_PACKAGE_STATUS_LABEL[wp.status as keyof typeof WORK_PACKAGE_STATUS_LABEL] ??
