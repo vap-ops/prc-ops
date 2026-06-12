@@ -12,6 +12,7 @@ import {
 import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { StatusPill } from "@/components/features/status-pill";
+import { RefreshButton } from "@/components/features/refresh-button";
 import { PurchaseRequestCard } from "@/components/features/purchase-request-card";
 import {
   APPROVAL_DECISION_LABEL,
@@ -135,12 +136,16 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
       <BottomTabBar role={ctx.role} />
       <header className="border-b border-zinc-200 bg-white px-5 py-4">
         <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-1`}>
-          <Link
-            href={`/sa/projects/${projectId}`}
-            className="w-fit text-xs font-medium text-blue-700 hover:underline focus:outline-none focus-visible:underline"
-          >
-            ← รายการงาน
-          </Link>
+          <div className="flex items-center justify-between gap-3">
+            <Link
+              href={`/sa/projects/${projectId}`}
+              className="w-fit text-xs font-medium text-blue-700 hover:underline focus:outline-none focus-visible:underline"
+            >
+              ← รายการงาน
+            </Link>
+            {/* Spec 53: the PWA's only reload affordance. */}
+            <RefreshButton variant="light" />
+          </div>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="font-mono text-xs text-zinc-600">{wp.code}</p>

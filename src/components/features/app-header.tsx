@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { RefreshButton } from "@/components/features/refresh-button";
 
 // Shared hub-page header (spec 17). One source for the kicker + greeting
 // block that /sa, /pm, /requests, /pm/projects, and the reports page
@@ -38,6 +39,9 @@ export function AppHeader({ kicker, fullName, title, maxWidthClass }: AppHeaderP
           <h1 className="text-xl font-semibold tracking-tight text-white">{heading}</h1>
         </div>
         <div className="flex items-center gap-3">
+          {/* Spec 53: NOT hidden in standalone — the installed PWA has
+              no reload chrome; this button exists for exactly that. */}
+          <RefreshButton variant="dark" />
           {/* Desktop-only: the bottom tab bar carries โปรไฟล์ on phones
               (spec 19 §2 — one profile affordance per viewport). */}
           <Link

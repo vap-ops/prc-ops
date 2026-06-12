@@ -4,7 +4,14 @@
 // pair. These pin the markup contract the nine consuming pages rely on.
 
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// Spec 53: AppHeader now embeds RefreshButton (useRouter).
+const refreshMock = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: refreshMock }),
+}));
+
 import { AppHeader } from "@/components/features/app-header";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { StatusPill } from "@/components/features/status-pill";
@@ -40,6 +47,14 @@ describe("AppHeader", () => {
   it("always shows the profile link (spec 18 normalization — no hide prop)", () => {
     render(<AppHeader kicker="คำขอซื้อ" fullName="สมชาย" maxWidthClass={PAGE_MAX_W} />);
     expect(screen.getByRole("link", { name: "โปรไฟล์" })).toHaveAttribute("href", "/profile");
+  });
+
+  it("carries the refresh button, NOT hidden in standalone (spec 53)", () => {
+    // The installed PWA has no reload chrome — the refresh button is
+    // the one header control that must stay visible there.
+    render(<AppHeader kicker="หน้างาน" fullName="สมชาย" maxWidthClass={PAGE_MAX_W} />);
+    const refresh = screen.getByRole("button", { name: "รีเฟรช" });
+    expect(refresh.closest('[class*="display-mode:standalone"]')).toBeNull();
   });
 
   it("hides the logout button in standalone display-mode (spec 42)", () => {

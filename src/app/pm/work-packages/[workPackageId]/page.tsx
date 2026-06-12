@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { EmptyNotice } from "@/components/features/notices";
 import { StatusPill } from "@/components/features/status-pill";
+import { RefreshButton } from "@/components/features/refresh-button";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { fetchDisplayNames } from "@/lib/users/display-names";
@@ -99,12 +100,16 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
       <BottomTabBar role={ctx.role} />
       <header className="border-b border-zinc-200 bg-white px-5 py-4">
         <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-1`}>
-          <Link
-            href="/pm"
-            className="w-fit text-xs font-medium text-blue-700 hover:underline focus:outline-none focus-visible:underline"
-          >
-            ← รายการรอตรวจ
-          </Link>
+          <div className="flex items-center justify-between gap-3">
+            <Link
+              href="/pm"
+              className="w-fit text-xs font-medium text-blue-700 hover:underline focus:outline-none focus-visible:underline"
+            >
+              ← รายการรอตรวจ
+            </Link>
+            {/* Spec 53: the PWA's only reload affordance. */}
+            <RefreshButton variant="light" />
+          </div>
           <p className="truncate text-xs text-zinc-600">
             <span className="font-mono">{project.code}</span>
             <span className="mx-1">·</span>

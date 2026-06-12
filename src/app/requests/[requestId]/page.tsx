@@ -40,6 +40,7 @@ import { AttachmentRemoveButton } from "@/components/features/attachment-remove-
 import { ZoomablePhoto } from "@/components/features/photo-lightbox";
 import { mintSignedUrlsForAttachments } from "@/lib/purchasing/attachment-signed-urls";
 import { fetchDisplayNames } from "@/lib/users/display-names";
+import { RefreshButton } from "@/components/features/refresh-button";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
 
@@ -137,12 +138,16 @@ export default async function RequestDetailPage({ params }: PageProps) {
       <BottomTabBar role={ctx.role} />
       <header className="border-b border-zinc-200 bg-white px-5 py-4">
         <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-1`}>
-          <Link
-            href="/requests"
-            className="w-fit text-xs font-medium text-blue-700 hover:underline focus:outline-none focus-visible:underline"
-          >
-            ← คำขอซื้อ
-          </Link>
+          <div className="flex items-center justify-between gap-3">
+            <Link
+              href="/requests"
+              className="w-fit text-xs font-medium text-blue-700 hover:underline focus:outline-none focus-visible:underline"
+            >
+              ← คำขอซื้อ
+            </Link>
+            {/* Spec 53: the PWA's only reload affordance. */}
+            <RefreshButton variant="light" />
+          </div>
           {wp ? (
             <Link
               href={`/sa/projects/${wp.project_id}/work-packages/${wp.id}`}

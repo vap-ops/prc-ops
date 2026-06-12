@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
+import { RefreshButton } from "@/components/features/refresh-button";
 import { WorkPackageList } from "./work-package-list";
 
 interface PageProps {
@@ -47,12 +48,16 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
       <BottomTabBar role={ctx.role} />
       <header className="border-b border-zinc-200 bg-white px-5 py-4">
         <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-1`}>
-          <Link
-            href="/sa"
-            className="w-fit text-xs font-medium text-blue-700 hover:underline focus:outline-none focus-visible:underline"
-          >
-            ← โครงการ
-          </Link>
+          <div className="flex items-center justify-between gap-3">
+            <Link
+              href="/sa"
+              className="w-fit text-xs font-medium text-blue-700 hover:underline focus:outline-none focus-visible:underline"
+            >
+              ← โครงการ
+            </Link>
+            {/* Spec 53: the PWA's only reload affordance. */}
+            <RefreshButton variant="light" />
+          </div>
           <p className="font-mono text-xs text-zinc-600">{project.code}</p>
           <h1 className="text-xl font-semibold tracking-tight">{project.name}</h1>
         </div>
