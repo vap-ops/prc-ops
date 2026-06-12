@@ -928,6 +928,10 @@ export type Database = {
         Args: { p_caller: string; p_parent: string; p_target: string };
         Returns: boolean;
       };
+      reap_stale_reports: {
+        Args: { p_max_age_minutes?: number };
+        Returns: number;
+      };
       record_purchase: {
         Args: {
           p_amount?: number;
