@@ -1,5 +1,7 @@
 "use client";
 
+import { BUTTON_PRIMARY } from "@/lib/ui/classes";
+
 // 'use client' justification (feature spec 09, ADR 0022; reshaped by spec 10):
 //
 // This form owns input state, inline validation, a useTransition pending
@@ -362,11 +364,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
             บันทึกแล้ว
           </span>
         ) : null}
-        <button
-          type="submit"
-          disabled={!canSubmit}
-          className="inline-flex h-11 items-center justify-center rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
-        >
+        <button type="submit" disabled={!canSubmit} className={BUTTON_PRIMARY}>
           {submitting ? "กำลังส่ง…" : "ส่งคำขอซื้อ"}
         </button>
       </div>

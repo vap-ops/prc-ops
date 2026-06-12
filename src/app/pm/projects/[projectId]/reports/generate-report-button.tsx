@@ -1,5 +1,7 @@
 "use client";
 
+import { BUTTON_PRIMARY } from "@/lib/ui/classes";
+
 // PM "Generate report" controls (spec 61): two radio groups choose what
 // the report includes, then the button calls the generateReport server
 // action. Defaults reproduce the legacy report. Pending state + the
@@ -102,7 +104,7 @@ export function GenerateReportButton({ projectId, initiallyDisabled }: GenerateR
         type="button"
         onClick={handleClick}
         disabled={disabled}
-        className="inline-flex h-11 w-fit items-center justify-center rounded-lg bg-slate-900 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
+        className={`${BUTTON_PRIMARY} w-fit`}
       >
         {pending ? "กำลังสร้าง…" : "สร้างรายงาน"}
       </button>

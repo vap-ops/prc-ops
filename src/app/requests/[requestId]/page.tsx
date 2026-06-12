@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { StatusPill } from "@/components/features/status-pill";
@@ -41,7 +40,7 @@ import { AttachmentRemoveButton } from "@/components/features/attachment-remove-
 import { ZoomablePhoto } from "@/components/features/photo-lightbox";
 import { mintSignedUrlsForAttachments } from "@/lib/purchasing/attachment-signed-urls";
 import { fetchDisplayNames } from "@/lib/users/display-names";
-import { RefreshButton } from "@/components/features/refresh-button";
+import { DetailHeader } from "@/components/features/detail-header";
 import { AttentionCard } from "@/components/features/attention-card";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
@@ -138,54 +137,40 @@ export default async function RequestDetailPage({ params }: PageProps) {
   return (
     <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
-      {/* Spec 62: sticky chrome. */}
-      <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white px-5 py-4">
-        <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-1`}>
-          <div className="flex items-center justify-between gap-3">
-            {/* Spec 55: the spec-54 back chip. */}
-            <Link
-              href="/requests"
-              aria-label="กลับไปคำขอซื้อ"
-              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-900 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
-            >
-              <ArrowLeft aria-hidden className="h-5 w-5" />
-            </Link>
-            {/* Spec 53: the PWA's only reload affordance. */}
-            <RefreshButton variant="light" />
+      {/* Spec 63: the consolidated shell. */}
+      <DetailHeader backHref="/requests" backLabel="กลับไปคำขอซื้อ">
+        {wp ? (
+          <Link
+            href={`/sa/projects/${wp.project_id}/work-packages/${wp.id}`}
+            className="w-fit truncate text-xs text-zinc-600 hover:underline focus:outline-none focus-visible:underline"
+          >
+            <span className="font-mono">{wp.code}</span>
+            <span className="mx-1">·</span>
+            {wp.name}
+          </Link>
+        ) : null}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-mono text-xs text-zinc-600">
+              PR-{String(request.pr_number).padStart(4, "0")}
+            </p>
+            {/* Spec 57: the page's subject never truncates. */}
+            <h1 className="text-2xl font-bold tracking-tight break-words">
+              {request.item_description}
+            </h1>
           </div>
-          {wp ? (
-            <Link
-              href={`/sa/projects/${wp.project_id}/work-packages/${wp.id}`}
-              className="w-fit truncate text-xs text-zinc-600 hover:underline focus:outline-none focus-visible:underline"
-            >
-              <span className="font-mono">{wp.code}</span>
-              <span className="mx-1">·</span>
-              {wp.name}
-            </Link>
-          ) : null}
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="font-mono text-xs text-zinc-600">
-                PR-{String(request.pr_number).padStart(4, "0")}
-              </p>
-              {/* Spec 57: the page's subject never truncates. */}
-              <h1 className="text-2xl font-bold tracking-tight break-words">
-                {request.item_description}
-              </h1>
-            </div>
-            <span className="mt-1 flex shrink-0 flex-col items-end gap-1">
-              <StatusPill pillClasses={purchaseRequestStatusPillClasses(status)}>
-                {PURCHASE_REQUEST_STATUS_LABEL[status]}
+          <span className="mt-1 flex shrink-0 flex-col items-end gap-1">
+            <StatusPill pillClasses={purchaseRequestStatusPillClasses(status)}>
+              {PURCHASE_REQUEST_STATUS_LABEL[status]}
+            </StatusPill>
+            {priority !== "normal" ? (
+              <StatusPill pillClasses={purchaseRequestPriorityPillClasses(priority)}>
+                {PURCHASE_REQUEST_PRIORITY_LABEL[priority]}
               </StatusPill>
-              {priority !== "normal" ? (
-                <StatusPill pillClasses={purchaseRequestPriorityPillClasses(priority)}>
-                  {PURCHASE_REQUEST_PRIORITY_LABEL[priority]}
-                </StatusPill>
-              ) : null}
-            </span>
-          </div>
+            ) : null}
+          </span>
         </div>
-      </header>
+      </DetailHeader>
 
       <section className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-8 px-5 py-6`}>
         <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">

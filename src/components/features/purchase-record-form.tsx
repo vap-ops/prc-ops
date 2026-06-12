@@ -1,5 +1,7 @@
 "use client";
 
+import { BUTTON_PRIMARY } from "@/lib/ui/classes";
+
 // 'use client' justification (spec 33): supplier select + inline create
 // form + controlled inputs + pending state around the record_purchase
 // action. Rendered only for back-office roles (the page gates via
@@ -188,7 +190,7 @@ export function PurchaseRecordForm({ requestId, suppliers }: PurchaseRecordFormP
           type="button"
           onClick={handleSubmit}
           disabled={pending || supplierId === ""}
-          className="inline-flex h-11 items-center justify-center rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
+          className={BUTTON_PRIMARY}
         >
           {pending ? "กำลังบันทึก…" : "บันทึกการสั่งซื้อ"}
         </button>

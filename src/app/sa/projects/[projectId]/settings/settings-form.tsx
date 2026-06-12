@@ -1,5 +1,7 @@
 "use client";
 
+import { BUTTON_PRIMARY, INLINE_ERROR } from "@/lib/ui/classes";
+
 // Project settings form (spec 58). 'use client' justified: controlled
 // inputs + submit pending state + inline error/success surfaces. The
 // server action (and beneath it the RPC) is the load-bearing validator.
@@ -95,10 +97,7 @@ export function SettingsForm({ projectId, initialName, initialStatus }: Settings
       </div>
 
       {error && (
-        <div
-          role="alert"
-          className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-900"
-        >
+        <div role="alert" className={INLINE_ERROR}>
           {error}
         </div>
       )}
@@ -109,11 +108,7 @@ export function SettingsForm({ projectId, initialName, initialStatus }: Settings
       )}
 
       <div className="flex items-center justify-end">
-        <button
-          type="submit"
-          disabled={!canSubmit}
-          className="inline-flex h-11 items-center justify-center rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
-        >
+        <button type="submit" disabled={!canSubmit} className={BUTTON_PRIMARY}>
           {submitting ? "กำลังบันทึก…" : "บันทึกการตั้งค่า"}
         </button>
       </div>

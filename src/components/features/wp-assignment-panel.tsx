@@ -1,5 +1,7 @@
 "use client";
 
+import { BUTTON_PRIMARY } from "@/lib/ui/classes";
+
 // 'use client' justification (spec 31): contractor select + inline
 // create form + pending state around the assignment actions. Rendered
 // only for PM/super (the page gates); RLS re-enforces server-side.
@@ -128,7 +130,7 @@ export function WpAssignmentPanel({
               type="button"
               onClick={handleCreateAndAssign}
               disabled={pending || nameDraft.trim().length === 0}
-              className="inline-flex h-11 items-center justify-center rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
+              className={BUTTON_PRIMARY}
             >
               {pending ? "กำลังบันทึก…" : "สร้างและมอบหมาย"}
             </button>

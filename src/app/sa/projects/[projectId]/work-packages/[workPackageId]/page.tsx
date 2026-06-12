@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Camera, FileText, ShoppingCart, Users } from "lucide-react";
+import { Camera, FileText, ShoppingCart, Users } from "lucide-react";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import {
@@ -12,7 +11,7 @@ import {
 import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { StatusPill } from "@/components/features/status-pill";
-import { RefreshButton } from "@/components/features/refresh-button";
+import { DetailHeader } from "@/components/features/detail-header";
 import { PurchaseRequestCard } from "@/components/features/purchase-request-card";
 import {
   APPROVAL_DECISION_LABEL,
@@ -138,61 +137,47 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
   return (
     <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
-      {/* Spec 54 header (operator mockup): back chip + refresh, code over
-          a large bold name with the status pill, phase progress bar. */}
-      {/* Spec 62: sticky chrome (the progress band below scrolls). */}
-      <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white px-5 py-4">
-        <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-3`}>
-          <div className="flex items-center justify-between gap-3">
-            <Link
-              href={`/sa/projects/${projectId}`}
-              aria-label="กลับไปรายการงาน"
-              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-900 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
-            >
-              <ArrowLeft aria-hidden className="h-5 w-5" />
-            </Link>
-            {/* Spec 53: the PWA's only reload affordance. */}
-            <RefreshButton variant="light" />
+      {/* Spec 54 header (operator mockup) via the spec-63 shell; the
+          progress band below scrolls. */}
+      <DetailHeader backHref={`/sa/projects/${projectId}`} backLabel="กลับไปรายการงาน">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-mono text-xs text-zinc-600">{wp.code}</p>
+            {/* Spec 57: WP name never truncates — full wrap. */}
+            <h1 className="text-2xl font-bold tracking-tight break-words">{wp.name}</h1>
           </div>
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="font-mono text-xs text-zinc-600">{wp.code}</p>
-              {/* Spec 57: WP name never truncates — full wrap. */}
-              <h1 className="text-2xl font-bold tracking-tight break-words">{wp.name}</h1>
-            </div>
-            <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)} className="mt-1">
-              {WORK_PACKAGE_STATUS_LABEL[wp.status as keyof typeof WORK_PACKAGE_STATUS_LABEL] ??
-                wp.status}
-            </StatusPill>
-          </div>
-          {assignedContractor ? (
-            <>
-              <p className="text-xs text-zinc-600">
-                ผู้รับเหมา{" "}
-                <span className="font-medium text-zinc-900">{assignedContractor.name}</span>
-                {assignedContractor.phone ? (
-                  <>
-                    <span className="mx-1 text-zinc-400">·</span>
-                    <a href={`tel:${assignedContractor.phone}`} className="text-blue-700">
-                      {assignedContractor.phone}
-                    </a>
-                  </>
-                ) : null}
-              </p>
-              {/* Re-assignment stays reachable once assigned — the
-                  attention card (below) only carries the UNASSIGNED case. */}
-              {isAssigner ? (
-                <WpAssignmentPanel
-                  projectId={wp.project_id}
-                  workPackageId={wp.id}
-                  contractors={contractors}
-                  contractorId={wp.contractor_id}
-                />
-              ) : null}
-            </>
-          ) : null}
+          <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)} className="mt-1">
+            {WORK_PACKAGE_STATUS_LABEL[wp.status as keyof typeof WORK_PACKAGE_STATUS_LABEL] ??
+              wp.status}
+          </StatusPill>
         </div>
-      </header>
+        {assignedContractor ? (
+          <>
+            <p className="text-xs text-zinc-600">
+              ผู้รับเหมา{" "}
+              <span className="font-medium text-zinc-900">{assignedContractor.name}</span>
+              {assignedContractor.phone ? (
+                <>
+                  <span className="mx-1 text-zinc-400">·</span>
+                  <a href={`tel:${assignedContractor.phone}`} className="text-blue-700">
+                    {assignedContractor.phone}
+                  </a>
+                </>
+              ) : null}
+            </p>
+            {/* Re-assignment stays reachable once assigned — the
+                  attention card (below) only carries the UNASSIGNED case. */}
+            {isAssigner ? (
+              <WpAssignmentPanel
+                projectId={wp.project_id}
+                workPackageId={wp.id}
+                contractors={contractors}
+                contractorId={wp.contractor_id}
+              />
+            ) : null}
+          </>
+        ) : null}
+      </DetailHeader>
 
       <div className="border-b border-zinc-200 bg-white px-5 py-3">
         <div className={`mx-auto ${PAGE_MAX_W}`}>

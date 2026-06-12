@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
-import { ArrowLeft, FileText, Settings } from "lucide-react";
+import { FileText, Settings } from "lucide-react";
 import { projectHubHref } from "@/lib/auth/role-home";
+import { ICON_CHIP_MUTED } from "@/lib/ui/classes";
+import { DetailHeader } from "@/components/features/detail-header";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
-import { RefreshButton } from "@/components/features/refresh-button";
 import { WorkPackageList } from "./work-package-list";
 
 interface PageProps {
@@ -48,51 +49,38 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
   return (
     <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
-      {/* Spec 62: sticky chrome. */}
-      <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white px-5 py-4">
-        <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-1`}>
-          <div className="flex items-center justify-between gap-3">
-            {/* Spec 55 back chip; spec 59: role-aware target — back
-                returns to the hub this role entered from. */}
-            <Link
-              href={projectHubHref(ctx.role)}
-              aria-label="กลับไปโครงการ"
-              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-900 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
-            >
-              <ArrowLeft aria-hidden className="h-5 w-5" />
-            </Link>
-            <div className="flex items-center gap-2">
-              {/* Spec 58: project settings — back office only (ADR 0042).
-                  SA never sees the gear; the settings page also
-                  requireRole-gates pm/super. */}
-              {ctx.role === "project_manager" || ctx.role === "super_admin" ? (
-                <>
-                  {/* Spec 59: reports moved out of the "project" slot —
-                      this chip is how PM/super reach them now. */}
-                  <Link
-                    href={`/pm/projects/${project.id}/reports`}
-                    aria-label="รายงานโครงการ"
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 shadow-sm transition-colors hover:bg-zinc-50 hover:text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
-                  >
-                    <FileText aria-hidden className="h-5 w-5" />
-                  </Link>
-                  <Link
-                    href={`/sa/projects/${project.id}/settings`}
-                    aria-label="ตั้งค่าโครงการ"
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 shadow-sm transition-colors hover:bg-zinc-50 hover:text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
-                  >
-                    <Settings aria-hidden className="h-5 w-5" />
-                  </Link>
-                </>
-              ) : null}
-              {/* Spec 53: the PWA's only reload affordance. */}
-              <RefreshButton variant="light" />
-            </div>
-          </div>
+      {/* Spec 63: the consolidated shell — spec-59 back target, the
+          spec-58/59 pm/super chips ride the actions slot. SA never
+          sees the gear; the settings page also requireRole-gates. */}
+      <DetailHeader
+        backHref={projectHubHref(ctx.role)}
+        backLabel="กลับไปโครงการ"
+        actions={
+          ctx.role === "project_manager" || ctx.role === "super_admin" ? (
+            <>
+              <Link
+                href={`/pm/projects/${project.id}/reports`}
+                aria-label="รายงานโครงการ"
+                className={ICON_CHIP_MUTED}
+              >
+                <FileText aria-hidden className="h-5 w-5" />
+              </Link>
+              <Link
+                href={`/sa/projects/${project.id}/settings`}
+                aria-label="ตั้งค่าโครงการ"
+                className={ICON_CHIP_MUTED}
+              >
+                <Settings aria-hidden className="h-5 w-5" />
+              </Link>
+            </>
+          ) : null
+        }
+      >
+        <div>
           <p className="font-mono text-xs text-zinc-600">{project.code}</p>
           <h1 className="text-2xl font-bold tracking-tight">{project.name}</h1>
         </div>
-      </header>
+      </DetailHeader>
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
         <h2 className="mb-3 text-base font-semibold text-zinc-900">รายการงาน</h2>

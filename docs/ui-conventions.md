@@ -115,10 +115,16 @@ form screens at `max-w-md`.
   `← {ชื่อหน้าก่อนหน้า}` (back-nav targets are locked behavior, spec 12).
 - Title: `text-xl font-semibold tracking-tight`; code above it in
   `font-mono text-xs text-zinc-600`. DETAIL pages (WP, request) use the
-  spec-54 scale instead: `text-2xl font-bold tracking-tight`, and the
-  back affordance is the 44px chip (`h-11 w-11 rounded-xl border
-border-zinc-200 bg-white shadow-sm` + ArrowLeft), not the text link
-  (specs 54/55).
+  spec-54 scale instead: `text-2xl font-bold tracking-tight`.
+- **Detail headers render `DetailHeader`**
+  ([detail-header.tsx](../src/components/features/detail-header.tsx),
+  spec 63) — back chip + refresh + actions slot + sticky chrome in one
+  shell. Hand-rolling a detail header is a review reject.
+- **Shared chrome classes live in
+  [classes.ts](../src/lib/ui/classes.ts)** (spec 63): `BUTTON_PRIMARY`,
+  `BUTTON_SECONDARY`, `ICON_CHIP`, `ICON_CHIP_MUTED`, `INLINE_ERROR`,
+  `CARD`. Copying these class strings inline is a review reject —
+  import the constant.
 - Section heading: `mb-3 text-base font-semibold text-zinc-900`.
 
 ### Names and truncation (spec 57)

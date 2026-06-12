@@ -1,5 +1,7 @@
 "use client";
 
+import { BUTTON_PRIMARY, INLINE_ERROR } from "@/lib/ui/classes";
+
 // 'use client' justification (feature spec 05, ADR 0017):
 //
 // This panel owns input state, inline validation, pending state, and a
@@ -76,10 +78,7 @@ export function DisplayNameForm({ initialName }: DisplayNameFormProps) {
       />
 
       {inlineError ? (
-        <div
-          role="alert"
-          className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-900"
-        >
+        <div role="alert" className={INLINE_ERROR}>
           {inlineError}
         </div>
       ) : null}
@@ -90,11 +89,7 @@ export function DisplayNameForm({ initialName }: DisplayNameFormProps) {
             บันทึกแล้ว
           </span>
         ) : null}
-        <button
-          type="submit"
-          disabled={!canSubmit}
-          className="inline-flex h-11 items-center justify-center rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
-        >
+        <button type="submit" disabled={!canSubmit} className={BUTTON_PRIMARY}>
           {submitting ? "กำลังบันทึก…" : "บันทึก"}
         </button>
       </div>

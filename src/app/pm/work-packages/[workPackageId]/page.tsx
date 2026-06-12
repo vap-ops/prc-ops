@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { EmptyNotice } from "@/components/features/notices";
 import { StatusPill } from "@/components/features/status-pill";
-import { RefreshButton } from "@/components/features/refresh-button";
+import { DetailHeader } from "@/components/features/detail-header";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { fetchDisplayNames } from "@/lib/users/display-names";
@@ -101,52 +101,37 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
   return (
     <main className="min-h-screen bg-zinc-50 pb-20 text-zinc-900 sm:pb-0">
       <BottomTabBar role={ctx.role} />
-      {/* Spec 54 header (operator mockup) — same shape as the SA page:
-          back chip + refresh, code over a large bold name with the
-          status pill, then the phase progress band. */}
-      {/* Spec 62: sticky chrome (the progress band below scrolls). */}
-      <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white px-5 py-4">
-        <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-3`}>
-          <div className="flex items-center justify-between gap-3">
-            <Link
-              href="/pm"
-              aria-label="กลับไปรายการรอตรวจ"
-              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-900 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
-            >
-              <ArrowLeft aria-hidden className="h-5 w-5" />
-            </Link>
-            {/* Spec 53: the PWA's only reload affordance. */}
-            <RefreshButton variant="light" />
+      {/* Spec 54 header (operator mockup) via the spec-63 shell; the
+          progress band below scrolls. */}
+      <DetailHeader backHref="/pm" backLabel="กลับไปรายการรอตรวจ">
+        <p className="truncate text-xs text-zinc-600">
+          <span className="font-mono">{project.code}</span>
+          <span className="mx-1">·</span>
+          {project.name}
+        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-mono text-xs text-zinc-600">{wp.code}</p>
+            {/* Spec 57: WP name never truncates — full wrap. */}
+            <h1 className="text-2xl font-bold tracking-tight break-words">{wp.name}</h1>
           </div>
-          <p className="truncate text-xs text-zinc-600">
-            <span className="font-mono">{project.code}</span>
-            <span className="mx-1">·</span>
-            {project.name}
-          </p>
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="font-mono text-xs text-zinc-600">{wp.code}</p>
-              {/* Spec 57: WP name never truncates — full wrap. */}
-              <h1 className="text-2xl font-bold tracking-tight break-words">{wp.name}</h1>
-            </div>
-            <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)} className="mt-1">
-              {WORK_PACKAGE_STATUS_LABEL[wp.status as keyof typeof WORK_PACKAGE_STATUS_LABEL] ??
-                wp.status}
-            </StatusPill>
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <Link
-              href={`/requests?wp=${wp.id}`}
-              className="w-fit text-xs font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline"
-            >
-              สร้างคำขอซื้อ →
-            </Link>
-            {/* Spec 52: PM-and-up hold toggle — renders nothing on
-                pending_approval/complete. */}
-            <HoldToggle workPackageId={wp.id} status={wp.status} />
-          </div>
+          <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)} className="mt-1">
+            {WORK_PACKAGE_STATUS_LABEL[wp.status as keyof typeof WORK_PACKAGE_STATUS_LABEL] ??
+              wp.status}
+          </StatusPill>
         </div>
-      </header>
+        <div className="flex items-center justify-between gap-3">
+          <Link
+            href={`/requests?wp=${wp.id}`}
+            className="w-fit text-xs font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline"
+          >
+            สร้างคำขอซื้อ →
+          </Link>
+          {/* Spec 52: PM-and-up hold toggle — renders nothing on
+                pending_approval/complete. */}
+          <HoldToggle workPackageId={wp.id} status={wp.status} />
+        </div>
+      </DetailHeader>
 
       <div className="border-b border-zinc-200 bg-white px-5 py-3">
         <div className={`mx-auto ${PAGE_MAX_W}`}>
