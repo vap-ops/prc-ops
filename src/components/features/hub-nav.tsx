@@ -21,6 +21,9 @@ export const PM_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "รายการรอตรวจ", href: "/pm" },
   { label: "โครงการและรายงาน", href: "/pm/projects" },
   { label: "คำขอซื้อ", href: "/requests" },
+  // Spec 69: PM-only DC payroll (money) — every PM surface is already
+  // PM/super-gated, so listing it here leaks nothing to SA.
+  { label: "ค่าจ้าง", href: "/pm/payroll" },
 ];
 
 export const SA_HUB_NAV: ReadonlyArray<HubNavItem> = [

@@ -7,12 +7,13 @@ import { describe, expect, it } from "vitest";
 import { HubNav, PM_HUB_NAV, SA_HUB_NAV } from "@/components/features/hub-nav";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 
-// Spec 19 §4: /pm/requests merged into /requests — the PM set drops to
-// three items with exactly one purchasing entry.
+// Spec 19 §4: /pm/requests merged into /requests — one purchasing entry.
+// Spec 69: a fourth item, the PM-only DC payroll surface.
 const PM_ITEMS = [
   { label: "รายการรอตรวจ", href: "/pm" },
   { label: "โครงการและรายงาน", href: "/pm/projects" },
   { label: "คำขอซื้อ", href: "/requests" },
+  { label: "ค่าจ้าง", href: "/pm/payroll" },
 ];
 
 describe("canonical nav sets", () => {
