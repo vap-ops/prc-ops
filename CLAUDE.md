@@ -22,7 +22,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Foreign keys are typed and validated. No mixed-content reference columns.
 - TypeScript: use `unknown` and narrow. Never widen with `any`.
 - Server Components by default. Adding `'use client'` requires justification in the PR description.
-- Before implementing any feature, read `/docs/decisions/` in full. Architecture decisions there override defaults.
+- Before implementing any feature, scan the ADR index `/docs/decisions/README.md` and read in full the ADRs that touch the area you're changing. Architecture decisions there override defaults. (You do not need to read all 43 every time — target the relevant ones.)
 - Before changing the database, schema, Storage, or DB roles, read `/docs/policies/change-management.md` — binding. All such changes go through a migration + reviewed PR + `supabase db push`; never the dashboard SQL editor or toggles.
 - Commit messages follow Conventional Commits (feat:, fix:, test:, docs:, refactor:, chore:).
 
@@ -61,7 +61,7 @@ Then wait. Do not proceed without explicit acknowledgement.
 
 Every feature unit follows this loop:
 
-1. **Spec.** Read the numbered spec at `/docs/feature-specs/NN-name.md` in full. If no spec exists, stop — ask for one. Implement exactly what the spec says.
+1. **Spec.** Read the numbered spec at `/docs/feature-specs/NN-name.md` in full (find it via the index `/docs/feature-specs/README.md`). If no spec exists, stop — ask for one. Implement exactly what the spec says.
 2. **Progress tracker.** Update `/docs/progress-tracker.md`: mark the unit as in progress, note the start time.
 3. **Test first.** Write the failing test. State "Writing failing test first."
 4. **Implement.** Make the test pass. Nothing more.
@@ -177,4 +177,4 @@ Tests are pgTAP `.sql` files in `supabase/tests/database/`, run via `scripts/run
 
 ### Architecture Decision Records
 
-`docs/decisions/` holds the ADRs — read them before implementing any feature; they override defaults. 0001 stack, 0002 WP data import, 0003 photos/watermarking, 0004 audit/immutability, 0005 v1 scope, 0006 database testing, 0007 users & auth.
+`docs/decisions/` holds the ADRs — they override defaults. **The full, current list with one-line titles is `docs/decisions/README.md`** (43 ADRs, 0001–0043). Scan that index and read the ones relevant to your change in full; don't rely on memory of the numbering.
