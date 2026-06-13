@@ -114,3 +114,20 @@
     animation: toast-in 180ms ease-out;
   }
 }
+
+/* Spec 78 (app-feel slice 4) — bottom-sheet slide-up. Base = motion-free
+   (instant, the reduced-motion-safe default); motion-OK users get the slide. */
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sheet-panel {
+    animation: sheet-up 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+}
