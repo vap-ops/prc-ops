@@ -62,12 +62,18 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
   // One read serves both the header line and the assignment picker.
   const { data: contractorRows } = await supabase
     .from("contractors")
-    .select("id, name, phone")
+    .select("id, name, phone, status")
     .order("name", { ascending: true });
   const contractors = contractorRows ?? [];
   const assignedContractor = wp.contractor_id
     ? (contractors.find((c) => c.id === wp.contractor_id) ?? null)
     : null;
+  // Spec 89: blacklisted contractors are hidden from the assignment picker, but
+  // a WP already owned by a now-blacklisted contractor still lists its owner
+  // (never blank an existing assignment).
+  const pickerContractors = contractors
+    .filter((c) => c.status !== "blacklisted" || c.id === wp.contractor_id)
+    .map(({ id, name, phone }) => ({ id, name, phone }));
 
   const { data: approvalRows } = await supabase
     .from("approvals")
@@ -164,7 +170,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
               <WpAssignmentPanel
                 projectId={wp.project_id}
                 workPackageId={wp.id}
-                contractors={contractors}
+                contractors={pickerContractors}
                 contractorId={wp.contractor_id}
               />
             ) : null}

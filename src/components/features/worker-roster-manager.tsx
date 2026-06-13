@@ -303,15 +303,21 @@ export function WorkerRosterManager({
   contractors,
 }: {
   workers: ManagedWorker[];
-  contractors: { id: string; name: string }[];
+  // Spec 89: status + category drive the DC-parent picker; the full list still
+  // resolves names for existing rows (incl. blacklisted / non-dc parents).
+  contractors: { id: string; name: string; status?: string; contractor_category?: string }[];
 }) {
   const contractorNames = new Map(contractors.map((c) => [c.id, c.name]));
   const own = workers.filter((w) => w.worker_type === "own");
   const dc = workers.filter((w) => w.worker_type === "dc");
+  // Spec 89: a new DC worker may only be parented by a non-blacklisted DC crew.
+  const assignable = contractors.filter(
+    (c) => c.contractor_category === "dc" && c.status !== "blacklisted",
+  );
 
   return (
     <div className="flex flex-col gap-4">
-      <AddWorkerForm contractors={contractors} />
+      <AddWorkerForm contractors={assignable} />
       {(
         [
           { label: "ช่างบริษัท", list: own },

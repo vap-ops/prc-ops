@@ -61,6 +61,29 @@ describe("WorkerRosterManager notes", () => {
     );
   });
 
+  it("DC parent picker shows only non-blacklisted DC crews (spec 89)", () => {
+    render(
+      <WorkerRosterManager
+        workers={[]}
+        contractors={[
+          { id: "a", name: "DC ใช้งาน", status: "active", contractor_category: "dc" },
+          { id: "b", name: "DC บัญชีดำ", status: "blacklisted", contractor_category: "dc" },
+          {
+            id: "c",
+            name: "ผู้รับเหมาทั่วไป",
+            status: "active",
+            contractor_category: "contractor",
+          },
+        ]}
+      />,
+    );
+    // Reveal the DC-parent picker by switching the add-form worker type to DC.
+    fireEvent.click(screen.getByRole("radio", { name: "คนงาน DC" }));
+    expect(screen.getByRole("option", { name: "DC ใช้งาน" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "DC บัญชีดำ" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "ผู้รับเหมาทั่วไป" })).not.toBeInTheDocument();
+  });
+
   it("passes the note when editing a worker", async () => {
     render(<WorkerRosterManager workers={WORKERS} contractors={[]} />);
     fireEvent.click(screen.getByRole("button", { name: "แก้ไข" }));

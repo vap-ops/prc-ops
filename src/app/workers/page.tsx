@@ -31,9 +31,11 @@ export default async function WorkersPage() {
   const workers: ManagedWorker[] = workerRows ?? [];
 
   const supabase = await createServerSupabase();
+  // Spec 89: status + category let WorkerRosterManager hide blacklisted/non-DC
+  // crews from the new-DC-worker picker while still resolving existing names.
   const { data: contractorRows } = await supabase
     .from("contractors")
-    .select("id, name")
+    .select("id, name, status, contractor_category")
     .order("name", { ascending: true });
 
   return (
