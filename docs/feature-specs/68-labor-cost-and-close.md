@@ -1,6 +1,8 @@
 # Spec 68 — Labor P2: cost freeze, PM cost view, close-out variance
 
-**Status:** in progress — 2026-06-13. **Type:** money + close-out. **DB
+**Status:** COMPLETE — 2026-06-13 (migration applied to prod; 785 pgTAP / 580
+unit / lint / typecheck / build green; commit `1990ef3` pushed, Vercel
+deploying). Acceptance = operator phone pass (see Verification §4). **Type:** money + close-out. **DB
 migration** (prod) — gated on explicit operator confirmation before
 `pnpm db:push` (see Execution gate).
 
