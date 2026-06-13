@@ -1,5 +1,5 @@
-// Spec 81 — /pm/masters: manage the three reference masters (clients,
-// suppliers, contractors). PM/super only; no money column on any master, so
+// Spec 81 — /pm/contacts: manage the three contact tables (clients,
+// suppliers, contractors). PM/super only; no money column on any of them, so
 // reads use the ordinary user-session client (contrast /workers, which needs
 // the admin client for day_rate).
 
@@ -10,12 +10,12 @@ import { PM_ROLES } from "@/lib/auth/role-home";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import { AppHeader } from "@/components/features/app-header";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
-import { MastersTabs } from "@/components/features/masters-tabs";
-import type { MasterRow } from "@/components/features/master-manager";
+import { ContactsTabs } from "@/components/features/contacts-tabs";
+import type { RecordRow } from "@/components/features/record-manager";
 
-export const metadata = { title: "ข้อมูลหลัก" };
+export const metadata = { title: "รายชื่อติดต่อ" };
 
-export default async function MastersPage() {
+export default async function ContactsPage() {
   const ctx = await requireRole(PM_ROLES);
   const supabase = await createServerSupabase();
 
@@ -28,7 +28,7 @@ export default async function MastersPage() {
     supabase.from("contractors").select("id, name, phone, note").order("name", { ascending: true }),
   ]);
 
-  const clients: MasterRow[] = (clientsRes.data ?? []).map((r) => ({
+  const clients: RecordRow[] = (clientsRes.data ?? []).map((r) => ({
     id: r.id,
     values: {
       name: r.name,
@@ -39,11 +39,11 @@ export default async function MastersPage() {
       note: r.note,
     },
   }));
-  const suppliers: MasterRow[] = (suppliersRes.data ?? []).map((r) => ({
+  const suppliers: RecordRow[] = (suppliersRes.data ?? []).map((r) => ({
     id: r.id,
     values: { name: r.name, phone: r.phone, note: r.note },
   }));
-  const contractors: MasterRow[] = (contractorsRes.data ?? []).map((r) => ({
+  const contractors: RecordRow[] = (contractorsRes.data ?? []).map((r) => ({
     id: r.id,
     values: { name: r.name, phone: r.phone, note: r.note },
   }));
@@ -52,13 +52,13 @@ export default async function MastersPage() {
     <PageShell>
       <BottomTabBar role={ctx.role} />
       <AppHeader
-        kicker="ข้อมูลหลัก"
-        title="ลูกค้า ผู้ขาย ผู้รับเหมา"
+        kicker="รายชื่อติดต่อ"
+        title="รายชื่อผู้ติดต่อ"
         fullName={ctx.fullName}
         maxWidthClass={PAGE_MAX_W}
       />
       <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
-        <MastersTabs clients={clients} suppliers={suppliers} contractors={contractors} />
+        <ContactsTabs clients={clients} suppliers={suppliers} contractors={contractors} />
       </div>
     </PageShell>
   );

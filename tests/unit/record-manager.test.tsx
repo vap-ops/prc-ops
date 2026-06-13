@@ -1,6 +1,6 @@
 // Writing failing test first.
 //
-// Spec 81: the generic MasterManager drives all three master-data screens
+// Spec 81: the generic RecordManager drives all three contacts screens
 // (clients / suppliers / contractors). It is presentational — the entity's
 // create/update server actions are injected as onCreate / onUpdate. It renders
 // an add card + a per-row edit expander over a field schema.
@@ -12,22 +12,22 @@ const { mockRefresh } = vi.hoisted(() => ({ mockRefresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
 
 import {
-  MasterManager,
-  type MasterActionResult,
-  type MasterFieldDef,
-  type MasterRow,
-} from "@/components/features/master-manager";
+  RecordManager,
+  type RecordActionResult,
+  type RecordFieldDef,
+  type RecordRow,
+} from "@/components/features/record-manager";
 
-type CreateFn = (values: Record<string, string>) => Promise<MasterActionResult>;
-type UpdateFn = (id: string, values: Record<string, string>) => Promise<MasterActionResult>;
+type CreateFn = (values: Record<string, string>) => Promise<RecordActionResult>;
+type UpdateFn = (id: string, values: Record<string, string>) => Promise<RecordActionResult>;
 
-const FIELDS: MasterFieldDef[] = [
+const FIELDS: RecordFieldDef[] = [
   { key: "name", label: "ชื่อ", type: "text", maxLength: 200 },
   { key: "phone", label: "เบอร์โทร", type: "tel", maxLength: 50 },
   { key: "note", label: "หมายเหตุ", type: "textarea", maxLength: 2000 },
 ];
 
-const ROWS: MasterRow[] = [
+const ROWS: RecordRow[] = [
   { id: "c1", values: { name: "บริษัท ก", phone: "02-111", note: "ลูกค้าหลัก" } },
 ];
 
@@ -36,14 +36,14 @@ beforeEach(() => {
 });
 
 function setup(overrides: {
-  rows?: MasterRow[];
+  rows?: RecordRow[];
   onCreate?: ReturnType<typeof vi.fn>;
   onUpdate?: ReturnType<typeof vi.fn>;
 }) {
   const onCreate = overrides.onCreate ?? vi.fn().mockResolvedValue({ ok: true });
   const onUpdate = overrides.onUpdate ?? vi.fn().mockResolvedValue({ ok: true });
   render(
-    <MasterManager
+    <RecordManager
       addLabel="เพิ่มลูกค้า"
       fields={FIELDS}
       rows={overrides.rows ?? ROWS}
@@ -54,7 +54,7 @@ function setup(overrides: {
   return { onCreate, onUpdate };
 }
 
-describe("MasterManager", () => {
+describe("RecordManager", () => {
   it("shows each row's name", () => {
     setup({});
     expect(screen.getByText("บริษัท ก")).toBeInTheDocument();

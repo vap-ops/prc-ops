@@ -1,6 +1,6 @@
 "use server";
 
-// Spec 81 — master-data CRUD for /pm/masters (clients, suppliers, contractors).
+// Spec 81 — contacts CRUD for /pm/contacts (clients, suppliers, contractors).
 // The page is requireRole(PM_ROLES)-gated; every action re-checks PM_ROLES then
 // writes directly under the authenticated session. PM/super already hold the
 // INSERT/UPDATE policy + column grants on all three tables, so no SECURITY
@@ -18,11 +18,11 @@ import type { Database } from "@/lib/db/database.types";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { validateNotes } from "@/lib/notes/validate";
 
-export type MasterActionResult = { ok: true } | { ok: false; error: string };
+export type RecordActionResult = { ok: true } | { ok: false; error: string };
 
 const PM_ONLY = "เฉพาะผู้จัดการโครงการเท่านั้น";
 const GENERIC = "บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
-const MASTERS_PATH = "/pm/masters";
+const CONTACTS_PATH = "/pm/contacts";
 
 type ServerClient = Awaited<ReturnType<typeof import("@/lib/db/server").createClient>>;
 type PmGate = { ok: true; supabase: ServerClient; userId: string } | { ok: false; error: string };
@@ -63,7 +63,7 @@ export async function createClientRecord(input: {
   email?: string;
   mailingAddress?: string;
   note?: string;
-}): Promise<MasterActionResult> {
+}): Promise<RecordActionResult> {
   const gate = await pmSession();
   if (!gate.ok) return gate;
   if (!validName(input.name, CLIENT_NAME_MAX)) {
@@ -82,7 +82,7 @@ export async function createClientRecord(input: {
     created_by: gate.userId,
   });
   if (error) return { ok: false, error: GENERIC };
-  revalidatePath(MASTERS_PATH);
+  revalidatePath(CONTACTS_PATH);
   return { ok: true };
 }
 
@@ -94,7 +94,7 @@ export async function updateClientRecord(input: {
   email?: string;
   mailingAddress?: string;
   note?: string;
-}): Promise<MasterActionResult> {
+}): Promise<RecordActionResult> {
   const gate = await pmSession();
   if (!gate.ok) return gate;
   if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC };
@@ -119,7 +119,7 @@ export async function updateClientRecord(input: {
 
   const { error } = await gate.supabase.from("clients").update(patch).eq("id", input.id);
   if (error) return { ok: false, error: GENERIC };
-  revalidatePath(MASTERS_PATH);
+  revalidatePath(CONTACTS_PATH);
   return { ok: true };
 }
 
@@ -131,7 +131,7 @@ export async function createSupplierRecord(input: {
   name: string;
   phone?: string;
   note?: string;
-}): Promise<MasterActionResult> {
+}): Promise<RecordActionResult> {
   const gate = await pmSession();
   if (!gate.ok) return gate;
   if (!validName(input.name, MASTER_NAME_MAX)) {
@@ -147,7 +147,7 @@ export async function createSupplierRecord(input: {
     created_by: gate.userId,
   });
   if (error) return { ok: false, error: GENERIC };
-  revalidatePath(MASTERS_PATH);
+  revalidatePath(CONTACTS_PATH);
   return { ok: true };
 }
 
@@ -156,7 +156,7 @@ export async function updateSupplierRecord(input: {
   name?: string;
   phone?: string;
   note?: string;
-}): Promise<MasterActionResult> {
+}): Promise<RecordActionResult> {
   const gate = await pmSession();
   if (!gate.ok) return gate;
   if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC };
@@ -178,7 +178,7 @@ export async function updateSupplierRecord(input: {
 
   const { error } = await gate.supabase.from("suppliers").update(patch).eq("id", input.id);
   if (error) return { ok: false, error: GENERIC };
-  revalidatePath(MASTERS_PATH);
+  revalidatePath(CONTACTS_PATH);
   return { ok: true };
 }
 
@@ -188,7 +188,7 @@ export async function createContractorRecord(input: {
   name: string;
   phone?: string;
   note?: string;
-}): Promise<MasterActionResult> {
+}): Promise<RecordActionResult> {
   const gate = await pmSession();
   if (!gate.ok) return gate;
   if (!validName(input.name, MASTER_NAME_MAX)) {
@@ -204,7 +204,7 @@ export async function createContractorRecord(input: {
     created_by: gate.userId,
   });
   if (error) return { ok: false, error: GENERIC };
-  revalidatePath(MASTERS_PATH);
+  revalidatePath(CONTACTS_PATH);
   return { ok: true };
 }
 
@@ -213,7 +213,7 @@ export async function updateContractorRecord(input: {
   name?: string;
   phone?: string;
   note?: string;
-}): Promise<MasterActionResult> {
+}): Promise<RecordActionResult> {
   const gate = await pmSession();
   if (!gate.ok) return gate;
   if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC };
@@ -238,6 +238,6 @@ export async function updateContractorRecord(input: {
 
   const { error } = await gate.supabase.from("contractors").update(patch).eq("id", input.id);
   if (error) return { ok: false, error: GENERIC };
-  revalidatePath(MASTERS_PATH);
+  revalidatePath(CONTACTS_PATH);
   return { ok: true };
 }

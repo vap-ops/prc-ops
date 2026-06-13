@@ -1,4 +1,12 @@
-# Spec 81 — Master data management (clients · suppliers · contractors)
+# Spec 81 — Contacts management (clients · suppliers · contractors)
+
+> **Amendment (2026-06-14, operator feedback):** renamed "master data" → **Contacts**.
+> Route is `/pm/contacts` (not `/pm/masters`); nav label **รายชื่อติดต่อ**, page title
+> **รายชื่อผู้ติดต่อ**; the generic component is `RecordManager`
+> (`record-manager.tsx`) and the shell is `ContactsTabs` (`contacts-tabs.tsx`). The
+> three tables (clients/suppliers/contractors) are the contact types. Everything below
+> that says "masters"/`MasterManager`/`/pm/masters`/ข้อมูลหลัก reads with these new
+> names — the design is unchanged, only the naming.
 
 **Iteration unit.** Operator picked this from a "what next" menu: build the management
 **screens** for the three "master" reference tables — `clients`, `suppliers`,

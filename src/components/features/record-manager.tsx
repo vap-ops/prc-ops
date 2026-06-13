@@ -1,8 +1,8 @@
 "use client";
 
-// Spec 81 — generic master-data manager. Drives the clients / suppliers /
-// contractors screens at /pm/masters from a field schema. Presentational: the
-// entity's create/update server actions are injected as onCreate / onUpdate, so
+// Spec 81 — generic record manager. Drives the contacts screens (clients /
+// suppliers / contractors) at /pm/contacts from a field schema. Presentational:
+// the entity's create/update server actions are injected as onCreate / onUpdate, so
 // no server function is imported here and the 42501→Thai mapping stays in each
 // action (the NotesField pattern, spec 72).
 //
@@ -19,9 +19,9 @@ import {
 } from "@/lib/ui/classes";
 import { useToast } from "@/lib/ui/use-toast";
 
-export type MasterActionResult = { ok: true } | { ok: false; error: string };
+export type RecordActionResult = { ok: true } | { ok: false; error: string };
 
-export interface MasterFieldDef {
+export interface RecordFieldDef {
   /** Record key passed to onCreate/onUpdate (camelCase, maps to the action input). */
   key: string;
   label: string;
@@ -29,17 +29,17 @@ export interface MasterFieldDef {
   maxLength: number;
 }
 
-export interface MasterRow {
+export interface RecordRow {
   id: string;
   values: Record<string, string | null>;
 }
 
-interface MasterManagerProps {
+interface RecordManagerProps {
   addLabel: string;
-  fields: MasterFieldDef[];
-  rows: MasterRow[];
-  onCreate: (values: Record<string, string>) => Promise<MasterActionResult>;
-  onUpdate: (id: string, values: Record<string, string>) => Promise<MasterActionResult>;
+  fields: RecordFieldDef[];
+  rows: RecordRow[];
+  onCreate: (values: Record<string, string>) => Promise<RecordActionResult>;
+  onUpdate: (id: string, values: Record<string, string>) => Promise<RecordActionResult>;
 }
 
 function FieldInputs({
@@ -48,7 +48,7 @@ function FieldInputs({
   setValue,
   disabled,
 }: {
-  fields: MasterFieldDef[];
+  fields: RecordFieldDef[];
   values: Record<string, string>;
   setValue: (key: string, value: string) => void;
   disabled: boolean;
@@ -84,7 +84,7 @@ function FieldInputs({
   );
 }
 
-function blankValues(fields: MasterFieldDef[]): Record<string, string> {
+function blankValues(fields: RecordFieldDef[]): Record<string, string> {
   return Object.fromEntries(fields.map((f) => [f.key, ""]));
 }
 
@@ -94,8 +94,8 @@ function AddCard({
   onCreate,
 }: {
   addLabel: string;
-  fields: MasterFieldDef[];
-  onCreate: MasterManagerProps["onCreate"];
+  fields: RecordFieldDef[];
+  onCreate: RecordManagerProps["onCreate"];
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -150,14 +150,14 @@ function AddCard({
   );
 }
 
-function MasterRowItem({
+function RecordRowItem({
   fields,
   row,
   onUpdate,
 }: {
-  fields: MasterFieldDef[];
-  row: MasterRow;
-  onUpdate: MasterManagerProps["onUpdate"];
+  fields: RecordFieldDef[];
+  row: RecordRow;
+  onUpdate: RecordManagerProps["onUpdate"];
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -255,7 +255,7 @@ function MasterRowItem({
   );
 }
 
-export function MasterManager({ addLabel, fields, rows, onCreate, onUpdate }: MasterManagerProps) {
+export function RecordManager({ addLabel, fields, rows, onCreate, onUpdate }: RecordManagerProps) {
   return (
     <div className="flex flex-col gap-4">
       <AddCard addLabel={addLabel} fields={fields} onCreate={onCreate} />
@@ -264,7 +264,7 @@ export function MasterManager({ addLabel, fields, rows, onCreate, onUpdate }: Ma
           <p className="text-sm font-semibold text-zinc-900">รายการ ({rows.length})</p>
           <ul className="mt-2 flex flex-col">
             {rows.map((r) => (
-              <MasterRowItem key={r.id} fields={fields} row={r} onUpdate={onUpdate} />
+              <RecordRowItem key={r.id} fields={fields} row={r} onUpdate={onUpdate} />
             ))}
           </ul>
         </div>

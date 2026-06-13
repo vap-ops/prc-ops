@@ -83,7 +83,7 @@ for reading the spec itself.
 | 78   | App-feel slice 4: bottom-sheet primitive                                  |
 | 79   | Project metadata + client information (clients master)                    |
 | 80   | Project team / supervisors (`project_members`)                            |
-| 81   | Master data management (clients · suppliers · contractors)                |
+| 81   | Contacts management (clients · suppliers · contractors)                   |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

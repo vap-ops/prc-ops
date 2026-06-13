@@ -1,19 +1,19 @@
 "use client";
 
-// Spec 81 — the /pm/masters segmented-control shell. Holds the active master
-// (RadioChip group) and renders one generic MasterManager for it, binding that
-// entity's field schema + the field-record → typed-action mappers. Rows for all
-// three masters are fetched server-side and passed in as props.
+// Spec 81 — the /pm/contacts segmented-control shell. Holds the active contact
+// type (RadioChip group) and renders one generic RecordManager for it, binding
+// that entity's field schema + the field-record → typed-action mappers. Rows for
+// all three contact types are fetched server-side and passed in as props.
 //
 // 'use client' justification: the tab state + binding the injected actions.
 
 import { useState } from "react";
 import { RadioChip } from "@/components/features/radio-chip";
 import {
-  MasterManager,
-  type MasterFieldDef,
-  type MasterRow,
-} from "@/components/features/master-manager";
+  RecordManager,
+  type RecordFieldDef,
+  type RecordRow,
+} from "@/components/features/record-manager";
 import {
   createClientRecord,
   updateClientRecord,
@@ -21,9 +21,9 @@ import {
   updateSupplierRecord,
   createContractorRecord,
   updateContractorRecord,
-} from "@/app/pm/masters/actions";
+} from "@/app/pm/contacts/actions";
 
-const CLIENT_FIELDS: MasterFieldDef[] = [
+const CLIENT_FIELDS: RecordFieldDef[] = [
   { key: "name", label: "ชื่อลูกค้า", type: "text", maxLength: 120 },
   { key: "contactPerson", label: "ผู้ติดต่อ", type: "text", maxLength: 120 },
   { key: "phone", label: "เบอร์โทร", type: "tel", maxLength: 50 },
@@ -32,19 +32,19 @@ const CLIENT_FIELDS: MasterFieldDef[] = [
   { key: "note", label: "หมายเหตุ", type: "textarea", maxLength: 2000 },
 ];
 
-const SUPPLIER_FIELDS: MasterFieldDef[] = [
+const SUPPLIER_FIELDS: RecordFieldDef[] = [
   { key: "name", label: "ชื่อผู้ขาย", type: "text", maxLength: 200 },
   { key: "phone", label: "เบอร์โทร", type: "tel", maxLength: 50 },
   { key: "note", label: "หมายเหตุ", type: "textarea", maxLength: 2000 },
 ];
 
-const CONTRACTOR_FIELDS: MasterFieldDef[] = [
+const CONTRACTOR_FIELDS: RecordFieldDef[] = [
   { key: "name", label: "ชื่อผู้รับเหมา", type: "text", maxLength: 200 },
   { key: "phone", label: "เบอร์โทร", type: "tel", maxLength: 50 },
   { key: "note", label: "หมายเหตุ", type: "textarea", maxLength: 2000 },
 ];
 
-// Map a generic field-record (keyed by MasterFieldDef.key) into a typed action
+// Map a generic field-record (keyed by RecordFieldDef.key) into a typed action
 // input. Only keys present in the record are forwarded — on update that means
 // only changed fields; on create the record carries every field.
 function pick<K extends string>(
@@ -106,24 +106,24 @@ const TABS = [
   { value: "contractors", label: "ผู้รับเหมา" },
 ] as const;
 
-export function MastersTabs({
+export function ContactsTabs({
   clients,
   suppliers,
   contractors,
 }: {
-  clients: MasterRow[];
-  suppliers: MasterRow[];
-  contractors: MasterRow[];
+  clients: RecordRow[];
+  suppliers: RecordRow[];
+  contractors: RecordRow[];
 }) {
   const [tab, setTab] = useState<Tab>("clients");
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="ประเภทข้อมูลหลัก">
+      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="ประเภทผู้ติดต่อ">
         {TABS.map((t) => (
           <RadioChip
             key={t.value}
-            name="master-tab"
+            name="contact-tab"
             label={t.label}
             checked={tab === t.value}
             onSelect={() => setTab(t.value)}
@@ -131,7 +131,7 @@ export function MastersTabs({
         ))}
       </div>
       {tab === "clients" ? (
-        <MasterManager
+        <RecordManager
           addLabel="เพิ่มลูกค้า"
           fields={CLIENT_FIELDS}
           rows={clients}
@@ -140,7 +140,7 @@ export function MastersTabs({
         />
       ) : null}
       {tab === "suppliers" ? (
-        <MasterManager
+        <RecordManager
           addLabel="เพิ่มผู้ขาย"
           fields={SUPPLIER_FIELDS}
           rows={suppliers}
@@ -149,7 +149,7 @@ export function MastersTabs({
         />
       ) : null}
       {tab === "contractors" ? (
-        <MasterManager
+        <RecordManager
           addLabel="เพิ่มผู้รับเหมา"
           fields={CONTRACTOR_FIELDS}
           rows={contractors}
