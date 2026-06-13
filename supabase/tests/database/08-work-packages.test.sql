@@ -1,5 +1,5 @@
 begin;
-select plan(42);
+select plan(53);
 
 -- ============================================================================
 -- A. Setup as postgres (the test transaction's outer role, which bypasses
@@ -87,6 +87,11 @@ select col_not_null('public', 'work_packages', 'name', 'name is NOT NULL');
 
 select col_type_is('public', 'work_packages', 'description', 'text', 'description is text');
 select col_is_null('public', 'work_packages', 'description', 'description is NULLABLE');
+
+-- Spec 71: the backup-capture note column.
+select col_type_is('public', 'work_packages', 'notes', 'text', 'notes is text');
+select col_is_null('public', 'work_packages', 'notes', 'notes is NULLABLE');
+select has_function('public', 'set_work_package_notes', 'set_work_package_notes RPC exists');
 
 select col_type_is(
   'public', 'work_packages', 'status', 'work_package_status',
@@ -366,7 +371,70 @@ select is(
 );
 
 -- ============================================================================
--- I. Tear down. Reset role to postgres before finish() / the runner's
+-- I. set_work_package_notes RPC + the notes length CHECK (spec 71). Still
+--    under `set local role authenticated` from section D; claims switch per
+--    assertion. The fixture WP 'aaaa…' survived section H (no DELETE policy).
+-- ============================================================================
+
+-- I.1/I.2 site_admin — the on-site note author — writes via the RPC even
+--          though SA has no work_packages UPDATE policy (the RPC writes the
+--          notes column only).
+set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222222222"}';
+select is(
+  (select public.set_work_package_notes(
+     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'ผนังร้าวฝั่งทิศเหนือ')),
+  true,
+  'site_admin writes a WP note via set_work_package_notes (returns true)');
+select is(
+  (select notes from public.work_packages
+     where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
+  'ผนังร้าวฝั่งทิศเหนือ',
+  'the note landed on the work package');
+
+-- I.3 visitor refused (role gate → 42501).
+set local "request.jwt.claims" = '{"sub": "44444444-4444-4444-4444-444444444444"}';
+select throws_ok(
+  $$ select public.set_work_package_notes(
+       'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'nope') $$,
+  '42501', null, 'visitor cannot set a WP note (role gate)');
+
+-- I.4 procurement refused — it READS WPs (spec 70) but never writes them.
+set local "request.jwt.claims" = '{"sub": "55555555-5555-5555-5555-555555555555"}';
+select throws_ok(
+  $$ select public.set_work_package_notes(
+       'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'nope') $$,
+  '42501', null, 'procurement cannot set a WP note (role gate)');
+
+-- I.5 unknown WP → false (0 rows updated).
+set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222222222"}';
+select is(
+  (select public.set_work_package_notes(
+     '00000000-0000-0000-0000-000000000000'::uuid, 'x')),
+  false,
+  'set_work_package_notes returns false for an unknown work package');
+
+-- I.6 a blank note clears the column to null (nullif(btrim(...),'')).
+select is(
+  (select public.set_work_package_notes(
+     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, '   ')),
+  true,
+  'a blank note is accepted (returns true)');
+select is(
+  (select notes from public.work_packages
+     where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid),
+  null::text,
+  'a blank note clears the column to null');
+
+-- I.7 the length CHECK rejects an over-long note (super_admin direct UPDATE).
+set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111111111"}';
+select throws_ok(
+  $$ update public.work_packages
+       set notes = repeat('x', 2001)
+     where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid $$,
+  '23514', null, 'notes longer than 2000 chars violate work_packages_notes_len');
+
+-- ============================================================================
+-- J. Tear down. Reset role to postgres before finish() / the runner's
 --    appended dump from _tap_buf, so those run with full privileges.
 -- ============================================================================
 

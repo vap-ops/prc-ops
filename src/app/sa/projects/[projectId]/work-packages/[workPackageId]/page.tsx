@@ -29,6 +29,7 @@ import {
 } from "@/lib/status-colors";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { WpAssignmentPanel } from "@/components/features/wp-assignment-panel";
+import { WorkPackageNotes } from "@/components/features/work-package-notes";
 import { PurchaseRequestForm } from "@/components/features/purchase-request-form";
 import { SitePurchaseForm } from "@/components/features/site-purchase-form";
 import { LaborLogZone } from "@/components/features/labor-log-zone";
@@ -48,7 +49,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
 
   const { data: wp } = await supabase
     .from("work_packages")
-    .select("id, code, name, status, project_id, description, contractor_id")
+    .select("id, code, name, status, project_id, description, contractor_id, notes")
     .eq("id", workPackageId)
     .maybeSingle();
 
@@ -346,6 +347,11 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
             <FileText aria-hidden className="size-5 text-blue-700" />
             ข้อมูลงาน
           </h2>
+          {/* Spec 71: editable backup-capture note — the catch-all for
+              anything the structured fields don't cover. */}
+          <div className={CARD}>
+            <WorkPackageNotes projectId={wp.project_id} workPackageId={wp.id} notes={wp.notes} />
+          </div>
           {wp.description ? (
             <details className={CARD}>
               <summary className="cursor-pointer text-sm font-semibold text-zinc-900">

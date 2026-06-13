@@ -923,6 +923,7 @@ export type Database = {
           description: string | null;
           id: string;
           name: string;
+          notes: string | null;
           owner_id: string | null;
           project_id: string;
           status: Database["public"]["Enums"]["work_package_status"];
@@ -936,6 +937,7 @@ export type Database = {
           description?: string | null;
           id?: string;
           name: string;
+          notes?: string | null;
           owner_id?: string | null;
           project_id: string;
           status?: Database["public"]["Enums"]["work_package_status"];
@@ -949,6 +951,7 @@ export type Database = {
           description?: string | null;
           id?: string;
           name?: string;
+          notes?: string | null;
           owner_id?: string | null;
           project_id?: string;
           status?: Database["public"]["Enums"]["work_package_status"];
@@ -1285,6 +1288,10 @@ export type Database = {
       };
       set_work_package_contractor: {
         Args: { p_contractor_id?: string; p_work_package_id: string };
+        Returns: boolean;
+      };
+      set_work_package_notes: {
+        Args: { p_notes: string; p_work_package_id: string };
         Returns: boolean;
       };
       set_worker_day_rate: {
