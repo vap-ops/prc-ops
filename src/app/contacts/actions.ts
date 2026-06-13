@@ -15,8 +15,11 @@ import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
 import { PM_ROLES } from "@/lib/auth/role-home";
 import type { Database } from "@/lib/db/database.types";
+import { Constants } from "@/lib/db/database.types";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { validateNotes } from "@/lib/notes/validate";
+
+const E = Constants.public.Enums;
 
 export type RecordActionResult = { ok: true } | { ok: false; error: string };
 
@@ -50,6 +53,15 @@ function norm(value: string | undefined): string | null {
 function validName(value: string, max: number): boolean {
   const t = value.trim();
   return t.length > 0 && t.length <= max;
+}
+
+/** Narrow a string to an enum value. undefined input → undefined (omit/preserve). */
+function checkEnum<T extends string>(
+  allowed: readonly T[],
+  v: string | undefined,
+): { ok: true; value: T | undefined } | { ok: false } {
+  if (v === undefined) return { ok: true, value: undefined };
+  return (allowed as readonly string[]).includes(v) ? { ok: true, value: v as T } : { ok: false };
 }
 
 // ── clients ────────────────────────────────────────────────────────────────
@@ -131,6 +143,11 @@ export async function createSupplierRecord(input: {
   name: string;
   phone?: string;
   note?: string;
+  contactPerson?: string;
+  email?: string;
+  mailingAddress?: string;
+  taxId?: string;
+  paymentTerms?: string;
 }): Promise<RecordActionResult> {
   const gate = await pmSession();
   if (!gate.ok) return gate;
@@ -144,6 +161,11 @@ export async function createSupplierRecord(input: {
     name: input.name.trim(),
     phone: norm(input.phone),
     note: noteRes.value,
+    contact_person: norm(input.contactPerson),
+    email: norm(input.email),
+    mailing_address: norm(input.mailingAddress),
+    tax_id: norm(input.taxId),
+    payment_terms: norm(input.paymentTerms),
     created_by: gate.userId,
   });
   if (error) return { ok: false, error: GENERIC };
@@ -156,6 +178,11 @@ export async function updateSupplierRecord(input: {
   name?: string;
   phone?: string;
   note?: string;
+  contactPerson?: string;
+  email?: string;
+  mailingAddress?: string;
+  taxId?: string;
+  paymentTerms?: string;
 }): Promise<RecordActionResult> {
   const gate = await pmSession();
   if (!gate.ok) return gate;
@@ -174,6 +201,11 @@ export async function updateSupplierRecord(input: {
     if (!noteRes.ok) return { ok: false, error: noteRes.error };
     patch.note = noteRes.value;
   }
+  if (input.contactPerson !== undefined) patch.contact_person = norm(input.contactPerson);
+  if (input.email !== undefined) patch.email = norm(input.email);
+  if (input.mailingAddress !== undefined) patch.mailing_address = norm(input.mailingAddress);
+  if (input.taxId !== undefined) patch.tax_id = norm(input.taxId);
+  if (input.paymentTerms !== undefined) patch.payment_terms = norm(input.paymentTerms);
   if (Object.keys(patch).length === 0) return { ok: true };
 
   const { error } = await gate.supabase.from("suppliers").update(patch).eq("id", input.id);
@@ -188,6 +220,14 @@ export async function createContractorRecord(input: {
   name: string;
   phone?: string;
   note?: string;
+  contractorCategory?: string;
+  contractorSubtype?: string;
+  status?: string;
+  contactPerson?: string;
+  email?: string;
+  mailingAddress?: string;
+  taxId?: string;
+  specialty?: string;
 }): Promise<RecordActionResult> {
   const gate = await pmSession();
   if (!gate.ok) return gate;
@@ -196,12 +236,24 @@ export async function createContractorRecord(input: {
   }
   const noteRes = validateNotes(input.note ?? "");
   if (!noteRes.ok) return { ok: false, error: noteRes.error };
+  const cat = checkEnum(E.contractor_category, input.contractorCategory);
+  const sub = checkEnum(E.contractor_subtype, input.contractorSubtype);
+  const st = checkEnum(E.contact_status, input.status);
+  if (!cat.ok || !sub.ok || !st.ok) return { ok: false, error: GENERIC };
 
   const { error } = await gate.supabase.from("contractors").insert({
     name: input.name.trim(),
     phone: norm(input.phone),
     note: noteRes.value,
+    contact_person: norm(input.contactPerson),
+    email: norm(input.email),
+    mailing_address: norm(input.mailingAddress),
+    tax_id: norm(input.taxId),
+    specialty: norm(input.specialty),
     created_by: gate.userId,
+    ...(cat.value !== undefined ? { contractor_category: cat.value } : {}),
+    ...(sub.value !== undefined ? { contractor_subtype: sub.value } : {}),
+    ...(st.value !== undefined ? { status: st.value } : {}),
   });
   if (error) return { ok: false, error: GENERIC };
   revalidatePath(CONTACTS_PATH);
@@ -213,6 +265,14 @@ export async function updateContractorRecord(input: {
   name?: string;
   phone?: string;
   note?: string;
+  contractorCategory?: string;
+  contractorSubtype?: string;
+  status?: string;
+  contactPerson?: string;
+  email?: string;
+  mailingAddress?: string;
+  taxId?: string;
+  specialty?: string;
 }): Promise<RecordActionResult> {
   const gate = await pmSession();
   if (!gate.ok) return gate;
@@ -234,9 +294,136 @@ export async function updateContractorRecord(input: {
     if (!noteRes.ok) return { ok: false, error: noteRes.error };
     patch.note = noteRes.value;
   }
+  if (input.contactPerson !== undefined) patch.contact_person = norm(input.contactPerson);
+  if (input.email !== undefined) patch.email = norm(input.email);
+  if (input.mailingAddress !== undefined) patch.mailing_address = norm(input.mailingAddress);
+  if (input.taxId !== undefined) patch.tax_id = norm(input.taxId);
+  if (input.specialty !== undefined) patch.specialty = norm(input.specialty);
+  if (input.contractorCategory !== undefined) {
+    const cat = checkEnum(E.contractor_category, input.contractorCategory);
+    if (!cat.ok || cat.value === undefined) return { ok: false, error: GENERIC };
+    patch.contractor_category = cat.value;
+  }
+  if (input.contractorSubtype !== undefined) {
+    // "" clears the subtype to null; otherwise it must be a valid enum value.
+    if (input.contractorSubtype === "") {
+      patch.contractor_subtype = null;
+    } else {
+      const sub = checkEnum(E.contractor_subtype, input.contractorSubtype);
+      if (!sub.ok || sub.value === undefined) return { ok: false, error: GENERIC };
+      patch.contractor_subtype = sub.value;
+    }
+  }
+  if (input.status !== undefined) {
+    const st = checkEnum(E.contact_status, input.status);
+    if (!st.ok || st.value === undefined) return { ok: false, error: GENERIC };
+    patch.status = st.value;
+  }
   if (Object.keys(patch).length === 0) return { ok: true };
 
   const { error } = await gate.supabase.from("contractors").update(patch).eq("id", input.id);
+  if (error) return { ok: false, error: GENERIC };
+  revalidatePath(CONTACTS_PATH);
+  return { ok: true };
+}
+
+// ── service_providers ────────────────────────────────────────────────────────
+
+export async function createServiceProviderRecord(input: {
+  name: string;
+  serviceSubtype?: string;
+  status?: string;
+  phone?: string;
+  contactPerson?: string;
+  email?: string;
+  mailingAddress?: string;
+  vehicleType?: string;
+  plateNo?: string;
+  note?: string;
+}): Promise<RecordActionResult> {
+  const gate = await pmSession();
+  if (!gate.ok) return gate;
+  if (!validName(input.name, MASTER_NAME_MAX)) {
+    return {
+      ok: false,
+      error: `ชื่อผู้ให้บริการต้องไม่ว่างและไม่เกิน ${MASTER_NAME_MAX} ตัวอักษร`,
+    };
+  }
+  const noteRes = validateNotes(input.note ?? "");
+  if (!noteRes.ok) return { ok: false, error: noteRes.error };
+  const sub = checkEnum(E.service_subtype, input.serviceSubtype);
+  const st = checkEnum(E.contact_status, input.status);
+  if (!sub.ok || !st.ok) return { ok: false, error: GENERIC };
+
+  const { error } = await gate.supabase.from("service_providers").insert({
+    name: input.name.trim(),
+    phone: norm(input.phone),
+    contact_person: norm(input.contactPerson),
+    email: norm(input.email),
+    mailing_address: norm(input.mailingAddress),
+    vehicle_type: norm(input.vehicleType),
+    plate_no: norm(input.plateNo),
+    note: noteRes.value,
+    created_by: gate.userId,
+    ...(sub.value !== undefined ? { service_subtype: sub.value } : {}),
+    ...(st.value !== undefined ? { status: st.value } : {}),
+  });
+  if (error) return { ok: false, error: GENERIC };
+  revalidatePath(CONTACTS_PATH);
+  return { ok: true };
+}
+
+export async function updateServiceProviderRecord(input: {
+  id: string;
+  name?: string;
+  serviceSubtype?: string;
+  status?: string;
+  phone?: string;
+  contactPerson?: string;
+  email?: string;
+  mailingAddress?: string;
+  vehicleType?: string;
+  plateNo?: string;
+  note?: string;
+}): Promise<RecordActionResult> {
+  const gate = await pmSession();
+  if (!gate.ok) return gate;
+  if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC };
+
+  const patch: Database["public"]["Tables"]["service_providers"]["Update"] = {};
+  if (input.name !== undefined) {
+    if (!validName(input.name, MASTER_NAME_MAX)) {
+      return {
+        ok: false,
+        error: `ชื่อผู้ให้บริการต้องไม่ว่างและไม่เกิน ${MASTER_NAME_MAX} ตัวอักษร`,
+      };
+    }
+    patch.name = input.name.trim();
+  }
+  if (input.phone !== undefined) patch.phone = norm(input.phone);
+  if (input.contactPerson !== undefined) patch.contact_person = norm(input.contactPerson);
+  if (input.email !== undefined) patch.email = norm(input.email);
+  if (input.mailingAddress !== undefined) patch.mailing_address = norm(input.mailingAddress);
+  if (input.vehicleType !== undefined) patch.vehicle_type = norm(input.vehicleType);
+  if (input.plateNo !== undefined) patch.plate_no = norm(input.plateNo);
+  if (input.note !== undefined) {
+    const noteRes = validateNotes(input.note);
+    if (!noteRes.ok) return { ok: false, error: noteRes.error };
+    patch.note = noteRes.value;
+  }
+  if (input.serviceSubtype !== undefined) {
+    const sub = checkEnum(E.service_subtype, input.serviceSubtype);
+    if (!sub.ok || sub.value === undefined) return { ok: false, error: GENERIC };
+    patch.service_subtype = sub.value;
+  }
+  if (input.status !== undefined) {
+    const st = checkEnum(E.contact_status, input.status);
+    if (!st.ok || st.value === undefined) return { ok: false, error: GENERIC };
+    patch.status = st.value;
+  }
+  if (Object.keys(patch).length === 0) return { ok: true };
+
+  const { error } = await gate.supabase.from("service_providers").update(patch).eq("id", input.id);
   if (error) return { ok: false, error: GENERIC };
   revalidatePath(CONTACTS_PATH);
   return { ok: true };

@@ -96,6 +96,38 @@ describe("RecordManager", () => {
     );
   });
 
+  it("renders a <select> for a select-typed field and reports its value (spec 86)", async () => {
+    const onCreate = vi.fn().mockResolvedValue({ ok: true });
+    render(
+      <RecordManager
+        addLabel="เพิ่ม"
+        fields={[
+          { key: "name", label: "ชื่อ", type: "text", maxLength: 200 },
+          {
+            key: "status",
+            label: "สถานะ",
+            type: "select",
+            options: [
+              { value: "active", label: "ใช้งาน" },
+              { value: "blacklisted", label: "บัญชีดำ" },
+            ],
+          },
+        ]}
+        rows={[]}
+        onCreate={onCreate as unknown as CreateFn}
+        onUpdate={vi.fn() as unknown as UpdateFn}
+      />,
+    );
+    const sel = screen.getByLabelText("สถานะ");
+    expect(sel.tagName).toBe("SELECT");
+    fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "x" } });
+    fireEvent.change(sel, { target: { value: "blacklisted" } });
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่ม" }));
+    await waitFor(() =>
+      expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({ status: "blacklisted" })),
+    );
+  });
+
   it("renders the error when onCreate fails", async () => {
     setup({
       rows: [],

@@ -25,8 +25,11 @@ export interface RecordFieldDef {
   /** Record key passed to onCreate/onUpdate (camelCase, maps to the action input). */
   key: string;
   label: string;
-  type: "text" | "tel" | "email" | "textarea";
-  maxLength: number;
+  type: "text" | "tel" | "email" | "textarea" | "select";
+  /** Required for text/tel/email/textarea; ignored for select. */
+  maxLength?: number;
+  /** Required for type "select": the dropdown options (spec 86). */
+  options?: { value: string; label: string }[];
 }
 
 export interface RecordRow {
@@ -67,6 +70,19 @@ function FieldInputs({
               onChange={(e) => setValue(f.key, e.target.value)}
               className={FIELD_STACKED}
             />
+          ) : f.type === "select" ? (
+            <select
+              value={values[f.key] ?? ""}
+              disabled={disabled}
+              onChange={(e) => setValue(f.key, e.target.value)}
+              className={`${FIELD_STACKED} appearance-none`}
+            >
+              {(f.options ?? []).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
           ) : (
             <input
               type={f.type}
@@ -85,7 +101,10 @@ function FieldInputs({
 }
 
 function blankValues(fields: RecordFieldDef[]): Record<string, string> {
-  return Object.fromEntries(fields.map((f) => [f.key, ""]));
+  // A select defaults to its first option (a valid enum value), not "".
+  return Object.fromEntries(
+    fields.map((f) => [f.key, f.type === "select" ? (f.options?.[0]?.value ?? "") : ""]),
+  );
 }
 
 function AddCard({
