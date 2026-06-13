@@ -78,8 +78,6 @@ controls, and its WP reference is plain text (the WP detail route bounces it).
 
 ## Known seams (recorded, not defects)
 
-- `/sa` and `/pm/projects` are two hub lists with one row behavior;
-  merging is a design-round candidate.
 - `/workers` nav entry pending its own small spec.
 - `/pm/payroll` (ค่าจ้าง) is in the desktop PM HubNav (`hub-nav.tsx`) only — the
   phone bottom-tab bar has no entry for it yet (same gap as `/workers`).
