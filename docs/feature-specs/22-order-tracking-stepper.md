@@ -22,13 +22,9 @@ after 'purchased'` (own file — a new enum value is unusable inside the
 2. Migration 2:
    - `shipped_at timestamptz null` column on `purchase_requests`.
    - `grant update (shipped_at)` to `appsheet_writer` (9th granted column).
-   - Derive-trigger function replaced:
-     - guard: `shipped_at` null→non-null requires `old.status = 'purchased'`.
-     - guard: `delivered_at` null→non-null requires `old.status in
-('purchased','on_route')` (was `= 'purchased'`).
-     - transition: `purchased` + shipped_at null→non-null ⇒ `on_route`.
-     - transition: (`purchased`|`on_route`) + delivered_at null→non-null ⇒
-       `delivered`.
+   - Derive-trigger function replaced: - guard: `shipped_at` null→non-null requires `old.status = 'purchased'`. - guard: `delivered_at` null→non-null requires `old.status in
+('purchased','on_route')` (was `= 'purchased'`). - transition: `purchased` + shipped_at null→non-null ⇒ `on_route`. - transition: (`purchased`|`on_route`) + delivered_at null→non-null ⇒
+     `delivered`.
    - Audit function + trigger (ADR 0026 shape):
      - new transition arm `purchased → on_route` audited as action
        `'update'` with payload `{principal, shipped_at, transition}` — no

@@ -1,0 +1,25 @@
+# Normalize all text files to LF in the repo AND the working tree.
+# This repo is developed on a Windows cloud PC (core.autocrlf=true) but builds
+# and deploys on Linux (Vercel). Without this, autocrlf rewrites working-tree
+# files to CRLF on checkout, leaving git showing them "modified" with empty
+# content diffs (phantom churn) — and any blanket `prettier --write` touches
+# every file's mtime, amplifying it. eol=lf pins the working tree to LF so the
+# churn cannot happen and Windows/Linux see identical bytes.
+* text=auto eol=lf
+
+# Shell scripts and hooks must be LF to execute.
+*.sh text eol=lf
+.husky/* text eol=lf
+
+# Binary assets — never normalize or diff as text.
+*.png binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.pdf binary

@@ -103,9 +103,9 @@ spent on speculative infrastructure.
 ### This quarter
 
 5. **Rehearsal instance #2 — before any customer is watching.** Clone the
-   whole topology (Supabase project + migrations + buckets + pg_cron + Vault,
+   whole topology (Supabase project + migrations + buckets + pg*cron + Vault,
    Vercel project + env, fresh LINE Login + OA channels, WP import via the
-   ADR 0014 contract) and write the spin-up runbook _while doing it_. Triple
+   ADR 0014 contract) and write the spin-up runbook \_while doing it*. Triple
    duty: it is the migration rehearsal stage, the restore-drill target, and
    the future demo instance. Start on the free tier.
 6. **Evidence pack export** — productize the moat: per-project/WP export of

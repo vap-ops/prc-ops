@@ -68,15 +68,15 @@ not improvise.
 
 ### Append-only + tombstone-supersede (the key architectural decision)
 
-9. **`photo_logs` is APPEND-ONLY**, triple-enforced exactly like
-   `audit_log` (per [ADR 0004](../decisions/0004-audit.md)):
-   1. **Privilege:** REVOKE UPDATE / DELETE on the `authenticated`
-      and `anon` roles. INSERT and SELECT only.
-   2. **RLS:** policies for INSERT and SELECT only. No UPDATE / no
-      DELETE policy.
-   3. **Trigger:** `BEFORE UPDATE OR DELETE` raises an exception.
-      Catches the service_role / superuser path that bypasses the
-      first two layers.
+9.  **`photo_logs` is APPEND-ONLY**, triple-enforced exactly like
+    `audit_log` (per [ADR 0004](../decisions/0004-audit.md)):
+    1. **Privilege:** REVOKE UPDATE / DELETE on the `authenticated`
+       and `anon` roles. INSERT and SELECT only.
+    2. **RLS:** policies for INSERT and SELECT only. No UPDATE / no
+       DELETE policy.
+    3. **Trigger:** `BEFORE UPDATE OR DELETE` raises an exception.
+       Catches the service_role / superuser path that bypasses the
+       first two layers.
 10. **Photos are ADDED by INSERT.** Nothing is ever hard-deleted or
     UPDATEd. There is no "edit a photo" operation.
 11. **REMOVAL of a photo uses a TOMBSTONE: an append-only
@@ -100,18 +100,19 @@ not improvise.
     other row's `superseded_by` points at it AND its `storage_path`
     is not null. Sketch:
 
-    ```sql
-    SELECT pl.*
-    FROM photo_logs pl
-    WHERE pl.storage_path IS NOT NULL
-      AND NOT EXISTS (
-        SELECT 1 FROM photo_logs newer
-        WHERE newer.superseded_by = pl.id
-      );
-    ```
+        ```sql
+        SELECT pl.*
+        FROM photo_logs pl
+        WHERE pl.storage_path IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM photo_logs newer
+            WHERE newer.superseded_by = pl.id
+          );
+        ```
 
-    The first clause filters out tombstones (`storage_path IS
-NULL`); the second clause filters out photos that have been
+        The first clause filters out tombstones (`storage_path IS
+
+    NULL`); the second clause filters out photos that have been
     tombstoned or replaced.
 
 13. **ADR 0015 will document this divergence from the original
