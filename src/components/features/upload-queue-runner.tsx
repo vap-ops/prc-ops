@@ -30,6 +30,7 @@ import {
 } from "@/lib/photos/upload-queue-idb";
 import { addPhoto } from "@/app/sa/projects/[projectId]/work-packages/[workPackageId]/actions";
 import { addDeliveryConfirmationPhoto, addPurchaseRequestAttachment } from "@/app/requests/actions";
+import { ConfirmDialog } from "@/components/features/confirm-dialog";
 
 const LOCK_NAME = "prc-photo-upload-queue";
 
@@ -99,6 +100,8 @@ export function UploadQueueRunner() {
   // For the discard list: foreign items render read-only (ADR 0039 —
   // another user's un-sent evidence must not be discardable here).
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
+  // Spec 67: which queued item is awaiting a themed-dialog discard confirm.
+  const [confirmId, setConfirmId] = useState<string | null>(null);
   const runningRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -191,8 +194,8 @@ export function UploadQueueRunner() {
   async function discard(id: string) {
     // Honest copy: a send that is ALREADY mid-flight may still complete
     // (the core skips put-backs after a discard, but cannot recall a
-    // request already on the wire).
-    if (!window.confirm("ลบรูปที่ยังไม่ได้ส่งนี้หรือไม่?")) return;
+    // request already on the wire). Spec 67: confirmed via the themed
+    // ConfirmDialog (confirmId state), not window.confirm.
     await safeQueueRemove(id);
     // Recount via the runner's own trigger path (also re-checks the
     // whole queue) instead of a second hand-rolled IDB read here.
@@ -222,7 +225,7 @@ export function UploadQueueRunner() {
                 ) : null}
                 <button
                   type="button"
-                  onClick={() => void discard(item.id)}
+                  onClick={() => setConfirmId(item.id)}
                   className="inline-flex min-h-11 shrink-0 items-center font-semibold text-red-700 hover:underline focus:outline-none focus-visible:underline"
                 >
                   ลบ
@@ -236,6 +239,17 @@ export function UploadQueueRunner() {
           </li>
         ))}
       </ul>
+      <ConfirmDialog
+        open={confirmId !== null}
+        message="ลบรูปที่ยังไม่ได้ส่งนี้หรือไม่?"
+        confirmLabel="ลบ"
+        onConfirm={() => {
+          const id = confirmId;
+          setConfirmId(null);
+          if (id) void discard(id);
+        }}
+        onCancel={() => setConfirmId(null)}
+      />
     </details>
   );
 }

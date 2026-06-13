@@ -27,7 +27,8 @@ describe("spec 65 chrome constants (byte pins)", () => {
   });
 
   it("DETAIL_TITLE", () => {
-    expect(DETAIL_TITLE).toBe("text-2xl font-bold tracking-tight break-words");
+    // Spec 67: carries leading-snug (Thai wrapping-heading leading).
+    expect(DETAIL_TITLE).toBe("text-2xl leading-snug font-bold tracking-tight break-words");
   });
 
   it("FIELD_INPUT", () => {

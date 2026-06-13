@@ -112,7 +112,7 @@ export function PurchaseRequestTracker({
               ? "text-zinc-400"
               : state === "done"
                 ? "text-zinc-900"
-                : "text-zinc-500";
+                : "text-zinc-600";
 
         return (
           <li
@@ -155,19 +155,19 @@ export function PurchaseRequestTracker({
               />
             </span>
             <span
-              className={`mt-1 text-center text-[11px] leading-tight font-medium ${labelClass} ${
+              className={`mt-1 text-center text-xs leading-snug font-medium ${labelClass} ${
                 isCurrent ? "font-semibold" : ""
               }`}
             >
               {label}
             </span>
             {state === "done" && i > 0 ? (
-              <span className="text-center text-[10px] text-zinc-500">
+              <span className="text-center text-xs text-zinc-600">
                 {date ? formatThaiDate(date) : "—"}
               </span>
             ) : null}
             {stage === "delivered" && state === "pending" && !rejected && eta ? (
-              <span className="text-center text-[10px] text-zinc-500">
+              <span className="text-center text-xs text-zinc-600">
                 คาดว่า {formatThaiDate(eta)}
               </span>
             ) : null}

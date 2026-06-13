@@ -38,8 +38,13 @@ export const CARD = "rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow
 /** Zone/section heading h2 (ui-conventions §5). */
 export const SECTION_HEADING = "mb-3 text-base font-semibold text-zinc-900";
 
-/** Detail-page subject h1 (spec 54/57 — full wrap, never truncate). */
-export const DETAIL_TITLE = "text-2xl font-bold tracking-tight break-words";
+/**
+ * Detail-page subject h1 (spec 54/57 — full wrap, never truncate).
+ * Spec 67: `leading-snug` — a Thai-only app needs explicit leading on a
+ * wrapping heading, or the next line's stacked tone marks crowd the line
+ * above (text-2xl default ≈1.33 is Latin-tuned).
+ */
+export const DETAIL_TITLE = "text-2xl leading-snug font-bold tracking-tight break-words";
 
 /** Standard h-11 text input (forms outside the labor zone). */
 export const FIELD_INPUT =

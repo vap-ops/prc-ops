@@ -16,6 +16,7 @@ import {
   type WorkerActionResult,
 } from "@/app/workers/actions";
 import type { Database } from "@/lib/db/database.types";
+import { RadioChip } from "@/components/features/radio-chip";
 import {
   BUTTON_PRIMARY_COMPACT,
   BUTTON_SECONDARY_COMPACT,
@@ -76,6 +77,7 @@ function AddWorkerForm({ contractors }: { contractors: { id: string; name: strin
           className={FIELD_STACKED}
         />
       </label>
+      {/* Spec 67: native-radio chips (was a fake role="radio" on buttons). */}
       <div className="mt-2 flex gap-2" role="radiogroup" aria-label="ประเภทคนงาน">
         {(
           [
@@ -83,20 +85,13 @@ function AddWorkerForm({ contractors }: { contractors: { id: string; name: strin
             { value: "dc", label: "คนงาน DC" },
           ] as const
         ).map((option) => (
-          <button
+          <RadioChip
             key={option.value}
-            type="button"
-            role="radio"
-            aria-checked={workerType === option.value}
-            onClick={() => setWorkerType(option.value)}
-            className={`min-h-11 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-              workerType === option.value
-                ? "border-slate-900 bg-slate-900 text-white"
-                : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
-            }`}
-          >
-            {option.label}
-          </button>
+            name="worker-type"
+            label={option.label}
+            checked={workerType === option.value}
+            onSelect={() => setWorkerType(option.value)}
+          />
         ))}
       </div>
       {workerType === "dc" ? (

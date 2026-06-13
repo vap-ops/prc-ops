@@ -251,3 +251,22 @@ all server components.
 Several of these are pinned by named UPDATE-tests — a visual change that
 moves a pinned class must update the test in the same unit, with the spec
 naming the change.
+
+## 11. Spec 67 doctrine deltas (2026-06-13) + anti-drift pins
+
+- **Thai leading.** Wrapping headings carry explicit `leading-` (Latin-tuned
+  defaults crowd stacked tone marks). `DETAIL_TITLE` = `leading-snug`.
+- **Token canon (amends §3).** Positive/done = **emerald**; current/in-progress
+  = **amber**; `blue-700` stays links/active-nav ONLY (never a fill). No
+  off-palette `green-*` anywhere.
+- **Segmented controls / radios** use the shared `RadioChip`
+  ([radio-chip.tsx](../src/components/features/radio-chip.tsx)) — a native
+  `sr-only` radio (keyboard + SR from the browser), 44px. A `role="radio"` on a
+  `<button>` is a review reject (it lies about keyboard support).
+- **Destructive actions** use the shared `ConfirmActionButton`
+  ([confirm-action-button.tsx](../src/components/features/confirm-action-button.tsx))
+  or `ConfirmDialog`. `window.confirm` is a review reject (§7).
+- **Anti-drift.** `tests/unit/design-doctrine.test.ts` reads `src/` and fails on
+  recurrence: `window.confirm(`, off-palette `green-*`, `min-h-9`, group-header
+  `truncate`, missing `DETAIL_TITLE` leading, the blue progress fill. The
+  doctrine is now enforced by a test, not by one operator's eye.

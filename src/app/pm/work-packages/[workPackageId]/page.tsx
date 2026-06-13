@@ -219,7 +219,7 @@ function PhaseGallery({ label, photos, signedUrls }: PhaseGalleryProps) {
     <div>
       <div className="mb-1.5 flex items-center gap-3">
         {hasPhotos ? (
-          <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-600 text-white">
+          <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">
             <Check aria-hidden className="h-4 w-4" strokeWidth={3} />
           </span>
         ) : (
@@ -238,7 +238,7 @@ function PhaseGallery({ label, photos, signedUrls }: PhaseGalleryProps) {
       </div>
       <div
         className={`ml-[13px] flex flex-col gap-2 border-l-2 pb-1 pl-5 ${
-          hasPhotos ? "border-green-600" : "border-zinc-200"
+          hasPhotos ? "border-emerald-600" : "border-zinc-200"
         }`}
       >
         <p className="text-sm text-zinc-600">

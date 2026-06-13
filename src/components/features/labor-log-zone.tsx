@@ -10,6 +10,7 @@
 // for field sessions regardless of what this component asks for.
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { correctLaborLog, logLaborDays } from "@/lib/labor/actions";
 import { bangkokTodayIso } from "@/lib/labor/dates";
@@ -261,7 +262,22 @@ export function LaborLogZone({
 
           {rosterEmpty ? (
             <p className="mt-3 text-sm text-zinc-600">
-              ยังไม่มีรายชื่อคนงาน — ให้ผู้จัดการโครงการเพิ่มที่หน้า คนงาน
+              {/* Spec 67: /workers had no nav entry — PM/super get a real
+                  link here instead of dead prose. */}
+              ยังไม่มีรายชื่อคนงาน —{" "}
+              {showFlags ? (
+                <>
+                  เพิ่มได้ที่หน้า{" "}
+                  <Link
+                    href="/workers"
+                    className="font-medium text-blue-700 underline-offset-2 hover:underline"
+                  >
+                    คนงาน
+                  </Link>
+                </>
+              ) : (
+                "ให้ผู้จัดการโครงการเพิ่มที่หน้า คนงาน"
+              )}
             </p>
           ) : (
             <>

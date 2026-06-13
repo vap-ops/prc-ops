@@ -10,6 +10,7 @@ import { BUTTON_PRIMARY } from "@/lib/ui/classes";
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { RadioChip } from "@/components/features/radio-chip";
 import {
   DEFAULT_REPORT_PARAMS,
   type ReportParams,
@@ -117,29 +118,5 @@ export function GenerateReportButton({ projectId, initiallyDisabled }: GenerateR
         </p>
       )}
     </div>
-  );
-}
-
-interface RadioChipProps {
-  name: string;
-  label: string;
-  checked: boolean;
-  onSelect: () => void;
-}
-
-// Spec-21 segmented-control lineage: label-wrapped radio, 44px target,
-// solid slate fill when selected.
-function RadioChip({ name, label, checked, onSelect }: RadioChipProps) {
-  return (
-    <label
-      className={`inline-flex min-h-11 cursor-pointer items-center rounded-lg border px-3 text-sm transition-colors has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-blue-700 ${
-        checked
-          ? "border-slate-900 bg-slate-900 font-semibold text-white"
-          : "border-zinc-300 bg-white font-medium text-zinc-700 hover:bg-zinc-50"
-      }`}
-    >
-      <input type="radio" name={name} checked={checked} onChange={onSelect} className="sr-only" />
-      {label}
-    </label>
   );
 }

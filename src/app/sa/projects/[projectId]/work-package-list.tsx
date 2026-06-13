@@ -21,6 +21,7 @@ import { ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import { EmptyNotice } from "@/components/features/notices";
 import { StatusPill } from "@/components/features/status-pill";
+import { RadioChip } from "@/components/features/radio-chip";
 import type { Database } from "@/lib/db/database.types";
 import { deriveDeliverableProgress } from "@/lib/deliverables/derive-progress";
 import {
@@ -130,30 +131,19 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
     <div className="flex flex-col gap-4">
       {/* Spec 56: four-view segmented control (the spec-21 shape) —
           replaces the search box + hide-completed checkbox. */}
-      <div
-        role="radiogroup"
-        aria-label="กรองรายการงาน"
-        className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg border border-zinc-300 bg-white p-1 shadow-xs"
-      >
-        {WP_LIST_VIEWS.map(({ value, label }) => {
-          const active = view === value;
-          return (
-            <button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              onClick={() => setView(value)}
-              className={`inline-flex min-h-9 shrink-0 items-center rounded-md px-3 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 ${
-                active
-                  ? "bg-slate-900 font-semibold text-white"
-                  : "font-medium text-zinc-700 hover:bg-zinc-100"
-              }`}
-            >
-              {label}
-            </button>
-          );
-        })}
+      {/* Spec 67: native-radio chips (RadioChip) — arrow-key + SR semantics
+          from the browser, 44px targets. Was a fake role="radio" on 36px
+          buttons. */}
+      <div role="radiogroup" aria-label="กรองรายการงาน" className="flex flex-wrap gap-2">
+        {WP_LIST_VIEWS.map(({ value, label }) => (
+          <RadioChip
+            key={value}
+            name="wp-list-view"
+            label={label}
+            checked={view === value}
+            onSelect={() => setView(value)}
+          />
+        ))}
       </div>
 
       {filtered.length === 0 ? (
@@ -202,12 +192,14 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
                           <span className="font-mono text-xs font-semibold text-slate-500">
                             {group.deliverable.code}
                           </span>
-                          <span className="block truncate text-base font-bold tracking-tight text-slate-900">
+                          {/* Spec 57/67: list headers line-clamp, never
+                              single-line truncate (Thai clips mid-word). */}
+                          <span className="line-clamp-2 block text-base font-bold tracking-tight break-words text-slate-900">
                             {group.deliverable.name}
                           </span>
                         </>
                       ) : (
-                        <span className="block truncate text-sm font-medium text-zinc-600">
+                        <span className="line-clamp-2 block text-sm font-medium break-words text-zinc-600">
                           ยังไม่จัดกลุ่ม
                         </span>
                       )}

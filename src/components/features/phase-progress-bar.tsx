@@ -1,15 +1,20 @@
 // PhaseProgressBar (spec 54): three segments under the WP detail header
-// — green = phase passed, blue = current phase, zinc = not reached —
+// — emerald = phase passed, amber = current phase, zinc = not reached —
 // captioned with the done-count and the current phase label. Pure
 // presentation over derivePhaseProgress; server-renderable.
+//
+// Spec 67 token canon: positive/done = emerald (was an off-palette
+// green-600); current/in-progress = amber (was blue-700, the hue the
+// doctrine reserves for links/active-nav only — a non-tappable bar must
+// not wear the tappable colour).
 
 import { derivePhaseProgress, PHASE_ORDER } from "@/lib/photos/phase-progress";
 import type { PhotoPhase } from "@/lib/photos/phase-progress";
 import { PHOTO_PHASE_LABEL } from "@/lib/i18n/labels";
 
 const SEGMENT_CLASS = {
-  complete: "bg-green-600",
-  current: "bg-blue-700",
+  complete: "bg-emerald-600",
+  current: "bg-amber-500",
   empty: "bg-zinc-200",
 } as const;
 
