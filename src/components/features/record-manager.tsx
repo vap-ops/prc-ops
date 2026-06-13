@@ -9,6 +9,7 @@
 // 'use client' justification: add + per-row edit forms with busy states.
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   BUTTON_PRIMARY_COMPACT,
@@ -51,6 +52,8 @@ interface RecordManagerProps {
   addInSheet?: boolean;
   /** Spec 87: optional status chip per row (e.g. ทดลองงาน / บัญชีดำ). */
   rowBadge?: (row: RecordRow) => RecordBadge | null;
+  /** Spec 88: when set, a row's name links to its detail page. */
+  rowHref?: (row: RecordRow) => string;
 }
 
 function FieldInputs({
@@ -191,11 +194,13 @@ function RecordRowItem({
   row,
   onUpdate,
   badge,
+  href,
 }: {
   fields: RecordFieldDef[];
   row: RecordRow;
   onUpdate: RecordManagerProps["onUpdate"];
   badge?: RecordBadge | null;
+  href?: string;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -242,7 +247,13 @@ function RecordRowItem({
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="flex items-center gap-2 text-sm text-zinc-900">
-            <span className="truncate">{name}</span>
+            {href ? (
+              <Link href={href} className="truncate font-medium text-blue-700 hover:underline">
+                {name}
+              </Link>
+            ) : (
+              <span className="truncate">{name}</span>
+            )}
             {badge ? (
               <span
                 className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -312,6 +323,7 @@ export function RecordManager({
   onUpdate,
   addInSheet,
   rowBadge,
+  rowHref,
 }: RecordManagerProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
   return (
@@ -349,6 +361,7 @@ export function RecordManager({
                 row={r}
                 onUpdate={onUpdate}
                 badge={rowBadge ? rowBadge(r) : null}
+                {...(rowHref ? { href: rowHref(r) } : {})}
               />
             ))}
           </ul>

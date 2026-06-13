@@ -340,6 +340,7 @@ export function ContactsTabs({
           onCreate={clientCreate}
           onUpdate={clientUpdate}
           addInSheet
+          rowHref={(r) => `/contacts/clients/${r.id}`}
         />
       ) : null}
       {tab === "suppliers" ? (
@@ -350,6 +351,7 @@ export function ContactsTabs({
           onCreate={supplierCreate}
           onUpdate={supplierUpdate}
           addInSheet
+          rowHref={(r) => `/contacts/suppliers/${r.id}`}
         />
       ) : null}
       {tab === "contractors" ? (
@@ -361,6 +363,7 @@ export function ContactsTabs({
           onUpdate={contractorUpdate}
           addInSheet
           rowBadge={statusBadge}
+          rowHref={(r) => `/contacts/contractors/${r.id}`}
         />
       ) : null}
       {tab === "dc" ? (
@@ -372,6 +375,7 @@ export function ContactsTabs({
           onUpdate={dcUpdate}
           addInSheet
           rowBadge={statusBadge}
+          rowHref={(r) => `/contacts/contractors/${r.id}`}
         />
       ) : null}
       {tab === "service" ? (
@@ -383,6 +387,7 @@ export function ContactsTabs({
           onUpdate={serviceUpdate}
           addInSheet
           rowBadge={statusBadge}
+          rowHref={(r) => `/contacts/service-providers/${r.id}`}
         />
       ) : null}
     </div>

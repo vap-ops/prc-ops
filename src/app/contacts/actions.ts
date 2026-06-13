@@ -428,3 +428,31 @@ export async function updateServiceProviderRecord(input: {
   revalidatePath(CONTACTS_PATH);
   return { ok: true };
 }
+
+// ── bank (money-isolated, spec 85) ───────────────────────────────────────────
+// Written via the set_contact_bank SECURITY DEFINER RPC on the USER session
+// (the RPC reads current_user_role()/auth.uid()); never the admin client.
+
+export async function setContactBank(input: {
+  kind: "contractor" | "supplier" | "service_provider";
+  id: string;
+  bankName?: string;
+  bankAccountNo?: string;
+  bankAccountName?: string;
+}): Promise<RecordActionResult> {
+  const gate = await pmSession();
+  if (!gate.ok) return gate;
+  if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC };
+
+  const { error } = await gate.supabase.rpc("set_contact_bank", {
+    ...(input.kind === "contractor" ? { p_contractor_id: input.id } : {}),
+    ...(input.kind === "supplier" ? { p_supplier_id: input.id } : {}),
+    ...(input.kind === "service_provider" ? { p_service_provider_id: input.id } : {}),
+    ...(input.bankName !== undefined ? { p_bank_name: input.bankName } : {}),
+    ...(input.bankAccountNo !== undefined ? { p_bank_account_no: input.bankAccountNo } : {}),
+    ...(input.bankAccountName !== undefined ? { p_bank_account_name: input.bankAccountName } : {}),
+  });
+  if (error) return { ok: false, error: GENERIC };
+  revalidatePath(CONTACTS_PATH);
+  return { ok: true };
+}
