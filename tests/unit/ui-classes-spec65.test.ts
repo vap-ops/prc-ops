@@ -15,6 +15,8 @@ import {
   FIELD_STACKED,
   INLINE_ALERT_TEXT,
   SECTION_HEADING,
+  TOAST_ERROR,
+  TOAST_SUCCESS,
 } from "@/lib/ui/classes";
 
 describe("spec 65 chrome constants (byte pins)", () => {
@@ -75,5 +77,14 @@ describe("spec 65 chrome constants (byte pins)", () => {
     expect(BANNER_ERROR).toBe(
       "rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900",
     );
+  });
+
+  // Spec 76: toast colour trios (emerald positive hue — never green-*).
+  it("TOAST_SUCCESS is the emerald trio", () => {
+    expect(TOAST_SUCCESS).toBe("border-emerald-300 bg-emerald-50 text-emerald-900");
+  });
+
+  it("TOAST_ERROR is the red trio", () => {
+    expect(TOAST_ERROR).toBe("border-red-300 bg-red-50 text-red-900");
   });
 });

@@ -11,6 +11,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { BUTTON_PRIMARY_COMPACT, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
 import { NOTES_MAX } from "@/lib/notes/validate";
+import { useToast } from "@/lib/ui/use-toast";
 
 export type NotesSaveResult = { ok: true } | { ok: false; error: string };
 
@@ -33,17 +34,16 @@ export function NotesField({
   maxLength = NOTES_MAX,
 }: NotesFieldProps) {
   const router = useRouter();
+  const toast = useToast();
   const [value, setValue] = useState<string>(notes ?? "");
   const [savedValue, setSavedValue] = useState<string>(notes ?? "");
   const [error, setError] = useState<string | null>(null);
-  const [justSaved, setJustSaved] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const dirty = value !== savedValue;
 
   function save() {
     setError(null);
-    setJustSaved(false);
     startTransition(async () => {
       const result = await onSave(value);
       if (!result.ok) {
@@ -51,7 +51,8 @@ export function NotesField({
         return;
       }
       setSavedValue(value);
-      setJustSaved(true);
+      // Spec 76: success → transient toast (survives the refresh).
+      toast.success("บันทึกแล้ว");
       router.refresh();
     });
   }
@@ -69,7 +70,6 @@ export function NotesField({
         onChange={(e) => {
           setValue(e.target.value);
           setError(null);
-          setJustSaved(false);
         }}
         disabled={pending}
         className="w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 py-2 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
@@ -84,9 +84,6 @@ export function NotesField({
         >
           {pending ? "กำลังบันทึก…" : "บันทึกหมายเหตุ"}
         </button>
-        {justSaved && !dirty ? (
-          <span className="text-xs font-medium text-emerald-700">บันทึกแล้ว</span>
-        ) : null}
       </div>
       {error ? (
         <p role="alert" className={INLINE_ALERT_TEXT}>

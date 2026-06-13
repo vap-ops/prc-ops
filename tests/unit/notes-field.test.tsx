@@ -8,14 +8,26 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockRefresh } = vi.hoisted(() => ({ mockRefresh: vi.fn() }));
+const { mockRefresh, mockToast } = vi.hoisted(() => ({
+  mockRefresh: vi.fn(),
+  mockToast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    toast: vi.fn(),
+    dismiss: vi.fn(),
+    fromResult: vi.fn(),
+  },
+}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
+// Spec 76: success feedback moved to a toast.
+vi.mock("@/lib/ui/use-toast", () => ({ useToast: () => mockToast }));
 
 import { NotesField } from "@/components/features/notes-field";
 
 describe("NotesField", () => {
   beforeEach(() => {
     mockRefresh.mockReset();
+    mockToast.success.mockReset();
   });
 
   it("seeds the textarea with the current note", () => {
@@ -35,6 +47,8 @@ describe("NotesField", () => {
     fireEvent.click(screen.getByRole("button", { name: /บันทึก/ }));
     await waitFor(() => expect(onSave).toHaveBeenCalledWith("  ข้อความใหม่  "));
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
+    // Spec 76: a success toast fires (the inline "บันทึกแล้ว" span is gone).
+    expect(mockToast.success).toHaveBeenCalledWith("บันทึกแล้ว");
   });
 
   it("surfaces the error and does not refresh on failure", async () => {

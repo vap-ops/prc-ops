@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Sarabun } from "next/font/google";
 import { SwRegister } from "@/components/features/sw-register";
 import { UploadQueueRunner } from "@/components/features/upload-queue-runner";
+import { ToastProvider } from "@/components/features/toast-provider";
 import "./globals.css";
 
 // Sarabun matches the PDF reports (spec 13) — one Thai face across web
@@ -41,7 +42,9 @@ export default function RootLayout({
       {/* Spec 64: the body is LOCKED — PageShell's <main> is the only
           scroller, so sticky/fixed chrome cannot drift on iOS bounce. */}
       <body className="h-full overflow-hidden">
-        {children}
+        {/* Spec 76: the toast viewport wraps {children} so a toast fired just
+            before a router.refresh() survives the RSC re-render. */}
+        <ToastProvider>{children}</ToastProvider>
         <SwRegister />
         {/* Spec 35: drains the offline photo queue (leftovers from
             crash/offline/navigation); renders only when items wait. */}

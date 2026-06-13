@@ -81,3 +81,24 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Spec 76 (app-feel slice 1) — toast enter motion. Motion is OPT-IN per the
+   prefers-reduced-motion: no-preference pattern: the base .toast-item appears
+   instantly (the safe reduced-motion default), and only motion-OK users get
+   the slide+fade. CSS animations are fully supported on iOS WebKit. */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .toast-item {
+    animation: toast-in 180ms ease-out;
+  }
+}

@@ -16,6 +16,7 @@ import {
   type ProjectStatus,
 } from "@/lib/projects/validate-settings";
 import { NOTES_MAX } from "@/lib/notes/validate";
+import { useToast } from "@/lib/ui/use-toast";
 import { updateProjectSettings } from "./actions";
 
 const STATUS_ORDER: ReadonlyArray<ProjectStatus> = ["active", "on_hold", "completed", "archived"];
@@ -34,12 +35,12 @@ export function SettingsForm({
   initialNotes,
 }: SettingsFormProps) {
   const router = useRouter();
+  const toast = useToast();
   const [name, setName] = useState(initialName);
   const [status, setStatus] = useState<ProjectStatus>(initialStatus);
   // Spec 72: editable backup note, batched into this form's single save.
   const [notes, setNotes] = useState(initialNotes ?? "");
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
   const [submitting, startSubmit] = useTransition();
 
   const nameCheck = validateProjectName(name);
@@ -49,14 +50,14 @@ export function SettingsForm({
     e.preventDefault();
     if (!nameCheck.ok) return;
     setError(null);
-    setSaved(false);
     startSubmit(async () => {
       const result = await updateProjectSettings({ projectId, name, status, notes });
       if (!result.ok) {
         setError(result.error);
         return;
       }
-      setSaved(true);
+      // Spec 76: success → transient toast (survives the refresh).
+      toast.success("บันทึกแล้ว");
       router.refresh();
     });
   }
@@ -76,7 +77,6 @@ export function SettingsForm({
           maxLength={PROJECT_NAME_MAX}
           onChange={(e) => {
             setName(e.target.value);
-            setSaved(false);
           }}
           disabled={submitting}
           className="h-11 border-zinc-400 bg-white text-zinc-900"
@@ -92,7 +92,6 @@ export function SettingsForm({
           value={status}
           onChange={(e) => {
             setStatus(e.target.value as ProjectStatus);
-            setSaved(false);
           }}
           disabled={submitting}
           className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-2 text-sm text-zinc-900 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
@@ -116,7 +115,6 @@ export function SettingsForm({
           rows={3}
           onChange={(e) => {
             setNotes(e.target.value);
-            setSaved(false);
           }}
           disabled={submitting}
           className="w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 py-2 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
@@ -128,11 +126,6 @@ export function SettingsForm({
         <div role="alert" className={INLINE_ERROR}>
           {error}
         </div>
-      )}
-      {saved && !error && (
-        <p role="status" className="text-xs font-medium text-emerald-700">
-          บันทึกแล้ว
-        </p>
       )}
 
       <div className="flex items-center justify-end">

@@ -76,3 +76,15 @@ export const INLINE_ALERT_TEXT = "text-xs font-medium text-red-700";
 /** Full-width error banner (login surfaces) — pair with role="alert". */
 export const BANNER_ERROR =
   "rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900";
+
+// ---------------------------------------------------------------------------
+// Spec 76 (app-feel slice 1) — toast colour trios. Colour only; the shared
+// pill layout (rounded/padding/shadow) lives in toast-provider. emerald is
+// the sanctioned positive hue (NEVER green-* — design-doctrine test).
+// ---------------------------------------------------------------------------
+
+/** Success toast colours — emerald, the doctrine positive hue. */
+export const TOAST_SUCCESS = "border-emerald-300 bg-emerald-50 text-emerald-900";
+
+/** Error toast colours — the red trio (sibling of INLINE_ERROR's palette). */
+export const TOAST_ERROR = "border-red-300 bg-red-50 text-red-900";

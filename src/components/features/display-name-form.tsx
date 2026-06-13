@@ -14,6 +14,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { validateDisplayName } from "@/lib/profile/validate-display-name";
 import { updateDisplayName } from "@/app/coming-soon/actions";
+import { useToast } from "@/lib/ui/use-toast";
 
 interface DisplayNameFormProps {
   initialName: string;
@@ -21,9 +22,9 @@ interface DisplayNameFormProps {
 
 export function DisplayNameForm({ initialName }: DisplayNameFormProps) {
   const router = useRouter();
+  const toast = useToast();
   const [value, setValue] = useState(initialName);
   const [error, setError] = useState<string | null>(null);
-  const [savedAt, setSavedAt] = useState<number | null>(null);
   const [submitting, startSubmit] = useTransition();
 
   const trimmed = value.trim();
@@ -35,18 +36,17 @@ export function DisplayNameForm({ initialName }: DisplayNameFormProps) {
     e.preventDefault();
     if (!canSubmit) return;
     setError(null);
-    setSavedAt(null);
     startSubmit(async () => {
       const result = await updateDisplayName(value);
       if (!result.ok) {
         setError(result.error);
         return;
       }
-      // Pessimistic confirmation: only after the server-action round-
-      // trip succeeded. The router.refresh() re-runs the Server
-      // Component above us so the greeting picks up the new name.
+      // Spec 76: success is a transient toast (survives the refresh below);
+      // the field-bound validation error stays inline. router.refresh()
+      // re-runs the Server Component above so the greeting picks up the name.
       setValue(result.value);
-      setSavedAt(Date.now());
+      toast.success("บันทึกแล้ว");
       router.refresh();
     });
   }
@@ -70,7 +70,6 @@ export function DisplayNameForm({ initialName }: DisplayNameFormProps) {
         onChange={(e) => {
           setValue(e.target.value);
           setError(null);
-          setSavedAt(null);
         }}
         disabled={submitting}
         className="h-11 rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
@@ -84,11 +83,6 @@ export function DisplayNameForm({ initialName }: DisplayNameFormProps) {
       ) : null}
 
       <div className="flex items-center justify-end gap-3">
-        {savedAt !== null && !submitting ? (
-          <span className="text-xs font-medium text-emerald-700" role="status">
-            บันทึกแล้ว
-          </span>
-        ) : null}
         <button type="submit" disabled={!canSubmit} className={BUTTON_PRIMARY}>
           {submitting ? "กำลังบันทึก…" : "บันทึก"}
         </button>
