@@ -19,13 +19,16 @@ surface from a hub, the back affordance returns to that same hub.
 | `/coming-soon`                              | session     | unserved roles' landing (`roleHome`)                   |
 | `/profile`                                  | session     | display name, avatar, logout (PWA's logout home)       |
 
-`roleHome`: site_admin → `/sa` · pm/super → `/pm` · others → `/coming-soon`.
+`roleHome`: site_admin → `/sa` · pm/super → `/pm` · procurement → `/requests`
+(spec 70) · others → `/coming-soon`.
 
 ## Bottom tabs (phones)
 
 - SA: โครงการ `/sa` · คำขอซื้อ `/requests` · โปรไฟล์ `/profile`
 - PM/super: รอตรวจ `/pm` · โครงการ `/pm/projects` (also lights on `/sa/*`)
   · คำขอซื้อ `/requests` · โปรไฟล์ `/profile`
+- procurement (spec 70): คำขอซื้อ `/requests` · โปรไฟล์ `/profile` (no project
+  hub, not a decider)
 
 ## Project surfaces
 
@@ -47,10 +50,15 @@ surface from a hub, the back affordance returns to that same hub.
 
 ## Purchasing surfaces
 
-| Route            | Gate        | Rows / actions →                                        | Back →      |
-| ---------------- | ----------- | ------------------------------------------------------- | ----------- |
-| `/requests`      | sa/pm/super | card → `/requests/[id]` · create form                   | — (hub/tab) |
-| `/requests/[id]` | sa/pm/super | decision/record/ship/cancel zones · WP line → WP detail | `/requests` |
+`PURCHASING_ROLES` = sa/pm/super **+ procurement** (spec 70). Procurement is a
+back-office processor: it records purchases/shipments and files invoices +
+delivery photos, but sees NO create-request section and NO decision/cancel
+controls, and its WP reference is plain text (the WP detail route bounces it).
+
+| Route            | Gate             | Rows / actions →                                                                                                              | Back →      |
+| ---------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `/requests`      | PURCHASING_ROLES | card → `/requests/[id]` · create form (hidden for procurement)                                                                | — (hub/tab) |
+| `/requests/[id]` | PURCHASING_ROLES | decision/cancel (pm/super) · record/ship + invoice/delivery upload (back office) · WP line → WP detail (text for procurement) | `/requests` |
 
 ## Other
 
@@ -63,5 +71,6 @@ surface from a hub, the back affordance returns to that same hub.
 - `/sa` and `/pm/projects` are two hub lists with one row behavior;
   merging is a design-round candidate.
 - `/workers` nav entry pending its own small spec.
-- procurement role reaches nothing yet (no projects/requests surface) —
-  the procurement-onboarding unit owns its whole map column.
+- procurement is onboarded onto the purchasing worklist (spec 70) but has no
+  project hub (`projects` SELECT deferred), no desktop HubNav, and no
+  supplier-master screen — recorded seams for later units.

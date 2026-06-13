@@ -1,5 +1,5 @@
 begin;
-select plan(7);
+select plan(8);
 
 -- ============================================================================
 -- Spec 23 / ADR 0028 — pr-attachments bucket + path-bound upload policy.
@@ -44,6 +44,15 @@ select ok(
      where schemaname = 'storage' and tablename = 'objects'
        and policyname = 'pr attachment uploads by request owner or receiver'),
   'upload policy carries BOTH branches: pending-owner reference + delivered confirmation (ADR 0028)');
+
+-- Spec 70: procurement is admitted by the path-bound upload policy's role
+-- gate (back-office parity — it files invoices and delivery confirmations).
+select ok(
+  (select with_check like '%procurement%'
+     from pg_policies
+     where schemaname = 'storage' and tablename = 'objects'
+       and policyname = 'pr attachment uploads by request owner or receiver'),
+  'upload policy role gate admits procurement (spec 70)');
 
 select * from finish();
 rollback;

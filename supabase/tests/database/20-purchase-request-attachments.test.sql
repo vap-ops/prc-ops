@@ -1,5 +1,5 @@
 begin;
-select plan(60);
+select plan(62);
 
 -- ============================================================================
 -- Spec 23 / ADR 0028 — purchase_request_attachments (spec 16 §4 locked
@@ -17,6 +17,12 @@ update public.users set role = 'super_admin'  where id = '11111111-1111-1111-111
 update public.users set role = 'site_admin'   where id = '22222222-2222-2222-2222-22222222aaaa';
 update public.users set role = 'site_admin', full_name = 'SA Two'
   where id = '55555555-5555-5555-5555-55555555aaaa';
+-- Spec 70: procurement joins the back-office uploaders (invoice + delivery
+-- confirmation); it is never the requester, so the reference arm stays inert.
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('66666666-6666-6666-6666-66666666aaaa', 'proc@pra-test.local', '{}'::jsonb);
+update public.users set role = 'procurement'
+  where id = '66666666-6666-6666-6666-66666666aaaa';
 -- 4444…aaaa keeps default 'visitor'.
 
 insert into public.projects (id, code, name) values
@@ -382,6 +388,27 @@ select throws_ok(
      values ('a4000000-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'image', 'delivery_confirmation',
              'p/deny-purchased.jpg', '22222222-2222-2222-2222-22222222aaaa') $$,
   '42501', null, 'confirmation photo on a purchased parent is denied (flow starts at on_route)');
+
+-- D.11 (spec 70) procurement attaches an INVOICE on the PURCHASED parent p4 —
+--      permitted by the invoice arm + the procurement-widened role gate.
+--      Invoices never advance status (the completion trigger keys on
+--      delivery_confirmation), so p4 stays 'purchased'.
+set local "request.jwt.claims" = '{"sub": "66666666-6666-6666-6666-66666666aaaa"}';
+select lives_ok(
+  $$ insert into public.purchase_request_attachments
+       (purchase_request_id, kind, purpose, storage_path, created_by)
+     values ('a4000000-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'image', 'invoice',
+             'p/proc-invoice.jpg', '66666666-6666-6666-6666-66666666aaaa') $$,
+  'procurement may attach an invoice on a purchased parent (spec 70 back-office parity)');
+
+-- D.12 (spec 70) procurement is NOT a requester — the reference arm
+--      (own-parent + status='requested') stays inert for it.
+select throws_ok(
+  $$ insert into public.purchase_request_attachments
+       (purchase_request_id, kind, purpose, storage_path, created_by)
+     values ('a1000000-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'image', 'reference',
+             'p/proc-deny-ref.jpg', '66666666-6666-6666-6666-66666666aaaa') $$,
+  '42501', null, 'procurement reference insert on a foreign requested parent is denied');
 
 -- ============================================================================
 -- E. Spec 24 outcomes (back as postgres).

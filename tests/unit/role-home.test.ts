@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { projectHubHref, roleHome } from "@/lib/auth/role-home";
+import { projectHubHref, PURCHASING_ROLES, roleHome } from "@/lib/auth/role-home";
 
 describe("roleHome", () => {
   it("sends each served role to its real surface", () => {
@@ -19,10 +19,26 @@ describe("roleHome", () => {
     expect(roleHome("super_admin")).toBe("/pm");
   });
 
-  it("sends unserved roles to /coming-soon", () => {
+  // Spec 70: procurement onboarding — its first real surface is the
+  // /requests purchasing worklist, so it no longer bounces to /coming-soon.
+  it("sends procurement to the purchasing worklist", () => {
+    expect(roleHome("procurement")).toBe("/requests");
+  });
+
+  it("sends still-unserved roles to /coming-soon", () => {
     expect(roleHome("visitor")).toBe("/coming-soon");
-    expect(roleHome("procurement")).toBe("/coming-soon");
     expect(roleHome("technician")).toBe("/coming-soon");
+  });
+});
+
+// Spec 70: the canonical allowlist for the purchasing surface (/requests
+// + /requests/[id]). The v1 requester base PLUS procurement, which reads
+// and processes the worklist but is NOT site-staff (no SA photo/WP screens).
+describe("PURCHASING_ROLES", () => {
+  it("admits the requester base and procurement", () => {
+    expect([...PURCHASING_ROLES].sort()).toEqual(
+      ["procurement", "project_manager", "site_admin", "super_admin"].sort(),
+    );
   });
 });
 

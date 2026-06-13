@@ -1,5 +1,5 @@
 begin;
-select plan(40);
+select plan(42);
 
 -- ============================================================================
 -- A. Setup as postgres (the test transaction's outer role, which bypasses
@@ -22,7 +22,9 @@ insert into auth.users (id, email, raw_user_meta_data) values
   ('11111111-1111-1111-1111-111111111111', 'super@wp-test.local',   '{}'::jsonb),
   ('22222222-2222-2222-2222-222222222222', 'site@wp-test.local',    '{}'::jsonb),
   ('33333333-3333-3333-3333-333333333333', 'pm@wp-test.local',      '{}'::jsonb),
-  ('44444444-4444-4444-4444-444444444444', 'visitor@wp-test.local', '{}'::jsonb);
+  ('44444444-4444-4444-4444-444444444444', 'visitor@wp-test.local', '{}'::jsonb),
+  -- Spec 70: procurement reads WPs (worklist identity) but never writes them.
+  ('55555555-5555-5555-5555-555555555555', 'proc@wp-test.local',    '{}'::jsonb);
 
 update public.users set role = 'super_admin'
   where id = '11111111-1111-1111-1111-111111111111';
@@ -30,6 +32,8 @@ update public.users set role = 'site_admin'
   where id = '22222222-2222-2222-2222-222222222222';
 update public.users set role = 'project_manager'
   where id = '33333333-3333-3333-3333-333333333333';
+update public.users set role = 'procurement'
+  where id = '55555555-5555-5555-5555-555555555555';
 -- '4444…' keeps the default 'visitor' role from the trigger.
 
 -- Two FK-parent projects.
@@ -194,6 +198,17 @@ select throws_ok(
   'visitor INSERT on work_packages is denied by RLS'
 );
 
+-- D.5 procurement INSERT is denied (spec 70: read-only on WPs).
+set local "request.jwt.claims" = '{"sub": "55555555-5555-5555-5555-555555555555"}';
+select throws_ok(
+  $$ insert into public.work_packages (project_id, code, name)
+     values ('cccccccc-cccc-cccc-cccc-cccccccccccc'::uuid,
+             'WP-D5-PROC-DENY', 'Should be denied') $$,
+  '42501',
+  null,
+  'procurement INSERT on work_packages is denied by RLS'
+);
+
 -- ============================================================================
 -- E. Composite-unique behavioral test. The (project_id, code) unique
 --    constraint must reject duplicate codes under the same project but
@@ -265,6 +280,15 @@ select is(
   (select count(*)::int from public.work_packages),
   0,
   'visitor sees no work_packages'
+);
+
+-- F.5 procurement sees the table populated (spec 70: WP identity on the
+--     purchasing worklist).
+set local "request.jwt.claims" = '{"sub": "55555555-5555-5555-5555-555555555555"}';
+select isnt(
+  (select count(*)::int from public.work_packages),
+  0,
+  'procurement sees at least one work_package'
 );
 
 -- ============================================================================

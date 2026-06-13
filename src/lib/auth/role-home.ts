@@ -19,12 +19,29 @@ export const SITE_STAFF_ROLES: ReadonlyArray<UserRole> = [
   "super_admin",
 ];
 
+/**
+ * Spec 70: who can reach the purchasing surface (/requests + /requests/[id]).
+ * The v1 requester base (SITE_STAFF_ROLES) PLUS procurement — the back-office
+ * processor onboarded onto the worklist. Deliberately NOT folded into
+ * SITE_STAFF_ROLES: that set gates SA photo/WP screens procurement must not
+ * reach. The record/ship RPCs and the suppliers/purchase_requests SELECT
+ * policies already admit procurement; this is the page-gate counterpart.
+ */
+export const PURCHASING_ROLES: ReadonlyArray<UserRole> = [
+  "site_admin",
+  "project_manager",
+  "super_admin",
+  "procurement",
+];
+
 export function roleHome(role: UserRole): string {
   if (role === "site_admin") return "/sa";
   // super_admin is admitted to every v1 surface (requireRole lists it
   // everywhere) and the bottom tab bar gives it the PM set (spec 19) —
   // so it lands on /pm, never /coming-soon.
   if (role === "project_manager" || role === "super_admin") return "/pm";
+  // Spec 70: procurement is onboarded onto the purchasing worklist.
+  if (role === "procurement") return "/requests";
   return "/coming-soon";
 }
 

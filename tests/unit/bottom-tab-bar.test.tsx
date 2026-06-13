@@ -13,7 +13,12 @@ vi.mock("next/navigation", () => ({
   usePathname: mockUsePathname,
 }));
 
-import { BottomTabBar, PM_TABS, SA_TABS } from "@/components/features/bottom-tab-bar";
+import {
+  BottomTabBar,
+  PM_TABS,
+  PROCUREMENT_TABS,
+  SA_TABS,
+} from "@/components/features/bottom-tab-bar";
 
 function activeTabs(container: HTMLElement) {
   return container.querySelectorAll('[aria-current="page"]');
@@ -33,6 +38,12 @@ describe("BottomTabBar", () => {
     ]);
     expect(SA_TABS.map((t) => [t.label, t.href])).toEqual([
       ["โครงการ", "/sa"],
+      ["คำขอซื้อ", "/requests"],
+      ["โปรไฟล์", "/profile"],
+    ]);
+    // Spec 70: procurement's worklist-only tab set — purchasing + profile.
+    // No โครงการ (no project/WP hub in v1) and no รอตรวจ (not a decider).
+    expect(PROCUREMENT_TABS.map((t) => [t.label, t.href])).toEqual([
       ["คำขอซื้อ", "/requests"],
       ["โปรไฟล์", "/profile"],
     ]);
@@ -102,7 +113,21 @@ describe("BottomTabBar", () => {
     expect(activeTabs(c2)[0]?.textContent).toContain("รอตรวจ");
   });
 
-  it("renders nothing for unserved roles", () => {
+  // Spec 70: procurement gets the worklist tab set — purchasing + profile,
+  // and NEVER โครงการ or รอตรวจ (it has no project hub and is not a decider).
+  it("renders the procurement set: คำขอซื้อ + โปรไฟล์, no โครงการ/รอตรวจ", () => {
+    mockUsePathname.mockReturnValue("/requests");
+    const { container } = render(<BottomTabBar role="procurement" />);
+    expect(screen.getByRole("link", { name: /โปรไฟล์/ })).toHaveAttribute("href", "/profile");
+    expect(screen.queryByRole("link", { name: /โครงการ/ })).not.toBeInTheDocument();
+    expect(screen.queryByText("รอตรวจ")).not.toBeInTheDocument();
+    // คำขอซื้อ is the active tab on /requests, so it renders as a span, not a link.
+    const active = activeTabs(container);
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toContain("คำขอซื้อ");
+  });
+
+  it("renders nothing for still-unserved roles", () => {
     const { container } = render(<BottomTabBar role="visitor" />);
     expect(container.firstChild).toBeNull();
   });

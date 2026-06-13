@@ -4,7 +4,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { ArrowLeft } from "lucide-react";
 import { AppHeader } from "@/components/features/app-header";
 import { EmptyNotice, ErrorNotice } from "@/components/features/notices";
-import { roleHome, SITE_STAFF_ROLES } from "@/lib/auth/role-home";
+import { PURCHASING_ROLES, roleHome } from "@/lib/auth/role-home";
 import {
   PurchaseRequestForm,
   type PurchaseRequestFormWorkPackage,
@@ -49,8 +49,13 @@ interface RequestsPageProps {
 }
 
 export default async function RequestsPage({ searchParams }: RequestsPageProps) {
-  const ctx = await requireRole(SITE_STAFF_ROLES);
+  const ctx = await requireRole(PURCHASING_ROLES);
   const supabase = await createClient();
+
+  // Spec 70: procurement is a back-office processor, not a requester — it is
+  // not in the purchase_requests INSERT policy and has no WP link to arrive
+  // ?wp=-pinned, so the create-request section is inert for it. Hide it.
+  const canCreateRequests = ctx.role !== "procurement";
 
   const { wp: wpParam, mine: mineParam } = await searchParams;
   const wpRequested = wpParam !== undefined;
@@ -165,26 +170,29 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
       </nav>
 
       <section className={`mx-auto ${PAGE_MAX_W} space-y-8 px-5 py-6`}>
-        <div>
-          <h2 className={SECTION_HEADING}>สร้างคำขอซื้อ</h2>
-          {pinnedWp && pinnedProjectId ? (
-            <PurchaseRequestForm
-              workPackage={pinnedWp}
-              projectId={pinnedProjectId}
-              userId={ctx.id}
-            />
-          ) : (
-            <div className="space-y-2">
-              {wpRequested ? <ErrorNotice>ไม่พบรายการงาน</ErrorNotice> : null}
-              <p className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-4 text-sm text-zinc-600">
-                คำขอซื้อเริ่มจากหน้ารายการงาน — เปิดรายการงานที่ต้องการ แล้วกด{" "}
-                <span className="font-medium text-zinc-900">สร้างคำขอซื้อ</span>{" "}
-                จากนั้นผู้จัดการโครงการจะเป็นผู้พิจารณาอนุมัติ —
-                หากไม่อนุมัติจะมีความเห็นแจ้งเหตุผลเสมอ
-              </p>
-            </div>
-          )}
-        </div>
+        {/* Spec 70: hidden for procurement (a processor, not a requester). */}
+        {canCreateRequests ? (
+          <div>
+            <h2 className={SECTION_HEADING}>สร้างคำขอซื้อ</h2>
+            {pinnedWp && pinnedProjectId ? (
+              <PurchaseRequestForm
+                workPackage={pinnedWp}
+                projectId={pinnedProjectId}
+                userId={ctx.id}
+              />
+            ) : (
+              <div className="space-y-2">
+                {wpRequested ? <ErrorNotice>ไม่พบรายการงาน</ErrorNotice> : null}
+                <p className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-4 text-sm text-zinc-600">
+                  คำขอซื้อเริ่มจากหน้ารายการงาน — เปิดรายการงานที่ต้องการ แล้วกด{" "}
+                  <span className="font-medium text-zinc-900">สร้างคำขอซื้อ</span>{" "}
+                  จากนั้นผู้จัดการโครงการจะเป็นผู้พิจารณาอนุมัติ —
+                  หากไม่อนุมัติจะมีความเห็นแจ้งเหตุผลเสมอ
+                </p>
+              </div>
+            )}
+          </div>
+        ) : null}
 
         <div>
           <div className="mb-3 flex items-center justify-between gap-3">

@@ -5,6 +5,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { StatusPill } from "@/components/features/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
+import { PURCHASING_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { isValidUuid } from "@/lib/photos/path";
 import { PR_LIST_COLUMNS } from "@/lib/purchasing/columns";
@@ -53,7 +54,7 @@ interface PageProps {
 }
 
 export default async function RequestDetailPage({ params }: PageProps) {
-  const ctx = await requireRole(["site_admin", "project_manager", "super_admin"]);
+  const ctx = await requireRole(PURCHASING_ROLES);
   const { requestId } = await params;
 
   // Non-UUID params skip the query entirely — same shape as the ?wp=
@@ -119,6 +120,10 @@ export default async function RequestDetailPage({ params }: PageProps) {
   );
 
   const isDecider = ctx.role === "project_manager" || ctx.role === "super_admin";
+  // Spec 70: the WP detail route (/sa/...) is SITE_STAFF_ROLES-gated and would
+  // bounce procurement, so the WP reference renders as plain text (not a link)
+  // for it. Every other role keeps the link.
+  const isProcurement = ctx.role === "procurement";
   // Spec 33 / ADR 0038 gate; suppliers fetched only when the form renders.
   const isBackOffice = isBackOfficeRole(ctx.role);
   // Spec 66 / ADR 0043: on-site purchase + PM-ack state (badge derives
@@ -146,14 +151,22 @@ export default async function RequestDetailPage({ params }: PageProps) {
       {/* Spec 63: the consolidated shell. */}
       <DetailHeader backHref="/requests" backLabel="กลับไปคำขอซื้อ">
         {wp ? (
-          <Link
-            href={`/sa/projects/${wp.project_id}/work-packages/${wp.id}`}
-            className="w-fit truncate text-xs text-zinc-600 hover:underline focus:outline-none focus-visible:underline"
-          >
-            <span className="font-mono">{wp.code}</span>
-            <span className="mx-1">·</span>
-            {wp.name}
-          </Link>
+          isProcurement ? (
+            <span className="w-fit truncate text-xs text-zinc-600">
+              <span className="font-mono">{wp.code}</span>
+              <span className="mx-1">·</span>
+              {wp.name}
+            </span>
+          ) : (
+            <Link
+              href={`/sa/projects/${wp.project_id}/work-packages/${wp.id}`}
+              className="w-fit truncate text-xs text-zinc-600 hover:underline focus:outline-none focus-visible:underline"
+            >
+              <span className="font-mono">{wp.code}</span>
+              <span className="mx-1">·</span>
+              {wp.name}
+            </Link>
+          )
         ) : null}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">

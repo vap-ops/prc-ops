@@ -47,9 +47,18 @@ export const PM_TABS: ReadonlyArray<TabItem> = [
   { label: "โปรไฟล์", href: "/profile", icon: CircleUserRound },
 ];
 
+// Spec 70: procurement's worklist-only nav — the purchasing surface plus
+// profile. No โครงการ (no project/WP hub in v1; projects SELECT deferred)
+// and no รอตรวจ (procurement is not a decider).
+export const PROCUREMENT_TABS: ReadonlyArray<TabItem> = [
+  { label: "คำขอซื้อ", href: "/requests", icon: ShoppingCart },
+  { label: "โปรไฟล์", href: "/profile", icon: CircleUserRound },
+];
+
 function tabsForRole(role: string): ReadonlyArray<TabItem> | null {
   if (role === "site_admin") return SA_TABS;
   if (role === "project_manager" || role === "super_admin") return PM_TABS;
+  if (role === "procurement") return PROCUREMENT_TABS;
   return null;
 }
 
