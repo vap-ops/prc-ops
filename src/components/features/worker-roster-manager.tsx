@@ -23,6 +23,7 @@ import {
   CARD,
   FIELD_STACKED,
 } from "@/lib/ui/classes";
+import { NOTES_MAX } from "@/lib/notes/validate";
 
 type WorkerType = Database["public"]["Enums"]["worker_type"];
 
@@ -33,6 +34,8 @@ export type ManagedWorker = {
   contractor_id: string | null;
   day_rate: number;
   active: boolean;
+  // Spec 75: optional roster note.
+  note: string | null;
 };
 
 function AddWorkerForm({ contractors }: { contractors: { id: string; name: string }[] }) {
@@ -41,6 +44,7 @@ function AddWorkerForm({ contractors }: { contractors: { id: string; name: strin
   const [workerType, setWorkerType] = useState<WorkerType>("own");
   const [contractorId, setContractorId] = useState("");
   const [rate, setRate] = useState("");
+  const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -53,6 +57,7 @@ function AddWorkerForm({ contractors }: { contractors: { id: string; name: strin
       workerType,
       dayRate: Number.isFinite(dayRate) ? dayRate : -1,
       contractorId: workerType === "dc" ? contractorId || null : null,
+      note,
     });
     setBusy(false);
     if (!result.ok) {
@@ -62,6 +67,7 @@ function AddWorkerForm({ contractors }: { contractors: { id: string; name: strin
     setName("");
     setRate("");
     setContractorId("");
+    setNote("");
     router.refresh();
   }
 
@@ -120,6 +126,17 @@ function AddWorkerForm({ contractors }: { contractors: { id: string; name: strin
           className={FIELD_STACKED}
         />
       </label>
+      <label className="mt-2 block text-sm text-zinc-700">
+        หมายเหตุ
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          rows={2}
+          maxLength={NOTES_MAX}
+          placeholder="เช่น ทักษะ เบอร์ติดต่อ (ไม่บังคับ)"
+          className={FIELD_STACKED}
+        />
+      </label>
       {error ? <p className="mt-2 text-sm text-red-700">{error}</p> : null}
       <button
         type="button"
@@ -144,14 +161,25 @@ function WorkerRow({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(worker.name);
   const [rate, setRate] = useState(String(worker.day_rate));
+  const [note, setNote] = useState(worker.note ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function save() {
     setBusy(true);
     setError(null);
+    const nameChanged = name.trim() !== worker.name;
+    const noteChanged = note !== (worker.note ?? "");
+    // One update call carries any name/note change (the RPC coalesce-preserves
+    // omitted fields; note "" clears).
     const nameResult: WorkerActionResult =
-      name.trim() !== worker.name ? await updateWorker({ id: worker.id, name }) : { ok: true };
+      nameChanged || noteChanged
+        ? await updateWorker({
+            id: worker.id,
+            ...(nameChanged ? { name } : {}),
+            ...(noteChanged ? { note } : {}),
+          })
+        : { ok: true };
     const newRate = Number(rate);
     const rateResult: WorkerActionResult =
       newRate !== worker.day_rate
@@ -191,6 +219,12 @@ function WorkerRow({
             ) : null}
           </p>
           <p className="text-xs text-zinc-600">{worker.day_rate.toLocaleString("th-TH")} บาท/วัน</p>
+          {/* Spec 75: roster note. */}
+          {worker.note ? (
+            <p className="mt-0.5 text-xs whitespace-pre-wrap text-zinc-600">
+              หมายเหตุ: {worker.note}
+            </p>
+          ) : null}
         </div>
         <div className="flex shrink-0 gap-2">
           <button
@@ -227,6 +261,16 @@ function WorkerRow({
               value={rate}
               onChange={(e) => setRate(e.target.value)}
               inputMode="decimal"
+              className={FIELD_STACKED}
+            />
+          </label>
+          <label className="mt-2 block text-sm text-zinc-700">
+            หมายเหตุ
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+              maxLength={NOTES_MAX}
               className={FIELD_STACKED}
             />
           </label>

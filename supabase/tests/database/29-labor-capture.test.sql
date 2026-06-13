@@ -1,5 +1,5 @@
 begin;
-select plan(47);
+select plan(53);
 
 -- ============================================================================
 -- Spec 46 — daily labor capture: workers master + labor_logs.
@@ -142,6 +142,34 @@ select is(
   (select count(*) from public.audit_log
     where action = 'worker_change' and target_table = 'workers'),
   3::bigint, 'worker RPCs wrote audit rows (create + rate + update)');
+
+-- C.note (spec 75): the roster note rides create_worker / update_worker.
+-- Placed AFTER the audit-count pin above so the two extra worker_change rows
+-- it writes don't disturb that count.
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-1111111ab0fe"}';
+select ok(
+  (select public.create_worker('Noted Tech', 'own', 400, p_note => 'มีหมายเหตุ')) is not null,
+  'create_worker stores a note');
+select lives_ok(
+  $$ select public.update_worker('aaaaaaa1-0000-4000-8000-000000ab0fe1',
+       p_note => 'แก้หมายเหตุ') $$,
+  'update_worker sets a note');
+select throws_ok(
+  $$ select public.update_worker('aaaaaaa1-0000-4000-8000-000000ab0fe1',
+       p_note => repeat('x', 2001)) $$,
+  '23514', null, 'a note longer than 2000 chars violates workers_note_len');
+
+reset role;
+select is(
+  (select note from public.workers where name = 'Noted Tech'),
+  'มีหมายเหตุ', 'create_worker note landed');
+select is(
+  (select note from public.workers where id = 'aaaaaaa1-0000-4000-8000-000000ab0fe1'),
+  'แก้หมายเหตุ', 'update_worker note landed');
+select is(
+  (select name from public.workers where id = 'aaaaaaa1-0000-4000-8000-000000ab0fe1'),
+  'Own Tech A1', 'a note-only update preserves the name (coalesce)');
 
 -- ============================================================================
 -- D. log_labor_day.

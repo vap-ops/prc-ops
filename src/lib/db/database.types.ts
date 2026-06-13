@@ -1003,6 +1003,7 @@ export type Database = {
           day_rate: number;
           id: string;
           name: string;
+          note: string | null;
           user_id: string | null;
           worker_type: Database["public"]["Enums"]["worker_type"];
         };
@@ -1014,6 +1015,7 @@ export type Database = {
           day_rate?: number;
           id?: string;
           name: string;
+          note?: string | null;
           user_id?: string | null;
           worker_type: Database["public"]["Enums"]["worker_type"];
         };
@@ -1025,6 +1027,7 @@ export type Database = {
           day_rate?: number;
           id?: string;
           name?: string;
+          note?: string | null;
           user_id?: string | null;
           worker_type?: Database["public"]["Enums"]["worker_type"];
         };
@@ -1242,6 +1245,7 @@ export type Database = {
           p_contractor?: string;
           p_day_rate: number;
           p_name: string;
+          p_note?: string;
           p_type: Database["public"]["Enums"]["worker_type"];
           p_user?: string;
         };
@@ -1329,6 +1333,7 @@ export type Database = {
           p_contractor?: string;
           p_id: string;
           p_name?: string;
+          p_note?: string;
         };
         Returns: undefined;
       };

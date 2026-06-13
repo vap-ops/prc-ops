@@ -11,6 +11,7 @@ import { revalidatePath } from "next/cache";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import type { Database } from "@/lib/db/database.types";
 import { UUID_REGEX } from "@/lib/validate/uuid";
+import { validateNotes } from "@/lib/notes/validate";
 
 type WorkerType = Database["public"]["Enums"]["worker_type"];
 
@@ -32,6 +33,8 @@ export async function createWorker(input: {
   workerType: WorkerType;
   dayRate: number;
   contractorId: string | null;
+  // Spec 75: optional roster note.
+  note?: string;
 }): Promise<WorkerActionResult> {
   if (!validName(input.name) || !validRate(input.dayRate)) {
     return { ok: false, error: GENERIC_ERROR };
@@ -39,6 +42,8 @@ export async function createWorker(input: {
   if (input.workerType === "dc" && !UUID_REGEX.test(input.contractorId ?? "")) {
     return { ok: false, error: "คนงาน DC ต้องเลือกผู้รับเหมา" };
   }
+  const noteResult = validateNotes(input.note ?? "");
+  if (!noteResult.ok) return { ok: false, error: noteResult.error };
 
   const supabase = await createServerSupabase();
   const { error } = await supabase.rpc("create_worker", {
@@ -48,6 +53,7 @@ export async function createWorker(input: {
     ...(input.workerType === "dc" && input.contractorId
       ? { p_contractor: input.contractorId }
       : {}),
+    ...(noteResult.value !== null ? { p_note: noteResult.value } : {}),
   });
   if (error) return { ok: false, error: GENERIC_ERROR };
 
@@ -59,10 +65,16 @@ export async function updateWorker(input: {
   id: string;
   name?: string;
   active?: boolean;
+  // Spec 75: pass to set/clear the note ("" clears); omit to preserve it.
+  note?: string;
 }): Promise<WorkerActionResult> {
   if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC_ERROR };
   if (input.name !== undefined && !validName(input.name)) {
     return { ok: false, error: GENERIC_ERROR };
+  }
+  if (input.note !== undefined) {
+    const noteResult = validateNotes(input.note);
+    if (!noteResult.ok) return { ok: false, error: noteResult.error };
   }
 
   const supabase = await createServerSupabase();
@@ -70,6 +82,8 @@ export async function updateWorker(input: {
     p_id: input.id,
     ...(input.name !== undefined ? { p_name: input.name.trim() } : {}),
     ...(input.active !== undefined ? { p_active: input.active } : {}),
+    // Pass the raw value (incl. "") so the RPC can clear; omit to preserve.
+    ...(input.note !== undefined ? { p_note: input.note } : {}),
   });
   if (error) return { ok: false, error: GENERIC_ERROR };
 
