@@ -1,5 +1,5 @@
 begin;
-select plan(26);
+select plan(27);
 
 -- Spec 66 / ADR 0043 — on-site purchases (record_site_purchase +
 -- acknowledge_site_purchase) and invoice attachments.
@@ -107,6 +107,11 @@ select ok(
 select is(
   (select received_by from public.purchase_requests where item_description = 'SITE-BUY-66'),
   'ช่างเอ', 'received_by is the recording actor name');
+-- rank 7: the structured receiver FK is the acting user, not just a name.
+select is(
+  (select received_by_id from public.purchase_requests where item_description = 'SITE-BUY-66'),
+  '22222222-2222-2222-2222-2222222266aa'::uuid,
+  'received_by_id is the recording actor (FK to users)');
 
 -- B.3 exactly one insert audit row carrying source=site_purchase; no
 --     delivery-audit row (no UPDATE-path trigger fired).

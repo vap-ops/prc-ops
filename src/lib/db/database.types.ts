@@ -635,6 +635,7 @@ export type Database = {
           purchased_at: string | null;
           quantity: number;
           received_by: string | null;
+          received_by_id: string | null;
           requested_at: string;
           requested_by: string | null;
           requested_by_email: string | null;
@@ -671,6 +672,7 @@ export type Database = {
           purchased_at?: string | null;
           quantity: number;
           received_by?: string | null;
+          received_by_id?: string | null;
           requested_at?: string;
           requested_by?: string | null;
           requested_by_email?: string | null;
@@ -707,6 +709,7 @@ export type Database = {
           purchased_at?: string | null;
           quantity?: number;
           received_by?: string | null;
+          received_by_id?: string | null;
           requested_at?: string;
           requested_by?: string | null;
           requested_by_email?: string | null;
@@ -737,6 +740,13 @@ export type Database = {
           {
             foreignKeyName: "purchase_requests_cancelled_by_fkey";
             columns: ["cancelled_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_requests_received_by_id_fkey";
+            columns: ["received_by_id"];
             isOneToOne: false;
             referencedRelation: "users";
             referencedColumns: ["id"];
@@ -1270,6 +1280,10 @@ export type Database = {
       pr_attachment_tombstone_target_ok: {
         Args: { p_caller: string; p_parent: string; p_target: string };
         Returns: boolean;
+      };
+      prune_notification_outbox: {
+        Args: { p_max_age_days?: number };
+        Returns: number;
       };
       reap_stale_reports: {
         Args: { p_max_age_minutes?: number };
