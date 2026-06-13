@@ -92,6 +92,7 @@ for reading the spec itself.
 | 87   | Contacts v2 Unit 6: list-first UI (5 tabs, add-sheet, status filter)      |
 | 88   | Contacts v2 Unit 5: contact detail page + bank block                      |
 | 89   | Contacts v2 Unit 9: blacklist hidden from assignment pickers              |
+| 90   | Contacts v2 Unit 8: crew on a contractor's detail page                    |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

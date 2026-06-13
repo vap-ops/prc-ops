@@ -14,6 +14,7 @@ import { DetailHeader } from "@/components/features/detail-header";
 import { DETAIL_TITLE } from "@/lib/ui/classes";
 import { CARD } from "@/lib/ui/classes";
 import { ContactBankBlock } from "@/components/features/contact-bank-block";
+import { ContactCrewSection } from "@/components/features/contact-crew-section";
 import { getContactBank, type ContactKind } from "@/lib/contacts/bank";
 
 const TYPE_CONFIG = {
@@ -84,6 +85,19 @@ export default async function ContactDetailPage({
   const kind = cfg.kind as ContactKind | null;
   const bank = kind ? await getContactBank(createAdminSupabase(), kind, id) : null;
 
+  // Spec 90: a contractor's crew = the DC workers parented by it (names only;
+  // rates stay on /workers). Only the contractors route has crew.
+  let crew: { id: string; name: string }[] = [];
+  if (type === "contractors") {
+    const { data: crewRows } = await supabase
+      .from("workers")
+      .select("id, name")
+      .eq("contractor_id", id)
+      .eq("worker_type", "dc")
+      .order("name", { ascending: true });
+    crew = crewRows ?? [];
+  }
+
   return (
     <PageShell>
       <DetailHeader backHref="/contacts" backLabel="กลับไปรายชื่อติดต่อ">
@@ -110,6 +124,7 @@ export default async function ContactDetailPage({
         </section>
 
         {kind ? <ContactBankBlock kind={kind} id={id} initial={bank} /> : null}
+        {type === "contractors" ? <ContactCrewSection contractorId={id} crew={crew} /> : null}
       </div>
     </PageShell>
   );
