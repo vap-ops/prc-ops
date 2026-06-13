@@ -7,6 +7,14 @@ import {
   PROJECT_NAME_MAX,
   validateProjectName,
   isValidProjectStatus,
+  SITE_ADDRESS_MAX,
+  validateSiteAddress,
+  validateBudgetAmount,
+  validatePlannedCompletionDate,
+  validateProjectDates,
+  isValidProjectType,
+  PROJECT_TYPES,
+  PROJECT_TYPE_LABEL,
 } from "@/lib/projects/validate-settings";
 
 describe("validateProjectName", () => {
@@ -42,6 +50,107 @@ describe("isValidProjectStatus", () => {
   it("rejects junk and non-strings", () => {
     for (const v of ["deleted", "ACTIVE", "", null, undefined, 7, {}]) {
       expect(isValidProjectStatus(v)).toBe(false);
+    }
+  });
+});
+
+// ---- Spec 79: project metadata + client ----
+
+describe("validateSiteAddress (optional, ≤255)", () => {
+  it("blank/whitespace is allowed and normalizes to null (optional field)", () => {
+    for (const raw of ["", "   ", "\n"]) {
+      expect(validateSiteAddress(raw)).toEqual({ ok: true, value: null });
+    }
+  });
+
+  it("trims and accepts a normal address", () => {
+    expect(validateSiteAddress("  123 ถนนสุขุมวิท  ")).toEqual({
+      ok: true,
+      value: "123 ถนนสุขุมวิท",
+    });
+  });
+
+  it("accepts exactly SITE_ADDRESS_MAX chars, rejects one more (post-trim)", () => {
+    expect(validateSiteAddress("ก".repeat(SITE_ADDRESS_MAX)).ok).toBe(true);
+    const over = validateSiteAddress("ก".repeat(SITE_ADDRESS_MAX + 1));
+    expect(over.ok).toBe(false);
+    if (!over.ok) expect(over.error.length).toBeGreaterThan(0);
+  });
+});
+
+describe("validateBudgetAmount (money, optional, ≥0)", () => {
+  it("blank is allowed → null", () => {
+    expect(validateBudgetAmount("")).toEqual({ ok: true, value: null });
+    expect(validateBudgetAmount("   ")).toEqual({ ok: true, value: null });
+  });
+
+  it("accepts a positive amount and rounds to 2 decimals", () => {
+    expect(validateBudgetAmount("1500000")).toEqual({ ok: true, value: 1500000 });
+    expect(validateBudgetAmount("1234.567")).toEqual({ ok: true, value: 1234.57 });
+  });
+
+  it("rejects negative, non-numeric, and over-cap with Thai messages", () => {
+    for (const raw of ["-1", "abc", "1e500"]) {
+      const r = validateBudgetAmount(raw);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("validatePlannedCompletionDate (optional, not past relative to a given today)", () => {
+  it("null/blank is allowed", () => {
+    expect(validatePlannedCompletionDate(null, "2026-06-13").ok).toBe(true);
+    expect(validatePlannedCompletionDate("", "2026-06-13").ok).toBe(true);
+  });
+
+  it("today and future are accepted; past is rejected", () => {
+    expect(validatePlannedCompletionDate("2026-06-13", "2026-06-13").ok).toBe(true);
+    expect(validatePlannedCompletionDate("2026-12-31", "2026-06-13").ok).toBe(true);
+    const past = validatePlannedCompletionDate("2026-06-12", "2026-06-13");
+    expect(past.ok).toBe(false);
+    if (!past.ok) expect(past.error.length).toBeGreaterThan(0);
+  });
+});
+
+describe("validateProjectDates (completion ≥ start)", () => {
+  it("passes when either is null or completion ≥ start", () => {
+    expect(validateProjectDates(null, null).ok).toBe(true);
+    expect(validateProjectDates("2026-01-01", null).ok).toBe(true);
+    expect(validateProjectDates(null, "2026-01-01").ok).toBe(true);
+    expect(validateProjectDates("2026-01-01", "2026-06-01").ok).toBe(true);
+    expect(validateProjectDates("2026-06-01", "2026-06-01").ok).toBe(true);
+  });
+
+  it("rejects completion before start", () => {
+    const r = validateProjectDates("2026-06-01", "2026-01-01");
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.length).toBeGreaterThan(0);
+  });
+});
+
+describe("project_type enum helpers", () => {
+  it("PROJECT_TYPES has the six operator-chosen values", () => {
+    expect([...PROJECT_TYPES]).toEqual([
+      "new_building",
+      "renovation",
+      "factory_warehouse",
+      "infrastructure",
+      "systems",
+      "other",
+    ]);
+  });
+
+  it("every value has a non-empty Thai label", () => {
+    for (const t of PROJECT_TYPES) {
+      expect(PROJECT_TYPE_LABEL[t].length).toBeGreaterThan(0);
+    }
+  });
+
+  it("isValidProjectType accepts the enum values, rejects junk/non-strings", () => {
+    for (const v of PROJECT_TYPES) expect(isValidProjectType(v)).toBe(true);
+    for (const v of ["building", "NEW_BUILDING", "", null, undefined, 3, {}]) {
+      expect(isValidProjectType(v)).toBe(false);
     }
   });
 });

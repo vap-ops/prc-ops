@@ -35,14 +35,16 @@ select ok(
     where proname = 'update_project_settings'
       and pronamespace = 'public'::regnamespace),
   'RPC pins search_path = public (ADR 0011 checklist)');
--- Spec 72: signature is now 4-arg (p_notes text default null).
+-- Spec 79: signature is now 10-arg (added site_address, planned_completion_date,
+-- budget, start_date, project_lead_id, project_type). 3-/4-arg calls below still
+-- resolve via defaults; the privilege pin tracks the current full signature.
 select is(
   has_function_privilege('authenticated',
-    'public.update_project_settings(uuid, text, public.project_status, text)', 'EXECUTE'),
+    'public.update_project_settings(uuid, text, public.project_status, text, text, date, numeric, date, uuid, public.project_type)', 'EXECUTE'),
   true, 'authenticated may execute the RPC');
 select is(
   has_function_privilege('anon',
-    'public.update_project_settings(uuid, text, public.project_status, text)', 'EXECUTE'),
+    'public.update_project_settings(uuid, text, public.project_status, text, text, date, numeric, date, uuid, public.project_type)', 'EXECUTE'),
   false, 'anon may NOT execute the RPC');
 
 -- C. Role-sim.

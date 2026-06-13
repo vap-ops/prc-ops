@@ -111,6 +111,47 @@ export type Database = {
         };
         Relationships: [];
       };
+      clients: {
+        Row: {
+          contact_person: string | null;
+          created_at: string;
+          created_by: string;
+          email: string | null;
+          id: string;
+          mailing_address: string | null;
+          name: string;
+          phone: string | null;
+        };
+        Insert: {
+          contact_person?: string | null;
+          created_at?: string;
+          created_by: string;
+          email?: string | null;
+          id?: string;
+          mailing_address?: string | null;
+          name: string;
+          phone?: string | null;
+        };
+        Update: {
+          contact_person?: string | null;
+          created_at?: string;
+          created_by?: string;
+          email?: string | null;
+          id?: string;
+          mailing_address?: string | null;
+          name?: string;
+          phone?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "clients_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       contractors: {
         Row: {
           created_at: string;
@@ -470,33 +511,72 @@ export type Database = {
       };
       projects: {
         Row: {
+          budget_amount_thb: number | null;
+          client_id: string | null;
           code: string;
+          contract_reference: string | null;
           created_at: string;
           id: string;
           name: string;
           notes: string | null;
+          planned_completion_date: string | null;
+          project_lead_id: string | null;
+          project_type: Database["public"]["Enums"]["project_type"] | null;
+          site_address: string | null;
+          start_date: string | null;
           status: Database["public"]["Enums"]["project_status"];
           updated_at: string;
         };
         Insert: {
+          budget_amount_thb?: number | null;
+          client_id?: string | null;
           code: string;
+          contract_reference?: string | null;
           created_at?: string;
           id?: string;
           name: string;
           notes?: string | null;
+          planned_completion_date?: string | null;
+          project_lead_id?: string | null;
+          project_type?: Database["public"]["Enums"]["project_type"] | null;
+          site_address?: string | null;
+          start_date?: string | null;
           status?: Database["public"]["Enums"]["project_status"];
           updated_at?: string;
         };
         Update: {
+          budget_amount_thb?: number | null;
+          client_id?: string | null;
           code?: string;
+          contract_reference?: string | null;
           created_at?: string;
           id?: string;
           name?: string;
           notes?: string | null;
+          planned_completion_date?: string | null;
+          project_lead_id?: string | null;
+          project_type?: Database["public"]["Enums"]["project_type"] | null;
+          site_address?: string | null;
+          start_date?: string | null;
           status?: Database["public"]["Enums"]["project_status"];
           updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "projects_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "projects_project_lead_id_fkey";
+            columns: ["project_lead_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       purchase_request_attachment_tokens: {
         Row: {
@@ -1312,6 +1392,10 @@ export type Database = {
         };
         Returns: string;
       };
+      set_project_client: {
+        Args: { p_client_id: string; p_project_id: string };
+        Returns: boolean;
+      };
       set_purchase_request_notes: {
         Args: { p_id: string; p_notes: string };
         Returns: boolean;
@@ -1334,9 +1418,15 @@ export type Database = {
       };
       update_project_settings: {
         Args: {
+          p_budget_amount_thb?: number;
           p_name: string;
           p_notes?: string;
+          p_planned_completion_date?: string;
           p_project_id: string;
+          p_project_lead_id?: string;
+          p_project_type?: Database["public"]["Enums"]["project_type"];
+          p_site_address?: string;
+          p_start_date?: string;
           p_status: Database["public"]["Enums"]["project_status"];
         };
         Returns: boolean;
@@ -1385,6 +1475,13 @@ export type Database = {
       notification_status: "pending" | "sending" | "sent" | "failed" | "expired";
       photo_phase: "before" | "during" | "after";
       project_status: "active" | "on_hold" | "completed" | "archived";
+      project_type:
+        | "new_building"
+        | "renovation"
+        | "factory_warehouse"
+        | "infrastructure"
+        | "systems"
+        | "other";
       purchase_request_attachment_kind: "image" | "link";
       purchase_request_attachment_purpose: "reference" | "delivery_confirmation" | "invoice";
       purchase_request_priority: "normal" | "urgent" | "critical";
@@ -1578,6 +1675,14 @@ export const Constants = {
       notification_status: ["pending", "sending", "sent", "failed", "expired"],
       photo_phase: ["before", "during", "after"],
       project_status: ["active", "on_hold", "completed", "archived"],
+      project_type: [
+        "new_building",
+        "renovation",
+        "factory_warehouse",
+        "infrastructure",
+        "systems",
+        "other",
+      ],
       purchase_request_attachment_kind: ["image", "link"],
       purchase_request_attachment_purpose: ["reference", "delivery_confirmation", "invoice"],
       purchase_request_priority: ["normal", "urgent", "critical"],
