@@ -130,7 +130,11 @@ Offline queueing (simple retry + form-state-preserving error only —
 operator-approved; `QueuedUpload` union gains a `labor_log` kind later
 if the field shows pain), payroll export, any cost rendering.
 
-## P2 — money & close (next unit, same spec)
+## P2 — money & close (implemented as spec 68)
+
+> Implemented in [spec 68 — Labor P2](68-labor-cost-and-close.md) (2026-06-13),
+> with the data model red-teamed there. The outline below is the original P2
+> sketch.
 
 - `wp_labor_costs` snapshot table (zero authenticated grant): wp PK,
   own_cost, dc_cost, computed_at, frozen_by. Written by

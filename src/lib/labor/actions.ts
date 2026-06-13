@@ -13,6 +13,7 @@ import { revalidatePath } from "next/cache";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import type { Database } from "@/lib/db/database.types";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
+import { PM_ROLES } from "@/lib/auth/role-home";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { bangkokTodayIso } from "./dates";
 import { validateCorrection, validateLaborEntry } from "./validate";
@@ -112,6 +113,37 @@ export async function correctLaborLog(input: {
     }
     return { ok: false, error: GENERIC_ERROR };
   }
+
+  revalidatePath(input.revalidate);
+  return { ok: true };
+}
+
+// Spec 68 P2 — re-freeze the WP's labor cost snapshot. The auto-freeze runs
+// at approve→complete; this is the explicit PM re-freeze after a post-close
+// correction (C6: the snapshot moves only on an audited, deliberate freeze).
+// pm/super only — rate is money. Authenticated session so the RPC gate passes
+// and the audit actor is the PM.
+export type RefreezeLaborCostResult = { ok: true } | { ok: false; error: string };
+
+export async function refreezeWpLaborCost(input: {
+  workPackageId: string;
+  revalidate: string;
+}): Promise<RefreezeLaborCostResult> {
+  if (!UUID_REGEX.test(input.workPackageId) || !input.revalidate.startsWith("/")) {
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
+
+  const { data: me } = await supabase.from("users").select("role").eq("id", user.id).maybeSingle();
+  if (!me || !PM_ROLES.includes(me.role)) {
+    return { ok: false, error: "เฉพาะผู้จัดการโครงการเท่านั้นที่ตรึงค่าแรงได้" };
+  }
+
+  const { error } = await supabase.rpc("freeze_wp_labor_cost", { p_wp: input.workPackageId });
+  if (error) return { ok: false, error: GENERIC_ERROR };
 
   revalidatePath(input.revalidate);
   return { ok: true };

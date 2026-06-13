@@ -120,6 +120,20 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
       });
     } else if (updated && updated.length > 0) {
       transitioned = true;
+      // Spec 68: freeze the WP's labor cost into wp_labor_costs at close.
+      // Called on the caller's authenticated PM session (NOT the admin
+      // client) so current_user_role() passes the RPC gate and frozen_by /
+      // the audit actor is this PM. Non-fatal: a missed freeze is recoverable
+      // via the explicit re-freeze (spec 46 C6), so it never fails the approve.
+      const { error: freezeError } = await supabase.rpc("freeze_wp_labor_cost", {
+        p_wp: wp.id,
+      });
+      if (freezeError) {
+        console.error("[recordDecision] labor cost freeze failed", {
+          workPackageId: wp.id,
+          error: freezeError.message,
+        });
+      }
     }
   }
 

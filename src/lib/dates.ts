@@ -10,3 +10,11 @@ export function bangkokTodayIso(): string {
   // en-CA formats as YYYY-MM-DD.
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date());
 }
+
+// Spec 68 — an ISO timestamp's Asia/Bangkok (UTC+7) calendar date. The
+// close-out variance strip buckets photo capture timestamps to the same
+// timezone labor work_dates are recorded in (spec 46 C7), so the day sets
+// compare cleanly.
+export function bangkokDateOf(iso: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date(iso));
+}

@@ -1043,6 +1043,45 @@ export type Database = {
           },
         ];
       };
+      wp_labor_costs: {
+        Row: {
+          computed_at: string;
+          dc_cost: number;
+          frozen_by: string;
+          own_cost: number;
+          work_package_id: string;
+        };
+        Insert: {
+          computed_at?: string;
+          dc_cost: number;
+          frozen_by: string;
+          own_cost: number;
+          work_package_id: string;
+        };
+        Update: {
+          computed_at?: string;
+          dc_cost?: number;
+          frozen_by?: string;
+          own_cost?: number;
+          work_package_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "wp_labor_costs_frozen_by_fkey";
+            columns: ["frozen_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "wp_labor_costs_work_package_id_fkey";
+            columns: ["work_package_id"];
+            isOneToOne: true;
+            referencedRelation: "work_packages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       photo_markups_current: {
@@ -1202,6 +1241,7 @@ export type Database = {
         Args: never;
         Returns: Database["public"]["Enums"]["user_role"];
       };
+      freeze_wp_labor_cost: { Args: { p_wp: string }; Returns: undefined };
       invoke_notification_drain: { Args: never; Returns: undefined };
       log_labor_day: {
         Args: {
@@ -1292,7 +1332,8 @@ export type Database = {
         | "purchase_request_decision"
         | "purchase_request_purchase"
         | "purchase_request_delivery"
-        | "worker_change";
+        | "worker_change"
+        | "labor_cost_freeze";
       day_fraction: "full" | "half";
       login_handoff_status: "pending" | "approved" | "consumed";
       notification_event_type:
@@ -1483,6 +1524,7 @@ export const Constants = {
         "purchase_request_purchase",
         "purchase_request_delivery",
         "worker_change",
+        "labor_cost_freeze",
       ],
       day_fraction: ["full", "half"],
       login_handoff_status: ["pending", "approved", "consumed"],

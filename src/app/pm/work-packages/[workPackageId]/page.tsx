@@ -27,6 +27,18 @@ import { ZoomablePhoto } from "@/components/features/photo-lightbox";
 import { PhotoStrip, PHOTO_STRIP_TILE } from "@/components/features/photo-strip";
 import { LaborLogZone } from "@/components/features/labor-log-zone";
 import { fetchLaborZoneData } from "@/lib/labor/fetch-zone-data";
+import { createClient as createAdminClient } from "@/lib/db/admin";
+import {
+  aggregateLaborCost,
+  currentLaborPairKeys,
+  findOverAllocatedDays,
+  type CostInputRow,
+  type OverAllocatedDay,
+} from "@/lib/labor/cost";
+import { computeLaborVariance } from "@/lib/labor/variance";
+import { bangkokDateOf } from "@/lib/dates";
+import { LaborCostView } from "@/components/features/labor-cost-view";
+import { AttentionCard } from "@/components/features/attention-card";
 import { RecordDecisionForm } from "./record-decision-form";
 import { HoldToggle } from "./hold-toggle";
 
@@ -79,14 +91,68 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
   // plus the self-log flags (costs live in P2's requireRole-gated view).
   const labor = await fetchLaborZoneData(supabase, wp.id);
 
+  // Spec 68: PM-only labor cost. day_rate_snapshot and wp_labor_costs carry
+  // NO authenticated grant, so read via the admin client — the page is
+  // already requireRole(pm/super), the same authorized escalation as the
+  // decider-name read below. Money never reaches a field session.
+  const admin = createAdminClient();
+  const { data: costRowsRaw } = await admin
+    .from("labor_logs")
+    .select(
+      "id, worker_id, work_date, day_fraction, day_rate_snapshot, worker_type_snapshot, worker_name_snapshot, self_logged, superseded_by",
+    )
+    .eq("work_package_id", wp.id);
+  const costRows = (costRowsRaw ?? []) as CostInputRow[];
+  const costSummary = aggregateLaborCost(costRows);
+
+  const { data: frozenRow } = await admin
+    .from("wp_labor_costs")
+    .select("own_cost, dc_cost, computed_at, frozen_by")
+    .eq("work_package_id", wp.id)
+    .maybeSingle();
+
+  // C5: over-allocation is cross-WP — fetch the workers+dates on THIS WP
+  // across all WPs, flag >1.0/day, keep only the pairs that touch this WP.
+  let overAllocated: OverAllocatedDay[] = [];
+  const costWorkerIds = Array.from(new Set(costSummary.workers.map((w) => w.workerId)));
+  if (costWorkerIds.length > 0 && costSummary.laborDays.length > 0) {
+    const { data: crossRaw } = await admin
+      .from("labor_logs")
+      .select("id, worker_id, work_date, day_fraction, superseded_by")
+      .in("worker_id", costWorkerIds)
+      .in("work_date", costSummary.laborDays);
+    const thisPairs = currentLaborPairKeys(costRows);
+    overAllocated = findOverAllocatedDays(crossRaw ?? []).filter((o) =>
+      thisPairs.has(`${o.workerId}|${o.workDate}`),
+    );
+  }
+
+  // Close-out variance: photo-activity days vs labor days (Asia/Bangkok).
+  const photoDays = Array.from(
+    new Set(allPhotos.map((p) => bangkokDateOf(p.captured_at_client ?? p.created_at))),
+  );
+  const variance = computeLaborVariance(photoDays, costSummary.laborDays);
+
   // public.users SELECT is gated to "users read self" + super_admin
-  // (ADR 0011), so the SSR client can't resolve other PMs' names for
-  // a non-super PM looking at the history. Use the admin client for
-  // this narrow read — we're already past requireRole(pm|super), the
-  // page is server-rendered, and only display names appear in the
-  // result. Same shape as src/lib/photos/signed-urls.ts.
-  const deciderIds = Array.from(new Set(approvalsRows.map((r) => r.decided_by)));
-  const deciderNames = await fetchDisplayNames(deciderIds, "[pm/work-packages]");
+  // (ADR 0011), so the SSR client can't resolve other users' names. Resolve
+  // deciders + the freeze actor via the admin client in one read — only
+  // display names leave the module.
+  const nameIds = Array.from(
+    new Set([
+      ...approvalsRows.map((r) => r.decided_by),
+      ...(frozenRow?.frozen_by ? [frozenRow.frozen_by] : []),
+    ]),
+  );
+  const displayNames = await fetchDisplayNames(nameIds, "[pm/work-packages]");
+
+  const frozenSnapshot = frozenRow
+    ? {
+        ownCost: frozenRow.own_cost,
+        dcCost: frozenRow.dc_cost,
+        computedAt: frozenRow.computed_at,
+        frozenByName: displayNames.get(frozenRow.frozen_by) ?? "ไม่ทราบชื่อ",
+      }
+    : null;
 
   return (
     <PageShell>
@@ -162,6 +228,39 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
           />
         </section>
 
+        {/* Spec 68: PM-only labor cost + close-out variance. Renders only
+            when there is cost content or a variance to flag. The SA page
+            never shows money — this section lives only on the PM surface. */}
+        {costSummary.workers.length > 0 || frozenSnapshot || variance.surfaces ? (
+          <section>
+            <h2 className={SECTION_HEADING}>ค่าแรง</h2>
+            <div className="flex flex-col gap-4">
+              {variance.surfaces ? (
+                <AttentionCard tone="amber" title="ภาพถ่ายกับวันลงแรงงานไม่ตรงกัน">
+                  <p className="text-xs text-zinc-600">
+                    {variance.photoOnlyDays.length > 0
+                      ? `มีรูปแต่ไม่ได้ลงแรงงาน ${variance.photoOnlyDays.length} วัน`
+                      : null}
+                    {variance.photoOnlyDays.length > 0 && variance.laborOnlyDays.length > 0
+                      ? " · "
+                      : null}
+                    {variance.laborOnlyDays.length > 0
+                      ? `ลงแรงงานแต่ไม่มีรูป ${variance.laborOnlyDays.length} วัน`
+                      : null}
+                  </p>
+                </AttentionCard>
+              ) : null}
+              <LaborCostView
+                summary={costSummary}
+                frozen={frozenSnapshot}
+                overAllocated={overAllocated}
+                workPackageId={wp.id}
+                revalidate={`/pm/work-packages/${workPackageId}`}
+              />
+            </div>
+          </section>
+        ) : null}
+
         <section>
           <h2 className={SECTION_HEADING}>ประวัติการตรวจ</h2>
           {approvalsRows.length === 0 ? (
@@ -179,7 +278,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-zinc-600">
-                    {deciderNames.get(a.decided_by) ?? "ไม่ทราบชื่อผู้ตรวจ"}
+                    {displayNames.get(a.decided_by) ?? "ไม่ทราบชื่อผู้ตรวจ"}
                   </p>
                   {a.comment && (
                     <p className="mt-2 text-sm whitespace-pre-wrap text-zinc-900">{a.comment}</p>
