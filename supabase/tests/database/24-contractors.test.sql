@@ -1,5 +1,5 @@
 begin;
-select plan(22);
+select plan(35);
 
 -- ============================================================================
 -- Spec 31 / ADR 0033 (+ staff-write amendment) — contractors master,
@@ -56,6 +56,54 @@ select is(has_column_privilege('authenticated', 'public.contractors', 'note', 'I
   true, 'spec 81: authenticated may INSERT contractors.note');
 select is(has_column_privilege('authenticated', 'public.contractors', 'note', 'UPDATE'),
   true, 'spec 81: authenticated may UPDATE contractors.note');
+
+-- Spec 83 — contractor taxonomy (category/subtype/status) + enrichment + DC backfill.
+select has_column('public', 'contractors', 'contractor_category', 'spec 83: contractor_category exists');
+select has_column('public', 'contractors', 'contractor_subtype', 'spec 83: contractor_subtype exists');
+select has_column('public', 'contractors', 'status', 'spec 83: status exists');
+select has_column('public', 'contractors', 'contact_person', 'spec 83: contact_person exists');
+select has_column('public', 'contractors', 'tax_id', 'spec 83: tax_id exists');
+-- Defaults on a bare insert.
+select lives_ok(
+  $$ insert into public.contractors (id, name, created_by)
+     values ('d4000000-dddd-dddd-dddd-dddddddd2222', 'DefaultsCo',
+             '33333333-3333-3333-3333-33333333dddd') $$,
+  'spec 83: contractor inserts with taxonomy defaults');
+select is((select contractor_category::text from public.contractors
+             where id = 'd4000000-dddd-dddd-dddd-dddddddd2222'),
+  'contractor', 'spec 83: contractor_category defaults to contractor');
+select is((select status::text from public.contractors
+             where id = 'd4000000-dddd-dddd-dddd-dddddddd2222'),
+  'active', 'spec 83: status defaults to active');
+-- subtype↔category CHECK rejects a mismatch.
+select throws_ok(
+  $$ insert into public.contractors (name, created_by, contractor_category, contractor_subtype)
+     values ('Mismatch', '33333333-3333-3333-3333-33333333dddd', 'contractor', 'dc_company') $$,
+  '23514', null, 'spec 83: subtype must match category (contractor+dc_company rejected)');
+-- length CHECK rejects.
+select throws_ok(
+  $$ insert into public.contractors (name, created_by, tax_id)
+     values ('LongTax', '33333333-3333-3333-3333-33333333dddd', repeat('9', 51)) $$,
+  '23514', null, 'spec 83: tax_id > 50 violates the length CHECK');
+-- Column grants on the new columns.
+select is(has_column_privilege('authenticated', 'public.contractors', 'contractor_category', 'INSERT'),
+  true, 'spec 83: authenticated may INSERT contractor_category');
+select is(has_column_privilege('authenticated', 'public.contractors', 'status', 'UPDATE'),
+  true, 'spec 83: authenticated may UPDATE status');
+-- DC-wins backfill logic: a contractor referenced by a dc worker reclassifies to dc.
+insert into public.contractors (id, name, created_by)
+  values ('d5000000-dddd-dddd-dddd-dddddddd2222', 'BackfillCo',
+          '33333333-3333-3333-3333-33333333dddd');
+insert into public.workers (id, name, worker_type, contractor_id, day_rate, created_by)
+  values ('77770000-dddd-dddd-dddd-dddddddd2222', 'dc-person', 'dc',
+          'd5000000-dddd-dddd-dddd-dddddddd2222', 500,
+          '33333333-3333-3333-3333-33333333dddd');
+update public.contractors c set contractor_category = 'dc'
+ where exists (select 1 from public.workers w
+                where w.contractor_id = c.id and w.worker_type = 'dc');
+select is((select contractor_category::text from public.contractors
+             where id = 'd5000000-dddd-dddd-dddd-dddddddd2222'),
+  'dc', 'spec 83: DC-wins backfill reclassifies a dc-worker contractor');
 
 -- C. Role-sim.
 set local role authenticated;

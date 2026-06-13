@@ -85,6 +85,7 @@ for reading the spec itself.
 | 80   | Project team / supervisors (`project_members`)                            |
 | 81   | Contacts management (clients · suppliers · contractors)                   |
 | 82   | Content-named route namespace (program) + Unit 1: project subtree         |
+| 83   | Contacts v2 Unit 1: contractor taxonomy + enrichment + DC backfill        |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

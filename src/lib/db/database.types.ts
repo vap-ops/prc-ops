@@ -157,28 +157,52 @@ export type Database = {
       };
       contractors: {
         Row: {
+          contact_person: string | null;
+          contractor_category: Database["public"]["Enums"]["contractor_category"];
+          contractor_subtype: Database["public"]["Enums"]["contractor_subtype"] | null;
           created_at: string;
           created_by: string;
+          email: string | null;
           id: string;
+          mailing_address: string | null;
           name: string;
           note: string | null;
           phone: string | null;
+          specialty: string | null;
+          status: Database["public"]["Enums"]["contact_status"];
+          tax_id: string | null;
         };
         Insert: {
+          contact_person?: string | null;
+          contractor_category?: Database["public"]["Enums"]["contractor_category"];
+          contractor_subtype?: Database["public"]["Enums"]["contractor_subtype"] | null;
           created_at?: string;
           created_by: string;
+          email?: string | null;
           id?: string;
+          mailing_address?: string | null;
           name: string;
           note?: string | null;
           phone?: string | null;
+          specialty?: string | null;
+          status?: Database["public"]["Enums"]["contact_status"];
+          tax_id?: string | null;
         };
         Update: {
+          contact_person?: string | null;
+          contractor_category?: Database["public"]["Enums"]["contractor_category"];
+          contractor_subtype?: Database["public"]["Enums"]["contractor_subtype"] | null;
           created_at?: string;
           created_by?: string;
+          email?: string | null;
           id?: string;
+          mailing_address?: string | null;
           name?: string;
           note?: string | null;
           phone?: string | null;
+          specialty?: string | null;
+          status?: Database["public"]["Enums"]["contact_status"];
+          tax_id?: string | null;
         };
         Relationships: [
           {
@@ -1515,6 +1539,9 @@ export type Database = {
         | "purchase_request_delivery"
         | "worker_change"
         | "labor_cost_freeze";
+      contact_status: "active" | "probation" | "blacklisted";
+      contractor_category: "contractor" | "dc";
+      contractor_subtype: "regular" | "dc_company" | "dc_regular" | "dc_temporary";
       day_fraction: "full" | "half";
       login_handoff_status: "pending" | "approved" | "consumed";
       notification_event_type:
@@ -1714,6 +1741,9 @@ export const Constants = {
         "worker_change",
         "labor_cost_freeze",
       ],
+      contact_status: ["active", "probation", "blacklisted"],
+      contractor_category: ["contractor", "dc"],
+      contractor_subtype: ["regular", "dc_company", "dc_regular", "dc_temporary"],
       day_fraction: ["full", "half"],
       login_handoff_status: ["pending", "approved", "consumed"],
       notification_event_type: [
