@@ -1,8 +1,8 @@
 # Site map
 
-Audited 2026-06-13 (spec 59). Every route, its gate, how users arrive,
-and where "back" goes. **Nav changes must update this doc in the same
-unit** (same contract as ui-conventions.md).
+Audited 2026-06-13 (current through spec 70). Every route, its gate, how
+users arrive, and where "back" goes. **Nav changes must update this doc in
+the same unit** (same contract as ui-conventions.md).
 
 Principle: the WP list at `/sa/projects/[id]` is THE project page for
 every role (WP-centric doctrine). Round-trip rule: entering a detail
@@ -14,8 +14,9 @@ surface from a hub, the back affordance returns to that same hub.
 | ------------------------------------------- | ----------- | ------------------------------------------------------ |
 | `/`                                         | public      | redirects: session → `roleHome(role)`, none → `/login` |
 | `/login`                                    | public      | LINE login; standalone PWA uses device-code handoff    |
-| `/auth/callback`                            | public      | LINE OAuth return (browser + handoff flows)            |
+| `/auth/line/start`, `/auth/line/callback`   | public      | LINE OAuth start + return (browser + handoff flows)    |
 | `/auth/handoff/start`, `/auth/handoff/poll` | public POST | ADR 0041 device-code handoff                           |
+| `/auth/logout`                              | session     | clears the session, returns to `/login`                |
 | `/coming-soon`                              | session     | unserved roles' landing (`roleHome`)                   |
 | `/profile`                                  | session     | display name, avatar, logout (PWA's logout home)       |
 
@@ -43,10 +44,11 @@ surface from a hub, the back affordance returns to that same hub.
 
 ## Review surfaces
 
-| Route                                                                   | Gate     | Rows / actions →                                | Back →                     |
-| ----------------------------------------------------------------------- | -------- | ----------------------------------------------- | -------------------------- |
-| `/pm` (review queue)                                                    | pm/super | WP → `/pm/work-packages/[id]`                   | — (hub)                    |
-| `/pm/work-packages/[id]` — PM WP review (photos, decision, hold toggle) | pm/super | decision form · สร้างคำขอซื้อ → `/requests?wp=` | `/pm` (queue is the entry) |
+| Route                                                                   | Gate     | Rows / actions →                                    | Back →                              |
+| ----------------------------------------------------------------------- | -------- | --------------------------------------------------- | ----------------------------------- |
+| `/pm` (review queue)                                                    | pm/super | WP → `/pm/work-packages/[id]`                       | — (hub)                             |
+| `/pm/work-packages/[id]` — PM WP review (photos, decision, hold toggle) | pm/super | decision form · สร้างคำขอซื้อ → `/requests?wp=`     | `/pm` (queue is the entry)          |
+| `/pm/payroll` — DC payroll rollup + CSV export (money, spec 69)         | pm/super | period rollup of DC days by contractor · CSV export | — (desktop PM HubNav ค่าจ้าง entry) |
 
 ## Purchasing surfaces
 
@@ -71,6 +73,8 @@ controls, and its WP reference is plain text (the WP detail route bounces it).
 - `/sa` and `/pm/projects` are two hub lists with one row behavior;
   merging is a design-round candidate.
 - `/workers` nav entry pending its own small spec.
+- `/pm/payroll` (ค่าจ้าง) is in the desktop PM HubNav (`hub-nav.tsx`) only — the
+  phone bottom-tab bar has no entry for it yet (same gap as `/workers`).
 - procurement is onboarded onto the purchasing worklist (spec 70) but has no
   project hub (`projects` SELECT deferred), no desktop HubNav, and no
   supplier-master screen — recorded seams for later units.

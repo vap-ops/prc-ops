@@ -22,7 +22,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Foreign keys are typed and validated. No mixed-content reference columns.
 - TypeScript: use `unknown` and narrow. Never widen with `any`.
 - Server Components by default. Adding `'use client'` requires justification in the PR description.
-- Before implementing any feature, scan the ADR index `/docs/decisions/README.md` and read in full the ADRs that touch the area you're changing. Architecture decisions there override defaults. (You do not need to read all 43 every time — target the relevant ones.)
+- Before implementing any feature, scan the ADR index `/docs/decisions/README.md` and read in full the ADRs that touch the area you're changing. Architecture decisions there override defaults. (You do not need to read all of them every time — target the relevant ones.)
 - Before changing the database, schema, Storage, or DB roles, read `/docs/policies/change-management.md` — binding. All such changes go through a migration + reviewed PR + `supabase db push`; never the dashboard SQL editor or toggles.
 - Commit messages follow Conventional Commits (feat:, fix:, test:, docs:, refactor:, chore:).
 
@@ -71,19 +71,20 @@ Every feature unit follows this loop:
 
 ## Roles
 
-The `users.role` enum contains all 8 PRC roles plus a `visitor` default state for new signups, even though v1 features only target `site_admin` and `project_manager`:
+The `users.role` enum contains 10 values — 9 PRC roles plus a `visitor` default state for new signups:
 
 - `site_admin` (SA) — v1 ✅
 - `project_manager` (PM) — v1 ✅
+- `super_admin` — v1 ✅ — full-access operator role; admitted to every v1 surface, lands on `/pm`
 - `project_coordinator` (PC) — v2
-- `procurement` — v2
+- `procurement` — v1 ✅ — onboarded onto the purchasing worklist (`/requests`) in spec 70
 - `technician` — v2 or v3
 - `hr` — v3
 - `subcon_manager` — v3
 - `accounting` — v3
 - `visitor` — v1 — default for new signups; awaits manual promotion to a real role (see ADR 0010)
 
-Do not add or remove enum values without an ADR. After LINE login, users whose role is not `site_admin` or `project_manager` are redirected to `/coming-soon` — a single static page that acknowledges their account exists and tells them tools for their role are not yet live. v2 work removes the redirect for whichever role is being served.
+Do not add or remove enum values without an ADR. After LINE login, `roleHome()` (`src/lib/auth/role-home.ts`) routes by role: `site_admin`→`/sa`, `project_manager`/`super_admin`→`/pm`, `procurement`→`/requests`; every other role (incl. `visitor`) → `/coming-soon`, a static page that acknowledges the account exists and says tools for that role are not yet live. v2 work removes the redirect for whichever role is being served.
 
 ## Operating environment
 
@@ -177,4 +178,4 @@ Tests are pgTAP `.sql` files in `supabase/tests/database/`, run via `scripts/run
 
 ### Architecture Decision Records
 
-`docs/decisions/` holds the ADRs — they override defaults. **The full, current list with one-line titles is `docs/decisions/README.md`** (43 ADRs, 0001–0043). Scan that index and read the ones relevant to your change in full; don't rely on memory of the numbering.
+`docs/decisions/` holds the ADRs — they override defaults. **The full, current list with one-line titles is `docs/decisions/README.md`** (40 ADRs, numbered through 0043 — 0023, 0024, 0029 were never authored). Scan that index and read the ones relevant to your change in full; don't rely on memory of the numbering.

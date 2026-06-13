@@ -4,7 +4,7 @@ Construction project operations platform for PRC site admins and project manager
 
 - **Site admins** upload progress photos, track work packages (grouped by deliverable), and raise purchase requests from the field.
 - **Project managers** review and approve work packages, decide purchase requests, and generate PDF reports.
-- **Procurement (back office)** records purchases and deliveries in AppSheet, writing directly to the database via a restricted Postgres role (ADR 0018/0025).
+- **Procurement (back office)** records purchases and deliveries — now an in-app role that signs in and works the purchasing worklist at `/requests` (spec 70, ADR 0034/0038). Writing directly to the database via the restricted AppSheet Postgres role (ADR 0018/0025) is a coexisting legacy path being retired by atrophy (ADR 0034).
 
 Built with Next.js 16 App Router, Supabase (Postgres + Auth via LINE Login + Storage), Tailwind CSS v4, and shadcn/ui. A separate worker (`worker/`, deployed on Railway) generates the PDF reports.
 
@@ -77,5 +77,6 @@ docs/
 
 1. [`CLAUDE.md`](CLAUDE.md) — project rules, workflow, architecture invariants (binding).
 2. [`docs/v2-handoff.md`](docs/v2-handoff.md) — the start-here context bridge.
-3. [`docs/decisions/`](docs/decisions/) — all ADRs (0001 stack through the latest; read before implementing any feature). The list grows; the directory is the source of truth, not a table here.
-4. The tail of [`docs/progress-tracker.md`](docs/progress-tracker.md) — the most recent unit's state and its open-questions queue.
+3. [`docs/decisions/README.md`](docs/decisions/README.md) — the ADR index (one-line titles, 0001 through the latest); read the ADRs relevant to your change before implementing. The directory is the source of truth.
+4. [`docs/feature-specs/README.md`](docs/feature-specs/README.md) — the feature-spec index (find the numbered spec for the unit you're building).
+5. The tail of [`docs/progress-tracker.md`](docs/progress-tracker.md) — the most recent unit's state and its open-questions queue (older history archived in [`docs/progress-archive.md`](docs/progress-archive.md)).

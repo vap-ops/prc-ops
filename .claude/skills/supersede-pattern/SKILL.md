@@ -1,11 +1,11 @@
 ---
 name: supersede-pattern
-description: This skill should be used when writing or modifying code that touches photo_logs, dc_entries, purchase_request_attachments, or any append-only table. Covers the supersede pattern: never UPDATE any row, ever. A logical edit is a new row whose `superseded_by` column points at the row being replaced; a logical REMOVAL is a tombstone row (payload NULL + superseded_by set, ADR 0015). Current-state queries use an anti-join (not `IS NULL`) plus a tombstone filter. Trigger terms include supersede, tombstone, photo_logs, dc_entries, attachments, append-only, edit photo, remove photo, edit log entry.
+description: This skill should be used when writing or modifying code that touches photo_logs, photo_markups, labor_logs, purchase_request_attachments (or the planned dc_entries), or any append-only table. Covers the supersede pattern: never UPDATE any row, ever. A logical edit is a new row whose `superseded_by` column points at the row being replaced; a logical REMOVAL is a tombstone row (payload NULL + superseded_by set, ADR 0015). Current-state queries use an anti-join (not `IS NULL`) plus a tombstone filter. Trigger terms include supersede, tombstone, photo_logs, photo_markups, labor_logs, attachments, append-only, edit photo, remove photo, edit log entry.
 ---
 
 # Supersede pattern for append-only tables
 
-Tables `photo_logs` and `dc_entries` are strictly append-only. No row is ever modified after insert. The triple-enforcement (REVOKE UPDATE/DELETE + RLS without UPDATE/DELETE policies + BEFORE UPDATE/DELETE trigger) is total. There are no exceptions.
+Several tables use this strictly append-only pattern: `photo_logs`, `photo_markups`, `labor_logs`, and `purchase_request_attachments` (and the planned `dc_entries` will). No row is ever modified after insert. For `photo_logs` the triple-enforcement (REVOKE UPDATE/DELETE + RLS without UPDATE/DELETE policies + BEFORE UPDATE/DELETE trigger) is total; the others carry the same supersede/tombstone write rule (see each table's migration for its exact enforcement layers). There are no exceptions.
 
 ## Write rule
 

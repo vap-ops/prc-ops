@@ -13,7 +13,8 @@ them.** For full detail follow the links:
 
 - [`CLAUDE.md`](../CLAUDE.md) — project rules, workflow, architecture
   invariants. Binding.
-- [`docs/decisions/`](./decisions/) — ADRs 0001–0015. Binding; read
+- [`docs/decisions/README.md`](./decisions/README.md) — the ADR index
+  (currently 40 ADRs through 0043). Binding; read the relevant ones
   before building.
 - [`docs/feature-specs/`](./feature-specs/) — locked feature specs;
   spec 01 (LINE auth), 02 (photos + approvals), 03 (SA upload UI)
@@ -423,11 +424,11 @@ clean, the test surface honest, and the architecture coherent.
 
 - **The repo is the source of truth; `main` is canonical.** When in
   doubt, read the code, not the docs.
-- Before building anything, read in order: relevant ADRs
-  ([`docs/decisions/`](./decisions/) 0001–0015 — all binding), the
-  relevant feature spec ([`docs/feature-specs/`](./feature-specs/)),
-  this handoff doc, and the most recent tracker entries. Existing
-  ADRs override defaults.
+- Before building anything, read in order: relevant ADRs (scan the index
+  [`docs/decisions/README.md`](./decisions/README.md) — all binding), the
+  relevant feature spec (find it via
+  [`docs/feature-specs/README.md`](./feature-specs/README.md)), this handoff
+  doc, and the most recent tracker entries. Existing ADRs override defaults.
 
 ### Workflow per unit (unchanged from v1)
 
