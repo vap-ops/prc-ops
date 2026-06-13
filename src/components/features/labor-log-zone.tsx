@@ -20,6 +20,7 @@ import type { GroupedRoster, RosterWorker } from "@/lib/labor/group-workers";
 import type { LaborDisplayRow } from "@/lib/labor/types";
 import type { Database } from "@/lib/db/database.types";
 import { BUTTON_SECONDARY_COMPACT, CARD, FIELD_STACKED } from "@/lib/ui/classes";
+import { NOTES_MAX } from "@/lib/notes/validate";
 
 type DayFraction = Database["public"]["Enums"]["day_fraction"];
 
@@ -195,6 +196,8 @@ export function LaborLogZone({
   const router = useRouter();
   const [workDate, setWorkDate] = useState<string>(() => bangkokTodayIso());
   const [selected, setSelected] = useState<Record<string, DayFraction>>({});
+  // Spec 74: optional note for the day's batch.
+  const [note, setNote] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [failures, setFailures] = useState<{ workerId: string; message: string }[]>([]);
@@ -224,6 +227,7 @@ export function LaborLogZone({
       revalidate,
       workDate,
       entries: selectedIds.map((workerId) => ({ workerId, fraction: selected[workerId]! })),
+      note,
     });
     setBusy(false);
     if (!result.ok) {
@@ -232,6 +236,7 @@ export function LaborLogZone({
     }
     setFailures(result.failed);
     setSelected({});
+    setNote("");
     router.refresh();
   }
 
@@ -316,6 +321,19 @@ export function LaborLogZone({
                 </div>
               ))}
 
+              {/* Spec 74: optional day note, applied to the whole batch. */}
+              <label className="mt-3 block text-sm text-zinc-700">
+                หมายเหตุ
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  rows={2}
+                  maxLength={NOTES_MAX}
+                  placeholder="เช่น ทำงานล่วงเวลา หรือสิ่งที่ทีมทำวันนี้ (ไม่บังคับ)"
+                  className={FIELD_STACKED}
+                />
+              </label>
+
               {error ? <p className="mt-2 text-sm text-red-700">{error}</p> : null}
               {failures.length > 0 ? (
                 <ul className="mt-2 text-sm text-amber-800">
@@ -370,6 +388,12 @@ export function LaborLogZone({
                           </button>
                         ) : null}
                       </div>
+                      {/* Spec 74: the day note (carried through corrections). */}
+                      {row.note ? (
+                        <p className="mt-0.5 text-xs whitespace-pre-wrap text-zinc-600">
+                          หมายเหตุ: {row.note}
+                        </p>
+                      ) : null}
                       {correcting === row.id ? (
                         <CorrectionDialog
                           row={row}

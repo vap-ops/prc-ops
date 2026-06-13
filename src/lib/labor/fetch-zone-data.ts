@@ -27,7 +27,7 @@ export async function fetchLaborZoneData(
     supabase
       .from("labor_logs")
       .select(
-        "id, work_package_id, worker_id, work_date, day_fraction, worker_name_snapshot, worker_type_snapshot, contractor_id_snapshot, entered_by, self_logged, superseded_by, correction_reason, created_at",
+        "id, work_package_id, worker_id, work_date, day_fraction, worker_name_snapshot, worker_type_snapshot, contractor_id_snapshot, entered_by, self_logged, superseded_by, correction_reason, created_at, note",
       )
       .eq("work_package_id", workPackageId)
       .order("created_at", { ascending: true }),
@@ -47,6 +47,7 @@ export async function fetchLaborZoneData(
       // currentLaborLogs filters tombstones, so day_fraction is non-null.
       fraction: r.day_fraction!,
       selfLogged: r.self_logged,
+      note: r.note,
     }));
 
   const roster = groupRoster(

@@ -15,4 +15,6 @@ export type LaborDisplayRow = {
   workerName: string;
   fraction: DayFraction;
   selfLogged: boolean;
+  // Spec 74: per-day backup note (carried through corrections).
+  note: string | null;
 };

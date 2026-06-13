@@ -20,6 +20,7 @@ function row(overrides: Partial<LaborLogRow>): LaborLogRow {
     superseded_by: null,
     correction_reason: null,
     created_at: "2026-06-10T08:00:00Z",
+    note: null,
     ...overrides,
   };
 }

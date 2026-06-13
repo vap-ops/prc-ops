@@ -46,8 +46,16 @@ const ROWS: LaborDisplayRow[] = [
     workerName: "ช่างหนึ่ง",
     fraction: "full",
     selfLogged: false,
+    note: "ทำงานล่วงเวลา 2 ชม.",
   },
-  { id: "r2", workDate: "2026-06-11", workerName: "ดีซีสอง", fraction: "half", selfLogged: true },
+  {
+    id: "r2",
+    workDate: "2026-06-11",
+    workerName: "ดีซีสอง",
+    fraction: "half",
+    selfLogged: true,
+    note: null,
+  },
 ];
 
 function renderZone(overrides: Partial<Parameters<typeof LaborLogZone>[0]> = {}) {
@@ -102,6 +110,20 @@ describe("LaborLogZone", () => {
       { workerId: "w2", fraction: "half" },
     ]);
     await waitFor(() => expect(refreshMock).toHaveBeenCalled());
+  });
+
+  it("submits the day note alongside the entry (spec 74)", async () => {
+    renderZone();
+    await userEvent.click(screen.getByLabelText("ช่างหนึ่ง"));
+    await userEvent.type(screen.getByLabelText("หมายเหตุ"), "ทำงานกลางคืน");
+    await userEvent.click(screen.getByRole("button", { name: "บันทึกแรงงาน" }));
+    await waitFor(() => expect(logLaborDays).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(logLaborDays).mock.calls[0]?.[0]).toMatchObject({ note: "ทำงานกลางคืน" });
+  });
+
+  it("shows a logged row's note (spec 74)", () => {
+    renderZone();
+    expect(screen.getByText(/ทำงานล่วงเวลา/)).toBeInTheDocument();
   });
 
   it("locked WP hides the capture form but keeps the history", () => {

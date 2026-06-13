@@ -1,5 +1,5 @@
 begin;
-select plan(40);
+select plan(47);
 
 -- ============================================================================
 -- Spec 46 — daily labor capture: workers master + labor_logs.
@@ -250,6 +250,86 @@ select is(
     where worker_id = 'aaaaaaa1-0000-4000-8000-000000ab0fe1'
       and correction_reason is not null),
   510.00, 'correction carries the ORIGINAL rate snapshot (history preserved)');
+
+-- ============================================================================
+-- G. Labor note (spec 74): stored at entry, carried through a correction,
+--    cleared on tombstone; the length CHECK. The note column has the
+--    authenticated SELECT grant (presence data, not money), but the reads
+--    here run as postgres after reset role anyway.
+-- ============================================================================
+
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-2222222ab0fe"}';
+
+-- The "current" row is the anti-join (latest in the supersede chain) —
+-- never `superseded_by is null`, which is the ORIGINAL row a correction
+-- supersedes (ADR 0009).
+
+-- G.1 log a fresh day WITH a note (DC worker on wp1, 2026-06-12).
+select ok(
+  (select public.log_labor_day('eeeeeeee-eeee-eeee-eeee-eeeeeeeab0fe',
+     'aaaaaaa3-0000-4000-8000-000000ab0fe3', date '2026-06-12', 'full',
+     p_note => 'มาสายครึ่งชั่วโมง')) is not null,
+  'log_labor_day stores a note');
+
+reset role;
+select is(
+  (select ll.note from public.labor_logs ll
+    where ll.worker_id = 'aaaaaaa3-0000-4000-8000-000000ab0fe3'
+      and ll.work_date = date '2026-06-12'
+      and not exists (select 1 from public.labor_logs n where n.superseded_by = ll.id)),
+  'มาสายครึ่งชั่วโมง', 'the day note was stored');
+
+-- G.2 a correction carries the note forward.
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-2222222ab0fe"}';
+select ok(
+  (select public.correct_labor_log(
+     (select ll.id from public.labor_logs ll
+       where ll.worker_id = 'aaaaaaa3-0000-4000-8000-000000ab0fe3'
+         and ll.work_date = date '2026-06-12'
+         and not exists (select 1 from public.labor_logs n where n.superseded_by = ll.id)),
+     'แก้เป็นครึ่งวัน', p_fraction => 'half')) is not null,
+  'correction succeeds');
+
+reset role;
+select is(
+  (select ll.note from public.labor_logs ll
+    where ll.worker_id = 'aaaaaaa3-0000-4000-8000-000000ab0fe3'
+      and ll.work_date = date '2026-06-12'
+      and not exists (select 1 from public.labor_logs n where n.superseded_by = ll.id)),
+  'มาสายครึ่งชั่วโมง', 'the correction carries the note forward (unedited)');
+
+-- G.3 a tombstone removal clears the note.
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-2222222ab0fe"}';
+select ok(
+  (select public.correct_labor_log(
+     (select ll.id from public.labor_logs ll
+       where ll.worker_id = 'aaaaaaa3-0000-4000-8000-000000ab0fe3'
+         and ll.work_date = date '2026-06-12'
+         and not exists (select 1 from public.labor_logs n where n.superseded_by = ll.id)),
+     'ลบทิ้ง', p_tombstone => true)) is not null,
+  'tombstone succeeds');
+
+reset role;
+select is(
+  (select ll.note from public.labor_logs ll
+    where ll.worker_id = 'aaaaaaa3-0000-4000-8000-000000ab0fe3'
+      and ll.work_date = date '2026-06-12'
+      and not exists (select 1 from public.labor_logs n where n.superseded_by = ll.id)),
+  null::text, 'a tombstone removal clears the note');
+
+-- G.4 the length CHECK rejects an over-long note.
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-2222222ab0fe"}';
+select throws_ok(
+  $$ select public.log_labor_day('eeeeeeee-eeee-eeee-eeee-eeeeeeeab0fe',
+       'aaaaaaa1-0000-4000-8000-000000ab0fe1', date '2026-06-13', 'full',
+       repeat('x', 2001)) $$,
+  '23514', null, 'a note longer than 2000 chars violates labor_logs_note_len');
+
+reset role;
 
 -- ============================================================================
 -- F. Append-only triple layer (even as table owner the triggers refuse).

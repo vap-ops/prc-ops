@@ -17,6 +17,7 @@ import { PM_ROLES } from "@/lib/auth/role-home";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { bangkokTodayIso } from "./dates";
 import { validateCorrection, validateLaborEntry } from "./validate";
+import { validateNotes } from "@/lib/notes/validate";
 
 type DayFraction = Database["public"]["Enums"]["day_fraction"];
 
@@ -40,6 +41,8 @@ export async function logLaborDays(input: {
   revalidate: string;
   workDate: string;
   entries: { workerId: string; fraction: DayFraction }[];
+  // Spec 74: optional day note, applied to every entry in this batch.
+  note?: string;
 }): Promise<LogLaborDaysResult> {
   if (!UUID_REGEX.test(input.workPackageId) || !input.revalidate.startsWith("/")) {
     return { ok: false, error: GENERIC_ERROR };
@@ -47,6 +50,8 @@ export async function logLaborDays(input: {
   if (input.entries.some((e) => !UUID_REGEX.test(e.workerId))) {
     return { ok: false, error: GENERIC_ERROR };
   }
+  const noteResult = validateNotes(input.note ?? "");
+  if (!noteResult.ok) return { ok: false, error: noteResult.error };
 
   const auth = await getActionUser();
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
@@ -68,6 +73,8 @@ export async function logLaborDays(input: {
       p_worker: entry.workerId,
       p_date: input.workDate,
       p_fraction: entry.fraction,
+      // Empty clears (the RPC's nullif(btrim(...),'') maps "" → null).
+      p_note: noteResult.value ?? "",
     });
     if (error) {
       failed.push({ workerId: entry.workerId, message: rpcErrorToThai(error.message) });

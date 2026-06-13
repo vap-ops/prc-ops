@@ -190,6 +190,7 @@ export type Database = {
           day_rate_snapshot: number;
           entered_by: string;
           id: string;
+          note: string | null;
           self_logged: boolean;
           superseded_by: string | null;
           work_date: string;
@@ -206,6 +207,7 @@ export type Database = {
           day_rate_snapshot: number;
           entered_by: string;
           id?: string;
+          note?: string | null;
           self_logged?: boolean;
           superseded_by?: string | null;
           work_date: string;
@@ -222,6 +224,7 @@ export type Database = {
           day_rate_snapshot?: number;
           entered_by?: string;
           id?: string;
+          note?: string | null;
           self_logged?: boolean;
           superseded_by?: string | null;
           work_date?: string;
@@ -1228,6 +1231,7 @@ export type Database = {
         Args: {
           p_fraction?: Database["public"]["Enums"]["day_fraction"];
           p_log: string;
+          p_note?: string;
           p_reason: string;
           p_tombstone?: boolean;
         };
@@ -1253,6 +1257,7 @@ export type Database = {
         Args: {
           p_date: string;
           p_fraction: Database["public"]["Enums"]["day_fraction"];
+          p_note?: string;
           p_worker: string;
           p_wp: string;
         };
