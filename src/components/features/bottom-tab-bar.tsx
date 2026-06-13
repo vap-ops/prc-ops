@@ -34,16 +34,20 @@ export interface TabItem {
 }
 
 export const SA_TABS: ReadonlyArray<TabItem> = [
-  { label: "โครงการ", href: "/sa", icon: FolderKanban },
+  // Spec 82: the project surfaces moved to the content-named /projects
+  // namespace, so the SA hub tab (/sa) claims /projects to stay lit on a
+  // project page / WP detail (it no longer lives under /sa).
+  { label: "โครงการ", href: "/sa", icon: FolderKanban, match: ["/projects"] },
   { label: "คำขอซื้อ", href: "/requests", icon: ShoppingCart },
   { label: "โปรไฟล์", href: "/profile", icon: CircleUserRound },
 ];
 
 export const PM_TABS: ReadonlyArray<TabItem> = [
   { label: "รอตรวจ", href: "/pm", icon: ClipboardCheck },
-  // /sa: PM/super reach the project WP list and WP detail screens on the
-  // SA surface (รายการงาน link, spec-12 back-targets) — still โครงการ.
-  { label: "โครงการ", href: "/pm/projects", icon: FolderKanban, match: ["/sa"] },
+  // /projects: PM/super reach the project WP list and WP detail screens on
+  // the shared content-named surface (รายการงาน link, spec-12 back-targets,
+  // spec 82) — still โครงการ.
+  { label: "โครงการ", href: "/pm/projects", icon: FolderKanban, match: ["/projects"] },
   { label: "คำขอซื้อ", href: "/requests", icon: ShoppingCart },
   // Spec 81: contacts management (clients/suppliers/contractors). Phone-first
   // users had no way here — it was in the desktop HubNav only. Short tab label

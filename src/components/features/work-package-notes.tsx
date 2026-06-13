@@ -6,7 +6,7 @@
 // server function crosses the RSC boundary.
 
 import { NotesField } from "@/components/features/notes-field";
-import { setWorkPackageNotes } from "@/app/sa/projects/[projectId]/work-packages/[workPackageId]/notes-actions";
+import { setWorkPackageNotes } from "@/app/projects/[projectId]/work-packages/[workPackageId]/notes-actions";
 
 interface WorkPackageNotesProps {
   projectId: string;

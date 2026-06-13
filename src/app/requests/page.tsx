@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { AppHeader } from "@/components/features/app-header";
 import { EmptyNotice, ErrorNotice } from "@/components/features/notices";
 import { PURCHASING_ROLES, roleHome } from "@/lib/auth/role-home";
+import { workPackageHref } from "@/lib/nav/project-paths";
 import {
   PurchaseRequestForm,
   type PurchaseRequestFormWorkPackage,
@@ -80,11 +81,11 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   }
 
   // Back affordance (spec 12): pinned → the WP screen the user came from
-  // (the SA WP route admits sa/pm/super, so it is valid for every role
+  // (the project WP route admits sa/pm/super, so it is valid for every role
   // that can reach this form); bare → the caller's role home.
   const backHref =
     pinnedWp && pinnedProjectId
-      ? `/sa/projects/${pinnedProjectId}/work-packages/${pinnedWp.id}`
+      ? workPackageHref(pinnedProjectId, pinnedWp.id)
       : roleHome(ctx.role);
   const backLabel = pinnedWp && pinnedProjectId ? "กลับไปหน้ารายการงาน" : "กลับ";
 

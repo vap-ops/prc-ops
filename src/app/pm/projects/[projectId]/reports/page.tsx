@@ -5,6 +5,7 @@ import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { DetailHeader } from "@/components/features/detail-header";
 import { ErrorNotice } from "@/components/features/notices";
 import { requireRole } from "@/lib/auth/require-role";
+import { projectHref } from "@/lib/nav/project-paths";
 import { createClient } from "@/lib/db/server";
 import { canGenerateReport, type ReportStatus } from "@/lib/reports/predicates";
 import { DETAIL_TITLE, SECTION_HEADING } from "@/lib/ui/classes";
@@ -72,7 +73,7 @@ export default async function ProjectReportsPage({ params }: PageProps) {
       {/* Spec 60 detail header via the spec-63 shell — this is a
           project-scoped surface entered from the project page's
           รายงาน chip (spec 59). */}
-      <DetailHeader backHref={`/sa/projects/${project.id}`} backLabel="กลับไปหน้าโครงการ">
+      <DetailHeader backHref={projectHref(project.id)} backLabel="กลับไปหน้าโครงการ">
         <div className="min-w-0">
           <p className="font-mono text-xs text-zinc-600">{project.code}</p>
           <h1 className={DETAIL_TITLE}>รายงาน</h1>

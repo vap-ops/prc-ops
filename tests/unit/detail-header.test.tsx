@@ -12,12 +12,12 @@ import { DetailHeader } from "@/components/features/detail-header";
 describe("DetailHeader", () => {
   it("renders the back chip with the page's href and aria-label", () => {
     render(
-      <DetailHeader backHref="/sa/projects/p1" backLabel="กลับไปรายการงาน">
+      <DetailHeader backHref="/projects/p1" backLabel="กลับไปรายการงาน">
         <h1>x</h1>
       </DetailHeader>,
     );
     const back = screen.getByRole("link", { name: "กลับไปรายการงาน" });
-    expect(back).toHaveAttribute("href", "/sa/projects/p1");
+    expect(back).toHaveAttribute("href", "/projects/p1");
   });
 
   it("is sticky chrome (spec 62) with the refresh affordance (spec 53)", () => {

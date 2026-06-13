@@ -8,6 +8,7 @@ import { EmptyNotice, ErrorNotice } from "@/components/features/notices";
 import { StatusPill } from "@/components/features/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
 import { SITE_STAFF_ROLES } from "@/lib/auth/role-home";
+import { projectHref } from "@/lib/nav/project-paths";
 import { createClient } from "@/lib/db/server";
 import { SECTION_HEADING } from "@/lib/ui/classes";
 import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
@@ -43,7 +44,7 @@ export default async function SitAdminLandingPage() {
             {projects.map((p) => (
               <li key={p.id}>
                 <Link
-                  href={`/sa/projects/${p.id}`}
+                  href={projectHref(p.id)}
                   className="flex min-h-14 items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 active:bg-zinc-100"
                 >
                   <div className="min-w-0">

@@ -12,14 +12,14 @@ const { mockUpdate, mockCreateClient, mockRefresh } = vi.hoisted(() => ({
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
-vi.mock("@/app/sa/projects/[projectId]/settings/actions", () => ({
+vi.mock("@/app/projects/[projectId]/settings/actions", () => ({
   updateProjectSettings: mockUpdate,
   createClient: mockCreateClient,
   addProjectMember: vi.fn(),
   removeProjectMember: vi.fn(),
 }));
 
-import { SettingsForm } from "@/app/sa/projects/[projectId]/settings/settings-form";
+import { SettingsForm } from "@/app/projects/[projectId]/settings/settings-form";
 
 // Spec-79 props default to empty so each test sets only what it asserts.
 const baseProps = {

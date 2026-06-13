@@ -6,6 +6,7 @@ import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { StatusPill } from "@/components/features/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
 import { PURCHASING_ROLES } from "@/lib/auth/role-home";
+import { workPackageHref } from "@/lib/nav/project-paths";
 import { createClient } from "@/lib/db/server";
 import { isValidUuid } from "@/lib/photos/path";
 import { PR_LIST_COLUMNS } from "@/lib/purchasing/columns";
@@ -121,9 +122,9 @@ export default async function RequestDetailPage({ params }: PageProps) {
   );
 
   const isDecider = ctx.role === "project_manager" || ctx.role === "super_admin";
-  // Spec 70: the WP detail route (/sa/...) is SITE_STAFF_ROLES-gated and would
-  // bounce procurement, so the WP reference renders as plain text (not a link)
-  // for it. Every other role keeps the link.
+  // Spec 70: the WP detail route (/projects/..., spec 82) is SITE_STAFF_ROLES-
+  // gated and would bounce procurement, so the WP reference renders as plain
+  // text (not a link) for it. Every other role keeps the link.
   const isProcurement = ctx.role === "procurement";
   // Spec 33 / ADR 0038 gate; suppliers fetched only when the form renders.
   const isBackOffice = isBackOfficeRole(ctx.role);
@@ -163,7 +164,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
             </span>
           ) : (
             <Link
-              href={`/sa/projects/${wp.project_id}/work-packages/${wp.id}`}
+              href={workPackageHref(wp.project_id, wp.id)}
               className="w-fit truncate text-xs text-zinc-600 hover:underline focus:outline-none focus-visible:underline"
             >
               <span className="font-mono">{wp.code}</span>

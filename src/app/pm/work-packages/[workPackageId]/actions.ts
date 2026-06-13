@@ -16,6 +16,7 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 import { createClient as createAdminClient } from "@/lib/db/admin";
+import { workPackageHref } from "@/lib/nav/project-paths";
 import {
   APPROVAL_DECISIONS,
   isCommentValid,
@@ -226,6 +227,6 @@ export async function setHoldStatus(input: SetHoldStatusInput): Promise<SetHoldS
 
   revalidatePath("/pm");
   revalidatePath(`/pm/work-packages/${wp.id}`);
-  revalidatePath(`/sa/projects/${wp.project_id}/work-packages/${wp.id}`);
+  revalidatePath(workPackageHref(wp.project_id, wp.id));
   return { ok: true };
 }

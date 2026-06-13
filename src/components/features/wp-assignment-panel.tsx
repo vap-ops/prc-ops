@@ -13,7 +13,7 @@ import { BottomSheet } from "@/components/features/bottom-sheet";
 import {
   createContractor,
   setWorkPackageContractor,
-} from "@/app/sa/projects/[projectId]/work-packages/[workPackageId]/assignment-actions";
+} from "@/app/projects/[projectId]/work-packages/[workPackageId]/assignment-actions";
 
 export interface ContractorOption {
   id: string;

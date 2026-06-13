@@ -4,6 +4,7 @@ import { CARD, DETAIL_TITLE } from "@/lib/ui/classes";
 import { notFound } from "next/navigation";
 import { Camera, FileText, ShoppingCart, Users } from "lucide-react";
 import { requireRole } from "@/lib/auth/require-role";
+import { projectHref, workPackageHref } from "@/lib/nav/project-paths";
 import { createClient } from "@/lib/db/server";
 import { getCurrentPhotosForWorkPackage, type PhotoLogRow } from "@/lib/photos/current-photos";
 import { latestCreatedAt, PHASES } from "@/lib/photos/phases";
@@ -131,7 +132,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
       <BottomTabBar role={ctx.role} />
       {/* Spec 54 header (operator mockup) via the spec-63 shell; the
           progress band below scrolls. */}
-      <DetailHeader backHref={`/sa/projects/${projectId}`} backLabel="กลับไปรายการงาน">
+      <DetailHeader backHref={projectHref(projectId)} backLabel="กลับไปรายการงาน">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="font-mono text-xs text-zinc-600">{wp.code}</p>
@@ -263,7 +264,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
           </h2>
           <LaborLogZone
             workPackageId={wp.id}
-            revalidate={`/sa/projects/${projectId}/work-packages/${workPackageId}`}
+            revalidate={workPackageHref(projectId, workPackageId)}
             roster={labor.roster}
             rows={labor.rows}
             showFlags={ctx.role !== "site_admin"}

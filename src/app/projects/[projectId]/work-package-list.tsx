@@ -18,6 +18,7 @@
 
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { workPackageHref } from "@/lib/nav/project-paths";
 import { useMemo, useState } from "react";
 import { EmptyNotice } from "@/components/features/notices";
 import { StatusPill } from "@/components/features/status-pill";
@@ -108,7 +109,7 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
   // hierarchy the operator asked for (groups frame, rows belong).
   const rowLink = (wp: WorkPackageListItem, contained = false) => (
     <Link
-      href={`/sa/projects/${projectId}/work-packages/${wp.id}`}
+      href={workPackageHref(projectId, wp.id)}
       className={
         contained
           ? "flex min-h-14 items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-inset active:bg-zinc-100"

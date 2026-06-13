@@ -33,6 +33,7 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
 import { createClient as createAdminClient } from "@/lib/db/admin";
+import { workPackageHref } from "@/lib/nav/project-paths";
 import {
   buildPhotoStoragePath,
   isValidPhotoExt,
@@ -178,7 +179,7 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
     }
   }
 
-  revalidatePath(`/sa/projects/${wp.project_id}/work-packages/${wp.id}`);
+  revalidatePath(workPackageHref(wp.project_id, wp.id));
   return { ok: true, photoId: input.photoId, transitioned };
 }
 
@@ -241,7 +242,7 @@ export async function removePhoto(input: RemovePhotoInput): Promise<RemovePhotoR
     .eq("id", target.work_package_id)
     .maybeSingle();
   if (wp) {
-    revalidatePath(`/sa/projects/${wp.project_id}/work-packages/${target.work_package_id}`);
+    revalidatePath(workPackageHref(wp.project_id, target.work_package_id));
   }
 
   return { ok: true };

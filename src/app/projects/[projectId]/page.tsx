@@ -4,6 +4,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
 import { FileText, Settings } from "lucide-react";
 import { projectHubHref, SITE_STAFF_ROLES } from "@/lib/auth/role-home";
+import { projectSettingsHref } from "@/lib/nav/project-paths";
 import { ICON_CHIP_MUTED, SECTION_HEADING } from "@/lib/ui/classes";
 import { DetailHeader } from "@/components/features/detail-header";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
@@ -92,7 +93,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
                 <FileText aria-hidden className="h-5 w-5" />
               </Link>
               <Link
-                href={`/sa/projects/${project.id}/settings`}
+                href={projectSettingsHref(project.id)}
                 aria-label="ตั้งค่าโครงการ"
                 className={ICON_CHIP_MUTED}
               >

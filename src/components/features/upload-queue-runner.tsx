@@ -28,7 +28,7 @@ import {
   QUEUE_CHANGED_EVENT,
   safeQueueRemove,
 } from "@/lib/photos/upload-queue-idb";
-import { addPhoto } from "@/app/sa/projects/[projectId]/work-packages/[workPackageId]/actions";
+import { addPhoto } from "@/app/projects/[projectId]/work-packages/[workPackageId]/actions";
 import { addDeliveryConfirmationPhoto, addPurchaseRequestAttachment } from "@/app/requests/actions";
 import { ConfirmDialog } from "@/components/features/confirm-dialog";
 

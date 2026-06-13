@@ -62,7 +62,7 @@ function renderZone(overrides: Partial<Parameters<typeof LaborLogZone>[0]> = {})
   return render(
     <LaborLogZone
       workPackageId="wp1"
-      revalidate="/sa/projects/p1/work-packages/wp1"
+      revalidate="/projects/p1/work-packages/wp1"
       roster={ROSTER}
       rows={ROWS}
       showFlags={false}

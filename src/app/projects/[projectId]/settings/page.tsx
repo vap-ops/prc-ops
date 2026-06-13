@@ -5,6 +5,7 @@ import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { DetailHeader } from "@/components/features/detail-header";
 import { StatusPill } from "@/components/features/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
+import { projectHref } from "@/lib/nav/project-paths";
 import { createClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { SITE_STAFF_ROLES } from "@/lib/auth/role-home";
@@ -67,7 +68,7 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <DetailHeader backHref={`/sa/projects/${project.id}`} backLabel="กลับไปรายการงาน">
+      <DetailHeader backHref={projectHref(project.id)} backLabel="กลับไปรายการงาน">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="font-mono text-xs text-zinc-600">{project.code}</p>

@@ -11,6 +11,7 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
+import { workPackageHref } from "@/lib/nav/project-paths";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { validateWorkPackageNotes } from "@/lib/work-packages/validate-notes";
 
@@ -47,6 +48,6 @@ export async function setWorkPackageNotes(input: {
     return { ok: false, error: ERR_SAVE };
   }
 
-  revalidatePath(`/sa/projects/${input.projectId}/work-packages/${input.workPackageId}`);
+  revalidatePath(workPackageHref(input.projectId, input.workPackageId));
   return { ok: true };
 }

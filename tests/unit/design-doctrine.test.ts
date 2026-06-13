@@ -30,7 +30,7 @@ const ALL = srcFiles().map((f) => ({
   src: readFileSync(f, "utf8"),
 }));
 
-const WP_LIST = "src/app/sa/projects/[projectId]/work-package-list.tsx";
+const WP_LIST = "src/app/projects/[projectId]/work-package-list.tsx";
 const PHASE_BAR = "src/components/features/phase-progress-bar.tsx";
 
 describe("design doctrine (spec 67 anti-drift pins)", () => {

@@ -9,6 +9,7 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
 import { PM_ROLES } from "@/lib/auth/role-home";
+import { projectHref, projectSettingsHref } from "@/lib/nav/project-paths";
 import {
   isValidProjectStatus,
   isValidProjectType,
@@ -149,8 +150,8 @@ export async function updateProjectSettings(
 
   revalidatePath("/sa");
   revalidatePath("/pm/projects");
-  revalidatePath(`/sa/projects/${input.projectId}`);
-  revalidatePath(`/sa/projects/${input.projectId}/settings`);
+  revalidatePath(projectHref(input.projectId));
+  revalidatePath(projectSettingsHref(input.projectId));
   return { ok: true };
 }
 
@@ -244,8 +245,8 @@ export async function addProjectMember(projectId: string, userId: string): Promi
     console.error("[addProjectMember] insert failed", { projectId, error: error.message });
     return { ok: false, error: "เพิ่มสมาชิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
-  revalidatePath(`/sa/projects/${projectId}`);
-  revalidatePath(`/sa/projects/${projectId}/settings`);
+  revalidatePath(projectHref(projectId));
+  revalidatePath(projectSettingsHref(projectId));
   return { ok: true };
 }
 
@@ -266,7 +267,7 @@ export async function removeProjectMember(
     console.error("[removeProjectMember] delete failed", { projectId, error: error.message });
     return { ok: false, error: "ลบสมาชิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
-  revalidatePath(`/sa/projects/${projectId}`);
-  revalidatePath(`/sa/projects/${projectId}/settings`);
+  revalidatePath(projectHref(projectId));
+  revalidatePath(projectSettingsHref(projectId));
   return { ok: true };
 }

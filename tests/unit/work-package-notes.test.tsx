@@ -14,7 +14,7 @@ const { mockSetNotes, mockRefresh } = vi.hoisted(() => ({
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
-vi.mock("@/app/sa/projects/[projectId]/work-packages/[workPackageId]/notes-actions", () => ({
+vi.mock("@/app/projects/[projectId]/work-packages/[workPackageId]/notes-actions", () => ({
   setWorkPackageNotes: mockSetNotes,
 }));
 

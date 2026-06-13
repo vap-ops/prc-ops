@@ -8,13 +8,15 @@ import { EmptyNotice, ErrorNotice } from "@/components/features/notices";
 import { StatusPill } from "@/components/features/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
 import { PM_ROLES } from "@/lib/auth/role-home";
+import { projectHref } from "@/lib/nav/project-paths";
 import { createClient } from "@/lib/db/server";
 import { SECTION_HEADING } from "@/lib/ui/classes";
 
 // PM project list. Each project links to THE project page — the WP
-// list at /sa/projects/[id] (spec 59: one project page for every
-// role; reports are a header chip there). Mirrors the SA project list
-// shape; gated to PM + super_admin.
+// list at /projects/[id] (spec 59: one project page for every role;
+// spec 82: content-named, no longer the role-prefixed /sa/projects/[id];
+// reports are a header chip there). Mirrors the SA project list shape;
+// gated to PM + super_admin.
 
 import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
 import { projectStatusPillClasses } from "@/lib/status-colors";
@@ -61,7 +63,7 @@ export default async function PmProjectsPage() {
                     reports are a chip on that page now, no longer the
                     row destination. */}
                 <Link
-                  href={`/sa/projects/${p.id}`}
+                  href={projectHref(p.id)}
                   className="flex min-h-14 items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 active:bg-zinc-100"
                 >
                   <div className="min-w-0">

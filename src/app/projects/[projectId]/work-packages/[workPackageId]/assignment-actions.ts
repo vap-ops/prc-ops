@@ -10,13 +10,14 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
+import { workPackageHref } from "@/lib/nav/project-paths";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 
 export type AssignmentResult = { ok: true } | { ok: false; error: string };
 export type CreateContractorResult = { ok: true; id: string } | { ok: false; error: string };
 
 function wpPath(projectId: string, workPackageId: string): string {
-  return `/sa/projects/${projectId}/work-packages/${workPackageId}`;
+  return workPackageHref(projectId, workPackageId);
 }
 
 export async function createContractor(input: {
