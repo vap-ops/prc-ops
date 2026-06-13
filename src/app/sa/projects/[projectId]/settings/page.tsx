@@ -26,7 +26,7 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
 
   const { data: project } = await supabase
     .from("projects")
-    .select("id, code, name, status")
+    .select("id, code, name, status, notes")
     .eq("id", projectId)
     .maybeSingle();
 
@@ -61,6 +61,7 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
           projectId={project.id}
           initialName={project.name}
           initialStatus={project.status}
+          initialNotes={project.notes}
         />
       </div>
     </PageShell>

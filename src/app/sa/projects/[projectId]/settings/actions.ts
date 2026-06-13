@@ -15,12 +15,15 @@ import {
   validateProjectName,
   type ProjectStatus,
 } from "@/lib/projects/validate-settings";
+import { validateNotes } from "@/lib/notes/validate";
 import { isValidUuid } from "@/lib/validate/uuid";
 
 export interface UpdateProjectSettingsInput {
   projectId: string;
   name: string;
   status: ProjectStatus;
+  // Spec 72: editable backup note, batched into the settings save.
+  notes: string;
 }
 
 export type UpdateProjectSettingsResult = { ok: true } | { ok: false; error: string };
@@ -36,6 +39,9 @@ export async function updateProjectSettings(
   }
   const nameResult = validateProjectName(input.name);
   if (!nameResult.ok) return { ok: false, error: nameResult.error };
+
+  const notesResult = validateNotes(input.notes);
+  if (!notesResult.ok) return { ok: false, error: notesResult.error };
 
   const auth = await getActionUser();
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
@@ -54,6 +60,9 @@ export async function updateProjectSettings(
     p_project_id: input.projectId,
     p_name: nameResult.name,
     p_status: input.status,
+    // Empty string clears the note (the RPC's coalesce-preserve maps "" → null,
+    // and null would preserve — so pass "" explicitly, never null, to allow clearing).
+    p_notes: notesResult.value ?? "",
   });
   if (rpcError) {
     console.error("[updateProjectSettings] RPC failed", {

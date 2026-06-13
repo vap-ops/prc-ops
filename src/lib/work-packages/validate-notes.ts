@@ -1,18 +1,14 @@
-// Spec 71 — work-package notes (backup capture). Pure validator the
-// server action relays through. Trim; empty/blank/nullish → null (a
-// cleared note); 1000-char app cap (matches the spec-48 requester-notes
-// cap; the DB CHECK at 2000 is the abuse backstop). Keep the cap literal
-// here so both the test and the action share one source.
+// Spec 71 — work-package notes validator. Spec 72: now a thin wrapper over
+// the generic src/lib/notes/validate.ts (the cap + trim→null logic is
+// identical across every entity). Kept as a named export so the WP action
+// and its test stay green.
 
-export const WORK_PACKAGE_NOTES_MAX = 1000;
+import { NOTES_MAX, validateNotes, type ValidateNotesResult } from "@/lib/notes/validate";
 
-export type ValidateNotesResult = { ok: true; value: string | null } | { ok: false; error: string };
+export type { ValidateNotesResult };
+
+export const WORK_PACKAGE_NOTES_MAX = NOTES_MAX;
 
 export function validateWorkPackageNotes(raw: string | null | undefined): ValidateNotesResult {
-  const trimmed = (raw ?? "").trim();
-  if (trimmed.length === 0) return { ok: true, value: null };
-  if (trimmed.length > WORK_PACKAGE_NOTES_MAX) {
-    return { ok: false, error: `หมายเหตุต้องไม่เกิน ${WORK_PACKAGE_NOTES_MAX} ตัวอักษร` };
-  }
-  return { ok: true, value: trimmed };
+  return validateNotes(raw, WORK_PACKAGE_NOTES_MAX);
 }

@@ -1,5 +1,5 @@
 begin;
-select plan(28);
+select plan(31);
 
 -- ============================================================================
 -- A. Setup as postgres (the test transaction's outer role, which bypasses
@@ -84,6 +84,10 @@ select col_type_is(
   'timestamp with time zone',
   'updated_at is timestamptz'
 );
+
+-- Spec 72: the backup-capture note column.
+select col_type_is('public', 'projects', 'notes', 'text', 'notes is text');
+select col_is_null('public', 'projects', 'notes', 'notes is NULLABLE');
 
 select has_trigger(
   'public', 'projects', 'projects_set_updated_at',
@@ -223,6 +227,14 @@ select cmp_ok(
   '2020-01-01 00:00:00+00'::timestamptz,
   'set_updated_at trigger moves updated_at forward on UPDATE'
 );
+
+-- Spec 72: the notes length CHECK rejects an over-long note (super_admin
+-- direct UPDATE; still under the super claims set in section F).
+select throws_ok(
+  $$ update public.projects
+       set notes = repeat('x', 2001)
+     where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid $$,
+  '23514', null, 'notes longer than 2000 chars violate projects_notes_len');
 
 -- ============================================================================
 -- H. Tear down. Reset role to postgres before finish() / the runner's

@@ -471,6 +471,7 @@ export type Database = {
           created_at: string;
           id: string;
           name: string;
+          notes: string | null;
           status: Database["public"]["Enums"]["project_status"];
           updated_at: string;
         };
@@ -479,6 +480,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           name: string;
+          notes?: string | null;
           status?: Database["public"]["Enums"]["project_status"];
           updated_at?: string;
         };
@@ -487,6 +489,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           name?: string;
+          notes?: string | null;
           status?: Database["public"]["Enums"]["project_status"];
           updated_at?: string;
         };
@@ -1305,6 +1308,7 @@ export type Database = {
       update_project_settings: {
         Args: {
           p_name: string;
+          p_notes?: string;
           p_project_id: string;
           p_status: Database["public"]["Enums"]["project_status"];
         };

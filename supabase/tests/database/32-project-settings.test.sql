@@ -1,5 +1,5 @@
 begin;
-select plan(13);
+select plan(17);
 
 -- ============================================================================
 -- Spec 58 / ADR 0042 — update_project_settings RPC: back-office (pm/super)
@@ -35,13 +35,14 @@ select ok(
     where proname = 'update_project_settings'
       and pronamespace = 'public'::regnamespace),
   'RPC pins search_path = public (ADR 0011 checklist)');
+-- Spec 72: signature is now 4-arg (p_notes text default null).
 select is(
   has_function_privilege('authenticated',
-    'public.update_project_settings(uuid, text, public.project_status)', 'EXECUTE'),
+    'public.update_project_settings(uuid, text, public.project_status, text)', 'EXECUTE'),
   true, 'authenticated may execute the RPC');
 select is(
   has_function_privilege('anon',
-    'public.update_project_settings(uuid, text, public.project_status)', 'EXECUTE'),
+    'public.update_project_settings(uuid, text, public.project_status, text)', 'EXECUTE'),
   false, 'anon may NOT execute the RPC');
 
 -- C. Role-sim.
@@ -53,6 +54,23 @@ select lives_ok(
   $$ select public.update_project_settings(
        'cccccccc-cccc-cccc-cccc-cccccccc3333', '  PS renamed  ', 'on_hold') $$,
   'PM updates name + status via the RPC');
+
+-- Spec 72: PM writes a project note via the 4-arg RPC (same name/status, so
+-- section D's outcome checks still hold). Then a blank note clears it.
+select is(
+  public.update_project_settings(
+    'cccccccc-cccc-cccc-cccc-cccccccc3333', 'PS renamed', 'on_hold', 'จดบันทึกโครงการ'),
+  true, 'PM sets a project note via the RPC');
+select is(
+  (select notes from public.projects where id = 'cccccccc-cccc-cccc-cccc-cccccccc3333'),
+  'จดบันทึกโครงการ', 'the project note landed');
+select is(
+  public.update_project_settings(
+    'cccccccc-cccc-cccc-cccc-cccccccc3333', 'PS renamed', 'on_hold', '   '),
+  true, 'PM clears the note with a blank value (returns true)');
+select is(
+  (select notes from public.projects where id = 'cccccccc-cccc-cccc-cccc-cccccccc3333'),
+  null::text, 'a blank note clears the column to null');
 
 -- C.2 Unknown project id returns false (no row leak, no exception).
 select is(

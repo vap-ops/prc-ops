@@ -15,6 +15,7 @@ import {
   validateProjectName,
   type ProjectStatus,
 } from "@/lib/projects/validate-settings";
+import { NOTES_MAX } from "@/lib/notes/validate";
 import { updateProjectSettings } from "./actions";
 
 const STATUS_ORDER: ReadonlyArray<ProjectStatus> = ["active", "on_hold", "completed", "archived"];
@@ -23,12 +24,20 @@ interface SettingsFormProps {
   projectId: string;
   initialName: string;
   initialStatus: ProjectStatus;
+  initialNotes: string | null;
 }
 
-export function SettingsForm({ projectId, initialName, initialStatus }: SettingsFormProps) {
+export function SettingsForm({
+  projectId,
+  initialName,
+  initialStatus,
+  initialNotes,
+}: SettingsFormProps) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
   const [status, setStatus] = useState<ProjectStatus>(initialStatus);
+  // Spec 72: editable backup note, batched into this form's single save.
+  const [notes, setNotes] = useState(initialNotes ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [submitting, startSubmit] = useTransition();
@@ -42,7 +51,7 @@ export function SettingsForm({ projectId, initialName, initialStatus }: Settings
     setError(null);
     setSaved(false);
     startSubmit(async () => {
-      const result = await updateProjectSettings({ projectId, name, status });
+      const result = await updateProjectSettings({ projectId, name, status, notes });
       if (!result.ok) {
         setError(result.error);
         return;
@@ -94,6 +103,25 @@ export function SettingsForm({ projectId, initialName, initialStatus }: Settings
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="project-notes" className="text-sm font-medium text-zinc-900">
+          หมายเหตุ
+        </label>
+        <textarea
+          id="project-notes"
+          value={notes}
+          maxLength={NOTES_MAX}
+          rows={3}
+          onChange={(e) => {
+            setNotes(e.target.value);
+            setSaved(false);
+          }}
+          disabled={submitting}
+          className="w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 py-2 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+          placeholder="ข้อมูลเพิ่มเติมเกี่ยวกับโครงการที่ไม่มีช่องให้กรอกโดยตรง"
+        />
       </div>
 
       {error && (
