@@ -15,6 +15,7 @@ import { usePathname } from "next/navigation";
 import {
   CircleUserRound,
   ClipboardCheck,
+  Contact,
   FolderKanban,
   ShoppingCart,
   type LucideIcon,
@@ -44,6 +45,10 @@ export const PM_TABS: ReadonlyArray<TabItem> = [
   // SA surface (รายการงาน link, spec-12 back-targets) — still โครงการ.
   { label: "โครงการ", href: "/pm/projects", icon: FolderKanban, match: ["/sa"] },
   { label: "คำขอซื้อ", href: "/requests", icon: ShoppingCart },
+  // Spec 81: contacts management (clients/suppliers/contractors). Phone-first
+  // users had no way here — it was in the desktop HubNav only. Short tab label
+  // "ติดต่อ" (the page itself is รายชื่อผู้ติดต่อ) to fit the 5-tab row.
+  { label: "ติดต่อ", href: "/pm/contacts", icon: Contact },
   { label: "โปรไฟล์", href: "/profile", icon: CircleUserRound },
 ];
 

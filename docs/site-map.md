@@ -27,7 +27,7 @@ surface from a hub, the back affordance returns to that same hub.
 
 - SA: โครงการ `/sa` · คำขอซื้อ `/requests` · โปรไฟล์ `/profile`
 - PM/super: รอตรวจ `/pm` · โครงการ `/pm/projects` (also lights on `/sa/*`)
-  · คำขอซื้อ `/requests` · โปรไฟล์ `/profile`
+  · คำขอซื้อ `/requests` · ติดต่อ `/pm/contacts` (spec 81) · โปรไฟล์ `/profile`
 - procurement (spec 70): คำขอซื้อ `/requests` · โปรไฟล์ `/profile` (no project
   hub, not a decider)
 
@@ -64,10 +64,10 @@ controls, and its WP reference is plain text (the WP detail route bounces it).
 
 ## Other
 
-| Route          | Gate     | Notes                                                                                                                                                                                                                             |
-| -------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/workers`     | pm/super | labor roster (spec 46). **No nav entry yet** — reachable by URL only; recorded seam.                                                                                                                                              |
-| `/pm/contacts` | pm/super | contacts management (spec 81): clients / suppliers / contractors via a segmented control; add + per-row edit + note. In the desktop PM HubNav (รายชื่อติดต่อ); no phone bottom-tab entry (same gap as `/workers`, `/pm/payroll`). |
+| Route          | Gate     | Notes                                                                                                                                                                                                |
+| -------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/workers`     | pm/super | labor roster (spec 46). **No nav entry yet** — reachable by URL only; recorded seam.                                                                                                                 |
+| `/pm/contacts` | pm/super | contacts management (spec 81): clients / suppliers / contractors via a segmented control; add + per-row edit + note. In the desktop PM HubNav (รายชื่อติดต่อ) AND the phone bottom-tab bar (ติดต่อ). |
 
 ## Known seams (recorded, not defects)
 

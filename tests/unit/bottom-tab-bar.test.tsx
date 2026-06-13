@@ -34,6 +34,8 @@ describe("BottomTabBar", () => {
       ["รอตรวจ", "/pm"],
       ["โครงการ", "/pm/projects"],
       ["คำขอซื้อ", "/requests"],
+      // Spec 81: contacts management reachable on phones (was desktop-HubNav only).
+      ["ติดต่อ", "/pm/contacts"],
       ["โปรไฟล์", "/profile"],
     ]);
     expect(SA_TABS.map((t) => [t.label, t.href])).toEqual([
