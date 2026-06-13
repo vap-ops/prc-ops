@@ -65,7 +65,7 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
       // and drops off the queue; on the other two it remains
       // pending_approval with an updated latest-decision label.
       // Either way, the queue is the right landing.
-      router.push("/pm");
+      router.push("/review");
       router.refresh();
     });
   }

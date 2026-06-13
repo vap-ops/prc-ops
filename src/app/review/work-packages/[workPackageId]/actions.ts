@@ -138,8 +138,8 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
     }
   }
 
-  revalidatePath("/pm");
-  revalidatePath(`/pm/work-packages/${wp.id}`);
+  revalidatePath("/review");
+  revalidatePath(`/review/work-packages/${wp.id}`);
   return { ok: true, transitioned };
 }
 
@@ -225,8 +225,8 @@ export async function setHoldStatus(input: SetHoldStatusInput): Promise<SetHoldS
     }
   }
 
-  revalidatePath("/pm");
-  revalidatePath(`/pm/work-packages/${wp.id}`);
+  revalidatePath("/review");
+  revalidatePath(`/review/work-packages/${wp.id}`);
   revalidatePath(workPackageHref(wp.project_id, wp.id));
   return { ok: true };
 }

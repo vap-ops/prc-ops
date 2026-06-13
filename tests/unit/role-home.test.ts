@@ -17,8 +17,10 @@ describe("roleHome", () => {
     // Spec 82 Unit 3: site_admin lands on the folded content-named project
     // hub /projects (was the role-named /sa hub).
     expect(roleHome("site_admin")).toBe("/projects");
-    expect(roleHome("project_manager")).toBe("/pm");
-    expect(roleHome("super_admin")).toBe("/pm");
+    // Spec 82 Unit 4: pm/super land on the content-named review queue /review
+    // (was the role-named /pm).
+    expect(roleHome("project_manager")).toBe("/review");
+    expect(roleHome("super_admin")).toBe("/review");
   });
 
   // Spec 70: procurement onboarding — its first real surface is the

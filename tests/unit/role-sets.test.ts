@@ -13,7 +13,8 @@ describe("role sets", () => {
     expect([...SITE_STAFF_ROLES]).toEqual(["site_admin", "project_manager", "super_admin"]);
   });
 
-  it("every PM role lands on /pm (consistency with roleHome)", () => {
-    for (const role of PM_ROLES) expect(roleHome(role)).toBe("/pm");
+  it("every PM role lands on /review (consistency with roleHome)", () => {
+    // Spec 82 Unit 4: the review queue is content-named /review (was /pm).
+    for (const role of PM_ROLES) expect(roleHome(role)).toBe("/review");
   });
 });

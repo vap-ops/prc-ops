@@ -280,7 +280,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
           {/* Spec 29: the create form lives HERE now — raising a request
               no longer teleports the user to the คำขอซื้อ tab
               (operator-reported disorientation; site map 2026-06-11).
-              The PM WP review screen (/pm/work-packages/[workPackageId])
+              The PM WP review screen (/review/work-packages/[workPackageId])
               is the remaining in-app producer of /requests?wp= pinned
               mode. */}
           <details className={CARD}>

@@ -26,17 +26,18 @@ function activeTabs(container: HTMLElement) {
 
 describe("BottomTabBar", () => {
   beforeEach(() => {
-    mockUsePathname.mockReturnValue("/pm");
+    mockUsePathname.mockReturnValue("/review");
   });
 
   it("pins the canonical tab sets (labels, hrefs, order)", () => {
     expect(PM_TABS.map((t) => [t.label, t.href])).toEqual([
-      ["รอตรวจ", "/pm"],
+      // Spec 82 Unit 4: review queue /review (was /pm); contacts /contacts.
+      ["รอตรวจ", "/review"],
       // Spec 82 Unit 3: the project hub folded to /projects.
       ["โครงการ", "/projects"],
       ["คำขอซื้อ", "/requests"],
       // Spec 81: contacts management reachable on phones (was desktop-HubNav only).
-      ["ติดต่อ", "/pm/contacts"],
+      ["ติดต่อ", "/contacts"],
       ["โปรไฟล์", "/profile"],
     ]);
     expect(SA_TABS.map((t) => [t.label, t.href])).toEqual([
@@ -53,7 +54,7 @@ describe("BottomTabBar", () => {
   });
 
   it("renders the PM set for project_manager with inactive tabs as links", () => {
-    mockUsePathname.mockReturnValue("/pm");
+    mockUsePathname.mockReturnValue("/review");
     render(<BottomTabBar role="project_manager" />);
     expect(screen.getByRole("link", { name: /โครงการ/ })).toHaveAttribute("href", "/projects");
     expect(screen.getByRole("link", { name: /คำขอซื้อ/ })).toHaveAttribute("href", "/requests");
@@ -71,7 +72,7 @@ describe("BottomTabBar", () => {
   });
 
   it("lights รอตรวจ on the PM review detail screen", () => {
-    mockUsePathname.mockReturnValue("/pm/work-packages/xyz");
+    mockUsePathname.mockReturnValue("/review/work-packages/xyz");
     const { container } = render(<BottomTabBar role="project_manager" />);
     const active = activeTabs(container);
     expect(active).toHaveLength(1);
@@ -123,7 +124,7 @@ describe("BottomTabBar", () => {
     expect(activeTabs(container)[0]?.textContent).toContain("โครงการ");
     expect(screen.getByRole("link", { name: /คำขอซื้อ/ })).toHaveAttribute("href", "/requests");
     unmount();
-    mockUsePathname.mockReturnValue("/pm");
+    mockUsePathname.mockReturnValue("/review");
     const { container: c2 } = render(<BottomTabBar role="super_admin" />);
     expect(activeTabs(c2)[0]?.textContent).toContain("รอตรวจ");
   });
@@ -148,7 +149,7 @@ describe("BottomTabBar", () => {
   });
 
   it("clears the iOS safe area and hides on desktop", () => {
-    mockUsePathname.mockReturnValue("/pm");
+    mockUsePathname.mockReturnValue("/review");
     render(<BottomTabBar role="project_manager" />);
     const nav = screen.getByRole("navigation", { name: "เมนูหลัก" });
     expect(nav.className).toContain("pb-[env(safe-area-inset-bottom)]");
@@ -158,7 +159,7 @@ describe("BottomTabBar", () => {
   // Spec 20 sun-readable nav: light bar, blue active identity with a
   // visible top indicator, size-6 icons.
   it("renders the sun-mode bar: white ground, blue active tab with top indicator (spec 20)", () => {
-    mockUsePathname.mockReturnValue("/pm");
+    mockUsePathname.mockReturnValue("/review");
     const { container } = render(<BottomTabBar role="project_manager" />);
     const nav = screen.getByRole("navigation", { name: "เมนูหลัก" });
     expect(nav.className).toContain("bg-white");

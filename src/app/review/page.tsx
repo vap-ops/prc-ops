@@ -59,7 +59,7 @@ export default async function ProjectManagerLandingPage() {
       <BottomTabBar role={ctx.role} />
       <AppHeader kicker="ผู้จัดการโครงการ" fullName={ctx.fullName} maxWidthClass={PAGE_MAX_W} />
 
-      <HubNav maxWidthClass={PAGE_MAX_W} items={PM_HUB_NAV} currentHref="/pm" />
+      <HubNav maxWidthClass={PAGE_MAX_W} items={PM_HUB_NAV} currentHref="/review" />
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
         <h2 className={SECTION_HEADING}>รอตรวจ</h2>
@@ -77,7 +77,7 @@ export default async function ProjectManagerLandingPage() {
               return (
                 <li key={wp.id}>
                   <Link
-                    href={`/pm/work-packages/${wp.id}`}
+                    href={`/review/work-packages/${wp.id}`}
                     className="flex min-h-16 items-start justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 active:bg-zinc-100"
                   >
                     <div className="min-w-0 space-y-0.5">

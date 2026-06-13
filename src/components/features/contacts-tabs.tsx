@@ -1,6 +1,6 @@
 "use client";
 
-// Spec 81 — the /pm/contacts segmented-control shell. Holds the active contact
+// Spec 81 — the /contacts segmented-control shell. Holds the active contact
 // type (RadioChip group) and renders one generic RecordManager for it, binding
 // that entity's field schema + the field-record → typed-action mappers. Rows for
 // all three contact types are fetched server-side and passed in as props.
@@ -21,7 +21,7 @@ import {
   updateSupplierRecord,
   createContractorRecord,
   updateContractorRecord,
-} from "@/app/pm/contacts/actions";
+} from "@/app/contacts/actions";
 
 const CLIENT_FIELDS: RecordFieldDef[] = [
   { key: "name", label: "ชื่อลูกค้า", type: "text", maxLength: 120 },

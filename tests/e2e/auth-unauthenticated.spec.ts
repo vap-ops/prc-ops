@@ -30,8 +30,10 @@ test.describe("auth — unauthenticated paths", () => {
     await expect(page).toHaveURL("/login");
   });
 
-  test("GET /pm redirects to /login (proxy protection)", async ({ page }) => {
-    await page.goto("/pm");
+  // Spec 82 Unit 4: /review is the content-named PM review queue (/pm is now
+  // a config redirect onto it). Test the real protected hub.
+  test("GET /review redirects to /login (proxy protection)", async ({ page }) => {
+    await page.goto("/review");
     await expect(page).toHaveURL("/login");
   });
 

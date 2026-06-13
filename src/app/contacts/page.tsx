@@ -1,4 +1,4 @@
-// Spec 81 — /pm/contacts: manage the three contact tables (clients,
+// Spec 81 — /contacts: manage the three contact tables (clients,
 // suppliers, contractors). PM/super only; no money column on any of them, so
 // reads use the ordinary user-session client (contrast /workers, which needs
 // the admin client for day_rate).

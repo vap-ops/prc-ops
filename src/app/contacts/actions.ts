@@ -1,6 +1,6 @@
 "use server";
 
-// Spec 81 — contacts CRUD for /pm/contacts (clients, suppliers, contractors).
+// Spec 81 — contacts CRUD for /contacts (clients, suppliers, contractors).
 // The page is requireRole(PM_ROLES)-gated; every action re-checks PM_ROLES then
 // writes directly under the authenticated session. PM/super already hold the
 // INSERT/UPDATE policy + column grants on all three tables, so no SECURITY
@@ -22,7 +22,7 @@ export type RecordActionResult = { ok: true } | { ok: false; error: string };
 
 const PM_ONLY = "เฉพาะผู้จัดการโครงการเท่านั้น";
 const GENERIC = "บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
-const CONTACTS_PATH = "/pm/contacts";
+const CONTACTS_PATH = "/contacts";
 
 type ServerClient = Awaited<ReturnType<typeof import("@/lib/db/server").createClient>>;
 type PmGate = { ok: true; supabase: ServerClient; userId: string } | { ok: false; error: string };

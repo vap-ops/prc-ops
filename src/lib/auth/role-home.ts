@@ -40,8 +40,9 @@ export function roleHome(role: UserRole): string {
   if (role === "site_admin") return "/projects";
   // super_admin is admitted to every v1 surface (requireRole lists it
   // everywhere) and the bottom tab bar gives it the PM set (spec 19) —
-  // so it lands on /pm, never /coming-soon.
-  if (role === "project_manager" || role === "super_admin") return "/pm";
+  // so it lands on the review queue, never /coming-soon. Spec 82 Unit 4:
+  // that queue is the content-named /review (was /pm).
+  if (role === "project_manager" || role === "super_admin") return "/review";
   // Spec 70: procurement is onboarded onto the purchasing worklist.
   if (role === "procurement") return "/requests";
   return "/coming-soon";

@@ -12,9 +12,12 @@ Spec 82 (in progress): the URL names the surface, not the viewer's role.
 Unit 1 moved the project detail surfaces `/sa/projects/*` → `/projects/*`;
 Unit 2 moved reports `/pm/projects/[id]/reports` → `/projects/[id]/reports`;
 Unit 3 folded the two project hubs (`/sa`, `/pm/projects`) into one `/projects`
-hub (role only decides the chrome) and retired `projectHubHref` (307 redirects
-keep old deep links resolving). Still role-named until Unit 4: `/pm` (review
-queue) / `/pm/payroll` / `/pm/contacts`.
+hub (role only decides the chrome) and retired `projectHubHref`; Unit 4 moved
+the remaining role-named surfaces — `/pm` → `/review`, `/pm/work-packages` →
+`/review/work-packages`, `/pm/payroll` → `/payroll`, `/pm/contacts` →
+`/contacts` (307 redirects keep old deep links resolving). Only Unit 5 (promote
+307s → permanent, drop dead rules) remains. The lone survivor under `/pm` is the
+spec-19 `/pm/requests` → `/requests` legacy 308 (out of scope; Unit 5 candidate).
 
 ## Entry and auth
 
@@ -28,14 +31,14 @@ queue) / `/pm/payroll` / `/pm/contacts`.
 | `/coming-soon`                              | session     | unserved roles' landing (`roleHome`)                   |
 | `/profile`                                  | session     | display name, avatar, logout (PWA's logout home)       |
 
-`roleHome`: site_admin → `/projects` (spec 82) · pm/super → `/pm` · procurement
-→ `/requests` (spec 70) · others → `/coming-soon`.
+`roleHome`: site_admin → `/projects` · pm/super → `/review` · procurement →
+`/requests` (spec 70) · others → `/coming-soon`. (spec 82)
 
 ## Bottom tabs (phones)
 
 - SA: โครงการ `/projects` · คำขอซื้อ `/requests` · โปรไฟล์ `/profile`
-- PM/super: รอตรวจ `/pm` · โครงการ `/projects` · คำขอซื้อ `/requests` · ติดต่อ
-  `/pm/contacts` (spec 81) · โปรไฟล์ `/profile`
+- PM/super: รอตรวจ `/review` · โครงการ `/projects` · คำขอซื้อ `/requests` · ติดต่อ
+  `/contacts` (spec 81) · โปรไฟล์ `/profile`
 - procurement (spec 70): คำขอซื้อ `/requests` · โปรไฟล์ `/profile` (no project
   hub, not a decider)
 
@@ -51,11 +54,11 @@ queue) / `/pm/payroll` / `/pm/contacts`.
 
 ## Review surfaces
 
-| Route                                                                   | Gate     | Rows / actions →                                    | Back →                              |
-| ----------------------------------------------------------------------- | -------- | --------------------------------------------------- | ----------------------------------- |
-| `/pm` (review queue)                                                    | pm/super | WP → `/pm/work-packages/[id]`                       | — (hub)                             |
-| `/pm/work-packages/[id]` — PM WP review (photos, decision, hold toggle) | pm/super | decision form · สร้างคำขอซื้อ → `/requests?wp=`     | `/pm` (queue is the entry)          |
-| `/pm/payroll` — DC payroll rollup + CSV export (money, spec 69)         | pm/super | period rollup of DC days by contractor · CSV export | — (desktop PM HubNav ค่าจ้าง entry) |
+| Route                                                                         | Gate     | Rows / actions →                                    | Back →                              |
+| ----------------------------------------------------------------------------- | -------- | --------------------------------------------------- | ----------------------------------- |
+| `/review` (review queue) (spec 82 Unit 4)                                     | pm/super | WP → `/review/work-packages/[id]`                   | — (hub)                             |
+| `/review/work-packages/[id]` — PM WP review (photos, decision, hold toggle)   | pm/super | decision form · สร้างคำขอซื้อ → `/requests?wp=`     | `/review` (queue is the entry)      |
+| `/payroll` — DC payroll rollup + CSV export (money, spec 69) (spec 82 Unit 4) | pm/super | period rollup of DC days by contractor · CSV export | — (desktop PM HubNav ค่าจ้าง entry) |
 
 ## Purchasing surfaces
 
@@ -71,20 +74,20 @@ controls, and its WP reference is plain text (the WP detail route bounces it).
 
 ## Other
 
-| Route          | Gate     | Notes                                                                                                                                                                                                |
-| -------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/workers`     | pm/super | labor roster (spec 46). **No nav entry yet** — reachable by URL only; recorded seam.                                                                                                                 |
-| `/pm/contacts` | pm/super | contacts management (spec 81): clients / suppliers / contractors via a segmented control; add + per-row edit + note. In the desktop PM HubNav (รายชื่อติดต่อ) AND the phone bottom-tab bar (ติดต่อ). |
+| Route       | Gate     | Notes                                                                                                                                                                                                                      |
+| ----------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/workers`  | pm/super | labor roster (spec 46). **No nav entry yet** — reachable by URL only; recorded seam.                                                                                                                                       |
+| `/contacts` | pm/super | contacts management (spec 81; spec 82 Unit 4 route): clients / suppliers / contractors via a segmented control; add + per-row edit + note. In the desktop PM HubNav (รายชื่อติดต่อ) AND the phone bottom-tab bar (ติดต่อ). |
 
 ## Known seams (recorded, not defects)
 
 - `/workers` nav entry pending its own small spec.
-- `/pm/payroll` (ค่าจ้าง) is in the desktop PM HubNav (`hub-nav.tsx`) only — the
+- `/payroll` (ค่าจ้าง) is in the desktop PM HubNav (`hub-nav.tsx`) only — the
   phone bottom-tab bar has no entry for it yet (same gap as `/workers`).
 - procurement is onboarded onto the purchasing worklist (spec 70) but has no
   project hub (`projects` SELECT deferred) and no desktop HubNav — recorded
-  seams for later units. The `/pm/contacts` supplier screen (spec 81) is
+  seams for later units. The `/contacts` supplier screen (spec 81) is
   PM-gated; procurement (a supplier writer at the data layer) does not reach it
   yet — its own widening unit.
 - SA quick-adds a contractor inline on WP assignment (spec 31) but does not
-  reach `/pm/contacts` to curate contacts — recorded seam.
+  reach `/contacts` to curate contacts — recorded seam.

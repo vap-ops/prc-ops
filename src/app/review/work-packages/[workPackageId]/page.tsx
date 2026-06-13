@@ -159,7 +159,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
       <BottomTabBar role={ctx.role} />
       {/* Spec 54 header (operator mockup) via the spec-63 shell; the
           progress band below scrolls. */}
-      <DetailHeader backHref="/pm" backLabel="กลับไปรายการรอตรวจ">
+      <DetailHeader backHref="/review" backLabel="กลับไปรายการรอตรวจ">
         <p className="truncate text-xs text-zinc-600">
           <span className="font-mono">{project.code}</span>
           <span className="mx-1">·</span>
@@ -220,7 +220,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
           <h2 className={SECTION_HEADING}>บันทึกแรงงานรายวัน</h2>
           <LaborLogZone
             workPackageId={wp.id}
-            revalidate={`/pm/work-packages/${workPackageId}`}
+            revalidate={`/review/work-packages/${workPackageId}`}
             roster={labor.roster}
             rows={labor.rows}
             showFlags
@@ -255,7 +255,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
                 frozen={frozenSnapshot}
                 overAllocated={overAllocated}
                 workPackageId={wp.id}
-                revalidate={`/pm/work-packages/${workPackageId}`}
+                revalidate={`/review/work-packages/${workPackageId}`}
               />
             </div>
           </section>

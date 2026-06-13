@@ -18,15 +18,16 @@ export interface HubNavItem {
 // the destinations and their order never drift between pages again.
 // Spec 19 §4 merged /pm/requests into /requests: one purchasing entry.
 export const PM_HUB_NAV: ReadonlyArray<HubNavItem> = [
-  { label: "รายการรอตรวจ", href: "/pm" },
+  // Spec 82 Unit 4: the review queue is the content-named /review (was /pm).
+  { label: "รายการรอตรวจ", href: "/review" },
   // Spec 82 Unit 3: the project hub folded to the content-named /projects.
   { label: "โครงการและรายงาน", href: "/projects" },
   { label: "คำขอซื้อ", href: "/requests" },
   // Spec 69: PM-only DC payroll (money) — every PM surface is already
-  // PM/super-gated, so listing it here leaks nothing to SA.
-  { label: "ค่าจ้าง", href: "/pm/payroll" },
-  // Spec 81: contacts management (clients / suppliers / contractors).
-  { label: "รายชื่อติดต่อ", href: "/pm/contacts" },
+  // PM/super-gated, so listing it here leaks nothing to SA. Spec 82 Unit 4: /payroll.
+  { label: "ค่าจ้าง", href: "/payroll" },
+  // Spec 81: contacts management (clients / suppliers / contractors). Unit 4: /contacts.
+  { label: "รายชื่อติดต่อ", href: "/contacts" },
 ];
 
 export const SA_HUB_NAV: ReadonlyArray<HubNavItem> = [

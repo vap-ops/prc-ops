@@ -42,7 +42,8 @@ export const SA_TABS: ReadonlyArray<TabItem> = [
 ];
 
 export const PM_TABS: ReadonlyArray<TabItem> = [
-  { label: "รอตรวจ", href: "/pm", icon: ClipboardCheck },
+  // Spec 82 Unit 4: the review queue is the content-named /review (was /pm).
+  { label: "รอตรวจ", href: "/review", icon: ClipboardCheck },
   // Spec 82 Unit 3: same folded /projects hub for PM/super; the href lights
   // on the hub and every /projects/* detail screen, so no extra match.
   { label: "โครงการ", href: "/projects", icon: FolderKanban },
@@ -50,7 +51,7 @@ export const PM_TABS: ReadonlyArray<TabItem> = [
   // Spec 81: contacts management (clients/suppliers/contractors). Phone-first
   // users had no way here — it was in the desktop HubNav only. Short tab label
   // "ติดต่อ" (the page itself is รายชื่อผู้ติดต่อ) to fit the 5-tab row.
-  { label: "ติดต่อ", href: "/pm/contacts", icon: Contact },
+  { label: "ติดต่อ", href: "/contacts", icon: Contact },
   { label: "โปรไฟล์", href: "/profile", icon: CircleUserRound },
 ];
 

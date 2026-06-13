@@ -48,14 +48,14 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
   const admin = createAdminClient();
   const report = await fetchPayrollReport(admin, range);
 
-  const exportHref = `/pm/payroll/export?from=${range.from}&to=${range.to}`;
+  const exportHref = `/payroll/export?from=${range.from}&to=${range.to}`;
 
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
       <AppHeader kicker="ผู้จัดการโครงการ" fullName={ctx.fullName} maxWidthClass={PAGE_MAX_W} />
 
-      <HubNav maxWidthClass={PAGE_MAX_W} items={PM_HUB_NAV} currentHref="/pm/payroll" />
+      <HubNav maxWidthClass={PAGE_MAX_W} items={PM_HUB_NAV} currentHref="/payroll" />
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
         <h2 className={SECTION_HEADING}>ค่าจ้างผู้รับเหมา (DC)</h2>

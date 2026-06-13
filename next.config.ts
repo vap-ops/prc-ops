@@ -30,6 +30,18 @@ const nextConfig: NextConfig = {
       // (earlier, more specific) rules above.
       { source: "/sa", destination: "/projects", permanent: false },
       { source: "/pm/projects", destination: "/projects", permanent: false },
+      // Unit 4: the remaining role-named surfaces move to content-named ones.
+      // More-specific subtree sources first; the bare /pm exact is last (it
+      // must NOT shadow /pm/projects above, /pm/work-packages, or the still-
+      // live /pm/requests legacy redirect — exact /pm matches only /pm).
+      {
+        source: "/pm/work-packages/:path*",
+        destination: "/review/work-packages/:path*",
+        permanent: false,
+      },
+      { source: "/pm/payroll/:path*", destination: "/payroll/:path*", permanent: false },
+      { source: "/pm/contacts", destination: "/contacts", permanent: false },
+      { source: "/pm", destination: "/review", permanent: false },
     ];
   },
 };

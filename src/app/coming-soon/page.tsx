@@ -37,7 +37,7 @@ export default async function ComingSoonPage() {
   // which returns `never`, so after these two lines `role` is narrowed to the
   // unserved-role union — exactly the keys of UNSERVED_ROLE_LABEL.
   if (role === "site_admin") redirect("/projects");
-  if (role === "project_manager") redirect("/pm");
+  if (role === "project_manager") redirect("/review");
 
   const displayName = USER_ROLE_LABEL[role] ?? role;
   const greeting = row.full_name ? `สวัสดี คุณ${row.full_name}` : "สวัสดี";
@@ -47,7 +47,7 @@ export default async function ComingSoonPage() {
   // super_admin is the only "unserved" role that genuinely needs to
   // *reach* the served surfaces — every other unserved role waits for
   // its own tools to ship. Give super_admin an operator hub instead of
-  // the wait-for-tools copy. /projects and /pm both admit super_admin
+  // the wait-for-tools copy. /projects and /review both admit super_admin
   // via their existing requireRole() guards (no auth change in this
   // unit; this is purely a render branch).
   if (role === "super_admin") {
@@ -108,7 +108,7 @@ const HUB_LINKS: ReadonlyArray<HubLink> = [
     hint: "รายการโครงการ รายการงาน รูปถ่าย และรายงาน",
   },
   {
-    href: "/pm",
+    href: "/review",
     label: "รายการรอตรวจ",
     hint: "รายการงานที่รอผู้จัดการโครงการตรวจสอบ",
   },

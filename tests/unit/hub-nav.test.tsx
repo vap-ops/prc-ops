@@ -11,12 +11,13 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 // Spec 69: a fourth item, the PM-only DC payroll surface.
 // Spec 81: a fifth item, contacts management.
 const PM_ITEMS = [
-  { label: "รายการรอตรวจ", href: "/pm" },
+  // Spec 82 Unit 4: review queue /review, payroll /payroll, contacts /contacts.
+  { label: "รายการรอตรวจ", href: "/review" },
   // Spec 82 Unit 3: the project hub folded to /projects.
   { label: "โครงการและรายงาน", href: "/projects" },
   { label: "คำขอซื้อ", href: "/requests" },
-  { label: "ค่าจ้าง", href: "/pm/payroll" },
-  { label: "รายชื่อติดต่อ", href: "/pm/contacts" },
+  { label: "ค่าจ้าง", href: "/payroll" },
+  { label: "รายชื่อติดต่อ", href: "/contacts" },
 ];
 
 describe("canonical nav sets", () => {
@@ -38,19 +39,19 @@ describe("HubNav", () => {
     const current = screen.getByText("โครงการและรายงาน");
     expect(current.tagName).toBe("SPAN");
     expect(screen.queryByRole("link", { name: "โครงการและรายงาน" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "รายการรอตรวจ" })).toHaveAttribute("href", "/pm");
+    expect(screen.getByRole("link", { name: "รายการรอตรวจ" })).toHaveAttribute("href", "/review");
     expect(screen.getByRole("link", { name: "คำขอซื้อ" })).toHaveAttribute("href", "/requests");
   });
 
   it("renders no directional arrow glyphs", () => {
     const { container } = render(
-      <HubNav maxWidthClass={PAGE_MAX_W} items={PM_ITEMS} currentHref="/pm" />,
+      <HubNav maxWidthClass={PAGE_MAX_W} items={PM_ITEMS} currentHref="/review" />,
     );
     expect(container.textContent).not.toMatch(/[→←]/);
   });
 
   it("gives links a min-h-11 tap target", () => {
-    render(<HubNav maxWidthClass={PAGE_MAX_W} items={PM_ITEMS} currentHref="/pm" />);
+    render(<HubNav maxWidthClass={PAGE_MAX_W} items={PM_ITEMS} currentHref="/review" />);
     expect(screen.getByRole("link", { name: "คำขอซื้อ" }).className).toContain("min-h-11");
   });
 });
