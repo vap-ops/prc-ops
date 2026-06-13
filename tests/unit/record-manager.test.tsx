@@ -128,6 +128,36 @@ describe("RecordManager", () => {
     );
   });
 
+  it("addInSheet: an Add button opens the form in a sheet (spec 87)", () => {
+    render(
+      <RecordManager
+        addLabel="เพิ่มลูกค้า"
+        fields={FIELDS}
+        rows={[]}
+        onCreate={vi.fn() as unknown as CreateFn}
+        onUpdate={vi.fn() as unknown as UpdateFn}
+        addInSheet
+      />,
+    );
+    expect(screen.queryByLabelText("ชื่อ")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มลูกค้า" }));
+    expect(screen.getByLabelText("ชื่อ")).toBeInTheDocument();
+  });
+
+  it("rowBadge: renders a status chip on a row (spec 87)", () => {
+    render(
+      <RecordManager
+        addLabel="x"
+        fields={FIELDS}
+        rows={ROWS}
+        onCreate={vi.fn() as unknown as CreateFn}
+        onUpdate={vi.fn() as unknown as UpdateFn}
+        rowBadge={() => ({ label: "บัญชีดำ", tone: "red" })}
+      />,
+    );
+    expect(screen.getByText("บัญชีดำ")).toBeInTheDocument();
+  });
+
   it("renders the error when onCreate fails", async () => {
     setup({
       rows: [],

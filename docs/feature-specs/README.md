@@ -89,6 +89,7 @@ for reading the spec itself.
 | 84   | Contacts v2 Unit 2: suppliers enrichment + service_providers table        |
 | 85   | Contacts v2 Unit 3: bank info (money-isolated `contact_bank`)             |
 | 86   | Contacts v2 Unit 4: select field primitive + write-action layer           |
+| 87   | Contacts v2 Unit 6: list-first UI (5 tabs, add-sheet, status filter)      |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

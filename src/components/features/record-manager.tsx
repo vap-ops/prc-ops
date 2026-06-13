@@ -18,8 +18,12 @@ import {
   INLINE_ALERT_TEXT,
 } from "@/lib/ui/classes";
 import { useToast } from "@/lib/ui/use-toast";
+import { BottomSheet } from "@/components/features/bottom-sheet";
 
 export type RecordActionResult = { ok: true } | { ok: false; error: string };
+
+/** A small status chip rendered next to a row's name (spec 87). */
+export type RecordBadge = { label: string; tone: "amber" | "red" };
 
 export interface RecordFieldDef {
   /** Record key passed to onCreate/onUpdate (camelCase, maps to the action input). */
@@ -43,6 +47,10 @@ interface RecordManagerProps {
   rows: RecordRow[];
   onCreate: (values: Record<string, string>) => Promise<RecordActionResult>;
   onUpdate: (id: string, values: Record<string, string>) => Promise<RecordActionResult>;
+  /** Spec 87: list-first — the add form opens in a BottomSheet behind an Add button. */
+  addInSheet?: boolean;
+  /** Spec 87: optional status chip per row (e.g. ทดลองงาน / บัญชีดำ). */
+  rowBadge?: (row: RecordRow) => RecordBadge | null;
 }
 
 function FieldInputs({
@@ -111,10 +119,16 @@ function AddCard({
   addLabel,
   fields,
   onCreate,
+  onDone,
+  bare,
 }: {
   addLabel: string;
   fields: RecordFieldDef[];
   onCreate: RecordManagerProps["onCreate"];
+  /** Called after a successful create (e.g. to close the sheet). */
+  onDone?: () => void;
+  /** Drop the CARD wrapper + heading (the sheet already provides them). */
+  bare?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -138,11 +152,12 @@ function AddCard({
     setValues(blankValues(fields));
     toast.success("บันทึกแล้ว");
     router.refresh();
+    onDone?.();
   }
 
-  return (
-    <div className={CARD}>
-      <p className="text-sm font-semibold text-zinc-900">{addLabel}</p>
+  const body = (
+    <>
+      {bare ? null : <p className="text-sm font-semibold text-zinc-900">{addLabel}</p>}
       <FieldInputs
         fields={fields}
         values={values}
@@ -165,18 +180,22 @@ function AddCard({
       >
         {addLabel}
       </button>
-    </div>
+    </>
   );
+
+  return bare ? body : <div className={CARD}>{body}</div>;
 }
 
 function RecordRowItem({
   fields,
   row,
   onUpdate,
+  badge,
 }: {
   fields: RecordFieldDef[];
   row: RecordRow;
   onUpdate: RecordManagerProps["onUpdate"];
+  badge?: RecordBadge | null;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -222,7 +241,18 @@ function RecordRowItem({
     <li className="border-t border-zinc-200 py-2 transition-colors first:border-t-0 active:bg-zinc-100">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm text-zinc-900">{name}</p>
+          <p className="flex items-center gap-2 text-sm text-zinc-900">
+            <span className="truncate">{name}</span>
+            {badge ? (
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                  badge.tone === "red" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"
+                }`}
+              >
+                {badge.label}
+              </span>
+            ) : null}
+          </p>
           {previewField ? (
             <p className="truncate text-xs text-zinc-600">{row.values[previewField.key]}</p>
           ) : null}
@@ -274,16 +304,52 @@ function RecordRowItem({
   );
 }
 
-export function RecordManager({ addLabel, fields, rows, onCreate, onUpdate }: RecordManagerProps) {
+export function RecordManager({
+  addLabel,
+  fields,
+  rows,
+  onCreate,
+  onUpdate,
+  addInSheet,
+  rowBadge,
+}: RecordManagerProps) {
+  const [sheetOpen, setSheetOpen] = useState(false);
   return (
     <div className="flex flex-col gap-4">
-      <AddCard addLabel={addLabel} fields={fields} onCreate={onCreate} />
+      {addInSheet ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setSheetOpen(true)}
+            className={`w-full ${BUTTON_PRIMARY_COMPACT}`}
+          >
+            {addLabel}
+          </button>
+          <BottomSheet open={sheetOpen} title={addLabel} onClose={() => setSheetOpen(false)}>
+            <AddCard
+              addLabel={addLabel}
+              fields={fields}
+              onCreate={onCreate}
+              onDone={() => setSheetOpen(false)}
+              bare
+            />
+          </BottomSheet>
+        </>
+      ) : (
+        <AddCard addLabel={addLabel} fields={fields} onCreate={onCreate} />
+      )}
       {rows.length > 0 ? (
         <div className={CARD}>
           <p className="text-sm font-semibold text-zinc-900">รายการ ({rows.length})</p>
           <ul className="mt-2 flex flex-col">
             {rows.map((r) => (
-              <RecordRowItem key={r.id} fields={fields} row={r} onUpdate={onUpdate} />
+              <RecordRowItem
+                key={r.id}
+                fields={fields}
+                row={r}
+                onUpdate={onUpdate}
+                badge={rowBadge ? rowBadge(r) : null}
+              />
             ))}
           </ul>
         </div>
