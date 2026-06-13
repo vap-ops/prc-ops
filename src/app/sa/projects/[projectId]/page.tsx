@@ -36,18 +36,25 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
 
   // Spec 79: project-context lines (client name, internal lead, type, site).
   // budget is intentionally NOT read here (money — admin-only, PM screens).
-  const [clientRow, leadNames] = await Promise.all([
+  const [clientRow, { data: memberRows }] = await Promise.all([
     project.client_id
       ? supabase.from("clients").select("name").eq("id", project.client_id).maybeSingle()
       : Promise.resolve({ data: null }),
-    project.project_lead_id
-      ? fetchDisplayNames([project.project_lead_id], "[project-page]")
-      : Promise.resolve(new Map<string, string>()),
+    supabase.from("project_members").select("user_id").eq("project_id", project.id),
   ]);
   const clientName = clientRow.data?.name ?? null;
-  const leadName = project.project_lead_id
-    ? (leadNames.get(project.project_lead_id) ?? null)
-    : null;
+  const memberIds = (memberRows ?? []).map((m) => m.user_id);
+  // Resolve the lead + member display names in one admin lookup (users RLS is read-self).
+  const nameIds = [
+    ...new Set([...(project.project_lead_id ? [project.project_lead_id] : []), ...memberIds]),
+  ];
+  const names = nameIds.length
+    ? await fetchDisplayNames(nameIds, "[project-page]")
+    : new Map<string, string>();
+  const leadName = project.project_lead_id ? (names.get(project.project_lead_id) ?? null) : null;
+  const memberNames = memberIds
+    .map((id) => names.get(id) ?? null)
+    .filter((n): n is string => n !== null);
   const typeLabel = project.project_type ? PROJECT_TYPE_LABEL[project.project_type] : null;
 
   const { data: workPackages } = await supabase
@@ -98,7 +105,11 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
         <div>
           <p className="font-mono text-xs text-zinc-600">{project.code}</p>
           <h1 className="text-2xl font-bold tracking-tight">{project.name}</h1>
-          {(clientName || leadName || typeLabel || project.site_address) && (
+          {(clientName ||
+            leadName ||
+            memberNames.length > 0 ||
+            typeLabel ||
+            project.site_address) && (
             <dl className="mt-1.5 flex flex-col gap-0.5 text-xs text-zinc-600">
               {clientName && (
                 <div className="flex gap-1.5">
@@ -110,6 +121,14 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
                 <div className="flex gap-1.5">
                   <dt>ผู้รับผิดชอบ:</dt>
                   <dd className="font-medium text-zinc-900">{leadName}</dd>
+                </div>
+              )}
+              {memberNames.length > 0 && (
+                <div className="flex gap-1.5">
+                  <dt>ทีมงาน:</dt>
+                  <dd className="font-medium break-words text-zinc-900">
+                    {memberNames.join(", ")}
+                  </dd>
                 </div>
               )}
               {typeLabel && (

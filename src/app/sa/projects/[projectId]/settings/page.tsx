@@ -44,15 +44,25 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
   // clients list, and the staff roster for the project-lead picker. Staff
   // come via admin because public.users RLS is read-self (ADR 0011).
   const admin = createAdminClient();
-  const [{ data: budgetRow }, { data: clients }, { data: staff }] = await Promise.all([
-    admin.from("projects").select("budget_amount_thb").eq("id", projectId).maybeSingle(),
-    supabase.from("clients").select("id, name").order("name"),
-    admin
-      .from("users")
-      .select("id, full_name")
-      .in("role", [...SITE_STAFF_ROLES])
-      .order("full_name", { nullsFirst: false }),
-  ]);
+  const [{ data: budgetRow }, { data: clients }, { data: staff }, { data: members }] =
+    await Promise.all([
+      admin.from("projects").select("budget_amount_thb").eq("id", projectId).maybeSingle(),
+      supabase.from("clients").select("id, name").order("name"),
+      admin
+        .from("users")
+        .select("id, full_name")
+        .in("role", [...SITE_STAFF_ROLES])
+        .order("full_name", { nullsFirst: false }),
+      // Spec 80: current team members (staff SELECT allows the user session).
+      supabase.from("project_members").select("user_id").eq("project_id", projectId),
+    ]);
+
+  const staffList = (staff ?? []).map((u) => ({ id: u.id, name: u.full_name }));
+  const staffName = new Map(staffList.map((s) => [s.id, s.name]));
+  const memberList = (members ?? []).map((m) => ({
+    id: m.user_id,
+    name: staffName.get(m.user_id) ?? null,
+  }));
 
   return (
     <PageShell>
@@ -89,7 +99,8 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
           initialProjectType={project.project_type}
           initialBudget={budgetRow?.budget_amount_thb ?? null}
           clients={clients ?? []}
-          staff={(staff ?? []).map((u) => ({ id: u.id, name: u.full_name }))}
+          staff={staffList}
+          members={memberList}
         />
       </div>
     </PageShell>

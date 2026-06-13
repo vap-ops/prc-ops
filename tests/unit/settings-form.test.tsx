@@ -15,6 +15,8 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) 
 vi.mock("@/app/sa/projects/[projectId]/settings/actions", () => ({
   updateProjectSettings: mockUpdate,
   createClient: mockCreateClient,
+  addProjectMember: vi.fn(),
+  removeProjectMember: vi.fn(),
 }));
 
 import { SettingsForm } from "@/app/sa/projects/[projectId]/settings/settings-form";
@@ -35,6 +37,7 @@ const baseProps = {
   initialBudget: null,
   clients: [],
   staff: [],
+  members: [],
 };
 
 describe("SettingsForm", () => {

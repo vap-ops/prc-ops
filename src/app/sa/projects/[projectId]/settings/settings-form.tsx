@@ -21,7 +21,12 @@ import {
 } from "@/lib/projects/validate-settings";
 import { NOTES_MAX } from "@/lib/notes/validate";
 import { useToast } from "@/lib/ui/use-toast";
-import { updateProjectSettings, createClient } from "./actions";
+import {
+  updateProjectSettings,
+  createClient,
+  addProjectMember,
+  removeProjectMember,
+} from "./actions";
 
 const STATUS_ORDER: ReadonlyArray<ProjectStatus> = ["active", "on_hold", "completed", "archived"];
 
@@ -53,6 +58,7 @@ interface SettingsFormProps {
   initialBudget: number | null;
   clients: ClientOption[];
   staff: StaffOption[];
+  members: StaffOption[];
 }
 
 export function SettingsForm(props: SettingsFormProps) {
@@ -85,11 +91,47 @@ export function SettingsForm(props: SettingsFormProps) {
   const [addPending, startAdd] = useTransition();
   const [addError, setAddError] = useState<string | null>(null);
 
+  // Spec 80: team members. Add/remove persist immediately (own actions) and
+  // update local state — no router.refresh, so the form's unsaved edits survive.
+  const [members, setMembers] = useState<StaffOption[]>(props.members);
+  const [memberToAdd, setMemberToAdd] = useState("");
+  const [memberPending, startMember] = useTransition();
+
   const [error, setError] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
 
   const nameCheck = validateProjectName(name);
   const canSubmit = nameCheck.ok && !submitting;
+
+  function handleAddMember() {
+    const id = memberToAdd;
+    if (!id) return;
+    setError(null);
+    startMember(async () => {
+      const result = await addProjectMember(props.projectId, id);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      const entry = props.staff.find((s) => s.id === id);
+      setMembers((prev) => [...prev, { id, name: entry?.name ?? null }]);
+      setMemberToAdd("");
+      toast.success("เพิ่มสมาชิกแล้ว");
+    });
+  }
+
+  function handleRemoveMember(id: string) {
+    setError(null);
+    startMember(async () => {
+      const result = await removeProjectMember(props.projectId, id);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setMembers((prev) => prev.filter((m) => m.id !== id));
+      toast.success("ลบสมาชิกแล้ว");
+    });
+  }
 
   function handleAddClient() {
     if (newName.trim().length === 0) return;
@@ -146,7 +188,8 @@ export function SettingsForm(props: SettingsFormProps) {
     });
   }
 
-  const busy = submitting || addPending;
+  const busy = submitting || addPending || memberPending;
+  const addableStaff = props.staff.filter((s) => !members.some((m) => m.id === s.id));
 
   return (
     <form
@@ -284,6 +327,59 @@ export function SettingsForm(props: SettingsFormProps) {
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <span className={LABEL}>ทีมงาน</span>
+        {members.length > 0 ? (
+          <ul className="flex flex-col gap-1">
+            {members.map((m) => (
+              <li
+                key={m.id}
+                className="flex items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2"
+              >
+                <span className="truncate text-sm text-zinc-900">{m.name ?? m.id.slice(0, 8)}</span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveMember(m.id)}
+                  disabled={busy}
+                  aria-label={`ลบ ${m.name ?? "สมาชิก"}`}
+                  className="shrink-0 px-2 text-sm font-medium text-red-700"
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-xs text-zinc-500">ยังไม่มีสมาชิกในทีม</p>
+        )}
+        {addableStaff.length > 0 && (
+          <div className="flex gap-2">
+            <select
+              aria-label="เลือกสมาชิกเพิ่ม"
+              value={memberToAdd}
+              onChange={(e) => setMemberToAdd(e.target.value)}
+              disabled={busy}
+              className={FIELD}
+            >
+              <option value="">— เลือกสมาชิก —</option>
+              {addableStaff.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name ?? s.id.slice(0, 8)}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={handleAddMember}
+              disabled={busy || memberToAdd === ""}
+              className={BUTTON_PRIMARY}
+            >
+              เพิ่ม
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-1.5">

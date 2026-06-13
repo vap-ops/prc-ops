@@ -509,6 +509,49 @@ export type Database = {
           },
         ];
       };
+      project_members: {
+        Row: {
+          added_at: string;
+          added_by: string;
+          project_id: string;
+          user_id: string;
+        };
+        Insert: {
+          added_at?: string;
+          added_by: string;
+          project_id: string;
+          user_id: string;
+        };
+        Update: {
+          added_at?: string;
+          added_by?: string;
+          project_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "project_members_added_by_fkey";
+            columns: ["added_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_members_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_members_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       projects: {
         Row: {
           budget_amount_thb: number | null;

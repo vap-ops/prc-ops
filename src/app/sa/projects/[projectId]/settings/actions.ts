@@ -209,3 +209,64 @@ export async function createClient(input: CreateClientInput): Promise<CreateClie
   }
   return { ok: true, id: data.id };
 }
+
+// Spec 80 — project team. PM/super add/remove members directly under their
+// authenticated session (RLS grants + policies are the load-bearing gate).
+export type MemberResult = { ok: true } | { ok: false; error: string };
+
+async function gateProjectMember(projectId: string, userId: string) {
+  if (!isValidUuid(projectId) || !isValidUuid(userId)) {
+    return { ok: false as const, error: "ข้อมูลสมาชิกไม่ถูกต้อง" };
+  }
+  const auth = await getActionUser();
+  if (!auth) return { ok: false as const, error: NOT_SIGNED_IN };
+  const { data: userRow } = await auth.supabase
+    .from("users")
+    .select("role")
+    .eq("id", auth.user.id)
+    .maybeSingle();
+  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+    return { ok: false as const, error: PM_ONLY_ERROR };
+  }
+  return { ok: true as const, auth };
+}
+
+export async function addProjectMember(projectId: string, userId: string): Promise<MemberResult> {
+  const gate = await gateProjectMember(projectId, userId);
+  if (!gate.ok) return { ok: false, error: gate.error };
+  const { supabase, user } = gate.auth;
+
+  const { error } = await supabase
+    .from("project_members")
+    .insert({ project_id: projectId, user_id: userId, added_by: user.id });
+  // 23505 = already a member → treat as success (idempotent add).
+  if (error && error.code !== "23505") {
+    console.error("[addProjectMember] insert failed", { projectId, error: error.message });
+    return { ok: false, error: "เพิ่มสมาชิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+  revalidatePath(`/sa/projects/${projectId}`);
+  revalidatePath(`/sa/projects/${projectId}/settings`);
+  return { ok: true };
+}
+
+export async function removeProjectMember(
+  projectId: string,
+  userId: string,
+): Promise<MemberResult> {
+  const gate = await gateProjectMember(projectId, userId);
+  if (!gate.ok) return { ok: false, error: gate.error };
+  const { supabase } = gate.auth;
+
+  const { error } = await supabase
+    .from("project_members")
+    .delete()
+    .eq("project_id", projectId)
+    .eq("user_id", userId);
+  if (error) {
+    console.error("[removeProjectMember] delete failed", { projectId, error: error.message });
+    return { ok: false, error: "ลบสมาชิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+  revalidatePath(`/sa/projects/${projectId}`);
+  revalidatePath(`/sa/projects/${projectId}/settings`);
+  return { ok: true };
+}
