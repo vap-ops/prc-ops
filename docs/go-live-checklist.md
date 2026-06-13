@@ -193,7 +193,7 @@ composing the SQL**.
    the 4 photos in the `photos` bucket and the 3 PDFs in the
    `reports` bucket.
 6. Verify clean: load `/sa`, click PRC-2026-001 — no
-   `WP-TEST-001` in the WP list. Load `/pm/projects/<PRC-2026-001>/reports`
+   `WP-TEST-001` in the WP list. Load `/projects/<PRC-2026-001>/reports`
    — no reports listed.
 
 - [x] Re-verified trigger names + FK behaviour against current migrations _(re-verified 2026-06-10)_
@@ -536,7 +536,7 @@ target. Note its code so you can find it again across screens.
 
 4. **PM report — generate + download**
    - PM opens `/pm/projects` → picks the pilot project →
-     `/pm/projects/<id>/reports`.
+     `/projects/<id>/reports`.
    - Clicks "Generate report". The new row appears with status
      **Queued**.
    - **Wait up to 5 minutes** (the Railway cron interval). The

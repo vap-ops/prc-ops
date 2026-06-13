@@ -18,6 +18,13 @@ const nextConfig: NextConfig = {
         destination: "/projects/:path*",
         permanent: false,
       },
+      // Unit 2: reports moved off /pm/projects/[id]/reports. Specific source
+      // (not /pm/projects/:path*) so the /pm/projects hub itself is untouched.
+      {
+        source: "/pm/projects/:projectId/reports",
+        destination: "/projects/:projectId/reports",
+        permanent: false,
+      },
     ];
   },
 };

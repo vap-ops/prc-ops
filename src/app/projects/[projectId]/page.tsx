@@ -4,7 +4,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
 import { FileText, Settings } from "lucide-react";
 import { projectHubHref, SITE_STAFF_ROLES } from "@/lib/auth/role-home";
-import { projectSettingsHref } from "@/lib/nav/project-paths";
+import { projectSettingsHref, reportsHref } from "@/lib/nav/project-paths";
 import { ICON_CHIP_MUTED, SECTION_HEADING } from "@/lib/ui/classes";
 import { DetailHeader } from "@/components/features/detail-header";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
@@ -86,7 +86,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
           ctx.role === "project_manager" || ctx.role === "super_admin" ? (
             <>
               <Link
-                href={`/pm/projects/${project.id}/reports`}
+                href={reportsHref(project.id)}
                 aria-label="รายงานโครงการ"
                 className={ICON_CHIP_MUTED}
               >

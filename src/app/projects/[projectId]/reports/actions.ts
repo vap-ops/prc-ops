@@ -29,6 +29,7 @@ import { parseReportParams } from "@/lib/reports/params";
 import { runReportJob } from "@/lib/reports/run-report-job";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
 import { PM_ROLES } from "@/lib/auth/role-home";
+import { reportsHref } from "@/lib/nav/project-paths";
 import { REPORTS_BUCKET } from "@/lib/storage/buckets";
 import { isValidUuid } from "@/lib/validate/uuid";
 
@@ -131,7 +132,7 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
     console.error("[generateReport] fast path errored (sweeper/reaper will recover)", e);
   }
 
-  revalidatePath(`/pm/projects/${project.id}/reports`);
+  revalidatePath(reportsHref(project.id));
   return { ok: true };
 }
 

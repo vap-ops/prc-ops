@@ -9,11 +9,11 @@ every role (WP-centric doctrine). Round-trip rule: entering a detail
 surface from a hub, the back affordance returns to that same hub.
 
 Spec 82 (in progress): the URL names the surface, not the viewer's role.
-Unit 1 moved the shared project detail surfaces out of the role-named `/sa`
-namespace into the content-named `/projects` namespace (a 307 redirect keeps
-old `/sa/projects/*` deep links resolving). The hubs `/sa` + `/pm/projects`
-and the review/payroll/contacts surfaces keep their role prefix until later
-units.
+Unit 1 moved the project detail surfaces `/sa/projects/*` → `/projects/*`;
+Unit 2 moved reports `/pm/projects/[id]/reports` → `/projects/[id]/reports`
+(307 redirects keep old deep links resolving). Still role-named until later
+units: the hubs `/sa` + `/pm/projects` (Unit 3 folds them into one `/projects`)
+and `/pm` / `/pm/payroll` / `/pm/contacts` (Unit 4).
 
 ## Entry and auth
 
@@ -47,7 +47,7 @@ units.
 | `/projects/[id]` — **THE project page** (WP list, view filter) (spec 82)  | sa/pm/super | WP → WP detail · รายงาน chip (pm/super) → reports · gear (pm/super) → settings | `projectHubHref(role)`: SA → `/sa`, pm/super → `/pm/projects` (spec 59) |
 | `/projects/[id]/work-packages/[id]` — WP detail (photos, requests, labor) | sa/pm/super | photos/requests/labor zones · request card → `/requests/[id]`                  | `/projects/[id]`                                                        |
 | `/projects/[id]/settings`                                                 | pm/super    | name/status form (ADR 0042)                                                    | `/projects/[id]`                                                        |
-| `/pm/projects/[id]/reports` (route moves in Unit 2)                       | pm/super    | generate/download PDFs                                                         | back chip → `/projects/[id]` (spec 60; the link row is gone)            |
+| `/projects/[id]/reports` (spec 82 Unit 2)                                 | pm/super    | generate/download PDFs                                                         | back chip → `/projects/[id]` (spec 60; the link row is gone)            |
 
 ## Review surfaces
 

@@ -1,7 +1,7 @@
 // Shared status-color helper for the SA-side pills (project list, WP
 // list). The palette here matches the PM-side pills already in use on
 //   - src/app/pm/page.tsx (approval-decision pill)
-//   - src/app/pm/projects/[projectId]/reports/reports-list.tsx (report
+//   - src/app/projects/[projectId]/reports/reports-list.tsx (report
 //     status pill)
 //   - src/app/pm/work-packages/[workPackageId]/page.tsx (decision-
 //     history pill)

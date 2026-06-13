@@ -11,7 +11,12 @@
 
 import { describe, expect, it } from "vitest";
 
-import { projectHref, projectSettingsHref, workPackageHref } from "@/lib/nav/project-paths";
+import {
+  projectHref,
+  projectSettingsHref,
+  reportsHref,
+  workPackageHref,
+} from "@/lib/nav/project-paths";
 
 describe("project-paths builders", () => {
   it("projectHref points at the content-named project page (no /sa)", () => {
@@ -26,9 +31,16 @@ describe("project-paths builders", () => {
     expect(projectSettingsHref("p1")).toBe("/projects/p1/settings");
   });
 
-  it("never emits the old role-named /sa/projects prefix", () => {
+  // Spec 82 Unit 2: reports leaves the role-named /pm/projects/[id]/reports
+  // home for the content-named /projects/[id]/reports.
+  it("reportsHref nests reports under the project (no /pm)", () => {
+    expect(reportsHref("p1")).toBe("/projects/p1/reports");
+  });
+
+  it("never emits the old role-named /sa/projects or /pm/projects prefix", () => {
     expect(projectHref("x")).not.toMatch(/\/sa\//);
     expect(workPackageHref("x", "y")).not.toMatch(/\/sa\//);
     expect(projectSettingsHref("x")).not.toMatch(/\/sa\//);
+    expect(reportsHref("x")).not.toMatch(/\/pm\//);
   });
 });

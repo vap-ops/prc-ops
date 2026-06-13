@@ -61,7 +61,8 @@ describe("BottomTabBar", () => {
   });
 
   it("lights exactly ONE tab on a nested project page (longest prefix wins)", () => {
-    mockUsePathname.mockReturnValue("/pm/projects/abc/reports");
+    // Spec 82 Unit 2: reports lives at /projects/[id]/reports now.
+    mockUsePathname.mockReturnValue("/projects/abc/reports");
     const { container } = render(<BottomTabBar role="project_manager" />);
     const active = activeTabs(container);
     expect(active).toHaveLength(1);
