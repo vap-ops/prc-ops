@@ -43,6 +43,8 @@ import { mintSignedUrlsForAttachments } from "@/lib/purchasing/attachment-signed
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { DetailHeader } from "@/components/features/detail-header";
 import { AttentionCard } from "@/components/features/attention-card";
+import { InvoiceUploader } from "@/components/features/invoice-uploader";
+import { SitePurchaseAcknowledge } from "@/components/features/site-purchase-acknowledge";
 
 export const metadata = { title: "รายละเอียดคำขอซื้อ" };
 
@@ -64,7 +66,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
   const supabase = await createClient();
   const { data: request } = await supabase
     .from("purchase_requests")
-    .select(`${PR_LIST_COLUMNS}, notes`)
+    .select(`${PR_LIST_COLUMNS}, notes, source, acknowledged_at`)
     .eq("id", requestId)
     .maybeSingle();
 
@@ -101,11 +103,14 @@ export default async function RequestDetailPage({ params }: PageProps) {
     .order("created_at", { ascending: true });
   const attachments = attachmentRows ?? [];
   const confirmations = attachments.filter((row) => row.purpose === "delivery_confirmation");
+  // Spec 66 / ADR 0043: invoices (ใบส่งของ/ใบเสร็จ) are their own purpose —
+  // split out so they don't leak into the reference section.
+  const invoices = attachments.filter((row) => row.purpose === "invoice");
   const referenceImages = attachments.filter(
-    (row) => row.purpose !== "delivery_confirmation" && row.kind === "image",
+    (row) => row.purpose === "reference" && row.kind === "image",
   );
   const referenceLinks = attachments.filter(
-    (row) => row.purpose !== "delivery_confirmation" && row.kind !== "image",
+    (row) => row.purpose === "reference" && row.kind !== "image",
   );
   const attachmentUrls = await mintSignedUrlsForAttachments(
     attachments
@@ -116,6 +121,10 @@ export default async function RequestDetailPage({ params }: PageProps) {
   const isDecider = ctx.role === "project_manager" || ctx.role === "super_admin";
   // Spec 33 / ADR 0038 gate; suppliers fetched only when the form renders.
   const isBackOffice = isBackOfficeRole(ctx.role);
+  // Spec 66 / ADR 0043: on-site purchase + PM-ack state (badge derives
+  // from source + acknowledged_at, not a status change).
+  const isSitePurchase = request.source === "site_purchase";
+  const ackAt = request.acknowledged_at;
   let suppliers: SupplierOption[] = [];
   if (isBackOffice && status === "approved") {
     const { data: supplierRows } = await supabase
@@ -193,17 +202,22 @@ export default async function RequestDetailPage({ params }: PageProps) {
               หมายเหตุ: {request.notes}
             </p>
           ) : null}
-          <div className="mt-3">
-            <PurchaseRequestTracker
-              status={status}
-              requestedAt={request.requested_at}
-              decidedAt={request.decided_at}
-              purchasedAt={request.purchased_at}
-              shippedAt={request.shipped_at}
-              deliveredAt={request.delivered_at}
-              eta={request.eta}
-            />
-          </div>
+          {/* Spec 66 / ADR 0043: the requisition stepper doesn't apply to an
+              on-site purchase (it skipped request→approve); its state is told
+              by the ack card + the document section instead. */}
+          {isSitePurchase ? null : (
+            <div className="mt-3">
+              <PurchaseRequestTracker
+                status={status}
+                requestedAt={request.requested_at}
+                decidedAt={request.decided_at}
+                purchasedAt={request.purchased_at}
+                shippedAt={request.shipped_at}
+                deliveredAt={request.delivered_at}
+                eta={request.eta}
+              />
+            </div>
+          )}
           {status === "rejected" && request.decision_comment ? (
             /* Spec 55: the one attention pattern (spec 54). */
             <div className="mt-3">
@@ -232,6 +246,24 @@ export default async function RequestDetailPage({ params }: PageProps) {
             </p>
           ) : null}
         </div>
+
+        {isSitePurchase && !ackAt ? (
+          <AttentionCard tone="amber" title="ซื้อหน้างาน — รอ PM รับทราบ">
+            <p>บันทึกการซื้อที่หน้างานแล้ว รอผู้จัดการโครงการรับทราบ</p>
+            {isDecider ? (
+              <div className="mt-2">
+                <SitePurchaseAcknowledge requestId={request.id} />
+              </div>
+            ) : null}
+          </AttentionCard>
+        ) : null}
+        {isSitePurchase && ackAt ? (
+          <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+            <p className="text-sm font-medium text-emerald-700">
+              PM รับทราบการซื้อหน้างานแล้ว · {formatThaiDateTime(ackAt)}
+            </p>
+          </div>
+        ) : null}
 
         {referenceImages.length > 0 ||
         referenceLinks.length > 0 ||
@@ -348,6 +380,47 @@ export default async function RequestDetailPage({ params }: PageProps) {
                   projectId={wp.project_id}
                   userId={ctx.id}
                 />
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {status === "purchased" ||
+        status === "on_route" ||
+        status === "delivered" ||
+        status === "site_purchased" ? (
+          <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+            <h2 className="text-base font-semibold text-zinc-900">เอกสาร (ใบส่งของ / ใบเสร็จ)</h2>
+            <div className="mt-2 flex flex-col gap-2">
+              {invoices.length > 0 ? (
+                <ul className="flex flex-wrap gap-2">
+                  {invoices.map((doc, idx, arr) => {
+                    const url = doc.id ? attachmentUrls.get(doc.id) : undefined;
+                    if (!doc.id || !url) return null;
+                    /* Spec 50: invoice images form their own lightbox group. */
+                    const groupUrls = arr.flatMap((a) =>
+                      a.id && attachmentUrls.get(a.id) ? [attachmentUrls.get(a.id) as string] : [],
+                    );
+                    const groupIndex = arr
+                      .slice(0, idx)
+                      .filter((a) => a.id && attachmentUrls.get(a.id)).length;
+                    return (
+                      <li key={doc.id} className="flex flex-col items-center gap-0.5">
+                        <span className="block h-20 w-20 overflow-hidden rounded-lg border border-zinc-200">
+                          <ZoomablePhoto src={url} group={groupUrls} groupIndex={groupIndex} />
+                        </span>
+                        {doc.created_by === ctx.id ? (
+                          <AttachmentRemoveButton attachmentId={doc.id} />
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="text-xs text-zinc-600">ยังไม่มีเอกสาร</p>
+              )}
+              {wp ? (
+                <InvoiceUploader purchaseRequestId={request.id} projectId={wp.project_id} />
               ) : null}
             </div>
           </div>

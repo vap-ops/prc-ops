@@ -71,8 +71,10 @@ values
 -- B.1 Enum gained on_route, ordered after purchased.
 select enum_has_labels(
   'public', 'purchase_request_status',
-  array['requested', 'approved', 'rejected', 'cancelled', 'purchased', 'on_route', 'delivered'],
-  'purchase_request_status enum includes on_route after purchased (and cancelled, ADR 0031)'
+  array['requested', 'approved', 'rejected', 'cancelled', 'purchased', 'on_route', 'delivered',
+        'site_purchased'],
+  'purchase_request_status enum includes on_route after purchased (and cancelled, ADR 0031;'
+  || ' site_purchased per ADR 0043)'
 );
 
 -- B.2 shipped_at column exists and is nullable timestamptz.

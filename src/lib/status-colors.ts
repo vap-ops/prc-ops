@@ -167,6 +167,12 @@ export function purchaseRequestStatusPillClasses(status: PurchaseRequestStatus):
     case "delivered":
       // Positive terminal — goods received on site.
       return PILL_EMERALD;
+    case "site_purchased":
+      // On-site cash purchase (ADR 0043) — goods already on site; a
+      // positive terminal like delivered. The source='site_purchase' +
+      // acknowledged_at badge carries the "awaiting PM acknowledgement"
+      // signal separately, so the pill stays a clean terminal hue.
+      return PILL_EMERALD;
     default: {
       const _exhaustive: never = status;
       void _exhaustive;

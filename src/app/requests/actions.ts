@@ -38,6 +38,7 @@ import {
   type PurchaseDecision,
 } from "@/lib/purchasing/validate-purchase-request";
 import { validateRecordPurchase } from "@/lib/purchasing/validate-record-purchase";
+import { validateSitePurchase } from "@/lib/purchasing/validate-site-purchase";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 
 // Spec 65: file-local consts for the Thai error strings this module
@@ -218,7 +219,7 @@ async function findLandedAttachment(
   args: {
     attachmentId: string;
     purchaseRequestId: string;
-    purpose: "delivery_confirmation" | "reference";
+    purpose: "delivery_confirmation" | "reference" | "invoice";
     storagePath: string;
   },
 ): Promise<boolean> {
@@ -298,6 +299,150 @@ export async function addDeliveryConfirmationPhoto(
     if (!landed) {
       return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
     }
+  }
+
+  revalidatePath("/requests");
+  return { ok: true };
+}
+
+// addInvoiceAttachment (spec 66 / ADR 0043): the invoice/receipt document
+// (ใบส่งของ/ใบเสร็จ). Mirrors addDeliveryConfirmationPhoto but purpose
+// 'invoice' and a wider parent gate — invoices attach once goods/docs
+// exist (purchased | on_route | delivered | site_purchased). The RLS
+// invoice arm re-enforces this server-side; the delivery auto-complete
+// trigger keys on 'delivery_confirmation' so an invoice never advances
+// status.
+
+const INVOICE_PARENT_STATUSES = ["purchased", "on_route", "delivered", "site_purchased"] as const;
+
+export async function addInvoiceAttachment(
+  input: AddDeliveryConfirmationPhotoInput,
+): Promise<AttachmentActionResult> {
+  if (!UUID_REGEX.test(input.purchaseRequestId) || !UUID_REGEX.test(input.attachmentId)) {
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
+  }
+  if (!isValidPhotoExt(input.ext)) {
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
+
+  const { data: pr } = await readPrParent(supabase, input.purchaseRequestId);
+  const projectId = pr?.work_packages?.project_id;
+  if (!pr || !projectId) {
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
+  }
+
+  const storagePath = buildPrAttachmentStoragePath(
+    projectId,
+    input.purchaseRequestId,
+    input.attachmentId,
+    input.ext as PhotoExt,
+  );
+  if (!storagePath) {
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
+  }
+
+  if (!(INVOICE_PARENT_STATUSES as readonly string[]).includes(pr.status)) {
+    // Replay-confirm BEFORE the gate refuses (spec 37 lesson): a queued
+    // insert that LANDED but lost its response can arrive after the
+    // status moved on — confirm it as success, identity-complete.
+    const landed = await findLandedAttachment(supabase, {
+      attachmentId: input.attachmentId,
+      purchaseRequestId: input.purchaseRequestId,
+      purpose: "invoice",
+      storagePath,
+    });
+    if (landed) {
+      revalidatePath("/requests");
+      return { ok: true };
+    }
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
+  }
+
+  const { error } = await supabase.from("purchase_request_attachments").insert({
+    id: input.attachmentId,
+    purchase_request_id: input.purchaseRequestId,
+    kind: "image",
+    purpose: "invoice",
+    storage_path: storagePath,
+    created_by: user.id,
+  });
+  if (error) {
+    if (error.code !== "23505") {
+      return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
+    }
+    const landed = await findLandedAttachment(supabase, {
+      attachmentId: input.attachmentId,
+      purchaseRequestId: input.purchaseRequestId,
+      purpose: "invoice",
+      storagePath,
+    });
+    if (!landed) {
+      return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
+    }
+  }
+
+  revalidatePath("/requests");
+  return { ok: true };
+}
+
+// recordSitePurchase (spec 66 / ADR 0043): an on-site cash purchase that
+// never went through request→approve. Relays the SECURITY DEFINER RPC,
+// which creates the purchase_request born terminal (status
+// 'site_purchased', source 'site_purchase') and returns its id so the
+// caller immediately attaches the receipt as an invoice.
+
+export interface RecordSitePurchaseInput {
+  workPackageId: string;
+  itemDescription: string;
+  quantity: number;
+  unit: string;
+}
+
+export type RecordSitePurchaseResult = { ok: true; id: string } | { ok: false; error: string };
+
+export async function recordSitePurchase(
+  input: RecordSitePurchaseInput,
+): Promise<RecordSitePurchaseResult> {
+  const validated = validateSitePurchase(input);
+  if (!validated.ok) return validated;
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase } = auth;
+
+  const { data, error } = await supabase.rpc("record_site_purchase", {
+    p_work_package_id: validated.value.workPackageId,
+    p_item_description: validated.value.itemDescription,
+    p_quantity: validated.value.quantity,
+    p_unit: validated.value.unit,
+  });
+  if (error || !data) {
+    return { ok: false, error: "บันทึกการซื้อหน้างานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  revalidatePath("/requests");
+  return { ok: true, id: data };
+}
+
+// acknowledgeSitePurchase (spec 66 / ADR 0043): PM/super marks an on-site
+// purchase as seen. Relays the SECURITY DEFINER RPC (role + scope guard).
+
+export async function acknowledgeSitePurchase(requestId: string): Promise<AttachmentActionResult> {
+  if (!UUID_REGEX.test(requestId)) {
+    return { ok: false, error: ERR_INVALID_REQUEST_ID };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase } = auth;
+
+  const { error } = await supabase.rpc("acknowledge_site_purchase", { p_id: requestId });
+  if (error) {
+    return { ok: false, error: "รับทราบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
 
   revalidatePath("/requests");

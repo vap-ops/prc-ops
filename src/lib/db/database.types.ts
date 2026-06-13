@@ -606,6 +606,8 @@ export type Database = {
       };
       purchase_requests: {
         Row: {
+          acknowledged_at: string | null;
+          acknowledged_by: string | null;
           amount: number | null;
           approved_by: string | null;
           cancellation_reason: string | null;
@@ -640,6 +642,8 @@ export type Database = {
           work_package_id: string;
         };
         Insert: {
+          acknowledged_at?: string | null;
+          acknowledged_by?: string | null;
           amount?: number | null;
           approved_by?: string | null;
           cancellation_reason?: string | null;
@@ -674,6 +678,8 @@ export type Database = {
           work_package_id: string;
         };
         Update: {
+          acknowledged_at?: string | null;
+          acknowledged_by?: string | null;
           amount?: number | null;
           approved_by?: string | null;
           cancellation_reason?: string | null;
@@ -708,6 +714,13 @@ export type Database = {
           work_package_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "purchase_requests_acknowledged_by_fkey";
+            columns: ["acknowledged_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "purchase_requests_approved_by_fkey";
             columns: ["approved_by"];
@@ -1145,6 +1158,7 @@ export type Database = {
       };
     };
     Functions: {
+      acknowledge_site_purchase: { Args: { p_id: string }; Returns: undefined };
       claim_next_report: {
         Args: never;
         Returns: {
@@ -1220,6 +1234,15 @@ export type Database = {
         Args: { p_purchase_request_id: string };
         Returns: undefined;
       };
+      record_site_purchase: {
+        Args: {
+          p_item_description: string;
+          p_quantity: number;
+          p_unit: string;
+          p_work_package_id: string;
+        };
+        Returns: string;
+      };
       set_work_package_contractor: {
         Args: { p_contractor_id?: string; p_work_package_id: string };
         Returns: boolean;
@@ -1283,7 +1306,7 @@ export type Database = {
       photo_phase: "before" | "during" | "after";
       project_status: "active" | "on_hold" | "completed" | "archived";
       purchase_request_attachment_kind: "image" | "link";
-      purchase_request_attachment_purpose: "reference" | "delivery_confirmation";
+      purchase_request_attachment_purpose: "reference" | "delivery_confirmation" | "invoice";
       purchase_request_priority: "normal" | "urgent" | "critical";
       purchase_request_status:
         | "requested"
@@ -1292,7 +1315,8 @@ export type Database = {
         | "cancelled"
         | "purchased"
         | "on_route"
-        | "delivered";
+        | "delivered"
+        | "site_purchased";
       report_status: "requested" | "processing" | "complete" | "failed";
       user_role:
         | "site_admin"
@@ -1474,7 +1498,7 @@ export const Constants = {
       photo_phase: ["before", "during", "after"],
       project_status: ["active", "on_hold", "completed", "archived"],
       purchase_request_attachment_kind: ["image", "link"],
-      purchase_request_attachment_purpose: ["reference", "delivery_confirmation"],
+      purchase_request_attachment_purpose: ["reference", "delivery_confirmation", "invoice"],
       purchase_request_priority: ["normal", "urgent", "critical"],
       purchase_request_status: [
         "requested",
@@ -1484,6 +1508,7 @@ export const Constants = {
         "purchased",
         "on_route",
         "delivered",
+        "site_purchased",
       ],
       report_status: ["requested", "processing", "complete", "failed"],
       user_role: [

@@ -48,6 +48,10 @@ const STATUS_RANK: Record<PurchaseRequestStatus, number> = {
   purchased: 2,
   on_route: 3,
   delivered: 4,
+  // Spec 66 / ADR 0043: an on-site purchase didn't walk this requisition
+  // pipeline; the detail page hides the stepper for it. Ranked terminal
+  // (goods received) for the type's sake if it ever renders.
+  site_purchased: 4,
 };
 
 type StepState = "done" | "pending" | "rejected" | "cancelled";

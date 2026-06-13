@@ -30,6 +30,7 @@ export const PURCHASE_REQUEST_STATUS_LABEL: Record<Enums["purchase_request_statu
   purchased: "สั่งซื้อแล้ว",
   on_route: "กำลังจัดส่ง",
   delivered: "ได้รับของแล้ว",
+  site_purchased: "ซื้อหน้างาน",
 };
 
 // Requester-set urgency (spec 16 addendum A2).

@@ -81,8 +81,8 @@ select has_table('public', 'purchase_request_attachment_tokens', 'token side tab
 select enum_has_labels('public', 'purchase_request_attachment_kind',
   array['image', 'link'], 'kind enum is exactly {image,link}');
 select enum_has_labels('public', 'purchase_request_attachment_purpose',
-  array['reference', 'delivery_confirmation'],
-  'purpose enum is exactly {reference,delivery_confirmation} (ADR 0028)');
+  array['reference', 'delivery_confirmation', 'invoice'],
+  'purpose enum is {reference,delivery_confirmation,invoice} (ADR 0028/0043)');
 select has_column('public', 'purchase_request_attachments', 'purpose', 'purpose column exists');
 select col_default_is('public', 'purchase_request_attachments', 'purpose',
   'reference'::public.purchase_request_attachment_purpose,

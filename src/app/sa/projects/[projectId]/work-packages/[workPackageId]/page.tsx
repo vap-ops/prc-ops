@@ -30,6 +30,7 @@ import {
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { WpAssignmentPanel } from "@/components/features/wp-assignment-panel";
 import { PurchaseRequestForm } from "@/components/features/purchase-request-form";
+import { SitePurchaseForm } from "@/components/features/site-purchase-form";
 import { LaborLogZone } from "@/components/features/labor-log-zone";
 import { fetchLaborZoneData } from "@/lib/labor/fetch-zone-data";
 import { PhaseUploader } from "./phase-uploader";
@@ -290,6 +291,16 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
                 projectId={wp.project_id}
                 userId={ctx.id}
               />
+            </div>
+          </details>
+          {/* Spec 66 / ADR 0043: log a cash purchase made on site (no
+              request→approve) and attach its receipt right here. */}
+          <details className={CARD}>
+            <summary className="cursor-pointer text-sm font-semibold text-zinc-900">
+              บันทึกการซื้อหน้างาน
+            </summary>
+            <div className="mt-3">
+              <SitePurchaseForm workPackageId={wp.id} projectId={wp.project_id} />
             </div>
           </details>
           {(wpRequests ?? []).length > 0 ? (
