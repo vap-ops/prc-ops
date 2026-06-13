@@ -27,8 +27,17 @@ export default async function PmProjectsPage() {
 
   const { data: projects, error } = await supabase
     .from("projects")
-    .select("id, code, name, status")
+    .select("id, code, name, status, client_id")
     .order("code", { ascending: true });
+
+  // Spec 79: resolve client names for the rows in one query.
+  const clientIds = [
+    ...new Set((projects ?? []).map((p) => p.client_id).filter((id): id is string => id !== null)),
+  ];
+  const { data: clientRows } = clientIds.length
+    ? await supabase.from("clients").select("id, name").in("id", clientIds)
+    : { data: [] };
+  const clientNames = new Map((clientRows ?? []).map((c) => [c.id, c.name]));
 
   return (
     <PageShell>
@@ -58,6 +67,11 @@ export default async function PmProjectsPage() {
                   <div className="min-w-0">
                     <p className="font-mono text-xs text-zinc-600">{p.code}</p>
                     <p className="truncate text-base font-medium text-zinc-900">{p.name}</p>
+                    {p.client_id && clientNames.get(p.client_id) && (
+                      <p className="truncate text-xs text-zinc-600">
+                        ลูกค้า: {clientNames.get(p.client_id)}
+                      </p>
+                    )}
                   </div>
                   <StatusPill pillClasses={projectStatusPillClasses(p.status)}>
                     {PROJECT_STATUS_LABEL[p.status as keyof typeof PROJECT_STATUS_LABEL] ??

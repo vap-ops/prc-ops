@@ -15,6 +15,10 @@ export interface ReportInputProject {
   code: string;
   name: string;
   generatedAt: Date;
+  /** Spec 79 — printed in the header when present. budget is never here (money). */
+  siteAddress?: string;
+  clientName?: string;
+  clientAddress?: string;
 }
 
 export interface ReportPhotoGroup {
@@ -72,7 +76,13 @@ export async function buildReportPdf(input: ReportInput): Promise<Buffer> {
     align: "left",
   });
   doc.moveDown(0.5);
-  doc.fontSize(10).text(`Generated: ${formatGeneratedDate(input.project.generatedAt)}`);
+  doc.fontSize(10);
+  // Spec 79: client + site context (when set). Each line is suppressed when
+  // absent so legacy projects render the original code/name/Generated header.
+  if (input.project.clientName) doc.text(`ลูกค้า: ${input.project.clientName}`);
+  if (input.project.clientAddress) doc.text(input.project.clientAddress);
+  if (input.project.siteAddress) doc.text(`ที่ตั้ง: ${input.project.siteAddress}`);
+  doc.text(`Generated: ${formatGeneratedDate(input.project.generatedAt)}`);
   doc.moveDown(1);
 
   // Per-WP sections. Legacy rule: skip WPs with no photos so we never

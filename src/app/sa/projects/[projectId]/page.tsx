@@ -9,6 +9,8 @@ import { DetailHeader } from "@/components/features/detail-header";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
+import { fetchDisplayNames } from "@/lib/users/display-names";
+import { PROJECT_TYPE_LABEL } from "@/lib/projects/validate-settings";
 import { WorkPackageList } from "./work-package-list";
 
 interface PageProps {
@@ -24,13 +26,29 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
 
   const { data: project } = await supabase
     .from("projects")
-    .select("id, code, name")
+    .select("id, code, name, site_address, client_id, project_lead_id, project_type")
     .eq("id", projectId)
     .maybeSingle();
 
   if (!project) {
     notFound();
   }
+
+  // Spec 79: project-context lines (client name, internal lead, type, site).
+  // budget is intentionally NOT read here (money — admin-only, PM screens).
+  const [clientRow, leadNames] = await Promise.all([
+    project.client_id
+      ? supabase.from("clients").select("name").eq("id", project.client_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    project.project_lead_id
+      ? fetchDisplayNames([project.project_lead_id], "[project-page]")
+      : Promise.resolve(new Map<string, string>()),
+  ]);
+  const clientName = clientRow.data?.name ?? null;
+  const leadName = project.project_lead_id
+    ? (leadNames.get(project.project_lead_id) ?? null)
+    : null;
+  const typeLabel = project.project_type ? PROJECT_TYPE_LABEL[project.project_type] : null;
 
   const { data: workPackages } = await supabase
     .from("work_packages")
@@ -80,6 +98,34 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
         <div>
           <p className="font-mono text-xs text-zinc-600">{project.code}</p>
           <h1 className="text-2xl font-bold tracking-tight">{project.name}</h1>
+          {(clientName || leadName || typeLabel || project.site_address) && (
+            <dl className="mt-1.5 flex flex-col gap-0.5 text-xs text-zinc-600">
+              {clientName && (
+                <div className="flex gap-1.5">
+                  <dt>ลูกค้า:</dt>
+                  <dd className="font-medium text-zinc-900">{clientName}</dd>
+                </div>
+              )}
+              {leadName && (
+                <div className="flex gap-1.5">
+                  <dt>ผู้รับผิดชอบ:</dt>
+                  <dd className="font-medium text-zinc-900">{leadName}</dd>
+                </div>
+              )}
+              {typeLabel && (
+                <div className="flex gap-1.5">
+                  <dt>ประเภท:</dt>
+                  <dd className="font-medium text-zinc-900">{typeLabel}</dd>
+                </div>
+              )}
+              {project.site_address && (
+                <div className="flex gap-1.5">
+                  <dt>ที่ตั้ง:</dt>
+                  <dd className="font-medium break-words text-zinc-900">{project.site_address}</dd>
+                </div>
+              )}
+            </dl>
+          )}
         </div>
       </DetailHeader>
 

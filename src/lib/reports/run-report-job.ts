@@ -33,11 +33,26 @@ async function processJob(supabase: SupabaseClient<Database>, job: ReportRow): P
 
   const { data: project, error: projectErr } = await supabase
     .from("projects")
-    .select("id, code, name")
+    .select("id, code, name, site_address, client_id")
     .eq("id", job.project_id)
     .maybeSingle();
   if (projectErr) throw new Error(`fetch project: ${projectErr.message}`);
   if (!project) throw new Error(`project ${job.project_id} not found`);
+
+  // Spec 79: client identity for the report header (budget never appears here).
+  let clientName: string | undefined;
+  let clientAddress: string | undefined;
+  if (project.client_id) {
+    const { data: client } = await supabase
+      .from("clients")
+      .select("name, mailing_address")
+      .eq("id", project.client_id)
+      .maybeSingle();
+    if (client) {
+      clientName = client.name;
+      clientAddress = client.mailing_address ?? undefined;
+    }
+  }
 
   let wpQuery = supabase
     .from("work_packages")
@@ -84,7 +99,15 @@ async function processJob(supabase: SupabaseClient<Database>, job: ReportRow): P
   }
 
   const pdf = await buildReportPdf({
-    project: { code: project.code, name: project.name, generatedAt: new Date() },
+    project: {
+      code: project.code,
+      name: project.name,
+      generatedAt: new Date(),
+      // Optional spec-79 header lines — omit absent keys (exactOptionalPropertyTypes).
+      ...(project.site_address ? { siteAddress: project.site_address } : {}),
+      ...(clientName ? { clientName } : {}),
+      ...(clientAddress ? { clientAddress } : {}),
+    },
     workPackages: sections,
     includeEmptyWorkPackages: params.photos === "none",
   });
