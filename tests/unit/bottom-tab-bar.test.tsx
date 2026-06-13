@@ -32,14 +32,15 @@ describe("BottomTabBar", () => {
   it("pins the canonical tab sets (labels, hrefs, order)", () => {
     expect(PM_TABS.map((t) => [t.label, t.href])).toEqual([
       ["รอตรวจ", "/pm"],
-      ["โครงการ", "/pm/projects"],
+      // Spec 82 Unit 3: the project hub folded to /projects.
+      ["โครงการ", "/projects"],
       ["คำขอซื้อ", "/requests"],
       // Spec 81: contacts management reachable on phones (was desktop-HubNav only).
       ["ติดต่อ", "/pm/contacts"],
       ["โปรไฟล์", "/profile"],
     ]);
     expect(SA_TABS.map((t) => [t.label, t.href])).toEqual([
-      ["โครงการ", "/sa"],
+      ["โครงการ", "/projects"],
       ["คำขอซื้อ", "/requests"],
       ["โปรไฟล์", "/profile"],
     ]);
@@ -54,7 +55,7 @@ describe("BottomTabBar", () => {
   it("renders the PM set for project_manager with inactive tabs as links", () => {
     mockUsePathname.mockReturnValue("/pm");
     render(<BottomTabBar role="project_manager" />);
-    expect(screen.getByRole("link", { name: /โครงการ/ })).toHaveAttribute("href", "/pm/projects");
+    expect(screen.getByRole("link", { name: /โครงการ/ })).toHaveAttribute("href", "/projects");
     expect(screen.getByRole("link", { name: /คำขอซื้อ/ })).toHaveAttribute("href", "/requests");
     expect(screen.getByRole("link", { name: /โปรไฟล์/ })).toHaveAttribute("href", "/profile");
     expect(screen.queryByRole("link", { name: /รอตรวจ/ })).not.toBeInTheDocument();
@@ -98,8 +99,8 @@ describe("BottomTabBar", () => {
     expect(active[0]?.textContent).toContain("โครงการ");
   });
 
-  // Spec 82: site_admin's hub tab is /sa, but the project surfaces it opens
-  // now live at /projects/* — its tab claims /projects to stay lit there.
+  // Spec 82 Unit 3: site_admin's hub tab points straight at the folded
+  // /projects hub and lights on it and every /projects/* detail screen.
   it("keeps โครงการ lit for site_admin on a /projects path", () => {
     mockUsePathname.mockReturnValue("/projects/abc");
     const { container } = render(<BottomTabBar role="site_admin" />);
@@ -108,8 +109,8 @@ describe("BottomTabBar", () => {
     expect(active[0]?.textContent).toContain("โครงการ");
   });
 
-  it("still lights exactly one tab when match prefixes overlap (/pm/projects beats /projects on /pm pages)", () => {
-    mockUsePathname.mockReturnValue("/pm/projects");
+  it("lights exactly one tab on the folded /projects hub itself", () => {
+    mockUsePathname.mockReturnValue("/projects");
     const { container } = render(<BottomTabBar role="project_manager" />);
     const active = activeTabs(container);
     expect(active).toHaveLength(1);
@@ -117,7 +118,7 @@ describe("BottomTabBar", () => {
   });
 
   it("renders the SA set for site_admin and super uses the PM set", () => {
-    mockUsePathname.mockReturnValue("/sa");
+    mockUsePathname.mockReturnValue("/projects");
     const { container, unmount } = render(<BottomTabBar role="site_admin" />);
     expect(activeTabs(container)[0]?.textContent).toContain("โครงการ");
     expect(screen.getByRole("link", { name: /คำขอซื้อ/ })).toHaveAttribute("href", "/requests");

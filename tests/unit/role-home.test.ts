@@ -10,11 +10,13 @@
 
 import { describe, expect, it } from "vitest";
 
-import { projectHubHref, PURCHASING_ROLES, roleHome } from "@/lib/auth/role-home";
+import { PURCHASING_ROLES, roleHome } from "@/lib/auth/role-home";
 
 describe("roleHome", () => {
   it("sends each served role to its real surface", () => {
-    expect(roleHome("site_admin")).toBe("/sa");
+    // Spec 82 Unit 3: site_admin lands on the folded content-named project
+    // hub /projects (was the role-named /sa hub).
+    expect(roleHome("site_admin")).toBe("/projects");
     expect(roleHome("project_manager")).toBe("/pm");
     expect(roleHome("super_admin")).toBe("/pm");
   });
@@ -42,21 +44,8 @@ describe("PURCHASING_ROLES", () => {
   });
 });
 
-// Spec 59: the WP-list back-chip target — the round-trip "enter a
-// project from your hub, back returns to THAT hub" (the operator's
-// "pressing back takes user to a different page" defect).
-describe("projectHubHref", () => {
-  it("SA returns to the SA project list", () => {
-    expect(projectHubHref("site_admin")).toBe("/sa");
-  });
-
-  it("PM and super_admin return to the PM project list", () => {
-    expect(projectHubHref("project_manager")).toBe("/pm/projects");
-    expect(projectHubHref("super_admin")).toBe("/pm/projects");
-  });
-
-  it("non-project roles fall back to their role home", () => {
-    expect(projectHubHref("visitor")).toBe(roleHome("visitor"));
-    expect(projectHubHref("technician")).toBe(roleHome("technician"));
-  });
-});
+// Spec 82 Unit 3: projectHubHref is RETIRED. The two project hubs (/sa,
+// /pm/projects) folded into one /projects hub, so the WP-list back chip is
+// a constant "/projects" for every role — the role-aware helper (spec 59)
+// is no longer needed and the bug it patched (PM bounced to /sa) is
+// structurally impossible.

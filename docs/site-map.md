@@ -10,10 +10,11 @@ surface from a hub, the back affordance returns to that same hub.
 
 Spec 82 (in progress): the URL names the surface, not the viewer's role.
 Unit 1 moved the project detail surfaces `/sa/projects/*` → `/projects/*`;
-Unit 2 moved reports `/pm/projects/[id]/reports` → `/projects/[id]/reports`
-(307 redirects keep old deep links resolving). Still role-named until later
-units: the hubs `/sa` + `/pm/projects` (Unit 3 folds them into one `/projects`)
-and `/pm` / `/pm/payroll` / `/pm/contacts` (Unit 4).
+Unit 2 moved reports `/pm/projects/[id]/reports` → `/projects/[id]/reports`;
+Unit 3 folded the two project hubs (`/sa`, `/pm/projects`) into one `/projects`
+hub (role only decides the chrome) and retired `projectHubHref` (307 redirects
+keep old deep links resolving). Still role-named until Unit 4: `/pm` (review
+queue) / `/pm/payroll` / `/pm/contacts`.
 
 ## Entry and auth
 
@@ -27,27 +28,26 @@ and `/pm` / `/pm/payroll` / `/pm/contacts` (Unit 4).
 | `/coming-soon`                              | session     | unserved roles' landing (`roleHome`)                   |
 | `/profile`                                  | session     | display name, avatar, logout (PWA's logout home)       |
 
-`roleHome`: site_admin → `/sa` · pm/super → `/pm` · procurement → `/requests`
-(spec 70) · others → `/coming-soon`.
+`roleHome`: site_admin → `/projects` (spec 82) · pm/super → `/pm` · procurement
+→ `/requests` (spec 70) · others → `/coming-soon`.
 
 ## Bottom tabs (phones)
 
-- SA: โครงการ `/sa` · คำขอซื้อ `/requests` · โปรไฟล์ `/profile`
-- PM/super: รอตรวจ `/pm` · โครงการ `/pm/projects` (also lights on `/projects/*`)
-  · คำขอซื้อ `/requests` · ติดต่อ `/pm/contacts` (spec 81) · โปรไฟล์ `/profile`
+- SA: โครงการ `/projects` · คำขอซื้อ `/requests` · โปรไฟล์ `/profile`
+- PM/super: รอตรวจ `/pm` · โครงการ `/projects` · คำขอซื้อ `/requests` · ติดต่อ
+  `/pm/contacts` (spec 81) · โปรไฟล์ `/profile`
 - procurement (spec 70): คำขอซื้อ `/requests` · โปรไฟล์ `/profile` (no project
   hub, not a decider)
 
 ## Project surfaces
 
-| Route                                                                     | Gate        | Rows / actions →                                                               | Back →                                                                  |
-| ------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
-| `/sa` (SA project hub)                                                    | sa/pm/super | project → `/projects/[id]`                                                     | — (hub)                                                                 |
-| `/pm/projects` (PM project hub)                                           | pm/super    | project → `/projects/[id]` (spec 59)                                           | — (hub)                                                                 |
-| `/projects/[id]` — **THE project page** (WP list, view filter) (spec 82)  | sa/pm/super | WP → WP detail · รายงาน chip (pm/super) → reports · gear (pm/super) → settings | `projectHubHref(role)`: SA → `/sa`, pm/super → `/pm/projects` (spec 59) |
-| `/projects/[id]/work-packages/[id]` — WP detail (photos, requests, labor) | sa/pm/super | photos/requests/labor zones · request card → `/requests/[id]`                  | `/projects/[id]`                                                        |
-| `/projects/[id]/settings`                                                 | pm/super    | name/status form (ADR 0042)                                                    | `/projects/[id]`                                                        |
-| `/projects/[id]/reports` (spec 82 Unit 2)                                 | pm/super    | generate/download PDFs                                                         | back chip → `/projects/[id]` (spec 60; the link row is gone)            |
+| Route                                                                     | Gate        | Rows / actions →                                                               | Back →                                                       |
+| ------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| `/projects` (THE project hub, folded) (spec 82 Unit 3)                    | sa/pm/super | project → `/projects/[id]`; role only sets the kicker + desktop HubNav set     | — (hub)                                                      |
+| `/projects/[id]` — **THE project page** (WP list, view filter) (spec 82)  | sa/pm/super | WP → WP detail · รายงาน chip (pm/super) → reports · gear (pm/super) → settings | `/projects` (single hub; projectHubHref retired)             |
+| `/projects/[id]/work-packages/[id]` — WP detail (photos, requests, labor) | sa/pm/super | photos/requests/labor zones · request card → `/requests/[id]`                  | `/projects/[id]`                                             |
+| `/projects/[id]/settings`                                                 | pm/super    | name/status form (ADR 0042)                                                    | `/projects/[id]`                                             |
+| `/projects/[id]/reports` (spec 82 Unit 2)                                 | pm/super    | generate/download PDFs                                                         | back chip → `/projects/[id]` (spec 60; the link row is gone) |
 
 ## Review surfaces
 

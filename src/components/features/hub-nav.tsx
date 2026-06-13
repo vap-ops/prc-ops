@@ -19,7 +19,8 @@ export interface HubNavItem {
 // Spec 19 §4 merged /pm/requests into /requests: one purchasing entry.
 export const PM_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "รายการรอตรวจ", href: "/pm" },
-  { label: "โครงการและรายงาน", href: "/pm/projects" },
+  // Spec 82 Unit 3: the project hub folded to the content-named /projects.
+  { label: "โครงการและรายงาน", href: "/projects" },
   { label: "คำขอซื้อ", href: "/requests" },
   // Spec 69: PM-only DC payroll (money) — every PM surface is already
   // PM/super-gated, so listing it here leaks nothing to SA.
@@ -29,7 +30,8 @@ export const PM_HUB_NAV: ReadonlyArray<HubNavItem> = [
 ];
 
 export const SA_HUB_NAV: ReadonlyArray<HubNavItem> = [
-  { label: "โครงการ", href: "/sa" },
+  // Spec 82 Unit 3: the SA project hub folded to the shared /projects hub.
+  { label: "โครงการ", href: "/projects" },
   { label: "คำขอซื้อ", href: "/requests" },
 ];
 

@@ -25,6 +25,11 @@ const nextConfig: NextConfig = {
         destination: "/projects/:projectId/reports",
         permanent: false,
       },
+      // Unit 3: the two project hubs folded into one /projects hub. Exact
+      // sources — /sa/projects/* and /pm/projects/*/reports keep their own
+      // (earlier, more specific) rules above.
+      { source: "/sa", destination: "/projects", permanent: false },
+      { source: "/pm/projects", destination: "/projects", permanent: false },
     ];
   },
 };

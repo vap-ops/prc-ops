@@ -148,8 +148,8 @@ export async function updateProjectSettings(
   }
   if (clientOk !== true) return { ok: false, error: "ไม่พบลูกค้าที่เลือก" };
 
-  revalidatePath("/sa");
-  revalidatePath("/pm/projects");
+  // Spec 82 Unit 3: one folded project hub.
+  revalidatePath("/projects");
   revalidatePath(projectHref(input.projectId));
   revalidatePath(projectSettingsHref(input.projectId));
   return { ok: true };

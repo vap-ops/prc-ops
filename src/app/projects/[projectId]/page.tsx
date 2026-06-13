@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
 import { FileText, Settings } from "lucide-react";
-import { projectHubHref, SITE_STAFF_ROLES } from "@/lib/auth/role-home";
+import { SITE_STAFF_ROLES } from "@/lib/auth/role-home";
 import { projectSettingsHref, reportsHref } from "@/lib/nav/project-paths";
 import { ICON_CHIP_MUTED, SECTION_HEADING } from "@/lib/ui/classes";
 import { DetailHeader } from "@/components/features/detail-header";
@@ -76,11 +76,12 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      {/* Spec 63: the consolidated shell — spec-59 back target, the
-          spec-58/59 pm/super chips ride the actions slot. SA never
+      {/* Spec 63: the consolidated shell. Spec 82 Unit 3: back goes to the
+          single folded /projects hub (was the role-aware projectHubHref).
+          The spec-58/59 pm/super chips ride the actions slot — SA never
           sees the gear; the settings page also requireRole-gates. */}
       <DetailHeader
-        backHref={projectHubHref(ctx.role)}
+        backHref="/projects"
         backLabel="กลับไปโครงการ"
         actions={
           ctx.role === "project_manager" || ctx.role === "super_admin" ? (

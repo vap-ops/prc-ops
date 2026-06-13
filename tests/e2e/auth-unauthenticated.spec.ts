@@ -22,8 +22,11 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("auth — unauthenticated paths", () => {
-  test("GET /sa redirects to /login (proxy protection)", async ({ page }) => {
-    await page.goto("/sa");
+  // Spec 82 Unit 3: /projects is the folded project hub (/sa is now just a
+  // config redirect onto it). Both end at /login when unauthenticated; test
+  // the real protected hub.
+  test("GET /projects redirects to /login (proxy protection)", async ({ page }) => {
+    await page.goto("/projects");
     await expect(page).toHaveURL("/login");
   });
 

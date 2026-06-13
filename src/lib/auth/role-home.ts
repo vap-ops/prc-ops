@@ -35,7 +35,9 @@ export const PURCHASING_ROLES: ReadonlyArray<UserRole> = [
 ];
 
 export function roleHome(role: UserRole): string {
-  if (role === "site_admin") return "/sa";
+  // Spec 82 Unit 3: site_admin lands on the folded content-named project hub
+  // /projects (was /sa, before the two hubs merged).
+  if (role === "site_admin") return "/projects";
   // super_admin is admitted to every v1 surface (requireRole lists it
   // everywhere) and the bottom tab bar gives it the PM set (spec 19) —
   // so it lands on /pm, never /coming-soon.
@@ -45,12 +47,7 @@ export function roleHome(role: UserRole): string {
   return "/coming-soon";
 }
 
-// Spec 59: where "back" from a project page (the WP list) returns —
-// the project hub the role entered from. Before this, the back chip
-// was hardcoded to /sa, so a PM arriving via /pm/projects bounced to
-// the SA home (the operator's "different page" report).
-export function projectHubHref(role: UserRole): string {
-  if (role === "site_admin") return "/sa";
-  if (role === "project_manager" || role === "super_admin") return "/pm/projects";
-  return roleHome(role);
-}
+// Spec 82 Unit 3: projectHubHref retired. The two project hubs folded into
+// one /projects hub, so the WP-list back chip is the constant "/projects"
+// for every role (used directly at the call site). The spec-59 role-aware
+// helper — and the bug it patched (PM bounced to /sa) — are gone.

@@ -36,7 +36,7 @@ export default async function ComingSoonPage() {
   // Bounce served roles to their proper home. Each branch ends in redirect()
   // which returns `never`, so after these two lines `role` is narrowed to the
   // unserved-role union — exactly the keys of UNSERVED_ROLE_LABEL.
-  if (role === "site_admin") redirect("/sa");
+  if (role === "site_admin") redirect("/projects");
   if (role === "project_manager") redirect("/pm");
 
   const displayName = USER_ROLE_LABEL[role] ?? role;
@@ -47,9 +47,9 @@ export default async function ComingSoonPage() {
   // super_admin is the only "unserved" role that genuinely needs to
   // *reach* the served surfaces — every other unserved role waits for
   // its own tools to ship. Give super_admin an operator hub instead of
-  // the wait-for-tools copy. /sa and /pm and /pm/projects all admit
-  // super_admin via their existing requireRole() guards (no auth
-  // change in this unit; this is purely a render branch).
+  // the wait-for-tools copy. /projects and /pm both admit super_admin
+  // via their existing requireRole() guards (no auth change in this
+  // unit; this is purely a render branch).
   if (role === "super_admin") {
     return (
       <OperatorHub
@@ -100,20 +100,17 @@ interface HubLink {
 }
 
 const HUB_LINKS: ReadonlyArray<HubLink> = [
+  // Spec 82 Unit 3: the two project hubs (/sa, /pm/projects) folded into one
+  // /projects hub — a single operator-hub entry now, not two.
   {
-    href: "/sa",
-    label: "หน้างาน",
-    hint: "รายการโครงการ รายการงาน และอัปโหลดรูปถ่าย",
+    href: "/projects",
+    label: "โครงการ",
+    hint: "รายการโครงการ รายการงาน รูปถ่าย และรายงาน",
   },
   {
     href: "/pm",
     label: "รายการรอตรวจ",
     hint: "รายการงานที่รอผู้จัดการโครงการตรวจสอบ",
-  },
-  {
-    href: "/pm/projects",
-    label: "โครงการและรายงาน",
-    hint: "สร้างและดาวน์โหลดรายงานโครงการ (PDF)",
   },
   {
     href: "/requests",

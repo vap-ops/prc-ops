@@ -12,7 +12,8 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 // Spec 81: a fifth item, contacts management.
 const PM_ITEMS = [
   { label: "รายการรอตรวจ", href: "/pm" },
-  { label: "โครงการและรายงาน", href: "/pm/projects" },
+  // Spec 82 Unit 3: the project hub folded to /projects.
+  { label: "โครงการและรายงาน", href: "/projects" },
   { label: "คำขอซื้อ", href: "/requests" },
   { label: "ค่าจ้าง", href: "/pm/payroll" },
   { label: "รายชื่อติดต่อ", href: "/pm/contacts" },
@@ -25,7 +26,7 @@ describe("canonical nav sets", () => {
 
   it("pins the SA set's destinations and order", () => {
     expect(SA_HUB_NAV).toEqual([
-      { label: "โครงการ", href: "/sa" },
+      { label: "โครงการ", href: "/projects" },
       { label: "คำขอซื้อ", href: "/requests" },
     ]);
   });
@@ -33,7 +34,7 @@ describe("canonical nav sets", () => {
 
 describe("HubNav", () => {
   it("renders every item, with the current page as a span and the rest as links", () => {
-    render(<HubNav maxWidthClass={PAGE_MAX_W} items={PM_ITEMS} currentHref="/pm/projects" />);
+    render(<HubNav maxWidthClass={PAGE_MAX_W} items={PM_ITEMS} currentHref="/projects" />);
     const current = screen.getByText("โครงการและรายงาน");
     expect(current.tagName).toBe("SPAN");
     expect(screen.queryByRole("link", { name: "โครงการและรายงาน" })).not.toBeInTheDocument();
