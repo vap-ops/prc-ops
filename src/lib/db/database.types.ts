@@ -978,30 +978,101 @@ export type Database = {
           },
         ];
       };
-      suppliers: {
+      service_providers: {
         Row: {
+          contact_person: string | null;
           created_at: string;
           created_by: string;
+          email: string | null;
           id: string;
+          mailing_address: string | null;
           name: string;
           note: string | null;
           phone: string | null;
+          plate_no: string | null;
+          service_subtype: Database["public"]["Enums"]["service_subtype"];
+          status: Database["public"]["Enums"]["contact_status"];
+          vehicle_type: string | null;
         };
         Insert: {
+          contact_person?: string | null;
           created_at?: string;
           created_by: string;
+          email?: string | null;
           id?: string;
+          mailing_address?: string | null;
           name: string;
           note?: string | null;
           phone?: string | null;
+          plate_no?: string | null;
+          service_subtype?: Database["public"]["Enums"]["service_subtype"];
+          status?: Database["public"]["Enums"]["contact_status"];
+          vehicle_type?: string | null;
         };
         Update: {
+          contact_person?: string | null;
           created_at?: string;
           created_by?: string;
+          email?: string | null;
           id?: string;
+          mailing_address?: string | null;
           name?: string;
           note?: string | null;
           phone?: string | null;
+          plate_no?: string | null;
+          service_subtype?: Database["public"]["Enums"]["service_subtype"];
+          status?: Database["public"]["Enums"]["contact_status"];
+          vehicle_type?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "service_providers_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      suppliers: {
+        Row: {
+          contact_person: string | null;
+          created_at: string;
+          created_by: string;
+          email: string | null;
+          id: string;
+          mailing_address: string | null;
+          name: string;
+          note: string | null;
+          payment_terms: string | null;
+          phone: string | null;
+          tax_id: string | null;
+        };
+        Insert: {
+          contact_person?: string | null;
+          created_at?: string;
+          created_by: string;
+          email?: string | null;
+          id?: string;
+          mailing_address?: string | null;
+          name: string;
+          note?: string | null;
+          payment_terms?: string | null;
+          phone?: string | null;
+          tax_id?: string | null;
+        };
+        Update: {
+          contact_person?: string | null;
+          created_at?: string;
+          created_by?: string;
+          email?: string | null;
+          id?: string;
+          mailing_address?: string | null;
+          name?: string;
+          note?: string | null;
+          payment_terms?: string | null;
+          phone?: string | null;
+          tax_id?: string | null;
         };
         Relationships: [
           {
@@ -1574,6 +1645,7 @@ export type Database = {
         | "delivered"
         | "site_purchased";
       report_status: "requested" | "processing" | "complete" | "failed";
+      service_subtype: "transport";
       user_role:
         | "site_admin"
         | "project_manager"
@@ -1779,6 +1851,7 @@ export const Constants = {
         "site_purchased",
       ],
       report_status: ["requested", "processing", "complete", "failed"],
+      service_subtype: ["transport"],
       user_role: [
         "site_admin",
         "project_manager",

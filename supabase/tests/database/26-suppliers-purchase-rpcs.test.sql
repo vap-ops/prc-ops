@@ -1,5 +1,5 @@
 begin;
-select plan(43);
+select plan(50);
 
 -- ============================================================================
 -- Spec 33 / ADR 0038 — suppliers master + in-app purchase/shipment RPCs.
@@ -102,6 +102,17 @@ select is(has_column_privilege('authenticated', 'public.suppliers', 'note', 'INS
   true, 'spec 81: authenticated may INSERT suppliers.note');
 select is(has_column_privilege('authenticated', 'public.suppliers', 'note', 'UPDATE'),
   true, 'spec 81: authenticated may UPDATE suppliers.note');
+
+-- Spec 84 — suppliers enrichment columns + grants.
+select has_column('public', 'suppliers', 'contact_person', 'spec 84: suppliers.contact_person exists');
+select has_column('public', 'suppliers', 'email', 'spec 84: suppliers.email exists');
+select has_column('public', 'suppliers', 'mailing_address', 'spec 84: suppliers.mailing_address exists');
+select has_column('public', 'suppliers', 'tax_id', 'spec 84: suppliers.tax_id exists');
+select has_column('public', 'suppliers', 'payment_terms', 'spec 84: suppliers.payment_terms exists');
+select is(has_column_privilege('authenticated', 'public.suppliers', 'contact_person', 'INSERT'),
+  true, 'spec 84: authenticated may INSERT suppliers.contact_person');
+select is(has_column_privilege('authenticated', 'public.suppliers', 'payment_terms', 'UPDATE'),
+  true, 'spec 84: authenticated may UPDATE suppliers.payment_terms');
 
 -- ============================================================================
 -- C. Role-sim.
