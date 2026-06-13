@@ -76,9 +76,21 @@
        scheme opts out of Chrome Android's force-dark ("also darken
        websites") auto-inversion, which would re-darken the UI. */
     color-scheme: light;
+    /* Spec 77 (app-feel slice 2): kill the grey iOS tap-flash so our own
+       :active press states are what the user sees on touch. */
+    -webkit-tap-highlight-color: transparent;
   }
   body {
     @apply bg-background text-foreground;
+  }
+  /* Spec 77: instant taps — drop the legacy ~300ms double-tap-zoom delay on
+     every control so a tap registers immediately (the core native feel). */
+  a,
+  button,
+  summary,
+  label,
+  [role="button"] {
+    touch-action: manipulation;
   }
 }
 

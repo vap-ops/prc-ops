@@ -112,7 +112,7 @@ export function BottomTabBar({ role }: { role: string }) {
             <Link
               key={tab.href}
               href={tab.href}
-              className="flex flex-1 flex-col items-center justify-center gap-1 text-zinc-600 transition-colors hover:text-zinc-900 focus:outline-none focus-visible:text-zinc-900"
+              className="flex flex-1 flex-col items-center justify-center gap-1 text-zinc-600 transition-colors hover:text-zinc-900 focus:outline-none focus-visible:text-zinc-900 active:scale-95"
             >
               <Icon aria-hidden className="size-6" />
               <span className="text-xs font-medium">{tab.label}</span>

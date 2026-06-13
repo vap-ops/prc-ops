@@ -111,8 +111,8 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
       href={`/sa/projects/${projectId}/work-packages/${wp.id}`}
       className={
         contained
-          ? "flex min-h-14 items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-inset"
-          : "flex min-h-14 items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+          ? "flex min-h-14 items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-inset active:bg-zinc-100"
+          : "flex min-h-14 items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 active:bg-zinc-100"
       }
     >
       <div className="min-w-0">
@@ -179,7 +179,7 @@ export function WorkPackageList({ projectId, workPackages, deliverables }: WorkP
                   onClick={() => toggleGroup(key)}
                   aria-expanded={isOpen}
                   aria-controls={contentId}
-                  className="flex min-h-12 w-full cursor-pointer flex-col gap-2 border-l-4 border-amber-400 bg-slate-50 px-4 py-3 text-left transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-inset"
+                  className="flex min-h-12 w-full cursor-pointer flex-col gap-2 border-l-4 border-amber-400 bg-slate-50 px-4 py-3 text-left transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-inset active:bg-slate-200"
                 >
                   <span className="flex w-full items-center gap-3">
                     <ChevronRight

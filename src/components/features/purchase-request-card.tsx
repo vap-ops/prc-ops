@@ -56,7 +56,7 @@ export function PurchaseRequestCard({
   return (
     <Link
       href={`/requests/${request.id}`}
-      className="block rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-inset"
+      className="block rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-inset active:bg-zinc-100"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-0.5">

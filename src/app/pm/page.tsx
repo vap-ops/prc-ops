@@ -78,7 +78,7 @@ export default async function ProjectManagerLandingPage() {
                 <li key={wp.id}>
                   <Link
                     href={`/pm/work-packages/${wp.id}`}
-                    className="flex min-h-16 items-start justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+                    className="flex min-h-16 items-start justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 active:bg-zinc-100"
                   >
                     <div className="min-w-0 space-y-0.5">
                       {project && (

@@ -34,7 +34,7 @@ export function RefreshButton({ variant }: RefreshButtonProps) {
           router.refresh();
         });
       }}
-      className={`inline-flex h-11 w-11 items-center justify-center rounded-lg transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed ${VARIANT_CLASSES[variant]}`}
+      className={`inline-flex h-11 w-11 items-center justify-center rounded-lg transition-colors focus:outline-none focus-visible:ring-2 active:translate-y-px disabled:cursor-not-allowed ${VARIANT_CLASSES[variant]}`}
     >
       <RotateCw aria-hidden="true" className={`h-5 w-5 ${refreshing ? "animate-spin" : ""}`} />
     </button>

@@ -25,10 +25,10 @@ interface RadioChipProps {
 export function RadioChip({ name, label, checked, onSelect, className }: RadioChipProps) {
   return (
     <label
-      className={`inline-flex min-h-11 cursor-pointer items-center justify-center rounded-lg border px-3 text-sm transition-colors has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-blue-700 ${
+      className={`inline-flex min-h-11 cursor-pointer items-center justify-center rounded-lg border px-3 text-sm transition-colors active:translate-y-px has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-blue-700 ${
         checked
           ? "border-slate-900 bg-slate-900 font-semibold text-white"
-          : "border-zinc-300 bg-white font-medium text-zinc-700 hover:bg-zinc-50"
+          : "border-zinc-300 bg-white font-medium text-zinc-700 hover:bg-zinc-50 active:bg-zinc-100"
       } ${className ?? ""}`}
     >
       <input type="radio" name={name} checked={checked} onChange={onSelect} className="sr-only" />

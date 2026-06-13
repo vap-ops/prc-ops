@@ -205,7 +205,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
               <Link
                 href={pinnedWp ? `/requests?wp=${pinnedWp.id}` : "/requests"}
                 aria-current={!mineOnly ? "true" : undefined}
-                className={`inline-flex min-h-11 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 ${
+                className={`inline-flex min-h-11 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 active:translate-y-px ${
                   !mineOnly
                     ? "border-slate-900 bg-slate-900 font-semibold text-white"
                     : "border-zinc-400 bg-white text-zinc-700 hover:bg-zinc-50"
@@ -216,7 +216,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
               <Link
                 href={pinnedWp ? `/requests?wp=${pinnedWp.id}&mine=1` : "/requests?mine=1"}
                 aria-current={mineOnly ? "true" : undefined}
-                className={`inline-flex min-h-11 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 ${
+                className={`inline-flex min-h-11 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 active:translate-y-px ${
                   mineOnly
                     ? "border-slate-900 bg-slate-900 font-semibold text-white"
                     : "border-zinc-400 bg-white text-zinc-700 hover:bg-zinc-50"

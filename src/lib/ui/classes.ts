@@ -17,11 +17,11 @@ export const BUTTON_SECONDARY =
 
 /** 44px white chip for header icon affordances (back/gear/reports). */
 export const ICON_CHIP =
-  "inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-900 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700";
+  "inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-900 shadow-sm transition-colors hover:bg-zinc-50 active:bg-zinc-100 active:translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700";
 
 /** ICON_CHIP with muted ink for secondary header actions. */
 export const ICON_CHIP_MUTED =
-  "inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 shadow-sm transition-colors hover:bg-zinc-50 hover:text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700";
+  "inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 shadow-sm transition-colors hover:bg-zinc-50 hover:text-zinc-900 active:bg-zinc-100 active:translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700";
 
 /** Inline form/action error strip — pair with role="alert". */
 export const INLINE_ERROR =
