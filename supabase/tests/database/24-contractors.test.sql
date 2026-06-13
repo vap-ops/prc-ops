@@ -1,5 +1,5 @@
 begin;
-select plan(14);
+select plan(22);
 
 -- ============================================================================
 -- Spec 31 / ADR 0033 (+ staff-write amendment) — contractors master,
@@ -44,6 +44,19 @@ select throws_ok(
 select has_function('public', 'set_work_package_contractor',
   'assignment RPC exists (SECURITY DEFINER, contractor_id only)');
 
+-- Spec 81 — masters note column (rides the existing UPDATE policy/grant).
+select has_column('public', 'contractors', 'note', 'spec 81: contractors.note exists');
+select col_is_null('public', 'contractors', 'note', 'spec 81: contractors.note is nullable');
+select col_type_is('public', 'contractors', 'note', 'text', 'spec 81: contractors.note is text');
+select throws_ok(
+  $$ insert into public.contractors (name, note, created_by)
+     values ('ยาวเกิน', repeat('x', 2001), '33333333-3333-3333-3333-33333333dddd') $$,
+  '23514', null, 'spec 81: note > 2000 violates contractors_note_len');
+select is(has_column_privilege('authenticated', 'public.contractors', 'note', 'INSERT'),
+  true, 'spec 81: authenticated may INSERT contractors.note');
+select is(has_column_privilege('authenticated', 'public.contractors', 'note', 'UPDATE'),
+  true, 'spec 81: authenticated may UPDATE contractors.note');
+
 -- C. Role-sim.
 set local role authenticated;
 
@@ -54,6 +67,12 @@ select lives_ok(
      values ('d1000000-dddd-dddd-dddd-dddddddd2222', 'ทีมช่างสมชาย', '081-000-0000',
              '33333333-3333-3333-3333-33333333dddd') $$,
   'PM creates a contractor');
+
+-- C.1b PM sets a note on its contractor (spec 81 — masters note, no RPC needed).
+select lives_ok(
+  $$ update public.contractors set note = 'ทีมหลัก งานโครงสร้าง'
+     where id = 'd1000000-dddd-dddd-dddd-dddddddd2222' $$,
+  'spec 81: PM updates a contractor note via the existing UPDATE policy');
 
 -- C.2 SA creates a contractor (amendment: field staff manage crews too).
 set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-22222222dddd"}';
@@ -96,6 +115,11 @@ select is(
      where id = 'd2000000-dddd-dddd-dddd-dddddddd2222'),
   '22222222-2222-2222-2222-22222222dddd'::uuid,
   'created_by pinned to the creating SA');
+select is(
+  (select note from public.contractors
+     where id = 'd1000000-dddd-dddd-dddd-dddddddd2222'),
+  'ทีมหลัก งานโครงสร้าง',
+  'spec 81: PM contractor-note update landed');
 
 select * from finish();
 rollback;

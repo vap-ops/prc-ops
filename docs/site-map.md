@@ -64,9 +64,10 @@ controls, and its WP reference is plain text (the WP detail route bounces it).
 
 ## Other
 
-| Route      | Gate     | Notes                                                                                |
-| ---------- | -------- | ------------------------------------------------------------------------------------ |
-| `/workers` | pm/super | labor roster (spec 46). **No nav entry yet** — reachable by URL only; recorded seam. |
+| Route         | Gate     | Notes                                                                                                                                                                                                                             |
+| ------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/workers`    | pm/super | labor roster (spec 46). **No nav entry yet** — reachable by URL only; recorded seam.                                                                                                                                              |
+| `/pm/masters` | pm/super | master-data management (spec 81): clients / suppliers / contractors via a segmented control; add + per-row edit + note. In the desktop PM HubNav (ข้อมูลหลัก); no phone bottom-tab entry (same gap as `/workers`, `/pm/payroll`). |
 
 ## Known seams (recorded, not defects)
 
@@ -76,5 +77,9 @@ controls, and its WP reference is plain text (the WP detail route bounces it).
 - `/pm/payroll` (ค่าจ้าง) is in the desktop PM HubNav (`hub-nav.tsx`) only — the
   phone bottom-tab bar has no entry for it yet (same gap as `/workers`).
 - procurement is onboarded onto the purchasing worklist (spec 70) but has no
-  project hub (`projects` SELECT deferred), no desktop HubNav, and no
-  supplier-master screen — recorded seams for later units.
+  project hub (`projects` SELECT deferred) and no desktop HubNav — recorded
+  seams for later units. The `/pm/masters` supplier screen (spec 81) is
+  PM-gated; procurement (a supplier writer at the data layer) does not reach it
+  yet — its own widening unit.
+- SA quick-adds a contractor inline on WP assignment (spec 31) but does not
+  reach `/pm/masters` to curate masters — recorded seam.

@@ -9,11 +9,13 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 
 // Spec 19 §4: /pm/requests merged into /requests — one purchasing entry.
 // Spec 69: a fourth item, the PM-only DC payroll surface.
+// Spec 81: a fifth item, master-data management.
 const PM_ITEMS = [
   { label: "รายการรอตรวจ", href: "/pm" },
   { label: "โครงการและรายงาน", href: "/pm/projects" },
   { label: "คำขอซื้อ", href: "/requests" },
   { label: "ค่าจ้าง", href: "/pm/payroll" },
+  { label: "ข้อมูลหลัก", href: "/pm/masters" },
 ];
 
 describe("canonical nav sets", () => {

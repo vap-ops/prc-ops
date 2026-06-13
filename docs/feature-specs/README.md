@@ -81,6 +81,9 @@ for reading the spec itself.
 | 76   | App-feel slice 1: toast / snackbar system                                 |
 | 77   | App-feel slice 2: press / active tactile feedback                         |
 | 78   | App-feel slice 4: bottom-sheet primitive                                  |
+| 79   | Project metadata + client information (clients master)                    |
+| 80   | Project team / supervisors (`project_members`)                            |
+| 81   | Master data management (clients · suppliers · contractors)                |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

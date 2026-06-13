@@ -1,5 +1,5 @@
 begin;
-select plan(35);
+select plan(43);
 
 -- ============================================================================
 -- Spec 33 / ADR 0038 — suppliers master + in-app purchase/shipment RPCs.
@@ -90,6 +90,19 @@ select is(
       and array_to_string(p.proconfig, ',') like '%search_path=public%'),
   2, 'both RPCs are SECURITY DEFINER with pinned search_path');
 
+-- Spec 81 — masters note column (rides the existing UPDATE policy/grant).
+select has_column('public', 'suppliers', 'note', 'spec 81: suppliers.note exists');
+select col_is_null('public', 'suppliers', 'note', 'spec 81: suppliers.note is nullable');
+select col_type_is('public', 'suppliers', 'note', 'text', 'spec 81: suppliers.note is text');
+select throws_ok(
+  $$ insert into public.suppliers (name, note, created_by)
+     values ('ยาวเกิน', repeat('x', 2001), '33333333-3333-3333-3333-3333333355aa') $$,
+  '23514', null, 'spec 81: note > 2000 violates suppliers_note_len');
+select is(has_column_privilege('authenticated', 'public.suppliers', 'note', 'INSERT'),
+  true, 'spec 81: authenticated may INSERT suppliers.note');
+select is(has_column_privilege('authenticated', 'public.suppliers', 'note', 'UPDATE'),
+  true, 'spec 81: authenticated may UPDATE suppliers.note');
+
 -- ============================================================================
 -- C. Role-sim.
 -- ============================================================================
@@ -103,6 +116,12 @@ select lives_ok(
      values ('51000000-0000-4000-8000-0000000055aa', 'ร้านวัสดุสมใจ', '02-000-0000',
              '33333333-3333-3333-3333-3333333355aa') $$,
   'PM creates a supplier');
+
+-- C.1b PM sets a note on its supplier (spec 81 — masters note, no RPC needed).
+select lives_ok(
+  $$ update public.suppliers set note = 'ส่งของไว เครดิต 30 วัน'
+     where id = '51000000-0000-4000-8000-0000000055aa' $$,
+  'spec 81: PM updates a supplier note via the existing UPDATE policy');
 
 -- C.2 SA cannot create suppliers (financial back-office data, ADR 0038).
 set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-2222222255aa"}';
@@ -265,6 +284,12 @@ select is(
      where id = '51000000-0000-4000-8000-0000000055aa'),
   '33333333-3333-3333-3333-3333333355aa'::uuid,
   'created_by pinned to the creating PM');
+
+select is(
+  (select note from public.suppliers
+     where id = '51000000-0000-4000-8000-0000000055aa'),
+  'ส่งของไว เครดิต 30 วัน',
+  'spec 81: PM supplier-note update landed');
 
 select * from finish();
 rollback;

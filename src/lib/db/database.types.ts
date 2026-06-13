@@ -120,6 +120,7 @@ export type Database = {
           id: string;
           mailing_address: string | null;
           name: string;
+          note: string | null;
           phone: string | null;
         };
         Insert: {
@@ -130,6 +131,7 @@ export type Database = {
           id?: string;
           mailing_address?: string | null;
           name: string;
+          note?: string | null;
           phone?: string | null;
         };
         Update: {
@@ -140,6 +142,7 @@ export type Database = {
           id?: string;
           mailing_address?: string | null;
           name?: string;
+          note?: string | null;
           phone?: string | null;
         };
         Relationships: [
@@ -158,6 +161,7 @@ export type Database = {
           created_by: string;
           id: string;
           name: string;
+          note: string | null;
           phone: string | null;
         };
         Insert: {
@@ -165,6 +169,7 @@ export type Database = {
           created_by: string;
           id?: string;
           name: string;
+          note?: string | null;
           phone?: string | null;
         };
         Update: {
@@ -172,6 +177,7 @@ export type Database = {
           created_by?: string;
           id?: string;
           name?: string;
+          note?: string | null;
           phone?: string | null;
         };
         Relationships: [
@@ -954,6 +960,7 @@ export type Database = {
           created_by: string;
           id: string;
           name: string;
+          note: string | null;
           phone: string | null;
         };
         Insert: {
@@ -961,6 +968,7 @@ export type Database = {
           created_by: string;
           id?: string;
           name: string;
+          note?: string | null;
           phone?: string | null;
         };
         Update: {
@@ -968,6 +976,7 @@ export type Database = {
           created_by?: string;
           id?: string;
           name?: string;
+          note?: string | null;
           phone?: string | null;
         };
         Relationships: [

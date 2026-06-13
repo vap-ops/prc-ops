@@ -1,5 +1,5 @@
 begin;
-select plan(32);
+select plan(40);
 
 -- ============================================================================
 -- Spec 79 — clients master + project metadata (client/lead/type/budget/dates),
@@ -46,6 +46,19 @@ select is(
   (select count(*)::int from pg_policies
     where schemaname = 'public' and tablename = 'clients' and cmd = 'DELETE'),
   0, 'clients has NO delete policy (ADR 0033)');
+
+-- Spec 81 — clients note column (rides the existing UPDATE policy/grant).
+select has_column('public', 'clients', 'note', 'spec 81: clients.note exists');
+select col_is_null('public', 'clients', 'note', 'spec 81: clients.note is nullable');
+select col_type_is('public', 'clients', 'note', 'text', 'spec 81: clients.note is text');
+select throws_ok(
+  $$ insert into public.clients (name, note, created_by)
+     values ('ยาวเกิน', repeat('x', 2001), '79000000-0000-0000-0000-0000000000b2') $$,
+  '23514', null, 'spec 81: note > 2000 violates clients_note_len');
+select is(has_column_privilege('authenticated', 'public.clients', 'note', 'INSERT'),
+  true, 'spec 81: authenticated may INSERT clients.note');
+select is(has_column_privilege('authenticated', 'public.clients', 'note', 'UPDATE'),
+  true, 'spec 81: authenticated may UPDATE clients.note');
 
 select is(
   has_column_privilege('authenticated', 'public.projects', 'budget_amount_thb', 'SELECT'),
@@ -144,6 +157,12 @@ select lives_ok(
      values ('ลูกค้าใหม่โดย PM', '79000000-0000-0000-0000-0000000000b2') $$,
   'PM inserts a client (created_by pinned)');
 
+-- spec 81: PM edits a client note (the masters-management write path, no RPC).
+select lives_ok(
+  $$ update public.clients set note = 'ลูกค้ารายใหญ่ ติดต่อผ่านเลขา'
+     where id = '79222222-2222-2222-2222-222222222222' $$,
+  'spec 81: PM updates a client note via the existing UPDATE policy');
+
 set local "request.jwt.claims" = '{"sub": "79000000-0000-0000-0000-0000000000a1"}';
 select throws_ok(
   $$ insert into public.clients (name, created_by)
@@ -186,6 +205,12 @@ select is(
   (select contract_reference from public.projects
     where id = '79111111-1111-1111-1111-111111111111'),
   null::text, 'contract_reference is NOT writable by the RPC (immutable from app)');
+
+select is(
+  (select note from public.clients
+     where id = '79222222-2222-2222-2222-222222222222'),
+  'ลูกค้ารายใหญ่ ติดต่อผ่านเลขา',
+  'spec 81: PM client-note update landed');
 
 select * from finish();
 rollback;
