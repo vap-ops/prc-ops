@@ -98,28 +98,43 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // ADR 0026; the own-row branch remains for future narrower roles) —
   // no .eq(requested_by) filter since the spec-19 merge: PMs decide
   // here now.
-  const { data: visibleRequests, error: myError } = await supabase
+  // ของฉัน filter chip (spec 16 A1): ?mine=1 narrows to the caller's own rows.
+  const mineOnly = mineParam === "1";
+
+  // Data-arch rank 8: bounded queries, not one unbounded fetch filtered in JS.
+  // The old `select * order by requested_at` silently truncated at PostgREST's
+  // 1000-row cap and applied ?mine AFTER it, so a user's own rows past row 1000
+  // vanished. Split by band, each ordered in SQL via
+  // purchase_requests_status_requested_at_idx, ?mine as a DB predicate so it is
+  // correct at any scale:
+  //   - pending (status='requested'): the actionable set, naturally small —
+  //     fetched whole, then priority-band sorted in JS (critical → urgent →
+  //     normal, oldest-first; comparePendingRequests, pinned by unit test).
+  //   - decided (everything else): the unbounded-growth history — newest-first,
+  //     bounded EXPLICITLY at PR_DECIDED_LIMIT (a documented cap, not a silent
+  //     one). Raising it / adding keyset paging is the next step if needed.
+  const PR_DECIDED_LIMIT = 500;
+
+  let pendingQuery = supabase
     .from("purchase_requests")
     .select(PR_LIST_COLUMNS)
-    .order("requested_at", { ascending: false });
+    .eq("status", "requested");
+  if (mineOnly) pendingQuery = pendingQuery.eq("requested_by", ctx.id);
 
-  // ของฉัน filter chip (spec 16 A1): ?mine=1 narrows to the caller's own
-  // rows. Server-side via searchParams — same zero-client-JS pattern as
-  // the rest of the page (deviation from A1's "client-side" wording,
-  // recorded in the tracker).
-  const mineOnly = mineParam === "1";
-  const allVisible = (visibleRequests ?? []).filter((r) => !mineOnly || r.requested_by === ctx.id);
+  let decidedFilter = supabase
+    .from("purchase_requests")
+    .select(PR_LIST_COLUMNS)
+    .neq("status", "requested");
+  if (mineOnly) decidedFilter = decidedFilter.eq("requested_by", ctx.id);
+  const decidedQuery = decidedFilter
+    .order("requested_at", { ascending: false })
+    .limit(PR_DECIDED_LIMIT);
 
-  // Pending-first (spec 19 §4 + addendum A2): requested rows by priority
-  // band (critical → urgent → normal) then oldest-first; decided rows
-  // below newest-first (the history). In-process sort, not SQL ORDER BY:
-  // one fetch serves both bands' opposite date orders (deviation from
-  // A2's "order by" wording, recorded in the tracker). Comparator
-  // extracted + pinned by unit test (spec 36).
-  const pendingRows = allVisible
-    .filter((r) => r.status === "requested")
-    .sort(comparePendingRequests);
-  const decidedRows = allVisible.filter((r) => r.status !== "requested");
+  const [pendingRes, decidedRes] = await Promise.all([pendingQuery, decidedQuery]);
+  const myError = pendingRes.error ?? decidedRes.error;
+
+  const pendingRows = (pendingRes.data ?? []).slice().sort(comparePendingRequests);
+  const decidedRows = decidedRes.data ?? [];
   const myRequests = [...pendingRows, ...decidedRows];
 
   // Site-wide visibility (A1): every viewer sees requester names now —
