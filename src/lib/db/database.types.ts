@@ -1289,6 +1289,10 @@ export type Database = {
         };
         Returns: string;
       };
+      set_purchase_request_notes: {
+        Args: { p_id: string; p_notes: string };
+        Returns: boolean;
+      };
       set_work_package_contractor: {
         Args: { p_contractor_id?: string; p_work_package_id: string };
         Returns: boolean;

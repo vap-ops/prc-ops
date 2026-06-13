@@ -28,6 +28,7 @@ import {
   purchaseRequestStatusPillClasses,
 } from "@/lib/status-colors";
 import { PurchaseRequestTracker } from "@/components/features/purchase-request-tracker";
+import { PurchaseRequestNotes } from "@/components/features/purchase-request-notes";
 import { PurchaseRequestDecision } from "@/components/features/purchase-request-decision";
 import { PurchaseRequestCancel } from "@/components/features/purchase-request-cancel";
 import {
@@ -126,6 +127,9 @@ export default async function RequestDetailPage({ params }: PageProps) {
   const isProcurement = ctx.role === "procurement";
   // Spec 33 / ADR 0038 gate; suppliers fetched only when the form renders.
   const isBackOffice = isBackOfficeRole(ctx.role);
+  // Spec 73: the note is editable by its requester or by back-office; the RPC
+  // re-gates server-side. Everyone else gets the read-only view.
+  const canEditNotes = isMine || isBackOffice;
   // Spec 66 / ADR 0043: on-site purchase + PM-ack state (badge derives
   // from source + acknowledged_at, not a status change).
   const isSitePurchase = request.source === "site_purchase";
@@ -209,8 +213,14 @@ export default async function RequestDetailPage({ params }: PageProps) {
               ต้องการรับของภายใน {formatThaiDate(request.needed_by)}
             </p>
           ) : null}
-          {request.notes ? (
-            /* Spec 48: requester note — write-once at creation. */
+          {/* Spec 73: the requester note is now editable — the requester
+              edits their own, back-office edits any. Everyone else sees it
+              read-only. */}
+          {canEditNotes ? (
+            <div className="mt-3">
+              <PurchaseRequestNotes requestId={request.id} notes={request.notes} />
+            </div>
+          ) : request.notes ? (
             <p className="mt-1 text-xs whitespace-pre-wrap text-zinc-600">
               หมายเหตุ: {request.notes}
             </p>
