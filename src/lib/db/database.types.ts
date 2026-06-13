@@ -155,6 +155,71 @@ export type Database = {
           },
         ];
       };
+      contact_bank: {
+        Row: {
+          bank_account_name: string | null;
+          bank_account_no: string | null;
+          bank_name: string | null;
+          contractor_id: string | null;
+          id: string;
+          service_provider_id: string | null;
+          supplier_id: string | null;
+          updated_at: string;
+          updated_by: string;
+        };
+        Insert: {
+          bank_account_name?: string | null;
+          bank_account_no?: string | null;
+          bank_name?: string | null;
+          contractor_id?: string | null;
+          id?: string;
+          service_provider_id?: string | null;
+          supplier_id?: string | null;
+          updated_at?: string;
+          updated_by: string;
+        };
+        Update: {
+          bank_account_name?: string | null;
+          bank_account_no?: string | null;
+          bank_name?: string | null;
+          contractor_id?: string | null;
+          id?: string;
+          service_provider_id?: string | null;
+          supplier_id?: string | null;
+          updated_at?: string;
+          updated_by?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "contact_bank_contractor_id_fkey";
+            columns: ["contractor_id"];
+            isOneToOne: false;
+            referencedRelation: "contractors";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "contact_bank_service_provider_id_fkey";
+            columns: ["service_provider_id"];
+            isOneToOne: false;
+            referencedRelation: "service_providers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "contact_bank_supplier_id_fkey";
+            columns: ["supplier_id"];
+            isOneToOne: false;
+            referencedRelation: "suppliers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "contact_bank_updated_by_fkey";
+            columns: ["updated_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       contractors: {
         Row: {
           contact_person: string | null;
@@ -1536,6 +1601,17 @@ export type Database = {
           p_quantity: number;
           p_unit: string;
           p_work_package_id: string;
+        };
+        Returns: string;
+      };
+      set_contact_bank: {
+        Args: {
+          p_bank_account_name?: string;
+          p_bank_account_no?: string;
+          p_bank_name?: string;
+          p_contractor_id?: string;
+          p_service_provider_id?: string;
+          p_supplier_id?: string;
         };
         Returns: string;
       };

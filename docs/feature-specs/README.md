@@ -87,6 +87,7 @@ for reading the spec itself.
 | 82   | Content-named route namespace (program) + Unit 1: project subtree         |
 | 83   | Contacts v2 Unit 1: contractor taxonomy + enrichment + DC backfill        |
 | 84   | Contacts v2 Unit 2: suppliers enrichment + service_providers table        |
+| 85   | Contacts v2 Unit 3: bank info (money-isolated `contact_bank`)             |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.
