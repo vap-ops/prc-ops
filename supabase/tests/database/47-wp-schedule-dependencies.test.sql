@@ -34,8 +34,6 @@ select col_is_null('public', 'work_packages', 'planned_start', 'planned_start is
 select has_table('public', 'work_package_dependencies', 'work_package_dependencies exists');
 select is((select relrowsecurity from pg_class where oid = 'public.work_package_dependencies'::regclass),
   true, 'RLS enabled on work_package_dependencies');
-select is(has_table_privilege('authenticated', 'public.work_package_dependencies', 'INSERT'),
-  false, 'authenticated has NO direct INSERT (writes are RPC-only)');
 select has_function('public', 'set_work_package_schedule', 'set_work_package_schedule RPC exists');
 select has_function('public', 'add_work_package_dependency', 'add_work_package_dependency RPC exists');
 select has_function('public', 'remove_work_package_dependency', 'remove_work_package_dependency RPC exists');
@@ -54,6 +52,12 @@ select throws_ok(
 
 -- PM: set schedule, add A->B, then guards.
 set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-3333333347ff"}';
+-- Even PM cannot direct-INSERT: there is no INSERT policy, so RLS denies it and
+-- the cycle/same-project guards (RPC-only) cannot be bypassed.
+select throws_ok(
+  $$ insert into public.work_package_dependencies (predecessor_id, successor_id)
+     values ('a0000047-47ff-47ff-47ff-47ff47ff47ff', 'b0000047-47ff-47ff-47ff-47ff47ff47ff') $$,
+  '42501', null, 'direct INSERT denied by RLS (writes are RPC-only)');
 select lives_ok(
   $$ select public.set_work_package_schedule('a0000047-47ff-47ff-47ff-47ff47ff47ff', '2026-07-01', '2026-07-10') $$,
   'project_manager sets schedule');
