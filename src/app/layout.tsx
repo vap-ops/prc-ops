@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Sarabun } from "next/font/google";
 import { SwRegister } from "@/components/features/sw-register";
 import { UploadQueueRunner } from "@/components/features/upload-queue-runner";
+import { ViewportScrollGuard } from "@/components/features/viewport-scroll-guard";
 import { ToastProvider } from "@/components/features/toast-provider";
 import "./globals.css";
 
@@ -49,6 +50,9 @@ export default function RootLayout({
         {/* Spec 35: drains the offline photo queue (leftovers from
             crash/offline/navigation); renders only when items wait. */}
         <UploadQueueRunner />
+        {/* Spec 95: snaps the locked document back to top after the iOS
+            keyboard closes (otherwise the header is pushed off / blank band). */}
+        <ViewportScrollGuard />
       </body>
     </html>
   );
