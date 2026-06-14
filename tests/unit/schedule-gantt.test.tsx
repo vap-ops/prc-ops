@@ -4,7 +4,7 @@
 // grouped WP, the urgent chip, and the empty state.
 
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { ScheduleGantt, type GanttWp } from "@/components/features/schedule-gantt";
 
 const SCHEDULED: GanttWp = {
@@ -37,6 +37,24 @@ describe("ScheduleGantt", () => {
     expect(screen.getAllByText("งานเสาเข็ม").length).toBeGreaterThan(0);
     // ด่วน appears on the bar chip and in the legend.
     expect(screen.getAllByText("ด่วน").length).toBeGreaterThan(0);
+  });
+
+  it("tapping a bar reveals the open-detail action linking to the WP", () => {
+    render(
+      <ScheduleGantt
+        projectId="p1"
+        todayISO="2026-07-05"
+        workPackages={[SCHEDULED]}
+        deliverables={[{ id: "d1", code: "D1", name: "งวดที่ 1", sortOrder: 0 }]}
+        dependencies={[]}
+      />,
+    );
+    // no selection yet → no open-detail action
+    expect(screen.queryByText("เปิดรายละเอียด")).not.toBeInTheDocument();
+    // tap the bar (its accessible label is "code name")
+    fireEvent.click(screen.getByRole("button", { name: "WP-1 งานเสาเข็ม" }));
+    const open = screen.getByRole("link", { name: /เปิดรายละเอียด/ });
+    expect(open).toHaveAttribute("href", "/projects/p1/work-packages/w1");
   });
 
   it("shows the empty state when no WP has planned dates", () => {

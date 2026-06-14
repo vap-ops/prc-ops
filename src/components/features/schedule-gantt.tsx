@@ -14,7 +14,11 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { ArrowRight, X } from "lucide-react";
 import { workPackageHref } from "@/lib/nav/project-paths";
+import { StatusPill } from "@/components/features/status-pill";
+import { workPackageStatusPillClasses } from "@/lib/status-colors";
+import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 import {
   buildTimeline,
   barFor,
@@ -202,6 +206,7 @@ export function ScheduleGantt({
   const { lit, direct } = useMemo(() => chainOf(selected, dependencies), [selected, dependencies]);
   const todayMs = useMemo(() => Date.parse(`${todayISO}T00:00:00Z`), [todayISO]);
   const scheduledCount = geom.size;
+  const selectedWp = selected ? (workPackages.find((w) => w.id === selected) ?? null) : null;
 
   if (scheduledCount === 0) {
     return (
@@ -480,6 +485,35 @@ export function ScheduleGantt({
         </div>
       </div>
 
+      {/* Selected WP — identity + status + open + clear. Sits right under the
+          calendar so the open action is co-located + thumb-reachable (replaces
+          the easy-to-miss link). Tap still highlights the dependency chain. */}
+      {selectedWp && (
+        <div className="border-edge bg-card shadow-card rounded-card flex items-center gap-2.5 border px-3 py-2.5">
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="text-ink-secondary text-meta font-mono">{selectedWp.code}</span>
+            <span className="text-ink text-body line-clamp-1 font-semibold">{selectedWp.name}</span>
+          </span>
+          <StatusPill pillClasses={workPackageStatusPillClasses(selectedWp.status)}>
+            {WORK_PACKAGE_STATUS_LABEL[selectedWp.status] ?? selectedWp.status}
+          </StatusPill>
+          <Link
+            href={workPackageHref(projectId, selectedWp.id)}
+            className="rounded-control bg-fill text-on-fill hover:bg-fill-press focus-visible:ring-action text-meta inline-flex h-11 shrink-0 items-center gap-1 px-3 font-semibold transition-colors focus:outline-none focus-visible:ring-2"
+          >
+            เปิดรายละเอียด <ArrowRight aria-hidden className="h-4 w-4" />
+          </Link>
+          <button
+            type="button"
+            onClick={() => setSelected(null)}
+            aria-label="ล้างการเลือก"
+            className="rounded-control text-ink-muted hover:text-ink hover:bg-sunk focus-visible:ring-action inline-flex h-11 w-11 shrink-0 items-center justify-center transition-colors focus:outline-none focus-visible:ring-2"
+          >
+            <X aria-hidden className="h-5 w-5" />
+          </button>
+        </div>
+      )}
+
       {/* Legend + tap hint */}
       <div className="text-ink-secondary text-meta flex flex-wrap items-center gap-x-4 gap-y-1">
         <span className="flex items-center gap-1.5">
@@ -491,27 +525,8 @@ export function ScheduleGantt({
         <span className="flex items-center gap-1.5">
           <span className="text-danger font-extrabold">●</span> ช้ากว่าแผน
         </span>
-        <span className="text-ink-muted">แตะแถบเพื่อไฮไลต์สายงานที่เกี่ยวข้อง</span>
-        {selected && (
-          <button
-            type="button"
-            onClick={() => setSelected(null)}
-            className="text-action font-semibold underline-offset-2 hover:underline"
-          >
-            ล้างไฮไลต์
-          </button>
-        )}
+        <span className="text-ink-muted">แตะแถบเพื่อดูสายงาน แล้วเปิดรายละเอียด</span>
       </div>
-
-      {/* Selected WP → quick link to its detail */}
-      {selected && (
-        <Link
-          href={workPackageHref(projectId, selected)}
-          className="border-edge bg-card text-action hover:bg-sunk rounded-control text-meta border px-3 py-2 font-semibold"
-        >
-          เปิดรายละเอียดงานที่เลือก →
-        </Link>
-      )}
     </div>
   );
 }
