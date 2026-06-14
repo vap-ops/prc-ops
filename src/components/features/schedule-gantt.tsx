@@ -97,11 +97,14 @@ const STATUS_STYLE: Record<WorkPackageStatus, StatusStyle> = {
     fill: "bg-wait/30",
     pct: 90,
   },
+  // Completed shows ALWAYS but MUTED (non-vivid): grey surface + a faint green
+  // wash + a small green dot marks "done" without competing for attention
+  // (operator 2026-06-14).
   complete: {
-    border: "border-done",
-    bg: "bg-done-soft",
-    dot: "bg-done-strong",
-    fill: "bg-done/35",
+    border: "border-edge",
+    bg: "bg-sunk",
+    dot: "bg-done",
+    fill: "bg-done/15",
     pct: 100,
   },
   on_hold: {
@@ -158,23 +161,18 @@ export function ScheduleGantt({
 }: ScheduleGanttProps) {
   const [period, setPeriod] = useState<SchedulePeriod>("week");
   const [selected, setSelected] = useState<string | null>(null);
-  // Default to outstanding work; the operator can switch to all WPs.
-  const [showAll, setShowAll] = useState(false);
 
-  const visibleWps = useMemo(
-    () => (showAll ? workPackages : workPackages.filter((w) => w.status !== "complete")),
-    [workPackages, showAll],
-  );
-
+  // Always show ALL WPs; completed ones render muted (non-vivid) rather than
+  // being hidden (operator decision 2026-06-14).
   const timeline = useMemo(
-    () => buildTimeline(visibleWps, period, todayISO),
-    [visibleWps, period, todayISO],
+    () => buildTimeline(workPackages, period, todayISO),
+    [workPackages, period, todayISO],
   );
 
   // Ordered rows: each deliverable (sortOrder) with its WPs, ungrouped last.
   const { rows, totalH } = useMemo(() => {
     const byDeliv = new Map<string, GanttWp[]>();
-    for (const wp of visibleWps) {
+    for (const wp of workPackages) {
       const k = wp.deliverableId ?? UNGROUPED;
       const list = byDeliv.get(k) ?? byDeliv.set(k, []).get(k)!;
       list.push(wp);
@@ -197,7 +195,7 @@ export function ScheduleGantt({
     const ung = byDeliv.get(UNGROUPED);
     if (ung?.length) pushGroup(UNGROUPED, "", "ยังไม่จัดกลุ่ม", ung);
     return { rows: out, totalH: top };
-  }, [visibleWps, deliverables]);
+  }, [workPackages, deliverables]);
 
   // Bar geometry per scheduled WP (+ its row centre, for dependency lines).
   const geom = useMemo(() => {
@@ -222,56 +220,30 @@ export function ScheduleGantt({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Controls: work scope (default = outstanding) + period zoom */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div
-          role="radiogroup"
-          aria-label="ขอบเขตงาน"
-          className="border-edge bg-sunk rounded-control flex w-fit gap-1 border p-1"
-        >
-          {(
-            [
-              { v: false, label: "ยังไม่เสร็จ" },
-              { v: true, label: "ทั้งหมด" },
-            ] as const
-          ).map((o) => (
-            <button
-              key={o.label}
-              type="button"
-              role="radio"
-              aria-checked={showAll === o.v}
-              onClick={() => setShowAll(o.v)}
-              className={periodBtn(showAll === o.v)}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
-        <div
-          role="radiogroup"
-          aria-label="ช่วงเวลา"
-          className="border-edge bg-sunk rounded-control flex w-fit gap-1 border p-1"
-        >
-          {SCHEDULE_PERIODS.map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              role="radio"
-              aria-checked={period === p.key}
-              onClick={() => setPeriod(p.key)}
-              className={periodBtn(period === p.key)}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
+      {/* Period zoom — วัน / สัปดาห์ / เดือน */}
+      <div
+        role="radiogroup"
+        aria-label="ช่วงเวลา"
+        className="border-edge bg-sunk rounded-control flex w-fit gap-1 self-end border p-1"
+      >
+        {SCHEDULE_PERIODS.map((p) => (
+          <button
+            key={p.key}
+            type="button"
+            role="radio"
+            aria-checked={period === p.key}
+            onClick={() => setPeriod(p.key)}
+            className={periodBtn(period === p.key)}
+          >
+            {p.label}
+          </button>
+        ))}
       </div>
 
       {scheduledCount === 0 ? (
         <div className="border-edge bg-card text-ink-secondary rounded-card text-body border p-8 text-center">
-          {showAll
-            ? "ยังไม่มีงานที่กำหนดวันที่ — ตั้งวันเริ่ม/สิ้นสุดในหน้ารายละเอียดงาน (เฉพาะผู้จัดการ) เพื่อให้ปรากฏบนปฏิทิน"
-            : "ไม่มีงานที่ยังไม่เสร็จและกำหนดวันที่ไว้ — แตะ “ทั้งหมด” เพื่อรวมงานที่เสร็จแล้ว หรือกำหนดวันที่ในหน้ารายละเอียดงาน"}
+          ยังไม่มีงานที่กำหนดวันที่ — ตั้งวันเริ่ม/สิ้นสุดในหน้ารายละเอียดงาน (เฉพาะผู้จัดการ)
+          เพื่อให้ปรากฏบนปฏิทิน
         </div>
       ) : (
         <>

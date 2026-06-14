@@ -57,7 +57,7 @@ describe("ScheduleGantt", () => {
     expect(open).toHaveAttribute("href", "/projects/p1/work-packages/w1");
   });
 
-  it("hides completed WPs by default and reveals them via ทั้งหมด", () => {
+  it("always shows completed WPs (muted, never hidden)", () => {
     const done: GanttWp = {
       ...SCHEDULED,
       id: "w2",
@@ -76,10 +76,9 @@ describe("ScheduleGantt", () => {
         dependencies={[]}
       />,
     );
-    // default = outstanding only → the completed WP is hidden
-    expect(screen.queryByText("งานเทพื้น")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("radio", { name: "ทั้งหมด" }));
+    // completed WP is shown (no scope toggle anymore)
     expect(screen.getAllByText("งานเทพื้น").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("radio", { name: "ทั้งหมด" })).not.toBeInTheDocument();
   });
 
   it("shows the empty state when no WP has planned dates", () => {
