@@ -32,6 +32,21 @@ describe("BottomSheet", () => {
     expect(screen.getByText("เนื้อหาในชีต")).toBeInTheDocument();
   });
 
+  it("portals the overlay to document.body so z-50 escapes a parent stacking context", () => {
+    // Spec 94 follow-up: opened from inside a `sticky z-20` header, an in-place
+    // overlay is capped at z-20 page-wide and the fixed capture bar (z-40) paints
+    // over it ("WP general information hidden behind camera button"). The portal
+    // attaches the overlay under <body> so its z-50 wins at the root.
+    render(
+      <header style={{ position: "sticky", zIndex: 20 }}>
+        <BottomSheet open title="ข้อมูลงาน" onClose={vi.fn()}>
+          <p>เนื้อหา</p>
+        </BottomSheet>
+      </header>,
+    );
+    expect(screen.getByRole("dialog").parentElement).toBe(document.body);
+  });
+
   it("closes on Escape", () => {
     const onClose = vi.fn();
     render(

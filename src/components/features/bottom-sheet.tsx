@@ -13,6 +13,7 @@
 // the panel on open; a full tab-trap is a recorded seam (matches ConfirmDialog).
 
 import { useEffect, useId, useRef } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 interface BottomSheetProps {
@@ -42,8 +43,14 @@ export function BottomSheet({ open, title, onClose, children }: BottomSheetProps
   }, [open, onClose]);
 
   if (!open) return null;
+  // Portal to <body>: opened from inside a `sticky z-20` DetailHeader, an
+  // in-place `fixed z-50` overlay is still capped at the header's stacking
+  // context (z-20) page-wide, so the fixed capture bar (z-40) paints over it
+  // (spec 94: "WP general information hidden behind camera button"). Rendering
+  // at the document root lets z-50 win. Guarded for SSR (open starts false).
+  if (typeof document === "undefined") return null;
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -76,6 +83,7 @@ export function BottomSheet({ open, title, onClose, children }: BottomSheetProps
         </div>
         <div className="overflow-y-auto overscroll-contain px-5 py-4">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
