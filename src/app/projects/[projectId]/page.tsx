@@ -7,6 +7,7 @@ import { SITE_STAFF_ROLES } from "@/lib/auth/role-home";
 import { projectSettingsHref, reportsHref, scheduleHref } from "@/lib/nav/project-paths";
 import { ICON_CHIP_MUTED, SECTION_HEADING } from "@/lib/ui/classes";
 import { DetailHeader } from "@/components/features/detail-header";
+import { ProjectInfoButton } from "@/components/features/project-info-button";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
@@ -107,6 +108,21 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
         backLabel="กลับไปโครงการ"
         actions={
           <>
+            {/* Spec 94: project context (client/lead/team/type/site) folds into
+                this ⓘ sheet so the sticky header stays short. */}
+            {(clientName ||
+              leadName ||
+              memberNames.length > 0 ||
+              typeLabel ||
+              project.site_address) && (
+              <ProjectInfoButton
+                clientName={clientName}
+                leadName={leadName}
+                memberNames={memberNames}
+                typeLabel={typeLabel}
+                siteAddress={project.site_address}
+              />
+            )}
             {/* Schedule calendar — all staff (spec 92). */}
             <Link href={scheduleHref(project.id)} aria-label="ตารางงาน" className={ICON_CHIP_MUTED}>
               <CalendarDays aria-hidden className="h-5 w-5" />
@@ -135,44 +151,6 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
         <div>
           <p className="text-meta text-ink-secondary font-mono">{project.code}</p>
           <h1 className="text-title text-ink font-bold tracking-tight">{project.name}</h1>
-          {(clientName ||
-            leadName ||
-            memberNames.length > 0 ||
-            typeLabel ||
-            project.site_address) && (
-            <dl className="text-meta text-ink-secondary mt-1.5 flex flex-col gap-0.5">
-              {clientName && (
-                <div className="flex gap-1.5">
-                  <dt>ลูกค้า:</dt>
-                  <dd className="text-ink font-medium">{clientName}</dd>
-                </div>
-              )}
-              {leadName && (
-                <div className="flex gap-1.5">
-                  <dt>ผู้รับผิดชอบ:</dt>
-                  <dd className="text-ink font-medium">{leadName}</dd>
-                </div>
-              )}
-              {memberNames.length > 0 && (
-                <div className="flex gap-1.5">
-                  <dt>ทีมงาน:</dt>
-                  <dd className="text-ink font-medium break-words">{memberNames.join(", ")}</dd>
-                </div>
-              )}
-              {typeLabel && (
-                <div className="flex gap-1.5">
-                  <dt>ประเภท:</dt>
-                  <dd className="text-ink font-medium">{typeLabel}</dd>
-                </div>
-              )}
-              {project.site_address && (
-                <div className="flex gap-1.5">
-                  <dt>ที่ตั้ง:</dt>
-                  <dd className="text-ink font-medium break-words">{project.site_address}</dd>
-                </div>
-              )}
-            </dl>
-          )}
         </div>
       </DetailHeader>
 

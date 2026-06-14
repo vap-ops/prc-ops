@@ -12,6 +12,7 @@ import { derivePhaseProgress } from "@/lib/photos/phase-progress";
 import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
 import { StatusPill } from "@/components/features/status-pill";
 import { DetailHeader } from "@/components/features/detail-header";
+import { WorkPackageInfoButton } from "@/components/features/work-package-info-button";
 import { PurchaseRequestCard } from "@/components/features/purchase-request-card";
 import {
   APPROVAL_DECISION_LABEL,
@@ -169,7 +170,29 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
     <PageShell>
       {/* Field-First: the tab bar gives way to the thumb-anchored capture
           bar on this detail screen; the back chip handles return nav. */}
-      <DetailHeader backHref={projectHref(projectId)} backLabel="กลับไปรายการงาน">
+      <DetailHeader
+        backHref={projectHref(projectId)}
+        backLabel="กลับไปรายการงาน"
+        actions={
+          // Spec 94: contractor (display + reassign) + the read-only description
+          // fold into this ⓘ sheet so the header stays the WP nameplate.
+          assignedContractor || wp.description ? (
+            <WorkPackageInfoButton
+              projectId={wp.project_id}
+              workPackageId={wp.id}
+              contractor={
+                assignedContractor
+                  ? { name: assignedContractor.name, phone: assignedContractor.phone }
+                  : null
+              }
+              description={wp.description}
+              isAssigner={isAssigner}
+              contractors={pickerContractors}
+              contractorId={wp.contractor_id}
+            />
+          ) : null
+        }
+      >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-meta text-ink-secondary font-mono">{wp.code}</p>
@@ -181,29 +204,6 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
               wp.status}
           </StatusPill>
         </div>
-        {assignedContractor ? (
-          <>
-            <p className="text-meta text-ink-secondary">
-              ผู้รับเหมา <span className="text-ink font-semibold">{assignedContractor.name}</span>
-              {assignedContractor.phone ? (
-                <>
-                  <span className="text-ink-muted mx-1">·</span>
-                  <a href={`tel:${assignedContractor.phone}`} className="text-action font-semibold">
-                    {assignedContractor.phone}
-                  </a>
-                </>
-              ) : null}
-            </p>
-            {isAssigner ? (
-              <WpAssignmentPanel
-                projectId={wp.project_id}
-                workPackageId={wp.id}
-                contractors={pickerContractors}
-                contractorId={wp.contractor_id}
-              />
-            ) : null}
-          </>
-        ) : null}
       </DetailHeader>
 
       <div className="border-edge bg-card border-b px-5 py-3">
@@ -369,16 +369,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
         <div className={CARD}>
           <WorkPackageNotes projectId={wp.project_id} workPackageId={wp.id} notes={wp.notes} />
         </div>
-        {wp.description ? (
-          <details className={CARD}>
-            <summary className="text-body text-ink cursor-pointer font-semibold">
-              รายละเอียดงาน
-            </summary>
-            <p className="text-body text-ink-secondary mt-2 whitespace-pre-wrap">
-              {wp.description}
-            </p>
-          </details>
-        ) : null}
+        {/* Spec 94: รายละเอียดงาน (description) moved to the header ⓘ sheet. */}
         {approvals.length > 0 ? (
           <details className={CARD}>
             <summary className="text-body text-ink cursor-pointer font-semibold">
