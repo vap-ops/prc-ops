@@ -1,6 +1,6 @@
-// CountChip (spec 54): the mockup's amber "1 คำขอซื้อรออนุมัติ ›" pill —
-// a tappable counter for items needing someone's attention. Renders
-// nothing at zero (no empty chips). Server-presentational.
+// CountChip (spec 54): a tappable counter for items needing attention
+// ("2 คำขอซื้อรออนุมัติ ›"). Renders nothing at zero. Server-presentational.
+// Field-First: token-rewired onto the attention palette; 44px floor kept.
 
 import Link from "next/link";
 
@@ -15,13 +15,13 @@ export function CountChip({ count, label, href }: CountChipProps) {
   return (
     <Link
       href={href}
-      className="inline-flex min-h-11 w-fit items-center gap-2.5 rounded-full border border-amber-300 bg-amber-50 py-1.5 pr-4 pl-2 text-sm font-semibold text-amber-900 shadow-xs transition-colors hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+      className="border-attn-edge bg-attn-soft text-body text-attn-ink shadow-input focus-visible:ring-action inline-flex min-h-11 w-fit items-center gap-2.5 rounded-full border py-1.5 pr-4 pl-2 font-semibold transition-[filter] hover:brightness-95 focus:outline-none focus-visible:ring-2"
     >
-      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-amber-700 text-xs font-bold text-white">
+      <span className="bg-attn-press text-meta text-on-fill inline-flex h-7 w-7 items-center justify-center rounded-full font-bold">
         {count}
       </span>
       {label}
-      <span aria-hidden="true" className="text-amber-700">
+      <span aria-hidden="true" className="text-attn-press">
         ›
       </span>
     </Link>

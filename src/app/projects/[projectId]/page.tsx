@@ -45,7 +45,6 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
   ]);
   const clientName = clientRow.data?.name ?? null;
   const memberIds = (memberRows ?? []).map((m) => m.user_id);
-  // Resolve the lead + member display names in one admin lookup (users RLS is read-self).
   const nameIds = [
     ...new Set([...(project.project_lead_id ? [project.project_lead_id] : []), ...memberIds]),
   ];
@@ -58,15 +57,18 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
     .filter((n): n is string => n !== null);
   const typeLabel = project.project_type ? PROJECT_TYPE_LABEL[project.project_type] : null;
 
+  // Field-First: the worklist triage (action bands) derives purely from
+  // `status`, so it needs no new columns. The manual `priority` (ด่วน) flag,
+  // the numeric `priority_rank` sort, and the `is_critical` engine badge are
+  // RESERVED for their own later specs — until those land we pass fixed
+  // defaults below (tag + badge stay dark). Keeping them out of the SELECT
+  // means this reskin ships with zero schema change.
   const { data: workPackages } = await supabase
     .from("work_packages")
     .select("id, code, name, status, deliverable_id")
     .eq("project_id", project.id)
     .order("code", { ascending: true });
 
-  // Deliverables for the grouping headers (spec 11). RLS admits
-  // sa/pm/super SELECT (spec 04 Phase 1). Empty today — the list
-  // degrades to flat until spec 04 Phase 2 backfills the data.
   const { data: deliverables } = await supabase
     .from("deliverables")
     .select("id, code, name, sort_order")
@@ -76,10 +78,8 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      {/* Spec 63: the consolidated shell. Spec 82 Unit 3: back goes to the
-          single folded /projects hub (was the role-aware projectHubHref).
-          The spec-58/59 pm/super chips ride the actions slot — SA never
-          sees the gear; the settings page also requireRole-gates. */}
+      {/* Spec 63 shell; spec 82: back goes to the folded /projects hub.
+          PM/super get reports + gear chips; SA never sees the gear. */}
       <DetailHeader
         backHref="/projects"
         backLabel="กลับไปโครงการ"
@@ -105,44 +105,42 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
         }
       >
         <div>
-          <p className="font-mono text-xs text-zinc-600">{project.code}</p>
-          <h1 className="text-2xl font-bold tracking-tight">{project.name}</h1>
+          <p className="text-meta text-ink-secondary font-mono">{project.code}</p>
+          <h1 className="text-title text-ink font-bold tracking-tight">{project.name}</h1>
           {(clientName ||
             leadName ||
             memberNames.length > 0 ||
             typeLabel ||
             project.site_address) && (
-            <dl className="mt-1.5 flex flex-col gap-0.5 text-xs text-zinc-600">
+            <dl className="text-meta text-ink-secondary mt-1.5 flex flex-col gap-0.5">
               {clientName && (
                 <div className="flex gap-1.5">
                   <dt>ลูกค้า:</dt>
-                  <dd className="font-medium text-zinc-900">{clientName}</dd>
+                  <dd className="text-ink font-medium">{clientName}</dd>
                 </div>
               )}
               {leadName && (
                 <div className="flex gap-1.5">
                   <dt>ผู้รับผิดชอบ:</dt>
-                  <dd className="font-medium text-zinc-900">{leadName}</dd>
+                  <dd className="text-ink font-medium">{leadName}</dd>
                 </div>
               )}
               {memberNames.length > 0 && (
                 <div className="flex gap-1.5">
                   <dt>ทีมงาน:</dt>
-                  <dd className="font-medium break-words text-zinc-900">
-                    {memberNames.join(", ")}
-                  </dd>
+                  <dd className="text-ink font-medium break-words">{memberNames.join(", ")}</dd>
                 </div>
               )}
               {typeLabel && (
                 <div className="flex gap-1.5">
                   <dt>ประเภท:</dt>
-                  <dd className="font-medium text-zinc-900">{typeLabel}</dd>
+                  <dd className="text-ink font-medium">{typeLabel}</dd>
                 </div>
               )}
               {project.site_address && (
                 <div className="flex gap-1.5">
                   <dt>ที่ตั้ง:</dt>
-                  <dd className="font-medium break-words text-zinc-900">{project.site_address}</dd>
+                  <dd className="text-ink font-medium break-words">{project.site_address}</dd>
                 </div>
               )}
             </dl>
@@ -154,12 +152,18 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
         <h2 className={SECTION_HEADING}>รายการงาน</h2>
         <WorkPackageList
           projectId={project.id}
+          role={ctx.role}
           workPackages={(workPackages ?? []).map((wp) => ({
             id: wp.id,
             code: wp.code,
             name: wp.name,
             status: wp.status,
             deliverableId: wp.deliverable_id,
+            // Reserved for later specs (manual ด่วน flag + rank; critical-path
+            // engine). No columns yet — fixed defaults keep the tag/badge dark.
+            priority: "normal" as const,
+            priorityRank: 0,
+            isCritical: false,
           }))}
           deliverables={(deliverables ?? []).map((d) => ({
             id: d.id,

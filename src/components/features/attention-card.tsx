@@ -1,8 +1,7 @@
-// AttentionCard (spec 54): the mockup's callout — white rounded card
-// with a thick colored left bar, a dot, and a bold imperative title.
-// One attention pattern for the whole app: amber = action needed
-// (assign a contractor, needs_revision), red = rejected/blocking.
-// Server-presentational; the action itself renders as children.
+// AttentionCard (spec 54): the app's single callout pattern — white card,
+// thick coloured left bar, a dot, a bold imperative title. amber = action
+// needed, red = rejected/blocking. The action itself renders as children.
+// Field-First: token-rewired; surface on the card tokens.
 
 interface AttentionCardProps {
   tone: "amber" | "red";
@@ -11,8 +10,8 @@ interface AttentionCardProps {
 }
 
 const TONE = {
-  amber: { bar: "border-l-amber-600", dot: "bg-amber-600" },
-  red: { bar: "border-l-red-600", dot: "bg-red-600" },
+  amber: { bar: "border-l-attn", dot: "bg-attn", ground: "bg-attn-soft border-attn-edge" },
+  red: { bar: "border-l-danger", dot: "bg-danger", ground: "bg-danger-soft border-danger-edge" },
 } as const;
 
 export function AttentionCard({ tone, title, children }: AttentionCardProps) {
@@ -20,13 +19,13 @@ export function AttentionCard({ tone, title, children }: AttentionCardProps) {
   return (
     <div
       role="alert"
-      className={`rounded-xl border border-l-4 border-zinc-200 ${t.bar} bg-white px-4 py-3 shadow-sm`}
+      className={`rounded-card border border-l-[5px] ${t.ground} ${t.bar} shadow-card px-4 py-3`}
     >
-      <p className="flex items-center gap-2 text-sm font-bold text-zinc-900">
-        <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${t.dot}`} />
+      <p className="text-body text-ink flex items-center gap-2 font-bold">
+        <span aria-hidden="true" className={`h-2.5 w-2.5 shrink-0 rounded-full ${t.dot}`} />
         {title}
       </p>
-      <div className="mt-1.5 text-sm text-zinc-700">{children}</div>
+      <div className="text-body text-ink-secondary mt-1.5">{children}</div>
     </div>
   );
 }

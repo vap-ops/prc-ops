@@ -1,44 +1,49 @@
 "use client";
 
-// Client Component: status-view filter + deliverable grouping over an
-// already-loaded WP list (~80 rows, all in-memory).
+// Client Component: the Field-First worklist. Two LENSES over an
+// already-loaded WP list (~80 rows, all in-memory):
 //
-// Spec 56: the old search box + hide-completed checkbox are replaced by
-// a four-view segmented control (งานค้าง default / รอตรวจ / เสร็จแล้ว /
-// ทั้งหมด) — finished WPs are hidden by default, shown on request.
+//   • action  — "what needs MY action now?" WPs grouped into action
+//     bands (ต้องทำเลย / พักงาน / รอ PM ตรวจ / เสร็จแล้ว). The ต้องทำ band is
+//     ordered by the supplied universal priorityRank, so every role sees
+//     the highest-leverage work first. Default lens for site_admin.
 //
-// Spec 11 grouping: when the project has deliverables, WPs render under
-// per-deliverable headers that toggle show/hide (collapsed by default —
-// the landing view is the deliverable overview with counts). Groups
-// emptied by the view disappear (the pure helper never returns empty
-// groups). With ZERO deliverables the list renders flat.
+//   • deliverable — งวดงาน grouping with progress headers (the PM's
+//     billing-oriented overview). Default lens for project_manager /
+//     super_admin. The lens is one tap away for both roles.
 //
-// Collapse state and the view are local client state — the URL stays
+// Replaces the spec-56 four-view segmented control: the action lens IS
+// the filter now, and finished WPs collapse into a summary by default
+// (spec-56 intent: hide finished, show on request).
+//
+// priority / priorityRank / isCritical are SUPPLIED props (a separate
+// priority-engine spec owns derivation + migration). This component only
+// consumes and orders. Lens + collapse state are local; the URL stays
 // stable, no server round-trip.
 
-import Link from "next/link";
-import { ChevronRight } from "lucide-react";
-import { workPackageHref } from "@/lib/nav/project-paths";
 import { useMemo, useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { EmptyNotice } from "@/components/features/notices";
 import { StatusPill } from "@/components/features/status-pill";
-import { RadioChip } from "@/components/features/radio-chip";
+import { WorklistRow, type WorklistRowItem } from "@/components/features/worklist-row";
 import type { Database } from "@/lib/db/database.types";
 import { deriveDeliverableProgress } from "@/lib/deliverables/derive-progress";
 import {
   groupWorkPackagesByDeliverable,
   type GroupDeliverable,
 } from "@/lib/deliverables/group-work-packages";
-import {
-  DEFAULT_WP_LIST_VIEW,
-  WP_LIST_VIEWS,
-  filterByView,
-  type WpListView,
-} from "@/lib/work-packages/list-filter";
 import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
+import {
+  ACTION_BAND_META,
+  deriveActionBand,
+  groupByActionBand,
+  type ActionBand,
+  type WorkPackageStatus,
+  type WpPriority,
+} from "@/lib/work-packages/action-bands";
 
-type WorkPackageStatus = Database["public"]["Enums"]["work_package_status"];
+type UserRole = Database["public"]["Enums"]["user_role"];
 
 const UNGROUPED_KEY = "__ungrouped__";
 
@@ -48,198 +53,418 @@ export interface WorkPackageListItem {
   name: string;
   status: WorkPackageStatus;
   deliverableId: string | null;
+  /** Supplied props (priority-engine spec). Safe defaults at the page. */
+  priority: WpPriority;
+  priorityRank: number;
+  isCritical: boolean;
 }
+
+type Lens = "action" | "deliverable";
 
 interface WorkPackageListProps {
   projectId: string;
+  role: UserRole;
   workPackages: ReadonlyArray<WorkPackageListItem>;
   deliverables: ReadonlyArray<GroupDeliverable>;
 }
 
-export function WorkPackageList({ projectId, workPackages, deliverables }: WorkPackageListProps) {
-  const [view, setView] = useState<WpListView>(DEFAULT_WP_LIST_VIEW);
-  // Keys of groups the user has opened (deliverable id, or UNGROUPED_KEY).
-  // Default empty = all collapsed.
+/** Role decides the default lens; both lenses stay one tap away. */
+function defaultLens(role: UserRole): Lens {
+  return role === "site_admin" ? "action" : "deliverable";
+}
+
+export function WorkPackageList({
+  projectId,
+  role,
+  workPackages,
+  deliverables,
+}: WorkPackageListProps) {
+  const [lens, setLens] = useState<Lens>(() => defaultLens(role));
+  // Action lens: which triage band is filtered (null = all bands).
+  const [bandFilter, setBandFilter] = useState<ActionBand | null>(null);
+  // Action lens: the done band is collapsed until asked for.
+  const [showDone, setShowDone] = useState(false);
+  // Deliverable lens: opened group keys (empty = all collapsed).
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 
-  const filtered = useMemo(() => filterByView(workPackages, view), [workPackages, view]);
+  const deliverableNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const d of deliverables) map.set(d.id, d.code);
+    return map;
+  }, [deliverables]);
 
+  function toRowItem(wp: WorkPackageListItem): WorklistRowItem {
+    return {
+      id: wp.id,
+      code: wp.code,
+      name: wp.name,
+      status: wp.status,
+      priority: wp.priority,
+      isCritical: wp.isCritical,
+      deliverableLabel: wp.deliverableId
+        ? (deliverableNameById.get(wp.deliverableId) ?? null)
+        : null,
+    };
+  }
+
+  // ---- action-lens derivation ------------------------------------------
+  const bands = useMemo(() => groupByActionBand(workPackages), [workPackages]);
+  const countByBand = useMemo(() => {
+    const m: Record<ActionBand, number> = { todo: 0, held: 0, review: 0, done: 0 };
+    for (const wp of workPackages) m[deriveActionBand(wp.status)] += 1;
+    return m;
+  }, [workPackages]);
+
+  if (workPackages.length === 0) {
+    return <EmptyNotice>ยังไม่มีรายการงาน</EmptyNotice>;
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Lens toggle — segmented, 44px. Action = สถานะ, deliverable = งวดงาน. */}
+      <div
+        role="radiogroup"
+        aria-label="มุมมองรายการงาน"
+        className="rounded-control border-edge bg-sunk flex gap-1 border p-1"
+      >
+        {(
+          [
+            { value: "action", label: "ตามสถานะ" },
+            { value: "deliverable", label: "ตามงวดงาน" },
+          ] as const
+        ).map((opt) => {
+          const on = lens === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              onClick={() => setLens(opt.value)}
+              className={`text-body focus-visible:ring-action min-h-11 flex-1 rounded-[0.625rem] font-bold transition-colors focus:outline-none focus-visible:ring-2 ${
+                on ? "bg-card text-ink shadow-card" : "text-ink-secondary hover:text-ink"
+              }`}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {lens === "action" ? (
+        <ActionLens
+          projectId={projectId}
+          bands={bands}
+          countByBand={countByBand}
+          bandFilter={bandFilter}
+          onBandFilter={setBandFilter}
+          showDone={showDone}
+          onToggleDone={() => setShowDone((v) => !v)}
+          toRowItem={toRowItem}
+        />
+      ) : (
+        <DeliverableLens
+          projectId={projectId}
+          workPackages={workPackages}
+          deliverables={deliverables}
+          expanded={expanded}
+          onToggle={(key) =>
+            setExpanded((prev) => {
+              const next = new Set(prev);
+              if (next.has(key)) next.delete(key);
+              else next.add(key);
+              return next;
+            })
+          }
+          toRowItem={toRowItem}
+        />
+      )}
+    </div>
+  );
+}
+
+// ======================================================================
+// ACTION LENS — triage summary + priority-ranked bands
+// ======================================================================
+interface ActionLensProps {
+  projectId: string;
+  bands: Array<{ band: ActionBand; items: WorkPackageListItem[] }>;
+  countByBand: Record<ActionBand, number>;
+  bandFilter: ActionBand | null;
+  onBandFilter: (b: ActionBand | null) => void;
+  showDone: boolean;
+  onToggleDone: () => void;
+  toRowItem: (wp: WorkPackageListItem) => WorklistRowItem;
+}
+
+function ActionLens({
+  projectId,
+  bands,
+  countByBand,
+  bandFilter,
+  onBandFilter,
+  showDone,
+  onToggleDone,
+  toRowItem,
+}: ActionLensProps) {
+  // The three triage tiles the operator named. Tapping filters to that
+  // band; tapping the active tile clears the filter.
+  const tiles: Array<{ band: ActionBand; label: string }> = [
+    { band: "todo", label: "ต้องทำ" },
+    { band: "review", label: "รอตรวจ" },
+    { band: "done", label: "เสร็จแล้ว" },
+  ];
+
+  const visibleBands = bands.filter((b) => {
+    if (bandFilter) return b.band === bandFilter;
+    if (b.band === "done") return showDone;
+    return true;
+  });
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Triage summary — big tappable filters, hi-vis for the hot band. */}
+      <div className="grid grid-cols-3 gap-2">
+        {tiles.map(({ band, label }) => {
+          const active = bandFilter === band;
+          const hot = band === "todo";
+          return (
+            <button
+              key={band}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onBandFilter(active ? null : band)}
+              className={`rounded-card focus-visible:ring-action flex min-h-[68px] flex-col items-start justify-center border-[1.5px] px-3 py-2 text-left transition-colors focus:outline-none focus-visible:ring-2 ${
+                hot ? "border-attn-press bg-attn text-on-attn" : "border-edge bg-card text-ink"
+              } ${active ? "ring-action ring-2 ring-offset-1" : ""}`}
+            >
+              <span className="text-2xl leading-none font-extrabold">{countByBand[band]}</span>
+              <span className="text-meta mt-1 font-bold">{label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {visibleBands.length === 0 ? (
+        <EmptyNotice>
+          {bandFilter
+            ? "ไม่มีงานในสถานะนี้"
+            : "ไม่มีงานที่ต้องทำ — แตะ “เสร็จแล้ว” เพื่อดูงานที่จบแล้ว"}
+        </EmptyNotice>
+      ) : (
+        visibleBands.map(({ band, items }) => {
+          const meta = ACTION_BAND_META[band];
+          const isDone = band === "done";
+          return (
+            <section key={band} className="flex flex-col gap-2.5">
+              <div className="flex items-center gap-2 px-0.5">
+                <span className={`h-3 w-3 rounded-full ${meta.spine}`} aria-hidden="true" />
+                <h3 className="text-section text-ink font-extrabold">{meta.label}</h3>
+                <span
+                  className={`text-meta text-on-fill inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 font-extrabold ${meta.countBg}`}
+                >
+                  {items.length}
+                </span>
+              </div>
+              {(isDone && bandFilter === null && !showDone ? [] : items).map((wp) => (
+                <WorklistRow
+                  key={wp.id}
+                  projectId={projectId}
+                  wp={toRowItem(wp)}
+                  spine={meta.spine}
+                  compact={band === "review" || band === "done"}
+                />
+              ))}
+            </section>
+          );
+        })
+      )}
+
+      {/* Done band lives behind one tap when not filtered. */}
+      {bandFilter === null && countByBand.done > 0 && !showDone ? (
+        <button
+          type="button"
+          onClick={onToggleDone}
+          className="rounded-card border-done bg-done-soft text-body text-done-strong focus-visible:ring-action flex items-center justify-between gap-3 border px-4 py-3 font-bold transition-colors hover:brightness-[0.98] focus:outline-none focus-visible:ring-2"
+        >
+          <span className="flex items-center gap-2">
+            <span className="bg-done-strong text-on-fill inline-flex h-6 w-6 items-center justify-center rounded-full">
+              ✓
+            </span>
+            เสร็จแล้ว {countByBand.done} รายการ
+          </span>
+          <ChevronRight aria-hidden className="h-5 w-5" />
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+// ======================================================================
+// DELIVERABLE LENS — งวดงาน grouping (PM overview), re-skinned
+// ======================================================================
+interface DeliverableLensProps {
+  projectId: string;
+  workPackages: ReadonlyArray<WorkPackageListItem>;
+  deliverables: ReadonlyArray<GroupDeliverable>;
+  expanded: ReadonlySet<string>;
+  onToggle: (key: string) => void;
+  toRowItem: (wp: WorkPackageListItem) => WorklistRowItem;
+}
+
+function DeliverableLens({
+  projectId,
+  workPackages,
+  deliverables,
+  expanded,
+  onToggle,
+  toRowItem,
+}: DeliverableLensProps) {
+  // Degraded (no-deliverables) flat list: finished WPs stay hidden until
+  // asked for, same spec-56 intent the action lens honors.
+  const [showDoneDegraded, setShowDoneDegraded] = useState(false);
   const groups = useMemo(
-    () => groupWorkPackagesByDeliverable(filtered, deliverables),
-    [filtered, deliverables],
+    () => groupWorkPackagesByDeliverable(workPackages, deliverables),
+    [workPackages, deliverables],
   );
 
-  // Header progress per group, derived from the UNFILTERED list (spec 12):
-  // the pill, k/n count, and progress strip describe the deliverable's
-  // true state even while query / hide-completed are hiding rows.
+  // Header progress derives from the FULL membership (spec 12).
   const progressByKey = useMemo(() => {
     const map = new Map<string, ReturnType<typeof deriveDeliverableProgress>>();
-    for (const group of groupWorkPackagesByDeliverable(workPackages, deliverables)) {
+    for (const group of groups) {
       map.set(
         group.deliverable?.id ?? UNGROUPED_KEY,
         deriveDeliverableProgress(group.workPackages.map((wp) => wp.status)),
       );
     }
     return map;
-  }, [workPackages, deliverables]);
+  }, [groups]);
 
-  function toggleGroup(key: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
+  if (deliverables.length === 0) {
+    // Degraded mode (spec 11): no deliverables yet — flat priority list.
+    // Spec 56: finished WPs collapse behind one tap (as the action lens does),
+    // so a PM/super landing here doesn't get a wall of completed work.
+    const outstanding = workPackages.filter((wp) => deriveActionBand(wp.status) !== "done");
+    const doneCount = workPackages.length - outstanding.length;
+    const rows = showDoneDegraded ? workPackages : outstanding;
+    return (
+      <div className="flex flex-col gap-2.5">
+        {rows.length === 0 ? (
+          <EmptyNotice>ไม่มีงานที่ต้องทำ — แตะ “เสร็จแล้ว” เพื่อดูงานที่จบแล้ว</EmptyNotice>
+        ) : (
+          rows.map((wp) => (
+            <WorklistRow
+              key={wp.id}
+              projectId={projectId}
+              wp={toRowItem(wp)}
+              spine={ACTION_BAND_META[deriveActionBand(wp.status)].spine}
+            />
+          ))
+        )}
+        {doneCount > 0 && !showDoneDegraded ? (
+          <button
+            type="button"
+            onClick={() => setShowDoneDegraded(true)}
+            className="rounded-card border-done bg-done-soft text-body text-done-strong focus-visible:ring-action flex items-center justify-between gap-3 border px-4 py-3 font-bold transition-colors hover:brightness-[0.98] focus:outline-none focus-visible:ring-2"
+          >
+            <span className="flex items-center gap-2">
+              <span className="bg-done-strong text-on-fill inline-flex h-6 w-6 items-center justify-center rounded-full">
+                ✓
+              </span>
+              เสร็จแล้ว {doneCount} รายการ
+            </span>
+            <ChevronRight aria-hidden className="h-5 w-5" />
+          </button>
+        ) : null}
+      </div>
+    );
   }
 
-  // Empty-state copy: no WPs at all, every WP finished under the
-  // default outstanding view, or the chosen view has no matches.
-  const emptyMessage =
-    workPackages.length === 0
-      ? "ยังไม่มีรายการงาน"
-      : view === "outstanding" && workPackages.every((wp) => wp.status === "complete")
-        ? "รายการงานทั้งหมดเสร็จสิ้นแล้ว"
-        : "ไม่พบรายการงานที่ตรงกับเงื่อนไข";
-
-  // Two presentations (spec 40): a standalone card in flat mode, a
-  // contained divided row inside a deliverable group — the visual
-  // hierarchy the operator asked for (groups frame, rows belong).
-  const rowLink = (wp: WorkPackageListItem, contained = false) => (
-    <Link
-      href={workPackageHref(projectId, wp.id)}
-      className={
-        contained
-          ? "flex min-h-14 items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-inset active:bg-zinc-100"
-          : "flex min-h-14 items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 active:bg-zinc-100"
-      }
-    >
-      <div className="min-w-0">
-        <p className="font-mono text-xs text-zinc-600">{wp.code}</p>
-        {/* Spec 57: clamp-2, never single-line truncate — the name is
-            the row's information. */}
-        <p className="line-clamp-2 text-base font-medium break-words text-zinc-900">{wp.name}</p>
-      </div>
-      <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)}>
-        {WORK_PACKAGE_STATUS_LABEL[wp.status] ?? wp.status}
-      </StatusPill>
-    </Link>
-  );
-
   return (
-    <div className="flex flex-col gap-4">
-      {/* Spec 56: four-view segmented control (the spec-21 shape) —
-          replaces the search box + hide-completed checkbox. */}
-      {/* Spec 67: native-radio chips (RadioChip) — arrow-key + SR semantics
-          from the browser, 44px targets. Was a fake role="radio" on 36px
-          buttons. */}
-      <div role="radiogroup" aria-label="กรองรายการงาน" className="flex flex-wrap gap-2">
-        {WP_LIST_VIEWS.map(({ value, label }) => (
-          <RadioChip
-            key={value}
-            name="wp-list-view"
-            label={label}
-            checked={view === value}
-            onSelect={() => setView(value)}
-          />
-        ))}
-      </div>
-
-      {filtered.length === 0 ? (
-        <EmptyNotice>{emptyMessage}</EmptyNotice>
-      ) : deliverables.length === 0 ? (
-        // Degraded mode (spec 11): no deliverables on the project yet —
-        // flat list, exactly the pre-grouping behaviour.
-        <ul className="flex flex-col gap-2">
-          {filtered.map((wp) => (
-            <li key={wp.id}>{rowLink(wp)}</li>
-          ))}
-        </ul>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {groups.map((group) => {
-            const key = group.deliverable?.id ?? UNGROUPED_KEY;
-            const isOpen = expanded.has(key);
-            // Progress is derived from the FULL membership (spec 12) so the
-            // header tells the truth while the text filter or
-            // "Hide completed" is hiding rows below it.
-            const progress =
-              progressByKey.get(key) ??
-              deriveDeliverableProgress(group.workPackages.map((wp) => wp.status));
-            const groupName = group.deliverable?.name ?? "ยังไม่จัดกลุ่ม";
-            const contentId = `wp-group-${key}`;
-            return (
-              <section
-                key={key}
-                className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm"
-              >
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(key)}
-                  aria-expanded={isOpen}
-                  aria-controls={contentId}
-                  className="flex min-h-12 w-full cursor-pointer flex-col gap-2 border-l-4 border-amber-400 bg-slate-50 px-4 py-3 text-left transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-inset active:bg-slate-200"
-                >
-                  <span className="flex w-full items-center gap-3">
-                    <ChevronRight
-                      aria-hidden
-                      className={`size-4 shrink-0 text-zinc-600 transition-transform motion-reduce:transition-none ${isOpen ? "rotate-90" : ""}`}
-                    />
-                    <span className="min-w-0 flex-1">
-                      {group.deliverable ? (
-                        <>
-                          <span className="font-mono text-xs font-semibold text-slate-500">
-                            {group.deliverable.code}
-                          </span>
-                          {/* Spec 57/67: list headers line-clamp, never
-                              single-line truncate (Thai clips mid-word). */}
-                          <span className="line-clamp-2 block text-base font-bold tracking-tight break-words text-slate-900">
-                            {group.deliverable.name}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="line-clamp-2 block text-sm font-medium break-words text-zinc-600">
-                          ยังไม่จัดกลุ่ม
-                        </span>
-                      )}
-                    </span>
-                    <span className="flex shrink-0 flex-col items-end gap-1">
-                      <StatusPill pillClasses={workPackageStatusPillClasses(progress.status)}>
-                        {WORK_PACKAGE_STATUS_LABEL[progress.status]}
-                      </StatusPill>
-                      <span className="text-xs text-zinc-600">
-                        {progress.completeCount}/{progress.totalCount} รายการ
+    <div className="flex flex-col gap-3">
+      {groups.map((group) => {
+        const key = group.deliverable?.id ?? UNGROUPED_KEY;
+        const isOpen = expanded.has(key);
+        const progress =
+          progressByKey.get(key) ??
+          deriveDeliverableProgress(group.workPackages.map((wp) => wp.status));
+        const groupName = group.deliverable?.name ?? "ยังไม่จัดกลุ่ม";
+        const contentId = `wp-group-${key}`;
+        return (
+          <section
+            key={key}
+            className="rounded-card border-edge bg-card shadow-card overflow-hidden border"
+          >
+            <button
+              type="button"
+              onClick={() => onToggle(key)}
+              aria-expanded={isOpen}
+              aria-controls={contentId}
+              className="border-attn bg-sunk focus-visible:ring-action flex min-h-12 w-full cursor-pointer flex-col gap-2 border-l-4 px-4 py-3 text-left transition-colors hover:brightness-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset"
+            >
+              <span className="flex w-full items-center gap-3">
+                <ChevronRight
+                  aria-hidden
+                  className={`text-ink-secondary size-4 shrink-0 transition-transform motion-reduce:transition-none ${
+                    isOpen ? "rotate-90" : ""
+                  }`}
+                />
+                <span className="min-w-0 flex-1">
+                  {group.deliverable ? (
+                    <>
+                      <span className="text-meta text-ink-secondary font-mono font-semibold">
+                        {group.deliverable.code}
                       </span>
+                      <span className="text-heading text-ink line-clamp-2 block font-bold tracking-tight break-words">
+                        {group.deliverable.name}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-body text-ink-secondary line-clamp-2 block font-semibold break-words">
+                      ยังไม่จัดกลุ่ม
                     </span>
+                  )}
+                </span>
+                <span className="flex shrink-0 flex-col items-end gap-1">
+                  <StatusPill pillClasses={workPackageStatusPillClasses(progress.status)}>
+                    {WORK_PACKAGE_STATUS_LABEL[progress.status]}
+                  </StatusPill>
+                  <span className="text-meta text-ink-secondary">
+                    {progress.completeCount}/{progress.totalCount} รายการ
                   </span>
-                  <span
-                    role="progressbar"
-                    aria-valuenow={progress.percent}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-label={`${groupName} — เสร็จแล้ว ${progress.percent}%`}
-                    className="block h-1 w-full overflow-hidden rounded-full bg-zinc-200"
-                  >
-                    <span
-                      className="block h-full rounded-full bg-emerald-600 transition-[width] motion-reduce:transition-none"
-                      style={{ width: `${progress.percent}%` }}
+                </span>
+              </span>
+              <span
+                role="progressbar"
+                aria-valuenow={progress.percent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={`${groupName} — เสร็จแล้ว ${progress.percent}%`}
+                className="bg-edge block h-1.5 w-full overflow-hidden rounded-full"
+              >
+                <span
+                  className="bg-done block h-full rounded-full transition-[width] motion-reduce:transition-none"
+                  style={{ width: `${progress.percent}%` }}
+                />
+              </span>
+            </button>
+            {isOpen ? (
+              <ul id={contentId} className="border-edge flex flex-col gap-2.5 border-t p-3">
+                {group.workPackages.map((wp) => (
+                  <li key={wp.id}>
+                    <WorklistRow
+                      projectId={projectId}
+                      wp={toRowItem(wp as WorkPackageListItem)}
+                      spine={ACTION_BAND_META[deriveActionBand(wp.status)].spine}
+                      compact
                     />
-                  </span>
-                </button>
-                {isOpen ? (
-                  <ul id={contentId} className="divide-y divide-zinc-100 border-t border-zinc-200">
-                    {group.workPackages.map((wp) => (
-                      <li key={wp.id}>{rowLink(wp, true)}</li>
-                    ))}
-                  </ul>
-                ) : null}
-              </section>
-            );
-          })}
-        </div>
-      )}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </section>
+        );
+      })}
     </div>
   );
 }

@@ -1,21 +1,20 @@
-// PhaseProgressBar (spec 54): three segments under the WP detail header
-// — emerald = phase passed, amber = current phase, zinc = not reached —
-// captioned with the done-count and the current phase label. Pure
-// presentation over derivePhaseProgress; server-renderable.
+// PhaseProgressBar (spec 54): three segments — emerald = phase passed,
+// amber = current phase, sunk = not reached — captioned with the
+// done-count and the current phase label. Pure presentation over
+// derivePhaseProgress; server-renderable.
 //
-// Spec 67 token canon: positive/done = emerald (was an off-palette
-// green-600); current/in-progress = amber (was blue-700, the hue the
-// doctrine reserves for links/active-nav only — a non-tappable bar must
-// not wear the tappable colour).
+// Field-First: segments thickened to h-2.5 for outdoor legibility;
+// canon colours (positive=emerald, current=amber, NEVER blue-700 which
+// is reserved for links/active-nav) now resolve through tokens.
 
 import { derivePhaseProgress, PHASE_ORDER } from "@/lib/photos/phase-progress";
 import type { PhotoPhase } from "@/lib/photos/phase-progress";
 import { PHOTO_PHASE_LABEL } from "@/lib/i18n/labels";
 
 const SEGMENT_CLASS = {
-  complete: "bg-emerald-600",
-  current: "bg-amber-500",
-  empty: "bg-zinc-200",
+  complete: "bg-done",
+  current: "bg-attn",
+  empty: "bg-sunk",
 } as const;
 
 interface PhaseProgressBarProps {
@@ -30,14 +29,14 @@ export function PhaseProgressBar({ counts }: PhaseProgressBarProps) {
         {progress.segments.map((segment, i) => (
           <span
             key={PHASE_ORDER[i] ?? i}
-            className={`h-1.5 flex-1 rounded-full ${SEGMENT_CLASS[segment]}`}
+            className={`h-2.5 flex-1 rounded-full ${SEGMENT_CLASS[segment]}`}
           />
         ))}
       </div>
-      <p className="text-sm text-zinc-700">
+      <p className="text-body text-ink-secondary">
         ความคืบหน้ารูปถ่าย{" "}
-        <span className="font-bold text-zinc-900">{progress.doneCount} จาก 3 ช่วง</span>
-        <span className="mx-1.5 text-zinc-400">·</span>
+        <span className="text-ink font-bold">{progress.doneCount} จาก 3 ช่วง</span>
+        <span className="text-ink-muted mx-1.5">·</span>
         ช่วงปัจจุบัน: {PHOTO_PHASE_LABEL[progress.currentPhase]}
       </p>
     </div>

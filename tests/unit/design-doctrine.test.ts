@@ -1,70 +1,112 @@
-// Spec 67 — anti-drift pins for the design doctrine. The design-critique
-// found six places where the CODE contradicted the team's OWN written
-// rules, surviving because nothing enforced them and the one-operator
-// look-loop checks the one config where none of it shows. These read the
-// source and make each fixed flaw a RED TEST instead of a thing a human
-// has to spot.
+// Anti-drift doctrine — source-grep invariants that must hold across the
+// app's tsx. Unit 1 (revised) updates these to match the Field-First
+// output (test path (b): the design changed the output, so the assertions
+// follow). Each invariant encodes a sun-readability / Thai / WP-identity
+// rule that the redesign keeps.
+
 import { describe, expect, it } from "vitest";
-import { readFileSync, readdirSync, statSync } from "fs";
-import { join, resolve } from "path";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
 
-const ROOT = process.cwd();
-const SRC = resolve(ROOT, "src");
+const SRC = join(process.cwd(), "src");
 
-function read(rel: string): string {
-  return readFileSync(resolve(ROOT, rel), "utf8");
-}
-
-function srcFiles(dir = SRC): string[] {
+// Scan BOTH .ts and .tsx — colour/utility strings live in .ts too (e.g.
+// lib/work-packages/action-bands.ts), so a .tsx-only walk would miss drift.
+function walkSrc(dir: string): string[] {
   const out: string[] = [];
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
-    if (statSync(p).isDirectory()) out.push(...srcFiles(p));
-    else if (/\.(ts|tsx)$/.test(name)) out.push(p);
+    if (statSync(p).isDirectory()) out.push(...walkSrc(p));
+    else if (name.endsWith(".ts") || name.endsWith(".tsx")) out.push(p);
   }
   return out;
 }
 
-const ALL = srcFiles().map((f) => ({
-  rel: f.slice(ROOT.length + 1),
-  src: readFileSync(f, "utf8"),
+const sources = walkSrc(SRC).map((abs) => ({
+  rel: relative(SRC, abs),
+  text: readFileSync(abs, "utf8"),
 }));
+const allSrc = sources.map((f) => f.text).join("\n");
 
-const WP_LIST = "src/app/projects/[projectId]/work-package-list.tsx";
-const PHASE_BAR = "src/components/features/phase-progress-bar.tsx";
+describe("design doctrine (Field-First)", () => {
+  // Positive/done hue is emerald, encoded as the `done` token — never a
+  // raw green-* literal anywhere in src.
+  it("uses no green-* colour literals (emerald is the `done` token)", () => {
+    const offenders = sources.filter((f) => /\b(?:bg|text|border|ring)-green-\d/.test(f.text));
+    expect(offenders.map((f) => f.rel)).toEqual([]);
+  });
 
-describe("design doctrine (spec 67 anti-drift pins)", () => {
-  it("no window.confirm() call anywhere in src (§7 — use ConfirmDialog)", () => {
-    const offenders = ALL.filter((c) => /window\.confirm\s*\(/.test(c.src)).map((c) => c.rel);
+  // Gloved-hands tap floor (spec 18/36): no sub-44px min-h-9 interactive
+  // control anywhere in src. Restored — the reskin had dropped this pin,
+  // letting the capture-sheet retry/remove buttons shrink to 36px.
+  it("has no sub-44px min-h-9 control (the gloved-hands tap floor)", () => {
+    const offenders = sources.filter((f) => /\bmin-h-9\b/.test(f.text)).map((f) => f.rel);
     expect(offenders).toEqual([]);
   });
 
-  it("no off-palette green-* utility (positive hue is emerald)", () => {
-    const offenders = ALL.filter((c) => /\b(?:bg|text|border|ring)-green-\d/.test(c.src)).map(
-      (c) => c.rel,
-    );
-    expect(offenders).toEqual([]);
+  // Canon: the phase progress bar's current segment is amber, never the
+  // reserved link/active-nav blue. Restored from the spec-67 pin set.
+  it("the phase progress bar never uses the reserved link blue", () => {
+    const bar = readFileSync(join(SRC, "components/features/phase-progress-bar.tsx"), "utf8");
+    expect(bar).not.toMatch(/bg-blue-700/);
   });
 
-  it("no sub-44px min-h-9 control (the gloved-hands tap floor, §7)", () => {
-    const offenders = ALL.filter((c) => /\bmin-h-9\b/.test(c.src)).map((c) => c.rel);
-    expect(offenders).toEqual([]);
+  // WP / subject identity stays full and primary: DETAIL_TITLE carries an
+  // explicit leading- class (Thai tone-mark spacing) and never truncates.
+  it("DETAIL_TITLE is display-tier, line-controlled, never truncated", () => {
+    const classes = readFileSync(join(SRC, "lib/ui/classes.ts"), "utf8");
+    const match = classes.match(/DETAIL_TITLE\s*=\s*"([^"]+)"/);
+    expect(match).not.toBeNull();
+    const value = match![1];
+    expect(value).toContain("text-display");
+    expect(value).toMatch(/\bleading-/);
+    expect(value).not.toContain("truncate");
   });
 
-  it("the WP-list group header line-clamps, never single-line truncates (spec 57)", () => {
-    const src = read(WP_LIST);
-    expect(src).not.toMatch(/block truncate/);
-    expect(src).toMatch(/line-clamp-2/);
+  // Worklist + deliverable names wrap (line-clamp), never single-line
+  // truncate (Thai clips mid-word — spec 57).
+  it("the worklist row name clamps, never truncates", () => {
+    const row = readFileSync(join(SRC, "components/features/worklist-row.tsx"), "utf8");
+    expect(row).toMatch(/line-clamp-\d/);
+    expect(row).not.toMatch(/\btruncate\b/);
   });
 
-  it("DETAIL_TITLE carries explicit leading (Thai wrapping-heading)", async () => {
-    const { DETAIL_TITLE } = await import("@/lib/ui/classes");
-    expect(DETAIL_TITLE).toMatch(/\bleading-/);
+  // Action-blue (the link/active-nav hue) is EXCLUSIVE: the amber capture
+  // action and the current-phase cue must not borrow it. The hero capture
+  // button is the amber token, not bg-action / bg-fill.
+  it("the capture hero is the amber token, not action-blue", () => {
+    const classes = readFileSync(join(SRC, "lib/ui/classes.ts"), "utf8");
+    const match = classes.match(/BUTTON_CAPTURE\s*=\s*"([^"]+)"/);
+    expect(match).not.toBeNull();
+    const value = match![1];
+    expect(value).toContain("bg-attn");
+    expect(value).not.toContain("bg-action");
   });
 
-  it("the phase progress bar's current segment is not the reserved link blue", () => {
-    const src = read(PHASE_BAR);
-    expect(src).not.toMatch(/current:\s*"bg-blue-700"/);
-    expect(src).not.toMatch(/bg-blue-700/);
+  // The critical-path badge is RESERVED but defined: the slot exists in
+  // source (style-pinned) even though isCritical is false for all WPs
+  // today. Guards against the slot being dropped before the engine lands.
+  it("reserves the critical-path badge slot", () => {
+    const row = readFileSync(join(SRC, "components/features/worklist-row.tsx"), "utf8");
+    expect(row).toContain("isCritical");
+    expect(row).toContain("CRITICAL_BADGE");
+  });
+
+  // No window.confirm anywhere — destructive actions use the themed
+  // ConfirmDialog (spec 18).
+  it("uses no window.confirm in src", () => {
+    // The doctrine bans the native window.confirm (destructive actions use
+    // the themed ConfirmDialog — spec 18). A bare `confirm(` would also catch
+    // the legit `function confirm()` helper in confirm-action-button.tsx, so
+    // pin the actual offender: the global call form.
+    expect(/\bwindow\.confirm\s*\(/.test(allSrc)).toBe(false);
+  });
+
+  // Tap targets: the capture shutter + hero bar hold the ≥44px floor (the
+  // hero bar is h-16 = 64px; the shutter is h-26/w-26 = 104px).
+  it("the capture hero bar is at least 44px tall", () => {
+    const classes = readFileSync(join(SRC, "lib/ui/classes.ts"), "utf8");
+    const match = classes.match(/BUTTON_CAPTURE\s*=\s*"([^"]+)"/);
+    expect(match![1]).toMatch(/\bh-(?:1[1-9]|2\d)\b/);
   });
 });

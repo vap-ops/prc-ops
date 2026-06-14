@@ -1,11 +1,11 @@
-import { cn } from "@/lib/utils";
-
-// The status pill every list row and header renders (spec 17). Palette
-// classes come from the typed helpers in src/lib/status-colors.ts (or
-// a label-specific map); this component owns the shared geometry.
+// StatusPill (spec 20): the app's status semantics carrier. The colour
+// TRIO (hue) comes from status-colors.ts and is FROZEN — it encodes
+// meaning. Field-First changes only the GEOMETRY (the pixels): bolder
+// 1.5px border, a touch more weight, so the fill reads at arm's length
+// in glare. Semantics untouched; this is a pure re-skin of the wrapper.
 
 interface StatusPillProps {
-  /** Palette classes from status-colors.ts (border/bg/text trio). */
+  /** Frozen colour trio from status-colors.ts (bg/border/text). */
   pillClasses: string;
   className?: string;
   children: React.ReactNode;
@@ -14,11 +14,9 @@ interface StatusPillProps {
 export function StatusPill({ pillClasses, className, children }: StatusPillProps) {
   return (
     <span
-      className={cn(
-        "shrink-0 rounded-full border px-3 py-1 text-sm font-semibold",
-        pillClasses,
-        className,
-      )}
+      className={`text-meta inline-flex shrink-0 items-center rounded-full border-[1.5px] px-2.5 py-1 leading-none font-bold whitespace-nowrap ${pillClasses}${
+        className ? ` ${className}` : ""
+      }`}
     >
       {children}
     </span>

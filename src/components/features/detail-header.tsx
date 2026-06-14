@@ -1,9 +1,9 @@
-// DetailHeader (spec 63): THE sticky detail-header shell — back chip
-// (spec 54/55), refresh (spec 53), sticky chrome (spec 62), optional
-// action chips, title block as children. Every detail page renders
-// this component, so a design change here reaches all of them by
-// default (the operator's consolidation mandate). Server component;
-// only RefreshButton inside is client.
+// DetailHeader (spec 63): THE sticky detail-header shell — back chip,
+// refresh, optional action chips, the nameplate block as children.
+// Field-First: token-rewired (border-edge / bg-card), structure +
+// behavior unchanged. The nameplate (children) carries the WP/subject
+// identity at the display tier — see DETAIL_TITLE.
+// Server component; only RefreshButton inside is client.
 
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -16,14 +16,14 @@ interface DetailHeaderProps {
   backLabel: string;
   /** Extra header chips (gear, reports, …) rendered left of refresh. */
   actions?: React.ReactNode;
-  /** The title block: code line, h1, meta lines. */
+  /** The nameplate block: code line, h1, meta lines. */
   children: React.ReactNode;
 }
 
 export function DetailHeader({ backHref, backLabel, actions, children }: DetailHeaderProps) {
   return (
     // Spec 62 z-stack: headers 20 < queue banner 30 < tab bar 40 < scrims 50.
-    <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white px-5 py-4">
+    <header className="border-edge bg-card sticky top-0 z-20 border-b px-5 py-4">
       <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-3`}>
         <div className="flex items-center justify-between gap-3">
           <Link href={backHref} aria-label={backLabel} className={ICON_CHIP}>

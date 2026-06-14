@@ -115,6 +115,10 @@ form screens at `max-w-md`.
   iOS bounce. Variants: `app` (content pages), `card` (single-card
   screens), `bare`. Hand-rolling a `<main>` is a review reject.
 - The `app` variant's `pb-20 sm:pb-0` clears the phone tab bar.
+- **Exception — WP detail (Field-First reskin Unit 1):** the WP detail page
+  omits `BottomTabBar`; the fixed amber capture bar owns the thumb zone and the
+  back chip is the return nav. The only screen exempt from the bottom-tabs
+  contract.
 - Back link: `text-xs font-medium text-blue-700 hover:underline`, text
   `← {ชื่อหน้าก่อนหน้า}` (back-nav targets are locked behavior, spec 12).
 - Title: `text-xl font-semibold tracking-tight`; code above it in
@@ -185,6 +189,8 @@ shadow-sm` (rows min-h-16).
   `pb-[env(safe-area-inset-bottom)]`; active tab `text-blue-700` with top
   indicator bar; longest-prefix-wins matching. SA tabs: โครงการ / คำขอซื้อ /
   โปรไฟล์. PM tabs: รอตรวจ / โครงการ / คำขอซื้อ / โปรไฟล์.
+  **Rendered on every screen EXCEPT WP detail** (Field-First reskin Unit 1),
+  where the fixed capture bar takes the thumb zone instead.
 
 ## 7. Controls and forms
 

@@ -29,8 +29,8 @@ describe("AttentionCard", () => {
         x
       </AttentionCard>,
     );
-    expect(amber.firstElementChild?.className).toContain("border-l-amber");
-    expect(red.firstElementChild?.className).toContain("border-l-red");
+    expect(amber.firstElementChild?.className).toContain("border-l-attn");
+    expect(red.firstElementChild?.className).toContain("border-l-danger");
   });
 
   it("is an alert region (role=alert) — same contract as the strip it replaces", () => {

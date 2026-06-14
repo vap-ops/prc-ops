@@ -2,6 +2,11 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ------------------------------------------------------------------ */
+/* shadcn primitive tokens — UNCHANGED. The ui/* primitives           */
+/* (input/textarea/skeleton) still reference these until retired.     */
+/* The app's own theme lives in the PRC OPS block below.              */
+/* ------------------------------------------------------------------ */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -22,11 +27,6 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -56,35 +56,116 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
 }
 
-/* Spec 67: the dead `.dark` palette was removed. The app is sun-mode
-   light by design (§3) — `.dark` is never set, color-scheme:light blocks
-   force-dark, and these tokens redefined a theme that could never apply. */
+/* ================================================================== */
+/* PRC OPS — FIELD-FIRST DESIGN TOKENS (Unit 1, revised)              */
+/*                                                                    */
+/* THE single source of truth. Worklist triage, the shutter sheet,    */
+/* the nameplate, every surface/ink/status/radius/shadow/type        */
+/* decision resolves here. Components consume token utilities         */
+/* (bg-card, text-ink, rounded-card, shadow-up, text-display, …) —    */
+/* never a raw Tailwind color literal. Re-theming = editing THIS      */
+/* block (e.g. a future night-shift palette overrides :root).         */
+/*                                                                    */
+/* Sun floors (spec 20) preserved; ratios noted vs. the surface the   */
+/* token sits on.                                                     */
+/* ================================================================== */
+@theme {
+  /* --- Surfaces ---------------------------------------------------- */
+  --color-page: oklch(0.962 0.003 247); /* ≈ #eef0f3 cool ground — cards read as figure */
+  --color-card: oklch(1 0 0); /* #ffffff — max sun emission */
+  --color-sunk: oklch(0.968 0.002 247); /* ≈ #f1f3f5 inset rows / sub-panels */
+  --color-edge: oklch(0.92 0.003 247); /* ≈ #e3e5e9 card hairline */
+  --color-edge-strong: oklch(
+    0.69 0.008 256
+  ); /* ≈ #9aa0aa field/control border — WCAG 1.4.11 ≥3:1 */
+
+  /* --- Ink (spec 20 floors) --------------------------------------- */
+  --color-ink: oklch(0.2 0.006 264); /* ≈ #15161a  ~16:1 on card */
+  --color-ink-secondary: oklch(0.43 0.01 264); /* ≈ #4b4f57  ~7.4:1 on card */
+  --color-ink-muted: oklch(0.69 0.008 256); /* ≈ #9aa0aa  dividers / placeholder / disabled ONLY */
+
+  /* --- Brand band (the one dark surface) -------------------------- */
+  --color-brand: oklch(0.23 0.04 264); /* ≈ #0f172a slate-900 — white ink ~17:1 */
+  --color-brand-2: oklch(0.31 0.045 264); /* ≈ #1e293b slate-800 */
+  --color-on-brand: oklch(1 0 0);
+
+  /* --- Action vs fill (EXCLUSIVE, spec 20) ------------------------ */
+  --color-action: oklch(0.49 0.21 264); /* ≈ #1d4ed8 blue-700 — links + active-nav ONLY */
+  --color-fill: oklch(0.23 0.04 264); /* ≈ #0f172a slate-900 — neutral primary fills */
+  --color-fill-press: oklch(0.31 0.045 264); /* ≈ #1e293b slate-800 */
+  --color-on-fill: oklch(1 0 0);
+
+  /* --- Attention / signature amber (the field-action hue) --------- */
+  --color-attn: oklch(0.77 0.16 70); /* ≈ #f59e0b amber-500 — spines, capture, shutter */
+  --color-attn-press: oklch(0.62 0.16 55); /* ≈ #b4750b amber-700 — pressed/underside */
+  --color-attn-soft: oklch(0.985 0.03 90); /* ≈ #fff7e6 amber-50 — band/chip ground */
+  --color-attn-edge: oklch(0.85 0.13 85); /* ≈ #fcd34d amber-300 */
+  --color-attn-ink: oklch(0.39 0.08 60); /* ≈ #6b3a06 amber-900 — text on amber-soft ~7:1 */
+  --color-on-attn: oklch(0.18 0.02 60); /* ≈ #1a1205 near-black ink ON amber fill ~10:1 */
+
+  /* --- Waiting / review (sky — distinct from action-blue) --------- */
+  --color-wait: oklch(0.5 0.13 245); /* ≈ #0369a1 sky-800 — review spine/band */
+  --color-wait-soft: oklch(0.97 0.02 240); /* ≈ #eff8ff sky-50 */
+  --color-wait-edge: oklch(0.82 0.1 235); /* ≈ #7dd3fc sky-300 */
+
+  /* --- Done / positive (emerald canon — NEVER green-*) ------------ */
+  --color-done: oklch(0.6 0.13 163); /* ≈ #059669 emerald-600 */
+  --color-done-strong: oklch(0.52 0.12 163); /* ≈ #047857 emerald-700 — discs, white ink ~5.4:1 */
+  --color-done-soft: oklch(0.97 0.03 165); /* ≈ #ecfdf5 emerald-50 */
+
+  /* --- Danger ----------------------------------------------------- */
+  --color-danger: oklch(0.58 0.22 27); /* ≈ #dc2626 red-600 */
+  --color-danger-soft: oklch(0.97 0.015 17); /* ≈ #fef2f2 red-50 */
+  --color-danger-edge: oklch(0.8 0.1 20); /* ≈ #fca5a5 red-300 */
+  --color-danger-ink: oklch(0.4 0.13 25); /* ≈ #7f1d1d red-900 */
+
+  /* --- Radii ------------------------------------------------------ */
+  --radius-card: 1rem; /* 16px → rounded-card (worklist rows, panels) */
+  --radius-control: 0.75rem; /* 12px → rounded-control (inputs/buttons/chips) */
+  --radius-sheet: 1.5rem; /* 24px → the shutter sheet top corners */
+
+  /* --- Elevation (defined shadows + kept hairline; sun-safe) ------ */
+  --shadow-input: 0 1px 2px 0 rgb(16 24 40 / 0.05);
+  --shadow-card: 0 1px 2px 0 rgb(16 24 40 / 0.06), 0 1px 3px 0 rgb(16 24 40 / 0.1);
+  --shadow-up: 0 -6px 24px -8px rgb(16 24 40 / 0.18); /* bottom-anchored capture bar */
+  --shadow-pop: 0 12px 32px -8px rgb(16 24 40 / 0.28); /* the shutter sheet */
+
+  /* --- Type ramp (Sarabun; Thai-tuned leading baked into each step  */
+  /*     so stacked tone marks never crowd — spec 67 made systemic) - */
+  --text-display: 1.75rem; /* WP / project nameplate — the hero */
+  --text-display--line-height: 2.125rem;
+  --text-display--font-weight: 800;
+  --text-title: 1.375rem; /* secondary titles */
+  --text-title--line-height: 1.8rem;
+  --text-title--font-weight: 700;
+  --text-heading: 1.125rem; /* card / block headings */
+  --text-heading--line-height: 1.6rem;
+  --text-heading--font-weight: 700;
+  --text-section: 1rem; /* zone / band heading */
+  --text-section--line-height: 1.5rem;
+  --text-section--font-weight: 700;
+  --text-body: 0.9375rem; /* body — 15px, comfortable outdoors */
+  --text-body--line-height: 1.5rem;
+  --text-meta: 0.8125rem; /* meta — 13px, the floor for real text */
+  --text-meta--line-height: 1.2rem;
+}
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   html {
-    /* Spec 20: the app is sun-mode light by design. Declaring the
-       scheme opts out of Chrome Android's force-dark ("also darken
-       websites") auto-inversion, which would re-darken the UI. */
+    /* Spec 20: sun-mode light by design — opt out of force-dark. */
     color-scheme: light;
-    /* Spec 77 (app-feel slice 2): kill the grey iOS tap-flash so our own
-       :active press states are what the user sees on touch. */
+    /* Spec 77: kill the grey iOS tap-flash; our :active states win. */
     -webkit-tap-highlight-color: transparent;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-page text-ink;
   }
-  /* Spec 77: instant taps — drop the legacy ~300ms double-tap-zoom delay on
-     every control so a tap registers immediately (the core native feel). */
+  /* Spec 77: instant taps — drop the ~300ms double-tap-zoom delay. */
   a,
   button,
   summary,
@@ -94,10 +175,7 @@
   }
 }
 
-/* Spec 76 (app-feel slice 1) — toast enter motion. Motion is OPT-IN per the
-   prefers-reduced-motion: no-preference pattern: the base .toast-item appears
-   instantly (the safe reduced-motion default), and only motion-OK users get
-   the slide+fade. CSS animations are fully supported on iOS WebKit. */
+/* Spec 76 — toast enter. OPT-IN per prefers-reduced-motion. */
 @keyframes toast-in {
   from {
     opacity: 0;
@@ -108,15 +186,13 @@
     transform: translateY(0);
   }
 }
-
 @media (prefers-reduced-motion: no-preference) {
   .toast-item {
     animation: toast-in 180ms ease-out;
   }
 }
 
-/* Spec 78 (app-feel slice 4) — bottom-sheet slide-up. Base = motion-free
-   (instant, the reduced-motion-safe default); motion-OK users get the slide. */
+/* Spec 78 — bottom-sheet / shutter-sheet slide-up. Base = motion-free. */
 @keyframes sheet-up {
   from {
     transform: translateY(100%);
@@ -125,9 +201,29 @@
     transform: translateY(0);
   }
 }
-
 @media (prefers-reduced-motion: no-preference) {
   .sheet-panel {
     animation: sheet-up 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+}
+
+/* Field-First — the shutter's idle "ready to capture" pulse. Decorative,
+   motion-OK only; the button is fully usable with motion off. */
+@keyframes shutter-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 3px var(--color-attn),
+      0 10px 24px -6px rgb(180 117 11 / 0.6);
+  }
+  50% {
+    box-shadow:
+      0 0 0 9px rgb(245 158 11 / 0.22),
+      0 10px 24px -6px rgb(180 117 11 / 0.6);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .shutter-live {
+    animation: shutter-pulse 2.4s ease-in-out infinite;
   }
 }

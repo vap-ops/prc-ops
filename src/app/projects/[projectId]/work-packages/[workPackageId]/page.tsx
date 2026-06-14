@@ -8,8 +8,8 @@ import { projectHref, workPackageHref } from "@/lib/nav/project-paths";
 import { createClient } from "@/lib/db/server";
 import { getCurrentPhotosForWorkPackage, type PhotoLogRow } from "@/lib/photos/current-photos";
 import { latestCreatedAt, PHASES } from "@/lib/photos/phases";
+import { derivePhaseProgress } from "@/lib/photos/phase-progress";
 import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
-import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { StatusPill } from "@/components/features/status-pill";
 import { DetailHeader } from "@/components/features/detail-header";
 import { PurchaseRequestCard } from "@/components/features/purchase-request-card";
@@ -35,7 +35,7 @@ import { PurchaseRequestForm } from "@/components/features/purchase-request-form
 import { SitePurchaseForm } from "@/components/features/site-purchase-form";
 import { LaborLogZone } from "@/components/features/labor-log-zone";
 import { fetchLaborZoneData } from "@/lib/labor/fetch-zone-data";
-import { PhaseUploader } from "./phase-uploader";
+import { PhotoCaptureZone } from "./phase-uploader";
 
 interface PageProps {
   params: Promise<{ projectId: string; workPackageId: string }>;
@@ -58,8 +58,6 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
     notFound();
   }
 
-  // Spec 31 / ADR 0033: WP owner = contractor entity (outsider crew).
-  // One read serves both the header line and the assignment picker.
   const { data: contractorRows } = await supabase
     .from("contractors")
     .select("id, name, phone, status")
@@ -68,9 +66,6 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
   const assignedContractor = wp.contractor_id
     ? (contractors.find((c) => c.id === wp.contractor_id) ?? null)
     : null;
-  // Spec 89: blacklisted contractors are hidden from the assignment picker, but
-  // a WP already owned by a now-blacklisted contractor still lists its owner
-  // (never blank an existing assignment).
   const pickerContractors = contractors
     .filter((c) => c.status !== "blacklisted" || c.id === wp.contractor_id)
     .map(({ id, name, phone }) => ({ id, name, phone }));
@@ -88,15 +83,8 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
       ? latestDecision
       : null;
 
-  // Spec-31 amendment: every role this page admits may manage
-  // contractors (field staff included) — the RPC enforces server-side.
   const isAssigner = true;
 
-  // Spec 25: this WP's purchase requests render inline — the operator's
-  // "delivery status must show inside each WP, not having to go to the
-  // request page." Same RLS-decided visibility as /requests. Spec 47
-  // amendment: rows render through PurchaseRequestCard (tap opens
-  // /requests/[id]), so the select carries the card's full prop set.
   const { data: wpRequests } = await supabase
     .from("purchase_requests")
     .select(
@@ -105,8 +93,6 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
     .eq("work_package_id", wp.id)
     .order("requested_at", { ascending: false });
 
-  // One display-name lookup serves the approval history AND the request
-  // cards' requester lines.
   const nameIds = Array.from(
     new Set(
       [
@@ -117,12 +103,8 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
   );
   const displayNames = await fetchDisplayNames(nameIds, "[wp-detail]");
 
-  // Spec 54: the chip counts rows actually waiting on a PM decision
-  // (mockup label คำขอซื้อรออนุมัติ) — replaces the old open-count line.
   const requestedCount = (wpRequests ?? []).filter((r) => r.status === "requested").length;
 
-  // Spec 46: labor capture data (presence-only — the helper's explicit
-  // column lists are the app-layer half of the money posture).
   const labor = await fetchLaborZoneData(supabase, wp.id);
 
   const photosByPhase = await getCurrentPhotosForWorkPackage(supabase, wp.id);
@@ -133,16 +115,39 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
   ];
   const signedUrls = await mintSignedUrlsForPhotos(allPhotos);
 
+  // Field-First: one capture zone for all three phases; the shutter opens
+  // pre-set to the current phase (server-derived from the same progress
+  // helper the bar uses).
+  const phaseCounts = {
+    before: photosByPhase.before.length,
+    during: photosByPhase.during.length,
+    after: photosByPhase.after.length,
+  };
+  const currentPhase = derivePhaseProgress(phaseCounts).currentPhase;
+  const phaseData = PHASES.map(({ phase, label }) => {
+    const rows = photosByPhase[phase];
+    const latest = latestCreatedAt(rows);
+    return {
+      phase,
+      label,
+      photos: rows.map((p) => ({
+        id: p.id,
+        url: signedUrls.get(p.id) ?? null,
+        timeLabel: formatThaiTime(p.captured_at_client ?? p.created_at),
+      })),
+      lastUpdatedLabel: latest ? formatThaiTime(latest) : null,
+    };
+  });
+
   return (
     <PageShell>
-      <BottomTabBar role={ctx.role} />
-      {/* Spec 54 header (operator mockup) via the spec-63 shell; the
-          progress band below scrolls. */}
+      {/* Field-First: the tab bar gives way to the thumb-anchored capture
+          bar on this detail screen; the back chip handles return nav. */}
       <DetailHeader backHref={projectHref(projectId)} backLabel="กลับไปรายการงาน">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-mono text-xs text-zinc-600">{wp.code}</p>
-            {/* Spec 57: WP name never truncates — full wrap. */}
+            <p className="text-meta text-ink-secondary font-mono">{wp.code}</p>
+            {/* Spec 57: WP name never truncates — the nameplate. */}
             <h1 className={DETAIL_TITLE}>{wp.name}</h1>
           </div>
           <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)} className="mt-1">
@@ -152,20 +157,17 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
         </div>
         {assignedContractor ? (
           <>
-            <p className="text-xs text-zinc-600">
-              ผู้รับเหมา{" "}
-              <span className="font-medium text-zinc-900">{assignedContractor.name}</span>
+            <p className="text-meta text-ink-secondary">
+              ผู้รับเหมา <span className="text-ink font-semibold">{assignedContractor.name}</span>
               {assignedContractor.phone ? (
                 <>
-                  <span className="mx-1 text-zinc-400">·</span>
-                  <a href={`tel:${assignedContractor.phone}`} className="text-blue-700">
+                  <span className="text-ink-muted mx-1">·</span>
+                  <a href={`tel:${assignedContractor.phone}`} className="text-action font-semibold">
                     {assignedContractor.phone}
                   </a>
                 </>
               ) : null}
             </p>
-            {/* Re-assignment stays reachable once assigned — the
-                  attention card (below) only carries the UNASSIGNED case. */}
             {isAssigner ? (
               <WpAssignmentPanel
                 projectId={wp.project_id}
@@ -178,20 +180,14 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
         ) : null}
       </DetailHeader>
 
-      <div className="border-b border-zinc-200 bg-white px-5 py-3">
+      <div className="border-edge bg-card border-b px-5 py-3">
         <div className={`mx-auto ${PAGE_MAX_W}`}>
-          <PhaseProgressBar
-            counts={{
-              before: photosByPhase.before.length,
-              during: photosByPhase.during.length,
-              after: photosByPhase.after.length,
-            }}
-          />
+          <PhaseProgressBar counts={phaseCounts} />
         </div>
       </div>
 
-      {/* Spec 54 attention stack: PM decision feedback, the unassigned-
-          contractor card (mockup), and the pending-requests chip. */}
+      {/* Attention stack: PM decision feedback, the unassigned-contractor
+          card, and the pending-requests chip. */}
       {attention || !assignedContractor || requestedCount > 0 ? (
         <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-3 px-5 pt-5`}>
           {attention ? (
@@ -199,7 +195,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
               tone={attention.decision === "rejected" ? "red" : "amber"}
               title={APPROVAL_DECISION_LABEL[attention.decision]}
             >
-              <p className="text-xs text-zinc-600">
+              <p className="text-meta text-ink-secondary">
                 {displayNames.get(attention.decided_by) ?? "—"} ·{" "}
                 {formatThaiDateTime(attention.decided_at)}
               </p>
@@ -225,173 +221,142 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
         </div>
       ) : null}
 
-      {/* Spec 28 Part C: single column on phones (photos first — the
-          SA's job); ≥md two columns — photos wide left, facts right.
-          max width steps up to 4xl ONLY at md so phones keep the
-          familiar 2xl measure. */}
+      {/* HERO — capture is the page's primary job. */}
+      <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
+        <h2 className="border-ink text-section text-ink mb-3 flex items-center gap-2 border-b-2 pb-1 font-bold">
+          <Camera aria-hidden className="text-action size-5" />
+          รูปถ่ายงาน
+        </h2>
+        <PhotoCaptureZone
+          projectId={wp.project_id}
+          workPackageId={wp.id}
+          userId={ctx.id}
+          phases={phaseData}
+          currentPhase={currentPhase}
+        />
+      </section>
+
+      {/* Progressive disclosure: everything read-heavy folds below the
+          hero. Order = the SA's frequency (purchases, then labor, then
+          reference info). */}
       <div
-        className={`mx-auto grid ${PAGE_MAX_W} grid-cols-1 gap-6 px-5 py-6 md:grid-cols-[1.6fr_1fr] md:items-start lg:gap-8`}
+        id="wp-requests"
+        className={`mx-auto flex ${PAGE_MAX_W} scroll-mt-4 flex-col gap-4 px-5 pb-6`}
       >
-        <div className="flex min-w-0 flex-col gap-4">
-          {/* Spec 30: zone headers — icon + bold title + rule line so the
-              three content categories read as distinct at a glance. */}
-          <h2 className="flex items-center gap-2 border-b-2 border-zinc-900 pb-1 text-base font-bold text-zinc-900">
-            <Camera aria-hidden className="size-5 text-blue-700" />
-            รูปถ่ายงาน
-          </h2>
-          {PHASES.map(({ phase, label }) => {
-            const rows = photosByPhase[phase];
-            // Spec 54: tile overlay = capture time (client clock when
-            // known, else upload time); sub-line = latest upload time.
-            const latest = latestCreatedAt(rows);
-            return (
-              <PhaseUploader
-                key={phase}
-                projectId={wp.project_id}
-                workPackageId={wp.id}
-                userId={ctx.id}
-                phase={phase}
-                label={label}
-                photos={rows.map((p) => ({
-                  id: p.id,
-                  url: signedUrls.get(p.id) ?? null,
-                  timeLabel: formatThaiTime(p.captured_at_client ?? p.created_at),
-                }))}
-                lastUpdatedLabel={latest ? formatThaiTime(latest) : null}
-              />
-            );
-          })}
-
-          {/* Spec 46: daily crew presence. Field UI is presence-only —
-              rates/costs never reach this page (C3 column grants). */}
-          <h2 className="mt-2 flex items-center gap-2 border-b-2 border-zinc-900 pb-1 text-base font-bold text-zinc-900">
-            <Users aria-hidden className="size-5 text-blue-700" />
-            บันทึกแรงงานรายวัน
-          </h2>
-          <LaborLogZone
-            workPackageId={wp.id}
-            revalidate={workPackageHref(projectId, workPackageId)}
-            roster={labor.roster}
-            rows={labor.rows}
-            showFlags={ctx.role !== "site_admin"}
-            locked={wp.status === "complete"}
-          />
-        </div>
-
-        <div id="wp-requests" className="flex min-w-0 scroll-mt-4 flex-col gap-4">
-          <h2 className="flex items-center gap-2 border-b-2 border-zinc-900 pb-1 text-base font-bold text-zinc-900">
-            <ShoppingCart aria-hidden className="size-5 text-blue-700" />
-            คำขอซื้อ
-          </h2>
-          {/* Spec 29: the create form lives HERE now — raising a request
-              no longer teleports the user to the คำขอซื้อ tab
-              (operator-reported disorientation; site map 2026-06-11).
-              The PM WP review screen (/review/work-packages/[workPackageId])
-              is the remaining in-app producer of /requests?wp= pinned
-              mode. */}
-          <details className={CARD}>
-            <summary className="cursor-pointer text-sm font-semibold text-zinc-900">
-              สร้างคำขอซื้อ
-            </summary>
-            <div className="mt-3">
-              <PurchaseRequestForm
-                workPackage={{ id: wp.id, code: wp.code, name: wp.name }}
-                projectId={wp.project_id}
-                userId={ctx.id}
-              />
-            </div>
-          </details>
-          {/* Spec 66 / ADR 0043: log a cash purchase made on site (no
-              request→approve) and attach its receipt right here. */}
-          <details className={CARD}>
-            <summary className="cursor-pointer text-sm font-semibold text-zinc-900">
-              บันทึกการซื้อหน้างาน
-            </summary>
-            <div className="mt-3">
-              <SitePurchaseForm workPackageId={wp.id} projectId={wp.project_id} />
-            </div>
-          </details>
-          {(wpRequests ?? []).length > 0 ? (
-            <section>
-              {/* Spec 47 amendment (operator: "this is from WP detail
-                  page"): the same slim card as /requests — tap opens the
-                  order detail screen. WP line omitted; this zone IS the
-                  WP context. */}
-              <ul className="flex flex-col gap-2">
-                {(wpRequests ?? []).map((r) => (
-                  <li key={r.id}>
-                    <PurchaseRequestCard
-                      request={{
-                        id: r.id,
-                        pr_number: r.pr_number,
-                        item_description: r.item_description,
-                        quantity: r.quantity,
-                        unit: r.unit,
-                        status: r.status as PurchaseRequestStatus,
-                        priority: r.priority as PurchaseRequestPriority,
-                        requested_at: r.requested_at,
-                        needed_by: r.needed_by,
-                        decided_at: r.decided_at,
-                        purchased_at: r.purchased_at,
-                        shipped_at: r.shipped_at,
-                        delivered_at: r.delivered_at,
-                        eta: r.eta,
-                      }}
-                      workPackage={null}
-                      requesterName={
-                        (r.requested_by ? displayNames.get(r.requested_by) : null) ??
-                        r.requested_by_email ??
-                        null
-                      }
-                      isMine={r.requested_by === ctx.id}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-          <h2 className="mt-2 flex items-center gap-2 border-b-2 border-zinc-900 pb-1 text-base font-bold text-zinc-900">
-            <FileText aria-hidden className="size-5 text-blue-700" />
-            ข้อมูลงาน
-          </h2>
-          {/* Spec 71: editable backup-capture note — the catch-all for
-              anything the structured fields don't cover. */}
-          <div className={CARD}>
-            <WorkPackageNotes projectId={wp.project_id} workPackageId={wp.id} notes={wp.notes} />
+        <h2 className="border-ink text-section text-ink flex items-center gap-2 border-b-2 pb-1 font-bold">
+          <ShoppingCart aria-hidden className="text-action size-5" />
+          คำขอซื้อ
+        </h2>
+        <details className={CARD}>
+          <summary className="text-body text-ink cursor-pointer font-semibold">
+            สร้างคำขอซื้อ
+          </summary>
+          <div className="mt-3">
+            <PurchaseRequestForm
+              workPackage={{ id: wp.id, code: wp.code, name: wp.name }}
+              projectId={wp.project_id}
+              userId={ctx.id}
+            />
           </div>
-          {wp.description ? (
-            <details className={CARD}>
-              <summary className="cursor-pointer text-sm font-semibold text-zinc-900">
-                รายละเอียดงาน
-              </summary>
-              <p className="mt-2 text-sm whitespace-pre-wrap text-zinc-700">{wp.description}</p>
-            </details>
-          ) : null}
-          {approvals.length > 0 ? (
-            <details className={CARD}>
-              <summary className="cursor-pointer text-sm font-semibold text-zinc-900">
-                ประวัติการตรวจ ({approvals.length})
-              </summary>
-              <ul className="mt-2 flex flex-col gap-2">
-                {approvals.map((a) => (
-                  <li key={a.id} className="border-t border-zinc-200 pt-2 first:border-t-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <StatusPill pillClasses={approvalDecisionPillClasses(a.decision)}>
-                        {APPROVAL_DECISION_LABEL[a.decision]}
-                      </StatusPill>
-                      <span className="text-xs text-zinc-600">
-                        {displayNames.get(a.decided_by) ?? "—"} · {formatThaiDateTime(a.decided_at)}
-                      </span>
-                    </div>
-                    {a.comment ? (
-                      <p className="mt-1 text-sm whitespace-pre-wrap text-zinc-700">{a.comment}</p>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          ) : null}
+        </details>
+        <details className={CARD}>
+          <summary className="text-body text-ink cursor-pointer font-semibold">
+            บันทึกการซื้อหน้างาน
+          </summary>
+          <div className="mt-3">
+            <SitePurchaseForm workPackageId={wp.id} projectId={wp.project_id} />
+          </div>
+        </details>
+        {(wpRequests ?? []).length > 0 ? (
+          <ul className="flex flex-col gap-2">
+            {(wpRequests ?? []).map((r) => (
+              <li key={r.id}>
+                <PurchaseRequestCard
+                  request={{
+                    id: r.id,
+                    pr_number: r.pr_number,
+                    item_description: r.item_description,
+                    quantity: r.quantity,
+                    unit: r.unit,
+                    status: r.status as PurchaseRequestStatus,
+                    priority: r.priority as PurchaseRequestPriority,
+                    requested_at: r.requested_at,
+                    needed_by: r.needed_by,
+                    decided_at: r.decided_at,
+                    purchased_at: r.purchased_at,
+                    shipped_at: r.shipped_at,
+                    delivered_at: r.delivered_at,
+                    eta: r.eta,
+                  }}
+                  workPackage={null}
+                  requesterName={
+                    (r.requested_by ? displayNames.get(r.requested_by) : null) ??
+                    r.requested_by_email ??
+                    null
+                  }
+                  isMine={r.requested_by === ctx.id}
+                />
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        <h2 className="border-ink text-section text-ink mt-2 flex items-center gap-2 border-b-2 pb-1 font-bold">
+          <Users aria-hidden className="text-action size-5" />
+          บันทึกแรงงานรายวัน
+        </h2>
+        <LaborLogZone
+          workPackageId={wp.id}
+          revalidate={workPackageHref(projectId, workPackageId)}
+          roster={labor.roster}
+          rows={labor.rows}
+          showFlags={ctx.role !== "site_admin"}
+          locked={wp.status === "complete"}
+        />
+
+        <h2 className="border-ink text-section text-ink mt-2 flex items-center gap-2 border-b-2 pb-1 font-bold">
+          <FileText aria-hidden className="text-action size-5" />
+          ข้อมูลงาน
+        </h2>
+        <div className={CARD}>
+          <WorkPackageNotes projectId={wp.project_id} workPackageId={wp.id} notes={wp.notes} />
         </div>
+        {wp.description ? (
+          <details className={CARD}>
+            <summary className="text-body text-ink cursor-pointer font-semibold">
+              รายละเอียดงาน
+            </summary>
+            <p className="text-body text-ink-secondary mt-2 whitespace-pre-wrap">
+              {wp.description}
+            </p>
+          </details>
+        ) : null}
+        {approvals.length > 0 ? (
+          <details className={CARD}>
+            <summary className="text-body text-ink cursor-pointer font-semibold">
+              ประวัติการตรวจ ({approvals.length})
+            </summary>
+            <ul className="mt-2 flex flex-col gap-2">
+              {approvals.map((a) => (
+                <li key={a.id} className="border-edge border-t pt-2 first:border-t-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <StatusPill pillClasses={approvalDecisionPillClasses(a.decision)}>
+                      {APPROVAL_DECISION_LABEL[a.decision]}
+                    </StatusPill>
+                    <span className="text-meta text-ink-secondary">
+                      {displayNames.get(a.decided_by) ?? "—"} · {formatThaiDateTime(a.decided_at)}
+                    </span>
+                  </div>
+                  {a.comment ? (
+                    <p className="text-body text-ink-secondary mt-1 whitespace-pre-wrap">
+                      {a.comment}
+                    </p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </details>
+        ) : null}
       </div>
     </PageShell>
   );
