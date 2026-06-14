@@ -2,9 +2,9 @@ import { PageShell } from "@/components/features/page-shell";
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
-import { FileText, Settings } from "lucide-react";
+import { CalendarDays, FileText, Settings } from "lucide-react";
 import { SITE_STAFF_ROLES } from "@/lib/auth/role-home";
-import { projectSettingsHref, reportsHref } from "@/lib/nav/project-paths";
+import { projectSettingsHref, reportsHref, scheduleHref } from "@/lib/nav/project-paths";
 import { ICON_CHIP_MUTED, SECTION_HEADING } from "@/lib/ui/classes";
 import { DetailHeader } from "@/components/features/detail-header";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
@@ -106,24 +106,30 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
         backHref="/projects"
         backLabel="กลับไปโครงการ"
         actions={
-          ctx.role === "project_manager" || ctx.role === "super_admin" ? (
-            <>
-              <Link
-                href={reportsHref(project.id)}
-                aria-label="รายงานโครงการ"
-                className={ICON_CHIP_MUTED}
-              >
-                <FileText aria-hidden className="h-5 w-5" />
-              </Link>
-              <Link
-                href={projectSettingsHref(project.id)}
-                aria-label="ตั้งค่าโครงการ"
-                className={ICON_CHIP_MUTED}
-              >
-                <Settings aria-hidden className="h-5 w-5" />
-              </Link>
-            </>
-          ) : null
+          <>
+            {/* Schedule calendar — all staff (spec 92). */}
+            <Link href={scheduleHref(project.id)} aria-label="ตารางงาน" className={ICON_CHIP_MUTED}>
+              <CalendarDays aria-hidden className="h-5 w-5" />
+            </Link>
+            {ctx.role === "project_manager" || ctx.role === "super_admin" ? (
+              <>
+                <Link
+                  href={reportsHref(project.id)}
+                  aria-label="รายงานโครงการ"
+                  className={ICON_CHIP_MUTED}
+                >
+                  <FileText aria-hidden className="h-5 w-5" />
+                </Link>
+                <Link
+                  href={projectSettingsHref(project.id)}
+                  aria-label="ตั้งค่าโครงการ"
+                  className={ICON_CHIP_MUTED}
+                >
+                  <Settings aria-hidden className="h-5 w-5" />
+                </Link>
+              </>
+            ) : null}
+          </>
         }
       >
         <div>

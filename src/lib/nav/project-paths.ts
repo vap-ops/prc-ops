@@ -25,3 +25,8 @@ export function projectSettingsHref(projectId: string): string {
 export function reportsHref(projectId: string): string {
   return `/projects/${projectId}/reports`;
 }
+
+// Spec 92 Unit D: the KANNA-style schedule calendar (all staff).
+export function scheduleHref(projectId: string): string {
+  return `/projects/${projectId}/schedule`;
+}
