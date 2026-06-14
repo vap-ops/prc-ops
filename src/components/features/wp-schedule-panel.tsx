@@ -146,7 +146,7 @@ export function WpSchedulePanel({
               value={pickerValue}
               onChange={(e) => setPickerValue(e.target.value)}
               aria-label="เลือกงานที่ต้องทำก่อน"
-              className={`${FIELD} flex-1 appearance-none`}
+              className={`${FIELD} min-w-0 flex-1 appearance-none`}
             >
               <option value="">เลือกงานที่ต้องทำก่อน…</option>
               {candidates.map((c) => (
