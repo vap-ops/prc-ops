@@ -31,6 +31,7 @@ import {
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { WpAssignmentPanel } from "@/components/features/wp-assignment-panel";
 import { WpPriorityControl } from "@/components/features/wp-priority-control";
+import { WpSchedulePanel } from "@/components/features/wp-schedule-panel";
 import { WorkPackageNotes } from "@/components/features/work-package-notes";
 import { PurchaseRequestForm } from "@/components/features/purchase-request-form";
 import { SitePurchaseForm } from "@/components/features/site-purchase-form";
@@ -51,7 +52,9 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
 
   const { data: wp } = await supabase
     .from("work_packages")
-    .select("id, code, name, status, project_id, description, contractor_id, notes, priority")
+    .select(
+      "id, code, name, status, project_id, description, contractor_id, notes, priority, planned_start, planned_end",
+    )
     .eq("id", workPackageId)
     .maybeSingle();
 
@@ -85,6 +88,28 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
       : null;
 
   const isAssigner = true;
+  const isPlanner = ctx.role === "project_manager" || ctx.role === "super_admin";
+
+  // Spec 92: schedule + dependency editing (PM/super). Sibling WPs feed the
+  // depends-on picker; current predecessors come from work_package_dependencies.
+  let siblingWps: { id: string; code: string; name: string }[] = [];
+  let predecessorIds: string[] = [];
+  if (isPlanner) {
+    const [{ data: siblings }, { data: depRows }] = await Promise.all([
+      supabase
+        .from("work_packages")
+        .select("id, code, name")
+        .eq("project_id", wp.project_id)
+        .neq("id", wp.id)
+        .order("code", { ascending: true }),
+      supabase.from("work_package_dependencies").select("predecessor_id").eq("successor_id", wp.id),
+    ]);
+    siblingWps = siblings ?? [];
+    predecessorIds = (depRows ?? []).map((d) => d.predecessor_id);
+  }
+  const predSet = new Set(predecessorIds);
+  const predecessorOptions = siblingWps.filter((w) => predSet.has(w.id));
+  const candidateOptions = siblingWps.filter((w) => !predSet.has(w.id));
 
   const { data: wpRequests } = await supabase
     .from("purchase_requests")
@@ -187,14 +212,23 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
         </div>
       </div>
 
-      {/* PM/super: manual priority — the worklist ด่วน tag + ต้องทำ sort. */}
-      {ctx.role === "project_manager" || ctx.role === "super_admin" ? (
+      {/* PM/super management: manual priority (worklist ด่วน tag + sort) and the
+          planned window + dependencies (spec 92, feeds the critical path). */}
+      {isPlanner ? (
         <div className="border-edge bg-card border-b px-5 py-3">
-          <div className={`mx-auto ${PAGE_MAX_W}`}>
+          <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-4`}>
             <WpPriorityControl
               projectId={wp.project_id}
               workPackageId={wp.id}
               priority={wp.priority}
+            />
+            <WpSchedulePanel
+              projectId={wp.project_id}
+              workPackageId={wp.id}
+              plannedStart={wp.planned_start}
+              plannedEnd={wp.planned_end}
+              predecessors={predecessorOptions}
+              candidates={candidateOptions}
             />
           </div>
         </div>

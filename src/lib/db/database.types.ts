@@ -1179,6 +1179,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      work_package_dependencies: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          predecessor_id: string;
+          successor_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          predecessor_id: string;
+          successor_id: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          predecessor_id?: string;
+          successor_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "work_package_dependencies_predecessor_id_fkey";
+            columns: ["predecessor_id"];
+            isOneToOne: false;
+            referencedRelation: "work_packages";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "work_package_dependencies_successor_id_fkey";
+            columns: ["successor_id"];
+            isOneToOne: false;
+            referencedRelation: "work_packages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       work_package_members: {
         Row: {
           added_at: string;
@@ -1233,6 +1272,8 @@ export type Database = {
           name: string;
           notes: string | null;
           owner_id: string | null;
+          planned_end: string | null;
+          planned_start: string | null;
           priority: Database["public"]["Enums"]["work_package_priority"];
           project_id: string;
           status: Database["public"]["Enums"]["work_package_status"];
@@ -1248,6 +1289,8 @@ export type Database = {
           name: string;
           notes?: string | null;
           owner_id?: string | null;
+          planned_end?: string | null;
+          planned_start?: string | null;
           priority?: Database["public"]["Enums"]["work_package_priority"];
           project_id: string;
           status?: Database["public"]["Enums"]["work_package_status"];
@@ -1263,6 +1306,8 @@ export type Database = {
           name?: string;
           notes?: string | null;
           owner_id?: string | null;
+          planned_end?: string | null;
+          planned_start?: string | null;
           priority?: Database["public"]["Enums"]["work_package_priority"];
           project_id?: string;
           status?: Database["public"]["Enums"]["work_package_status"];
@@ -1515,6 +1560,10 @@ export type Database = {
     };
     Functions: {
       acknowledge_site_purchase: { Args: { p_id: string }; Returns: undefined };
+      add_work_package_dependency: {
+        Args: { p_predecessor: string; p_successor: string };
+        Returns: boolean;
+      };
       claim_next_report: {
         Args: never;
         Returns: {
@@ -1607,6 +1656,10 @@ export type Database = {
         };
         Returns: string;
       };
+      remove_work_package_dependency: {
+        Args: { p_predecessor: string; p_successor: string };
+        Returns: boolean;
+      };
       set_contact_bank: {
         Args: {
           p_bank_account_name?: string;
@@ -1639,6 +1692,10 @@ export type Database = {
           p_priority: Database["public"]["Enums"]["work_package_priority"];
           p_work_package_id: string;
         };
+        Returns: boolean;
+      };
+      set_work_package_schedule: {
+        Args: { p_end?: string; p_start?: string; p_work_package_id: string };
         Returns: boolean;
       };
       set_worker_day_rate: {

@@ -13,6 +13,7 @@ import { createClient } from "@/lib/db/server";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { PROJECT_TYPE_LABEL } from "@/lib/projects/validate-settings";
 import { rankFromPriority } from "@/lib/work-packages/action-bands";
+import { criticalWorkPackageIds } from "@/lib/work-packages/critical-path";
 import { WorkPackageList } from "./work-package-list";
 
 interface PageProps {
@@ -59,11 +60,13 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
   const typeLabel = project.project_type ? PROJECT_TYPE_LABEL[project.project_type] : null;
 
   // Field-First worklist: action bands derive from `status`; the manual
-  // `priority` flag (spec 91 follow-up) drives the ด่วน tag + ต้องทำ sort.
-  // `is_critical` (critical-path engine) is still a later spec — passed false.
+  // `priority` flag (spec 91) drives the ด่วน tag + ต้องทำ sort; `isCritical`
+  // is computed below from the schedule + dependencies (spec 92).
   const { data: workPackages } = await supabase
     .from("work_packages")
-    .select("id, code, name, status, deliverable_id, contractor_id, priority")
+    .select(
+      "id, code, name, status, deliverable_id, contractor_id, priority, planned_start, planned_end",
+    )
     .eq("project_id", project.id)
     .order("code", { ascending: true });
 
@@ -72,6 +75,27 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
     .select("id, code, name, sort_order")
     .eq("project_id", project.id)
     .order("sort_order", { ascending: true });
+
+  // Spec 92: critical path computed on read from planned windows + finish-to-
+  // start dependencies. Lights the worklist CRITICAL_BADGE for path WPs.
+  const wpIds = (workPackages ?? []).map((wp) => wp.id);
+  const { data: dependencyRows } = wpIds.length
+    ? await supabase
+        .from("work_package_dependencies")
+        .select("predecessor_id, successor_id")
+        .in("predecessor_id", wpIds)
+    : { data: [] };
+  const criticalIds = criticalWorkPackageIds(
+    (workPackages ?? []).map((wp) => ({
+      id: wp.id,
+      plannedStart: wp.planned_start,
+      plannedEnd: wp.planned_end,
+    })),
+    (dependencyRows ?? []).map((d) => ({
+      predecessorId: d.predecessor_id,
+      successorId: d.successor_id,
+    })),
+  );
 
   return (
     <PageShell>
@@ -162,7 +186,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
             // follow-up). isCritical stays reserved for the critical-path engine.
             priority: wp.priority,
             priorityRank: rankFromPriority(wp.priority),
-            isCritical: false,
+            isCritical: criticalIds.has(wp.id),
           }))}
           deliverables={(deliverables ?? []).map((d) => ({
             id: d.id,
