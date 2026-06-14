@@ -30,9 +30,9 @@ describe("ScheduleGantt", () => {
         dependencies={[]}
       />,
     );
+    expect(screen.getByText("วัน")).toBeInTheDocument();
+    expect(screen.getByText("สัปดาห์")).toBeInTheDocument();
     expect(screen.getByText("เดือน")).toBeInTheDocument();
-    expect(screen.getByText("ไตรมาส")).toBeInTheDocument();
-    expect(screen.getByText("ปี")).toBeInTheDocument();
     expect(screen.getByText("งวดที่ 1")).toBeInTheDocument();
     expect(screen.getAllByText("งานเสาเข็ม").length).toBeGreaterThan(0);
     // ด่วน appears on the bar chip and in the legend.

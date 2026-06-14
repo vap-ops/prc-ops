@@ -8,7 +8,7 @@
 //   • progress fill, status colour, urgent (ด่วน) chip, behind-schedule alert;
 //   • critical-path bars get a red edge; finish-to-start dependency links are
 //     dimmed hairlines that brighten when you tap a bar (highlights the chain);
-//   • period switch เดือน / ไตรมาส / ปี.
+//   • period switch วัน / สัปดาห์ / เดือน.
 // Arrowheads use an SVG <marker orient="auto"> so they ALWAYS align with the
 // curved connector (fixes the preview's fixed-orientation arrowhead).
 
@@ -152,7 +152,7 @@ export function ScheduleGantt({
   dependencies,
   todayISO,
 }: ScheduleGanttProps) {
-  const [period, setPeriod] = useState<SchedulePeriod>("month");
+  const [period, setPeriod] = useState<SchedulePeriod>("week");
   const [selected, setSelected] = useState<string | null>(null);
 
   const timeline = useMemo(
@@ -214,7 +214,7 @@ export function ScheduleGantt({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Period switch — เดือน / ไตรมาส / ปี */}
+      {/* Period switch — วัน / สัปดาห์ / เดือน */}
       <div
         role="radiogroup"
         aria-label="ช่วงเวลา"

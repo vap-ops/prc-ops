@@ -1,10 +1,10 @@
 // Spec 92 Unit D — Gantt timeline scale (pure). Maps planned dates to x-pixels
 // for the schedule calendar, builds the month band + day-tick axis, and switches
-// granularity by period (เดือน / ไตรมาส / ปี — the KANNA-style control). Pure +
+// granularity by period (วัน / สัปดาห์ / เดือน — the zoom control). Pure +
 // deterministic: `today` is passed in, so it unit-tests cleanly. Years render in
 // Buddhist era (Gregorian + 543) — the app's convention (e.g. project 2569).
 
-export type SchedulePeriod = "month" | "quarter" | "year";
+export type SchedulePeriod = "day" | "week" | "month";
 
 export interface PeriodConfig {
   readonly key: SchedulePeriod;
@@ -14,9 +14,9 @@ export interface PeriodConfig {
 }
 
 export const SCHEDULE_PERIODS: readonly PeriodConfig[] = [
-  { key: "month", label: "เดือน", dayWidth: 30, showDays: true },
-  { key: "quarter", label: "ไตรมาส", dayWidth: 9, showDays: false },
-  { key: "year", label: "ปี", dayWidth: 3, showDays: false },
+  { key: "day", label: "วัน", dayWidth: 44, showDays: true },
+  { key: "week", label: "สัปดาห์", dayWidth: 16, showDays: true },
+  { key: "month", label: "เดือน", dayWidth: 5, showDays: false },
 ];
 
 const THAI_MONTHS = [
