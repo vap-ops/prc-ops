@@ -32,4 +32,16 @@ describe("payroll period form layout", () => {
     expect(dateLabels.length).toBeGreaterThanOrEqual(2);
     for (const label of dateLabels) expect(label).toContain("min-w-0");
   });
+
+  it("strips the native date control's intrinsic width (appearance-none + max-w-full)", () => {
+    // WebKit date inputs ignore width:100% and overflow the card until the
+    // native appearance is removed — the exact fix the purchase-request-form
+    // date input already carries. Both period inputs must mirror it.
+    const dateInputs = [...src.matchAll(/type="date"[\s\S]{0,200}?className=\{`([^`]*)`\}/g)];
+    expect(dateInputs.length).toBeGreaterThanOrEqual(2);
+    for (const m of dateInputs) {
+      expect(m[1]).toContain("appearance-none");
+      expect(m[1]).toContain("max-w-full");
+    }
+  });
 });

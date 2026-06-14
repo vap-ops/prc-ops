@@ -70,7 +70,7 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
               type="date"
               name="from"
               defaultValue={range.from}
-              className={`${FIELD_INPUT} mt-1`}
+              className={`${FIELD_INPUT} mt-1 max-w-full appearance-none`}
             />
           </label>
           <label className="text-ink-secondary flex min-w-0 flex-col text-xs">
@@ -79,7 +79,7 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
               type="date"
               name="to"
               defaultValue={range.to}
-              className={`${FIELD_INPUT} mt-1`}
+              className={`${FIELD_INPUT} mt-1 max-w-full appearance-none`}
             />
           </label>
           <button type="submit" className={BUTTON_PRIMARY}>
