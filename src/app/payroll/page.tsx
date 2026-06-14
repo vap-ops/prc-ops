@@ -64,7 +64,7 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
           method="get"
           className={`${CARD} mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end`}
         >
-          <label className="text-ink-secondary flex flex-col text-xs">
+          <label className="text-ink-secondary flex min-w-0 flex-col text-xs">
             ตั้งแต่
             <input
               type="date"
@@ -73,7 +73,7 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
               className={`${FIELD_INPUT} mt-1`}
             />
           </label>
-          <label className="text-ink-secondary flex flex-col text-xs">
+          <label className="text-ink-secondary flex min-w-0 flex-col text-xs">
             ถึง
             <input
               type="date"
