@@ -7,7 +7,8 @@
 //   • The CURRENT phase is pre-selected on open — zero taps to the right
 //     bucket. Switching phase is one 56px target.
 //   • A 104px amber shutter owns the thumb zone; `capture="environment"`
-//     opens the rear camera directly (no gallery detour).
+//     opens the rear camera directly. A secondary "เลือกจากคลังภาพ" input
+//     (spec 96, no `capture`) adds the photo-library path.
 //   • Captured shots stream into a grid: upload ring → check; the queue
 //     auto-saves offline so you can keep shooting with no signal.
 //
@@ -15,8 +16,8 @@
 // engine subtree is keyed by phase so switching clears the prior phase's
 // pending tiles from view (the global queue runner still finishes them).
 
-import { Camera, Check, X } from "lucide-react";
-import { INLINE_ERROR } from "@/lib/ui/classes";
+import { Camera, Check, Image as ImageIcon, X } from "lucide-react";
+import { BUTTON_SECONDARY_MUTED, INLINE_ERROR } from "@/lib/ui/classes";
 import { ConfirmDialog } from "@/components/features/confirm-dialog";
 import { PHOTO_ACCEPT_MIME } from "@/lib/photos/path";
 import type { PhotoPhase } from "@/lib/photos/transitions";
@@ -206,6 +207,28 @@ function SheetCapture({ projectId, workPackageId, userId, phase, photos }: Sheet
           <Check aria-hidden className="text-done-strong h-3.5 w-3.5" strokeWidth={3} />
           บันทึกอัตโนมัติ — ถ่ายต่อได้แม้ไม่มีเน็ต
         </p>
+        {/* Spec 96: secondary path — pick an existing photo from the library.
+            No `capture`, so iOS opens the gallery; same handleFiles engine. */}
+        <label
+          className={`${BUTTON_SECONDARY_MUTED} focus-within:ring-action mt-1 cursor-pointer gap-2 focus-within:ring-2`}
+        >
+          <ImageIcon aria-hidden className="h-5 w-5" />
+          เลือกจากคลังภาพ
+          <input
+            type="file"
+            accept={PHOTO_ACCEPT_MIME}
+            multiple
+            className="sr-only"
+            onChange={(e) => {
+              const input = e.currentTarget;
+              // handleFiles resets only the camera input — clear ours so the
+              // same gallery photo can be re-picked.
+              void Promise.resolve(handleFiles(input.files)).finally(() => {
+                input.value = "";
+              });
+            }}
+          />
+        </label>
       </div>
 
       <ConfirmDialog
