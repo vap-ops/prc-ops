@@ -3,8 +3,9 @@ import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { ArrowLeft } from "lucide-react";
 import { AppHeader } from "@/components/features/app-header";
+import { HubNav, PM_HUB_NAV, SA_HUB_NAV } from "@/components/features/hub-nav";
 import { EmptyNotice, ErrorNotice } from "@/components/features/notices";
-import { PURCHASING_ROLES, roleHome } from "@/lib/auth/role-home";
+import { PURCHASING_ROLES } from "@/lib/auth/role-home";
 import { workPackageHref } from "@/lib/nav/project-paths";
 import {
   PurchaseRequestForm,
@@ -80,14 +81,17 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     }
   }
 
-  // Back affordance (spec 12): pinned → the WP screen the user came from
-  // (the project WP route admits sa/pm/super, so it is valid for every role
-  // that can reach this form); bare → the caller's role home.
-  const backHref =
-    pinnedWp && pinnedProjectId
-      ? workPackageHref(pinnedProjectId, pinnedWp.id)
-      : roleHome(ctx.role);
-  const backLabel = pinnedWp && pinnedProjectId ? "กลับไปหน้ารายการงาน" : "กลับ";
+  // Bare /requests is a PRIMARY TAB: like /review and /projects it carries the
+  // desktop HubNav strip (the role's tab set) — NOT a back-bar. procurement has
+  // a single destination (/requests is its home), so it gets no strip. The
+  // contextual spec-12 back-bar (below) only renders when pinned — arriving
+  // from a WP to raise a request is a drill-down, so it returns to that WP.
+  const hubItems =
+    ctx.role === "project_manager" || ctx.role === "super_admin"
+      ? PM_HUB_NAV
+      : ctx.role === "site_admin"
+        ? SA_HUB_NAV
+        : null;
 
   // The SELECT policy (ADR 0022, widened by ADR 0026) admits the whole
   // row, so the decision + back-office fact columns are readable here.
@@ -165,25 +169,26 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
       <BottomTabBar role={ctx.role} />
       <AppHeader kicker="คำขอซื้อ" fullName={ctx.fullName} maxWidthClass={PAGE_MAX_W} />
 
-      {/* Pinned mode keeps the contextual spec-12 back-bar everywhere; in
-          bare mode /requests is a TAB ROOT — on phones the bottom tabs
-          are the way out and a bare กลับ reads as broken UX (operator
-          report 2026-06-11), so the strip is desktop-only there. */}
-      <nav
-        className={`border-edge bg-sunk border-b px-5 py-1 ${
-          pinnedWp && pinnedProjectId ? "" : "hidden sm:block"
-        }`}
-      >
-        <div className={`mx-auto flex ${PAGE_MAX_W} items-center`}>
-          <Link
-            href={backHref}
-            className="text-action inline-flex min-h-11 items-center gap-1.5 text-xs font-medium transition-colors hover:underline focus:outline-none focus-visible:underline"
-          >
-            <ArrowLeft aria-hidden className="size-3.5" />
-            {backLabel}
-          </Link>
-        </div>
-      </nav>
+      {/* Spec 12 contextual back vs. primary-tab nav. Pinned (?wp= from a WP)
+          is a drill-down — show the contextual back to that WP. Bare is the
+          tab root — show the desktop HubNav strip like the sibling hubs
+          (/review, /projects); phones leave via the bottom tab bar. procurement
+          (hubItems null) gets neither: /requests is its only destination. */}
+      {pinnedWp && pinnedProjectId ? (
+        <nav className="border-edge bg-sunk border-b px-5 py-1">
+          <div className={`mx-auto flex ${PAGE_MAX_W} items-center`}>
+            <Link
+              href={workPackageHref(pinnedProjectId, pinnedWp.id)}
+              className="text-action inline-flex min-h-11 items-center gap-1.5 text-xs font-medium transition-colors hover:underline focus:outline-none focus-visible:underline"
+            >
+              <ArrowLeft aria-hidden className="size-3.5" />
+              กลับไปหน้ารายการงาน
+            </Link>
+          </div>
+        </nav>
+      ) : hubItems ? (
+        <HubNav maxWidthClass={PAGE_MAX_W} items={hubItems} currentHref="/requests" />
+      ) : null}
 
       <section className={`mx-auto ${PAGE_MAX_W} space-y-8 px-5 py-6`}>
         {/* Spec 70: hidden for procurement (a processor, not a requester). */}
