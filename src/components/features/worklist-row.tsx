@@ -12,23 +12,34 @@
 //     the slot exists and is style-pinned for when the engine lights it.
 
 import Link from "next/link";
-import { ChevronRight, Camera, AlertTriangle, Flame } from "lucide-react";
+import { ChevronRight, Camera, UserPlus, PauseCircle, AlertTriangle, Flame } from "lucide-react";
 import { workPackageHref } from "@/lib/nav/project-paths";
 import { StatusPill } from "@/components/features/status-pill";
 import { CRITICAL_BADGE } from "@/lib/ui/classes";
 import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import {
-  nextActionLabel,
+  nextAction,
+  type NextActionKind,
   type WorkPackageStatus,
   type WpPriority,
 } from "@/lib/work-packages/action-bands";
+
+// next-action verb → its icon. assign = bring a contractor on; capture =
+// shoot photos; wait = held, nothing to do now.
+const ACTION_ICON: Record<NextActionKind, typeof Camera> = {
+  assign: UserPlus,
+  capture: Camera,
+  wait: PauseCircle,
+};
 
 export interface WorklistRowItem {
   id: string;
   code: string;
   name: string;
   status: WorkPackageStatus;
+  /** Whether a contractor is assigned — drives the next-action verb. */
+  hasContractor: boolean;
   /** Manual urgency flag (data layer supplies it). */
   priority: WpPriority;
   /** Critical-path flag (future engine; false for all today). */
@@ -47,7 +58,8 @@ interface WorklistRowProps {
 }
 
 export function WorklistRow({ projectId, wp, spine, compact = false }: WorklistRowProps) {
-  const action = compact ? null : nextActionLabel(wp.status);
+  const action = compact ? null : nextAction(wp.status, wp.hasContractor);
+  const ActionIcon = action ? ACTION_ICON[action.kind] : null;
   const showUrgent = wp.priority === "urgent" || wp.priority === "critical";
   return (
     <Link
@@ -82,10 +94,10 @@ export function WorklistRow({ projectId, wp, spine, compact = false }: WorklistR
         >
           {wp.name}
         </span>
-        {action && (
+        {action && ActionIcon && (
           <span className="text-meta text-attn-ink flex items-center gap-1.5 font-bold">
-            <Camera aria-hidden className="text-attn-press h-4 w-4" />
-            {action}
+            <ActionIcon aria-hidden className="text-attn-press h-4 w-4" />
+            {action.label}
           </span>
         )}
         <span className="text-meta text-ink-secondary flex flex-wrap items-center gap-2">

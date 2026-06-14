@@ -53,6 +53,8 @@ export interface WorkPackageListItem {
   name: string;
   status: WorkPackageStatus;
   deliverableId: string | null;
+  /** Whether a contractor is assigned — drives the row's next-action verb. */
+  hasContractor: boolean;
   /** Supplied props (priority-engine spec). Safe defaults at the page. */
   priority: WpPriority;
   priorityRank: number;
@@ -99,6 +101,7 @@ export function WorkPackageList({
       code: wp.code,
       name: wp.name,
       status: wp.status,
+      hasContractor: wp.hasContractor,
       priority: wp.priority,
       isCritical: wp.isCritical,
       deliverableLabel: wp.deliverableId

@@ -68,22 +68,33 @@ export function deriveActionBand(status: WorkPackageStatus): ActionBand {
   }
 }
 
+/** What the row's next-action verb is asking the operator to do. The row
+ *  maps kind → icon (assign = person, capture = camera, wait = paused). */
+export type NextActionKind = "assign" | "capture" | "wait";
+
+export interface NextAction {
+  label: string;
+  kind: NextActionKind;
+}
+
 /**
- * Status-level next-action hint for the actionable bands. Coarse by
- * design: the list props don't carry contractor-assignment or photo
- * counts, so this states the action at the granularity the data
- * supports. The row links to the WP, where the precise thumb action
- * (the capture bar) lives. Pass a finer `nextAction` prop later if the
- * data layer starts supplying it.
+ * The precise next step for an actionable WP, factoring in whether a
+ * contractor is assigned. A not_started WP with no owner needs assignment
+ * BEFORE any photo makes sense — surfacing "take photos" there would be a
+ * dead end. The row still links to the WP, where the action actually
+ * happens; this just names it honestly at the list level.
+ * Returns null for bands with no single row-level action (review, done).
  */
-export function nextActionLabel(status: WorkPackageStatus): string | null {
+export function nextAction(status: WorkPackageStatus, hasContractor: boolean): NextAction | null {
   switch (status) {
     case "not_started":
-      return "เริ่มถ่ายรูป เตรียมงาน";
+      return hasContractor
+        ? { label: "เริ่มถ่ายรูป เตรียมงาน", kind: "capture" }
+        : { label: "มอบหมายผู้รับเหมา", kind: "assign" };
     case "in_progress":
-      return "ถ่ายรูป ความคืบหน้า";
+      return { label: "ถ่ายรูป ความคืบหน้า", kind: "capture" };
     case "on_hold":
-      return "พักงานอยู่ — รอปลดล็อก";
+      return { label: "พักงานอยู่ — รอปลดล็อก", kind: "wait" };
     default:
       return null;
   }

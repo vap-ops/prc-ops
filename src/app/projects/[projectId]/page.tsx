@@ -65,7 +65,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
   // means this reskin ships with zero schema change.
   const { data: workPackages } = await supabase
     .from("work_packages")
-    .select("id, code, name, status, deliverable_id")
+    .select("id, code, name, status, deliverable_id, contractor_id")
     .eq("project_id", project.id)
     .order("code", { ascending: true });
 
@@ -159,6 +159,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
             name: wp.name,
             status: wp.status,
             deliverableId: wp.deliverable_id,
+            hasContractor: wp.contractor_id !== null,
             // Reserved for later specs (manual ด่วน flag + rank; critical-path
             // engine). No columns yet — fixed defaults keep the tag/badge dark.
             priority: "normal" as const,
