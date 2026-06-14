@@ -1,11 +1,10 @@
 import { PageShell } from "@/components/features/page-shell";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { AvatarSurface } from "@/components/features/avatar-surface";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
+import { DetailHeader } from "@/components/features/detail-header";
 import { DisplayNameForm } from "@/components/features/display-name-form";
-import { roleHome } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 
 // Universal profile route — reachable by EVERY authenticated role, including
@@ -42,32 +41,20 @@ export default async function ProfilePage() {
 
   const role = row.role;
   const initialName = row.full_name ?? "";
-  const backHref = roleHome(role);
 
   return (
-    <PageShell variant="bare" className="bg-page px-6 py-10 pb-20 sm:pb-10">
+    <PageShell>
       <BottomTabBar role={role} />
-      <div className="mx-auto flex w-full max-w-md flex-col gap-6">
-        <header className="space-y-2">
-          {/* Desktop-only: /profile is a tab root — on phones the bottom
-              tabs ARE the way out, and a กลับ on a root reads as broken
-              UX (operator report 2026-06-11). Desktop has no tab bar, so
-              the link stays. */}
-          <Link
-            href={backHref}
-            className="text-action hidden items-center gap-1 text-xs font-medium transition-colors hover:underline focus:outline-none focus-visible:underline sm:inline-flex"
-          >
-            <span aria-hidden="true">←</span> กลับ
-          </Link>
-          <div className="flex items-center gap-4 pt-1">
-            <AvatarSurface lineUrl={row.line_avatar_url} fullName={row.full_name} size={64} />
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">โปรไฟล์</h1>
-              <p className="text-ink-secondary text-sm">แก้ไขชื่อที่แสดง</p>
-            </div>
+      <DetailHeader backHref="/settings" backLabel="ตั้งค่า">
+        <div className="flex items-center gap-4">
+          <AvatarSurface lineUrl={row.line_avatar_url} fullName={row.full_name} size={64} />
+          <div>
+            <h1 className="text-title text-ink font-bold tracking-tight">โปรไฟล์</h1>
+            <p className="text-ink-secondary text-sm">แก้ไขชื่อที่แสดง</p>
           </div>
-        </header>
-
+        </div>
+      </DetailHeader>
+      <div className="mx-auto flex w-full max-w-md flex-col gap-6 px-6 py-10">
         <DisplayNameForm initialName={initialName} />
 
         <div className="flex justify-end pt-2">

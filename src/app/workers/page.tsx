@@ -9,7 +9,7 @@ import { requireRole } from "@/lib/auth/require-role";
 import { PM_ROLES } from "@/lib/auth/role-home";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { createClient as createServerSupabase } from "@/lib/db/server";
-import { AppHeader } from "@/components/features/app-header";
+import { DetailHeader } from "@/components/features/detail-header";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import {
   WorkerRosterManager,
@@ -41,12 +41,9 @@ export default async function WorkersPage() {
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <AppHeader
-        kicker="คนงาน"
-        title="รายชื่อคนงานและค่าแรง"
-        fullName={ctx.fullName}
-        maxWidthClass={PAGE_MAX_W}
-      />
+      <DetailHeader backHref="/settings" backLabel="ตั้งค่า">
+        <h1 className="text-title text-ink font-bold tracking-tight">รายชื่อคนงานและค่าแรง</h1>
+      </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
         <WorkerRosterManager workers={workers} contractors={contractorRows ?? []} />
       </div>

@@ -7,9 +7,8 @@
 
 import { PageShell } from "@/components/features/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
-import { AppHeader } from "@/components/features/app-header";
+import { DetailHeader } from "@/components/features/detail-header";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
-import { HubNav, PM_HUB_NAV } from "@/components/features/hub-nav";
 import { EmptyNotice } from "@/components/features/notices";
 import { requireRole } from "@/lib/auth/require-role";
 import { PM_ROLES } from "@/lib/auth/role-home";
@@ -53,9 +52,9 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <AppHeader kicker="ผู้จัดการโครงการ" fullName={ctx.fullName} maxWidthClass={PAGE_MAX_W} />
-
-      <HubNav maxWidthClass={PAGE_MAX_W} items={PM_HUB_NAV} currentHref="/payroll" />
+      <DetailHeader backHref="/settings" backLabel="ตั้งค่า">
+        <h1 className="text-title text-ink font-bold tracking-tight">ค่าจ้างผู้รับเหมา</h1>
+      </DetailHeader>
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
         <h2 className={SECTION_HEADING}>ค่าจ้างผู้รับเหมา (DC)</h2>
