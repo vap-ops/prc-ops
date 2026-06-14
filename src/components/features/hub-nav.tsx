@@ -17,23 +17,23 @@ export interface HubNavItem {
 // The canonical item sets — every consuming page passes one of these so
 // the destinations and their order never drift between pages again.
 // Spec 19 §4 merged /pm/requests into /requests: one purchasing entry.
+// Spec 93: desktop mirrors the bottom bar — daily deciders + a ตั้งค่า entry.
+// ค่าจ้าง (payroll) and รายชื่อติดต่อ (contacts) + คนงาน (workers) moved into
+// the /settings hub, so the strip stays the primary-decision destinations.
 export const PM_HUB_NAV: ReadonlyArray<HubNavItem> = [
   // Spec 82 Unit 4: the review queue is the content-named /review (was /pm).
   { label: "รายการรอตรวจ", href: "/review" },
   // Spec 82 Unit 3: the project hub folded to the content-named /projects.
   { label: "โครงการและรายงาน", href: "/projects" },
   { label: "คำขอซื้อ", href: "/requests" },
-  // Spec 69: PM-only DC payroll (money) — every PM surface is already
-  // PM/super-gated, so listing it here leaks nothing to SA. Spec 82 Unit 4: /payroll.
-  { label: "ค่าจ้าง", href: "/payroll" },
-  // Spec 81: contacts management (clients / suppliers / contractors). Unit 4: /contacts.
-  { label: "รายชื่อติดต่อ", href: "/contacts" },
+  { label: "ตั้งค่า", href: "/settings" },
 ];
 
 export const SA_HUB_NAV: ReadonlyArray<HubNavItem> = [
   // Spec 82 Unit 3: the SA project hub folded to the shared /projects hub.
   { label: "โครงการ", href: "/projects" },
   { label: "คำขอซื้อ", href: "/requests" },
+  { label: "ตั้งค่า", href: "/settings" },
 ];
 
 interface HubNavProps {

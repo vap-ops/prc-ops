@@ -13,10 +13,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  CircleUserRound,
   ClipboardCheck,
-  Contact,
   FolderKanban,
+  Settings,
   ShoppingCart,
   type LucideIcon,
 } from "lucide-react";
@@ -33,12 +32,23 @@ export interface TabItem {
   match?: ReadonlyArray<string>;
 }
 
+// Spec 93: the bottom bar holds daily-decision surfaces; reference data
+// (contacts, workers), finance (payroll), and the account (profile + logout)
+// moved into the ตั้งค่า (/settings) hub. The ตั้งค่า tab lights on those
+// sub-surfaces too (match) so the bar reflects where you are.
+const SETTINGS_TAB: TabItem = {
+  label: "ตั้งค่า",
+  href: "/settings",
+  icon: Settings,
+  match: ["/profile", "/contacts", "/workers", "/payroll"],
+};
+
 export const SA_TABS: ReadonlyArray<TabItem> = [
   // Spec 82 Unit 3: the project hub folded to the content-named /projects;
   // the tab points straight at it (and lights on every /projects/* screen).
   { label: "โครงการ", href: "/projects", icon: FolderKanban },
   { label: "คำขอซื้อ", href: "/requests", icon: ShoppingCart },
-  { label: "โปรไฟล์", href: "/profile", icon: CircleUserRound },
+  SETTINGS_TAB,
 ];
 
 export const PM_TABS: ReadonlyArray<TabItem> = [
@@ -48,19 +58,14 @@ export const PM_TABS: ReadonlyArray<TabItem> = [
   // on the hub and every /projects/* detail screen, so no extra match.
   { label: "โครงการ", href: "/projects", icon: FolderKanban },
   { label: "คำขอซื้อ", href: "/requests", icon: ShoppingCart },
-  // Spec 81: contacts management (clients/suppliers/contractors). Phone-first
-  // users had no way here — it was in the desktop HubNav only. Short tab label
-  // "ติดต่อ" (the page itself is รายชื่อผู้ติดต่อ) to fit the 5-tab row.
-  { label: "ติดต่อ", href: "/contacts", icon: Contact },
-  { label: "โปรไฟล์", href: "/profile", icon: CircleUserRound },
+  SETTINGS_TAB,
 ];
 
 // Spec 70: procurement's worklist-only nav — the purchasing surface plus
-// profile. No โครงการ (no project/WP hub in v1; projects SELECT deferred)
-// and no รอตรวจ (procurement is not a decider).
+// settings. No โครงการ (no project/WP hub in v1) and no รอตรวจ (not a decider).
 export const PROCUREMENT_TABS: ReadonlyArray<TabItem> = [
   { label: "คำขอซื้อ", href: "/requests", icon: ShoppingCart },
-  { label: "โปรไฟล์", href: "/profile", icon: CircleUserRound },
+  SETTINGS_TAB,
 ];
 
 function tabsForRole(role: string): ReadonlyArray<TabItem> | null {

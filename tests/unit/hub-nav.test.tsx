@@ -7,17 +7,13 @@ import { describe, expect, it } from "vitest";
 import { HubNav, PM_HUB_NAV, SA_HUB_NAV } from "@/components/features/hub-nav";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 
-// Spec 19 §4: /pm/requests merged into /requests — one purchasing entry.
-// Spec 69: a fourth item, the PM-only DC payroll surface.
-// Spec 81: a fifth item, contacts management.
+// Spec 93: desktop mirrors the bottom bar — daily deciders + a ตั้งค่า entry;
+// payroll/contacts/workers/account moved into the /settings hub.
 const PM_ITEMS = [
-  // Spec 82 Unit 4: review queue /review, payroll /payroll, contacts /contacts.
   { label: "รายการรอตรวจ", href: "/review" },
-  // Spec 82 Unit 3: the project hub folded to /projects.
   { label: "โครงการและรายงาน", href: "/projects" },
   { label: "คำขอซื้อ", href: "/requests" },
-  { label: "ค่าจ้าง", href: "/payroll" },
-  { label: "รายชื่อติดต่อ", href: "/contacts" },
+  { label: "ตั้งค่า", href: "/settings" },
 ];
 
 describe("canonical nav sets", () => {
@@ -29,6 +25,7 @@ describe("canonical nav sets", () => {
     expect(SA_HUB_NAV).toEqual([
       { label: "โครงการ", href: "/projects" },
       { label: "คำขอซื้อ", href: "/requests" },
+      { label: "ตั้งค่า", href: "/settings" },
     ]);
   });
 });

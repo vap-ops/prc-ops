@@ -31,25 +31,24 @@ describe("BottomTabBar", () => {
 
   it("pins the canonical tab sets (labels, hrefs, order)", () => {
     expect(PM_TABS.map((t) => [t.label, t.href])).toEqual([
-      // Spec 82 Unit 4: review queue /review (was /pm); contacts /contacts.
+      // Spec 82 Unit 4: review queue /review (was /pm).
       ["รอตรวจ", "/review"],
       // Spec 82 Unit 3: the project hub folded to /projects.
       ["โครงการ", "/projects"],
       ["คำขอซื้อ", "/requests"],
-      // Spec 81: contacts management reachable on phones (was desktop-HubNav only).
-      ["ติดต่อ", "/contacts"],
-      ["โปรไฟล์", "/profile"],
+      // Spec 93: contacts/payroll/workers/account moved into the ตั้งค่า hub.
+      ["ตั้งค่า", "/settings"],
     ]);
     expect(SA_TABS.map((t) => [t.label, t.href])).toEqual([
       ["โครงการ", "/projects"],
       ["คำขอซื้อ", "/requests"],
-      ["โปรไฟล์", "/profile"],
+      ["ตั้งค่า", "/settings"],
     ]);
-    // Spec 70: procurement's worklist-only tab set — purchasing + profile.
+    // Spec 70 + 93: procurement's worklist-only tab set — purchasing + settings.
     // No โครงการ (no project/WP hub in v1) and no รอตรวจ (not a decider).
     expect(PROCUREMENT_TABS.map((t) => [t.label, t.href])).toEqual([
       ["คำขอซื้อ", "/requests"],
-      ["โปรไฟล์", "/profile"],
+      ["ตั้งค่า", "/settings"],
     ]);
   });
 
@@ -58,7 +57,7 @@ describe("BottomTabBar", () => {
     render(<BottomTabBar role="project_manager" />);
     expect(screen.getByRole("link", { name: /โครงการ/ })).toHaveAttribute("href", "/projects");
     expect(screen.getByRole("link", { name: /คำขอซื้อ/ })).toHaveAttribute("href", "/requests");
-    expect(screen.getByRole("link", { name: /โปรไฟล์/ })).toHaveAttribute("href", "/profile");
+    expect(screen.getByRole("link", { name: /ตั้งค่า/ })).toHaveAttribute("href", "/settings");
     expect(screen.queryByRole("link", { name: /รอตรวจ/ })).not.toBeInTheDocument();
   });
 
@@ -129,12 +128,12 @@ describe("BottomTabBar", () => {
     expect(activeTabs(c2)[0]?.textContent).toContain("รอตรวจ");
   });
 
-  // Spec 70: procurement gets the worklist tab set — purchasing + profile,
+  // Spec 70 + 93: procurement gets the worklist tab set — purchasing + ตั้งค่า,
   // and NEVER โครงการ or รอตรวจ (it has no project hub and is not a decider).
-  it("renders the procurement set: คำขอซื้อ + โปรไฟล์, no โครงการ/รอตรวจ", () => {
+  it("renders the procurement set: คำขอซื้อ + ตั้งค่า, no โครงการ/รอตรวจ", () => {
     mockUsePathname.mockReturnValue("/requests");
     const { container } = render(<BottomTabBar role="procurement" />);
-    expect(screen.getByRole("link", { name: /โปรไฟล์/ })).toHaveAttribute("href", "/profile");
+    expect(screen.getByRole("link", { name: /ตั้งค่า/ })).toHaveAttribute("href", "/settings");
     expect(screen.queryByRole("link", { name: /โครงการ/ })).not.toBeInTheDocument();
     expect(screen.queryByText("รอตรวจ")).not.toBeInTheDocument();
     // คำขอซื้อ is the active tab on /requests, so it renders as a span, not a link.
