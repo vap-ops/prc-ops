@@ -11,12 +11,12 @@ export default function GlobalError({ reset }: { error: Error; reset: () => void
     <PageShell variant="card">
       <div className="max-w-md space-y-6 text-center">
         <h1 className="text-2xl font-semibold tracking-tight">เกิดข้อผิดพลาด</h1>
-        <p className="text-sm text-zinc-600">มีบางอย่างผิดพลาด กรุณาลองใหม่อีกครั้ง</p>
+        <p className="text-ink-secondary text-sm">มีบางอย่างผิดพลาด กรุณาลองใหม่อีกครั้ง</p>
         <div className="pt-2">
           <button
             type="button"
             onClick={reset}
-            className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-md bg-slate-900 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 motion-reduce:transition-none"
+            className="bg-fill text-on-fill hover:bg-fill-press focus-visible:ring-action inline-flex min-h-11 cursor-pointer items-center justify-center rounded-md px-5 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 motion-reduce:transition-none"
           >
             ลองใหม่
           </button>

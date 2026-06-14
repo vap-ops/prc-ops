@@ -31,8 +31,8 @@ import {
 const STATUS_ORDER: ReadonlyArray<ProjectStatus> = ["active", "on_hold", "completed", "archived"];
 
 const FIELD =
-  "h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-2 text-sm text-zinc-900 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700";
-const LABEL = "text-sm font-medium text-zinc-900";
+  "h-11 w-full min-w-0 rounded-control border border-edge-strong bg-card px-2 text-sm text-ink shadow-input focus:outline-none focus-visible:ring-2 focus-visible:ring-action";
+const LABEL = "text-sm font-medium text-ink";
 
 interface ClientOption {
   id: string;
@@ -194,7 +194,7 @@ export function SettingsForm(props: SettingsFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-4 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm"
+      className="rounded-card border-edge bg-card shadow-card flex flex-col gap-4 border p-5"
     >
       <div className="flex flex-col gap-1.5">
         <label htmlFor="project-name" className={LABEL}>
@@ -206,7 +206,7 @@ export function SettingsForm(props: SettingsFormProps) {
           maxLength={PROJECT_NAME_MAX}
           onChange={(e) => setName(e.target.value)}
           disabled={busy}
-          className="h-11 border-zinc-400 bg-white text-zinc-900"
+          className="border-edge-strong bg-card text-ink h-11"
         />
       </div>
 
@@ -240,7 +240,7 @@ export function SettingsForm(props: SettingsFormProps) {
           rows={2}
           onChange={(e) => setSiteAddress(e.target.value)}
           disabled={busy}
-          className="w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 py-2 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+          className="rounded-control border-edge-strong bg-card text-ink shadow-input placeholder:text-ink-muted focus-visible:ring-action w-full min-w-0 border px-3 py-2 text-sm focus:outline-none focus-visible:ring-2"
           placeholder="ที่อยู่หรือพิกัดหน้างาน"
         />
       </div>
@@ -254,9 +254,9 @@ export function SettingsForm(props: SettingsFormProps) {
           value={props.contractReference ?? "—"}
           readOnly
           disabled
-          className="h-11 border-zinc-300 bg-zinc-50 text-zinc-500"
+          className="border-edge-strong bg-page text-ink-muted h-11"
         />
-        <p className="text-xs text-zinc-500">แก้ไขไม่ได้ (ตั้งครั้งเดียวตอนนำเข้าข้อมูล)</p>
+        <p className="text-ink-muted text-xs">แก้ไขไม่ได้ (ตั้งครั้งเดียวตอนนำเข้าข้อมูล)</p>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row">
@@ -336,15 +336,15 @@ export function SettingsForm(props: SettingsFormProps) {
             {members.map((m) => (
               <li
                 key={m.id}
-                className="flex items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2"
+                className="rounded-control border-edge bg-page flex items-center justify-between gap-2 border px-3 py-2"
               >
-                <span className="truncate text-sm text-zinc-900">{m.name ?? m.id.slice(0, 8)}</span>
+                <span className="text-ink truncate text-sm">{m.name ?? m.id.slice(0, 8)}</span>
                 <button
                   type="button"
                   onClick={() => handleRemoveMember(m.id)}
                   disabled={busy}
                   aria-label={`ลบ ${m.name ?? "สมาชิก"}`}
-                  className="shrink-0 px-2 text-sm font-medium text-red-700"
+                  className="text-danger shrink-0 px-2 text-sm font-medium"
                 >
                   ✕
                 </button>
@@ -352,7 +352,7 @@ export function SettingsForm(props: SettingsFormProps) {
             ))}
           </ul>
         ) : (
-          <p className="text-xs text-zinc-500">ยังไม่มีสมาชิกในทีม</p>
+          <p className="text-ink-muted text-xs">ยังไม่มีสมาชิกในทีม</p>
         )}
         {addableStaff.length > 0 && (
           <div className="flex gap-2">
@@ -395,7 +395,7 @@ export function SettingsForm(props: SettingsFormProps) {
           value={budget}
           onChange={(e) => setBudget(e.target.value)}
           disabled={busy}
-          className="h-11 border-zinc-400 bg-white text-zinc-900"
+          className="border-edge-strong bg-card text-ink h-11"
           placeholder="เช่น 1500000"
         />
       </div>
@@ -423,7 +423,7 @@ export function SettingsForm(props: SettingsFormProps) {
             type="button"
             onClick={() => setAddingOpen(true)}
             disabled={busy}
-            className="self-start text-sm font-medium text-blue-700 underline-offset-2 hover:underline"
+            className="text-action self-start text-sm font-medium underline-offset-2 hover:underline"
           >
             + เพิ่มลูกค้าใหม่
           </button>
@@ -431,42 +431,42 @@ export function SettingsForm(props: SettingsFormProps) {
       </div>
 
       {addingOpen && (
-        <div className="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+        <div className="rounded-control border-edge bg-page flex flex-col gap-2 border p-4">
           <p className={LABEL}>เพิ่มลูกค้าใหม่</p>
           <Input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             disabled={addPending}
             placeholder="ชื่อลูกค้า (จำเป็น)"
-            className="h-11 border-zinc-400 bg-white text-zinc-900"
+            className="border-edge-strong bg-card text-ink h-11"
           />
           <Input
             value={newContact}
             onChange={(e) => setNewContact(e.target.value)}
             disabled={addPending}
             placeholder="ผู้ติดต่อ"
-            className="h-11 border-zinc-400 bg-white text-zinc-900"
+            className="border-edge-strong bg-card text-ink h-11"
           />
           <Input
             value={newPhone}
             onChange={(e) => setNewPhone(e.target.value)}
             disabled={addPending}
             placeholder="เบอร์โทร"
-            className="h-11 border-zinc-400 bg-white text-zinc-900"
+            className="border-edge-strong bg-card text-ink h-11"
           />
           <Input
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
             disabled={addPending}
             placeholder="อีเมล"
-            className="h-11 border-zinc-400 bg-white text-zinc-900"
+            className="border-edge-strong bg-card text-ink h-11"
           />
           <Input
             value={newAddress}
             onChange={(e) => setNewAddress(e.target.value)}
             disabled={addPending}
             placeholder="ที่อยู่สำหรับเอกสาร"
-            className="h-11 border-zinc-400 bg-white text-zinc-900"
+            className="border-edge-strong bg-card text-ink h-11"
           />
           {addError && (
             <div role="alert" className={INLINE_ERROR}>
@@ -481,7 +481,7 @@ export function SettingsForm(props: SettingsFormProps) {
                 setAddError(null);
               }}
               disabled={addPending}
-              className="h-11 px-4 text-sm font-medium text-zinc-600"
+              className="text-ink-secondary h-11 px-4 text-sm font-medium"
             >
               ยกเลิก
             </button>
@@ -508,7 +508,7 @@ export function SettingsForm(props: SettingsFormProps) {
           rows={3}
           onChange={(e) => setNotes(e.target.value)}
           disabled={busy}
-          className="w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 py-2 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+          className="rounded-control border-edge-strong bg-card text-ink shadow-input placeholder:text-ink-muted focus-visible:ring-action w-full min-w-0 border px-3 py-2 text-sm focus:outline-none focus-visible:ring-2"
           placeholder="ข้อมูลเพิ่มเติมเกี่ยวกับโครงการที่ไม่มีช่องให้กรอกโดยตรง"
         />
       </div>

@@ -9,13 +9,13 @@
 
 type PageShellVariant = "app" | "card" | "bare";
 
-const SHELL_BASE = "h-full overflow-y-auto overscroll-y-contain text-zinc-900";
+const SHELL_BASE = "h-full overflow-y-auto overscroll-y-contain text-ink";
 
 const VARIANT_CLASSES: Record<PageShellVariant, string> = {
   /** Content pages: zinc wash + phone tab-bar clearance. */
-  app: "bg-zinc-50 pb-20 sm:pb-0",
+  app: "bg-page pb-20 sm:pb-0",
   /** Single-card screens (login, landing, error, not-found). */
-  card: "flex items-center justify-center bg-white px-6",
+  card: "flex items-center justify-center bg-card px-6",
   /** Caller supplies the rest (profile, coming-soon hub). */
   bare: "",
 };

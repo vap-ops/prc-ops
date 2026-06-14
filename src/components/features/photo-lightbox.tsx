@@ -230,7 +230,7 @@ export function ZoomablePhoto({
         type="button"
         onClick={openDialog}
         aria-label="ดูรูปขยาย"
-        className="block h-full w-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-inset"
+        className="focus-visible:ring-action block h-full w-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-inset"
       >
         {/* Plain <img> — signed Supabase URLs; same call as the existing
             thumbnails (next/image would need a remotePatterns entry). */}

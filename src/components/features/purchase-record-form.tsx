@@ -87,12 +87,12 @@ export function PurchaseRecordForm({ requestId, suppliers }: PurchaseRecordFormP
   }
 
   return (
-    <details className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
-      <summary className="cursor-pointer text-xs font-medium text-blue-700 underline-offset-2 hover:underline">
+    <details className="rounded-control border-edge bg-page border px-3 py-2">
+      <summary className="text-action cursor-pointer text-xs font-medium underline-offset-2 hover:underline">
         บันทึกการสั่งซื้อ
       </summary>
       <div className="mt-2 flex flex-col gap-2">
-        <label htmlFor={`supplier-${requestId}`} className="text-xs font-medium text-zinc-900">
+        <label htmlFor={`supplier-${requestId}`} className="text-ink text-xs font-medium">
           ผู้ขาย
         </label>
         <select
@@ -112,7 +112,7 @@ export function PurchaseRecordForm({ requestId, suppliers }: PurchaseRecordFormP
         </select>
 
         <details>
-          <summary className="cursor-pointer text-xs font-medium text-blue-700 underline-offset-2 hover:underline">
+          <summary className="text-action cursor-pointer text-xs font-medium underline-offset-2 hover:underline">
             เพิ่มผู้ขายใหม่
           </summary>
           <div className="mt-2 flex flex-col gap-2">
@@ -138,14 +138,14 @@ export function PurchaseRecordForm({ requestId, suppliers }: PurchaseRecordFormP
               type="button"
               onClick={handleCreateSupplier}
               disabled={pending || nameDraft.trim().length === 0}
-              className="inline-flex h-11 items-center justify-center rounded-md border border-slate-900 bg-white px-4 text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:text-zinc-500"
+              className="border-ink bg-card text-ink hover:bg-sunk focus-visible:ring-action disabled:border-edge-strong disabled:text-ink-muted inline-flex h-11 items-center justify-center rounded-md border px-4 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed"
             >
               {pending ? "กำลังบันทึก…" : "เพิ่มและเลือก"}
             </button>
           </div>
         </details>
 
-        <label htmlFor={`order-ref-${requestId}`} className="text-xs font-medium text-zinc-900">
+        <label htmlFor={`order-ref-${requestId}`} className="text-ink text-xs font-medium">
           เลขที่ใบสั่งซื้อ (ไม่บังคับ)
         </label>
         <input
@@ -155,10 +155,10 @@ export function PurchaseRecordForm({ requestId, suppliers }: PurchaseRecordFormP
           maxLength={80}
           onChange={(e) => setOrderRef(e.target.value)}
           disabled={pending}
-          className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 text-sm text-zinc-900 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+          className="rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action h-11 w-full min-w-0 border px-3 text-sm shadow-xs focus:outline-none focus-visible:ring-2"
         />
 
-        <label htmlFor={`amount-${requestId}`} className="text-xs font-medium text-zinc-900">
+        <label htmlFor={`amount-${requestId}`} className="text-ink text-xs font-medium">
           จำนวนเงิน (บาท, ไม่บังคับ)
         </label>
         <input
@@ -171,10 +171,10 @@ export function PurchaseRecordForm({ requestId, suppliers }: PurchaseRecordFormP
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           disabled={pending}
-          className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 text-sm text-zinc-900 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+          className="rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action h-11 w-full min-w-0 border px-3 text-sm shadow-xs focus:outline-none focus-visible:ring-2"
         />
 
-        <label htmlFor={`eta-${requestId}`} className="text-xs font-medium text-zinc-900">
+        <label htmlFor={`eta-${requestId}`} className="text-ink text-xs font-medium">
           คาดว่าจะได้รับของ (ไม่บังคับ)
         </label>
         <input
@@ -183,7 +183,7 @@ export function PurchaseRecordForm({ requestId, suppliers }: PurchaseRecordFormP
           value={eta}
           onChange={(e) => setEta(e.target.value)}
           disabled={pending}
-          className="h-11 w-full min-w-0 appearance-none rounded-lg border border-zinc-400 bg-white px-3 text-sm text-zinc-900 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+          className="rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action h-11 w-full min-w-0 appearance-none border px-3 text-sm shadow-xs focus:outline-none focus-visible:ring-2"
         />
 
         <button

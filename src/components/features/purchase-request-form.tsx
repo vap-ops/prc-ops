@@ -35,9 +35,9 @@ import { bangkokTodayIso } from "@/lib/dates";
 // Selected-segment colors mirror the request list's status pills (spec 21):
 // color only the chosen urgency so the row doesn't read as an alert at rest.
 const PRIORITY_SELECTED_CLASS: Record<PurchasePriority, string> = {
-  normal: "border-zinc-700 bg-zinc-700 text-white",
-  urgent: "border-amber-500 bg-amber-500 text-zinc-950",
-  critical: "border-red-600 bg-red-600 text-white",
+  normal: "border-fill bg-fill text-on-fill",
+  urgent: "border-attn bg-attn text-on-attn",
+  critical: "border-danger bg-danger text-on-fill",
 };
 
 export interface PurchaseRequestFormWorkPackage {
@@ -152,19 +152,19 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-3 rounded-lg border border-zinc-300 bg-zinc-50 p-4 shadow-sm"
+      className="rounded-control border-edge-strong bg-page shadow-card flex flex-col gap-3 border p-4"
     >
       <div className="flex min-w-0 flex-col gap-1">
-        <span className="text-sm font-medium text-zinc-900">รายการงาน</span>
-        <p className="truncate rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm">
-          <span className="font-mono text-zinc-600">{workPackage.code}</span>
-          <span className="mx-1 text-zinc-400">·</span>
-          <span className="text-zinc-900">{workPackage.name}</span>
+        <span className="text-ink text-sm font-medium">รายการงาน</span>
+        <p className="border-edge-strong bg-card truncate rounded-md border px-3 py-2 text-sm">
+          <span className="text-ink-secondary font-mono">{workPackage.code}</span>
+          <span className="text-ink-muted mx-1">·</span>
+          <span className="text-ink">{workPackage.name}</span>
         </p>
       </div>
 
       <div className="flex flex-col gap-1">
-        <label htmlFor="pr-item" className="text-sm font-medium text-zinc-900">
+        <label htmlFor="pr-item" className="text-ink text-sm font-medium">
           รายการวัสดุ
         </label>
         <input
@@ -185,7 +185,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
 
       <div className="flex gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <label htmlFor="pr-qty" className="text-sm font-medium text-zinc-900">
+          <label htmlFor="pr-qty" className="text-ink text-sm font-medium">
             จำนวน
           </label>
           <input
@@ -204,7 +204,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
           />
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <label htmlFor="pr-unit" className="text-sm font-medium text-zinc-900">
+          <label htmlFor="pr-unit" className="text-ink text-sm font-medium">
             หน่วย
           </label>
           <select
@@ -216,7 +216,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
               setSavedAt(null);
             }}
             disabled={submitting}
-            className="h-11 w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-2 text-sm text-zinc-900 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+            className="rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action h-11 w-full min-w-0 border px-2 text-sm shadow-xs focus:outline-none focus-visible:ring-2"
           >
             <option value="" disabled>
               เลือกหน่วย
@@ -233,7 +233,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
 
       {unitChoice === UNIT_OTHER_VALUE ? (
         <div className="flex flex-col gap-1">
-          <label htmlFor="pr-unit-other" className="text-sm font-medium text-zinc-900">
+          <label htmlFor="pr-unit-other" className="text-ink text-sm font-medium">
             ระบุหน่วย
           </label>
           <input
@@ -260,7 +260,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
           2026-06-11). */}
       <div className="flex flex-col gap-3">
         <div className="flex min-w-0 flex-col gap-1">
-          <label htmlFor="pr-needed-by" className="text-sm font-medium text-zinc-900">
+          <label htmlFor="pr-needed-by" className="text-ink text-sm font-medium">
             ต้องการรับของภายใน (ไม่บังคับ)
           </label>
           <input
@@ -274,19 +274,19 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
               setSavedAt(null);
             }}
             disabled={submitting}
-            className="h-11 w-full max-w-full min-w-0 appearance-none rounded-lg border border-zinc-400 bg-white px-3 text-sm text-zinc-900 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+            className="rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action h-11 w-full max-w-full min-w-0 appearance-none border px-3 text-sm shadow-xs focus:outline-none focus-visible:ring-2"
           />
         </div>
         <fieldset className="flex min-w-0 flex-col gap-1">
-          <legend className="text-sm font-medium text-zinc-900">ความเร่งด่วน</legend>
+          <legend className="text-ink text-sm font-medium">ความเร่งด่วน</legend>
           <div className="flex gap-1.5">
             {PURCHASE_PRIORITIES.map((p) => (
               <label
                 key={p}
-                className={`inline-flex h-11 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-md border text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-blue-700 focus-within:ring-offset-1 ${
+                className={`focus-within:ring-action inline-flex h-11 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-md border text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-offset-1 ${
                   priority === p
                     ? PRIORITY_SELECTED_CLASS[p]
-                    : "border-zinc-400 bg-white text-zinc-900"
+                    : "border-edge-strong bg-card text-ink"
                 } ${submitting ? "cursor-not-allowed opacity-60" : ""}`}
               >
                 <input
@@ -310,7 +310,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
       </div>
 
       <div className="flex flex-col gap-1">
-        <label htmlFor="pr-notes" className="text-sm font-medium text-zinc-900">
+        <label htmlFor="pr-notes" className="text-ink text-sm font-medium">
           หมายเหตุ (ไม่บังคับ)
         </label>
         <textarea
@@ -324,13 +324,13 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
             setSavedAt(null);
           }}
           disabled={submitting}
-          className="w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 py-2 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+          className="rounded-control border-edge-strong bg-card text-ink placeholder:text-ink-muted focus-visible:ring-action w-full min-w-0 border px-3 py-2 text-sm shadow-xs focus:outline-none focus-visible:ring-2"
           placeholder="เช่น ยี่ห้อ รุ่น หรือข้อความถึงฝ่ายจัดซื้อ"
         />
       </div>
 
       <div className="flex flex-col gap-1">
-        <span className="text-sm font-medium text-zinc-900">รูปและลิงก์อ้างอิง (ไม่บังคับ)</span>
+        <span className="text-ink text-sm font-medium">รูปและลิงก์อ้างอิง (ไม่บังคับ)</span>
         <PurchaseRequestAttachmentStager
           ref={stagerRef}
           projectId={projectId}
@@ -347,12 +347,12 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
 
       <div className="flex items-center justify-end gap-3">
         {attachmentNote !== null && !submitting ? (
-          <span className="text-xs font-medium text-amber-700" role="status">
+          <span className="text-attn-ink text-xs font-medium" role="status">
             {attachmentNote}
           </span>
         ) : null}
         {savedAt !== null && !submitting ? (
-          <span className="text-xs font-medium text-emerald-700" role="status">
+          <span className="text-done-strong text-xs font-medium" role="status">
             บันทึกแล้ว
           </span>
         ) : null}

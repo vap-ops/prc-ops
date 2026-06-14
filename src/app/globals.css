@@ -96,6 +96,7 @@
   --color-fill: oklch(0.23 0.04 264); /* ≈ #0f172a slate-900 — neutral primary fills */
   --color-fill-press: oklch(0.31 0.045 264); /* ≈ #1e293b slate-800 */
   --color-on-fill: oklch(1 0 0);
+  --color-action-soft: oklch(0.97 0.02 255); /* ≈ #eff6ff blue-50 — "ของฉัน"/selected ground */
 
   /* --- Attention / signature amber (the field-action hue) --------- */
   --color-attn: oklch(0.77 0.16 70); /* ≈ #f59e0b amber-500 — spines, capture, shutter */
@@ -114,9 +115,12 @@
   --color-done: oklch(0.6 0.13 163); /* ≈ #059669 emerald-600 */
   --color-done-strong: oklch(0.52 0.12 163); /* ≈ #047857 emerald-700 — discs, white ink ~5.4:1 */
   --color-done-soft: oklch(0.97 0.03 165); /* ≈ #ecfdf5 emerald-50 */
+  --color-done-edge: oklch(0.85 0.13 163); /* ≈ #6ee7b7 emerald-300 — soft success border */
+  --color-done-ink: oklch(0.39 0.08 165); /* ≈ #064e3b emerald-900 — text on done-soft */
 
   /* --- Danger ----------------------------------------------------- */
   --color-danger: oklch(0.58 0.22 27); /* ≈ #dc2626 red-600 */
+  --color-danger-strong: oklch(0.51 0.21 28); /* ≈ #b91c1c red-700 — destructive hover/press */
   --color-danger-soft: oklch(0.97 0.015 17); /* ≈ #fef2f2 red-50 */
   --color-danger-edge: oklch(0.8 0.1 20); /* ≈ #fca5a5 red-300 */
   --color-danger-ink: oklch(0.4 0.13 25); /* ≈ #7f1d1d red-900 */

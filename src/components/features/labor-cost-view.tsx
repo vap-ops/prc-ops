@@ -58,30 +58,30 @@ export function LaborCostView({
       {/* Live subtotals. */}
       <dl className="flex flex-col gap-1.5 text-sm">
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-zinc-600">ทีมตัวเอง</dt>
-          <dd className="font-medium text-zinc-900">{baht(summary.ownCost)}</dd>
+          <dt className="text-ink-secondary">ทีมตัวเอง</dt>
+          <dd className="text-ink font-medium">{baht(summary.ownCost)}</dd>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-zinc-600">ผู้รับเหมา (DC)</dt>
-          <dd className="font-medium text-zinc-900">{baht(summary.dcCost)}</dd>
+          <dt className="text-ink-secondary">ผู้รับเหมา (DC)</dt>
+          <dd className="text-ink font-medium">{baht(summary.dcCost)}</dd>
         </div>
-        <div className="mt-1 flex items-center justify-between gap-3 border-t border-zinc-200 pt-2">
-          <dt className="font-semibold text-zinc-900">รวมค่าแรง</dt>
-          <dd className="text-base font-bold text-zinc-900">{baht(summary.total)}</dd>
+        <div className="border-edge mt-1 flex items-center justify-between gap-3 border-t pt-2">
+          <dt className="text-ink font-semibold">รวมค่าแรง</dt>
+          <dd className="text-ink text-base font-bold">{baht(summary.total)}</dd>
         </div>
       </dl>
 
       {/* Frozen snapshot status + re-freeze. */}
-      <div className="flex flex-col gap-2 border-t border-zinc-200 pt-3">
+      <div className="border-edge flex flex-col gap-2 border-t pt-3">
         {frozen ? (
           <>
-            <p className="text-xs text-zinc-600">
+            <p className="text-ink-secondary text-xs">
               ตรึงค่าแรงไว้ {baht(round2(frozen.ownCost) + round2(frozen.dcCost))} · โดย{" "}
               {frozen.frozenByName} · {formatThaiDateTime(frozen.computedAt)}
             </p>
             {drift ? (
-              <div className="flex flex-col items-start gap-1.5 rounded-lg border-l-4 border-amber-600 bg-amber-50 px-3 py-2">
-                <p className="text-xs font-medium text-amber-900">
+              <div className="rounded-control border-attn bg-attn-soft flex flex-col items-start gap-1.5 border-l-4 px-3 py-2">
+                <p className="text-attn-ink text-xs font-medium">
                   ค่าแรงเปลี่ยนไปตั้งแต่ตรึงล่าสุด — ตรึงใหม่เพื่อบันทึกยอดปัจจุบัน
                 </p>
                 <RefreezeButton
@@ -91,12 +91,12 @@ export function LaborCostView({
                 />
               </div>
             ) : (
-              <p className="text-xs font-medium text-emerald-700">ตรงกับยอดปัจจุบัน</p>
+              <p className="text-done-strong text-xs font-medium">ตรงกับยอดปัจจุบัน</p>
             )}
           </>
         ) : (
           <div className="flex flex-col items-start gap-1.5">
-            <p className="text-xs text-zinc-600">ยังไม่ได้ตรึงค่าแรง</p>
+            <p className="text-ink-secondary text-xs">ยังไม่ได้ตรึงค่าแรง</p>
             <RefreezeButton
               workPackageId={workPackageId}
               revalidate={revalidate}
@@ -108,23 +108,23 @@ export function LaborCostView({
 
       {/* Per-worker breakdown. */}
       {summary.workers.length > 0 ? (
-        <ul className="flex flex-col divide-y divide-zinc-100 border-t border-zinc-200 pt-1">
+        <ul className="divide-edge border-edge flex flex-col divide-y border-t pt-1">
           {summary.workers.map((w) => (
             <li key={w.workerId} className="flex items-center justify-between gap-3 py-2">
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-zinc-900">
+                <p className="text-ink truncate text-sm font-medium">
                   {w.name}
                   {w.selfLogged ? (
-                    <span className="ml-1.5 rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600">
+                    <span className="bg-sunk text-ink-secondary ml-1.5 rounded px-1.5 py-0.5 text-[11px] font-medium">
                       ลงเอง
                     </span>
                   ) : null}
                 </p>
-                <p className="text-xs text-zinc-600">
+                <p className="text-ink-secondary text-xs">
                   {WORKER_TYPE_LABEL[w.type]} · {formatDays(w.days)} วัน
                 </p>
               </div>
-              <span className="shrink-0 text-sm font-medium text-zinc-900">{baht(w.cost)}</span>
+              <span className="text-ink shrink-0 text-sm font-medium">{baht(w.cost)}</span>
             </li>
           ))}
         </ul>
@@ -132,13 +132,13 @@ export function LaborCostView({
 
       {/* C5: cross-WP over-allocation (>1.0 day on a date). Surfaced, never blocked. */}
       {overAllocated.length > 0 ? (
-        <div className="border-t border-zinc-200 pt-3">
-          <p className="mb-1.5 text-xs font-semibold text-amber-900">
+        <div className="border-edge border-t pt-3">
+          <p className="text-attn-ink mb-1.5 text-xs font-semibold">
             ลงแรงงานเกิน 1 วันต่อคนต่อวัน (รวมทุกงาน)
           </p>
           <ul className="flex flex-col gap-1">
             {overAllocated.map((o) => (
-              <li key={`${o.workerId}|${o.workDate}`} className="text-xs text-zinc-600">
+              <li key={`${o.workerId}|${o.workDate}`} className="text-ink-secondary text-xs">
                 {o.workDate} · {formatDays(o.totalDays)} วัน
               </li>
             ))}

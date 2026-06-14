@@ -157,7 +157,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
       <DetailHeader backHref="/requests" backLabel="กลับไปคำขอซื้อ">
         {wp ? (
           isProcurement ? (
-            <span className="w-fit truncate text-xs text-zinc-600">
+            <span className="text-ink-secondary w-fit truncate text-xs">
               <span className="font-mono">{wp.code}</span>
               <span className="mx-1">·</span>
               {wp.name}
@@ -165,7 +165,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
           ) : (
             <Link
               href={workPackageHref(wp.project_id, wp.id)}
-              className="w-fit truncate text-xs text-zinc-600 hover:underline focus:outline-none focus-visible:underline"
+              className="text-ink-secondary w-fit truncate text-xs hover:underline focus:outline-none focus-visible:underline"
             >
               <span className="font-mono">{wp.code}</span>
               <span className="mx-1">·</span>
@@ -175,7 +175,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
         ) : null}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-mono text-xs text-zinc-600">
+            <p className="text-ink-secondary font-mono text-xs">
               PR-{String(request.pr_number).padStart(4, "0")}
             </p>
             {/* Spec 57: the page's subject never truncates. */}
@@ -195,22 +195,22 @@ export default async function RequestDetailPage({ params }: PageProps) {
       </DetailHeader>
 
       <section className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-8 px-5 py-6`}>
-        <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <p className="text-sm text-zinc-900">
+        <div className="rounded-card border-edge bg-card shadow-card border p-4">
+          <p className="text-ink text-sm">
             จำนวน {request.quantity} {request.unit}
           </p>
-          <p className="mt-1 text-xs text-zinc-600">
+          <p className="text-ink-secondary mt-1 text-xs">
             {isMine ? (
-              <span className="mr-1.5 inline-flex items-center rounded-full border border-blue-700 bg-blue-50 px-1.5 text-[10px] font-semibold text-blue-700">
+              <span className="border-action bg-action-soft text-action mr-1.5 inline-flex items-center rounded-full border px-1.5 text-[10px] font-semibold">
                 ของฉัน
               </span>
             ) : null}
             ขอซื้อโดย {requesterName}
-            <span className="mx-1 text-zinc-400">·</span>
+            <span className="text-ink-muted mx-1">·</span>
             ขอเมื่อ {formatThaiDate(request.requested_at)}
           </p>
           {request.needed_by ? (
-            <p className="mt-1 text-xs text-zinc-600">
+            <p className="text-ink-secondary mt-1 text-xs">
               ต้องการรับของภายใน {formatThaiDate(request.needed_by)}
             </p>
           ) : null}
@@ -222,7 +222,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
               <PurchaseRequestNotes requestId={request.id} notes={request.notes} />
             </div>
           ) : request.notes ? (
-            <p className="mt-1 text-xs whitespace-pre-wrap text-zinc-600">
+            <p className="text-ink-secondary mt-1 text-xs whitespace-pre-wrap">
               หมายเหตุ: {request.notes}
             </p>
           ) : null}
@@ -248,7 +248,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
               <AttentionCard tone="red" title="เหตุผลที่ไม่อนุมัติ">
                 <p className="whitespace-pre-wrap">{request.decision_comment}</p>
                 {request.decided_at ? (
-                  <p className="mt-1 text-xs text-zinc-600">
+                  <p className="text-ink-secondary mt-1 text-xs">
                     พิจารณาเมื่อ {formatThaiDateTime(request.decided_at)}
                   </p>
                 ) : null}
@@ -256,7 +256,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
             </div>
           ) : null}
           {request.supplier || (status === "delivered" && request.received_by) ? (
-            <p className="mt-3 text-xs text-zinc-600">
+            <p className="text-ink-secondary mt-3 text-xs">
               {request.supplier ? `ผู้ขาย ${request.supplier}` : ""}
               {request.supplier && status === "delivered" && request.received_by ? " · " : ""}
               {status === "delivered" && request.received_by
@@ -265,7 +265,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
             </p>
           ) : null}
           {status === "delivered" && request.delivery_note ? (
-            <p className="mt-1 text-xs whitespace-pre-wrap text-zinc-600">
+            <p className="text-ink-secondary mt-1 text-xs whitespace-pre-wrap">
               {request.delivery_note}
             </p>
           ) : null}
@@ -282,8 +282,8 @@ export default async function RequestDetailPage({ params }: PageProps) {
           </AttentionCard>
         ) : null}
         {isSitePurchase && ackAt ? (
-          <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-            <p className="text-sm font-medium text-emerald-700">
+          <div className="rounded-card border-edge bg-card shadow-card border p-4">
+            <p className="text-done-strong text-sm font-medium">
               PM รับทราบการซื้อหน้างานแล้ว · {formatThaiDateTime(ackAt)}
             </p>
           </div>
@@ -292,11 +292,11 @@ export default async function RequestDetailPage({ params }: PageProps) {
         {referenceImages.length > 0 ||
         referenceLinks.length > 0 ||
         (status === "requested" && isMine && wp) ? (
-          <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-            <h2 className="text-base font-semibold text-zinc-900">เอกสารอ้างอิง</h2>
+          <div className="rounded-card border-edge bg-card shadow-card border p-4">
+            <h2 className="text-ink text-base font-semibold">เอกสารอ้างอิง</h2>
             {referenceImages.length > 0 ? (
               <div className="mt-2">
-                <p className="text-xs font-medium text-zinc-700">รูปอ้างอิง</p>
+                <p className="text-ink-secondary text-xs font-medium">รูปอ้างอิง</p>
                 <ul className="mt-1 flex flex-wrap gap-2">
                   {referenceImages.map((photo, idx, arr) => {
                     const url = photo.id ? attachmentUrls.get(photo.id) : undefined;
@@ -310,7 +310,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
                       .filter((a) => a.id && attachmentUrls.get(a.id)).length;
                     return (
                       <li key={photo.id} className="flex flex-col items-center gap-0.5">
-                        <span className="block h-20 w-20 overflow-hidden rounded-lg border border-zinc-200">
+                        <span className="border-edge block h-20 w-20 overflow-hidden rounded-lg border">
                           <ZoomablePhoto src={url} group={groupUrls} groupIndex={groupIndex} />
                         </span>
                         {status === "requested" && photo.created_by === ctx.id ? (
@@ -324,7 +324,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
             ) : null}
             {referenceLinks.length > 0 ? (
               <div className="mt-2">
-                <p className="text-xs font-medium text-zinc-700">ลิงก์อ้างอิง</p>
+                <p className="text-ink-secondary text-xs font-medium">ลิงก์อ้างอิง</p>
                 <ul className="mt-1 flex flex-col gap-1">
                   {referenceLinks.map((link) => {
                     if (!link.id || !link.url) return null;
@@ -334,7 +334,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
                           href={link.url}
                           target="_blank"
                           rel="noopener noreferrer nofollow"
-                          className="min-w-0 flex-1 truncate text-xs text-blue-700 underline-offset-2 hover:underline"
+                          className="text-action min-w-0 flex-1 truncate text-xs underline-offset-2 hover:underline"
                         >
                           {link.url}
                         </a>
@@ -349,7 +349,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
             ) : null}
             {status === "requested" && isMine && wp ? (
               <details className="mt-2">
-                <summary className="cursor-pointer text-xs font-medium text-blue-700 underline-offset-2 hover:underline">
+                <summary className="text-action cursor-pointer text-xs font-medium underline-offset-2 hover:underline">
                   เพิ่มรูปหรือลิงก์
                 </summary>
                 <div className="mt-2">
@@ -365,12 +365,12 @@ export default async function RequestDetailPage({ params }: PageProps) {
         ) : null}
 
         {status === "delivered" || status === "on_route" ? (
-          <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-            <h2 className="text-base font-semibold text-zinc-900">การรับของ</h2>
+          <div className="rounded-card border-edge bg-card shadow-card border p-4">
+            <h2 className="text-ink text-base font-semibold">การรับของ</h2>
             <div className="mt-2 flex flex-col gap-2">
               {confirmations.length > 0 ? (
                 <div>
-                  <p className="text-xs font-medium text-zinc-700">รูปยืนยันการรับของ</p>
+                  <p className="text-ink-secondary text-xs font-medium">รูปยืนยันการรับของ</p>
                   <ul className="mt-1 flex flex-wrap gap-2">
                     {confirmations.map((photo, idx, arr) => {
                       const url = photo.id ? attachmentUrls.get(photo.id) : undefined;
@@ -386,7 +386,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
                         .filter((a) => a.id && attachmentUrls.get(a.id)).length;
                       return (
                         <li key={photo.id} className="flex flex-col items-center gap-0.5">
-                          <span className="block h-20 w-20 overflow-hidden rounded-lg border border-zinc-200">
+                          <span className="border-edge block h-20 w-20 overflow-hidden rounded-lg border">
                             <ZoomablePhoto src={url} group={groupUrls} groupIndex={groupIndex} />
                           </span>
                           {photo.created_by === ctx.id ? (
@@ -413,8 +413,8 @@ export default async function RequestDetailPage({ params }: PageProps) {
         status === "on_route" ||
         status === "delivered" ||
         status === "site_purchased" ? (
-          <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-            <h2 className="text-base font-semibold text-zinc-900">เอกสาร (ใบส่งของ / ใบเสร็จ)</h2>
+          <div className="rounded-card border-edge bg-card shadow-card border p-4">
+            <h2 className="text-ink text-base font-semibold">เอกสาร (ใบส่งของ / ใบเสร็จ)</h2>
             <div className="mt-2 flex flex-col gap-2">
               {invoices.length > 0 ? (
                 <ul className="flex flex-wrap gap-2">
@@ -430,7 +430,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
                       .filter((a) => a.id && attachmentUrls.get(a.id)).length;
                     return (
                       <li key={doc.id} className="flex flex-col items-center gap-0.5">
-                        <span className="block h-20 w-20 overflow-hidden rounded-lg border border-zinc-200">
+                        <span className="border-edge block h-20 w-20 overflow-hidden rounded-lg border">
                           <ZoomablePhoto src={url} group={groupUrls} groupIndex={groupIndex} />
                         </span>
                         {doc.created_by === ctx.id ? (
@@ -441,7 +441,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
                   })}
                 </ul>
               ) : (
-                <p className="text-xs text-zinc-600">ยังไม่มีเอกสาร</p>
+                <p className="text-ink-secondary text-xs">ยังไม่มีเอกสาร</p>
               )}
               {wp ? (
                 <InvoiceUploader purchaseRequestId={request.id} projectId={wp.project_id} />
@@ -451,7 +451,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
         ) : null}
 
         {hasActions ? (
-          <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+          <div className="rounded-card border-edge bg-card shadow-card border p-4">
             {isDecider && status === "requested" ? (
               <PurchaseRequestDecision requestId={request.id} />
             ) : null}
@@ -464,7 +464,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
               <PurchaseRequestShip requestId={request.id} />
             ) : null}
             {isDecider && status === "approved" ? (
-              <div className="mt-3 border-t border-zinc-300 pt-3">
+              <div className="border-edge-strong mt-3 border-t pt-3">
                 <PurchaseRequestCancel requestId={request.id} />
               </div>
             ) : null}

@@ -312,7 +312,7 @@ export const PurchaseRequestAttachmentStager = forwardRef<
           type="button"
           onClick={() => void handleAddLink()}
           disabled={disabled || linkDraft.trim().length === 0}
-          className="inline-flex h-11 shrink-0 items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900 shadow-xs transition-colors hover:bg-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-control border-edge-strong bg-card text-ink shadow-input hover:bg-sunk focus-visible:ring-action inline-flex h-11 shrink-0 items-center justify-center border px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
         >
           เพิ่มลิงก์
         </button>
@@ -327,18 +327,18 @@ export const PurchaseRequestAttachmentStager = forwardRef<
           {visibleItems.map((item) => (
             <li
               key={item.id}
-              className="flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs"
+              className="border-edge-strong bg-card flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs"
             >
-              <span className="min-w-0 flex-1 truncate text-zinc-900">{item.label}</span>
+              <span className="text-ink min-w-0 flex-1 truncate">{item.label}</span>
               {item.status === "preparing" ? (
-                <span className="shrink-0 text-zinc-600">กำลังเตรียมรูป…</span>
+                <span className="text-ink-secondary shrink-0">กำลังเตรียมรูป…</span>
               ) : item.status === "uploading" ? (
-                <span className="shrink-0 text-zinc-600">กำลังอัปโหลด…</span>
+                <span className="text-ink-secondary shrink-0">กำลังอัปโหลด…</span>
               ) : item.status === "saving" ? (
-                <span className="shrink-0 text-zinc-600">กำลังบันทึก…</span>
+                <span className="text-ink-secondary shrink-0">กำลังบันทึก…</span>
               ) : item.status === "upload-error" || item.status === "insert-error" ? (
                 <>
-                  <span className="shrink-0 font-medium text-red-700">
+                  <span className="text-danger shrink-0 font-medium">
                     {item.kind === "link"
                       ? "บันทึกลิงก์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
                       : "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"}
@@ -347,7 +347,7 @@ export const PurchaseRequestAttachmentStager = forwardRef<
                     <button
                       type="button"
                       onClick={() => void runItem(item, retryTarget)}
-                      className="shrink-0 font-medium text-blue-700 hover:underline"
+                      className="text-action shrink-0 font-medium hover:underline"
                     >
                       ลองใหม่
                     </button>
@@ -358,7 +358,7 @@ export const PurchaseRequestAttachmentStager = forwardRef<
                   type="button"
                   onClick={() => setItems((prev) => prev.filter((it) => it.id !== item.id))}
                   disabled={disabled}
-                  className="shrink-0 font-medium text-red-700 hover:underline disabled:opacity-60"
+                  className="text-danger shrink-0 font-medium hover:underline disabled:opacity-60"
                 >
                   ลบ
                 </button>

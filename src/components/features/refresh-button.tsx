@@ -16,8 +16,8 @@ interface RefreshButtonProps {
 }
 
 const VARIANT_CLASSES: Record<RefreshButtonProps["variant"], string> = {
-  dark: "text-slate-100 hover:bg-slate-800 hover:text-amber-300 focus-visible:ring-amber-300",
-  light: "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 focus-visible:ring-blue-700",
+  dark: "text-on-brand hover:bg-fill-press hover:text-attn-edge focus-visible:ring-attn",
+  light: "text-ink-secondary hover:bg-sunk hover:text-ink focus-visible:ring-action",
 };
 
 export function RefreshButton({ variant }: RefreshButtonProps) {

@@ -59,7 +59,7 @@ export function NotesField({
 
   return (
     <div className="flex flex-col gap-2">
-      <label htmlFor={fieldId} className="text-sm font-medium text-zinc-900">
+      <label htmlFor={fieldId} className="text-ink text-sm font-medium">
         {label}
       </label>
       <textarea
@@ -72,7 +72,7 @@ export function NotesField({
           setError(null);
         }}
         disabled={pending}
-        className="w-full min-w-0 rounded-lg border border-zinc-400 bg-white px-3 py-2 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+        className="rounded-control border-edge-strong bg-card text-ink shadow-input placeholder:text-ink-muted focus-visible:ring-action w-full min-w-0 border px-3 py-2 text-sm focus:outline-none focus-visible:ring-2"
         placeholder={placeholder}
       />
       <div className="flex items-center gap-3">

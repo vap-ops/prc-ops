@@ -78,11 +78,11 @@ export default async function ProjectManagerLandingPage() {
                 <li key={wp.id}>
                   <Link
                     href={`/review/work-packages/${wp.id}`}
-                    className="flex min-h-16 items-start justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 active:bg-zinc-100"
+                    className="rounded-card border-edge bg-card shadow-card hover:bg-sunk focus-visible:ring-action active:bg-sunk flex min-h-16 items-start justify-between gap-3 border px-4 py-3 transition-colors focus:outline-none focus-visible:ring-2"
                   >
                     <div className="min-w-0 space-y-0.5">
                       {project && (
-                        <p className="truncate text-xs text-zinc-600">
+                        <p className="text-ink-secondary truncate text-xs">
                           <span className="font-mono">{project.code}</span>
                           <span className="mx-1">·</span>
                           {project.name}
@@ -90,11 +90,11 @@ export default async function ProjectManagerLandingPage() {
                       )}
                       {/* Spec 57: clamp-2, never single-line truncate. */}
                       <p className="line-clamp-2 break-words">
-                        <span className="font-mono text-xs text-zinc-600">{wp.code}</span>
-                        <span className="mx-2 text-zinc-400">·</span>
-                        <span className="text-base font-medium text-zinc-900">{wp.name}</span>
+                        <span className="text-ink-secondary font-mono text-xs">{wp.code}</span>
+                        <span className="text-ink-muted mx-2">·</span>
+                        <span className="text-ink text-base font-medium">{wp.name}</span>
                       </p>
-                      <p className="text-xs text-zinc-600">
+                      <p className="text-ink-secondary text-xs">
                         เข้าคิวเมื่อ {formatThaiDateTime(wp.updated_at)}
                       </p>
                     </div>

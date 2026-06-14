@@ -13,7 +13,7 @@ export function PurchaseRequestShip({ requestId }: { requestId: string }) {
       pendingLabel="กำลังบันทึก…"
       confirmMessage="บันทึกว่าของถูกจัดส่งแล้วหรือไม่?"
       confirmLabel="ยืนยัน"
-      buttonClassName="inline-flex h-11 items-center justify-center rounded-md border border-slate-900 bg-white px-3 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+      buttonClassName="inline-flex h-11 items-center justify-center rounded-md border border-fill bg-card px-3 text-sm font-medium text-ink transition-colors hover:bg-sunk focus:outline-none focus-visible:ring-2 focus-visible:ring-action disabled:cursor-not-allowed disabled:opacity-60"
       action={() => recordShipment({ requestId })}
     />
   );

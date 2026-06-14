@@ -101,18 +101,18 @@ export function PurchaseRequestTracker({
 
         const dotClass =
           state === "done"
-            ? "border-emerald-700 bg-emerald-700"
+            ? "border-done-strong bg-done-strong"
             : state === "rejected"
-              ? "border-red-600 bg-red-600"
-              : "border-zinc-400 bg-white";
+              ? "border-danger bg-danger"
+              : "border-edge-strong bg-card";
         const labelClass =
           state === "rejected"
-            ? "text-red-700"
+            ? "text-danger"
             : state === "cancelled"
-              ? "text-zinc-400"
+              ? "text-ink-muted"
               : state === "done"
-                ? "text-zinc-900"
-                : "text-zinc-600";
+                ? "text-ink"
+                : "text-ink-secondary";
 
         return (
           <li
@@ -125,12 +125,12 @@ export function PurchaseRequestTracker({
             <span className="flex w-full items-center">
               <span
                 aria-hidden
-                className={`h-0.5 flex-1 ${i === 0 ? "invisible" : reached ? "bg-emerald-700" : "bg-zinc-300"}`}
+                className={`h-0.5 flex-1 ${i === 0 ? "invisible" : reached ? "bg-done-strong" : "bg-edge"}`}
               />
               <span
                 aria-hidden
                 className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${dotClass} ${
-                  isCurrent && !rejected ? "ring-2 ring-emerald-200" : ""
+                  isCurrent && !rejected ? "ring-done ring-2" : ""
                 }`}
               >
                 {state === "done" ? (
@@ -149,8 +149,8 @@ export function PurchaseRequestTracker({
                   i === STAGES.length - 1
                     ? "invisible"
                     : !rejected && i < rank
-                      ? "bg-emerald-700"
-                      : "bg-zinc-300"
+                      ? "bg-done-strong"
+                      : "bg-edge"
                 }`}
               />
             </span>
@@ -162,12 +162,12 @@ export function PurchaseRequestTracker({
               {label}
             </span>
             {state === "done" && i > 0 ? (
-              <span className="text-center text-xs text-zinc-600">
+              <span className="text-ink-secondary text-center text-xs">
                 {date ? formatThaiDate(date) : "—"}
               </span>
             ) : null}
             {stage === "delivered" && state === "pending" && !rejected && eta ? (
-              <span className="text-center text-xs text-zinc-600">
+              <span className="text-ink-secondary text-center text-xs">
                 คาดว่า {formatThaiDate(eta)}
               </span>
             ) : null}

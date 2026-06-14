@@ -7,22 +7,22 @@ import { Skeleton } from "@/components/ui/skeleton";
 // Skeleton's theme-token default (the screens hardcode the light palette).
 export function PageSkeleton() {
   return (
-    <main className="min-h-screen bg-zinc-50">
+    <main className="bg-page min-h-screen">
       <p className="sr-only">กำลังโหลด…</p>
-      <header className="border-b border-zinc-200 bg-white px-5 py-4">
+      <header className="border-edge bg-card border-b px-5 py-4">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
           <div className="space-y-2">
-            <Skeleton className="h-3 w-20 bg-zinc-200" />
-            <Skeleton className="h-5 w-44 bg-zinc-200" />
+            <Skeleton className="bg-sunk h-3 w-20" />
+            <Skeleton className="bg-sunk h-5 w-44" />
           </div>
-          <Skeleton className="h-8 w-28 bg-zinc-200" />
+          <Skeleton className="bg-sunk h-8 w-28" />
         </div>
       </header>
       <div className="mx-auto max-w-3xl px-5 py-6">
-        <Skeleton className="mb-4 h-4 w-28 bg-zinc-200" />
+        <Skeleton className="bg-sunk mb-4 h-4 w-28" />
         <div className="flex flex-col gap-2">
           {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-16 w-full rounded-lg bg-zinc-200" />
+            <Skeleton key={i} className="rounded-control bg-sunk h-16 w-full" />
           ))}
         </div>
       </div>

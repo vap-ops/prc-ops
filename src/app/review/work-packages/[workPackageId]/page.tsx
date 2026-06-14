@@ -160,14 +160,14 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
       {/* Spec 54 header (operator mockup) via the spec-63 shell; the
           progress band below scrolls. */}
       <DetailHeader backHref="/review" backLabel="กลับไปรายการรอตรวจ">
-        <p className="truncate text-xs text-zinc-600">
+        <p className="text-ink-secondary truncate text-xs">
           <span className="font-mono">{project.code}</span>
           <span className="mx-1">·</span>
           {project.name}
         </p>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-mono text-xs text-zinc-600">{wp.code}</p>
+            <p className="text-ink-secondary font-mono text-xs">{wp.code}</p>
             {/* Spec 57: WP name never truncates — full wrap. */}
             <h1 className={DETAIL_TITLE}>{wp.name}</h1>
           </div>
@@ -179,7 +179,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
         <div className="flex items-center justify-between gap-3">
           <Link
             href={`/requests?wp=${wp.id}`}
-            className="w-fit text-xs font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline"
+            className="text-action w-fit text-xs font-medium transition-colors hover:underline focus:outline-none focus-visible:underline"
           >
             สร้างคำขอซื้อ →
           </Link>
@@ -189,7 +189,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
         </div>
       </DetailHeader>
 
-      <div className="border-b border-zinc-200 bg-white px-5 py-3">
+      <div className="border-edge bg-card border-b px-5 py-3">
         <div className={`mx-auto ${PAGE_MAX_W}`}>
           <PhaseProgressBar
             counts={{
@@ -237,7 +237,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
             <div className="flex flex-col gap-4">
               {variance.surfaces ? (
                 <AttentionCard tone="amber" title="ภาพถ่ายกับวันลงแรงงานไม่ตรงกัน">
-                  <p className="text-xs text-zinc-600">
+                  <p className="text-ink-secondary text-xs">
                     {variance.photoOnlyDays.length > 0
                       ? `มีรูปแต่ไม่ได้ลงแรงงาน ${variance.photoOnlyDays.length} วัน`
                       : null}
@@ -264,7 +264,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
         <section>
           <h2 className={SECTION_HEADING}>ประวัติการตรวจ</h2>
           {approvalsRows.length === 0 ? (
-            <EmptyNotice className="text-zinc-600">ยังไม่มีการตรวจ</EmptyNotice>
+            <EmptyNotice className="text-ink-secondary">ยังไม่มีการตรวจ</EmptyNotice>
           ) : (
             <ul className="flex flex-col gap-2">
               {approvalsRows.map((a) => (
@@ -273,15 +273,15 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
                     <StatusPill pillClasses={approvalDecisionPillClasses(a.decision)}>
                       {APPROVAL_DECISION_LABEL[a.decision]}
                     </StatusPill>
-                    <span className="text-xs text-zinc-600">
+                    <span className="text-ink-secondary text-xs">
                       {formatThaiDateTime(a.decided_at)}
                     </span>
                   </div>
-                  <p className="mt-1 text-xs text-zinc-600">
+                  <p className="text-ink-secondary mt-1 text-xs">
                     {displayNames.get(a.decided_by) ?? "ไม่ทราบชื่อผู้ตรวจ"}
                   </p>
                   {a.comment && (
-                    <p className="mt-2 text-sm whitespace-pre-wrap text-zinc-900">{a.comment}</p>
+                    <p className="text-ink mt-2 text-sm whitespace-pre-wrap">{a.comment}</p>
                   )}
                 </li>
               ))}
@@ -294,7 +294,9 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
           {wp.status === "pending_approval" ? (
             <RecordDecisionForm workPackageId={wp.id} />
           ) : (
-            <EmptyNotice className="text-zinc-600">รายการงานนี้ไม่ได้อยู่ในสถานะรอตรวจ</EmptyNotice>
+            <EmptyNotice className="text-ink-secondary">
+              รายการงานนี้ไม่ได้อยู่ในสถานะรอตรวจ
+            </EmptyNotice>
           )}
         </section>
       </div>
@@ -318,29 +320,31 @@ function PhaseGallery({ label, photos, signedUrls }: PhaseGalleryProps) {
     <div>
       <div className="mb-1.5 flex items-center gap-3">
         {hasPhotos ? (
-          <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">
+          <span className="bg-done inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white">
             <Check aria-hidden className="h-4 w-4" strokeWidth={3} />
           </span>
         ) : (
           <span
             aria-hidden
-            className="h-7 w-7 shrink-0 rounded-full border-2 border-zinc-300 bg-white"
+            className="border-edge-strong bg-card h-7 w-7 shrink-0 rounded-full border-2"
           />
         )}
-        <h3 className="text-base font-bold text-zinc-900">
+        <h3 className="text-ink text-base font-bold">
           {label}
           {hasPhotos ? (
             /* Spec 49: the strip hides its tail — announce the total. */
-            <span className="ml-1.5 text-sm font-normal text-zinc-600">{photos.length} รูป</span>
+            <span className="text-ink-secondary ml-1.5 text-sm font-normal">
+              {photos.length} รูป
+            </span>
           ) : null}
         </h3>
       </div>
       <div
         className={`ml-[13px] flex flex-col gap-2 border-l-2 pb-1 pl-5 ${
-          hasPhotos ? "border-emerald-600" : "border-zinc-200"
+          hasPhotos ? "border-done" : "border-edge"
         }`}
       >
-        <p className="text-sm text-zinc-600">
+        <p className="text-ink-secondary text-sm">
           {latest ? `อัปเดตล่าสุด ${formatThaiTime(latest)}` : "ยังไม่มีรูป"}
         </p>
         {hasPhotos ? (
@@ -370,7 +374,7 @@ function PhaseGallery({ label, photos, signedUrls }: PhaseGalleryProps) {
                         photoId={p.id}
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-xs text-zinc-600">
+                      <div className="text-ink-secondary flex h-full w-full items-center justify-center text-xs">
                         ไม่พร้อมแสดง
                       </div>
                     )}

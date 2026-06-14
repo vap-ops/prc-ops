@@ -44,12 +44,14 @@ export default async function LoginPage({
     <PageShell variant="card">
       <div className="w-full max-w-sm space-y-6 text-center">
         <h1 className="text-3xl font-semibold tracking-tight">PRC Ops</h1>
-        <p className="text-sm text-zinc-600">เข้าสู่ระบบด้วยบัญชี LINE ของคุณเพื่อเข้าใช้งาน</p>
+        <p className="text-ink-secondary text-sm">
+          เข้าสู่ระบบด้วยบัญชี LINE ของคุณเพื่อเข้าใช้งาน
+        </p>
         {handoffApproved && (
           <div
             role="status"
             data-testid="login-handoff-success"
-            className="rounded border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+            className="border-done-edge bg-done-soft text-done-ink rounded border px-4 py-3 text-sm"
           >
             เข้าสู่ระบบสำเร็จแล้ว กลับไปที่แอปบนหน้าจอหลักได้เลย
           </div>

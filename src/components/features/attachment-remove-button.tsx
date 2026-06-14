@@ -15,7 +15,7 @@ export function AttachmentRemoveButton({ attachmentId }: { attachmentId: string 
       pendingLabel="กำลังลบ…"
       confirmMessage="ลบรายการแนบนี้หรือไม่?"
       confirmLabel="ลบ"
-      buttonClassName="text-xs font-medium text-red-700 underline-offset-2 hover:underline focus:outline-none focus-visible:underline disabled:cursor-not-allowed disabled:opacity-60"
+      buttonClassName="text-xs font-medium text-danger underline-offset-2 hover:underline focus:outline-none focus-visible:underline disabled:cursor-not-allowed disabled:opacity-60"
       action={() => removePurchaseRequestAttachment({ attachmentId })}
     />
   );

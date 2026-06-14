@@ -75,15 +75,15 @@ export default async function ProjectReportsPage({ params }: PageProps) {
           รายงาน chip (spec 59). */}
       <DetailHeader backHref={projectHref(project.id)} backLabel="กลับไปหน้าโครงการ">
         <div className="min-w-0">
-          <p className="font-mono text-xs text-zinc-600">{project.code}</p>
+          <p className="text-ink-secondary font-mono text-xs">{project.code}</p>
           <h1 className={DETAIL_TITLE}>รายงาน</h1>
-          <p className="mt-0.5 text-xs text-zinc-600">{project.name}</p>
+          <p className="text-ink-secondary mt-0.5 text-xs">{project.name}</p>
         </div>
       </DetailHeader>
 
       <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-8 px-5 py-6`}>
         <section>
-          <p className="mb-3 text-sm text-zinc-600">
+          <p className="text-ink-secondary mb-3 text-sm">
             เลือกเนื้อหาที่ต้องการ แล้วกดสร้างรายงาน PDF — รายงานจะเข้าคิวทันที
             โดยปกติเสร็จภายในไม่กี่วินาที
           </p>

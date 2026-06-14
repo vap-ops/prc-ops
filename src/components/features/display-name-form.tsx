@@ -57,9 +57,9 @@ export function DisplayNameForm({ initialName }: DisplayNameFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm"
+      className="rounded-card border-edge bg-card shadow-card flex flex-col gap-3 border p-4"
     >
-      <label htmlFor="display-name" className="text-sm font-medium text-zinc-900">
+      <label htmlFor="display-name" className="text-ink text-sm font-medium">
         ชื่อที่แสดง
       </label>
       <input
@@ -72,7 +72,7 @@ export function DisplayNameForm({ initialName }: DisplayNameFormProps) {
           setError(null);
         }}
         disabled={submitting}
-        className="h-11 rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+        className="rounded-control border-edge-strong bg-card text-ink placeholder:text-ink-muted focus-visible:ring-action h-11 border px-3 text-sm shadow-xs focus:outline-none focus-visible:ring-2"
         placeholder="ชื่อของคุณ"
       />
 

@@ -70,9 +70,9 @@ export function GenerateReportButton({ projectId, initiallyDisabled }: GenerateR
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+      <div className="rounded-card border-edge bg-card shadow-card flex flex-col gap-3 border p-4">
         <fieldset className="flex flex-col gap-1.5" disabled={pending}>
-          <legend className="mb-1 text-sm font-medium text-zinc-900">งานที่รวมในรายงาน</legend>
+          <legend className="text-ink mb-1 text-sm font-medium">งานที่รวมในรายงาน</legend>
           <div className="flex flex-wrap gap-2">
             {SCOPE_OPTIONS.map((opt) => (
               <RadioChip
@@ -86,7 +86,7 @@ export function GenerateReportButton({ projectId, initiallyDisabled }: GenerateR
           </div>
         </fieldset>
         <fieldset className="flex flex-col gap-1.5" disabled={pending}>
-          <legend className="mb-1 text-sm font-medium text-zinc-900">รูปถ่าย</legend>
+          <legend className="text-ink mb-1 text-sm font-medium">รูปถ่าย</legend>
           <div className="flex flex-wrap gap-2">
             {PHOTO_OPTIONS.map((opt) => (
               <RadioChip
@@ -112,7 +112,7 @@ export function GenerateReportButton({ projectId, initiallyDisabled }: GenerateR
       {reason && (
         <p
           role="status"
-          className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600"
+          className="rounded-control border-edge bg-page text-ink-secondary border px-3 py-2 text-xs"
         >
           {reason}
         </p>

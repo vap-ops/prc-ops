@@ -66,13 +66,13 @@ export default async function ProjectsHubPage() {
               <li key={p.id}>
                 <Link
                   href={projectHref(p.id)}
-                  className="flex min-h-14 items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 active:bg-zinc-100"
+                  className="rounded-card border-edge bg-card shadow-card hover:bg-page focus-visible:ring-action active:bg-sunk flex min-h-14 items-center justify-between gap-3 border px-4 py-3 transition-colors focus:outline-none focus-visible:ring-2"
                 >
                   <div className="min-w-0">
-                    <p className="font-mono text-xs text-zinc-600">{p.code}</p>
-                    <p className="truncate text-base font-medium text-zinc-900">{p.name}</p>
+                    <p className="text-ink-secondary font-mono text-xs">{p.code}</p>
+                    <p className="text-ink truncate text-base font-medium">{p.name}</p>
                     {p.client_id && clientNames.get(p.client_id) && (
-                      <p className="truncate text-xs text-zinc-600">
+                      <p className="text-ink-secondary truncate text-xs">
                         ลูกค้า: {clientNames.get(p.client_id)}
                       </p>
                     )}

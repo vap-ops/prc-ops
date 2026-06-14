@@ -98,20 +98,18 @@ describe("StatusPill", () => {
 
 describe("notices", () => {
   // Spec 20 sun palette: light insets with near-black ink.
-  it("ErrorNotice renders the red strip", () => {
+  it("ErrorNotice renders the danger strip", () => {
     render(<ErrorNotice>โหลดไม่สำเร็จ</ErrorNotice>);
     const el = screen.getByText("โหลดไม่สำเร็จ");
-    expect(el.className).toContain("border-red-600");
-    expect(el.className).toContain("text-red-900");
+    expect(el.className).toContain("border-danger");
+    expect(el.className).toContain("text-danger-ink");
   });
 
-  it("EmptyNotice renders the zinc notice and lets className override the tone", () => {
+  it("EmptyNotice renders the empty box and lets className extend the tone", () => {
     const { unmount } = render(<EmptyNotice>ยังไม่มีรายการ</EmptyNotice>);
-    expect(screen.getByText("ยังไม่มีรายการ").className).toContain("text-zinc-600");
+    expect(screen.getByText("ยังไม่มีรายการ").className).toContain("text-ink-secondary");
     unmount();
-    render(<EmptyNotice className="text-zinc-500">ยังไม่มีการตรวจ</EmptyNotice>);
-    const overridden = screen.getByText("ยังไม่มีการตรวจ");
-    expect(overridden.className).toContain("text-zinc-500");
-    expect(overridden.className).not.toContain("text-zinc-600");
+    render(<EmptyNotice className="text-ink-muted">ยังไม่มีการตรวจ</EmptyNotice>);
+    expect(screen.getByText("ยังไม่มีการตรวจ").className).toContain("text-ink-muted");
   });
 });

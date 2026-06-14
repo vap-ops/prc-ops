@@ -62,7 +62,7 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
 
         {/* Period — zero-client-JS GET form, defaults to the current month. */}
         <form method="get" className={`${CARD} mb-4 flex flex-wrap items-end gap-3`}>
-          <label className="flex flex-col text-xs text-zinc-600">
+          <label className="text-ink-secondary flex flex-col text-xs">
             ตั้งแต่
             <input
               type="date"
@@ -71,7 +71,7 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
               className={`${FIELD_INPUT} mt-1`}
             />
           </label>
-          <label className="flex flex-col text-xs text-zinc-600">
+          <label className="text-ink-secondary flex flex-col text-xs">
             ถึง
             <input
               type="date"
@@ -91,11 +91,11 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
           <>
             <div className={`${CARD} mb-4 flex items-center justify-between gap-3`}>
               <div className="min-w-0">
-                <p className="text-xs text-zinc-600">
+                <p className="text-ink-secondary text-xs">
                   {formatThaiDate(range.from)} – {formatThaiDate(range.to)}
                 </p>
-                <p className="text-xl font-bold text-zinc-900">{baht(report.totalAmount)}</p>
-                <p className="text-xs text-zinc-600">
+                <p className="text-ink text-xl font-bold">{baht(report.totalAmount)}</p>
+                <p className="text-ink-secondary text-xs">
                   {report.workerCount} คน · {formatDays(report.totalDays)} วัน
                 </p>
               </div>
@@ -109,20 +109,18 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
             <ul className="flex flex-col gap-4">
               {report.contractors.map((g) => (
                 <li key={g.contractorId ?? "unassigned"} className={CARD}>
-                  <div className="mb-2 flex items-center justify-between gap-3 border-b border-zinc-200 pb-2">
-                    <p className="min-w-0 truncate font-semibold text-zinc-900">
-                      {g.contractorName}
-                    </p>
-                    <p className="shrink-0 text-sm font-bold text-zinc-900">{baht(g.amount)}</p>
+                  <div className="border-edge mb-2 flex items-center justify-between gap-3 border-b pb-2">
+                    <p className="text-ink min-w-0 truncate font-semibold">{g.contractorName}</p>
+                    <p className="text-ink shrink-0 text-sm font-bold">{baht(g.amount)}</p>
                   </div>
-                  <ul className="flex flex-col divide-y divide-zinc-100">
+                  <ul className="divide-edge flex flex-col divide-y">
                     {g.workers.map((w) => (
                       <li key={w.workerId} className="flex items-center justify-between gap-3 py-2">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-zinc-900">{w.name}</p>
-                          <p className="text-xs text-zinc-600">{formatDays(w.days)} วัน</p>
+                          <p className="text-ink truncate text-sm font-medium">{w.name}</p>
+                          <p className="text-ink-secondary text-xs">{formatDays(w.days)} วัน</p>
                         </div>
-                        <span className="shrink-0 text-sm font-medium text-zinc-900">
+                        <span className="text-ink shrink-0 text-sm font-medium">
                           {baht(w.amount)}
                         </span>
                       </li>

@@ -69,8 +69,8 @@ export default async function ComingSoonPage() {
           <AvatarSurface lineUrl={lineAvatarUrl} fullName={row.full_name} size={72} />
         </div>
         <h1 className="text-3xl font-semibold tracking-tight">{greeting}</h1>
-        <p className="text-lg text-zinc-600">คุณเข้าสู่ระบบในบทบาท{displayName}</p>
-        <p className="text-sm text-zinc-600">
+        <p className="text-ink-secondary text-lg">คุณเข้าสู่ระบบในบทบาท{displayName}</p>
+        <p className="text-ink-secondary text-sm">
           PRC Ops กำลังทยอยเปิดใช้งานทีละส่วน เครื่องมือสำหรับบทบาทของคุณยังไม่พร้อมใช้งาน —
           เมื่อเปิดใช้แล้วเราจะแจ้งให้ทราบ ระหว่างนี้กรุณาใช้ช่องทางการทำงานเดิมไปก่อน
         </p>
@@ -132,17 +132,15 @@ function OperatorHub({
   fullName,
 }: OperatorHubProps) {
   return (
-    <PageShell variant="bare" className="bg-white px-6 py-10">
+    <PageShell variant="bare" className="bg-card px-6 py-10">
       <div className="mx-auto flex w-full max-w-md flex-col gap-6">
         <header className="space-y-1">
-          <p className="text-xs font-semibold tracking-wider text-blue-700 uppercase">
-            ศูนย์ควบคุม
-          </p>
+          <p className="text-action text-xs font-semibold tracking-wider uppercase">ศูนย์ควบคุม</p>
           <div className="flex items-center gap-3">
             <AvatarSurface lineUrl={lineAvatarUrl} fullName={fullName} size={48} />
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">{greeting}</h1>
-              <p className="text-sm text-zinc-600">เข้าสู่ระบบในบทบาท{displayName}</p>
+              <p className="text-ink-secondary text-sm">เข้าสู่ระบบในบทบาท{displayName}</p>
             </div>
           </div>
         </header>
@@ -152,15 +150,15 @@ function OperatorHub({
             <Link
               key={link.href}
               href={link.href}
-              className="group flex items-start justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+              className="group rounded-card border-edge bg-card shadow-card hover:bg-sunk focus-visible:ring-action flex items-start justify-between gap-3 border px-4 py-3 transition-colors focus:outline-none focus-visible:ring-2"
             >
               <div className="min-w-0 space-y-0.5">
-                <p className="text-base font-medium text-zinc-900">{link.label}</p>
-                <p className="text-xs text-zinc-600">{link.hint}</p>
+                <p className="text-ink text-base font-medium">{link.label}</p>
+                <p className="text-ink-secondary text-xs">{link.hint}</p>
               </div>
               <span
                 aria-hidden="true"
-                className="mt-0.5 shrink-0 text-zinc-400 transition-colors group-hover:text-zinc-600"
+                className="text-ink-muted group-hover:text-ink-secondary mt-0.5 shrink-0 transition-colors"
               >
                 →
               </span>

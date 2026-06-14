@@ -158,16 +158,16 @@ describe("BottomTabBar", () => {
 
   // Spec 20 sun-readable nav: light bar, blue active identity with a
   // visible top indicator, size-6 icons.
-  it("renders the sun-mode bar: white ground, blue active tab with top indicator (spec 20)", () => {
+  it("renders the sun-mode bar: card ground, action active tab with top indicator (spec 20)", () => {
     mockUsePathname.mockReturnValue("/review");
     const { container } = render(<BottomTabBar role="project_manager" />);
     const nav = screen.getByRole("navigation", { name: "เมนูหลัก" });
-    expect(nav.className).toContain("bg-white");
+    expect(nav.className).toContain("bg-card");
     const active = container.querySelector('[aria-current="page"]');
     expect(active).not.toBeNull();
-    expect(active?.className).toContain("text-blue-700");
+    expect(active?.className).toContain("text-action");
     // The active signal is a visible indicator bar, not just a tint.
-    expect(active?.querySelector(".bg-blue-700")).not.toBeNull();
+    expect(active?.querySelector(".bg-action")).not.toBeNull();
     // Icons step up to size-6 for sun/glove legibility.
     expect(container.querySelector("svg")?.getAttribute("class")).toContain("size-6");
   });

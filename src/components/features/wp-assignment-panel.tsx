@@ -88,13 +88,13 @@ export function WpAssignmentPanel({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-blue-700 underline-offset-2 transition-colors hover:underline active:translate-y-px"
+        className="text-action inline-flex min-h-11 items-center gap-1.5 text-xs font-medium underline-offset-2 transition-colors hover:underline active:translate-y-px"
       >
         มอบหมายงาน
       </button>
       <BottomSheet open={open} title="มอบหมายงาน" onClose={() => setOpen(false)}>
         <div className="flex flex-col gap-2">
-          <label htmlFor="wp-contractor" className="text-xs font-medium text-zinc-900">
+          <label htmlFor="wp-contractor" className="text-ink text-xs font-medium">
             ผู้รับเหมา
           </label>
           <select
@@ -114,7 +114,7 @@ export function WpAssignmentPanel({
           </select>
 
           <details>
-            <summary className="cursor-pointer text-xs font-medium text-blue-700 underline-offset-2 hover:underline">
+            <summary className="text-action cursor-pointer text-xs font-medium underline-offset-2 hover:underline">
               เพิ่มผู้รับเหมาใหม่
             </summary>
             <div className="mt-2 flex flex-col gap-2">

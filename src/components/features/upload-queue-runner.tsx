@@ -205,7 +205,7 @@ export function UploadQueueRunner() {
   if (items.length === 0) return null;
 
   return (
-    <details className="fixed inset-x-0 bottom-16 z-30 mx-auto w-fit max-w-[90vw] rounded-2xl border border-amber-400 bg-amber-50 px-4 py-1.5 text-xs font-medium text-amber-900 shadow sm:bottom-4">
+    <details className="border-attn-edge bg-attn-soft text-attn-ink fixed inset-x-0 bottom-16 z-30 mx-auto w-fit max-w-[90vw] rounded-2xl border px-4 py-1.5 text-xs font-medium shadow sm:bottom-4">
       <summary className="cursor-pointer">
         {/* role=status on the count text only — a live region must not
             swallow the disclosure semantics or the buttons below. */}
@@ -214,25 +214,25 @@ export function UploadQueueRunner() {
       {/* Spec 37: the manual-discard seam — the ONLY way an item ever
           leaves the queue without landing; confirm-guarded. Foreign
           items (other users' evidence, ADR 0039) are read-only. */}
-      <ul className="mt-2 flex max-h-40 flex-col gap-1 overflow-y-auto border-t border-amber-300 pt-2">
+      <ul className="border-attn-edge mt-2 flex max-h-40 flex-col gap-1 overflow-y-auto border-t pt-2">
         {items.map((item) => (
           <li key={item.id} className="flex min-h-11 items-center gap-2">
             {item.userId === sessionUserId ? (
               <>
                 <span className="min-w-0 flex-1 truncate">{item.fileName}</span>
                 {item.lastError ? (
-                  <span className="shrink-0 text-[10px] text-amber-700">รอส่งใหม่</span>
+                  <span className="text-attn-press shrink-0 text-[10px]">รอส่งใหม่</span>
                 ) : null}
                 <button
                   type="button"
                   onClick={() => setConfirmId(item.id)}
-                  className="inline-flex min-h-11 shrink-0 items-center font-semibold text-red-700 hover:underline focus:outline-none focus-visible:underline"
+                  className="text-danger inline-flex min-h-11 shrink-0 items-center font-semibold hover:underline focus:outline-none focus-visible:underline"
                 >
                   ลบ
                 </button>
               </>
             ) : (
-              <span className="min-w-0 flex-1 truncate text-amber-700">
+              <span className="text-attn-press min-w-0 flex-1 truncate">
                 รูปของผู้ใช้อื่น — รอเจ้าของเข้าสู่ระบบ
               </span>
             )}

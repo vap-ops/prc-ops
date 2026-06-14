@@ -47,13 +47,13 @@ export function HubNav({ maxWidthClass, items, currentHref }: HubNavProps) {
     // Desktop-only (spec 19 §2): phones navigate via the bottom tab bar.
     // Spec 20: light strip; the current page carries a blue underline —
     // an identifiable "you are here", not just a brighter gray.
-    <nav className="hidden border-b border-zinc-200 bg-zinc-100 px-5 py-1 sm:block">
+    <nav className="border-edge bg-sunk hidden border-b px-5 py-1 sm:block">
       <div className={`mx-auto flex ${maxWidthClass} flex-wrap items-center gap-x-6 text-sm`}>
         {items.map((item) =>
           item.href === currentHref ? (
             <span
               key={item.href}
-              className="inline-flex min-h-11 items-center border-b-2 border-blue-700 font-semibold text-zinc-900"
+              className="border-action text-ink inline-flex min-h-11 items-center border-b-2 font-semibold"
             >
               {item.label}
             </span>
@@ -61,7 +61,7 @@ export function HubNav({ maxWidthClass, items, currentHref }: HubNavProps) {
             <Link
               key={item.href}
               href={item.href}
-              className="inline-flex min-h-11 items-center border-b-2 border-transparent text-zinc-600 transition-colors hover:text-zinc-900 focus:outline-none focus-visible:underline"
+              className="text-ink-secondary hover:text-ink inline-flex min-h-11 items-center border-b-2 border-transparent transition-colors focus:outline-none focus-visible:underline"
             >
               {item.label}
             </Link>

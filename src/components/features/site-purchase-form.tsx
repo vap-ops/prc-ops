@@ -59,7 +59,7 @@ export function SitePurchaseForm({ workPackageId, projectId }: SitePurchaseFormP
   if (recordedId) {
     return (
       <div className="flex flex-col gap-2">
-        <p role="status" className="text-sm font-medium text-emerald-700">
+        <p role="status" className="text-done-strong text-sm font-medium">
           บันทึกการซื้อแล้ว — แนบใบส่งของ / ใบเสร็จ
         </p>
         <InvoiceUploader purchaseRequestId={recordedId} projectId={projectId} />
@@ -69,7 +69,7 @@ export function SitePurchaseForm({ workPackageId, projectId }: SitePurchaseFormP
 
   return (
     <div className="flex flex-col gap-3">
-      <label className="flex flex-col gap-1 text-sm font-medium text-zinc-900">
+      <label className="text-ink flex flex-col gap-1 text-sm font-medium">
         รายการที่ซื้อ
         <input
           type="text"
@@ -82,7 +82,7 @@ export function SitePurchaseForm({ workPackageId, projectId }: SitePurchaseFormP
         />
       </label>
       <div className="flex gap-2">
-        <label className="flex flex-1 flex-col gap-1 text-sm font-medium text-zinc-900">
+        <label className="text-ink flex flex-1 flex-col gap-1 text-sm font-medium">
           จำนวน
           <input
             type="number"
@@ -96,7 +96,7 @@ export function SitePurchaseForm({ workPackageId, projectId }: SitePurchaseFormP
             placeholder="10"
           />
         </label>
-        <label className="flex flex-1 flex-col gap-1 text-sm font-medium text-zinc-900">
+        <label className="text-ink flex flex-1 flex-col gap-1 text-sm font-medium">
           หน่วย
           <input
             type="text"

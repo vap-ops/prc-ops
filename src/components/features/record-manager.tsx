@@ -70,7 +70,7 @@ function FieldInputs({
   return (
     <>
       {fields.map((f) => (
-        <label key={f.key} className="mt-2 block text-sm text-zinc-700">
+        <label key={f.key} className="text-ink-secondary mt-2 block text-sm">
           {f.label}
           {f.type === "textarea" ? (
             <textarea
@@ -160,7 +160,7 @@ function AddCard({
 
   const body = (
     <>
-      {bare ? null : <p className="text-sm font-semibold text-zinc-900">{addLabel}</p>}
+      {bare ? null : <p className="text-ink text-sm font-semibold">{addLabel}</p>}
       <FieldInputs
         fields={fields}
         values={values}
@@ -243,12 +243,12 @@ function RecordRowItem({
   }
 
   return (
-    <li className="border-t border-zinc-200 py-2 transition-colors first:border-t-0 active:bg-zinc-100">
+    <li className="border-edge active:bg-sunk border-t py-2 transition-colors first:border-t-0">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="flex items-center gap-2 text-sm text-zinc-900">
+          <p className="text-ink flex items-center gap-2 text-sm">
             {href ? (
-              <Link href={href} className="truncate font-medium text-blue-700 hover:underline">
+              <Link href={href} className="text-action truncate font-medium hover:underline">
                 {name}
               </Link>
             ) : (
@@ -257,7 +257,9 @@ function RecordRowItem({
             {badge ? (
               <span
                 className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-                  badge.tone === "red" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"
+                  badge.tone === "red"
+                    ? "bg-danger-soft text-danger-ink"
+                    : "bg-attn-soft text-attn-ink"
                 }`}
               >
                 {badge.label}
@@ -265,19 +267,19 @@ function RecordRowItem({
             ) : null}
           </p>
           {previewField ? (
-            <p className="truncate text-xs text-zinc-600">{row.values[previewField.key]}</p>
+            <p className="text-ink-secondary truncate text-xs">{row.values[previewField.key]}</p>
           ) : null}
         </div>
         <button
           type="button"
           onClick={() => setEditing((v) => !v)}
-          className="shrink-0 text-xs font-medium text-blue-700 hover:underline"
+          className="text-action shrink-0 text-xs font-medium hover:underline"
         >
           แก้ไข
         </button>
       </div>
       {editing ? (
-        <div className="mt-2 rounded-lg border border-zinc-300 bg-zinc-50 p-3">
+        <div className="border-edge-strong bg-page mt-2 rounded-lg border p-3">
           <FieldInputs
             fields={fields}
             values={values}
@@ -352,7 +354,7 @@ export function RecordManager({
       )}
       {rows.length > 0 ? (
         <div className={CARD}>
-          <p className="text-sm font-semibold text-zinc-900">รายการ ({rows.length})</p>
+          <p className="text-ink text-sm font-semibold">รายการ ({rows.length})</p>
           <ul className="mt-2 flex flex-col">
             {rows.map((r) => (
               <RecordRowItem

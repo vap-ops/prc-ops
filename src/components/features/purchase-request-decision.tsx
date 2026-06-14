@@ -76,7 +76,7 @@ export function PurchaseRequestDecision({ requestId }: PurchaseRequestDecisionPr
         rows={2}
         maxLength={1000}
         placeholder="ความเห็น (ต้องใส่เมื่อไม่อนุมัติ)…"
-        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+        className="rounded-control border-edge-strong bg-card text-ink placeholder:text-ink-muted focus-visible:ring-action border px-3 py-2 text-sm shadow-xs focus:outline-none focus-visible:ring-2"
       />
 
       {error ? (
@@ -90,7 +90,7 @@ export function PurchaseRequestDecision({ requestId }: PurchaseRequestDecisionPr
           type="button"
           onClick={() => handleDecide("rejected")}
           disabled={!canReject}
-          className="inline-flex h-11 items-center justify-center rounded-md bg-red-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
+          className="bg-danger text-on-fill hover:bg-danger-strong focus-visible:ring-danger disabled:bg-edge disabled:text-ink-muted inline-flex h-11 items-center justify-center rounded-md px-3 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed"
         >
           {submitting && pendingDecision === "rejected" ? "กำลังบันทึก…" : "ไม่อนุมัติ"}
         </button>

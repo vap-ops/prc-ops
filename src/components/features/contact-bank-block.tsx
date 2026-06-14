@@ -46,9 +46,9 @@ export function ContactBankBlock({
 
   return (
     <section className={CARD}>
-      <p className="text-sm font-semibold text-zinc-900">ข้อมูลธนาคาร</p>
-      <p className="mt-0.5 text-xs text-zinc-500">เฉพาะผู้จัดการเห็นข้อมูลนี้</p>
-      <label className="mt-2 block text-sm text-zinc-700">
+      <p className="text-ink text-sm font-semibold">ข้อมูลธนาคาร</p>
+      <p className="text-ink-muted mt-0.5 text-xs">เฉพาะผู้จัดการเห็นข้อมูลนี้</p>
+      <label className="text-ink-secondary mt-2 block text-sm">
         ชื่อธนาคาร
         <input
           value={bankName}
@@ -61,7 +61,7 @@ export function ContactBankBlock({
           className={FIELD_STACKED}
         />
       </label>
-      <label className="mt-2 block text-sm text-zinc-700">
+      <label className="text-ink-secondary mt-2 block text-sm">
         เลขที่บัญชี
         <input
           value={bankAccountNo}
@@ -72,7 +72,7 @@ export function ContactBankBlock({
           className={FIELD_STACKED}
         />
       </label>
-      <label className="mt-2 block text-sm text-zinc-700">
+      <label className="text-ink-secondary mt-2 block text-sm">
         ชื่อบัญชี
         <input
           value={bankAccountName}

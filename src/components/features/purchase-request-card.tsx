@@ -56,43 +56,43 @@ export function PurchaseRequestCard({
   return (
     <Link
       href={`/requests/${request.id}`}
-      className="block rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-inset active:bg-zinc-100"
+      className="rounded-card border-edge bg-card shadow-card hover:bg-page focus-visible:ring-action active:bg-sunk block border px-4 py-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-0.5">
           {workPackage ? (
-            <p className="truncate text-xs text-zinc-600">
+            <p className="text-ink-secondary truncate text-xs">
               <span className="font-mono">{workPackage.code}</span>
               <span className="mx-1">·</span>
               {workPackage.name}
             </p>
           ) : null}
-          <p className="truncate text-base text-zinc-900">
+          <p className="text-ink truncate text-base">
             {/* PR running number (spec 27) — the phone-callable identity
                 for site ↔ procurement talk. */}
-            <span className="mr-1.5 font-mono text-xs text-zinc-500">
+            <span className="text-ink-muted mr-1.5 font-mono text-xs">
               PR-{String(request.pr_number).padStart(4, "0")}
             </span>
             {request.item_description}
-            <span className="mx-2 text-zinc-400">·</span>
-            <span className="text-zinc-700">
+            <span className="text-ink-muted mx-2">·</span>
+            <span className="text-ink-secondary">
               {request.quantity} {request.unit}
             </span>
           </p>
-          <p className="text-xs text-zinc-600">
+          <p className="text-ink-secondary text-xs">
             {/* Own-row marker (spec 25): the viewer's requests must be
                 identifiable at a glance in the site-wide list. */}
             {isMine ? (
-              <span className="mr-1.5 inline-flex items-center rounded-full border border-blue-700 bg-blue-50 px-1.5 text-[10px] font-semibold text-blue-700">
+              <span className="border-action bg-action-soft text-action mr-1.5 inline-flex items-center rounded-full border px-1.5 text-[10px] font-semibold">
                 ของฉัน
               </span>
             ) : null}
             ขอซื้อโดย {requesterName ?? "—"}
-            <span className="mx-1 text-zinc-400">·</span>
+            <span className="text-ink-muted mx-1">·</span>
             ขอเมื่อ {formatThaiDate(request.requested_at)}
           </p>
           {request.needed_by ? (
-            <p className="text-xs text-zinc-600">
+            <p className="text-ink-secondary text-xs">
               ต้องการรับของภายใน {formatThaiDate(request.needed_by)}
             </p>
           ) : null}
@@ -108,7 +108,7 @@ export function PurchaseRequestCard({
               </StatusPill>
             ) : null}
           </span>
-          <ChevronRight aria-hidden className="mt-1 size-4 shrink-0 text-zinc-400" />
+          <ChevronRight aria-hidden className="text-ink-muted mt-1 size-4 shrink-0" />
         </span>
       </div>
       <div className="mt-3">

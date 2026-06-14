@@ -73,11 +73,11 @@ function ReportRow({ report }: { report: ReportListItem }) {
         <StatusPill pillClasses={reportStatusPillClasses(report.status)}>
           {REPORT_STATUS_LABEL[report.status]}
         </StatusPill>
-        <span className="text-xs text-zinc-600">{formatThaiDateTime(report.createdAt)}</span>
+        <span className="text-ink-secondary text-xs">{formatThaiDateTime(report.createdAt)}</span>
       </div>
       {report.status === "complete" && <DownloadButton reportId={report.id} />}
       {report.status === "failed" && report.error && (
-        <p className="mt-2 text-xs whitespace-pre-wrap text-red-800">{report.error}</p>
+        <p className="text-danger mt-2 text-xs whitespace-pre-wrap">{report.error}</p>
       )}
     </li>
   );
@@ -136,14 +136,14 @@ function DownloadButton({ reportId }: { reportId: string }) {
         type="button"
         onClick={handleClick}
         disabled={pending}
-        className="inline-flex h-11 w-fit items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 text-xs font-medium text-zinc-900 shadow-xs transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
+        className="rounded-control border-edge-strong bg-card text-ink hover:bg-sunk focus-visible:ring-action disabled:border-edge-strong disabled:bg-sunk disabled:text-ink-muted inline-flex h-11 w-fit items-center justify-center border px-3 text-xs font-medium shadow-xs transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed"
       >
         {pending ? "กำลังเตรียมไฟล์…" : "ดาวน์โหลด PDF"}
       </button>
       {error && (
         <p
           role="alert"
-          className="rounded-md border border-red-300 bg-red-50 px-2 py-1 text-xs text-red-900"
+          className="border-danger-edge bg-danger-soft text-danger-ink rounded-md border px-2 py-1 text-xs"
         >
           {error}
         </p>

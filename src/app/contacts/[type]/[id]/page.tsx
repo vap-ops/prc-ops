@@ -101,23 +101,23 @@ export default async function ContactDetailPage({
   return (
     <PageShell>
       <DetailHeader backHref="/contacts" backLabel="กลับไปรายชื่อติดต่อ">
-        <p className="text-xs font-medium text-zinc-500">{cfg.label}</p>
+        <p className="text-ink-muted text-xs font-medium">{cfg.label}</p>
         <h1 className={DETAIL_TITLE}>{name}</h1>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} space-y-4 px-5 py-6`}>
         <section className={CARD}>
-          <p className="text-sm font-semibold text-zinc-900">ข้อมูลติดต่อ</p>
+          <p className="text-ink text-sm font-semibold">ข้อมูลติดต่อ</p>
           {fields.length > 0 ? (
             <dl className="mt-2 flex flex-col gap-2">
               {fields.map((f) => (
                 <div key={f.label} className="flex flex-col">
-                  <dt className="text-xs text-zinc-500">{f.label}</dt>
-                  <dd className="text-sm whitespace-pre-wrap text-zinc-900">{f.value}</dd>
+                  <dt className="text-ink-muted text-xs">{f.label}</dt>
+                  <dd className="text-ink text-sm whitespace-pre-wrap">{f.value}</dd>
                 </div>
               ))}
             </dl>
           ) : (
-            <p className="mt-2 text-sm text-zinc-500">
+            <p className="text-ink-muted mt-2 text-sm">
               ยังไม่มีข้อมูลเพิ่มเติม — แก้ไขได้ที่หน้ารายการ
             </p>
           )}

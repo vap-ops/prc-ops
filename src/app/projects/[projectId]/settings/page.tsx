@@ -71,16 +71,16 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
       <DetailHeader backHref={projectHref(project.id)} backLabel="กลับไปรายการงาน">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-mono text-xs text-zinc-600">{project.code}</p>
+            <p className="text-ink-secondary font-mono text-xs">{project.code}</p>
             <h1 className="text-2xl font-bold tracking-tight break-words">ตั้งค่าโครงการ</h1>
           </div>
           <StatusPill pillClasses={projectStatusPillClasses(project.status)} className="mt-1">
             {PROJECT_STATUS_LABEL[project.status] ?? project.status}
           </StatusPill>
         </div>
-        <p className="text-xs text-zinc-600">
-          รหัสโครงการ <span className="font-mono font-medium text-zinc-900">{project.code}</span>
-          <span className="mx-1 text-zinc-400">·</span>
+        <p className="text-ink-secondary text-xs">
+          รหัสโครงการ <span className="text-ink font-mono font-medium">{project.code}</span>
+          <span className="text-ink-muted mx-1">·</span>
           แก้ไขไม่ได้ (ใช้อ้างอิงการนำเข้าข้อมูล)
         </p>
       </DetailHeader>

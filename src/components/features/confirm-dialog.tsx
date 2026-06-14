@@ -54,9 +54,9 @@ export function ConfirmDialog({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm rounded-lg border border-zinc-300 bg-white p-5"
+        className="rounded-control border-edge-strong bg-card w-full max-w-sm border p-5"
       >
-        <p id={messageId} className="text-sm whitespace-pre-wrap text-zinc-900">
+        <p id={messageId} className="text-ink text-sm whitespace-pre-wrap">
           {message}
         </p>
         <div className="mt-5 flex justify-end gap-2">
@@ -64,14 +64,14 @@ export function ConfirmDialog({
             ref={cancelRef}
             type="button"
             onClick={onCancel}
-            className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-400 bg-white px-4 text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+            className="border-edge-strong bg-card text-ink hover:bg-page focus-visible:ring-action inline-flex min-h-11 items-center justify-center rounded-md border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
           >
             ยกเลิก
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="inline-flex min-h-11 items-center justify-center rounded-md bg-red-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2"
+            className="bg-danger text-on-fill hover:bg-danger-strong focus-visible:ring-danger inline-flex min-h-11 items-center justify-center rounded-md px-4 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
           >
             {confirmLabel}
           </button>

@@ -30,15 +30,15 @@ export function AppHeader({ kicker, fullName, title, maxWidthClass }: AppHeaderP
     // accent is decorative bold text on near-black (≈10:1).
     // Spec 62: sticky chrome — z-20 sits under the queue banner (30),
     // tab bar (40), and dialog scrims (50).
-    <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-900 px-5 py-4">
+    <header className="border-brand-2 bg-brand sticky top-0 z-20 border-b px-5 py-4">
       <div className={`mx-auto flex ${maxWidthClass} items-center justify-between gap-3`}>
         <div>
-          <p className="text-xs font-bold tracking-wide text-white">
-            PRC <span className="text-amber-400">Ops</span>
-            <span className="mx-2 font-normal text-slate-500">·</span>
-            <span className="font-semibold tracking-wider text-amber-400 uppercase">{kicker}</span>
+          <p className="text-on-brand text-xs font-bold tracking-wide">
+            PRC <span className="text-attn">Ops</span>
+            <span className="text-ink-muted mx-2 font-normal">·</span>
+            <span className="text-attn font-semibold tracking-wider uppercase">{kicker}</span>
           </p>
-          <h1 className="text-xl font-semibold tracking-tight text-white">{heading}</h1>
+          <h1 className="text-on-brand text-xl font-semibold tracking-tight">{heading}</h1>
         </div>
         <div className="flex items-center gap-3">
           {/* Spec 53: NOT hidden in standalone — the installed PWA has
@@ -48,7 +48,7 @@ export function AppHeader({ kicker, fullName, title, maxWidthClass }: AppHeaderP
               (spec 19 §2 — one profile affordance per viewport). */}
           <Link
             href="/profile"
-            className="hidden text-sm font-medium text-white transition-colors hover:text-amber-300 hover:underline focus:outline-none focus-visible:underline sm:inline"
+            className="text-on-brand hover:text-attn-edge hidden text-sm font-medium transition-colors hover:underline focus:outline-none focus-visible:underline sm:inline"
           >
             โปรไฟล์
           </Link>

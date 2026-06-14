@@ -51,21 +51,21 @@ export function ContactCrewSection({
 
   return (
     <section className={CARD}>
-      <p className="text-sm font-semibold text-zinc-900">ทีมงาน (DC)</p>
+      <p className="text-ink text-sm font-semibold">ทีมงาน (DC)</p>
       {crew.length > 0 ? (
         <ul className="mt-2 flex flex-col gap-1">
           {crew.map((c) => (
-            <li key={c.id} className="text-sm text-zinc-900">
+            <li key={c.id} className="text-ink text-sm">
               {c.name}
             </li>
           ))}
         </ul>
       ) : (
-        <p className="mt-1 text-sm text-zinc-500">ยังไม่มีทีมงาน</p>
+        <p className="text-ink-muted mt-1 text-sm">ยังไม่มีทีมงาน</p>
       )}
-      <div className="mt-3 border-t border-zinc-200 pt-3">
-        <p className="text-xs font-medium text-zinc-700">เพิ่มคนงาน DC</p>
-        <label className="mt-2 block text-sm text-zinc-700">
+      <div className="border-edge mt-3 border-t pt-3">
+        <p className="text-ink-secondary text-xs font-medium">เพิ่มคนงาน DC</p>
+        <label className="text-ink-secondary mt-2 block text-sm">
           ชื่อ
           <input
             value={name}
@@ -78,7 +78,7 @@ export function ContactCrewSection({
             className={FIELD_STACKED}
           />
         </label>
-        <label className="mt-2 block text-sm text-zinc-700">
+        <label className="text-ink-secondary mt-2 block text-sm">
           ค่าแรงต่อวัน (บาท)
           <input
             value={rate}

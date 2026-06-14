@@ -199,13 +199,13 @@ export function StandaloneLoginButton({
   if (phase === "waiting") {
     return (
       <div className="space-y-3" role="status">
-        <p className="text-sm text-zinc-600">
+        <p className="text-ink-secondary text-sm">
           เปิดแอป LINE เพื่อยืนยันตัวตน แล้วกลับมาที่หน้านี้ — ระบบจะเข้าสู่ระบบให้อัตโนมัติ
         </p>
         <button
           type="button"
           onClick={cancel}
-          className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-300 bg-white px-6 py-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+          className="border-edge-strong bg-card text-ink-secondary hover:bg-page inline-flex min-h-11 w-full items-center justify-center rounded-md border px-6 py-3 text-sm font-medium transition-colors"
         >
           ยกเลิก
         </button>

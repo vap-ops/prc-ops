@@ -93,7 +93,7 @@ export function BottomTabBar({ role }: { role: string }) {
   return (
     <nav
       aria-label="เมนูหลัก"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-300 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_3px_rgba(0,0,0,0.1)] backdrop-blur sm:hidden"
+      className="border-edge-strong bg-card/95 fixed inset-x-0 bottom-0 z-40 border-t pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_3px_rgba(0,0,0,0.1)] backdrop-blur sm:hidden"
     >
       <div className="mx-auto flex h-16 max-w-2xl items-stretch">
         {tabs.map((tab) => {
@@ -103,13 +103,13 @@ export function BottomTabBar({ role }: { role: string }) {
               <span
                 key={tab.href}
                 aria-current="page"
-                className="relative flex flex-1 flex-col items-center justify-center gap-1 text-blue-700"
+                className="text-action relative flex flex-1 flex-col items-center justify-center gap-1"
               >
                 {/* Visible active signal (spec 20) — a tint alone washes
                     out in sunlight; the indicator bar survives glare. */}
                 <span
                   aria-hidden
-                  className="absolute inset-x-4 top-0 h-1 rounded-b-full bg-blue-700"
+                  className="bg-action absolute inset-x-4 top-0 h-1 rounded-b-full"
                 />
                 <Icon aria-hidden className="size-6" />
                 <span className="text-xs font-bold">{tab.label}</span>
@@ -120,7 +120,7 @@ export function BottomTabBar({ role }: { role: string }) {
             <Link
               key={tab.href}
               href={tab.href}
-              className="flex flex-1 flex-col items-center justify-center gap-1 text-zinc-600 transition-colors hover:text-zinc-900 focus:outline-none focus-visible:text-zinc-900 active:scale-95"
+              className="text-ink-secondary hover:text-ink focus-visible:text-ink flex flex-1 flex-col items-center justify-center gap-1 transition-colors focus:outline-none active:scale-95"
             >
               <Icon aria-hidden className="size-6" />
               <span className="text-xs font-medium">{tab.label}</span>

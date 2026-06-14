@@ -25,10 +25,10 @@ export default async function Home() {
     <PageShell variant="card">
       <div className="max-w-md space-y-6 text-center">
         <h1 className="text-4xl font-semibold tracking-tight">PRC Ops</h1>
-        <p className="text-lg text-zinc-600">
+        <p className="text-ink-secondary text-lg">
           ระบบบริหารงานก่อสร้าง — รูปถ่ายความคืบหน้า อนุมัติงาน และรายงานโครงการ
         </p>
-        <p className="text-sm text-zinc-600">เวอร์ชันแรก เริ่มใช้กับโครงการนำร่อง 2 โครงการ</p>
+        <p className="text-ink-secondary text-sm">เวอร์ชันแรก เริ่มใช้กับโครงการนำร่อง 2 โครงการ</p>
         <div className="flex justify-center pt-2">
           <LoginButton />
         </div>

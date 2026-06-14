@@ -73,8 +73,8 @@ function AddWorkerForm({ contractors }: { contractors: { id: string; name: strin
 
   return (
     <div className={CARD}>
-      <p className="text-sm font-semibold text-zinc-900">เพิ่มคนงาน</p>
-      <label className="mt-2 block text-sm text-zinc-700">
+      <p className="text-ink text-sm font-semibold">เพิ่มคนงาน</p>
+      <label className="text-ink-secondary mt-2 block text-sm">
         ชื่อ
         <input
           value={name}
@@ -101,7 +101,7 @@ function AddWorkerForm({ contractors }: { contractors: { id: string; name: strin
         ))}
       </div>
       {workerType === "dc" ? (
-        <label className="mt-2 block text-sm text-zinc-700">
+        <label className="text-ink-secondary mt-2 block text-sm">
           ผู้รับเหมา
           <select
             value={contractorId}
@@ -117,7 +117,7 @@ function AddWorkerForm({ contractors }: { contractors: { id: string; name: strin
           </select>
         </label>
       ) : null}
-      <label className="mt-2 block text-sm text-zinc-700">
+      <label className="text-ink-secondary mt-2 block text-sm">
         ค่าแรงต่อวัน (บาท)
         <input
           value={rate}
@@ -126,7 +126,7 @@ function AddWorkerForm({ contractors }: { contractors: { id: string; name: strin
           className={FIELD_STACKED}
         />
       </label>
-      <label className="mt-2 block text-sm text-zinc-700">
+      <label className="text-ink-secondary mt-2 block text-sm">
         หมายเหตุ
         <textarea
           value={note}
@@ -137,7 +137,7 @@ function AddWorkerForm({ contractors }: { contractors: { id: string; name: strin
           className={FIELD_STACKED}
         />
       </label>
-      {error ? <p className="mt-2 text-sm text-red-700">{error}</p> : null}
+      {error ? <p className="text-danger mt-2 text-sm">{error}</p> : null}
       <button
         type="button"
         disabled={busy || name.trim().length === 0 || rate.trim().length === 0}
@@ -206,22 +206,24 @@ function WorkerRow({
   }
 
   return (
-    <li className="border-t border-zinc-200 py-2 first:border-t-0">
+    <li className="border-edge border-t py-2 first:border-t-0">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className={`truncate text-sm ${worker.active ? "text-zinc-900" : "text-zinc-400"}`}>
+          <p className={`truncate text-sm ${worker.active ? "text-ink" : "text-ink-muted"}`}>
             {worker.name}
             {contractorName ? (
-              <span className="ml-1.5 text-xs text-zinc-500">· {contractorName}</span>
+              <span className="text-ink-muted ml-1.5 text-xs">· {contractorName}</span>
             ) : null}
             {!worker.active ? (
-              <span className="ml-1.5 text-xs text-zinc-500">(ปิดใช้งาน)</span>
+              <span className="text-ink-muted ml-1.5 text-xs">(ปิดใช้งาน)</span>
             ) : null}
           </p>
-          <p className="text-xs text-zinc-600">{worker.day_rate.toLocaleString("th-TH")} บาท/วัน</p>
+          <p className="text-ink-secondary text-xs">
+            {worker.day_rate.toLocaleString("th-TH")} บาท/วัน
+          </p>
           {/* Spec 75: roster note. */}
           {worker.note ? (
-            <p className="mt-0.5 text-xs whitespace-pre-wrap text-zinc-600">
+            <p className="text-ink-secondary mt-0.5 text-xs whitespace-pre-wrap">
               หมายเหตุ: {worker.note}
             </p>
           ) : null}
@@ -230,7 +232,7 @@ function WorkerRow({
           <button
             type="button"
             onClick={() => setEditing((v) => !v)}
-            className="text-xs font-medium text-blue-700 hover:underline"
+            className="text-action text-xs font-medium hover:underline"
           >
             แก้ไข
           </button>
@@ -238,15 +240,15 @@ function WorkerRow({
             type="button"
             disabled={busy}
             onClick={() => void toggleActive()}
-            className="text-xs font-medium text-zinc-600 hover:underline"
+            className="text-ink-secondary text-xs font-medium hover:underline"
           >
             {worker.active ? "ปิดใช้งาน" : "เปิดใช้งาน"}
           </button>
         </div>
       </div>
       {editing ? (
-        <div className="mt-2 rounded-lg border border-zinc-300 bg-zinc-50 p-3">
-          <label className="block text-sm text-zinc-700">
+        <div className="border-edge-strong bg-page mt-2 rounded-lg border p-3">
+          <label className="text-ink-secondary block text-sm">
             ชื่อ
             <input
               value={name}
@@ -255,7 +257,7 @@ function WorkerRow({
               className={FIELD_STACKED}
             />
           </label>
-          <label className="mt-2 block text-sm text-zinc-700">
+          <label className="text-ink-secondary mt-2 block text-sm">
             ค่าแรงต่อวัน (บาท)
             <input
               value={rate}
@@ -264,7 +266,7 @@ function WorkerRow({
               className={FIELD_STACKED}
             />
           </label>
-          <label className="mt-2 block text-sm text-zinc-700">
+          <label className="text-ink-secondary mt-2 block text-sm">
             หมายเหตุ
             <textarea
               value={note}
@@ -274,7 +276,7 @@ function WorkerRow({
               className={FIELD_STACKED}
             />
           </label>
-          {error ? <p className="mt-2 text-sm text-red-700">{error}</p> : null}
+          {error ? <p className="text-danger mt-2 text-sm">{error}</p> : null}
           <div className="mt-3 flex gap-2">
             <button
               type="button"
@@ -326,7 +328,7 @@ export function WorkerRosterManager({
       ).map(({ label, list }) =>
         list.length > 0 ? (
           <div key={label} className={CARD}>
-            <p className="text-sm font-semibold text-zinc-900">{label}</p>
+            <p className="text-ink text-sm font-semibold">{label}</p>
             <ul className="mt-2 flex flex-col">
               {list.map((w) => (
                 <WorkerRow

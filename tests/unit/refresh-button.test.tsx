@@ -34,7 +34,8 @@ describe("RefreshButton", () => {
     const darkClasses = dark.querySelector("button")?.className ?? "";
     const lightClasses = light.querySelector("button")?.className ?? "";
     expect(darkClasses).not.toEqual(lightClasses);
-    expect(darkClasses).toContain("slate");
-    expect(lightClasses).toContain("zinc");
+    // dark = brand-band tokens; light = card-header tokens.
+    expect(darkClasses).toContain("ring-attn");
+    expect(lightClasses).toContain("ring-action");
   });
 });

@@ -41,7 +41,7 @@ function FractionToggle({
   onChange: (f: DayFraction) => void;
 }) {
   return (
-    <span className="inline-flex overflow-hidden rounded-lg border border-zinc-300">
+    <span className="border-edge-strong inline-flex overflow-hidden rounded-lg border">
       {(["full", "half"] as const).map((f) => (
         <button
           key={f}
@@ -49,7 +49,7 @@ function FractionToggle({
           aria-pressed={value === f}
           onClick={() => onChange(f)}
           className={`px-2.5 py-1 text-xs font-medium transition-colors ${
-            value === f ? "bg-slate-900 text-white" : "bg-white text-zinc-700 hover:bg-zinc-50"
+            value === f ? "bg-fill text-on-fill" : "bg-card text-ink-secondary hover:bg-sunk"
           }`}
         >
           {FRACTION_LABEL[f]}
@@ -72,7 +72,7 @@ function WorkerPickRow({
 }) {
   return (
     <li className="flex min-h-11 items-center justify-between gap-2">
-      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-sm text-zinc-900">
+      <label className="text-ink flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-sm">
         <input
           type="checkbox"
           checked={fraction !== null}
@@ -130,8 +130,8 @@ function CorrectionDialog({
   }
 
   return (
-    <div className="mt-2 rounded-lg border border-zinc-300 bg-zinc-50 p-3">
-      <p className="text-xs font-semibold text-zinc-900">
+    <div className="border-edge-strong bg-page mt-2 rounded-lg border p-3">
+      <p className="text-ink text-xs font-semibold">
         แก้ไขบันทึกของ {row.workerName} — {formatThaiDate(row.workDate)}
       </p>
       {!tombstone ? (
@@ -139,7 +139,7 @@ function CorrectionDialog({
           <FractionToggle value={fraction} onChange={setFraction} />
         </div>
       ) : null}
-      <label className="mt-2 flex items-center gap-2 text-sm text-zinc-700">
+      <label className="text-ink-secondary mt-2 flex items-center gap-2 text-sm">
         <input
           type="checkbox"
           checked={tombstone}
@@ -148,7 +148,7 @@ function CorrectionDialog({
         />
         ลบรายการนี้ (ลงผิดคน/ผิดงาน)
       </label>
-      <label className="mt-2 block text-sm text-zinc-700">
+      <label className="text-ink-secondary mt-2 block text-sm">
         เหตุผล
         <textarea
           value={reason}
@@ -158,13 +158,13 @@ function CorrectionDialog({
           className={FIELD_STACKED}
         />
       </label>
-      {error ? <p className="mt-2 text-xs text-red-700">{error}</p> : null}
+      {error ? <p className="text-danger mt-2 text-xs">{error}</p> : null}
       <div className="mt-3 flex gap-2">
         <button
           type="button"
           disabled={busy}
           onClick={() => void submit()}
-          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800 disabled:opacity-50"
+          className="bg-fill text-on-fill hover:bg-fill-press inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
         >
           บันทึกการแก้ไข
         </button>
@@ -254,19 +254,19 @@ export function LaborLogZone({
     <section className="flex flex-col gap-3">
       {!locked ? (
         <div className={CARD}>
-          <label className="block text-sm text-zinc-700">
+          <label className="text-ink-secondary block text-sm">
             วันที่ทำงาน
             <input
               type="date"
               value={workDate}
               max={today}
               onChange={(e) => setWorkDate(e.target.value)}
-              className="mt-1 block rounded-lg border border-zinc-400 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
+              className="border-edge-strong bg-card text-ink focus-visible:ring-action mt-1 block rounded-lg border px-3 py-2 text-sm focus:outline-none focus-visible:ring-2"
             />
           </label>
 
           {rosterEmpty ? (
-            <p className="mt-3 text-sm text-zinc-600">
+            <p className="text-ink-secondary mt-3 text-sm">
               {/* Spec 67: /workers had no nav entry — PM/super get a real
                   link here instead of dead prose. */}
               ยังไม่มีรายชื่อคนงาน —{" "}
@@ -275,7 +275,7 @@ export function LaborLogZone({
                   เพิ่มได้ที่หน้า{" "}
                   <Link
                     href="/workers"
-                    className="font-medium text-blue-700 underline-offset-2 hover:underline"
+                    className="text-action font-medium underline-offset-2 hover:underline"
                   >
                     คนงาน
                   </Link>
@@ -288,7 +288,7 @@ export function LaborLogZone({
             <>
               {roster.own.length > 0 ? (
                 <div className="mt-3">
-                  <p className="text-xs font-semibold tracking-wide text-zinc-500">ช่างบริษัท</p>
+                  <p className="text-ink-muted text-xs font-semibold tracking-wide">ช่างบริษัท</p>
                   <ul className="mt-1 flex flex-col">
                     {roster.own.map((w) => (
                       <WorkerPickRow
@@ -304,7 +304,7 @@ export function LaborLogZone({
               ) : null}
               {roster.dc.map((group) => (
                 <div key={group.contractorId ?? group.contractorName} className="mt-3">
-                  <p className="text-xs font-semibold tracking-wide text-zinc-500">
+                  <p className="text-ink-muted text-xs font-semibold tracking-wide">
                     {group.contractorName}
                   </p>
                   <ul className="mt-1 flex flex-col">
@@ -322,7 +322,7 @@ export function LaborLogZone({
               ))}
 
               {/* Spec 74: optional day note, applied to the whole batch. */}
-              <label className="mt-3 block text-sm text-zinc-700">
+              <label className="text-ink-secondary mt-3 block text-sm">
                 หมายเหตุ
                 <textarea
                   value={note}
@@ -334,9 +334,9 @@ export function LaborLogZone({
                 />
               </label>
 
-              {error ? <p className="mt-2 text-sm text-red-700">{error}</p> : null}
+              {error ? <p className="text-danger mt-2 text-sm">{error}</p> : null}
               {failures.length > 0 ? (
-                <ul className="mt-2 text-sm text-amber-800">
+                <ul className="text-attn-ink mt-2 text-sm">
                   {failures.map((f) => (
                     <li key={f.workerId}>
                       {workerNames.get(f.workerId) ?? f.workerId}: {f.message}
@@ -348,7 +348,7 @@ export function LaborLogZone({
                 type="button"
                 disabled={busy || selectedIds.length === 0}
                 onClick={() => void submit()}
-                className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-xs transition-colors hover:bg-slate-800 active:translate-y-px disabled:opacity-50"
+                className="bg-fill text-on-fill hover:bg-fill-press mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg px-4 py-2 text-sm font-medium shadow-xs transition-colors active:translate-y-px disabled:opacity-50"
               >
                 บันทึกแรงงาน
               </button>
@@ -359,21 +359,21 @@ export function LaborLogZone({
 
       {dates.length > 0 ? (
         <div className={CARD}>
-          <p className="text-sm font-semibold text-zinc-900">บันทึกล่าสุด</p>
+          <p className="text-ink text-sm font-semibold">บันทึกล่าสุด</p>
           <ul className="mt-2 flex flex-col gap-1">
             {dates.map((date) => (
-              <li key={date} className="border-t border-zinc-200 pt-2 first:border-t-0 first:pt-0">
-                <p className="text-xs font-semibold text-zinc-500">{formatThaiDate(date)}</p>
+              <li key={date} className="border-edge border-t pt-2 first:border-t-0 first:pt-0">
+                <p className="text-ink-muted text-xs font-semibold">{formatThaiDate(date)}</p>
                 <ul className="mt-1 flex flex-col gap-1">
                   {(byDate.get(date) ?? []).map((row) => (
-                    <li key={row.id} className="text-sm text-zinc-900">
+                    <li key={row.id} className="text-ink text-sm">
                       <div className="flex items-center justify-between gap-2">
                         <span className="min-w-0 truncate">
                           {row.workerName}
-                          <span className="mx-1.5 text-zinc-400">·</span>
-                          <span className="text-zinc-700">{FRACTION_LABEL[row.fraction]}</span>
+                          <span className="text-ink-muted mx-1.5">·</span>
+                          <span className="text-ink-secondary">{FRACTION_LABEL[row.fraction]}</span>
                           {showFlags && row.selfLogged ? (
-                            <span className="ml-2 rounded-full border border-amber-400 bg-amber-50 px-2 py-0.5 text-xs text-amber-900">
+                            <span className="border-attn-edge bg-attn-soft text-attn-ink ml-2 rounded-full border px-2 py-0.5 text-xs">
                               ลงให้ตัวเอง
                             </span>
                           ) : null}
@@ -382,7 +382,7 @@ export function LaborLogZone({
                           <button
                             type="button"
                             onClick={() => setCorrecting(correcting === row.id ? null : row.id)}
-                            className="text-xs font-medium text-blue-700 hover:underline"
+                            className="text-action text-xs font-medium hover:underline"
                           >
                             แก้ไข
                           </button>
@@ -390,7 +390,7 @@ export function LaborLogZone({
                       </div>
                       {/* Spec 74: the day note (carried through corrections). */}
                       {row.note ? (
-                        <p className="mt-0.5 text-xs whitespace-pre-wrap text-zinc-600">
+                        <p className="text-ink-secondary mt-0.5 text-xs whitespace-pre-wrap">
                           หมายเหตุ: {row.note}
                         </p>
                       ) : null}

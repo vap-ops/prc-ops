@@ -55,20 +55,20 @@ export function BottomSheet({ open, title, onClose, children }: BottomSheetProps
         ref={panelRef}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="sheet-panel flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-zinc-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl focus:outline-none"
+        className="sheet-panel border-edge bg-card flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border pb-[env(safe-area-inset-bottom)] shadow-2xl focus:outline-none"
       >
         {/* Grab affordance + sticky header. */}
-        <div className="flex flex-col items-center gap-2 border-b border-zinc-200 px-5 pt-2 pb-3">
-          <span aria-hidden className="h-1 w-9 rounded-full bg-zinc-300" />
+        <div className="border-edge flex flex-col items-center gap-2 border-b px-5 pt-2 pb-3">
+          <span aria-hidden className="bg-edge-strong h-1 w-9 rounded-full" />
           <div className="flex w-full items-center justify-between gap-3">
-            <h2 id={titleId} className="text-base font-semibold text-zinc-900">
+            <h2 id={titleId} className="text-ink text-base font-semibold">
               {title}
             </h2>
             <button
               type="button"
               onClick={onClose}
               aria-label="ปิด"
-              className="-mr-1 inline-flex size-11 shrink-0 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 active:translate-y-px"
+              className="text-ink-muted hover:bg-sunk hover:text-ink focus-visible:ring-action -mr-1 inline-flex size-11 shrink-0 items-center justify-center rounded-md transition-colors focus:outline-none focus-visible:ring-2 active:translate-y-px"
             >
               <X aria-hidden className="size-5" />
             </button>

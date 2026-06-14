@@ -73,17 +73,17 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-4 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm"
+      className="rounded-card border-edge bg-card shadow-card flex flex-col gap-4 border p-5"
     >
       <fieldset className="flex flex-col gap-2" disabled={submitting}>
-        <legend className="mb-1 text-sm font-medium text-zinc-900">ผลการตรวจ</legend>
+        <legend className="text-ink mb-1 text-sm font-medium">ผลการตรวจ</legend>
         {APPROVAL_DECISIONS.map((d) => (
           <label
             key={d}
             className={`flex cursor-pointer items-start gap-3 rounded-md border px-3 py-2 transition-colors ${
               decision === d
-                ? "border-blue-700 bg-blue-50"
-                : "border-zinc-400 bg-white hover:bg-zinc-50"
+                ? "border-action bg-action-soft"
+                : "border-edge-strong bg-card hover:bg-page"
             }`}
           >
             <input
@@ -92,23 +92,23 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
               value={d}
               checked={decision === d}
               onChange={() => setDecision(d)}
-              className="mt-1 accent-slate-900"
+              className="accent-fill mt-1"
             />
             <span className="flex flex-col">
-              <span className="text-sm font-medium text-zinc-900">{DECISION_LABEL[d]}</span>
-              <span className="text-xs text-zinc-600">{DECISION_HINT[d]}</span>
+              <span className="text-ink text-sm font-medium">{DECISION_LABEL[d]}</span>
+              <span className="text-ink-secondary text-xs">{DECISION_HINT[d]}</span>
             </span>
           </label>
         ))}
       </fieldset>
 
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="approval-comment" className="text-sm font-medium text-zinc-900">
+        <label htmlFor="approval-comment" className="text-ink text-sm font-medium">
           ความเห็น{" "}
           {needsComment ? (
-            <span className="text-red-600">*</span>
+            <span className="text-danger">*</span>
           ) : (
-            <span className="text-zinc-600">(ไม่บังคับ)</span>
+            <span className="text-ink-secondary">(ไม่บังคับ)</span>
           )}
         </label>
         <Textarea
@@ -118,7 +118,7 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
           required={needsComment}
           disabled={submitting}
           placeholder={needsComment ? "อธิบายสิ่งที่ต้องแก้ไข" : "บันทึกเพิ่มเติม (ถ้ามี)"}
-          className="min-h-24 border-zinc-400 bg-white text-zinc-900 placeholder:text-zinc-400"
+          className="border-edge-strong bg-card text-ink placeholder:text-ink-muted min-h-24"
         />
       </div>
 

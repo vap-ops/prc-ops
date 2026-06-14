@@ -170,14 +170,14 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
           are the way out and a bare กลับ reads as broken UX (operator
           report 2026-06-11), so the strip is desktop-only there. */}
       <nav
-        className={`border-b border-zinc-200 bg-zinc-100 px-5 py-1 ${
+        className={`border-edge bg-sunk border-b px-5 py-1 ${
           pinnedWp && pinnedProjectId ? "" : "hidden sm:block"
         }`}
       >
         <div className={`mx-auto flex ${PAGE_MAX_W} items-center`}>
           <Link
             href={backHref}
-            className="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-blue-700 transition-colors hover:underline focus:outline-none focus-visible:underline"
+            className="text-action inline-flex min-h-11 items-center gap-1.5 text-xs font-medium transition-colors hover:underline focus:outline-none focus-visible:underline"
           >
             <ArrowLeft aria-hidden className="size-3.5" />
             {backLabel}
@@ -199,9 +199,9 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
             ) : (
               <div className="space-y-2">
                 {wpRequested ? <ErrorNotice>ไม่พบรายการงาน</ErrorNotice> : null}
-                <p className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-4 text-sm text-zinc-600">
+                <p className="border-edge bg-page text-ink-secondary rounded-lg border px-4 py-4 text-sm">
                   คำขอซื้อเริ่มจากหน้ารายการงาน — เปิดรายการงานที่ต้องการ แล้วกด{" "}
-                  <span className="font-medium text-zinc-900">สร้างคำขอซื้อ</span>{" "}
+                  <span className="text-ink font-medium">สร้างคำขอซื้อ</span>{" "}
                   จากนั้นผู้จัดการโครงการจะเป็นผู้พิจารณาอนุมัติ —
                   หากไม่อนุมัติจะมีความเห็นแจ้งเหตุผลเสมอ
                 </p>
@@ -212,7 +212,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
 
         <div>
           <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-base font-semibold text-zinc-900">คำขอซื้อ</h2>
+            <h2 className="text-ink text-base font-semibold">คำขอซื้อ</h2>
             {/* ของฉัน filter chip (spec 16 A1) — site staff see the whole
                 site's requests; the chip narrows back to their own. A live
                 pinned WP survives the toggle (chips are a filter, not
@@ -221,10 +221,10 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
               <Link
                 href={pinnedWp ? `/requests?wp=${pinnedWp.id}` : "/requests"}
                 aria-current={!mineOnly ? "true" : undefined}
-                className={`inline-flex min-h-11 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 active:translate-y-px ${
+                className={`focus-visible:ring-action inline-flex min-h-11 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 active:translate-y-px ${
                   !mineOnly
-                    ? "border-slate-900 bg-slate-900 font-semibold text-white"
-                    : "border-zinc-400 bg-white text-zinc-700 hover:bg-zinc-50"
+                    ? "border-fill bg-fill text-on-fill font-semibold"
+                    : "border-edge-strong bg-card text-ink-secondary hover:bg-sunk"
                 }`}
               >
                 ทั้งหมด
@@ -232,10 +232,10 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
               <Link
                 href={pinnedWp ? `/requests?wp=${pinnedWp.id}&mine=1` : "/requests?mine=1"}
                 aria-current={mineOnly ? "true" : undefined}
-                className={`inline-flex min-h-11 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 active:translate-y-px ${
+                className={`focus-visible:ring-action inline-flex min-h-11 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 active:translate-y-px ${
                   mineOnly
-                    ? "border-slate-900 bg-slate-900 font-semibold text-white"
-                    : "border-zinc-400 bg-white text-zinc-700 hover:bg-zinc-50"
+                    ? "border-fill bg-fill text-on-fill font-semibold"
+                    : "border-edge-strong bg-card text-ink-secondary hover:bg-sunk"
                 }`}
               >
                 ของฉัน
@@ -286,7 +286,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
             </ul>
           )}
           {myRequests && myRequests.length > 0 ? (
-            <p className="mt-3 text-xs text-zinc-600">
+            <p className="text-ink-secondary mt-3 text-xs">
               กดที่คำขอเพื่อดูรายละเอียดและดำเนินการ — เมื่อผู้จัดการโครงการอนุมัติคำขอแล้ว
               ฝ่ายจัดซื้อบันทึกการสั่งซื้อและการจัดส่งได้ในหน้ารายละเอียดคำขอและในระบบหลังบ้าน —
               สถานะ &ldquo;สั่งซื้อแล้ว&rdquo; และ &ldquo;กำลังจัดส่ง&rdquo;

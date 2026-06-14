@@ -14,7 +14,7 @@ export function PurchaseRequestCancel({ requestId }: { requestId: string }) {
       pendingLabel="กำลังยกเลิก…"
       confirmMessage="ยกเลิกคำขอซื้อนี้หรือไม่?"
       confirmLabel="ยืนยัน"
-      buttonClassName="inline-flex h-11 items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 text-sm font-medium text-red-700 shadow-xs transition-colors hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+      buttonClassName="inline-flex h-11 items-center justify-center rounded-lg border border-edge-strong bg-card px-3 text-sm font-medium text-danger shadow-xs transition-colors hover:bg-danger-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-danger disabled:cursor-not-allowed disabled:opacity-60"
       action={() => cancelPurchaseRequest({ id: requestId })}
     />
   );

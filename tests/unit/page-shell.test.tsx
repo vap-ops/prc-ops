@@ -20,21 +20,21 @@ describe("PageShell", () => {
     expect(main?.className).toContain("overscroll-y-contain");
   });
 
-  it("app variant (default) carries the zinc wash + tab-bar clearance", () => {
+  it("app variant (default) carries the page wash + tab-bar clearance", () => {
     const { container } = render(<PageShell>x</PageShell>);
     const main = mainOf(container);
-    expect(main?.className).toContain("bg-zinc-50");
+    expect(main?.className).toContain("bg-page");
     expect(main?.className).toContain("pb-20");
     expect(main?.className).toContain("sm:pb-0");
   });
 
-  it("card variant centers a single card on white", () => {
+  it("card variant centers a single card on the card surface", () => {
     const { container } = render(<PageShell variant="card">x</PageShell>);
     const main = mainOf(container);
     expect(main?.className).toContain("items-center");
     expect(main?.className).toContain("justify-center");
-    expect(main?.className).toContain("bg-white");
-    expect(main?.className).not.toContain("bg-zinc-50");
+    expect(main?.className).toContain("bg-card");
+    expect(main?.className).not.toContain("bg-page");
   });
 
   it("bare variant adds nothing beyond the scroller; className appends", () => {
@@ -45,7 +45,7 @@ describe("PageShell", () => {
     );
     const main = mainOf(container);
     expect(main?.className).toContain("bg-white");
-    expect(main?.className).not.toContain("bg-zinc-50");
+    expect(main?.className).not.toContain("bg-page");
     expect(main?.className).not.toContain("pb-20");
     expect(screen.getByText("เนื้อหา")).toBeInTheDocument();
   });
