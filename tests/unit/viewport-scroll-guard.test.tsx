@@ -1,9 +1,8 @@
-// Writing failing test first.
-//
-// Spec 95: on iOS standalone PWA the locked document (spec 64) gets scrolled by
-// WebKit to reveal the caret and stays offset after the keyboard closes. The
-// guard snaps the document scroll back to 0 on keyboard close — but never while
-// the user is still editing another field.
+// Spec 95: on iOS standalone PWA the locked scroller (spec 64) is left UNPAINTED
+// after the keyboard closes — content present but blank until a scroll forces a
+// repaint (operator: "recovers on its own when I scroll"; รีเฟรช clears it). The
+// guard reproduces that recovering scroll nudge on keyboard close — but never
+// while the user is still editing another field.
 
 import { render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -13,27 +12,34 @@ import { ViewportScrollGuard } from "@/components/features/viewport-scroll-guard
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+  document.body.innerHTML = "";
 });
 
+function mountInMain() {
+  const main = document.createElement("main");
+  document.body.appendChild(main);
+  const scrollBy = vi.fn();
+  main.scrollBy = scrollBy;
+  render(<ViewportScrollGuard />, { container: main });
+  return { main, scrollBy };
+}
+
 describe("ViewportScrollGuard", () => {
-  it("resets the document scroll after a field blurs with nothing else focused", () => {
+  it("nudges the scroller to force a repaint after a field blurs (keyboard close)", () => {
     vi.useFakeTimers();
-    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
-    render(<ViewportScrollGuard />);
+    const { scrollBy } = mountInMain();
 
     const input = document.createElement("input");
     document.body.appendChild(input);
     input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
     vi.advanceTimersByTime(150);
 
-    expect(scrollTo).toHaveBeenCalledWith(0, 0);
-    input.remove();
+    expect(scrollBy).toHaveBeenCalledWith(0, 1);
   });
 
-  it("does NOT reset while another field is being edited (keyboard still up)", () => {
+  it("does NOT nudge while another field is being edited (keyboard still up)", () => {
     vi.useFakeTimers();
-    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
-    render(<ViewportScrollGuard />);
+    const { scrollBy } = mountInMain();
 
     const input = document.createElement("input");
     document.body.appendChild(input);
@@ -41,7 +47,6 @@ describe("ViewportScrollGuard", () => {
     input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
     vi.advanceTimersByTime(150);
 
-    expect(scrollTo).not.toHaveBeenCalled();
-    input.remove();
+    expect(scrollBy).not.toHaveBeenCalled();
   });
 });

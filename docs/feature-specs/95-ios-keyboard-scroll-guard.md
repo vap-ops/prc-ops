@@ -1,4 +1,4 @@
-# Spec 95 — iOS keyboard scroll guard (the spec-64 "next suspect")
+# Spec 95 — iOS keyboard repaint guard (the spec-64 "next suspect")
 
 ## Problem
 
@@ -7,34 +7,37 @@ finished typing something and lower down keyboard, a part of screen will go
 missing, and cannot scroll to top."_
 
 The body is **locked** (spec 64: `<body class="h-full overflow-hidden">`, and
-`PageShell` is the only scroller). On iOS standalone PWA, when the software
-keyboard opens, WebKit scrolls the **locked document** to bring the caret above
-the keyboard. Because the document can't be touch-scrolled back (overflow hidden),
-the offset **persists after the keyboard closes**: the sticky `DetailHeader` is
-pushed off the top, a blank band appears (most visible on the WP page, above the
-fixed amber capture bar), and there's no way to scroll back to the top.
+`PageShell`'s `<main>` is the only scroller). On iOS standalone PWA, when the
+software keyboard closes, WebKit resizes the viewport back but does **not repaint
+the locked scroller** — the content (the sticky `DetailHeader` included) is present
+but blank until something forces a repaint.
 
-Spec 64 already predicted this — it shipped the body-lock to kill iOS rubber-band
-drift and recorded _"if the symptom persists ask for exact repro (keyboard case =
-next suspect)."_ This is that case.
+Diagnosis was confirmed with the operator (round 2, AskUserQuestion): the screen
+**recovers on its own the moment you scroll**, and a **รีเฟรช also clears it**. So
+this is a missing-repaint glitch, **not** a stuck scroll position. (Round 1 shipped
+a document-scroll reset on the wrong hypothesis — it didn't help, because the
+scroll position was never the problem.)
+
+Spec 64 predicted this — it shipped the body-lock to kill iOS rubber-band drift
+and recorded _"keyboard case = next suspect."_
 
 ## Decision
 
 Add a tiny client guard, `ViewportScrollGuard`, mounted once in the root layout
-(next to `UploadQueueRunner`). When the keyboard closes, it snaps the **document**
-scroll back to 0 — leaving `PageShell`'s scroll (the user's real content position)
-untouched, so the header returns and the blank band disappears without losing
-their place.
+(next to `UploadQueueRunner`). When the keyboard closes, it reproduces the exact
+scroll that currently recovers the screen for the user — a **1px nudge and back**
+on the `<main>` scroller — forcing the repaint before the blank frame is ever
+seen. Position-preserving; the user keeps their place.
 
 - **Triggers:** `window.visualViewport` `resize` (fires when the keyboard slides
-  away → viewport returns to ~full height) as the primary signal; a document
+  away → viewport back to ~full height) as the primary signal; a document
   `focusout` as a fallback for environments without `visualViewport`.
 - **Guard:** if focus is still on an editable element (the user tabbed
-  field-to-field, keyboard still up), do nothing — never yank a live edit.
-- **Action:** `document.documentElement.scrollTop = 0`, `document.body.scrollTop =
-0`, `window.scrollTo(0, 0)`. In every non-keyboard state these are no-ops (the
-  locked document is always at 0), so the guard is inert except when correcting
-  the iOS-introduced offset.
+  field-to-field, keyboard still up), do nothing — the caret-reveal scroll is
+  iOS's job then.
+- **Action:** `scroller.scrollBy(0, 1)`, then `scrollBy(0, -1)` on the next
+  animation frame. Net scroll position unchanged; a repaint is forced. Inert in
+  every non-keyboard state.
 
 No change to the spec-64 body-lock or `PageShell` (proven; low blast radius).
 
@@ -44,14 +47,13 @@ No change to the spec-64 body-lock or `PageShell` (proven; low blast radius).
    component as above; renders `null`.
 2. `src/app/layout.tsx` — mount `<ViewportScrollGuard />` inside `<body>`.
 3. `tests/unit/viewport-scroll-guard.test.tsx` — (a) after an input `focusout`
-   with no active editable, the document scroll is reset (`window.scrollTo`
-   called); (b) while another field is focused, it is NOT reset.
+   with no active editable, the scroller is nudged (`scrollBy(0, 1)`); (b) while
+   another field is focused, it is NOT nudged.
 
 ## Out of scope
 
 - The body-lock / PageShell architecture (spec 64) — unchanged.
-- `interactive-widget` viewport hints — iOS Safari doesn't honour them yet, so
-  they wouldn't fix this; not used.
+- `interactive-widget` viewport hints — iOS Safari doesn't honour them yet.
 - Any per-field scroll-into-view tuning.
 
 ## Verification checklist
@@ -59,5 +61,5 @@ No change to the spec-64 body-lock or `PageShell` (proven; low blast radius).
 - [ ] `pnpm lint && pnpm typecheck && pnpm test` green; the new test passes.
 - [ ] `pnpm build` green.
 - [ ] Acceptance = **operator iPhone**: open a form on the WP page, type, dismiss
-      the keyboard → the header is back, no blank band, page scrolls to the top
-      normally. (PWA: fully close/reopen or tap รีเฟรช after deploy.)
+      the keyboard → the screen repaints immediately, no blank band, header
+      present, scroll works. (PWA: fully close/reopen or tap รีเฟรช after deploy.)
