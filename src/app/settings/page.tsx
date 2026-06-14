@@ -7,6 +7,9 @@ import { AvatarSurface } from "@/components/features/avatar-surface";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { createClient } from "@/lib/db/server";
+// Server-only import (this page is a Server Component) — no client bundle bloat,
+// no version drift vs package.json.
+import pkg from "../../../package.json";
 
 // ตั้งค่า (Settings) hub — the back-office + account home. Declutters the bottom
 // bar: the daily-decision surfaces stay as tabs; reference data (contacts,
@@ -91,6 +94,15 @@ export default async function SettingsPage() {
             </div>
           </>
         )}
+
+        {/* About — everyone */}
+        <div className="flex flex-col gap-2">
+          <h2 className="text-meta text-ink-secondary font-semibold">เกี่ยวกับ</h2>
+          <div className="border-edge bg-card rounded-control flex items-center justify-between border px-4 py-3">
+            <span className="text-ink text-body font-semibold">PRC Ops</span>
+            <span className="text-ink-secondary text-meta font-mono">เวอร์ชัน {pkg.version}</span>
+          </div>
+        </div>
       </section>
     </PageShell>
   );
