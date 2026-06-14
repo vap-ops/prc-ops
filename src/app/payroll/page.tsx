@@ -25,7 +25,7 @@ import { formatThaiDate } from "@/lib/i18n/labels";
 import { parsePayrollRange } from "@/lib/labor/payroll";
 import { fetchPayrollReport } from "@/lib/labor/fetch-payroll";
 
-export const metadata = { title: "ค่าจ้างผู้รับเหมา" };
+export const metadata = { title: "ค่าแรง DC" };
 
 function baht(n: number): string {
   return `${n.toLocaleString("th-TH", { maximumFractionDigits: 2 })} บาท`;
@@ -53,11 +53,11 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
     <PageShell>
       <BottomTabBar role={ctx.role} />
       <DetailHeader backHref="/settings" backLabel="ตั้งค่า">
-        <h1 className="text-title text-ink font-bold tracking-tight">ค่าจ้างผู้รับเหมา</h1>
+        <h1 className="text-title text-ink font-bold tracking-tight">ค่าแรง DC</h1>
       </DetailHeader>
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
-        <h2 className={SECTION_HEADING}>ค่าจ้างผู้รับเหมา (DC)</h2>
+        <h2 className={SECTION_HEADING}>ค่าแรง DC</h2>
 
         {/* Period — zero-client-JS GET form, defaults to the current month. */}
         <form method="get" className={`${CARD} mb-4 flex flex-wrap items-end gap-3`}>
