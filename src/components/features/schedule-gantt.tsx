@@ -158,16 +158,23 @@ export function ScheduleGantt({
 }: ScheduleGanttProps) {
   const [period, setPeriod] = useState<SchedulePeriod>("week");
   const [selected, setSelected] = useState<string | null>(null);
+  // Default to outstanding work; the operator can switch to all WPs.
+  const [showAll, setShowAll] = useState(false);
+
+  const visibleWps = useMemo(
+    () => (showAll ? workPackages : workPackages.filter((w) => w.status !== "complete")),
+    [workPackages, showAll],
+  );
 
   const timeline = useMemo(
-    () => buildTimeline(workPackages, period, todayISO),
-    [workPackages, period, todayISO],
+    () => buildTimeline(visibleWps, period, todayISO),
+    [visibleWps, period, todayISO],
   );
 
   // Ordered rows: each deliverable (sortOrder) with its WPs, ungrouped last.
   const { rows, totalH } = useMemo(() => {
     const byDeliv = new Map<string, GanttWp[]>();
-    for (const wp of workPackages) {
+    for (const wp of visibleWps) {
       const k = wp.deliverableId ?? UNGROUPED;
       const list = byDeliv.get(k) ?? byDeliv.set(k, []).get(k)!;
       list.push(wp);
@@ -190,7 +197,7 @@ export function ScheduleGantt({
     const ung = byDeliv.get(UNGROUPED);
     if (ung?.length) pushGroup(UNGROUPED, "", "ยังไม่จัดกลุ่ม", ung);
     return { rows: out, totalH: top };
-  }, [workPackages, deliverables]);
+  }, [visibleWps, deliverables]);
 
   // Bar geometry per scheduled WP (+ its row centre, for dependency lines).
   const geom = useMemo(() => {
@@ -208,325 +215,360 @@ export function ScheduleGantt({
   const scheduledCount = geom.size;
   const selectedWp = selected ? (workPackages.find((w) => w.id === selected) ?? null) : null;
 
-  if (scheduledCount === 0) {
-    return (
-      <div className="border-edge bg-card text-ink-secondary rounded-card text-body border p-8 text-center">
-        ยังไม่มีงานที่กำหนดวันที่ — ตั้งวันเริ่ม/สิ้นสุดในหน้ารายละเอียดงาน (เฉพาะผู้จัดการ)
-        เพื่อให้ปรากฏบนปฏิทิน
-      </div>
-    );
-  }
+  const periodBtn = (on: boolean) =>
+    `text-meta focus-visible:ring-action min-h-11 rounded-[0.625rem] px-3 font-bold transition-colors focus:outline-none focus-visible:ring-2 ${
+      on ? "bg-card text-ink shadow-card" : "text-ink-secondary hover:text-ink"
+    }`;
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Period switch — วัน / สัปดาห์ / เดือน */}
-      <div
-        role="radiogroup"
-        aria-label="ช่วงเวลา"
-        className="border-edge bg-sunk rounded-control flex w-fit gap-1 self-end border p-1"
-      >
-        {SCHEDULE_PERIODS.map((p) => {
-          const on = period === p.key;
-          return (
+      {/* Controls: work scope (default = outstanding) + period zoom */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div
+          role="radiogroup"
+          aria-label="ขอบเขตงาน"
+          className="border-edge bg-sunk rounded-control flex w-fit gap-1 border p-1"
+        >
+          {(
+            [
+              { v: false, label: "ยังไม่เสร็จ" },
+              { v: true, label: "ทั้งหมด" },
+            ] as const
+          ).map((o) => (
+            <button
+              key={o.label}
+              type="button"
+              role="radio"
+              aria-checked={showAll === o.v}
+              onClick={() => setShowAll(o.v)}
+              className={periodBtn(showAll === o.v)}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        <div
+          role="radiogroup"
+          aria-label="ช่วงเวลา"
+          className="border-edge bg-sunk rounded-control flex w-fit gap-1 border p-1"
+        >
+          {SCHEDULE_PERIODS.map((p) => (
             <button
               key={p.key}
               type="button"
               role="radio"
-              aria-checked={on}
+              aria-checked={period === p.key}
               onClick={() => setPeriod(p.key)}
-              className={`text-meta focus-visible:ring-action min-h-11 rounded-[0.625rem] px-3 font-bold transition-colors focus:outline-none focus-visible:ring-2 ${
-                on ? "bg-card text-ink shadow-card" : "text-ink-secondary hover:text-ink"
-              }`}
+              className={periodBtn(period === p.key)}
             >
               {p.label}
             </button>
-          );
-        })}
+          ))}
+        </div>
       </div>
 
-      {/* Gantt scroll container */}
-      <div
-        className="border-edge bg-card rounded-card relative overflow-auto border"
-        style={{ maxHeight: 560 }}
-      >
-        <div style={{ width: NAME_W + timeline.widthPx, minWidth: "100%" }}>
-          {/* Axis row (sticky top) */}
+      {scheduledCount === 0 ? (
+        <div className="border-edge bg-card text-ink-secondary rounded-card text-body border p-8 text-center">
+          {showAll
+            ? "ยังไม่มีงานที่กำหนดวันที่ — ตั้งวันเริ่ม/สิ้นสุดในหน้ารายละเอียดงาน (เฉพาะผู้จัดการ) เพื่อให้ปรากฏบนปฏิทิน"
+            : "ไม่มีงานที่ยังไม่เสร็จและกำหนดวันที่ไว้ — แตะ “ทั้งหมด” เพื่อรวมงานที่เสร็จแล้ว หรือกำหนดวันที่ในหน้ารายละเอียดงาน"}
+        </div>
+      ) : (
+        <>
+          {/* Gantt scroll container */}
           <div
-            className="border-edge-strong sticky top-0 z-20 flex border-b"
-            style={{ height: AXIS_H }}
+            className="border-edge bg-card rounded-card relative overflow-auto border"
+            style={{ maxHeight: 560 }}
           >
-            <div
-              className="border-edge bg-card text-meta text-ink-secondary sticky left-0 z-30 flex items-end border-r px-3 pb-1.5 font-semibold"
-              style={{ width: NAME_W }}
-            >
-              งาน
-            </div>
-            <div className="bg-card relative" style={{ width: timeline.widthPx }}>
-              {timeline.months.map((mb, i) => (
+            <div style={{ width: NAME_W + timeline.widthPx, minWidth: "100%" }}>
+              {/* Axis row (sticky top) */}
+              <div
+                className="border-edge-strong sticky top-0 z-20 flex border-b"
+                style={{ height: AXIS_H }}
+              >
                 <div
-                  key={i}
-                  className="border-edge text-ink-secondary text-meta absolute top-0 flex h-full items-start border-l pt-1 pl-1.5 font-semibold"
-                  style={{ left: mb.x, width: mb.width }}
+                  className="border-edge bg-card text-meta text-ink-secondary sticky left-0 z-30 flex items-end border-r px-3 pb-1.5 font-semibold"
+                  style={{ width: NAME_W }}
                 >
-                  {mb.label}
+                  งาน
                 </div>
-              ))}
-              {timeline.days.map((d, i) => (
-                <div
-                  key={i}
-                  className={`text-ink-muted absolute bottom-0 flex h-4 items-center justify-center text-[9px] ${
-                    d.isWeekend ? "opacity-60" : ""
-                  }`}
-                  style={{ left: d.x, width: timeline.dayWidth }}
-                >
-                  {d.day}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Body */}
-          <div className="relative" style={{ height: totalH }}>
-            {/* Grid + past shade + today line live over the timeline area only */}
-            <div
-              className="pointer-events-none absolute top-0 z-0"
-              style={{ left: NAME_W, width: timeline.widthPx, height: totalH }}
-            >
-              {timeline.pastWidth > 0 && (
-                <div
-                  className="bg-ink/5 absolute top-0 h-full"
-                  style={{ left: 0, width: timeline.pastWidth }}
-                />
-              )}
-              {timeline.months.map((mb, i) => (
-                <div
-                  key={i}
-                  className="border-edge absolute top-0 h-full border-l"
-                  style={{ left: mb.x }}
-                />
-              ))}
-              {timeline.todayX !== null && (
-                <div
-                  className="bg-danger absolute top-0 z-[1] h-full"
-                  style={{ left: timeline.todayX, width: 2, opacity: 0.55 }}
-                />
-              )}
-            </div>
-
-            {/* Dependency layer (SVG) — over the timeline area */}
-            <svg
-              className="pointer-events-none absolute top-0 z-[2]"
-              style={{ left: NAME_W, width: timeline.widthPx, height: totalH, overflow: "visible" }}
-              width={timeline.widthPx}
-              height={totalH}
-            >
-              <defs>
-                <marker
-                  id="ah-grey"
-                  markerWidth="8"
-                  markerHeight="8"
-                  refX="6.5"
-                  refY="3"
-                  orient="auto"
-                  markerUnits="userSpaceOnUse"
-                >
-                  <path d="M0,0 L7,3 L0,6 Z" className="fill-ink-muted" />
-                </marker>
-                <marker
-                  id="ah-crit"
-                  markerWidth="9"
-                  markerHeight="9"
-                  refX="7"
-                  refY="3.2"
-                  orient="auto"
-                  markerUnits="userSpaceOnUse"
-                >
-                  <path d="M0,0 L7.5,3.2 L0,6.4 Z" className="fill-danger" />
-                </marker>
-              </defs>
-              {dependencies.map((dep, i) => {
-                const a = geom.get(dep.predecessorId);
-                const b = geom.get(dep.successorId);
-                if (!a || !b) return null;
-                const sx = a.x + a.width;
-                const sy = a.cy;
-                const ex = b.x;
-                const ey = b.cy;
-                const dx = Math.max(14, Math.abs(ex - sx) / 2);
-                const d = `M ${sx} ${sy} C ${sx + dx} ${sy}, ${ex - dx} ${ey}, ${ex} ${ey}`;
-                const crit =
-                  workPackages.find((w) => w.id === dep.predecessorId)?.isCritical &&
-                  workPackages.find((w) => w.id === dep.successorId)?.isCritical;
-                const isLit =
-                  lit !== null && lit.has(dep.predecessorId) && lit.has(dep.successorId);
-                const dimmed = lit !== null && !isLit;
-                return (
-                  <path
-                    key={i}
-                    d={d}
-                    fill="none"
-                    className={crit ? "stroke-danger" : "stroke-ink-muted"}
-                    strokeWidth={isLit ? 2.4 : 1.4}
-                    markerEnd={`url(#${crit ? "ah-crit" : "ah-grey"})`}
-                    opacity={dimmed ? 0.18 : isLit ? 1 : crit ? 0.55 : 0.4}
-                  />
-                );
-              })}
-            </svg>
-
-            {/* Rows */}
-            {rows.map((r) => {
-              if (r.kind === "group") {
-                return (
-                  <div
-                    key={`g-${r.id}`}
-                    className="absolute flex w-full"
-                    style={{ top: r.top, height: GROUP_H }}
-                  >
+                <div className="bg-card relative" style={{ width: timeline.widthPx }}>
+                  {timeline.months.map((mb, i) => (
                     <div
-                      className="border-edge border-attn bg-attn-soft/40 sticky left-0 z-10 flex items-center gap-2 border-r border-l-4 px-3"
-                      style={{ width: NAME_W }}
+                      key={i}
+                      className="border-edge text-ink-secondary text-meta absolute top-0 flex h-full items-start border-l pt-1 pl-1.5 font-semibold"
+                      style={{ left: mb.x, width: mb.width }}
                     >
-                      {r.code && (
-                        <span className="text-ink-secondary font-mono text-[10.5px] font-semibold">
-                          {r.code}
-                        </span>
-                      )}
-                      <span className="text-ink text-meta truncate font-bold">{r.name}</span>
+                      {mb.label}
                     </div>
-                    <div className="bg-sunk/40 border-edge-strong flex-1 border-b" />
-                  </div>
-                );
-              }
-              const wp = r.wp;
-              const g = geom.get(wp.id);
-              const st = STATUS_STYLE[wp.status];
-              const behind =
-                !Number.isNaN(todayMs) &&
-                wp.plannedEnd !== null &&
-                wp.status !== "complete" &&
-                Date.parse(`${wp.plannedEnd}T00:00:00Z`) < todayMs;
-              const isSel = selected === wp.id;
-              const isDirect = direct.has(wp.id);
-              const isDim = lit !== null && !lit.has(wp.id);
-              return (
+                  ))}
+                  {timeline.days.map((d, i) => (
+                    <div
+                      key={i}
+                      className={`text-ink-muted absolute bottom-0 flex h-4 items-center justify-center text-[9px] ${
+                        d.isWeekend ? "opacity-60" : ""
+                      }`}
+                      style={{ left: d.x, width: timeline.dayWidth }}
+                    >
+                      {d.day}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="relative" style={{ height: totalH }}>
+                {/* Grid + past shade + today line live over the timeline area only */}
                 <div
-                  key={wp.id}
-                  className="group absolute flex w-full"
-                  style={{ top: r.top, height: ROW_H }}
+                  className="pointer-events-none absolute top-0 z-0"
+                  style={{ left: NAME_W, width: timeline.widthPx, height: totalH }}
                 >
-                  <div
-                    className="border-edge border-edge-strong bg-card group-hover:bg-sunk sticky left-0 z-10 flex flex-col justify-center border-r border-b px-3 py-1"
-                    style={{ width: NAME_W }}
-                  >
-                    <span className="text-ink-secondary font-mono text-[10.5px]">{wp.code}</span>
-                    <span className="text-ink line-clamp-2 text-[12.5px] leading-tight font-semibold">
-                      {wp.name}
-                    </span>
-                  </div>
-                  <div className="border-edge-strong group-hover:bg-sunk/50 relative flex-1 border-b">
-                    {g ? (
-                      <button
-                        type="button"
-                        onClick={() => setSelected(isSel ? null : wp.id)}
-                        aria-label={`${wp.code} ${wp.name}`}
-                        className={`absolute flex items-center gap-1.5 overflow-hidden rounded-[9px] border-[1.5px] ${st.border} ${st.bg} shadow-card px-1.5 transition-opacity ${
-                          isDim ? "opacity-25" : "opacity-100"
-                        } ${isSel ? "ring-fill ring-2" : isDirect ? "ring-attn ring-2" : ""}`}
-                        style={{
-                          left: g.x,
-                          width: Math.max(g.width, 22),
-                          top: (ROW_H - BAR_H) / 2,
-                          height: BAR_H,
-                        }}
+                  {timeline.pastWidth > 0 && (
+                    <div
+                      className="bg-ink/5 absolute top-0 h-full"
+                      style={{ left: 0, width: timeline.pastWidth }}
+                    />
+                  )}
+                  {timeline.months.map((mb, i) => (
+                    <div
+                      key={i}
+                      className="border-edge absolute top-0 h-full border-l"
+                      style={{ left: mb.x }}
+                    />
+                  ))}
+                  {timeline.todayX !== null && (
+                    <div
+                      className="bg-danger absolute top-0 z-[1] h-full"
+                      style={{ left: timeline.todayX, width: 2, opacity: 0.55 }}
+                    />
+                  )}
+                </div>
+
+                {/* Dependency layer (SVG) — over the timeline area */}
+                <svg
+                  className="pointer-events-none absolute top-0 z-[2]"
+                  style={{
+                    left: NAME_W,
+                    width: timeline.widthPx,
+                    height: totalH,
+                    overflow: "visible",
+                  }}
+                  width={timeline.widthPx}
+                  height={totalH}
+                >
+                  <defs>
+                    <marker
+                      id="ah-grey"
+                      markerWidth="8"
+                      markerHeight="8"
+                      refX="6.5"
+                      refY="3"
+                      orient="auto"
+                      markerUnits="userSpaceOnUse"
+                    >
+                      <path d="M0,0 L7,3 L0,6 Z" className="fill-ink-muted" />
+                    </marker>
+                    <marker
+                      id="ah-crit"
+                      markerWidth="9"
+                      markerHeight="9"
+                      refX="7"
+                      refY="3.2"
+                      orient="auto"
+                      markerUnits="userSpaceOnUse"
+                    >
+                      <path d="M0,0 L7.5,3.2 L0,6.4 Z" className="fill-danger" />
+                    </marker>
+                  </defs>
+                  {dependencies.map((dep, i) => {
+                    const a = geom.get(dep.predecessorId);
+                    const b = geom.get(dep.successorId);
+                    if (!a || !b) return null;
+                    const sx = a.x + a.width;
+                    const sy = a.cy;
+                    const ex = b.x;
+                    const ey = b.cy;
+                    const dx = Math.max(14, Math.abs(ex - sx) / 2);
+                    const d = `M ${sx} ${sy} C ${sx + dx} ${sy}, ${ex - dx} ${ey}, ${ex} ${ey}`;
+                    const crit =
+                      workPackages.find((w) => w.id === dep.predecessorId)?.isCritical &&
+                      workPackages.find((w) => w.id === dep.successorId)?.isCritical;
+                    const isLit =
+                      lit !== null && lit.has(dep.predecessorId) && lit.has(dep.successorId);
+                    const dimmed = lit !== null && !isLit;
+                    return (
+                      <path
+                        key={i}
+                        d={d}
+                        fill="none"
+                        className={crit ? "stroke-danger" : "stroke-ink-muted"}
+                        strokeWidth={isLit ? 2.4 : 1.4}
+                        markerEnd={`url(#${crit ? "ah-crit" : "ah-grey"})`}
+                        opacity={dimmed ? 0.18 : isLit ? 1 : crit ? 0.55 : 0.4}
+                      />
+                    );
+                  })}
+                </svg>
+
+                {/* Rows */}
+                {rows.map((r) => {
+                  if (r.kind === "group") {
+                    return (
+                      <div
+                        key={`g-${r.id}`}
+                        className="absolute flex w-full"
+                        style={{ top: r.top, height: GROUP_H }}
                       >
-                        {/* progress fill */}
-                        {st.pct > 0 && (
-                          <span
-                            className={`pointer-events-none absolute top-0 bottom-0 left-0 rounded-l-[7px] ${st.fill}`}
-                            style={{ width: `${st.pct}%` }}
-                          />
-                        )}
-                        {/* critical red edge */}
-                        {wp.isCritical && (
-                          <span className="bg-danger pointer-events-none absolute top-0 bottom-0 left-0 w-1" />
-                        )}
-                        <span
-                          className={`relative z-[1] h-[7px] w-[7px] shrink-0 rounded-full ${st.dot}`}
-                          aria-hidden
-                        />
-                        <span className="text-ink relative z-[1] truncate text-[11px] font-semibold">
+                        <div
+                          className="border-edge border-attn bg-attn-soft/40 sticky left-0 z-10 flex items-center gap-2 border-r border-l-4 px-3"
+                          style={{ width: NAME_W }}
+                        >
+                          {r.code && (
+                            <span className="text-ink-secondary font-mono text-[10.5px] font-semibold">
+                              {r.code}
+                            </span>
+                          )}
+                          <span className="text-ink text-meta truncate font-bold">{r.name}</span>
+                        </div>
+                        <div className="bg-sunk/40 border-edge-strong flex-1 border-b" />
+                      </div>
+                    );
+                  }
+                  const wp = r.wp;
+                  const g = geom.get(wp.id);
+                  const st = STATUS_STYLE[wp.status];
+                  const behind =
+                    !Number.isNaN(todayMs) &&
+                    wp.plannedEnd !== null &&
+                    wp.status !== "complete" &&
+                    Date.parse(`${wp.plannedEnd}T00:00:00Z`) < todayMs;
+                  const isSel = selected === wp.id;
+                  const isDirect = direct.has(wp.id);
+                  const isDim = lit !== null && !lit.has(wp.id);
+                  return (
+                    <div
+                      key={wp.id}
+                      className="group absolute flex w-full"
+                      style={{ top: r.top, height: ROW_H }}
+                    >
+                      <div
+                        className="border-edge border-edge-strong bg-card group-hover:bg-sunk sticky left-0 z-10 flex flex-col justify-center border-r border-b px-3 py-1"
+                        style={{ width: NAME_W }}
+                      >
+                        <span className="text-ink-secondary font-mono text-[10.5px]">
+                          {wp.code}
+                        </span>
+                        <span className="text-ink line-clamp-2 text-[12.5px] leading-tight font-semibold">
                           {wp.name}
                         </span>
-                        {(wp.priority === "urgent" || wp.priority === "critical") && (
-                          <span className="bg-attn text-on-attn relative z-[1] shrink-0 rounded px-1 text-[9px] font-extrabold">
-                            ด่วน
-                          </span>
-                        )}
-                        {behind && (
-                          <span
-                            className="text-danger relative z-[1] shrink-0 text-[10px] font-extrabold"
-                            aria-label="ช้ากว่าแผน"
+                      </div>
+                      <div className="border-edge-strong group-hover:bg-sunk/50 relative flex-1 border-b">
+                        {g ? (
+                          <button
+                            type="button"
+                            onClick={() => setSelected(isSel ? null : wp.id)}
+                            aria-label={`${wp.code} ${wp.name}`}
+                            className={`absolute flex items-center gap-1.5 overflow-hidden rounded-[9px] border-[1.5px] ${st.border} ${st.bg} shadow-card px-1.5 transition-opacity ${
+                              isDim ? "opacity-25" : "opacity-100"
+                            } ${isSel ? "ring-fill ring-2" : isDirect ? "ring-attn ring-2" : ""}`}
+                            style={{
+                              left: g.x,
+                              width: Math.max(g.width, 22),
+                              top: (ROW_H - BAR_H) / 2,
+                              height: BAR_H,
+                            }}
                           >
-                            ●
+                            {/* progress fill */}
+                            {st.pct > 0 && (
+                              <span
+                                className={`pointer-events-none absolute top-0 bottom-0 left-0 rounded-l-[7px] ${st.fill}`}
+                                style={{ width: `${st.pct}%` }}
+                              />
+                            )}
+                            {/* critical red edge */}
+                            {wp.isCritical && (
+                              <span className="bg-danger pointer-events-none absolute top-0 bottom-0 left-0 w-1" />
+                            )}
+                            <span
+                              className={`relative z-[1] h-[7px] w-[7px] shrink-0 rounded-full ${st.dot}`}
+                              aria-hidden
+                            />
+                            <span className="text-ink relative z-[1] truncate text-[11px] font-semibold">
+                              {wp.name}
+                            </span>
+                            {(wp.priority === "urgent" || wp.priority === "critical") && (
+                              <span className="bg-attn text-on-attn relative z-[1] shrink-0 rounded px-1 text-[9px] font-extrabold">
+                                ด่วน
+                              </span>
+                            )}
+                            {behind && (
+                              <span
+                                className="text-danger relative z-[1] shrink-0 text-[10px] font-extrabold"
+                                aria-label="ช้ากว่าแผน"
+                              >
+                                ●
+                              </span>
+                            )}
+                          </button>
+                        ) : (
+                          <span className="text-ink-muted absolute top-1/2 left-2 -translate-y-1/2 text-[10px]">
+                            ยังไม่กำหนดวันที่
                           </span>
                         )}
-                      </button>
-                    ) : (
-                      <span className="text-ink-muted absolute top-1/2 left-2 -translate-y-1/2 text-[10px]">
-                        ยังไม่กำหนดวันที่
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Selected WP — identity + status + open + clear. Sits right under the
+          {/* Selected WP — identity + status + open + clear. Sits right under the
           calendar so the open action is co-located + thumb-reachable (replaces
           the easy-to-miss link). Tap still highlights the dependency chain. */}
-      {selectedWp && (
-        <div className="border-edge bg-card shadow-card rounded-card flex items-center gap-2.5 border px-3 py-2.5">
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="text-ink-secondary text-meta font-mono">{selectedWp.code}</span>
-            <span className="text-ink text-body line-clamp-1 font-semibold">{selectedWp.name}</span>
-          </span>
-          <StatusPill pillClasses={workPackageStatusPillClasses(selectedWp.status)}>
-            {WORK_PACKAGE_STATUS_LABEL[selectedWp.status] ?? selectedWp.status}
-          </StatusPill>
-          <Link
-            href={workPackageHref(projectId, selectedWp.id)}
-            className="rounded-control bg-fill text-on-fill hover:bg-fill-press focus-visible:ring-action text-meta inline-flex h-11 shrink-0 items-center gap-1 px-3 font-semibold transition-colors focus:outline-none focus-visible:ring-2"
-          >
-            เปิดรายละเอียด <ArrowRight aria-hidden className="h-4 w-4" />
-          </Link>
-          <button
-            type="button"
-            onClick={() => setSelected(null)}
-            aria-label="ล้างการเลือก"
-            className="rounded-control text-ink-muted hover:text-ink hover:bg-sunk focus-visible:ring-action inline-flex h-11 w-11 shrink-0 items-center justify-center transition-colors focus:outline-none focus-visible:ring-2"
-          >
-            <X aria-hidden className="h-5 w-5" />
-          </button>
-        </div>
-      )}
+          {selectedWp && (
+            <div className="border-edge bg-card shadow-card rounded-card flex items-center gap-2.5 border px-3 py-2.5">
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="text-ink-secondary text-meta font-mono">{selectedWp.code}</span>
+                <span className="text-ink text-body line-clamp-1 font-semibold">
+                  {selectedWp.name}
+                </span>
+              </span>
+              <StatusPill pillClasses={workPackageStatusPillClasses(selectedWp.status)}>
+                {WORK_PACKAGE_STATUS_LABEL[selectedWp.status] ?? selectedWp.status}
+              </StatusPill>
+              <Link
+                href={workPackageHref(projectId, selectedWp.id)}
+                className="rounded-control bg-fill text-on-fill hover:bg-fill-press focus-visible:ring-action text-meta inline-flex h-11 shrink-0 items-center gap-1 px-3 font-semibold transition-colors focus:outline-none focus-visible:ring-2"
+              >
+                เปิดรายละเอียด <ArrowRight aria-hidden className="h-4 w-4" />
+              </Link>
+              <button
+                type="button"
+                onClick={() => setSelected(null)}
+                aria-label="ล้างการเลือก"
+                className="rounded-control text-ink-muted hover:text-ink hover:bg-sunk focus-visible:ring-action inline-flex h-11 w-11 shrink-0 items-center justify-center transition-colors focus:outline-none focus-visible:ring-2"
+              >
+                <X aria-hidden className="h-5 w-5" />
+              </button>
+            </div>
+          )}
 
-      {/* Legend + tap hint */}
-      <div className="text-ink-secondary text-meta flex flex-wrap items-center gap-x-4 gap-y-1">
-        <span className="flex items-center gap-1.5">
-          <span className="bg-danger inline-block h-2.5 w-1 rounded" /> เส้นทางวิกฤต
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="bg-attn inline-block h-2.5 w-2.5 rounded-full" /> ด่วน
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="text-danger font-extrabold">●</span> ช้ากว่าแผน
-        </span>
-        <span className="text-ink-muted">แตะแถบเพื่อดูสายงาน แล้วเปิดรายละเอียด</span>
-      </div>
+          {/* Legend + tap hint */}
+          <div className="text-ink-secondary text-meta flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span className="flex items-center gap-1.5">
+              <span className="bg-danger inline-block h-2.5 w-1 rounded" /> เส้นทางวิกฤต
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="bg-attn inline-block h-2.5 w-2.5 rounded-full" /> ด่วน
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="text-danger font-extrabold">●</span> ช้ากว่าแผน
+            </span>
+            <span className="text-ink-muted">แตะแถบเพื่อดูสายงาน แล้วเปิดรายละเอียด</span>
+          </div>
+        </>
+      )}
     </div>
   );
 }

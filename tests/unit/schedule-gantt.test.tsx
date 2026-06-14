@@ -57,6 +57,31 @@ describe("ScheduleGantt", () => {
     expect(open).toHaveAttribute("href", "/projects/p1/work-packages/w1");
   });
 
+  it("hides completed WPs by default and reveals them via ทั้งหมด", () => {
+    const done: GanttWp = {
+      ...SCHEDULED,
+      id: "w2",
+      code: "WP-2",
+      name: "งานเทพื้น",
+      status: "complete",
+      priority: "normal",
+      isCritical: false,
+    };
+    render(
+      <ScheduleGantt
+        projectId="p1"
+        todayISO="2026-07-05"
+        workPackages={[SCHEDULED, done]}
+        deliverables={[{ id: "d1", code: "D1", name: "งวดที่ 1", sortOrder: 0 }]}
+        dependencies={[]}
+      />,
+    );
+    // default = outstanding only → the completed WP is hidden
+    expect(screen.queryByText("งานเทพื้น")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "ทั้งหมด" }));
+    expect(screen.getAllByText("งานเทพื้น").length).toBeGreaterThan(0);
+  });
+
   it("shows the empty state when no WP has planned dates", () => {
     render(
       <ScheduleGantt
@@ -67,6 +92,6 @@ describe("ScheduleGantt", () => {
         dependencies={[]}
       />,
     );
-    expect(screen.getByText(/ยังไม่มีงานที่กำหนดวันที่/)).toBeInTheDocument();
+    expect(screen.getByText(/กำหนดวันที่/)).toBeInTheDocument();
   });
 });
