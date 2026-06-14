@@ -60,7 +60,10 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
         <h2 className={SECTION_HEADING}>ค่าแรง DC</h2>
 
         {/* Period — zero-client-JS GET form, defaults to the current month. */}
-        <form method="get" className={`${CARD} mb-4 flex flex-wrap items-end gap-3`}>
+        <form
+          method="get"
+          className={`${CARD} mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end`}
+        >
           <label className="text-ink-secondary flex flex-col text-xs">
             ตั้งแต่
             <input
