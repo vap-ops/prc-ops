@@ -10,6 +10,7 @@ import {
   nextAction,
   byPriorityRank,
   groupByActionBand,
+  rankFromPriority,
 } from "@/lib/work-packages/action-bands";
 
 describe("action-bands", () => {
@@ -48,6 +49,13 @@ describe("action-bands", () => {
       expect(deriveActionBand("on_hold")).toBe("held");
       expect(deriveActionBand("pending_approval")).toBe("review");
       expect(deriveActionBand("complete")).toBe("done");
+    });
+  });
+
+  describe("rankFromPriority (manual flag → sort rank)", () => {
+    it("ranks critical > urgent > normal (higher sorts first)", () => {
+      expect(rankFromPriority("critical")).toBeGreaterThan(rankFromPriority("urgent"));
+      expect(rankFromPriority("urgent")).toBeGreaterThan(rankFromPriority("normal"));
     });
   });
 

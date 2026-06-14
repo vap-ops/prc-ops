@@ -1233,6 +1233,7 @@ export type Database = {
           name: string;
           notes: string | null;
           owner_id: string | null;
+          priority: Database["public"]["Enums"]["work_package_priority"];
           project_id: string;
           status: Database["public"]["Enums"]["work_package_status"];
           updated_at: string;
@@ -1247,6 +1248,7 @@ export type Database = {
           name: string;
           notes?: string | null;
           owner_id?: string | null;
+          priority?: Database["public"]["Enums"]["work_package_priority"];
           project_id: string;
           status?: Database["public"]["Enums"]["work_package_status"];
           updated_at?: string;
@@ -1261,6 +1263,7 @@ export type Database = {
           name?: string;
           notes?: string | null;
           owner_id?: string | null;
+          priority?: Database["public"]["Enums"]["work_package_priority"];
           project_id?: string;
           status?: Database["public"]["Enums"]["work_package_status"];
           updated_at?: string;
@@ -1631,6 +1634,13 @@ export type Database = {
         Args: { p_notes: string; p_work_package_id: string };
         Returns: boolean;
       };
+      set_work_package_priority: {
+        Args: {
+          p_priority: Database["public"]["Enums"]["work_package_priority"];
+          p_work_package_id: string;
+        };
+        Returns: boolean;
+      };
       set_worker_day_rate: {
         Args: { p_id: string; p_rate: number };
         Returns: undefined;
@@ -1733,6 +1743,7 @@ export type Database = {
         | "subcon_manager"
         | "accounting"
         | "visitor";
+      work_package_priority: "normal" | "urgent" | "critical";
       work_package_status:
         | "not_started"
         | "in_progress"
@@ -1940,6 +1951,7 @@ export const Constants = {
         "accounting",
         "visitor",
       ],
+      work_package_priority: ["normal", "urgent", "critical"],
       work_package_status: [
         "not_started",
         "in_progress",

@@ -12,6 +12,7 @@ import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { PROJECT_TYPE_LABEL } from "@/lib/projects/validate-settings";
+import { rankFromPriority } from "@/lib/work-packages/action-bands";
 import { WorkPackageList } from "./work-package-list";
 
 interface PageProps {
@@ -57,15 +58,12 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
     .filter((n): n is string => n !== null);
   const typeLabel = project.project_type ? PROJECT_TYPE_LABEL[project.project_type] : null;
 
-  // Field-First: the worklist triage (action bands) derives purely from
-  // `status`, so it needs no new columns. The manual `priority` (ด่วน) flag,
-  // the numeric `priority_rank` sort, and the `is_critical` engine badge are
-  // RESERVED for their own later specs — until those land we pass fixed
-  // defaults below (tag + badge stay dark). Keeping them out of the SELECT
-  // means this reskin ships with zero schema change.
+  // Field-First worklist: action bands derive from `status`; the manual
+  // `priority` flag (spec 91 follow-up) drives the ด่วน tag + ต้องทำ sort.
+  // `is_critical` (critical-path engine) is still a later spec — passed false.
   const { data: workPackages } = await supabase
     .from("work_packages")
-    .select("id, code, name, status, deliverable_id, contractor_id")
+    .select("id, code, name, status, deliverable_id, contractor_id, priority")
     .eq("project_id", project.id)
     .order("code", { ascending: true });
 
@@ -160,10 +158,10 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
             status: wp.status,
             deliverableId: wp.deliverable_id,
             hasContractor: wp.contractor_id !== null,
-            // Reserved for later specs (manual ด่วน flag + rank; critical-path
-            // engine). No columns yet — fixed defaults keep the tag/badge dark.
-            priority: "normal" as const,
-            priorityRank: 0,
+            // Manual PM/super urgency flag → ด่วน tag + ต้องทำ sort (spec 91
+            // follow-up). isCritical stays reserved for the critical-path engine.
+            priority: wp.priority,
+            priorityRank: rankFromPriority(wp.priority),
             isCritical: false,
           }))}
           deliverables={(deliverables ?? []).map((d) => ({

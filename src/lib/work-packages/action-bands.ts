@@ -100,6 +100,22 @@ export function nextAction(status: WorkPackageStatus, hasContractor: boolean): N
   }
 }
 
+/**
+ * Map the manual priority flag to a sort rank — higher sorts first in the
+ * ต้องทำ band (byPriorityRank desc). This is the L0 alignment rank; a later
+ * critical-path engine can fold its own signal in on top.
+ */
+export function rankFromPriority(priority: WpPriority): number {
+  switch (priority) {
+    case "critical":
+      return 2;
+    case "urgent":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
 export interface BandableWp {
   status: WorkPackageStatus;
   /** Universal cross-role rank (data layer supplies it). Higher = first. */

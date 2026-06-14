@@ -30,6 +30,7 @@ import {
 } from "@/lib/status-colors";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { WpAssignmentPanel } from "@/components/features/wp-assignment-panel";
+import { WpPriorityControl } from "@/components/features/wp-priority-control";
 import { WorkPackageNotes } from "@/components/features/work-package-notes";
 import { PurchaseRequestForm } from "@/components/features/purchase-request-form";
 import { SitePurchaseForm } from "@/components/features/site-purchase-form";
@@ -50,7 +51,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
 
   const { data: wp } = await supabase
     .from("work_packages")
-    .select("id, code, name, status, project_id, description, contractor_id, notes")
+    .select("id, code, name, status, project_id, description, contractor_id, notes, priority")
     .eq("id", workPackageId)
     .maybeSingle();
 
@@ -185,6 +186,19 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
           <PhaseProgressBar counts={phaseCounts} />
         </div>
       </div>
+
+      {/* PM/super: manual priority — the worklist ด่วน tag + ต้องทำ sort. */}
+      {ctx.role === "project_manager" || ctx.role === "super_admin" ? (
+        <div className="border-edge bg-card border-b px-5 py-3">
+          <div className={`mx-auto ${PAGE_MAX_W}`}>
+            <WpPriorityControl
+              projectId={wp.project_id}
+              workPackageId={wp.id}
+              priority={wp.priority}
+            />
+          </div>
+        </div>
+      ) : null}
 
       {/* Attention stack: PM decision feedback, the unassigned-contractor
           card, and the pending-requests chip. */}
