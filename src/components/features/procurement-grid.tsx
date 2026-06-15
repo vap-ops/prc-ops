@@ -30,7 +30,7 @@ import {
   purchaseRequestPriorityPillClasses,
   purchaseRequestStatusPillClasses,
 } from "@/lib/status-colors";
-import { BUTTON_PRIMARY } from "@/lib/ui/classes";
+import { BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/lib/ui/classes";
 import { adjacentRecordIds, flattenRecordOrder } from "@/lib/purchasing/grid-record-nav";
 import { rowHealth, rowHealthLabel, type RowHealth } from "@/lib/purchasing/row-health";
 import { procurementDrawerActions } from "@/lib/purchasing/drawer-actions";
@@ -41,6 +41,10 @@ import {
 import { PurchaseRequestShip } from "@/components/features/purchase-request-ship";
 import { InvoiceUploader } from "@/components/features/invoice-uploader";
 import { DeliveryPhotoUploader } from "@/components/features/delivery-photo-uploader";
+import {
+  CreatePurchaseOrderSheet,
+  type CreatePoLine,
+} from "@/components/features/create-purchase-order-sheet";
 import type { Database } from "@/lib/db/database.types";
 
 // Spec 112: band-relative health → the row's left-edge color. The cell sets
@@ -122,9 +126,39 @@ export function ProcurementGrid({
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  // Spec 116: multi-select approved tickets → bundle into one PO. Only possible
+  // when the page supplied suppliers (procurement); the spec-113 preview/smoke
+  // passes none, so the grid stays selection-free there.
+  const canBundle = suppliers.length > 0;
+  const [selectedForPO, setSelectedForPO] = useState<ReadonlySet<string>>(new Set());
+  const [poOpen, setPoOpen] = useState(false);
+  const toggleForPO = (id: string) =>
+    setSelectedForPO((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const clearPO = () => setSelectedForPO(new Set());
+
   // Reading order + id→record lookup, recomputed only when the data changes.
   const order = useMemo(() => flattenRecordOrder(groups), [groups]);
   const byId = useMemo(() => new Map(order.map((r) => [r.id, r])), [order]);
+
+  // The selected approved tickets, as PO lines (reading order).
+  const poLines = useMemo<CreatePoLine[]>(
+    () =>
+      order
+        .filter((r) => selectedForPO.has(r.id))
+        .map((r) => ({
+          id: r.id,
+          pr_number: r.pr_number,
+          item_description: r.item_description,
+          quantity: r.quantity,
+          unit: r.unit,
+        })),
+    [order, selectedForPO],
+  );
 
   const selected = selectedId ? (byId.get(selectedId) ?? null) : null;
   const { prevId, nextId, index, total } = selectedId
@@ -158,11 +192,45 @@ export function ProcurementGrid({
                 selectedId={selectedId}
                 onSelect={setSelectedId}
                 today={today}
+                selectable={canBundle}
+                selectedForPO={selectedForPO}
+                onToggleSelect={toggleForPO}
               />
             ))}
           </tbody>
         </table>
       </div>
+
+      {/* Spec 116: bundle bar — appears once ≥1 approved ticket is checked. */}
+      {canBundle && selectedForPO.size > 0 ? (
+        <div className="border-edge bg-card shadow-card rounded-card sticky bottom-4 z-20 mt-3 flex items-center justify-between gap-3 border px-4 py-3">
+          <span className="text-ink text-sm font-medium">เลือก {selectedForPO.size} รายการ</span>
+          <div className="flex gap-2">
+            <button type="button" onClick={clearPO} className={BUTTON_SECONDARY}>
+              ล้าง
+            </button>
+            <button type="button" onClick={() => setPoOpen(true)} className={BUTTON_PRIMARY}>
+              สร้าง PO ({selectedForPO.size})
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Mounted only when bundling is possible (suppliers present). The
+          spec-113 preview/smoke passes no suppliers, so the sheet — and its
+          useRouter — never mounts there. */}
+      {canBundle ? (
+        <CreatePurchaseOrderSheet
+          open={poOpen}
+          lines={poLines}
+          suppliers={suppliers}
+          onClose={() => setPoOpen(false)}
+          onCreated={() => {
+            setPoOpen(false);
+            clearPO();
+          }}
+        />
+      ) : null}
 
       <RecordReviewDrawer
         record={selected}
@@ -183,12 +251,18 @@ function BandRows({
   selectedId,
   onSelect,
   today,
+  selectable,
+  selectedForPO,
+  onToggleSelect,
 }: {
   meta: WorklistGroupMeta;
   items: ProcurementGridRecord[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   today: string;
+  selectable: boolean;
+  selectedForPO: ReadonlySet<string>;
+  onToggleSelect: (id: string) => void;
 }) {
   return (
     <>
@@ -217,18 +291,32 @@ function BandRows({
               title={rowHealthLabel(health)}
               className={`border-l-4 px-4 py-2 align-top ${HEALTH_BORDER[health]}`}
             >
-              {/* Spec 109: the row opens the review drawer (not a full nav). */}
-              <button
-                type="button"
-                onClick={() => onSelect(r.id)}
-                aria-haspopup="dialog"
-                className="text-ink hover:text-action text-left font-medium break-words focus:outline-none focus-visible:underline"
-              >
-                {r.item_description}
-              </button>
-              <div className="text-ink-muted text-meta">
-                {r.pr_number ? <span className="font-mono">PR-{r.pr_number}</span> : null}
-                {r.wp_name ? <span> · {r.wp_name}</span> : null}
+              <div className="flex items-start gap-2.5">
+                {/* Spec 116: bundle checkbox — only on approved (to_order) rows. */}
+                {selectable && r.status === "approved" ? (
+                  <input
+                    type="checkbox"
+                    checked={selectedForPO.has(r.id)}
+                    onChange={() => onToggleSelect(r.id)}
+                    aria-label={`เลือก ${r.item_description} เข้าใบสั่งซื้อ`}
+                    className="accent-action mt-1 size-5 shrink-0 cursor-pointer"
+                  />
+                ) : null}
+                <div className="min-w-0">
+                  {/* Spec 109: the row opens the review drawer (not a full nav). */}
+                  <button
+                    type="button"
+                    onClick={() => onSelect(r.id)}
+                    aria-haspopup="dialog"
+                    className="text-ink hover:text-action text-left font-medium break-words focus:outline-none focus-visible:underline"
+                  >
+                    {r.item_description}
+                  </button>
+                  <div className="text-ink-muted text-meta">
+                    {r.pr_number ? <span className="font-mono">PR-{r.pr_number}</span> : null}
+                    {r.wp_name ? <span> · {r.wp_name}</span> : null}
+                  </div>
+                </div>
               </div>
             </td>
             <td className="text-ink-secondary px-2 py-2 align-top break-words">

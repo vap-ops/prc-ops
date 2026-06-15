@@ -38,6 +38,7 @@ import {
   type PurchaseDecision,
 } from "@/lib/purchasing/validate-purchase-request";
 import { validateRecordPurchase } from "@/lib/purchasing/validate-record-purchase";
+import { validateCreatePurchaseOrder } from "@/lib/purchasing/validate-create-purchase-order";
 import { validateSitePurchase } from "@/lib/purchasing/validate-site-purchase";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 
@@ -679,6 +680,57 @@ export async function recordPurchase(input: RecordPurchaseInput): Promise<Record
 
   revalidatePath("/requests");
   return { ok: true };
+}
+
+export interface CreatePurchaseOrderInput {
+  supplierId: string;
+  eta: string | null;
+  lines: Array<{ requestId: string; amount: number | null }>;
+}
+
+export type CreatePurchaseOrderResult = { ok: true; poId: string } | { ok: false; error: string };
+
+// Spec 116 / ADR 0044 — bundle approved tickets into one supplier order via the
+// create_purchase_order RPC. The RPC is role-gated on current_user_role() (the
+// authenticated session), SECURITY DEFINER, and re-checks everything (approved-
+// only lines, supplier exists, atomic) — so this runs on the user's session
+// client (getActionUser), never the admin client.
+export async function createPurchaseOrder(
+  input: CreatePurchaseOrderInput,
+): Promise<CreatePurchaseOrderResult> {
+  const validated = validateCreatePurchaseOrder(input);
+  if (!validated.ok) return validated;
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase } = auth;
+
+  const { data, error } = await supabase.rpc("create_purchase_order", {
+    p_supplier_id: validated.value.supplierId,
+    p_eta: validated.value.eta,
+    p_lines: validated.value.lines.map((l) => ({
+      request_id: l.requestId,
+      amount: l.amount,
+    })),
+  });
+  if (error) {
+    if (error.code === "42501") {
+      return { ok: false, error: "ไม่มีสิทธิ์สร้างใบสั่งซื้อ" };
+    }
+    if (error.code === "P0001") {
+      return {
+        ok: false,
+        error: "สร้างใบสั่งซื้อไม่สำเร็จ: มีรายการที่ไม่อยู่ในสถานะอนุมัติ หรือข้อมูลไม่ถูกต้อง",
+      };
+    }
+    return { ok: false, error: "สร้างใบสั่งซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+  if (!data) {
+    return { ok: false, error: "สร้างใบสั่งซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  revalidatePath("/requests");
+  return { ok: true, poId: data };
 }
 
 export interface RecordShipmentInput {

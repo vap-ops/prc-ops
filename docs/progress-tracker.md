@@ -1042,3 +1042,46 @@ prices, grouped display, PO context in the review drawer). Out (later units): wi
 **Still open (test artifacts, delete on operator's "done reviewing"):** the 7 seeded test PRs
 (`delete from public.purchase_requests where pr_number between 2926 and 2932;`) + the temporary
 `src/app/grid-preview/page.tsx` (spec 113) + its `nav-back-affordance.test.ts` EXCLUDED_ROUTES entry.
+
+---
+
+## Spec 116 — Purchase orders: create-PO UI (ADR 0044, phase 2) — SHIPPED 2026-06-16
+
+**What:** the screen to actually create a multi-ticket PO (spec 115 shipped only the engine). On the
+procurement desktop grid, the buyer checks several **approved** (`to_order`) tickets → a sticky
+`สร้าง PO (n)` bar → a bottom-sheet form (supplier picker + ETA + per-line price inputs + live total) →
+`createPurchaseOrder` action → the `create_purchase_order` RPC bundles them atomically. **No schema**
+(pure UI on the spec-115 data layer).
+
+- **Pure validator** `src/lib/purchasing/validate-create-purchase-order.ts` (TDD, 8 unit): ≥1 line, a
+  supplier UUID, each amount null-or-positive, no duplicate request ids, and a **required** valid ETA
+  (deliberate — a PO commits a delivery date; ad-hoc `record_purchase` stays ETA-optional. Optional-PO-
+  ETA is a recorded seam needing the RPC's `p_eta` to gain a SQL default first).
+- **Server action** `createPurchaseOrder({ supplierId, eta, lines })` in `src/app/requests/actions.ts`
+  — runs on the **authenticated user session** (`getActionUser`, NOT the admin client, because the RPC
+  is role-gated on `current_user_role()`); calls `supabase.rpc("create_purchase_order", …)`, maps
+  42501/P0001 to Thai, `revalidatePath("/requests")`, returns `{ ok, poId }`.
+- **`CreatePurchaseOrderSheet`** (`src/components/features/create-purchase-order-sheet.tsx`, client):
+  supplier `<select>`, ETA date, per-line price inputs, live total via `purchaseOrderTotal`. Submit →
+  action → on success clears the selection, closes, `router.refresh()` (bundled rows leave `to_order`,
+  appear in `in_transit`). Component test (4): renders lines + live total, submits the right payload,
+  surfaces errors, rejects a bad price client-side.
+- **`procurement-grid.tsx`**: a checkbox on each approved (`to_order`) row + the sticky bundle bar +
+  the sheet — **all gated on `canBundle` (suppliers present)**, so the spec-113 preview/smoke (no
+  suppliers) stays selection-free and router-free.
+
+**LESSON (the smoke test earned its keep):** `ProcurementGrid` initially mounted `CreatePurchaseOrderSheet`
+unconditionally; the sheet's top-level `useRouter()` threw "app router not mounted" in the no-router
+smoke test. Gating the mount on `canBundle` fixed it — a component that calls `useRouter` must not be
+mounted on a surface that has no router (preview/smoke). All create-PO props are client→client (the
+ผู้ขาย server→client function-prop lesson does not bite here).
+
+**Gate:** 860 unit / lint / typecheck / build green. No schema → no operator gate; committed + pushed.
+**Acceptance** (procurement can't be preview-verified — preview only renders `/login`): a procurement
+user (Pattrawut) on a PC checks 2+ approved tickets → สร้าง PO → supplier + ETA + prices → creates the
+PO; tickets become purchased/priced/stamped and leave the to-order band.
+
+**OUT (deferred follow-ups):** grouped PO display (a PO + its members as a group) + PO context in the
+review drawer; PO line-set editing; PO PDF; phone multi-select; optional-PO-ETA. Also still queued: the
+**documents+photos attachments** unit the operator asked for (Q1 answered = documents + photos; build
+after this).
