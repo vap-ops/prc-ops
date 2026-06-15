@@ -778,6 +778,60 @@ export type Database = {
           },
         ];
       };
+      purchase_orders: {
+        Row: {
+          created_at: string;
+          created_by: string;
+          eta: string | null;
+          id: string;
+          notes: string | null;
+          ordered_at: string | null;
+          po_number: number;
+          supplier: string;
+          supplier_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by: string;
+          eta?: string | null;
+          id?: string;
+          notes?: string | null;
+          ordered_at?: string | null;
+          po_number?: number;
+          supplier: string;
+          supplier_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string;
+          eta?: string | null;
+          id?: string;
+          notes?: string | null;
+          ordered_at?: string | null;
+          po_number?: number;
+          supplier?: string;
+          supplier_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "purchase_orders_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_orders_supplier_id_fkey";
+            columns: ["supplier_id"];
+            isOneToOne: false;
+            referencedRelation: "suppliers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       purchase_request_attachment_tokens: {
         Row: {
           access_token: string;
@@ -912,6 +966,7 @@ export type Database = {
           order_ref: string | null;
           pr_number: number;
           priority: Database["public"]["Enums"]["purchase_request_priority"];
+          purchase_order_id: string | null;
           purchased_at: string | null;
           quantity: number;
           received_by: string | null;
@@ -949,6 +1004,7 @@ export type Database = {
           order_ref?: string | null;
           pr_number?: number;
           priority?: Database["public"]["Enums"]["purchase_request_priority"];
+          purchase_order_id?: string | null;
           purchased_at?: string | null;
           quantity: number;
           received_by?: string | null;
@@ -986,6 +1042,7 @@ export type Database = {
           order_ref?: string | null;
           pr_number?: number;
           priority?: Database["public"]["Enums"]["purchase_request_priority"];
+          purchase_order_id?: string | null;
           purchased_at?: string | null;
           quantity?: number;
           received_by?: string | null;
@@ -1022,6 +1079,13 @@ export type Database = {
             columns: ["cancelled_by"];
             isOneToOne: false;
             referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_requests_purchase_order_id_fkey";
+            columns: ["purchase_order_id"];
+            isOneToOne: false;
+            referencedRelation: "purchase_orders";
             referencedColumns: ["id"];
           },
           {
@@ -1666,6 +1730,10 @@ export type Database = {
         };
         Returns: string;
       };
+      create_purchase_order: {
+        Args: { p_eta: string; p_lines: Json; p_supplier_id: string };
+        Returns: string;
+      };
       create_worker: {
         Args: {
           p_contractor?: string;
@@ -1825,7 +1893,8 @@ export type Database = {
         | "purchase_request_purchase"
         | "purchase_request_delivery"
         | "worker_change"
-        | "labor_cost_freeze";
+        | "labor_cost_freeze"
+        | "purchase_order_create";
       contact_doc_purpose: "id_card" | "bank_book";
       contact_status: "active" | "probation" | "blacklisted";
       contractor_category: "contractor" | "dc";
@@ -2030,6 +2099,7 @@ export const Constants = {
         "purchase_request_delivery",
         "worker_change",
         "labor_cost_freeze",
+        "purchase_order_create",
       ],
       contact_doc_purpose: ["id_card", "bank_book"],
       contact_status: ["active", "probation", "blacklisted"],

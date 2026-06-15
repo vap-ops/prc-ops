@@ -991,3 +991,54 @@ pure helper, not stored); RLS = back-office SELECT (ADR 0026), RPC-only writer (
 context in the drawer). NOT YET BUILT — schema migration is the riskiest change type (immutable once
 merged); building it deliberately. SEAMS: within-ticket partial receipts, PO line-set editing, PO PDF.
 Also still open: delete the 7 test PRs (2926–2932) + the /grid-preview page after operator review.
+
+---
+
+## Spec 115 — Purchase orders: data layer (ADR 0044, phase 1) — SHIPPED 2026-06-16
+
+**What:** the PO grouping data layer. Migrations `20260701000000` (audit_action `+purchase_order_create`,
+own txn — ADD VALUE can't be used same-txn) + `20260701000100` (table + FK + RLS + RPC) applied to prod
+under the operator gate. **No UI** (that's spec 116).
+
+- **`purchase_orders` table:** `po_number` own sequence (mirrors `pr_number`), `supplier_id` FK + `supplier`
+  text snapshot (spec-33 pattern), `eta`, `ordered_at`, `notes` CHECK(≤2000), `created_by`, timestamps.
+  **NO money column** (§3) — the PO total is the computed SUM of member `purchase_requests.amount`, so per-WP
+  material spend (specs 100/103/106) stays exact. RLS: back-office SELECT site-wide (site_admin/PM/procurement/
+  super, ADR 0026, eval-once wrapped); **NO INSERT/UPDATE/DELETE policy** — the RPC (function owner) is the
+  only writer (ADR 0038). `grant select` to authenticated only; appsheet_writer unaffected.
+- **`purchase_requests.purchase_order_id`** nullable FK → `purchase_orders(id)` (§2). RPC-only-writable: the
+  column-scoped authenticated UPDATE grant (20260616000400) doesn't name it, so app sessions can't set it
+  directly. Indexed (PO → members read). `purchase_orders.supplier_id` also indexed.
+- **`create_purchase_order(p_supplier_id uuid, p_eta date, p_lines jsonb)`** SECURITY DEFINER, search_path
+  pinned, returns the new PO id (uuid). Back-office gate on the **authenticated session** (spec-68 lesson —
+  service-role has no JWT so auth.uid()/current_user_role() would refuse it; grant execute to authenticated,
+  revoke from public/anon). Inserts the PO; per line `{request_id, amount}` guards `status='approved'` then
+  stamps amount/supplier(snapshot)/eta/purchased_at=now()/status='purchased'/purchase_order_id. **All-or-
+  nothing** (one txn — a non-approved line rolls back the whole bundle). Audit: the per-line approved→purchased
+  UPDATE fires the **existing** `purchase_requests_audit_appsheet` trigger → one `purchase_request_purchase`
+  row per line (mirrors record_purchase, null-actor/principal=authenticated); the RPC writes ONE additional
+  `purchase_order_create` row carrying the real actor + po_number/supplier/eta/request_ids.
+- **Pure helpers** `src/lib/purchasing/purchase-order.ts` (TDD-first, 10 unit): `derivePurchaseOrderStatus`
+  (open→ordered→partially_received→received; on_route counts as ordered; rejected/cancelled EXCLUDED;
+  empty roll-up → open) + `purchaseOrderTotal` (sum of non-null line amounts).
+- **pgTAP file 49** (+48): catalog/columns/notes-CHECK/RLS posture (1 SELECT policy, no write policy, no
+  authenticated INSERT/UPDATE)/member FK; RPC signature (SECURITY DEFINER + search_path + returns uuid +
+  authenticated-only execute) + behaviour (bundles approved → purchased/priced/stamped/snapshotted; sums 300;
+  PO-create + 2 per-line purchase audit rows; refuses non-approved line / empty set / unknown supplier; atomic
+  rollback). Enum pins updated in files 03 + 18 (grep-all-enum-pins lesson).
+- **database.types.ts** hand-extended then `db:types` reconciled — content byte-identical (only delta was the
+  `purchase_orders` block ordering; Supabase sorts it before `purchase_requests`).
+
+**Gate honored:** built local-green (lint / typecheck / 842 unit / build), AskUserQuestion → "Apply now" →
+db:push (migration FIRST), db:types reconcile, db:test 1073/0-fail, THEN commit + push. **Suites:** 842 unit /
+1073 pgTAP.
+
+**Acceptance (no UI):** `create_purchase_order` bundles approved tickets into a PO (each line → purchased,
+priced, stamped), refuses a non-approved line, is back-office-gated; per-WP spend still reads each line's
+amount; pgTAP green. **Next:** spec 116 = the UI (grid multi-select bundling, create-PO form with per-line
+prices, grouped display, PO context in the review drawer). Out (later units): within-ticket partial receipts
+(split qty), PO line-set editing, PO PDF.
+
+**Still open (test artifacts, delete on operator's "done reviewing"):** the 7 seeded test PRs
+(`delete from public.purchase_requests where pr_number between 2926 and 2932;`) + the temporary
+`src/app/grid-preview/page.tsx` (spec 113) + its `nav-back-affordance.test.ts` EXCLUDED_ROUTES entry.

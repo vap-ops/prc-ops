@@ -1,6 +1,6 @@
 # Spec 115 — Purchase orders: data layer (phase 1)
 
-**Status:** PLANNED (design locked; build pending — schema migration behind the operator gate).
+**Status:** SHIPPED 2026-06-16 (migrations `20260701000000` + `20260701000100` applied to prod under the operator gate; pgTAP 1073 / 842 unit / lint / typecheck / build all green). UI is spec 116 (not built).
 **ADR:** 0044. **Driver:** group multiple approved tickets into one supplier order (operator
 decision: one PO = many tickets; **per-ticket prices**, PO total = sum, so per-WP material spend
 stays exact). Phase 1 = the data layer; phase 2 (spec 116) = the UI.
