@@ -1085,3 +1085,34 @@ PO; tickets become purchased/priced/stamped and leave the to-order band.
 review drawer; PO line-set editing; PO PDF; phone multi-select; optional-PO-ETA. Also still queued: the
 **documents+photos attachments** unit the operator asked for (Q1 answered = documents + photos; build
 after this).
+
+---
+
+## Spec 117 — Create-PO UX round (mockup-approved) — SHIPPED 2026-06-16
+
+**What:** operator said "think hard about the UXUI" on the spec-116 create-PO flow. Since procurement
+routes can't be preview-verified (preview only renders `/login`), a hard critique found real defects, a
+visualize **mockup** was built, and the operator approved "build the full redesign." Seven UI fixes (no
+schema):
+
+1. **Right-side panel, not a bottom sheet** — the form was a `BottomSheet` (phone idiom) on a
+   desktop-only feature; switched to `side="right"` (matches the review drawer). 2. **Inline
+   เพิ่มผู้ขายใหม่** (createSupplier) — no more dead-end when the supplier isn't listed. 3. **Required-ETA
+   `จำเป็น` badge + disabled-submit helper line** (explains why the button is off). 4. **Selected rows
+   highlighted** (`bg-action-soft`) on the grid. 5. **Discoverability caption** above the grid
+   (procurement). 6. **WP code per line** in the sheet (bundles can span projects). 7. **Success toast**
+   (`useToast().success`) on create.
+
+Files: `create-purchase-order-sheet.tsx` (rewritten), `procurement-grid.tsx` (highlight + caption +
+`wp_code` into `CreatePoLine`), component test extended (+1 inline-add-supplier case, `createSupplier`
+mock, `wp_code` fixtures). **TRAP fixed:** a `จำเป็น` badge inside the ETA `<label>` would change its
+accessible name and break `getByLabelText` — moved the badge to a sibling of the label. `useToast` is a
+NO-OP outside its provider, so the test needs no toast mock.
+
+**Gate:** unit / lint / typecheck / build green; no schema → no operator gate; committed + pushed.
+**Acceptance** = procurement (Pattrawut) on a PC: tick approved tickets (rows highlight) → right-side
+สร้าง PO panel → add supplier inline / set required ETA / enter prices → create → success toast.
+
+**METHOD note (reusable):** for an un-preview-verifiable surface, the right move on a "think about UX"
+ask is a visualize mockup → operator approval → build (the spec-108 loop), NOT shipping blind UI then
+hoping. The mockup is the verification the preview can't give.

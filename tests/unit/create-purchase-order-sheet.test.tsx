@@ -5,18 +5,25 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 vi.mock("next/navigation", async () => await import("../helpers/router-refresh"));
-const { createPurchaseOrderMock } = vi.hoisted(() => ({ createPurchaseOrderMock: vi.fn() }));
-vi.mock("@/app/requests/actions", () => ({ createPurchaseOrder: createPurchaseOrderMock }));
+const { createPurchaseOrderMock, createSupplierMock } = vi.hoisted(() => ({
+  createPurchaseOrderMock: vi.fn(),
+  createSupplierMock: vi.fn(),
+}));
+vi.mock("@/app/requests/actions", () => ({
+  createPurchaseOrder: createPurchaseOrderMock,
+  createSupplier: createSupplierMock,
+}));
 
 import { CreatePurchaseOrderSheet } from "@/components/features/create-purchase-order-sheet";
 
 const SUP = "11111111-1111-4111-8111-111111111111";
+const NEW_SUP = "99999999-9999-4999-8999-999999999999";
 const R1 = "aaaaaaaa-1111-4111-8111-111111111111";
 const R2 = "bbbbbbbb-2222-4222-8222-222222222222";
 const SUPPLIERS = [{ id: SUP, name: "ร้าน A", phone: null }];
 const LINES = [
-  { id: R1, pr_number: 10, item_description: "ปูน", quantity: 5, unit: "ถุง" },
-  { id: R2, pr_number: 11, item_description: "ทราย", quantity: 2, unit: "คิว" },
+  { id: R1, pr_number: 10, item_description: "ปูน", quantity: 5, unit: "ถุง", wp_code: "WP52" },
+  { id: R2, pr_number: 11, item_description: "ทราย", quantity: 2, unit: "คิว", wp_code: null },
 ];
 
 function setup(props: Partial<React.ComponentProps<typeof CreatePurchaseOrderSheet>> = {}) {
@@ -33,7 +40,10 @@ function setup(props: Partial<React.ComponentProps<typeof CreatePurchaseOrderShe
 }
 
 describe("CreatePurchaseOrderSheet", () => {
-  beforeEach(() => createPurchaseOrderMock.mockReset());
+  beforeEach(() => {
+    createPurchaseOrderMock.mockReset();
+    createSupplierMock.mockReset();
+  });
 
   it("renders the selected lines and a live total of entered prices", () => {
     setup();
@@ -95,5 +105,22 @@ describe("CreatePurchaseOrderSheet", () => {
 
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(createPurchaseOrderMock).not.toHaveBeenCalled();
+  });
+
+  it("adds a supplier inline and selects it (no dead-end)", async () => {
+    createSupplierMock.mockResolvedValue({ ok: true, id: NEW_SUP });
+    setup();
+    fireEvent.change(screen.getByPlaceholderText("ชื่อผู้ขาย / ร้านค้า"), {
+      target: { value: "ร้านใหม่" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มและเลือก" }));
+
+    await waitFor(() =>
+      expect(createSupplierMock).toHaveBeenCalledWith({ name: "ร้านใหม่", phone: "" }),
+    );
+    await waitFor(() =>
+      expect((screen.getByLabelText("ผู้ขาย") as HTMLSelectElement).value).toBe(NEW_SUP),
+    );
+    expect(screen.getByText("ร้านใหม่")).toBeInTheDocument();
   });
 });

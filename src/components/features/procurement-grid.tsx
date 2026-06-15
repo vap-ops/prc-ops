@@ -16,7 +16,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, Info } from "lucide-react";
 import { StatusPill } from "@/components/features/status-pill";
 import { BottomSheet } from "@/components/features/bottom-sheet";
 import { PurchaseRequestTracker } from "@/components/features/purchase-request-tracker";
@@ -156,6 +156,7 @@ export function ProcurementGrid({
           item_description: r.item_description,
           quantity: r.quantity,
           unit: r.unit,
+          wp_code: r.wp_code,
         })),
     [order, selectedForPO],
   );
@@ -168,6 +169,13 @@ export function ProcurementGrid({
   return (
     <>
       <div className="border-edge bg-card shadow-card rounded-card overflow-hidden border">
+        {/* Spec 117: discoverability — what the checkboxes are for. */}
+        {canBundle ? (
+          <div className="border-edge text-ink-secondary text-meta flex items-center gap-1.5 border-b px-4 py-2">
+            <Info aria-hidden className="size-3.5 shrink-0" />
+            เลือกหลายรายการที่อนุมัติแล้ว เพื่อรวมเป็นใบสั่งซื้อเดียว
+          </div>
+        ) : null}
         <table className="w-full table-fixed border-collapse text-sm">
           <colgroup>
             <col className="w-[42%]" />
@@ -278,13 +286,15 @@ function BandRows({
       </tr>
       {items.map((r) => {
         const isSelected = r.id === selectedId;
+        // Spec 117: a row checked for PO bundling stays highlighted on the grid.
+        const isChecked = selectedForPO.has(r.id);
         // Spec 112: the row's health (band-relative time pressure) → left-edge color.
         const health = rowHealth(r.status, r.eta, r.needed_by, today);
         return (
           <tr
             key={r.id}
             className={`border-edge border-t transition-colors ${
-              isSelected ? "bg-action-soft" : "hover:bg-sunk"
+              isSelected || isChecked ? "bg-action-soft" : "hover:bg-sunk"
             }`}
           >
             <td
