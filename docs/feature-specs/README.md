@@ -117,6 +117,7 @@ for reading the spec itself.
 | 112  | Band-relative row health color in the grid (buyer time pressure, not priority) |
 | 113  | Grid health smoke test + temporary visual preview (review all color cases)     |
 | 114  | Enrich the review drawer + in-place buyer actions (record/ship/invoice/photo)  |
+| 115  | Purchase orders — data layer (group tickets into a supplier order; ADR 0044)   |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

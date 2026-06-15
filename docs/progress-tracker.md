@@ -968,3 +968,26 @@ but build guards the client/server boundary (action components render in the cli
 = procurement PC: open a row → fuller record + record/ship/attach IN the drawer, grid updates without
 leaving, prev/next still steps, full page one link away. SEAMS: doc COUNT not galleries; band-jump
 after action expected; decisions stay page+PM-only.
+
+## ADR 0044 + Spec 115 — Purchase orders (grouping tickets) — DESIGN LOCKED, build pending (2026-06-16)
+
+Operator asked how admins handle a purchase covering **more than one ticket** + partial delivery.
+Found the gap: the only procurement entity is `purchase_requests` (one ticket = one line/WP/qty,
+atomic delivery) — **no PO object**; a buyer ordering 5 tickets from one supplier records 5×, and the
+per-ticket amount means one invoice total is split by hand. Partial-**across**-tickets already works
+(each ticket delivers independently) but ungrouped; partial-**within**-a-ticket (split qty) is
+unmodelled (a later receipts unit). Two AskUserQuestions locked the design: **(1) build PO grouping**
+(over partial-receipts / both / workaround); **(2) per-ticket prices** (PO total = sum, over
+PO-total-+-split / lump) — preserves per-WP material spend (specs 100/103/106 read amount per ticket).
+**ADR 0044 (Accepted)** + **spec 115** written: new `purchase_orders` table (po_number seq, supplier_id
+FK + snapshot, eta, ordered_at, notes, created_by; **no money column** — total is computed);
+`purchase_requests.purchase_order_id` nullable FK; **atomic SECURITY DEFINER `create_purchase_order`**
+(back-office gate on the AUTHENTICATED session per the spec-68 lesson; per-line guard status=approved →
+amount/supplier/eta/purchased_at/status=purchased/po_id; audit per line + PO row); ship+delivery stay
+per-ticket (partial-across works); **PO status DERIVED** (open→ordered→partially_received→received,
+pure helper, not stored); RLS = back-office SELECT (ADR 0026), RPC-only writer (ADR 0038 posture).
+**Phased build: spec 115 = data layer** (table+FK+RLS+RPC+helpers+pgTAP+types, schema → operator gate);
+**spec 116 = UI** (grid multi-select bundling, create-PO form w/ per-line prices, grouped display, PO
+context in the drawer). NOT YET BUILT — schema migration is the riskiest change type (immutable once
+merged); building it deliberately. SEAMS: within-ticket partial receipts, PO line-set editing, PO PDF.
+Also still open: delete the 7 test PRs (2926–2932) + the /grid-preview page after operator review.

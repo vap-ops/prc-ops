@@ -49,6 +49,7 @@ later one corrects — read both when the topic is live.
 | 0041 | Device-code handoff for standalone PWA login                      |                                |
 | 0042 | Project settings write path (back-office RPC)                     |                                |
 | 0043 | On-site purchases & invoice/receipt documents                     |                                |
+| 0044 | Purchase orders: grouping tickets into a supplier order           | Per-ticket prices; PO = sum    |
 
 **Absent numbers** (never authored as standalone files; do not look for them):
 0023, 0024 — skipped. 0029 — AppSheet image bridge, cancelled before authoring
