@@ -7,11 +7,13 @@
 // downstream stages muted — the pipeline never pretends a rejected
 // request is still moving.
 //
-// data-stage / data-state attributes are the test contract (spec 22) —
-// they also make the stepper greppable in devtools on a phone.
+// Spec 111: the stage-state logic lives in src/lib/purchasing/order-stages.ts
+// (shared with the grid mini-bar). This component renders it with labels +
+// dates. data-stage / data-state attributes are the test contract (spec 22).
 
-import type { Database } from "@/lib/db/database.types";
 import { formatThaiDate } from "@/lib/i18n/labels";
+import type { Database } from "@/lib/db/database.types";
+import { ORDER_STAGES, orderStageStates, type OrderStage } from "@/lib/purchasing/order-stages";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
 
@@ -25,36 +27,13 @@ interface PurchaseRequestTrackerProps {
   eta: string | null;
 }
 
-const STAGES = ["requested", "approved", "purchased", "on_route", "delivered"] as const;
-type Stage = (typeof STAGES)[number];
-
-const STAGE_LABEL: Record<Stage, string> = {
+const STAGE_LABEL: Record<OrderStage, string> = {
   requested: "ส่งคำขอ",
   approved: "อนุมัติ",
   purchased: "สั่งซื้อ",
   on_route: "กำลังจัดส่ง",
   delivered: "ได้รับของ",
 };
-
-// How far along the pipeline each status reaches (index into STAGES).
-// rejected reaches the decision stage (index 1) and terminates there;
-// cancelled (spec 27) also stops after the decision stage but keeps the
-// approve stage green — it was approved, then administratively closed.
-const STATUS_RANK: Record<PurchaseRequestStatus, number> = {
-  requested: 0,
-  approved: 1,
-  rejected: 1,
-  cancelled: 1,
-  purchased: 2,
-  on_route: 3,
-  delivered: 4,
-  // Spec 66 / ADR 0043: an on-site purchase didn't walk this requisition
-  // pipeline; the detail page hides the stepper for it. Ranked terminal
-  // (goods received) for the type's sake if it ever renders.
-  site_purchased: 4,
-};
-
-type StepState = "done" | "pending" | "rejected" | "cancelled";
 
 export function PurchaseRequestTracker({
   status,
@@ -65,10 +44,8 @@ export function PurchaseRequestTracker({
   deliveredAt,
   eta,
 }: PurchaseRequestTrackerProps) {
-  const rank = STATUS_RANK[status];
-  const rejected = status === "rejected";
-  const cancelled = status === "cancelled";
-  const stageDate: Record<Stage, string | null> = {
+  const steps = orderStageStates(status);
+  const stageDate: Record<OrderStage, string | null> = {
     requested: requestedAt,
     approved: decidedAt,
     purchased: purchasedAt,
@@ -78,26 +55,14 @@ export function PurchaseRequestTracker({
 
   return (
     <ol aria-label="สถานะการสั่งซื้อ" className="flex items-start">
-      {STAGES.map((stage, i) => {
-        const state: StepState = rejected
-          ? i < 1
-            ? "done"
-            : i === 1
-              ? "rejected"
-              : "cancelled"
-          : cancelled
-            ? i <= rank
-              ? "done"
-              : "cancelled"
-            : i <= rank
-              ? "done"
-              : "pending";
-        const isCurrent = rejected ? i === 1 : i === rank;
+      {steps.map((step, i) => {
+        const { stage, state, isCurrent, reached } = step;
         const date = stageDate[stage];
-        const label = rejected && stage === "approved" ? "ไม่อนุมัติ" : STAGE_LABEL[stage];
-        // Connector segment LEFT of this dot is filled when this step has
-        // been reached (done or the rejected terminal).
-        const reached = state === "done" || state === "rejected";
+        const label = state === "rejected" ? "ไม่อนุมัติ" : STAGE_LABEL[stage];
+        // Connector RIGHT of this dot is filled when the next stage is done.
+        const nextDone = steps[i + 1]?.state === "done";
+        // Ring marks the live step, but never the rejected terminal (red dot).
+        const ringCurrent = isCurrent && state !== "rejected";
 
         const dotClass =
           state === "done"
@@ -130,7 +95,7 @@ export function PurchaseRequestTracker({
               <span
                 aria-hidden
                 className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${dotClass} ${
-                  isCurrent && !rejected ? "ring-done ring-2" : ""
+                  ringCurrent ? "ring-done ring-2" : ""
                 }`}
               >
                 {state === "done" ? (
@@ -146,9 +111,9 @@ export function PurchaseRequestTracker({
               <span
                 aria-hidden
                 className={`h-0.5 flex-1 ${
-                  i === STAGES.length - 1
+                  i === ORDER_STAGES.length - 1
                     ? "invisible"
-                    : !rejected && i < rank
+                    : nextDone
                       ? "bg-done-strong"
                       : "bg-edge"
                 }`}
@@ -166,7 +131,7 @@ export function PurchaseRequestTracker({
                 {date ? formatThaiDate(date) : "—"}
               </span>
             ) : null}
-            {stage === "delivered" && state === "pending" && !rejected && eta ? (
+            {stage === "delivered" && state === "pending" && eta ? (
               <span className="text-ink-secondary text-center text-xs">
                 คาดว่า {formatThaiDate(eta)}
               </span>

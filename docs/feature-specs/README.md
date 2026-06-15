@@ -113,6 +113,7 @@ for reading the spec itself.
 | 108  | Procurement desktop grid worklist (Airtable arc, phase 1)                      |
 | 109  | Procurement record-review sidesheet (Airtable arc, phase 2: row → drawer)      |
 | 110  | Procurement worklist filters (supplier·project·status·overdue) + priority sort |
+| 111  | Compact process mini-bar in the grid status cell (shared order-stage helper)   |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

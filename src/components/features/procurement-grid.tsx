@@ -20,6 +20,7 @@ import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { StatusPill } from "@/components/features/status-pill";
 import { BottomSheet } from "@/components/features/bottom-sheet";
 import { PurchaseRequestTracker } from "@/components/features/purchase-request-tracker";
+import { PurchaseMiniStepper } from "@/components/features/purchase-mini-stepper";
 import {
   PURCHASE_REQUEST_PRIORITY_LABEL,
   PURCHASE_REQUEST_STATUS_LABEL,
@@ -179,9 +180,14 @@ function BandRows({
               {r.supplier ?? "—"}
             </td>
             <td className="px-2 py-2 align-top">
-              <StatusPill pillClasses={purchaseRequestStatusPillClasses(r.status)}>
-                {PURCHASE_REQUEST_STATUS_LABEL[r.status]}
-              </StatusPill>
+              {/* Spec 111: compact process bar above the pill (grid-density echo
+                  of the tracker). */}
+              <PurchaseMiniStepper status={r.status} />
+              <div className="mt-1.5">
+                <StatusPill pillClasses={purchaseRequestStatusPillClasses(r.status)}>
+                  {PURCHASE_REQUEST_STATUS_LABEL[r.status]}
+                </StatusPill>
+              </div>
               {r.eta ? <div className="text-ink-muted text-meta mt-1">ETA {r.eta}</div> : null}
             </td>
             <td className="text-ink px-4 py-2 text-right align-top tabular-nums">

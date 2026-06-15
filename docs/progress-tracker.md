@@ -865,3 +865,27 @@ preview only /login) → acceptance = procurement user (PC/phone): pick supplier
 project→only that site; tap เกินกำหนด→late POs; status→that status incl. rejected/cancelled; critical
 on top within bands; URL carries the filter. **SEAMS:** single-select per axis (multi-select +
 saved-views later); only เกินกำหนด tile is a toggle; priority sort default-on (no oldest-first toggle).
+
+## Spec 111 — Compact process mini-bar in the grid status cell (2026-06-15, SHIPPED, code-only)
+
+Operator noticed the desktop grid สถานะ cell shows only a pill while the process bar
+(PurchaseRequestTracker) appears on cards + detail + the spec-109 drawer. **AskUserQuestion: "add a
+compact mini-bar"** (rejected: full stepper in a ~20% cell breaks density; bands already carry stage;
+rejected/cancelled don't fit a linear bar — pill names all 8 states). App-only, no DB. **SHIPPED:**
+(1) pure `lib/purchasing/order-stages.ts` (TDD, +7 unit) — `ORDER_STAGES` + `orderStageStates(status)`
+→ per-stage `{stage, state(done|pending|rejected|cancelled), isCurrent, reached}`; this is the
+stage-state logic EXTRACTED from PurchaseRequestTracker so the tracker + the new mini-bar share ONE
+source of truth (no duplicated STATUS_RANK — spec-65 consolidation ethos). (2) `purchase-request-
+tracker.tsx` refactored to consume the helper + neighbour-state connector fill; **data-stage/data-
+state/label/date/ETA output byte-identical** — the spec-22 tracker test (6 cases pinning all states)
+is the regression guard, stayed green. KEY: derived the right-connector fill from `steps[i+1].state
+=== "done"` (no rank/rejected vars needed) and the ring from `isCurrent && state!=="rejected"`. (3)
+NEW `purchase-mini-stepper.tsx` — DECORATIVE (`aria-hidden`) 5-segment bar (reached=done-strong,
+rejected=danger, else edge; no labels/dates); the pill stays the accessible status. (4) `procurement-
+grid.tsx`: สถานะ cell = mini-bar above the pill + ETA (grid only; cards/detail/drawer keep the full
+tracker). 811 unit / lint / typecheck / build green; **no migration → pgTAP 1025 untouched**. Spec:
+docs/feature-specs/111-grid-mini-stepper.md. **NOT preview-verified** (procurement-gated, preview only
+/login) → acceptance = procurement user PC: each grid row's สถานะ cell shows a 5-segment bar filled
+to its stage + the pill; tracker behaves identically everywhere else. SEAMS: 5-segment fill (no
+per-stage dots/labels — minimal for density); rejected/cancelled show short/red, pill carries the
+exact terminal word.
