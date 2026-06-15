@@ -18,6 +18,7 @@ import {
   LayoutDashboard,
   Settings,
   ShoppingCart,
+  Store,
   type LucideIcon,
 } from "lucide-react";
 
@@ -77,6 +78,10 @@ export const PM_TABS: ReadonlyArray<TabItem> = [
 // settings. No โครงการ (no project/WP hub in v1) and no รอตรวจ (not a decider).
 export const PROCUREMENT_TABS: ReadonlyArray<TabItem> = [
   { label: "คำขอซื้อ", href: "/requests", icon: ShoppingCart },
+  // Spec 101: procurement curates the suppliers master (/contacts/vendors
+  // renders suppliers-only for procurement). Longest-prefix wins over the
+  // ตั้งค่า /contacts match, so this tab lights on the suppliers screen.
+  { label: "ผู้ขาย", href: "/contacts/vendors", icon: Store },
   SETTINGS_TAB,
 ];
 

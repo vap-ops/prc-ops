@@ -9,6 +9,8 @@ describe("contact groups", () => {
     expect(CONTACT_GROUP_TABS.customers).toEqual(["clients"]);
     expect(CONTACT_GROUP_TABS.vendors).toEqual(["suppliers", "service"]);
     expect(CONTACT_GROUP_TABS.crews).toEqual(["contractors", "dc"]);
+    // Spec 101: procurement's suppliers-only subset of vendors.
+    expect(CONTACT_GROUP_TABS.suppliers).toEqual(["suppliers"]);
   });
 
   it("covers every contact tab exactly once across the three groups", () => {

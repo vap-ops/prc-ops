@@ -4,7 +4,7 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { HubNav, PM_HUB_NAV, SA_HUB_NAV } from "@/components/features/hub-nav";
+import { HubNav, PM_HUB_NAV, SA_HUB_NAV, PROCUREMENT_HUB_NAV } from "@/components/features/hub-nav";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 
 // Spec 93: desktop mirrors the bottom bar — daily deciders + a ตั้งค่า entry;
@@ -29,6 +29,15 @@ describe("canonical nav sets", () => {
       { label: "คำขอซื้อ", href: "/requests" },
       // Spec 100: ภาพรวม is the live dashboard, before ตั้งค่า.
       { label: "ภาพรวม", href: "/dashboard" },
+      { label: "ตั้งค่า", href: "/settings" },
+    ]);
+  });
+
+  // Spec 101: procurement's desktop strip — worklist + suppliers + settings.
+  it("pins the procurement set's destinations and order", () => {
+    expect(PROCUREMENT_HUB_NAV).toEqual([
+      { label: "คำขอซื้อ", href: "/requests" },
+      { label: "ผู้ขาย", href: "/contacts/vendors" },
       { label: "ตั้งค่า", href: "/settings" },
     ]);
   });

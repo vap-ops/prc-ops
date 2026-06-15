@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { ArrowLeft } from "lucide-react";
 import { AppHeader } from "@/components/features/app-header";
-import { HubNav, PM_HUB_NAV, SA_HUB_NAV } from "@/components/features/hub-nav";
+import { HubNav, PM_HUB_NAV, SA_HUB_NAV, PROCUREMENT_HUB_NAV } from "@/components/features/hub-nav";
 import { EmptyNotice, ErrorNotice } from "@/components/features/notices";
 import { PURCHASING_ROLES } from "@/lib/auth/role-home";
 import { workPackageHref } from "@/lib/nav/project-paths";
@@ -82,16 +82,18 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   }
 
   // Bare /requests is a PRIMARY TAB: like /review and /projects it carries the
-  // desktop HubNav strip (the role's tab set) — NOT a back-bar. procurement has
-  // a single destination (/requests is its home), so it gets no strip. The
-  // contextual spec-12 back-bar (below) only renders when pinned — arriving
-  // from a WP to raise a request is a drill-down, so it returns to that WP.
+  // desktop HubNav strip (the role's tab set) — NOT a back-bar. Spec 101 gives
+  // procurement its own strip (worklist + suppliers + settings). The contextual
+  // spec-12 back-bar (below) only renders when pinned — arriving from a WP to
+  // raise a request is a drill-down, so it returns to that WP.
   const hubItems =
     ctx.role === "project_manager" || ctx.role === "super_admin"
       ? PM_HUB_NAV
       : ctx.role === "site_admin"
         ? SA_HUB_NAV
-        : null;
+        : ctx.role === "procurement"
+          ? PROCUREMENT_HUB_NAV
+          : null;
 
   // The SELECT policy (ADR 0022, widened by ADR 0026) admits the whole
   // row, so the decision + back-office fact columns are readable here.

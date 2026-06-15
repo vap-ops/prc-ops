@@ -103,6 +103,7 @@ for reading the spec itself.
 | 98   | Coming-soon menu placeholders (greyed, non-tappable future menus)         |
 | 99   | Split Contacts into three groups (customers · vendors · crews)            |
 | 100  | ภาพรวม / Dashboard — role-aware overview (progress + budget vs spend)     |
+| 101  | Procurement depth U1: suppliers screen (inline) + desktop nav             |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

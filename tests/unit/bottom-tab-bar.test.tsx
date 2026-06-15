@@ -48,11 +48,12 @@ describe("BottomTabBar", () => {
       ["ภาพรวม", "/dashboard"],
       ["ตั้งค่า", "/settings"],
     ]);
-    // Spec 70 + 93: procurement's worklist-only tab set — purchasing + settings.
-    // No โครงการ (no project/WP hub in v1) and no รอตรวจ (not a decider).
-    // Spec 98: stays lean — NO coming-soon tab here.
+    // Spec 70 + 93: procurement's back-office tab set. No โครงการ/รอตรวจ (not a
+    // decider, no project hub) and no ภาพรวม (money, spec 100). Spec 101 adds
+    // ผู้ขาย — procurement curates the suppliers master.
     expect(PROCUREMENT_TABS.map((t) => [t.label, t.href])).toEqual([
       ["คำขอซื้อ", "/requests"],
+      ["ผู้ขาย", "/contacts/vendors"],
       ["ตั้งค่า", "/settings"],
     ]);
   });
@@ -154,11 +155,15 @@ describe("BottomTabBar", () => {
     expect(activeTabs(c2)[0]?.textContent).toContain("รอตรวจ");
   });
 
-  // Spec 70 + 93: procurement gets the worklist tab set — purchasing + ตั้งค่า,
-  // and NEVER โครงการ or รอตรวจ (it has no project hub and is not a decider).
-  it("renders the procurement set: คำขอซื้อ + ตั้งค่า, no โครงการ/รอตรวจ", () => {
+  // Spec 70 + 101: procurement gets คำขอซื้อ + ผู้ขาย + ตั้งค่า, and NEVER
+  // โครงการ or รอตรวจ (no project hub, not a decider).
+  it("renders the procurement set: คำขอซื้อ + ผู้ขาย + ตั้งค่า, no โครงการ/รอตรวจ", () => {
     mockUsePathname.mockReturnValue("/requests");
     const { container } = render(<BottomTabBar role="procurement" />);
+    expect(screen.getByRole("link", { name: /ผู้ขาย/ })).toHaveAttribute(
+      "href",
+      "/contacts/vendors",
+    );
     expect(screen.getByRole("link", { name: /ตั้งค่า/ })).toHaveAttribute("href", "/settings");
     expect(screen.queryByRole("link", { name: /โครงการ/ })).not.toBeInTheDocument();
     expect(screen.queryByText("รอตรวจ")).not.toBeInTheDocument();
@@ -166,6 +171,16 @@ describe("BottomTabBar", () => {
     const active = activeTabs(container);
     expect(active).toHaveLength(1);
     expect(active[0]?.textContent).toContain("คำขอซื้อ");
+  });
+
+  // Spec 101: ผู้ขาย lights on the suppliers screen (longest-prefix beats the
+  // ตั้งค่า /contacts match).
+  it("lights ผู้ขาย for procurement on /contacts/vendors", () => {
+    mockUsePathname.mockReturnValue("/contacts/vendors");
+    const { container } = render(<BottomTabBar role="procurement" />);
+    const active = activeTabs(container);
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toContain("ผู้ขาย");
   });
 
   it("renders nothing for still-unserved roles", () => {

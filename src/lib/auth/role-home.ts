@@ -20,6 +20,18 @@ export const SITE_STAFF_ROLES: ReadonlyArray<UserRole> = [
 ];
 
 /**
+ * Spec 101: back-office processors — the PM set PLUS procurement. Matches the
+ * suppliers RLS write posture (pm/procurement/super) and the record/ship RPC
+ * isBackOfficeRole gate. Gates the suppliers-master screen + supplier writes.
+ * Deliberately excludes site_admin (a field role, not a supplier curator).
+ */
+export const BACK_OFFICE_ROLES: ReadonlyArray<UserRole> = [
+  "project_manager",
+  "super_admin",
+  "procurement",
+];
+
+/**
  * Spec 70: who can reach the purchasing surface (/requests + /requests/[id]).
  * The v1 requester base (SITE_STAFF_ROLES) PLUS procurement — the back-office
  * processor onboarded onto the worklist. Deliberately NOT folded into

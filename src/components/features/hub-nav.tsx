@@ -40,6 +40,14 @@ export const SA_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "ตั้งค่า", href: "/settings" },
 ];
 
+// Spec 101: procurement's desktop strip — its worklist + the suppliers master
+// + settings. No project/review/dashboard surfaces (those stay PM/SA).
+export const PROCUREMENT_HUB_NAV: ReadonlyArray<HubNavItem> = [
+  { label: "คำขอซื้อ", href: "/requests" },
+  { label: "ผู้ขาย", href: "/contacts/vendors" },
+  { label: "ตั้งค่า", href: "/settings" },
+];
+
 interface HubNavProps {
   maxWidthClass: typeof PAGE_MAX_W;
   items: ReadonlyArray<HubNavItem>;

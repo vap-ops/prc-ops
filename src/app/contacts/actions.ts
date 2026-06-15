@@ -13,7 +13,7 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
-import { PM_ROLES } from "@/lib/auth/role-home";
+import { PM_ROLES, BACK_OFFICE_ROLES } from "@/lib/auth/role-home";
 import type { Database } from "@/lib/db/database.types";
 import { Constants } from "@/lib/db/database.types";
 import { UUID_REGEX } from "@/lib/validate/uuid";
@@ -31,13 +31,17 @@ const E = Constants.public.Enums;
 export type RecordActionResult = { ok: true } | { ok: false; error: string };
 
 const PM_ONLY = "เฉพาะผู้จัดการโครงการเท่านั้น";
+const BACK_OFFICE_ONLY = "เฉพาะฝ่ายจัดซื้อหรือผู้จัดการเท่านั้น";
 const GENERIC = "บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 const CONTACTS_PATH = "/contacts";
 
 type ServerClient = Awaited<ReturnType<typeof import("@/lib/db/server").createClient>>;
 type PmGate = { ok: true; supabase: ServerClient; userId: string } | { ok: false; error: string };
 
-async function pmSession(): Promise<PmGate> {
+// Gate an action to a role allowlist, returning the authenticated session.
+// An RLS UPDATE whose USING fails affects 0 rows SILENTLY (spec-80 lesson), so
+// this explicit check is defense-in-depth + a real error message.
+async function roleSession(allowed: ReadonlyArray<string>, denyMsg: string): Promise<PmGate> {
   const auth = await getActionUser();
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
   const { data: userRow } = await auth.supabase
@@ -45,11 +49,17 @@ async function pmSession(): Promise<PmGate> {
     .select("role")
     .eq("id", auth.user.id)
     .maybeSingle();
-  if (!userRow || !PM_ROLES.includes(userRow.role)) {
-    return { ok: false, error: PM_ONLY };
+  if (!userRow || !allowed.includes(userRow.role)) {
+    return { ok: false, error: denyMsg };
   }
   return { ok: true, supabase: auth.supabase, userId: auth.user.id };
 }
+
+const pmSession = () => roleSession(PM_ROLES, PM_ONLY);
+
+// Spec 101: suppliers are back-office data (pm/super + procurement), matching
+// the suppliers RLS write posture — procurement curates suppliers.
+const backOfficeSession = () => roleSession(BACK_OFFICE_ROLES, BACK_OFFICE_ONLY);
 
 /** Trim; blank → null (a cleared text field). */
 function norm(value: string | undefined): string | null {
@@ -156,7 +166,7 @@ export async function createSupplierRecord(input: {
   taxId?: string;
   paymentTerms?: string;
 }): Promise<RecordActionResult> {
-  const gate = await pmSession();
+  const gate = await backOfficeSession();
   if (!gate.ok) return gate;
   if (!validName(input.name, MASTER_NAME_MAX)) {
     return { ok: false, error: `ชื่อผู้ขายต้องไม่ว่างและไม่เกิน ${MASTER_NAME_MAX} ตัวอักษร` };
@@ -191,7 +201,7 @@ export async function updateSupplierRecord(input: {
   taxId?: string;
   paymentTerms?: string;
 }): Promise<RecordActionResult> {
-  const gate = await pmSession();
+  const gate = await backOfficeSession();
   if (!gate.ok) return gate;
   if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC };
 
