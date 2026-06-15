@@ -45,9 +45,9 @@ Desktop HubNav mirrors this (deciders + ตั้งค่า).
 - SA: โครงการ `/projects` · คำขอซื้อ `/requests` · ภาพรวม `/dashboard` · ตั้งค่า `/settings`
 - PM/super: รอตรวจ `/review` · โครงการ `/projects` · คำขอซื้อ `/requests` · ภาพรวม `/dashboard` ·
   ตั้งค่า `/settings`
-- procurement (spec 70, 101): คำขอซื้อ `/requests` · ผู้ขาย `/contacts/vendors` (suppliers-only) ·
-  ตั้งค่า `/settings` (no project hub, not a decider, no ภาพรวม). Desktop: PROCUREMENT_HUB_NAV on
-  /requests (spec 101).
+- procurement (spec 70, 101, 102): คำขอซื้อ `/requests` · โครงการ `/projects` (read-only, spec 102) ·
+  ผู้ขาย `/contacts/vendors` (suppliers-only) · ตั้งค่า `/settings` (not a decider, no ภาพรวม).
+  Desktop: PROCUREMENT_HUB_NAV mirrors it.
 
 **Spec 100 — ภาพรวม is now live** (`/dashboard`, role-aware overview), graduating the spec-98
 coming-soon placeholder. Desktop HubNav mirrors it (SA + PM, before ตั้งค่า). The bottom-bar/hub

@@ -3,12 +3,16 @@ import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
 import { CalendarDays, FileText, Settings } from "lucide-react";
-import { SITE_STAFF_ROLES } from "@/lib/auth/role-home";
+import { PROJECT_VIEW_ROLES } from "@/lib/auth/role-home";
 import { projectSettingsHref, reportsHref, scheduleHref } from "@/lib/nav/project-paths";
 import { ICON_CHIP_MUTED, SECTION_HEADING } from "@/lib/ui/classes";
 import { DetailHeader } from "@/components/features/detail-header";
 import { ProjectInfoButton } from "@/components/features/project-info-button";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
+import { StatusPill } from "@/components/features/status-pill";
+import { EmptyNotice } from "@/components/features/notices";
+import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
+import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { fetchDisplayNames } from "@/lib/users/display-names";
@@ -25,7 +29,7 @@ export const metadata = { title: "รายการงาน" };
 
 export default async function ProjectWorkPackagesPage({ params }: PageProps) {
   const { projectId } = await params;
-  const ctx = await requireRole(SITE_STAFF_ROLES);
+  const ctx = await requireRole(PROJECT_VIEW_ROLES);
   const supabase = await createClient();
 
   const { data: project } = await supabase
@@ -36,6 +40,51 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
 
   if (!project) {
     notFound();
+  }
+
+  // Spec 102: procurement gets a READ-ONLY WP list (names + status only) for
+  // purchase context — no capture/links, no schedule/reports/gear chips, no
+  // bank-adjacent info. Early return keeps the SA/PM path below untouched.
+  if (ctx.role === "procurement") {
+    const { data: procWps } = await supabase
+      .from("work_packages")
+      .select("id, code, name, status")
+      .eq("project_id", project.id)
+      .order("code", { ascending: true });
+    return (
+      <PageShell>
+        <BottomTabBar role={ctx.role} />
+        <DetailHeader backHref="/projects" backLabel="กลับไปโครงการ">
+          <div>
+            <p className="text-meta text-ink-secondary font-mono">{project.code}</p>
+            <h1 className="text-title text-ink font-bold tracking-tight">{project.name}</h1>
+          </div>
+        </DetailHeader>
+        <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
+          <h2 className={SECTION_HEADING}>รายการงาน</h2>
+          {(procWps ?? []).length === 0 ? (
+            <EmptyNotice>ยังไม่มีรายการงาน</EmptyNotice>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {(procWps ?? []).map((wp) => (
+                <li
+                  key={wp.id}
+                  className="rounded-card border-edge bg-card shadow-card flex items-center justify-between gap-3 border px-4 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="text-ink text-body font-medium break-words">{wp.name}</p>
+                    <p className="text-ink-secondary font-mono text-xs">{wp.code}</p>
+                  </div>
+                  <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)}>
+                    {WORK_PACKAGE_STATUS_LABEL[wp.status] ?? wp.status}
+                  </StatusPill>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </PageShell>
+    );
   }
 
   // Spec 79: project-context lines (client name, internal lead, type, site).

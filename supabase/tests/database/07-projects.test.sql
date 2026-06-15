@@ -1,5 +1,5 @@
 begin;
-select plan(31);
+select plan(32);
 
 -- ============================================================================
 -- A. Setup as postgres (the test transaction's outer role, which bypasses
@@ -19,7 +19,8 @@ insert into auth.users (id, email, raw_user_meta_data) values
   ('11111111-1111-1111-1111-111111111111', 'super@projects-test.local',   '{}'::jsonb),
   ('22222222-2222-2222-2222-222222222222', 'site@projects-test.local',    '{}'::jsonb),
   ('33333333-3333-3333-3333-333333333333', 'pm@projects-test.local',      '{}'::jsonb),
-  ('44444444-4444-4444-4444-444444444444', 'visitor@projects-test.local', '{}'::jsonb);
+  ('44444444-4444-4444-4444-444444444444', 'visitor@projects-test.local', '{}'::jsonb),
+  ('55555555-5555-5555-5555-555555555555', 'proc@projects-test.local',    '{}'::jsonb);
 
 update public.users set role = 'super_admin'
   where id = '11111111-1111-1111-1111-111111111111';
@@ -28,6 +29,8 @@ update public.users set role = 'site_admin'
 update public.users set role = 'project_manager'
   where id = '33333333-3333-3333-3333-333333333333';
 -- '4444…' keeps the default 'visitor' role from the trigger.
+update public.users set role = 'procurement'
+  where id = '55555555-5555-5555-5555-555555555555';
 
 insert into public.projects (id, code, name, updated_at) values
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
@@ -188,6 +191,15 @@ select is(
   (select count(*)::int from public.projects),
   0,
   'visitor sees no projects'
+);
+
+-- E.5 procurement sees the table populated (spec 102 — read-only project
+-- visibility; the app gives procurement a read-only WP list, never capture).
+set local "request.jwt.claims" = '{"sub": "55555555-5555-5555-5555-555555555555"}';
+select isnt(
+  (select count(*)::int from public.projects),
+  0,
+  'procurement sees at least one project (spec 102)'
 );
 
 -- ============================================================================

@@ -44,6 +44,8 @@ export const SA_HUB_NAV: ReadonlyArray<HubNavItem> = [
 // + settings. No project/review/dashboard surfaces (those stay PM/SA).
 export const PROCUREMENT_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "คำขอซื้อ", href: "/requests" },
+  // Spec 102: read-only project browse.
+  { label: "โครงการ", href: "/projects" },
   { label: "ผู้ขาย", href: "/contacts/vendors" },
   { label: "ตั้งค่า", href: "/settings" },
 ];

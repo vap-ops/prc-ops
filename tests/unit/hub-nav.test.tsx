@@ -37,6 +37,7 @@ describe("canonical nav sets", () => {
   it("pins the procurement set's destinations and order", () => {
     expect(PROCUREMENT_HUB_NAV).toEqual([
       { label: "คำขอซื้อ", href: "/requests" },
+      { label: "โครงการ", href: "/projects" },
       { label: "ผู้ขาย", href: "/contacts/vendors" },
       { label: "ตั้งค่า", href: "/settings" },
     ]);

@@ -3,11 +3,11 @@ import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { AppHeader } from "@/components/features/app-header";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
-import { HubNav, PM_HUB_NAV, SA_HUB_NAV } from "@/components/features/hub-nav";
+import { HubNav, PM_HUB_NAV, SA_HUB_NAV, PROCUREMENT_HUB_NAV } from "@/components/features/hub-nav";
 import { EmptyNotice, ErrorNotice } from "@/components/features/notices";
 import { StatusPill } from "@/components/features/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
-import { SITE_STAFF_ROLES } from "@/lib/auth/role-home";
+import { PROJECT_VIEW_ROLES } from "@/lib/auth/role-home";
 import { projectHref } from "@/lib/nav/project-paths";
 import { createClient } from "@/lib/db/server";
 import { SECTION_HEADING } from "@/lib/ui/classes";
@@ -24,7 +24,7 @@ import { projectStatusPillClasses } from "@/lib/status-colors";
 export const metadata = { title: "โครงการ" };
 
 export default async function ProjectsHubPage() {
-  const ctx = await requireRole(SITE_STAFF_ROLES);
+  const ctx = await requireRole(PROJECT_VIEW_ROLES);
   const supabase = await createClient();
 
   const { data: projects, error } = await supabase
@@ -43,8 +43,10 @@ export default async function ProjectsHubPage() {
   const clientNames = new Map((clientRows ?? []).map((c) => [c.id, c.name]));
 
   const isPm = ctx.role === "project_manager" || ctx.role === "super_admin";
-  const kicker = isPm ? "ผู้จัดการโครงการ" : "หน้างาน";
-  const hubItems = isPm ? PM_HUB_NAV : SA_HUB_NAV;
+  const isProcurement = ctx.role === "procurement";
+  // Spec 102: procurement browses projects read-only for purchase context.
+  const kicker = isProcurement ? "จัดซื้อ" : isPm ? "ผู้จัดการโครงการ" : "หน้างาน";
+  const hubItems = isProcurement ? PROCUREMENT_HUB_NAV : isPm ? PM_HUB_NAV : SA_HUB_NAV;
 
   return (
     <PageShell>

@@ -48,11 +48,12 @@ describe("BottomTabBar", () => {
       ["ภาพรวม", "/dashboard"],
       ["ตั้งค่า", "/settings"],
     ]);
-    // Spec 70 + 93: procurement's back-office tab set. No โครงการ/รอตรวจ (not a
-    // decider, no project hub) and no ภาพรวม (money, spec 100). Spec 101 adds
-    // ผู้ขาย — procurement curates the suppliers master.
+    // procurement's back-office tab set: คำขอซื้อ (spec 70), โครงการ read-only
+    // (spec 102), ผู้ขาย suppliers master (spec 101), ตั้งค่า. No รอตรวจ (not a
+    // decider) and no ภาพรวม (money, spec 100).
     expect(PROCUREMENT_TABS.map((t) => [t.label, t.href])).toEqual([
       ["คำขอซื้อ", "/requests"],
+      ["โครงการ", "/projects"],
       ["ผู้ขาย", "/contacts/vendors"],
       ["ตั้งค่า", "/settings"],
     ]);
@@ -155,17 +156,17 @@ describe("BottomTabBar", () => {
     expect(activeTabs(c2)[0]?.textContent).toContain("รอตรวจ");
   });
 
-  // Spec 70 + 101: procurement gets คำขอซื้อ + ผู้ขาย + ตั้งค่า, and NEVER
-  // โครงการ or รอตรวจ (no project hub, not a decider).
-  it("renders the procurement set: คำขอซื้อ + ผู้ขาย + ตั้งค่า, no โครงการ/รอตรวจ", () => {
+  // Spec 70/101/102: procurement gets คำขอซื้อ + โครงการ + ผู้ขาย + ตั้งค่า, and
+  // NEVER รอตรวจ (not a decider). โครงการ is read-only project browse (spec 102).
+  it("renders the procurement set: คำขอซื้อ + โครงการ + ผู้ขาย + ตั้งค่า, no รอตรวจ", () => {
     mockUsePathname.mockReturnValue("/requests");
     const { container } = render(<BottomTabBar role="procurement" />);
+    expect(screen.getByRole("link", { name: /โครงการ/ })).toHaveAttribute("href", "/projects");
     expect(screen.getByRole("link", { name: /ผู้ขาย/ })).toHaveAttribute(
       "href",
       "/contacts/vendors",
     );
     expect(screen.getByRole("link", { name: /ตั้งค่า/ })).toHaveAttribute("href", "/settings");
-    expect(screen.queryByRole("link", { name: /โครงการ/ })).not.toBeInTheDocument();
     expect(screen.queryByText("รอตรวจ")).not.toBeInTheDocument();
     // คำขอซื้อ is the active tab on /requests, so it renders as a span, not a link.
     const active = activeTabs(container);

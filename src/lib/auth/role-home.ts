@@ -46,6 +46,21 @@ export const PURCHASING_ROLES: ReadonlyArray<UserRole> = [
   "procurement",
 ];
 
+/**
+ * Spec 102: who may BROWSE projects read-only — site staff PLUS procurement
+ * (it processes purchases against project/WP context). Gates the /projects hub
+ * + /projects/[id] only; the capture-heavy WP detail + schedule stay
+ * SITE_STAFF_ROLES (procurement gets a read-only WP list, never the capture
+ * screen). Members happen to match PURCHASING_ROLES today, but the meaning
+ * differs — keep them separate.
+ */
+export const PROJECT_VIEW_ROLES: ReadonlyArray<UserRole> = [
+  "site_admin",
+  "project_manager",
+  "super_admin",
+  "procurement",
+];
+
 export function roleHome(role: UserRole): string {
   // Spec 82 Unit 3: site_admin lands on the folded content-named project hub
   // /projects (was /sa, before the two hubs merged).

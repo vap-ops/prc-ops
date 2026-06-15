@@ -667,3 +667,25 @@ docs/feature-specs/101-procurement-suppliers-depth.md; site-map + README updated
 procurement-user phone (lands /requests, taps ผู้ขาย, adds/edits a supplier inline; sees NO bank, NO
 detail page). **NEXT: Spec 102 = procurement project visibility** (projects SELECT migration + /projects
 gate + read-only WP-list pass; operator-gated db:push).
+
+## Spec 102 — Procurement depth U2: read-only project visibility (2026-06-15, SHIPPED, SCHEMA)
+
+The 2nd half of "procurement depth". Procurement processes purchases against project/WP context but
+couldn't read `projects` at all. **Read-only, purpose-built, zero regression:** procurement does NOT
+get the SA/PM worklist (capture-links + SA action verbs); the project page `ctx.role === "procurement"`
+**early-returns** a simple read-only WP list (name+code+status pill, no links) — SA/PM path byte-
+unchanged. Capture stays out: WP detail + schedule stay SITE_STAFF_ROLES (procurement bounces); no
+reports/gear/schedule/ⓘ chips, no bank. **Migration 20260630000000** = one `ALTER POLICY "projects
+readable by privileged roles"` adding procurement (keeps the name + eval-once `(select …)` wrapped form
+so policies_are + eval-once anti-drift stay green; INSERT/UPDATE stay super_admin). work_packages SELECT
+already admitted procurement (spec 70). No schema/type change → db:types unaffected. **App:**
+`PROJECT_VIEW_ROLES` (site staff + procurement) gates /projects + /projects/[id] only; /projects gets a
+จัดซื้อ kicker + PROCUREMENT_HUB_NAV; nav PROCUREMENT_TABS + PROCUREMENT_HUB_NAV += โครงการ (procurement
+bar now 4 tabs: คำขอซื้อ·โครงการ·ผู้ขาย·ตั้งค่า). **pgTAP 07** +1 (plan 31→32): procurement SELECTs
+projects (E.5); visitor-sees-nothing unchanged. 766 unit / lint / typecheck / next build green; db:push
+
+- db:test under the operator gate. Spec: docs/feature-specs/102-procurement-project-visibility.md;
+  site-map + README updated. **Procurement depth COMPLETE** (U1 suppliers+nav, U2 project read-only).
+  Acceptance = procurement-user phone (taps โครงการ → project list → a project → read-only WP list; can't
+  open a WP/schedule). SEAMS: flat list (no งวดงาน grouping); no ⓘ client-info (kept out to avoid leaking
+  context).
