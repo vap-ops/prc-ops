@@ -24,6 +24,7 @@ export function SitePurchaseForm({ workPackageId, projectId }: SitePurchaseFormP
   const [item, setItem] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("");
+  const [amount, setAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [recordedId, setRecordedId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -31,11 +32,13 @@ export function SitePurchaseForm({ workPackageId, projectId }: SitePurchaseFormP
   function submit() {
     setError(null);
     const qty = Number(quantity);
+    const parsedAmount = amount.trim() === "" ? null : Number(amount);
     const validated = validateSitePurchase({
       workPackageId,
       itemDescription: item,
       quantity: qty,
       unit,
+      amount: parsedAmount,
     });
     if (!validated.ok) {
       setError(validated.error);
@@ -47,6 +50,7 @@ export function SitePurchaseForm({ workPackageId, projectId }: SitePurchaseFormP
         itemDescription: validated.value.itemDescription,
         quantity: validated.value.quantity,
         unit: validated.value.unit,
+        amount: validated.value.amount,
       });
       if (!result.ok) {
         setError(result.error);
@@ -109,6 +113,21 @@ export function SitePurchaseForm({ workPackageId, projectId }: SitePurchaseFormP
           />
         </label>
       </div>
+      {/* Spec 103: optional amount — feeds dashboard material spend. */}
+      <label className="text-ink flex flex-col gap-1 text-sm font-medium">
+        จำนวนเงิน (บาท, ไม่บังคับ)
+        <input
+          type="number"
+          inputMode="decimal"
+          min="0.01"
+          step="0.01"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          disabled={pending}
+          className={FIELD_INPUT}
+          placeholder="1500"
+        />
+      </label>
       {error ? (
         <div role="alert" className={INLINE_ERROR}>
           {error}

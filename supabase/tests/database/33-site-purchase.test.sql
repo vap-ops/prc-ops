@@ -1,5 +1,5 @@
 begin;
-select plan(27);
+select plan(30);
 
 -- Spec 66 / ADR 0043 — on-site purchases (record_site_purchase +
 -- acknowledge_site_purchase) and invoice attachments.
@@ -54,8 +54,9 @@ values
 -- ============================================================================
 -- A. Function shape.
 -- ============================================================================
+-- Spec 103: signature gained p_amount (numeric, optional).
 select has_function('public', 'record_site_purchase',
-  array['uuid', 'text', 'numeric', 'text'], 'record_site_purchase exists');
+  array['uuid', 'text', 'numeric', 'text', 'numeric'], 'record_site_purchase exists');
 select has_function('public', 'acknowledge_site_purchase',
   array['uuid'], 'acknowledge_site_purchase exists');
 select is(
@@ -142,6 +143,21 @@ select throws_ok(
   $$ select public.record_site_purchase(
        'eeeeeeee-eeee-eeee-eeee-eeeeeeeeffff', 'ปูน', 5, 'ถุง') $$,
   'P0001', null, 'unknown work package is rejected');
+
+-- B.5 amount is captured (spec 103) — feeds dashboard material spend.
+select lives_ok(
+  $$ select public.record_site_purchase(
+       'eeeeeeee-eeee-eeee-eeee-eeeeeeee66aa', 'SITE-BUY-AMT', 2, 'ถุง', 1500) $$,
+  'SA records a site purchase with an amount');
+select is(
+  (select amount from public.purchase_requests where item_description = 'SITE-BUY-AMT'),
+  1500::numeric, 'site purchase stores the recorded amount');
+
+-- B.6 amount must be positive when supplied.
+select throws_ok(
+  $$ select public.record_site_purchase(
+       'eeeeeeee-eeee-eeee-eeee-eeeeeeee66aa', 'SITE-BUY-NEG', 1, 'ea', 0) $$,
+  'P0001', null, 'amount must be positive when supplied');
 
 -- ============================================================================
 -- C. acknowledge_site_purchase.

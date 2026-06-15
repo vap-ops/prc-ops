@@ -14,6 +14,8 @@ export interface ValidatedSitePurchase {
   itemDescription: string;
   quantity: number;
   unit: string;
+  // Spec 103: optional purchase amount (THB) — feeds dashboard material spend.
+  amount: number | null;
 }
 
 export type ValidateSitePurchaseResult =
@@ -25,6 +27,7 @@ export function validateSitePurchase(input: {
   itemDescription: string;
   quantity: number;
   unit: string;
+  amount: number | null;
 }): ValidateSitePurchaseResult {
   if (!UUID_REGEX.test(input.workPackageId)) {
     return { ok: false, error: "รหัสงานไม่ถูกต้อง" };
@@ -46,8 +49,17 @@ export function validateSitePurchase(input: {
   if (!Number.isFinite(input.quantity) || input.quantity <= 0) {
     return { ok: false, error: "จำนวนต้องเป็นตัวเลขมากกว่าศูนย์" };
   }
+  if (input.amount !== null && (!Number.isFinite(input.amount) || input.amount <= 0)) {
+    return { ok: false, error: "จำนวนเงินต้องเป็นตัวเลขมากกว่าศูนย์" };
+  }
   return {
     ok: true,
-    value: { workPackageId: input.workPackageId, itemDescription, quantity: input.quantity, unit },
+    value: {
+      workPackageId: input.workPackageId,
+      itemDescription,
+      quantity: input.quantity,
+      unit,
+      amount: input.amount,
+    },
   };
 }

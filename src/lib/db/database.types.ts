@@ -1721,6 +1721,7 @@ export type Database = {
       };
       record_site_purchase: {
         Args: {
+          p_amount?: number;
           p_item_description: string;
           p_quantity: number;
           p_unit: string;

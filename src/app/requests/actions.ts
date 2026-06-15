@@ -400,6 +400,8 @@ export interface RecordSitePurchaseInput {
   itemDescription: string;
   quantity: number;
   unit: string;
+  // Spec 103: optional purchase amount (THB) — feeds dashboard material spend.
+  amount: number | null;
 }
 
 export type RecordSitePurchaseResult = { ok: true; id: string } | { ok: false; error: string };
@@ -419,6 +421,8 @@ export async function recordSitePurchase(
     p_item_description: validated.value.itemDescription,
     p_quantity: validated.value.quantity,
     p_unit: validated.value.unit,
+    // Spec 103: omit when null so the RPC default applies (no amount recorded).
+    ...(validated.value.amount !== null ? { p_amount: validated.value.amount } : {}),
   });
   if (error || !data) {
     return { ok: false, error: "บันทึกการซื้อหน้างานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };

@@ -689,3 +689,27 @@ projects (E.5); visitor-sees-nothing unchanged. 766 unit / lint / typecheck / ne
   Acceptance = procurement-user phone (taps โครงการ → project list → a project → read-only WP list; can't
   open a WP/schedule). SEAMS: flat list (no งวดงาน grouping); no ⓘ client-info (kept out to avoid leaking
   context).
+
+## Spec 103 — Capture the on-site purchase amount (2026-06-15, SHIPPED, SCHEMA)
+
+"Go on" → make the dashboard's material spend real. **Map-then-spec (1 Explore agent) found
+record_purchase ALREADY captures amount end-to-end** (form field + action p*amount + RPC
+coalesce-preserve) — the ONLY gap was site purchases (record_site_purchase wrote amount=NULL, spec 66
+never captured it), so on-site cash buys never counted in spec-100 sumMaterials. So this unit = add
+amount to the site-purchase path only. **Explore-quote trap caught:** the agent quoted record_site*
+purchase from 20260622000500, but a LATER migration 20260625000500 re-created it to also set
+received_by_id — verified via grep before DROP+CREATE (would've regressed received_by_id otherwise).
+**SHIPPED:** migration 20260630000100 DROP+CREATE record_site_purchase + `p_amount numeric default null`
+(CREATE OR REPLACE can't add a param) — body = the CURRENT (000500) version + amount (positive-when-
+given check, amount in INSERT + audit payload), re-grant execute to authenticated (drop drops grant);
+amount stays RPC-only-write (zero authenticated grant). App: validate-site-purchase +amount (positive/
+finite when given); recordSitePurchase action +amount (omit→RPC default); site-purchase-form +optional
+จำนวนเงิน field. database.types hand-extended (record_site_purchase Args +p_amount?) → db:types regen
+reconciled. **Tests:** validate-site-purchase.test value+amount +1 case; pgTAP 33 sig pin →5 args +3
+(plan 27→30: records w/ amount, amount persisted, amount≤0 throws). 767 unit / lint / typecheck / build
+green; db:push + db:test under operator gate (49 files / 1025 asserts). Spec:
+docs/feature-specs/103-site-purchase-amount.md. **Amount stays OPTIONAL everywhere** (record_purchase +
+site purchase) — dashboard material spend still "counted where priced"; making it required = separate
+workflow decision. Acceptance = operator phone (record a site purchase with a price → it shows in
+dashboard spend). NEXT candidates: make amount required (complete material spend), billing งวดงาน
+(operator-decision-blocked), backup/restore drill, app-feel motion.
