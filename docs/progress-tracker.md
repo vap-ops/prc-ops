@@ -762,3 +762,24 @@ authenticated grant on amount added, admin client is the only reader. BuyerStat 
 formatter. Tests: sumOutstanding (sums non-null, empty→0). 777 unit / lint / typecheck / build green.
 Spec: docs/feature-specs/106-procurement-outstanding-tile.md. SEAM: ค้างจ่าย counts only priced POs
 (amount optional). NEXT (2/2): per-supplier open-POs + spend (spec 107).
+
+## Spec 107 — Per-supplier spend chip (2026-06-15, SHIPPED, code-only)
+
+"Finish the 2" (2/2). Supplier intelligence on procurement's suppliers screen. App-only, no DB. Pure
+`src/lib/purchasing/supplier-spend.ts` aggregateSupplierSpend(prs) → Map<supplier_id,{spend,open}>:
+spend = Σ amount over committed (in_transit+received) POs, open = in-transit count; site purchases
+(no supplier_id) ignored. record-manager.tsx: RecordBadge tone += "neutral" (info chip, not warning;
+bg-sunk text-ink-secondary; amber/red unchanged). contacts-tabs.tsx: optional supplierBadge(id) prop →
+suppliers RecordManager rowBadge. /contacts/vendors (procurement branch only): admin-read committed
+purchase_requests (supplier_id, amount, status; bounded to purchased/on_route/delivered), aggregate →
+per-row chip "฿12,500 · 2 ค้างส่ง". **Money posture:** admin read gated to the procurement branch
+(if(!isManager); SA can't reach the BACK_OFFICE-gated page); procurement records purchases → may see
+spend; no authenticated amount grant added. PM/super vendors view unchanged. Tests: supplier-spend.test
+(committed-only, open count, supplier-less/rejected ignored, empty). 780 unit / lint / typecheck / build
+green. Spec: docs/feature-specs/107-supplier-spend.md. SEAMS: priced-POs-only (amount optional);
+JS-aggregation (SQL group-by = scale refinement); PM/super no chip; price-history later.
+
+**PROCUREMENT UX COMPLETE (this arc, specs 101–107):** worklist pipeline + buyer summary
+(workload/overdue/outstanding-฿) + suppliers master w/ spend chips + read-only projects + price capture
+(record_purchase + site). Remaining ideas only: price-history, filing-gap band, managers' supplier
+spend, partial deliveries/line items. Session total: specs 98–107 (10 specs), 3 prod migrations.

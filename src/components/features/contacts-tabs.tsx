@@ -282,6 +282,7 @@ export function ContactsTabs({
   dc = [],
   serviceProviders = [],
   linkDetails = true,
+  supplierBadge,
 }: {
   group: ContactGroup;
   clients?: RecordRow[];
@@ -292,6 +293,8 @@ export function ContactsTabs({
   // Spec 101: when false, rows don't link to the detail page (which shows the
   // money-isolated bank block). Procurement curates suppliers inline only.
   linkDetails?: boolean;
+  // Spec 107: optional per-supplier spend chip (procurement buyer intelligence).
+  supplierBadge?: (id: string) => RecordBadge | null;
 }) {
   // Spec 99: one screen per group; a single-tab group renders no chip row.
   const tabs = CONTACT_GROUP_TABS[group];
@@ -368,6 +371,7 @@ export function ContactsTabs({
           onUpdate={supplierUpdate}
           addInSheet
           {...(linkDetails ? { rowHref: (r: RecordRow) => `/contacts/suppliers/${r.id}` } : {})}
+          {...(supplierBadge ? { rowBadge: (r: RecordRow) => supplierBadge(r.id) } : {})}
         />
       ) : null}
       {tab === "contractors" ? (

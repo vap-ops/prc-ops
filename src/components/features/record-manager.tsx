@@ -23,8 +23,9 @@ import { BottomSheet } from "@/components/features/bottom-sheet";
 
 export type RecordActionResult = { ok: true } | { ok: false; error: string };
 
-/** A small status chip rendered next to a row's name (spec 87). */
-export type RecordBadge = { label: string; tone: "amber" | "red" };
+/** A small status chip rendered next to a row's name (spec 87). neutral = a
+ *  plain info chip (spec 107 supplier spend), not a warning. */
+export type RecordBadge = { label: string; tone: "amber" | "red" | "neutral" };
 
 export interface RecordFieldDef {
   /** Record key passed to onCreate/onUpdate (camelCase, maps to the action input). */
@@ -259,7 +260,9 @@ function RecordRowItem({
                 className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
                   badge.tone === "red"
                     ? "bg-danger-soft text-danger-ink"
-                    : "bg-attn-soft text-attn-ink"
+                    : badge.tone === "neutral"
+                      ? "bg-sunk text-ink-secondary"
+                      : "bg-attn-soft text-attn-ink"
                 }`}
               >
                 {badge.label}

@@ -10,12 +10,17 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
 import { PM_ROLES, BACK_OFFICE_ROLES } from "@/lib/auth/role-home";
 import { createClient as createServerSupabase } from "@/lib/db/server";
+import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { DetailHeader } from "@/components/features/detail-header";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { ContactsTabs } from "@/components/features/contacts-tabs";
-import type { RecordRow } from "@/components/features/record-manager";
+import type { RecordRow, RecordBadge } from "@/components/features/record-manager";
+import { aggregateSupplierSpend } from "@/lib/purchasing/supplier-spend";
 
 export const metadata = { title: "ผู้ขายและผู้ให้บริการ" };
+
+// Spec 107: compact THB for the per-supplier spend chip.
+const baht = (n: number) => `฿${Math.round(n).toLocaleString("en-US")}`;
 
 export default async function ContactsVendorsPage() {
   const ctx = await requireRole(BACK_OFFICE_ROLES);
@@ -67,6 +72,27 @@ export default async function ContactsVendorsPage() {
     }));
   }
 
+  // Spec 107: per-supplier spend chip for procurement (buyer intelligence).
+  // amount is money → admin read, gated to the procurement branch. Bounded to
+  // committed POs (purchased/on_route/delivered); a SQL group-by is the scale
+  // refinement if the committed history ever exceeds the PostgREST cap.
+  let supplierBadge: ((id: string) => RecordBadge | null) | undefined;
+  if (!isManager) {
+    const admin = createAdminSupabase();
+    const { data: prRows } = await admin
+      .from("purchase_requests")
+      .select("supplier_id, amount, status")
+      .in("status", ["purchased", "on_route", "delivered"]);
+    const stats = aggregateSupplierSpend(prRows ?? []);
+    supplierBadge = (id) => {
+      const s = stats.get(id);
+      if (!s || (s.spend === 0 && s.open === 0)) return null;
+      const parts = [baht(s.spend)];
+      if (s.open > 0) parts.push(`${s.open} ค้างส่ง`);
+      return { label: parts.join(" · "), tone: "neutral" };
+    };
+  }
+
   const backHref = isManager ? "/settings" : "/requests";
   const backLabel = isManager ? "ตั้งค่า" : "คำขอซื้อ";
   const title = isManager ? "ผู้ขายและผู้ให้บริการ" : "ผู้ขาย";
@@ -81,7 +107,12 @@ export default async function ContactsVendorsPage() {
         {isManager ? (
           <ContactsTabs group="vendors" suppliers={suppliers} serviceProviders={serviceProviders} />
         ) : (
-          <ContactsTabs group="suppliers" suppliers={suppliers} linkDetails={false} />
+          <ContactsTabs
+            group="suppliers"
+            suppliers={suppliers}
+            linkDetails={false}
+            {...(supplierBadge ? { supplierBadge } : {})}
+          />
         )}
       </div>
     </PageShell>

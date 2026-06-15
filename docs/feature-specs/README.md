@@ -109,6 +109,7 @@ for reading the spec itself.
 | 104  | Procurement worklist as a buyer's pipeline (band-ordered /requests)       |
 | 105  | Procurement buyer summary strip (to-order · in-transit · overdue)         |
 | 106  | Outstanding-PO ฿ tile on the buyer summary (admin amount read)            |
+| 107  | Per-supplier spend chip on the suppliers screen (buyer intelligence)      |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.
