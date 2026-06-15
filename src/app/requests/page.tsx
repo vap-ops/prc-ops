@@ -35,8 +35,14 @@ import { SECTION_HEADING } from "@/lib/ui/classes";
 
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { comparePendingRequests } from "@/lib/purchasing/pending-order";
-import { groupByProcurementBand, procurementSummary } from "@/lib/purchasing/procurement-pipeline";
+import {
+  groupByProcurementBand,
+  procurementSummary,
+  procurementBand,
+  sumOutstanding,
+} from "@/lib/purchasing/procurement-pipeline";
 import { bangkokTodayISO } from "@/lib/work-packages/schedule-today";
+import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { PurchaseRequestCard } from "@/components/features/purchase-request-card";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 
@@ -175,6 +181,24 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // Spec 105: buyer's summary strip (workload + overdue ETAs).
   const buyerSummary = isProcurement ? procurementSummary(myRequests, bangkokTodayISO()) : null;
 
+  // Spec 106: outstanding = ฿ committed on in-transit POs, not yet received.
+  // amount is money → admin read, gated to procurement (back-office, it enters
+  // the amounts). Never runs for SA/PM here (this is the procurement branch).
+  let outstanding = 0;
+  if (isProcurement) {
+    const inTransitIds = myRequests
+      .filter((r) => procurementBand(r.status) === "in_transit")
+      .map((r) => r.id);
+    if (inTransitIds.length > 0) {
+      const admin = createAdminSupabase();
+      const { data: amountRows } = await admin
+        .from("purchase_requests")
+        .select("amount")
+        .in("id", inTransitIds);
+      outstanding = sumOutstanding(amountRows ?? []);
+    }
+  }
+
   type RequestRow = (typeof myRequests)[number];
   const cardFor = (r: RequestRow) => {
     const wp = wpById.get(r.work_package_id);
@@ -303,14 +327,20 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
             // Spec 104/105: buyer's pipeline + summary strip (workload + overdue).
             <div className="flex flex-col gap-6">
               {buyerSummary ? (
-                <div className="grid grid-cols-3 gap-2">
-                  <BuyerStat label="รอสั่งซื้อ" value={buyerSummary.toOrder} tone="hot" />
-                  <BuyerStat label="กำลังจัดส่ง" value={buyerSummary.inTransit} tone="neutral" />
+                <div className="grid grid-cols-2 gap-2">
+                  <BuyerStat label="รอสั่งซื้อ" value={String(buyerSummary.toOrder)} tone="hot" />
+                  <BuyerStat
+                    label="กำลังจัดส่ง"
+                    value={String(buyerSummary.inTransit)}
+                    tone="neutral"
+                  />
                   <BuyerStat
                     label="เกินกำหนด"
-                    value={buyerSummary.overdue}
+                    value={String(buyerSummary.overdue)}
                     tone={buyerSummary.overdue > 0 ? "danger" : "neutral"}
                   />
+                  {/* Spec 106: ฿ committed on in-transit POs (back-office money). */}
+                  <BuyerStat label="ค้างจ่าย" value={baht(outstanding)} tone="neutral" />
                 </div>
               ) : null}
               {procurementGroups.length === 0 ? (
@@ -363,6 +393,9 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   );
 }
 
+// Spec 106: compact THB formatter for the outstanding tile.
+const baht = (n: number) => `฿${Math.round(n).toLocaleString("en-US")}`;
+
 // Spec 105: a buyer-summary stat tile. hot = the actionable รอสั่งซื้อ band;
 // danger = overdue ETAs need chasing; neutral otherwise.
 function BuyerStat({
@@ -371,7 +404,7 @@ function BuyerStat({
   tone,
 }: {
   label: string;
-  value: number;
+  value: string;
   tone: "hot" | "danger" | "neutral";
 }) {
   const toneClass =

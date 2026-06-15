@@ -71,6 +71,15 @@ export function procurementSummary(
   return { toOrder, inTransit, overdue };
 }
 
+// Spec 106: outstanding = money committed but not yet received. The caller
+// passes the in-transit rows' amounts (read via the admin client — amount is
+// money); this just sums the non-null ones.
+export function sumOutstanding(rows: ReadonlyArray<{ amount: number | null }>): number {
+  let total = 0;
+  for (const r of rows) if (r.amount != null) total += r.amount;
+  return total;
+}
+
 // Group rows into bands, in PROCUREMENT_BANDS order, dropping empty bands and
 // rows with no band. Within-band order is preserved from the input.
 export function groupByProcurementBand<T extends { status: string }>(

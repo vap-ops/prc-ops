@@ -749,3 +749,16 @@ unit / lint / typecheck / build green. Spec: docs/feature-specs/105-procurement-
 Procurement UX now: pipeline worklist (104) + buyer summary (105). REMAINING vision: outstanding-฿
 tile (admin read), per-supplier open-POs + spend, price history, filing-gap band. Acceptance =
 procurement-user phone (strip atop คำขอซื้อ).
+
+## Spec 106 — Outstanding-PO ฿ tile (2026-06-15, SHIPPED, code-only)
+
+"Go on, finish the 2" (1/2). Completes the spec-105 buyer summary with the deferred ค้างจ่าย tile.
+App-only, no DB. procurement-pipeline.ts +sumOutstanding(rows) (sum non-null amounts). /requests: for
+procurement, an admin-client read of `amount` for the IN-TRANSIT request ids (purchased/on_route =
+committed, not received), summed → 4th tile ค้างจ่าย (฿); strip now 2×2. **Money posture:** admin read
+is gated to the procurement branch (if(isProcurement) — never runs for SA/PM here); procurement is
+back-office (enters amounts via record_purchase) so seeing the committed total is appropriate; no
+authenticated grant on amount added, admin client is the only reader. BuyerStat value → string; baht()
+formatter. Tests: sumOutstanding (sums non-null, empty→0). 777 unit / lint / typecheck / build green.
+Spec: docs/feature-specs/106-procurement-outstanding-tile.md. SEAM: ค้างจ่าย counts only priced POs
+(amount optional). NEXT (2/2): per-supplier open-POs + spend (spec 107).

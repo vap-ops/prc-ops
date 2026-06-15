@@ -6,6 +6,7 @@ import {
   procurementBand,
   groupByProcurementBand,
   procurementSummary,
+  sumOutstanding,
 } from "@/lib/purchasing/procurement-pipeline";
 
 describe("procurementBand", () => {
@@ -83,5 +84,14 @@ describe("procurementSummary", () => {
 
   it("empty → zeros", () => {
     expect(procurementSummary([], TODAY)).toEqual({ toOrder: 0, inTransit: 0, overdue: 0 });
+  });
+});
+
+describe("sumOutstanding", () => {
+  it("sums non-null amounts", () => {
+    expect(sumOutstanding([{ amount: 1000 }, { amount: null }, { amount: 250.5 }])).toBe(1250.5);
+  });
+  it("empty → 0", () => {
+    expect(sumOutstanding([])).toBe(0);
   });
 });
