@@ -32,7 +32,6 @@ import {
 import { BUTTON_PRIMARY } from "@/lib/ui/classes";
 import { adjacentRecordIds, flattenRecordOrder } from "@/lib/purchasing/grid-record-nav";
 import type { Database } from "@/lib/db/database.types";
-import type { ProcurementBandMeta } from "@/lib/purchasing/procurement-pipeline";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
 type PurchaseRequestPriority = Database["public"]["Enums"]["purchase_request_priority"];
@@ -61,7 +60,16 @@ export interface ProcurementGridRecord {
   wp_name: string | null;
 }
 
-type Group = { meta: ProcurementBandMeta; items: ProcurementGridRecord[] };
+// Structural group meta — a real pipeline band (ProcurementBandMeta) OR a
+// synthetic single-status group (spec 110, when a status filter is active, incl.
+// the banded-out rejected/cancelled rows). band is used only as a render key.
+export interface WorklistGroupMeta {
+  band: string;
+  label: string;
+  hot: boolean;
+}
+
+type Group = { meta: WorklistGroupMeta; items: ProcurementGridRecord[] };
 
 const baht = (n: number) => `฿${Math.round(n).toLocaleString("en-US")}`;
 
@@ -126,7 +134,7 @@ function BandRows({
   selectedId,
   onSelect,
 }: {
-  meta: ProcurementBandMeta;
+  meta: WorklistGroupMeta;
   items: ProcurementGridRecord[];
   selectedId: string | null;
   onSelect: (id: string) => void;

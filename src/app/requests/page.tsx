@@ -49,6 +49,17 @@ import {
   type ProcurementGridRecord,
 } from "@/components/features/procurement-grid";
 import { fetchDisplayNames } from "@/lib/users/display-names";
+import { ProcurementFilters } from "@/components/features/procurement-filters";
+import {
+  matchesProcurementFilter,
+  sortByPriority,
+  distinctSuppliers,
+  distinctProjects,
+  buildWorklistQuery,
+  type ProcurementFilter,
+} from "@/lib/purchasing/worklist-filter";
+import { PURCHASE_REQUEST_STATUS_LABEL } from "@/lib/i18n/labels";
+import type { Database } from "@/lib/db/database.types";
 
 // Spec 19 §4: the single purchasing surface for every role. The list is
 // pending-first (priority band then requested asc — spec-16 A2), decided
@@ -59,8 +70,26 @@ import { fetchDisplayNames } from "@/lib/users/display-names";
 export const metadata = { title: "คำขอซื้อ" };
 
 interface RequestsPageProps {
-  searchParams: Promise<{ wp?: string | string[]; mine?: string | string[] }>;
+  searchParams: Promise<{
+    wp?: string | string[];
+    mine?: string | string[];
+    // Spec 110: procurement worklist filters.
+    supplier?: string | string[];
+    project?: string | string[];
+    status?: string | string[];
+    overdue?: string | string[];
+  }>;
 }
+
+// A single search-param value or undefined (params may repeat → string[]).
+function singleParam(v: string | string[] | undefined): string | null {
+  return typeof v === "string" && v !== "" ? v : null;
+}
+
+type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
+const PR_STATUSES = new Set<string>(
+  Object.keys(PURCHASE_REQUEST_STATUS_LABEL) as PurchaseRequestStatus[],
+);
 
 export default async function RequestsPage({ searchParams }: RequestsPageProps) {
   const ctx = await requireRole(PURCHASING_ROLES);
@@ -71,8 +100,29 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // ?wp=-pinned, so the create-request section is inert for it. Hide it.
   const canCreateRequests = ctx.role !== "procurement";
 
-  const { wp: wpParam, mine: mineParam } = await searchParams;
+  const {
+    wp: wpParam,
+    mine: mineParam,
+    supplier: supplierParam,
+    project: projectParam,
+    status: statusParam,
+    overdue: overdueParam,
+  } = await searchParams;
   const wpRequested = wpParam !== undefined;
+
+  // Spec 110: parse the worklist filter (procurement only — SA/PM ignore it).
+  // An unknown status value is dropped (treated as "all") so a hand-edited URL
+  // can't pass garbage to the filter.
+  const statusParamValue = singleParam(statusParam);
+  const filter: ProcurementFilter = {
+    supplier: singleParam(supplierParam),
+    projectId: singleParam(projectParam),
+    overdue: singleParam(overdueParam) === "1",
+    status:
+      statusParamValue !== null && PR_STATUSES.has(statusParamValue)
+        ? (statusParamValue as PurchaseRequestStatus)
+        : null,
+  };
 
   // Resolve the pinned WP only for a well-formed single UUID; anything
   // else (missing, repeated, garbage, or unreadable under RLS) leaves the
@@ -178,12 +228,82 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     .in("id", wpIdsInRequests);
   const wpById = new Map((wpForRequests ?? []).map((wp) => [wp.id, wp]));
 
-  // Spec 104: procurement sees the worklist as a buyer's PIPELINE (รอสั่งซื้อ →
-  // กำลังจัดส่ง → ได้รับแล้ว → รออนุมัติ); other roles keep the flat pending-first list.
   const isProcurement = ctx.role === "procurement";
-  const procurementGroups = isProcurement ? groupByProcurementBand(myRequests) : [];
-  // Spec 105: buyer's summary strip (workload + overdue ETAs).
-  const buyerSummary = isProcurement ? procurementSummary(myRequests, bangkokTodayISO()) : null;
+  const today = bangkokTodayISO();
+
+  // Spec 110: project names for the project filter (procurement reads projects
+  // read-only since spec 102 — RLS admits it, no migration). Procurement-only.
+  const projectNameById = new Map<string, string>();
+  if (isProcurement) {
+    const projectIds = Array.from(new Set((wpForRequests ?? []).map((wp) => wp.project_id)));
+    if (projectIds.length > 0) {
+      const { data: projectRows } = await supabase
+        .from("projects")
+        .select("id, name")
+        .in("id", projectIds);
+      for (const p of projectRows ?? []) projectNameById.set(p.id, p.name);
+    }
+  }
+  const projectIdOf = (wpId: string) => wpById.get(wpId)?.project_id ?? null;
+
+  // Spec 110: filter picker options come from the UNFILTERED set so the filter
+  // can always be changed.
+  const supplierOptions = isProcurement ? distinctSuppliers(myRequests) : [];
+  const projectOptions = isProcurement
+    ? distinctProjects(
+        myRequests.map((r) => {
+          const pid = projectIdOf(r.work_package_id);
+          return { projectId: pid, projectName: pid ? (projectNameById.get(pid) ?? null) : null };
+        }),
+      )
+    : [];
+
+  // Spec 110: apply the filter, then group. Bands segment stage (spec 104); the
+  // status filter overrides banding with a single flat group so it can surface
+  // rejected/cancelled (which procurementBand drops). Priority sort runs within
+  // every band (critical first).
+  const filteredRequests = isProcurement
+    ? myRequests.filter((r) =>
+        matchesProcurementFilter(
+          {
+            status: r.status,
+            eta: r.eta,
+            supplier: r.supplier,
+            projectId: projectIdOf(r.work_package_id),
+          },
+          filter,
+          today,
+        ),
+      )
+    : [];
+  const filterActive =
+    filter.supplier !== null ||
+    filter.projectId !== null ||
+    filter.status !== null ||
+    filter.overdue;
+  const procurementGroups = !isProcurement
+    ? []
+    : filter.status !== null
+      ? filteredRequests.length > 0
+        ? [
+            {
+              meta: {
+                band: filter.status,
+                label: PURCHASE_REQUEST_STATUS_LABEL[filter.status],
+                hot: false,
+              },
+              items: sortByPriority(filteredRequests),
+            },
+          ]
+        : []
+      : groupByProcurementBand(filteredRequests).map(({ meta, items }) => ({
+          meta,
+          items: sortByPriority(items),
+        }));
+
+  // Spec 105: buyer's summary strip — the FULL workload (unfiltered), a stable
+  // glance that doesn't jump as filters change.
+  const buyerSummary = isProcurement ? procurementSummary(myRequests, today) : null;
 
   // Spec 106/108: amount is money → ONE admin read of all visible rows' amounts
   // (gated to procurement — back-office, it enters them; never runs for SA/PM
@@ -373,17 +493,29 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                     value={String(buyerSummary.inTransit)}
                     tone="neutral"
                   />
+                  {/* Spec 110: the เกินกำหนด tile is also the overdue filter
+                      toggle (the chase list). */}
                   <BuyerStat
                     label="เกินกำหนด"
                     value={String(buyerSummary.overdue)}
-                    tone={buyerSummary.overdue > 0 ? "danger" : "neutral"}
+                    tone={buyerSummary.overdue > 0 || filter.overdue ? "danger" : "neutral"}
+                    href={buildWorklistQuery({ ...filter, overdue: !filter.overdue })}
+                    active={filter.overdue}
                   />
                   {/* Spec 106: ฿ committed on in-transit POs (back-office money). */}
                   <BuyerStat label="ค้างจ่าย" value={baht(outstanding)} tone="neutral" />
                 </div>
               ) : null}
+              {/* Spec 110: supplier / project / status filters. */}
+              <ProcurementFilters
+                filter={filter}
+                suppliers={supplierOptions}
+                projects={projectOptions}
+              />
               {procurementGroups.length === 0 ? (
-                <EmptyNotice>ยังไม่มีคำขอซื้อ</EmptyNotice>
+                <EmptyNotice>
+                  {filterActive ? "ไม่พบคำขอซื้อตามตัวกรอง" : "ยังไม่มีคำขอซื้อ"}
+                </EmptyNotice>
               ) : (
                 <>
                   {/* Spec 104: card pipeline on phone. */}
@@ -444,15 +576,21 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
 const baht = (n: number) => `฿${Math.round(n).toLocaleString("en-US")}`;
 
 // Spec 105: a buyer-summary stat tile. hot = the actionable รอสั่งซื้อ band;
-// danger = overdue ETAs need chasing; neutral otherwise.
+// danger = overdue ETAs need chasing; neutral otherwise. Spec 110: a tile with
+// an href is a filter toggle (the เกินกำหนด chase list) — renders as a Link with
+// a pressed ring when active.
 function BuyerStat({
   label,
   value,
   tone,
+  href,
+  active,
 }: {
   label: string;
   value: string;
   tone: "hot" | "danger" | "neutral";
+  href?: string;
+  active?: boolean;
 }) {
   const toneClass =
     tone === "hot"
@@ -460,12 +598,25 @@ function BuyerStat({
       : tone === "danger"
         ? "border-danger-edge bg-danger-soft text-danger-ink"
         : "border-edge bg-card text-ink";
-  return (
-    <div
-      className={`rounded-card flex min-h-[68px] flex-col items-start justify-center border-[1.5px] px-3 py-2 ${toneClass}`}
-    >
+  const base = `rounded-card flex min-h-[68px] flex-col items-start justify-center border-[1.5px] px-3 py-2 ${toneClass}`;
+  const content = (
+    <>
       <span className="text-2xl leading-none font-extrabold">{value}</span>
       <span className="text-meta mt-1 font-bold">{label}</span>
-    </div>
+    </>
   );
+  if (href) {
+    return (
+      <Link
+        href={href}
+        aria-pressed={active ? "true" : "false"}
+        className={`${base} focus-visible:ring-action transition-shadow focus:outline-none focus-visible:ring-2 ${
+          active ? "ring-action ring-2 ring-offset-1" : "hover:shadow-card"
+        }`}
+      >
+        {content}
+      </Link>
+    );
+  }
+  return <div className={base}>{content}</div>;
 }

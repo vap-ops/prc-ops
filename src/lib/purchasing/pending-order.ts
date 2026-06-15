@@ -8,7 +8,8 @@ import type { Database } from "@/lib/db/database.types";
 
 type PurchaseRequestPriority = Database["public"]["Enums"]["purchase_request_priority"];
 
-const PRIORITY_RANK: Record<PurchaseRequestPriority, number> = {
+// Exported (spec 110) so the worklist priority sort reuses the one rank.
+export const PR_PRIORITY_RANK: Record<PurchaseRequestPriority, number> = {
   critical: 0,
   urgent: 1,
   normal: 2,
@@ -19,7 +20,7 @@ export function comparePendingRequests(
   b: { priority: PurchaseRequestPriority; requested_at: string },
 ): number {
   return (
-    PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] ||
+    PR_PRIORITY_RANK[a.priority] - PR_PRIORITY_RANK[b.priority] ||
     a.requested_at.localeCompare(b.requested_at)
   );
 }

@@ -834,3 +834,34 @@ the detail. **SEAMS:** approach (a) full action-zones-in-drawer via `@modal` int
 (URL-updating, refresh-deep-linkable) deferred — Next 16 intercepting/parallel-routes research owed
 first; keyboard arrow prev/next + swipe-dismiss + full tab-trap recorded (BottomSheet focus-trap seam);
 grid columns still fixed (no sort/column-pick).
+
+## Spec 110 — Procurement worklist filters + priority sort (2026-06-15, SHIPPED, code-only)
+
+Operator: "should the purchasing team get filters, and what?" → bands already cover STAGE (spec 104),
+so filters = the cross-cutting slices bands can't express. **AskUserQuestion #1:** picked all four —
+by supplier · by project · overdue-only · priority sort. Operator follow-up "how about statuses?" →
+**AskUserQuestion #2:** "surface rejected/cancelled" (the real gap: rejected+cancelled are banded OUT
+of the procurement pipeline → invisible in the worklist today). App-only, no DB (projects fetch is an
+RLS-admitted read since spec 102). **SHIPPED:** (1) pure `lib/purchasing/worklist-filter.ts` (TDD,
++16 unit) — `matchesProcurementFilter` (AND-composes supplier/project/overdue/status; overdue =
+in_transit band AND eta<today, eta==today NOT overdue), `sortByPriority` (stable critical→urgent→
+normal), `distinctSuppliers`/`distinctProjects` (picker options from the UNFILTERED set),
+`buildWorklistQuery` (URL serialize, drops empties — shared by the server overdue-tile Link + the
+client `<select>`s so axes compose). (2) `pending-order.ts` exports `PR_PRIORITY_RANK` (reused by the
+sort — one rank, no dup). (3) `procurement-filters.tsx` (`"use client"`): supplier+project+status
+`<select>`s + ล้างตัวกรอง; onChange → `router.push(buildWorklistQuery(...))`. (4) `procurement-grid.tsx`:
+Group meta broadened to a structural `WorklistGroupMeta {band:string;label;hot}` so a synthetic
+single-status group (incl. rejected/cancelled) renders alongside real bands. (5) `/requests`:
+**server-side URL-param filtering on the shared `myRequests`** → phone bands + desktop grid both get
+it, deep-linkable; status filter → ONE flat priority-sorted group (overrides banding, surfaces the
+banded-out history); priority sort within every band; **summary strip stays on the UNFILTERED set**
+(stable glance); **เกินกำหนด tile = overdue toggle** (BuyerStat +href/active = Link with pressed ring);
+distinct empty notices (ไม่พบ…ตามตัวกรอง vs ยังไม่มี…). Procurement-only — SA/PM flat list untouched.
+**Money posture unchanged** (overdue/supplier/status are non-money; amount admin read still gated to
+isProcurement, computed unfiltered; ค้างจ่าย stays a read-only money glance). 804 unit / lint /
+typecheck / build green; **no migration → pgTAP 1025 untouched**. Spec:
+docs/feature-specs/110-procurement-worklist-filters.md. **NOT preview-verified** (procurement-gated,
+preview only /login) → acceptance = procurement user (PC/phone): pick supplier→only that vendor; pick
+project→only that site; tap เกินกำหนด→late POs; status→that status incl. rejected/cancelled; critical
+on top within bands; URL carries the filter. **SEAMS:** single-select per axis (multi-select +
+saved-views later); only เกินกำหนด tile is a toggle; priority sort default-on (no oldest-first toggle).
