@@ -1209,3 +1209,13 @@ exact) → db:test 1076/0 → commit + push. pgTAP file 49: order_ref stored + t
 create · 117 create-PO UX · 118 phone basket · 119/ADR0045 VAT · 120 unify-record-into-PO.** PO is now
 THE purchase path (desktop + phone, VAT, order_ref). **Acceptance:** approved request → สร้าง PO
 pre-seeded → one-line PO. **OUT (cleanup):** delete `PurchaseRecordForm` + the `record_purchase` RPC.
+
+**Spec 120 review tweak (operator):** the VAT picker (a 3-option dropdown) → the accessible `RadioChip`
+segmented control (spec 67) with SHORT labels (ก่อน VAT / รวม VAT แล้ว / ไม่มี VAT — the full phrases
+would overflow the narrow sheet; the live net/VAT/gross line carries the precise meaning). **Default
+flipped inclusive → exclusive (ก่อน VAT)** — a PO is created from a quotation, and Thai quotes are
+usually quoted ex-VAT (net + 7%). Surfacing the mode as visible chips + the breakdown is the guard against
+the exclusive-transform mis-entry. UI-only (no schema). Sheet test updated (default-exclusive amounts +
+RadioChip selection). REUSABLE: ≤4 fixed mutually-exclusive options that affect MONEY → prefer a visible
+RadioChip over a dropdown (the user picks deliberately, sees the effect), but keep labels short or it
+overflows.

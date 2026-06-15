@@ -14,6 +14,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { BottomSheet } from "@/components/features/bottom-sheet";
+import { RadioChip } from "@/components/features/radio-chip";
 import {
   BUTTON_PRIMARY,
   BUTTON_SECONDARY,
@@ -70,7 +71,9 @@ export function CreatePurchaseOrderSheet({
   const [supplierId, setSupplierId] = useState("");
   const [eta, setEta] = useState("");
   const [amounts, setAmounts] = useState<Record<string, string>>({});
-  const [vatMode, setVatMode] = useState<VatMode>("inclusive");
+  // Default exclusive (ก่อน VAT): a PO is created from a quotation, and Thai
+  // quotes are usually quoted ex-VAT (net + 7%) — spec 120 review.
+  const [vatMode, setVatMode] = useState<VatMode>("exclusive");
   const [orderRef, setOrderRef] = useState("");
   const [nameDraft, setNameDraft] = useState("");
   const [phoneDraft, setPhoneDraft] = useState("");
@@ -231,20 +234,31 @@ export function CreatePurchaseOrderSheet({
           className={FIELD_DATE}
         />
 
-        <label htmlFor="po-vat" className="text-ink text-xs font-medium">
-          VAT (ภาษีมูลค่าเพิ่ม {VAT_RATE}%)
-        </label>
-        <select
-          id="po-vat"
-          value={vatMode}
-          onChange={(e) => setVatMode(e.target.value as VatMode)}
-          disabled={pending}
-          className={FIELD_SELECT}
-        >
-          <option value="inclusive">ราคารวม VAT แล้ว</option>
-          <option value="exclusive">ราคายังไม่รวม VAT (บวกเพิ่ม)</option>
-          <option value="none">ไม่มี VAT</option>
-        </select>
+        <fieldset className="flex flex-col gap-1.5">
+          <legend className="text-ink mb-1 text-xs font-medium">
+            VAT (ภาษีมูลค่าเพิ่ม {VAT_RATE}%)
+          </legend>
+          <div className="flex flex-wrap gap-2">
+            <RadioChip
+              name="po-vat"
+              label="ก่อน VAT"
+              checked={vatMode === "exclusive"}
+              onSelect={() => setVatMode("exclusive")}
+            />
+            <RadioChip
+              name="po-vat"
+              label="รวม VAT แล้ว"
+              checked={vatMode === "inclusive"}
+              onSelect={() => setVatMode("inclusive")}
+            />
+            <RadioChip
+              name="po-vat"
+              label="ไม่มี VAT"
+              checked={vatMode === "none"}
+              onSelect={() => setVatMode("none")}
+            />
+          </div>
+        </fieldset>
 
         <label htmlFor="po-order-ref" className="text-ink text-xs font-medium">
           เลขที่ใบสั่งซื้อ / อ้างอิงผู้ขาย (ไม่บังคับ)

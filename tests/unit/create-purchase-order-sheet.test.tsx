@@ -49,6 +49,7 @@ describe("CreatePurchaseOrderSheet", () => {
     setup();
     expect(screen.getByText("ปูน")).toBeInTheDocument();
     expect(screen.getByText("ทราย")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "ไม่มี VAT" }));
     const prices = screen.getAllByLabelText(/ราคาของ/);
     fireEvent.change(prices[0]!, { target: { value: "100" } });
     fireEvent.change(prices[1]!, { target: { value: "200" } });
@@ -71,10 +72,10 @@ describe("CreatePurchaseOrderSheet", () => {
         supplierId: SUP,
         eta: "2026-07-15",
         lines: [
-          { requestId: R1, amount: 100 },
+          { requestId: R1, amount: 107 },
           { requestId: R2, amount: null },
         ],
-        // Spec 119: default mode is VAT-inclusive → amount unchanged, rate 7.
+        // Default mode is exclusive (ก่อน VAT) → +7% → gross 107, rate 7.
         vatRate: 7,
         // Spec 120: order_ref carried (empty here).
         orderRef: "",
@@ -83,14 +84,14 @@ describe("CreatePurchaseOrderSheet", () => {
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
   });
 
-  it("VAT exclusive: adds 7% to the entered price and stores the gross", async () => {
+  it("VAT inclusive: keeps the entered price as the gross", async () => {
     createPurchaseOrderMock.mockResolvedValue({ ok: true, poId: "po-2" });
     setup();
     fireEvent.change(screen.getByLabelText("ผู้ขาย"), { target: { value: SUP } });
     fireEvent.change(screen.getByLabelText("คาดว่าจะได้รับของ"), {
       target: { value: "2026-07-15" },
     });
-    fireEvent.change(screen.getByLabelText(/VAT/), { target: { value: "exclusive" } });
+    fireEvent.click(screen.getByRole("radio", { name: "รวม VAT แล้ว" }));
     fireEvent.change(screen.getAllByLabelText(/ราคาของ/)[0]!, { target: { value: "100" } });
     fireEvent.click(screen.getByRole("button", { name: /สร้าง PO/ }));
 
@@ -99,7 +100,7 @@ describe("CreatePurchaseOrderSheet", () => {
         supplierId: SUP,
         eta: "2026-07-15",
         lines: [
-          { requestId: R1, amount: 107 },
+          { requestId: R1, amount: 100 },
           { requestId: R2, amount: null },
         ],
         vatRate: 7,
