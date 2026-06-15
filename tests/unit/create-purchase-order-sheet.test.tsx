@@ -76,6 +76,8 @@ describe("CreatePurchaseOrderSheet", () => {
         ],
         // Spec 119: default mode is VAT-inclusive → amount unchanged, rate 7.
         vatRate: 7,
+        // Spec 120: order_ref carried (empty here).
+        orderRef: "",
       }),
     );
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
@@ -101,6 +103,7 @@ describe("CreatePurchaseOrderSheet", () => {
           { requestId: R2, amount: null },
         ],
         vatRate: 7,
+        orderRef: "",
       }),
     );
   });

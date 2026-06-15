@@ -1177,3 +1177,35 @@ byte-identical; only the `create_purchase_order` Args line reflowed) → db:test
 **OUT (additive follow-ups — RPCs already accept the rate, NO further schema):** VAT picker on the
 `record_purchase` + `record_site_purchase` forms; a **persistent net/VAT readout** on the request detail
 page + the grid/drawer. **OUT (v3 accounting):** withholding tax, tax-invoice (ใบกำกับภาษี) docs, reports.
+
+---
+
+## Spec 120 — Unify purchase recording into PO creation — SHIPPED 2026-06-16
+
+**What:** operator — "replace บันทึกการสั่งซื้อ with the new PO creation." Two purchase paths had diverged
+(spec-33 per-ticket `record_purchase` form vs the spec-116/119 PO flow); PO is the better-built one, so
+it becomes the single path. SHIPPED (migration `20260701000300` applied to prod under the gate; 874 unit
+/ 1076 pgTAP / lint / typecheck / build).
+
+- **Single-ticket = a one-line PO.** On an approved request the inline record form → a **"สร้าง PO"
+  button that opens the create-PO sheet pre-seeded with that one ticket** (one tap, no grid hunting; VAT/
+  supplier/ETA/price/order_ref all ride along). Detail page: `CreatePoFromRequestButton` (new client; the
+  server page passes the serializable line + suppliers). Procurement drawer: the `record` action → a
+  button that closes the drawer, seeds the basket with that record, opens the grid's existing sheet (an
+  `onCreatePo` callback threaded RecordReviewDrawer → DrawerBody; `suppliers` dropped from that chain).
+- **order_ref carried.** Migration DROP+CREATE `create_purchase_order` `+p_order_ref` (≤80, one per PO,
+  written onto each member's existing `purchase_requests.order_ref` — NO new column). Sheet gains an
+  optional order-ref field; action passes `p_order_ref`. (4th create_purchase_order revision today —
+  000100 → +vat 000200 → +order_ref 000300; each DROP+CREATE reproduces the prior body verbatim.)
+- **`PurchaseRecordForm` retired from the UI** (both usages gone); the component file + the
+  `record_purchase` RPC LEFT in place (AppSheet doesn't call the RPC; removal is a later cleanup).
+  `SupplierOption` still lives in `purchase-record-form.tsx` as a type-only import.
+
+**Gate honored:** local-green → "Apply now" → db:push → db:types reconcile (IDENTICAL — hand-extension
+exact) → db:test 1076/0 → commit + push. pgTAP file 49: order_ref stored + the sig pins (now
+`(uuid,date,jsonb,numeric,text)`). Sheet test: order_ref in the payload.
+
+**SESSION TOTAL (2026-06-16, EIGHT units, 5 prod migrations): 115 PO data layer · ผู้ขาย fix · 116 PO
+create · 117 create-PO UX · 118 phone basket · 119/ADR0045 VAT · 120 unify-record-into-PO.** PO is now
+THE purchase path (desktop + phone, VAT, order_ref). **Acceptance:** approved request → สร้าง PO
+pre-seeded → one-line PO. **OUT (cleanup):** delete `PurchaseRecordForm` + the `record_purchase` RPC.

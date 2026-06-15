@@ -71,6 +71,7 @@ export function CreatePurchaseOrderSheet({
   const [eta, setEta] = useState("");
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [vatMode, setVatMode] = useState<VatMode>("inclusive");
+  const [orderRef, setOrderRef] = useState("");
   const [nameDraft, setNameDraft] = useState("");
   const [phoneDraft, setPhoneDraft] = useState("");
   const [createdSuppliers, setCreatedSuppliers] = useState<SupplierOption[]>([]);
@@ -143,6 +144,7 @@ export function CreatePurchaseOrderSheet({
         eta: eta.trim() === "" ? null : eta,
         lines: parsedLines,
         vatRate: rate,
+        orderRef,
       });
       if (!result.ok) {
         setError(result.error);
@@ -243,6 +245,19 @@ export function CreatePurchaseOrderSheet({
           <option value="exclusive">ราคายังไม่รวม VAT (บวกเพิ่ม)</option>
           <option value="none">ไม่มี VAT</option>
         </select>
+
+        <label htmlFor="po-order-ref" className="text-ink text-xs font-medium">
+          เลขที่ใบสั่งซื้อ / อ้างอิงผู้ขาย (ไม่บังคับ)
+        </label>
+        <input
+          id="po-order-ref"
+          type="text"
+          value={orderRef}
+          maxLength={80}
+          onChange={(e) => setOrderRef(e.target.value)}
+          disabled={pending}
+          className={FIELD_INPUT}
+        />
 
         <div className="rounded-control border-edge divide-edge flex flex-col divide-y border">
           {lines.map((l) => (

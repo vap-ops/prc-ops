@@ -16,7 +16,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronLeft, ChevronRight, Info } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, Info, ShoppingCart } from "lucide-react";
 import { StatusPill } from "@/components/features/status-pill";
 import { BottomSheet } from "@/components/features/bottom-sheet";
 import { PurchaseRequestTracker } from "@/components/features/purchase-request-tracker";
@@ -34,10 +34,7 @@ import { BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/lib/ui/classes";
 import { adjacentRecordIds, flattenRecordOrder } from "@/lib/purchasing/grid-record-nav";
 import { rowHealth, rowHealthLabel, type RowHealth } from "@/lib/purchasing/row-health";
 import { procurementDrawerActions } from "@/lib/purchasing/drawer-actions";
-import {
-  PurchaseRecordForm,
-  type SupplierOption,
-} from "@/components/features/purchase-record-form";
+import type { SupplierOption } from "@/components/features/purchase-record-form";
 import { PurchaseRequestShip } from "@/components/features/purchase-request-ship";
 import { InvoiceUploader } from "@/components/features/invoice-uploader";
 import { DeliveryPhotoUploader } from "@/components/features/delivery-photo-uploader";
@@ -140,6 +137,13 @@ export function ProcurementGrid({
       return next;
     });
   const clearPO = () => setSelectedForPO(new Set());
+  // Spec 120: record a purchase = create a one-line PO. Close the drawer, seed
+  // the basket with just this ticket, open the create-PO sheet.
+  const createPoFromRecord = (id: string) => {
+    setSelectedId(null);
+    setSelectedForPO(new Set([id]));
+    setPoOpen(true);
+  };
 
   // Reading order + id→record lookup, recomputed only when the data changes.
   const order = useMemo(() => flattenRecordOrder(groups), [groups]);
@@ -246,8 +250,8 @@ export function ProcurementGrid({
         onClose={() => setSelectedId(null)}
         onPrev={prevId ? () => setSelectedId(prevId) : null}
         onNext={nextId ? () => setSelectedId(nextId) : null}
-        suppliers={suppliers}
         userId={userId}
+        onCreatePo={canBundle ? createPoFromRecord : undefined}
       />
     </>
   );
@@ -369,16 +373,16 @@ function RecordReviewDrawer({
   onClose,
   onPrev,
   onNext,
-  suppliers,
   userId,
+  onCreatePo,
 }: {
   record: ProcurementGridRecord | null;
   position: { index: number; total: number } | null;
   onClose: () => void;
   onPrev: (() => void) | null;
   onNext: (() => void) | null;
-  suppliers: ReadonlyArray<SupplierOption>;
   userId: string | undefined;
+  onCreatePo: ((id: string) => void) | undefined;
 }) {
   return (
     <BottomSheet open={record != null} side="right" title="รายละเอียดคำขอซื้อ" onClose={onClose}>
@@ -391,8 +395,8 @@ function RecordReviewDrawer({
           position={position}
           onPrev={onPrev}
           onNext={onNext}
-          suppliers={suppliers}
           userId={userId}
+          onCreatePo={onCreatePo}
         />
       ) : null}
     </BottomSheet>
@@ -404,15 +408,15 @@ function DrawerBody({
   position,
   onPrev,
   onNext,
-  suppliers,
   userId,
+  onCreatePo,
 }: {
   record: ProcurementGridRecord;
   position: { index: number; total: number } | null;
   onPrev: (() => void) | null;
   onNext: (() => void) | null;
-  suppliers: ReadonlyArray<SupplierOption>;
   userId: string | undefined;
+  onCreatePo: ((id: string) => void) | undefined;
 }) {
   // site_purchased skipped the requisition pipeline — hide the stepper, mirroring
   // the detail page (spec 66 / ADR 0043).
@@ -544,8 +548,16 @@ function DrawerBody({
       {hasActions ? (
         <div className="border-edge flex flex-col gap-3 border-t pt-4">
           <h4 className="text-ink text-sm font-semibold">ดำเนินการ</h4>
-          {actions.record ? (
-            <PurchaseRecordForm requestId={record.id} suppliers={[...suppliers]} />
+          {/* Spec 120: record a purchase = create a one-line PO (pre-seeded). */}
+          {actions.record && onCreatePo ? (
+            <button
+              type="button"
+              onClick={() => onCreatePo(record.id)}
+              className={`${BUTTON_PRIMARY} w-full`}
+            >
+              <ShoppingCart aria-hidden className="mr-1.5 size-4" />
+              สร้างใบสั่งซื้อ (PO)
+            </button>
           ) : null}
           {actions.ship ? <PurchaseRequestShip requestId={record.id} /> : null}
           {actions.deliveryPhoto && record.project_id && userId ? (

@@ -1737,6 +1737,7 @@ export type Database = {
         Args: {
           p_eta: string;
           p_lines: Json;
+          p_order_ref?: string;
           p_supplier_id: string;
           p_vat_rate?: number;
         };

@@ -32,10 +32,8 @@ import { PurchaseRequestTracker } from "@/components/features/purchase-request-t
 import { PurchaseRequestNotes } from "@/components/features/purchase-request-notes";
 import { PurchaseRequestDecision } from "@/components/features/purchase-request-decision";
 import { PurchaseRequestCancel } from "@/components/features/purchase-request-cancel";
-import {
-  PurchaseRecordForm,
-  type SupplierOption,
-} from "@/components/features/purchase-record-form";
+import type { SupplierOption } from "@/components/features/purchase-record-form";
+import { CreatePoFromRequestButton } from "@/components/features/create-po-from-request-button";
 import { PurchaseRequestShip } from "@/components/features/purchase-request-ship";
 import { isBackOfficeRole } from "@/lib/purchasing/back-office";
 import { DeliveryPhotoUploader } from "@/components/features/delivery-photo-uploader";
@@ -456,9 +454,19 @@ export default async function RequestDetailPage({ params }: PageProps) {
               <PurchaseRequestDecision requestId={request.id} />
             ) : null}
             {isBackOffice && status === "approved" ? (
-              /* Spec 33: in-app purchase recording — parallel path to
-                 AppSheet (ADR 0034 amendment). */
-              <PurchaseRecordForm requestId={request.id} suppliers={suppliers} />
+              /* Spec 120: recording a purchase = creating a one-line PO (the
+                 unified purchase path; replaces the spec-33 record form). */
+              <CreatePoFromRequestButton
+                line={{
+                  id: request.id,
+                  pr_number: request.pr_number,
+                  item_description: request.item_description,
+                  quantity: request.quantity,
+                  unit: request.unit,
+                  wp_code: wp?.code ?? null,
+                }}
+                suppliers={suppliers}
+              />
             ) : null}
             {isBackOffice && status === "purchased" ? (
               <PurchaseRequestShip requestId={request.id} />

@@ -1,5 +1,5 @@
 begin;
-select plan(50);
+select plan(51);
 
 -- ============================================================================
 -- Spec 115 / ADR 0044 — purchase_orders table + create_purchase_order RPC.
@@ -122,11 +122,11 @@ select is(
   'uuid', 'create_purchase_order returns uuid');
 select ok(
   not has_function_privilege('anon',
-    'public.create_purchase_order(uuid,date,jsonb,numeric)', 'execute'),
+    'public.create_purchase_order(uuid,date,jsonb,numeric,text)', 'execute'),
   'anon cannot execute create_purchase_order');
 select ok(
   has_function_privilege('authenticated',
-    'public.create_purchase_order(uuid,date,jsonb,numeric)', 'execute'),
+    'public.create_purchase_order(uuid,date,jsonb,numeric,text)', 'execute'),
   'authenticated may execute create_purchase_order');
 
 -- ============================================================================
@@ -155,8 +155,8 @@ select lives_ok(
   $$ select public.create_purchase_order(
        'bb000115-0000-4000-8000-000000000001'::uuid, date '2026-07-15',
        '[{"request_id":"fa000115-0000-4000-8000-000000000001","amount":100},
-         {"request_id":"fa000115-0000-4000-8000-000000000002","amount":200}]'::jsonb, 7) $$,
-  'project_manager bundles two approved tickets into a PO (VAT 7%)');
+         {"request_id":"fa000115-0000-4000-8000-000000000002","amount":200}]'::jsonb, 7, 'INV-001') $$,
+  'project_manager bundles two approved tickets into a PO (VAT 7%, order_ref)');
 
 reset role;
 
@@ -172,6 +172,10 @@ select is(
   (select vat_rate from public.purchase_requests
     where id = 'fa000115-0000-4000-8000-000000000001'),
   7::numeric, 'pr1 carries the PO VAT rate (7)');
+select is(
+  (select order_ref from public.purchase_requests
+    where id = 'fa000115-0000-4000-8000-000000000001'),
+  'INV-001', 'pr1 carries the PO order_ref (spec 120)');
 select is(
   (select supplier from public.purchase_requests
     where id = 'fa000115-0000-4000-8000-000000000001'),
