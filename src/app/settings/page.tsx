@@ -1,7 +1,17 @@
 import { PageShell } from "@/components/features/page-shell";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronRight, Contact, Files, HardHat, Sparkles, Wallet } from "lucide-react";
+import {
+  ChevronRight,
+  Contact,
+  Files,
+  Hammer,
+  HardHat,
+  Sparkles,
+  Store,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { AvatarSurface } from "@/components/features/avatar-surface";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
@@ -74,11 +84,24 @@ export default async function SettingsPage() {
             {/* Master data — PM/super */}
             <div className="flex flex-col gap-2">
               <h2 className="text-meta text-ink-secondary font-semibold">ข้อมูลหลัก</h2>
+              {/* Spec 99: ติดต่อ split into three group screens. */}
               <SettingsLink
-                href="/contacts"
-                icon={Contact}
-                label="ติดต่อ"
-                hint="ลูกค้า · ผู้ขาย · ผู้รับเหมา · ผู้ให้บริการ"
+                href="/contacts/customers"
+                icon={Users}
+                label="ลูกค้า"
+                hint="เจ้าของโครงการ"
+              />
+              <SettingsLink
+                href="/contacts/vendors"
+                icon={Store}
+                label="ผู้ขาย/ผู้ให้บริการ"
+                hint="ผู้ขายวัสดุ · ผู้ให้บริการ"
+              />
+              <SettingsLink
+                href="/contacts/crews"
+                icon={Hammer}
+                label="ผู้รับเหมา/DC"
+                hint="ผู้รับเหมา · ทีมแรงงาน DC"
               />
               <SettingsLink href="/workers" icon={HardHat} label="คนงาน" hint="ทะเบียนคนงาน DC" />
             </div>

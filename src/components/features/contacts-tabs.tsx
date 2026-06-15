@@ -1,16 +1,23 @@
 "use client";
 
-// Spec 87 — Contacts v2 list-first shell. Five RadioChip tabs
-// (ลูกค้า/ผู้ขาย/ผู้รับเหมา/DC/ผู้ให้บริการ). ผู้รับเหมา and DC are the ONE
-// contractors table split by contractor_category. Each tab is a list with an
-// Add button that opens the form in a BottomSheet (spec 78); status rows carry
-// a chip and a status sub-filter. Actions are injected per tab (the tab sets
-// the category for contractor/dc creates).
+// Spec 87 — Contacts v2 list-first shell. Spec 99 split the five types into
+// three GROUP screens (customers / vendors / crews, see lib/contacts/groups);
+// this shell renders one group's tabs (ผู้รับเหมา and DC are the ONE contractors
+// table split by contractor_category). Each tab is a list with an Add button
+// that opens the form in a BottomSheet (spec 78); statused tabs (contractor/dc/
+// service) carry a chip and a status sub-filter. Actions are injected per tab
+// (the tab sets the category for contractor/dc creates).
 //
 // 'use client' justification: tab + status-filter state; binding the actions.
 
 import { useMemo, useState } from "react";
 import { RadioChip } from "@/components/features/radio-chip";
+import {
+  CONTACT_GROUP_TABS,
+  STATUS_TABS,
+  type ContactGroup,
+  type ContactTab,
+} from "@/lib/contacts/groups";
 import {
   RecordManager,
   type RecordBadge,
@@ -251,15 +258,14 @@ function statusBadge(row: RecordRow): RecordBadge | null {
   return null;
 }
 
-type Tab = "clients" | "suppliers" | "contractors" | "dc" | "service";
-
-const TABS = [
-  { value: "clients", label: "ลูกค้า" },
-  { value: "suppliers", label: "ผู้ขาย" },
-  { value: "contractors", label: "ผู้รับเหมา" },
-  { value: "dc", label: "DC" },
-  { value: "service", label: "ผู้ให้บริการ" },
-] as const;
+// Spec 99: the menu name is the group; the tab list comes from CONTACT_GROUP_TABS.
+const TAB_LABEL: Record<ContactTab, string> = {
+  clients: "ลูกค้า",
+  suppliers: "ผู้ขาย",
+  service: "ผู้ให้บริการ",
+  contractors: "ผู้รับเหมา",
+  dc: "DC",
+};
 
 const STATUS_FILTER = [
   { value: "all", label: "ทั้งหมด" },
@@ -269,22 +275,26 @@ const STATUS_FILTER = [
 ] as const;
 
 export function ContactsTabs({
-  clients,
-  suppliers,
-  contractors,
-  dc,
-  serviceProviders,
+  group,
+  clients = [],
+  suppliers = [],
+  contractors = [],
+  dc = [],
+  serviceProviders = [],
 }: {
-  clients: RecordRow[];
-  suppliers: RecordRow[];
-  contractors: RecordRow[];
-  dc: RecordRow[];
-  serviceProviders: RecordRow[];
+  group: ContactGroup;
+  clients?: RecordRow[];
+  suppliers?: RecordRow[];
+  contractors?: RecordRow[];
+  dc?: RecordRow[];
+  serviceProviders?: RecordRow[];
 }) {
-  const [tab, setTab] = useState<Tab>("clients");
+  // Spec 99: one screen per group; a single-tab group renders no chip row.
+  const tabs = CONTACT_GROUP_TABS[group];
+  const [tab, setTab] = useState<ContactTab>(() => tabs[0] ?? "clients");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const hasStatus = tab === "contractors" || tab === "dc" || tab === "service";
+  const hasStatus = STATUS_TABS.has(tab);
   const sourceRows =
     tab === "clients"
       ? clients
@@ -306,17 +316,19 @@ export function ContactsTabs({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="ประเภทผู้ติดต่อ">
-        {TABS.map((t) => (
-          <RadioChip
-            key={t.value}
-            name="contact-tab"
-            label={t.label}
-            checked={tab === t.value}
-            onSelect={() => setTab(t.value)}
-          />
-        ))}
-      </div>
+      {tabs.length > 1 ? (
+        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="ประเภทผู้ติดต่อ">
+          {tabs.map((t) => (
+            <RadioChip
+              key={t}
+              name="contact-tab"
+              label={TAB_LABEL[t]}
+              checked={tab === t}
+              onSelect={() => setTab(t)}
+            />
+          ))}
+        </div>
+      ) : null}
 
       {hasStatus ? (
         <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="กรองตามสถานะ">

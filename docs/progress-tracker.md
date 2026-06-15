@@ -583,3 +583,29 @@ gamification — learning/growth/fun, less about work." Nova (โนวา — a
 breakthrough) won on pronunciation + cool + non-ego growth metaphor. Icon TrendingUp → Sparkles;
 subtitle "เรียนรู้ เติบโต เลเวลอัพ". Code + spec 98 + site-map updated. Brand is elastic — holds
 streaks/quests/levels later with no rename.
+
+## Spec 99 — Split Contacts into three groups (2026-06-15, SHIPPED, code-only)
+
+Operator: "ติดต่อ is quite packed, do you think it's better to separate out clients and suppliers?"
+The old /contacts crammed FIVE tabs (ลูกค้า/ผู้ขาย/ผู้รับเหมา/DC/ผู้ให้บริการ) into one screen, with the
+status filter showing on only three of them = packed + inconsistent. AskUserQuestion → operator chose
+**three groups** (over "crews vs business orgs" two-way or "clients-only"): ลูกค้า | ผู้ขาย+ผู้ให้บริการ
+(vendors you pay) | ผู้รับเหมา+DC (labor crews). Placement = three entries under ตั้งค่า › ข้อมูลหลัก,
+NO new bottom-bar tabs (preserves the spec-93 declutter). **SHIPPED (no DB):** (a) NEW pure
+`src/lib/contacts/groups.ts` — `ContactGroup` (customers/vendors/crews), `ContactTab`,
+`CONTACT_GROUP_TABS` (group→ordered tabs), `STATUS_TABS` (contractors/dc/service). The testable seam.
+(b) `contacts-tabs.tsx` parametrized with a `group` prop (row arrays now optional; chip row hidden for
+a single-tab group; status filter via STATUS_TABS). (c) THREE routes — `app/contacts/{customers,
+vendors,crews}/page.tsx`, each fetching only its tables + rendering `<ContactsTabs group=…>`;
+`app/contacts/page.tsx` → `redirect("/contacts/customers")`. Detail route `/contacts/[type]/[id]`
+unchanged (group segments customers/vendors/crews ≠ the type values → no collision; build confirmed).
+(d) `settings/page.tsx` — the single ติดต่อ row became three: ลูกค้า (Users) · ผู้ขาย/ผู้ให้บริการ
+(Store) · ผู้รับเหมา/DC (Hammer); คนงาน (HardHat) unchanged. **Tests (TDD):** new contacts-groups.test
+(RED→GREEN, pins CONTACT_GROUP_TABS + STATUS_TABS); nav-back-affordance.test (spec 63 living nav doc)
+updated — the 3 group pages are drill-downs w/ DetailHeader→/settings, bare /contacts EXCLUDED
+(redirect). 754 unit / lint / typecheck / next build green. Spec:
+docs/feature-specs/99-contacts-split-groups.md; site-map updated (nav-change contract). **WRINKLE
+(accepted):** ผู้ให้บริการ carries status but sits in vendors → status filter shows on that one tab.
+**SEAMS:** menu naming operator-tweakable; service-into-crews if strict status seam wanted; the inline
+SA contractor quick-add (spec 31) still doesn't reach /contacts/crews. Acceptance = operator phone
+(PM-gated; preview only renders /login).

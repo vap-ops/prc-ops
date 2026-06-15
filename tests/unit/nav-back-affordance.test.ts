@@ -33,9 +33,18 @@ const hasDynamicSegment = (route: string) => /\[[^\]]+\]/.test(route);
 const reads = (abs: string) => readFileSync(abs, "utf8");
 
 // DETAIL: any dynamic-segment page (entity detail, drilled down from a hub)
-// PLUS the four /settings sub-pages folded under /settings by spec 93 —
-// static drill-downs that must carry a back chip to /settings.
-const STATIC_DETAIL = ["profile", "contacts", "workers", "payroll"].map((r) => `${r}/page.tsx`);
+// PLUS the static drill-downs folded under /settings — each carries a back chip
+// to /settings. Spec 93 added profile/workers/payroll; spec 99 split contacts
+// into three group screens (customers/vendors/crews); bare /contacts is now a
+// redirect (EXCLUDED below).
+const STATIC_DETAIL = [
+  "profile",
+  "workers",
+  "payroll",
+  "contacts/customers",
+  "contacts/vendors",
+  "contacts/crews",
+].map((r) => `${r}/page.tsx`);
 const dynamicDetail = allPages.map(routeOf).filter(hasDynamicSegment);
 const DETAIL_ROUTES = [...dynamicDetail, ...STATIC_DETAIL];
 
@@ -46,8 +55,8 @@ const NON_DETAIL_ROUTES = ["review", "projects", "settings", "requests"].map(
 );
 
 // EXCLUDED: bespoke layouts that use neither header — the root dispatcher,
-// login, and coming-soon.
-const EXCLUDED_ROUTES = ["page.tsx", "login/page.tsx", "coming-soon/page.tsx"];
+// login, coming-soon, and the bare /contacts redirect (spec 99).
+const EXCLUDED_ROUTES = ["page.tsx", "login/page.tsx", "coming-soon/page.tsx", "contacts/page.tsx"];
 
 describe("nav back-affordance (spec 63)", () => {
   it.each(DETAIL_ROUTES)("drill-down route %s renders DetailHeader", (route) => {

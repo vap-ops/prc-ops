@@ -93,10 +93,14 @@ controls, and its WP reference is plain text (the WP detail route bounces it).
 
 ## Other
 
-| Route       | Gate     | Notes                                                                                                                                                                                                                      |
-| ----------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/workers`  | pm/super | labor roster (spec 46). **No nav entry yet** — reachable by URL only; recorded seam.                                                                                                                                       |
-| `/contacts` | pm/super | contacts management (spec 81; spec 82 Unit 4 route): clients / suppliers / contractors via a segmented control; add + per-row edit + note. In the desktop PM HubNav (รายชื่อติดต่อ) AND the phone bottom-tab bar (ติดต่อ). |
+| Route                   | Gate     | Notes                                                                                                                                                                                      |
+| ----------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/workers`              | pm/super | labor roster (spec 46). **No nav entry yet** — reachable by URL only; recorded seam.                                                                                                       |
+| `/contacts`             | session  | redirect → `/contacts/customers` (spec 99 — keeps old links + the bottom-bar match alive).                                                                                                 |
+| `/contacts/customers`   | pm/super | ลูกค้า (clients). Spec 99 group. Reached from ตั้งค่า › ข้อมูลหลัก; back chip → /settings.                                                                                                 |
+| `/contacts/vendors`     | pm/super | ผู้ขาย + ผู้ให้บริการ (suppliers + service). Spec 99 group; status filter on the service tab only. Back → /settings.                                                                       |
+| `/contacts/crews`       | pm/super | ผู้รับเหมา + DC (the one contractors table split by category). Spec 99 group; status filter both tabs. Back → /settings.                                                                   |
+| `/contacts/[type]/[id]` | pm/super | contact detail (clients/suppliers/contractors/service-providers): read-only fields + money-isolated bank + documents + crew (specs 81–97). Reached from a group list row; back → its list. |
 
 ## Known seams (recorded, not defects)
 
