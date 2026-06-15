@@ -35,6 +35,7 @@ import { SECTION_HEADING } from "@/lib/ui/classes";
 
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { comparePendingRequests } from "@/lib/purchasing/pending-order";
+import { groupByProcurementBand } from "@/lib/purchasing/procurement-pipeline";
 import { PurchaseRequestCard } from "@/components/features/purchase-request-card";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 
@@ -166,6 +167,46 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     .in("id", wpIdsInRequests);
   const wpById = new Map((wpForRequests ?? []).map((wp) => [wp.id, wp]));
 
+  // Spec 104: procurement sees the worklist as a buyer's PIPELINE (รอสั่งซื้อ →
+  // กำลังจัดส่ง → ได้รับแล้ว → รออนุมัติ); other roles keep the flat pending-first list.
+  const isProcurement = ctx.role === "procurement";
+  const procurementGroups = isProcurement ? groupByProcurementBand(myRequests) : [];
+
+  type RequestRow = (typeof myRequests)[number];
+  const cardFor = (r: RequestRow) => {
+    const wp = wpById.get(r.work_package_id);
+    // Spec 47: a slim tappable summary linking to /requests/[id].
+    return (
+      <li key={r.id}>
+        <PurchaseRequestCard
+          request={{
+            id: r.id,
+            pr_number: r.pr_number,
+            item_description: r.item_description,
+            quantity: r.quantity,
+            unit: r.unit,
+            status: r.status,
+            priority: r.priority,
+            requested_at: r.requested_at,
+            needed_by: r.needed_by,
+            decided_at: r.decided_at,
+            purchased_at: r.purchased_at,
+            shipped_at: r.shipped_at,
+            delivered_at: r.delivered_at,
+            eta: r.eta,
+          }}
+          workPackage={wp ? { code: wp.code, name: wp.name } : null}
+          requesterName={
+            (r.requested_by ? requesterNames.get(r.requested_by) : null) ??
+            r.requested_by_email ??
+            null
+          }
+          isMine={r.requested_by === ctx.id}
+        />
+      </li>
+    );
+  };
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -224,72 +265,74 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                 site's requests; the chip narrows back to their own. A live
                 pinned WP survives the toggle (chips are a filter, not
                 navigation — the form and spec-12 back-bar stay mounted). */}
-            <div className="flex gap-1 text-xs">
-              <Link
-                href={pinnedWp ? `/requests?wp=${pinnedWp.id}` : "/requests"}
-                aria-current={!mineOnly ? "true" : undefined}
-                className={`focus-visible:ring-action inline-flex min-h-11 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 active:translate-y-px ${
-                  !mineOnly
-                    ? "border-fill bg-fill text-on-fill font-semibold"
-                    : "border-edge-strong bg-card text-ink-secondary hover:bg-sunk"
-                }`}
-              >
-                ทั้งหมด
-              </Link>
-              <Link
-                href={pinnedWp ? `/requests?wp=${pinnedWp.id}&mine=1` : "/requests?mine=1"}
-                aria-current={mineOnly ? "true" : undefined}
-                className={`focus-visible:ring-action inline-flex min-h-11 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 active:translate-y-px ${
-                  mineOnly
-                    ? "border-fill bg-fill text-on-fill font-semibold"
-                    : "border-edge-strong bg-card text-ink-secondary hover:bg-sunk"
-                }`}
-              >
-                ของฉัน
-              </Link>
-            </div>
+            {/* Spec 104: the ของฉัน filter is meaningless for procurement
+                (it never owns a request) — hidden. */}
+            {!isProcurement ? (
+              <div className="flex gap-1 text-xs">
+                <Link
+                  href={pinnedWp ? `/requests?wp=${pinnedWp.id}` : "/requests"}
+                  aria-current={!mineOnly ? "true" : undefined}
+                  className={`focus-visible:ring-action inline-flex min-h-11 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 active:translate-y-px ${
+                    !mineOnly
+                      ? "border-fill bg-fill text-on-fill font-semibold"
+                      : "border-edge-strong bg-card text-ink-secondary hover:bg-sunk"
+                  }`}
+                >
+                  ทั้งหมด
+                </Link>
+                <Link
+                  href={pinnedWp ? `/requests?wp=${pinnedWp.id}&mine=1` : "/requests?mine=1"}
+                  aria-current={mineOnly ? "true" : undefined}
+                  className={`focus-visible:ring-action inline-flex min-h-11 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 active:translate-y-px ${
+                    mineOnly
+                      ? "border-fill bg-fill text-on-fill font-semibold"
+                      : "border-edge-strong bg-card text-ink-secondary hover:bg-sunk"
+                  }`}
+                >
+                  ของฉัน
+                </Link>
+              </div>
+            ) : null}
           </div>
           {myError ? (
             <ErrorNotice>โหลดรายการคำขอซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</ErrorNotice>
+          ) : isProcurement ? (
+            // Spec 104: buyer's pipeline — รอสั่งซื้อ first (the actionable band),
+            // then in-transit / received / awaiting-approval.
+            procurementGroups.length === 0 ? (
+              <EmptyNotice>ยังไม่มีคำขอซื้อ</EmptyNotice>
+            ) : (
+              <div className="flex flex-col gap-6">
+                {procurementGroups.map(({ meta, items }) => (
+                  <section key={meta.band} className="flex flex-col gap-2.5">
+                    <div className="flex items-center gap-2">
+                      <h3
+                        className={`text-section font-extrabold ${
+                          meta.hot ? "text-attn-ink" : "text-ink"
+                        }`}
+                      >
+                        {meta.label}
+                      </h3>
+                      <span
+                        className={`text-meta inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 font-extrabold ${
+                          meta.hot ? "bg-attn text-on-attn" : "bg-sunk text-ink-secondary"
+                        }`}
+                      >
+                        {items.length}
+                      </span>
+                    </div>
+                    <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
+                      {items.map(cardFor)}
+                    </ul>
+                  </section>
+                ))}
+              </div>
+            )
           ) : myRequests.length === 0 ? (
             <EmptyNotice>{mineOnly ? "คุณยังไม่เคยสร้างคำขอซื้อ" : "ยังไม่มีคำขอซื้อ"}</EmptyNotice>
           ) : (
             <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
-              {myRequests.map((r) => {
-                const wp = wpById.get(r.work_package_id);
-                // Spec 47: the card is a slim tappable summary linking to
-                // /requests/[id] — facts and actions live on the detail
-                // screen now.
-                return (
-                  <li key={r.id}>
-                    <PurchaseRequestCard
-                      request={{
-                        id: r.id,
-                        pr_number: r.pr_number,
-                        item_description: r.item_description,
-                        quantity: r.quantity,
-                        unit: r.unit,
-                        status: r.status,
-                        priority: r.priority,
-                        requested_at: r.requested_at,
-                        needed_by: r.needed_by,
-                        decided_at: r.decided_at,
-                        purchased_at: r.purchased_at,
-                        shipped_at: r.shipped_at,
-                        delivered_at: r.delivered_at,
-                        eta: r.eta,
-                      }}
-                      workPackage={wp ? { code: wp.code, name: wp.name } : null}
-                      requesterName={
-                        (r.requested_by ? requesterNames.get(r.requested_by) : null) ??
-                        r.requested_by_email ??
-                        null
-                      }
-                      isMine={r.requested_by === ctx.id}
-                    />
-                  </li>
-                );
-              })}
+              {myRequests.map(cardFor)}
             </ul>
           )}
           {myRequests && myRequests.length > 0 ? (

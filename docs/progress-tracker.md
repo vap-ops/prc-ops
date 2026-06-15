@@ -713,3 +713,23 @@ site purchase) — dashboard material spend still "counted where priced"; making
 workflow decision. Acceptance = operator phone (record a site purchase with a price → it shows in
 dashboard spend). NEXT candidates: make amount required (complete material spend), billing งวดงาน
 (operator-decision-blocked), backup/restore drill, app-feel motion.
+
+## Spec 104 — Procurement worklist as a buyer's pipeline (2026-06-15, SHIPPED, code-only)
+
+Operator design Q "what should the procurement UX comprise" → I framed procurement as a PIPELINE
+operator (approved→order→track→receive) → operator picked "build the pipeline worklist" (#1). App-only,
+no DB. **SHIPPED:** pure `src/lib/purchasing/procurement-pipeline.ts` — procurementBand(status):
+approved→to_order, purchased/on_route→in_transit, delivered/site_purchased→received,
+requested→awaiting_approval, rejected/cancelled→null; PROCUREMENT_BANDS (to_order is the one hot band)
+
+- groupByProcurementBand (band order, drops empty/unbanded, preserves input order). /requests page: for
+  ctx.role==="procurement" the list renders as banded sections (รอสั่งซื้อ hot/amber first, then
+  กำลังจัดส่ง/ได้รับแล้ว/รออนุมัติ) instead of the flat pending-first list; extracted a shared cardFor(r)
+  closure so flat (PM/SA) + banded (procurement) render identical cards — PM/SA OUTPUT UNCHANGED; ของฉัน
+  filter hidden for procurement (never owns a request); no data-fetch/RLS change. Tests:
+  procurement-pipeline.test (status→band, exclusions, hot, grouping). 772 unit / lint / typecheck / build
+  green. Spec: docs/feature-specs/104-procurement-pipeline-worklist.md. SEAMS: filing-gap band
+  (รอแนบใบเสร็จ = delivered-but-no-invoice) deferred (needs an attachment-presence query); FIFO order
+  within to_order; the rest of the procurement-UX vision still open — buyer overview (pipeline counts +
+  overdue ETAs + outstanding PO ฿), per-supplier open-POs + spend, price history. Acceptance =
+  procurement-user phone (worklist shows รอสั่งซื้อ first).

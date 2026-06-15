@@ -106,6 +106,7 @@ for reading the spec itself.
 | 101  | Procurement depth U1: suppliers screen (inline) + desktop nav             |
 | 102  | Procurement depth U2: read-only project visibility (projects SELECT)      |
 | 103  | Capture the on-site purchase amount (record_site_purchase + p_amount)     |
+| 104  | Procurement worklist as a buyer's pipeline (band-ordered /requests)       |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.
