@@ -44,6 +44,7 @@ import {
 import { bangkokTodayISO } from "@/lib/work-packages/schedule-today";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { PurchaseRequestCard } from "@/components/features/purchase-request-card";
+import { ProcurementGrid } from "@/components/features/procurement-grid";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 
 // Spec 19 §4: the single purchasing surface for every role. The list is
@@ -181,22 +182,26 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // Spec 105: buyer's summary strip (workload + overdue ETAs).
   const buyerSummary = isProcurement ? procurementSummary(myRequests, bangkokTodayISO()) : null;
 
-  // Spec 106: outstanding = ฿ committed on in-transit POs, not yet received.
-  // amount is money → admin read, gated to procurement (back-office, it enters
-  // the amounts). Never runs for SA/PM here (this is the procurement branch).
+  // Spec 106/108: amount is money → ONE admin read of all visible rows' amounts
+  // (gated to procurement — back-office, it enters them; never runs for SA/PM
+  // here). Feeds the ค้างจ่าย tile + the desktop grid's จำนวนเงิน column.
+  const amountById = new Map<string, number | null>();
   let outstanding = 0;
-  if (isProcurement) {
-    const inTransitIds = myRequests
-      .filter((r) => procurementBand(r.status) === "in_transit")
-      .map((r) => r.id);
-    if (inTransitIds.length > 0) {
-      const admin = createAdminSupabase();
-      const { data: amountRows } = await admin
-        .from("purchase_requests")
-        .select("amount")
-        .in("id", inTransitIds);
-      outstanding = sumOutstanding(amountRows ?? []);
-    }
+  if (isProcurement && myRequests.length > 0) {
+    const admin = createAdminSupabase();
+    const { data: amountRows } = await admin
+      .from("purchase_requests")
+      .select("id, amount")
+      .in(
+        "id",
+        myRequests.map((r) => r.id),
+      );
+    for (const a of amountRows ?? []) amountById.set(a.id, a.amount);
+    outstanding = sumOutstanding(
+      myRequests
+        .filter((r) => procurementBand(r.status) === "in_transit")
+        .map((r) => ({ amount: amountById.get(r.id) ?? null })),
+    );
   }
 
   type RequestRow = (typeof myRequests)[number];
@@ -346,29 +351,40 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
               {procurementGroups.length === 0 ? (
                 <EmptyNotice>ยังไม่มีคำขอซื้อ</EmptyNotice>
               ) : (
-                procurementGroups.map(({ meta, items }) => (
-                  <section key={meta.band} className="flex flex-col gap-2.5">
-                    <div className="flex items-center gap-2">
-                      <h3
-                        className={`text-section font-extrabold ${
-                          meta.hot ? "text-attn-ink" : "text-ink"
-                        }`}
-                      >
-                        {meta.label}
-                      </h3>
-                      <span
-                        className={`text-meta inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 font-extrabold ${
-                          meta.hot ? "bg-attn text-on-attn" : "bg-sunk text-ink-secondary"
-                        }`}
-                      >
-                        {items.length}
-                      </span>
-                    </div>
-                    <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
-                      {items.map(cardFor)}
-                    </ul>
-                  </section>
-                ))
+                <>
+                  {/* Spec 104: card pipeline on phone. */}
+                  <div className="flex flex-col gap-6 lg:hidden">
+                    {procurementGroups.map(({ meta, items }) => (
+                      <section key={meta.band} className="flex flex-col gap-2.5">
+                        <div className="flex items-center gap-2">
+                          <h3
+                            className={`text-section font-extrabold ${
+                              meta.hot ? "text-attn-ink" : "text-ink"
+                            }`}
+                          >
+                            {meta.label}
+                          </h3>
+                          <span
+                            className={`text-meta inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 font-extrabold ${
+                              meta.hot ? "bg-attn text-on-attn" : "bg-sunk text-ink-secondary"
+                            }`}
+                          >
+                            {items.length}
+                          </span>
+                        </div>
+                        <ul className="flex flex-col gap-2">{items.map(cardFor)}</ul>
+                      </section>
+                    ))}
+                  </div>
+                  {/* Spec 108: dense grid worklist on tablet/desktop. */}
+                  <div className="hidden lg:block">
+                    <ProcurementGrid
+                      groups={procurementGroups}
+                      wpName={(id) => wpById.get(id)?.name ?? null}
+                      amount={(id) => amountById.get(id) ?? null}
+                    />
+                  </div>
+                </>
               )}
             </div>
           ) : myRequests.length === 0 ? (

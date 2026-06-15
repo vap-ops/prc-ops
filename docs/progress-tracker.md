@@ -783,3 +783,21 @@ JS-aggregation (SQL group-by = scale refinement); PM/super no chip; price-histor
 (workload/overdue/outstanding-฿) + suppliers master w/ spend chips + read-only projects + price capture
 (record_purchase + site). Remaining ideas only: price-history, filing-gap band, managers' supplier
 spend, partial deliveries/line items. Session total: specs 98–107 (10 specs), 3 prod migrations.
+
+## Spec 108 — Procurement desktop grid worklist (2026-06-15, SHIPPED, code-only)
+
+Operator: "record review on tablets/PC — purchase team uses bigger screens." → I confirmed it already
+works responsively (pages widen to 6xl/7xl, HubNav on desktop) but is phone-first → researched
+**Airtable** (WebSearch/WebFetch: grid view + **sidesheet** expand w/ prev/next + grouped/side-by-side
+record detail) → built a desktop mockup (grid + click-to-expand sidesheet) via the visualize tool →
+operator approved "build it phased." **Phase 1 (this) = the grid; phase 2 (spec 109) = the sidesheet.**
+App-only, no DB. NEW `components/features/procurement-grid.tsx` (presentational server): dense table
+grouped by band (spec 104), cols รายการ(item+PR#+WP) · ผู้ขาย · สถานะ/ETA · จำนวนเงิน; item cell →
+/requests/[id]; reuses purchaseRequestStatusPillClasses + PURCHASE_REQUEST_STATUS_LABEL. /requests:
+procurement responsive split — cards on phone (lg:hidden), grid on tablet/PC (hidden lg:block), summary
+strip above both. Amount admin read widened to ALL visible rows → amountById map (one read,
+procurement-gated) feeding the grid จำนวนเงิน + the ค้างจ่าย tile. Money posture unchanged (admin read
+gated to isProcurement; no authenticated grant). Presentational → checklist; pure helpers already
+tested. 780 unit / lint / typecheck / build green. Spec: docs/feature-specs/108-procurement-desktop-
+grid.md. NEXT (phase 2, spec 109): row → sidesheet drawer (record detail + action zones + prev/next),
+the Airtable expand. Session: specs 98–108 (11), 3 migrations.
