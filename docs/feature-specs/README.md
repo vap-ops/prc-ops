@@ -107,6 +107,7 @@ for reading the spec itself.
 | 102  | Procurement depth U2: read-only project visibility (projects SELECT)      |
 | 103  | Capture the on-site purchase amount (record_site_purchase + p_amount)     |
 | 104  | Procurement worklist as a buyer's pipeline (band-ordered /requests)       |
+| 105  | Procurement buyer summary strip (to-order · in-transit · overdue)         |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

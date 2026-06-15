@@ -733,3 +733,19 @@ requested→awaiting_approval, rejected/cancelled→null; PROCUREMENT_BANDS (to_
   within to_order; the rest of the procurement-UX vision still open — buyer overview (pipeline counts +
   overdue ETAs + outstanding PO ฿), per-supplier open-POs + spend, price history. Acceptance =
   procurement-user phone (worklist shows รอสั่งซื้อ first).
+
+## Spec 105 — Procurement buyer summary strip (2026-06-15, SHIPPED, code-only)
+
+"Go on" → procurement-UX vision #2 (buyer overview), realized as a SUMMARY STRIP on the worklist (not a
+separate screen — one glance: workload + slipping, then the work). App-only, no DB. `procurement-
+pipeline.ts` +procurementSummary(rows, todayIso) → {toOrder (approved), inTransit (purchased/on_route),
+overdue (in-transit with eta<today)}. /requests: for procurement a 3-tile strip above the bands —
+รอสั่งซื้อ (hot/amber) · กำลังจัดส่ง · เกินกำหนด (red when >0), computed from already-fetched rows +
+bangkokTodayISO() (reused from schedule-today.ts); small BuyerStat tile. No new data/RLS. **Money
+deliberately excluded:** outstanding-PO ฿ needs an admin amount read (amount = money, not in list
+columns) → recorded seam; counts+overdue come from status+eta (already readable). Tests:
+procurement-pipeline.test +procurementSummary (counts, overdue, eta==today not overdue, empty). 775
+unit / lint / typecheck / build green. Spec: docs/feature-specs/105-procurement-buyer-summary.md.
+Procurement UX now: pipeline worklist (104) + buyer summary (105). REMAINING vision: outstanding-฿
+tile (admin read), per-supplier open-POs + spend, price history, filing-gap band. Acceptance =
+procurement-user phone (strip atop คำขอซื้อ).

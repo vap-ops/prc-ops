@@ -40,6 +40,37 @@ export function procurementBand(status: string): ProcurementBand | null {
   }
 }
 
+// Spec 105: the buyer's at-a-glance summary — workload + what's slipping.
+export interface ProcurementSummary {
+  /** approved, awaiting purchase (the actionable count). */
+  toOrder: number;
+  /** purchased / on_route, awaiting delivery. */
+  inTransit: number;
+  /** in-transit rows whose ETA is past today (late deliveries to chase). */
+  overdue: number;
+}
+
+// todayIso = Bangkok civil date "YYYY-MM-DD"; eta is a date string or null.
+// String compare is correct for zero-padded ISO dates.
+export function procurementSummary(
+  rows: ReadonlyArray<{ status: string; eta: string | null }>,
+  todayIso: string,
+): ProcurementSummary {
+  let toOrder = 0;
+  let inTransit = 0;
+  let overdue = 0;
+  for (const r of rows) {
+    const band = procurementBand(r.status);
+    if (band === "to_order") {
+      toOrder += 1;
+    } else if (band === "in_transit") {
+      inTransit += 1;
+      if (r.eta !== null && r.eta < todayIso) overdue += 1;
+    }
+  }
+  return { toOrder, inTransit, overdue };
+}
+
 // Group rows into bands, in PROCUREMENT_BANDS order, dropping empty bands and
 // rows with no band. Within-band order is preserved from the input.
 export function groupByProcurementBand<T extends { status: string }>(

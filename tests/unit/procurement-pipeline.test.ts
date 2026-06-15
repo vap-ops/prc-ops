@@ -5,6 +5,7 @@ import {
   PROCUREMENT_BANDS,
   procurementBand,
   groupByProcurementBand,
+  procurementSummary,
 } from "@/lib/purchasing/procurement-pipeline";
 
 describe("procurementBand", () => {
@@ -53,5 +54,34 @@ describe("groupByProcurementBand", () => {
 
   it("empty input → no groups", () => {
     expect(groupByProcurementBand([])).toEqual([]);
+  });
+});
+
+describe("procurementSummary", () => {
+  const TODAY = "2026-06-15";
+
+  it("counts to-order + in-transit and flags overdue in-transit ETAs", () => {
+    const s = procurementSummary(
+      [
+        { status: "approved", eta: null },
+        { status: "approved", eta: null },
+        { status: "purchased", eta: "2026-06-10" }, // overdue
+        { status: "on_route", eta: "2026-06-20" }, // future, not overdue
+        { status: "on_route", eta: null }, // in transit, no eta
+        { status: "delivered", eta: "2026-06-01" }, // received — not counted
+        { status: "requested", eta: null }, // awaiting approval — not counted
+        { status: "cancelled", eta: "2026-06-01" }, // excluded
+      ],
+      TODAY,
+    );
+    expect(s).toEqual({ toOrder: 2, inTransit: 3, overdue: 1 });
+  });
+
+  it("an ETA equal to today is not overdue", () => {
+    expect(procurementSummary([{ status: "on_route", eta: TODAY }], TODAY).overdue).toBe(0);
+  });
+
+  it("empty → zeros", () => {
+    expect(procurementSummary([], TODAY)).toEqual({ toOrder: 0, inTransit: 0, overdue: 0 });
   });
 });

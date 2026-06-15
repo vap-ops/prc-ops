@@ -35,7 +35,8 @@ import { SECTION_HEADING } from "@/lib/ui/classes";
 
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { comparePendingRequests } from "@/lib/purchasing/pending-order";
-import { groupByProcurementBand } from "@/lib/purchasing/procurement-pipeline";
+import { groupByProcurementBand, procurementSummary } from "@/lib/purchasing/procurement-pipeline";
+import { bangkokTodayISO } from "@/lib/work-packages/schedule-today";
 import { PurchaseRequestCard } from "@/components/features/purchase-request-card";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 
@@ -171,6 +172,8 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // กำลังจัดส่ง → ได้รับแล้ว → รออนุมัติ); other roles keep the flat pending-first list.
   const isProcurement = ctx.role === "procurement";
   const procurementGroups = isProcurement ? groupByProcurementBand(myRequests) : [];
+  // Spec 105: buyer's summary strip (workload + overdue ETAs).
+  const buyerSummary = isProcurement ? procurementSummary(myRequests, bangkokTodayISO()) : null;
 
   type RequestRow = (typeof myRequests)[number];
   const cardFor = (r: RequestRow) => {
@@ -297,13 +300,23 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
           {myError ? (
             <ErrorNotice>โหลดรายการคำขอซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</ErrorNotice>
           ) : isProcurement ? (
-            // Spec 104: buyer's pipeline — รอสั่งซื้อ first (the actionable band),
-            // then in-transit / received / awaiting-approval.
-            procurementGroups.length === 0 ? (
-              <EmptyNotice>ยังไม่มีคำขอซื้อ</EmptyNotice>
-            ) : (
-              <div className="flex flex-col gap-6">
-                {procurementGroups.map(({ meta, items }) => (
+            // Spec 104/105: buyer's pipeline + summary strip (workload + overdue).
+            <div className="flex flex-col gap-6">
+              {buyerSummary ? (
+                <div className="grid grid-cols-3 gap-2">
+                  <BuyerStat label="รอสั่งซื้อ" value={buyerSummary.toOrder} tone="hot" />
+                  <BuyerStat label="กำลังจัดส่ง" value={buyerSummary.inTransit} tone="neutral" />
+                  <BuyerStat
+                    label="เกินกำหนด"
+                    value={buyerSummary.overdue}
+                    tone={buyerSummary.overdue > 0 ? "danger" : "neutral"}
+                  />
+                </div>
+              ) : null}
+              {procurementGroups.length === 0 ? (
+                <EmptyNotice>ยังไม่มีคำขอซื้อ</EmptyNotice>
+              ) : (
+                procurementGroups.map(({ meta, items }) => (
                   <section key={meta.band} className="flex flex-col gap-2.5">
                     <div className="flex items-center gap-2">
                       <h3
@@ -325,9 +338,9 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                       {items.map(cardFor)}
                     </ul>
                   </section>
-                ))}
-              </div>
-            )
+                ))
+              )}
+            </div>
           ) : myRequests.length === 0 ? (
             <EmptyNotice>{mineOnly ? "คุณยังไม่เคยสร้างคำขอซื้อ" : "ยังไม่มีคำขอซื้อ"}</EmptyNotice>
           ) : (
@@ -347,5 +360,32 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         </div>
       </section>
     </PageShell>
+  );
+}
+
+// Spec 105: a buyer-summary stat tile. hot = the actionable รอสั่งซื้อ band;
+// danger = overdue ETAs need chasing; neutral otherwise.
+function BuyerStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "hot" | "danger" | "neutral";
+}) {
+  const toneClass =
+    tone === "hot"
+      ? "border-attn-press bg-attn text-on-attn"
+      : tone === "danger"
+        ? "border-danger-edge bg-danger-soft text-danger-ink"
+        : "border-edge bg-card text-ink";
+  return (
+    <div
+      className={`rounded-card flex min-h-[68px] flex-col items-start justify-center border-[1.5px] px-3 py-2 ${toneClass}`}
+    >
+      <span className="text-2xl leading-none font-extrabold">{value}</span>
+      <span className="text-meta mt-1 font-bold">{label}</span>
+    </div>
   );
 }
