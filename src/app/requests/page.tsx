@@ -44,7 +44,10 @@ import {
 import { bangkokTodayISO } from "@/lib/work-packages/schedule-today";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { PurchaseRequestCard } from "@/components/features/purchase-request-card";
-import { ProcurementGrid } from "@/components/features/procurement-grid";
+import {
+  ProcurementGrid,
+  type ProcurementGridRecord,
+} from "@/components/features/procurement-grid";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 
 // Spec 19 §4: the single purchasing surface for every role. The list is
@@ -203,6 +206,37 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         .map((r) => ({ amount: amountById.get(r.id) ?? null })),
     );
   }
+
+  // Spec 109: the desktop grid + its review drawer is a client component, so the
+  // page bakes wp name/code + amount into serializable records (a client boundary
+  // can't take server-closure functions). Procurement-only, mirroring the bands.
+  const gridGroups = procurementGroups.map(({ meta, items }) => ({
+    meta,
+    items: items.map((r): ProcurementGridRecord => {
+      const wp = wpById.get(r.work_package_id);
+      return {
+        id: r.id,
+        pr_number: r.pr_number,
+        item_description: r.item_description,
+        status: r.status,
+        priority: r.priority,
+        quantity: r.quantity,
+        unit: r.unit,
+        supplier: r.supplier,
+        amount: amountById.get(r.id) ?? null,
+        eta: r.eta,
+        needed_by: r.needed_by,
+        requested_at: r.requested_at,
+        decided_at: r.decided_at,
+        purchased_at: r.purchased_at,
+        shipped_at: r.shipped_at,
+        delivered_at: r.delivered_at,
+        work_package_id: r.work_package_id,
+        wp_code: wp?.code ?? null,
+        wp_name: wp?.name ?? null,
+      };
+    }),
+  }));
 
   type RequestRow = (typeof myRequests)[number];
   const cardFor = (r: RequestRow) => {
@@ -376,13 +410,10 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                       </section>
                     ))}
                   </div>
-                  {/* Spec 108: dense grid worklist on tablet/desktop. */}
+                  {/* Spec 108: dense grid worklist on tablet/desktop. Spec 109:
+                      a row opens the record-review drawer (prev/next). */}
                   <div className="hidden lg:block">
-                    <ProcurementGrid
-                      groups={procurementGroups}
-                      wpName={(id) => wpById.get(id)?.name ?? null}
-                      amount={(id) => amountById.get(id) ?? null}
-                    />
+                    <ProcurementGrid groups={gridGroups} />
                   </div>
                 </>
               )}

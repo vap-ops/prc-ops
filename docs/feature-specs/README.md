@@ -111,6 +111,7 @@ for reading the spec itself.
 | 106  | Outstanding-PO ฿ tile on the buyer summary (admin amount read)            |
 | 107  | Per-supplier spend chip on the suppliers screen (buyer intelligence)      |
 | 108  | Procurement desktop grid worklist (Airtable arc, phase 1)                 |
+| 109  | Procurement record-review sidesheet (Airtable arc, phase 2: row → drawer) |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

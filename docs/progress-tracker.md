@@ -801,3 +801,36 @@ gated to isProcurement; no authenticated grant). Presentational → checklist; p
 tested. 780 unit / lint / typecheck / build green. Spec: docs/feature-specs/108-procurement-desktop-
 grid.md. NEXT (phase 2, spec 109): row → sidesheet drawer (record detail + action zones + prev/next),
 the Airtable expand. Session: specs 98–108 (11), 3 migrations.
+
+## Spec 109 — Procurement record-review sidesheet (Airtable arc, phase 2) (2026-06-15, SHIPPED, code-only)
+
+Phase 2 of the big-screen Airtable arc (phase 1 = spec 108 grid). **Operator picked approach (b)**
+(AskUserQuestion: light read-only review drawer vs (a) full action zones inside a Next intercepting
+`@modal` route) — so NO intercepting/parallel routes, a client drawer fed by data the grid already
+carries. App-only, no DB. **SHIPPED:** (1) pure `src/lib/purchasing/grid-record-nav.ts` —
+`flattenRecordOrder(groups)` (bands → one reading-order list, empty bands dropped) +
+`adjacentRecordIds(order, id)` → `{prevId, nextId, index, total}`, **non-wrapping** (null at the
+ends, mirrors the spec-50 lightbox; absent id → index -1). TDD-first (8 unit RED→GREEN). (2)
+`bottom-sheet.tsx` (spec 78) +`side?: "bottom" | "right"` prop (default bottom, back-compat) — right =
+full-height panel slid in from the right, same scrim/Escape/scrim-click/portal-to-body/focus-on-open
+shell; `+@keyframes sheet-in-right`/`.sheet-panel-right` in globals.css (reduced-motion-gated, mirrors
+`.sheet-panel`). (3) `procurement-grid.tsx` is now the **interactive grid** (`"use client"`): same
+dense banded table, but the item cell is a **button** opening the review drawer (selected row =
+`bg-action-soft`); the drawer = persistent top bar **‹ ก่อนหน้า · n/total · ถัดไป ›** + header
+(PR#, never-truncated subject, status + priority pills) + facts (qty, WP code·name, supplier, ฿amount,
+needed_by, ETA) + **reused `PurchaseRequestTracker`** stepper (hidden for `site_purchased`, mirroring
+the detail page) + **ดำเนินการ →** Link to `/requests/[id]` (act on the full page). (4) `/requests`
+page: builds serializable `ProcurementGridRecord[]` groups (each row enriched with `wp_code`/`wp_name`
+from `wpById` + `amount` from `amountById`) and passes `<ProcurementGrid groups={...} />`; the old
+function props (`wpName`/`amount`) are gone — **a client component can't take server closures**, so
+the data is baked into the (serializable) rows. **Money posture unchanged** (amount = admin read
+gated to `if(isProcurement)`; never SA/PM; no authenticated grant; amount baked into rows only inside
+that branch). Phone card pipeline (104) + WP-detail flows byte-unchanged; grid is `hidden lg:block`.
+788 unit (+8) / lint / typecheck / build green; **no migration → pgTAP 1025 baseline untouched**.
+Spec: docs/feature-specs/109-procurement-record-review-sidesheet.md. **NOT preview-verified**
+(procurement-gated route, preview env only renders /login — same as 81/108) → acceptance = procurement
+user on a PC: click a grid row → drawer opens with the record; ‹/› steps through; ดำเนินการ → opens
+the detail. **SEAMS:** approach (a) full action-zones-in-drawer via `@modal` intercepting route
+(URL-updating, refresh-deep-linkable) deferred — Next 16 intercepting/parallel-routes research owed
+first; keyboard arrow prev/next + swipe-dismiss + full tab-trap recorded (BottomSheet focus-trap seam);
+grid columns still fixed (no sort/column-pick).

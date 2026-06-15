@@ -211,6 +211,21 @@
   }
 }
 
+/* Spec 109 — the right-docked record sidesheet (desktop). Base = motion-free. */
+@keyframes sheet-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sheet-panel-right {
+    animation: sheet-in-right 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+}
+
 /* Field-First — the shutter's idle "ready to capture" pulse. Decorative,
    motion-OK only; the button is fully usable with motion off. */
 @keyframes shutter-pulse {

@@ -21,9 +21,13 @@ interface BottomSheetProps {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  // Spec 109: the same overlay shell can dock to the bottom (default — the
+  // thumb-reachable mobile form) or slide in from the RIGHT (the desktop
+  // "Airtable" record sidesheet). Right = full-height side panel.
+  side?: "bottom" | "right";
 }
 
-export function BottomSheet({ open, title, onClose, children }: BottomSheetProps) {
+export function BottomSheet({ open, title, onClose, children, side = "bottom" }: BottomSheetProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
@@ -50,19 +54,26 @@ export function BottomSheet({ open, title, onClose, children }: BottomSheetProps
   // at the document root lets z-50 win. Guarded for SSR (open starts false).
   if (typeof document === "undefined") return null;
 
+  const isRight = side === "right";
   return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
+      className={`fixed inset-0 z-50 flex bg-black/50 ${
+        isRight ? "items-stretch justify-end" : "items-end justify-center"
+      }`}
     >
       <div
         ref={panelRef}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="sheet-panel border-edge bg-card flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border pb-[env(safe-area-inset-bottom)] shadow-2xl focus:outline-none"
+        className={
+          isRight
+            ? "sheet-panel-right border-edge bg-card flex h-full w-full max-w-md flex-col overflow-hidden rounded-l-2xl border shadow-2xl focus:outline-none"
+            : "sheet-panel border-edge bg-card flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border pb-[env(safe-area-inset-bottom)] shadow-2xl focus:outline-none"
+        }
       >
         {/* Grab affordance + sticky header. */}
         <div className="border-edge flex flex-col items-center gap-2 border-b px-5 pt-2 pb-3">
