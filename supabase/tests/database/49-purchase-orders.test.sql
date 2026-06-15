@@ -1,5 +1,5 @@
 begin;
-select plan(48);
+select plan(50);
 
 -- ============================================================================
 -- Spec 115 / ADR 0044 — purchase_orders table + create_purchase_order RPC.
@@ -66,6 +66,8 @@ select col_not_null('public', 'purchase_orders', 'created_by', 'created_by NOT N
 select has_column('public', 'purchase_orders', 'eta', 'eta column exists');
 select has_column('public', 'purchase_orders', 'ordered_at', 'ordered_at column exists');
 select has_column('public', 'purchase_orders', 'notes', 'notes column exists');
+-- Spec 119: VAT rate lives on the member ticket (amount = gross; rate derives net/VAT).
+select has_column('public', 'purchase_requests', 'vat_rate', 'spec 119: purchase_requests.vat_rate exists');
 select has_column('public', 'purchase_orders', 'created_at', 'created_at column exists');
 select has_column('public', 'purchase_orders', 'updated_at', 'updated_at column exists');
 select ok(
@@ -120,11 +122,11 @@ select is(
   'uuid', 'create_purchase_order returns uuid');
 select ok(
   not has_function_privilege('anon',
-    'public.create_purchase_order(uuid,date,jsonb)', 'execute'),
+    'public.create_purchase_order(uuid,date,jsonb,numeric)', 'execute'),
   'anon cannot execute create_purchase_order');
 select ok(
   has_function_privilege('authenticated',
-    'public.create_purchase_order(uuid,date,jsonb)', 'execute'),
+    'public.create_purchase_order(uuid,date,jsonb,numeric)', 'execute'),
   'authenticated may execute create_purchase_order');
 
 -- ============================================================================
@@ -153,8 +155,8 @@ select lives_ok(
   $$ select public.create_purchase_order(
        'bb000115-0000-4000-8000-000000000001'::uuid, date '2026-07-15',
        '[{"request_id":"fa000115-0000-4000-8000-000000000001","amount":100},
-         {"request_id":"fa000115-0000-4000-8000-000000000002","amount":200}]'::jsonb) $$,
-  'project_manager bundles two approved tickets into a PO');
+         {"request_id":"fa000115-0000-4000-8000-000000000002","amount":200}]'::jsonb, 7) $$,
+  'project_manager bundles two approved tickets into a PO (VAT 7%)');
 
 reset role;
 
@@ -165,7 +167,11 @@ select is(
 select is(
   (select amount from public.purchase_requests
     where id = 'fa000115-0000-4000-8000-000000000001'),
-  100::numeric, 'pr1 priced at its line amount (100)');
+  100::numeric, 'pr1 priced at its line amount (100, gross)');
+select is(
+  (select vat_rate from public.purchase_requests
+    where id = 'fa000115-0000-4000-8000-000000000001'),
+  7::numeric, 'pr1 carries the PO VAT rate (7)');
 select is(
   (select supplier from public.purchase_requests
     where id = 'fa000115-0000-4000-8000-000000000001'),

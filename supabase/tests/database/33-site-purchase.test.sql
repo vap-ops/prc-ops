@@ -56,7 +56,7 @@ values
 -- ============================================================================
 -- Spec 103: signature gained p_amount (numeric, optional).
 select has_function('public', 'record_site_purchase',
-  array['uuid', 'text', 'numeric', 'text', 'numeric'], 'record_site_purchase exists');
+  array['uuid', 'text', 'numeric', 'text', 'numeric', 'numeric'], 'record_site_purchase exists');
 select has_function('public', 'acknowledge_site_purchase',
   array['uuid'], 'acknowledge_site_purchase exists');
 select is(

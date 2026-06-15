@@ -981,6 +981,7 @@ export type Database = {
           supplier_id: string | null;
           unit: string;
           updated_at: string;
+          vat_rate: number;
           work_package_id: string;
         };
         Insert: {
@@ -1019,6 +1020,7 @@ export type Database = {
           supplier_id?: string | null;
           unit: string;
           updated_at?: string;
+          vat_rate?: number;
           work_package_id: string;
         };
         Update: {
@@ -1057,6 +1059,7 @@ export type Database = {
           supplier_id?: string | null;
           unit?: string;
           updated_at?: string;
+          vat_rate?: number;
           work_package_id?: string;
         };
         Relationships: [
@@ -1731,7 +1734,12 @@ export type Database = {
         Returns: string;
       };
       create_purchase_order: {
-        Args: { p_eta: string; p_lines: Json; p_supplier_id: string };
+        Args: {
+          p_eta: string;
+          p_lines: Json;
+          p_supplier_id: string;
+          p_vat_rate?: number;
+        };
         Returns: string;
       };
       create_worker: {
@@ -1780,6 +1788,7 @@ export type Database = {
           p_order_ref?: string;
           p_purchase_request_id: string;
           p_supplier_id: string;
+          p_vat_rate?: number;
         };
         Returns: undefined;
       };
@@ -1793,6 +1802,7 @@ export type Database = {
           p_item_description: string;
           p_quantity: number;
           p_unit: string;
+          p_vat_rate?: number;
           p_work_package_id: string;
         };
         Returns: string;

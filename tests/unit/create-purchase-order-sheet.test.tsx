@@ -74,9 +74,35 @@ describe("CreatePurchaseOrderSheet", () => {
           { requestId: R1, amount: 100 },
           { requestId: R2, amount: null },
         ],
+        // Spec 119: default mode is VAT-inclusive → amount unchanged, rate 7.
+        vatRate: 7,
       }),
     );
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
+  });
+
+  it("VAT exclusive: adds 7% to the entered price and stores the gross", async () => {
+    createPurchaseOrderMock.mockResolvedValue({ ok: true, poId: "po-2" });
+    setup();
+    fireEvent.change(screen.getByLabelText("ผู้ขาย"), { target: { value: SUP } });
+    fireEvent.change(screen.getByLabelText("คาดว่าจะได้รับของ"), {
+      target: { value: "2026-07-15" },
+    });
+    fireEvent.change(screen.getByLabelText(/VAT/), { target: { value: "exclusive" } });
+    fireEvent.change(screen.getAllByLabelText(/ราคาของ/)[0]!, { target: { value: "100" } });
+    fireEvent.click(screen.getByRole("button", { name: /สร้าง PO/ }));
+
+    await waitFor(() =>
+      expect(createPurchaseOrderMock).toHaveBeenCalledWith({
+        supplierId: SUP,
+        eta: "2026-07-15",
+        lines: [
+          { requestId: R1, amount: 107 },
+          { requestId: R2, amount: null },
+        ],
+        vatRate: 7,
+      }),
+    );
   });
 
   it("surfaces the action error and does not call onCreated", async () => {

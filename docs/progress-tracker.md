@@ -1148,3 +1148,32 @@ the bar/tab-bar offset is breakpoint-sensitive — operator-on-device).
 and tablet (640–1024, no tab bar — HubNav top strip instead). A bar pinned above the tab bar needs a
 responsive offset (`bottom-[calc(4rem+safe)] sm:bottom-4`) or it floats with a gap on tablet. PageShell
 `app` = `pb-20 sm:pb-0` (phone tab-bar clearance); add a spacer so a fixed bar never covers the last card.
+
+---
+
+## Spec 119 / ADR 0045 — VAT capture on purchases (phase 1) — SHIPPED 2026-06-16
+
+**What:** operator asked about partial delivery + VAT. **Partial delivery = CLOSED** (across-ticket
+already works via the spec-115 PO roll-up; within-ticket split-quantity declined). **VAT** — operator:
+"user can pick whether the price is inclusive or exclusive"; spend = GROSS. SHIPPED (migration
+`20260701000200` applied to prod under the gate; 874 unit / 1075 pgTAP / lint / typecheck / build).
+
+- **Model (ADR 0045):** `amount` is canonically the GROSS (what you pay; spend/budget/PO-total read it
+  unchanged). New `purchase_requests.vat_rate numeric(5,2) default 0` (CHECK 0–100); **net/VAT DERIVED**
+  (`src/lib/purchasing/vat.ts`, TDD 8 unit: `deriveVatBreakdown` net+VAT sum back to gross;
+  `grossFromEntry`; `rateForMode`; `VAT_RATE=7`). The mode (inclusive/exclusive/none) is an entry
+  convenience — only gross + rate are stored.
+- **Migration:** vat_rate column + the 3 amount-entry RPCs (`record_purchase`, `create_purchase_order`,
+  `record_site_purchase`) DROP+CREATE with `+p_vat_rate` (default 0 → existing callers/tests/appsheet
+  unaffected; bodies reproduced verbatim + the rate). vat_rate = amount's posture (RPC-write, not in the
+  authenticated UPDATE grant). RPC sig pins updated (files 26/33/49, +numeric). pgTAP file 49 +2.
+- **UI (this push — PO checkout only):** `CreatePurchaseOrderSheet` gains a VAT mode picker; per-line
+  prices resolve to gross via the mode; **live net/VAT/gross breakdown**; `createPurchaseOrder` passes
+  `p_vat_rate` (one rate per PO). Sheet test +1 (exclusive → +7%).
+
+**Gate honored:** local-green → "Apply now" → db:push (migration first) → db:types reconcile (content
+byte-identical; only the `create_purchase_order` Args line reflowed) → db:test 1075/0-fail → commit+push.
+
+**OUT (additive follow-ups — RPCs already accept the rate, NO further schema):** VAT picker on the
+`record_purchase` + `record_site_purchase` forms; a **persistent net/VAT readout** on the request detail
+page + the grid/drawer. **OUT (v3 accounting):** withholding tax, tax-invoice (ใบกำกับภาษี) docs, reports.

@@ -76,7 +76,7 @@ select has_function('public', 'record_purchase',
 select has_function('public', 'record_shipment',
   'record_shipment RPC exists');
 select ok(
-  not has_function_privilege('anon', 'public.record_purchase(uuid,uuid,text,numeric,date)', 'execute'),
+  not has_function_privilege('anon', 'public.record_purchase(uuid,uuid,text,numeric,date,numeric)', 'execute'),
   'anon cannot execute record_purchase');
 select ok(
   not has_function_privilege('anon', 'public.record_shipment(uuid)', 'execute'),

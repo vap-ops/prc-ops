@@ -686,6 +686,9 @@ export interface CreatePurchaseOrderInput {
   supplierId: string;
   eta: string | null;
   lines: Array<{ requestId: string; amount: number | null }>;
+  // Spec 119: one VAT rate for the whole PO (0 = no VAT). The form has already
+  // resolved each line's amount to the GROSS; this records the rate applied.
+  vatRate?: number;
 }
 
 export type CreatePurchaseOrderResult = { ok: true; poId: string } | { ok: false; error: string };
@@ -712,6 +715,7 @@ export async function createPurchaseOrder(
       request_id: l.requestId,
       amount: l.amount,
     })),
+    ...(input.vatRate != null ? { p_vat_rate: input.vatRate } : {}),
   });
   if (error) {
     if (error.code === "42501") {

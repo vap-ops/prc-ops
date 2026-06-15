@@ -24,6 +24,13 @@ import {
 import { useToast } from "@/lib/ui/use-toast";
 import { createPurchaseOrder, createSupplier } from "@/app/requests/actions";
 import { purchaseOrderTotal } from "@/lib/purchasing/purchase-order";
+import {
+  VAT_RATE,
+  type VatMode,
+  rateForMode,
+  grossFromEntry,
+  deriveVatBreakdown,
+} from "@/lib/purchasing/vat";
 import type { SupplierOption } from "@/components/features/purchase-record-form";
 
 export interface CreatePoLine {
@@ -63,6 +70,7 @@ export function CreatePurchaseOrderSheet({
   const [supplierId, setSupplierId] = useState("");
   const [eta, setEta] = useState("");
   const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [vatMode, setVatMode] = useState<VatMode>("inclusive");
   const [nameDraft, setNameDraft] = useState("");
   const [phoneDraft, setPhoneDraft] = useState("");
   const [createdSuppliers, setCreatedSuppliers] = useState<SupplierOption[]>([]);
@@ -75,18 +83,22 @@ export function CreatePurchaseOrderSheet({
     ...createdSuppliers.filter((c) => !suppliers.some((s) => s.id === c.id)),
   ];
 
-  const total = useMemo(
+  // Spec 119: one VAT mode for the whole PO (one supplier). Each line's entered
+  // price resolves to the GROSS via the mode; the total breaks down for display.
+  const rate = rateForMode(vatMode);
+  const grossTotal = useMemo(
     () =>
       purchaseOrderTotal(
         lines.map((l) => {
           const raw = (amounts[l.id] ?? "").trim();
           if (raw === "") return null;
           const n = Number(raw);
-          return Number.isFinite(n) ? n : null;
+          return Number.isFinite(n) ? grossFromEntry(n, vatMode, rate) : null;
         }),
       ),
-    [lines, amounts],
+    [lines, amounts, vatMode, rate],
   );
+  const breakdown = deriveVatBreakdown(grossTotal, rate);
 
   const ready = supplierId !== "" && eta.trim() !== "" && lines.length > 0;
 
@@ -120,7 +132,7 @@ export function CreatePurchaseOrderSheet({
           setError(`ราคาของ "${l.item_description}" ไม่ถูกต้อง`);
           return;
         }
-        amount = n;
+        amount = grossFromEntry(n, vatMode, rate);
       }
       parsedLines.push({ requestId: l.id, amount });
     }
@@ -130,6 +142,7 @@ export function CreatePurchaseOrderSheet({
         supplierId,
         eta: eta.trim() === "" ? null : eta,
         lines: parsedLines,
+        vatRate: rate,
       });
       if (!result.ok) {
         setError(result.error);
@@ -216,6 +229,21 @@ export function CreatePurchaseOrderSheet({
           className={FIELD_DATE}
         />
 
+        <label htmlFor="po-vat" className="text-ink text-xs font-medium">
+          VAT (ภาษีมูลค่าเพิ่ม {VAT_RATE}%)
+        </label>
+        <select
+          id="po-vat"
+          value={vatMode}
+          onChange={(e) => setVatMode(e.target.value as VatMode)}
+          disabled={pending}
+          className={FIELD_SELECT}
+        >
+          <option value="inclusive">ราคารวม VAT แล้ว</option>
+          <option value="exclusive">ราคายังไม่รวม VAT (บวกเพิ่ม)</option>
+          <option value="none">ไม่มี VAT</option>
+        </select>
+
         <div className="rounded-control border-edge divide-edge flex flex-col divide-y border">
           {lines.map((l) => (
             <div key={l.id} className="flex items-center gap-3 px-3 py-2">
@@ -254,9 +282,25 @@ export function CreatePurchaseOrderSheet({
           ))}
         </div>
 
-        <div className="flex items-baseline justify-between">
-          <span className="text-ink-muted text-xs">ยอดรวม</span>
-          <span className="text-ink text-base font-semibold tabular-nums">{baht(total)}</span>
+        <div className="flex flex-col gap-1">
+          {rate > 0 ? (
+            <>
+              <div className="text-meta text-ink-muted flex items-baseline justify-between">
+                <span>ก่อน VAT</span>
+                <span className="tabular-nums">{baht(breakdown.net)}</span>
+              </div>
+              <div className="text-meta text-ink-muted flex items-baseline justify-between">
+                <span>VAT {rate}%</span>
+                <span className="tabular-nums">{baht(breakdown.vat)}</span>
+              </div>
+            </>
+          ) : null}
+          <div className="flex items-baseline justify-between">
+            <span className="text-ink-muted text-xs">ยอดรวม{rate > 0 ? " (รวม VAT)" : ""}</span>
+            <span className="text-ink text-base font-semibold tabular-nums">
+              {baht(breakdown.gross)}
+            </span>
+          </div>
         </div>
 
         <div className="flex gap-2">
