@@ -12,6 +12,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { X } from "lucide-react";
 import { BottomSheet } from "@/components/features/bottom-sheet";
 import {
   BUTTON_PRIMARY,
@@ -47,12 +48,15 @@ export function CreatePurchaseOrderSheet({
   suppliers,
   onClose,
   onCreated,
+  onRemoveLine,
 }: {
   open: boolean;
   lines: ReadonlyArray<CreatePoLine>;
   suppliers: ReadonlyArray<SupplierOption>;
   onClose: () => void;
   onCreated: () => void;
+  // Spec 118 (phone basket): drop a line from the order inside the sheet.
+  onRemoveLine?: (id: string) => void;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -235,6 +239,17 @@ export function CreatePurchaseOrderSheet({
                 aria-label={`ราคาของ ${l.item_description}`}
                 className={FIELD_PRICE}
               />
+              {onRemoveLine ? (
+                <button
+                  type="button"
+                  onClick={() => onRemoveLine(l.id)}
+                  disabled={pending}
+                  aria-label={`นำ ${l.item_description} ออกจากใบสั่งซื้อ`}
+                  className="text-ink-muted hover:text-danger focus-visible:ring-action inline-flex size-11 shrink-0 items-center justify-center rounded-md focus:outline-none focus-visible:ring-2"
+                >
+                  <X aria-hidden className="size-4" />
+                </button>
+              ) : null}
             </div>
           ))}
         </div>

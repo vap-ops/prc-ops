@@ -1116,3 +1116,35 @@ NO-OP outside its provider, so the test needs no toast mock.
 **METHOD note (reusable):** for an un-preview-verifiable surface, the right move on a "think about UX"
 ask is a visualize mockup → operator approval → build (the spec-108 loop), NOT shipping blind UI then
 hoping. The mockup is the verification the preview can't give.
+
+---
+
+## Spec 118 — Phone PO creation: the add-to-PO basket — SHIPPED 2026-06-16
+
+**What:** operator "what about on phone?" — specs 116/117 made PO creation desktop-only (grid is `lg:`).
+Senior-designer pass (the uxui bundle): the real choice was the phone interaction MODEL; operator picked
+the **basket** (browse → add → checkout) over worklist-tick / supplier-first, and approved a detailed
+mockup before the build. SHIPPED (no schema).
+
+- **`PhonePoBasket`** (client) renders the `to_order` band on phone as compact cards (item/PR·WP·qty/
+  status, tap → detail) each with a **เพิ่มเข้าใบสั่งซื้อ** toggle; added → highlighted + **อยู่ใน
+  ใบสั่งซื้อ · แตะเพื่อนำออก**. A **floating basket bar** (`bg-fill`, fixed, `z-30`, `lg:hidden`) shows the
+  running count **above the tab bar** (`bottom-[calc(4rem+env(safe-area-inset-bottom))] sm:bottom-4` —
+  phone has the 64px+safe tab bar, tablet doesn't) → opens the checkout sheet.
+- **Checkout** reuses `CreatePurchaseOrderSheet` at `side="bottom"` (the reason the bottom variant was
+  kept when spec 117 moved desktop to `side="right"`) + a new optional `onRemoveLine` (per-line ✕ to
+  drop a ticket; empties/closes on the last). Supplier+inline-add, required ETA, prices, total, success
+  toast all inherited.
+- **Page**: `/requests` phone block — `to_order` band → `PhonePoBasket` when `canBundlePhone`
+  (procurement + suppliers loaded); other bands keep `PurchaseRequestCard`; desktop keeps the grid.
+  Reuses the serializable `ProcurementGridRecord` the grid builds.
+
+**Test:** `phone-po-basket.test.tsx` (4) — add reveals the bar + count, bar opens the sheet, a line drops
+from inside the sheet. **Gate:** unit / lint / typecheck / build green; no schema → no gate; committed +
+pushed. **Acceptance** = procurement (Pattrawut) on a **phone** (phone layout can't be preview-verified;
+the bar/tab-bar offset is breakpoint-sensitive — operator-on-device).
+
+**LESSON (layout, reusable):** the `lg:hidden` phone block spans BOTH phone (<640, fixed tab bar present)
+and tablet (640–1024, no tab bar — HubNav top strip instead). A bar pinned above the tab bar needs a
+responsive offset (`bottom-[calc(4rem+safe)] sm:bottom-4`) or it floats with a gap on tablet. PageShell
+`app` = `pb-20 sm:pb-0` (phone tab-bar clearance); add a spacer so a fixed bar never covers the last card.

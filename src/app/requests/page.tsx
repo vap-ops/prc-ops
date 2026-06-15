@@ -48,6 +48,7 @@ import {
   ProcurementGrid,
   type ProcurementGridRecord,
 } from "@/components/features/procurement-grid";
+import { PhonePoBasket } from "@/components/features/phone-po-basket";
 import type { SupplierOption } from "@/components/features/purchase-record-form";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { ProcurementFilters } from "@/components/features/procurement-filters";
@@ -402,6 +403,12 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     }),
   }));
 
+  // Spec 118: phone PO basket — the to_order band on phone becomes selectable
+  // (add-to-PO) when bundling is possible (procurement + suppliers loaded). Uses
+  // the same serializable grid records the desktop grid does.
+  const toOrderGridItems = gridGroups.find((g) => g.meta.band === "to_order")?.items ?? [];
+  const canBundlePhone = isProcurement && supplierRecords.length > 0;
+
   type RequestRow = (typeof myRequests)[number];
   const cardFor = (r: RequestRow) => {
     const wp = wpById.get(r.work_package_id);
@@ -582,7 +589,11 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                             {items.length}
                           </span>
                         </div>
-                        <ul className="flex flex-col gap-2">{items.map(cardFor)}</ul>
+                        {meta.band === "to_order" && canBundlePhone ? (
+                          <PhonePoBasket records={toOrderGridItems} suppliers={supplierRecords} />
+                        ) : (
+                          <ul className="flex flex-col gap-2">{items.map(cardFor)}</ul>
+                        )}
                       </section>
                     ))}
                   </div>
