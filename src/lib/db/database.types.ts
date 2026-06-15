@@ -155,6 +155,68 @@ export type Database = {
           },
         ];
       };
+      contact_attachments: {
+        Row: {
+          contractor_id: string | null;
+          created_at: string;
+          id: string;
+          purpose: Database["public"]["Enums"]["contact_doc_purpose"];
+          service_provider_id: string | null;
+          storage_path: string;
+          supplier_id: string | null;
+          uploaded_by: string;
+        };
+        Insert: {
+          contractor_id?: string | null;
+          created_at?: string;
+          id?: string;
+          purpose: Database["public"]["Enums"]["contact_doc_purpose"];
+          service_provider_id?: string | null;
+          storage_path: string;
+          supplier_id?: string | null;
+          uploaded_by: string;
+        };
+        Update: {
+          contractor_id?: string | null;
+          created_at?: string;
+          id?: string;
+          purpose?: Database["public"]["Enums"]["contact_doc_purpose"];
+          service_provider_id?: string | null;
+          storage_path?: string;
+          supplier_id?: string | null;
+          uploaded_by?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "contact_attachments_contractor_id_fkey";
+            columns: ["contractor_id"];
+            isOneToOne: false;
+            referencedRelation: "contractors";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "contact_attachments_service_provider_id_fkey";
+            columns: ["service_provider_id"];
+            isOneToOne: false;
+            referencedRelation: "service_providers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "contact_attachments_supplier_id_fkey";
+            columns: ["supplier_id"];
+            isOneToOne: false;
+            referencedRelation: "suppliers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "contact_attachments_uploaded_by_fkey";
+            columns: ["uploaded_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       contact_bank: {
         Row: {
           bank_account_name: string | null;
@@ -1560,6 +1622,16 @@ export type Database = {
     };
     Functions: {
       acknowledge_site_purchase: { Args: { p_id: string }; Returns: undefined };
+      add_contact_document: {
+        Args: {
+          p_contractor_id?: string;
+          p_purpose?: Database["public"]["Enums"]["contact_doc_purpose"];
+          p_service_provider_id?: string;
+          p_storage_path?: string;
+          p_supplier_id?: string;
+        };
+        Returns: string;
+      };
       add_work_package_dependency: {
         Args: { p_predecessor: string; p_successor: string };
         Returns: boolean;
@@ -1753,6 +1825,7 @@ export type Database = {
         | "purchase_request_delivery"
         | "worker_change"
         | "labor_cost_freeze";
+      contact_doc_purpose: "id_card" | "bank_book";
       contact_status: "active" | "probation" | "blacklisted";
       contractor_category: "contractor" | "dc";
       contractor_subtype: "regular" | "dc_company" | "dc_regular" | "dc_temporary";
@@ -1957,6 +2030,7 @@ export const Constants = {
         "worker_change",
         "labor_cost_freeze",
       ],
+      contact_doc_purpose: ["id_card", "bank_book"],
       contact_status: ["active", "probation", "blacklisted"],
       contractor_category: ["contractor", "dc"],
       contractor_subtype: ["regular", "dc_company", "dc_regular", "dc_temporary"],
