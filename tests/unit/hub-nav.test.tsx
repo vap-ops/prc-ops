@@ -13,6 +13,8 @@ const PM_ITEMS = [
   { label: "รายการรอตรวจ", href: "/review" },
   { label: "โครงการและรายงาน", href: "/projects" },
   { label: "คำขอซื้อ", href: "/requests" },
+  // Spec 98: ภาพรวม placeholder — greyed coming-soon, before ตั้งค่า.
+  { label: "ภาพรวม", href: "/dashboard", comingSoon: true },
   { label: "ตั้งค่า", href: "/settings" },
 ];
 
@@ -25,6 +27,8 @@ describe("canonical nav sets", () => {
     expect(SA_HUB_NAV).toEqual([
       { label: "โครงการ", href: "/projects" },
       { label: "คำขอซื้อ", href: "/requests" },
+      // Spec 98: ภาพรวม placeholder — greyed coming-soon, before ตั้งค่า.
+      { label: "ภาพรวม", href: "/dashboard", comingSoon: true },
       { label: "ตั้งค่า", href: "/settings" },
     ]);
   });
@@ -50,5 +54,16 @@ describe("HubNav", () => {
   it("gives links a min-h-11 tap target", () => {
     render(<HubNav maxWidthClass={PAGE_MAX_W} items={PM_ITEMS} currentHref="/review" />);
     expect(screen.getByRole("link", { name: "คำขอซื้อ" }).className).toContain("min-h-11");
+  });
+
+  // Spec 98: a coming-soon item is a greyed, non-link span with a เร็วๆนี้
+  // badge — and it never gets the current-page treatment, even when the
+  // pathname matches its placeholder href.
+  it("renders a coming-soon item as a greyed non-link with a badge, never current", () => {
+    render(<HubNav maxWidthClass={PAGE_MAX_W} items={PM_ITEMS} currentHref="/dashboard" />);
+    expect(screen.queryByRole("link", { name: /ภาพรวม/ })).not.toBeInTheDocument();
+    const item = screen.getByText("ภาพรวม").closest("[aria-disabled='true']");
+    expect(item).not.toBeNull();
+    expect(screen.getByText("เร็วๆนี้")).toBeInTheDocument();
   });
 });

@@ -21,16 +21,16 @@ spec-19 `/pm/requests` → `/requests` legacy 308 (out of scope; Unit 5 candidat
 
 ## Entry and auth
 
-| Route                                       | Gate        | Notes                                                                                                                                    |
-| ------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`                                         | public      | redirects: session → `roleHome(role)`, none → `/login`                                                                                   |
-| `/login`                                    | public      | LINE login; standalone PWA uses device-code handoff                                                                                      |
-| `/auth/line/start`, `/auth/line/callback`   | public      | LINE OAuth start + return (browser + handoff flows)                                                                                      |
-| `/auth/handoff/start`, `/auth/handoff/poll` | public POST | ADR 0041 device-code handoff                                                                                                             |
-| `/auth/logout`                              | session     | clears the session, returns to `/login`                                                                                                  |
-| `/coming-soon`                              | session     | unserved roles' landing (`roleHome`)                                                                                                     |
-| `/profile`                                  | session     | display name, avatar, logout (reached via ตั้งค่า)                                                                                       |
-| `/settings`                                 | session     | ตั้งค่า hub (spec 93): บัญชี (→ /profile + logout, all roles) · ข้อมูลหลัก (→ /contacts, /workers) + การเงิน (→ /payroll), PM/super only |
+| Route                                       | Gate        | Notes                                                                                                                                                                                                       |
+| ------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                                         | public      | redirects: session → `roleHome(role)`, none → `/login`                                                                                                                                                      |
+| `/login`                                    | public      | LINE login; standalone PWA uses device-code handoff                                                                                                                                                         |
+| `/auth/line/start`, `/auth/line/callback`   | public      | LINE OAuth start + return (browser + handoff flows)                                                                                                                                                         |
+| `/auth/handoff/start`, `/auth/handoff/poll` | public POST | ADR 0041 device-code handoff                                                                                                                                                                                |
+| `/auth/logout`                              | session     | clears the session, returns to `/login`                                                                                                                                                                     |
+| `/coming-soon`                              | session     | unserved roles' landing (`roleHome`)                                                                                                                                                                        |
+| `/profile`                                  | session     | display name, avatar, logout (reached via ตั้งค่า)                                                                                                                                                          |
+| `/settings`                                 | session     | ตั้งค่า hub (spec 93): บัญชี (→ /profile + logout, all roles) · ข้อมูลหลัก (→ /contacts, /workers) + การเงิน (→ /payroll), PM/super only · เร็วๆนี้ (ผลงานของฉัน, คลังเอกสาร — greyed coming-soon, spec 98) |
 
 `roleHome`: site_admin → `/projects` · pm/super → `/review` · procurement →
 `/requests` (spec 70) · others → `/coming-soon`. (spec 82)
@@ -42,11 +42,19 @@ the account (profile + logout) moved into the **ตั้งค่า** (`/setti
 ตั้งค่า tab lights on `/profile`, `/contacts`, `/workers`, `/payroll` too (match).
 Desktop HubNav mirrors this (deciders + ตั้งค่า).
 
-- SA: โครงการ `/projects` · คำขอซื้อ `/requests` · ตั้งค่า `/settings`
-- PM/super: รอตรวจ `/review` · โครงการ `/projects` · คำขอซื้อ `/requests` · ตั้งค่า
+- SA: โครงการ `/projects` · คำขอซื้อ `/requests` · **ภาพรวม `/dashboard` (เร็วๆนี้)** · ตั้งค่า
   `/settings`
+- PM/super: รอตรวจ `/review` · โครงการ `/projects` · คำขอซื้อ `/requests` · **ภาพรวม `/dashboard`
+  (เร็วๆนี้)** · ตั้งค่า `/settings`
 - procurement (spec 70): คำขอซื้อ `/requests` · ตั้งค่า `/settings` (no project
-  hub, not a decider)
+  hub, not a decider; **no coming-soon tab — stays lean**)
+
+**Spec 98 — coming-soon placeholders.** `ภาพรวม` is a greyed, non-tappable `comingSoon` tab/hub item
+(href `/dashboard` is a marker, no route built — renders as a span, can't navigate/404). Desktop
+HubNav mirrors it (SA + PM, before ตั้งค่า). Two more coming-soon menus live as greyed rows in the
+ตั้งค่า hub's เร็วๆนี้ section: `ผลงานของฉัน` + `คลังเอกสาร`. Shipping a menu = flip `comingSoon` off +
+build its route.
+
 - **Exception (Field-First reskin Unit 1):** the WP detail page
   (`/projects/[id]/work-packages/[id]`) renders NO bottom tab bar — the fixed
   capture bar takes the thumb zone and the back chip handles return. This is

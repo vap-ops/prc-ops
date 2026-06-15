@@ -100,6 +100,7 @@ for reading the spec itself.
 | 95   | iOS keyboard repaint guard                                                |
 | 96   | Add work photos from the gallery                                          |
 | 97   | Contacts v2 Unit 7: contact documents (ID card + bank book)               |
+| 98   | Coming-soon menu placeholders (greyed, non-tappable future menus)         |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

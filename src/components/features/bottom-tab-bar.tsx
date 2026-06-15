@@ -14,7 +14,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ClipboardCheck,
+  Clock,
   FolderKanban,
+  LayoutDashboard,
   Settings,
   ShoppingCart,
   type LucideIcon,
@@ -30,6 +32,10 @@ export interface TabItem {
   // reverses spec 19's "cross-surface matches no tab" acceptance).
   // Longest-prefix-wins still guarantees exactly one active tab.
   match?: ReadonlyArray<string>;
+  // Spec 98: greyed, non-tappable placeholder for a planned-but-unbuilt
+  // menu. Renders as a span (never a link, never the active tab); the href
+  // is a marker only. Flip this off + build the route to ship the menu.
+  comingSoon?: boolean;
 }
 
 // Spec 93: the bottom bar holds daily-decision surfaces; reference data
@@ -43,11 +49,22 @@ const SETTINGS_TAB: TabItem = {
   match: ["/profile", "/contacts", "/workers", "/payroll"],
 };
 
+// Spec 98: the overview/budget dashboard, not built yet. A greyed placeholder
+// so the full menu is visible; the href is a marker (no /dashboard route).
+// Shown on SA + PM, NOT procurement (spec 70 lean worklist).
+const DASHBOARD_SOON: TabItem = {
+  label: "ภาพรวม",
+  href: "/dashboard",
+  icon: LayoutDashboard,
+  comingSoon: true,
+};
+
 export const SA_TABS: ReadonlyArray<TabItem> = [
   // Spec 82 Unit 3: the project hub folded to the content-named /projects;
   // the tab points straight at it (and lights on every /projects/* screen).
   { label: "โครงการ", href: "/projects", icon: FolderKanban },
   { label: "คำขอซื้อ", href: "/requests", icon: ShoppingCart },
+  DASHBOARD_SOON,
   SETTINGS_TAB,
 ];
 
@@ -58,6 +75,7 @@ export const PM_TABS: ReadonlyArray<TabItem> = [
   // on the hub and every /projects/* detail screen, so no extra match.
   { label: "โครงการ", href: "/projects", icon: FolderKanban },
   { label: "คำขอซื้อ", href: "/requests", icon: ShoppingCart },
+  DASHBOARD_SOON,
   SETTINGS_TAB,
 ];
 
@@ -86,6 +104,9 @@ export function BottomTabBar({ role }: { role: string }) {
   let active: TabItem | null = null;
   let activeLen = -1;
   for (const tab of tabs) {
+    // Spec 98: coming-soon tabs are non-navigable placeholders — they never
+    // own the active highlight (their href is a marker, not a real route).
+    if (tab.comingSoon) continue;
     for (const prefix of [tab.href, ...(tab.match ?? [])]) {
       const matches = pathname === prefix || pathname.startsWith(`${prefix}/`);
       if (matches && prefix.length > activeLen) {
@@ -103,6 +124,28 @@ export function BottomTabBar({ role }: { role: string }) {
       <div className="mx-auto flex h-16 max-w-2xl items-stretch">
         {tabs.map((tab) => {
           const Icon = tab.icon;
+          // Spec 98: greyed, non-tappable placeholder — a span, not a Link,
+          // with a small clock marker on the icon and a เร็วๆนี้ name for AT.
+          if (tab.comingSoon) {
+            return (
+              <span
+                key={tab.href}
+                aria-disabled="true"
+                aria-label={`${tab.label} เร็วๆนี้`}
+                title="เร็วๆนี้"
+                className="text-ink-muted flex flex-1 flex-col items-center justify-center gap-1"
+              >
+                <span className="relative">
+                  <Icon aria-hidden className="size-6" />
+                  <Clock
+                    aria-hidden
+                    className="bg-card absolute -top-1 -right-2 size-3.5 rounded-full p-px"
+                  />
+                </span>
+                <span className="text-xs font-medium">{tab.label}</span>
+              </span>
+            );
+          }
           if (tab === active) {
             return (
               <span

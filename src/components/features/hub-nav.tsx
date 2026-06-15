@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
+import { ComingSoonBadge } from "@/components/features/coming-soon-badge";
 
 // Shared hub nav strip (spec 18). One consistent item set per role
 // surface — the PM pages all show the same four destinations, /sa shows
@@ -12,6 +13,9 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 export interface HubNavItem {
   label: string;
   href: string;
+  // Spec 98: greyed, non-tappable placeholder for a planned-but-unbuilt menu.
+  // Renders as a span with a เร็วๆนี้ badge, never the current page.
+  comingSoon?: boolean;
 }
 
 // The canonical item sets — every consuming page passes one of these so
@@ -26,6 +30,8 @@ export const PM_HUB_NAV: ReadonlyArray<HubNavItem> = [
   // Spec 82 Unit 3: the project hub folded to the content-named /projects.
   { label: "โครงการและรายงาน", href: "/projects" },
   { label: "คำขอซื้อ", href: "/requests" },
+  // Spec 98: greyed coming-soon overview/budget dashboard (no route yet).
+  { label: "ภาพรวม", href: "/dashboard", comingSoon: true },
   { label: "ตั้งค่า", href: "/settings" },
 ];
 
@@ -33,6 +39,8 @@ export const SA_HUB_NAV: ReadonlyArray<HubNavItem> = [
   // Spec 82 Unit 3: the SA project hub folded to the shared /projects hub.
   { label: "โครงการ", href: "/projects" },
   { label: "คำขอซื้อ", href: "/requests" },
+  // Spec 98: greyed coming-soon overview/budget dashboard (no route yet).
+  { label: "ภาพรวม", href: "/dashboard", comingSoon: true },
   { label: "ตั้งค่า", href: "/settings" },
 ];
 
@@ -50,7 +58,18 @@ export function HubNav({ maxWidthClass, items, currentHref }: HubNavProps) {
     <nav className="border-edge bg-sunk hidden border-b px-5 py-1 sm:block">
       <div className={`mx-auto flex ${maxWidthClass} flex-wrap items-center gap-x-6 text-sm`}>
         {items.map((item) =>
-          item.href === currentHref ? (
+          // Spec 98: greyed, non-tappable placeholder — never a link, never the
+          // current page, regardless of currentHref.
+          item.comingSoon ? (
+            <span
+              key={item.href}
+              aria-disabled="true"
+              className="text-ink-muted inline-flex min-h-11 items-center gap-2 border-b-2 border-transparent"
+            >
+              {item.label}
+              <ComingSoonBadge />
+            </span>
+          ) : item.href === currentHref ? (
             <span
               key={item.href}
               className="border-action text-ink inline-flex min-h-11 items-center border-b-2 font-semibold"

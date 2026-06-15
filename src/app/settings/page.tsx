@@ -1,10 +1,11 @@
 import { PageShell } from "@/components/features/page-shell";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronRight, Contact, HardHat, Wallet } from "lucide-react";
+import { ChevronRight, Contact, Files, HardHat, TrendingUp, Wallet } from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { AvatarSurface } from "@/components/features/avatar-surface";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
+import { ComingSoonBadge } from "@/components/features/coming-soon-badge";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { createClient } from "@/lib/db/server";
 // Server-only import (this page is a Server Component) — no client bundle bloat,
@@ -95,6 +96,19 @@ export default async function SettingsPage() {
           </>
         )}
 
+        {/* Coming soon — everyone (spec 98). Greyed previews of planned menus
+            so the full set is visible. ผลงานของฉัน's eventual home is บัญชี
+            (build HELD); คลังเอกสาร is a future central document library. */}
+        <div className="flex flex-col gap-2">
+          <h2 className="text-meta text-ink-secondary font-semibold">เร็วๆนี้</h2>
+          <ComingSoonRow
+            icon={TrendingUp}
+            label="ผลงานของฉัน"
+            hint="สรุปผลงานและความก้าวหน้าของคุณ"
+          />
+          <ComingSoonRow icon={Files} label="คลังเอกสาร" hint="รวมเอกสารทั้งหมดไว้ในที่เดียว" />
+        </div>
+
         {/* About — everyone */}
         <div className="flex flex-col gap-2">
           <h2 className="text-meta text-ink-secondary font-semibold">เกี่ยวกับ</h2>
@@ -130,5 +144,33 @@ function SettingsLink({
       </span>
       <ChevronRight aria-hidden className="text-ink-muted h-5 w-5 shrink-0" />
     </Link>
+  );
+}
+
+// Spec 98: a settings row for a not-yet-built menu — greyed, non-link, carries
+// the เร็วๆนี้ badge where the chevron normally sits.
+function ComingSoonRow({
+  icon: Icon,
+  label,
+  hint,
+}: {
+  icon: typeof Contact;
+  label: string;
+  hint: string;
+}) {
+  return (
+    <div
+      aria-disabled="true"
+      className="border-edge bg-card rounded-control flex items-center gap-3 border px-4 py-3"
+    >
+      <span className="bg-sunk text-ink-muted rounded-control inline-flex h-9 w-9 shrink-0 items-center justify-center">
+        <Icon aria-hidden className="h-5 w-5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="text-ink-secondary text-body block font-semibold">{label}</span>
+        <span className="text-ink-muted text-meta block">{hint}</span>
+      </span>
+      <ComingSoonBadge />
+    </div>
   );
 }

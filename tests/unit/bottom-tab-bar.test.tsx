@@ -36,20 +36,53 @@ describe("BottomTabBar", () => {
       // Spec 82 Unit 3: the project hub folded to /projects.
       ["โครงการ", "/projects"],
       ["คำขอซื้อ", "/requests"],
+      // Spec 98: ภาพรวม placeholder — greyed coming-soon, last content tab.
+      ["ภาพรวม", "/dashboard"],
       // Spec 93: contacts/payroll/workers/account moved into the ตั้งค่า hub.
       ["ตั้งค่า", "/settings"],
     ]);
     expect(SA_TABS.map((t) => [t.label, t.href])).toEqual([
       ["โครงการ", "/projects"],
       ["คำขอซื้อ", "/requests"],
+      // Spec 98: ภาพรวม placeholder — greyed coming-soon, last content tab.
+      ["ภาพรวม", "/dashboard"],
       ["ตั้งค่า", "/settings"],
     ]);
     // Spec 70 + 93: procurement's worklist-only tab set — purchasing + settings.
     // No โครงการ (no project/WP hub in v1) and no รอตรวจ (not a decider).
+    // Spec 98: stays lean — NO coming-soon tab here.
     expect(PROCUREMENT_TABS.map((t) => [t.label, t.href])).toEqual([
       ["คำขอซื้อ", "/requests"],
       ["ตั้งค่า", "/settings"],
     ]);
+  });
+
+  // Spec 98: only ภาพรวม is a coming-soon tab; every live destination is not.
+  it("flags exactly the ภาพรวม tab as comingSoon (SA + PM), never procurement", () => {
+    expect(PM_TABS.filter((t) => t.comingSoon).map((t) => t.label)).toEqual(["ภาพรวม"]);
+    expect(SA_TABS.filter((t) => t.comingSoon).map((t) => t.label)).toEqual(["ภาพรวม"]);
+    expect(PROCUREMENT_TABS.some((t) => t.comingSoon)).toBe(false);
+  });
+
+  // Spec 98: a coming-soon tab is a greyed, non-tappable span — not a link,
+  // never the active tab — and it announces เร็วๆนี้ to assistive tech.
+  it("renders ภาพรวม as a greyed, non-link coming-soon span", () => {
+    mockUsePathname.mockReturnValue("/review");
+    render(<BottomTabBar role="project_manager" />);
+    expect(screen.queryByRole("link", { name: /ภาพรวม/ })).not.toBeInTheDocument();
+    const tab = screen.getByText("ภาพรวม").closest("[aria-disabled='true']");
+    expect(tab).not.toBeNull();
+    expect(tab?.getAttribute("aria-current")).not.toBe("page");
+    expect(tab?.getAttribute("aria-label")).toMatch(/เร็วๆนี้/);
+  });
+
+  it("never lights the coming-soon tab and never 404s its placeholder href", () => {
+    // Even sitting on the placeholder href, the live deciders keep the bar's
+    // single active tab — the coming-soon tab is skipped in the match loop.
+    mockUsePathname.mockReturnValue("/dashboard");
+    const { container } = render(<BottomTabBar role="project_manager" />);
+    expect(activeTabs(container)).toHaveLength(0);
+    expect(screen.queryByRole("link", { name: /ภาพรวม/ })).not.toBeInTheDocument();
   });
 
   it("renders the PM set for project_manager with inactive tabs as links", () => {

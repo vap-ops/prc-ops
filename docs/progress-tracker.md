@@ -544,3 +544,34 @@ Operator: "Adding images can add from gallery as well." Only the WP CaptureSheet
 ## Spec 97 — Contacts v2 Unit 7: contact documents (2026-06-15, SHIPPED, SCHEMA+STORAGE)
 
 The last open Contacts v2 unit (operator picked it for "what next"). Attach an ID-card + bank-book photo to a paid contact (contractor/supplier/service_provider) and view on the contact detail page. PII + bank-adjacent → PM/super only, the contact_bank money-isolation posture. Clients excluded (mirrors bank's 3 FKs). **SHIPPED (migrations 20260629000000 + 000100 applied to prod under the db:push gate; pgTAP file 48):** (a) DB — enum `contact_doc_purpose`(id_card/bank_book); table `contact_attachments` (3 typed FKs + exactly-one-target CHECK like contact_bank, purpose, storage_path, uploaded_by, created_at) — ZERO authenticated access (RLS on, revoke all, no grants/policies) + APPEND-ONLY block trigger (P0001 on update/delete/truncate); `add_contact_document` SECURITY DEFINER RPC (PM/super gate 42501, exactly-one + purpose + path P0001, uploaded_by=auth.uid()) called on the USER session; private `contact-docs` bucket (image mimes, 25MiB) + path-bound PM/super storage INSERT policy ({kind}/{contactId}/… , objects.name-qualified). (b) App — CONTACT_DOCS_BUCKET; pure document-path.ts (buildContactDocPath + kind/purpose guards, shared client+server, server rebuilds path); documents.ts (admin read → latest id_card/bank_book → signed URLs, behind PM gate); addContactDocument action (pmSession gate, rebuild path, RPC on user session, revalidate detail); ContactDocumentsBlock (per-doc uploader reusing the invoice flow: preparePhotoForUpload → browser upload to contact-docs → action → refresh; current image via signed URL); wired on the contact detail page for the 3 paid kinds. TDD: contact-document-path.test + contact-documents-block.test. Hand-extended database.types.ts → db:types regen byte-matched (typecheck green both before+after). 743 unit / lint / typecheck / build green; db:test incl. file 48. Acceptance = operator iPhone (PM-gated). SEAMS: multiple docs per purpose / history (latest wins); document deletion (append-only); PDF docs (images only v1); clients excluded.
+
+## Spec 98 — Coming-soon menu placeholders (2026-06-15, SHIPPED, code-only)
+
+Operator: "can we include all menus we will have, then grey them out if they are coming soon?"
+Two AskUserQuestion decisions: **placement = everywhere incl. the bottom bar** (over the
+settings-only recommendation), and **seed set = ภาพรวม/Dashboard + ผลงานของฉัน + คลังเอกสาร**. The
+mechanism is built once (a `comingSoon` flag + a shared badge); the seed list is trivial to grow/prune
+via the look-loop. **SHIPPED (no DB):** (a) NEW `coming-soon-badge.tsx` — shared presentational
+`เร็วๆนี้` pill, token-only (`bg-sunk`/`text-ink-secondary`/`text-meta`), renders in both
+Server+Client. (b) `bottom-tab-bar.tsx` — `TabItem.comingSoon`; `ภาพรวม` (LayoutDashboard, href
+`/dashboard` = marker, no route) added to SA_TABS + PM_TABS as the last content tab before ตั้งค่า
+(PM→5 tabs, SA→4); renders a greyed non-link `<span>` (aria-disabled, Clock corner marker, aria-label
+`… เร็วๆนี้`), skipped in the longest-prefix match loop so it never lights. Procurement stays lean
+(spec-70 worklist) — NO coming-soon tab. (c) `hub-nav.tsx` — `HubNavItem.comingSoon`; `ภาพรวม` added
+to PM_HUB_NAV + SA_HUB_NAV before ตั้งค่า; greyed non-link span + ComingSoonBadge, never current. (d)
+`settings/page.tsx` — NEW เร็วๆนี้ section (all roles, above เกี่ยวกับ) with greyed non-link rows
+ผลงานของฉัน (TrendingUp) + คลังเอกสาร (Files), badge where the chevron sits. Operator-on-SA sees all
+three (ภาพรวม on bar+hub; ผลงานของฉัน+คลังเอกสาร in settings). **Tests (TDD, RED→GREEN):** new
+coming-soon-badge.test.tsx (2); bottom-tab-bar.test.tsx pins updated + coming-soon cases (non-link
+span, not aria-current, marker, procurement clean, no-404 placeholder); hub-nav.test.tsx pins updated
+
+- coming-soon case (greyed non-link + badge, never current even when currentHref matches). Settings =
+  verified-by-checklist (async Server Component; the badge + nav data carry the unit tests). 749 unit /
+  lint / typecheck / next build green. Spec: docs/feature-specs/98-coming-soon-menus.md; site-map
+  updated (nav-change contract). **SEAMS:** /dashboard + performance + documents routes unbuilt — flip
+  `comingSoon` off + point href at the route to ship each (and move ผลงานของฉัน to its บัญชี home);
+  procurement coming-soon (one-line add if wanted); a central nav registry (unify the 3 surfaces) if the
+  count grows. **LESSON (cloud-PC):** bash `cd` into the repo PERSISTS across Bash calls and shifts the
+  relative-path base for the **Write** tool (Read/Edit stayed on the primary dir) → a relative Write
+  after the `cd` triple-nested into prc-ops/prc-ops/prc-ops. Use ABSOLUTE paths for Write. Acceptance =
+  operator phone (greyed tabs/rows visible, non-tappable).
