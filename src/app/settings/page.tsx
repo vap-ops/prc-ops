@@ -1,7 +1,7 @@
 import { PageShell } from "@/components/features/page-shell";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronRight, Contact, Files, HardHat, TrendingUp, Wallet } from "lucide-react";
+import { ChevronRight, Contact, Files, HardHat, Sparkles, Wallet } from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { AvatarSurface } from "@/components/features/avatar-surface";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
@@ -17,7 +17,7 @@ import pkg from "../../../package.json";
 // workers), finance (payroll), and the account (profile + logout) live here.
 // Reachable by every authenticated role (like /profile — getClaims, not
 // requireRole, so unserved roles aren't bounced). Master-data + finance sections
-// are PM/super only. (A "ผลงานของฉัน"/performance section will slot under บัญชี.)
+// are PM/super only. ("Nova" — the gamification/growth hub — will slot under บัญชี.)
 
 export const metadata = { title: "ตั้งค่า" };
 
@@ -97,15 +97,12 @@ export default async function SettingsPage() {
         )}
 
         {/* Coming soon — everyone (spec 98). Greyed previews of planned menus
-            so the full set is visible. ผลงานของฉัน's eventual home is บัญชี
-            (build HELD); คลังเอกสาร is a future central document library. */}
+            so the full set is visible. "Nova" is the gamification/growth hub
+            (brand name, operator-chosen 2026-06-15; eventual home is บัญชี,
+            build HELD); คลังเอกสาร is a future central document library. */}
         <div className="flex flex-col gap-2">
           <h2 className="text-meta text-ink-secondary font-semibold">เร็วๆนี้</h2>
-          <ComingSoonRow
-            icon={TrendingUp}
-            label="ผลงานของฉัน"
-            hint="สรุปผลงานและความก้าวหน้าของคุณ"
-          />
+          <ComingSoonRow icon={Sparkles} label="Nova" hint="เรียนรู้ เติบโต เลเวลอัพ" />
           <ComingSoonRow icon={Files} label="คลังเอกสาร" hint="รวมเอกสารทั้งหมดไว้ในที่เดียว" />
         </div>
 

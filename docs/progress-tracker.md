@@ -575,3 +575,11 @@ span, not aria-current, marker, procurement clean, no-404 placeholder); hub-nav.
   relative-path base for the **Write** tool (Read/Edit stayed on the primary dir) → a relative Write
   after the `cd` triple-nested into prc-ops/prc-ops/prc-ops. Use ABSOLUTE paths for Write. Acceptance =
   operator phone (greyed tabs/rows visible, non-tappable).
+
+**FOLLOW-UP (same session):** the gamification/growth row renamed ผลงานของฉัน → **Nova** —
+operator-chosen brand after a naming pass. Rationale: ผลงานของฉัน read like a KPI/job-evaluation and
+was ego-centric (ของฉัน); brief became "cool English brand, easy for Thai mouths, transition to
+gamification — learning/growth/fun, less about work." Nova (โนวา — a star flaring brighter =
+breakthrough) won on pronunciation + cool + non-ego growth metaphor. Icon TrendingUp → Sparkles;
+subtitle "เรียนรู้ เติบโต เลเวลอัพ". Code + spec 98 + site-map updated. Brand is elastic — holds
+streaks/quests/levels later with no rename.

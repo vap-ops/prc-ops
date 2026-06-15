@@ -17,14 +17,20 @@ expectations and makes the app read as intentional rather than thin.
 - **Seed set (3 menus, operator call):**
   - `ภาพรวม` (Dashboard / overview + budget-vs-spend) — a **top-level** menu. Data captured specs
     79–80; no view built.
-  - `ผลงานของฉัน` (My performance / gamification) — researched + designed, build HELD
+  - `Nova` (gamification / growth hub) — researched + designed, build HELD
     (memory `settings-hub-and-gamification`). Eventual home is `ตั้งค่า › บัญชี` (the settings code
-    already reserves that slot).
+    already reserves that slot). **Brand name** (operator-chosen 2026-06-15) — see Naming below.
   - `คลังเอกสาร` (central documents library) — today documents live only per-request / per-contact.
+- **Naming (Nova).** The first label `ผลงานของฉัน` read like a KPI/job-evaluation and was ego-centric
+  (`ของฉัน`), clashing with the private, non-competitive gamification design. The brief converged on a
+  cool English brand, easy for Thai mouths, that signals the gamification transition (learning /
+  growth / fun, not work). `Nova` (โนวา — a star flaring brighter = breakthrough) won on pronunciation
+  - cool factor + a non-ego growth metaphor; it is elastic enough to hold streaks / quests / levels
+    later with no rename. Icon `Sparkles`; row subtitle `เรียนรู้ เติบโต เลเวลอัพ`.
 - The mechanism is built **once** (a `comingSoon` flag + a shared badge); the seed list is trivial to
   grow or prune later — this is the look-loop's job.
 - **Operator tests on an SA account** (memory): the seed is placed so an SA sees all three —
-  `ภาพรวม` on the SA bar + hub; `ผลงานของฉัน` + `คลังเอกสาร` in the settings เร็วๆนี้ section (all roles).
+  `ภาพรวม` on the SA bar + hub; `Nova` + `คลังเอกสาร` in the settings เร็วๆนี้ section (all roles).
 - **Procurement stays lean** — its worklist-only tab set (spec 70 doctrine) gets **no** coming-soon
   tab. One-line add later if the operator asks.
 
@@ -44,7 +50,7 @@ expectations and makes the app read as intentional rather than thin.
   `comingSoon`) added to `SA_HUB_NAV` + `PM_HUB_NAV` before `ตั้งค่า`. A coming-soon item renders as a
   greyed non-link span + `ComingSoonBadge`, never the current page.
 - **`settings/page.tsx`** — a new `เร็วๆนี้` section (all roles, above `เกี่ยวกับ`) with greyed
-  non-link rows `ผลงานของฉัน` (`TrendingUp`) and `คลังเอกสาร` (`Files`), each carrying a
+  non-link rows `Nova` (`TrendingUp`) and `คลังเอกสาร` (`Files`), each carrying a
   `ComingSoonBadge` where the chevron normally sits.
 
 ## Routes
@@ -66,7 +72,7 @@ only; coming-soon entries render as spans, so no navigation and no 404. Shipping
 ## Seams (recorded)
 
 - `/dashboard`, performance, documents routes unbuilt — flip `comingSoon` off per menu when each
-  ships (and move `ผลงานของฉัน` from the เร็วๆนี้ section to `บัญชี`, its reserved home).
+  ships (and move `Nova` from the เร็วๆนี้ section to `บัญชี`, its reserved home).
 - Procurement coming-soon tab — deliberately omitted (lean worklist); one-line add if wanted.
 - A central nav registry (one source of truth across the three surfaces) — not built; the three
   surfaces still define their own sets, matching the existing pattern. Unify if the count grows.
