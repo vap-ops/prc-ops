@@ -545,7 +545,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                   {/* Spec 108: dense grid worklist on tablet/desktop. Spec 109:
                       a row opens the record-review drawer (prev/next). */}
                   <div className="hidden lg:block">
-                    <ProcurementGrid groups={gridGroups} />
+                    <ProcurementGrid groups={gridGroups} today={today} />
                   </div>
                 </>
               )}

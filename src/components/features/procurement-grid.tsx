@@ -32,7 +32,19 @@ import {
 } from "@/lib/status-colors";
 import { BUTTON_PRIMARY } from "@/lib/ui/classes";
 import { adjacentRecordIds, flattenRecordOrder } from "@/lib/purchasing/grid-record-nav";
+import { rowHealth, rowHealthLabel, type RowHealth } from "@/lib/purchasing/row-health";
 import type { Database } from "@/lib/db/database.types";
+
+// Spec 112: band-relative health → the row's left-edge color. The cell sets
+// border-l-4 (width); these set the colour (only the left side has width, so the
+// other sides stay invisible). Uses the all-sides color tokens already in use
+// elsewhere (border-l-<token> isn't relied on for generation).
+const HEALTH_BORDER: Record<RowHealth, string> = {
+  late: "border-danger",
+  at_risk: "border-attn",
+  on_track: "border-done-strong",
+  waiting: "border-edge",
+};
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
 type PurchaseRequestPriority = Database["public"]["Enums"]["purchase_request_priority"];
@@ -74,7 +86,14 @@ type Group = { meta: WorklistGroupMeta; items: ProcurementGridRecord[] };
 
 const baht = (n: number) => `฿${Math.round(n).toLocaleString("en-US")}`;
 
-export function ProcurementGrid({ groups }: { groups: ReadonlyArray<Group> }) {
+export function ProcurementGrid({
+  groups,
+  today,
+}: {
+  groups: ReadonlyArray<Group>;
+  // Bangkok civil date (from the server) — drives the spec-112 health color.
+  today: string;
+}) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Reading order + id→record lookup, recomputed only when the data changes.
@@ -112,6 +131,7 @@ export function ProcurementGrid({ groups }: { groups: ReadonlyArray<Group> }) {
                 items={items}
                 selectedId={selectedId}
                 onSelect={setSelectedId}
+                today={today}
               />
             ))}
           </tbody>
@@ -134,11 +154,13 @@ function BandRows({
   items,
   selectedId,
   onSelect,
+  today,
 }: {
   meta: WorklistGroupMeta;
   items: ProcurementGridRecord[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  today: string;
 }) {
   return (
     <>
@@ -154,6 +176,8 @@ function BandRows({
       </tr>
       {items.map((r) => {
         const isSelected = r.id === selectedId;
+        // Spec 112: the row's health (band-relative time pressure) → left-edge color.
+        const health = rowHealth(r.status, r.eta, r.needed_by, today);
         return (
           <tr
             key={r.id}
@@ -161,7 +185,10 @@ function BandRows({
               isSelected ? "bg-action-soft" : "hover:bg-sunk"
             }`}
           >
-            <td className="px-4 py-2 align-top">
+            <td
+              title={rowHealthLabel(health)}
+              className={`border-l-4 px-4 py-2 align-top ${HEALTH_BORDER[health]}`}
+            >
               {/* Spec 109: the row opens the review drawer (not a full nav). */}
               <button
                 type="button"
@@ -188,7 +215,13 @@ function BandRows({
                   {PURCHASE_REQUEST_STATUS_LABEL[r.status]}
                 </StatusPill>
               </div>
-              {r.eta ? <div className="text-ink-muted text-meta mt-1">ETA {r.eta}</div> : null}
+              {r.eta ? (
+                <div
+                  className={`text-meta mt-1 ${health === "late" ? "text-danger font-semibold" : "text-ink-muted"}`}
+                >
+                  ETA {r.eta}
+                </div>
+              ) : null}
             </td>
             <td className="text-ink px-4 py-2 text-right align-top tabular-nums">
               {r.amount != null ? baht(r.amount) : "—"}

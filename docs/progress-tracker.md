@@ -889,3 +889,30 @@ docs/feature-specs/111-grid-mini-stepper.md. **NOT preview-verified** (procureme
 to its stage + the pill; tracker behaves identically everywhere else. SEAMS: 5-segment fill (no
 per-stage dots/labels — minimal for density); rejected/cancelled show short/red, pill carries the
 exact terminal word.
+
+## Spec 112 — Band-relative row health color in the procurement grid (2026-06-15, SHIPPED, code-only)
+
+Operator pushed back on naive grid coloring: "coloring urgent red doesn't help if they already
+ordered the things — design better, think outside the box, ultrathink." KEY REFRAME: request
+priority is the REQUESTER's lens, stale once ordered; the buyer's grid color should encode the
+BUYER's TIME pressure, **band-relative** (red MEANS a different thing per band). **AskUserQuestion:
+"band-relative health RAG"** (over late-only / buyer-SLA-aging). App-only, no DB. **SHIPPED:** (1)
+pure `lib/purchasing/row-health.ts` (TDD, +14 unit) — `rowHealth(status, eta, neededBy, todayIso)` →
+late|at_risk|on_track|waiting, band-aware via procurementBand: **to_order** (not ordered) pressure =
+needed_by (past→late, ≤7d→at_risk, else on_track, no-need→on_track); **in_transit** (ordered) = ETA
+past→late, ETA>needed_by→at_risk (lands late), else on_track, no-eta→on_track (request urgency
+IRRELEVANT here — the operator's whole point, so rowHealth takes NO priority input); **received**→
+on_track; **awaiting_approval/rejected/cancelled**→waiting (not the buyer's move). `HEALTH_SOON_DAYS=7`;
+`daysUntil` = UTC-midnight ISO diff (tz-stable). +`rowHealthLabel` Thai (hover title). (2) grid: each
+data row's FIRST cell gets `border-l-4` + a health color (late=danger, at_risk=attn, on_track=
+done-strong, waiting=edge) + `title` reason; ETA turns text-danger when late. Used all-sides color
+tokens (border-danger etc.) NOT border-l-<token> (don't rely on left-specific color generation). (3)
+`/requests` passes `today=bangkokTodayISO()` into the grid so health uses the Bangkok civil date, not
+the client clock. **Three orthogonal grid signals now:** band=action · mini-bar=stage · color=on-time.
+Grid only — pill/mini-bar/cards/band-header unchanged. 825 unit / lint / typecheck / build green; **no
+migration → pgTAP 1025 untouched**. Spec: docs/feature-specs/112-grid-row-health-color.md. **NOT
+preview-verified** (procurement-gated) → acceptance = procurement user PC: not-ordered-past-needed_by
+glows red, shipment-past-ETA red, shipment-landing-after-need amber, on-track green, awaiting neutral;
+hover explains. SEAMS: SOON window fixed at 7d (no per-project SLA); received→amber on missing invoice
+(filing gap) needs attachment query — deferred; color legend + health on phone cards later; in_transit
+no-ETA reads on_track (an "unmanaged PO" amber is a later refinement).
