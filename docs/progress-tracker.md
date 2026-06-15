@@ -916,3 +916,25 @@ glows red, shipment-past-ETA red, shipment-landing-after-need amber, on-track gr
 hover explains. SEAMS: SOON window fixed at 7d (no per-project SLA); received→amber on missing invoice
 (filing gap) needs attachment query — deferred; color legend + health on phone cards later; in_transit
 no-ETA reads on_track (an "unmanaged PO" amber is a later refinement).
+
+## Spec 113 — Grid health smoke test + visual preview (2026-06-15, SHIPPED, code-only)
+
+Operator on spec-112: "I only see green — add a smoke test so we can review all possible cases."
+**DIAGNOSIS: not a code bug.** rowHealth is date-driven (to_order needs needed_by, in_transit needs
+eta); pilot rows mostly have those NULL → every row classifies on_track (green). The color wiring is
+correct. **SHIPPED:** (1) `tests/unit/procurement-grid-health.test.tsx` — renders ProcurementGrid
+with synthetic rows hitting every band/health, asserts all four health border colors (border-danger/
+attn/done-strong/edge) + the late-ETA text-danger render (regression guard against a one-color wash).
+(2) `src/app/grid-preview/page.tsx` — **TEMPORARY** public page (no auth, synthetic data, fixed
+today) rendering the grid across every case + a legend, for operator review on the live deploy (the
+spec-38 /design-preview precedent); DELETE after review. 826 unit / lint / typecheck / build green;
+**no migration → pgTAP 1025 untouched**. Spec: docs/feature-specs/113-grid-health-smoke-preview.md.
+**DEV-ENV FINDING (recorded, not prod-affecting):** the cloud-PC `pnpm dev` preview only emits the
+`@theme inline` token block (--color-card) and NOT the second `@theme` block (--color-danger/attn/
+done-strong/edge resolve to "" on :root), so colors render grey/transparent in LOCAL dev — could not
+screenshot-verify the colors here. Production build compiles both @theme blocks (the live app's pills/
+links are token-colored), so the bars DO render on the deploy; verification was via the unit smoke
+test (class wiring) + the rowHealth tests (logic) + token-name confirmation in globals.css.
+Acceptance = operator opens /grid-preview on the LIVE deploy → sees red/amber/green/grey, then it's
+deleted. **The real takeaway for live data: coloring appears once requesters set needed_by and
+procurement/AppSheet set eta** — making needed_by more prominent on the request form is a follow-up.

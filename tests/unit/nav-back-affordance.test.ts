@@ -55,8 +55,15 @@ const NON_DETAIL_ROUTES = ["review", "projects", "settings", "requests", "dashbo
 );
 
 // EXCLUDED: bespoke layouts that use neither header — the root dispatcher,
-// login, coming-soon, and the bare /contacts redirect (spec 99).
-const EXCLUDED_ROUTES = ["page.tsx", "login/page.tsx", "coming-soon/page.tsx", "contacts/page.tsx"];
+// login, coming-soon, the bare /contacts redirect (spec 99), and the spec-113
+// TEMPORARY /grid-preview color-review page (delete after operator review).
+const EXCLUDED_ROUTES = [
+  "page.tsx",
+  "login/page.tsx",
+  "coming-soon/page.tsx",
+  "contacts/page.tsx",
+  "grid-preview/page.tsx",
+];
 
 describe("nav back-affordance (spec 63)", () => {
   it.each(DETAIL_ROUTES)("drill-down route %s renders DetailHeader", (route) => {
