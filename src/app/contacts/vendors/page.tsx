@@ -15,12 +15,9 @@ import { DetailHeader } from "@/components/features/detail-header";
 import { BottomTabBar } from "@/components/features/bottom-tab-bar";
 import { ContactsTabs } from "@/components/features/contacts-tabs";
 import type { RecordRow, RecordBadge } from "@/components/features/record-manager";
-import { aggregateSupplierSpend } from "@/lib/purchasing/supplier-spend";
+import { aggregateSupplierSpend, buildSupplierSpendBadges } from "@/lib/purchasing/supplier-spend";
 
 export const metadata = { title: "ผู้ขายและผู้ให้บริการ" };
-
-// Spec 107: compact THB for the per-supplier spend chip.
-const baht = (n: number) => `฿${Math.round(n).toLocaleString("en-US")}`;
 
 export default async function ContactsVendorsPage() {
   const ctx = await requireRole(BACK_OFFICE_ROLES);
@@ -76,21 +73,17 @@ export default async function ContactsVendorsPage() {
   // amount is money → admin read, gated to the procurement branch. Bounded to
   // committed POs (purchased/on_route/delivered); a SQL group-by is the scale
   // refinement if the committed history ever exceeds the PostgREST cap.
-  let supplierBadge: ((id: string) => RecordBadge | null) | undefined;
+  // Pass a SERIALIZABLE map (not a function) to the client ContactsTabs — a
+  // function prop throws across the RSC boundary (spec 109 lesson; this was the
+  // procurement-only crash on ผู้ขาย).
+  let supplierBadges: Record<string, RecordBadge> | undefined;
   if (!isManager) {
     const admin = createAdminSupabase();
     const { data: prRows } = await admin
       .from("purchase_requests")
       .select("supplier_id, amount, status")
       .in("status", ["purchased", "on_route", "delivered"]);
-    const stats = aggregateSupplierSpend(prRows ?? []);
-    supplierBadge = (id) => {
-      const s = stats.get(id);
-      if (!s || (s.spend === 0 && s.open === 0)) return null;
-      const parts = [baht(s.spend)];
-      if (s.open > 0) parts.push(`${s.open} ค้างส่ง`);
-      return { label: parts.join(" · "), tone: "neutral" };
-    };
+    supplierBadges = buildSupplierSpendBadges(aggregateSupplierSpend(prRows ?? []));
   }
 
   const backHref = isManager ? "/settings" : "/requests";
@@ -111,7 +104,7 @@ export default async function ContactsVendorsPage() {
             group="suppliers"
             suppliers={suppliers}
             linkDetails={false}
-            {...(supplierBadge ? { supplierBadge } : {})}
+            {...(supplierBadges ? { supplierBadges } : {})}
           />
         )}
       </div>

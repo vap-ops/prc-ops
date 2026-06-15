@@ -3,6 +3,7 @@
 // not yet received). amount is money → the caller reads it via the admin client;
 // this is pure. Site purchases carry no supplier_id, so they never count here.
 
+import type { RecordBadge } from "@/components/features/record-manager";
 import { procurementBand } from "./procurement-pipeline";
 
 export interface SupplierStat {
@@ -25,4 +26,24 @@ export function aggregateSupplierSpend(
     bySupplier.set(pr.supplier_id, cur);
   }
   return bySupplier;
+}
+
+const baht = (n: number) => `฿${Math.round(n).toLocaleString("en-US")}`;
+
+// Build the per-supplier spend chips as a SERIALIZABLE map (supplier id → badge),
+// so a Server Component can pass it across the RSC boundary to the client
+// ContactsTabs. A function prop throws there (spec 109 lesson); the client makes
+// its rowBadge closure from this map. Suppliers with no committed spend AND no
+// open POs get no entry (→ no chip), matching the original page behaviour.
+export function buildSupplierSpendBadges(
+  stats: Map<string, SupplierStat>,
+): Record<string, RecordBadge> {
+  const badges: Record<string, RecordBadge> = {};
+  for (const [id, s] of stats) {
+    if (s.spend === 0 && s.open === 0) continue;
+    const parts = [baht(s.spend)];
+    if (s.open > 0) parts.push(`${s.open} ค้างส่ง`);
+    badges[id] = { label: parts.join(" · "), tone: "neutral" };
+  }
+  return badges;
 }

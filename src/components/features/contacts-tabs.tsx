@@ -282,7 +282,7 @@ export function ContactsTabs({
   dc = [],
   serviceProviders = [],
   linkDetails = true,
-  supplierBadge,
+  supplierBadges,
 }: {
   group: ContactGroup;
   clients?: RecordRow[];
@@ -294,7 +294,10 @@ export function ContactsTabs({
   // money-isolated bank block). Procurement curates suppliers inline only.
   linkDetails?: boolean;
   // Spec 107: optional per-supplier spend chip (procurement buyer intelligence).
-  supplierBadge?: (id: string) => RecordBadge | null;
+  // A SERIALIZABLE map (supplier id → badge), NOT a function — a function prop
+  // throws across the Server→Client boundary (spec 109 lesson). The rowBadge
+  // closure is built here, client-side.
+  supplierBadges?: Record<string, RecordBadge>;
 }) {
   // Spec 99: one screen per group; a single-tab group renders no chip row.
   const tabs = CONTACT_GROUP_TABS[group];
@@ -371,7 +374,7 @@ export function ContactsTabs({
           onUpdate={supplierUpdate}
           addInSheet
           {...(linkDetails ? { rowHref: (r: RecordRow) => `/contacts/suppliers/${r.id}` } : {})}
-          {...(supplierBadge ? { rowBadge: (r: RecordRow) => supplierBadge(r.id) } : {})}
+          {...(supplierBadges ? { rowBadge: (r: RecordRow) => supplierBadges[r.id] ?? null } : {})}
         />
       ) : null}
       {tab === "contractors" ? (
