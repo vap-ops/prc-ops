@@ -18,6 +18,13 @@ import type { Database } from "@/lib/db/database.types";
 import { Constants } from "@/lib/db/database.types";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { validateNotes } from "@/lib/notes/validate";
+import { isValidPhotoExt } from "@/lib/photos/path";
+import {
+  buildContactDocPath,
+  isContactDocKind,
+  isContactDocPurpose,
+  type ContactDocKind,
+} from "@/lib/contacts/document-path";
 
 const E = Constants.public.Enums;
 
@@ -454,5 +461,47 @@ export async function setContactBank(input: {
   });
   if (error) return { ok: false, error: GENERIC };
   revalidatePath(CONTACTS_PATH);
+  return { ok: true };
+}
+
+// ── documents (PII / bank-adjacent, spec 97) ─────────────────────────────────
+// The file is uploaded client-side to the private contact-docs bucket; this
+// action REBUILDS the storage path (never trusts the client's) and records the
+// row via the add_contact_document SECURITY DEFINER RPC on the USER session.
+
+const CONTACT_TYPE_SEGMENT: Record<ContactDocKind, string> = {
+  contractor: "contractors",
+  supplier: "suppliers",
+  service_provider: "service-providers",
+};
+
+export async function addContactDocument(input: {
+  kind: string;
+  id: string;
+  purpose: string;
+  attachmentId: string;
+  ext: string;
+}): Promise<RecordActionResult> {
+  const gate = await pmSession();
+  if (!gate.ok) return gate;
+  if (!isContactDocKind(input.kind)) return { ok: false, error: GENERIC };
+  if (!isContactDocPurpose(input.purpose)) return { ok: false, error: GENERIC };
+  if (!UUID_REGEX.test(input.id) || !UUID_REGEX.test(input.attachmentId)) {
+    return { ok: false, error: GENERIC };
+  }
+  if (!isValidPhotoExt(input.ext)) return { ok: false, error: GENERIC };
+
+  const path = buildContactDocPath(input.kind, input.id, input.attachmentId, input.ext);
+  if (!path) return { ok: false, error: GENERIC };
+
+  const { error } = await gate.supabase.rpc("add_contact_document", {
+    ...(input.kind === "contractor" ? { p_contractor_id: input.id } : {}),
+    ...(input.kind === "supplier" ? { p_supplier_id: input.id } : {}),
+    ...(input.kind === "service_provider" ? { p_service_provider_id: input.id } : {}),
+    p_purpose: input.purpose,
+    p_storage_path: path,
+  });
+  if (error) return { ok: false, error: GENERIC };
+  revalidatePath(`${CONTACTS_PATH}/${CONTACT_TYPE_SEGMENT[input.kind]}/${input.id}`);
   return { ok: true };
 }

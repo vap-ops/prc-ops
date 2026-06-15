@@ -93,6 +93,13 @@ for reading the spec itself.
 | 88   | Contacts v2 Unit 5: contact detail page + bank block                      |
 | 89   | Contacts v2 Unit 9: blacklist hidden from assignment pickers              |
 | 90   | Contacts v2 Unit 8: crew on a contractor's detail page                    |
+| 91   | Field-First token sweep: whole-app consistency                            |
+| 92   | WP schedule + critical path (KANNA-style Gantt)                           |
+| 93   | ตั้งค่า (Settings) hub + decluttered nav                                  |
+| 94   | Detail info sheet: slim headers, ⓘ bottom sheet                           |
+| 95   | iOS keyboard repaint guard                                                |
+| 96   | Add work photos from the gallery                                          |
+| 97   | Contacts v2 Unit 7: contact documents (ID card + bank book)               |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

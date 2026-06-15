@@ -15,7 +15,9 @@ import { DETAIL_TITLE } from "@/lib/ui/classes";
 import { CARD } from "@/lib/ui/classes";
 import { ContactBankBlock } from "@/components/features/contact-bank-block";
 import { ContactCrewSection } from "@/components/features/contact-crew-section";
+import { ContactDocumentsBlock } from "@/components/features/contact-documents-block";
 import { getContactBank, type ContactKind } from "@/lib/contacts/bank";
+import { getContactDocuments } from "@/lib/contacts/documents";
 
 const TYPE_CONFIG = {
   clients: { table: "clients", kind: null, label: "ลูกค้า" },
@@ -83,7 +85,11 @@ export default async function ContactDetailPage({
     .map((k) => ({ label: LABELS[k] as string, value: displayValue(k, row[k] as string) }));
 
   const kind = cfg.kind as ContactKind | null;
-  const bank = kind ? await getContactBank(createAdminSupabase(), kind, id) : null;
+  // One admin client for the money/PII reads (bank + documents); both are behind
+  // the requireRole(PM_ROLES) gate above.
+  const admin = kind ? createAdminSupabase() : null;
+  const bank = kind && admin ? await getContactBank(admin, kind, id) : null;
+  const documents = kind && admin ? await getContactDocuments(admin, kind, id) : null;
 
   // Spec 90: a contractor's crew = the DC workers parented by it (names only;
   // rates stay on /workers). Only the contractors route has crew.
@@ -124,6 +130,14 @@ export default async function ContactDetailPage({
         </section>
 
         {kind ? <ContactBankBlock kind={kind} id={id} initial={bank} /> : null}
+        {kind ? (
+          <ContactDocumentsBlock
+            kind={kind}
+            id={id}
+            idCardUrl={documents?.idCard ?? null}
+            bankBookUrl={documents?.bankBook ?? null}
+          />
+        ) : null}
         {type === "contractors" ? <ContactCrewSection contractorId={id} crew={crew} /> : null}
       </div>
     </PageShell>

@@ -6,3 +6,4 @@
 export const PHOTOS_BUCKET = "photos";
 export const PR_ATTACHMENTS_BUCKET = "pr-attachments";
 export const REPORTS_BUCKET = "reports";
+export const CONTACT_DOCS_BUCKET = "contact-docs";
