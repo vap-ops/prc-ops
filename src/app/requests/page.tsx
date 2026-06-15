@@ -48,6 +48,7 @@ import {
   ProcurementGrid,
   type ProcurementGridRecord,
 } from "@/components/features/procurement-grid";
+import type { SupplierOption } from "@/components/features/purchase-record-form";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { ProcurementFilters } from "@/components/features/procurement-filters";
 import {
@@ -186,13 +187,13 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
 
   let pendingQuery = supabase
     .from("purchase_requests")
-    .select(PR_LIST_COLUMNS)
+    .select(`${PR_LIST_COLUMNS}, notes`)
     .eq("status", "requested");
   if (mineOnly) pendingQuery = pendingQuery.eq("requested_by", ctx.id);
 
   let decidedFilter = supabase
     .from("purchase_requests")
-    .select(PR_LIST_COLUMNS)
+    .select(`${PR_LIST_COLUMNS}, notes`)
     .neq("status", "requested");
   if (mineOnly) decidedFilter = decidedFilter.eq("requested_by", ctx.id);
   const decidedQuery = decidedFilter
@@ -327,6 +328,37 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     );
   }
 
+  // Spec 114: suppliers feed the in-drawer record-purchase form; a per-request
+  // attachment count feeds the drawer's document indicator. Procurement only —
+  // both read under the user session (RLS admits procurement: suppliers SELECT
+  // spec 33, attachments via the parent-row policy).
+  let supplierRecords: SupplierOption[] = [];
+  const docCountById = new Map<string, number>();
+  if (isProcurement) {
+    const { data: supplierRows } = await supabase
+      .from("suppliers")
+      .select("id, name, phone")
+      .order("name", { ascending: true });
+    supplierRecords = supplierRows ?? [];
+    if (myRequests.length > 0) {
+      const { data: attachmentRows } = await supabase
+        .from("purchase_request_attachments_current")
+        .select("purchase_request_id")
+        .in(
+          "purchase_request_id",
+          myRequests.map((r) => r.id),
+        );
+      for (const a of attachmentRows ?? []) {
+        if (a.purchase_request_id) {
+          docCountById.set(
+            a.purchase_request_id,
+            (docCountById.get(a.purchase_request_id) ?? 0) + 1,
+          );
+        }
+      }
+    }
+  }
+
   // Spec 109: the desktop grid + its review drawer is a client component, so the
   // page bakes wp name/code + amount into serializable records (a client boundary
   // can't take server-closure functions). Procurement-only, mirroring the bands.
@@ -354,6 +386,18 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         work_package_id: r.work_package_id,
         wp_code: wp?.code ?? null,
         wp_name: wp?.name ?? null,
+        // Spec 114 drawer enrichment.
+        project_id: wp?.project_id ?? null,
+        requested_by: r.requested_by,
+        requester_name:
+          (r.requested_by ? requesterNames.get(r.requested_by) : null) ??
+          r.requested_by_email ??
+          null,
+        notes: r.notes,
+        decision_comment: r.decision_comment,
+        received_by: r.received_by,
+        delivery_note: r.delivery_note,
+        doc_count: docCountById.get(r.id) ?? 0,
       };
     }),
   }));
@@ -545,7 +589,12 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                   {/* Spec 108: dense grid worklist on tablet/desktop. Spec 109:
                       a row opens the record-review drawer (prev/next). */}
                   <div className="hidden lg:block">
-                    <ProcurementGrid groups={gridGroups} today={today} />
+                    <ProcurementGrid
+                      groups={gridGroups}
+                      today={today}
+                      suppliers={supplierRecords}
+                      userId={ctx.id}
+                    />
                   </div>
                 </>
               )}

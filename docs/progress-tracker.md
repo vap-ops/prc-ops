@@ -938,3 +938,33 @@ test (class wiring) + the rowHealth tests (logic) + token-name confirmation in g
 Acceptance = operator opens /grid-preview on the LIVE deploy → sees red/amber/green/grey, then it's
 deleted. **The real takeaway for live data: coloring appears once requesters set needed_by and
 procurement/AppSheet set eta** — making needed_by more prominent on the request form is a follow-up.
+
+## Spec 114 — Enrich the review drawer + in-place buyer actions (2026-06-15, SHIPPED, code-only)
+
+Operator on the spec-109 drawer: "too little info, and can they edit right away? is it wise?" KEY
+SCOPING: the grid/drawer is **procurement-only** → approve/reject/cancel never appear here (PM-only,
+spec 70); the only actions in play are the buyer's own (record purchase / ship / invoice / delivery
+photo) — form-based, audited, reversible → safe in place. **AskUserQuestion: "enrich + in-drawer
+actions."** App-only, no DB. **SHIPPED:** (1) pure `lib/purchasing/drawer-actions.ts` (TDD, +6 unit)
+`procurementDrawerActions(status)` → {record(approved), ship(purchased), invoice(purchased+),
+deliveryPhoto(on_route/delivered)} (mirrors the detail page's back-office arms). (2) ProcurementGridRecord
++8 fields (project_id, requested_by, requester_name, notes, decision_comment, received_by,
+delivery_note, doc_count). (3) page: fetch `notes` alongside PR_LIST_COLUMNS; one batched
+attachment-count (purchase_request_attachments_current grouped in JS) → doc_count; fetch suppliers
+once (procurement); enrich records; pass `suppliers`+`userId` to the grid. (4) drawer rebuilt
+(DrawerBody, keyed by record.id so action forms RESET on prev/next — no half-typed amount carries
+over): **PINNED header** (sticky top-0: prev/next + PR#/item/status — the guardrail so a stepping
+buyer can't act on the wrong row), richer read-only (requester+ของฉัน, ขอเมื่อ, note, rejection reason,
+ผู้รับของ/delivery note, เอกสาร count), and **in-place action forms** (existing PurchaseRecordForm/
+Ship/InvoiceUploader/DeliveryPhotoUploader — they router.refresh() → page re-renders → still-open
+drawer reflects the new status/band), + a เปิดรายละเอียดทั้งหมด → link for galleries. New grid props
+suppliers/userId are OPTIONAL (spec-113 preview/smoke pass neither; uploaders guarded on
+userId/project_id; factories updated with the 8 new fields). **WHY WISE (operator's Q): decisions are
+structurally absent here; remaining actions are audited+reversible forms; the wrong-row hazard is
+closed by the pinned header; amount stays a deliberate field.** Money posture unchanged. 8xx unit /
+lint / typecheck / build green; no migration → pgTAP 1025 untouched. Spec:
+docs/feature-specs/114-drawer-enrich-and-actions.md. NOT preview-verified for colors (dev-token glitch)
+but build guards the client/server boundary (action components render in the client drawer). Acceptance
+= procurement PC: open a row → fuller record + record/ship/attach IN the drawer, grid updates without
+leaving, prev/next still steps, full page one link away. SEAMS: doc COUNT not galleries; band-jump
+after action expected; decisions stay page+PM-only.

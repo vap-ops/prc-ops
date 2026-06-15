@@ -116,6 +116,7 @@ for reading the spec itself.
 | 111  | Compact process mini-bar in the grid status cell (shared order-stage helper)   |
 | 112  | Band-relative row health color in the grid (buyer time pressure, not priority) |
 | 113  | Grid health smoke test + temporary visual preview (review all color cases)     |
+| 114  | Enrich the review drawer + in-place buyer actions (record/ship/invoice/photo)  |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

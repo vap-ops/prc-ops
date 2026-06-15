@@ -33,6 +33,14 @@ import {
 import { BUTTON_PRIMARY } from "@/lib/ui/classes";
 import { adjacentRecordIds, flattenRecordOrder } from "@/lib/purchasing/grid-record-nav";
 import { rowHealth, rowHealthLabel, type RowHealth } from "@/lib/purchasing/row-health";
+import { procurementDrawerActions } from "@/lib/purchasing/drawer-actions";
+import {
+  PurchaseRecordForm,
+  type SupplierOption,
+} from "@/components/features/purchase-record-form";
+import { PurchaseRequestShip } from "@/components/features/purchase-request-ship";
+import { InvoiceUploader } from "@/components/features/invoice-uploader";
+import { DeliveryPhotoUploader } from "@/components/features/delivery-photo-uploader";
 import type { Database } from "@/lib/db/database.types";
 
 // Spec 112: band-relative health → the row's left-edge color. The cell sets
@@ -50,7 +58,9 @@ type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_statu
 type PurchaseRequestPriority = Database["public"]["Enums"]["purchase_request_priority"];
 
 // One serializable record — everything the grid row AND the review drawer need.
-// The page enriches each purchase_requests row with wp_code/wp_name + amount.
+// The page enriches each purchase_requests row with wp_code/wp_name + amount, and
+// (spec 114) the read-only drawer context: requester, note, rejection reason,
+// delivery info, document count, plus project_id for the in-drawer uploaders.
 export interface ProcurementGridRecord {
   id: string;
   pr_number: number | null;
@@ -71,6 +81,15 @@ export interface ProcurementGridRecord {
   work_package_id: string;
   wp_code: string | null;
   wp_name: string | null;
+  // Spec 114 drawer enrichment.
+  project_id: string | null;
+  requested_by: string | null;
+  requester_name: string | null;
+  notes: string | null;
+  decision_comment: string | null;
+  received_by: string | null;
+  delivery_note: string | null;
+  doc_count: number;
 }
 
 // Structural group meta — a real pipeline band (ProcurementBandMeta) OR a
@@ -89,10 +108,17 @@ const baht = (n: number) => `฿${Math.round(n).toLocaleString("en-US")}`;
 export function ProcurementGrid({
   groups,
   today,
+  suppliers = [],
+  userId,
 }: {
   groups: ReadonlyArray<Group>;
   // Bangkok civil date (from the server) — drives the spec-112 health color.
   today: string;
+  // Spec 114: in-drawer buyer actions. suppliers feeds the record-purchase form;
+  // userId the delivery-photo uploader. Optional — the spec-113 preview/smoke
+  // pass neither (uploaders are guarded on userId/project_id).
+  suppliers?: ReadonlyArray<SupplierOption>;
+  userId?: string;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -144,6 +170,8 @@ export function ProcurementGrid({
         onClose={() => setSelectedId(null)}
         onPrev={prevId ? () => setSelectedId(prevId) : null}
         onNext={nextId ? () => setSelectedId(nextId) : null}
+        suppliers={suppliers}
+        userId={userId}
       />
     </>
   );
@@ -233,123 +261,214 @@ function BandRows({
   );
 }
 
-// The right-docked review sidesheet (spec 109). Read-only record detail + a
-// persistent top bar with prev/next + an n/total counter; "ดำเนินการ →" deep
-// links to /requests/[id] to act. Reuses the BottomSheet primitive (side=right).
+// The right-docked review sidesheet (spec 109/114). The record identity (prev/next
+// + PR# + item + status) is PINNED at the top so a buyer stepping records can't act
+// on the wrong row; below it is the enriched read-only context and the in-place
+// buyer actions (spec 114). Reuses the BottomSheet primitive (side=right).
 function RecordReviewDrawer({
   record,
   position,
   onClose,
   onPrev,
   onNext,
+  suppliers,
+  userId,
 }: {
   record: ProcurementGridRecord | null;
   position: { index: number; total: number } | null;
   onClose: () => void;
   onPrev: (() => void) | null;
   onNext: (() => void) | null;
+  suppliers: ReadonlyArray<SupplierOption>;
+  userId: string | undefined;
 }) {
-  // site_purchased skipped the requisition pipeline — hide the stepper, mirroring
-  // the detail page (spec 66 / ADR 0043).
-  const showStepper = record != null && record.status !== "site_purchased";
   return (
     <BottomSheet open={record != null} side="right" title="รายละเอียดคำขอซื้อ" onClose={onClose}>
       {record ? (
-        <div className="flex flex-col gap-4">
-          {/* Persistent prev/next bar (Airtable's record stepper). */}
-          <div className="border-edge flex items-center justify-between gap-2 border-b pb-3">
-            <button
-              type="button"
-              onClick={onPrev ?? undefined}
-              disabled={!onPrev}
-              className="text-ink hover:bg-sunk focus-visible:ring-action disabled:text-ink-muted inline-flex min-h-11 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-            >
-              <ChevronLeft aria-hidden className="size-4" />
-              ก่อนหน้า
-            </button>
-            {position ? (
-              <span className="text-ink-muted text-meta tabular-nums">
-                {position.index + 1} / {position.total}
-              </span>
-            ) : null}
-            <button
-              type="button"
-              onClick={onNext ?? undefined}
-              disabled={!onNext}
-              className="text-ink hover:bg-sunk focus-visible:ring-action disabled:text-ink-muted inline-flex min-h-11 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-            >
-              ถัดไป
-              <ChevronRight aria-hidden className="size-4" />
-            </button>
-          </div>
-
-          {/* Header — PR number, subject (never truncated), status + priority. */}
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              {record.pr_number ? (
-                <p className="text-ink-secondary font-mono text-xs">
-                  PR-{String(record.pr_number).padStart(4, "0")}
-                </p>
-              ) : null}
-              <h3 className="text-ink mt-0.5 text-base font-semibold break-words">
-                {record.item_description}
-              </h3>
-            </div>
-            <span className="mt-0.5 flex shrink-0 flex-col items-end gap-1">
-              <StatusPill pillClasses={purchaseRequestStatusPillClasses(record.status)}>
-                {PURCHASE_REQUEST_STATUS_LABEL[record.status]}
-              </StatusPill>
-              {record.priority !== "normal" ? (
-                <StatusPill pillClasses={purchaseRequestPriorityPillClasses(record.priority)}>
-                  {PURCHASE_REQUEST_PRIORITY_LABEL[record.priority]}
-                </StatusPill>
-              ) : null}
-            </span>
-          </div>
-
-          {/* Facts. */}
-          <dl className="flex flex-col gap-2 text-sm">
-            <Fact label="จำนวน">
-              {record.quantity} {record.unit}
-            </Fact>
-            {record.wp_code || record.wp_name ? (
-              <Fact label="งาน">
-                {record.wp_code ? <span className="font-mono">{record.wp_code}</span> : null}
-                {record.wp_code && record.wp_name ? <span className="mx-1">·</span> : null}
-                {record.wp_name}
-              </Fact>
-            ) : null}
-            {record.supplier ? <Fact label="ผู้ขาย">{record.supplier}</Fact> : null}
-            <Fact label="จำนวนเงิน">{record.amount != null ? baht(record.amount) : "—"}</Fact>
-            {record.needed_by ? (
-              <Fact label="ต้องการภายใน">{formatThaiDate(record.needed_by)}</Fact>
-            ) : null}
-            {record.eta ? <Fact label="คาดว่าจะได้รับ">{formatThaiDate(record.eta)}</Fact> : null}
-          </dl>
-
-          {/* Status stepper — reuse the order-tracking pipeline (spec 22). */}
-          {showStepper ? (
-            <div className="border-edge border-t pt-4">
-              <PurchaseRequestTracker
-                status={record.status}
-                requestedAt={record.requested_at}
-                decidedAt={record.decided_at}
-                purchasedAt={record.purchased_at}
-                shippedAt={record.shipped_at}
-                deliveredAt={record.delivered_at}
-                eta={record.eta}
-              />
-            </div>
-          ) : null}
-
-          {/* Act → the full detail page (approach b). */}
-          <Link href={`/requests/${record.id}`} className={`${BUTTON_PRIMARY} w-full`}>
-            ดำเนินการ
-            <ArrowRight aria-hidden className="ml-1.5 size-4" />
-          </Link>
-        </div>
+        // key on the record so the action forms remount (reset their state) when
+        // stepping prev/next — never carry a half-typed amount onto another row.
+        <DrawerBody
+          key={record.id}
+          record={record}
+          position={position}
+          onPrev={onPrev}
+          onNext={onNext}
+          suppliers={suppliers}
+          userId={userId}
+        />
       ) : null}
     </BottomSheet>
+  );
+}
+
+function DrawerBody({
+  record,
+  position,
+  onPrev,
+  onNext,
+  suppliers,
+  userId,
+}: {
+  record: ProcurementGridRecord;
+  position: { index: number; total: number } | null;
+  onPrev: (() => void) | null;
+  onNext: (() => void) | null;
+  suppliers: ReadonlyArray<SupplierOption>;
+  userId: string | undefined;
+}) {
+  // site_purchased skipped the requisition pipeline — hide the stepper, mirroring
+  // the detail page (spec 66 / ADR 0043).
+  const showStepper = record.status !== "site_purchased";
+  const actions = procurementDrawerActions(record.status);
+  const hasActions = actions.record || actions.ship || actions.invoice || actions.deliveryPhoto;
+  const stepBtn =
+    "text-ink hover:bg-sunk focus-visible:ring-action disabled:text-ink-muted inline-flex min-h-11 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:hover:bg-transparent";
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* PINNED record identity (spec 114 guardrail): prev/next + PR#/item/status
+          stay visible while the body scrolls to the action forms. */}
+      <div className="bg-card border-edge sticky top-0 z-10 -mx-5 -mt-4 flex flex-col gap-3 border-b px-5 pt-4 pb-3">
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={onPrev ?? undefined}
+            disabled={!onPrev}
+            className={stepBtn}
+          >
+            <ChevronLeft aria-hidden className="size-4" />
+            ก่อนหน้า
+          </button>
+          {position ? (
+            <span className="text-ink-muted text-meta tabular-nums">
+              {position.index + 1} / {position.total}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            onClick={onNext ?? undefined}
+            disabled={!onNext}
+            className={stepBtn}
+          >
+            ถัดไป
+            <ChevronRight aria-hidden className="size-4" />
+          </button>
+        </div>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            {record.pr_number ? (
+              <p className="text-ink-secondary font-mono text-xs">
+                PR-{String(record.pr_number).padStart(4, "0")}
+              </p>
+            ) : null}
+            <h3 className="text-ink mt-0.5 text-base font-semibold break-words">
+              {record.item_description}
+            </h3>
+          </div>
+          <span className="mt-0.5 flex shrink-0 flex-col items-end gap-1">
+            <StatusPill pillClasses={purchaseRequestStatusPillClasses(record.status)}>
+              {PURCHASE_REQUEST_STATUS_LABEL[record.status]}
+            </StatusPill>
+            {record.priority !== "normal" ? (
+              <StatusPill pillClasses={purchaseRequestPriorityPillClasses(record.priority)}>
+                {PURCHASE_REQUEST_PRIORITY_LABEL[record.priority]}
+              </StatusPill>
+            ) : null}
+          </span>
+        </div>
+      </div>
+
+      {/* Facts + enriched read-only context (spec 114). */}
+      <dl className="flex flex-col gap-2 text-sm">
+        <Fact label="จำนวน">
+          {record.quantity} {record.unit}
+        </Fact>
+        {record.wp_code || record.wp_name ? (
+          <Fact label="งาน">
+            {record.wp_code ? <span className="font-mono">{record.wp_code}</span> : null}
+            {record.wp_code && record.wp_name ? <span className="mx-1">·</span> : null}
+            {record.wp_name}
+          </Fact>
+        ) : null}
+        {record.requester_name ? (
+          <Fact label="ผู้ขอซื้อ">
+            {record.requested_by && record.requested_by === userId ? (
+              <span className="border-action bg-action-soft text-action mr-1.5 inline-flex items-center rounded-full border px-1.5 text-[10px] font-semibold">
+                ของฉัน
+              </span>
+            ) : null}
+            {record.requester_name}
+          </Fact>
+        ) : null}
+        <Fact label="ขอเมื่อ">{formatThaiDate(record.requested_at)}</Fact>
+        {record.supplier ? <Fact label="ผู้ขาย">{record.supplier}</Fact> : null}
+        <Fact label="จำนวนเงิน">{record.amount != null ? baht(record.amount) : "—"}</Fact>
+        {record.needed_by ? (
+          <Fact label="ต้องการภายใน">{formatThaiDate(record.needed_by)}</Fact>
+        ) : null}
+        {record.eta ? <Fact label="คาดว่าจะได้รับ">{formatThaiDate(record.eta)}</Fact> : null}
+        {record.status === "delivered" && record.received_by ? (
+          <Fact label="ผู้รับของ">{record.received_by}</Fact>
+        ) : null}
+        <Fact label="เอกสาร/รูป">{record.doc_count > 0 ? `${record.doc_count} รายการ` : "—"}</Fact>
+      </dl>
+
+      {record.notes ? (
+        <p className="text-ink-secondary text-xs whitespace-pre-wrap">หมายเหตุ: {record.notes}</p>
+      ) : null}
+      {record.status === "delivered" && record.delivery_note ? (
+        <p className="text-ink-secondary text-xs whitespace-pre-wrap">{record.delivery_note}</p>
+      ) : null}
+      {record.status === "rejected" && record.decision_comment ? (
+        <div className="border-danger-edge bg-danger-soft text-danger-ink rounded-md border px-3 py-2 text-xs">
+          <span className="font-semibold">เหตุผลที่ไม่อนุมัติ: </span>
+          <span className="whitespace-pre-wrap">{record.decision_comment}</span>
+        </div>
+      ) : null}
+
+      {/* Status stepper — reuse the order-tracking pipeline (spec 22). */}
+      {showStepper ? (
+        <div className="border-edge border-t pt-4">
+          <PurchaseRequestTracker
+            status={record.status}
+            requestedAt={record.requested_at}
+            decidedAt={record.decided_at}
+            purchasedAt={record.purchased_at}
+            shippedAt={record.shipped_at}
+            deliveredAt={record.delivered_at}
+            eta={record.eta}
+          />
+        </div>
+      ) : null}
+
+      {/* In-place buyer actions (spec 114) — gated by status. Decisions are PM-only
+          and never appear on this procurement surface. */}
+      {hasActions ? (
+        <div className="border-edge flex flex-col gap-3 border-t pt-4">
+          <h4 className="text-ink text-sm font-semibold">ดำเนินการ</h4>
+          {actions.record ? (
+            <PurchaseRecordForm requestId={record.id} suppliers={[...suppliers]} />
+          ) : null}
+          {actions.ship ? <PurchaseRequestShip requestId={record.id} /> : null}
+          {actions.deliveryPhoto && record.project_id && userId ? (
+            <DeliveryPhotoUploader
+              purchaseRequestId={record.id}
+              projectId={record.project_id}
+              userId={userId}
+            />
+          ) : null}
+          {actions.invoice && record.project_id ? (
+            <InvoiceUploader purchaseRequestId={record.id} projectId={record.project_id} />
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* Full record (photo galleries, attachments, history). */}
+      <Link href={`/requests/${record.id}`} className={`${BUTTON_PRIMARY} w-full`}>
+        เปิดรายละเอียดทั้งหมด
+        <ArrowRight aria-hidden className="ml-1.5 size-4" />
+      </Link>
+    </div>
   );
 }
 
