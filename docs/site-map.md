@@ -42,18 +42,16 @@ the account (profile + logout) moved into the **ตั้งค่า** (`/setti
 ตั้งค่า tab lights on `/profile`, `/contacts`, `/workers`, `/payroll` too (match).
 Desktop HubNav mirrors this (deciders + ตั้งค่า).
 
-- SA: โครงการ `/projects` · คำขอซื้อ `/requests` · **ภาพรวม `/dashboard` (เร็วๆนี้)** · ตั้งค่า
-  `/settings`
-- PM/super: รอตรวจ `/review` · โครงการ `/projects` · คำขอซื้อ `/requests` · **ภาพรวม `/dashboard`
-  (เร็วๆนี้)** · ตั้งค่า `/settings`
+- SA: โครงการ `/projects` · คำขอซื้อ `/requests` · ภาพรวม `/dashboard` · ตั้งค่า `/settings`
+- PM/super: รอตรวจ `/review` · โครงการ `/projects` · คำขอซื้อ `/requests` · ภาพรวม `/dashboard` ·
+  ตั้งค่า `/settings`
 - procurement (spec 70): คำขอซื้อ `/requests` · ตั้งค่า `/settings` (no project
-  hub, not a decider; **no coming-soon tab — stays lean**)
+  hub, not a decider; no ภาพรวม — stays lean)
 
-**Spec 98 — coming-soon placeholders.** `ภาพรวม` is a greyed, non-tappable `comingSoon` tab/hub item
-(href `/dashboard` is a marker, no route built — renders as a span, can't navigate/404). Desktop
-HubNav mirrors it (SA + PM, before ตั้งค่า). Two more coming-soon menus live as greyed rows in the
-ตั้งค่า hub's เร็วๆนี้ section: `Nova` + `คลังเอกสาร`. Shipping a menu = flip `comingSoon` off +
-build its route.
+**Spec 100 — ภาพรวม is now live** (`/dashboard`, role-aware overview), graduating the spec-98
+coming-soon placeholder. Desktop HubNav mirrors it (SA + PM, before ตั้งค่า). The bottom-bar/hub
+coming-soon mechanism was retired (ภาพรวม was its only user). The coming-soon concept remains for the
+ตั้งค่า hub's เร็วๆนี้ rows: `Nova` + `คลังเอกสาร` (greyed, via `ComingSoonBadge`).
 
 - **Exception (Field-First reskin Unit 1):** the WP detail page
   (`/projects/[id]/work-packages/[id]`) renders NO bottom tab bar — the fixed
@@ -93,14 +91,15 @@ controls, and its WP reference is plain text (the WP detail route bounces it).
 
 ## Other
 
-| Route                   | Gate     | Notes                                                                                                                                                                                      |
-| ----------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/workers`              | pm/super | labor roster (spec 46). **No nav entry yet** — reachable by URL only; recorded seam.                                                                                                       |
-| `/contacts`             | session  | redirect → `/contacts/customers` (spec 99 — keeps old links + the bottom-bar match alive).                                                                                                 |
-| `/contacts/customers`   | pm/super | ลูกค้า (clients). Spec 99 group. Reached from ตั้งค่า › ข้อมูลหลัก; back chip → /settings.                                                                                                 |
-| `/contacts/vendors`     | pm/super | ผู้ขาย + ผู้ให้บริการ (suppliers + service). Spec 99 group; status filter on the service tab only. Back → /settings.                                                                       |
-| `/contacts/crews`       | pm/super | ผู้รับเหมา + DC (the one contractors table split by category). Spec 99 group; status filter both tabs. Back → /settings.                                                                   |
-| `/contacts/[type]/[id]` | pm/super | contact detail (clients/suppliers/contractors/service-providers): read-only fields + money-isolated bank + documents + crew (specs 81–97). Reached from a group list row; back → its list. |
+| Route                   | Gate     | Notes                                                                                                                                                                                                      |
+| ----------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/dashboard`            | session  | ภาพรวม — role-aware portfolio overview (spec 100). Primary tab (no back chip). ALL staff see progress + attention; PM/super additionally see budget vs spend (money via admin client). Live projects only. |
+| `/workers`              | pm/super | labor roster (spec 46). **No nav entry yet** — reachable by URL only; recorded seam.                                                                                                                       |
+| `/contacts`             | session  | redirect → `/contacts/customers` (spec 99 — keeps old links + the bottom-bar match alive).                                                                                                                 |
+| `/contacts/customers`   | pm/super | ลูกค้า (clients). Spec 99 group. Reached from ตั้งค่า › ข้อมูลหลัก; back chip → /settings.                                                                                                                 |
+| `/contacts/vendors`     | pm/super | ผู้ขาย + ผู้ให้บริการ (suppliers + service). Spec 99 group; status filter on the service tab only. Back → /settings.                                                                                       |
+| `/contacts/crews`       | pm/super | ผู้รับเหมา + DC (the one contractors table split by category). Spec 99 group; status filter both tabs. Back → /settings.                                                                                   |
+| `/contacts/[type]/[id]` | pm/super | contact detail (clients/suppliers/contractors/service-providers): read-only fields + money-isolated bank + documents + crew (specs 81–97). Reached from a group list row; back → its list.                 |
 
 ## Known seams (recorded, not defects)
 

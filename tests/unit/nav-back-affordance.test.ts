@@ -50,7 +50,7 @@ const DETAIL_ROUTES = [...dynamicDetail, ...STATIC_DETAIL];
 
 // NON-DETAIL: hubs and primary-tab destinations — left via tab bar / HubNav,
 // never a back chip.
-const NON_DETAIL_ROUTES = ["review", "projects", "settings", "requests"].map(
+const NON_DETAIL_ROUTES = ["review", "projects", "settings", "requests", "dashboard"].map(
   (r) => `${r}/page.tsx`,
 );
 

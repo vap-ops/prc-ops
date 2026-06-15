@@ -102,6 +102,7 @@ for reading the spec itself.
 | 97   | Contacts v2 Unit 7: contact documents (ID card + bank book)               |
 | 98   | Coming-soon menu placeholders (greyed, non-tappable future menus)         |
 | 99   | Split Contacts into three groups (customers · vendors · crews)            |
+| 100  | ภาพรวม / Dashboard — role-aware overview (progress + budget vs spend)     |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

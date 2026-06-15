@@ -609,3 +609,36 @@ docs/feature-specs/99-contacts-split-groups.md; site-map updated (nav-change con
 **SEAMS:** menu naming operator-tweakable; service-into-crews if strict status seam wanted; the inline
 SA contractor quick-add (spec 31) still doesn't reach /contacts/crews. Acceptance = operator phone
 (PM-gated; preview only renders /login).
+
+## Spec 100 — ภาพรวม / Dashboard (role-aware overview) (2026-06-15, SHIPPED, code-only)
+
+Operator picked "ภาพรวม / Dashboard" for "what next" — graduates the spec-98 coming-soon placeholder
+to a live screen. **Map-then-spec** (1 Explore agent) charted the money model FIRST: budget =
+`projects.budget_amount_thb` (project-level only, admin-read); spend = labor (`aggregateLaborCost`
+over labor_logs) + materials (Σ `purchase_requests.amount` where status∈{purchased,on_route,delivered,
+site_purchased} & not null — **partial**, since site PRs often record no price); all money is
+admin-client behind `requireRole(PM_ROLES)`, SA never sees it (zero authenticated grant). This
+collided with spec 98 putting ภาพรวม on the SA bar → AskUserQuestion → operator chose **role-aware**:
+SA sees a money-FREE operational overview; PM/super additionally see budget vs spend. **SHIPPED (no
+DB):** (a) pure `src/lib/dashboard/overview.ts` (`rollupProgress` → progress % + needsAttention =
+on_hold/pending_approval WPs) + `spend.ts` (`SPEND_STATUSES`, `sumMaterials` null/status-gated,
+`budgetStatus` no-budget/under/over). (b) `app/dashboard/page.tsx` — `requireRole(SITE_STAFF_ROLES)`,
+operational reads on the user session (projects/work_packages, SA-readable); if `PM_ROLES`, an admin
+pass adds budget + labor cost + PR amounts → portfolio total + per-project budget-vs-spend bars; live
+projects only (active/on_hold); honest "ค่าวัสดุนับเฉพาะที่บันทึกราคา" caveat. Hub chrome (BottomTabBar
+
+- plain header, no back chip, mirrors /settings). (c) **Nav graduation:** ภาพรวม flipped from
+  coming-soon to a live tab/hub link (SA + PM, not procurement); since it was the ONLY top-level
+  coming-soon item, the bottom-bar/hub `comingSoon` mechanism was RETIRED (flag + Clock marker +
+  match-loop skip removed — no dead/untested code). The coming-soon concept lives on in ตั้งค่า rows
+  (Nova, คลังเอกสาร) via ComingSoonBadge (unchanged). **Tests (TDD):** dashboard-overview.test +
+  dashboard-spend.test (RED→GREEN); bottom-tab-bar + hub-nav tests updated (ภาพรวม now a live link that
+  lights on /dashboard; coming-soon cases removed); nav-back-affordance += /dashboard as NON_DETAIL
+  (primary tab). 764 unit / lint / typecheck / next build green. Spec:
+  docs/feature-specs/100-dashboard-overview.md; site-map + README updated. **LESSON:** the spec-63
+  nav-back-affordance test greps page.tsx SOURCE for the literal "DetailHeader" — a code COMMENT saying
+  "no DetailHeader" tripped the NON_DETAIL `not.toContain` assertion; reword comments to avoid the pinned
+  token. **SEAMS:** material spend partial until PR amounts captured; no per-WP budget (project-level
+  compare); labor spend uses live logs not the frozen snapshot; archived/completed projects hidden;
+  desktop HubNav strip not rendered on /dashboard (mirrors /settings). Acceptance = operator phone
+  (money half needs a PM/super account; SA sees the operational half).
