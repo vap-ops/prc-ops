@@ -250,13 +250,44 @@ child + remaining child, PO badge → `partially_received` (free, via the roll-u
 
 ---
 
-## Unit 4 — proof-of-delivery attachments + courier dispatch (FUTURE; research done)
+## Unit 4a — manual proof-of-delivery uploader (NEAR-TERM; operator-approved)
 
-Operator ask (2026-06-17): "proof attachments too" + "check Lalamove API, we will
-apply in the future soon". Research is captured in
-`docs/research/lalamove-api-2026-06.md` (auth, endpoints, webhooks, POD retrieval,
-TH vehicle tiers, billing, blockers). It is **not built** — it grounds a future
-spec/ADR. Key design seams from that doc:
+Operator chose (2026-06-17) a **manual proof uploader now**, independent of Lalamove
+and forward-compatible (Lalamove POD later auto-fills the same purpose — U4b).
+
+**NOT app-only — needs a migration (schema gate).** `purchase_order_attachments`
+(spec 125) is deliberately single-purpose (no `purpose` column — "a PO doc is always
+a stored FILE, single-purpose, MINUS purpose"). A distinct proof category needs:
+
+- **Migration:** add `purpose public.purchase_order_attachment_purpose` enum
+  (`'source_document'` default, `'proof_of_delivery'`) to
+  `purchase_order_attachments`; backfill existing rows to `'source_document'`;
+  extend the INSERT grant/policy column list + the `_current` view to carry
+  `purpose`. Append-only/supersede + the back-office INSERT policy already fit
+  (proof is back-office-or-site? — decide gate: likely `site_admin` too, since the
+  site receives goods; confirm). pgTAP for the new column + policy.
+- **Uploader:** a `ProofOfDeliveryUploader` on the PO detail (U1), mirroring
+  `InvoiceUploader` / the PO source-doc stager but writing `purpose =
+'proof_of_delivery'`. Image + PDF (signed delivery note).
+- **Display:** a "หลักฐานการรับของ" section on the PO detail showing proof
+  attachments (lightbox for images, iframe for PDFs), distinct from the source-doc
+  section.
+- **Gate:** schema change → change-management policy (migration + reviewed PR +
+  operator `db:push`); **NOT merge-auto** (the risky/schema exception). Regenerate
+  `db:types`.
+
+_App-only alternative (if a migration is unwanted near-term): surface each member
+ticket's existing `delivery_confirmation` photos (spec 23/24) on the PO detail —
+reuses everything, no schema, but it's ticket-crew proof aggregated, not a single
+PO-level signed-delivery-note slot. Recorded as the cheaper fallback._
+
+## Unit 4b — courier dispatch + auto-POD via Lalamove (FUTURE; research done)
+
+Operator ask (2026-06-17): "check Lalamove API, we will apply in the future soon".
+Research is captured in `docs/research/lalamove-api-2026-06.md` (auth, endpoints,
+webhooks, POD retrieval, TH vehicle tiers, billing, blockers). It is **not built** —
+it grounds a future spec/ADR. Lalamove POD auto-populates the **same
+`proof_of_delivery` purpose** U4a introduces. Key design seams from that doc:
 
 - **Proof attachment = new purpose `proof_of_delivery`**, distinct from the existing
   crew-captured `delivery_confirmation` photos (carrier-generated provenance).
