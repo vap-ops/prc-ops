@@ -129,6 +129,10 @@ for reading the spec itself.
 | 124  | CI: worker job + codified test-tier policy (ADR 0048)                          |
 | 125  | PO source-document attachments (ADR 0046 Layer B, Unit 1)                      |
 | 126  | Document-first create-PO surface (ADR 0046 Layer B, Unit 2)                    |
+| 127  | DC payment recording (close the per-day payroll loop)                          |
+| 128  | DC payment bank disbursement (KBank) — design                                  |
+| 129  | PEAK accounting integration (outbound sync)                                    |
+| 130  | DC self-service portal (external partner tier) — design                        |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.
