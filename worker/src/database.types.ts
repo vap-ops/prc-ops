@@ -640,6 +640,81 @@ export type Database = {
           },
         ]
       }
+      peak_sync_links: {
+        Row: {
+          created_at: string
+          id: string
+          peak_doc_id: string
+          peak_doc_type: Database["public"]["Enums"]["peak_doc_type"]
+          source_id: string
+          source_table: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          peak_doc_id: string
+          peak_doc_type: Database["public"]["Enums"]["peak_doc_type"]
+          source_id: string
+          source_table: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          peak_doc_id?: string
+          peak_doc_type?: Database["public"]["Enums"]["peak_doc_type"]
+          source_id?: string
+          source_table?: string
+        }
+        Relationships: []
+      }
+      peak_sync_outbox: {
+        Row: {
+          attempts: number
+          created_at: string
+          entity_type: Database["public"]["Enums"]["peak_entity_type"]
+          id: string
+          last_error: string | null
+          operation: Database["public"]["Enums"]["peak_sync_operation"]
+          payload: Json
+          peak_doc_id: string | null
+          peak_doc_type: Database["public"]["Enums"]["peak_doc_type"] | null
+          sent_at: string | null
+          source_id: string
+          source_table: string
+          status: Database["public"]["Enums"]["peak_sync_status"]
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          entity_type: Database["public"]["Enums"]["peak_entity_type"]
+          id?: string
+          last_error?: string | null
+          operation?: Database["public"]["Enums"]["peak_sync_operation"]
+          payload?: Json
+          peak_doc_id?: string | null
+          peak_doc_type?: Database["public"]["Enums"]["peak_doc_type"] | null
+          sent_at?: string | null
+          source_id: string
+          source_table: string
+          status?: Database["public"]["Enums"]["peak_sync_status"]
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          entity_type?: Database["public"]["Enums"]["peak_entity_type"]
+          id?: string
+          last_error?: string | null
+          operation?: Database["public"]["Enums"]["peak_sync_operation"]
+          payload?: Json
+          peak_doc_id?: string | null
+          peak_doc_type?: Database["public"]["Enums"]["peak_doc_type"] | null
+          sent_at?: string | null
+          source_id?: string
+          source_table?: string
+          status?: Database["public"]["Enums"]["peak_sync_status"]
+        }
+        Relationships: []
+      }
       photo_logs: {
         Row: {
           captured_at_client: string | null
@@ -1969,6 +2044,16 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      enqueue_peak_sync: {
+        Args: {
+          p_entity_type: Database["public"]["Enums"]["peak_entity_type"]
+          p_operation?: Database["public"]["Enums"]["peak_sync_operation"]
+          p_payload?: Json
+          p_source_id: string
+          p_source_table: string
+        }
+        Returns: string
+      }
       freeze_wp_labor_cost: { Args: { p_wp: string }; Returns: undefined }
       invoke_notification_drain: { Args: never; Returns: undefined }
       log_labor_day: {
@@ -2150,6 +2235,10 @@ export type Database = {
         | "pr_progress"
         | "pr_cancelled"
       notification_status: "pending" | "sending" | "sent" | "failed" | "expired"
+      peak_doc_type: "contact" | "expense"
+      peak_entity_type: "contact" | "expense"
+      peak_sync_operation: "create" | "void"
+      peak_sync_status: "pending" | "sending" | "sent" | "failed" | "skipped"
       photo_phase: "before" | "during" | "after"
       project_status: "active" | "on_hold" | "completed" | "archived"
       project_type:
@@ -2370,6 +2459,10 @@ export const Constants = {
         "pr_cancelled",
       ],
       notification_status: ["pending", "sending", "sent", "failed", "expired"],
+      peak_doc_type: ["contact", "expense"],
+      peak_entity_type: ["contact", "expense"],
+      peak_sync_operation: ["create", "void"],
+      peak_sync_status: ["pending", "sending", "sent", "failed", "skipped"],
       photo_phase: ["before", "during", "after"],
       project_status: ["active", "on_hold", "completed", "archived"],
       project_type: [
