@@ -250,6 +250,32 @@ child + remaining child, PO badge → `partially_received` (free, via the roll-u
 
 ---
 
+## Unit 4 — proof-of-delivery attachments + courier dispatch (FUTURE; research done)
+
+Operator ask (2026-06-17): "proof attachments too" + "check Lalamove API, we will
+apply in the future soon". Research is captured in
+`docs/research/lalamove-api-2026-06.md` (auth, endpoints, webhooks, POD retrieval,
+TH vehicle tiers, billing, blockers). It is **not built** — it grounds a future
+spec/ADR. Key design seams from that doc:
+
+- **Proof attachment = new purpose `proof_of_delivery`**, distinct from the existing
+  crew-captured `delivery_confirmation` photos (carrier-generated provenance).
+  Anchored at the PO/dispatch level, fanned out by reference to the delivered
+  tickets; the Lalamove POD photo/signature is **copied into our Storage** (their
+  URL is assumed signed/expiring), recipient + `deliveredAt` as metadata; same
+  append-only/supersede discipline.
+- **A manual proof-of-delivery uploader is buildable NOW**, independent of Lalamove
+  (crew uploads a signed delivery note / photo at the PO detail). Lalamove POD later
+  auto-populates the same purpose. **Decision pending with operator:** ship the
+  manual proof slot near-term, or wait and land both with the courier integration.
+- **Dispatch is provider-abstracted** (mirror the spec-128 bank-disbursement
+  pattern): a `DeliveryProvider` interface (`LalamoveProvider` first impl), an
+  outbound `delivery_dispatch_outbox` + an inbound `delivery_webhook_inbox` (reusing
+  the `notification_outbox` / `peak_sync_outbox` patterns). Lalamove order status →
+  our `purchased → on_route → delivered` lifecycle, fanned out from the PO.
+- **Blocked on** Lalamove sandbox creds + partner-support answers (KYC, billing,
+  exact POD schema, inbound-webhook signature) — see research §8.
+
 ## Verification checklist
 
 Per unit: `pnpm lint && pnpm typecheck && pnpm test` all green; new pure helpers

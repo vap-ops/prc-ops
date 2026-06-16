@@ -70,7 +70,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
   const supabase = await createClient();
   const { data: request } = await supabase
     .from("purchase_requests")
-    .select(`${PR_LIST_COLUMNS}, notes, source, acknowledged_at, purchase_order_id`)
+    .select(`${PR_LIST_COLUMNS}, notes, source, acknowledged_at`)
     .eq("id", requestId)
     .maybeSingle();
 

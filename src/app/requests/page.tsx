@@ -54,6 +54,10 @@ import {
   type ProcurementGridRecord,
 } from "@/components/features/purchasing/procurement-grid";
 import { PhonePoBasket } from "@/components/features/purchasing/phone-po-basket";
+import { PoGroupCard } from "@/components/features/purchasing/po-group-card";
+import { groupByPurchaseOrder } from "@/lib/purchasing/po-grouping";
+import { buildPoDetailView } from "@/lib/purchasing/po-detail";
+import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
 import type { SupplierOption } from "@/components/features/purchasing/purchase-record-form";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { ProcurementFilters } from "@/components/features/purchasing/procurement-filters";
@@ -334,6 +338,54 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     );
   }
 
+  // Spec 134 U2: in the กำลังจัดส่ง band, bundled tickets collapse into one PO
+  // card linking to the PO detail (U1). Split that band's rows into PO groups +
+  // loose rows; the card's derived status + line count come from the PO's FULL
+  // member set (not just the in-transit rows visible here), so it reads the same
+  // roll-up the detail page shows. Desktop grid grouping is a later unit (2b).
+  const inTransitGrouped = groupByPurchaseOrder(
+    procurementGroups.find((g) => g.meta.band === "in_transit")?.items ?? [],
+  );
+  const poFactsById = new Map<
+    string,
+    {
+      poNumber: number;
+      supplier: string;
+      eta: string | null;
+      status: PurchaseOrderStatus;
+      lineCount: number;
+    }
+  >();
+  if (isProcurement && inTransitGrouped.poGroups.length > 0) {
+    const poIds = inTransitGrouped.poGroups.map((g) => g.poId);
+    const [poRes, memberRes] = await Promise.all([
+      supabase.from("purchase_orders").select("id, po_number, supplier, eta").in("id", poIds),
+      supabase
+        .from("purchase_requests")
+        .select("id, status, purchase_order_id")
+        .in("purchase_order_id", poIds),
+    ]);
+    const memberStatusesByPo = new Map<string, PurchaseRequestStatus[]>();
+    for (const m of memberRes.data ?? []) {
+      if (!m.purchase_order_id) continue;
+      const arr = memberStatusesByPo.get(m.purchase_order_id) ?? [];
+      arr.push(m.status);
+      memberStatusesByPo.set(m.purchase_order_id, arr);
+    }
+    for (const po of poRes.data ?? []) {
+      const view = buildPoDetailView(
+        (memberStatusesByPo.get(po.id) ?? []).map((status) => ({ status, amount: null })),
+      );
+      poFactsById.set(po.id, {
+        poNumber: po.po_number,
+        supplier: po.supplier,
+        eta: po.eta,
+        status: view.status,
+        lineCount: view.activeLineCount,
+      });
+    }
+  }
+
   // Spec 114: suppliers feed the in-drawer record-purchase form; a per-request
   // attachment count feeds the drawer's document indicator. Procurement only —
   // both read under the user session (RLS admits procurement: suppliers SELECT
@@ -596,6 +648,27 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                         </div>
                         {meta.band === "to_order" && canBundlePhone ? (
                           <PhonePoBasket records={toOrderGridItems} suppliers={supplierRecords} />
+                        ) : meta.band === "in_transit" && inTransitGrouped.poGroups.length > 0 ? (
+                          /* Spec 134 U2: bundled tickets → one PO card, loose
+                             tickets keep their own card. */
+                          <ul className="flex flex-col gap-2">
+                            {inTransitGrouped.poGroups.map((g) => {
+                              const facts = poFactsById.get(g.poId);
+                              return facts ? (
+                                <li key={g.poId}>
+                                  <PoGroupCard
+                                    poId={g.poId}
+                                    poNumber={facts.poNumber}
+                                    supplier={facts.supplier}
+                                    status={facts.status}
+                                    lineCount={facts.lineCount}
+                                    eta={facts.eta}
+                                  />
+                                </li>
+                              ) : null;
+                            })}
+                            {inTransitGrouped.loose.map(cardFor)}
+                          </ul>
                         ) : (
                           <ul className="flex flex-col gap-2">{items.map(cardFor)}</ul>
                         )}
