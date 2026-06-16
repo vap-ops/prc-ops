@@ -778,6 +778,65 @@ export type Database = {
           },
         ];
       };
+      purchase_order_attachments: {
+        Row: {
+          created_at: string;
+          created_by: string;
+          id: string;
+          kind: Database["public"]["Enums"]["purchase_order_attachment_kind"];
+          purchase_order_id: string;
+          storage_path: string | null;
+          superseded_by: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          created_by: string;
+          id?: string;
+          kind: Database["public"]["Enums"]["purchase_order_attachment_kind"];
+          purchase_order_id: string;
+          storage_path?: string | null;
+          superseded_by?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string;
+          id?: string;
+          kind?: Database["public"]["Enums"]["purchase_order_attachment_kind"];
+          purchase_order_id?: string;
+          storage_path?: string | null;
+          superseded_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "poa_supersede_fk";
+            columns: ["superseded_by", "purchase_order_id", "kind"];
+            isOneToOne: false;
+            referencedRelation: "purchase_order_attachments";
+            referencedColumns: ["id", "purchase_order_id", "kind"];
+          },
+          {
+            foreignKeyName: "poa_supersede_fk";
+            columns: ["superseded_by", "purchase_order_id", "kind"];
+            isOneToOne: false;
+            referencedRelation: "purchase_order_attachments_current";
+            referencedColumns: ["id", "purchase_order_id", "kind"];
+          },
+          {
+            foreignKeyName: "purchase_order_attachments_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_order_attachments_purchase_order_id_fkey";
+            columns: ["purchase_order_id"];
+            isOneToOne: false;
+            referencedRelation: "purchase_orders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       purchase_orders: {
         Row: {
           created_at: string;
@@ -1617,6 +1676,48 @@ export type Database = {
           },
         ];
       };
+      purchase_order_attachments_current: {
+        Row: {
+          created_at: string | null;
+          created_by: string | null;
+          id: string | null;
+          kind: Database["public"]["Enums"]["purchase_order_attachment_kind"] | null;
+          purchase_order_id: string | null;
+          storage_path: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          created_by?: string | null;
+          id?: string | null;
+          kind?: Database["public"]["Enums"]["purchase_order_attachment_kind"] | null;
+          purchase_order_id?: string | null;
+          storage_path?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          created_by?: string | null;
+          id?: string | null;
+          kind?: Database["public"]["Enums"]["purchase_order_attachment_kind"] | null;
+          purchase_order_id?: string | null;
+          storage_path?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_attachments_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_order_attachments_purchase_order_id_fkey";
+            columns: ["purchase_order_id"];
+            isOneToOne: false;
+            referencedRelation: "purchase_orders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       purchase_request_attachments_appsheet: {
         Row: {
           access_token: string | null;
@@ -1929,6 +2030,7 @@ export type Database = {
         | "infrastructure"
         | "systems"
         | "other";
+      purchase_order_attachment_kind: "image" | "pdf";
       purchase_request_attachment_kind: "image" | "link" | "pdf";
       purchase_request_attachment_purpose: "reference" | "delivery_confirmation" | "invoice";
       purchase_request_priority: "normal" | "urgent" | "critical";
@@ -2137,6 +2239,7 @@ export const Constants = {
         "systems",
         "other",
       ],
+      purchase_order_attachment_kind: ["image", "pdf"],
       purchase_request_attachment_kind: ["image", "link", "pdf"],
       purchase_request_attachment_purpose: ["reference", "delivery_confirmation", "invoice"],
       purchase_request_priority: ["normal", "urgent", "critical"],

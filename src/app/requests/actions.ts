@@ -30,6 +30,7 @@ import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN, type ActionAuth } from "@/lib/auth/action-gate";
 import { isValidPhotoExt, type PhotoExt } from "@/lib/photos/path";
 import { buildPrAttachmentStoragePath } from "@/lib/purchasing/attachment-path";
+import { buildPoAttachmentStoragePath } from "@/lib/purchasing/po-attachment-path";
 import {
   attachmentKindForExt,
   isValidAttachmentExt,
@@ -52,6 +53,7 @@ import { UUID_REGEX } from "@/lib/validate/uuid";
 // inline at their call sites.
 const ERR_INVALID_REQUEST_ID = "รหัสคำขอไม่ถูกต้อง";
 const ERR_SAVE_PHOTO_FAILED = "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+const ERR_SAVE_DOC_FAILED = "บันทึกเอกสารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 const ERR_REMOVE_ATTACHMENT_FAILED = "ลบรายการแนบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
 export interface CreatePurchaseRequestInput {
@@ -398,6 +400,85 @@ export async function addInvoiceAttachment(
     });
     if (!landed) {
       return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
+    }
+  }
+
+  revalidatePath("/requests");
+  return { ok: true };
+}
+
+// addPurchaseOrderAttachment (spec 125 / ADR 0046 Layer B): the PO source
+// document (quotation/invoice). Mirrors addInvoiceAttachment but the parent is
+// a purchase_order (no status gate — a PO doc attaches whenever the PO exists)
+// and the bytes live in the po-attachments bucket at {po_id}/{att}.{ext}. The
+// browser already uploaded the bytes (upload-on-submit, ADR 0046 decision 3);
+// this records the metadata row, rebuilding the path server-side (a client path
+// is never trusted) and deriving the kind from the validated ext.
+
+export interface AddPurchaseOrderAttachmentInput {
+  purchaseOrderId: string;
+  attachmentId: string;
+  ext: string;
+}
+
+export async function addPurchaseOrderAttachment(
+  input: AddPurchaseOrderAttachmentInput,
+): Promise<AttachmentActionResult> {
+  if (!UUID_REGEX.test(input.purchaseOrderId) || !UUID_REGEX.test(input.attachmentId)) {
+    return { ok: false, error: ERR_SAVE_DOC_FAILED };
+  }
+  if (!isValidAttachmentExt(input.ext)) {
+    return { ok: false, error: ERR_SAVE_DOC_FAILED };
+  }
+  const fileKind: AttachmentFileKind = attachmentKindForExt(input.ext);
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
+
+  // Confirm the PO is visible to the caller under RLS (existence + back-office
+  // visibility) before recording — the INSERT policy re-enforces both.
+  const { data: po } = await supabase
+    .from("purchase_orders")
+    .select("id")
+    .eq("id", input.purchaseOrderId)
+    .maybeSingle();
+  if (!po) {
+    return { ok: false, error: ERR_SAVE_DOC_FAILED };
+  }
+
+  const storagePath = buildPoAttachmentStoragePath(
+    input.purchaseOrderId,
+    input.attachmentId,
+    input.ext,
+  );
+  if (!storagePath) {
+    return { ok: false, error: ERR_SAVE_DOC_FAILED };
+  }
+
+  const { error } = await supabase.from("purchase_order_attachments").insert({
+    id: input.attachmentId,
+    purchase_order_id: input.purchaseOrderId,
+    kind: fileKind,
+    storage_path: storagePath,
+    created_by: user.id,
+  });
+  if (error) {
+    // Idempotent replay (identity-complete, spec 37 lesson): a retried upload
+    // whose row already landed but whose response was lost confirms as success.
+    if (error.code !== "23505") {
+      return { ok: false, error: ERR_SAVE_DOC_FAILED };
+    }
+    const { data: landed } = await supabase
+      .from("purchase_order_attachments")
+      .select("id")
+      .eq("id", input.attachmentId)
+      .eq("purchase_order_id", input.purchaseOrderId)
+      .eq("kind", fileKind)
+      .eq("storage_path", storagePath)
+      .maybeSingle();
+    if (!landed) {
+      return { ok: false, error: ERR_SAVE_DOC_FAILED };
     }
   }
 

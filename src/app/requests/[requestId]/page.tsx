@@ -41,6 +41,8 @@ import { PurchaseRequestAttachmentStager } from "@/components/features/purchase-
 import { AttachmentRemoveButton } from "@/components/features/attachment-remove-button";
 import { ZoomablePhoto } from "@/components/features/photo-lightbox";
 import { mintSignedUrlsForAttachments } from "@/lib/purchasing/attachment-signed-urls";
+import { mintSignedUrls } from "@/lib/storage/signed-urls";
+import { PO_ATTACHMENTS_BUCKET } from "@/lib/storage/buckets";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { DetailHeader } from "@/components/features/detail-header";
 import { AttentionCard } from "@/components/features/attention-card";
@@ -68,7 +70,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
   const supabase = await createClient();
   const { data: request } = await supabase
     .from("purchase_requests")
-    .select(`${PR_LIST_COLUMNS}, notes, source, acknowledged_at`)
+    .select(`${PR_LIST_COLUMNS}, notes, source, acknowledged_at, purchase_order_id`)
     .eq("id", requestId)
     .maybeSingle();
 
@@ -127,6 +129,23 @@ export default async function RequestDetailPage({ params }: PageProps) {
     attachments
       .filter((row) => row.kind === "image" || row.kind === "pdf")
       .map((row) => ({ id: row.id ?? "", storage_path: row.storage_path })),
+  );
+
+  // Spec 125 / ADR 0046 Layer B: the PO this ticket belongs to may carry a
+  // source document (quotation/invoice). Show it on every member ticket — there
+  // is no PO detail page yet (the side-by-side surface is a later unit).
+  const poId = request.purchase_order_id;
+  const { data: poDocRows } = poId
+    ? await supabase
+        .from("purchase_order_attachments_current")
+        .select("id, kind, storage_path, created_at")
+        .eq("purchase_order_id", poId)
+        .order("created_at", { ascending: true })
+    : { data: null };
+  const poDocs = poDocRows ?? [];
+  const poDocUrls = await mintSignedUrls(
+    PO_ATTACHMENTS_BUCKET,
+    poDocs.map((row) => ({ id: row.id ?? "", storage_path: row.storage_path })),
   );
 
   const isDecider = ctx.role === "project_manager" || ctx.role === "super_admin";
@@ -433,6 +452,46 @@ export default async function RequestDetailPage({ params }: PageProps) {
                   userId={ctx.id}
                 />
               ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {poDocs.length > 0 ? (
+          <div className="rounded-card border-edge bg-card shadow-card border p-4">
+            <h2 className="text-ink text-base font-semibold">
+              เอกสารใบสั่งซื้อ (ใบเสนอราคา / ใบแจ้งหนี้)
+            </h2>
+            <div className="mt-2 flex flex-col gap-2">
+              {poDocs.some((d) => d.kind === "image") ? (
+                <ul className="flex flex-wrap gap-2">
+                  {poDocs
+                    .filter((d) => d.kind === "image")
+                    .map((doc, idx, arr) => {
+                      const url = doc.id ? poDocUrls.get(doc.id) : undefined;
+                      if (!doc.id || !url) return null;
+                      const groupUrls = arr.flatMap((a) =>
+                        a.id && poDocUrls.get(a.id) ? [poDocUrls.get(a.id) as string] : [],
+                      );
+                      const groupIndex = arr
+                        .slice(0, idx)
+                        .filter((a) => a.id && poDocUrls.get(a.id)).length;
+                      return (
+                        <li key={doc.id} className="flex flex-col items-center gap-0.5">
+                          <span className="border-edge block h-20 w-20 overflow-hidden rounded-lg border">
+                            <ZoomablePhoto src={url} group={groupUrls} groupIndex={groupIndex} />
+                          </span>
+                        </li>
+                      );
+                    })}
+                </ul>
+              ) : null}
+              {poDocs
+                .filter((d) => d.kind === "pdf")
+                .map((doc) => {
+                  const url = doc.id ? poDocUrls.get(doc.id) : undefined;
+                  if (!doc.id || !url) return null;
+                  return <AttachmentPdf key={doc.id} src={url} />;
+                })}
             </div>
           </div>
         ) : null}

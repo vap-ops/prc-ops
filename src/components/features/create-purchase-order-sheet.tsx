@@ -10,7 +10,7 @@
 // 'use client': controlled inputs + pending state + inline supplier create. A child
 // of the (client) ProcurementGrid — all props are client→client, no server closures.
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { BottomSheet } from "@/components/features/bottom-sheet";
@@ -18,12 +18,27 @@ import { RadioChip } from "@/components/features/radio-chip";
 import {
   BUTTON_PRIMARY,
   BUTTON_SECONDARY,
+  BUTTON_SECONDARY_MUTED,
   FIELD_INPUT,
   FIELD_SELECT,
   INLINE_ALERT_TEXT,
 } from "@/lib/ui/classes";
 import { useToast } from "@/lib/ui/use-toast";
-import { createPurchaseOrder, createSupplier } from "@/app/requests/actions";
+import { createClient } from "@/lib/db/browser";
+import { preparePhotoForUpload } from "@/lib/photos/downscale";
+import { PO_ATTACHMENTS_BUCKET } from "@/lib/storage/buckets";
+import { buildPoAttachmentStoragePath } from "@/lib/purchasing/po-attachment-path";
+import {
+  ATTACHMENT_ACCEPT_MIME,
+  attachmentExtToMime,
+  isPdfMime,
+  type AttachmentExt,
+} from "@/lib/purchasing/attachment-file";
+import {
+  addPurchaseOrderAttachment,
+  createPurchaseOrder,
+  createSupplier,
+} from "@/app/requests/actions";
 import { purchaseOrderTotal } from "@/lib/purchasing/purchase-order";
 import {
   VAT_RATE,
@@ -68,6 +83,11 @@ export function CreatePurchaseOrderSheet({
 }) {
   const router = useRouter();
   const toast = useToast();
+  // Spec 125: an optional source document (quotation/invoice) attached at PO
+  // creation — kept client-side, uploaded after create_purchase_order returns
+  // the po_id (ADR 0046 upload-on-submit; resolves the no-po_id-yet problem).
+  const docInputRef = useRef<HTMLInputElement>(null);
+  const [docFile, setDocFile] = useState<File | null>(null);
   const [supplierId, setSupplierId] = useState("");
   const [eta, setEta] = useState("");
   const [amounts, setAmounts] = useState<Record<string, string>>({});
@@ -124,6 +144,38 @@ export function CreatePurchaseOrderSheet({
     });
   }
 
+  // Spec 125 / ADR 0046: upload the source doc AFTER the PO exists. PDFs upload
+  // raw (the spec-34 downscale pipeline is photo-only); images are prepared.
+  // Returns false on any failure — the caller treats it as non-fatal (the PO is
+  // already created; the doc is optional, no re-attach surface yet = a seam).
+  async function uploadPoDocument(poId: string, file: File): Promise<boolean> {
+    let blob: Blob;
+    let ext: AttachmentExt;
+    if (isPdfMime(file.type)) {
+      blob = file;
+      ext = "pdf";
+    } else {
+      const prepared = await preparePhotoForUpload(file);
+      if (!prepared) return false;
+      blob = prepared.blob;
+      ext = prepared.ext;
+    }
+    const attachmentId = crypto.randomUUID();
+    const path = buildPoAttachmentStoragePath(poId, attachmentId, ext);
+    if (!path) return false;
+    const supabase = createClient();
+    const { error: uploadError } = await supabase.storage
+      .from(PO_ATTACHMENTS_BUCKET)
+      .upload(path, blob, { upsert: false, contentType: attachmentExtToMime(ext) });
+    if (uploadError) return false;
+    try {
+      const res = await addPurchaseOrderAttachment({ purchaseOrderId: poId, attachmentId, ext });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
   function handleSubmit() {
     setError(null);
     const parsedLines: Array<{ requestId: string; amount: number | null }> = [];
@@ -153,7 +205,14 @@ export function CreatePurchaseOrderSheet({
         setError(result.error);
         return;
       }
-      toast.success(`สร้างใบสั่งซื้อสำเร็จ · ${lines.length} รายการ`);
+      // Upload-on-submit: the PO now exists (poId) — attach the source doc.
+      // A failed doc upload is non-fatal (the PO stands; the doc is optional).
+      const docOk = docFile ? await uploadPoDocument(result.poId, docFile) : true;
+      toast.success(
+        docOk
+          ? `สร้างใบสั่งซื้อสำเร็จ · ${lines.length} รายการ`
+          : `สร้างใบสั่งซื้อสำเร็จ · ${lines.length} รายการ (แนบเอกสารไม่สำเร็จ)`,
+      );
       onCreated();
       router.refresh();
     });
@@ -272,6 +331,45 @@ export function CreatePurchaseOrderSheet({
           disabled={pending}
           className={FIELD_INPUT}
         />
+
+        {/* Spec 125 / ADR 0046 Layer B: optional source document (the quotation/
+            invoice the PO is created from), uploaded when the PO is created. */}
+        <label className="text-ink text-xs font-medium">
+          เอกสารใบเสนอราคา / ใบแจ้งหนี้ (ไม่บังคับ)
+        </label>
+        <input
+          ref={docInputRef}
+          type="file"
+          accept={ATTACHMENT_ACCEPT_MIME}
+          className="sr-only"
+          onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
+          disabled={pending}
+        />
+        {docFile ? (
+          <div className="rounded-control border-edge bg-card flex items-center gap-2 border px-3 py-2 text-sm">
+            <span className="text-ink min-w-0 flex-1 truncate">{docFile.name}</span>
+            <button
+              type="button"
+              onClick={() => {
+                setDocFile(null);
+                if (docInputRef.current) docInputRef.current.value = "";
+              }}
+              disabled={pending}
+              className="text-ink-muted hover:text-danger focus-visible:ring-action shrink-0 rounded-md text-xs font-medium focus:outline-none focus-visible:ring-2 disabled:opacity-60"
+            >
+              นำออก
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => docInputRef.current?.click()}
+            disabled={pending}
+            className={BUTTON_SECONDARY_MUTED}
+          >
+            แนบเอกสาร (PDF / รูป)
+          </button>
+        )}
 
         <div className="rounded-control border-edge divide-edge flex flex-col divide-y border">
           {lines.map((l) => (

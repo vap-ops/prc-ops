@@ -1262,3 +1262,41 @@ the iframe viewer; images still work. (Auth-gated route → operator-on-live, no
 **Recorded seam:** PDF reference attachments are NOT offline-queue-bracketed (manual-retry, mirrors the
 invoice uploader; `QueuedUpload.ext` stays `PhotoExt`). **NEXT:** ADR 0046 Layer B (document-first
 create-PO: PO-level source-doc + side-by-side surface) → Layer C (AI extraction, Claude).
+
+---
+
+## Spec 125 — PO source-document attachments (ADR 0046 Layer B, Unit 1) — SHIPPED 2026-06-16
+
+**What:** the quotation/invoice a PO is created from now attaches at the **PO level** (ADR 0046
+decision 2). Operator picked the **phased "attach-doc first"** cut: this unit = data layer + a doc picker
+in the **existing** create-PO sheet (uploaded when the PO is created) + a viewer on the request detail
+page. The full **side-by-side wide doc|form surface** (ADR 0046 decision 4) is the next unit.
+
+- **Decisions** (ADR 0046 left these "to decide at spec time"): grain = a **`purchase_order_attachments`
+  table** (mirrors pr_attachments; append-only + tombstone-ready; kind image|pdf; **no `purpose` column**
+  v1 — every PO doc is the source doc, YAGNI; **no token side-table** — vestigial AppSheet bridge).
+  Storage = a **new private `po-attachments` bucket** (image + application/pdf from day one — the Layer A
+  lesson), path `{po_id}/{att}.{ext}` (a PO spans projects → po_id is the scope). Writer = **direct INSERT
+  under RLS** (mirror pr_attachments), **content rows only** (no tombstone arm/removal UI v1).
+- **Upload-on-submit** (ADR 0046 decision 3, resolves the no-po_id-yet chicken-and-egg): the sheet keeps
+  the file client-side; `createPurchaseOrder` returns `poId` → browser uploads to `po-attachments/{poId}/…`
+  → `addPurchaseOrderAttachment` records the row. PDFs raw (no spec-34 downscale), images prepared. A
+  failed doc upload is **non-fatal** (the PO stands; the doc is optional) — toast warns; no re-attach
+  surface until the PO-doc page lands (recorded seam).
+- **Viewer:** the PR detail page (`/requests/[id]`) shows the PO's source doc when the ticket has a
+  `purchase_order_id` (there's no PO detail page yet) — reuses the Layer A `AttachmentPdf` / `ZoomablePhoto`.
+
+**Money posture unchanged.** Gate honored: lint / typecheck / build / **885 unit** local-green →
+AskUserQuestion "Apply now" → db:push (`20260703000000` table+bucket; **`20260703000100` fix-forward**) →
+db:types reconcile (content byte-identical; only view-block ordering differed, regen committed) → db:test
+**1104/0**.
+
+**KEY LESSON (reusable):** the new RLS policies first shipped with **bare** `current_user_role()` /
+`auth.uid()` (I mirrored pr_attachments' migration SOURCE, which predates the rank-3 eval-once hardening —
+the LIVE policies were since wrapped). **db:test file 40 (rls-eval-once) caught it** (2 failures) → a
+fix-forward migration (`20260703000100`) DROP+CREATEs both policies wrapped in `(select …)`. **Any NEW
+public RLS policy must wrap auth calls in `(select …)` from the start** — don't copy a pre-2026-06-25
+migration's bare form. **Acceptance owed:** procurement user creates a PO + attaches a PDF/photo quote →
+PO created, doc saved; any member ticket's detail page shows the source doc. (Procurement-gated route →
+operator-on-live.) **NEXT:** ADR 0046 Layer B Unit 2 (the side-by-side wide create-PO surface) → Layer C
+(AI extraction). Seams: PO-doc removal/replace UI; multi-doc + quote/invoice `purpose` split; PO detail page.
