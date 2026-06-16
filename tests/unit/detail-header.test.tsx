@@ -7,7 +7,7 @@ import { render, screen } from "@testing-library/react";
 
 vi.mock("next/navigation", async () => await import("../helpers/router-refresh"));
 
-import { DetailHeader } from "@/components/features/detail-header";
+import { DetailHeader } from "@/components/features/chrome/detail-header";
 
 describe("DetailHeader", () => {
   it("renders the back chip with the page's href and aria-label", () => {

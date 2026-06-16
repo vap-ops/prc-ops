@@ -5,11 +5,11 @@
 // screens never pass. Period is a zero-client-JS GET form (same pattern as
 // /requests), defaulting to the current Bangkok month.
 
-import { PageShell } from "@/components/features/page-shell";
+import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
-import { DetailHeader } from "@/components/features/detail-header";
-import { BottomTabBar } from "@/components/features/bottom-tab-bar";
-import { EmptyNotice } from "@/components/features/notices";
+import { DetailHeader } from "@/components/features/chrome/detail-header";
+import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
+import { EmptyNotice } from "@/components/features/common/notices";
 import { requireRole } from "@/lib/auth/require-role";
 import { PM_ROLES } from "@/lib/auth/role-home";
 import { createClient as createAdminClient } from "@/lib/db/admin";

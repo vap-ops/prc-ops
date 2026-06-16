@@ -18,7 +18,7 @@ vi.mock("@/app/projects/[projectId]/work-packages/[workPackageId]/notes-actions"
   setWorkPackageNotes: mockSetNotes,
 }));
 
-import { WorkPackageNotes } from "@/components/features/work-package-notes";
+import { WorkPackageNotes } from "@/components/features/work-packages/work-package-notes";
 
 describe("WorkPackageNotes", () => {
   beforeEach(() => {

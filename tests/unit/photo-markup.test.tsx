@@ -6,7 +6,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ZoomablePhoto } from "@/components/features/photo-lightbox";
+import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
 
 const SRC = "https://example.test/storage/photo-1.jpg";
 const PHOTO_ID = "7f1f2a3b-4c5d-6e7f-8a9b-0c1d2e3f4a5b";

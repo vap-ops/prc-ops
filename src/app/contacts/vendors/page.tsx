@@ -5,16 +5,16 @@
 // curate suppliers inline. PM/super get both tabs + detail links.
 // No money column read here (bank is admin-only), user session.
 
-import { PageShell } from "@/components/features/page-shell";
+import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
 import { PM_ROLES, BACK_OFFICE_ROLES } from "@/lib/auth/role-home";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
-import { DetailHeader } from "@/components/features/detail-header";
-import { BottomTabBar } from "@/components/features/bottom-tab-bar";
-import { ContactsTabs } from "@/components/features/contacts-tabs";
-import type { RecordRow, RecordBadge } from "@/components/features/record-manager";
+import { DetailHeader } from "@/components/features/chrome/detail-header";
+import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
+import { ContactsTabs } from "@/components/features/contacts/contacts-tabs";
+import type { RecordRow, RecordBadge } from "@/components/features/purchasing/record-manager";
 import { aggregateSupplierSpend, buildSupplierSpendBadges } from "@/lib/purchasing/supplier-spend";
 
 export const metadata = { title: "ผู้ขายและผู้ให้บริการ" };

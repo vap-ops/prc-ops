@@ -7,7 +7,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { PhotoStrip, PHOTO_STRIP_TILE } from "@/components/features/photo-strip";
+import { PhotoStrip, PHOTO_STRIP_TILE } from "@/components/features/photos/photo-strip";
 
 describe("PhotoStrip (spec 49)", () => {
   it("renders a horizontal scroll list with the children inside", () => {

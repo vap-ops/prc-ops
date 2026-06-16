@@ -16,7 +16,7 @@ vi.mock("@/app/requests/[requestId]/notes-actions", () => ({
   setPurchaseRequestNotes: mockSet,
 }));
 
-import { PurchaseRequestNotes } from "@/components/features/purchase-request-notes";
+import { PurchaseRequestNotes } from "@/components/features/purchasing/purchase-request-notes";
 
 describe("PurchaseRequestNotes", () => {
   beforeEach(() => {

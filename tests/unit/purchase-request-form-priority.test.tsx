@@ -13,7 +13,7 @@ vi.mock("@/app/requests/actions", () => ({
   createPurchaseRequest: vi.fn(async () => ({ ok: true })),
 }));
 
-import { PurchaseRequestForm } from "@/components/features/purchase-request-form";
+import { PurchaseRequestForm } from "@/components/features/purchasing/purchase-request-form";
 
 const WP = { id: "00000000-0000-0000-0000-000000000001", code: "WP01", name: "งานปักฝัง" };
 

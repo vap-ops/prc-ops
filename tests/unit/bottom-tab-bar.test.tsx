@@ -18,7 +18,7 @@ import {
   PM_TABS,
   PROCUREMENT_TABS,
   SA_TABS,
-} from "@/components/features/bottom-tab-bar";
+} from "@/components/features/chrome/bottom-tab-bar";
 
 function activeTabs(container: HTMLElement) {
   return container.querySelectorAll('[aria-current="page"]');

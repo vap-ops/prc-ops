@@ -4,7 +4,7 @@
 
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { ConfirmDialog } from "@/components/features/confirm-dialog";
+import { ConfirmDialog } from "@/components/features/common/confirm-dialog";
 
 function setup(open = true) {
   const onConfirm = vi.fn();

@@ -21,8 +21,8 @@ import { useState } from "react";
 import { Camera, Check, Lock } from "lucide-react";
 import { BUTTON_CAPTURE } from "@/lib/ui/classes";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
-import { PhotoStrip, PHOTO_STRIP_TILE } from "@/components/features/photo-strip";
-import { ZoomablePhoto } from "@/components/features/photo-lightbox";
+import { PhotoStrip, PHOTO_STRIP_TILE } from "@/components/features/photos/photo-strip";
+import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
 import type { PhotoPhase } from "@/lib/photos/transitions";
 import { CaptureSheet, type SheetPhoto } from "./capture-sheet";
 

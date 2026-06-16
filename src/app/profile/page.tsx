@@ -1,10 +1,10 @@
-import { PageShell } from "@/components/features/page-shell";
+import { PageShell } from "@/components/features/chrome/page-shell";
 import { redirect } from "next/navigation";
 import { LogoutButton } from "@/components/auth/logout-button";
-import { AvatarSurface } from "@/components/features/avatar-surface";
-import { BottomTabBar } from "@/components/features/bottom-tab-bar";
-import { DetailHeader } from "@/components/features/detail-header";
-import { DisplayNameForm } from "@/components/features/display-name-form";
+import { AvatarSurface } from "@/components/features/common/avatar-surface";
+import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
+import { DetailHeader } from "@/components/features/chrome/detail-header";
+import { DisplayNameForm } from "@/components/features/common/display-name-form";
 import { createClient } from "@/lib/db/server";
 
 // Universal profile route — reachable by EVERY authenticated role, including

@@ -3,7 +3,7 @@
 // not yet received). amount is money → the caller reads it via the admin client;
 // this is pure. Site purchases carry no supplier_id, so they never count here.
 
-import type { RecordBadge } from "@/components/features/record-manager";
+import type { RecordBadge } from "@/components/features/purchasing/record-manager";
 import { procurementBand } from "./procurement-pipeline";
 
 export interface SupplierStat {

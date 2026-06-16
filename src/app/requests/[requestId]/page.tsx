@@ -1,9 +1,9 @@
-import { PageShell } from "@/components/features/page-shell";
+import { PageShell } from "@/components/features/chrome/page-shell";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
-import { BottomTabBar } from "@/components/features/bottom-tab-bar";
-import { StatusPill } from "@/components/features/status-pill";
+import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
+import { StatusPill } from "@/components/features/common/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
 import { PURCHASING_ROLES } from "@/lib/auth/role-home";
 import { workPackageHref } from "@/lib/nav/project-paths";
@@ -28,27 +28,27 @@ import {
   purchaseRequestPriorityPillClasses,
   purchaseRequestStatusPillClasses,
 } from "@/lib/status-colors";
-import { PurchaseRequestTracker } from "@/components/features/purchase-request-tracker";
-import { PurchaseRequestNotes } from "@/components/features/purchase-request-notes";
-import { PurchaseRequestDecision } from "@/components/features/purchase-request-decision";
-import { PurchaseRequestCancel } from "@/components/features/purchase-request-cancel";
-import type { SupplierOption } from "@/components/features/purchase-record-form";
-import { CreatePoFromRequestButton } from "@/components/features/create-po-from-request-button";
-import { PurchaseRequestShip } from "@/components/features/purchase-request-ship";
+import { PurchaseRequestTracker } from "@/components/features/purchasing/purchase-request-tracker";
+import { PurchaseRequestNotes } from "@/components/features/purchasing/purchase-request-notes";
+import { PurchaseRequestDecision } from "@/components/features/purchasing/purchase-request-decision";
+import { PurchaseRequestCancel } from "@/components/features/purchasing/purchase-request-cancel";
+import type { SupplierOption } from "@/components/features/purchasing/purchase-record-form";
+import { CreatePoFromRequestButton } from "@/components/features/purchasing/create-po-from-request-button";
+import { PurchaseRequestShip } from "@/components/features/purchasing/purchase-request-ship";
 import { isBackOfficeRole } from "@/lib/purchasing/back-office";
-import { DeliveryPhotoUploader } from "@/components/features/delivery-photo-uploader";
-import { PurchaseRequestAttachmentStager } from "@/components/features/purchase-request-attachment-stager";
-import { AttachmentRemoveButton } from "@/components/features/attachment-remove-button";
-import { ZoomablePhoto } from "@/components/features/photo-lightbox";
+import { DeliveryPhotoUploader } from "@/components/features/purchasing/delivery-photo-uploader";
+import { PurchaseRequestAttachmentStager } from "@/components/features/purchasing/purchase-request-attachment-stager";
+import { AttachmentRemoveButton } from "@/components/features/purchasing/attachment-remove-button";
+import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
 import { mintSignedUrlsForAttachments } from "@/lib/purchasing/attachment-signed-urls";
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { PO_ATTACHMENTS_BUCKET } from "@/lib/storage/buckets";
 import { fetchDisplayNames } from "@/lib/users/display-names";
-import { DetailHeader } from "@/components/features/detail-header";
-import { AttentionCard } from "@/components/features/attention-card";
-import { InvoiceUploader } from "@/components/features/invoice-uploader";
-import { AttachmentPdf } from "@/components/features/attachment-pdf";
-import { SitePurchaseAcknowledge } from "@/components/features/site-purchase-acknowledge";
+import { DetailHeader } from "@/components/features/chrome/detail-header";
+import { AttentionCard } from "@/components/features/common/attention-card";
+import { InvoiceUploader } from "@/components/features/purchasing/invoice-uploader";
+import { AttachmentPdf } from "@/components/features/purchasing/attachment-pdf";
+import { SitePurchaseAcknowledge } from "@/components/features/purchasing/site-purchase-acknowledge";
 
 export const metadata = { title: "รายละเอียดคำขอซื้อ" };
 

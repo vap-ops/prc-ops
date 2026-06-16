@@ -9,10 +9,10 @@ import { describe, expect, it, vi } from "vitest";
 // Spec 53: AppHeader now embeds RefreshButton (useRouter).
 vi.mock("next/navigation", async () => await import("../helpers/router-refresh"));
 
-import { AppHeader } from "@/components/features/app-header";
+import { AppHeader } from "@/components/features/chrome/app-header";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
-import { StatusPill } from "@/components/features/status-pill";
-import { EmptyNotice, ErrorNotice } from "@/components/features/notices";
+import { StatusPill } from "@/components/features/common/status-pill";
+import { EmptyNotice, ErrorNotice } from "@/components/features/common/notices";
 
 describe("AppHeader", () => {
   it("renders the kicker and the greeting with the user's name", () => {

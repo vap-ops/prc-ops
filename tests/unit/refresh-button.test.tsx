@@ -8,7 +8,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 vi.mock("next/navigation", async () => await import("../helpers/router-refresh"));
 
 import { refreshMock } from "../helpers/router-refresh";
-import { RefreshButton } from "@/components/features/refresh-button";
+import { RefreshButton } from "@/components/features/common/refresh-button";
 
 beforeEach(() => {
   refreshMock.mockReset();

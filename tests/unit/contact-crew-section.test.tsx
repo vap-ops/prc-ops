@@ -15,7 +15,7 @@ const { mockCreate, mockRefresh } = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
 vi.mock("@/app/workers/actions", () => ({ createWorker: mockCreate }));
 
-import { ContactCrewSection } from "@/components/features/contact-crew-section";
+import { ContactCrewSection } from "@/components/features/contacts/contact-crew-section";
 
 beforeEach(() => {
   mockCreate.mockReset().mockResolvedValue({ ok: true });

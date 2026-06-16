@@ -1,4 +1,4 @@
-import { PageShell } from "@/components/features/page-shell";
+import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { CARD, DETAIL_TITLE } from "@/lib/ui/classes";
 import { notFound } from "next/navigation";
@@ -10,19 +10,19 @@ import { getCurrentPhotosForWorkPackage, type PhotoLogRow } from "@/lib/photos/c
 import { latestCreatedAt, PHASES } from "@/lib/photos/phases";
 import { derivePhaseProgress } from "@/lib/photos/phase-progress";
 import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
-import { StatusPill } from "@/components/features/status-pill";
-import { DetailHeader } from "@/components/features/detail-header";
-import { WorkPackageInfoButton } from "@/components/features/work-package-info-button";
-import { PurchaseRequestCard } from "@/components/features/purchase-request-card";
+import { StatusPill } from "@/components/features/common/status-pill";
+import { DetailHeader } from "@/components/features/chrome/detail-header";
+import { WorkPackageInfoButton } from "@/components/features/work-packages/work-package-info-button";
+import { PurchaseRequestCard } from "@/components/features/purchasing/purchase-request-card";
 import {
   APPROVAL_DECISION_LABEL,
   WORK_PACKAGE_STATUS_LABEL,
   formatThaiDateTime,
   formatThaiTime,
 } from "@/lib/i18n/labels";
-import { AttentionCard } from "@/components/features/attention-card";
-import { CountChip } from "@/components/features/count-chip";
-import { PhaseProgressBar } from "@/components/features/phase-progress-bar";
+import { AttentionCard } from "@/components/features/common/attention-card";
+import { CountChip } from "@/components/features/common/count-chip";
+import { PhaseProgressBar } from "@/components/features/work-packages/phase-progress-bar";
 import {
   approvalDecisionPillClasses,
   workPackageStatusPillClasses,
@@ -30,13 +30,13 @@ import {
   type PurchaseRequestStatus,
 } from "@/lib/status-colors";
 import { fetchDisplayNames } from "@/lib/users/display-names";
-import { WpAssignmentPanel } from "@/components/features/wp-assignment-panel";
-import { WpPriorityControl } from "@/components/features/wp-priority-control";
-import { WpSchedulePanel } from "@/components/features/wp-schedule-panel";
-import { WorkPackageNotes } from "@/components/features/work-package-notes";
-import { PurchaseRequestForm } from "@/components/features/purchase-request-form";
-import { SitePurchaseForm } from "@/components/features/site-purchase-form";
-import { LaborLogZone } from "@/components/features/labor-log-zone";
+import { WpAssignmentPanel } from "@/components/features/work-packages/wp-assignment-panel";
+import { WpPriorityControl } from "@/components/features/work-packages/wp-priority-control";
+import { WpSchedulePanel } from "@/components/features/work-packages/wp-schedule-panel";
+import { WorkPackageNotes } from "@/components/features/work-packages/work-package-notes";
+import { PurchaseRequestForm } from "@/components/features/purchasing/purchase-request-form";
+import { SitePurchaseForm } from "@/components/features/purchasing/site-purchase-form";
+import { LaborLogZone } from "@/components/features/labor/labor-log-zone";
 import { fetchLaborZoneData } from "@/lib/labor/fetch-zone-data";
 import { PhotoCaptureZone } from "./phase-uploader";
 

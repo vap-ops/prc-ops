@@ -14,7 +14,7 @@ vi.mock("@/app/requests/actions", () => ({
   createSupplier: createSupplierMock,
 }));
 
-import { CreatePurchaseOrderSheet } from "@/components/features/create-purchase-order-sheet";
+import { CreatePurchaseOrderSheet } from "@/components/features/purchasing/create-purchase-order-sheet";
 
 const SUP = "11111111-1111-4111-8111-111111111111";
 const NEW_SUP = "99999999-9999-4999-8999-999999999999";

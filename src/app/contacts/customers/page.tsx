@@ -2,15 +2,15 @@
 // out of the old packed /contacts (spec 87). PM/super only; no money column read
 // here (bank lives in contact_bank, admin-only), so reads use the user session.
 
-import { PageShell } from "@/components/features/page-shell";
+import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
 import { PM_ROLES } from "@/lib/auth/role-home";
 import { createClient as createServerSupabase } from "@/lib/db/server";
-import { DetailHeader } from "@/components/features/detail-header";
-import { BottomTabBar } from "@/components/features/bottom-tab-bar";
-import { ContactsTabs } from "@/components/features/contacts-tabs";
-import type { RecordRow } from "@/components/features/record-manager";
+import { DetailHeader } from "@/components/features/chrome/detail-header";
+import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
+import { ContactsTabs } from "@/components/features/contacts/contacts-tabs";
+import type { RecordRow } from "@/components/features/purchasing/record-manager";
 
 export const metadata = { title: "ลูกค้า" };
 

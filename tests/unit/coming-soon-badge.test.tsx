@@ -3,7 +3,7 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { ComingSoonBadge } from "@/components/features/coming-soon-badge";
+import { ComingSoonBadge } from "@/components/features/chrome/coming-soon-badge";
 
 describe("ComingSoonBadge", () => {
   it("renders the เร็วๆนี้ label", () => {

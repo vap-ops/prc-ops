@@ -1,9 +1,9 @@
-import { PageShell } from "@/components/features/page-shell";
+import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
-import { BottomTabBar } from "@/components/features/bottom-tab-bar";
-import { DetailHeader } from "@/components/features/detail-header";
-import { StatusPill } from "@/components/features/status-pill";
+import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
+import { DetailHeader } from "@/components/features/chrome/detail-header";
+import { StatusPill } from "@/components/features/common/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
 import { projectHref } from "@/lib/nav/project-paths";
 import { createClient } from "@/lib/db/server";

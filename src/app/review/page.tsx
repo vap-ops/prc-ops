@@ -1,11 +1,11 @@
-import { PageShell } from "@/components/features/page-shell";
+import { PageShell } from "@/components/features/chrome/page-shell";
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
-import { AppHeader } from "@/components/features/app-header";
-import { BottomTabBar } from "@/components/features/bottom-tab-bar";
-import { HubNav, PM_HUB_NAV } from "@/components/features/hub-nav";
-import { EmptyNotice, ErrorNotice } from "@/components/features/notices";
-import { StatusPill } from "@/components/features/status-pill";
+import { AppHeader } from "@/components/features/chrome/app-header";
+import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
+import { HubNav, PM_HUB_NAV } from "@/components/features/chrome/hub-nav";
+import { EmptyNotice, ErrorNotice } from "@/components/features/common/notices";
+import { StatusPill } from "@/components/features/common/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
 import { PM_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";

@@ -4,7 +4,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-import { CountChip } from "@/components/features/count-chip";
+import { CountChip } from "@/components/features/common/count-chip";
 
 describe("CountChip", () => {
   it("renders the count disc, the label, and the link target", () => {

@@ -12,7 +12,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const src = readFileSync(
-  join(process.cwd(), "src/components/features/wp-schedule-panel.tsx"),
+  join(process.cwd(), "src/components/features/work-packages/wp-schedule-panel.tsx"),
   "utf8",
 );
 

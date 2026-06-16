@@ -1,12 +1,12 @@
-import { PageShell } from "@/components/features/page-shell";
+import { PageShell } from "@/components/features/chrome/page-shell";
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
 import { Check } from "lucide-react";
-import { BottomTabBar } from "@/components/features/bottom-tab-bar";
-import { EmptyNotice } from "@/components/features/notices";
-import { StatusPill } from "@/components/features/status-pill";
-import { DetailHeader } from "@/components/features/detail-header";
+import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
+import { EmptyNotice } from "@/components/features/common/notices";
+import { StatusPill } from "@/components/features/common/status-pill";
+import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { fetchDisplayNames } from "@/lib/users/display-names";
@@ -21,11 +21,11 @@ import {
   formatThaiTime,
 } from "@/lib/i18n/labels";
 import { CARD, DETAIL_TITLE, SECTION_HEADING } from "@/lib/ui/classes";
-import { PhaseProgressBar } from "@/components/features/phase-progress-bar";
+import { PhaseProgressBar } from "@/components/features/work-packages/phase-progress-bar";
 import { approvalDecisionPillClasses, workPackageStatusPillClasses } from "@/lib/status-colors";
-import { ZoomablePhoto } from "@/components/features/photo-lightbox";
-import { PhotoStrip, PHOTO_STRIP_TILE } from "@/components/features/photo-strip";
-import { LaborLogZone } from "@/components/features/labor-log-zone";
+import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
+import { PhotoStrip, PHOTO_STRIP_TILE } from "@/components/features/photos/photo-strip";
+import { LaborLogZone } from "@/components/features/labor/labor-log-zone";
 import { fetchLaborZoneData } from "@/lib/labor/fetch-zone-data";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import {
@@ -37,8 +37,8 @@ import {
 } from "@/lib/labor/cost";
 import { computeLaborVariance } from "@/lib/labor/variance";
 import { bangkokDateOf } from "@/lib/dates";
-import { LaborCostView } from "@/components/features/labor-cost-view";
-import { AttentionCard } from "@/components/features/attention-card";
+import { LaborCostView } from "@/components/features/labor/labor-cost-view";
+import { AttentionCard } from "@/components/features/common/attention-card";
 import { RecordDecisionForm } from "./record-decision-form";
 import { HoldToggle } from "./hold-toggle";
 

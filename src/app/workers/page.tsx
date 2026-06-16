@@ -1,4 +1,4 @@
-import { PageShell } from "@/components/features/page-shell";
+import { PageShell } from "@/components/features/chrome/page-shell";
 // Spec 46 P1 — /workers: roster management, pm/super only. The ONE
 // surface where day rates render: the page is requireRole-gated and
 // the rates are fetched with the service-role client (the column has
@@ -9,12 +9,12 @@ import { requireRole } from "@/lib/auth/require-role";
 import { PM_ROLES } from "@/lib/auth/role-home";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { createClient as createServerSupabase } from "@/lib/db/server";
-import { DetailHeader } from "@/components/features/detail-header";
-import { BottomTabBar } from "@/components/features/bottom-tab-bar";
+import { DetailHeader } from "@/components/features/chrome/detail-header";
+import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import {
   WorkerRosterManager,
   type ManagedWorker,
-} from "@/components/features/worker-roster-manager";
+} from "@/components/features/labor/worker-roster-manager";
 
 export const metadata = { title: "คนงาน" };
 

@@ -6,7 +6,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { PurchaseRequestCard } from "@/components/features/purchase-request-card";
+import { PurchaseRequestCard } from "@/components/features/purchasing/purchase-request-card";
 
 const BASE_REQUEST = {
   id: "7f1f2a3b-4c5d-6e7f-8a9b-0c1d2e3f4a5b",

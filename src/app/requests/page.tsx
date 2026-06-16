@@ -1,16 +1,21 @@
-import { PageShell } from "@/components/features/page-shell";
+import { PageShell } from "@/components/features/chrome/page-shell";
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { ArrowLeft } from "lucide-react";
-import { AppHeader } from "@/components/features/app-header";
-import { HubNav, PM_HUB_NAV, SA_HUB_NAV, PROCUREMENT_HUB_NAV } from "@/components/features/hub-nav";
-import { EmptyNotice, ErrorNotice } from "@/components/features/notices";
+import { AppHeader } from "@/components/features/chrome/app-header";
+import {
+  HubNav,
+  PM_HUB_NAV,
+  SA_HUB_NAV,
+  PROCUREMENT_HUB_NAV,
+} from "@/components/features/chrome/hub-nav";
+import { EmptyNotice, ErrorNotice } from "@/components/features/common/notices";
 import { PURCHASING_ROLES } from "@/lib/auth/role-home";
 import { workPackageHref } from "@/lib/nav/project-paths";
 import {
   PurchaseRequestForm,
   type PurchaseRequestFormWorkPackage,
-} from "@/components/features/purchase-request-form";
+} from "@/components/features/purchasing/purchase-request-form";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { isValidUuid } from "@/lib/photos/path";
@@ -33,7 +38,7 @@ import { SECTION_HEADING } from "@/lib/ui/classes";
 //      branch remains for future narrower roles). The ?mine=1 chip
 //      narrows back to the caller's own rows.
 
-import { BottomTabBar } from "@/components/features/bottom-tab-bar";
+import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { comparePendingRequests } from "@/lib/purchasing/pending-order";
 import {
   groupByProcurementBand,
@@ -43,15 +48,15 @@ import {
 } from "@/lib/purchasing/procurement-pipeline";
 import { bangkokTodayISO } from "@/lib/work-packages/schedule-today";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
-import { PurchaseRequestCard } from "@/components/features/purchase-request-card";
+import { PurchaseRequestCard } from "@/components/features/purchasing/purchase-request-card";
 import {
   ProcurementGrid,
   type ProcurementGridRecord,
-} from "@/components/features/procurement-grid";
-import { PhonePoBasket } from "@/components/features/phone-po-basket";
-import type { SupplierOption } from "@/components/features/purchase-record-form";
+} from "@/components/features/purchasing/procurement-grid";
+import { PhonePoBasket } from "@/components/features/purchasing/phone-po-basket";
+import type { SupplierOption } from "@/components/features/purchasing/purchase-record-form";
 import { fetchDisplayNames } from "@/lib/users/display-names";
-import { ProcurementFilters } from "@/components/features/procurement-filters";
+import { ProcurementFilters } from "@/components/features/purchasing/procurement-filters";
 import {
   matchesProcurementFilter,
   sortByPriority,

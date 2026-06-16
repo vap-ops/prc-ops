@@ -1,4 +1,4 @@
-import { PageShell } from "@/components/features/page-shell";
+import { PageShell } from "@/components/features/chrome/page-shell";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
@@ -13,9 +13,9 @@ import {
   Wallet,
 } from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
-import { AvatarSurface } from "@/components/features/avatar-surface";
-import { BottomTabBar } from "@/components/features/bottom-tab-bar";
-import { ComingSoonBadge } from "@/components/features/coming-soon-badge";
+import { AvatarSurface } from "@/components/features/common/avatar-surface";
+import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
+import { ComingSoonBadge } from "@/components/features/chrome/coming-soon-badge";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { createClient } from "@/lib/db/server";
 // Server-only import (this page is a Server Component) — no client bundle bloat,

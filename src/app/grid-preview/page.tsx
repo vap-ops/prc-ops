@@ -4,8 +4,8 @@
 // needed_by/eta are unset). DELETE after review (the spec-38 /design-preview
 // precedent). Not linked from anywhere.
 
-import { ProcurementGrid } from "@/components/features/procurement-grid";
-import type { ProcurementGridRecord } from "@/components/features/procurement-grid";
+import { ProcurementGrid } from "@/components/features/purchasing/procurement-grid";
+import type { ProcurementGridRecord } from "@/components/features/purchasing/procurement-grid";
 import { groupByProcurementBand } from "@/lib/purchasing/procurement-pipeline";
 
 export const metadata = { title: "Grid color preview (temporary)" };
