@@ -22,9 +22,9 @@ export function AttachmentPdf({ src, label }: { src: string; label?: string }) {
         เปิดเอกสาร PDF ในแท็บใหม่
       </a>
       <iframe
-        src={src}
+        src={`${src}#view=Fit`}
         title={label ?? "เอกสาร PDF"}
-        className="border-edge bg-sunk h-72 w-full rounded-md border"
+        className="border-edge bg-sunk h-[82vh] w-full rounded-md border"
       />
     </div>
   );

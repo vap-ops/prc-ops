@@ -272,16 +272,16 @@ export function CreatePurchaseOrderSheet({
       {docUrl ? (
         docIsPdf ? (
           <iframe
-            src={docUrl}
+            src={`${docUrl}#view=Fit`}
             title={docFile.name}
-            className="border-edge bg-sunk h-64 w-full rounded-md border lg:h-[64vh]"
+            className="border-edge bg-sunk h-[82vh] w-full rounded-md border"
           />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element -- local object-URL preview, not a remote asset
           <img
             src={docUrl}
             alt={docFile.name}
-            className="border-edge bg-sunk h-64 w-full rounded-md border object-contain lg:h-[64vh]"
+            className="border-edge bg-sunk h-[82vh] w-full rounded-md border object-contain"
           />
         )
       ) : null}
