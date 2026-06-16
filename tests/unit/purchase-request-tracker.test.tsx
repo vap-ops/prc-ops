@@ -8,7 +8,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { PurchaseRequestTracker } from "@/components/features/purchase-request-tracker";
+import { PurchaseRequestTracker } from "@/components/features/purchasing/purchase-request-tracker";
 
 const BASE = {
   requestedAt: "2026-06-01T08:00:00Z",

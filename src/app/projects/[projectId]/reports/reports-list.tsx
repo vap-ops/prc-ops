@@ -18,8 +18,8 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { EmptyNotice } from "@/components/features/notices";
-import { StatusPill } from "@/components/features/status-pill";
+import { EmptyNotice } from "@/components/features/common/notices";
+import { StatusPill } from "@/components/features/common/status-pill";
 import { REPORT_STATUS_LABEL, isReportInFlight, type ReportStatus } from "@/lib/reports/predicates";
 import { reportStatusPillClasses } from "@/lib/status-colors";
 import { formatThaiDateTime } from "@/lib/i18n/labels";

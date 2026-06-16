@@ -52,6 +52,10 @@ later one corrects — read both when the topic is live.
 | 0044 | Purchase orders: grouping tickets into a supplier order           | Per-ticket prices; PO = sum                |
 | 0045 | VAT capture on purchases                                          | amount = gross; rate derives net/VAT       |
 | 0046 | Document-first PO creation (upload → side-by-side → AI-ready)     | PDF/image; preview local, upload on submit |
+| 0047 | Generated DB types shared across the app/worker boundary          | Vendored worker copy + drift-guard test    |
+| 0048 | CI test-tier policy                                               | Worker job in CI; e2e/db stay local        |
+| 0049 | AI feature governance: toggles, system prompts, access control    |                                            |
+| 0050 | super_admin user & role management                                |                                            |
 
 **Absent numbers** (never authored as standalone files; do not look for them):
 0023, 0024 — skipped. 0029 — AppSheet image bridge, cancelled before authoring

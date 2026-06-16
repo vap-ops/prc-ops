@@ -118,6 +118,17 @@ for reading the spec itself.
 | 113  | Grid health smoke test + temporary visual preview (review all color cases)     |
 | 114  | Enrich the review drawer + in-place buyer actions (record/ship/invoice/photo)  |
 | 115  | Purchase orders — data layer (group tickets into a supplier order; ADR 0044)   |
+| 116  | Purchase orders: create-PO UI (phase 2)                                        |
+| 117  | Create-PO UX round (mockup-approved)                                           |
+| 118  | Phone PO creation: the add-to-PO basket (mockup-approved)                      |
+| 119  | VAT capture on purchases (phase 1)                                             |
+| 120  | Unify purchase recording into PO creation                                      |
+| 121  | PDF support in purchasing attachments (ADR 0046 Layer A: documents foundation) |
+| 122  | Feature components grouped into domain folders (quality-debt; no ADR)          |
+| 123  | Single source for generated DB types, app ↔ worker (ADR 0047)                  |
+| 124  | CI: worker job + codified test-tier policy (ADR 0048)                          |
+| 125  | PO source-document attachments (ADR 0046 Layer B, Unit 1)                      |
+| 126  | Document-first create-PO surface (ADR 0046 Layer B, Unit 2)                    |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

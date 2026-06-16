@@ -22,7 +22,7 @@
     "prepare": "husky",
     "db:link": "supabase link --project-ref btbfzhnvzruvxlgbeqnl",
     "db:push": "supabase db push",
-    "db:types": "supabase gen types typescript --linked > src/lib/db/database.types.ts",
+    "db:types": "tsx scripts/gen-db-types.ts",
     "db:test": "tsx scripts/run-pgtap.ts",
     "import:wp": "tsx --env-file=.env.local scripts/import-wp.ts"
   },

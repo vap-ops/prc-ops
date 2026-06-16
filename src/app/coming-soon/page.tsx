@@ -1,9 +1,9 @@
-import { PageShell } from "@/components/features/page-shell";
+import { PageShell } from "@/components/features/chrome/page-shell";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LogoutButton } from "@/components/auth/logout-button";
-import { AvatarSurface } from "@/components/features/avatar-surface";
-import { DisplayNameForm } from "@/components/features/display-name-form";
+import { AvatarSurface } from "@/components/features/common/avatar-surface";
+import { DisplayNameForm } from "@/components/features/common/display-name-form";
 import { createClient } from "@/lib/db/server";
 import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
 

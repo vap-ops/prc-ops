@@ -1,4 +1,4 @@
-import { PageShell } from "@/components/features/page-shell";
+import { PageShell } from "@/components/features/chrome/page-shell";
 import Link from "next/link";
 
 // Localized 404 — without this, notFound() falls through to Next.js's

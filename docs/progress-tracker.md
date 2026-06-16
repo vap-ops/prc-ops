@@ -1327,3 +1327,86 @@ create-PO, attach a PDF/photo → tablet/PC shows doc-left form-right; phone tog
 **METHOD note:** mockup (visualize) → AskUserQuestion (container + flow) → build — the un-preview-verifiable
 UI loop (spec 108/117/118). **NEXT:** ADR 0046 Layer C (AI extraction → prefill the verified form, Claude).
 Seams unchanged from Unit 1 (PO-doc removal/replace UI, multi-doc + purpose split, PO detail page).
+
+## Spec 122 - feature components grouped into domain folders (2026-06-16)
+
+Status: COMPLETE (2026-06-16). Quality-debt unit from the codebase review (see
+`docs/quality-debt-plan-2026-06.md`). Pure refactor: move 64 `.tsx` files out of the flat
+`src/components/features/` root into 7 domain subfolders (purchasing 22 · work-packages 8 ·
+photos 3 · labor 4 · contacts 4 · chrome 10 · common 13), rewrite every `@/components/features/*`
+import (all referencing files use the alias — no relative cross-imports). No ADR (taxonomy
+in-spec). Test-first: `tests/unit/feature-components-structure.test.ts` (no loose `.tsx` in root,
+only known domains). `tsc` is the no-missed-import proof.
+
+**Done:** 64 `git mv` (renames, history preserved); imports rewritten across 104 files (anchored on
+the closing quote so no prefix can partial-match). Two follow-ons the `@/`-anchored rewrite missed,
+caught by the suite: 4 literal `readFileSync` path strings in `design-doctrine` /
+`wp-schedule-panel-overflow` tests, and a stale path in a `src/lib/labor/types.ts` comment — fixed.
+**Gate:** lint clean · typecheck clean · **888 unit green** (128 files) · `pnpm build` green. Diff
+audit: every `src/` change is an import-path edit, nothing else; 64 renames stage content-identical.
+No DB/schema → no db:push, pgTAP untouched. **NOT committed** (operator merges on laptop). Staging
+note: exclude the foreign uncommitted `docs/sdd-2026-06.md` + untracked `uxui-*.md` /
+`app-workflows-and-roles.md` (other sessions' work) from this unit's commit. Open question: the
+index lists spec 93 with no `93-*.md` file (pre-existing, not this unit).
+
+## Spec 123 - single source for generated DB types, app ↔ worker (2026-06-16)
+
+Status: COMPLETE (2026-06-16). Implements ADR 0047 (Proposed → operator accepts at
+merge). `database.types.ts` exists twice; worker copy badly stale (app 2281 lines vs worker 705 —
+predates `clients` and everything after). Worker is NOT a pnpm-workspace member (own lockfile,
+Railway root=/worker) so it cannot import from `../src`; keep the vendored copy but (a) regeneration
+writes both files, (b) a drift-guard test fails red on divergence. Test-first:
+`tests/unit/db-types-sync.test.ts` (worker copy byte-identical to app, EOL-normalized) — red now
+given the drift. Live `pnpm db:types` regen is operator-gated (needs `supabase login`); the resync
+(byte copy app→worker) + guard prove the mechanism without DB.
+
+**Done:** `scripts/gen-db-types.ts` (spawns `supabase gen types`, writes both files; `db:types`
+script repointed to `tsx scripts/gen-db-types.ts`); worker copy resynced app→worker (705→2281 lines,
+now identical). **Gate:** drift test green · lint clean · typecheck app + **worker** clean (worker
+code compiles against the full types) · **889 unit green** (129 files). No build needed — the app's
+`src/lib/db/database.types.ts` is unchanged; only the worker copy + new script + test changed, all
+covered by typecheck. **Operator-gated (not run here):** `pnpm db:types` against the linked DB to
+confirm the dual-write matches the live schema (needs `supabase login`); ADR 0047 Proposed→Accepted.
+**NOT committed** (laptop merge). Same staging caution as spec 122 re: foreign `docs/sdd-2026-06.md`
+
+- untracked `uxui-*.md` / `app-workflows-and-roles.md`.
+
+## Spec 124 - CI worker job + codified test-tier policy (2026-06-16)
+
+Status: COMPLETE (2026-06-16). Implements ADR 0048. CI ran only app lint/typecheck/test;
+the `worker/` package (own lockfile) was never built/tested in CI. Add a secret-free `worker` job
+(install --frozen-lockfile → typecheck → test in `worker/`); the spec-123 drift test rides the
+existing app `pnpm test` job (no new wiring). `db:test`/`test:e2e` stay local Tier-B gates; a manual
+`workflow_dispatch` `db-test` job is added but inert (guarded on a repo variable + secret the
+operator must provision — Tier C). CI config = no app code; TDD obligation carried by the worker's
+own suite + the drift guard. Validated locally: `cd worker && pnpm install --frozen-lockfile &&
+pnpm typecheck && pnpm test` → 6 green.
+
+**Done:** `.github/workflows/ci.yml` gains a `worker` job (checkout → pnpm → node22 →
+install/typecheck/test in `worker/`, cache keyed on `worker/pnpm-lock.yaml`) + a `workflow_dispatch`
+trigger + an inert `db-test` job (`if: workflow_dispatch && vars.ENABLE_DB_TEST == 'true'` — skipped
+until the operator opts in + provisions `SUPABASE_ACCESS_TOKEN`). **Gate:** worker sequence green
+locally (6 tests); YAML parses (js-yaml exit 0); app suite/typecheck unaffected (only `ci.yml` +
+docs changed — no app code, no rerun needed; 889 from spec 123 stands). **Operator-gated:** flip ADR
+0048 Proposed→Accepted; to activate Tier C, add the `SUPABASE_ACCESS_TOKEN` secret + set repo
+variable `ENABLE_DB_TEST=true` (confirm `supabase link` needs no interactive input in CI). Same
+foreign-file staging caution as specs 122/123.
+
+## Quality-debt batch 122-124 — committed (2026-06-16)
+
+"Proceed in my stead" wrap-up. ADRs 0047 + 0048 flipped Proposed→Accepted. Ran `pnpm db:types`
+against the LIVE linked DB (CLI still authed) — validated `gen-db-types.ts` end-to-end AND revealed
+the committed app types were ~52 lines stale vs live (a migration was pushed without regenerating);
+synced both copies to live (raw 2333 lines, identical). All three units committed to branch
+`quality-debt-122-124` (one atomic commit; foreign `sdd-2026-06.md` + untracked `uxui-*.md` /
+`app-workflows-and-roles.md` excluded). **NOT pushed** — push + PR are laptop-only (CLAUDE.md).
+
+**Gotcha fixed (important):** the husky/lint-staged pre-commit ran prettier on the app types copy
+(not prettier-ignored) but NOT the worker copy (`worker/` is in `.prettierignore`) → the two diverged
+INSIDE the first commit and the drift guard failed. Fix: add `src/lib/db/database.types.ts` to BOTH
+`.prettierignore` and the eslint `globalIgnores` (generated files must never be hand-formatted, else
+every future `db:types`+commit re-breaks the guard). Re-synced raw output to both, amended.
+
+**Final gate (committed state):** drift green · lint clean · typecheck app + worker clean · 889 unit
+green (129 files) · `pnpm build` green. **Operator remaining:** `git push` branch + open PR; (Tier C
+CI) add `SUPABASE_ACCESS_TOKEN` secret + repo var `ENABLE_DB_TEST=true`.

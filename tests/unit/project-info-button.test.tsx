@@ -8,7 +8,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { ProjectInfoButton } from "@/components/features/project-info-button";
+import { ProjectInfoButton } from "@/components/features/work-packages/project-info-button";
 
 const PROPS = {
   clientName: "บจก. ลูกค้า ก",

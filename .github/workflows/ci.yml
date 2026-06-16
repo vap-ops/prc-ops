@@ -5,6 +5,7 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   ci:
@@ -32,3 +33,64 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+  worker:
+    name: Worker — Typecheck, Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: worker/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: worker
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        working-directory: worker
+        run: pnpm typecheck
+
+      - name: Test
+        working-directory: worker
+        run: pnpm test
+
+  # Tier C (ADR 0048): pgTAP against the linked SHARED remote. Inert by default —
+  # runs only on a manual dispatch AND when the operator has opted in via the
+  # `ENABLE_DB_TEST` repository variable, so no automatic run ever references a
+  # missing secret. On enable, the operator provisions the `SUPABASE_ACCESS_TOKEN`
+  # secret (and confirms `supabase link` needs no extra interactive input in CI).
+  # See docs/decisions/0048-ci-test-tier-policy.md.
+  db-test:
+    name: Database (pgTAP) — manual
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && vars.ENABLE_DB_TEST == 'true' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Link Supabase CLI
+        run: pnpm db:link
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: pgTAP
+        run: pnpm db:test
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

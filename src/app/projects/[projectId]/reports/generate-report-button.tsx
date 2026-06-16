@@ -10,7 +10,7 @@ import { BUTTON_PRIMARY } from "@/lib/ui/classes";
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { RadioChip } from "@/components/features/radio-chip";
+import { RadioChip } from "@/components/features/common/radio-chip";
 import {
   DEFAULT_REPORT_PARAMS,
   type ReportParams,

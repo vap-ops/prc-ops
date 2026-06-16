@@ -15,7 +15,7 @@ vi.mock("@/app/projects/[projectId]/work-packages/[workPackageId]/assignment-act
   createContractor: vi.fn().mockResolvedValue({ ok: true, id: "c2" }),
 }));
 
-import { WorkPackageInfoButton } from "@/components/features/work-package-info-button";
+import { WorkPackageInfoButton } from "@/components/features/work-packages/work-package-info-button";
 
 const PROPS = {
   projectId: "11111111-1111-1111-1111-111111111111",

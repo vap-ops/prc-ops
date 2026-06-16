@@ -8,7 +8,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { BottomSheet } from "@/components/features/bottom-sheet";
+import { BottomSheet } from "@/components/features/common/bottom-sheet";
 
 describe("BottomSheet", () => {
   it("renders nothing when closed", () => {

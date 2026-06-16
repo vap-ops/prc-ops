@@ -5,7 +5,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-import { PageShell } from "@/components/features/page-shell";
+import { PageShell } from "@/components/features/chrome/page-shell";
 
 function mainOf(container: HTMLElement) {
   return container.querySelector("main");

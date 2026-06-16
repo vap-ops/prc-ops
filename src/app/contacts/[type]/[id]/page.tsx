@@ -4,18 +4,18 @@
 // Documents (U7) and crew (U8) sections attach to this page in their units.
 
 import { notFound } from "next/navigation";
-import { PageShell } from "@/components/features/page-shell";
+import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
 import { PM_ROLES } from "@/lib/auth/role-home";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
-import { DetailHeader } from "@/components/features/detail-header";
+import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { DETAIL_TITLE } from "@/lib/ui/classes";
 import { CARD } from "@/lib/ui/classes";
-import { ContactBankBlock } from "@/components/features/contact-bank-block";
-import { ContactCrewSection } from "@/components/features/contact-crew-section";
-import { ContactDocumentsBlock } from "@/components/features/contact-documents-block";
+import { ContactBankBlock } from "@/components/features/contacts/contact-bank-block";
+import { ContactCrewSection } from "@/components/features/contacts/contact-crew-section";
+import { ContactDocumentsBlock } from "@/components/features/contacts/contact-documents-block";
 import { getContactBank, type ContactKind } from "@/lib/contacts/bank";
 import { getContactDocuments } from "@/lib/contacts/documents";
 

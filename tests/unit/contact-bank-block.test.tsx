@@ -11,7 +11,7 @@ const { mockSet, mockRefresh } = vi.hoisted(() => ({ mockSet: vi.fn(), mockRefre
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
 vi.mock("@/app/contacts/actions", () => ({ setContactBank: mockSet }));
 
-import { ContactBankBlock } from "@/components/features/contact-bank-block";
+import { ContactBankBlock } from "@/components/features/contacts/contact-bank-block";
 
 beforeEach(() => {
   mockSet.mockReset().mockResolvedValue({ ok: true });

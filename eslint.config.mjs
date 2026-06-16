@@ -9,6 +9,7 @@ const eslintConfig = defineConfig([
   prettier,
   globalIgnores([
     "src/lib/reports/sarabun-font.ts",
+    "src/lib/db/database.types.ts",
     ".next/**",
     ".claude/**",
     "next-env.d.ts",

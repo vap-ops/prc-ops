@@ -18,7 +18,7 @@ vi.mock("@/app/photo-markups/actions", () => ({
   removePhotoMarkup: vi.fn(),
 }));
 
-import { ZoomablePhoto } from "@/components/features/photo-lightbox";
+import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
 
 const SRC = "https://example.test/storage/photo-1.jpg";
 

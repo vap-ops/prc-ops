@@ -22,7 +22,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) 
 // Spec 76: success feedback moved to a toast.
 vi.mock("@/lib/ui/use-toast", () => ({ useToast: () => mockToast }));
 
-import { NotesField } from "@/components/features/notes-field";
+import { NotesField } from "@/components/features/common/notes-field";
 
 describe("NotesField", () => {
   beforeEach(() => {

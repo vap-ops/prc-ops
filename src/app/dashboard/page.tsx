@@ -6,13 +6,13 @@
 // header, no back chip (mirrors /settings).
 
 import Link from "next/link";
-import { PageShell } from "@/components/features/page-shell";
+import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
 import { PM_ROLES, SITE_STAFF_ROLES } from "@/lib/auth/role-home";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
-import { BottomTabBar } from "@/components/features/bottom-tab-bar";
+import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { rollupProgress } from "@/lib/dashboard/overview";
 import { sumMaterials, budgetStatus, type BudgetStatus } from "@/lib/dashboard/spend";
 import { aggregateLaborCost, type CostInputRow } from "@/lib/labor/cost";

@@ -10,7 +10,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ToastProvider } from "@/components/features/toast-provider";
+import { ToastProvider } from "@/components/features/common/toast-provider";
 import { useToast } from "@/lib/ui/use-toast";
 
 function Harness() {

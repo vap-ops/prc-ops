@@ -5,7 +5,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-import { AttentionCard } from "@/components/features/attention-card";
+import { AttentionCard } from "@/components/features/common/attention-card";
 
 describe("AttentionCard", () => {
   it("renders the bold title and the body content", () => {

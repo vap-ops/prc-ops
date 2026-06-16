@@ -16,7 +16,7 @@ import {
   type RecordActionResult,
   type RecordFieldDef,
   type RecordRow,
-} from "@/components/features/record-manager";
+} from "@/components/features/purchasing/record-manager";
 
 type CreateFn = (values: Record<string, string>) => Promise<RecordActionResult>;
 type UpdateFn = (id: string, values: Record<string, string>) => Promise<RecordActionResult>;

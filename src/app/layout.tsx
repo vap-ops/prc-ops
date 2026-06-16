@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Sarabun } from "next/font/google";
-import { SwRegister } from "@/components/features/sw-register";
-import { UploadQueueRunner } from "@/components/features/upload-queue-runner";
-import { ViewportScrollGuard } from "@/components/features/viewport-scroll-guard";
-import { ToastProvider } from "@/components/features/toast-provider";
+import { SwRegister } from "@/components/features/chrome/sw-register";
+import { UploadQueueRunner } from "@/components/features/photos/upload-queue-runner";
+import { ViewportScrollGuard } from "@/components/features/chrome/viewport-scroll-guard";
+import { ToastProvider } from "@/components/features/common/toast-provider";
 import "./globals.css";
 
 // Sarabun matches the PDF reports (spec 13) — one Thai face across web

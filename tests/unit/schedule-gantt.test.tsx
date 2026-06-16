@@ -5,7 +5,7 @@
 
 import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { ScheduleGantt, type GanttWp } from "@/components/features/schedule-gantt";
+import { ScheduleGantt, type GanttWp } from "@/components/features/work-packages/schedule-gantt";
 
 const SCHEDULED: GanttWp = {
   id: "w1",

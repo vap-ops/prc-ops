@@ -47,7 +47,10 @@ describe("design doctrine (Field-First)", () => {
   // Canon: the phase progress bar's current segment is amber, never the
   // reserved link/active-nav blue. Restored from the spec-67 pin set.
   it("the phase progress bar never uses the reserved link blue", () => {
-    const bar = readFileSync(join(SRC, "components/features/phase-progress-bar.tsx"), "utf8");
+    const bar = readFileSync(
+      join(SRC, "components/features/work-packages/phase-progress-bar.tsx"),
+      "utf8",
+    );
     expect(bar).not.toMatch(/bg-blue-700/);
   });
 
@@ -66,7 +69,7 @@ describe("design doctrine (Field-First)", () => {
   // Worklist + deliverable names wrap (line-clamp), never single-line
   // truncate (Thai clips mid-word — spec 57).
   it("the worklist row name clamps, never truncates", () => {
-    const row = readFileSync(join(SRC, "components/features/worklist-row.tsx"), "utf8");
+    const row = readFileSync(join(SRC, "components/features/chrome/worklist-row.tsx"), "utf8");
     expect(row).toMatch(/line-clamp-\d/);
     expect(row).not.toMatch(/\btruncate\b/);
   });
@@ -87,7 +90,7 @@ describe("design doctrine (Field-First)", () => {
   // source (style-pinned) even though isCritical is false for all WPs
   // today. Guards against the slot being dropped before the engine lands.
   it("reserves the critical-path badge slot", () => {
-    const row = readFileSync(join(SRC, "components/features/worklist-row.tsx"), "utf8");
+    const row = readFileSync(join(SRC, "components/features/chrome/worklist-row.tsx"), "utf8");
     expect(row).toContain("isCritical");
     expect(row).toContain("CRITICAL_BADGE");
   });

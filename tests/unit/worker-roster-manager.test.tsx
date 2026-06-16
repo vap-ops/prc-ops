@@ -23,7 +23,7 @@ vi.mock("@/app/workers/actions", () => ({
 import {
   WorkerRosterManager,
   type ManagedWorker,
-} from "@/components/features/worker-roster-manager";
+} from "@/components/features/labor/worker-roster-manager";
 
 const WORKERS: ManagedWorker[] = [
   {

@@ -23,9 +23,9 @@
 
 import { useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
-import { EmptyNotice } from "@/components/features/notices";
-import { StatusPill } from "@/components/features/status-pill";
-import { WorklistRow, type WorklistRowItem } from "@/components/features/worklist-row";
+import { EmptyNotice } from "@/components/features/common/notices";
+import { StatusPill } from "@/components/features/common/status-pill";
+import { WorklistRow, type WorklistRowItem } from "@/components/features/chrome/worklist-row";
 import type { Database } from "@/lib/db/database.types";
 import { deriveDeliverableProgress } from "@/lib/deliverables/derive-progress";
 import {

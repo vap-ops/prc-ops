@@ -7,7 +7,7 @@
 import { render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ViewportScrollGuard } from "@/components/features/viewport-scroll-guard";
+import { ViewportScrollGuard } from "@/components/features/chrome/viewport-scroll-guard";
 
 afterEach(() => {
   vi.useRealTimers();

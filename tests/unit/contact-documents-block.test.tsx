@@ -19,7 +19,7 @@ vi.mock("@/lib/db/browser", () => ({
 }));
 vi.mock("@/lib/photos/downscale", () => ({ preparePhotoForUpload: mockPrepare }));
 
-import { ContactDocumentsBlock } from "@/components/features/contact-documents-block";
+import { ContactDocumentsBlock } from "@/components/features/contacts/contact-documents-block";
 
 const ID = "11111111-1111-1111-1111-111111111111";
 

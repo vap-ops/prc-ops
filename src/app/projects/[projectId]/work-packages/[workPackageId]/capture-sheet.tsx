@@ -18,7 +18,7 @@
 
 import { Camera, Check, Image as ImageIcon, X } from "lucide-react";
 import { BUTTON_SECONDARY_MUTED, INLINE_ERROR } from "@/lib/ui/classes";
-import { ConfirmDialog } from "@/components/features/confirm-dialog";
+import { ConfirmDialog } from "@/components/features/common/confirm-dialog";
 import { PHOTO_ACCEPT_MIME } from "@/lib/photos/path";
 import type { PhotoPhase } from "@/lib/photos/transitions";
 import { usePhaseCapture, type PendingUpload } from "./use-phase-capture";

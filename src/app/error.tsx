@@ -1,6 +1,6 @@
 "use client";
 
-import { PageShell } from "@/components/features/page-shell";
+import { PageShell } from "@/components/features/chrome/page-shell";
 
 // Localized error boundary — Next.js requires error boundaries to be
 // Client Components; that requirement is the 'use client' justification

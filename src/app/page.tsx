@@ -1,4 +1,4 @@
-import { PageShell } from "@/components/features/page-shell";
+import { PageShell } from "@/components/features/chrome/page-shell";
 import { redirect } from "next/navigation";
 import { roleHome } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";

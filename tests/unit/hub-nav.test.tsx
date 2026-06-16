@@ -4,7 +4,12 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { HubNav, PM_HUB_NAV, SA_HUB_NAV, PROCUREMENT_HUB_NAV } from "@/components/features/hub-nav";
+import {
+  HubNav,
+  PM_HUB_NAV,
+  SA_HUB_NAV,
+  PROCUREMENT_HUB_NAV,
+} from "@/components/features/chrome/hub-nav";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 
 // Spec 93: desktop mirrors the bottom bar — daily deciders + a ตั้งค่า entry;

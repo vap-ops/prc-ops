@@ -21,7 +21,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) 
 vi.mock("@/app/coming-soon/actions", () => ({ updateDisplayName: mockUpdate }));
 vi.mock("@/lib/ui/use-toast", () => ({ useToast: () => mockToast }));
 
-import { DisplayNameForm } from "@/components/features/display-name-form";
+import { DisplayNameForm } from "@/components/features/common/display-name-form";
 
 describe("DisplayNameForm", () => {
   beforeEach(() => {

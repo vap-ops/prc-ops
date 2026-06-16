@@ -15,8 +15,8 @@ vi.mock("@/app/requests/actions", () => ({
   createSupplier: createSupplierMock,
 }));
 
-import { PhonePoBasket } from "@/components/features/phone-po-basket";
-import type { ProcurementGridRecord } from "@/components/features/procurement-grid";
+import { PhonePoBasket } from "@/components/features/purchasing/phone-po-basket";
+import type { ProcurementGridRecord } from "@/components/features/purchasing/procurement-grid";
 
 const R1 = "aaaaaaaa-1111-4111-8111-111111111111";
 const R2 = "bbbbbbbb-2222-4222-8222-222222222222";

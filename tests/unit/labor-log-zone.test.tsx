@@ -6,7 +6,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { LaborLogZone, type LaborDisplayRow } from "@/components/features/labor-log-zone";
+import { LaborLogZone, type LaborDisplayRow } from "@/components/features/labor/labor-log-zone";
 import { logLaborDays, correctLaborLog } from "@/lib/labor/actions";
 
 vi.mock("@/lib/labor/actions", () => ({
