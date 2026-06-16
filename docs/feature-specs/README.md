@@ -133,6 +133,8 @@ for reading the spec itself.
 | 128  | DC payment bank disbursement (KBank) — design                                  |
 | 129  | PEAK accounting integration (outbound sync)                                    |
 | 130  | DC self-service portal (external partner tier) — design                        |
+| 131  | DC onboarding packet (docs · consent · emergency contact)                      |
+| 132  | DC portal profile self-edit (cashout-scoped)                                   |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

@@ -16,6 +16,7 @@ import { buildContactDocPath } from "@/lib/contacts/document-path";
 import { claimErrorToThai } from "./claim-error";
 import { validateBankChange } from "./bank-change";
 import { validateEmergencyContact } from "./emergency-contact";
+import { validateContractorProfile } from "./contractor-profile";
 import { isPortalDocPurpose } from "./document-types";
 
 export type ClaimResult = { ok: true } | { ok: false; error: string };
@@ -119,6 +120,33 @@ export async function updateOwnEmergencyContact(input: {
     p_relation: input.relation.trim(),
     p_phone: input.phone.trim(),
     ...(input.dob ? { p_dob: input.dob } : {}),
+  });
+  if (error) return { ok: false, error: GENERIC_BANK };
+  revalidatePath("/portal");
+  return { ok: true };
+}
+
+// Spec 132 U1 — DC self-edits their own contactability (phone/email/contact
+// person/mailing address) from the portal. The RPC is column-scoped to these four
+// fields for the caller's own contractor (no broad UPDATE policy — so name/status/
+// tax_id stay out of reach). Contactability is not money — direct, no staging.
+export async function updateOwnContactInfo(input: {
+  phone: string;
+  email: string;
+  contactPerson: string;
+  mailingAddress: string;
+}): Promise<ActionResult> {
+  const validation = validateContractorProfile(input);
+  if (validation) return { ok: false, error: validation };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("update_own_contractor_profile", {
+    p_phone: input.phone.trim(),
+    p_email: input.email.trim(),
+    p_contact_person: input.contactPerson.trim(),
+    p_mailing_address: input.mailingAddress.trim(),
   });
   if (error) return { ok: false, error: GENERIC_BANK };
   revalidatePath("/portal");

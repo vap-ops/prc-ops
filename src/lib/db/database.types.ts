@@ -2430,6 +2430,15 @@ export type Database = {
         Args: { p_full_name: string }
         Returns: undefined
       }
+      update_own_contractor_profile: {
+        Args: {
+          p_contact_person?: string
+          p_email?: string
+          p_mailing_address?: string
+          p_phone?: string
+        }
+        Returns: undefined
+      }
       update_own_emergency_contact: {
         Args: {
           p_dob?: string

@@ -19,6 +19,7 @@ import { DC_PAYMENT_METHOD_LABELS } from "@/lib/labor/payments";
 import { BankChangeForm } from "@/components/features/portal/bank-change-form";
 import { PortalSelfEdit, type PortalConsent } from "@/components/features/portal/portal-self-edit";
 import { PortalDocuments } from "@/components/features/portal/portal-documents";
+import { PortalContactInfo } from "@/components/features/portal/portal-contact-info";
 import { getOwnContractorDocuments } from "@/lib/portal/own-documents";
 import { contractorPacketStatus, dcTypeOfSubtype, type DcPacket } from "@/lib/contacts/packet";
 
@@ -116,16 +117,29 @@ export default async function PortalPage() {
           </section>
         ) : null}
 
-        {/* Profile */}
+        {/* Profile — contactability is self-editable; tax_id (PM-only, from the
+            ID card) + specialty are read-only. Spec 132 U1. */}
         <h2 className={SECTION_HEADING}>ข้อมูลของฉัน</h2>
-        <dl className={`${CARD} mb-6`}>
-          {detail("ผู้ติดต่อ", profile?.contact_person)}
-          {detail("โทร", profile?.phone)}
-          {detail("อีเมล", profile?.email)}
-          {detail("เลขผู้เสียภาษี", profile?.tax_id)}
-          {detail("ที่อยู่", profile?.mailing_address)}
-          {detail("งานที่ถนัด", profile?.specialty)}
-        </dl>
+        {profile?.id ? (
+          <div className="mb-3">
+            <PortalContactInfo
+              initial={{
+                phone: profile.phone ?? "",
+                email: profile.email ?? "",
+                contactPerson: profile.contact_person ?? "",
+                mailingAddress: profile.mailing_address ?? "",
+              }}
+            />
+          </div>
+        ) : null}
+        {profile?.tax_id || profile?.specialty ? (
+          <dl className={`${CARD} mb-6`}>
+            {detail("เลขผู้เสียภาษี", profile?.tax_id)}
+            {detail("งานที่ถนัด", profile?.specialty)}
+          </dl>
+        ) : (
+          <div className="mb-6" />
+        )}
 
         {/* Self-service: emergency contact + PDPA/background-check consent */}
         {profile?.id ? (
