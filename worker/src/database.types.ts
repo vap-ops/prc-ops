@@ -2149,6 +2149,32 @@ export type Database = {
         Returns: string
       }
       freeze_wp_labor_cost: { Args: { p_wp: string }; Returns: undefined }
+      get_my_dc_payments: {
+        Args: never
+        Returns: {
+          computed_amount: number
+          computed_days: number
+          contractor_id: string
+          correction_reason: string | null
+          created_at: string
+          id: string
+          method: Database["public"]["Enums"]["dc_payment_method"]
+          note: string | null
+          paid_amount: number | null
+          paid_at: string
+          paid_by: string
+          period_from: string
+          period_to: string
+          reference: string | null
+          superseded_by: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "dc_payments"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       invoke_notification_drain: { Args: never; Returns: undefined }
       log_labor_day: {
         Args: {

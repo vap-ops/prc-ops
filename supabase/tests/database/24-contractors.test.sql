@@ -33,8 +33,9 @@ select is((select relrowsecurity from pg_class where oid = 'public.contractors':
 select policies_are('public', 'contractors',
   array['contractors readable by privileged roles',
         'contractors insert by staff',
-        'contractors update by staff'],
-  'exactly the three contractor policies (staff write since the spec-31 amendment) — NO delete policy');
+        'contractors update by staff',
+        'contractors readable by bound contractor'],
+  'the contractor policies: three staff (read/insert/update) + the spec-130 external own-row read — NO delete policy');
 select is(has_table_privilege('authenticated', 'public.contractors', 'DELETE'),
   false, 'authenticated has NO DELETE on contractors');
 select throws_ok(
