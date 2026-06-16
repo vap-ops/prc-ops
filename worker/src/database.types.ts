@@ -353,6 +353,82 @@ export type Database = {
           },
         ]
       }
+      dc_payments: {
+        Row: {
+          computed_amount: number
+          computed_days: number
+          contractor_id: string
+          correction_reason: string | null
+          created_at: string
+          id: string
+          method: Database["public"]["Enums"]["dc_payment_method"]
+          note: string | null
+          paid_amount: number | null
+          paid_at: string
+          paid_by: string
+          period_from: string
+          period_to: string
+          reference: string | null
+          superseded_by: string | null
+        }
+        Insert: {
+          computed_amount: number
+          computed_days: number
+          contractor_id: string
+          correction_reason?: string | null
+          created_at?: string
+          id?: string
+          method: Database["public"]["Enums"]["dc_payment_method"]
+          note?: string | null
+          paid_amount?: number | null
+          paid_at: string
+          paid_by: string
+          period_from: string
+          period_to: string
+          reference?: string | null
+          superseded_by?: string | null
+        }
+        Update: {
+          computed_amount?: number
+          computed_days?: number
+          contractor_id?: string
+          correction_reason?: string | null
+          created_at?: string
+          id?: string
+          method?: Database["public"]["Enums"]["dc_payment_method"]
+          note?: string | null
+          paid_amount?: number | null
+          paid_at?: string
+          paid_by?: string
+          period_from?: string
+          period_to?: string
+          reference?: string | null
+          superseded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dc_payments_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "contractors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dc_payments_paid_by_fkey"
+            columns: ["paid_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dc_payments_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "dc_payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deliverables: {
         Row: {
           code: string
@@ -1917,6 +1993,19 @@ export type Database = {
         Args: { p_max_age_minutes?: number }
         Returns: number
       }
+      record_dc_payment: {
+        Args: {
+          p_contractor: string
+          p_from: string
+          p_method: Database["public"]["Enums"]["dc_payment_method"]
+          p_note: string
+          p_paid_amount: number
+          p_paid_at: string
+          p_reference: string
+          p_to: string
+        }
+        Returns: string
+      }
       record_purchase: {
         Args: {
           p_amount?: number
@@ -2041,6 +2130,7 @@ export type Database = {
         | "worker_change"
         | "labor_cost_freeze"
         | "purchase_order_create"
+        | "dc_payment_recorded"
       contact_doc_purpose: "id_card" | "bank_book"
       contact_status: "active" | "probation" | "blacklisted"
       contractor_category: "contractor" | "dc"
@@ -2050,6 +2140,7 @@ export type Database = {
         | "dc_regular"
         | "dc_temporary"
       day_fraction: "full" | "half"
+      dc_payment_method: "bank_transfer" | "cash" | "cheque"
       login_handoff_status: "pending" | "approved" | "consumed"
       notification_event_type:
         | "wp_pending_approval"
@@ -2256,6 +2347,7 @@ export const Constants = {
         "worker_change",
         "labor_cost_freeze",
         "purchase_order_create",
+        "dc_payment_recorded",
       ],
       contact_doc_purpose: ["id_card", "bank_book"],
       contact_status: ["active", "probation", "blacklisted"],
@@ -2267,6 +2359,7 @@ export const Constants = {
         "dc_temporary",
       ],
       day_fraction: ["full", "half"],
+      dc_payment_method: ["bank_transfer", "cash", "cheque"],
       login_handoff_status: ["pending", "approved", "consumed"],
       notification_event_type: [
         "wp_pending_approval",

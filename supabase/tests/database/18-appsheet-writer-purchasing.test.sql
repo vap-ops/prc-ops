@@ -165,7 +165,7 @@ select enum_has_labels(
     'photo_upload', 'photo_supersede', 'approve', 'reject', 'export', 'other',
     'profile_update', 'purchase_request_decision',
     'purchase_request_purchase', 'purchase_request_delivery', 'worker_change',
-    'labor_cost_freeze', 'purchase_order_create'
+    'labor_cost_freeze', 'purchase_order_create', 'dc_payment_recorded'
   ],
   'audit_action enum includes purchase_request_purchase + purchase_request_delivery'
 );
