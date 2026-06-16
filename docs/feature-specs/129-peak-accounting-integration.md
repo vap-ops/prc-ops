@@ -32,6 +32,30 @@ Exact request-body field schemas for `/contacts` and `/expenses` are pulled per
 unit from the OpenAPI reference before the transforms (U2) are written — never
 guessed (same money-correctness posture as spec 128's file format).
 
+### Verified so far (2026-06-16, from `developers.peakaccount.com/reference/*.md`)
+
+**Auth headers (every call)** — richer than a bearer token; lands in U3 (worker):
+
+- `Client-Token` (from `POST /api/v1/clienttoken` via API Key + Secret Key)
+- `User-Token` (issued per app by PEAK)
+- `Time-Stamp` (`yyyyMMddHHmmss`)
+- `Time-Signature` (HMAC-SHA1 of the Time-Stamp, key = the Secret Key / connectId)
+
+**`POST /api/v1/contacts`** — body wraps `{ "PeakContacts": { "contacts": [ … ] } }`.
+Per-contact fields: `name` (req), `type` (int, req — PEAK contact-type code;
+**only `5`=Individual confirmed, vendor/juristic codes TBD with PEAK**),
+`code` (opt, our local ref), `taxNumber`, `branchCode` (5-digit), address group
+(`address`, `subDistrict`, `district`, `province`, `country`, `postCode`),
+contact-person group (`contactFirstName/LastName/NickName/Position`,
+`contactPhoneNumber`, `contactEmail`), `purchaseAccount` / `sellAccount` (COA
+codes — the mapping blocker), `bankAccount` `{ bankId, bankBranch, bankAccountNo,
+bankAccountName }` (`bankId` = PEAK bank code, **lookup TBD**), `prefixNameType`
+(int, req when `type=5`).
+
+**Open unknowns that gate U2/U3 build** (beyond UAT creds + COA mapping):
+the contact `type` code for a vendor/juristic party, and the `bankId` code map —
+both confirmed with PEAK, not guessed.
+
 ## Flows (prc-ops fact → PEAK object)
 
 | Flow                      | prc-ops source                                         | PEAK target | Notes                                                          |
