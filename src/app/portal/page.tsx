@@ -18,6 +18,9 @@ import { formatThaiDate } from "@/lib/i18n/labels";
 import { DC_PAYMENT_METHOD_LABELS } from "@/lib/labor/payments";
 import { BankChangeForm } from "@/components/features/portal/bank-change-form";
 import { PortalSelfEdit, type PortalConsent } from "@/components/features/portal/portal-self-edit";
+import { PortalDocuments } from "@/components/features/portal/portal-documents";
+import { getOwnContractorDocuments } from "@/lib/portal/own-documents";
+import { contractorPacketStatus, dcTypeOfSubtype, type DcPacket } from "@/lib/contacts/packet";
 
 export const metadata = { title: "พอร์ทัลผู้รับเหมา" };
 
@@ -33,7 +36,7 @@ export default async function PortalPage() {
   const { data: profile } = await supabase
     .from("contractors")
     .select(
-      "id, name, phone, tax_id, contact_person, email, mailing_address, specialty, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, date_of_birth",
+      "id, name, phone, tax_id, contact_person, email, mailing_address, specialty, contractor_subtype, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, date_of_birth",
     )
     .maybeSingle();
   const { data: consentRows } = await supabase
@@ -47,6 +50,29 @@ export default async function PortalPage() {
     .select("id")
     .eq("status", "pending")
     .maybeSingle();
+
+  // Spec 131 U2c — own documents (RLS-scoped read + RLS-session signed URLs) and
+  // own-bank presence (boolean, no account number) feed the completeness checklist.
+  const docs = profile?.id ? await getOwnContractorDocuments(supabase) : null;
+  const { data: bankPresent } = await supabase.rpc("my_contact_bank_present");
+
+  const consentActive = (kind: "pdpa_data" | "background_check"): boolean =>
+    (consentRows ?? []).some((c) => c.kind === kind && c.revoked_at === null);
+
+  const packet: DcPacket = {
+    idCard: docs?.present.has("id_card") ?? false,
+    bankBook: docs?.present.has("bank_book") ?? false,
+    bank: bankPresent ?? false,
+    phone: !!profile?.phone,
+    emergencyContact: !!profile?.emergency_contact_phone,
+    consentPdpa: consentActive("pdpa_data"),
+    consentBackgroundCheck: consentActive("background_check"),
+    companyCert: docs?.present.has("company_cert") ?? false,
+    vatCert: docs?.present.has("vat_cert") ?? false,
+  };
+  const packetStatus = profile?.id
+    ? contractorPacketStatus(packet, dcTypeOfSubtype(profile.contractor_subtype ?? null))
+    : null;
 
   const sortedPayments = [...(payments ?? [])].sort((a, b) =>
     b.period_to.localeCompare(a.period_to),
@@ -72,6 +98,24 @@ export default async function PortalPage() {
       </header>
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
+        {/* Completeness — what's still missing from the DC's onboarding file */}
+        {packetStatus ? (
+          <section
+            className={
+              packetStatus.complete
+                ? `${CARD} mb-6`
+                : `${CARD} border-attn bg-attn-soft mb-6 border-l-4`
+            }
+          >
+            <p className="text-ink text-sm font-semibold">สถานะเอกสาร</p>
+            {packetStatus.complete ? (
+              <p className="text-done-strong mt-1 text-sm font-medium">เอกสารครบถ้วน</p>
+            ) : (
+              <p className="text-attn-ink mt-1 text-sm">ขาด: {packetStatus.missing.join(" · ")}</p>
+            )}
+          </section>
+        ) : null}
+
         {/* Profile */}
         <h2 className={SECTION_HEADING}>ข้อมูลของฉัน</h2>
         <dl className={`${CARD} mb-6`}>
@@ -95,6 +139,13 @@ export default async function PortalPage() {
             }}
             consents={(consentRows ?? []) as PortalConsent[]}
           />
+        ) : null}
+
+        {/* Documents — DC uploads their own onboarding documents (U2c) */}
+        {profile?.id && docs ? (
+          <div className="mt-6">
+            <PortalDocuments contractorId={profile.id} urls={docs.urls} />
+          </div>
         ) : null}
 
         {/* Bank — self-service change request (staged → PM approval) */}

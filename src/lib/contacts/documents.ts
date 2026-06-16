@@ -23,6 +23,11 @@ export type ContactDocuments = {
   idCard: string | null;
   /** Signed URL of the latest bank-book image, or null. */
   bankBook: string | null;
+  /** Spec 131 U2c — company-registration cert present (presence only, no URL —
+   *  feeds the company-DC completeness card). */
+  companyCert: boolean;
+  /** Spec 131 U2c — VAT cert (ภพ.20) present. */
+  vatCert: boolean;
 };
 
 export async function getContactDocuments(
@@ -47,5 +52,7 @@ export async function getContactDocuments(
   return {
     idCard: idCardRow ? (urls.get(idCardRow.id) ?? null) : null,
     bankBook: bankBookRow ? (urls.get(bankBookRow.id) ?? null) : null,
+    companyCert: rows.some((r) => r.purpose === "company_cert"),
+    vatCert: rows.some((r) => r.purpose === "vat_cert"),
   };
 }

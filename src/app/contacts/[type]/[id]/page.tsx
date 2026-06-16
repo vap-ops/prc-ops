@@ -149,10 +149,9 @@ export default async function ContactDetailPage({
     emergencyContact: !!row.emergency_contact_phone,
     consentPdpa: hasActiveConsent("pdpa_data"),
     consentBackgroundCheck: hasActiveConsent("background_check"),
-    // company_cert / vat_cert upload + presence is spec-131 U2b; individuals
-    // (the norm) don't require them, so this only under-reports a company DC.
-    companyCert: false,
-    vatCert: false,
+    // Spec 131 U2c — company-DC papers, presence from contact_attachments.
+    companyCert: documents?.companyCert ?? false,
+    vatCert: documents?.vatCert ?? false,
   };
   const packetStatus =
     type === "contractors"

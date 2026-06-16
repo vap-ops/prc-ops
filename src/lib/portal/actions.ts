@@ -11,9 +11,12 @@ import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
 import { PM_ROLES } from "@/lib/auth/role-home";
 import { UUID_REGEX } from "@/lib/validate/uuid";
+import { isValidPhotoExt } from "@/lib/photos/path";
+import { buildContactDocPath } from "@/lib/contacts/document-path";
 import { claimErrorToThai } from "./claim-error";
 import { validateBankChange } from "./bank-change";
 import { validateEmergencyContact } from "./emergency-contact";
+import { isPortalDocPurpose } from "./document-types";
 
 export type ClaimResult = { ok: true } | { ok: false; error: string };
 
@@ -143,6 +146,43 @@ export async function recordOwnConsent(input: {
     p_kind: input.kind,
   });
   if (error) return { ok: false, error: GENERIC_BANK };
+  revalidatePath("/portal");
+  return { ok: true };
+}
+
+// Spec 131 U2c — a bound DC records their OWN contact document after uploading
+// the file to the private contact-docs bucket (browser client, own path). The
+// contractor id is read SERVER-SIDE from the RLS session (never trusted from the
+// client) and the storage path is REBUILT from it — so a forged path/id can't
+// reach another contractor's folder (the add_contact_document RPC re-validates
+// own-contractor, and the storage WITH CHECK rejects a foreign path anyway).
+const GENERIC_DOC = "บันทึกเอกสารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+
+export async function addOwnContactDocument(input: {
+  purpose: string;
+  attachmentId: string;
+  ext: string;
+}): Promise<ActionResult> {
+  if (!isPortalDocPurpose(input.purpose)) return { ok: false, error: GENERIC_DOC };
+  if (!UUID_REGEX.test(input.attachmentId)) return { ok: false, error: GENERIC_DOC };
+  if (!isValidPhotoExt(input.ext)) return { ok: false, error: GENERIC_DOC };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  // The bound contractor of the caller — resolved by the RLS session, not input.
+  const { data: contractorId } = await auth.supabase.rpc("current_user_contractor_id");
+  if (!contractorId) return { ok: false, error: GENERIC_DOC };
+
+  const path = buildContactDocPath("contractor", contractorId, input.attachmentId, input.ext);
+  if (!path) return { ok: false, error: GENERIC_DOC };
+
+  const { error } = await auth.supabase.rpc("add_contact_document", {
+    p_contractor_id: contractorId,
+    p_purpose: input.purpose,
+    p_storage_path: path,
+  });
+  if (error) return { ok: false, error: GENERIC_DOC };
   revalidatePath("/portal");
   return { ok: true };
 }

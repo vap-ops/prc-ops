@@ -29,10 +29,13 @@ grant usage  on sequence _tap_buf_ord_seq to authenticated;
 select has_table('public', 'contact_attachments', 'contact_attachments exists');
 select is((select relrowsecurity from pg_class where oid = 'public.contact_attachments'::regclass),
   true, 'RLS enabled on contact_attachments');
+-- Spec 131 U2c widened SELECT to authenticated (RLS-scoped to the bound DC's own
+-- contractor via the contact_attachments own-contractor policy); internal staff
+-- still read via the service-role admin client. INSERT stays RPC-only.
 select is(has_table_privilege('authenticated', 'public.contact_attachments', 'SELECT'),
-  false, 'authenticated has NO SELECT on contact_attachments (PII isolation)');
+  true, 'authenticated has SELECT on contact_attachments (U2c own-contractor RLS scopes it)');
 select is(has_table_privilege('authenticated', 'public.contact_attachments', 'INSERT'),
-  false, 'authenticated has NO INSERT on contact_attachments (PII isolation)');
+  false, 'authenticated has NO direct INSERT on contact_attachments (RPC-only writer)');
 select has_function('public', 'add_contact_document', 'add_contact_document RPC exists');
 
 -- exactly-one-target CHECK.

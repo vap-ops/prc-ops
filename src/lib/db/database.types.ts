@@ -2311,6 +2311,7 @@ export type Database = {
         }
         Returns: string
       }
+      my_contact_bank_present: { Args: never; Returns: boolean }
       pr_attachment_tombstone_target_ok: {
         Args: { p_caller: string; p_parent: string; p_target: string }
         Returns: boolean
