@@ -515,3 +515,45 @@ export async function addContactDocument(input: {
   revalidatePath(`${CONTACTS_PATH}/${CONTACT_TYPE_SEGMENT[input.kind]}/${input.id}`);
   return { ok: true };
 }
+
+// ── consent (spec 131 — PDPA, money/PII-adjacent) ────────────────────────────
+// Recorded/revoked via the record_/revoke_contractor_consent SECURITY DEFINER
+// RPCs on the USER session (the RPCs gate on role/own-binding internally). PM
+// records on a contractor's behalf after collecting the signed form.
+
+const CONTRACTOR_PATH = (id: string) => `${CONTACTS_PATH}/contractors/${id}`;
+
+export async function recordContractorConsent(input: {
+  contractorId: string;
+  kind: string;
+}): Promise<RecordActionResult> {
+  const gate = await pmSession();
+  if (!gate.ok) return gate;
+  if (!UUID_REGEX.test(input.contractorId)) return { ok: false, error: GENERIC };
+  const kind = checkEnum(E.contractor_consent_kind, input.kind);
+  if (!kind.ok || kind.value === undefined) return { ok: false, error: GENERIC };
+
+  const { error } = await gate.supabase.rpc("record_contractor_consent", {
+    p_contractor: input.contractorId,
+    p_kind: kind.value,
+  });
+  if (error) return { ok: false, error: GENERIC };
+  revalidatePath(CONTRACTOR_PATH(input.contractorId));
+  return { ok: true };
+}
+
+export async function revokeContractorConsent(input: {
+  id: string;
+  contractorId: string;
+}): Promise<RecordActionResult> {
+  const gate = await pmSession();
+  if (!gate.ok) return gate;
+  if (!UUID_REGEX.test(input.id) || !UUID_REGEX.test(input.contractorId)) {
+    return { ok: false, error: GENERIC };
+  }
+
+  const { error } = await gate.supabase.rpc("revoke_contractor_consent", { p_id: input.id });
+  if (error) return { ok: false, error: GENERIC };
+  revalidatePath(CONTRACTOR_PATH(input.contractorId));
+  return { ok: true };
+}

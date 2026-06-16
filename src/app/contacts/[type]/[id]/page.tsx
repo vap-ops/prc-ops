@@ -19,6 +19,11 @@ import { ContactDocumentsBlock } from "@/components/features/contacts/contact-do
 import { getContactBank, type ContactKind } from "@/lib/contacts/bank";
 import { getContactDocuments } from "@/lib/contacts/documents";
 import { BankChangeDecision } from "@/components/features/portal/bank-change-decision";
+import {
+  ContactConsentBlock,
+  type ConsentRow,
+} from "@/components/features/contacts/contact-consent-block";
+import { contractorPacketStatus, dcTypeOfSubtype, type DcPacket } from "@/lib/contacts/packet";
 
 const TYPE_CONFIG = {
   clients: { table: "clients", kind: null, label: "ลูกค้า" },
@@ -39,6 +44,10 @@ const LABELS: Record<string, string> = {
   tax_id: "เลขผู้เสียภาษี",
   payment_terms: "เงื่อนไขการชำระเงิน",
   specialty: "งานที่รับ",
+  date_of_birth: "วันเกิด",
+  emergency_contact_name: "ผู้ติดต่อฉุกเฉิน",
+  emergency_contact_relation: "ความสัมพันธ์",
+  emergency_contact_phone: "เบอร์ฉุกเฉิน",
   vehicle_type: "ประเภทรถ",
   plate_no: "ทะเบียนรถ",
   contractor_subtype: "ประเภท DC",
@@ -119,6 +128,37 @@ export default async function ContactDetailPage({
         ).data ?? [])
       : [];
 
+  // Spec 131 U2 — consent records + onboarding-packet completeness (contractors).
+  const consents: ConsentRow[] =
+    type === "contractors" && admin
+      ? ((
+          await admin
+            .from("contractor_consents")
+            .select("id, kind, consented_at, revoked_at")
+            .eq("contractor_id", id)
+            .order("created_at", { ascending: false })
+        ).data ?? [])
+      : [];
+  const hasActiveConsent = (k: ConsentRow["kind"]) =>
+    consents.some((c) => c.kind === k && c.revoked_at === null);
+  const packet: DcPacket = {
+    idCard: documents?.idCard != null,
+    bankBook: documents?.bankBook != null,
+    bank: bank != null && !!bank.bankAccountNo,
+    phone: !!row.phone,
+    emergencyContact: !!row.emergency_contact_phone,
+    consentPdpa: hasActiveConsent("pdpa_data"),
+    consentBackgroundCheck: hasActiveConsent("background_check"),
+    // company_cert / vat_cert upload + presence is spec-131 U2b; individuals
+    // (the norm) don't require them, so this only under-reports a company DC.
+    companyCert: false,
+    vatCert: false,
+  };
+  const packetStatus =
+    type === "contractors"
+      ? contractorPacketStatus(packet, dcTypeOfSubtype((row.contractor_subtype as string) ?? null))
+      : null;
+
   return (
     <PageShell>
       <DetailHeader backHref="/contacts" backLabel="กลับไปรายชื่อติดต่อ">
@@ -126,6 +166,19 @@ export default async function ContactDetailPage({
         <h1 className={DETAIL_TITLE}>{name}</h1>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} space-y-4 px-5 py-6`}>
+        {packetStatus ? (
+          <section
+            className={packetStatus.complete ? CARD : `${CARD} border-attn bg-attn-soft border-l-4`}
+          >
+            <p className="text-ink text-sm font-semibold">สถานะเอกสาร DC</p>
+            {packetStatus.complete ? (
+              <p className="text-done-strong mt-1 text-sm font-medium">เอกสารครบถ้วน</p>
+            ) : (
+              <p className="text-attn-ink mt-1 text-sm">ขาด: {packetStatus.missing.join(" · ")}</p>
+            )}
+          </section>
+        ) : null}
+
         <section className={CARD}>
           <p className="text-ink text-sm font-semibold">ข้อมูลติดต่อ</p>
           {fields.length > 0 ? (
@@ -174,6 +227,9 @@ export default async function ContactDetailPage({
             idCardUrl={documents?.idCard ?? null}
             bankBookUrl={documents?.bankBook ?? null}
           />
+        ) : null}
+        {type === "contractors" ? (
+          <ContactConsentBlock contractorId={id} consents={consents} />
         ) : null}
         {type === "contractors" ? <ContactCrewSection contractorId={id} crew={crew} /> : null}
       </div>
