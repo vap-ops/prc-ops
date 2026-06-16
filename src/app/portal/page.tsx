@@ -16,6 +16,7 @@ import { createClient } from "@/lib/db/server";
 import { CARD, SECTION_HEADING } from "@/lib/ui/classes";
 import { formatThaiDate } from "@/lib/i18n/labels";
 import { DC_PAYMENT_METHOD_LABELS } from "@/lib/labor/payments";
+import { BankChangeForm } from "@/components/features/portal/bank-change-form";
 
 export const metadata = { title: "พอร์ทัลผู้รับเหมา" };
 
@@ -34,6 +35,11 @@ export default async function PortalPage() {
     .maybeSingle();
   const { data: crew } = await supabase.from("workers").select("id, name, active").order("name");
   const { data: payments } = await supabase.rpc("get_my_dc_payments");
+  const { data: pendingChange } = await supabase
+    .from("contractor_bank_change_requests")
+    .select("id")
+    .eq("status", "pending")
+    .maybeSingle();
 
   const sortedPayments = [...(payments ?? [])].sort((a, b) =>
     b.period_to.localeCompare(a.period_to),
@@ -69,6 +75,12 @@ export default async function PortalPage() {
           {detail("ที่อยู่", profile?.mailing_address)}
           {detail("งานที่ถนัด", profile?.specialty)}
         </dl>
+
+        {/* Bank — self-service change request (staged → PM approval) */}
+        <h2 className={SECTION_HEADING}>บัญชีธนาคาร</h2>
+        <div className="mb-6">
+          <BankChangeForm hasPending={!!pendingChange} />
+        </div>
 
         {/* Crew */}
         <h2 className={SECTION_HEADING}>ทีมช่าง</h2>

@@ -18,6 +18,7 @@ import { ContactCrewSection } from "@/components/features/contacts/contact-crew-
 import { ContactDocumentsBlock } from "@/components/features/contacts/contact-documents-block";
 import { getContactBank, type ContactKind } from "@/lib/contacts/bank";
 import { getContactDocuments } from "@/lib/contacts/documents";
+import { BankChangeDecision } from "@/components/features/portal/bank-change-decision";
 
 const TYPE_CONFIG = {
   clients: { table: "clients", kind: null, label: "ลูกค้า" },
@@ -104,6 +105,20 @@ export default async function ContactDetailPage({
     crew = crewRows ?? [];
   }
 
+  // Spec 130 U4 — pending DC bank-change requests awaiting PM approval (money;
+  // admin-read behind the requireRole gate, same as the bank block).
+  const pendingBankChanges =
+    type === "contractors" && admin
+      ? ((
+          await admin
+            .from("contractor_bank_change_requests")
+            .select("id, bank_name, bank_account_no, bank_account_name")
+            .eq("contractor_id", id)
+            .eq("status", "pending")
+            .order("created_at", { ascending: true })
+        ).data ?? [])
+      : [];
+
   return (
     <PageShell>
       <DetailHeader backHref="/contacts" backLabel="กลับไปรายชื่อติดต่อ">
@@ -128,6 +143,28 @@ export default async function ContactDetailPage({
             </p>
           )}
         </section>
+
+        {pendingBankChanges.length > 0 ? (
+          <section className={`${CARD} border-attn bg-attn-soft border-l-4`}>
+            <p className="text-attn-ink text-sm font-semibold">
+              คำขอเปลี่ยนบัญชีธนาคาร (รออนุมัติ)
+            </p>
+            <ul className="mt-2 flex flex-col gap-3">
+              {pendingBankChanges.map((r) => (
+                <li key={r.id} className="border-edge border-t pt-3 first:border-t-0 first:pt-0">
+                  <p className="text-ink text-sm font-medium">{r.bank_name}</p>
+                  <p className="text-ink text-sm">
+                    {r.bank_account_no}
+                    {r.bank_account_name ? ` · ${r.bank_account_name}` : ""}
+                  </p>
+                  <div className="mt-2">
+                    <BankChangeDecision requestId={r.id} revalidate={`/contacts/${type}/${id}`} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
         {kind ? <ContactBankBlock kind={kind} id={id} initial={bank} /> : null}
         {kind ? (

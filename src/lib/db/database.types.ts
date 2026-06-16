@@ -288,6 +288,67 @@ export type Database = {
           },
         ]
       }
+      contractor_bank_change_requests: {
+        Row: {
+          bank_account_name: string | null
+          bank_account_no: string | null
+          bank_name: string | null
+          contractor_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          requested_by: string
+          status: Database["public"]["Enums"]["contractor_change_status"]
+        }
+        Insert: {
+          bank_account_name?: string | null
+          bank_account_no?: string | null
+          bank_name?: string | null
+          contractor_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          requested_by: string
+          status?: Database["public"]["Enums"]["contractor_change_status"]
+        }
+        Update: {
+          bank_account_name?: string | null
+          bank_account_no?: string | null
+          bank_name?: string | null
+          contractor_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          requested_by?: string
+          status?: Database["public"]["Enums"]["contractor_change_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contractor_bank_change_requests_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "contractors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contractor_bank_change_requests_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contractor_bank_change_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contractor_invites: {
         Row: {
           claimed_at: string | null
@@ -2138,6 +2199,10 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      decide_contractor_bank_change: {
+        Args: { p_approve: boolean; p_id: string }
+        Returns: undefined
+      }
       enqueue_peak_sync: {
         Args: {
           p_entity_type: Database["public"]["Enums"]["peak_entity_type"]
@@ -2283,6 +2348,14 @@ export type Database = {
         Args: { p_id: string; p_rate: number }
         Returns: undefined
       }
+      submit_contractor_bank_change: {
+        Args: {
+          p_bank_account_name: string
+          p_bank_account_no: string
+          p_bank_name: string
+        }
+        Returns: string
+      }
       update_my_display_name: {
         Args: { p_full_name: string }
         Returns: undefined
@@ -2339,6 +2412,7 @@ export type Database = {
       contact_doc_purpose: "id_card" | "bank_book"
       contact_status: "active" | "probation" | "blacklisted"
       contractor_category: "contractor" | "dc"
+      contractor_change_status: "pending" | "approved" | "rejected"
       contractor_subtype:
         | "regular"
         | "dc_company"
@@ -2562,6 +2636,7 @@ export const Constants = {
       contact_doc_purpose: ["id_card", "bank_book"],
       contact_status: ["active", "probation", "blacklisted"],
       contractor_category: ["contractor", "dc"],
+      contractor_change_status: ["pending", "approved", "rejected"],
       contractor_subtype: [
         "regular",
         "dc_company",

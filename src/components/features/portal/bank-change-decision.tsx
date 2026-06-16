@@ -1,0 +1,70 @@
+"use client";
+
+// Spec 130 U4 — PM approve/reject control for a pending DC bank-change request,
+// rendered on the contractor contact-detail page. Approve applies the proposed
+// bank to the live contact_bank (decide RPC); reject discards it. 'use client':
+// pending state + the server-action call.
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { decideBankChange } from "@/lib/portal/actions";
+import { useToast } from "@/lib/ui/use-toast";
+import {
+  BUTTON_PRIMARY_COMPACT,
+  BUTTON_SECONDARY_COMPACT,
+  INLINE_ALERT_TEXT,
+} from "@/lib/ui/classes";
+
+export function BankChangeDecision({
+  requestId,
+  revalidate,
+}: {
+  requestId: string;
+  revalidate: string;
+}) {
+  const router = useRouter();
+  const toast = useToast();
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function decide(approve: boolean) {
+    setError(null);
+    startTransition(async () => {
+      const result = await decideBankChange({ id: requestId, approve, revalidate });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      toast.success(approve ? "อนุมัติแล้ว" : "ปฏิเสธแล้ว");
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => decide(true)}
+          className={BUTTON_PRIMARY_COMPACT}
+        >
+          อนุมัติ
+        </button>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => decide(false)}
+          className={BUTTON_SECONDARY_COMPACT}
+        >
+          ปฏิเสธ
+        </button>
+      </div>
+      {error ? (
+        <p role="alert" className={INLINE_ALERT_TEXT}>
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
