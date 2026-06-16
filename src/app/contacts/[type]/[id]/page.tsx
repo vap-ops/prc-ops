@@ -149,9 +149,9 @@ export default async function ContactDetailPage({
     emergencyContact: !!row.emergency_contact_phone,
     consentPdpa: hasActiveConsent("pdpa_data"),
     consentBackgroundCheck: hasActiveConsent("background_check"),
-    // Spec 131 U2c — company-DC papers, presence from contact_attachments.
-    companyCert: documents?.companyCert ?? false,
-    vatCert: documents?.vatCert ?? false,
+    // Spec 131 — company-DC papers, presence from the signed-URL read.
+    companyCert: documents?.companyCert != null,
+    vatCert: documents?.vatCert != null,
   };
   const packetStatus =
     type === "contractors"
@@ -225,6 +225,12 @@ export default async function ContactDetailPage({
             id={id}
             idCardUrl={documents?.idCard ?? null}
             bankBookUrl={documents?.bankBook ?? null}
+            companyCertUrl={documents?.companyCert ?? null}
+            vatCertUrl={documents?.vatCert ?? null}
+            showCompanyDocs={
+              type === "contractors" &&
+              dcTypeOfSubtype((row.contractor_subtype as string) ?? null) === "company"
+            }
           />
         ) : null}
         {type === "contractors" ? (

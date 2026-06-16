@@ -41,7 +41,7 @@ export default async function PortalPage() {
     .maybeSingle();
   const { data: consentRows } = await supabase
     .from("contractor_consents")
-    .select("kind, consented_at, revoked_at")
+    .select("id, kind, consented_at, revoked_at")
     .order("created_at", { ascending: false });
   const { data: crew } = await supabase.from("workers").select("id, name, active").order("name");
   const { data: payments } = await supabase.rpc("get_my_dc_payments");

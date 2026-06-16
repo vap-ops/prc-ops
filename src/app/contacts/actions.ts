@@ -23,6 +23,7 @@ import {
   buildContactDocPath,
   isContactDocKind,
   isContactDocPurpose,
+  isContractorDocPurpose,
   type ContactDocKind,
 } from "@/lib/contacts/document-path";
 
@@ -495,7 +496,13 @@ export async function addContactDocument(input: {
   const gate = await pmSession();
   if (!gate.ok) return gate;
   if (!isContactDocKind(input.kind)) return { ok: false, error: GENERIC };
-  if (!isContactDocPurpose(input.purpose)) return { ok: false, error: GENERIC };
+  // Spec 131 U3 — a contractor additionally accepts company papers (company_cert
+  // / vat_cert); suppliers + service providers keep the base id_card/bank_book set.
+  if (input.kind === "contractor") {
+    if (!isContractorDocPurpose(input.purpose)) return { ok: false, error: GENERIC };
+  } else {
+    if (!isContactDocPurpose(input.purpose)) return { ok: false, error: GENERIC };
+  }
   if (!UUID_REGEX.test(input.id) || !UUID_REGEX.test(input.attachmentId)) {
     return { ok: false, error: GENERIC };
   }

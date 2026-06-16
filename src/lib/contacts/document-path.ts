@@ -14,12 +14,29 @@ export type ContactDocKind = (typeof CONTACT_DOC_KINDS)[number];
 export const CONTACT_DOC_PURPOSES = ["id_card", "bank_book"] as const;
 export type ContactDocPurpose = (typeof CONTACT_DOC_PURPOSES)[number];
 
+// Spec 131 U3 — a contractor (DC) detail page additionally accepts the company
+// papers a company DC must file (หนังสือรับรอง / ภพ.20). Suppliers + service
+// providers keep the base set. Superset so an id_card/bank_book is still valid.
+export const CONTRACTOR_DOC_PURPOSES = [
+  "id_card",
+  "bank_book",
+  "company_cert",
+  "vat_cert",
+] as const;
+export type ContractorDocPurpose = (typeof CONTRACTOR_DOC_PURPOSES)[number];
+
 export function isContactDocKind(value: unknown): value is ContactDocKind {
   return typeof value === "string" && (CONTACT_DOC_KINDS as readonly string[]).includes(value);
 }
 
 export function isContactDocPurpose(value: unknown): value is ContactDocPurpose {
   return typeof value === "string" && (CONTACT_DOC_PURPOSES as readonly string[]).includes(value);
+}
+
+export function isContractorDocPurpose(value: unknown): value is ContractorDocPurpose {
+  return (
+    typeof value === "string" && (CONTRACTOR_DOC_PURPOSES as readonly string[]).includes(value)
+  );
 }
 
 export function buildContactDocPath(

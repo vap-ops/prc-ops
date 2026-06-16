@@ -150,6 +150,22 @@ export async function recordOwnConsent(input: {
   return { ok: true };
 }
 
+// Spec 131 U3 — a bound DC withdraws their OWN consent (PDPA right to withdraw).
+// revoke_contractor_consent self-validates (own contractor OR pm/super), so a
+// forged consent id 42501s; it only sets revoked_at (no deletion, append-only
+// spirit). Withdrawing reopens the completeness checklist's consent item.
+export async function revokeOwnConsent(input: { id: string }): Promise<ActionResult> {
+  if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC_BANK };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("revoke_contractor_consent", { p_id: input.id });
+  if (error) return { ok: false, error: GENERIC_BANK };
+  revalidatePath("/portal");
+  return { ok: true };
+}
+
 // Spec 131 U2c — a bound DC records their OWN contact document after uploading
 // the file to the private contact-docs bucket (browser client, own path). The
 // contractor id is read SERVER-SIDE from the RLS session (never trusted from the

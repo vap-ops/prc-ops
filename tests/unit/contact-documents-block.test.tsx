@@ -38,6 +38,26 @@ describe("ContactDocumentsBlock", () => {
     expect(screen.getByText("เฉพาะผู้จัดการเห็นเอกสารนี้")).toBeInTheDocument();
   });
 
+  it("renders company papers only when showCompanyDocs is set (spec 131 U3)", () => {
+    const { rerender } = render(
+      <ContactDocumentsBlock kind="contractor" id={ID} idCardUrl={null} bankBookUrl={null} />,
+    );
+    expect(screen.queryByText("หนังสือรับรองบริษัท")).not.toBeInTheDocument();
+    expect(screen.queryByText("ภ.พ.20")).not.toBeInTheDocument();
+
+    rerender(
+      <ContactDocumentsBlock
+        kind="contractor"
+        id={ID}
+        idCardUrl={null}
+        bankBookUrl={null}
+        showCompanyDocs
+      />,
+    );
+    expect(screen.getByText("หนังสือรับรองบริษัท")).toBeInTheDocument();
+    expect(screen.getByText("ภ.พ.20")).toBeInTheDocument();
+  });
+
   it("shows the current image when a signed URL is provided", () => {
     render(
       <ContactDocumentsBlock

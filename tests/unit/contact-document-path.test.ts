@@ -7,6 +7,8 @@ import {
   buildContactDocPath,
   isContactDocKind,
   isContactDocPurpose,
+  isContractorDocPurpose,
+  CONTRACTOR_DOC_PURPOSES,
 } from "@/lib/contacts/document-path";
 
 const ID = "11111111-1111-1111-1111-111111111111";
@@ -42,5 +44,26 @@ describe("contact-doc guards", () => {
     expect(isContactDocPurpose("id_card")).toBe(true);
     expect(isContactDocPurpose("bank_book")).toBe(true);
     expect(isContactDocPurpose("passport")).toBe(false);
+  });
+
+  // Spec 131 U3 — a contractor (DC) may also hold company papers (company_cert,
+  // vat_cert) the PM uploads; suppliers / service providers keep the base set.
+  it("isContractorDocPurpose is a superset: base docs + company papers", () => {
+    expect(isContractorDocPurpose("id_card")).toBe(true);
+    expect(isContractorDocPurpose("bank_book")).toBe(true);
+    expect(isContractorDocPurpose("company_cert")).toBe(true);
+    expect(isContractorDocPurpose("vat_cert")).toBe(true);
+    expect(isContractorDocPurpose("contract")).toBe(false);
+    expect(isContractorDocPurpose("passport")).toBe(false);
+    expect(isContractorDocPurpose(null)).toBe(false);
+  });
+
+  it("CONTRACTOR_DOC_PURPOSES lists the four in upload order", () => {
+    expect([...CONTRACTOR_DOC_PURPOSES]).toEqual([
+      "id_card",
+      "bank_book",
+      "company_cert",
+      "vat_cert",
+    ]);
   });
 });

@@ -23,13 +23,15 @@ import { CONTACT_DOCS_BUCKET } from "@/lib/storage/buckets";
 import {
   buildContactDocPath,
   type ContactDocKind,
-  type ContactDocPurpose,
+  type ContractorDocPurpose,
 } from "@/lib/contacts/document-path";
 import { CARD, BUTTON_SECONDARY_MUTED, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
 
-const PURPOSE_LABEL: Record<ContactDocPurpose, string> = {
+const PURPOSE_LABEL: Record<ContractorDocPurpose, string> = {
   id_card: "บัตรประชาชน",
   bank_book: "สมุดบัญชีธนาคาร",
+  company_cert: "หนังสือรับรองบริษัท",
+  vat_cert: "ภ.พ.20",
 };
 
 export function ContactDocumentsBlock({
@@ -37,11 +39,19 @@ export function ContactDocumentsBlock({
   id,
   idCardUrl,
   bankBookUrl,
+  companyCertUrl,
+  vatCertUrl,
+  showCompanyDocs = false,
 }: {
   kind: ContactDocKind;
   id: string;
   idCardUrl: string | null;
   bankBookUrl: string | null;
+  // Spec 131 U3 — company papers (company DC only). Optional so suppliers /
+  // service providers (and individual DCs) render just the base two rows.
+  companyCertUrl?: string | null;
+  vatCertUrl?: string | null;
+  showCompanyDocs?: boolean;
 }) {
   return (
     <section className={CARD}>
@@ -50,6 +60,17 @@ export function ContactDocumentsBlock({
       <div className="mt-3 flex flex-col gap-4">
         <DocRow kind={kind} id={id} purpose="id_card" currentUrl={idCardUrl} />
         <DocRow kind={kind} id={id} purpose="bank_book" currentUrl={bankBookUrl} />
+        {showCompanyDocs ? (
+          <>
+            <DocRow
+              kind={kind}
+              id={id}
+              purpose="company_cert"
+              currentUrl={companyCertUrl ?? null}
+            />
+            <DocRow kind={kind} id={id} purpose="vat_cert" currentUrl={vatCertUrl ?? null} />
+          </>
+        ) : null}
       </div>
     </section>
   );
@@ -65,7 +86,7 @@ function DocRow({
 }: {
   kind: ContactDocKind;
   id: string;
-  purpose: ContactDocPurpose;
+  purpose: ContractorDocPurpose;
   currentUrl: string | null;
 }) {
   const router = useRouter();

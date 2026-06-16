@@ -7,7 +7,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateOwnEmergencyContact, recordOwnConsent } from "@/lib/portal/actions";
+import {
+  updateOwnEmergencyContact,
+  recordOwnConsent,
+  revokeOwnConsent,
+} from "@/lib/portal/actions";
 import { validateEmergencyContact } from "@/lib/portal/emergency-contact";
 import { useToast } from "@/lib/ui/use-toast";
 import { formatThaiDate } from "@/lib/i18n/labels";
@@ -21,6 +25,7 @@ const KIND_LABEL: Record<ConsentKind, string> = {
 const KINDS: ConsentKind[] = ["pdpa_data", "background_check"];
 
 export interface PortalConsent {
+  id: string;
   kind: ConsentKind;
   consented_at: string;
   revoked_at: string | null;
@@ -180,6 +185,20 @@ function ConsentCard({
     });
   }
 
+  // PDPA right to withdraw (spec 131 U3). Sets revoked_at; the checklist reopens.
+  function withdraw(id: string) {
+    setError(null);
+    startTransition(async () => {
+      const result = await revokeOwnConsent({ id });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      toast.success("ยกเลิกความยินยอมแล้ว");
+      router.refresh();
+    });
+  }
+
   return (
     <div className={CARD}>
       <p className="text-ink-muted text-xs">
@@ -200,7 +219,17 @@ function ConsentCard({
                 ) : null}
               </div>
               {cur ? (
-                <span className="text-done-strong shrink-0 text-sm font-medium">✓</span>
+                <div className="flex shrink-0 items-center gap-3">
+                  <span className="text-done-strong text-sm font-medium">✓</span>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => withdraw(cur.id)}
+                    className="text-ink-muted text-xs underline"
+                  >
+                    ยกเลิก
+                  </button>
+                </div>
               ) : (
                 <button
                   type="button"

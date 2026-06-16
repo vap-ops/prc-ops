@@ -23,11 +23,11 @@ export type ContactDocuments = {
   idCard: string | null;
   /** Signed URL of the latest bank-book image, or null. */
   bankBook: string | null;
-  /** Spec 131 U2c — company-registration cert present (presence only, no URL —
-   *  feeds the company-DC completeness card). */
-  companyCert: boolean;
-  /** Spec 131 U2c — VAT cert (ภพ.20) present. */
-  vatCert: boolean;
+  /** Spec 131 — signed URL of the latest company-registration cert (หนังสือรับรอง),
+   *  or null. Feeds the company-DC completeness card + the PM uploader (U3). */
+  companyCert: string | null;
+  /** Spec 131 — signed URL of the latest VAT cert (ภพ.20), or null. */
+  vatCert: string | null;
 };
 
 export async function getContactDocuments(
@@ -45,14 +45,18 @@ export async function getContactDocuments(
   // Rows are newest-first → the first match per purpose is the current one.
   const idCardRow = rows.find((r) => r.purpose === "id_card") ?? null;
   const bankBookRow = rows.find((r) => r.purpose === "bank_book") ?? null;
+  const companyCertRow = rows.find((r) => r.purpose === "company_cert") ?? null;
+  const vatCertRow = rows.find((r) => r.purpose === "vat_cert") ?? null;
 
-  const signable = [idCardRow, bankBookRow].filter((r): r is NonNullable<typeof r> => r !== null);
+  const signable = [idCardRow, bankBookRow, companyCertRow, vatCertRow].filter(
+    (r): r is NonNullable<typeof r> => r !== null,
+  );
   const urls = await mintSignedUrls(CONTACT_DOCS_BUCKET, signable);
 
   return {
     idCard: idCardRow ? (urls.get(idCardRow.id) ?? null) : null,
     bankBook: bankBookRow ? (urls.get(bankBookRow.id) ?? null) : null,
-    companyCert: rows.some((r) => r.purpose === "company_cert"),
-    vatCert: rows.some((r) => r.purpose === "vat_cert"),
+    companyCert: companyCertRow ? (urls.get(companyCertRow.id) ?? null) : null,
+    vatCert: vatCertRow ? (urls.get(vatCertRow.id) ?? null) : null,
   };
 }
