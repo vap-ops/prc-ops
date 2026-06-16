@@ -19,8 +19,8 @@ select is(
 
 select is(
   (select allowed_mime_types from storage.buckets where id = 'pr-attachments'),
-  array['image/jpeg', 'image/png', 'image/webp', 'image/heic'],
-  'pr-attachments mime list is exactly the four image types (no PDF — spec 16 Q3)');
+  array['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'],
+  'pr-attachments mime list is the four image types + application/pdf (spec 121 / ADR 0046 Layer A)');
 
 select is(
   (select count(*)::int from pg_policies

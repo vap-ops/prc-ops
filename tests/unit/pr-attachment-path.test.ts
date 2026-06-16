@@ -24,8 +24,16 @@ describe("buildPrAttachmentStoragePath (spec 23)", () => {
     expect(buildPrAttachmentStoragePath(PROJECT, PR, "../escape", "jpeg")).toBeNull();
   });
 
+  it("builds a .pdf path (spec 121 / ADR 0046 Layer A — PDFs are first-class)", () => {
+    expect(buildPrAttachmentStoragePath(PROJECT, PR, ATT, "pdf")).toBe(
+      `${PROJECT}/${PR}/${ATT}.pdf`,
+    );
+  });
+
   it("returns null for an extension outside the bucket's mime set", () => {
     // @ts-expect-error — runtime guard for unvalidated client input
-    expect(buildPrAttachmentStoragePath(PROJECT, PR, ATT, "pdf")).toBeNull();
+    expect(buildPrAttachmentStoragePath(PROJECT, PR, ATT, "gif")).toBeNull();
+    // @ts-expect-error — runtime guard for unvalidated client input
+    expect(buildPrAttachmentStoragePath(PROJECT, PR, ATT, "exe")).toBeNull();
   });
 });

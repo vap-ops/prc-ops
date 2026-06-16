@@ -1,5 +1,5 @@
 begin;
-select plan(62);
+select plan(67);
 
 -- ============================================================================
 -- Spec 23 / ADR 0028 — purchase_request_attachments (spec 16 §4 locked
@@ -85,7 +85,7 @@ grant usage  on sequence _tap_buf_ord_seq to authenticated;
 select has_table('public', 'purchase_request_attachments', 'attachments table exists');
 select has_table('public', 'purchase_request_attachment_tokens', 'token side table exists');
 select enum_has_labels('public', 'purchase_request_attachment_kind',
-  array['image', 'link'], 'kind enum is exactly {image,link}');
+  array['image', 'link', 'pdf'], 'kind enum is {image,link,pdf} (pdf added spec 121 / ADR 0046 Layer A)');
 select enum_has_labels('public', 'purchase_request_attachment_purpose',
   array['reference', 'delivery_confirmation', 'invoice'],
   'purpose enum is {reference,delivery_confirmation,invoice} (ADR 0028/0043)');
@@ -287,6 +287,49 @@ select is(
   (select count(*)::int from public.purchase_request_attachments_current
      where id = 'f1000000-ffff-ffff-ffff-ffffffffffff'),
   1, '_current includes the live image row');
+
+-- ----------------------------------------------------------------------------
+-- Spec 121 / ADR 0046 Layer A — the pdf kind (postgres-level CHECK shapes).
+-- ----------------------------------------------------------------------------
+
+-- A pdf content row must carry a storage_path (mirrors pra_image_shape).
+select throws_ok(
+  $$ insert into public.purchase_request_attachments
+       (purchase_request_id, kind, created_by)
+     values ('a1000000-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'pdf',
+             '22222222-2222-2222-2222-22222222aaaa') $$,
+  '23514', null, 'pdf content row with no storage_path violates pra_pdf_shape');
+
+-- A PDF can never be a delivery-confirmation (receipt photo) — pra_purpose_kind
+-- still pins kind='image' there, so the new kind cannot leak into that slot.
+select throws_ok(
+  $$ insert into public.purchase_request_attachments
+       (purchase_request_id, kind, purpose, storage_path, created_by)
+     values ('a1000000-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'pdf', 'delivery_confirmation',
+             'p/x.pdf', '22222222-2222-2222-2222-22222222aaaa') $$,
+  '23514', null, 'delivery_confirmation pdf violates pra_purpose_kind (images only, ADR 0028)');
+
+-- A well-formed pdf reference content row inserts.
+select lives_ok(
+  $$ insert into public.purchase_request_attachments
+       (id, purchase_request_id, kind, purpose, storage_path, created_by)
+     values ('f4000000-ffff-ffff-ffff-ffffffffffff', 'a1000000-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+             'pdf', 'reference',
+             'cccccccc-cccc-cccc-cccc-ccccccccaaaa/a1000000-aaaa-aaaa-aaaa-aaaaaaaaaaaa/f4000000-ffff-ffff-ffff-ffffffffffff.pdf',
+             '22222222-2222-2222-2222-22222222aaaa') $$,
+  'pdf reference content row inserts (kind pdf, storage_path set)');
+
+select is(
+  (select kind::text from public.purchase_request_attachments
+     where id = 'f4000000-ffff-ffff-ffff-ffffffffffff'),
+  'pdf', 'the pdf row stored kind = pdf');
+
+-- The token trigger is image-only — a pdf gets NO capability token (tokens are
+-- the vestigial AppSheet image bridge, ADR 0034 cancelled; reads use signed URLs).
+select is(
+  (select count(*)::int from public.purchase_request_attachment_tokens
+     where attachment_id = 'f4000000-ffff-ffff-ffff-ffffffffffff'),
+  0, 'pdf rows get NO token (trigger is image-only)');
 
 -- ============================================================================
 -- D. Role-simulation RLS (authenticated + JWT claims).

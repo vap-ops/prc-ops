@@ -1929,7 +1929,7 @@ export type Database = {
         | "infrastructure"
         | "systems"
         | "other";
-      purchase_request_attachment_kind: "image" | "link";
+      purchase_request_attachment_kind: "image" | "link" | "pdf";
       purchase_request_attachment_purpose: "reference" | "delivery_confirmation" | "invoice";
       purchase_request_priority: "normal" | "urgent" | "critical";
       purchase_request_status:
@@ -2137,7 +2137,7 @@ export const Constants = {
         "systems",
         "other",
       ],
-      purchase_request_attachment_kind: ["image", "link"],
+      purchase_request_attachment_kind: ["image", "link", "pdf"],
       purchase_request_attachment_purpose: ["reference", "delivery_confirmation", "invoice"],
       purchase_request_priority: ["normal", "urgent", "critical"],
       purchase_request_status: [

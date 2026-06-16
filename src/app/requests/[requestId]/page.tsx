@@ -45,6 +45,7 @@ import { fetchDisplayNames } from "@/lib/users/display-names";
 import { DetailHeader } from "@/components/features/detail-header";
 import { AttentionCard } from "@/components/features/attention-card";
 import { InvoiceUploader } from "@/components/features/invoice-uploader";
+import { AttachmentPdf } from "@/components/features/attachment-pdf";
 import { SitePurchaseAcknowledge } from "@/components/features/site-purchase-acknowledge";
 
 export const metadata = { title: "รายละเอียดคำขอซื้อ" };
@@ -105,17 +106,26 @@ export default async function RequestDetailPage({ params }: PageProps) {
   const attachments = attachmentRows ?? [];
   const confirmations = attachments.filter((row) => row.purpose === "delivery_confirmation");
   // Spec 66 / ADR 0043: invoices (ใบส่งของ/ใบเสร็จ) are their own purpose —
-  // split out so they don't leak into the reference section.
-  const invoices = attachments.filter((row) => row.purpose === "invoice");
+  // split out so they don't leak into the reference section. Spec 121: each
+  // file group splits image vs pdf so the viewer dispatches (iframe vs lightbox).
+  const invoiceImages = attachments.filter(
+    (row) => row.purpose === "invoice" && row.kind === "image",
+  );
+  const invoicePdfs = attachments.filter((row) => row.purpose === "invoice" && row.kind === "pdf");
   const referenceImages = attachments.filter(
     (row) => row.purpose === "reference" && row.kind === "image",
   );
-  const referenceLinks = attachments.filter(
-    (row) => row.purpose === "reference" && row.kind !== "image",
+  const referencePdfs = attachments.filter(
+    (row) => row.purpose === "reference" && row.kind === "pdf",
   );
+  // Links are exactly kind 'link' (NOT "not image" — a pdf is not a link).
+  const referenceLinks = attachments.filter(
+    (row) => row.purpose === "reference" && row.kind === "link",
+  );
+  // Signed URLs for every stored-bytes row (image + pdf); links carry no path.
   const attachmentUrls = await mintSignedUrlsForAttachments(
     attachments
-      .filter((row) => row.kind === "image")
+      .filter((row) => row.kind === "image" || row.kind === "pdf")
       .map((row) => ({ id: row.id ?? "", storage_path: row.storage_path })),
   );
 
@@ -288,6 +298,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
         ) : null}
 
         {referenceImages.length > 0 ||
+        referencePdfs.length > 0 ||
         referenceLinks.length > 0 ||
         (status === "requested" && isMine && wp) ? (
           <div className="rounded-card border-edge bg-card shadow-card border p-4">
@@ -313,6 +324,25 @@ export default async function RequestDetailPage({ params }: PageProps) {
                         </span>
                         {status === "requested" && photo.created_by === ctx.id ? (
                           <AttachmentRemoveButton attachmentId={photo.id} />
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : null}
+            {referencePdfs.length > 0 ? (
+              <div className="mt-2">
+                <p className="text-ink-secondary text-xs font-medium">เอกสาร PDF</p>
+                <ul className="mt-1 flex flex-col gap-2">
+                  {referencePdfs.map((doc) => {
+                    const url = doc.id ? attachmentUrls.get(doc.id) : undefined;
+                    if (!doc.id || !url) return null;
+                    return (
+                      <li key={doc.id} className="flex flex-col gap-0.5">
+                        <AttachmentPdf src={url} />
+                        {status === "requested" && doc.created_by === ctx.id ? (
+                          <AttachmentRemoveButton attachmentId={doc.id} />
                         ) : null}
                       </li>
                     );
@@ -414,9 +444,9 @@ export default async function RequestDetailPage({ params }: PageProps) {
           <div className="rounded-card border-edge bg-card shadow-card border p-4">
             <h2 className="text-ink text-base font-semibold">เอกสาร (ใบส่งของ / ใบเสร็จ)</h2>
             <div className="mt-2 flex flex-col gap-2">
-              {invoices.length > 0 ? (
+              {invoiceImages.length > 0 ? (
                 <ul className="flex flex-wrap gap-2">
-                  {invoices.map((doc, idx, arr) => {
+                  {invoiceImages.map((doc, idx, arr) => {
                     const url = doc.id ? attachmentUrls.get(doc.id) : undefined;
                     if (!doc.id || !url) return null;
                     /* Spec 50: invoice images form their own lightbox group. */
@@ -438,9 +468,27 @@ export default async function RequestDetailPage({ params }: PageProps) {
                     );
                   })}
                 </ul>
-              ) : (
+              ) : null}
+              {/* Spec 121: invoice PDFs render in the iframe viewer. */}
+              {invoicePdfs.length > 0 ? (
+                <ul className="flex flex-col gap-2">
+                  {invoicePdfs.map((doc) => {
+                    const url = doc.id ? attachmentUrls.get(doc.id) : undefined;
+                    if (!doc.id || !url) return null;
+                    return (
+                      <li key={doc.id} className="flex flex-col gap-0.5">
+                        <AttachmentPdf src={url} />
+                        {doc.created_by === ctx.id ? (
+                          <AttachmentRemoveButton attachmentId={doc.id} />
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
+              {invoiceImages.length === 0 && invoicePdfs.length === 0 ? (
                 <p className="text-ink-secondary text-xs">ยังไม่มีเอกสาร</p>
-              )}
+              ) : null}
               {wp ? (
                 <InvoiceUploader purchaseRequestId={request.id} projectId={wp.project_id} />
               ) : null}

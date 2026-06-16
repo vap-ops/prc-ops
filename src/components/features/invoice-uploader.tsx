@@ -16,9 +16,14 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { addInvoiceAttachment } from "@/app/requests/actions";
 import { createClient } from "@/lib/db/browser";
-import { PHOTO_ACCEPT_MIME, photoExtToMime } from "@/lib/photos/path";
 import { preparePhotoForUpload } from "@/lib/photos/downscale";
 import { buildPrAttachmentStoragePath } from "@/lib/purchasing/attachment-path";
+import {
+  ATTACHMENT_ACCEPT_MIME,
+  attachmentExtToMime,
+  isPdfMime,
+  type AttachmentExt,
+} from "@/lib/purchasing/attachment-file";
 import { classifyStorageUploadError } from "@/lib/photos/upload-queue";
 import { BUTTON_SECONDARY_MUTED, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
 
@@ -43,13 +48,23 @@ export function InvoiceUploader({ purchaseRequestId, projectId, label }: Invoice
     setError(null);
 
     for (const file of Array.from(files)) {
-      const prepared = await preparePhotoForUpload(file);
-      if (!prepared) {
-        setPhase("error");
-        setError("ไฟล์นี้ไม่รองรับ กรุณาเลือกรูปภาพ (JPEG, PNG, WebP, HEIC)");
-        continue;
+      // Spec 121 / ADR 0046 Layer A: a PDF uploads raw (the spec-34 downscale
+      // pipeline is photo-only); a photo is prepared/downscaled as before.
+      let blob: Blob;
+      let ext: AttachmentExt;
+      if (isPdfMime(file.type)) {
+        blob = file;
+        ext = "pdf";
+      } else {
+        const prepared = await preparePhotoForUpload(file);
+        if (!prepared) {
+          setPhase("error");
+          setError("ไฟล์นี้ไม่รองรับ กรุณาเลือกรูปภาพหรือ PDF");
+          continue;
+        }
+        blob = prepared.blob;
+        ext = prepared.ext;
       }
-      const ext = prepared.ext;
       const attachmentId = crypto.randomUUID();
       const path = buildPrAttachmentStoragePath(projectId, purchaseRequestId, attachmentId, ext);
       if (!path) {
@@ -62,7 +77,7 @@ export function InvoiceUploader({ purchaseRequestId, projectId, label }: Invoice
       const supabase = createClient();
       const { error: uploadError } = await supabase.storage
         .from("pr-attachments")
-        .upload(path, prepared.blob, { upsert: false, contentType: photoExtToMime(ext) });
+        .upload(path, blob, { upsert: false, contentType: attachmentExtToMime(ext) });
       if (uploadError && !classifyStorageUploadError(uploadError).alreadyExists) {
         setPhase("error");
         setError("ส่งเอกสารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
@@ -96,7 +111,7 @@ export function InvoiceUploader({ purchaseRequestId, projectId, label }: Invoice
       <input
         ref={fileInputRef}
         type="file"
-        accept={PHOTO_ACCEPT_MIME}
+        accept={ATTACHMENT_ACCEPT_MIME}
         multiple
         className="sr-only"
         onChange={(e) => void handleFiles(e.target.files)}

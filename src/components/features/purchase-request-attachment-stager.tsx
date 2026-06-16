@@ -25,7 +25,6 @@ import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addPurchaseRequestAttachment } from "@/app/requests/actions";
 import { createClient } from "@/lib/db/browser";
-import { PHOTO_ACCEPT_MIME, photoExtToMime, type PhotoExt } from "@/lib/photos/path";
 import { preparePhotoForUpload } from "@/lib/photos/downscale";
 import {
   classifyStorageUploadError,
@@ -34,6 +33,12 @@ import {
 } from "@/lib/photos/upload-queue";
 import { notifyQueueChanged, safeQueuePut, safeQueueRemove } from "@/lib/photos/upload-queue-idb";
 import { buildPrAttachmentStoragePath } from "@/lib/purchasing/attachment-path";
+import {
+  ATTACHMENT_ACCEPT_MIME,
+  attachmentExtToMime,
+  isPdfMime,
+  type AttachmentExt,
+} from "@/lib/purchasing/attachment-file";
 import { validateAttachmentLink } from "@/lib/purchasing/validate-attachment";
 import { BUTTON_SECONDARY_MUTED, FIELD_INPUT, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
 
@@ -47,11 +52,12 @@ type ItemStatus =
   | "done";
 
 interface StagedItem {
+  // Spec 121: 'pdf' joins 'image' as a stored-bytes file kind (links carry a url).
   id: string;
-  kind: "image" | "link";
-  // Prepared bytes (spec 34 downscale) — retries reuse them, no re-decode.
+  kind: "image" | "pdf" | "link";
+  // Prepared bytes (image: spec-34 downscale; pdf: raw) — retries reuse them.
   blob?: Blob;
-  ext?: PhotoExt;
+  ext?: AttachmentExt;
   url?: string;
   label: string;
   status: ItemStatus;
@@ -135,23 +141,27 @@ export const PurchaseRequestAttachmentStager = forwardRef<
     // attempts/backoff (user-initiated = fresh start). lastModifiedMs is
     // synthetic (enqueue time) — no reference-attachment consumer reads
     // it as capture time.
-    const queueItem: QueuedUpload | null = userId
-      ? {
-          kind: "reference_attachment",
-          id: item.id,
-          userId,
-          purchaseRequestId: prId,
-          ext,
-          blob,
-          lastModifiedMs: queueNowMs(),
-          fileName: item.label,
-          storagePath: path,
-          step: "upload",
-          attempts: 0,
-          lastError: null,
-          enqueuedAtMs: queueNowMs(),
-        }
-      : null;
+    // Spec 121: the offline upload queue stays image-only (QueuedUpload.ext is
+    // PhotoExt). A PDF reference is manual-retry (mirrors the invoice uploader's
+    // no-queue posture) — recorded seam. ext !== "pdf" narrows ext to PhotoExt.
+    const queueItem: QueuedUpload | null =
+      userId && ext !== "pdf"
+        ? {
+            kind: "reference_attachment",
+            id: item.id,
+            userId,
+            purchaseRequestId: prId,
+            ext,
+            blob,
+            lastModifiedMs: queueNowMs(),
+            fileName: item.label,
+            storagePath: path,
+            step: "upload",
+            attempts: 0,
+            lastError: null,
+            enqueuedAtMs: queueNowMs(),
+          }
+        : null;
 
     if (item.status !== "insert-error") {
       patchItem(item.id, { status: "uploading" });
@@ -159,7 +169,7 @@ export const PurchaseRequestAttachmentStager = forwardRef<
       const supabase = createClient();
       const { error } = await supabase.storage
         .from("pr-attachments")
-        .upload(path, blob, { upsert: false, contentType: photoExtToMime(ext) });
+        .upload(path, blob, { upsert: false, contentType: attachmentExtToMime(ext) });
       if (error && !classifyStorageUploadError(error).alreadyExists) {
         if (queueItem) notifyQueueChanged();
         patchItem(item.id, { status: "upload-error" });
@@ -173,7 +183,8 @@ export const PurchaseRequestAttachmentStager = forwardRef<
     try {
       result = await addPurchaseRequestAttachment({
         purchaseRequestId: prId,
-        kind: "image",
+        // Spec 121: 'image' or 'pdf' (link handled above); server re-derives.
+        kind: item.kind,
         attachmentId: item.id,
         ext,
       });
@@ -212,9 +223,11 @@ export const PurchaseRequestAttachmentStager = forwardRef<
     // Stage EVERY chip synchronously (status "preparing") before any
     // async work — a deferred flush during a slow decode must see them.
     const fileArr = Array.from(files);
+    // Spec 121: the kind is knowable synchronously from the MIME — a PDF stages
+    // as kind 'pdf', a photo as 'image' (so a deferred flush sees the right kind).
     const stagedChips: StagedItem[] = fileArr.map((file) => ({
       id: crypto.randomUUID(),
-      kind: "image",
+      kind: isPdfMime(file.type) ? "pdf" : "image",
       label: file.name,
       status: "preparing",
     }));
@@ -226,11 +239,24 @@ export const PurchaseRequestAttachmentStager = forwardRef<
         const file = fileArr[i];
         const chip = stagedChips[i];
         if (!file || !chip) continue;
+        if (isPdfMime(file.type)) {
+          // Spec 121 / ADR 0046 Layer A: PDFs upload RAW (the spec-34 pipeline
+          // is photo-only). No prepare; bytes pass through unchanged.
+          patchItem(chip.id, { blob: file, ext: "pdf", status: "staged" });
+          if (immediate) {
+            await runItem(
+              { ...chip, blob: file, ext: "pdf", status: "staged" },
+              purchaseRequestId!,
+            );
+            router.refresh();
+          }
+          continue;
+        }
         // Spec 34 / ADR 0036: downscale before upload (failure → original).
         const prepared = await preparePhotoForUpload(file);
         if (!prepared) {
           setItems((prev) => prev.filter((it) => it.id !== chip.id));
-          setLinkError("ไฟล์นี้ไม่รองรับ กรุณาเลือกรูปภาพ (JPEG, PNG, WebP, HEIC)");
+          setLinkError("ไฟล์นี้ไม่รองรับ กรุณาเลือกรูปภาพหรือ PDF");
           continue;
         }
         patchItem(chip.id, { blob: prepared.blob, ext: prepared.ext, status: "staged" });
@@ -281,7 +307,7 @@ export const PurchaseRequestAttachmentStager = forwardRef<
         <input
           ref={fileInputRef}
           type="file"
-          accept={PHOTO_ACCEPT_MIME}
+          accept={ATTACHMENT_ACCEPT_MIME}
           multiple
           className="sr-only"
           onChange={(e) => void handleFiles(e.target.files)}
@@ -293,7 +319,7 @@ export const PurchaseRequestAttachmentStager = forwardRef<
           disabled={disabled}
           className={BUTTON_SECONDARY_MUTED}
         >
-          แนบรูป
+          แนบรูป/PDF
         </button>
       </div>
       <div className="flex gap-2">
@@ -341,7 +367,7 @@ export const PurchaseRequestAttachmentStager = forwardRef<
                   <span className="text-danger shrink-0 font-medium">
                     {item.kind === "link"
                       ? "บันทึกลิงก์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
-                      : "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"}
+                      : "บันทึกไฟล์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"}
                   </span>
                   {retryTarget ? (
                     <button

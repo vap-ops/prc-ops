@@ -30,6 +30,11 @@ import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN, type ActionAuth } from "@/lib/auth/action-gate";
 import { isValidPhotoExt, type PhotoExt } from "@/lib/photos/path";
 import { buildPrAttachmentStoragePath } from "@/lib/purchasing/attachment-path";
+import {
+  attachmentKindForExt,
+  isValidAttachmentExt,
+  type AttachmentFileKind,
+} from "@/lib/purchasing/attachment-file";
 import { validateAttachmentLink } from "@/lib/purchasing/validate-attachment";
 import {
   validateCreatePurchaseRequest,
@@ -220,6 +225,10 @@ async function findLandedAttachment(
   args: {
     attachmentId: string;
     purchaseRequestId: string;
+    // Spec 121: a stored-bytes row is image OR pdf — the replay check must
+    // pin the actual kind (an id-only check would let a forged replay claim
+    // a foreign row, spec-35 lesson).
+    kind: AttachmentFileKind;
     purpose: "delivery_confirmation" | "reference" | "invoice";
     storagePath: string;
   },
@@ -229,7 +238,7 @@ async function findLandedAttachment(
     .select("id")
     .eq("id", args.attachmentId)
     .eq("purchase_request_id", args.purchaseRequestId)
-    .eq("kind", "image")
+    .eq("kind", args.kind)
     .eq("purpose", args.purpose)
     .eq("storage_path", args.storagePath)
     .maybeSingle();
@@ -294,6 +303,7 @@ export async function addDeliveryConfirmationPhoto(
     const landed = await findLandedAttachment(supabase, {
       attachmentId: input.attachmentId,
       purchaseRequestId: input.purchaseRequestId,
+      kind: "image",
       purpose: "delivery_confirmation",
       storagePath,
     });
@@ -322,9 +332,12 @@ export async function addInvoiceAttachment(
   if (!UUID_REGEX.test(input.purchaseRequestId) || !UUID_REGEX.test(input.attachmentId)) {
     return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
   }
-  if (!isValidPhotoExt(input.ext)) {
+  // Spec 121: an invoice/receipt may be a PDF (kind 'pdf') or a photo
+  // (kind 'image'); the kind is derived from the validated ext.
+  if (!isValidAttachmentExt(input.ext)) {
     return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
   }
+  const fileKind: AttachmentFileKind = attachmentKindForExt(input.ext);
 
   const auth = await getActionUser();
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
@@ -340,7 +353,7 @@ export async function addInvoiceAttachment(
     projectId,
     input.purchaseRequestId,
     input.attachmentId,
-    input.ext as PhotoExt,
+    input.ext,
   );
   if (!storagePath) {
     return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
@@ -353,6 +366,7 @@ export async function addInvoiceAttachment(
     const landed = await findLandedAttachment(supabase, {
       attachmentId: input.attachmentId,
       purchaseRequestId: input.purchaseRequestId,
+      kind: fileKind,
       purpose: "invoice",
       storagePath,
     });
@@ -366,7 +380,7 @@ export async function addInvoiceAttachment(
   const { error } = await supabase.from("purchase_request_attachments").insert({
     id: input.attachmentId,
     purchase_request_id: input.purchaseRequestId,
-    kind: "image",
+    kind: fileKind,
     purpose: "invoice",
     storage_path: storagePath,
     created_by: user.id,
@@ -378,6 +392,7 @@ export async function addInvoiceAttachment(
     const landed = await findLandedAttachment(supabase, {
       attachmentId: input.attachmentId,
       purchaseRequestId: input.purchaseRequestId,
+      kind: fileKind,
       purpose: "invoice",
       storagePath,
     });
@@ -461,7 +476,9 @@ export async function acknowledgeSitePurchase(requestId: string): Promise<Attach
 // reference branch pins role + created_by + own parent + status='requested'.
 
 export type AddPurchaseRequestAttachmentInput =
-  | { purchaseRequestId: string; kind: "image"; attachmentId: string; ext: string }
+  // Spec 121: a file reference attachment is an image or a PDF; the server
+  // authoritatively derives the stored kind from the validated ext.
+  | { purchaseRequestId: string; kind: "image" | "pdf"; attachmentId: string; ext: string }
   | { purchaseRequestId: string; kind: "link"; url: string };
 
 export async function addPurchaseRequestAttachment(
@@ -490,9 +507,10 @@ export async function addPurchaseRequestAttachment(
     return { ok: true };
   }
 
-  if (!UUID_REGEX.test(input.attachmentId) || !isValidPhotoExt(input.ext)) {
+  if (!UUID_REGEX.test(input.attachmentId) || !isValidAttachmentExt(input.ext)) {
     return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
   }
+  const fileKind: AttachmentFileKind = attachmentKindForExt(input.ext);
 
   const { data: pr } = await readPrParent(supabase, input.purchaseRequestId);
   const projectId = pr?.work_packages?.project_id;
@@ -504,7 +522,7 @@ export async function addPurchaseRequestAttachment(
     projectId,
     input.purchaseRequestId,
     input.attachmentId,
-    input.ext as PhotoExt,
+    input.ext,
   );
   if (!storagePath) {
     return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
@@ -520,6 +538,7 @@ export async function addPurchaseRequestAttachment(
     const landed = await findLandedAttachment(supabase, {
       attachmentId: input.attachmentId,
       purchaseRequestId: input.purchaseRequestId,
+      kind: fileKind,
       purpose: "reference",
       storagePath,
     });
@@ -533,7 +552,7 @@ export async function addPurchaseRequestAttachment(
   const { error } = await supabase.from("purchase_request_attachments").insert({
     id: input.attachmentId,
     purchase_request_id: input.purchaseRequestId,
-    kind: "image",
+    kind: fileKind,
     purpose: "reference",
     storage_path: storagePath,
     created_by: user.id,
@@ -546,6 +565,7 @@ export async function addPurchaseRequestAttachment(
     const landed = await findLandedAttachment(supabase, {
       attachmentId: input.attachmentId,
       purchaseRequestId: input.purchaseRequestId,
+      kind: fileKind,
       purpose: "reference",
       storagePath,
     });

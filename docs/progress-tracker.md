@@ -1219,3 +1219,46 @@ the exclusive-transform mis-entry. UI-only (no schema). Sheet test updated (defa
 RadioChip selection). REUSABLE: ≤4 fixed mutually-exclusive options that affect MONEY → prefer a visible
 RadioChip over a dropdown (the user picks deliberately, sees the effect), but keep labels short or it
 overflows.
+
+---
+
+## Spec 121 — PDF support in purchasing attachments (ADR 0046 Layer A) — SHIPPED 2026-06-16
+
+**What:** the deferred documents+photos foundation. Purchasing attachments are image-only today
+(`pr-attachments` bucket = jpeg/png/webp/heic, downscaled — spec 34). Layer A makes a **PDF** attachable
+
+- viewable on the **existing** surfaces (invoice uploader + reference stager) — attach a PDF quote/
+  invoice to a request. Layers B (PO-level source-doc + side-by-side create-PO surface) and C (AI
+  extraction) are separate later units, untouched.
+
+* **kind decision = new `'pdf'`** (over a non-downscale `image` branch): ADR 0046 names `kind image|pdf`;
+  viewer dispatches cleanly on kind (iframe vs lightbox); `pra_purpose_kind` auto-blocks a PDF from a
+  delivery-confirmation slot; the image-only token trigger skips PDFs; semantic honesty.
+* **Migrations (operator-gated):** (1) re-assert `pr-attachments` `allowed_mime_types` += `application/pdf`
+  (25 MiB cap stays) + `alter type … add value 'pdf'` (no pdf-literal usage in the same file →
+  same-txn-safe). (2) `pra_pdf_shape` CHECK (pdf content row carries `storage_path`, no `url`) — separate
+  file because the CHECK _uses_ `'pdf'`.
+* **No-downscale upload:** raw PDF bytes (`contentType: application/pdf`) to the canonical
+  `.../{att}.pdf` path; metadata-after-upload (spec-24 pattern). PDFs NOT offline-queue-bracketed this
+  unit (manual-retry, mirrors invoice uploader — recorded seam; `QueuedUpload.ext` stays `PhotoExt`).
+* **Viewer:** `AttachmentPdf` (signed-URL `<iframe>` + open-in-new-tab); detail page groups by kind
+  (reference images/PDFs/links; invoice images/PDFs); signed URLs minted for image + pdf rows.
+
+**Money posture unchanged.** Gate honored: lint / typecheck / build / **881 unit** local-green →
+AskUserQuestion "Apply now" → db:push (migrations `20260702000000` + `20260702000100` applied to prod) →
+db:types reconcile (**byte-identical** to the hand-extension) → db:test **1081/0**. Then commit + push.
+
+**Build notes (reusable):** (1) `buildPrAttachmentStoragePath` widened `PhotoExt` → `AttachmentExt`
+(`PhotoExt | "pdf"`) — its existing pin test asserted `pdf` → null; flipped to assert it builds, added a
+truly-invalid-ext case (TDD red→green anchor). (2) The detail page's reference grouping used
+`kind !== "image"` for links — a pdf would have leaked into the link list (and been dropped, url=null);
+fixed to `kind === "link"` + a new `referencePdfs`/`invoicePdfs` split. (3) Signed-URL minting widened
+to `image || pdf` rows (pdfs were getting no URL). (4) Server actions derive the stored kind from the
+validated ext (`attachmentKindForExt`) — client-passed kind is not trusted; `findLandedAttachment` now
+pins the actual kind (image-only check would mis-replay a pdf). (5) `addDeliveryConfirmationPhoto` stays
+image-only on purpose (a receipt photo; `pra_purpose_kind` enforces). **Acceptance owed:** procurement/
+back-office user attaches a PDF quote/invoice on `/requests/[id]` → uploads un-downscaled + renders in
+the iframe viewer; images still work. (Auth-gated route → operator-on-live, not preview-verifiable.)
+**Recorded seam:** PDF reference attachments are NOT offline-queue-bracketed (manual-retry, mirrors the
+invoice uploader; `QueuedUpload.ext` stays `PhotoExt`). **NEXT:** ADR 0046 Layer B (document-first
+create-PO: PO-level source-doc + side-by-side surface) → Layer C (AI extraction, Claude).
