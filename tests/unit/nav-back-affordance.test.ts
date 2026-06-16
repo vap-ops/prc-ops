@@ -50,7 +50,9 @@ const DETAIL_ROUTES = [...dynamicDetail, ...STATIC_DETAIL];
 
 // NON-DETAIL: hubs and primary-tab destinations — left via tab bar / HubNav,
 // never a back chip.
-const NON_DETAIL_ROUTES = ["review", "projects", "settings", "requests", "dashboard"].map(
+// Spec 130: /portal is the external contractor tier's primary destination
+// (its own header + logout, no back chip — leaves via logout, not a hub).
+const NON_DETAIL_ROUTES = ["review", "projects", "settings", "requests", "dashboard", "portal"].map(
   (r) => `${r}/page.tsx`,
 );
 
@@ -63,6 +65,9 @@ const EXCLUDED_ROUTES = [
   "coming-soon/page.tsx",
   "contacts/page.tsx",
   "grid-preview/page.tsx",
+  // Spec 130: the contractor invite-claim entry — a bespoke single-card layout
+  // (neither header), reachable by a freshly-logged-in visitor before binding.
+  "portal/claim/page.tsx",
 ];
 
 describe("nav back-affordance (spec 63)", () => {
