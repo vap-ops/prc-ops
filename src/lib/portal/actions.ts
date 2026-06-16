@@ -13,6 +13,7 @@ import { PM_ROLES } from "@/lib/auth/role-home";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { claimErrorToThai } from "./claim-error";
 import { validateBankChange } from "./bank-change";
+import { validateEmergencyContact } from "./emergency-contact";
 
 export type ClaimResult = { ok: true } | { ok: false; error: string };
 
@@ -91,5 +92,57 @@ export async function decideBankChange(input: {
   });
   if (error) return { ok: false, error: GENERIC_BANK };
   revalidatePath(input.revalidate);
+  return { ok: true };
+}
+
+// Spec 131 U2b — DC self-edits their own emergency contact + DOB from the
+// portal. The RPC is column-scoped to the four fields for the caller's own
+// contractor (no broad UPDATE policy). Emergency contact is not money — direct,
+// no staging.
+export async function updateOwnEmergencyContact(input: {
+  name: string;
+  relation: string;
+  phone: string;
+  dob: string;
+}): Promise<ActionResult> {
+  const validation = validateEmergencyContact(input);
+  if (validation) return { ok: false, error: validation };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("update_own_emergency_contact", {
+    p_name: input.name.trim(),
+    p_relation: input.relation.trim(),
+    p_phone: input.phone.trim(),
+    ...(input.dob ? { p_dob: input.dob } : {}),
+  });
+  if (error) return { ok: false, error: GENERIC_BANK };
+  revalidatePath("/portal");
+  return { ok: true };
+}
+
+// Spec 131 U2b — DC records their own PDPA / background-check consent from the
+// portal. record_contractor_consent self-validates (current_user_contractor_id
+// = p_contractor), so passing the portal-read contractor id is safe — a forged
+// id fails the RPC's own-or-staff gate.
+export async function recordOwnConsent(input: {
+  contractorId: string;
+  kind: string;
+}): Promise<ActionResult> {
+  if (!UUID_REGEX.test(input.contractorId)) return { ok: false, error: GENERIC_BANK };
+  if (input.kind !== "pdpa_data" && input.kind !== "background_check") {
+    return { ok: false, error: GENERIC_BANK };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("record_contractor_consent", {
+    p_contractor: input.contractorId,
+    p_kind: input.kind,
+  });
+  if (error) return { ok: false, error: GENERIC_BANK };
+  revalidatePath("/portal");
   return { ok: true };
 }

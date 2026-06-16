@@ -17,6 +17,7 @@ import { CARD, SECTION_HEADING } from "@/lib/ui/classes";
 import { formatThaiDate } from "@/lib/i18n/labels";
 import { DC_PAYMENT_METHOD_LABELS } from "@/lib/labor/payments";
 import { BankChangeForm } from "@/components/features/portal/bank-change-form";
+import { PortalSelfEdit, type PortalConsent } from "@/components/features/portal/portal-self-edit";
 
 export const metadata = { title: "พอร์ทัลผู้รับเหมา" };
 
@@ -31,8 +32,14 @@ export default async function PortalPage() {
   // RLS scopes every read to the caller's own contractor (U2 policies).
   const { data: profile } = await supabase
     .from("contractors")
-    .select("name, phone, tax_id, contact_person, email, mailing_address, specialty")
+    .select(
+      "id, name, phone, tax_id, contact_person, email, mailing_address, specialty, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, date_of_birth",
+    )
     .maybeSingle();
+  const { data: consentRows } = await supabase
+    .from("contractor_consents")
+    .select("kind, consented_at, revoked_at")
+    .order("created_at", { ascending: false });
   const { data: crew } = await supabase.from("workers").select("id, name, active").order("name");
   const { data: payments } = await supabase.rpc("get_my_dc_payments");
   const { data: pendingChange } = await supabase
@@ -75,6 +82,20 @@ export default async function PortalPage() {
           {detail("ที่อยู่", profile?.mailing_address)}
           {detail("งานที่ถนัด", profile?.specialty)}
         </dl>
+
+        {/* Self-service: emergency contact + PDPA/background-check consent */}
+        {profile?.id ? (
+          <PortalSelfEdit
+            contractorId={profile.id}
+            ec={{
+              name: profile.emergency_contact_name ?? "",
+              relation: profile.emergency_contact_relation ?? "",
+              phone: profile.emergency_contact_phone ?? "",
+              dob: profile.date_of_birth ?? "",
+            }}
+            consents={(consentRows ?? []) as PortalConsent[]}
+          />
+        ) : null}
 
         {/* Bank — self-service change request (staged → PM approval) */}
         <h2 className={SECTION_HEADING}>บัญชีธนาคาร</h2>

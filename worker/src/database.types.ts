@@ -2429,6 +2429,15 @@ export type Database = {
         Args: { p_full_name: string }
         Returns: undefined
       }
+      update_own_emergency_contact: {
+        Args: {
+          p_dob?: string
+          p_name: string
+          p_phone: string
+          p_relation: string
+        }
+        Returns: undefined
+      }
       update_project_settings: {
         Args: {
           p_budget_amount_thb?: number
