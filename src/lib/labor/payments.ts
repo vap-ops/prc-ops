@@ -52,6 +52,20 @@ export interface AnnotatedPayrollReport {
   outstandingAmount: number;
 }
 
+// Payment methods (mirror the dc_payment_method enum) + Thai labels for the
+// record sheet. Pure data — kept here with the domain types.
+export const DC_PAYMENT_METHODS = [
+  "bank_transfer",
+  "cash",
+  "cheque",
+] as const satisfies readonly DcPaymentMethod[];
+
+export const DC_PAYMENT_METHOD_LABELS: Record<DcPaymentMethod, string> = {
+  bank_transfer: "โอนเงิน",
+  cash: "เงินสด",
+  cheque: "เช็ค",
+};
+
 // 2-dp money compare — avoids float noise flagging spurious drift.
 export function round2(n: number): number {
   return Math.round(n * 100) / 100;

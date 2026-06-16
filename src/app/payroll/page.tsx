@@ -24,6 +24,9 @@ import { bangkokTodayIso } from "@/lib/dates";
 import { formatThaiDate } from "@/lib/i18n/labels";
 import { parsePayrollRange } from "@/lib/labor/payroll";
 import { fetchPayrollReport } from "@/lib/labor/fetch-payroll";
+import { annotatePayrollPayments, DC_PAYMENT_METHOD_LABELS } from "@/lib/labor/payments";
+import { fetchPeriodPayments, fetchContractorBanks } from "@/lib/labor/fetch-payments";
+import { RecordPaymentSheet } from "@/components/features/labor/record-payment-sheet";
 
 export const metadata = { title: "ค่าแรง DC" };
 
@@ -46,6 +49,17 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
 
   const admin = createAdminClient();
   const report = await fetchPayrollReport(admin, range);
+
+  // Spec 127 U2 — annotate each contractor group with its recorded payment for
+  // this exact period (paid/outstanding/drift). Banks for the record sheet's
+  // transfer target are batch-read (admin client; PM-gated page).
+  const payments = await fetchPeriodPayments(admin, range);
+  const contractorIds = report.contractors
+    .map((g) => g.contractorId)
+    .filter((id): id is string => id !== null);
+  const banks = await fetchContractorBanks(admin, contractorIds);
+  const annotated = annotatePayrollPayments(report, payments, range);
+  const todayIso = bangkokTodayIso();
 
   const exportHref = `/payroll/export?from=${range.from}&to=${range.to}`;
 
@@ -100,6 +114,12 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
                 <p className="text-ink-secondary text-xs">
                   {report.workerCount} คน · {formatDays(report.totalDays)} วัน
                 </p>
+                <p className="text-ink-secondary mt-0.5 text-xs">
+                  จ่ายแล้ว {annotated.paidCount} ราย · ค้างจ่าย {annotated.unpaidCount} ราย
+                  {annotated.outstandingAmount > 0
+                    ? ` · ยอดค้าง ${baht(annotated.outstandingAmount)}`
+                    : ""}
+                </p>
               </div>
               {/* Plain <a download>, NOT next/link — a prefetch must not fire
                   the export route. */}
@@ -109,7 +129,7 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
             </div>
 
             <ul className="flex flex-col gap-4">
-              {report.contractors.map((g) => (
+              {annotated.contractors.map((g) => (
                 <li key={g.contractorId ?? "unassigned"} className={CARD}>
                   <div className="border-edge mb-2 flex items-center justify-between gap-3 border-b pb-2">
                     <p className="text-ink min-w-0 truncate font-semibold">{g.contractorName}</p>
@@ -128,6 +148,41 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
                       </li>
                     ))}
                   </ul>
+
+                  {/* Spec 127 U2 — payment status: paid badge (+ drift note) or
+                      the record affordance; the unassigned group can't be paid. */}
+                  <div className="border-edge mt-2 border-t pt-3">
+                    {g.payment ? (
+                      <div className="flex flex-col gap-1.5">
+                        <p className="text-done-strong text-xs font-medium">
+                          จ่ายแล้ว {baht(g.payment.paidAmount)} · {formatThaiDate(g.payment.paidAt)}{" "}
+                          · {DC_PAYMENT_METHOD_LABELS[g.payment.method]}
+                        </p>
+                        {g.payment.drifted ? (
+                          <p className="rounded-control border-attn bg-attn-soft text-attn-ink border-l-4 px-3 py-2 text-xs font-medium">
+                            ยอดค่าแรงเปลี่ยนไปหลังบันทึกการจ่าย (ยอดที่จ่ายอ้างอิง{" "}
+                            {baht(g.payment.computedAmount)})
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : g.contractorId ? (
+                      <RecordPaymentSheet
+                        contractorId={g.contractorId}
+                        contractorName={g.contractorName}
+                        from={range.from}
+                        to={range.to}
+                        computedAmount={g.amount}
+                        computedDays={g.days}
+                        bank={banks.get(g.contractorId) ?? null}
+                        todayIso={todayIso}
+                        revalidate="/payroll"
+                      />
+                    ) : (
+                      <p className="text-ink-muted text-xs">
+                        ระบุผู้รับเหมาก่อนจึงบันทึกการจ่ายได้
+                      </p>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>

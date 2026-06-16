@@ -16,10 +16,11 @@ import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
 import { PM_ROLES } from "@/lib/auth/role-home";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { bangkokTodayIso } from "./dates";
-import { validateCorrection, validateLaborEntry } from "./validate";
+import { validateCorrection, validateDcPayment, validateLaborEntry } from "./validate";
 import { validateNotes } from "@/lib/notes/validate";
 
 type DayFraction = Database["public"]["Enums"]["day_fraction"];
+type DcPaymentMethod = Database["public"]["Enums"]["dc_payment_method"];
 
 const GENERIC_ERROR = "บันทึกแรงงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
@@ -151,6 +152,61 @@ export async function refreezeWpLaborCost(input: {
 
   const { error } = await supabase.rpc("freeze_wp_labor_cost", { p_wp: input.workPackageId });
   if (error) return { ok: false, error: GENERIC_ERROR };
+
+  revalidatePath(input.revalidate);
+  return { ok: true };
+}
+
+// Spec 127 U2 — record a DC payment for a contractor × period. pm/super only
+// (money). The record_dc_payment RPC recomputes the owed amount server-side,
+// re-gates the role, locks per (contractor, period) and refuses a duplicate —
+// this action validates shape and maps RPC errors to Thai. Authenticated
+// session so the RPC gate passes and paid_by/the audit actor is the PM.
+export type RecordDcPaymentResult = { ok: true } | { ok: false; error: string };
+
+const GENERIC_PAYMENT_ERROR = "บันทึกการจ่ายเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+
+function paymentRpcErrorToThai(message: string): string {
+  if (message.includes("already exists")) return "บันทึกการจ่ายของช่วงนี้ไว้แล้ว";
+  if (message.includes("not found")) return "ไม่พบผู้รับเหมา";
+  return GENERIC_PAYMENT_ERROR;
+}
+
+export async function recordDcPayment(input: {
+  contractorId: string;
+  from: string;
+  to: string;
+  paidAt: string;
+  paidAmount: number;
+  method: string;
+  reference: string;
+  note: string;
+  revalidate: string;
+}): Promise<RecordDcPaymentResult> {
+  if (!input.revalidate.startsWith("/")) return { ok: false, error: GENERIC_PAYMENT_ERROR };
+  const validation = validateDcPayment(input);
+  if (validation) return { ok: false, error: validation };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
+
+  const { data: me } = await supabase.from("users").select("role").eq("id", user.id).maybeSingle();
+  if (!me || !PM_ROLES.includes(me.role)) {
+    return { ok: false, error: "เฉพาะผู้จัดการโครงการเท่านั้นที่บันทึกการจ่ายเงินได้" };
+  }
+
+  const { error } = await supabase.rpc("record_dc_payment", {
+    p_contractor: input.contractorId,
+    p_from: input.from,
+    p_to: input.to,
+    p_paid_amount: input.paidAmount,
+    p_paid_at: input.paidAt,
+    p_method: input.method as DcPaymentMethod,
+    p_reference: input.reference,
+    p_note: input.note,
+  });
+  if (error) return { ok: false, error: paymentRpcErrorToThai(error.message) };
 
   revalidatePath(input.revalidate);
   return { ok: true };
