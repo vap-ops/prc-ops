@@ -64,6 +64,8 @@ const FIELD_DATE =
   "rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action h-11 w-full min-w-0 appearance-none border px-3 text-sm shadow-xs focus:outline-none focus-visible:ring-2";
 const FIELD_PRICE =
   "rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action h-11 w-28 min-w-0 border px-3 text-right text-sm shadow-xs focus:outline-none focus-visible:ring-2";
+const ZOOM_BTN =
+  "border-edge-strong bg-card text-ink hover:bg-sunk focus-visible:ring-action inline-flex size-8 items-center justify-center rounded-md border text-base leading-none font-medium focus:outline-none focus-visible:ring-2 disabled:opacity-50";
 
 export function CreatePurchaseOrderSheet({
   open,
@@ -100,6 +102,11 @@ export function CreatePurchaseOrderSheet({
     };
   }, [docUrl]);
   const docIsPdf = docFile ? isPdfMime(docFile.type) : false;
+  // Spec 126 follow-up: inline zoom for the IMAGE preview (PDFs already zoom via
+  // the browser's built-in viewer). 1× = fit-to-width; up to 4×, scroll to pan.
+  // Reset is done in the file-change handler (a setState-in-effect trips the
+  // React Compiler lint — the recurring rule).
+  const [imgZoom, setImgZoom] = useState(1);
   const [supplierId, setSupplierId] = useState("");
   const [eta, setEta] = useState("");
   const [amounts, setAmounts] = useState<Record<string, string>>({});
@@ -277,12 +284,47 @@ export function CreatePurchaseOrderSheet({
             className="border-edge bg-sunk h-[82vh] w-full rounded-md border"
           />
         ) : (
-          // eslint-disable-next-line @next/next/no-img-element -- local object-URL preview, not a remote asset
-          <img
-            src={docUrl}
-            alt={docFile.name}
-            className="border-edge bg-sunk h-[82vh] w-full rounded-md border object-contain"
-          />
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setImgZoom((z) => Math.max(1, Math.round((z - 0.25) * 100) / 100))}
+                disabled={imgZoom <= 1}
+                aria-label="ซูมออก"
+                className={ZOOM_BTN}
+              >
+                −
+              </button>
+              <span className="text-ink-muted w-12 text-center text-xs tabular-nums">
+                {Math.round(imgZoom * 100)}%
+              </span>
+              <button
+                type="button"
+                onClick={() => setImgZoom((z) => Math.min(4, Math.round((z + 0.25) * 100) / 100))}
+                disabled={imgZoom >= 4}
+                aria-label="ซูมเข้า"
+                className={ZOOM_BTN}
+              >
+                +
+              </button>
+              <button
+                type="button"
+                onClick={() => setImgZoom(1)}
+                className="text-action ml-1 text-xs font-medium underline-offset-2 hover:underline"
+              >
+                พอดี
+              </button>
+            </div>
+            <div className="border-edge bg-sunk h-[82vh] w-full overflow-auto rounded-md border">
+              {/* eslint-disable-next-line @next/next/no-img-element -- local object-URL preview, not a remote asset */}
+              <img
+                src={docUrl}
+                alt={docFile.name}
+                style={{ width: `${imgZoom * 100}%` }}
+                className="mx-auto block h-auto max-w-none"
+              />
+            </div>
+          </div>
         )
       ) : null}
     </div>
@@ -315,6 +357,7 @@ export function CreatePurchaseOrderSheet({
         onChange={(e) => {
           setDocFile(e.target.files?.[0] ?? null);
           setDocTab("doc");
+          setImgZoom(1);
         }}
         disabled={pending}
       />
