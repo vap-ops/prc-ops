@@ -65,6 +65,7 @@ export const USER_ROLE_LABEL: Record<Enums["user_role"], string> = {
   subcon_manager: "ผู้จัดการผู้รับเหมาช่วง",
   accounting: "ฝ่ายบัญชี",
   visitor: "ผู้เยี่ยมชม",
+  contractor: "ผู้รับเหมา (DC)",
 };
 
 // One date-time formatter for the whole UI: Thai Buddhist era (what Thai

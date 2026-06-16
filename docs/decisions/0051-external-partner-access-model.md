@@ -2,8 +2,10 @@
 
 ## Status
 
-Proposed — 2026-06-16. **Confirm with operator before building** (auth + RLS on
-money + a new external trust tier = the highest-stakes change in the app).
+Accepted — 2026-06-16 (operator confirmed: same-app hard-bounded `/portal`
+segment, LINE auth for external parties). Auth + RLS on money + a new external
+trust tier = the highest-stakes change in the app; built in small, exhaustively
+pgTAP-proven units (spec 130).
 
 Extends [ADR 0013](0013-project-access-model.md). 0013 chose **role-level only**
 for v1 and named the exact trigger to revisit: _"a subcontractor account is

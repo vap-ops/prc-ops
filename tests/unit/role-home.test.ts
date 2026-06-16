@@ -33,6 +33,12 @@ describe("roleHome", () => {
     expect(roleHome("visitor")).toBe("/coming-soon");
     expect(roleHome("technician")).toBe("/coming-soon");
   });
+
+  // Spec 130 / ADR 0051: external direct-contractor accounts land on the
+  // self-service portal segment, never an internal surface.
+  it("sends an external contractor to the portal", () => {
+    expect(roleHome("contractor")).toBe("/portal");
+  });
 });
 
 // Spec 70: the canonical allowlist for the purchasing surface (/requests

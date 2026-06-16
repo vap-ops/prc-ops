@@ -72,6 +72,9 @@ export function roleHome(role: UserRole): string {
   if (role === "project_manager" || role === "super_admin") return "/review";
   // Spec 70: procurement is onboarded onto the purchasing worklist.
   if (role === "procurement") return "/requests";
+  // Spec 130 / ADR 0051: external direct contractors land on the self-service
+  // portal segment (hard-bounded from internal surfaces by middleware).
+  if (role === "contractor") return "/portal";
   return "/coming-soon";
 }
 

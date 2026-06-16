@@ -288,6 +288,94 @@ export type Database = {
           },
         ]
       }
+      contractor_invites: {
+        Row: {
+          claimed_at: string | null
+          claimed_by: string | null
+          contractor_id: string
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          token: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          contractor_id: string
+          created_at?: string
+          created_by: string
+          expires_at: string
+          id?: string
+          token: string
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          contractor_id?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contractor_invites_claimed_by_fkey"
+            columns: ["claimed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contractor_invites_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "contractors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contractor_invites_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contractor_users: {
+        Row: {
+          contractor_id: string
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          contractor_id: string
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          contractor_id?: string
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contractor_users_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "contractors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contractor_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contractors: {
         Row: {
           contact_person: string | null
@@ -1989,6 +2077,7 @@ export type Database = {
         Args: { p_predecessor: string; p_successor: string }
         Returns: boolean
       }
+      claim_contractor_invite: { Args: { p_token: string }; Returns: string }
       claim_next_report: {
         Args: never
         Returns: {
@@ -2019,6 +2108,10 @@ export type Database = {
         }
         Returns: string
       }
+      create_contractor_invite: {
+        Args: { p_contractor_id: string }
+        Returns: string
+      }
       create_purchase_order: {
         Args: {
           p_eta: string
@@ -2040,6 +2133,7 @@ export type Database = {
         }
         Returns: string
       }
+      current_user_contractor_id: { Args: never; Returns: string }
       current_user_role: {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]
@@ -2277,6 +2371,7 @@ export type Database = {
         | "subcon_manager"
         | "accounting"
         | "visitor"
+        | "contractor"
       work_package_priority: "normal" | "urgent" | "critical"
       work_package_status:
         | "not_started"
@@ -2504,6 +2599,7 @@ export const Constants = {
         "subcon_manager",
         "accounting",
         "visitor",
+        "contractor",
       ],
       work_package_priority: ["normal", "urgent", "critical"],
       work_package_status: [
