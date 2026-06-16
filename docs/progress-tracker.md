@@ -1300,3 +1300,30 @@ migration's bare form. **Acceptance owed:** procurement user creates a PO + atta
 PO created, doc saved; any member ticket's detail page shows the source doc. (Procurement-gated route →
 operator-on-live.) **NEXT:** ADR 0046 Layer B Unit 2 (the side-by-side wide create-PO surface) → Layer C
 (AI extraction). Seams: PO-doc removal/replace UI; multi-doc + quote/invoice `purpose` split; PO detail page.
+
+---
+
+## Spec 126 — Document-first create-PO surface (ADR 0046 Layer B, Unit 2) — SHIPPED 2026-06-16
+
+**What:** the attached quote/invoice is now a **readable reference while filling the PO** (ADR 0046
+decision 4). Spec 125 added the doc picker + upload-on-submit (filename chip only); this makes the doc
+preview side-by-side. **Operator decisions** (AskUserQuestion, after a visualize mockup — the right move
+for an un-preview-verifiable procurement+lg surface): container = **wide modal** (over a dedicated route —
+preserves the in-memory ticket selection from all 3 entry points); flow = **attach-inside-expands**.
+**NO schema** (pure UI on Unit 1's table/bucket/action) → no operator gate.
+
+- `BottomSheet` gains **`wide?`** — the RIGHT panel grows `max-w-md → lg:max-w-5xl` (no effect on the
+  bottom variant). Create-PO sheet passes `wide={docFile != null}`.
+- **Client object-URL preview** (ADR 0046 decision 3 — no upload while filling): PDF via `<iframe>`,
+  image via `<img>` on a `blob:` URL (revoked on change/unmount); bytes still upload on submit (spec 125).
+- **Split on lg+, toggle on phone:** doc attached → 2-col `lg:grid-cols-[3fr_2fr]` (doc left, form right);
+  below `lg` a เอกสาร⇄ฟอร์ม toggle (`hidden lg:block` swap, fresh attach lands on เอกสาร). No doc → the
+  plain single-column form + an attach button; the attach affordance (เปิด/เปลี่ยน/นำออก) moves into the
+  doc pane once a doc is present. All 3 entry points inherit it (shared sheet; sheet is always `side="right"`).
+
+**Gate:** lint / typecheck / build / **885 unit** green; no schema → no db:push, pgTAP unchanged (1104);
+committed + pushed. **Acceptance** (procurement, lg-only, not preview-verifiable → operator-on-live): open
+create-PO, attach a PDF/photo → tablet/PC shows doc-left form-right; phone toggles; submit creates + saves.
+**METHOD note:** mockup (visualize) → AskUserQuestion (container + flow) → build — the un-preview-verifiable
+UI loop (spec 108/117/118). **NEXT:** ADR 0046 Layer C (AI extraction → prefill the verified form, Claude).
+Seams unchanged from Unit 1 (PO-doc removal/replace UI, multi-doc + purpose split, PO detail page).

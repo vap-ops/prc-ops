@@ -10,9 +10,9 @@
 // 'use client': controlled inputs + pending state + inline supplier create. A child
 // of the (client) ProcurementGrid — all props are client→client, no server closures.
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { X } from "lucide-react";
+import { FileText, X } from "lucide-react";
 import { BottomSheet } from "@/components/features/bottom-sheet";
 import { RadioChip } from "@/components/features/radio-chip";
 import {
@@ -88,6 +88,18 @@ export function CreatePurchaseOrderSheet({
   // the po_id (ADR 0046 upload-on-submit; resolves the no-po_id-yet problem).
   const docInputRef = useRef<HTMLInputElement>(null);
   const [docFile, setDocFile] = useState<File | null>(null);
+  // Spec 126: phone doc⇄form toggle (lg+ shows both side-by-side). A fresh
+  // attach lands on the doc so the buyer confirms it loaded, then taps ฟอร์ม.
+  const [docTab, setDocTab] = useState<"doc" | "form">("doc");
+  // Client-side object-URL preview — NO upload yet (ADR 0046 decision 3: read
+  // the doc while filling; the bytes upload on submit). Revoked on change/unmount.
+  const docUrl = useMemo(() => (docFile ? URL.createObjectURL(docFile) : null), [docFile]);
+  useEffect(() => {
+    return () => {
+      if (docUrl) URL.revokeObjectURL(docUrl);
+    };
+  }, [docUrl]);
+  const docIsPdf = docFile ? isPdfMime(docFile.type) : false;
   const [supplierId, setSupplierId] = useState("");
   const [eta, setEta] = useState("");
   const [amounts, setAmounts] = useState<Record<string, string>>({});
@@ -218,241 +230,337 @@ export function CreatePurchaseOrderSheet({
     });
   }
 
-  return (
-    <BottomSheet open={open} side="right" title="สร้างใบสั่งซื้อ (PO)" onClose={onClose}>
-      <div className="flex flex-col gap-3">
-        <p className="text-ink-muted text-meta">รวม {lines.length} รายการเป็นใบสั่งซื้อเดียว</p>
-
-        <label htmlFor="po-supplier" className="text-ink text-xs font-medium">
-          ผู้ขาย
-        </label>
-        <select
-          id="po-supplier"
-          value={supplierId}
-          onChange={(e) => setSupplierId(e.target.value)}
-          disabled={pending}
-          className={FIELD_SELECT}
-        >
-          <option value="">— เลือกผู้ขาย —</option>
-          {allSuppliers.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-              {s.phone ? ` · ${s.phone}` : ""}
-            </option>
-          ))}
-        </select>
-
-        <details>
-          <summary className="text-action cursor-pointer text-xs font-medium underline-offset-2 hover:underline">
-            เพิ่มผู้ขายใหม่
-          </summary>
-          <div className="mt-2 flex flex-col gap-2">
-            <input
-              type="text"
-              value={nameDraft}
-              maxLength={200}
-              onChange={(e) => setNameDraft(e.target.value)}
-              disabled={pending}
-              placeholder="ชื่อผู้ขาย / ร้านค้า"
-              className={FIELD_INPUT}
-            />
-            <input
-              type="tel"
-              value={phoneDraft}
-              maxLength={50}
-              onChange={(e) => setPhoneDraft(e.target.value)}
-              disabled={pending}
-              placeholder="เบอร์โทร (ไม่บังคับ)"
-              className={FIELD_INPUT}
-            />
-            <button
-              type="button"
-              onClick={handleAddSupplier}
-              disabled={pending || nameDraft.trim().length === 0}
-              className={BUTTON_SECONDARY}
-            >
-              {pending ? "กำลังบันทึก…" : "เพิ่มและเลือก"}
-            </button>
-          </div>
-        </details>
-
-        <div className="flex items-center gap-1.5">
-          <label htmlFor="po-eta" className="text-ink text-xs font-medium">
-            คาดว่าจะได้รับของ
-          </label>
-          <span className="bg-attn-soft text-attn-ink rounded-full px-1.5 text-[10px] font-semibold">
-            จำเป็น
-          </span>
-        </div>
-        <input
-          id="po-eta"
-          type="date"
-          value={eta}
-          onChange={(e) => setEta(e.target.value)}
-          disabled={pending}
-          className={FIELD_DATE}
-        />
-
-        <fieldset className="flex flex-col gap-1.5">
-          <legend className="text-ink mb-1 text-xs font-medium">
-            VAT (ภาษีมูลค่าเพิ่ม {VAT_RATE}%)
-          </legend>
-          <div className="flex flex-wrap gap-2">
-            <RadioChip
-              name="po-vat"
-              label="ก่อน VAT"
-              checked={vatMode === "exclusive"}
-              onSelect={() => setVatMode("exclusive")}
-            />
-            <RadioChip
-              name="po-vat"
-              label="รวม VAT แล้ว"
-              checked={vatMode === "inclusive"}
-              onSelect={() => setVatMode("inclusive")}
-            />
-            <RadioChip
-              name="po-vat"
-              label="ไม่มี VAT"
-              checked={vatMode === "none"}
-              onSelect={() => setVatMode("none")}
-            />
-          </div>
-        </fieldset>
-
-        <label htmlFor="po-order-ref" className="text-ink text-xs font-medium">
-          เลขที่ใบสั่งซื้อ / อ้างอิงผู้ขาย (ไม่บังคับ)
-        </label>
-        <input
-          id="po-order-ref"
-          type="text"
-          value={orderRef}
-          maxLength={80}
-          onChange={(e) => setOrderRef(e.target.value)}
-          disabled={pending}
-          className={FIELD_INPUT}
-        />
-
-        {/* Spec 125 / ADR 0046 Layer B: optional source document (the quotation/
-            invoice the PO is created from), uploaded when the PO is created. */}
-        <label className="text-ink text-xs font-medium">
-          เอกสารใบเสนอราคา / ใบแจ้งหนี้ (ไม่บังคับ)
-        </label>
-        <input
-          ref={docInputRef}
-          type="file"
-          accept={ATTACHMENT_ACCEPT_MIME}
-          className="sr-only"
-          onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
-          disabled={pending}
-        />
-        {docFile ? (
-          <div className="rounded-control border-edge bg-card flex items-center gap-2 border px-3 py-2 text-sm">
-            <span className="text-ink min-w-0 flex-1 truncate">{docFile.name}</span>
-            <button
-              type="button"
-              onClick={() => {
-                setDocFile(null);
-                if (docInputRef.current) docInputRef.current.value = "";
-              }}
-              disabled={pending}
-              className="text-ink-muted hover:text-danger focus-visible:ring-action shrink-0 rounded-md text-xs font-medium focus:outline-none focus-visible:ring-2 disabled:opacity-60"
-            >
-              นำออก
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => docInputRef.current?.click()}
-            disabled={pending}
-            className={BUTTON_SECONDARY_MUTED}
+  // Spec 126 (ADR 0046 Layer B): the attached doc, shown as a side-by-side
+  // reference on lg+ (doc⇄form toggle on phone). Preview is a client object URL
+  // — the bytes upload on submit (Unit 1's uploadPoDocument).
+  const docPane = docFile ? (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2 text-xs">
+        <FileText aria-hidden className="text-ink-muted size-4 shrink-0" />
+        <span className="text-ink min-w-0 flex-1 truncate">{docFile.name}</span>
+        {docUrl ? (
+          <a
+            href={docUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-action shrink-0 font-medium underline-offset-2 hover:underline"
           >
-            แนบเอกสาร (PDF / รูป)
-          </button>
-        )}
+            เปิด
+          </a>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => docInputRef.current?.click()}
+          disabled={pending}
+          className="text-action shrink-0 font-medium underline-offset-2 hover:underline disabled:opacity-60"
+        >
+          เปลี่ยน
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setDocFile(null);
+            setDocTab("doc");
+            if (docInputRef.current) docInputRef.current.value = "";
+          }}
+          disabled={pending}
+          className="text-ink-muted hover:text-danger shrink-0 font-medium disabled:opacity-60"
+        >
+          นำออก
+        </button>
+      </div>
+      {docUrl ? (
+        docIsPdf ? (
+          <iframe
+            src={docUrl}
+            title={docFile.name}
+            className="border-edge bg-sunk h-64 w-full rounded-md border lg:h-[64vh]"
+          />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element -- local object-URL preview, not a remote asset
+          <img
+            src={docUrl}
+            alt={docFile.name}
+            className="border-edge bg-sunk h-64 w-full rounded-md border object-contain lg:h-[64vh]"
+          />
+        )
+      ) : null}
+    </div>
+  ) : null;
 
-        <div className="rounded-control border-edge divide-edge flex flex-col divide-y border">
-          {lines.map((l) => (
-            <div key={l.id} className="flex items-center gap-3 px-3 py-2">
-              <div className="min-w-0 flex-1">
-                <p className="text-ink text-sm font-medium break-words">{l.item_description}</p>
-                <p className="text-ink-muted text-meta">
-                  {l.pr_number ? <span className="font-mono">PR-{l.pr_number} · </span> : null}
-                  {l.wp_code ? <span className="font-mono">{l.wp_code} · </span> : null}
-                  {l.quantity} {l.unit}
-                </p>
-              </div>
-              <input
-                type="number"
-                inputMode="decimal"
-                min="0.01"
-                step="0.01"
-                value={amounts[l.id] ?? ""}
-                onChange={(e) => setAmounts((p) => ({ ...p, [l.id]: e.target.value }))}
-                disabled={pending}
-                placeholder="฿ ราคา"
-                aria-label={`ราคาของ ${l.item_description}`}
-                className={FIELD_PRICE}
-              />
-              {onRemoveLine ? (
+  const attachButton = (
+    <button
+      type="button"
+      onClick={() => docInputRef.current?.click()}
+      disabled={pending}
+      className={BUTTON_SECONDARY_MUTED}
+    >
+      แนบใบเสนอราคา / ใบแจ้งหนี้ (ไม่บังคับ)
+    </button>
+  );
+
+  return (
+    <BottomSheet
+      open={open}
+      side="right"
+      wide={docFile !== null}
+      title="สร้างใบสั่งซื้อ (PO)"
+      onClose={onClose}
+    >
+      <input
+        ref={docInputRef}
+        type="file"
+        accept={ATTACHMENT_ACCEPT_MIME}
+        className="sr-only"
+        onChange={(e) => {
+          setDocFile(e.target.files?.[0] ?? null);
+          setDocTab("doc");
+        }}
+        disabled={pending}
+      />
+      <div
+        className={
+          docFile
+            ? "flex flex-col gap-3 lg:grid lg:grid-cols-[3fr_2fr] lg:items-start lg:gap-4"
+            : "flex flex-col gap-3"
+        }
+      >
+        {docFile ? (
+          <>
+            <div className="flex gap-2 lg:hidden">
+              <button
+                type="button"
+                onClick={() => setDocTab("doc")}
+                aria-pressed={docTab === "doc"}
+                className={`rounded-control flex-1 border px-3 py-1.5 text-xs font-medium ${
+                  docTab === "doc"
+                    ? "border-action bg-action-soft text-action"
+                    : "border-edge-strong bg-card text-ink-muted"
+                }`}
+              >
+                เอกสาร
+              </button>
+              <button
+                type="button"
+                onClick={() => setDocTab("form")}
+                aria-pressed={docTab === "form"}
+                className={`rounded-control flex-1 border px-3 py-1.5 text-xs font-medium ${
+                  docTab === "form"
+                    ? "border-action bg-action-soft text-action"
+                    : "border-edge-strong bg-card text-ink-muted"
+                }`}
+              >
+                ฟอร์ม
+              </button>
+            </div>
+            <div className={docTab === "doc" ? "" : "hidden lg:block"}>{docPane}</div>
+          </>
+        ) : null}
+        <div className={docFile ? (docTab === "form" ? "" : "hidden lg:block") : ""}>
+          <div className="flex flex-col gap-3">
+            {!docFile ? attachButton : null}
+            <p className="text-ink-muted text-meta">รวม {lines.length} รายการเป็นใบสั่งซื้อเดียว</p>
+
+            <label htmlFor="po-supplier" className="text-ink text-xs font-medium">
+              ผู้ขาย
+            </label>
+            <select
+              id="po-supplier"
+              value={supplierId}
+              onChange={(e) => setSupplierId(e.target.value)}
+              disabled={pending}
+              className={FIELD_SELECT}
+            >
+              <option value="">— เลือกผู้ขาย —</option>
+              {allSuppliers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                  {s.phone ? ` · ${s.phone}` : ""}
+                </option>
+              ))}
+            </select>
+
+            <details>
+              <summary className="text-action cursor-pointer text-xs font-medium underline-offset-2 hover:underline">
+                เพิ่มผู้ขายใหม่
+              </summary>
+              <div className="mt-2 flex flex-col gap-2">
+                <input
+                  type="text"
+                  value={nameDraft}
+                  maxLength={200}
+                  onChange={(e) => setNameDraft(e.target.value)}
+                  disabled={pending}
+                  placeholder="ชื่อผู้ขาย / ร้านค้า"
+                  className={FIELD_INPUT}
+                />
+                <input
+                  type="tel"
+                  value={phoneDraft}
+                  maxLength={50}
+                  onChange={(e) => setPhoneDraft(e.target.value)}
+                  disabled={pending}
+                  placeholder="เบอร์โทร (ไม่บังคับ)"
+                  className={FIELD_INPUT}
+                />
                 <button
                   type="button"
-                  onClick={() => onRemoveLine(l.id)}
-                  disabled={pending}
-                  aria-label={`นำ ${l.item_description} ออกจากใบสั่งซื้อ`}
-                  className="text-ink-muted hover:text-danger focus-visible:ring-action inline-flex size-11 shrink-0 items-center justify-center rounded-md focus:outline-none focus-visible:ring-2"
+                  onClick={handleAddSupplier}
+                  disabled={pending || nameDraft.trim().length === 0}
+                  className={BUTTON_SECONDARY}
                 >
-                  <X aria-hidden className="size-4" />
+                  {pending ? "กำลังบันทึก…" : "เพิ่มและเลือก"}
                 </button>
-              ) : null}
-            </div>
-          ))}
-        </div>
+              </div>
+            </details>
 
-        <div className="flex flex-col gap-1">
-          {rate > 0 ? (
-            <>
-              <div className="text-meta text-ink-muted flex items-baseline justify-between">
-                <span>ก่อน VAT</span>
-                <span className="tabular-nums">{baht(breakdown.net)}</span>
+            <div className="flex items-center gap-1.5">
+              <label htmlFor="po-eta" className="text-ink text-xs font-medium">
+                คาดว่าจะได้รับของ
+              </label>
+              <span className="bg-attn-soft text-attn-ink rounded-full px-1.5 text-[10px] font-semibold">
+                จำเป็น
+              </span>
+            </div>
+            <input
+              id="po-eta"
+              type="date"
+              value={eta}
+              onChange={(e) => setEta(e.target.value)}
+              disabled={pending}
+              className={FIELD_DATE}
+            />
+
+            <fieldset className="flex flex-col gap-1.5">
+              <legend className="text-ink mb-1 text-xs font-medium">
+                VAT (ภาษีมูลค่าเพิ่ม {VAT_RATE}%)
+              </legend>
+              <div className="flex flex-wrap gap-2">
+                <RadioChip
+                  name="po-vat"
+                  label="ก่อน VAT"
+                  checked={vatMode === "exclusive"}
+                  onSelect={() => setVatMode("exclusive")}
+                />
+                <RadioChip
+                  name="po-vat"
+                  label="รวม VAT แล้ว"
+                  checked={vatMode === "inclusive"}
+                  onSelect={() => setVatMode("inclusive")}
+                />
+                <RadioChip
+                  name="po-vat"
+                  label="ไม่มี VAT"
+                  checked={vatMode === "none"}
+                  onSelect={() => setVatMode("none")}
+                />
               </div>
-              <div className="text-meta text-ink-muted flex items-baseline justify-between">
-                <span>VAT {rate}%</span>
-                <span className="tabular-nums">{baht(breakdown.vat)}</span>
+            </fieldset>
+
+            <label htmlFor="po-order-ref" className="text-ink text-xs font-medium">
+              เลขที่ใบสั่งซื้อ / อ้างอิงผู้ขาย (ไม่บังคับ)
+            </label>
+            <input
+              id="po-order-ref"
+              type="text"
+              value={orderRef}
+              maxLength={80}
+              onChange={(e) => setOrderRef(e.target.value)}
+              disabled={pending}
+              className={FIELD_INPUT}
+            />
+
+            <div className="rounded-control border-edge divide-edge flex flex-col divide-y border">
+              {lines.map((l) => (
+                <div key={l.id} className="flex items-center gap-3 px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-ink text-sm font-medium break-words">{l.item_description}</p>
+                    <p className="text-ink-muted text-meta">
+                      {l.pr_number ? <span className="font-mono">PR-{l.pr_number} · </span> : null}
+                      {l.wp_code ? <span className="font-mono">{l.wp_code} · </span> : null}
+                      {l.quantity} {l.unit}
+                    </p>
+                  </div>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0.01"
+                    step="0.01"
+                    value={amounts[l.id] ?? ""}
+                    onChange={(e) => setAmounts((p) => ({ ...p, [l.id]: e.target.value }))}
+                    disabled={pending}
+                    placeholder="฿ ราคา"
+                    aria-label={`ราคาของ ${l.item_description}`}
+                    className={FIELD_PRICE}
+                  />
+                  {onRemoveLine ? (
+                    <button
+                      type="button"
+                      onClick={() => onRemoveLine(l.id)}
+                      disabled={pending}
+                      aria-label={`นำ ${l.item_description} ออกจากใบสั่งซื้อ`}
+                      className="text-ink-muted hover:text-danger focus-visible:ring-action inline-flex size-11 shrink-0 items-center justify-center rounded-md focus:outline-none focus-visible:ring-2"
+                    >
+                      <X aria-hidden className="size-4" />
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-col gap-1">
+              {rate > 0 ? (
+                <>
+                  <div className="text-meta text-ink-muted flex items-baseline justify-between">
+                    <span>ก่อน VAT</span>
+                    <span className="tabular-nums">{baht(breakdown.net)}</span>
+                  </div>
+                  <div className="text-meta text-ink-muted flex items-baseline justify-between">
+                    <span>VAT {rate}%</span>
+                    <span className="tabular-nums">{baht(breakdown.vat)}</span>
+                  </div>
+                </>
+              ) : null}
+              <div className="flex items-baseline justify-between">
+                <span className="text-ink-muted text-xs">ยอดรวม{rate > 0 ? " (รวม VAT)" : ""}</span>
+                <span className="text-ink text-base font-semibold tabular-nums">
+                  {baht(breakdown.gross)}
+                </span>
               </div>
-            </>
-          ) : null}
-          <div className="flex items-baseline justify-between">
-            <span className="text-ink-muted text-xs">ยอดรวม{rate > 0 ? " (รวม VAT)" : ""}</span>
-            <span className="text-ink text-base font-semibold tabular-nums">
-              {baht(breakdown.gross)}
-            </span>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={pending}
+                className={BUTTON_SECONDARY}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={pending || !ready}
+                className={BUTTON_PRIMARY}
+              >
+                {pending ? "กำลังสร้าง…" : `สร้าง PO (${lines.length})`}
+              </button>
+            </div>
+
+            {!ready && !pending ? (
+              <p className="text-ink-muted text-meta text-right">
+                เลือกผู้ขายและระบุวันที่ก่อนสร้าง
+              </p>
+            ) : null}
+
+            {error ? (
+              <p role="alert" className={INLINE_ALERT_TEXT}>
+                {error}
+              </p>
+            ) : null}
           </div>
         </div>
-
-        <div className="flex gap-2">
-          <button type="button" onClick={onClose} disabled={pending} className={BUTTON_SECONDARY}>
-            ยกเลิก
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={pending || !ready}
-            className={BUTTON_PRIMARY}
-          >
-            {pending ? "กำลังสร้าง…" : `สร้าง PO (${lines.length})`}
-          </button>
-        </div>
-
-        {!ready && !pending ? (
-          <p className="text-ink-muted text-meta text-right">เลือกผู้ขายและระบุวันที่ก่อนสร้าง</p>
-        ) : null}
-
-        {error ? (
-          <p role="alert" className={INLINE_ALERT_TEXT}>
-            {error}
-          </p>
-        ) : null}
       </div>
     </BottomSheet>
   );

@@ -25,9 +25,20 @@ interface BottomSheetProps {
   // thumb-reachable mobile form) or slide in from the RIGHT (the desktop
   // "Airtable" record sidesheet). Right = full-height side panel.
   side?: "bottom" | "right";
+  // Spec 126 (ADR 0046 Layer B): a RIGHT panel grows to a wide split on lg+
+  // (document-first create-PO: doc preview left, form right). No effect on the
+  // bottom variant (phone uses an in-panel doc/form toggle instead).
+  wide?: boolean;
 }
 
-export function BottomSheet({ open, title, onClose, children, side = "bottom" }: BottomSheetProps) {
+export function BottomSheet({
+  open,
+  title,
+  onClose,
+  children,
+  side = "bottom",
+  wide = false,
+}: BottomSheetProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
@@ -71,7 +82,9 @@ export function BottomSheet({ open, title, onClose, children, side = "bottom" }:
         onClick={(e) => e.stopPropagation()}
         className={
           isRight
-            ? "sheet-panel-right border-edge bg-card flex h-full w-full max-w-md flex-col overflow-hidden rounded-l-2xl border shadow-2xl focus:outline-none"
+            ? `sheet-panel-right border-edge bg-card flex h-full w-full ${
+                wide ? "max-w-md lg:max-w-5xl" : "max-w-md"
+              } flex-col overflow-hidden rounded-l-2xl border shadow-2xl focus:outline-none`
             : "sheet-panel border-edge bg-card flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border pb-[env(safe-area-inset-bottom)] shadow-2xl focus:outline-none"
         }
       >
