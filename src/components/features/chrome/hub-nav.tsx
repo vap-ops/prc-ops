@@ -18,7 +18,7 @@ export interface HubNavItem {
 // the destinations and their order never drift between pages again.
 // Spec 19 §4 merged /pm/requests into /requests: one purchasing entry.
 // Spec 93: desktop mirrors the bottom bar — daily deciders + a ตั้งค่า entry.
-// ค่าจ้าง (payroll) and รายชื่อติดต่อ (contacts) + คนงาน (workers) moved into
+// ค่าจ้าง (payroll) and รายชื่อติดต่อ (contacts) + ทีมงาน (workers) moved into
 // the /settings hub, so the strip stays the primary-decision destinations.
 export const PM_HUB_NAV: ReadonlyArray<HubNavItem> = [
   // Spec 82 Unit 4: the review queue is the content-named /review (was /pm).

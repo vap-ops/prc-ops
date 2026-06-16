@@ -15,7 +15,7 @@ import { validateNotes } from "@/lib/notes/validate";
 
 type WorkerType = Database["public"]["Enums"]["worker_type"];
 
-const GENERIC_ERROR = "บันทึกคนงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+const GENERIC_ERROR = "บันทึกทีมงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
 export type WorkerActionResult = { ok: true } | { ok: false; error: string };
 
@@ -40,7 +40,7 @@ export async function createWorker(input: {
     return { ok: false, error: GENERIC_ERROR };
   }
   if (input.workerType === "dc" && !UUID_REGEX.test(input.contractorId ?? "")) {
-    return { ok: false, error: "คนงาน DC ต้องเลือกผู้รับเหมา" };
+    return { ok: false, error: "ทีมงาน DC ต้องเลือกผู้รับเหมา" };
   }
   const noteResult = validateNotes(input.note ?? "");
   if (!noteResult.ok) return { ok: false, error: noteResult.error };

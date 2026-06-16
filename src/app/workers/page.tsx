@@ -16,7 +16,7 @@ import {
   type ManagedWorker,
 } from "@/components/features/labor/worker-roster-manager";
 
-export const metadata = { title: "คนงาน" };
+export const metadata = { title: "ทีมงาน" };
 
 export default async function WorkersPage() {
   const ctx = await requireRole(PM_ROLES);
@@ -42,7 +42,7 @@ export default async function WorkersPage() {
     <PageShell>
       <BottomTabBar role={ctx.role} />
       <DetailHeader backHref="/settings" backLabel="ตั้งค่า">
-        <h1 className="text-title text-ink font-bold tracking-tight">รายชื่อคนงานและค่าแรง</h1>
+        <h1 className="text-title text-ink font-bold tracking-tight">รายชื่อทีมงานและค่าแรง</h1>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
         <WorkerRosterManager workers={workers} contractors={contractorRows ?? []} />

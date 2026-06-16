@@ -90,7 +90,7 @@ export function validateLaborEntry(
     return "ลงบันทึกล่วงหน้า (วันที่ในอนาคต) ไม่ได้";
   }
   if (entry.workerIds.length === 0) {
-    return "ยังไม่ได้เลือกคนงาน";
+    return "ยังไม่ได้เลือกทีมงาน";
   }
   if (
     daysBetween(entry.workDate, context.today) > BACKDATE_LIMIT_DAYS &&

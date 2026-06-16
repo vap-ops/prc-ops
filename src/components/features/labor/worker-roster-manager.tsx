@@ -73,7 +73,7 @@ function AddWorkerForm({ contractors }: { contractors: { id: string; name: strin
 
   return (
     <div className={CARD}>
-      <p className="text-ink text-sm font-semibold">เพิ่มคนงาน</p>
+      <p className="text-ink text-sm font-semibold">เพิ่มทีมงาน</p>
       <label className="text-ink-secondary mt-2 block text-sm">
         ชื่อ
         <input
@@ -84,11 +84,11 @@ function AddWorkerForm({ contractors }: { contractors: { id: string; name: strin
         />
       </label>
       {/* Spec 67: native-radio chips (was a fake role="radio" on buttons). */}
-      <div className="mt-2 flex gap-2" role="radiogroup" aria-label="ประเภทคนงาน">
+      <div className="mt-2 flex gap-2" role="radiogroup" aria-label="ประเภททีมงาน">
         {(
           [
             { value: "own", label: "ช่างบริษัท" },
-            { value: "dc", label: "คนงาน DC" },
+            { value: "dc", label: "ทีมงาน DC" },
           ] as const
         ).map((option) => (
           <RadioChip
@@ -144,7 +144,7 @@ function AddWorkerForm({ contractors }: { contractors: { id: string; name: strin
         onClick={() => void submit()}
         className={`mt-3 w-full ${BUTTON_PRIMARY_COMPACT}`}
       >
-        เพิ่มคนงาน
+        เพิ่มทีมงาน
       </button>
     </div>
   );
@@ -323,7 +323,7 @@ export function WorkerRosterManager({
       {(
         [
           { label: "ช่างบริษัท", list: own },
-          { label: "คนงาน DC", list: dc },
+          { label: "ทีมงาน DC", list: dc },
         ] as const
       ).map(({ label, list }) =>
         list.length > 0 ? (

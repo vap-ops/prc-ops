@@ -64,7 +64,7 @@ export function ContactCrewSection({
         <p className="text-ink-muted mt-1 text-sm">ยังไม่มีทีมงาน</p>
       )}
       <div className="border-edge mt-3 border-t pt-3">
-        <p className="text-ink-secondary text-xs font-medium">เพิ่มคนงาน DC</p>
+        <p className="text-ink-secondary text-xs font-medium">เพิ่มทีมงาน DC</p>
         <label className="text-ink-secondary mt-2 block text-sm">
           ชื่อ
           <input
@@ -99,7 +99,7 @@ export function ContactCrewSection({
           onClick={() => void add()}
           className={`mt-3 w-full ${BUTTON_PRIMARY_COMPACT}`}
         >
-          เพิ่มคนงาน
+          เพิ่มทีมงาน
         </button>
       </div>
     </section>

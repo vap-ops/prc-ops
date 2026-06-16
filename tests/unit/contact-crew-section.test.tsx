@@ -41,7 +41,7 @@ describe("ContactCrewSection", () => {
     render(<ContactCrewSection contractorId="c1" crew={[]} />);
     fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "คนใหม่" } });
     fireEvent.change(screen.getByLabelText("ค่าแรงต่อวัน (บาท)"), { target: { value: "450" } });
-    fireEvent.click(screen.getByRole("button", { name: "เพิ่มคนงาน" }));
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มทีมงาน" }));
     await waitFor(() =>
       expect(mockCreate).toHaveBeenCalledWith(
         expect.objectContaining({

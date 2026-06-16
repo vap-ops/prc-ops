@@ -269,7 +269,7 @@ export function LaborLogZone({
             <p className="text-ink-secondary mt-3 text-sm">
               {/* Spec 67: /workers had no nav entry — PM/super get a real
                   link here instead of dead prose. */}
-              ยังไม่มีรายชื่อคนงาน —{" "}
+              ยังไม่มีรายชื่อทีมงาน —{" "}
               {showFlags ? (
                 <>
                   เพิ่มได้ที่หน้า{" "}
@@ -277,11 +277,11 @@ export function LaborLogZone({
                     href="/workers"
                     className="text-action font-medium underline-offset-2 hover:underline"
                   >
-                    คนงาน
+                    ทีมงาน
                   </Link>
                 </>
               ) : (
-                "ให้ผู้จัดการโครงการเพิ่มที่หน้า คนงาน"
+                "ให้ผู้จัดการโครงการเพิ่มที่หน้า ทีมงาน"
               )}
             </p>
           ) : (

@@ -32,7 +32,7 @@ export type CorrectLaborLogResult = { ok: true } | { ok: false; error: string };
 
 function rpcErrorToThai(message: string): string {
   if (message.includes("already exists")) return "มีบันทึกของวันนั้นอยู่แล้ว";
-  if (message.includes("inactive")) return "คนงานถูกปิดใช้งานแล้ว";
+  if (message.includes("inactive")) return "ทีมงานถูกปิดใช้งานแล้ว";
   if (message.includes("complete")) return "งานปิดแล้ว บันทึกเพิ่มไม่ได้";
   return GENERIC_ERROR;
 }

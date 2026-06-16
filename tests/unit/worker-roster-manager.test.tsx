@@ -55,7 +55,7 @@ describe("WorkerRosterManager notes", () => {
     fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "คนใหม่" } });
     fireEvent.change(screen.getByLabelText("ค่าแรงต่อวัน (บาท)"), { target: { value: "450" } });
     fireEvent.change(screen.getByLabelText("หมายเหตุ"), { target: { value: "ทดลองงาน" } });
-    fireEvent.click(screen.getByRole("button", { name: "เพิ่มคนงาน" }));
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มทีมงาน" }));
     await waitFor(() =>
       expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ note: "ทดลองงาน" })),
     );
@@ -78,7 +78,7 @@ describe("WorkerRosterManager notes", () => {
       />,
     );
     // Reveal the DC-parent picker by switching the add-form worker type to DC.
-    fireEvent.click(screen.getByRole("radio", { name: "คนงาน DC" }));
+    fireEvent.click(screen.getByRole("radio", { name: "ทีมงาน DC" }));
     expect(screen.getByRole("option", { name: "DC ใช้งาน" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "DC บัญชีดำ" })).not.toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "ผู้รับเหมาทั่วไป" })).not.toBeInTheDocument();

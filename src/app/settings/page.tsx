@@ -103,7 +103,7 @@ export default async function SettingsPage() {
                 label="ผู้รับเหมา/DC"
                 hint="ผู้รับเหมา · ทีมแรงงาน DC"
               />
-              <SettingsLink href="/workers" icon={HardHat} label="คนงาน" hint="ทะเบียนคนงาน DC" />
+              <SettingsLink href="/workers" icon={HardHat} label="ทีมงาน" hint="ทะเบียนทีมงาน DC" />
             </div>
 
             {/* Finance — PM/super */}
