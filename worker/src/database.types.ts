@@ -349,6 +349,54 @@ export type Database = {
           },
         ]
       }
+      contractor_consents: {
+        Row: {
+          consented_at: string
+          contractor_id: string
+          created_at: string
+          document_id: string | null
+          id: string
+          kind: Database["public"]["Enums"]["contractor_consent_kind"]
+          recorded_by: string
+          revoked_at: string | null
+        }
+        Insert: {
+          consented_at?: string
+          contractor_id: string
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["contractor_consent_kind"]
+          recorded_by: string
+          revoked_at?: string | null
+        }
+        Update: {
+          consented_at?: string
+          contractor_id?: string
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["contractor_consent_kind"]
+          recorded_by?: string
+          revoked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contractor_consents_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "contractors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contractor_consents_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contractor_invites: {
         Row: {
           claimed_at: string | null
@@ -446,7 +494,11 @@ export type Database = {
             | null
           created_at: string
           created_by: string
+          date_of_birth: string | null
           email: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          emergency_contact_relation: string | null
           id: string
           mailing_address: string | null
           name: string
@@ -464,7 +516,11 @@ export type Database = {
             | null
           created_at?: string
           created_by: string
+          date_of_birth?: string | null
           email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relation?: string | null
           id?: string
           mailing_address?: string | null
           name: string
@@ -482,7 +538,11 @@ export type Database = {
             | null
           created_at?: string
           created_by?: string
+          date_of_birth?: string | null
           email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relation?: string | null
           id?: string
           mailing_address?: string | null
           name?: string
@@ -2263,6 +2323,14 @@ export type Database = {
         Args: { p_max_age_minutes?: number }
         Returns: number
       }
+      record_contractor_consent: {
+        Args: {
+          p_contractor: string
+          p_document_id?: string
+          p_kind: Database["public"]["Enums"]["contractor_consent_kind"]
+        }
+        Returns: string
+      }
       record_dc_payment: {
         Args: {
           p_contractor: string
@@ -2306,6 +2374,7 @@ export type Database = {
         Args: { p_predecessor: string; p_successor: string }
         Returns: boolean
       }
+      revoke_contractor_consent: { Args: { p_id: string }; Returns: undefined }
       set_contact_bank: {
         Args: {
           p_bank_account_name?: string
@@ -2409,10 +2478,19 @@ export type Database = {
         | "labor_cost_freeze"
         | "purchase_order_create"
         | "dc_payment_recorded"
-      contact_doc_purpose: "id_card" | "bank_book"
+      contact_doc_purpose:
+        | "id_card"
+        | "bank_book"
+        | "consent"
+        | "house_registration"
+        | "insurance"
+        | "company_cert"
+        | "vat_cert"
+        | "contract"
       contact_status: "active" | "probation" | "blacklisted"
       contractor_category: "contractor" | "dc"
       contractor_change_status: "pending" | "approved" | "rejected"
+      contractor_consent_kind: "pdpa_data" | "background_check"
       contractor_subtype:
         | "regular"
         | "dc_company"
@@ -2633,10 +2711,20 @@ export const Constants = {
         "purchase_order_create",
         "dc_payment_recorded",
       ],
-      contact_doc_purpose: ["id_card", "bank_book"],
+      contact_doc_purpose: [
+        "id_card",
+        "bank_book",
+        "consent",
+        "house_registration",
+        "insurance",
+        "company_cert",
+        "vat_cert",
+        "contract",
+      ],
       contact_status: ["active", "probation", "blacklisted"],
       contractor_category: ["contractor", "dc"],
       contractor_change_status: ["pending", "approved", "rejected"],
+      contractor_consent_kind: ["pdpa_data", "background_check"],
       contractor_subtype: [
         "regular",
         "dc_company",

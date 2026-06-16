@@ -104,6 +104,21 @@ is explicitly out — a separate, larger decision.
 - **LINE for external auth** — recommended (ubiquitous in TH); revisit only if
   contractors lack LINE (then email/phone-OTP).
 
+## Notifications & LINE OA (decided 2026-06-16)
+
+LINE **login** stays one channel (identity is unified; the app routes by role).
+LINE **messaging/OA**: **one OA now** for staff + DC (per-user rich menus give
+each audience its own menu without a second OA); a **dedicated client-facing
+OA** is added when the client portal lands (clients are external customers — a
+brand/relationship surface — not workforce). Standing up separate DC/client OAs
+today is overhead the not-yet-onboarded external base doesn't justify.
+
+**Hard requirement regardless of OA count:** the notification outbox (spec 32 /
+ADR 0037) is staff-shaped today; before ANY external user receives a LINE push,
+the send path MUST **gate by recipient audience** so a DC/client can never
+receive an internal WP/PR notification. Keep the send path OA-/channel-aware so
+adding the client OA later is config, not a rewrite.
+
 ## References
 
 - ADR 0013 — role-level access (this ADR is its named upgrade trigger)
