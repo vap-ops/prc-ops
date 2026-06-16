@@ -132,9 +132,12 @@ export default async function RequestDetailPage({ params }: PageProps) {
   );
 
   // Spec 125 / ADR 0046 Layer B: the PO this ticket belongs to may carry a
-  // source document (quotation/invoice). Show it on every member ticket — there
-  // is no PO detail page yet (the side-by-side surface is a later unit).
+  // source document (quotation/invoice), shown on every member ticket. Spec 134
+  // U1: the PO now has a detail page, so also read its number to link there.
   const poId = request.purchase_order_id;
+  const { data: poRow } = poId
+    ? await supabase.from("purchase_orders").select("po_number").eq("id", poId).maybeSingle()
+    : { data: null };
   const { data: poDocRows } = poId
     ? await supabase
         .from("purchase_order_attachments_current")
@@ -294,6 +297,17 @@ export default async function RequestDetailPage({ params }: PageProps) {
           {status === "delivered" && request.delivery_note ? (
             <p className="text-ink-secondary mt-1 text-xs whitespace-pre-wrap">
               {request.delivery_note}
+            </p>
+          ) : null}
+          {/* Spec 134 U1: this ticket belongs to a grouped PO — link to it. */}
+          {poId && poRow ? (
+            <p className="mt-3 text-xs">
+              <Link
+                href={`/requests/orders/${poId}`}
+                className="text-action font-medium underline-offset-2 hover:underline focus:outline-none focus-visible:underline"
+              >
+                ส่วนของใบสั่งซื้อ PO-{String(poRow.po_number).padStart(4, "0")} →
+              </Link>
             </p>
           ) : null}
         </div>

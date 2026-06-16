@@ -136,6 +136,7 @@ for reading the spec itself.
 | 131  | DC onboarding packet (docs · consent · emergency contact)                      |
 | 132  | DC portal profile self-edit (cashout-scoped)                                   |
 | 133  | Subcontractor-member → future-DC pipeline (prospect tier) — design             |
+| 134  | PO detail page + worklist PO grouping + within-ticket partial via split        |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

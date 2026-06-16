@@ -4,6 +4,7 @@
 // per-file STATUS_LABEL duplicates. Report statuses live in
 // src/lib/reports/predicates.ts (existing home, translated in place).
 import type { Database } from "@/lib/db/database.types";
+import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
 
 type Enums = Database["public"]["Enums"];
 
@@ -31,6 +32,17 @@ export const PURCHASE_REQUEST_STATUS_LABEL: Record<Enums["purchase_request_statu
   on_route: "กำลังจัดส่ง",
   delivered: "ได้รับของแล้ว",
   site_purchased: "ซื้อหน้างาน",
+};
+
+// Spec 134 / ADR 0044 — derived PO roll-up status (not a DB enum; the union
+// lives in src/lib/purchasing/purchase-order.ts). open never shows for a live PO
+// (members are 'purchased' at creation) but is reachable if every member is later
+// cancelled, so it carries a label.
+export const PURCHASE_ORDER_STATUS_LABEL: Record<PurchaseOrderStatus, string> = {
+  open: "ยังไม่สั่งซื้อ",
+  ordered: "สั่งซื้อแล้ว",
+  partially_received: "รับของบางส่วน",
+  received: "รับของครบแล้ว",
 };
 
 // Requester-set urgency (spec 16 addendum A2).

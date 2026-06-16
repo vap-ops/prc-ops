@@ -16,6 +16,7 @@ import { Constants } from "@/lib/db/database.types";
 import {
   approvalDecisionPillClasses,
   projectStatusPillClasses,
+  purchaseOrderStatusPillClasses,
   purchaseRequestPriorityPillClasses,
   purchaseRequestStatusPillClasses,
   reportStatusPillClasses,
@@ -162,6 +163,32 @@ describe("purchaseRequestPriorityPillClasses", () => {
       typeof purchaseRequestPriorityPillClasses
     >[0];
     expect(purchaseRequestPriorityPillClasses(unknown).length).toBeGreaterThan(0);
+  });
+});
+
+describe("purchaseOrderStatusPillClasses (spec 134)", () => {
+  const PO_STATES = ["open", "ordered", "partially_received", "received"] as const;
+
+  for (const value of PO_STATES) {
+    it(`returns a non-empty class string for purchase_order status='${value}'`, () => {
+      const classes = purchaseOrderStatusPillClasses(value);
+      expect(typeof classes).toBe("string");
+      expect(classes.length).toBeGreaterThan(0);
+    });
+  }
+
+  it("falls back to neutral classes for an unknown value", () => {
+    const unknown = "not-a-po-status" as unknown as Parameters<
+      typeof purchaseOrderStatusPillClasses
+    >[0];
+    expect(purchaseOrderStatusPillClasses(unknown).length).toBeGreaterThan(0);
+  });
+
+  it("maps onto the per-ticket palette: open zinc, ordered amber, partial sky, received emerald", () => {
+    expect(purchaseOrderStatusPillClasses("open")).toContain("zinc");
+    expect(purchaseOrderStatusPillClasses("ordered")).toContain("amber");
+    expect(purchaseOrderStatusPillClasses("partially_received")).toContain("sky");
+    expect(purchaseOrderStatusPillClasses("received")).toContain("emerald");
   });
 });
 

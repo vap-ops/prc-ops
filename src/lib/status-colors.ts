@@ -27,6 +27,7 @@ import type {
   ReportStatus,
   WorkPackageStatus,
 } from "@/lib/db/enums";
+import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
 
 export type {
   ApprovalDecision,
@@ -172,6 +173,29 @@ export function purchaseRequestStatusPillClasses(status: PurchaseRequestStatus):
       // positive terminal like delivered. The source='site_purchase' +
       // acknowledged_at badge carries the "awaiting PM acknowledgement"
       // signal separately, so the pill stays a clean terminal hue.
+      return PILL_EMERALD;
+    default: {
+      const _exhaustive: never = status;
+      void _exhaustive;
+      return PILL_ZINC;
+    }
+  }
+}
+
+// Spec 134 / ADR 0044 — the derived PO roll-up status pill. The union is not a
+// DB enum (it lives in purchasing/purchase-order.ts); the four states map onto the
+// same palette as the per-ticket flow so a PO badge reads consistently with its
+// member tickets: open idle, ordered in-flight (amber, like 'purchased'),
+// partially_received between (sky, like 'on_route'), received positive terminal.
+export function purchaseOrderStatusPillClasses(status: PurchaseOrderStatus): string {
+  switch (status) {
+    case "open":
+      return PILL_ZINC;
+    case "ordered":
+      return PILL_AMBER;
+    case "partially_received":
+      return PILL_SKY;
+    case "received":
       return PILL_EMERALD;
     default: {
       const _exhaustive: never = status;

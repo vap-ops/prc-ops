@@ -4,6 +4,7 @@ import {
   APPROVAL_DECISION_LABEL,
   PHOTO_PHASE_LABEL,
   PROJECT_STATUS_LABEL,
+  PURCHASE_ORDER_STATUS_LABEL,
   PURCHASE_REQUEST_PRIORITY_LABEL,
   PURCHASE_REQUEST_STATUS_LABEL,
   USER_ROLE_LABEL,
@@ -47,6 +48,22 @@ describe("Thai label maps", () => {
       expect(new Set(labels).size).toBe(values.length);
     });
   }
+});
+
+describe("PURCHASE_ORDER_STATUS_LABEL (derived roll-up, not a DB enum)", () => {
+  // The union lives in purchasing/purchase-order.ts and has no Constants array;
+  // pin the four states here so a new roll-up state must add a label.
+  const PO_STATES = ["open", "ordered", "partially_received", "received"] as const;
+
+  it("covers every derived PO status with a distinct Thai label", () => {
+    for (const state of PO_STATES) {
+      const label = PURCHASE_ORDER_STATUS_LABEL[state];
+      expect(label, `${state} missing`).toBeTruthy();
+      expect(label, `${state} not Thai`).toMatch(THAI_CHAR);
+    }
+    const labels = PO_STATES.map((s) => PURCHASE_ORDER_STATUS_LABEL[s]);
+    expect(new Set(labels).size).toBe(PO_STATES.length);
+  });
 });
 
 describe("formatThaiDateTime", () => {
