@@ -549,6 +549,27 @@ export async function recordContractorConsent(input: {
   return { ok: true };
 }
 
+// ── portal invite (spec 130 U5) ──────────────────────────────────────────────
+// A PM issues a single-use, 14-day claim link a DC opens to bind their LINE login
+// to this contractor. create_contractor_invite (SECURITY DEFINER, pm/super)
+// mints the token; the UI wraps it into the /portal/claim URL.
+
+export type InviteResult = { ok: true; token: string } | { ok: false; error: string };
+
+export async function createContractorInvite(input: {
+  contractorId: string;
+}): Promise<InviteResult> {
+  const gate = await pmSession();
+  if (!gate.ok) return gate;
+  if (!UUID_REGEX.test(input.contractorId)) return { ok: false, error: GENERIC };
+
+  const { data, error } = await gate.supabase.rpc("create_contractor_invite", {
+    p_contractor_id: input.contractorId,
+  });
+  if (error || !data) return { ok: false, error: GENERIC };
+  return { ok: true, token: data };
+}
+
 export async function revokeContractorConsent(input: {
   id: string;
   contractorId: string;

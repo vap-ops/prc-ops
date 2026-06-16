@@ -19,6 +19,7 @@ import { ContactDocumentsBlock } from "@/components/features/contacts/contact-do
 import { getContactBank, type ContactKind } from "@/lib/contacts/bank";
 import { getContactDocuments } from "@/lib/contacts/documents";
 import { BankChangeDecision } from "@/components/features/portal/bank-change-decision";
+import { ContractorInviteBlock } from "@/components/features/portal/contractor-invite-block";
 import {
   ContactConsentBlock,
   type ConsentRow,
@@ -104,6 +105,9 @@ export default async function ContactDetailPage({
   // Spec 90: a contractor's crew = the DC workers parented by it (names only;
   // rates stay on /workers). Only the contractors route has crew.
   let crew: { id: string; name: string }[] = [];
+  // Spec 130 U5 — is this contractor already bound to a portal user? Staff read
+  // all contractor_users bindings (RLS); decides invite-vs-linked on the page.
+  let alreadyBound = false;
   if (type === "contractors") {
     const { data: crewRows } = await supabase
       .from("workers")
@@ -112,6 +116,13 @@ export default async function ContactDetailPage({
       .eq("worker_type", "dc")
       .order("name", { ascending: true });
     crew = crewRows ?? [];
+
+    const { data: binding } = await supabase
+      .from("contractor_users")
+      .select("user_id")
+      .eq("contractor_id", id)
+      .limit(1);
+    alreadyBound = (binding?.length ?? 0) > 0;
   }
 
   // Spec 130 U4 — pending DC bank-change requests awaiting PM approval (money;
@@ -232,6 +243,9 @@ export default async function ContactDetailPage({
               dcTypeOfSubtype((row.contractor_subtype as string) ?? null) === "company"
             }
           />
+        ) : null}
+        {type === "contractors" ? (
+          <ContractorInviteBlock contractorId={id} alreadyBound={alreadyBound} />
         ) : null}
         {type === "contractors" ? (
           <ContactConsentBlock contractorId={id} consents={consents} />
