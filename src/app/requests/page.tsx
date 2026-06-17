@@ -53,6 +53,8 @@ import { groupByPurchaseOrder } from "@/lib/purchasing/po-grouping";
 import { buildPoDetailView } from "@/lib/purchasing/po-detail";
 import { selectOverdueFollowUp } from "@/lib/purchasing/overdue-attention";
 import { OverdueFollowUpPanel } from "@/components/features/purchasing/overdue-follow-up-panel";
+import { buildWorklistKpis } from "@/lib/purchasing/worklist-kpis";
+import { WorklistKpiTile } from "@/components/features/purchasing/worklist-kpi-tile";
 import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
 import type { SupplierOption } from "@/components/features/purchasing/purchase-record-form";
 import { fetchDisplayNames } from "@/lib/users/display-names";
@@ -585,38 +587,35 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
           ) : isProcurement ? (
             // Spec 104/105: buyer's pipeline + summary strip (workload + overdue).
             <div className="flex flex-col gap-6">
+              {/* Spec 138 U2: the KPI hero row. The 2×2 tile grid sits BESIDE the
+                  U1 attention panel on lg+ (1fr / 332px) and stacks (panel hidden)
+                  on the phone. Tiles are built by the pure helper; only the
+                  เกินกำหนด tile is a filter toggle (spec 110 chase list). */}
               {buyerSummary ? (
-                <div className="grid grid-cols-2 gap-2">
-                  <BuyerStat label="รอสั่งซื้อ" value={String(buyerSummary.toOrder)} tone="hot" />
-                  <BuyerStat
-                    label="กำลังจัดส่ง"
-                    value={String(buyerSummary.inTransit)}
-                    tone="neutral"
-                  />
-                  {/* Spec 110: the เกินกำหนด tile is also the overdue filter
-                      toggle (the chase list). */}
-                  <BuyerStat
-                    label="เกินกำหนด"
-                    value={String(buyerSummary.overdue)}
-                    tone={buyerSummary.overdue > 0 || filter.overdue ? "danger" : "neutral"}
-                    href={buildWorklistQuery({ ...filter, overdue: !filter.overdue })}
-                    active={filter.overdue}
-                  />
-                  {/* Spec 106: ฿ committed on in-transit POs (back-office money). */}
-                  <BuyerStat label="ค้างจ่าย" value={baht(outstanding)} tone="neutral" />
-                </div>
-              ) : null}
-              {/* Spec 138 U1: the overdue deliveries behind the เกินกำหนด count,
-                  most-overdue first — tap a row into the request, or jump to the
-                  full chase filter. Tablet/desktop only (lg+) — operator dropped
-                  it from the phone view (2026-06-18); the เกินกำหนด KPI tile is
-                  the phone's chase entry point. */}
-              {attentionItems.length > 0 ? (
-                <div className="hidden lg:block">
-                  <OverdueFollowUpPanel
-                    items={attentionItems}
-                    overdueHref={buildWorklistQuery({ ...filter, overdue: true })}
-                  />
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_332px] lg:items-start">
+                  <div className="grid grid-cols-2 gap-3">
+                    {buildWorklistKpis({
+                      summary: buyerSummary,
+                      outstanding: baht(outstanding),
+                      overdueHref: buildWorklistQuery({ ...filter, overdue: !filter.overdue }),
+                      overdueActive: filter.overdue,
+                    }).map((tile) => (
+                      <WorklistKpiTile key={tile.key} tile={tile} />
+                    ))}
+                  </div>
+                  {/* Spec 138 U1: the overdue deliveries behind the เกินกำหนด count,
+                      most-overdue first — tap a row into the request, or jump to the
+                      full chase filter. Tablet/desktop only (lg+) — operator dropped
+                      it from the phone view (2026-06-18); the เกินกำหนด KPI tile is
+                      the phone's chase entry point. */}
+                  {attentionItems.length > 0 ? (
+                    <div className="hidden lg:block">
+                      <OverdueFollowUpPanel
+                        items={attentionItems}
+                        overdueHref={buildWorklistQuery({ ...filter, overdue: true })}
+                      />
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
               {/* Spec 110: supplier / project / status filters. */}
@@ -759,49 +758,3 @@ function worklistChipClass(active: boolean): string {
 
 // Spec 106: compact THB formatter for the outstanding tile.
 const baht = (n: number) => `฿${Math.round(n).toLocaleString("en-US")}`;
-
-// Spec 105: a buyer-summary stat tile. hot = the actionable รอสั่งซื้อ band;
-// danger = overdue ETAs need chasing; neutral otherwise. Spec 110: a tile with
-// an href is a filter toggle (the เกินกำหนด chase list) — renders as a Link with
-// a pressed ring when active.
-function BuyerStat({
-  label,
-  value,
-  tone,
-  href,
-  active,
-}: {
-  label: string;
-  value: string;
-  tone: "hot" | "danger" | "neutral";
-  href?: string;
-  active?: boolean;
-}) {
-  const toneClass =
-    tone === "hot"
-      ? "border-attn-press bg-attn text-on-attn"
-      : tone === "danger"
-        ? "border-danger-edge bg-danger-soft text-danger-ink"
-        : "border-edge bg-card text-ink";
-  const base = `rounded-card flex min-h-[68px] flex-col items-start justify-center border-[1.5px] px-3 py-2 ${toneClass}`;
-  const content = (
-    <>
-      <span className="text-2xl leading-none font-extrabold">{value}</span>
-      <span className="text-meta mt-1 font-bold">{label}</span>
-    </>
-  );
-  if (href) {
-    return (
-      <Link
-        href={href}
-        aria-pressed={active ? "true" : "false"}
-        className={`${base} focus-visible:ring-action transition-shadow focus:outline-none focus-visible:ring-2 ${
-          active ? "ring-action ring-2 ring-offset-1" : "hover:shadow-card"
-        }`}
-      >
-        {content}
-      </Link>
-    );
-  }
-  return <div className={base}>{content}</div>;
-}
