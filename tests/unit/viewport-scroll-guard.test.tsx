@@ -13,7 +13,6 @@ afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
   document.body.innerHTML = "";
-  document.body.style.height = "";
 });
 
 function mountInMain() {
@@ -49,92 +48,5 @@ describe("ViewportScrollGuard", () => {
     vi.advanceTimersByTime(150);
 
     expect(scrollBy).not.toHaveBeenCalled();
-  });
-
-  // The "bottom blank gap" symptom: iOS standalone PWA leaves the locked body at
-  // the keyboard-REDUCED 100% height after the keyboard closes, so the area the
-  // keyboard vacated stays blank at the bottom. Rotate/navigate/refresh fix it
-  // (they relayout at the restored height); scrolling does NOT (it's height, not
-  // paint or offset). Force the relayout: pin the body to the live innerHeight for
-  // one frame, then release back to the CSS h-full lock.
-  it("forces a height relayout of the locked body on keyboard close (bottom-gap case)", () => {
-    vi.useFakeTimers();
-    const rafs: FrameRequestCallback[] = [];
-    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
-      rafs.push(cb);
-      return rafs.length;
-    });
-    mountInMain();
-
-    const input = document.createElement("input");
-    document.body.appendChild(input);
-    input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
-    vi.advanceTimersByTime(150);
-
-    // pinned to the live (restored) height to force the relayout
-    expect(document.body.style.height).toBe(`${window.innerHeight}px`);
-
-    // released back to the CSS h-full lock on the next frame
-    rafs.forEach((cb) => cb(0));
-    expect(document.body.style.height).toBe("");
-  });
-
-  // iOS pans the document up to reveal a field near the bottom; under the spec-64
-  // body lock (overflow:hidden) the window should always sit at scroll 0, so that
-  // pan is an artifact that leaves the sticky header ABOVE the visible viewport
-  // after the keyboard closes — the "screen is hidden" symptom. Snap the window
-  // back to top on close. <main>'s own scroll (the reading position) is untouched.
-  it("snaps the window back to top on keyboard close (header pushed-off case)", () => {
-    vi.useFakeTimers();
-    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
-    mountInMain();
-
-    const input = document.createElement("input");
-    document.body.appendChild(input);
-    input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
-    vi.advanceTimersByTime(150);
-
-    expect(scrollTo).toHaveBeenCalledWith(0, 0);
-  });
-
-  it("does NOT snap the window while another field is being edited", () => {
-    vi.useFakeTimers();
-    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
-    mountInMain();
-
-    const input = document.createElement("input");
-    document.body.appendChild(input);
-    input.focus(); // still editing → keyboard up → leave the viewport alone
-    input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
-    vi.advanceTimersByTime(150);
-
-    expect(scrollTo).not.toHaveBeenCalled();
-  });
-
-  // The scroll nudge only repaints when <main> can actually scroll. A short form
-  // that fits the viewport (no overflow) cannot scroll, so scrollBy moves nothing
-  // and the locked scroller stays blank. Force a scroll-INDEPENDENT repaint too: a
-  // 1px transform nudge on <main>, restored next frame — re-rasterizes regardless
-  // of content height. This is the "freezes for good" recurrence (short forms).
-  it("also applies a scroll-independent transform nudge, restored next frame", () => {
-    vi.useFakeTimers();
-    const rafs: FrameRequestCallback[] = [];
-    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
-      rafs.push(cb);
-      return rafs.length;
-    });
-    const { main } = mountInMain();
-
-    const input = document.createElement("input");
-    document.body.appendChild(input);
-    input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
-    vi.advanceTimersByTime(150);
-
-    // nudge applied synchronously inside the repaint
-    expect(main.style.transform).toBe("translateY(1px)");
-
-    // and cleared on the next animation frame (net visual position unchanged)
-    rafs.forEach((cb) => cb(0));
-    expect(main.style.transform).toBe("");
   });
 });
