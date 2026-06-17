@@ -18,7 +18,6 @@ import {
   PURCHASE_ORDER_STATUS_LABEL,
   PURCHASE_REQUEST_PRIORITY_LABEL,
   PURCHASE_REQUEST_STATUS_LABEL,
-  formatThaiDate,
   formatThaiDateTime,
 } from "@/lib/i18n/labels";
 import {
@@ -28,12 +27,9 @@ import {
 } from "@/lib/status-colors";
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { PO_ATTACHMENTS_BUCKET } from "@/lib/storage/buckets";
-import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
-import { AttachmentPdf } from "@/components/features/purchasing/attachment-pdf";
-import { ProofOfDeliveryUploader } from "@/components/features/purchasing/proof-of-delivery-uploader";
 import { PoReceiveSection } from "@/components/features/purchasing/po-receive-section";
 import { PurchaseOrderTracker } from "@/components/features/purchasing/purchase-order-tracker";
-import { PoDeliveryBreakdown } from "@/components/features/purchasing/po-delivery-breakdown";
+import { PoDeliverySection } from "@/components/features/purchasing/po-delivery-section";
 import { groupDeliveryBatches } from "@/lib/purchasing/delivery-batches";
 
 // /requests/orders/[poId] — the purchase-order detail screen (spec 134 U1). A PO
@@ -131,8 +127,6 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
     PO_ATTACHMENTS_BUCKET,
     proofDocs.map((row) => ({ id: row.id ?? "", storage_path: row.storage_path })),
   );
-  const proofImages = proofDocs.filter((d) => d.kind === "image");
-
   // Spec 134 U5: the in-transit lines feed the รับของ checklist (all ticked by
   // default — Case A; untick to wait — Case B). Back office sees the per-line amount
   // (used by the within-ticket split prefill); others get null (money posture).
@@ -190,9 +184,6 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
               สั่งซื้อเมื่อ {formatThaiDateTime(po.ordered_at)}
             </p>
           ) : null}
-          {po.eta ? (
-            <p className="text-ink-secondary mt-1 text-xs">กำหนดรับของ {formatThaiDate(po.eta)}</p>
-          ) : null}
           {po.notes ? (
             <p className="text-ink-secondary mt-2 text-xs whitespace-pre-wrap">
               หมายเหตุ: {po.notes}
@@ -205,8 +196,17 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Spec 134 U7: the delivery breakdown (งวดส่ง) — only when the PO forked. */}
-        {showDeliveryBreakdown ? <PoDeliveryBreakdown breakdown={deliveryBreakdown} /> : null}
+        {/* Spec 134 U9: the consolidated การจัดส่ง block — ETA, the งวดส่ง branches
+            when the PO forked, and the delivery proof procurement attaches. */}
+        <PoDeliverySection
+          purchaseOrderId={po.id}
+          eta={po.eta}
+          status={view.status}
+          breakdown={deliveryBreakdown}
+          showBreakdown={showDeliveryBreakdown}
+          proofDocs={proofDocs}
+          proofUrls={proofUrls}
+        />
 
         {/* Spec 134 U5 + U8: the receive checklist — site staff only (procurement,
             off-site, can't confirm arrival). */}
@@ -270,47 +270,6 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
           {members.length === 0 ? (
             <p className="text-ink-secondary text-xs">ใบสั่งซื้อนี้ยังไม่มีรายการ</p>
           ) : null}
-        </div>
-
-        {/* Spec 134 U4a: manual proof-of-delivery — a signed delivery note / photo
-            of the received goods, attached at the PO level. Its own section,
-            distinct from the source documents (ใบเสนอราคา/ใบแจ้งหนี้). */}
-        <div className="rounded-card border-edge bg-card shadow-card border p-4">
-          <h2 className="text-ink text-base font-semibold">หลักฐานการรับของ</h2>
-          <div className="mt-2 flex flex-col gap-2">
-            {proofImages.length > 0 ? (
-              <ul className="flex flex-wrap gap-2">
-                {proofImages.map((doc, idx, arr) => {
-                  const url = doc.id ? proofUrls.get(doc.id) : undefined;
-                  if (!doc.id || !url) return null;
-                  const groupUrls = arr.flatMap((a) =>
-                    a.id && proofUrls.get(a.id) ? [proofUrls.get(a.id) as string] : [],
-                  );
-                  const groupIndex = arr
-                    .slice(0, idx)
-                    .filter((a) => a.id && proofUrls.get(a.id)).length;
-                  return (
-                    <li key={doc.id} className="flex flex-col items-center gap-0.5">
-                      <span className="border-edge block h-20 w-20 overflow-hidden rounded-lg border">
-                        <ZoomablePhoto src={url} group={groupUrls} groupIndex={groupIndex} />
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : null}
-            {proofDocs
-              .filter((d) => d.kind === "pdf")
-              .map((doc) => {
-                const url = doc.id ? proofUrls.get(doc.id) : undefined;
-                if (!doc.id || !url) return null;
-                return <AttachmentPdf key={doc.id} src={url} />;
-              })}
-            {proofDocs.length === 0 ? (
-              <p className="text-ink-secondary text-xs">ยังไม่มีหลักฐานการรับของ</p>
-            ) : null}
-            <ProofOfDeliveryUploader purchaseOrderId={po.id} />
-          </div>
         </div>
       </section>
     </PageShell>
