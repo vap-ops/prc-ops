@@ -1,6 +1,7 @@
 # ADR 0052 — Within-ticket partial delivery via split-on-receipt
 
-- Status: Proposed (2026-06-17) — awaiting operator acceptance before build.
+- Status: Accepted (2026-06-17). Operator accepted; amount split = proportional
+  default, buyer-editable (decision 4).
 - Amends: ADR 0044 §7 (which deferred "partial receipt _within_ a single ticket —
   split quantity → a receipts/`quantity_received` unit"). This ADR decides that
   unit's mechanic. Implemented by spec 134 Unit 3.
@@ -39,16 +40,17 @@ original.id`. The child can itself be split again (the chain handles repeated
    partials). Reducing the original's `quantity` is not lossy — the audit row +
    the split family reconstruct the original ask.
 
-4. **Amount split: proportional by quantity, exact reconciliation.**
-   `delivered.amount = round(original.amount × received / ordered)`;
-   `remaining.amount = original.amount − delivered.amount` — so the family sum is
-   **exactly** the original (no rounding drift) and per-WP material spend
-   (specs 100/103/106, which read `amount` per ticket) is unchanged across the
-   split. If `amount` is null (unpriced), both rows stay null. VAT (ADR 0045):
-   `amount` is gross; the proportional split keeps gross consistent and net/VAT
-   re-derive per row. _Permitted variant (operator/accounting call): the buyer
-   enters the delivered amount explicitly and `remaining = original − entered`, for
-   when the real invoice splits non-proportionally._
+4. **Amount split: proportional by quantity (default), buyer-editable** (operator
+   decision 2026-06-17). The RPC takes an optional `p_delivered_amount`: omitted →
+   `delivered.amount = round(original.amount × received / ordered, 2)`; supplied →
+   `delivered.amount = p_delivered_amount` (guarded `0 ≤ p_delivered_amount ≤
+original.amount`). Either way `remaining.amount = original.amount −
+delivered.amount`, so the family sum is **exactly** the original (no drift) and
+   per-WP material spend (specs 100/103/106, which read `amount` per ticket) is
+   unchanged. If `original.amount` is null (unpriced), both rows stay null. VAT
+   (ADR 0045): `amount` is gross; the split keeps gross consistent, net/VAT re-derive
+   per row. **UI:** the "รับบางส่วน" form prefills the proportional delivered amount
+   and lets the buyer override it (for an invoice that splits non-proportionally).
 
 5. **Mechanic: one guarded `SECURITY DEFINER` RPC**
    `split_purchase_request_on_receipt(p_request_id uuid, p_received_qty numeric,
