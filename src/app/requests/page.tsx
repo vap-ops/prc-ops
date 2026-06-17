@@ -1,7 +1,6 @@
 import { PageShell } from "@/components/features/chrome/page-shell";
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
-import { ArrowLeft } from "lucide-react";
 import { AppHeader } from "@/components/features/chrome/app-header";
 import {
   HubNav,
@@ -11,32 +10,20 @@ import {
 } from "@/components/features/chrome/hub-nav";
 import { EmptyNotice, ErrorNotice } from "@/components/features/common/notices";
 import { PURCHASING_ROLES } from "@/lib/auth/role-home";
-import { workPackageHref } from "@/lib/nav/project-paths";
-import {
-  PurchaseRequestForm,
-  type PurchaseRequestFormWorkPackage,
-} from "@/components/features/purchasing/purchase-request-form";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
-import { isValidUuid } from "@/lib/photos/path";
 import { PR_LIST_COLUMNS } from "@/lib/purchasing/columns";
-import { SECTION_HEADING } from "@/lib/ui/classes";
 
-// /requests — THE purchasing surface for every role (spec 19 §4 merged
+// /requests — THE purchasing worklist for every role (spec 19 §4 merged
 // the PM decision queue here; spec 16 A1 / ADR 0026 made the list
-// site-wide). The request form appears when arriving FROM a work package
-// (spec 10: ?wp=<id> pins the WP; there is no picker — WP screens carry
-// the "Raise purchase request" link). Authorized: site_admin,
-// project_manager, super_admin — the v1 requester base (ADR 0022).
+// site-wide). Requests are CREATED on the work-package page (spec 29 +
+// spec 136), never here. Authorized: site_admin, project_manager,
+// super_admin + procurement (the processor — ADR 0022 / spec 70).
 //
-// Server-side fetches:
-//   1. the ?wp= work package (only when the param has UUID shape) — RLS on
-//      work_packages already gates readability to wp-readers; an
-//      unreadable or unknown id resolves to null and the form is withheld.
-//   2. ALL visible purchase_requests — RLS decides (site_admin/PM/
-//      procurement/super see every row since ADR 0026; the own-row
-//      branch remains for future narrower roles). The ?mine=1 chip
-//      narrows back to the caller's own rows.
+// Server-side fetch: ALL visible purchase_requests — RLS decides
+// (site_admin/PM/procurement/super see every row since ADR 0026; the
+// own-row branch remains for future narrower roles). The ?mine=1 chip
+// narrows back to the caller's own rows.
 
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { comparePendingRequests } from "@/lib/purchasing/pending-order";
@@ -106,20 +93,13 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   const ctx = await requireRole(PURCHASING_ROLES);
   const supabase = await createClient();
 
-  // Spec 70: procurement is a back-office processor, not a requester — it is
-  // not in the purchase_requests INSERT policy and has no WP link to arrive
-  // ?wp=-pinned, so the create-request section is inert for it. Hide it.
-  const canCreateRequests = ctx.role !== "procurement";
-
   const {
-    wp: wpParam,
     mine: mineParam,
     supplier: supplierParam,
     project: projectParam,
     status: statusParam,
     overdue: overdueParam,
   } = await searchParams;
-  const wpRequested = wpParam !== undefined;
 
   // Spec 110: parse the worklist filter (procurement only — SA/PM ignore it).
   // An unknown status value is dropped (treated as "all") so a hand-edited URL
@@ -134,25 +114,6 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         ? (statusParamValue as PurchaseRequestStatus)
         : null,
   };
-
-  // Resolve the pinned WP only for a well-formed single UUID; anything
-  // else (missing, repeated, garbage, or unreadable under RLS) leaves the
-  // form withheld. maybeSingle() returns null rather than erroring when
-  // RLS filters the row out, so "not found" and "not allowed" look the
-  // same here — intentionally.
-  let pinnedWp: PurchaseRequestFormWorkPackage | null = null;
-  let pinnedProjectId: string | null = null;
-  if (typeof wpParam === "string" && isValidUuid(wpParam)) {
-    const { data } = await supabase
-      .from("work_packages")
-      .select("id, code, name, project_id")
-      .eq("id", wpParam)
-      .maybeSingle();
-    if (data) {
-      pinnedWp = { id: data.id, code: data.code, name: data.name };
-      pinnedProjectId = data.project_id;
-    }
-  }
 
   // Bare /requests is a PRIMARY TAB: like /review and /projects it carries the
   // desktop HubNav strip (the role's tab set) — NOT a back-bar. Spec 101 gives
@@ -532,65 +493,24 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
       <BottomTabBar role={ctx.role} />
       <AppHeader kicker="คำขอซื้อ" fullName={ctx.fullName} maxWidthClass={PAGE_MAX_W} />
 
-      {/* Spec 12 contextual back vs. primary-tab nav. Pinned (?wp= from a WP)
-          is a drill-down — show the contextual back to that WP. Bare is the
-          tab root — show the desktop HubNav strip like the sibling hubs
-          (/review, /projects); phones leave via the bottom tab bar. procurement
-          (hubItems null) gets neither: /requests is its only destination. */}
-      {pinnedWp && pinnedProjectId ? (
-        <nav className="border-edge bg-sunk border-b px-5 py-1">
-          <div className={`mx-auto flex ${PAGE_MAX_W} items-center`}>
-            <Link
-              href={workPackageHref(pinnedProjectId, pinnedWp.id)}
-              className="text-action inline-flex min-h-11 items-center gap-1.5 text-xs font-medium transition-colors hover:underline focus:outline-none focus-visible:underline"
-            >
-              <ArrowLeft aria-hidden className="size-3.5" />
-              กลับไปหน้ารายการงาน
-            </Link>
-          </div>
-        </nav>
-      ) : hubItems ? (
+      {/* Primary-tab nav: the desktop HubNav strip like the sibling hubs
+          (/review, /projects); phones leave via the bottom tab bar.
+          procurement (hubItems null) gets none — /requests is its only stop. */}
+      {hubItems ? (
         <HubNav maxWidthClass={PAGE_MAX_W} items={hubItems} currentHref="/requests" />
       ) : null}
 
       <section className={`mx-auto ${PAGE_MAX_W} space-y-8 px-5 py-6`}>
-        {/* Spec 70: hidden for procurement (a processor, not a requester). */}
-        {canCreateRequests ? (
-          <div>
-            <h2 className={SECTION_HEADING}>สร้างคำขอซื้อ</h2>
-            {pinnedWp && pinnedProjectId ? (
-              <PurchaseRequestForm
-                workPackage={pinnedWp}
-                projectId={pinnedProjectId}
-                userId={ctx.id}
-              />
-            ) : (
-              <div className="space-y-2">
-                {wpRequested ? <ErrorNotice>ไม่พบรายการงาน</ErrorNotice> : null}
-                <p className="border-edge bg-page text-ink-secondary rounded-lg border px-4 py-4 text-sm">
-                  คำขอซื้อเริ่มจากหน้ารายการงาน — เปิดรายการงานที่ต้องการ แล้วกด{" "}
-                  <span className="text-ink font-medium">สร้างคำขอซื้อ</span>{" "}
-                  จากนั้นผู้จัดการโครงการจะเป็นผู้พิจารณาอนุมัติ —
-                  หากไม่อนุมัติจะมีความเห็นแจ้งเหตุผลเสมอ
-                </p>
-              </div>
-            )}
-          </div>
-        ) : null}
-
         <div>
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 className="text-ink text-base font-semibold">คำขอซื้อ</h2>
             {/* ของฉัน filter chip (spec 16 A1) — site staff see the whole
-                site's requests; the chip narrows back to their own. A live
-                pinned WP survives the toggle (chips are a filter, not
-                navigation — the form and spec-12 back-bar stay mounted). */}
-            {/* Spec 104: the ของฉัน filter is meaningless for procurement
-                (it never owns a request) — hidden. */}
+                site's requests; the chip narrows back to their own.
+                Spec 104: hidden for procurement (it never owns a request). */}
             {!isProcurement ? (
               <div className="flex gap-1 text-xs">
                 <Link
-                  href={pinnedWp ? `/requests?wp=${pinnedWp.id}` : "/requests"}
+                  href="/requests"
                   aria-current={!mineOnly ? "true" : undefined}
                   className={`focus-visible:ring-action inline-flex min-h-11 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 active:translate-y-px ${
                     !mineOnly
@@ -601,7 +521,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                   ทั้งหมด
                 </Link>
                 <Link
-                  href={pinnedWp ? `/requests?wp=${pinnedWp.id}&mine=1` : "/requests?mine=1"}
+                  href="/requests?mine=1"
                   aria-current={mineOnly ? "true" : undefined}
                   className={`focus-visible:ring-action inline-flex min-h-11 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 active:translate-y-px ${
                     mineOnly

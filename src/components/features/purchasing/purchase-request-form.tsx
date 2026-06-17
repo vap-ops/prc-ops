@@ -18,7 +18,7 @@ import { BUTTON_PRIMARY, FIELD_INPUT, INLINE_ERROR } from "@/lib/ui/classes";
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createPurchaseRequest } from "@/app/requests/actions";
+import { createPurchaseRequest, decidePurchaseRequest } from "@/app/requests/actions";
 import {
   PurchaseRequestAttachmentStager,
   type AttachmentStagerHandle,
@@ -55,9 +55,17 @@ interface PurchaseRequestFormProps {
   /** Session user — enables the stager's offline-queue bracket at flush
    *  time (spec 37). */
   userId: string;
+  /** Spec 136: PM/super raising a request on their own WP page — the submit
+   *  becomes "สร้างและอนุมัติ" and self-approves it after create. */
+  canSelfApprove?: boolean;
 }
 
-export function PurchaseRequestForm({ workPackage, projectId, userId }: PurchaseRequestFormProps) {
+export function PurchaseRequestForm({
+  workPackage,
+  projectId,
+  userId,
+  canSelfApprove = false,
+}: PurchaseRequestFormProps) {
   const router = useRouter();
   const [itemDescription, setItemDescription] = useState<string>("");
   const [quantityText, setQuantityText] = useState<string>("");
@@ -71,6 +79,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
   const [notes, setNotes] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [approvedSaved, setApprovedSaved] = useState<boolean>(false);
   const [attachmentNote, setAttachmentNote] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
   const stagerRef = useRef<AttachmentStagerHandle>(null);
@@ -94,8 +103,7 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
   });
   const canSubmit = !submitting && localValidation.ok;
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  function runSubmit(autoApprove: boolean) {
     if (!canSubmit) return;
     setError(null);
     setSavedAt(null);
@@ -117,6 +125,21 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
       // roll back the request (spec 16 §4) — failed items stay in the
       // stager with ลองใหม่ and a note appears beside บันทึกแล้ว.
       const failedAttachments = (await stagerRef.current?.flush(result.id)) ?? 0;
+      // Spec 136: a PM/super raising their own request approves it in one step
+      // (they are the approver — no point leaving it pending). If the approve
+      // leg fails the request still exists (pending), approvable from the list.
+      let selfApproved = false;
+      if (autoApprove) {
+        const decision = await decidePurchaseRequest({
+          id: result.id,
+          decision: "approved",
+          comment: null,
+        });
+        selfApproved = decision.ok;
+        if (!decision.ok) {
+          setError("สร้างคำขอแล้ว แต่อนุมัติไม่สำเร็จ — อนุมัติได้จากรายการคำขอซื้อ");
+        }
+      }
       setAttachmentNote(
         failedAttachments > 0 ? "บางรายการแนบไม่สำเร็จ — กดลองใหม่ในรายการด้านบน" : null,
       );
@@ -131,9 +154,17 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
       setNeededBy("");
       setPriority("normal");
       setNotes("");
-      setSavedAt(Date.now());
+      setApprovedSaved(autoApprove && selfApproved);
+      // Suppress the green confirmation when the auto-approve leg failed — the
+      // inline error already says "created but not approved".
+      if (!autoApprove || selfApproved) setSavedAt(Date.now());
       router.refresh();
     });
+  }
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    runSubmit(canSelfApprove);
   }
 
   // Inline validation only after the user has touched the field (any
@@ -353,11 +384,11 @@ export function PurchaseRequestForm({ workPackage, projectId, userId }: Purchase
         ) : null}
         {savedAt !== null && !submitting ? (
           <span className="text-done-strong text-xs font-medium" role="status">
-            บันทึกแล้ว
+            {approvedSaved ? "บันทึกและอนุมัติแล้ว" : "บันทึกแล้ว"}
           </span>
         ) : null}
         <button type="submit" disabled={!canSubmit} className={BUTTON_PRIMARY}>
-          {submitting ? "กำลังส่ง…" : "ส่งคำขอซื้อ"}
+          {submitting ? "กำลังบันทึก…" : canSelfApprove ? "สร้างและอนุมัติ" : "ส่งคำขอซื้อ"}
         </button>
       </div>
     </form>

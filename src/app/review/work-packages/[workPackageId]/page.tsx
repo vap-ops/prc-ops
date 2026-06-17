@@ -1,5 +1,4 @@
 import { PageShell } from "@/components/features/chrome/page-shell";
-import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
 import { Check } from "lucide-react";
@@ -41,6 +40,7 @@ import { LaborCostView } from "@/components/features/labor/labor-cost-view";
 import { AttentionCard } from "@/components/features/common/attention-card";
 import { RecordDecisionForm } from "./record-decision-form";
 import { HoldToggle } from "./hold-toggle";
+import { PurchaseRequestForm } from "@/components/features/purchasing/purchase-request-form";
 
 interface PageProps {
   params: Promise<{ workPackageId: string }>;
@@ -176,15 +176,10 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
               wp.status}
           </StatusPill>
         </div>
-        <div className="flex items-center justify-between gap-3">
-          <Link
-            href={`/requests?wp=${wp.id}`}
-            className="text-action w-fit text-xs font-medium transition-colors hover:underline focus:outline-none focus-visible:underline"
-          >
-            สร้างคำขอซื้อ →
-          </Link>
-          {/* Spec 52: PM-and-up hold toggle — renders nothing on
-                pending_approval/complete. */}
+        {/* Spec 52: PM-and-up hold toggle — renders nothing on
+            pending_approval/complete. Spec 136: create moved off this header
+            into an inline form in the body (no more cross-tab jump). */}
+        <div className="flex items-center justify-end gap-3">
           <HoldToggle workPackageId={wp.id} status={wp.status} />
         </div>
       </DetailHeader>
@@ -202,6 +197,21 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
       </div>
 
       <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-8 px-5 py-6`}>
+        {/* Spec 136: raise a purchase request inline (was a cross-tab jump to
+            /requests?wp=). PM/super self-approve via "สร้างและอนุมัติ". */}
+        <details className={CARD}>
+          <summary className="text-body text-ink cursor-pointer font-semibold">
+            สร้างคำขอซื้อ
+          </summary>
+          <div className="mt-3">
+            <PurchaseRequestForm
+              workPackage={{ id: wp.id, code: wp.code, name: wp.name }}
+              projectId={wp.project_id}
+              userId={ctx.id}
+              canSelfApprove
+            />
+          </div>
+        </details>
         <section>
           <h2 className={SECTION_HEADING}>รูปถ่าย</h2>
           <div className="flex flex-col gap-5">
