@@ -58,6 +58,7 @@ later one corrects — read both when the topic is live.
 | 0050 | super_admin user & role management                                |                                            |
 | 0051 | external partner access model (DC/client portal, row-level RLS)   | extends 0013                               |
 | 0052 | Within-ticket partial delivery via split-on-receipt               | Amends 0044 §7; spec 134 U3                |
+| 0053 | Explicit PO-level receive (delivery without a per-ticket photo)   | Amends 0030; spec 134 U5                   |
 
 **Absent numbers** (never authored as standalone files; do not look for them):
 0023, 0024 — skipped. 0029 — AppSheet image bridge, cancelled before authoring

@@ -311,6 +311,33 @@ it grounds a future spec/ADR. Lalamove POD auto-populates the **same
 - **Blocked on** Lalamove sandbox creds + partner-support answers (KYC, billing,
   exact POD schema, inbound-webhook signature) — see research §8.
 
+## Unit 5 — PO-level receive flow + demote within-ticket partial (ADR 0053)
+
+Operator's delivery distribution (2026-06-17): Case A ~85% (whole PO, one delivery),
+Case B ~14% (PO in two deliveries, split at the TICKET level — some items wait for
+restock), Case C ~1% (same item dribbles in — the U3 within-ticket split). The
+photo-per-ticket receive (spec 24) makes A/B tedious while U3's รับบางส่วน is the
+prominent control — backwards. ADR 0053 fixes the model; this unit builds it.
+
+- **Migration:** `receive_po_lines(p_request_ids uuid[], p_received_by text default
+null, p_delivery_note text default null)` SECURITY DEFINER RPC — authenticated
+  session, back-office gate; each id must be an in-transit member (`status in
+('purchased','on_route')`); sets `delivered_at = now()` + `received_by` +
+  `delivery_note`; all-or-nothing. No new column — leans on the existing derive +
+  delivery-audit triggers (each line gets its standard `purchase_request_delivery`
+  audit row). pgTAP: role gate, in-transit-only, multi-line receive advances status
+  - sets facts, all-or-nothing on a bad line.
+- **UI (`PoReceiveSection`, client):** the in-transit lines render as a "รับของ"
+  checklist, **all ticked by default** (Case A = confirm → receive all; Case B =
+  untick the waiting lines → receive the subset), + an optional note + "รับของที่
+  เลือก (N)". The PO-level proof photo (U4a) is the optional shared evidence.
+  Delivered/other lines keep the existing static list.
+- **Demote U3:** `รับบางส่วน` moves from the prominent per-line button to a small
+  "แบ่งรับ" link inside the receive checklist (Case C only). The `PartialReceiveControl`
+  gains an optional subtle-link trigger; its logic is unchanged.
+- **Out of scope:** per-delivery shipping cost → deferred to U4b (operator
+  2026-06-17); undo-a-receive (reverse path) is a later seam.
+
 ## Verification checklist
 
 Per unit: `pnpm lint && pnpm typecheck && pnpm test` all green; new pure helpers
