@@ -19,6 +19,9 @@ interface PartialReceiveControlProps {
   unit: string;
   /** Per-line amount — back office only; null hides the editable amount field. */
   amount: number | null;
+  /** Spec 134 U5: render the trigger as a quiet text link (Case C is the 1% path). */
+  subtle?: boolean;
+  triggerLabel?: string;
 }
 
 // Proportional delivered amount for a received quantity, rounded to 2dp (THB).
@@ -32,6 +35,8 @@ export function PartialReceiveControl({
   orderedQty,
   unit,
   amount,
+  subtle = false,
+  triggerLabel,
 }: PartialReceiveControlProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -100,8 +105,16 @@ export function PartialReceiveControl({
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className={BUTTON_SECONDARY_MUTED}>
-        รับบางส่วน
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={
+          subtle
+            ? "text-action text-xs font-medium underline-offset-2 hover:underline focus:outline-none focus-visible:underline"
+            : BUTTON_SECONDARY_MUTED
+        }
+      >
+        {triggerLabel ?? "รับบางส่วน"}
       </button>
     );
   }

@@ -31,7 +31,7 @@ import { PO_ATTACHMENTS_BUCKET } from "@/lib/storage/buckets";
 import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
 import { AttachmentPdf } from "@/components/features/purchasing/attachment-pdf";
 import { ProofOfDeliveryUploader } from "@/components/features/purchasing/proof-of-delivery-uploader";
-import { PartialReceiveControl } from "@/components/features/purchasing/partial-receive-control";
+import { PoReceiveSection } from "@/components/features/purchasing/po-receive-section";
 
 // /requests/orders/[poId] — the purchase-order detail screen (spec 134 U1). A PO
 // groups N approved tickets into one supplier order (ADR 0044); spec 115 shipped
@@ -127,6 +127,20 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
   );
   const proofImages = proofDocs.filter((d) => d.kind === "image");
 
+  // Spec 134 U5: the in-transit lines feed the รับของ checklist (all ticked by
+  // default — Case A; untick to wait — Case B). Back office sees the per-line amount
+  // (used by the within-ticket split prefill); others get null (money posture).
+  const inTransitLines = members
+    .filter((m) => m.status === "purchased" || m.status === "on_route")
+    .map((m) => ({
+      id: m.id,
+      pr_number: m.pr_number,
+      item_description: m.item_description,
+      quantity: m.quantity,
+      unit: m.unit,
+      amount: isBackOffice ? (amountById.get(m.id) ?? null) : null,
+    }));
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -171,6 +185,9 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
             </p>
           ) : null}
         </div>
+
+        {/* Spec 134 U5: the prominent receive checklist for in-transit lines. */}
+        {inTransitLines.length > 0 ? <PoReceiveSection lines={inTransitLines} /> : null}
 
         <div>
           <h2 className="text-ink mb-3 text-base font-semibold">รายการในใบสั่งซื้อ</h2>
@@ -221,19 +238,6 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
                       </p>
                     ) : null}
                   </Link>
-                  {/* Spec 134 U3: a strictly-partial receipt on an in-transit line
-                      splits it into a delivered portion + a remaining child. The
-                      amount field shows for back office only (money). */}
-                  {m.status === "purchased" || m.status === "on_route" ? (
-                    <div className="mt-1.5">
-                      <PartialReceiveControl
-                        purchaseRequestId={m.id}
-                        orderedQty={m.quantity}
-                        unit={m.unit}
-                        amount={isBackOffice ? amount : null}
-                      />
-                    </div>
-                  ) : null}
                 </li>
               );
             })}

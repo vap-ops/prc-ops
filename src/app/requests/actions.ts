@@ -602,6 +602,46 @@ export async function splitPurchaseRequestOnReceipt(
   return { ok: true };
 }
 
+// receivePoLines (spec 134 U5 / ADR 0053): mark the chosen in-transit PO members
+// delivered in one action (the 85% whole-PO / 14% whole-ticket-subset cases).
+// Relays the guarded receive_po_lines RPC (back-office gate + in-transit-only +
+// all-or-nothing re-enforced server-side).
+const ERR_RECEIVE_FAILED = "บันทึกการรับของไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+
+export interface ReceivePoLinesInput {
+  requestIds: string[];
+  receivedBy?: string | null;
+  deliveryNote?: string | null;
+}
+
+export async function receivePoLines(
+  input: ReceivePoLinesInput,
+): Promise<{ ok: true; received: number } | { ok: false; error: string }> {
+  if (!Array.isArray(input.requestIds) || input.requestIds.length === 0) {
+    return { ok: false, error: ERR_RECEIVE_FAILED };
+  }
+  if (!input.requestIds.every((id) => UUID_REGEX.test(id))) {
+    return { ok: false, error: ERR_RECEIVE_FAILED };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase } = auth;
+
+  const { data, error } = await supabase.rpc("receive_po_lines", {
+    p_request_ids: input.requestIds,
+    ...(input.receivedBy ? { p_received_by: input.receivedBy } : {}),
+    ...(input.deliveryNote ? { p_delivery_note: input.deliveryNote } : {}),
+  });
+  if (error) {
+    console.error("[receive-po-lines] rpc failed", error);
+    return { ok: false, error: ERR_RECEIVE_FAILED };
+  }
+
+  revalidatePath("/requests");
+  return { ok: true, received: typeof data === "number" ? data : input.requestIds.length };
+}
+
 // recordSitePurchase (spec 66 / ADR 0043): an on-site cash purchase that
 // never went through request→approve. Relays the SECURITY DEFINER RPC,
 // which creates the purchase_request born terminal (status
