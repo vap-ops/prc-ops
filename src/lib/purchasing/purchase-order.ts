@@ -10,7 +10,15 @@ import type { Database } from "@/lib/db/database.types";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
 
-export type PurchaseOrderStatus = "open" | "ordered" | "partially_received" | "received";
+// Spec 134 U6 (amends ADR 0044 §5 roll-up): in_transit surfaces the delivering
+// stage — at least one member shipped (on_route), none delivered yet — so the PO no
+// longer jumps ordered → received with the shipment invisible.
+export type PurchaseOrderStatus =
+  | "open"
+  | "ordered"
+  | "in_transit"
+  | "partially_received"
+  | "received";
 
 // A member is delivered (received) only at status 'delivered'. It counts as
 // "ordered" once the buy is placed and while in transit (purchased / on_route /
@@ -35,10 +43,72 @@ export function derivePurchaseOrderStatus(
   if (delivered === active.length) return "received";
   if (delivered > 0) return "partially_received";
 
-  // Nothing delivered yet: ordered only if every active member is on order.
+  // Nothing delivered yet. A shipped member (on_route) surfaces the delivering
+  // stage (spec 134 U6) — the PO is on the way, not merely "ordered".
+  if (active.some((s) => s === "on_route")) return "in_transit";
+
+  // Otherwise ordered only if every active member is on order (all purchased).
   const ordered = active.filter(isOrdered).length;
   if (ordered === active.length) return "ordered";
   return "open";
+}
+
+// Spec 134 U6 — the PO progress stepper: สั่งซื้อ (ordered) → จัดส่ง (in_transit) →
+// รับของ (received). Maps the derived status to per-stage state; the "current" step
+// is the live milestone, partially_received marks รับของ partial. Pure → unit-tested.
+export type PurchaseOrderStage = "ordered" | "in_transit" | "received";
+
+export interface PurchaseOrderStageStep {
+  stage: PurchaseOrderStage;
+  state: "done" | "current" | "pending";
+  partial?: boolean;
+}
+
+export function purchaseOrderStageStates(status: PurchaseOrderStatus): PurchaseOrderStageStep[] {
+  let ordered: PurchaseOrderStageStep["state"];
+  let inTransit: PurchaseOrderStageStep["state"];
+  let received: PurchaseOrderStageStep["state"];
+  let partial = false;
+  switch (status) {
+    case "open":
+      ordered = "current";
+      inTransit = "pending";
+      received = "pending";
+      break;
+    case "ordered":
+      ordered = "done";
+      inTransit = "current";
+      received = "pending";
+      break;
+    case "in_transit":
+      ordered = "done";
+      inTransit = "done";
+      received = "current";
+      break;
+    case "partially_received":
+      ordered = "done";
+      inTransit = "done";
+      received = "current";
+      partial = true;
+      break;
+    case "received":
+      ordered = "done";
+      inTransit = "done";
+      received = "done";
+      break;
+    default: {
+      const _exhaustive: never = status;
+      void _exhaustive;
+      ordered = "current";
+      inTransit = "pending";
+      received = "pending";
+    }
+  }
+  return [
+    { stage: "ordered", state: ordered },
+    { stage: "in_transit", state: inTransit },
+    { stage: "received", state: received, ...(partial ? { partial: true } : {}) },
+  ];
 }
 
 export function purchaseOrderTotal(lineAmounts: Array<number | null>): number {

@@ -5,7 +5,11 @@
 //     is computed, never stored — §3).
 
 import { describe, expect, it } from "vitest";
-import { derivePurchaseOrderStatus, purchaseOrderTotal } from "@/lib/purchasing/purchase-order";
+import {
+  derivePurchaseOrderStatus,
+  purchaseOrderStageStates,
+  purchaseOrderTotal,
+} from "@/lib/purchasing/purchase-order";
 
 describe("derivePurchaseOrderStatus", () => {
   it("returns 'open' when no member is purchased yet", () => {
@@ -17,9 +21,16 @@ describe("derivePurchaseOrderStatus", () => {
     expect(derivePurchaseOrderStatus(["purchased", "purchased"])).toBe("ordered");
   });
 
-  it("treats on_route (shipped, not yet delivered) as still ordered", () => {
-    expect(derivePurchaseOrderStatus(["purchased", "on_route"])).toBe("ordered");
-    expect(derivePurchaseOrderStatus(["on_route"])).toBe("ordered");
+  it("returns 'in_transit' once a member is shipped (on_route) but none delivered yet", () => {
+    // Spec 134 U6 / ADR 0044 roll-up amendment: surface the delivering stage so the
+    // PO no longer jumps ordered → received with the shipment invisible.
+    expect(derivePurchaseOrderStatus(["purchased", "on_route"])).toBe("in_transit");
+    expect(derivePurchaseOrderStatus(["on_route"])).toBe("in_transit");
+    expect(derivePurchaseOrderStatus(["on_route", "on_route"])).toBe("in_transit");
+  });
+
+  it("stays 'ordered' only while every active member is purchased (none shipped)", () => {
+    expect(derivePurchaseOrderStatus(["purchased", "purchased"])).toBe("ordered");
   });
 
   it("returns 'partially_received' when some but not all members are delivered", () => {
@@ -62,5 +73,37 @@ describe("purchaseOrderTotal", () => {
   it("returns 0 for an empty list or an all-null list", () => {
     expect(purchaseOrderTotal([])).toBe(0);
     expect(purchaseOrderTotal([null, null])).toBe(0);
+  });
+});
+
+describe("purchaseOrderStageStates", () => {
+  const states = (status: Parameters<typeof purchaseOrderStageStates>[0]) =>
+    purchaseOrderStageStates(status).map((s) => s.state);
+
+  it("walks สั่งซื้อ → จัดส่ง → รับของ as the status advances", () => {
+    // ordered: placed, awaiting shipment → จัดส่ง is the current step.
+    expect(states("ordered")).toEqual(["done", "current", "pending"]);
+    // in_transit: shipped → จัดส่ง done, รับของ current.
+    expect(states("in_transit")).toEqual(["done", "done", "current"]);
+    // received: all done.
+    expect(states("received")).toEqual(["done", "done", "done"]);
+  });
+
+  it("marks the รับของ step partial for partially_received", () => {
+    const steps = purchaseOrderStageStates("partially_received");
+    expect(steps.map((s) => s.state)).toEqual(["done", "done", "current"]);
+    expect(steps[2]?.partial).toBe(true);
+  });
+
+  it("shows the first step current for an open PO", () => {
+    expect(states("open")).toEqual(["current", "pending", "pending"]);
+  });
+
+  it("covers exactly the three PO stages in order", () => {
+    expect(purchaseOrderStageStates("ordered").map((s) => s.stage)).toEqual([
+      "ordered",
+      "in_transit",
+      "received",
+    ]);
   });
 });

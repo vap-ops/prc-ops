@@ -32,6 +32,7 @@ import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
 import { AttachmentPdf } from "@/components/features/purchasing/attachment-pdf";
 import { ProofOfDeliveryUploader } from "@/components/features/purchasing/proof-of-delivery-uploader";
 import { PoReceiveSection } from "@/components/features/purchasing/po-receive-section";
+import { PurchaseOrderTracker } from "@/components/features/purchasing/purchase-order-tracker";
 
 // /requests/orders/[poId] — the purchase-order detail screen (spec 134 U1). A PO
 // groups N approved tickets into one supplier order (ADR 0044); spec 115 shipped
@@ -184,6 +185,11 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
               หมายเหตุ: {po.notes}
             </p>
           ) : null}
+          {/* Spec 134 U6: the PO progress stepper — สั่งซื้อ → จัดส่ง → รับของ — so
+              the delivering stage is visible (the roll-up no longer hides on_route). */}
+          <div className="border-edge-strong mt-3 border-t pt-3">
+            <PurchaseOrderTracker status={view.status} />
+          </div>
         </div>
 
         {/* Spec 134 U5: the prominent receive checklist for in-transit lines. */}

@@ -167,7 +167,7 @@ describe("purchaseRequestPriorityPillClasses", () => {
 });
 
 describe("purchaseOrderStatusPillClasses (spec 134)", () => {
-  const PO_STATES = ["open", "ordered", "partially_received", "received"] as const;
+  const PO_STATES = ["open", "ordered", "in_transit", "partially_received", "received"] as const;
 
   for (const value of PO_STATES) {
     it(`returns a non-empty class string for purchase_order status='${value}'`, () => {
@@ -184,9 +184,10 @@ describe("purchaseOrderStatusPillClasses (spec 134)", () => {
     expect(purchaseOrderStatusPillClasses(unknown).length).toBeGreaterThan(0);
   });
 
-  it("maps onto the per-ticket palette: open zinc, ordered amber, partial sky, received emerald", () => {
+  it("maps onto the per-ticket palette: open zinc, ordered amber, in_transit/partial sky, received emerald", () => {
     expect(purchaseOrderStatusPillClasses("open")).toContain("zinc");
     expect(purchaseOrderStatusPillClasses("ordered")).toContain("amber");
+    expect(purchaseOrderStatusPillClasses("in_transit")).toContain("sky");
     expect(purchaseOrderStatusPillClasses("partially_received")).toContain("sky");
     expect(purchaseOrderStatusPillClasses("received")).toContain("emerald");
   });

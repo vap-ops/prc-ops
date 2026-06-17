@@ -41,6 +41,7 @@ export const PURCHASE_REQUEST_STATUS_LABEL: Record<Enums["purchase_request_statu
 export const PURCHASE_ORDER_STATUS_LABEL: Record<PurchaseOrderStatus, string> = {
   open: "ยังไม่สั่งซื้อ",
   ordered: "สั่งซื้อแล้ว",
+  in_transit: "กำลังจัดส่ง",
   partially_received: "รับของบางส่วน",
   received: "รับของครบแล้ว",
 };

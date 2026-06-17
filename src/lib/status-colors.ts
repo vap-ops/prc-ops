@@ -193,6 +193,9 @@ export function purchaseOrderStatusPillClasses(status: PurchaseOrderStatus): str
       return PILL_ZINC;
     case "ordered":
       return PILL_AMBER;
+    case "in_transit":
+      // Shipped, on the way — same sky as the per-ticket on_route pill.
+      return PILL_SKY;
     case "partially_received":
       return PILL_SKY;
     case "received":

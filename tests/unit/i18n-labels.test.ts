@@ -53,7 +53,7 @@ describe("Thai label maps", () => {
 describe("PURCHASE_ORDER_STATUS_LABEL (derived roll-up, not a DB enum)", () => {
   // The union lives in purchasing/purchase-order.ts and has no Constants array;
   // pin the four states here so a new roll-up state must add a label.
-  const PO_STATES = ["open", "ordered", "partially_received", "received"] as const;
+  const PO_STATES = ["open", "ordered", "in_transit", "partially_received", "received"] as const;
 
   it("covers every derived PO status with a distinct Thai label", () => {
     for (const state of PO_STATES) {
