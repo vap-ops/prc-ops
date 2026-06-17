@@ -28,13 +28,7 @@ interface PageShellProps {
 
 export function PageShell({ variant = "app", className, children }: PageShellProps) {
   return (
-    // height tracks the iOS visual viewport (spec 95 AppHeightTracker publishes
-    // --app-vh); falls back to 100% (h-full) before JS / off iOS. This is what
-    // shrinks the scroller above the on-screen keyboard and restores it on close.
-    <main
-      className={`${SHELL_BASE} ${VARIANT_CLASSES[variant]} ${className ?? ""}`.trim()}
-      style={{ height: "var(--app-vh, 100%)" }}
-    >
+    <main className={`${SHELL_BASE} ${VARIANT_CLASSES[variant]} ${className ?? ""}`.trim()}>
       {children}
     </main>
   );

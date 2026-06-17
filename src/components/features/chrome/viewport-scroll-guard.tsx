@@ -1,69 +1,66 @@
 "use client";
 
-// Spec 95 — iOS standalone PWA keyboard hardening. The body is LOCKED (spec 64:
-// overflow:hidden; PageShell's <main> is the only scroller). When the iOS
-// software keyboard closes, WebKit resizes the viewport back but does NOT repaint
-// the locked scroller — the content (sticky header included) is present but blank
-// until a scroll forces a repaint. The operator confirmed it: the screen recovers
-// the moment you scroll, and a รีเฟรช clears it. So this is a missing-repaint
-// glitch, not a stuck scroll position.
+// Spec 95 — iOS standalone PWA keyboard scroll fix (evidence-based, from on-device
+// metrics 2026-06-17).
 //
-// This guard reproduces that recovering scroll the instant the keyboard closes —
-// a 1px nudge and back, position-preserving — so the user never sees the blank
-// frame. It leaves the scroll position untouched and is inert outside the
-// keyboard-close moment. Renders nothing.
+// The body is LOCKED (spec 64: overflow:hidden; PageShell's <main> is the only
+// scroller), so the DOCUMENT (documentElement / window) must always sit at scroll 0.
+// But on iOS, opening the soft keyboard makes the system scroll the documentElement
+// to bring the focused input into view, and it does NOT reset that scroll when the
+// keyboard closes. Measured on device with the keyboard already down:
+//
+//     window.scrollY = 389   document.documentElement.scrollTop = 389
+//
+// i.e. the whole page is left shifted up ~389px, which is exactly the blank gap at
+// the bottom the operator saw (the content the keyboard pushed up never came back
+// down). <main>'s own scrollTop (the reading position) is correct and separate.
+//
+// Fix: when the keyboard is DOWN, force the document scroll back to 0. Gated on the
+// keyboard being down (visualViewport.height ≈ innerHeight) so we never fight iOS
+// revealing the input while the user is still typing. Only the document scroll is
+// touched — never <main>'s. No transform (that reparents fixed chrome — a reverted
+// regression), no height changes.
 
 import { useEffect } from "react";
 
 export function ViewportScrollGuard() {
   useEffect(() => {
-    function isEditable(el: Element | null): boolean {
-      if (!el) return false;
-      return (
-        el.tagName === "INPUT" ||
-        el.tagName === "TEXTAREA" ||
-        el.tagName === "SELECT" ||
-        (el as HTMLElement).isContentEditable
-      );
+    function keyboardDown(): boolean {
+      const vv = window.visualViewport;
+      if (!vv) return true;
+      // innerHeight is the stable layout viewport on iOS (the keyboard does not
+      // resize it); vv.height shrinks while the keyboard is up. Small delta = down.
+      return window.innerHeight - vv.height < 100;
     }
 
-    // force=true skips the focused-field guard: used when the visual viewport has
-    // already confirmed the keyboard is DOWN (a still-focused input is then the
-    // recurrence to fix — iOS can close the keyboard via its Done/hide button
-    // WITHOUT blurring the field, especially in multi-field forms; the locked
-    // scroller never repaints and a portion stays blank). force=false keeps the
-    // mid-edit guard for the focusout path (focus may be hopping field-to-field
-    // with the keyboard still up — the caret-reveal scroll is iOS's job then).
-    function repaintScroller(force: boolean) {
-      if (!force && isEditable(document.activeElement)) return;
-      const scroller = document.querySelector("main");
-      if (!(scroller instanceof HTMLElement)) return;
-      // Mirror the manual scroll that recovers it: nudge, then restore next
-      // frame so the net position is unchanged but a repaint is forced.
-      scroller.scrollBy(0, 1);
-      requestAnimationFrame(() => scroller.scrollBy(0, -1));
+    function resetDocScroll() {
+      if (!keyboardDown()) return;
+      const doc = document.documentElement;
+      if (doc.scrollTop !== 0) doc.scrollTop = 0;
+      if (document.body.scrollTop !== 0) document.body.scrollTop = 0;
+      if (window.scrollY !== 0) window.scrollTo(0, 0);
     }
 
-    function onFocusOut() {
-      // Let the keyboard finish sliding down before nudging.
-      window.setTimeout(() => repaintScroller(false), 100);
+    // iOS settles the visual viewport late when the keyboard closes — re-reset
+    // across the slide so the final settled state lands at scroll 0.
+    function resetSoon() {
+      resetDocScroll();
+      window.setTimeout(resetDocScroll, 300);
+      window.setTimeout(resetDocScroll, 600);
     }
 
     const vv = window.visualViewport;
-    function onViewportResize() {
-      // Keyboard closed = the visual viewport is (nearly) back to full height.
-      // Repaint even if a field keeps focus (the recurrence): the keyboard is
-      // measurably gone, so a position-preserving nudge is safe and needed.
-      if (vv && window.innerHeight - vv.height < 80) {
-        window.setTimeout(() => repaintScroller(true), 50);
-      }
-    }
-
-    document.addEventListener("focusout", onFocusOut);
-    vv?.addEventListener("resize", onViewportResize);
+    document.addEventListener("focusout", resetSoon);
+    window.addEventListener("orientationchange", resetSoon);
+    window.addEventListener("pageshow", resetSoon);
+    vv?.addEventListener("resize", resetSoon);
+    vv?.addEventListener("scroll", resetDocScroll);
     return () => {
-      document.removeEventListener("focusout", onFocusOut);
-      vv?.removeEventListener("resize", onViewportResize);
+      document.removeEventListener("focusout", resetSoon);
+      window.removeEventListener("orientationchange", resetSoon);
+      window.removeEventListener("pageshow", resetSoon);
+      vv?.removeEventListener("resize", resetSoon);
+      vv?.removeEventListener("scroll", resetDocScroll);
     };
   }, []);
 

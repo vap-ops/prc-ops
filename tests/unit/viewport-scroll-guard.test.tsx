@@ -1,52 +1,62 @@
-// Spec 95: on iOS standalone PWA the locked scroller (spec 64) is left UNPAINTED
-// after the keyboard closes — content present but blank until a scroll forces a
-// repaint (operator: "recovers on its own when I scroll"; รีเฟรช clears it). The
-// guard reproduces that recovering scroll nudge on keyboard close — but never
-// while the user is still editing another field.
+// Spec 95: on iOS the soft keyboard scrolls the documentElement to reveal the
+// focused input and does NOT reset it on close (measured on device:
+// document.scrollTop = window.scrollY = 389 with the keyboard already down). The
+// body is locked (spec 64 overflow:hidden), so the document must always sit at
+// scroll 0. ViewportScrollGuard forces it back to 0 when the keyboard is down —
+// but never while the keyboard is up (iOS is revealing the input then).
 
 import { render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ViewportScrollGuard } from "@/components/features/chrome/viewport-scroll-guard";
 
+function setInnerHeight(px: number) {
+  Object.defineProperty(window, "innerHeight", { configurable: true, value: px });
+}
+
+function mockVisualViewport(height: number) {
+  const vv = {
+    height,
+    width: 375,
+    offsetTop: 0,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  };
+  Object.defineProperty(window, "visualViewport", { configurable: true, value: vv });
+}
+
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+  document.documentElement.scrollTop = 0;
   document.body.innerHTML = "";
+  Reflect.deleteProperty(window, "visualViewport");
 });
 
-function mountInMain() {
-  const main = document.createElement("main");
-  document.body.appendChild(main);
-  const scrollBy = vi.fn();
-  main.scrollBy = scrollBy;
-  render(<ViewportScrollGuard />, { container: main });
-  return { main, scrollBy };
-}
-
 describe("ViewportScrollGuard", () => {
-  it("nudges the scroller to force a repaint after a field blurs (keyboard close)", () => {
+  it("resets the document scroll to 0 when the keyboard closes (body is locked)", () => {
     vi.useFakeTimers();
-    const { scrollBy } = mountInMain();
+    setInnerHeight(793);
+    mockVisualViewport(744); // keyboard down: 793 - 744 = 49 < 100
+    document.documentElement.scrollTop = 389; // iOS left it scrolled
 
-    const input = document.createElement("input");
-    document.body.appendChild(input);
-    input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
-    vi.advanceTimersByTime(150);
+    render(<ViewportScrollGuard />);
+    document.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    vi.advanceTimersByTime(50);
 
-    expect(scrollBy).toHaveBeenCalledWith(0, 1);
+    expect(document.documentElement.scrollTop).toBe(0);
   });
 
-  it("does NOT nudge while another field is being edited (keyboard still up)", () => {
+  it("does NOT reset while the keyboard is up (iOS is revealing the input)", () => {
     vi.useFakeTimers();
-    const { scrollBy } = mountInMain();
+    setInnerHeight(793);
+    mockVisualViewport(420); // keyboard up: 793 - 420 = 373 > 100
+    document.documentElement.scrollTop = 389;
 
-    const input = document.createElement("input");
-    document.body.appendChild(input);
-    input.focus(); // activeElement stays this input → still editing
-    input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
-    vi.advanceTimersByTime(150);
+    render(<ViewportScrollGuard />);
+    document.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    vi.advanceTimersByTime(50);
 
-    expect(scrollBy).not.toHaveBeenCalled();
+    expect(document.documentElement.scrollTop).toBe(389);
   });
 });
