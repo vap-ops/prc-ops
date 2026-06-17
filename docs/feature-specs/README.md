@@ -138,6 +138,9 @@ for reading the spec itself.
 | 133  | Subcontractor-member → future-DC pipeline (prospect tier) — design             |
 | 134  | PO detail page + worklist PO grouping + within-ticket partial via split        |
 | 135  | First-class deliveries (PO ships in procurement-arranged deliveries; ADR 0054) |
+| 136  | Create a purchase request on the WP page only (+ PM self-approve)              |
+| 137  | Action-state bands + view filter on the site /requests worklist                |
+| 138  | Mobile worklist redesign (procurement) — U1 ต้องติดตามด่วน urgent panel        |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

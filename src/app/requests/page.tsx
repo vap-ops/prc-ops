@@ -51,6 +51,8 @@ import { PhonePoBasket } from "@/components/features/purchasing/phone-po-basket"
 import { PoGroupCard } from "@/components/features/purchasing/po-group-card";
 import { groupByPurchaseOrder } from "@/lib/purchasing/po-grouping";
 import { buildPoDetailView } from "@/lib/purchasing/po-detail";
+import { selectOverdueFollowUp } from "@/lib/purchasing/overdue-attention";
+import { OverdueFollowUpPanel } from "@/components/features/purchasing/overdue-follow-up-panel";
 import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
 import type { SupplierOption } from "@/components/features/purchasing/purchase-record-form";
 import { fetchDisplayNames } from "@/lib/users/display-names";
@@ -327,6 +329,25 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     );
   }
 
+  // Spec 138 U1: the ต้องติดตามด่วน panel — the actual overdue in-transit
+  // deliveries (the items behind the เกินกำหนด count), most-overdue first. Reads
+  // the same unfiltered set as the KPI so the two agree; amount is the back-
+  // office figure already read above.
+  const attentionItems = isProcurement
+    ? selectOverdueFollowUp(
+        myRequests.map((r) => ({
+          id: r.id,
+          pr_number: r.pr_number,
+          item_description: r.item_description,
+          status: r.status,
+          eta: r.eta,
+          supplier: r.supplier,
+          amount: amountById.get(r.id) ?? null,
+        })),
+        today,
+      )
+    : [];
+
   // Spec 134 U2: in the กำลังจัดส่ง band, bundled tickets collapse into one PO
   // card linking to the PO detail (U1). Split that band's rows into PO groups +
   // loose rows; the card's derived status + line count come from the PO's FULL
@@ -584,6 +605,15 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                   {/* Spec 106: ฿ committed on in-transit POs (back-office money). */}
                   <BuyerStat label="ค้างจ่าย" value={baht(outstanding)} tone="neutral" />
                 </div>
+              ) : null}
+              {/* Spec 138 U1: the overdue deliveries behind the เกินกำหนด count,
+                  most-overdue first — tap a row into the request, or jump to the
+                  full chase filter. */}
+              {attentionItems.length > 0 ? (
+                <OverdueFollowUpPanel
+                  items={attentionItems}
+                  overdueHref={buildWorklistQuery({ ...filter, overdue: true })}
+                />
               ) : null}
               {/* Spec 110: supplier / project / status filters. */}
               <ProcurementFilters
