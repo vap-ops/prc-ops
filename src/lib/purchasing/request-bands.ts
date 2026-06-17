@@ -77,16 +77,26 @@ const VIEW_BANDS: Record<RequestView, ReadonlyArray<RequestBand>> = {
 export interface RequestBandGroup<T> {
   band: RequestBand;
   label: string;
+  /** The site's attention band — กำลังจัดส่ง (incoming → what they receive). Rendered
+   *  amber to match the procurement pipeline's "act now" band. */
+  hot: boolean;
   items: T[];
+  /** Count of items whose ETA has passed (late arrivals to chase). 0 unless todayIso
+   *  is supplied. Meaningful on the in_transit band. */
+  overdue: number;
 }
+
+// The site's attention band is what's INCOMING (procurement's is what's to-buy).
+const HOT_BAND: RequestBand = "in_transit";
 
 export function groupRequestsByBand<
   T extends {
     status: PurchaseRequestStatus;
     priority: PurchaseRequestPriority;
     requested_at: string;
+    eta?: string | null;
   },
->(rows: ReadonlyArray<T>, view: RequestView): RequestBandGroup<T>[] {
+>(rows: ReadonlyArray<T>, view: RequestView, todayIso?: string | null): RequestBandGroup<T>[] {
   const allowed = new Set(VIEW_BANDS[view]);
   const byBand = new Map<RequestBand, T[]>();
   for (const r of rows) {
@@ -108,7 +118,10 @@ export function groupRequestsByBand<
     } else {
       items.sort(comparePendingRequests);
     }
-    groups.push({ band, label: REQUEST_BAND_LABEL[band], items });
+    // Late arrivals (ETA before today, zero-padded ISO string compare) — the chase
+    // signal site most wants. String compare is correct for YYYY-MM-DD.
+    const overdue = todayIso ? items.filter((r) => r.eta != null && r.eta < todayIso).length : 0;
+    groups.push({ band, label: REQUEST_BAND_LABEL[band], hot: band === HOT_BAND, items, overdue });
   }
   return groups;
 }

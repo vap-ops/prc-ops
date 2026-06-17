@@ -10,7 +10,8 @@ const row = (
   status: Parameters<typeof requestBand>[0],
   priority: "normal" | "urgent" | "critical" = "normal",
   requested_at = "2026-06-01T00:00:00Z",
-) => ({ status, priority, requested_at });
+  eta: string | null = null,
+) => ({ status, priority, requested_at, eta });
 
 describe("requestBand", () => {
   it("maps each status to its action-state band", () => {
@@ -87,5 +88,33 @@ describe("groupRequestsByBand", () => {
   it("omits empty bands", () => {
     const groups = groupRequestsByBand([row("requested")], "all");
     expect(groups.map((g) => g.band)).toEqual(["awaiting_approval"]);
+  });
+
+  it("marks กำลังจัดส่ง (in_transit) as the site's hot band, others not", () => {
+    const groups = groupRequestsByBand(
+      [row("requested"), row("on_route"), row("delivered")],
+      "all",
+    );
+    expect(groups.find((g) => g.band === "in_transit")?.hot).toBe(true);
+    expect(groups.find((g) => g.band === "awaiting_approval")?.hot).toBe(false);
+    expect(groups.find((g) => g.band === "done")?.hot).toBe(false);
+  });
+
+  it("counts overdue arrivals (eta before today) per band when today is given", () => {
+    const groups = groupRequestsByBand(
+      [
+        row("on_route", "normal", "2026-06-01T00:00:00Z", "2026-06-10"), // late
+        row("on_route", "normal", "2026-06-02T00:00:00Z", "2026-06-20"), // not yet
+        row("purchased", "normal", "2026-06-03T00:00:00Z", null), // no eta
+      ],
+      "active",
+      "2026-06-15",
+    );
+    expect(groups.find((g) => g.band === "in_transit")?.overdue).toBe(1);
+  });
+
+  it("reports zero overdue when today is omitted", () => {
+    const groups = groupRequestsByBand([row("on_route", "normal", "x", "2026-06-10")], "active");
+    expect(groups.find((g) => g.band === "in_transit")?.overdue).toBe(0);
   });
 });

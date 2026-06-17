@@ -190,7 +190,6 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // Spec 137: the site list (non-procurement) groups into action-state bands; the view
   // filter (active default) hides received/closed — the operator's "filter out received".
   const requestView = parseRequestView(singleParam(viewParam));
-  const requestBands = groupRequestsByBand(myRequests, requestView);
   // Build a /requests URL preserving the other filter axis; omit defaults (view=active,
   // mine off) for clean links.
   const reqHref = (next: { view?: RequestView; mine?: boolean }): string => {
@@ -227,6 +226,10 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
 
   const isProcurement = ctx.role === "procurement";
   const today = bangkokTodayISO();
+
+  // Spec 137: the site list groups into action-state bands; the view filter (active
+  // default) hides received/closed. `today` flags overdue arrivals (the chase signal).
+  const requestBands = groupRequestsByBand(myRequests, requestView, today);
 
   // Spec 110: project names for the project filter (procurement reads projects
   // read-only since spec 102 — RLS admits it, no migration). Procurement-only.
@@ -662,15 +665,32 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
           ) : requestBands.length === 0 ? (
             <EmptyNotice>ไม่มีคำขอซื้อในมุมมองนี้</EmptyNotice>
           ) : (
-            // Spec 137: action-state bands — most-actionable first, count per band.
+            // Spec 137: action-state bands — most-actionable first. Styled like the
+            // procurement pipeline (hot band amber); the hot band here is กำลังจัดส่ง
+            // (incoming → what site receives). Overdue arrivals get a เลยกำหนด flag.
             <div className="flex flex-col gap-6">
               {requestBands.map((group) => (
                 <section key={group.band} className="flex flex-col gap-2.5">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-section text-ink font-extrabold">{group.label}</h3>
-                    <span className="text-meta bg-sunk text-ink-secondary inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 font-extrabold">
+                    <h3
+                      className={`text-section font-extrabold ${
+                        group.hot ? "text-attn-ink" : "text-ink"
+                      }`}
+                    >
+                      {group.label}
+                    </h3>
+                    <span
+                      className={`text-meta inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 font-extrabold ${
+                        group.hot ? "bg-attn text-on-attn" : "bg-sunk text-ink-secondary"
+                      }`}
+                    >
                       {group.items.length}
                     </span>
+                    {group.overdue > 0 ? (
+                      <span className="bg-danger text-on-fill text-meta inline-flex h-5 items-center rounded-full px-2 font-bold">
+                        เลยกำหนด {group.overdue}
+                      </span>
+                    ) : null}
                   </div>
                   <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
                     {group.items.map(cardFor)}
