@@ -42,6 +42,7 @@ function rec(over: Partial<ProcurementGridRecord> & Pick<ProcurementGridRecord, 
     received_by: null,
     delivery_note: null,
     doc_count: 0,
+    purchase_order_id: null,
     ...over,
   } satisfies ProcurementGridRecord;
 }

@@ -422,10 +422,20 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // can't take server-closure functions). Procurement-only, mirroring the bands.
   const gridGroups = procurementGroups.map(({ meta, items }) => ({
     meta,
-    items: items.map((r): ProcurementGridRecord => {
+    // Spec 134 U2b: order the in_transit band so each PO's members are contiguous
+    // (PO groups first-appearance, then loose) — the grid renders a PO header
+    // before each group and prev/next nav follows this visual order.
+    items: (meta.band === "in_transit"
+      ? (() => {
+          const grouped = groupByPurchaseOrder(items);
+          return [...grouped.poGroups.flatMap((g) => g.items), ...grouped.loose];
+        })()
+      : items
+    ).map((r): ProcurementGridRecord => {
       const wp = wpById.get(r.work_package_id);
       return {
         id: r.id,
+        purchase_order_id: r.purchase_order_id,
         pr_number: r.pr_number,
         item_description: r.item_description,
         status: r.status,
@@ -465,6 +475,22 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // the same serializable grid records the desktop grid does.
   const toOrderGridItems = gridGroups.find((g) => g.meta.band === "to_order")?.items ?? [];
   const canBundlePhone = isProcurement && supplierRecords.length > 0;
+
+  // Spec 134 U2b: serializable PO-header facts for the desktop grid (the in_transit
+  // band renders a PO header row before each group). Reuses the roll-up computed for
+  // the phone PO cards; eta is dropped (the header shows status + line count).
+  const poFacts: Record<
+    string,
+    { poNumber: number; supplier: string; status: PurchaseOrderStatus; lineCount: number }
+  > = {};
+  for (const [poId, f] of poFactsById) {
+    poFacts[poId] = {
+      poNumber: f.poNumber,
+      supplier: f.supplier,
+      status: f.status,
+      lineCount: f.lineCount,
+    };
+  }
 
   type RequestRow = (typeof myRequests)[number];
   const cardFor = (r: RequestRow) => {
@@ -683,6 +709,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                       today={today}
                       suppliers={supplierRecords}
                       userId={ctx.id}
+                      poFacts={poFacts}
                     />
                   </div>
                 </>

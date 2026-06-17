@@ -14,22 +14,25 @@
 // Phone keeps the spec-104 card pipeline; this renders only at lg+ on the page.
 // amount is money — supplied by the page from an admin read, procurement-gated.
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronLeft, ChevronRight, Info, ShoppingCart } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, Info, Package, ShoppingCart } from "lucide-react";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { PurchaseRequestTracker } from "@/components/features/purchasing/purchase-request-tracker";
 import { PurchaseMiniStepper } from "@/components/features/purchasing/purchase-mini-stepper";
 import {
+  PURCHASE_ORDER_STATUS_LABEL,
   PURCHASE_REQUEST_PRIORITY_LABEL,
   PURCHASE_REQUEST_STATUS_LABEL,
   formatThaiDate,
 } from "@/lib/i18n/labels";
 import {
+  purchaseOrderStatusPillClasses,
   purchaseRequestPriorityPillClasses,
   purchaseRequestStatusPillClasses,
 } from "@/lib/status-colors";
+import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/lib/ui/classes";
 import { adjacentRecordIds, flattenRecordOrder } from "@/lib/purchasing/grid-record-nav";
 import { rowHealth, rowHealthLabel, type RowHealth } from "@/lib/purchasing/row-health";
@@ -64,6 +67,10 @@ type PurchaseRequestPriority = Database["public"]["Enums"]["purchase_request_pri
 // delivery info, document count, plus project_id for the in-drawer uploaders.
 export interface ProcurementGridRecord {
   id: string;
+  // Spec 134 U2b: the PO this row belongs to (null for a one-off). In the
+  // in_transit band, rows are pre-ordered so a PO's members are contiguous and the
+  // grid renders one PoHeaderRow before each group.
+  purchase_order_id: string | null;
   pr_number: number | null;
   item_description: string;
   status: PurchaseRequestStatus;
@@ -104,6 +111,16 @@ export interface WorklistGroupMeta {
 
 type Group = { meta: WorklistGroupMeta; items: ProcurementGridRecord[] };
 
+// Spec 134 U2b: per-PO header facts rendered above an in_transit PO group (keyed by
+// purchase_order_id). Derived by the page from the PO's FULL member set — the same
+// roll-up the PO detail shows.
+export interface PoHeaderFacts {
+  poNumber: number;
+  supplier: string;
+  status: PurchaseOrderStatus;
+  lineCount: number;
+}
+
 const baht = (n: number) => `฿${Math.round(n).toLocaleString("en-US")}`;
 
 export function ProcurementGrid({
@@ -111,6 +128,7 @@ export function ProcurementGrid({
   today,
   suppliers = [],
   userId,
+  poFacts = {},
 }: {
   groups: ReadonlyArray<Group>;
   // Bangkok civil date (from the server) — drives the spec-112 health color.
@@ -120,6 +138,8 @@ export function ProcurementGrid({
   // pass neither (uploaders are guarded on userId/project_id).
   suppliers?: ReadonlyArray<SupplierOption>;
   userId?: string;
+  // Spec 134 U2b: PO-header facts keyed by purchase_order_id (in_transit grouping).
+  poFacts?: Record<string, PoHeaderFacts>;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -207,6 +227,7 @@ export function ProcurementGrid({
                 selectable={canBundle}
                 selectedForPO={selectedForPO}
                 onToggleSelect={toggleForPO}
+                poFacts={poFacts}
               />
             ))}
           </tbody>
@@ -266,6 +287,7 @@ function BandRows({
   selectable,
   selectedForPO,
   onToggleSelect,
+  poFacts,
 }: {
   meta: WorklistGroupMeta;
   items: ProcurementGridRecord[];
@@ -275,6 +297,7 @@ function BandRows({
   selectable: boolean;
   selectedForPO: ReadonlySet<string>;
   onToggleSelect: (id: string) => void;
+  poFacts: Record<string, PoHeaderFacts>;
 }) {
   return (
     <>
@@ -288,78 +311,123 @@ function BandRows({
           {meta.label} · {items.length}
         </td>
       </tr>
-      {items.map((r) => {
+      {items.map((r, idx) => {
         const isSelected = r.id === selectedId;
         // Spec 117: a row checked for PO bundling stays highlighted on the grid.
         const isChecked = selectedForPO.has(r.id);
         // Spec 112: the row's health (band-relative time pressure) → left-edge color.
         const health = rowHealth(r.status, r.eta, r.needed_by, today);
+        // Spec 134 U2b: in the in_transit band (rows pre-ordered so a PO's members
+        // are contiguous), render a PO header before the first row of each group.
+        const poId = r.purchase_order_id;
+        const showPoHeader =
+          meta.band === "in_transit" &&
+          poId != null &&
+          poId !== (idx > 0 ? (items[idx - 1]?.purchase_order_id ?? null) : null);
+        const headerFacts = showPoHeader && poId ? poFacts[poId] : undefined;
         return (
-          <tr
-            key={r.id}
-            className={`border-edge border-t transition-colors ${
-              isSelected || isChecked ? "bg-action-soft" : "hover:bg-sunk"
-            }`}
-          >
-            <td
-              title={rowHealthLabel(health)}
-              className={`border-l-4 px-4 py-2 align-top ${HEALTH_BORDER[health]}`}
+          <Fragment key={r.id}>
+            {showPoHeader && poId && headerFacts ? (
+              <PoHeaderRow poId={poId} facts={headerFacts} />
+            ) : null}
+            <tr
+              className={`border-edge border-t transition-colors ${
+                isSelected || isChecked ? "bg-action-soft" : "hover:bg-sunk"
+              }`}
             >
-              <div className="flex items-start gap-2.5">
-                {/* Spec 116: bundle checkbox — only on approved (to_order) rows. */}
-                {selectable && r.status === "approved" ? (
-                  <input
-                    type="checkbox"
-                    checked={selectedForPO.has(r.id)}
-                    onChange={() => onToggleSelect(r.id)}
-                    aria-label={`เลือก ${r.item_description} เข้าใบสั่งซื้อ`}
-                    className="accent-action mt-1 size-5 shrink-0 cursor-pointer"
-                  />
-                ) : null}
-                <div className="min-w-0">
-                  {/* Spec 109: the row opens the review drawer (not a full nav). */}
-                  <button
-                    type="button"
-                    onClick={() => onSelect(r.id)}
-                    aria-haspopup="dialog"
-                    className="text-ink hover:text-action text-left font-medium break-words focus:outline-none focus-visible:underline"
-                  >
-                    {r.item_description}
-                  </button>
-                  <div className="text-ink-muted text-meta">
-                    {r.pr_number ? <span className="font-mono">PR-{r.pr_number}</span> : null}
-                    {r.wp_name ? <span> · {r.wp_name}</span> : null}
+              <td
+                title={rowHealthLabel(health)}
+                className={`border-l-4 px-4 py-2 align-top ${HEALTH_BORDER[health]}`}
+              >
+                <div className="flex items-start gap-2.5">
+                  {/* Spec 116: bundle checkbox — only on approved (to_order) rows. */}
+                  {selectable && r.status === "approved" ? (
+                    <input
+                      type="checkbox"
+                      checked={selectedForPO.has(r.id)}
+                      onChange={() => onToggleSelect(r.id)}
+                      aria-label={`เลือก ${r.item_description} เข้าใบสั่งซื้อ`}
+                      className="accent-action mt-1 size-5 shrink-0 cursor-pointer"
+                    />
+                  ) : null}
+                  <div className="min-w-0">
+                    {/* Spec 109: the row opens the review drawer (not a full nav). */}
+                    <button
+                      type="button"
+                      onClick={() => onSelect(r.id)}
+                      aria-haspopup="dialog"
+                      className="text-ink hover:text-action text-left font-medium break-words focus:outline-none focus-visible:underline"
+                    >
+                      {r.item_description}
+                    </button>
+                    <div className="text-ink-muted text-meta">
+                      {r.pr_number ? <span className="font-mono">PR-{r.pr_number}</span> : null}
+                      {r.wp_name ? <span> · {r.wp_name}</span> : null}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </td>
-            <td className="text-ink-secondary px-2 py-2 align-top break-words">
-              {r.supplier ?? "—"}
-            </td>
-            <td className="px-2 py-2 align-top">
-              {/* Spec 111: compact process bar above the pill (grid-density echo
+              </td>
+              <td className="text-ink-secondary px-2 py-2 align-top break-words">
+                {r.supplier ?? "—"}
+              </td>
+              <td className="px-2 py-2 align-top">
+                {/* Spec 111: compact process bar above the pill (grid-density echo
                   of the tracker). */}
-              <PurchaseMiniStepper status={r.status} />
-              <div className="mt-1.5">
-                <StatusPill pillClasses={purchaseRequestStatusPillClasses(r.status)}>
-                  {PURCHASE_REQUEST_STATUS_LABEL[r.status]}
-                </StatusPill>
-              </div>
-              {r.eta ? (
-                <div
-                  className={`text-meta mt-1 ${health === "late" ? "text-danger font-semibold" : "text-ink-muted"}`}
-                >
-                  ETA {r.eta}
+                <PurchaseMiniStepper status={r.status} />
+                <div className="mt-1.5">
+                  <StatusPill pillClasses={purchaseRequestStatusPillClasses(r.status)}>
+                    {PURCHASE_REQUEST_STATUS_LABEL[r.status]}
+                  </StatusPill>
                 </div>
-              ) : null}
-            </td>
-            <td className="text-ink px-4 py-2 text-right align-top tabular-nums">
-              {r.amount != null ? baht(r.amount) : "—"}
-            </td>
-          </tr>
+                {r.eta ? (
+                  <div
+                    className={`text-meta mt-1 ${health === "late" ? "text-danger font-semibold" : "text-ink-muted"}`}
+                  >
+                    ETA {r.eta}
+                  </div>
+                ) : null}
+              </td>
+              <td className="text-ink px-4 py-2 text-right align-top tabular-nums">
+                {r.amount != null ? baht(r.amount) : "—"}
+              </td>
+            </tr>
+          </Fragment>
         );
       })}
     </>
+  );
+}
+
+// Spec 134 U2b: the PO group header row inside the in_transit band — PO number,
+// supplier, derived roll-up status, and line count, linking to the PO detail. The
+// whole row is one anchor; it does NOT open the record drawer (it is navigation,
+// not a record). Rendered only for the in_transit band, where the page pre-orders
+// rows so each PO's members are contiguous beneath their header.
+function PoHeaderRow({ poId, facts }: { poId: string; facts: PoHeaderFacts }) {
+  return (
+    <tr className="border-edge border-t">
+      <td colSpan={4} className="bg-card px-4 py-1.5">
+        <Link
+          href={`/requests/orders/${poId}`}
+          className="text-ink hover:bg-sunk focus-visible:ring-action -mx-2 flex items-center justify-between gap-2 rounded-md px-2 py-1 transition-colors focus:outline-none focus-visible:ring-2"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <Package aria-hidden className="text-ink-muted size-3.5 shrink-0" />
+            <span className="text-ink-secondary text-meta font-mono">
+              PO-{String(facts.poNumber).padStart(4, "0")}
+            </span>
+            <span className="text-ink truncate text-sm font-medium">{facts.supplier}</span>
+            <span className="text-ink-muted text-meta shrink-0">· {facts.lineCount} รายการ</span>
+          </span>
+          <span className="flex shrink-0 items-center gap-1.5">
+            <StatusPill pillClasses={purchaseOrderStatusPillClasses(facts.status)}>
+              {PURCHASE_ORDER_STATUS_LABEL[facts.status]}
+            </StatusPill>
+            <ChevronRight aria-hidden className="text-ink-muted size-4" />
+          </span>
+        </Link>
+      </td>
+    </tr>
   );
 }
 

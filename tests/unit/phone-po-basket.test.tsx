@@ -25,6 +25,7 @@ const SUPPLIERS = [{ id: "11111111-1111-4111-8111-111111111111", name: "ร้�
 function rec(over: Partial<ProcurementGridRecord>): ProcurementGridRecord {
   return {
     id: "x",
+    purchase_order_id: null,
     pr_number: 1,
     item_description: "item",
     status: "approved",
