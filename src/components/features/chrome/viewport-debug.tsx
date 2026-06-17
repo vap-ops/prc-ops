@@ -50,6 +50,33 @@ export function ViewportDebug() {
   const [lines, setLines] = useState<string[]>([]);
   const [tick, setTick] = useState(0);
 
+  // Enable gesture (always active, even when the overlay is off): a standalone iOS
+  // PWA has no URL bar / console to set the flag, so 5 quick taps in the very
+  // top-left corner toggle localStorage.vpdebug and reload. Cheap; no state.
+  useEffect(() => {
+    let taps: number[] = [];
+    function onTap(e: PointerEvent) {
+      if (e.clientX > 32 || e.clientY > 32) {
+        taps = [];
+        return;
+      }
+      const now = e.timeStamp;
+      taps = taps.filter((t) => now - t < 1500);
+      taps.push(now);
+      if (taps.length < 5) return;
+      taps = [];
+      try {
+        const next = window.localStorage.getItem("vpdebug") === "1" ? "0" : "1";
+        window.localStorage.setItem("vpdebug", next);
+        window.location.reload();
+      } catch {
+        /* private mode / blocked storage — nothing to do */
+      }
+    }
+    window.addEventListener("pointerdown", onTap, true);
+    return () => window.removeEventListener("pointerdown", onTap, true);
+  }, []);
+
   useEffect(() => {
     if (!flagOn()) return;
     // Client-only mount gate: the flag reads window, so we start false (matching
@@ -102,7 +129,7 @@ export function ViewportDebug() {
         pointerEvents: "none",
       }}
     >
-      {`vpdebug #${tick}\n${lines.join("\n")}`}
+      {`vpdebug #${tick}  (corner×5 = off)\n${lines.join("\n")}`}
     </div>
   );
 }
