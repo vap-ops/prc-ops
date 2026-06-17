@@ -1,41 +1,62 @@
-// Spec 95: iOS standalone PWA shrinks the web view for the soft keyboard and does
-// NOT recompute the h-full (100%) height chain when it closes, so html/body/<main>
-// stay at the keyboard-reduced height — the content the keyboard vacated is clipped
-// and a blank gap is left at the bottom (operator screenshot). Pin html+body to the
-// live window.innerHeight and re-apply on resize so the keyboard-close resize
-// restores the full height. No transform (would reparent fixed chrome), no scroll.
+// Spec 95: on iOS the soft keyboard is a separate layer — the layout viewport
+// (window.innerHeight) never changes and the window resize event does not fire;
+// only window.visualViewport reacts. AppHeightTracker publishes the live
+// visualViewport.height as the --app-vh CSS var so PageShell's <main> tracks the
+// visible area (shrinks above the keyboard, restores to full on close).
 
 import { render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { AppHeightTracker } from "@/components/features/chrome/app-height-tracker";
 
-function setInnerHeight(px: number) {
-  Object.defineProperty(window, "innerHeight", { configurable: true, value: px });
+type Fire = (type: string) => void;
+
+function mockVisualViewport(height: number): { setHeight: (h: number) => void; fire: Fire } {
+  const listeners: Record<string, Array<(e: Event) => void>> = {};
+  const vv = {
+    height,
+    width: 375,
+    offsetTop: 0,
+    addEventListener: (type: string, cb: (e: Event) => void) => {
+      (listeners[type] ??= []).push(cb);
+    },
+    removeEventListener: (type: string, cb: (e: Event) => void) => {
+      listeners[type] = (listeners[type] ?? []).filter((x) => x !== cb);
+    },
+  };
+  Object.defineProperty(window, "visualViewport", { configurable: true, value: vv });
+  return {
+    setHeight: (h: number) => {
+      vv.height = h;
+    },
+    fire: (type: string) => (listeners[type] ?? []).forEach((cb) => cb(new Event(type))),
+  };
+}
+
+function appVh(): string {
+  return document.documentElement.style.getPropertyValue("--app-vh");
 }
 
 afterEach(() => {
-  document.documentElement.style.height = "";
-  document.body.style.height = "";
+  document.documentElement.style.removeProperty("--app-vh");
+  Reflect.deleteProperty(window, "visualViewport");
   document.body.innerHTML = "";
 });
 
 describe("AppHeightTracker", () => {
-  it("pins html + body height to window.innerHeight on mount", () => {
-    setInnerHeight(820);
+  it("publishes the visual-viewport height as --app-vh on mount", () => {
+    mockVisualViewport(540); // keyboard up: visible area reduced
     render(<AppHeightTracker />);
-    expect(document.documentElement.style.height).toBe("820px");
-    expect(document.body.style.height).toBe("820px");
+    expect(appVh()).toBe("540px");
   });
 
-  it("re-applies the restored height on resize (the keyboard-close fix)", () => {
-    setInnerHeight(520); // keyboard up: web view reduced
+  it("restores the full height when the keyboard closes (visualViewport resize)", () => {
+    const vv = mockVisualViewport(540); // keyboard up
     render(<AppHeightTracker />);
-    expect(document.body.style.height).toBe("520px");
+    expect(appVh()).toBe("540px");
 
-    setInnerHeight(844); // keyboard closes: innerHeight restored
-    window.dispatchEvent(new Event("resize"));
-    expect(document.documentElement.style.height).toBe("844px");
-    expect(document.body.style.height).toBe("844px");
+    vv.setHeight(844); // keyboard closes → visual viewport grows back
+    vv.fire("resize");
+    expect(appVh()).toBe("844px");
   });
 });
