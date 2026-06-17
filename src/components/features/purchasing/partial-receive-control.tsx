@@ -66,9 +66,17 @@ export function PartialReceiveControl({
       return;
     }
     const deliveredAmount = amount != null && amountStr.trim() !== "" ? Number(amountStr) : null;
-    if (deliveredAmount != null && (!Number.isFinite(deliveredAmount) || deliveredAmount < 0)) {
-      setError("จำนวนเงินไม่ถูกต้อง");
-      return;
+    if (deliveredAmount != null) {
+      if (!Number.isFinite(deliveredAmount) || deliveredAmount < 0) {
+        setError("จำนวนเงินไม่ถูกต้อง");
+        return;
+      }
+      // Upper bound: the delivered share can't exceed the line's amount (the RPC
+      // re-enforces this; a clear inline message beats the generic failure).
+      if (amount != null && deliveredAmount > amount) {
+        setError(`มูลค่าที่รับต้องไม่เกิน ${amount} บาท`);
+        return;
+      }
     }
     startTransition(async () => {
       const result = await splitPurchaseRequestOnReceipt({
