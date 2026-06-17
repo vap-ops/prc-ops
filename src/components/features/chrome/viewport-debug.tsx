@@ -30,6 +30,7 @@ function readMetrics(): string[] {
   const appVh = doc.style.getPropertyValue("--app-vh") || "—";
   return [
     `innerHeight     ${r(window.innerHeight)}`,
+    `vv.scale        ${vv ? vv.scale.toFixed(2) : "—"}`,
     `vv.height       ${r(vv?.height)}`,
     `vv.offsetTop    ${r(vv?.offsetTop)}`,
     `vv.pageTop      ${r(vv?.pageTop)}`,

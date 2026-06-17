@@ -30,8 +30,17 @@ export const metadata: Metadata = {
 };
 
 // Status-bar / splash chrome matches the app's white ground (spec 20).
+// maximumScale/userScalable disable iOS auto-zoom-on-input-focus (spec 95): the
+// form fields are text-sm (14px) and iOS zooms into any input < 16px on focus, then
+// leaves the page zoomed + panned — the "blank portion" the operator saw (manually
+// zooming back to 100% cleared it). A native-feel standalone PWA does not pinch-zoom
+// forms; this is the design-preserving fix (keeps the field-first text sizes).
 export const viewport: Viewport = {
   themeColor: "#ffffff",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
