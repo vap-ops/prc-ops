@@ -37,7 +37,11 @@ export function SplitDeliveryControl({
 }: SplitDeliveryControlProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [checked, setChecked] = useState<ReadonlySet<string>>(() => new Set());
+  // Most deliveries carry the whole order, so every line starts ticked — untick only
+  // the items that go to another งวด (operator UX, 2026-06-17).
+  const [checked, setChecked] = useState<ReadonlySet<string>>(
+    () => new Set(lines.map((l) => l.id)),
+  );
   const [eta, setEta] = useState("");
   const [note, setNote] = useState("");
   const [cost, setCost] = useState("");
@@ -56,17 +60,20 @@ export function SplitDeliveryControl({
   const count = selectedLines.length;
   const wouldEmpty = deliverySplitWouldEmptySource(selectedLines, activeCountByDelivery);
 
-  function reset() {
-    setChecked(new Set());
+  // Every open starts with all current lines ticked (the sheet stays mounted across
+  // refreshes, so re-seed here rather than relying on the mount-time initial state).
+  function openSheet() {
+    setChecked(new Set(lines.map((l) => l.id)));
     setEta("");
     setNote("");
     setCost("");
     setError(null);
+    setOpen(true);
   }
 
   function close() {
     setOpen(false);
-    reset();
+    setError(null);
   }
 
   function submit() {
@@ -76,7 +83,7 @@ export function SplitDeliveryControl({
       return;
     }
     if (wouldEmpty) {
-      setError("ต้องเหลืออย่างน้อย 1 รายการในงวดเดิม");
+      setError("ต้องเหลืออย่างน้อย 1 รายการไว้อีกงวด — เอาบางรายการออกก่อน");
       return;
     }
     const costNum = cost.trim() === "" ? null : Number(cost);
@@ -106,12 +113,14 @@ export function SplitDeliveryControl({
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className={BUTTON_SECONDARY_MUTED}>
+      <button type="button" onClick={openSheet} className={BUTTON_SECONDARY_MUTED}>
         สร้างงวดจัดส่ง
       </button>
 
       <BottomSheet open={open} title="สร้างงวดจัดส่งใหม่" onClose={close}>
-        <p className="text-ink-secondary text-xs">เลือกรายการที่จะแยกไปงวดจัดส่งใหม่</p>
+        <p className="text-ink-secondary text-xs">
+          ปกติทุกรายการมาพร้อมกัน จึงติ๊กไว้ทั้งหมด — เอาเฉพาะรายการที่จะแยกไปงวดอื่นออก
+        </p>
         <ul className="mt-3 flex flex-col gap-2">
           {lines.map((l) => (
             <li key={l.id} className="border-edge rounded-md border p-2">
@@ -163,6 +172,13 @@ export function SplitDeliveryControl({
           />
         </label>
 
+        {/* All ticked → can't move the whole source into a new งวด; guide the untick
+            rather than show a silently-disabled button. */}
+        {wouldEmpty && !error ? (
+          <p className="text-ink-secondary mt-3 text-xs">
+            ต้องเหลืออย่างน้อย 1 รายการไว้อีกงวด — เอาบางรายการออกก่อน
+          </p>
+        ) : null}
         {error ? (
           <p role="alert" className={`${INLINE_ALERT_TEXT} mt-3`}>
             {error}
