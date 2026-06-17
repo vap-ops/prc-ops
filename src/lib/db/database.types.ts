@@ -1391,6 +1391,7 @@ export type Database = {
           decided_at: string | null
           decision_comment: string | null
           delivered_at: string | null
+          delivery_batch_id: string | null
           delivery_note: string | null
           eta: string | null
           id: string
@@ -1431,6 +1432,7 @@ export type Database = {
           decided_at?: string | null
           decision_comment?: string | null
           delivered_at?: string | null
+          delivery_batch_id?: string | null
           delivery_note?: string | null
           eta?: string | null
           id?: string
@@ -1471,6 +1473,7 @@ export type Database = {
           decided_at?: string | null
           decision_comment?: string | null
           delivered_at?: string | null
+          delivery_batch_id?: string | null
           delivery_note?: string | null
           eta?: string | null
           id?: string
