@@ -38,10 +38,23 @@ export function ViewportScrollGuard() {
       if (!force && isEditable(document.activeElement)) return;
       const scroller = document.querySelector("main");
       if (!(scroller instanceof HTMLElement)) return;
-      // Mirror the manual scroll that recovers it: nudge, then restore next
+      // (1) Mirror the manual scroll that recovers it: nudge, then restore next
       // frame so the net position is unchanged but a repaint is forced.
       scroller.scrollBy(0, 1);
-      requestAnimationFrame(() => scroller.scrollBy(0, -1));
+      // (2) Scroll-INDEPENDENT repaint. scrollBy only forces a repaint when <main>
+      // can actually scroll; a short form that fits the viewport (no overflow)
+      // never moves, so the locked scroller stays blank — the recurrence that kept
+      // freezing "for good". A 1px transform nudge re-rasterizes the layer
+      // regardless of content height. Restored next frame → net position unchanged,
+      // 1px shift invisible for a single frame. Preserves any existing transform.
+      const prevTransform = scroller.style.transform;
+      scroller.style.transform = prevTransform
+        ? `${prevTransform} translateY(1px)`
+        : "translateY(1px)";
+      requestAnimationFrame(() => {
+        scroller.scrollBy(0, -1);
+        scroller.style.transform = prevTransform;
+      });
     }
 
     function onFocusOut() {

@@ -49,4 +49,31 @@ describe("ViewportScrollGuard", () => {
 
     expect(scrollBy).not.toHaveBeenCalled();
   });
+
+  // The scroll nudge only repaints when <main> can actually scroll. A short form
+  // that fits the viewport (no overflow) cannot scroll, so scrollBy moves nothing
+  // and the locked scroller stays blank. Force a scroll-INDEPENDENT repaint too: a
+  // 1px transform nudge on <main>, restored next frame — re-rasterizes regardless
+  // of content height. This is the "freezes for good" recurrence (short forms).
+  it("also applies a scroll-independent transform nudge, restored next frame", () => {
+    vi.useFakeTimers();
+    const rafs: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      rafs.push(cb);
+      return rafs.length;
+    });
+    const { main } = mountInMain();
+
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    vi.advanceTimersByTime(150);
+
+    // nudge applied synchronously inside the repaint
+    expect(main.style.transform).toBe("translateY(1px)");
+
+    // and cleared on the next animation frame (net visual position unchanged)
+    rafs.forEach((cb) => cb(0));
+    expect(main.style.transform).toBe("");
+  });
 });
