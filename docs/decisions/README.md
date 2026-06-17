@@ -57,6 +57,7 @@ later one corrects — read both when the topic is live.
 | 0049 | AI feature governance: toggles, system prompts, access control    |                                            |
 | 0050 | super_admin user & role management                                |                                            |
 | 0051 | external partner access model (DC/client portal, row-level RLS)   | extends 0013                               |
+| 0052 | Within-ticket partial delivery via split-on-receipt               | Amends 0044 §7; spec 134 U3                |
 
 **Absent numbers** (never authored as standalone files; do not look for them):
 0023, 0024 — skipped. 0029 — AppSheet image bridge, cancelled before authoring

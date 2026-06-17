@@ -164,12 +164,11 @@ surfaces is too large for one session, split: **2a** = helper + phone cards,
 
 ## Unit 3 — within-ticket partial delivery via split-on-receipt ⚠️ GATED
 
-Handles the 1–2% case: a single ticket's quantity arrives in parts. **This amends
-ADR 0044 §7** (which deferred "split quantity → a receipts/`quantity_received`
-unit") and adds a column + an RPC → it is an architectural decision. **Write the ADR
-and get it accepted before building** (CLAUDE.md: architectural choices not in a
-spec are raised before implementation). Grab the next free ADR number from
-`docs/decisions/README.md`.
+Handles the 1–2% case: a single ticket's quantity arrives in parts. **Decided in
+ADR 0052** (amends ADR 0044 §7) — split-on-receipt, lineage column, proportional
+amount split, optional photo. **Build is GATED on ADR 0052 being accepted** (it is
+Proposed as of 2026-06-17). The design below matches ADR 0052; read it in full
+before building.
 
 ### Approach — split, not a receipts ledger
 
@@ -220,7 +219,11 @@ received + optional delivery note. Full delivery keeps the existing
 confirmation-photo path (spec 24). After a split, the detail re-renders: delivered
 child + remaining child, PO badge → `partially_received` (free, via the roll-up).
 
-### Open decisions for the ADR (resolve before build)
+### Decided in ADR 0052 (was: open decisions)
+
+ADR 0052 resolves all three: (1) proportional-by-qty with exact reconciliation
+[permitted variant: buyer-entered], (2) photo OPTIONAL on the partial, (3) original
+→ delivered, child → remainder + `split_from_request_id`. Detail retained below.
 
 1. **Amount split.** Each ticket carries its own `amount` (money). On split, does
    the delivered portion keep the full amount, or split proportionally by qty?
