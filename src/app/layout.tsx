@@ -3,6 +3,7 @@ import { Geist_Mono, Sarabun } from "next/font/google";
 import { SwRegister } from "@/components/features/chrome/sw-register";
 import { UploadQueueRunner } from "@/components/features/photos/upload-queue-runner";
 import { ViewportScrollGuard } from "@/components/features/chrome/viewport-scroll-guard";
+import { AppHeightTracker } from "@/components/features/chrome/app-height-tracker";
 import { ViewportDebug } from "@/components/features/chrome/viewport-debug";
 import { ToastProvider } from "@/components/features/common/toast-provider";
 import "./globals.css";
@@ -54,6 +55,9 @@ export default function RootLayout({
         {/* Spec 95: snaps the locked document back to top after the iOS
             keyboard closes (otherwise the header is pushed off / blank band). */}
         <ViewportScrollGuard />
+        {/* Spec 95: restores the locked h-full height after the iOS keyboard
+            closes (iOS doesn't recompute 100%, leaving a blank bottom gap). */}
+        <AppHeightTracker />
         {/* Spec 95 TEMPORARY diagnostic — flag-gated (?vpdebug=1), inert
             otherwise. Remove once the keyboard-close viewport fix is confirmed. */}
         <ViewportDebug />
