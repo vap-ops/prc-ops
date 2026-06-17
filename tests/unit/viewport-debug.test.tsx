@@ -14,14 +14,14 @@ afterEach(() => {
 });
 
 describe("ViewportDebug", () => {
-  it("renders nothing without the vpdebug flag", () => {
-    const { container } = render(<ViewportDebug />);
-    expect(container.firstChild).toBeNull();
-  });
-
-  it("renders the metrics overlay when the vpdebug localStorage flag is set", () => {
-    window.localStorage.setItem("vpdebug", "1");
+  it("renders the metrics overlay by default (temporary diagnostic, ON by default)", () => {
     const { queryByTestId } = render(<ViewportDebug />);
     expect(queryByTestId("viewport-debug")).not.toBeNull();
+  });
+
+  it("is hidden once dismissed (localStorage vpdebug=0)", () => {
+    window.localStorage.setItem("vpdebug", "0");
+    const { container } = render(<ViewportDebug />);
+    expect(container.firstChild).toBeNull();
   });
 });

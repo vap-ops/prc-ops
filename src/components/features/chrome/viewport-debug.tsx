@@ -1,23 +1,22 @@
 "use client";
 
-// Spec 95 diagnostic overlay — TEMPORARY. After three failed fixes for the
-// "screen broken after the keyboard closes" report (paint nudge, snap-to-top,
-// height relayout) the actual stale dimension is still unknown, so this prints the
-// live iOS viewport metrics on the device. The operator opens the broken screen
-// with ?vpdebug=1 (or localStorage.vpdebug="1"), closes the keyboard, and reads /
-// screenshots the numbers — that pins down which dimension is wrong in one round
-// instead of another blind guess. Inert (renders null) unless the flag is set, so
-// it never reaches normal users. Remove once the real fix lands.
+// Spec 95 diagnostic overlay — TEMPORARY. After five failed fixes for the "screen
+// broken after the keyboard closes" report the actual stale dimension is still
+// unknown, and the operator (reasonably) didn't enable the flag, so the screenshots
+// carry the symptom but not the numbers. Now ON BY DEFAULT so the very next
+// screenshot of the broken screen carries the live iOS viewport metrics — that pins
+// down which dimension is wrong in one round instead of a sixth blind guess. Tap the
+// top-left corner 5x to dismiss it (persists). Remove once the real fix lands.
 
 import { useEffect, useState } from "react";
 
 function flagOn(): boolean {
   if (typeof window === "undefined") return false;
   try {
-    if (new URLSearchParams(window.location.search).has("vpdebug")) return true;
-    return window.localStorage.getItem("vpdebug") === "1";
+    // Default ON; only OFF when explicitly dismissed (localStorage vpdebug="0").
+    return window.localStorage.getItem("vpdebug") !== "0";
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -28,11 +27,13 @@ function readMetrics(): string[] {
   const mainRect = main?.getBoundingClientRect();
   const active = document.activeElement;
   const r = (n: number | undefined) => (n === undefined ? "—" : Math.round(n).toString());
+  const appVh = doc.style.getPropertyValue("--app-vh") || "—";
   return [
     `innerHeight     ${r(window.innerHeight)}`,
     `vv.height       ${r(vv?.height)}`,
     `vv.offsetTop    ${r(vv?.offsetTop)}`,
     `vv.pageTop      ${r(vv?.pageTop)}`,
+    `--app-vh        ${appVh}`,
     `doc.clientH     ${r(doc.clientHeight)}`,
     `body.rectH      ${r(document.body.getBoundingClientRect().height)}`,
     `main.rectH      ${r(mainRect?.height)}`,
@@ -66,8 +67,9 @@ export function ViewportDebug() {
       if (taps.length < 5) return;
       taps = [];
       try {
-        const next = window.localStorage.getItem("vpdebug") === "1" ? "0" : "1";
-        window.localStorage.setItem("vpdebug", next);
+        // Default ON; tapping toggles: if currently shown, persist OFF ("0"),
+        // else clear the off-flag so it shows again.
+        window.localStorage.setItem("vpdebug", flagOn() ? "0" : "1");
         window.location.reload();
       } catch {
         /* private mode / blocked storage — nothing to do */
