@@ -1,5 +1,5 @@
 begin;
-select plan(25);
+select plan(26);
 
 -- ============================================================================
 -- Spec 134 U3 / ADR 0052 — split_purchase_request_on_receipt + the
@@ -11,9 +11,11 @@ select plan(25);
 -- ============================================================================
 
 insert into auth.users (id, email, raw_user_meta_data) values
-  ('22222222-2222-2222-2222-222222220134', 'sa@split.local', '{}'::jsonb),
-  ('33333333-3333-3333-3333-333333330134', 'vi@split.local', '{}'::jsonb);
-update public.users set role = 'site_admin' where id = '22222222-2222-2222-2222-222222220134';
+  ('22222222-2222-2222-2222-222222220134', 'sa@split.local',   '{}'::jsonb),
+  ('33333333-3333-3333-3333-333333330134', 'vi@split.local',   '{}'::jsonb),
+  ('44444444-4444-4444-4444-444444440134', 'proc@split.local', '{}'::jsonb);
+update public.users set role = 'site_admin'  where id = '22222222-2222-2222-2222-222222220134';
+update public.users set role = 'procurement' where id = '44444444-4444-4444-4444-444444440134';
 -- second user stays visitor
 
 insert into public.projects (id, code, name) values
@@ -72,6 +74,13 @@ select throws_ok(
   $$ select public.split_purchase_request_on_receipt(
        'c1000134-0000-4000-8000-000000000001', 30) $$,
   '42501', null, 'a visitor cannot split a ticket');
+
+-- Spec 134 U8: a partial receipt is still a receipt — procurement (off-site) refused.
+set local "request.jwt.claims" = '{"sub": "44444444-4444-4444-4444-444444440134"}';
+select throws_ok(
+  $$ select public.split_purchase_request_on_receipt(
+       'c1000134-0000-4000-8000-000000000001', 30) $$,
+  '42501', null, 'procurement cannot split/receive');
 
 set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222220134"}';
 

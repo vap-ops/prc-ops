@@ -1,5 +1,5 @@
 begin;
-select plan(12);
+select plan(13);
 
 -- ============================================================================
 -- Spec 134 U5 / ADR 0053 — receive_po_lines: explicit PO-level receive. Marks the
@@ -9,9 +9,11 @@ select plan(12);
 -- ============================================================================
 
 insert into auth.users (id, email, raw_user_meta_data) values
-  ('22222222-2222-2222-2222-222222220153', 'sa@recv.local', '{}'::jsonb),
-  ('33333333-3333-3333-3333-333333330153', 'vi@recv.local', '{}'::jsonb);
-update public.users set role = 'site_admin' where id = '22222222-2222-2222-2222-222222220153';
+  ('22222222-2222-2222-2222-222222220153', 'sa@recv.local',   '{}'::jsonb),
+  ('33333333-3333-3333-3333-333333330153', 'vi@recv.local',   '{}'::jsonb),
+  ('44444444-4444-4444-4444-444444440153', 'proc@recv.local', '{}'::jsonb);
+update public.users set role = 'site_admin'  where id = '22222222-2222-2222-2222-222222220153';
+update public.users set role = 'procurement' where id = '44444444-4444-4444-4444-444444440153';
 -- second user stays visitor
 
 insert into public.projects (id, code, name) values
@@ -64,6 +66,12 @@ set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333330153"
 select throws_ok(
   $$ select public.receive_po_lines(array['c1000153-0000-4000-8000-000000000001']::uuid[]) $$,
   '42501', null, 'a visitor cannot receive');
+
+-- Spec 134 U8: the off-site purchase team (procurement) cannot mark received.
+set local "request.jwt.claims" = '{"sub": "44444444-4444-4444-4444-444444440153"}';
+select throws_ok(
+  $$ select public.receive_po_lines(array['c1000153-0000-4000-8000-000000000001']::uuid[]) $$,
+  '42501', null, 'procurement (off-site) cannot mark received');
 
 set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222220153"}';
 select throws_ok(

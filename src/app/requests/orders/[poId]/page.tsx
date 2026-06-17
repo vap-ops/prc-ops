@@ -6,7 +6,7 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { requireRole } from "@/lib/auth/require-role";
-import { PURCHASING_ROLES } from "@/lib/auth/role-home";
+import { PURCHASING_ROLES, SITE_STAFF_ROLES } from "@/lib/auth/role-home";
 import { isBackOfficeRole } from "@/lib/purchasing/back-office";
 import { createClient } from "@/lib/db/server";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
@@ -95,6 +95,9 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
 
   // Money: per-line amount via the admin client, gated to back office (spec 106).
   const isBackOffice = isBackOfficeRole(ctx.role);
+  // Spec 134 U8: receiving is a SITE action — the off-site purchase team
+  // (procurement) sees the PO + delivery status but never the รับของ controls.
+  const canReceive = SITE_STAFF_ROLES.includes(ctx.role);
   const amountById = new Map<string, number | null>();
   if (isBackOffice && members.length > 0) {
     const admin = createAdminSupabase();
@@ -205,8 +208,11 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
         {/* Spec 134 U7: the delivery breakdown (งวดส่ง) — only when the PO forked. */}
         {showDeliveryBreakdown ? <PoDeliveryBreakdown breakdown={deliveryBreakdown} /> : null}
 
-        {/* Spec 134 U5: the prominent receive checklist for in-transit lines. */}
-        {inTransitLines.length > 0 ? <PoReceiveSection lines={inTransitLines} /> : null}
+        {/* Spec 134 U5 + U8: the receive checklist — site staff only (procurement,
+            off-site, can't confirm arrival). */}
+        {inTransitLines.length > 0 && canReceive ? (
+          <PoReceiveSection lines={inTransitLines} />
+        ) : null}
 
         <div>
           <h2 className="text-ink mb-3 text-base font-semibold">รายการในใบสั่งซื้อ</h2>
