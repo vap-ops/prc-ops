@@ -338,6 +338,28 @@ null, p_delivery_note text default null)` SECURITY DEFINER RPC — authenticated
 - **Out of scope:** per-delivery shipping cost → deferred to U4b (operator
   2026-06-17); undo-a-receive (reverse path) is a later seam.
 
+## Units 6–7 — PO progress stepper + delivery breakdown (operator follow-ups)
+
+Post-U5 the operator flagged: the PO detail had no progress tracker, and delivery
+felt missing (the roll-up folded `on_route` into "ordered", so the PO jumped
+ordered → received). Then: "what if partial delivery branches the tracker?"
+
+- **U6 — delivering state + stepper.** `PurchaseOrderStatus` gains `in_transit`
+  (กำลังจัดส่ง; amends ADR 0044 §5 — ≥1 member `on_route`, none delivered). New pure
+  `purchaseOrderStageStates` + `PurchaseOrderTracker` (สั่งซื้อ → จัดส่ง → รับของ) on
+  the PO-detail summary card. Label + SKY pill flow to the phone card + desktop
+  header. App-only; SHIPPED to prod (commit 33e0ecc).
+- **U7 — delivery branches (งวดส่ง).** A partial delivery forks the PO into batches;
+  `delivery_batch_id` (new column, stamped by `receive_po_lines` per call and the
+  split RPC per partial — RPC-only by the column-scope grant) groups lines received
+  together. Pure `groupDeliveryBatches` (group by id, fallback `delivered_at`;
+  pending remainder + earliest eta). `PoDeliveryBreakdown` lists งวดที่ N · count ·
+  receipt date + a ค้างส่ง row — rendered under the tracker **only when the PO
+  actually forked** (multi-batch or some received + some pending), so the 85%
+  one-delivery PO stays a plain linear stepper. Render choice: breakdown list (not a
+  literal fork-tree) for mobile glanceability. `delivery_batch_id` is the bridge to
+  U4b (a courier order = one batch). SHIPPED to prod.
+
 ## Verification checklist
 
 Per unit: `pnpm lint && pnpm typecheck && pnpm test` all green; new pure helpers

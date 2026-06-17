@@ -33,6 +33,8 @@ import { AttachmentPdf } from "@/components/features/purchasing/attachment-pdf";
 import { ProofOfDeliveryUploader } from "@/components/features/purchasing/proof-of-delivery-uploader";
 import { PoReceiveSection } from "@/components/features/purchasing/po-receive-section";
 import { PurchaseOrderTracker } from "@/components/features/purchasing/purchase-order-tracker";
+import { PoDeliveryBreakdown } from "@/components/features/purchasing/po-delivery-breakdown";
+import { groupDeliveryBatches } from "@/lib/purchasing/delivery-batches";
 
 // /requests/orders/[poId] — the purchase-order detail screen (spec 134 U1). A PO
 // groups N approved tickets into one supplier order (ADR 0044); spec 115 shipped
@@ -79,7 +81,7 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
   // columns the list/detail read (spec 65), ordered by their running number.
   const { data: memberRows } = await supabase
     .from("purchase_requests")
-    .select(PR_LIST_COLUMNS)
+    .select(`${PR_LIST_COLUMNS}, delivery_batch_id`)
     .eq("purchase_order_id", poId)
     .order("pr_number", { ascending: true });
   const members = memberRows ?? [];
@@ -142,6 +144,14 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
       amount: isBackOffice ? (amountById.get(m.id) ?? null) : null,
     }));
 
+  // Spec 134 U7: the delivery breakdown — shown only when the PO actually FORKED
+  // (more than one received batch, or some received + some still pending). The 85%
+  // one-delivery PO keeps just the linear stepper.
+  const deliveryBreakdown = groupDeliveryBatches(members);
+  const showDeliveryBreakdown =
+    deliveryBreakdown.batches.length >= 1 &&
+    (deliveryBreakdown.batches.length > 1 || deliveryBreakdown.pending !== null);
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -191,6 +201,9 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
             <PurchaseOrderTracker status={view.status} />
           </div>
         </div>
+
+        {/* Spec 134 U7: the delivery breakdown (งวดส่ง) — only when the PO forked. */}
+        {showDeliveryBreakdown ? <PoDeliveryBreakdown breakdown={deliveryBreakdown} /> : null}
 
         {/* Spec 134 U5: the prominent receive checklist for in-transit lines. */}
         {inTransitLines.length > 0 ? <PoReceiveSection lines={inTransitLines} /> : null}
