@@ -29,6 +29,7 @@ import {
   type ProofDeliveryDoc,
 } from "@/lib/purchasing/po-deliveries";
 import { DeliveryProofBlock } from "@/components/features/purchasing/delivery-proof-block";
+import { DeliveryDispatchControl } from "@/components/features/purchasing/delivery-dispatch-control";
 import { poDetailHref } from "@/lib/nav/order-paths";
 
 // /requests/orders/[poId]/deliveries/[deliveryId] — the delivery (งวดจัดส่ง) detail
@@ -103,6 +104,8 @@ export default async function DeliveryDetailPage({ params }: PageProps) {
 
   const isBackOffice = isBackOfficeRole(ctx.role);
   const lines = members.filter((m) => m.delivery_id === deliveryId);
+  // Spec 135 U6: lines still 'purchased' can be dispatched (→ on_route → in_transit).
+  const dispatchableCount = lines.filter((m) => m.status === "purchased").length;
 
   // Proof for this delivery — group all the PO's proof, take this delivery's bucket
   // (legacy NULL proof falls under the default = earliest delivery). Mint signed URLs.
@@ -164,6 +167,12 @@ export default async function DeliveryDetailPage({ params }: PageProps) {
             <p className="text-ink-secondary mt-2 text-xs whitespace-pre-wrap">
               หมายเหตุ: {delivery.note}
             </p>
+          ) : null}
+          {/* Spec 135 U6: dispatch — advance the งวด to กำลังจัดส่ง (back office only). */}
+          {isBackOffice && dispatchableCount > 0 ? (
+            <div className="border-edge mt-3 border-t pt-3">
+              <DeliveryDispatchControl deliveryId={deliveryId} count={dispatchableCount} />
+            </div>
           ) : null}
         </div>
 

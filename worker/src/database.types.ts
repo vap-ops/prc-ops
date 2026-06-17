@@ -2369,6 +2369,10 @@ export type Database = {
         Args: { p_approve: boolean; p_id: string }
         Returns: undefined
       }
+      dispatch_purchase_order_delivery: {
+        Args: { p_delivery_id: string }
+        Returns: number
+      }
       enqueue_peak_sync: {
         Args: {
           p_entity_type: Database["public"]["Enums"]["peak_entity_type"]

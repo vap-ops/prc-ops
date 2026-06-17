@@ -148,7 +148,7 @@ export function SplitDeliveryControl({
             type="date"
             value={eta}
             onChange={(e) => setEta(e.target.value)}
-            className={`${inputCls} mt-1`}
+            className={`${inputCls} mt-1 min-w-0 appearance-none`}
           />
         </label>
         <label className="text-ink-secondary mt-3 block text-xs font-medium">

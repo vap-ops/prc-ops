@@ -712,6 +712,35 @@ export async function splitPurchaseOrderDelivery(
   return { ok: true };
 }
 
+// dispatchPurchaseOrderDelivery (spec 135 U6 / ADR 0054): records that a delivery
+// (งวด) is on its way — marks its purchased lines shipped, so the PO advances
+// ordered → in_transit (กำลังจัดส่ง). Relays the guarded RPC (back-office gate; the
+// trigger chain does the on_route flip + audit). Returns how many lines were marked.
+const ERR_DISPATCH_FAILED = "บันทึกการจัดส่งไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+
+export async function dispatchPurchaseOrderDelivery(
+  deliveryId: string,
+): Promise<{ ok: true; dispatched: number } | { ok: false; error: string }> {
+  if (!UUID_REGEX.test(deliveryId)) {
+    return { ok: false, error: ERR_DISPATCH_FAILED };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase } = auth;
+
+  const { data, error } = await supabase.rpc("dispatch_purchase_order_delivery", {
+    p_delivery_id: deliveryId,
+  });
+  if (error) {
+    console.error("[dispatch-delivery] rpc failed", error);
+    return { ok: false, error: ERR_DISPATCH_FAILED };
+  }
+
+  revalidatePath("/requests");
+  return { ok: true, dispatched: typeof data === "number" ? data : 0 };
+}
+
 // recordSitePurchase (spec 66 / ADR 0043): an on-site cash purchase that
 // never went through request→approve. Relays the SECURITY DEFINER RPC,
 // which creates the purchase_request born terminal (status

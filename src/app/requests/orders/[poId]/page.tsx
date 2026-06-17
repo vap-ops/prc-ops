@@ -27,6 +27,7 @@ import {
 } from "@/lib/status-colors";
 import { PoReceiveSection } from "@/components/features/purchasing/po-receive-section";
 import { PurchaseOrderTracker } from "@/components/features/purchasing/purchase-order-tracker";
+import { PoDeliveriesTracker } from "@/components/features/purchasing/po-deliveries-tracker";
 import { PoDeliverySection } from "@/components/features/purchasing/po-delivery-section";
 import { buildDeliveriesView } from "@/lib/purchasing/po-deliveries";
 
@@ -202,10 +203,15 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
               หมายเหตุ: {po.notes}
             </p>
           ) : null}
-          {/* Spec 134 U6: the PO progress stepper — สั่งซื้อ → จัดส่ง → รับของ — so
-              the delivering stage is visible (the roll-up no longer hides on_route). */}
+          {/* Spec 134 U6: the PO progress stepper — สั่งซื้อ → จัดส่ง → รับของ. Spec 135
+              U6: a multi-delivery PO branches into a per-งวด stepper; one delivery keeps
+              the single rolled-up tracker. */}
           <div className="border-edge-strong mt-3 border-t pt-3">
-            <PurchaseOrderTracker status={view.status} />
+            {deliveries.length > 1 ? (
+              <PoDeliveriesTracker deliveries={deliveries} />
+            ) : (
+              <PurchaseOrderTracker status={view.status} />
+            )}
           </div>
         </div>
 

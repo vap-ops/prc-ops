@@ -53,6 +53,22 @@ site-only, U8); planned≠actual handled by the U3 split.
   delivery; legacy NULL proof under the default). New `order-paths.ts` nav helpers
   (`poDetailHref`, `deliveryDetailHref`) — unit-tested; pages verified-by-checklist.
   No schema (reuses U4's `delivery_id`).
+- **U6 — delivery dispatch + branching tracker + date-field fix (device feedback,
+  2026-06-17).** Three issues from the operator's phone test: (a) the eta `<input
+type="date">` in the split sheet overflowed its container on iOS — add `min-w-0
+appearance-none` (the purchase-record-form pattern). (b) **No way to advance a PO
+  from สั่งซื้อแล้ว (ordered) to กำลังจัดส่ง (in_transit)** — `on_route` was only
+  reachable via the per-ticket `record_shipment` (buried on the PR detail). Add a
+  **manual** `dispatch_purchase_order_delivery(p_delivery_id)` RPC (back-office gate,
+  mirrors record_shipment: sets the delivery's purchased lines' `shipped_at` → the
+  existing trigger chain flips them `on_route` + audits, no new trigger) + a
+  "บันทึกการจัดส่ง" button on the delivery detail page (shown when back office and the
+  งวด has purchased lines). (c) **The progress tracker didn't branch for a
+  multi-delivery PO** — render `PoDeliveriesTracker` (a per-delivery `PurchaseOrderTracker`
+  stack, each งวด its own สั่งซื้อ→จัดส่ง→รับของ from its derived status) on the PO
+  detail when `deliveries.length > 1`; the single-delivery PO keeps the one linear
+  tracker. pgTAP for the dispatch RPC; tracker/button verified-by-checklist. (U4b,
+  Lalamove auto-dispatch, later fills the same on_route transition automatically.)
 - **(U4b, later — blocked on Lalamove creds):** dispatch a delivery via Lalamove +
   auto-fill its proof/cost; the delivery entity is the join point.
 
