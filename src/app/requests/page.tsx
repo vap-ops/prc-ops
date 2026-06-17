@@ -628,18 +628,18 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
           ) : isProcurement ? (
             // Spec 104/105: buyer's pipeline + summary strip (workload + overdue).
             <div className="flex flex-col gap-6">
-              {/* Spec 138 U2: the KPI hero row. The 2×2 tile grid sits BESIDE the
+              {/* Spec 138 U2/U4: the KPI hero row. The 2×2 tile grid sits BESIDE the
                   U1 attention panel on lg+ (1fr / 332px) and stacks (panel hidden)
-                  on the phone. Tiles are built by the pure helper; only the
-                  เกินกำหนด tile is a filter toggle (spec 110 chase list). */}
+                  on the phone. Tiles are built by the pure helper from the current
+                  filter; the รอสั่งซื้อ / กำลังจัดส่ง tiles toggle their band (U4) and
+                  the เกินกำหนด tile toggles the spec-110 chase list. */}
               {buyerSummary ? (
                 <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_332px] lg:items-start">
                   <div className="grid grid-cols-2 gap-3">
                     {buildWorklistKpis({
                       summary: buyerSummary,
                       outstanding: baht(outstanding),
-                      overdueHref: buildWorklistQuery({ ...filter, overdue: !filter.overdue }),
-                      overdueActive: filter.overdue,
+                      filter,
                     }).map((tile) => (
                       <WorklistKpiTile key={tile.key} tile={tile} />
                     ))}

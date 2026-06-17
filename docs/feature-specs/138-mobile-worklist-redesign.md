@@ -24,10 +24,14 @@ mock become units here; we do not rebuild what exists.
   The four KPI tiles restyled to the mock — each tile an icon chip + big value + caption, the
   รอสั่งซื้อ tile the amber hero; and the desktop layout lays the 2×2 KPI grid BESIDE the
   attention panel (`1fr / 332px`) instead of stacking it below.
-- **U3 — scrollable status-chip filter with live counts.** THIS UNIT. Replace the procurement
+- **U3 — scrollable status-chip filter with live counts.** SHIPPED. Replace the procurement
   status `<select>` with horizontally-scrollable pills (ทั้งหมด / อนุมัติแล้ว / กำลังจัดส่ง /
   เกินกำหนด) each showing a live count. Introduces the band→filter mapping (the seam U2
   flagged), so a later unit can make the รอสั่งซื้อ / กำลังจัดส่ง KPI tiles tap-to-filter too.
+- **U4 — KPI hero tiles tap-to-filter.** THIS UNIT. Make the รอสั่งซื้อ (`to_order`) and
+  กำลังจัดส่ง (`in_transit`) KPI hero tiles clickable band toggles (the mock's clickable tiles,
+  deferred from U2/U3), reusing the band axis U3 added. The เกินกำหนด tile keeps its existing
+  overdue chase toggle; the ค้างจ่าย tile stays static (no band).
 
 ## U1 — Change (app-only, no schema)
 
@@ -110,10 +114,34 @@ bg-card` idle), min-h-11 tap target, no raw palette.
   is untouched (still serves the `?status=` URL escape). Remove the status `<select>` (+ its now-
   dead `STATUS_OPTIONS`/label import) from `ProcurementFilters`; supplier/project pickers stay.
 
+## U4 — Change (app-only, no schema)
+
+The mock's รอสั่งซื้อ / กำลังจัดส่ง KPI tiles are clickable filters (deferred from U2 —
+"needs the band→status mapping", which U3 then built). The band axis (`ProcurementFilter.band`,
+`buildWorklistQuery ?band=`, `matchesProcurementFilter`) is now in place, so the tiles only
+need href/active.
+
+- **Pure helper** `src/lib/purchasing/worklist-kpis.ts` (TDD): `buildWorklistKpis` now takes
+  `{ summary, outstanding, filter }` (the full `ProcurementFilter`) in place of the pre-built
+  `overdueHref`/`overdueActive` pair, and derives every tile's `href`/`active` internally via
+  `buildWorklistQuery` — mirroring the U3 `buildWorklistStatusChips` so the toggle logic lives in
+  one place. The รอสั่งซื้อ / กำลังจัดส่ง tiles become band toggles: `href` sets their band while
+  clearing `overdue` (`band === key ? null : key` — re-tapping the active tile clears it back to
+  ทั้งหมด); `active` = `!filter.overdue && filter.band === key`. The เกินกำหนด tile's
+  href/active/tone are UNCHANGED — exactly the existing chase toggle
+  `buildWorklistQuery({ ...filter, overdue: !filter.overdue })` / `filter.overdue` /
+  danger-when-`overdue > 0 || filter.overdue`. The ค้างจ่าย tile stays static (`href: null`).
+- **Component** `WorklistKpiTile`: NO change — it already renders any tile with an `href` as a
+  `<Link>` with a pressed ring when `active` (U2 built this for the เกินกำหนด tile); the two new
+  band tiles flow through the same branch.
+- **Wire** `src/app/requests/page.tsx`: pass `filter` to `buildWorklistKpis` (drop the inline
+  `overdueHref`/`overdueActive` args); update the now-stale "only the เกินกำหนด tile is a filter
+  toggle" comment to note all three pipeline tiles toggle.
+
 ## Out of scope / seams
 
-Making the รอสั่งซื้อ / กำลังจัดส่ง KPI tiles clickable filters (the mock does) reuses the
-band axis U3 adds — deferred to a later unit. Site (non-procurement) view unchanged.
+Making the รอสั่งซื้อ / กำลังจัดส่ง KPI tiles clickable filters (the mock does) is now done
+(U4). Site (non-procurement) view unchanged.
 No new query (reuses the already-fetched `myRequests` + the existing `amountById` read). No
 schema, no money-exposure change (procurement already sees amounts via the grid + ค้างจ่าย).
 Supplier shown is the request's `supplier` field (no PO join).

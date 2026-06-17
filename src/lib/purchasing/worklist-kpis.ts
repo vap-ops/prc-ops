@@ -1,9 +1,13 @@
-// Spec 138 U2 — the desktop KPI hero row. Pure: packages the spec-105 procurement
+// Spec 138 U2/U4 — the desktop KPI hero row. Pure: packages the spec-105 procurement
 // summary into the four tile descriptors the row renders (รอสั่งซื้อ · กำลังจัดส่ง ·
-// เกินกำหนด · ค้างจ่าย), deriving the เกินกำหนด tile's chase-toggle state. The
-// /requests page renders from it for procurement only.
+// เกินกำหนด · ค้างจ่าย), deriving each tile's filter href/active from the current filter.
+// U4: the รอสั่งซื้อ / กำลังจัดส่ง tiles tap-to-filter their band (reusing the U3 band axis);
+// the เกินกำหนด tile keeps its chase toggle; ค้างจ่าย stays static. Toggle logic mirrors the
+// U3 buildWorklistStatusChips so href/active live in one place. The /requests page renders
+// from it for procurement only.
 
 import type { ProcurementSummary } from "@/lib/purchasing/procurement-pipeline";
+import { buildWorklistQuery, type ProcurementFilter } from "@/lib/purchasing/worklist-filter";
 
 export type WorklistKpiTone = "hot" | "shipping" | "danger" | "neutral";
 export type WorklistKpiIcon = "waiting" | "shipping" | "overdue" | "outstanding";
@@ -15,9 +19,9 @@ export interface WorklistKpiTile {
   caption: string;
   tone: WorklistKpiTone;
   icon: WorklistKpiIcon;
-  /** The เกินกำหนด chase-filter target; null for the static tiles. */
+  /** The tile's filter target; null for the static ค้างจ่าย tile. */
   href: string | null;
-  /** The เกินกำหนด tile's pressed state (filter active); false otherwise. */
+  /** The tile's pressed state (its filter is the current selection); false otherwise. */
   active: boolean;
 }
 
@@ -25,12 +29,20 @@ export function buildWorklistKpis(input: {
   summary: ProcurementSummary;
   /** Preformatted ฿ string (money — read back-office by the page). */
   outstanding: string;
-  /** buildWorklistQuery({ ...filter, overdue: !filter.overdue }) — the chase toggle. */
-  overdueHref: string;
-  /** filter.overdue — the chase filter is on. */
-  overdueActive: boolean;
+  /** The current worklist filter — drives every tile's href/active. */
+  filter: ProcurementFilter;
 }): WorklistKpiTile[] {
-  const { summary, outstanding, overdueHref, overdueActive } = input;
+  const { summary, outstanding, filter } = input;
+  // U4 band toggle: set this band (clearing overdue), or clear it if already the selection —
+  // mirrors the U3 status chips. A band tile reads active only when overdue is off.
+  const bandTile = (band: "to_order" | "in_transit") => ({
+    href: buildWorklistQuery({
+      ...filter,
+      band: filter.band === band ? null : band,
+      overdue: false,
+    }),
+    active: !filter.overdue && filter.band === band,
+  });
   return [
     {
       key: "to_order",
@@ -39,8 +51,7 @@ export function buildWorklistKpis(input: {
       caption: "พร้อมออกใบสั่งซื้อ",
       tone: "hot",
       icon: "waiting",
-      href: null,
-      active: false,
+      ...bandTile("to_order"),
     },
     {
       key: "in_transit",
@@ -49,8 +60,7 @@ export function buildWorklistKpis(input: {
       caption: "ระหว่างขนส่ง",
       tone: "shipping",
       icon: "shipping",
-      href: null,
-      active: false,
+      ...bandTile("in_transit"),
     },
     {
       key: "overdue",
@@ -58,10 +68,11 @@ export function buildWorklistKpis(input: {
       value: String(summary.overdue),
       caption: "ติดตามด่วน",
       // Danger when there's something to chase OR the chase filter is on; calm otherwise.
-      tone: summary.overdue > 0 || overdueActive ? "danger" : "neutral",
+      tone: summary.overdue > 0 || filter.overdue ? "danger" : "neutral",
       icon: "overdue",
-      href: overdueHref,
-      active: overdueActive,
+      // Unchanged spec-110 chase toggle (preserves the band axis, unlike the band tiles).
+      href: buildWorklistQuery({ ...filter, overdue: !filter.overdue }),
+      active: filter.overdue,
     },
     {
       key: "outstanding",
