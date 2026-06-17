@@ -25,16 +25,10 @@ import {
   purchaseRequestPriorityPillClasses,
   purchaseRequestStatusPillClasses,
 } from "@/lib/status-colors";
-import { mintSignedUrls } from "@/lib/storage/signed-urls";
-import { PO_ATTACHMENTS_BUCKET } from "@/lib/storage/buckets";
 import { PoReceiveSection } from "@/components/features/purchasing/po-receive-section";
 import { PurchaseOrderTracker } from "@/components/features/purchasing/purchase-order-tracker";
 import { PoDeliverySection } from "@/components/features/purchasing/po-delivery-section";
-import {
-  buildDeliveriesView,
-  groupProofByDelivery,
-  type ProofDeliveryDoc,
-} from "@/lib/purchasing/po-deliveries";
+import { buildDeliveriesView } from "@/lib/purchasing/po-deliveries";
 
 // /requests/orders/[poId] — the purchase-order detail screen (spec 134 U1). A PO
 // groups N approved tickets into one supplier order (ADR 0044); spec 115 shipped
@@ -126,20 +120,6 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
     members.map((m) => ({ status: m.status, amount: amountById.get(m.id) ?? null })),
   );
 
-  // Spec 134 U4a: manual proof-of-delivery attachments live in the po-attachments
-  // bucket stamped purpose 'proof_of_delivery' (distinct from the source docs).
-  // Read the current-state rows + mint signed URLs (private bucket, service-role).
-  const { data: proofRows } = await supabase
-    .from("purchase_order_attachments_current")
-    .select("id, kind, storage_path, created_at, delivery_id")
-    .eq("purchase_order_id", poId)
-    .eq("purpose", "proof_of_delivery")
-    .order("created_at", { ascending: true });
-  const proofDocs = proofRows ?? [];
-  const proofUrls = await mintSignedUrls(
-    PO_ATTACHMENTS_BUCKET,
-    proofDocs.map((row) => ({ id: row.id ?? "", storage_path: row.storage_path })),
-  );
   // Spec 134 U5: the in-transit lines feed the รับของ checklist (all ticked by
   // default — Case A; untick to wait — Case B). Back office sees the per-line amount
   // (used by the within-ticket split prefill); others get null (money posture).
@@ -181,19 +161,6 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
     if (m.status === "rejected" || m.status === "cancelled" || m.delivery_id == null) continue;
     activeCountByDelivery[m.delivery_id] = (activeCountByDelivery[m.delivery_id] ?? 0) + 1;
   }
-
-  // Spec 135 U4: proof scopes to a delivery — group the PO's proof docs by delivery_id.
-  // Legacy proof (delivery_id NULL, never backfilled — the table is append-only) falls
-  // under the default (earliest, งวดที่ 1) delivery.
-  const proofByDelivery = groupProofByDelivery<ProofDeliveryDoc>(
-    proofDocs.map((d) => ({
-      id: d.id,
-      kind: d.kind,
-      storage_path: d.storage_path,
-      delivery_id: d.delivery_id,
-    })),
-    deliveries[0]?.id ?? null,
-  );
 
   return (
     <PageShell>
@@ -247,8 +214,6 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
         <PoDeliverySection
           purchaseOrderId={po.id}
           deliveries={deliveries}
-          proofByDelivery={proofByDelivery}
-          proofUrls={proofUrls}
           canManageDeliveries={isBackOffice}
           splittableLines={splittableLines}
           activeCountByDelivery={activeCountByDelivery}

@@ -43,6 +43,16 @@ site-only, U8); planned≠actual handled by the U3 split.
 - **U4 — per-delivery proof.** `purchase_order_attachments.delivery_id`; the
   proof_of_delivery uploader + gallery scope to a delivery (default delivery for the
   85%). `PROOF_OF_DELIVERY_LABEL` reused.
+- **U5 — delivery detail page; การจัดส่ง = one action (operator UX, 2026-06-17).**
+  The การจัดส่ง section on the PO detail had **two** buttons (สร้างงวดจัดส่ง + แนบ
+  หลักฐาน per delivery). Consolidate: the section keeps the delivery list + the single
+  สร้างงวดจัดส่ง button, and each delivery row **links to a new delivery detail page**
+  `/requests/orders/[poId]/deliveries/[deliveryId]` that owns the proof attach. The
+  page shows the งวด summary (derived status · eta · cost [back-office] · note) + its
+  member lines + `หลักฐานการจัดส่ง` (the U4 gallery + uploader, scoped to this
+  delivery; legacy NULL proof under the default). New `order-paths.ts` nav helpers
+  (`poDetailHref`, `deliveryDetailHref`) — unit-tested; pages verified-by-checklist.
+  No schema (reuses U4's `delivery_id`).
 - **(U4b, later — blocked on Lalamove creds):** dispatch a delivery via Lalamove +
   auto-fill its proof/cost; the delivery entity is the join point.
 
