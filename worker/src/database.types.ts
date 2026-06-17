@@ -1207,6 +1207,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "purchase_order_attachments_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_order_deliveries"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "purchase_order_attachments_purchase_order_id_fkey"
             columns: ["purchase_order_id"]
             isOneToOne: false
@@ -2177,6 +2184,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_attachments_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_order_deliveries"
             referencedColumns: ["id"]
           },
           {
