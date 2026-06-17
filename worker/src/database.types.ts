@@ -1410,6 +1410,7 @@ export type Database = {
           requested_by_email: string | null
           shipped_at: string | null
           source: string
+          split_from_request_id: string | null
           status: Database["public"]["Enums"]["purchase_request_status"]
           supplier: string | null
           supplier_id: string | null
@@ -1449,6 +1450,7 @@ export type Database = {
           requested_by_email?: string | null
           shipped_at?: string | null
           source?: string
+          split_from_request_id?: string | null
           status?: Database["public"]["Enums"]["purchase_request_status"]
           supplier?: string | null
           supplier_id?: string | null
@@ -1488,6 +1490,7 @@ export type Database = {
           requested_by_email?: string | null
           shipped_at?: string | null
           source?: string
+          split_from_request_id?: string | null
           status?: Database["public"]["Enums"]["purchase_request_status"]
           supplier?: string | null
           supplier_id?: string | null
@@ -1537,6 +1540,13 @@ export type Database = {
             columns: ["requested_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_requests_split_from_request_id_fkey"
+            columns: ["split_from_request_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_requests"
             referencedColumns: ["id"]
           },
           {
@@ -2429,6 +2439,16 @@ export type Database = {
       set_worker_day_rate: {
         Args: { p_id: string; p_rate: number }
         Returns: undefined
+      }
+      split_purchase_request_on_receipt: {
+        Args: {
+          p_delivered_amount?: number
+          p_delivery_note?: string
+          p_received_by?: string
+          p_received_qty: number
+          p_request_id: string
+        }
+        Returns: string
       }
       submit_contractor_bank_change: {
         Args: {
