@@ -2346,6 +2346,14 @@ export type Database = {
         Args: { p_max_age_minutes?: number }
         Returns: number
       }
+      receive_po_lines: {
+        Args: {
+          p_delivery_note?: string
+          p_received_by?: string
+          p_request_ids: string[]
+        }
+        Returns: number
+      }
       record_contractor_consent: {
         Args: {
           p_contractor: string
