@@ -39,6 +39,8 @@ import {
   procurementSummary,
   procurementBand,
   sumOutstanding,
+  PROCUREMENT_BANDS,
+  type ProcurementBand,
 } from "@/lib/purchasing/procurement-pipeline";
 import { bangkokTodayISO } from "@/lib/work-packages/schedule-today";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
@@ -55,6 +57,8 @@ import { selectOverdueFollowUp } from "@/lib/purchasing/overdue-attention";
 import { OverdueFollowUpPanel } from "@/components/features/purchasing/overdue-follow-up-panel";
 import { buildWorklistKpis } from "@/lib/purchasing/worklist-kpis";
 import { WorklistKpiTile } from "@/components/features/purchasing/worklist-kpi-tile";
+import { buildWorklistStatusChips } from "@/lib/purchasing/worklist-status-chips";
+import { WorklistStatusChips } from "@/components/features/purchasing/worklist-status-chips";
 import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
 import type { SupplierOption } from "@/components/features/purchasing/purchase-record-form";
 import { fetchDisplayNames } from "@/lib/users/display-names";
@@ -88,6 +92,8 @@ interface RequestsPageProps {
     project?: string | string[];
     status?: string | string[];
     overdue?: string | string[];
+    // Spec 138 U3: the status-chip band filter (to_order | in_transit | ...).
+    band?: string | string[];
   }>;
 }
 
@@ -100,6 +106,8 @@ type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_statu
 const PR_STATUSES = new Set<string>(
   Object.keys(PURCHASE_REQUEST_STATUS_LABEL) as PurchaseRequestStatus[],
 );
+// Spec 138 U3: valid band-filter keys (a hand-edited ?band= outside this set is dropped).
+const PROCUREMENT_BAND_KEYS = new Set<string>(PROCUREMENT_BANDS.map((b) => b.band));
 
 export default async function RequestsPage({ searchParams }: RequestsPageProps) {
   const ctx = await requireRole(PURCHASING_ROLES);
@@ -112,12 +120,14 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     project: projectParam,
     status: statusParam,
     overdue: overdueParam,
+    band: bandParam,
   } = await searchParams;
 
   // Spec 110: parse the worklist filter (procurement only — SA/PM ignore it).
-  // An unknown status value is dropped (treated as "all") so a hand-edited URL
-  // can't pass garbage to the filter.
+  // An unknown status/band value is dropped (treated as "all") so a hand-edited
+  // URL can't pass garbage to the filter.
   const statusParamValue = singleParam(statusParam);
+  const bandParamValue = singleParam(bandParam);
   const filter: ProcurementFilter = {
     supplier: singleParam(supplierParam),
     projectId: singleParam(projectParam),
@@ -125,6 +135,11 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     status:
       statusParamValue !== null && PR_STATUSES.has(statusParamValue)
         ? (statusParamValue as PurchaseRequestStatus)
+        : null,
+    // Spec 138 U3: the status-chip band axis.
+    band:
+      bandParamValue !== null && PROCUREMENT_BAND_KEYS.has(bandParamValue)
+        ? (bandParamValue as ProcurementBand)
         : null,
   };
 
@@ -284,6 +299,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     filter.supplier !== null ||
     filter.projectId !== null ||
     filter.status !== null ||
+    filter.band !== null ||
     filter.overdue;
   const procurementGroups = !isProcurement
     ? []
@@ -308,6 +324,31 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // Spec 105: buyer's summary strip — the FULL workload (unfiltered), a stable
   // glance that doesn't jump as filters change.
   const buyerSummary = isProcurement ? procurementSummary(myRequests, today) : null;
+
+  // Spec 138 U3: the status-chip filter — band pills (ทั้งหมด / อนุมัติแล้ว /
+  // กำลังจัดส่ง / เกินกำหนด) with live counts. Counted over the rows narrowed by the
+  // supplier/project axes only (so the counts track those filters) — NOT by the
+  // band/overdue axes the chips themselves toggle.
+  const statusChips = isProcurement
+    ? buildWorklistStatusChips({
+        rows: myRequests
+          .filter((r) =>
+            matchesProcurementFilter(
+              {
+                status: r.status,
+                eta: r.eta,
+                supplier: r.supplier,
+                projectId: projectIdOf(r.work_package_id),
+              },
+              { ...filter, band: null, overdue: false, status: null },
+              today,
+            ),
+          )
+          .map((r) => ({ status: r.status, eta: r.eta })),
+        filter,
+        todayIso: today,
+      })
+    : [];
 
   // Spec 106/108: amount is money → ONE admin read of all visible rows' amounts
   // (gated to procurement — back-office, it enters them; never runs for SA/PM
@@ -618,7 +659,12 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                   ) : null}
                 </div>
               ) : null}
-              {/* Spec 110: supplier / project / status filters. */}
+              {/* Spec 138 U3: the scrollable status-chip filter (band pills with
+                  live counts) — replaces the status <select>. Sits between the KPI
+                  hero and the supplier/project pickers. */}
+              <WorklistStatusChips chips={statusChips} />
+              {/* Spec 110: supplier / project filters (the status <select> moved to
+                  the U3 chips above). */}
               <ProcurementFilters
                 filter={filter}
                 suppliers={supplierOptions}

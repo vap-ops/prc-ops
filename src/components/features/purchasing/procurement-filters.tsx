@@ -1,34 +1,18 @@
 "use client";
 
-// Spec 110 — the procurement worklist filter bar: supplier + project + status
-// pickers. Overdue lives on the เกินกำหนด summary tile (a server-rendered Link).
-// Each picker pushes a URL via buildWorklistQuery so the filters compose and
-// the view is deep-linkable (the ?mine / spec-56 pattern). Procurement-only.
+// Spec 110 — the procurement worklist filter bar: supplier + project pickers.
+// Overdue lives on the เกินกำหนด summary tile (a server-rendered Link); the
+// status filter moved to the spec-138 U3 status-chip row (band pills). Each
+// picker pushes a URL via buildWorklistQuery so the filters compose and the view
+// is deep-linkable (the ?mine / spec-56 pattern). Procurement-only.
 
 import { useRouter } from "next/navigation";
 import { FIELD_SELECT } from "@/lib/ui/classes";
-import { PURCHASE_REQUEST_STATUS_LABEL } from "@/lib/i18n/labels";
 import {
   buildWorklistQuery,
   type ProcurementFilter,
   type ProjectOption,
 } from "@/lib/purchasing/worklist-filter";
-import type { Database } from "@/lib/db/database.types";
-
-type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
-
-// Buyer-relevant statuses; rejected/cancelled are last — their job here is to
-// surface the rows the pipeline bands drop (the operator-chosen status filter).
-const STATUS_OPTIONS: ReadonlyArray<PurchaseRequestStatus> = [
-  "requested",
-  "approved",
-  "purchased",
-  "on_route",
-  "delivered",
-  "site_purchased",
-  "rejected",
-  "cancelled",
-];
 
 export function ProcurementFilters({
   filter,
@@ -45,6 +29,7 @@ export function ProcurementFilters({
     filter.supplier !== null ||
     filter.projectId !== null ||
     filter.status !== null ||
+    filter.band !== null ||
     filter.overdue;
 
   return (
@@ -84,25 +69,6 @@ export function ProcurementFilters({
           </select>
         </label>
       ) : null}
-
-      <label className="flex flex-col gap-1">
-        <span className="text-ink-secondary text-meta font-medium">สถานะ</span>
-        <select
-          aria-label="กรองตามสถานะ"
-          className={`${FIELD_SELECT} w-40`}
-          value={filter.status ?? ""}
-          onChange={(e) =>
-            go({ ...filter, status: (e.target.value || null) as PurchaseRequestStatus | null })
-          }
-        >
-          <option value="">ทั้งหมด</option>
-          {STATUS_OPTIONS.map((s) => (
-            <option key={s} value={s}>
-              {PURCHASE_REQUEST_STATUS_LABEL[s]}
-            </option>
-          ))}
-        </select>
-      </label>
 
       {hasAny ? (
         <button

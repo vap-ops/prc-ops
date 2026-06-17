@@ -15,6 +15,7 @@ const NONE: ProcurementFilter = {
   projectId: null,
   overdue: false,
   status: null,
+  band: null,
 };
 const TODAY = "2026-06-15";
 
@@ -57,6 +58,36 @@ describe("matchesProcurementFilter", () => {
     ).toBe(false);
   });
 
+  it("filters by procurement band (the spec-138 U3 chip axis)", () => {
+    // purchased → in_transit band
+    expect(matchesProcurementFilter(row, { ...NONE, band: "in_transit" }, TODAY)).toBe(true);
+    expect(matchesProcurementFilter(row, { ...NONE, band: "to_order" }, TODAY)).toBe(false);
+    // approved → to_order band
+    expect(
+      matchesProcurementFilter(
+        { ...row, status: "approved" },
+        { ...NONE, band: "to_order" },
+        TODAY,
+      ),
+    ).toBe(true);
+    // on_route also → in_transit band
+    expect(
+      matchesProcurementFilter(
+        { ...row, status: "on_route" },
+        { ...NONE, band: "in_transit" },
+        TODAY,
+      ),
+    ).toBe(true);
+    // cancelled has no band → never matches a band filter
+    expect(
+      matchesProcurementFilter(
+        { ...row, status: "cancelled" },
+        { ...NONE, band: "in_transit" },
+        TODAY,
+      ),
+    ).toBe(false);
+  });
+
   it("filters by exact status (incl. banded-out rejected/cancelled)", () => {
     expect(matchesProcurementFilter(row, { ...NONE, status: "purchased" }, TODAY)).toBe(true);
     expect(matchesProcurementFilter(row, { ...NONE, status: "cancelled" }, TODAY)).toBe(false);
@@ -75,6 +106,7 @@ describe("matchesProcurementFilter", () => {
       projectId: "p1",
       overdue: true,
       status: "purchased",
+      band: "in_transit",
     };
     expect(matchesProcurementFilter(row, f, TODAY)).toBe(true);
     expect(matchesProcurementFilter({ ...row, supplier: "SCG" }, f, TODAY)).toBe(false);
@@ -147,7 +179,13 @@ describe("buildWorklistQuery", () => {
 
   it("serializes set axes and drops empties", () => {
     expect(
-      buildWorklistQuery({ supplier: "TPI", projectId: null, overdue: true, status: null }),
+      buildWorklistQuery({
+        supplier: "TPI",
+        projectId: null,
+        overdue: true,
+        status: null,
+        band: null,
+      }),
     ).toBe("/requests?supplier=TPI&overdue=1");
   });
 
@@ -158,12 +196,20 @@ describe("buildWorklistQuery", () => {
         projectId: "p1",
         overdue: true,
         status: "cancelled",
+        band: "in_transit",
       }),
-    ).toBe("/requests?supplier=SCG&project=p1&status=cancelled&overdue=1");
+    ).toBe("/requests?supplier=SCG&project=p1&band=in_transit&status=cancelled&overdue=1");
   });
 
   it("serializes a status-only filter (surfaces banded-out history)", () => {
     expect(buildWorklistQuery({ ...NONE, status: "rejected" })).toBe("/requests?status=rejected");
+  });
+
+  it("serializes the band axis (spec-138 U3 chip)", () => {
+    expect(buildWorklistQuery({ ...NONE, band: "to_order" })).toBe("/requests?band=to_order");
+    expect(buildWorklistQuery({ ...NONE, supplier: "TPI", band: "in_transit" })).toBe(
+      "/requests?supplier=TPI&band=in_transit",
+    );
   });
 
   it("url-encodes the supplier (round-trips through URLSearchParams)", () => {

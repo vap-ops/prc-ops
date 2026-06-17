@@ -10,7 +10,7 @@
 
 import type { Database } from "@/lib/db/database.types";
 import { PR_PRIORITY_RANK } from "./pending-order";
-import { procurementBand } from "./procurement-pipeline";
+import { procurementBand, type ProcurementBand } from "./procurement-pipeline";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
 type PurchaseRequestPriority = Database["public"]["Enums"]["purchase_request_priority"];
@@ -22,8 +22,10 @@ export interface ProcurementFilter {
   projectId: string | null;
   /** Only in-transit POs past their ETA (the chase list). */
   overdue: boolean;
-  /** Exact status; null = all. The only way to see rejected/cancelled. */
+  /** Exact status; null = all. The banded-out rejected/cancelled escape (URL only). */
   status: PurchaseRequestStatus | null;
+  /** Spec 138 U3: procurement band; null = all. The status-chip filter axis. */
+  band: ProcurementBand | null;
 }
 
 interface FilterableRow {
@@ -43,6 +45,7 @@ export function matchesProcurementFilter(
   if (filter.supplier !== null && row.supplier !== filter.supplier) return false;
   if (filter.projectId !== null && row.projectId !== filter.projectId) return false;
   if (filter.status !== null && row.status !== filter.status) return false;
+  if (filter.band !== null && procurementBand(row.status) !== filter.band) return false;
   if (filter.overdue) {
     if (procurementBand(row.status) !== "in_transit") return false;
     if (row.eta === null || !(row.eta < todayIso)) return false;
@@ -91,6 +94,7 @@ export function buildWorklistQuery(filter: ProcurementFilter): string {
   const p = new URLSearchParams();
   if (filter.supplier) p.set("supplier", filter.supplier);
   if (filter.projectId) p.set("project", filter.projectId);
+  if (filter.band) p.set("band", filter.band);
   if (filter.status) p.set("status", filter.status);
   if (filter.overdue) p.set("overdue", "1");
   const q = p.toString();
