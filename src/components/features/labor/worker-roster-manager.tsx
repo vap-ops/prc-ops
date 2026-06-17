@@ -4,11 +4,13 @@
 // requireRole-gated and server-rendered, so day rates may render here —
 // this is the one surface where money is visible, by design).
 //
-// 'use client' justification: add/edit forms with optimistic busy
-// states over the roster RPC actions.
+// 'use client' justification: add/edit forms with busy states over the
+// roster RPC actions; spec 139 — the active-toggle is an optimistic flip
+// (React 19 useOptimistic, no router.refresh round-trip).
 
-import { useState } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/lib/ui/use-toast";
 import {
   createWorker,
   setWorkerDayRate,
@@ -158,12 +160,23 @@ function WorkerRow({
   contractorName: string | null;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(worker.name);
   const [rate, setRate] = useState(String(worker.day_rate));
   const [note, setNote] = useState(worker.note ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Spec 139: optimistic active-toggle. `committedActive` is the post-mount truth
+  // (seeded from the prop, advanced only by a successful flip); `optimisticActive`
+  // shows the tapped value instantly while the action is in flight and auto-reverts
+  // to `committedActive` if it fails — no router.refresh on the toggle path.
+  const [committedActive, setCommittedActive] = useState(worker.active);
+  const [optimisticActive, setOptimisticActive] = useOptimistic(
+    committedActive,
+    (_current, next: boolean) => next,
+  );
+  const [isToggling, startToggle] = useTransition();
 
   async function save() {
     setBusy(true);
@@ -198,23 +211,29 @@ function WorkerRow({
     router.refresh();
   }
 
-  async function toggleActive() {
-    setBusy(true);
-    const result = await updateWorker({ id: worker.id, active: !worker.active });
-    setBusy(false);
-    if (result.ok) router.refresh();
+  function toggleActive() {
+    const next = !committedActive;
+    startToggle(async () => {
+      setOptimisticActive(next); // instant flip
+      const result = await updateWorker({ id: worker.id, active: next });
+      // Commit on success (the optimistic value falls through to it when the
+      // transition ends — no refresh); on failure the optimistic value reverts to
+      // committedActive and the slice-1 toast explains the rollback.
+      if (result.ok) setCommittedActive(next);
+      else toast.error(result.error);
+    });
   }
 
   return (
     <li className="border-edge border-t py-2 first:border-t-0">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className={`truncate text-sm ${worker.active ? "text-ink" : "text-ink-muted"}`}>
+          <p className={`truncate text-sm ${optimisticActive ? "text-ink" : "text-ink-muted"}`}>
             {worker.name}
             {contractorName ? (
               <span className="text-ink-muted ml-1.5 text-xs">· {contractorName}</span>
             ) : null}
-            {!worker.active ? (
+            {!optimisticActive ? (
               <span className="text-ink-muted ml-1.5 text-xs">(ปิดใช้งาน)</span>
             ) : null}
           </p>
@@ -238,11 +257,11 @@ function WorkerRow({
           </button>
           <button
             type="button"
-            disabled={busy}
-            onClick={() => void toggleActive()}
+            disabled={isToggling}
+            onClick={toggleActive}
             className="text-ink-secondary text-xs font-medium hover:underline"
           >
-            {worker.active ? "ปิดใช้งาน" : "เปิดใช้งาน"}
+            {optimisticActive ? "ปิดใช้งาน" : "เปิดใช้งาน"}
           </button>
         </div>
       </div>
