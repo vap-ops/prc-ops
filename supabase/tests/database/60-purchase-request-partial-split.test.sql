@@ -1,5 +1,5 @@
 begin;
-select plan(26);
+select plan(27);
 
 -- ============================================================================
 -- Spec 134 U3 / ADR 0052 — split_purchase_request_on_receipt + the
@@ -50,6 +50,14 @@ insert into public.purchase_requests
 values
   ('c3000134-0000-4000-8000-000000000003', 'ee000134-0000-4000-8000-000000000001',
    'ทราย', 5, 'คิว', 'approved', 'app', '22222222-2222-2222-2222-222222220134');
+
+-- Spec 135 U2: the in-transit members belong to a delivery; the split child must
+-- inherit it (ADR 0054 §7).
+insert into public.purchase_order_deliveries (id, purchase_order_id, created_by) values
+  ('dd000134-0000-4000-8000-000000000001', 'aa000134-0000-4000-8000-000000000001',
+   '22222222-2222-2222-2222-222222220134');
+update public.purchase_requests set delivery_id = 'dd000134-0000-4000-8000-000000000001'
+ where id in ('c1000134-0000-4000-8000-000000000001', 'c2000134-0000-4000-8000-000000000002');
 
 grant insert on _tap_buf to authenticated, anon;
 grant select on _tap_buf to authenticated, anon;
@@ -161,6 +169,11 @@ select ok(
 select ok((select delivery_batch_id is not null from public.purchase_requests
   where id = 'c1000134-0000-4000-8000-000000000001'),
   'the delivered portion gets a delivery_batch_id');
+-- Spec 135 U2: the remainder child stays in the original's delivery.
+select ok((select delivery_id = 'dd000134-0000-4000-8000-000000000001'
+  from public.purchase_requests
+  where split_from_request_id = 'c1000134-0000-4000-8000-000000000001'),
+  'the split child inherits the parent delivery');
 
 -- ============================================================================
 -- D. Buyer-entered amount — split m2 (1000/100, purchased) receiving 40 @ 250.

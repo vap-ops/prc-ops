@@ -30,7 +30,7 @@ import { PO_ATTACHMENTS_BUCKET } from "@/lib/storage/buckets";
 import { PoReceiveSection } from "@/components/features/purchasing/po-receive-section";
 import { PurchaseOrderTracker } from "@/components/features/purchasing/purchase-order-tracker";
 import { PoDeliverySection } from "@/components/features/purchasing/po-delivery-section";
-import { groupDeliveryBatches } from "@/lib/purchasing/delivery-batches";
+import { buildDeliveriesView } from "@/lib/purchasing/po-deliveries";
 
 // /requests/orders/[poId] — the purchase-order detail screen (spec 134 U1). A PO
 // groups N approved tickets into one supplier order (ADR 0044); spec 115 shipped
@@ -77,10 +77,19 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
   // columns the list/detail read (spec 65), ordered by their running number.
   const { data: memberRows } = await supabase
     .from("purchase_requests")
-    .select(`${PR_LIST_COLUMNS}, delivery_batch_id`)
+    .select(`${PR_LIST_COLUMNS}, delivery_id`)
     .eq("purchase_order_id", poId)
     .order("pr_number", { ascending: true });
   const members = memberRows ?? [];
+
+  // Spec 135 U2: the PO's deliveries (procurement-arranged งวดส่ง). Every PO has the
+  // auto-created default; procurement splits into more. cost is omitted (money, set
+  // in U3).
+  const { data: deliveryRows } = await supabase
+    .from("purchase_order_deliveries")
+    .select("id, eta, created_at")
+    .eq("purchase_order_id", poId)
+    .order("created_at", { ascending: true });
 
   // WP code/name for each line's chip (separate query, the /requests convention).
   const wpIds = Array.from(new Set(members.map((m) => m.work_package_id)));
@@ -141,13 +150,16 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
       amount: isBackOffice ? (amountById.get(m.id) ?? null) : null,
     }));
 
-  // Spec 134 U7: the delivery breakdown — shown only when the PO actually FORKED
-  // (more than one received batch, or some received + some still pending). The 85%
-  // one-delivery PO keeps just the linear stepper.
-  const deliveryBreakdown = groupDeliveryBatches(members);
-  const showDeliveryBreakdown =
-    deliveryBreakdown.batches.length >= 1 &&
-    (deliveryBreakdown.batches.length > 1 || deliveryBreakdown.pending !== null);
+  // Spec 135 U2: the deliveries view — งวดที่ N, derived status, eta, receipt date.
+  // One delivery (the 85% default) renders as a calm line; multiple as the งวดส่ง list.
+  const deliveries = buildDeliveriesView(
+    deliveryRows ?? [],
+    members.map((m) => ({
+      delivery_id: m.delivery_id,
+      status: m.status,
+      delivered_at: m.delivered_at,
+    })),
+  );
 
   return (
     <PageShell>
@@ -196,14 +208,11 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Spec 134 U9: the consolidated การจัดส่ง block — ETA, the งวดส่ง branches
-            when the PO forked, and the delivery proof procurement attaches. */}
+        {/* Spec 135 U2: the การจัดส่ง block — the deliveries (งวดส่ง) procurement
+            arranges + the delivery proof. One delivery = a calm line; many = the list. */}
         <PoDeliverySection
           purchaseOrderId={po.id}
-          eta={po.eta}
-          status={view.status}
-          breakdown={deliveryBreakdown}
-          showBreakdown={showDeliveryBreakdown}
+          deliveries={deliveries}
           proofDocs={proofDocs}
           proofUrls={proofUrls}
         />
