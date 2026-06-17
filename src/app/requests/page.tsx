@@ -608,12 +608,16 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
               ) : null}
               {/* Spec 138 U1: the overdue deliveries behind the เกินกำหนด count,
                   most-overdue first — tap a row into the request, or jump to the
-                  full chase filter. */}
+                  full chase filter. Tablet/desktop only (lg+) — operator dropped
+                  it from the phone view (2026-06-18); the เกินกำหนด KPI tile is
+                  the phone's chase entry point. */}
               {attentionItems.length > 0 ? (
-                <OverdueFollowUpPanel
-                  items={attentionItems}
-                  overdueHref={buildWorklistQuery({ ...filter, overdue: true })}
-                />
+                <div className="hidden lg:block">
+                  <OverdueFollowUpPanel
+                    items={attentionItems}
+                    overdueHref={buildWorklistQuery({ ...filter, overdue: true })}
+                  />
+                </div>
               ) : null}
               {/* Spec 110: supplier / project / status filters. */}
               <ProcurementFilters

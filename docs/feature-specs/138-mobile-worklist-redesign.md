@@ -46,6 +46,9 @@ supplier, eta, amount, overdueDays }`. "Overdue" reuses `procurementBand(status)
   render the panel in the procurement column right after the KPI grid, before the filters,
   only when `attentionItems.length > 0`. The overdue footer href reuses the existing
   `buildWorklistQuery({ ...filter, overdue: true })` (same target as the เกินกำหนด tile).
+- **Refinement (2026-06-18, operator):** dropped from the PHONE view (`hidden lg:block`) —
+  the panel renders only on tablet/desktop (lg+). On the phone the เกินกำหนด KPI tile (its
+  filter toggle) is the chase entry point; the panel was redundant on the small screen.
 
 ## Out of scope / seams
 
