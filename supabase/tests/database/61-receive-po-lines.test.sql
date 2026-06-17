@@ -1,5 +1,5 @@
 begin;
-select plan(10);
+select plan(12);
 
 -- ============================================================================
 -- Spec 134 U5 / ADR 0053 — receive_po_lines: explicit PO-level receive. Marks the
@@ -52,6 +52,8 @@ grant usage  on sequence _tap_buf_ord_seq to authenticated, anon;
 -- A. Catalog.
 -- ============================================================================
 select has_function('public', 'receive_po_lines', 'the receive RPC exists');
+select has_column('public', 'purchase_requests', 'delivery_batch_id',
+  'spec 134 U7: delivery_batch_id column exists');
 
 -- ============================================================================
 -- B. Guards (authenticated role-sim).
@@ -89,6 +91,13 @@ select ok((select delivered_at is not null from public.purchase_requests
 select ok((select received_by = 'หัวหน้า' from public.purchase_requests
   where id = 'c1000153-0000-4000-8000-000000000001'),
   'm1 received_by is recorded');
+-- Spec 134 U7: the two lines received in one call share ONE non-null batch id.
+select ok(
+  (select m1.delivery_batch_id is not null and m1.delivery_batch_id = m2.delivery_batch_id
+   from public.purchase_requests m1, public.purchase_requests m2
+   where m1.id = 'c1000153-0000-4000-8000-000000000001'
+     and m2.id = 'c2000153-0000-4000-8000-000000000002'),
+  'lines received together share one delivery_batch_id');
 
 -- ============================================================================
 -- D. All-or-nothing — m4 (on_route) + m3 (already delivered) → reject, m4 untouched.

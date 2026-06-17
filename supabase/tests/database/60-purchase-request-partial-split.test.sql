@@ -1,5 +1,5 @@
 begin;
-select plan(24);
+select plan(25);
 
 -- ============================================================================
 -- Spec 134 U3 / ADR 0052 — split_purchase_request_on_receipt + the
@@ -148,6 +148,10 @@ select ok(
      where target_id = 'c1000134-0000-4000-8000-000000000001'
        and action = 'update' and payload ? 'split_child_id'),
   'a split audit row was written');
+-- Spec 134 U7: the delivered portion is stamped with its own delivery batch.
+select ok((select delivery_batch_id is not null from public.purchase_requests
+  where id = 'c1000134-0000-4000-8000-000000000001'),
+  'the delivered portion gets a delivery_batch_id');
 
 -- ============================================================================
 -- D. Buyer-entered amount — split m2 (1000/100, purchased) receiving 40 @ 250.
