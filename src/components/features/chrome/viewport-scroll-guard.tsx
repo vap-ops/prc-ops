@@ -27,10 +27,15 @@ export function ViewportScrollGuard() {
       );
     }
 
-    function repaintScroller() {
-      // Focus may have moved field-to-field with the keyboard still up — don't
-      // nudge mid-edit (the caret-reveal scroll is iOS's job then).
-      if (isEditable(document.activeElement)) return;
+    // force=true skips the focused-field guard: used when the visual viewport has
+    // already confirmed the keyboard is DOWN (a still-focused input is then the
+    // recurrence to fix — iOS can close the keyboard via its Done/hide button
+    // WITHOUT blurring the field, especially in multi-field forms; the locked
+    // scroller never repaints and a portion stays blank). force=false keeps the
+    // mid-edit guard for the focusout path (focus may be hopping field-to-field
+    // with the keyboard still up — the caret-reveal scroll is iOS's job then).
+    function repaintScroller(force: boolean) {
+      if (!force && isEditable(document.activeElement)) return;
       const scroller = document.querySelector("main");
       if (!(scroller instanceof HTMLElement)) return;
       // Mirror the manual scroll that recovers it: nudge, then restore next
@@ -41,14 +46,16 @@ export function ViewportScrollGuard() {
 
     function onFocusOut() {
       // Let the keyboard finish sliding down before nudging.
-      window.setTimeout(repaintScroller, 100);
+      window.setTimeout(() => repaintScroller(false), 100);
     }
 
     const vv = window.visualViewport;
     function onViewportResize() {
       // Keyboard closed = the visual viewport is (nearly) back to full height.
+      // Repaint even if a field keeps focus (the recurrence): the keyboard is
+      // measurably gone, so a position-preserving nudge is safe and needed.
       if (vv && window.innerHeight - vv.height < 80) {
-        window.setTimeout(repaintScroller, 50);
+        window.setTimeout(() => repaintScroller(true), 50);
       }
     }
 
