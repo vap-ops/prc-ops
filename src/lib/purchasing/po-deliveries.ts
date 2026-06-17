@@ -39,6 +39,26 @@ function isActive(status: PurchaseRequestStatus): boolean {
   return status !== "rejected" && status !== "cancelled";
 }
 
+// Spec 135 U3 — the non-empty guard for a delivery split. A delivery must keep >= 1
+// active line, so a split may not move every active line out of any source delivery.
+// `activeCountByDelivery` is the active (non rejected/cancelled) line count per
+// delivery; the selection groups by source delivery. The RPC re-enforces this
+// server-side — this is the sheet's testable seam for a clear inline message.
+export function deliverySplitWouldEmptySource(
+  selected: ReadonlyArray<{ delivery_id: string | null }>,
+  activeCountByDelivery: Readonly<Record<string, number>>,
+): boolean {
+  const movedByDelivery = new Map<string, number>();
+  for (const line of selected) {
+    if (line.delivery_id == null) continue;
+    movedByDelivery.set(line.delivery_id, (movedByDelivery.get(line.delivery_id) ?? 0) + 1);
+  }
+  for (const [deliveryId, moved] of movedByDelivery) {
+    if (moved >= (activeCountByDelivery[deliveryId] ?? 0)) return true;
+  }
+  return false;
+}
+
 export function buildDeliveriesView(
   deliveries: ReadonlyArray<DeliveryRow>,
   lines: ReadonlyArray<DeliveryLine>,

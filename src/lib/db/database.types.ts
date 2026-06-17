@@ -2512,6 +2512,16 @@ export type Database = {
         Args: { p_id: string; p_rate: number }
         Returns: undefined
       }
+      split_purchase_order_delivery: {
+        Args: {
+          p_cost?: number
+          p_eta?: string
+          p_note?: string
+          p_purchase_order_id: string
+          p_request_ids: string[]
+        }
+        Returns: string
+      }
       split_purchase_request_on_receipt: {
         Args: {
           p_delivered_amount?: number

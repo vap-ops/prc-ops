@@ -161,6 +161,23 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
     })),
   );
 
+  // Spec 135 U3: procurement (back office) splits the PO into more deliveries. Only
+  // in-transit lines may move; the non-empty guard needs each delivery's active
+  // (non rejected/cancelled) line count. Site never creates (no money, no plan).
+  const splittableLines = members
+    .filter((m) => m.status === "purchased" || m.status === "on_route")
+    .map((m) => ({
+      id: m.id,
+      pr_number: m.pr_number,
+      item_description: m.item_description,
+      delivery_id: m.delivery_id,
+    }));
+  const activeCountByDelivery: Record<string, number> = {};
+  for (const m of members) {
+    if (m.status === "rejected" || m.status === "cancelled" || m.delivery_id == null) continue;
+    activeCountByDelivery[m.delivery_id] = (activeCountByDelivery[m.delivery_id] ?? 0) + 1;
+  }
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -215,6 +232,9 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
           deliveries={deliveries}
           proofDocs={proofDocs}
           proofUrls={proofUrls}
+          canManageDeliveries={isBackOffice}
+          splittableLines={splittableLines}
+          activeCountByDelivery={activeCountByDelivery}
         />
 
         {/* Spec 134 U5 + U8: the receive checklist — site staff only (procurement,

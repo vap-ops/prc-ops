@@ -18,6 +18,10 @@ import type { DeliveryView } from "@/lib/purchasing/po-deliveries";
 import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
 import { AttachmentPdf } from "@/components/features/purchasing/attachment-pdf";
 import { ProofOfDeliveryUploader } from "@/components/features/purchasing/proof-of-delivery-uploader";
+import {
+  SplitDeliveryControl,
+  type SplittableLine,
+} from "@/components/features/purchasing/split-delivery-control";
 
 interface ProofDoc {
   id: string | null;
@@ -36,16 +40,29 @@ export function PoDeliverySection({
   deliveries,
   proofDocs,
   proofUrls,
+  canManageDeliveries = false,
+  splittableLines = [],
+  activeCountByDelivery = {},
 }: {
   purchaseOrderId: string;
   deliveries: DeliveryView[];
   proofDocs: ProofDoc[];
   proofUrls: Map<string, string>;
+  // Spec 135 U3: back office can split a PO into more deliveries (procurement plans
+  // งวดส่ง; site never creates). A split is only possible when some delivery still
+  // holds >= 2 active lines (move >= 1, leave >= 1).
+  canManageDeliveries?: boolean;
+  splittableLines?: SplittableLine[];
+  activeCountByDelivery?: Record<string, number>;
 }) {
   const proofImages = proofDocs.filter((d) => d.kind === "image");
   const proofPdfs = proofDocs.filter((d) => d.kind === "pdf");
   const multi = deliveries.length > 1;
   const single = deliveries.length === 1 ? deliveries[0] : null;
+  const canSplit =
+    canManageDeliveries &&
+    splittableLines.length > 0 &&
+    Object.values(activeCountByDelivery).some((c) => c >= 2);
 
   return (
     <div className="rounded-card border-edge bg-card shadow-card border p-4">
@@ -84,6 +101,17 @@ export function PoDeliverySection({
           {single ? headline(single) : "รอกำหนดส่ง"}
         </p>
       )}
+
+      {/* Spec 135 U3: procurement splits the PO into more delivery installments. */}
+      {canSplit ? (
+        <div className="mt-3">
+          <SplitDeliveryControl
+            purchaseOrderId={purchaseOrderId}
+            lines={splittableLines}
+            activeCountByDelivery={activeCountByDelivery}
+          />
+        </div>
+      ) : null}
 
       {/* Proof of delivery — procurement attaches the delivery note / POD (PO-level
           until U4 scopes it per delivery). */}

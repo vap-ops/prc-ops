@@ -642,6 +642,56 @@ export async function receivePoLines(
   return { ok: true, received: typeof data === "number" ? data : input.requestIds.length };
 }
 
+// splitPurchaseOrderDelivery (spec 135 U3 / ADR 0054): procurement plans a PO's
+// deliveries (งวดส่ง) — move selected in-transit lines into a NEW delivery with its
+// own eta/note/cost. Relays the guarded SECURITY DEFINER RPC, which re-enforces the
+// back-office gate + the membership/in-transit/non-empty guards. Site never creates.
+const ERR_SPLIT_DELIVERY_FAILED = "สร้างงวดจัดส่งไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+
+export interface SplitPoDeliveryInput {
+  purchaseOrderId: string;
+  requestIds: string[];
+  eta?: string | null;
+  note?: string | null;
+  cost?: number | null;
+}
+
+export async function splitPurchaseOrderDelivery(
+  input: SplitPoDeliveryInput,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!UUID_REGEX.test(input.purchaseOrderId)) {
+    return { ok: false, error: ERR_SPLIT_DELIVERY_FAILED };
+  }
+  if (!Array.isArray(input.requestIds) || input.requestIds.length === 0) {
+    return { ok: false, error: ERR_SPLIT_DELIVERY_FAILED };
+  }
+  if (!input.requestIds.every((id) => UUID_REGEX.test(id))) {
+    return { ok: false, error: ERR_SPLIT_DELIVERY_FAILED };
+  }
+  if (input.cost != null && (!Number.isFinite(input.cost) || input.cost < 0)) {
+    return { ok: false, error: ERR_SPLIT_DELIVERY_FAILED };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase } = auth;
+
+  const { error } = await supabase.rpc("split_purchase_order_delivery", {
+    p_purchase_order_id: input.purchaseOrderId,
+    p_request_ids: input.requestIds,
+    ...(input.eta ? { p_eta: input.eta } : {}),
+    ...(input.note ? { p_note: input.note } : {}),
+    ...(input.cost != null ? { p_cost: input.cost } : {}),
+  });
+  if (error) {
+    console.error("[split-po-delivery] rpc failed", error);
+    return { ok: false, error: ERR_SPLIT_DELIVERY_FAILED };
+  }
+
+  revalidatePath("/requests");
+  return { ok: true };
+}
+
 // recordSitePurchase (spec 66 / ADR 0043): an on-site cash purchase that
 // never went through request→approve. Relays the SECURITY DEFINER RPC,
 // which creates the purchase_request born terminal (status
