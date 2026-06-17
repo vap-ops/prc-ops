@@ -3,6 +3,7 @@ import { Geist_Mono, Sarabun } from "next/font/google";
 import { SwRegister } from "@/components/features/chrome/sw-register";
 import { UploadQueueRunner } from "@/components/features/photos/upload-queue-runner";
 import { ViewportScrollGuard } from "@/components/features/chrome/viewport-scroll-guard";
+import { BootTiming } from "@/components/features/chrome/boot-timing";
 import { ToastProvider } from "@/components/features/common/toast-provider";
 import "./globals.css";
 
@@ -63,6 +64,9 @@ export default function RootLayout({
             scroll 0 if iOS scrolls it to reveal a focused input. The primary
             keyboard fix is maximum-scale=1 in `viewport` above (no auto-zoom). */}
         <ViewportScrollGuard />
+        {/* TEMPORARY perf measurement — boot timing overlay; remove after the
+            ~2s boot is profiled and fixed. */}
+        <BootTiming />
       </body>
     </html>
   );
