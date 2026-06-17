@@ -1212,6 +1212,57 @@ export type Database = {
           },
         ]
       }
+      purchase_order_deliveries: {
+        Row: {
+          carrier: string | null
+          cost: number | null
+          created_at: string
+          created_by: string
+          eta: string | null
+          id: string
+          note: string | null
+          purchase_order_id: string
+          updated_at: string
+        }
+        Insert: {
+          carrier?: string | null
+          cost?: number | null
+          created_at?: string
+          created_by: string
+          eta?: string | null
+          id?: string
+          note?: string | null
+          purchase_order_id: string
+          updated_at?: string
+        }
+        Update: {
+          carrier?: string | null
+          cost?: number | null
+          created_at?: string
+          created_by?: string
+          eta?: string | null
+          id?: string
+          note?: string | null
+          purchase_order_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_deliveries_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_deliveries_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchase_orders: {
         Row: {
           created_at: string
@@ -1392,6 +1443,7 @@ export type Database = {
           decision_comment: string | null
           delivered_at: string | null
           delivery_batch_id: string | null
+          delivery_id: string | null
           delivery_note: string | null
           eta: string | null
           id: string
@@ -1433,6 +1485,7 @@ export type Database = {
           decision_comment?: string | null
           delivered_at?: string | null
           delivery_batch_id?: string | null
+          delivery_id?: string | null
           delivery_note?: string | null
           eta?: string | null
           id?: string
@@ -1474,6 +1527,7 @@ export type Database = {
           decision_comment?: string | null
           delivered_at?: string | null
           delivery_batch_id?: string | null
+          delivery_id?: string | null
           delivery_note?: string | null
           eta?: string | null
           id?: string
@@ -1522,6 +1576,13 @@ export type Database = {
             columns: ["cancelled_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_requests_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_order_deliveries"
             referencedColumns: ["id"]
           },
           {
