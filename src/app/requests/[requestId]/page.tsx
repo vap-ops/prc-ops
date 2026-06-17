@@ -143,6 +143,9 @@ export default async function RequestDetailPage({ params }: PageProps) {
         .from("purchase_order_attachments_current")
         .select("id, kind, storage_path, created_at")
         .eq("purchase_order_id", poId)
+        // Spec 134 U4a: source docs only — proof-of-delivery is its own purpose,
+        // shown on the PO detail, never in the ticket's quotation/invoice section.
+        .eq("purpose", "source_document")
         .order("created_at", { ascending: true })
     : { data: null };
   const poDocs = poDocRows ?? [];

@@ -26,6 +26,11 @@ import {
   purchaseRequestPriorityPillClasses,
   purchaseRequestStatusPillClasses,
 } from "@/lib/status-colors";
+import { mintSignedUrls } from "@/lib/storage/signed-urls";
+import { PO_ATTACHMENTS_BUCKET } from "@/lib/storage/buckets";
+import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
+import { AttachmentPdf } from "@/components/features/purchasing/attachment-pdf";
+import { ProofOfDeliveryUploader } from "@/components/features/purchasing/proof-of-delivery-uploader";
 
 // /requests/orders/[poId] — the purchase-order detail screen (spec 134 U1). A PO
 // groups N approved tickets into one supplier order (ADR 0044); spec 115 shipped
@@ -104,6 +109,22 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
   const view = buildPoDetailView(
     members.map((m) => ({ status: m.status, amount: amountById.get(m.id) ?? null })),
   );
+
+  // Spec 134 U4a: manual proof-of-delivery attachments live in the po-attachments
+  // bucket stamped purpose 'proof_of_delivery' (distinct from the source docs).
+  // Read the current-state rows + mint signed URLs (private bucket, service-role).
+  const { data: proofRows } = await supabase
+    .from("purchase_order_attachments_current")
+    .select("id, kind, storage_path, created_at")
+    .eq("purchase_order_id", poId)
+    .eq("purpose", "proof_of_delivery")
+    .order("created_at", { ascending: true });
+  const proofDocs = proofRows ?? [];
+  const proofUrls = await mintSignedUrls(
+    PO_ATTACHMENTS_BUCKET,
+    proofDocs.map((row) => ({ id: row.id ?? "", storage_path: row.storage_path })),
+  );
+  const proofImages = proofDocs.filter((d) => d.kind === "image");
 
   return (
     <PageShell>
@@ -210,6 +231,47 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
           {members.length === 0 ? (
             <p className="text-ink-secondary text-xs">ใบสั่งซื้อนี้ยังไม่มีรายการ</p>
           ) : null}
+        </div>
+
+        {/* Spec 134 U4a: manual proof-of-delivery — a signed delivery note / photo
+            of the received goods, attached at the PO level. Its own section,
+            distinct from the source documents (ใบเสนอราคา/ใบแจ้งหนี้). */}
+        <div className="rounded-card border-edge bg-card shadow-card border p-4">
+          <h2 className="text-ink text-base font-semibold">หลักฐานการรับของ</h2>
+          <div className="mt-2 flex flex-col gap-2">
+            {proofImages.length > 0 ? (
+              <ul className="flex flex-wrap gap-2">
+                {proofImages.map((doc, idx, arr) => {
+                  const url = doc.id ? proofUrls.get(doc.id) : undefined;
+                  if (!doc.id || !url) return null;
+                  const groupUrls = arr.flatMap((a) =>
+                    a.id && proofUrls.get(a.id) ? [proofUrls.get(a.id) as string] : [],
+                  );
+                  const groupIndex = arr
+                    .slice(0, idx)
+                    .filter((a) => a.id && proofUrls.get(a.id)).length;
+                  return (
+                    <li key={doc.id} className="flex flex-col items-center gap-0.5">
+                      <span className="border-edge block h-20 w-20 overflow-hidden rounded-lg border">
+                        <ZoomablePhoto src={url} group={groupUrls} groupIndex={groupIndex} />
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
+            {proofDocs
+              .filter((d) => d.kind === "pdf")
+              .map((doc) => {
+                const url = doc.id ? proofUrls.get(doc.id) : undefined;
+                if (!doc.id || !url) return null;
+                return <AttachmentPdf key={doc.id} src={url} />;
+              })}
+            {proofDocs.length === 0 ? (
+              <p className="text-ink-secondary text-xs">ยังไม่มีหลักฐานการรับของ</p>
+            ) : null}
+            <ProofOfDeliveryUploader purchaseOrderId={po.id} />
+          </div>
         </div>
       </section>
     </PageShell>

@@ -486,6 +486,78 @@ export async function addPurchaseOrderAttachment(
   return { ok: true };
 }
 
+// addProofOfDeliveryAttachment (spec 134 U4a): a MANUAL proof-of-delivery (a
+// signed delivery note / photo of received goods) attaches at the PO level, in the
+// SAME po-attachments bucket as the source document but stamped purpose
+// 'proof_of_delivery' so it renders in its own section (and the future Lalamove
+// auto-POD, U4b, fans into this same purpose). Mirrors addPurchaseOrderAttachment;
+// the only difference is the purpose column. The INSERT policy (back office /
+// own-author / parent exists) re-enforces the gate server-side.
+
+export async function addProofOfDeliveryAttachment(
+  input: AddPurchaseOrderAttachmentInput,
+): Promise<AttachmentActionResult> {
+  if (!UUID_REGEX.test(input.purchaseOrderId) || !UUID_REGEX.test(input.attachmentId)) {
+    return { ok: false, error: ERR_SAVE_DOC_FAILED };
+  }
+  if (!isValidAttachmentExt(input.ext)) {
+    return { ok: false, error: ERR_SAVE_DOC_FAILED };
+  }
+  const fileKind: AttachmentFileKind = attachmentKindForExt(input.ext);
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
+
+  const { data: po } = await supabase
+    .from("purchase_orders")
+    .select("id")
+    .eq("id", input.purchaseOrderId)
+    .maybeSingle();
+  if (!po) {
+    return { ok: false, error: ERR_SAVE_DOC_FAILED };
+  }
+
+  const storagePath = buildPoAttachmentStoragePath(
+    input.purchaseOrderId,
+    input.attachmentId,
+    input.ext,
+  );
+  if (!storagePath) {
+    return { ok: false, error: ERR_SAVE_DOC_FAILED };
+  }
+
+  const { error } = await supabase.from("purchase_order_attachments").insert({
+    id: input.attachmentId,
+    purchase_order_id: input.purchaseOrderId,
+    kind: fileKind,
+    purpose: "proof_of_delivery",
+    storage_path: storagePath,
+    created_by: user.id,
+  });
+  if (error) {
+    // Idempotent replay (identity-complete, spec 37): a retried upload whose row
+    // already landed but whose response was lost confirms as success.
+    if (error.code !== "23505") {
+      return { ok: false, error: ERR_SAVE_DOC_FAILED };
+    }
+    const { data: landed } = await supabase
+      .from("purchase_order_attachments")
+      .select("id")
+      .eq("id", input.attachmentId)
+      .eq("purchase_order_id", input.purchaseOrderId)
+      .eq("kind", fileKind)
+      .eq("storage_path", storagePath)
+      .maybeSingle();
+    if (!landed) {
+      return { ok: false, error: ERR_SAVE_DOC_FAILED };
+    }
+  }
+
+  revalidatePath("/requests");
+  return { ok: true };
+}
+
 // recordSitePurchase (spec 66 / ADR 0043): an on-site cash purchase that
 // never went through request→approve. Relays the SECURITY DEFINER RPC,
 // which creates the purchase_request born terminal (status
