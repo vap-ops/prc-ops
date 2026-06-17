@@ -1,5 +1,5 @@
 begin;
-select plan(23);
+select plan(29);
 
 -- ============================================================================
 -- Spec 125 / ADR 0046 Layer B — purchase_order_attachments (the PO source
@@ -155,6 +155,38 @@ select ok(
      where schemaname = 'storage' and tablename = 'objects'
        and policyname = 'po attachment uploads by back office'),
   'upload policy WITH CHECK binds path (foldername) AND role (current_user_role)');
+
+-- ============================================================================
+-- F. purpose discriminator (spec 134 U4a).
+-- ============================================================================
+select enum_has_labels('public', 'purchase_order_attachment_purpose',
+  array['source_document', 'proof_of_delivery'],
+  'purpose enum is exactly {source_document, proof_of_delivery}');
+select has_column('public', 'purchase_order_attachments', 'purpose',
+  'purpose column exists on the table');
+select has_column('public', 'purchase_order_attachments_current', 'purpose',
+  'purpose column is carried on the current-state view');
+
+-- An insert that omits purpose (the existing create-PO source-doc path) defaults
+-- to 'source_document' — the content row from section C.
+select is(
+  (select purpose::text from public.purchase_order_attachments
+     where id = 'ca000050-0000-4000-8000-000000000010'),
+  'source_document', 'an insert without purpose defaults to source_document');
+
+-- A proof-of-delivery content row inserts and the current view surfaces its purpose.
+select lives_ok(
+  $$ insert into public.purchase_order_attachments
+       (id, purchase_order_id, kind, purpose, storage_path, created_by)
+     values ('ea000050-0000-4000-8000-000000000030', 'aa000050-0000-4000-8000-000000000001',
+             'image', 'proof_of_delivery',
+             'aa000050-0000-4000-8000-000000000001/ea000050-0000-4000-8000-000000000030.jpg',
+             '22222222-2222-2222-2222-222222220050') $$,
+  'a proof_of_delivery content row inserts');
+select is(
+  (select purpose::text from public.purchase_order_attachments_current
+     where id = 'ea000050-0000-4000-8000-000000000030'),
+  'proof_of_delivery', 'the current view surfaces the proof_of_delivery purpose');
 
 select * from finish();
 rollback;
