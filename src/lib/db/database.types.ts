@@ -1157,6 +1157,7 @@ export type Database = {
           id: string
           kind: Database["public"]["Enums"]["purchase_order_attachment_kind"]
           purchase_order_id: string
+          purpose: Database["public"]["Enums"]["purchase_order_attachment_purpose"]
           storage_path: string | null
           superseded_by: string | null
         }
@@ -1166,6 +1167,7 @@ export type Database = {
           id?: string
           kind: Database["public"]["Enums"]["purchase_order_attachment_kind"]
           purchase_order_id: string
+          purpose?: Database["public"]["Enums"]["purchase_order_attachment_purpose"]
           storage_path?: string | null
           superseded_by?: string | null
         }
@@ -1175,6 +1177,7 @@ export type Database = {
           id?: string
           kind?: Database["public"]["Enums"]["purchase_order_attachment_kind"]
           purchase_order_id?: string
+          purpose?: Database["public"]["Enums"]["purchase_order_attachment_purpose"]
           storage_path?: string | null
           superseded_by?: string | null
         }
@@ -2057,6 +2060,9 @@ export type Database = {
             | Database["public"]["Enums"]["purchase_order_attachment_kind"]
             | null
           purchase_order_id: string | null
+          purpose:
+            | Database["public"]["Enums"]["purchase_order_attachment_purpose"]
+            | null
           storage_path: string | null
         }
         Insert: {
@@ -2067,6 +2073,9 @@ export type Database = {
             | Database["public"]["Enums"]["purchase_order_attachment_kind"]
             | null
           purchase_order_id?: string | null
+          purpose?:
+            | Database["public"]["Enums"]["purchase_order_attachment_purpose"]
+            | null
           storage_path?: string | null
         }
         Update: {
@@ -2077,6 +2086,9 @@ export type Database = {
             | Database["public"]["Enums"]["purchase_order_attachment_kind"]
             | null
           purchase_order_id?: string | null
+          purpose?:
+            | Database["public"]["Enums"]["purchase_order_attachment_purpose"]
+            | null
           storage_path?: string | null
         }
         Relationships: [
@@ -2540,6 +2552,7 @@ export type Database = {
         | "systems"
         | "other"
       purchase_order_attachment_kind: "image" | "pdf"
+      purchase_order_attachment_purpose: "source_document" | "proof_of_delivery"
       purchase_request_attachment_kind: "image" | "link" | "pdf"
       purchase_request_attachment_purpose:
         | "reference"
@@ -2777,6 +2790,10 @@ export const Constants = {
         "other",
       ],
       purchase_order_attachment_kind: ["image", "pdf"],
+      purchase_order_attachment_purpose: [
+        "source_document",
+        "proof_of_delivery",
+      ],
       purchase_request_attachment_kind: ["image", "link", "pdf"],
       purchase_request_attachment_purpose: [
         "reference",
