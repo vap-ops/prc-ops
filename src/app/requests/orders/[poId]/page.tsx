@@ -31,6 +31,7 @@ import { PO_ATTACHMENTS_BUCKET } from "@/lib/storage/buckets";
 import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
 import { AttachmentPdf } from "@/components/features/purchasing/attachment-pdf";
 import { ProofOfDeliveryUploader } from "@/components/features/purchasing/proof-of-delivery-uploader";
+import { PartialReceiveControl } from "@/components/features/purchasing/partial-receive-control";
 
 // /requests/orders/[poId] — the purchase-order detail screen (spec 134 U1). A PO
 // groups N approved tickets into one supplier order (ADR 0044); spec 115 shipped
@@ -220,10 +221,19 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
                       </p>
                     ) : null}
                   </Link>
-                  {/* The WP deep-link is on the ticket detail; procurement is
-                      bounced from the WP screen (spec 70), so the chip stays
-                      plain text here for every role — the row already links to
-                      the ticket. */}
+                  {/* Spec 134 U3: a strictly-partial receipt on an in-transit line
+                      splits it into a delivered portion + a remaining child. The
+                      amount field shows for back office only (money). */}
+                  {m.status === "purchased" || m.status === "on_route" ? (
+                    <div className="mt-1.5">
+                      <PartialReceiveControl
+                        purchaseRequestId={m.id}
+                        orderedQty={m.quantity}
+                        unit={m.unit}
+                        amount={isBackOffice ? amount : null}
+                      />
+                    </div>
+                  ) : null}
                 </li>
               );
             })}

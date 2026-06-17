@@ -558,6 +558,50 @@ export async function addProofOfDeliveryAttachment(
   return { ok: true };
 }
 
+// splitPurchaseRequestOnReceipt (spec 134 U3 / ADR 0052): a strictly-partial
+// receipt against an in-transit PO member — splits it into a delivered portion (the
+// original, reduced) + a remaining child (on_route). Relays the guarded SECURITY
+// DEFINER RPC, which re-enforces the back-office gate + the qty/amount guards. The
+// delivered amount is optional: omitted → proportional by qty; supplied → the
+// buyer's value (ADR 0052 §4).
+const ERR_SPLIT_FAILED = "บันทึกการรับบางส่วนไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+
+export interface SplitPurchaseRequestInput {
+  requestId: string;
+  receivedQty: number;
+  deliveredAmount?: number | null;
+  deliveryNote?: string | null;
+}
+
+export async function splitPurchaseRequestOnReceipt(
+  input: SplitPurchaseRequestInput,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!UUID_REGEX.test(input.requestId)) {
+    return { ok: false, error: ERR_SPLIT_FAILED };
+  }
+  if (!Number.isFinite(input.receivedQty) || input.receivedQty <= 0) {
+    return { ok: false, error: ERR_SPLIT_FAILED };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase } = auth;
+
+  const { error } = await supabase.rpc("split_purchase_request_on_receipt", {
+    p_request_id: input.requestId,
+    p_received_qty: input.receivedQty,
+    ...(input.deliveredAmount != null ? { p_delivered_amount: input.deliveredAmount } : {}),
+    ...(input.deliveryNote ? { p_delivery_note: input.deliveryNote } : {}),
+  });
+  if (error) {
+    console.error("[split-on-receipt] rpc failed", error);
+    return { ok: false, error: ERR_SPLIT_FAILED };
+  }
+
+  revalidatePath("/requests");
+  return { ok: true };
+}
+
 // recordSitePurchase (spec 66 / ADR 0043): an on-site cash purchase that
 // never went through request→approve. Relays the SECURITY DEFINER RPC,
 // which creates the purchase_request born terminal (status

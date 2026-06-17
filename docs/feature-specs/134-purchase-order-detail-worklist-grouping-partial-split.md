@@ -1,6 +1,7 @@
 # Spec 134 — Purchase orders: detail page, worklist PO grouping, within-ticket partial via split
 
-- Status: Draft (2026-06-17)
+- Status: U1, U2 (a+b), U3, U4a — SHIPPED to prod 2026-06-17. U4b (Lalamove
+  auto-POD) deferred (blocked on sandbox creds). (was: Draft 2026-06-17)
 - Owner decision (this session): operator chose **PO detail + worklist grouping**
   (no new primary tab) for PO viewing, and **across-ticket roll-up for ~98% of
   cases, with split-on-receipt for the 1–2% within-ticket partial**.
