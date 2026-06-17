@@ -36,6 +36,14 @@ export function ViewportScrollGuard() {
     // with the keyboard still up — the caret-reveal scroll is iOS's job then).
     function repaintScroller(force: boolean) {
       if (!force && isEditable(document.activeElement)) return;
+      // (0) Snap the WINDOW back to top. The body is locked (spec 64:
+      // overflow:hidden), so the window/document should always sit at scroll 0 —
+      // but iOS pans the document up to reveal a focused field near the bottom and
+      // does not always undo that pan when the keyboard closes, leaving the sticky
+      // header ABOVE the visible viewport ("the screen is hidden"). Resetting the
+      // window scroll is always safe here (a locked body cannot legitimately
+      // scroll) and does NOT touch <main>'s own scroll = the reading position.
+      window.scrollTo(0, 0);
       const scroller = document.querySelector("main");
       if (!(scroller instanceof HTMLElement)) return;
       // (1) Mirror the manual scroll that recovers it: nudge, then restore next

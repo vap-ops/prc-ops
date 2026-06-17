@@ -50,6 +50,38 @@ describe("ViewportScrollGuard", () => {
     expect(scrollBy).not.toHaveBeenCalled();
   });
 
+  // iOS pans the document up to reveal a field near the bottom; under the spec-64
+  // body lock (overflow:hidden) the window should always sit at scroll 0, so that
+  // pan is an artifact that leaves the sticky header ABOVE the visible viewport
+  // after the keyboard closes — the "screen is hidden" symptom. Snap the window
+  // back to top on close. <main>'s own scroll (the reading position) is untouched.
+  it("snaps the window back to top on keyboard close (header pushed-off case)", () => {
+    vi.useFakeTimers();
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    mountInMain();
+
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    vi.advanceTimersByTime(150);
+
+    expect(scrollTo).toHaveBeenCalledWith(0, 0);
+  });
+
+  it("does NOT snap the window while another field is being edited", () => {
+    vi.useFakeTimers();
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    mountInMain();
+
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    input.focus(); // still editing → keyboard up → leave the viewport alone
+    input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    vi.advanceTimersByTime(150);
+
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
   // The scroll nudge only repaints when <main> can actually scroll. A short form
   // that fits the viewport (no overflow) cannot scroll, so scrollBy moves nothing
   // and the locked scroller stays blank. Force a scroll-INDEPENDENT repaint too: a
