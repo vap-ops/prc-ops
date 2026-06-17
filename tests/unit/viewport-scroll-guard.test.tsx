@@ -13,6 +13,7 @@ afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
   document.body.innerHTML = "";
+  document.body.style.height = "";
 });
 
 function mountInMain() {
@@ -48,6 +49,34 @@ describe("ViewportScrollGuard", () => {
     vi.advanceTimersByTime(150);
 
     expect(scrollBy).not.toHaveBeenCalled();
+  });
+
+  // The "bottom blank gap" symptom: iOS standalone PWA leaves the locked body at
+  // the keyboard-REDUCED 100% height after the keyboard closes, so the area the
+  // keyboard vacated stays blank at the bottom. Rotate/navigate/refresh fix it
+  // (they relayout at the restored height); scrolling does NOT (it's height, not
+  // paint or offset). Force the relayout: pin the body to the live innerHeight for
+  // one frame, then release back to the CSS h-full lock.
+  it("forces a height relayout of the locked body on keyboard close (bottom-gap case)", () => {
+    vi.useFakeTimers();
+    const rafs: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      rafs.push(cb);
+      return rafs.length;
+    });
+    mountInMain();
+
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    vi.advanceTimersByTime(150);
+
+    // pinned to the live (restored) height to force the relayout
+    expect(document.body.style.height).toBe(`${window.innerHeight}px`);
+
+    // released back to the CSS h-full lock on the next frame
+    rafs.forEach((cb) => cb(0));
+    expect(document.body.style.height).toBe("");
   });
 
   // iOS pans the document up to reveal a field near the bottom; under the spec-64

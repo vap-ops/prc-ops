@@ -44,6 +44,19 @@ export function ViewportScrollGuard() {
       // window scroll is always safe here (a locked body cannot legitimately
       // scroll) and does NOT touch <main>'s own scroll = the reading position.
       window.scrollTo(0, 0);
+      // (0b) Restore the locked-body HEIGHT. On iOS standalone PWA the body/<main>
+      // stay at the keyboard-REDUCED 100% height after the keyboard closes, so the
+      // area the keyboard vacated stays blank at the bottom ("bottom blank gap" —
+      // fixed by rotate/navigate/refresh, i.e. anything that relayouts, but NOT by
+      // scrolling, so it's a stale height, not a paint or scroll offset). Replicate
+      // the rotate relayout: pin the body to the live innerHeight for one frame to
+      // force a layout pass, then release back to the CSS h-full lock so 100%
+      // re-resolves against the now-correct viewport. Own rAF so it restores even
+      // if there's no <main>.
+      document.body.style.height = `${window.innerHeight}px`;
+      requestAnimationFrame(() => {
+        document.body.style.height = "";
+      });
       const scroller = document.querySelector("main");
       if (!(scroller instanceof HTMLElement)) return;
       // (1) Mirror the manual scroll that recovers it: nudge, then restore next
