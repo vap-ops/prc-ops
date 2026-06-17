@@ -39,6 +39,35 @@ function isActive(status: PurchaseRequestStatus): boolean {
   return status !== "rejected" && status !== "cancelled";
 }
 
+// Spec 135 U4 — a proof-of-delivery doc as the PO detail consumes it (the current
+// view's row, minus created_at). delivery_id is the งวด it documents.
+export interface ProofDeliveryDoc {
+  id: string | null;
+  kind: string | null;
+  storage_path: string | null;
+  delivery_id: string | null;
+}
+
+// Spec 135 U4 — group a PO's proof-of-delivery docs by the delivery they document.
+// New uploads carry a delivery_id; legacy proof (uploaded before U4, delivery_id NULL
+// — the table is append-only so it was never backfilled) falls under the PO's DEFAULT
+// delivery (the earliest, งวดที่ 1). A doc with no delivery and no default is dropped
+// (can't happen post-U1: every PO has >= 1 delivery). Pure → unit-tested.
+export function groupProofByDelivery<T extends { delivery_id: string | null }>(
+  proofDocs: ReadonlyArray<T>,
+  defaultDeliveryId: string | null,
+): Map<string, T[]> {
+  const byDelivery = new Map<string, T[]>();
+  for (const doc of proofDocs) {
+    const key = doc.delivery_id ?? defaultDeliveryId;
+    if (key == null) continue;
+    const arr = byDelivery.get(key);
+    if (arr) arr.push(doc);
+    else byDelivery.set(key, [doc]);
+  }
+  return byDelivery;
+}
+
 // Spec 135 U3 — the non-empty guard for a delivery split. A delivery must keep >= 1
 // active line, so a split may not move every active line out of any source delivery.
 // `activeCountByDelivery` is the active (non rejected/cancelled) line count per

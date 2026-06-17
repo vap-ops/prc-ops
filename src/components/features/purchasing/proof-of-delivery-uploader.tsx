@@ -30,11 +30,16 @@ import { BUTTON_SECONDARY_MUTED, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
 
 interface ProofOfDeliveryUploaderProps {
   purchaseOrderId: string;
+  // Spec 135 U4: the proof attaches to a specific delivery (งวด).
+  deliveryId: string;
 }
 
 type UploadPhase = "idle" | "uploading" | "saving" | "error";
 
-export function ProofOfDeliveryUploader({ purchaseOrderId }: ProofOfDeliveryUploaderProps) {
+export function ProofOfDeliveryUploader({
+  purchaseOrderId,
+  deliveryId,
+}: ProofOfDeliveryUploaderProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<UploadPhase>("idle");
@@ -85,7 +90,12 @@ export function ProofOfDeliveryUploader({ purchaseOrderId }: ProofOfDeliveryUplo
       setPhase("saving");
       let result: Awaited<ReturnType<typeof addProofOfDeliveryAttachment>>;
       try {
-        result = await addProofOfDeliveryAttachment({ purchaseOrderId, attachmentId, ext });
+        result = await addProofOfDeliveryAttachment({
+          purchaseOrderId,
+          deliveryId,
+          attachmentId,
+          ext,
+        });
       } catch (err) {
         console.error("[proof-of-delivery-uploader] action invocation failed", err);
         result = { ok: false, error: "บันทึกหลักฐานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };

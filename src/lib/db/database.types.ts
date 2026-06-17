@@ -1154,6 +1154,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string
+          delivery_id: string | null
           id: string
           kind: Database["public"]["Enums"]["purchase_order_attachment_kind"]
           purchase_order_id: string
@@ -1164,6 +1165,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by: string
+          delivery_id?: string | null
           id?: string
           kind: Database["public"]["Enums"]["purchase_order_attachment_kind"]
           purchase_order_id: string
@@ -1174,6 +1176,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string
+          delivery_id?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["purchase_order_attachment_kind"]
           purchase_order_id?: string
@@ -2129,6 +2132,7 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string | null
+          delivery_id: string | null
           id: string | null
           kind:
             | Database["public"]["Enums"]["purchase_order_attachment_kind"]
@@ -2142,6 +2146,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           created_by?: string | null
+          delivery_id?: string | null
           id?: string | null
           kind?:
             | Database["public"]["Enums"]["purchase_order_attachment_kind"]
@@ -2155,6 +2160,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           created_by?: string | null
+          delivery_id?: string | null
           id?: string | null
           kind?:
             | Database["public"]["Enums"]["purchase_order_attachment_kind"]

@@ -486,18 +486,25 @@ export async function addPurchaseOrderAttachment(
   return { ok: true };
 }
 
-// addProofOfDeliveryAttachment (spec 134 U4a): a MANUAL proof-of-delivery (a
-// signed delivery note / photo of received goods) attaches at the PO level, in the
-// SAME po-attachments bucket as the source document but stamped purpose
-// 'proof_of_delivery' so it renders in its own section (and the future Lalamove
-// auto-POD, U4b, fans into this same purpose). Mirrors addPurchaseOrderAttachment;
-// the only difference is the purpose column. The INSERT policy (back office /
-// own-author / parent exists) re-enforces the gate server-side.
+// addProofOfDeliveryAttachment (spec 134 U4a; spec 135 U4 scopes it to a delivery):
+// a MANUAL proof-of-delivery (a signed delivery note / photo of received goods)
+// attaches in the SAME po-attachments bucket as the source document but stamped
+// purpose 'proof_of_delivery' so it renders in its own section (and the future
+// Lalamove auto-POD, U4b, fans into this same purpose). Spec 135 U4: the proof
+// belongs to a DELIVERY (งวด) — stamp delivery_id, validated to belong to the PO.
+// The INSERT policy (back office / own-author / parent exists) re-enforces the gate.
+
+export interface AddProofOfDeliveryInput extends AddPurchaseOrderAttachmentInput {
+  deliveryId: string;
+}
 
 export async function addProofOfDeliveryAttachment(
-  input: AddPurchaseOrderAttachmentInput,
+  input: AddProofOfDeliveryInput,
 ): Promise<AttachmentActionResult> {
   if (!UUID_REGEX.test(input.purchaseOrderId) || !UUID_REGEX.test(input.attachmentId)) {
+    return { ok: false, error: ERR_SAVE_DOC_FAILED };
+  }
+  if (!UUID_REGEX.test(input.deliveryId)) {
     return { ok: false, error: ERR_SAVE_DOC_FAILED };
   }
   if (!isValidAttachmentExt(input.ext)) {
@@ -518,6 +525,18 @@ export async function addProofOfDeliveryAttachment(
     return { ok: false, error: ERR_SAVE_DOC_FAILED };
   }
 
+  // The delivery must belong to this PO (a proof can't be scoped to another order's
+  // delivery). RLS already limits readable deliveries to the caller's POs.
+  const { data: delivery } = await supabase
+    .from("purchase_order_deliveries")
+    .select("id")
+    .eq("id", input.deliveryId)
+    .eq("purchase_order_id", input.purchaseOrderId)
+    .maybeSingle();
+  if (!delivery) {
+    return { ok: false, error: ERR_SAVE_DOC_FAILED };
+  }
+
   const storagePath = buildPoAttachmentStoragePath(
     input.purchaseOrderId,
     input.attachmentId,
@@ -530,6 +549,7 @@ export async function addProofOfDeliveryAttachment(
   const { error } = await supabase.from("purchase_order_attachments").insert({
     id: input.attachmentId,
     purchase_order_id: input.purchaseOrderId,
+    delivery_id: input.deliveryId,
     kind: fileKind,
     purpose: "proof_of_delivery",
     storage_path: storagePath,

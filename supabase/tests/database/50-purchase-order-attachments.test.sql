@@ -1,5 +1,5 @@
 begin;
-select plan(29);
+select plan(34);
 
 -- ============================================================================
 -- Spec 125 / ADR 0046 Layer B — purchase_order_attachments (the PO source
@@ -28,6 +28,11 @@ insert into public.suppliers (id, name, created_by) values
 insert into public.purchase_orders (id, supplier_id, supplier, created_by) values
   ('aa000050-0000-4000-8000-000000000001', 'bb000050-0000-4000-8000-000000000001',
    'ผู้ขายทดสอบ PO doc', '11111111-1111-1111-1111-111111110050');
+
+-- Spec 135 U4: a delivery to scope a proof-of-delivery to (every PO has >= 1, U1).
+insert into public.purchase_order_deliveries (id, purchase_order_id, created_by) values
+  ('de000050-0000-4000-8000-000000000001', 'aa000050-0000-4000-8000-000000000001',
+   '11111111-1111-1111-1111-111111110050');
 
 grant insert on _tap_buf to authenticated, anon;
 grant select on _tap_buf to authenticated, anon;
@@ -187,6 +192,46 @@ select is(
   (select purpose::text from public.purchase_order_attachments_current
      where id = 'ea000050-0000-4000-8000-000000000030'),
   'proof_of_delivery', 'the current view surfaces the proof_of_delivery purpose');
+
+-- ============================================================================
+-- G. delivery_id — proof scopes to a delivery (spec 135 U4).
+-- ============================================================================
+select has_column('public', 'purchase_order_attachments', 'delivery_id',
+  'delivery_id column exists on the table');
+select has_column('public', 'purchase_order_attachments_current', 'delivery_id',
+  'delivery_id is carried on the current-state view');
+
+-- A delivery_id with no matching delivery violates the FK (postgres; FK fires
+-- regardless of role).
+select throws_ok(
+  $$ insert into public.purchase_order_attachments
+       (purchase_order_id, kind, purpose, storage_path, delivery_id, created_by)
+     values ('aa000050-0000-4000-8000-000000000001', 'image', 'proof_of_delivery',
+             'aa000050-0000-4000-8000-000000000001/bogus.jpg',
+             '00000000-0000-4000-8000-0000000000ff',
+             '22222222-2222-2222-2222-222222220050') $$,
+  '23503', null, 'a delivery_id with no matching delivery violates the FK');
+
+-- Back office attaches a proof stamped with the PO's delivery — the column-scoped
+-- INSERT grant must name delivery_id, or this is denied.
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111110050"}';
+select lives_ok(
+  $$ insert into public.purchase_order_attachments
+       (id, purchase_order_id, kind, purpose, storage_path, delivery_id, created_by)
+     values ('fa000050-0000-4000-8000-000000000040', 'aa000050-0000-4000-8000-000000000001',
+             'image', 'proof_of_delivery',
+             'aa000050-0000-4000-8000-000000000001/fa000050-0000-4000-8000-000000000040.jpg',
+             'de000050-0000-4000-8000-000000000001',
+             '11111111-1111-1111-1111-111111110050') $$,
+  'back office attaches a proof stamped with its delivery');
+reset role;
+
+select is(
+  (select delivery_id from public.purchase_order_attachments_current
+     where id = 'fa000050-0000-4000-8000-000000000040'),
+  'de000050-0000-4000-8000-000000000001'::uuid,
+  'the current view surfaces the proof''s delivery_id');
 
 select * from finish();
 rollback;
