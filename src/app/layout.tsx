@@ -3,7 +3,6 @@ import { Geist_Mono, Sarabun } from "next/font/google";
 import { SwRegister } from "@/components/features/chrome/sw-register";
 import { UploadQueueRunner } from "@/components/features/photos/upload-queue-runner";
 import { ViewportScrollGuard } from "@/components/features/chrome/viewport-scroll-guard";
-import { ViewportDebug } from "@/components/features/chrome/viewport-debug";
 import { ToastProvider } from "@/components/features/common/toast-provider";
 import "./globals.css";
 
@@ -60,12 +59,10 @@ export default function RootLayout({
         {/* Spec 35: drains the offline photo queue (leftovers from
             crash/offline/navigation); renders only when items wait. */}
         <UploadQueueRunner />
-        {/* Spec 95: snaps the locked document back to top after the iOS
-            keyboard closes (otherwise the header is pushed off / blank band). */}
+        {/* Spec 95: defends the spec-64 body lock — keeps the document at
+            scroll 0 if iOS scrolls it to reveal a focused input. The primary
+            keyboard fix is maximum-scale=1 in `viewport` above (no auto-zoom). */}
         <ViewportScrollGuard />
-        {/* Spec 95 TEMPORARY diagnostic — ON by default while confirming the
-            keyboard fix; tap top-left 5x to dismiss. Remove once confirmed. */}
-        <ViewportDebug />
       </body>
     </html>
   );

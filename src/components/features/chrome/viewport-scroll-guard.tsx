@@ -1,25 +1,23 @@
 "use client";
 
-// Spec 95 — iOS standalone PWA keyboard scroll fix (evidence-based, from on-device
-// metrics 2026-06-17).
+// Spec 95 — body-lock scroll guard (defense-in-depth).
 //
-// The body is LOCKED (spec 64: overflow:hidden; PageShell's <main> is the only
-// scroller), so the DOCUMENT (documentElement / window) must always sit at scroll 0.
-// But on iOS, opening the soft keyboard makes the system scroll the documentElement
-// to bring the focused input into view, and it does NOT reset that scroll when the
-// keyboard closes. Measured on device with the keyboard already down:
+// The PRIMARY iOS keyboard fix is `maximum-scale=1` in the root `viewport` export:
+// the form fields are text-sm (14px) and iOS auto-zooms into any input < 16px on
+// focus, then leaves the page zoomed + panned ("blank portion"); maximum-scale=1
+// stops that at the root. THIS guard is the remaining defense for the spec-64 body
+// lock invariant: the body is overflow:hidden (PageShell's <main> is the only
+// scroller), so the DOCUMENT (documentElement / window) must always sit at scroll 0
+// — but iOS can still scroll the documentElement to reveal a focused input near the
+// bottom and not reset it on close, leaving the page shifted up. (During the
+// auto-zoom bug this read window.scrollY = documentElement.scrollTop = 389.)
 //
-//     window.scrollY = 389   document.documentElement.scrollTop = 389
-//
-// i.e. the whole page is left shifted up ~389px, which is exactly the blank gap at
-// the bottom the operator saw (the content the keyboard pushed up never came back
-// down). <main>'s own scrollTop (the reading position) is correct and separate.
-//
-// Fix: when the keyboard is DOWN, force the document scroll back to 0. Gated on the
+// So: when the keyboard is DOWN, force the document scroll back to 0. Gated on the
 // keyboard being down (visualViewport.height ≈ innerHeight) so we never fight iOS
 // revealing the input while the user is still typing. Only the document scroll is
-// touched — never <main>'s. No transform (that reparents fixed chrome — a reverted
-// regression), no height changes.
+// touched — never <main>'s (the reading position). No transform (that reparents
+// fixed chrome — a reverted regression), no height changes. Cheap: a no-op whenever
+// the document is already at 0, which is the normal case.
 
 import { useEffect } from "react";
 
