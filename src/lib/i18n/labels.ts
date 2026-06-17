@@ -46,6 +46,11 @@ export const PURCHASE_ORDER_STATUS_LABEL: Record<PurchaseOrderStatus, string> = 
   received: "รับของครบแล้ว",
 };
 
+// Spec 134 U9 — single source for the PO delivery-proof copy. The section sub-label,
+// the upload button, and the empty state all derive from this ONE term so it can't
+// drift (the รับของ→จัดส่ง button straggler that prompted this — shotgun surgery).
+export const PROOF_OF_DELIVERY_LABEL = "หลักฐานการจัดส่ง";
+
 // Requester-set urgency (spec 16 addendum A2).
 export const PURCHASE_REQUEST_PRIORITY_LABEL: Record<Enums["purchase_request_priority"], string> = {
   normal: "ปกติ",

@@ -25,6 +25,7 @@ import {
 } from "@/lib/purchasing/attachment-file";
 import { classifyStorageUploadError } from "@/lib/photos/upload-queue";
 import { PO_ATTACHMENTS_BUCKET } from "@/lib/storage/buckets";
+import { PROOF_OF_DELIVERY_LABEL } from "@/lib/i18n/labels";
 import { BUTTON_SECONDARY_MUTED, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
 
 interface ProofOfDeliveryUploaderProps {
@@ -124,7 +125,7 @@ export function ProofOfDeliveryUploader({ purchaseOrderId }: ProofOfDeliveryUplo
           ? "กำลังอัปโหลด…"
           : phase === "saving"
             ? "กำลังบันทึก…"
-            : "แนบหลักฐานการรับของ"}
+            : `แนบ${PROOF_OF_DELIVERY_LABEL}`}
       </button>
       {error ? (
         <p role="alert" className={INLINE_ALERT_TEXT}>

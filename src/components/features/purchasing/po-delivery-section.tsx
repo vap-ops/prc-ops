@@ -7,7 +7,7 @@
 // Server-safe (no 'use client') — the proof uploader is a client child.
 
 import { Check, Clock } from "lucide-react";
-import { formatThaiDate } from "@/lib/i18n/labels";
+import { formatThaiDate, PROOF_OF_DELIVERY_LABEL } from "@/lib/i18n/labels";
 import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
 import type { DeliveryBreakdown } from "@/lib/purchasing/delivery-batches";
 import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
@@ -88,7 +88,7 @@ export function PoDeliverySection({
 
       {/* Proof of delivery — procurement attaches the delivery note / POD. */}
       <div className="border-edge mt-3 flex flex-col gap-2 border-t pt-3">
-        <p className="text-ink-secondary text-xs font-medium">หลักฐานการจัดส่ง</p>
+        <p className="text-ink-secondary text-xs font-medium">{PROOF_OF_DELIVERY_LABEL}</p>
         {proofImages.length > 0 ? (
           <ul className="flex flex-wrap gap-2">
             {proofImages.map((doc, idx, arr) => {
@@ -116,7 +116,7 @@ export function PoDeliverySection({
           return <AttachmentPdf key={doc.id} src={url} />;
         })}
         {proofDocs.length === 0 ? (
-          <p className="text-ink-secondary text-xs">ยังไม่มีหลักฐานการจัดส่ง</p>
+          <p className="text-ink-secondary text-xs">ยังไม่มี{PROOF_OF_DELIVERY_LABEL}</p>
         ) : null}
         <ProofOfDeliveryUploader purchaseOrderId={purchaseOrderId} />
       </div>
