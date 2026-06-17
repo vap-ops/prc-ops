@@ -28,6 +28,13 @@ import { PR_LIST_COLUMNS } from "@/lib/purchasing/columns";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { comparePendingRequests } from "@/lib/purchasing/pending-order";
 import {
+  groupRequestsByBand,
+  parseRequestView,
+  REQUEST_VIEWS,
+  REQUEST_VIEW_LABEL,
+  type RequestView,
+} from "@/lib/purchasing/request-bands";
+import {
   groupByProcurementBand,
   procurementSummary,
   procurementBand,
@@ -69,8 +76,9 @@ export const metadata = { title: "คำขอซื้อ" };
 
 interface RequestsPageProps {
   searchParams: Promise<{
-    wp?: string | string[];
     mine?: string | string[];
+    // Spec 137: site worklist action-state view (active | done | all).
+    view?: string | string[];
     // Spec 110: procurement worklist filters.
     supplier?: string | string[];
     project?: string | string[];
@@ -95,6 +103,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
 
   const {
     mine: mineParam,
+    view: viewParam,
     supplier: supplierParam,
     project: projectParam,
     status: statusParam,
@@ -177,6 +186,22 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   const pendingRows = (pendingRes.data ?? []).slice().sort(comparePendingRequests);
   const decidedRows = decidedRes.data ?? [];
   const myRequests = [...pendingRows, ...decidedRows];
+
+  // Spec 137: the site list (non-procurement) groups into action-state bands; the view
+  // filter (active default) hides received/closed — the operator's "filter out received".
+  const requestView = parseRequestView(singleParam(viewParam));
+  const requestBands = groupRequestsByBand(myRequests, requestView);
+  // Build a /requests URL preserving the other filter axis; omit defaults (view=active,
+  // mine off) for clean links.
+  const reqHref = (next: { view?: RequestView; mine?: boolean }): string => {
+    const v = next.view ?? requestView;
+    const m = next.mine ?? mineOnly;
+    const params = new URLSearchParams();
+    if (v !== "active") params.set("view", v);
+    if (m) params.set("mine", "1");
+    const qs = params.toString();
+    return qs ? `/requests?${qs}` : "/requests";
+  };
 
   // Site-wide visibility (A1): every viewer sees requester names now —
   // the operator-sanctioned name exposure recorded in ADR 0026.
@@ -502,34 +527,31 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
 
       <section className={`mx-auto ${PAGE_MAX_W} space-y-8 px-5 py-6`}>
         <div>
-          <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="mb-3 flex flex-col gap-2">
             <h2 className="text-ink text-base font-semibold">คำขอซื้อ</h2>
-            {/* ของฉัน filter chip (spec 16 A1) — site staff see the whole
-                site's requests; the chip narrows back to their own.
-                Spec 104: hidden for procurement (it never owns a request). */}
+            {/* Spec 137: action-state VIEW filter (กำลังดำเนินการ default hides
+                received/closed) + the spec-16 ของฉัน toggle (site staff see the whole
+                site; this narrows to their own). Hidden for procurement (spec 104 — it
+                has its own pipeline + filters and never owns a request). */}
             {!isProcurement ? (
-              <div className="flex gap-1 text-xs">
+              <div className="flex flex-wrap items-center gap-1 text-xs">
+                {REQUEST_VIEWS.map((v) => (
+                  <Link
+                    key={v}
+                    href={reqHref({ view: v })}
+                    aria-current={requestView === v ? "true" : undefined}
+                    className={worklistChipClass(requestView === v)}
+                  >
+                    {REQUEST_VIEW_LABEL[v]}
+                  </Link>
+                ))}
+                <span aria-hidden className="bg-edge-strong mx-1 h-5 w-px" />
                 <Link
-                  href="/requests"
-                  aria-current={!mineOnly ? "true" : undefined}
-                  className={`focus-visible:ring-action inline-flex min-h-11 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 active:translate-y-px ${
-                    !mineOnly
-                      ? "border-fill bg-fill text-on-fill font-semibold"
-                      : "border-edge-strong bg-card text-ink-secondary hover:bg-sunk"
-                  }`}
+                  href={reqHref({ mine: !mineOnly })}
+                  aria-pressed={mineOnly}
+                  className={worklistChipClass(mineOnly)}
                 >
-                  ทั้งหมด
-                </Link>
-                <Link
-                  href="/requests?mine=1"
-                  aria-current={mineOnly ? "true" : undefined}
-                  className={`focus-visible:ring-action inline-flex min-h-11 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 active:translate-y-px ${
-                    mineOnly
-                      ? "border-fill bg-fill text-on-fill font-semibold"
-                      : "border-edge-strong bg-card text-ink-secondary hover:bg-sunk"
-                  }`}
-                >
-                  ของฉัน
+                  เฉพาะของฉัน
                 </Link>
               </div>
             ) : null}
@@ -637,10 +659,25 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
             </div>
           ) : myRequests.length === 0 ? (
             <EmptyNotice>{mineOnly ? "คุณยังไม่เคยสร้างคำขอซื้อ" : "ยังไม่มีคำขอซื้อ"}</EmptyNotice>
+          ) : requestBands.length === 0 ? (
+            <EmptyNotice>ไม่มีคำขอซื้อในมุมมองนี้</EmptyNotice>
           ) : (
-            <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
-              {myRequests.map(cardFor)}
-            </ul>
+            // Spec 137: action-state bands — most-actionable first, count per band.
+            <div className="flex flex-col gap-6">
+              {requestBands.map((group) => (
+                <section key={group.band} className="flex flex-col gap-2.5">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-section text-ink font-extrabold">{group.label}</h3>
+                    <span className="text-meta bg-sunk text-ink-secondary inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 font-extrabold">
+                      {group.items.length}
+                    </span>
+                  </div>
+                  <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
+                    {group.items.map(cardFor)}
+                  </ul>
+                </section>
+              ))}
+            </div>
           )}
           {myRequests && myRequests.length > 0 ? (
             <p className="text-ink-secondary mt-3 text-xs">
@@ -655,6 +692,15 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
       </section>
     </PageShell>
   );
+}
+
+// Spec 137: the site worklist filter chip — pressed (fill) vs idle (outline).
+function worklistChipClass(active: boolean): string {
+  return `focus-visible:ring-action inline-flex min-h-11 items-center rounded-full border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 active:translate-y-px ${
+    active
+      ? "border-fill bg-fill text-on-fill font-semibold"
+      : "border-edge-strong bg-card text-ink-secondary hover:bg-sunk"
+  }`;
 }
 
 // Spec 106: compact THB formatter for the outstanding tile.
