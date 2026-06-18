@@ -13,6 +13,7 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import {
   EquipmentManager,
   type ManagedEquipmentItem,
+  type EquipmentMovementRow,
 } from "@/components/features/equipment/equipment-manager";
 
 export const metadata = { title: "อุปกรณ์" };
@@ -21,16 +22,33 @@ export default async function EquipmentPage() {
   const ctx = await requireRole(BACK_OFFICE_ROLES);
 
   const supabase = await createServerSupabase();
-  const [{ data: itemRows }, { data: categoryRows }, { data: ownerRows }] = await Promise.all([
+  const [
+    { data: itemRows },
+    { data: categoryRows },
+    { data: ownerRows },
+    { data: projectRows },
+    { data: movementRows },
+  ] = await Promise.all([
     supabase
       .from("equipment_items")
       .select("id, name, category_id, owner_id, tracking, asset_tag, quantity, status")
       .order("name", { ascending: true }),
     supabase.from("equipment_categories").select("id, name").order("name", { ascending: true }),
     supabase.from("equipment_owners").select("id, name").order("name", { ascending: true }),
+    supabase.from("projects").select("id, name").order("name", { ascending: true }),
+    supabase
+      .from("equipment_movements")
+      .select("item_id, kind, project_id, occurred_at")
+      .order("occurred_at", { ascending: false }),
   ]);
 
   const items: ManagedEquipmentItem[] = itemRows ?? [];
+  const movements: EquipmentMovementRow[] = (movementRows ?? []).map((m) => ({
+    itemId: m.item_id,
+    kind: m.kind,
+    projectId: m.project_id,
+    occurredAt: m.occurred_at,
+  }));
 
   return (
     <PageShell>
@@ -39,7 +57,13 @@ export default async function EquipmentPage() {
         <h1 className="text-title text-ink font-bold tracking-tight">อุปกรณ์</h1>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
-        <EquipmentManager items={items} categories={categoryRows ?? []} owners={ownerRows ?? []} />
+        <EquipmentManager
+          items={items}
+          categories={categoryRows ?? []}
+          owners={ownerRows ?? []}
+          projects={projectRows ?? []}
+          movements={movements}
+        />
       </div>
     </PageShell>
   );

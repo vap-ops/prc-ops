@@ -8,13 +8,16 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockCreate, mockUpdate, mockAddCategory, mockAddOwner, mockRefresh } = vi.hoisted(() => ({
-  mockCreate: vi.fn(),
-  mockUpdate: vi.fn(),
-  mockAddCategory: vi.fn(),
-  mockAddOwner: vi.fn(),
-  mockRefresh: vi.fn(),
-}));
+const { mockCreate, mockUpdate, mockAddCategory, mockAddOwner, mockMove, mockRefresh } = vi.hoisted(
+  () => ({
+    mockCreate: vi.fn(),
+    mockUpdate: vi.fn(),
+    mockAddCategory: vi.fn(),
+    mockAddOwner: vi.fn(),
+    mockMove: vi.fn(),
+    mockRefresh: vi.fn(),
+  }),
+);
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
 vi.mock("@/app/equipment/actions", () => ({
@@ -22,15 +25,18 @@ vi.mock("@/app/equipment/actions", () => ({
   updateEquipment: mockUpdate,
   createEquipmentCategory: mockAddCategory,
   createEquipmentOwner: mockAddOwner,
+  recordEquipmentMovement: mockMove,
 }));
 
 import {
   EquipmentManager,
   type ManagedEquipmentItem,
+  type EquipmentMovementRow,
 } from "@/components/features/equipment/equipment-manager";
 
 const CATEGORIES = [{ id: "c1", name: "เครื่องปั่นไฟ" }];
 const OWNERS = [{ id: "o1", name: "บริษัทพี่น้อง" }];
+const PROJECTS = [{ id: "p1", name: "ไซต์บางนา" }];
 const ITEMS: ManagedEquipmentItem[] = [
   {
     id: "e1",
@@ -43,17 +49,41 @@ const ITEMS: ManagedEquipmentItem[] = [
     status: "available",
   },
 ];
+const BULK_ITEMS: ManagedEquipmentItem[] = [
+  {
+    id: "e2",
+    name: "นั่งร้านโครง",
+    category_id: "c1",
+    owner_id: "o1",
+    tracking: "bulk",
+    asset_tag: null,
+    quantity: 200,
+    status: "available",
+  },
+];
 
 beforeEach(() => {
   mockCreate.mockReset().mockResolvedValue({ ok: true });
   mockUpdate.mockReset().mockResolvedValue({ ok: true });
   mockAddCategory.mockReset().mockResolvedValue({ ok: true });
   mockAddOwner.mockReset().mockResolvedValue({ ok: true });
+  mockMove.mockReset().mockResolvedValue({ ok: true });
   mockRefresh.mockReset();
 });
 
-function renderManager(over?: { items?: ManagedEquipmentItem[] }) {
-  render(<EquipmentManager items={over?.items ?? []} categories={CATEGORIES} owners={OWNERS} />);
+function renderManager(over?: {
+  items?: ManagedEquipmentItem[];
+  movements?: EquipmentMovementRow[];
+}) {
+  render(
+    <EquipmentManager
+      items={over?.items ?? []}
+      categories={CATEGORIES}
+      owners={OWNERS}
+      projects={PROJECTS}
+      movements={over?.movements ?? []}
+    />,
+  );
 }
 
 describe("EquipmentManager", () => {
@@ -142,6 +172,63 @@ describe("EquipmentManager", () => {
     fireEvent.click(screen.getByRole("button", { name: "เพิ่มเจ้าของ" }));
     await waitFor(() =>
       expect(mockAddOwner).toHaveBeenCalledWith(expect.objectContaining({ name: "พี่น้อง 2" })),
+    );
+  });
+
+  // U4 — move + where-is-it
+  it("shows the current location badge from the latest movement", () => {
+    renderManager({
+      items: ITEMS,
+      movements: [
+        { itemId: "e1", kind: "deployed", projectId: "p1", occurredAt: "2026-07-05T00:00:00Z" },
+      ],
+    });
+    expect(screen.getByText("หน้างาน: ไซต์บางนา")).toBeInTheDocument();
+  });
+
+  it("records a deploy-to-project movement", async () => {
+    renderManager({ items: ITEMS });
+    fireEvent.click(screen.getByRole("button", { name: "ย้าย" }));
+    // deployed is the default kind → the project select is shown.
+    fireEvent.change(screen.getByLabelText("โครงการ"), { target: { value: "p1" } });
+    fireEvent.click(screen.getByRole("button", { name: "บันทึกการย้าย" }));
+    await waitFor(() =>
+      expect(mockMove).toHaveBeenCalledWith(
+        expect.objectContaining({
+          itemId: "e1",
+          kind: "deployed",
+          projectId: "p1",
+          quantity: 1,
+        }),
+      ),
+    );
+  });
+
+  it("a non-deployed kind hides the project select and sends no project", async () => {
+    renderManager({ items: ITEMS });
+    fireEvent.click(screen.getByRole("button", { name: "ย้าย" }));
+    fireEvent.change(screen.getByLabelText("ประเภทการเคลื่อนย้าย"), {
+      target: { value: "returned" },
+    });
+    expect(screen.queryByLabelText("โครงการ")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "บันทึกการย้าย" }));
+    await waitFor(() =>
+      expect(mockMove).toHaveBeenCalledWith(
+        expect.objectContaining({ itemId: "e1", kind: "returned", projectId: null }),
+      ),
+    );
+  });
+
+  it("a bulk item's move form shows a quantity field and passes it", async () => {
+    renderManager({ items: BULK_ITEMS });
+    fireEvent.click(screen.getByRole("button", { name: "ย้าย" }));
+    fireEvent.change(screen.getByLabelText("โครงการ"), { target: { value: "p1" } });
+    fireEvent.change(screen.getByLabelText("จำนวนที่ย้าย"), { target: { value: "50" } });
+    fireEvent.click(screen.getByRole("button", { name: "บันทึกการย้าย" }));
+    await waitFor(() =>
+      expect(mockMove).toHaveBeenCalledWith(
+        expect.objectContaining({ itemId: "e2", quantity: 50 }),
+      ),
     );
   });
 });

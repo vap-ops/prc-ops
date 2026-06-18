@@ -212,3 +212,90 @@ would set status to its own kind); `currentEquipmentLocation` is latest-OCCURRED
 and is the display source of truth — they agree when movements are recorded
 chronologically. Bulk current-on-project quantity (signed-sum across deploy/
 return) lands with allocations (P2), not here.
+
+## U4 — move equipment + where-is-it display (2026-06-18)
+
+**Status:** in progress. App-only, **no migration** (U3's `equipment_movements`
+grants/policies + the status-derive trigger + the `currentEquipmentLocation`
+helper carry the write and the derivation). The payoff unit: U1–U3 built the
+spine (registry, management UI, append-only custody log) but **nothing yet moves
+gear onto a site or shows where a piece is**. U4 adds the deploy/return action
+and the current-location badge to the existing back-office `/equipment` screen.
+
+**Audience:** the existing `/equipment` page stays gated to
+`BACK_OFFICE_ROLES` (pm/super/procurement). Back office records movements from
+the office. The `site_admin` **field-facing** move view (RLS already permits
+site_admin INSERTs — U3) is still deferred to a later unit; U4 does **not** add a
+field view or widen the page gate.
+
+**What ships:**
+
+- **SSOT labels** — `EQUIPMENT_MOVEMENT_KIND_LABELS: Record<EquipmentMovementKind,
+string>` in `src/lib/i18n/labels.ts` (the move-form kind picker + the
+  where-is-it badge both render kinds → single-source per the term-consistency
+  rule): `received`→"รับเข้าคลัง", `deployed`→"หน้างาน", `returned`→"คืนเจ้าของ",
+  `maintenance`→"ซ่อมบำรุง", `lost`→"สูญหาย".
+- **Pure helper** `src/lib/equipment/equipment-location-label.ts`
+  `equipmentLocationLabel(location: EquipmentLocation | undefined, projectName:
+string | null): string` — composes the SSOT kind label with the project name
+  for `deployed` (`"หน้างาน: <project>"`, or just "หน้างาน" if the name is
+  missing) and returns a placeholder (`"—"` / "ยังไม่มีการเคลื่อนย้าย") when the
+  item has no movements. **TDD first** (≥5 cases: each non-deployed kind,
+  deployed-with-name, deployed-missing-name, undefined→placeholder).
+- **Action** `recordEquipmentMovement` (`src/app/equipment/actions.ts`,
+  `'use server'`): `requireRole(BACK_OFFICE_ROLES)` (defense-in-depth over the
+  U3 RLS), validates `itemId` UUID, `kind` ∈ the 5 kinds, the **project-IFF-
+  deployed** invariant (`deployed` ⇒ a valid project UUID; every other kind ⇒
+  project null — mirrors the DB CHECK so the UI fails friendly before the
+  insert), `quantity ≥ 1` (default 1), `note` ≤ 2000. Inserts into
+  `equipment_movements` via the **RLS server client** with `created_by = ctx.id`
+  (satisfies the U3 created_by pin); `occurred_at` omitted → DB `now()`.
+  decide-pattern `{ok}|{ok,error}`, `revalidatePath("/equipment")`. **No RPC** —
+  U3's grants + the project-IFF CHECK + the qty CHECK + the derive trigger are
+  the guard.
+- **Page** (`/equipment`): two added fetches via the RLS client —
+  `equipment_movements` (`item_id, kind, project_id, occurred_at`) and `projects`
+  (`id, name`). Both passed into `EquipmentManager`.
+- **`EquipmentManager`** (extend): new props `projects` + `movements`. Builds the
+  location map with the U3 `currentEquipmentLocation` and renders a **where-is-it
+  badge** per row via `equipmentLocationLabel` (resolving project name from
+  `projects`). Per row a **"ย้าย" (move) control** opens an inline form: kind
+  select (5 kinds), project select **shown only when kind=deployed** (and
+  required there), quantity input **shown only when the item is `bulk`** (default
+  1), optional note → submit calls `recordEquipmentMovement`. Reuses the existing
+  field primitives (Select/RadioChip pattern already in the manager). No
+  optimistic update (a movement is an explicit log, and the status derive happens
+  server-side).
+
+**Scope — IN:** the SSOT kind labels, the location-label helper (TDD), the
+`recordEquipmentMovement` action, the page's two fetches, the move form +
+where-is-it badge in `EquipmentManager`, tests. **OUT:** `site_admin` field move
+view + its nav + the widened gate (next unit); bulk partial-quantity-across-
+projects reconciliation (latest-event only — the allocation/P2 concern);
+backdating UI (`occurred_at` = now only); editing/voiding a movement (append-only
+— a correction is a new compensating movement, no UI affordance this unit);
+`in_use` status (manual refinement, never auto-derived); money; audit_log rows
+(the log is its own trail).
+
+**Tests:**
+
+- `tests/unit/equipment-location-label.test.ts` (pure helper) — **TDD first,
+  RED** before the helper exists.
+- `tests/unit/equipment-manager.test.tsx` (extend, component, mocked actions):
+  the where-is-it badge renders from `movements`; opening the move form on a row;
+  kind=deployed reveals + requires the project select; a non-deployed kind hides
+  the project select; submit → `recordEquipmentMovement` correct shape; a `bulk`
+  item shows the quantity input.
+- `recordEquipmentMovement` = **verified-by-checklist** (auth-gated; the U3 RLS +
+  CHECKs + derive trigger carry DB correctness, already covered by pgTAP file 66;
+  the component test covers the wiring through the mocked action).
+
+**Verification:** `pnpm lint && pnpm typecheck && pnpm test` green. Auth-gated
+page → no preview; operator on-device pass = acceptance.
+
+**Seams:** U4 records the **latest event** only — a bulk item split across two
+projects shows its most recent deploy, not a per-project on-hand tally (that is
+the P2 allocation concern, U1 seam). The badge reads `currentEquipmentLocation`
+(latest-OCCURRED) while the row's status chip reads the trigger-derived
+`equipment_items.status` (last-RECORDED) — they agree for chronological entry,
+the documented U3 seam.

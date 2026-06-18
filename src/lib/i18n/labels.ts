@@ -66,6 +66,19 @@ export const PHOTO_PHASE_LABEL: Record<Enums["photo_phase"], string> = {
   after: "แล้วเสร็จ",
 };
 
+// Spec 141 U4 — equipment movement kinds (the append-only custody log, ADR
+// 0055 §4). Single-sourced here because the move-form kind picker and the
+// where-is-it badge both render them. 'deployed' composes with a project name in
+// equipmentLocationLabel (src/lib/equipment/equipment-location-label.ts); the
+// bare label is the fallback when the project name is unavailable.
+export const EQUIPMENT_MOVEMENT_KIND_LABEL: Record<Enums["equipment_movement_kind"], string> = {
+  received: "รับเข้าคลัง",
+  deployed: "หน้างาน",
+  returned: "คืนเจ้าของ",
+  maintenance: "ซ่อมบำรุง",
+  lost: "สูญหาย",
+};
+
 export const APPROVAL_DECISION_LABEL: Record<Enums["approval_decision"], string> = {
   approved: "อนุมัติแล้ว",
   rejected: "ไม่อนุมัติ",

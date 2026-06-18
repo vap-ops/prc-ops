@@ -19,6 +19,7 @@ import { validateEquipmentItem } from "@/lib/equipment/validate-equipment-item";
 import type { Database } from "@/lib/db/database.types";
 
 type EquipmentStatus = Database["public"]["Enums"]["equipment_status"];
+type EquipmentMovementKind = Database["public"]["Enums"]["equipment_movement_kind"];
 
 const EQUIPMENT_STATUSES: ReadonlyArray<EquipmentStatus> = [
   "available",
@@ -29,7 +30,16 @@ const EQUIPMENT_STATUSES: ReadonlyArray<EquipmentStatus> = [
   "lost",
 ];
 
+const EQUIPMENT_MOVEMENT_KINDS: ReadonlyArray<EquipmentMovementKind> = [
+  "received",
+  "deployed",
+  "returned",
+  "maintenance",
+  "lost",
+];
+
 const GENERIC_ERROR = "บันทึกอุปกรณ์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+const MOVE_ERROR = "บันทึกการย้ายอุปกรณ์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
 export type EquipmentActionResult = { ok: true } | { ok: false; error: string };
 
@@ -159,6 +169,57 @@ export async function createEquipmentOwner(input: {
     created_by: ctx.id,
   });
   if (error) return { ok: false, error: GENERIC_ERROR };
+
+  revalidatePath("/equipment");
+  return { ok: true };
+}
+
+// Spec 141 U4 — record a movement into the append-only equipment_movements log
+// (U3). Goes through the RLS client: U3 granted INSERT(...) to authenticated and
+// the staff INSERT policy + the DB CHECKs (project-IFF-deployed, qty≥1) are the
+// guard; requireRole is defense-in-depth + gives the created_by id. The
+// AFTER-INSERT trigger derives equipment_items.status — not done here. occurred_at
+// is omitted so the DB stamps now() (no backdating UI this unit).
+export async function recordEquipmentMovement(input: {
+  itemId: string;
+  kind: string;
+  projectId: string | null;
+  quantity: number;
+  note: string;
+}): Promise<EquipmentActionResult> {
+  const ctx = await requireRole(BACK_OFFICE_ROLES);
+
+  if (!UUID_REGEX.test(input.itemId)) return { ok: false, error: MOVE_ERROR };
+  if (!EQUIPMENT_MOVEMENT_KINDS.includes(input.kind as EquipmentMovementKind)) {
+    return { ok: false, error: MOVE_ERROR };
+  }
+  const kind = input.kind as EquipmentMovementKind;
+
+  // project_id IFF deployed — mirror the DB CHECK so the failure is friendly.
+  if (kind === "deployed") {
+    if (!input.projectId || !UUID_REGEX.test(input.projectId)) {
+      return { ok: false, error: "กรุณาเลือกโครงการที่จะส่งอุปกรณ์ไป" };
+    }
+  } else if (input.projectId) {
+    return { ok: false, error: MOVE_ERROR };
+  }
+
+  if (!Number.isInteger(input.quantity) || input.quantity < 1) {
+    return { ok: false, error: "จำนวนที่ย้ายต้องเป็นจำนวนเต็มอย่างน้อย 1" };
+  }
+  const note = input.note.trim();
+  if (note.length > 2000) return { ok: false, error: MOVE_ERROR };
+
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.from("equipment_movements").insert({
+    item_id: input.itemId,
+    kind,
+    project_id: kind === "deployed" ? input.projectId : null,
+    quantity: input.quantity,
+    note: note.length === 0 ? null : note,
+    created_by: ctx.id,
+  });
+  if (error) return { ok: false, error: MOVE_ERROR };
 
   revalidatePath("/equipment");
   return { ok: true };

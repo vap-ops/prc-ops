@@ -24,14 +24,34 @@ import {
   type EquipmentTracking,
 } from "@/lib/equipment/validate-equipment-item";
 import {
+  currentEquipmentLocation,
+  type EquipmentMovementRecord,
+  type EquipmentMovementKind,
+} from "@/lib/equipment/current-location";
+import { equipmentLocationLabel } from "@/lib/equipment/equipment-location-label";
+import { EQUIPMENT_MOVEMENT_KIND_LABEL } from "@/lib/i18n/labels";
+import {
   createEquipment,
   createEquipmentCategory,
   createEquipmentOwner,
+  recordEquipmentMovement,
   updateEquipment,
 } from "@/app/equipment/actions";
 import type { Database } from "@/lib/db/database.types";
 
 type EquipmentStatus = Database["public"]["Enums"]["equipment_status"];
+
+// The page maps DB equipment_movements rows into the helper's record shape.
+export type EquipmentMovementRow = EquipmentMovementRecord;
+
+// Move-form kind order: the two common field actions first, then the rest.
+const MOVEMENT_KIND_ORDER: ReadonlyArray<EquipmentMovementKind> = [
+  "deployed",
+  "returned",
+  "received",
+  "maintenance",
+  "lost",
+];
 
 export type ManagedEquipmentItem = {
   id: string;
@@ -297,21 +317,146 @@ function AddEquipmentForm({ categories, owners }: { categories: Ref[]; owners: R
   );
 }
 
+// U4 — record a movement (deploy to a project / return / maintenance / lost).
+// 'deployed' is the only kind that carries a project (the DB CHECK enforces
+// project_id IFF deployed); bulk items carry a quantity, unit items move as one.
+function MoveEquipmentForm({
+  item,
+  projects,
+  onDone,
+}: {
+  item: ManagedEquipmentItem;
+  projects: Ref[];
+  onDone: () => void;
+}) {
+  const router = useRouter();
+  const [kind, setKind] = useState<EquipmentMovementKind>("deployed");
+  const [projectId, setProjectId] = useState("");
+  const [quantity, setQuantity] = useState("1");
+  const [note, setNote] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    setError(null);
+    const qty = item.tracking === "bulk" ? Number(quantity) : 1;
+    if (item.tracking === "bulk" && (!Number.isInteger(qty) || qty < 1)) {
+      setError("จำนวนที่ย้ายต้องเป็นจำนวนเต็มอย่างน้อย 1");
+      return;
+    }
+    setBusy(true);
+    const result = await recordEquipmentMovement({
+      itemId: item.id,
+      kind,
+      projectId: kind === "deployed" ? projectId : null,
+      quantity: qty,
+      note,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    onDone();
+    router.refresh();
+  }
+
+  return (
+    <div className="border-edge-strong bg-page mt-2 rounded-lg border p-3">
+      <label className="text-ink-secondary block text-sm">
+        ประเภทการเคลื่อนย้าย
+        <select
+          aria-label="ประเภทการเคลื่อนย้าย"
+          value={kind}
+          onChange={(e) => setKind(e.target.value as EquipmentMovementKind)}
+          className={`${FIELD_STACKED} appearance-none`}
+        >
+          {MOVEMENT_KIND_ORDER.map((k) => (
+            <option key={k} value={k}>
+              {EQUIPMENT_MOVEMENT_KIND_LABEL[k]}
+            </option>
+          ))}
+        </select>
+      </label>
+      {kind === "deployed" ? (
+        <label className="text-ink-secondary mt-2 block text-sm">
+          โครงการ
+          <select
+            aria-label="โครงการ"
+            value={projectId}
+            onChange={(e) => setProjectId(e.target.value)}
+            className={`${FIELD_STACKED} appearance-none`}
+          >
+            <option value="">— เลือกโครงการ —</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+      {item.tracking === "bulk" ? (
+        <label className="text-ink-secondary mt-2 block text-sm">
+          จำนวนที่ย้าย
+          <input
+            aria-label="จำนวนที่ย้าย"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+            inputMode="numeric"
+            className={FIELD_STACKED}
+          />
+        </label>
+      ) : null}
+      <label className="text-ink-secondary mt-2 block text-sm">
+        หมายเหตุ
+        <input
+          aria-label="หมายเหตุ"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          maxLength={2000}
+          placeholder="ไม่บังคับ"
+          className={FIELD_STACKED}
+        />
+      </label>
+      {error ? <p className="text-danger mt-2 text-sm">{error}</p> : null}
+      <div className="mt-3 flex gap-2">
+        <button
+          type="button"
+          disabled={busy || (kind === "deployed" && projectId === "")}
+          onClick={() => void submit()}
+          className={BUTTON_PRIMARY_COMPACT}
+        >
+          บันทึกการย้าย
+        </button>
+        <button type="button" onClick={onDone} className={BUTTON_SECONDARY_COMPACT}>
+          ยกเลิก
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function EquipmentRow({
   item,
   categories,
   owners,
+  projects,
   ownerName,
   categoryName,
+  locationLabel,
 }: {
   item: ManagedEquipmentItem;
   categories: Ref[];
   owners: Ref[];
+  projects: Ref[];
   ownerName: string | null;
   categoryName: string | null;
+  locationLabel: string;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
+  const [moving, setMoving] = useState(false);
   const [name, setName] = useState(item.name);
   const [categoryId, setCategoryId] = useState(item.category_id);
   const [ownerId, setOwnerId] = useState(item.owner_id);
@@ -369,15 +514,37 @@ function EquipmentRow({
             {STATUS_LABELS[item.status]} · {placement}
             {categoryName ? ` · ${categoryName}` : ""}
           </p>
+          <p className="text-ink-muted text-xs">
+            <span aria-hidden="true">📍 </span>
+            <span>{locationLabel}</span>
+          </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setEditing((v) => !v)}
-          className="text-action shrink-0 text-xs font-medium hover:underline"
-        >
-          แก้ไข
-        </button>
+        <div className="flex shrink-0 gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setMoving((v) => !v);
+              setEditing(false);
+            }}
+            className="text-action text-xs font-medium hover:underline"
+          >
+            ย้าย
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEditing((v) => !v);
+              setMoving(false);
+            }}
+            className="text-action text-xs font-medium hover:underline"
+          >
+            แก้ไข
+          </button>
+        </div>
       </div>
+      {moving ? (
+        <MoveEquipmentForm item={item} projects={projects} onDone={() => setMoving(false)} />
+      ) : null}
       {editing ? (
         <div className="border-edge-strong bg-page mt-2 rounded-lg border p-3">
           <EquipmentFields
@@ -530,13 +697,19 @@ export function EquipmentManager({
   items,
   categories,
   owners,
+  projects,
+  movements,
 }: {
   items: ManagedEquipmentItem[];
   categories: Ref[];
   owners: Ref[];
+  projects: Ref[];
+  movements: EquipmentMovementRow[];
 }) {
   const ownerNames = new Map(owners.map((o) => [o.id, o.name]));
   const categoryNames = new Map(categories.map((c) => [c.id, c.name]));
+  const projectNames = new Map(projects.map((p) => [p.id, p.name]));
+  const locations = currentEquipmentLocation(movements);
 
   return (
     <div className="flex flex-col gap-4">
@@ -549,16 +722,22 @@ export function EquipmentManager({
         <div className={CARD}>
           <p className="text-ink text-sm font-semibold">อุปกรณ์ทั้งหมด</p>
           <ul className="mt-2 flex flex-col">
-            {items.map((it) => (
-              <EquipmentRow
-                key={it.id}
-                item={it}
-                categories={categories}
-                owners={owners}
-                ownerName={ownerNames.get(it.owner_id) ?? null}
-                categoryName={categoryNames.get(it.category_id) ?? null}
-              />
-            ))}
+            {items.map((it) => {
+              const loc = locations.get(it.id);
+              const projectName = loc?.projectId ? (projectNames.get(loc.projectId) ?? null) : null;
+              return (
+                <EquipmentRow
+                  key={it.id}
+                  item={it}
+                  categories={categories}
+                  owners={owners}
+                  projects={projects}
+                  ownerName={ownerNames.get(it.owner_id) ?? null}
+                  categoryName={categoryNames.get(it.category_id) ?? null}
+                  locationLabel={equipmentLocationLabel(loc, projectName)}
+                />
+              );
+            })}
           </ul>
         </div>
       ) : (
