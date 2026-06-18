@@ -14,7 +14,7 @@ all.
 | **U1** | DB: `can_see_project` / `can_see_wp` helpers + rewrite SELECT policies on the 7 project-scoped tables + lead→member backfill + pgTAP                                | THIS UNIT |
 | U2     | Enable `project_coordinator` as a real role: routing (`roleHome` → `/projects`) + page allowlists (`PROJECT_VIEW_ROLES` etc.) so the see-all coordinator can browse | done      |
 | U3     | Complete the scoping U1 missed (lifecycle audit): `labor_logs` + `work_package_dependencies` SELECT + write-mirror on the 8 app write policies                      | done      |
-| U4     | Scope `photo_markups` SELECT/INSERT via a SECURITY DEFINER tombstone-target helper (its self-referential INSERT policy recurses under a function SELECT policy)     | later     |
+| U4     | Scope `photo_markups` SELECT/INSERT via a SECURITY DEFINER tombstone-target helper (its self-referential INSERT policy recurses under a function SELECT policy)     | done      |
 
 ## U1 — DB enforcement
 

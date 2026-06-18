@@ -2531,6 +2531,7 @@ export type Database = {
         Returns: boolean
       }
       apply_wp_template: { Args: { p_project_id: string }; Returns: number }
+      can_see_photo_log: { Args: { p_photo_log_id: string }; Returns: boolean }
       can_see_project: { Args: { p_project_id: string }; Returns: boolean }
       can_see_wp: { Args: { p_work_package_id: string }; Returns: boolean }
       claim_contractor_invite: { Args: { p_token: string }; Returns: string }
@@ -2677,6 +2678,10 @@ export type Database = {
         Returns: string
       }
       my_contact_bank_present: { Args: never; Returns: boolean }
+      photo_markup_tombstone_target_ok: {
+        Args: { p_photo_log_id: string; p_superseded_by: string }
+        Returns: boolean
+      }
       pr_attachment_tombstone_target_ok: {
         Args: { p_caller: string; p_parent: string; p_target: string }
         Returns: boolean
