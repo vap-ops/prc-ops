@@ -46,6 +46,39 @@ photo" step at the end is what proves they line up.
 
 ---
 
+## ⚠️ Current state: the project is on the Supabase FREE tier
+
+This changes what Part 1 will find, so know it going in (confirm exact current
+limits at supabase.com/pricing — they shift):
+
+- **No managed DB backups.** Free tier has **no PITR** (paid add-on) and **no
+  scheduled daily backups** (those begin at Pro). So Part 1 will almost certainly
+  show _nothing_ to restore from on the platform side.
+- **No Storage backup.** The `photos` / `reports` buckets have no managed backup
+  on any tier, and Free adds nothing.
+- **Auto-pause.** Free projects pause after ~7 days of inactivity (the app then
+  errors until you resume it), and prolonged inactivity risks deletion. For a
+  **live** pilot holding real client data, that alone is a production risk.
+
+**What this means concretely:** on Free tier, **the manual dump (Part 2) and the
+manual Storage export (Part 3) are your ONLY backups — and only if you actually
+run them on a schedule.** There is no automatic safety net behind a destructive
+migration; `break-glass.md` Procedure B's "fresh dump first" is not optional, it
+is the entire floor.
+
+**Recommendation (operator decision — it costs money):** upgrade to **Pro
+(~US$25/mo)** for daily backups (7-day retention), PITR availability, and no
+auto-pause. For a live product with real client photos, that is cheap insurance
+against losing the pilots. Until then, treat Parts 2 + 3 as a **mandatory weekly
+job**, not a drill — and keep the dumps + a Storage export OFF Supabase (so a
+project pause/deletion can't take the backups with it).
+
+> Free tier also caps you at a small number of projects per org, so the Part 4
+> scratch target may need to be a **local Postgres** or a temporarily-created
+> project rather than a second free project.
+
+---
+
 ## Part 1 — Verify the DB backup floor exists (5 min, read-only)
 
 Supabase dashboard → project **prc-ops** (`btbfzhnvzruvxlgbeqnl`) →
