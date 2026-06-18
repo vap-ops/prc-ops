@@ -57,24 +57,32 @@ mechanisms.**
    distinct entity, and the future owner portal binds `owner_users →
 equipment_owners` the way the DC portal binds to `contractors` (decision 7).
 
-4. **Location is derived from an append-only movement log.**
-   `equipment_movements` records custody events (received-from-owner,
-   deployed-to-WP, returned-to-owner, sent-to-maintenance, lost) with a quantity
-   and an optional `work_package_id`. Current location/holding = the latest
-   non-superseded movement (anti-join, [ADR 0009](0009-supersede-query-correction.md)),
-   never a mutable location column. Full chain of custody, the same posture
-   evidence tables already use.
+4. **Location is derived from an append-only movement log; equipment attaches to
+   a PROJECT.** `equipment_movements` records custody events (received-from-owner,
+   deployed-to-project, returned-to-owner, sent-to-maintenance, lost) with a
+   quantity and a `project_id` — a _set_ of equipment deploys to a project/site
+   and is used across its WPs, **not** allocated to a single WP (operator,
+   2026-06-18). Current location/holding = the latest non-superseded movement
+   (anti-join, [ADR 0009](0009-supersede-query-correction.md)), never a mutable
+   location column. Full chain of custody, the same posture evidence tables
+   already use.
 
-5. **Two money layers, both off the field surface (P2).**
-   - `equipment_rental_batches` — the inbound deal: PRC rents N units from an
-     owner for a period at a rate. PRC's cost.
-   - `equipment_wp_allocations` — the outbound charge: a unit (or bulk qty)
-     assigned to a WP for a period at the fee rate billed to the WP owner.
-   - `wp_equipment_costs` — a **frozen per-WP snapshot**, written by a
-     `freeze_wp_equipment_cost(p_wp)` SECURITY DEFINER RPC that mirrors
-     `freeze_wp_labor_cost` exactly (pm/super/procurement gate on the
-     authenticated session; audit row carrying old/new; UPSERT). It joins labor
-     and materials in the spec-100 budget-vs-spend.
+5. **Money layers, off the field surface (P2). PRC pays MONTHLY, charges DAILY**
+   (operator, 2026-06-18) — a fixed monthly cost recovered by usage-based daily
+   charges; returning a set stops the daily accrual, so the monthly commitment is
+   the incentive to release idle gear.
+   - `equipment_rental_batches` — the inbound deal: PRC rents a set of units from
+     an owner for a period at a **monthly** rate. PRC's fixed cost.
+   - `equipment_project_allocations` — the deployment: a set attached to a
+     **project** (decision 4) for a period; where the monthly batch is committed.
+   - `equipment_usage_logs` — the outbound charge basis: **per-WP, per-day** usage
+     (which WP used the set which day) at a **daily** rate snapshot, mirroring
+     `labor_logs`. This is the WP split — the daily charge is attributed to WPs,
+     not the project as a whole (operator).
+   - `wp_equipment_costs` — a **frozen per-WP snapshot** summed from the usage
+     logs, written by `freeze_wp_equipment_cost(p_wp)` (SECURITY DEFINER) that
+     mirrors `freeze_wp_labor_cost` exactly (pm/super/procurement gate; audit
+     old/new; UPSERT). Joins labor + materials in the spec-100 budget-vs-spend.
 
 6. **Money posture = the labor posture, copied.** Every ฿ field —
    `equipment_items.acquisition_cost`, batch rates, allocation fee rates, the
@@ -94,8 +102,12 @@ equipment_owners` the way the DC portal binds to `contractors` (decision 7).
    is a second ownership axis (`owner_id` → `equipment_owners`) orthogonal to
    ADR 0051's `contractor_id` and ADR 0013's `project_id`.
 
-8. **WP-centric surfacing.** Equipment-in-use appears on the WP detail;
-   `work_packages.owner_id` is the fee bearer.
+8. **Project deployment, WP-attributed cost.** A _set_ of equipment attaches at
+   the **project** level (decision 4); its **daily** cost is attributed to WPs via
+   per-WP usage logs (decision 5), so `work_packages.owner_id` remains the cost
+   bearer. Equipment surfaces on BOTH the project (which sets are deployed here)
+   and the WP detail (usage + frozen cost). Consistent with the WP-centric
+   principle: the project is where the gear lives, the WP is where its cost lands.
 
 ## Consequences
 
@@ -111,19 +123,26 @@ row); the owner portal adds a second external-tier axis to prove **exhaustively*
 in pgTAP, like ADR 0051's contractor axis; another money surface to audit on
 every future column.
 
-**Neutral** — intercompany economics (real cash PRC → sister co vs internal cost
-allocation) and rate basis (day / month / flat) are P2 decisions, designed-for
-but deferred; depreciation and maintenance-cost accounting are out of v1 (the
-register holds `acquisition_cost`; deeper asset accounting is later, likely
-PEAK / spec 129 territory).
+**Neutral** — rate basis is resolved (monthly inbound / daily outbound, decision
+5); intercompany economics (real cash PRC → sister co vs internal cost
+allocation) remains a P2 decision, designed-for but deferred; depreciation and
+maintenance-cost accounting are out of v1 (the register holds `acquisition_cost`;
+deeper asset accounting is later, likely PEAK / spec 129 territory).
 
 ## Open questions (confirm before the relevant unit)
 
 - **Owner host table** (decision 3) — RESOLVED (spec 141, 2026-06-18): a
   dedicated `equipment_owners` master (`owner_id` FK), not a contacts-master
   subtype.
-- **Rate basis** (P2 / U4) — per-day vs per-month vs flat-period; sets the batch
-  and allocation rate columns.
+- **Rate basis** (P2) — RESOLVED (operator, 2026-06-18): **monthly** inbound
+  (PRC → owner) / **daily** outbound (per-WP usage charge). Sets a monthly rate
+  on `equipment_rental_batches` and a daily rate snapshot on
+  `equipment_usage_logs`.
+- **WP split rule** (P2 / U5) — how the daily charge maps to WPs. Leading: a
+  per-WP daily usage log (mirror `labor_logs` — site/PM logs which WP used the set
+  which day). Alternatives to weigh at U5: equal split across the project's active
+  WPs, or manual PM attribution. Operator confirmed split-to-WPs, not
+  project-level (2026-06-18).
 - **Real intercompany cash vs internal allocation** (P2 / U4) — does PRC actually
   disburse to the sister co (then this ties to spec 127/128 payment + spec 129
   PEAK), or is the batch cost an internal recovery figure only?
