@@ -14,6 +14,7 @@ import { StatusPill } from "@/components/features/common/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
 import { PROJECT_VIEW_ROLES } from "@/lib/auth/role-home";
 import { projectHref } from "@/lib/nav/project-paths";
+import { NewProjectSheet } from "./new-project-sheet";
 import { createClient } from "@/lib/db/server";
 import { SECTION_HEADING } from "@/lib/ui/classes";
 import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
@@ -53,6 +54,20 @@ export default async function ProjectsHubPage() {
   const kicker = isProcurement ? "จัดซื้อ" : isPm ? "ผู้จัดการโครงการ" : "หน้างาน";
   const hubItems = isProcurement ? PROCUREMENT_HUB_NAV : isPm ? PM_HUB_NAV : SA_HUB_NAV;
 
+  // Spec 142: PM/super can create a project from the hub. Compute the suggested
+  // code + the full client list for the create sheet (only the create-capable
+  // roles — procurement/site_admin browse read-only and the RPC would 42501).
+  let suggestedCode = "";
+  let allClients: { id: string; name: string }[] = [];
+  if (isPm) {
+    const [codeRes, clientRes] = await Promise.all([
+      supabase.rpc("suggest_project_code"),
+      supabase.from("clients").select("id, name").order("name", { ascending: true }),
+    ]);
+    suggestedCode = codeRes.data ?? "";
+    allClients = clientRes.data ?? [];
+  }
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -61,7 +76,10 @@ export default async function ProjectsHubPage() {
       <HubNav maxWidthClass={PAGE_MAX_W} items={hubItems} currentHref="/projects" />
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
-        <h2 className={SECTION_HEADING}>โครงการ</h2>
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className={SECTION_HEADING}>โครงการ</h2>
+          {isPm && <NewProjectSheet suggestedCode={suggestedCode} clients={allClients} />}
+        </div>
 
         {error ? (
           <ErrorNotice>โหลดรายการโครงการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</ErrorNotice>

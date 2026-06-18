@@ -34,6 +34,25 @@ export function isValidProjectStatus(value: unknown): value is ProjectStatus {
   return typeof value === "string" && (PROJECT_STATUSES as readonly string[]).includes(value);
 }
 
+// ---- Spec 142: project code (create-project form) ----
+// The create_project RPC re-checks (22023 on empty / > max) and the unique
+// constraint on projects.code is the real guard; this is the form's fast
+// feedback. The cap matches the RPC's char_length bound.
+export const PROJECT_CODE_MAX = 50;
+
+export type ValidateCodeResult = { ok: true; code: string } | { ok: false; error: string };
+
+export function validateProjectCode(raw: string): ValidateCodeResult {
+  const code = raw.trim();
+  if (code.length === 0) {
+    return { ok: false, error: "กรุณาใส่รหัสโครงการ" };
+  }
+  if (code.length > PROJECT_CODE_MAX) {
+    return { ok: false, error: `รหัสโครงการต้องไม่เกิน ${PROJECT_CODE_MAX} ตัวอักษร` };
+  }
+  return { ok: true, code };
+}
+
 // ---- Spec 79: project metadata + client ----
 // These mirror the update_project_settings RPC's server-side checks (22023);
 // this module is the form's fast feedback. All metadata fields are optional —
