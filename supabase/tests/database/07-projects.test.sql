@@ -38,6 +38,15 @@ insert into public.projects (id, code, name, updated_at) values
    'Trigger fixture',
    '2020-01-01 00:00:00+00');
 
+-- Spec 143 / ADR 0056: visibility is now membership-scoped — enrol this
+-- fixture's PM/site_admin users in the project so they can read it.
+insert into public.project_members (project_id, user_id, added_by)
+  select p.id, u.id, u.id from public.projects p, public.users u
+   where p.code in ('PRC-TEST-TRIG-001')
+     and u.id in (select au.id from auth.users au where au.email like '%@projects-test.local')
+     and u.role in ('project_manager', 'site_admin')
+on conflict (project_id, user_id) do nothing;
+
 -- Grant the runner's temp result buffer to authenticated, so the assertions
 -- that run under `set local role authenticated` can still record their TAP
 -- output via the runner's `insert into _tap_buf(line) select <pgtap>` rewrite.

@@ -37,6 +37,15 @@ update public.users set role = 'procurement'
 insert into public.projects (id, code, name) values
   ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'PRC-TEST-PR-A', 'PR fixture project');
 
+-- Spec 143 / ADR 0056: visibility is now membership-scoped — enrol this
+-- fixture's PM/site_admin users so they can read the project.
+insert into public.project_members (project_id, user_id, added_by)
+  select p.id, u.id, u.id from public.projects p, public.users u
+   where p.code in ('PRC-TEST-PR-A')
+     and u.id in (select au.id from auth.users au where au.email like '%@pr-test.local')
+     and u.role in ('project_manager', 'site_admin')
+on conflict (project_id, user_id) do nothing;
+
 insert into public.work_packages (id, project_id, code, name) values
   ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
    'cccccccc-cccc-cccc-cccc-cccccccccccc',
@@ -296,14 +305,15 @@ select is(
        and policyname='purchase_requests update by pm or super' and cmd::text='UPDATE'),
   1, 'policy "purchase_requests update by pm or super" (UPDATE) exists');
 
--- Spec 16 A1 / ADR 0026: the native SELECT policy's privileged list includes
--- site_admin (site-wide visibility). Qual-text pin so a future policy rewrite
--- that drops it is caught here, not in production.
+-- Spec 143 / ADR 0056 supersedes ADR 0026's site-wide PR visibility: the SELECT
+-- policy now gates non-requester reads through can_see_wp (membership), keeping
+-- the requester self-read + procurement's cross-project read. Qual-text pin so a
+-- future rewrite that drops the membership gate is caught here, not in prod.
 select ok(
   (select qual from pg_policies
      where schemaname='public' and tablename='purchase_requests'
-       and policyname='purchase_requests select own or privileged') like '%site_admin%',
-  'native SELECT policy qual admits site_admin (ADR 0026 site-wide visibility)'
+       and policyname='purchase_requests select own or privileged') like '%can_see_wp%',
+  'PR SELECT policy gates non-requester reads via can_see_wp (ADR 0056)'
 );
 
 -- ============================================================================

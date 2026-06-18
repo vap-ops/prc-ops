@@ -41,6 +41,15 @@ insert into public.projects (id, code, name) values
   ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'PRC-TEST-WP-A', 'WP fixture project A'),
   ('dddddddd-dddd-dddd-dddd-dddddddddddd', 'PRC-TEST-WP-B', 'WP fixture project B');
 
+-- Spec 143 / ADR 0056: visibility is now membership-scoped — enrol this
+-- fixture's PM/site_admin users so they can read the project.
+insert into public.project_members (project_id, user_id, added_by)
+  select p.id, u.id, u.id from public.projects p, public.users u
+   where p.code in ('PRC-TEST-WP-A', 'PRC-TEST-WP-B')
+     and u.id in (select au.id from auth.users au where au.email like '%@wp-test.local')
+     and u.role in ('project_manager', 'site_admin')
+on conflict (project_id, user_id) do nothing;
+
 -- Fixture WP for the UPDATE / no-DELETE / set_updated_at trigger checks.
 insert into public.work_packages
   (id, project_id, code, name, updated_at)

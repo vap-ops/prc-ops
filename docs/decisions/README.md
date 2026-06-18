@@ -61,6 +61,7 @@ later one corrects — read both when the topic is live.
 | 0053 | Explicit PO-level receive (delivery without a per-ticket photo)      | Amends 0030; spec 134 U5                       |
 | 0054 | First-class deliveries (PO ships in procurement-arranged deliveries) | Reverses 0053 deferral; spec 135               |
 | 0055 | Equipment tracking & intercompany rental model                       | Extends 0051; reuses spec 68 posture; spec 141 |
+| 0056 | Membership-scoped project visibility                                 | Amends 0013; spec 143                          |
 
 **Absent numbers** (never authored as standalone files; do not look for them):
 0023, 0024 — skipped. 0029 — AppSheet image bridge, cancelled before authoring

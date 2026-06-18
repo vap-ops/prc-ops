@@ -31,6 +31,15 @@ update public.users set role = 'project_manager', full_name = 'พีเอ็�
 
 insert into public.projects (id, code, name) values
   ('cccccccc-cccc-cccc-cccc-cccccccc66aa', 'PRC-SP', 'Site purchase fixture');
+
+-- Spec 143 / ADR 0056: visibility is now membership-scoped — enrol this
+-- fixture's PM/site_admin users so they can read the project.
+insert into public.project_members (project_id, user_id, added_by)
+  select p.id, u.id, u.id from public.projects p, public.users u
+   where p.code in ('PRC-SP')
+     and u.id in (select au.id from auth.users au where au.email like '%@sp-test.local')
+     and u.role in ('project_manager', 'site_admin')
+on conflict (project_id, user_id) do nothing;
 insert into public.work_packages (id, project_id, code, name) values
   ('eeeeeeee-eeee-eeee-eeee-eeeeeeee66aa',
    'cccccccc-cccc-cccc-cccc-cccccccc66aa', 'WP-SP', 'SP fixture WP');

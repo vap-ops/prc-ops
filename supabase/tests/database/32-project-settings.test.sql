@@ -18,6 +18,15 @@ update public.users set role = 'project_manager' where id = '33333333-3333-3333-
 insert into public.projects (id, code, name, status) values
   ('cccccccc-cccc-cccc-cccc-cccccccc3333', 'PRC-TEST-PS', 'PS fixture project', 'active');
 
+-- Spec 143 / ADR 0056: visibility is now membership-scoped — enrol the PM so
+-- the post-write `select notes …` reads under the PM session stay visible.
+insert into public.project_members (project_id, user_id, added_by)
+  select p.id, u.id, u.id from public.projects p, public.users u
+   where p.code in ('PRC-TEST-PS')
+     and u.id in (select au.id from auth.users au where au.email like '%@ps-test.local')
+     and u.role in ('project_manager', 'site_admin')
+on conflict (project_id, user_id) do nothing;
+
 grant insert on _tap_buf to authenticated;
 grant select on _tap_buf to authenticated;
 grant usage  on sequence _tap_buf_ord_seq to authenticated;

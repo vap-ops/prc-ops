@@ -2503,6 +2503,8 @@ export type Database = {
         Args: { p_predecessor: string; p_successor: string }
         Returns: boolean
       }
+      can_see_project: { Args: { p_project_id: string }; Returns: boolean }
+      can_see_wp: { Args: { p_work_package_id: string }; Returns: boolean }
       claim_contractor_invite: { Args: { p_token: string }; Returns: string }
       claim_next_report: {
         Args: never

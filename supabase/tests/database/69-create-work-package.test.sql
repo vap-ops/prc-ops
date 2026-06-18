@@ -23,6 +23,15 @@ update public.users set role = 'project_manager' where id = '33333333-3333-3333-
 insert into public.projects (id, code, name) values
   ('abababab-abab-abab-abab-abababababab', 'PRC-CWP-T', 'โครงการทดสอบงาน');
 
+-- Spec 143 / ADR 0056: visibility is now membership-scoped — enrol this
+-- fixture's PM/site_admin users so they can read the project.
+insert into public.project_members (project_id, user_id, added_by)
+  select p.id, u.id, u.id from public.projects p, public.users u
+   where p.code in ('PRC-CWP-T')
+     and u.id in (select au.id from auth.users au where au.email like '%@cwp-test.local')
+     and u.role in ('project_manager', 'site_admin')
+on conflict (project_id, user_id) do nothing;
+
 grant insert on _tap_buf to authenticated;
 grant select on _tap_buf to authenticated;
 grant usage  on sequence _tap_buf_ord_seq to authenticated;

@@ -32,6 +32,15 @@ update public.users set role = 'project_manager'
 insert into public.projects (id, code, name) values
   ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'PRC-TEST-REP-A', 'Reports fixture project');
 
+-- Spec 143 / ADR 0056: visibility is now membership-scoped — enrol this
+-- fixture's PM/site_admin users so they can read the project.
+insert into public.project_members (project_id, user_id, added_by)
+  select p.id, u.id, u.id from public.projects p, public.users u
+   where p.code in ('PRC-TEST-REP-A')
+     and u.id in (select au.id from auth.users au where au.email like '%@reports-test.local')
+     and u.role in ('project_manager', 'site_admin')
+on conflict (project_id, user_id) do nothing;
+
 -- Fixture report for the no-app-UPDATE / no-app-DELETE / set_updated_at
 -- trigger assertions in sections F, G, H. requested_by is the PM seeded
 -- above. updated_at is fixed to '2020-01-01' so the trigger's effect on a
