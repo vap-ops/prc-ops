@@ -74,6 +74,7 @@ beforeEach(() => {
 function renderManager(over?: {
   items?: ManagedEquipmentItem[];
   movements?: EquipmentMovementRow[];
+  canManageRegistry?: boolean;
 }) {
   render(
     <EquipmentManager
@@ -82,6 +83,7 @@ function renderManager(over?: {
       owners={OWNERS}
       projects={PROJECTS}
       movements={over?.movements ?? []}
+      canManageRegistry={over?.canManageRegistry ?? true}
     />,
   );
 }
@@ -228,6 +230,36 @@ describe("EquipmentManager", () => {
     await waitFor(() =>
       expect(mockMove).toHaveBeenCalledWith(
         expect.objectContaining({ itemId: "e2", quantity: 50 }),
+      ),
+    );
+  });
+
+  // U5 — site_admin field view: list + move, no registry management
+  it("hides registry management when canManageRegistry is false", () => {
+    renderManager({ items: ITEMS, canManageRegistry: false });
+    expect(screen.queryByRole("button", { name: "เพิ่มอุปกรณ์" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "เพิ่มหมวดหมู่" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "เพิ่มเจ้าของ" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "แก้ไข" })).not.toBeInTheDocument();
+  });
+
+  it("still allows recording a move in the field (read-only registry) view", async () => {
+    renderManager({
+      items: ITEMS,
+      canManageRegistry: false,
+      movements: [
+        { itemId: "e1", kind: "deployed", projectId: "p1", occurredAt: "2026-07-05T00:00:00Z" },
+      ],
+    });
+    expect(screen.getByText("หน้างาน: ไซต์บางนา")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "ย้าย" }));
+    fireEvent.change(screen.getByLabelText("ประเภทการเคลื่อนย้าย"), {
+      target: { value: "returned" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "บันทึกการย้าย" }));
+    await waitFor(() =>
+      expect(mockMove).toHaveBeenCalledWith(
+        expect.objectContaining({ itemId: "e1", kind: "returned", projectId: null }),
       ),
     );
   });

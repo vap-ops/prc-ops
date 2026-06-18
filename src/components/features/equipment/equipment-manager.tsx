@@ -445,6 +445,7 @@ function EquipmentRow({
   ownerName,
   categoryName,
   locationLabel,
+  canManageRegistry,
 }: {
   item: ManagedEquipmentItem;
   categories: Ref[];
@@ -453,6 +454,7 @@ function EquipmentRow({
   ownerName: string | null;
   categoryName: string | null;
   locationLabel: string;
+  canManageRegistry: boolean;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -530,16 +532,18 @@ function EquipmentRow({
           >
             ย้าย
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              setEditing((v) => !v);
-              setMoving(false);
-            }}
-            className="text-action text-xs font-medium hover:underline"
-          >
-            แก้ไข
-          </button>
+          {canManageRegistry ? (
+            <button
+              type="button"
+              onClick={() => {
+                setEditing((v) => !v);
+                setMoving(false);
+              }}
+              className="text-action text-xs font-medium hover:underline"
+            >
+              แก้ไข
+            </button>
+          ) : null}
         </div>
       </div>
       {moving ? (
@@ -699,12 +703,17 @@ export function EquipmentManager({
   owners,
   projects,
   movements,
+  canManageRegistry,
 }: {
   items: ManagedEquipmentItem[];
   categories: Ref[];
   owners: Ref[];
   projects: Ref[];
   movements: EquipmentMovementRow[];
+  // U5 — false for the site_admin field view: list + where-is-it + move only,
+  // no registry editing (add/edit items, bootstrap categories/owners). RLS is
+  // the real guard; this just hides the affordances the field can't use.
+  canManageRegistry: boolean;
 }) {
   const ownerNames = new Map(owners.map((o) => [o.id, o.name]));
   const categoryNames = new Map(categories.map((c) => [c.id, c.name]));
@@ -713,11 +722,15 @@ export function EquipmentManager({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <QuickAddCategory />
-        <QuickAddOwner />
-      </div>
-      <AddEquipmentForm categories={categories} owners={owners} />
+      {canManageRegistry ? (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <QuickAddCategory />
+            <QuickAddOwner />
+          </div>
+          <AddEquipmentForm categories={categories} owners={owners} />
+        </>
+      ) : null}
       {items.length > 0 ? (
         <div className={CARD}>
           <p className="text-ink text-sm font-semibold">อุปกรณ์ทั้งหมด</p>
@@ -735,6 +748,7 @@ export function EquipmentManager({
                   ownerName={ownerNames.get(it.owner_id) ?? null}
                   categoryName={categoryNames.get(it.category_id) ?? null}
                   locationLabel={equipmentLocationLabel(loc, projectName)}
+                  canManageRegistry={canManageRegistry}
                 />
               );
             })}
@@ -742,7 +756,9 @@ export function EquipmentManager({
         </div>
       ) : (
         <p className="text-ink-secondary text-sm">
-          ยังไม่มีอุปกรณ์ — เพิ่มหมวดหมู่และเจ้าของก่อน แล้วจึงเพิ่มอุปกรณ์
+          {canManageRegistry
+            ? "ยังไม่มีอุปกรณ์ — เพิ่มหมวดหมู่และเจ้าของก่อน แล้วจึงเพิ่มอุปกรณ์"
+            : "ยังไม่มีอุปกรณ์ในระบบ"}
         </p>
       )}
     </div>

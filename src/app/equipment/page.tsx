@@ -6,7 +6,7 @@
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
-import { BACK_OFFICE_ROLES } from "@/lib/auth/role-home";
+import { BACK_OFFICE_ROLES, EQUIPMENT_MOVE_ROLES } from "@/lib/auth/role-home";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
@@ -19,7 +19,9 @@ import {
 export const metadata = { title: "อุปกรณ์" };
 
 export default async function EquipmentPage() {
-  const ctx = await requireRole(BACK_OFFICE_ROLES);
+  // U5 — site_admin reaches the field view; only back office edits the registry.
+  const ctx = await requireRole(EQUIPMENT_MOVE_ROLES);
+  const canManageRegistry = BACK_OFFICE_ROLES.includes(ctx.role);
 
   const supabase = await createServerSupabase();
   const [
@@ -63,6 +65,7 @@ export default async function EquipmentPage() {
           owners={ownerRows ?? []}
           projects={projectRows ?? []}
           movements={movements}
+          canManageRegistry={canManageRegistry}
         />
       </div>
     </PageShell>

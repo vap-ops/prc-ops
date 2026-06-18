@@ -80,6 +80,21 @@ export default async function SettingsPage() {
           </div>
         </div>
 
+        {/* Field tools — site_admin (spec 141 U5). The field can view + move
+            equipment but not curate the registry; managers reach อุปกรณ์ from
+            the master-data section below with the registry framing. */}
+        {role === "site_admin" && (
+          <div className="flex flex-col gap-2">
+            <h2 className="text-meta text-ink-secondary font-semibold">หน้างาน</h2>
+            <SettingsLink
+              href="/equipment"
+              icon={Wrench}
+              label="อุปกรณ์"
+              hint="ดูและย้ายอุปกรณ์หน้างาน"
+            />
+          </div>
+        )}
+
         {isManager && (
           <>
             {/* Master data — PM/super */}

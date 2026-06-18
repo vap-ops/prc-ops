@@ -299,3 +299,71 @@ the P2 allocation concern, U1 seam). The badge reads `currentEquipmentLocation`
 (latest-OCCURRED) while the row's status chip reads the trigger-derived
 `equipment_items.status` (last-RECORDED) — they agree for chronological entry,
 the documented U3 seam.
+
+## U5 — site_admin field move view (2026-06-18)
+
+**Status:** in progress. App-only, **no migration**. U3's `equipment_movements`
+RLS already admits `site_admin` INSERTs (the field physically moves gear); U4
+recorded movements only from the back-office `/equipment` screen. U5 gives the
+**field** its reason to be there: `site_admin` can now reach `/equipment`, see
+the registry + each item's where-is-it badge, and record a move — but **not**
+edit the registry (that stays back office). The deferred "site_admin view + its
+nav + widened gate" called out in U4's OUT.
+
+**Audience model:**
+
+- **New role allowlist** `EQUIPMENT_MOVE_ROLES` in `src/lib/auth/role-home.ts` =
+  `site_admin | project_manager | super_admin | procurement` — the **exact U3
+  `equipment_movements` RLS audience** (the page-gate + action-gate counterpart
+  of that policy). Documented separately from `PURCHASING_ROLES`/`PROJECT_VIEW_
+ROLES` even though the members coincide today (role-doctrine: keep distinct
+  meanings separate).
+- **Registry editing stays `BACK_OFFICE_ROLES`** (`pm/super/procurement`). A
+  `site_admin` views + moves; it does not add/edit items or bootstrap
+  categories/owners.
+
+**What ships:**
+
+- **`/equipment` page gate** widened `BACK_OFFICE_ROLES` → `EQUIPMENT_MOVE_ROLES`
+  (admits `site_admin`; `procurement` already URL-reachable, now explicit). Still
+  the **RLS server client only** — no money (`acquisition_cost`/`acquired_at`
+  remain admin-only and unfetched), so a `site_admin` session sees nothing
+  money. Computes `canManageRegistry = BACK_OFFICE_ROLES.includes(ctx.role)` and
+  passes it to the manager.
+- **`recordEquipmentMovement` gate** widened to `EQUIPMENT_MOVE_ROLES`. The four
+  registry actions (`createEquipment`, `updateEquipment`,
+  `createEquipmentCategory`, `createEquipmentOwner`) **stay `BACK_OFFICE_ROLES`**
+  (defense-in-depth: a `site_admin` is rejected even if an affordance leaked).
+- **`EquipmentManager`** gains `canManageRegistry: boolean`. When **false**
+  (`site_admin`): hides the add-item form, both quick-add cards (category/owner),
+  and the per-row **แก้ไข** edit affordance; keeps the list, the where-is-it
+  badge, and the **ย้าย** move form. The empty state shows a field-appropriate
+  message (no "add categories first" management copy).
+- **Nav:** a `site_admin`-visible **อุปกรณ์** `SettingsLink` in `/settings`
+  (field framing — "ดูและย้ายอุปกรณ์หน้างาน"), rendered for `site_admin` only
+  (pm/super keep the existing master-data link; `/equipment` is already in the
+  `SETTINGS_TAB.match`, so the ตั้งค่า tab lights for the field user too).
+
+**Scope — IN:** the `EQUIPMENT_MOVE_ROLES` allowlist, the two gate widenings, the
+`canManageRegistry` reduced view, the `site_admin` nav entry, component tests.
+**OUT:** `procurement` nav entry (still URL-only, the standing U2 deferral); any
+registry-edit capability for `site_admin`; money; movement edit/void
+(append-only); the P2 money units (rental batches, usage logs/freeze, owner
+portal); a dedicated field route (one `/equipment` surface, role-conditional —
+no route duplication).
+
+**Tests:** `tests/unit/equipment-manager.test.tsx` (extend): with
+`canManageRegistry={false}` the add-item + quick-add + per-row แก้ไข are absent,
+**and** the move flow still works (badge renders, ย้าย → `recordEquipmentMovement`);
+existing management tests pin `canManageRegistry={true}`. The gate widenings +
+the settings nav row = **verified-by-checklist** (auth-gated; `requireRole` +
+the U3 RLS carry correctness; the component test covers the reduced UI).
+
+**Verification:** `pnpm lint && pnpm typecheck && pnpm test` green. Auth-gated →
+no preview; the operator (and a `site_admin` device) on-device pass = acceptance.
+
+**Seams:** one `/equipment` surface serves both audiences by role-conditional
+rendering (not a separate field route) — the WP-centric single-surface posture.
+RLS is the real guard; `canManageRegistry` is presentation only (the registry
+actions re-check `BACK_OFFICE_ROLES`). `procurement`'s missing nav entry is
+unchanged from U2 (URL-reachable, no tab) — a deliberate, still-open deferral.

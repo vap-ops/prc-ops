@@ -47,6 +47,23 @@ export const PURCHASING_ROLES: ReadonlyArray<UserRole> = [
 ];
 
 /**
+ * Spec 141 U5: who can reach /equipment AND record an equipment movement —
+ * the exact U3 `equipment_movements` RLS audience (site staff physically move
+ * gear, so site_admin is in; procurement is back office + also moves). The
+ * page-gate + recordEquipmentMovement-gate counterpart of that policy. Registry
+ * EDITING (create/update items, bootstrap categories/owners) stays
+ * BACK_OFFICE_ROLES — a site_admin views + moves, it does not curate the
+ * registry. Members coincide with PURCHASING_ROLES today, but the meaning
+ * differs — keep them separate.
+ */
+export const EQUIPMENT_MOVE_ROLES: ReadonlyArray<UserRole> = [
+  "site_admin",
+  "project_manager",
+  "super_admin",
+  "procurement",
+];
+
+/**
  * Spec 102: who may BROWSE projects read-only — site staff PLUS procurement
  * (it processes purchases against project/WP context). Gates the /projects hub
  * + /projects/[id] only; the capture-heavy WP detail + schedule stay

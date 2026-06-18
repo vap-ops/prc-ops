@@ -13,7 +13,7 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import { requireRole } from "@/lib/auth/require-role";
-import { BACK_OFFICE_ROLES } from "@/lib/auth/role-home";
+import { BACK_OFFICE_ROLES, EQUIPMENT_MOVE_ROLES } from "@/lib/auth/role-home";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { validateEquipmentItem } from "@/lib/equipment/validate-equipment-item";
 import type { Database } from "@/lib/db/database.types";
@@ -187,7 +187,9 @@ export async function recordEquipmentMovement(input: {
   quantity: number;
   note: string;
 }): Promise<EquipmentActionResult> {
-  const ctx = await requireRole(BACK_OFFICE_ROLES);
+  // U5 — the field (site_admin) records movements too; the registry actions
+  // above stay BACK_OFFICE_ROLES. Matches the U3 equipment_movements RLS.
+  const ctx = await requireRole(EQUIPMENT_MOVE_ROLES);
 
   if (!UUID_REGEX.test(input.itemId)) return { ok: false, error: MOVE_ERROR };
   if (!EQUIPMENT_MOVEMENT_KINDS.includes(input.kind as EquipmentMovementKind)) {
