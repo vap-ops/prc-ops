@@ -75,19 +75,29 @@ equipment_owners` the way the DC portal binds to `contractors` (decision 7).
      an owner for a period at a **monthly** rate. PRC's fixed cost.
    - `equipment_project_allocations` — the deployment: a set attached to a
      **project** (decision 4) for a period; where the monthly batch is committed.
-   - `equipment_usage_logs` — the outbound charge basis: **per-WP, per-day** usage
-     (which WP used the set which day) at a **daily** rate snapshot, mirroring
-     `labor_logs`. This is the WP split — the daily charge is attributed to WPs,
-     not the project as a whole (operator).
+   - `equipment_items.daily_rate` — the **per-item** charge-out rate PRC sets,
+     independent of the batch cost (operator's Case A choice, 2026-06-18). Money;
+     set via RPC; mirrors `workers.day_rate`. (A P2 ALTER adds it to the U1
+     registry table.)
+   - `equipment_usage_logs` — the outbound charge basis: **per-item, per-WP,
+     per-day** usage (which WP used which item which day) at a
+     `daily_rate_snapshot`, mirroring `labor_logs` (worker → item,
+     day_rate_snapshot → daily_rate_snapshot). This is the WP split — the daily
+     charge is attributed to WPs, not the project as a whole (operator).
    - `wp_equipment_costs` — a **frozen per-WP snapshot** summed from the usage
      logs, written by `freeze_wp_equipment_cost(p_wp)` (SECURITY DEFINER) that
      mirrors `freeze_wp_labor_cost` exactly (pm/super/procurement gate; audit
      old/new; UPSERT). Joins labor + materials in the spec-100 budget-vs-spend.
+   - **Re-rental P&L (Case A):** PRC charges an independent daily rate, **not** a
+     pass-through split of the ฿50k, so PRC's equipment P&L = Σ(item daily
+     charges) − batch monthly cost — real margin when well-utilized, real loss on
+     idle items. Equipment is a managed profit center; utilization is the lever.
 
 6. **Money posture = the labor posture, copied.** Every ฿ field —
-   `equipment_items.acquisition_cost`, batch rates, allocation fee rates, the
-   frozen WP cost — has **zero authenticated grant**, is read only via the admin
-   client behind `requireRole(pm/super/procurement)`, is **never** rendered on a
+   `equipment_items.acquisition_cost` + `daily_rate`, batch monthly rates,
+   `equipment_usage_logs.daily_rate_snapshot`, the frozen WP cost — has **zero
+   authenticated grant**, is read only via the admin client behind
+   `requireRole(pm/super/procurement)`, is **never** rendered on a
    site_admin-reachable screen, and is audited. Tracking data (items minus cost,
    movements, categories, location, status) is site_admin-visible so field staff
    can receive and move equipment.
@@ -134,18 +144,20 @@ deeper asset accounting is later, likely PEAK / spec 129 territory).
 - **Owner host table** (decision 3) — RESOLVED (spec 141, 2026-06-18): a
   dedicated `equipment_owners` master (`owner_id` FK), not a contacts-master
   subtype.
-- **Rate basis** (P2) — RESOLVED (operator, 2026-06-18): **monthly** inbound
-  (PRC → owner) / **daily** outbound (per-WP usage charge). Sets a monthly rate
-  on `equipment_rental_batches` and a daily rate snapshot on
-  `equipment_usage_logs`.
-- **WP split rule** (P2 / U5) — how the daily charge maps to WPs. Leading: a
-  per-WP daily usage log (mirror `labor_logs` — site/PM logs which WP used the set
-  which day). Alternatives to weigh at U5: equal split across the project's active
-  WPs, or manual PM attribution. Operator confirmed split-to-WPs, not
-  project-level (2026-06-18).
-- **Real intercompany cash vs internal allocation** (P2 / U4) — does PRC actually
-  disburse to the sister co (then this ties to spec 127/128 payment + spec 129
-  PEAK), or is the batch cost an internal recovery figure only?
+- **Rate basis & pricing** (P2) — RESOLVED (operator, Case A, 2026-06-18):
+  **monthly** inbound (PRC → owner, set-level) / **daily** outbound charged as an
+  **independent per-item rate** (`equipment_items.daily_rate`), not a pass-through
+  split. PRC P&L = Σ daily charges − batch monthly cost (decision 5). Sets a
+  monthly rate on `equipment_rental_batches`, a per-item `daily_rate`, and a
+  `daily_rate_snapshot` on `equipment_usage_logs`.
+- **WP split rule** (P2 / U5) — RESOLVED (Case A, 2026-06-18): a **per-item,
+  per-WP, per-day usage log** (mirror `labor_logs`); each used item-day is
+  attributed to a WP at its `daily_rate_snapshot`. (Equal-split and manual
+  attribution were the alternatives; the usage log won.)
+- **Batch payment mechanism** (P2 / U4) — the re-rental P&L is real (decision 5),
+  so the ฿50k/month is a real PRC cost; open: does PRC disburse actual cash to the
+  sister co (ties to spec 127/128 payment + spec 129 PEAK) or book it as an
+  intercompany entry?
 - **Owner access mechanism** (P2 / U6) — a distinct `equipment_owner` external
   role vs generalizing ADR 0051's identity binding to an `owner_contact_id` axis.
 
