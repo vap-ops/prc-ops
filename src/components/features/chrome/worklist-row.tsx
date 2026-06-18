@@ -16,6 +16,7 @@ import { ChevronRight, Camera, UserPlus, PauseCircle, AlertTriangle, Flame } fro
 import { workPackageHref } from "@/lib/nav/project-paths";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { CRITICAL_BADGE } from "@/lib/ui/classes";
+import { listEnterProps } from "@/lib/ui/list-enter";
 import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import {
@@ -55,16 +56,29 @@ interface WorklistRowProps {
   spine: string;
   /** Compact density for the review/done bands (one-line name). */
   compact?: boolean;
+  /** Spec 140: row position for the staggered list-enter motion; omit = no animation. */
+  enterIndex?: number;
 }
 
-export function WorklistRow({ projectId, wp, spine, compact = false }: WorklistRowProps) {
+export function WorklistRow({
+  projectId,
+  wp,
+  spine,
+  compact = false,
+  enterIndex,
+}: WorklistRowProps) {
   const action = compact ? null : nextAction(wp.status, wp.hasContractor);
   const ActionIcon = action ? ACTION_ICON[action.kind] : null;
   const showUrgent = wp.priority === "urgent" || wp.priority === "critical";
+  // Spec 140: staggered fade-up on mount (reduced-motion users get static rows).
+  const enter = enterIndex === undefined ? null : listEnterProps(enterIndex);
   return (
     <Link
       href={workPackageHref(projectId, wp.id)}
-      className="rounded-card border-edge bg-card shadow-card hover:bg-sunk focus-visible:ring-action active:bg-sunk flex items-stretch gap-0 overflow-hidden border transition-colors focus:outline-none focus-visible:ring-2"
+      className={`rounded-card border-edge bg-card shadow-card hover:bg-sunk focus-visible:ring-action active:bg-sunk flex items-stretch gap-0 overflow-hidden border transition-colors focus:outline-none focus-visible:ring-2${
+        enter ? ` ${enter.className}` : ""
+      }`}
+      {...(enter ? { style: enter.style } : {})}
     >
       {/* Action-band spine — the arm's-length status cue. */}
       <span aria-hidden="true" className={`w-[7px] shrink-0 ${spine}`} />

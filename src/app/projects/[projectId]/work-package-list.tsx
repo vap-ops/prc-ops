@@ -269,13 +269,14 @@ function ActionLens({
                   {items.length}
                 </span>
               </div>
-              {(isDone && bandFilter === null && !showDone ? [] : items).map((wp) => (
+              {(isDone && bandFilter === null && !showDone ? [] : items).map((wp, i) => (
                 <WorklistRow
                   key={wp.id}
                   projectId={projectId}
                   wp={toRowItem(wp)}
                   spine={meta.spine}
                   compact={band === "review" || band === "done"}
+                  enterIndex={i}
                 />
               ))}
             </section>
@@ -355,12 +356,13 @@ function DeliverableLens({
         {rows.length === 0 ? (
           <EmptyNotice>ไม่มีงานที่ต้องทำ — แตะ “เสร็จแล้ว” เพื่อดูงานที่จบแล้ว</EmptyNotice>
         ) : (
-          rows.map((wp) => (
+          rows.map((wp, i) => (
             <WorklistRow
               key={wp.id}
               projectId={projectId}
               wp={toRowItem(wp)}
               spine={ACTION_BAND_META[deriveActionBand(wp.status)].spine}
+              enterIndex={i}
             />
           ))
         )}
@@ -453,13 +455,14 @@ function DeliverableLens({
             </button>
             {isOpen ? (
               <ul id={contentId} className="border-edge flex flex-col gap-2.5 border-t p-3">
-                {group.workPackages.map((wp) => (
+                {group.workPackages.map((wp, i) => (
                   <li key={wp.id}>
                     <WorklistRow
                       projectId={projectId}
                       wp={toRowItem(wp as WorkPackageListItem)}
                       spine={ACTION_BAND_META[deriveActionBand(wp.status)].spine}
                       compact
+                      enterIndex={i}
                     />
                   </li>
                 ))}

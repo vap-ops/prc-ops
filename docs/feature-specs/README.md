@@ -142,6 +142,7 @@ for reading the spec itself.
 | 137  | Action-state bands + view filter on the site /requests worklist                           |
 | 138  | Mobile worklist redesign (procurement): attention panel · KPI hero · chips · tile filters |
 | 139  | App-feel slice 3: optimistic UI (U1 — worker active-toggle, useOptimistic)                |
+| 140  | App-feel slice 5: motion (U1 — staggered list-enter on the WP worklist)                   |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

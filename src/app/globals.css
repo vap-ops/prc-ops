@@ -246,3 +246,25 @@
     animation: shutter-pulse 2.4s ease-in-out infinite;
   }
 }
+
+/* Spec 140 — staggered list-enter (app-feel slice 5, motion). OPT-IN per
+   prefers-reduced-motion; reduced-motion users get static, fully-visible rows
+   (the from{opacity:0} only applies while the animation is attached, which only
+   happens inside this query — so no FOUC). --enter-index (capped, set per row by
+   listEnterProps) staggers the delay so rows glide in one after another. */
+@keyframes list-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .list-enter {
+    animation: list-enter 240ms ease-out both;
+    animation-delay: calc(var(--enter-index, 0) * 35ms);
+  }
+}
