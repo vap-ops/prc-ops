@@ -49,12 +49,13 @@ mechanisms.**
    rule. Rationale: categories grow operationally; an enum add would need an ADR
    each time, a category insert should not.
 
-3. **Owner = a contact, not a hardcoded company.** Each item's
-   `owner_contact_id` points at the sister company as an entity in the existing
-   contacts/vendor master, under a new `equipment_owner` subtype. Single-source;
-   supports more than one owner later. (Exact host table reconciled against the
-   contacts v2 schema at build — `suppliers` vs `service_providers` vs a minimal
-   dedicated FK; reuse preferred. See Open questions.)
+3. **Owner = a dedicated `equipment_owners` master, not a hardcoded company.**
+   Each item's `owner_id` points at the sister company as a row in a dedicated
+   `equipment_owners` table. Single-source; supports more than one owner later.
+   **Resolved at build (spec 141, 2026-06-18, operator):** a dedicated master
+   rather than reusing `suppliers`/`service_providers` — an investor/lessor is a
+   distinct entity, and the future owner portal binds `owner_users →
+equipment_owners` the way the DC portal binds to `contractors` (decision 7).
 
 4. **Location is derived from an append-only movement log.**
    `equipment_movements` records custody events (received-from-owner,
@@ -83,15 +84,15 @@ mechanisms.**
    movements, categories, location, status) is site_admin-visible so field staff
    can receive and move equipment.
 
-7. **Owner-facing view reuses ADR 0051, on an `owner_contact_id` axis.** The
-   sister company logs in as a scoped external tier and sees, via row-level RLS,
-   only **its own** items, their deployment/utilization, and the rental income
-   off them — through the RLS-respecting client, never the admin client. Same
+7. **Owner-facing view reuses ADR 0051, on an `owner_id` axis.** The sister
+   company logs in as a scoped external tier and sees, via row-level RLS, only
+   **its own** items, their deployment/utilization, and the rental income off
+   them — through the RLS-respecting client, never the admin client. Same
    dual-policy RLS, same staged-money discipline, same hard-bounded portal
    segment as the DC portal. The owner's **income** is a scoped money read (its
    own earnings only); PRC's margin and every other party stay invisible. This
-   is a second ownership axis (`owner_contact_id`) orthogonal to ADR 0051's
-   `contractor_id` and ADR 0013's `project_id`.
+   is a second ownership axis (`owner_id` → `equipment_owners`) orthogonal to
+   ADR 0051's `contractor_id` and ADR 0013's `project_id`.
 
 8. **WP-centric surfacing.** Equipment-in-use appears on the WP detail;
    `work_packages.owner_id` is the fee bearer.
@@ -118,8 +119,9 @@ PEAK / spec 129 territory).
 
 ## Open questions (confirm before the relevant unit)
 
-- **Owner host table** (decision 3) — which contacts table hosts the
-  `equipment_owner` subtype; reconciled at spec 141.
+- **Owner host table** (decision 3) — RESOLVED (spec 141, 2026-06-18): a
+  dedicated `equipment_owners` master (`owner_id` FK), not a contacts-master
+  subtype.
 - **Rate basis** (P2 / U4) — per-day vs per-month vs flat-period; sets the batch
   and allocation rate columns.
 - **Real intercompany cash vs internal allocation** (P2 / U4) — does PRC actually
@@ -134,6 +136,6 @@ PEAK / spec 129 territory).
 - ADR 0013 — role-level access (0051's `project_id` axis; this adds an owner axis)
 - ADR 0009 — supersede current-state anti-join (movements → current location)
 - ADR 0032 / 0033 — WP owner (the fee bearer); contractor-master mirror (registry shape)
-- ADR 0038 — suppliers master + contacts (the owner entity's home)
+- ADR 0038 — suppliers master (the masters posture `equipment_owners` mirrors)
 - Spec 68 — `wp_labor_costs` + freeze RPC (money posture and freeze pattern copied)
 - Spec 100 — budget-vs-spend (where the frozen equipment cost lands)
