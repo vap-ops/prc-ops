@@ -88,10 +88,20 @@ export const PROCUREMENT_TABS: ReadonlyArray<TabItem> = [
   SETTINGS_TAB,
 ];
 
+// Spec 143 U2 / ADR 0056: project_coordinator is a see-all oversight role. It
+// browses every project (โครงการ) and reaches the universal account/settings hub
+// — but NOT /review, /requests, or /dashboard (those don't admit it), so a lean
+// two-tab set keeps every tab a live destination.
+export const COORDINATOR_TABS: ReadonlyArray<TabItem> = [
+  { label: "โครงการ", href: "/projects", icon: FolderKanban },
+  SETTINGS_TAB,
+];
+
 function tabsForRole(role: string): ReadonlyArray<TabItem> | null {
   if (role === "site_admin") return SA_TABS;
   if (role === "project_manager" || role === "super_admin") return PM_TABS;
   if (role === "procurement") return PROCUREMENT_TABS;
+  if (role === "project_coordinator") return COORDINATOR_TABS;
   return null;
 }
 

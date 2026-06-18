@@ -76,6 +76,10 @@ export const PROJECT_VIEW_ROLES: ReadonlyArray<UserRole> = [
   "project_manager",
   "super_admin",
   "procurement",
+  // Spec 143 U2 / ADR 0056: project_coordinator is the see-all oversight role.
+  // RLS already lets it read every project (can_see_project); this admits it to
+  // the browse surfaces (/projects + /projects/[id]).
+  "project_coordinator",
 ];
 
 export function roleHome(role: UserRole): string {
@@ -89,6 +93,9 @@ export function roleHome(role: UserRole): string {
   if (role === "project_manager" || role === "super_admin") return "/review";
   // Spec 70: procurement is onboarded onto the purchasing worklist.
   if (role === "procurement") return "/requests";
+  // Spec 143 U2 / ADR 0056: project_coordinator oversees all projects — its home
+  // is the project hub (no longer bounced to /coming-soon).
+  if (role === "project_coordinator") return "/projects";
   // Spec 130 / ADR 0051: external direct contractors land on the self-service
   // portal segment (hard-bounded from internal surfaces by middleware).
   if (role === "contractor") return "/portal";

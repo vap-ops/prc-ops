@@ -8,6 +8,7 @@ import {
   PM_HUB_NAV,
   SA_HUB_NAV,
   PROCUREMENT_HUB_NAV,
+  COORDINATOR_HUB_NAV,
 } from "@/components/features/chrome/hub-nav";
 import { EmptyNotice, ErrorNotice } from "@/components/features/common/notices";
 import { StatusPill } from "@/components/features/common/status-pill";
@@ -50,9 +51,23 @@ export default async function ProjectsHubPage() {
 
   const isPm = ctx.role === "project_manager" || ctx.role === "super_admin";
   const isProcurement = ctx.role === "procurement";
+  // Spec 143 U2: project_coordinator is the see-all oversight role.
+  const isCoordinator = ctx.role === "project_coordinator";
   // Spec 102: procurement browses projects read-only for purchase context.
-  const kicker = isProcurement ? "จัดซื้อ" : isPm ? "ผู้จัดการโครงการ" : "หน้างาน";
-  const hubItems = isProcurement ? PROCUREMENT_HUB_NAV : isPm ? PM_HUB_NAV : SA_HUB_NAV;
+  const kicker = isCoordinator
+    ? "ผู้ประสานงานโครงการ"
+    : isProcurement
+      ? "จัดซื้อ"
+      : isPm
+        ? "ผู้จัดการโครงการ"
+        : "หน้างาน";
+  const hubItems = isCoordinator
+    ? COORDINATOR_HUB_NAV
+    : isProcurement
+      ? PROCUREMENT_HUB_NAV
+      : isPm
+        ? PM_HUB_NAV
+        : SA_HUB_NAV;
 
   // Spec 142: PM/super can create a project from the hub. Compute the suggested
   // code + the full client list for the create sheet (only the create-capable

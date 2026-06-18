@@ -50,6 +50,14 @@ export const PROCUREMENT_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "ตั้งค่า", href: "/settings" },
 ];
 
+// Spec 143 U2 / ADR 0056: project_coordinator's desktop strip — the see-all
+// project hub + settings. Mirrors COORDINATOR_TABS; no review/requests/dashboard
+// (those surfaces don't admit it).
+export const COORDINATOR_HUB_NAV: ReadonlyArray<HubNavItem> = [
+  { label: "โครงการ", href: "/projects" },
+  { label: "ตั้งค่า", href: "/settings" },
+];
+
 interface HubNavProps {
   maxWidthClass: typeof PAGE_MAX_W;
   items: ReadonlyArray<HubNavItem>;

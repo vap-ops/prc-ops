@@ -15,6 +15,7 @@ vi.mock("next/navigation", () => ({
 
 import {
   BottomTabBar,
+  COORDINATOR_TABS,
   PM_TABS,
   PROCUREMENT_TABS,
   SA_TABS,
@@ -55,6 +56,13 @@ describe("BottomTabBar", () => {
       ["คำขอซื้อ", "/requests"],
       ["โครงการ", "/projects"],
       ["ผู้ขาย", "/contacts/vendors"],
+      ["ตั้งค่า", "/settings"],
+    ]);
+    // Spec 143 U2: the coordinator is a see-all oversight role — projects + the
+    // universal settings hub only (no /review, /requests, or /dashboard, which
+    // don't admit it).
+    expect(COORDINATOR_TABS.map((t) => [t.label, t.href])).toEqual([
+      ["โครงการ", "/projects"],
       ["ตั้งค่า", "/settings"],
     ]);
   });
@@ -182,6 +190,18 @@ describe("BottomTabBar", () => {
     const active = activeTabs(container);
     expect(active).toHaveLength(1);
     expect(active[0]?.textContent).toContain("ผู้ขาย");
+  });
+
+  // Spec 143 U2: the coordinator gets a focused set — โครงการ (sees all) + ตั้งค่า.
+  it("renders the coordinator set: โครงการ + ตั้งค่า, lights โครงการ on /projects", () => {
+    mockUsePathname.mockReturnValue("/projects");
+    const { container } = render(<BottomTabBar role="project_coordinator" />);
+    expect(screen.getByText("ตั้งค่า")).toBeInTheDocument();
+    expect(screen.queryByText("รอตรวจ")).not.toBeInTheDocument();
+    expect(screen.queryByText("คำขอซื้อ")).not.toBeInTheDocument();
+    const active = activeTabs(container);
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toContain("โครงการ");
   });
 
   it("renders nothing for still-unserved roles", () => {

@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { PURCHASING_ROLES, roleHome } from "@/lib/auth/role-home";
+import { PROJECT_VIEW_ROLES, PURCHASING_ROLES, roleHome } from "@/lib/auth/role-home";
 
 describe("roleHome", () => {
   it("sends each served role to its real surface", () => {
@@ -21,6 +21,9 @@ describe("roleHome", () => {
     // (was the role-named /pm).
     expect(roleHome("project_manager")).toBe("/review");
     expect(roleHome("super_admin")).toBe("/review");
+    // Spec 143 U2 / ADR 0056: project_coordinator is a see-all oversight role —
+    // its home is the project hub (was /coming-soon before it was enabled).
+    expect(roleHome("project_coordinator")).toBe("/projects");
   });
 
   // Spec 70: procurement onboarding — its first real surface is the
@@ -48,6 +51,16 @@ describe("PURCHASING_ROLES", () => {
   it("admits the requester base and procurement", () => {
     expect([...PURCHASING_ROLES].sort()).toEqual(
       ["procurement", "project_manager", "site_admin", "super_admin"].sort(),
+    );
+  });
+});
+
+// Spec 143 U2 / ADR 0056: project browsing now admits project_coordinator (the
+// see-all oversight role) alongside the existing site staff + procurement.
+describe("PROJECT_VIEW_ROLES", () => {
+  it("admits site staff, procurement, and the coordinator", () => {
+    expect([...PROJECT_VIEW_ROLES].sort()).toEqual(
+      ["procurement", "project_coordinator", "project_manager", "site_admin", "super_admin"].sort(),
     );
   });
 });
