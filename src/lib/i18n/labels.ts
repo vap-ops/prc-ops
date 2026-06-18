@@ -14,6 +14,8 @@ export const WORK_PACKAGE_STATUS_LABEL: Record<Enums["work_package_status"], str
   on_hold: "พักชั่วคราว",
   complete: "เสร็จสิ้น",
   pending_approval: "รออนุมัติ",
+  // Spec 144: a complete WP reopened for a defect.
+  rework: "งานแก้ไข",
 };
 
 export const PROJECT_STATUS_LABEL: Record<Enums["project_status"], string> = {

@@ -57,6 +57,10 @@ export function deriveActionBand(status: WorkPackageStatus): ActionBand {
       return "todo";
     case "on_hold":
       return "held";
+    case "rework":
+      // Spec 144: a defect reopened a complete WP — needs the site team to fix
+      // + re-capture, so it lands in the actionable band.
+      return "todo";
     case "pending_approval":
       return "review";
     case "complete":
@@ -93,6 +97,8 @@ export function nextAction(status: WorkPackageStatus, hasContractor: boolean): N
         : { label: "มอบหมายผู้รับเหมา", kind: "assign" };
     case "in_progress":
       return { label: "ถ่ายรูป ความคืบหน้า", kind: "capture" };
+    case "rework":
+      return { label: "แก้ไขข้อบกพร่อง แล้วถ่ายรูปใหม่", kind: "capture" };
     case "on_hold":
       return { label: "พักงานอยู่ — รอปลดล็อก", kind: "wait" };
     default:

@@ -98,7 +98,9 @@ describe("mimeToPhotoExt", () => {
 
 describe("shouldTransitionToPendingApproval", () => {
   it("transitions only when phase is 'after' AND status is transitionable", () => {
-    for (const status of ["not_started", "in_progress", "on_hold"] as const) {
+    // Spec 144: 'rework' (a defect reopened a complete WP) is transitionable too
+    // — re-shooting the After photo sends it back to pending_approval.
+    for (const status of ["not_started", "in_progress", "on_hold", "rework"] as const) {
       expect(shouldTransitionToPendingApproval("after", status)).toBe(true);
     }
   });

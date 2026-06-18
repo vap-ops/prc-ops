@@ -75,8 +75,8 @@ grant usage  on sequence _tap_buf_ord_seq to authenticated;
 select has_type('public', 'work_package_status', 'work_package_status enum exists');
 select enum_has_labels(
   'public', 'work_package_status',
-  array['not_started', 'in_progress', 'on_hold', 'complete', 'pending_approval'],
-  'work_package_status has the five expected values'
+  array['not_started', 'in_progress', 'on_hold', 'complete', 'pending_approval', 'rework'],
+  'work_package_status has the six expected values (rework added spec 144)'
 );
 
 select has_table('public', 'work_packages', 'public.work_packages exists');

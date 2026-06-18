@@ -2764,6 +2764,10 @@ export type Database = {
         Args: { p_predecessor: string; p_successor: string }
         Returns: boolean
       }
+      reopen_work_package_for_defect: {
+        Args: { p_reason: string; p_wp: string }
+        Returns: boolean
+      }
       revoke_contractor_consent: { Args: { p_id: string }; Returns: undefined }
       set_contact_bank: {
         Args: {
@@ -3001,6 +3005,7 @@ export type Database = {
         | "on_hold"
         | "complete"
         | "pending_approval"
+        | "rework"
       worker_type: "own" | "dc"
     }
     CompositeTypes: {
@@ -3261,6 +3266,7 @@ export const Constants = {
         "on_hold",
         "complete",
         "pending_approval",
+        "rework",
       ],
       worker_type: ["own", "dc"],
     },

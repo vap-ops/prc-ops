@@ -146,6 +146,7 @@ for reading the spec itself.
 | 141  | Equipment registry: categories + items (data layer, P1 U1; ADR 0055)                      |
 | 142  | Project onboarding (create_project RPC · stub + checklist · WP seeding)                   |
 | 143  | Membership-scoped project visibility (PM/site_admin see only their projects; ADR 0056)    |
+| 144  | Defect rework — reopen a complete WP to a `rework` status (post-completion defects)       |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

@@ -114,6 +114,15 @@ const STATUS_STYLE: Record<WorkPackageStatus, StatusStyle> = {
     fill: "bg-ink-muted/20",
     pct: 25,
   },
+  // Spec 144: complete WP reopened for a defect — attention (amber), most of the
+  // work was done so the bar stays high.
+  rework: {
+    border: "border-attn",
+    bg: "bg-attn-soft",
+    dot: "bg-attn",
+    fill: "bg-attn/35",
+    pct: 90,
+  },
 };
 
 type Row =

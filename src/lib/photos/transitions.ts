@@ -14,7 +14,15 @@ import type { PhotoPhase, WorkPackageStatus } from "@/lib/db/enums";
 
 export type { PhotoPhase, WorkPackageStatus };
 
-export const TRANSITIONABLE_FROM_STATUSES = ["not_started", "in_progress", "on_hold"] as const;
+// Spec 144: 'rework' (a defect reopened a complete WP) is transitionable —
+// re-shooting the After photo sends it back to pending_approval, same as the
+// other pre-approval states.
+export const TRANSITIONABLE_FROM_STATUSES = [
+  "not_started",
+  "in_progress",
+  "on_hold",
+  "rework",
+] as const;
 
 export function shouldTransitionToPendingApproval(
   phase: PhotoPhase,

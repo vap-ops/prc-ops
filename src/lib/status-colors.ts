@@ -216,9 +216,10 @@ export function workPackageStatusPillClasses(status: WorkPackageStatus): string 
     case "in_progress":
     case "on_hold":
     case "pending_approval":
-      // All three are "in flight" from the SA's perspective: work is
-      // happening, paused, or with the PM. Amber across the board;
-      // the pill text label is what tells them apart precisely. Same
+    case "rework":
+      // All "in flight" from the SA's perspective: work is happening, paused,
+      // with the PM, or reopened for a defect (spec 144). Amber across the
+      // board; the pill text label is what tells them apart precisely. Same
       // amber the PM side uses for `processing` / `needs_revision`.
       return PILL_AMBER;
     case "complete":
