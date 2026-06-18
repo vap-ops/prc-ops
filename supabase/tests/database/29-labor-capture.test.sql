@@ -28,6 +28,17 @@ insert into public.work_packages (id, project_id, code, name, status) values
   ('eeeeeeee-eeee-eeee-eeee-eeeeee3ab0fe',
    'cccccccc-cccc-cccc-cccc-cccccccab0fe', 'WP-LAB-3', 'Closed WP', 'complete');
 
+-- Spec 143 U3 / ADR 0056: labor_logs SELECT is now membership-scoped — enrol the
+-- PM/site_admin test users so the labor reads (and the correct_labor_log id
+-- lookups) below see the rows. The log_labor_day/correct_labor_log RPCs are
+-- definer and write regardless; this is for the SELECTs.
+insert into public.project_members (project_id, user_id, added_by)
+  select p.id, u.id, u.id from public.projects p, public.users u
+   where p.code in ('TAP-LABOR')
+     and u.id in (select au.id from auth.users au where au.email like '%@labor-test.local')
+     and u.role in ('project_manager', 'site_admin')
+on conflict (project_id, user_id) do nothing;
+
 insert into public.contractors (id, name, created_by) values
   ('dddddddd-dddd-dddd-dddd-dddddddab0fe', 'DC Crew Co',
    '11111111-1111-1111-1111-1111111ab0fe');
