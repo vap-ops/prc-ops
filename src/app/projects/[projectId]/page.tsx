@@ -21,6 +21,7 @@ import { rankFromPriority } from "@/lib/work-packages/action-bands";
 import { criticalWorkPackageIds } from "@/lib/work-packages/critical-path";
 import { WorkPackageList } from "./work-package-list";
 import { OnboardingChecklist, type OnboardingStatus } from "./onboarding-checklist";
+import { AddWorkPackageSheet } from "./add-work-package-sheet";
 
 interface PageProps {
   params: Promise<{ projectId: string }>;
@@ -219,9 +220,12 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
         {isPmRole && onboarding && (
           <OnboardingChecklist projectId={project.id} status={onboarding} />
         )}
-        <h2 id="work-packages" className={SECTION_HEADING}>
-          รายการงาน
-        </h2>
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 id="work-packages" className={SECTION_HEADING}>
+            รายการงาน
+          </h2>
+          {isPmRole && <AddWorkPackageSheet projectId={project.id} />}
+        </div>
         <WorkPackageList
           projectId={project.id}
           role={ctx.role}

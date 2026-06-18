@@ -2557,6 +2557,15 @@ export type Database = {
         }
         Returns: string
       }
+      create_work_package: {
+        Args: {
+          p_code: string
+          p_description?: string
+          p_name: string
+          p_project_id: string
+        }
+        Returns: string
+      }
       create_worker: {
         Args: {
           p_contractor?: string
