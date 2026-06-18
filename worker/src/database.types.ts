@@ -676,6 +676,144 @@ export type Database = {
           },
         ]
       }
+      equipment_categories: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          parent_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          parent_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          parent_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_items: {
+        Row: {
+          acquired_at: string | null
+          acquisition_cost: number | null
+          asset_tag: string | null
+          category_id: string
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          owner_id: string
+          quantity: number | null
+          status: Database["public"]["Enums"]["equipment_status"]
+          tracking: Database["public"]["Enums"]["equipment_tracking"]
+        }
+        Insert: {
+          acquired_at?: string | null
+          acquisition_cost?: number | null
+          asset_tag?: string | null
+          category_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          owner_id: string
+          quantity?: number | null
+          status?: Database["public"]["Enums"]["equipment_status"]
+          tracking?: Database["public"]["Enums"]["equipment_tracking"]
+        }
+        Update: {
+          acquired_at?: string | null
+          acquisition_cost?: number | null
+          asset_tag?: string | null
+          category_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          quantity?: number | null
+          status?: Database["public"]["Enums"]["equipment_status"]
+          tracking?: Database["public"]["Enums"]["equipment_tracking"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_items_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_owners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_owners: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          phone: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          phone?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_owners_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       labor_logs: {
         Row: {
           contractor_id_snapshot: string | null
@@ -2655,6 +2793,14 @@ export type Database = {
         | "dc_temporary"
       day_fraction: "full" | "half"
       dc_payment_method: "bank_transfer" | "cash" | "cheque"
+      equipment_status:
+        | "available"
+        | "on_site"
+        | "in_use"
+        | "maintenance"
+        | "returned"
+        | "lost"
+      equipment_tracking: "unit" | "bulk"
       login_handoff_status: "pending" | "approved" | "consumed"
       notification_event_type:
         | "wp_pending_approval"
@@ -2891,6 +3037,15 @@ export const Constants = {
       ],
       day_fraction: ["full", "half"],
       dc_payment_method: ["bank_transfer", "cash", "cheque"],
+      equipment_status: [
+        "available",
+        "on_site",
+        "in_use",
+        "maintenance",
+        "returned",
+        "lost",
+      ],
+      equipment_tracking: ["unit", "bulk"],
       login_handoff_status: ["pending", "approved", "consumed"],
       notification_event_type: [
         "wp_pending_approval",
