@@ -40,6 +40,7 @@ const reads = (abs: string) => readFileSync(abs, "utf8");
 const STATIC_DETAIL = [
   "profile",
   "workers",
+  "equipment",
   "payroll",
   "contacts/customers",
   "contacts/vendors",

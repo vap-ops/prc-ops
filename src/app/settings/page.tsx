@@ -11,6 +11,7 @@ import {
   Store,
   Users,
   Wallet,
+  Wrench,
 } from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { AvatarSurface } from "@/components/features/common/avatar-surface";
@@ -104,6 +105,12 @@ export default async function SettingsPage() {
                 hint="ผู้รับเหมา · ทีมแรงงาน DC"
               />
               <SettingsLink href="/workers" icon={HardHat} label="ทีมงาน" hint="ทะเบียนทีมงาน DC" />
+              <SettingsLink
+                href="/equipment"
+                icon={Wrench}
+                label="อุปกรณ์"
+                hint="ทะเบียนอุปกรณ์เช่า"
+              />
             </div>
 
             {/* Finance — PM/super */}

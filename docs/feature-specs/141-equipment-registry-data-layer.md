@@ -104,3 +104,51 @@ change** — UI is U2.
   `equipment_owners` master (`owner_id` FK target). The future owner portal
   binds `owner_users → equipment_owners`, mirroring ADR 0051's `contractors`.
 - Bulk on-hand vs allocated reconciliation lands with allocations (P2), not here.
+
+## U2 — equipment management UI (2026-06-18)
+
+**Status:** in progress. App-only, **no migration** (U1's grants/policies carry
+the writes). Makes the shipped registry visible/usable: a back-office screen to
+see, add, and edit equipment + bootstrap categories and owners.
+
+**What ships:**
+
+- **Route** `/equipment` (server component), gated `requireRole(BACK_OFFICE_ROLES)`
+  (pm/super/procurement — the U1 INSERT/UPDATE audience). Mirrors `/workers`:
+  `PageShell` + `BottomTabBar` + `DetailHeader backHref="/settings"`. Fetches via
+  the **RLS server client** (no admin client — U2 shows **no money**;
+  `acquisition_cost`/`acquired_at` stay admin-only, untouched): `equipment_items`
+  (granted cols), `equipment_categories`, `equipment_owners`.
+- **`EquipmentManager`** (`src/components/features/equipment/`, `'use client'`):
+  add-item form (name · category select · owner select · `tracking` RadioChip
+  unit|bulk · conditional asset_tag [unit] / quantity [bulk] · status select,
+  default `available`) using the U1 `validateEquipmentItem` for friendly Thai
+  errors; per-item inline edit (name/category/owner/status + tracking fields);
+  inline quick-add for a category (name) and an owner (name + phone) so the
+  registry can be bootstrapped. No `acquisition_cost` field. No optimistic toggle
+  (status is an explicit edit, not a binary flip).
+- **Actions** (`src/app/equipment/actions.ts`, `'use server'`): `createEquipment`,
+  `updateEquipment`, `createEquipmentCategory`, `createEquipmentOwner` — each
+  `requireRole(BACK_OFFICE_ROLES)` (defense-in-depth over RLS), validates shape
+  (`validateEquipmentItem` + UUID/enum checks), writes via the RLS client with
+  `created_by = ctx.id` (satisfies the U1 created_by-pin policy), decide-pattern
+  `{ok}|{ok,error}` returns, `revalidatePath("/equipment")`. **No RPC** — U1's
+  column-scoped grants + back-office policies + DB CHECKs are the guard.
+- **Nav:** a `SettingsLink` row (อุปกรณ์) in the settings master-data section
+  (pm/super) + `/equipment` added to `SETTINGS_TAB.match`.
+
+**Scope — IN:** the page, the manager, the 4 actions, the nav entry, a component
+test. **OUT:** money (acquisition_cost entry/display — admin-only, later);
+movements/deployment (U3); site_admin read-only view + its nav (deferred until
+U3 gives the field a reason); category/owner edit + delete (no-delete by design);
+detail page (the manager is list+inline-edit, like the worker roster).
+
+**Tests:** `tests/unit/equipment-manager.test.tsx` (component, mocked actions):
+row render, add unit item → `createEquipment` shape, bulk switch shows quantity +
+passes it, inline edit → `updateEquipment`, quick-add category/owner → their
+actions. `validateEquipmentItem` already unit-tested (U1). Server actions =
+verified-by-checklist (auth-gated; RLS + CHECKs carry correctness; the component
+test covers the wiring through mocked actions).
+
+**Verified-by-checklist** (auth-gated page → no preview; the component test +
+the U1 validator/pgTAP carry correctness; operator on-device pass = acceptance).

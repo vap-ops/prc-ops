@@ -42,7 +42,7 @@ const SETTINGS_TAB: TabItem = {
   label: "ตั้งค่า",
   href: "/settings",
   icon: Settings,
-  match: ["/profile", "/contacts", "/workers", "/payroll"],
+  match: ["/profile", "/contacts", "/workers", "/equipment", "/payroll"],
 };
 
 // Spec 100: ภาพรวม graduated from a spec-98 coming-soon placeholder to a live

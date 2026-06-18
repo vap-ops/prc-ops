@@ -1,0 +1,571 @@
+"use client";
+
+// Spec 141 U2 — equipment management UI (/equipment, back-office). Mirrors the
+// worker roster: a quick-add card pair (category + owner) to bootstrap the
+// masters, an add-item form, and per-item inline edit. Writes go through the
+// equipment server actions (RLS client; no money here — acquisition_cost is
+// admin-only and not surfaced). The U1 validateEquipmentItem gives friendly,
+// Thai, client-side errors before the action re-checks.
+//
+// 'use client' justification: add/edit forms with busy/error states + the
+// unit|bulk tracking toggle that swaps the asset-tag/quantity field.
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { RadioChip } from "@/components/features/common/radio-chip";
+import {
+  BUTTON_PRIMARY_COMPACT,
+  BUTTON_SECONDARY_COMPACT,
+  CARD,
+  FIELD_STACKED,
+} from "@/lib/ui/classes";
+import {
+  validateEquipmentItem,
+  type EquipmentTracking,
+} from "@/lib/equipment/validate-equipment-item";
+import {
+  createEquipment,
+  createEquipmentCategory,
+  createEquipmentOwner,
+  updateEquipment,
+} from "@/app/equipment/actions";
+import type { Database } from "@/lib/db/database.types";
+
+type EquipmentStatus = Database["public"]["Enums"]["equipment_status"];
+
+export type ManagedEquipmentItem = {
+  id: string;
+  name: string;
+  category_id: string;
+  owner_id: string;
+  tracking: EquipmentTracking;
+  asset_tag: string | null;
+  quantity: number | null;
+  status: EquipmentStatus;
+};
+
+type Ref = { id: string; name: string };
+
+const STATUS_LABELS: Record<EquipmentStatus, string> = {
+  available: "พร้อมใช้งาน",
+  on_site: "อยู่หน้างาน",
+  in_use: "กำลังใช้งาน",
+  maintenance: "ซ่อมบำรุง",
+  returned: "คืนแล้ว",
+  lost: "สูญหาย",
+};
+
+const STATUS_ORDER: ReadonlyArray<EquipmentStatus> = [
+  "available",
+  "on_site",
+  "in_use",
+  "maintenance",
+  "returned",
+  "lost",
+];
+
+const TRACKING_OPTIONS = [
+  { value: "unit", label: "รายชิ้น (มีรหัส)" },
+  { value: "bulk", label: "จำนวนมาก (นับจำนวน)" },
+] as const;
+
+// Shared field block for the add + edit forms (name/category/owner/tracking/
+// asset-tag-or-quantity/status). Controlled by the parent's state.
+function EquipmentFields({
+  idPrefix,
+  categories,
+  owners,
+  name,
+  setName,
+  categoryId,
+  setCategoryId,
+  ownerId,
+  setOwnerId,
+  tracking,
+  setTracking,
+  assetTag,
+  setAssetTag,
+  quantity,
+  setQuantity,
+  status,
+  setStatus,
+}: {
+  idPrefix: string;
+  categories: Ref[];
+  owners: Ref[];
+  name: string;
+  setName: (v: string) => void;
+  categoryId: string;
+  setCategoryId: (v: string) => void;
+  ownerId: string;
+  setOwnerId: (v: string) => void;
+  tracking: EquipmentTracking;
+  setTracking: (v: EquipmentTracking) => void;
+  assetTag: string;
+  setAssetTag: (v: string) => void;
+  quantity: string;
+  setQuantity: (v: string) => void;
+  status: EquipmentStatus;
+  setStatus: (v: EquipmentStatus) => void;
+}) {
+  return (
+    <>
+      <label className="text-ink-secondary mt-2 block text-sm">
+        ชื่ออุปกรณ์
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={120}
+          className={FIELD_STACKED}
+        />
+      </label>
+      <label className="text-ink-secondary mt-2 block text-sm">
+        หมวดหมู่
+        <select
+          aria-label="หมวดหมู่"
+          value={categoryId}
+          onChange={(e) => setCategoryId(e.target.value)}
+          className={`${FIELD_STACKED} appearance-none`}
+        >
+          <option value="">— เลือกหมวดหมู่ —</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="text-ink-secondary mt-2 block text-sm">
+        เจ้าของ
+        <select
+          aria-label="เจ้าของ"
+          value={ownerId}
+          onChange={(e) => setOwnerId(e.target.value)}
+          className={`${FIELD_STACKED} appearance-none`}
+        >
+          <option value="">— เลือกเจ้าของ —</option>
+          {owners.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="mt-2 flex gap-2" role="radiogroup" aria-label="ประเภทการติดตาม">
+        {TRACKING_OPTIONS.map((option) => (
+          <RadioChip
+            key={option.value}
+            name={`${idPrefix}-tracking`}
+            label={option.label}
+            checked={tracking === option.value}
+            onSelect={() => setTracking(option.value)}
+          />
+        ))}
+      </div>
+      {tracking === "unit" ? (
+        <label className="text-ink-secondary mt-2 block text-sm">
+          รหัสครุภัณฑ์
+          <input
+            value={assetTag}
+            onChange={(e) => setAssetTag(e.target.value)}
+            maxLength={80}
+            placeholder="ไม่บังคับ"
+            className={FIELD_STACKED}
+          />
+        </label>
+      ) : (
+        <label className="text-ink-secondary mt-2 block text-sm">
+          จำนวน
+          <input
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+            inputMode="numeric"
+            className={FIELD_STACKED}
+          />
+        </label>
+      )}
+      <label className="text-ink-secondary mt-2 block text-sm">
+        สถานะ
+        <select
+          aria-label="สถานะ"
+          value={status}
+          onChange={(e) => setStatus(e.target.value as EquipmentStatus)}
+          className={`${FIELD_STACKED} appearance-none`}
+        >
+          {STATUS_ORDER.map((s) => (
+            <option key={s} value={s}>
+              {STATUS_LABELS[s]}
+            </option>
+          ))}
+        </select>
+      </label>
+    </>
+  );
+}
+
+function buildItemArgs(
+  name: string,
+  tracking: EquipmentTracking,
+  assetTag: string,
+  quantity: string,
+) {
+  return {
+    name,
+    tracking,
+    assetTag: tracking === "unit" ? assetTag : "",
+    quantity: tracking === "bulk" ? (quantity.trim() === "" ? Number.NaN : Number(quantity)) : null,
+  };
+}
+
+function AddEquipmentForm({ categories, owners }: { categories: Ref[]; owners: Ref[] }) {
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [ownerId, setOwnerId] = useState("");
+  const [tracking, setTracking] = useState<EquipmentTracking>("unit");
+  const [assetTag, setAssetTag] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [status, setStatus] = useState<EquipmentStatus>("available");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    setError(null);
+    const args = buildItemArgs(name, tracking, assetTag, quantity);
+    const valid = validateEquipmentItem(args);
+    if (!valid.ok) {
+      setError(valid.error);
+      return;
+    }
+    setBusy(true);
+    const result = await createEquipment({
+      name,
+      categoryId,
+      ownerId,
+      tracking,
+      assetTag: args.assetTag,
+      quantity: args.quantity,
+      status,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setName("");
+    setAssetTag("");
+    setQuantity("");
+    setTracking("unit");
+    setStatus("available");
+    setCategoryId("");
+    setOwnerId("");
+    router.refresh();
+  }
+
+  return (
+    <div className={CARD}>
+      <p className="text-ink text-sm font-semibold">เพิ่มอุปกรณ์</p>
+      <EquipmentFields
+        idPrefix="equip-add"
+        categories={categories}
+        owners={owners}
+        name={name}
+        setName={setName}
+        categoryId={categoryId}
+        setCategoryId={setCategoryId}
+        ownerId={ownerId}
+        setOwnerId={setOwnerId}
+        tracking={tracking}
+        setTracking={setTracking}
+        assetTag={assetTag}
+        setAssetTag={setAssetTag}
+        quantity={quantity}
+        setQuantity={setQuantity}
+        status={status}
+        setStatus={setStatus}
+      />
+      {error ? <p className="text-danger mt-2 text-sm">{error}</p> : null}
+      <button
+        type="button"
+        disabled={busy || name.trim() === "" || categoryId === "" || ownerId === ""}
+        onClick={() => void submit()}
+        className={`mt-3 w-full ${BUTTON_PRIMARY_COMPACT}`}
+      >
+        เพิ่มอุปกรณ์
+      </button>
+    </div>
+  );
+}
+
+function EquipmentRow({
+  item,
+  categories,
+  owners,
+  ownerName,
+  categoryName,
+}: {
+  item: ManagedEquipmentItem;
+  categories: Ref[];
+  owners: Ref[];
+  ownerName: string | null;
+  categoryName: string | null;
+}) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(item.name);
+  const [categoryId, setCategoryId] = useState(item.category_id);
+  const [ownerId, setOwnerId] = useState(item.owner_id);
+  const [tracking, setTracking] = useState<EquipmentTracking>(item.tracking);
+  const [assetTag, setAssetTag] = useState(item.asset_tag ?? "");
+  const [quantity, setQuantity] = useState(item.quantity != null ? String(item.quantity) : "");
+  const [status, setStatus] = useState<EquipmentStatus>(item.status);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    setError(null);
+    const args = buildItemArgs(name, tracking, assetTag, quantity);
+    const valid = validateEquipmentItem(args);
+    if (!valid.ok) {
+      setError(valid.error);
+      return;
+    }
+    setBusy(true);
+    const result = await updateEquipment({
+      id: item.id,
+      name,
+      categoryId,
+      ownerId,
+      tracking,
+      assetTag: args.assetTag,
+      quantity: args.quantity,
+      status,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setEditing(false);
+    router.refresh();
+  }
+
+  const placement =
+    item.tracking === "bulk"
+      ? `${(item.quantity ?? 0).toLocaleString("th-TH")} หน่วย`
+      : (item.asset_tag ?? "ไม่มีรหัส");
+
+  return (
+    <li className="border-edge border-t py-2 first:border-t-0">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-ink truncate text-sm">
+            {item.name}
+            {ownerName ? (
+              <span className="text-ink-muted ml-1.5 text-xs">· {ownerName}</span>
+            ) : null}
+          </p>
+          <p className="text-ink-secondary text-xs">
+            {STATUS_LABELS[item.status]} · {placement}
+            {categoryName ? ` · ${categoryName}` : ""}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setEditing((v) => !v)}
+          className="text-action shrink-0 text-xs font-medium hover:underline"
+        >
+          แก้ไข
+        </button>
+      </div>
+      {editing ? (
+        <div className="border-edge-strong bg-page mt-2 rounded-lg border p-3">
+          <EquipmentFields
+            idPrefix={`equip-edit-${item.id}`}
+            categories={categories}
+            owners={owners}
+            name={name}
+            setName={setName}
+            categoryId={categoryId}
+            setCategoryId={setCategoryId}
+            ownerId={ownerId}
+            setOwnerId={setOwnerId}
+            tracking={tracking}
+            setTracking={setTracking}
+            assetTag={assetTag}
+            setAssetTag={setAssetTag}
+            quantity={quantity}
+            setQuantity={setQuantity}
+            status={status}
+            setStatus={setStatus}
+          />
+          {error ? <p className="text-danger mt-2 text-sm">{error}</p> : null}
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void save()}
+              className={BUTTON_PRIMARY_COMPACT}
+            >
+              บันทึก
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className={BUTTON_SECONDARY_COMPACT}
+            >
+              ยกเลิก
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
+function QuickAddCategory() {
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    setError(null);
+    setBusy(true);
+    const result = await createEquipmentCategory({ name });
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setName("");
+    router.refresh();
+  }
+
+  return (
+    <div className={CARD}>
+      <p className="text-ink text-sm font-semibold">เพิ่มหมวดหมู่</p>
+      <label className="text-ink-secondary mt-2 block text-sm">
+        ชื่อหมวดหมู่ใหม่
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={80}
+          placeholder="เช่น รถขุด เครื่องปั่นไฟ นั่งร้าน"
+          className={FIELD_STACKED}
+        />
+      </label>
+      {error ? <p className="text-danger mt-2 text-sm">{error}</p> : null}
+      <button
+        type="button"
+        disabled={busy || name.trim() === ""}
+        onClick={() => void submit()}
+        className={`mt-3 w-full ${BUTTON_PRIMARY_COMPACT}`}
+      >
+        เพิ่มหมวดหมู่
+      </button>
+    </div>
+  );
+}
+
+function QuickAddOwner() {
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    setError(null);
+    setBusy(true);
+    const result = await createEquipmentOwner({ name, phone });
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setName("");
+    setPhone("");
+    router.refresh();
+  }
+
+  return (
+    <div className={CARD}>
+      <p className="text-ink text-sm font-semibold">เพิ่มเจ้าของอุปกรณ์</p>
+      <label className="text-ink-secondary mt-2 block text-sm">
+        ชื่อเจ้าของใหม่
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={120}
+          placeholder="เช่น บริษัทพี่น้อง"
+          className={FIELD_STACKED}
+        />
+      </label>
+      <label className="text-ink-secondary mt-2 block text-sm">
+        เบอร์โทร
+        <input
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          maxLength={40}
+          inputMode="tel"
+          placeholder="ไม่บังคับ"
+          className={FIELD_STACKED}
+        />
+      </label>
+      {error ? <p className="text-danger mt-2 text-sm">{error}</p> : null}
+      <button
+        type="button"
+        disabled={busy || name.trim() === ""}
+        onClick={() => void submit()}
+        className={`mt-3 w-full ${BUTTON_PRIMARY_COMPACT}`}
+      >
+        เพิ่มเจ้าของ
+      </button>
+    </div>
+  );
+}
+
+export function EquipmentManager({
+  items,
+  categories,
+  owners,
+}: {
+  items: ManagedEquipmentItem[];
+  categories: Ref[];
+  owners: Ref[];
+}) {
+  const ownerNames = new Map(owners.map((o) => [o.id, o.name]));
+  const categoryNames = new Map(categories.map((c) => [c.id, c.name]));
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <QuickAddCategory />
+        <QuickAddOwner />
+      </div>
+      <AddEquipmentForm categories={categories} owners={owners} />
+      {items.length > 0 ? (
+        <div className={CARD}>
+          <p className="text-ink text-sm font-semibold">อุปกรณ์ทั้งหมด</p>
+          <ul className="mt-2 flex flex-col">
+            {items.map((it) => (
+              <EquipmentRow
+                key={it.id}
+                item={it}
+                categories={categories}
+                owners={owners}
+                ownerName={ownerNames.get(it.owner_id) ?? null}
+                categoryName={categoryNames.get(it.category_id) ?? null}
+              />
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <p className="text-ink-secondary text-sm">
+          ยังไม่มีอุปกรณ์ — เพิ่มหมวดหมู่และเจ้าของก่อน แล้วจึงเพิ่มอุปกรณ์
+        </p>
+      )}
+    </div>
+  );
+}
