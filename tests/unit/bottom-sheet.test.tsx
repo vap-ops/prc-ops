@@ -6,7 +6,7 @@
 // close, role=dialog aria-modal); the caller owns the open state.
 
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 
@@ -80,5 +80,65 @@ describe("BottomSheet", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "ปิด" }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  describe("keyboard occlusion (VisualViewport)", () => {
+    afterEach(() => {
+      // The hook reads window.visualViewport; clear the mock between cases.
+      Object.defineProperty(window, "visualViewport", {
+        value: undefined,
+        configurable: true,
+      });
+    });
+
+    function mockKeyboard(height: number, offsetTop = 0) {
+      Object.defineProperty(window, "innerHeight", { value: 768, configurable: true });
+      Object.defineProperty(window, "visualViewport", {
+        value: {
+          height,
+          offsetTop,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        },
+        configurable: true,
+      });
+    }
+
+    it("lifts the bottom panel above the keyboard and caps it to the visible viewport", () => {
+      // 768 window, keyboard leaves a 432px-tall visual viewport → 336px inset.
+      mockKeyboard(432);
+      render(
+        <BottomSheet open title="เพิ่มโครงการ" onClose={vi.fn()}>
+          <input aria-label="ชื่อโครงการ" />
+        </BottomSheet>,
+      );
+      const panel = screen.getByRole("dialog").firstElementChild as HTMLElement;
+      expect(panel.style.marginBottom).toBe("336px");
+      expect(panel.style.maxHeight).toBe("432px");
+    });
+
+    it("applies no inline lift when no keyboard is up (VisualViewport fills the window)", () => {
+      mockKeyboard(768);
+      render(
+        <BottomSheet open title="เพิ่มโครงการ" onClose={vi.fn()}>
+          <input aria-label="ชื่อโครงการ" />
+        </BottomSheet>,
+      );
+      const panel = screen.getByRole("dialog").firstElementChild as HTMLElement;
+      expect(panel.style.marginBottom).toBe("");
+      expect(panel.style.maxHeight).toBe("");
+    });
+
+    it("caps height but does not margin-shift the right (side-sheet) variant", () => {
+      mockKeyboard(432);
+      render(
+        <BottomSheet open side="right" title="รายละเอียด" onClose={vi.fn()}>
+          <input aria-label="ค้นหา" />
+        </BottomSheet>,
+      );
+      const panel = screen.getByRole("dialog").firstElementChild as HTMLElement;
+      expect(panel.style.maxHeight).toBe("432px");
+      expect(panel.style.marginBottom).toBe("");
+    });
   });
 });

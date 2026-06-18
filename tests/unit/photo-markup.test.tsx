@@ -4,7 +4,7 @@
 // saves via addPhotoMarkup and is creator-gated for removal.
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
 
@@ -110,5 +110,38 @@ describe("photo markup (spec 51)", () => {
     openLightbox();
     await screen.findByText("ของฉันเอง");
     expect(screen.getAllByRole("button", { name: "ลบความเห็น" })).toHaveLength(1);
+  });
+});
+
+// Keyboard occlusion — the compose comment field is the only thing in the
+// lightbox that summons the soft keyboard. While composing, the `fixed inset-0`
+// overlay must pad its bottom past the keyboard and scroll from the top so the
+// field clears it; while merely viewing, it stays centered. (Same VisualViewport
+// machinery as the BottomSheet fix, via useKeyboardInset.)
+describe("photo markup keyboard occlusion (spec 51 follow-up)", () => {
+  afterEach(() => {
+    Object.defineProperty(window, "visualViewport", { value: undefined, configurable: true });
+  });
+
+  it("lifts the compose overlay above the keyboard only once composing summons the field", async () => {
+    // 768 window, keyboard leaves a 432px visual viewport → 336px occluded.
+    Object.defineProperty(window, "innerHeight", { value: 768, configurable: true });
+    Object.defineProperty(window, "visualViewport", {
+      value: { height: 432, offsetTop: 0, addEventListener: vi.fn(), removeEventListener: vi.fn() },
+      configurable: true,
+    });
+
+    openLightbox();
+    const dialog = screen.getByRole("dialog");
+    // Viewing only (no field focused yet) — overlay stays centered, no lift.
+    expect(dialog.className).toContain("justify-center");
+    expect((dialog as HTMLElement).style.paddingBottom).toBe("");
+
+    fireEvent.click(await screen.findByRole("button", { name: "วาดและความเห็น" }));
+    // Composing → the field exists → overlay pads past the keyboard and scrolls.
+    expect(dialog.className).toContain("justify-start");
+    expect(dialog.className).toContain("overflow-y-auto");
+    expect(dialog.className).not.toContain("justify-center");
+    expect((dialog as HTMLElement).style.paddingBottom).toBe("336px");
   });
 });

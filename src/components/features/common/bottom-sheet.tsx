@@ -16,6 +16,8 @@ import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
+import { useKeyboardInset } from "./use-keyboard-inset";
+
 interface BottomSheetProps {
   open: boolean;
   title: string;
@@ -42,6 +44,13 @@ export function BottomSheet({
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
+  // Lift the panel above the on-screen keyboard. The keyboard shrinks the
+  // *visual* viewport (not the layout viewport), so a bottom-docked sheet ends
+  // up behind it; we read that shrink and offset the panel by `inset` while
+  // capping its height to the still-visible `viewportHeight`. No-op (inset 0)
+  // when no keyboard is up or the browser lacks VisualViewport — static layout.
+  const { inset, viewportHeight } = useKeyboardInset(open);
+
   // Focus the panel on open only (callers pass inline onClose with a new
   // identity each render — refocusing on every re-render would yank focus).
   useEffect(() => {
@@ -66,6 +75,28 @@ export function BottomSheet({
   if (typeof document === "undefined") return null;
 
   const isRight = side === "right";
+
+  // When the keyboard is up, push the panel above it (bottom variant) and cap
+  // its height to the visible viewport so its scroller — not the keyboard —
+  // owns the overflow. The right (desktop side-sheet) variant only needs the
+  // height cap. Undefined when no keyboard, so the Tailwind classes win.
+  const panelStyle: React.CSSProperties | undefined =
+    inset > 0
+      ? isRight
+        ? { maxHeight: viewportHeight }
+        : { marginBottom: inset, maxHeight: viewportHeight }
+      : undefined;
+
+  // Center a newly-focused field within the panel scroller so the keyboard
+  // never sits on top of the active input. Runs after paint (rAF) so the
+  // inset/height have settled first. Ignores the panel itself (focus-on-open).
+  function handleFocusCapture(e: React.FocusEvent<HTMLDivElement>) {
+    const target = e.target as HTMLElement;
+    if (!target.matches("input, textarea, select, [contenteditable='true']")) return;
+    if (typeof target.scrollIntoView !== "function") return;
+    requestAnimationFrame(() => target.scrollIntoView({ block: "center" }));
+  }
+
   return createPortal(
     <div
       role="dialog"
@@ -80,6 +111,8 @@ export function BottomSheet({
         ref={panelRef}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
+        onFocus={handleFocusCapture}
+        style={panelStyle}
         className={
           isRight
             ? `sheet-panel-right border-edge bg-card flex h-full w-full ${

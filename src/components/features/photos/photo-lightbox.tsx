@@ -29,6 +29,7 @@ import {
 import { validatePhotoMarkup, type MarkupStroke } from "@/lib/photos/validate-markup";
 import { formatThaiDateTime } from "@/lib/i18n/labels";
 import { ConfirmDialog } from "@/components/features/common/confirm-dialog";
+import { useKeyboardInset } from "@/components/features/common/use-keyboard-inset";
 
 const SWIPE_THRESHOLD_PX = 48;
 const MAX_POINTS_PER_STROKE = 500;
@@ -222,6 +223,21 @@ export function ZoomablePhoto({
   const savedStrokes: MarkupStroke[] = (markups ?? []).flatMap((m) => m.strokes ?? []);
   const canSave = !busy && (draftStrokes.length > 0 || draftComment.trim().length > 0);
 
+  // Keyboard occlusion (only the compose comment field summons it). The
+  // overlay is `fixed inset-0` and centers its column — when the keyboard
+  // shrinks the visual viewport, the comment editor (below the image) sits
+  // behind it. With an inset we pad the overlay bottom and let it scroll from
+  // the top so the focused field can be scrolled clear of the keyboard.
+  const { inset } = useKeyboardInset(open && composing);
+
+  // Center the comment field above the keyboard once it appears (rAF so the
+  // inset has settled). Scrolls the overlay, not the page (body is locked).
+  function centerOnFocus(e: React.FocusEvent<HTMLTextAreaElement>) {
+    const field = e.target;
+    if (typeof field.scrollIntoView !== "function") return;
+    requestAnimationFrame(() => field.scrollIntoView({ block: "center" }));
+  }
+
   return (
     <>
       {/* Spec 36: ring-inset — thumbnail wrappers use overflow-hidden,
@@ -256,7 +272,10 @@ export function ZoomablePhoto({
             if (Math.abs(dx) < SWIPE_THRESHOLD_PX || Math.abs(dy) > Math.abs(dx)) return;
             step(dx < 0 ? 1 : -1);
           }}
-          className="fixed inset-0 z-50 flex touch-pan-y flex-col items-center justify-center gap-3 bg-black/85 p-4"
+          style={inset > 0 ? { paddingBottom: inset } : undefined}
+          className={`fixed inset-0 z-50 flex touch-pan-y flex-col items-center gap-3 bg-black/85 p-4 ${
+            inset > 0 ? "justify-start overflow-y-auto" : "justify-center"
+          }`}
         >
           <span className="relative inline-flex" onClick={(e) => e.stopPropagation()}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -332,6 +351,7 @@ export function ZoomablePhoto({
                     rows={2}
                     disabled={busy}
                     onChange={(e) => setDraftComment(e.target.value)}
+                    onFocus={centerOnFocus}
                     placeholder="ความเห็น เช่น ตรงนี้ต้องเก็บงานเพิ่ม"
                     className="w-full rounded-md border border-zinc-600 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
                   />
