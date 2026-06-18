@@ -2535,6 +2535,15 @@ export type Database = {
         Args: { p_contractor_id: string }
         Returns: string
       }
+      create_project: {
+        Args: {
+          p_client_id?: string
+          p_code: string
+          p_name: string
+          p_project_type?: Database["public"]["Enums"]["project_type"]
+        }
+        Returns: string
+      }
       create_purchase_order: {
         Args: {
           p_eta: string
@@ -2760,6 +2769,7 @@ export type Database = {
         }
         Returns: string
       }
+      suggest_project_code: { Args: never; Returns: string }
       update_my_display_name: {
         Args: { p_full_name: string }
         Returns: undefined
