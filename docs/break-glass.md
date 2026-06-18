@@ -23,9 +23,9 @@ must be surgically changed, or a migration is genuinely destructive.
 ## Hard rules (read before either procedure)
 
 1. **Operator-only.** Emergency / out-of-band changes are operator actions in
-   the Supabase SQL editor, signed in as super_admin. Claude Code (CC) never
+   the Supabase SQL editor, signed in as super*admin. Claude Code (CC) never
    runs them: `change-management.md` §1 keeps `git push`, merges, and
-   out-of-band prod mutation operator-only. CC may _compose_ the SQL with you
+   out-of-band prod mutation operator-only. CC may \_compose* the SQL with you
    in a focused session and _verify after_, but the operator executes.
 2. **Human go-ahead, in-session, naming the specific action.** Neither
    procedure starts on model confidence. "I'm ≥95% sure" is **not** a trigger
@@ -169,7 +169,10 @@ posture are an **unverified gap** in this repo (CEO review §"Verify the backup
 floor"; architecture-revision §"Confirm PITR / backup tier"; the uxui bundle
 notes "nothing in the repo proves PITR tier or photo-bucket backups exist").
 Until a restore drill proves PITR, a fresh manual dump is the only backup you
-have actually verified. Take it immediately before the destructive apply.
+have actually verified. Take it immediately before the destructive apply. The
+turn-key drill that establishes (and re-verifies) this floor — PITR check, dump,
+Storage posture, and an actual scratch restore + open-a-photo — is
+`docs/backup-restore-drill.md`.
 
 - **Operator-run — cannot be delegated to CC.** `pg_dump` needs the DB
   password, and **the DB password must never appear in a Claude Code prompt**
