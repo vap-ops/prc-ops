@@ -782,6 +782,64 @@ export type Database = {
           },
         ]
       }
+      equipment_movements: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          item_id: string
+          kind: Database["public"]["Enums"]["equipment_movement_kind"]
+          note: string | null
+          occurred_at: string
+          project_id: string | null
+          quantity: number
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          item_id: string
+          kind: Database["public"]["Enums"]["equipment_movement_kind"]
+          note?: string | null
+          occurred_at?: string
+          project_id?: string | null
+          quantity?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          item_id?: string
+          kind?: Database["public"]["Enums"]["equipment_movement_kind"]
+          note?: string | null
+          occurred_at?: string
+          project_id?: string | null
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_movements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_movements_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_movements_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       equipment_owners: {
         Row: {
           created_at: string
@@ -2793,6 +2851,12 @@ export type Database = {
         | "dc_temporary"
       day_fraction: "full" | "half"
       dc_payment_method: "bank_transfer" | "cash" | "cheque"
+      equipment_movement_kind:
+        | "received"
+        | "deployed"
+        | "returned"
+        | "maintenance"
+        | "lost"
       equipment_status:
         | "available"
         | "on_site"
@@ -3037,6 +3101,13 @@ export const Constants = {
       ],
       day_fraction: ["full", "half"],
       dc_payment_method: ["bank_transfer", "cash", "cheque"],
+      equipment_movement_kind: [
+        "received",
+        "deployed",
+        "returned",
+        "maintenance",
+        "lost",
+      ],
       equipment_status: [
         "available",
         "on_site",

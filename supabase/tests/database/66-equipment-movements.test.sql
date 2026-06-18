@@ -1,5 +1,5 @@
 begin;
-select plan(15);
+select plan(16);
 
 -- ============================================================================
 -- Spec 141 U3 / ADR 0055 §4 — equipment_movements (append-only custody log).
