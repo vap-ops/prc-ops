@@ -27,7 +27,7 @@ returned | lost`. Its **own migration** (enum-add isolation).
     (2026-06-18, operator):** a DEDICATED `equipment_owners` master (not
     `suppliers`/`service_providers`), so the future owner portal can bind to it
     the way the DC portal binds to `contractors` (ADR 0051). Adds a 3rd table to
-    this unit — see migration `20260713000000_create_equipment_owners.sql`.
+    this unit — see migration `20260723000000_create_equipment_owners.sql`.
   - `tracking equipment_tracking not null default 'unit'`
   - `name text` (non-blank CHECK)
   - `asset_tag text null` — unique when present; trimmed-non-blank CHECK
