@@ -20,6 +20,7 @@ import { PROJECT_TYPE_LABEL } from "@/lib/projects/validate-settings";
 import { rankFromPriority } from "@/lib/work-packages/action-bands";
 import { criticalWorkPackageIds } from "@/lib/work-packages/critical-path";
 import { WorkPackageList } from "./work-package-list";
+import { OnboardingChecklist, type OnboardingStatus } from "./onboarding-checklist";
 
 interface PageProps {
   params: Promise<{ projectId: string }>;
@@ -147,6 +148,17 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
     })),
   );
 
+  // Spec 142 U3: PM/super get the onboarding checklist. Booleans only — the RPC
+  // reads the money-isolated budget column but returns no amount.
+  const isPmRole = ctx.role === "project_manager" || ctx.role === "super_admin";
+  let onboarding: OnboardingStatus | null = null;
+  if (isPmRole) {
+    const { data: onbRows } = await supabase.rpc("project_onboarding_status", {
+      p_project_id: project.id,
+    });
+    onboarding = onbRows?.[0] ?? null;
+  }
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -204,7 +216,12 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
       </DetailHeader>
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
-        <h2 className={SECTION_HEADING}>รายการงาน</h2>
+        {isPmRole && onboarding && (
+          <OnboardingChecklist projectId={project.id} status={onboarding} />
+        )}
+        <h2 id="work-packages" className={SECTION_HEADING}>
+          รายการงาน
+        </h2>
         <WorkPackageList
           projectId={project.id}
           role={ctx.role}

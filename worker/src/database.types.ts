@@ -1287,6 +1287,7 @@ export type Database = {
           id: string
           name: string
           notes: string | null
+          onboarding_dismissed_at: string | null
           planned_completion_date: string | null
           project_lead_id: string | null
           project_type: Database["public"]["Enums"]["project_type"] | null
@@ -1304,6 +1305,7 @@ export type Database = {
           id?: string
           name: string
           notes?: string | null
+          onboarding_dismissed_at?: string | null
           planned_completion_date?: string | null
           project_lead_id?: string | null
           project_type?: Database["public"]["Enums"]["project_type"] | null
@@ -1321,6 +1323,7 @@ export type Database = {
           id?: string
           name?: string
           notes?: string | null
+          onboarding_dismissed_at?: string | null
           planned_completion_date?: string | null
           project_lead_id?: string | null
           project_type?: Database["public"]["Enums"]["project_type"] | null
@@ -2574,6 +2577,10 @@ export type Database = {
         Args: { p_approve: boolean; p_id: string }
         Returns: undefined
       }
+      dismiss_project_onboarding: {
+        Args: { p_project_id: string }
+        Returns: boolean
+      }
       dispatch_purchase_order_delivery: {
         Args: { p_delivery_id: string }
         Returns: number
@@ -2630,6 +2637,17 @@ export type Database = {
       pr_attachment_tombstone_target_ok: {
         Args: { p_caller: string; p_parent: string; p_target: string }
         Returns: boolean
+      }
+      project_onboarding_status: {
+        Args: { p_project_id: string }
+        Returns: {
+          budget_set: boolean
+          client_set: boolean
+          dates_lead_set: boolean
+          dismissed: boolean
+          team_added: boolean
+          work_packages_added: boolean
+        }[]
       }
       prune_notification_outbox: {
         Args: { p_max_age_days?: number }
