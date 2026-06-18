@@ -148,6 +148,7 @@ for reading the spec itself.
 | 143  | Membership-scoped project visibility (PM/site_admin see only their projects; ADR 0056)    |
 | 144  | Defect rework — reopen a complete WP to a `rework` status (post-completion defects)       |
 | 145  | Lock new work on a completed project (warranty-aware; rework still allowed)               |
+| 146  | Equipment rental money (P2; daily rate + inbound batches; ADR 0055) — design only         |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

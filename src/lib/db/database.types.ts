@@ -723,6 +723,7 @@ export type Database = {
           category_id: string
           created_at: string
           created_by: string
+          daily_rate: number | null
           id: string
           name: string
           owner_id: string
@@ -737,6 +738,7 @@ export type Database = {
           category_id: string
           created_at?: string
           created_by: string
+          daily_rate?: number | null
           id?: string
           name: string
           owner_id: string
@@ -751,6 +753,7 @@ export type Database = {
           category_id?: string
           created_at?: string
           created_by?: string
+          daily_rate?: number | null
           id?: string
           name?: string
           owner_id?: string
@@ -868,6 +871,54 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_rental_batches: {
+        Row: {
+          created_at: string
+          created_by: string
+          ends_on: string | null
+          id: string
+          monthly_rate: number
+          note: string | null
+          owner_id: string
+          starts_on: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          ends_on?: string | null
+          id?: string
+          monthly_rate: number
+          note?: string | null
+          owner_id: string
+          starts_on: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          ends_on?: string | null
+          id?: string
+          monthly_rate?: number
+          note?: string | null
+          owner_id?: string
+          starts_on?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_rental_batches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_rental_batches_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_owners"
             referencedColumns: ["id"]
           },
         ]
@@ -2573,6 +2624,16 @@ export type Database = {
         Args: { p_contractor_id: string }
         Returns: string
       }
+      create_equipment_rental_batch: {
+        Args: {
+          p_ends_on?: string
+          p_monthly_rate: number
+          p_note?: string
+          p_owner_id: string
+          p_starts_on: string
+        }
+        Returns: string
+      }
       create_project: {
         Args: {
           p_client_id?: string
@@ -2781,6 +2842,10 @@ export type Database = {
         }
         Returns: string
       }
+      set_equipment_daily_rate: {
+        Args: { p_id: string; p_rate: number }
+        Returns: undefined
+      }
       set_project_client: {
         Args: { p_client_id: string; p_project_id: string }
         Returns: boolean
@@ -2912,6 +2977,8 @@ export type Database = {
         | "labor_cost_freeze"
         | "purchase_order_create"
         | "dc_payment_recorded"
+        | "equipment_rate_change"
+        | "equipment_batch_create"
       contact_doc_purpose:
         | "id_card"
         | "bank_book"
@@ -3160,6 +3227,8 @@ export const Constants = {
         "labor_cost_freeze",
         "purchase_order_create",
         "dc_payment_recorded",
+        "equipment_rate_change",
+        "equipment_batch_create",
       ],
       contact_doc_purpose: [
         "id_card",
