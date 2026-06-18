@@ -23,6 +23,7 @@ import { WorkPackageList } from "./work-package-list";
 import { OnboardingChecklist, type OnboardingStatus } from "./onboarding-checklist";
 import { AddWorkPackageSheet } from "./add-work-package-sheet";
 import { CopyWorkPackagesSheet } from "./copy-work-packages-sheet";
+import { ImportWorkPackagesSheet } from "./import-work-packages-sheet";
 
 interface PageProps {
   params: Promise<{ projectId: string }>;
@@ -235,7 +236,8 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
             รายการงาน
           </h2>
           {isPmRole && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <ImportWorkPackagesSheet projectId={project.id} />
               {sourceProjects.length > 0 && (
                 <CopyWorkPackagesSheet projectId={project.id} sourceProjects={sourceProjects} />
               )}

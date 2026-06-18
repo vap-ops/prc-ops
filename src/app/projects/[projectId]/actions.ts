@@ -16,6 +16,7 @@ import {
   validateWorkPackageCode,
   validateWorkPackageName,
 } from "@/lib/work-packages/validate-new-wp";
+import { parseAndValidate } from "@/lib/wp-import/parse";
 import type { Database } from "@/lib/db/database.types";
 
 const PM_ONLY_ERROR = "เฉพาะผู้จัดการโครงการเท่านั้น";
@@ -158,4 +159,70 @@ export async function copyWorkPackages(
 
   revalidatePath(projectHref(projectId));
   return { ok: true, count: count ?? 0 };
+}
+
+// Spec 142 U7 — import work packages from pasted CSV. Reuses the wp-import
+// parser (ADR 0014); valid rows are created via create_work_package (U4). Gate
+// mirrors the other project writes.
+export type ImportWorkPackagesResult =
+  | { ok: true; inserted: number }
+  | { ok: false; error: string };
+
+export async function importWorkPackagesCsv(
+  projectId: string,
+  csvText: string,
+): Promise<ImportWorkPackagesResult> {
+  if (!isValidUuid(projectId)) return { ok: false, error: "รหัสโครงการไม่ถูกต้อง" };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
+
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+    return { ok: false, error: PM_ONLY_ERROR };
+  }
+
+  // Existing codes for dup detection (PM is a member → RLS lets it read these).
+  const { data: existing } = await supabase
+    .from("work_packages")
+    .select("code")
+    .eq("project_id", projectId);
+  const existingCodes = new Set((existing ?? []).map((w) => w.code));
+
+  const { rows, errors } = parseAndValidate(csvText, existingCodes);
+  if (errors.length > 0) {
+    // Surface the first few; the textarea lets the user fix and retry.
+    return { ok: false, error: errors.slice(0, 8).join("\n") };
+  }
+  if (rows.length === 0) {
+    return { ok: false, error: "ไม่พบรายการงานในไฟล์ (ต้องมีหัวตาราง code,name,description)" };
+  }
+
+  // Pre-validated rows → create each via the U4 RPC (definer; sidesteps the
+  // work_packages table-grant). Sequential so a mid-batch failure reports how
+  // far it got rather than racing.
+  let inserted = 0;
+  for (const r of rows) {
+    const args: Database["public"]["Functions"]["create_work_package"]["Args"] = {
+      p_project_id: projectId,
+      p_code: r.code,
+      p_name: r.name,
+    };
+    if (r.description !== null) args.p_description = r.description;
+    const { error } = await supabase.rpc("create_work_package", args);
+    if (error) {
+      console.error("[importWorkPackagesCsv] RPC failed", { projectId, error: error.message });
+      if (inserted > 0) revalidatePath(projectHref(projectId));
+      return { ok: false, error: `นำเข้าได้ ${inserted} รายการ จากนั้นเกิดข้อผิดพลาด` };
+    }
+    inserted++;
+  }
+
+  revalidatePath(projectHref(projectId));
+  return { ok: true, inserted };
 }
