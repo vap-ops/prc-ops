@@ -152,3 +152,63 @@ test covers the wiring through mocked actions).
 
 **Verified-by-checklist** (auth-gated page → no preview; the component test +
 the U1 validator/pgTAP carry correctness; operator on-device pass = acceptance).
+
+## U3 — equipment movements + current location (2026-06-18)
+
+**Status:** in progress. **Schema** (change-management gate). The append-only
+custody log that makes equipment actually move onto sites, and the foundation
+P2's daily usage logging builds on. **Data layer only** — the move-equipment UI
+
+- current-location display is U4.
+
+**What ships:**
+
+- **Migration** `20260724000000_create_equipment_movements.sql`:
+  - `equipment_movement_kind` enum: `received` (from owner into the PRC pool) ·
+    `deployed` (to a project) · `returned` (to owner) · `maintenance` · `lost`.
+  - `equipment_movements` (id, item_id→equipment_items, kind, project_id→projects
+    [null], quantity≥1, occurred_at, note, created_by, created_at). **CHECK:**
+    `project_id is not null` ⇔ `kind = 'deployed'` (a set deploys to a project;
+    every other kind has no project). **Append-only:** SELECT + INSERT grants
+    only, NO update/delete grant or policy — a correction is a compensating
+    movement, never a row edit.
+  - RLS: staff SELECT + INSERT (`site_admin/pm/super/procurement` — the field
+    physically moves gear, so site_admin records movements; this is **tracking,
+    not money**), `created_by` pinned to the caller.
+  - **SECURITY DEFINER AFTER INSERT trigger** `equipment_movement_derive_status`
+    denormalizes `equipment_items.status` from the new movement
+    (received→available, deployed→on_site, returned→returned,
+    maintenance→maintenance, lost→lost). Definer because a site_admin records
+    movements but can't UPDATE equipment_items under RLS — same posture as the
+    purchasing derive triggers.
+- **Pure helper** `src/lib/equipment/current-location.ts`
+  `currentEquipmentLocation(movements)` → latest movement per item (by
+  `occurred_at`) → `{ kind, projectId }`; the display source of truth for
+  where-with-which-project (5 unit tests, TDD).
+- **pgTAP file 66**: catalog + enum, the kind↔project CHECK, quantity≥1,
+  append-only (no update/delete → 42501), staff INSERT + created_by pin, visitor
+  denied, the status-derive trigger (deployed→on_site, returned→returned), anon
+  denied.
+- **`database.types.ts`** reconciled at the gate (`db:types`).
+
+**Scope — IN:** the enum, the table, RLS + append-only grants, the CHECK + qty
+guard, the status-derive trigger, the location helper, pgTAP. **OUT:** the
+move-equipment UI + current-location/where-is-it display (U4); bulk
+partial-quantity-across-projects reconciliation (latest-event only here; the
+allocation/P2 concern, U1 seam); audit_log rows (the append-only log is itself
+the trail); `in_use` status (manual refinement, never auto-derived).
+
+**Money posture:** unchanged — movements carry no money; fully field-visible.
+
+**Tests:** `tests/unit/equipment-location.test.ts` (5, TDD first) + pgTAP file 66
+(post-push). Server-write path = direct grants + CHECKs + the trigger (no app
+action this unit; the move UI's action arrives in U4).
+
+**Verified-by-checklist** (no UI this unit; the helper carries TS correctness,
+pgTAP carries DB correctness post-push).
+
+**Seams:** the status-derive trigger is last-recorded-wins (a backdated movement
+would set status to its own kind); `currentEquipmentLocation` is latest-OCCURRED
+and is the display source of truth — they agree when movements are recorded
+chronologically. Bulk current-on-project quantity (signed-sum across deploy/
+return) lands with allocations (P2), not here.

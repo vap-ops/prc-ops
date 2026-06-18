@@ -62,10 +62,13 @@ equipment_owners` the way the DC portal binds to `contractors` (decision 7).
    deployed-to-project, returned-to-owner, sent-to-maintenance, lost) with a
    quantity and a `project_id` — a _set_ of equipment deploys to a project/site
    and is used across its WPs, **not** allocated to a single WP (operator,
-   2026-06-18). Current location/holding = the latest non-superseded movement
-   (anti-join, [ADR 0009](0009-supersede-query-correction.md)), never a mutable
-   location column. Full chain of custody, the same posture evidence tables
-   already use.
+   2026-06-18). Current location/holding = the latest movement **event** per
+   item (by `occurred_at`); movements are immutable events, **not** a supersede
+   chain — a correction is a new compensating movement. An AFTER INSERT trigger
+   denormalizes `equipment_items.status` from the latest movement so the registry
+   stays coherent (deployed→on_site, returned→returned, …). Never a mutable
+   location column; full chain of custody. Built in **spec 141 U3** (the
+   `currentEquipmentLocation` helper derives location+project for display).
 
 5. **Money layers, off the field surface (P2). PRC pays MONTHLY, charges DAILY**
    (operator, 2026-06-18) — a fixed monthly cost recovered by usage-based daily
