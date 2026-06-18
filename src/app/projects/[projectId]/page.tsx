@@ -242,8 +242,10 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
         {isPmRole && onboarding && (
           <OnboardingChecklist projectId={project.id} status={onboarding} />
         )}
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 id="work-packages" className={SECTION_HEADING}>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          {/* SECTION_HEADING tokens minus its mb-3 — the row owns the gap so
+              the heading and the h-11 action buttons center on each other. */}
+          <h2 id="work-packages" className="text-section text-ink font-semibold">
             รายการงาน
           </h2>
           {isPmRole && (

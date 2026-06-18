@@ -17,7 +17,6 @@ import { PROJECT_VIEW_ROLES } from "@/lib/auth/role-home";
 import { projectHref } from "@/lib/nav/project-paths";
 import { NewProjectSheet } from "./new-project-sheet";
 import { createClient } from "@/lib/db/server";
-import { SECTION_HEADING } from "@/lib/ui/classes";
 import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
 import { projectStatusPillClasses } from "@/lib/status-colors";
 
@@ -91,8 +90,11 @@ export default async function ProjectsHubPage() {
       <HubNav maxWidthClass={PAGE_MAX_W} items={hubItems} currentHref="/projects" />
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 className={SECTION_HEADING}>โครงการ</h2>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          {/* SECTION_HEADING tokens minus its mb-3 — the row owns the gap so
+              the h2 and the h-11 button center on each other (mb-3 + baseline
+              alignment dropped the button below the heading). */}
+          <h2 className="text-section text-ink font-semibold">โครงการ</h2>
           {isPm && <NewProjectSheet suggestedCode={suggestedCode} clients={allClients} />}
         </div>
 
