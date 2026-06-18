@@ -24,6 +24,7 @@ import { OnboardingChecklist, type OnboardingStatus } from "./onboarding-checkli
 import { AddWorkPackageSheet } from "./add-work-package-sheet";
 import { CopyWorkPackagesSheet } from "./copy-work-packages-sheet";
 import { ImportWorkPackagesSheet } from "./import-work-packages-sheet";
+import { ApplyTemplateButton } from "./apply-template-button";
 
 interface PageProps {
   params: Promise<{ projectId: string }>;
@@ -171,6 +172,16 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
     sourceProjects = srcRes.data ?? [];
   }
 
+  // Spec 142 U5: offer the type's WP template only when one exists for it.
+  let templateAvailable = false;
+  if (isPmRole && project.project_type) {
+    const { count } = await supabase
+      .from("wp_templates")
+      .select("id", { count: "exact", head: true })
+      .eq("project_type", project.project_type);
+    templateAvailable = (count ?? 0) > 0;
+  }
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -237,6 +248,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
           </h2>
           {isPmRole && (
             <div className="flex flex-wrap items-center justify-end gap-2">
+              {templateAvailable && <ApplyTemplateButton projectId={project.id} />}
               <ImportWorkPackagesSheet projectId={project.id} />
               {sourceProjects.length > 0 && (
                 <CopyWorkPackagesSheet projectId={project.id} sourceProjects={sourceProjects} />

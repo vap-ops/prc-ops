@@ -2290,6 +2290,33 @@ export type Database = {
           },
         ]
       }
+      wp_templates: {
+        Row: {
+          code: string
+          description: string | null
+          id: string
+          name: string
+          project_type: Database["public"]["Enums"]["project_type"]
+          sort_order: number
+        }
+        Insert: {
+          code: string
+          description?: string | null
+          id?: string
+          name: string
+          project_type: Database["public"]["Enums"]["project_type"]
+          sort_order?: number
+        }
+        Update: {
+          code?: string
+          description?: string | null
+          id?: string
+          name?: string
+          project_type?: Database["public"]["Enums"]["project_type"]
+          sort_order?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       photo_markups_current: {
@@ -2503,6 +2530,7 @@ export type Database = {
         Args: { p_predecessor: string; p_successor: string }
         Returns: boolean
       }
+      apply_wp_template: { Args: { p_project_id: string }; Returns: number }
       can_see_project: { Args: { p_project_id: string }; Returns: boolean }
       can_see_wp: { Args: { p_work_package_id: string }; Returns: boolean }
       claim_contractor_invite: { Args: { p_token: string }; Returns: string }
