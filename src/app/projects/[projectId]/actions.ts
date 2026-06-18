@@ -20,6 +20,9 @@ import { parseAndValidate } from "@/lib/wp-import/parse";
 import type { Database } from "@/lib/db/database.types";
 
 const PM_ONLY_ERROR = "เฉพาะผู้จัดการโครงการเท่านั้น";
+// Spec 145: the work_packages BEFORE INSERT trigger raises P0002 on a closed
+// (completed/archived) project.
+const PROJECT_CLOSED_ERROR = "โครงการนี้ปิดแล้ว เปิดโครงการก่อนจึงจะเพิ่มหรือนำเข้างานได้";
 
 export type DismissOnboardingResult = { ok: true } | { ok: false; error: string };
 
@@ -108,6 +111,7 @@ export async function createWorkPackage(
       return { ok: false, error: "รหัสงานนี้มีอยู่แล้วในโครงการ กรุณาใช้รหัสอื่น" };
     }
     if (error.code === "42501") return { ok: false, error: PM_ONLY_ERROR };
+    if (error.code === "P0002") return { ok: false, error: PROJECT_CLOSED_ERROR };
     if (error.code === "22023") return { ok: false, error: "ข้อมูลงานไม่ถูกต้อง" };
     return { ok: false, error: "เพิ่มรายการงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
@@ -153,6 +157,7 @@ export async function copyWorkPackages(
   if (error) {
     console.error("[copyWorkPackages] RPC failed", { projectId, error: error.message });
     if (error.code === "42501") return { ok: false, error: PM_ONLY_ERROR };
+    if (error.code === "P0002") return { ok: false, error: PROJECT_CLOSED_ERROR };
     if (error.code === "22023") return { ok: false, error: "เลือกโครงการต้นทางไม่ถูกต้อง" };
     return { ok: false, error: "คัดลอกงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
@@ -217,6 +222,7 @@ export async function importWorkPackagesCsv(
     const { error } = await supabase.rpc("create_work_package", args);
     if (error) {
       console.error("[importWorkPackagesCsv] RPC failed", { projectId, error: error.message });
+      if (error.code === "P0002") return { ok: false, error: PROJECT_CLOSED_ERROR };
       if (inserted > 0) revalidatePath(projectHref(projectId));
       return { ok: false, error: `นำเข้าได้ ${inserted} รายการ จากนั้นเกิดข้อผิดพลาด` };
     }
@@ -254,6 +260,7 @@ export async function applyWpTemplate(projectId: string): Promise<ApplyTemplateR
   if (error) {
     console.error("[applyWpTemplate] RPC failed", { projectId, error: error.message });
     if (error.code === "42501") return { ok: false, error: PM_ONLY_ERROR };
+    if (error.code === "P0002") return { ok: false, error: PROJECT_CLOSED_ERROR };
     if (error.code === "22023") return { ok: false, error: "ไม่พบโครงการ" };
     return { ok: false, error: "ใช้เทมเพลตไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }

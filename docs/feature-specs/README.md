@@ -147,6 +147,7 @@ for reading the spec itself.
 | 142  | Project onboarding (create_project RPC · stub + checklist · WP seeding)                   |
 | 143  | Membership-scoped project visibility (PM/site_admin see only their projects; ADR 0056)    |
 | 144  | Defect rework — reopen a complete WP to a `rework` status (post-completion defects)       |
+| 145  | Lock new work on a completed project (warranty-aware; rework still allowed)               |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

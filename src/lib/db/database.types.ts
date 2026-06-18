@@ -2686,6 +2686,7 @@ export type Database = {
         Args: { p_caller: string; p_parent: string; p_target: string }
         Returns: boolean
       }
+      project_is_open: { Args: { p_project_id: string }; Returns: boolean }
       project_onboarding_status: {
         Args: { p_project_id: string }
         Returns: {

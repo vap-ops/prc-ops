@@ -39,7 +39,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
 
   const { data: project } = await supabase
     .from("projects")
-    .select("id, code, name, site_address, client_id, project_lead_id, project_type")
+    .select("id, code, name, status, site_address, client_id, project_lead_id, project_type")
     .eq("id", projectId)
     .maybeSingle();
 
@@ -155,6 +155,10 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
   // Spec 142 U3: PM/super get the onboarding checklist. Booleans only — the RPC
   // reads the money-isolated budget column but returns no amount.
   const isPmRole = ctx.role === "project_manager" || ctx.role === "super_admin";
+  // Spec 145: a completed/archived project is locked for new work — the DB
+  // trigger blocks WP inserts; the UI hides the seeding controls + onboarding
+  // and shows a banner. Warranty defect-rework (reopen on the WP page) stays.
+  const projectOpen = project.status === "active" || project.status === "on_hold";
   let onboarding: OnboardingStatus | null = null;
   // Spec 142 U6: other projects this PM can see, as copy-from sources (RLS scopes
   // the list to the PM's own projects). Excludes the current project.
@@ -239,7 +243,16 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
       </DetailHeader>
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
-        {isPmRole && onboarding && (
+        {/* Spec 145: a closed project shows a lock banner instead of seeding
+            controls. Warranty defect-rework stays available on each WP page. */}
+        {!projectOpen && (
+          <div className="rounded-card border-edge bg-sunk text-ink-secondary mb-4 border px-4 py-3 text-sm">
+            โครงการนี้เสร็จสิ้น/ปิดแล้ว — เพิ่มหรือนำเข้างานใหม่ไม่ได้
+            (ยังเปิดงานแก้ไขช่วงประกันในแต่ละงานได้) หากต้องการแก้ไขโครงการ เปลี่ยนสถานะกลับเป็น
+            “กำลังดำเนินการ” ในหน้าตั้งค่า
+          </div>
+        )}
+        {isPmRole && projectOpen && onboarding && (
           <OnboardingChecklist projectId={project.id} status={onboarding} />
         )}
         <div className="mb-3 flex items-center justify-between gap-3">
@@ -248,7 +261,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
           <h2 id="work-packages" className="text-section text-ink font-semibold">
             รายการงาน
           </h2>
-          {isPmRole && (
+          {isPmRole && projectOpen && (
             <div className="flex flex-wrap items-center justify-end gap-2">
               {templateAvailable && <ApplyTemplateButton projectId={project.id} />}
               <ImportWorkPackagesSheet projectId={project.id} />
