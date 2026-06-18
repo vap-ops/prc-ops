@@ -66,16 +66,47 @@ run them on a schedule.** There is no automatic safety net behind a destructive
 migration; `break-glass.md` Procedure B's "fresh dump first" is not optional, it
 is the entire floor.
 
-**Recommendation (operator decision — it costs money):** upgrade to **Pro
-(~US$25/mo)** for daily backups (7-day retention), PITR availability, and no
-auto-pause. For a live product with real client photos, that is cheap insurance
-against losing the pilots. Until then, treat Parts 2 + 3 as a **mandatory weekly
-job**, not a drill — and keep the dumps + a Storage export OFF Supabase (so a
-project pause/deletion can't take the backups with it).
+### Decision (2026-06-19): defer Pro, back up to Google Drive (interim)
 
-> Free tier also caps you at a small number of projects per org, so the Part 4
-> scratch target may need to be a **local Postgres** or a temporarily-created
-> project rather than a second free project.
+Operator's call: stay on Free until after 1–2 more projects, then reconsider
+**Pro (~US$25/mo)** (daily backups + PITR + no auto-pause — the eventual target
+for live client data). Interim floor = a **weekly manual backup to the team
+Google Drive folder** (folder URL kept in the operator's vault, NOT in git).
+Drive is off-Supabase, so a project pause/deletion can't take the backups with
+it.
+
+Three caveats that gate the "reconsider" trigger:
+
+- **Storage capacity, not backups, is the likely upgrade-forcer.** Free Storage
+  is ~1 GB; construction photos fill it fast (even downscaled, spec 34). If the
+  `photos` bucket fills, **uploads start failing** — worse than the backup gap.
+  Watch Storage % (dashboard → **Settings → Usage**); it may force the decision
+  before "1–2 projects" does.
+- **Auto-pause is probably already moot** — the Railway worker queries the DB
+  every ~5 min, which keeps the project active. Confirm, but don't worry.
+- **Photos > DB.** Photos are the irreplaceable site evidence and have NO managed
+  backup on any tier; the Storage export (Part 3) matters more than the dump.
+
+### Interim weekly procedure (every week until automated)
+
+1. **Part 2** — `supabase db dump --linked` → save the `.sql` file(s).
+2. **Part 3** — export the `photos` (and `reports`) bucket objects.
+3. Drag both into the **team Google Drive backup folder**, in a **dated
+   subfolder** (e.g. `2026-06-19/`). Keep ~the last 4–8 weeks; prune older.
+4. **Quarterly (and before any destructive migration):** run **Part 4** — restore
+   the latest Drive copy into a scratch DB and open a photo. A backup in Drive
+   you've never restored is a hope, not a backup.
+
+> **Automation (future, deferred by the 2026-06-19 decision):** a scheduled
+> Railway-worker job can do steps 1–3 on a cron, pushing to Drive via a Google
+> service account (operator provides a service-account JSON as a Railway secret +
+> shares the Drive folder with the service-account email). Removes the
+> weekly-memory dependency — build it when the manual cadence proves annoying or
+> the project count grows.
+
+> Free tier also caps projects per org, so the Part 4 scratch target may need to
+> be a **local Postgres** or a temporarily-created project rather than a second
+> free project.
 
 ---
 
