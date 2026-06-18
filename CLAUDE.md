@@ -24,6 +24,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Server Components by default. Adding `'use client'` requires justification in the PR description.
 - Before implementing any feature, scan the ADR index `/docs/decisions/README.md` and read in full the ADRs that touch the area you're changing. Architecture decisions there override defaults. (You do not need to read all of them every time — target the relevant ones.)
 - Before changing the database, schema, Storage, or DB roles, read `/docs/policies/change-management.md` — binding. All such changes go through a migration + reviewed PR + `supabase db push`; never the dashboard SQL editor or toggles.
+- Before any append-only bypass (surgically correcting an `audit_log` / `photo_logs` / `approvals` row) or any destructive/irreversible migration (DROP, destructive ALTER, mass DELETE, TRUNCATE), read `/docs/break-glass.md` — binding. These are operator-only emergency procedures (guarded trigger-disable transaction + mandatory `audit_log` row; verified `pg_dump` floor + preview-branch rehearsal); never improvise them.
 - Commit messages follow Conventional Commits (feat:, fix:, test:, docs:, refactor:, chore:).
 
 ## Scope discipline
