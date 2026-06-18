@@ -2526,6 +2526,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      clone_work_packages: {
+        Args: { p_dst_project_id: string; p_src_project_id: string }
+        Returns: number
+      }
       correct_labor_log: {
         Args: {
           p_fraction?: Database["public"]["Enums"]["day_fraction"]

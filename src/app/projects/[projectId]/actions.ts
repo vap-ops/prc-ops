@@ -115,3 +115,47 @@ export async function createWorkPackage(
   revalidatePath(projectHref(input.projectId));
   return { ok: true, id: newId };
 }
+
+// Spec 142 U6 — copy the work-package skeleton from another project. Gate mirrors
+// the other project writes; the SECURITY DEFINER clone_work_packages RPC is the
+// load-bearing authorisation.
+export type CopyWorkPackagesResult = { ok: true; count: number } | { ok: false; error: string };
+
+export async function copyWorkPackages(
+  sourceProjectId: string,
+  projectId: string,
+): Promise<CopyWorkPackagesResult> {
+  if (!isValidUuid(sourceProjectId) || !isValidUuid(projectId)) {
+    return { ok: false, error: "รหัสโครงการไม่ถูกต้อง" };
+  }
+  if (sourceProjectId === projectId) {
+    return { ok: false, error: "เลือกโครงการอื่นเป็นต้นทาง" };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
+
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+    return { ok: false, error: PM_ONLY_ERROR };
+  }
+
+  const { data: count, error } = await supabase.rpc("clone_work_packages", {
+    p_src_project_id: sourceProjectId,
+    p_dst_project_id: projectId,
+  });
+  if (error) {
+    console.error("[copyWorkPackages] RPC failed", { projectId, error: error.message });
+    if (error.code === "42501") return { ok: false, error: PM_ONLY_ERROR };
+    if (error.code === "22023") return { ok: false, error: "เลือกโครงการต้นทางไม่ถูกต้อง" };
+    return { ok: false, error: "คัดลอกงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  revalidatePath(projectHref(projectId));
+  return { ok: true, count: count ?? 0 };
+}

@@ -22,6 +22,7 @@ import { criticalWorkPackageIds } from "@/lib/work-packages/critical-path";
 import { WorkPackageList } from "./work-package-list";
 import { OnboardingChecklist, type OnboardingStatus } from "./onboarding-checklist";
 import { AddWorkPackageSheet } from "./add-work-package-sheet";
+import { CopyWorkPackagesSheet } from "./copy-work-packages-sheet";
 
 interface PageProps {
   params: Promise<{ projectId: string }>;
@@ -153,11 +154,20 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
   // reads the money-isolated budget column but returns no amount.
   const isPmRole = ctx.role === "project_manager" || ctx.role === "super_admin";
   let onboarding: OnboardingStatus | null = null;
+  // Spec 142 U6: other projects this PM can see, as copy-from sources (RLS scopes
+  // the list to the PM's own projects). Excludes the current project.
+  let sourceProjects: { id: string; code: string; name: string }[] = [];
   if (isPmRole) {
-    const { data: onbRows } = await supabase.rpc("project_onboarding_status", {
-      p_project_id: project.id,
-    });
-    onboarding = onbRows?.[0] ?? null;
+    const [onbRes, srcRes] = await Promise.all([
+      supabase.rpc("project_onboarding_status", { p_project_id: project.id }),
+      supabase
+        .from("projects")
+        .select("id, code, name")
+        .neq("id", project.id)
+        .order("code", { ascending: true }),
+    ]);
+    onboarding = onbRes.data?.[0] ?? null;
+    sourceProjects = srcRes.data ?? [];
   }
 
   return (
@@ -224,7 +234,14 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
           <h2 id="work-packages" className={SECTION_HEADING}>
             รายการงาน
           </h2>
-          {isPmRole && <AddWorkPackageSheet projectId={project.id} />}
+          {isPmRole && (
+            <div className="flex items-center gap-2">
+              {sourceProjects.length > 0 && (
+                <CopyWorkPackagesSheet projectId={project.id} sourceProjects={sourceProjects} />
+              )}
+              <AddWorkPackageSheet projectId={project.id} />
+            </div>
+          )}
         </div>
         <WorkPackageList
           projectId={project.id}
