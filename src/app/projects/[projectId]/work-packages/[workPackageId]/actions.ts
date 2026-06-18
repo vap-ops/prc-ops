@@ -33,7 +33,7 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
 import { createClient as createAdminClient } from "@/lib/db/admin";
-import { workPackageHref } from "@/lib/nav/project-paths";
+import { projectHref, workPackageHref } from "@/lib/nav/project-paths";
 import {
   buildPhotoStoragePath,
   isValidPhotoExt,
@@ -245,5 +245,46 @@ export async function removePhoto(input: RemovePhotoInput): Promise<RemovePhotoR
     revalidatePath(workPackageHref(wp.project_id, target.work_package_id));
   }
 
+  return { ok: true };
+}
+
+// Spec 144 U2 — report a defect on a complete WP, reopening it to 'rework'.
+// The SECURITY DEFINER reopen_work_package_for_defect RPC carries the role +
+// membership + complete-only gates; this maps the result to clean Thai errors.
+export interface ReportDefectInput {
+  projectId: string;
+  workPackageId: string;
+  reason: string;
+}
+export type ReportDefectResult = { ok: true } | { ok: false; error: string };
+
+export async function reportDefect(input: ReportDefectInput): Promise<ReportDefectResult> {
+  if (!isValidUuid(input.workPackageId)) return { ok: false, error: "รหัสงานไม่ถูกต้อง" };
+  const reason = input.reason.trim();
+  if (reason === "") return { ok: false, error: "กรุณาระบุรายละเอียดข้อบกพร่อง" };
+  if (reason.length > 1000) return { ok: false, error: "รายละเอียดต้องไม่เกิน 1000 ตัวอักษร" };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase } = auth;
+
+  const { data, error } = await supabase.rpc("reopen_work_package_for_defect", {
+    p_wp: input.workPackageId,
+    p_reason: reason,
+  });
+  if (error) {
+    console.error("[reportDefect] RPC failed", { wp: input.workPackageId, error: error.message });
+    if (error.code === "42501") {
+      return { ok: false, error: "คุณไม่มีสิทธิ์เปิดงานนี้ใหม่ (ต้องเป็นทีมงานของโครงการ)" };
+    }
+    if (error.code === "22023") {
+      return { ok: false, error: "เปิดงานใหม่ได้เฉพาะงานที่เสร็จแล้วเท่านั้น" };
+    }
+    return { ok: false, error: "เปิดงานใหม่ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+  if (data !== true) return { ok: false, error: "เปิดงานใหม่ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+
+  revalidatePath(workPackageHref(input.projectId, input.workPackageId));
+  revalidatePath(projectHref(input.projectId));
   return { ok: true };
 }

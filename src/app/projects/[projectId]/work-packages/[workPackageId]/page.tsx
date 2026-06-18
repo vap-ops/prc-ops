@@ -39,6 +39,7 @@ import { SitePurchaseForm } from "@/components/features/purchasing/site-purchase
 import { LaborLogZone } from "@/components/features/labor/labor-log-zone";
 import { fetchLaborZoneData } from "@/lib/labor/fetch-zone-data";
 import { PhotoCaptureZone } from "./phase-uploader";
+import { ReportDefectControl } from "./report-defect-control";
 
 interface PageProps {
   params: Promise<{ projectId: string; workPackageId: string }>;
@@ -166,6 +167,20 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
     };
   });
 
+  // Spec 144: when a WP was reopened for a defect, surface the latest reason.
+  let defectReason: string | null = null;
+  if (wp.status === "rework") {
+    const { data: defectRow } = await supabase
+      .from("audit_log")
+      .select("payload")
+      .eq("target_id", wp.id)
+      .eq("payload->>event", "wp_reopened_for_defect")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    defectReason = (defectRow?.payload as unknown as { reason?: string } | null)?.reason ?? null;
+  }
+
   return (
     <PageShell>
       {/* Field-First: the tab bar gives way to the thumb-anchored capture
@@ -266,6 +281,25 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
             </AttentionCard>
           ) : null}
           <CountChip count={requestedCount} label="คำขอซื้อรออนุมัติ" href="#wp-requests" />
+        </div>
+      ) : null}
+
+      {/* Spec 144: defect rework. A reopened WP shows its defect reason; a
+          complete WP offers "report defect" (reopens to rework). */}
+      {wp.status === "rework" ? (
+        <div className={`mx-auto ${PAGE_MAX_W} px-5 pt-5`}>
+          <AttentionCard tone="amber" title="งานแก้ไข — เปิดใหม่จากข้อบกพร่อง">
+            {defectReason ? (
+              <p className="whitespace-pre-wrap">{defectReason}</p>
+            ) : (
+              <p className="text-ink-secondary">แก้ไขแล้วถ่ายรูปใหม่เพื่อส่งตรวจอีกครั้ง</p>
+            )}
+          </AttentionCard>
+        </div>
+      ) : null}
+      {wp.status === "complete" ? (
+        <div className={`mx-auto ${PAGE_MAX_W} flex justify-end px-5 pt-5`}>
+          <ReportDefectControl projectId={wp.project_id} workPackageId={wp.id} />
         </div>
       ) : null}
 

@@ -22,7 +22,7 @@ rework couldn't be captured, re-approved, or costed.
 | Unit   | Scope                                                                                                                        | Status |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------- | ------ |
 | **U1** | DB: `rework` enum value + `reopen_work_package_for_defect` RPC + transition/label/colour/band wiring + pgTAP                 | done   |
-| U2     | UI: a "report defect" control on the WP page (complete-only, SA/PM/super) → reopen; show `rework` status + the defect reason | later  |
+| U2     | UI: a "report defect" control on the WP page (complete-only, SA/PM/super) → reopen; show `rework` status + the defect reason | done   |
 
 ## U1 — status + reopen path (shipped)
 
