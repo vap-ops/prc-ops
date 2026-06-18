@@ -1,5 +1,5 @@
 begin;
-select plan(11);
+select plan(10);
 
 -- ============================================================================
 -- Spec 145 U1 — lock new work on a completed/archived project.
