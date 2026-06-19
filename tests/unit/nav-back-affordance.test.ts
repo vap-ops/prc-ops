@@ -94,3 +94,21 @@ describe("nav back-affordance (spec 63)", () => {
     expect(unclassified).toEqual([]);
   });
 });
+
+// Spec 153: the desktop HubNav strip is the counterpart of the no-back-chip rule
+// above — a hub has no back chip, so on desktop (where the bottom tab bar is
+// sm:hidden) the strip is its only nav affordance. Every primary-tab hub must
+// render it; /portal is the documented exception (its own header + logout).
+describe("desktop hub-strip coverage (spec 153)", () => {
+  const HUB_STRIP_ROUTES = ["review", "projects", "requests", "settings", "dashboard"].map(
+    (r) => `${r}/page.tsx`,
+  );
+
+  it.each(HUB_STRIP_ROUTES)("hub route %s renders HubNav", (route) => {
+    expect(reads(join(APP, route))).toContain("HubNav");
+  });
+
+  it("portal renders no HubNav (its own header + logout)", () => {
+    expect(reads(join(APP, "portal/page.tsx"))).not.toContain("HubNav");
+  });
+});

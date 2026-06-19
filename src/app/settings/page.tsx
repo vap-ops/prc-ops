@@ -17,6 +17,7 @@ import {
 import { LogoutButton } from "@/components/auth/logout-button";
 import { AvatarSurface } from "@/components/features/common/avatar-surface";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
+import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
 import { ComingSoonBadge } from "@/components/features/chrome/coming-soon-badge";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { createClient } from "@/lib/db/server";
@@ -55,10 +56,16 @@ export default async function SettingsPage() {
 
   const role = row.role;
   const isManager = isManagerRole(role);
+  // Spec 153: the desktop hub strip, like the sibling hubs (/projects, /review).
+  // Phones leave via the bottom tab bar; unserved roles (hubItems null) get none.
+  const hubItems = hubNavForRole(role);
 
   return (
     <PageShell>
       <BottomTabBar role={role} />
+      {hubItems ? (
+        <HubNav maxWidthClass={PAGE_MAX_W} items={hubItems} currentHref="/settings" />
+      ) : null}
       <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-6 px-5 py-6`}>
         <h1 className="text-title text-ink font-bold tracking-tight">ตั้งค่า</h1>
 

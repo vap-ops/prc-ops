@@ -13,6 +13,7 @@ import { PM_ROLES, SITE_STAFF_ROLES } from "@/lib/auth/role-home";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
+import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
 import { rollupProgress } from "@/lib/dashboard/overview";
 import { sumMaterials, budgetStatus, type BudgetStatus } from "@/lib/dashboard/spend";
 import { aggregateLaborCost, type CostInputRow } from "@/lib/labor/cost";
@@ -123,9 +124,16 @@ export default async function DashboardPage() {
   const totalBudget = items.reduce((s, i) => s + (i.money?.status.budget ?? 0), 0);
   const totalSpend = items.reduce((s, i) => s + (i.money?.spend ?? 0), 0);
 
+  // Spec 153: the desktop hub strip, like the sibling hubs (/projects, /review).
+  // Phones leave via the bottom tab bar.
+  const hubItems = hubNavForRole(ctx.role);
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
+      {hubItems ? (
+        <HubNav maxWidthClass={PAGE_MAX_W} items={hubItems} currentHref="/dashboard" />
+      ) : null}
       <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-6 px-5 py-6`}>
         <h1 className="text-title text-ink font-bold tracking-tight">ภาพรวม</h1>
 

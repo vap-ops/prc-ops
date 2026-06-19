@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
+import { isManagerRole } from "@/lib/auth/role-home";
+import type { UserRole } from "@/lib/db/enums";
 
 // Shared hub nav strip (spec 18). One consistent item set per role
 // surface — the PM pages all show the same four destinations, /sa shows
 // two — with the current page rendered as a non-link span. Tab
 // semantics: no directional arrows; min-h-11 tap targets for gloved
-// site hands. NOT used by /requests (its back-bar is spec-12 locked
-// behavior), the reports page (project-detail back-nav), or detail
-// screens.
+// site hands. Renders on every primary-tab hub — /review, /projects,
+// /requests, /settings, /dashboard (spec 153, via hubNavForRole) — but
+// NOT the reports page (project-detail back-nav) or detail screens.
+// /portal is the documented exception (its own header + logout).
 
 export interface HubNavItem {
   label: string;
@@ -57,6 +60,28 @@ export const COORDINATOR_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "โครงการ", href: "/projects" },
   { label: "ตั้งค่า", href: "/settings" },
 ];
+
+// Spec 153: accounting's desktop strip — the read-only ledger surface + settings.
+// Mirrors ACCOUNTING_TABS (spec 149 U9, the phone bottom bar); a lean two-set,
+// every entry a live destination.
+export const ACCOUNTING_HUB_NAV: ReadonlyArray<HubNavItem> = [
+  { label: "บัญชี", href: "/accounting" },
+  { label: "ตั้งค่า", href: "/settings" },
+];
+
+// Spec 153: the single role→strip selector — mirrors bottom-tab-bar's tabsForRole
+// exactly, so the SAME strip renders on every hub page (incl. /settings +
+// /dashboard, which previously rendered none). An unserved role gets null and the
+// page renders no strip, exactly like the bottom bar.
+export function hubNavForRole(role: string): ReadonlyArray<HubNavItem> | null {
+  if (role === "site_admin") return SA_HUB_NAV;
+  // Spec 152 / ADR 0058: project_director shares the PM strip (see-all PM).
+  if (isManagerRole(role as UserRole)) return PM_HUB_NAV;
+  if (role === "procurement") return PROCUREMENT_HUB_NAV;
+  if (role === "project_coordinator") return COORDINATOR_HUB_NAV;
+  if (role === "accounting") return ACCOUNTING_HUB_NAV;
+  return null;
+}
 
 interface HubNavProps {
   maxWidthClass: typeof PAGE_MAX_W;

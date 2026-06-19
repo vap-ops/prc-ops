@@ -9,6 +9,9 @@ import {
   PM_HUB_NAV,
   SA_HUB_NAV,
   PROCUREMENT_HUB_NAV,
+  COORDINATOR_HUB_NAV,
+  ACCOUNTING_HUB_NAV,
+  hubNavForRole,
 } from "@/components/features/chrome/hub-nav";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 
@@ -46,6 +49,34 @@ describe("canonical nav sets", () => {
       { label: "ผู้ขาย", href: "/contacts/vendors" },
       { label: "ตั้งค่า", href: "/settings" },
     ]);
+  });
+
+  // Spec 153: accounting's desktop strip — the ledger surface + settings,
+  // mirroring ACCOUNTING_TABS (the phone bottom bar).
+  it("pins the accounting set's destinations and order", () => {
+    expect(ACCOUNTING_HUB_NAV).toEqual([
+      { label: "บัญชี", href: "/accounting" },
+      { label: "ตั้งค่า", href: "/settings" },
+    ]);
+  });
+});
+
+// Spec 153: hubNavForRole is the single role→strip selector (mirrors tabsForRole),
+// so the same strip renders on every hub page including /settings + /dashboard.
+describe("hubNavForRole", () => {
+  it("maps each served role to its set", () => {
+    expect(hubNavForRole("site_admin")).toBe(SA_HUB_NAV);
+    // PM tier (pm / super_admin / project_director) all share PM_HUB_NAV.
+    expect(hubNavForRole("project_manager")).toBe(PM_HUB_NAV);
+    expect(hubNavForRole("super_admin")).toBe(PM_HUB_NAV);
+    expect(hubNavForRole("project_director")).toBe(PM_HUB_NAV);
+    expect(hubNavForRole("procurement")).toBe(PROCUREMENT_HUB_NAV);
+    expect(hubNavForRole("project_coordinator")).toBe(COORDINATOR_HUB_NAV);
+    expect(hubNavForRole("accounting")).toBe(ACCOUNTING_HUB_NAV);
+  });
+
+  it("returns null for an unserved role (render nothing, like the bottom bar)", () => {
+    expect(hubNavForRole("visitor")).toBeNull();
   });
 });
 
