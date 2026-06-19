@@ -82,6 +82,18 @@ export const PROJECT_VIEW_ROLES: ReadonlyArray<UserRole> = [
   "project_coordinator",
 ];
 
+/**
+ * Spec 149 U9: who may reach the read-only /accounting surface (trial balance,
+ * reconciliation, P&L) — the dedicated `accounting` role PLUS the PM set (pm/super
+ * already own the GL RPCs and review the books). Mirrors the gl_trial_balance /
+ * gl_reconciliation role gate. Field roles never reach it (money, spec 46).
+ */
+export const ACCOUNTING_ROLES: ReadonlyArray<UserRole> = [
+  "accounting",
+  "project_manager",
+  "super_admin",
+];
+
 export function roleHome(role: UserRole): string {
   // Spec 82 Unit 3: site_admin lands on the folded content-named project hub
   // /projects (was /sa, before the two hubs merged).
@@ -99,6 +111,8 @@ export function roleHome(role: UserRole): string {
   // Spec 130 / ADR 0051: external direct contractors land on the self-service
   // portal segment (hard-bounded from internal surfaces by middleware).
   if (role === "contractor") return "/portal";
+  // Spec 149 U9: the accounting role is onboarded onto the read-only ledger surface.
+  if (role === "accounting") return "/accounting";
   return "/coming-soon";
 }
 

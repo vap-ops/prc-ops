@@ -42,6 +42,8 @@ const STATIC_DETAIL = [
   "workers",
   "equipment",
   "payroll",
+  // Spec 149 U9: the read-only ledger surface, drilled down from /settings.
+  "accounting",
   "contacts/customers",
   "contacts/vendors",
   "contacts/crews",

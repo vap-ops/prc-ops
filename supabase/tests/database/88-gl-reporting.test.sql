@@ -1,5 +1,5 @@
 begin;
-select plan(13);
+select plan(15);
 
 -- ============================================================================
 -- Spec 149 U7 / ADR 0057 dec 6+11 — gl_trial_balance + gl_reconciliation.
@@ -12,8 +12,11 @@ select plan(13);
 insert into auth.users (id, email, raw_user_meta_data) values
   ('11111111-1111-1111-1111-111111110648', 'pm@report.local', '{}'::jsonb),
   ('22222222-2222-2222-2222-222222220648', 'sa@report.local', '{}'::jsonb);
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('33333333-3333-3333-3333-333333330648', 'acct@report.local', '{}'::jsonb);
 update public.users set role = 'project_manager' where id = '11111111-1111-1111-1111-111111110648';
 update public.users set role = 'site_admin'      where id = '22222222-2222-2222-2222-222222220648';
+update public.users set role = 'accounting'       where id = '33333333-3333-3333-3333-333333330648';
 
 insert into public.clients (id, name, created_by) values
   ('c1000001-0000-4000-8000-000000000648', 'Report Client', '11111111-1111-1111-1111-111111110648');
@@ -40,6 +43,13 @@ select throws_ok($$ select * from public.gl_trial_balance(date '2026-01-01', dat
   '42501', null, 'gl_trial_balance refuses site_admin');
 select throws_ok($$ select * from public.gl_reconciliation() $$,
   '42501', null, 'gl_reconciliation refuses site_admin');
+
+-- Spec 149 U9: the accounting role is admitted to both reporting RPCs.
+set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333330648"}';
+select lives_ok($$ select * from public.gl_trial_balance(date '2026-01-01', date '2027-12-31') $$,
+  'gl_trial_balance admits the accounting role');
+select lives_ok($$ select * from public.gl_reconciliation() $$,
+  'gl_reconciliation admits the accounting role');
 
 -- ============================================================================
 -- Build data: a certified billing, drained.
