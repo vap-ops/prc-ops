@@ -17,8 +17,8 @@ membership-scoped. The build is therefore "add `project_director` next to
 | Unit   | Scope                                                                                                                                                                              | Status    |
 | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
 | **U1** | Identity + visibility + navigation: enum value; `can_see_project` see-all branch += `project_director`; `USER_ROLE_LABEL`; `roleHome`→`/review`; all PM-tier TS role arrays + page allowlists + manager checks + `PM_TABS`. pgTAP + vitest. | done (PR #76) |
-| **U2** | RPC action gates: add `project_director` to every SECURITY DEFINER RPC `current_user_role()` gate that contains `project_manager` — **55 functions** sourced live via `pg_get_functiondef`, role appended to each gate (migration `20260751000000`). pgTAP `90` (completeness + behavioural). | THIS UNIT |
-| U3     | Table write RLS policies: DROP/CREATE every write policy that contains `project_manager`, adding `project_director` (membership gate auto-satisfied via `can_see_*`). pgTAP.       | todo      |
+| **U2** | RPC action gates: add `project_director` to every SECURITY DEFINER RPC `current_user_role()` gate that contains `project_manager` — **55 functions** sourced live via `pg_get_functiondef`, role appended to each gate (migration `20260751000000`). pgTAP `90` (completeness + behavioural). | done (PR #77) |
+| **U3** | RLS policies: DROP/CREATE every policy whose role list names `project_manager`, adding `project_director` — **48 policies** reconstructed live from `pg_policies` (writes + master-table reads; project-scoped SELECTs gate on `can_see_*`, untouched). Migration `20260752000000`. pgTAP `91` (completeness + approval/WP-update behavioural). | THIS UNIT |
 
 ## U1 — Identity, visibility & navigation
 
