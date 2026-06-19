@@ -134,15 +134,21 @@ select throws_ok(
   'P0001', null, 'rejects a single-line entry');
 
 -- ============================================================================
--- G. Reversal (project_manager).
+-- G. Reversal (project_manager). Capture the entry id as owner first — the test
+-- cannot read the zero-grant journal_entries as authenticated (a real caller
+-- passes an id obtained via the admin client).
 -- ============================================================================
+reset role;
+create temp table _tap_jrev as
+  select id from public.journal_entries where memo = 'TAP-J-1';
+grant select on _tap_jrev to authenticated;
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111110591"}';
 select lives_ok(
-  $$ select public.reverse_journal_entry(
-       (select id from public.journal_entries where memo = 'TAP-J-1')) $$,
+  $$ select public.reverse_journal_entry((select id from _tap_jrev)) $$,
   'pm reverses the posted entry');
 select throws_ok(
-  $$ select public.reverse_journal_entry(
-       (select id from public.journal_entries where memo = 'TAP-J-1')) $$,
+  $$ select public.reverse_journal_entry((select id from _tap_jrev)) $$,
   'P0001', null, 'an already-reversed entry cannot be reversed again');
 
 -- ============================================================================
