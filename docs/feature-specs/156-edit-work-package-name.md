@@ -11,31 +11,33 @@ PR cards / reports / lists; uniqueness re-validation + cross-surface impact →
 deferred to its own unit, ADR 0059 §2).
 
 - **RPC** `set_work_package_name(p_work_package_id uuid, p_name text)` — SECURITY
-  DEFINER, pinned `search_path`, returns `boolean` (false on unknown WP).
+  DEFINER, pinned `search_path`, returns `boolean`. The membership gate runs first,
+  so an unknown WP id yields `42501` (`can_see_wp` is false for a missing WP).
   - Gate: `current_user_role() in ('project_manager','super_admin','project_director')`
     → else `42501`. Plus `can_see_wp(p_work_package_id)` → else `42501` (ADR 0056).
-  - Validate: `p_name` trimmed non-empty + length CHECK (reuse the WP-name bound
-    from `create_work_package`) → else `22023` / `23514`.
+  - Validate: `p_name` trimmed non-empty, `<= 200` chars — the exact bound from
+    `create_work_package` → else `22023`.
   - No audit row (benign, ADR 0059 §6). Allowed on closed projects (ADR 0059 §5).
 - **Server action** + `revalidatePath`; gate mirrors the RPC.
-- **UI**: an "แก้ไขงาน" edit affordance on the WP-detail header (PM/super/director
-  only; hidden for site_admin + the read-only coordinator). A small edit sheet
-  (single name field, save lifecycle บันทึก → กำลังบันทึก… → บันทึกแล้ว), modeled
-  on the project [settings-form](../src/app/projects/[projectId]/settings/settings-form.tsx)
-  (ADR 0042). Name follows the spec-57 no-truncate rule on display.
+- **UI**: an inline name editor (single-line field + Save, toasted) in the
+  manager-only management block beside priority / deliverable / schedule —
+  PM/super/director only; hidden for site*admin + the read-only coordinator. The
+  header keeps the read-only nameplate (spec-57 no-truncate). *(Built inline in
+  the management block rather than a header sheet — consistent with the sibling
+  controls and lower-risk; the header stays the nameplate.)\_
 - `database.types.ts` regenerated after `db:push` + `db:types`.
 
 ## TDD
 
 Failing tests first.
 
-1. **pgTAP** `NN-set-work-package-name.test.sql`: catalog; PM renames →
-   `name` updated; `super_admin` + `project_director` allowed; `site_admin` +
-   `visitor` denied (`42501`); blank/whitespace name rejected (`22023`);
-   over-long name rejected (`23514`); unknown WP → false; non-member PM denied
-   (`42501`).
-2. **vitest** for the edit sheet (pre-fills current name; submits the new name;
-   blank disables save).
+1. **pgTAP** `93-set-work-package-name.test.sql`: catalog; PM renames →
+   `name` updated (trimmed); `super_admin` + `project_director` allowed (see-all);
+   `site_admin` + `visitor` denied (`42501`); blank/whitespace rejected (`22023`);
+   over-long (> 200) rejected (`22023`); non-member PM denied (`42501`).
+2. **vitest** for the inline control (renders current name; Save disabled until a
+   trimmed change; clicking Save calls the action with the trimmed value; blank
+   keeps Save disabled).
 
 ## Scope — IN
 

@@ -32,6 +32,7 @@ import { loadWorkPackageDetail } from "@/lib/work-packages/load-detail";
 import { WpAssignmentPanel } from "@/components/features/work-packages/wp-assignment-panel";
 import { WpPriorityControl } from "@/components/features/work-packages/wp-priority-control";
 import { WpDeliverableControl } from "@/components/features/work-packages/wp-deliverable-control";
+import { WpNameControl } from "@/components/features/work-packages/wp-name-control";
 import { WpSchedulePanel } from "@/components/features/work-packages/wp-schedule-panel";
 import { WorkPackageNotes } from "@/components/features/work-packages/work-package-notes";
 import { PurchaseRequestForm } from "@/components/features/purchasing/purchase-request-form";
@@ -179,6 +180,8 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
       {isPlanner ? (
         <div className="border-edge bg-card border-b px-5 py-3">
           <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-4`}>
+            {/* Spec 156: rename the WP (PM/super/director). code stays immutable. */}
+            <WpNameControl projectId={wp.project_id} workPackageId={wp.id} name={wp.name} />
             <WpPriorityControl
               projectId={wp.project_id}
               workPackageId={wp.id}

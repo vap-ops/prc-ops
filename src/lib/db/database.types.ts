@@ -3644,6 +3644,10 @@ export type Database = {
         Args: { p_deliverable_id?: string; p_work_package_id: string }
         Returns: boolean
       }
+      set_work_package_name: {
+        Args: { p_name: string; p_work_package_id: string }
+        Returns: boolean
+      }
       set_work_package_notes: {
         Args: { p_notes: string; p_work_package_id: string }
         Returns: boolean
