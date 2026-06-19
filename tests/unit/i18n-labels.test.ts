@@ -18,6 +18,11 @@ import {
 // distinct within a map so two states never read identically.
 const THAI_CHAR = /[฀-๿]/;
 
+// Spec 152 / ADR 0058: the operator explicitly declined a Thai name for
+// project_director, so its label is the English "Project Director". Exempt that
+// one label from the Thai-script rule (it must still be present + distinct).
+const ENGLISH_LABEL_EXEMPT = new Set(["user_role.project_director"]);
+
 const MAPS = [
   ["work_package_status", Constants.public.Enums.work_package_status, WORK_PACKAGE_STATUS_LABEL],
   ["project_status", Constants.public.Enums.project_status, PROJECT_STATUS_LABEL],
@@ -42,7 +47,9 @@ describe("Thai label maps", () => {
       for (const value of values) {
         const label = (map as Record<string, string>)[value];
         expect(label, `${name}.${value} missing`).toBeTruthy();
-        expect(label, `${name}.${value} not Thai`).toMatch(THAI_CHAR);
+        if (!ENGLISH_LABEL_EXEMPT.has(`${name}.${value}`)) {
+          expect(label, `${name}.${value} not Thai`).toMatch(THAI_CHAR);
+        }
       }
       const labels = values.map((v) => (map as Record<string, string>)[v]);
       expect(new Set(labels).size).toBe(values.length);

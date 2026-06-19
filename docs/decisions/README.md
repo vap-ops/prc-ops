@@ -62,6 +62,8 @@ later one corrects — read both when the topic is live.
 | 0054 | First-class deliveries (PO ships in procurement-arranged deliveries) | Reverses 0053 deferral; spec 135               |
 | 0055 | Equipment tracking & intercompany rental model                       | Extends 0051; reuses spec 68 posture; spec 141 |
 | 0056 | Membership-scoped project visibility                                 | Amends 0013; spec 143                          |
+| 0057 | In-app management general ledger feeding PEAK                         | Full double-entry GL, WIP basis; spec 149      |
+| 0058 | `project_director` role — see-all `project_manager`                  | Extends 0008/0013/0056/0050; spec 152          |
 
 **Absent numbers** (never authored as standalone files; do not look for them):
 0023, 0024 — skipped. 0029 — AppSheet image bridge, cancelled before authoring

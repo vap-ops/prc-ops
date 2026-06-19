@@ -20,7 +20,7 @@ import { BankChangeForm } from "@/components/features/portal/bank-change-form";
 import { PortalSelfEdit, type PortalConsent } from "@/components/features/portal/portal-self-edit";
 import { PortalDocuments } from "@/components/features/portal/portal-documents";
 import { PortalContactInfo } from "@/components/features/portal/portal-contact-info";
-import { getOwnContractorDocuments } from "@/lib/portal/own-documents";
+import { loadPortalData } from "@/lib/portal/load-portal-data";
 import { contractorPacketStatus, dcTypeOfSubtype, type DcPacket } from "@/lib/contacts/packet";
 
 export const metadata = { title: "พอร์ทัลผู้รับเหมา" };
@@ -33,29 +33,11 @@ export default async function PortalPage() {
   await requireRole(["contractor"]);
   const supabase = await createClient();
 
-  // RLS scopes every read to the caller's own contractor (U2 policies).
-  const { data: profile } = await supabase
-    .from("contractors")
-    .select(
-      "id, name, phone, tax_id, contact_person, email, mailing_address, specialty, contractor_subtype, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, date_of_birth",
-    )
-    .maybeSingle();
-  const { data: consentRows } = await supabase
-    .from("contractor_consents")
-    .select("id, kind, consented_at, revoked_at")
-    .order("created_at", { ascending: false });
-  const { data: crew } = await supabase.from("workers").select("id, name, active").order("name");
-  const { data: payments } = await supabase.rpc("get_my_dc_payments");
-  const { data: pendingChange } = await supabase
-    .from("contractor_bank_change_requests")
-    .select("id")
-    .eq("status", "pending")
-    .maybeSingle();
-
-  // Spec 131 U2c — own documents (RLS-scoped read + RLS-session signed URLs) and
-  // own-bank presence (boolean, no account number) feed the completeness checklist.
-  const docs = profile?.id ? await getOwnContractorDocuments(supabase) : null;
-  const { data: bankPresent } = await supabase.rpc("my_contact_bank_present");
+  // Spec 147 U4: one loader batches the RLS-self-scoped reads (was a serial
+  // waterfall). Same queries/columns/results — only the scheduling changes.
+  // (spec 131 U2c — own docs + bank-present feed the completeness checklist.)
+  const { profile, consentRows, crew, payments, pendingChange, bankPresent, docs } =
+    await loadPortalData(supabase);
 
   const consentActive = (kind: "pdpa_data" | "background_check"): boolean =>
     (consentRows ?? []).some((c) => c.kind === kind && c.revoked_at === null);

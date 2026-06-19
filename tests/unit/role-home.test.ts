@@ -24,6 +24,9 @@ describe("roleHome", () => {
     // Spec 143 U2 / ADR 0056: project_coordinator is a see-all oversight role —
     // its home is the project hub (was /coming-soon before it was enabled).
     expect(roleHome("project_coordinator")).toBe("/projects");
+    // Spec 152 / ADR 0058: project_director is a see-all project_manager — it
+    // shares the PM review-queue home.
+    expect(roleHome("project_director")).toBe("/review");
   });
 
   // Spec 70: procurement onboarding — its first real surface is the
@@ -48,9 +51,10 @@ describe("roleHome", () => {
 // + /requests/[id]). The v1 requester base PLUS procurement, which reads
 // and processes the worklist but is NOT site-staff (no SA photo/WP screens).
 describe("PURCHASING_ROLES", () => {
-  it("admits the requester base and procurement", () => {
+  it("admits the requester base, procurement, and the director", () => {
+    // Spec 152 / ADR 0058: project_director joins every PM-tier set.
     expect([...PURCHASING_ROLES].sort()).toEqual(
-      ["procurement", "project_manager", "site_admin", "super_admin"].sort(),
+      ["procurement", "project_director", "project_manager", "site_admin", "super_admin"].sort(),
     );
   });
 });
@@ -58,9 +62,17 @@ describe("PURCHASING_ROLES", () => {
 // Spec 143 U2 / ADR 0056: project browsing now admits project_coordinator (the
 // see-all oversight role) alongside the existing site staff + procurement.
 describe("PROJECT_VIEW_ROLES", () => {
-  it("admits site staff, procurement, and the coordinator", () => {
+  it("admits site staff, procurement, the coordinator, and the director", () => {
+    // Spec 152 / ADR 0058: project_director browses every project (see-all).
     expect([...PROJECT_VIEW_ROLES].sort()).toEqual(
-      ["procurement", "project_coordinator", "project_manager", "site_admin", "super_admin"].sort(),
+      [
+        "procurement",
+        "project_coordinator",
+        "project_director",
+        "project_manager",
+        "site_admin",
+        "super_admin",
+      ].sort(),
     );
   });
 });

@@ -17,6 +17,7 @@ import { PROJECT_VIEW_ROLES } from "@/lib/auth/role-home";
 import { projectHref } from "@/lib/nav/project-paths";
 import { NewProjectSheet } from "./new-project-sheet";
 import { createClient } from "@/lib/db/server";
+import { loadProjectsHub } from "@/lib/projects/load-hub";
 import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
 import { projectStatusPillClasses } from "@/lib/status-colors";
 
@@ -33,25 +34,22 @@ export default async function ProjectsHubPage() {
   const ctx = await requireRole(PROJECT_VIEW_ROLES);
   const supabase = await createClient();
 
-  const { data: projects, error } = await supabase
-    .from("projects")
-    .select("id, code, name, status, client_id")
-    .order("code", { ascending: true });
-
-  // Spec 79: resolve client names for the rows in one query (clients are
-  // staff-readable, so the same line shows for SA as on the project detail).
-  const clientIds = [
-    ...new Set((projects ?? []).map((p) => p.client_id).filter((id): id is string => id !== null)),
-  ];
-  const { data: clientRows } = clientIds.length
-    ? await supabase.from("clients").select("id, name").in("id", clientIds)
-    : { data: [] };
-  const clientNames = new Map((clientRows ?? []).map((c) => [c.id, c.name]));
-
-  const isPm = ctx.role === "project_manager" || ctx.role === "super_admin";
+  const isPm =
+    ctx.role === "project_manager" ||
+    ctx.role === "super_admin" ||
+    ctx.role === "project_director";
   const isProcurement = ctx.role === "procurement";
   // Spec 143 U2: project_coordinator is the see-all oversight role.
   const isCoordinator = ctx.role === "project_coordinator";
+
+  // Spec 148 U4: one loader batches the hub reads (was a serial waterfall). The
+  // PM-only create-sheet data (suggested code + clients) joins the same fan as the
+  // row client names. Same queries/columns/results — only the scheduling changes.
+  const { projects, error, clientNames, suggestedCode, allClients } = await loadProjectsHub(
+    supabase,
+    isPm,
+  );
+
   // Spec 102: procurement browses projects read-only for purchase context.
   const kicker = isCoordinator
     ? "ผู้ประสานงานโครงการ"
@@ -67,20 +65,6 @@ export default async function ProjectsHubPage() {
       : isPm
         ? PM_HUB_NAV
         : SA_HUB_NAV;
-
-  // Spec 142: PM/super can create a project from the hub. Compute the suggested
-  // code + the full client list for the create sheet (only the create-capable
-  // roles — procurement/site_admin browse read-only and the RPC would 42501).
-  let suggestedCode = "";
-  let allClients: { id: string; name: string }[] = [];
-  if (isPm) {
-    const [codeRes, clientRes] = await Promise.all([
-      supabase.rpc("suggest_project_code"),
-      supabase.from("clients").select("id, name").order("name", { ascending: true }),
-    ]);
-    suggestedCode = codeRes.data ?? "";
-    allClients = clientRes.data ?? [];
-  }
 
   return (
     <PageShell>

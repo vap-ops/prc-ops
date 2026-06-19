@@ -37,7 +37,7 @@ export const maxDuration = 60;
 
 export default async function ProjectReportsPage({ params }: PageProps) {
   const { projectId } = await params;
-  const ctx = await requireRole(["project_manager", "super_admin"]);
+  const ctx = await requireRole(["project_manager", "super_admin", "project_director"]);
   const supabase = await createClient();
 
   const { data: project } = await supabase

@@ -149,6 +149,12 @@ for reading the spec itself.
 | 144  | Defect rework — reopen a complete WP to a `rework` status (post-completion defects)       |
 | 145  | Lock new work on a completed project (warranty-aware; rework still allowed)               |
 | 146  | Equipment rental money (P2; daily rate + inbound batches; ADR 0055) — design only         |
+| 147  | Data-fetch parallelization (waterfall fix; ranks 1-4: WP/project/request detail + portal)  |
+| 148  | Data-fetch parallelization round 2 (ranks 5-8: PO/delivery detail, schedule, projects hub) |
+| 149  | Accounting general ledger (full double-entry GL feeding PEAK; COA · periods · journal · retention · WHT; ADR 0057) |
+| 150  | Streaming: route-level loading.tsx coverage (instant nav skeletons; U1 = 13 routes)        |
+| 151  | Lazy client bundles: defer offline-queue runner (supabase+zod chunk off first paint; U1)    |
+| 152  | `project_director` role — see-all `project_manager` (executive-director tier; ADR 0058)     |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Sarabun } from "next/font/google";
 import { SwRegister } from "@/components/features/chrome/sw-register";
-import { UploadQueueRunner } from "@/components/features/photos/upload-queue-runner";
+import { UploadQueueRunnerLazy } from "@/components/features/photos/upload-queue-runner-lazy";
 import { ViewportScrollGuard } from "@/components/features/chrome/viewport-scroll-guard";
 import { ToastProvider } from "@/components/features/common/toast-provider";
 import "./globals.css";
@@ -58,7 +58,7 @@ export default function RootLayout({
         <SwRegister />
         {/* Spec 35: drains the offline photo queue (leftovers from
             crash/offline/navigation); renders only when items wait. */}
-        <UploadQueueRunner />
+        <UploadQueueRunnerLazy />
         {/* Spec 95: defends the spec-64 body lock — keeps the document at
             scroll 0 if iOS scrolls it to reveal a focused input. The primary
             keyboard fix is maximum-scale=1 in `viewport` above (no auto-zoom). */}

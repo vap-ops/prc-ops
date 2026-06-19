@@ -50,7 +50,7 @@ export const metadata = { title: "ตรวจรายการงาน" };
 
 export default async function WorkPackageReviewScreen({ params }: PageProps) {
   const { workPackageId } = await params;
-  const ctx = await requireRole(["project_manager", "super_admin"]);
+  const ctx = await requireRole(["project_manager", "super_admin", "project_director"]);
   const supabase = await createClient();
 
   const { data: wp } = await supabase
