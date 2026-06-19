@@ -58,6 +58,13 @@ interface WorklistRowProps {
   compact?: boolean;
   /** Spec 140: row position for the staggered list-enter motion; omit = no animation. */
   enterIndex?: number;
+  /**
+   * Spec 154: whether this viewer can OPEN the WP detail. Default true keeps the
+   * whole-row Link + chevron. False renders the same content in a non-interactive
+   * container (no Link/href, no hover/press/focus states, no chevron) — the
+   * read-only project_coordinator view, which can't reach the SITE_STAFF WP detail.
+   */
+  canOpen?: boolean;
 }
 
 export function WorklistRow({
@@ -66,20 +73,19 @@ export function WorklistRow({
   spine,
   compact = false,
   enterIndex,
+  canOpen = true,
 }: WorklistRowProps) {
   const action = compact ? null : nextAction(wp.status, wp.hasContractor);
   const ActionIcon = action ? ACTION_ICON[action.kind] : null;
   const showUrgent = wp.priority === "urgent" || wp.priority === "critical";
   // Spec 140: staggered fade-up on mount (reduced-motion users get static rows).
   const enter = enterIndex === undefined ? null : listEnterProps(enterIndex);
-  return (
-    <Link
-      href={workPackageHref(projectId, wp.id)}
-      className={`rounded-card border-edge bg-card shadow-card hover:bg-sunk focus-visible:ring-action active:bg-sunk flex items-stretch gap-0 overflow-hidden border transition-colors focus:outline-none focus-visible:ring-2${
-        enter ? ` ${enter.className}` : ""
-      }`}
-      {...(enter ? { style: enter.style } : {})}
-    >
+
+  // The row body (spine + facts + status). The chevron and the Link wrapper are
+  // the tap affordance — added only when canOpen, so the read-only view (spec 154)
+  // shows identical content with no interaction.
+  const body = (
+    <>
       {/* Action-band spine — the arm's-length status cue. */}
       <span aria-hidden="true" className={`w-[7px] shrink-0 ${spine}`} />
       <span className="flex min-w-0 flex-1 flex-col gap-1.5 py-3 pr-1 pl-3">
@@ -128,6 +134,33 @@ export function WorklistRow({
           {WORK_PACKAGE_STATUS_LABEL[wp.status] ?? wp.status}
         </StatusPill>
       </span>
+    </>
+  );
+
+  // Spec 154: read-only viewer — a plain container, no link/hover/focus/chevron.
+  // The list-enter animation is layout, not interaction, so it is preserved.
+  if (!canOpen) {
+    return (
+      <div
+        className={`rounded-card border-edge bg-card shadow-card flex items-stretch gap-0 overflow-hidden border${
+          enter ? ` ${enter.className}` : ""
+        }`}
+        {...(enter ? { style: enter.style } : {})}
+      >
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={workPackageHref(projectId, wp.id)}
+      className={`rounded-card border-edge bg-card shadow-card hover:bg-sunk focus-visible:ring-action active:bg-sunk flex items-stretch gap-0 overflow-hidden border transition-colors focus:outline-none focus-visible:ring-2${
+        enter ? ` ${enter.className}` : ""
+      }`}
+      {...(enter ? { style: enter.style } : {})}
+    >
+      {body}
       <span aria-hidden="true" className="text-ink-muted flex items-center pr-2">
         <ChevronRight className="h-5 w-5" />
       </span>

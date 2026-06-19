@@ -68,6 +68,12 @@ interface WorkPackageListProps {
   role: UserRole;
   workPackages: ReadonlyArray<WorkPackageListItem>;
   deliverables: ReadonlyArray<GroupDeliverable>;
+  /**
+   * Spec 154: whether rows link to the WP detail. Default true. False (the
+   * read-only project_coordinator view) makes every row non-interactive —
+   * threaded straight through to each WorklistRow.
+   */
+  canOpen?: boolean;
 }
 
 /** Role decides the default lens; both lenses stay one tap away. */
@@ -80,6 +86,7 @@ export function WorkPackageList({
   role,
   workPackages,
   deliverables,
+  canOpen = true,
 }: WorkPackageListProps) {
   const [lens, setLens] = useState<Lens>(() => defaultLens(role));
   // Action lens: which triage band is filtered (null = all bands).
@@ -164,6 +171,7 @@ export function WorkPackageList({
           showDone={showDone}
           onToggleDone={() => setShowDone((v) => !v)}
           toRowItem={toRowItem}
+          canOpen={canOpen}
         />
       ) : (
         <DeliverableLens
@@ -180,6 +188,7 @@ export function WorkPackageList({
             })
           }
           toRowItem={toRowItem}
+          canOpen={canOpen}
         />
       )}
     </div>
@@ -198,6 +207,7 @@ interface ActionLensProps {
   showDone: boolean;
   onToggleDone: () => void;
   toRowItem: (wp: WorkPackageListItem) => WorklistRowItem;
+  canOpen: boolean;
 }
 
 function ActionLens({
@@ -209,6 +219,7 @@ function ActionLens({
   showDone,
   onToggleDone,
   toRowItem,
+  canOpen,
 }: ActionLensProps) {
   // The three triage tiles the operator named. Tapping filters to that
   // band; tapping the active tile clears the filter.
@@ -277,6 +288,7 @@ function ActionLens({
                   spine={meta.spine}
                   compact={band === "review" || band === "done"}
                   enterIndex={i}
+                  canOpen={canOpen}
                 />
               ))}
             </section>
@@ -314,6 +326,7 @@ interface DeliverableLensProps {
   expanded: ReadonlySet<string>;
   onToggle: (key: string) => void;
   toRowItem: (wp: WorkPackageListItem) => WorklistRowItem;
+  canOpen: boolean;
 }
 
 function DeliverableLens({
@@ -323,6 +336,7 @@ function DeliverableLens({
   expanded,
   onToggle,
   toRowItem,
+  canOpen,
 }: DeliverableLensProps) {
   // Degraded (no-deliverables) flat list: finished WPs stay hidden until
   // asked for, same spec-56 intent the action lens honors.
@@ -363,6 +377,7 @@ function DeliverableLens({
               wp={toRowItem(wp)}
               spine={ACTION_BAND_META[deriveActionBand(wp.status)].spine}
               enterIndex={i}
+              canOpen={canOpen}
             />
           ))
         )}
@@ -463,6 +478,7 @@ function DeliverableLens({
                       spine={ACTION_BAND_META[deriveActionBand(wp.status)].spine}
                       compact
                       enterIndex={i}
+                      canOpen={canOpen}
                     />
                   </li>
                 ))}
