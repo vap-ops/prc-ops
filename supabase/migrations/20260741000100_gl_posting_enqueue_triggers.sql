@@ -68,12 +68,17 @@ end;
 $$;
 
 -- Purchase: the money event is a purchased ticket with an amount (covers both the
--- PO/record path 'purchased' and the on-site path 'site_purchased'). On UPDATE,
--- only fire when the money (amount/status) actually changed — an incidental update
--- (e.g. a delivery field) must not re-enqueue. On INSERT, OLD is NULL so the
--- distinct-from clauses are true.
-create trigger purchase_requests_enqueue_gl_posting
-  after insert or update on public.purchase_requests
+-- PO/record path 'purchased' and the on-site path 'site_purchased'). Split into
+-- INSERT + UPDATE triggers — a WHEN clause on an INSERT-or-UPDATE trigger may not
+-- reference OLD (Postgres 42P17). On UPDATE only fire when the money (amount/status)
+-- actually changed — an incidental update (e.g. a delivery field) must not re-enqueue.
+create trigger purchase_requests_enqueue_gl_posting_ins
+  after insert on public.purchase_requests
+  for each row
+  when (new.amount is not null and new.status in ('purchased', 'site_purchased'))
+  execute function public.enqueue_gl_posting_tg('purchase', 'id');
+create trigger purchase_requests_enqueue_gl_posting_upd
+  after update on public.purchase_requests
   for each row
   when (new.amount is not null and new.status in ('purchased', 'site_purchased')
         and (new.amount is distinct from old.amount or new.status is distinct from old.status))
@@ -85,11 +90,16 @@ create trigger dc_payments_enqueue_gl_posting
   for each row
   execute function public.enqueue_gl_posting_tg('dc_payment', 'id');
 
--- Labor freeze: UPSERT (re-freeze) — enqueue only when a cost actually changed
--- (a re-freeze to the same numbers must not re-post). Keyed by the WP. On INSERT,
--- OLD is NULL so the distinct-from clauses are true.
-create trigger wp_labor_costs_enqueue_gl_posting
-  after insert or update on public.wp_labor_costs
+-- Labor freeze: UPSERT (re-freeze). Split INSERT + UPDATE (the WHEN may not
+-- reference OLD on an INSERT-or-UPDATE trigger). Every insert is a fresh freeze;
+-- on UPDATE only fire when a cost actually changed (a re-freeze to the same
+-- numbers must not re-post). Keyed by the WP.
+create trigger wp_labor_costs_enqueue_gl_posting_ins
+  after insert on public.wp_labor_costs
+  for each row
+  execute function public.enqueue_gl_posting_tg('labor_freeze', 'work_package_id');
+create trigger wp_labor_costs_enqueue_gl_posting_upd
+  after update on public.wp_labor_costs
   for each row
   when (new.own_cost is distinct from old.own_cost or new.dc_cost is distinct from old.dc_cost)
   execute function public.enqueue_gl_posting_tg('labor_freeze', 'work_package_id');
