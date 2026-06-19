@@ -5,7 +5,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
-import { PURCHASING_ROLES } from "@/lib/auth/role-home";
+import { PURCHASING_ROLES, isManagerRole } from "@/lib/auth/role-home";
 import { workPackageHref } from "@/lib/nav/project-paths";
 import { createClient } from "@/lib/db/server";
 import { isValidUuid } from "@/lib/photos/path";
