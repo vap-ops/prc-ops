@@ -30,6 +30,8 @@ type WpRow = Pick<
   | "priority"
   | "planned_start"
   | "planned_end"
+  // Spec 155: the WP-detail deliverable control reads the current binding.
+  | "deliverable_id"
 >;
 type ContractorRow = Pick<Tbl["contractors"]["Row"], "id" | "name" | "phone" | "status">;
 type ApprovalRow = Pick<
@@ -82,7 +84,7 @@ export async function loadWorkPackageDetail(
   const { data: wp } = await supabase
     .from("work_packages")
     .select(
-      "id, code, name, status, project_id, description, contractor_id, notes, priority, planned_start, planned_end",
+      "id, code, name, status, project_id, description, contractor_id, notes, priority, planned_start, planned_end, deliverable_id",
     )
     .eq("id", workPackageId)
     .maybeSingle();

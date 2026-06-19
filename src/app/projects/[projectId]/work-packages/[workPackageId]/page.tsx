@@ -31,6 +31,7 @@ import {
 import { loadWorkPackageDetail } from "@/lib/work-packages/load-detail";
 import { WpAssignmentPanel } from "@/components/features/work-packages/wp-assignment-panel";
 import { WpPriorityControl } from "@/components/features/work-packages/wp-priority-control";
+import { WpDeliverableControl } from "@/components/features/work-packages/wp-deliverable-control";
 import { WpSchedulePanel } from "@/components/features/work-packages/wp-schedule-panel";
 import { WorkPackageNotes } from "@/components/features/work-packages/work-package-notes";
 import { PurchaseRequestForm } from "@/components/features/purchasing/purchase-request-form";
@@ -54,7 +55,18 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
 
   // Spec 147 U1: one loader batches the WP-detail reads (was a serial
   // waterfall). Same queries/columns/results — only the scheduling changes.
-  const data = await loadWorkPackageDetail(supabase, { workPackageId, projectId, isPlanner });
+  // Spec 155: the project's deliverables feed the planner-only bind control;
+  // it depends only on projectId, so it rides alongside the loader (no waterfall).
+  const [data, { data: projectDeliverables }] = await Promise.all([
+    loadWorkPackageDetail(supabase, { workPackageId, projectId, isPlanner }),
+    isPlanner
+      ? supabase
+          .from("deliverables")
+          .select("id, code, name")
+          .eq("project_id", projectId)
+          .order("sort_order", { ascending: true })
+      : Promise.resolve({ data: [] as { id: string; code: string; name: string }[] }),
+  ]);
   if (!data.wp) {
     notFound();
   }
@@ -171,6 +183,13 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
               projectId={wp.project_id}
               workPackageId={wp.id}
               priority={wp.priority}
+            />
+            {/* Spec 155: bind the WP to a งวดงาน (deliverable) — manager-only. */}
+            <WpDeliverableControl
+              projectId={wp.project_id}
+              workPackageId={wp.id}
+              deliverableId={wp.deliverable_id}
+              deliverables={projectDeliverables ?? []}
             />
             <WpSchedulePanel
               projectId={wp.project_id}

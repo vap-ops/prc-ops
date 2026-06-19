@@ -11,9 +11,12 @@ This unit adds the post-create bind/move/clear action, mirroring the per-field R
 pattern (`set_work_package_priority`).
 
 - **RPC** (own migration): `set_work_package_deliverable(p_work_package_id uuid,
-p_deliverable_id uuid)` — `p_deliverable_id` nullable; SECURITY DEFINER, pinned
-  `search_path`. Returns `boolean` (false on unknown WP, matching
-  `set_work_package_notes`).
+p_deliverable_id uuid default null)` — SECURITY DEFINER, pinned `search_path`,
+  returns `boolean`. `p_deliverable_id` carries `default null` so typegen marks
+  the arg optional and the action omits it to ungroup (the
+  `set_work_package_schedule` idiom). The membership gate runs FIRST, so an
+  unknown WP id yields `42501` (`can_see_wp` is false for a missing WP — existence
+  isn't disclosed to non-members), not a false return.
   - Gate: `current_user_role() in ('project_manager','super_admin','project_director')`
     → else `42501`. Plus membership: `can_see_wp(p_work_package_id)` → else `42501`
     (ADR 0056, `reopen` precedent).
@@ -39,8 +42,9 @@ Failing tests first.
 1. **pgTAP** `NN-set-work-package-deliverable.test.sql`: catalog (function exists,
    SECURITY DEFINER); PM binds → `deliverable_id` set; bind `NULL` → cleared;
    `super_admin` + `project_director` allowed; `site_admin` + `visitor` denied
-   (`42501`); a deliverable from ANOTHER project rejected (`22023`); unknown WP →
-   false; a PM who cannot see the WP (non-member, membership gate) denied (`42501`).
+   (`42501`); a deliverable from ANOTHER project rejected (`22023`); an unknown
+   deliverable rejected (`22023`); a PM who cannot see the WP (non-member,
+   membership gate) denied (`42501`).
 2. **vitest** for the picker component (renders the project's deliverables + the
    clear option; calls the action with the chosen id / null).
 
