@@ -1,0 +1,3 @@
+# The minted storageState contains a REAL Supabase session (access + refresh
+# token) for the test user. Never commit it.
+.auth/
