@@ -1,0 +1,215 @@
+// Spec 147 U1 — WP-detail data loader. The page formerly ran ~10 Supabase reads
+// in a serial waterfall; the child reads depend only on the work package, not on
+// each other, so they batch into one Promise.all (root → fan → dependent tail).
+// Behavior-preserving: same queries, same column lists, same results — only the
+// scheduling changes. Mirrors fetchLaborZoneData (spec 46). Concurrency is locked
+// by tests/unit/load-work-package-detail.test.ts.
+
+import "server-only";
+
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/db/database.types";
+import { fetchLaborZoneData } from "@/lib/labor/fetch-zone-data";
+import { groupRoster, type GroupedRoster } from "@/lib/labor/group-workers";
+import type { LaborDisplayRow } from "@/lib/labor/types";
+import { getCurrentPhotosForWorkPackage, type PhotoLogRow } from "@/lib/photos/current-photos";
+import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
+import { fetchDisplayNames } from "@/lib/users/display-names";
+
+type Tbl = Database["public"]["Tables"];
+type WpRow = Pick<
+  Tbl["work_packages"]["Row"],
+  | "id"
+  | "code"
+  | "name"
+  | "status"
+  | "project_id"
+  | "description"
+  | "contractor_id"
+  | "notes"
+  | "priority"
+  | "planned_start"
+  | "planned_end"
+>;
+type ContractorRow = Pick<Tbl["contractors"]["Row"], "id" | "name" | "phone" | "status">;
+type ApprovalRow = Pick<
+  Tbl["approvals"]["Row"],
+  "id" | "decision" | "comment" | "decided_by" | "decided_at"
+>;
+type SiblingRow = Pick<Tbl["work_packages"]["Row"], "id" | "code" | "name">;
+type RequestRow = Pick<
+  Tbl["purchase_requests"]["Row"],
+  | "id"
+  | "pr_number"
+  | "item_description"
+  | "quantity"
+  | "unit"
+  | "status"
+  | "priority"
+  | "requested_at"
+  | "requested_by"
+  | "requested_by_email"
+  | "needed_by"
+  | "decided_at"
+  | "purchased_at"
+  | "shipped_at"
+  | "delivered_at"
+  | "eta"
+>;
+
+export interface WorkPackageDetailData {
+  wp: WpRow | null;
+  contractors: ContractorRow[];
+  approvals: ApprovalRow[];
+  wpRequests: RequestRow[];
+  siblingWps: SiblingRow[];
+  predecessorIds: string[];
+  labor: { roster: GroupedRoster; rows: LaborDisplayRow[] };
+  photosByPhase: { before: PhotoLogRow[]; during: PhotoLogRow[]; after: PhotoLogRow[] };
+  signedUrls: Map<string, string>;
+  displayNames: Map<string, string>;
+  defectReason: string | null;
+}
+
+type Db = SupabaseClient<Database>;
+
+export async function loadWorkPackageDetail(
+  supabase: Db,
+  args: { workPackageId: string; projectId: string; isPlanner: boolean },
+): Promise<WorkPackageDetailData> {
+  const { workPackageId, projectId, isPlanner } = args;
+
+  const { data: wp } = await supabase
+    .from("work_packages")
+    .select(
+      "id, code, name, status, project_id, description, contractor_id, notes, priority, planned_start, planned_end",
+    )
+    .eq("id", workPackageId)
+    .maybeSingle();
+
+  if (!wp || wp.project_id !== projectId) {
+    return {
+      wp: null,
+      contractors: [],
+      approvals: [],
+      wpRequests: [],
+      siblingWps: [],
+      predecessorIds: [],
+      labor: { roster: groupRoster([], []), rows: [] },
+      photosByPhase: { before: [], during: [], after: [] },
+      signedUrls: new Map(),
+      displayNames: new Map(),
+      defectReason: null,
+    };
+  }
+
+  // The fan: every read here depends only on the work package, never on a
+  // sibling read — so they run together instead of in series.
+  const [
+    { data: contractorRows },
+    { data: approvalRows },
+    { data: requestRows },
+    planner,
+    labor,
+    photosByPhase,
+    defectReason,
+  ] = await Promise.all([
+    supabase
+      .from("contractors")
+      .select("id, name, phone, status")
+      .order("name", { ascending: true }),
+    supabase
+      .from("approvals")
+      .select("id, decision, comment, decided_by, decided_at")
+      .eq("work_package_id", wp.id)
+      .order("decided_at", { ascending: false }),
+    supabase
+      .from("purchase_requests")
+      .select(
+        "id, pr_number, item_description, quantity, unit, status, priority, requested_at, requested_by, requested_by_email, needed_by, decided_at, purchased_at, shipped_at, delivered_at, eta",
+      )
+      .eq("work_package_id", wp.id)
+      .order("requested_at", { ascending: false }),
+    loadPlanner(supabase, wp.id, wp.project_id, isPlanner),
+    fetchLaborZoneData(supabase, wp.id),
+    getCurrentPhotosForWorkPackage(supabase, wp.id),
+    loadDefectReason(supabase, wp.id, wp.status),
+  ]);
+
+  const approvals = approvalRows ?? [];
+  const wpRequests = requestRows ?? [];
+
+  // Dependent tail: display names need the ids from approvals+requests; signed
+  // URLs need the photo rows. Both batch.
+  const nameIds = Array.from(
+    new Set(
+      [...approvals.map((a) => a.decided_by), ...wpRequests.map((r) => r.requested_by)].filter(
+        (id): id is string => typeof id === "string",
+      ),
+    ),
+  );
+  const allPhotos: PhotoLogRow[] = [
+    ...photosByPhase.before,
+    ...photosByPhase.during,
+    ...photosByPhase.after,
+  ];
+  const [displayNames, signedUrls] = await Promise.all([
+    fetchDisplayNames(nameIds, "[wp-detail]"),
+    mintSignedUrlsForPhotos(allPhotos),
+  ]);
+
+  return {
+    wp,
+    contractors: contractorRows ?? [],
+    approvals,
+    wpRequests,
+    siblingWps: planner.siblingWps,
+    predecessorIds: planner.predecessorIds,
+    labor,
+    photosByPhase,
+    signedUrls,
+    displayNames,
+    defectReason,
+  };
+}
+
+// Spec 92: schedule + dependency editing is PM/super only. The two reads batch.
+async function loadPlanner(
+  supabase: Db,
+  wpId: string,
+  projectId: string,
+  isPlanner: boolean,
+): Promise<{ siblingWps: SiblingRow[]; predecessorIds: string[] }> {
+  if (!isPlanner) return { siblingWps: [], predecessorIds: [] };
+  const [{ data: siblings }, { data: depRows }] = await Promise.all([
+    supabase
+      .from("work_packages")
+      .select("id, code, name")
+      .eq("project_id", projectId)
+      .neq("id", wpId)
+      .order("code", { ascending: true }),
+    supabase.from("work_package_dependencies").select("predecessor_id").eq("successor_id", wpId),
+  ]);
+  return {
+    siblingWps: siblings ?? [],
+    predecessorIds: (depRows ?? []).map((d) => d.predecessor_id),
+  };
+}
+
+// Spec 144: a WP reopened for a defect surfaces its latest reason (audit_log).
+async function loadDefectReason(
+  supabase: Db,
+  wpId: string,
+  status: WpRow["status"],
+): Promise<string | null> {
+  if (status !== "rework") return null;
+  const { data: defectRow } = await supabase
+    .from("audit_log")
+    .select("payload")
+    .eq("target_id", wpId)
+    .eq("payload->>event", "wp_reopened_for_defect")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (defectRow?.payload as unknown as { reason?: string } | null)?.reason ?? null;
+}

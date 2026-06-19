@@ -6,10 +6,8 @@ import { Camera, FileText, ShoppingCart, Users } from "lucide-react";
 import { requireRole } from "@/lib/auth/require-role";
 import { projectHref, workPackageHref } from "@/lib/nav/project-paths";
 import { createClient } from "@/lib/db/server";
-import { getCurrentPhotosForWorkPackage, type PhotoLogRow } from "@/lib/photos/current-photos";
 import { latestCreatedAt, PHASES } from "@/lib/photos/phases";
 import { derivePhaseProgress } from "@/lib/photos/phase-progress";
-import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { WorkPackageInfoButton } from "@/components/features/work-packages/work-package-info-button";
@@ -29,7 +27,7 @@ import {
   type PurchaseRequestPriority,
   type PurchaseRequestStatus,
 } from "@/lib/status-colors";
-import { fetchDisplayNames } from "@/lib/users/display-names";
+import { loadWorkPackageDetail } from "@/lib/work-packages/load-detail";
 import { WpAssignmentPanel } from "@/components/features/work-packages/wp-assignment-panel";
 import { WpPriorityControl } from "@/components/features/work-packages/wp-priority-control";
 import { WpSchedulePanel } from "@/components/features/work-packages/wp-schedule-panel";
@@ -37,7 +35,6 @@ import { WorkPackageNotes } from "@/components/features/work-packages/work-packa
 import { PurchaseRequestForm } from "@/components/features/purchasing/purchase-request-form";
 import { SitePurchaseForm } from "@/components/features/purchasing/site-purchase-form";
 import { LaborLogZone } from "@/components/features/labor/labor-log-zone";
-import { fetchLaborZoneData } from "@/lib/labor/fetch-zone-data";
 import { PhotoCaptureZone } from "./phase-uploader";
 import { ReportDefectControl } from "./report-defect-control";
 
@@ -56,24 +53,32 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
     "project_director",
   ]);
   const supabase = await createClient();
+  const isAssigner = true;
+  const isPlanner =
+    ctx.role === "project_manager" ||
+    ctx.role === "super_admin" ||
+    ctx.role === "project_director";
 
-  const { data: wp } = await supabase
-    .from("work_packages")
-    .select(
-      "id, code, name, status, project_id, description, contractor_id, notes, priority, planned_start, planned_end",
-    )
-    .eq("id", workPackageId)
-    .maybeSingle();
-
-  if (!wp || wp.project_id !== projectId) {
+  // Spec 147 U1: one loader batches the WP-detail reads (was a serial
+  // waterfall). Same queries/columns/results — only the scheduling changes.
+  const data = await loadWorkPackageDetail(supabase, { workPackageId, projectId, isPlanner });
+  if (!data.wp) {
     notFound();
   }
+  const wp = data.wp;
+  const {
+    contractors,
+    approvals,
+    wpRequests,
+    siblingWps,
+    predecessorIds,
+    labor,
+    photosByPhase,
+    signedUrls,
+    displayNames,
+    defectReason,
+  } = data;
 
-  const { data: contractorRows } = await supabase
-    .from("contractors")
-    .select("id, name, phone, status")
-    .order("name", { ascending: true });
-  const contractors = contractorRows ?? [];
   const assignedContractor = wp.contractor_id
     ? (contractors.find((c) => c.id === wp.contractor_id) ?? null)
     : null;
@@ -81,12 +86,6 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
     .filter((c) => c.status !== "blacklisted" || c.id === wp.contractor_id)
     .map(({ id, name, phone }) => ({ id, name, phone }));
 
-  const { data: approvalRows } = await supabase
-    .from("approvals")
-    .select("id, decision, comment, decided_by, decided_at")
-    .eq("work_package_id", wp.id)
-    .order("decided_at", { ascending: false });
-  const approvals = approvalRows ?? [];
   const latestDecision = approvals[0] ?? null;
   const attention =
     latestDecision &&
@@ -94,62 +93,11 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
       ? latestDecision
       : null;
 
-  const isAssigner = true;
-  const isPlanner =
-    ctx.role === "project_manager" ||
-    ctx.role === "super_admin" ||
-    ctx.role === "project_director";
-
-  // Spec 92: schedule + dependency editing (PM/super). Sibling WPs feed the
-  // depends-on picker; current predecessors come from work_package_dependencies.
-  let siblingWps: { id: string; code: string; name: string }[] = [];
-  let predecessorIds: string[] = [];
-  if (isPlanner) {
-    const [{ data: siblings }, { data: depRows }] = await Promise.all([
-      supabase
-        .from("work_packages")
-        .select("id, code, name")
-        .eq("project_id", wp.project_id)
-        .neq("id", wp.id)
-        .order("code", { ascending: true }),
-      supabase.from("work_package_dependencies").select("predecessor_id").eq("successor_id", wp.id),
-    ]);
-    siblingWps = siblings ?? [];
-    predecessorIds = (depRows ?? []).map((d) => d.predecessor_id);
-  }
   const predSet = new Set(predecessorIds);
   const predecessorOptions = siblingWps.filter((w) => predSet.has(w.id));
   const candidateOptions = siblingWps.filter((w) => !predSet.has(w.id));
 
-  const { data: wpRequests } = await supabase
-    .from("purchase_requests")
-    .select(
-      "id, pr_number, item_description, quantity, unit, status, priority, requested_at, requested_by, requested_by_email, needed_by, decided_at, purchased_at, shipped_at, delivered_at, eta",
-    )
-    .eq("work_package_id", wp.id)
-    .order("requested_at", { ascending: false });
-
-  const nameIds = Array.from(
-    new Set(
-      [
-        ...approvals.map((a) => a.decided_by),
-        ...(wpRequests ?? []).map((r) => r.requested_by),
-      ].filter((id): id is string => typeof id === "string"),
-    ),
-  );
-  const displayNames = await fetchDisplayNames(nameIds, "[wp-detail]");
-
-  const requestedCount = (wpRequests ?? []).filter((r) => r.status === "requested").length;
-
-  const labor = await fetchLaborZoneData(supabase, wp.id);
-
-  const photosByPhase = await getCurrentPhotosForWorkPackage(supabase, wp.id);
-  const allPhotos: PhotoLogRow[] = [
-    ...photosByPhase.before,
-    ...photosByPhase.during,
-    ...photosByPhase.after,
-  ];
-  const signedUrls = await mintSignedUrlsForPhotos(allPhotos);
+  const requestedCount = wpRequests.filter((r) => r.status === "requested").length;
 
   // Field-First: one capture zone for all three phases; the shutter opens
   // pre-set to the current phase (server-derived from the same progress
@@ -174,20 +122,6 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
       lastUpdatedLabel: latest ? formatThaiTime(latest) : null,
     };
   });
-
-  // Spec 144: when a WP was reopened for a defect, surface the latest reason.
-  let defectReason: string | null = null;
-  if (wp.status === "rework") {
-    const { data: defectRow } = await supabase
-      .from("audit_log")
-      .select("payload")
-      .eq("target_id", wp.id)
-      .eq("payload->>event", "wp_reopened_for_defect")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    defectReason = (defectRow?.payload as unknown as { reason?: string } | null)?.reason ?? null;
-  }
 
   return (
     <PageShell>

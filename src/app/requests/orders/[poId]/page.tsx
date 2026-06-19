@@ -9,10 +9,9 @@ import { requireRole } from "@/lib/auth/require-role";
 import { PURCHASING_ROLES, SITE_STAFF_ROLES } from "@/lib/auth/role-home";
 import { isBackOfficeRole } from "@/lib/purchasing/back-office";
 import { createClient } from "@/lib/db/server";
-import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { isValidUuid } from "@/lib/photos/path";
-import { PR_LIST_COLUMNS } from "@/lib/purchasing/columns";
 import { buildPoDetailView } from "@/lib/purchasing/po-detail";
+import { loadPurchaseOrderDetail } from "@/lib/purchasing/load-po-detail";
 import { DETAIL_TITLE } from "@/lib/ui/classes";
 import {
   PURCHASE_ORDER_STATUS_LABEL,
@@ -62,57 +61,22 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
   }
 
   const supabase = await createClient();
-  const { data: po } = await supabase
-    .from("purchase_orders")
-    .select("id, po_number, supplier, supplier_id, eta, ordered_at, notes")
-    .eq("id", poId)
-    .maybeSingle();
-
-  if (!po) {
-    notFound();
-  }
-
-  // Member tickets (the source of truth for status + total). Read the same fact
-  // columns the list/detail read (spec 65), ordered by their running number.
-  const { data: memberRows } = await supabase
-    .from("purchase_requests")
-    .select(`${PR_LIST_COLUMNS}, delivery_id`)
-    .eq("purchase_order_id", poId)
-    .order("pr_number", { ascending: true });
-  const members = memberRows ?? [];
-
-  // Spec 135 U2: the PO's deliveries (procurement-arranged งวดส่ง). Every PO has the
-  // auto-created default; procurement splits into more. cost is omitted (money, set
-  // in U3).
-  const { data: deliveryRows } = await supabase
-    .from("purchase_order_deliveries")
-    .select("id, eta, created_at")
-    .eq("purchase_order_id", poId)
-    .order("created_at", { ascending: true });
-
-  // WP code/name for each line's chip (separate query, the /requests convention).
-  const wpIds = Array.from(new Set(members.map((m) => m.work_package_id)));
-  const { data: wpRows } = wpIds.length
-    ? await supabase.from("work_packages").select("id, code, name, project_id").in("id", wpIds)
-    : { data: [] };
-  const wpById = new Map((wpRows ?? []).map((wp) => [wp.id, wp]));
-
-  // Money: per-line amount via the admin client, gated to back office (spec 106).
   const isBackOffice = isBackOfficeRole(ctx.role);
   // Spec 134 U8: receiving is a SITE action — the off-site purchase team
   // (procurement) sees the PO + delivery status but never the รับของ controls.
   const canReceive = SITE_STAFF_ROLES.includes(ctx.role);
-  const amountById = new Map<string, number | null>();
-  if (isBackOffice && members.length > 0) {
-    const admin = createAdminSupabase();
-    const { data: amountRows } = await admin
-      .from("purchase_requests")
-      .select("id, amount")
-      .in(
-        "id",
-        members.map((m) => m.id),
-      );
-    for (const a of amountRows ?? []) amountById.set(a.id, a.amount);
+
+  // Spec 148 U1: one loader batches the PO-detail reads (was a serial waterfall).
+  // Same queries/columns/results — only the scheduling changes. Per-line amount
+  // (money) stays admin-client + back-office-only (spec 106), inside the loader.
+  const { po, members, deliveryRows, wpById, amountById } = await loadPurchaseOrderDetail(
+    supabase,
+    poId,
+    { isBackOffice },
+  );
+
+  if (!po) {
+    notFound();
   }
 
   // Derived roll-up: status from every member, total + active count excluding

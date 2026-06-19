@@ -32,7 +32,6 @@ import { PurchaseRequestTracker } from "@/components/features/purchasing/purchas
 import { PurchaseRequestNotes } from "@/components/features/purchasing/purchase-request-notes";
 import { PurchaseRequestDecision } from "@/components/features/purchasing/purchase-request-decision";
 import { PurchaseRequestCancel } from "@/components/features/purchasing/purchase-request-cancel";
-import type { SupplierOption } from "@/components/features/purchasing/purchase-record-form";
 import { CreatePoFromRequestButton } from "@/components/features/purchasing/create-po-from-request-button";
 import { PurchaseRequestShip } from "@/components/features/purchasing/purchase-request-ship";
 import { isBackOfficeRole } from "@/lib/purchasing/back-office";
@@ -40,10 +39,7 @@ import { DeliveryPhotoUploader } from "@/components/features/purchasing/delivery
 import { PurchaseRequestAttachmentStager } from "@/components/features/purchasing/purchase-request-attachment-stager";
 import { AttachmentRemoveButton } from "@/components/features/purchasing/attachment-remove-button";
 import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
-import { mintSignedUrlsForAttachments } from "@/lib/purchasing/attachment-signed-urls";
-import { mintSignedUrls } from "@/lib/storage/signed-urls";
-import { PO_ATTACHMENTS_BUCKET } from "@/lib/storage/buckets";
-import { fetchDisplayNames } from "@/lib/users/display-names";
+import { loadRequestDetail } from "@/lib/purchasing/load-request-detail";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { AttentionCard } from "@/components/features/common/attention-card";
 import { InvoiceUploader } from "@/components/features/purchasing/invoice-uploader";
@@ -82,34 +78,24 @@ export default async function RequestDetailPage({ params }: PageProps) {
   const priority = request.priority;
   const isMine = request.requested_by === ctx.id;
 
-  const { data: wp } = await supabase
-    .from("work_packages")
-    .select("id, code, name, project_id")
-    .eq("id", request.work_package_id)
-    .maybeSingle();
+  const isDecider =
+    ctx.role === "project_manager" ||
+    ctx.role === "super_admin" ||
+    ctx.role === "project_director";
+  // Spec 70: the WP detail route is SITE_STAFF_ROLES-gated and would bounce
+  // procurement, so the WP reference renders as plain text (not a link) for it.
+  const isProcurement = ctx.role === "procurement";
+  // Spec 33 / ADR 0038 gate; suppliers fetched only when the form renders.
+  const isBackOffice = isBackOfficeRole(ctx.role);
 
-  const requesterNames = await fetchDisplayNames(
-    request.requested_by ? [request.requested_by] : [],
-    "[requests/detail]",
-  );
-  const requesterName =
-    (request.requested_by ? requesterNames.get(request.requested_by) : null) ??
-    request.requested_by_email ??
-    "—";
+  // Spec 147 U3: one loader batches the request-detail reads (was a serial
+  // waterfall). Same queries/columns/results — only the scheduling changes.
+  const { wp, requesterName, attachments, attachmentUrls, poRow, poDocs, poDocUrls, suppliers } =
+    await loadRequestDetail(supabase, request, { isBackOffice });
 
-  // Attachments (spec 23 + spec 16 P2): the current-state view
-  // (ADR 0009/0015 anti-join pre-encoded), one request's rows, split by
-  // purpose/kind, then batched signed URLs for the image rows.
-  const { data: attachmentRows } = await supabase
-    .from("purchase_request_attachments_current")
-    .select("id, purchase_request_id, kind, purpose, storage_path, url, created_by, created_at")
-    .eq("purchase_request_id", request.id)
-    .order("created_at", { ascending: true });
-  const attachments = attachmentRows ?? [];
+  // Attachment splits (spec 23/16 P2, spec 66/121): pure filters over the
+  // current-state rows. Links are exactly kind 'link' (a pdf is not a link).
   const confirmations = attachments.filter((row) => row.purpose === "delivery_confirmation");
-  // Spec 66 / ADR 0043: invoices (ใบส่งของ/ใบเสร็จ) are their own purpose —
-  // split out so they don't leak into the reference section. Spec 121: each
-  // file group splits image vs pdf so the viewer dispatches (iframe vs lightbox).
   const invoiceImages = attachments.filter(
     (row) => row.purpose === "invoice" && row.kind === "image",
   );
@@ -120,65 +106,17 @@ export default async function RequestDetailPage({ params }: PageProps) {
   const referencePdfs = attachments.filter(
     (row) => row.purpose === "reference" && row.kind === "pdf",
   );
-  // Links are exactly kind 'link' (NOT "not image" — a pdf is not a link).
   const referenceLinks = attachments.filter(
     (row) => row.purpose === "reference" && row.kind === "link",
   );
-  // Signed URLs for every stored-bytes row (image + pdf); links carry no path.
-  const attachmentUrls = await mintSignedUrlsForAttachments(
-    attachments
-      .filter((row) => row.kind === "image" || row.kind === "pdf")
-      .map((row) => ({ id: row.id ?? "", storage_path: row.storage_path })),
-  );
 
-  // Spec 125 / ADR 0046 Layer B: the PO this ticket belongs to may carry a
-  // source document (quotation/invoice), shown on every member ticket. Spec 134
-  // U1: the PO now has a detail page, so also read its number to link there.
+  // Spec 125/134: the PO this ticket belongs to (number + source docs) — link target.
   const poId = request.purchase_order_id;
-  const { data: poRow } = poId
-    ? await supabase.from("purchase_orders").select("po_number").eq("id", poId).maybeSingle()
-    : { data: null };
-  const { data: poDocRows } = poId
-    ? await supabase
-        .from("purchase_order_attachments_current")
-        .select("id, kind, storage_path, created_at")
-        .eq("purchase_order_id", poId)
-        // Spec 134 U4a: source docs only — proof-of-delivery is its own purpose,
-        // shown on the PO detail, never in the ticket's quotation/invoice section.
-        .eq("purpose", "source_document")
-        .order("created_at", { ascending: true })
-    : { data: null };
-  const poDocs = poDocRows ?? [];
-  const poDocUrls = await mintSignedUrls(
-    PO_ATTACHMENTS_BUCKET,
-    poDocs.map((row) => ({ id: row.id ?? "", storage_path: row.storage_path })),
-  );
-
-  const isDecider =
-    ctx.role === "project_manager" ||
-    ctx.role === "super_admin" ||
-    ctx.role === "project_director";
-  // Spec 70: the WP detail route (/projects/..., spec 82) is SITE_STAFF_ROLES-
-  // gated and would bounce procurement, so the WP reference renders as plain
-  // text (not a link) for it. Every other role keeps the link.
-  const isProcurement = ctx.role === "procurement";
-  // Spec 33 / ADR 0038 gate; suppliers fetched only when the form renders.
-  const isBackOffice = isBackOfficeRole(ctx.role);
-  // Spec 73: the note is editable by its requester or by back-office; the RPC
-  // re-gates server-side. Everyone else gets the read-only view.
+  // Spec 73: the note is editable by its requester or by back-office.
   const canEditNotes = isMine || isBackOffice;
-  // Spec 66 / ADR 0043: on-site purchase + PM-ack state (badge derives
-  // from source + acknowledged_at, not a status change).
+  // Spec 66 / ADR 0043: on-site purchase + PM-ack state.
   const isSitePurchase = request.source === "site_purchase";
   const ackAt = request.acknowledged_at;
-  let suppliers: SupplierOption[] = [];
-  if (isBackOffice && status === "approved") {
-    const { data: supplierRows } = await supabase
-      .from("suppliers")
-      .select("id, name, phone")
-      .order("name", { ascending: true });
-    suppliers = supplierRows ?? [];
-  }
 
   const hasActions =
     (isDecider && status === "requested") ||
