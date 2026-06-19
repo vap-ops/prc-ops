@@ -36,12 +36,12 @@ select ok((select relrowsecurity from pg_class where oid = 'public.gl_posting_ou
   'RLS enabled on gl_posting_outbox');
 select is((select count(*) from pg_policies where schemaname='public' and tablename='gl_posting_outbox'),
   0::bigint, 'gl_posting_outbox has no policies (zero access)');
-select has_trigger('public', 'purchase_requests', 'purchase_requests_enqueue_gl_posting',
-  'purchase_requests enqueue trigger exists');
+select has_trigger('public', 'purchase_requests', 'purchase_requests_enqueue_gl_posting_ins',
+  'purchase_requests enqueue (insert) trigger exists');
 select has_trigger('public', 'dc_payments', 'dc_payments_enqueue_gl_posting',
   'dc_payments enqueue trigger exists');
-select has_trigger('public', 'wp_labor_costs', 'wp_labor_costs_enqueue_gl_posting',
-  'wp_labor_costs enqueue trigger exists');
+select has_trigger('public', 'wp_labor_costs', 'wp_labor_costs_enqueue_gl_posting_ins',
+  'wp_labor_costs enqueue (insert) trigger exists');
 select has_trigger('public', 'equipment_rental_batches', 'equipment_rental_batches_enqueue_gl_posting',
   'equipment_rental_batches enqueue trigger exists');
 
