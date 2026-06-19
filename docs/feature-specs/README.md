@@ -157,6 +157,9 @@ for reading the spec itself.
 | 152  | `project_director` role — see-all `project_manager` (executive-director tier; ADR 0058)                            |
 | 153  | Desktop hub-strip coverage — HubNav on /settings + /dashboard (hubNavForRole selector)                             |
 | 154  | Coordinator read-only project view — non-link WP rows + no calendar chip (spec 143 / ADR 0056)                     |
+| 155  | Bind a work package to a deliverable (set_work_package_deliverable RPC + picker; ADR 0059)                         |
+| 156  | Edit a work package's name (set_work_package_name RPC + edit sheet; ADR 0059)                                      |
+| 157  | Delete a work package — Tier 1 empty-only hard delete (+ labor_logs FK fix; ADR 0059)                              |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.
