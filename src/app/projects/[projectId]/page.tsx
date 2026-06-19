@@ -15,12 +15,11 @@ import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
-import { fetchDisplayNames } from "@/lib/users/display-names";
 import { PROJECT_TYPE_LABEL } from "@/lib/projects/validate-settings";
 import { rankFromPriority } from "@/lib/work-packages/action-bands";
-import { criticalWorkPackageIds } from "@/lib/work-packages/critical-path";
+import { loadProjectDetail } from "@/lib/projects/load-detail";
 import { WorkPackageList } from "./work-package-list";
-import { OnboardingChecklist, type OnboardingStatus } from "./onboarding-checklist";
+import { OnboardingChecklist } from "./onboarding-checklist";
 import { AddWorkPackageSheet } from "./add-work-package-sheet";
 import { CopyWorkPackagesSheet } from "./copy-work-packages-sheet";
 import { ImportWorkPackagesSheet } from "./import-work-packages-sheet";
@@ -92,102 +91,30 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
     );
   }
 
-  // Spec 79: project-context lines (client name, internal lead, type, site).
-  // budget is intentionally NOT read here (money — admin-only, PM screens).
-  const [clientRow, { data: memberRows }] = await Promise.all([
-    project.client_id
-      ? supabase.from("clients").select("name").eq("id", project.client_id).maybeSingle()
-      : Promise.resolve({ data: null }),
-    supabase.from("project_members").select("user_id").eq("project_id", project.id),
-  ]);
-  const clientName = clientRow.data?.name ?? null;
-  const memberIds = (memberRows ?? []).map((m) => m.user_id);
-  const nameIds = [
-    ...new Set([...(project.project_lead_id ? [project.project_lead_id] : []), ...memberIds]),
-  ];
-  const names = nameIds.length
-    ? await fetchDisplayNames(nameIds, "[project-page]")
-    : new Map<string, string>();
-  const leadName = project.project_lead_id ? (names.get(project.project_lead_id) ?? null) : null;
-  const memberNames = memberIds
-    .map((id) => names.get(id) ?? null)
-    .filter((n): n is string => n !== null);
-  const typeLabel = project.project_type ? PROJECT_TYPE_LABEL[project.project_type] : null;
-
-  // Field-First worklist: action bands derive from `status`; the manual
-  // `priority` flag (spec 91) drives the ด่วน tag + ต้องทำ sort; `isCritical`
-  // is computed below from the schedule + dependencies (spec 92).
-  const { data: workPackages } = await supabase
-    .from("work_packages")
-    .select(
-      "id, code, name, status, deliverable_id, contractor_id, priority, planned_start, planned_end",
-    )
-    .eq("project_id", project.id)
-    .order("code", { ascending: true });
-
-  const { data: deliverables } = await supabase
-    .from("deliverables")
-    .select("id, code, name, sort_order")
-    .eq("project_id", project.id)
-    .order("sort_order", { ascending: true });
-
-  // Spec 92: critical path computed on read from planned windows + finish-to-
-  // start dependencies. Lights the worklist CRITICAL_BADGE for path WPs.
-  const wpIds = (workPackages ?? []).map((wp) => wp.id);
-  const { data: dependencyRows } = wpIds.length
-    ? await supabase
-        .from("work_package_dependencies")
-        .select("predecessor_id, successor_id")
-        .in("predecessor_id", wpIds)
-    : { data: [] };
-  const criticalIds = criticalWorkPackageIds(
-    (workPackages ?? []).map((wp) => ({
-      id: wp.id,
-      plannedStart: wp.planned_start,
-      plannedEnd: wp.planned_end,
-    })),
-    (dependencyRows ?? []).map((d) => ({
-      predecessorId: d.predecessor_id,
-      successorId: d.successor_id,
-    })),
-  );
-
-  // Spec 142 U3: PM/super get the onboarding checklist. Booleans only — the RPC
-  // reads the money-isolated budget column but returns no amount.
+  // Spec 142 U3: PM/super get onboarding + the copy/template seeding controls.
   const isPmRole =
     ctx.role === "project_manager" ||
     ctx.role === "super_admin" ||
     ctx.role === "project_director";
-  // Spec 145: a completed/archived project is locked for new work — the DB
-  // trigger blocks WP inserts; the UI hides the seeding controls + onboarding
-  // and shows a banner. Warranty defect-rework (reopen on the WP page) stays.
+  // Spec 145: a completed/archived project is locked for new work — the UI hides
+  // the seeding controls + onboarding and shows a banner. Defect-rework stays.
   const projectOpen = project.status === "active" || project.status === "on_hold";
-  let onboarding: OnboardingStatus | null = null;
-  // Spec 142 U6: other projects this PM can see, as copy-from sources (RLS scopes
-  // the list to the PM's own projects). Excludes the current project.
-  let sourceProjects: { id: string; code: string; name: string }[] = [];
-  if (isPmRole) {
-    const [onbRes, srcRes] = await Promise.all([
-      supabase.rpc("project_onboarding_status", { p_project_id: project.id }),
-      supabase
-        .from("projects")
-        .select("id, code, name")
-        .neq("id", project.id)
-        .order("code", { ascending: true }),
-    ]);
-    onboarding = onbRes.data?.[0] ?? null;
-    sourceProjects = srcRes.data ?? [];
-  }
 
-  // Spec 142 U5: offer the type's WP template only when one exists for it.
-  let templateAvailable = false;
-  if (isPmRole && project.project_type) {
-    const { count } = await supabase
-      .from("wp_templates")
-      .select("id", { count: "exact", head: true })
-      .eq("project_type", project.project_type);
-    templateAvailable = (count ?? 0) > 0;
-  }
+  // Spec 147 U2: one loader batches the project-detail reads (was a serial
+  // waterfall). Same queries/columns/results — only the scheduling changes.
+  // budget is intentionally NOT read here (money — admin-only, PM screens).
+  const {
+    clientName,
+    leadName,
+    memberNames,
+    workPackages,
+    deliverables,
+    criticalIds,
+    onboarding,
+    sourceProjects,
+    templateAvailable,
+  } = await loadProjectDetail(supabase, project, isPmRole);
+  const typeLabel = project.project_type ? PROJECT_TYPE_LABEL[project.project_type] : null;
 
   return (
     <PageShell>

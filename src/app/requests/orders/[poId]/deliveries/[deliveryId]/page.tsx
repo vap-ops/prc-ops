@@ -10,7 +10,6 @@ import { PURCHASING_ROLES } from "@/lib/auth/role-home";
 import { isBackOfficeRole } from "@/lib/purchasing/back-office";
 import { createClient } from "@/lib/db/server";
 import { isValidUuid } from "@/lib/photos/path";
-import { PR_LIST_COLUMNS } from "@/lib/purchasing/columns";
 import { DETAIL_TITLE } from "@/lib/ui/classes";
 import {
   PURCHASE_ORDER_STATUS_LABEL,
@@ -21,13 +20,7 @@ import {
   purchaseOrderStatusPillClasses,
   purchaseRequestStatusPillClasses,
 } from "@/lib/status-colors";
-import { mintSignedUrls } from "@/lib/storage/signed-urls";
-import { PO_ATTACHMENTS_BUCKET } from "@/lib/storage/buckets";
-import {
-  buildDeliveriesView,
-  groupProofByDelivery,
-  type ProofDeliveryDoc,
-} from "@/lib/purchasing/po-deliveries";
+import { loadDeliveryDetail } from "@/lib/purchasing/load-delivery-detail";
 import { DeliveryProofBlock } from "@/components/features/purchasing/delivery-proof-block";
 import { DeliveryDispatchControl } from "@/components/features/purchasing/delivery-dispatch-control";
 import { poDetailHref } from "@/lib/nav/order-paths";
@@ -55,48 +48,18 @@ export default async function DeliveryDetailPage({ params }: PageProps) {
   }
 
   const supabase = await createClient();
-  const { data: po } = await supabase
-    .from("purchase_orders")
-    .select("id, po_number, supplier")
-    .eq("id", poId)
-    .maybeSingle();
-  if (!po) {
-    notFound();
-  }
-
-  // The delivery must belong to this PO (an unknown id or another PO's delivery → 404).
-  const { data: delivery } = await supabase
-    .from("purchase_order_deliveries")
-    .select("id, eta, note, cost, created_at")
-    .eq("id", deliveryId)
-    .eq("purchase_order_id", poId)
-    .maybeSingle();
-  if (!delivery) {
-    notFound();
-  }
-
-  // Members + all the PO's deliveries → derive this delivery's view (ordinal/status).
-  const { data: memberRows } = await supabase
-    .from("purchase_requests")
-    .select(`${PR_LIST_COLUMNS}, delivery_id`)
-    .eq("purchase_order_id", poId)
-    .order("pr_number", { ascending: true });
-  const members = memberRows ?? [];
-
-  const { data: deliveryRows } = await supabase
-    .from("purchase_order_deliveries")
-    .select("id, eta, created_at")
-    .eq("purchase_order_id", poId)
-    .order("created_at", { ascending: true });
-
-  const deliveries = buildDeliveriesView(
-    deliveryRows ?? [],
-    members.map((m) => ({
-      delivery_id: m.delivery_id,
-      status: m.status,
-      delivered_at: m.delivered_at,
-    })),
+  // Spec 148 U2: one loader batches the delivery-detail reads (was a serial
+  // waterfall). Same queries/columns/results — only the scheduling changes.
+  const { po, delivery, members, deliveries, proofDocs, proofUrls } = await loadDeliveryDetail(
+    supabase,
+    poId,
+    deliveryId,
   );
+  // po and delivery must both exist (an unknown id or another PO's delivery → 404).
+  if (!po || !delivery) {
+    notFound();
+  }
+
   const view = deliveries.find((d) => d.id === deliveryId);
   const ordinal = view?.ordinal ?? 1;
   const status = view?.status ?? "open";
@@ -106,29 +69,6 @@ export default async function DeliveryDetailPage({ params }: PageProps) {
   const lines = members.filter((m) => m.delivery_id === deliveryId);
   // Spec 135 U6: lines still 'purchased' can be dispatched (→ on_route → in_transit).
   const dispatchableCount = lines.filter((m) => m.status === "purchased").length;
-
-  // Proof for this delivery — group all the PO's proof, take this delivery's bucket
-  // (legacy NULL proof falls under the default = earliest delivery). Mint signed URLs.
-  const { data: proofRows } = await supabase
-    .from("purchase_order_attachments_current")
-    .select("id, kind, storage_path, delivery_id")
-    .eq("purchase_order_id", poId)
-    .eq("purpose", "proof_of_delivery")
-    .order("created_at", { ascending: true });
-  const proofByDelivery = groupProofByDelivery<ProofDeliveryDoc>(
-    (proofRows ?? []).map((d) => ({
-      id: d.id,
-      kind: d.kind,
-      storage_path: d.storage_path,
-      delivery_id: d.delivery_id,
-    })),
-    deliveries[0]?.id ?? null,
-  );
-  const proofDocs = proofByDelivery.get(deliveryId) ?? [];
-  const proofUrls = await mintSignedUrls(
-    PO_ATTACHMENTS_BUCKET,
-    proofDocs.map((row) => ({ id: row.id ?? "", storage_path: row.storage_path })),
-  );
 
   return (
     <PageShell>
