@@ -20,6 +20,7 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { ComingSoonBadge } from "@/components/features/chrome/coming-soon-badge";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { createClient } from "@/lib/db/server";
+import { isManagerRole } from "@/lib/auth/role-home";
 // Server-only import (this page is a Server Component) — no client bundle bloat,
 // no version drift vs package.json.
 import pkg from "../../../package.json";
@@ -53,8 +54,7 @@ export default async function SettingsPage() {
   }
 
   const role = row.role;
-  const isManager =
-    role === "project_manager" || role === "super_admin" || role === "project_director";
+  const isManager = isManagerRole(role);
 
   return (
     <PageShell>

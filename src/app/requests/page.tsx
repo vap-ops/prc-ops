@@ -9,7 +9,7 @@ import {
   PROCUREMENT_HUB_NAV,
 } from "@/components/features/chrome/hub-nav";
 import { EmptyNotice, ErrorNotice } from "@/components/features/common/notices";
-import { PURCHASING_ROLES } from "@/lib/auth/role-home";
+import { PURCHASING_ROLES, isManagerRole } from "@/lib/auth/role-home";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { PR_LIST_COLUMNS } from "@/lib/purchasing/columns";
@@ -148,16 +148,13 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // procurement its own strip (worklist + suppliers + settings). The contextual
   // spec-12 back-bar (below) only renders when pinned — arriving from a WP to
   // raise a request is a drill-down, so it returns to that WP.
-  const hubItems =
-    ctx.role === "project_manager" ||
-    ctx.role === "super_admin" ||
-    ctx.role === "project_director"
-      ? PM_HUB_NAV
-      : ctx.role === "site_admin"
-        ? SA_HUB_NAV
-        : ctx.role === "procurement"
-          ? PROCUREMENT_HUB_NAV
-          : null;
+  const hubItems = isManagerRole(ctx.role)
+    ? PM_HUB_NAV
+    : ctx.role === "site_admin"
+      ? SA_HUB_NAV
+      : ctx.role === "procurement"
+        ? PROCUREMENT_HUB_NAV
+        : null;
 
   // The SELECT policy (ADR 0022, widened by ADR 0026) admits the whole
   // row, so the decision + back-office fact columns are readable here.

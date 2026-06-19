@@ -5,6 +5,7 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { ErrorNotice } from "@/components/features/common/notices";
 import { requireRole } from "@/lib/auth/require-role";
+import { PM_ROLES } from "@/lib/auth/role-home";
 import { projectHref } from "@/lib/nav/project-paths";
 import { createClient } from "@/lib/db/server";
 import { canGenerateReport, type ReportStatus } from "@/lib/reports/predicates";
@@ -37,7 +38,7 @@ export const maxDuration = 60;
 
 export default async function ProjectReportsPage({ params }: PageProps) {
   const { projectId } = await params;
-  const ctx = await requireRole(["project_manager", "super_admin", "project_director"]);
+  const ctx = await requireRole(PM_ROLES);
   const supabase = await createClient();
 
   const { data: project } = await supabase

@@ -4,6 +4,7 @@ import { CARD, DETAIL_TITLE } from "@/lib/ui/classes";
 import { notFound } from "next/navigation";
 import { Camera, FileText, ShoppingCart, Users } from "lucide-react";
 import { requireRole } from "@/lib/auth/require-role";
+import { SITE_STAFF_ROLES, isManagerRole } from "@/lib/auth/role-home";
 import { projectHref, workPackageHref } from "@/lib/nav/project-paths";
 import { createClient } from "@/lib/db/server";
 import { latestCreatedAt, PHASES } from "@/lib/photos/phases";
@@ -46,18 +47,10 @@ export const metadata = { title: "รูปถ่ายงาน" };
 
 export default async function WorkPackagePhotoScreen({ params }: PageProps) {
   const { projectId, workPackageId } = await params;
-  const ctx = await requireRole([
-    "site_admin",
-    "project_manager",
-    "super_admin",
-    "project_director",
-  ]);
+  const ctx = await requireRole(SITE_STAFF_ROLES);
   const supabase = await createClient();
   const isAssigner = true;
-  const isPlanner =
-    ctx.role === "project_manager" ||
-    ctx.role === "super_admin" ||
-    ctx.role === "project_director";
+  const isPlanner = isManagerRole(ctx.role);
 
   // Spec 147 U1: one loader batches the WP-detail reads (was a serial
   // waterfall). Same queries/columns/results — only the scheduling changes.
