@@ -169,7 +169,7 @@ select enum_has_labels(
     'equipment_rate_change', 'equipment_batch_create',
     'equipment_allocation_create', 'gl_account_upsert',
     'accounting_period_open', 'accounting_period_status_change',
-    'journal_posted'
+    'journal_posted', 'client_billing_create', 'client_billing_certify'
   ],
   'audit_action enum includes purchase_request_purchase + purchase_request_delivery'
 );

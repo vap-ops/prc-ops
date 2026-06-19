@@ -14,7 +14,7 @@ select enum_has_labels(
         'dc_payment_recorded', 'equipment_rate_change', 'equipment_batch_create',
         'equipment_allocation_create', 'gl_account_upsert',
         'accounting_period_open', 'accounting_period_status_change',
-        'journal_posted'],
+        'journal_posted', 'client_billing_create', 'client_billing_certify'],
   'audit_action has the expected v1+profile_update+purchasing+labor+equipment+accounting labels'
 );
 
