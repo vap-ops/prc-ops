@@ -9,14 +9,25 @@ export type { UserRole };
 // Spec 65: canonical role allowlists — the arrays every gate previously
 // inlined. role-home.ts is the recorded role-doctrine home.
 
-/** Review/back-office surfaces: PM and super_admin. */
-export const PM_ROLES: ReadonlyArray<UserRole> = ["project_manager", "super_admin"];
+/**
+ * Review/back-office surfaces: PM and super_admin.
+ * Spec 152 / ADR 0058: project_director is a see-all project_manager — it joins
+ * PM_ROLES and every set built on it (appended last to preserve order). The only
+ * place it does NOT follow PM is visibility (see-all, in can_see_project), and
+ * the operator-only super_admin-alone gates (which this array is not).
+ */
+export const PM_ROLES: ReadonlyArray<UserRole> = [
+  "project_manager",
+  "super_admin",
+  "project_director",
+];
 
 /** All site staff: SA plus the PM set. */
 export const SITE_STAFF_ROLES: ReadonlyArray<UserRole> = [
   "site_admin",
   "project_manager",
   "super_admin",
+  "project_director",
 ];
 
 /**
@@ -29,6 +40,7 @@ export const BACK_OFFICE_ROLES: ReadonlyArray<UserRole> = [
   "project_manager",
   "super_admin",
   "procurement",
+  "project_director",
 ];
 
 /**
@@ -44,6 +56,7 @@ export const PURCHASING_ROLES: ReadonlyArray<UserRole> = [
   "project_manager",
   "super_admin",
   "procurement",
+  "project_director",
 ];
 
 /**
@@ -61,6 +74,7 @@ export const EQUIPMENT_MOVE_ROLES: ReadonlyArray<UserRole> = [
   "project_manager",
   "super_admin",
   "procurement",
+  "project_director",
 ];
 
 /**
@@ -80,6 +94,8 @@ export const PROJECT_VIEW_ROLES: ReadonlyArray<UserRole> = [
   // RLS already lets it read every project (can_see_project); this admits it to
   // the browse surfaces (/projects + /projects/[id]).
   "project_coordinator",
+  // Spec 152 / ADR 0058: project_director is also a see-all role (browses all).
+  "project_director",
 ];
 
 /**
@@ -92,6 +108,9 @@ export const ACCOUNTING_ROLES: ReadonlyArray<UserRole> = [
   "accounting",
   "project_manager",
   "super_admin",
+  // Spec 152 / ADR 0058: project_director reads the ledger surface (PM already
+  // does); it gets no accounting WRITE powers beyond a PM's.
+  "project_director",
 ];
 
 export function roleHome(role: UserRole): string {
@@ -102,7 +121,9 @@ export function roleHome(role: UserRole): string {
   // everywhere) and the bottom tab bar gives it the PM set (spec 19) —
   // so it lands on the review queue, never /coming-soon. Spec 82 Unit 4:
   // that queue is the content-named /review (was /pm).
-  if (role === "project_manager" || role === "super_admin") return "/review";
+  // Spec 152 / ADR 0058: project_director shares the PM/super review-queue home.
+  if (role === "project_manager" || role === "super_admin" || role === "project_director")
+    return "/review";
   // Spec 70: procurement is onboarded onto the purchasing worklist.
   if (role === "procurement") return "/requests";
   // Spec 143 U2 / ADR 0056: project_coordinator oversees all projects — its home

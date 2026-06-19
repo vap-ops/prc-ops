@@ -38,6 +38,8 @@ export default async function ComingSoonPage() {
   // unserved-role union — exactly the keys of UNSERVED_ROLE_LABEL.
   if (role === "site_admin") redirect("/projects");
   if (role === "project_manager") redirect("/review");
+  // Spec 152 / ADR 0058: project_director is served (see-all PM) — same home.
+  if (role === "project_director") redirect("/review");
 
   const displayName = USER_ROLE_LABEL[role] ?? role;
   const greeting = row.full_name ? `สวัสดี คุณ${row.full_name}` : "สวัสดี";

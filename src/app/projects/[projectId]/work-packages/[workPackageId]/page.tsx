@@ -49,7 +49,12 @@ export const metadata = { title: "รูปถ่ายงาน" };
 
 export default async function WorkPackagePhotoScreen({ params }: PageProps) {
   const { projectId, workPackageId } = await params;
-  const ctx = await requireRole(["site_admin", "project_manager", "super_admin"]);
+  const ctx = await requireRole([
+    "site_admin",
+    "project_manager",
+    "super_admin",
+    "project_director",
+  ]);
   const supabase = await createClient();
 
   const { data: wp } = await supabase
@@ -90,7 +95,10 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
       : null;
 
   const isAssigner = true;
-  const isPlanner = ctx.role === "project_manager" || ctx.role === "super_admin";
+  const isPlanner =
+    ctx.role === "project_manager" ||
+    ctx.role === "super_admin" ||
+    ctx.role === "project_director";
 
   // Spec 92: schedule + dependency editing (PM/super). Sibling WPs feed the
   // depends-on picker; current predecessors come from work_package_dependencies.

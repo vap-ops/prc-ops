@@ -99,6 +99,8 @@ export const USER_ROLE_LABEL: Record<Enums["user_role"], string> = {
   accounting: "ฝ่ายบัญชี",
   visitor: "ผู้เยี่ยมชม",
   contractor: "ผู้รับเหมา (DC)",
+  // Spec 152 / ADR 0058: no Thai label requested by the operator for this role.
+  project_director: "Project Director",
 };
 
 // One date-time formatter for the whole UI: Thai Buddhist era (what Thai

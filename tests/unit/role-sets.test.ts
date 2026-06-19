@@ -5,12 +5,20 @@ import { describe, expect, it } from "vitest";
 import { PM_ROLES, SITE_STAFF_ROLES, roleHome } from "@/lib/auth/role-home";
 
 describe("role sets", () => {
-  it("PM_ROLES is exactly project_manager + super_admin", () => {
-    expect([...PM_ROLES]).toEqual(["project_manager", "super_admin"]);
+  // Spec 152 / ADR 0058: project_director is a see-all project_manager — it
+  // joins PM_ROLES (and every set built on it). Appended last so existing
+  // order is preserved.
+  it("PM_ROLES is project_manager + super_admin + project_director", () => {
+    expect([...PM_ROLES]).toEqual(["project_manager", "super_admin", "project_director"]);
   });
 
-  it("SITE_STAFF_ROLES is exactly site_admin + project_manager + super_admin", () => {
-    expect([...SITE_STAFF_ROLES]).toEqual(["site_admin", "project_manager", "super_admin"]);
+  it("SITE_STAFF_ROLES is site_admin + the PM set", () => {
+    expect([...SITE_STAFF_ROLES]).toEqual([
+      "site_admin",
+      "project_manager",
+      "super_admin",
+      "project_director",
+    ]);
   });
 
   it("every PM role lands on /review (consistency with roleHome)", () => {

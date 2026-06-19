@@ -3883,6 +3883,7 @@ export type Database = {
         | "accounting"
         | "visitor"
         | "contractor"
+        | "project_director"
       wht_direction: "deducted" | "suffered"
       wht_form: "pnd3" | "pnd53" | "pnd1"
       work_package_priority: "normal" | "urgent" | "critical"
@@ -4169,6 +4170,7 @@ export const Constants = {
         "accounting",
         "visitor",
         "contractor",
+        "project_director",
       ],
       wht_direction: ["deducted", "suffered"],
       wht_form: ["pnd3", "pnd53", "pnd1"],

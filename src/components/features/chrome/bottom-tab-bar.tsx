@@ -108,7 +108,9 @@ export const ACCOUNTING_TABS: ReadonlyArray<TabItem> = [
 
 function tabsForRole(role: string): ReadonlyArray<TabItem> | null {
   if (role === "site_admin") return SA_TABS;
-  if (role === "project_manager" || role === "super_admin") return PM_TABS;
+  // Spec 152 / ADR 0058: project_director gets the PM tab set (see-all PM).
+  if (role === "project_manager" || role === "super_admin" || role === "project_director")
+    return PM_TABS;
   if (role === "procurement") return PROCUREMENT_TABS;
   if (role === "project_coordinator") return COORDINATOR_TABS;
   if (role === "accounting") return ACCOUNTING_TABS;

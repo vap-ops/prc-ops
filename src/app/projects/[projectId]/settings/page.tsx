@@ -24,7 +24,7 @@ export const metadata = { title: "ตั้งค่าโครงการ" };
 
 export default async function ProjectSettingsPage({ params }: PageProps) {
   const { projectId } = await params;
-  const ctx = await requireRole(["project_manager", "super_admin"]);
+  const ctx = await requireRole(["project_manager", "super_admin", "project_director"]);
   const supabase = await createClient();
 
   // budget_amount_thb is omitted here — SELECT is revoked from authenticated
