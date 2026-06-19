@@ -39,6 +39,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounting_periods: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          id: string
+          period_month: string
+          status: Database["public"]["Enums"]["accounting_period_status"]
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          id?: string
+          period_month: string
+          status?: Database["public"]["Enums"]["accounting_period_status"]
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          id?: string
+          period_month?: string
+          status?: Database["public"]["Enums"]["accounting_period_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounting_periods_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       approvals: {
         Row: {
           comment: string | null
@@ -116,6 +151,97 @@ export type Database = {
           target_table?: string | null
         }
         Relationships: []
+      }
+      client_billings: {
+        Row: {
+          billing_no: number
+          certified_at: string | null
+          certified_by: string | null
+          created_at: string
+          created_by: string
+          gross_amount: number
+          id: string
+          net_receivable: number | null
+          note: string | null
+          period_from: string | null
+          period_to: string | null
+          project_id: string
+          retention_amount: number | null
+          retention_rate: number
+          status: Database["public"]["Enums"]["client_billing_status"]
+          updated_at: string
+          vat_amount: number | null
+          vat_rate: number
+          wht_rate: number
+          wht_suffered: number | null
+        }
+        Insert: {
+          billing_no?: number
+          certified_at?: string | null
+          certified_by?: string | null
+          created_at?: string
+          created_by: string
+          gross_amount: number
+          id?: string
+          net_receivable?: number | null
+          note?: string | null
+          period_from?: string | null
+          period_to?: string | null
+          project_id: string
+          retention_amount?: number | null
+          retention_rate?: number
+          status?: Database["public"]["Enums"]["client_billing_status"]
+          updated_at?: string
+          vat_amount?: number | null
+          vat_rate?: number
+          wht_rate?: number
+          wht_suffered?: number | null
+        }
+        Update: {
+          billing_no?: number
+          certified_at?: string | null
+          certified_by?: string | null
+          created_at?: string
+          created_by?: string
+          gross_amount?: number
+          id?: string
+          net_receivable?: number | null
+          note?: string | null
+          period_from?: string | null
+          period_to?: string | null
+          project_id?: string
+          retention_amount?: number | null
+          retention_rate?: number
+          status?: Database["public"]["Enums"]["client_billing_status"]
+          updated_at?: string
+          vat_amount?: number | null
+          vat_rate?: number
+          wht_rate?: number
+          wht_suffered?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_billings_certified_by_fkey"
+            columns: ["certified_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_billings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_billings_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       clients: {
         Row: {
@@ -974,6 +1100,284 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "equipment_owners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gl_accounts: {
+        Row: {
+          account_type: Database["public"]["Enums"]["gl_account_type"]
+          active: boolean
+          code: string
+          created_at: string
+          id: string
+          is_postable: boolean
+          name_en: string | null
+          name_th: string
+          normal_side: string
+          parent_id: string | null
+          peak_account_code: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          account_type: Database["public"]["Enums"]["gl_account_type"]
+          active?: boolean
+          code: string
+          created_at?: string
+          id?: string
+          is_postable?: boolean
+          name_en?: string | null
+          name_th: string
+          normal_side: string
+          parent_id?: string | null
+          peak_account_code?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          account_type?: Database["public"]["Enums"]["gl_account_type"]
+          active?: boolean
+          code?: string
+          created_at?: string
+          id?: string
+          is_postable?: boolean
+          name_en?: string | null
+          name_th?: string
+          normal_side?: string
+          parent_id?: string | null
+          peak_account_code?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gl_accounts_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gl_posting_outbox: {
+        Row: {
+          attempts: number
+          created_at: string
+          id: string
+          journal_entry_id: string | null
+          last_error: string | null
+          posted_at: string | null
+          source_event: string
+          source_id: string
+          source_table: string
+          status: Database["public"]["Enums"]["gl_posting_status"]
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          journal_entry_id?: string | null
+          last_error?: string | null
+          posted_at?: string | null
+          source_event: string
+          source_id: string
+          source_table: string
+          status?: Database["public"]["Enums"]["gl_posting_status"]
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          journal_entry_id?: string | null
+          last_error?: string | null
+          posted_at?: string | null
+          source_event?: string
+          source_id?: string
+          source_table?: string
+          status?: Database["public"]["Enums"]["gl_posting_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gl_posting_outbox_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_entries: {
+        Row: {
+          created_at: string
+          entry_date: string
+          entry_no: number
+          id: string
+          memo: string | null
+          period_id: string
+          posted_at: string
+          posted_by: string | null
+          reversal_of: string | null
+          source_event: string
+          source_id: string | null
+          source_table: string
+          status: Database["public"]["Enums"]["journal_entry_status"]
+        }
+        Insert: {
+          created_at?: string
+          entry_date: string
+          entry_no?: number
+          id?: string
+          memo?: string | null
+          period_id: string
+          posted_at?: string
+          posted_by?: string | null
+          reversal_of?: string | null
+          source_event: string
+          source_id?: string | null
+          source_table: string
+          status?: Database["public"]["Enums"]["journal_entry_status"]
+        }
+        Update: {
+          created_at?: string
+          entry_date?: string
+          entry_no?: number
+          id?: string
+          memo?: string | null
+          period_id?: string
+          posted_at?: string
+          posted_by?: string | null
+          reversal_of?: string | null
+          source_event?: string
+          source_id?: string | null
+          source_table?: string
+          status?: Database["public"]["Enums"]["journal_entry_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_entries_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_periods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entries_posted_by_fkey"
+            columns: ["posted_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entries_reversal_of_fkey"
+            columns: ["reversal_of"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_lines: {
+        Row: {
+          account_id: string
+          client_id: string | null
+          contractor_id: string | null
+          credit: number
+          debit: number
+          entry_id: string
+          equipment_owner_id: string | null
+          id: string
+          line_no: number
+          memo: string | null
+          project_id: string | null
+          supplier_id: string | null
+          work_package_id: string | null
+        }
+        Insert: {
+          account_id: string
+          client_id?: string | null
+          contractor_id?: string | null
+          credit?: number
+          debit?: number
+          entry_id: string
+          equipment_owner_id?: string | null
+          id?: string
+          line_no: number
+          memo?: string | null
+          project_id?: string | null
+          supplier_id?: string | null
+          work_package_id?: string | null
+        }
+        Update: {
+          account_id?: string
+          client_id?: string | null
+          contractor_id?: string | null
+          credit?: number
+          debit?: number
+          entry_id?: string
+          equipment_owner_id?: string | null
+          id?: string
+          line_no?: number
+          memo?: string | null
+          project_id?: string | null
+          supplier_id?: string | null
+          work_package_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_lines_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_lines_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_lines_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "contractors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_lines_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_lines_equipment_owner_id_fkey"
+            columns: ["equipment_owner_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_owners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_lines_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_lines_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_lines_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_packages"
             referencedColumns: ["id"]
           },
         ]
@@ -1995,6 +2399,74 @@ export type Database = {
           },
         ]
       }
+      retention_receivables: {
+        Row: {
+          amount_withheld: number
+          client_billing_id: string
+          created_at: string
+          due_date: string | null
+          id: string
+          project_id: string
+          release_entry_id: string | null
+          released_at: string | null
+          released_by: string | null
+          status: Database["public"]["Enums"]["retention_status"]
+        }
+        Insert: {
+          amount_withheld: number
+          client_billing_id: string
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          project_id: string
+          release_entry_id?: string | null
+          released_at?: string | null
+          released_by?: string | null
+          status?: Database["public"]["Enums"]["retention_status"]
+        }
+        Update: {
+          amount_withheld?: number
+          client_billing_id?: string
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          project_id?: string
+          release_entry_id?: string | null
+          released_at?: string | null
+          released_by?: string | null
+          status?: Database["public"]["Enums"]["retention_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retention_receivables_client_billing_id_fkey"
+            columns: ["client_billing_id"]
+            isOneToOne: true
+            referencedRelation: "client_billings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retention_receivables_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retention_receivables_release_entry_id_fkey"
+            columns: ["release_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retention_receivables_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_providers: {
         Row: {
           contact_person: string | null
@@ -2128,6 +2600,123 @@ export type Database = {
           line_user_id?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
+        }
+        Relationships: []
+      }
+      wht_certificates: {
+        Row: {
+          base_amount: number
+          cert_no: number
+          client_id: string | null
+          contractor_id: string | null
+          created_at: string
+          created_by: string
+          direction: Database["public"]["Enums"]["wht_direction"]
+          id: string
+          income_type: string
+          issued_date: string
+          note: string | null
+          pay_source_id: string | null
+          pay_source_table: string | null
+          supplier_id: string | null
+          tax_form: Database["public"]["Enums"]["wht_form"]
+          tax_id_13: string
+          wht_amount: number
+          wht_rate: number
+        }
+        Insert: {
+          base_amount: number
+          cert_no?: number
+          client_id?: string | null
+          contractor_id?: string | null
+          created_at?: string
+          created_by: string
+          direction: Database["public"]["Enums"]["wht_direction"]
+          id?: string
+          income_type: string
+          issued_date?: string
+          note?: string | null
+          pay_source_id?: string | null
+          pay_source_table?: string | null
+          supplier_id?: string | null
+          tax_form: Database["public"]["Enums"]["wht_form"]
+          tax_id_13: string
+          wht_amount: number
+          wht_rate: number
+        }
+        Update: {
+          base_amount?: number
+          cert_no?: number
+          client_id?: string | null
+          contractor_id?: string | null
+          created_at?: string
+          created_by?: string
+          direction?: Database["public"]["Enums"]["wht_direction"]
+          id?: string
+          income_type?: string
+          issued_date?: string
+          note?: string | null
+          pay_source_id?: string | null
+          pay_source_table?: string | null
+          supplier_id?: string | null
+          tax_form?: Database["public"]["Enums"]["wht_form"]
+          tax_id_13?: string
+          wht_amount?: number
+          wht_rate?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wht_certificates_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wht_certificates_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "contractors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wht_certificates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wht_certificates_income_type_fkey"
+            columns: ["income_type"]
+            isOneToOne: false
+            referencedRelation: "wht_rates"
+            referencedColumns: ["income_type"]
+          },
+          {
+            foreignKeyName: "wht_certificates_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wht_rates: {
+        Row: {
+          default_rate: number
+          income_type: string
+          label_th: string
+        }
+        Insert: {
+          default_rate: number
+          income_type: string
+          label_th: string
+        }
+        Update: {
+          default_rate?: number
+          income_type?: string
+          label_th?: string
         }
         Relationships: []
       }
@@ -2640,6 +3229,7 @@ export type Database = {
       can_see_photo_log: { Args: { p_photo_log_id: string }; Returns: boolean }
       can_see_project: { Args: { p_project_id: string }; Returns: boolean }
       can_see_wp: { Args: { p_work_package_id: string }; Returns: boolean }
+      certify_client_billing: { Args: { p_id: string }; Returns: string }
       claim_contractor_invite: { Args: { p_token: string }; Returns: string }
       claim_next_report: {
         Args: never
@@ -2672,6 +3262,19 @@ export type Database = {
           p_note?: string
           p_reason: string
           p_tombstone?: boolean
+        }
+        Returns: string
+      }
+      create_client_billing: {
+        Args: {
+          p_gross_amount: number
+          p_note?: string
+          p_period_from?: string
+          p_period_to?: string
+          p_project_id: string
+          p_retention_rate?: number
+          p_vat_rate?: number
+          p_wht_rate?: number
         }
         Returns: string
       }
@@ -2755,6 +3358,15 @@ export type Database = {
         Args: { p_delivery_id: string }
         Returns: number
       }
+      drain_gl_posting: { Args: { p_limit?: number }; Returns: number }
+      enqueue_gl_posting: {
+        Args: {
+          p_source_event: string
+          p_source_id: string
+          p_source_table: string
+        }
+        Returns: string
+      }
       enqueue_peak_sync: {
         Args: {
           p_entity_type: Database["public"]["Enums"]["peak_entity_type"]
@@ -2792,6 +3404,32 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      gl_reconciliation: {
+        Args: never
+        Returns: {
+          check_name: string
+          drift: number
+          gl_value: number
+          ok: boolean
+          subledger_value: number
+        }[]
+      }
+      gl_trial_balance: {
+        Args: {
+          p_from: string
+          p_project_id?: string
+          p_to: string
+          p_work_package_id?: string
+        }
+        Returns: {
+          account_type: Database["public"]["Enums"]["gl_account_type"]
+          balance: number
+          code: string
+          credit_total: number
+          debit_total: number
+          name_th: string
+        }[]
+      }
       invoke_notification_drain: { Args: never; Returns: undefined }
       log_labor_day: {
         Args: {
@@ -2803,10 +3441,54 @@ export type Database = {
         }
         Returns: string
       }
+      mark_retention_due: {
+        Args: { p_due_date: string; p_id: string }
+        Returns: string
+      }
       my_contact_bank_present: { Args: never; Returns: boolean }
+      open_accounting_period: { Args: { p_month: string }; Returns: string }
       photo_markup_tombstone_target_ok: {
         Args: { p_photo_log_id: string; p_superseded_by: string }
         Returns: boolean
+      }
+      post_client_billing_to_gl: {
+        Args: { p_source_id: string }
+        Returns: string
+      }
+      post_dc_payment_to_gl: { Args: { p_source_id: string }; Returns: string }
+      post_journal_entry: {
+        Args: { p_entry_date: string; p_lines: Json; p_memo: string }
+        Returns: string
+      }
+      post_journal_internal: {
+        Args: {
+          p_entry_date: string
+          p_lines: Json
+          p_memo: string
+          p_posted_by?: string
+          p_reversal_of?: string
+          p_source_event: string
+          p_source_id: string
+          p_source_table: string
+        }
+        Returns: string
+      }
+      post_labor_freeze_to_gl: {
+        Args: { p_source_id: string }
+        Returns: string
+      }
+      post_purchase_to_gl: { Args: { p_source_id: string }; Returns: string }
+      post_rental_batch_to_gl: {
+        Args: { p_source_id: string }
+        Returns: string
+      }
+      post_retention_release_to_gl: {
+        Args: { p_source_id: string }
+        Returns: string
+      }
+      post_wht_certificate_to_gl: {
+        Args: { p_source_id: string }
+        Returns: string
       }
       pr_attachment_tombstone_target_ok: {
         Args: { p_caller: string; p_parent: string; p_target: string }
@@ -2887,6 +3569,25 @@ export type Database = {
         }
         Returns: string
       }
+      record_wht_certificate: {
+        Args: {
+          p_base_amount: number
+          p_client_id?: string
+          p_contractor_id?: string
+          p_direction: Database["public"]["Enums"]["wht_direction"]
+          p_income_type: string
+          p_issued_date?: string
+          p_note?: string
+          p_pay_source_id?: string
+          p_pay_source_table?: string
+          p_supplier_id?: string
+          p_tax_form: Database["public"]["Enums"]["wht_form"]
+          p_tax_id: string
+          p_wht_rate?: number
+        }
+        Returns: string
+      }
+      release_retention: { Args: { p_id: string }; Returns: string }
       remove_work_package_dependency: {
         Args: { p_predecessor: string; p_successor: string }
         Returns: boolean
@@ -2895,7 +3596,23 @@ export type Database = {
         Args: { p_reason: string; p_wp: string }
         Returns: boolean
       }
+      resolve_posting_period: { Args: { p_date: string }; Returns: string }
+      reverse_journal_entry: {
+        Args: { p_entry_id: string; p_memo?: string }
+        Returns: string
+      }
+      reverse_journal_internal: {
+        Args: { p_entry_id: string; p_memo?: string; p_posted_by: string }
+        Returns: string
+      }
       revoke_contractor_consent: { Args: { p_id: string }; Returns: undefined }
+      set_accounting_period_status: {
+        Args: {
+          p_month: string
+          p_status: Database["public"]["Enums"]["accounting_period_status"]
+        }
+        Returns: boolean
+      }
       set_contact_bank: {
         Args: {
           p_bank_account_name?: string
@@ -3018,8 +3735,23 @@ export type Database = {
         }
         Returns: undefined
       }
+      upsert_gl_account: {
+        Args: {
+          p_account_type: Database["public"]["Enums"]["gl_account_type"]
+          p_code: string
+          p_is_postable?: boolean
+          p_name_en: string
+          p_name_th: string
+          p_normal_side: string
+          p_parent_code?: string
+          p_peak_account_code?: string
+          p_sort_order?: number
+        }
+        Returns: string
+      }
     }
     Enums: {
+      accounting_period_status: "open" | "closing" | "closed" | "locked"
       approval_decision: "approved" | "rejected" | "needs_revision"
       audit_action:
         | "insert"
@@ -3045,6 +3777,21 @@ export type Database = {
         | "equipment_rate_change"
         | "equipment_batch_create"
         | "equipment_allocation_create"
+        | "gl_account_upsert"
+        | "accounting_period_open"
+        | "accounting_period_status_change"
+        | "journal_posted"
+        | "client_billing_create"
+        | "client_billing_certify"
+        | "retention_due"
+        | "retention_release"
+        | "wht_certificate_record"
+      client_billing_status:
+        | "draft"
+        | "submitted"
+        | "certified"
+        | "invoiced"
+        | "paid"
       contact_doc_purpose:
         | "id_card"
         | "bank_book"
@@ -3079,6 +3826,9 @@ export type Database = {
         | "returned"
         | "lost"
       equipment_tracking: "unit" | "bulk"
+      gl_account_type: "asset" | "liability" | "equity" | "income" | "expense"
+      gl_posting_status: "pending" | "posting" | "posted" | "failed" | "skipped"
+      journal_entry_status: "draft" | "posted" | "reversed"
       login_handoff_status: "pending" | "approved" | "consumed"
       notification_event_type:
         | "wp_pending_approval"
@@ -3119,6 +3869,7 @@ export type Database = {
         | "delivered"
         | "site_purchased"
       report_status: "requested" | "processing" | "complete" | "failed"
+      retention_status: "held" | "due" | "released" | "forfeited"
       service_subtype: "transport"
       user_role:
         | "site_admin"
@@ -3132,6 +3883,8 @@ export type Database = {
         | "accounting"
         | "visitor"
         | "contractor"
+      wht_direction: "deducted" | "suffered"
+      wht_form: "pnd3" | "pnd53" | "pnd1"
       work_package_priority: "normal" | "urgent" | "critical"
       work_package_status:
         | "not_started"
@@ -3271,6 +4024,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      accounting_period_status: ["open", "closing", "closed", "locked"],
       approval_decision: ["approved", "rejected", "needs_revision"],
       audit_action: [
         "insert",
@@ -3296,6 +4050,22 @@ export const Constants = {
         "equipment_rate_change",
         "equipment_batch_create",
         "equipment_allocation_create",
+        "gl_account_upsert",
+        "accounting_period_open",
+        "accounting_period_status_change",
+        "journal_posted",
+        "client_billing_create",
+        "client_billing_certify",
+        "retention_due",
+        "retention_release",
+        "wht_certificate_record",
+      ],
+      client_billing_status: [
+        "draft",
+        "submitted",
+        "certified",
+        "invoiced",
+        "paid",
       ],
       contact_doc_purpose: [
         "id_card",
@@ -3335,6 +4105,9 @@ export const Constants = {
         "lost",
       ],
       equipment_tracking: ["unit", "bulk"],
+      gl_account_type: ["asset", "liability", "equity", "income", "expense"],
+      gl_posting_status: ["pending", "posting", "posted", "failed", "skipped"],
+      journal_entry_status: ["draft", "posted", "reversed"],
       login_handoff_status: ["pending", "approved", "consumed"],
       notification_event_type: [
         "wp_pending_approval",
@@ -3382,6 +4155,7 @@ export const Constants = {
         "site_purchased",
       ],
       report_status: ["requested", "processing", "complete", "failed"],
+      retention_status: ["held", "due", "released", "forfeited"],
       service_subtype: ["transport"],
       user_role: [
         "site_admin",
@@ -3396,6 +4170,8 @@ export const Constants = {
         "visitor",
         "contractor",
       ],
+      wht_direction: ["deducted", "suffered"],
+      wht_form: ["pnd3", "pnd53", "pnd1"],
       work_package_priority: ["normal", "urgent", "critical"],
       work_package_status: [
         "not_started",

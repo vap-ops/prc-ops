@@ -2,6 +2,7 @@ import { PageShell } from "@/components/features/chrome/page-shell";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
+  Calculator,
   ChevronRight,
   Contact,
   Files,
@@ -136,6 +137,12 @@ export default async function SettingsPage() {
                 icon={Wallet}
                 label="ค่าจ้าง"
                 hint="สรุปค่าจ้าง DC + ส่งออก CSV"
+              />
+              <SettingsLink
+                href="/accounting"
+                icon={Calculator}
+                label="บัญชี"
+                hint="งบทดลอง · กำไร–ขาดทุน · กระทบยอด"
               />
             </div>
           </>

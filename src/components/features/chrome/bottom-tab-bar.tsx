@@ -13,6 +13,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Calculator,
   ClipboardCheck,
   FolderKanban,
   LayoutDashboard,
@@ -42,7 +43,7 @@ const SETTINGS_TAB: TabItem = {
   label: "ตั้งค่า",
   href: "/settings",
   icon: Settings,
-  match: ["/profile", "/contacts", "/workers", "/equipment", "/payroll"],
+  match: ["/profile", "/contacts", "/workers", "/equipment", "/payroll", "/accounting"],
 };
 
 // Spec 100: ภาพรวม graduated from a spec-98 coming-soon placeholder to a live
@@ -97,11 +98,20 @@ export const COORDINATOR_TABS: ReadonlyArray<TabItem> = [
   SETTINGS_TAB,
 ];
 
+// Spec 149 U9: the accounting role is onboarded onto the read-only ledger surface
+// (/accounting) + the universal settings hub. A lean two-tab set, like the
+// coordinator's — every tab a live destination.
+export const ACCOUNTING_TABS: ReadonlyArray<TabItem> = [
+  { label: "บัญชี", href: "/accounting", icon: Calculator },
+  SETTINGS_TAB,
+];
+
 function tabsForRole(role: string): ReadonlyArray<TabItem> | null {
   if (role === "site_admin") return SA_TABS;
   if (role === "project_manager" || role === "super_admin") return PM_TABS;
   if (role === "procurement") return PROCUREMENT_TABS;
   if (role === "project_coordinator") return COORDINATOR_TABS;
+  if (role === "accounting") return ACCOUNTING_TABS;
   return null;
 }
 
