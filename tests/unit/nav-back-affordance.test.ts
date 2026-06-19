@@ -44,6 +44,10 @@ const STATIC_DETAIL = [
   "payroll",
   // Spec 149 U9: the read-only ledger surface, drilled down from /settings.
   "accounting",
+  // Spec 149 U9b: the registers drill down from /accounting (back chip → /accounting).
+  "accounting/retention",
+  "accounting/billings",
+  "accounting/wht",
   "contacts/customers",
   "contacts/vendors",
   "contacts/crews",

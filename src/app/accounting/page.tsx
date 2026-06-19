@@ -5,6 +5,8 @@
 // server-side to money-cleared roles only (the page gate excludes site_admin,
 // spec 46). Period is a zero-client-JS GET form defaulting to the current month.
 
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
@@ -89,6 +91,32 @@ export default async function AccountingPage({ searchParams }: AccountingPagePro
             </li>
           ))}
         </ul>
+
+        {/* Registers — the detail lists behind the ledger. */}
+        <h2 className={SECTION_HEADING}>ทะเบียน</h2>
+        <nav className="mb-6 flex flex-col gap-2">
+          {[
+            { href: "/accounting/billings", label: "งวดงาน", hint: "การวางบิลลูกค้า" },
+            {
+              href: "/accounting/retention",
+              label: "เงินประกันผลงาน",
+              hint: "เงิน 5% ที่ลูกค้าหักไว้",
+            },
+            { href: "/accounting/wht", label: "ภาษีหัก ณ ที่จ่าย", hint: "ใบ ภ.ง.ด.3/53/1" },
+          ].map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className="border-edge bg-card hover:bg-sunk focus-visible:ring-action rounded-control flex items-center gap-3 border px-4 py-3 transition-colors focus:outline-none focus-visible:ring-2"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="text-ink text-body block font-semibold">{l.label}</span>
+                <span className="text-ink-secondary text-meta block">{l.hint}</span>
+              </span>
+              <ChevronRight aria-hidden className="text-ink-muted h-5 w-5 shrink-0" />
+            </Link>
+          ))}
+        </nav>
 
         {/* Period selector — zero-client-JS GET form, defaults to the month. */}
         <form
