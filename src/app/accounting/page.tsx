@@ -15,6 +15,7 @@ import { EmptyNotice } from "@/components/features/common/notices";
 import { requireRole } from "@/lib/auth/require-role";
 import { ACCOUNTING_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
+import { createClient as createAdminClient } from "@/lib/db/admin";
 import { bangkokTodayIso } from "@/lib/dates";
 import { formatThaiDate } from "@/lib/i18n/labels";
 import { SECTION_HEADING, CARD, FIELD_INPUT, BUTTON_PRIMARY } from "@/lib/ui/classes";
@@ -50,18 +51,32 @@ const CHECK_LABELS: Record<string, string> = {
 };
 
 interface AccountingPageProps {
-  searchParams: Promise<{ from?: string; to?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; project?: string }>;
 }
 
 export default async function AccountingPage({ searchParams }: AccountingPageProps) {
   const ctx = await requireRole(ACCOUNTING_ROLES);
-  const { from: qFrom, to: qTo } = await searchParams;
+  const { from: qFrom, to: qTo, project: qProject } = await searchParams;
   const today = bangkokTodayIso();
   const from = qFrom || `${today.slice(0, 7)}-01`;
   const to = qTo || today;
+  const projectId = qProject || undefined;
 
   const supabase = await createClient();
-  const { trialBalance, reconciliation } = await loadAccountingDashboard(supabase, from, to);
+  // Project list for the picker — read via admin (the accounting role isn't a
+  // project member, so RLS would hide them; gl_trial_balance scopes by id anyway).
+  const admin = createAdminClient();
+  const { data: projectRows } = await admin.from("projects").select("id, code, name").order("name");
+  const projects = projectRows ?? [];
+  const selectedProject = projects.find((p) => p.id === projectId) ?? null;
+  const scopeLabel = selectedProject ? ` · ${selectedProject.name ?? selectedProject.code}` : "";
+
+  const { trialBalance, reconciliation } = await loadAccountingDashboard(
+    supabase,
+    from,
+    to,
+    projectId,
+  );
   const grouped = groupTrialBalance(trialBalance);
   const pl = profitAndLoss(trialBalance);
 
@@ -141,13 +156,28 @@ export default async function AccountingPage({ searchParams }: AccountingPagePro
               className={`${FIELD_INPUT} mt-1 max-w-full appearance-none`}
             />
           </label>
+          <label className="text-ink-secondary flex min-w-0 flex-col text-xs">
+            โครงการ
+            <select
+              name="project"
+              defaultValue={projectId ?? ""}
+              className={`${FIELD_INPUT} mt-1 max-w-full`}
+            >
+              <option value="">ทุกโครงการ</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name ?? p.code}
+                </option>
+              ))}
+            </select>
+          </label>
           <button type="submit" className={BUTTON_PRIMARY}>
             ดูข้อมูล
           </button>
         </form>
 
-        {/* P&L summary for the period. */}
-        <h2 className={SECTION_HEADING}>กำไร–ขาดทุน</h2>
+        {/* P&L summary for the period (project-scoped when picked). */}
+        <h2 className={SECTION_HEADING}>กำไร–ขาดทุน{scopeLabel}</h2>
         <div className={`${CARD} mb-6`}>
           <p className="text-ink-secondary text-xs">
             {formatThaiDate(from)} – {formatThaiDate(to)}
@@ -168,9 +198,9 @@ export default async function AccountingPage({ searchParams }: AccountingPagePro
           </dl>
         </div>
 
-        {/* Trial balance, grouped by account class. */}
+        {/* Trial balance, grouped by account class (project-scoped when picked). */}
         <h2 className={SECTION_HEADING}>
-          งบทดลอง{" "}
+          งบทดลอง{scopeLabel}{" "}
           {grouped.balanced ? (
             <span className="text-done-strong text-xs font-semibold">· สมดุล</span>
           ) : (

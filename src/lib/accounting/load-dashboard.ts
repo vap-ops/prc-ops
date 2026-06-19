@@ -28,9 +28,15 @@ export async function loadAccountingDashboard(
   supabase: SupabaseClient<Database>,
   from: string,
   to: string,
+  projectId?: string,
 ): Promise<AccountingDashboard> {
+  // Reconciliation is always whole-ledger; the trial balance scopes to a project
+  // when picked (gl_trial_balance filters journal_lines.project_id → project P&L).
+  const tbArgs = projectId
+    ? { p_from: from, p_to: to, p_project_id: projectId }
+    : { p_from: from, p_to: to };
   const [tb, recon] = await Promise.all([
-    supabase.rpc("gl_trial_balance", { p_from: from, p_to: to }),
+    supabase.rpc("gl_trial_balance", tbArgs),
     supabase.rpc("gl_reconciliation"),
   ]);
   if (tb.error) throw new Error(`gl_trial_balance: ${tb.error.message}`);
