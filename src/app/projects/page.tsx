@@ -13,7 +13,7 @@ import {
 import { EmptyNotice, ErrorNotice } from "@/components/features/common/notices";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
-import { PROJECT_VIEW_ROLES } from "@/lib/auth/role-home";
+import { PROJECT_VIEW_ROLES, isManagerRole } from "@/lib/auth/role-home";
 import { projectHref } from "@/lib/nav/project-paths";
 import { NewProjectSheet } from "./new-project-sheet";
 import { createClient } from "@/lib/db/server";
@@ -34,10 +34,7 @@ export default async function ProjectsHubPage() {
   const ctx = await requireRole(PROJECT_VIEW_ROLES);
   const supabase = await createClient();
 
-  const isPm =
-    ctx.role === "project_manager" ||
-    ctx.role === "super_admin" ||
-    ctx.role === "project_director";
+  const isPm = isManagerRole(ctx.role);
   const isProcurement = ctx.role === "procurement";
   // Spec 143 U2: project_coordinator is the see-all oversight role.
   const isCoordinator = ctx.role === "project_coordinator";

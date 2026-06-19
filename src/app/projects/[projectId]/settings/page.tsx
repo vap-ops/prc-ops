@@ -8,7 +8,7 @@ import { requireRole } from "@/lib/auth/require-role";
 import { projectHref } from "@/lib/nav/project-paths";
 import { createClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
-import { SITE_STAFF_ROLES } from "@/lib/auth/role-home";
+import { PM_ROLES, SITE_STAFF_ROLES } from "@/lib/auth/role-home";
 import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
 import { projectStatusPillClasses } from "@/lib/status-colors";
 import { SettingsForm } from "./settings-form";
@@ -24,7 +24,7 @@ export const metadata = { title: "ตั้งค่าโครงการ" };
 
 export default async function ProjectSettingsPage({ params }: PageProps) {
   const { projectId } = await params;
-  const ctx = await requireRole(["project_manager", "super_admin", "project_director"]);
+  const ctx = await requireRole(PM_ROLES);
   const supabase = await createClient();
 
   // budget_amount_thb is omitted here — SELECT is revoked from authenticated

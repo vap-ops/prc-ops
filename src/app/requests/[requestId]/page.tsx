@@ -78,10 +78,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
   const priority = request.priority;
   const isMine = request.requested_by === ctx.id;
 
-  const isDecider =
-    ctx.role === "project_manager" ||
-    ctx.role === "super_admin" ||
-    ctx.role === "project_director";
+  const isDecider = isManagerRole(ctx.role);
   // Spec 70: the WP detail route is SITE_STAFF_ROLES-gated and would bounce
   // procurement, so the WP reference renders as plain text (not a link) for it.
   const isProcurement = ctx.role === "procurement";

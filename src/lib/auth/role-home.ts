@@ -22,6 +22,17 @@ export const PM_ROLES: ReadonlyArray<UserRole> = [
   "project_director",
 ];
 
+/**
+ * The single predicate for "manager-tier role" — PM_ROLES membership. Use this
+ * instead of inlining `role === "project_manager" || role === "super_admin" ||
+ * …` at call sites: one place updates when the manager set changes (spec 152
+ * added project_director and had to touch ~9 inline sites — this removes that
+ * drift surface). Accepts the loosely-typed role string the DB hands back too.
+ */
+export function isManagerRole(role: UserRole): boolean {
+  return PM_ROLES.includes(role);
+}
+
 /** All site staff: SA plus the PM set. */
 export const SITE_STAFF_ROLES: ReadonlyArray<UserRole> = [
   "site_admin",
@@ -122,8 +133,7 @@ export function roleHome(role: UserRole): string {
   // so it lands on the review queue, never /coming-soon. Spec 82 Unit 4:
   // that queue is the content-named /review (was /pm).
   // Spec 152 / ADR 0058: project_director shares the PM/super review-queue home.
-  if (role === "project_manager" || role === "super_admin" || role === "project_director")
-    return "/review";
+  if (isManagerRole(role)) return "/review";
   // Spec 70: procurement is onboarded onto the purchasing worklist.
   if (role === "procurement") return "/requests";
   // Spec 143 U2 / ADR 0056: project_coordinator oversees all projects — its home

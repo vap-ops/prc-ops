@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
 import { CalendarDays, FileText, Settings } from "lucide-react";
-import { PROJECT_VIEW_ROLES } from "@/lib/auth/role-home";
+import { PROJECT_VIEW_ROLES, isManagerRole } from "@/lib/auth/role-home";
 import { projectSettingsHref, reportsHref, scheduleHref } from "@/lib/nav/project-paths";
 import { ICON_CHIP_MUTED, SECTION_HEADING } from "@/lib/ui/classes";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
@@ -92,10 +92,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
   }
 
   // Spec 142 U3: PM/super get onboarding + the copy/template seeding controls.
-  const isPmRole =
-    ctx.role === "project_manager" ||
-    ctx.role === "super_admin" ||
-    ctx.role === "project_director";
+  const isPmRole = isManagerRole(ctx.role);
   // Spec 145: a completed/archived project is locked for new work — the UI hides
   // the seeding controls + onboarding and shows a banner. Defect-rework stays.
   const projectOpen = project.status === "active" || project.status === "on_hold";
@@ -145,9 +142,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
             <Link href={scheduleHref(project.id)} aria-label="ตารางงาน" className={ICON_CHIP_MUTED}>
               <CalendarDays aria-hidden className="h-5 w-5" />
             </Link>
-            {ctx.role === "project_manager" ||
-            ctx.role === "super_admin" ||
-            ctx.role === "project_director" ? (
+            {isManagerRole(ctx.role) ? (
               <>
                 <Link
                   href={reportsHref(project.id)}

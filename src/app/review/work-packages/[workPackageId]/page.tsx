@@ -7,6 +7,7 @@ import { EmptyNotice } from "@/components/features/common/notices";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { requireRole } from "@/lib/auth/require-role";
+import { PM_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { getCurrentPhotosForWorkPackage, type PhotoLogRow } from "@/lib/photos/current-photos";
@@ -50,7 +51,7 @@ export const metadata = { title: "ตรวจรายการงาน" };
 
 export default async function WorkPackageReviewScreen({ params }: PageProps) {
   const { workPackageId } = await params;
-  const ctx = await requireRole(["project_manager", "super_admin", "project_director"]);
+  const ctx = await requireRole(PM_ROLES);
   const supabase = await createClient();
 
   const { data: wp } = await supabase
