@@ -48,7 +48,10 @@ export default async function ProjectsHubPage() {
     : { data: [] };
   const clientNames = new Map((clientRows ?? []).map((c) => [c.id, c.name]));
 
-  const isPm = ctx.role === "project_manager" || ctx.role === "super_admin";
+  const isPm =
+    ctx.role === "project_manager" ||
+    ctx.role === "super_admin" ||
+    ctx.role === "project_director";
   const isProcurement = ctx.role === "procurement";
   // Spec 143 U2: project_coordinator is the see-all oversight role.
   const isCoordinator = ctx.role === "project_coordinator";

@@ -149,7 +149,9 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // spec-12 back-bar (below) only renders when pinned — arriving from a WP to
   // raise a request is a drill-down, so it returns to that WP.
   const hubItems =
-    ctx.role === "project_manager" || ctx.role === "super_admin"
+    ctx.role === "project_manager" ||
+    ctx.role === "super_admin" ||
+    ctx.role === "project_director"
       ? PM_HUB_NAV
       : ctx.role === "site_admin"
         ? SA_HUB_NAV

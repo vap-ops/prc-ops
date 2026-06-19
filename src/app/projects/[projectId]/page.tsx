@@ -154,7 +154,10 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
 
   // Spec 142 U3: PM/super get the onboarding checklist. Booleans only — the RPC
   // reads the money-isolated budget column but returns no amount.
-  const isPmRole = ctx.role === "project_manager" || ctx.role === "super_admin";
+  const isPmRole =
+    ctx.role === "project_manager" ||
+    ctx.role === "super_admin" ||
+    ctx.role === "project_director";
   // Spec 145: a completed/archived project is locked for new work — the DB
   // trigger blocks WP inserts; the UI hides the seeding controls + onboarding
   // and shows a banner. Warranty defect-rework (reopen on the WP page) stays.
@@ -215,7 +218,9 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
             <Link href={scheduleHref(project.id)} aria-label="ตารางงาน" className={ICON_CHIP_MUTED}>
               <CalendarDays aria-hidden className="h-5 w-5" />
             </Link>
-            {ctx.role === "project_manager" || ctx.role === "super_admin" ? (
+            {ctx.role === "project_manager" ||
+            ctx.role === "super_admin" ||
+            ctx.role === "project_director" ? (
               <>
                 <Link
                   href={reportsHref(project.id)}

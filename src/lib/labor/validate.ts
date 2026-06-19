@@ -73,6 +73,8 @@ export function validateDcPayment(input: {
 const BACKOFFICE_BACKDATE_ROLES: ReadonlySet<UserRole> = new Set([
   "project_manager",
   "super_admin",
+  // Spec 152 / ADR 0058: project_director has the PM back-date allowance.
+  "project_director",
 ]);
 
 function daysBetween(earlierIso: string, laterIso: string): number {

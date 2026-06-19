@@ -53,7 +53,8 @@ export default async function SettingsPage() {
   }
 
   const role = row.role;
-  const isManager = role === "project_manager" || role === "super_admin";
+  const isManager =
+    role === "project_manager" || role === "super_admin" || role === "project_director";
 
   return (
     <PageShell>

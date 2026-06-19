@@ -154,7 +154,10 @@ export default async function RequestDetailPage({ params }: PageProps) {
     poDocs.map((row) => ({ id: row.id ?? "", storage_path: row.storage_path })),
   );
 
-  const isDecider = ctx.role === "project_manager" || ctx.role === "super_admin";
+  const isDecider =
+    ctx.role === "project_manager" ||
+    ctx.role === "super_admin" ||
+    ctx.role === "project_director";
   // Spec 70: the WP detail route (/projects/..., spec 82) is SITE_STAFF_ROLES-
   // gated and would bounce procurement, so the WP reference renders as plain
   // text (not a link) for it. Every other role keeps the link.

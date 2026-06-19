@@ -9,6 +9,8 @@ const BACK_OFFICE_ROLES: ReadonlyArray<UserRole> = [
   "project_manager",
   "procurement",
   "super_admin",
+  // Spec 152 / ADR 0058: project_director gets PM-tier back-office writes.
+  "project_director",
 ];
 
 export function isBackOfficeRole(role: UserRole): boolean {

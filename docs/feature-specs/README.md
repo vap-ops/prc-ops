@@ -149,6 +149,7 @@ for reading the spec itself.
 | 144  | Defect rework — reopen a complete WP to a `rework` status (post-completion defects)       |
 | 145  | Lock new work on a completed project (warranty-aware; rework still allowed)               |
 | 146  | Equipment rental money (P2; daily rate + inbound batches; ADR 0055) — design only         |
+| 152  | `project_director` role — see-all `project_manager` (executive-director tier; ADR 0058)     |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.
