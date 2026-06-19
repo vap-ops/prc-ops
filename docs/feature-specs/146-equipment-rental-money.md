@@ -200,3 +200,131 @@ on-device pass is not required (nothing renders).
   UPSERT, same old/new audit payload, same pm/super/procurement gate, same
   `not exists` current-rows aggregation) — pre-noted so U4 is a copy, not a
   redesign.
+
+## U2 — project allocation: commit a rental batch to a project (2026-06-19)
+
+**Status:** designed — not built. **Schema** (change-management gate). The
+second P2 unit: record **where the monthly batch cost is committed** — a rented
+set (an `equipment_rental_batches` row) attached to a **project** for a period
+(ADR 0055 decisions 4/8). Data layer, no UI, money domain. Mirrors U1's posture
+and shape bit-for-bit (zero-grant money table + a single SECURITY DEFINER
+create RPC + one audit-action value + a period validator + pgTAP).
+
+**Model clarification (resolves the U1 §Seams wording).** An allocation is the
+**money commitment** of a batch to a project — _not_ a list of which items are in
+the set. Two axes already exist and stay separate:
+
+- **Physical custody** = `equipment_movements` (spec 141 U3): item X is
+  `deployed` to project Y, **field-visible**. Where the gear physically is.
+- **Money commitment** = `equipment_project_allocations` (this unit): batch B's
+  monthly cost is committed to project Y for period P, **admin-only**. Where the
+  rental cost lands.
+
+Under Case A (independent per-item daily charge-out, **not** a pass-through split
+of the batch's monthly cost), the batch monthly cost is a project-level
+commitment, so the allocation needs **no** per-item membership or quantity. Which
+items belong to a batch is **not modeled** and is **not needed** for the cost
+model — recorded as a seam if it's ever wanted.
+
+### What ships
+
+- **Migration — audit-action enum value, own migration (enum-add isolation):**
+  `alter type public.audit_action add value if not exists
+'equipment_allocation_create';`. **Update BOTH `enum_has_labels` pins** (pgTAP
+  file 03 AND file 18) — the U1 lesson, re-applied without being re-taught.
+
+- **Migration — `equipment_project_allocations`:**
+  - `id uuid pk default gen_random_uuid()`
+  - `batch_id uuid not null` FK → `equipment_rental_batches(id)`
+  - `project_id uuid not null` FK → `projects(id)`
+  - `starts_on date not null`
+  - `ends_on date null` — open-ended until the set is pulled back; CHECK
+    `ends_on is null or ends_on >= starts_on`
+  - `note text null`
+  - `created_by uuid not null` FK → `users(id)`, pinned to `auth.uid()` by the RPC
+  - `created_at timestamptz not null default now()`
+  - index on `(project_id)` and on `(batch_id)`
+  - **Money table = zero grant** (the U1 `equipment_rental_batches` posture):
+    `enable row level security` then `revoke all … from anon, authenticated`. No
+    authenticated grant ⇒ no policy to add (RLS stays enabled per the project
+    rule). Written **only** by the RPC below; read **only** via the admin client
+    behind `requireRole(pm/super/procurement)`. **No delete** (a commitment is
+    permanent history; an ended allocation carries `ends_on`).
+  - `comment on table` documents the posture + the physical-vs-money split.
+
+- **RPC — `create_equipment_project_allocation(p_batch_id uuid, p_project_id
+uuid, p_starts_on date, p_ends_on date default null, p_note text default
+null)`** returns `uuid`, `security definer`, `set search_path = public`.
+  Mirrors `create_equipment_rental_batch`:
+  - Gate `current_user_role() not in ('project_manager','super_admin',
+'procurement')` → `42501` (same equipment back-office audience as U1).
+  - Validate: batch exists (`perform 1 from equipment_rental_batches`; else
+    `P0001`); project exists (`perform 1 from projects`; else `P0001`);
+    `p_starts_on is null` → `P0001`; `p_ends_on is not null and p_ends_on <
+p_starts_on` → `P0001`.
+  - `insert … (batch_id, project_id, starts_on, ends_on, note, created_by)
+values (…, auth.uid()) returning id`.
+  - `audit_log` row: action `equipment_allocation_create`, `target_table
+'equipment_project_allocations'`, `target_id <new id>`, payload
+    `{batch_id, project_id, starts_on, ends_on}`.
+  - `revoke all on function … from public; grant execute … to authenticated;`.
+
+- **Pure validator** (`src/lib/equipment/validate-allocation.ts`, **TDD first**):
+  `validateAllocation({ startsOn, endsOn })` → `{ ok: true; value } | { ok:
+false; error }` (Thai): `startsOn` required + ISO `YYYY-MM-DD`; `endsOn`
+  optional (blank → null) + ISO + `>= startsOn`. The date logic mirrors
+  `validateRentalBatch`'s (lexicographic ISO compare, no `Date` parsing); kept a
+  **separate** module (no shared-helper extraction this unit — scope discipline;
+  a dedup is a recorded cleanup seam).
+
+- **`database.types.ts`** reconciled (`db:types`, dual-writes app + worker).
+
+### Scope
+
+- **IN:** the audit-action value (both pins), the
+  `equipment_project_allocations` table + RLS + zero-grant + CHECK + no-delete +
+  indexes, the `create_equipment_project_allocation` RPC, the `validateAllocation`
+  validator (test-first), pgTAP (new file 78), types.
+- **OUT:** per-item/bulk-quantity allocation arithmetic (the documented
+  bulk-reconciliation seam — Case A doesn't need it); batch-item membership
+  (not modeled, not needed); ending/superseding an allocation (append-style —
+  set `ends_on` via a future edit RPC, not this unit); usage logs (U3); freeze +
+  `wp_equipment_costs` (U4); any UI (U5); owner portal (U6). No money column on
+  the allocation itself (the cost is the batch's `monthly_rate`).
+
+### Money posture
+
+The allocation links a project to a money batch, so it is **money domain**: zero
+authenticated grant, admin-read behind `requireRole(pm/super/procurement)`, never
+on a site_admin screen, written only via the audited RPC. Physical deployment for
+the field stays on `equipment_movements` (field-visible) — unchanged.
+
+### Tests
+
+- **TDD (RED first):** `tests/unit/allocation.test.ts` — `validateAllocation`
+  (required/ISO start, optional end, end-before-start rejected, blank end → null),
+  before the migration/helper. State **"Writing failing test first."**
+- **pgTAP — new file `78-equipment-project-allocations.test.sql`:** catalog / PK
+  / RLS / zero-policy; the period CHECK; zero authenticated grant; no delete; the
+  enum value present; the RPC gate (site_admin AND visitor → `42501`; procurement
+  ALLOWED; pm happy path); `P0001` for a bad batch, a bad project, and
+  end-before-start; `created_by` pin; exactly one `equipment_allocation_create`
+  audit row; anon denied. Update both `audit_action` enum pins.
+
+### Verification
+
+`pnpm lint && pnpm typecheck && pnpm test` green; `pnpm db:push` then
+`pnpm db:test` green; `pnpm db:types` regenerated. **No user-visible change.**
+RPC write = **verified-by-checklist** (auth-gated, CHECK-guarded, pgTAP-covered).
+
+### Seams
+
+- Whole-batch-to-project only — a rented set split across two projects, or a
+  per-item/bulk-quantity allocation, is the deferred reconciliation seam (Case A
+  doesn't require it; revisit if a batch is ever physically split).
+- Ending an allocation (setting `ends_on`) needs a small edit RPC — not built
+  here (allocations are create-only this unit; `ends_on` is set at creation when
+  the window is known).
+- The `validateAllocation` date logic duplicates `validateRentalBatch`'s ISO
+  helpers — a shared `src/lib/equipment/iso-date.ts` extraction is a recorded
+  cleanup seam (kept separate now per scope discipline).

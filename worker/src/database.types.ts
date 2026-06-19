@@ -875,6 +875,61 @@ export type Database = {
           },
         ]
       }
+      equipment_project_allocations: {
+        Row: {
+          batch_id: string
+          created_at: string
+          created_by: string
+          ends_on: string | null
+          id: string
+          note: string | null
+          project_id: string
+          starts_on: string
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          created_by: string
+          ends_on?: string | null
+          id?: string
+          note?: string | null
+          project_id: string
+          starts_on: string
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          created_by?: string
+          ends_on?: string | null
+          id?: string
+          note?: string | null
+          project_id?: string
+          starts_on?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_project_allocations_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_rental_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_project_allocations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_project_allocations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       equipment_rental_batches: {
         Row: {
           created_at: string
@@ -2624,6 +2679,16 @@ export type Database = {
         Args: { p_contractor_id: string }
         Returns: string
       }
+      create_equipment_project_allocation: {
+        Args: {
+          p_batch_id: string
+          p_ends_on?: string
+          p_note?: string
+          p_project_id: string
+          p_starts_on: string
+        }
+        Returns: string
+      }
       create_equipment_rental_batch: {
         Args: {
           p_ends_on?: string
@@ -2979,6 +3044,7 @@ export type Database = {
         | "dc_payment_recorded"
         | "equipment_rate_change"
         | "equipment_batch_create"
+        | "equipment_allocation_create"
       contact_doc_purpose:
         | "id_card"
         | "bank_book"
@@ -3229,6 +3295,7 @@ export const Constants = {
         "dc_payment_recorded",
         "equipment_rate_change",
         "equipment_batch_create",
+        "equipment_allocation_create",
       ],
       contact_doc_purpose: [
         "id_card",
