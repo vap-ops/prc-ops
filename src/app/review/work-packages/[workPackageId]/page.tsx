@@ -90,7 +90,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
 
   // Spec 46: daily crew presence — PM sees the same presence-only zone
   // plus the self-log flags (costs live in P2's requireRole-gated view).
-  const labor = await fetchLaborZoneData(supabase, wp.id);
+  const labor = await fetchLaborZoneData(supabase, wp.id, wp.project_id);
 
   // Spec 68: PM-only labor cost. day_rate_snapshot and wp_labor_costs carry
   // NO authenticated grant, so read via the admin client — the page is
@@ -234,6 +234,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
             revalidate={`/review/work-packages/${workPackageId}`}
             roster={labor.roster}
             rows={labor.rows}
+            projectWorkerIds={labor.projectWorkerIds}
             showFlags
             locked={wp.status === "complete"}
           />

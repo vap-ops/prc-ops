@@ -66,3 +66,35 @@ export function filterRoster(roster: GroupedRoster, query: string): GroupedRoste
       .filter((g) => g.workers.length > 0),
   };
 }
+
+// Spec 158 U2 — split a grouped roster into the workers on THIS project
+// (workers.project_id, added by spec 160 U1) and everyone else, so the picker
+// surfaces the project's own crew first. Prioritize, never hide: both partitions
+// stay reachable. A contractor group with members on both sides appears in each
+// partition with only its respective members; an empty group is dropped per side.
+// Group order + names are preserved (the id set never reorders the roster).
+export function partitionRosterByProject(
+  roster: GroupedRoster,
+  inProjectIds: ReadonlySet<string>,
+): { inProject: GroupedRoster; others: GroupedRoster } {
+  const split = (workers: RosterWorker[]): [RosterWorker[], RosterWorker[]] => {
+    const inP: RosterWorker[] = [];
+    const others: RosterWorker[] = [];
+    for (const w of workers) (inProjectIds.has(w.id) ? inP : others).push(w);
+    return [inP, others];
+  };
+
+  const [inOwn, otherOwn] = split(roster.own);
+  const inDc: GroupedRoster["dc"] = [];
+  const otherDc: GroupedRoster["dc"] = [];
+  for (const group of roster.dc) {
+    const [inWorkers, otherWorkers] = split(group.workers);
+    if (inWorkers.length > 0) inDc.push({ ...group, workers: inWorkers });
+    if (otherWorkers.length > 0) otherDc.push({ ...group, workers: otherWorkers });
+  }
+
+  return {
+    inProject: { own: inOwn, dc: inDc },
+    others: { own: otherOwn, dc: otherDc },
+  };
+}

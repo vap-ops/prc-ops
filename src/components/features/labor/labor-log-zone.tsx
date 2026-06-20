@@ -16,7 +16,7 @@ import { correctLaborLog, logLaborDays } from "@/lib/labor/actions";
 import { bangkokTodayIso } from "@/lib/labor/dates";
 import { validateCorrection } from "@/lib/labor/validate";
 import { formatThaiDate } from "@/lib/i18n/labels";
-import { filterRoster } from "@/lib/labor/group-workers";
+import { filterRoster, partitionRosterByProject } from "@/lib/labor/group-workers";
 import type { GroupedRoster, RosterWorker } from "@/lib/labor/group-workers";
 import type { LaborDisplayRow } from "@/lib/labor/types";
 import type { Database } from "@/lib/db/database.types";
@@ -84,6 +84,60 @@ function WorkerPickRow({
       </label>
       {fraction !== null ? <FractionToggle value={fraction} onChange={onFraction} /> : null}
     </li>
+  );
+}
+
+// Spec 158 U2: render one roster partition — own techs (ช่างบริษัท) then DC
+// crews by contractor. Extracted so the in-project and others partitions share
+// exactly one rendering. Selection lives in the parent (keyed by worker id).
+function RosterGroups({
+  roster,
+  selected,
+  onToggle,
+  onFraction,
+}: {
+  roster: GroupedRoster;
+  selected: Record<string, DayFraction>;
+  onToggle: (workerId: string) => void;
+  onFraction: (workerId: string, fraction: DayFraction) => void;
+}) {
+  return (
+    <>
+      {roster.own.length > 0 ? (
+        <div className="mt-3">
+          <p className="text-ink-muted text-xs font-semibold tracking-wide">ช่างบริษัท</p>
+          <ul className="mt-1 flex flex-col">
+            {roster.own.map((w) => (
+              <WorkerPickRow
+                key={w.id}
+                worker={w}
+                fraction={selected[w.id] ?? null}
+                onToggle={() => onToggle(w.id)}
+                onFraction={(f) => onFraction(w.id, f)}
+              />
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {roster.dc.map((group) => (
+        <div key={group.contractorId ?? group.contractorName} className="mt-3">
+          <p className="text-ink-muted text-xs font-semibold tracking-wide">
+            {group.contractorName}
+          </p>
+          <ul className="mt-1 flex flex-col">
+            {group.workers.map((w) => (
+              <WorkerPickRow
+                key={w.id}
+                worker={w}
+                fraction={selected[w.id] ?? null}
+                onToggle={() => onToggle(w.id)}
+                onFraction={(f) => onFraction(w.id, f)}
+              />
+            ))}
+          </ul>
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -184,6 +238,7 @@ export function LaborLogZone({
   rows,
   showFlags,
   locked,
+  projectWorkerIds = [],
 }: {
   workPackageId: string;
   revalidate: string;
@@ -193,6 +248,8 @@ export function LaborLogZone({
   showFlags: boolean;
   /** WP complete: history stays, capture goes. */
   locked: boolean;
+  /** Spec 158 U2: ids of workers assigned to this WP's project — surfaced first. */
+  projectWorkerIds?: string[];
 }) {
   const router = useRouter();
   const [workDate, setWorkDate] = useState<string>(() => bangkokTodayIso());
@@ -220,6 +277,9 @@ export function LaborLogZone({
       return next;
     });
   }
+
+  const setFraction = (workerId: string, fraction: DayFraction) =>
+    setSelected((prev) => ({ ...prev, [workerId]: fraction }));
 
   async function submit() {
     setBusy(true);
@@ -256,6 +316,12 @@ export function LaborLogZone({
   // so a tick survives the roster scrolling out of the filtered view.
   const view = filterRoster(roster, query);
   const noMatch = !rosterEmpty && view.own.length === 0 && view.dc.length === 0;
+  // Spec 158 U2: within the filtered view, the workers on this WP's project
+  // surface first ("ในโครงการนี้"), everyone else below — never hidden. With no
+  // backfill yet, the in-project side is empty and this renders like before.
+  const { inProject, others } = partitionRosterByProject(view, new Set(projectWorkerIds));
+  const inProjectHasWorkers = inProject.own.length > 0 || inProject.dc.length > 0;
+  const othersHasWorkers = others.own.length > 0 || others.dc.length > 0;
 
   return (
     <section className="flex flex-col gap-3">
@@ -305,40 +371,40 @@ export function LaborLogZone({
               {noMatch ? (
                 <p className="text-ink-secondary mt-3 text-sm">ไม่พบทีมงานที่ค้นหา</p>
               ) : null}
-              {view.own.length > 0 ? (
+              {/* Spec 158 U2: this project's crew first. */}
+              {inProjectHasWorkers ? (
                 <div className="mt-3">
-                  <p className="text-ink-muted text-xs font-semibold tracking-wide">ช่างบริษัท</p>
-                  <ul className="mt-1 flex flex-col">
-                    {view.own.map((w) => (
-                      <WorkerPickRow
-                        key={w.id}
-                        worker={w}
-                        fraction={selected[w.id] ?? null}
-                        onToggle={() => toggle(w.id)}
-                        onFraction={(f) => setSelected((prev) => ({ ...prev, [w.id]: f }))}
-                      />
-                    ))}
-                  </ul>
+                  <p className="text-ink-secondary text-xs font-bold">ในโครงการนี้</p>
+                  <RosterGroups
+                    roster={inProject}
+                    selected={selected}
+                    onToggle={toggle}
+                    onFraction={setFraction}
+                  />
                 </div>
               ) : null}
-              {view.dc.map((group) => (
-                <div key={group.contractorId ?? group.contractorName} className="mt-3">
-                  <p className="text-ink-muted text-xs font-semibold tracking-wide">
-                    {group.contractorName}
-                  </p>
-                  <ul className="mt-1 flex flex-col">
-                    {group.workers.map((w) => (
-                      <WorkerPickRow
-                        key={w.id}
-                        worker={w}
-                        fraction={selected[w.id] ?? null}
-                        onToggle={() => toggle(w.id)}
-                        onFraction={(f) => setSelected((prev) => ({ ...prev, [w.id]: f }))}
-                      />
-                    ))}
-                  </ul>
-                </div>
-              ))}
+              {othersHasWorkers ? (
+                inProjectHasWorkers ? (
+                  // Only contrast with a heading when there is an in-project group
+                  // above; otherwise the roster renders plain, exactly like before.
+                  <div className="border-edge mt-4 border-t pt-2">
+                    <p className="text-ink-secondary text-xs font-bold">ทีมงานอื่น</p>
+                    <RosterGroups
+                      roster={others}
+                      selected={selected}
+                      onToggle={toggle}
+                      onFraction={setFraction}
+                    />
+                  </div>
+                ) : (
+                  <RosterGroups
+                    roster={others}
+                    selected={selected}
+                    onToggle={toggle}
+                    onFraction={setFraction}
+                  />
+                )
+              ) : null}
 
               {/* Spec 74: optional day note, applied to the whole batch. */}
               <label className="text-ink-secondary mt-3 block text-sm">

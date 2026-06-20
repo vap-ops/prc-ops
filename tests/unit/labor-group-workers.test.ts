@@ -2,7 +2,12 @@
 // first, then DC workers grouped by contractor name.
 
 import { describe, it, expect } from "vitest";
-import { groupRoster, filterRoster, type RosterWorker } from "@/lib/labor/group-workers";
+import {
+  groupRoster,
+  filterRoster,
+  partitionRosterByProject,
+  type RosterWorker,
+} from "@/lib/labor/group-workers";
 
 const CONTRACTORS = [
   { id: "c1", name: "DC Crew A" },
@@ -95,5 +100,42 @@ describe("filterRoster (spec 158 U1)", () => {
     const r = filterRoster(grouped, "วิชัย");
     expect(r.dc.map((g) => g.contractorName)).toEqual(["DC Crew B"]);
     expect(r.dc[0]?.workers.map((w) => w.id)).toEqual(["w4"]);
+  });
+});
+
+describe("partitionRosterByProject (spec 158 U2)", () => {
+  // own w1 + Crew A (w2, w3) + Crew B (w4).
+  const grouped = groupRoster(
+    [
+      worker({ id: "w1", name: "ช่างสมชาย" }),
+      worker({ id: "w2", name: "สมหญิง", worker_type: "dc", contractor_id: "c1" }),
+      worker({ id: "w3", name: "Somsak", worker_type: "dc", contractor_id: "c1" }),
+      worker({ id: "w4", name: "วิชัย", worker_type: "dc", contractor_id: "c2" }),
+    ],
+    CONTRACTORS,
+  );
+
+  it("splits own and dc into in-project vs others by worker id", () => {
+    // w1 (own) + w2 (Crew A) are on the project; w3 + w4 are not.
+    const { inProject, others } = partitionRosterByProject(grouped, new Set(["w1", "w2"]));
+    expect(inProject.own.map((w) => w.id)).toEqual(["w1"]);
+    expect(inProject.dc.map((g) => g.contractorName)).toEqual(["DC Crew A"]);
+    expect(inProject.dc[0]?.workers.map((w) => w.id)).toEqual(["w2"]);
+    expect(others.own).toEqual([]);
+    expect(others.dc.map((g) => g.contractorName)).toEqual(["DC Crew A", "DC Crew B"]);
+    expect(others.dc[0]?.workers.map((w) => w.id)).toEqual(["w3"]);
+    expect(others.dc[1]?.workers.map((w) => w.id)).toEqual(["w4"]);
+  });
+
+  it("an empty id set leaves in-project empty and others equal to the roster", () => {
+    const { inProject, others } = partitionRosterByProject(grouped, new Set());
+    expect(inProject).toEqual({ own: [], dc: [] });
+    expect(others).toEqual(grouped);
+  });
+
+  it("preserves contractor group order and names within each partition", () => {
+    const { inProject } = partitionRosterByProject(grouped, new Set(["w4", "w2"]));
+    // Group order follows the roster (Crew A before Crew B), not the id-set order.
+    expect(inProject.dc.map((g) => g.contractorName)).toEqual(["DC Crew A", "DC Crew B"]);
   });
 });

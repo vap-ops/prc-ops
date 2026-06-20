@@ -17,11 +17,15 @@ const RECENT_DATES_SHOWN = 7;
 export async function fetchLaborZoneData(
   supabase: SupabaseClient<Database>,
   workPackageId: string,
-): Promise<{ roster: GroupedRoster; rows: LaborDisplayRow[] }> {
+  // Spec 158 U2: the WP's project, to surface its assigned crew first. The
+  // picker still lists everyone (prioritize, don't hide), so this only orders.
+  projectId: string,
+): Promise<{ roster: GroupedRoster; projectWorkerIds: string[]; rows: LaborDisplayRow[] }> {
   const [{ data: workers }, { data: contractors }, { data: logs }] = await Promise.all([
     supabase
       .from("workers")
-      .select("id, name, worker_type, contractor_id, active")
+      // project_id is not money (spec 160 U1) — covered by the column grant.
+      .select("id, name, worker_type, contractor_id, active, project_id")
       .order("name", { ascending: true }),
     supabase.from("contractors").select("id, name"),
     supabase
@@ -54,5 +58,9 @@ export async function fetchLaborZoneData(
     (workers ?? []).map((w) => ({ ...w, active: w.active })),
     contractors ?? [],
   );
-  return { roster, rows };
+  // Spec 158 U2: ids of the active crew assigned to this WP's project.
+  const projectWorkerIds = (workers ?? [])
+    .filter((w) => w.active && w.project_id === projectId)
+    .map((w) => w.id);
+  return { roster, projectWorkerIds, rows };
 }

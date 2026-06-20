@@ -162,6 +162,38 @@ describe("LaborLogZone", () => {
     ]);
   });
 
+  it("surfaces project-assigned workers under a ในโครงการนี้ heading, ahead of the rest (spec 158 U2)", () => {
+    renderZone({ projectWorkerIds: ["w2"] });
+    const inProject = screen.getByText("ในโครงการนี้");
+    const others = screen.getByText("ทีมงานอื่น");
+    // The in-project section renders before the others section.
+    expect(
+      inProject.compareDocumentPosition(others) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    // The project DC sits in the in-project block; the own tech falls to others.
+    expect(screen.getByLabelText("ดีซีสอง")).toBeInTheDocument();
+    expect(screen.getByLabelText("ช่างหนึ่ง")).toBeInTheDocument();
+  });
+
+  it("shows no project partition heading when no worker is project-assigned (today's look)", () => {
+    renderZone({ projectWorkerIds: [] });
+    expect(screen.queryByText("ในโครงการนี้")).not.toBeInTheDocument();
+    expect(screen.queryByText("ทีมงานอื่น")).not.toBeInTheDocument();
+    // The plain grouped roster still renders.
+    expect(screen.getByText("ช่างบริษัท")).toBeInTheDocument();
+    expect(screen.getByText("DC Crew A")).toBeInTheDocument();
+  });
+
+  it("submits a project-assigned worker ticked in the in-project section (spec 158 U2)", async () => {
+    renderZone({ projectWorkerIds: ["w2"] });
+    await userEvent.click(screen.getByLabelText("ดีซีสอง"));
+    await userEvent.click(screen.getByRole("button", { name: "บันทึกแรงงาน" }));
+    await waitFor(() => expect(logLaborDays).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(logLaborDays).mock.calls[0]?.[0]?.entries).toEqual([
+      { workerId: "w2", fraction: "full" },
+    ]);
+  });
+
   it("correction dialog requires a reason and calls the action", async () => {
     renderZone();
     await userEvent.click(screen.getAllByRole("button", { name: "แก้ไข" })[0]!);

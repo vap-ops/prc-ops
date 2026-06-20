@@ -356,6 +356,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
           revalidate={workPackageHref(projectId, workPackageId)}
           roster={labor.roster}
           rows={labor.rows}
+          projectWorkerIds={labor.projectWorkerIds}
           showFlags={ctx.role !== "site_admin"}
           locked={wp.status === "complete"}
         />

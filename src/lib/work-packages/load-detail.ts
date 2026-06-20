@@ -66,7 +66,7 @@ export interface WorkPackageDetailData {
   wpRequests: RequestRow[];
   siblingWps: SiblingRow[];
   predecessorIds: string[];
-  labor: { roster: GroupedRoster; rows: LaborDisplayRow[] };
+  labor: { roster: GroupedRoster; projectWorkerIds: string[]; rows: LaborDisplayRow[] };
   photosByPhase: { before: PhotoLogRow[]; during: PhotoLogRow[]; after: PhotoLogRow[] };
   signedUrls: Map<string, string>;
   displayNames: Map<string, string>;
@@ -97,7 +97,7 @@ export async function loadWorkPackageDetail(
       wpRequests: [],
       siblingWps: [],
       predecessorIds: [],
-      labor: { roster: groupRoster([], []), rows: [] },
+      labor: { roster: groupRoster([], []), projectWorkerIds: [], rows: [] },
       photosByPhase: { before: [], during: [], after: [] },
       signedUrls: new Map(),
       displayNames: new Map(),
@@ -133,7 +133,7 @@ export async function loadWorkPackageDetail(
       .eq("work_package_id", wp.id)
       .order("requested_at", { ascending: false }),
     loadPlanner(supabase, wp.id, wp.project_id, isPlanner),
-    fetchLaborZoneData(supabase, wp.id),
+    fetchLaborZoneData(supabase, wp.id, wp.project_id),
     getCurrentPhotosForWorkPackage(supabase, wp.id),
     loadDefectReason(supabase, wp.id, wp.status),
   ]);

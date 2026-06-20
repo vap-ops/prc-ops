@@ -9,7 +9,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Sub-loaders are exercised elsewhere; here they're trivial async stubs so the
 // test isolates the loader's own orchestration.
 vi.mock("@/lib/labor/fetch-zone-data", () => ({
-  fetchLaborZoneData: vi.fn(async () => ({ roster: { groups: [] }, rows: [] })),
+  fetchLaborZoneData: vi.fn(async () => ({
+    roster: { groups: [] },
+    projectWorkerIds: [],
+    rows: [],
+  })),
 }));
 vi.mock("@/lib/photos/current-photos", () => ({
   getCurrentPhotosForWorkPackage: vi.fn(async () => ({ before: [], during: [], after: [] })),
