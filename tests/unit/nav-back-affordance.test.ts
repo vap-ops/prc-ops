@@ -53,6 +53,8 @@ const STATIC_DETAIL = [
   "contacts/crews",
   // Spec 162: the Nova operator console drills down from /settings (back chip).
   "nova",
+  // Spec 161 U7: the dials calibration console drills down from /nova.
+  "nova/dials",
 ].map((r) => `${r}/page.tsx`);
 const dynamicDetail = allPages.map(routeOf).filter(hasDynamicSegment);
 const DETAIL_ROUTES = [...dynamicDetail, ...STATIC_DETAIL];

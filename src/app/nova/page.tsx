@@ -4,6 +4,8 @@
 // through the RLS server client — the super_admin session sees every coin_posting.
 // Coins are points (no baht peg, ADR 0060), shown as "เหรียญ", never baht.
 
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
@@ -60,6 +62,18 @@ export default async function NovaPage() {
       </DetailHeader>
 
       <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-6 px-5 py-6`}>
+        {/* Spec 161 U7: calibrate the economic dials (multiplier, HT cut, level
+            weights, sell rates) — placeholders until set here. */}
+        <Link href="/nova/dials" className={`${CARD} flex items-center justify-between gap-3`}>
+          <span className="min-w-0">
+            <span className="text-ink block text-sm font-semibold">ค่าปรับ Nova (dials)</span>
+            <span className="text-ink-secondary block text-xs">
+              ตัวคูณ · ส่วนแบ่ง HT · น้ำหนักระดับ · ราคาขาย — ปรับก่อนใช้งานจริง
+            </span>
+          </span>
+          <ChevronRight aria-hidden className="text-ink-muted h-5 w-5 shrink-0" />
+        </Link>
+
         {/* Award — the operator's manual recognition tool until the automatic
             earn-rules (spec 161 U5/U6) land. */}
         {roster.length > 0 ? (

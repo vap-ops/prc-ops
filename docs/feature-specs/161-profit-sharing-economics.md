@@ -575,35 +575,30 @@ add value if not exists 'shop_redemption'` (a redemption is a **spend** = a new
     posting category; its own migration, never used in the same tx it is added — the
     enum-add lesson). The earn-sources (`profit_share`/`savers_bonus`/`behavior_bonus`)
     stay; this is the **first sink** source.
-  - `20260770000100_nova_shop.sql`:
-    - **`shop_items`** — `id uuid pk`, `name text not null` (nonblank, ≤120),
-      `description text null` (≤500), `price_coins numeric(20,4) not null` (`> 0`),
-      `active boolean not null default true`, `sort_order int not null default 0`,
-      `created_by`/`created_at`/`updated_by`/`updated_at`. The catalog is a **point**
-      price list (not baht, not margin-sensitive) → RLS on, **SELECT granted to
-      authenticated** (a future worker shop can read it; writes are RPC-only).
-    - **`shop_redemptions`** — append-only spend record: `id uuid pk`, `worker_id`,
-      `item_id`, `price_coins numeric(20,4) not null` (snapshot), `posting_id uuid not
+  - `20260770000100_nova_shop.sql`: - **`shop_items`** — `id uuid pk`, `name text not null` (nonblank, ≤120),
+    `description text null` (≤500), `price_coins numeric(20,4) not null` (`> 0`),
+    `active boolean not null default true`, `sort_order int not null default 0`,
+    `created_by`/`created_at`/`updated_by`/`updated_at`. The catalog is a **point**
+    price list (not baht, not margin-sensitive) → RLS on, **SELECT granted to
+    authenticated** (a future worker shop can read it; writes are RPC-only). - **`shop_redemptions`** — append-only spend record: `id uuid pk`, `worker_id`,
+    `item_id`, `price_coins numeric(20,4) not null` (snapshot), `posting_id uuid not
 null references coin_postings(id)` (the negative posting), `redeemed_by`,
-      `redeemed_at`. RLS on, **zero write grant** (RPC-only), SELECT super-only (the
-      coin_postings posture); **self-auditing** (the ledger + this row are the trail, like
-      `post_coins` — no audit_log, no audit-action enum-add).
-    - **`upsert_shop_item(p_name, p_price_coins, p_description default null, p_sort_order
+    `redeemed_at`. RLS on, **zero write grant** (RPC-only), SELECT super-only (the
+    coin_postings posture); **self-auditing** (the ledger + this row are the trail, like
+    `post_coins` — no audit_log, no audit-action enum-add). - **`upsert_shop_item(p_name, p_price_coins, p_description default null, p_sort_order
 default 0, p_id default null) returns uuid`** — SECURITY DEFINER, **super_admin only**
-      (operator runs the shop), null-safe, no PM ref → `42501`; name nonblank +
-      `price_coins > 0` → `P0001`; `p_id null` → insert (return new id), else update (not
-      found → `P0001`); audits (generic `update`, `target_table='shop_items'`).
-    - **`set_shop_item_active(p_id, p_active) returns void`** — super_admin, toggles
-      `active` (unknown id → `P0001`); audits.
-    - **`redeem_shop_item(p_worker, p_item) returns uuid`** — SECURITY DEFINER,
-      **super_admin only** (operator-driven for now — worker self-redeem is later,
-      gift-first). Worker exists + item exists & **active** → else `P0001`; `price :=
+    (operator runs the shop), null-safe, no PM ref → `42501`; name nonblank +
+    `price_coins > 0` → `P0001`; `p_id null` → insert (return new id), else update (not
+    found → `P0001`); audits (generic `update`, `target_table='shop_items'`). - **`set_shop_item_active(p_id, p_active) returns void`** — super_admin, toggles
+    `active` (unknown id → `P0001`); audits. - **`redeem_shop_item(p_worker, p_item) returns uuid`** — SECURITY DEFINER,
+    **super_admin only** (operator-driven for now — worker self-redeem is later,
+    gift-first). Worker exists + item exists & **active** → else `P0001`; `price :=
 item.price_coins`; **balance check** — `coin_balance(p_worker) >= price` → else
-      `P0001` ("insufficient balance"); **posts the spend** via `post_coins(p_worker,
+    `P0001` ("insufficient balance"); **posts the spend** via `post_coins(p_worker,
 'shop_redemption', -price, 'Shop redemption: '||name)` (negative posting — the
-      existing path; `post_coins` allows non-zero negatives); inserts a `shop_redemptions`
-      row (snapshot price + the `posting_id`); returns the redemption id. (U6b will narrow
-      "balance" to **spendable** = vested + not-externally-locked.)
+    existing path; `post_coins` allows non-zero negatives); inserts a `shop_redemptions`
+    row (snapshot price + the `posting_id`); returns the redemption id. (U6b will narrow
+    "balance" to **spendable** = vested + not-externally-locked.)
 
 ### U6a TDD
 
@@ -697,3 +692,29 @@ mints `bal × rate`, a worker who **redeemed since their last bonus** → `P0001
   automated penalty).
 - The worker-facing "saved / vested / locked" display + the operator confiscation UI —
   later (the RPCs drive them).
+
+## Operator UIs (U7–U9) — making the engine operable
+
+The U1–U6b RPCs are SQL-only. These units add the super_admin surfaces (under
+`/nova`) that drive them, so the operator can run + calibrate the engine without
+SQL. Each page reads the zero-grant economics tables via the **admin client**
+behind `requireRole(["super_admin"])`, and writes via server actions that relay to
+the SECURITY DEFINER RPCs through the **RLS server client** (the user JWT — the
+setter gates read `current_user_role()`, which the service-role client lacks).
+Pages are auth-gated, so verification is the component test + checklist (spec 162
+precedent), not e2e.
+
+- **U7 — dials calibration console (`/nova/dials`).** Read `nova_dials` +
+  `sell_rate_table`; tune every seeded placeholder (`coin_multiplier`, `ht_cut_pct`,
+  the four `level_weight_*`, `external_factor`, `vesting_tail_days`,
+  `savers_bonus_rate`, and the per-level sell rates) via `setNovaDial` / `setSellRate`.
+  The go-live calibration surface. `NovaDialsForm` + `nova-dials-form.test.tsx`.
+- **U8 — settlement + distribution flow.** Pick a closed project → `settle_project`
+  (show the pool + the per-WP bank) → `distribute_project_coins` (show the HT cut +
+  the DC split). The operational lifecycle at project close.
+- **U9 — Nova shop admin (`/nova/shop`).** List `shop_items`; create/edit
+  (`upsert_shop_item`) + toggle availability (`set_shop_item_active`). The catalog
+  behind the coin sink.
+
+Worker-facing surfaces (the gift bundle, the vested/locked view) stay later
+(gift-first, ADR 0061).
