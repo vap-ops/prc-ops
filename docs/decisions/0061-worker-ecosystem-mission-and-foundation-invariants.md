@@ -94,8 +94,21 @@ teaches) · dignity & voice (self-governance, recognition) · safety culture (re
 safe practice) · formal-economy inclusion (bank account, ID-linked identity,
 social-security on-ramp).
 
-**Open ordering choices** (operator to weigh): protect-first vs save-first; how hard
-to front-load worker-gifts vs the business profit-engine in the opening experience.
+**Decided ordering (operator, 2026-06-20):**
+
+- **Save-first; protection is an opening _gift_, not a later purchase.** Lead the
+  worker-driven features with **savings + earned-wage access**; provide a
+  **company-funded basic accident floor** as a benefit of belonging (present early,
+  costs the worker nothing, covers the catastrophic downside). Richer health cover
+  is **partner-brokered later**. (EWA fixes income shock, which insurance doesn't;
+  insurance sold early reads as an "ask.")
+- **Gift-first in the felt experience; profit-engine runs in parallel.** Don't delay
+  the coin engine (business core, same foundation from day 0) — but the worker's
+  **first experience** is the gift bundle **{their record · savings · earned-wage
+  access · accident floor}**, with **coins introduced as bonus-on-top**, never the
+  headline. The opaque coin never gets to be their first impression.
+- **Build Stage 0 first; defer coin dials + the coin economy** until the spine exists
+  (they're premature). Stage 0 is also the `DC → Project` correction (spec 160).
 
 ## Consequences
 
