@@ -74,6 +74,29 @@ export default async function NovaPage() {
           <ChevronRight aria-hidden className="text-ink-muted h-5 w-5 shrink-0" />
         </Link>
 
+        {/* Spec 161 U8: run the close-out lifecycle — settle a project, then
+            distribute its coin pool to the crew. */}
+        <Link href="/nova/settlement" className={`${CARD} flex items-center justify-between gap-3`}>
+          <span className="min-w-0">
+            <span className="text-ink block text-sm font-semibold">สรุป &amp; แบ่งเหรียญ</span>
+            <span className="text-ink-secondary block text-xs">
+              ปิดบัญชีโครงการ → ตั้งกองเหรียญ → แบ่งให้ทีม
+            </span>
+          </span>
+          <ChevronRight aria-hidden className="text-ink-muted h-5 w-5 shrink-0" />
+        </Link>
+
+        {/* Spec 161 U9: manage the Nova shop catalog (the coin sink). */}
+        <Link href="/nova/shop" className={`${CARD} flex items-center justify-between gap-3`}>
+          <span className="min-w-0">
+            <span className="text-ink block text-sm font-semibold">ร้าน Nova</span>
+            <span className="text-ink-secondary block text-xs">
+              ตั้งราคาสินค้าเป็นเหรียญ · เปิด/ปิดการขาย
+            </span>
+          </span>
+          <ChevronRight aria-hidden className="text-ink-muted h-5 w-5 shrink-0" />
+        </Link>
+
         {/* Award — the operator's manual recognition tool until the automatic
             earn-rules (spec 161 U5/U6) land. */}
         {roster.length > 0 ? (

@@ -55,6 +55,10 @@ const STATIC_DETAIL = [
   "nova",
   // Spec 161 U7: the dials calibration console drills down from /nova.
   "nova/dials",
+  // Spec 161 U8: the settlement + distribution flow drills down from /nova.
+  "nova/settlement",
+  // Spec 161 U9: the shop admin drills down from /nova.
+  "nova/shop",
 ].map((r) => `${r}/page.tsx`);
 const dynamicDetail = allPages.map(routeOf).filter(hasDynamicSegment);
 const DETAIL_ROUTES = [...dynamicDetail, ...STATIC_DETAIL];
