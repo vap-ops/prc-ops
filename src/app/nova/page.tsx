@@ -111,11 +111,16 @@ export default async function NovaPage() {
           {balances.length > 0 ? (
             <ul className={`${CARD} divide-edge flex flex-col divide-y`}>
               {balances.map((b) => (
-                <li key={b.id} className="flex items-center justify-between gap-3 py-2">
-                  <span className="text-ink min-w-0 truncate text-sm font-medium">{b.name}</span>
-                  <span className="text-ink shrink-0 text-sm font-bold tabular-nums">
-                    {coins(b.balance)}
-                  </span>
+                <li key={b.id}>
+                  <Link
+                    href={`/nova/worker/${b.id}`}
+                    className="hover:bg-sunk -mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-2 transition-colors"
+                  >
+                    <span className="text-ink min-w-0 truncate text-sm font-medium">{b.name}</span>
+                    <span className="text-ink shrink-0 text-sm font-bold tabular-nums">
+                      {coins(b.balance)}
+                    </span>
+                  </Link>
                 </li>
               ))}
             </ul>
