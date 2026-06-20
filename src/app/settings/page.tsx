@@ -153,6 +153,16 @@ export default async function SettingsPage() {
                 label="บัญชี"
                 hint="งบทดลอง · กำไร–ขาดทุน · กระทบยอด"
               />
+              {/* Spec 162: Nova's home is บัญชี. Operator-only for v1 (coins are
+                  super_admin-read + externals-invisible). */}
+              {role === "super_admin" && (
+                <SettingsLink
+                  href="/nova"
+                  icon={Sparkles}
+                  label="Nova"
+                  hint="เหรียญรางวัลทีมงาน · มอบเหรียญ"
+                />
+              )}
             </div>
           </>
         )}
@@ -163,7 +173,11 @@ export default async function SettingsPage() {
             build HELD); คลังเอกสาร is a future central document library. */}
         <div className="flex flex-col gap-2">
           <h2 className="text-meta text-ink-secondary font-semibold">เร็วๆนี้</h2>
-          <ComingSoonRow icon={Sparkles} label="Nova" hint="เรียนรู้ เติบโต เลเวลอัพ" />
+          {/* Spec 162: super_admin gets the live Nova link above; everyone else
+              still sees the coming-soon preview. */}
+          {role !== "super_admin" && (
+            <ComingSoonRow icon={Sparkles} label="Nova" hint="เรียนรู้ เติบโต เลเวลอัพ" />
+          )}
           <ComingSoonRow icon={Files} label="คลังเอกสาร" hint="รวมเอกสารทั้งหมดไว้ในที่เดียว" />
         </div>
 

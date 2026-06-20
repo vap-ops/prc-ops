@@ -18,6 +18,7 @@ const ALLOWED_DOMAINS = [
   "common",
   "portal",
   "equipment",
+  "nova",
 ] as const;
 
 describe("feature components are grouped into domain folders", () => {

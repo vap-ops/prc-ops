@@ -51,6 +51,8 @@ const STATIC_DETAIL = [
   "contacts/customers",
   "contacts/vendors",
   "contacts/crews",
+  // Spec 162: the Nova operator console drills down from /settings (back chip).
+  "nova",
 ].map((r) => `${r}/page.tsx`);
 const dynamicDetail = allPages.map(routeOf).filter(hasDynamicSegment);
 const DETAIL_ROUTES = [...dynamicDetail, ...STATIC_DETAIL];
