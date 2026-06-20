@@ -2819,6 +2819,119 @@ export type Database = {
           },
         ]
       }
+      shop_items: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          name: string
+          price_coins: number
+          sort_order: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          name: string
+          price_coins: number
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          name?: string
+          price_coins?: number
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_items_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shop_redemptions: {
+        Row: {
+          id: string
+          item_id: string
+          posting_id: string
+          price_coins: number
+          redeemed_at: string
+          redeemed_by: string
+          worker_id: string
+        }
+        Insert: {
+          id?: string
+          item_id: string
+          posting_id: string
+          price_coins: number
+          redeemed_at?: string
+          redeemed_by: string
+          worker_id: string
+        }
+        Update: {
+          id?: string
+          item_id?: string
+          posting_id?: string
+          price_coins?: number
+          redeemed_at?: string
+          redeemed_by?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_redemptions_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "shop_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_redemptions_posting_id_fkey"
+            columns: ["posting_id"]
+            isOneToOne: false
+            referencedRelation: "coin_postings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_redemptions_redeemed_by_fkey"
+            columns: ["redeemed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_redemptions_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           contact_person: string | null
@@ -4089,6 +4202,10 @@ export type Database = {
         }
         Returns: string
       }
+      redeem_shop_item: {
+        Args: { p_item: string; p_worker: string }
+        Returns: string
+      }
       release_retention: { Args: { p_id: string }; Returns: string }
       remove_work_package_dependency: {
         Args: { p_predecessor: string; p_successor: string }
@@ -4149,6 +4266,10 @@ export type Database = {
           p_internal_sell: number
           p_level: Database["public"]["Enums"]["worker_level"]
         }
+        Returns: undefined
+      }
+      set_shop_item_active: {
+        Args: { p_active: boolean; p_id: string }
         Returns: undefined
       }
       set_work_package_contractor: {
@@ -4298,6 +4419,16 @@ export type Database = {
         }
         Returns: string
       }
+      upsert_shop_item: {
+        Args: {
+          p_description?: string
+          p_id?: string
+          p_name: string
+          p_price_coins: number
+          p_sort_order?: number
+        }
+        Returns: string
+      }
       wp_equipment_sell: { Args: { p_wp: string }; Returns: number }
       wp_labor_sell: { Args: { p_wp: string }; Returns: number }
       wp_profit: {
@@ -4354,7 +4485,11 @@ export type Database = {
         | "certified"
         | "invoiced"
         | "paid"
-      coin_source: "profit_share" | "savers_bonus" | "behavior_bonus"
+      coin_source:
+        | "profit_share"
+        | "savers_bonus"
+        | "behavior_bonus"
+        | "shop_redemption"
       contact_doc_purpose:
         | "id_card"
         | "bank_book"
@@ -4632,7 +4767,12 @@ export const Constants = {
         "invoiced",
         "paid",
       ],
-      coin_source: ["profit_share", "savers_bonus", "behavior_bonus"],
+      coin_source: [
+        "profit_share",
+        "savers_bonus",
+        "behavior_bonus",
+        "shop_redemption",
+      ],
       contact_doc_purpose: [
         "id_card",
         "bank_book",
