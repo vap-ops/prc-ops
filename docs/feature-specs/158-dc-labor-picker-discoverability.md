@@ -71,6 +71,14 @@ Failing tests first.
   RLS + the create RPC. Own spec, operator sign-off first.
 - **Destination — DC self-report.** Spec 130 portal flow; the real fix. Tracked
   there, not here.
+- **Working-hours / time-in-out capture.** Operator (2026-06-20): "any would do as
+  long as we can change later." **DECISION: stay day-only (`เต็มวัน`/`ครึ่งวัน`)
+  now** — it is the DC=daily pay basis (see `prc-ops-pay-model` memory) and there is
+  nothing to build. **Reversible with zero history rewrite:** later add nullable
+  `time_in`/`time_out` to `labor_logs` (additive migration; existing rows stay valid,
+  append-only/supersede intact) as **attendance evidence**, optionally deriving the
+  fraction from hours. Pay stays daily either way. Revisit only when crews actually
+  need hour-level proof (disputes / overtime).
 
 ## Verify
 
