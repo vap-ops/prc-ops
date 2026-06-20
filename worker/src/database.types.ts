@@ -351,6 +351,7 @@ export type Database = {
           occurred_at: string
           reason: string
           source: Database["public"]["Enums"]["coin_source"]
+          source_project_id: string | null
           worker_id: string
         }
         Insert: {
@@ -361,6 +362,7 @@ export type Database = {
           occurred_at?: string
           reason: string
           source: Database["public"]["Enums"]["coin_source"]
+          source_project_id?: string | null
           worker_id: string
         }
         Update: {
@@ -371,6 +373,7 @@ export type Database = {
           occurred_at?: string
           reason?: string
           source?: Database["public"]["Enums"]["coin_source"]
+          source_project_id?: string | null
           worker_id?: string
         }
         Relationships: [
@@ -379,6 +382,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coin_postings_source_project_id_fkey"
+            columns: ["source_project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -3887,6 +3897,13 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claw_back_project_coins: {
+        Args: { p_note?: string; p_project: string }
+        Returns: {
+          clawed_total: number
+          clawed_workers: number
+        }[]
+      }
       clone_work_packages: {
         Args: { p_dst_project_id: string; p_src_project_id: string }
         Returns: number
@@ -4133,6 +4150,7 @@ export type Database = {
           p_occurred_at?: string
           p_reason: string
           p_source: Database["public"]["Enums"]["coin_source"]
+          p_source_project?: string
           p_worker: string
         }
         Returns: string

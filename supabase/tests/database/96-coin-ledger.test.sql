@@ -51,7 +51,7 @@ select ok(not has_table_privilege('authenticated', 'public.coin_postings', 'INSE
   'authenticated has no INSERT privilege on coin_postings (RPC-only)');
 
 select is((select prosecdef from pg_proc
-            where oid='public.post_coins(uuid,public.coin_source,numeric,text,timestamptz)'::regprocedure),
+            where oid='public.post_coins(uuid,public.coin_source,numeric,text,timestamptz,uuid)'::regprocedure),
   true, 'post_coins is SECURITY DEFINER');
 select ok(to_regprocedure('public.coin_balance(uuid)') is not null,
   'coin_balance(uuid) exists');
