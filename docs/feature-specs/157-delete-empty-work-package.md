@@ -26,38 +26,41 @@ own spec, ADR 0059 §3).
     entry point). Unknown WP → false.
   - **Audit row** (`event: 'wp_deleted'`, the WP code/name in payload) — ADR 0059 §6.
   - Allowed on closed projects (ADR 0059 §5).
-- **Adjacent fix (own migration):** add the missing FK
-  `labor_logs.work_package_id → work_packages(id)` (ON DELETE RESTRICT — the empty
-  guard already prevents reaching it; RESTRICT is the integrity backstop). This
-  closes the schema-oversight orphan risk ADR 0059 §Consequences flags.
-- **Server action** + `revalidatePath` back to the project page; gate mirrors the
-  RPC. After delete, redirect to `/projects/[id]`.
-- **UI**: a destructive "ลบงาน" action on the WP-detail page (PM/super/director;
-  hidden for site_admin + read-only coordinator), behind `ConfirmDialog` /
-  `ConfirmActionButton` (no `window.confirm` — ui-conventions §7). If the WP is
-  non-empty the RPC raises; surface a Thai message ("ลบไม่ได้ — งานนี้มีรูป/แรงงาน/คำขอซื้อแล้ว
-  ใช้การยกเลิกแทน") pointing at the future cancel path.
+- **No `labor_logs` FK migration needed.** _(Correction: the earlier read
+  mis-flagged `labor_logs.work_package_id` as a bare column. It already has an FK
+  (NO ACTION) that blocks deleting a referenced WP (`23503`) — a backstop the
+  empty-guard sits in front of.)_
+- **Server action** + `revalidatePath` of the project page; gate mirrors the RPC.
+  Maps the RPC's `P0001` to the "cancel instead" message.
+- **UI**: a destructive "ลบงาน" action in the manager-only management block on the
+  WP-detail page (PM/super/director; hidden for site_admin + read-only
+  coordinator), behind the themed `ConfirmDialog` (no `window.confirm` —
+  ui-conventions §7). On success it navigates to `/projects/[id]` (the WP is gone,
+  so `router.refresh` would 404). If the WP is non-empty the RPC raises `P0001` →
+  the inline "ลบไม่ได้ — งานนี้มีรูป แรงงาน หรือคำขอซื้อแล้ว" message points at the future
+  cancel path.
 - `database.types.ts` regenerated after `db:push` + `db:types`.
 
 ## TDD
 
 Failing tests first.
 
-1. **pgTAP** `NN-delete-work-package.test.sql`: catalog; PM deletes an EMPTY WP →
-   row gone, returns true; `super_admin` + `project_director` allowed;
-   `site_admin` + `visitor` denied (`42501`); WP with a `photo_log` → `P0001`
-   (refused); WP with a `labor_log` → `P0001`; WP with a `purchase_request` →
-   `P0001`; unknown WP → false; non-member PM denied (`42501`); one `audit_log`
-   row written on success; `labor_logs` FK exists + is `RESTRICT`.
-2. **vitest** for the delete confirm UI (confirm → action called; the non-empty
-   error renders the cancel-instead message).
+1. **pgTAP** `94-delete-work-package.test.sql`: catalog; the pre-existing
+   `labor_logs → work_packages` FK blocks delete (NO ACTION/RESTRICT); PM deletes
+   an EMPTY WP → row gone + one `audit_log` row; `super_admin` + `project_director`
+   allowed (see-all); WP with a `photo_log` / `labor_log` / `purchase_request` →
+   `P0001` (refused, survives); `site_admin` + `visitor` denied (`42501`);
+   non-member PM denied (`42501`).
+2. **vitest** for the delete confirm UI (confirm → action called → navigates to
+   the project page; the non-empty error renders the cancel-instead message + no
+   navigation).
 
 ## Scope — IN
 
-1. Migration: `labor_logs.work_package_id` FK (own migration).
-2. Migration: `delete_work_package` RPC.
-3. Server action + WP-detail delete action (confirm-gated, PM/super/director).
-4. The two tests.
+1. Migration: `delete_work_package` RPC. _(No `labor_logs` FK migration — it
+   already exists.)_
+2. Server action + WP-detail delete action (confirm-gated, PM/super/director).
+3. The two tests.
 
 ## Scope — OUT (open questions)
 

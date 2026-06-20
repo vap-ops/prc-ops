@@ -3350,6 +3350,10 @@ export type Database = {
         Args: { p_approve: boolean; p_id: string }
         Returns: undefined
       }
+      delete_work_package: {
+        Args: { p_work_package_id: string }
+        Returns: boolean
+      }
       dismiss_project_onboarding: {
         Args: { p_project_id: string }
         Returns: boolean

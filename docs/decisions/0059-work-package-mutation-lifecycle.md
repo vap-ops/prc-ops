@@ -23,8 +23,10 @@ a WP's children carry **captured site evidence that must survive** — `photo_lo
 `approvals`, and `labor_logs` are append-only (REVOKE + RLS + `BEFORE DELETE`
 trigger raising `P0001`). `photo_logs` + `approvals` CASCADE from a WP, so a
 service-role hard-delete of a WP that has any of them would **abort** on those
-triggers; `labor_logs.work_package_id` is a **bare column with no FK**, so a
-delete would orphan it. Destructive delete is therefore both doctrinally wrong
+triggers; `labor_logs.work_package_id` carries an FK (NO ACTION) that **blocks**
+deleting a referenced WP (`23503`). _(Correction, spec 157: an earlier read
+mis-flagged `labor_logs.work_package_id` as a bare column with no FK — it has
+one; nothing to add.)_ Destructive delete is therefore both doctrinally wrong
 and mechanically blocked.
 
 The house pattern for WP mutations is **one SECURITY DEFINER RPC per field**
@@ -84,10 +86,10 @@ p_work_package_id, p_name)` (non-empty + length CHECK, mirrors
 
 ## Consequences
 
-- **`labor_logs.work_package_id` FK debt.** It is a bare column (schema oversight).
-  Tier-1's empty-check must query it regardless, and a `cancelled` WP must keep its
-  labor rows readable. Add the missing FK (own migration) so integrity holds —
-  recorded as an adjacent fix in the delete spec.
+- ~~**`labor_logs.work_package_id` FK debt.**~~ **Corrected (spec 157):** the FK
+  already exists (NO ACTION) — there is no bare column and no migration to add. The
+  delete empty-check queries `labor_logs` regardless, and the FK is a backstop that
+  blocks deleting a WP with labor (`23503`) even outside the RPC.
 - The `cancelled` status (Tier 2) is a **wide but mechanical** touch of every
   status-exhaustive site (bands, progress, pills, labels) — its own spec.
 - Per-field RPC proliferation continues (now 6+ `set_work_package_*`). Accepted —

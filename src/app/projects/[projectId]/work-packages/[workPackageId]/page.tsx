@@ -33,6 +33,7 @@ import { WpAssignmentPanel } from "@/components/features/work-packages/wp-assign
 import { WpPriorityControl } from "@/components/features/work-packages/wp-priority-control";
 import { WpDeliverableControl } from "@/components/features/work-packages/wp-deliverable-control";
 import { WpNameControl } from "@/components/features/work-packages/wp-name-control";
+import { WpDeleteControl } from "@/components/features/work-packages/wp-delete-control";
 import { WpSchedulePanel } from "@/components/features/work-packages/wp-schedule-panel";
 import { WorkPackageNotes } from "@/components/features/work-packages/work-package-notes";
 import { PurchaseRequestForm } from "@/components/features/purchasing/purchase-request-form";
@@ -202,6 +203,12 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
               predecessors={predecessorOptions}
               candidates={candidateOptions}
             />
+            {/* Spec 157: delete an empty WP (created by mistake). A WP with
+                history is refused (P0001) → "cancel instead". Destructive, so it
+                sits last, set off by a divider. */}
+            <div className="border-edge border-t pt-4">
+              <WpDeleteControl projectId={wp.project_id} workPackageId={wp.id} />
+            </div>
           </div>
         </div>
       ) : null}
