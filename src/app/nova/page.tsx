@@ -16,6 +16,7 @@ import { createClient } from "@/lib/db/server";
 import { CARD, SECTION_HEADING } from "@/lib/ui/classes";
 import { formatThaiDate } from "@/lib/i18n/labels";
 import { COIN_SOURCE_LABEL } from "@/lib/nova/coin-source";
+import { summarizeLedger } from "@/lib/nova/economy-summary";
 import { NovaAwardForm } from "@/components/features/nova/nova-award-form";
 
 export const metadata = { title: "Nova" };
@@ -51,6 +52,12 @@ export default async function NovaPage() {
 
   const recent = ledger.slice(0, 30);
 
+  // Economy snapshot, derived from the ledger (the live coin liability).
+  const economy = summarizeLedger(ledger);
+  const issuedSources = Object.entries(economy.bySource)
+    .filter(([, n]) => n > 0)
+    .sort((a, b) => b[1] - a[1]);
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -62,6 +69,37 @@ export default async function NovaPage() {
       </DetailHeader>
 
       <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-6 px-5 py-6`}>
+        {/* Spec 161 U13: economy snapshot — the live coin liability, derived from
+            the ledger. Outstanding = issued − (redeemed + confiscated). */}
+        <div className={CARD}>
+          <h2 className={SECTION_HEADING}>ภาพรวมเหรียญ</h2>
+          <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+            <dt className="text-ink-secondary">เหรียญหมุนเวียน (คงค้าง)</dt>
+            <dd className="text-ink text-right font-bold tabular-nums">
+              {coins(economy.outstanding)}
+            </dd>
+            <dt className="text-ink-secondary">แจกแล้วทั้งหมด</dt>
+            <dd className="text-ink text-right tabular-nums">{coins(economy.issued)}</dd>
+            <dt className="text-ink-secondary">ใช้/ริบคืน</dt>
+            <dd className="text-ink text-right tabular-nums">{coins(economy.returned)}</dd>
+            <dt className="text-ink-secondary">ทีมงานที่ถือเหรียญ</dt>
+            <dd className="text-ink text-right tabular-nums">
+              {economy.holders.toLocaleString("th-TH")} คน
+            </dd>
+          </dl>
+          {issuedSources.length > 0 ? (
+            <p className="text-ink-muted mt-2 text-xs">
+              แหล่งที่มา:{" "}
+              {issuedSources
+                .map(
+                  ([s, n]) =>
+                    `${COIN_SOURCE_LABEL[s as keyof typeof COIN_SOURCE_LABEL] ?? s} ${n.toLocaleString("th-TH")}`,
+                )
+                .join(" · ")}
+            </p>
+          ) : null}
+        </div>
+
         {/* Spec 161 U7: calibrate the economic dials (multiplier, HT cut, level
             weights, sell rates) — placeholders until set here. */}
         <Link href="/nova/dials" className={`${CARD} flex items-center justify-between gap-3`}>
