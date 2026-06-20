@@ -287,6 +287,54 @@ export type Database = {
           },
         ]
       }
+      coin_postings: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string
+          id: string
+          occurred_at: string
+          reason: string
+          source: Database["public"]["Enums"]["coin_source"]
+          worker_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by: string
+          id?: string
+          occurred_at?: string
+          reason: string
+          source: Database["public"]["Enums"]["coin_source"]
+          worker_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string
+          id?: string
+          occurred_at?: string
+          reason?: string
+          source?: Database["public"]["Enums"]["coin_source"]
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coin_postings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coin_postings_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_attachments: {
         Row: {
           contractor_id: string | null
@@ -3318,6 +3366,7 @@ export type Database = {
         Args: { p_dst_project_id: string; p_src_project_id: string }
         Returns: number
       }
+      coin_balance: { Args: { p_worker: string }; Returns: number }
       correct_labor_log: {
         Args: {
           p_fraction?: Database["public"]["Enums"]["day_fraction"]
@@ -3520,6 +3569,16 @@ export type Database = {
       }
       post_client_billing_to_gl: {
         Args: { p_source_id: string }
+        Returns: string
+      }
+      post_coins: {
+        Args: {
+          p_amount: number
+          p_occurred_at?: string
+          p_reason: string
+          p_source: Database["public"]["Enums"]["coin_source"]
+          p_worker: string
+        }
         Returns: string
       }
       post_dc_payment_to_gl: { Args: { p_source_id: string }; Returns: string }
@@ -3867,6 +3926,7 @@ export type Database = {
         | "certified"
         | "invoiced"
         | "paid"
+      coin_source: "profit_share" | "savers_bonus" | "behavior_bonus"
       contact_doc_purpose:
         | "id_card"
         | "bank_book"
@@ -4143,6 +4203,7 @@ export const Constants = {
         "invoiced",
         "paid",
       ],
+      coin_source: ["profit_share", "savers_bonus", "behavior_bonus"],
       contact_doc_purpose: [
         "id_card",
         "bank_book",
