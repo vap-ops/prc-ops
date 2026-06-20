@@ -12,9 +12,11 @@ export const COIN_SOURCE_LABEL: Record<CoinSource, string> = {
   profit_share: "ส่วนแบ่งกำไร",
   savers_bonus: "โบนัสออม",
   shop_redemption: "แลกของรางวัล",
+  confiscation: "ริบเหรียญ",
 };
 
 // The manually-awardable EARN sources (the award picker). Sink sources
-// (shop_redemption — spec 161 U6a) are system-generated, never hand-awarded, so
-// they carry a label for the ledger display but stay out of this list.
+// (shop_redemption — spec 161 U6a; confiscation — U6b) are system-generated,
+// never hand-awarded, so they carry a label for the ledger display but stay out
+// of this list.
 export const COIN_SOURCES: CoinSource[] = ["behavior_bonus", "profit_share", "savers_bonus"];

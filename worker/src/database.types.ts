@@ -287,6 +287,61 @@ export type Database = {
           },
         ]
       }
+      coin_confiscations: {
+        Row: {
+          amount: number
+          confiscated_at: string
+          confiscated_by: string
+          id: string
+          note: string | null
+          posting_id: string
+          reason: Database["public"]["Enums"]["confiscation_reason"]
+          worker_id: string
+        }
+        Insert: {
+          amount: number
+          confiscated_at?: string
+          confiscated_by: string
+          id?: string
+          note?: string | null
+          posting_id: string
+          reason: Database["public"]["Enums"]["confiscation_reason"]
+          worker_id: string
+        }
+        Update: {
+          amount?: number
+          confiscated_at?: string
+          confiscated_by?: string
+          id?: string
+          note?: string | null
+          posting_id?: string
+          reason?: Database["public"]["Enums"]["confiscation_reason"]
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coin_confiscations_confiscated_by_fkey"
+            columns: ["confiscated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coin_confiscations_posting_id_fkey"
+            columns: ["posting_id"]
+            isOneToOne: false
+            referencedRelation: "coin_postings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coin_confiscations_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coin_postings: {
         Row: {
           amount: number
@@ -3798,6 +3853,7 @@ export type Database = {
         Args: { p_project?: string; p_reason?: string; p_worker: string }
         Returns: undefined
       }
+      award_savers_bonus: { Args: { p_worker: string }; Returns: number }
       can_see_photo_log: { Args: { p_photo_log_id: string }; Returns: boolean }
       can_see_project: { Args: { p_project_id: string }; Returns: boolean }
       can_see_wp: { Args: { p_work_package_id: string }; Returns: boolean }
@@ -3836,6 +3892,17 @@ export type Database = {
         Returns: number
       }
       coin_balance: { Args: { p_worker: string }; Returns: number }
+      coin_spendable_balance: { Args: { p_worker: string }; Returns: number }
+      coin_unvested_balance: { Args: { p_worker: string }; Returns: number }
+      coin_vested_balance: { Args: { p_worker: string }; Returns: number }
+      confiscate_coins: {
+        Args: {
+          p_note?: string
+          p_reason: Database["public"]["Enums"]["confiscation_reason"]
+          p_worker: string
+        }
+        Returns: number
+      }
       correct_labor_log: {
         Args: {
           p_fraction?: Database["public"]["Enums"]["day_fraction"]
@@ -4490,6 +4557,12 @@ export type Database = {
         | "savers_bonus"
         | "behavior_bonus"
         | "shop_redemption"
+        | "confiscation"
+      confiscation_reason:
+        | "fraud"
+        | "theft"
+        | "gross_misconduct"
+        | "defect_rework"
       contact_doc_purpose:
         | "id_card"
         | "bank_book"
@@ -4772,6 +4845,13 @@ export const Constants = {
         "savers_bonus",
         "behavior_bonus",
         "shop_redemption",
+        "confiscation",
+      ],
+      confiscation_reason: [
+        "fraud",
+        "theft",
+        "gross_misconduct",
+        "defect_rework",
       ],
       contact_doc_purpose: [
         "id_card",

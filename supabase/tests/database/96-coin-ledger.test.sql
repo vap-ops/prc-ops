@@ -39,8 +39,8 @@ select has_column('public', 'coin_postings', 'occurred_at', 'has occurred_at');
 select fk_ok('public', 'coin_postings', 'worker_id', 'public', 'workers', 'id',
   'coin_postings.worker_id FK references workers.id');
 select enum_has_labels('public', 'coin_source',
-  array['profit_share', 'savers_bonus', 'behavior_bonus', 'shop_redemption'],
-  'coin_source enum carries the earn-sources + the shop_redemption sink (spec 161 U6a)');
+  array['profit_share', 'savers_bonus', 'behavior_bonus', 'shop_redemption', 'confiscation'],
+  'coin_source enum carries the earn-sources + the shop_redemption/confiscation sinks (spec 161 U6a/U6b)');
 
 -- Append-only + zero write grant (RPC-only).
 select ok(not has_table_privilege('authenticated', 'public.coin_postings', 'UPDATE'),
