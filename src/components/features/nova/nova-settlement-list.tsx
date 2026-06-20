@@ -8,13 +8,22 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { settleProjectAction, distributeProjectCoinsAction } from "@/lib/nova/settlement-actions";
+import {
+  settleProjectAction,
+  distributeProjectCoinsAction,
+  clawBackProjectAction,
+} from "@/lib/nova/settlement-actions";
+import { ConfirmActionButton } from "@/components/features/common/confirm-action-button";
 import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
 import type { Database } from "@/lib/db/database.types";
 import { CARD } from "@/lib/ui/classes";
 
 const ACTION_BTN =
   "bg-fill text-on-fill hover:bg-fill-press inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-2 text-sm font-medium shadow-xs transition-colors active:translate-y-px disabled:opacity-50";
+const CLAWBACK_BTN =
+  "border-danger text-danger hover:bg-danger-soft inline-flex min-h-11 items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50";
+const CLAWBACK_CONFIRM =
+  "ริบเหรียญที่ยังไม่สุกงอมของโครงการนี้คืน (กรณีงานมีตำหนิ)? เหรียญที่สุกงอมแล้วจะไม่ถูกริบ";
 
 type ProjectStatus = Database["public"]["Enums"]["project_status"];
 
@@ -127,7 +136,16 @@ function Row({ p }: { p: SettlementProject }) {
           >
             แบ่งเหรียญ
           </button>
-        ) : null}
+        ) : (
+          <ConfirmActionButton
+            idleLabel="ริบเหรียญ (ตำหนิ)"
+            pendingLabel="กำลังริบ…"
+            confirmMessage={CLAWBACK_CONFIRM}
+            confirmLabel="ริบเหรียญ"
+            buttonClassName={CLAWBACK_BTN}
+            action={() => clawBackProjectAction(p.id)}
+          />
+        )}
         {error ? <p className="text-danger text-sm">{error}</p> : null}
       </div>
     </li>

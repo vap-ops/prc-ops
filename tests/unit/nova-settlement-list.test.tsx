@@ -7,11 +7,16 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NovaSettlementList } from "@/components/features/nova/nova-settlement-list";
-import { settleProjectAction, distributeProjectCoinsAction } from "@/lib/nova/settlement-actions";
+import {
+  settleProjectAction,
+  distributeProjectCoinsAction,
+  clawBackProjectAction,
+} from "@/lib/nova/settlement-actions";
 
 vi.mock("@/lib/nova/settlement-actions", () => ({
   settleProjectAction: vi.fn(),
   distributeProjectCoinsAction: vi.fn(),
+  clawBackProjectAction: vi.fn(),
 }));
 vi.mock("next/navigation", async () => await import("../helpers/router-refresh"));
 
@@ -48,11 +53,26 @@ const PROJECTS = [
     settlement: null,
     distribution: null,
   },
+  {
+    id: "ddd",
+    code: "P-D",
+    name: "อาคารดี",
+    status: "completed",
+    settlement: {
+      coinPool: 9000,
+      bankedProfitTotal: 9000,
+      wpBankedCount: 1,
+      wpSkippedNullBudgetCount: 0,
+      equipmentCosted: true,
+    },
+    distribution: { htCoins: 1000, dcDistributed: 8000, dcCount: 4 },
+  },
 ];
 
 beforeEach(() => {
   vi.mocked(settleProjectAction).mockReset().mockResolvedValue({ ok: true });
   vi.mocked(distributeProjectCoinsAction).mockReset().mockResolvedValue({ ok: true });
+  vi.mocked(clawBackProjectAction).mockReset().mockResolvedValue({ ok: true });
   refreshMock.mockReset();
 });
 
@@ -78,6 +98,24 @@ describe("NovaSettlementList", () => {
     render(<NovaSettlementList projects={PROJECTS} />);
     const row = screen.getByTestId("proj-ccc");
     expect(within(row).queryByRole("button", { name: "สรุปกำไร" })).toBeNull();
+  });
+
+  it("claws back a distributed project after confirming the themed dialog", async () => {
+    render(<NovaSettlementList projects={PROJECTS} />);
+    const row = screen.getByTestId("proj-ddd");
+    await userEvent.click(within(row).getByRole("button", { name: "ริบเหรียญ (ตำหนิ)" }));
+    // The themed ConfirmDialog (not window.confirm) — confirm via its danger button.
+    await userEvent.click(screen.getByRole("button", { name: "ริบเหรียญ" }));
+    await waitFor(() => expect(clawBackProjectAction).toHaveBeenCalledWith("ddd"));
+    await waitFor(() => expect(refreshMock).toHaveBeenCalled());
+  });
+
+  it("does not claw back if the dialog is cancelled", async () => {
+    render(<NovaSettlementList projects={PROJECTS} />);
+    const row = screen.getByTestId("proj-ddd");
+    await userEvent.click(within(row).getByRole("button", { name: "ริบเหรียญ (ตำหนิ)" }));
+    await userEvent.click(screen.getByRole("button", { name: "ยกเลิก" }));
+    expect(clawBackProjectAction).not.toHaveBeenCalled();
   });
 
   it("surfaces an action error inline", async () => {

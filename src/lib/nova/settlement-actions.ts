@@ -48,3 +48,22 @@ export async function distributeProjectCoinsAction(projectId: string): Promise<A
   revalidatePath("/nova/settlement");
   return { ok: true };
 }
+
+// Defect clawback (U10) — forfeit a project's still-unvested distributed coins.
+// super-only; idempotent (the RPC nets prior clawbacks). p_note carries the reason.
+export async function clawBackProjectAction(
+  projectId: string,
+  note?: string,
+): Promise<ActionResult> {
+  if (!UUID_REGEX.test(projectId)) return { ok: false, error: GENERIC_ERROR };
+  const g = await gate(["super_admin"]);
+  if ("error" in g) return { ok: false, error: g.error };
+  // Omit p_note when absent (exactOptionalPropertyTypes — never pass undefined).
+  const params: { p_project: string; p_note?: string } = { p_project: projectId };
+  const trimmed = note?.trim();
+  if (trimmed) params.p_note = trimmed;
+  const { error } = await g.supabase.rpc("claw_back_project_coins", params);
+  if (error) return { ok: false, error: GENERIC_ERROR };
+  revalidatePath("/nova/settlement");
+  return { ok: true };
+}
