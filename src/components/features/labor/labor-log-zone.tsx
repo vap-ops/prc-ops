@@ -16,6 +16,7 @@ import { correctLaborLog, logLaborDays } from "@/lib/labor/actions";
 import { bangkokTodayIso } from "@/lib/labor/dates";
 import { validateCorrection } from "@/lib/labor/validate";
 import { formatThaiDate } from "@/lib/i18n/labels";
+import { filterRoster } from "@/lib/labor/group-workers";
 import type { GroupedRoster, RosterWorker } from "@/lib/labor/group-workers";
 import type { LaborDisplayRow } from "@/lib/labor/types";
 import type { Database } from "@/lib/db/database.types";
@@ -202,6 +203,8 @@ export function LaborLogZone({
   const [error, setError] = useState<string | null>(null);
   const [failures, setFailures] = useState<{ workerId: string; message: string }[]>([]);
   const [correcting, setCorrecting] = useState<string | null>(null);
+  // Spec 158 U1: search over the (company-wide) roster so a DC is findable.
+  const [query, setQuery] = useState("");
 
   const today = bangkokTodayIso();
   const selectedIds = Object.keys(selected);
@@ -249,6 +252,10 @@ export function LaborLogZone({
   const dates = [...byDate.keys()].sort().reverse();
 
   const rosterEmpty = roster.own.length === 0 && roster.dc.length === 0;
+  // Spec 158 U1: display-only filter; selection lives in `selected` (by id),
+  // so a tick survives the roster scrolling out of the filtered view.
+  const view = filterRoster(roster, query);
+  const noMatch = !rosterEmpty && view.own.length === 0 && view.dc.length === 0;
 
   return (
     <section className="flex flex-col gap-3">
@@ -286,11 +293,23 @@ export function LaborLogZone({
             </p>
           ) : (
             <>
-              {roster.own.length > 0 ? (
+              {/* Spec 158 U1: find a DC in a long company-wide roster. */}
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="ค้นหาทีมงาน"
+                aria-label="ค้นหาทีมงาน"
+                className="border-edge-strong bg-card text-ink focus-visible:ring-action mt-3 block w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus-visible:ring-2"
+              />
+              {noMatch ? (
+                <p className="text-ink-secondary mt-3 text-sm">ไม่พบทีมงานที่ค้นหา</p>
+              ) : null}
+              {view.own.length > 0 ? (
                 <div className="mt-3">
                   <p className="text-ink-muted text-xs font-semibold tracking-wide">ช่างบริษัท</p>
                   <ul className="mt-1 flex flex-col">
-                    {roster.own.map((w) => (
+                    {view.own.map((w) => (
                       <WorkerPickRow
                         key={w.id}
                         worker={w}
@@ -302,7 +321,7 @@ export function LaborLogZone({
                   </ul>
                 </div>
               ) : null}
-              {roster.dc.map((group) => (
+              {view.dc.map((group) => (
                 <div key={group.contractorId ?? group.contractorName} className="mt-3">
                   <p className="text-ink-muted text-xs font-semibold tracking-wide">
                     {group.contractorName}

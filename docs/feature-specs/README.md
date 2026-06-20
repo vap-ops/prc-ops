@@ -160,6 +160,7 @@ for reading the spec itself.
 | 155  | Bind a work package to a deliverable (set_work_package_deliverable RPC + picker; ADR 0059)                         |
 | 156  | Edit a work package's name (set_work_package_name RPC + edit sheet; ADR 0059)                                      |
 | 157  | Delete a work package — Tier 1 empty-only hard delete (+ labor_logs FK fix; ADR 0059)                              |
+| 158  | DC labor picker discoverability (bridge): worker search/filter (U1; U2 project-scope + U3 SA-add deferred)         |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

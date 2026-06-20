@@ -2,7 +2,7 @@
 // first, then DC workers grouped by contractor name.
 
 import { describe, it, expect } from "vitest";
-import { groupRoster, type RosterWorker } from "@/lib/labor/group-workers";
+import { groupRoster, filterRoster, type RosterWorker } from "@/lib/labor/group-workers";
 
 const CONTRACTORS = [
   { id: "c1", name: "DC Crew A" },
@@ -50,5 +50,50 @@ describe("groupRoster", () => {
       CONTRACTORS,
     );
     expect(grouped.dc[0]?.contractorName).toBeTruthy();
+  });
+});
+
+describe("filterRoster (spec 158 U1)", () => {
+  // A grouped roster: one own tech + two DC crews (Crew A has two workers).
+  const grouped = groupRoster(
+    [
+      worker({ id: "w1", name: "ช่างสมชาย" }),
+      worker({ id: "w2", name: "สมหญิง", worker_type: "dc", contractor_id: "c1" }),
+      worker({ id: "w3", name: "Somsak", worker_type: "dc", contractor_id: "c1" }),
+      worker({ id: "w4", name: "วิชัย", worker_type: "dc", contractor_id: "c2" }),
+    ],
+    CONTRACTORS,
+  );
+
+  it("returns the roster unchanged for an empty / whitespace query", () => {
+    expect(filterRoster(grouped, "")).toEqual(grouped);
+    expect(filterRoster(grouped, "   ")).toEqual(grouped);
+  });
+
+  it("keeps only workers whose name matches (substring, across groups)", () => {
+    const r = filterRoster(grouped, "สม");
+    // own ช่างสมชาย contains สม; DC สมหญิง contains สม; วิชัย + Somsak do not.
+    expect(r.own.map((w) => w.id)).toEqual(["w1"]);
+    expect(r.dc.flatMap((g) => g.workers.map((w) => w.id))).toEqual(["w2"]);
+  });
+
+  it("is case-insensitive for latin names", () => {
+    const r = filterRoster(grouped, "somsak");
+    expect(r.dc.flatMap((g) => g.workers.map((w) => w.id))).toEqual(["w3"]);
+    expect(r.own).toEqual([]);
+  });
+
+  it("a contractor-name match keeps the whole group", () => {
+    const r = filterRoster(grouped, "Crew A");
+    expect(r.dc).toHaveLength(1);
+    expect(r.dc[0]?.contractorName).toBe("DC Crew A");
+    expect(r.dc[0]?.workers.map((w) => w.id)).toEqual(["w2", "w3"]);
+    expect(r.own).toEqual([]);
+  });
+
+  it("drops groups left with no matching workers", () => {
+    const r = filterRoster(grouped, "วิชัย");
+    expect(r.dc.map((g) => g.contractorName)).toEqual(["DC Crew B"]);
+    expect(r.dc[0]?.workers.map((w) => w.id)).toEqual(["w4"]);
   });
 });

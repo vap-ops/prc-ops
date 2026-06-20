@@ -90,10 +90,10 @@ Do not add or remove enum values without an ADR. After LINE login, `roleHome()` 
 ## Operating environment
 
 - The operator is non-developer, working from cloud PC and mobile.
-- Merges to `main` and `git push` are laptop-only operations. Do not propose them from sessions that may be mobile.
-- Never auto-authenticate `gh`. Never push without explicit confirmation.
-- PRs are opened manually in the browser.
-- After merge: pull main locally, delete merged branches.
+- Auto-commit-and-merge is the standing posture (operator grant, 2026-06-20): commit, ff-merge to `main`, and `git push origin main` directly from the cloud PC for routine work — no per-task confirm, and a per-task "I push from the laptop" note does not apply. `main` auto-deploys (Vercel).
+- Still flag genuinely risky changes before pushing: schema migrations and worker/Railway redeploys.
+- Never auto-authenticate `gh`.
+- After merge: delete merged branches.
 
 ## Skills, agents, and hooks
 

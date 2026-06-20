@@ -47,3 +47,22 @@ export function groupRoster(
 
   return { own, dc };
 }
+
+// Spec 158 U1 — client-side search over the grouped picker so a site admin
+// can find a DC in a long company-wide roster. Display-only: the caller keeps
+// selection state keyed by worker id, so filtering never drops a tick.
+export function filterRoster(roster: GroupedRoster, query: string): GroupedRoster {
+  const q = query.trim().toLocaleLowerCase();
+  if (q === "") return roster;
+  const matches = (s: string) => s.toLocaleLowerCase().includes(q);
+  return {
+    own: roster.own.filter((w) => matches(w.name)),
+    // A contractor-name hit keeps the whole crew; otherwise keep the workers
+    // whose own name matches, and drop a crew left with none.
+    dc: roster.dc
+      .map((g) =>
+        matches(g.contractorName) ? g : { ...g, workers: g.workers.filter((w) => matches(w.name)) },
+      )
+      .filter((g) => g.workers.length > 0),
+  };
+}

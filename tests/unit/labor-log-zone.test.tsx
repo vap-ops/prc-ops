@@ -137,6 +137,31 @@ describe("LaborLogZone", () => {
     expect(screen.getByText("ลงให้ตัวเอง")).toBeInTheDocument();
   });
 
+  it("search filters the picker to matching workers (spec 158 U1)", async () => {
+    renderZone();
+    await userEvent.type(screen.getByPlaceholderText("ค้นหาทีมงาน"), "ดีซี");
+    expect(screen.getByLabelText("ดีซีสอง")).toBeInTheDocument();
+    expect(screen.queryByLabelText("ช่างหนึ่ง")).not.toBeInTheDocument();
+  });
+
+  it("keeps a worker selected after a filter hides it, and still submits it (spec 158 U1)", async () => {
+    renderZone();
+    // Tick the own tech, then search so it drops out of view.
+    await userEvent.click(screen.getByLabelText("ช่างหนึ่ง"));
+    await userEvent.type(screen.getByPlaceholderText("ค้นหาทีมงาน"), "ดีซี");
+    expect(screen.queryByLabelText("ช่างหนึ่ง")).not.toBeInTheDocument();
+    // Tick the now-visible DC worker and submit.
+    await userEvent.click(screen.getByLabelText("ดีซีสอง"));
+    await userEvent.click(screen.getByRole("button", { name: "บันทึกแรงงาน" }));
+
+    await waitFor(() => expect(logLaborDays).toHaveBeenCalledTimes(1));
+    const arg = vi.mocked(logLaborDays).mock.calls[0]?.[0];
+    expect(arg?.entries).toEqual([
+      { workerId: "w1", fraction: "full" },
+      { workerId: "w2", fraction: "full" },
+    ]);
+  });
+
   it("correction dialog requires a reason and calls the action", async () => {
     renderZone();
     await userEvent.click(screen.getAllByRole("button", { name: "แก้ไข" })[0]!);
