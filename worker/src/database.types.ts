@@ -4010,6 +4010,17 @@ export type Database = {
         Returns: string
       }
       wp_labor_sell: { Args: { p_wp: string }; Returns: number }
+      wp_profit: {
+        Args: { p_wp: string }
+        Returns: {
+          budget: number
+          equipment_cost: number
+          equipment_costed: boolean
+          labor_sell: number
+          materials_cost: number
+          profit: number
+        }[]
+      }
     }
     Enums: {
       accounting_period_status: "open" | "closing" | "closed" | "locked"

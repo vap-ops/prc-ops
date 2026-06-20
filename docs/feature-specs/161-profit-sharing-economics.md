@@ -254,3 +254,76 @@ counted [junior half = 290], a tombstoned row excluded → **290.00**); an unkno
   later refinement only if grade-at-time fairness is required.
 - **Surfacing** the ungraded-DC-day flag, the HT's P&L view, banking profit at WP
   completion — **U3b / U5** + their UI.
+
+## U3b detail — WP profit assembly (`wp_profit`), materials DERIVED FROM the GL
+
+ADR 0060 §2: `WP profit = budget − (equipment rental + DC labor @ SELL + materials)`.
+U3 built the labor-@-sell term; this unit **assembles the read** — budget − labor_sell −
+materials − equipment — with **materials cost sourced from the WP-dimensioned GL**
+(ADR 0057: derive from the ledger, **not a second costing path**), exposing every term so
+the number is auditable. Still a pure **read**; nothing is banked (banking-at-completion =
+later) and nothing is minted (settlement × multiplier = U4, blocked on utilization data).
+
+**Equipment is a known gap (operator-confirmed 2026-06-20).** `post_rental_batch_to_gl`
+posts a rental batch to WIP (1400) at **batch grain with no `work_package_id` (nor
+`project_id`)** — equipment cost is **not WP-dimensioned in the GL**, so it cannot be
+derived per-WP today. Making it per-WP needs a **business rule** for splitting a batch
+across a project's WPs (a follow-up spec, touching the equipment poster / ADR 0055 — the
+allocation basis is an operator decision). Per the scope rule, U3b does **not** improvise
+it: the equipment term is **0 with a `equipment_costed = false` flag** so the omission is
+loud and visible, never silently folded into a single profit number. (U4 minting is
+blocked anyway, so no payout rides on the partial figure.)
+
+- **`wp_profit(p_wp uuid) returns table(budget, labor_sell, materials_cost,
+equipment_cost, equipment_costed, profit)`** — SECURITY DEFINER, `stable`, pinned
+  `search_path`. One row of the profit components (all `numeric` except the boolean flag).
+  - **budget** = `wp_economics.budget` for the WP (NULL until the PD sets it — U2).
+  - **labor_sell** = `wp_labor_sell(p_wp)` — the U3 SSOT, **reused** (definer-to-definer:
+    the original caller's role still resolves, so its identical super/director gate
+    passes; no re-implementation of the sell math).
+  - **materials_cost — from the GL, reversal-safe.** `Σ(debit − credit)` over
+    `journal_lines` for this WP on the **WIP-construction account `1400`**, restricted to
+    **purchase**-sourced entries: `coalesce(orig.source_table, e.source_table) =
+'purchase_requests'` via `left join journal_entries orig on orig.id = e.reversal_of`. A
+    reversal entry carries `source_table = 'journal_reversal'` but copies the line's
+    `work_package_id` and swaps debit/credit — so attributing it through `reversal_of` to
+    the original's source makes an **auto-corrected purchase net out** (the GL's own
+    reverse-and-repost, `post_purchase_to_gl`). **Labor also debits 1400** but is excluded
+    (its source is `wp_labor_costs`); **VAT (1300)** and **equipment (no WP dim)** are
+    naturally excluded. This reads the ledger — it is **not** a re-sum of
+    `purchase_requests` (the ADR 0057 invariant). Mirrors the `gl_trial_balance` join
+    shape; no status filter (reversals net via debit/credit, as the trial balance does).
+  - **equipment_cost** = `0`, **equipment_costed** = `false` (the flagged gap above).
+  - **profit** = `budget − labor_sell − materials_cost − equipment_cost` — **NULL when
+    budget is NULL** (no budget → no profit number; the components still return, so the
+    caller sees _why_).
+  - **Gate** — `super_admin` + `project_director` only, null-safe `is distinct from`
+    (NULL-role denied), **no `project_manager` reference** (90/91 untouched) → `42501`;
+    unknown WP → `P0001`. Execute lockdown `revoke all from public; grant execute to
+authenticated`; invoked under the caller's authed session (like `wp_labor_sell` /
+    freeze). Reads zero-grant money tables via the definer; a read → no audit, no enum.
+
+### U3b TDD
+
+**pgTAP** `102-wp-profit.test.sql`: catalog (`wp_profit(uuid)` exists; SECURITY DEFINER);
+the **gate** (super + director read; pm / site_admin / visitor → `42501`); a fully-costed
+WP (budget 5000, a senior DC full day = labor_sell 800, a purchase Dr-1400 net 1000, **plus
+a labor Dr-1400 entry that must be excluded**) → `budget 5000 · labor_sell 800 ·
+materials_cost 1000 · equipment_cost 0 · equipment_costed false · profit 3200`; a
+**reversal-safe** WP (purchase 2000 → auto-correct reversal → re-post 1500) → `materials_cost
+1500 · profit 2500`; a **budget-NULL** WP (no `wp_economics` row, a 300 purchase) →
+`budget NULL · profit NULL`; an unknown WP → `P0001`. Journal rows are seeded directly
+(an `accounting_periods` row + `journal_entries`/`journal_lines`), isolating the test from
+the poster machinery.
+
+### U3b Scope — OUT (later units)
+
+- **Equipment cost per WP** — the batch→WP allocation rule + teaching
+  `post_rental_batch_to_gl` to write `work_package_id` (its own follow-up spec; needs the
+  operator's allocation basis). Until then `equipment_costed = false`.
+- **Banking** the profit at WP completion (a stored, frozen figure) — settlement
+  territory; **U4**.
+- **Project settlement × the multiplier → the coin pool** — **U4** (blocked on
+  utilization data for the markup-% / multiplier default).
+- The **HT P&L surface** (the HT sees the real number) + any operator UI — later, with
+  the unground-DC flag from U3.
