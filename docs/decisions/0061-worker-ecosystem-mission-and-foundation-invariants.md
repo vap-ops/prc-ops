@@ -61,18 +61,41 @@ construction labor's historical dark side. The mission holds only if it **empowe
 and the worker can leave with what's theirs.** Portability (invariant 5) is the
 antidote: build to free them, not to chain them.
 
-## Trajectory (illustrative — confirm per step, NOT committed scope)
+## Trajectory (refined 2026-06-20 — illustrative direction, confirm per step, NOT committed scope)
 
-`coins → savings/buffer → verified work-income identity → fair credit/advances →
-benefits/safety-net → financial education → family wellbeing.`
+**Telos:** move a worker **precarity → security → growth → legacy**, building **four
+capitals** — financial (savings/credit), human (skills), social (belonging/voice),
+protective (safety/insurance). Not just financial inclusion.
 
-Staged, each step shippable and visibly life-improving:
+**Organizing principle — sequence by TRUST, not dependency.** Lead with unambiguous
+worker-wins to bank the trust the heavier steps need: **gifts before asks.** (Don't
+open with only the opaque, revocable coin — pair the earn loop with a genuine gift.)
 
-- **0 — foundation spine:** DC-as-person + the ledger + the portal home (no economics).
-- **1 — earn loop:** project-close settlement → coins → shop ([ADR 0060](0060-project-profit-sharing-nova-coins.md)).
-- **2 — savings + trust:** saver's bonus, vesting, "your coins are yours."
-- **3 — their record, visible:** work / earnings / level history as a portable asset.
-- **4+ —** credit / advances · benefits · education · family.
+**Stage 0 — foundation spine (build first):** DC-as-person + the ledger + the portal
+home; no economics. The invariants above are paid here.
+
+**The spine (sequential, trust-building):**
+
+1. **Engage** — the earn loop / coins ([ADR 0060](0060-project-profit-sharing-nova-coins.md)),
+   paired with a real worker-win so the first taste isn't only the control-carrot.
+2. **Stabilize** _(keystone)_ — savings buffer (wage + coins) + **earned-wage access**
+   (draw your own earned-but-unpaid pay early, interest-free — the direct loan-shark
+   killer, _their_ money, low risk).
+3. **Protect** _(downside-first)_ — accident / health cover. Construction is dangerous;
+   one injury wipes out all savings → protect before you grow.
+4. **Prove** — the **work-passport**: verified income + skills record, portable, theirs.
+   Opens the formal economy; prerequisite for credit.
+5. **Grow** — skills ladder (train → level up → earn more) + fair credit
+   **partner-brokered** against the passport, **never company-lent** (debt-bondage).
+6. **Legacy** — family / dependents (education funds, remittance, family benefits).
+
+**Layers (throughout, never a single step):** financial education (every feature
+teaches) · dignity & voice (self-governance, recognition) · safety culture (reward
+safe practice) · formal-economy inclusion (bank account, ID-linked identity,
+social-security on-ramp).
+
+**Open ordering choices** (operator to weigh): protect-first vs save-first; how hard
+to front-load worker-gifts vs the business profit-engine in the opening experience.
 
 ## Consequences
 
