@@ -435,24 +435,15 @@ timestamptz not null default now()`. **MONEY posture**: RLS on, `revoke all` —
 coin_multiplier, wp_banked_count, wp_skipped_null_budget_count, equipment_costed)`** —
     SECURITY DEFINER, pinned `search_path`. **`super_admin` + `project_director`** only,
     null-safe `is distinct from` (NULL-role denied — the rls-self-check-coalesce trap);
-    **no `project_manager` reference** → ADR 0058 pgTAP 90/91 untouched → else `42501`.
-    - project exists → `P0001`.
-    - **closed only** — `status in ('completed', 'archived')` ("settles once **at
-      close**") → else `P0001`.
-    - **idempotent** — a pre-existing `project_settlements` row → `P0001` ("already
-      settled"); settled coins are never re-minted.
-    - reads `coin_multiplier` from `nova_dials` (the U4a dial).
-    - loops the project's WPs with `status = 'complete'`; for each, `select * into … from
-public.wp_profit(wp.id)` (the gate passes — caller is super/director):
-      - **budget NULL ⇒ profit NULL ⇒ skip + count** (`wp_skipped_null_budget_count++`),
-        never treated as 0.
-      - else **freeze** a `wp_profit_bank` row, add `profit` to `banked_profit_total`,
-        `wp_banked_count++`, AND the running `equipment_costed` with the row's flag.
-    - `coin_pool = banked_profit_total × coin_multiplier`; inserts the `project_settlements`
-      row; audits (generic `update` action, `target_table='project_settlements'`,
-      `target_id = p_project`, payload = the totals — no enum-add); returns the summary.
-    - Execute lockdown `revoke all from public; grant execute to authenticated`; invoked
-      under the caller's authed session (like `wp_profit`).
+    **no `project_manager` reference** → ADR 0058 pgTAP 90/91 untouched → else `42501`. - project exists → `P0001`. - **closed only** — `status in ('completed', 'archived')` ("settles once **at
+    close**") → else `P0001`. - **idempotent** — a pre-existing `project_settlements` row → `P0001` ("already
+    settled"); settled coins are never re-minted. - reads `coin_multiplier` from `nova_dials` (the U4a dial). - loops the project's WPs with `status = 'complete'`; for each, `select * into … from
+public.wp_profit(wp.id)` (the gate passes — caller is super/director): - **budget NULL ⇒ profit NULL ⇒ skip + count** (`wp_skipped_null_budget_count++`),
+    never treated as 0. - else **freeze** a `wp_profit_bank` row, add `profit` to `banked_profit_total`,
+    `wp_banked_count++`, AND the running `equipment_costed` with the row's flag. - `coin_pool = banked_profit_total × coin_multiplier`; inserts the `project_settlements`
+    row; audits (generic `update` action, `target_table='project_settlements'`,
+    `target_id = p_project`, payload = the totals — no enum-add); returns the summary. - Execute lockdown `revoke all from public; grant execute to authenticated`; invoked
+    under the caller's authed session (like `wp_profit`).
 
 ### U4b TDD
 
@@ -519,35 +510,27 @@ per-worker tenure column is a later refinement; for now it derives from the cont
     `dc_count int not null`, `distributed_by uuid not null references users(id)`,
     `distributed_at timestamptz`. **MONEY posture**: RLS on, zero authenticated grant.
   - **`distribute_project_coins(p_project uuid) returns table(ht_coins, dc_distributed,
-dc_count, total_distributed)`** — SECURITY DEFINER, pinned `search_path`.
-    - super_admin gate (above).
-    - project exists → `P0001`; **must be settled** — a `project_settlements` row exists →
-      else `P0001` ("not settled"; U4b runs first); **idempotent** — a pre-existing
-      `project_coin_distributions` row → `P0001` ("already distributed"); coins never
-      double-minted.
-    - reads `coin_pool` from `project_settlements`; the six dials from `nova_dials`
-      (`coalesce(…, 0)`).
-    - **HT cut** — `ht := projects.ht_worker_id`; `ht_coins := pool × ht_cut_pct`; if
-      `ht` not null and `ht_coins > 0` → `post_coins(ht, 'profit_share', ht_coins, reason)`.
-      (No HT assigned → `ht_coins = 0`, the full pool distributes to the DCs.)
-    - **distributable** = `pool − ht_coins`.
-    - **per-DC weight** — over each worker in **current** (non-superseded, non-tombstone)
-      `labor_logs` with `worker_type_snapshot = 'dc'` on **any WP of the project**,
-      **excluding the HT** (the HT's reward is the off-top cut — no double-dip):
-      `days = Σ(full→1, half→0.5)`; `weight = (external ? external_factor :
+dc_count, total_distributed)`** — SECURITY DEFINER, pinned `search_path`. - super*admin gate (above). - project exists → `P0001`; **must be settled** — a `project_settlements` row exists →
+    else `P0001` ("not settled"; U4b runs first); **idempotent** — a pre-existing
+    `project_coin_distributions` row → `P0001` ("already distributed"); coins never
+    double-minted. - reads `coin_pool` from `project_settlements`; the six dials from `nova_dials`
+    (`coalesce(…, 0)`). - **HT cut** — `ht := projects.ht_worker_id`; `ht_coins := pool × ht_cut_pct`; if
+    `ht` not null and `ht_coins > 0` → `post_coins(ht, 'profit_share', ht_coins, reason)`.
+    (No HT assigned → `ht_coins = 0`, the full pool distributes to the DCs.) - **distributable** = `pool − ht_coins`. - **per-DC weight** — over each worker in **current** (non-superseded, non-tombstone)
+    `labor_logs` with `worker_type_snapshot = 'dc'` on **any WP of the project**,
+    **excluding the HT** (the HT's reward is the off-top cut — no double-dip):
+    `days = Σ(full→1, half→0.5)`; `weight = (external ? external_factor :
 level_weight[level]) × days`. An **ungraded internal DC** (`level NULL`) →
-      `level_weight` NULL → weight **0** → **no share** (never silently inflated — the
-      `wp_labor_sell` posture; surfacing ungraded-DC-days for the operator to grade before
-      distribution is a UI concern).
-    - each DC with `weight > 0`: `coins := distributable × weight / Σweight`; if
-      `round(coins,4) > 0` → `post_coins(dc, 'profit_share', coins, reason)` (source
-      `profit_share` — **already in the enum**, no enum-add); accumulate `dc_distributed`,
-      `dc_count`. **A DC's share follows them across moves** — the weight reads
-      `labor_logs` (where the work was _done_), never `workers.project_id` (where they
-      _are now_) — contribution is earned where made (§4).
-    - inserts `project_coin_distributions`; audits (generic `update`,
-      `target_table='project_coin_distributions'`, `target_id=p_project`); returns the
-      summary. Execute lockdown like the other money RPCs.
+    `level_weight` NULL → weight **0** → **no share** (never silently inflated — the
+    `wp_labor_sell` posture; surfacing ungraded-DC-days for the operator to grade before
+    distribution is a UI concern). - each DC with `weight > 0`: `coins := distributable × weight / Σweight`; if
+    `round(coins,4) > 0` → `post_coins(dc, 'profit_share', coins, reason)` (source
+    `profit_share` — **already in the enum**, no enum-add); accumulate `dc_distributed`,
+    `dc_count`. **A DC's share follows them across moves** — the weight reads
+    `labor_logs` (where the work was \_done*), never `workers.project_id` (where they
+    _are now_) — contribution is earned where made (§4). - inserts `project_coin_distributions`; audits (generic `update`,
+    `target_table='project_coin_distributions'`, `target_id=p_project`); returns the
+    summary. Execute lockdown like the other money RPCs.
   - **Externals — invisible + locked** (§4): U5 only **posts** the share; an external's
     coins are already **invisible** (coin reads are super-only / externals can't see them —
     spec 160 U3 posture) and their **spend lock** is enforced at redemption (U6b — an
@@ -578,3 +561,139 @@ minted = pool 10000**; **idempotency** (re-distribute → `P0001`); unknown proj
   labor-days — a later refinement; v1 splits the project pool by project-wide contribution.
 - The **operator UI** for distribution + the worker-facing coin view — later (gift-first,
   ADR 0061; the RPC is callable via the admin surface meanwhile).
+
+## U6a detail — Nova shop + per-item pricing + redemption
+
+ADR 0060 §4: the coin **sink** is a Nova online shop. Per-item pricing in **coins**
+(abstract points — decision b, **no baht peg**): each item's price is set independently.
+This sub-unit builds the catalog + the **redemption** path (spending coins). The saver's
+bonus + vesting/confiscation (the trust layer) are **U6b**.
+
+- **Migrations (additive):**
+  - `20260770000000_add_shop_redemption_coin_source.sql` — `alter type public.coin_source
+add value if not exists 'shop_redemption'` (a redemption is a **spend** = a new
+    posting category; its own migration, never used in the same tx it is added — the
+    enum-add lesson). The earn-sources (`profit_share`/`savers_bonus`/`behavior_bonus`)
+    stay; this is the **first sink** source.
+  - `20260770000100_nova_shop.sql`:
+    - **`shop_items`** — `id uuid pk`, `name text not null` (nonblank, ≤120),
+      `description text null` (≤500), `price_coins numeric(20,4) not null` (`> 0`),
+      `active boolean not null default true`, `sort_order int not null default 0`,
+      `created_by`/`created_at`/`updated_by`/`updated_at`. The catalog is a **point**
+      price list (not baht, not margin-sensitive) → RLS on, **SELECT granted to
+      authenticated** (a future worker shop can read it; writes are RPC-only).
+    - **`shop_redemptions`** — append-only spend record: `id uuid pk`, `worker_id`,
+      `item_id`, `price_coins numeric(20,4) not null` (snapshot), `posting_id uuid not
+null references coin_postings(id)` (the negative posting), `redeemed_by`,
+      `redeemed_at`. RLS on, **zero write grant** (RPC-only), SELECT super-only (the
+      coin_postings posture); **self-auditing** (the ledger + this row are the trail, like
+      `post_coins` — no audit_log, no audit-action enum-add).
+    - **`upsert_shop_item(p_name, p_price_coins, p_description default null, p_sort_order
+default 0, p_id default null) returns uuid`** — SECURITY DEFINER, **super_admin only**
+      (operator runs the shop), null-safe, no PM ref → `42501`; name nonblank +
+      `price_coins > 0` → `P0001`; `p_id null` → insert (return new id), else update (not
+      found → `P0001`); audits (generic `update`, `target_table='shop_items'`).
+    - **`set_shop_item_active(p_id, p_active) returns void`** — super_admin, toggles
+      `active` (unknown id → `P0001`); audits.
+    - **`redeem_shop_item(p_worker, p_item) returns uuid`** — SECURITY DEFINER,
+      **super_admin only** (operator-driven for now — worker self-redeem is later,
+      gift-first). Worker exists + item exists & **active** → else `P0001`; `price :=
+item.price_coins`; **balance check** — `coin_balance(p_worker) >= price` → else
+      `P0001` ("insufficient balance"); **posts the spend** via `post_coins(p_worker,
+'shop_redemption', -price, 'Shop redemption: '||name)` (negative posting — the
+      existing path; `post_coins` allows non-zero negatives); inserts a `shop_redemptions`
+      row (snapshot price + the `posting_id`); returns the redemption id. (U6b will narrow
+      "balance" to **spendable** = vested + not-externally-locked.)
+
+### U6a TDD
+
+**pgTAP** `107-nova-shop.test.sql`: catalog (`shop_items`, `shop_redemptions`,
+`redeem_shop_item` + `upsert_shop_item` SECURITY DEFINER; `coin_source` has
+`shop_redemption`); `shop_items` SELECT granted to authenticated; `upsert_shop_item` — super
+creates an item (read back) + updates it, pm / visitor → `42501`, zero price → `P0001`;
+`redeem_shop_item` — a worker with **500 vested coins** redeems a **100**-coin item → balance
+**400**, a `shop_redemptions` row + a `shop_redemption` −100 posting exist; pm → `42501`; an
+**insufficient** balance (50 < 100) → `P0001`; an **inactive** item → `P0001`; unknown
+worker / item → `P0001`.
+
+### U6a Scope — OUT
+
+- The **saver's bonus**, **vesting**, **confiscation/lock** — **U6b** (U6a redeem checks the
+  full balance; U6b narrows it to spendable).
+- The worker-facing shop UI + the operator shop-admin UI — later (the RPCs drive it).
+- Stock/inventory limits, redemption fulfilment workflow, categories — later refinements.
+
+## U6b detail — saver's bonus + vesting + narrow confiscation
+
+ADR 0060 §6 + decision (c) + design-rules 1/6/7 + ADR 0061 trust invariant: **holding is
+safe**. Vested coins (past the warranty/defect tail) are the worker's to keep,
+**un-confiscatable**; confiscation is reserved for a **short, explicit gross-violation
+list**; a **saver's bonus** rewards holding. This sub-unit builds those primitives on the
+coin ledger.
+
+- **Vesting model — time-based + the external lock.** No project link on `coin_postings`
+  is added (keeps `post_coins` untouched); vesting derives from posting age:
+  - `coin_unvested_balance(p_worker)` — for an **external** DC (contractor
+    `dc_temporary`): the **whole balance** (externals are invisible-locked until invited
+    internal — §4, generalized). For an **internal** DC: `least(balance, Σ positive earn
+postings dated within the tail)` — recently-earned coins still inside the
+    warranty/defect window (`vesting_tail_days` dial). These are the at-risk coins.
+  - `coin_vested_balance(p_worker)` = `greatest(balance − unvested, 0)` — the worker's to
+    keep. `coin_spendable_balance(p_worker)` = `coin_vested_balance` (so an external's
+    spendable is 0 until invited; an internal can spend only vested coins). **`redeem_shop_item`
+    is REPLACED** to check `coin_spendable_balance` instead of the raw balance — the lock
+    becomes real (U6a built redeem on the full balance; U6b narrows it).
+- **New seeded dials:** `vesting_tail_days = 365` (the post-close warranty tail — a
+  placeholder; calibrate to the real defect-liability window), `savers_bonus_rate = 0.02`
+  (2% — placeholder).
+- **Narrow confiscation** (decision c — operator-confirmed list): a `confiscation_reason`
+  **enum** = `('fraud', 'theft', 'gross_misconduct', 'defect_rework')` — the three gross
+  violations + the **quality clawback** (design-rule 1: a defect-reopen claws back; same
+  mechanism, distinct reason; **no catch-all `other`**, so confiscation can never be
+  arbitrary). A new `confiscation` `coin_source` (its own enum-add migration — the second
+  sink).
+  - **`confiscate_coins(p_worker, p_reason confiscation_reason, p_note text)`** — SECURITY
+    DEFINER, **super_admin only**, null-safe; confiscates **only the unvested** amount
+    (`coin_unvested_balance`, capped at the current balance) — **vested coins are never
+    touched** (the trust invariant); `unvested <= 0` → `P0001` ("no unvested coins to
+    confiscate"; a fully-vested worker is safe). Posts a negative `confiscation` posting
+    for that amount + records a `coin_confiscations` row (worker, reason, amount, note, by,
+    at). The **defect-reopen → clawback** is realized via `p_reason='defect_rework'` (a
+    defect within the warranty tail means the coins are still unvested → reachable); the
+    **auto-wiring** into spec-144's reopen RPC is flagged below (needs a per-project link on
+    coin_postings — its own follow-up).
+- **Saver's bonus** — **`award_savers_bonus(p_worker) returns numeric`** — SECURITY
+  DEFINER, **super_admin only**. `bonus_rate := savers_bonus_rate`; `bal :=
+coin_balance(p_worker)` (≤ 0 → `P0001`); **holding-discipline guard** — no
+  `shop_redemption` posting since the worker's most recent `savers_bonus` posting (spent
+  since the last bonus → `P0001` "spent since last bonus", so the bonus rewards _continued_
+  holding, not churn); `bonus := round(bal × bonus_rate, 4)`; posts `savers_bonus` (already
+  in the enum). Cadence is operator-driven (call per cycle); the rate is the dial.
+
+### U6b TDD
+
+**pgTAP** `108-nova-vesting.test.sql`: catalog (`coin_unvested_balance` /
+`coin_vested_balance` / `coin_spendable_balance` / `confiscate_coins` /
+`award_savers_bonus`; `confiscation_reason` enum labels; `coin_source` has `confiscation`;
+`coin_confiscations` table); **vesting** — an internal DC with an **old** +1000 posting
+(past the tail) + a **recent** +500 → `unvested 500`, `vested 1000`, `spendable 1000`; an
+**external** DC with +800 (any age) → `unvested 800`, `vested 0`, `spendable 0` (locked);
+**redeem respects the lock** — the external cannot redeem (spendable 0 → `P0001`), the
+internal can spend only the vested 1000; **confiscation** — `confiscate_coins(internal,
+'fraud')` removes the **500 unvested** only (balance → 1000, the vested kept), a
+fully-vested worker → `P0001`, pm → `42501`; **saver's bonus** — `award_savers_bonus`
+mints `bal × rate`, a worker who **redeemed since their last bonus** → `P0001`.
+
+### U6b Scope — OUT
+
+- The **per-project defect clawback auto-wiring** (spec-144 reopen → claw back _that
+  project's_ unvested profit_share) — needs a project link on `coin_postings` (an additive
+  column + `post_coins` extension; touches shipped spec-160 code) → its **own follow-up
+  unit**. U6b ships the time-based vesting + the `defect_rework` confiscation reason (the
+  manual clawback mechanism); the automatic trigger is the seam.
+- The **external invite → unlock** event (flipping a DC internal vests their locked coins)
+  — a later ecosystem step (ADR 0061 trajectory).
+- The **attrition-signal** spend-watchlist (§6) — a later analytics layer (soft, never an
+  automated penalty).
+- The worker-facing "saved / vested / locked" display + the operator confiscation UI —
+  later (the RPCs drive them).

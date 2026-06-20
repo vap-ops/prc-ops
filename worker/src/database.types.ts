@@ -1889,6 +1889,61 @@ export type Database = {
           },
         ]
       }
+      project_coin_distributions: {
+        Row: {
+          coin_pool: number
+          dc_count: number
+          dc_distributed: number
+          distributed_at: string
+          distributed_by: string
+          ht_coins: number
+          ht_worker_id: string | null
+          project_id: string
+        }
+        Insert: {
+          coin_pool: number
+          dc_count: number
+          dc_distributed: number
+          distributed_at?: string
+          distributed_by: string
+          ht_coins: number
+          ht_worker_id?: string | null
+          project_id: string
+        }
+        Update: {
+          coin_pool?: number
+          dc_count?: number
+          dc_distributed?: number
+          distributed_at?: string
+          distributed_by?: string
+          ht_coins?: number
+          ht_worker_id?: string | null
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_coin_distributions_distributed_by_fkey"
+            columns: ["distributed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_coin_distributions_ht_worker_id_fkey"
+            columns: ["ht_worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_coin_distributions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_members: {
         Row: {
           added_at: string
@@ -3774,6 +3829,15 @@ export type Database = {
       dispatch_purchase_order_delivery: {
         Args: { p_delivery_id: string }
         Returns: number
+      }
+      distribute_project_coins: {
+        Args: { p_project: string }
+        Returns: {
+          dc_count: number
+          dc_distributed: number
+          ht_coins: number
+          total_distributed: number
+        }[]
       }
       drain_gl_posting: { Args: { p_limit?: number }; Returns: number }
       enqueue_gl_posting: {
