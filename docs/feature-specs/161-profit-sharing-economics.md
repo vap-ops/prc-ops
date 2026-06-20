@@ -15,9 +15,11 @@ settles from banked baht profit at project close.
   Mid / Junior / Apprentice) + the editable **sell-rate table** (per level: baht cost
   band · internal-WP sell · external-WP sell), seeded with defaults. The dials the WP
   P&L will read.
-- **U2 — WP as a profit center.** `work_packages.budget` (PD sets) + `is_external`
-  flag + the **HT (Head Technician)** assignment (one promoted DC per project,
-  exclusive WP owner).
+- **U2 — WP economic identity.** A WP's **budget** (PD sets) + **internal/external**
+  flag — isolated in a zero-grant `wp_economics` table (budget is money, hidden from
+  non-HT DCs), the WP-level inputs the P&L reads.
+- **U2b — HT (Head Technician) assignment.** One promoted DC per project, exclusive
+  WP owner (PM assigns). Project-level; its own unit.
 - **U3 — WP profit engine.** `profit = budget − (equipment rental + DC labor @ SELL +
 materials)`; bank per WP at completion. Reconciles to the GL (ADR 0057), not a
   second costing path.
@@ -86,9 +88,56 @@ a level's rates + audits, gate (super passes; pm → 42501; negative → P0001).
 ## U1 Scope — OUT (later units)
 
 - Anything that **reads** the rates (the WP P&L) — **U3**.
-- WP budget / `is_external` / HT — **U2**. Coin distribution — **U5**.
+- WP budget / `is_external` — **U2**; HT — **U2b**. Coin distribution — **U5**.
 - A per-worker individual **cost** field distinct from the level cost band (the model
   says cost is per-individual; the worker's `day_rate` already carries it — wiring
   cost into the P&L is U3, not a new column here).
 - Rate-change **history** beyond the current editor + the audit row (append-only rate
   history, if needed, is a later refinement).
+
+## U2 detail — WP economic identity (budget + internal/external)
+
+ADR 0060 §1/§2: the **PD sets each WP's budget**; an **internal** WP (our team) charges
+the lower sell, an **external** WP (assisting a subcontractor) the higher. Budget is the
+**profit denominator** — money, hidden from non-HT DCs — so it lives in its own
+**zero-grant** table (the `wp_labor_costs` posture), not a `work_packages` column whose
+table grant would leak it. Nothing computes profit yet (U3); this unit just captures the
+two inputs.
+
+- **Migration (additive):**
+  - **`wp_economics`** — one row per WP: `work_package_id` (PK, FK → work_packages,
+    `on delete cascade`), `budget numeric(20,4) null` (unset until the PD sets it;
+    `>= 0` when set), `is_external boolean not null default false`, `updated_by`,
+    `updated_at`. **MONEY posture**: RLS on, `revoke all` — **zero authenticated
+    grant**; pm/director/super read via the admin client (the `wp_labor_costs` /
+    `day_rate` posture). The row is **upserted** by the setters (a WP with no row =
+    no budget, internal by default).
+  - **`set_wp_budget(p_wp, p_budget)`** — SECURITY DEFINER, **`project_director` +
+    `super_admin`** (the PD sets the budget — ADR 0060 §1; the anti-favoritism root is
+    "benchmark budget to scope") → else `42501`; WP exists (P0001); budget `>= 0`
+    (P0001); upserts `budget` (preserving `is_external`); audits. **No
+    `project_manager` reference** → pgTAP 90/91 not triggered.
+  - **`set_wp_external(p_wp, p_is_external)`** — SECURITY DEFINER, \*\*`project_manager`
+    - `project_director` + `super_admin`** (PM classifies the WP) → else `42501`; WP
+      exists (P0001); upserts `is_external` (preserving `budget`); audits. **References
+      `project_manager` → `project_director` is included\*\* (ADR 0058 invariant).
+  - Audits use the generic `update` action, `target_table='wp_economics'`,
+    `target_id = work_package_id` (no enum-add).
+  - Gates are **role-only** (not membership-scoped) for v1 — budget's gate
+    (director/super) is see-all anyway; PM membership-scoping on `set_wp_external` is a
+    later refinement if needed.
+
+### U2 TDD
+
+**pgTAP** `99-wp-economics.test.sql`: catalog (`wp_economics` table; `work_package_id`
+PK + FK; `budget` / `is_external` columns; `is_external` default false); **money
+posture** (authenticated has no SELECT); `set_wp_budget` — director + super set the
+budget (upsert), pm / visitor → 42501, unknown WP / negative → P0001; `set_wp_external`
+— pm + director set the flag, site_admin / visitor → 42501, unknown WP → P0001; an
+**upsert preserves the other column** (set budget then set is_external on one WP →
+both coexist); the changes are audited.
+
+## U2 Scope — OUT
+
+- HT assignment — **U2b**. Reading these inputs into a profit number — **U3**.
+- Per-WP membership-scoping of the setters (role-only for now).

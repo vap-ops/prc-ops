@@ -3091,6 +3091,45 @@ export type Database = {
           },
         ]
       }
+      wp_economics: {
+        Row: {
+          budget: number | null
+          is_external: boolean
+          updated_at: string
+          updated_by: string | null
+          work_package_id: string
+        }
+        Insert: {
+          budget?: number | null
+          is_external?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          work_package_id: string
+        }
+        Update: {
+          budget?: number | null
+          is_external?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          work_package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wp_economics_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wp_economics_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: true
+            referencedRelation: "work_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wp_labor_costs: {
         Row: {
           computed_at: string
@@ -3856,6 +3895,14 @@ export type Database = {
           p_level: Database["public"]["Enums"]["worker_level"]
           p_worker: string
         }
+        Returns: undefined
+      }
+      set_wp_budget: {
+        Args: { p_budget: number; p_wp: string }
+        Returns: undefined
+      }
+      set_wp_external: {
+        Args: { p_is_external: boolean; p_wp: string }
         Returns: undefined
       }
       split_purchase_order_delivery: {
