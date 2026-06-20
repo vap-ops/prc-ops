@@ -328,3 +328,185 @@ RPC write = **verified-by-checklist** (auth-gated, CHECK-guarded, pgTAP-covered)
 - The `validateAllocation` date logic duplicates `validateRentalBatch`'s ISO
   helpers — a shared `src/lib/equipment/iso-date.ts` extraction is a recorded
   cleanup seam (kept separate now per scope discipline).
+
+## U3 — equipment usage logs: check-out / check-in → per-WP charge → `wp_profit` (2026-06-20)
+
+**Status:** designed — building. **Schema** (change-management gate). The third P2
+unit: attribute equipment to a **work package** via a **check-out / check-in usage
+log**, derive a **per-WP equipment charge**, and **wire it into `wp_profit`**
+(spec 161 U3b) so the WP profit number stops understating equipment.
+
+**Why this revises the roadmap-table U3/U4 sketch.** The roadmap above sketched U3
+as a per-item/per-**day** log (mirror `labor_logs` row-per-day) and U4 as a frozen
+`wp_equipment_costs` snapshot. The operator chose a different shape on 2026-06-20:
+
+1. **Granularity = check-out / check-in SPAN, not row-per-day.** An item sits on a
+   WP across a span (out 06-01, in 06-10). One usage row per checkout; billed =
+   whole days on site × the item's daily rate. (Operator pick, this session.)
+2. **The WP is charged the CHARGE-OUT daily rate, computed LIVE.** Symmetric with
+   DC labor @ SELL: the WP profit center pays the per-item rental fee PRC sets; PRC
+   keeps the margin over the monthly batch cost (Case A; ADR 0060 §2 "equipment
+   rental" term). This is the **transfer-price layer** — a number the GL does **not**
+   hold (the GL holds the batch **cost** at batch grain, intercompany AP). So
+   `wp_equipment_sell(p_wp)` computes it **live from the usage logs**, exactly as
+   `wp_labor_sell` computes labor @ SELL live from `labor_logs` (NOT a "second
+   costing path" — a different number than the GL's, like labor). **No new GL
+   account / posting** this unit (that, plus the frozen snapshot, stays a later
+   seam). (Operator pick, this session.)
+
+The old U4 (`wp_equipment_costs` + `freeze_wp_equipment_cost`) is **deferred** — it
+belongs to budget-vs-spend / GL posting, not to wiring the live `wp_profit`. The
+live read is what `wp_profit` needs (it reuses the live `wp_labor_sell`, never the
+frozen `wp_labor_costs`).
+
+### What ships
+
+- **Migration — `equipment_usage_logs`** (the per-WP charge basis). Append-only,
+  supersede pattern (ADR 0004/0009), mirroring `labor_logs`:
+  - `id uuid pk default gen_random_uuid()`
+  - `item_id uuid not null` FK → `equipment_items(id)`
+  - `work_package_id uuid not null` FK → `work_packages(id)` — **WP grain** (the
+    point: movements are project-grain, this is the billing attribution)
+  - `checked_out_on date not null`
+  - `checked_in_on date null` — `null` = still out (open checkout)
+  - `daily_rate_snapshot numeric(12,2) not null` — **MONEY**; the item's
+    `daily_rate` captured at checkout so a later rate change never rewrites history
+    (the `workers.day_rate` → `labor_logs.day_rate_snapshot` split)
+  - `entered_by uuid not null` FK → `users(id)`, pinned to `auth.uid()` by the RPC
+  - `superseded_by uuid null` self-FK → `equipment_usage_logs(id)` — the supersede
+    chain (a check-in's closed row supersedes the open row; future corrections too)
+  - `correction_reason text null` — optional (a plain check-in carries none; a
+    future correction RPC sets it). **No `reason iff superseded` CHECK** — unlike
+    `labor_logs`, the FIRST supersede here is the normal check-in, not a correction.
+  - `created_at timestamptz not null default now()`
+  - CHECK `checked_in_on is null or checked_in_on >= checked_out_on`
+  - indexes on `(work_package_id)`, `(item_id, checked_out_on)`, `(superseded_by)`
+  - **Money posture (column-scoped, the `labor_logs` shape):** `enable row level
+security`; `revoke all from anon, authenticated`; then a **column-scoped SELECT
+    grant on every column EXCEPT `daily_rate_snapshot`** to `authenticated`
+    (admin-client-only money column, like `labor_logs.day_rate_snapshot`). **No
+    insert/update/delete grant** — the RPCs are the only write path. One SELECT
+    policy: readable by `site_admin / project_manager / procurement / super_admin`
+    (the equipment field+back-office audience).
+  - **Append-only third layer:** a `BEFORE UPDATE/DELETE/TRUNCATE` trigger raising
+    `P0001` (`labor_logs_block_mutation` shape) — a correction is a new superseding
+    row, never a mutation.
+  - `comment on table` / `comment on column daily_rate_snapshot` document posture.
+
+- **RPC — `check_out_equipment(p_item uuid, p_wp uuid, p_date date)`** returns
+  `uuid`, `security definer`, `set search_path = public`. Mirrors `log_labor_day`:
+  - Gate `current_user_role() not in ('site_admin','project_manager',
+'procurement','super_admin')` → `42501` (the equipment field+back-office
+    audience; procurement included, like the U1/U2 money RPCs and movements).
+  - `p_date is null` → `P0001`.
+  - **Per-item advisory xact lock** (`pg_advisory_xact_lock` on the item) so the
+    open-checkout uniqueness check below is race-free (the `log_labor_day` lock).
+  - Item exists (`select daily_rate …`; not found → `P0001`). Item **must be
+    priced**: `daily_rate is null` → `P0001` (can't bill an unpriced item).
+  - WP exists (`select status …`; not found → `P0001`); WP not `complete` →
+    `P0001` (the `log_labor_day` complete guard; a closed WP takes no new charges).
+  - **One open checkout per item:** reject if a CURRENT (non-superseded) row exists
+    for `p_item` with `checked_in_on is null` → `P0001` (an item can't be in two
+    WPs at once).
+  - Insert the open row (`checked_in_on` null, `daily_rate_snapshot` = the item's
+    `daily_rate`, `entered_by` = `auth.uid()`); `returning id`.
+
+- **RPC — `check_in_equipment(p_log uuid, p_date date)`** returns `uuid`,
+  `security definer`:
+  - Same field+back-office gate → `42501`. `p_date is null` → `P0001`.
+  - Load the row (`p_log`); not found → `P0001`. Must be **current** (not already
+    superseded → `P0001`) and **open** (`checked_in_on is null` → else `P0001`).
+  - `p_date < checked_out_on` → `P0001`.
+  - Per-item advisory lock; insert a **closed successor** row (same item / WP /
+    `checked_out_on` / `daily_rate_snapshot`, `checked_in_on = p_date`,
+    `superseded_by = p_log`, `correction_reason` null) → supersedes the open row;
+    `returning id`. (Append-only: the open row is never UPDATEd.)
+
+- **RPC — `wp_equipment_sell(p_wp uuid)`** returns `numeric`, `security definer`,
+  `stable`. **Mirrors `wp_labor_sell`** — the live per-WP equipment charge:
+  - Gate: `super_admin` + `project_director` only, null-safe `is distinct from`
+    (the economics posture; NO `project_manager` ref → ADR 0058 pgTAP 90/91
+    untouched). WP exists else `P0001`.
+  - Σ over **CURRENT** (non-superseded) usage rows for the WP of
+    `billable_days × daily_rate_snapshot`, where
+    `billable_days = greatest((coalesce(checked_in_on, current_date) -
+checked_out_on) + 1, 0)` — **whole days inclusive** (same-day = 1; an **open**
+    checkout accrues to `current_date`). `coalesce(…, 0)`. No internal/external
+    branch (equipment has one charge-out rate, unlike level-graded labor).
+  - `revoke from public; grant execute to authenticated` (the read-money posture).
+
+- **Migration — `wp_profit` REPLACE.** `create or replace function wp_profit` with
+  the **same return signature**; body sets `v_equipment := public.wp_equipment_sell
+(p_wp)` (definer-to-definer, the caller's super/director role still resolves) and
+  `v_eq_costed := true`. `profit = budget − labor_sell − materials − equipment`
+  unchanged. The flagged-gap comment is replaced with the live-charge note. Grants
+  persist across `create or replace`.
+
+- **`database.types.ts`** (app + worker) regenerated (`db:types`): the new table,
+  the three RPC signatures.
+
+### Scope
+
+- **IN:** `equipment_usage_logs` (+ column-scoped grant, RLS, append-only trigger,
+  CHECK, indexes); `check_out_equipment` + `check_in_equipment`; `wp_equipment_sell`;
+  the `wp_profit` replace; pgTAP (new file **105**); the `102-wp-profit` update
+  (`equipment_costed` true; a with-equipment case in 104); types.
+- **OUT:** any UI / rate-entry / checkout screen (a later unit); a **correction /
+  cancel** RPC (`correct_equipment_usage` — a recorded seam; check-in already closes
+  an open checkout, and the supersede column is in place for it); the frozen
+  `wp_equipment_costs` + `freeze_wp_equipment_cost` snapshot (deferred — budget-vs-
+  spend / GL posting territory, not the live `wp_profit` path); a WP-dimensioned
+  equipment GL posting (a later spec touching the poster / ADR 0055/0057);
+  half-day / hourly proration (whole-day count, operator pick); bulk-quantity
+  checkout (one item per checkout; bulk-split is the documented seam); audit_log
+  rows (the append-only log IS the trail, like `labor_logs` / movements — no
+  enum-add).
+
+### Money posture
+
+`equipment_usage_logs.daily_rate_snapshot` — **zero authenticated grant** (omitted
+from the column-scoped SELECT), admin-read only behind `requireRole(pm/super/
+procurement)`, never on a site_admin screen; the field records check-out/check-in
+(triggering the rate snapshot server-side) but never SEES the rate — exactly the
+`log_labor_day` / `labor_logs.day_rate_snapshot` posture. `wp_equipment_sell` /
+`wp_profit` are super_admin/project_director economics reads.
+
+### Tests
+
+- **pgTAP — new file `105-equipment-usage-logs.test.sql`** (RED first, before
+  `db:push`): table catalog + columns/types + CHECK; the **anti-grant** on
+  `daily_rate_snapshot` (`has_column_privilege` false for `authenticated`, other
+  columns true); RLS enabled; **no insert/update/delete grant**; append-only
+  (UPDATE/DELETE → `P0001`); `check_out_equipment` gate (visitor → `42501`;
+  site_admin allowed), unpriced item → `P0001`, complete WP → `P0001`, double-open
+  → `P0001`, happy path inserts an open row + snapshots the rate; `check_in_equipment`
+  closes via supersede (open row superseded, closed successor current), in-before-out
+  → `P0001`, re-check-in of a closed/superseded row → `P0001`; `wp_equipment_sell`
+  gate (super/director only; pm/site_admin/visitor → `42501`), the day-count math
+  (closed span inclusive; open checkout accrues to `current_date`), unknown WP →
+  `P0001`; `wp_profit` now `equipment_cost = wp_equipment_sell`, `equipment_costed =
+true`, profit subtracts equipment.
+- **Update `102-wp-profit.test.sql`:** flip the WP-A `equipment_costed = false`
+  assertion to `true` (the mechanism now exists; a WP with no usage logs has
+  `equipment_cost = 0` but IS costed — profit unchanged at 3200).
+
+### Verification
+
+`pnpm lint && pnpm typecheck && pnpm test` green; `pnpm db:push` then `pnpm db:test`
+green; `pnpm db:types` regenerated (app + worker). **No user-visible change** (no UI
+this unit). pgTAP carries correctness; the RPC writes are **verified-by-checklist**
+(auth-gated, CHECK-guarded, pgTAP-covered).
+
+### Seams
+
+- **Correction / cancel** of a usage log (`correct_equipment_usage`, supersede with
+  a required reason / tombstone) — not built; the `superseded_by` + nullable
+  `correction_reason` columns are in place for it.
+- **Frozen `wp_equipment_costs`** + `freeze_wp_equipment_cost` (the old U4) — for
+  budget-vs-spend + a WP-dimensioned equipment GL posting (so equipment reconciles
+  to the GL like materials). Deferred; the live `wp_equipment_sell` covers the
+  `wp_profit` need now.
+- **Bulk / quantity checkout** (a `quantity` on the usage log for bulk-tracked
+  items) — one unit per checkout now; the bulk-split reconciliation seam.
+- **Half-day / hourly** — whole-day billing now (operator pick); a `day_fraction`
+  refinement is a seam if short checkouts ever need it.

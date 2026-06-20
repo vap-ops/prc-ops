@@ -6,8 +6,9 @@ select plan(18);
 --   profit = budget − labor_sell − materials − equipment, with MATERIALS DERIVED
 --   FROM THE GL (journal_lines, account 1400/WIP, purchase-sourced, reversal-safe
 --   via reversal_of) — NOT a re-sum of purchase_requests. Labor also debits 1400
---   but is excluded (source wp_labor_costs). Equipment is the flagged gap
---   (equipment_costed=false) — batch-grain in the GL, no WP dim yet. budget NULL →
+--   but is excluded (source wp_labor_costs). Equipment is now WP-dimensioned
+--   (spec 146 U3 wp_equipment_sell, equipment_costed=true; 0 with no usage logs).
+--   budget NULL →
 --   profit NULL. Gate super_admin + project_director (no PM ref → 90/91 untouched).
 --   Journal rows seeded directly (period + entries + lines) to isolate from the
 --   poster machinery.
@@ -195,7 +196,7 @@ select is((select materials_cost from public.wp_profit('ea0a0764-0764-0764-0764-
 select is((select equipment_cost from public.wp_profit('ea0a0764-0764-0764-0764-ea0aea0a0764')),
   0::numeric, 'WP-A equipment_cost = 0 (the flagged gap)');
 select is((select equipment_costed from public.wp_profit('ea0a0764-0764-0764-0764-ea0aea0a0764')),
-  false, 'WP-A equipment_costed = false (equipment not WP-dimensioned in the GL)');
+  true, 'WP-A equipment_costed = true (spec 146 U3 — no usage logs here, so cost = 0)');
 select is((select profit from public.wp_profit('ea0a0764-0764-0764-0764-ea0aea0a0764')),
   3200.00::numeric, 'WP-A profit = 5000 − 800 − 1000 − 0 = 3200');
 
