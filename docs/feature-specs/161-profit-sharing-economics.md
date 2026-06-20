@@ -327,3 +327,58 @@ the poster machinery.
   utilization data for the markup-% / multiplier default).
 - The **HT P&L surface** (the HT sees the real number) + any operator UI — later, with
   the unground-DC flag from U3.
+
+## U4a detail — the settlement multiplier dial (`nova_dials`)
+
+ADR 0060 §3: at project close, `coin pool = Σ banked WP profits × the project
+multiplier`. The multiplier is **"the most important undefined lever"** (open dials) —
+calibrated to real utilization. Per the **build-time decision (a)** ("every dial lives in
+an **editable table** seeded with a default; tune anytime"), this unit builds the
+multiplier **as a seeded, editable dial** — not a hardcoded constant — so the settlement
+engine (U4b) reads it and the operator tunes it live. **This unit is the dial only; the
+settlement math reads it next (U4b)** — exactly as U1's sell-rate dials preceded the U3
+read.
+
+**One home for every economic dial.** Rather than a table per dial, build a small
+**key/value `nova_dials`** table — the literal embodiment of decision (a). The arc's
+remaining dials (HT cut %, level weights, saver-bonus rate — U5/U6) each land here as a
+seeded row in their own unit; **U4a seeds only `coin_multiplier`** (scope: one dial).
+
+- **Migration (additive):**
+  - **`nova_dials`** — `dial_key text primary key`, `value numeric(20,4) not null`
+    (`>= 0`), `updated_by uuid null`, `updated_at timestamptz`. **MONEY/economics
+    posture** (a payout lever): RLS on, `revoke all` — **zero authenticated grant**; the
+    operator reads via the admin client behind `requireRole`, the settlement engine (U4b)
+    reads via the definer (the `sell_rate_table` posture).
+  - **Seeded** `('coin_multiplier', 1.0)` — a **placeholder** default (1 baht banked
+    profit → 1 coin point; coins are abstract points, no baht peg — ADR decision b). The
+    operator **must calibrate it against real utilization before go-live** (the standing
+    markup-% open dial; flagged, not blocking — the mechanism ships, the number is tuned).
+  - **`set_nova_dial(p_key text, p_value numeric)`** — SECURITY DEFINER, **`super_admin`
+    only** (operator economics — the anti-favoritism pillar §5, like the sell-rate dials;
+    `is distinct from` null-safe → NULL-role denied; **no `project_manager` reference** →
+    pgTAP 90/91 untouched) → else `42501`; `value >= 0` (P0001); the **key must already
+    exist** (`update`-only — dials are a controlled, seeded set; a typo'd key → `P0001`,
+    never a phantom dial); sets `value`, `updated_by = auth.uid()`, `updated_at = now()`;
+    audits (generic `update` action, `target_table='nova_dials'`, payload key + old + new
+    — no enum-add).
+
+### U4a TDD
+
+**pgTAP** `103-nova-dials.test.sql`: catalog (`nova_dials` table; `dial_key` PK; `value`
+column; `set_nova_dial` is SECURITY DEFINER); **seed** (`coin_multiplier` present, value
+`1.0`); **money posture** (authenticated has no SELECT); `set_nova_dial` — super updates
+the multiplier (read back as owner) + audits, gate (pm / visitor → `42501`), an unknown
+key → `P0001`, a negative value → `P0001`.
+
+### U4a Scope — OUT (later units)
+
+- The **settlement engine** — `Σ wp_profit` over a project's WPs × `coin_multiplier` →
+  the coin pool, and **banking** profit at WP completion (a frozen snapshot) — **U4b**.
+- The other dials (HT cut %, level weights — **U5**; saver-bonus rate — **U6**): each a
+  seeded `nova_dials` row added by its unit.
+- Posting the pool to `coin_postings` (the distribution) — **U5**.
+- A per-project multiplier **override** (U4a is a single global dial) — a later
+  refinement if "flex per project performance" needs it.
+- A Nova **settings UI** to tune the dial — later (the operator can tune via the RPC /
+  admin surface meanwhile).

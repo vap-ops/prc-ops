@@ -1603,6 +1603,35 @@ export type Database = {
           },
         ]
       }
+      nova_dials: {
+        Row: {
+          dial_key: string
+          updated_at: string
+          updated_by: string | null
+          value: number
+        }
+        Insert: {
+          dial_key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: number
+        }
+        Update: {
+          dial_key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nova_dials_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       peak_sync_links: {
         Row: {
           created_at: string
@@ -3854,6 +3883,10 @@ export type Database = {
       }
       set_equipment_daily_rate: {
         Args: { p_id: string; p_rate: number }
+        Returns: undefined
+      }
+      set_nova_dial: {
+        Args: { p_key: string; p_value: number }
         Returns: undefined
       }
       set_project_client: {
