@@ -1842,6 +1842,7 @@ export type Database = {
           code: string
           contract_reference: string | null
           created_at: string
+          ht_worker_id: string | null
           id: string
           name: string
           notes: string | null
@@ -1860,6 +1861,7 @@ export type Database = {
           code: string
           contract_reference?: string | null
           created_at?: string
+          ht_worker_id?: string | null
           id?: string
           name: string
           notes?: string | null
@@ -1878,6 +1880,7 @@ export type Database = {
           code?: string
           contract_reference?: string | null
           created_at?: string
+          ht_worker_id?: string | null
           id?: string
           name?: string
           notes?: string | null
@@ -1896,6 +1899,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_ht_worker_id_fkey"
+            columns: ["ht_worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
             referencedColumns: ["id"]
           },
           {
@@ -3410,6 +3420,10 @@ export type Database = {
         Returns: boolean
       }
       apply_wp_template: { Args: { p_project_id: string }; Returns: number }
+      assign_project_ht: {
+        Args: { p_project: string; p_worker: string }
+        Returns: undefined
+      }
       assign_worker_to_project: {
         Args: { p_project?: string; p_reason?: string; p_worker: string }
         Returns: undefined

@@ -141,3 +141,39 @@ both coexist); the changes are audited.
 
 - HT assignment — **U2b**. Reading these inputs into a profit number — **U3**.
 - Per-WP membership-scoping of the setters (role-only for now).
+
+## U2b detail — HT (Head Technician) assignment
+
+ADR 0060 §1: the **HT is a promoted DC, one per site, exclusive WP owner**; the **PM
+assigns** HTs. A project has exactly one HT — so it's a single nullable column on
+`projects` (the single column _is_ the one-per-project rule), assigned via an RPC.
+
+- **Migration (additive):**
+  - `projects.ht_worker_id uuid null references workers(id)` — the project's Head
+    Technician. **Not money** (a role designation) → add it to the projects per-column
+    SELECT grant (the maintenance rule in `20260626000200`: a new non-money projects
+    column must be granted or the app can't read it).
+  - **`assign_project_ht(p_project, p_worker)`** — SECURITY DEFINER, pinned
+    `search_path`; **`project_manager` + `project_director` + `super_admin`** (PM
+    assigns — §1; references project_manager → director included, ADR 0058) → else
+    `42501`; project exists (P0001); the worker must be an **active DC** (`worker_type
+= 'dc'` and `active` — "a promoted DC") → else P0001; sets `ht_worker_id`
+    (overwriting — one HT per project, last-wins); audits (generic `update` action,
+    `target_table='projects'`, `target_id = p_project`). Role-only (not
+    membership-scoped) for v1, like U2.
+  - Not enforced: one-project-per-worker (a DC _could_ run two sites — the model only
+    fixes one-HT-per-project); unassign (assign a different HT to replace; a clear is
+    a later refinement).
+
+### U2b TDD
+
+**pgTAP** `100-project-ht.test.sql`: catalog (`projects.ht_worker_id` column + type +
+FK → workers); `assign_project_ht` SECURITY DEFINER; pm assigns an active DC →
+`ht_worker_id` set + audited, director overwrites (one-per-project, last-wins),
+site_admin / visitor → 42501, a non-DC (own) worker / an inactive DC / unknown project
+/ unknown worker → P0001.
+
+### U2b Scope — OUT
+
+- The HT's powers (sees the real WP P&L, takes the max coin cut) — **U3 / U5**.
+- One-project-per-HT uniqueness; an unassign/clear path.
