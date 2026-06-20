@@ -2,12 +2,33 @@
 
 ## Status
 
-**Proposed — 2026-06-20.** Design only, model v1; **no build yet.** Refined with
-the operator over a working session (this ADR is the anchor; implementing specs +
-sub-ADRs follow). The reward currency (Nova) revives the held gamification design
-([spec 93](../feature-specs/93-settings-hub.md) lineage). Several economic **dials
-are deliberately left open** (below) — they are tuned before any money/coin code
-ships.
+**Accepted — 2026-06-20** (was Proposed/design-only; **build approved by the
+operator 2026-06-20**). Implementing arc = **[spec 161](../feature-specs/161-profit-sharing-economics.md)**.
+Refined with the operator over a working session (this ADR is the anchor;
+implementing specs + sub-ADRs follow). The reward currency (Nova) revives the held
+gamification design ([spec 93](../feature-specs/93-settings-hub.md) lineage).
+
+### Build-time decisions (operator, 2026-06-20)
+
+The open dials are **tuned before money/coin code** — satisfied by making every dial
+**editable data** (seeded with recommended defaults, retuned in-app anytime), not a
+hardcoded constant. Three foundational anchors set:
+
+- **Build approach — editable dials, seeded defaults.** Build the mechanism now;
+  every dial (sell rates, multiplier, HT cut, level weights, saver-bonus rate,
+  confiscation list) lives in an **editable table** the operator tunes live. Nothing
+  economic is hardcoded. "Tune before build" → "tune anytime after build."
+- **Coin value — abstract points, per-item shop pricing (NO baht peg).** A Nova coin
+  has no fixed baht value; the Nova shop prices each item in coins independently.
+  Coins accrue/distribute as raw point quantities; the real liability is shaped at
+  the shop, not by a peg. (Note: the WP P&L + sell rates below are in **baht** — real
+  money; coins are the separate reward layer that settles from banked baht profit.)
+- **Trust posture — narrow confiscation; vested coins are the worker's to keep.**
+  Resolves the §6 collision (confiscation vs the saver's bonus) in favour of trust:
+  coins past the warranty/vesting tail are **theirs, un-confiscatable**; confiscation
+  is reserved for a **short explicit list of gross violations** (fraud / theft / gross
+  misconduct). This is what makes holding safe → saving works (design-rule 7) and
+  honours ADR 0061 ("cannot build inclusion on a currency people fear").
 
 **Sits under [ADR 0061](0061-worker-ecosystem-mission-and-foundation-invariants.md)
 as step 1** — its foundation invariants (durable DC identity, ledger-grade coin

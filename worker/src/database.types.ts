@@ -2515,6 +2515,41 @@ export type Database = {
           },
         ]
       }
+      sell_rate_table: {
+        Row: {
+          cost_band: number
+          external_sell: number
+          internal_sell: number
+          level: Database["public"]["Enums"]["worker_level"]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          cost_band: number
+          external_sell: number
+          internal_sell: number
+          level: Database["public"]["Enums"]["worker_level"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          cost_band?: number
+          external_sell?: number
+          internal_sell?: number
+          level?: Database["public"]["Enums"]["worker_level"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sell_rate_table_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_providers: {
         Row: {
           contact_person: string | null
@@ -2990,6 +3025,7 @@ export type Database = {
           created_by: string
           day_rate: number
           id: string
+          level: Database["public"]["Enums"]["worker_level"] | null
           name: string
           note: string | null
           project_id: string | null
@@ -3003,6 +3039,7 @@ export type Database = {
           created_by: string
           day_rate?: number
           id?: string
+          level?: Database["public"]["Enums"]["worker_level"] | null
           name: string
           note?: string | null
           project_id?: string | null
@@ -3016,6 +3053,7 @@ export type Database = {
           created_by?: string
           day_rate?: number
           id?: string
+          level?: Database["public"]["Enums"]["worker_level"] | null
           name?: string
           note?: string | null
           project_id?: string | null
@@ -3773,6 +3811,15 @@ export type Database = {
         Args: { p_id: string; p_notes: string }
         Returns: boolean
       }
+      set_sell_rate: {
+        Args: {
+          p_cost_band: number
+          p_external_sell: number
+          p_internal_sell: number
+          p_level: Database["public"]["Enums"]["worker_level"]
+        }
+        Returns: undefined
+      }
       set_work_package_contractor: {
         Args: { p_contractor_id?: string; p_work_package_id: string }
         Returns: boolean
@@ -3802,6 +3849,13 @@ export type Database = {
       }
       set_worker_day_rate: {
         Args: { p_id: string; p_rate: number }
+        Returns: undefined
+      }
+      set_worker_level: {
+        Args: {
+          p_level: Database["public"]["Enums"]["worker_level"]
+          p_worker: string
+        }
         Returns: undefined
       }
       split_purchase_order_delivery: {
@@ -4040,6 +4094,7 @@ export type Database = {
         | "complete"
         | "pending_approval"
         | "rework"
+      worker_level: "senior" | "mid" | "junior" | "apprentice"
       worker_type: "own" | "dc"
     }
     CompositeTypes: {
@@ -4330,6 +4385,7 @@ export const Constants = {
         "pending_approval",
         "rework",
       ],
+      worker_level: ["senior", "mid", "junior", "apprentice"],
       worker_type: ["own", "dc"],
     },
   },
