@@ -1152,6 +1152,74 @@ export type Database = {
           },
         ]
       }
+      equipment_usage_logs: {
+        Row: {
+          checked_in_on: string | null
+          checked_out_on: string
+          correction_reason: string | null
+          created_at: string
+          daily_rate_snapshot: number
+          entered_by: string
+          id: string
+          item_id: string
+          superseded_by: string | null
+          work_package_id: string
+        }
+        Insert: {
+          checked_in_on?: string | null
+          checked_out_on: string
+          correction_reason?: string | null
+          created_at?: string
+          daily_rate_snapshot: number
+          entered_by: string
+          id?: string
+          item_id: string
+          superseded_by?: string | null
+          work_package_id: string
+        }
+        Update: {
+          checked_in_on?: string | null
+          checked_out_on?: string
+          correction_reason?: string | null
+          created_at?: string
+          daily_rate_snapshot?: number
+          entered_by?: string
+          id?: string
+          item_id?: string
+          superseded_by?: string | null
+          work_package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_usage_logs_entered_by_fkey"
+            columns: ["entered_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_usage_logs_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_usage_logs_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "equipment_usage_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_usage_logs_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gl_accounts: {
         Row: {
           account_type: Database["public"]["Enums"]["gl_account_type"]
@@ -3461,6 +3529,14 @@ export type Database = {
       can_see_project: { Args: { p_project_id: string }; Returns: boolean }
       can_see_wp: { Args: { p_work_package_id: string }; Returns: boolean }
       certify_client_billing: { Args: { p_id: string }; Returns: string }
+      check_in_equipment: {
+        Args: { p_date: string; p_log: string }
+        Returns: string
+      }
+      check_out_equipment: {
+        Args: { p_date: string; p_item: string; p_wp: string }
+        Returns: string
+      }
       claim_contractor_invite: { Args: { p_token: string }; Returns: string }
       claim_next_report: {
         Args: never
@@ -4042,6 +4118,7 @@ export type Database = {
         }
         Returns: string
       }
+      wp_equipment_sell: { Args: { p_wp: string }; Returns: number }
       wp_labor_sell: { Args: { p_wp: string }; Returns: number }
       wp_profit: {
         Args: { p_wp: string }
