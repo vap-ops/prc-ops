@@ -1932,6 +1932,57 @@ export type Database = {
           },
         ]
       }
+      project_settlements: {
+        Row: {
+          banked_profit_total: number
+          coin_multiplier: number
+          coin_pool: number
+          equipment_costed: boolean
+          project_id: string
+          settled_at: string
+          settled_by: string
+          wp_banked_count: number
+          wp_skipped_null_budget_count: number
+        }
+        Insert: {
+          banked_profit_total: number
+          coin_multiplier: number
+          coin_pool: number
+          equipment_costed: boolean
+          project_id: string
+          settled_at?: string
+          settled_by: string
+          wp_banked_count: number
+          wp_skipped_null_budget_count: number
+        }
+        Update: {
+          banked_profit_total?: number
+          coin_multiplier?: number
+          coin_pool?: number
+          equipment_costed?: boolean
+          project_id?: string
+          settled_at?: string
+          settled_by?: string
+          wp_banked_count?: number
+          wp_skipped_null_budget_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_settlements_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_settlements_settled_by_fkey"
+            columns: ["settled_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           budget_amount_thb: number | null
@@ -3276,6 +3327,60 @@ export type Database = {
           },
         ]
       }
+      wp_profit_bank: {
+        Row: {
+          banked_at: string
+          budget: number | null
+          equipment_cost: number
+          equipment_costed: boolean
+          id: string
+          labor_sell: number
+          materials_cost: number
+          profit: number
+          project_id: string
+          work_package_id: string
+        }
+        Insert: {
+          banked_at?: string
+          budget?: number | null
+          equipment_cost: number
+          equipment_costed: boolean
+          id?: string
+          labor_sell: number
+          materials_cost: number
+          profit: number
+          project_id: string
+          work_package_id: string
+        }
+        Update: {
+          banked_at?: string
+          budget?: number | null
+          equipment_cost?: number
+          equipment_costed?: boolean
+          id?: string
+          labor_sell?: number
+          materials_cost?: number
+          profit?: number
+          project_id?: string
+          work_package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wp_profit_bank_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wp_profit_bank_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wp_templates: {
         Row: {
           code: string
@@ -4027,6 +4132,17 @@ export type Database = {
       set_wp_external: {
         Args: { p_is_external: boolean; p_wp: string }
         Returns: undefined
+      }
+      settle_project: {
+        Args: { p_project: string }
+        Returns: {
+          banked_profit_total: number
+          coin_multiplier: number
+          coin_pool: number
+          equipment_costed: boolean
+          wp_banked_count: number
+          wp_skipped_null_budget_count: number
+        }[]
       }
       split_purchase_order_delivery: {
         Args: {

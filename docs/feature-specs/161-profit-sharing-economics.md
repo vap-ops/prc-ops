@@ -382,3 +382,199 @@ key → `P0001`, a negative value → `P0001`.
   refinement if "flex per project performance" needs it.
 - A Nova **settings UI** to tune the dial — later (the operator can tune via the RPC /
   admin surface meanwhile).
+
+## U4b detail — the settlement engine (`settle_project`)
+
+ADR 0060 §3 (model-b): WPs **bank** their profit as they complete; the **whole project
+settles once at close** → `coin_pool = Σ banked WP profits × coin_multiplier` (the U4a
+dial). This unit builds that engine. It produces the pool **number** and a **frozen
+snapshot**; the distribution of the pool to workers is U5.
+
+**Decision — bank-at-settlement with a frozen per-WP snapshot (not a completion
+trigger).** The prompt's recommendation was a trigger that snapshots a WP when it hits
+`'complete'`. The hazard: a completion trigger fires under **whoever** updates the WP
+status — usually a `site_admin` on the photo-approval path — and the figure must come
+from `wp_profit`, which (with `wp_labor_sell`) is **gated to super_admin/project_director**
+and raises `42501` for any other role. Banking-at-completion would therefore force an
+ungated-internal refactor of the shipped U3/U3b functions and the whole WP-completion
+transaction would fail for a site_admin. Instead `settle_project` is an **explicit
+super/director action at close** that calls `wp_profit` **in exactly the caller context
+it was designed for** (the gate passes), and **freezes** each completed WP's profit into
+`wp_profit_bank` at that moment. This still meets the recommendation's stated goal —
+**after settlement, corrections cannot silently move settled coins** because U5 reads the
+frozen bank, never live `wp_profit`. Trade-off (accepted): a correction made between a
+WP's completion and the project's close **is** reflected in the banked figure — which is
+the correct behaviour (a legitimate pre-close correction should count), and defect-rework
+before close is handled naturally (a WP back in `'rework'` is not `'complete'` → excluded;
+a re-completed WP banks its fresh profit). The post-**close** defect clawback (design-rule
+1 vesting tail) is U6b, not here.
+
+- **Migration (additive):** `20260768000000_settlement_engine.sql` (sequenced **above**
+  the spec 146 U3 equipment block `20260767*`, which landed concurrently and closed the
+  equipment gap — so settlement now banks a `wp_profit` whose equipment term is **real**).
+  - **`project_settlements`** — one row per project (the once-per-project record + the
+    idempotency key): `project_id uuid primary key references projects(id) on delete
+cascade`, `coin_multiplier numeric(20,4) not null` (the dial value frozen at
+    settlement), `banked_profit_total numeric(20,4) not null` (Σ banked WP profit, baht),
+    `coin_pool numeric(20,4) not null` (`banked_profit_total × coin_multiplier`, abstract
+    points — ADR decision b, no baht peg), `wp_banked_count int not null`,
+    `wp_skipped_null_budget_count int not null` (completed WPs **excluded** because budget
+    is NULL — the explicit count, never silently 0), `equipment_costed boolean not null`
+    (true only if **every** banked WP had `equipment_costed = true`; now **true** since
+    spec 146 U3 folded `wp_equipment_sell` into `wp_profit` — the loud flag that _was_ the
+    provisional-pool warning, kept forward-compatible if a WP ever reports uncosted
+    equipment again), `settled_by uuid not null references users(id)`, `settled_at
+timestamptz not null default now()`. **MONEY posture**: RLS on, `revoke all` — zero
+    authenticated grant; the operator reads via the admin client, U5 reads via the definer.
+  - **`wp_profit_bank`** — the frozen per-WP snapshot written at settlement (one row per
+    banked WP): `id uuid pk`, `project_id`, `work_package_id` (unique with project_id),
+    the six `wp_profit` components copied (`budget`, `labor_sell`, `materials_cost`,
+    `equipment_cost`, `equipment_costed`, `profit`), `banked_at timestamptz`. **MONEY
+    posture**: zero grant. This is the immutable record settled coins trace to.
+  - **`settle_project(p_project uuid) returns table(coin_pool, banked_profit_total,
+coin_multiplier, wp_banked_count, wp_skipped_null_budget_count, equipment_costed)`** —
+    SECURITY DEFINER, pinned `search_path`. **`super_admin` + `project_director`** only,
+    null-safe `is distinct from` (NULL-role denied — the rls-self-check-coalesce trap);
+    **no `project_manager` reference** → ADR 0058 pgTAP 90/91 untouched → else `42501`.
+    - project exists → `P0001`.
+    - **closed only** — `status in ('completed', 'archived')` ("settles once **at
+      close**") → else `P0001`.
+    - **idempotent** — a pre-existing `project_settlements` row → `P0001` ("already
+      settled"); settled coins are never re-minted.
+    - reads `coin_multiplier` from `nova_dials` (the U4a dial).
+    - loops the project's WPs with `status = 'complete'`; for each, `select * into … from
+public.wp_profit(wp.id)` (the gate passes — caller is super/director):
+      - **budget NULL ⇒ profit NULL ⇒ skip + count** (`wp_skipped_null_budget_count++`),
+        never treated as 0.
+      - else **freeze** a `wp_profit_bank` row, add `profit` to `banked_profit_total`,
+        `wp_banked_count++`, AND the running `equipment_costed` with the row's flag.
+    - `coin_pool = banked_profit_total × coin_multiplier`; inserts the `project_settlements`
+      row; audits (generic `update` action, `target_table='project_settlements'`,
+      `target_id = p_project`, payload = the totals — no enum-add); returns the summary.
+    - Execute lockdown `revoke all from public; grant execute to authenticated`; invoked
+      under the caller's authed session (like `wp_profit`).
+
+### U4b TDD
+
+**pgTAP** `104-settlement-engine.test.sql`: catalog (`project_settlements` table + PK;
+`wp_profit_bank` table; `settle_project` is SECURITY DEFINER); **money posture**
+(authenticated has no SELECT on either table); the **gate** (pm / site_admin / visitor →
+`42501`); a closed project with WP-1 (budget 5000, a senior DC full day → labor_sell 800 →
+profit 4200), WP-2 (budget 4000, no labor → profit 4000), WP-3 (complete, **no budget** →
+skipped), WP-4 (`in_progress` → ignored) and `coin_multiplier` set to 2.0 → **super
+settles** → `banked_profit_total 8200 · coin_pool 16400 · wp_banked_count 2 ·
+wp_skipped_null_budget_count 1 · equipment_costed true` (no usage logs → equipment_cost 0,
+but `wp_profit` flags it costed), and `wp_profit_bank` holds 2 frozen rows; a **director**
+settles a second closed project (gate); **idempotency** — a
+re-settle of the first project → `P0001`; a **non-closed** (`active`) project → `P0001`;
+an unknown project → `P0001`.
+
+### U4b Scope — OUT (later units)
+
+- **Distribution** of the pool to workers (HT cut + level-weight split → `coin_postings`)
+  — **U5**.
+- **Equipment per WP** — **gap closed** by spec 146 U3 (`wp_equipment_sell` →
+  `wp_profit`, landed concurrently); settlement banks the real equipment-inclusive
+  profit. No longer an open item for this arc.
+- A per-project multiplier **override** — U4b reads the single global U4a dial.
+- An **un-settle** / re-open-settlement path — settlement is once-per-project; a
+  correction after close is a break-glass operator action, not a routine RPC.
+- The **operator UI** to trigger settlement + show the pool — later (the RPC is callable
+  via the admin surface meanwhile).
+
+## U5 detail — coin distribution (`distribute_project_coins`)
+
+ADR 0060 §4: the **HT takes a cut off the top** (an editable %); the **rest splits by
+level weight** among the DCs who worked the project (Senior→Apprentice; **internal >
+external**; externals a flat, level-blind share — invisible-locked). This unit turns the
+U4b **pool** into **postings** on the spec-160 coin ledger, **formulaically from measured
+facts** (`labor_logs`) — the anti-favoritism pillar (§5): no subjective input anywhere.
+
+**Gate — `super_admin` only.** Minting coins is peak operator authority — the same gate as
+`post_coins` and `set_nova_dial`. This is deliberate (not super+director like settlement):
+distribution **reuses the existing `post_coins` path** (ADR 0061 invariant 2/3, the
+prompt's instruction), and `post_coins` is super-only; a definer-to-definer call resolves
+the original caller's role, so a director calling it would hit `42501`. Computing the pool
+(U4b) is super/director; **minting** it is super. Null-safe `is distinct from`; **no
+`project_manager` reference** → ADR 0058 pgTAP 90/91 untouched → else `42501`.
+
+**Internal vs external** = the worker's **tenure**: a DC whose `contractor` has
+`contractor_subtype = 'dc_temporary'` is **external**; a null/other contractor is
+**internal** (ADR 0060 §1 — the `dc_regular`/`dc_temporary` subtypes; a no-contractor DC
+defaults internal, matching the `wp_economics.is_external` default-false posture). A
+per-worker tenure column is a later refinement; for now it derives from the contractor.
+
+- **New seeded dials (`nova_dials` rows — decision (a): editable, placeholder defaults):**
+  `ht_cut_pct = 0.15`, `level_weight_senior = 4`, `level_weight_mid = 3`,
+  `level_weight_junior = 2`, `level_weight_apprentice = 1`, `external_factor = 1` (the
+  flat external weight per day — `< ` every internal level weight, so **internal >
+  external**). **All placeholders — the operator must calibrate before go-live** (the
+  fairness/aspiration tuning, ADR 0060 open dials). Seeded via the same `insert` posture as
+  `coin_multiplier`; tuned via `set_nova_dial` (U4a, super-only).
+- **Migration (additive):** `20260769000000_coin_distribution.sql`
+  - **`project_coin_distributions`** — one row per distributed project (PK `project_id`
+    references projects `on delete cascade` = the idempotency key): `coin_pool numeric`
+    (snapshot from `project_settlements`), `ht_worker_id uuid null references workers(id)`,
+    `ht_coins numeric not null`, `dc_distributed numeric not null` (Σ to non-HT DCs),
+    `dc_count int not null`, `distributed_by uuid not null references users(id)`,
+    `distributed_at timestamptz`. **MONEY posture**: RLS on, zero authenticated grant.
+  - **`distribute_project_coins(p_project uuid) returns table(ht_coins, dc_distributed,
+dc_count, total_distributed)`** — SECURITY DEFINER, pinned `search_path`.
+    - super_admin gate (above).
+    - project exists → `P0001`; **must be settled** — a `project_settlements` row exists →
+      else `P0001` ("not settled"; U4b runs first); **idempotent** — a pre-existing
+      `project_coin_distributions` row → `P0001` ("already distributed"); coins never
+      double-minted.
+    - reads `coin_pool` from `project_settlements`; the six dials from `nova_dials`
+      (`coalesce(…, 0)`).
+    - **HT cut** — `ht := projects.ht_worker_id`; `ht_coins := pool × ht_cut_pct`; if
+      `ht` not null and `ht_coins > 0` → `post_coins(ht, 'profit_share', ht_coins, reason)`.
+      (No HT assigned → `ht_coins = 0`, the full pool distributes to the DCs.)
+    - **distributable** = `pool − ht_coins`.
+    - **per-DC weight** — over each worker in **current** (non-superseded, non-tombstone)
+      `labor_logs` with `worker_type_snapshot = 'dc'` on **any WP of the project**,
+      **excluding the HT** (the HT's reward is the off-top cut — no double-dip):
+      `days = Σ(full→1, half→0.5)`; `weight = (external ? external_factor :
+level_weight[level]) × days`. An **ungraded internal DC** (`level NULL`) →
+      `level_weight` NULL → weight **0** → **no share** (never silently inflated — the
+      `wp_labor_sell` posture; surfacing ungraded-DC-days for the operator to grade before
+      distribution is a UI concern).
+    - each DC with `weight > 0`: `coins := distributable × weight / Σweight`; if
+      `round(coins,4) > 0` → `post_coins(dc, 'profit_share', coins, reason)` (source
+      `profit_share` — **already in the enum**, no enum-add); accumulate `dc_distributed`,
+      `dc_count`. **A DC's share follows them across moves** — the weight reads
+      `labor_logs` (where the work was _done_), never `workers.project_id` (where they
+      _are now_) — contribution is earned where made (§4).
+    - inserts `project_coin_distributions`; audits (generic `update`,
+      `target_table='project_coin_distributions'`, `target_id=p_project`); returns the
+      summary. Execute lockdown like the other money RPCs.
+  - **Externals — invisible + locked** (§4): U5 only **posts** the share; an external's
+    coins are already **invisible** (coin reads are super-only / externals can't see them —
+    spec 160 U3 posture) and their **spend lock** is enforced at redemption (U6b — an
+    external's coins are not spendable until invited internal). No special posting flag here.
+
+### U5 TDD
+
+**pgTAP** `106-coin-distribution.test.sql`: catalog (`project_coin_distributions` table +
+PK; `distribute_project_coins` is SECURITY DEFINER); **money posture** (authenticated has
+no SELECT); the **gate** — super distributes; **project_director** / pm / visitor →
+`42501` (super-**only**); **not-settled** project → `P0001`. With dials `ht_cut_pct 0.2`,
+weights `senior 4 / mid 2`, `external_factor 2`, a settled project (`coin_pool 10000`) and
+an HT (senior, with own labor) + a senior DC (1 day → w 4) + a **mid DC whose current
+`project_id` is a DIFFERENT project** (1 day → w 2, proving share-follows-the-worker) + an
+**external** DC (`dc_temporary`, 1 day → w `external_factor` 2) + an **ungraded** DC
+(`level NULL`, 1 day → w 0) → **super distributes** → `coin_balance` HT `2000` (the cut
+only — no double-dip), senior `4000`, mid `2000`, external `2000`, ungraded `0`; the
+`project_coin_distributions` row has `ht_coins 2000` and `dc_distributed 8000`; **total
+minted = pool 10000**; **idempotency** (re-distribute → `P0001`); unknown project →
+`P0001`.
+
+### U5 Scope — OUT (later units)
+
+- The **Nova shop** (the coin sink), the **saver's bonus**, **vesting/confiscation** — **U6**.
+- The **external invite → unlock** flow (turning an external internal unlocks their
+  coins) — a later ecosystem step (ADR 0061 trajectory).
+- A **per-WP** (vs per-project) distribution, or weighting by **WP profit** rather than
+  labor-days — a later refinement; v1 splits the project pool by project-wide contribution.
+- The **operator UI** for distribution + the worker-facing coin view — later (gift-first,
+  ADR 0061; the RPC is callable via the admin surface meanwhile).
