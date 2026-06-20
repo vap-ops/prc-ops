@@ -24,6 +24,7 @@ import {
   type RecordFieldDef,
   type RecordRow,
 } from "@/components/features/purchasing/record-manager";
+import { SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
 import {
   createClientRecord,
   updateClientRecord,
@@ -68,7 +69,7 @@ const SUPPLIER_FIELDS: RecordFieldDef[] = [
 ];
 
 const CONTRACTOR_FIELDS: RecordFieldDef[] = [
-  { key: "name", label: "ชื่อผู้รับเหมา", type: "text", maxLength: 200 },
+  { key: "name", label: `ชื่อ${SUBCONTRACTOR_LABEL}`, type: "text", maxLength: 200 },
   { key: "status", label: "สถานะ", type: "select", options: STATUS_OPTIONS },
   { key: "phone", label: "เบอร์โทร", type: "tel", maxLength: 50 },
   { key: "contactPerson", label: "ผู้ติดต่อ", type: "text", maxLength: 120 },
@@ -263,7 +264,7 @@ const TAB_LABEL: Record<ContactTab, string> = {
   clients: "ลูกค้า",
   suppliers: "ผู้ขาย",
   service: "ผู้ให้บริการ",
-  contractors: "ผู้รับเหมา",
+  contractors: SUBCONTRACTOR_LABEL,
   dc: "DC",
 };
 
@@ -379,7 +380,7 @@ export function ContactsTabs({
       ) : null}
       {tab === "contractors" ? (
         <RecordManager
-          addLabel="เพิ่มผู้รับเหมา"
+          addLabel={`เพิ่ม${SUBCONTRACTOR_LABEL}`}
           fields={CONTRACTOR_FIELDS}
           rows={rows}
           onCreate={contractorCreate}

@@ -25,11 +25,12 @@ import {
   type ConsentRow,
 } from "@/components/features/contacts/contact-consent-block";
 import { contractorPacketStatus, dcTypeOfSubtype, type DcPacket } from "@/lib/contacts/packet";
+import { SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
 
 const TYPE_CONFIG = {
   clients: { table: "clients", kind: null, label: "ลูกค้า" },
   suppliers: { table: "suppliers", kind: "supplier", label: "ผู้ขาย" },
-  contractors: { table: "contractors", kind: "contractor", label: "ผู้รับเหมา / DC" },
+  contractors: { table: "contractors", kind: "contractor", label: `${SUBCONTRACTOR_LABEL} / DC` },
   "service-providers": {
     table: "service_providers",
     kind: "service_provider",

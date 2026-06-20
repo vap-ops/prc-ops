@@ -8,6 +8,13 @@ import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
 
 type Enums = Database["public"]["Enums"];
 
+// Spec 159 U1 — the subcontractor (contractor_category='contractor'): a firm PRC
+// hires that pays its OWN crew, distinct from DC (whom PRC pays directly daily)
+// and from the general WP "ผู้รับเหมา" (which may be either — left generic on
+// purpose). Single-sourced so the term never drifts; derive variants by
+// composition (`ชื่อ${SUBCONTRACTOR_LABEL}` etc.). See prc-ops-pay-model.
+export const SUBCONTRACTOR_LABEL = "ผู้รับเหมาช่วง";
+
 export const WORK_PACKAGE_STATUS_LABEL: Record<Enums["work_package_status"], string> = {
   not_started: "ยังไม่เริ่ม",
   in_progress: "กำลังดำเนินการ",

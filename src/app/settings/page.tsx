@@ -22,6 +22,7 @@ import { ComingSoonBadge } from "@/components/features/chrome/coming-soon-badge"
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { createClient } from "@/lib/db/server";
 import { isManagerRole } from "@/lib/auth/role-home";
+import { SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
 // Server-only import (this page is a Server Component) — no client bundle bloat,
 // no version drift vs package.json.
 import pkg from "../../../package.json";
@@ -125,8 +126,8 @@ export default async function SettingsPage() {
               <SettingsLink
                 href="/contacts/crews"
                 icon={Hammer}
-                label="ผู้รับเหมา/DC"
-                hint="ผู้รับเหมา · ทีมแรงงาน DC"
+                label={`${SUBCONTRACTOR_LABEL} / DC`}
+                hint={`${SUBCONTRACTOR_LABEL} · DC ประจำ/ชั่วคราว/บริษัท`}
               />
               <SettingsLink href="/workers" icon={HardHat} label="ทีมงาน" hint="ทะเบียนทีมงาน DC" />
               <SettingsLink

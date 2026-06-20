@@ -11,8 +11,9 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { ContactsTabs } from "@/components/features/contacts/contacts-tabs";
 import type { RecordRow } from "@/components/features/purchasing/record-manager";
+import { SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
 
-export const metadata = { title: "ผู้รับเหมาและทีม DC" };
+export const metadata = { title: `${SUBCONTRACTOR_LABEL}และทีม DC` };
 
 export default async function ContactsCrewsPage() {
   const ctx = await requireRole(PM_ROLES);
@@ -63,7 +64,7 @@ export default async function ContactsCrewsPage() {
     <PageShell>
       <BottomTabBar role={ctx.role} />
       <DetailHeader backHref="/settings" backLabel="ตั้งค่า">
-        <h1 className="text-title text-ink font-bold tracking-tight">ผู้รับเหมาและทีม DC</h1>
+        <h1 className="text-title text-ink font-bold tracking-tight">{`${SUBCONTRACTOR_LABEL}และทีม DC`}</h1>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
         <ContactsTabs group="crews" contractors={contractors} dc={dc} />
