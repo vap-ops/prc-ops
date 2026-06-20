@@ -3494,6 +3494,17 @@ export type Database = {
         Returns: string
       }
       freeze_wp_labor_cost: { Args: { p_wp: string }; Returns: undefined }
+      get_my_crew_assignments: {
+        Args: never
+        Returns: {
+          active: boolean
+          name: string
+          project_code: string
+          project_id: string
+          project_name: string
+          worker_id: string
+        }[]
+      }
       get_my_dc_payments: {
         Args: never
         Returns: {

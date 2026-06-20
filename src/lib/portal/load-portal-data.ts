@@ -15,8 +15,9 @@ import { getOwnContractorDocuments } from "@/lib/portal/own-documents";
 type Db = SupabaseClient<Database>;
 
 export async function loadPortalData(supabase: Db) {
-  // The fan: all six reads are RLS-scoped to the caller's own contractor (U2
-  // policies) and independent of each other.
+  // The fan: six independent reads, each scoped to the caller's own contractor —
+  // five via the U2 RLS policies, plus crew via get_my_crew_assignments (a definer
+  // RPC scoped by the same binding, spec 160 U3).
   const [
     { data: profile },
     { data: consentRows },
@@ -35,7 +36,9 @@ export async function loadPortalData(supabase: Db) {
       .from("contractor_consents")
       .select("id, kind, consented_at, revoked_at")
       .order("created_at", { ascending: false }),
-    supabase.from("workers").select("id, name, active").order("name"),
+    // Spec 160 U3: crew now carries each member's current project (definer RPC,
+    // scoped to the caller's own crew; resolves the project name past projects RLS).
+    supabase.rpc("get_my_crew_assignments"),
     supabase.rpc("get_my_dc_payments"),
     supabase
       .from("contractor_bank_change_requests")

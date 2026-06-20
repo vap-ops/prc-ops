@@ -155,8 +155,21 @@ export default async function PortalPage() {
         {crew && crew.length > 0 ? (
           <ul className={`${CARD} divide-edge mb-6 flex flex-col divide-y`}>
             {crew.map((w) => (
-              <li key={w.id} className="flex items-center justify-between gap-3 py-2">
-                <span className="text-ink min-w-0 truncate text-sm font-medium">{w.name}</span>
+              <li key={w.worker_id} className="flex items-start justify-between gap-3 py-2">
+                <div className="min-w-0">
+                  <span className="text-ink block truncate text-sm font-medium">{w.name}</span>
+                  {/* Spec 160 U3: where this crew member is currently deployed. */}
+                  <span className="text-ink-secondary block truncate text-xs">
+                    {w.project_name ? (
+                      <>
+                        {w.project_name}{" "}
+                        <span className="text-ink-muted font-mono">{w.project_code}</span>
+                      </>
+                    ) : (
+                      "ยังไม่ได้กำหนดโครงการ"
+                    )}
+                  </span>
+                </div>
                 {!w.active ? (
                   <span className="text-ink-muted shrink-0 text-xs">ปิดใช้งาน</span>
                 ) : null}

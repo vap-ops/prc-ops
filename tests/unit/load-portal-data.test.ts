@@ -15,9 +15,27 @@ let maxInFlight = 0;
 
 const PROFILE = { id: "c1", name: "ช่างเอ", phone: "08", contractor_subtype: "subcon_member" };
 const CONSENTS = [{ id: "cs1", kind: "pdpa_data", consented_at: "2026-06-01", revoked_at: null }];
-const CREW = [{ id: "w1", name: "ลูกทีม", active: true }];
+// Spec 160 U3: crew now comes from get_my_crew_assignments() with the current
+// project resolved (or null when unassigned).
+const CREW = [
+  {
+    worker_id: "w1",
+    name: "ลูกทีม",
+    active: true,
+    project_id: "p1",
+    project_code: "PRC-1",
+    project_name: "โครงการ",
+  },
+];
 const PAYMENTS = [
-  { id: "pay1", period_from: "2026-06-01", period_to: "2026-06-07", paid_amount: 5000, paid_at: "2026-06-08", method: "bank_transfer" },
+  {
+    id: "pay1",
+    period_from: "2026-06-01",
+    period_to: "2026-06-07",
+    paid_amount: 5000,
+    paid_at: "2026-06-08",
+    method: "bank_transfer",
+  },
 ];
 const PENDING = { id: "bc1" };
 
@@ -28,11 +46,11 @@ const SINGLE = (): Record<string, unknown> => ({
 });
 const LIST: Record<string, unknown[]> = {
   contractor_consents: CONSENTS,
-  workers: CREW,
 };
 const RPC: Record<string, unknown> = {
   get_my_dc_payments: PAYMENTS,
   my_contact_bank_present: true,
+  get_my_crew_assignments: CREW,
 };
 
 function track<T>(value: T): Promise<T> {

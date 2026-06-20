@@ -148,3 +148,56 @@ unknown worker → P0001; role gate (pm / site_admin / visitor → 42501); RLS r
 - Worker-sees-own-balance read + the portal surface — **U3**.
 - Project / settlement attribution on a posting (coins are worker-scoped here).
 - A true two-account double-entry split (deferred; the per-worker log suffices).
+
+---
+
+## U3 detail — portal as the worker's home (Stage-0 step, 2026-06-20)
+
+Realizes ADR 0061 **invariant 5/6** (the portal is the worker's home; the record is
+theirs) as a **first concrete step**: surface the ecosystem's new per-worker fact —
+**the current project assignment** (U1's `workers.project_id`) — on the existing
+external DC portal (ADR 0051, `/portal`). The contractor sees **where each of their
+crew is deployed**.
+
+**Coins are deliberately NOT on the portal.** ADR 0060 §4 makes external DCs' coins
+**invisible** (unlocked only on an invite to Internal), and ADR 0061's **gift-first**
+rule says the worker's first experience must be **their record**, not the opaque coin.
+So `coin_postings` stays **`super_admin`-only** (U2); the worker-sees-own-coins read
+waits for the Internal/portal-evolution step. U3 surfaces **record, not currency** —
+exactly the gift-first sequencing.
+
+- **Migration (additive — read-only RPC, no table/grant change to coins):**
+  - **`get_my_crew_assignments()`** — SECURITY DEFINER, pinned `search_path`, returns
+    `(worker_id, name, active, project_id, project_code, project_name)` for the
+    **caller's own crew** (`workers.contractor_id = current_user_contractor_id()`),
+    left-joined to `projects` for the assigned project's code/name. The definer join
+    is what lets an external contractor read **only their assigned projects' names**
+    past the staff-scoped projects RLS — scope is the `current_user_contractor_id()`
+    binding (ADR 0051), so an unbound / staff caller gets **zero rows**, and no
+    contractor ever sees another's crew or unrelated projects. `revoke all from
+public, anon; grant execute to authenticated` (the `get_my_dc_payments` posture).
+  - No change to `coin_postings` / `workers` grants; no new table.
+- **Portal (`/portal`):** the **ทีมช่าง** (crew) list now shows each member's current
+  project under their name (`project_name` · code), or **"ยังไม่ได้กำหนดโครงการ"**
+  when unassigned. `loadPortalData` swaps the crew RLS query for
+  `get_my_crew_assignments` (the fan stays the same size — concurrency unchanged).
+  With no backfill yet, everyone reads unassigned until PMs assign — graceful, like
+  the picker (spec 158 U2).
+
+### U3 TDD
+
+1. **pgTAP** `97-crew-assignments.test.sql`: `get_my_crew_assignments` exists +
+   SECURITY DEFINER; a bound contractor sees **only their own** crew with the assigned
+   project's code/name resolved; an unassigned crew member returns null project; a
+   **different** contractor sees only their own crew (never the first's); a staff /
+   unbound caller sees **zero rows**.
+2. **vitest** `load-portal-data.test.ts` (extend): the crew fan member is the RPC; the
+   assembled `crew` carries the assignment shape.
+
+### U3 Scope — OUT
+
+- **Coins on the portal** (externals-invisible per ADR 0060 §4; waits for the
+  Internal step / policy evolution, invariant 6).
+- The richer gift bundle — savings, earned-wage access, accident floor (ADR 0061
+  trajectory; their own specs, sequenced after Stage 0).
+- Per-worker (vs per-contractor) portal identity; self-managed assignment.
