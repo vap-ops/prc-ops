@@ -9,6 +9,12 @@ sub-ADRs follow). The reward currency (Nova) revives the held gamification desig
 are deliberately left open** (below) — they are tuned before any money/coin code
 ships.
 
+**Sits under [ADR 0061](0061-worker-ecosystem-mission-and-foundation-invariants.md)
+as step 1** — its foundation invariants (durable DC identity, ledger-grade coin
+ledger, pluggable earn-sources, consent/PDPA, portability, evolvable transparency)
+bind this model; the control levers here (confiscation, opacity, invisible-lock,
+spend-telemetry) are **removable policy**, not foundational.
+
 Extends [ADR 0051](0051-external-partner-access-model.md) (external DC portal tier),
 relates to [ADR 0055](0055-equipment-tracking-and-rental-model.md) (equipment rental
 is a WP expense line; its append-only movement stream is the pattern for DC

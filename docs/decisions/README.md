@@ -65,7 +65,8 @@ later one corrects — read both when the topic is live.
 | 0057 | In-app general ledger feeding PEAK (double-entry GL)                 | spec 149                                       |
 | 0058 | `project_director` role — see-all `project_manager`                  | Extends 0008/0013/0056/0050; spec 152          |
 | 0059 | Work-package mutation lifecycle (bind deliverable · edit · delete)   | Extends 0016/0004/0056/0058; specs 155–157     |
-| 0060 | Project-based profit-sharing via Nova coins (HT/DC self-governance)  | Proposed/design; extends 0051; rel. 0055/0057  |
+| 0060 | Project-based profit-sharing via Nova coins (HT/DC self-governance)  | Proposed/design; under 0061; extends 0051      |
+| 0061 | Worker ecosystem — mission & foundation invariants                   | Proposed/vision; umbrella over 0060            |
 
 **Absent numbers** (never authored as standalone files; do not look for them):
 0023, 0024 — skipped. 0029 — AppSheet image bridge, cancelled before authoring
