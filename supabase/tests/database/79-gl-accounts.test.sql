@@ -1,5 +1,5 @@
 begin;
-select plan(21);
+select plan(22);
 
 -- ============================================================================
 -- Spec 149 U1 / ADR 0057 — gl_accounts (chart of accounts).

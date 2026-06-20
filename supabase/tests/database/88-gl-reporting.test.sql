@@ -1,5 +1,5 @@
 begin;
-select plan(15);
+select plan(16);
 
 -- ============================================================================
 -- Spec 149 U7 / ADR 0057 dec 6+11 — gl_trial_balance + gl_reconciliation.
