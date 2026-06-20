@@ -85,11 +85,12 @@ select is(
     where schemaname = 'public' and tablename = 'labor_logs' and cmd <> 'SELECT'),
   0::bigint, 'labor_logs has no non-SELECT policies (RPC-only writes)');
 
--- dc requires contractor at the constraint layer too.
-select throws_ok(
-  $$ insert into public.workers (name, worker_type, day_rate, created_by)
-     values ('Bad DC', 'dc', 100, '11111111-1111-1111-1111-1111111ab0fe') $$,
-  '23514', null, 'dc worker without contractor violates CHECK');
+-- The dc-contractor force-tie is DROPPED (spec 160 U1 / ADR 0061): a DC belongs
+-- to a project, not a crew, so a contractor is no longer required at the
+-- constraint layer. (own-has-no-contractor stays; see file 95.)
+select is(
+  (select count(*)::int from pg_constraint where conname = 'workers_dc_has_contractor'),
+  0, 'the dc-contractor force-tie CHECK is dropped (spec 160 U1)');
 
 -- ============================================================================
 -- B. Money posture + zero direct writes (as authenticated SA).

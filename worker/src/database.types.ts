@@ -2885,6 +2885,55 @@ export type Database = {
           },
         ]
       }
+      worker_project_moves: {
+        Row: {
+          id: string
+          moved_at: string
+          moved_by: string
+          project_id: string | null
+          reason: string | null
+          worker_id: string
+        }
+        Insert: {
+          id?: string
+          moved_at?: string
+          moved_by: string
+          project_id?: string | null
+          reason?: string | null
+          worker_id: string
+        }
+        Update: {
+          id?: string
+          moved_at?: string
+          moved_by?: string
+          project_id?: string | null
+          reason?: string | null
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "worker_project_moves_moved_by_fkey"
+            columns: ["moved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_project_moves_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_project_moves_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workers: {
         Row: {
           active: boolean
@@ -2895,6 +2944,7 @@ export type Database = {
           id: string
           name: string
           note: string | null
+          project_id: string | null
           user_id: string | null
           worker_type: Database["public"]["Enums"]["worker_type"]
         }
@@ -2907,6 +2957,7 @@ export type Database = {
           id?: string
           name: string
           note?: string | null
+          project_id?: string | null
           user_id?: string | null
           worker_type: Database["public"]["Enums"]["worker_type"]
         }
@@ -2919,6 +2970,7 @@ export type Database = {
           id?: string
           name?: string
           note?: string | null
+          project_id?: string | null
           user_id?: string | null
           worker_type?: Database["public"]["Enums"]["worker_type"]
         }
@@ -2935,6 +2987,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workers_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -3226,6 +3285,10 @@ export type Database = {
         Returns: boolean
       }
       apply_wp_template: { Args: { p_project_id: string }; Returns: number }
+      assign_worker_to_project: {
+        Args: { p_project?: string; p_reason?: string; p_worker: string }
+        Returns: undefined
+      }
       can_see_photo_log: { Args: { p_photo_log_id: string }; Returns: boolean }
       can_see_project: { Args: { p_project_id: string }; Returns: boolean }
       can_see_wp: { Args: { p_work_package_id: string }; Returns: boolean }
