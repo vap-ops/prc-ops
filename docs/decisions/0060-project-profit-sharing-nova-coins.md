@@ -93,6 +93,29 @@ balance), confiscation (explicit detectable triggers only). **No subjective rati
 anywhere** (no peer/manager points). The append-only `labor_logs` + `audit_log` make
 the facts tamper-evident.
 
+### 6. Coin-spend telemetry — saver's bonus + attrition signal (added 2026-06-20)
+
+The shop is also a **sensor**. Two purposes, both objective/automatic (pillar-clean):
+
+- **Saver's bonus.** Holding coins (not spending for a period) earns a bonus — a
+  **savings-discipline** reward. Financially it is bank-deposit logic: holding
+  **defers** shop redemption (lower near-term liability) and the bonus is itself
+  cheap coin. NOTE: frame it as savings discipline, **not "financial literacy"** —
+  abstention is a noisy literacy proxy (also = hoarding / distrust / dull shop), and
+  a bonus for not-spending mostly rewards hoarding-for-the-bonus (Goodhart).
+- **Attrition signal.** A spend pattern can hint a DC is preparing to leave — but
+  measured as a **delta** (a sudden liquidation vs the person's **own baseline**),
+  not a level, and used as a **soft watchlist only, never an automated penalty** (a
+  big legitimate purchase is indistinguishable; false positives are harmful).
+
+**Unresolved collision (decide before build):** this fights §4's confiscation.
+Confiscable coins make holding risky → a rational DC spends down → which kills the
+saving we reward **and** manufactures the very flight signal we watch for. **To
+reward saving, holding must be SAFE: vested coins (past warranty) are the DC's to
+keep, confiscation reserved for narrow gross violations only.** Plus a
+**surveillance/trust cost** — judging how people spend earned rewards deepens the
+watch-heavy posture; weigh the culture risk.
+
 ## Open dials (tune before building money/coin code)
 
 - **Coin value / Nova shop economics** — what a coin buys; sets the real liability.
@@ -105,6 +128,10 @@ the facts tamper-evident.
 - **"Save overall cost → earn more"** — bonus rule; define as **utilization**
   (absorbing idle capacity), not penny-pinching (which invites corner-cutting).
 - **Confiscation triggers** — the explicit, narrow list.
+- **Saver's-bonus rate + hold period** (§6) — and balance the minted bonus coins
+  against the shop sink (inflation guard).
+- **Attrition-signal threshold** (§6) — the spend-down delta that flags the soft
+  watchlist.
 
 ## Design rules proven by stress-testing (must hold in any build)
 
@@ -125,6 +152,10 @@ the facts tamper-evident.
 6. **Narrow, explicit, rare confiscation** — a currency that can be taken at whim is
    valued at zero. Trust is the currency's foundation; pair revocability with a
    clear vesting/keep path.
+7. **Saving only works if holding is safe.** The saver's bonus + a clean attrition
+   signal (§6) require **vested coins to be largely un-confiscatable** — else
+   rational spend-down defeats both. Reconcile with §4: confiscation = narrow gross
+   cases; **vested = the DC's to keep.**
 
 ## Schema implications (not built; future specs)
 
