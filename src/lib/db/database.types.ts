@@ -4009,6 +4009,7 @@ export type Database = {
         }
         Returns: string
       }
+      wp_labor_sell: { Args: { p_wp: string }; Returns: number }
     }
     Enums: {
       accounting_period_status: "open" | "closing" | "closed" | "locked"

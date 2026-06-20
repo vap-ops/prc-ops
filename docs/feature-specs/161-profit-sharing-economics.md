@@ -177,3 +177,80 @@ site_admin / visitor → 42501, a non-DC (own) worker / an inactive DC / unknown
 
 - The HT's powers (sees the real WP P&L, takes the max coin cut) — **U3 / U5**.
 - One-project-per-HT uniqueness; an unassign/clear path.
+
+## U3 detail — WP labor priced at SELL (`wp_labor_sell`)
+
+ADR 0060 §2: `WP profit = budget − (equipment rental + DC labor @ SELL + materials)`.
+**This sub-unit builds only the novel core of that formula — the SELL-priced DC labor
+term**, the one number no existing function produces. (`freeze_wp_labor_cost` already
+sums DC labor at **cost**; this sums the _same current logs_ at the per-level **sell**
+rate — the markup the company keeps.) The full profit assembly (subtract equipment +
+materials from `wp_economics.budget`) and the GL reconciliation are **U3b**; settlement
+× multiplier is **U4**. Nothing is banked or posted here — `wp_labor_sell` is a pure
+**read** the P&L will compose.
+
+- **`wp_labor_sell(p_wp uuid) returns numeric`** — SECURITY DEFINER, `stable`, pinned
+  `search_path = public`. Returns the WP's DC labor valued at the per-level sell rate, in
+  baht.
+  - **Population — current DC labor only.** Sum over `labor_logs` rows where
+    `work_package_id = p_wp`, `worker_type_snapshot = 'dc'` (ADR §2 prices **DC** labor;
+    company-`own` labor is payroll overhead, not transfer-priced into the WP profit
+    center — and so is excluded here exactly as it is absent from the §2 formula),
+    `day_fraction is not null` (not a tombstone), and **not superseded** (the anti-join
+    `not exists (… newer.superseded_by = ll.id)` — ADR 0009, identical to the cost
+    engine). A correction's **current** row counts; the superseded row and tombstones do
+    not.
+  - **Rate — per current level, internal vs external.** Join the current
+    `workers.level` (the **live** grade, not a snapshot — `labor_logs` carries no level
+    column; a level-at-time snapshot is a later refinement, noted below) to
+    `sell_rate_table`. The applicable column is **`internal_sell` unless the WP is
+    external → `external_sell`**, where external =
+    `coalesce((select is_external from wp_economics where work_package_id = p_wp), false)`
+    (a WP with no `wp_economics` row is internal by default — U2 posture).
+  - **Per-row value** = `(full → 1, half → 0.5) × sell_rate`; **sum** all rows;
+    `coalesce(…, 0)` so a WP with no DC labor returns `0`, not NULL.
+  - **Ungraded DC → 0 (never silently inflate).** A DC with `level IS NULL` has no
+    `sell_rate_table` match, so the **inner join drops the row** → it contributes **0**.
+    This is the deliberate safe posture: an ungraded DC cannot inflate profit. **Decision
+    (the prompt's open point):** contribute 0, **no side-effect flag** — `wp_labor_sell`
+    stays a pure read; _surfacing_ the count of ungraded-DC-days (so the operator grades
+    them before settlement) belongs to the U3b profit struct / its UI, not this scalar.
+  - **Gate — `super_admin` + `project_director` only** (the operator/exec who see WP
+    economics; the HT P&L view is U3's surface, later). **No `project_manager`
+    reference** → the ADR 0058 pgTAP 90/91 invariants are not triggered (deliberate, as
+    in U1/U2 budget). The gate uses the **null-safe** `is distinct from` form (so a
+    NULL-role service-role / unauthenticated caller is denied, not silently admitted —
+    the `rls-self-check-coalesce` trap); any other role → `42501`. Existence-checked: an
+    unknown WP → `P0001` (a typo'd id errors, never returns a misleading `0`).
+  - **Reads zero-grant money tables** (`sell_rate_table`, `wp_economics`, `labor_logs`)
+    — fine: SECURITY DEFINER bypasses RLS. **Invoked under the caller's authenticated
+    session** (a real super/director JWT so `current_user_role()` resolves), never the
+    admin client — exactly like `freeze_wp_labor_cost`. Execute is locked down:
+    `revoke all … from public; grant execute … to authenticated` (anon can't reach it;
+    authenticated still hits the internal gate). It is a read → **no audit row**, **no
+    enum-add**.
+
+### U3 TDD
+
+**pgTAP** `101-wp-labor-sell.test.sql`: catalog (`wp_labor_sell(uuid)` exists; is
+SECURITY DEFINER); the **gate** (super + director succeed; pm / site_admin / visitor →
+`42501`); the **money math** — a graded crew on an **internal** WP sums at `internal_sell`
+× fraction (senior full 800 + mid half 350 = **1150.00**); the **same crew on an external**
+WP sums **higher** at `external_sell` (950 + 425 = **1375.00**, and `> ` the internal
+total); an **edge** WP pins the exclusions in one number (ungraded DC → 0, an `own`
+worker with a level → excluded, a superseded row excluded but its **current** correction
+counted [junior half = 290], a tombstoned row excluded → **290.00**); an unknown WP →
+`P0001`.
+
+### U3 Scope — OUT (later units)
+
+- **Full profit assembly** (`budget − equipment − labor_sell − materials`) + the
+  equipment-rental ([spec 141/146](146-equipment-rental-money.md)) and materials
+  (purchasing) wiring + the **GL reconciliation** (ADR 0057 — the P&L derives from / ties
+  to the WP-dimensioned ledger, never a second costing path) — **U3b**.
+- The **external-WP netting** against what we owe the subcontractor (ADR 0060 §2) —
+  settlement territory, **U4+**.
+- A **level-at-time snapshot** on `labor_logs` (sell uses the live grade for now) — a
+  later refinement only if grade-at-time fairness is required.
+- **Surfacing** the ungraded-DC-day flag, the HT's P&L view, banking profit at WP
+  completion — **U3b / U5** + their UI.
