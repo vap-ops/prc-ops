@@ -50,6 +50,8 @@ export const PROCUREMENT_HUB_NAV: ReadonlyArray<HubNavItem> = [
   // Spec 102: read-only project browse.
   { label: "โครงการ", href: "/projects" },
   { label: "ผู้ขาย", href: "/contacts/vendors" },
+  // Spec 172 Phase B: procurement curates subcontractors too.
+  { label: "ผู้รับเหมาช่วง", href: "/contacts/subcontractors" },
   { label: "ตั้งค่า", href: "/settings" },
 ];
 

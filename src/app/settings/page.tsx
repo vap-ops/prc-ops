@@ -105,6 +105,21 @@ export default async function SettingsPage() {
           </div>
         )}
 
+        {/* Spec 172 Phase B: procurement curates subcontractors (its other
+            back-office contacts — suppliers — sit in its hub strip). Mobile reaches
+            this via the ตั้งค่า tab. */}
+        {role === "procurement" && (
+          <div className="flex flex-col gap-2">
+            <h2 className="text-meta text-ink-secondary font-semibold">ข้อมูลหลัก</h2>
+            <SettingsLink
+              href="/contacts/subcontractors"
+              icon={Hammer}
+              label={SUBCONTRACTOR_LABEL}
+              hint="บริษัทที่จ้างช่วง (จ่ายลูกทีมเอง)"
+            />
+          </div>
+        )}
+
         {isManager && (
           <>
             {/* Master data — PM/super */}

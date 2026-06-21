@@ -247,7 +247,8 @@ export async function createContractorRecord(input: {
   taxId?: string;
   specialty?: string;
 }): Promise<RecordActionResult> {
-  const gate = await pmSession();
+  // Spec 172 Phase B: procurement curates contractors (back-office, like suppliers).
+  const gate = await backOfficeSession();
   if (!gate.ok) return gate;
   if (!validName(input.name, MASTER_NAME_MAX)) {
     return { ok: false, error: `ชื่อผู้รับเหมาต้องไม่ว่างและไม่เกิน ${MASTER_NAME_MAX} ตัวอักษร` };
@@ -292,7 +293,8 @@ export async function updateContractorRecord(input: {
   taxId?: string;
   specialty?: string;
 }): Promise<RecordActionResult> {
-  const gate = await pmSession();
+  // Spec 172 Phase B: procurement curates contractors (back-office).
+  const gate = await backOfficeSession();
   if (!gate.ok) return gate;
   if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC };
 
@@ -458,7 +460,9 @@ export async function setContactBank(input: {
   bankAccountNo?: string;
   bankAccountName?: string;
 }): Promise<RecordActionResult> {
-  const gate = await pmSession();
+  // Spec 172 Phase B: procurement is the back-office payee-bank curator (the
+  // set_contact_bank RPC gate now admits procurement too).
+  const gate = await backOfficeSession();
   if (!gate.ok) return gate;
   if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC };
 

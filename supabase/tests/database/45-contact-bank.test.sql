@@ -1,5 +1,5 @@
 begin;
-select plan(14);
+select plan(15);
 
 -- ============================================================================
 -- Spec 85 — contact_bank: MONEY isolation. Zero authenticated access (RLS on,
@@ -10,14 +10,21 @@ select plan(14);
 insert into auth.users (id, email, raw_user_meta_data) values
   ('22222222-2222-2222-2222-2222222245ff', 'sa@cb-test.local',      '{}'::jsonb),
   ('33333333-3333-3333-3333-3333333345ff', 'pm@cb-test.local',      '{}'::jsonb),
-  ('44444444-4444-4444-4444-4444444445ff', 'visitor@cb-test.local', '{}'::jsonb);
+  ('44444444-4444-4444-4444-4444444445ff', 'visitor@cb-test.local', '{}'::jsonb),
+  -- Spec 172 Phase B: procurement now manages contractor bank.
+  ('66666666-6666-6666-6666-6666666645ff', 'proc@cb-test.local',    '{}'::jsonb);
 
 update public.users set role = 'site_admin'      where id = '22222222-2222-2222-2222-2222222245ff';
 update public.users set role = 'project_manager' where id = '33333333-3333-3333-3333-3333333345ff';
+update public.users set role = 'procurement'      where id = '66666666-6666-6666-6666-6666666645ff';
 -- 4444…45ff keeps default 'visitor'.
 
 insert into public.contractors (id, name, created_by) values
   ('c0000000-45ff-45ff-45ff-45ff45ff45ff', 'แบงก์เทสต์',
+   '33333333-3333-3333-3333-3333333345ff'),
+  -- Spec 172 Phase B: a 2nd contractor for procurement's bank test (keeps the
+  -- section-D outcome on the first contractor intact).
+  ('c1000000-45ff-45ff-45ff-45ff45ff45ff', 'แบงก์เทสต์ จัดซื้อ',
    '33333333-3333-3333-3333-3333333345ff');
 
 grant insert on _tap_buf to authenticated;
@@ -72,6 +79,14 @@ select lives_ok(
   $$ select public.set_contact_bank(
        'c0000000-45ff-45ff-45ff-45ff45ff45ff', null, null, 'ธ.กสิกร', '222', 'แบงก์เทสต์') $$,
   'PM updates the same target (upsert)');
+
+-- Spec 172 Phase B: procurement may set a contractor's bank (own 2nd contractor,
+-- leaves the section-D outcome on the first contractor intact).
+set local "request.jwt.claims" = '{"sub": "66666666-6666-6666-6666-6666666645ff"}';
+select lives_ok(
+  $$ select public.set_contact_bank(
+       'c1000000-45ff-45ff-45ff-45ff45ff45ff', null, null, 'ธ.ไทยพาณิชย์', '999', 'แบงก์เทสต์ จัดซื้อ') $$,
+  'spec 172: procurement sets a contractor''s bank');
 
 reset role;
 

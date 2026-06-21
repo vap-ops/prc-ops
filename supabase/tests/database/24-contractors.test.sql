@@ -1,5 +1,5 @@
 begin;
-select plan(35);
+select plan(38);
 
 -- ============================================================================
 -- Spec 31 / ADR 0033 (+ staff-write amendment) — contractors master,
@@ -9,17 +9,24 @@ select plan(35);
 insert into auth.users (id, email, raw_user_meta_data) values
   ('22222222-2222-2222-2222-22222222dddd', 'sa@ctr-test.local',      '{}'::jsonb),
   ('33333333-3333-3333-3333-33333333dddd', 'pm@ctr-test.local',      '{}'::jsonb),
-  ('44444444-4444-4444-4444-44444444dddd', 'visitor@ctr-test.local', '{}'::jsonb);
+  ('44444444-4444-4444-4444-44444444dddd', 'visitor@ctr-test.local', '{}'::jsonb),
+  -- Spec 172 Phase B: procurement now manages contractors.
+  ('66666666-6666-6666-6666-66666666dddd', 'proc@ctr-test.local',    '{}'::jsonb);
 
 update public.users set role = 'site_admin'      where id = '22222222-2222-2222-2222-22222222dddd';
 update public.users set role = 'project_manager' where id = '33333333-3333-3333-3333-33333333dddd';
+update public.users set role = 'procurement'      where id = '66666666-6666-6666-6666-66666666dddd';
 -- 4444…dddd keeps default 'visitor'.
 
 insert into public.projects (id, code, name) values
   ('cccccccc-cccc-cccc-cccc-cccccccc2222', 'PRC-TEST-CTR', 'CTR fixture project');
 insert into public.work_packages (id, project_id, code, name) values
   ('eeeeeeee-eeee-eeee-eeee-eeeeeeee2222',
-   'cccccccc-cccc-cccc-cccc-cccccccc2222', 'WP-CTR-1', 'CTR fixture WP');
+   'cccccccc-cccc-cccc-cccc-cccccccc2222', 'WP-CTR-1', 'CTR fixture WP'),
+  -- Spec 172 Phase B: a 2nd WP so procurement's assign test doesn't disturb the
+  -- section-D outcome assertion on the first WP.
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeee2223',
+   'cccccccc-cccc-cccc-cccc-cccccccc2222', 'WP-CTR-2', 'CTR fixture WP 2');
 
 grant insert on _tap_buf to authenticated;
 grant select on _tap_buf to authenticated;
@@ -150,6 +157,27 @@ select throws_ok(
   $$ select public.set_work_package_contractor(
        'eeeeeeee-eeee-eeee-eeee-eeeeeeee2222', null) $$,
   '42501', null, 'visitor cannot call the assignment RPC');
+
+-- Spec 172 Phase B — procurement manages contractors (full ownership).
+set local "request.jwt.claims" = '{"sub": "66666666-6666-6666-6666-66666666dddd"}';
+-- C.6 procurement creates a contractor (INSERT policy now admits it; created_by self).
+select lives_ok(
+  $$ insert into public.contractors (id, name, created_by)
+     values ('d6000000-dddd-dddd-dddd-dddddddd2222', 'ทีมช่าง จัดซื้อ',
+             '66666666-6666-6666-6666-66666666dddd') $$,
+  'spec 172: procurement creates a contractor');
+-- C.7 procurement updates a contractor (UPDATE policy now admits it).
+select lives_ok(
+  $$ update public.contractors set note = 'ดูแลโดยจัดซื้อ'
+     where id = 'd6000000-dddd-dddd-dddd-dddddddd2222' $$,
+  'spec 172: procurement updates a contractor');
+-- C.8 procurement assigns a contractor to a WP via the RPC (2nd WP, leaves the
+--     section-D outcome on WP-1 intact).
+select lives_ok(
+  $$ select public.set_work_package_contractor(
+       'eeeeeeee-eeee-eeee-eeee-eeeeeeee2223',
+       'd6000000-dddd-dddd-dddd-dddddddd2222') $$,
+  'spec 172: procurement assigns a contractor to a WP');
 
 reset role;
 

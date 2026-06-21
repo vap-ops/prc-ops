@@ -7,7 +7,7 @@ import { notFound } from "next/navigation";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
-import { PM_ROLES } from "@/lib/auth/role-home";
+import { BACK_OFFICE_ROLES, PM_ROLES, isManagerRole } from "@/lib/auth/role-home";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
@@ -84,7 +84,14 @@ export default async function ContactDetailPage({
   const cfg = TYPE_CONFIG[type as keyof typeof TYPE_CONFIG];
   if (!cfg) notFound();
 
-  await requireRole(PM_ROLES);
+  // Spec 172 Phase B: procurement curates the back-office contact types
+  // (contractors + suppliers) incl. their bank; PM-only for clients / service
+  // providers. The PM-only write workflows below (bank-change approval, document
+  // upload, portal invite, consent) are gated on isPmTier so procurement gets a
+  // clean read + bank surface without broken affordances.
+  const BACK_OFFICE_TYPES = new Set(["contractors", "suppliers"]);
+  const ctx = await requireRole(BACK_OFFICE_TYPES.has(type) ? BACK_OFFICE_ROLES : PM_ROLES);
+  const isPmTier = isManagerRole(ctx.role);
   const supabase = await createServerSupabase();
   const { data: record } = await supabase.from(cfg.table).select("*").eq("id", id).maybeSingle();
   if (!record) notFound();
@@ -208,7 +215,7 @@ export default async function ContactDetailPage({
           )}
         </section>
 
-        {pendingBankChanges.length > 0 ? (
+        {isPmTier && pendingBankChanges.length > 0 ? (
           <section className={`${CARD} border-attn bg-attn-soft border-l-4`}>
             <p className="text-attn-ink text-sm font-semibold">
               คำขอเปลี่ยนบัญชีธนาคาร (รออนุมัติ)
@@ -231,7 +238,7 @@ export default async function ContactDetailPage({
         ) : null}
 
         {kind ? <ContactBankBlock kind={kind} id={id} initial={bank} /> : null}
-        {kind ? (
+        {kind && isPmTier ? (
           <ContactDocumentsBlock
             kind={kind}
             id={id}
@@ -245,10 +252,10 @@ export default async function ContactDetailPage({
             }
           />
         ) : null}
-        {type === "contractors" ? (
+        {type === "contractors" && isPmTier ? (
           <ContractorInviteBlock contractorId={id} alreadyBound={alreadyBound} />
         ) : null}
-        {type === "contractors" ? (
+        {type === "contractors" && isPmTier ? (
           <ContactConsentBlock contractorId={id} consents={consents} />
         ) : null}
         {type === "contractors" ? <ContactCrewSection contractorId={id} crew={crew} /> : null}
