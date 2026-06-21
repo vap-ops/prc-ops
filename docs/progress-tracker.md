@@ -6,6 +6,38 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 172 — procurement owns contractors / equipment / DC onboarding (2026-06-21)
+
+Operator: "procurement also takes care of 1. Contractors 2. Equipment Rentals 3. Onboarding DCs." Decisions: FULL ownership (procurement **sets DC pay rate** +
+**manages contractor bank**), build all three. **Phase A (equipment) = ALREADY
+ENABLED, no-op:** audit found procurement already gated into every equipment
+surface (registry CRUD/movements/rates/rental-batch+allocation+usage RPCs +
+/equipment via EQUIPMENT_MOVE_ROLES/BACK_OFFICE_ROLES, spec 141/146). The only gap
+is app-wide (no UI to view/manage rental batches+allocations) — a SEPARATE feature,
+not a procurement-permission item. **Phase B (contractors incl. bank) SHIPPED to
+prod (commit 8f431bc, mig `20260795000000`):** procurement now curates contractors
+like suppliers — RLS adds procurement to contractors INSERT/UPDATE; CREATE OR
+REPLACE `set_contact_bank` (staff bank-write) + `set_work_package_contractor`
+adding procurement, **bodies sourced from the LIVE prod definition** (project_director
+rides along, file 91). App: `/contacts/subcontractors` + the back-office branch of
+`/contacts/[type]/[id]` (contractors+suppliers) gate on BACK_OFFICE_ROLES;
+createContractorRecord/updateContractorRecord/setContactBank → backOfficeSession;
+the PM-only detail workflows (bank-change approval, doc upload, portal invite,
+consent) gated to isPmTier so procurement gets a clean read+bank surface without
+broken affordances; `contact_bank` stays zero-grant (admin-read behind the gate).
+Nav (the spec-171-U4 lesson): subcontractors added to PROCUREMENT_HUB_NAV (desktop)
+
+- a `role==='procurement'` /settings block (phone path). pgTAP 24 (+3) / 45 (+1) —
+  procurement creates/updates a contractor, sets its bank, assigns it to a WP;
+  db:test 0 failures; lint·typecheck·build green. **Phase C (DC onboarding incl.
+  rate) PENDING — HELD:** the concurrent spec-170 session is in the exact worker/bank
+  domain on main right now (prod migrations through 20260789, branch
+  `…u4c1-worker-bank-display`); doing C now would race their worker-RPC migrations.
+  Do C once that burst settles, re-sourcing create_worker / update_worker /
+  assign_worker_to_project / create_worker_invite / set_worker_day_rate from LIVE
+  prod. Built amid the concurrent session via explicit-path commits + `push origin
+HEAD:main` (rebase on non-ff); never `git add -A`.
+
 ## Spec 171 — procurement can make purchase requests from the WP screen (2026-06-21)
 
 Status: **U1 + U2 COMPLETE — shipped to prod 2026-06-21.** Operator: "there are
