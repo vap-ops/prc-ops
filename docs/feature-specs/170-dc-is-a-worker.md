@@ -281,7 +281,17 @@ vitest 1344 · db:test 117/2251/0 · build.
   branches to the worker surfaces when `current_user_worker_id()` resolves.
 - Tests: component + pgTAP for the worker self-edit + consent.
 
-### U4c — portal bank + documents on the worker
+### U4c — portal bank + documents on the worker (U4c-1 bank display SHIPPED)
+
+**U4c-1 (worker bank DISPLAY, read-only) SHIPPED 2026-06-21** (commit 0b12f7a, mig
+20260789): `get_my_worker_profile` DROP+CREATE to also return the bank fields; the
+/portal worker branch shows a read-only bank card. pgTAP 117 → plan 17.
+**Remainder (heavier, each forked):** **U4c-2** = self-service staged bank-change →
+PM approval (ADR 0051 §6 anti-fraud; OPEN-6: polymorphic `contractor_bank_change_
+requests` + a worker submit RPC + a decide branch applying to `workers.bank_*` + a
+PM approval surface on /workers). **U4c-3** = DC documents (OPEN-7: worker docs
+table + `worker/<id>/…` storage prefix vs extend `contact_attachments` with
+worker_id; storage RLS). Both need an operator decision before building.
 
 - **Bank:** display from `workers` bank fields (U1) + a staged change → PM
   approval. **OPEN-6:** reuse `contractor_bank_change_requests` with a `worker_id`
