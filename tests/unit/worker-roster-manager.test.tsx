@@ -45,6 +45,7 @@ const WORKERS: ManagedWorker[] = [
     day_rate: 500,
     active: true,
     note: "หัวหน้าทีม",
+    dc_arrangement: null,
   },
 ];
 
@@ -73,27 +74,40 @@ describe("WorkerRosterManager notes", () => {
     );
   });
 
-  it("DC parent picker shows only non-blacklisted DC crews (spec 89)", () => {
-    render(
-      <WorkerRosterManager
-        workers={[]}
-        contractors={[
-          { id: "a", name: "DC ใช้งาน", status: "active", contractor_category: "dc" },
-          { id: "b", name: "DC บัญชีดำ", status: "blacklisted", contractor_category: "dc" },
-          {
-            id: "c",
-            name: "ผู้รับเหมาทั่วไป",
-            status: "active",
-            contractor_category: "contractor",
-          },
-        ]}
-      />,
-    );
-    // Reveal the DC-parent picker by switching the add-form worker type to DC.
+  // ADR 0062 U1 — a DC is a self-sufficient worker: switching to DC reveals the
+  // arrangement (ประจำ/ชั่วคราว) + payee fields, and the old ผู้รับเหมา parent
+  // picker is gone (DC is hired directly, never from a firm).
+  it("DC add form shows arrangement + payee fields, no contractor picker", () => {
+    render(<WorkerRosterManager workers={[]} contractors={[]} />);
+    expect(screen.queryByRole("radio", { name: "ประจำ" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("radio", { name: "ทีมงาน DC" }));
-    expect(screen.getByRole("option", { name: "DC ใช้งาน" })).toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: "DC บัญชีดำ" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: "ผู้รับเหมาทั่วไป" })).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "ประจำ" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "ชั่วคราว" })).toBeInTheDocument();
+    expect(screen.getByLabelText("เลขบัญชีธนาคาร")).toBeInTheDocument();
+    expect(screen.queryByLabelText("ผู้รับเหมา")).not.toBeInTheDocument();
+  });
+
+  it("adds a DC worker with arrangement + bank, no contractor", async () => {
+    render(<WorkerRosterManager workers={[]} contractors={[]} />);
+    fireEvent.click(screen.getByRole("radio", { name: "ทีมงาน DC" }));
+    fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "DC ตรง" } });
+    fireEvent.change(screen.getByLabelText("ค่าแรงต่อวัน (บาท)"), { target: { value: "420" } });
+    fireEvent.click(screen.getByRole("radio", { name: "ชั่วคราว" }));
+    fireEvent.change(screen.getByLabelText("เลขบัญชีธนาคาร"), {
+      target: { value: "1234567890" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มทีมงาน" }));
+    await waitFor(() =>
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "DC ตรง",
+          workerType: "dc",
+          dayRate: 420,
+          arrangement: "temporary",
+          bankAccountNumber: "1234567890",
+        }),
+      ),
+    );
   });
 
   it("passes the note when editing a worker", async () => {

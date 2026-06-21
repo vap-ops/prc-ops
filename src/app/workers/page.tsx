@@ -26,7 +26,7 @@ export default async function WorkersPage() {
   const admin = createAdminSupabase();
   const { data: workerRows } = await admin
     .from("workers")
-    .select("id, name, worker_type, contractor_id, day_rate, active, note")
+    .select("id, name, worker_type, contractor_id, day_rate, active, note, dc_arrangement")
     .order("name", { ascending: true });
   const workers: ManagedWorker[] = workerRows ?? [];
 

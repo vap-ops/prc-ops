@@ -3411,43 +3411,61 @@ export type Database = {
       workers: {
         Row: {
           active: boolean
+          bank_account_name: string | null
+          bank_account_number: string | null
+          bank_name: string | null
           contractor_id: string | null
           created_at: string
           created_by: string
           day_rate: number
+          dc_arrangement: Database["public"]["Enums"]["dc_arrangement"] | null
           id: string
           level: Database["public"]["Enums"]["worker_level"] | null
           name: string
           note: string | null
+          phone: string | null
           project_id: string | null
+          tax_id: string | null
           user_id: string | null
           worker_type: Database["public"]["Enums"]["worker_type"]
         }
         Insert: {
           active?: boolean
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
           contractor_id?: string | null
           created_at?: string
           created_by: string
           day_rate?: number
+          dc_arrangement?: Database["public"]["Enums"]["dc_arrangement"] | null
           id?: string
           level?: Database["public"]["Enums"]["worker_level"] | null
           name: string
           note?: string | null
+          phone?: string | null
           project_id?: string | null
+          tax_id?: string | null
           user_id?: string | null
           worker_type: Database["public"]["Enums"]["worker_type"]
         }
         Update: {
           active?: boolean
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
           contractor_id?: string | null
           created_at?: string
           created_by?: string
           day_rate?: number
+          dc_arrangement?: Database["public"]["Enums"]["dc_arrangement"] | null
           id?: string
           level?: Database["public"]["Enums"]["worker_level"] | null
           name?: string
           note?: string | null
+          phone?: string | null
           project_id?: string | null
+          tax_id?: string | null
           user_id?: string | null
           worker_type?: Database["public"]["Enums"]["worker_type"]
         }
@@ -4001,10 +4019,16 @@ export type Database = {
       }
       create_worker: {
         Args: {
+          p_arrangement?: Database["public"]["Enums"]["dc_arrangement"]
+          p_bank_account_name?: string
+          p_bank_account_number?: string
+          p_bank_name?: string
           p_contractor?: string
           p_day_rate: number
           p_name: string
           p_note?: string
+          p_phone?: string
+          p_tax_id?: string
           p_type: Database["public"]["Enums"]["worker_type"]
           p_user?: string
         }
@@ -4499,10 +4523,16 @@ export type Database = {
       update_worker: {
         Args: {
           p_active?: boolean
+          p_arrangement?: Database["public"]["Enums"]["dc_arrangement"]
+          p_bank_account_name?: string
+          p_bank_account_number?: string
+          p_bank_name?: string
           p_contractor?: string
           p_id: string
           p_name?: string
           p_note?: string
+          p_phone?: string
+          p_tax_id?: string
         }
         Returns: undefined
       }
@@ -4616,6 +4646,7 @@ export type Database = {
         | "dc_regular"
         | "dc_temporary"
       day_fraction: "full" | "half"
+      dc_arrangement: "regular" | "temporary"
       dc_payment_method: "bank_transfer" | "cash" | "cheque"
       equipment_movement_kind:
         | "received"
@@ -4908,6 +4939,7 @@ export const Constants = {
         "dc_temporary",
       ],
       day_fraction: ["full", "half"],
+      dc_arrangement: ["regular", "temporary"],
       dc_payment_method: ["bank_transfer", "cash", "cheque"],
       equipment_movement_kind: [
         "received",

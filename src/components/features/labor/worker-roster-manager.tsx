@@ -4,9 +4,15 @@
 // requireRole-gated and server-rendered, so day rates may render here —
 // this is the one surface where money is visible, by design).
 //
-// 'use client' justification: add/edit forms with busy states over the
-// roster RPC actions; spec 139 — the active-toggle is an optimistic flip
-// (React 19 useOptimistic, no router.refresh round-trip).
+// ADR 0062 U1: a DC is a self-sufficient WORKER, hired directly (no contractor
+// firm). The add form drops the ผู้รับเหมา parent picker and instead carries the
+// DC arrangement (ประจำ/ชั่วคราว) + payee fields (phone, tax id, bank). The
+// bank/tax fields are money/PII-isolated server-side (no authenticated grant);
+// they reach this page only via the admin client behind requireRole(pm/super).
+//
+// 'use client' justification: add/edit forms with busy states over the roster
+// RPC actions; spec 139 — the active-toggle is an optimistic flip (React 19
+// useOptimistic, no router.refresh round-trip).
 
 import { useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -28,6 +34,14 @@ import {
 import { NOTES_MAX } from "@/lib/notes/validate";
 
 type WorkerType = Database["public"]["Enums"]["worker_type"];
+// ADR 0062 U1 — DC arrangement; local union keeps the client decoupled from the
+// generated enum type (values match public.dc_arrangement).
+type DcArrangement = "regular" | "temporary";
+
+const DC_ARRANGEMENT_LABEL: Record<DcArrangement, string> = {
+  regular: "ประจำ",
+  temporary: "ชั่วคราว",
+};
 
 export type ManagedWorker = {
   id: string;
@@ -38,17 +52,35 @@ export type ManagedWorker = {
   active: boolean;
   // Spec 75: optional roster note.
   note: string | null;
+  // ADR 0062 U1: ประจำ/ชั่วคราว for DC workers (null for own techs).
+  dc_arrangement: DcArrangement | null;
 };
 
-function AddWorkerForm({ contractors }: { contractors: { id: string; name: string }[] }) {
+function AddWorkerForm() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [workerType, setWorkerType] = useState<WorkerType>("own");
-  const [contractorId, setContractorId] = useState("");
+  const [arrangement, setArrangement] = useState<DcArrangement>("regular");
   const [rate, setRate] = useState("");
   const [note, setNote] = useState("");
+  const [phone, setPhone] = useState("");
+  const [taxId, setTaxId] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [bankAccountNumber, setBankAccountNumber] = useState("");
+  const [bankAccountName, setBankAccountName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const isDc = workerType === "dc";
+
+  function resetPayee() {
+    setArrangement("regular");
+    setPhone("");
+    setTaxId("");
+    setBankName("");
+    setBankAccountNumber("");
+    setBankAccountName("");
+  }
 
   async function submit() {
     const dayRate = Number(rate);
@@ -58,8 +90,8 @@ function AddWorkerForm({ contractors }: { contractors: { id: string; name: strin
       name,
       workerType,
       dayRate: Number.isFinite(dayRate) ? dayRate : -1,
-      contractorId: workerType === "dc" ? contractorId || null : null,
       note,
+      ...(isDc ? { arrangement, phone, taxId, bankName, bankAccountNumber, bankAccountName } : {}),
     });
     setBusy(false);
     if (!result.ok) {
@@ -68,8 +100,8 @@ function AddWorkerForm({ contractors }: { contractors: { id: string; name: strin
     }
     setName("");
     setRate("");
-    setContractorId("");
     setNote("");
+    resetPayee();
     router.refresh();
   }
 
@@ -102,22 +134,22 @@ function AddWorkerForm({ contractors }: { contractors: { id: string; name: strin
           />
         ))}
       </div>
-      {workerType === "dc" ? (
-        <label className="text-ink-secondary mt-2 block text-sm">
-          ผู้รับเหมา
-          <select
-            value={contractorId}
-            onChange={(e) => setContractorId(e.target.value)}
-            className={`${FIELD_STACKED} appearance-none`}
-          >
-            <option value="">— เลือกผู้รับเหมา —</option>
-            {contractors.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
+      {/* ADR 0062 U1: DC arrangement — ประจำ vs ชั่วคราว (no contractor parent). */}
+      {isDc ? (
+        <div className="mt-2">
+          <p className="text-ink-secondary text-sm">ลักษณะการจ้าง</p>
+          <div className="mt-1 flex gap-2" role="radiogroup" aria-label="ลักษณะการจ้าง">
+            {(["regular", "temporary"] as const).map((value) => (
+              <RadioChip
+                key={value}
+                name="dc-arrangement"
+                label={DC_ARRANGEMENT_LABEL[value]}
+                checked={arrangement === value}
+                onSelect={() => setArrangement(value)}
+              />
             ))}
-          </select>
-        </label>
+          </div>
+        </div>
       ) : null}
       <label className="text-ink-secondary mt-2 block text-sm">
         ค่าแรงต่อวัน (บาท)
@@ -128,6 +160,59 @@ function AddWorkerForm({ contractors }: { contractors: { id: string; name: strin
           className={FIELD_STACKED}
         />
       </label>
+      {/* ADR 0062 U1: DC payee fields — paid directly, so the bank lives on the
+          person. Optional; bank/tax are server-isolated like the rate. */}
+      {isDc ? (
+        <>
+          <label className="text-ink-secondary mt-2 block text-sm">
+            เบอร์โทร
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              inputMode="tel"
+              maxLength={50}
+              className={FIELD_STACKED}
+            />
+          </label>
+          <label className="text-ink-secondary mt-2 block text-sm">
+            เลขผู้เสียภาษี
+            <input
+              value={taxId}
+              onChange={(e) => setTaxId(e.target.value)}
+              maxLength={50}
+              className={FIELD_STACKED}
+            />
+          </label>
+          <label className="text-ink-secondary mt-2 block text-sm">
+            ธนาคาร
+            <input
+              value={bankName}
+              onChange={(e) => setBankName(e.target.value)}
+              maxLength={120}
+              className={FIELD_STACKED}
+            />
+          </label>
+          <label className="text-ink-secondary mt-2 block text-sm">
+            เลขบัญชีธนาคาร
+            <input
+              value={bankAccountNumber}
+              onChange={(e) => setBankAccountNumber(e.target.value)}
+              inputMode="numeric"
+              maxLength={50}
+              className={FIELD_STACKED}
+            />
+          </label>
+          <label className="text-ink-secondary mt-2 block text-sm">
+            ชื่อบัญชี
+            <input
+              value={bankAccountName}
+              onChange={(e) => setBankAccountName(e.target.value)}
+              maxLength={120}
+              className={FIELD_STACKED}
+            />
+          </label>
+        </>
+      ) : null}
       <label className="text-ink-secondary mt-2 block text-sm">
         หมายเหตุ
         <textarea
@@ -230,6 +315,12 @@ function WorkerRow({
         <div className="min-w-0">
           <p className={`truncate text-sm ${optimisticActive ? "text-ink" : "text-ink-muted"}`}>
             {worker.name}
+            {/* ADR 0062 U1: arrangement badge for DC workers. */}
+            {worker.dc_arrangement ? (
+              <span className="text-ink-muted ml-1.5 text-xs">
+                · {DC_ARRANGEMENT_LABEL[worker.dc_arrangement]}
+              </span>
+            ) : null}
             {contractorName ? (
               <span className="text-ink-muted ml-1.5 text-xs">· {contractorName}</span>
             ) : null}
@@ -324,21 +415,17 @@ export function WorkerRosterManager({
   contractors,
 }: {
   workers: ManagedWorker[];
-  // Spec 89: status + category drive the DC-parent picker; the full list still
-  // resolves names for existing rows (incl. blacklisted / non-dc parents).
+  // Legacy DC parents (pre-ADR-0062) still resolve a name for display; new DC
+  // workers have no contractor parent.
   contractors: { id: string; name: string; status?: string; contractor_category?: string }[];
 }) {
   const contractorNames = new Map(contractors.map((c) => [c.id, c.name]));
   const own = workers.filter((w) => w.worker_type === "own");
   const dc = workers.filter((w) => w.worker_type === "dc");
-  // Spec 89: a new DC worker may only be parented by a non-blacklisted DC crew.
-  const assignable = contractors.filter(
-    (c) => c.contractor_category === "dc" && c.status !== "blacklisted",
-  );
 
   return (
     <div className="flex flex-col gap-4">
-      <AddWorkerForm contractors={assignable} />
+      <AddWorkerForm />
       {(
         [
           { label: "ช่างบริษัท", list: own },

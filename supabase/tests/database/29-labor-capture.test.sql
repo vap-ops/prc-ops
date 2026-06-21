@@ -1,5 +1,5 @@
 begin;
-select plan(53);
+select plan(60);
 
 -- ============================================================================
 -- Spec 46 — daily labor capture: workers master + labor_logs.
@@ -182,6 +182,39 @@ select is(
 select is(
   (select name from public.workers where id = 'aaaaaaa1-0000-4000-8000-000000ab0fe1'),
   'Own Tech A1', 'a note-only update preserves the name (coalesce)');
+
+-- C.dc (ADR 0062 U1): a DC is a self-sufficient worker — an arrangement
+-- (ประจำ/ชั่วคราว) + payee fields, no contractor parent required. bank_* + tax_id
+-- are money/PII-isolated like day_rate (no authenticated grant); dc_arrangement
+-- is non-sensitive and readable.
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-2222222ab0fe"}';
+select throws_ok(
+  $$ select bank_account_number from public.workers limit 1 $$,
+  '42501', null, 'authenticated cannot read workers.bank_account_number (isolated)');
+select throws_ok(
+  $$ select tax_id from public.workers limit 1 $$,
+  '42501', null, 'authenticated cannot read workers.tax_id (isolated)');
+select lives_ok(
+  $$ select dc_arrangement from public.workers limit 1 $$,
+  'authenticated can read workers.dc_arrangement (granted, non-sensitive)');
+
+set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-1111111ab0fe"}';
+select ok(
+  (select public.create_worker('DC Direct', 'dc', 420, p_arrangement => 'temporary',
+     p_bank_account_number => '1234567890')) is not null,
+  'create_worker makes a DC worker with no contractor parent + arrangement + bank');
+select throws_ok(
+  $$ select public.create_worker('Bad Own', 'own', 400, p_arrangement => 'regular') $$,
+  'P0001', null, 'create_worker rejects an arrangement on a non-dc worker');
+
+reset role;
+select is(
+  (select dc_arrangement from public.workers where name = 'DC Direct'),
+  'temporary'::public.dc_arrangement, 'create_worker stored the dc arrangement');
+select is(
+  (select bank_account_number from public.workers where name = 'DC Direct'),
+  '1234567890', 'create_worker stored the (isolated) bank account number');
 
 -- ============================================================================
 -- D. log_labor_day.

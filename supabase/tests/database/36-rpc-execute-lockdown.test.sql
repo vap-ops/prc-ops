@@ -2,6 +2,8 @@
 -- RPCs are EXECUTE-able by authenticated only, never anon/PUBLIC
 -- (20260625000200). Catches a future DROP+CREATE that silently resets the
 -- grant back to the PUBLIC default.
+-- ADR 0062 U1 (20260778): create_worker/update_worker gained the dc_arrangement
+-- + payee params; the lockdown is re-applied for the new signatures here.
 
 begin;
 select plan(10);
@@ -17,11 +19,11 @@ select is(
   false, 'anon cannot execute correct_labor_log');
 select is(
   has_function_privilege('anon',
-    'public.create_worker(text, public.worker_type, numeric, uuid, uuid, text)', 'EXECUTE'),
+    'public.create_worker(text, public.worker_type, numeric, uuid, uuid, text, public.dc_arrangement, text, text, text, text, text)', 'EXECUTE'),
   false, 'anon cannot execute create_worker');
 select is(
   has_function_privilege('anon',
-    'public.update_worker(uuid, text, boolean, uuid, text)', 'EXECUTE'),
+    'public.update_worker(uuid, text, boolean, uuid, text, public.dc_arrangement, text, text, text, text, text)', 'EXECUTE'),
   false, 'anon cannot execute update_worker');
 select is(
   has_function_privilege('anon',
@@ -39,11 +41,11 @@ select is(
   true, 'authenticated can execute correct_labor_log');
 select is(
   has_function_privilege('authenticated',
-    'public.create_worker(text, public.worker_type, numeric, uuid, uuid, text)', 'EXECUTE'),
+    'public.create_worker(text, public.worker_type, numeric, uuid, uuid, text, public.dc_arrangement, text, text, text, text, text)', 'EXECUTE'),
   true, 'authenticated can execute create_worker');
 select is(
   has_function_privilege('authenticated',
-    'public.update_worker(uuid, text, boolean, uuid, text)', 'EXECUTE'),
+    'public.update_worker(uuid, text, boolean, uuid, text, public.dc_arrangement, text, text, text, text, text)', 'EXECUTE'),
   true, 'authenticated can execute update_worker');
 select is(
   has_function_privilege('authenticated',
