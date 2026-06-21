@@ -111,18 +111,17 @@ export const PROJECT_VIEW_ROLES: ReadonlyArray<UserRole> = [
 
 /**
  * Spec 149 U9: who may reach the read-only /accounting surface (trial balance,
- * reconciliation, P&L) — the dedicated `accounting` role PLUS the PM set (pm/super
- * already own the GL RPCs and review the books). Mirrors the gl_trial_balance /
- * gl_reconciliation role gate. Field roles never reach it (money, spec 46).
+ * reconciliation, P&L). Field roles never reach it (money, spec 46).
+ *
+ * Spec 166 (beta finance gating): tightened to the dedicated `accounting` role +
+ * super_admin ONLY. project_manager / project_director were temporarily REMOVED
+ * (they had read access via spec 152) because the GL numbers are provisional
+ * until the accountant config (COA / WHT / PEAK, spec 149 U8) is finalized —
+ * showing them to beta PMs risks "wrong numbers" confusion. REVERSAL post-config:
+ * re-add "project_manager" + "project_director" here; the settings link and all
+ * four /accounting route guards follow automatically.
  */
-export const ACCOUNTING_ROLES: ReadonlyArray<UserRole> = [
-  "accounting",
-  "project_manager",
-  "super_admin",
-  // Spec 152 / ADR 0058: project_director reads the ledger surface (PM already
-  // does); it gets no accounting WRITE powers beyond a PM's.
-  "project_director",
-];
+export const ACCOUNTING_ROLES: ReadonlyArray<UserRole> = ["accounting", "super_admin"];
 
 export function roleHome(role: UserRole): string {
   // Spec 82 Unit 3: site_admin lands on the folded content-named project hub

@@ -168,6 +168,7 @@ for reading the spec itself.
 | 163  | Paste work packages from Google Sheets (tab/no-header auto-detect in the U7 importer; ADR 0014)                          |
 | 164  | งวดงาน create + map UX (U1 create_deliverable RPC + manager; U2 paste list; U3 bulk map; U4 onboarding) — ADR 0016/0059  |
 | 165  | งวดงาน lifecycle (U1 rename; U2 reorder; U3 detail page; archive + amount/dates pending ADR 0016 amend) — ADR 0016/0059  |
+| 166  | Beta finance gating — hide provisional GL (/accounting) from PM/director, keep payroll (reversible) — spec 149/152       |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

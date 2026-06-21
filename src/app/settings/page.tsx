@@ -21,7 +21,7 @@ import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
 import { ComingSoonBadge } from "@/components/features/chrome/coming-soon-badge";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { createClient } from "@/lib/db/server";
-import { isManagerRole } from "@/lib/auth/role-home";
+import { ACCOUNTING_ROLES, isManagerRole } from "@/lib/auth/role-home";
 import { SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
 // Server-only import (this page is a Server Component) — no client bundle bloat,
 // no version drift vs package.json.
@@ -147,12 +147,17 @@ export default async function SettingsPage() {
                 label="ค่าจ้าง"
                 hint="สรุปค่าจ้าง DC + ส่งออก CSV"
               />
-              <SettingsLink
-                href="/accounting"
-                icon={Calculator}
-                label="บัญชี"
-                hint="งบทดลอง · กำไร–ขาดทุน · กระทบยอด"
-              />
+              {/* Spec 166: บัญชี (GL) hidden from PM/director during beta — its
+                  numbers are provisional until the accountant config lands. Only
+                  ACCOUNTING_ROLES (accounting + super_admin) see it; ค่าจ้าง stays. */}
+              {(ACCOUNTING_ROLES as readonly string[]).includes(role) && (
+                <SettingsLink
+                  href="/accounting"
+                  icon={Calculator}
+                  label="บัญชี"
+                  hint="งบทดลอง · กำไร–ขาดทุน · กระทบยอด"
+                />
+              )}
               {/* Spec 162: Nova's home is บัญชี. Operator-only for v1 (coins are
                   super_admin-read + externals-invisible). */}
               {role === "super_admin" && (

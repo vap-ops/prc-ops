@@ -2,9 +2,24 @@
 // recorded role-doctrine home). Replaces 3 local consts + ~11 inline arrays.
 import { describe, expect, it } from "vitest";
 
-import { PM_ROLES, SITE_STAFF_ROLES, isManagerRole, roleHome } from "@/lib/auth/role-home";
+import {
+  ACCOUNTING_ROLES,
+  PM_ROLES,
+  SITE_STAFF_ROLES,
+  isManagerRole,
+  roleHome,
+} from "@/lib/auth/role-home";
 
 describe("role sets", () => {
+  // Spec 166: beta finance gating — the GL /accounting surface is operator-only
+  // (accounting + super_admin) while its numbers are provisional. PM/director
+  // were temporarily removed (reverses spec 152's ledger access for beta).
+  it("ACCOUNTING_ROLES is accounting + super_admin only (spec 166 beta gate)", () => {
+    expect([...ACCOUNTING_ROLES]).toEqual(["accounting", "super_admin"]);
+    expect(ACCOUNTING_ROLES).not.toContain("project_manager");
+    expect(ACCOUNTING_ROLES).not.toContain("project_director");
+  });
+
   // Spec 152 / ADR 0058: project_director is a see-all project_manager — it
   // joins PM_ROLES (and every set built on it). Appended last so existing
   // order is preserved.
