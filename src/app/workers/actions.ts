@@ -146,3 +146,21 @@ export async function setWorkerDayRate(input: {
   revalidatePath("/workers");
   return { ok: true };
 }
+
+// Spec 170 U4a / ADR 0062 — a PM issues a single-use, 14-day claim link a DC
+// opens to bind their LINE login to this WORKER (the portal binds on
+// workers.user_id, not a contractor party). create_worker_invite (SECURITY
+// DEFINER, pm/super/director) mints the token; the UI wraps it into the
+// /portal/claim URL. Relayed through the RLS session so the RPC gate resolves.
+export type WorkerInviteResult = { ok: true; token: string } | { ok: false; error: string };
+
+export async function createWorkerInvite(input: { workerId: string }): Promise<WorkerInviteResult> {
+  if (!UUID_REGEX.test(input.workerId)) return { ok: false, error: GENERIC_ERROR };
+
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("create_worker_invite", {
+    p_worker: input.workerId,
+  });
+  if (error || !data) return { ok: false, error: GENERIC_ERROR };
+  return { ok: true, token: data };
+}

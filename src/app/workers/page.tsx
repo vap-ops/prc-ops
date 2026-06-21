@@ -26,9 +26,14 @@ export default async function WorkersPage() {
   const admin = createAdminSupabase();
   const { data: workerRows } = await admin
     .from("workers")
-    .select("id, name, worker_type, contractor_id, day_rate, active, note, dc_arrangement")
+    .select("id, name, worker_type, contractor_id, day_rate, active, note, dc_arrangement, user_id")
     .order("name", { ascending: true });
-  const workers: ManagedWorker[] = workerRows ?? [];
+  // ADR 0062 U4a: derive portalBound from user_id (the LINE binding); user_id
+  // itself stays server-side — only the boolean reaches the client roster.
+  const workers: ManagedWorker[] = (workerRows ?? []).map(({ user_id, ...w }) => ({
+    ...w,
+    portalBound: user_id !== null,
+  }));
 
   const supabase = await createServerSupabase();
   // Spec 89: status + category let WorkerRosterManager hide blacklisted/non-DC

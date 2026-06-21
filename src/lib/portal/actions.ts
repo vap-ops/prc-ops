@@ -28,6 +28,17 @@ export async function claimContractorInvite(input: { token: string }): Promise<C
   const auth = await getActionUser();
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
 
+  // Spec 170 U4a — a DC now binds on workers.user_id, so try the worker invite
+  // first; a worker token binds the worker + flips the role. An INVALID-token
+  // failure means this is a contractor-party token → fall through to the
+  // contractor claim. Any other worker-claim failure (expired / used /
+  // already-bound / not-a-visitor) is the real error and is surfaced.
+  const worker = await auth.supabase.rpc("claim_worker_invite", { p_token: token });
+  if (!worker.error) return { ok: true };
+  if (!worker.error.message.includes("invalid token")) {
+    return { ok: false, error: claimErrorToThai(worker.error.message) };
+  }
+
   const { error } = await auth.supabase.rpc("claim_contractor_invite", { p_token: token });
   if (error) return { ok: false, error: claimErrorToThai(error.message) };
   return { ok: true };

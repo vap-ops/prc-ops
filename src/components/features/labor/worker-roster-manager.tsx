@@ -25,6 +25,7 @@ import {
 } from "@/app/workers/actions";
 import type { Database } from "@/lib/db/database.types";
 import { RadioChip } from "@/components/features/common/radio-chip";
+import { WorkerInviteBlock } from "@/components/features/portal/worker-invite-block";
 import {
   BUTTON_PRIMARY_COMPACT,
   BUTTON_SECONDARY_COMPACT,
@@ -54,6 +55,8 @@ export type ManagedWorker = {
   note: string | null;
   // ADR 0062 U1: ประจำ/ชั่วคราว for DC workers (null for own techs).
   dc_arrangement: DcArrangement | null;
+  // ADR 0062 U4a: is this DC worker bound to a portal LINE login (workers.user_id)?
+  portalBound: boolean;
 };
 
 function AddWorkerForm() {
@@ -404,6 +407,14 @@ function WorkerRow({
               ยกเลิก
             </button>
           </div>
+
+          {/* ADR 0062 U4a: a DC worker is a portal user — issue/track their LINE
+              claim link here. Own techs don't have a portal. */}
+          {worker.worker_type === "dc" ? (
+            <div className="mt-3">
+              <WorkerInviteBlock workerId={worker.id} alreadyBound={worker.portalBound} />
+            </div>
+          ) : null}
         </div>
       ) : null}
     </li>

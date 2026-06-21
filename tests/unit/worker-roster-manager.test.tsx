@@ -46,6 +46,7 @@ const WORKERS: ManagedWorker[] = [
     active: true,
     note: "หัวหน้าทีม",
     dc_arrangement: null,
+    portalBound: false,
   },
 ];
 

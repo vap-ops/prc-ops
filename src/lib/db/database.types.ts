@@ -3359,6 +3359,61 @@ export type Database = {
           },
         ]
       }
+      worker_invites: {
+        Row: {
+          claimed_at: string | null
+          claimed_by: string | null
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          token: string
+          worker_id: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          created_by: string
+          expires_at: string
+          id?: string
+          token: string
+          worker_id: string
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          token?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "worker_invites_claimed_by_fkey"
+            columns: ["claimed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_invites_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_invites_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       worker_project_moves: {
         Row: {
           id: string
@@ -3915,6 +3970,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_worker_invite: { Args: { p_token: string }; Returns: string }
       claw_back_project_coins: {
         Args: { p_note?: string; p_project: string }
         Returns: {
@@ -4034,11 +4090,13 @@ export type Database = {
         }
         Returns: string
       }
+      create_worker_invite: { Args: { p_worker: string }; Returns: string }
       current_user_contractor_id: { Args: never; Returns: string }
       current_user_role: {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      current_user_worker_id: { Args: never; Returns: string }
       decide_contractor_bank_change: {
         Args: { p_approve: boolean; p_id: string }
         Returns: undefined

@@ -33,9 +33,11 @@ insert into public.contractor_users (user_id, contractor_id) values
 update public.users set role = 'contractor'
   where id in ('a1000000-0000-4000-8000-000000000138', 'b1000000-0000-4000-8000-000000000138');
 
+-- Spec 170 U4a: the portal now binds on workers.user_id (get_my_dc_payments is
+-- worker-direct). Bind Worker A→uA, Worker B→uB so each reads their own payment.
 insert into public.workers (id, name, worker_type, contractor_id, user_id, day_rate, active, created_by) values
-  ('a2000000-0000-4000-8000-000000000138', 'Worker A', 'dc', 'aa000000-0000-4000-8000-000000000138', null, 400.00, true, '51000000-0000-4000-8000-000000000138'),
-  ('b2000000-0000-4000-8000-000000000138', 'Worker B', 'dc', 'bb000000-0000-4000-8000-000000000138', null, 450.00, true, '51000000-0000-4000-8000-000000000138');
+  ('a2000000-0000-4000-8000-000000000138', 'Worker A', 'dc', 'aa000000-0000-4000-8000-000000000138', 'a1000000-0000-4000-8000-000000000138', 400.00, true, '51000000-0000-4000-8000-000000000138'),
+  ('b2000000-0000-4000-8000-000000000138', 'Worker B', 'dc', 'bb000000-0000-4000-8000-000000000138', 'b1000000-0000-4000-8000-000000000138', 450.00, true, '51000000-0000-4000-8000-000000000138');
 
 insert into public.projects (id, code, name) values
   ('c0000000-0000-4000-8000-000000000138', 'TAP-PORTAL', 'Portal RLS fixture');
