@@ -211,7 +211,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
     },
     {
       key: "labor",
-      label: "แรงงาน",
+      label: "ทีมงาน",
       panel: (
         <LaborLogZone
           workPackageId={wp.id}

@@ -22,7 +22,7 @@ import { validateNotes } from "@/lib/notes/validate";
 type DayFraction = Database["public"]["Enums"]["day_fraction"];
 type DcPaymentMethod = Database["public"]["Enums"]["dc_payment_method"];
 
-const GENERIC_ERROR = "บันทึกแรงงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+const GENERIC_ERROR = "บันทึกทีมงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
 export type LogLaborDaysResult =
   | { ok: true; failed: { workerId: string; message: string }[] }

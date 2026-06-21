@@ -228,7 +228,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
         </section>
 
         <section>
-          <h2 className={SECTION_HEADING}>บันทึกแรงงานรายวัน</h2>
+          <h2 className={SECTION_HEADING}>บันทึกทีมงานรายวัน</h2>
           <LaborLogZone
             workPackageId={wp.id}
             revalidate={`/review/work-packages/${workPackageId}`}
@@ -248,16 +248,16 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
             <h2 className={SECTION_HEADING}>ค่าแรง</h2>
             <div className="flex flex-col gap-4">
               {variance.surfaces ? (
-                <AttentionCard tone="amber" title="ภาพถ่ายกับวันลงแรงงานไม่ตรงกัน">
+                <AttentionCard tone="amber" title="ภาพถ่ายกับวันลงทีมงานไม่ตรงกัน">
                   <p className="text-ink-secondary text-xs">
                     {variance.photoOnlyDays.length > 0
-                      ? `มีรูปแต่ไม่ได้ลงแรงงาน ${variance.photoOnlyDays.length} วัน`
+                      ? `มีรูปแต่ไม่ได้ลงทีมงาน ${variance.photoOnlyDays.length} วัน`
                       : null}
                     {variance.photoOnlyDays.length > 0 && variance.laborOnlyDays.length > 0
                       ? " · "
                       : null}
                     {variance.laborOnlyDays.length > 0
-                      ? `ลงแรงงานแต่ไม่มีรูป ${variance.laborOnlyDays.length} วัน`
+                      ? `ลงทีมงานแต่ไม่มีรูป ${variance.laborOnlyDays.length} วัน`
                       : null}
                   </p>
                 </AttentionCard>

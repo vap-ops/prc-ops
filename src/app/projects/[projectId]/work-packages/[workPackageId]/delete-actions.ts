@@ -17,7 +17,7 @@ export type DeleteWorkPackageResult = { ok: true } | { ok: false; error: string 
 
 const FAILED = "ลบงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 // P0001 = the empty-guard (the WP has photos / labor / requests / members / deps).
-const HAS_HISTORY = "ลบไม่ได้ — งานนี้มีรูป แรงงาน หรือคำขอซื้อแล้ว (การยกเลิกงานจะมาเร็วๆนี้)";
+const HAS_HISTORY = "ลบไม่ได้ — งานนี้มีรูป ทีมงาน หรือคำขอซื้อแล้ว (การยกเลิกงานจะมาเร็วๆนี้)";
 
 export async function deleteWorkPackage(input: {
   projectId: string;

@@ -435,7 +435,7 @@ export function LaborLogZone({
                 onClick={() => void submit()}
                 className="bg-fill text-on-fill hover:bg-fill-press mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg px-4 py-2 text-sm font-medium shadow-xs transition-colors active:translate-y-px disabled:opacity-50"
               >
-                บันทึกแรงงาน
+                บันทึกทีมงาน
               </button>
             </>
           )}

@@ -134,7 +134,7 @@ export function LaborCostView({
       {overAllocated.length > 0 ? (
         <div className="border-edge border-t pt-3">
           <p className="text-attn-ink mb-1.5 text-xs font-semibold">
-            ลงแรงงานเกิน 1 วันต่อคนต่อวัน (รวมทุกงาน)
+            ลงเกิน 1 วันต่อคนต่อวัน (รวมทุกงาน)
           </p>
           <ul className="flex flex-col gap-1">
             {overAllocated.map((o) => (

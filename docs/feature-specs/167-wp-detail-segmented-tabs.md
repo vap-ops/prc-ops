@@ -126,3 +126,34 @@ query. Same data, same components, regrouped.
 - [ ] The pending-requests chip jumps to the คำขอซื้อ tab.
 - [ ] จัดการ appears for PM/super/director, absent for site_admin.
 - [ ] Acceptance = operator phone (PM/SA-gated routes; preview env only renders /login).
+
+## U2 — แรงงาน → ทีมงาน terminology sweep (2026-06-21)
+
+Operator: _"แรงงาน is sensitive word, do we have options?"_ — แรงงาน ("labor/laborer")
+carries the manual-laborer connotation the team already moved away from (คนงาน →
+ทีมงาน/ช่าง in the pay model). **ทีมงาน** is already the de-facto SSOT for the
+workforce (the `/workers` registry is titled ทีมงาน, the roster manager, the labor
+picker "ค้นหาทีมงาน", Nova, and the contacts crew all use it); แรงงาน only survived
+as the abstract noun "labor" in a few scattered literals. Operator chose **ทีมงาน**
+
+- **full sweep**.
+
+Replaced every user-facing แรงงาน (10 spots, phrased per context — not a blind
+find-replace, which would read awkwardly in verb/measure positions):
+
+- WP-detail labor tab label `แรงงาน` → `ทีมงาน`.
+- Labor log button `บันทึกแรงงาน` → `บันทึกทีมงาน` (+ the `labor-log-zone` tests).
+- Generic labor-save error `บันทึกแรงงานไม่สำเร็จ…` → `บันทึกทีมงานไม่สำเร็จ…`.
+- Over-allocation flag `ลงแรงงานเกิน 1 วัน…` → `ลงเกิน 1 วัน…` (dropped the noun —
+  ทีมงาน reads awkwardly as the logged unit here).
+- PM review page: heading `บันทึกแรงงานรายวัน` → `บันทึกทีมงานรายวัน`; variance card
+  `ภาพถ่ายกับวันลงแรงงานไม่ตรงกัน` → `…วันลงทีมงาน…`; `มีรูปแต่ไม่ได้ลงแรงงาน` /
+  `ลงแรงงานแต่ไม่มีรูป` → `…ลงทีมงาน…`.
+- Delete-guard copy (control + action): `…มีรูป แรงงาน หรือคำขอซื้อ…` → `…มีรูป
+ทีมงาน หรือคำขอซื้อ…`.
+
+Not touched (deliberate): **ค่าแรง** (wage/labor-cost — a standard accounting term,
+not flagged) and a pgTAP fixture WP name `'มีแรงงาน'` (internal test seed, never
+user-facing). **Follow-up (recorded):** ทีมงาน still lives as ~20 scattered literals
+app-wide — single-sourcing it in `labels.ts` (per the term-consistency SSOT doctrine)
+is its own cleanup, out of scope here.

@@ -57,7 +57,7 @@ export function WpDeleteControl({ projectId, workPackageId }: WpDeleteControlPro
       {error ? <p className={INLINE_ALERT_TEXT}>{error}</p> : null}
       <ConfirmDialog
         open={open}
-        message="ลบงานนี้ถาวรหรือไม่? ทำได้เฉพาะงานที่ยังไม่มีรูป แรงงาน หรือคำขอซื้อ"
+        message="ลบงานนี้ถาวรหรือไม่? ทำได้เฉพาะงานที่ยังไม่มีรูป ทีมงาน หรือคำขอซื้อ"
         confirmLabel="ลบถาวร"
         onConfirm={confirm}
         onCancel={() => setOpen(false)}

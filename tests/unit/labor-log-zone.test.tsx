@@ -100,7 +100,7 @@ describe("LaborLogZone", () => {
     await userEvent.click(screen.getByLabelText("ดีซีสอง"));
     // Two toggles now — the second belongs to the DC worker.
     await userEvent.click(screen.getAllByRole("button", { name: "ครึ่งวัน" })[1]!);
-    await userEvent.click(screen.getByRole("button", { name: "บันทึกแรงงาน" }));
+    await userEvent.click(screen.getByRole("button", { name: "บันทึกทีมงาน" }));
 
     await waitFor(() => expect(logLaborDays).toHaveBeenCalledTimes(1));
     const arg = vi.mocked(logLaborDays).mock.calls[0]?.[0];
@@ -116,7 +116,7 @@ describe("LaborLogZone", () => {
     renderZone();
     await userEvent.click(screen.getByLabelText("ช่างหนึ่ง"));
     await userEvent.type(screen.getByLabelText("หมายเหตุ"), "ทำงานกลางคืน");
-    await userEvent.click(screen.getByRole("button", { name: "บันทึกแรงงาน" }));
+    await userEvent.click(screen.getByRole("button", { name: "บันทึกทีมงาน" }));
     await waitFor(() => expect(logLaborDays).toHaveBeenCalledTimes(1));
     expect(vi.mocked(logLaborDays).mock.calls[0]?.[0]).toMatchObject({ note: "ทำงานกลางคืน" });
   });
@@ -128,7 +128,7 @@ describe("LaborLogZone", () => {
 
   it("locked WP hides the capture form but keeps the history", () => {
     renderZone({ locked: true });
-    expect(screen.queryByRole("button", { name: "บันทึกแรงงาน" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "บันทึกทีมงาน" })).not.toBeInTheDocument();
     expect(screen.getByText("ช่างหนึ่ง")).toBeInTheDocument();
   });
 
@@ -152,7 +152,7 @@ describe("LaborLogZone", () => {
     expect(screen.queryByLabelText("ช่างหนึ่ง")).not.toBeInTheDocument();
     // Tick the now-visible DC worker and submit.
     await userEvent.click(screen.getByLabelText("ดีซีสอง"));
-    await userEvent.click(screen.getByRole("button", { name: "บันทึกแรงงาน" }));
+    await userEvent.click(screen.getByRole("button", { name: "บันทึกทีมงาน" }));
 
     await waitFor(() => expect(logLaborDays).toHaveBeenCalledTimes(1));
     const arg = vi.mocked(logLaborDays).mock.calls[0]?.[0];
@@ -187,7 +187,7 @@ describe("LaborLogZone", () => {
   it("submits a project-assigned worker ticked in the in-project section (spec 158 U2)", async () => {
     renderZone({ projectWorkerIds: ["w2"] });
     await userEvent.click(screen.getByLabelText("ดีซีสอง"));
-    await userEvent.click(screen.getByRole("button", { name: "บันทึกแรงงาน" }));
+    await userEvent.click(screen.getByRole("button", { name: "บันทึกทีมงาน" }));
     await waitFor(() => expect(logLaborDays).toHaveBeenCalledTimes(1));
     expect(vi.mocked(logLaborDays).mock.calls[0]?.[0]?.entries).toEqual([
       { workerId: "w2", fraction: "full" },
