@@ -486,19 +486,19 @@ select lives_ok(
   'super_admin can INSERT a purchase_request'
 );
 
--- E.6 procurement INSERT denied — procurement is a reviewer/viewer in v1,
---     not a requester. Narrowed requester base per the owner's 2026-06-07
---     decision.
+-- E.6 procurement self-insert OK (spec 171). The operator enabled procurement
+--     to raise a request "instead of the site admins": the INSERT policy gained a
+--     cross-project `current_user_role() = 'procurement'` arm (no membership gate,
+--     mirroring its spec-102 SELECT reach). Requester-self + source='app' still
+--     pinned. Supersedes the 2026-06-07 reviewer-only narrowing.
 set local "request.jwt.claims" = '{"sub": "66666666-6666-6666-6666-666666666666"}';
-select throws_ok(
+select lives_ok(
   $$ insert into public.purchase_requests
        (work_package_id, item_description, quantity, unit, requested_by)
      values ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'::uuid,
              'Nails', 5, 'kg',
              '66666666-6666-6666-6666-666666666666'::uuid) $$,
-  '42501',
-  null,
-  'procurement INSERT on purchase_requests is denied by RLS (not in v1 requester base)'
+  'procurement self-insert (requested_by = auth.uid()) is permitted (spec 171)'
 );
 
 -- E.7 visitor INSERT denied.
