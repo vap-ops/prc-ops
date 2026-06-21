@@ -70,10 +70,8 @@ select id, full_name, role, created_at
 ```
 
 - [ ] **Exactly one `super_admin` (you).** The last audit (2026-06-10) found
-      THREE. Demote the extras to `project_manager`:
-      `sql
-    update public.users set role = 'project_manager' where id = '<uuid>';
-    `
+      THREE. Demote each extra with
+      `update public.users set role = 'project_manager' where id = '<uuid>';`
 - [ ] **At least one real `project_manager`** for the beta (approves WPs,
       generates reports).
 - [ ] **Site admins** (`site_admin`) for the field people uploading photos.
