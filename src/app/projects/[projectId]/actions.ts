@@ -328,3 +328,66 @@ export async function createDeliverable(
   revalidatePath(projectHref(input.projectId));
   return { ok: true, id: newId };
 }
+
+// Spec 164 U2 — bulk-paste a งวด list. Reuses the spec-163 parser (tab/comma +
+// header auto-detect; the description column is ignored for งวด); valid rows are
+// created via create_deliverable (U1). Gate mirrors the other project writes.
+export type ImportDeliverablesResult =
+  | { ok: true; inserted: number }
+  | { ok: false; error: string };
+
+export async function importDeliverables(
+  projectId: string,
+  text: string,
+): Promise<ImportDeliverablesResult> {
+  if (!isValidUuid(projectId)) return { ok: false, error: "รหัสโครงการไม่ถูกต้อง" };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
+
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+    return { ok: false, error: PM_ONLY_ERROR };
+  }
+
+  // Existing งวด codes for dup detection (PM is a member → RLS lets it read).
+  const { data: existing } = await supabase
+    .from("deliverables")
+    .select("code")
+    .eq("project_id", projectId);
+  const existingCodes = new Set((existing ?? []).map((d) => d.code));
+
+  const { rows, errors } = parseAndValidate(text, existingCodes);
+  if (errors.length > 0) {
+    return { ok: false, error: errors.slice(0, 8).join("\n") };
+  }
+  if (rows.length === 0) {
+    return { ok: false, error: "ไม่พบรายการงวด (วางรหัสและชื่องวด หนึ่งงวดต่อหนึ่งบรรทัด)" };
+  }
+
+  // Pre-validated rows → create each via the U1 RPC. Sequential so a mid-batch
+  // failure reports how far it got, and sort_order (max+1) increments in order.
+  let inserted = 0;
+  for (const r of rows) {
+    const { error } = await supabase.rpc("create_deliverable", {
+      p_project_id: projectId,
+      p_code: r.code,
+      p_name: r.name,
+    });
+    if (error) {
+      console.error("[importDeliverables] RPC failed", { projectId, error: error.message });
+      if (error.code === "42501") return { ok: false, error: PM_ONLY_ERROR };
+      if (inserted > 0) revalidatePath(projectHref(projectId));
+      return { ok: false, error: `นำเข้าได้ ${inserted} งวด จากนั้นเกิดข้อผิดพลาด` };
+    }
+    inserted++;
+  }
+
+  revalidatePath(projectHref(projectId));
+  return { ok: true, inserted };
+}

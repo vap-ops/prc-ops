@@ -5,6 +5,7 @@
 // PM-only / open-project; the add button is the AddDeliverableSheet client island.
 
 import { AddDeliverableSheet } from "./add-deliverable-sheet";
+import { ImportDeliverablesSheet } from "./import-deliverables-sheet";
 
 export interface DeliverableManagerRow {
   id: string;
@@ -26,7 +27,10 @@ export function DeliverablesManager({
         <h2 id="deliverables" className="text-section text-ink font-semibold">
           งวดงาน
         </h2>
-        <AddDeliverableSheet projectId={projectId} />
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <ImportDeliverablesSheet projectId={projectId} />
+          <AddDeliverableSheet projectId={projectId} />
+        </div>
       </div>
 
       {deliverables.length === 0 ? (
