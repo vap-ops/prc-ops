@@ -6,6 +6,44 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 171 — procurement can make purchase requests from the WP screen (2026-06-21)
+
+Status: **U1 + U2 COMPLETE — shipped to prod 2026-06-21.** Operator: "there are
+times procurement needs to make a purchase request instead of the site admins —
+enable them to see [the WP] just like site admins, but only able to edit the PRs."
+Clarified: procurement **opens the work-package screen** read-only, only the
+request is editable. Requests are created only in WP context (`work_package_id`
+NOT NULL); that screen was `SITE_STAFF_ROLES`-gated (procurement excluded, spec
+70). procurement is **cross-project** (spec 102 / ADR 0056) → `can_see_wp()` is
+false for it, so it could neither read the WP's photos/labour/approvals (pure
+`can_see_wp` SELECTs) nor insert a request (the INSERT also gates on
+`can_see_wp`). **U1 (migration `20260780000000`, commit af754b9):** added a
+`current_user_role() = 'procurement'` arm BESIDE the existing `can_see_wp` arm on
+`photo_logs` / `labor_logs` (staff) / `approvals` SELECT and on the
+`purchase_requests` INSERT policy (DROP+CREATE in place, names unchanged → files
+70/73 `can_see_wp` pins hold). No UPDATE (can't approve/decide), no other writes;
+column-scope INSERT grant already to `authenticated`. **Bug caught by db:test +
+fixed-forward:** the PR-insert arm named `project_manager` without
+`project_director` (I copied the role list from the pre-director migration file,
+not the live post-director policy) → pgTAP file 91 "no RLS policy names
+project_manager without project_director" failed; added `project_director` and
+re-applied the policy to prod. **TDD:** file 17 E.6 flipped (procurement INSERT
+`throws 42501` → `lives_ok`); new file **115** pins the four arms (procurement +
+can_see_wp present). **db:test 115 files / 2201 / 0.** db:types = no drift (RLS
+only). **U2 (commit e378d30):** admit procurement via `WP_DETAIL_ROLES`
+(SITE_STAFF_ROLES + procurement) + `isReadOnlyWpViewer(role)` (the single
+read-only flag the page branches on); photos render the read-only `PhaseGallery`
+(extracted from /review into `components/features/photos/phase-gallery.tsx`,
+behaviour-preserving) not the capture zone; labour `locked + showFlags=false`;
+notes static; site-purchase / contractor-assign / assign-prompt / report-defect
+suppressed; จัดการ stays planner-only. **TDD:** role-sets.test.ts pins
+WP_DETAIL_ROLES + isReadOnlyWpViewer (RED first). lint · typecheck · vitest 201 /
+1336 · build green. **Open follow-up:** `contractors` SELECT still excludes
+procurement → the WP's contractor name is absent in the procurement info sheet
+(no break — empty, assign prompt already suppressed); add procurement to that
+policy if the operator wants it shown. **Editing an existing request's content is
+out of scope** (no such feature for any role — site admins only create).
+
 ## Spec 166 U1 - beta finance gating (hide provisional GL from PMs) (2026-06-21)
 
 Status: **COMPLETE — 2026-06-21.** Pre-beta money-surface audit found Nova fully super-gated + project/WP pages money-clean, but the GL `/accounting` surface was PM/director-reachable (spec 152) and its numbers are provisional until accountant config. Operator: hide บัญชี (GL) from PMs for beta, keep ค่าจ้าง (payroll). **NO DB change** — GL tables are zero-grant, read via admin client behind requireRole, so the route guard is the gate. Tightened `ACCOUNTING_ROLES` [accounting, pm, super, director] → **[accounting, super_admin]** (auto-tightens all 4 /accounting route guards — PM/director now bounce) + gated the settings การเงิน → บัญชี link to ACCOUNTING_ROLES (ค่าจ้าง/payroll stays under isManager). Reversible (re-add the 2 roles → link + guards follow). **TDD:** RED first — role-sets.test.ts pins `ACCOUNTING_ROLES === [accounting, super_admin]` (+ not-contains pm/director). **Verify:** lint·typecheck·**vitest 200/1324**·**build green** (no db:test — no DB change). **Money-surface audit result: Nova operator-only ✓ · GL now operator-only for beta ✓ · project/WP pages leak no money ✓ — core-ops beta surfaces are money-safe.**
