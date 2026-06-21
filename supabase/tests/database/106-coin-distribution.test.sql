@@ -54,6 +54,11 @@ insert into public.workers (id, name, worker_type, contractor_id, user_id,
   ('d4440106-0106-0106-0106-d4d4d4d40106', 'DC ไม่จัดระดับ', 'dc', null, null, 0, true, null, null,
    '11111111-1111-1111-1111-111111110106');
 
+-- ADR 0062 U2: external is now the WORKER's ชั่วคราว arrangement, not the
+-- contractor's dc_temporary subtype. Mark the external DC accordingly.
+update public.workers set dc_arrangement = 'temporary'
+ where contractor_id = 'cc550106-0106-0106-0106-cc55cc550106';
+
 -- The HT is this project's Head Technician.
 update public.projects set ht_worker_id = 'd0000106-0106-0106-0106-d0d0d0d00106'
  where id = 'a1110106-0106-0106-0106-a1a1a1a10106';

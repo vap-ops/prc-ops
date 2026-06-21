@@ -44,10 +44,29 @@ U2–U4 repoint them.
 - **Verification:** lint · typecheck · vitest · `db:test` 114 files / 2193 / 0 ·
   build green. db:push applied; db:types regenerated.
 
-## U2–U6 — pending (see ADR 0062)
+## U2 — Nova "external" comes from the worker (SHIPPED 2026-06-21)
 
-U2 Nova external → worker arrangement · U3 dc_payments → worker · U4 portal →
-workers.user_id · U5 remove /contacts/dc + door · U6 labels + cleanup.
+The external/internal split drove off the worker's contractor being a
+`dc_temporary` **party** (`contractor_subtype='dc_temporary'`). Now that a DC is a
+worker, "external" = the **worker's** `dc_arrangement = 'temporary'` (ชั่วคราว).
+
+- **Migration `20260779000000_dc_external_from_worker.sql`:** CREATE OR REPLACE
+  the two functions that read the rule — `distribute_project_coins` (the coin
+  weight: external → flat `external_factor`, internal → level weight) and
+  `coin_unvested_balance` (the external lock: an external's whole balance stays
+  unvested). Both now read `worker.dc_arrangement = 'temporary'` instead of
+  joining to `contractors.contractor_subtype`. Signatures unchanged → grants
+  preserved; no app/type change (function bodies only).
+- **Tests:** pgTAP `106-coin-distribution` + `108-nova-vesting` — the external DC
+  fixture is now marked by `update workers set dc_arrangement='temporary'`
+  (keyed on the holdover dc_temporary contractor); the external-weight and
+  external-lock assertions are unchanged and pass through the new path.
+- **Verification:** `db:test` full suite green; app untouched.
+
+## U3–U6 — pending (see ADR 0062)
+
+U3 dc_payments → worker · U4 portal → workers.user_id · U5 remove /contacts/dc +
+door · U6 labels + cleanup.
 
 ## Open questions
 

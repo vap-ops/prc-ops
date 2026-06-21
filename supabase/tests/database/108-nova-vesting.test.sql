@@ -38,6 +38,11 @@ insert into public.workers (id, name, worker_type, contractor_id, user_id, day_r
   ('e6660108-0108-0108-0108-e6e6e6e60108', 'ใช้จ่าย',    'dc', null, null, 0, true,
    '11111111-1111-1111-1111-111111110108');
 
+-- ADR 0062 U2: external = the WORKER's ชั่วคราว arrangement (was the contractor's
+-- dc_temporary subtype). Mark the locked external DC accordingly.
+update public.workers set dc_arrangement = 'temporary'
+ where contractor_id = 'cc550108-0108-0108-0108-cc55cc550108';
+
 -- Coins. OLD ('2020-01-01') = past the 365d tail → vested. RECENT ('2026-06-20') =
 -- inside the tail → unvested. (now() is 2026-06-21.)
 insert into public.coin_postings (worker_id, source, amount, reason, occurred_at, created_by) values
