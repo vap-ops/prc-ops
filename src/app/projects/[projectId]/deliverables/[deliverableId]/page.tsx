@@ -18,6 +18,8 @@ import { createClient } from "@/lib/db/server";
 import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import { EditDeliverableSheet } from "../../edit-deliverable-sheet";
+import { RemoveWorkPackagesSheet } from "../../remove-work-packages-sheet";
+import { DeleteDeliverableButton } from "../../delete-deliverable-button";
 
 interface PageProps {
   params: Promise<{ projectId: string; deliverableId: string }>;
@@ -75,10 +77,21 @@ export default async function DeliverableDetailPage({ params }: PageProps) {
       </DetailHeader>
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
-        <h2 className="text-section text-ink mb-3 font-semibold">
-          งานในงวดนี้{" "}
-          <span className="text-ink-muted text-sm font-normal">{wps.length} รายการ</span>
-        </h2>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-section text-ink font-semibold">
+            งานในงวดนี้{" "}
+            <span className="text-ink-muted text-sm font-normal">{wps.length} รายการ</span>
+          </h2>
+          {isPmRole &&
+            (wps.length > 0 ? (
+              <RemoveWorkPackagesSheet
+                projectId={projectId}
+                workPackages={wps.map((wp) => ({ id: wp.id, code: wp.code, name: wp.name }))}
+              />
+            ) : (
+              <DeleteDeliverableButton projectId={projectId} deliverableId={deliverable.id} />
+            ))}
+        </div>
 
         {wps.length === 0 ? (
           <EmptyNotice>ยังไม่มีงานในงวดนี้ — จัดกลุ่มงานเข้างวดจากหน้าโครงการ</EmptyNotice>

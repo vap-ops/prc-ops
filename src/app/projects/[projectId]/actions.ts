@@ -533,3 +533,104 @@ export async function swapDeliverableOrder(
   revalidatePath(projectHref(projectId));
   return { ok: true };
 }
+
+// Spec 165 U4 — delete an EMPTY งวด. Gate mirrors the other project writes; the
+// SECURITY DEFINER delete_deliverable RPC (empty-only, membership-gated) is
+// load-bearing. P0001 = the งวด still has งาน.
+export interface DeleteDeliverableInput {
+  projectId: string;
+  deliverableId: string;
+}
+
+export type DeleteDeliverableResult = { ok: true } | { ok: false; error: string };
+
+export async function deleteDeliverable(
+  input: DeleteDeliverableInput,
+): Promise<DeleteDeliverableResult> {
+  if (!isValidUuid(input.projectId) || !isValidUuid(input.deliverableId)) {
+    return { ok: false, error: "รหัสไม่ถูกต้อง" };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
+
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+    return { ok: false, error: PM_ONLY_ERROR };
+  }
+
+  const { data: ok, error } = await supabase.rpc("delete_deliverable", {
+    p_deliverable_id: input.deliverableId,
+  });
+  if (error) {
+    console.error("[deleteDeliverable] RPC failed", {
+      projectId: input.projectId,
+      error: error.message,
+    });
+    if (error.code === "42501") return { ok: false, error: PM_ONLY_ERROR };
+    if (error.code === "P0002")
+      return { ok: false, error: "งวดนี้ยังมีงาน เอางานออกจากงวดก่อนจึงจะลบได้" };
+    if (error.code === "P0001")
+      return { ok: false, error: "งวดนี้ยังมีงาน เอางานออกจากงวดก่อนจึงจะลบได้" };
+    return { ok: false, error: "ลบงวดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+  if (ok !== true) return { ok: false, error: "ไม่พบงวดงาน" };
+
+  revalidatePath(projectHref(input.projectId));
+  return { ok: true };
+}
+
+// Spec 165 U4 — remove (ungroup) งาน from a งวด, so it can be emptied and
+// deleted. Loops the spec-155 set_work_package_deliverable RPC with a NULL
+// deliverable (= ungroup). Gate mirrors the other project writes.
+export type RemoveFromDeliverableResult =
+  | { ok: true; count: number }
+  | { ok: false; error: string };
+
+export async function removeWorkPackagesFromDeliverable(
+  projectId: string,
+  workPackageIds: string[],
+): Promise<RemoveFromDeliverableResult> {
+  if (!isValidUuid(projectId)) return { ok: false, error: "รหัสโครงการไม่ถูกต้อง" };
+  const ids = workPackageIds.filter((id) => isValidUuid(id));
+  if (ids.length === 0) return { ok: false, error: "เลือกงานอย่างน้อยหนึ่งรายการ" };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
+
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+    return { ok: false, error: PM_ONLY_ERROR };
+  }
+
+  // Sequential; p_deliverable_id omitted → the RPC default (null) ungroups.
+  let count = 0;
+  for (const id of ids) {
+    const { error } = await supabase.rpc("set_work_package_deliverable", {
+      p_work_package_id: id,
+    });
+    if (error) {
+      console.error("[removeWorkPackagesFromDeliverable] RPC failed", {
+        projectId,
+        error: error.message,
+      });
+      if (error.code === "42501") return { ok: false, error: PM_ONLY_ERROR };
+      if (count > 0) revalidatePath(projectHref(projectId));
+      return { ok: false, error: `เอาออกได้ ${count} งาน จากนั้นเกิดข้อผิดพลาด` };
+    }
+    count++;
+  }
+
+  revalidatePath(projectHref(projectId));
+  return { ok: true, count };
+}

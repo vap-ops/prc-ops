@@ -190,6 +190,29 @@ recovered migrations: 8 tables, 7 functions, 7 enums, 19 RLS
 policies, 23 indexes, 12 triggers, 2 storage buckets, 0 extra custom
 roles. (See the chore PR description for the queries used.)
 
+## Amendment — งวด lifecycle (2026-06-21, spec 165)
+
+The original scope froze `deliverables` to `code` / `name` / `sort_order` and
+the table to archive-not-delete (no DELETE policy). Spec 165 (operator-driven)
+extends the lifecycle; this records the decisions:
+
+1. **Rename / reorder are in scope** — they only mutate `name` / `sort_order`,
+   the fields this ADR already owns (`set_deliverable_name`,
+   `swap_deliverable_order`; SECURITY DEFINER, membership-gated via
+   `can_see_project`).
+2. **Delete-empty is a deliberate exception to the no-DELETE contract**, exactly
+   as ADR 0059 §3 added for work packages. `delete_deliverable` hard-deletes a
+   งวด **only when no `work_packages` reference it** (P0001 otherwise), and is
+   audited. A populated งวด is emptied first by ungrouping its งาน
+   (`set_work_package_deliverable(…, null)`), then deleted. There is **no**
+   `status` column — "archive" is delete-empty, not a soft-archive flag
+   (operator decision 2026-06-21: a status enum was explicitly declined).
+3. **Money / dates stay OUT of this table.** A งวด's contract amount and
+   billing dates will **link to `client_billings` (ADR 0057 / spec 149)** — the
+   per-งวด billing that already exists — rather than duplicating fields here
+   (operator decision 2026-06-21). That integration is its own spec, not part
+   of spec 165.
+
 ## References
 
 - ADR 0011 — `current_user_role()` SECURITY DEFINER helper (the role-check
