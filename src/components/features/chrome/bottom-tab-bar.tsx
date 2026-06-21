@@ -146,32 +146,35 @@ export function BottomTabBar({ role }: { role: string }) {
       <div className="mx-auto flex h-16 max-w-2xl items-stretch">
         {tabs.map((tab) => {
           const Icon = tab.icon;
-          if (tab === active) {
-            return (
-              <span
-                key={tab.href}
-                aria-current="page"
-                className="text-action relative flex flex-1 flex-col items-center justify-center gap-1"
-              >
-                {/* Visible active signal (spec 20) — a tint alone washes
-                    out in sunlight; the indicator bar survives glare. */}
-                <span
-                  aria-hidden
-                  className="bg-action absolute inset-x-4 top-0 h-1 rounded-b-full"
-                />
-                <Icon aria-hidden className="size-6" />
-                <span className="text-xs font-bold">{tab.label}</span>
-              </span>
-            );
-          }
+          // Every tab is a first-layer destination: even the ACTIVE tab is a link
+          // to its root, so a tap from a sub-page returns to the top of the
+          // section (operator 2026-06-21 — "all the bottom tabs are first layer").
+          // aria-current still marks "you are here"; the indicator bar + bold +
+          // text-action carry the active identity (spec 20).
+          const isActive = tab === active;
           return (
             <Link
               key={tab.href}
               href={tab.href}
-              className="text-ink-secondary hover:text-ink focus-visible:text-ink flex flex-1 flex-col items-center justify-center gap-1 transition-colors focus:outline-none active:scale-95"
+              aria-current={isActive ? "page" : undefined}
+              className={
+                isActive
+                  ? "text-action relative flex flex-1 flex-col items-center justify-center gap-1 transition-transform focus:outline-none active:scale-95"
+                  : "text-ink-secondary hover:text-ink focus-visible:text-ink flex flex-1 flex-col items-center justify-center gap-1 transition-colors focus:outline-none active:scale-95"
+              }
             >
+              {/* Visible active signal (spec 20) — a tint alone washes out in
+                  sunlight; the indicator bar survives glare. */}
+              {isActive ? (
+                <span
+                  aria-hidden
+                  className="bg-action absolute inset-x-4 top-0 h-1 rounded-b-full"
+                />
+              ) : null}
               <Icon aria-hidden className="size-6" />
-              <span className="text-xs font-medium">{tab.label}</span>
+              <span className={isActive ? "text-xs font-bold" : "text-xs font-medium"}>
+                {tab.label}
+              </span>
             </Link>
           );
         })}

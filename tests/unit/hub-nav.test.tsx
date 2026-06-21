@@ -81,11 +81,14 @@ describe("hubNavForRole", () => {
 });
 
 describe("HubNav", () => {
-  it("renders every item, with the current page as a span and the rest as links", () => {
+  // Spec 169: every item is a link to its root (first-layer destination); the
+  // current page is marked by aria-current, not demoted to an inert span — so a
+  // click from a sub-page returns to the section top, like the bottom tab bar.
+  it("renders every item as a link; the current page carries aria-current", () => {
     render(<HubNav maxWidthClass={PAGE_MAX_W} items={PM_ITEMS} currentHref="/projects" />);
-    const current = screen.getByText("โครงการและรายงาน");
-    expect(current.tagName).toBe("SPAN");
-    expect(screen.queryByRole("link", { name: "โครงการและรายงาน" })).not.toBeInTheDocument();
+    const current = screen.getByRole("link", { name: "โครงการและรายงาน" });
+    expect(current).toHaveAttribute("href", "/projects");
+    expect(current).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "รายการรอตรวจ" })).toHaveAttribute("href", "/review");
     expect(screen.getByRole("link", { name: "คำขอซื้อ" })).toHaveAttribute("href", "/requests");
   });
@@ -102,15 +105,17 @@ describe("HubNav", () => {
     expect(screen.getByRole("link", { name: "คำขอซื้อ" }).className).toContain("min-h-11");
   });
 
-  // Spec 100: ภาพรวม is a live link that becomes the current span on /dashboard.
-  it("renders ภาพรวม as a link, and as the current span on /dashboard", () => {
+  // Spec 100/169: ภาพรวม is a live link; on /dashboard it stays a link, marked
+  // current by aria-current (no longer demoted to a span).
+  it("renders ภาพรวม as a link, current-marked on /dashboard", () => {
     const { unmount } = render(
       <HubNav maxWidthClass={PAGE_MAX_W} items={PM_ITEMS} currentHref="/review" />,
     );
-    expect(screen.getByRole("link", { name: "ภาพรวม" })).toHaveAttribute("href", "/dashboard");
+    const link = screen.getByRole("link", { name: "ภาพรวม" });
+    expect(link).toHaveAttribute("href", "/dashboard");
+    expect(link).not.toHaveAttribute("aria-current");
     unmount();
     render(<HubNav maxWidthClass={PAGE_MAX_W} items={PM_ITEMS} currentHref="/dashboard" />);
-    expect(screen.getByText("ภาพรวม").tagName).toBe("SPAN");
-    expect(screen.queryByRole("link", { name: "ภาพรวม" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "ภาพรวม" })).toHaveAttribute("aria-current", "page");
   });
 });

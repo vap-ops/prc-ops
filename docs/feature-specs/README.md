@@ -171,6 +171,7 @@ for reading the spec itself.
 | 166  | Beta finance gating — hide provisional GL (/accounting) from PM/director, keep payroll (reversible) — spec 149/152                                          |
 | 167  | WP detail segmented tabs — รูปถ่าย·คำขอซื้อ·แรงงาน·ข้อมูล (+จัดการ for PM); cut the long scroll, pin header/progress/attention; U2 แรงงาน→ทีมงาน term sweep |
 | 168  | Split subcontractor + DC contact pages — /contacts/crews → /contacts/subcontractors + /contacts/dc; two ตั้งค่า doors (spec 99/159)                         |
+| 169  | Bottom tabs + desktop hub strip are first-layer destinations — active tab is a tappable link to its root, not an inert span (spec 19/20/153)                |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

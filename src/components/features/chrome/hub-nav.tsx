@@ -96,24 +96,27 @@ export function HubNav({ maxWidthClass, items, currentHref }: HubNavProps) {
     // an identifiable "you are here", not just a brighter gray.
     <nav className="border-edge bg-sunk hidden border-b px-5 py-1 sm:block">
       <div className={`mx-auto flex ${maxWidthClass} flex-wrap items-center gap-x-6 text-sm`}>
-        {items.map((item) =>
-          item.href === currentHref ? (
-            <span
-              key={item.href}
-              className="border-action text-ink inline-flex min-h-11 items-center border-b-2 font-semibold"
-            >
-              {item.label}
-            </span>
-          ) : (
+        {items.map((item) => {
+          // Spec 169: every item is a first-layer destination — even the current
+          // page stays a link to its root, so a click from a sub-page returns to
+          // the section top (mirrors the bottom tab bar). aria-current marks the
+          // "you are here" identity; the blue underline carries it visually.
+          const isCurrent = item.href === currentHref;
+          return (
             <Link
               key={item.href}
               href={item.href}
-              className="text-ink-secondary hover:text-ink inline-flex min-h-11 items-center border-b-2 border-transparent transition-colors focus:outline-none focus-visible:underline"
+              aria-current={isCurrent ? "page" : undefined}
+              className={
+                isCurrent
+                  ? "border-action text-ink inline-flex min-h-11 items-center border-b-2 font-semibold focus:outline-none focus-visible:underline"
+                  : "text-ink-secondary hover:text-ink inline-flex min-h-11 items-center border-b-2 border-transparent transition-colors focus:outline-none focus-visible:underline"
+              }
             >
               {item.label}
             </Link>
-          ),
-        )}
+          );
+        })}
       </div>
     </nav>
   );

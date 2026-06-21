@@ -88,13 +88,27 @@ describe("BottomTabBar", () => {
     expect(screen.queryByText("ภาพรวม")).not.toBeInTheDocument();
   });
 
-  it("renders the PM set for project_manager with inactive tabs as links", () => {
+  it("renders the PM set for project_manager, every tab a link to its root", () => {
     mockUsePathname.mockReturnValue("/review");
     render(<BottomTabBar role="project_manager" />);
     expect(screen.getByRole("link", { name: /โครงการ/ })).toHaveAttribute("href", "/projects");
     expect(screen.getByRole("link", { name: /คำขอซื้อ/ })).toHaveAttribute("href", "/requests");
     expect(screen.getByRole("link", { name: /ตั้งค่า/ })).toHaveAttribute("href", "/settings");
-    expect(screen.queryByRole("link", { name: /รอตรวจ/ })).not.toBeInTheDocument();
+    // The active tab (รอตรวจ on /review) is now ALSO a link — every bottom tab is
+    // a first-layer destination, so tapping it returns to the section root.
+    expect(screen.getByRole("link", { name: /รอตรวจ/ })).toHaveAttribute("href", "/review");
+  });
+
+  // Operator 2026-06-21: "all the tabs on the bottom must be treated as first
+  // layer." From a sub-page the section's (active) tab must still navigate to its
+  // root, not render as an inert span — otherwise you cannot one-tap back to the
+  // top of the section.
+  it("renders the active tab as a tappable link to its root (return to first layer)", () => {
+    mockUsePathname.mockReturnValue("/projects/abc/work-packages/xyz");
+    const { container } = render(<BottomTabBar role="project_manager" />);
+    const active = container.querySelector('[aria-current="page"]');
+    expect(active?.tagName).toBe("A"); // a real anchor, not an inert span
+    expect(active).toHaveAttribute("href", "/projects");
   });
 
   it("lights exactly ONE tab on a nested project page (longest prefix wins)", () => {
@@ -176,7 +190,8 @@ describe("BottomTabBar", () => {
     );
     expect(screen.getByRole("link", { name: /ตั้งค่า/ })).toHaveAttribute("href", "/settings");
     expect(screen.queryByText("รอตรวจ")).not.toBeInTheDocument();
-    // คำขอซื้อ is the active tab on /requests, so it renders as a span, not a link.
+    // คำขอซื้อ is the active tab on /requests — now a link to its root, marked by
+    // aria-current (every bottom tab is a first-layer destination).
     const active = activeTabs(container);
     expect(active).toHaveLength(1);
     expect(active[0]?.textContent).toContain("คำขอซื้อ");
