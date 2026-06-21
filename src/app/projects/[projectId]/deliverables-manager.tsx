@@ -6,6 +6,7 @@
 
 import { AddDeliverableSheet } from "./add-deliverable-sheet";
 import { ImportDeliverablesSheet } from "./import-deliverables-sheet";
+import { GroupWorkPackagesSheet } from "./group-work-packages-sheet";
 
 export interface DeliverableManagerRow {
   id: string;
@@ -14,12 +15,20 @@ export interface DeliverableManagerRow {
   wpCount: number;
 }
 
+export interface UngroupedWpRow {
+  id: string;
+  code: string;
+  name: string;
+}
+
 export function DeliverablesManager({
   projectId,
   deliverables,
+  ungroupedWorkPackages,
 }: {
   projectId: string;
   deliverables: DeliverableManagerRow[];
+  ungroupedWorkPackages: UngroupedWpRow[];
 }) {
   return (
     <section className="mb-6">
@@ -47,6 +56,21 @@ export function DeliverablesManager({
             </li>
           ))}
         </ul>
+      )}
+
+      {/* Spec 164 U3: the ungrouped funnel — drives bulk งาน→งวด mapping. Only
+          when งวด exist (else the empty-state above tells them to create one). */}
+      {deliverables.length > 0 && ungroupedWorkPackages.length > 0 && (
+        <div className="rounded-card border-attn-edge bg-attn-soft text-attn-ink mt-3 flex flex-wrap items-center justify-between gap-3 border px-4 py-3">
+          <span className="text-sm font-medium">
+            {ungroupedWorkPackages.length} งานยังไม่อยู่ในงวด
+          </span>
+          <GroupWorkPackagesSheet
+            projectId={projectId}
+            ungroupedWorkPackages={ungroupedWorkPackages}
+            deliverables={deliverables.map((d) => ({ id: d.id, code: d.code, name: d.name }))}
+          />
+        </div>
       )}
     </section>
   );

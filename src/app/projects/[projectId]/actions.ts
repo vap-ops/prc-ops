@@ -391,3 +391,56 @@ export async function importDeliverables(
   revalidatePath(projectHref(projectId));
   return { ok: true, inserted };
 }
+
+// Spec 164 U3 — bulk-assign work packages to a งวด. Loops the spec-155
+// set_work_package_deliverable RPC (membership-gated; the PM doing this is a
+// member, so can_see_wp passes). One round-trip per WP — fine for a selection;
+// a bulk RPC is a later optimisation. Gate mirrors the other project writes.
+export type AssignDeliverableResult = { ok: true; count: number } | { ok: false; error: string };
+
+export async function assignWorkPackagesToDeliverable(
+  projectId: string,
+  workPackageIds: string[],
+  deliverableId: string,
+): Promise<AssignDeliverableResult> {
+  if (!isValidUuid(projectId)) return { ok: false, error: "รหัสโครงการไม่ถูกต้อง" };
+  if (!isValidUuid(deliverableId)) return { ok: false, error: "เลือกงวดปลายทางไม่ถูกต้อง" };
+  const ids = workPackageIds.filter((id) => isValidUuid(id));
+  if (ids.length === 0) return { ok: false, error: "เลือกงานอย่างน้อยหนึ่งรายการ" };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
+
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+    return { ok: false, error: PM_ONLY_ERROR };
+  }
+
+  // Sequential so a mid-batch failure reports how far it got.
+  let count = 0;
+  for (const id of ids) {
+    const { error } = await supabase.rpc("set_work_package_deliverable", {
+      p_work_package_id: id,
+      p_deliverable_id: deliverableId,
+    });
+    if (error) {
+      console.error("[assignWorkPackagesToDeliverable] RPC failed", {
+        projectId,
+        error: error.message,
+      });
+      if (error.code === "42501") return { ok: false, error: PM_ONLY_ERROR };
+      if (error.code === "22023") return { ok: false, error: "เลือกงวดปลายทางไม่ถูกต้อง" };
+      if (count > 0) revalidatePath(projectHref(projectId));
+      return { ok: false, error: `ย้ายได้ ${count} งาน จากนั้นเกิดข้อผิดพลาด` };
+    }
+    count++;
+  }
+
+  revalidatePath(projectHref(projectId));
+  return { ok: true, count };
+}

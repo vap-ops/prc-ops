@@ -210,6 +210,9 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
               name: d.name,
               wpCount: (workPackages ?? []).filter((wp) => wp.deliverable_id === d.id).length,
             }))}
+            ungroupedWorkPackages={(workPackages ?? [])
+              .filter((wp) => wp.deliverable_id === null)
+              .map((wp) => ({ id: wp.id, code: wp.code, name: wp.name }))}
           />
         )}
         <div className="mb-3 flex items-center justify-between gap-3">
