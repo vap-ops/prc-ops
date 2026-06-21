@@ -152,6 +152,42 @@ export type Database = {
         }
         Relationships: []
       }
+      catalog_items: {
+        Row: {
+          base_item: string
+          category: Database["public"]["Enums"]["item_category"]
+          created_at: string
+          id: string
+          is_active: boolean
+          note: string | null
+          spec_attrs: string | null
+          stockable: boolean
+          unit: string
+        }
+        Insert: {
+          base_item: string
+          category: Database["public"]["Enums"]["item_category"]
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          note?: string | null
+          spec_attrs?: string | null
+          stockable?: boolean
+          unit: string
+        }
+        Update: {
+          base_item?: string
+          category?: Database["public"]["Enums"]["item_category"]
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          note?: string | null
+          spec_attrs?: string | null
+          stockable?: boolean
+          unit?: string
+        }
+        Relationships: []
+      }
       client_billings: {
         Row: {
           billing_no: number
@@ -4786,6 +4822,19 @@ export type Database = {
       equipment_tracking: "unit" | "bulk"
       gl_account_type: "asset" | "liability" | "equity" | "income" | "expense"
       gl_posting_status: "pending" | "posting" | "posted" | "failed" | "skipped"
+      item_category:
+        | "steel_fixing"
+        | "plumbing_sanitary"
+        | "site_safety"
+        | "roofing"
+        | "ceiling_tile"
+        | "electrical"
+        | "door_fire"
+        | "paint"
+        | "masonry_tools"
+        | "paving"
+        | "tank_septic"
+        | "custom_fabrication"
       journal_entry_status: "draft" | "posted" | "reversed"
       login_handoff_status: "pending" | "approved" | "consumed"
       notification_event_type:
@@ -5081,6 +5130,20 @@ export const Constants = {
       equipment_tracking: ["unit", "bulk"],
       gl_account_type: ["asset", "liability", "equity", "income", "expense"],
       gl_posting_status: ["pending", "posting", "posted", "failed", "skipped"],
+      item_category: [
+        "steel_fixing",
+        "plumbing_sanitary",
+        "site_safety",
+        "roofing",
+        "ceiling_tile",
+        "electrical",
+        "door_fire",
+        "paint",
+        "masonry_tools",
+        "paving",
+        "tank_septic",
+        "custom_fabrication",
+      ],
       journal_entry_status: ["draft", "posted", "reversed"],
       login_handoff_status: ["pending", "approved", "consumed"],
       notification_event_type: [

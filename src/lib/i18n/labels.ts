@@ -43,6 +43,32 @@ export const PURCHASE_REQUEST_STATUS_LABEL: Record<Enums["purchase_request_statu
   site_purchased: "ซื้อหน้างาน",
 };
 
+// Spec 175 — the item catalog (on-site storage / inventory foundation). Single
+// source for the catalog term + category labels; item_category enum values are
+// storage keys, these are presentation. base_item carries identity, not location.
+// Key order matches the item_category enum declaration so iterating the record
+// yields the canonical section order.
+export const CATALOG_LABEL = "ทะเบียนวัสดุ";
+
+export const ITEM_CATEGORY_LABEL: Record<Enums["item_category"], string> = {
+  steel_fixing: "เหล็ก / อุปกรณ์ยึด",
+  plumbing_sanitary: "ประปา / สุขภัณฑ์",
+  site_safety: "ความปลอดภัย / หน้างาน",
+  roofing: "หลังคา / ครอบ",
+  ceiling_tile: "ฝ้า / กระเบื้อง",
+  electrical: "ไฟฟ้า",
+  door_fire: "ประตู / งานหนีไฟ",
+  paint: "สี",
+  masonry_tools: "เครื่องมืองานปูน",
+  paving: "อิฐทางเท้า",
+  tank_septic: "ถังบำบัด / ถังน้ำ",
+  custom_fabrication: "งานสั่งทำ",
+};
+
+// stockable=true is held in the store; false is made-to-order / direct-to-WP.
+export const CATALOG_STOCKABLE_LABEL = "เก็บสต๊อก";
+export const CATALOG_NON_STOCKABLE_LABEL = "สั่งตรงเข้างาน";
+
 // Spec 134 / ADR 0044 — derived PO roll-up status (not a DB enum; the union
 // lives in src/lib/purchasing/purchase-order.ts). open never shows for a live PO
 // (members are 'purchased' at creation) but is reachable if every member is later

@@ -1,0 +1,21 @@
+unit_code,en,type,note
+ท่อน,bar/length,base,steel bar / pipe length
+มัด,bundle,packaging,bundle — may convert to base count later
+ถุง,bag,packaging,bag
+กล่อง,box,packaging,box — may convert to pieces later
+ม้วน,roll,base,wire / mesh / netting roll
+แผ่น,sheet,base,sheet / panel (roofing, screws mislabelled here — see catalog)
+เส้น,strip,base,T-grid / profile strip
+วง,ring,base,septic ring
+ฝา,cover,base,lid / cover
+ตัว,each,base,fixture / device each
+ชิ้น,piece,base,generic piece
+ชุด,set,base,kit / assembly
+ใบ,each,base,bucket / pan each
+อัน,each,base,hand tool each
+ตู้,cabinet,base,enclosure / cabinet
+กก.,kilogram,base,sold by weight
+ม.,meter,base,sold by length (cut)
+แกลลอน,gallon,base,paint (sheet wrote ก.ล — normalize to แกลลอน)
+เที่ยว,trip,non-stock,freight / delivery — NEVER enters store
+งาน,job,non-stock,service / labour lump — NEVER enters store

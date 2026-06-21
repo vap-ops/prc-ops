@@ -19,6 +19,8 @@ const ALLOWED_DOMAINS = [
   "portal",
   "equipment",
   "nova",
+  // Spec 175: the item catalog (storage / inventory) feature components.
+  "catalog",
 ] as const;
 
 describe("feature components are grouped into domain folders", () => {

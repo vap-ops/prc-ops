@@ -8,6 +8,7 @@ import {
   Files,
   Hammer,
   HardHat,
+  Package,
   Sparkles,
   Store,
   Users,
@@ -22,7 +23,7 @@ import { ComingSoonBadge } from "@/components/features/chrome/coming-soon-badge"
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { createClient } from "@/lib/db/server";
 import { ACCOUNTING_ROLES, isManagerRole } from "@/lib/auth/role-home";
-import { SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
+import { CATALOG_LABEL, SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
 // Server-only import (this page is a Server Component) — no client bundle bloat,
 // no version drift vs package.json.
 import pkg from "../../../package.json";
@@ -119,6 +120,13 @@ export default async function SettingsPage() {
             />
             {/* Spec 172 Phase C: procurement onboards DC workers (incl. the pay rate). */}
             <SettingsLink href="/workers" icon={HardHat} label="ทีมงาน" hint="ทะเบียนทีมงาน DC" />
+            {/* Spec 175: procurement curates the item catalog (the store's item master). */}
+            <SettingsLink
+              href="/catalog"
+              icon={Package}
+              label={CATALOG_LABEL}
+              hint="รายการวัสดุมาตรฐานสำหรับจัดซื้อ"
+            />
           </div>
         )}
 
@@ -159,6 +167,13 @@ export default async function SettingsPage() {
                 icon={Wrench}
                 label="อุปกรณ์"
                 hint="ทะเบียนอุปกรณ์เช่า"
+              />
+              {/* Spec 175: the item catalog (the store's item master). */}
+              <SettingsLink
+                href="/catalog"
+                icon={Package}
+                label={CATALOG_LABEL}
+                hint="รายการวัสดุมาตรฐาน"
               />
             </div>
 

@@ -42,6 +42,8 @@ const STATIC_DETAIL = [
   "profile",
   "workers",
   "equipment",
+  // Spec 175: the item catalog drills down from /settings (back chip).
+  "catalog",
   "payroll",
   // Spec 149 U9: the read-only ledger surface, drilled down from /settings.
   "accounting",
