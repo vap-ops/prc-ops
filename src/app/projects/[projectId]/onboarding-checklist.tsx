@@ -23,9 +23,13 @@ export interface OnboardingStatus {
 export function OnboardingChecklist({
   projectId,
   status,
+  deliverablesDone,
 }: {
   projectId: string;
   status: OnboardingStatus;
+  // Spec 164 U4 — derived in the page (≥1 งวด AND no ungrouped งาน), not part of
+  // the project_onboarding_status RPC. Nudges งวด setup after WPs exist.
+  deliverablesDone: boolean;
 }) {
   const rows = [
     {
@@ -51,6 +55,12 @@ export function OnboardingChecklist({
       label: "เพิ่มรายการงาน",
       done: status.work_packages_added,
       href: `${projectHref(projectId)}#work-packages`,
+    },
+    {
+      key: "deliverables",
+      label: "สร้างงวดงานและจัดกลุ่มงาน",
+      done: deliverablesDone,
+      href: `${projectHref(projectId)}#deliverables`,
     },
     {
       key: "client",

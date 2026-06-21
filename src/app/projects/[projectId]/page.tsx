@@ -196,7 +196,16 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
           </div>
         )}
         {isPmRole && projectOpen && onboarding && (
-          <OnboardingChecklist projectId={project.id} status={onboarding} />
+          <OnboardingChecklist
+            projectId={project.id}
+            status={onboarding}
+            // Spec 164 U4: done = ≥1 งวด AND no ungrouped งาน (every WP grouped;
+            // vacuously true when there are no WPs yet).
+            deliverablesDone={
+              (deliverables ?? []).length > 0 &&
+              (workPackages ?? []).every((wp) => wp.deliverable_id !== null)
+            }
+          />
         )}
         {/* Spec 164 U1: งวดงาน manager — the in-app home/door for deliverables
             (PM-only, open projects). Counts derive from the WP list already
