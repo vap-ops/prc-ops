@@ -1,5 +1,5 @@
 begin;
-select plan(15);
+select plan(17);
 
 -- ============================================================================
 -- Spec 170 / ADR 0062 U4b — DC worker portal profile (person-relevant fields).
@@ -22,9 +22,10 @@ update public.users set role = 'contractor'      where id = '33333333-3333-3333-
 -- A DC worker bound to the portal user 33.. (workers.user_id), seeded with a
 -- name, rate and tax_id so the column-scope assertions can prove they're untouched.
 insert into public.workers (id, name, worker_type, day_rate, active, created_by, dc_arrangement,
-                            tax_id, user_id) values
+                            tax_id, bank_name, bank_account_number, bank_account_name, user_id) values
   ('aa000001-0000-4000-8000-000000004171', 'DC A', 'dc', 400.00, true,
-   '11111111-1111-1111-1111-111111114171', 'regular', 'TAX-A', '33333333-3333-3333-3333-333333334171');
+   '11111111-1111-1111-1111-111111114171', 'regular', 'TAX-A',
+   'KBank', '123-4-56789-0', 'DC A', '33333333-3333-3333-3333-333333334171');
 
 grant insert on _tap_buf to authenticated, anon;
 grant select on _tap_buf to authenticated, anon;
@@ -48,6 +49,11 @@ select is((select count(*) from public.get_my_worker_profile()),
   1::bigint, 'bound DC reads exactly their own profile row');
 select is((select name from public.get_my_worker_profile()),
   'DC A', 'the profile is the caller''s worker (DC A)');
+-- U4c-1: the owner reads their own bank (display) past the zero-grant columns.
+select is((select bank_name from public.get_my_worker_profile()),
+  'KBank', 'get_my_worker_profile returns the worker''s bank name');
+select is((select bank_account_number from public.get_my_worker_profile()),
+  '123-4-56789-0', 'get_my_worker_profile returns the worker''s bank account number');
 
 -- ============================================================================
 -- C. update_own_worker_profile — self + column scoped.

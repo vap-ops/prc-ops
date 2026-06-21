@@ -4211,6 +4211,9 @@ export type Database = {
       get_my_worker_profile: {
         Args: never
         Returns: {
+          bank_account_name: string
+          bank_account_number: string
+          bank_name: string
           date_of_birth: string
           dc_arrangement: Database["public"]["Enums"]["dc_arrangement"]
           email: string

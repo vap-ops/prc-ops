@@ -96,6 +96,23 @@ export default async function PortalPage() {
             <WorkerConsents consents={workerConsents} />
           </div>
 
+          {/* Bank — display only (U4c-1). The PM enters/edits it on /workers;
+              self-service staged change is the heavier U4c remainder. */}
+          <h2 className={SECTION_HEADING}>บัญชีธนาคาร</h2>
+          {wp.bank_name || wp.bank_account_number || wp.bank_account_name ? (
+            <div className={`${CARD} mb-6`}>
+              <p className="text-ink text-sm font-medium">{wp.bank_name}</p>
+              <p className="text-ink text-sm">
+                {wp.bank_account_number}
+                {wp.bank_account_name ? ` · ${wp.bank_account_name}` : ""}
+              </p>
+            </div>
+          ) : (
+            <div className="mb-6">
+              <EmptyNotice>ยังไม่มีบัญชีธนาคาร</EmptyNotice>
+            </div>
+          )}
+
           <h2 className={SECTION_HEADING}>ประวัติการจ่ายเงิน</h2>
           {sortedWorkerPayments.length > 0 ? (
             <ul className="flex flex-col gap-3">
