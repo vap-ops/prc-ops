@@ -4,7 +4,12 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
 import { CalendarDays, FileText, Settings } from "lucide-react";
 import { PROJECT_VIEW_ROLES, SITE_STAFF_ROLES, isManagerRole } from "@/lib/auth/role-home";
-import { projectSettingsHref, reportsHref, scheduleHref } from "@/lib/nav/project-paths";
+import {
+  projectSettingsHref,
+  reportsHref,
+  scheduleHref,
+  workPackageHref,
+} from "@/lib/nav/project-paths";
 import { ICON_CHIP_MUTED, SECTION_HEADING } from "@/lib/ui/classes";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { ProjectInfoButton } from "@/components/features/work-packages/project-info-button";
@@ -48,8 +53,10 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
   }
 
   // Spec 102: procurement gets a READ-ONLY WP list (names + status only) for
-  // purchase context — no capture/links, no schedule/reports/gear chips, no
-  // bank-adjacent info. Early return keeps the SA/PM path below untouched.
+  // purchase context — no schedule/reports/gear chips, no bank-adjacent info.
+  // Spec 171: each row now LINKS to the WP detail screen, which procurement opens
+  // read-only to raise a purchase request (the spec-102 "no links" rule predated
+  // that access and is lifted). Early return keeps the SA/PM path below untouched.
   if (ctx.role === "procurement") {
     const { data: procWps } = await supabase
       .from("work_packages")
@@ -72,17 +79,19 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
           ) : (
             <ul className="flex flex-col gap-2">
               {(procWps ?? []).map((wp) => (
-                <li
-                  key={wp.id}
-                  className="rounded-card border-edge bg-card shadow-card flex items-center justify-between gap-3 border px-4 py-3"
-                >
-                  <div className="min-w-0">
-                    <p className="text-ink text-body font-medium break-words">{wp.name}</p>
-                    <p className="text-ink-secondary font-mono text-xs">{wp.code}</p>
-                  </div>
-                  <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)}>
-                    {WORK_PACKAGE_STATUS_LABEL[wp.status] ?? wp.status}
-                  </StatusPill>
+                <li key={wp.id}>
+                  <Link
+                    href={workPackageHref(project.id, wp.id)}
+                    className="rounded-card border-edge bg-card shadow-card hover:bg-sunk flex items-center justify-between gap-3 border px-4 py-3 transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-ink text-body font-medium break-words">{wp.name}</p>
+                      <p className="text-ink-secondary font-mono text-xs">{wp.code}</p>
+                    </div>
+                    <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)}>
+                      {WORK_PACKAGE_STATUS_LABEL[wp.status] ?? wp.status}
+                    </StatusPill>
+                  </Link>
                 </li>
               ))}
             </ul>
