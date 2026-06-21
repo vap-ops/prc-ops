@@ -591,33 +591,36 @@ export type Database = {
       contractor_consents: {
         Row: {
           consented_at: string
-          contractor_id: string
+          contractor_id: string | null
           created_at: string
           document_id: string | null
           id: string
           kind: Database["public"]["Enums"]["contractor_consent_kind"]
           recorded_by: string
           revoked_at: string | null
+          worker_id: string | null
         }
         Insert: {
           consented_at?: string
-          contractor_id: string
+          contractor_id?: string | null
           created_at?: string
           document_id?: string | null
           id?: string
           kind: Database["public"]["Enums"]["contractor_consent_kind"]
           recorded_by: string
           revoked_at?: string | null
+          worker_id?: string | null
         }
         Update: {
           consented_at?: string
-          contractor_id?: string
+          contractor_id?: string | null
           created_at?: string
           document_id?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["contractor_consent_kind"]
           recorded_by?: string
           revoked_at?: string | null
+          worker_id?: string | null
         }
         Relationships: [
           {
@@ -632,6 +635,13 @@ export type Database = {
             columns: ["recorded_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contractor_consents_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
             referencedColumns: ["id"]
           },
         ]
@@ -4403,6 +4413,13 @@ export type Database = {
           p_tax_form: Database["public"]["Enums"]["wht_form"]
           p_tax_id: string
           p_wht_rate?: number
+        }
+        Returns: string
+      }
+      record_worker_consent: {
+        Args: {
+          p_document_id?: string
+          p_kind: Database["public"]["Enums"]["contractor_consent_kind"]
         }
         Returns: string
       }

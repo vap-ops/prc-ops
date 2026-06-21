@@ -196,6 +196,25 @@ export async function updateOwnWorkerProfile(input: {
   return { ok: true };
 }
 
+// Spec 170 U4b-2 / ADR 0062 — a bound DC WORKER records their own PDPA /
+// background-check consent from the portal. record_worker_consent self-validates
+// (current_user_worker_id); a forged kind is rejected here, an unbound caller by
+// the RPC. Withdrawal reuses revokeOwnConsent (revoke_contractor_consent now
+// admits the bound worker).
+export async function recordOwnWorkerConsent(input: { kind: string }): Promise<ActionResult> {
+  if (input.kind !== "pdpa_data" && input.kind !== "background_check") {
+    return { ok: false, error: GENERIC_BANK };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("record_worker_consent", { p_kind: input.kind });
+  if (error) return { ok: false, error: GENERIC_BANK };
+  revalidatePath("/portal");
+  return { ok: true };
+}
+
 // Spec 131 U2b — DC records their own PDPA / background-check consent from the
 // portal. record_contractor_consent self-validates (current_user_contractor_id
 // = p_contractor), so passing the portal-read contractor id is safe — a forged
