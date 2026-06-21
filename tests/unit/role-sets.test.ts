@@ -6,7 +6,9 @@ import {
   ACCOUNTING_ROLES,
   PM_ROLES,
   SITE_STAFF_ROLES,
+  WP_DETAIL_ROLES,
   isManagerRole,
+  isReadOnlyWpViewer,
   roleHome,
 } from "@/lib/auth/role-home";
 
@@ -62,5 +64,46 @@ describe("isManagerRole", () => {
     ] as const) {
       expect(isManagerRole(role)).toBe(false);
     }
+  });
+});
+
+// Spec 171: procurement may OPEN the work-package detail screen to raise a
+// purchase request — seeing it like a site admin, but read-only everywhere
+// except the request. WP_DETAIL_ROLES = SITE_STAFF_ROLES + procurement (kept
+// distinct from PURCHASING_ROLES per the "members coincide, meaning differs"
+// doctrine). isReadOnlyWpViewer marks procurement as the read-only viewer there.
+describe("WP_DETAIL_ROLES (spec 171)", () => {
+  it("is SITE_STAFF_ROLES plus procurement", () => {
+    expect([...WP_DETAIL_ROLES]).toEqual([
+      "site_admin",
+      "project_manager",
+      "super_admin",
+      "project_director",
+      "procurement",
+    ]);
+  });
+
+  it("denies roles outside site-staff + procurement", () => {
+    for (const role of [
+      "project_coordinator",
+      "accounting",
+      "hr",
+      "technician",
+      "subcon_manager",
+      "visitor",
+      "contractor",
+    ] as const) {
+      expect(WP_DETAIL_ROLES).not.toContain(role);
+    }
+  });
+});
+
+describe("isReadOnlyWpViewer (spec 171)", () => {
+  it("is true only for procurement", () => {
+    expect(isReadOnlyWpViewer("procurement")).toBe(true);
+  });
+
+  it("is false for full-capability site staff", () => {
+    for (const role of SITE_STAFF_ROLES) expect(isReadOnlyWpViewer(role)).toBe(false);
   });
 });

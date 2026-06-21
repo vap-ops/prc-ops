@@ -3,7 +3,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { CARD, DETAIL_TITLE } from "@/lib/ui/classes";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/require-role";
-import { SITE_STAFF_ROLES, isManagerRole } from "@/lib/auth/role-home";
+import { WP_DETAIL_ROLES, isManagerRole, isReadOnlyWpViewer } from "@/lib/auth/role-home";
 import { projectHref, workPackageHref } from "@/lib/nav/project-paths";
 import { createClient } from "@/lib/db/server";
 import { latestCreatedAt, PHASES } from "@/lib/photos/phases";
@@ -38,6 +38,7 @@ import { WpDetailTabs, type WpDetailTab } from "@/components/features/work-packa
 import { WorkPackageNotes } from "@/components/features/work-packages/work-package-notes";
 import { PurchaseRequestForm } from "@/components/features/purchasing/purchase-request-form";
 import { SitePurchaseForm } from "@/components/features/purchasing/site-purchase-form";
+import { PhaseGallery } from "@/components/features/photos/phase-gallery";
 import { LaborLogZone } from "@/components/features/labor/labor-log-zone";
 import { PhotoCaptureZone } from "./phase-uploader";
 import { ReportDefectControl } from "./report-defect-control";
@@ -50,9 +51,13 @@ export const metadata = { title: "รูปถ่ายงาน" };
 
 export default async function WorkPackagePhotoScreen({ params }: PageProps) {
   const { projectId, workPackageId } = await params;
-  const ctx = await requireRole(SITE_STAFF_ROLES);
+  const ctx = await requireRole(WP_DETAIL_ROLES);
   const supabase = await createClient();
-  const isAssigner = true;
+  // Spec 171: procurement opens this screen to raise a purchase request, seeing
+  // it like a site admin but READ-ONLY everywhere except the request. One flag
+  // drives the suppression of every write affordance below.
+  const readOnly = isReadOnlyWpViewer(ctx.role);
+  const isAssigner = !readOnly;
   const isPlanner = isManagerRole(ctx.role);
 
   // Spec 147 U1: one loader batches the WP-detail reads (was a serial
@@ -138,7 +143,20 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
     {
       key: "photos",
       label: "รูปถ่าย",
-      panel: (
+      panel: readOnly ? (
+        // Spec 171: procurement views the photos read-only — the PM-side gallery,
+        // not the capture zone (which owns the thumb-anchored shutter bar).
+        <div className="flex flex-col gap-5">
+          {PHASES.map(({ phase, label }) => (
+            <PhaseGallery
+              key={phase}
+              label={label}
+              photos={photosByPhase[phase]}
+              signedUrls={signedUrls}
+            />
+          ))}
+        </div>
+      ) : (
         <PhotoCaptureZone
           projectId={wp.project_id}
           workPackageId={wp.id}
@@ -165,14 +183,18 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
               />
             </div>
           </details>
-          <details className={CARD}>
-            <summary className="text-body text-ink cursor-pointer font-semibold">
-              บันทึกการซื้อหน้างาน
-            </summary>
-            <div className="mt-3">
-              <SitePurchaseForm workPackageId={wp.id} projectId={wp.project_id} />
-            </div>
-          </details>
+          {/* Spec 171: บันทึกการซื้อหน้างาน calls record_site_purchase, whose RPC
+              gate excludes procurement — hidden for the read-only viewer. */}
+          {!readOnly ? (
+            <details className={CARD}>
+              <summary className="text-body text-ink cursor-pointer font-semibold">
+                บันทึกการซื้อหน้างาน
+              </summary>
+              <div className="mt-3">
+                <SitePurchaseForm workPackageId={wp.id} projectId={wp.project_id} />
+              </div>
+            </details>
+          ) : null}
           {(wpRequests ?? []).length > 0 ? (
             <ul className="flex flex-col gap-2">
               {(wpRequests ?? []).map((r) => (
@@ -219,8 +241,10 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
           roster={labor.roster}
           rows={labor.rows}
           projectWorkerIds={labor.projectWorkerIds}
-          showFlags={ctx.role !== "site_admin"}
-          locked={wp.status === "complete"}
+          // Spec 171: procurement reads labour history only — no flags, no capture
+          // (locked drops the capture form and the per-row edit button).
+          showFlags={!readOnly && ctx.role !== "site_admin"}
+          locked={readOnly || wp.status === "complete"}
         />
       ),
     },
@@ -230,7 +254,17 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
       panel: (
         <>
           <div className={CARD}>
-            <WorkPackageNotes projectId={wp.project_id} workPackageId={wp.id} notes={wp.notes} />
+            {readOnly ? (
+              // Spec 171: notes are read-only for procurement (no editor).
+              <>
+                <p className="text-ink text-sm font-medium">หมายเหตุ</p>
+                <p className="text-ink-secondary mt-1 text-sm whitespace-pre-wrap">
+                  {wp.notes?.trim() ? wp.notes : "—"}
+                </p>
+              </>
+            ) : (
+              <WorkPackageNotes projectId={wp.project_id} workPackageId={wp.id} notes={wp.notes} />
+            )}
           </div>
           {/* Spec 94: รายละเอียดงาน (description) lives in the header ⓘ sheet. */}
           {approvals.length > 0 ? (
@@ -399,7 +433,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
           </AttentionCard>
         </div>
       ) : null}
-      {wp.status === "complete" ? (
+      {wp.status === "complete" && !readOnly ? (
         <div className={`mx-auto ${PAGE_MAX_W} flex justify-end px-5 pt-5`}>
           <ReportDefectControl projectId={wp.project_id} workPackageId={wp.id} />
         </div>

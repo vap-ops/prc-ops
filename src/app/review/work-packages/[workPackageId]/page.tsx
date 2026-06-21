@@ -1,7 +1,6 @@
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
-import { Check } from "lucide-react";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { StatusPill } from "@/components/features/common/status-pill";
@@ -11,20 +10,18 @@ import { PM_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { getCurrentPhotosForWorkPackage, type PhotoLogRow } from "@/lib/photos/current-photos";
-import { PHASES, latestCreatedAt } from "@/lib/photos/phases";
+import { PHASES } from "@/lib/photos/phases";
 import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
 import { getDecisionHistoryForWorkPackage } from "@/lib/approvals/latest-decision";
 import {
   APPROVAL_DECISION_LABEL,
   WORK_PACKAGE_STATUS_LABEL,
   formatThaiDateTime,
-  formatThaiTime,
 } from "@/lib/i18n/labels";
 import { CARD, DETAIL_TITLE, SECTION_HEADING } from "@/lib/ui/classes";
 import { PhaseProgressBar } from "@/components/features/work-packages/phase-progress-bar";
 import { approvalDecisionPillClasses, workPackageStatusPillClasses } from "@/lib/status-colors";
-import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
-import { PhotoStrip, PHOTO_STRIP_TILE } from "@/components/features/photos/photo-strip";
+import { PhaseGallery } from "@/components/features/photos/phase-gallery";
 import { LaborLogZone } from "@/components/features/labor/labor-log-zone";
 import { fetchLaborZoneData } from "@/lib/labor/fetch-zone-data";
 import { createClient as createAdminClient } from "@/lib/db/admin";
@@ -313,94 +310,5 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
         </section>
       </div>
     </PageShell>
-  );
-}
-
-interface PhaseGalleryProps {
-  label: string;
-  photos: ReadonlyArray<PhotoLogRow>;
-  signedUrls: ReadonlyMap<string, string>;
-}
-
-// Spec 54 timeline row — the read-only sibling of the SA uploader's
-// treatment: status disc + bold label + count, rail-indented body with
-// the last-updated line and the filmstrip (no add tile on the PM side).
-function PhaseGallery({ label, photos, signedUrls }: PhaseGalleryProps) {
-  const hasPhotos = photos.length > 0;
-  const latest = latestCreatedAt(photos);
-  return (
-    <div>
-      <div className="mb-1.5 flex items-center gap-3">
-        {hasPhotos ? (
-          <span className="bg-done inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white">
-            <Check aria-hidden className="h-4 w-4" strokeWidth={3} />
-          </span>
-        ) : (
-          <span
-            aria-hidden
-            className="border-edge-strong bg-card h-7 w-7 shrink-0 rounded-full border-2"
-          />
-        )}
-        <h3 className="text-ink text-base font-bold">
-          {label}
-          {hasPhotos ? (
-            /* Spec 49: the strip hides its tail — announce the total. */
-            <span className="text-ink-secondary ml-1.5 text-sm font-normal">
-              {photos.length} รูป
-            </span>
-          ) : null}
-        </h3>
-      </div>
-      <div
-        className={`ml-[13px] flex flex-col gap-2 border-l-2 pb-1 pl-5 ${
-          hasPhotos ? "border-done" : "border-edge"
-        }`}
-      >
-        <p className="text-ink-secondary text-sm">
-          {latest ? `อัปเดตล่าสุด ${formatThaiTime(latest)}` : "ยังไม่มีรูป"}
-        </p>
-        {hasPhotos ? (
-          /* Spec 49: filmstrip — page height stays constant per phase.
-             Spec 50: the phase's loaded photos form one lightbox group. */
-          <PhotoStrip>
-            {(() => {
-              const loaded = photos.flatMap((p) => {
-                const u = signedUrls.get(p.id);
-                return u ? [{ id: p.id, url: u }] : [];
-              });
-              const loadedUrls = loaded.map((l) => l.url);
-              /* Spec 51: ids aligned with urls — markup follows navigation. */
-              const loadedPhotoIds = loaded.map((l) => l.id);
-              let loadedIndex = 0;
-              return photos.map((p) => {
-                const url = signedUrls.get(p.id);
-                const groupIndex = url ? loadedIndex++ : 0;
-                return (
-                  <li key={p.id} className={PHOTO_STRIP_TILE}>
-                    {url ? (
-                      <ZoomablePhoto
-                        src={url}
-                        group={loadedUrls}
-                        groupPhotoIds={loadedPhotoIds}
-                        groupIndex={groupIndex}
-                        photoId={p.id}
-                      />
-                    ) : (
-                      <div className="text-ink-secondary flex h-full w-full items-center justify-center text-xs">
-                        ไม่พร้อมแสดง
-                      </div>
-                    )}
-                    {/* Spec 54: capture-time overlay (mockup tiles). */}
-                    <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 pt-4 pb-1 text-[11px] font-medium text-white">
-                      {formatThaiTime(p.captured_at_client ?? p.created_at)}
-                    </span>
-                  </li>
-                );
-              });
-            })()}
-          </PhotoStrip>
-        ) : null}
-      </div>
-    </div>
   );
 }

@@ -42,6 +42,30 @@ export const SITE_STAFF_ROLES: ReadonlyArray<UserRole> = [
 ];
 
 /**
+ * Spec 171: who may OPEN the work-package detail screen — site staff PLUS
+ * procurement. The operator wants procurement to raise a purchase request from
+ * that screen "instead of the site admins", seeing it like a site admin but
+ * read-only everywhere except the request. SITE_STAFF_ROLES gates write-capable
+ * capture; procurement is admitted here as a READ-ONLY viewer (see
+ * isReadOnlyWpViewer) — the page suppresses every write affordance for it except
+ * the purchase-request form, and the WP-context SELECT + PR-insert RLS arms
+ * (migration 20260780000000) back that. Kept distinct from PURCHASING_ROLES
+ * (which gates /requests): the membership coincides today but the meaning differs.
+ */
+export const WP_DETAIL_ROLES: ReadonlyArray<UserRole> = [...SITE_STAFF_ROLES, "procurement"];
+
+/**
+ * Spec 171: on the WP detail screen, procurement is the read-only viewer — it may
+ * read the WP context and raise a purchase request, but every other capture
+ * (photos, labour, notes, contractor assignment, defect, site purchase) is shown
+ * read-only / suppressed. Site staff keep full capability. The single predicate
+ * the page branches on, so the read-only treatment lives in one place.
+ */
+export function isReadOnlyWpViewer(role: UserRole): boolean {
+  return role === "procurement";
+}
+
+/**
  * Spec 101: back-office processors — the PM set PLUS procurement. Matches the
  * suppliers RLS write posture (pm/procurement/super) and the record/ship RPC
  * isBackOfficeRole gate. Gates the suppliers-master screen + supplier writes.
