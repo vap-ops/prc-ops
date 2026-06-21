@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   ACCOUNTING_ROLES,
   PM_ROLES,
+  SCHEDULE_VIEW_ROLES,
   SITE_STAFF_ROLES,
   WORKER_ROSTER_ROLES,
   WP_DETAIL_ROLES,
@@ -130,6 +131,33 @@ describe("WORKER_ROSTER_ROLES (spec 172 Phase C)", () => {
       "contractor",
     ] as const) {
       expect(WORKER_ROSTER_ROLES).not.toContain(role);
+    }
+  });
+});
+
+// Spec 173 U2: procurement reads the project schedule (ตารางงาน) read-only. The
+// schedule route + the calendar chip gate on SCHEDULE_VIEW_ROLES = SITE_STAFF_ROLES
+// + procurement. project_coordinator is deliberately NOT here (spec 154 excludes it
+// from the schedule — it can't follow the chip). Kept distinct from WP_DETAIL_ROLES
+// (same membership, different meaning: "who opens the schedule" vs "who opens a WP").
+describe("SCHEDULE_VIEW_ROLES (spec 173)", () => {
+  it("is SITE_STAFF_ROLES plus procurement", () => {
+    expect([...SCHEDULE_VIEW_ROLES]).toEqual([
+      "site_admin",
+      "project_manager",
+      "super_admin",
+      "project_director",
+      "procurement",
+    ]);
+  });
+
+  it("excludes project_coordinator (spec 154 schedule exclusion preserved)", () => {
+    expect(SCHEDULE_VIEW_ROLES).not.toContain("project_coordinator");
+  });
+
+  it("denies other unserved roles", () => {
+    for (const role of ["accounting", "hr", "technician", "visitor", "contractor"] as const) {
+      expect(SCHEDULE_VIEW_ROLES).not.toContain(role);
     }
   });
 });

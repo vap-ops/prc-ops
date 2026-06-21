@@ -1,7 +1,7 @@
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
-import { SITE_STAFF_ROLES } from "@/lib/auth/role-home";
+import { SCHEDULE_VIEW_ROLES } from "@/lib/auth/role-home";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { requireRole } from "@/lib/auth/require-role";
@@ -19,13 +19,18 @@ export const metadata = { title: "ตารางงาน" };
 
 export default async function ProjectSchedulePage({ params }: PageProps) {
   const { projectId } = await params;
-  const ctx = await requireRole(SITE_STAFF_ROLES);
+  // Spec 173 U2: procurement reads the schedule too (read-only Gantt). The
+  // deliverable swimlanes + dependency arrows resolve via the procurement RLS arm
+  // added in U1; the project + WP reads already admit it (spec 102/171).
+  const ctx = await requireRole(SCHEDULE_VIEW_ROLES);
   const supabase = await createClient();
 
   // Spec 148 U3: one loader batches the schedule reads (was a serial waterfall).
   // Same queries/columns/results — only the scheduling changes.
-  const { project, workPackages, deliverables, depRows, criticalIds } =
-    await loadProjectSchedule(supabase, projectId);
+  const { project, workPackages, deliverables, depRows, criticalIds } = await loadProjectSchedule(
+    supabase,
+    projectId,
+  );
   if (!project) notFound();
 
   const todayISO = bangkokTodayISO();

@@ -3,21 +3,18 @@ import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
 import { CalendarDays, FileText, Settings } from "lucide-react";
-import { PROJECT_VIEW_ROLES, SITE_STAFF_ROLES, isManagerRole } from "@/lib/auth/role-home";
 import {
-  projectSettingsHref,
-  reportsHref,
-  scheduleHref,
-  workPackageHref,
-} from "@/lib/nav/project-paths";
-import { ICON_CHIP_MUTED, SECTION_HEADING } from "@/lib/ui/classes";
+  PROJECT_VIEW_ROLES,
+  SCHEDULE_VIEW_ROLES,
+  WP_DETAIL_ROLES,
+  isManagerRole,
+} from "@/lib/auth/role-home";
+import { projectSettingsHref, reportsHref, scheduleHref } from "@/lib/nav/project-paths";
+import { ICON_CHIP_MUTED } from "@/lib/ui/classes";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { ProjectInfoButton } from "@/components/features/work-packages/project-info-button";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
-import { StatusPill } from "@/components/features/common/status-pill";
-import { EmptyNotice } from "@/components/features/common/notices";
-import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
-import { workPackageStatusPillClasses } from "@/lib/status-colors";
+import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { PROJECT_TYPE_LABEL } from "@/lib/projects/validate-settings";
@@ -44,7 +41,9 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
 
   const { data: project } = await supabase
     .from("projects")
-    .select("id, code, name, status, site_address, client_id, project_lead_id, project_type")
+    .select(
+      "id, code, name, status, site_address, start_date, planned_completion_date, client_id, project_lead_id, project_type",
+    )
     .eq("id", projectId)
     .maybeSingle();
 
@@ -52,64 +51,25 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
     notFound();
   }
 
-  // Spec 102: procurement gets a READ-ONLY WP list (names + status only) for
-  // purchase context — no schedule/reports/gear chips, no bank-adjacent info.
-  // Spec 171: each row now LINKS to the WP detail screen, which procurement opens
-  // read-only to raise a purchase request (the spec-102 "no links" rule predated
-  // that access and is lifted). Early return keeps the SA/PM path below untouched.
-  if (ctx.role === "procurement") {
-    const { data: procWps } = await supabase
-      .from("work_packages")
-      .select("id, code, name, status")
-      .eq("project_id", project.id)
-      .order("code", { ascending: true });
-    return (
-      <PageShell>
-        <BottomTabBar role={ctx.role} />
-        <DetailHeader backHref="/projects" backLabel="กลับไปโครงการ">
-          <div>
-            <p className="text-meta text-ink-secondary font-mono">{project.code}</p>
-            <h1 className="text-title text-ink font-bold tracking-tight">{project.name}</h1>
-          </div>
-        </DetailHeader>
-        <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
-          <h2 className={SECTION_HEADING}>รายการงาน</h2>
-          {(procWps ?? []).length === 0 ? (
-            <EmptyNotice>ยังไม่มีรายการงาน</EmptyNotice>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {(procWps ?? []).map((wp) => (
-                <li key={wp.id}>
-                  <Link
-                    href={workPackageHref(project.id, wp.id)}
-                    className="rounded-card border-edge bg-card shadow-card hover:bg-sunk flex items-center justify-between gap-3 border px-4 py-3 transition-colors"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-ink text-body font-medium break-words">{wp.name}</p>
-                      <p className="text-ink-secondary font-mono text-xs">{wp.code}</p>
-                    </div>
-                    <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)}>
-                      {WORK_PACKAGE_STATUS_LABEL[wp.status] ?? wp.status}
-                    </StatusPill>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </PageShell>
-    );
-  }
+  // Spec 173: procurement is a first-class READ-ONLY viewer of this page now —
+  // it flows through the main path below, where every write affordance is already
+  // gated (isPmRole / isManagerRole hide onboarding, seeding, the งวดงาน manager,
+  // and the reports/gear chips; canOpenWp / canOpenSchedule admit it to WP detail
+  // + the schedule). This supersedes the spec-102 stopgap branch (a minimal
+  // names+status WP list) — the operator asked procurement to see the schedule,
+  // the งวดงาน grouping, WP details, and the project info, i.e. the full view.
 
   // Spec 142 U3: PM/super get onboarding + the copy/template seeding controls.
   const isPmRole = isManagerRole(ctx.role);
-  // Spec 154: can this viewer OPEN the SITE_STAFF surfaces (WP detail + schedule)
-  // from here? In this branch the only non-SITE_STAFF role is project_coordinator
-  // (it reads via PROJECT_VIEW_ROLES but the WP-detail/schedule gates deny it →
-  // a bounce). False = render WP rows non-interactive + hide the calendar chip.
-  // Any future read-only browse role (in PROJECT_VIEW_ROLES, not SITE_STAFF) is
-  // covered automatically.
-  const canOpenWp = SITE_STAFF_ROLES.includes(ctx.role);
+  // Spec 154 / 173: can this viewer OPEN the WP detail + schedule from here?
+  // project_coordinator reads via PROJECT_VIEW_ROLES but the WP-detail/schedule
+  // gates deny it (a bounce), so its rows stay non-interactive + chip hidden.
+  // Spec 173 U3: procurement may open WP detail read-only (it is in WP_DETAIL_ROLES,
+  // spec 171) — re-express the WP-row gate as WP_DETAIL_ROLES so the row click
+  // restores the navigation path. Spec 173 U2: the schedule chip follows
+  // SCHEDULE_VIEW_ROLES (site staff + procurement; coordinator still excluded).
+  const canOpenWp = WP_DETAIL_ROLES.includes(ctx.role);
+  const canOpenSchedule = SCHEDULE_VIEW_ROLES.includes(ctx.role);
   // Spec 145: a completed/archived project is locked for new work — the UI hides
   // the seeding controls + onboarding and shows a banner. Defect-rework stays.
   const projectOpen = project.status === "active" || project.status === "on_hold";
@@ -129,6 +89,11 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
     templateAvailable,
   } = await loadProjectDetail(supabase, project, isPmRole);
   const typeLabel = project.project_type ? PROJECT_TYPE_LABEL[project.project_type] : null;
+  // Spec 173 U4: no geo columns on projects → derive a Google-Maps search URL from
+  // the site address (shown only when an address is set).
+  const mapsUrl = project.site_address
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(project.site_address)}`
+    : null;
 
   return (
     <PageShell>
@@ -141,24 +106,24 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
         actions={
           <>
             {/* Spec 94: project context (client/lead/team/type/site) folds into
-                this ⓘ sheet so the sticky header stays short. */}
-            {(clientName ||
-              leadName ||
-              memberNames.length > 0 ||
-              typeLabel ||
-              project.site_address) && (
-              <ProjectInfoButton
-                clientName={clientName}
-                leadName={leadName}
-                memberNames={memberNames}
-                typeLabel={typeLabel}
-                siteAddress={project.site_address}
-              />
-            )}
-            {/* Schedule calendar — SITE_STAFF only (the /schedule route gates
-                requireRole(SITE_STAFF_ROLES)). Spec 154: hidden for the read-only
-                project_coordinator, which can't follow it (was a bounce). */}
-            {canOpenWp ? (
+                this ⓘ sheet so the sticky header stays short. Spec 173 U4: status +
+                schedule dates + a Google-Maps link join it; status is always present
+                so the sheet always renders now. */}
+            <ProjectInfoButton
+              clientName={clientName}
+              leadName={leadName}
+              memberNames={memberNames}
+              typeLabel={typeLabel}
+              siteAddress={project.site_address}
+              statusLabel={PROJECT_STATUS_LABEL[project.status]}
+              startDate={project.start_date}
+              plannedCompletionDate={project.planned_completion_date}
+              mapsUrl={mapsUrl}
+            />
+            {/* Schedule calendar — SCHEDULE_VIEW_ROLES (site staff + procurement,
+                spec 173 U2). Spec 154: still hidden for project_coordinator, which
+                can't follow it (was a bounce). */}
+            {canOpenSchedule ? (
               <Link
                 href={scheduleHref(project.id)}
                 aria-label="ตารางงาน"

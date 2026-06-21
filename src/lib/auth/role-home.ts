@@ -79,6 +79,18 @@ export const BACK_OFFICE_ROLES: ReadonlyArray<UserRole> = [
 ];
 
 /**
+ * Spec 173 U2: who may open the project SCHEDULE (ตารางงาน, the read-only Gantt) —
+ * site staff PLUS procurement. The operator gave procurement read-only project
+ * visibility incl. the schedule; procurement is already a cross-project reader of
+ * projects/WPs (and, after spec 173 U1, deliverables + dependencies), so the
+ * schedule renders fully for it. project_coordinator is deliberately EXCLUDED
+ * (spec 154: it can't follow the calendar chip — was a bounce). Same membership as
+ * WP_DETAIL_ROLES today, but the meaning differs ("opens the schedule" vs "opens a
+ * WP detail") — keep them separate per the role-doctrine convention.
+ */
+export const SCHEDULE_VIEW_ROLES: ReadonlyArray<UserRole> = [...SITE_STAFF_ROLES, "procurement"];
+
+/**
  * Spec 172 Phase C / ADR 0062: who may reach /workers AND onboard DC workers —
  * the PM set PLUS procurement. The operator gave procurement full DC-onboarding
  * ownership: create/update/assign workers, issue portal invites, AND set the pay

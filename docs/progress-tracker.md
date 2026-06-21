@@ -6,6 +6,42 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 173 — procurement read-only project visibility (2026-06-22)
+
+Operator: "Procurement needs to see Project information and schedule." Clarified
+(two questions): besides the schedule, procurement also needs the deliverables
+(งวดงาน) list, to open WP details, and the project info fields (team, PM, dates,
+Google-Maps link, address, status). Audit: procurement already reads /projects +
+/projects/[id] + the ⓘ sheet (spec 102), but a spec-102 early-return branch gave
+it a minimal names+status WP list, and `deliverables` / `work_package_dependencies`
+/ `project_members` SELECT had no procurement arm → empty งวด grouping, empty
+schedule swimlanes/deps, empty team list.
+
+**SHIPPED to prod 2026-06-22.** **U1 (RLS, mig `20260797000000`):** procurement
+OR-arm added to `deliverables` + `work_package_dependencies` SELECT (kept the
+`can_see_project` / `can_see_wp` predicate — files 70/73 pins hold) and appended to
+the flat `project_members` staff role-list (team-name resolution; project_director
+kept, file 91). Read-only widening, no write arm. New pgTAP file 173 (+12):
+procurement reads cross-project งวด + dependency + members; a membership-scoped PM
+still sees only its own; quals still name the helpers. **U2 (schedule):** new
+`SCHEDULE_VIEW_ROLES` (= SITE_STAFF + procurement, coordinator still excluded per
+spec 154) gates `/projects/[id]/schedule` + the calendar chip (`canOpenSchedule`).
+**U3 (WP nav):** `canOpenWp` re-expressed as `WP_DETAIL_ROLES.includes(role)` so
+procurement's WP rows link to the (read-only, spec 171) detail. **U2+U3 removed the
+spec-102 procurement early-return branch** — procurement now flows through the main
+project page, every write affordance already `isPmRole`/`isManagerRole`-gated and
+`WorkPackageList` role-agnostic (procurement gets the งวดงาน lens by default).
+**U4 (project info):** the ⓘ `ProjectInfoButton` sheet gains สถานะ (status),
+กำหนดการ (start + planned-completion dates, formatThaiDate), and a เปิดใน Google
+Maps link derived from `site_address` (no geo columns → address search URL); status
+is always present so the sheet always renders. New const unit-tested
+(`SCHEDULE_VIEW_ROLES`); ProjectInfoButton test extended (+2). Verify: db:test
+**120 files / 2298 / 0**; pnpm test green; lint·typecheck·build green. RLS-only
+migration → db:types regen skipped. Out of scope: project reports/settings/budget
+(stay PM/super/director; budget admin-only), any procurement WRITE, geo/embedded
+map, coordinator schedule access (spec 154 preserved). Builds on
+[[spec171-procurement-purchase-requests]] [[spec172-procurement-back-office-domains]].
+
 ## Spec 172 — procurement owns contractors / equipment / DC onboarding (2026-06-21)
 
 Operator: "procurement also takes care of 1. Contractors 2. Equipment Rentals 3. Onboarding DCs." Decisions: FULL ownership (procurement **sets DC pay rate** +
