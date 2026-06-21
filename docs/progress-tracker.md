@@ -6,6 +6,10 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 165 U3 - งวด detail page (2026-06-21)
+
+Status: **COMPLETE — 2026-06-21.** NO DB change. New route `/projects/[projectId]/deliverables/[deliverableId]` (auto-classified DETAIL → renders DetailHeader, back chip → project `#deliverables`). `deliverableHref` path helper. Page: requireRole(PROJECT_VIEW_ROLES); loads the งวด (eq id + eq project_id → 404 on mismatch; RLS scopes visibility) + its งาน (work_packages where deliverable_id); header = code/name, planner gets the `EditDeliverableSheet` (rename) in actions; body lists its งาน (code · name · StatusPill, link to WP detail) or an empty notice. DeliverablesManager rows now link code+name to the detail. **Verify:** lint·typecheck·**vitest 198/1318** (nav-back-affordance auto-covers the new route's DetailHeader + classification) · **pnpm build green** (route ƒ compiles). Page auth-gated → verified-by-checklist; client islands (rename/reorder) carry their own tests.
+
 ## Spec 165 U2 - reorder งวด (2026-06-21)
 
 Status: **COMPLETE — 2026-06-21.** ▲▼ reorder in the DeliverablesManager. **DB:** `swap_deliverable_order(p_a,p_b) returns boolean` (migration 20260776000000, pushed) — SECURITY DEFINER, role PM/super/director + can_see_project, both งวด same project (else 22023), unknown/invisible → 42501; swaps sort_order via CASE update. **App:** `swapDeliverableOrder(projectId,aId,bId)` action + `DeliverableReorderControls` (▲ swaps prev, ▼ swaps next; ends disabled) per manager row (rows sorted by sort_order → prev/next ids known). **TDD:** pgTAP 113 (11) + deliverable-reorder-controls.test.tsx (3). **Verify:** db:push·db:types·**db:test 113/2175/0**·lint·typecheck·**vitest 198/1317**.

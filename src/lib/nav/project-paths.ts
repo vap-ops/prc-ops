@@ -16,6 +16,11 @@ export function workPackageHref(projectId: string, workPackageId: string): strin
   return `/projects/${projectId}/work-packages/${workPackageId}`;
 }
 
+// Spec 165 U3: the งวด (deliverable) detail page — its งาน + edit/reorder actions.
+export function deliverableHref(projectId: string, deliverableId: string): string {
+  return `/projects/${projectId}/deliverables/${deliverableId}`;
+}
+
 export function projectSettingsHref(projectId: string): string {
   return `/projects/${projectId}/settings`;
 }

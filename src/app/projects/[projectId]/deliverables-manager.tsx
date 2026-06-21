@@ -4,6 +4,8 @@
 // U1 there was no in-app way to see or add them (they only came from a seed).
 // PM-only / open-project; the add button is the AddDeliverableSheet client island.
 
+import Link from "next/link";
+import { deliverableHref } from "@/lib/nav/project-paths";
 import { AddDeliverableSheet } from "./add-deliverable-sheet";
 import { ImportDeliverablesSheet } from "./import-deliverables-sheet";
 import { GroupWorkPackagesSheet } from "./group-work-packages-sheet";
@@ -52,8 +54,13 @@ export function DeliverablesManager({
         <ul className="rounded-card border-edge bg-card divide-edge divide-y border">
           {deliverables.map((d, i) => (
             <li key={d.id} className="flex items-center gap-3 px-4 py-2">
-              <span className="text-meta text-ink-secondary font-mono">{d.code}</span>
-              <span className="text-body text-ink min-w-0 flex-1 truncate">{d.name}</span>
+              <Link
+                href={deliverableHref(projectId, d.id)}
+                className="hover:text-action focus-visible:ring-action -mx-1 flex min-w-0 flex-1 items-center gap-3 rounded px-1 focus:outline-none focus-visible:ring-2"
+              >
+                <span className="text-meta text-ink-secondary font-mono">{d.code}</span>
+                <span className="text-body text-ink min-w-0 flex-1 truncate">{d.name}</span>
+              </Link>
               <span className="text-meta text-ink-secondary shrink-0">{d.wpCount} งาน</span>
               <DeliverableReorderControls
                 projectId={projectId}
