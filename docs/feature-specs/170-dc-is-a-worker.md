@@ -236,7 +236,28 @@ null`) so one LINE user ↔ one worker; `current_user_worker_id()` SECURITY
   the contractor surfaces (empty for a worker-bound DC until U4b/c). Safe: zero
   prod data.
 
-### U4b — portal profile + consents on the worker
+### U4b — portal profile on the worker (SHIPPED 2026-06-21); consents → U4b-2
+
+**Split for scope:** profile shipped now; **polymorphic consents** is the next
+sub-unit (U4b-2). **U4b profile SHIPPED** on `main` (commit 6a70a9a, mig 20260786).
+Operator decisions: **OPEN-4 = person-relevant fields only** (added `email`,
+`emergency_contact_name/relation/phone`, `date_of_birth` to `workers`, zero-grant
+PII; phone/tax_id already on the worker from U1; firm-shaped `contact_person` /
+`mailing_address` / `specialty` NOT carried). **OPEN-5 = polymorphic consents**
+(deferred to U4b-2 — add `worker_id` to `contractor_consents`, make `contractor_id`
+nullable + XOR check, worker read-arm + worker record/revoke). What shipped:
+`get_my_worker_profile()` (owner reads own PII past the zero-grant columns,
+current_user_worker_id-scoped definer) + `update_own_worker_profile()` (self +
+column-scoped — the six editable fields only; name/day_rate/tax_id out of reach);
+`validateWorkerProfile`; `updateOwnWorkerProfile` action; `WorkerProfileEdit`
+one-form component; `/portal` branches on a resolved worker binding → worker view
+(name header + profile edit + tax_id read-only + payment history). pgTAP 117
+(plan 15: self + column scope, unbound refused). Verified lint · typecheck ·
+vitest 1344 · db:test 117/2251/0 · build.
+
+**U4b-2 (consents, polymorphic) + U4c (bank + docs) still pending.**
+
+**Original U4b plan (profile + consents):**
 
 - Re-home the **profile** surface to `workers` (name + phone + tax*id +
   arrangement from U1). **OPEN-4:** the contractor-only fields the portal shows
