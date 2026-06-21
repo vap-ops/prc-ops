@@ -2,7 +2,6 @@ import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { CARD, DETAIL_TITLE } from "@/lib/ui/classes";
 import { notFound } from "next/navigation";
-import { Camera, FileText, ShoppingCart, Users } from "lucide-react";
 import { requireRole } from "@/lib/auth/require-role";
 import { SITE_STAFF_ROLES, isManagerRole } from "@/lib/auth/role-home";
 import { projectHref, workPackageHref } from "@/lib/nav/project-paths";
@@ -35,6 +34,7 @@ import { WpDeliverableControl } from "@/components/features/work-packages/wp-del
 import { WpNameControl } from "@/components/features/work-packages/wp-name-control";
 import { WpDeleteControl } from "@/components/features/work-packages/wp-delete-control";
 import { WpSchedulePanel } from "@/components/features/work-packages/wp-schedule-panel";
+import { WpDetailTabs, type WpDetailTab } from "@/components/features/work-packages/wp-detail-tabs";
 import { WorkPackageNotes } from "@/components/features/work-packages/work-package-notes";
 import { PurchaseRequestForm } from "@/components/features/purchasing/purchase-request-form";
 import { SitePurchaseForm } from "@/components/features/purchasing/site-purchase-form";
@@ -130,6 +130,179 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
     };
   });
 
+  // Spec 167: the body folds into segmented tabs. Order = the SA's frequency
+  // (capture first, then purchases, labor, reference info); the planner-only
+  // จัดการ tab is appended last. Panels are server-rendered here and handed to
+  // the client switcher as slots — one fetch, one render, focused view.
+  const tabs: WpDetailTab[] = [
+    {
+      key: "photos",
+      label: "รูปถ่าย",
+      panel: (
+        <PhotoCaptureZone
+          projectId={wp.project_id}
+          workPackageId={wp.id}
+          userId={ctx.id}
+          phases={phaseData}
+          currentPhase={currentPhase}
+        />
+      ),
+    },
+    {
+      key: "purchases",
+      label: "คำขอซื้อ",
+      panel: (
+        <>
+          <details className={CARD}>
+            <summary className="text-body text-ink cursor-pointer font-semibold">
+              สร้างคำขอซื้อ
+            </summary>
+            <div className="mt-3">
+              <PurchaseRequestForm
+                workPackage={{ id: wp.id, code: wp.code, name: wp.name }}
+                projectId={wp.project_id}
+                userId={ctx.id}
+              />
+            </div>
+          </details>
+          <details className={CARD}>
+            <summary className="text-body text-ink cursor-pointer font-semibold">
+              บันทึกการซื้อหน้างาน
+            </summary>
+            <div className="mt-3">
+              <SitePurchaseForm workPackageId={wp.id} projectId={wp.project_id} />
+            </div>
+          </details>
+          {(wpRequests ?? []).length > 0 ? (
+            <ul className="flex flex-col gap-2">
+              {(wpRequests ?? []).map((r) => (
+                <li key={r.id}>
+                  <PurchaseRequestCard
+                    request={{
+                      id: r.id,
+                      pr_number: r.pr_number,
+                      item_description: r.item_description,
+                      quantity: r.quantity,
+                      unit: r.unit,
+                      status: r.status as PurchaseRequestStatus,
+                      priority: r.priority as PurchaseRequestPriority,
+                      requested_at: r.requested_at,
+                      needed_by: r.needed_by,
+                      decided_at: r.decided_at,
+                      purchased_at: r.purchased_at,
+                      shipped_at: r.shipped_at,
+                      delivered_at: r.delivered_at,
+                      eta: r.eta,
+                    }}
+                    workPackage={null}
+                    requesterName={
+                      (r.requested_by ? displayNames.get(r.requested_by) : null) ??
+                      r.requested_by_email ??
+                      null
+                    }
+                    isMine={r.requested_by === ctx.id}
+                  />
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      key: "labor",
+      label: "แรงงาน",
+      panel: (
+        <LaborLogZone
+          workPackageId={wp.id}
+          revalidate={workPackageHref(projectId, workPackageId)}
+          roster={labor.roster}
+          rows={labor.rows}
+          projectWorkerIds={labor.projectWorkerIds}
+          showFlags={ctx.role !== "site_admin"}
+          locked={wp.status === "complete"}
+        />
+      ),
+    },
+    {
+      key: "info",
+      label: "ข้อมูล",
+      panel: (
+        <>
+          <div className={CARD}>
+            <WorkPackageNotes projectId={wp.project_id} workPackageId={wp.id} notes={wp.notes} />
+          </div>
+          {/* Spec 94: รายละเอียดงาน (description) lives in the header ⓘ sheet. */}
+          {approvals.length > 0 ? (
+            <details className={CARD}>
+              <summary className="text-body text-ink cursor-pointer font-semibold">
+                ประวัติการตรวจ ({approvals.length})
+              </summary>
+              <ul className="mt-2 flex flex-col gap-2">
+                {approvals.map((a) => (
+                  <li key={a.id} className="border-edge border-t pt-2 first:border-t-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <StatusPill pillClasses={approvalDecisionPillClasses(a.decision)}>
+                        {APPROVAL_DECISION_LABEL[a.decision]}
+                      </StatusPill>
+                      <span className="text-meta text-ink-secondary">
+                        {displayNames.get(a.decided_by) ?? "—"} · {formatThaiDateTime(a.decided_at)}
+                      </span>
+                    </div>
+                    {a.comment ? (
+                      <p className="text-body text-ink-secondary mt-1 whitespace-pre-wrap">
+                        {a.comment}
+                      </p>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+        </>
+      ),
+    },
+  ];
+
+  // PM/super/director management: rename · priority · งวดงาน bind · schedule +
+  // dependencies · delete-empty. Tucked behind its own tab so it no longer
+  // pushes the capture hero down for planners (spec 92/155/156/157).
+  if (isPlanner) {
+    tabs.push({
+      key: "manage",
+      label: "จัดการ",
+      panel: (
+        <>
+          <WpNameControl projectId={wp.project_id} workPackageId={wp.id} name={wp.name} />
+          <WpPriorityControl
+            projectId={wp.project_id}
+            workPackageId={wp.id}
+            priority={wp.priority}
+          />
+          <WpDeliverableControl
+            projectId={wp.project_id}
+            workPackageId={wp.id}
+            deliverableId={wp.deliverable_id}
+            deliverables={projectDeliverables ?? []}
+          />
+          <WpSchedulePanel
+            projectId={wp.project_id}
+            workPackageId={wp.id}
+            plannedStart={wp.planned_start}
+            plannedEnd={wp.planned_end}
+            predecessors={predecessorOptions}
+            candidates={candidateOptions}
+          />
+          {/* Spec 157: delete an empty WP (created by mistake); a WP with
+              history is refused (P0001). Destructive — sits last, divided off. */}
+          <div className="border-edge border-t pt-4">
+            <WpDeleteControl projectId={wp.project_id} workPackageId={wp.id} />
+          </div>
+        </>
+      ),
+    });
+  }
+
   return (
     <PageShell>
       {/* Field-First: the tab bar gives way to the thumb-anchored capture
@@ -176,42 +349,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
         </div>
       </div>
 
-      {/* PM/super management: manual priority (worklist ด่วน tag + sort) and the
-          planned window + dependencies (spec 92, feeds the critical path). */}
-      {isPlanner ? (
-        <div className="border-edge bg-card border-b px-5 py-3">
-          <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-4`}>
-            {/* Spec 156: rename the WP (PM/super/director). code stays immutable. */}
-            <WpNameControl projectId={wp.project_id} workPackageId={wp.id} name={wp.name} />
-            <WpPriorityControl
-              projectId={wp.project_id}
-              workPackageId={wp.id}
-              priority={wp.priority}
-            />
-            {/* Spec 155: bind the WP to a งวดงาน (deliverable) — manager-only. */}
-            <WpDeliverableControl
-              projectId={wp.project_id}
-              workPackageId={wp.id}
-              deliverableId={wp.deliverable_id}
-              deliverables={projectDeliverables ?? []}
-            />
-            <WpSchedulePanel
-              projectId={wp.project_id}
-              workPackageId={wp.id}
-              plannedStart={wp.planned_start}
-              plannedEnd={wp.planned_end}
-              predecessors={predecessorOptions}
-              candidates={candidateOptions}
-            />
-            {/* Spec 157: delete an empty WP (created by mistake). A WP with
-                history is refused (P0001) → "cancel instead". Destructive, so it
-                sits last, set off by a divider. */}
-            <div className="border-edge border-t pt-4">
-              <WpDeleteControl projectId={wp.project_id} workPackageId={wp.id} />
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {/* Spec 167: the planner management block moved into the จัดการ tab. */}
 
       {/* Attention stack: PM decision feedback, the unassigned-contractor
           card, and the pending-requests chip. */}
@@ -267,135 +405,10 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
         </div>
       ) : null}
 
-      {/* HERO — capture is the page's primary job. */}
-      <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
-        <h2 className="border-ink text-section text-ink mb-3 flex items-center gap-2 border-b-2 pb-1 font-bold">
-          <Camera aria-hidden className="text-action size-5" />
-          รูปถ่ายงาน
-        </h2>
-        <PhotoCaptureZone
-          projectId={wp.project_id}
-          workPackageId={wp.id}
-          userId={ctx.id}
-          phases={phaseData}
-          currentPhase={currentPhase}
-        />
-      </section>
-
-      {/* Progressive disclosure: everything read-heavy folds below the
-          hero. Order = the SA's frequency (purchases, then labor, then
-          reference info). */}
-      <div
-        id="wp-requests"
-        className={`mx-auto flex ${PAGE_MAX_W} scroll-mt-4 flex-col gap-4 px-5 pb-6`}
-      >
-        <h2 className="border-ink text-section text-ink flex items-center gap-2 border-b-2 pb-1 font-bold">
-          <ShoppingCart aria-hidden className="text-action size-5" />
-          คำขอซื้อ
-        </h2>
-        <details className={CARD}>
-          <summary className="text-body text-ink cursor-pointer font-semibold">
-            สร้างคำขอซื้อ
-          </summary>
-          <div className="mt-3">
-            <PurchaseRequestForm
-              workPackage={{ id: wp.id, code: wp.code, name: wp.name }}
-              projectId={wp.project_id}
-              userId={ctx.id}
-            />
-          </div>
-        </details>
-        <details className={CARD}>
-          <summary className="text-body text-ink cursor-pointer font-semibold">
-            บันทึกการซื้อหน้างาน
-          </summary>
-          <div className="mt-3">
-            <SitePurchaseForm workPackageId={wp.id} projectId={wp.project_id} />
-          </div>
-        </details>
-        {(wpRequests ?? []).length > 0 ? (
-          <ul className="flex flex-col gap-2">
-            {(wpRequests ?? []).map((r) => (
-              <li key={r.id}>
-                <PurchaseRequestCard
-                  request={{
-                    id: r.id,
-                    pr_number: r.pr_number,
-                    item_description: r.item_description,
-                    quantity: r.quantity,
-                    unit: r.unit,
-                    status: r.status as PurchaseRequestStatus,
-                    priority: r.priority as PurchaseRequestPriority,
-                    requested_at: r.requested_at,
-                    needed_by: r.needed_by,
-                    decided_at: r.decided_at,
-                    purchased_at: r.purchased_at,
-                    shipped_at: r.shipped_at,
-                    delivered_at: r.delivered_at,
-                    eta: r.eta,
-                  }}
-                  workPackage={null}
-                  requesterName={
-                    (r.requested_by ? displayNames.get(r.requested_by) : null) ??
-                    r.requested_by_email ??
-                    null
-                  }
-                  isMine={r.requested_by === ctx.id}
-                />
-              </li>
-            ))}
-          </ul>
-        ) : null}
-
-        <h2 className="border-ink text-section text-ink mt-2 flex items-center gap-2 border-b-2 pb-1 font-bold">
-          <Users aria-hidden className="text-action size-5" />
-          บันทึกแรงงานรายวัน
-        </h2>
-        <LaborLogZone
-          workPackageId={wp.id}
-          revalidate={workPackageHref(projectId, workPackageId)}
-          roster={labor.roster}
-          rows={labor.rows}
-          projectWorkerIds={labor.projectWorkerIds}
-          showFlags={ctx.role !== "site_admin"}
-          locked={wp.status === "complete"}
-        />
-
-        <h2 className="border-ink text-section text-ink mt-2 flex items-center gap-2 border-b-2 pb-1 font-bold">
-          <FileText aria-hidden className="text-action size-5" />
-          ข้อมูลงาน
-        </h2>
-        <div className={CARD}>
-          <WorkPackageNotes projectId={wp.project_id} workPackageId={wp.id} notes={wp.notes} />
-        </div>
-        {/* Spec 94: รายละเอียดงาน (description) moved to the header ⓘ sheet. */}
-        {approvals.length > 0 ? (
-          <details className={CARD}>
-            <summary className="text-body text-ink cursor-pointer font-semibold">
-              ประวัติการตรวจ ({approvals.length})
-            </summary>
-            <ul className="mt-2 flex flex-col gap-2">
-              {approvals.map((a) => (
-                <li key={a.id} className="border-edge border-t pt-2 first:border-t-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <StatusPill pillClasses={approvalDecisionPillClasses(a.decision)}>
-                      {APPROVAL_DECISION_LABEL[a.decision]}
-                    </StatusPill>
-                    <span className="text-meta text-ink-secondary">
-                      {displayNames.get(a.decided_by) ?? "—"} · {formatThaiDateTime(a.decided_at)}
-                    </span>
-                  </div>
-                  {a.comment ? (
-                    <p className="text-body text-ink-secondary mt-1 whitespace-pre-wrap">
-                      {a.comment}
-                    </p>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          </details>
-        ) : null}
-      </div>
+      {/* Spec 167: photos / purchases / labor / info (+ จัดการ for planners)
+          fold into segmented tabs — each visit shows only the relevant
+          section. The pending-requests chip (#wp-requests) opens คำขอซื้อ. */}
+      <WpDetailTabs tabs={tabs} hashTabMap={{ "wp-requests": "purchases" }} />
     </PageShell>
   );
 }
