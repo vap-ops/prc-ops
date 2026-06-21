@@ -444,3 +444,54 @@ export async function assignWorkPackagesToDeliverable(
   revalidatePath(projectHref(projectId));
   return { ok: true, count };
 }
+
+// Spec 165 U1 — rename a งวด. Gate mirrors the other project writes; the
+// SECURITY DEFINER set_deliverable_name RPC (membership-gated) is load-bearing.
+export interface SetDeliverableNameInput {
+  projectId: string;
+  deliverableId: string;
+  name: string;
+}
+
+export type SetDeliverableNameResult = { ok: true } | { ok: false; error: string };
+
+export async function setDeliverableName(
+  input: SetDeliverableNameInput,
+): Promise<SetDeliverableNameResult> {
+  if (!isValidUuid(input.projectId) || !isValidUuid(input.deliverableId)) {
+    return { ok: false, error: "รหัสไม่ถูกต้อง" };
+  }
+  const nameResult = validateDeliverableName(input.name);
+  if (!nameResult.ok) return { ok: false, error: nameResult.error };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
+
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+    return { ok: false, error: PM_ONLY_ERROR };
+  }
+
+  const { data: ok, error } = await supabase.rpc("set_deliverable_name", {
+    p_deliverable_id: input.deliverableId,
+    p_name: nameResult.name,
+  });
+  if (error) {
+    console.error("[setDeliverableName] RPC failed", {
+      projectId: input.projectId,
+      error: error.message,
+    });
+    if (error.code === "42501") return { ok: false, error: PM_ONLY_ERROR };
+    if (error.code === "22023") return { ok: false, error: "ข้อมูลงวดไม่ถูกต้อง" };
+    return { ok: false, error: "เปลี่ยนชื่องวดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+  if (ok !== true) return { ok: false, error: "ไม่พบงวดงาน" };
+
+  revalidatePath(projectHref(input.projectId));
+  return { ok: true };
+}

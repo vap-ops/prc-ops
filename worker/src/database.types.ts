@@ -4332,6 +4332,10 @@ export type Database = {
         }
         Returns: string
       }
+      set_deliverable_name: {
+        Args: { p_deliverable_id: string; p_name: string }
+        Returns: boolean
+      }
       set_equipment_daily_rate: {
         Args: { p_id: string; p_rate: number }
         Returns: undefined
