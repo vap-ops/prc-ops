@@ -28,17 +28,27 @@ there). Those two are tracked as pending-ADR, not built blind.
 
 ## Unit map
 
-- **U1 — rename a งวด (this unit).** `set_deliverable_name` RPC + per-row edit
-  sheet in the DeliverablesManager. Mirrors Spec 156.
+- **U1 — rename a งวด (DONE 2026-06-21).** `set_deliverable_name` RPC + per-row
+  edit sheet in the DeliverablesManager. Mirrors Spec 156.
 - **U2 — reorder งวด.** Move up/down by swapping `sort_order` with the neighbour
-  (`set_deliverable_sort_order` or a swap RPC) + ▲▼ controls in the manager.
+  (`swap_deliverable_order` RPC) + ▲▼ controls in the manager.
 - **U3 — งวด detail page.** `/projects/[projectId]/deliverables/[deliverableId]`
-  — งวด header + its งาน list + the edit/reorder actions in one place.
-- **PENDING ADR (0016 amendment) — raise before build:**
-  - Archive a งวด — needs a `status`/`archived_at` (archive-not-delete, per the
-    table's no-DELETE contract). OR a Spec-157-style delete-empty-งวด instead.
-  - Amount/dates — per-งวด contract value + planned/billing dates; decide whether
-    these live on `deliverables` or link to `client_billings` (Spec 149).
+  — งวด header + its งาน list + the edit/reorder/remove actions in one place.
+- **U4 — remove + delete (operator: "delete empty only, add a WP removal
+  workflow").** A way to remove/ungroup งาน from a งวด (bulk un-assign →
+  `set_work_package_deliverable(null)`, the reverse of U3-164's funnel), which
+  lets a งวด become empty; then `delete_deliverable` for an EMPTY งวด only (no
+  งาน bound) — mirrors Spec 157's delete-empty-WP. **Needs an ADR 0016 amendment**
+  (the table's no-DELETE contract gains a delete-empty exception, as ADR 0059 did
+  for WPs).
+- **U5 — งวด ↔ billing link (operator: "link to billing, spec 149").** Connect a
+  งวด to `client_billings` (Spec 149 already bills per งวด + retention) so amount
+  and dates have ONE source of truth, GL-aware — not duplicated fields on
+  `deliverables`. **Needs an ADR 0016 amendment + a Spec 149 integration design**
+  (its own design pass; the heaviest piece).
+
+Decisions recorded 2026-06-21 (operator): archive = delete-empty + งาน-removal
+(NOT a status column); money/dates = link to Spec 149 (NOT fields on งวด).
 
 ---
 
