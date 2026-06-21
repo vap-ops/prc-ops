@@ -66,12 +66,25 @@ by ADR 0062 (DC is a worker → Phase C).
   assign it to a WP; flip any "procurement denied" pins (contractors file 24, bank
   file). Unit-test `CONTACT_MGMT_ROLES`.
 
-## Phase C — Procurement onboards DCs (workers), incl. pay rate
+## Phase C — Procurement onboards DCs (workers), incl. pay rate — SHIPPED 2026-06-21 (mig 20260796000000)
 
 Today: procurement reads the roster (minus sensitive cols) but cannot create/
 update/assign workers or reach `/workers`. DC = a `workers` record (ADR 0062);
 bank/tax/phone/`day_rate` are zero-grant columns written only through the definer
 RPCs. **Highest-risk phase** (money + PII) and in the concurrent session's domain.
+
+**Shipped:** the concurrent spec-170 worker burst had settled (origin/main clean
+at the Phase B docs commit), so Phase C built without a race. Each of the five
+worker RPCs was re-sourced from the LIVE prod definition (`pg_get_functiondef`) —
+the concurrent session had been editing them — and CREATE OR REPLACE'd with
+`procurement` appended to the role gate, signatures UNCHANGED (so the
+authenticated-only EXECUTE lockdown, pgTAP 36, is preserved and db:types needs no
+regen). `project_director` stays in every list (file 91). The new
+`WORKER_ROSTER_ROLES` (= `PM_ROLES` + procurement) gates `/workers`; ทีมงาน →
+`/workers` is wired into `PROCUREMENT_HUB_NAV` + the procurement /settings block.
+New pgTAP file 172 proves procurement create/update/assign/invite/set-rate AND
+that bank/tax/phone/day_rate stay 42501 to a raw authenticated SELECT (PII
+isolation preserved — only the definer WRITE path opens). db:test 119/2286/0.
 
 - **New role const** `WORKER_ROSTER_ROLES` = `BACK_OFFICE_ROLES` (or `PM_ROLES` +
   procurement) — who reaches `/workers` + onboards.

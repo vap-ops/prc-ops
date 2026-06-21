@@ -6,6 +6,7 @@ import {
   ACCOUNTING_ROLES,
   PM_ROLES,
   SITE_STAFF_ROLES,
+  WORKER_ROSTER_ROLES,
   WP_DETAIL_ROLES,
   isManagerRole,
   isReadOnlyWpViewer,
@@ -94,6 +95,41 @@ describe("WP_DETAIL_ROLES (spec 171)", () => {
       "contractor",
     ] as const) {
       expect(WP_DETAIL_ROLES).not.toContain(role);
+    }
+  });
+});
+
+// Spec 172 Phase C / ADR 0062: procurement gains full DC-onboarding ownership
+// (create/update/assign/invite workers + set the pay rate). WORKER_ROSTER_ROLES
+// gates /workers + the onboarding RPCs = PM_ROLES + procurement (kept distinct
+// from BACK_OFFICE_ROLES per the "members coincide, meaning differs" doctrine —
+// this set is "who onboards DC workers", not "who curates contact master data").
+describe("WORKER_ROSTER_ROLES (spec 172 Phase C)", () => {
+  it("is the PM set plus procurement", () => {
+    expect([...WORKER_ROSTER_ROLES]).toEqual([
+      "project_manager",
+      "super_admin",
+      "project_director",
+      "procurement",
+    ]);
+  });
+
+  it("keeps project_director (rides along every gate, file 91 doctrine)", () => {
+    expect(WORKER_ROSTER_ROLES).toContain("project_director");
+  });
+
+  it("denies field + unserved roles", () => {
+    for (const role of [
+      "site_admin",
+      "project_coordinator",
+      "accounting",
+      "hr",
+      "technician",
+      "subcon_manager",
+      "visitor",
+      "contractor",
+    ] as const) {
+      expect(WORKER_ROSTER_ROLES).not.toContain(role);
     }
   });
 });

@@ -30,13 +30,26 @@ Nav (the spec-171-U4 lesson): subcontractors added to PROCUREMENT_HUB_NAV (deskt
 - a `role==='procurement'` /settings block (phone path). pgTAP 24 (+3) / 45 (+1) —
   procurement creates/updates a contractor, sets its bank, assigns it to a WP;
   db:test 0 failures; lint·typecheck·build green. **Phase C (DC onboarding incl.
-  rate) PENDING — HELD:** the concurrent spec-170 session is in the exact worker/bank
-  domain on main right now (prod migrations through 20260789, branch
-  `…u4c1-worker-bank-display`); doing C now would race their worker-RPC migrations.
-  Do C once that burst settles, re-sourcing create_worker / update_worker /
-  assign_worker_to_project / create_worker_invite / set_worker_day_rate from LIVE
-  prod. Built amid the concurrent session via explicit-path commits + `push origin
-HEAD:main` (rebase on non-ff); never `git add -A`.
+  rate) SHIPPED to prod (mig `20260796000000`):** the concurrent spec-170 worker
+  session had settled (origin/main at the Phase B docs commit, tree clean, no fresh
+  worker commits), so Phase C built cleanly. CREATE OR REPLACE on `create_worker` /
+  `update_worker` / `assign_worker_to_project` / `create_worker_invite` /
+  `set_worker_day_rate` adding `procurement` to each role gate — **every body
+  re-sourced from the LIVE prod definition** (pg_get_functiondef), signatures
+  UNCHANGED so the authenticated-only EXECUTE lockdown (pgTAP 36) is preserved and
+  db:types needs no regen; project_director rides along in every list (file 91).
+  Bank/tax/phone/day_rate are written through these definer bodies (zero
+  column-grant bypassed); the READ path stays admin-only — this opens onboarding,
+  not PII. App: new `WORKER_ROSTER_ROLES` (= PM_ROLES + procurement) gates
+  `/workers`; nav wired (the spec-171-U4 lesson) — ทีมงาน → `/workers` added to
+  PROCUREMENT_HUB_NAV (desktop) + the `role==='procurement'` /settings block (phone
+  path). New pgTAP file 172 (+19): procurement creates a DC (arrangement+bank+rate),
+  updates, sets the rate, assigns to a project, issues an invite; bank/tax/phone/
+  day_rate still 42501 to a raw authenticated SELECT (PII isolation preserved);
+  visitor still refused (negative control). db:test 119 files / 2286 / 0; unit
+  WORKER_ROSTER_ROLES (+3); lint·typecheck·test·build green. Built via explicit-path
+  commits + `push origin HEAD:main` (rebase on non-ff); never `git add -A`.
+  **Spec 172 COMPLETE (A no-op · B + C shipped).**
 
 ## Spec 171 — procurement can make purchase requests from the WP screen (2026-06-21)
 

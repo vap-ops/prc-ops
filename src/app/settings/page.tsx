@@ -105,9 +105,9 @@ export default async function SettingsPage() {
           </div>
         )}
 
-        {/* Spec 172 Phase B: procurement curates subcontractors (its other
-            back-office contacts — suppliers — sit in its hub strip). Mobile reaches
-            this via the ตั้งค่า tab. */}
+        {/* Spec 172 Phase B + C: procurement curates subcontractors and onboards
+            DC workers (its other back-office contacts — suppliers — sit in its hub
+            strip). Mobile reaches these via the ตั้งค่า tab. */}
         {role === "procurement" && (
           <div className="flex flex-col gap-2">
             <h2 className="text-meta text-ink-secondary font-semibold">ข้อมูลหลัก</h2>
@@ -117,6 +117,8 @@ export default async function SettingsPage() {
               label={SUBCONTRACTOR_LABEL}
               hint="บริษัทที่จ้างช่วง (จ่ายลูกทีมเอง)"
             />
+            {/* Spec 172 Phase C: procurement onboards DC workers (incl. the pay rate). */}
+            <SettingsLink href="/workers" icon={HardHat} label="ทีมงาน" hint="ทะเบียนทีมงาน DC" />
           </div>
         )}
 

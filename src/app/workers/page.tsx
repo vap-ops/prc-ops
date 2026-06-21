@@ -1,12 +1,15 @@
 import { PageShell } from "@/components/features/chrome/page-shell";
-// Spec 46 P1 — /workers: roster management, pm/super only. The ONE
-// surface where day rates render: the page is requireRole-gated and
-// the rates are fetched with the service-role client (the column has
-// no authenticated grant — C3). Nothing here flows to a field role.
+// Spec 46 P1 — /workers: roster management. The ONE surface where day
+// rates render: the page is requireRole-gated and the rates are fetched
+// with the service-role client (the column has no authenticated grant —
+// C3). Nothing here flows to a field role.
+// Spec 172 Phase C / ADR 0062: procurement joins PM/super here — it owns DC
+// onboarding (incl. the pay rate). The gate widens to WORKER_ROSTER_ROLES; the
+// admin-client day_rate read stays authorized by that same gate.
 
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
-import { PM_ROLES } from "@/lib/auth/role-home";
+import { WORKER_ROSTER_ROLES } from "@/lib/auth/role-home";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
@@ -19,7 +22,7 @@ import {
 export const metadata = { title: "ทีมงาน" };
 
 export default async function WorkersPage() {
-  const ctx = await requireRole(PM_ROLES);
+  const ctx = await requireRole(WORKER_ROSTER_ROLES);
 
   // Admin client: this page needs day_rate, which authenticated cannot
   // read by design. The requireRole gate above is what authorizes it.

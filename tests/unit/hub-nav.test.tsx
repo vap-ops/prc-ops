@@ -42,11 +42,15 @@ describe("canonical nav sets", () => {
   });
 
   // Spec 101: procurement's desktop strip — worklist + suppliers + settings.
+  // Spec 172 Phase B added ผู้รับเหมาช่วง (subcontractor curation); Phase C added
+  // ทีมงาน → /workers (DC onboarding). Both back-office domains procurement owns.
   it("pins the procurement set's destinations and order", () => {
     expect(PROCUREMENT_HUB_NAV).toEqual([
       { label: "คำขอซื้อ", href: "/requests" },
       { label: "โครงการ", href: "/projects" },
       { label: "ผู้ขาย", href: "/contacts/vendors" },
+      { label: "ผู้รับเหมาช่วง", href: "/contacts/subcontractors" },
+      { label: "ทีมงาน", href: "/workers" },
       { label: "ตั้งค่า", href: "/settings" },
     ]);
   });

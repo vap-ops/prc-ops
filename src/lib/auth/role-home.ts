@@ -79,6 +79,19 @@ export const BACK_OFFICE_ROLES: ReadonlyArray<UserRole> = [
 ];
 
 /**
+ * Spec 172 Phase C / ADR 0062: who may reach /workers AND onboard DC workers —
+ * the PM set PLUS procurement. The operator gave procurement full DC-onboarding
+ * ownership: create/update/assign workers, issue portal invites, AND set the pay
+ * rate. The `create_worker` / `update_worker` / `assign_worker_to_project` /
+ * `create_worker_invite` / `set_worker_day_rate` definer RPCs admit procurement
+ * (bank/tax/phone/day_rate are written through the definer, bypassing the
+ * zero column-grant; reads stay admin-client behind this page gate). Members
+ * coincide with BACK_OFFICE_ROLES today, but the meaning differs ("who onboards
+ * DC workers", not "who curates contact master data") — keep them separate.
+ */
+export const WORKER_ROSTER_ROLES: ReadonlyArray<UserRole> = [...PM_ROLES, "procurement"];
+
+/**
  * Spec 70: who can reach the purchasing surface (/requests + /requests/[id]).
  * The v1 requester base (SITE_STAFF_ROLES) PLUS procurement — the back-office
  * processor onboarded onto the worklist. Deliberately NOT folded into
