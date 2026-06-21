@@ -146,11 +146,129 @@ workerCount }`; `payrollToCsv` columns ช่าง/วัน/ค่าแรง
   (record by worker, one-per-(worker,period), compute by worker_id). **pgTAP
   `38-contractor-portal-rls`** — update the `get_my_dc_payments` test to the bridge.
 
-## U4–U6 — pending (see ADR 0062)
+## U4 — repoint the portal onto the worker (SPEC — awaiting operator review)
 
-U4 portal → workers.user_id (real portal binding; finish get_my_dc_payments +
-the RLS policies) · U5 remove /contacts/dc + door + the `dc` ContactsTabs
-machinery · U6 labels + cleanup.
+**Status: design only, no code (operator chose "spec U4 first", 2026-06-21).**
+This is the unit ADR 0062 §U4 names; it is materially bigger than U1–U3 and is
+decomposed into **U4a / U4b / U4c**, one per session.
+
+### Why it's big
+
+The external portal (ADR 0051, specs 130/131/132) is **entirely contractor-party
+bound**. A portal session is a `role='contractor'` user attached via
+`contractor_users` (the invite/claim flow, mig 20260706); every surface resolves
+through `current_user_contractor_id()`:
+
+| Portal surface                                                     | Source today                                        | Keyed on                                       |
+| ------------------------------------------------------------------ | --------------------------------------------------- | ---------------------------------------------- |
+| Profile (name, phone, tax_id, email, contact person, mailing addr) | `contractors`                                       | contractor_id (RLS self-read, mig 20260707)    |
+| Emergency contact + DOB                                            | `contractors`                                       | own-contractor RPC (mig 20260710)              |
+| Consents (PDPA / background check)                                 | `contractor_consents`                               | contractor_id (mig 20260709)                   |
+| Bank (display + staged change → PM approval)                       | `contact_bank` + `contractor_bank_change_requests`  | contractor_id (mig 20260708)                   |
+| Documents (id card / bank book / certs)                            | `contact_attachments` + storage `contractor/<id>/…` | contractor_id (mig 20260711)                   |
+| Crew (each member's current project)                               | `get_my_crew_assignments()`                         | contractor_id (mig 20260759)                   |
+| Payments                                                           | `get_my_dc_payments()`                              | **worker_id** (U3 bridge — already worker-ish) |
+
+**Key framing:** this portal _is the DC portal_ — it was built to show a DC their
+pay, packet, and deployment. Under ADR 0062 a DC is a worker, so U4 is "move the
+portal's binding + reads from the DC-contractor-party to the DC-worker," and the
+`contractor_users` DC binding becomes vestigial (retired in U6). **OPEN-1
+(verify before U4a):** confirm no _subcontractor-party_ portal tenant exists
+today (the surfaces above are all DC-shaped — packet/`dcTypeOfSubtype`, DC
+payments). If the portal is DC-only, the re-home is a clean move; if a
+subcontractor party is also meant to use it, the page becomes dual-tenant
+(branch on whichever of `current_user_contractor_id()` / `current_user_worker_id()`
+resolves) — a larger build.
+
+### The binding-mechanism decision (OPEN-2 — the key call)
+
+`workers.user_id` already exists (nullable, FK → users, **no unique constraint**,
+and already in the authenticated SELECT grant). How does a DC's LINE login attach
+to their worker row + become `role='contractor'`?
+
+- **(A) Worker invite/claim — RECOMMENDED.** Mirror `contractor_invites`: a PM
+  issues a worker-bound, single-use, expiring token from `/workers`; the DC logs
+  in (visitor) and claims it → sets `workers.user_id = auth.uid()` +
+  `role='contractor'`, audited. Same self-serve UX the contractor onboarding
+  already uses; no PM hunting for a LINE account. Costs a `worker_invites` table
+  (or generalising `contractor_invites` to be worker-bindable) + a
+  `claim_worker_invite` RPC.
+- **(B) PM links directly.** The DC logs in (visitor); the PM picks them in
+  `/workers` and sets `workers.user_id` + flips role. Less infra, but the PM must
+  match the right LINE account by hand, and a visitor→contractor role flip needs
+  a sanctioned writer anyway.
+
+Recommendation: **(A)**, for parity with the proven claim UX. U4a builds it.
+
+### U4a — worker portal binding primitive (DB + claim flow)
+
+- **Migration:** partial-unique index on `workers.user_id` (`where user_id is not
+null`) so one LINE user ↔ one worker; `current_user_worker_id()` SECURITY
+  DEFINER helper (`select id from workers where user_id = auth.uid()`), the
+  worker analogue of `current_user_contractor_id()`. The chosen binding mechanism
+  (A: `worker_invites` + `create_worker_invite` (pm/super/director) +
+  `claim_worker_invite` (visitor-only, one-binding, single-use/unexpired,
+  audited role_change)).
+- **RLS (ADR 0051 worker arm):** ADD permissive self-read arms so a DC worker
+  reads **their own** rows — `workers` (own row via `user_id = auth.uid()`;
+  day_rate/bank/tax stay column-grant-blocked), `labor_logs` (own DC days via
+  `worker_id = current_user_worker_id()`). Wrap helper calls `(select …)` for the
+  eval-once optimization (the file-40 lesson).
+- **`get_my_dc_payments()`:** drop the U3 contractor bridge → read
+  `worker_id = current_user_worker_id()` directly.
+- **`get_my_crew_assignments()`:** a DC worker has no crew; either return just
+  their own assignment (`worker_id = current_user_worker_id()`) or leave it
+  contractor-scoped (NULL for a worker-bound DC) and let U4b re-home the section.
+  Decide at build (OPEN-3).
+- **pgTAP `38`:** add a worker-bound DC fixture; prove own-only isolation
+  (worker, labor, payments) and that an internal/unbound session gets zero.
+- **No app surface yet** — U4a is the binding + data layer; the page still renders
+  the contractor surfaces (empty for a worker-bound DC until U4b/c). Safe: zero
+  prod data.
+
+### U4b — portal profile + consents on the worker
+
+- Re-home the **profile** surface to `workers` (name + phone + tax*id +
+  arrangement from U1). **OPEN-4:** the contractor-only fields the portal shows
+  today — email, contact_person, mailing_address, emergency_contact*\*, DOB — are
+  NOT on `workers`. Decide per field: add to `workers`, or drop for the DC portal.
+  (Emergency contact + DOB are plausibly worth keeping → add columns; email /
+  contact_person / mailing_address are firm-shaped → likely drop for an
+  individual DC.)
+- Re-home **consents** (PDPA / background check). **OPEN-5:** add a
+  `worker_consents` table (mirror `contractor_consents`) vs. make consent
+  polymorphic. Recommend a parallel `worker_consents` (smaller blast radius than
+  a polymorphic refactor).
+- Worker-scoped self-edit RPCs (the `update_own_*` analogues) + the portal page
+  branches to the worker surfaces when `current_user_worker_id()` resolves.
+- Tests: component + pgTAP for the worker self-edit + consent.
+
+### U4c — portal bank + documents on the worker
+
+- **Bank:** display from `workers` bank fields (U1) + a staged change → PM
+  approval. **OPEN-6:** reuse `contractor_bank_change_requests` with a `worker_id`
+  vs. a parallel `worker_bank_change_requests`. The U1 worker bank columns are
+  zero-grant (money) → the owner reads them via a definer RPC (the `day_rate`
+  posture).
+- **Documents:** id card / bank book for a DC worker — **OPEN-7:** a worker docs
+  table + storage prefix (`worker/<id>/…`) vs. extend `contact_attachments` with
+  `worker_id`. The packet/completeness checklist (`contractorPacketStatus`) is
+  reused against the worker's docs.
+- Tests: storage RLS + pgTAP + component, mirroring specs 130 U4 / 131 U2c.
+
+### Open decisions to confirm before building (summary)
+
+- **OPEN-1** portal tenancy: DC-only (clean move) or dual-tenant (party + worker)?
+- **OPEN-2** binding mechanism: (A) worker invite/claim [recommended] or (B) PM links directly?
+- **OPEN-3** `get_my_crew_assignments` for a DC worker: own-assignment vs re-home in U4b.
+- **OPEN-4** which contractor-only profile fields to carry onto `workers` vs drop.
+- **OPEN-5/6/7** new worker-side tables (consents / bank-change / docs) vs extend the contractor ones with `worker_id`.
+
+## U5–U6 — pending (see ADR 0062)
+
+U5 remove /contacts/dc + its door + the `dc` ContactsTabs machinery; stop writing
+`contractor_category='dc'` · U6 labels + cleanup; retire `contractor_users` for
+DC if fully unused.
 
 ## Open questions
 
