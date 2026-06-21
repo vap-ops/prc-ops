@@ -17,6 +17,7 @@ import { claimErrorToThai } from "./claim-error";
 import { validateBankChange } from "./bank-change";
 import { validateEmergencyContact } from "./emergency-contact";
 import { validateContractorProfile } from "./contractor-profile";
+import { validateWorkerProfile } from "./worker-profile";
 import { isPortalDocPurpose } from "./document-types";
 
 export type ClaimResult = { ok: true } | { ok: false; error: string };
@@ -158,6 +159,37 @@ export async function updateOwnContactInfo(input: {
     p_email: input.email.trim(),
     p_contact_person: input.contactPerson.trim(),
     p_mailing_address: input.mailingAddress.trim(),
+  });
+  if (error) return { ok: false, error: GENERIC_BANK };
+  revalidatePath("/portal");
+  return { ok: true };
+}
+
+// Spec 170 U4b / ADR 0062 — a bound DC WORKER self-edits their own portal profile
+// (contact + emergency + DOB) in one call. update_own_worker_profile is
+// column-scoped to those six fields for current_user_worker_id() (name/day_rate/
+// tax_id stay out of reach). Not money → applies directly, no staging.
+export async function updateOwnWorkerProfile(input: {
+  phone: string;
+  email: string;
+  emergencyName: string;
+  emergencyRelation: string;
+  emergencyPhone: string;
+  dob: string;
+}): Promise<ActionResult> {
+  const validation = validateWorkerProfile(input);
+  if (validation) return { ok: false, error: validation };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("update_own_worker_profile", {
+    p_phone: input.phone.trim(),
+    p_email: input.email.trim(),
+    p_emergency_name: input.emergencyName.trim(),
+    p_emergency_relation: input.emergencyRelation.trim(),
+    p_emergency_phone: input.emergencyPhone.trim(),
+    ...(input.dob ? { p_dob: input.dob } : {}),
   });
   if (error) return { ok: false, error: GENERIC_BANK };
   revalidatePath("/portal");

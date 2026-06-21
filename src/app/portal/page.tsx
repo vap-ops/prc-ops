@@ -20,6 +20,7 @@ import { BankChangeForm } from "@/components/features/portal/bank-change-form";
 import { PortalSelfEdit, type PortalConsent } from "@/components/features/portal/portal-self-edit";
 import { PortalDocuments } from "@/components/features/portal/portal-documents";
 import { PortalContactInfo } from "@/components/features/portal/portal-contact-info";
+import { WorkerProfileEdit } from "@/components/features/portal/worker-profile-edit";
 import { loadPortalData } from "@/lib/portal/load-portal-data";
 import { contractorPacketStatus, dcTypeOfSubtype, type DcPacket } from "@/lib/contacts/packet";
 
@@ -32,6 +33,81 @@ function baht(n: number): string {
 export default async function PortalPage() {
   await requireRole(["contractor"]);
   const supabase = await createClient();
+
+  // ADR 0062 U4b — a DC now binds on workers.user_id. If this session is a bound
+  // worker, render the worker portal (own profile + payments); otherwise fall
+  // through to the contractor-party portal below. (The contractor-based page
+  // surfaces — consents/bank/docs — re-home onto the worker in later units.)
+  const { data: workerProfileRows } = await supabase.rpc("get_my_worker_profile");
+  const wp = workerProfileRows?.[0];
+  if (wp) {
+    const { data: workerPayments } = await supabase.rpc("get_my_dc_payments");
+    const sortedWorkerPayments = [...(workerPayments ?? [])].sort((a, b) =>
+      b.period_to.localeCompare(a.period_to),
+    );
+    return (
+      <PageShell>
+        <header className="border-edge bg-card sticky top-0 z-20 border-b px-5 py-4">
+          <div className={`mx-auto flex ${PAGE_MAX_W} items-center justify-between gap-3`}>
+            <h1 className="text-title text-ink min-w-0 truncate font-bold tracking-tight">
+              {wp.name}
+            </h1>
+            <LogoutButton />
+          </div>
+        </header>
+
+        <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
+          <h2 className={SECTION_HEADING}>ข้อมูลของฉัน</h2>
+          <div className="mb-3">
+            <WorkerProfileEdit
+              initial={{
+                phone: wp.phone ?? "",
+                email: wp.email ?? "",
+                emergencyName: wp.emergency_contact_name ?? "",
+                emergencyRelation: wp.emergency_contact_relation ?? "",
+                emergencyPhone: wp.emergency_contact_phone ?? "",
+                dob: wp.date_of_birth ?? "",
+              }}
+            />
+          </div>
+          {/* tax_id is PM-entered from the ID card — read-only to the worker. */}
+          {wp.tax_id ? (
+            <dl className={`${CARD} mb-6`}>
+              <div className="flex justify-between gap-3 py-1">
+                <dt className="text-ink-secondary text-sm">เลขผู้เสียภาษี</dt>
+                <dd className="text-ink min-w-0 truncate text-sm font-medium">{wp.tax_id}</dd>
+              </div>
+            </dl>
+          ) : (
+            <div className="mb-6" />
+          )}
+
+          <h2 className={SECTION_HEADING}>ประวัติการจ่ายเงิน</h2>
+          {sortedWorkerPayments.length > 0 ? (
+            <ul className="flex flex-col gap-3">
+              {sortedWorkerPayments.map((p) => (
+                <li key={p.id} className={CARD}>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-ink-secondary text-xs">
+                      {formatThaiDate(p.period_from)} – {formatThaiDate(p.period_to)}
+                    </p>
+                    <p className="text-ink shrink-0 text-sm font-bold">
+                      {baht(p.paid_amount ?? 0)}
+                    </p>
+                  </div>
+                  <p className="text-ink-secondary mt-1 text-xs">
+                    จ่ายเมื่อ {formatThaiDate(p.paid_at)} · {DC_PAYMENT_METHOD_LABELS[p.method]}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyNotice>ยังไม่มีประวัติการจ่ายเงิน</EmptyNotice>
+          )}
+        </section>
+      </PageShell>
+    );
+  }
 
   // Spec 147 U4: one loader batches the RLS-self-scoped reads (was a serial
   // waterfall). Same queries/columns/results — only the scheduling changes.

@@ -3472,8 +3472,13 @@ export type Database = {
           contractor_id: string | null
           created_at: string
           created_by: string
+          date_of_birth: string | null
           day_rate: number
           dc_arrangement: Database["public"]["Enums"]["dc_arrangement"] | null
+          email: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          emergency_contact_relation: string | null
           id: string
           level: Database["public"]["Enums"]["worker_level"] | null
           name: string
@@ -3492,8 +3497,13 @@ export type Database = {
           contractor_id?: string | null
           created_at?: string
           created_by: string
+          date_of_birth?: string | null
           day_rate?: number
           dc_arrangement?: Database["public"]["Enums"]["dc_arrangement"] | null
+          email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relation?: string | null
           id?: string
           level?: Database["public"]["Enums"]["worker_level"] | null
           name: string
@@ -3512,8 +3522,13 @@ export type Database = {
           contractor_id?: string | null
           created_at?: string
           created_by?: string
+          date_of_birth?: string | null
           day_rate?: number
           dc_arrangement?: Database["public"]["Enums"]["dc_arrangement"] | null
+          email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relation?: string | null
           id?: string
           level?: Database["public"]["Enums"]["worker_level"] | null
           name?: string
@@ -4183,6 +4198,20 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_my_worker_profile: {
+        Args: never
+        Returns: {
+          date_of_birth: string
+          dc_arrangement: Database["public"]["Enums"]["dc_arrangement"]
+          email: string
+          emergency_contact_name: string
+          emergency_contact_phone: string
+          emergency_contact_relation: string
+          name: string
+          phone: string
+          tax_id: string
+        }[]
+      }
       gl_reconciliation: {
         Args: never
         Returns: {
@@ -4560,6 +4589,17 @@ export type Database = {
           p_name: string
           p_phone: string
           p_relation: string
+        }
+        Returns: undefined
+      }
+      update_own_worker_profile: {
+        Args: {
+          p_dob?: string
+          p_email?: string
+          p_emergency_name?: string
+          p_emergency_phone?: string
+          p_emergency_relation?: string
+          p_phone?: string
         }
         Returns: undefined
       }
