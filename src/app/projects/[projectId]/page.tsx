@@ -20,6 +20,7 @@ import { rankFromPriority } from "@/lib/work-packages/action-bands";
 import { loadProjectDetail } from "@/lib/projects/load-detail";
 import { WorkPackageList } from "./work-package-list";
 import { OnboardingChecklist } from "./onboarding-checklist";
+import { DeliverablesManager } from "./deliverables-manager";
 import { AddWorkPackageSheet } from "./add-work-package-sheet";
 import { CopyWorkPackagesSheet } from "./copy-work-packages-sheet";
 import { ImportWorkPackagesSheet } from "./import-work-packages-sheet";
@@ -196,6 +197,20 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
         )}
         {isPmRole && projectOpen && onboarding && (
           <OnboardingChecklist projectId={project.id} status={onboarding} />
+        )}
+        {/* Spec 164 U1: งวดงาน manager — the in-app home/door for deliverables
+            (PM-only, open projects). Counts derive from the WP list already
+            loaded. */}
+        {isPmRole && projectOpen && (
+          <DeliverablesManager
+            projectId={project.id}
+            deliverables={(deliverables ?? []).map((d) => ({
+              id: d.id,
+              code: d.code,
+              name: d.name,
+              wpCount: (workPackages ?? []).filter((wp) => wp.deliverable_id === d.id).length,
+            }))}
+          />
         )}
         <div className="mb-3 flex items-center justify-between gap-3">
           {/* SECTION_HEADING tokens minus its mb-3 — the row owns the gap so

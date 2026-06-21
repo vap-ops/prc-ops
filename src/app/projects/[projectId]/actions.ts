@@ -16,6 +16,10 @@ import {
   validateWorkPackageCode,
   validateWorkPackageName,
 } from "@/lib/work-packages/validate-new-wp";
+import {
+  validateDeliverableCode,
+  validateDeliverableName,
+} from "@/lib/deliverables/validate-new-deliverable";
 import { parseAndValidate } from "@/lib/wp-import/parse";
 import type { Database } from "@/lib/db/database.types";
 
@@ -267,4 +271,60 @@ export async function applyWpTemplate(projectId: string): Promise<ApplyTemplateR
 
   revalidatePath(projectHref(projectId));
   return { ok: true, inserted: inserted ?? 0 };
+}
+
+// Spec 164 U1 — create a งวดงาน (deliverable) under the project. Gate mirrors
+// the other project writes; the SECURITY DEFINER create_deliverable RPC is the
+// load-bearing authorisation. sort_order is auto-assigned in the RPC.
+export interface CreateDeliverableInput {
+  projectId: string;
+  code: string;
+  name: string;
+}
+
+export type CreateDeliverableResult = { ok: true; id: string } | { ok: false; error: string };
+
+export async function createDeliverable(
+  input: CreateDeliverableInput,
+): Promise<CreateDeliverableResult> {
+  if (!isValidUuid(input.projectId)) return { ok: false, error: "รหัสโครงการไม่ถูกต้อง" };
+
+  const codeResult = validateDeliverableCode(input.code);
+  if (!codeResult.ok) return { ok: false, error: codeResult.error };
+  const nameResult = validateDeliverableName(input.name);
+  if (!nameResult.ok) return { ok: false, error: nameResult.error };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
+
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+    return { ok: false, error: PM_ONLY_ERROR };
+  }
+
+  const { data: newId, error } = await supabase.rpc("create_deliverable", {
+    p_project_id: input.projectId,
+    p_code: codeResult.code,
+    p_name: nameResult.name,
+  });
+  if (error) {
+    console.error("[createDeliverable] RPC failed", {
+      projectId: input.projectId,
+      error: error.message,
+    });
+    if (error.code === "23505")
+      return { ok: false, error: "รหัสงวดนี้มีอยู่แล้วในโครงการ กรุณาใช้รหัสอื่น" };
+    if (error.code === "42501") return { ok: false, error: PM_ONLY_ERROR };
+    if (error.code === "22023") return { ok: false, error: "ข้อมูลงวดไม่ถูกต้อง" };
+    return { ok: false, error: "เพิ่มงวดงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+  if (!newId) return { ok: false, error: "เพิ่มงวดงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+
+  revalidatePath(projectHref(input.projectId));
+  return { ok: true, id: newId };
 }

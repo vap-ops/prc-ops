@@ -1,0 +1,49 @@
+// Spec 164 U1 — the "งวดงาน" manager section on the project page. Server
+// component: lists the project's งวด (code · name · N งาน) and hosts the
+// AddDeliverableSheet. This is the missing home/door for deliverables — before
+// U1 there was no in-app way to see or add them (they only came from a seed).
+// PM-only / open-project; the add button is the AddDeliverableSheet client island.
+
+import { AddDeliverableSheet } from "./add-deliverable-sheet";
+
+export interface DeliverableManagerRow {
+  id: string;
+  code: string;
+  name: string;
+  wpCount: number;
+}
+
+export function DeliverablesManager({
+  projectId,
+  deliverables,
+}: {
+  projectId: string;
+  deliverables: DeliverableManagerRow[];
+}) {
+  return (
+    <section className="mb-6">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 id="deliverables" className="text-section text-ink font-semibold">
+          งวดงาน
+        </h2>
+        <AddDeliverableSheet projectId={projectId} />
+      </div>
+
+      {deliverables.length === 0 ? (
+        <div className="rounded-card border-edge bg-sunk text-ink-secondary border px-4 py-3 text-sm">
+          ยังไม่มีงวดงาน — เพิ่มงวดเพื่อจัดกลุ่มรายการงาน แล้วงานจะถูกแบ่งตามงวดในมุมมอง “ตามงวดงาน”
+        </div>
+      ) : (
+        <ul className="rounded-card border-edge bg-card divide-edge divide-y border">
+          {deliverables.map((d) => (
+            <li key={d.id} className="flex items-center gap-3 px-4 py-2.5">
+              <span className="text-meta text-ink-secondary font-mono">{d.code}</span>
+              <span className="text-body text-ink min-w-0 flex-1 truncate">{d.name}</span>
+              <span className="text-meta text-ink-secondary shrink-0">{d.wpCount} งาน</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}

@@ -3947,6 +3947,10 @@ export type Database = {
         Args: { p_contractor_id: string }
         Returns: string
       }
+      create_deliverable: {
+        Args: { p_code: string; p_name: string; p_project_id: string }
+        Returns: string
+      }
       create_equipment_project_allocation: {
         Args: {
           p_batch_id: string
