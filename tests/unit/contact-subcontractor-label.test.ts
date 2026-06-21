@@ -15,7 +15,8 @@ const reads = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 
 const SUBCONTRACTOR_SURFACES = [
   "src/components/features/contacts/contacts-tabs.tsx",
-  "src/app/contacts/crews/page.tsx",
+  // Spec 168: the crews page split; the subcontractor list is its own page now.
+  "src/app/contacts/subcontractors/page.tsx",
   "src/app/contacts/[type]/[id]/page.tsx",
   "src/app/settings/page.tsx",
 ];

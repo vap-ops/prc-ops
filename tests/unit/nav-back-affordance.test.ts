@@ -35,8 +35,9 @@ const reads = (abs: string) => readFileSync(abs, "utf8");
 // DETAIL: any dynamic-segment page (entity detail, drilled down from a hub)
 // PLUS the static drill-downs folded under /settings — each carries a back chip
 // to /settings. Spec 93 added profile/workers/payroll; spec 99 split contacts
-// into three group screens (customers/vendors/crews); bare /contacts is now a
-// redirect (EXCLUDED below).
+// into group screens (customers/vendors/crews), and spec 168 split crews again
+// into separate subcontractors + dc pages; bare /contacts is now a redirect
+// (EXCLUDED below).
 const STATIC_DETAIL = [
   "profile",
   "workers",
@@ -50,7 +51,9 @@ const STATIC_DETAIL = [
   "accounting/wht",
   "contacts/customers",
   "contacts/vendors",
-  "contacts/crews",
+  // Spec 168: the crews group split into separate subcontractor + DC pages.
+  "contacts/subcontractors",
+  "contacts/dc",
   // Spec 162: the Nova operator console drills down from /settings (back chip).
   "nova",
   // Spec 161 U7: the dials calibration console drills down from /nova.

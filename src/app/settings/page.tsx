@@ -123,11 +123,18 @@ export default async function SettingsPage() {
                 label="ผู้ขาย/ผู้ให้บริการ"
                 hint="ผู้ขายวัสดุ · ผู้ให้บริการ"
               />
+              {/* Spec 168: subcontractor and DC are separate doors now. */}
               <SettingsLink
-                href="/contacts/crews"
+                href="/contacts/subcontractors"
                 icon={Hammer}
-                label={`${SUBCONTRACTOR_LABEL} / DC`}
-                hint={`${SUBCONTRACTOR_LABEL} · DC ประจำ/ชั่วคราว/บริษัท`}
+                label={SUBCONTRACTOR_LABEL}
+                hint="บริษัทที่จ้างช่วง (จ่ายลูกทีมเอง)"
+              />
+              <SettingsLink
+                href="/contacts/dc"
+                icon={Contact}
+                label="DC"
+                hint="DC ประจำ/ชั่วคราว/บริษัท"
               />
               <SettingsLink href="/workers" icon={HardHat} label="ทีมงาน" hint="ทะเบียนทีมงาน DC" />
               <SettingsLink

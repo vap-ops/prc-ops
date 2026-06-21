@@ -5,7 +5,10 @@
 
 // Spec 101: "suppliers" is a procurement-only subset of the vendors group —
 // procurement curates suppliers but cannot read service providers.
-export type ContactGroup = "customers" | "vendors" | "crews" | "suppliers";
+// Spec 168: the crews group split into separate subcontractors + dc pages —
+// ผู้รับเหมาช่วง (a firm that pays its own crew) and DC (paid directly) are
+// different relationships and no longer share a screen.
+export type ContactGroup = "customers" | "vendors" | "subcontractors" | "dc" | "suppliers";
 
 export type ContactTab = "clients" | "suppliers" | "service" | "contractors" | "dc";
 
@@ -13,7 +16,9 @@ export type ContactTab = "clients" | "suppliers" | "service" | "contractors" | "
 export const CONTACT_GROUP_TABS: Record<ContactGroup, readonly ContactTab[]> = {
   customers: ["clients"],
   vendors: ["suppliers", "service"],
-  crews: ["contractors", "dc"],
+  // Spec 168: one type per group → each is its own page, no tab hop.
+  subcontractors: ["contractors"],
+  dc: ["dc"],
   // Procurement's suppliers-only view (spec 101) — overlaps vendors' suppliers
   // tab; service providers stay PM-only.
   suppliers: ["suppliers"],

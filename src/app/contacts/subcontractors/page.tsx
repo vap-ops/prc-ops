@@ -1,6 +1,7 @@
-// Spec 99 — /contacts/crews (ผู้รับเหมา + DC): the labor-crew group. ผู้รับเหมา
-// and DC are the ONE contractors table split by contractor_category. PM/super
-// only; no money column read here, user session.
+// Spec 168 — /contacts/subcontractors (ผู้รับเหมาช่วง): the subcontractor list,
+// split off from the old merged crews page so it no longer shares a screen with
+// DC. ผู้รับเหมาช่วง = contractors table rows with contractor_category='contractor'
+// (a firm PRC hires that pays its OWN crew). PM/super only; user session.
 
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
@@ -13,37 +14,25 @@ import { ContactsTabs } from "@/components/features/contacts/contacts-tabs";
 import type { RecordRow } from "@/components/features/purchasing/record-manager";
 import { SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
 
-export const metadata = { title: `${SUBCONTRACTOR_LABEL}และทีม DC` };
+export const metadata = { title: SUBCONTRACTOR_LABEL };
 
-export default async function ContactsCrewsPage() {
+export default async function ContactsSubcontractorsPage() {
   const ctx = await requireRole(PM_ROLES);
   const supabase = await createServerSupabase();
 
   const { data } = await supabase
     .from("contractors")
     .select(
-      "id, name, phone, contractor_category, contractor_subtype, status, contact_person, email, mailing_address, tax_id, specialty, note",
+      "id, name, phone, contractor_category, status, contact_person, email, mailing_address, tax_id, specialty, note",
     )
+    .eq("contractor_category", "contractor")
     .order("name", { ascending: true });
 
-  const toRow = (r: {
-    id: string;
-    name: string;
-    phone: string | null;
-    contractor_subtype: string | null;
-    status: string;
-    contact_person: string | null;
-    email: string | null;
-    mailing_address: string | null;
-    tax_id: string | null;
-    specialty: string | null;
-    note: string | null;
-  }): RecordRow => ({
+  const contractors: RecordRow[] = (data ?? []).map((r) => ({
     id: r.id,
     values: {
       name: r.name,
       phone: r.phone,
-      contractorSubtype: r.contractor_subtype,
       status: r.status,
       contactPerson: r.contact_person,
       email: r.email,
@@ -52,22 +41,16 @@ export default async function ContactsCrewsPage() {
       specialty: r.specialty,
       note: r.note,
     },
-  });
-
-  const all = data ?? [];
-  const contractors: RecordRow[] = all
-    .filter((r) => r.contractor_category === "contractor")
-    .map(toRow);
-  const dc: RecordRow[] = all.filter((r) => r.contractor_category === "dc").map(toRow);
+  }));
 
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
       <DetailHeader backHref="/settings" backLabel="ตั้งค่า">
-        <h1 className="text-title text-ink font-bold tracking-tight">{`${SUBCONTRACTOR_LABEL}และทีม DC`}</h1>
+        <h1 className="text-title text-ink font-bold tracking-tight">{SUBCONTRACTOR_LABEL}</h1>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
-        <ContactsTabs group="crews" contractors={contractors} dc={dc} />
+        <ContactsTabs group="subcontractors" contractors={contractors} />
       </div>
     </PageShell>
   );

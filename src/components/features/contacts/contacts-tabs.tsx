@@ -1,9 +1,10 @@
 "use client";
 
-// Spec 87 — Contacts v2 list-first shell. Spec 99 split the five types into
-// three GROUP screens (customers / vendors / crews, see lib/contacts/groups);
-// this shell renders one group's tabs (ผู้รับเหมา and DC are the ONE contractors
-// table split by contractor_category). Each tab is a list with an Add button
+// Spec 87 — Contacts v2 list-first shell. Spec 99 split the types into GROUP
+// screens, and spec 168 split crews again so subcontractors + dc are their own
+// single-tab pages (see lib/contacts/groups); this shell renders one group's
+// tabs (ผู้รับเหมา and DC are the ONE contractors table split by
+// contractor_category). Each tab is a list with an Add button
 // that opens the form in a BottomSheet (spec 78); statused tabs (contractor/dc/
 // service) carry a chip and a status sub-filter. Actions are injected per tab
 // (the tab sets the category for contractor/dc creates).
