@@ -255,7 +255,14 @@ one-form component; `/portal` branches on a resolved worker binding → worker v
 (plan 15: self + column scope, unbound refused). Verified lint · typecheck ·
 vitest 1344 · db:test 117/2251/0 · build.
 
-**U4b-2 (consents, polymorphic) + U4c (bank + docs) still pending.**
+**U4b-2 (polymorphic consents) SHIPPED 2026-06-21** (commit 61442f6, migs 20260787
+
+- fix-forward 20260788). `contractor_consents` gained `worker_id` + nullable
+  `contractor_id` + XOR check; bound-worker read-arm; `record_worker_consent`
+  (self-scoped) + `revoke_contractor_consent` generalized to the bound worker;
+  `recordOwnWorkerConsent` action + `WorkerConsents` component; the /portal worker
+  branch renders consents. 20260788 re-added the `project_director` arm the
+  fix dropped (pgTAP file 90). pgTAP 118 (plan 10). **U4c (bank + docs) still pending.**
 
 **Original U4b plan (profile + consents):**
 
