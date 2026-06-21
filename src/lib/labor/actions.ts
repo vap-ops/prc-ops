@@ -157,23 +157,24 @@ export async function refreezeWpLaborCost(input: {
   return { ok: true };
 }
 
-// Spec 127 U2 — record a DC payment for a contractor × period. pm/super only
-// (money). The record_dc_payment RPC recomputes the owed amount server-side,
-// re-gates the role, locks per (contractor, period) and refuses a duplicate —
-// this action validates shape and maps RPC errors to Thai. Authenticated
-// session so the RPC gate passes and paid_by/the audit actor is the PM.
+// Spec 127 U2 / spec 170 U3 — record a DC payment for a worker × period.
+// pm/super only (money). The record_dc_payment RPC recomputes the owed amount
+// server-side, re-gates the role, locks per (worker, period) and refuses a
+// duplicate — this action validates shape and maps RPC errors to Thai.
+// Authenticated session so the RPC gate passes and paid_by/the audit actor is
+// the PM. ADR 0062: a DC is a worker, so the payee bound here is the worker.
 export type RecordDcPaymentResult = { ok: true } | { ok: false; error: string };
 
 const GENERIC_PAYMENT_ERROR = "บันทึกการจ่ายเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
 function paymentRpcErrorToThai(message: string): string {
   if (message.includes("already exists")) return "บันทึกการจ่ายของช่วงนี้ไว้แล้ว";
-  if (message.includes("not found")) return "ไม่พบผู้รับเหมา";
+  if (message.includes("not found")) return "ไม่พบช่าง";
   return GENERIC_PAYMENT_ERROR;
 }
 
 export async function recordDcPayment(input: {
-  contractorId: string;
+  workerId: string;
   from: string;
   to: string;
   paidAt: string;
@@ -197,7 +198,7 @@ export async function recordDcPayment(input: {
   }
 
   const { error } = await supabase.rpc("record_dc_payment", {
-    p_contractor: input.contractorId,
+    p_worker: input.workerId,
     p_from: input.from,
     p_to: input.to,
     p_paid_amount: input.paidAmount,

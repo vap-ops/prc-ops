@@ -33,7 +33,7 @@ function isIsoDate(value: string): boolean {
 }
 
 export function validateDcPayment(input: {
-  contractorId: string;
+  workerId: string;
   from: string;
   to: string;
   paidAt: string;
@@ -42,7 +42,7 @@ export function validateDcPayment(input: {
   reference: string;
   note: string;
 }): string | null {
-  if (!UUID_REGEX.test(input.contractorId)) {
+  if (!UUID_REGEX.test(input.workerId)) {
     return "ข้อมูลไม่ถูกต้อง";
   }
   if (!isIsoDate(input.from) || !isIsoDate(input.to) || input.to < input.from) {

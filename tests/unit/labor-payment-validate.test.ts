@@ -6,11 +6,11 @@ import { describe, it, expect } from "vitest";
 import { validateDcPayment } from "@/lib/labor/validate";
 import { DC_PAYMENT_METHODS, DC_PAYMENT_METHOD_LABELS } from "@/lib/labor/payments";
 
-const C = "11111111-1111-4111-8111-111111111111";
+const W = "11111111-1111-4111-8111-111111111111";
 
 function input(over: Partial<Parameters<typeof validateDcPayment>[0]> = {}) {
   return {
-    contractorId: C,
+    workerId: W,
     from: "2026-06-01",
     to: "2026-06-30",
     paidAt: "2026-06-30",
@@ -27,8 +27,8 @@ describe("validateDcPayment", () => {
     expect(validateDcPayment(input())).toBeNull();
   });
 
-  it("rejects a bad contractor id", () => {
-    expect(validateDcPayment(input({ contractorId: "nope" }))).not.toBeNull();
+  it("rejects a bad worker id", () => {
+    expect(validateDcPayment(input({ workerId: "nope" }))).not.toBeNull();
   });
 
   it("rejects a malformed or inverted period", () => {

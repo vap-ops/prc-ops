@@ -1,40 +1,39 @@
-// Spec 127 U1 — DC payment reconciliation. annotatePayrollPayments maps a
-// payroll report (spec 69) against recorded dc_payments rows: per contractor
-// group, is there a CURRENT (non-superseded, non-tombstone) payment for this
-// exact period? "drifted" = the live owed (group.amount) has moved away from
-// the computed snapshot taken at record time (same frozen-vs-live idea as the
-// cost-freeze drift, spec 68). Pure — no I/O.
+// Spec 127 U1 / spec 170 U3 — DC payment reconciliation. annotatePayrollPayments
+// maps a payroll report (spec 69) against recorded dc_payments rows: per WORKER
+// (the payee, ADR 0062), is there a CURRENT (non-superseded, non-tombstone)
+// payment for this exact period? "drifted" = the live owed (worker.amount) has
+// moved away from the computed snapshot taken at record time (same frozen-vs-live
+// idea as the cost-freeze drift, spec 68). Pure — no I/O.
 
 import { describe, it, expect } from "vitest";
 import { annotatePayrollPayments, round2, type DcPaymentRow } from "@/lib/labor/payments";
-import type { ContractorGroup, PayrollReport, PayrollRange } from "@/lib/labor/payroll";
+import type { WorkerPay, PayrollReport, PayrollRange } from "@/lib/labor/payroll";
 
 const RANGE: PayrollRange = { from: "2026-06-01", to: "2026-06-30" };
 
-function group(over: Partial<ContractorGroup> = {}): ContractorGroup {
+function worker(over: Partial<WorkerPay> = {}): WorkerPay {
   return {
-    contractorId: "c1",
-    contractorName: "บริษัท ก",
-    workers: [],
+    workerId: "w1",
+    name: "ช่าง ก",
     days: 5,
     amount: 1900,
     ...over,
   };
 }
 
-function report(contractors: ContractorGroup[]): PayrollReport {
+function report(workers: WorkerPay[]): PayrollReport {
   return {
-    contractors,
-    totalDays: contractors.reduce((s, g) => s + g.days, 0),
-    totalAmount: contractors.reduce((s, g) => s + g.amount, 0),
-    workerCount: contractors.reduce((s, g) => s + g.workers.length, 0),
+    workers,
+    totalDays: workers.reduce((s, w) => s + w.days, 0),
+    totalAmount: workers.reduce((s, w) => s + w.amount, 0),
+    workerCount: workers.length,
   };
 }
 
 function pay(over: Partial<DcPaymentRow> = {}): DcPaymentRow {
   return {
     id: "p1",
-    contractor_id: "c1",
+    worker_id: "w1",
     period_from: "2026-06-01",
     period_to: "2026-06-30",
     computed_amount: 1900,
@@ -47,9 +46,9 @@ function pay(over: Partial<DcPaymentRow> = {}): DcPaymentRow {
 }
 
 describe("annotatePayrollPayments", () => {
-  it("marks a group unpaid when there are no payments", () => {
-    const r = annotatePayrollPayments(report([group()]), [], RANGE);
-    expect(r.contractors[0]!.payment).toBeNull();
+  it("marks a worker unpaid when there are no payments", () => {
+    const r = annotatePayrollPayments(report([worker()]), [], RANGE);
+    expect(r.workers[0]!.payment).toBeNull();
     expect(r.paidCount).toBe(0);
     expect(r.unpaidCount).toBe(1);
     expect(r.outstandingAmount).toBe(1900);
@@ -57,8 +56,8 @@ describe("annotatePayrollPayments", () => {
   });
 
   it("matches a current payment for the exact period", () => {
-    const r = annotatePayrollPayments(report([group()]), [pay()], RANGE);
-    const p = r.contractors[0]!.payment;
+    const r = annotatePayrollPayments(report([worker()]), [pay()], RANGE);
+    const p = r.workers[0]!.payment;
     expect(p).not.toBeNull();
     expect(p!.paid).toBe(true);
     expect(p!.paidAmount).toBe(1900);
@@ -73,31 +72,35 @@ describe("annotatePayrollPayments", () => {
   });
 
   it("does NOT match a payment whose period differs (off-by-one)", () => {
-    const r = annotatePayrollPayments(report([group()]), [pay({ period_to: "2026-06-29" })], RANGE);
-    expect(r.contractors[0]!.payment).toBeNull();
-  });
-
-  it("does NOT match a payment for a different contractor", () => {
     const r = annotatePayrollPayments(
-      report([group({ contractorId: "c1" })]),
-      [pay({ contractor_id: "c2" })],
+      report([worker()]),
+      [pay({ period_to: "2026-06-29" })],
       RANGE,
     );
-    expect(r.contractors[0]!.payment).toBeNull();
+    expect(r.workers[0]!.payment).toBeNull();
   });
 
-  it("ignores a superseded payment (anti-join) and a voiding tombstone leaves the group unpaid", () => {
+  it("does NOT match a payment for a different worker", () => {
+    const r = annotatePayrollPayments(
+      report([worker({ workerId: "w1" })]),
+      [pay({ worker_id: "w2" })],
+      RANGE,
+    );
+    expect(r.workers[0]!.payment).toBeNull();
+  });
+
+  it("ignores a superseded payment (anti-join) and a voiding tombstone leaves the worker unpaid", () => {
     // p1 (the original, matches the period) is superseded by p2, a tombstone
     // (paid_amount null) that voids it → no current paid row → unpaid.
     const original = pay({ id: "p1" });
     const voidRow = pay({ id: "p2", paid_amount: null, superseded_by: "p1" });
-    const r = annotatePayrollPayments(report([group()]), [original, voidRow], RANGE);
-    expect(r.contractors[0]!.payment).toBeNull();
+    const r = annotatePayrollPayments(report([worker()]), [original, voidRow], RANGE);
+    expect(r.workers[0]!.payment).toBeNull();
     expect(r.unpaidCount).toBe(1);
   });
 
   it("uses the CURRENT (superseding) payment when it carries a corrected amount", () => {
-    // p1 superseded by p2 which corrects paid_amount to 1500 → group is paid 1500.
+    // p1 superseded by p2 which corrects paid_amount to 1500 → worker is paid 1500.
     const original = pay({ id: "p1", paid_amount: 1900 });
     const corrected = pay({
       id: "p2",
@@ -105,46 +108,37 @@ describe("annotatePayrollPayments", () => {
       computed_amount: 1900,
       superseded_by: "p1",
     });
-    const r = annotatePayrollPayments(report([group()]), [original, corrected], RANGE);
-    expect(r.contractors[0]!.payment!.paidAmount).toBe(1500);
+    const r = annotatePayrollPayments(report([worker()]), [original, corrected], RANGE);
+    expect(r.workers[0]!.payment!.paidAmount).toBe(1500);
     expect(r.paidAmountTotal).toBe(1500);
   });
 
   it("flags drift when live owed moved away from the computed snapshot", () => {
     // recorded computed 1900, but a later labor correction pushed live to 2100.
     const r = annotatePayrollPayments(
-      report([group({ amount: 2100 })]),
+      report([worker({ amount: 2100 })]),
       [pay({ computed_amount: 1900 })],
       RANGE,
     );
-    expect(r.contractors[0]!.payment!.drifted).toBe(true);
+    expect(r.workers[0]!.payment!.drifted).toBe(true);
   });
 
   it("does not flag drift for sub-cent differences (2-dp compare)", () => {
     const r = annotatePayrollPayments(
-      report([group({ amount: 1900.004 })]),
+      report([worker({ amount: 1900.004 })]),
       [pay({ computed_amount: 1900 })],
       RANGE,
     );
-    expect(r.contractors[0]!.payment!.drifted).toBe(false);
+    expect(r.workers[0]!.payment!.drifted).toBe(false);
   });
 
-  it("never marks the unassigned (null-contractor) group as paid", () => {
-    const r = annotatePayrollPayments(
-      report([group({ contractorId: null, contractorName: "ไม่ระบุผู้รับเหมา" })]),
-      [pay({ contractor_id: "c1" })],
-      RANGE,
-    );
-    expect(r.contractors[0]!.payment).toBeNull();
-  });
-
-  it("rolls up counts and outstanding across mixed paid/unpaid groups", () => {
+  it("rolls up counts and outstanding across mixed paid/unpaid workers", () => {
     const r = annotatePayrollPayments(
       report([
-        group({ contractorId: "c1", amount: 1900 }),
-        group({ contractorId: "c2", contractorName: "บริษัท ข", amount: 800 }),
+        worker({ workerId: "w1", amount: 1900 }),
+        worker({ workerId: "w2", name: "ช่าง ข", amount: 800 }),
       ]),
-      [pay({ contractor_id: "c1", paid_amount: 1900 })],
+      [pay({ worker_id: "w1", paid_amount: 1900 })],
       RANGE,
     );
     expect(r.paidCount).toBe(1);

@@ -8,6 +8,11 @@ select plan(19);
 -- internal role-level access (site_admin) is unchanged; the dc_payments money
 -- posture (zero authenticated grant) is preserved — a DC reads their own money
 -- through get_my_dc_payments(), not the raw table.
+--
+-- Spec 170 U3 (ADR 0062): dc_payments is now keyed on worker_id. The portal
+-- binding is still via the contractor until U4, so get_my_dc_payments() bridges
+-- worker → contractor (own payments = payments of workers bound to my
+-- contractor).
 -- ============================================================================
 
 insert into auth.users (id, email, raw_user_meta_data) values
@@ -44,10 +49,10 @@ insert into public.labor_logs (id, work_package_id, worker_id, work_date, day_fr
   ('fb000000-0000-4000-8000-000000000138', 'e0000000-0000-4000-8000-000000000138', 'b2000000-0000-4000-8000-000000000138',
    date '2026-06-05', 'full', 450.00, 'Worker B', 'dc', 'bb000000-0000-4000-8000-000000000138', '51000000-0000-4000-8000-000000000138');
 
-insert into public.dc_payments (contractor_id, period_from, period_to, computed_amount, computed_days,
+insert into public.dc_payments (worker_id, period_from, period_to, computed_amount, computed_days,
     paid_amount, paid_at, method, paid_by) values
-  ('aa000000-0000-4000-8000-000000000138', '2026-06-01', '2026-06-30', 400.00, 1.0, 400.00, '2026-06-30', 'bank_transfer', '51000000-0000-4000-8000-000000000138'),
-  ('bb000000-0000-4000-8000-000000000138', '2026-06-01', '2026-06-30', 450.00, 1.0, 450.00, '2026-06-30', 'cash', '51000000-0000-4000-8000-000000000138');
+  ('a2000000-0000-4000-8000-000000000138', '2026-06-01', '2026-06-30', 400.00, 1.0, 400.00, '2026-06-30', 'bank_transfer', '51000000-0000-4000-8000-000000000138'),
+  ('b2000000-0000-4000-8000-000000000138', '2026-06-01', '2026-06-30', 450.00, 1.0, 450.00, '2026-06-30', 'cash', '51000000-0000-4000-8000-000000000138');
 
 grant insert on _tap_buf to authenticated, anon;
 grant select on _tap_buf to authenticated, anon;
@@ -82,8 +87,8 @@ select throws_ok(
   '42501', null, 'dc_payments stays zero-grant — uA cannot read it directly');
 select is((select count(*) from public.get_my_dc_payments()),
   1::bigint, 'uA reads their own payment via the definer reader');
-select is((select contractor_id from public.get_my_dc_payments() limit 1),
-  'aa000000-0000-4000-8000-000000000138'::uuid, 'the payment uA reads is Contractor A''s');
+select is((select worker_id from public.get_my_dc_payments() limit 1),
+  'a2000000-0000-4000-8000-000000000138'::uuid, 'the payment uA reads is Worker A''s (bound to Contractor A)');
 select is((select paid_amount from public.get_my_dc_payments() limit 1),
   400.00, 'uA sees their own amount (400)');
 
@@ -99,8 +104,8 @@ select is((select count(*) from public.workers
 select is((select count(*) from public.labor_logs
             where contractor_id_snapshot = 'aa000000-0000-4000-8000-000000000138'),
   0::bigint, 'uB cannot see Contractor A''s labor days');
-select is((select contractor_id from public.get_my_dc_payments() limit 1),
-  'bb000000-0000-4000-8000-000000000138'::uuid, 'uB reads only their own payment');
+select is((select worker_id from public.get_my_dc_payments() limit 1),
+  'b2000000-0000-4000-8000-000000000138'::uuid, 'uB reads only their own payment (Worker B)');
 
 -- ============================================================================
 -- C. site_admin — internal role-level access is unchanged; no contractor money.

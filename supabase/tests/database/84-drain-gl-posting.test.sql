@@ -14,8 +14,10 @@ insert into public.projects (id, code, name) values
   ('cc000001-0000-4000-8000-000000000624', 'TAP-GL-DRAIN', 'Drain fixture');
 insert into public.work_packages (id, project_id, code, name) values
   ('ee000001-0000-4000-8000-000000000624', 'cc000001-0000-4000-8000-000000000624', 'WP-DR-1', 'Drain WP');
-insert into public.contractors (id, name, created_by) values
-  ('dd000001-0000-4000-8000-000000000624', 'Drain Crew', '11111111-1111-1111-1111-111111110624');
+-- ADR 0062: a DC payment keys on the worker (the payee), not a contractor.
+insert into public.workers (id, name, worker_type, day_rate, active, created_by) values
+  ('aa000001-0000-4000-8000-000000000624', 'Drain DC', 'dc', 200.00, true,
+   '11111111-1111-1111-1111-111111110624');
 insert into public.equipment_owners (id, name, created_by) values
   ('b0000001-0000-4000-8000-000000000624', 'Drain Sister Co', '11111111-1111-1111-1111-111111110624');
 insert into public.suppliers (id, name, created_by) values
@@ -23,9 +25,9 @@ insert into public.suppliers (id, name, created_by) values
 
 -- Subledger rows -> the U4a triggers enqueue four pending jobs.
 insert into public.dc_payments
-  (id, contractor_id, period_from, period_to, computed_amount, computed_days, paid_amount, paid_at, method, paid_by)
+  (id, worker_id, period_from, period_to, computed_amount, computed_days, paid_amount, paid_at, method, paid_by)
 values
-  ('d1000001-0000-4000-8000-000000000624', 'dd000001-0000-4000-8000-000000000624',
+  ('d1000001-0000-4000-8000-000000000624', 'aa000001-0000-4000-8000-000000000624',
    date '2026-06-01', date '2026-06-15', 1000, 5, 1000, date '2026-06-16', 'cash',
    '11111111-1111-1111-1111-111111110624');
 insert into public.wp_labor_costs (work_package_id, own_cost, dc_cost, frozen_by) values
@@ -60,13 +62,14 @@ select is((select count(*) from public.gl_posting_outbox
   where status = 'posted' and journal_entry_id is not null), 4::bigint,
   'each posted job links its journal entry');
 
--- DC payment: Dr DC-clearing 2110 1000 / Cr Bank 1110 1000.
+-- DC payment: Dr DC-clearing 2110 1000 / Cr Bank 1110 1000. ADR 0062: the payee
+-- is a worker, journal_lines has no worker dimension → the line carries no party.
 select is((select count(*) from public.journal_lines
   where entry_id = (select id from public.journal_entries
       where source_table='dc_payments' and source_id='d1000001-0000-4000-8000-000000000624' and source_event='dc_payment')
     and account_id = (select id from public.gl_accounts where code='2110')
-    and debit = 1000 and contractor_id = 'dd000001-0000-4000-8000-000000000624'),
-  1::bigint, 'DC payment debits DC-clearing 1000 (contractor party)');
+    and debit = 1000 and contractor_id is null),
+  1::bigint, 'DC payment debits DC-clearing 1000 (no party — worker payee)');
 select is((select count(*) from public.journal_lines
   where entry_id = (select id from public.journal_entries
       where source_table='dc_payments' and source_id='d1000001-0000-4000-8000-000000000624' and source_event='dc_payment')
@@ -129,10 +132,10 @@ select is((select sum(debit) from public.journal_lines
 -- D. Void a DC payment (supersede -> reverse old, post nothing new).
 -- ============================================================================
 insert into public.dc_payments
-  (id, contractor_id, period_from, period_to, computed_amount, computed_days,
+  (id, worker_id, period_from, period_to, computed_amount, computed_days,
    paid_amount, paid_at, method, paid_by, superseded_by, correction_reason)
 values
-  ('d2000002-0000-4000-8000-000000000624', 'dd000001-0000-4000-8000-000000000624',
+  ('d2000002-0000-4000-8000-000000000624', 'aa000001-0000-4000-8000-000000000624',
    date '2026-06-01', date '2026-06-15', 1000, 5, null, date '2026-06-16', 'cash',
    '11111111-1111-1111-1111-111111110624', 'd1000001-0000-4000-8000-000000000624', 'wrong amount');
 select is((select public.drain_gl_posting(100)), 1, 'drain processes the void');

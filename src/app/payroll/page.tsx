@@ -1,6 +1,6 @@
-// Spec 69 — PM-only DC payroll: subcontractor days pooled across work
-// packages for a calendar period, rolled up by contractor → worker. Server
-// Component: money is read via the admin client and rendered server-side,
+// Spec 69 / spec 170 U3 — PM-only DC payroll: DC days pooled across work
+// packages for a calendar period, rolled up per worker (the payee, ADR 0062).
+// Server Component: money is read via the admin client and rendered server-side,
 // never entering a client bundle; requireRole(PM_ROLES) is the gate the SA
 // screens never pass. Period is a zero-client-JS GET form (same pattern as
 // /requests), defaulting to the current Bangkok month.
@@ -25,7 +25,7 @@ import { formatThaiDate } from "@/lib/i18n/labels";
 import { parsePayrollRange } from "@/lib/labor/payroll";
 import { fetchPayrollReport } from "@/lib/labor/fetch-payroll";
 import { annotatePayrollPayments, DC_PAYMENT_METHOD_LABELS } from "@/lib/labor/payments";
-import { fetchPeriodPayments, fetchContractorBanks } from "@/lib/labor/fetch-payments";
+import { fetchPeriodPayments, fetchWorkerBanks } from "@/lib/labor/fetch-payments";
 import { RecordPaymentSheet } from "@/components/features/labor/record-payment-sheet";
 
 export const metadata = { title: "ค่าแรง DC" };
@@ -50,14 +50,12 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
   const admin = createAdminClient();
   const report = await fetchPayrollReport(admin, range);
 
-  // Spec 127 U2 — annotate each contractor group with its recorded payment for
-  // this exact period (paid/outstanding/drift). Banks for the record sheet's
-  // transfer target are batch-read (admin client; PM-gated page).
+  // Spec 127 U2 / spec 170 U3 — annotate each worker with their recorded payment
+  // for this exact period (paid/outstanding/drift). Worker banks for the record
+  // sheet's transfer target are batch-read (admin client; PM-gated page).
   const payments = await fetchPeriodPayments(admin, range);
-  const contractorIds = report.contractors
-    .map((g) => g.contractorId)
-    .filter((id): id is string => id !== null);
-  const banks = await fetchContractorBanks(admin, contractorIds);
+  const workerIds = report.workers.map((w) => w.workerId);
+  const banks = await fetchWorkerBanks(admin, workerIds);
   const annotated = annotatePayrollPayments(report, payments, range);
   const todayIso = bangkokTodayIso();
 
@@ -102,7 +100,7 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
         </form>
 
         {report.workerCount === 0 ? (
-          <EmptyNotice>ไม่มีบันทึกค่าแรงผู้รับเหมาในช่วงนี้</EmptyNotice>
+          <EmptyNotice>ไม่มีบันทึกค่าแรง DC ในช่วงนี้</EmptyNotice>
         ) : (
           <>
             <div className={`${CARD} mb-4 flex items-center justify-between gap-3`}>
@@ -129,58 +127,44 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
             </div>
 
             <ul className="flex flex-col gap-4">
-              {annotated.contractors.map((g) => (
-                <li key={g.contractorId ?? "unassigned"} className={CARD}>
-                  <div className="border-edge mb-2 flex items-center justify-between gap-3 border-b pb-2">
-                    <p className="text-ink min-w-0 truncate font-semibold">{g.contractorName}</p>
-                    <p className="text-ink shrink-0 text-sm font-bold">{baht(g.amount)}</p>
+              {annotated.workers.map((w) => (
+                <li key={w.workerId} className={CARD}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-ink truncate font-semibold">{w.name}</p>
+                      <p className="text-ink-secondary text-xs">{formatDays(w.days)} วัน</p>
+                    </div>
+                    <p className="text-ink shrink-0 text-sm font-bold">{baht(w.amount)}</p>
                   </div>
-                  <ul className="divide-edge flex flex-col divide-y">
-                    {g.workers.map((w) => (
-                      <li key={w.workerId} className="flex items-center justify-between gap-3 py-2">
-                        <div className="min-w-0">
-                          <p className="text-ink truncate text-sm font-medium">{w.name}</p>
-                          <p className="text-ink-secondary text-xs">{formatDays(w.days)} วัน</p>
-                        </div>
-                        <span className="text-ink shrink-0 text-sm font-medium">
-                          {baht(w.amount)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
 
-                  {/* Spec 127 U2 — payment status: paid badge (+ drift note) or
-                      the record affordance; the unassigned group can't be paid. */}
+                  {/* Spec 127 U2 / spec 170 U3 — payment status: paid badge
+                      (+ drift note) or the record affordance, per worker. */}
                   <div className="border-edge mt-2 border-t pt-3">
-                    {g.payment ? (
+                    {w.payment ? (
                       <div className="flex flex-col gap-1.5">
                         <p className="text-done-strong text-xs font-medium">
-                          จ่ายแล้ว {baht(g.payment.paidAmount)} · {formatThaiDate(g.payment.paidAt)}{" "}
-                          · {DC_PAYMENT_METHOD_LABELS[g.payment.method]}
+                          จ่ายแล้ว {baht(w.payment.paidAmount)} · {formatThaiDate(w.payment.paidAt)}{" "}
+                          · {DC_PAYMENT_METHOD_LABELS[w.payment.method]}
                         </p>
-                        {g.payment.drifted ? (
+                        {w.payment.drifted ? (
                           <p className="rounded-control border-attn bg-attn-soft text-attn-ink border-l-4 px-3 py-2 text-xs font-medium">
                             ยอดค่าแรงเปลี่ยนไปหลังบันทึกการจ่าย (ยอดที่จ่ายอ้างอิง{" "}
-                            {baht(g.payment.computedAmount)})
+                            {baht(w.payment.computedAmount)})
                           </p>
                         ) : null}
                       </div>
-                    ) : g.contractorId ? (
+                    ) : (
                       <RecordPaymentSheet
-                        contractorId={g.contractorId}
-                        contractorName={g.contractorName}
+                        workerId={w.workerId}
+                        workerName={w.name}
                         from={range.from}
                         to={range.to}
-                        computedAmount={g.amount}
-                        computedDays={g.days}
-                        bank={banks.get(g.contractorId) ?? null}
+                        computedAmount={w.amount}
+                        computedDays={w.days}
+                        bank={banks.get(w.workerId) ?? null}
                         todayIso={todayIso}
                         revalidate="/payroll"
                       />
-                    ) : (
-                      <p className="text-ink-muted text-xs">
-                        ระบุผู้รับเหมาก่อนจึงบันทึกการจ่ายได้
-                      </p>
                     )}
                   </div>
                 </li>

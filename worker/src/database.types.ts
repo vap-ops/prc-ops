@@ -805,7 +805,6 @@ export type Database = {
         Row: {
           computed_amount: number
           computed_days: number
-          contractor_id: string
           correction_reason: string | null
           created_at: string
           id: string
@@ -818,11 +817,11 @@ export type Database = {
           period_to: string
           reference: string | null
           superseded_by: string | null
+          worker_id: string
         }
         Insert: {
           computed_amount: number
           computed_days: number
-          contractor_id: string
           correction_reason?: string | null
           created_at?: string
           id?: string
@@ -835,11 +834,11 @@ export type Database = {
           period_to: string
           reference?: string | null
           superseded_by?: string | null
+          worker_id: string
         }
         Update: {
           computed_amount?: number
           computed_days?: number
-          contractor_id?: string
           correction_reason?: string | null
           created_at?: string
           id?: string
@@ -852,15 +851,9 @@ export type Database = {
           period_to?: string
           reference?: string | null
           superseded_by?: string | null
+          worker_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "dc_payments_contractor_id_fkey"
-            columns: ["contractor_id"]
-            isOneToOne: false
-            referencedRelation: "contractors"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "dc_payments_paid_by_fkey"
             columns: ["paid_by"]
@@ -873,6 +866,13 @@ export type Database = {
             columns: ["superseded_by"]
             isOneToOne: false
             referencedRelation: "dc_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dc_payments_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
             referencedColumns: ["id"]
           },
         ]
@@ -4104,7 +4104,6 @@ export type Database = {
         Returns: {
           computed_amount: number
           computed_days: number
-          contractor_id: string
           correction_reason: string | null
           created_at: string
           id: string
@@ -4117,6 +4116,7 @@ export type Database = {
           period_to: string
           reference: string | null
           superseded_by: string | null
+          worker_id: string
         }[]
         SetofOptions: {
           from: "*"
@@ -4264,7 +4264,6 @@ export type Database = {
       }
       record_dc_payment: {
         Args: {
-          p_contractor: string
           p_from: string
           p_method: Database["public"]["Enums"]["dc_payment_method"]
           p_note: string
@@ -4272,6 +4271,7 @@ export type Database = {
           p_paid_at: string
           p_reference: string
           p_to: string
+          p_worker: string
         }
         Returns: string
       }

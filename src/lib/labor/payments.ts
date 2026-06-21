@@ -1,14 +1,15 @@
-// Spec 127 U1 — DC payment reconciliation. Pure: maps a payroll report
-// (spec 69) against recorded dc_payments rows so the payroll surface can show
-// "จ่ายแล้ว" vs "ค้างจ่าย" per contractor for the viewed period. A payment is
-// keyed to (contractor × exact period); a CURRENT payment is one not superseded
-// and not a tombstone (paid_amount NULL). "drifted" mirrors the cost-freeze
-// frozen-vs-live idea (spec 68): the live owed has moved away from the amount
-// computed when the payment was recorded. No I/O — money is read via the admin
-// client and rendered only on the PM payroll surface (requireRole-gated).
+// Spec 127 U1 / spec 170 U3 — DC payment reconciliation. Pure: maps a payroll
+// report (spec 69) against recorded dc_payments rows so the payroll surface can
+// show "จ่ายแล้ว" vs "ค้างจ่าย" per worker for the viewed period. ADR 0062: a DC
+// is a worker, so a payment is keyed to (worker × exact period); a CURRENT
+// payment is one not superseded and not a tombstone (paid_amount NULL).
+// "drifted" mirrors the cost-freeze frozen-vs-live idea (spec 68): the live owed
+// has moved away from the amount computed when the payment was recorded. No I/O —
+// money is read via the admin client and rendered only on the PM payroll surface
+// (requireRole-gated).
 
 import type { Database } from "@/lib/db/database.types";
-import type { ContractorGroup, PayrollRange, PayrollReport } from "./payroll";
+import type { WorkerPay, PayrollRange, PayrollReport } from "./payroll";
 
 type PaymentRow = Database["public"]["Tables"]["dc_payments"]["Row"];
 type DcPaymentMethod = Database["public"]["Enums"]["dc_payment_method"];
@@ -18,7 +19,7 @@ type DcPaymentMethod = Database["public"]["Enums"]["dc_payment_method"];
 export type DcPaymentRow = Pick<
   PaymentRow,
   | "id"
-  | "contractor_id"
+  | "worker_id"
   | "period_from"
   | "period_to"
   | "computed_amount"
@@ -37,12 +38,12 @@ export interface PaymentStatus {
   drifted: boolean;
 }
 
-export interface AnnotatedGroup extends ContractorGroup {
+export interface AnnotatedWorker extends WorkerPay {
   payment: PaymentStatus | null;
 }
 
 export interface AnnotatedPayrollReport {
-  contractors: AnnotatedGroup[];
+  workers: AnnotatedWorker[];
   totalDays: number;
   totalAmount: number;
   workerCount: number;
@@ -93,44 +94,40 @@ export function annotatePayrollPayments(
   let paidAmountTotal = 0;
   let outstandingAmount = 0;
 
-  const contractors: AnnotatedGroup[] = report.contractors.map((group) => {
-    // The unassigned group has a null contractorId and can never be keyed to a
-    // payment (contractor_id is NOT NULL); a tombstone (paid_amount NULL) is not
-    // a paid row.
-    const match =
-      group.contractorId === null
-        ? undefined
-        : current.find(
-            (p) =>
-              p.contractor_id === group.contractorId &&
-              p.period_from === range.from &&
-              p.period_to === range.to &&
-              p.paid_amount !== null,
-          );
+  const workers: AnnotatedWorker[] = report.workers.map((worker) => {
+    // A tombstone (paid_amount NULL) is not a paid row; match the CURRENT
+    // payment for this worker × the exact viewed period.
+    const match = current.find(
+      (p) =>
+        p.worker_id === worker.workerId &&
+        p.period_from === range.from &&
+        p.period_to === range.to &&
+        p.paid_amount !== null,
+    );
 
     if (match && match.paid_amount !== null) {
       paidCount += 1;
       paidAmountTotal += match.paid_amount;
       return {
-        ...group,
+        ...worker,
         payment: {
           paid: true,
           paidAmount: match.paid_amount,
           paidAt: match.paid_at,
           method: match.method,
           computedAmount: match.computed_amount,
-          drifted: round2(group.amount) !== round2(match.computed_amount),
+          drifted: round2(worker.amount) !== round2(match.computed_amount),
         },
       };
     }
 
     unpaidCount += 1;
-    outstandingAmount += group.amount;
-    return { ...group, payment: null };
+    outstandingAmount += worker.amount;
+    return { ...worker, payment: null };
   });
 
   return {
-    contractors,
+    workers,
     totalDays: report.totalDays,
     totalAmount: report.totalAmount,
     workerCount: report.workerCount,

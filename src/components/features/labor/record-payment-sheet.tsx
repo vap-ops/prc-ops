@@ -1,11 +1,12 @@
 "use client";
 
-// Spec 127 U2 — record a DC payment for one contractor × the viewed period.
-// Money lives on the PM-only /payroll page; this client form prefills the
-// recomputed owed and sends what was actually paid. The record_dc_payment RPC
-// recomputes server-side (the prefill is convenience, not the source of truth),
-// re-gates the role, and refuses a duplicate. The contractor's bank is shown
-// inline as the transfer target (closes the "money scattered" gap, spec 127).
+// Spec 127 U2 / spec 170 U3 — record a DC payment for one worker × the viewed
+// period. Money lives on the PM-only /payroll page; this client form prefills
+// the recomputed owed and sends what was actually paid. The record_dc_payment
+// RPC recomputes server-side (the prefill is convenience, not the source of
+// truth), re-gates the role, and refuses a duplicate. The worker's own bank is
+// shown inline as the transfer target (closes the "money scattered" gap, spec
+// 127). ADR 0062: a DC is a worker, so the payee bound here is the worker.
 //
 // 'use client' justified: open state + form state + the server-action call.
 
@@ -25,8 +26,8 @@ import {
 } from "@/lib/ui/classes";
 
 interface RecordPaymentSheetProps {
-  contractorId: string;
-  contractorName: string;
+  workerId: string;
+  workerName: string;
   from: string;
   to: string;
   computedAmount: number;
@@ -41,8 +42,8 @@ function baht(n: number): string {
 }
 
 export function RecordPaymentSheet({
-  contractorId,
-  contractorName,
+  workerId,
+  workerName,
   from,
   to,
   computedAmount,
@@ -73,7 +74,7 @@ export function RecordPaymentSheet({
     }
     startTransition(async () => {
       const result = await recordDcPayment({
-        contractorId,
+        workerId,
         from,
         to,
         paidAt,
@@ -101,7 +102,7 @@ export function RecordPaymentSheet({
 
       <BottomSheet
         open={open}
-        title={`บันทึกการจ่าย — ${contractorName}`}
+        title={`บันทึกการจ่าย — ${workerName}`}
         onClose={() => setOpen(false)}
       >
         <p className="text-ink-secondary text-xs">
