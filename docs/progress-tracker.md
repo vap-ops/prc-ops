@@ -38,11 +38,13 @@ behaviour-preserving) not the capture zone; labour `locked + showFlags=false`;
 notes static; site-purchase / contractor-assign / assign-prompt / report-defect
 suppressed; จัดการ stays planner-only. **TDD:** role-sets.test.ts pins
 WP_DETAIL_ROLES + isReadOnlyWpViewer (RED first). lint · typecheck · vitest 201 /
-1336 · build green. **Open follow-up:** `contractors` SELECT still excludes
-procurement → the WP's contractor name is absent in the procurement info sheet
-(no break — empty, assign prompt already suppressed); add procurement to that
-policy if the operator wants it shown. **Editing an existing request's content is
-out of scope** (no such feature for any role — site admins only create).
+1336 · build green. **U3 (commit 1a990be):** added `procurement` to `contractors`
+SELECT (mig `20260781000000`) so the WP's assigned-contractor name shows in
+procurement's read-only info sheet — contractors is global master data (plain
+role-level read, like the suppliers master); no app change (page already renders
+it read-only). file 115 +1, db:test **115 / 2202 / 0**. **Editing an existing
+request's content is out of scope** (no such feature for any role — site admins
+only create).
 
 ## Spec 166 U1 - beta finance gating (hide provisional GL from PMs) (2026-06-21)
 

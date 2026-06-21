@@ -109,6 +109,23 @@ procurement` in `role-home.ts` (kept distinct from `PURCHASING_ROLES` per the
   treated as read-only (no write affordances), sa/pm/super keep full capability.
 - **Verify:** `pnpm lint && typecheck && test && build`.
 
+## U3 — procurement reads the contractors master (SHIPPED 2026-06-21)
+
+U2 left the WP's assigned-contractor name blank in procurement's read-only info
+sheet: the `contractors` SELECT policy was sa/pm/super/director only.
+
+- **Migration `20260781000000_procurement_read_contractors.sql`:** add `procurement`
+  to `"contractors readable by privileged roles"` (DROP+CREATE in place, name
+  unchanged → file 24 `policies_are` holds; `project_director` kept per file 91).
+  contractors is global master data, so this is a plain role-level read — the same
+  posture as the suppliers master procurement already reads. The spec-130 external
+  self-read policy is untouched.
+- **No app change** — the page already renders the contractor read-only for
+  procurement (`isAssigner = !readOnly` hides reassign; the assign-prompt is
+  suppressed). Once the read resolves, the name simply appears.
+- **Tests:** file 115 +1 — `contractors` SELECT qual references procurement.
+  `db:test` 115 files / 2202 / 0.
+
 ## Out of scope / open questions
 
 - **Editing an existing request's content** (item/qty/needed-by after creation): no
