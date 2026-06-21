@@ -63,13 +63,54 @@ worker, "external" = the **worker's** `dc_arrangement = 'temporary'` (ชั่�
   external-lock assertions are unchanged and pass through the new path.
 - **Verification:** `db:test` full suite green; app untouched.
 
-## U3 — DC payment keys on the worker (PLANNED — dedicated session)
+## U3 — DC payment keys on the worker (SHIPPED 2026-06-21)
 
-**Investigated 2026-06-21** (operator chose a dedicated session — it's a ~12-file
-money + portal reshape, not one RPC). The whole payroll surface is built around
-**contractor → worker grouping**; the payee must become the worker.
+The whole payroll surface was built around **contractor → worker grouping**; the
+payee is now the worker. Shipped on `main` (commit 1a315b9), migrations 20260782
 
-Exact touchpoints found (so the build session is fast):
+- 20260783; verified lint · typecheck · vitest 1335 · db:test 115/2205/0 · build.
+
+**What shipped (vs the plan below):**
+
+- **Migration `20260782000000_dc_payment_keys_on_worker.sql`:** `dc_payments`
+  `contractor_id → worker_id` (drop FK, rename, add FK → workers, swap the
+  `_period_idx` to `worker_period_idx`); `record_dc_payment(p_worker, …)` DROP+
+  CREATE, sums CURRENT DC `labor_logs` by `worker_id`, one payment per (worker,
+  period), worker-existence guard, audit payload `worker_id`, EXECUTE re-granted;
+  `get_my_dc_payments()` CREATE OR REPLACE bridge — `worker_id in (select id from
+workers where contractor_id = current_user_contractor_id())` (real portal
+  repoint is U4).
+- **Migration `20260783000000_repoint_dc_payment_gl_poster.sql` (UNPLANNED
+  collateral):** `post_dc_payment_to_gl` (spec 149 U4c) read the renamed column
+  and posted it as the journal line's **contractor party** → it would error at
+  drain time. A DC is a worker, and `journal_lines` has **no worker dimension**,
+  so the DC-clearing line now carries **no party** (Dr 2110 / Cr 1110, unkeyed).
+  A worker party dimension on the GL is a possible later spec. (The spec's "the
+  append-only trigger is DDL-safe" note missed the GL enqueue trigger + poster.)
+- **lib:** `aggregatePayroll` → flat `WorkerPay[]` (dropped `ContractorGroup` +
+  the contractor-name map arg + `contractor_id_snapshot` from `PayrollInputRow`);
+  `PayrollReport = { workers, totalDays, totalAmount, workerCount }`; per-worker
+  CSV (`ช่าง,จำนวนวัน,ค่าแรง (บาท)`). `annotatePayrollPayments` keyed by
+  `worker_id` (`AnnotatedWorker`, no unassigned sentinel). `fetchWorkerBanks`
+  reads the worker's own `bank_name/bank_account_number/bank_account_name` (U1).
+  `fetch-payroll` dropped the contractor lookup. `validateDcPayment` → `workerId`.
+- **UI:** `/payroll` per-worker cards (record affordance per worker; empty notice
+  → "ไม่มีบันทึกค่าแรง DC ในช่วงนี้"); `record-payment-sheet` + `recordDcPayment`
+  bind `workerId/workerName`; `/payroll/export` route unchanged (delegates).
+  Portal (`load-portal-data` + `/portal`) needed **no change** — it never read
+  `contractor_id` off a payment.
+- **pgTAP:** `35-dc-payments` rewritten worker-keyed (plan 24: + worker_id/​FK
+  pins, worker-existence guard); `38-contractor-portal-rls` bridge (worker_id
+  assertions); `82`/`84` GL fixtures repointed to a worker, `84` asserts the DC
+  line has **no party** (`contractor_id is null`).
+
+**Lesson:** a column rename's blast radius includes every SECURITY DEFINER that
+reads it — grep migrations for live readers, not just the spec's listed files
+(`record_dc_payment`, `get_my_dc_payments`, **and** `post_dc_payment_to_gl` here).
+
+---
+
+Original investigation (2026-06-21) — exact touchpoints found:
 
 - **DB — `dc_payments` table** (`20260704000100`): `contractor_id` → `worker_id`
   (FK → workers); swap the `dc_payments_contractor_period_idx`. Empty data → a
