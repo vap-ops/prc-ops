@@ -8,6 +8,7 @@ import { AddDeliverableSheet } from "./add-deliverable-sheet";
 import { ImportDeliverablesSheet } from "./import-deliverables-sheet";
 import { GroupWorkPackagesSheet } from "./group-work-packages-sheet";
 import { EditDeliverableSheet } from "./edit-deliverable-sheet";
+import { DeliverableReorderControls } from "./deliverable-reorder-controls";
 
 export interface DeliverableManagerRow {
   id: string;
@@ -49,11 +50,18 @@ export function DeliverablesManager({
         </div>
       ) : (
         <ul className="rounded-card border-edge bg-card divide-edge divide-y border">
-          {deliverables.map((d) => (
+          {deliverables.map((d, i) => (
             <li key={d.id} className="flex items-center gap-3 px-4 py-2">
               <span className="text-meta text-ink-secondary font-mono">{d.code}</span>
               <span className="text-body text-ink min-w-0 flex-1 truncate">{d.name}</span>
               <span className="text-meta text-ink-secondary shrink-0">{d.wpCount} งาน</span>
+              <DeliverableReorderControls
+                projectId={projectId}
+                deliverableId={d.id}
+                code={d.code}
+                prevId={i > 0 ? (deliverables[i - 1]?.id ?? null) : null}
+                nextId={i < deliverables.length - 1 ? (deliverables[i + 1]?.id ?? null) : null}
+              />
               <EditDeliverableSheet
                 projectId={projectId}
                 deliverableId={d.id}

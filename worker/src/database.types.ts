@@ -4451,6 +4451,10 @@ export type Database = {
         Returns: string
       }
       suggest_project_code: { Args: never; Returns: string }
+      swap_deliverable_order: {
+        Args: { p_a: string; p_b: string }
+        Returns: boolean
+      }
       update_my_display_name: {
         Args: { p_full_name: string }
         Returns: undefined

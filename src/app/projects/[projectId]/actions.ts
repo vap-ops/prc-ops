@@ -495,3 +495,41 @@ export async function setDeliverableName(
   revalidatePath(projectHref(input.projectId));
   return { ok: true };
 }
+
+// Spec 165 U2 — reorder งวด by swapping a งวด with its neighbour. Gate mirrors the
+// other project writes; the SECURITY DEFINER swap_deliverable_order RPC is
+// load-bearing. The UI passes the row + its prev/next id.
+export type SwapDeliverableOrderResult = { ok: true } | { ok: false; error: string };
+
+export async function swapDeliverableOrder(
+  projectId: string,
+  aId: string,
+  bId: string,
+): Promise<SwapDeliverableOrderResult> {
+  if (!isValidUuid(projectId) || !isValidUuid(aId) || !isValidUuid(bId)) {
+    return { ok: false, error: "รหัสไม่ถูกต้อง" };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
+
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+    return { ok: false, error: PM_ONLY_ERROR };
+  }
+
+  const { error } = await supabase.rpc("swap_deliverable_order", { p_a: aId, p_b: bId });
+  if (error) {
+    console.error("[swapDeliverableOrder] RPC failed", { projectId, error: error.message });
+    if (error.code === "42501") return { ok: false, error: PM_ONLY_ERROR };
+    return { ok: false, error: "เรียงลำดับงวดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  revalidatePath(projectHref(projectId));
+  return { ok: true };
+}

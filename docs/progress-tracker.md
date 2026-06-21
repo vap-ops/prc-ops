@@ -6,6 +6,10 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 165 U2 - reorder งวด (2026-06-21)
+
+Status: **COMPLETE — 2026-06-21.** ▲▼ reorder in the DeliverablesManager. **DB:** `swap_deliverable_order(p_a,p_b) returns boolean` (migration 20260776000000, pushed) — SECURITY DEFINER, role PM/super/director + can_see_project, both งวด same project (else 22023), unknown/invisible → 42501; swaps sort_order via CASE update. **App:** `swapDeliverableOrder(projectId,aId,bId)` action + `DeliverableReorderControls` (▲ swaps prev, ▼ swaps next; ends disabled) per manager row (rows sorted by sort_order → prev/next ids known). **TDD:** pgTAP 113 (11) + deliverable-reorder-controls.test.tsx (3). **Verify:** db:push·db:types·**db:test 113/2175/0**·lint·typecheck·**vitest 198/1317**.
+
 ## Spec 165 U1 - rename a งวด (2026-06-21)
 
 Status: **COMPLETE — 2026-06-21.** A งวด was immutable post-create; U1 adds rename. **DB:** `set_deliverable_name(p_deliverable_id,p_name) returns boolean` (migration 20260775000000, pushed) — SECURITY DEFINER, role gate PM/super/director + membership via `can_see_project` (look up the งวด's project; unknown/invisible → 42501, mirrors set_work_package_name's can_see-first), name trim non-empty ≤200 (22023), code immutable, no audit. **App:** `setDeliverableName({projectId,deliverableId,name})` action (PM_ROLES, reuse validateDeliverableName, 42501/22023 map) + `EditDeliverableSheet` (per-row pencil "แก้ไขงวด {code}" → sheet, code read-only) wired into each DeliverablesManager row. **TDD:** RED first — pgTAP 112 (12: exists/secdef; PM-member/super/director rename + trimmed-save; non-member PM→42501; site_admin/visitor→42501; empty/over-long→22023; unknown id→42501) + `edit-deliverable-sheet.test.tsx` (3: disabled-until-changed-nonempty; rename+refresh; inline error). **Verify:** db:push·db:types·**db:test 112 files/2164/0**·lint·typecheck·**vitest 197/1314**. Spec 165 arc: **U2 reorder · U3 detail page = NEXT (in-scope)**; archive + amount/dates PENDING ADR 0016 amendment (raised to operator — status/amount/dates are explicitly OUT in ADR 0016, and amounts overlap spec 149 client_billings).
