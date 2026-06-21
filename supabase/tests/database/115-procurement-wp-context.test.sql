@@ -13,7 +13,7 @@
 -- in file 17 (E.6, lives_ok).
 
 begin;
-select plan(8);
+select plan(9);
 
 -- 1/2. photo_logs SELECT.
 select ok(
@@ -69,6 +69,15 @@ select ok(
      where schemaname='public' and tablename='purchase_requests'
        and policyname='purchase_requests insert by wp-readers') like '%can_see_wp%',
   'purchase_requests INSERT keeps the can_see_wp gate for the sa/pm/super arm'
+);
+
+-- 9. contractors SELECT (spec 171 U3) — procurement reads the master so the WP's
+--    assigned-contractor name shows in its read-only info sheet.
+select ok(
+  (select qual from pg_policies
+     where schemaname='public' and tablename='contractors'
+       and policyname='contractors readable by privileged roles') like '%procurement%',
+  'contractors SELECT admits procurement (spec 171 U3)'
 );
 
 select * from finish();
