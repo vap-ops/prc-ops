@@ -28,6 +28,7 @@ const baseProps = {
   initialStatus: "active" as const,
   initialNotes: null as string | null,
   initialSiteAddress: null,
+  initialGmapUrl: null,
   contractReference: null,
   initialStartDate: null,
   initialPlannedCompletionDate: null,
@@ -71,6 +72,7 @@ describe("SettingsForm", () => {
         status: "active",
         notes: "โน้ตใหม่",
         siteAddress: "",
+        gmapUrl: "",
         startDate: "",
         plannedCompletionDate: "",
         projectType: "",
@@ -78,6 +80,21 @@ describe("SettingsForm", () => {
         budgetAmount: "",
         clientId: "",
       }),
+    );
+  });
+
+  // Spec 174: the pasted Google-Maps link rides the same single save.
+  it("seeds and submits the Google-Maps link", async () => {
+    mockUpdate.mockResolvedValue({ ok: true });
+    render(<SettingsForm {...baseProps} initialGmapUrl="https://maps.app.goo.gl/seed" />);
+    const field = screen.getByLabelText("ลิงก์ Google Maps");
+    expect(field).toHaveValue("https://maps.app.goo.gl/seed");
+    fireEvent.change(field, { target: { value: "https://maps.app.goo.gl/edited" } });
+    fireEvent.click(screen.getByRole("button", { name: "บันทึกการตั้งค่า" }));
+    await waitFor(() =>
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ gmapUrl: "https://maps.app.goo.gl/edited" }),
+      ),
     );
   });
 });

@@ -12,6 +12,8 @@ import {
   validateBudgetAmount,
   validatePlannedCompletionDate,
   validateProjectDates,
+  validateGmapUrl,
+  GMAP_URL_MAX,
   isValidProjectType,
   PROJECT_TYPES,
   PROJECT_TYPE_LABEL,
@@ -75,6 +77,47 @@ describe("validateSiteAddress (optional, ≤255)", () => {
     const over = validateSiteAddress("ก".repeat(SITE_ADDRESS_MAX + 1));
     expect(over.ok).toBe(false);
     if (!over.ok) expect(over.error.length).toBeGreaterThan(0);
+  });
+});
+
+// ---- Spec 174: project Google-Maps link (precise pin, pasted share URL) ----
+describe("validateGmapUrl (optional Google-Maps link)", () => {
+  it("blank/whitespace is allowed and normalizes to null", () => {
+    for (const raw of ["", "   ", "\n"]) {
+      expect(validateGmapUrl(raw)).toEqual({ ok: true, value: null });
+    }
+  });
+
+  it("accepts Google-Maps share + place links (trimmed)", () => {
+    for (const url of [
+      "https://maps.app.goo.gl/AbCdEf123",
+      "https://goo.gl/maps/XyZ",
+      "https://www.google.com/maps/place/Site/@13.7,100.5,17z",
+      "https://maps.google.com/?q=13.7,100.5",
+      "https://www.google.co.th/maps?q=13.7,100.5",
+    ]) {
+      expect(validateGmapUrl(`  ${url}  `)).toEqual({ ok: true, value: url });
+    }
+  });
+
+  it("rejects non-Google hosts, non-https, and look-alike domains", () => {
+    for (const bad of [
+      "http://www.google.com/maps", // not https
+      "https://evil.com/maps",
+      "https://google.com.evil.com/maps", // look-alike (registrable domain is evil.com)
+      "javascript:alert(1)",
+      "not a url",
+      "ftp://maps.google.com",
+    ]) {
+      const r = validateGmapUrl(bad);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("rejects an over-length URL", () => {
+    const tooLong = `https://maps.app.goo.gl/${"a".repeat(GMAP_URL_MAX)}`;
+    expect(validateGmapUrl(tooLong).ok).toBe(false);
   });
 });
 

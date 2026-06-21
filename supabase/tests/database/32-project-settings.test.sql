@@ -1,5 +1,5 @@
 begin;
-select plan(17);
+select plan(20);
 
 -- ============================================================================
 -- Spec 58 / ADR 0042 — update_project_settings RPC: back-office (pm/super)
@@ -44,16 +44,17 @@ select ok(
     where proname = 'update_project_settings'
       and pronamespace = 'public'::regnamespace),
   'RPC pins search_path = public (ADR 0011 checklist)');
--- Spec 79: signature is now 10-arg (added site_address, planned_completion_date,
--- budget, start_date, project_lead_id, project_type). 3-/4-arg calls below still
--- resolve via defaults; the privilege pin tracks the current full signature.
+-- Spec 79 + 174: signature is now 11-arg (added site_address,
+-- planned_completion_date, budget, start_date, project_lead_id, project_type, and
+-- gmap_url). 3-/4-arg calls below still resolve via defaults; the privilege pin
+-- tracks the current full signature.
 select is(
   has_function_privilege('authenticated',
-    'public.update_project_settings(uuid, text, public.project_status, text, text, date, numeric, date, uuid, public.project_type)', 'EXECUTE'),
+    'public.update_project_settings(uuid, text, public.project_status, text, text, date, numeric, date, uuid, public.project_type, text)', 'EXECUTE'),
   true, 'authenticated may execute the RPC');
 select is(
   has_function_privilege('anon',
-    'public.update_project_settings(uuid, text, public.project_status, text, text, date, numeric, date, uuid, public.project_type)', 'EXECUTE'),
+    'public.update_project_settings(uuid, text, public.project_status, text, text, date, numeric, date, uuid, public.project_type, text)', 'EXECUTE'),
   false, 'anon may NOT execute the RPC');
 
 -- C. Role-sim.
@@ -82,6 +83,22 @@ select is(
 select is(
   (select notes from public.projects where id = 'cccccccc-cccc-cccc-cccc-cccccccc3333'),
   null::text, 'a blank note clears the column to null');
+
+-- C.1b Spec 174: PM attaches a Google-Maps link (named arg); it lands. A
+-- non-https value is rejected by the column CHECK (23514).
+select is(
+  public.update_project_settings(
+    'cccccccc-cccc-cccc-cccc-cccccccc3333', 'PS renamed', 'on_hold',
+    p_gmap_url => 'https://maps.app.goo.gl/AbCdEf123'),
+  true, 'PM sets the project Google-Maps link via the RPC');
+select is(
+  (select gmap_url from public.projects where id = 'cccccccc-cccc-cccc-cccc-cccccccc3333'),
+  'https://maps.app.goo.gl/AbCdEf123', 'the gmap_url landed');
+select throws_ok(
+  $$ select public.update_project_settings(
+       'cccccccc-cccc-cccc-cccc-cccccccc3333', 'PS renamed', 'on_hold',
+       p_gmap_url => 'http://not-https.example') $$,
+  '23514', null, 'a non-https gmap_url is rejected by the column CHECK');
 
 -- C.2 Unknown project id returns false (no row leak, no exception).
 select is(

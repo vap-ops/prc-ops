@@ -13,6 +13,7 @@ import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
 import {
   PROJECT_NAME_MAX,
   SITE_ADDRESS_MAX,
+  GMAP_URL_MAX,
   PROJECT_TYPES,
   PROJECT_TYPE_LABEL,
   validateProjectName,
@@ -49,6 +50,7 @@ interface SettingsFormProps {
   initialStatus: ProjectStatus;
   initialNotes: string | null;
   initialSiteAddress: string | null;
+  initialGmapUrl: string | null;
   contractReference: string | null;
   initialStartDate: string | null;
   initialPlannedCompletionDate: string | null;
@@ -70,6 +72,7 @@ export function SettingsForm(props: SettingsFormProps) {
   const [status, setStatus] = useState<ProjectStatus>(props.initialStatus);
   const [notes, setNotes] = useState(props.initialNotes ?? "");
   const [siteAddress, setSiteAddress] = useState(props.initialSiteAddress ?? "");
+  const [gmapUrl, setGmapUrl] = useState(props.initialGmapUrl ?? "");
   const [startDate, setStartDate] = useState(props.initialStartDate ?? "");
   const [completionDate, setCompletionDate] = useState(props.initialPlannedCompletionDate ?? "");
   const [projectType, setProjectType] = useState<string>(props.initialProjectType ?? "");
@@ -172,6 +175,7 @@ export function SettingsForm(props: SettingsFormProps) {
         status,
         notes,
         siteAddress,
+        gmapUrl,
         startDate,
         plannedCompletionDate: completionDate,
         projectType,
@@ -243,6 +247,28 @@ export function SettingsForm(props: SettingsFormProps) {
           className="rounded-control border-edge-strong bg-card text-ink shadow-input placeholder:text-ink-muted focus-visible:ring-action w-full min-w-0 border px-3 py-2 text-sm focus:outline-none focus-visible:ring-2"
           placeholder="ที่อยู่หรือพิกัดหน้างาน"
         />
+      </div>
+
+      {/* Spec 174: paste the Google-Maps "Share" link → the project's ⓘ sheet opens
+          the exact pin. https + a Google host is enforced server-side. */}
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="project-gmap-url" className={LABEL}>
+          ลิงก์ Google Maps
+        </label>
+        <Input
+          id="project-gmap-url"
+          type="url"
+          inputMode="url"
+          value={gmapUrl}
+          maxLength={GMAP_URL_MAX}
+          onChange={(e) => setGmapUrl(e.target.value)}
+          disabled={busy}
+          className="border-edge-strong bg-card text-ink h-11"
+          placeholder="วางลิงก์จากแอป Google Maps (ปุ่มแชร์)"
+        />
+        <p className="text-ink-muted text-xs">
+          เปิดหมุดตำแหน่งหน้างานแบบแม่นยำ — วางลิงก์ที่ได้จากปุ่มแชร์ใน Google Maps
+        </p>
       </div>
 
       <div className="flex flex-col gap-1.5">

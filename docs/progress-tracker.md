@@ -6,6 +6,34 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 174 — project Google-Maps link (precise pin) (2026-06-22)
+
+Operator: "Add Pinned map, or attach link from gMap." Chose (one question)
+**attach a gMap link** — paste the Maps "Share" URL on the project; the ⓘ sheet's
+"open in Maps" link opens the EXACT pin, replacing the spec-173 address-search
+fallback. (Embedded pinned map declined — needs an API key + coordinates.)
+
+**SHIPPED to prod 2026-06-22.** **mig 20260798:** `projects.gmap_url` (nullable) +
+CHECK https-only; DROP+CREATE `update_project_settings` with a trailing
+`p_gmap_url` (mirrors site_address: null preserves, '' clears) + re-applied EXECUTE
+grants. **mig 20260799:** grant SELECT on the column — `projects` has COLUMN-level
+SELECT grants (budget excluded), so the new column did NOT inherit SELECT; granted
+authenticated + anon (mirrors site_address). **mig 20260800:** revoke anon EXECUTE
+on the recreated RPC — Supabase default privileges silently re-granted anon EXECUTE
+on the DROP+CREATE'd function; the pre-174 RPC had anon revoked (pgTAP 32 pins it).
+App: `validateGmapUrl` (https + Google host allowlist — rejects javascript:,
+non-https, look-alike domains, >2048); the form gains a URL field; `gmapUrl` rides
+the single settings payload; the project detail page computes
+`mapsUrl = gmap_url ?? address-search ?? null` for the existing ⓘ link (no
+component change). **LESSONS (both caught by db:test, fixed forward):** (1) a new
+column on a column-SELECT-granted table does NOT inherit SELECT → must grant
+explicitly; (2) DROP+CREATE of an RPC re-triggers Supabase's default-privilege
+EXECUTE grant to anon → must revoke anon (CREATE OR REPLACE would have avoided
+both, but a new param forces DROP+CREATE). pgTAP 32 (+3, 11-arg sig); unit
+validateGmapUrl + settings-form (+1 each). db:types regenerated (signature change).
+Verify: db:test 120 / 2301 / 0; pnpm test green; lint·typecheck·build green. Builds
+on [[spec173-procurement-project-visibility]].
+
 ## Spec 173 — procurement read-only project visibility (2026-06-22)
 
 Operator: "Procurement needs to see Project information and schedule." Clarified

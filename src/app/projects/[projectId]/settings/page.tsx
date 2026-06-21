@@ -32,7 +32,7 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
   const { data: project } = await supabase
     .from("projects")
     .select(
-      "id, code, name, status, notes, site_address, contract_reference, start_date, planned_completion_date, client_id, project_lead_id, project_type",
+      "id, code, name, status, notes, site_address, gmap_url, contract_reference, start_date, planned_completion_date, client_id, project_lead_id, project_type",
     )
     .eq("id", projectId)
     .maybeSingle();
@@ -92,6 +92,7 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
           initialStatus={project.status}
           initialNotes={project.notes}
           initialSiteAddress={project.site_address}
+          initialGmapUrl={project.gmap_url}
           contractReference={project.contract_reference}
           initialStartDate={project.start_date}
           initialPlannedCompletionDate={project.planned_completion_date}

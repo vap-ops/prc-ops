@@ -42,7 +42,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
   const { data: project } = await supabase
     .from("projects")
     .select(
-      "id, code, name, status, site_address, start_date, planned_completion_date, client_id, project_lead_id, project_type",
+      "id, code, name, status, site_address, gmap_url, start_date, planned_completion_date, client_id, project_lead_id, project_type",
     )
     .eq("id", projectId)
     .maybeSingle();
@@ -89,11 +89,13 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
     templateAvailable,
   } = await loadProjectDetail(supabase, project, isPmRole);
   const typeLabel = project.project_type ? PROJECT_TYPE_LABEL[project.project_type] : null;
-  // Spec 173 U4: no geo columns on projects → derive a Google-Maps search URL from
-  // the site address (shown only when an address is set).
-  const mapsUrl = project.site_address
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(project.site_address)}`
-    : null;
+  // Spec 174: a pasted Google-Maps link (exact pin) wins; spec 173 falls back to an
+  // address-derived search URL when no link is set; null when neither exists.
+  const mapsUrl =
+    project.gmap_url ??
+    (project.site_address
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(project.site_address)}`
+      : null);
 
   return (
     <PageShell>

@@ -15,6 +15,7 @@ import {
   isValidProjectType,
   validateProjectName,
   validateSiteAddress,
+  validateGmapUrl,
   validateBudgetAmount,
   validateProjectDates,
   type ProjectStatus,
@@ -35,6 +36,8 @@ export interface UpdateProjectSettingsInput {
   // Spec 79 — all optional; empty string = "leave unchanged" for date/lead/
   // type/budget (RPC COALESCE-preserves), "" clears site_address text.
   siteAddress: string;
+  // Spec 174 — pasted Google-Maps link; "" clears it (RPC nullif, like site_address).
+  gmapUrl: string;
   startDate: string; // YYYY-MM-DD or ""
   plannedCompletionDate: string; // YYYY-MM-DD or ""
   projectType: string; // enum value or ""
@@ -62,6 +65,9 @@ export async function updateProjectSettings(
 
   const siteResult = validateSiteAddress(input.siteAddress);
   if (!siteResult.ok) return { ok: false, error: siteResult.error };
+
+  const gmapResult = validateGmapUrl(input.gmapUrl);
+  if (!gmapResult.ok) return { ok: false, error: gmapResult.error };
 
   const budgetResult = validateBudgetAmount(input.budgetAmount);
   if (!budgetResult.ok) return { ok: false, error: budgetResult.error };
@@ -104,6 +110,8 @@ export async function updateProjectSettings(
     // "" clears via the RPC's nullif; null would preserve — match spec-72 notes.
     p_notes: notesResult.value ?? "",
     p_site_address: siteResult.value ?? "",
+    // Spec 174: same clear-on-"" semantics as site_address.
+    p_gmap_url: gmapResult.value ?? "",
   };
   // Optional args are OMITTED when unset (exactOptionalPropertyTypes): an absent
   // key uses the SQL default null = COALESCE-preserve (cannot be cleared via the

@@ -2120,6 +2120,7 @@ export type Database = {
           code: string
           contract_reference: string | null
           created_at: string
+          gmap_url: string | null
           ht_worker_id: string | null
           id: string
           name: string
@@ -2139,6 +2140,7 @@ export type Database = {
           code: string
           contract_reference?: string | null
           created_at?: string
+          gmap_url?: string | null
           ht_worker_id?: string | null
           id?: string
           name: string
@@ -2158,6 +2160,7 @@ export type Database = {
           code?: string
           contract_reference?: string | null
           created_at?: string
+          gmap_url?: string | null
           ht_worker_id?: string | null
           id?: string
           name?: string
@@ -4626,6 +4629,7 @@ export type Database = {
       update_project_settings: {
         Args: {
           p_budget_amount_thb?: number
+          p_gmap_url?: string
           p_name: string
           p_notes?: string
           p_planned_completion_date?: string

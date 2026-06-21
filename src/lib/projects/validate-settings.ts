@@ -73,6 +73,42 @@ export function validateSiteAddress(raw: string): OptionalTextResult {
   return { ok: true, value };
 }
 
+// Spec 174: a pasted Google-Maps link (the "Share" URL from the Maps app) gives a
+// PRECISE pin, replacing the spec-173 address-search fallback. Rendered as an
+// <a href> opening a new tab, so the value is locked to https + a Google host
+// (rejects javascript:, phishing look-alikes, arbitrary URLs). The column CHECK
+// (https:// scheme) is the DB backstop; this is the form's first gate.
+export const GMAP_URL_MAX = 2048;
+
+// Exact hosts + suffixes Google Maps uses (mobile share = maps.app.goo.gl; desktop
+// = www.google.com/maps; legacy = goo.gl/maps; Thai = google.co.th). Suffix checks
+// anchor on the registrable domain so "google.com.evil.com" is rejected.
+const GMAP_HOSTS_EXACT = new Set(["google.com", "goo.gl", "maps.app.goo.gl"]);
+const GMAP_HOST_SUFFIXES = [".google.com", ".google.co.th", ".goo.gl"];
+
+export function validateGmapUrl(raw: string): OptionalTextResult {
+  const value = raw.trim();
+  if (value.length === 0) return { ok: true, value: null };
+  if (value.length > GMAP_URL_MAX) {
+    return { ok: false, error: "ลิงก์ยาวเกินไป" };
+  }
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return { ok: false, error: "ลิงก์ไม่ถูกต้อง" };
+  }
+  if (url.protocol !== "https:") {
+    return { ok: false, error: "ต้องเป็นลิงก์ https" };
+  }
+  const host = url.hostname.toLowerCase();
+  const isGoogle = GMAP_HOSTS_EXACT.has(host) || GMAP_HOST_SUFFIXES.some((s) => host.endsWith(s));
+  if (!isGoogle) {
+    return { ok: false, error: "ต้องเป็นลิงก์ Google Maps" };
+  }
+  return { ok: true, value };
+}
+
 export type BudgetResult = { ok: true; value: number | null } | { ok: false; error: string };
 
 export function validateBudgetAmount(raw: string): BudgetResult {
