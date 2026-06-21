@@ -1,9 +1,11 @@
 "use client";
 
-// Spec 142 U7 — import work packages from pasted CSV. 'use client' justified:
-// controlled textarea, sheet open state, submit pending, inline (multi-line)
-// errors, router.refresh to surface the imported WPs. The importWorkPackagesCsv
-// action (wp-import parser + create_work_package RPC) is the load-bearing path.
+// Spec 142 U7 / spec 163 — bulk-add work packages by pasting from Google
+// Sheets (tab, no header) or CSV (the parser auto-detects both). 'use client'
+// justified: controlled textarea, sheet open state, submit pending, inline
+// (multi-line) errors, router.refresh to surface the imported WPs. The
+// importWorkPackagesCsv action (wp-import parser + create_work_package RPC) is
+// the load-bearing path.
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -45,14 +47,18 @@ export function ImportWorkPackagesSheet({ projectId }: { projectId: string }) {
         onClick={() => setOpen(true)}
         className="border-edge-strong text-ink hover:bg-sunk focus-visible:ring-action rounded-control bg-card text-body inline-flex h-11 items-center border px-4 font-medium transition-colors focus:outline-none focus-visible:ring-2 active:translate-y-px"
       >
-        นำเข้า CSV
+        วางรายการงาน
       </button>
 
-      <BottomSheet open={open} title="นำเข้างานจาก CSV" onClose={() => setOpen(false)}>
+      <BottomSheet
+        open={open}
+        title="วางงานจาก Google Sheet หรือ CSV"
+        onClose={() => setOpen(false)}
+      >
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <label htmlFor="import-wp-csv" className={LABEL}>
-              วางข้อมูล CSV
+              วางข้อมูลงาน
             </label>
             <textarea
               id="import-wp-csv"
@@ -61,11 +67,13 @@ export function ImportWorkPackagesSheet({ projectId }: { projectId: string }) {
               onChange={(e) => setCsv(e.target.value)}
               disabled={submitting}
               className="rounded-control border-edge-strong bg-card text-ink shadow-input placeholder:text-ink-muted focus-visible:ring-action w-full min-w-0 border px-3 py-2 font-mono text-sm focus:outline-none focus-visible:ring-2"
-              placeholder={"code,name,description\nWP-001,งานวางท่อ,รายละเอียด\nWP-002,งานเทพื้น,"}
+              placeholder={
+                "WP-001\tงานหาพิกัดและระดับพื้น\nWP-002\tงานทำไฟฟ้าชั่วคราว\n\n(หรือ CSV: code,name,description)"
+              }
             />
             <p className="text-ink-muted text-xs">
-              บรรทัดแรกเป็นหัวตาราง: code,name,description
-              รหัสที่มีอยู่แล้วหรือซ้ำในไฟล์จะถูกแจ้งเตือน
+              คัดลอกช่องรหัสและชื่องานจาก Google Sheet มาวางได้เลย (ไม่ต้องมีหัวตาราง) หรือใช้ CSV
+              ที่ขึ้นต้นด้วย code,name,description • รหัสที่ซ้ำหรือมีอยู่แล้วจะถูกแจ้งเตือน
             </p>
           </div>
 

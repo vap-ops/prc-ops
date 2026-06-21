@@ -205,7 +205,7 @@ export async function importWorkPackagesCsv(
     return { ok: false, error: errors.slice(0, 8).join("\n") };
   }
   if (rows.length === 0) {
-    return { ok: false, error: "ไม่พบรายการงานในไฟล์ (ต้องมีหัวตาราง code,name,description)" };
+    return { ok: false, error: "ไม่พบรายการงาน (วางรหัสและชื่องาน หนึ่งงานต่อหนึ่งบรรทัด)" };
   }
 
   // Pre-validated rows → create each via the U4 RPC (definer; sidesteps the

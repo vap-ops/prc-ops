@@ -27,7 +27,7 @@ beforeEach(() => {
 
 function open() {
   render(<ImportWorkPackagesSheet projectId="p1" />);
-  fireEvent.click(screen.getByRole("button", { name: /นำเข้า CSV/ }));
+  fireEvent.click(screen.getByRole("button", { name: /วางรายการงาน/ }));
 }
 
 describe("ImportWorkPackagesSheet", () => {
@@ -35,13 +35,13 @@ describe("ImportWorkPackagesSheet", () => {
     open();
     const submit = screen.getByRole("button", { name: "นำเข้า" });
     expect(submit).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("วางข้อมูล CSV"), { target: { value: CSV } });
+    fireEvent.change(screen.getByLabelText("วางข้อมูลงาน"), { target: { value: CSV } });
     expect(submit).toBeEnabled();
   });
 
   it("imports the pasted CSV and refreshes on success", async () => {
     open();
-    fireEvent.change(screen.getByLabelText("วางข้อมูล CSV"), { target: { value: CSV } });
+    fireEvent.change(screen.getByLabelText("วางข้อมูลงาน"), { target: { value: CSV } });
     fireEvent.click(screen.getByRole("button", { name: "นำเข้า" }));
 
     await waitFor(() => expect(mockImport).toHaveBeenCalledWith("p1", CSV));
@@ -51,7 +51,7 @@ describe("ImportWorkPackagesSheet", () => {
   it("shows the action error inline and does not refresh", async () => {
     mockImport.mockResolvedValue({ ok: false, error: 'แถว 2: รหัส "WP-1" ซ้ำ' });
     open();
-    fireEvent.change(screen.getByLabelText("วางข้อมูล CSV"), { target: { value: CSV } });
+    fireEvent.change(screen.getByLabelText("วางข้อมูลงาน"), { target: { value: CSV } });
     fireEvent.click(screen.getByRole("button", { name: "นำเข้า" }));
 
     await waitFor(() =>

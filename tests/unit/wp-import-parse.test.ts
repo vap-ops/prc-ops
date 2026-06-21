@@ -161,3 +161,53 @@ describe("parseAndValidate — papaparse robustness", () => {
     ]);
   });
 });
+
+describe("parseAndValidate — Google Sheets paste (spec 163)", () => {
+  it("parses a tab-delimited, header-less, two-column sheet paste", () => {
+    // A Google-Sheets cell copy: TAB between columns, NO header row, the
+    // example case is code + name only (no description).
+    const tsv =
+      "WP-001\tงานหาพิกัดและระดับพื้น\n" +
+      "WP-002\tงานทำไฟฟ้าชั่วคราว\n" +
+      "WP-003\tงานทำประปาชั่วคราว\n";
+    const { rows, errors } = parseAndValidate(tsv, NO_EXISTING);
+    expect(errors).toEqual([]);
+    expect(rows).toEqual([
+      { code: "WP-001", name: "งานหาพิกัดและระดับพื้น", description: null },
+      { code: "WP-002", name: "งานทำไฟฟ้าชั่วคราว", description: null },
+      { code: "WP-003", name: "งานทำประปาชั่วคราว", description: null },
+    ]);
+  });
+
+  it("reads a third tab column as description when present", () => {
+    const tsv = "WP-001\tFoundation\tExcavate to 2.5m\n";
+    const { rows, errors } = parseAndValidate(tsv, NO_EXISTING);
+    expect(errors).toEqual([]);
+    expect(rows).toEqual([{ code: "WP-001", name: "Foundation", description: "Excavate to 2.5m" }]);
+  });
+
+  it("still honours a header row even when tab-delimited", () => {
+    const tsv = "code\tname\tdescription\n" + "WP-001\tFoundation\tStage 1\n";
+    const { rows, errors } = parseAndValidate(tsv, NO_EXISTING);
+    expect(errors).toEqual([]);
+    expect(rows).toEqual([{ code: "WP-001", name: "Foundation", description: "Stage 1" }]);
+  });
+
+  it("validates the header-less paste with correct data-row numbers", () => {
+    // Row 1 valid; row 2 missing name; row 3 dup of row 1's code.
+    const tsv = "WP-001\tFirst\n" + "WP-002\t\n" + "WP-001\tDuplicate\n";
+    const { rows, errors } = parseAndValidate(tsv, NO_EXISTING);
+    expect(rows).toEqual([{ code: "WP-001", name: "First", description: null }]);
+    expect(errors).toEqual([
+      "Row 2: name is required (blank or missing)",
+      'Row 3: duplicate code "WP-001" within the file',
+    ]);
+  });
+
+  it("trims whitespace in a header-less tab paste", () => {
+    const tsv = "  WP-001 \t  Padded name  \n";
+    const { rows, errors } = parseAndValidate(tsv, NO_EXISTING);
+    expect(errors).toEqual([]);
+    expect(rows).toEqual([{ code: "WP-001", name: "Padded name", description: null }]);
+  });
+});

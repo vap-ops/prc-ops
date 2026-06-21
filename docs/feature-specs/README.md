@@ -165,6 +165,7 @@ for reading the spec itself.
 | 160  | Worker-ecosystem foundation Stage 0 (ADR 0061): U1 DC→Project + U2 coin ledger + U3 portal home — STAGE 0 COMPLETE       |
 | 161  | Profit-sharing economics (ADR 0060): U1 sell-rate dials + U2 WP economic identity + U2b HT assignment; U3 engine→U6 shop |
 | 162  | Nova operator surface: U1 /nova console (super_admin) — coin balances + ledger + award form (reuses post_coins)          |
+| 163  | Paste work packages from Google Sheets (tab/no-header auto-detect in the U7 importer; ADR 0014)                          |
 
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.
