@@ -126,6 +126,26 @@ sheet: the `contractors` SELECT policy was sa/pm/super/director only.
 - **Tests:** file 115 +1 — `contractors` SELECT qual references procurement.
   `db:test` 115 files / 2202 / 0.
 
+## U4 — navigation: procurement's WP rows link to the detail (SHIPPED 2026-06-21)
+
+Operator: procurement "still report unable to access WP details" after U1–U3.
+Root cause was **navigation, not permission**: spec 102 gave procurement a
+_separate_ read-only project view (`projects/[projectId]/page.tsx`, the
+`ctx.role === 'procurement'` early return) whose WP rows were plain `<li>` cards
+— **no link**. That "no links" rule predated U2 (which made the WP detail screen
+accessible read-only), so procurement could see WP names but had no UI path to
+open one.
+
+- **Fix (no DB change):** each row in procurement's list is now a `<Link>` to
+  `workPackageHref(project.id, wp.id)`; comment updated to note the spec-102
+  "no links" rule is lifted by spec 171. The detail screen already renders
+  read-only for procurement (U2). typecheck clean for the file.
+- **Concurrent-session note:** the working tree carried an unrelated in-flight
+  payroll/DC-payment refactor (another session) that was mid-compile, and the
+  shared HEAD had been switched to its feature branch — so the global
+  build/typecheck was red on _that_ work, not this. This one-file fix was
+  committed in isolation and fast-forwarded to `main` (commit 9776c38).
+
 ## Out of scope / open questions
 
 - **Editing an existing request's content** (item/qty/needed-by after creation): no

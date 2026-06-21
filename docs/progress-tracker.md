@@ -42,9 +42,16 @@ WP_DETAIL_ROLES + isReadOnlyWpViewer (RED first). lint · typecheck · vitest 20
 SELECT (mig `20260781000000`) so the WP's assigned-contractor name shows in
 procurement's read-only info sheet — contractors is global master data (plain
 role-level read, like the suppliers master); no app change (page already renders
-it read-only). file 115 +1, db:test **115 / 2202 / 0**. **Editing an existing
-request's content is out of scope** (no such feature for any role — site admins
-only create).
+it read-only). file 115 +1, db:test **115 / 2202 / 0**. **U4 (commit 9776c38) —
+the "procurement still can't access WP details" fix:** root cause was
+NAVIGATION, not permission — spec 102's separate read-only procurement project
+view rendered WP rows as plain cards (no link), predating U2's read-only detail
+access. Made each row a `<Link>` to `workPackageHref`; no DB change. Landed amid a
+concurrent payroll/DC-payment session ([[concurrent-session-hazard]]): shared HEAD
+was on its feature branch + its WIP left the tree mid-compile, so the one-file fix
+was committed in isolation and ff-pushed to main (their branch/tree untouched).
+**Editing an existing request's content is out of scope** (no such feature for any
+role — site admins only create).
 
 ## Spec 166 U1 - beta finance gating (hide provisional GL from PMs) (2026-06-21)
 
