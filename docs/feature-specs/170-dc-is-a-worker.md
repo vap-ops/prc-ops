@@ -146,11 +146,11 @@ workerCount }`; `payrollToCsv` columns ช่าง/วัน/ค่าแรง
   (record by worker, one-per-(worker,period), compute by worker_id). **pgTAP
   `38-contractor-portal-rls`** — update the `get_my_dc_payments` test to the bridge.
 
-## U4 — repoint the portal onto the worker (SPEC — awaiting operator review)
+## U4 — repoint the portal onto the worker (U4a SHIPPED; U4b/U4c planned)
 
-**Status: design only, no code (operator chose "spec U4 first", 2026-06-21).**
-This is the unit ADR 0062 §U4 names; it is materially bigger than U1–U3 and is
-decomposed into **U4a / U4b / U4c**, one per session.
+**U4a SHIPPED 2026-06-21** (operator confirmed binding mechanism **(A) worker
+invite/claim**, "proceed"). The unit ADR 0062 §U4 names is materially bigger than
+U1–U3 and is decomposed into **U4a / U4b / U4c**, one per session.
 
 ### Why it's big
 
@@ -200,7 +200,17 @@ to their worker row + become `role='contractor'`?
 
 Recommendation: **(A)**, for parity with the proven claim UX. U4a builds it.
 
-### U4a — worker portal binding primitive (DB + claim flow)
+### U4a — worker portal binding primitive (SHIPPED 2026-06-21)
+
+**SHIPPED** on `main` (commit 0766b06), migrations 20260784 + fix-forward 20260785;
+binding mechanism (A) worker invite/claim. The plan below shipped as written, with:
+OPEN-3 resolved (get_my_crew_assignments left contractor-scoped, re-home in U4b);
+20260785 fix-forward for two known lessons (gen_random_bytes unreachable from
+search_path=public → gen_random_uuid token; the worker_invites policy was bare →
+eval-once `(select …)` wrapped — same defects as 20260706000200). pgTAP 116 (plan 28) + 38 (worker.user_id binding) + 73 (labor_logs now 3 SELECT policies).
+Verified lint · typecheck · vitest 1337 · db:test 116/2234/0 · build. The
+contractor-based portal PAGE surfaces (profile/consents/bank/docs) still render
+empty for a worker-bound DC until U4b/U4c re-home them; payments work worker-direct.
 
 - **Migration:** partial-unique index on `workers.user_id` (`where user_id is not
 null`) so one LINE user ↔ one worker; `current_user_worker_id()` SECURITY
