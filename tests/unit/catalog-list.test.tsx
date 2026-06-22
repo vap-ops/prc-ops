@@ -1,6 +1,19 @@
 // Spec 175 U1 — CatalogList renders the item master grouped by category.
-import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+
+// CatalogList now (U6) imports EditCatalogItem (a client component that imports
+// the "use server" actions) for its per-row edit control. Mock the actions +
+// router so the module graph loads in jsdom (the edit control is only rendered
+// when editable; these tests don't pass it, but the import still resolves).
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("@/app/catalog/actions", () => ({
+  createCatalogItem: vi.fn(),
+  updateCatalogItem: vi.fn(),
+  setCatalogItemActive: vi.fn(),
+  setCatalogItemImage: vi.fn(),
+}));
+
 import { CatalogList, type CatalogItem } from "@/components/features/catalog/catalog-list";
 import {
   ITEM_CATEGORY_LABEL,
@@ -90,5 +103,38 @@ describe("CatalogList (spec 175)", () => {
     const { container } = render(<CatalogList items={withImg} />);
     expect(container.querySelector('img[src="https://img.example/steel.jpg"]')).not.toBeNull();
     expect(screen.queryByRole("img", { name: "ไม่มีรูปภาพ" })).toBeNull();
+  });
+
+  it("shows a category filter — ทั้งหมด plus a chip per present category", () => {
+    render(<CatalogList items={items} />);
+    expect(screen.getByRole("radio", { name: /ทั้งหมด/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole("radio", { name: new RegExp(ITEM_CATEGORY_LABEL.steel_fixing) }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("radio", { name: new RegExp(ITEM_CATEGORY_LABEL.electrical) }),
+    ).toBeInTheDocument();
+    // a category with no items gets no chip
+    expect(screen.queryByRole("radio", { name: new RegExp(ITEM_CATEGORY_LABEL.paint) })).toBeNull();
+  });
+
+  it("selecting a category shows only that category's items", () => {
+    render(<CatalogList items={items} />);
+    fireEvent.click(
+      screen.getByRole("radio", { name: new RegExp(ITEM_CATEGORY_LABEL.steel_fixing) }),
+    );
+    expect(screen.getByText("เหล็กข้ออ้อย")).toBeInTheDocument();
+    expect(screen.queryByText("สายไฟ NYY 450/750V")).toBeNull(); // electrical hidden
+    expect(screen.queryByText("แผ่นหลังคาลอนตรง CC/760")).toBeNull(); // roofing hidden
+  });
+
+  it("ทั้งหมด restores every category", () => {
+    render(<CatalogList items={items} />);
+    fireEvent.click(
+      screen.getByRole("radio", { name: new RegExp(ITEM_CATEGORY_LABEL.steel_fixing) }),
+    );
+    fireEvent.click(screen.getByRole("radio", { name: /ทั้งหมด/ }));
+    expect(screen.getByText("เหล็กข้ออ้อย")).toBeInTheDocument();
+    expect(screen.getByText("สายไฟ NYY 450/750V")).toBeInTheDocument();
   });
 });

@@ -182,6 +182,19 @@ every row should carry a consistent image slot.
 - **Test:** `catalog-list.test.tsx` (+2: a placeholder per no-image row; the thumbnail renders
   and no placeholder when the item has an image).
 
+## U6 — category filter (select a category first)
+
+Operator: since the list is grouped by category, let users pick a category first (with "All").
+
+- **`CatalogList` becomes a client component** (was a server component + render-prop) to hold the
+  filter selection. A `RadioChip` row: **`ทั้งหมด (N)`** (default — the grouped overview) + a chip
+  per **present** category with its item count. Selecting one shows just that section.
+- Because the list is now a client component, the per-row edit control (`EditCatalogItem`, U3)
+  **moved inside `CatalogList`** behind an `editable` prop — a function render-prop can't cross the
+  server→client boundary. The page now passes `<CatalogList items={…} editable />` (data only).
+- **Test:** `catalog-list.test.tsx` (+3: ทั้งหมด + a chip per present category, no chip for empty
+  categories; selecting a category shows only its items; ทั้งหมด restores all). App-only, no DB.
+
 ## Out of scope (later units)
 
 Supply Plan (PM bulk plan, qty-per-WP, PD approval);

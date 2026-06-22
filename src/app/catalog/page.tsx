@@ -14,7 +14,6 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { CatalogList, type CatalogItem } from "@/components/features/catalog/catalog-list";
 import { AddCatalogItem } from "@/components/features/catalog/add-catalog-item";
-import { EditCatalogItem } from "@/components/features/catalog/edit-catalog-item";
 import { CATALOG_LABEL } from "@/lib/i18n/labels";
 
 export const metadata = { title: CATALOG_LABEL };
@@ -57,7 +56,7 @@ export default async function CatalogPage() {
         <div className="flex justify-end">
           <AddCatalogItem />
         </div>
-        <CatalogList items={items} renderRowAction={(it) => <EditCatalogItem item={it} />} />
+        <CatalogList items={items} editable />
       </div>
     </PageShell>
   );
