@@ -128,6 +128,48 @@ export async function bulkAddPlanLines(input: {
   return { ok: true, count: typeof count === "number" ? count : input.lines.length };
 }
 
+// Spec 181 U3 — generate purchase requests from an APPROVED plan's selected
+// lines (the "bulk PR" step). Relays generate_purchase_requests_from_plan, which
+// gates PM/super/director/procurement, requires an approved plan, and creates
+// born-approved PRs idempotently. Returns the count created.
+export async function generatePlanPurchaseRequests(input: {
+  projectId: string;
+  planId: string;
+  lineIds: string[];
+}): Promise<SupplyPlanResult & { count?: number }> {
+  if (!UUID_REGEX.test(input.projectId) || !UUID_REGEX.test(input.planId)) {
+    return { ok: false, error: FAILED };
+  }
+  if (!Array.isArray(input.lineIds) || input.lineIds.length === 0) {
+    return { ok: false, error: "เลือกรายการที่จะสร้างคำขอซื้อ" };
+  }
+  if (!input.lineIds.every((id) => UUID_REGEX.test(id))) {
+    return { ok: false, error: FAILED };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { data: count, error } = await auth.supabase.rpc("generate_purchase_requests_from_plan", {
+    p_plan_id: input.planId,
+    p_line_ids: input.lineIds,
+  });
+  if (error) {
+    if (error.code === "42501") return { ok: false, error: NO_PERMISSION };
+    if (error.code === "22023") {
+      return {
+        ok: false,
+        error: "สร้างคำขอซื้อไม่ได้: แผนต้องอนุมัติแล้ว และทุกรายการต้องระบุงาน (WP)",
+      };
+    }
+    return { ok: false, error: FAILED };
+  }
+
+  revalidatePath(supplyPlanHref(input.projectId));
+  revalidatePath("/requests");
+  return { ok: true, count: typeof count === "number" ? count : input.lineIds.length };
+}
+
 export async function removePlanLine(input: {
   projectId: string;
   lineId: string;

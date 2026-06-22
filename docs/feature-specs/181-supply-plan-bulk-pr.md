@@ -1,6 +1,6 @@
 # Spec 181 — Supply Plan: procurement bulk workspace + plan → PR generation
 
-Status: U1 + U2 SHIPPED to prod — 2026-06-23. U3–U4 in progress.
+Status: U1 + U2 + U3 SHIPPED to prod — 2026-06-23. U4 (convert UI) in progress.
 Builds on: spec 176 (Supply Plan — the PM-accuracy engine), spec 179/180 (PR
 links a catalog item; the catalog picker), spec 171/172 (procurement acts in the
 PM's stead, the cross-project procurement arm).

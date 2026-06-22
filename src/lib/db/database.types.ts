@@ -2604,6 +2604,7 @@ export type Database = {
           status: Database["public"]["Enums"]["purchase_request_status"]
           supplier: string | null
           supplier_id: string | null
+          supply_plan_line_id: string | null
           unit: string
           updated_at: string
           vat_rate: number
@@ -2650,6 +2651,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["purchase_request_status"]
           supplier?: string | null
           supplier_id?: string | null
+          supply_plan_line_id?: string | null
           unit: string
           updated_at?: string
           vat_rate?: number
@@ -2696,6 +2698,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["purchase_request_status"]
           supplier?: string | null
           supplier_id?: string | null
+          supply_plan_line_id?: string | null
           unit?: string
           updated_at?: string
           vat_rate?: number
@@ -2770,6 +2773,13 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_requests_supply_plan_line_id_fkey"
+            columns: ["supply_plan_line_id"]
+            isOneToOne: false
+            referencedRelation: "supply_plan_lines"
             referencedColumns: ["id"]
           },
           {
@@ -4760,6 +4770,10 @@ export type Database = {
         Returns: string
       }
       freeze_wp_labor_cost: { Args: { p_wp: string }; Returns: undefined }
+      generate_purchase_requests_from_plan: {
+        Args: { p_line_ids: string[]; p_plan_id: string }
+        Returns: number
+      }
       get_my_crew_assignments: {
         Args: never
         Returns: {
