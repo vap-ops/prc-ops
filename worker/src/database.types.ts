@@ -4605,6 +4605,10 @@ export type Database = {
         Returns: string
       }
       release_retention: { Args: { p_id: string }; Returns: string }
+      remove_supply_plan_line: {
+        Args: { p_line_id: string }
+        Returns: undefined
+      }
       remove_work_package_dependency: {
         Args: { p_predecessor: string; p_successor: string }
         Returns: boolean

@@ -21,6 +21,8 @@ const ALLOWED_DOMAINS = [
   "nova",
   // Spec 175: the item catalog (storage / inventory) feature components.
   "catalog",
+  // Spec 176: the supply plan (PM material planning) feature components.
+  "supply-plan",
 ] as const;
 
 describe("feature components are grouped into domain folders", () => {

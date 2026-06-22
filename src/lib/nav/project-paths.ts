@@ -35,3 +35,8 @@ export function reportsHref(projectId: string): string {
 export function scheduleHref(projectId: string): string {
   return `/projects/${projectId}/schedule`;
 }
+
+// Spec 176: the supply plan (PM material planning per project).
+export function supplyPlanHref(projectId: string): string {
+  return `/projects/${projectId}/supply-plan`;
+}

@@ -54,6 +54,28 @@ pgTAP `176-supply-plan` (19): tables + RLS, RPCs exist + anon-deny; create is id
 returns id; qty≤0 / WP-other-project / inactive-item / duplicate / frozen-plan all rejected;
 non-member PM + visitor denied; super on unknown project → 22023.
 
+## U2 — planning screen
+
+The PM-facing screen at `/projects/[projectId]/supply-plan` (planner tier; RLS scopes the
+project read to members → a non-member PM gets `notFound`). Reached from a `ClipboardList` chip
+on the project header (manager-only).
+
+- **`remove_supply_plan_line(line)` RPC** (migration `20260806`) — draft-only delete, planner +
+  member; unknown line / frozen plan → `22023`; the table has no DELETE grant.
+- **`SupplyPlanManager`** (client): a status chip; "เพิ่มรายการแผน" → BottomSheet form (catalog
+  item `<select>` grouped by category with `<optgroup>`, WP `<select>` — **required in U2**, qty,
+  note) → `addPlanLine`; per-line remove (`Trash2`) → `removePlanLine`. A submitted/approved plan
+  renders **read-only** (no add/remove).
+- **Actions** (`addPlanLine` / `removePlanLine`): `getActionUser` + the RPCs; add does
+  get-or-create (`create_supply_plan`) then `add_supply_plan_line`; maps `23505`/`42501`/`22023`;
+  `revalidatePath`.
+- **Page** loads the plan + its lines (joined to catalog item + WP) + the pickers (active catalog
+  items + the project's WPs).
+- **Tests:** `supply-plan-manager.test.tsx` (4: submit-gating, add with item/WP/qty, remove,
+  frozen read-only); pgTAP `177-supply-plan-remove-line` (9).
+- **Note:** site-general (null WP) is schema-supported, but the U2 form **requires a WP** (the core
+  qty-per-WP case) — a "ทั้งโครงการ" picker option is a later add.
+
 ## Open decisions (flagged for the operator before U2/U3 lock them)
 
 1. **One plan per project** (no versioning/amendments yet) — is a single living plan right, or do

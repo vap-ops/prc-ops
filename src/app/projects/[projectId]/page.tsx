@@ -2,14 +2,19 @@ import { PageShell } from "@/components/features/chrome/page-shell";
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
-import { CalendarDays, FileText, Settings } from "lucide-react";
+import { CalendarDays, ClipboardList, FileText, Settings } from "lucide-react";
 import {
   PROJECT_VIEW_ROLES,
   SCHEDULE_VIEW_ROLES,
   WP_DETAIL_ROLES,
   isManagerRole,
 } from "@/lib/auth/role-home";
-import { projectSettingsHref, reportsHref, scheduleHref } from "@/lib/nav/project-paths";
+import {
+  projectSettingsHref,
+  reportsHref,
+  scheduleHref,
+  supplyPlanHref,
+} from "@/lib/nav/project-paths";
 import { ICON_CHIP_MUTED } from "@/lib/ui/classes";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { ProjectInfoButton } from "@/components/features/work-packages/project-info-button";
@@ -136,6 +141,14 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
             ) : null}
             {isManagerRole(ctx.role) ? (
               <>
+                {/* Spec 176: the supply plan (PM material planning per project). */}
+                <Link
+                  href={supplyPlanHref(project.id)}
+                  aria-label="แผนจัดหา"
+                  className={ICON_CHIP_MUTED}
+                >
+                  <ClipboardList aria-hidden className="h-5 w-5" />
+                </Link>
                 <Link
                   href={reportsHref(project.id)}
                   aria-label="รายงานโครงการ"
