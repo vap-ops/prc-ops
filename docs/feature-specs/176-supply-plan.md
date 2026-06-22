@@ -76,6 +76,23 @@ on the project header (manager-only).
 - **Note:** site-general (null WP) is schema-supported, but the U2 form **requires a WP** (the core
   qty-per-WP case) — a "ทั้งโครงการ" picker option is a later add.
 
+## U3 — submit + PD approve/reject (freeze the baseline)
+
+Lifecycle: `draft → (PM submit) → submitted → (PD approve) → approved [frozen]` /
+`→ (PD reject) → rejected → (PM revises + resubmits)`. **Separation of duties:** the planner
+tier submits; only the approver tier (`project_director` / `super_admin`) approves or rejects —
+a plain PM cannot approve its own plan.
+
+- **Migration `20260807`:** `submit_supply_plan` (planner; `draft|rejected → submitted`),
+  `approve_supply_plan` + `reject_supply_plan` (PD/super only; `submitted → approved|rejected`).
+  CREATE OR REPLACE `add_supply_plan_line` + `remove_supply_plan_line` to widen editability
+  `draft → draft|rejected` (a rejected plan is revisable). All anon-revoked.
+- **`SupplyPlanManager`:** `editable` now includes `rejected`; header shows **ส่งอนุมัติ**
+  (planner, draft/rejected) · **อนุมัติ / ตีกลับ** (approver, submitted) · **รออนุมัติ**
+  (non-approver, submitted). Page passes `planId` + `canApprove` (PD/super).
+- **Actions:** `submitPlan` / `approvePlan` / `rejectPlan`.
+- **Tests:** `supply-plan-manager.test.tsx` (+3 lifecycle); pgTAP `178-supply-plan-lifecycle` (17).
+
 ## Open decisions (flagged for the operator before U2/U3 lock them)
 
 1. **One plan per project** (no versioning/amendments yet) — is a single living plan right, or do

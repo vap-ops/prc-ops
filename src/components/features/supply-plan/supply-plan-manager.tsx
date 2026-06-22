@@ -12,10 +12,18 @@ import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
 import { ITEM_CATEGORY_LABEL } from "@/lib/i18n/labels";
 import type { Database } from "@/lib/db/database.types";
-import { addPlanLine, removePlanLine } from "@/app/projects/[projectId]/supply-plan/actions";
+import {
+  addPlanLine,
+  approvePlan,
+  rejectPlan,
+  removePlanLine,
+  submitPlan,
+} from "@/app/projects/[projectId]/supply-plan/actions";
 
 type ItemCategory = Database["public"]["Enums"]["item_category"];
-type PlanStatus = Database["public"]["Enums"]["supply_plan_status"];
+export type PlanStatus = Database["public"]["Enums"]["supply_plan_status"];
+
+type LifecycleResult = { ok: true } | { ok: false; error: string };
 
 export type CatalogPick = {
   id: string;
@@ -47,19 +55,25 @@ const FIELD =
 
 export function SupplyPlanManager({
   projectId,
+  planId,
   planStatus,
+  canApprove,
   lines,
   catalogItems,
   workPackages,
 }: {
   projectId: string;
+  planId: string | null;
   planStatus: PlanStatus | null;
+  canApprove: boolean;
   lines: PlanLine[];
   catalogItems: CatalogPick[];
   workPackages: { id: string; code: string; name: string }[];
 }) {
   const router = useRouter();
-  const editable = planStatus === null || planStatus === "draft";
+  // Editable while draft/rejected (or before a plan exists); submitted/approved
+  // are the frozen baseline.
+  const editable = planStatus === null || planStatus === "draft" || planStatus === "rejected";
 
   const [open, setOpen] = useState(false);
   const [item, setItem] = useState("");
@@ -71,6 +85,24 @@ export function SupplyPlanManager({
 
   const [removing, startRemove] = useTransition();
   const [removeError, setRemoveError] = useState<string | null>(null);
+
+  const [acting, startAct] = useTransition();
+  const [actError, setActError] = useState<string | null>(null);
+
+  function runLifecycle(
+    fn: (i: { projectId: string; planId: string }) => Promise<LifecycleResult>,
+  ) {
+    if (!planId) return;
+    setActError(null);
+    startAct(async () => {
+      const result = await fn({ projectId, planId });
+      if (!result.ok) {
+        setActError(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
 
   const qtyNum = Number(qty);
   const canSubmit =
@@ -122,19 +154,60 @@ export function SupplyPlanManager({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="text-meta text-ink-secondary">
           สถานะแผน:{" "}
           <span className="text-ink font-semibold">
             {planStatus ? STATUS_LABEL[planStatus] : "ยังไม่เริ่ม"}
           </span>
         </span>
-        {editable ? (
-          <button type="button" onClick={() => setOpen(true)} className={BUTTON_PRIMARY}>
-            เพิ่มรายการแผน
-          </button>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          {editable ? (
+            <button type="button" onClick={() => setOpen(true)} className={BUTTON_SECONDARY}>
+              เพิ่มรายการแผน
+            </button>
+          ) : null}
+          {editable && planId ? (
+            <button
+              type="button"
+              disabled={acting}
+              onClick={() => runLifecycle(submitPlan)}
+              className={BUTTON_PRIMARY}
+            >
+              {acting ? "กำลังส่ง…" : "ส่งอนุมัติ"}
+            </button>
+          ) : null}
+          {planStatus === "submitted" && canApprove ? (
+            <>
+              <button
+                type="button"
+                disabled={acting}
+                onClick={() => runLifecycle(rejectPlan)}
+                className={BUTTON_SECONDARY}
+              >
+                ตีกลับ
+              </button>
+              <button
+                type="button"
+                disabled={acting}
+                onClick={() => runLifecycle(approvePlan)}
+                className={BUTTON_PRIMARY}
+              >
+                อนุมัติ
+              </button>
+            </>
+          ) : null}
+          {planStatus === "submitted" && !canApprove ? (
+            <span className="text-meta text-ink-secondary">รออนุมัติ</span>
+          ) : null}
+        </div>
       </div>
+
+      {actError ? (
+        <div role="alert" className={INLINE_ERROR}>
+          {actError}
+        </div>
+      ) : null}
 
       {removeError ? (
         <div role="alert" className={INLINE_ERROR}>

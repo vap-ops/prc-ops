@@ -89,3 +89,56 @@ export async function removePlanLine(input: {
   revalidatePath(supplyPlanHref(input.projectId));
   return { ok: true };
 }
+
+// Lifecycle transitions (U3). submit = planner; approve/reject = PD/super — the
+// SECURITY DEFINER RPCs enforce that + the status guard; this maps their codes.
+function mapLifecycleError(code?: string): string {
+  if (code === "42501") return NO_PERMISSION;
+  if (code === "22023") return "ทำรายการไม่ได้ในสถานะนี้";
+  return FAILED;
+}
+
+export async function submitPlan(input: {
+  projectId: string;
+  planId: string;
+}): Promise<SupplyPlanResult> {
+  if (!UUID_REGEX.test(input.projectId) || !UUID_REGEX.test(input.planId)) {
+    return { ok: false, error: FAILED };
+  }
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { error } = await auth.supabase.rpc("submit_supply_plan", { p_plan_id: input.planId });
+  if (error) return { ok: false, error: mapLifecycleError(error.code) };
+  revalidatePath(supplyPlanHref(input.projectId));
+  return { ok: true };
+}
+
+export async function approvePlan(input: {
+  projectId: string;
+  planId: string;
+}): Promise<SupplyPlanResult> {
+  if (!UUID_REGEX.test(input.projectId) || !UUID_REGEX.test(input.planId)) {
+    return { ok: false, error: FAILED };
+  }
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { error } = await auth.supabase.rpc("approve_supply_plan", { p_plan_id: input.planId });
+  if (error) return { ok: false, error: mapLifecycleError(error.code) };
+  revalidatePath(supplyPlanHref(input.projectId));
+  return { ok: true };
+}
+
+export async function rejectPlan(input: {
+  projectId: string;
+  planId: string;
+}): Promise<SupplyPlanResult> {
+  if (!UUID_REGEX.test(input.projectId) || !UUID_REGEX.test(input.planId)) {
+    return { ok: false, error: FAILED };
+  }
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { error } = await auth.supabase.rpc("reject_supply_plan", { p_plan_id: input.planId });
+  if (error) return { ok: false, error: mapLifecycleError(error.code) };
+  revalidatePath(supplyPlanHref(input.projectId));
+  return { ok: true };
+}

@@ -96,7 +96,11 @@ export default async function SupplyPlanPage({ params }: PageProps) {
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
         <SupplyPlanManager
           projectId={project.id}
+          planId={plan?.id ?? null}
           planStatus={plan?.status ?? null}
+          // Approver tier: PD/super (separation of duties — the PM submits, the
+          // PD approves). The submit/approve RPCs re-enforce this.
+          canApprove={ctx.role === "project_director" || ctx.role === "super_admin"}
           lines={lines}
           catalogItems={catalogItems}
           workPackages={workPackages}

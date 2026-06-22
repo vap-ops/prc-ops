@@ -4115,6 +4115,7 @@ export type Database = {
         Returns: boolean
       }
       apply_wp_template: { Args: { p_project_id: string }; Returns: number }
+      approve_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
       assign_project_ht: {
         Args: { p_project: string; p_worker: string }
         Returns: undefined
@@ -4604,6 +4605,7 @@ export type Database = {
         Args: { p_item: string; p_worker: string }
         Returns: string
       }
+      reject_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
       release_retention: { Args: { p_id: string }; Returns: string }
       remove_supply_plan_line: {
         Args: { p_line_id: string }
@@ -4771,6 +4773,7 @@ export type Database = {
         }
         Returns: string
       }
+      submit_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
       suggest_project_code: { Args: never; Returns: string }
       swap_deliverable_order: {
         Args: { p_a: string; p_b: string }
