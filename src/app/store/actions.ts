@@ -63,3 +63,50 @@ export async function recordStockIn(input: {
   revalidatePath("/store");
   return { ok: true };
 }
+
+// Spec 177 U3/U4 — เบิก/issue-out. Calls the SECURITY DEFINER issue_stock RPC,
+// which carries the SITE_STAFF gate + membership + the sufficient-on-hand guard
+// and decrements on-hand at the moving-average cost; this maps its error codes.
+const ISSUE_FAILED = "เบิกสต๊อกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+
+export async function issueStock(input: {
+  projectId: string;
+  catalogItemId: string;
+  workPackageId: string;
+  qty: number;
+  note: string;
+}): Promise<StockInResult> {
+  if (
+    !UUID_REGEX.test(input.projectId) ||
+    !UUID_REGEX.test(input.catalogItemId) ||
+    !UUID_REGEX.test(input.workPackageId)
+  ) {
+    return { ok: false, error: ISSUE_FAILED };
+  }
+  if (!Number.isFinite(input.qty) || input.qty <= 0) {
+    return { ok: false, error: "จำนวนต้องมากกว่า 0" };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("issue_stock", {
+    p_project_id: input.projectId,
+    p_catalog_item_id: input.catalogItemId,
+    p_work_package_id: input.workPackageId,
+    p_qty: input.qty,
+    p_note: input.note,
+  });
+  if (error) {
+    if (error.code === "42501") return { ok: false, error: NO_PERMISSION };
+    // 22023 covers insufficient stock, a WP from another project, an inactive
+    // item, or qty ≤ 0 — all "check what you entered" from the user's side.
+    if (error.code === "22023") {
+      return { ok: false, error: "สต๊อกไม่พอ หรือข้อมูลไม่ถูกต้อง" };
+    }
+    return { ok: false, error: ISSUE_FAILED };
+  }
+
+  revalidatePath("/store");
+  return { ok: true };
+}

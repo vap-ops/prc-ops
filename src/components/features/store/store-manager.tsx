@@ -9,9 +9,9 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
-import { ITEM_CATEGORY_LABEL, STORE_RECEIVE_LABEL } from "@/lib/i18n/labels";
+import { ITEM_CATEGORY_LABEL, STORE_ISSUE_LABEL, STORE_RECEIVE_LABEL } from "@/lib/i18n/labels";
 import type { Database } from "@/lib/db/database.types";
-import { recordStockIn } from "@/app/store/actions";
+import { issueStock, recordStockIn } from "@/app/store/actions";
 
 type ItemCategory = Database["public"]["Enums"]["item_category"];
 
@@ -32,6 +32,16 @@ export type StockRow = {
   totalValue: number;
 };
 
+export type IssueRow = {
+  id: string;
+  baseItem: string;
+  specAttrs: string | null;
+  unit: string;
+  qty: number;
+  unitCost: number;
+  wpLabel: string;
+};
+
 const LABEL = "text-sm font-medium text-ink";
 const FIELD =
   "rounded-control border-edge-strong bg-card text-ink shadow-input focus-visible:ring-action w-full min-w-0 border px-3 py-2 text-sm focus:outline-none focus-visible:ring-2";
@@ -46,12 +56,18 @@ export function StoreManager({
   onHand,
   catalogItems,
   suppliers,
+  canIssue,
+  workPackages,
+  issues,
 }: {
   projects: { id: string; code: string; name: string }[];
   selectedProjectId: string | null;
   onHand: StockRow[];
   catalogItems: CatalogPick[];
   suppliers: { id: string; name: string }[];
+  canIssue: boolean;
+  workPackages: { id: string; code: string; name: string }[];
+  issues: IssueRow[];
 }) {
   const router = useRouter();
 
@@ -63,6 +79,52 @@ export function StoreManager({
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
+
+  // เบิก (issue-out) sheet — opened for a specific on-hand row.
+  const [issueRow, setIssueRow] = useState<StockRow | null>(null);
+  const [issueWp, setIssueWp] = useState("");
+  const [issueQty, setIssueQty] = useState("");
+  const [issueNote, setIssueNote] = useState("");
+  const [issueError, setIssueError] = useState<string | null>(null);
+  const [issuing, startIssue] = useTransition();
+
+  const issueQtyNum = Number(issueQty);
+  const canIssueSubmit =
+    issueRow !== null &&
+    issueWp !== "" &&
+    issueQty !== "" &&
+    Number.isFinite(issueQtyNum) &&
+    issueQtyNum > 0 &&
+    !issuing;
+
+  function openIssue(row: StockRow) {
+    setIssueRow(row);
+    setIssueWp("");
+    setIssueQty("");
+    setIssueNote("");
+    setIssueError(null);
+  }
+
+  function handleIssueSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!canIssueSubmit || !selectedProjectId || !issueRow) return;
+    setIssueError(null);
+    startIssue(async () => {
+      const result = await issueStock({
+        projectId: selectedProjectId,
+        catalogItemId: issueRow.catalogItemId,
+        workPackageId: issueWp,
+        qty: issueQtyNum,
+        note: issueNote,
+      });
+      if (!result.ok) {
+        setIssueError(result.error);
+        return;
+      }
+      setIssueRow(null);
+      router.refresh();
+    });
+  }
 
   const qtyNum = Number(qty);
   const costNum = Number(unitCost);
@@ -166,11 +228,45 @@ export function StoreManager({
                         {baht(r.totalValue)} ฿
                       </span>
                     </span>
+                    {canIssue ? (
+                      <button
+                        type="button"
+                        onClick={() => openIssue(r)}
+                        className={`${BUTTON_SECONDARY} shrink-0`}
+                      >
+                        เบิก
+                      </button>
+                    ) : null}
                   </li>
                 );
               })}
             </ul>
           )}
+
+          {issues.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              <h2 className="text-ink text-body font-semibold">เบิกล่าสุด</h2>
+              <ul className="flex flex-col gap-2">
+                {issues.map((i) => (
+                  <li
+                    key={i.id}
+                    className="border-edge bg-card rounded-control flex items-center gap-3 border px-4 py-3"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="text-ink text-body block font-semibold">{i.baseItem}</span>
+                      <span className="text-ink-secondary text-meta block">
+                        {i.specAttrs ? `${i.specAttrs} · ` : ""}
+                        {i.wpLabel} · ต้นทุน {baht(i.unitCost)} ฿/{i.unit}
+                      </span>
+                    </span>
+                    <span className="text-ink text-body shrink-0 font-semibold">
+                      {i.qty} {i.unit}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
           <BottomSheet open={open} title={STORE_RECEIVE_LABEL} onClose={() => setOpen(false)}>
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -284,6 +380,94 @@ export function StoreManager({
                 </button>
                 <button type="submit" disabled={!canSubmit} className={BUTTON_PRIMARY}>
                   {submitting ? "กำลังบันทึก…" : "บันทึก"}
+                </button>
+              </div>
+            </form>
+          </BottomSheet>
+
+          <BottomSheet
+            open={issueRow !== null}
+            title={STORE_ISSUE_LABEL}
+            onClose={() => setIssueRow(null)}
+          >
+            <form onSubmit={handleIssueSubmit} className="flex flex-col gap-4">
+              <p className="text-ink-secondary text-meta">
+                เบิก{" "}
+                <span className="text-ink font-semibold">
+                  {issueRow?.baseItem}
+                  {issueRow?.specAttrs ? ` · ${issueRow.specAttrs}` : ""}
+                </span>{" "}
+                — มีในมือ {issueRow?.qtyOnHand} {issueRow?.unit}
+              </p>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="issue-wp" className={LABEL}>
+                  งาน
+                </label>
+                <select
+                  id="issue-wp"
+                  value={issueWp}
+                  onChange={(e) => setIssueWp(e.target.value)}
+                  disabled={issuing}
+                  className={FIELD}
+                >
+                  <option value="">เลือกงาน (WP)</option>
+                  {workPackages.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.code} {w.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="issue-qty" className={LABEL}>
+                  จำนวน
+                </label>
+                <input
+                  id="issue-qty"
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="any"
+                  value={issueQty}
+                  onChange={(e) => setIssueQty(e.target.value)}
+                  disabled={issuing}
+                  className={FIELD}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="issue-note" className={LABEL}>
+                  หมายเหตุ (ถ้ามี)
+                </label>
+                <input
+                  id="issue-note"
+                  type="text"
+                  value={issueNote}
+                  maxLength={1000}
+                  onChange={(e) => setIssueNote(e.target.value)}
+                  disabled={issuing}
+                  className={FIELD}
+                />
+              </div>
+
+              {issueError ? (
+                <div role="alert" className={INLINE_ERROR}>
+                  {issueError}
+                </div>
+              ) : null}
+
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIssueRow(null)}
+                  className={BUTTON_SECONDARY}
+                >
+                  ยกเลิก
+                </button>
+                <button type="submit" disabled={!canIssueSubmit} className={BUTTON_PRIMARY}>
+                  {issuing ? "กำลังเบิก…" : "ยืนยันการเบิก"}
                 </button>
               </div>
             </form>

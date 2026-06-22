@@ -8,13 +8,14 @@
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
-import { BACK_OFFICE_ROLES } from "@/lib/auth/role-home";
+import { BACK_OFFICE_ROLES, isManagerRole } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import {
   StoreManager,
   type CatalogPick,
+  type IssueRow,
   type StockRow,
 } from "@/components/features/store/store-manager";
 import { STORE_LABEL } from "@/lib/i18n/labels";
@@ -41,9 +42,17 @@ export default async function StorePage({ searchParams }: PageProps) {
   // Only honour a project the viewer can actually see; else no selection.
   const selectedProjectId = project && projects.some((p) => p.id === project) ? project : null;
 
+  // เบิก (issue-out) is gated to the manager tier (PM/super/director) — the
+  // intersection of /store access (BACK_OFFICE) and the issue_stock RPC gate
+  // (SITE_STAFF). Procurement reaches /store but cannot issue; site_admin can
+  // issue but draws at the WP detail (a later unit), not here.
+  const canIssue = isManagerRole(ctx.role);
+
   let onHand: StockRow[] = [];
   let catalogItems: CatalogPick[] = [];
   let suppliers: { id: string; name: string }[] = [];
+  let workPackages: { id: string; code: string; name: string }[] = [];
+  let issues: IssueRow[] = [];
 
   if (selectedProjectId) {
     const { data: ohRows } = await supabase
@@ -81,6 +90,31 @@ export default async function StorePage({ searchParams }: PageProps) {
       .select("id, name")
       .order("name", { ascending: true });
     suppliers = (supRows ?? []).map((s) => ({ id: s.id, name: s.name }));
+
+    const { data: wpRows } = await supabase
+      .from("work_packages")
+      .select("id, code, name")
+      .eq("project_id", selectedProjectId)
+      .order("code", { ascending: true });
+    workPackages = (wpRows ?? []).map((w) => ({ id: w.id, code: w.code, name: w.name }));
+
+    const { data: issueRows } = await supabase
+      .from("stock_issues")
+      .select(
+        "id, qty, unit, unit_cost, catalog_items ( base_item, spec_attrs ), work_packages ( code, name )",
+      )
+      .eq("project_id", selectedProjectId)
+      .order("issued_at", { ascending: false })
+      .limit(10);
+    issues = (issueRows ?? []).map((r) => ({
+      id: r.id,
+      baseItem: r.catalog_items?.base_item ?? "",
+      specAttrs: r.catalog_items?.spec_attrs ?? null,
+      unit: r.unit,
+      qty: Number(r.qty),
+      unitCost: Number(r.unit_cost),
+      wpLabel: r.work_packages ? `${r.work_packages.code} ${r.work_packages.name}` : "",
+    }));
   }
 
   return (
@@ -96,6 +130,9 @@ export default async function StorePage({ searchParams }: PageProps) {
           onHand={onHand}
           catalogItems={catalogItems}
           suppliers={suppliers}
+          canIssue={canIssue}
+          workPackages={workPackages}
+          issues={issues}
         />
       </div>
     </PageShell>

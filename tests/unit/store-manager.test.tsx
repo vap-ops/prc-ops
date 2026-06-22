@@ -5,8 +5,9 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockRecord, mockRefresh, mockPush } = vi.hoisted(() => ({
+const { mockRecord, mockIssue, mockRefresh, mockPush } = vi.hoisted(() => ({
   mockRecord: vi.fn(),
+  mockIssue: vi.fn(),
   mockRefresh: vi.fn(),
   mockPush: vi.fn(),
 }));
@@ -14,9 +15,13 @@ const { mockRecord, mockRefresh, mockPush } = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: mockRefresh, push: mockPush }),
 }));
-vi.mock("@/app/store/actions", () => ({ recordStockIn: mockRecord }));
+vi.mock("@/app/store/actions", () => ({ recordStockIn: mockRecord, issueStock: mockIssue }));
 
-import { StoreManager, type StockRow } from "@/components/features/store/store-manager";
+import {
+  StoreManager,
+  type StockRow,
+  type IssueRow,
+} from "@/components/features/store/store-manager";
 
 const projects = [
   { id: "p1", code: "PRC-2026-001", name: "บ้านคุณเอ" },
@@ -32,6 +37,18 @@ const catalogItems = [
   },
 ];
 const suppliers = [{ id: "s1", name: "ร้านวัสดุดี" }];
+const workPackages = [{ id: "wp1", code: "WP-01", name: "งานเดินไฟ" }];
+const issues: IssueRow[] = [
+  {
+    id: "iss1",
+    baseItem: "ท่อ PVC",
+    specAttrs: null,
+    unit: "เส้น",
+    qty: 8,
+    unitCost: 45,
+    wpLabel: "WP-01 งานเดินไฟ",
+  },
+];
 const onHand: StockRow[] = [
   {
     catalogItemId: "ci1",
@@ -45,11 +62,17 @@ const onHand: StockRow[] = [
 
 beforeEach(() => {
   mockRecord.mockReset().mockResolvedValue({ ok: true });
+  mockIssue.mockReset().mockResolvedValue({ ok: true });
   mockRefresh.mockReset();
   mockPush.mockReset();
 });
 
-function renderManager(opts: { selectedProjectId?: string | null; onHand?: StockRow[] }) {
+function renderManager(opts: {
+  selectedProjectId?: string | null;
+  onHand?: StockRow[];
+  canIssue?: boolean;
+  issues?: IssueRow[];
+}) {
   render(
     <StoreManager
       projects={projects}
@@ -57,6 +80,9 @@ function renderManager(opts: { selectedProjectId?: string | null; onHand?: Stock
       onHand={opts.onHand ?? onHand}
       catalogItems={catalogItems}
       suppliers={suppliers}
+      canIssue={opts.canIssue ?? false}
+      workPackages={workPackages}
+      issues={opts.issues ?? []}
     />,
   );
 }
@@ -119,5 +145,52 @@ describe("StoreManager (spec 177 U2)", () => {
   it("the record control is hidden until a project is selected", () => {
     renderManager({ selectedProjectId: null, onHand: [] });
     expect(screen.queryByRole("button", { name: /รับเข้าสต๊อก/ })).toBeNull();
+  });
+});
+
+describe("StoreManager เบิก/issue (spec 177 U4)", () => {
+  it("shows no เบิก control on on-hand rows when the user cannot issue", () => {
+    renderManager({ canIssue: false });
+    expect(screen.queryByRole("button", { name: "เบิก" })).toBeNull();
+  });
+
+  it("offers a เบิก control per on-hand row when the user can issue", () => {
+    renderManager({ canIssue: true });
+    expect(screen.getByRole("button", { name: "เบิก" })).toBeInTheDocument();
+  });
+
+  it("issues the row's item to the chosen WP and qty", async () => {
+    renderManager({ canIssue: true });
+    fireEvent.click(screen.getByRole("button", { name: "เบิก" }));
+    fireEvent.change(screen.getByLabelText("งาน"), { target: { value: "wp1" } });
+    fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "5" } });
+    fireEvent.click(screen.getByRole("button", { name: "ยืนยันการเบิก" }));
+
+    await waitFor(() =>
+      expect(mockIssue).toHaveBeenCalledWith({
+        projectId: "p1",
+        catalogItemId: "ci1",
+        workPackageId: "wp1",
+        qty: 5,
+        note: "",
+      }),
+    );
+    await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
+  });
+
+  it("disables the เบิก submit until a WP and qty are set", () => {
+    renderManager({ canIssue: true });
+    fireEvent.click(screen.getByRole("button", { name: "เบิก" }));
+    const submit = screen.getByRole("button", { name: "ยืนยันการเบิก" });
+    expect(submit).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("งาน"), { target: { value: "wp1" } });
+    fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "5" } });
+    expect(submit).toBeEnabled();
+  });
+
+  it("lists recent เบิก for the project", () => {
+    renderManager({ canIssue: true, issues });
+    expect(screen.getByText("ท่อ PVC")).toBeInTheDocument();
+    expect(screen.getByText(/WP-01/)).toBeInTheDocument();
   });
 });
