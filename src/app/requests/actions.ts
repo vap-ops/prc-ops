@@ -1011,6 +1011,75 @@ export async function createSupplier(input: CreateSupplierInput): Promise<Create
   return { ok: true, id: data.id };
 }
 
+// --- Price comparison: supplier quotes on an approved PR (spec 182) ----------
+//
+// addPurchaseQuote / removePurchaseQuote relay the SECURITY DEFINER RPCs, which
+// own the back-office gate (PM/procurement/super/director), the approved-PR
+// guard, and the one-quote-per-supplier rule. Money (unit_price) never reaches a
+// site session — the quotes table is back-office-read only (RLS).
+
+export interface AddPurchaseQuoteInput {
+  purchaseRequestId: string;
+  supplierId: string;
+  unitPrice: number;
+  note?: string | null;
+}
+
+export async function addPurchaseQuote(
+  input: AddPurchaseQuoteInput,
+): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  if (!UUID_REGEX.test(input.purchaseRequestId) || !UUID_REGEX.test(input.supplierId)) {
+    return { ok: false, error: "ข้อมูลไม่ถูกต้อง" };
+  }
+  if (!Number.isFinite(input.unitPrice) || input.unitPrice < 0) {
+    return { ok: false, error: "ราคาต่อหน่วยต้องไม่ติดลบ" };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { data, error } = await auth.supabase.rpc("add_purchase_quote", {
+    p_purchase_request_id: input.purchaseRequestId,
+    p_supplier_id: input.supplierId,
+    p_unit_price: input.unitPrice,
+    p_note: input.note ?? "",
+  });
+  if (error || !data) {
+    if (error?.code === "23505") {
+      return { ok: false, error: "มีใบเสนอราคาของผู้ขายรายนี้แล้ว (ลบแล้วเพิ่มใหม่เพื่อแก้ราคา)" };
+    }
+    if (error?.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์เพิ่มใบเสนอราคา" };
+    if (error?.code === "22023") {
+      return { ok: false, error: "เพิ่มใบเสนอราคาไม่ได้ (คำขอต้องอนุมัติแล้ว)" };
+    }
+    return { ok: false, error: "เพิ่มใบเสนอราคาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  revalidatePath(`/requests/${input.purchaseRequestId}`);
+  return { ok: true, id: data };
+}
+
+export async function removePurchaseQuote(input: {
+  purchaseRequestId: string;
+  quoteId: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!UUID_REGEX.test(input.purchaseRequestId) || !UUID_REGEX.test(input.quoteId)) {
+    return { ok: false, error: "ข้อมูลไม่ถูกต้อง" };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("remove_purchase_quote", { p_quote_id: input.quoteId });
+  if (error) {
+    if (error.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์ลบใบเสนอราคา" };
+    return { ok: false, error: "ลบใบเสนอราคาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  revalidatePath(`/requests/${input.purchaseRequestId}`);
+  return { ok: true };
+}
+
 export interface RecordPurchaseInput {
   requestId: string;
   supplierId: string;

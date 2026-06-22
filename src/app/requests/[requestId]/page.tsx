@@ -33,6 +33,10 @@ import { PurchaseRequestNotes } from "@/components/features/purchasing/purchase-
 import { PurchaseRequestDecision } from "@/components/features/purchasing/purchase-request-decision";
 import { PurchaseRequestCancel } from "@/components/features/purchasing/purchase-request-cancel";
 import { CreatePoFromRequestButton } from "@/components/features/purchasing/create-po-from-request-button";
+import {
+  PriceComparison,
+  type PurchaseQuote,
+} from "@/components/features/purchasing/price-comparison";
 import { PurchaseRequestShip } from "@/components/features/purchasing/purchase-request-ship";
 import { isBackOfficeRole } from "@/lib/purchasing/back-office";
 import { DeliveryPhotoUploader } from "@/components/features/purchasing/delivery-photo-uploader";
@@ -106,6 +110,24 @@ export default async function RequestDetailPage({ params }: PageProps) {
   const referenceLinks = attachments.filter(
     (row) => row.purpose === "reference" && row.kind === "link",
   );
+
+  // Spec 182 U1: supplier quotes for price comparison — only on an approved PR,
+  // back-office only (unit_price is money; RLS hides the table from site staff).
+  let quotes: PurchaseQuote[] = [];
+  if (isBackOffice && status === "approved") {
+    const { data: quoteRows } = await supabase
+      .from("purchase_quotes")
+      .select("id, supplier_id, unit_price, note, suppliers ( name )")
+      .eq("purchase_request_id", request.id)
+      .order("unit_price", { ascending: true });
+    quotes = (quoteRows ?? []).map((q) => ({
+      id: q.id,
+      supplierId: q.supplier_id,
+      supplierName: q.suppliers?.name ?? "—",
+      unitPrice: Number(q.unit_price),
+      note: q.note,
+    }));
+  }
 
   // Spec 125/134: the PO this ticket belongs to (number + source docs) — link target.
   const poId = request.purchase_order_id;
@@ -516,19 +538,31 @@ export default async function RequestDetailPage({ params }: PageProps) {
               <PurchaseRequestDecision requestId={request.id} />
             ) : null}
             {isBackOffice && status === "approved" ? (
-              /* Spec 120: recording a purchase = creating a one-line PO (the
-                 unified purchase path; replaces the spec-33 record form). */
-              <CreatePoFromRequestButton
-                line={{
-                  id: request.id,
-                  pr_number: request.pr_number,
-                  item_description: request.item_description,
-                  quantity: request.quantity,
-                  unit: request.unit,
-                  wp_code: wp?.code ?? null,
-                }}
-                suppliers={suppliers}
-              />
+              <>
+                {/* Spec 182: compare supplier quotes before ordering. */}
+                <PriceComparison
+                  purchaseRequestId={request.id}
+                  quantity={request.quantity}
+                  unit={request.unit}
+                  quotes={quotes}
+                  suppliers={suppliers}
+                />
+                {/* Spec 120: recording a purchase = creating a one-line PO (the
+                    unified purchase path; replaces the spec-33 record form). */}
+                <div className="border-edge-strong mt-3 border-t pt-3">
+                  <CreatePoFromRequestButton
+                    line={{
+                      id: request.id,
+                      pr_number: request.pr_number,
+                      item_description: request.item_description,
+                      quantity: request.quantity,
+                      unit: request.unit,
+                      wp_code: wp?.code ?? null,
+                    }}
+                    suppliers={suppliers}
+                  />
+                </div>
+              </>
             ) : null}
             {isBackOffice && status === "purchased" ? (
               <PurchaseRequestShip requestId={request.id} />

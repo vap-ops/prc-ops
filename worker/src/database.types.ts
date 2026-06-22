@@ -2450,6 +2450,58 @@ export type Database = {
           },
         ]
       }
+      purchase_quotes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string | null
+          purchase_request_id: string
+          supplier_id: string
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          purchase_request_id: string
+          supplier_id: string
+          unit_price: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          purchase_request_id?: string
+          supplier_id?: string
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_quotes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_quotes_purchase_request_id_fkey"
+            columns: ["purchase_request_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_quotes_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchase_request_attachment_tokens: {
         Row: {
           access_token: string
@@ -4519,6 +4571,15 @@ export type Database = {
         }
         Returns: string
       }
+      add_purchase_quote: {
+        Args: {
+          p_note: string
+          p_purchase_request_id: string
+          p_supplier_id: string
+          p_unit_price: number
+        }
+        Returns: string
+      }
       add_supply_plan_line: {
         Args: {
           p_catalog_item_id: string
@@ -5067,6 +5128,10 @@ export type Database = {
       }
       reject_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
       release_retention: { Args: { p_id: string }; Returns: string }
+      remove_purchase_quote: {
+        Args: { p_quote_id: string }
+        Returns: undefined
+      }
       remove_supply_plan_line: {
         Args: { p_line_id: string }
         Returns: undefined
