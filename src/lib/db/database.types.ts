@@ -3176,7 +3176,9 @@ export type Database = {
           qty: number
           received_at: string | null
           receiver_worker_id: string | null
+          sell_price: number | null
           total_cost: number | null
+          total_sell: number | null
           unit: string
           unit_cost: number
           work_package_id: string
@@ -3192,7 +3194,9 @@ export type Database = {
           qty: number
           received_at?: string | null
           receiver_worker_id?: string | null
+          sell_price?: number | null
           total_cost?: number | null
+          total_sell?: number | null
           unit: string
           unit_cost: number
           work_package_id: string
@@ -3208,7 +3212,9 @@ export type Database = {
           qty?: number
           received_at?: string | null
           receiver_worker_id?: string | null
+          sell_price?: number | null
           total_cost?: number | null
+          total_sell?: number | null
           unit?: string
           unit_cost?: number
           work_package_id?: string
