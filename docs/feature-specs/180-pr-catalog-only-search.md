@@ -1,8 +1,26 @@
 # Spec 180 — Purchase request item is catalog-only + searchable
 
-Status: SHIPPED to prod — 2026-06-23 (U1 — catalog-only searchable picker).
+Status: SHIPPED to prod — 2026-06-23 (U1 catalog-only searchable picker; U2
+pro-max bottom-sheet picker — operator "UX is weird, uxui pro max").
 Builds on: spec 179 (PR links a catalog item), spec 175 (catalog master + the
-`/catalog` settings screen + `create_catalog_item`, BACK_OFFICE-gated).
+`/catalog` settings screen + `create_catalog_item`, BACK_OFFICE-gated; U4 images).
+
+## U2 — pro-max picker (operator UX feedback, 2026-06-23)
+
+The U1 inline search dumped all ~71 items in an always-open list under the field
+(a wall that shoved the form down). Operator: "UX is weird, any better ones?
+uxui pro max." → AskUserQuestion chose **full pro-max**. New
+`CatalogItemPicker` (`catalog-item-picker.tsx`) in the app's BottomSheet idiom
+(same as เบิก / stock): a trigger (`เลือกวัสดุจากแคตตาล็อก`) opens a sheet with a
+pinned search (`ค้นหาวัสดุ`, autofocus), **category filter chips** (RadioChip —
+the `/catalog` "select category first" pattern, spec 175 U6), and **thumbnail
+result rows** with the matched substring highlighted; picking closes the sheet
+and shows a chip (thumbnail + name + category · unit + `เปลี่ยน`). No-match → the
+register CTA → `/catalog`. **Thumbnails**: both WP pages now select
+`catalog_items.image_path` and mint signed URLs (`mintSignedUrls` +
+`CATALOG_IMAGES_BUCKET`); `PurchaseRequestCatalogItem` gains `thumbnailUrl`. No
+DB change (image_path exists since spec 175 U4). The form keeps `catalogItemId` +
+derives description/unit; the picker owns the search/category/sheet state.
 
 ## Problem / operator requests (2026-06-22)
 

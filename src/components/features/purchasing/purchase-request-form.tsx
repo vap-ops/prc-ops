@@ -18,12 +18,12 @@ import { BUTTON_PRIMARY, FIELD_INPUT, INLINE_ERROR } from "@/lib/ui/classes";
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { createPurchaseRequest, decidePurchaseRequest } from "@/app/requests/actions";
 import {
   PurchaseRequestAttachmentStager,
   type AttachmentStagerHandle,
 } from "@/components/features/purchasing/purchase-request-attachment-stager";
+import { CatalogItemPicker } from "@/components/features/purchasing/catalog-item-picker";
 import {
   PURCHASE_PRIORITIES,
   validateCreatePurchaseRequest,
@@ -31,7 +31,6 @@ import {
 } from "@/lib/purchasing/validate-purchase-request";
 import { PURCHASE_REASON_CODES } from "@/lib/purchasing/reason-code";
 import {
-  ITEM_CATEGORY_LABEL,
   PURCHASE_REQUEST_PRIORITY_LABEL,
   PURCHASE_REQUEST_REASON_CODE_LABEL,
 } from "@/lib/i18n/labels";
@@ -40,13 +39,16 @@ import { bangkokTodayIso } from "@/lib/dates";
 
 type ItemCategory = Database["public"]["Enums"]["item_category"];
 
-// Spec 179: the catalog master item the requester may pick instead of free-typing.
+// Spec 179/180: a catalog master item the requester picks (search + thumbnail).
 export interface PurchaseRequestCatalogItem {
   id: string;
   category: ItemCategory;
   baseItem: string;
   specAttrs: string | null;
   unit: string;
+  // Spec 180 pro-max: a signed URL for the item's reference image (minted by the
+  // page), or null when the item has no image.
+  thumbnailUrl: string | null;
 }
 
 // Selected-segment colors mirror the request list's status pills (spec 21):
@@ -91,11 +93,10 @@ export function PurchaseRequestForm({
   catalogItems,
 }: PurchaseRequestFormProps) {
   const router = useRouter();
-  // Spec 180: the PR item is catalog-only. catalogItemId is the chosen item
-  // ("" = none yet); catalogQuery drives the search box before a pick. The
-  // description + unit are DERIVED from the chosen item — no free-text entry.
+  // Spec 180: the PR item is catalog-only — catalogItemId is the chosen item
+  // ("" = none yet). The search/category/sheet state lives in CatalogItemPicker;
+  // the description + unit are DERIVED here from the chosen item (no free text).
   const [catalogItemId, setCatalogItemId] = useState<string>("");
-  const [catalogQuery, setCatalogQuery] = useState<string>("");
   const [quantityText, setQuantityText] = useState<string>("");
   const [neededBy, setNeededBy] = useState<string>("");
   const [priority, setPriority] = useState<PurchasePriority>("normal");
@@ -119,13 +120,6 @@ export function PurchaseRequestForm({
     ? selectedItem.baseItem + (selectedItem.specAttrs ? ` ${selectedItem.specAttrs}` : "")
     : "";
   const unit = selectedItem?.unit ?? "";
-
-  // The search list: a normalised contains over baseItem + specAttrs + unit.
-  // Shown only before a pick; an empty query lists the whole (small) catalog.
-  const trimmedQuery = catalogQuery.trim().toLowerCase();
-  const catalogMatches = catalogItems.filter((c) =>
-    `${c.baseItem} ${c.specAttrs ?? ""} ${c.unit}`.toLowerCase().includes(trimmedQuery),
-  );
 
   // Quantity is a numeric column at the DB and the validator wants a
   // finite positive number. The input is a free-text field so users can
@@ -196,7 +190,6 @@ export function PurchaseRequestForm({
       // same WP; the router.refresh() re-runs the Server Component so the
       // list picks up the new row.
       setCatalogItemId("");
-      setCatalogQuery("");
       setQuantityText("");
       setNeededBy("");
       setPriority("normal");
@@ -215,11 +208,10 @@ export function PurchaseRequestForm({
     runSubmit(canSelfApprove);
   }
 
-  // Spec 180: pick a catalog item (the only way to set the item). The search
-  // box collapses to a read-only chip; เปลี่ยน clears it to search again.
+  // Spec 180: CatalogItemPicker (search + sheet) owns the selection UI; the form
+  // just records the chosen id. เปลี่ยน clears it so the picker reopens.
   function selectCatalogItem(id: string) {
     setCatalogItemId(id);
-    setCatalogQuery("");
     setError(null);
     setSavedAt(null);
   }
@@ -234,7 +226,6 @@ export function PurchaseRequestForm({
   // counts as "typed".
   const userTyped =
     catalogItemId.length > 0 ||
-    catalogQuery.length > 0 ||
     quantityText.length > 0 ||
     neededBy.length > 0 ||
     reasonCode.length > 0 ||
@@ -255,81 +246,16 @@ export function PurchaseRequestForm({
         </p>
       </div>
 
-      {/* Spec 180: the PR item is catalog-only. Search the master (spec 175) and
-          pick one; the chosen item drives the description + unit (read-only). An
-          item not in the catalog is registered first at ตั้งค่า → แคตตาล็อก. */}
-      <div className="flex flex-col gap-1">
-        <span className="text-ink text-sm font-medium">รายการวัสดุ</span>
-        {selectedItem ? (
-          <div className="rounded-control border-edge-strong bg-card flex items-center justify-between gap-3 border px-3 py-2">
-            <span className="min-w-0">
-              <span className="text-ink block text-sm font-medium">{itemDescription}</span>
-              <span className="text-ink-secondary text-meta block">
-                {ITEM_CATEGORY_LABEL[selectedItem.category]} · {unit}
-              </span>
-            </span>
-            <button
-              type="button"
-              onClick={clearCatalogItem}
-              disabled={submitting}
-              className="text-action focus-visible:ring-action shrink-0 rounded text-sm font-medium underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2"
-            >
-              เปลี่ยน
-            </button>
-          </div>
-        ) : (
-          <>
-            <input
-              id="pr-catalog-search"
-              type="text"
-              value={catalogQuery}
-              onChange={(e) => {
-                setCatalogQuery(e.target.value);
-                setError(null);
-                setSavedAt(null);
-              }}
-              disabled={submitting}
-              className={FIELD_INPUT}
-              placeholder="ค้นหาวัสดุจากแคตตาล็อก"
-              aria-label="ค้นหาวัสดุจากแคตตาล็อก"
-              autoComplete="off"
-            />
-            {catalogMatches.length > 0 ? (
-              <ul className="rounded-control border-edge-strong bg-card mt-1 flex max-h-64 flex-col overflow-auto border">
-                {catalogMatches.map((c) => (
-                  <li key={c.id}>
-                    <button
-                      type="button"
-                      onClick={() => selectCatalogItem(c.id)}
-                      disabled={submitting}
-                      className="border-edge focus-visible:ring-action hover:bg-page flex w-full flex-col items-start gap-0.5 border-b px-3 py-2 text-left last:border-b-0 focus:outline-none focus-visible:ring-2"
-                    >
-                      <span className="text-ink text-sm">
-                        {c.baseItem}
-                        {c.specAttrs ? ` ${c.specAttrs}` : ""}{" "}
-                        <span className="text-ink-secondary">({c.unit})</span>
-                      </span>
-                      <span className="text-ink-muted text-meta">
-                        {ITEM_CATEGORY_LABEL[c.category]}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-ink-secondary mt-1 text-sm">
-                ไม่พบวัสดุที่ค้นหา —{" "}
-                <Link
-                  href="/catalog"
-                  className="text-action font-medium underline underline-offset-2"
-                >
-                  เพิ่มวัสดุที่ ตั้งค่า → แคตตาล็อก
-                </Link>
-              </p>
-            )}
-          </>
-        )}
-      </div>
+      {/* Spec 180 (pro-max): catalog-only material picker — a search-driven
+          bottom sheet (CatalogItemPicker). The chosen item drives the
+          description + unit; an off-catalog item is registered at /catalog. */}
+      <CatalogItemPicker
+        items={catalogItems}
+        selectedId={catalogItemId}
+        onSelect={selectCatalogItem}
+        onClear={clearCatalogItem}
+        disabled={submitting}
+      />
 
       {/* Spec 180: หน่วย is derived from the chosen catalog item (shown in the
           chip above), so the requester enters only the quantity here. */}

@@ -6,6 +6,8 @@ import { requireRole } from "@/lib/auth/require-role";
 import { WP_DETAIL_ROLES, isManagerRole, isReadOnlyWpViewer } from "@/lib/auth/role-home";
 import { projectHref, workPackageHref } from "@/lib/nav/project-paths";
 import { createClient } from "@/lib/db/server";
+import { mintSignedUrls } from "@/lib/storage/signed-urls";
+import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
 import { latestCreatedAt, PHASES } from "@/lib/photos/phases";
 import { derivePhaseProgress } from "@/lib/photos/phase-progress";
 import { StatusPill } from "@/components/features/common/status-pill";
@@ -114,9 +116,10 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
       .order("name", { ascending: true }),
     // Spec 179: the active catalog master feeds the คำขอซื้อ item picker
     // (project-agnostic reference data; readable by any authenticated user).
+    // Spec 180: image_path rides along for the picker's thumbnails.
     supabase
       .from("catalog_items")
-      .select("id, category, base_item, spec_attrs, unit")
+      .select("id, category, base_item, spec_attrs, unit, image_path")
       .eq("is_active", true)
       .order("base_item", { ascending: true }),
   ]);
@@ -191,13 +194,20 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
     unit: r.catalog_items?.unit ?? "",
     qtyOnHand: Number(r.qty_on_hand),
   }));
-  // Spec 179: the catalog master for the คำขอซื้อ item picker.
+  // Spec 179/180: the catalog master for the คำขอซื้อ item picker, with signed
+  // thumbnail URLs (private bucket → service-role signed URLs; rows already read
+  // under the user's RLS).
+  const catalogThumbs = await mintSignedUrls(
+    CATALOG_IMAGES_BUCKET,
+    (catalogRows ?? []).map((r) => ({ id: r.id, storage_path: r.image_path })),
+  );
   const catalogItems: PurchaseRequestCatalogItem[] = (catalogRows ?? []).map((r) => ({
     id: r.id,
     category: r.category,
     baseItem: r.base_item,
     specAttrs: r.spec_attrs,
     unit: r.unit,
+    thumbnailUrl: catalogThumbs.get(r.id) ?? null,
   }));
 
   const wpIssues: WpIssueRow[] = (issueRows ?? []).map((r) => ({

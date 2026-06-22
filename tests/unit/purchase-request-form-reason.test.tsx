@@ -28,6 +28,7 @@ const CATALOG: PurchaseRequestCatalogItem[] = [
     baseItem: "ปูนถุง",
     specAttrs: "50 กก.",
     unit: "ถุง",
+    thumbnailUrl: null,
   },
 ];
 
@@ -62,8 +63,9 @@ describe("PurchaseRequestForm reason code (spec 176 U4)", () => {
     const user = userEvent.setup();
     renderForm();
 
-    // Spec 180: pick the item from the catalog (no free-text), then quantity.
-    await user.type(screen.getByLabelText("ค้นหาวัสดุจากแคตตาล็อก"), "ปูน");
+    // Spec 180: pick the item from the catalog sheet (no free-text), then qty.
+    await user.click(screen.getByRole("button", { name: "เลือกวัสดุจากแคตตาล็อก" }));
+    await user.type(screen.getByLabelText("ค้นหาวัสดุ"), "ปูน");
     await user.click(screen.getByRole("button", { name: /ปูนถุง/ }));
     await user.type(screen.getByLabelText("จำนวน"), "10");
 

@@ -28,6 +28,7 @@ const CATALOG: PurchaseRequestCatalogItem[] = [
     baseItem: "สี",
     specAttrs: null,
     unit: "แกลลอน",
+    thumbnailUrl: null,
   },
 ];
 

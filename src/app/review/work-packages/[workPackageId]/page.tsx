@@ -12,6 +12,8 @@ import { fetchDisplayNames } from "@/lib/users/display-names";
 import { getCurrentPhotosForWorkPackage, type PhotoLogRow } from "@/lib/photos/current-photos";
 import { PHASES } from "@/lib/photos/phases";
 import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
+import { mintSignedUrls } from "@/lib/storage/signed-urls";
+import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
 import { getDecisionHistoryForWorkPackage } from "@/lib/approvals/latest-decision";
 import {
   APPROVAL_DECISION_LABEL,
@@ -74,19 +76,25 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
     notFound();
   }
 
-  // Spec 179: the active catalog master feeds the คำขอซื้อ item picker
-  // (project-agnostic reference data; readable by any authenticated user).
+  // Spec 179/180: the active catalog master feeds the คำขอซื้อ item picker
+  // (project-agnostic reference data; readable by any authenticated user), with
+  // signed thumbnail URLs (private bucket → service-role signed URLs).
   const { data: catalogRows } = await supabase
     .from("catalog_items")
-    .select("id, category, base_item, spec_attrs, unit")
+    .select("id, category, base_item, spec_attrs, unit, image_path")
     .eq("is_active", true)
     .order("base_item", { ascending: true });
+  const catalogThumbs = await mintSignedUrls(
+    CATALOG_IMAGES_BUCKET,
+    (catalogRows ?? []).map((r) => ({ id: r.id, storage_path: r.image_path })),
+  );
   const catalogItems: PurchaseRequestCatalogItem[] = (catalogRows ?? []).map((r) => ({
     id: r.id,
     category: r.category,
     baseItem: r.base_item,
     specAttrs: r.spec_attrs,
     unit: r.unit,
+    thumbnailUrl: catalogThumbs.get(r.id) ?? null,
   }));
 
   const photosByPhase = await getCurrentPhotosForWorkPackage(supabase, wp.id);
