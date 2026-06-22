@@ -18,12 +18,12 @@ import { BUTTON_PRIMARY, FIELD_INPUT, INLINE_ERROR } from "@/lib/ui/classes";
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createPurchaseRequest, decidePurchaseRequest } from "@/app/requests/actions";
 import {
   PurchaseRequestAttachmentStager,
   type AttachmentStagerHandle,
 } from "@/components/features/purchasing/purchase-request-attachment-stager";
-import { COMMON_UNITS, UNIT_OTHER_VALUE } from "@/lib/purchasing/units";
 import {
   PURCHASE_PRIORITIES,
   validateCreatePurchaseRequest,
@@ -75,11 +75,12 @@ interface PurchaseRequestFormProps {
   /** Spec 136: PM/super raising a request on their own WP page — the submit
    *  becomes "สร้างและอนุมัติ" and self-approves it after create. */
   canSelfApprove?: boolean;
-  /** Spec 179: the active catalog master (spec 175). Supplied → a picker lets
-   *  the requester select an item (linking catalog_item_id) and prefills the
-   *  description + unit. Omitted/empty → the picker is hidden and the form is
-   *  free-text only, exactly as before. */
-  catalogItems?: PurchaseRequestCatalogItem[];
+  /** Spec 179/180: the active catalog master (spec 175). The PR item is
+   *  catalog-only — the requester searches this list and picks one (linking
+   *  catalog_item_id, deriving the description + unit). Required: every PR form
+   *  needs the catalog. An item not in the catalog is registered first at
+   *  ตั้งค่า → แคตตาล็อก (no inline add). */
+  catalogItems: PurchaseRequestCatalogItem[];
 }
 
 export function PurchaseRequestForm({
@@ -87,18 +88,15 @@ export function PurchaseRequestForm({
   projectId,
   userId,
   canSelfApprove = false,
-  catalogItems = [],
+  catalogItems,
 }: PurchaseRequestFormProps) {
   const router = useRouter();
-  // Spec 179: the picked catalog item id ("" = off-catalog / free-text).
+  // Spec 180: the PR item is catalog-only. catalogItemId is the chosen item
+  // ("" = none yet); catalogQuery drives the search box before a pick. The
+  // description + unit are DERIVED from the chosen item — no free-text entry.
   const [catalogItemId, setCatalogItemId] = useState<string>("");
-  const [itemDescription, setItemDescription] = useState<string>("");
+  const [catalogQuery, setCatalogQuery] = useState<string>("");
   const [quantityText, setQuantityText] = useState<string>("");
-  // Unit = dropdown of COMMON_UNITS + the อื่น ๆ sentinel revealing a
-  // free-text input (spec 16 §1). The derived `unit` string is what the
-  // validator/action/DB see — the sentinel is never persisted.
-  const [unitChoice, setUnitChoice] = useState<string>("");
-  const [unitOther, setUnitOther] = useState<string>("");
   const [neededBy, setNeededBy] = useState<string>("");
   const [priority, setPriority] = useState<PurchasePriority>("normal");
   // Spec 176 U4: required reactive-reason — no preselect (empty = unchosen).
@@ -111,7 +109,23 @@ export function PurchaseRequestForm({
   const [submitting, startSubmit] = useTransition();
   const stagerRef = useRef<AttachmentStagerHandle>(null);
 
-  const unit = unitChoice === UNIT_OTHER_VALUE ? unitOther : unitChoice;
+  // Spec 180: the chosen catalog item is the single source of the item identity.
+  // item_description + unit are an immutable snapshot derived from it (the หมายเหตุ
+  // note carries any brand/model refinement) — there is no free-text item input.
+  const selectedItem = catalogItemId
+    ? (catalogItems.find((c) => c.id === catalogItemId) ?? null)
+    : null;
+  const itemDescription = selectedItem
+    ? selectedItem.baseItem + (selectedItem.specAttrs ? ` ${selectedItem.specAttrs}` : "")
+    : "";
+  const unit = selectedItem?.unit ?? "";
+
+  // The search list: a normalised contains over baseItem + specAttrs + unit.
+  // Shown only before a pick; an empty query lists the whole (small) catalog.
+  const trimmedQuery = catalogQuery.trim().toLowerCase();
+  const catalogMatches = catalogItems.filter((c) =>
+    `${c.baseItem} ${c.specAttrs ?? ""} ${c.unit}`.toLowerCase().includes(trimmedQuery),
+  );
 
   // Quantity is a numeric column at the DB and the validator wants a
   // finite positive number. The input is a free-text field so users can
@@ -128,8 +142,11 @@ export function PurchaseRequestForm({
     priority,
     notes: notes.length > 0 ? notes : null,
     reasonCode: reasonCode.length > 0 ? reasonCode : null,
+    catalogItemId,
   });
-  const canSubmit = !submitting && localValidation.ok;
+  // Catalog-only: a chosen item is required (the validator stays lenient for the
+  // non-form create paths, so gate it explicitly here too).
+  const canSubmit = !submitting && localValidation.ok && catalogItemId !== "";
 
   function runSubmit(autoApprove: boolean) {
     if (!canSubmit) return;
@@ -145,8 +162,8 @@ export function PurchaseRequestForm({
         priority,
         notes: notes.length > 0 ? notes : null,
         reasonCode: reasonCode.length > 0 ? reasonCode : null,
-        // Spec 179: the catalog link ("" → off-catalog free-text request).
-        catalogItemId: catalogItemId.length > 0 ? catalogItemId : null,
+        // Spec 180: catalog-only — a chosen item is always linked (gated above).
+        catalogItemId,
       });
       if (!result.ok) {
         setError(result.error);
@@ -179,10 +196,8 @@ export function PurchaseRequestForm({
       // same WP; the router.refresh() re-runs the Server Component so the
       // list picks up the new row.
       setCatalogItemId("");
-      setItemDescription("");
+      setCatalogQuery("");
       setQuantityText("");
-      setUnitChoice("");
-      setUnitOther("");
       setNeededBy("");
       setPriority("normal");
       setReasonCode("");
@@ -200,39 +215,27 @@ export function PurchaseRequestForm({
     runSubmit(canSelfApprove);
   }
 
-  // Spec 179: picking a catalog item links it and prefills the description +
-  // unit (a human-readable snapshot the requester may still refine). The blank
-  // value is the off-catalog escape hatch — it clears the link and leaves the
-  // free-text fields for manual entry. A catalog unit outside COMMON_UNITS
-  // falls to the อื่น ๆ free-text unit input so the dropdown can represent it.
-  function handlePickCatalog(id: string) {
+  // Spec 180: pick a catalog item (the only way to set the item). The search
+  // box collapses to a read-only chip; เปลี่ยน clears it to search again.
+  function selectCatalogItem(id: string) {
     setCatalogItemId(id);
+    setCatalogQuery("");
     setError(null);
     setSavedAt(null);
-    if (id === "") return;
-    const picked = catalogItems.find((c) => c.id === id);
-    if (!picked) return;
-    setItemDescription(picked.baseItem + (picked.specAttrs ? ` ${picked.specAttrs}` : ""));
-    if ((COMMON_UNITS as readonly string[]).includes(picked.unit)) {
-      setUnitChoice(picked.unit);
-      setUnitOther("");
-    } else {
-      setUnitChoice(UNIT_OTHER_VALUE);
-      setUnitOther(picked.unit);
-    }
+  }
+  function clearCatalogItem() {
+    setCatalogItemId("");
+    setError(null);
+    setSavedAt(null);
   }
 
-  const catalogCategories = Object.keys(ITEM_CATEGORY_LABEL) as ItemCategory[];
-
-  // Inline validation only after the user has touched the field (any
-  // non-empty input; a unit selection counts — spec 16 §1). Same shape
-  // as DisplayNameForm — keeps an untouched form quiet. The pinned WP id
-  // never counts as "typed".
+  // Inline validation only after the user has touched the form. Same shape as
+  // DisplayNameForm — keeps an untouched form quiet. The pinned WP id never
+  // counts as "typed".
   const userTyped =
-    itemDescription.length > 0 ||
+    catalogItemId.length > 0 ||
+    catalogQuery.length > 0 ||
     quantityText.length > 0 ||
-    unitChoice.length > 0 ||
-    unitOther.length > 0 ||
     neededBy.length > 0 ||
     reasonCode.length > 0 ||
     notes.length > 0;
@@ -252,128 +255,103 @@ export function PurchaseRequestForm({
         </p>
       </div>
 
-      {/* Spec 179: pick from the catalog master to link + prefill the item.
-          Hidden when no catalog is supplied (free-text-only, unchanged). */}
-      {catalogItems.length > 0 ? (
-        <div className="flex flex-col gap-1">
-          <label htmlFor="pr-catalog" className="text-ink text-sm font-medium">
-            เลือกวัสดุจากแคตตาล็อก
-          </label>
-          <select
-            id="pr-catalog"
-            value={catalogItemId}
-            onChange={(e) => handlePickCatalog(e.target.value)}
-            disabled={submitting}
-            className="rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action h-11 w-full min-w-0 border px-2 text-sm shadow-xs focus:outline-none focus-visible:ring-2"
-          >
-            <option value="">นอกแคตตาล็อก (พิมพ์เอง)</option>
-            {catalogCategories.map((c) => {
-              const opts = catalogItems.filter((ci) => ci.category === c);
-              if (opts.length === 0) return null;
-              return (
-                <optgroup key={c} label={ITEM_CATEGORY_LABEL[c]}>
-                  {opts.map((ci) => (
-                    <option key={ci.id} value={ci.id}>
-                      {ci.baseItem}
-                      {ci.specAttrs ? ` · ${ci.specAttrs}` : ""} ({ci.unit})
-                    </option>
-                  ))}
-                </optgroup>
-              );
-            })}
-          </select>
-        </div>
-      ) : null}
-
+      {/* Spec 180: the PR item is catalog-only. Search the master (spec 175) and
+          pick one; the chosen item drives the description + unit (read-only). An
+          item not in the catalog is registered first at ตั้งค่า → แคตตาล็อก. */}
       <div className="flex flex-col gap-1">
-        <label htmlFor="pr-item" className="text-ink text-sm font-medium">
-          รายการวัสดุ
+        <span className="text-ink text-sm font-medium">รายการวัสดุ</span>
+        {selectedItem ? (
+          <div className="rounded-control border-edge-strong bg-card flex items-center justify-between gap-3 border px-3 py-2">
+            <span className="min-w-0">
+              <span className="text-ink block text-sm font-medium">{itemDescription}</span>
+              <span className="text-ink-secondary text-meta block">
+                {ITEM_CATEGORY_LABEL[selectedItem.category]} · {unit}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={clearCatalogItem}
+              disabled={submitting}
+              className="text-action focus-visible:ring-action shrink-0 rounded text-sm font-medium underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2"
+            >
+              เปลี่ยน
+            </button>
+          </div>
+        ) : (
+          <>
+            <input
+              id="pr-catalog-search"
+              type="text"
+              value={catalogQuery}
+              onChange={(e) => {
+                setCatalogQuery(e.target.value);
+                setError(null);
+                setSavedAt(null);
+              }}
+              disabled={submitting}
+              className={FIELD_INPUT}
+              placeholder="ค้นหาวัสดุจากแคตตาล็อก"
+              aria-label="ค้นหาวัสดุจากแคตตาล็อก"
+              autoComplete="off"
+            />
+            {catalogMatches.length > 0 ? (
+              <ul className="rounded-control border-edge-strong bg-card mt-1 flex max-h-64 flex-col overflow-auto border">
+                {catalogMatches.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      onClick={() => selectCatalogItem(c.id)}
+                      disabled={submitting}
+                      className="border-edge focus-visible:ring-action hover:bg-page flex w-full flex-col items-start gap-0.5 border-b px-3 py-2 text-left last:border-b-0 focus:outline-none focus-visible:ring-2"
+                    >
+                      <span className="text-ink text-sm">
+                        {c.baseItem}
+                        {c.specAttrs ? ` ${c.specAttrs}` : ""}{" "}
+                        <span className="text-ink-secondary">({c.unit})</span>
+                      </span>
+                      <span className="text-ink-muted text-meta">
+                        {ITEM_CATEGORY_LABEL[c.category]}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-ink-secondary mt-1 text-sm">
+                ไม่พบวัสดุที่ค้นหา —{" "}
+                <Link
+                  href="/catalog"
+                  className="text-action font-medium underline underline-offset-2"
+                >
+                  เพิ่มวัสดุที่ ตั้งค่า → แคตตาล็อก
+                </Link>
+              </p>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Spec 180: หน่วย is derived from the chosen catalog item (shown in the
+          chip above), so the requester enters only the quantity here. */}
+      <div className="flex flex-col gap-1">
+        <label htmlFor="pr-qty" className="text-ink text-sm font-medium">
+          จำนวน
         </label>
         <input
-          id="pr-item"
+          id="pr-qty"
           type="text"
-          value={itemDescription}
-          maxLength={500}
+          inputMode="decimal"
+          value={quantityText}
           onChange={(e) => {
-            setItemDescription(e.target.value);
+            setQuantityText(e.target.value);
             setError(null);
             setSavedAt(null);
           }}
           disabled={submitting}
           className={FIELD_INPUT}
-          placeholder="ปูนถุง 50 กก."
+          placeholder="10"
         />
       </div>
-
-      <div className="flex gap-3">
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <label htmlFor="pr-qty" className="text-ink text-sm font-medium">
-            จำนวน
-          </label>
-          <input
-            id="pr-qty"
-            type="text"
-            inputMode="decimal"
-            value={quantityText}
-            onChange={(e) => {
-              setQuantityText(e.target.value);
-              setError(null);
-              setSavedAt(null);
-            }}
-            disabled={submitting}
-            className={FIELD_INPUT}
-            placeholder="10"
-          />
-        </div>
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <label htmlFor="pr-unit" className="text-ink text-sm font-medium">
-            หน่วย
-          </label>
-          <select
-            id="pr-unit"
-            value={unitChoice}
-            onChange={(e) => {
-              setUnitChoice(e.target.value);
-              setError(null);
-              setSavedAt(null);
-            }}
-            disabled={submitting}
-            className="rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action h-11 w-full min-w-0 border px-2 text-sm shadow-xs focus:outline-none focus-visible:ring-2"
-          >
-            <option value="" disabled>
-              เลือกหน่วย
-            </option>
-            {COMMON_UNITS.map((u) => (
-              <option key={u} value={u}>
-                {u}
-              </option>
-            ))}
-            <option value={UNIT_OTHER_VALUE}>อื่น ๆ (ระบุเอง)</option>
-          </select>
-        </div>
-      </div>
-
-      {unitChoice === UNIT_OTHER_VALUE ? (
-        <div className="flex flex-col gap-1">
-          <label htmlFor="pr-unit-other" className="text-ink text-sm font-medium">
-            ระบุหน่วย
-          </label>
-          <input
-            id="pr-unit-other"
-            type="text"
-            value={unitOther}
-            maxLength={50}
-            onChange={(e) => {
-              setUnitOther(e.target.value);
-              setError(null);
-              setSavedAt(null);
-            }}
-            disabled={submitting}
-            className={FIELD_INPUT}
-            placeholder="ระบุหน่วย"
-          />
-        </div>
-      ) : null}
 
       {/* Always stacked: the form's primary home is the WP page's narrow
           right rail (spec 29), where sm: viewport variants lie about the

@@ -14,10 +14,22 @@ vi.mock("@/app/requests/actions", () => ({
   decidePurchaseRequest: vi.fn(async () => ({ ok: true })),
 }));
 
-import { PurchaseRequestForm } from "@/components/features/purchasing/purchase-request-form";
-import { COMMON_UNITS } from "@/lib/purchasing/units";
+import {
+  PurchaseRequestForm,
+  type PurchaseRequestCatalogItem,
+} from "@/components/features/purchasing/purchase-request-form";
 
 const WP = { id: "00000000-0000-0000-0000-000000000001", code: "WP01", name: "งานปักฝัง" };
+// Spec 180: item entry is catalog-only (search + pick), so the form needs a catalog.
+const CATALOG: PurchaseRequestCatalogItem[] = [
+  {
+    id: "11111111-1111-1111-1111-111111111111",
+    category: "masonry_tools",
+    baseItem: "ปูนถุง",
+    specAttrs: "50 กก.",
+    unit: "ถุง",
+  },
+];
 
 function renderForm() {
   render(
@@ -25,6 +37,7 @@ function renderForm() {
       workPackage={WP}
       projectId="00000000-0000-0000-0000-000000000002"
       userId="00000000-0000-0000-0000-0000000000aa"
+      catalogItems={CATALOG}
     />,
   );
 }
@@ -49,9 +62,10 @@ describe("PurchaseRequestForm reason code (spec 176 U4)", () => {
     const user = userEvent.setup();
     renderForm();
 
-    await user.type(screen.getByLabelText("รายการวัสดุ"), "ปูนถุง");
+    // Spec 180: pick the item from the catalog (no free-text), then quantity.
+    await user.type(screen.getByLabelText("ค้นหาวัสดุจากแคตตาล็อก"), "ปูน");
+    await user.click(screen.getByRole("button", { name: /ปูนถุง/ }));
     await user.type(screen.getByLabelText("จำนวน"), "10");
-    await user.selectOptions(screen.getByLabelText("หน่วย"), COMMON_UNITS[0]!);
 
     const submit = screen.getByRole("button", { name: "ส่งคำขอซื้อ" });
     expect(submit).toBeDisabled();
