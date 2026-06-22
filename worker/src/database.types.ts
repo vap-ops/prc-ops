@@ -4785,6 +4785,19 @@ export type Database = {
       }
       submit_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
       suggest_project_code: { Args: never; Returns: string }
+      supply_plan_accuracy: {
+        Args: { p_project_id: string }
+        Returns: {
+          fair_reactive: number
+          planned_lines: number
+          planned_qty: number
+          unplanned_miss: number
+          untagged: number
+          work_package_id: string
+          wp_code: string
+          wp_name: string
+        }[]
+      }
       swap_deliverable_order: {
         Args: { p_a: string; p_b: string }
         Returns: boolean

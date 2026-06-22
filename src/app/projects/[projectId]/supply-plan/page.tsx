@@ -17,6 +17,10 @@ import {
   type CatalogPick,
   type PlanLine,
 } from "@/components/features/supply-plan/supply-plan-manager";
+import {
+  SupplyPlanAccuracy,
+  type AccuracyRow,
+} from "@/components/features/supply-plan/supply-plan-accuracy";
 
 interface PageProps {
   params: Promise<{ projectId: string }>;
@@ -81,6 +85,23 @@ export default async function SupplyPlanPage({ params }: PageProps) {
     .order("code", { ascending: true });
   const workPackages = (wpRows ?? []).map((w) => ({ id: w.id, code: w.code, name: w.name }));
 
+  // Spec 176 U5 — the PM-accuracy measure (planned vs reactive, per WP). The RPC
+  // re-enforces planner tier + membership; a non-member never reaches here (the
+  // project read above already notFound'd them).
+  const { data: accRows } = await supabase.rpc("supply_plan_accuracy", {
+    p_project_id: project.id,
+  });
+  const accuracy: AccuracyRow[] = (accRows ?? []).map((r) => ({
+    workPackageId: r.work_package_id,
+    wpCode: r.wp_code,
+    wpName: r.wp_name,
+    plannedLines: r.planned_lines,
+    plannedQty: Number(r.planned_qty),
+    unplannedMiss: r.unplanned_miss,
+    fairReactive: r.fair_reactive,
+    untagged: r.untagged,
+  }));
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -105,6 +126,10 @@ export default async function SupplyPlanPage({ params }: PageProps) {
           catalogItems={catalogItems}
           workPackages={workPackages}
         />
+      </section>
+
+      <section className={`mx-auto ${PAGE_MAX_W} px-5 pb-8`}>
+        <SupplyPlanAccuracy rows={accuracy} />
       </section>
     </PageShell>
   );

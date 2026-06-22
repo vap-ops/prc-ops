@@ -158,6 +158,54 @@ Displaying the reason on the request card/list and any planned-vs-reactive aggre
   `validate-site-purchase.test.ts` (+reasonCode: missing / valid) · a form test per flow that the
   required reason picker renders and gates submit.
 
+## U5 — measurement (the PM-accuracy number)
+
+The payoff of the whole arc: surface **planned vs reactive** so the operator can see how
+well a PM planned a project. The plan (`supply_plan_lines`) is the intent; the reactive
+purchase requests tagged `unplanned_miss` (U4) are the scrambles that count against the PM.
+"If the PM plans perfectly, the site admin never scrambles."
+
+**What can honestly be measured.** Purchase requests carry a `work_package_id` and a free-text
+`item_description` (NOT a `catalog_item_id`), so a PR cannot be matched to a specific plan
+**line** by item — the only shared axis is the **work package**. So the measure is count-based,
+per WP: planned line count vs reactive PR counts by reason. No fabricated "% of plan executed"
+(we don't have the join for it).
+
+### RPC
+
+`supply_plan_accuracy(p_project_id uuid)` — SECURITY DEFINER, planner tier
+(`project_manager`/`super_admin`/`project_director`, with `project_director` named per the file-91
+pin) + `can_see_project`; unknown project → `22023`. Returns a TABLE, **one row per work package**
+in the project that has a plan line OR a purchase request (plus a `work_package_id IS NULL` =
+site-general row when the plan has WP-less lines):
+`work_package_id`, `wp_code`, `wp_name`, `planned_lines int`, `planned_qty numeric`,
+`unplanned_miss int`, `fair_reactive int` (rework/breakage/scope_change/unforeseeable),
+`untagged int` (legacy PRs with null reason_code). A FULL OUTER JOIN of the per-WP planned
+aggregate and the per-WP PR aggregate (PRs joined to the project via `work_packages.project_id`),
+ordered worst-offender first (`unplanned_miss desc`). **All PR statuses count** — a reactive
+request was raised = a planning gap surfaced; a status filter (exclude cancelled/rejected) is a
+flagged refinement once the operator sees real numbers.
+
+### Surface
+
+A read-only **"ความแม่นยำการวางแผน"** section on `/projects/[projectId]/supply-plan`
+(server component `SupplyPlanAccuracy`): project totals (planned lines · `unplanned_miss`
+**highlighted** = the misses that count against the PM · fair reactive · untagged) + a compact
+per-WP table (site-general shown as "ทั้งโครงการ"). The page sums the per-WP rows for the totals.
+
+### Per-PM attribution / out of scope
+
+Each project's plan has a planner (`supply_plans.created_by`), so the **per-project** number IS
+the per-PM-per-project accuracy. A **cross-project per-PM roll-up** (an org-wide leaderboard) is a
+separate org-level surface — flagged as a follow-up, not built here.
+
+### Tests
+
+pgTAP `180-supply-plan-accuracy` — function exists + secdef + anon-revoked; role gate
+(visitor/non-member 42501, unknown project 22023); behaviour over a seeded plan + PRs
+(per-WP planned/miss/fair/untagged counts, a PR-only WP, a site-general planned row). A vitest
+`supply-plan-accuracy.test.tsx` renders the totals + highlights the miss count.
+
 ## Open decisions (flagged for the operator before U2/U3 lock them)
 
 1. **One plan per project** (no versioning/amendments yet) — is a single living plan right, or do
