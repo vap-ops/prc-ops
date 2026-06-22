@@ -165,6 +165,14 @@ export function CatalogItemPicker({
             <div
               role="radiogroup"
               aria-label="กรองตามหมวดหมู่"
+              // Tapping a category focuses its (sr-only) radio. BottomSheet's
+              // onFocus centers any focused control via scrollIntoView — fine for
+              // the search input (keyboard), but on a chip it scrolls the result
+              // list up under the finger, so the follow-through tap lands on a
+              // result row ("category turns into item selection", operator
+              // 2026-06-23). Stop the chip focus from reaching that handler — the
+              // radio still focuses, the sheet just doesn't re-center on it.
+              onFocusCapture={(e) => e.stopPropagation()}
               className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
             >
               <RadioChip
