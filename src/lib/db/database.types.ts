@@ -3328,6 +3328,84 @@ export type Database = {
           },
         ]
       }
+      stock_reversals: {
+        Row: {
+          catalog_item_id: string
+          created_at: string
+          id: string
+          issue_id: string | null
+          note: string | null
+          project_id: string
+          qty: number
+          receipt_id: string | null
+          reversed_at: string
+          reversed_by: string | null
+          value_delta: number
+        }
+        Insert: {
+          catalog_item_id: string
+          created_at?: string
+          id?: string
+          issue_id?: string | null
+          note?: string | null
+          project_id: string
+          qty: number
+          receipt_id?: string | null
+          reversed_at?: string
+          reversed_by?: string | null
+          value_delta: number
+        }
+        Update: {
+          catalog_item_id?: string
+          created_at?: string
+          id?: string
+          issue_id?: string | null
+          note?: string | null
+          project_id?: string
+          qty?: number
+          receipt_id?: string | null
+          reversed_at?: string
+          reversed_by?: string | null
+          value_delta?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_reversals_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_reversals_issue_id_fkey"
+            columns: ["issue_id"]
+            isOneToOne: false
+            referencedRelation: "stock_issues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_reversals_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_reversals_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "stock_receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_reversals_reversed_by_fkey"
+            columns: ["reversed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           contact_person: string | null
@@ -4938,6 +5016,14 @@ export type Database = {
       }
       reverse_journal_internal: {
         Args: { p_entry_id: string; p_memo?: string; p_posted_by: string }
+        Returns: string
+      }
+      reverse_stock_issue: {
+        Args: { p_issue_id: string; p_note?: string }
+        Returns: string
+      }
+      reverse_stock_receipt: {
+        Args: { p_note?: string; p_receipt_id: string }
         Returns: string
       }
       revoke_contractor_consent: { Args: { p_id: string }; Returns: undefined }
