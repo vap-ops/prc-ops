@@ -6,6 +6,7 @@ import { CalendarDays, ClipboardList, FileText, Settings } from "lucide-react";
 import {
   PROJECT_VIEW_ROLES,
   SCHEDULE_VIEW_ROLES,
+  SUPPLY_PLAN_ROLES,
   WP_DETAIL_ROLES,
   isManagerRole,
 } from "@/lib/auth/role-home";
@@ -75,6 +76,9 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
   // SCHEDULE_VIEW_ROLES (site staff + procurement; coordinator still excluded).
   const canOpenWp = WP_DETAIL_ROLES.includes(ctx.role);
   const canOpenSchedule = SCHEDULE_VIEW_ROLES.includes(ctx.role);
+  // Spec 181: who reaches the supply plan — PM tier + procurement (PM's stead).
+  // Its own door, separate from the manager-only reports/settings chips below.
+  const canPlanSupply = SUPPLY_PLAN_ROLES.includes(ctx.role);
   // Spec 145: a completed/archived project is locked for new work — the UI hides
   // the seeding controls + onboarding and shows a banner. Defect-rework stays.
   const projectOpen = project.status === "active" || project.status === "on_hold";
@@ -139,16 +143,20 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
                 <CalendarDays aria-hidden className="h-5 w-5" />
               </Link>
             ) : null}
+            {/* Spec 176/181: the supply plan — PM tier + procurement (PM's stead,
+                spec 181 U1). Its own door (not the manager-only block) so
+                procurement, which isn't a manager role, can reach it. */}
+            {canPlanSupply ? (
+              <Link
+                href={supplyPlanHref(project.id)}
+                aria-label="แผนจัดหา"
+                className={ICON_CHIP_MUTED}
+              >
+                <ClipboardList aria-hidden className="h-5 w-5" />
+              </Link>
+            ) : null}
             {isManagerRole(ctx.role) ? (
               <>
-                {/* Spec 176: the supply plan (PM material planning per project). */}
-                <Link
-                  href={supplyPlanHref(project.id)}
-                  aria-label="แผนจัดหา"
-                  className={ICON_CHIP_MUTED}
-                >
-                  <ClipboardList aria-hidden className="h-5 w-5" />
-                </Link>
                 <Link
                   href={reportsHref(project.id)}
                   aria-label="รายงานโครงการ"
