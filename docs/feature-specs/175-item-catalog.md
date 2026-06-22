@@ -91,9 +91,34 @@ viewable source of item identity.
 `pnpm build`. Auth-gated page → verified-by-checklist (the component is unit-pinned, the DB is
 pgTAP'd; operator on-device = acceptance).
 
+## U2 — add catalog item (create)
+
+Make the catalog operable: back-office adds new items in-app. Edit / deactivate of
+existing items is U3.
+
+- **Migration `20260802000000`:** `create_catalog_item(category, base_item, spec_attrs,
+unit, stockable, note) returns uuid` — SECURITY DEFINER, role-gated to
+  pm/super/procurement/director (the `BACK_OFFICE_ROLES` set), inline like
+  `apply_wp_template`. Trims inputs (empty spec/note → NULL); length caps
+  (base ≤200, unit ≤40, spec ≤200, note ≤1000) → `22023`; the unique-identity index
+  raises `23505`. `catalog_items` stays write-locked (no INSERT grant / no write
+  policy) — the RPC is the only write path. `revoke … from anon` (the Supabase
+  default-privilege EXECUTE-to-anon trap).
+- **Action `src/app/catalog/actions.ts`:** `createCatalogItem` — `requireRole(BACK_OFFICE_ROLES)`,
+  validates category against `ITEM_CATEGORY_LABEL` keys, calls the RPC under the user
+  session, maps `23505`→"already exists" / `42501`→"no permission", `revalidatePath('/catalog')`.
+- **`AddCatalogItem` ('use client'):** a BottomSheet form — category select, name, spec,
+  unit picker (`COMMON_UNITS` + อื่น ๆ free-text), stockable checkbox, note; submit →
+  action → reset + close + `router.refresh`; inline error.
+- **Page:** the form button sits above the read-only list on `/catalog`.
+- **Tests:** `add-catalog-item.test.tsx` (4: submit-gating, create-with-values + refresh,
+  free-text unit reveal, inline error); pgTAP `120-create-catalog-item` (11: exists +
+  SECURITY DEFINER, anon-deny + auth-allow execute, PM creates + row lands, procurement
+  creates, blank→22023, duplicate→23505, site_admin + visitor→42501).
+
 ## Out of scope (later units)
 
-Create/edit catalog items (write RPC); Supply Plan (PM bulk plan, qty-per-WP, PD approval);
+Edit / deactivate existing catalog items (U3, write RPC); Supply Plan (PM bulk plan, qty-per-WP, PD approval);
 the store entity + Stock-In; เบิก/Issue + custody; stock-on-hand + counts; sell-rate / store
 P&L (the margin layer). Sample prices from the sheet are NOT loaded — price is not item
 identity; real cost comes from receipts later.

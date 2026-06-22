@@ -4068,6 +4068,17 @@ export type Database = {
         }
         Returns: string
       }
+      create_catalog_item: {
+        Args: {
+          p_base_item: string
+          p_category: Database["public"]["Enums"]["item_category"]
+          p_note: string
+          p_spec_attrs: string
+          p_stockable: boolean
+          p_unit: string
+        }
+        Returns: string
+      }
       create_client_billing: {
         Args: {
           p_gross_amount: number
