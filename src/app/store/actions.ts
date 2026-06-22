@@ -64,6 +64,29 @@ export async function recordStockIn(input: {
   return { ok: true };
 }
 
+// Spec 177 U8 — the receiver worker attests receipt of an issued item (the worker
+// portal). Calls the SECURITY DEFINER confirm_stock_issue RPC, which enforces that
+// current_user_worker_id equals the issue's named receiver.
+export async function confirmStockIssue(input: { issueId: string }): Promise<StockInResult> {
+  if (!UUID_REGEX.test(input.issueId)) {
+    return { ok: false, error: "ยืนยันการรับไม่สำเร็จ" };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("confirm_stock_issue", { p_issue_id: input.issueId });
+  if (error) {
+    if (error.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์ยืนยันรายการนี้" };
+    if (error.code === "22023")
+      return { ok: false, error: "รายการนี้ยืนยันรับไปแล้ว หรือไม่พบรายการ" };
+    return { ok: false, error: "ยืนยันการรับไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  revalidatePath("/portal");
+  return { ok: true };
+}
+
 // Spec 177 U3/U4 — เบิก/issue-out. Calls the SECURITY DEFINER issue_stock RPC,
 // which carries the SITE_STAFF gate + membership + the sufficient-on-hand guard
 // and decrements on-hand at the moving-average cost; this maps its error codes.

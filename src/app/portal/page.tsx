@@ -22,6 +22,7 @@ import { PortalDocuments } from "@/components/features/portal/portal-documents";
 import { PortalContactInfo } from "@/components/features/portal/portal-contact-info";
 import { WorkerProfileEdit } from "@/components/features/portal/worker-profile-edit";
 import { WorkerConsents } from "@/components/features/portal/worker-consents";
+import { PortalReceipts, type PortalReceipt } from "@/components/features/portal/portal-receipts";
 import { loadPortalData } from "@/lib/portal/load-portal-data";
 import { contractorPacketStatus, dcTypeOfSubtype, type DcPacket } from "@/lib/contacts/packet";
 
@@ -42,18 +43,36 @@ export default async function PortalPage() {
   const { data: workerProfileRows } = await supabase.rpc("get_my_worker_profile");
   const wp = workerProfileRows?.[0];
   if (wp) {
-    const [{ data: workerPayments }, { data: workerConsentRows }] = await Promise.all([
-      supabase.rpc("get_my_dc_payments"),
-      // RLS scopes this to the bound worker's own consents (U4b-2 read-arm).
-      supabase
-        .from("contractor_consents")
-        .select("id, kind, consented_at, revoked_at")
-        .order("created_at", { ascending: false }),
-    ]);
+    const [{ data: workerPayments }, { data: workerConsentRows }, { data: receiptRows }] =
+      await Promise.all([
+        supabase.rpc("get_my_dc_payments"),
+        // RLS scopes this to the bound worker's own consents (U4b-2 read-arm).
+        supabase
+          .from("contractor_consents")
+          .select("id, kind, consented_at, revoked_at")
+          .order("created_at", { ascending: false }),
+        // Spec 177 U8: items issued TO this worker, still pending receipt. The
+        // U6 receiver-read RLS arm scopes this to the bound worker's own issues.
+        supabase
+          .from("stock_issues")
+          .select(
+            "id, qty, unit, catalog_items ( base_item, spec_attrs ), work_packages ( code, name )",
+          )
+          .is("received_at", null)
+          .order("issued_at", { ascending: false }),
+      ]);
     const sortedWorkerPayments = [...(workerPayments ?? [])].sort((a, b) =>
       b.period_to.localeCompare(a.period_to),
     );
     const workerConsents = (workerConsentRows ?? []) as PortalConsent[];
+    const receipts: PortalReceipt[] = (receiptRows ?? []).map((r) => ({
+      id: r.id,
+      baseItem: r.catalog_items?.base_item ?? "",
+      specAttrs: r.catalog_items?.spec_attrs ?? null,
+      unit: r.unit,
+      qty: Number(r.qty),
+      wpLabel: r.work_packages ? `${r.work_packages.code} ${r.work_packages.name}` : "",
+    }));
     return (
       <PageShell>
         <header className="border-edge bg-card sticky top-0 z-20 border-b px-5 py-4">
@@ -66,6 +85,12 @@ export default async function PortalPage() {
         </header>
 
         <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
+          {/* Spec 177 U8: items to confirm receipt — the actionable surface first. */}
+          <h2 className={SECTION_HEADING}>รายการรอรับ</h2>
+          <div className="mb-6">
+            <PortalReceipts receipts={receipts} />
+          </div>
+
           <h2 className={SECTION_HEADING}>ข้อมูลของฉัน</h2>
           <div className="mb-3">
             <WorkerProfileEdit
