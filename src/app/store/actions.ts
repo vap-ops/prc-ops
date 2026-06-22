@@ -101,6 +101,51 @@ export async function recordStockCount(input: {
   return { ok: true };
 }
 
+// Spec 177 U11/U12 — reverse a wrong รับเข้า / เบิก. Calls the SECURITY DEFINER
+// reverse_stock_receipt / reverse_stock_issue RPCs, which undo the on-hand effect
+// (append-only) and block a double reversal.
+export async function reverseStockReceipt(input: { receiptId: string }): Promise<StockInResult> {
+  if (!UUID_REGEX.test(input.receiptId)) {
+    return { ok: false, error: "กลับรายการไม่สำเร็จ" };
+  }
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("reverse_stock_receipt", {
+    p_receipt_id: input.receiptId,
+  });
+  if (error) {
+    if (error.code === "42501") return { ok: false, error: NO_PERMISSION };
+    if (error.code === "23505") return { ok: false, error: "รายการนี้ถูกกลับไปแล้ว" };
+    if (error.code === "22023") {
+      return { ok: false, error: "ของถูกเบิกออกไปแล้ว กลับรายการรับเข้าไม่ได้" };
+    }
+    return { ok: false, error: "กลับรายการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  revalidatePath("/store");
+  return { ok: true };
+}
+
+export async function reverseStockIssue(input: { issueId: string }): Promise<StockInResult> {
+  if (!UUID_REGEX.test(input.issueId)) {
+    return { ok: false, error: "กลับรายการไม่สำเร็จ" };
+  }
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("reverse_stock_issue", { p_issue_id: input.issueId });
+  if (error) {
+    if (error.code === "42501") return { ok: false, error: NO_PERMISSION };
+    if (error.code === "23505") return { ok: false, error: "รายการนี้ถูกกลับไปแล้ว" };
+    if (error.code === "22023") return { ok: false, error: "ข้อมูลไม่ถูกต้อง" };
+    return { ok: false, error: "กลับรายการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  revalidatePath("/store");
+  return { ok: true };
+}
+
 // Spec 177 U8 — the receiver worker attests receipt of an issued item (the worker
 // portal). Calls the SECURITY DEFINER confirm_stock_issue RPC, which enforces that
 // current_user_worker_id equals the issue's named receiver.

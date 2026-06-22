@@ -8,10 +8,17 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
+import { ConfirmActionButton } from "@/components/features/common/confirm-action-button";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
 import { ITEM_CATEGORY_LABEL, STORE_ISSUE_LABEL, STORE_RECEIVE_LABEL } from "@/lib/i18n/labels";
 import type { Database } from "@/lib/db/database.types";
-import { issueStock, recordStockCount, recordStockIn } from "@/app/store/actions";
+import {
+  issueStock,
+  recordStockCount,
+  recordStockIn,
+  reverseStockIssue,
+  reverseStockReceipt,
+} from "@/app/store/actions";
 
 type ItemCategory = Database["public"]["Enums"]["item_category"];
 
@@ -45,6 +52,15 @@ export type IssueRow = {
   receivedAt: string | null;
 };
 
+export type ReceiptRow = {
+  id: string;
+  baseItem: string;
+  specAttrs: string | null;
+  unit: string;
+  qty: number;
+  unitCost: number;
+};
+
 const LABEL = "text-sm font-medium text-ink";
 const FIELD =
   "rounded-control border-edge-strong bg-card text-ink shadow-input focus-visible:ring-action w-full min-w-0 border px-3 py-2 text-sm focus:outline-none focus-visible:ring-2";
@@ -62,6 +78,7 @@ export function StoreManager({
   canIssue,
   workPackages,
   issues,
+  receipts,
 }: {
   projects: { id: string; code: string; name: string }[];
   selectedProjectId: string | null;
@@ -71,6 +88,7 @@ export function StoreManager({
   canIssue: boolean;
   workPackages: { id: string; code: string; name: string }[];
   issues: IssueRow[];
+  receipts: ReceiptRow[];
 }) {
   const router = useRouter();
 
@@ -293,6 +311,41 @@ export function StoreManager({
             </ul>
           )}
 
+          {/* รับเข้าล่าสุด — any /store user (BACK_OFFICE = the receipt-reverse gate)
+              can กลับรายการ a wrong รับเข้า. */}
+          {receipts.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              <h2 className="text-ink text-body font-semibold">รับเข้าล่าสุด</h2>
+              <ul className="flex flex-col gap-2">
+                {receipts.map((rc) => (
+                  <li
+                    key={rc.id}
+                    className="border-edge bg-card rounded-control flex items-center gap-3 border px-4 py-3"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="text-ink text-body block font-semibold">{rc.baseItem}</span>
+                      <span className="text-ink-secondary text-meta block">
+                        {rc.specAttrs ? `${rc.specAttrs} · ` : ""}
+                        ต้นทุน {baht(rc.unitCost)} ฿/{rc.unit}
+                      </span>
+                    </span>
+                    <span className="text-ink text-body shrink-0 font-semibold">
+                      {rc.qty} {rc.unit}
+                    </span>
+                    <ConfirmActionButton
+                      idleLabel="กลับรายการ"
+                      pendingLabel="กำลังกลับ…"
+                      confirmMessage={`กลับรายการรับเข้า ${rc.baseItem} ${rc.qty} ${rc.unit}? ของจะถูกตัดออกจากสโตร์`}
+                      confirmLabel="ยืนยัน"
+                      buttonClassName={`${BUTTON_SECONDARY} shrink-0`}
+                      action={() => reverseStockReceipt({ receiptId: rc.id })}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
           {issues.length > 0 ? (
             <div className="flex flex-col gap-2">
               <h2 className="text-ink text-body font-semibold">เบิกล่าสุด</h2>
@@ -323,6 +376,17 @@ export function StoreManager({
                     <span className="text-ink text-body shrink-0 font-semibold">
                       {i.qty} {i.unit}
                     </span>
+                    {/* เบิก reversal = SITE_STAFF; on /store that is the manager tier. */}
+                    {canIssue ? (
+                      <ConfirmActionButton
+                        idleLabel="กลับรายการ"
+                        pendingLabel="กำลังกลับ…"
+                        confirmMessage={`กลับรายการเบิก ${i.baseItem} ${i.qty} ${i.unit}? ของจะถูกคืนเข้าสโตร์`}
+                        confirmLabel="ยืนยัน"
+                        buttonClassName={`${BUTTON_SECONDARY} shrink-0`}
+                        action={() => reverseStockIssue({ issueId: i.id })}
+                      />
+                    ) : null}
                   </li>
                 ))}
               </ul>

@@ -16,6 +16,7 @@ import {
   StoreManager,
   type CatalogPick,
   type IssueRow,
+  type ReceiptRow,
   type StockRow,
 } from "@/components/features/store/store-manager";
 import { STORE_LABEL } from "@/lib/i18n/labels";
@@ -53,6 +54,7 @@ export default async function StorePage({ searchParams }: PageProps) {
   let suppliers: { id: string; name: string }[] = [];
   let workPackages: { id: string; code: string; name: string }[] = [];
   let issues: IssueRow[] = [];
+  let receipts: ReceiptRow[] = [];
 
   if (selectedProjectId) {
     const { data: ohRows } = await supabase
@@ -117,6 +119,22 @@ export default async function StorePage({ searchParams }: PageProps) {
       receiverWorkerId: r.receiver_worker_id,
       receivedAt: r.received_at,
     }));
+
+    // Recent รับเข้า — the reversal targets (spec 177 U12).
+    const { data: receiptRows } = await supabase
+      .from("stock_receipts")
+      .select("id, qty, unit, unit_cost, catalog_items ( base_item, spec_attrs )")
+      .eq("project_id", selectedProjectId)
+      .order("received_at", { ascending: false })
+      .limit(10);
+    receipts = (receiptRows ?? []).map((r) => ({
+      id: r.id,
+      baseItem: r.catalog_items?.base_item ?? "",
+      specAttrs: r.catalog_items?.spec_attrs ?? null,
+      unit: r.unit,
+      qty: Number(r.qty),
+      unitCost: Number(r.unit_cost),
+    }));
   }
 
   return (
@@ -135,6 +153,7 @@ export default async function StorePage({ searchParams }: PageProps) {
           canIssue={canIssue}
           workPackages={workPackages}
           issues={issues}
+          receipts={receipts}
         />
       </div>
     </PageShell>

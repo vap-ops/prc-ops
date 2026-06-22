@@ -5,13 +5,16 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockRecord, mockIssue, mockCount, mockRefresh, mockPush } = vi.hoisted(() => ({
-  mockRecord: vi.fn(),
-  mockIssue: vi.fn(),
-  mockCount: vi.fn(),
-  mockRefresh: vi.fn(),
-  mockPush: vi.fn(),
-}));
+const { mockRecord, mockIssue, mockCount, mockRevReceipt, mockRevIssue, mockRefresh, mockPush } =
+  vi.hoisted(() => ({
+    mockRecord: vi.fn(),
+    mockIssue: vi.fn(),
+    mockCount: vi.fn(),
+    mockRevReceipt: vi.fn(),
+    mockRevIssue: vi.fn(),
+    mockRefresh: vi.fn(),
+    mockPush: vi.fn(),
+  }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: mockRefresh, push: mockPush }),
@@ -20,12 +23,15 @@ vi.mock("@/app/store/actions", () => ({
   recordStockIn: mockRecord,
   issueStock: mockIssue,
   recordStockCount: mockCount,
+  reverseStockReceipt: mockRevReceipt,
+  reverseStockIssue: mockRevIssue,
 }));
 
 import {
   StoreManager,
   type StockRow,
   type IssueRow,
+  type ReceiptRow,
 } from "@/components/features/store/store-manager";
 
 const projects = [
@@ -67,10 +73,16 @@ const onHand: StockRow[] = [
   },
 ];
 
+const receipts: ReceiptRow[] = [
+  { id: "rc1", baseItem: "ปูนซีเมนต์", specAttrs: null, unit: "ถุง", qty: 50, unitCost: 130 },
+];
+
 beforeEach(() => {
   mockRecord.mockReset().mockResolvedValue({ ok: true });
   mockIssue.mockReset().mockResolvedValue({ ok: true });
   mockCount.mockReset().mockResolvedValue({ ok: true });
+  mockRevReceipt.mockReset().mockResolvedValue({ ok: true });
+  mockRevIssue.mockReset().mockResolvedValue({ ok: true });
   mockRefresh.mockReset();
   mockPush.mockReset();
 });
@@ -80,6 +92,7 @@ function renderManager(opts: {
   onHand?: StockRow[];
   canIssue?: boolean;
   issues?: IssueRow[];
+  receipts?: ReceiptRow[];
 }) {
   render(
     <StoreManager
@@ -91,6 +104,7 @@ function renderManager(opts: {
       canIssue={opts.canIssue ?? false}
       workPackages={workPackages}
       issues={opts.issues ?? []}
+      receipts={opts.receipts ?? []}
     />,
   );
 }
@@ -247,5 +261,38 @@ describe("StoreManager ตรวจนับ/count (spec 177 U10)", () => {
       }),
     );
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
+  });
+});
+
+describe("StoreManager กลับรายการ/reversal (spec 177 U12)", () => {
+  it("lists recent รับเข้า with a กลับรายการ control (any /store user)", () => {
+    renderManager({ canIssue: false, receipts });
+    expect(screen.getByText("ปูนซีเมนต์")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "กลับรายการ" })).toBeInTheDocument();
+  });
+
+  it("reverses a receipt after confirm", async () => {
+    renderManager({ canIssue: false, receipts });
+    fireEvent.click(screen.getByRole("button", { name: "กลับรายการ" }));
+    // ConfirmActionButton opens the dialog; confirm with the ยืนยัน button.
+    fireEvent.click(screen.getByRole("button", { name: "ยืนยัน" }));
+    await waitFor(() => expect(mockRevReceipt).toHaveBeenCalledWith({ receiptId: "rc1" }));
+  });
+
+  it("offers กลับรายการ on an issue only when the user can issue", () => {
+    renderManager({ canIssue: true, issues });
+    expect(screen.getByRole("button", { name: "กลับรายการ" })).toBeInTheDocument();
+  });
+
+  it("hides issue กลับรายการ when the user cannot issue", () => {
+    renderManager({ canIssue: false, issues });
+    expect(screen.queryByRole("button", { name: "กลับรายการ" })).toBeNull();
+  });
+
+  it("reverses an issue after confirm", async () => {
+    renderManager({ canIssue: true, issues });
+    fireEvent.click(screen.getByRole("button", { name: "กลับรายการ" }));
+    fireEvent.click(screen.getByRole("button", { name: "ยืนยัน" }));
+    await waitFor(() => expect(mockRevIssue).toHaveBeenCalledWith({ issueId: "iss1" }));
   });
 });
