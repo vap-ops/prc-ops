@@ -2,7 +2,8 @@
 
 **Status:** U1 + U2 SHIPPED to prod (2026-06-22). Phase 3 of the on-site storage / inventory arc.
 U1 = data foundation (`stock_receipts` + `stock_on_hand` + `record_stock_in`, mig 20260809000000, pgTAP 181).
-U2 = the `/store` surface (project picker → on-hand + รับเข้า form; `StoreManager` + `recordStockIn`; mig 20260809000100 adds `default null` to the two nullable RPC args). NEXT = U3 เบิก/Issue (the first OUT flow).
+U2 = the `/store` surface (project picker → on-hand + รับเข้า form; `StoreManager` + `recordStockIn`; mig 20260809000100 adds `default null` to the two nullable RPC args).
+U3 = เบิก/Issue DB foundation (`stock_issues` + `issue_stock` RPC: SITE_STAFF gate, decrement on-hand at moving-avg cost, insufficient-stock guard, depletion→value 0; mig 20260809000200, pgTAP 182). NEXT = U4 the เบิก UI, then two-party custody.
 **Predecessors:** spec 175 (item catalog), spec 176 (supply plan). See memory `storage-unit-inventory-bu`.
 
 ## Why

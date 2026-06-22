@@ -3058,6 +3058,80 @@ export type Database = {
           },
         ]
       }
+      stock_issues: {
+        Row: {
+          catalog_item_id: string
+          created_at: string
+          id: string
+          issued_at: string
+          issued_by: string | null
+          note: string | null
+          project_id: string
+          qty: number
+          total_cost: number | null
+          unit: string
+          unit_cost: number
+          work_package_id: string
+        }
+        Insert: {
+          catalog_item_id: string
+          created_at?: string
+          id?: string
+          issued_at?: string
+          issued_by?: string | null
+          note?: string | null
+          project_id: string
+          qty: number
+          total_cost?: number | null
+          unit: string
+          unit_cost: number
+          work_package_id: string
+        }
+        Update: {
+          catalog_item_id?: string
+          created_at?: string
+          id?: string
+          issued_at?: string
+          issued_by?: string | null
+          note?: string | null
+          project_id?: string
+          qty?: number
+          total_cost?: number | null
+          unit?: string
+          unit_cost?: number
+          work_package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_issues_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_issues_issued_by_fkey"
+            columns: ["issued_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_issues_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_issues_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_on_hand: {
         Row: {
           catalog_item_id: string
@@ -4549,6 +4623,16 @@ export type Database = {
         }[]
       }
       invoke_notification_drain: { Args: never; Returns: undefined }
+      issue_stock: {
+        Args: {
+          p_catalog_item_id: string
+          p_note?: string
+          p_project_id: string
+          p_qty: number
+          p_work_package_id: string
+        }
+        Returns: string
+      }
       log_labor_day: {
         Args: {
           p_date: string
