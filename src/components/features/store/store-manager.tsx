@@ -40,6 +40,9 @@ export type IssueRow = {
   qty: number;
   unitCost: number;
   wpLabel: string;
+  // Custody (spec 177 U6/U7): a named receiver + whether they've confirmed.
+  receiverWorkerId: string | null;
+  receivedAt: string | null;
 };
 
 const LABEL = "text-sm font-medium text-ink";
@@ -258,6 +261,17 @@ export function StoreManager({
                         {i.specAttrs ? `${i.specAttrs} · ` : ""}
                         {i.wpLabel} · ต้นทุน {baht(i.unitCost)} ฿/{i.unit}
                       </span>
+                      {/* Custody (spec 177 U7): pending vs received, when a receiver
+                          was named (the manager path may leave it unnamed). */}
+                      {i.receiverWorkerId ? (
+                        <span
+                          className={`text-meta mt-0.5 block ${
+                            i.receivedAt ? "text-action" : "text-ink-muted"
+                          }`}
+                        >
+                          {i.receivedAt ? "รับแล้ว" : "รอรับ"}
+                        </span>
+                      ) : null}
                     </span>
                     <span className="text-ink text-body shrink-0 font-semibold">
                       {i.qty} {i.unit}

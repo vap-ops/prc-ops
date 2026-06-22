@@ -73,28 +73,42 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
   // The picker needs the project's on-hand (qty > 0) and this WP's recent issues;
   // both ride the Promise.all (no waterfall). The เบิก control itself renders only
   // for !readOnly — procurement may read these rows but never draws stock.
-  const [data, { data: projectDeliverables }, { data: ohRows }, { data: issueRows }] =
-    await Promise.all([
-      loadWorkPackageDetail(supabase, { workPackageId, projectId, isPlanner }),
-      isPlanner
-        ? supabase
-            .from("deliverables")
-            .select("id, code, name")
-            .eq("project_id", projectId)
-            .order("sort_order", { ascending: true })
-        : Promise.resolve({ data: [] as { id: string; code: string; name: string }[] }),
-      supabase
-        .from("stock_on_hand")
-        .select("catalog_item_id, qty_on_hand, catalog_items ( base_item, spec_attrs, unit )")
-        .eq("project_id", projectId)
-        .gt("qty_on_hand", 0),
-      supabase
-        .from("stock_issues")
-        .select("id, qty, unit, unit_cost, catalog_items ( base_item, spec_attrs )")
-        .eq("work_package_id", workPackageId)
-        .order("issued_at", { ascending: false })
-        .limit(10),
-    ]);
+  const [
+    data,
+    { data: projectDeliverables },
+    { data: ohRows },
+    { data: issueRows },
+    { data: wkRows },
+  ] = await Promise.all([
+    loadWorkPackageDetail(supabase, { workPackageId, projectId, isPlanner }),
+    isPlanner
+      ? supabase
+          .from("deliverables")
+          .select("id, code, name")
+          .eq("project_id", projectId)
+          .order("sort_order", { ascending: true })
+      : Promise.resolve({ data: [] as { id: string; code: string; name: string }[] }),
+    supabase
+      .from("stock_on_hand")
+      .select("catalog_item_id, qty_on_hand, catalog_items ( base_item, spec_attrs, unit )")
+      .eq("project_id", projectId)
+      .gt("qty_on_hand", 0),
+    supabase
+      .from("stock_issues")
+      .select(
+        "id, qty, unit, unit_cost, receiver_worker_id, received_at, catalog_items ( base_item, spec_attrs )",
+      )
+      .eq("work_package_id", workPackageId)
+      .order("issued_at", { ascending: false })
+      .limit(10),
+    // Spec 177 U7: the project's active workers — the receiver picker for เบิก.
+    supabase
+      .from("workers")
+      .select("id, name")
+      .eq("project_id", projectId)
+      .eq("active", true)
+      .order("name", { ascending: true }),
+  ]);
   if (!data.wp) {
     notFound();
   }
@@ -156,7 +170,9 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
     };
   });
 
-  // Spec 177 U5: shape the store reads for the WP เบิก control.
+  // Spec 177 U5/U7: shape the store reads for the WP เบิก control.
+  const wpWorkers = (wkRows ?? []).map((w) => ({ id: w.id, name: w.name }));
+  const workerNames = new Map(wpWorkers.map((w) => [w.id, w.name]));
   const wpOnHand: WpStockRow[] = (ohRows ?? []).map((r) => ({
     catalogItemId: r.catalog_item_id,
     baseItem: r.catalog_items?.base_item ?? "",
@@ -171,6 +187,8 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
     unit: r.unit,
     qty: Number(r.qty),
     unitCost: Number(r.unit_cost),
+    receiverName: r.receiver_worker_id ? (workerNames.get(r.receiver_worker_id) ?? "—") : null,
+    receivedAt: r.received_at,
   }));
 
   // Spec 167: the body folds into segmented tabs. Order = the SA's frequency
@@ -241,6 +259,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
                 projectId={wp.project_id}
                 workPackageId={wp.id}
                 onHand={wpOnHand}
+                workers={wpWorkers}
                 issues={wpIssues}
               />
             </div>

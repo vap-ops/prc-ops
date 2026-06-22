@@ -75,12 +75,19 @@ export async function issueStock(input: {
   workPackageId: string;
   qty: number;
   note: string;
+  receiverWorkerId?: string;
 }): Promise<StockInResult> {
   if (
     !UUID_REGEX.test(input.projectId) ||
     !UUID_REGEX.test(input.catalogItemId) ||
     !UUID_REGEX.test(input.workPackageId)
   ) {
+    return { ok: false, error: ISSUE_FAILED };
+  }
+  // The receiver worker is optional; validate its shape only when given.
+  const receiverWorkerId =
+    input.receiverWorkerId && input.receiverWorkerId !== "" ? input.receiverWorkerId : null;
+  if (receiverWorkerId !== null && !UUID_REGEX.test(receiverWorkerId)) {
     return { ok: false, error: ISSUE_FAILED };
   }
   if (!Number.isFinite(input.qty) || input.qty <= 0) {
@@ -96,6 +103,9 @@ export async function issueStock(input: {
     p_work_package_id: input.workPackageId,
     p_qty: input.qty,
     p_note: input.note,
+    // p_receiver_worker_id carries DEFAULT NULL; omit the key when no receiver
+    // (exactOptionalPropertyTypes forbids an explicit undefined).
+    ...(receiverWorkerId !== null ? { p_receiver_worker_id: receiverWorkerId } : {}),
   });
   if (error) {
     if (error.code === "42501") return { ok: false, error: NO_PERMISSION };

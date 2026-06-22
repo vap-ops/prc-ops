@@ -101,7 +101,7 @@ export default async function StorePage({ searchParams }: PageProps) {
     const { data: issueRows } = await supabase
       .from("stock_issues")
       .select(
-        "id, qty, unit, unit_cost, catalog_items ( base_item, spec_attrs ), work_packages ( code, name )",
+        "id, qty, unit, unit_cost, receiver_worker_id, received_at, catalog_items ( base_item, spec_attrs ), work_packages ( code, name )",
       )
       .eq("project_id", selectedProjectId)
       .order("issued_at", { ascending: false })
@@ -114,6 +114,8 @@ export default async function StorePage({ searchParams }: PageProps) {
       qty: Number(r.qty),
       unitCost: Number(r.unit_cost),
       wpLabel: r.work_packages ? `${r.work_packages.code} ${r.work_packages.name}` : "",
+      receiverWorkerId: r.receiver_worker_id,
+      receivedAt: r.received_at,
     }));
   }
 

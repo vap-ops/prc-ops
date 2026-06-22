@@ -21,8 +21,18 @@ import {
 const onHand: WpStockRow[] = [
   { catalogItemId: "ci1", baseItem: "สายไฟ NYY", specAttrs: "3x6", unit: "ม้วน", qtyOnHand: 20 },
 ];
+const workers = [{ id: "w1", name: "สมชาย" }];
 const issues: WpIssueRow[] = [
-  { id: "i1", baseItem: "ท่อ PVC", specAttrs: null, unit: "เส้น", qty: 5, unitCost: 40 },
+  {
+    id: "i1",
+    baseItem: "ท่อ PVC",
+    specAttrs: null,
+    unit: "เส้น",
+    qty: 5,
+    unitCost: 40,
+    receiverName: null,
+    receivedAt: null,
+  },
 ];
 
 beforeEach(() => {
@@ -36,6 +46,7 @@ function renderZone(opts: { onHand?: WpStockRow[]; issues?: WpIssueRow[] }) {
       projectId="p1"
       workPackageId="wp1"
       onHand={opts.onHand ?? onHand}
+      workers={workers}
       issues={opts.issues ?? []}
     />,
   );
@@ -86,5 +97,40 @@ describe("WpIssueStock (spec 177 U5)", () => {
   it("lists this WP's recent เบิก", () => {
     renderZone({ issues });
     expect(screen.getByText("ท่อ PVC")).toBeInTheDocument();
+  });
+
+  it("names a receiver worker on the issue (custody handshake)", async () => {
+    renderZone({});
+    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากสโตร์/ }));
+    fireEvent.change(screen.getByLabelText("วัสดุ"), { target: { value: "ci1" } });
+    fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "5" } });
+    fireEvent.change(screen.getByLabelText(/ผู้รับ/), { target: { value: "w1" } });
+    fireEvent.click(screen.getByRole("button", { name: "ยืนยันการเบิก" }));
+
+    await waitFor(() =>
+      expect(mockIssue).toHaveBeenCalledWith({
+        projectId: "p1",
+        catalogItemId: "ci1",
+        workPackageId: "wp1",
+        qty: 5,
+        note: "",
+        receiverWorkerId: "w1",
+      }),
+    );
+  });
+
+  it("shows a pending-receipt badge for a named-but-unconfirmed issue", () => {
+    renderZone({
+      issues: [{ ...issues[0]!, receiverName: "สมชาย", receivedAt: null }],
+    });
+    expect(screen.getByText(/รอรับ/)).toBeInTheDocument();
+    expect(screen.getByText(/สมชาย/)).toBeInTheDocument();
+  });
+
+  it("shows a received badge once the receiver has confirmed", () => {
+    renderZone({
+      issues: [{ ...issues[0]!, receiverName: "สมชาย", receivedAt: "2026-06-22T10:00:00Z" }],
+    });
+    expect(screen.getByText(/รับแล้ว/)).toBeInTheDocument();
   });
 });

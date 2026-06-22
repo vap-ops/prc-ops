@@ -6,7 +6,8 @@ U2 = the `/store` surface (project picker → on-hand + รับเข้า fo
 U3 = เบิก/Issue DB foundation (`stock_issues` + `issue_stock` RPC: SITE_STAFF gate, decrement on-hand at moving-avg cost, insufficient-stock guard, depletion→value 0; mig 20260809000200, pgTAP 182).
 U4 = the เบิก UI on /store (per-row เบิก button → WP+qty sheet → `issueStock`; recent-issues list; manager-tier gated; `STORE_ISSUE_LABEL`). Code-only, no DB change.
 U5 = เบิก at the WP detail (site_admin field-draw) — `WpIssueStock` block in the คำขอซื้อ tab (gated `!readOnly` = SITE_STAFF), draws the project's on-hand TO this WP; reuses `issueStock`. Code-only. **เบิก now has both surfaces (/store managers + WP detail field).**
-U6 = two-party custody handshake (operator: issue-now-then-receiver-confirms; receiver = a worker) — `stock_issues` += receiver_worker_id + received_at; `issue_stock` widened (+p_receiver_worker_id); `confirm_stock_issue` = the named receiver worker attests via the portal (current_user_worker_id); mig 20260809000300, pgTAP 183. NEXT = U7 the custody UI (receiver picker + portal confirm).
+U6 = two-party custody handshake (operator: issue-now-then-receiver-confirms; receiver = a worker) — `stock_issues` += receiver_worker_id + received_at; `issue_stock` widened (+p_receiver_worker_id); `confirm_stock_issue` = the named receiver worker attests via the portal (current_user_worker_id); mig 20260809000300, pgTAP 183.
+U7 = custody UI (issue side) — receiver picker on the WP-detail เบิก (`WpIssueStock` + project workers) + pending/received badge on both recent-issues lists; `issueStock` passes receiverWorkerId. Code-only. NEXT = U8 the worker-portal receipt confirm (closes the loop).
 **Predecessors:** spec 175 (item catalog), spec 176 (supply plan). See memory `storage-unit-inventory-bu`.
 
 ## Why

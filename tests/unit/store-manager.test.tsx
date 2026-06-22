@@ -47,6 +47,8 @@ const issues: IssueRow[] = [
     qty: 8,
     unitCost: 45,
     wpLabel: "WP-01 งานเดินไฟ",
+    receiverWorkerId: "w1",
+    receivedAt: null,
   },
 ];
 const onHand: StockRow[] = [
@@ -192,5 +194,15 @@ describe("StoreManager เบิก/issue (spec 177 U4)", () => {
     renderManager({ canIssue: true, issues });
     expect(screen.getByText("ท่อ PVC")).toBeInTheDocument();
     expect(screen.getByText(/WP-01/)).toBeInTheDocument();
+  });
+
+  it("badges a named issue as pending vs received", () => {
+    renderManager({ canIssue: true, issues });
+    expect(screen.getByText(/รอรับ/)).toBeInTheDocument();
+    renderManager({
+      canIssue: true,
+      issues: [{ ...issues[0]!, receivedAt: "2026-06-22T10:00:00Z" }],
+    });
+    expect(screen.getByText(/รับแล้ว/)).toBeInTheDocument();
   });
 });

@@ -29,6 +29,9 @@ export type WpIssueRow = {
   unit: string;
   qty: number;
   unitCost: number;
+  // Custody (spec 177 U6/U7): the named receiver + whether they've confirmed.
+  receiverName: string | null;
+  receivedAt: string | null;
 };
 
 const LABEL = "text-sm font-medium text-ink";
@@ -42,11 +45,13 @@ export function WpIssueStock({
   projectId,
   workPackageId,
   onHand,
+  workers,
   issues,
 }: {
   projectId: string;
   workPackageId: string;
   onHand: WpStockRow[];
+  workers: { id: string; name: string }[];
   issues: WpIssueRow[];
 }) {
   const router = useRouter();
@@ -54,6 +59,7 @@ export function WpIssueStock({
   const [open, setOpen] = useState(false);
   const [item, setItem] = useState("");
   const [qty, setQty] = useState("");
+  const [receiver, setReceiver] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [issuing, startIssue] = useTransition();
@@ -65,6 +71,7 @@ export function WpIssueStock({
   function reset() {
     setItem("");
     setQty("");
+    setReceiver("");
     setNote("");
     setError(null);
   }
@@ -80,6 +87,7 @@ export function WpIssueStock({
         workPackageId,
         qty: qtyNum,
         note,
+        ...(receiver !== "" ? { receiverWorkerId: receiver } : {}),
       });
       if (!result.ok) {
         setError(result.error);
@@ -116,6 +124,14 @@ export function WpIssueStock({
                   {i.specAttrs ? `${i.specAttrs} · ` : ""}
                   ต้นทุน {baht(i.unitCost)} ฿/{i.unit}
                 </span>
+                {i.receiverName ? (
+                  <span className="text-meta mt-0.5 block">
+                    <span className={i.receivedAt ? "text-action" : "text-ink-muted"}>
+                      {i.receivedAt ? "รับแล้ว" : "รอรับ"}
+                    </span>
+                    <span className="text-ink-secondary"> · {i.receiverName}</span>
+                  </span>
+                ) : null}
               </span>
               <span className="text-ink text-body shrink-0 font-semibold">
                 {i.qty} {i.unit}
@@ -168,6 +184,28 @@ export function WpIssueStock({
                 มีในมือ {selected.qtyOnHand} {selected.unit}
               </p>
             ) : null}
+          </div>
+
+          {/* Custody (spec 177 U7): name the receiver who takes the material; they
+              confirm receipt later from the worker portal. Optional. */}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="wp-issue-receiver" className={LABEL}>
+              ผู้รับ (ถ้ามี)
+            </label>
+            <select
+              id="wp-issue-receiver"
+              value={receiver}
+              onChange={(e) => setReceiver(e.target.value)}
+              disabled={issuing}
+              className={FIELD}
+            >
+              <option value="">ไม่ระบุ</option>
+              {workers.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="flex flex-col gap-1.5">
