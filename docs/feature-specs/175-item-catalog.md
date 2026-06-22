@@ -168,6 +168,20 @@ are retained in the bucket.
 - **Out of scope:** single current image (an append-only history table is a later option);
   add-time image (add then edit to attach).
 
+## U5 — consistent image slot (+ removed the auto-sourced images)
+
+Operator feedback on the U4 image batch: the auto-sourced CC photos weren't related, and
+every row should carry a consistent image slot.
+
+- **Removed** the 8 web images — cleared `image_path` (back to null) and deleted the bucket
+  objects (`supabase storage rm --experimental --yes`); the credits doc was deleted. They were
+  generic representative photos, not the right items; operator adds real photos via แก้ไข.
+- **`CatalogList` always renders a 40px image slot:** the thumbnail when present, else a
+  placeholder (`role="img" aria-label="ไม่มีรูปภาพ"` box with an icon) — so rows align whether
+  or not an item has a photo. App-only, no DB change.
+- **Test:** `catalog-list.test.tsx` (+2: a placeholder per no-image row; the thumbnail renders
+  and no placeholder when the item has an image).
+
 ## Out of scope (later units)
 
 Supply Plan (PM bulk plan, qty-per-WP, PD approval);

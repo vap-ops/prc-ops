@@ -3,6 +3,7 @@
 // renders one section per category that has items, in item_category enum order
 // (the ITEM_CATEGORY_LABEL key order). No controls — viewing only this unit.
 
+import { ImageIcon } from "lucide-react";
 import type { Database } from "@/lib/db/database.types";
 import {
   ITEM_CATEGORY_LABEL,
@@ -65,7 +66,17 @@ export function CatalogList({
                       alt=""
                       className="border-edge size-10 shrink-0 rounded border object-cover"
                     />
-                  ) : null}
+                  ) : (
+                    // Consistent image slot: a placeholder when the item has no photo,
+                    // so every row aligns (operator 2026-06-22).
+                    <div
+                      role="img"
+                      aria-label="ไม่มีรูปภาพ"
+                      className="bg-sunk text-ink-muted border-edge flex size-10 shrink-0 items-center justify-center rounded border"
+                    >
+                      <ImageIcon aria-hidden className="size-5" />
+                    </div>
+                  )}
                   <span className="min-w-0 flex-1">
                     <span className="text-ink text-body block font-semibold">{it.baseItem}</span>
                     {it.specAttrs ? (

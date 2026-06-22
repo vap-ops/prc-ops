@@ -76,4 +76,19 @@ describe("CatalogList (spec 175)", () => {
     render(<CatalogList items={[]} />);
     expect(screen.getByText(/ยังไม่มีรายการวัสดุ/)).toBeInTheDocument();
   });
+
+  it("renders a consistent placeholder slot for items without an image", () => {
+    render(<CatalogList items={items} />);
+    // none of the fixture items has a thumbnail → every row shows a placeholder
+    expect(screen.getAllByRole("img", { name: "ไม่มีรูปภาพ" })).toHaveLength(items.length);
+  });
+
+  it("renders the thumbnail (and no placeholder) when the item has an image", () => {
+    const withImg: CatalogItem[] = [
+      { ...items[1]!, thumbnailUrl: "https://img.example/steel.jpg" },
+    ];
+    const { container } = render(<CatalogList items={withImg} />);
+    expect(container.querySelector('img[src="https://img.example/steel.jpg"]')).not.toBeNull();
+    expect(screen.queryByRole("img", { name: "ไม่มีรูปภาพ" })).toBeNull();
+  });
 });
