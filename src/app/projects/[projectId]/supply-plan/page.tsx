@@ -6,7 +6,7 @@
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
-import { PM_ROLES } from "@/lib/auth/role-home";
+import { SUPPLY_PLAN_ROLES } from "@/lib/auth/role-home";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
@@ -30,8 +30,12 @@ export const metadata = { title: "แผนจัดหา" };
 
 export default async function SupplyPlanPage({ params }: PageProps) {
   const { projectId } = await params;
-  const ctx = await requireRole(PM_ROLES);
+  const ctx = await requireRole(SUPPLY_PLAN_ROLES);
   const supabase = await createClient();
+  // Spec 181: procurement plans in the PM's stead (add/submit), but the
+  // accuracy measure is the PM's — and supply_plan_accuracy stays PM-gated — so
+  // the accuracy card is planner-only.
+  const isPlanner = ctx.role !== "procurement";
 
   const { data: project } = await supabase
     .from("projects")
@@ -87,20 +91,24 @@ export default async function SupplyPlanPage({ params }: PageProps) {
 
   // Spec 176 U5 — the PM-accuracy measure (planned vs reactive, per WP). The RPC
   // re-enforces planner tier + membership; a non-member never reaches here (the
-  // project read above already notFound'd them).
-  const { data: accRows } = await supabase.rpc("supply_plan_accuracy", {
-    p_project_id: project.id,
-  });
-  const accuracy: AccuracyRow[] = (accRows ?? []).map((r) => ({
-    workPackageId: r.work_package_id,
-    wpCode: r.wp_code,
-    wpName: r.wp_name,
-    plannedLines: r.planned_lines,
-    plannedQty: Number(r.planned_qty),
-    unplannedMiss: r.unplanned_miss,
-    fairReactive: r.fair_reactive,
-    untagged: r.untagged,
-  }));
+  // project read above already notFound'd them). Spec 181: planner-only — the RPC
+  // is PM-gated and the measure is the PM's, so procurement skips it.
+  let accuracy: AccuracyRow[] = [];
+  if (isPlanner) {
+    const { data: accRows } = await supabase.rpc("supply_plan_accuracy", {
+      p_project_id: project.id,
+    });
+    accuracy = (accRows ?? []).map((r) => ({
+      workPackageId: r.work_package_id,
+      wpCode: r.wp_code,
+      wpName: r.wp_name,
+      plannedLines: r.planned_lines,
+      plannedQty: Number(r.planned_qty),
+      unplannedMiss: r.unplanned_miss,
+      fairReactive: r.fair_reactive,
+      untagged: r.untagged,
+    }));
+  }
 
   return (
     <PageShell>
@@ -128,9 +136,11 @@ export default async function SupplyPlanPage({ params }: PageProps) {
         />
       </section>
 
-      <section className={`mx-auto ${PAGE_MAX_W} px-5 pb-8`}>
-        <SupplyPlanAccuracy rows={accuracy} />
-      </section>
+      {isPlanner ? (
+        <section className={`mx-auto ${PAGE_MAX_W} px-5 pb-8`}>
+          <SupplyPlanAccuracy rows={accuracy} />
+        </section>
+      ) : null}
     </PageShell>
   );
 }

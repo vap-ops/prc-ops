@@ -104,6 +104,18 @@ export const SCHEDULE_VIEW_ROLES: ReadonlyArray<UserRole> = [...SITE_STAFF_ROLES
 export const WORKER_ROSTER_ROLES: ReadonlyArray<UserRole> = [...PM_ROLES, "procurement"];
 
 /**
+ * Spec 181: who may PLAN supply for a project — the PM set PLUS procurement. The
+ * operator's flow is "PM plans → procurement compares prices → PD approves →
+ * procurement purchases"; for the moment procurement also does the planning in
+ * the PM's stead. Gates the /supply-plan page + (via the definer RPCs) the
+ * create/add/remove/submit writes — procurement's arm carries NO membership gate
+ * (it is cross-project, spec 171/172). Approve/reject stay PD/super (procurement
+ * never approves its own plan). Members coincide with WORKER_ROSTER_ROLES today,
+ * meaning differs ("who plans supply") — kept separate per the role-doctrine.
+ */
+export const SUPPLY_PLAN_ROLES: ReadonlyArray<UserRole> = [...PM_ROLES, "procurement"];
+
+/**
  * Spec 70: who can reach the purchasing surface (/requests + /requests/[id]).
  * The v1 requester base (SITE_STAFF_ROLES) PLUS procurement — the back-office
  * processor onboarded onto the worklist. Deliberately NOT folded into

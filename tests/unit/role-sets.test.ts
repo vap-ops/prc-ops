@@ -7,6 +7,7 @@ import {
   PM_ROLES,
   SCHEDULE_VIEW_ROLES,
   SITE_STAFF_ROLES,
+  SUPPLY_PLAN_ROLES,
   WORKER_ROSTER_ROLES,
   WP_DETAIL_ROLES,
   isManagerRole,
@@ -131,6 +132,41 @@ describe("WORKER_ROSTER_ROLES (spec 172 Phase C)", () => {
       "contractor",
     ] as const) {
       expect(WORKER_ROSTER_ROLES).not.toContain(role);
+    }
+  });
+});
+
+// Spec 181 U1: procurement plans supply in the PM's stead — create/add/remove/
+// submit a supply plan. SUPPLY_PLAN_ROLES = PM_ROLES + procurement (gates the
+// /supply-plan page). Members coincide with WORKER_ROSTER_ROLES today, meaning
+// differs ("who plans supply" vs "who onboards DC workers") — kept separate per
+// the role-doctrine. Approve/reject stay PD/super (not this set).
+describe("SUPPLY_PLAN_ROLES (spec 181)", () => {
+  it("is the PM set plus procurement", () => {
+    expect([...SUPPLY_PLAN_ROLES]).toEqual([
+      "project_manager",
+      "super_admin",
+      "project_director",
+      "procurement",
+    ]);
+  });
+
+  it("keeps project_director (rides along every gate, file 91 doctrine)", () => {
+    expect(SUPPLY_PLAN_ROLES).toContain("project_director");
+  });
+
+  it("denies field + unserved roles (incl. site_admin)", () => {
+    for (const role of [
+      "site_admin",
+      "project_coordinator",
+      "accounting",
+      "hr",
+      "technician",
+      "subcon_manager",
+      "visitor",
+      "contractor",
+    ] as const) {
+      expect(SUPPLY_PLAN_ROLES).not.toContain(role);
     }
   });
 });
