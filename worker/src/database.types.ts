@@ -1437,6 +1437,42 @@ export type Database = {
           },
         ]
       }
+      item_sell_rates: {
+        Row: {
+          catalog_item_id: string
+          sell_rate: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          catalog_item_id: string
+          sell_rate: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          catalog_item_id?: string
+          sell_rate?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_sell_rates_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: true
+            referencedRelation: "catalog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_sell_rates_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       journal_entries: {
         Row: {
           created_at: string
@@ -5059,6 +5095,10 @@ export type Database = {
       }
       set_equipment_daily_rate: {
         Args: { p_id: string; p_rate: number }
+        Returns: undefined
+      }
+      set_item_sell_rate: {
+        Args: { p_catalog_item_id: string; p_sell_rate: number }
         Returns: undefined
       }
       set_nova_dial: {
