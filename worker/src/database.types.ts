@@ -4506,6 +4506,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      set_catalog_item_active: {
+        Args: { p_active: boolean; p_id: string }
+        Returns: undefined
+      }
       set_contact_bank: {
         Args: {
           p_bank_account_name?: string
@@ -4639,6 +4643,18 @@ export type Database = {
       swap_deliverable_order: {
         Args: { p_a: string; p_b: string }
         Returns: boolean
+      }
+      update_catalog_item: {
+        Args: {
+          p_base_item: string
+          p_category: Database["public"]["Enums"]["item_category"]
+          p_id: string
+          p_note: string
+          p_spec_attrs: string
+          p_stockable: boolean
+          p_unit: string
+        }
+        Returns: undefined
       }
       update_my_display_name: {
         Args: { p_full_name: string }

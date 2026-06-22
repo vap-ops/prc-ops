@@ -19,9 +19,19 @@ export type CatalogItem = {
   specAttrs: string | null;
   unit: string;
   stockable: boolean;
+  note?: string | null;
 };
 
-export function CatalogList({ items }: { items: CatalogItem[] }) {
+export function CatalogList({
+  items,
+  renderRowAction,
+}: {
+  items: CatalogItem[];
+  // Optional per-row control injected by the page (the edit button, U3). Kept as
+  // a render-prop so this list stays free of client-action imports — the page
+  // (a server component) renders the client EditCatalogItem into each row.
+  renderRowAction?: (item: CatalogItem) => React.ReactNode;
+}) {
   if (items.length === 0) {
     return <p className="text-ink-secondary text-body">ยังไม่มีรายการวัสดุ</p>;
   }
@@ -61,6 +71,7 @@ export function CatalogList({ items }: { items: CatalogItem[] }) {
                   >
                     {it.stockable ? CATALOG_STOCKABLE_LABEL : CATALOG_NON_STOCKABLE_LABEL}
                   </span>
+                  {renderRowAction ? renderRowAction(it) : null}
                 </li>
               ))}
             </ul>

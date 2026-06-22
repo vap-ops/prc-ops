@@ -12,6 +12,7 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { CatalogList, type CatalogItem } from "@/components/features/catalog/catalog-list";
 import { AddCatalogItem } from "@/components/features/catalog/add-catalog-item";
+import { EditCatalogItem } from "@/components/features/catalog/edit-catalog-item";
 import { CATALOG_LABEL } from "@/lib/i18n/labels";
 
 export const metadata = { title: CATALOG_LABEL };
@@ -22,7 +23,7 @@ export default async function CatalogPage() {
   const supabase = await createServerSupabase();
   const { data: rows } = await supabase
     .from("catalog_items")
-    .select("id, category, base_item, spec_attrs, unit, stockable")
+    .select("id, category, base_item, spec_attrs, unit, stockable, note")
     .eq("is_active", true)
     .order("base_item", { ascending: true });
 
@@ -33,6 +34,7 @@ export default async function CatalogPage() {
     specAttrs: r.spec_attrs,
     unit: r.unit,
     stockable: r.stockable,
+    note: r.note,
   }));
 
   return (
@@ -45,7 +47,7 @@ export default async function CatalogPage() {
         <div className="flex justify-end">
           <AddCatalogItem />
         </div>
-        <CatalogList items={items} />
+        <CatalogList items={items} renderRowAction={(it) => <EditCatalogItem item={it} />} />
       </div>
     </PageShell>
   );

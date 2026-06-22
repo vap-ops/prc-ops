@@ -116,9 +116,35 @@ unit, stockable, note) returns uuid` — SECURITY DEFINER, role-gated to
   SECURITY DEFINER, anon-deny + auth-allow execute, PM creates + row lands, procurement
   creates, blank→22023, duplicate→23505, site_admin + visitor→42501).
 
+## U3 — edit / deactivate catalog item
+
+Make the catalog correctable: back-office edits any field of an item, or removes it
+(soft delete). Lets the operator fix the seed (e.g. the U1 unit/stockable calls).
+
+- **Migration `20260803000000`:** two more controlled-write RPCs (catalog_items stays
+  write-locked — no table grant). `update_catalog_item(id, …) returns void` — SECURITY
+  DEFINER, same back-office gate + validation as create; unknown id → `22023`, duplicate
+  identity → `23505`. `set_catalog_item_active(id, active) returns void` — soft delete /
+  restore (`is_active`). Both `revoke … from anon`.
+- **Shared form:** the U2 `AddCatalogItem` field set is extracted to `CatalogItemForm`
+  (used by both add + edit, so they can't drift); a seeded unit not in `COMMON_UNITS`
+  (วง / ฝา / ตู้) opens as the free-text "other" so the edit preserves it.
+- **`EditCatalogItem` ('use client'):** a per-row "แก้ไข" button → BottomSheet pre-filled
+  with the item → save (`updateCatalogItem`) or "เอาออก" (`setCatalogItemActive` false →
+  drops off the active list, reversible). Injected into each `CatalogList` row via an
+  optional `renderRowAction` prop from the page (a render-prop so the list stays free of
+  client-action imports — the page, a server component, renders the client edit control).
+- **Actions:** `updateCatalogItem` / `setCatalogItemActive` — `requireRole(BACK_OFFICE_ROLES)`,
+  UUID-guard, map `23505`/`42501`/`22023`, `revalidatePath`.
+- **Tests:** `edit-catalog-item.test.tsx` (4: pre-fill, save+refresh, deactivate+refresh,
+  inline error); pgTAP `121-edit-catalog-item` (14: both fns exist + SECURITY DEFINER,
+  anon-deny, PM edits + row reflects, unknown→22023, edit-onto-identity→23505, deactivate
+  flips is_active, site_admin + visitor→42501). The U2 add test stays green (the extraction
+  is behaviour-preserving).
+
 ## Out of scope (later units)
 
-Edit / deactivate existing catalog items (U3, write RPC); Supply Plan (PM bulk plan, qty-per-WP, PD approval);
+Supply Plan (PM bulk plan, qty-per-WP, PD approval);
 the store entity + Stock-In; เบิก/Issue + custody; stock-on-hand + counts; sell-rate / store
 P&L (the margin layer). Sample prices from the sheet are NOT loaded — price is not item
 identity; real cost comes from receipts later.
