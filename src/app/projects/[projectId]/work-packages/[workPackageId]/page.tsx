@@ -38,6 +38,11 @@ import { WpDetailTabs, type WpDetailTab } from "@/components/features/work-packa
 import { WorkPackageNotes } from "@/components/features/work-packages/work-package-notes";
 import { PurchaseRequestForm } from "@/components/features/purchasing/purchase-request-form";
 import { SitePurchaseForm } from "@/components/features/purchasing/site-purchase-form";
+import {
+  WpIssueStock,
+  type WpIssueRow,
+  type WpStockRow,
+} from "@/components/features/store/wp-issue-stock";
 import { PhaseGallery } from "@/components/features/photos/phase-gallery";
 import { LaborLogZone } from "@/components/features/labor/labor-log-zone";
 import { PhotoCaptureZone } from "./phase-uploader";
@@ -64,16 +69,32 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
   // waterfall). Same queries/columns/results — only the scheduling changes.
   // Spec 155: the project's deliverables feed the planner-only bind control;
   // it depends only on projectId, so it rides alongside the loader (no waterfall).
-  const [data, { data: projectDeliverables }] = await Promise.all([
-    loadWorkPackageDetail(supabase, { workPackageId, projectId, isPlanner }),
-    isPlanner
-      ? supabase
-          .from("deliverables")
-          .select("id, code, name")
-          .eq("project_id", projectId)
-          .order("sort_order", { ascending: true })
-      : Promise.resolve({ data: [] as { id: string; code: string; name: string }[] }),
-  ]);
+  // Spec 177 U5: a site staffer can เบิก stock from the project store TO this WP.
+  // The picker needs the project's on-hand (qty > 0) and this WP's recent issues;
+  // both ride the Promise.all (no waterfall). The เบิก control itself renders only
+  // for !readOnly — procurement may read these rows but never draws stock.
+  const [data, { data: projectDeliverables }, { data: ohRows }, { data: issueRows }] =
+    await Promise.all([
+      loadWorkPackageDetail(supabase, { workPackageId, projectId, isPlanner }),
+      isPlanner
+        ? supabase
+            .from("deliverables")
+            .select("id, code, name")
+            .eq("project_id", projectId)
+            .order("sort_order", { ascending: true })
+        : Promise.resolve({ data: [] as { id: string; code: string; name: string }[] }),
+      supabase
+        .from("stock_on_hand")
+        .select("catalog_item_id, qty_on_hand, catalog_items ( base_item, spec_attrs, unit )")
+        .eq("project_id", projectId)
+        .gt("qty_on_hand", 0),
+      supabase
+        .from("stock_issues")
+        .select("id, qty, unit, unit_cost, catalog_items ( base_item, spec_attrs )")
+        .eq("work_package_id", workPackageId)
+        .order("issued_at", { ascending: false })
+        .limit(10),
+    ]);
   if (!data.wp) {
     notFound();
   }
@@ -135,6 +156,23 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
     };
   });
 
+  // Spec 177 U5: shape the store reads for the WP เบิก control.
+  const wpOnHand: WpStockRow[] = (ohRows ?? []).map((r) => ({
+    catalogItemId: r.catalog_item_id,
+    baseItem: r.catalog_items?.base_item ?? "",
+    specAttrs: r.catalog_items?.spec_attrs ?? null,
+    unit: r.catalog_items?.unit ?? "",
+    qtyOnHand: Number(r.qty_on_hand),
+  }));
+  const wpIssues: WpIssueRow[] = (issueRows ?? []).map((r) => ({
+    id: r.id,
+    baseItem: r.catalog_items?.base_item ?? "",
+    specAttrs: r.catalog_items?.spec_attrs ?? null,
+    unit: r.unit,
+    qty: Number(r.qty),
+    unitCost: Number(r.unit_cost),
+  }));
+
   // Spec 167: the body folds into segmented tabs. Order = the SA's frequency
   // (capture first, then purchases, labor, reference info); the planner-only
   // จัดการ tab is appended last. Panels are server-rendered here and handed to
@@ -194,6 +232,18 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
                 <SitePurchaseForm workPackageId={wp.id} projectId={wp.project_id} />
               </div>
             </details>
+          ) : null}
+          {/* Spec 177 U5: เบิก from the project store TO this WP. issue_stock's gate
+              excludes procurement, matching the !readOnly branch. */}
+          {!readOnly ? (
+            <div className={CARD}>
+              <WpIssueStock
+                projectId={wp.project_id}
+                workPackageId={wp.id}
+                onHand={wpOnHand}
+                issues={wpIssues}
+              />
+            </div>
           ) : null}
           {(wpRequests ?? []).length > 0 ? (
             <ul className="flex flex-col gap-2">
