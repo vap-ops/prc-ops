@@ -3058,6 +3058,119 @@ export type Database = {
           },
         ]
       }
+      stock_on_hand: {
+        Row: {
+          catalog_item_id: string
+          project_id: string
+          qty_on_hand: number
+          total_value: number
+          updated_at: string
+        }
+        Insert: {
+          catalog_item_id: string
+          project_id: string
+          qty_on_hand?: number
+          total_value?: number
+          updated_at?: string
+        }
+        Update: {
+          catalog_item_id?: string
+          project_id?: string
+          qty_on_hand?: number
+          total_value?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_on_hand_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_on_hand_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_receipts: {
+        Row: {
+          catalog_item_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string | null
+          project_id: string
+          qty: number
+          received_at: string
+          supplier_id: string | null
+          total_cost: number | null
+          unit: string
+          unit_cost: number
+        }
+        Insert: {
+          catalog_item_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          project_id: string
+          qty: number
+          received_at?: string
+          supplier_id?: string | null
+          total_cost?: number | null
+          unit: string
+          unit_cost: number
+        }
+        Update: {
+          catalog_item_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          project_id?: string
+          qty?: number
+          received_at?: string
+          supplier_id?: string | null
+          total_cost?: number | null
+          unit?: string
+          unit_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_receipts_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_receipts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_receipts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_receipts_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           contact_person: string | null
@@ -4583,6 +4696,17 @@ export type Database = {
           p_unit: string
           p_vat_rate?: number
           p_work_package_id: string
+        }
+        Returns: string
+      }
+      record_stock_in: {
+        Args: {
+          p_catalog_item_id: string
+          p_note: string
+          p_project_id: string
+          p_qty: number
+          p_supplier_id: string
+          p_unit_cost: number
         }
         Returns: string
       }
