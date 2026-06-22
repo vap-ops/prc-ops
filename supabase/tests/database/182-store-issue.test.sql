@@ -52,10 +52,12 @@ grant usage  on sequence _tap_buf_ord_seq to authenticated;
 select has_table('public', 'stock_issues', 'stock_issues table exists');
 select is((select relrowsecurity from pg_class where oid='public.stock_issues'::regclass),
   true, 'RLS enabled on stock_issues');
-select ok(to_regprocedure('public.issue_stock(uuid, uuid, uuid, numeric, text)') is not null,
+-- Spec 177 U6 widened issue_stock with a trailing p_receiver_worker_id (the
+-- 5-arg signature was dropped); the 5-positional calls below still resolve here.
+select ok(to_regprocedure('public.issue_stock(uuid, uuid, uuid, numeric, text, uuid)') is not null,
   'issue_stock exists');
 select is(has_function_privilege('anon',
-  'public.issue_stock(uuid, uuid, uuid, numeric, text)', 'EXECUTE'),
+  'public.issue_stock(uuid, uuid, uuid, numeric, text, uuid)', 'EXECUTE'),
   false, 'anon cannot execute issue_stock');
 
 set local role authenticated;

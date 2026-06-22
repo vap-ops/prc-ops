@@ -3068,6 +3068,8 @@ export type Database = {
           note: string | null
           project_id: string
           qty: number
+          received_at: string | null
+          receiver_worker_id: string | null
           total_cost: number | null
           unit: string
           unit_cost: number
@@ -3082,6 +3084,8 @@ export type Database = {
           note?: string | null
           project_id: string
           qty: number
+          received_at?: string | null
+          receiver_worker_id?: string | null
           total_cost?: number | null
           unit: string
           unit_cost: number
@@ -3096,6 +3100,8 @@ export type Database = {
           note?: string | null
           project_id?: string
           qty?: number
+          received_at?: string | null
+          receiver_worker_id?: string | null
           total_cost?: number | null
           unit?: string
           unit_cost?: number
@@ -3121,6 +3127,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_issues_receiver_worker_id_fkey"
+            columns: ["receiver_worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
             referencedColumns: ["id"]
           },
           {
@@ -4370,6 +4383,7 @@ export type Database = {
       coin_spendable_balance: { Args: { p_worker: string }; Returns: number }
       coin_unvested_balance: { Args: { p_worker: string }; Returns: number }
       coin_vested_balance: { Args: { p_worker: string }; Returns: number }
+      confirm_stock_issue: { Args: { p_issue_id: string }; Returns: undefined }
       confiscate_coins: {
         Args: {
           p_note?: string
@@ -4629,6 +4643,7 @@ export type Database = {
           p_note?: string
           p_project_id: string
           p_qty: number
+          p_receiver_worker_id?: string
           p_work_package_id: string
         }
         Returns: string
