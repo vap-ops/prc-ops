@@ -3058,6 +3058,76 @@ export type Database = {
           },
         ]
       }
+      stock_counts: {
+        Row: {
+          catalog_item_id: string
+          counted_at: string
+          counted_by: string | null
+          counted_qty: number
+          created_at: string
+          id: string
+          note: string | null
+          project_id: string
+          system_qty: number
+          unit: string
+          unit_cost: number
+          variance: number | null
+          variance_value: number | null
+        }
+        Insert: {
+          catalog_item_id: string
+          counted_at?: string
+          counted_by?: string | null
+          counted_qty: number
+          created_at?: string
+          id?: string
+          note?: string | null
+          project_id: string
+          system_qty: number
+          unit: string
+          unit_cost: number
+          variance?: number | null
+          variance_value?: number | null
+        }
+        Update: {
+          catalog_item_id?: string
+          counted_at?: string
+          counted_by?: string | null
+          counted_qty?: number
+          created_at?: string
+          id?: string
+          note?: string | null
+          project_id?: string
+          system_qty?: number
+          unit?: string
+          unit_cost?: number
+          variance?: number | null
+          variance_value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_counts_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_counts_counted_by_fkey"
+            columns: ["counted_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_counts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_issues: {
         Row: {
           catalog_item_id: string
@@ -4795,6 +4865,15 @@ export type Database = {
           p_unit: string
           p_vat_rate?: number
           p_work_package_id: string
+        }
+        Returns: string
+      }
+      record_stock_count: {
+        Args: {
+          p_catalog_item_id: string
+          p_counted_qty: number
+          p_note?: string
+          p_project_id: string
         }
         Returns: string
       }
