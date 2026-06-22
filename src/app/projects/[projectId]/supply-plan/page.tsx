@@ -59,7 +59,7 @@ export default async function SupplyPlanPage({ params }: PageProps) {
       )
       .eq("supply_plan_id", plan.id)
       .order("created_at", { ascending: true });
-    lines = (lineRows ?? []).map((r) => ({
+    const baseLines = (lineRows ?? []).map((r) => ({
       id: r.id,
       baseItem: r.catalog_items?.base_item ?? "",
       specAttrs: r.catalog_items?.spec_attrs ?? null,
@@ -67,6 +67,21 @@ export default async function SupplyPlanPage({ params }: PageProps) {
       qty: Number(r.qty),
       wpLabel: r.work_packages ? `${r.work_packages.code} ${r.work_packages.name}` : null,
     }));
+    // Spec 181 U4: a line already converted to a PR shows "สร้าง PR แล้ว" and is
+    // excluded from selection (idempotent). Procurement/PM read PRs via the
+    // privileged purchase_requests SELECT.
+    const lineIds = baseLines.map((l) => l.id);
+    let convertedSet = new Set<string>();
+    if (lineIds.length > 0) {
+      const { data: prRows } = await supabase
+        .from("purchase_requests")
+        .select("supply_plan_line_id")
+        .in("supply_plan_line_id", lineIds);
+      convertedSet = new Set(
+        (prRows ?? []).map((r) => r.supply_plan_line_id).filter((id): id is string => id !== null),
+      );
+    }
+    lines = baseLines.map((l) => ({ ...l, converted: convertedSet.has(l.id) }));
   }
 
   const { data: catRows } = await supabase

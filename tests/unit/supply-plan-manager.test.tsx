@@ -6,16 +6,16 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockBulkAdd, mockRemove, mockSubmit, mockApprove, mockReject, mockRefresh } = vi.hoisted(
-  () => ({
+const { mockBulkAdd, mockRemove, mockSubmit, mockApprove, mockReject, mockGenerate, mockRefresh } =
+  vi.hoisted(() => ({
     mockBulkAdd: vi.fn(),
     mockRemove: vi.fn(),
     mockSubmit: vi.fn(),
     mockApprove: vi.fn(),
     mockReject: vi.fn(),
+    mockGenerate: vi.fn(),
     mockRefresh: vi.fn(),
-  }),
-);
+  }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
 vi.mock("@/app/projects/[projectId]/supply-plan/actions", () => ({
@@ -24,6 +24,7 @@ vi.mock("@/app/projects/[projectId]/supply-plan/actions", () => ({
   submitPlan: mockSubmit,
   approvePlan: mockApprove,
   rejectPlan: mockReject,
+  generatePlanPurchaseRequests: mockGenerate,
 }));
 
 import {
@@ -49,6 +50,7 @@ const oneLine: PlanLine = {
   unit: "ม้วน",
   qty: 10,
   wpLabel: "WP-01",
+  converted: false,
 };
 
 beforeEach(() => {
@@ -57,6 +59,7 @@ beforeEach(() => {
   mockSubmit.mockReset().mockResolvedValue({ ok: true });
   mockApprove.mockReset().mockResolvedValue({ ok: true });
   mockReject.mockReset().mockResolvedValue({ ok: true });
+  mockGenerate.mockReset().mockResolvedValue({ ok: true, count: 1 });
   mockRefresh.mockReset();
 });
 
@@ -160,5 +163,75 @@ describe("SupplyPlanManager grid (spec 181 U2)", () => {
     expect(screen.queryByRole("button", { name: "ลบ" })).toBeNull();
     expect(screen.queryByRole("button", { name: "อนุมัติ" })).toBeNull();
     expect(screen.queryByRole("button", { name: "ส่งอนุมัติ" })).toBeNull();
+  });
+});
+
+const convertibleLine: PlanLine = {
+  id: "lc",
+  baseItem: "ปูน",
+  specAttrs: null,
+  unit: "ถุง",
+  qty: 20,
+  wpLabel: "WP-01",
+  converted: false,
+};
+const convertedLine: PlanLine = {
+  id: "ld",
+  baseItem: "เหล็ก",
+  specAttrs: null,
+  unit: "เส้น",
+  qty: 5,
+  wpLabel: "WP-01",
+  converted: true,
+};
+const wholeProjectLine: PlanLine = {
+  id: "lw",
+  baseItem: "สีรองพื้น",
+  specAttrs: null,
+  unit: "แกลลอน",
+  qty: 3,
+  wpLabel: null,
+  converted: false,
+};
+
+describe("SupplyPlanManager convert mode (spec 181 U4)", () => {
+  it("generates PRs for the checked lines of an approved plan", async () => {
+    renderManager({
+      planStatus: "approved",
+      lines: [convertibleLine, convertedLine, wholeProjectLine],
+    });
+    // An already-converted line shows the badge (no checkbox); a whole-project
+    // line is not selectable.
+    expect(screen.getByText("สร้าง PR แล้ว")).toBeInTheDocument();
+    expect(screen.queryByLabelText("เลือก เหล็ก")).toBeNull();
+    expect(screen.queryByLabelText("เลือก สีรองพื้น")).toBeNull();
+
+    const generate = screen.getByRole("button", { name: /สร้างคำขอซื้อ/ });
+    expect(generate).toBeDisabled();
+    fireEvent.click(screen.getByLabelText("เลือก ปูน"));
+    expect(generate).toBeEnabled();
+    fireEvent.click(generate);
+
+    await waitFor(() =>
+      expect(mockGenerate).toHaveBeenCalledWith({
+        projectId: "p1",
+        planId: "pl1",
+        lineIds: ["lc"],
+      }),
+    );
+    await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
+  });
+
+  it("select-all checks every convertible line", () => {
+    renderManager({ planStatus: "approved", lines: [convertibleLine, convertedLine] });
+    fireEvent.click(screen.getByLabelText("เลือกทั้งหมด"));
+    expect((screen.getByLabelText("เลือก ปูน") as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByRole("button", { name: /สร้างคำขอซื้อ \(1\)/ })).toBeEnabled();
+  });
+
+  it("shows no convert UI on a draft plan", () => {
+    renderManager({ planStatus: "draft", lines: [convertibleLine] });
+    expect(screen.queryByRole("button", { name: /สร้างคำขอซื้อ/ })).toBeNull();
+    expect(screen.queryByLabelText("เลือก ปูน")).toBeNull();
   });
 });

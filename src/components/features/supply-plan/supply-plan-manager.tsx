@@ -16,6 +16,7 @@ import type { Database } from "@/lib/db/database.types";
 import {
   approvePlan,
   bulkAddPlanLines,
+  generatePlanPurchaseRequests,
   rejectPlan,
   removePlanLine,
   submitPlan,
@@ -41,6 +42,8 @@ export type PlanLine = {
   unit: string;
   qty: number;
   wpLabel: string | null;
+  // Spec 181 U4: a PR has already been generated from this line (idempotent).
+  converted: boolean;
 };
 
 type DraftRow = {
@@ -177,6 +180,53 @@ export function SupplyPlanManager({
     });
   }
 
+  // Spec 181 U4: convert an APPROVED plan's lines into purchase requests. A line
+  // is convertible when it's WP-bound (a PR is raised against a WP) and not yet
+  // converted; whole-project lines must be assigned a WP first.
+  const convertMode = planStatus === "approved";
+  const convertible = lines.filter((l) => l.wpLabel !== null && !l.converted);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [generating, startGenerate] = useTransition();
+  const [genError, setGenError] = useState<string | null>(null);
+  const [genMsg, setGenMsg] = useState<string | null>(null);
+
+  function toggleLine(id: string) {
+    setSelected((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setGenError(null);
+    setGenMsg(null);
+  }
+  const allSelected = convertible.length > 0 && convertible.every((l) => selected.has(l.id));
+  function toggleAll() {
+    setSelected(allSelected ? new Set() : new Set(convertible.map((l) => l.id)));
+    setGenError(null);
+    setGenMsg(null);
+  }
+
+  function handleGenerate() {
+    if (!planId || selected.size === 0 || generating) return;
+    setGenError(null);
+    setGenMsg(null);
+    startGenerate(async () => {
+      const result = await generatePlanPurchaseRequests({
+        projectId,
+        planId,
+        lineIds: [...selected],
+      });
+      if (!result.ok) {
+        setGenError(result.error);
+        return;
+      }
+      setSelected(new Set());
+      setGenMsg(`สร้างคำขอซื้อแล้ว ${result.count ?? 0} รายการ`);
+      router.refresh();
+    });
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -244,6 +294,16 @@ export function SupplyPlanManager({
               key={l.id}
               className="border-edge bg-card rounded-control flex items-center gap-3 border px-4 py-3"
             >
+              {convertMode && l.wpLabel !== null && !l.converted ? (
+                <input
+                  type="checkbox"
+                  aria-label={`เลือก ${l.baseItem}`}
+                  checked={selected.has(l.id)}
+                  onChange={() => toggleLine(l.id)}
+                  disabled={generating}
+                  className="accent-action size-5 shrink-0"
+                />
+              ) : null}
               <span className="min-w-0 flex-1">
                 <span className="text-ink text-body block font-semibold">{l.baseItem}</span>
                 <span className="text-ink-secondary text-meta block">
@@ -254,6 +314,14 @@ export function SupplyPlanManager({
               <span className="text-ink text-body shrink-0 font-semibold">
                 {l.qty} {l.unit}
               </span>
+              {convertMode && l.converted ? (
+                <span className="bg-sunk text-done-strong text-meta rounded-control shrink-0 px-2 py-1 font-medium">
+                  สร้าง PR แล้ว
+                </span>
+              ) : null}
+              {convertMode && l.wpLabel === null && !l.converted ? (
+                <span className="text-ink-muted text-meta shrink-0">ต้องระบุงานก่อน</span>
+              ) : null}
               {editable ? (
                 <button
                   type="button"
@@ -269,6 +337,48 @@ export function SupplyPlanManager({
           ))}
         </ul>
       )}
+
+      {/* Spec 181 U4: convert an approved plan's lines into purchase requests. */}
+      {convertMode ? (
+        <div className="border-edge bg-page rounded-control flex flex-col gap-3 border p-3">
+          <p className="text-ink text-sm font-semibold">สร้างคำขอซื้อจากแผน</p>
+          {genError ? (
+            <div role="alert" className={INLINE_ERROR}>
+              {genError}
+            </div>
+          ) : null}
+          {genMsg ? (
+            <p role="status" className="text-done-strong text-sm font-medium">
+              {genMsg}
+            </p>
+          ) : null}
+          {convertible.length > 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="text-ink-secondary inline-flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  aria-label="เลือกทั้งหมด"
+                  checked={allSelected}
+                  onChange={toggleAll}
+                  disabled={generating}
+                  className="accent-action size-5"
+                />
+                เลือกทั้งหมด
+              </label>
+              <button
+                type="button"
+                onClick={handleGenerate}
+                disabled={selected.size === 0 || generating}
+                className={BUTTON_PRIMARY}
+              >
+                {generating ? "กำลังสร้าง…" : `สร้างคำขอซื้อ (${selected.size})`}
+              </button>
+            </div>
+          ) : (
+            <p className="text-ink-secondary text-meta">ทุกรายการที่มีงานถูกสร้างคำขอซื้อแล้ว</p>
+          )}
+        </div>
+      ) : null}
 
       {/* Spec 181 U2: the inline grid — fill many rows, save in one bulk write. */}
       {editable ? (
