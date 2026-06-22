@@ -66,6 +66,9 @@ export interface CreatePurchaseRequestInput {
   notes?: string | null | undefined;
   // Spec 176 U4: the reactive-reason tag — required (validated below).
   reasonCode?: string | null | undefined;
+  // Spec 179: optional catalog link — the picked catalog_items.id, or null/omitted
+  // for an off-catalog free-text request.
+  catalogItemId?: string | null | undefined;
 }
 
 export type CreatePurchaseRequestResult = { ok: true; id: string } | { ok: false; error: string };
@@ -91,6 +94,8 @@ export async function createPurchaseRequest(
       priority: validated.value.priority,
       notes: validated.value.notes,
       reason_code: validated.value.reasonCode,
+      // Spec 179: link the requisition to the catalog master (null = off-catalog).
+      catalog_item_id: validated.value.catalogItemId,
       requested_by: user.id,
       source: "app",
     })

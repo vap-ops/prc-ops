@@ -2571,6 +2571,7 @@ export type Database = {
           cancellation_reason: string | null
           cancelled_at: string | null
           cancelled_by: string | null
+          catalog_item_id: string | null
           created_at: string
           decided_at: string | null
           decision_comment: string | null
@@ -2616,6 +2617,7 @@ export type Database = {
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
+          catalog_item_id?: string | null
           created_at?: string
           decided_at?: string | null
           decision_comment?: string | null
@@ -2661,6 +2663,7 @@ export type Database = {
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
+          catalog_item_id?: string | null
           created_at?: string
           decided_at?: string | null
           decision_comment?: string | null
@@ -2718,6 +2721,13 @@ export type Database = {
             columns: ["cancelled_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_requests_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_items"
             referencedColumns: ["id"]
           },
           {

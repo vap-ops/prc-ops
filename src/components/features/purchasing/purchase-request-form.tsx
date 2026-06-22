@@ -31,10 +31,23 @@ import {
 } from "@/lib/purchasing/validate-purchase-request";
 import { PURCHASE_REASON_CODES } from "@/lib/purchasing/reason-code";
 import {
+  ITEM_CATEGORY_LABEL,
   PURCHASE_REQUEST_PRIORITY_LABEL,
   PURCHASE_REQUEST_REASON_CODE_LABEL,
 } from "@/lib/i18n/labels";
+import type { Database } from "@/lib/db/database.types";
 import { bangkokTodayIso } from "@/lib/dates";
+
+type ItemCategory = Database["public"]["Enums"]["item_category"];
+
+// Spec 179: the catalog master item the requester may pick instead of free-typing.
+export interface PurchaseRequestCatalogItem {
+  id: string;
+  category: ItemCategory;
+  baseItem: string;
+  specAttrs: string | null;
+  unit: string;
+}
 
 // Selected-segment colors mirror the request list's status pills (spec 21):
 // color only the chosen urgency so the row doesn't read as an alert at rest.
@@ -62,6 +75,11 @@ interface PurchaseRequestFormProps {
   /** Spec 136: PM/super raising a request on their own WP page — the submit
    *  becomes "สร้างและอนุมัติ" and self-approves it after create. */
   canSelfApprove?: boolean;
+  /** Spec 179: the active catalog master (spec 175). Supplied → a picker lets
+   *  the requester select an item (linking catalog_item_id) and prefills the
+   *  description + unit. Omitted/empty → the picker is hidden and the form is
+   *  free-text only, exactly as before. */
+  catalogItems?: PurchaseRequestCatalogItem[];
 }
 
 export function PurchaseRequestForm({
@@ -69,8 +87,11 @@ export function PurchaseRequestForm({
   projectId,
   userId,
   canSelfApprove = false,
+  catalogItems = [],
 }: PurchaseRequestFormProps) {
   const router = useRouter();
+  // Spec 179: the picked catalog item id ("" = off-catalog / free-text).
+  const [catalogItemId, setCatalogItemId] = useState<string>("");
   const [itemDescription, setItemDescription] = useState<string>("");
   const [quantityText, setQuantityText] = useState<string>("");
   // Unit = dropdown of COMMON_UNITS + the อื่น ๆ sentinel revealing a
@@ -124,6 +145,8 @@ export function PurchaseRequestForm({
         priority,
         notes: notes.length > 0 ? notes : null,
         reasonCode: reasonCode.length > 0 ? reasonCode : null,
+        // Spec 179: the catalog link ("" → off-catalog free-text request).
+        catalogItemId: catalogItemId.length > 0 ? catalogItemId : null,
       });
       if (!result.ok) {
         setError(result.error);
@@ -155,6 +178,7 @@ export function PurchaseRequestForm({
       // Clear the inputs so the form is ready for the next request on the
       // same WP; the router.refresh() re-runs the Server Component so the
       // list picks up the new row.
+      setCatalogItemId("");
       setItemDescription("");
       setQuantityText("");
       setUnitChoice("");
@@ -175,6 +199,30 @@ export function PurchaseRequestForm({
     e.preventDefault();
     runSubmit(canSelfApprove);
   }
+
+  // Spec 179: picking a catalog item links it and prefills the description +
+  // unit (a human-readable snapshot the requester may still refine). The blank
+  // value is the off-catalog escape hatch — it clears the link and leaves the
+  // free-text fields for manual entry. A catalog unit outside COMMON_UNITS
+  // falls to the อื่น ๆ free-text unit input so the dropdown can represent it.
+  function handlePickCatalog(id: string) {
+    setCatalogItemId(id);
+    setError(null);
+    setSavedAt(null);
+    if (id === "") return;
+    const picked = catalogItems.find((c) => c.id === id);
+    if (!picked) return;
+    setItemDescription(picked.baseItem + (picked.specAttrs ? ` ${picked.specAttrs}` : ""));
+    if ((COMMON_UNITS as readonly string[]).includes(picked.unit)) {
+      setUnitChoice(picked.unit);
+      setUnitOther("");
+    } else {
+      setUnitChoice(UNIT_OTHER_VALUE);
+      setUnitOther(picked.unit);
+    }
+  }
+
+  const catalogCategories = Object.keys(ITEM_CATEGORY_LABEL) as ItemCategory[];
 
   // Inline validation only after the user has touched the field (any
   // non-empty input; a unit selection counts — spec 16 §1). Same shape
@@ -203,6 +251,39 @@ export function PurchaseRequestForm({
           <span className="text-ink">{workPackage.name}</span>
         </p>
       </div>
+
+      {/* Spec 179: pick from the catalog master to link + prefill the item.
+          Hidden when no catalog is supplied (free-text-only, unchanged). */}
+      {catalogItems.length > 0 ? (
+        <div className="flex flex-col gap-1">
+          <label htmlFor="pr-catalog" className="text-ink text-sm font-medium">
+            เลือกวัสดุจากแคตตาล็อก
+          </label>
+          <select
+            id="pr-catalog"
+            value={catalogItemId}
+            onChange={(e) => handlePickCatalog(e.target.value)}
+            disabled={submitting}
+            className="rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action h-11 w-full min-w-0 border px-2 text-sm shadow-xs focus:outline-none focus-visible:ring-2"
+          >
+            <option value="">นอกแคตตาล็อก (พิมพ์เอง)</option>
+            {catalogCategories.map((c) => {
+              const opts = catalogItems.filter((ci) => ci.category === c);
+              if (opts.length === 0) return null;
+              return (
+                <optgroup key={c} label={ITEM_CATEGORY_LABEL[c]}>
+                  {opts.map((ci) => (
+                    <option key={ci.id} value={ci.id}>
+                      {ci.baseItem}
+                      {ci.specAttrs ? ` · ${ci.specAttrs}` : ""} ({ci.unit})
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
+          </select>
+        </div>
+      ) : null}
 
       <div className="flex flex-col gap-1">
         <label htmlFor="pr-item" className="text-ink text-sm font-medium">

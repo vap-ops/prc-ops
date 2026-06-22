@@ -43,6 +43,9 @@ export type ValidatedPurchaseRequestInput = {
   notes: string | null;
   // Spec 176 U4: the reactive-reason tag — required, no default.
   reasonCode: PurchaseReasonCode;
+  // Spec 179: optional catalog link (catalog_items.id) — null for an
+  // off-catalog free-text request.
+  catalogItemId: string | null;
 };
 
 export type ValidateCreatePurchaseRequestResult =
@@ -60,6 +63,9 @@ export function validateCreatePurchaseRequest(input: {
   priority?: string | null | undefined;
   notes?: string | null | undefined;
   reasonCode?: string | null | undefined;
+  // Spec 179: optional catalog link — uuid when picked, null/blank when the
+  // requester free-types an off-catalog item.
+  catalogItemId?: string | null | undefined;
 }): ValidateCreatePurchaseRequestResult {
   if (!UUID_REGEX.test(input.workPackageId)) {
     return { ok: false, error: "รหัสรายการงานไม่ถูกต้อง" };
@@ -128,6 +134,19 @@ export function validateCreatePurchaseRequest(input: {
   }
   const reasonCode = input.reasonCode;
 
+  // catalogItemId (spec 179) is optional: blank/null/omitted collapses to null
+  // (an off-catalog free-text request); when present it must be a uuid (the DB
+  // FK references catalog_items.id). The DB FK is the authority — this mirrors
+  // the shape so the form can reject a forged id before the round-trip.
+  const catalogItemRaw = input.catalogItemId?.trim() ?? "";
+  let catalogItemId: string | null = null;
+  if (catalogItemRaw.length > 0) {
+    if (!UUID_REGEX.test(catalogItemRaw)) {
+      return { ok: false, error: "รหัสวัสดุในแคตตาล็อกไม่ถูกต้อง" };
+    }
+    catalogItemId = catalogItemRaw;
+  }
+
   return {
     ok: true,
     value: {
@@ -139,6 +158,7 @@ export function validateCreatePurchaseRequest(input: {
       priority,
       notes,
       reasonCode,
+      catalogItemId,
     },
   };
 }

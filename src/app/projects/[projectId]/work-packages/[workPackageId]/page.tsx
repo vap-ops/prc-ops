@@ -36,7 +36,10 @@ import { WpDeleteControl } from "@/components/features/work-packages/wp-delete-c
 import { WpSchedulePanel } from "@/components/features/work-packages/wp-schedule-panel";
 import { WpDetailTabs, type WpDetailTab } from "@/components/features/work-packages/wp-detail-tabs";
 import { WorkPackageNotes } from "@/components/features/work-packages/work-package-notes";
-import { PurchaseRequestForm } from "@/components/features/purchasing/purchase-request-form";
+import {
+  PurchaseRequestForm,
+  type PurchaseRequestCatalogItem,
+} from "@/components/features/purchasing/purchase-request-form";
 import { SitePurchaseForm } from "@/components/features/purchasing/site-purchase-form";
 import {
   WpIssueStock,
@@ -79,6 +82,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
     { data: ohRows },
     { data: issueRows },
     { data: wkRows },
+    { data: catalogRows },
   ] = await Promise.all([
     loadWorkPackageDetail(supabase, { workPackageId, projectId, isPlanner }),
     isPlanner
@@ -108,6 +112,13 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
       .eq("project_id", projectId)
       .eq("active", true)
       .order("name", { ascending: true }),
+    // Spec 179: the active catalog master feeds the คำขอซื้อ item picker
+    // (project-agnostic reference data; readable by any authenticated user).
+    supabase
+      .from("catalog_items")
+      .select("id, category, base_item, spec_attrs, unit")
+      .eq("is_active", true)
+      .order("base_item", { ascending: true }),
   ]);
   if (!data.wp) {
     notFound();
@@ -180,6 +191,15 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
     unit: r.catalog_items?.unit ?? "",
     qtyOnHand: Number(r.qty_on_hand),
   }));
+  // Spec 179: the catalog master for the คำขอซื้อ item picker.
+  const catalogItems: PurchaseRequestCatalogItem[] = (catalogRows ?? []).map((r) => ({
+    id: r.id,
+    category: r.category,
+    baseItem: r.base_item,
+    specAttrs: r.spec_attrs,
+    unit: r.unit,
+  }));
+
   const wpIssues: WpIssueRow[] = (issueRows ?? []).map((r) => ({
     id: r.id,
     baseItem: r.catalog_items?.base_item ?? "",
@@ -236,6 +256,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
                 workPackage={{ id: wp.id, code: wp.code, name: wp.name }}
                 projectId={wp.project_id}
                 userId={ctx.id}
+                catalogItems={catalogItems}
               />
             </div>
           </details>

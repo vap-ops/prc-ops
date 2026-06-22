@@ -24,6 +24,8 @@ import { PURCHASE_REASON_CODES, isPurchaseReasonCode } from "@/lib/purchasing/re
 
 const VALID_WP = "11111111-2222-3333-4444-555555555555";
 const VALID_REASON = "unplanned_miss";
+// Spec 179: a catalog_items.id the request may link to (uuid-or-null).
+const VALID_CATALOG_ITEM = "99999999-8888-7777-6666-555555555555";
 
 // Today in Asia/Bangkok, computed at runtime (the validator has a clock
 // dependence — spec 16 §2). Tests build relative dates from this so the
@@ -57,8 +59,54 @@ describe("validateCreatePurchaseRequest", () => {
         priority: "normal",
         notes: null,
         reasonCode: VALID_REASON,
+        // Spec 179: no catalog link unless one is picked.
+        catalogItemId: null,
       },
     });
+  });
+
+  // Spec 179 — optional catalog link (catalog_item_id FK). uuid echoes through;
+  // omitted/null/blank collapses to null (off-catalog free-text request); a
+  // malformed id is rejected (mirrors the DB FK being a uuid).
+  it("echoes a valid catalogItemId through", () => {
+    const r = validateCreatePurchaseRequest({
+      workPackageId: VALID_WP,
+      itemDescription: "เหล็กข้ออ้อย 12 มิล",
+      quantity: 20,
+      unit: "ท่อน",
+      reasonCode: VALID_REASON,
+      catalogItemId: VALID_CATALOG_ITEM,
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.catalogItemId).toBe(VALID_CATALOG_ITEM);
+  });
+
+  it("collapses omitted/null/blank catalogItemId to null (off-catalog request)", () => {
+    for (const empty of [undefined, null, "", "   "]) {
+      const r = validateCreatePurchaseRequest({
+        workPackageId: VALID_WP,
+        itemDescription: "Cement",
+        quantity: 1,
+        unit: "bag",
+        reasonCode: VALID_REASON,
+        catalogItemId: empty,
+      });
+      expect(r.ok).toBe(true);
+      if (r.ok) expect(r.value.catalogItemId).toBeNull();
+    }
+  });
+
+  it("rejects a malformed catalogItemId with the Thai message", () => {
+    const r = validateCreatePurchaseRequest({
+      workPackageId: VALID_WP,
+      itemDescription: "Cement",
+      quantity: 1,
+      unit: "bag",
+      reasonCode: VALID_REASON,
+      catalogItemId: "not-a-uuid",
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(/วัสดุในแคตตาล็อก/);
   });
 
   // Spec 48: requester notes — optional free text, trimmed, blank → null,

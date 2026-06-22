@@ -38,7 +38,10 @@ import { LaborCostView } from "@/components/features/labor/labor-cost-view";
 import { AttentionCard } from "@/components/features/common/attention-card";
 import { RecordDecisionForm } from "./record-decision-form";
 import { HoldToggle } from "./hold-toggle";
-import { PurchaseRequestForm } from "@/components/features/purchasing/purchase-request-form";
+import {
+  PurchaseRequestForm,
+  type PurchaseRequestCatalogItem,
+} from "@/components/features/purchasing/purchase-request-form";
 
 interface PageProps {
   params: Promise<{ workPackageId: string }>;
@@ -70,6 +73,21 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
   if (!project) {
     notFound();
   }
+
+  // Spec 179: the active catalog master feeds the คำขอซื้อ item picker
+  // (project-agnostic reference data; readable by any authenticated user).
+  const { data: catalogRows } = await supabase
+    .from("catalog_items")
+    .select("id, category, base_item, spec_attrs, unit")
+    .eq("is_active", true)
+    .order("base_item", { ascending: true });
+  const catalogItems: PurchaseRequestCatalogItem[] = (catalogRows ?? []).map((r) => ({
+    id: r.id,
+    category: r.category,
+    baseItem: r.base_item,
+    specAttrs: r.spec_attrs,
+    unit: r.unit,
+  }));
 
   const photosByPhase = await getCurrentPhotosForWorkPackage(supabase, wp.id);
   const allPhotos: PhotoLogRow[] = [
@@ -207,6 +225,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
               projectId={wp.project_id}
               userId={ctx.id}
               canSelfApprove
+              catalogItems={catalogItems}
             />
           </div>
         </details>
