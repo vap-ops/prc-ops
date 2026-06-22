@@ -13,6 +13,7 @@ import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
 import { setCatalogItemActive, updateCatalogItem } from "@/app/catalog/actions";
 import { CatalogItemForm } from "./catalog-item-form";
+import { CatalogImageControl } from "./catalog-image-control";
 import type { CatalogItem } from "./catalog-list";
 
 export function EditCatalogItem({ item }: { item: CatalogItem }) {
@@ -51,6 +52,9 @@ export function EditCatalogItem({ item }: { item: CatalogItem }) {
       </button>
 
       <BottomSheet open={open} title="แก้ไขรายการวัสดุ" onClose={close}>
+        <div className="mb-4">
+          <CatalogImageControl itemId={item.id} thumbnailUrl={item.thumbnailUrl ?? null} />
+        </div>
         <CatalogItemForm
           initial={{
             category: item.category,

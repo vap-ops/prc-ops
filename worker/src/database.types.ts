@@ -158,6 +158,7 @@ export type Database = {
           category: Database["public"]["Enums"]["item_category"]
           created_at: string
           id: string
+          image_path: string | null
           is_active: boolean
           note: string | null
           spec_attrs: string | null
@@ -169,6 +170,7 @@ export type Database = {
           category: Database["public"]["Enums"]["item_category"]
           created_at?: string
           id?: string
+          image_path?: string | null
           is_active?: boolean
           note?: string | null
           spec_attrs?: string | null
@@ -180,6 +182,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["item_category"]
           created_at?: string
           id?: string
+          image_path?: string | null
           is_active?: boolean
           note?: string | null
           spec_attrs?: string | null
@@ -4508,6 +4511,10 @@ export type Database = {
       }
       set_catalog_item_active: {
         Args: { p_active: boolean; p_id: string }
+        Returns: undefined
+      }
+      set_catalog_item_image: {
+        Args: { p_id: string; p_image_path: string }
         Returns: undefined
       }
       set_contact_bank: {

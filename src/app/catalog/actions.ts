@@ -139,3 +139,30 @@ export async function setCatalogItemActive(input: {
   revalidatePath("/catalog");
   return { ok: true };
 }
+
+export async function setCatalogItemImage(input: {
+  id: string;
+  path: string | null;
+}): Promise<CatalogActionResult> {
+  await requireRole(BACK_OFFICE_ROLES);
+
+  if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC_ERROR };
+  // The bytes are uploaded client-side first; this records the resulting path
+  // (or clears it). Empty → NULL is done in the RPC.
+  const path = input.path?.trim() ?? "";
+  if (path.length > 300) return { ok: false, error: GENERIC_ERROR };
+
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("set_catalog_item_image", {
+    p_id: input.id,
+    p_image_path: path,
+  });
+  if (error) {
+    if (error.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์" };
+    if (error.code === "22023") return { ok: false, error: "ไม่พบรายการวัสดุนี้" };
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath("/catalog");
+  return { ok: true };
+}

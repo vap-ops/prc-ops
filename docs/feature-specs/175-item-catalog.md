@@ -142,6 +142,32 @@ Make the catalog correctable: back-office edits any field of an item, or removes
   flips is_active, site_admin + visitor→42501). The U2 add test stays green (the extraction
   is behaviour-preserving).
 
+## U4 — item image
+
+One reference photo per item — a thumbnail in the list + on the edit sheet. Matches
+"add images to the existing list" (attaches on edit, since the item must exist for its
+storage path). Honours the keep-images doctrine: replacing repoints the path, old objects
+are retained in the bucket.
+
+- **Migration `20260804000000`:** private `catalog-images` bucket + a back-office INSERT
+  policy on `storage.objects` (NO SELECT policy — reads via service-role signed URLs, the
+  photos-bucket posture). `catalog_items.image_path text` (inherits the table-level SELECT
+  grant — no column-grant trap here). `set_catalog_item_image(id, path) returns void` —
+  back-office gate, null clears, unknown id → `22023`, `revoke … from anon`.
+- **`CatalogImageControl` ('use client'):** pick a photo → reuse spec-34
+  `preparePhotoForUpload` (client downscale) → upload to `catalog-images` at
+  `{itemId}/{uuid}.{ext}` via the browser client (the INSERT policy gates it) →
+  `setCatalogItemImage` records the path → refresh. Replace + remove. Shown on the
+  `EditCatalogItem` sheet.
+- **Display:** the page mints 120s signed URLs (`mintSignedUrls`) for items with an
+  `image_path` → `thumbnailUrl` on `CatalogItem` → `CatalogList` renders a thumbnail;
+  placeholder icon in the control when empty.
+- **Tests:** `catalog-image-control.test.tsx` (3: downscale+upload+record+refresh, remove,
+  reject-non-image); pgTAP `122-catalog-item-image` (10: bucket + INSERT policy + column +
+  RPC gate/secdef/anon-deny + set/clear + unknown→22023 + site_admin→42501).
+- **Out of scope:** single current image (an append-only history table is a later option);
+  add-time image (add then edit to attach).
+
 ## Out of scope (later units)
 
 Supply Plan (PM bulk plan, qty-per-WP, PD approval);

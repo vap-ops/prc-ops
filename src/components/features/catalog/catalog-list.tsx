@@ -20,6 +20,9 @@ export type CatalogItem = {
   unit: string;
   stockable: boolean;
   note?: string | null;
+  // Spec 175 U4 — a signed URL for the item's reference image (minted by the
+  // page); null when the item has no image.
+  thumbnailUrl?: string | null;
 };
 
 export function CatalogList({
@@ -55,6 +58,14 @@ export function CatalogList({
                   key={it.id}
                   className="border-edge bg-card rounded-control flex items-center gap-3 border px-4 py-3"
                 >
+                  {it.thumbnailUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- signed URL, same as ZoomablePhoto
+                    <img
+                      src={it.thumbnailUrl}
+                      alt=""
+                      className="border-edge size-10 shrink-0 rounded border object-cover"
+                    />
+                  ) : null}
                   <span className="min-w-0 flex-1">
                     <span className="text-ink text-body block font-semibold">{it.baseItem}</span>
                     {it.specAttrs ? (

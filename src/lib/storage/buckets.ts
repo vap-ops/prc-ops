@@ -8,3 +8,5 @@ export const PR_ATTACHMENTS_BUCKET = "pr-attachments";
 export const PO_ATTACHMENTS_BUCKET = "po-attachments";
 export const REPORTS_BUCKET = "reports";
 export const CONTACT_DOCS_BUCKET = "contact-docs";
+// Spec 175 U4 — one reference image per catalog item (private; back-office upload).
+export const CATALOG_IMAGES_BUCKET = "catalog-images";

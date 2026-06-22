@@ -8,6 +8,8 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
 import { BACK_OFFICE_ROLES } from "@/lib/auth/role-home";
 import { createClient as createServerSupabase } from "@/lib/db/server";
+import { mintSignedUrls } from "@/lib/storage/signed-urls";
+import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { CatalogList, type CatalogItem } from "@/components/features/catalog/catalog-list";
@@ -23,9 +25,16 @@ export default async function CatalogPage() {
   const supabase = await createServerSupabase();
   const { data: rows } = await supabase
     .from("catalog_items")
-    .select("id, category, base_item, spec_attrs, unit, stockable, note")
+    .select("id, category, base_item, spec_attrs, unit, stockable, note, image_path")
     .eq("is_active", true)
     .order("base_item", { ascending: true });
+
+  // Reads on the private catalog-images bucket go through service-role signed
+  // URLs (the rows above were already read under the user's RLS).
+  const signed = await mintSignedUrls(
+    CATALOG_IMAGES_BUCKET,
+    (rows ?? []).map((r) => ({ id: r.id, storage_path: r.image_path })),
+  );
 
   const items: CatalogItem[] = (rows ?? []).map((r) => ({
     id: r.id,
@@ -35,6 +44,7 @@ export default async function CatalogPage() {
     unit: r.unit,
     stockable: r.stockable,
     note: r.note,
+    thumbnailUrl: signed.get(r.id) ?? null,
   }));
 
   return (
