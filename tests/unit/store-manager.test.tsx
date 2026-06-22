@@ -5,9 +5,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockRecord, mockIssue, mockRefresh, mockPush } = vi.hoisted(() => ({
+const { mockRecord, mockIssue, mockCount, mockRefresh, mockPush } = vi.hoisted(() => ({
   mockRecord: vi.fn(),
   mockIssue: vi.fn(),
+  mockCount: vi.fn(),
   mockRefresh: vi.fn(),
   mockPush: vi.fn(),
 }));
@@ -15,7 +16,11 @@ const { mockRecord, mockIssue, mockRefresh, mockPush } = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: mockRefresh, push: mockPush }),
 }));
-vi.mock("@/app/store/actions", () => ({ recordStockIn: mockRecord, issueStock: mockIssue }));
+vi.mock("@/app/store/actions", () => ({
+  recordStockIn: mockRecord,
+  issueStock: mockIssue,
+  recordStockCount: mockCount,
+}));
 
 import {
   StoreManager,
@@ -65,6 +70,7 @@ const onHand: StockRow[] = [
 beforeEach(() => {
   mockRecord.mockReset().mockResolvedValue({ ok: true });
   mockIssue.mockReset().mockResolvedValue({ ok: true });
+  mockCount.mockReset().mockResolvedValue({ ok: true });
   mockRefresh.mockReset();
   mockPush.mockReset();
 });
@@ -204,5 +210,42 @@ describe("StoreManager เบิก/issue (spec 177 U4)", () => {
       issues: [{ ...issues[0]!, receivedAt: "2026-06-22T10:00:00Z" }],
     });
     expect(screen.getByText(/รับแล้ว/)).toBeInTheDocument();
+  });
+});
+
+describe("StoreManager ตรวจนับ/count (spec 177 U10)", () => {
+  it("offers a ตรวจนับ control per on-hand row when the user can issue", () => {
+    renderManager({ canIssue: true });
+    expect(screen.getByRole("button", { name: "ตรวจนับ" })).toBeInTheDocument();
+  });
+
+  it("shows no ตรวจนับ control when the user cannot issue", () => {
+    renderManager({ canIssue: false });
+    expect(screen.queryByRole("button", { name: "ตรวจนับ" })).toBeNull();
+  });
+
+  it("previews the variance against the system qty", () => {
+    renderManager({ canIssue: true });
+    fireEvent.click(screen.getByRole("button", { name: "ตรวจนับ" }));
+    fireEvent.change(screen.getByLabelText(/จำนวนที่นับได้/), { target: { value: "18" } });
+    // system 20 − counted 18 → variance -2 (ขาด)
+    expect(screen.getByText(/ส่วนต่าง -2/)).toBeInTheDocument();
+  });
+
+  it("records a count with the counted qty", async () => {
+    renderManager({ canIssue: true });
+    fireEvent.click(screen.getByRole("button", { name: "ตรวจนับ" }));
+    fireEvent.change(screen.getByLabelText(/จำนวนที่นับได้/), { target: { value: "18" } });
+    fireEvent.click(screen.getByRole("button", { name: "บันทึกการนับ" }));
+
+    await waitFor(() =>
+      expect(mockCount).toHaveBeenCalledWith({
+        projectId: "p1",
+        catalogItemId: "ci1",
+        countedQty: 18,
+        note: "",
+      }),
+    );
+    await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
   });
 });

@@ -9,7 +9,8 @@ U5 = เบิก at the WP detail (site_admin field-draw) — `WpIssueStock` bl
 U6 = two-party custody handshake (operator: issue-now-then-receiver-confirms; receiver = a worker) — `stock_issues` += receiver_worker_id + received_at; `issue_stock` widened (+p_receiver_worker_id); `confirm_stock_issue` = the named receiver worker attests via the portal (current_user_worker_id); mig 20260809000300, pgTAP 183.
 U7 = custody UI (issue side) — receiver picker on the WP-detail เบิก (`WpIssueStock` + project workers) + pending/received badge on both recent-issues lists; `issueStock` passes receiverWorkerId. Code-only.
 U8 = worker-portal receipt confirm (closes the loop) — `/portal` รายการรอรับ section + `PortalReceipts` (ได้รับแล้ว → `confirmStockIssue` → `confirm_stock_issue` RPC); the U6 receiver-read RLS arm scopes the pending list to the bound worker. Code-only. **Custody handshake complete end-to-end.**
-U9 = stock count / variance — `stock_counts` (append-only, system_qty snapshot + counted_qty + generated variance/variance_value at moving-avg cost) + `record_stock_count` RPC (SITE_STAFF gate, reconciles on-hand to the counted truth; shrinkage = a store P&L hit); mig 20260809000400, pgTAP 184. NEXT = U10 the count UI (ตรวจนับ on /store).
+U9 = stock count / variance — `stock_counts` (append-only, system_qty snapshot + counted_qty + generated variance/variance_value at moving-avg cost) + `record_stock_count` RPC (SITE_STAFF gate, reconciles on-hand to the counted truth; shrinkage = a store P&L hit); mig 20260809000400, pgTAP 184.
+U10 = the count UI — per-row `ตรวจนับ` button on /store (manager-tier) → counted-qty sheet with a live variance preview → `recordStockCount`. Code-only. NEXT = reversals, then the late margin layer.
 **Predecessors:** spec 175 (item catalog), spec 176 (supply plan). See memory `storage-unit-inventory-bu`.
 
 ## Why

@@ -11,7 +11,7 @@ import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
 import { ITEM_CATEGORY_LABEL, STORE_ISSUE_LABEL, STORE_RECEIVE_LABEL } from "@/lib/i18n/labels";
 import type { Database } from "@/lib/db/database.types";
-import { issueStock, recordStockIn } from "@/app/store/actions";
+import { issueStock, recordStockCount, recordStockIn } from "@/app/store/actions";
 
 type ItemCategory = Database["public"]["Enums"]["item_category"];
 
@@ -90,6 +90,44 @@ export function StoreManager({
   const [issueNote, setIssueNote] = useState("");
   const [issueError, setIssueError] = useState<string | null>(null);
   const [issuing, startIssue] = useTransition();
+
+  // ตรวจนับ (physical count) sheet — opened for a specific on-hand row.
+  const [countRow, setCountRow] = useState<StockRow | null>(null);
+  const [countQty, setCountQty] = useState("");
+  const [countNote, setCountNote] = useState("");
+  const [countError, setCountError] = useState<string | null>(null);
+  const [counting, startCount] = useTransition();
+
+  const countQtyNum = Number(countQty);
+  const countValid = countQty !== "" && Number.isFinite(countQtyNum) && countQtyNum >= 0;
+  const variance = countRow && countValid ? countQtyNum - countRow.qtyOnHand : null;
+
+  function openCount(row: StockRow) {
+    setCountRow(row);
+    setCountQty("");
+    setCountNote("");
+    setCountError(null);
+  }
+
+  function handleCountSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!countValid || !selectedProjectId || !countRow || counting) return;
+    setCountError(null);
+    startCount(async () => {
+      const result = await recordStockCount({
+        projectId: selectedProjectId,
+        catalogItemId: countRow.catalogItemId,
+        countedQty: countQtyNum,
+        note: countNote,
+      });
+      if (!result.ok) {
+        setCountError(result.error);
+        return;
+      }
+      setCountRow(null);
+      router.refresh();
+    });
+  }
 
   const issueQtyNum = Number(issueQty);
   const canIssueSubmit =
@@ -238,6 +276,15 @@ export function StoreManager({
                         className={`${BUTTON_SECONDARY} shrink-0`}
                       >
                         เบิก
+                      </button>
+                    ) : null}
+                    {canIssue ? (
+                      <button
+                        type="button"
+                        onClick={() => openCount(r)}
+                        className={`${BUTTON_SECONDARY} shrink-0`}
+                      >
+                        ตรวจนับ
                       </button>
                     ) : null}
                   </li>
@@ -482,6 +529,85 @@ export function StoreManager({
                 </button>
                 <button type="submit" disabled={!canIssueSubmit} className={BUTTON_PRIMARY}>
                   {issuing ? "กำลังเบิก…" : "ยืนยันการเบิก"}
+                </button>
+              </div>
+            </form>
+          </BottomSheet>
+
+          <BottomSheet
+            open={countRow !== null}
+            title="ตรวจนับสต๊อก"
+            onClose={() => setCountRow(null)}
+          >
+            <form onSubmit={handleCountSubmit} className="flex flex-col gap-4">
+              <p className="text-ink-secondary text-meta">
+                ตรวจนับ{" "}
+                <span className="text-ink font-semibold">
+                  {countRow?.baseItem}
+                  {countRow?.specAttrs ? ` · ${countRow.specAttrs}` : ""}
+                </span>{" "}
+                — ระบบมี {countRow?.qtyOnHand} {countRow?.unit}
+              </p>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="count-qty" className={LABEL}>
+                  จำนวนที่นับได้
+                </label>
+                <input
+                  id="count-qty"
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="any"
+                  value={countQty}
+                  onChange={(e) => setCountQty(e.target.value)}
+                  disabled={counting}
+                  className={FIELD}
+                />
+                {variance !== null && countRow ? (
+                  <p
+                    className={`text-meta ${
+                      variance < 0 ? "text-danger" : variance > 0 ? "text-action" : "text-ink-muted"
+                    }`}
+                  >
+                    ส่วนต่าง {variance > 0 ? "+" : ""}
+                    {variance} {countRow.unit}
+                    {variance < 0 ? " (ขาด)" : variance > 0 ? " (เกิน)" : " (ตรงกัน)"}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="count-note" className={LABEL}>
+                  หมายเหตุ (ถ้ามี)
+                </label>
+                <input
+                  id="count-note"
+                  type="text"
+                  value={countNote}
+                  maxLength={1000}
+                  onChange={(e) => setCountNote(e.target.value)}
+                  disabled={counting}
+                  className={FIELD}
+                />
+              </div>
+
+              {countError ? (
+                <div role="alert" className={INLINE_ERROR}>
+                  {countError}
+                </div>
+              ) : null}
+
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCountRow(null)}
+                  className={BUTTON_SECONDARY}
+                >
+                  ยกเลิก
+                </button>
+                <button type="submit" disabled={!countValid || counting} className={BUTTON_PRIMARY}>
+                  {counting ? "กำลังบันทึก…" : "บันทึกการนับ"}
                 </button>
               </div>
             </form>

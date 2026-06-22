@@ -64,6 +64,43 @@ export async function recordStockIn(input: {
   return { ok: true };
 }
 
+// Spec 177 U10 — record a physical count. Calls the SECURITY DEFINER
+// record_stock_count RPC (SITE_STAFF gate + member), which reconciles on-hand to
+// the counted truth and logs the variance (shrinkage) at the moving-average cost.
+export async function recordStockCount(input: {
+  projectId: string;
+  catalogItemId: string;
+  countedQty: number;
+  note: string;
+}): Promise<StockInResult> {
+  if (!UUID_REGEX.test(input.projectId) || !UUID_REGEX.test(input.catalogItemId)) {
+    return { ok: false, error: "บันทึกการนับไม่สำเร็จ" };
+  }
+  if (!Number.isFinite(input.countedQty) || input.countedQty < 0) {
+    return { ok: false, error: "จำนวนที่นับได้ต้องไม่ติดลบ" };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("record_stock_count", {
+    p_project_id: input.projectId,
+    p_catalog_item_id: input.catalogItemId,
+    p_counted_qty: input.countedQty,
+    p_note: input.note,
+  });
+  if (error) {
+    if (error.code === "42501") return { ok: false, error: NO_PERMISSION };
+    if (error.code === "22023") {
+      return { ok: false, error: "ตรวจนับได้เฉพาะวัสดุที่มีในสโตร์ หรือข้อมูลไม่ถูกต้อง" };
+    }
+    return { ok: false, error: "บันทึกการนับไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  revalidatePath("/store");
+  return { ok: true };
+}
+
 // Spec 177 U8 — the receiver worker attests receipt of an issued item (the worker
 // portal). Calls the SECURITY DEFINER confirm_stock_issue RPC, which enforces that
 // current_user_worker_id equals the issue's named receiver.
