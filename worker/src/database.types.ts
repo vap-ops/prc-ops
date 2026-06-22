@@ -4519,6 +4519,10 @@ export type Database = {
         }
         Returns: string
       }
+      add_supply_plan_lines: {
+        Args: { p_lines: Json; p_plan_id: string }
+        Returns: number
+      }
       add_work_package_dependency: {
         Args: { p_predecessor: string; p_successor: string }
         Returns: boolean

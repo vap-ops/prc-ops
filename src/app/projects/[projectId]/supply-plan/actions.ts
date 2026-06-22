@@ -68,6 +68,66 @@ export async function addPlanLine(input: {
   return { ok: true };
 }
 
+// Spec 181 U2 — the inline grid saves many lines at once. Get-or-create the
+// plan, then bulk-insert via add_supply_plan_lines (atomic — any bad line rolls
+// the whole batch back). work_package_id is optional (null = whole-project).
+export async function bulkAddPlanLines(input: {
+  projectId: string;
+  lines: Array<{
+    catalogItemId: string;
+    workPackageId: string | null;
+    qty: number;
+    note: string;
+  }>;
+}): Promise<SupplyPlanResult & { count?: number }> {
+  if (!UUID_REGEX.test(input.projectId)) return { ok: false, error: FAILED };
+  if (!Array.isArray(input.lines) || input.lines.length === 0) {
+    return { ok: false, error: "ยังไม่มีรายการที่จะบันทึก" };
+  }
+  for (const l of input.lines) {
+    if (!UUID_REGEX.test(l.catalogItemId)) return { ok: false, error: "เลือกวัสดุให้ครบทุกแถว" };
+    if (l.workPackageId !== null && !UUID_REGEX.test(l.workPackageId)) {
+      return { ok: false, error: FAILED };
+    }
+    if (!Number.isFinite(l.qty) || l.qty <= 0) {
+      return { ok: false, error: "จำนวนต้องมากกว่า 0 ทุกแถว" };
+    }
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase } = auth;
+
+  const { data: planId, error: planErr } = await supabase.rpc("create_supply_plan", {
+    p_project_id: input.projectId,
+  });
+  if (planErr || !planId) {
+    if (planErr?.code === "42501") return { ok: false, error: NO_PERMISSION };
+    return { ok: false, error: FAILED };
+  }
+
+  const { data: count, error } = await supabase.rpc("add_supply_plan_lines", {
+    p_plan_id: planId,
+    p_lines: input.lines.map((l) => ({
+      catalog_item_id: l.catalogItemId,
+      work_package_id: l.workPackageId,
+      qty: l.qty,
+      note: l.note,
+    })),
+  });
+  if (error) {
+    if (error.code === "23505") {
+      return { ok: false, error: "มีวัสดุซ้ำสำหรับงานเดียวกัน (รวมกับที่วางแผนไว้แล้ว)" };
+    }
+    if (error.code === "42501") return { ok: false, error: NO_PERMISSION };
+    if (error.code === "22023") return { ok: false, error: "ข้อมูลไม่ถูกต้อง หรือแผนถูกล็อกแล้ว" };
+    return { ok: false, error: FAILED };
+  }
+
+  revalidatePath(supplyPlanHref(input.projectId));
+  return { ok: true, count: typeof count === "number" ? count : input.lines.length };
+}
+
 export async function removePlanLine(input: {
   projectId: string;
   lineId: string;

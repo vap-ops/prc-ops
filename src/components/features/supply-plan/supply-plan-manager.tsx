@@ -1,20 +1,21 @@
 "use client";
 
-// Spec 176 U2 — the supply-plan planning screen. A planner adds lines (catalog
-// item + work package + qty) to a project's DRAFT plan and removes them; a
-// submitted/approved plan is the frozen baseline (read-only here). 'use client':
-// the add-sheet state, qty/select state, submit + remove transitions, refresh.
+// Spec 176 U2/U3 + spec 181 U2 — the supply-plan planning screen. A planner (or
+// procurement in the PM's stead, spec 181) builds the plan in an INLINE GRID:
+// fill many rows (catalog item + WP + qty + note) and save them in ONE bulk
+// write, then submits; an approver (PD/super) approves/rejects. A rejected plan
+// is editable again. 'use client': the grid rows + the submit/remove/lifecycle
+// transitions. The grid replaces the spec-176 one-at-a-time bottom sheet.
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Trash2 } from "lucide-react";
-import { BottomSheet } from "@/components/features/common/bottom-sheet";
+import { Plus, Trash2 } from "lucide-react";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
 import { ITEM_CATEGORY_LABEL } from "@/lib/i18n/labels";
 import type { Database } from "@/lib/db/database.types";
 import {
-  addPlanLine,
   approvePlan,
+  bulkAddPlanLines,
   rejectPlan,
   removePlanLine,
   submitPlan,
@@ -42,6 +43,14 @@ export type PlanLine = {
   wpLabel: string | null;
 };
 
+type DraftRow = {
+  key: number;
+  catalogItemId: string;
+  workPackageId: string;
+  qty: string;
+  note: string;
+};
+
 const STATUS_LABEL: Record<PlanStatus, string> = {
   draft: "ร่าง",
   submitted: "ส่งอนุมัติแล้ว",
@@ -49,9 +58,17 @@ const STATUS_LABEL: Record<PlanStatus, string> = {
   rejected: "ตีกลับ",
 };
 
-const LABEL = "text-sm font-medium text-ink";
+const LABEL = "text-meta text-ink-secondary font-medium";
 const FIELD =
-  "rounded-control border-edge-strong bg-card text-ink shadow-input focus-visible:ring-action w-full min-w-0 border px-3 py-2 text-sm focus:outline-none focus-visible:ring-2";
+  "rounded-control border-edge-strong bg-card text-ink shadow-input focus-visible:ring-action h-11 w-full min-w-0 border px-3 text-sm focus:outline-none focus-visible:ring-2";
+const SELECT =
+  "rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action h-11 w-full min-w-0 border px-2 text-sm shadow-xs focus:outline-none focus-visible:ring-2";
+
+let rowSeq = 0;
+function blankRow(): DraftRow {
+  rowSeq += 1;
+  return { key: rowSeq, catalogItemId: "", workPackageId: "", qty: "", note: "" };
+}
 
 export function SupplyPlanManager({
   projectId,
@@ -75,19 +92,63 @@ export function SupplyPlanManager({
   // are the frozen baseline.
   const editable = planStatus === null || planStatus === "draft" || planStatus === "rejected";
 
-  const [open, setOpen] = useState(false);
-  const [item, setItem] = useState("");
-  const [wp, setWp] = useState("");
-  const [qty, setQty] = useState("");
-  const [note, setNote] = useState("");
+  const [rows, setRows] = useState<DraftRow[]>([blankRow()]);
   const [error, setError] = useState<string | null>(null);
-  const [submitting, startSubmit] = useTransition();
+  const [saving, startSave] = useTransition();
 
   const [removing, startRemove] = useTransition();
   const [removeError, setRemoveError] = useState<string | null>(null);
 
   const [acting, startAct] = useTransition();
   const [actError, setActError] = useState<string | null>(null);
+
+  const categories = Object.keys(ITEM_CATEGORY_LABEL) as ItemCategory[];
+
+  // A row counts once it has an item + a positive qty; WP is optional (null =
+  // whole-project). Blank / partial rows are ignored on save (a trailing empty
+  // row is fine) — keeps fast multi-row entry forgiving.
+  const validRows = rows.filter(
+    (r) => r.catalogItemId !== "" && Number.isFinite(Number(r.qty)) && Number(r.qty) > 0,
+  );
+  const canSave = !saving && validRows.length > 0;
+
+  function patchRow(key: number, patch: Partial<DraftRow>) {
+    setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+    setError(null);
+  }
+  function addRow() {
+    setRows((rs) => [...rs, blankRow()]);
+  }
+  function dropRow(key: number) {
+    // Keep at least one row; clearing the last row resets it to blank.
+    setRows((rs) =>
+      rs.length > 1
+        ? rs.filter((r) => r.key !== key)
+        : rs.map((r) => (r.key === key ? blankRow() : r)),
+    );
+  }
+
+  function handleSave() {
+    if (!canSave) return;
+    setError(null);
+    startSave(async () => {
+      const result = await bulkAddPlanLines({
+        projectId,
+        lines: validRows.map((r) => ({
+          catalogItemId: r.catalogItemId,
+          workPackageId: r.workPackageId === "" ? null : r.workPackageId,
+          qty: Number(r.qty),
+          note: r.note,
+        })),
+      });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setRows([blankRow()]);
+      router.refresh();
+    });
+  }
 
   function runLifecycle(
     fn: (i: { projectId: string; planId: string }) => Promise<LifecycleResult>,
@@ -100,42 +161,6 @@ export function SupplyPlanManager({
         setActError(result.error);
         return;
       }
-      router.refresh();
-    });
-  }
-
-  const qtyNum = Number(qty);
-  const canSubmit =
-    item !== "" && wp !== "" && Number.isFinite(qtyNum) && qtyNum > 0 && !submitting;
-
-  const categories = Object.keys(ITEM_CATEGORY_LABEL) as ItemCategory[];
-
-  function reset() {
-    setItem("");
-    setWp("");
-    setQty("");
-    setNote("");
-    setError(null);
-  }
-
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!canSubmit) return;
-    setError(null);
-    startSubmit(async () => {
-      const result = await addPlanLine({
-        projectId,
-        catalogItemId: item,
-        workPackageId: wp,
-        qty: qtyNum,
-        note,
-      });
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      reset();
-      setOpen(false);
       router.refresh();
     });
   }
@@ -162,11 +187,6 @@ export function SupplyPlanManager({
           </span>
         </span>
         <div className="flex flex-wrap items-center gap-2">
-          {editable ? (
-            <button type="button" onClick={() => setOpen(true)} className={BUTTON_SECONDARY}>
-              เพิ่มรายการแผน
-            </button>
-          ) : null}
           {editable && planId ? (
             <button
               type="button"
@@ -208,13 +228,13 @@ export function SupplyPlanManager({
           {actError}
         </div>
       ) : null}
-
       {removeError ? (
         <div role="alert" className={INLINE_ERROR}>
           {removeError}
         </div>
       ) : null}
 
+      {/* Saved lines (the plan so far). */}
       {lines.length === 0 ? (
         <p className="text-ink-secondary text-body">ยังไม่มีรายการในแผน</p>
       ) : (
@@ -250,88 +270,107 @@ export function SupplyPlanManager({
         </ul>
       )}
 
-      <BottomSheet open={open} title="เพิ่มรายการแผน" onClose={() => setOpen(false)}>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="spl-item" className={LABEL}>
-              วัสดุ
-            </label>
-            <select
-              id="spl-item"
-              value={item}
-              onChange={(e) => setItem(e.target.value)}
-              disabled={submitting}
-              className={FIELD}
+      {/* Spec 181 U2: the inline grid — fill many rows, save in one bulk write. */}
+      {editable ? (
+        <div className="border-edge bg-page rounded-control flex flex-col gap-3 border p-3">
+          <p className="text-ink text-sm font-semibold">เพิ่มรายการแผน (กรอกได้หลายแถว)</p>
+          {rows.map((r) => (
+            <div
+              key={r.key}
+              className="border-edge bg-card rounded-control flex flex-col gap-2 border p-3 sm:flex-row sm:items-end"
             >
-              <option value="">เลือกวัสดุ</option>
-              {categories.map((c) => {
-                const opts = catalogItems.filter((ci) => ci.category === c);
-                if (opts.length === 0) return null;
-                return (
-                  <optgroup key={c} label={ITEM_CATEGORY_LABEL[c]}>
-                    {opts.map((ci) => (
-                      <option key={ci.id} value={ci.id}>
-                        {ci.baseItem}
-                        {ci.specAttrs ? ` · ${ci.specAttrs}` : ""} ({ci.unit})
-                      </option>
-                    ))}
-                  </optgroup>
-                );
-              })}
-            </select>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="spl-wp" className={LABEL}>
-              งาน
-            </label>
-            <select
-              id="spl-wp"
-              value={wp}
-              onChange={(e) => setWp(e.target.value)}
-              disabled={submitting}
-              className={FIELD}
-            >
-              <option value="">เลือกงาน (WP)</option>
-              {workPackages.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.code} {w.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="spl-qty" className={LABEL}>
-              จำนวน
-            </label>
-            <input
-              id="spl-qty"
-              type="number"
-              inputMode="decimal"
-              min="0"
-              step="any"
-              value={qty}
-              onChange={(e) => setQty(e.target.value)}
-              disabled={submitting}
-              className={FIELD}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="spl-note" className={LABEL}>
-              หมายเหตุ (ถ้ามี)
-            </label>
-            <input
-              id="spl-note"
-              type="text"
-              value={note}
-              maxLength={1000}
-              onChange={(e) => setNote(e.target.value)}
-              disabled={submitting}
-              className={FIELD}
-            />
-          </div>
+              <div className="flex min-w-0 flex-[2] flex-col gap-1">
+                <label htmlFor={`spl-item-${r.key}`} className={LABEL}>
+                  วัสดุ
+                </label>
+                <select
+                  id={`spl-item-${r.key}`}
+                  aria-label="วัสดุ"
+                  value={r.catalogItemId}
+                  onChange={(e) => patchRow(r.key, { catalogItemId: e.target.value })}
+                  disabled={saving}
+                  className={SELECT}
+                >
+                  <option value="">เลือกวัสดุ</option>
+                  {categories.map((c) => {
+                    const opts = catalogItems.filter((ci) => ci.category === c);
+                    if (opts.length === 0) return null;
+                    return (
+                      <optgroup key={c} label={ITEM_CATEGORY_LABEL[c]}>
+                        {opts.map((ci) => (
+                          <option key={ci.id} value={ci.id}>
+                            {ci.baseItem}
+                            {ci.specAttrs ? ` · ${ci.specAttrs}` : ""} ({ci.unit})
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  })}
+                </select>
+              </div>
+              <div className="flex min-w-0 flex-[2] flex-col gap-1">
+                <label htmlFor={`spl-wp-${r.key}`} className={LABEL}>
+                  งาน
+                </label>
+                <select
+                  id={`spl-wp-${r.key}`}
+                  aria-label="งาน"
+                  value={r.workPackageId}
+                  onChange={(e) => patchRow(r.key, { workPackageId: e.target.value })}
+                  disabled={saving}
+                  className={SELECT}
+                >
+                  <option value="">ทั้งโครงการ</option>
+                  {workPackages.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.code} {w.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex w-full min-w-0 flex-col gap-1 sm:w-24">
+                <label htmlFor={`spl-qty-${r.key}`} className={LABEL}>
+                  จำนวน
+                </label>
+                <input
+                  id={`spl-qty-${r.key}`}
+                  aria-label="จำนวน"
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="any"
+                  value={r.qty}
+                  onChange={(e) => patchRow(r.key, { qty: e.target.value })}
+                  disabled={saving}
+                  className={FIELD}
+                />
+              </div>
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <label htmlFor={`spl-note-${r.key}`} className={LABEL}>
+                  หมายเหตุ
+                </label>
+                <input
+                  id={`spl-note-${r.key}`}
+                  aria-label="หมายเหตุ"
+                  type="text"
+                  maxLength={1000}
+                  value={r.note}
+                  onChange={(e) => patchRow(r.key, { note: e.target.value })}
+                  disabled={saving}
+                  className={FIELD}
+                />
+              </div>
+              <button
+                type="button"
+                aria-label="เอาแถวออก"
+                disabled={saving}
+                onClick={() => dropRow(r.key)}
+                className="text-ink-muted hover:text-ink focus-visible:ring-action mb-1 shrink-0 self-end rounded-md p-1 focus:outline-none focus-visible:ring-2"
+              >
+                <Trash2 aria-hidden className="size-5" />
+              </button>
+            </div>
+          ))}
 
           {error ? (
             <div role="alert" className={INLINE_ERROR}>
@@ -339,16 +378,28 @@ export function SupplyPlanManager({
             </div>
           ) : null}
 
-          <div className="flex items-center justify-end gap-2">
-            <button type="button" onClick={() => setOpen(false)} className={BUTTON_SECONDARY}>
-              ยกเลิก
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={addRow}
+              disabled={saving}
+              className={`${BUTTON_SECONDARY} inline-flex items-center gap-1`}
+            >
+              <Plus aria-hidden className="size-4" /> เพิ่มแถว
             </button>
-            <button type="submit" disabled={!canSubmit} className={BUTTON_PRIMARY}>
-              {submitting ? "กำลังเพิ่ม…" : "เพิ่ม"}
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!canSave}
+              className={BUTTON_PRIMARY}
+            >
+              {saving
+                ? "กำลังบันทึก…"
+                : `บันทึก${validRows.length > 0 ? ` ${validRows.length} รายการ` : ""}`}
             </button>
           </div>
-        </form>
-      </BottomSheet>
+        </div>
+      ) : null}
     </div>
   );
 }
