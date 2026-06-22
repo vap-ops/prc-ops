@@ -64,8 +64,10 @@ values
 -- A. Function shape.
 -- ============================================================================
 -- Spec 103: signature gained p_amount (numeric, optional).
+-- Spec 701: + p_vat_rate. Spec 176 U4: + a required reason_code (before both).
 select has_function('public', 'record_site_purchase',
-  array['uuid', 'text', 'numeric', 'text', 'numeric', 'numeric'], 'record_site_purchase exists');
+  array['uuid', 'text', 'numeric', 'text', 'purchase_request_reason_code', 'numeric', 'numeric'],
+  'record_site_purchase exists');
 select has_function('public', 'acknowledge_site_purchase',
   array['uuid'], 'acknowledge_site_purchase exists');
 select is(
@@ -94,14 +96,14 @@ set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "44444444-4444-4444-4444-4444444466aa"}';
 select throws_ok(
   $$ select public.record_site_purchase(
-       'eeeeeeee-eeee-eeee-eeee-eeeeeeee66aa', 'ปูน', 5, 'ถุง') $$,
+       'eeeeeeee-eeee-eeee-eeee-eeeeeeee66aa', 'ปูน', 5, 'ถุง', 'unplanned_miss') $$,
   '42501', null, 'visitor cannot record a site purchase');
 
 -- B.2 SA records one (side-effect: creates item 'SITE-BUY-66').
 set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-2222222266aa"}';
 select lives_ok(
   $$ select public.record_site_purchase(
-       'eeeeeeee-eeee-eeee-eeee-eeeeeeee66aa', 'SITE-BUY-66', 5, 'ถุง') $$,
+       'eeeeeeee-eeee-eeee-eeee-eeeeeeee66aa', 'SITE-BUY-66', 5, 'ถุง', 'unplanned_miss') $$,
   'SA records an on-site purchase');
 
 select is(
@@ -142,21 +144,21 @@ select is(
 -- B.4 input re-checks.
 select throws_ok(
   $$ select public.record_site_purchase(
-       'eeeeeeee-eeee-eeee-eeee-eeeeeeee66aa', 'ปูน', 0, 'ถุง') $$,
+       'eeeeeeee-eeee-eeee-eeee-eeeeeeee66aa', 'ปูน', 0, 'ถุง', 'unplanned_miss') $$,
   'P0001', null, 'quantity must be positive');
 select throws_ok(
   $$ select public.record_site_purchase(
-       'eeeeeeee-eeee-eeee-eeee-eeeeeeee66aa', '   ', 5, 'ถุง') $$,
+       'eeeeeeee-eeee-eeee-eeee-eeeeeeee66aa', '   ', 5, 'ถุง', 'unplanned_miss') $$,
   'P0001', null, 'item description must be non-blank');
 select throws_ok(
   $$ select public.record_site_purchase(
-       'eeeeeeee-eeee-eeee-eeee-eeeeeeeeffff', 'ปูน', 5, 'ถุง') $$,
+       'eeeeeeee-eeee-eeee-eeee-eeeeeeeeffff', 'ปูน', 5, 'ถุง', 'unplanned_miss') $$,
   'P0001', null, 'unknown work package is rejected');
 
 -- B.5 amount is captured (spec 103) — feeds dashboard material spend.
 select lives_ok(
   $$ select public.record_site_purchase(
-       'eeeeeeee-eeee-eeee-eeee-eeeeeeee66aa', 'SITE-BUY-AMT', 2, 'ถุง', 1500) $$,
+       'eeeeeeee-eeee-eeee-eeee-eeeeeeee66aa', 'SITE-BUY-AMT', 2, 'ถุง', 'unplanned_miss', 1500) $$,
   'SA records a site purchase with an amount');
 select is(
   (select amount from public.purchase_requests where item_description = 'SITE-BUY-AMT'),
@@ -165,7 +167,7 @@ select is(
 -- B.6 amount must be positive when supplied.
 select throws_ok(
   $$ select public.record_site_purchase(
-       'eeeeeeee-eeee-eeee-eeee-eeeeeeee66aa', 'SITE-BUY-NEG', 1, 'ea', 0) $$,
+       'eeeeeeee-eeee-eeee-eeee-eeeeeeee66aa', 'SITE-BUY-NEG', 1, 'ea', 'unplanned_miss', 0) $$,
   'P0001', null, 'amount must be positive when supplied');
 
 -- ============================================================================

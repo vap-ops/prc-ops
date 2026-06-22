@@ -5,6 +5,7 @@
 // unit 40.
 
 import { UUID_REGEX } from "@/lib/validate/uuid";
+import { isPurchaseReasonCode, type PurchaseReasonCode } from "@/lib/purchasing/reason-code";
 
 const ITEM_MAX = 500;
 const UNIT_MAX = 40;
@@ -16,6 +17,8 @@ export interface ValidatedSitePurchase {
   unit: string;
   // Spec 103: optional purchase amount (THB) — feeds dashboard material spend.
   amount: number | null;
+  // Spec 176 U4: the reactive-reason tag — required, no default.
+  reasonCode: PurchaseReasonCode;
 }
 
 export type ValidateSitePurchaseResult =
@@ -28,6 +31,7 @@ export function validateSitePurchase(input: {
   quantity: number;
   unit: string;
   amount: number | null;
+  reasonCode?: string | null | undefined;
 }): ValidateSitePurchaseResult {
   if (!UUID_REGEX.test(input.workPackageId)) {
     return { ok: false, error: "รหัสงานไม่ถูกต้อง" };
@@ -52,6 +56,10 @@ export function validateSitePurchase(input: {
   if (input.amount !== null && (!Number.isFinite(input.amount) || input.amount <= 0)) {
     return { ok: false, error: "จำนวนเงินต้องเป็นตัวเลขมากกว่าศูนย์" };
   }
+  // Spec 176 U4: required reactive-reason tag — the on-site path is reactive too.
+  if (!isPurchaseReasonCode(input.reasonCode)) {
+    return { ok: false, error: "กรุณาเลือกเหตุผลของการซื้อ" };
+  }
   return {
     ok: true,
     value: {
@@ -60,6 +68,7 @@ export function validateSitePurchase(input: {
       quantity: input.quantity,
       unit,
       amount: input.amount,
+      reasonCode: input.reasonCode,
     },
   };
 }

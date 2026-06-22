@@ -93,6 +93,71 @@ a plain PM cannot approve its own plan.
 - **Actions:** `submitPlan` / `approvePlan` / `rejectPlan`.
 - **Tests:** `supply-plan-manager.test.tsx` (+3 lifecycle); pgTAP `178-supply-plan-lifecycle` (17).
 
+## U4 — reactive-PR reason codes (tag every purchase request)
+
+Every purchase request is a **reactive** order relative to the frozen supply plan — it was
+either not planned, or planned but is being re-bought. U4 makes the requester say **why** the
+item wasn't simply drawn from the plan/store, so U5 can separate "the PM should have planned
+this" (`unplanned_miss`) from fair reactive reasons.
+
+**Operator-locked decisions (2026-06-22):**
+
+1. **Taxonomy (5 codes), confirmed.** Enum `purchase_request_reason_code` —
+   `unplanned_miss` (PM should have planned it — **the only code that counts against the PM**),
+   `rework`, `breakage`, `scope_change`, `unforeseeable`.
+2. **Required on every PR.** Both create paths require a reason; there is no honest default.
+3. **Both create paths.** The formal `/requests` purchase-request form (`createPurchaseRequest`)
+   **and** the WP-detail on-site quick-record (`record_site_purchase`).
+
+### Data model
+
+- New enum `purchase_request_reason_code` (the five values above; mirrors the
+  `purchase_request_priority` naming/posture).
+- `purchase_requests.reason_code purchase_request_reason_code` — **nullable, NO default.**
+  Legacy rows (created before this unit) stay `null` = pre-feature, **unscored** by U5. New
+  rows are required to carry one, enforced on the write paths (below), not by a column `NOT NULL`
+  (which would force a dishonest backfill) nor a DB `CHECK` (deliberately omitted, matching the
+  requester-field posture of `priority` / `needed_by` — ADR 0026: requester-set fields are
+  validator-authoritative so dump/restore and fixtures aren't churned).
+- Additive `grant insert (reason_code) on purchase_requests to authenticated` — the INSERT grant
+  is column-scoped (spec 33 / `20260616000400`); `reason_code` joins `priority` etc. **No UPDATE
+  grant** (set once at create, like `priority` — no edit path planned).
+- The insert **RLS policy is untouched** — required-ness lives in the action validator + the form,
+  not in `WITH CHECK` (so files 70/73/91/115 pins stay green, and the 64 existing fixtures that
+  insert as the table owner keep working with a `null` reason_code).
+
+### Write paths
+
+- **Form path** (`createPurchaseRequest` → RLS insert): `validateCreatePurchaseRequest` gains a
+  required `reasonCode` (valid enum value or the input is rejected); the action inserts
+  `reason_code`. The form gets a required reason `<select>` (no preselect — a disabled
+  "เลือกเหตุผล" placeholder; submit stays disabled until a reason is chosen).
+- **Site-purchase path** (`record_site_purchase`, SECURITY DEFINER, bypasses RLS):
+  DROP+CREATE adds a **required** `p_reason_code purchase_request_reason_code` param (placed
+  before the optional `p_amount` — defaulted params must come last); guards `null → P0001`;
+  inserts it; records it in the audit payload. Re-grant execute to `authenticated`, revoke from
+  `public, anon` (the DROP-re-grant lesson). `validateSitePurchase` + `recordSitePurchase` +
+  `SitePurchaseForm` carry `reasonCode`.
+- **Shared module** `src/lib/purchasing/reason-code.ts`: `PurchaseReasonCode` type +
+  `PURCHASE_REASON_CODES` array + `isPurchaseReasonCode` guard (the validators + both forms
+  iterate/check against this single source). Thai labels in `PURCHASE_REQUEST_REASON_CODE_LABEL`
+  (`labels.ts`).
+
+### Out of scope for U4 (→ U5)
+
+Displaying the reason on the request card/list and any planned-vs-reactive aggregation. U4 only
+**captures + stores + requires** the tag; the column carries it for U5 to read.
+
+### Tests
+
+- pgTAP `179-purchase-request-reason-code` — enum exists with the exact 5 labels; column exists,
+  nullable, correct type; `authenticated` has INSERT (not UPDATE) on `reason_code`; new
+  `record_site_purchase` signature requires reason_code (`null → P0001`), records it; the old
+  signatures are gone; anon execute revoked.
+- vitest `validate-purchase-request.test.ts` (+reasonCode: missing / invalid / valid) ·
+  `validate-site-purchase.test.ts` (+reasonCode: missing / valid) · a form test per flow that the
+  required reason picker renders and gates submit.
+
 ## Open decisions (flagged for the operator before U2/U3 lock them)
 
 1. **One plan per project** (no versioning/amendments yet) — is a single living plan right, or do

@@ -64,6 +64,8 @@ export interface CreatePurchaseRequestInput {
   neededBy?: string | null | undefined;
   priority?: string | null | undefined;
   notes?: string | null | undefined;
+  // Spec 176 U4: the reactive-reason tag — required (validated below).
+  reasonCode?: string | null | undefined;
 }
 
 export type CreatePurchaseRequestResult = { ok: true; id: string } | { ok: false; error: string };
@@ -88,6 +90,7 @@ export async function createPurchaseRequest(
       needed_by: validated.value.neededBy,
       priority: validated.value.priority,
       notes: validated.value.notes,
+      reason_code: validated.value.reasonCode,
       requested_by: user.id,
       source: "app",
     })
@@ -754,6 +757,8 @@ export interface RecordSitePurchaseInput {
   unit: string;
   // Spec 103: optional purchase amount (THB) — feeds dashboard material spend.
   amount: number | null;
+  // Spec 176 U4: required reactive-reason tag (validated below).
+  reasonCode?: string | null | undefined;
 }
 
 export type RecordSitePurchaseResult = { ok: true; id: string } | { ok: false; error: string };
@@ -773,6 +778,8 @@ export async function recordSitePurchase(
     p_item_description: validated.value.itemDescription,
     p_quantity: validated.value.quantity,
     p_unit: validated.value.unit,
+    // Spec 176 U4: required reactive-reason tag.
+    p_reason_code: validated.value.reasonCode,
     // Spec 103: omit when null so the RPC default applies (no amount recorded).
     ...(validated.value.amount !== null ? { p_amount: validated.value.amount } : {}),
   });

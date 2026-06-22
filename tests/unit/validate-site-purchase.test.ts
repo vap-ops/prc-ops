@@ -14,6 +14,8 @@ function base() {
     quantity: 10,
     unit: "ถุง",
     amount: null as number | null,
+    // Spec 176 U4: reactive-reason tag — required on the on-site path too.
+    reasonCode: "unplanned_miss" as string | null,
   };
 }
 
@@ -28,6 +30,7 @@ describe("validateSitePurchase", () => {
         quantity: 10,
         unit: "คิว",
         amount: null,
+        reasonCode: "unplanned_miss",
       });
     }
   });
@@ -69,5 +72,20 @@ describe("validateSitePurchase", () => {
     expect(validateSitePurchase({ ...base(), quantity: -1 }).ok).toBe(false);
     expect(validateSitePurchase({ ...base(), quantity: Number.NaN }).ok).toBe(false);
     expect(validateSitePurchase({ ...base(), quantity: Number.POSITIVE_INFINITY }).ok).toBe(false);
+  });
+
+  // Spec 176 U4 — the reactive-reason tag is required on the on-site path.
+  it("accepts each declared reason code and echoes it through", () => {
+    for (const code of ["unplanned_miss", "rework", "breakage", "scope_change", "unforeseeable"]) {
+      const r = validateSitePurchase({ ...base(), reasonCode: code });
+      expect(r.ok).toBe(true);
+      if (r.ok) expect(r.value.reasonCode).toBe(code);
+    }
+  });
+
+  it("rejects an omitted, null, or unknown reason code", () => {
+    expect(validateSitePurchase({ ...base(), reasonCode: null }).ok).toBe(false);
+    expect(validateSitePurchase({ ...base(), reasonCode: "" }).ok).toBe(false);
+    expect(validateSitePurchase({ ...base(), reasonCode: "because" }).ok).toBe(false);
   });
 });

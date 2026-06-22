@@ -12,6 +12,8 @@
 import { useState, useTransition } from "react";
 import { recordSitePurchase } from "@/app/requests/actions";
 import { validateSitePurchase } from "@/lib/purchasing/validate-site-purchase";
+import { PURCHASE_REASON_CODES } from "@/lib/purchasing/reason-code";
+import { PURCHASE_REQUEST_REASON_CODE_LABEL } from "@/lib/i18n/labels";
 import { BUTTON_PRIMARY, FIELD_INPUT, INLINE_ERROR } from "@/lib/ui/classes";
 import { InvoiceUploader } from "@/components/features/purchasing/invoice-uploader";
 
@@ -25,6 +27,8 @@ export function SitePurchaseForm({ workPackageId, projectId }: SitePurchaseFormP
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("");
   const [amount, setAmount] = useState("");
+  // Spec 176 U4: required reactive-reason — no preselect (empty = unchosen).
+  const [reasonCode, setReasonCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [recordedId, setRecordedId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -39,6 +43,7 @@ export function SitePurchaseForm({ workPackageId, projectId }: SitePurchaseFormP
       quantity: qty,
       unit,
       amount: parsedAmount,
+      reasonCode: reasonCode.length > 0 ? reasonCode : null,
     });
     if (!validated.ok) {
       setError(validated.error);
@@ -51,6 +56,7 @@ export function SitePurchaseForm({ workPackageId, projectId }: SitePurchaseFormP
         quantity: validated.value.quantity,
         unit: validated.value.unit,
         amount: validated.value.amount,
+        reasonCode: validated.value.reasonCode,
       });
       if (!result.ok) {
         setError(result.error);
@@ -127,6 +133,26 @@ export function SitePurchaseForm({ workPackageId, projectId }: SitePurchaseFormP
           className={FIELD_INPUT}
           placeholder="1500"
         />
+      </label>
+      {/* Spec 176 U4: required reactive-reason tag. */}
+      <label htmlFor="sp-reason" className="text-ink flex flex-col gap-1 text-sm font-medium">
+        เหตุผลที่ต้องสั่งซื้อ
+        <select
+          id="sp-reason"
+          value={reasonCode}
+          onChange={(e) => setReasonCode(e.target.value)}
+          disabled={pending}
+          className="rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action h-11 w-full min-w-0 border px-2 text-sm shadow-xs focus:outline-none focus-visible:ring-2"
+        >
+          <option value="" disabled>
+            เลือกเหตุผล
+          </option>
+          {PURCHASE_REASON_CODES.map((code) => (
+            <option key={code} value={code}>
+              {PURCHASE_REQUEST_REASON_CODE_LABEL[code]}
+            </option>
+          ))}
+        </select>
       </label>
       {error ? (
         <div role="alert" className={INLINE_ERROR}>

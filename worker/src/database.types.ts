@@ -2553,6 +2553,9 @@ export type Database = {
           purchase_order_id: string | null
           purchased_at: string | null
           quantity: number
+          reason_code:
+            | Database["public"]["Enums"]["purchase_request_reason_code"]
+            | null
           received_by: string | null
           received_by_id: string | null
           requested_at: string
@@ -2595,6 +2598,9 @@ export type Database = {
           purchase_order_id?: string | null
           purchased_at?: string | null
           quantity: number
+          reason_code?:
+            | Database["public"]["Enums"]["purchase_request_reason_code"]
+            | null
           received_by?: string | null
           received_by_id?: string | null
           requested_at?: string
@@ -2637,6 +2643,9 @@ export type Database = {
           purchase_order_id?: string | null
           purchased_at?: string | null
           quantity?: number
+          reason_code?:
+            | Database["public"]["Enums"]["purchase_request_reason_code"]
+            | null
           received_by?: string | null
           received_by_id?: string | null
           requested_at?: string
@@ -4570,6 +4579,7 @@ export type Database = {
           p_amount?: number
           p_item_description: string
           p_quantity: number
+          p_reason_code: Database["public"]["Enums"]["purchase_request_reason_code"]
           p_unit: string
           p_vat_rate?: number
           p_work_package_id: string
@@ -5028,6 +5038,12 @@ export type Database = {
         | "delivery_confirmation"
         | "invoice"
       purchase_request_priority: "normal" | "urgent" | "critical"
+      purchase_request_reason_code:
+        | "unplanned_miss"
+        | "rework"
+        | "breakage"
+        | "scope_change"
+        | "unforeseeable"
       purchase_request_status:
         | "requested"
         | "approved"
@@ -5344,6 +5360,13 @@ export const Constants = {
         "invoice",
       ],
       purchase_request_priority: ["normal", "urgent", "critical"],
+      purchase_request_reason_code: [
+        "unplanned_miss",
+        "rework",
+        "breakage",
+        "scope_change",
+        "unforeseeable",
+      ],
       purchase_request_status: [
         "requested",
         "approved",

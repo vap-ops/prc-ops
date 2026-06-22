@@ -9,6 +9,7 @@
 
 import { ISO_DATE_REGEX, bangkokTodayIso } from "@/lib/dates";
 import { UUID_REGEX } from "@/lib/validate/uuid";
+import { isPurchaseReasonCode, type PurchaseReasonCode } from "@/lib/purchasing/reason-code";
 
 // Requester-set urgency (spec 16 addendum A2). Declaration order mirrors
 // the DB enum (normal < urgent < critical) — keep them in sync.
@@ -40,6 +41,8 @@ export type ValidatedPurchaseRequestInput = {
   neededBy: string | null;
   priority: PurchasePriority;
   notes: string | null;
+  // Spec 176 U4: the reactive-reason tag — required, no default.
+  reasonCode: PurchaseReasonCode;
 };
 
 export type ValidateCreatePurchaseRequestResult =
@@ -56,6 +59,7 @@ export function validateCreatePurchaseRequest(input: {
   neededBy?: string | null | undefined;
   priority?: string | null | undefined;
   notes?: string | null | undefined;
+  reasonCode?: string | null | undefined;
 }): ValidateCreatePurchaseRequestResult {
   if (!UUID_REGEX.test(input.workPackageId)) {
     return { ok: false, error: "รหัสรายการงานไม่ถูกต้อง" };
@@ -115,6 +119,15 @@ export function validateCreatePurchaseRequest(input: {
   }
   const notes = notesRaw.length > 0 ? notesRaw : null;
 
+  // reasonCode (spec 176 U4) is required and must be a declared value. Checked
+  // LAST so the earlier-field errors above still surface their own message when
+  // a caller omits everything. No default — the requester must classify why the
+  // request wasn't planned (only `unplanned_miss` scores against the PM in U5).
+  if (!isPurchaseReasonCode(input.reasonCode)) {
+    return { ok: false, error: "กรุณาเลือกเหตุผลของคำขอซื้อ" };
+  }
+  const reasonCode = input.reasonCode;
+
   return {
     ok: true,
     value: {
@@ -125,6 +138,7 @@ export function validateCreatePurchaseRequest(input: {
       neededBy,
       priority,
       notes,
+      reasonCode,
     },
   };
 }

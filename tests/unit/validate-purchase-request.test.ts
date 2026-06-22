@@ -6,6 +6,9 @@
 //   item_description / unit: length(trim(...)) > 0
 //   quantity: > 0
 //   decision_comment (when status = 'rejected'): non-null and non-blank
+// Spec 176 U4: reasonCode is now required (the reactive-reason tag). It is
+// validated LAST, so the earlier-field error cases below still surface their
+// intended message when reasonCode is omitted.
 
 import { describe, it, expect } from "vitest";
 import {
@@ -17,8 +20,10 @@ import {
   PURCHASE_DECISIONS,
   PURCHASE_PRIORITIES,
 } from "@/lib/purchasing/validate-purchase-request";
+import { PURCHASE_REASON_CODES, isPurchaseReasonCode } from "@/lib/purchasing/reason-code";
 
 const VALID_WP = "11111111-2222-3333-4444-555555555555";
+const VALID_REASON = "unplanned_miss";
 
 // Today in Asia/Bangkok, computed at runtime (the validator has a clock
 // dependence — spec 16 §2). Tests build relative dates from this so the
@@ -39,6 +44,7 @@ describe("validateCreatePurchaseRequest", () => {
       itemDescription: "Cement bag 50kg",
       quantity: 10,
       unit: "bag",
+      reasonCode: VALID_REASON,
     });
     expect(r).toEqual({
       ok: true,
@@ -50,6 +56,7 @@ describe("validateCreatePurchaseRequest", () => {
         neededBy: null,
         priority: "normal",
         notes: null,
+        reasonCode: VALID_REASON,
       },
     });
   });
@@ -64,6 +71,7 @@ describe("validateCreatePurchaseRequest", () => {
         quantity: 1,
         unit: "bag",
         notes,
+        reasonCode: VALID_REASON,
       });
       expect(r.ok).toBe(true);
       if (r.ok) expect(r.value.notes).toBeNull();
@@ -77,6 +85,7 @@ describe("validateCreatePurchaseRequest", () => {
       quantity: 1,
       unit: "bag",
       notes: "  ยี่ห้อเดิม ส่งหลังบ่ายสอง  ",
+      reasonCode: VALID_REASON,
     });
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value.notes).toBe("ยี่ห้อเดิม ส่งหลังบ่ายสอง");
@@ -100,6 +109,7 @@ describe("validateCreatePurchaseRequest", () => {
       quantity: 1,
       unit: "bag",
       notes: "ก".repeat(1000),
+      reasonCode: VALID_REASON,
     });
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value.notes).toHaveLength(1000);
@@ -114,6 +124,7 @@ describe("validateCreatePurchaseRequest", () => {
         quantity: 1,
         unit: "bag",
         neededBy: date,
+        reasonCode: VALID_REASON,
       });
       expect(r.ok).toBe(true);
       if (r.ok) expect(r.value.neededBy).toBe(date);
@@ -154,6 +165,7 @@ describe("validateCreatePurchaseRequest", () => {
         quantity: 1,
         unit: "bag",
         neededBy: empty,
+        reasonCode: VALID_REASON,
       });
       expect(r.ok).toBe(true);
       if (r.ok) expect(r.value.neededBy).toBeNull();
@@ -168,6 +180,7 @@ describe("validateCreatePurchaseRequest", () => {
         quantity: 1,
         unit: "bag",
         priority: p,
+        reasonCode: VALID_REASON,
       });
       expect(r.ok).toBe(true);
       if (r.ok) expect(r.value.priority).toBe(p);
@@ -177,6 +190,7 @@ describe("validateCreatePurchaseRequest", () => {
       itemDescription: "Cement",
       quantity: 1,
       unit: "bag",
+      reasonCode: VALID_REASON,
     });
     expect(omitted.ok && omitted.value.priority === "normal").toBe(true);
   });
@@ -193,12 +207,54 @@ describe("validateCreatePurchaseRequest", () => {
     if (!r.ok) expect(r.error).toMatch(/ระดับความเร่งด่วน/);
   });
 
+  // Spec 176 U4 — reasonCode is required and must be a declared value.
+  it("accepts each declared reason code and echoes it through", () => {
+    for (const code of PURCHASE_REASON_CODES) {
+      const r = validateCreatePurchaseRequest({
+        workPackageId: VALID_WP,
+        itemDescription: "Cement",
+        quantity: 1,
+        unit: "bag",
+        reasonCode: code,
+      });
+      expect(r.ok).toBe(true);
+      if (r.ok) expect(r.value.reasonCode).toBe(code);
+    }
+  });
+
+  it("rejects an omitted or null reason code with the Thai message", () => {
+    for (const missing of [undefined, null, ""]) {
+      const r = validateCreatePurchaseRequest({
+        workPackageId: VALID_WP,
+        itemDescription: "Cement",
+        quantity: 1,
+        unit: "bag",
+        reasonCode: missing,
+      });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error).toMatch(/เหตุผล/);
+    }
+  });
+
+  it("rejects an unknown reason code", () => {
+    const r = validateCreatePurchaseRequest({
+      workPackageId: VALID_WP,
+      itemDescription: "Cement",
+      quantity: 1,
+      unit: "bag",
+      reasonCode: "because",
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(/เหตุผล/);
+  });
+
   it("trims leading and trailing whitespace on item_description and unit", () => {
     const r = validateCreatePurchaseRequest({
       workPackageId: VALID_WP,
       itemDescription: "   Cement   ",
       quantity: 1,
       unit: "  bag  ",
+      reasonCode: VALID_REASON,
     });
     expect(r.ok).toBe(true);
     if (r.ok) {
@@ -213,6 +269,7 @@ describe("validateCreatePurchaseRequest", () => {
       itemDescription: "  Cement   bag   50kg  ",
       quantity: 1,
       unit: "bag",
+      reasonCode: VALID_REASON,
     });
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value.itemDescription).toBe("Cement   bag   50kg");
@@ -312,6 +369,7 @@ describe("validateCreatePurchaseRequest", () => {
       itemDescription: "Sand",
       quantity: 0.5,
       unit: "tonne",
+      reasonCode: VALID_REASON,
     });
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value.quantity).toBe(0.5);
@@ -348,6 +406,27 @@ describe("PURCHASE_PRIORITIES / isPurchasePriority", () => {
     expect(isPurchasePriority("")).toBe(false);
     expect(isPurchasePriority(null)).toBe(false);
     expect(isPurchasePriority(7)).toBe(false);
+  });
+});
+
+// Spec 176 U4 — the reactive-reason taxonomy (only unplanned_miss dings the PM).
+describe("PURCHASE_REASON_CODES / isPurchaseReasonCode", () => {
+  it("pins the five locked reason codes in declaration order", () => {
+    expect([...PURCHASE_REASON_CODES]).toEqual([
+      "unplanned_miss",
+      "rework",
+      "breakage",
+      "scope_change",
+      "unforeseeable",
+    ]);
+  });
+
+  it("accepts the five declared values and rejects junk", () => {
+    for (const code of PURCHASE_REASON_CODES) expect(isPurchaseReasonCode(code)).toBe(true);
+    expect(isPurchaseReasonCode("planned")).toBe(false);
+    expect(isPurchaseReasonCode("")).toBe(false);
+    expect(isPurchaseReasonCode(null)).toBe(false);
+    expect(isPurchaseReasonCode(3)).toBe(false);
   });
 });
 
@@ -404,6 +483,7 @@ describe("length caps (spec 36 — server-side, client maxLength was the only bo
     itemDescription: "Cement",
     quantity: 1,
     unit: "bag",
+    reasonCode: VALID_REASON,
   };
 
   it("rejects an item description over 500 characters", () => {

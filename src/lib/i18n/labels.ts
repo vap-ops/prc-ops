@@ -5,6 +5,7 @@
 // src/lib/reports/predicates.ts (existing home, translated in place).
 import type { Database } from "@/lib/db/database.types";
 import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
+import type { PurchaseReasonCode } from "@/lib/purchasing/reason-code";
 
 type Enums = Database["public"]["Enums"];
 
@@ -91,6 +92,18 @@ export const PURCHASE_REQUEST_PRIORITY_LABEL: Record<Enums["purchase_request_pri
   normal: "ปกติ",
   urgent: "ด่วน",
   critical: "ด่วนมาก",
+};
+
+// Spec 176 U4 — the reactive-PR reason code (why the request wasn't drawn from
+// the supply plan). Keyed by the local PurchaseReasonCode union (the SSOT in
+// reason-code.ts); key order is the canonical UI order. Only `unplanned_miss`
+// counts against the PM in U5's accuracy measure.
+export const PURCHASE_REQUEST_REASON_CODE_LABEL: Record<PurchaseReasonCode, string> = {
+  unplanned_miss: "วางแผนตกหล่น",
+  rework: "งานแก้ไข",
+  breakage: "ของชำรุด/เสียหาย",
+  scope_change: "ขอบเขตงานเปลี่ยน",
+  unforeseeable: "เหตุสุดวิสัย",
 };
 
 // Display labels only — the photo_phase enum and storage paths keep

@@ -29,7 +29,11 @@ import {
   validateCreatePurchaseRequest,
   type PurchasePriority,
 } from "@/lib/purchasing/validate-purchase-request";
-import { PURCHASE_REQUEST_PRIORITY_LABEL } from "@/lib/i18n/labels";
+import { PURCHASE_REASON_CODES } from "@/lib/purchasing/reason-code";
+import {
+  PURCHASE_REQUEST_PRIORITY_LABEL,
+  PURCHASE_REQUEST_REASON_CODE_LABEL,
+} from "@/lib/i18n/labels";
 import { bangkokTodayIso } from "@/lib/dates";
 
 // Selected-segment colors mirror the request list's status pills (spec 21):
@@ -76,6 +80,8 @@ export function PurchaseRequestForm({
   const [unitOther, setUnitOther] = useState<string>("");
   const [neededBy, setNeededBy] = useState<string>("");
   const [priority, setPriority] = useState<PurchasePriority>("normal");
+  // Spec 176 U4: required reactive-reason — no preselect (empty = unchosen).
+  const [reasonCode, setReasonCode] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -100,6 +106,7 @@ export function PurchaseRequestForm({
     neededBy: neededBy.length > 0 ? neededBy : null,
     priority,
     notes: notes.length > 0 ? notes : null,
+    reasonCode: reasonCode.length > 0 ? reasonCode : null,
   });
   const canSubmit = !submitting && localValidation.ok;
 
@@ -116,6 +123,7 @@ export function PurchaseRequestForm({
         neededBy: neededBy.length > 0 ? neededBy : null,
         priority,
         notes: notes.length > 0 ? notes : null,
+        reasonCode: reasonCode.length > 0 ? reasonCode : null,
       });
       if (!result.ok) {
         setError(result.error);
@@ -153,6 +161,7 @@ export function PurchaseRequestForm({
       setUnitOther("");
       setNeededBy("");
       setPriority("normal");
+      setReasonCode("");
       setNotes("");
       setApprovedSaved(autoApprove && selfApproved);
       // Suppress the green confirmation when the auto-approve leg failed — the
@@ -177,6 +186,7 @@ export function PurchaseRequestForm({
     unitChoice.length > 0 ||
     unitOther.length > 0 ||
     neededBy.length > 0 ||
+    reasonCode.length > 0 ||
     notes.length > 0;
   const inlineError = error ?? (!localValidation.ok && userTyped ? localValidation.error : null);
 
@@ -338,6 +348,32 @@ export function PurchaseRequestForm({
             ))}
           </div>
         </fieldset>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor="pr-reason" className="text-ink text-sm font-medium">
+          เหตุผลที่ต้องสั่งซื้อ
+        </label>
+        <select
+          id="pr-reason"
+          value={reasonCode}
+          onChange={(e) => {
+            setReasonCode(e.target.value);
+            setError(null);
+            setSavedAt(null);
+          }}
+          disabled={submitting}
+          className="rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action h-11 w-full min-w-0 border px-2 text-sm shadow-xs focus:outline-none focus-visible:ring-2"
+        >
+          <option value="" disabled>
+            เลือกเหตุผล
+          </option>
+          {PURCHASE_REASON_CODES.map((code) => (
+            <option key={code} value={code}>
+              {PURCHASE_REQUEST_REASON_CODE_LABEL[code]}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="flex flex-col gap-1">
