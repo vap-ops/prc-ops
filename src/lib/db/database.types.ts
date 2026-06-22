@@ -3099,6 +3099,116 @@ export type Database = {
           },
         ]
       }
+      supply_plan_lines: {
+        Row: {
+          catalog_item_id: string
+          created_at: string
+          id: string
+          note: string | null
+          qty: number
+          supply_plan_id: string
+          work_package_id: string | null
+        }
+        Insert: {
+          catalog_item_id: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          qty: number
+          supply_plan_id: string
+          work_package_id?: string | null
+        }
+        Update: {
+          catalog_item_id?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          qty?: number
+          supply_plan_id?: string
+          work_package_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supply_plan_lines_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supply_plan_lines_supply_plan_id_fkey"
+            columns: ["supply_plan_id"]
+            isOneToOne: false
+            referencedRelation: "supply_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supply_plan_lines_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supply_plans: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string | null
+          project_id: string
+          status: Database["public"]["Enums"]["supply_plan_status"]
+          submitted_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          project_id: string
+          status?: Database["public"]["Enums"]["supply_plan_status"]
+          submitted_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          project_id?: string
+          status?: Database["public"]["Enums"]["supply_plan_status"]
+          submitted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supply_plans_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supply_plans_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supply_plans_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           created_at: string
@@ -3990,6 +4100,16 @@ export type Database = {
         }
         Returns: string
       }
+      add_supply_plan_line: {
+        Args: {
+          p_catalog_item_id: string
+          p_note: string
+          p_plan_id: string
+          p_qty: number
+          p_work_package_id: string
+        }
+        Returns: string
+      }
       add_work_package_dependency: {
         Args: { p_predecessor: string; p_successor: string }
         Returns: boolean
@@ -4142,6 +4262,7 @@ export type Database = {
         }
         Returns: string
       }
+      create_supply_plan: { Args: { p_project_id: string }; Returns: string }
       create_work_package: {
         Args: {
           p_code: string
@@ -4912,6 +5033,7 @@ export type Database = {
       report_status: "requested" | "processing" | "complete" | "failed"
       retention_status: "held" | "due" | "released" | "forfeited"
       service_subtype: "transport"
+      supply_plan_status: "draft" | "submitted" | "approved" | "rejected"
       user_role:
         | "site_admin"
         | "project_manager"
@@ -5228,6 +5350,7 @@ export const Constants = {
       report_status: ["requested", "processing", "complete", "failed"],
       retention_status: ["held", "due", "released", "forfeited"],
       service_subtype: ["transport"],
+      supply_plan_status: ["draft", "submitted", "approved", "rejected"],
       user_role: [
         "site_admin",
         "project_manager",
