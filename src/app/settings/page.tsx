@@ -13,6 +13,7 @@ import {
   Store,
   Users,
   Wallet,
+  Warehouse,
   Wrench,
 } from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
@@ -23,7 +24,7 @@ import { ComingSoonBadge } from "@/components/features/chrome/coming-soon-badge"
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { createClient } from "@/lib/db/server";
 import { ACCOUNTING_ROLES, isManagerRole } from "@/lib/auth/role-home";
-import { CATALOG_LABEL, SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
+import { CATALOG_LABEL, STORE_LABEL, SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
 // Server-only import (this page is a Server Component) — no client bundle bloat,
 // no version drift vs package.json.
 import pkg from "../../../package.json";
@@ -127,6 +128,13 @@ export default async function SettingsPage() {
               label={CATALOG_LABEL}
               hint="รายการวัสดุมาตรฐานสำหรับจัดซื้อ"
             />
+            {/* Spec 177: the on-site store — record stock-in (รับเข้า) at cost. */}
+            <SettingsLink
+              href="/store"
+              icon={Warehouse}
+              label={STORE_LABEL}
+              hint="สต๊อกในมือ + รับเข้าวัสดุ"
+            />
           </div>
         )}
 
@@ -174,6 +182,13 @@ export default async function SettingsPage() {
                 icon={Package}
                 label={CATALOG_LABEL}
                 hint="รายการวัสดุมาตรฐาน"
+              />
+              {/* Spec 177: the on-site store — record stock-in (รับเข้า) at cost. */}
+              <SettingsLink
+                href="/store"
+                icon={Warehouse}
+                label={STORE_LABEL}
+                hint="สต๊อกในมือ + รับเข้าวัสดุ"
               />
             </div>
 

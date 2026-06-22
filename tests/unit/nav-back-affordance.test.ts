@@ -44,6 +44,8 @@ const STATIC_DETAIL = [
   "equipment",
   // Spec 175: the item catalog drills down from /settings (back chip).
   "catalog",
+  // Spec 177: the on-site store (stock-in) drills down from /settings (back chip).
+  "store",
   "payroll",
   // Spec 149 U9: the read-only ledger surface, drilled down from /settings.
   "accounting",

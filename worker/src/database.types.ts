@@ -4702,10 +4702,10 @@ export type Database = {
       record_stock_in: {
         Args: {
           p_catalog_item_id: string
-          p_note: string
+          p_note?: string
           p_project_id: string
           p_qty: number
-          p_supplier_id: string
+          p_supplier_id?: string
           p_unit_cost: number
         }
         Returns: string

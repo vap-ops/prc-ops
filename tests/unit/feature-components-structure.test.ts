@@ -23,6 +23,8 @@ const ALLOWED_DOMAINS = [
   "catalog",
   // Spec 176: the supply plan (PM material planning) feature components.
   "supply-plan",
+  // Spec 177: the on-site store (stock-in / on-hand) feature components.
+  "store",
 ] as const;
 
 describe("feature components are grouped into domain folders", () => {

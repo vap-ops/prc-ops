@@ -70,6 +70,10 @@ export const ITEM_CATEGORY_LABEL: Record<Enums["item_category"], string> = {
 export const CATALOG_STOCKABLE_LABEL = "เก็บสต๊อก";
 export const CATALOG_NON_STOCKABLE_LABEL = "สั่งตรงเข้างาน";
 
+// Spec 177 — the on-site store (stock on hand) + the stock-in (รับเข้า) action.
+export const STORE_LABEL = "สโตร์หน้างาน";
+export const STORE_RECEIVE_LABEL = "รับเข้าสต๊อก";
+
 // Spec 134 / ADR 0044 — derived PO roll-up status (not a DB enum; the union
 // lives in src/lib/purchasing/purchase-order.ts). open never shows for a live PO
 // (members are 'purchased' at creation) but is reachable if every member is later
