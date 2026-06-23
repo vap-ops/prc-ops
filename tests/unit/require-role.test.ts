@@ -152,7 +152,7 @@ describe("requireRole — role-mismatch redirect", () => {
     vi.clearAllMocks();
   });
 
-  it("redirects a project_manager who hits a site_admin-only route to /review (roleHome)", async () => {
+  it("redirects a project_manager who hits a site_admin-only route to /dashboard (roleHome)", async () => {
     setupSupabase();
     mockGetClaims.mockResolvedValue({
       data: {
@@ -167,7 +167,7 @@ describe("requireRole — role-mismatch redirect", () => {
       error: null,
     });
 
-    await expect(requireRole(["site_admin"])).rejects.toThrow("__redirect__:/review");
-    expect(redirectMock).toHaveBeenCalledWith("/review");
+    await expect(requireRole(["site_admin"])).rejects.toThrow("__redirect__:/dashboard");
+    expect(redirectMock).toHaveBeenCalledWith("/dashboard");
   });
 });

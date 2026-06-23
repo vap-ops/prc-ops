@@ -17,16 +17,16 @@ describe("roleHome", () => {
     // Spec 82 Unit 3: site_admin lands on the folded content-named project
     // hub /projects (was the role-named /sa hub).
     expect(roleHome("site_admin")).toBe("/projects");
-    // Spec 82 Unit 4: pm/super land on the content-named review queue /review
-    // (was the role-named /pm).
-    expect(roleHome("project_manager")).toBe("/review");
-    expect(roleHome("super_admin")).toBe("/review");
+    // Spec 183 U2: the PM tier lands on ภาพรวม (/dashboard) — the review queue
+    // moved off the tab bar into a dashboard card (was /review, was /pm).
+    expect(roleHome("project_manager")).toBe("/dashboard");
+    expect(roleHome("super_admin")).toBe("/dashboard");
     // Spec 143 U2 / ADR 0056: project_coordinator is a see-all oversight role —
     // its home is the project hub (was /coming-soon before it was enabled).
     expect(roleHome("project_coordinator")).toBe("/projects");
     // Spec 152 / ADR 0058: project_director is a see-all project_manager — it
-    // shares the PM review-queue home.
-    expect(roleHome("project_director")).toBe("/review");
+    // shares the PM dashboard home.
+    expect(roleHome("project_director")).toBe("/dashboard");
   });
 
   // Spec 70: procurement onboarding — its first real surface is the

@@ -16,7 +16,6 @@ import { isManagerRole } from "@/lib/auth/role-home";
 import type { UserRole } from "@/lib/db/enums";
 import {
   Calculator,
-  ClipboardCheck,
   FolderKanban,
   LayoutDashboard,
   Settings,
@@ -61,10 +60,15 @@ const SETTINGS_TAB: TabItem = {
 // Spec 100: ภาพรวม graduated from a spec-98 coming-soon placeholder to a live
 // tab (/dashboard, the role-aware overview). On SA + PM, NOT procurement
 // (spec 70 lean worklist).
+// Spec 183 U2: the review queue (/review) is now a sub-surface of ภาพรวม — the
+// dashboard's รอตรวจ card is the way in — so the dashboard tab claims /review
+// via match and stays lit on the queue + its detail screens. (SA shares this
+// const but never reaches /review, so the match is inert for SA.)
 const DASHBOARD_TAB: TabItem = {
   label: "ภาพรวม",
   href: "/dashboard",
   icon: LayoutDashboard,
+  match: ["/review"],
 };
 
 export const SA_TABS: ReadonlyArray<TabItem> = [
@@ -76,9 +80,11 @@ export const SA_TABS: ReadonlyArray<TabItem> = [
   SETTINGS_TAB,
 ];
 
+// Spec 183 U2: รอตรวจ is no longer a tab — the review queue moved off the bar
+// into the dashboard's รอตรวจ awareness card. ภาพรวม (DASHBOARD_TAB) carries the
+// pending count and lights on /review. The PM tier lands on /dashboard now
+// (roleHome), so the home tab still shows the queue at a glance.
 export const PM_TABS: ReadonlyArray<TabItem> = [
-  // Spec 82 Unit 4: the review queue is the content-named /review (was /pm).
-  { label: "รอตรวจ", href: "/review", icon: ClipboardCheck },
   // Spec 82 Unit 3: same folded /projects hub for PM/super; the href lights
   // on the hub and every /projects/* detail screen, so no extra match.
   { label: "โครงการ", href: "/projects", icon: FolderKanban },

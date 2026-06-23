@@ -17,11 +17,11 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 
 // Spec 93: desktop mirrors the bottom bar — daily deciders + a ตั้งค่า entry;
 // payroll/contacts/workers/account moved into the /settings hub.
+// Spec 183 U2: รายการรอตรวจ dropped — the review queue moved off the nav into a
+// dashboard card; ภาพรวม leads the PM strip and carries the pending count.
 const PM_ITEMS = [
-  { label: "รายการรอตรวจ", href: "/review" },
   { label: "โครงการและรายงาน", href: "/projects" },
   { label: "คำขอซื้อ", href: "/requests" },
-  // Spec 100: ภาพรวม is the live dashboard, before ตั้งค่า.
   { label: "ภาพรวม", href: "/dashboard" },
   { label: "ตั้งค่า", href: "/settings" },
 ];
@@ -93,7 +93,6 @@ describe("HubNav", () => {
     const current = screen.getByRole("link", { name: "โครงการและรายงาน" });
     expect(current).toHaveAttribute("href", "/projects");
     expect(current).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "รายการรอตรวจ" })).toHaveAttribute("href", "/review");
     expect(screen.getByRole("link", { name: "คำขอซื้อ" })).toHaveAttribute("href", "/requests");
   });
 

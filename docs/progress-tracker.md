@@ -35,6 +35,21 @@ LESSON: a new `features/<domain>/` folder must be added to the
 `feature-components-structure.test.ts` ALLOWED_DOMAINS allowlist (spec 122 guard) —
 caught by the full suite, not the targeted run. vitest 1489/0.
 
+**U2 SHIPPED 2026-06-23 (NO DB).** The nav flip. Dropped `รอตรวจ` from `PM_TABS`
+(bottom-tab-bar) + `รายการรอตรวจ` from `PM_HUB_NAV` (hub-nav). Rerouted `roleHome`
+PM tier (isManagerRole) → `/dashboard` (was `/review`). Gave `DASHBOARD_TAB`
+`match: ["/review"]` so the queue lights ภาพรวม as its sub-surface (bottom bar);
+`/review` page passes HubNav `currentHref="/dashboard"` for the same effect on
+desktop. `/review` stays a live route reached from the U1 card. Removed the unused
+`ClipboardCheck` import. Pin churn (all 5 located up-front): role-home, role-sets,
+require-role (redirect target), hub-nav (PM_ITEMS + assertion), bottom-tab-bar
+(PM_TABS pin + two รอตรวจ-lighting cases rewritten to ภาพรวม). The `match` choice
+minimized churn AND kept the sun-mode test green (it asserts an active tab exists on
+/review — ภาพรวม now provides it). vitest 1489/0; lint·tc green.
+
+**U3 TODO:** self-fetching count badge on the ภาพรวม bottom tab (PM tier) — the
+literal "number on the main menu". Desktop hub-strip badge = follow-up.
+
 ## Spec 174 — project Google-Maps link (precise pin) (2026-06-22)
 
 Operator: "Add Pinned map, or attach link from gMap." Chose (one question)

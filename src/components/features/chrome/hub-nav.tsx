@@ -23,9 +23,11 @@ export interface HubNavItem {
 // Spec 93: desktop mirrors the bottom bar — daily deciders + a ตั้งค่า entry.
 // ค่าจ้าง (payroll) and รายชื่อติดต่อ (contacts) + ทีมงาน (workers) moved into
 // the /settings hub, so the strip stays the primary-decision destinations.
+// Spec 183 U2: รายการรอตรวจ dropped from the strip — the review queue moved off
+// the nav into the dashboard's รอตรวจ awareness card. ภาพรวม (the PM home) leads
+// and carries the pending count; the /review page highlights ภาพรวม in the strip
+// (its currentHref is /dashboard), so the queue reads as a sub-surface of ภาพรวม.
 export const PM_HUB_NAV: ReadonlyArray<HubNavItem> = [
-  // Spec 82 Unit 4: the review queue is the content-named /review (was /pm).
-  { label: "รายการรอตรวจ", href: "/review" },
   // Spec 82 Unit 3: the project hub folded to the content-named /projects.
   { label: "โครงการและรายงาน", href: "/projects" },
   { label: "คำขอซื้อ", href: "/requests" },

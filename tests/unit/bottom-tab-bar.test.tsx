@@ -32,8 +32,9 @@ describe("BottomTabBar", () => {
 
   it("pins the canonical tab sets (labels, hrefs, order)", () => {
     expect(PM_TABS.map((t) => [t.label, t.href])).toEqual([
-      // Spec 82 Unit 4: review queue /review (was /pm).
-      ["รอตรวจ", "/review"],
+      // Spec 183 U2: รอตรวจ dropped — the review queue moved off the tab bar
+      // into a dashboard card; ภาพรวม carries the pending count + lights on
+      // /review (the queue is now a sub-surface of ภาพรวม).
       // Spec 82 Unit 3: the project hub folded to /projects.
       ["โครงการ", "/projects"],
       ["คำขอซื้อ", "/requests"],
@@ -89,14 +90,14 @@ describe("BottomTabBar", () => {
   });
 
   it("renders the PM set for project_manager, every tab a link to its root", () => {
-    mockUsePathname.mockReturnValue("/review");
+    mockUsePathname.mockReturnValue("/dashboard");
     render(<BottomTabBar role="project_manager" />);
     expect(screen.getByRole("link", { name: /โครงการ/ })).toHaveAttribute("href", "/projects");
     expect(screen.getByRole("link", { name: /คำขอซื้อ/ })).toHaveAttribute("href", "/requests");
     expect(screen.getByRole("link", { name: /ตั้งค่า/ })).toHaveAttribute("href", "/settings");
-    // The active tab (รอตรวจ on /review) is now ALSO a link — every bottom tab is
-    // a first-layer destination, so tapping it returns to the section root.
-    expect(screen.getByRole("link", { name: /รอตรวจ/ })).toHaveAttribute("href", "/review");
+    expect(screen.getByRole("link", { name: /ภาพรวม/ })).toHaveAttribute("href", "/dashboard");
+    // Spec 183 U2: there is no longer a รอตรวจ tab.
+    expect(screen.queryByText("รอตรวจ")).not.toBeInTheDocument();
   });
 
   // Operator 2026-06-21: "all the tabs on the bottom must be treated as first
@@ -120,12 +121,18 @@ describe("BottomTabBar", () => {
     expect(active[0]?.textContent).toContain("โครงการ");
   });
 
-  it("lights รอตรวจ on the PM review detail screen", () => {
-    mockUsePathname.mockReturnValue("/review/work-packages/xyz");
-    const { container } = render(<BottomTabBar role="project_manager" />);
-    const active = activeTabs(container);
-    expect(active).toHaveLength(1);
-    expect(active[0]?.textContent).toContain("รอตรวจ");
+  // Spec 183 U2: the review queue is now a sub-surface of ภาพรวม — the dashboard
+  // tab claims /review via its match prefix, so it lights on the queue + its
+  // detail screens (there is no longer a รอตรวจ tab of its own).
+  it("lights ภาพรวม on the review queue + its detail screens", () => {
+    for (const path of ["/review", "/review/work-packages/xyz"]) {
+      mockUsePathname.mockReturnValue(path);
+      const { container, unmount } = render(<BottomTabBar role="project_manager" />);
+      const active = activeTabs(container);
+      expect(active).toHaveLength(1);
+      expect(active[0]?.textContent).toContain("ภาพรวม");
+      unmount();
+    }
   });
 
   // UPDATED (operator report 2026-06-11, reverses the spec-19 "match no
@@ -173,9 +180,11 @@ describe("BottomTabBar", () => {
     expect(activeTabs(container)[0]?.textContent).toContain("โครงการ");
     expect(screen.getByRole("link", { name: /คำขอซื้อ/ })).toHaveAttribute("href", "/requests");
     unmount();
+    // Spec 183 U2: super (PM set) on /review lights ภาพรวม (the queue's home),
+    // not a รอตรวจ tab — that tab is gone.
     mockUsePathname.mockReturnValue("/review");
     const { container: c2 } = render(<BottomTabBar role="super_admin" />);
-    expect(activeTabs(c2)[0]?.textContent).toContain("รอตรวจ");
+    expect(activeTabs(c2)[0]?.textContent).toContain("ภาพรวม");
   });
 
   // Spec 70/101/102: procurement gets คำขอซื้อ + โครงการ + ผู้ขาย + ตั้งค่า, and

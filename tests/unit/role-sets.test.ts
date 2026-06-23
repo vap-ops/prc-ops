@@ -41,9 +41,10 @@ describe("role sets", () => {
     ]);
   });
 
-  it("every PM role lands on /review (consistency with roleHome)", () => {
-    // Spec 82 Unit 4: the review queue is content-named /review (was /pm).
-    for (const role of PM_ROLES) expect(roleHome(role)).toBe("/review");
+  it("every PM role lands on /dashboard (consistency with roleHome)", () => {
+    // Spec 183 U2: the PM tier lands on ภาพรวม (/dashboard) — the review queue
+    // moved off the tab bar into a dashboard card, so the home is the dashboard.
+    for (const role of PM_ROLES) expect(roleHome(role)).toBe("/dashboard");
   });
 });
 

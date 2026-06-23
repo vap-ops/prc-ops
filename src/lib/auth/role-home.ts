@@ -188,12 +188,12 @@ export function roleHome(role: UserRole): string {
   // Spec 82 Unit 3: site_admin lands on the folded content-named project hub
   // /projects (was /sa, before the two hubs merged).
   if (role === "site_admin") return "/projects";
-  // super_admin is admitted to every v1 surface (requireRole lists it
-  // everywhere) and the bottom tab bar gives it the PM set (spec 19) —
-  // so it lands on the review queue, never /coming-soon. Spec 82 Unit 4:
-  // that queue is the content-named /review (was /pm).
-  // Spec 152 / ADR 0058: project_director shares the PM/super review-queue home.
-  if (isManagerRole(role)) return "/review";
+  // Spec 183 U2: the PM tier (pm / super_admin / project_director) lands on
+  // ภาพรวม (/dashboard). The review queue moved off the tab bar into a dashboard
+  // card (the รอตรวจ awareness card), so the dashboard is the home that shows the
+  // pending-approval count immediately. /review stays a live route reached from
+  // that card. (Was /review since spec 82 Unit 4; was the role-named /pm before.)
+  if (isManagerRole(role)) return "/dashboard";
   // Spec 70: procurement is onboarded onto the purchasing worklist.
   if (role === "procurement") return "/requests";
   // Spec 143 U2 / ADR 0056: project_coordinator oversees all projects — its home
