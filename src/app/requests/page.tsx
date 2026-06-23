@@ -588,7 +588,12 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
           (/review, /projects); phones leave via the bottom tab bar.
           procurement (hubItems null) gets none — /requests is its only stop. */}
       {hubItems ? (
-        <HubNav maxWidthClass={PAGE_MAX_W} items={hubItems} currentHref="/requests" />
+        <HubNav
+          maxWidthClass={PAGE_MAX_W}
+          items={hubItems}
+          currentHref="/requests"
+          role={ctx.role}
+        />
       ) : null}
 
       <section className={`mx-auto ${PAGE_MAX_W} space-y-8 px-5 py-6`}>

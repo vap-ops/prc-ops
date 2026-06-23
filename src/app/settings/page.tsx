@@ -73,7 +73,7 @@ export default async function SettingsPage() {
     <PageShell>
       <BottomTabBar role={role} />
       {hubItems ? (
-        <HubNav maxWidthClass={PAGE_MAX_W} items={hubItems} currentHref="/settings" />
+        <HubNav maxWidthClass={PAGE_MAX_W} items={hubItems} currentHref="/settings" role={role} />
       ) : null}
       <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-6 px-5 py-6`}>
         <h1 className="text-title text-ink font-bold tracking-tight">ตั้งค่า</h1>

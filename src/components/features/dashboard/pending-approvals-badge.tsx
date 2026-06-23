@@ -23,15 +23,26 @@ export function formatBadgeCount(count: number): string | null {
   return count > 99 ? "99+" : String(count);
 }
 
-// Presentational — renders the pill (or nothing) for a given count. Absolutely
-// positioned by the parent over the tab icon.
-export function ApprovalsBadge({ count }: { count: number }) {
+// Presentational — renders the pill (or nothing) for a given count.
+// position: "overlay" (default) sits absolutely over a tab icon (bottom bar);
+// "inline" flows after a text label (the desktop hub strip).
+type BadgePosition = "overlay" | "inline";
+
+export function ApprovalsBadge({
+  count,
+  position = "overlay",
+}: {
+  count: number;
+  position?: BadgePosition;
+}) {
   const label = formatBadgeCount(count);
   if (label === null) return null;
+  const place =
+    position === "inline" ? "relative ml-1 align-middle" : "absolute -top-1.5 -right-2.5";
   return (
     <span
       aria-label={`รอตรวจ ${count} รายการ`}
-      className="bg-attn text-on-attn pointer-events-none absolute -top-1.5 -right-2.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-none font-bold"
+      className={`bg-attn text-on-attn pointer-events-none ${place} inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-none font-bold`}
     >
       {label}
     </span>
@@ -41,7 +52,7 @@ export function ApprovalsBadge({ count }: { count: number }) {
 // Self-fetching island. Reads the pending-approval count once on mount (RLS
 // scopes it to the caller's visible WPs, matching /review), then renders the
 // pill. Best-effort: errors leave it hidden.
-export function PendingApprovalsBadge() {
+export function PendingApprovalsBadge({ position = "overlay" }: { position?: BadgePosition } = {}) {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
@@ -63,5 +74,5 @@ export function PendingApprovalsBadge() {
     };
   }, []);
 
-  return <ApprovalsBadge count={count} />;
+  return <ApprovalsBadge count={count} position={position} />;
 }

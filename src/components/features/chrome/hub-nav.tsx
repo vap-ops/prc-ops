@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { isManagerRole } from "@/lib/auth/role-home";
 import type { UserRole } from "@/lib/db/enums";
+import { PendingApprovalsBadge } from "@/components/features/dashboard/pending-approvals-badge";
 
 // Shared hub nav strip (spec 18). One consistent item set per role
 // surface — the PM pages all show the same four destinations, /sa shows
@@ -93,9 +94,14 @@ interface HubNavProps {
   maxWidthClass: typeof PAGE_MAX_W;
   items: ReadonlyArray<HubNavItem>;
   currentHref: string;
+  // Spec 183 U4: the viewer's role, so the ภาพรวม item can carry the
+  // pending-approval count for the PM tier (mirrors the bottom-tab badge).
+  // Optional — call sites that omit it simply render no badge.
+  role?: string;
 }
 
-export function HubNav({ maxWidthClass, items, currentHref }: HubNavProps) {
+export function HubNav({ maxWidthClass, items, currentHref, role }: HubNavProps) {
+  const showApprovalsBadge = role !== undefined && isManagerRole(role as UserRole);
   return (
     // Desktop-only (spec 19 §2): phones navigate via the bottom tab bar.
     // Spec 20: light strip; the current page carries a blue underline —
@@ -120,6 +126,9 @@ export function HubNav({ maxWidthClass, items, currentHref }: HubNavProps) {
               }
             >
               {item.label}
+              {showApprovalsBadge && item.href === "/dashboard" ? (
+                <PendingApprovalsBadge position="inline" />
+              ) : null}
             </Link>
           );
         })}

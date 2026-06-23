@@ -68,7 +68,7 @@ export default async function ProjectsHubPage() {
       <BottomTabBar role={ctx.role} />
       <AppHeader kicker={kicker} fullName={ctx.fullName} maxWidthClass={PAGE_MAX_W} />
 
-      <HubNav maxWidthClass={PAGE_MAX_W} items={hubItems} currentHref="/projects" />
+      <HubNav maxWidthClass={PAGE_MAX_W} items={hubItems} currentHref="/projects" role={ctx.role} />
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
         <div className="mb-3 flex items-center justify-between gap-3">

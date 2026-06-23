@@ -45,4 +45,13 @@ describe("ApprovalsBadge", () => {
     render(<ApprovalsBadge count={250} />);
     expect(screen.getByText("99+")).toBeInTheDocument();
   });
+
+  it("overlays the icon by default (absolute), positions inline on request", () => {
+    const { rerender } = render(<ApprovalsBadge count={2} />);
+    expect(screen.getByLabelText("รอตรวจ 2 รายการ").className).toContain("absolute");
+    rerender(<ApprovalsBadge count={2} position="inline" />);
+    const inline = screen.getByLabelText("รอตรวจ 2 รายการ");
+    expect(inline.className).not.toContain("absolute");
+    expect(inline.className).toContain("ml-1");
+  });
 });

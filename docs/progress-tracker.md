@@ -63,11 +63,25 @@ tier) — the literal "number on the main menu" the operator asked for.
   — threading it to every call site is its own change; the phone bottom bar IS the
   "main menu" the operator named, so this is the core win). vitest +6.
 
-**SPEC 183 ARC COMPLETE U1–U3 2026-06-23 (one session, NO DB):** count helper +
+**U4 SHIPPED 2026-06-23 (NO DB).** Desktop hub-strip badge — operator "both, one at
+a time" (this first). `ApprovalsBadge`/`PendingApprovalsBadge` gained a
+`position: "overlay" | "inline"` prop (overlay = the bottom-tab icon overlay,
+default, unchanged; inline = `relative ml-1` pill after a text label). `HubNav`
+gained an optional `role?: string`; when `isManagerRole(role)` it renders
+`<PendingApprovalsBadge position="inline" />` on the `/dashboard` item. Passed
+`role` at all 5 HubNav call sites (settings/review/requests/projects/dashboard — all
+already had ctx.role/role). TRAP: `exactOptionalPropertyTypes` rejects forwarding
+`position={undefined}` to an optional prop → default it in the wrapper
+(`position = "overlay"`). Optional role = call sites that omit it render no badge
+(hub-nav component tests pass no role → badge inert, stayed green). Test +1 (inline
+variant asserts no `absolute`, has `ml-1`).
+
+**SPEC 183 ARC U1–U4 SHIPPED 2026-06-23 (one session, NO DB):** count helper +
 dashboard hero card → drop the รอตรวจ tab + reroute PM home to ภาพรวม → count badge
-on the home tab. รอตรวจ is awareness (card + badge), not a main-menu tab; the queue
-lives under ภาพรวม (/review one tap from the card). U4+ (other approval types: PR,
-bank/consent; desktop hub-strip badge; header bell for the unified inbox) = later.
+on the home tab (phone) → same badge on the desktop hub strip. รอตรวจ is awareness
+(card + badge on both nav surfaces), not a main-menu tab; the queue lives under
+ภาพรวม (/review one tap from the card). DEFERRED: other approval types (PR,
+bank/consent — NEXT, operator's second "both"); header bell for a unified inbox.
 
 ## Spec 174 — project Google-Maps link (precise pin) (2026-06-22)
 

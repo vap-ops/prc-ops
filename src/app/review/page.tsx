@@ -61,7 +61,12 @@ export default async function ProjectManagerLandingPage() {
 
       {/* Spec 183 U2: the queue is a sub-surface of ภาพรวม now — highlight the
           ภาพรวม strip item (currentHref=/dashboard), mirroring the bottom bar. */}
-      <HubNav maxWidthClass={PAGE_MAX_W} items={PM_HUB_NAV} currentHref="/dashboard" />
+      <HubNav
+        maxWidthClass={PAGE_MAX_W}
+        items={PM_HUB_NAV}
+        currentHref="/dashboard"
+        role={ctx.role}
+      />
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
         <h2 className={SECTION_HEADING}>รอตรวจ</h2>

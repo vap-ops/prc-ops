@@ -140,7 +140,12 @@ export default async function DashboardPage() {
     <PageShell>
       <BottomTabBar role={ctx.role} />
       {hubItems ? (
-        <HubNav maxWidthClass={PAGE_MAX_W} items={hubItems} currentHref="/dashboard" />
+        <HubNav
+          maxWidthClass={PAGE_MAX_W}
+          items={hubItems}
+          currentHref="/dashboard"
+          role={ctx.role}
+        />
       ) : null}
       <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-6 px-5 py-6`}>
         <h1 className="text-title text-ink font-bold tracking-tight">ภาพรวม</h1>
