@@ -4927,6 +4927,15 @@ export type Database = {
         }
         Returns: string
       }
+      item_price_history: {
+        Args: { p_catalog_item_id: string }
+        Returns: {
+          net_unit_price: number
+          purchased_at: string
+          quantity: number
+          supplier_name: string
+        }[]
+      }
       log_labor_day: {
         Args: {
           p_date: string

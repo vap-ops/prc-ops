@@ -35,6 +35,7 @@ import { PurchaseRequestCancel } from "@/components/features/purchasing/purchase
 import {
   PriceComparison,
   type PurchaseQuote,
+  type ItemPriceHistory,
 } from "@/components/features/purchasing/price-comparison";
 import { PurchaseRequestShip } from "@/components/features/purchasing/purchase-request-ship";
 import { isBackOfficeRole } from "@/lib/purchasing/back-office";
@@ -69,7 +70,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
   const supabase = await createClient();
   const { data: request } = await supabase
     .from("purchase_requests")
-    .select(`${PR_LIST_COLUMNS}, notes, source, acknowledged_at`)
+    .select(`${PR_LIST_COLUMNS}, notes, source, acknowledged_at, catalog_item_id`)
     .eq("id", requestId)
     .maybeSingle();
 
@@ -125,6 +126,22 @@ export default async function RequestDetailPage({ params }: PageProps) {
       supplierName: q.suppliers?.name ?? "—",
       unitPrice: Number(q.unit_price),
       note: q.note,
+    }));
+  }
+
+  // Spec 182 U3: the last-paid benchmark — recent net prices paid for this PR's
+  // catalog item (the spec-179 link). Back-office + approved only, and only when
+  // the request is linked to a catalog item (off-catalog requests have no axis).
+  let priceHistory: ItemPriceHistory[] = [];
+  if (isBackOffice && status === "approved" && request.catalog_item_id) {
+    const { data: historyRows } = await supabase.rpc("item_price_history", {
+      p_catalog_item_id: request.catalog_item_id,
+    });
+    priceHistory = (historyRows ?? []).map((h) => ({
+      supplierName: h.supplier_name ?? "—",
+      netUnitPrice: Number(h.net_unit_price),
+      quantity: Number(h.quantity),
+      purchasedAt: h.purchased_at,
     }));
   }
 
@@ -545,6 +562,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
                 unit={request.unit}
                 quotes={quotes}
                 suppliers={suppliers}
+                history={priceHistory}
                 line={{
                   id: request.id,
                   pr_number: request.pr_number,

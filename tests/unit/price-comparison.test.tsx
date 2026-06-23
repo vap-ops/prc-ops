@@ -33,7 +33,10 @@ vi.mock("@/components/features/purchasing/create-purchase-order-sheet", () => ({
     ) : null,
 }));
 
-import { PriceComparison } from "@/components/features/purchasing/price-comparison";
+import {
+  PriceComparison,
+  type ItemPriceHistory,
+} from "@/components/features/purchasing/price-comparison";
 
 const quotes = [
   { id: "q2", supplierId: "s2", supplierName: "ไทยวัสดุ", unitPrice: 98, note: null },
@@ -53,7 +56,7 @@ const line = {
   wp_code: null,
 };
 
-function renderPC(opts?: { quotes?: typeof quotes }) {
+function renderPC(opts?: { quotes?: typeof quotes; history?: ItemPriceHistory[] }) {
   render(
     <PriceComparison
       purchaseRequestId="pr1"
@@ -62,6 +65,7 @@ function renderPC(opts?: { quotes?: typeof quotes }) {
       quotes={opts?.quotes ?? quotes}
       suppliers={suppliers}
       line={line}
+      history={opts?.history ?? []}
     />,
   );
 }
@@ -117,6 +121,37 @@ describe("PriceComparison (spec 182 U1)", () => {
   it("shows an empty state with no quotes", () => {
     renderPC({ quotes: [] });
     expect(screen.getByText(/ยังไม่มีใบเสนอราคา/)).toBeInTheDocument();
+  });
+});
+
+describe("PriceComparison last-paid benchmark (spec 182 U3)", () => {
+  const history: ItemPriceHistory[] = [
+    {
+      supplierName: "ส.รุ่งเรือง",
+      netUnitPrice: 88,
+      quantity: 40,
+      purchasedAt: "2026-06-10T00:00:00Z",
+    },
+    {
+      supplierName: "ไทยวัสดุ",
+      netUnitPrice: 95,
+      quantity: 30,
+      purchasedAt: "2026-05-01T00:00:00Z",
+    },
+    { supplierName: "โฮมโปร", netUnitPrice: 91, quantity: 20, purchasedAt: "2026-04-01T00:00:00Z" },
+  ];
+
+  it("shows the newest purchase price, its supplier, and the times-bought count", () => {
+    renderPC({ history });
+    const line = screen.getByText(/เคยซื้อล่าสุด/);
+    expect(line).toHaveTextContent("฿88/ท่อน");
+    expect(line).toHaveTextContent("ส.รุ่งเรือง");
+    expect(line).toHaveTextContent("3 ครั้ง");
+  });
+
+  it("renders no benchmark line when there is no history", () => {
+    renderPC({ history: [] });
+    expect(screen.queryByText(/เคยซื้อล่าสุด/)).toBeNull();
   });
 });
 

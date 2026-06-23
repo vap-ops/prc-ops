@@ -1,6 +1,6 @@
 # Spec 182 — Procurement price comparison (quotes + history)
 
-Status: U1 + U2 SHIPPED to prod — 2026-06-23. U3–U4 in progress.
+Status: U1 + U2 + U3 SHIPPED to prod — 2026-06-23. U4 in progress.
 Builds on: spec 33/115/ADR 0038/0044 (suppliers + purchase orders), spec 179 (PR
 links a catalog item — the price-history axis), spec 181 (the bulk PR that feeds
 approved PRs to procurement).
@@ -39,9 +39,14 @@ ADR 0038). The compare UI renders only for those roles on the PR detail screen.
   cheapest) + an add-quote form (supplier picker + unit price).
 - **U2 — pick winner → PO:** choose a quote → prefills `create_purchase_order`
   (supplier + amount = unit_price × qty) so the winning price flows into the PO.
-- **U3 — price-history benchmark:** `item_price_history(catalog_item_id)` — last
-  paid unit price per supplier from past purchased PRs (the spec-179 catalog
-  link) → the "เคยซื้อล่าสุด ฿X จาก Y" line above the table.
+- **U3 — price-history benchmark (SHIPPED):** `item_price_history(catalog_item_id)`
+  — recent NET unit prices from past purchased PRs of the same catalog item (the
+  spec-179 link), newest first (limit 5) → the "เคยซื้อล่าสุด ฿X/หน่วย จาก Y · N
+  ครั้ง" line above the table. NET = `amount/(1+vat_rate/100)/qty` (amount is the
+  line GROSS, spec 119) so it's apples-to-apples with the net quotes. SECURITY
+  DEFINER + back-office role gate (PM/procurement/super/director — site_admin +
+  anon get nothing; the money posture). The page selects `catalog_item_id` and
+  fetches the history only when `isBackOffice && approved && catalog_item_id`.
 - **U4 — quote doc:** a `quote` attachment purpose on pr-attachments, linked per
   quote row (the 📎), so each quote carries its source document.
 

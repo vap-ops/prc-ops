@@ -26,6 +26,16 @@ export type PurchaseQuote = {
   note: string | null;
 };
 
+// Spec 182 U3: a past purchase of this PR's catalog item — the NET unit price
+// paid (apples-to-apples with the net quotes above), the supplier, and when.
+// Newest first (item_price_history orders + caps the list).
+export type ItemPriceHistory = {
+  supplierName: string;
+  netUnitPrice: number;
+  quantity: number;
+  purchasedAt: string | null;
+};
+
 const SELECT =
   "rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action h-11 w-full min-w-0 border px-2 text-sm shadow-xs focus:outline-none focus-visible:ring-2";
 
@@ -40,6 +50,7 @@ export function PriceComparison({
   quotes,
   suppliers,
   line,
+  history = [],
 }: {
   purchaseRequestId: string;
   quantity: number;
@@ -48,6 +59,8 @@ export function PriceComparison({
   suppliers: SupplierOption[];
   // Spec 182 U2: this PR as a PO line, so picking a quote can create the PO.
   line: CreatePoLine;
+  // Spec 182 U3: past purchases of this item (newest first) → last-paid line.
+  history?: ItemPriceHistory[];
 }) {
   const router = useRouter();
   const ranked = useMemo(() => [...quotes].sort((a, b) => a.unitPrice - b.unitPrice), [quotes]);
@@ -66,6 +79,9 @@ export function PriceComparison({
   const [pickedId, setPickedId] = useState<string>("");
   const picked = ranked.find((q) => q.id === pickedId) ?? ranked[0] ?? null;
   const [poOpen, setPoOpen] = useState(false);
+
+  // Spec 182 U3: the most recent past purchase of this item is the benchmark.
+  const lastPaid = history[0] ?? null;
 
   const price = priceText.trim() === "" ? Number.NaN : Number(priceText);
   const canAdd = supplierId !== "" && Number.isFinite(price) && price >= 0 && !adding;
@@ -99,6 +115,15 @@ export function PriceComparison({
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Spec 182 U3: last-paid benchmark — the most recent net price paid for
+          this item, so the quotes can be judged against history. */}
+      {lastPaid ? (
+        <p className="text-ink-secondary text-meta">
+          เคยซื้อล่าสุด {baht(lastPaid.netUnitPrice)}/{unit} จาก {lastPaid.supplierName} ·{" "}
+          {history.length} ครั้ง
+        </p>
+      ) : null}
+
       <p className="text-ink text-sm font-semibold">
         เปรียบเทียบราคา{ranked.length > 0 ? ` (${ranked.length} เจ้า)` : ""}
       </p>
