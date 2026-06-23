@@ -43,12 +43,6 @@ const STATUS_OPTIONS = [
   { value: "blacklisted", label: "บัญชีดำ" },
 ];
 
-const DC_SUBTYPE_OPTIONS = [
-  { value: "dc_company", label: "DC บริษัท" },
-  { value: "dc_regular", label: "DC ประจำ" },
-  { value: "dc_temporary", label: "DC ชั่วคราว" },
-];
-
 const CLIENT_FIELDS: RecordFieldDef[] = [
   { key: "name", label: "ชื่อลูกค้า", type: "text", maxLength: 120 },
   { key: "contactPerson", label: "ผู้ติดต่อ", type: "text", maxLength: 120 },
@@ -78,18 +72,6 @@ const CONTRACTOR_FIELDS: RecordFieldDef[] = [
   { key: "mailingAddress", label: "ที่อยู่", type: "textarea", maxLength: 500 },
   { key: "taxId", label: "เลขผู้เสียภาษี", type: "text", maxLength: 50 },
   { key: "specialty", label: "งานที่รับ", type: "text", maxLength: 200 },
-  { key: "note", label: "หมายเหตุ", type: "textarea", maxLength: 2000 },
-];
-
-const DC_FIELDS: RecordFieldDef[] = [
-  { key: "name", label: "ชื่อ DC", type: "text", maxLength: 200 },
-  { key: "contractorSubtype", label: "ประเภท DC", type: "select", options: DC_SUBTYPE_OPTIONS },
-  { key: "status", label: "สถานะ", type: "select", options: STATUS_OPTIONS },
-  { key: "phone", label: "เบอร์โทร", type: "tel", maxLength: 50 },
-  { key: "contactPerson", label: "ผู้ติดต่อ", type: "text", maxLength: 120 },
-  { key: "email", label: "อีเมล", type: "email", maxLength: 200 },
-  { key: "mailingAddress", label: "ที่อยู่", type: "textarea", maxLength: 500 },
-  { key: "taxId", label: "เลขผู้เสียภาษี", type: "text", maxLength: 50 },
   { key: "note", label: "หมายเหตุ", type: "textarea", maxLength: 2000 },
 ];
 
@@ -193,36 +175,6 @@ function contractorUpdate(id: string, v: Record<string, string>) {
   });
 }
 
-// ── DC (same contractors table, category=dc) ──
-function dcCreate(v: Record<string, string>) {
-  return createContractorRecord({
-    name: v.name ?? "",
-    contractorCategory: "dc",
-    ...pick(v, "contractorSubtype"),
-    ...pick(v, "status"),
-    ...pick(v, "phone"),
-    ...pick(v, "contactPerson"),
-    ...pick(v, "email"),
-    ...pick(v, "mailingAddress"),
-    ...pick(v, "taxId"),
-    ...pick(v, "note"),
-  });
-}
-function dcUpdate(id: string, v: Record<string, string>) {
-  return updateContractorRecord({
-    id,
-    ...pick(v, "name"),
-    ...pick(v, "contractorSubtype"),
-    ...pick(v, "status"),
-    ...pick(v, "phone"),
-    ...pick(v, "contactPerson"),
-    ...pick(v, "email"),
-    ...pick(v, "mailingAddress"),
-    ...pick(v, "taxId"),
-    ...pick(v, "note"),
-  });
-}
-
 // ── service providers ──
 function serviceCreate(v: Record<string, string>) {
   return createServiceProviderRecord({
@@ -266,7 +218,6 @@ const TAB_LABEL: Record<ContactTab, string> = {
   suppliers: "ผู้ขาย",
   service: "ผู้ให้บริการ",
   contractors: SUBCONTRACTOR_LABEL,
-  dc: "DC",
 };
 
 const STATUS_FILTER = [
@@ -281,7 +232,6 @@ export function ContactsTabs({
   clients = [],
   suppliers = [],
   contractors = [],
-  dc = [],
   serviceProviders = [],
   linkDetails = true,
   supplierBadges,
@@ -290,7 +240,6 @@ export function ContactsTabs({
   clients?: RecordRow[];
   suppliers?: RecordRow[];
   contractors?: RecordRow[];
-  dc?: RecordRow[];
   serviceProviders?: RecordRow[];
   // Spec 101: when false, rows don't link to the detail page (which shows the
   // money-isolated bank block). Procurement curates suppliers inline only.
@@ -314,9 +263,7 @@ export function ContactsTabs({
         ? suppliers
         : tab === "contractors"
           ? contractors
-          : tab === "dc"
-            ? dc
-            : serviceProviders;
+          : serviceProviders;
 
   const rows = useMemo(
     () =>
@@ -386,18 +333,6 @@ export function ContactsTabs({
           rows={rows}
           onCreate={contractorCreate}
           onUpdate={contractorUpdate}
-          addInSheet
-          rowBadge={statusBadge}
-          rowHref={(r) => `/contacts/contractors/${r.id}`}
-        />
-      ) : null}
-      {tab === "dc" ? (
-        <RecordManager
-          addLabel="เพิ่ม DC"
-          fields={DC_FIELDS}
-          rows={rows}
-          onCreate={dcCreate}
-          onUpdate={dcUpdate}
           addInSheet
           rowBadge={statusBadge}
           rowHref={(r) => `/contacts/contractors/${r.id}`}

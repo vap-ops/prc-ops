@@ -170,7 +170,9 @@ export default async function SettingsPage() {
                 label="ผู้ขาย/ผู้ให้บริการ"
                 hint="ผู้ขายวัสดุ · ผู้ให้บริการ"
               />
-              {/* Spec 168: subcontractor and DC are separate doors now. */}
+              {/* Spec 168: ผู้รับเหมาช่วง is its own door. ADR 0062 U5: DC is a
+                  WORKER (no DC firm) — the old /contacts/dc party door is gone; DC
+                  lives only under ทีมงาน below. */}
               <SettingsLink
                 href="/contacts/subcontractors"
                 icon={Hammer}
@@ -178,12 +180,11 @@ export default async function SettingsPage() {
                 hint="บริษัทที่จ้างช่วง (จ่ายลูกทีมเอง)"
               />
               <SettingsLink
-                href="/contacts/dc"
-                icon={Contact}
-                label="DC"
-                hint="DC ประจำ/ชั่วคราว/บริษัท"
+                href="/workers"
+                icon={HardHat}
+                label="ทีมงาน"
+                hint="ทะเบียน DC (ประจำ/ชั่วคราว) · ค่าจ้าง"
               />
-              <SettingsLink href="/workers" icon={HardHat} label="ทีมงาน" hint="ทะเบียนทีมงาน DC" />
               <SettingsLink
                 href="/equipment"
                 icon={Wrench}
