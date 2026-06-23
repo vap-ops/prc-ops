@@ -46,6 +46,13 @@ describe("ApprovalsBadge", () => {
     expect(screen.getByText("99+")).toBeInTheDocument();
   });
 
+  it("uses a custom label in the aria-label (default รอตรวจ)", () => {
+    const { rerender } = render(<ApprovalsBadge count={4} />);
+    expect(screen.getByLabelText("รอตรวจ 4 รายการ")).toBeInTheDocument();
+    rerender(<ApprovalsBadge count={4} label="คำขอซื้อรอพิจารณา" />);
+    expect(screen.getByLabelText("คำขอซื้อรอพิจารณา 4 รายการ")).toBeInTheDocument();
+  });
+
   it("overlays the icon by default (absolute), positions inline on request", () => {
     const { rerender } = render(<ApprovalsBadge count={2} />);
     expect(screen.getByLabelText("รอตรวจ 2 รายการ").className).toContain("absolute");

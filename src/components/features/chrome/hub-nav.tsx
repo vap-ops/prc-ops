@@ -2,7 +2,10 @@ import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { isManagerRole } from "@/lib/auth/role-home";
 import type { UserRole } from "@/lib/db/enums";
-import { PendingApprovalsBadge } from "@/components/features/dashboard/pending-approvals-badge";
+import {
+  PendingApprovalsBadge,
+  PendingPurchaseDecisionsBadge,
+} from "@/components/features/dashboard/pending-approvals-badge";
 
 // Shared hub nav strip (spec 18). One consistent item set per role
 // surface — the PM pages all show the same four destinations, /sa shows
@@ -128,6 +131,9 @@ export function HubNav({ maxWidthClass, items, currentHref, role }: HubNavProps)
               {item.label}
               {showApprovalsBadge && item.href === "/dashboard" ? (
                 <PendingApprovalsBadge position="inline" />
+              ) : null}
+              {showApprovalsBadge && item.href === "/requests" ? (
+                <PendingPurchaseDecisionsBadge position="inline" />
               ) : null}
             </Link>
           );

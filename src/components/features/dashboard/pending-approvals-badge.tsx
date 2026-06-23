@@ -1,17 +1,16 @@
 "use client";
 
-// Spec 183 U3 — the pending-approval count badge on the ภาพรวม nav. The literal
-// "notification of how many approvals are pending" the operator asked for: a
-// small count that rides the home tab so the PM sees waiting work while
-// anywhere in the app, not only on the dashboard itself.
+// Spec 183 U3 / spec 184 U1 — count badges on the nav. The literal
+// "notification of how many approvals are pending": a count rides the relevant
+// nav item so the PM tier sees decisions it owes while anywhere in the app.
 //
-// 'use client' is justified: it self-fetches the count via the browser client
-// (anon key, RLS-scoped — same visibility as the /review queue) so it does not
-// need the count threaded through every page's PageShell. The read is
+// 'use client' is justified: each badge self-fetches its count via the browser
+// client (anon key, RLS-scoped — same visibility as the surface it links to) so
+// the count is not threaded through every page's PageShell. Reads are
 // best-effort: any failure leaves the badge hidden (count 0), never blocks nav.
 //
-// Only rendered for the PM tier (the parent gates on role) — site_admin shares
-// the ภาพรวม tab but does not approve, so it gets no badge.
+// Only rendered for the PM tier (the parent gates on role) — other roles share
+// these tabs but don't decide, so they get no badge.
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/db/browser";
@@ -23,48 +22,55 @@ export function formatBadgeCount(count: number): string | null {
   return count > 99 ? "99+" : String(count);
 }
 
-// Presentational — renders the pill (or nothing) for a given count.
 // position: "overlay" (default) sits absolutely over a tab icon (bottom bar);
 // "inline" flows after a text label (the desktop hub strip).
 type BadgePosition = "overlay" | "inline";
 
+// Presentational — renders the pill (or nothing) for a given count. `label` is
+// the aria-label noun (what is pending), so the same pill reads correctly for
+// work-package vs purchase-request awareness.
 export function ApprovalsBadge({
   count,
   position = "overlay",
+  label = "รอตรวจ",
 }: {
   count: number;
   position?: BadgePosition;
+  label?: string;
 }) {
-  const label = formatBadgeCount(count);
-  if (label === null) return null;
+  const text = formatBadgeCount(count);
+  if (text === null) return null;
   const place =
     position === "inline" ? "relative ml-1 align-middle" : "absolute -top-1.5 -right-2.5";
   return (
     <span
-      aria-label={`รอตรวจ ${count} รายการ`}
+      aria-label={`${label} ${count} รายการ`}
       className={`bg-attn text-on-attn pointer-events-none ${place} inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-none font-bold`}
     >
-      {label}
+      {text}
     </span>
   );
 }
 
-// Self-fetching island. Reads the pending-approval count once on mount (RLS
-// scopes it to the caller's visible WPs, matching /review), then renders the
-// pill. Best-effort: errors leave it hidden.
-export function PendingApprovalsBadge({ position = "overlay" }: { position?: BadgePosition } = {}) {
+// Generic self-fetching island. `load` is a stable module-level fetcher (see
+// below) so the effect runs once. Best-effort: errors leave the badge hidden.
+function SelfCountBadge({
+  load,
+  position = "overlay",
+  label = "รอตรวจ",
+}: {
+  load: () => Promise<number | null>;
+  position?: BadgePosition;
+  label?: string;
+}) {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
     let alive = true;
     void (async () => {
       try {
-        const supabase = createClient();
-        const { count: pending } = await supabase
-          .from("work_packages")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "pending_approval");
-        if (alive && typeof pending === "number") setCount(pending);
+        const n = await load();
+        if (alive && typeof n === "number") setCount(n);
       } catch {
         // Best-effort badge — leave hidden on any read failure.
       }
@@ -72,7 +78,43 @@ export function PendingApprovalsBadge({ position = "overlay" }: { position?: Bad
     return () => {
       alive = false;
     };
-  }, []);
+  }, [load]);
 
-  return <ApprovalsBadge count={count} position={position} />;
+  return <ApprovalsBadge count={count} position={position} label={label} />;
+}
+
+// RLS-scoped head-counts (same visibility as the surface each links to).
+async function loadPendingWpApprovals(): Promise<number | null> {
+  const { count } = await createClient()
+    .from("work_packages")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending_approval");
+  return count;
+}
+
+async function loadPendingPurchaseDecisions(): Promise<number | null> {
+  const { count } = await createClient()
+    .from("purchase_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "requested");
+  return count;
+}
+
+// Spec 183: WP approvals awaiting the PM tier (the รอตรวจ queue) — on the ภาพรวม
+// nav item.
+export function PendingApprovalsBadge({ position = "overlay" }: { position?: BadgePosition } = {}) {
+  return <SelfCountBadge load={loadPendingWpApprovals} position={position} />;
+}
+
+// Spec 184 U1: purchase requests awaiting a decision — on the คำขอซื้อ nav item.
+export function PendingPurchaseDecisionsBadge({
+  position = "overlay",
+}: { position?: BadgePosition } = {}) {
+  return (
+    <SelfCountBadge
+      load={loadPendingPurchaseDecisions}
+      position={position}
+      label="คำขอซื้อรอพิจารณา"
+    />
+  );
 }

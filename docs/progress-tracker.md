@@ -83,6 +83,29 @@ on the home tab (phone) → same badge on the desktop hub strip. รอตรว
 ภาพรวม (/review one tap from the card). DEFERRED: other approval types (PR,
 bank/consent — NEXT, operator's second "both"); header bell for a unified inbox.
 
+## Spec 184 — approval-type awareness (PR + bank changes) (2026-06-23)
+
+Operator's second "both": extend spec-183 awareness to the other PM-tier approval
+flows. Explore mapped them: PR = `purchase_requests.status='requested'`, lives on
+the คำขอซื้อ /requests tab; bank-change = `contractor_bank_change_requests.status=
+'pending'`, NO nav surface (only on a contractor's detail page = blind spot);
+consent = no approval queue (recorded, not approved → out of scope). `project_director`
+is on all three policies (mig 20260752), so all gate to `isManagerRole`. **Design
+rule: a tabbed flow gets a tab badge; a tabless flow gets a dashboard card.** So WP
+(183) = badge+card, PR = คำขอซื้อ tab badge, bank-change = dashboard card (U2).
+
+**U1 SHIPPED 2026-06-23 (NO DB).** PR awaiting-decision badge. Generalized the badge:
+extracted `SelfCountBadge({load, position, label})` + module-level RLS-scoped loaders
+(`loadPendingWpApprovals`, `loadPendingPurchaseDecisions`); `PendingApprovalsBadge`
+(WP) kept as a thin wrapper (ภาพรวม wiring unchanged) + new
+`PendingPurchaseDecisionsBadge` (label "คำขอซื้อรอพิจารณา"). `ApprovalsBadge` gained an
+optional `label` (aria noun, default "รอตรวจ"; local `label`→`text` to avoid the
+collision). Wired onto the คำขอซื้อ tab (bottom-tab over the icon) + /requests hub item
+(inline), gated `href==="/requests" && isManagerRole(role)` — SA/procurement share the
+tab but don't decide → no badge. Module-level loaders = stable refs, so the `[load]`
+effect runs once. Test +1 (custom label aria). vitest 1497/0; lint·tc green. **U2 TODO:
+bank-change dashboard card** (the blind-spot flow).
+
 ## Spec 174 — project Google-Maps link (precise pin) (2026-06-22)
 
 Operator: "Add Pinned map, or attach link from gMap." Chose (one question)

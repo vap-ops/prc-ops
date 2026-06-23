@@ -14,7 +14,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { isManagerRole } from "@/lib/auth/role-home";
 import type { UserRole } from "@/lib/db/enums";
-import { PendingApprovalsBadge } from "@/components/features/dashboard/pending-approvals-badge";
+import {
+  PendingApprovalsBadge,
+  PendingPurchaseDecisionsBadge,
+} from "@/components/features/dashboard/pending-approvals-badge";
 import {
   Calculator,
   FolderKanban,
@@ -174,6 +177,10 @@ export function BottomTabBar({ role }: { role: string }) {
           // at-a-glance count while anywhere in the app. site_admin shares the
           // tab but does not approve, so no badge.
           const showApprovalsBadge = tab.href === "/dashboard" && isManagerRole(role as UserRole);
+          // Spec 184 U1: purchase requests awaiting the PM tier's decision ride
+          // the คำขอซื้อ tab (SA requesters / procurement processors share it but
+          // don't decide, so no badge for them).
+          const showPurchaseBadge = tab.href === "/requests" && isManagerRole(role as UserRole);
           return (
             <Link
               key={tab.href}
@@ -196,6 +203,7 @@ export function BottomTabBar({ role }: { role: string }) {
               <span className="relative">
                 <Icon aria-hidden className="size-6" />
                 {showApprovalsBadge ? <PendingApprovalsBadge /> : null}
+                {showPurchaseBadge ? <PendingPurchaseDecisionsBadge /> : null}
               </span>
               <span className={isActive ? "text-xs font-bold" : "text-xs font-medium"}>
                 {tab.label}
