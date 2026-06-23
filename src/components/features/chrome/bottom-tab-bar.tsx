@@ -52,6 +52,7 @@ const SETTINGS_TAB: TabItem = {
     "/equipment",
     "/catalog",
     "/store",
+    "/stock-count",
     "/payroll",
     "/accounting",
   ],
