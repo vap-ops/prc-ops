@@ -4,13 +4,14 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockIssue, mockRefresh } = vi.hoisted(() => ({
+const { mockIssue, mockRev, mockRefresh } = vi.hoisted(() => ({
   mockIssue: vi.fn(),
+  mockRev: vi.fn(),
   mockRefresh: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
-vi.mock("@/app/store/actions", () => ({ issueStock: mockIssue }));
+vi.mock("@/app/store/actions", () => ({ issueStock: mockIssue, reverseStockIssue: mockRev }));
 
 import {
   WpIssueStock,
@@ -37,6 +38,7 @@ const issues: WpIssueRow[] = [
 
 beforeEach(() => {
   mockIssue.mockReset().mockResolvedValue({ ok: true });
+  mockRev.mockReset().mockResolvedValue({ ok: true });
   mockRefresh.mockReset();
 });
 
@@ -132,5 +134,20 @@ describe("WpIssueStock (spec 177 U5)", () => {
       issues: [{ ...issues[0]!, receiverName: "สมชาย", receivedAt: "2026-06-22T10:00:00Z" }],
     });
     expect(screen.getByText(/รับแล้ว/)).toBeInTheDocument();
+  });
+
+  // Spec 178 Stream B — a กลับรายการ control on each recent เบิก, mirroring /store
+  // U12. The render gate is SITE_STAFF (the WP-detail !readOnly), the same gate as
+  // reverse_stock_issue, so every issue here is reversible by the field staffer.
+  it("offers a กลับรายการ control on each recent เบิก", () => {
+    renderZone({ issues });
+    expect(screen.getByRole("button", { name: "กลับรายการ" })).toBeInTheDocument();
+  });
+
+  it("reverses the issue after confirm", async () => {
+    renderZone({ issues });
+    fireEvent.click(screen.getByRole("button", { name: "กลับรายการ" }));
+    fireEvent.click(screen.getByRole("button", { name: "ยืนยัน" }));
+    await waitFor(() => expect(mockRev).toHaveBeenCalledWith({ issueId: "i1" }));
   });
 });

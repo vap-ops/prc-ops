@@ -8,9 +8,10 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
+import { ConfirmActionButton } from "@/components/features/common/confirm-action-button";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
 import { STORE_ISSUE_LABEL } from "@/lib/i18n/labels";
-import { issueStock } from "@/app/store/actions";
+import { issueStock, reverseStockIssue } from "@/app/store/actions";
 
 // On-hand for the picker — only what the WP เบิก needs (the value/avg-cost columns
 // the /store console shows are not relevant when drawing to a WP).
@@ -136,6 +137,17 @@ export function WpIssueStock({
               <span className="text-ink text-body shrink-0 font-semibold">
                 {i.qty} {i.unit}
               </span>
+              {/* Spec 178 Stream B — undo a wrong เบิก here too (mirrors /store U12).
+                  This block only renders for SITE_STAFF (the WP-detail !readOnly
+                  gate), which is the reverse_stock_issue gate. */}
+              <ConfirmActionButton
+                idleLabel="กลับรายการ"
+                pendingLabel="กำลังกลับ…"
+                confirmMessage={`กลับรายการเบิก ${i.baseItem} ${i.qty} ${i.unit}? ของจะถูกคืนเข้าสโตร์`}
+                confirmLabel="ยืนยัน"
+                buttonClassName={`${BUTTON_SECONDARY} shrink-0`}
+                action={() => reverseStockIssue({ issueId: i.id })}
+              />
             </li>
           ))}
         </ul>
