@@ -1,9 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Sarabun } from "next/font/google";
+import { cookies } from "next/headers";
 import { SwRegister } from "@/components/features/chrome/sw-register";
 import { UploadQueueRunnerLazy } from "@/components/features/photos/upload-queue-runner-lazy";
 import { ViewportScrollGuard } from "@/components/features/chrome/viewport-scroll-guard";
 import { ToastProvider } from "@/components/features/common/toast-provider";
+import { ThemeScript } from "@/components/features/chrome/theme-script";
+import { THEME_COOKIE, parseThemeSetting } from "@/lib/ui/theme";
 import "./globals.css";
 
 // Sarabun matches the PDF reports (spec 13) — one Thai face across web
@@ -42,16 +45,30 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Spec 190 — read the theme cookie server-side so an explicit-dark user gets
+  // the `dark` class on the FIRST paint (no flash). 'system' can't be resolved on
+  // the server (no OS signal); the pre-paint ThemeScript handles that case before
+  // paint. suppressHydrationWarning absorbs the class the server couldn't predict.
+  const setting = parseThemeSetting((await cookies()).get(THEME_COOKIE)?.value);
+  const initialDark = setting === "dark";
+
   return (
-    <html lang="th" className={`${sarabun.variable} ${geistMono.variable} h-full antialiased`}>
+    <html
+      lang="th"
+      suppressHydrationWarning
+      style={{ colorScheme: initialDark ? "dark" : "light" }}
+      className={`${sarabun.variable} ${geistMono.variable} h-full antialiased ${initialDark ? "dark" : ""}`}
+    >
       {/* Spec 64: the body is LOCKED — PageShell's <main> is the only
           scroller, so sticky/fixed chrome cannot drift on iOS bounce. */}
       <body className="h-full overflow-hidden">
+        {/* Spec 190: resolve theme before first paint (covers 'system'). */}
+        <ThemeScript />
         {/* Spec 76: the toast viewport wraps {children} so a toast fired just
             before a router.refresh() survives the RSC re-render. */}
         <ToastProvider>{children}</ToastProvider>

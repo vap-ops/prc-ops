@@ -1,6 +1,7 @@
 import { PageShell } from "@/components/features/chrome/page-shell";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import {
   Calculator,
   ChevronRight,
@@ -22,6 +23,8 @@ import { AvatarSurface } from "@/components/features/common/avatar-surface";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
 import { ComingSoonBadge } from "@/components/features/chrome/coming-soon-badge";
+import { ThemeToggle } from "@/components/features/chrome/theme-toggle";
+import { THEME_COOKIE, parseThemeSetting } from "@/lib/ui/theme";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { createClient } from "@/lib/db/server";
 import { ACCOUNTING_ROLES, isManagerRole } from "@/lib/auth/role-home";
@@ -65,6 +68,9 @@ export default async function SettingsPage() {
 
   const role = row.role;
   const isManager = isManagerRole(role);
+  // Spec 190: current theme setting (cookie) — drives the toggle's initial state
+  // with no flash / no hydration mismatch.
+  const themeSetting = parseThemeSetting((await cookies()).get(THEME_COOKIE)?.value);
   // Spec 153: the desktop hub strip, like the sibling hubs (/projects, /review).
   // Phones leave via the bottom tab bar; unserved roles (hubItems null) get none.
   const hubItems = hubNavForRole(role);
@@ -285,6 +291,13 @@ export default async function SettingsPage() {
             <ComingSoonRow icon={Sparkles} label="Nova" hint="เรียนรู้ เติบโต เลเวลอัพ" />
           )}
           <ComingSoonRow icon={Files} label="คลังเอกสาร" hint="รวมเอกสารทั้งหมดไว้ในที่เดียว" />
+        </div>
+
+        {/* Appearance — everyone (spec 190). Light by default (sun-first); dark
+            is opt-in. ระบบ follows the device. */}
+        <div className="flex flex-col gap-2">
+          <h2 className="text-meta text-ink-secondary font-semibold">การแสดงผล</h2>
+          <ThemeToggle initial={themeSetting} />
         </div>
 
         {/* About — everyone */}

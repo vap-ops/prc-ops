@@ -156,12 +156,103 @@
   --text-meta--line-height: 1.2rem;
 }
 
+/* ================================================================== */
+/* DARK PALETTE (spec 190) — opt-in night theme. The system was built  */
+/* sun-first (spec 20), so light stays the default; `.dark` on <html>  */
+/* (set by the cookie + the pre-paint script) flips every token.       */
+/* Hue is preserved per token, Lightness inverted (OKLCH makes this    */
+/* regular); the WCAG floors noted in the light block are held against */
+/* the dark surface each token now sits on. Bright fills (amber) keep  */
+/* near-black ink; "soft" grounds become low-L tints with light ink.   */
+/* ================================================================== */
+.dark {
+  color-scheme: dark;
+
+  /* shadcn primitive tokens (input/textarea/skeleton) — dark neutrals */
+  --background: oklch(0.18 0.005 264);
+  --foreground: oklch(0.95 0 0);
+  --card: oklch(0.22 0.006 264);
+  --card-foreground: oklch(0.95 0 0);
+  --popover: oklch(0.22 0.006 264);
+  --popover-foreground: oklch(0.95 0 0);
+  --primary: oklch(0.92 0 0);
+  --primary-foreground: oklch(0.2 0 0);
+  --secondary: oklch(0.28 0.006 264);
+  --secondary-foreground: oklch(0.95 0 0);
+  --muted: oklch(0.28 0.006 264);
+  --muted-foreground: oklch(0.7 0.008 264);
+  --accent: oklch(0.3 0.006 264);
+  --accent-foreground: oklch(0.95 0 0);
+  --destructive: oklch(0.64 0.2 27);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.3 0.006 264);
+  --input: oklch(0.34 0.006 264);
+  --ring: oklch(0.55 0.02 264);
+
+  /* --- Surfaces (page darkest → card raised → sunk sub-panel) ------ */
+  --color-page: oklch(0.17 0.008 264);
+  --color-card: oklch(0.215 0.009 264);
+  --color-sunk: oklch(0.26 0.009 264);
+  --color-edge: oklch(0.31 0.009 264);
+  --color-edge-strong: oklch(0.5 0.012 256); /* control border ≥3:1 on card */
+
+  /* --- Ink (floors held vs the dark card) ------------------------- */
+  --color-ink: oklch(0.95 0.004 264); /* ~16:1 on card */
+  --color-ink-secondary: oklch(0.74 0.008 264); /* ~7:1 */
+  --color-ink-muted: oklch(0.6 0.008 256); /* dividers / placeholder only */
+
+  /* --- Brand band (stays the distinct surface; lifted above page) -- */
+  --color-brand: oklch(0.27 0.03 264);
+  --color-brand-2: oklch(0.34 0.035 264);
+  --color-on-brand: oklch(0.98 0 0);
+
+  /* --- Action vs fill --------------------------------------------- */
+  --color-action: oklch(0.72 0.13 250); /* lighter blue — links read on dark */
+  --color-fill: oklch(0.34 0.02 264); /* neutral primary fill */
+  --color-fill-press: oklch(0.42 0.025 264);
+  --color-on-fill: oklch(0.98 0 0);
+  --color-action-soft: oklch(0.28 0.04 255); /* selected / "ของฉัน" ground */
+
+  /* --- Attention amber (bright fill kept; soft ground darkened) ---- */
+  --color-attn: oklch(0.78 0.15 75);
+  --color-attn-press: oklch(0.68 0.15 60);
+  --color-attn-soft: oklch(0.28 0.05 75);
+  --color-attn-edge: oklch(0.5 0.1 80);
+  --color-attn-ink: oklch(0.88 0.1 85); /* light amber text on dark amber-soft */
+  --color-on-attn: oklch(0.18 0.02 60); /* near-black on the bright amber fill */
+
+  /* --- Waiting / review sky --------------------------------------- */
+  --color-wait: oklch(0.68 0.12 240);
+  --color-wait-soft: oklch(0.28 0.05 240);
+  --color-wait-edge: oklch(0.5 0.1 235);
+
+  /* --- Done emerald ----------------------------------------------- */
+  --color-done: oklch(0.68 0.13 163);
+  --color-done-strong: oklch(0.6 0.12 163);
+  --color-done-soft: oklch(0.27 0.05 165);
+  --color-done-edge: oklch(0.5 0.1 163);
+  --color-done-ink: oklch(0.85 0.11 165);
+
+  /* --- Danger red ------------------------------------------------- */
+  --color-danger: oklch(0.66 0.2 27);
+  --color-danger-strong: oklch(0.6 0.2 27);
+  --color-danger-soft: oklch(0.28 0.06 20);
+  --color-danger-edge: oklch(0.5 0.12 22);
+  --color-danger-ink: oklch(0.85 0.12 22);
+
+  /* --- Elevation (black shadows vanish on dark; deepen the alpha) -- */
+  --shadow-input: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.4), 0 1px 3px 0 rgb(0 0 0 / 0.5);
+  --shadow-up: 0 -6px 24px -8px rgb(0 0 0 / 0.6);
+  --shadow-pop: 0 12px 32px -8px rgb(0 0 0 / 0.7);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   html {
-    /* Spec 20: sun-mode light by design — opt out of force-dark. */
+    /* Spec 20: sun-mode light by default; spec 190 `.dark` opts in to night. */
     color-scheme: light;
     /* Spec 77: kill the grey iOS tap-flash; our :active states win. */
     -webkit-tap-highlight-color: transparent;
