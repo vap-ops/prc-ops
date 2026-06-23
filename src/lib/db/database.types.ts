@@ -5331,6 +5331,17 @@ export type Database = {
         }
         Returns: string
       }
+      store_pnl: {
+        Args: { p_project_id: string }
+        Returns: {
+          catalog_item_id: string
+          cost_total: number
+          margin: number
+          qty_issued: number
+          sell_total: number
+          shrinkage_value: number
+        }[]
+      }
       submit_contractor_bank_change: {
         Args: {
           p_bank_account_name: string
