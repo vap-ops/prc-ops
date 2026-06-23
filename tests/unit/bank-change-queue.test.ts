@@ -1,8 +1,15 @@
-// Spec 186 U1 — the pure builder behind the bank-change approval queue page.
-// Joins each pending request to its contractor name (fallback "—") for display.
+// Spec 186 U1 / spec 170 U4c-2 — the pure builders behind the bank-change
+// approval queue page. Each pending request joins to its party name (fallback
+// "—") for display, tagged with a `kind` so the page routes the decision to the
+// right decide RPC (contractor vs worker). The page concatenates + sorts the two.
 
 import { describe, it, expect } from "vitest";
-import { buildBankChangeQueue, type BankChangeRequestRow } from "@/lib/approvals/bank-change-queue";
+import {
+  buildBankChangeQueue,
+  buildWorkerBankChangeQueue,
+  type BankChangeRequestRow,
+  type WorkerBankChangeRequestRow,
+} from "@/lib/approvals/bank-change-queue";
 
 const NAMES = new Map([
   ["c-1", "ห้างหุ้นส่วน ก่อสร้างดี"],
@@ -21,17 +28,18 @@ function row(
   };
 }
 
-describe("buildBankChangeQueue", () => {
+describe("buildBankChangeQueue (contractor)", () => {
   it("returns an empty list for no requests", () => {
     expect(buildBankChangeQueue([], NAMES)).toEqual([]);
   });
 
-  it("joins each request to its contractor name and maps the bank fields", () => {
+  it("joins each request to its contractor name, maps the bank fields, tags kind", () => {
     const result = buildBankChangeQueue([row({ id: "r1", contractor_id: "c-2" })], NAMES);
     expect(result).toEqual([
       {
         id: "r1",
-        contractorName: "ช่างรับเหมา สมชาย",
+        kind: "contractor",
+        name: "ช่างรับเหมา สมชาย",
         bankName: "กสิกรไทย",
         accountNo: "123-4-56789-0",
         accountName: "สมชาย ใจดี",
@@ -42,7 +50,7 @@ describe("buildBankChangeQueue", () => {
 
   it("falls back to — when the contractor name is missing", () => {
     const result = buildBankChangeQueue([row({ id: "r2", contractor_id: "ghost" })], NAMES);
-    expect(result[0]?.contractorName).toBe("—");
+    expect(result[0]?.name).toBe("—");
   });
 
   it("preserves input order (the page pre-sorts oldest-first)", () => {
@@ -51,5 +59,47 @@ describe("buildBankChangeQueue", () => {
       NAMES,
     );
     expect(result.map((r) => r.id)).toEqual(["a", "b"]);
+  });
+});
+
+const WORKER_NAMES = new Map([["w-1", "สมหญิง (ช่าง)"]]);
+
+function workerRow(
+  p: Partial<WorkerBankChangeRequestRow> & Pick<WorkerBankChangeRequestRow, "id" | "worker_id">,
+): WorkerBankChangeRequestRow {
+  return {
+    bank_name: "ไทยพาณิชย์",
+    bank_account_number: "987-6-54321-0",
+    bank_account_name: "สมหญิง ขยัน",
+    created_at: "2026-06-21T08:00:00Z",
+    ...p,
+  };
+}
+
+describe("buildWorkerBankChangeQueue", () => {
+  it("joins each request to its worker name, maps bank_account_number→accountNo, tags kind", () => {
+    const result = buildWorkerBankChangeQueue(
+      [workerRow({ id: "wr1", worker_id: "w-1" })],
+      WORKER_NAMES,
+    );
+    expect(result).toEqual([
+      {
+        id: "wr1",
+        kind: "worker",
+        name: "สมหญิง (ช่าง)",
+        bankName: "ไทยพาณิชย์",
+        accountNo: "987-6-54321-0",
+        accountName: "สมหญิง ขยัน",
+        createdAt: "2026-06-21T08:00:00Z",
+      },
+    ]);
+  });
+
+  it("falls back to — when the worker name is missing", () => {
+    const result = buildWorkerBankChangeQueue(
+      [workerRow({ id: "wr2", worker_id: "ghost" })],
+      WORKER_NAMES,
+    );
+    expect(result[0]?.name).toBe("—");
   });
 });

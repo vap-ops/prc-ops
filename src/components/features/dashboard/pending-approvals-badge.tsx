@@ -114,15 +114,27 @@ async function loadPendingBankChanges(): Promise<number | null> {
   return count;
 }
 
-// Spec 185 U2: the TOTAL the PM tier owes across all approval types (WP + PR +
-// bank). The three reads run in parallel; a failed read counts as 0.
+// Spec 170 U4c-2: worker (DC) bank changes — the worker analogue, summed into the
+// same total as contractor bank changes.
+async function loadPendingWorkerBankChanges(): Promise<number | null> {
+  const { count } = await createClient()
+    .from("worker_bank_change_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
+  return count;
+}
+
+// Spec 185 U2 / 170 U4c-2: the TOTAL the PM tier owes across all approval types
+// (WP + PR + contractor-bank + worker-bank). The reads run in parallel; a failed
+// read counts as 0.
 async function loadTotalPendingApprovals(): Promise<number> {
-  const [wp, pr, bank] = await Promise.all([
+  const [wp, pr, bank, workerBank] = await Promise.all([
     loadPendingWpApprovals(),
     loadPendingPurchaseDecisions(),
     loadPendingBankChanges(),
+    loadPendingWorkerBankChanges(),
   ]);
-  return sumApprovalCounts([wp, pr, bank]);
+  return sumApprovalCounts([wp, pr, bank, workerBank]);
 }
 
 // Spec 183 → 185 U2: the ภาพรวม (home) nav item carries the TOTAL pending

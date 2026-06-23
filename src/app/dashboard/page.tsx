@@ -18,6 +18,7 @@ import { PendingApprovalsCard } from "@/components/features/dashboard/pending-ap
 import { AwarenessCard } from "@/components/features/dashboard/awareness-card";
 import { getPendingApprovalsSummary } from "@/lib/approvals/pending-summary";
 import { getPendingBankChangeCount } from "@/lib/approvals/pending-bank-changes";
+import { getPendingWorkerBankChangeCount } from "@/lib/approvals/pending-worker-bank-changes";
 import { getPendingPurchaseDecisionCount } from "@/lib/approvals/pending-purchase-decisions";
 import { Landmark, ShoppingCart } from "lucide-react";
 import { rollupProgress } from "@/lib/dashboard/overview";
@@ -56,7 +57,12 @@ export default async function DashboardPage() {
   // Spec 184 U2 / 185 U1: the dashboard is the complete approvals inbox — surface
   // the purchase-request + bank-change counts here too (each card hides at zero).
   const pendingPurchases = isManager ? await getPendingPurchaseDecisionCount(supabase) : 0;
-  const pendingBankChanges = isManager ? await getPendingBankChangeCount(supabase) : 0;
+  // Spec 170 U4c-2: the bank-change card now covers BOTH contractor and worker
+  // changes (the merged queue at /contacts/bank-changes); one combined count.
+  const pendingBankChanges = isManager
+    ? (await getPendingBankChangeCount(supabase)) +
+      (await getPendingWorkerBankChangeCount(supabase))
+    : 0;
 
   // Operational reads — user session, SA-readable.
   const { data: projectRows } = await supabase

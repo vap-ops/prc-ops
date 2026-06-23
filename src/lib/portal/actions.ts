@@ -143,6 +143,38 @@ export async function decideBankChange(input: {
   return { ok: true };
 }
 
+// Spec 170 U4c-2 — PM approve/reject a pending WORKER bank change. On approve the
+// RPC applies it to the worker's own bank_* columns. pm/super/director (relay +
+// RPC gate). The worker analogue of decideBankChange.
+export async function decideWorkerBankChange(input: {
+  id: string;
+  approve: boolean;
+  revalidate: string;
+}): Promise<ActionResult> {
+  if (!UUID_REGEX.test(input.id) || !input.revalidate.startsWith("/")) {
+    return { ok: false, error: GENERIC_BANK };
+  }
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { data: me } = await auth.supabase
+    .from("users")
+    .select("role")
+    .eq("id", auth.user.id)
+    .maybeSingle();
+  if (!me || !PM_ROLES.includes(me.role)) {
+    return { ok: false, error: "เฉพาะผู้จัดการโครงการเท่านั้นที่อนุมัติได้" };
+  }
+
+  const { error } = await auth.supabase.rpc("decide_worker_bank_change", {
+    p_id: input.id,
+    p_approve: input.approve,
+  });
+  if (error) return { ok: false, error: GENERIC_BANK };
+  revalidatePath(input.revalidate);
+  return { ok: true };
+}
+
 // Spec 131 U2b — DC self-edits their own emergency contact + DOB from the
 // portal. The RPC is column-scoped to the four fields for the caller's own
 // contractor (no broad UPDATE policy). Emergency contact is not money — direct,

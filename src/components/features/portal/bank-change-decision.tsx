@@ -7,7 +7,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { decideBankChange } from "@/lib/portal/actions";
+import { decideBankChange, decideWorkerBankChange } from "@/lib/portal/actions";
 import { useToast } from "@/lib/ui/use-toast";
 import {
   BUTTON_PRIMARY_COMPACT,
@@ -15,12 +15,18 @@ import {
   INLINE_ALERT_TEXT,
 } from "@/lib/ui/classes";
 
+// Spec 170 U4c-2 — the merged queue holds both contractor and worker requests;
+// `kind` routes the decision to the matching decide RPC (contractor → contact_bank,
+// worker → workers.bank_*). Defaults to "contractor" so the contractor detail-page
+// call site is unchanged.
 export function BankChangeDecision({
   requestId,
   revalidate,
+  kind = "contractor",
 }: {
   requestId: string;
   revalidate: string;
+  kind?: "contractor" | "worker";
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -30,7 +36,10 @@ export function BankChangeDecision({
   function decide(approve: boolean) {
     setError(null);
     startTransition(async () => {
-      const result = await decideBankChange({ id: requestId, approve, revalidate });
+      const result =
+        kind === "worker"
+          ? await decideWorkerBankChange({ id: requestId, approve, revalidate })
+          : await decideBankChange({ id: requestId, approve, revalidate });
       if (!result.ok) {
         setError(result.error);
         return;

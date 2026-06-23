@@ -1,6 +1,9 @@
-// Spec 186 U1 — the pure builder behind the contractor bank-change approval
-// queue. Joins each pending request to its contractor name for display. Pure
-// (no Supabase) so it's unit-testable; the page does the admin-read + name fetch.
+// Spec 186 U1 / spec 170 U4c-2 — the pure builders behind the bank-change
+// approval queue page. Each pending request joins to its party name (fallback
+// "—") for display, tagged with a `kind` so the page routes the approve/reject to
+// the correct decide RPC (contractor → contact_bank; worker → workers.bank_*).
+// Pure (no Supabase) so they're unit-testable; the page does the admin-read +
+// name fetch + merge.
 
 export interface BankChangeRequestRow {
   id: string;
@@ -11,9 +14,19 @@ export interface BankChangeRequestRow {
   created_at: string;
 }
 
+export interface WorkerBankChangeRequestRow {
+  id: string;
+  worker_id: string;
+  bank_name: string | null;
+  bank_account_number: string | null;
+  bank_account_name: string | null;
+  created_at: string;
+}
+
 export interface BankChangeQueueItem {
   id: string;
-  contractorName: string;
+  kind: "contractor" | "worker";
+  name: string;
   bankName: string | null;
   accountNo: string | null;
   accountName: string | null;
@@ -26,9 +39,25 @@ export function buildBankChangeQueue(
 ): BankChangeQueueItem[] {
   return rows.map((r) => ({
     id: r.id,
-    contractorName: contractorsById.get(r.contractor_id) ?? "—",
+    kind: "contractor",
+    name: contractorsById.get(r.contractor_id) ?? "—",
     bankName: r.bank_name,
     accountNo: r.bank_account_no,
+    accountName: r.bank_account_name,
+    createdAt: r.created_at,
+  }));
+}
+
+export function buildWorkerBankChangeQueue(
+  rows: ReadonlyArray<WorkerBankChangeRequestRow>,
+  workersById: ReadonlyMap<string, string>,
+): BankChangeQueueItem[] {
+  return rows.map((r) => ({
+    id: r.id,
+    kind: "worker",
+    name: workersById.get(r.worker_id) ?? "—",
+    bankName: r.bank_name,
+    accountNo: r.bank_account_number,
     accountName: r.bank_account_name,
     createdAt: r.created_at,
   }));
