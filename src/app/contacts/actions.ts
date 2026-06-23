@@ -18,6 +18,12 @@ import type { Database } from "@/lib/db/database.types";
 import { Constants } from "@/lib/db/database.types";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { validateNotes } from "@/lib/notes/validate";
+import {
+  formatThaiPhone,
+  formatThaiTaxId,
+  isValidThaiPhone,
+  isValidThaiTaxId,
+} from "@/lib/contacts/thai-format";
 import { isValidPhotoExt } from "@/lib/photos/path";
 import {
   buildContactDocPath,
@@ -68,6 +74,28 @@ function norm(value: string | undefined): string | null {
   return trimmed.length === 0 ? null : trimmed;
 }
 
+// Spec 191: optional phone — blank → null; otherwise must be 10 digits (leading
+// 0), stored canonical 0XX-XXX-XXXX. Server-side mirror of the form mask so a
+// non-form caller / pasted value can't slip past.
+function normPhone(value: string | undefined): { ok: true; value: string | null } | { ok: false } {
+  const t = (value ?? "").trim();
+  if (t.length === 0) return { ok: true, value: null };
+  if (!isValidThaiPhone(t)) return { ok: false };
+  return { ok: true, value: formatThaiPhone(t) };
+}
+
+// Spec 191: optional Thai tax id — blank → null; otherwise 13 digits, stored
+// canonical X-XXXX-XXXXX-XX-X.
+function normTaxId(value: string | undefined): { ok: true; value: string | null } | { ok: false } {
+  const t = (value ?? "").trim();
+  if (t.length === 0) return { ok: true, value: null };
+  if (!isValidThaiTaxId(t)) return { ok: false };
+  return { ok: true, value: formatThaiTaxId(t) };
+}
+
+const BAD_PHONE = "เบอร์โทรต้องเป็นตัวเลข 10 หลัก";
+const BAD_TAX_ID = "เลขผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก";
+
 function validName(value: string, max: number): boolean {
   const t = value.trim();
   return t.length > 0 && t.length <= max;
@@ -102,10 +130,13 @@ export async function createClientRecord(input: {
   const noteRes = validateNotes(input.note ?? "");
   if (!noteRes.ok) return { ok: false, error: noteRes.error };
 
+  const phoneRes = normPhone(input.phone);
+  if (!phoneRes.ok) return { ok: false, error: BAD_PHONE };
+
   const { error } = await gate.supabase.from("clients").insert({
     name: input.name.trim(),
     contact_person: norm(input.contactPerson),
-    phone: norm(input.phone),
+    phone: phoneRes.value,
     email: norm(input.email),
     mailing_address: norm(input.mailingAddress),
     note: noteRes.value,
@@ -137,7 +168,11 @@ export async function updateClientRecord(input: {
     patch.name = input.name.trim();
   }
   if (input.contactPerson !== undefined) patch.contact_person = norm(input.contactPerson);
-  if (input.phone !== undefined) patch.phone = norm(input.phone);
+  if (input.phone !== undefined) {
+    const phoneRes = normPhone(input.phone);
+    if (!phoneRes.ok) return { ok: false, error: BAD_PHONE };
+    patch.phone = phoneRes.value;
+  }
   if (input.email !== undefined) patch.email = norm(input.email);
   if (input.mailingAddress !== undefined) patch.mailing_address = norm(input.mailingAddress);
   if (input.note !== undefined) {
@@ -175,14 +210,19 @@ export async function createSupplierRecord(input: {
   const noteRes = validateNotes(input.note ?? "");
   if (!noteRes.ok) return { ok: false, error: noteRes.error };
 
+  const phoneRes = normPhone(input.phone);
+  if (!phoneRes.ok) return { ok: false, error: BAD_PHONE };
+  const taxRes = normTaxId(input.taxId);
+  if (!taxRes.ok) return { ok: false, error: BAD_TAX_ID };
+
   const { error } = await gate.supabase.from("suppliers").insert({
     name: input.name.trim(),
-    phone: norm(input.phone),
+    phone: phoneRes.value,
     note: noteRes.value,
     contact_person: norm(input.contactPerson),
     email: norm(input.email),
     mailing_address: norm(input.mailingAddress),
-    tax_id: norm(input.taxId),
+    tax_id: taxRes.value,
     payment_terms: norm(input.paymentTerms),
     created_by: gate.userId,
   });
@@ -213,7 +253,11 @@ export async function updateSupplierRecord(input: {
     }
     patch.name = input.name.trim();
   }
-  if (input.phone !== undefined) patch.phone = norm(input.phone);
+  if (input.phone !== undefined) {
+    const phoneRes = normPhone(input.phone);
+    if (!phoneRes.ok) return { ok: false, error: BAD_PHONE };
+    patch.phone = phoneRes.value;
+  }
   if (input.note !== undefined) {
     const noteRes = validateNotes(input.note);
     if (!noteRes.ok) return { ok: false, error: noteRes.error };
@@ -222,7 +266,11 @@ export async function updateSupplierRecord(input: {
   if (input.contactPerson !== undefined) patch.contact_person = norm(input.contactPerson);
   if (input.email !== undefined) patch.email = norm(input.email);
   if (input.mailingAddress !== undefined) patch.mailing_address = norm(input.mailingAddress);
-  if (input.taxId !== undefined) patch.tax_id = norm(input.taxId);
+  if (input.taxId !== undefined) {
+    const taxRes = normTaxId(input.taxId);
+    if (!taxRes.ok) return { ok: false, error: BAD_TAX_ID };
+    patch.tax_id = taxRes.value;
+  }
   if (input.paymentTerms !== undefined) patch.payment_terms = norm(input.paymentTerms);
   if (Object.keys(patch).length === 0) return { ok: true };
 
@@ -260,14 +308,19 @@ export async function createContractorRecord(input: {
   const st = checkEnum(E.contact_status, input.status);
   if (!cat.ok || !sub.ok || !st.ok) return { ok: false, error: GENERIC };
 
+  const phoneRes = normPhone(input.phone);
+  if (!phoneRes.ok) return { ok: false, error: BAD_PHONE };
+  const taxRes = normTaxId(input.taxId);
+  if (!taxRes.ok) return { ok: false, error: BAD_TAX_ID };
+
   const { error } = await gate.supabase.from("contractors").insert({
     name: input.name.trim(),
-    phone: norm(input.phone),
+    phone: phoneRes.value,
     note: noteRes.value,
     contact_person: norm(input.contactPerson),
     email: norm(input.email),
     mailing_address: norm(input.mailingAddress),
-    tax_id: norm(input.taxId),
+    tax_id: taxRes.value,
     specialty: norm(input.specialty),
     created_by: gate.userId,
     ...(cat.value !== undefined ? { contractor_category: cat.value } : {}),
@@ -308,7 +361,11 @@ export async function updateContractorRecord(input: {
     }
     patch.name = input.name.trim();
   }
-  if (input.phone !== undefined) patch.phone = norm(input.phone);
+  if (input.phone !== undefined) {
+    const phoneRes = normPhone(input.phone);
+    if (!phoneRes.ok) return { ok: false, error: BAD_PHONE };
+    patch.phone = phoneRes.value;
+  }
   if (input.note !== undefined) {
     const noteRes = validateNotes(input.note);
     if (!noteRes.ok) return { ok: false, error: noteRes.error };
@@ -317,7 +374,11 @@ export async function updateContractorRecord(input: {
   if (input.contactPerson !== undefined) patch.contact_person = norm(input.contactPerson);
   if (input.email !== undefined) patch.email = norm(input.email);
   if (input.mailingAddress !== undefined) patch.mailing_address = norm(input.mailingAddress);
-  if (input.taxId !== undefined) patch.tax_id = norm(input.taxId);
+  if (input.taxId !== undefined) {
+    const taxRes = normTaxId(input.taxId);
+    if (!taxRes.ok) return { ok: false, error: BAD_TAX_ID };
+    patch.tax_id = taxRes.value;
+  }
   if (input.specialty !== undefined) patch.specialty = norm(input.specialty);
   if (input.contractorCategory !== undefined) {
     const cat = checkEnum(E.contractor_category, input.contractorCategory);
@@ -375,9 +436,12 @@ export async function createServiceProviderRecord(input: {
   const st = checkEnum(E.contact_status, input.status);
   if (!sub.ok || !st.ok) return { ok: false, error: GENERIC };
 
+  const phoneRes = normPhone(input.phone);
+  if (!phoneRes.ok) return { ok: false, error: BAD_PHONE };
+
   const { error } = await gate.supabase.from("service_providers").insert({
     name: input.name.trim(),
-    phone: norm(input.phone),
+    phone: phoneRes.value,
     contact_person: norm(input.contactPerson),
     email: norm(input.email),
     mailing_address: norm(input.mailingAddress),
@@ -420,7 +484,11 @@ export async function updateServiceProviderRecord(input: {
     }
     patch.name = input.name.trim();
   }
-  if (input.phone !== undefined) patch.phone = norm(input.phone);
+  if (input.phone !== undefined) {
+    const phoneRes = normPhone(input.phone);
+    if (!phoneRes.ok) return { ok: false, error: BAD_PHONE };
+    patch.phone = phoneRes.value;
+  }
   if (input.contactPerson !== undefined) patch.contact_person = norm(input.contactPerson);
   if (input.email !== undefined) patch.email = norm(input.email);
   if (input.mailingAddress !== undefined) patch.mailing_address = norm(input.mailingAddress);

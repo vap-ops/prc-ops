@@ -43,10 +43,22 @@ const STATUS_OPTIONS = [
   { value: "blacklisted", label: "บัญชีดำ" },
 ];
 
+// Spec 191: credit terms are a fixed, selectable set (operator: cash / 7 / 15 /
+// 30 / 45 days). value === label so the row preview reads naturally with no
+// display-mapping layer; "" = ไม่ระบุ (stored null).
+const PAYMENT_TERM_OPTIONS = [
+  { value: "", label: "ไม่ระบุ" },
+  { value: "เงินสด", label: "เงินสด" },
+  { value: "เครดิต 7 วัน", label: "เครดิต 7 วัน" },
+  { value: "เครดิต 15 วัน", label: "เครดิต 15 วัน" },
+  { value: "เครดิต 30 วัน", label: "เครดิต 30 วัน" },
+  { value: "เครดิต 45 วัน", label: "เครดิต 45 วัน" },
+];
+
 const CLIENT_FIELDS: RecordFieldDef[] = [
   { key: "name", label: "ชื่อลูกค้า", type: "text", maxLength: 120 },
   { key: "contactPerson", label: "ผู้ติดต่อ", type: "text", maxLength: 120 },
-  { key: "phone", label: "เบอร์โทร", type: "tel", maxLength: 50 },
+  { key: "phone", label: "เบอร์โทร", type: "phone", maxLength: 50 },
   { key: "email", label: "อีเมล", type: "email", maxLength: 200 },
   { key: "mailingAddress", label: "ที่อยู่", type: "textarea", maxLength: 500 },
   { key: "note", label: "หมายเหตุ", type: "textarea", maxLength: 2000 },
@@ -54,23 +66,28 @@ const CLIENT_FIELDS: RecordFieldDef[] = [
 
 const SUPPLIER_FIELDS: RecordFieldDef[] = [
   { key: "name", label: "ชื่อผู้ขาย", type: "text", maxLength: 200 },
-  { key: "phone", label: "เบอร์โทร", type: "tel", maxLength: 50 },
+  { key: "phone", label: "เบอร์โทร", type: "phone", maxLength: 50 },
   { key: "contactPerson", label: "ผู้ติดต่อ", type: "text", maxLength: 120 },
   { key: "email", label: "อีเมล", type: "email", maxLength: 200 },
   { key: "mailingAddress", label: "ที่อยู่", type: "textarea", maxLength: 500 },
-  { key: "taxId", label: "เลขผู้เสียภาษี", type: "text", maxLength: 50 },
-  { key: "paymentTerms", label: "เงื่อนไขการชำระเงิน", type: "text", maxLength: 200 },
+  { key: "taxId", label: "เลขผู้เสียภาษี", type: "taxid", maxLength: 50 },
+  {
+    key: "paymentTerms",
+    label: "เงื่อนไขการชำระเงิน",
+    type: "select",
+    options: PAYMENT_TERM_OPTIONS,
+  },
   { key: "note", label: "หมายเหตุ", type: "textarea", maxLength: 2000 },
 ];
 
 const CONTRACTOR_FIELDS: RecordFieldDef[] = [
   { key: "name", label: `ชื่อ${SUBCONTRACTOR_LABEL}`, type: "text", maxLength: 200 },
   { key: "status", label: "สถานะ", type: "select", options: STATUS_OPTIONS },
-  { key: "phone", label: "เบอร์โทร", type: "tel", maxLength: 50 },
+  { key: "phone", label: "เบอร์โทร", type: "phone", maxLength: 50 },
   { key: "contactPerson", label: "ผู้ติดต่อ", type: "text", maxLength: 120 },
   { key: "email", label: "อีเมล", type: "email", maxLength: 200 },
   { key: "mailingAddress", label: "ที่อยู่", type: "textarea", maxLength: 500 },
-  { key: "taxId", label: "เลขผู้เสียภาษี", type: "text", maxLength: 50 },
+  { key: "taxId", label: "เลขผู้เสียภาษี", type: "taxid", maxLength: 50 },
   { key: "specialty", label: "งานที่รับ", type: "text", maxLength: 200 },
   { key: "note", label: "หมายเหตุ", type: "textarea", maxLength: 2000 },
 ];
@@ -78,7 +95,7 @@ const CONTRACTOR_FIELDS: RecordFieldDef[] = [
 const SERVICE_FIELDS: RecordFieldDef[] = [
   { key: "name", label: "ชื่อผู้ให้บริการ", type: "text", maxLength: 200 },
   { key: "status", label: "สถานะ", type: "select", options: STATUS_OPTIONS },
-  { key: "phone", label: "เบอร์โทร", type: "tel", maxLength: 50 },
+  { key: "phone", label: "เบอร์โทร", type: "phone", maxLength: 50 },
   { key: "contactPerson", label: "ผู้ติดต่อ", type: "text", maxLength: 120 },
   { key: "email", label: "อีเมล", type: "email", maxLength: 200 },
   { key: "mailingAddress", label: "ที่อยู่", type: "textarea", maxLength: 500 },

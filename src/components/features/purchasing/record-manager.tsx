@@ -20,6 +20,12 @@ import {
 } from "@/lib/ui/classes";
 import { useToast } from "@/lib/ui/use-toast";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
+import {
+  formatThaiPhone,
+  formatThaiTaxId,
+  isValidThaiPhone,
+  isValidThaiTaxId,
+} from "@/lib/contacts/thai-format";
 
 export type RecordActionResult = { ok: true } | { ok: false; error: string };
 
@@ -31,11 +37,40 @@ export interface RecordFieldDef {
   /** Record key passed to onCreate/onUpdate (camelCase, maps to the action input). */
   key: string;
   label: string;
-  type: "text" | "tel" | "email" | "textarea" | "select";
-  /** Required for text/tel/email/textarea; ignored for select. */
+  /** Spec 191: "phone" auto-formats 0XX-XXX-XXXX + validates 10 digits; "taxid"
+   *  auto-formats X-XXXX-XXXXX-XX-X + validates 13 digits (both optional unless a
+   *  requiredWhenTruthy gate fires). */
+  type: "text" | "tel" | "email" | "textarea" | "select" | "phone" | "taxid";
+  /** Required for text/tel/email/textarea/phone/taxid; ignored for select. */
   maxLength?: number;
   /** Required for type "select": the dropdown options (spec 86). */
   options?: { value: string; label: string }[];
+  /** Spec 191: when the named field's value is truthy ("true"), this field is
+   *  required (e.g. taxId is required once isVatRegistered is on). */
+  requiredWhenTruthy?: string;
+}
+
+// Spec 191: the inline format error for one field given the current row values
+// (null = no error). Emptiness is allowed unless requiredWhenTruthy fires — the
+// first-field name-required check lives in recordHasErrors.
+function fieldInlineError(field: RecordFieldDef, values: Record<string, string>): string | null {
+  const v = (values[field.key] ?? "").trim();
+  const gatedRequired =
+    field.requiredWhenTruthy !== undefined && (values[field.requiredWhenTruthy] ?? "") === "true";
+  if (v.length === 0) {
+    return gatedRequired ? "จำเป็นต้องกรอก" : null;
+  }
+  if (field.type === "phone" && !isValidThaiPhone(v)) return "เบอร์โทรต้องเป็นตัวเลข 10 หลัก";
+  if (field.type === "taxid" && !isValidThaiTaxId(v)) return "เลขผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก";
+  return null;
+}
+
+// Spec 191: submit is blocked when the name (first field) is blank OR any field
+// has a format / gated-required error. Shared by the add + edit forms.
+function recordHasErrors(fields: RecordFieldDef[], values: Record<string, string>): boolean {
+  const nameKey = fields[0]?.key ?? "name";
+  if ((values[nameKey] ?? "").trim().length === 0) return true;
+  return fields.some((f) => fieldInlineError(f, values) !== null);
 }
 
 export interface RecordRow {
@@ -70,44 +105,78 @@ function FieldInputs({
 }) {
   return (
     <>
-      {fields.map((f) => (
-        <label key={f.key} className="text-ink-secondary mt-2 block text-sm">
-          {f.label}
-          {f.type === "textarea" ? (
-            <textarea
-              value={values[f.key] ?? ""}
-              maxLength={f.maxLength}
-              rows={2}
-              disabled={disabled}
-              onChange={(e) => setValue(f.key, e.target.value)}
-              className={FIELD_STACKED}
-            />
-          ) : f.type === "select" ? (
-            <select
-              value={values[f.key] ?? ""}
-              disabled={disabled}
-              onChange={(e) => setValue(f.key, e.target.value)}
-              className={`${FIELD_STACKED} appearance-none`}
-            >
-              {(f.options ?? []).map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <input
-              type={f.type}
-              inputMode={f.type === "tel" ? "tel" : undefined}
-              value={values[f.key] ?? ""}
-              maxLength={f.maxLength}
-              disabled={disabled}
-              onChange={(e) => setValue(f.key, e.target.value)}
-              className={FIELD_STACKED}
-            />
-          )}
-        </label>
-      ))}
+      {fields.map((f) => {
+        // Spec 191: phone/taxid auto-format as the user types; surface the inline
+        // format error (and the requiredWhenTruthy gate) beneath the input.
+        const isMasked = f.type === "phone" || f.type === "taxid";
+        const inlineErr = isMasked ? fieldInlineError(f, values) : null;
+        const gatedRequired =
+          f.requiredWhenTruthy !== undefined && (values[f.requiredWhenTruthy] ?? "") === "true";
+        return (
+          <label key={f.key} className="text-ink-secondary mt-2 block text-sm">
+            {f.label}
+            {gatedRequired ? <span className="text-danger-ink"> *</span> : null}
+            {f.type === "textarea" ? (
+              <textarea
+                value={values[f.key] ?? ""}
+                maxLength={f.maxLength}
+                rows={2}
+                disabled={disabled}
+                onChange={(e) => setValue(f.key, e.target.value)}
+                className={FIELD_STACKED}
+              />
+            ) : f.type === "select" ? (
+              <select
+                value={values[f.key] ?? ""}
+                disabled={disabled}
+                onChange={(e) => setValue(f.key, e.target.value)}
+                className={`${FIELD_STACKED} appearance-none`}
+              >
+                {(f.options ?? []).map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            ) : isMasked ? (
+              <>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  value={values[f.key] ?? ""}
+                  maxLength={f.type === "phone" ? 12 : 17}
+                  disabled={disabled}
+                  aria-invalid={inlineErr ? true : undefined}
+                  onChange={(e) =>
+                    setValue(
+                      f.key,
+                      f.type === "phone"
+                        ? formatThaiPhone(e.target.value)
+                        : formatThaiTaxId(e.target.value),
+                    )
+                  }
+                  className={`${FIELD_STACKED} font-mono`}
+                />
+                {inlineErr ? (
+                  <span className="text-danger-ink mt-1 block text-xs font-normal">
+                    {inlineErr}
+                  </span>
+                ) : null}
+              </>
+            ) : (
+              <input
+                type={f.type}
+                inputMode={f.type === "tel" ? "tel" : undefined}
+                value={values[f.key] ?? ""}
+                maxLength={f.maxLength}
+                disabled={disabled}
+                onChange={(e) => setValue(f.key, e.target.value)}
+                className={FIELD_STACKED}
+              />
+            )}
+          </label>
+        );
+      })}
     </>
   );
 }
@@ -140,9 +209,8 @@ function AddCard({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // The first field is the entity name — the one required value.
-  const nameKey = fields[0]?.key ?? "name";
-  const nameEmpty = (values[nameKey] ?? "").trim().length === 0;
+  // Spec 191: block submit on a blank name OR any field format/required error.
+  const hasErrors = recordHasErrors(fields, values);
 
   async function submit() {
     setBusy(true);
@@ -178,7 +246,7 @@ function AddCard({
       ) : null}
       <button
         type="button"
-        disabled={busy || nameEmpty}
+        disabled={busy || hasErrors}
         onClick={() => void submit()}
         className={`mt-3 w-full ${BUTTON_PRIMARY_COMPACT}`}
       >
@@ -300,7 +368,7 @@ function RecordRowItem({
           <div className="mt-3 flex gap-2">
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || recordHasErrors(fields, values)}
               onClick={() => void save()}
               className={BUTTON_PRIMARY_COMPACT}
             >
