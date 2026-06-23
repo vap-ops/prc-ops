@@ -177,7 +177,7 @@ export default async function DashboardPage() {
           <AwarenessCard
             count={pendingBankChanges}
             label="การเปลี่ยนบัญชีรอการอนุมัติ"
-            href="/contacts/subcontractors"
+            href="/contacts/bank-changes"
             icon={Landmark}
           />
         ) : null}

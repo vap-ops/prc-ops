@@ -60,6 +60,8 @@ const STATIC_DETAIL = [
   // Spec 168: the crews group split into separate subcontractor + DC pages.
   // ADR 0062 U5: /contacts/dc removed (DC is a worker, managed under ทีมงาน).
   "contacts/subcontractors",
+  // Spec 186: the contractor bank-change approval queue (back chip → /dashboard).
+  "contacts/bank-changes",
   // Spec 162: the Nova operator console drills down from /settings (back chip).
   "nova",
   // Spec 161 U7: the dials calibration console drills down from /nova.

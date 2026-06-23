@@ -124,6 +124,27 @@ card. DEFERRED: dedicated bank-change queue page (vs drilling from the contracto
 list); worker-DC bank changes (ADR 0062 U4c-2 not built — folds into the card when it
 lands); header bell for a unified approvals inbox.
 
+## Spec 186 — contractor bank-change approval queue page (2026-06-23)
+
+Operator: "proceed" (deferred item from 184/185). Closes the awareness→action loop:
+spec 185's bank-change card linked to /contacts/subcontractors (hunt for the flagged
+contractor); now a real queue. **U1 SHIPPED 2026-06-23 (NO DB).** New route
+`/contacts/bank-changes` (static segment wins over `[type]`), `requireRole(PM_ROLES)`
+(deciders pm/super/director — director on the decide RPC via mig 20260751; procurement
+excluded — onboards but doesn't decide). Admin-read (bank fields = zero-grant money,
+behind the gate) every `contractor_bank_change_requests` status='pending' + contractor
+names; pure `buildBankChangeQueue(rows, namesById)` (name fallback "—") in
+`src/lib/approvals/bank-change-queue.ts`. Page: DetailHeader (back→/dashboard) + list
+(contractor + proposed bank + submitted-at) + REUSED `BankChangeDecision` (revalidate
+/contacts/bank-changes). Repointed the spec-185 dashboard card href →
+/contacts/bank-changes. The per-contractor pending block on the contact detail page
+stays (per-contractor view); this is the aggregate. Test: buildBankChangeQueue (join,
+"—" fallback, order, empty). LESSON: a new `src/app/**/page.tsx` must be classified
+in `tests/unit/nav-back-affordance.test.ts` (spec-63 anti-drift guard) — DetailHeader
+page → STATIC_DETAIL; only the full suite catches it (like the spec-122 features-dir
+guard). vitest +4. DEFERRED: worker-DC bank changes (ADR 0062 U4c-2 unbuilt) — same
+queue lists them when built.
+
 ## Spec 185 — one number for all approvals (unified pending on the home) (2026-06-23)
 
 Operator: "proceed" → "design the process yourself." Capstone of the awareness arc.
