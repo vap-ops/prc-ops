@@ -24,6 +24,11 @@ insert into public.projects (id, code, name, client_id) values
   ('cc000001-0000-4000-8000-000000000648', 'TAP-GL-RPT', 'Reporting fixture',
    'c1000001-0000-4000-8000-000000000648');
 
+-- Isolate from any pre-existing prod gl_posting_outbox rows: the posting_backlog
+-- reconciliation check below asserts a globally-empty pending queue, so a real
+-- in-flight job would trip it. Owner context here; rolled back with the test.
+delete from public.gl_posting_outbox;
+
 -- ============================================================================
 -- A. Catalog.
 -- ============================================================================

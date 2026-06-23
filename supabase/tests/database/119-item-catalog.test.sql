@@ -34,10 +34,12 @@ select is(
 select is(
   has_table_privilege('authenticated', 'public.catalog_items', 'SELECT'),
   true, 'authenticated can select catalog_items');
--- Unique identity: re-inserting a seeded (base_item, spec_attrs) is rejected.
+-- Unique identity: re-inserting an EXISTING (base_item, spec_attrs) is rejected.
+-- Derived from a live row (not a hard-coded seed value) so an operator catalog
+-- edit can't make this stale — the catalog is operator-editable (spec 175).
 select throws_ok(
   $$ insert into public.catalog_items (category, base_item, spec_attrs, unit)
-       values ('steel_fixing', 'เหล็กข้ออ้อย', '12 มิล', 'ท่อน') $$,
+       select category, base_item, spec_attrs, unit from public.catalog_items limit 1 $$,
   '23505', null, 'duplicate (base_item, spec_attrs) rejected — one identity per item');
 
 -- B. Seed present + readable by staff.
@@ -46,10 +48,11 @@ set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333333175"
 select cmp_ok(
   (select count(*)::int from public.catalog_items),
   '>', 0, 'catalog seeded, readable by staff');
-select is(
-  (select count(*)::int from public.catalog_items
-     where base_item='เหล็กข้ออ้อย' and spec_attrs='12 มิล'),
-  1, 'a known seed item is present');
+-- A known seed base_item is present (by base_item only — the operator may edit
+-- spec_attrs, e.g. 'เหล็กข้ออ้อย 12 มิล' → '… 12 มิล 10 เมตร', spec 175).
+select cmp_ok(
+  (select count(*)::int from public.catalog_items where base_item='เหล็กข้ออ้อย'),
+  '>', 0, 'a known seed item (เหล็กข้ออ้อย) is present');
 select cmp_ok(
   (select count(*)::int from public.catalog_items where stockable),
   '>', 0, 'stockable items exist');

@@ -23,6 +23,11 @@ insert into public.equipment_owners (id, name, created_by) values
 insert into public.suppliers (id, name, created_by) values
   ('5a000001-0000-4000-8000-000000000624', 'Drain Supplier', '11111111-1111-1111-1111-111111110624');
 
+-- Isolate from any pre-existing prod gl_posting_outbox rows: the queue is not
+-- pruned, so real posted jobs persist and would inflate the table-wide posted
+-- count below. Owner context here; rolled back with the test.
+delete from public.gl_posting_outbox;
+
 -- Subledger rows -> the U4a triggers enqueue four pending jobs.
 insert into public.dc_payments
   (id, worker_id, period_from, period_to, computed_amount, computed_days, paid_amount, paid_at, method, paid_by)

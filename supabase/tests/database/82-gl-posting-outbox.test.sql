@@ -25,6 +25,11 @@ insert into public.workers (id, name, worker_type, day_rate, active, created_by)
 insert into public.equipment_owners (id, name, created_by) values
   ('b0000001-0000-4000-8000-000000000602', 'GLPost Sister Co', '11111111-1111-1111-1111-111111110602');
 
+-- Isolate from any pre-existing prod gl_posting_outbox rows: the queue is not
+-- pruned, so real posted jobs persist and would pollute the table-wide
+-- source_event counts below. Owner context here; rolled back with the test.
+delete from public.gl_posting_outbox;
+
 -- ============================================================================
 -- A. Catalog + posture.
 -- ============================================================================
