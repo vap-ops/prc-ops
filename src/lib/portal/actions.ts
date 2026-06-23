@@ -80,6 +80,38 @@ export async function submitBankChange(input: {
   return { ok: true };
 }
 
+// Spec 170 U4c-2 — a bound DC WORKER submits a bank change (→ pending → PM
+// approval). The worker analogue of submitBankChange; submit_worker_bank_change
+// enforces bound-worker-only / own / one-pending. Reuses validateBankChange (the
+// shape/UX rules are identical). RLS-scoped session.
+export async function submitWorkerBankChange(input: {
+  bankName: string;
+  accountNo: string;
+  accountName: string;
+  revalidate: string;
+}): Promise<ActionResult> {
+  if (!input.revalidate.startsWith("/")) return { ok: false, error: GENERIC_BANK };
+  const validation = validateBankChange(input);
+  if (validation) return { ok: false, error: validation };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("submit_worker_bank_change", {
+    p_bank_name: input.bankName.trim(),
+    p_bank_account_number: input.accountNo.trim(),
+    p_bank_account_name: input.accountName.trim(),
+  });
+  if (error) {
+    if (error.message.includes("already exists")) {
+      return { ok: false, error: "มีคำขอที่รออนุมัติอยู่แล้ว" };
+    }
+    return { ok: false, error: GENERIC_BANK };
+  }
+  revalidatePath(input.revalidate);
+  return { ok: true };
+}
+
 // Spec 130 U4 — PM approve/reject a pending bank change. On approve the RPC
 // applies it to the live contact_bank. pm/super only (relay + RPC gate).
 export async function decideBankChange(input: {

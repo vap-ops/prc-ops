@@ -17,6 +17,7 @@ import { CARD, SECTION_HEADING } from "@/lib/ui/classes";
 import { formatThaiDate } from "@/lib/i18n/labels";
 import { DC_PAYMENT_METHOD_LABELS } from "@/lib/labor/payments";
 import { BankChangeForm } from "@/components/features/portal/bank-change-form";
+import { WorkerBankChangeForm } from "@/components/features/portal/worker-bank-change-form";
 import { PortalSelfEdit, type PortalConsent } from "@/components/features/portal/portal-self-edit";
 import { PortalDocuments } from "@/components/features/portal/portal-documents";
 import { PortalContactInfo } from "@/components/features/portal/portal-contact-info";
@@ -43,24 +44,32 @@ export default async function PortalPage() {
   const { data: workerProfileRows } = await supabase.rpc("get_my_worker_profile");
   const wp = workerProfileRows?.[0];
   if (wp) {
-    const [{ data: workerPayments }, { data: workerConsentRows }, { data: receiptRows }] =
-      await Promise.all([
-        supabase.rpc("get_my_dc_payments"),
-        // RLS scopes this to the bound worker's own consents (U4b-2 read-arm).
-        supabase
-          .from("contractor_consents")
-          .select("id, kind, consented_at, revoked_at")
-          .order("created_at", { ascending: false }),
-        // Spec 177 U8: items issued TO this worker, still pending receipt. The
-        // U6 receiver-read RLS arm scopes this to the bound worker's own issues.
-        supabase
-          .from("stock_issues")
-          .select(
-            "id, qty, unit, catalog_items ( base_item, spec_attrs ), work_packages ( code, name )",
-          )
-          .is("received_at", null)
-          .order("issued_at", { ascending: false }),
-      ]);
+    const [
+      { data: workerPayments },
+      { data: workerConsentRows },
+      { data: receiptRows },
+      { data: pendingBankRows },
+    ] = await Promise.all([
+      supabase.rpc("get_my_dc_payments"),
+      // RLS scopes this to the bound worker's own consents (U4b-2 read-arm).
+      supabase
+        .from("contractor_consents")
+        .select("id, kind, consented_at, revoked_at")
+        .order("created_at", { ascending: false }),
+      // Spec 177 U8: items issued TO this worker, still pending receipt. The
+      // U6 receiver-read RLS arm scopes this to the bound worker's own issues.
+      supabase
+        .from("stock_issues")
+        .select(
+          "id, qty, unit, catalog_items ( base_item, spec_attrs ), work_packages ( code, name )",
+        )
+        .is("received_at", null)
+        .order("issued_at", { ascending: false }),
+      // Spec 170 U4c-2: an own pending bank-change request gates the form below
+      // (one pending at a time). RLS scopes to the bound worker.
+      supabase.from("worker_bank_change_requests").select("id").eq("status", "pending").limit(1),
+    ]);
+    const hasPendingWorkerBank = (pendingBankRows?.length ?? 0) > 0;
     const sortedWorkerPayments = [...(workerPayments ?? [])].sort((a, b) =>
       b.period_to.localeCompare(a.period_to),
     );
@@ -121,11 +130,12 @@ export default async function PortalPage() {
             <WorkerConsents consents={workerConsents} />
           </div>
 
-          {/* Bank — display only (U4c-1). The PM enters/edits it on /workers;
-              self-service staged change is the heavier U4c remainder. */}
+          {/* Bank — display + self-service staged change → PM approval (U4c-2,
+              the ADR-0051 §6 anti-fraud gate). The PM may also enter/edit it on
+              /workers. */}
           <h2 className={SECTION_HEADING}>บัญชีธนาคาร</h2>
           {wp.bank_name || wp.bank_account_number || wp.bank_account_name ? (
-            <div className={`${CARD} mb-6`}>
+            <div className={`${CARD} mb-3`}>
               <p className="text-ink text-sm font-medium">{wp.bank_name}</p>
               <p className="text-ink text-sm">
                 {wp.bank_account_number}
@@ -133,10 +143,13 @@ export default async function PortalPage() {
               </p>
             </div>
           ) : (
-            <div className="mb-6">
+            <div className="mb-3">
               <EmptyNotice>ยังไม่มีบัญชีธนาคาร</EmptyNotice>
             </div>
           )}
+          <div className="mb-6">
+            <WorkerBankChangeForm hasPending={hasPendingWorkerBank} />
+          </div>
 
           <h2 className={SECTION_HEADING}>ประวัติการจ่ายเงิน</h2>
           {sortedWorkerPayments.length > 0 ? (
