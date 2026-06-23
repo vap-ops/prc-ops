@@ -25,6 +25,8 @@ const ALLOWED_DOMAINS = [
   "supply-plan",
   // Spec 177: the on-site store (stock-in / on-hand) feature components.
   "store",
+  // Spec 183: the ภาพรวม dashboard feature components (pending-approvals card).
+  "dashboard",
 ] as const;
 
 describe("feature components are grouped into domain folders", () => {

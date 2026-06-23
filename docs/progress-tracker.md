@@ -6,6 +6,35 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 183 — approvals are awareness, not a tab (PM) (2026-06-23)
+
+Operator: "รอตรวจ menu should not be the main menu, but rather notification of
+how many Approvals are pending." Design challenge ("don't agree blindly"). Verdict:
+operator's instinct ~70% right — a bottom tab is a _place_, the review queue is a
+_transient, often-empty worklist_; the count is the actionable signal. But the
+proposal tangles two jobs: **awareness** (count → badge/card) and **doing the work**
+(the queue needs a real home). Since approving IS the PM's primary job, we demote
+the _tab-as-urgency-signal_, not the _queue-as-a-place_: relocate it onto the
+dashboard (the new PM home) + count badge on the ภาพรวม nav. Operator delegated
+placement ("design with ux in mind") and said other approval types get awareness
+in later units. Mocked the before/after with show_widget before building.
+
+3-unit arc: U1 count + dashboard hero card · U2 drop the tab + reroute home + badge
+pins · U3 the nav count badge (self-fetching). U4+ = other approval types (PR,
+bank/consent) — later.
+
+**U1 SHIPPED 2026-06-23 (NO DB).** `src/lib/approvals/pending-summary.ts`: pure
+`summarizePendingApprovals(rows, projectsById)` → `{count, oldest}` (oldest = min
+updated_at, code tiebreak — mirrors /review ordering) + async
+`getPendingApprovalsSummary` (RLS-scoped, mirrors the /review queue query so count
+== list). `features/dashboard/pending-approvals-card.tsx`: presentational, attention
+(amber) palette when pending / calm muted when empty, links → /review. Wired into
+/dashboard for the PM tier only (site_admin sees the dashboard, not the card).
+Tests: pending-approvals-summary (pure, 5) + pending-approvals-card (render, 3).
+LESSON: a new `features/<domain>/` folder must be added to the
+`feature-components-structure.test.ts` ALLOWED_DOMAINS allowlist (spec 122 guard) —
+caught by the full suite, not the targeted run. vitest 1489/0.
+
 ## Spec 174 — project Google-Maps link (precise pin) (2026-06-22)
 
 Operator: "Add Pinned map, or attach link from gMap." Chose (one question)

@@ -14,6 +14,8 @@ import { createClient as createServerSupabase } from "@/lib/db/server";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
+import { PendingApprovalsCard } from "@/components/features/dashboard/pending-approvals-card";
+import { getPendingApprovalsSummary } from "@/lib/approvals/pending-summary";
 import { rollupProgress } from "@/lib/dashboard/overview";
 import { sumMaterials, budgetStatus, type BudgetStatus } from "@/lib/dashboard/spend";
 import { aggregateLaborCost, type CostInputRow } from "@/lib/labor/cost";
@@ -40,6 +42,12 @@ export default async function DashboardPage() {
   const ctx = await requireRole(SITE_STAFF_ROLES);
   const isManager = PM_ROLES.includes(ctx.role);
   const supabase = await createServerSupabase();
+
+  // Spec 183 U1: the review queue, reframed as awareness on the PM home. Only
+  // the PM tier approves, so site_admin (also on this dashboard) gets no card.
+  const pendingSummary = isManager
+    ? await getPendingApprovalsSummary(supabase)
+    : { count: 0, oldest: null };
 
   // Operational reads — user session, SA-readable.
   const { data: projectRows } = await supabase
@@ -136,6 +144,10 @@ export default async function DashboardPage() {
       ) : null}
       <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-6 px-5 py-6`}>
         <h1 className="text-title text-ink font-bold tracking-tight">ภาพรวม</h1>
+
+        {/* Spec 183 U1: pending-approval awareness sits at the top of the PM
+            home — the review queue is no longer a tab, it surfaces here. */}
+        {isManager ? <PendingApprovalsCard summary={pendingSummary} /> : null}
 
         {items.length === 0 ? (
           <p className="text-ink-secondary text-body">ยังไม่มีโครงการที่กำลังดำเนินการ</p>
