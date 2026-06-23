@@ -39,7 +39,7 @@ export default async function CatalogPage() {
   // Spec 178 U5 — the per-item SELL rate is margin-sensitive money (zero
   // authenticated grant), so it is read ONLY for super_admin and ONLY via the
   // admin client (the nova money pattern: read admin, write via the gated RPC).
-  const canSetSellRate = ctx.role === "super_admin";
+  const canSetSellRate = ctx.role === "super_admin" || ctx.role === "project_director";
   const sellRates = new Map<string, number>();
   if (canSetSellRate) {
     const admin = createAdminSupabase();

@@ -144,9 +144,10 @@ export async function setItemSellRate(input: {
   id: string;
   rate: number;
 }): Promise<CatalogActionResult> {
-  // Spec 178 U5 — super_admin ONLY (the rate is margin-sensitive economics). The
-  // set_item_sell_rate definer carries the gate; requireRole is defense-in-depth.
-  await requireRole(["super_admin"]);
+  // Spec 178 U5 + follow-up — super_admin / project_director (the exec tier; "PD
+  // can also set", operator 2026-06-23). The set_item_sell_rate definer carries the
+  // gate; requireRole is defense-in-depth.
+  await requireRole(["super_admin", "project_director"]);
 
   if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC_ERROR };
   if (!Number.isFinite(input.rate) || input.rate < 0) {
