@@ -15,9 +15,11 @@ import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
 import { PendingApprovalsCard } from "@/components/features/dashboard/pending-approvals-card";
-import { BankChangeAwarenessCard } from "@/components/features/dashboard/bank-change-awareness-card";
+import { AwarenessCard } from "@/components/features/dashboard/awareness-card";
 import { getPendingApprovalsSummary } from "@/lib/approvals/pending-summary";
 import { getPendingBankChangeCount } from "@/lib/approvals/pending-bank-changes";
+import { getPendingPurchaseDecisionCount } from "@/lib/approvals/pending-purchase-decisions";
+import { Landmark, ShoppingCart } from "lucide-react";
 import { rollupProgress } from "@/lib/dashboard/overview";
 import { sumMaterials, budgetStatus, type BudgetStatus } from "@/lib/dashboard/spend";
 import { aggregateLaborCost, type CostInputRow } from "@/lib/labor/cost";
@@ -51,8 +53,9 @@ export default async function DashboardPage() {
     ? await getPendingApprovalsSummary(supabase)
     : { count: 0, oldest: null };
 
-  // Spec 184 U2: contractor bank changes awaiting approval have no nav surface —
-  // surface their count on the PM home (the card hides itself at zero).
+  // Spec 184 U2 / 185 U1: the dashboard is the complete approvals inbox — surface
+  // the purchase-request + bank-change counts here too (each card hides at zero).
+  const pendingPurchases = isManager ? await getPendingPurchaseDecisionCount(supabase) : 0;
   const pendingBankChanges = isManager ? await getPendingBankChangeCount(supabase) : 0;
 
   // Operational reads — user session, SA-readable.
@@ -159,9 +162,25 @@ export default async function DashboardPage() {
         {/* Spec 183 U1: pending-approval awareness sits at the top of the PM
             home — the review queue is no longer a tab, it surfaces here. */}
         {isManager ? <PendingApprovalsCard summary={pendingSummary} /> : null}
-        {/* Spec 184 U2: bank-change approvals have no nav home — surface the
-            count here (the card renders only when something is pending). */}
-        {isManager ? <BankChangeAwarenessCard count={pendingBankChanges} /> : null}
+        {/* Spec 185 U1: the dashboard is the complete approvals inbox — the PR +
+            bank-change cards (each shown only when pending) sum, with the รอตรวจ
+            hero, to the total on the ภาพรวม badge. */}
+        {isManager ? (
+          <AwarenessCard
+            count={pendingPurchases}
+            label="คำขอซื้อรอพิจารณา"
+            href="/requests"
+            icon={ShoppingCart}
+          />
+        ) : null}
+        {isManager ? (
+          <AwarenessCard
+            count={pendingBankChanges}
+            label="การเปลี่ยนบัญชีรอการอนุมัติ"
+            href="/contacts/subcontractors"
+            icon={Landmark}
+          />
+        ) : null}
 
         {items.length === 0 ? (
           <p className="text-ink-secondary text-body">ยังไม่มีโครงการที่กำลังดำเนินการ</p>

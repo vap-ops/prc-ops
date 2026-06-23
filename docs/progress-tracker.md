@@ -124,6 +124,25 @@ card. DEFERRED: dedicated bank-change queue page (vs drilling from the contracto
 list); worker-DC bank changes (ADR 0062 U4c-2 not built — folds into the card when it
 lands); header bell for a unified approvals inbox.
 
+## Spec 185 — one number for all approvals (unified pending on the home) (2026-06-23)
+
+Operator: "proceed" → "design the process yourself." Capstone of the awareness arc.
+Original ask (183) was "how many APPROVALS are pending" — a single total. Rejected a
+header bell: this app has NO global header (chrome = BottomTabBar + HubNav, pages
+render their own/none), so a bell has no consistent home. Instead fold the total into
+the existing idiom: ภาพรวม badge = total, dashboard = complete inbox.
+
+**U1 SHIPPED 2026-06-23 (NO DB).** Complete the dashboard inbox + generalize the card.
+Extracted `features/dashboard/awareness-card.tsx` `AwarenessCard({count,label,href,icon})`
+(renders only when count>0, attention palette, ArrowRight) and REMOVED the
+spec-184 `bank-change-awareness-card.tsx` (+ its test) — subsumed. Added
+`src/lib/approvals/pending-purchase-decisions.ts` `getPendingPurchaseDecisionCount`
+(server, RLS head-count of `purchase_requests`='requested'; error→0). Dashboard (PM
+tier) now renders, under the รอตรวจ hero: PR card (→/requests, ShoppingCart) + bank
+card (→/contacts/subcontractors, Landmark), via the generic card. Test: AwarenessCard
+(nothing at 0; count+label+link at >0). Net vitest 1499 (−2 bank test, +2 awareness).
+**U2 TODO: ภาพรวม badge → total (WP+PR+bank), relabel "รออนุมัติ".**
+
 ## Spec 174 — project Google-Maps link (precise pin) (2026-06-22)
 
 Operator: "Add Pinned map, or attach link from gMap." Chose (one question)
