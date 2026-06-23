@@ -32,7 +32,6 @@ import { PurchaseRequestTracker } from "@/components/features/purchasing/purchas
 import { PurchaseRequestNotes } from "@/components/features/purchasing/purchase-request-notes";
 import { PurchaseRequestDecision } from "@/components/features/purchasing/purchase-request-decision";
 import { PurchaseRequestCancel } from "@/components/features/purchasing/purchase-request-cancel";
-import { CreatePoFromRequestButton } from "@/components/features/purchasing/create-po-from-request-button";
 import {
   PriceComparison,
   type PurchaseQuote,
@@ -538,31 +537,23 @@ export default async function RequestDetailPage({ params }: PageProps) {
               <PurchaseRequestDecision requestId={request.id} />
             ) : null}
             {isBackOffice && status === "approved" ? (
-              <>
-                {/* Spec 182: compare supplier quotes before ordering. */}
-                <PriceComparison
-                  purchaseRequestId={request.id}
-                  quantity={request.quantity}
-                  unit={request.unit}
-                  quotes={quotes}
-                  suppliers={suppliers}
-                />
-                {/* Spec 120: recording a purchase = creating a one-line PO (the
-                    unified purchase path; replaces the spec-33 record form). */}
-                <div className="border-edge-strong mt-3 border-t pt-3">
-                  <CreatePoFromRequestButton
-                    line={{
-                      id: request.id,
-                      pr_number: request.pr_number,
-                      item_description: request.item_description,
-                      quantity: request.quantity,
-                      unit: request.unit,
-                      wp_code: wp?.code ?? null,
-                    }}
-                    suppliers={suppliers}
-                  />
-                </div>
-              </>
+              /* Spec 182: compare supplier quotes, then create the PO from the
+                 picked one (PriceComparison owns the create-PO sheet, U2). */
+              <PriceComparison
+                purchaseRequestId={request.id}
+                quantity={request.quantity}
+                unit={request.unit}
+                quotes={quotes}
+                suppliers={suppliers}
+                line={{
+                  id: request.id,
+                  pr_number: request.pr_number,
+                  item_description: request.item_description,
+                  quantity: request.quantity,
+                  unit: request.unit,
+                  wp_code: wp?.code ?? null,
+                }}
+              />
             ) : null}
             {isBackOffice && status === "purchased" ? (
               <PurchaseRequestShip requestId={request.id} />

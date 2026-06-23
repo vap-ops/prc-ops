@@ -1,6 +1,6 @@
 # Spec 182 — Procurement price comparison (quotes + history)
 
-Status: U1 SHIPPED to prod — 2026-06-23. U2–U4 in progress.
+Status: U1 + U2 SHIPPED to prod — 2026-06-23. U3–U4 in progress.
 Builds on: spec 33/115/ADR 0038/0044 (suppliers + purchase orders), spec 179 (PR
 links a catalog item — the price-history axis), spec 181 (the bulk PR that feeds
 approved PRs to procurement).

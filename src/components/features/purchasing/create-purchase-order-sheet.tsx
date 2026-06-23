@@ -74,6 +74,8 @@ export function CreatePurchaseOrderSheet({
   onClose,
   onCreated,
   onRemoveLine,
+  defaultSupplierId,
+  defaultAmounts,
 }: {
   open: boolean;
   lines: ReadonlyArray<CreatePoLine>;
@@ -82,6 +84,10 @@ export function CreatePurchaseOrderSheet({
   onCreated: () => void;
   // Spec 118 (phone basket): drop a line from the order inside the sheet.
   onRemoveLine?: (id: string) => void;
+  // Spec 182 U2: prefill from a picked quote (supplier + each line's net price).
+  // Seeded into the initial state — the caller remounts (key) on a new pick.
+  defaultSupplierId?: string | undefined;
+  defaultAmounts?: Record<string, string> | undefined;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -107,9 +113,9 @@ export function CreatePurchaseOrderSheet({
   // Reset is done in the file-change handler (a setState-in-effect trips the
   // React Compiler lint — the recurring rule).
   const [imgZoom, setImgZoom] = useState(1);
-  const [supplierId, setSupplierId] = useState("");
+  const [supplierId, setSupplierId] = useState(defaultSupplierId ?? "");
   const [eta, setEta] = useState("");
-  const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [amounts, setAmounts] = useState<Record<string, string>>(defaultAmounts ?? {});
   // Default exclusive (ก่อน VAT): a PO is created from a quotation, and Thai
   // quotes are usually quoted ex-VAT (net + 7%) — spec 120 review.
   const [vatMode, setVatMode] = useState<VatMode>("exclusive");

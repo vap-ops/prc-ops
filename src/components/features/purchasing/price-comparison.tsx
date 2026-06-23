@@ -1,16 +1,22 @@
 "use client";
 
-// Spec 182 U1 — price comparison on an approved PR. Back-office records supplier
-// quotes (net unit price); this ranks them cheapest-first, shows total (unit ×
-// qty) + % over the cheapest, and adds/removes quotes. Money (unit_price) only
-// renders here (the page gates the render to back-office; the quotes table is
-// back-office-read-only). Pick-winner → PO is U2.
+// Spec 182 U1/U2 — price comparison on an approved PR. Back-office records
+// supplier quotes (net unit price); this ranks them cheapest-first, shows total
+// (unit × qty) + % over the cheapest, and lets a quote be picked → the winning
+// supplier + price prefill the create-PO sheet (U2). Money (unit_price) only
+// renders here (the page gates the render to back-office; the table is
+// back-office-read-only).
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { BUTTON_PRIMARY, FIELD_INPUT, INLINE_ERROR } from "@/lib/ui/classes";
 import { addPurchaseQuote, removePurchaseQuote } from "@/app/requests/actions";
+import {
+  CreatePurchaseOrderSheet,
+  type CreatePoLine,
+} from "@/components/features/purchasing/create-purchase-order-sheet";
+import type { SupplierOption } from "@/components/features/purchasing/purchase-record-form";
 
 export type PurchaseQuote = {
   id: string;
@@ -33,12 +39,15 @@ export function PriceComparison({
   unit,
   quotes,
   suppliers,
+  line,
 }: {
   purchaseRequestId: string;
   quantity: number;
   unit: string;
   quotes: PurchaseQuote[];
-  suppliers: { id: string; name: string }[];
+  suppliers: SupplierOption[];
+  // Spec 182 U2: this PR as a PO line, so picking a quote can create the PO.
+  line: CreatePoLine;
 }) {
   const router = useRouter();
   const ranked = useMemo(() => [...quotes].sort((a, b) => a.unitPrice - b.unitPrice), [quotes]);
@@ -48,10 +57,15 @@ export function PriceComparison({
 
   const [supplierId, setSupplierId] = useState("");
   const [priceText, setPriceText] = useState("");
-  const [note, setNote] = useState("");
+  const [note] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [adding, startAdd] = useTransition();
   const [removing, startRemove] = useTransition();
+
+  // Spec 182 U2: the chosen quote (defaults to the cheapest) drives the PO.
+  const [pickedId, setPickedId] = useState<string>("");
+  const picked = ranked.find((q) => q.id === pickedId) ?? ranked[0] ?? null;
+  const [poOpen, setPoOpen] = useState(false);
 
   const price = priceText.trim() === "" ? Number.NaN : Number(priceText);
   const canAdd = supplierId !== "" && Number.isFinite(price) && price >= 0 && !adding;
@@ -67,7 +81,6 @@ export function PriceComparison({
       }
       setSupplierId("");
       setPriceText("");
-      setNote("");
       router.refresh();
     });
   }
@@ -98,13 +111,22 @@ export function PriceComparison({
             const total = q.unitPrice * quantity;
             const pct = cheapest > 0 ? Math.round(((q.unitPrice - cheapest) / cheapest) * 100) : 0;
             const isCheapest = i === 0;
+            const isPicked = picked?.id === q.id;
             return (
               <li
                 key={q.id}
                 className={`rounded-control flex items-center gap-3 border px-3 py-2 ${
-                  isCheapest ? "border-edge-strong bg-sunk" : "border-edge bg-card"
+                  isPicked ? "border-action bg-action-soft" : "border-edge bg-card"
                 }`}
               >
+                <input
+                  type="radio"
+                  name="pq-pick"
+                  aria-label={`เลือก ${q.supplierName}`}
+                  checked={isPicked}
+                  onChange={() => setPickedId(q.id)}
+                  className="accent-action size-5 shrink-0"
+                />
                 <span className="min-w-0 flex-1">
                   <span className="text-ink block text-sm font-medium">{q.supplierName}</span>
                   <span className="text-ink-secondary text-meta block">
@@ -183,6 +205,22 @@ export function PriceComparison({
           {error}
         </div>
       ) : null}
+
+      {/* Spec 182 U2: create the PO from the picked quote (supplier + net price
+          prefilled). With no quotes, the sheet opens blank — same as before. */}
+      <button type="button" onClick={() => setPoOpen(true)} className={`${BUTTON_PRIMARY} w-full`}>
+        {picked ? `สร้างใบสั่งซื้อจาก ${picked.supplierName}` : "สร้างใบสั่งซื้อ (PO)"}
+      </button>
+      <CreatePurchaseOrderSheet
+        key={picked?.id ?? "blank"}
+        open={poOpen}
+        lines={[line]}
+        suppliers={suppliers}
+        defaultSupplierId={picked?.supplierId}
+        defaultAmounts={picked ? { [line.id]: String(picked.unitPrice * quantity) } : undefined}
+        onClose={() => setPoOpen(false)}
+        onCreated={() => setPoOpen(false)}
+      />
     </div>
   );
 }
