@@ -29,7 +29,8 @@ export const metadata = { title: "ภาพรวม" };
 // Live projects only — finished/archived work drops off the overview.
 const LIVE_STATUSES = ["active", "on_hold"] as const;
 
-const baht = (n: number) => `฿${Math.round(n).toLocaleString("en-US")}`;
+const baht = (n: number) =>
+  `฿${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 interface ProjectVM {
   id: string;

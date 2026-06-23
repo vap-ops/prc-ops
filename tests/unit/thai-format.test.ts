@@ -21,16 +21,18 @@ describe("digitsOnly", () => {
 });
 
 describe("isValidThaiPhone", () => {
-  it("accepts exactly 10 digits starting with 0 (raw or formatted)", () => {
-    expect(isValidThaiPhone("0812345678")).toBe(true);
+  it("accepts 9 or 10 digits starting with 0 (landline or mobile, raw or formatted)", () => {
+    expect(isValidThaiPhone("0812345678")).toBe(true); // 10-digit mobile
     expect(isValidThaiPhone("081-234-5678")).toBe(true);
-    expect(isValidThaiPhone("02-1234-5678")).toBe(true); // 10-digit Bangkok landline
+    expect(isValidThaiPhone("02-1234-5678")).toBe(true); // 10 digits
+    expect(isValidThaiPhone("02-123-4567")).toBe(true); // 9-digit Bangkok landline
+    expect(isValidThaiPhone("021234567")).toBe(true); // 9 digits raw
   });
-  it("rejects wrong length, wrong lead digit, empty", () => {
+  it("rejects fewer than 9 or more than 10 digits, wrong lead digit, empty", () => {
     expect(isValidThaiPhone("")).toBe(false);
-    expect(isValidThaiPhone("081234567")).toBe(false); // 9
+    expect(isValidThaiPhone("02123456")).toBe(false); // 8
     expect(isValidThaiPhone("08123456789")).toBe(false); // 11
-    expect(isValidThaiPhone("1812345678")).toBe(false); // no leading 0
+    expect(isValidThaiPhone("181234567")).toBe(false); // 9 but no leading 0
   });
 });
 

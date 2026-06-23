@@ -6,17 +6,18 @@
 // user sees), re-derived from digits so it is always canonical regardless of how
 // it was pasted.
 //
-// Phone: 10 digits, leading 0 (Thai mobile 08X/09X + landline 0X). Display 3-3-4
-// (0XX-XXX-XXXX). Tax id: the 13-digit Thai taxpayer/VAT number, display 1-4-5-2-1.
+// Phone: 9 or 10 digits, leading 0 — mobile 08X/09X (10) OR landline 0X (9, e.g.
+// Bangkok 02-XXX-XXXX). Display 3-3-4 progressively. Tax id: the 13-digit Thai
+// taxpayer/VAT number, display 1-4-5-2-1.
 
 /** Strip everything but digits. */
 export function digitsOnly(value: string): string {
   return (value ?? "").replace(/\D/g, "");
 }
 
-/** Exactly 10 digits, leading 0 — accepts raw or dash-formatted input. */
+/** 9 or 10 digits, leading 0 (landline=9, mobile=10) — raw or dash-formatted. */
 export function isValidThaiPhone(value: string): boolean {
-  return /^0\d{9}$/.test(digitsOnly(value));
+  return /^0\d{8,9}$/.test(digitsOnly(value));
 }
 
 /** Progressive 3-3-4 grouping, capped at 10 digits. Junk → digits only. */

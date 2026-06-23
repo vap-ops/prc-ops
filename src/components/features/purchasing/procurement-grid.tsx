@@ -121,7 +121,8 @@ export interface PoHeaderFacts {
   lineCount: number;
 }
 
-const baht = (n: number) => `฿${Math.round(n).toLocaleString("en-US")}`;
+const baht = (n: number) =>
+  `฿${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function ProcurementGrid({
   groups,

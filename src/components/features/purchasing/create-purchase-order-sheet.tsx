@@ -58,7 +58,8 @@ export interface CreatePoLine {
   wp_code: string | null;
 }
 
-const baht = (n: number) => `฿${Math.round(n).toLocaleString("en-US")}`;
+const baht = (n: number) =>
+  `฿${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const FIELD_DATE =
   "rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action h-11 w-full min-w-0 appearance-none border px-3 text-sm shadow-xs focus:outline-none focus-visible:ring-2";

@@ -12,7 +12,10 @@ import type { OverdueAttentionItem } from "@/lib/purchasing/overdue-attention";
 
 // Module-local THB formatter — the codebase pattern (procurement-grid,
 // create-purchase-order-sheet, supplier-spend each carry their own).
-const baht = (n: number | null) => (n == null ? "—" : `฿${Math.round(n).toLocaleString("en-US")}`);
+const baht = (n: number | null) =>
+  n == null
+    ? "—"
+    : `฿${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 interface OverdueFollowUpPanelProps {
   items: OverdueAttentionItem[];
