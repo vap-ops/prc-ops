@@ -293,6 +293,28 @@ PM approval surface on /workers). **U4c-3** = DC documents (OPEN-7: worker docs
 table + `worker/<id>/…` storage prefix vs extend `contact_attachments` with
 worker_id; storage RLS). Both need an operator decision before building.
 
+**OPEN-6 RESOLVED 2026-06-23 (operator AskUserQuestion): parallel
+`worker_bank_change_requests` table** (NOT polymorphic on the contractor table).
+Rationale: the apply path genuinely forks — a worker change writes
+`workers.bank_*` inline (no `contact_bank` row), with worker column names — so a
+shared decide RPC would branch anyway; and a separate table fully isolates the
+shipped, pgTAP-pinned (file 39) contractor anti-fraud gate from regression (no
+nullable-ing its `NOT NULL contractor_id`, no RLS rework). The awareness layer
+already sums N counts; 3→4 is one line. **U4c-2 arc (this session):**
+
+- **U1 (DB foundation):** mig `20260810000000_spec170u4c2_worker_bank_change.sql`.
+  `worker_bank_change_requests` (reuses enum `contractor_change_status`; bank caps
+  match the `workers` columns 120/50/120). RLS: readable-by-bound-worker
+  (`current_user_worker_id()`) + readable-by-staff (pm/super/director), writes
+  RPC-only. `submit_worker_bank_change` (worker-gate + one-pending guard) +
+  `decide_worker_bank_change` (pm/super/director gate; approve → UPDATE
+  `workers.bank_*`; idempotent). EXECUTE lockdown re-granted. pgTAP 201 (mirror 39).
+- **U2 (portal submit):** the worker bank card on /portal gains a `เปลี่ยนบัญชี`
+  form (`WorkerBankChangeForm` + `submitWorkerBankChange` action) → pending state.
+- **U3 (PM awareness fold):** `getPendingWorkerBankChangeCount` → the ภาพรวม total
+  badge becomes 4 reads; a dashboard inbox card; `/contacts/bank-changes` merges
+  worker rows (worker-name resolution).
+
 - **Bank:** display from `workers` bank fields (U1) + a staged change → PM
   approval. **OPEN-6:** reuse `contractor_bank_change_requests` with a `worker_id`
   vs. a parallel `worker_bank_change_requests`. The U1 worker bank columns are

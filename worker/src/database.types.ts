@@ -4015,6 +4015,67 @@ export type Database = {
           },
         ]
       }
+      worker_bank_change_requests: {
+        Row: {
+          bank_account_name: string | null
+          bank_account_number: string | null
+          bank_name: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          requested_by: string
+          status: Database["public"]["Enums"]["contractor_change_status"]
+          worker_id: string
+        }
+        Insert: {
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          requested_by: string
+          status?: Database["public"]["Enums"]["contractor_change_status"]
+          worker_id: string
+        }
+        Update: {
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          requested_by?: string
+          status?: Database["public"]["Enums"]["contractor_change_status"]
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "worker_bank_change_requests_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_bank_change_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_bank_change_requests_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       worker_invites: {
         Row: {
           claimed_at: string | null
@@ -4823,6 +4884,10 @@ export type Database = {
         Args: { p_approve: boolean; p_id: string }
         Returns: undefined
       }
+      decide_worker_bank_change: {
+        Args: { p_approve: boolean; p_id: string }
+        Returns: undefined
+      }
       delete_deliverable: {
         Args: { p_deliverable_id: string }
         Returns: boolean
@@ -5378,6 +5443,14 @@ export type Database = {
         Returns: string
       }
       submit_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
+      submit_worker_bank_change: {
+        Args: {
+          p_bank_account_name: string
+          p_bank_account_number: string
+          p_bank_name: string
+        }
+        Returns: string
+      }
       suggest_project_code: { Args: never; Returns: string }
       supply_plan_accuracy: {
         Args: { p_project_id: string }
