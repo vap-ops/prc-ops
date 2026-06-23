@@ -5,16 +5,25 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockRecord, mockIssue, mockCount, mockRevReceipt, mockRevIssue, mockRefresh, mockPush } =
-  vi.hoisted(() => ({
-    mockRecord: vi.fn(),
-    mockIssue: vi.fn(),
-    mockCount: vi.fn(),
-    mockRevReceipt: vi.fn(),
-    mockRevIssue: vi.fn(),
-    mockRefresh: vi.fn(),
-    mockPush: vi.fn(),
-  }));
+const {
+  mockRecord,
+  mockIssue,
+  mockCount,
+  mockRevReceipt,
+  mockRevIssue,
+  mockConfirmOB,
+  mockRefresh,
+  mockPush,
+} = vi.hoisted(() => ({
+  mockRecord: vi.fn(),
+  mockIssue: vi.fn(),
+  mockCount: vi.fn(),
+  mockRevReceipt: vi.fn(),
+  mockRevIssue: vi.fn(),
+  mockConfirmOB: vi.fn(),
+  mockRefresh: vi.fn(),
+  mockPush: vi.fn(),
+}));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: mockRefresh, push: mockPush }),
@@ -25,6 +34,7 @@ vi.mock("@/app/store/actions", () => ({
   recordStockCount: mockCount,
   reverseStockReceipt: mockRevReceipt,
   reverseStockIssue: mockRevIssue,
+  confirmStockIssueOnBehalf: mockConfirmOB,
 }));
 
 import {
@@ -95,6 +105,7 @@ beforeEach(() => {
   mockCount.mockReset().mockResolvedValue({ ok: true });
   mockRevReceipt.mockReset().mockResolvedValue({ ok: true });
   mockRevIssue.mockReset().mockResolvedValue({ ok: true });
+  mockConfirmOB.mockReset().mockResolvedValue({ ok: true });
   mockRefresh.mockReset();
   mockPush.mockReset();
 });
@@ -329,6 +340,33 @@ describe("StoreManager กลับรายการ/reversal (spec 177 U12)", 
     fireEvent.click(screen.getByRole("button", { name: "กลับรายการ" }));
     fireEvent.click(screen.getByRole("button", { name: "ยืนยัน" }));
     await waitFor(() => expect(mockRevIssue).toHaveBeenCalledWith({ issueId: "iss1" }));
+  });
+});
+
+describe("StoreManager confirm-on-behalf (spec 178 B5)", () => {
+  it("offers ยืนยันรับแทน on a pending named issue for a manager", () => {
+    renderManager({ canIssue: true, issues });
+    expect(screen.getByRole("button", { name: "ยืนยันรับแทน" })).toBeInTheDocument();
+  });
+
+  it("hides ยืนยันรับแทน once the issue is received", () => {
+    renderManager({
+      canIssue: true,
+      issues: [{ ...issues[0]!, receivedAt: "2026-06-22T10:00:00Z" }],
+    });
+    expect(screen.queryByRole("button", { name: "ยืนยันรับแทน" })).toBeNull();
+  });
+
+  it("hides ยืนยันรับแทน for a non-manager", () => {
+    renderManager({ canIssue: false, issues });
+    expect(screen.queryByRole("button", { name: "ยืนยันรับแทน" })).toBeNull();
+  });
+
+  it("confirms on behalf after confirm", async () => {
+    renderManager({ canIssue: true, issues });
+    fireEvent.click(screen.getByRole("button", { name: "ยืนยันรับแทน" }));
+    fireEvent.click(screen.getByRole("button", { name: "ยืนยัน" }));
+    await waitFor(() => expect(mockConfirmOB).toHaveBeenCalledWith({ issueId: "iss1" }));
   });
 });
 

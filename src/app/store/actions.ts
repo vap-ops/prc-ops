@@ -169,6 +169,34 @@ export async function confirmStockIssue(input: { issueId: string }): Promise<Sto
   return { ok: true };
 }
 
+// Spec 178 B5 — confirm-on-behalf: a PM-tier manager (not the issuer) attests
+// receipt for a login-less receiver worker. The confirm_stock_issue_on_behalf RPC
+// carries the gate (PM tier, member, not-issuer) + the audit stamp.
+export async function confirmStockIssueOnBehalf(input: {
+  issueId: string;
+}): Promise<StockInResult> {
+  if (!UUID_REGEX.test(input.issueId)) {
+    return { ok: false, error: "ยืนยันการรับไม่สำเร็จ" };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("confirm_stock_issue_on_behalf", {
+    p_issue_id: input.issueId,
+  });
+  if (error) {
+    if (error.code === "42501")
+      return { ok: false, error: "ไม่มีสิทธิ์ยืนยันรับแทน (ผู้เบิกยืนยันเองไม่ได้)" };
+    if (error.code === "22023")
+      return { ok: false, error: "ยืนยันไม่ได้ — ยืนยันแล้ว / ไม่มีผู้รับ / ไม่พบรายการ" };
+    return { ok: false, error: "ยืนยันการรับไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  revalidatePath("/store");
+  return { ok: true };
+}
+
 // Spec 177 U3/U4 — เบิก/issue-out. Calls the SECURITY DEFINER issue_stock RPC,
 // which carries the SITE_STAFF gate + membership + the sufficient-on-hand guard
 // and decrements on-hand at the moving-average cost; this maps its error codes.

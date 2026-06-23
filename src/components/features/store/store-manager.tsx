@@ -13,6 +13,7 @@ import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes
 import { ITEM_CATEGORY_LABEL, STORE_ISSUE_LABEL, STORE_RECEIVE_LABEL } from "@/lib/i18n/labels";
 import type { Database } from "@/lib/db/database.types";
 import {
+  confirmStockIssueOnBehalf,
   issueStock,
   recordStockCount,
   recordStockIn,
@@ -395,6 +396,19 @@ export function StoreManager({
                     <span className="text-ink text-body shrink-0 font-semibold">
                       {i.qty} {i.unit}
                     </span>
+                    {/* Spec 178 B5 — confirm-on-behalf: a manager attests receipt for
+                        a login-less named receiver who's still รอรับ. The RPC blocks
+                        the issuer (separation of duties); the error maps cleanly. */}
+                    {canIssue && i.receiverWorkerId && !i.receivedAt ? (
+                      <ConfirmActionButton
+                        idleLabel="ยืนยันรับแทน"
+                        pendingLabel="กำลังยืนยัน…"
+                        confirmMessage={`ยืนยันว่าผู้รับได้รับ ${i.baseItem} ${i.qty} ${i.unit} แล้ว (ยืนยันแทนผู้รับ)?`}
+                        confirmLabel="ยืนยัน"
+                        buttonClassName={`${BUTTON_SECONDARY} shrink-0`}
+                        action={() => confirmStockIssueOnBehalf({ issueId: i.id })}
+                      />
+                    ) : null}
                     {/* เบิก reversal = SITE_STAFF; on /store that is the manager tier. */}
                     {canIssue ? (
                       <ConfirmActionButton
