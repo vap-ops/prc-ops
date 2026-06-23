@@ -17,6 +17,13 @@ vi.mock("@/app/requests/actions", () => ({
   addPurchaseQuote: mockAdd,
   removePurchaseQuote: mockRemove,
 }));
+// Stub the per-row quote-doc uploader (spec 182 U4) — it pulls in the browser
+// Supabase client; the test only asserts PriceComparison wires it per row.
+vi.mock("@/components/features/purchasing/quote-doc-attach", () => ({
+  QuoteDocAttach: (props: { quoteId: string }) => (
+    <div data-testid="quote-doc-attach" data-quote={props.quoteId} />
+  ),
+}));
 // Stub the PO sheet — assert PriceComparison passes the picked quote's defaults.
 vi.mock("@/components/features/purchasing/create-purchase-order-sheet", () => ({
   CreatePurchaseOrderSheet: (props: {
@@ -56,16 +63,22 @@ const line = {
   wp_code: null,
 };
 
-function renderPC(opts?: { quotes?: typeof quotes; history?: ItemPriceHistory[] }) {
+function renderPC(opts?: {
+  quotes?: typeof quotes;
+  history?: ItemPriceHistory[];
+  quoteDocs?: Record<string, string>;
+}) {
   render(
     <PriceComparison
       purchaseRequestId="pr1"
+      projectId="proj1"
       quantity={50}
       unit="ท่อน"
       quotes={opts?.quotes ?? quotes}
       suppliers={suppliers}
       line={line}
       history={opts?.history ?? []}
+      quoteDocs={opts?.quoteDocs ?? {}}
     />,
   );
 }
@@ -152,6 +165,29 @@ describe("PriceComparison last-paid benchmark (spec 182 U3)", () => {
   it("renders no benchmark line when there is no history", () => {
     renderPC({ history: [] });
     expect(screen.queryByText(/เคยซื้อล่าสุด/)).toBeNull();
+  });
+});
+
+describe("PriceComparison quote docs (spec 182 U4)", () => {
+  it("links the attached doc and disables remove for a quote that has one", () => {
+    // q1 (ส.รุ่งเรือง, cheapest) carries a doc; q2 (ไทยวัสดุ) does not.
+    renderPC({ quoteDocs: { q1: "https://signed/q1.pdf" } });
+    const rows = screen.getAllByRole("listitem");
+
+    const docLink = within(rows[0]!).getByRole("link", { name: /ดูเอกสาร/ });
+    expect(docLink).toHaveAttribute("href", "https://signed/q1.pdf");
+    // A doc'd quote is kept for audit → its remove is disabled (append-only doc).
+    expect(within(rows[0]!).getByRole("button", { name: "ลบ" })).toBeDisabled();
+    // No attach affordance on a row that already has a doc.
+    expect(within(rows[0]!).queryByTestId("quote-doc-attach")).toBeNull();
+  });
+
+  it("offers the attach affordance on a quote with no doc", () => {
+    renderPC({ quoteDocs: { q1: "https://signed/q1.pdf" } });
+    const rows = screen.getAllByRole("listitem");
+    const attach = within(rows[1]!).getByTestId("quote-doc-attach");
+    expect(attach).toHaveAttribute("data-quote", "q2");
+    expect(within(rows[1]!).queryByRole("link", { name: /ดูเอกสาร/ })).toBeNull();
   });
 });
 

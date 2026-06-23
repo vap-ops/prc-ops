@@ -9,9 +9,10 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2 } from "lucide-react";
+import { Paperclip, Trash2 } from "lucide-react";
 import { BUTTON_PRIMARY, FIELD_INPUT, INLINE_ERROR } from "@/lib/ui/classes";
 import { addPurchaseQuote, removePurchaseQuote } from "@/app/requests/actions";
+import { QuoteDocAttach } from "@/components/features/purchasing/quote-doc-attach";
 import {
   CreatePurchaseOrderSheet,
   type CreatePoLine,
@@ -45,14 +46,18 @@ function baht(n: number): string {
 
 export function PriceComparison({
   purchaseRequestId,
+  projectId,
   quantity,
   unit,
   quotes,
   suppliers,
   line,
   history = [],
+  quoteDocs = {},
 }: {
   purchaseRequestId: string;
+  // Spec 182 U4: the PR's project — the pr-attachments storage path prefix.
+  projectId: string;
   quantity: number;
   unit: string;
   quotes: PurchaseQuote[];
@@ -61,6 +66,8 @@ export function PriceComparison({
   line: CreatePoLine;
   // Spec 182 U3: past purchases of this item (newest first) → last-paid line.
   history?: ItemPriceHistory[];
+  // Spec 182 U4: quote id → its attached document's signed URL (when present).
+  quoteDocs?: Record<string, string>;
 }) {
   const router = useRouter();
   const ranked = useMemo(() => [...quotes].sort((a, b) => a.unitPrice - b.unitPrice), [quotes]);
@@ -137,6 +144,8 @@ export function PriceComparison({
             const pct = cheapest > 0 ? Math.round(((q.unitPrice - cheapest) / cheapest) * 100) : 0;
             const isCheapest = i === 0;
             const isPicked = picked?.id === q.id;
+            // Spec 182 U4: the quote's attached document (if one was uploaded).
+            const docUrl = quoteDocs[q.id];
             return (
               <li
                 key={q.id}
@@ -165,12 +174,34 @@ export function PriceComparison({
                   </span>
                 </span>
                 <span className="text-ink shrink-0 text-sm font-semibold">{baht(total)}</span>
+                {/* Spec 182 U4: the source quotation — a link if attached, else
+                    the per-row attach control (one doc per quote). */}
+                {docUrl ? (
+                  <a
+                    href={docUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`ดูเอกสาร ${q.supplierName}`}
+                    className="text-action focus-visible:ring-action inline-flex shrink-0 items-center gap-1 rounded-md p-1 text-xs focus:outline-none focus-visible:ring-2"
+                  >
+                    <Paperclip aria-hidden className="size-4" />
+                    เอกสาร
+                  </a>
+                ) : (
+                  <QuoteDocAttach
+                    purchaseRequestId={purchaseRequestId}
+                    projectId={projectId}
+                    quoteId={q.id}
+                  />
+                )}
                 <button
                   type="button"
                   aria-label="ลบ"
-                  disabled={removing}
+                  // A doc'd quote is append-only and kept for audit → not removable.
+                  disabled={removing || Boolean(docUrl)}
+                  title={docUrl ? "ลบไม่ได้ — มีเอกสารแนบ (เก็บไว้ตรวจสอบ)" : undefined}
                   onClick={() => handleRemove(q.id)}
-                  className="text-ink-muted hover:text-ink focus-visible:ring-action shrink-0 rounded-md p-1 focus:outline-none focus-visible:ring-2"
+                  className="text-ink-muted hover:text-ink focus-visible:ring-action shrink-0 rounded-md p-1 focus:outline-none focus-visible:ring-2 disabled:opacity-40"
                 >
                   <Trash2 aria-hidden className="size-5" />
                 </button>

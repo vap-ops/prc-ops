@@ -1,6 +1,6 @@
 # Spec 182 — Procurement price comparison (quotes + history)
 
-Status: U1 + U2 + U3 SHIPPED to prod — 2026-06-23. U4 in progress.
+Status: U1 + U2 + U3 + U4 SHIPPED to prod — 2026-06-23. ARC COMPLETE.
 Builds on: spec 33/115/ADR 0038/0044 (suppliers + purchase orders), spec 179 (PR
 links a catalog item — the price-history axis), spec 181 (the bulk PR that feeds
 approved PRs to procurement).
@@ -47,8 +47,20 @@ ADR 0038). The compare UI renders only for those roles on the PR detail screen.
   DEFINER + back-office role gate (PM/procurement/super/director — site_admin +
   anon get nothing; the money posture). The page selects `catalog_item_id` and
   fetches the history only when `isBackOffice && approved && catalog_item_id`.
-- **U4 — quote doc:** a `quote` attachment purpose on pr-attachments, linked per
-  quote row (the 📎), so each quote carries its source document.
+- **U4 — quote doc (SHIPPED):** a `quote` attachment purpose on pr-attachments +
+  a nullable `quote_id` FK (→ purchase_quotes, ON DELETE CASCADE), so each quote
+  carries its source quotation (the 📎). Attached PER ROW (cleaner + more robust
+  than mid-add orchestration; matches "📎 per quote row"): a doc-less row shows an
+  attach control (`QuoteDocAttach`, the InvoiceUploader pattern → pr-attachments
+  bucket → `addQuoteAttachment` with purpose='quote' + quote_id); a doc'd row
+  shows a link. **Money posture:** a RESTRICTIVE select gates quote rows to
+  back-office (a quotation shows prices); the INSERT policy gains a quote arm
+  (back-office, approved PR, quote on this PR — outer refs table-qualified to
+  dodge the purchase_quotes.purchase_request_id name-capture). The storage upload
+  policy widened (+procurement/director +approved). **Deletion edge:** a doc'd
+  quote is append-only + FK-referenced, so it can't be hard-removed in normal ops
+  (the cascade hits the append-only trigger) — the UI disables remove on a doc'd
+  quote (kept for audit, aligned with "losing quotes are kept").
 
 ## U1 details
 

@@ -239,7 +239,7 @@ async function findLandedAttachment(
     // pin the actual kind (an id-only check would let a forged replay claim
     // a foreign row, spec-35 lesson).
     kind: AttachmentFileKind;
-    purpose: "delivery_confirmation" | "reference" | "invoice";
+    purpose: "delivery_confirmation" | "reference" | "invoice" | "quote";
     storagePath: string;
   },
 ): Promise<boolean> {
@@ -1074,6 +1074,87 @@ export async function removePurchaseQuote(input: {
   if (error) {
     if (error.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์ลบใบเสนอราคา" };
     return { ok: false, error: "ลบใบเสนอราคาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  revalidatePath(`/requests/${input.purchaseRequestId}`);
+  return { ok: true };
+}
+
+// addQuoteAttachment (spec 182 U4): the supplier's quotation document, attached
+// to a purchase_quotes row. Mirrors addInvoiceAttachment — the browser already
+// uploaded the bytes; this records the metadata, REBUILDS the canonical path
+// server-side (a client path is never trusted) and derives the kind from the
+// validated ext. Purpose 'quote' + quote_id; the RLS quote arm re-enforces the
+// back-office gate, the approved-parent window, and that the quote is on this PR.
+// Money posture: quote rows are back-office-read only (a RESTRICTIVE SELECT).
+
+export interface AddQuoteAttachmentInput {
+  purchaseRequestId: string;
+  quoteId: string;
+  attachmentId: string;
+  ext: string;
+}
+
+export async function addQuoteAttachment(
+  input: AddQuoteAttachmentInput,
+): Promise<AttachmentActionResult> {
+  if (
+    !UUID_REGEX.test(input.purchaseRequestId) ||
+    !UUID_REGEX.test(input.quoteId) ||
+    !UUID_REGEX.test(input.attachmentId)
+  ) {
+    return { ok: false, error: ERR_SAVE_DOC_FAILED };
+  }
+  if (!isValidAttachmentExt(input.ext)) {
+    return { ok: false, error: ERR_SAVE_DOC_FAILED };
+  }
+  const fileKind: AttachmentFileKind = attachmentKindForExt(input.ext);
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
+
+  const { data: pr } = await readPrParent(supabase, input.purchaseRequestId);
+  const projectId = pr?.work_packages?.project_id;
+  if (!pr || !projectId) {
+    return { ok: false, error: ERR_SAVE_DOC_FAILED };
+  }
+
+  const storagePath = buildPrAttachmentStoragePath(
+    projectId,
+    input.purchaseRequestId,
+    input.attachmentId,
+    input.ext,
+  );
+  if (!storagePath) {
+    return { ok: false, error: ERR_SAVE_DOC_FAILED };
+  }
+
+  const { error } = await supabase.from("purchase_request_attachments").insert({
+    id: input.attachmentId,
+    purchase_request_id: input.purchaseRequestId,
+    quote_id: input.quoteId,
+    kind: fileKind,
+    purpose: "quote",
+    storage_path: storagePath,
+    created_by: user.id,
+  });
+  if (error) {
+    // Idempotent replay (identity-complete, spec 37): a retried upload whose row
+    // already landed but whose response was lost confirms as success.
+    if (error.code !== "23505") {
+      return { ok: false, error: ERR_SAVE_DOC_FAILED };
+    }
+    const landed = await findLandedAttachment(supabase, {
+      attachmentId: input.attachmentId,
+      purchaseRequestId: input.purchaseRequestId,
+      kind: fileKind,
+      purpose: "quote",
+      storagePath,
+    });
+    if (!landed) {
+      return { ok: false, error: ERR_SAVE_DOC_FAILED };
+    }
   }
 
   revalidatePath(`/requests/${input.purchaseRequestId}`);

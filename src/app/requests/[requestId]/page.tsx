@@ -44,6 +44,7 @@ import { PurchaseRequestAttachmentStager } from "@/components/features/purchasin
 import { AttachmentRemoveButton } from "@/components/features/purchasing/attachment-remove-button";
 import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
 import { loadRequestDetail } from "@/lib/purchasing/load-request-detail";
+import { mintSignedUrlsForAttachments } from "@/lib/purchasing/attachment-signed-urls";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { AttentionCard } from "@/components/features/common/attention-card";
 import { InvoiceUploader } from "@/components/features/purchasing/invoice-uploader";
@@ -143,6 +144,26 @@ export default async function RequestDetailPage({ params }: PageProps) {
       quantity: Number(h.quantity),
       purchasedAt: h.purchased_at,
     }));
+  }
+
+  // Spec 182 U4: each quote's attached source document (quote_id → signed URL).
+  // Back-office + approved only (the RESTRICTIVE RLS also hides quote rows from
+  // anyone else); the bytes live in the private pr-attachments bucket.
+  const quoteDocs: Record<string, string> = {};
+  if (isBackOffice && status === "approved") {
+    const { data: docRows } = await supabase
+      .from("purchase_request_attachments_current")
+      .select("id, quote_id, storage_path")
+      .eq("purchase_request_id", request.id)
+      .eq("purpose", "quote");
+    const rows = (docRows ?? []).filter((r) => r.quote_id && r.storage_path);
+    const urls = await mintSignedUrlsForAttachments(
+      rows.map((r) => ({ id: r.id ?? "", storage_path: r.storage_path })),
+    );
+    for (const r of rows) {
+      const url = r.id ? urls.get(r.id) : undefined;
+      if (r.quote_id && url) quoteDocs[r.quote_id] = url;
+    }
   }
 
   // Spec 125/134: the PO this ticket belongs to (number + source docs) — link target.
@@ -558,11 +579,13 @@ export default async function RequestDetailPage({ params }: PageProps) {
                  picked one (PriceComparison owns the create-PO sheet, U2). */
               <PriceComparison
                 purchaseRequestId={request.id}
+                projectId={wp?.project_id ?? ""}
                 quantity={request.quantity}
                 unit={request.unit}
                 quotes={quotes}
                 suppliers={suppliers}
                 history={priceHistory}
+                quoteDocs={quoteDocs}
                 line={{
                   id: request.id,
                   pr_number: request.pr_number,

@@ -2550,6 +2550,7 @@ export type Database = {
           kind: Database["public"]["Enums"]["purchase_request_attachment_kind"]
           purchase_request_id: string
           purpose: Database["public"]["Enums"]["purchase_request_attachment_purpose"]
+          quote_id: string | null
           storage_path: string | null
           superseded_by: string | null
           url: string | null
@@ -2561,6 +2562,7 @@ export type Database = {
           kind: Database["public"]["Enums"]["purchase_request_attachment_kind"]
           purchase_request_id: string
           purpose?: Database["public"]["Enums"]["purchase_request_attachment_purpose"]
+          quote_id?: string | null
           storage_path?: string | null
           superseded_by?: string | null
           url?: string | null
@@ -2572,6 +2574,7 @@ export type Database = {
           kind?: Database["public"]["Enums"]["purchase_request_attachment_kind"]
           purchase_request_id?: string
           purpose?: Database["public"]["Enums"]["purchase_request_attachment_purpose"]
+          quote_id?: string | null
           storage_path?: string | null
           superseded_by?: string | null
           url?: string | null
@@ -2610,6 +2613,13 @@ export type Database = {
             columns: ["purchase_request_id"]
             isOneToOne: false
             referencedRelation: "purchase_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_request_attachments_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_quotes"
             referencedColumns: ["id"]
           },
         ]
@@ -4510,6 +4520,7 @@ export type Database = {
           purpose:
             | Database["public"]["Enums"]["purchase_request_attachment_purpose"]
             | null
+          quote_id: string | null
           storage_path: string | null
           url: string | null
         }
@@ -4524,6 +4535,7 @@ export type Database = {
           purpose?:
             | Database["public"]["Enums"]["purchase_request_attachment_purpose"]
             | null
+          quote_id?: string | null
           storage_path?: string | null
           url?: string | null
         }
@@ -4538,6 +4550,7 @@ export type Database = {
           purpose?:
             | Database["public"]["Enums"]["purchase_request_attachment_purpose"]
             | null
+          quote_id?: string | null
           storage_path?: string | null
           url?: string | null
         }
@@ -4554,6 +4567,13 @@ export type Database = {
             columns: ["purchase_request_id"]
             isOneToOne: false
             referencedRelation: "purchase_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_request_attachments_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_quotes"
             referencedColumns: ["id"]
           },
         ]
@@ -5586,6 +5606,7 @@ export type Database = {
         | "reference"
         | "delivery_confirmation"
         | "invoice"
+        | "quote"
       purchase_request_priority: "normal" | "urgent" | "critical"
       purchase_request_reason_code:
         | "unplanned_miss"
@@ -5907,6 +5928,7 @@ export const Constants = {
         "reference",
         "delivery_confirmation",
         "invoice",
+        "quote",
       ],
       purchase_request_priority: ["normal", "urgent", "critical"],
       purchase_request_reason_code: [
