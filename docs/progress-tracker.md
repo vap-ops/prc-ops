@@ -103,8 +103,26 @@ optional `label` (aria noun, default "รอตรวจ"; local `label`→`text
 collision). Wired onto the คำขอซื้อ tab (bottom-tab over the icon) + /requests hub item
 (inline), gated `href==="/requests" && isManagerRole(role)` — SA/procurement share the
 tab but don't decide → no badge. Module-level loaders = stable refs, so the `[load]`
-effect runs once. Test +1 (custom label aria). vitest 1497/0; lint·tc green. **U2 TODO:
-bank-change dashboard card** (the blind-spot flow).
+effect runs once. Test +1 (custom label aria). vitest 1497/0; lint·tc green.
+
+**U2 SHIPPED 2026-06-23 (NO DB).** Bank-change dashboard card — the blind-spot flow
+(contractor bank changes had NO nav surface, only a contractor's detail page).
+`src/lib/approvals/pending-bank-changes.ts`: `getPendingBankChangeCount` (RLS-scoped
+head-count of `contractor_bank_change_requests` status='pending'; error→0).
+`features/dashboard/bank-change-awareness-card.tsx`: presentational, renders ONLY
+when count>0 (exception-driven — unlike the always-on รอตรวจ card, bank changes are
+occasional, so no zero-state clutter), amber attn, links → /contacts/subcontractors
+to drill in and decide. Wired into /dashboard under the รอตรวจ card, PM tier only.
+Tests: card render (nothing at 0; count+link at >0). Typecheck confirmed the table +
+'pending' status in the generated types. vitest +2.
+
+**SPEC 184 ARC COMPLETE U1–U2 2026-06-23 (NO DB):** PR awaiting-decision badge on the
+คำขอซื้อ tab + bank-change awareness card on the dashboard. With spec 183, the PM now
+sees all three PM-tier approval flows without hunting (WP card+badge, PR tab badge,
+bank-change card). Design rule held: tabbed flow → tab badge, tabless flow → dashboard
+card. DEFERRED: dedicated bank-change queue page (vs drilling from the contractor
+list); worker-DC bank changes (ADR 0062 U4c-2 not built — folds into the card when it
+lands); header bell for a unified approvals inbox.
 
 ## Spec 174 — project Google-Maps link (precise pin) (2026-06-22)
 
