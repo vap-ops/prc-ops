@@ -19,6 +19,7 @@ import {
   type ReceiptRow,
   type StockRow,
 } from "@/components/features/store/store-manager";
+import { StorePnlView, type StorePnlRow } from "@/components/features/store/store-pnl-view";
 import { STORE_LABEL } from "@/lib/i18n/labels";
 
 interface PageProps {
@@ -49,7 +50,12 @@ export default async function StorePage({ searchParams }: PageProps) {
   // issue but draws at the WP detail (a later unit), not here.
   const canIssue = isManagerRole(ctx.role);
 
+  // Store P&L (the margin view) is gated to super_admin / project_director — the
+  // store_pnl RPC's money gate (mirrors wp_profit). Procurement/PM never see it.
+  const canSeePnl = ctx.role === "super_admin" || ctx.role === "project_director";
+
   let onHand: StockRow[] = [];
+  let pnlRows: StorePnlRow[] = [];
   let catalogItems: CatalogPick[] = [];
   let suppliers: { id: string; name: string }[] = [];
   let workPackages: { id: string; code: string; name: string }[] = [];
@@ -135,6 +141,37 @@ export default async function StorePage({ searchParams }: PageProps) {
       qty: Number(r.qty),
       unitCost: Number(r.unit_cost),
     }));
+
+    if (canSeePnl) {
+      // store_pnl is a definer RPC with a super/director gate → call on the user
+      // session (the JWT resolves the gate). It keys on catalog_item_id; resolve
+      // names separately (covers items that were since deactivated).
+      const { data: pnl } = await supabase.rpc("store_pnl", { p_project_id: selectedProjectId });
+      const ids = (pnl ?? []).map((r) => r.catalog_item_id);
+      const nameMap = new Map<string, { base_item: string; spec_attrs: string | null }>();
+      if (ids.length > 0) {
+        const { data: nameRows } = await supabase
+          .from("catalog_items")
+          .select("id, base_item, spec_attrs")
+          .in("id", ids);
+        for (const n of nameRows ?? []) nameMap.set(n.id, n);
+      }
+      pnlRows = (pnl ?? [])
+        .map((r) => {
+          const meta = nameMap.get(r.catalog_item_id);
+          return {
+            catalogItemId: r.catalog_item_id,
+            baseItem: meta?.base_item ?? "",
+            specAttrs: meta?.spec_attrs ?? null,
+            qtyIssued: Number(r.qty_issued),
+            costTotal: Number(r.cost_total),
+            sellTotal: Number(r.sell_total),
+            margin: Number(r.margin),
+            shrinkageValue: Number(r.shrinkage_value),
+          };
+        })
+        .sort((a, b) => a.baseItem.localeCompare(b.baseItem, "th"));
+    }
   }
 
   return (
@@ -155,6 +192,7 @@ export default async function StorePage({ searchParams }: PageProps) {
           issues={issues}
           receipts={receipts}
         />
+        {selectedProjectId && canSeePnl ? <StorePnlView rows={pnlRows} /> : null}
       </div>
     </PageShell>
   );

@@ -79,6 +79,7 @@ export const STORE_ISSUE_LABEL = "เบิกออก";
 // Spec 178 — the store margin layer: the per-item SELL price (transfer price).
 export const ITEM_SELL_RATE_LABEL = "ราคาขาย";
 export const SET_ITEM_SELL_RATE_LABEL = "ตั้งราคาขาย";
+export const STORE_PNL_LABEL = "กำไร-ขาดทุนสโตร์";
 
 // Spec 134 / ADR 0044 — derived PO roll-up status (not a DB enum; the union
 // lives in src/lib/purchasing/purchase-order.ts). open never shows for a live PO
