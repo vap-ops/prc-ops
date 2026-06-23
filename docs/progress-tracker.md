@@ -6,6 +6,37 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 190 — dark mode (opt-in night theme), U1 (2026-06-24)
+
+Status: **U1 SHIPPED to prod — 2026-06-24** (commit 40358c6, NO DB; lint · typecheck
+· vitest 1528 green; verified light+dark via the SSR cookie path + preview
+screenshots). Operator asked "how hard is dark mode in settings?" → I assessed it
+against the actual token system and recommended **default light + opt-in toggle**
+(operator confirmed). Cheap because the design system was built for re-theming:
+100% semantic tokens (enforced by `design-doctrine.test.ts`), OKLCH colors (dark =
+invert the L channel, hue preserved), and `@custom-variant dark` already declared
+(globals.css even comments "a future night-shift palette overrides :root"). So the
+lift is a `.dark` palette + toggle plumbing — **components are untouched.**
+**Default LIGHT is deliberate** (spec-20 sun-first: dark is _worse_ in direct sun =
+the field photo-capture flow; dark serves indoor/PM/back-office/portal/night). **U1:**
+`lib/ui/theme.ts` (tri-state light/dark/system in a year `theme` cookie; pure
+`resolveTheme`/`parseThemeSetting`, default light); no-flash (`layout.tsx` async,
+reads the cookie server-side → `dark` class + `color-scheme` on `<html>` pre-paint,
+`ThemeScript` resolves `system` before paint, `suppressHydrationWarning`);
+`globals.css` `.dark {}` overriding every `--color-*` + the shadcn primitives (OKLCH
+dark, WCAG floors held, amber fill keeps near-black ink, `*-soft` grounds → low-L
+tints); `ThemeToggle` on `/settings` (`การแสดงผล`, every role; สว่าง/มืด/ระบบ, 44px,
+tracks OS live on ระบบ). Tests: `theme.test.ts`, `theme-toggle.test.tsx`. **TRAP:
+the husky Tailwind class-sorter (`prettier-plugin-tailwindcss`) mangled the
+whitespace around a `${ternary}` inside the `className` template literal —
+`antialiased${c?" dark":""}` became `antialiaseddark` (junk class; dark only
+survived via the JS script, not SSR). Fix: keep the separator space in the STATIC
+part of the literal (`antialiased ${c?"dark":""}`); re-read className literals after
+the commit hook.** No new route; new components in the existing `features/chrome`
+domain (no spec-122 change). **U2 (next, optional polish):** screen-by-screen audit
+on authenticated surfaces (cards, `*-soft` status grounds, brand band), shadow/
+elevation tuning for dark, PWA status-bar `themeColor` per theme.
+
 ## Spec 183 — approvals are awareness, not a tab (PM) (2026-06-23)
 
 Operator: "รอตรวจ menu should not be the main menu, but rather notification of
