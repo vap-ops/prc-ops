@@ -59,6 +59,7 @@ export default async function StorePage({ searchParams }: PageProps) {
   let catalogItems: CatalogPick[] = [];
   let suppliers: { id: string; name: string }[] = [];
   let workPackages: { id: string; code: string; name: string }[] = [];
+  let workers: { id: string; name: string }[] = [];
   let issues: IssueRow[] = [];
   let receipts: ReceiptRow[] = [];
 
@@ -105,6 +106,16 @@ export default async function StorePage({ searchParams }: PageProps) {
       .eq("project_id", selectedProjectId)
       .order("code", { ascending: true });
     workPackages = (wpRows ?? []).map((w) => ({ id: w.id, code: w.code, name: w.name }));
+
+    // Spec 178 B4 — project workers for the optional custody receiver picker on a
+    // /store เบิก (managers can now name a receiver, like the WP-detail draw).
+    const { data: workerRows } = await supabase
+      .from("workers")
+      .select("id, name")
+      .eq("project_id", selectedProjectId)
+      .eq("active", true)
+      .order("name", { ascending: true });
+    workers = (workerRows ?? []).map((w) => ({ id: w.id, name: w.name }));
 
     const { data: issueRows } = await supabase
       .from("stock_issues")
@@ -189,6 +200,7 @@ export default async function StorePage({ searchParams }: PageProps) {
           suppliers={suppliers}
           canIssue={canIssue}
           workPackages={workPackages}
+          workers={workers}
           issues={issues}
           receipts={receipts}
         />

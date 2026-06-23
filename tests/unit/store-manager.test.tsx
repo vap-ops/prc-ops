@@ -49,6 +49,7 @@ const catalogItems = [
 ];
 const suppliers = [{ id: "s1", name: "ร้านวัสดุดี" }];
 const workPackages = [{ id: "wp1", code: "WP-01", name: "งานเดินไฟ" }];
+const workers = [{ id: "w1", name: "สมชาย" }];
 const issues: IssueRow[] = [
   {
     id: "iss1",
@@ -103,6 +104,7 @@ function renderManager(opts: {
       suppliers={suppliers}
       canIssue={opts.canIssue ?? false}
       workPackages={workPackages}
+      workers={workers}
       issues={opts.issues ?? []}
       receipts={opts.receipts ?? []}
     />,
@@ -198,6 +200,26 @@ describe("StoreManager เบิก/issue (spec 177 U4)", () => {
       }),
     );
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
+  });
+
+  it("names a receiver worker on a /store เบิก (custody handshake)", async () => {
+    renderManager({ canIssue: true });
+    fireEvent.click(screen.getByRole("button", { name: "เบิก" }));
+    fireEvent.change(screen.getByLabelText("งาน"), { target: { value: "wp1" } });
+    fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "5" } });
+    fireEvent.change(screen.getByLabelText(/ผู้รับ/), { target: { value: "w1" } });
+    fireEvent.click(screen.getByRole("button", { name: "ยืนยันการเบิก" }));
+
+    await waitFor(() =>
+      expect(mockIssue).toHaveBeenCalledWith({
+        projectId: "p1",
+        catalogItemId: "ci1",
+        workPackageId: "wp1",
+        qty: 5,
+        note: "",
+        receiverWorkerId: "w1",
+      }),
+    );
   });
 
   it("disables the เบิก submit until a WP and qty are set", () => {

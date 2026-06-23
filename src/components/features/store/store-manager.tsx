@@ -77,6 +77,7 @@ export function StoreManager({
   suppliers,
   canIssue,
   workPackages,
+  workers,
   issues,
   receipts,
 }: {
@@ -87,6 +88,8 @@ export function StoreManager({
   suppliers: { id: string; name: string }[];
   canIssue: boolean;
   workPackages: { id: string; code: string; name: string }[];
+  // Spec 178 B4 — project workers, for the optional custody receiver picker.
+  workers: { id: string; name: string }[];
   issues: IssueRow[];
   receipts: ReceiptRow[];
 }) {
@@ -105,6 +108,7 @@ export function StoreManager({
   const [issueRow, setIssueRow] = useState<StockRow | null>(null);
   const [issueWp, setIssueWp] = useState("");
   const [issueQty, setIssueQty] = useState("");
+  const [issueReceiver, setIssueReceiver] = useState("");
   const [issueNote, setIssueNote] = useState("");
   const [issueError, setIssueError] = useState<string | null>(null);
   const [issuing, startIssue] = useTransition();
@@ -160,6 +164,7 @@ export function StoreManager({
     setIssueRow(row);
     setIssueWp("");
     setIssueQty("");
+    setIssueReceiver("");
     setIssueNote("");
     setIssueError(null);
   }
@@ -175,6 +180,7 @@ export function StoreManager({
         workPackageId: issueWp,
         qty: issueQtyNum,
         note: issueNote,
+        ...(issueReceiver !== "" ? { receiverWorkerId: issueReceiver } : {}),
       });
       if (!result.ok) {
         setIssueError(result.error);
@@ -560,6 +566,28 @@ export function StoreManager({
                   disabled={issuing}
                   className={FIELD}
                 />
+              </div>
+
+              {/* Spec 178 B4 — custody: name the receiver who takes the material
+                  (they confirm on the portal). Optional; mirrors WpIssueStock U7. */}
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="issue-receiver" className={LABEL}>
+                  ผู้รับ (ถ้ามี)
+                </label>
+                <select
+                  id="issue-receiver"
+                  value={issueReceiver}
+                  onChange={(e) => setIssueReceiver(e.target.value)}
+                  disabled={issuing}
+                  className={FIELD}
+                >
+                  <option value="">ไม่ระบุ</option>
+                  {workers.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex flex-col gap-1.5">
