@@ -1,5 +1,5 @@
 begin;
-select plan(16);
+select plan(15);
 
 -- Spec 176 U4 — reactive-PR reason codes. Every purchase request (the
 -- scramble order relative to the frozen supply plan) carries a reason code

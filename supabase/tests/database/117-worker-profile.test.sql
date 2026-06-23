@@ -1,5 +1,5 @@
 begin;
-select plan(17);
+select plan(19);
 
 -- ============================================================================
 -- Spec 170 / ADR 0062 U4b — DC worker portal profile (person-relevant fields).

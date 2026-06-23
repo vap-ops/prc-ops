@@ -1,5 +1,5 @@
 begin;
-select plan(28);
+select plan(29);
 
 -- ============================================================================
 -- Spec 170 / ADR 0062 U4a — worker portal binding primitive.
