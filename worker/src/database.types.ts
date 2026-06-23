@@ -5039,8 +5039,13 @@ export type Database = {
         Args: { p_source_id: string }
         Returns: string
       }
+      post_stock_count_to_gl: { Args: { p_source_id: string }; Returns: string }
       post_stock_issue_to_gl: { Args: { p_source_id: string }; Returns: string }
       post_stock_receipt_to_gl: {
+        Args: { p_source_id: string }
+        Returns: string
+      }
+      post_stock_reversal_to_gl: {
         Args: { p_source_id: string }
         Returns: string
       }
