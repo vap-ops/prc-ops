@@ -5,7 +5,7 @@ select plan(19);
 -- Spec 176 U1 — Supply Plan foundation.
 --   supply_plans (one per project) + supply_plan_lines (catalog item + qty +
 --   optional WP). READ via can_see_project; WRITE via SECURITY DEFINER RPCs:
---   create_supply_plan(project) [get-or-create, planner tier + member],
+--   create_supply_plan(project) [always-create (spec 189), planner tier + member],
 --   add_supply_plan_line(plan, item, wp, qty, note) [draft-only, validations].
 -- ============================================================================
 
@@ -61,10 +61,12 @@ set local role authenticated;
 
 -- B. PM member (on project 1).
 set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111111176"}';
-select is(
+-- Spec 189: create_supply_plan now ALWAYS makes a new plan (multi-plan), so it
+-- returns a fresh id distinct from the pre-existing fixture plan.
+select isnt(
   (select public.create_supply_plan('aa000000-0000-0000-0000-000000000176')),
   'ff000000-0000-0000-0000-000000000176'::uuid,
-  'PM member create_supply_plan is idempotent (returns the existing plan)');
+  'PM member create_supply_plan makes a NEW plan (no longer get-or-create)');
 select isnt(
   (select public.add_supply_plan_line('ff000000-0000-0000-0000-000000000176',
      'ee000000-0000-0000-0000-000000000176', 'cc000000-0000-0000-0000-000000000176', 10, 'note')),

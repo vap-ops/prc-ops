@@ -102,6 +102,7 @@ describe("SupplyPlanManager grid (spec 181 U2)", () => {
     await waitFor(() =>
       expect(mockBulkAdd).toHaveBeenCalledWith({
         projectId: "p1",
+        planId: "pl1",
         lines: [{ catalogItemId: "ci1", workPackageId: "wp1", qty: 10, note: "" }],
       }),
     );
@@ -116,6 +117,7 @@ describe("SupplyPlanManager grid (spec 181 U2)", () => {
     await waitFor(() =>
       expect(mockBulkAdd).toHaveBeenCalledWith({
         projectId: "p1",
+        planId: "pl1",
         lines: [{ catalogItemId: "ci1", workPackageId: null, qty: 4, note: "" }],
       }),
     );

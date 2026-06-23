@@ -17,8 +17,32 @@ export type SupplyPlanResult = { ok: true } | { ok: false; error: string };
 const FAILED = "บันทึกแผนจัดหาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 const NO_PERMISSION = "ไม่มีสิทธิ์ (เฉพาะผู้จัดการโครงการ)";
 
+// Spec 189 — create a NEW draft supply plan for a project (a project may have
+// many). The planning UI's "new plan" button calls this, then navigates to the
+// fresh plan. create_supply_plan carries the planner-tier + membership gates.
+export async function createPlan(input: {
+  projectId: string;
+}): Promise<SupplyPlanResult & { planId?: string }> {
+  if (!UUID_REGEX.test(input.projectId)) return { ok: false, error: FAILED };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { data: planId, error } = await auth.supabase.rpc("create_supply_plan", {
+    p_project_id: input.projectId,
+  });
+  if (error || !planId) {
+    if (error?.code === "42501") return { ok: false, error: NO_PERMISSION };
+    return { ok: false, error: FAILED };
+  }
+
+  revalidatePath(supplyPlanHref(input.projectId));
+  return { ok: true, planId };
+}
+
 export async function addPlanLine(input: {
   projectId: string;
+  planId: string;
   catalogItemId: string;
   workPackageId: string;
   qty: number;
@@ -26,6 +50,7 @@ export async function addPlanLine(input: {
 }): Promise<SupplyPlanResult> {
   if (
     !UUID_REGEX.test(input.projectId) ||
+    !UUID_REGEX.test(input.planId) ||
     !UUID_REGEX.test(input.catalogItemId) ||
     !UUID_REGEX.test(input.workPackageId)
   ) {
@@ -39,17 +64,9 @@ export async function addPlanLine(input: {
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
   const { supabase } = auth;
 
-  // Get-or-create the project's plan (idempotent).
-  const { data: planId, error: planErr } = await supabase.rpc("create_supply_plan", {
-    p_project_id: input.projectId,
-  });
-  if (planErr || !planId) {
-    if (planErr?.code === "42501") return { ok: false, error: NO_PERMISSION };
-    return { ok: false, error: FAILED };
-  }
-
+  // Spec 189: lines target the explicit plan (the page picks/creates it).
   const { error } = await supabase.rpc("add_supply_plan_line", {
-    p_plan_id: planId,
+    p_plan_id: input.planId,
     p_catalog_item_id: input.catalogItemId,
     p_work_package_id: input.workPackageId,
     p_qty: input.qty,
@@ -73,6 +90,7 @@ export async function addPlanLine(input: {
 // the whole batch back). work_package_id is optional (null = whole-project).
 export async function bulkAddPlanLines(input: {
   projectId: string;
+  planId: string;
   lines: Array<{
     catalogItemId: string;
     workPackageId: string | null;
@@ -80,7 +98,9 @@ export async function bulkAddPlanLines(input: {
     note: string;
   }>;
 }): Promise<SupplyPlanResult & { count?: number }> {
-  if (!UUID_REGEX.test(input.projectId)) return { ok: false, error: FAILED };
+  if (!UUID_REGEX.test(input.projectId) || !UUID_REGEX.test(input.planId)) {
+    return { ok: false, error: FAILED };
+  }
   if (!Array.isArray(input.lines) || input.lines.length === 0) {
     return { ok: false, error: "ยังไม่มีรายการที่จะบันทึก" };
   }
@@ -98,16 +118,9 @@ export async function bulkAddPlanLines(input: {
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
   const { supabase } = auth;
 
-  const { data: planId, error: planErr } = await supabase.rpc("create_supply_plan", {
-    p_project_id: input.projectId,
-  });
-  if (planErr || !planId) {
-    if (planErr?.code === "42501") return { ok: false, error: NO_PERMISSION };
-    return { ok: false, error: FAILED };
-  }
-
+  // Spec 189: lines target the explicit plan (the page picks/creates it).
   const { data: count, error } = await supabase.rpc("add_supply_plan_lines", {
-    p_plan_id: planId,
+    p_plan_id: input.planId,
     p_lines: input.lines.map((l) => ({
       catalog_item_id: l.catalogItemId,
       work_package_id: l.workPackageId,

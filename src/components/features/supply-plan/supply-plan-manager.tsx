@@ -54,7 +54,7 @@ type DraftRow = {
   note: string;
 };
 
-const STATUS_LABEL: Record<PlanStatus, string> = {
+export const PLAN_STATUS_LABEL: Record<PlanStatus, string> = {
   draft: "ร่าง",
   submitted: "ส่งอนุมัติแล้ว",
   approved: "อนุมัติแล้ว",
@@ -113,7 +113,7 @@ export function SupplyPlanManager({
   const validRows = rows.filter(
     (r) => r.catalogItemId !== "" && Number.isFinite(Number(r.qty)) && Number(r.qty) > 0,
   );
-  const canSave = !saving && validRows.length > 0;
+  const canSave = !saving && validRows.length > 0 && planId !== null;
 
   function patchRow(key: number, patch: Partial<DraftRow>) {
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
@@ -132,11 +132,12 @@ export function SupplyPlanManager({
   }
 
   function handleSave() {
-    if (!canSave) return;
+    if (!canSave || !planId) return;
     setError(null);
     startSave(async () => {
       const result = await bulkAddPlanLines({
         projectId,
+        planId,
         lines: validRows.map((r) => ({
           catalogItemId: r.catalogItemId,
           workPackageId: r.workPackageId === "" ? null : r.workPackageId,
@@ -233,7 +234,7 @@ export function SupplyPlanManager({
         <span className="text-meta text-ink-secondary">
           สถานะแผน:{" "}
           <span className="text-ink font-semibold">
-            {planStatus ? STATUS_LABEL[planStatus] : "ยังไม่เริ่ม"}
+            {planStatus ? PLAN_STATUS_LABEL[planStatus] : "ยังไม่เริ่ม"}
           </span>
         </span>
         <div className="flex flex-wrap items-center gap-2">
