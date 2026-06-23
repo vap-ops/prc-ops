@@ -17,6 +17,7 @@ import {
   CATALOG_NON_STOCKABLE_LABEL,
 } from "@/lib/i18n/labels";
 import { EditCatalogItem } from "./edit-catalog-item";
+import { SetSellRate } from "./set-sell-rate";
 
 type ItemCategory = Database["public"]["Enums"]["item_category"];
 
@@ -31,6 +32,10 @@ export type CatalogItem = {
   // Spec 175 U4 — a signed URL for the item's reference image (minted by the
   // page); null when the item has no image.
   thumbnailUrl?: string | null;
+  // Spec 178 U5 — the per-item SELL rate (baht/unit); only populated for
+  // super_admin (the page reads it via the admin client). undefined for everyone
+  // else — the rate is margin-sensitive and never leaves the server for them.
+  sellRate?: number | null;
 };
 
 const ALL = "all";
@@ -38,9 +43,11 @@ const ALL = "all";
 export function CatalogList({
   items,
   editable = false,
+  canSetSellRate = false,
 }: {
   items: CatalogItem[];
   editable?: boolean;
+  canSetSellRate?: boolean;
 }) {
   const [selected, setSelected] = useState<string>(ALL);
 
@@ -122,6 +129,9 @@ export function CatalogList({
                     >
                       {it.stockable ? CATALOG_STOCKABLE_LABEL : CATALOG_NON_STOCKABLE_LABEL}
                     </span>
+                    {canSetSellRate ? (
+                      <SetSellRate itemId={it.id} currentRate={it.sellRate ?? null} />
+                    ) : null}
                     {editable ? <EditCatalogItem item={it} /> : null}
                   </li>
                 ))}

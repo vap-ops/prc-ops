@@ -140,6 +140,34 @@ export async function setCatalogItemActive(input: {
   return { ok: true };
 }
 
+export async function setItemSellRate(input: {
+  id: string;
+  rate: number;
+}): Promise<CatalogActionResult> {
+  // Spec 178 U5 — super_admin ONLY (the rate is margin-sensitive economics). The
+  // set_item_sell_rate definer carries the gate; requireRole is defense-in-depth.
+  await requireRole(["super_admin"]);
+
+  if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC_ERROR };
+  if (!Number.isFinite(input.rate) || input.rate < 0) {
+    return { ok: false, error: "กรอกราคาขายเป็นตัวเลข (ไม่ติดลบ)" };
+  }
+
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("set_item_sell_rate", {
+    p_catalog_item_id: input.id,
+    p_sell_rate: input.rate,
+  });
+  if (error) {
+    if (error.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์" };
+    if (error.code === "22023") return { ok: false, error: "ไม่พบรายการวัสดุนี้" };
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath("/catalog");
+  return { ok: true };
+}
+
 export async function setCatalogItemImage(input: {
   id: string;
   path: string | null;

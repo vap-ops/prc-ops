@@ -8,6 +8,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
 import { BACK_OFFICE_ROLES } from "@/lib/auth/role-home";
 import { createClient as createServerSupabase } from "@/lib/db/server";
+import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
@@ -35,6 +36,19 @@ export default async function CatalogPage() {
     (rows ?? []).map((r) => ({ id: r.id, storage_path: r.image_path })),
   );
 
+  // Spec 178 U5 — the per-item SELL rate is margin-sensitive money (zero
+  // authenticated grant), so it is read ONLY for super_admin and ONLY via the
+  // admin client (the nova money pattern: read admin, write via the gated RPC).
+  const canSetSellRate = ctx.role === "super_admin";
+  const sellRates = new Map<string, number>();
+  if (canSetSellRate) {
+    const admin = createAdminSupabase();
+    const { data: rates } = await admin
+      .from("item_sell_rates")
+      .select("catalog_item_id, sell_rate");
+    for (const r of rates ?? []) sellRates.set(r.catalog_item_id, r.sell_rate);
+  }
+
   const items: CatalogItem[] = (rows ?? []).map((r) => ({
     id: r.id,
     category: r.category,
@@ -44,6 +58,9 @@ export default async function CatalogPage() {
     stockable: r.stockable,
     note: r.note,
     thumbnailUrl: signed.get(r.id) ?? null,
+    // Omit the key entirely for non-super (exactOptionalPropertyTypes forbids an
+    // explicit `undefined`) — the rate never reaches the client for them.
+    ...(canSetSellRate ? { sellRate: sellRates.get(r.id) ?? null } : {}),
   }));
 
   return (
@@ -56,7 +73,7 @@ export default async function CatalogPage() {
         <div className="flex justify-end">
           <AddCatalogItem />
         </div>
-        <CatalogList items={items} editable />
+        <CatalogList items={items} editable canSetSellRate={canSetSellRate} />
       </div>
     </PageShell>
   );
