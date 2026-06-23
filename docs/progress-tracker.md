@@ -47,8 +47,27 @@ require-role (redirect target), hub-nav (PM_ITEMS + assertion), bottom-tab-bar
 minimized churn AND kept the sun-mode test green (it asserts an active tab exists on
 /review — ภาพรวม now provides it). vitest 1489/0; lint·tc green.
 
-**U3 TODO:** self-fetching count badge on the ภาพรวม bottom tab (PM tier) — the
-literal "number on the main menu". Desktop hub-strip badge = follow-up.
+**U3 SHIPPED 2026-06-23 (NO DB).** The count badge on the ภาพรวม bottom tab (PM
+tier) — the literal "number on the main menu" the operator asked for.
+`features/dashboard/pending-approvals-badge.tsx` ('use client'): pure
+`formatBadgeCount` (null at 0, cap 99+) + presentational `ApprovalsBadge({count})`
+
+- self-fetching `PendingApprovalsBadge` (browser client, RLS-scoped `work_packages`
+  status=pending_approval head-count — same visibility as /review; best-effort,
+  errors leave it hidden). Wired into bottom-tab-bar over the ภาพรวม icon, gated
+  `tab.href==="/dashboard" && isManagerRole(role)` (site_admin shares the tab, no
+  badge — doesn't approve). Tests: formatBadgeCount (3) + ApprovalsBadge render (3).
+  The self-fetch is inert in jsdom (network fails → count 0 → renders nothing), so the
+  18 existing tab-bar tests stayed green untouched. amber attn pill (bg-attn/on-attn).
+  **Desktop hub-strip badge DEFERRED** (HubNav is a server component with no role prop
+  — threading it to every call site is its own change; the phone bottom bar IS the
+  "main menu" the operator named, so this is the core win). vitest +6.
+
+**SPEC 183 ARC COMPLETE U1–U3 2026-06-23 (one session, NO DB):** count helper +
+dashboard hero card → drop the รอตรวจ tab + reroute PM home to ภาพรวม → count badge
+on the home tab. รอตรวจ is awareness (card + badge), not a main-menu tab; the queue
+lives under ภาพรวม (/review one tap from the card). U4+ (other approval types: PR,
+bank/consent; desktop hub-strip badge; header bell for the unified inbox) = later.
 
 ## Spec 174 — project Google-Maps link (precise pin) (2026-06-22)
 

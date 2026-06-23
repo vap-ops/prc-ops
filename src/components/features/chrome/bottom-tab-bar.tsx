@@ -14,6 +14,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { isManagerRole } from "@/lib/auth/role-home";
 import type { UserRole } from "@/lib/db/enums";
+import { PendingApprovalsBadge } from "@/components/features/dashboard/pending-approvals-badge";
 import {
   Calculator,
   FolderKanban,
@@ -168,6 +169,11 @@ export function BottomTabBar({ role }: { role: string }) {
           // aria-current still marks "you are here"; the indicator bar + bold +
           // text-action carry the active identity (spec 20).
           const isActive = tab === active;
+          // Spec 183 U3: the pending-approval count rides the ภาพรวม tab for the
+          // PM tier — the review queue is no longer a tab, so this is the
+          // at-a-glance count while anywhere in the app. site_admin shares the
+          // tab but does not approve, so no badge.
+          const showApprovalsBadge = tab.href === "/dashboard" && isManagerRole(role as UserRole);
           return (
             <Link
               key={tab.href}
@@ -187,7 +193,10 @@ export function BottomTabBar({ role }: { role: string }) {
                   className="bg-action absolute inset-x-4 top-0 h-1 rounded-b-full"
                 />
               ) : null}
-              <Icon aria-hidden className="size-6" />
+              <span className="relative">
+                <Icon aria-hidden className="size-6" />
+                {showApprovalsBadge ? <PendingApprovalsBadge /> : null}
+              </span>
               <span className={isActive ? "text-xs font-bold" : "text-xs font-medium"}>
                 {tab.label}
               </span>
