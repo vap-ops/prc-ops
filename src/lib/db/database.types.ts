@@ -3257,6 +3257,8 @@ export type Database = {
           project_id: string
           qty: number
           received_at: string | null
+          received_by: string | null
+          received_on_behalf: boolean
           receiver_worker_id: string | null
           sell_price: number | null
           total_cost: number | null
@@ -3275,6 +3277,8 @@ export type Database = {
           project_id: string
           qty: number
           received_at?: string | null
+          received_by?: string | null
+          received_on_behalf?: boolean
           receiver_worker_id?: string | null
           sell_price?: number | null
           total_cost?: number | null
@@ -3293,6 +3297,8 @@ export type Database = {
           project_id?: string
           qty?: number
           received_at?: string | null
+          received_by?: string | null
+          received_on_behalf?: boolean
           receiver_worker_id?: string | null
           sell_price?: number | null
           total_cost?: number | null
@@ -3321,6 +3327,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_issues_received_by_fkey"
+            columns: ["received_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
@@ -4679,6 +4692,10 @@ export type Database = {
       coin_unvested_balance: { Args: { p_worker: string }; Returns: number }
       coin_vested_balance: { Args: { p_worker: string }; Returns: number }
       confirm_stock_issue: { Args: { p_issue_id: string }; Returns: undefined }
+      confirm_stock_issue_on_behalf: {
+        Args: { p_issue_id: string }
+        Returns: undefined
+      }
       confiscate_coins: {
         Args: {
           p_note?: string
