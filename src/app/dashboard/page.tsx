@@ -19,8 +19,7 @@ import { AwarenessCard } from "@/components/features/dashboard/awareness-card";
 import { getPendingApprovalsSummary } from "@/lib/approvals/pending-summary";
 import { getPendingBankChangeCount } from "@/lib/approvals/pending-bank-changes";
 import { getPendingWorkerBankChangeCount } from "@/lib/approvals/pending-worker-bank-changes";
-import { getPendingPurchaseDecisionCount } from "@/lib/approvals/pending-purchase-decisions";
-import { Landmark, ShoppingCart } from "lucide-react";
+import { Landmark } from "lucide-react";
 import { rollupProgress } from "@/lib/dashboard/overview";
 import { sumMaterials, budgetStatus, type BudgetStatus } from "@/lib/dashboard/spend";
 import { aggregateLaborCost, type CostInputRow } from "@/lib/labor/cost";
@@ -54,9 +53,10 @@ export default async function DashboardPage() {
     ? await getPendingApprovalsSummary(supabase)
     : { count: 0, oldest: null };
 
-  // Spec 184 U2 / 185 U1: the dashboard is the complete approvals inbox — surface
-  // the purchase-request + bank-change counts here too (each card hides at zero).
-  const pendingPurchases = isManager ? await getPendingPurchaseDecisionCount(supabase) : 0;
+  // Spec 188: PR is no longer surfaced on ภาพรวม — it owns the คำขอซื้อ tab (with
+  // its own badge); double-surfacing it here read as a redundant notification. The
+  // dashboard inbox now covers only the tabless approvals: WP review + bank
+  // changes.
   // Spec 170 U4c-2: the bank-change card now covers BOTH contractor and worker
   // changes (the merged queue at /contacts/bank-changes); one combined count.
   const pendingBankChanges = isManager
@@ -168,17 +168,9 @@ export default async function DashboardPage() {
         {/* Spec 183 U1: pending-approval awareness sits at the top of the PM
             home — the review queue is no longer a tab, it surfaces here. */}
         {isManager ? <PendingApprovalsCard summary={pendingSummary} /> : null}
-        {/* Spec 185 U1: the dashboard is the complete approvals inbox — the PR +
-            bank-change cards (each shown only when pending) sum, with the รอตรวจ
-            hero, to the total on the ภาพรวม badge. */}
-        {isManager ? (
-          <AwarenessCard
-            count={pendingPurchases}
-            label="คำขอซื้อรอพิจารณา"
-            href="/requests"
-            icon={ShoppingCart}
-          />
-        ) : null}
+        {/* Spec 188: the dashboard inbox surfaces the TABLESS approvals — the WP
+            รอตรวจ hero (above) + the bank-change card (below). PR is NOT here; it
+            owns the คำขอซื้อ tab + badge. These two sum to the ภาพรวม nav badge. */}
         {isManager ? (
           <AwarenessCard
             count={pendingBankChanges}

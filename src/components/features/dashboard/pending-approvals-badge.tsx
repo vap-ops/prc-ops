@@ -124,23 +124,25 @@ async function loadPendingWorkerBankChanges(): Promise<number | null> {
   return count;
 }
 
-// Spec 185 U2 / 170 U4c-2: the TOTAL the PM tier owes across all approval types
-// (WP + PR + contractor-bank + worker-bank). The reads run in parallel; a failed
-// read counts as 0.
+// Spec 188: the TOTAL the PM tier owes for the approval types that have NO tab
+// of their own — WP review + contractor-bank + worker-bank. Purchase requests are
+// DELIBERATELY EXCLUDED: PR has its own คำขอซื้อ tab (with its own badge), so
+// counting it here too double-counted every PR (operator: "showing on คำขอซื้อ
+// and ภาพรวม is confusing"). Doctrine: each tab owns its count — a pending item is
+// badged in exactly one place. The reads run in parallel; a failed read = 0.
 async function loadTotalPendingApprovals(): Promise<number> {
-  const [wp, pr, bank, workerBank] = await Promise.all([
+  const [wp, bank, workerBank] = await Promise.all([
     loadPendingWpApprovals(),
-    loadPendingPurchaseDecisions(),
     loadPendingBankChanges(),
     loadPendingWorkerBankChanges(),
   ]);
-  return sumApprovalCounts([wp, pr, bank, workerBank]);
+  return sumApprovalCounts([wp, bank, workerBank]);
 }
 
-// Spec 183 → 185 U2: the ภาพรวม (home) nav item carries the TOTAL pending
-// approvals across all PM-tier types — the operator's original "how many
-// approvals are pending". The dashboard shows the per-type breakdown that sums
-// to this number; the คำขอซื้อ tab keeps a PR-only badge (the subset).
+// Spec 183 → 188: the ภาพรวม (home) nav item carries the pending count for the
+// tabless approval types (WP review + bank changes) — the ones whose only home is
+// the dashboard inbox. PR is NOT here (spec 188): it lives on the คำขอซื้อ tab
+// badge. The dashboard shows the breakdown that sums to THIS number.
 export function PendingApprovalsBadge({ position = "overlay" }: { position?: BadgePosition } = {}) {
   return <SelfCountBadge load={loadTotalPendingApprovals} position={position} label="รออนุมัติ" />;
 }
