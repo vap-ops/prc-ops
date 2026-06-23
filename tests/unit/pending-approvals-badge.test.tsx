@@ -8,8 +8,21 @@ import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import {
   formatBadgeCount,
+  sumApprovalCounts,
   ApprovalsBadge,
 } from "@/components/features/dashboard/pending-approvals-badge";
+
+describe("sumApprovalCounts", () => {
+  it("sums the per-type counts, treating null (read failure) as zero", () => {
+    expect(sumApprovalCounts([3, 2, 1])).toBe(6);
+    expect(sumApprovalCounts([null, 2, null])).toBe(2);
+  });
+
+  it("is zero for an empty or all-zero set", () => {
+    expect(sumApprovalCounts([])).toBe(0);
+    expect(sumApprovalCounts([0, 0, 0])).toBe(0);
+  });
+});
 
 describe("formatBadgeCount", () => {
   it("hides the badge (null) at zero or negative", () => {

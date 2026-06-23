@@ -22,6 +22,12 @@ export function formatBadgeCount(count: number): string | null {
   return count > 99 ? "99+" : String(count);
 }
 
+// Pure: sum the per-type pending counts, treating null (a read failure) as 0.
+// Exported for unit tests.
+export function sumApprovalCounts(values: ReadonlyArray<number | null>): number {
+  return values.reduce<number>((sum, v) => sum + (typeof v === "number" ? v : 0), 0);
+}
+
 // position: "overlay" (default) sits absolutely over a tab icon (bottom bar);
 // "inline" flows after a text label (the desktop hub strip).
 type BadgePosition = "overlay" | "inline";
@@ -100,10 +106,31 @@ async function loadPendingPurchaseDecisions(): Promise<number | null> {
   return count;
 }
 
-// Spec 183: WP approvals awaiting the PM tier (the รอตรวจ queue) — on the ภาพรวม
-// nav item.
+async function loadPendingBankChanges(): Promise<number | null> {
+  const { count } = await createClient()
+    .from("contractor_bank_change_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
+  return count;
+}
+
+// Spec 185 U2: the TOTAL the PM tier owes across all approval types (WP + PR +
+// bank). The three reads run in parallel; a failed read counts as 0.
+async function loadTotalPendingApprovals(): Promise<number> {
+  const [wp, pr, bank] = await Promise.all([
+    loadPendingWpApprovals(),
+    loadPendingPurchaseDecisions(),
+    loadPendingBankChanges(),
+  ]);
+  return sumApprovalCounts([wp, pr, bank]);
+}
+
+// Spec 183 → 185 U2: the ภาพรวม (home) nav item carries the TOTAL pending
+// approvals across all PM-tier types — the operator's original "how many
+// approvals are pending". The dashboard shows the per-type breakdown that sums
+// to this number; the คำขอซื้อ tab keeps a PR-only badge (the subset).
 export function PendingApprovalsBadge({ position = "overlay" }: { position?: BadgePosition } = {}) {
-  return <SelfCountBadge load={loadPendingWpApprovals} position={position} />;
+  return <SelfCountBadge load={loadTotalPendingApprovals} position={position} label="รออนุมัติ" />;
 }
 
 // Spec 184 U1: purchase requests awaiting a decision — on the คำขอซื้อ nav item.

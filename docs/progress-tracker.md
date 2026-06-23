@@ -141,7 +141,21 @@ spec-184 `bank-change-awareness-card.tsx` (+ its test) — subsumed. Added
 tier) now renders, under the รอตรวจ hero: PR card (→/requests, ShoppingCart) + bank
 card (→/contacts/subcontractors, Landmark), via the generic card. Test: AwarenessCard
 (nothing at 0; count+label+link at >0). Net vitest 1499 (−2 bank test, +2 awareness).
-**U2 TODO: ภาพรวม badge → total (WP+PR+bank), relabel "รออนุมัติ".**
+
+**U2 SHIPPED 2026-06-23 (NO DB).** ภาพรวม badge = the TOTAL. Added pure
+`sumApprovalCounts(values)` (null→0) + a `loadPendingBankChanges` client loader +
+`loadTotalPendingApprovals` (Promise.all the 3 head-counts → sum). `PendingApprovalsBadge`
+now loads the total + label "รออนุมัติ" (was WP-only "รอตรวจ"); `PendingPurchaseDecisionsBadge`
+stays PR-only on คำขอซื้อ. So the number on the main menu = all pending approvals, and
+the dashboard breakdown (รอตรวจ hero + PR + bank cards, U1) reconciles to it. Test +2
+(sumApprovalCounts). vitest 1501/0; lint·tc green.
+
+**SPEC 185 ARC COMPLETE U1–U2 2026-06-23 (NO DB):** the capstone — one number (ภาพรวม
+badge = WP+PR+bank total, "รออนุมัติ") + the dashboard as the complete inbox. **APPROVALS-
+AWARENESS ARC (183+184+185) COMPLETE:** รอตรวจ went from a main-menu tab → a total count
+on the home + a per-type dashboard inbox + per-surface tab badges, across all three
+PM-tier approval flows. DEFERRED: bank-change queue page; worker-DC bank changes (ADR
+0062 U4c-2 unbuilt).
 
 ## Spec 174 — project Google-Maps link (precise pin) (2026-06-22)
 
