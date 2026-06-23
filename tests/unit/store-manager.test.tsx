@@ -32,6 +32,7 @@ import {
   type StockRow,
   type IssueRow,
   type ReceiptRow,
+  type CountRow,
 } from "@/components/features/store/store-manager";
 
 const projects = [
@@ -50,6 +51,16 @@ const catalogItems = [
 const suppliers = [{ id: "s1", name: "ร้านวัสดุดี" }];
 const workPackages = [{ id: "wp1", code: "WP-01", name: "งานเดินไฟ" }];
 const workers = [{ id: "w1", name: "สมชาย" }];
+const counts: CountRow[] = [
+  {
+    id: "cnt1",
+    baseItem: "สายไฟ NYY",
+    specAttrs: "3x6",
+    unit: "ม้วน",
+    countedQty: 18,
+    variance: -2,
+  },
+];
 const issues: IssueRow[] = [
   {
     id: "iss1",
@@ -94,6 +105,7 @@ function renderManager(opts: {
   canIssue?: boolean;
   issues?: IssueRow[];
   receipts?: ReceiptRow[];
+  counts?: CountRow[];
 }) {
   render(
     <StoreManager
@@ -107,6 +119,7 @@ function renderManager(opts: {
       workers={workers}
       issues={opts.issues ?? []}
       receipts={opts.receipts ?? []}
+      counts={opts.counts ?? []}
     />,
   );
 }
@@ -316,5 +329,18 @@ describe("StoreManager กลับรายการ/reversal (spec 177 U12)", 
     fireEvent.click(screen.getByRole("button", { name: "กลับรายการ" }));
     fireEvent.click(screen.getByRole("button", { name: "ยืนยัน" }));
     await waitFor(() => expect(mockRevIssue).toHaveBeenCalledWith({ issueId: "iss1" }));
+  });
+});
+
+describe("StoreManager count history (spec 178 B3)", () => {
+  it("lists recent counts with the variance", () => {
+    renderManager({ counts });
+    expect(screen.getByText("ประวัติการนับ")).toBeInTheDocument();
+    expect(screen.getByText(/ส่วนต่าง\s*-2/)).toBeInTheDocument();
+  });
+
+  it("shows no count-history section when there are no counts", () => {
+    renderManager({ counts: [] });
+    expect(screen.queryByText("ประวัติการนับ")).toBeNull();
   });
 });

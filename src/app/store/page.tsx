@@ -15,6 +15,7 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import {
   StoreManager,
   type CatalogPick,
+  type CountRow,
   type IssueRow,
   type ReceiptRow,
   type StockRow,
@@ -62,6 +63,7 @@ export default async function StorePage({ searchParams }: PageProps) {
   let workers: { id: string; name: string }[] = [];
   let issues: IssueRow[] = [];
   let receipts: ReceiptRow[] = [];
+  let counts: CountRow[] = [];
 
   if (selectedProjectId) {
     const { data: ohRows } = await supabase
@@ -153,6 +155,22 @@ export default async function StorePage({ searchParams }: PageProps) {
       unitCost: Number(r.unit_cost),
     }));
 
+    // Recent physical counts — the ประวัติการนับ audit trail (spec 178 B3).
+    const { data: countRows } = await supabase
+      .from("stock_counts")
+      .select("id, counted_qty, variance, unit, catalog_items ( base_item, spec_attrs )")
+      .eq("project_id", selectedProjectId)
+      .order("counted_at", { ascending: false })
+      .limit(10);
+    counts = (countRows ?? []).map((r) => ({
+      id: r.id,
+      baseItem: r.catalog_items?.base_item ?? "",
+      specAttrs: r.catalog_items?.spec_attrs ?? null,
+      unit: r.unit,
+      countedQty: Number(r.counted_qty),
+      variance: Number(r.variance),
+    }));
+
     if (canSeePnl) {
       // store_pnl is a definer RPC with a super/director gate → call on the user
       // session (the JWT resolves the gate). It keys on catalog_item_id; resolve
@@ -203,6 +221,7 @@ export default async function StorePage({ searchParams }: PageProps) {
           workers={workers}
           issues={issues}
           receipts={receipts}
+          counts={counts}
         />
         {selectedProjectId && canSeePnl ? <StorePnlView rows={pnlRows} /> : null}
       </div>

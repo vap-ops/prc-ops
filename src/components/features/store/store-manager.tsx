@@ -61,6 +61,16 @@ export type ReceiptRow = {
   unitCost: number;
 };
 
+// Spec 178 B3 — a past physical count, for the ประวัติการนับ history list.
+export type CountRow = {
+  id: string;
+  baseItem: string;
+  specAttrs: string | null;
+  unit: string;
+  countedQty: number;
+  variance: number;
+};
+
 const LABEL = "text-sm font-medium text-ink";
 const FIELD =
   "rounded-control border-edge-strong bg-card text-ink shadow-input focus-visible:ring-action w-full min-w-0 border px-3 py-2 text-sm focus:outline-none focus-visible:ring-2";
@@ -80,6 +90,7 @@ export function StoreManager({
   workers,
   issues,
   receipts,
+  counts,
 }: {
   projects: { id: string; code: string; name: string }[];
   selectedProjectId: string | null;
@@ -92,6 +103,8 @@ export function StoreManager({
   workers: { id: string; name: string }[];
   issues: IssueRow[];
   receipts: ReceiptRow[];
+  // Spec 178 B3 — recent physical counts (the ประวัติการนับ history).
+  counts: CountRow[];
 }) {
   const router = useRouter();
 
@@ -393,6 +406,42 @@ export function StoreManager({
                         action={() => reverseStockIssue({ issueId: i.id })}
                       />
                     ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {/* Spec 178 B3 — ประวัติการนับ: a read-only audit trail of past counts
+              (variance = counted − system, valued shrinkage shows in the P&L). */}
+          {counts.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              <h2 className="text-ink text-body font-semibold">ประวัติการนับ</h2>
+              <ul className="flex flex-col gap-2">
+                {counts.map((c) => (
+                  <li
+                    key={c.id}
+                    className="border-edge bg-card rounded-control flex items-center gap-3 border px-4 py-3"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="text-ink text-body block font-semibold">{c.baseItem}</span>
+                      <span className="text-ink-secondary text-meta block">
+                        {c.specAttrs ? `${c.specAttrs} · ` : ""}
+                        นับได้ {c.countedQty} {c.unit}
+                      </span>
+                    </span>
+                    <span
+                      className={`text-meta shrink-0 font-semibold ${
+                        c.variance < 0
+                          ? "text-danger"
+                          : c.variance > 0
+                            ? "text-action"
+                            : "text-ink-muted"
+                      }`}
+                    >
+                      ส่วนต่าง {c.variance > 0 ? "+" : ""}
+                      {c.variance} {c.unit}
+                    </span>
                   </li>
                 ))}
               </ul>
