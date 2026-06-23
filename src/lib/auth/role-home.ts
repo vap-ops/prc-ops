@@ -116,6 +116,19 @@ export const WORKER_ROSTER_ROLES: ReadonlyArray<UserRole> = [...PM_ROLES, "procu
 export const SUPPLY_PLAN_ROLES: ReadonlyArray<UserRole> = [...PM_ROLES, "procurement"];
 
 /**
+ * Spec 187: who may reach the DC payroll surface (/payroll) AND record DC
+ * payments — the PM set PLUS procurement. The operator gave procurement
+ * project-director parity here: it already owns DC onboarding + the pay rate
+ * (spec 172 Phase C), so it also sees the payroll roll-up and pays it. The
+ * `record_dc_payment` definer admits procurement too (migration 20260811000000);
+ * the page reads money via the admin client behind this gate. site_admin is
+ * deliberately OUT (money surface, spec 46). Members coincide with
+ * WORKER_ROSTER_ROLES / SUPPLY_PLAN_ROLES today, but the meaning differs ("who
+ * sees + pays DC payroll") — keep them separate per the role-doctrine convention.
+ */
+export const PAYROLL_ROLES: ReadonlyArray<UserRole> = [...PM_ROLES, "procurement"];
+
+/**
  * Spec 70: who can reach the purchasing surface (/requests + /requests/[id]).
  * The v1 requester base (SITE_STAFF_ROLES) PLUS procurement — the back-office
  * processor onboarded onto the worklist. Deliberately NOT folded into

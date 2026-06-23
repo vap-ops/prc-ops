@@ -11,7 +11,7 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { requireRole } from "@/lib/auth/require-role";
-import { PM_ROLES } from "@/lib/auth/role-home";
+import { PAYROLL_ROLES } from "@/lib/auth/role-home";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import {
   SECTION_HEADING,
@@ -43,7 +43,9 @@ interface PayrollPageProps {
 }
 
 export default async function PayrollPage({ searchParams }: PayrollPageProps) {
-  const ctx = await requireRole(PM_ROLES);
+  // Spec 187: procurement gains project-director parity here — it views the DC
+  // payroll roll-up AND records payments (record_dc_payment admits it too).
+  const ctx = await requireRole(PAYROLL_ROLES);
   const { from, to } = await searchParams;
   const range = parsePayrollRange(from, to, bangkokTodayIso());
 

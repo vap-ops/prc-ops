@@ -125,31 +125,63 @@ export default async function SettingsPage() {
             DC workers (its other back-office contacts — suppliers — sit in its hub
             strip). Mobile reaches these via the ตั้งค่า tab. */}
         {role === "procurement" && (
-          <div className="flex flex-col gap-2">
-            <h2 className="text-meta text-ink-secondary font-semibold">ข้อมูลหลัก</h2>
-            <SettingsLink
-              href="/contacts/subcontractors"
-              icon={Hammer}
-              label={SUBCONTRACTOR_LABEL}
-              hint="บริษัทที่จ้างช่วง (จ่ายลูกทีมเอง)"
-            />
-            {/* Spec 172 Phase C: procurement onboards DC workers (incl. the pay rate). */}
-            <SettingsLink href="/workers" icon={HardHat} label="ทีมงาน" hint="ทะเบียนทีมงาน DC" />
-            {/* Spec 175: procurement curates the item catalog (the store's item master). */}
-            <SettingsLink
-              href="/catalog"
-              icon={Package}
-              label={CATALOG_LABEL}
-              hint="รายการวัสดุมาตรฐานสำหรับจัดซื้อ"
-            />
-            {/* Spec 177: the on-site store — record stock-in (รับเข้า) at cost. */}
-            <SettingsLink
-              href="/store"
-              icon={Warehouse}
-              label={STORE_LABEL}
-              hint="สต๊อกในมือ + รับเข้าวัสดุ"
-            />
-          </div>
+          <>
+            <div className="flex flex-col gap-2">
+              <h2 className="text-meta text-ink-secondary font-semibold">ข้อมูลหลัก</h2>
+              {/* Spec 187: procurement settings mirror the project-director master-data
+                list. ผู้ขาย (vendors) is already in procurement's desktop hub strip
+                (BACK_OFFICE_ROLES); this surfaces it in the phone settings list too. */}
+              <SettingsLink
+                href="/contacts/vendors"
+                icon={Store}
+                label="ผู้ขาย/ผู้ให้บริการ"
+                hint="ผู้ขายวัสดุ · ผู้ให้บริการ"
+              />
+              <SettingsLink
+                href="/contacts/subcontractors"
+                icon={Hammer}
+                label={SUBCONTRACTOR_LABEL}
+                hint="บริษัทที่จ้างช่วง (จ่ายลูกทีมเอง)"
+              />
+              {/* Spec 172 Phase C: procurement onboards DC workers (incl. the pay rate). */}
+              <SettingsLink href="/workers" icon={HardHat} label="ทีมงาน" hint="ทะเบียนทีมงาน DC" />
+              {/* Spec 187: procurement already reaches /equipment (EQUIPMENT_MOVE_ROLES,
+                spec 172 Phase A) — surface the registry door in settings. */}
+              <SettingsLink
+                href="/equipment"
+                icon={Wrench}
+                label="อุปกรณ์"
+                hint="ทะเบียนอุปกรณ์เช่า"
+              />
+              {/* Spec 175: procurement curates the item catalog (the store's item master). */}
+              <SettingsLink
+                href="/catalog"
+                icon={Package}
+                label={CATALOG_LABEL}
+                hint="รายการวัสดุมาตรฐานสำหรับจัดซื้อ"
+              />
+              {/* Spec 177: the on-site store — record stock-in (รับเข้า) at cost. */}
+              <SettingsLink
+                href="/store"
+                icon={Warehouse}
+                label={STORE_LABEL}
+                hint="สต๊อกในมือ + รับเข้าวัสดุ"
+              />
+            </div>
+
+            {/* Spec 187: การเงิน parity — procurement views + pays DC payroll
+              (PAYROLL_ROLES; record_dc_payment admits it). บัญชี (GL) + Nova stay
+              out — ACCOUNTING_ROLES / super-only, director doesn't get them either. */}
+            <div className="flex flex-col gap-2">
+              <h2 className="text-meta text-ink-secondary font-semibold">การเงิน</h2>
+              <SettingsLink
+                href="/payroll"
+                icon={Wallet}
+                label="ค่าจ้าง"
+                hint="สรุปค่าจ้าง DC + ส่งออก CSV"
+              />
+            </div>
+          </>
         )}
 
         {isManager && (

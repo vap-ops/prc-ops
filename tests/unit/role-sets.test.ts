@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   ACCOUNTING_ROLES,
+  PAYROLL_ROLES,
   PM_ROLES,
   SCHEDULE_VIEW_ROLES,
   SITE_STAFF_ROLES,
@@ -195,6 +196,43 @@ describe("SCHEDULE_VIEW_ROLES (spec 173)", () => {
   it("denies other unserved roles", () => {
     for (const role of ["accounting", "hr", "technician", "visitor", "contractor"] as const) {
       expect(SCHEDULE_VIEW_ROLES).not.toContain(role);
+    }
+  });
+});
+
+// Spec 187: procurement gains project-director parity on the payroll surface —
+// it views DC payroll AND records DC payments (coherent with procurement already
+// owning DC onboarding + the pay rate, spec 172 Phase C). PAYROLL_ROLES =
+// PM_ROLES + procurement gates the /payroll page; the record_dc_payment definer
+// admits procurement too (migration 20260811000000). Members coincide with
+// WORKER_ROSTER_ROLES / SUPPLY_PLAN_ROLES today, meaning differs ("who sees + pays
+// DC payroll") — kept separate per the role-doctrine convention.
+describe("PAYROLL_ROLES (spec 187)", () => {
+  it("is the PM set plus procurement", () => {
+    expect([...PAYROLL_ROLES]).toEqual([
+      "project_manager",
+      "super_admin",
+      "project_director",
+      "procurement",
+    ]);
+  });
+
+  it("keeps project_director (rides along every gate, file 91 doctrine)", () => {
+    expect(PAYROLL_ROLES).toContain("project_director");
+  });
+
+  it("denies field + unserved roles (incl. site_admin — money surface, spec 46)", () => {
+    for (const role of [
+      "site_admin",
+      "project_coordinator",
+      "accounting",
+      "hr",
+      "technician",
+      "subcon_manager",
+      "visitor",
+      "contractor",
+    ] as const) {
+      expect(PAYROLL_ROLES).not.toContain(role);
     }
   });
 });
