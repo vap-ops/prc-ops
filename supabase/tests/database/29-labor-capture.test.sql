@@ -102,8 +102,12 @@ set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-2222222ab0fe"
 select throws_ok(
   $$ select day_rate from public.workers limit 1 $$,
   '42501', null, 'authenticated cannot read workers.day_rate (column grant)');
+-- Scoped to the four fixtures so a real/concurrent worker in the roster can't
+-- skew the visibility count (the table is shared + accumulates).
 select ok(
-  (select count(id) from public.workers) = 4,
+  (select count(id) from public.workers
+     where id in ('aaaaaaa1-0000-4000-8000-000000ab0fe1', 'aaaaaaa2-0000-4000-8000-000000ab0fe2',
+                  'aaaaaaa3-0000-4000-8000-000000ab0fe3', 'aaaaaaa4-0000-4000-8000-000000ab0fe4')) = 4,
   'authenticated reads the roster (presence columns)');
 select throws_ok(
   $$ select day_rate_snapshot from public.labor_logs limit 1 $$,
@@ -150,9 +154,12 @@ select is(
   (select active from public.workers
     where id = 'aaaaaaa1-0000-4000-8000-000000ab0fe1'),
   true, 'update_worker coalesce preserves omitted fields (active untouched)');
+-- Scoped to this test's PM actor: audit_log is append-only and accumulates, so
+-- a real/concurrent worker_change would inflate a table-wide count.
 select is(
   (select count(*) from public.audit_log
-    where action = 'worker_change' and target_table = 'workers'),
+    where action = 'worker_change' and target_table = 'workers'
+      and actor_id = '11111111-1111-1111-1111-1111111ab0fe'),
   3::bigint, 'worker RPCs wrote audit rows (create + rate + update)');
 
 -- C.note (spec 75): the roster note rides create_worker / update_worker.
