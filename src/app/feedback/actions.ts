@@ -13,7 +13,9 @@ import { validateFeedback, isFeedbackType } from "@/lib/feedback/validate";
 import type { Database } from "@/lib/db/database.types";
 import pkg from "../../../package.json";
 
-export type SubmitFeedbackResult = { ok: true } | { ok: false; error: string };
+// Spec 193 U2: the new feedback id is returned so the client can upload its
+// attachments under feedback/<id>/… and record them (add_feedback_attachment).
+export type SubmitFeedbackResult = { ok: true; id: string } | { ok: false; error: string };
 
 const GENERIC = "ส่งไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
@@ -46,7 +48,7 @@ export async function submitFeedback(input: {
   const userAgent = (await headers()).get("user-agent");
   if (userAgent) rpcArgs.p_user_agent = userAgent;
 
-  const { error } = await auth.supabase.rpc("submit_feedback", rpcArgs);
-  if (error) return { ok: false, error: GENERIC };
-  return { ok: true };
+  const { data: id, error } = await auth.supabase.rpc("submit_feedback", rpcArgs);
+  if (error || !id) return { ok: false, error: GENERIC };
+  return { ok: true, id };
 }

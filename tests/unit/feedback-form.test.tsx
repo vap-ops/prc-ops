@@ -24,7 +24,7 @@ import { FeedbackForm } from "@/components/features/feedback/feedback-form";
 
 describe("FeedbackForm", () => {
   beforeEach(() => {
-    submitFeedback.mockReset().mockResolvedValue({ ok: true });
+    submitFeedback.mockReset().mockResolvedValue({ ok: true, id: "fb1" });
   });
 
   it("renders the type toggle, title, details, and submit", () => {
@@ -34,6 +34,12 @@ describe("FeedbackForm", () => {
     expect(screen.getByLabelText("หัวข้อ")).toBeInTheDocument();
     expect(screen.getByLabelText("รายละเอียด")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "ส่ง" })).toBeInTheDocument();
+  });
+
+  it("offers an image attach control (spec 193 U2)", () => {
+    render(<FeedbackForm />);
+    expect(screen.getByText("แนบรูป (ถ้ามี)")).toBeInTheDocument();
+    expect(screen.getByText("เพิ่มรูป")).toBeInTheDocument();
   });
 
   it("swaps the details guidance when switching to a feature request", () => {

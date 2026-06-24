@@ -8,11 +8,40 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Bug, Lightbulb } from "lucide-react";
+import { Bug, Lightbulb, ImagePlus, X } from "lucide-react";
 import { submitFeedback } from "@/app/feedback/actions";
 import { validateFeedback, type FeedbackType } from "@/lib/feedback/validate";
+import { createClient as createBrowserClient } from "@/lib/db/browser";
 import { useToast } from "@/lib/ui/use-toast";
 import { BUTTON_PRIMARY, CARD, FIELD_STACKED, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
+
+// Spec 193 U2 — screenshots. Images only (a report is visual); the bucket caps
+// these mimes. Upload is best-effort and post-submit: a failed image never blocks
+// the (already-saved) text report.
+const MIME_EXT: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+  "image/heic": "heic",
+};
+const MAX_ATTACHMENTS = 4;
+
+async function uploadAttachments(feedbackId: string, files: File[]): Promise<void> {
+  const supabase = createBrowserClient();
+  for (const file of files) {
+    const ext = MIME_EXT[file.type];
+    if (!ext) continue;
+    const path = `feedback/${feedbackId}/${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage
+      .from("feedback-attachments")
+      .upload(path, file, { contentType: file.type });
+    if (error) continue;
+    await supabase.rpc("add_feedback_attachment", {
+      p_feedback_id: feedbackId,
+      p_storage_path: path,
+    });
+  }
+}
 
 const TYPES: ReadonlyArray<{ value: FeedbackType; label: string; icon: typeof Bug }> = [
   { value: "bug", label: "แจ้งปัญหา", icon: Bug },
@@ -32,6 +61,7 @@ export function FeedbackForm() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [screen, setScreen] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
@@ -49,6 +79,7 @@ export function FeedbackForm() {
             setTitle("");
             setBody("");
             setScreen("");
+            setFiles([]);
             setError(null);
           }}
           className="text-action mt-3 text-sm font-medium underline-offset-2 hover:underline"
@@ -78,6 +109,8 @@ export function FeedbackForm() {
         setError(result.error);
         return;
       }
+      // Best-effort: a failed image upload never blocks the saved text report.
+      if (files.length > 0) await uploadAttachments(result.id, files);
       toast.success("ส่งแล้ว ขอบคุณ");
       setDone(true);
       router.refresh();
@@ -158,6 +191,52 @@ export function FeedbackForm() {
           className={FIELD_STACKED}
         />
       </label>
+
+      {/* Spec 193 U2 — screenshots make a bug report actionable. Images only. */}
+      <div className="flex flex-col gap-2">
+        <span className="text-ink-secondary text-sm font-medium">แนบรูป (ถ้ามี)</span>
+        {files.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {files.map((f, i) => (
+              <div key={i} className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={URL.createObjectURL(f)}
+                  alt={`รูปแนบ ${i + 1}`}
+                  className="rounded-control border-edge size-16 border object-cover"
+                />
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => setFiles((fs) => fs.filter((_, j) => j !== i))}
+                  aria-label={`ลบรูปแนบ ${i + 1}`}
+                  className="bg-fill text-on-fill absolute -top-1.5 -right-1.5 inline-flex size-5 items-center justify-center rounded-full"
+                >
+                  <X aria-hidden className="size-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {files.length < MAX_ATTACHMENTS ? (
+          <label className="border-edge-strong text-ink-secondary hover:bg-sunk focus-within:ring-action rounded-control inline-flex h-11 w-fit cursor-pointer items-center gap-2 border border-dashed px-4 text-sm font-medium focus-within:ring-2">
+            <ImagePlus aria-hidden className="size-4" />
+            เพิ่มรูป
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/heic"
+              multiple
+              disabled={pending}
+              className="sr-only"
+              onChange={(e) => {
+                const picked = Array.from(e.target.files ?? []);
+                setFiles((fs) => [...fs, ...picked].slice(0, MAX_ATTACHMENTS));
+                e.target.value = "";
+              }}
+            />
+          </label>
+        ) : null}
+      </div>
 
       <p className="text-ink-muted text-xs">
         ระบบจะแนบบทบาท เวอร์ชันแอป และอุปกรณ์ของคุณให้อัตโนมัติ เพื่อให้ทีมแก้ไขได้เร็วขึ้น
