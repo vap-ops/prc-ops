@@ -33,7 +33,10 @@ import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import { resolveCallbackFlow } from "@/lib/auth/handoff-flow";
 import { exchangeLineCode } from "@/lib/auth/line-token-exchange";
-import { roleHome, type UserRole } from "@/lib/auth/role-home";
+import { type UserRole } from "@/lib/auth/role-home";
+import { homePathForUser } from "@/lib/auth/resolve-home";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/db/database.types";
 import { serverEnv } from "@/lib/env.server";
 
 const STATE_COOKIE_NAME = "line_oauth_state";
@@ -48,10 +51,17 @@ function redirectToLogin(request: NextRequest, error: string): NextResponse {
   return NextResponse.redirect(url);
 }
 
-function redirectByRole(request: NextRequest, role: UserRole): NextResponse {
+async function redirectByRole(
+  request: NextRequest,
+  client: SupabaseClient<Database>,
+  role: UserRole,
+  userId: string,
+): Promise<NextResponse> {
   const url = request.nextUrl.clone();
   url.search = "";
-  url.pathname = roleHome(role);
+  // A single-project site_admin lands on their project (operator: works one
+  // project at a time); every other role lands on its roleHome.
+  url.pathname = await homePathForUser(client, role, userId);
   return NextResponse.redirect(url);
 }
 
@@ -241,5 +251,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   // ---- 8. Redirect by role ----
-  return redirectByRole(request, row.role as UserRole);
+  // Admin client: a deterministic, RLS-independent membership lookup by id.
+  return redirectByRole(request, admin, row.role as UserRole, user.id);
 }

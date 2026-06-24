@@ -1,7 +1,8 @@
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { redirect } from "next/navigation";
-import { roleHome } from "@/lib/auth/role-home";
+import { homePathForUser } from "@/lib/auth/resolve-home";
 import { createClient } from "@/lib/db/server";
+import { createClient as createAdminClient } from "@/lib/db/admin";
 import { LoginButton } from "./login/login-button";
 
 export default async function Home() {
@@ -16,7 +17,9 @@ export default async function Home() {
       .eq("id", user.id)
       .maybeSingle();
     if (row) {
-      redirect(roleHome(row.role));
+      // A single-project site_admin lands on their project; others on roleHome.
+      // Admin client: a deterministic, RLS-independent membership lookup by id.
+      redirect(await homePathForUser(createAdminClient(), row.role, user.id));
     }
     // Row missing (edge case): fall through to the unauth UI rather than guess.
   }

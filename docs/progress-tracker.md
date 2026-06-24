@@ -6,6 +6,27 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 199 — a single-project site_admin lands on their project (2026-06-24)
+
+Status: **SHIPPED to prod — 2026-06-24** (no DB; lint · typecheck · vitest green).
+Operator: "site admins can't normally work on more than 1 project at a time" → a
+site_admin who belongs to exactly ONE project lands on `/projects/[id]` instead of
+the `/sa` daily home; 0 or many keep `/sa`. Other roles unchanged.
+
+**Test-first** (RED): `tests/unit/resolve-home.test.ts` — `resolveHomePath`
+(site_admin + 1 → project; +0/+many → /sa; non-SA → roleHome). 4 RED → green.
+
+**App:**
+
+- New `src/lib/auth/resolve-home.ts`: `resolveHomePath(role, projectIds)` (pure)
+  - `homePathForUser(client, role, userId)` (async — only site_admin triggers the
+    member ∪ `project_lead_id` lookup = `can_see_project`'s SA arm; others
+    short-circuit to `roleHome`). `roleHome()` stays pure (the fallback).
+- Wired both landing redirects to `homePathForUser` (admin client, deterministic
+  by-id lookup): the LINE callback (`redirectByRole` → async) + the homepage
+  (`page.tsx`).
+- `/sa` unchanged (still the หน้าหลัก tab + the 0/many landing).
+
 ## Spec 198 — check into inventory from the delivery page, U3 (2026-06-24)
 
 Status: **SHIPPED to prod — 2026-06-24** (no DB; lint · typecheck · vitest green).
