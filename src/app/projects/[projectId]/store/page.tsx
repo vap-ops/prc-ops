@@ -11,11 +11,11 @@ import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/require-role";
-import { SITE_STAFF_ROLES, WP_DETAIL_ROLES } from "@/lib/auth/role-home";
+import { SITE_STAFF_ROLES, SUPPLY_PLAN_ROLES, WP_DETAIL_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
-import { projectHref } from "@/lib/nav/project-paths";
+import { projectHref, supplyPlanHref } from "@/lib/nav/project-paths";
 import {
   StoreManager,
   type CatalogPick,
@@ -56,6 +56,10 @@ export default async function ProjectStorePage({ params }: PageProps) {
   // Store P&L (the margin view) is super_admin / project_director — the store_pnl
   // RPC's money gate (mirrors wp_profit). Procurement/PM/SA never see it.
   const canSeePnl = ctx.role === "super_admin" || ctx.role === "project_director";
+  // Spec 197 U3: the empty-store state points at แผนจัดหา as a second way to fill
+  // the store — a link only when the viewer can reach the supply plan
+  // (SUPPLY_PLAN_ROLES; site_admin can't plan, so for them it stays plain text).
+  const canPlanSupply = SUPPLY_PLAN_ROLES.includes(ctx.role);
 
   const { data: ohRows } = await supabase
     .from("stock_on_hand")
@@ -212,12 +216,15 @@ export default async function ProjectStorePage({ params }: PageProps) {
           issues={issues}
           receipts={receipts}
           counts={counts}
+          emptyStateSupplyPlanHref={canPlanSupply ? supplyPlanHref(project.id) : null}
         />
         {/* Spec 197 U2: ตรวจนับทั้งคลัง — the full-stocktake pass (the relocated
             /stock-count count-list), behind a toggle so it does not compete with
             the per-row spot count above. Same SITE_STAFF gate as the spot count
-            (record_stock_count); the project comes from the route (hidePicker). */}
-        {canIssue ? (
+            (record_stock_count); the project comes from the route (hidePicker).
+            Spec 197 U3: suppressed while the store is empty — counting zero items
+            is meaningless; the empty state leads with รับเข้า instead. */}
+        {canIssue && onHand.length > 0 ? (
           <StoreCountManager
             projects={[{ id: project.id, code: project.code, name: project.name }]}
             selectedProjectId={project.id}

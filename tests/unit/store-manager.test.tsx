@@ -145,9 +145,9 @@ describe("StoreManager (spec 177 U2)", () => {
     expect(screen.getByText(/30\.00/)).toBeInTheDocument();
   });
 
-  it("shows an empty state when the project has no stock", () => {
+  it("shows an empty state when the project has no stock (spec 197 U3)", () => {
     renderManager({ onHand: [] });
-    expect(screen.getByText("ยังไม่มีสต๊อกในสโตร์")).toBeInTheDocument();
+    expect(screen.getByText(/ยังไม่มีของในคลัง/)).toBeInTheDocument();
   });
 
   it("switching the project selector navigates to that project's store", () => {

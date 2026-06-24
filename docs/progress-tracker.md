@@ -6,6 +6,38 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 197 — empty-คลัง state, U3 (2026-06-24)
+
+Status: **SHIPPED to prod — 2026-06-24** (no DB; lint · typecheck · vitest green).
+**SPEC 197 COMPLETE (U1–U3).** A brand-new project's store is empty; a bare
+"no stock" line was a dead end. The empty state now:
+
+- Leads with the `รับเข้าสต๊อก` action as the **primary** CTA (the secondary
+  header รับเข้า button is dropped when empty, so there is one clear lead).
+- Shows one line — "ยังไม่มีของในคลัง — เริ่มจากรับเข้า หรือผ่านแผนจัดหา" — where
+  **แผนจัดหา** links to the project's supply-plan chip, but only when the viewer
+  can reach it (`SUPPLY_PLAN_ROLES`); for site_admin (can't plan supply) it stays
+  plain text, never a dead link.
+- Suppresses the `ตรวจนับทั้งคลัง` full-stocktake (U2) while the store is empty
+  (counting zero items is meaningless).
+
+**Test-first** (RED): `tests/unit/store-empty-state.test.tsx` — leads with รับเข้า +
+links แผนจัดหา when `emptyStateSupplyPlanHref` set; plain text (no link) when null.
+2 RED → green. Also updated the spec-177 `store-manager.test.tsx` empty assertion
+(old "ยังไม่มีสต๊อกในสโตร์" → "ยังไม่มีของในคลัง").
+
+**App:**
+
+- `StoreManager` gains `emptyStateSupplyPlanHref?: string | null` (default null).
+  Non-null → empty state renders แผนจัดหา as a `<Link>` to the supply plan +
+  a `BUTTON_PRIMARY` รับเข้า lead; null → plain text. Header รับเข้า now shows only
+  when `onHand.length > 0`.
+- `app/projects/[projectId]/store/page.tsx`: `canPlanSupply = SUPPLY_PLAN_ROLES`,
+  passes `emptyStateSupplyPlanHref={canPlanSupply ? supplyPlanHref(id) : null}`;
+  gates `ตรวจนับทั้งคลัง` on `canIssue && onHand.length > 0`.
+
+Ties into the first-real-project adoption arc (spec 192). Placement/UX only.
+
 ## Spec 197 — ตรวจนับ unified into คลัง, U2 (2026-06-24)
 
 Status: **SHIPPED to prod — 2026-06-24** (no DB; lint · typecheck · vitest green).

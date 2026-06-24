@@ -5,6 +5,7 @@
 // stock-in (รับเข้า) of a catalog item at cost. 'use client': the project
 // selector navigation, the record-sheet state, the submit transition + refresh.
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
@@ -93,6 +94,7 @@ export function StoreManager({
   receipts,
   counts,
   hidePicker = false,
+  emptyStateSupplyPlanHref = null,
 }: {
   projects: { id: string; code: string; name: string }[];
   selectedProjectId: string | null;
@@ -111,6 +113,11 @@ export function StoreManager({
   // URL, so the picker is suppressed (RLS already scopes the viewer). The legacy
   // global picker is kept (default false) for any caller still passing a list.
   hidePicker?: boolean;
+  // Spec 197 U3: when the store is empty, the empty state points at แผนจัดหา as a
+  // second way to fill it. A non-null href renders แผนจัดหา as a link to the
+  // supply-plan chip; null (the viewer can't plan supply, e.g. site_admin) keeps
+  // it plain text so it is never a dead link.
+  emptyStateSupplyPlanHref?: string | null;
 }) {
   const router = useRouter();
 
@@ -283,13 +290,31 @@ export function StoreManager({
         <>
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-ink text-body font-semibold">สต๊อกในมือ</h2>
-            <button type="button" onClick={() => setOpen(true)} className={BUTTON_SECONDARY}>
-              {STORE_RECEIVE_LABEL}
-            </button>
+            {/* Spec 197 U3: when empty, the empty state below owns the primary
+                รับเข้า lead — drop the secondary header button to avoid two. */}
+            {onHand.length > 0 ? (
+              <button type="button" onClick={() => setOpen(true)} className={BUTTON_SECONDARY}>
+                {STORE_RECEIVE_LABEL}
+              </button>
+            ) : null}
           </div>
 
           {onHand.length === 0 ? (
-            <p className="text-ink-secondary text-body">ยังไม่มีสต๊อกในสโตร์</p>
+            <div className="flex flex-col items-start gap-3">
+              <p className="text-ink-secondary text-body">
+                ยังไม่มีของในคลัง — เริ่มจากรับเข้า หรือผ่าน
+                {emptyStateSupplyPlanHref ? (
+                  <Link href={emptyStateSupplyPlanHref} className="text-action underline">
+                    แผนจัดหา
+                  </Link>
+                ) : (
+                  "แผนจัดหา"
+                )}
+              </p>
+              <button type="button" onClick={() => setOpen(true)} className={BUTTON_PRIMARY}>
+                {STORE_RECEIVE_LABEL}
+              </button>
+            </div>
           ) : (
             <ul className="flex flex-col gap-2">
               {onHand.map((r) => {
