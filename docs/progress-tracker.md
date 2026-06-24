@@ -6,6 +6,29 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 194 — super_admin override on an approved supply plan (2026-06-24)
+
+Status: **SHIPPED to prod — 2026-06-24** (commit 58dc371; mig 20260813000100; pgTAP
+209; lint · typecheck · vitest 1567 · db:test 159/0 green). Operator: a super_admin
+should be able to revert the status / edit an approved (frozen) supply plan, with
+the plan labeled "overridden by [name]" (chose **supply plans first** via
+AskUserQuestion). The lifecycle is one-way past approval (PM submit → PD/super
+approve → frozen; only rejected re-editable); this is the operator escape hatch.
+**mig:** `supply_plans` += overridden_by / overridden_at; `reopen_supply_plan(plan)`
+definer — **super_admin only** — reopens a submitted/approved plan to draft
+(clearing the submit/approve stamps), recording overridden_by + overridden_at; the
+marker PERSISTS through a later re-approval. **pgTAP 209** (super reopens, non-super
+42501, draft can't reopen, execute lockdown). `reopenPlan` action + a "เปิดแก้ไข
+(ผู้ดูแลระบบ)" button on a frozen plan (canOverride = super) + a "· ปรับแก้โดย [name]"
+marker (name resolved via admin client). The pattern (reopen RPC + overridden_by
+stamp + label) is reusable for other approved entities. **PAIRED REQUEST #1 — supply
+plan → store redesign — NOT built (design proposal presented, awaiting the
+operator's direction):** the operator wants supply-plan items to procure into the
+on-site STORE (project-level, no WP), then WPs เบิก (withdraw) per-WP — moving WP
+attribution to withdrawal (the store already does the เบิก half, spec 177). Key
+fork = how procurement lands in the store (light: plan → pre-filled stock-in; full:
+project-level PRs → PO → receive-into-store, needs PR work_package_id nullable).
+
 ## Spec 193 — in-app feedback (bug report / feature request) (2026-06-24)
 
 Status: **SHIPPED to prod — 2026-06-24** (commit d7b7b0d; mig 20260813000000; pgTAP
