@@ -26,10 +26,19 @@ labour-picker ordering — so the missing UI is a real gap.
 - `/workers` page reads `workers.project_id` (admin client, with the rest of the
   roster) + the assigner's RLS-scoped projects, and passes both down.
 
+### U2 — assign at creation
+
+So a new DC is scoped to their project on day one (no second step).
+
+- The **add-worker form** gains the same optional **โครงการ** `<select>`.
+- `createWorker` now captures the new worker's id and, when a project was chosen,
+  calls `assign_worker_to_project` — a **create + assign**, reusing the existing
+  RPC. **No DB change** (avoids widening `create_worker`'s signature). The assign
+  is soft: the worker exists either way; a failed assign returns a message and the
+  project can still be set from the row's edit sheet.
+
 ## Out of scope
 
 - No change to the assignment model (single `workers.project_id`, not a
-  multi-project join) or the RPC.
-- No assign-at-creation (the add form still creates a project-less worker;
-  `create_worker` takes no project) — a follow-up if wanted.
+  multi-project join) or the RPCs.
 - Labour logging already works without assignment (unchanged).

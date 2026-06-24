@@ -65,13 +65,15 @@ export type ManagedWorker = {
 // Spec 200: a project the assigner can put a worker on.
 export type AssignableProject = { id: string; code: string; name: string };
 
-function AddWorkerForm() {
+function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [workerType, setWorkerType] = useState<WorkerType>("own");
   const [arrangement, setArrangement] = useState<DcArrangement>("regular");
   const [rate, setRate] = useState("");
   const [note, setNote] = useState("");
+  // Spec 200 U2: optionally put the new worker on a project at creation.
+  const [project, setProject] = useState("");
   const [phone, setPhone] = useState("");
   const [taxId, setTaxId] = useState("");
   const [bankName, setBankName] = useState("");
@@ -100,6 +102,7 @@ function AddWorkerForm() {
       workerType,
       dayRate: Number.isFinite(dayRate) ? dayRate : -1,
       note,
+      ...(project ? { projectId: project } : {}),
       ...(isDc ? { arrangement, phone, taxId, bankName, bankAccountNumber, bankAccountName } : {}),
     });
     setBusy(false);
@@ -110,6 +113,7 @@ function AddWorkerForm() {
     setName("");
     setRate("");
     setNote("");
+    setProject("");
     resetPayee();
     router.refresh();
   }
@@ -232,6 +236,22 @@ function AddWorkerForm() {
           placeholder="เช่น ทักษะ เบอร์ติดต่อ (ไม่บังคับ)"
           className={FIELD_STACKED}
         />
+      </label>
+      {/* Spec 200 U2: scope the new worker to a project on day one (optional). */}
+      <label className="text-ink-secondary mt-2 block text-sm">
+        โครงการ
+        <select
+          value={project}
+          onChange={(e) => setProject(e.target.value)}
+          className={FIELD_STACKED}
+        >
+          <option value="">ไม่ระบุ</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.code} {p.name}
+            </option>
+          ))}
+        </select>
       </label>
       {error ? <p className="text-danger mt-2 text-sm">{error}</p> : null}
       <button
@@ -481,7 +501,7 @@ export function WorkerRosterManager({
 
   return (
     <div className="flex flex-col gap-4">
-      <AddWorkerForm />
+      <AddWorkerForm projects={projects} />
       {(
         [
           { label: "ช่างบริษัท", list: own },

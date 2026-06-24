@@ -192,16 +192,32 @@ describe("WorkerRosterManager project assignment", () => {
         projects={PROJECTS}
       />,
     );
-    expect(screen.getByText(/PRC-2026-001/)).toBeInTheDocument();
+    // the row's current-project line (the add form's <option> also names it)
+    expect(screen.getByText(/โครงการ: PRC-2026-001/)).toBeInTheDocument();
   });
 
   it("assigns the worker to the chosen project on save", async () => {
     render(<WorkerRosterManager workers={WORKERS} contractors={[]} projects={PROJECTS} />);
     fireEvent.click(screen.getByRole("button", { name: "แก้ไข" }));
-    fireEvent.change(screen.getByLabelText("โครงการ"), { target: { value: "p2" } });
+    // the edit sheet's project select (the add form has one too — take the last)
+    const sels = screen.getAllByLabelText("โครงการ");
+    fireEvent.change(sels[sels.length - 1]!, { target: { value: "p2" } });
     fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
     await waitFor(() =>
       expect(mockAssign).toHaveBeenCalledWith({ workerId: "w1", projectId: "p2" }),
+    );
+  });
+
+  it("creates a new worker already on the chosen project", async () => {
+    render(<WorkerRosterManager workers={[]} contractors={[]} projects={PROJECTS} />);
+    fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "ช่างใหม่" } });
+    fireEvent.change(screen.getByLabelText("ค่าแรงต่อวัน (บาท)"), { target: { value: "500" } });
+    fireEvent.change(screen.getByLabelText("โครงการ"), { target: { value: "p2" } });
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มทีมงาน" }));
+    await waitFor(() =>
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "ช่างใหม่", projectId: "p2" }),
+      ),
     );
   });
 

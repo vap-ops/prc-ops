@@ -6,6 +6,24 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 200 U2 — assign a worker to a project at creation (2026-06-24)
+
+Status: **SHIPPED to prod — 2026-06-24** (no DB; lint · typecheck · vitest green).
+Follow-up to spec 200: the "add worker" form scoped a project-less worker, so a
+new DC needed a second step to assign. U2 lets you pick the project on day one.
+
+**Test-first** (RED): `worker-roster-manager.test.tsx` — creating with a chosen
+project calls `createWorker` with `projectId`. 1 RED → green.
+
+**App (no DB — reuses both existing RPCs):**
+
+- The add-worker form gains the same optional **โครงการ** `<select>` (`AddWorkerForm`
+  now takes the `projects` prop).
+- `createWorker` captures the new worker's id and, when a project was chosen, calls
+  `assign_worker_to_project` — a **create + assign**, avoiding a `create_worker`
+  signature widen (no DROP+CREATE / re-grant trap). The assign is soft: the worker
+  exists either way; a failed assign returns a message + can be set in the edit sheet.
+
 ## Spec 200 — assign a worker to a project (the missing UI) (2026-06-24)
 
 Status: **SHIPPED to prod — 2026-06-24** (no DB; lint · typecheck · vitest green).

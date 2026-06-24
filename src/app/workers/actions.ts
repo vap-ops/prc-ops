@@ -73,6 +73,9 @@ export async function createWorker(
     contractorId?: string | null;
     // Spec 75: optional roster note.
     note?: string;
+    // Spec 200 U2: optionally put the new worker on a project at creation (a
+    // create + assign — reuses assign_worker_to_project, no new RPC).
+    projectId?: string | null;
   } & WorkerPayeeInput,
 ): Promise<WorkerActionResult> {
   if (!validName(input.name) || !validRate(input.dayRate)) {
@@ -80,9 +83,11 @@ export async function createWorker(
   }
   const noteResult = validateNotes(input.note ?? "");
   if (!noteResult.ok) return { ok: false, error: noteResult.error };
+  const projectId = input.projectId && input.projectId !== "" ? input.projectId : null;
+  if (projectId !== null && !UUID_REGEX.test(projectId)) return { ok: false, error: GENERIC_ERROR };
 
   const supabase = await createServerSupabase();
-  const { error } = await supabase.rpc("create_worker", {
+  const { data: workerId, error } = await supabase.rpc("create_worker", {
     p_name: input.name.trim(),
     p_type: input.workerType,
     p_day_rate: input.dayRate,
@@ -92,7 +97,20 @@ export async function createWorker(
     ...(noteResult.value !== null ? { p_note: noteResult.value } : {}),
     ...payeeRpcParams(input.workerType, input),
   });
-  if (error) return { ok: false, error: GENERIC_ERROR };
+  if (error || !workerId) return { ok: false, error: GENERIC_ERROR };
+
+  // Optional initial project assignment (the worker exists either way — a failed
+  // assign is soft: it can be set from the row's edit sheet).
+  if (projectId !== null) {
+    const { error: assignError } = await supabase.rpc("assign_worker_to_project", {
+      p_worker: workerId,
+      p_project: projectId,
+    });
+    if (assignError) {
+      revalidatePath("/workers");
+      return { ok: false, error: "เพิ่มทีมงานแล้ว แต่กำหนดโครงการไม่สำเร็จ — กำหนดได้ในเมนูแก้ไข" };
+    }
+  }
 
   revalidatePath("/workers");
   return { ok: true };
