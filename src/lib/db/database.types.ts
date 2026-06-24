@@ -3510,6 +3510,7 @@ export type Database = {
           id: string
           note: string | null
           project_id: string
+          purchase_request_id: string | null
           qty: number
           received_at: string
           supplier_id: string | null
@@ -3524,6 +3525,7 @@ export type Database = {
           id?: string
           note?: string | null
           project_id: string
+          purchase_request_id?: string | null
           qty: number
           received_at?: string
           supplier_id?: string | null
@@ -3538,6 +3540,7 @@ export type Database = {
           id?: string
           note?: string | null
           project_id?: string
+          purchase_request_id?: string | null
           qty?: number
           received_at?: string
           supplier_id?: string | null
@@ -3565,6 +3568,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_receipts_purchase_request_id_fkey"
+            columns: ["purchase_request_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_requests"
             referencedColumns: ["id"]
           },
           {
