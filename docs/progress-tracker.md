@@ -6,6 +6,25 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 192 — first-real-project readiness, U2+U3 (2026-06-24)
+
+Status: **U2 + U3 SHIPPED to prod — 2026-06-24** (commits 93225df, 14b842e; NO DB;
+lint · typecheck · vitest 1549 green). Continuing the adoption arc after U1. **U2 —
+onboarding leads with the team:** the setup checklist listed "เพิ่มทีมงาน" third with
+no rationale, but team is the access prerequisite (a project is only visible to its
+members) — moved it FIRST + a one-line why ("เพิ่มก่อนเป็นอันดับแรก เพื่อให้พวกเขา
+เห็นโครงการและเริ่มทำงานได้"); rows gained an optional `hint`. **U3 — non-member
+explainer, not a bare 404:** when the user session can't see a project, an
+admin-client exists-check distinguishes RLS-hidden (not a member) from truly-gone —
+gone still 404s, hidden renders `NoAccessNotice` ("คุณยังไม่ได้อยู่ในทีมของโครงการ
+นี้ — ติดต่อผู้จัดการโครงการเพื่อขอเพิ่มเข้าทีม") in the standard chrome with a back
+link (super_admin / coordinator see-all, never reach it). Tests:
+`onboarding-checklist.test.tsx` (+1), `no-access-notice.test.tsx`. **U4 — site-admin
+daily home: DESIGN APPROVED (mock-first, show_widget → AskUserQuestion: build it +
+make it the SA's landing), NOT YET BUILT.** It's a central nav rework (roleHome +
+SA_TABS + SA_HUB_NAV + 4 pinned nav tests) → its own focused unit; full plan in
+`docs/feature-specs/192-first-project-readiness.md` §U4.
+
 ## Spec 192 — first-real-project readiness, U1 (2026-06-24)
 
 Status: **U1 SHIPPED to prod — 2026-06-24** (commit 69d94b0, NO DB; lint · typecheck
