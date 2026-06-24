@@ -21,6 +21,8 @@ import {
   type ProjectType,
 } from "@/lib/projects/validate-settings";
 import { NOTES_MAX } from "@/lib/notes/validate";
+import { evaluateMemberRemoval } from "@/lib/projects/member-removal";
+import { ConfirmDialog } from "@/components/features/common/confirm-dialog";
 import { useToast } from "@/lib/ui/use-toast";
 import {
   updateProjectSettings,
@@ -61,6 +63,9 @@ interface SettingsFormProps {
   clients: ClientOption[];
   staff: StaffOption[];
   members: StaffOption[];
+  // Spec 192: who is viewing — so removing YOURSELF prompts a consequence confirm
+  // (you'd lose visibility of the project).
+  currentUserId: string;
 }
 
 export function SettingsForm(props: SettingsFormProps) {
@@ -99,6 +104,8 @@ export function SettingsForm(props: SettingsFormProps) {
   const [members, setMembers] = useState<StaffOption[]>(props.members);
   const [memberToAdd, setMemberToAdd] = useState("");
   const [memberPending, startMember] = useTransition();
+  // Spec 192: the self-removal awaiting confirmation (null = no dialog open).
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
@@ -123,7 +130,25 @@ export function SettingsForm(props: SettingsFormProps) {
     });
   }
 
-  function handleRemoveMember(id: string) {
+  // Spec 192: a click only commits straight away when it's safe. The last member
+  // can't be removed (the project would go invisible — server also refuses);
+  // removing yourself while others remain routes through a consequence confirm.
+  function requestRemoveMember(id: string) {
+    setError(null);
+    const decision = evaluateMemberRemoval({
+      totalMembers: members.length,
+      removingSelf: id === props.currentUserId,
+    });
+    if (decision.blocked) return; // the control is disabled too; belt-and-suspenders
+    if (decision.needsConfirm) {
+      setConfirmRemoveId(id);
+      return;
+    }
+    doRemoveMember(id);
+  }
+
+  function doRemoveMember(id: string) {
+    setConfirmRemoveId(null);
     setError(null);
     startMember(async () => {
       const result = await removeProjectMember(props.projectId, id);
@@ -359,27 +384,41 @@ export function SettingsForm(props: SettingsFormProps) {
         <span className={LABEL}>ทีมงาน</span>
         {members.length > 0 ? (
           <ul className="flex flex-col gap-1">
-            {members.map((m) => (
-              <li
-                key={m.id}
-                className="rounded-control border-edge bg-page flex items-center justify-between gap-2 border px-3 py-2"
-              >
-                <span className="text-ink truncate text-sm">{m.name ?? m.id.slice(0, 8)}</span>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveMember(m.id)}
-                  disabled={busy}
-                  aria-label={`ลบ ${m.name ?? "สมาชิก"}`}
-                  className="text-danger shrink-0 px-2 text-sm font-medium"
+            {members.map((m) => {
+              // Spec 192: can't remove the last member (project must stay visible).
+              const isLast = members.length <= 1;
+              return (
+                <li
+                  key={m.id}
+                  className="rounded-control border-edge bg-page flex items-center justify-between gap-2 border px-3 py-2"
                 >
-                  ✕
-                </button>
-              </li>
-            ))}
+                  <span className="text-ink truncate text-sm">
+                    {m.name ?? m.id.slice(0, 8)}
+                    {m.id === props.currentUserId ? (
+                      <span className="text-ink-muted"> (คุณ)</span>
+                    ) : null}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => requestRemoveMember(m.id)}
+                    disabled={busy || isLast}
+                    aria-label={`ลบ ${m.name ?? "สมาชิก"}`}
+                    className="text-danger shrink-0 px-2 text-sm font-medium disabled:opacity-40"
+                  >
+                    ✕
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p className="text-ink-muted text-xs">ยังไม่มีสมาชิกในทีม</p>
         )}
+        {members.length <= 1 ? (
+          <p className="text-ink-muted text-xs">
+            ต้องมีสมาชิกอย่างน้อย 1 คน — เพิ่มสมาชิกก่อนจึงจะนำคนสุดท้ายออกได้
+          </p>
+        ) : null}
         {addableStaff.length > 0 && (
           <div className="flex gap-2">
             <select
@@ -550,6 +589,18 @@ export function SettingsForm(props: SettingsFormProps) {
           {submitting ? "กำลังบันทึก…" : "บันทึกการตั้งค่า"}
         </button>
       </div>
+
+      {/* Spec 192: confirm a self-removal — the consequence (losing visibility)
+          is not obvious from a ✕. */}
+      <ConfirmDialog
+        open={confirmRemoveId !== null}
+        message={
+          "นำตัวเองออกจากทีมโครงการนี้?\nคุณจะไม่เห็นโครงการนี้อีก จนกว่าจะมีผู้จัดการเพิ่มคุณกลับเข้าทีม"
+        }
+        confirmLabel="นำออก"
+        onConfirm={() => confirmRemoveId && doRemoveMember(confirmRemoveId)}
+        onCancel={() => setConfirmRemoveId(null)}
+      />
     </form>
   );
 }

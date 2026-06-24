@@ -5,10 +5,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockUpdate, mockCreateClient, mockRefresh } = vi.hoisted(() => ({
+const { mockUpdate, mockCreateClient, mockRefresh, mockRemoveMember } = vi.hoisted(() => ({
   mockUpdate: vi.fn(),
   mockCreateClient: vi.fn(),
   mockRefresh: vi.fn(),
+  mockRemoveMember: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
@@ -16,7 +17,7 @@ vi.mock("@/app/projects/[projectId]/settings/actions", () => ({
   updateProjectSettings: mockUpdate,
   createClient: mockCreateClient,
   addProjectMember: vi.fn(),
-  removeProjectMember: vi.fn(),
+  removeProjectMember: mockRemoveMember,
 }));
 
 import { SettingsForm } from "@/app/projects/[projectId]/settings/settings-form";
@@ -39,6 +40,7 @@ const baseProps = {
   clients: [],
   staff: [],
   members: [],
+  currentUserId: "me",
 };
 
 describe("SettingsForm", () => {
@@ -46,6 +48,8 @@ describe("SettingsForm", () => {
     mockUpdate.mockReset();
     mockCreateClient.mockReset();
     mockRefresh.mockReset();
+    mockRemoveMember.mockReset();
+    mockRemoveMember.mockResolvedValue({ ok: true });
   });
 
   it("seeds the notes textarea from initialNotes", () => {
@@ -81,6 +85,49 @@ describe("SettingsForm", () => {
         clientId: "",
       }),
     );
+  });
+
+  // Spec 192: membership safety net.
+  it("disables removing the last member (project must keep ≥1)", () => {
+    render(
+      <SettingsForm {...baseProps} members={[{ id: "me", name: "ฉัน" }]} currentUserId="me" />,
+    );
+    expect(screen.getByRole("button", { name: "ลบ ฉัน" })).toBeDisabled();
+  });
+
+  it("confirms before removing YOURSELF, then calls the action", async () => {
+    render(
+      <SettingsForm
+        {...baseProps}
+        members={[
+          { id: "me", name: "ฉัน" },
+          { id: "u2", name: "อีกคน" },
+        ]}
+        currentUserId="me"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "ลบ ฉัน" }));
+    // A consequence confirm appears; the action has NOT fired yet.
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(mockRemoveMember).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "นำออก" }));
+    await waitFor(() => expect(mockRemoveMember).toHaveBeenCalledWith("p", "me"));
+  });
+
+  it("removes another member with no confirm dialog", async () => {
+    render(
+      <SettingsForm
+        {...baseProps}
+        members={[
+          { id: "me", name: "ฉัน" },
+          { id: "u2", name: "อีกคน" },
+        ]}
+        currentUserId="me"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "ลบ อีกคน" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() => expect(mockRemoveMember).toHaveBeenCalledWith("p", "u2"));
   });
 
   // Spec 174: the pasted Google-Maps link rides the same single save.

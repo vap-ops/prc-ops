@@ -103,6 +103,7 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
           clients={clients ?? []}
           staff={staffList}
           members={memberList}
+          currentUserId={ctx.id}
         />
       </div>
     </PageShell>

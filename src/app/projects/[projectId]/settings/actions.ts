@@ -22,6 +22,7 @@ import {
   type ProjectType,
 } from "@/lib/projects/validate-settings";
 import { validateNotes } from "@/lib/notes/validate";
+import { evaluateMemberRemoval } from "@/lib/projects/member-removal";
 import { isValidUuid } from "@/lib/validate/uuid";
 import type { Database } from "@/lib/db/database.types";
 
@@ -265,6 +266,20 @@ export async function removeProjectMember(
   const gate = await gateProjectMember(projectId, userId);
   if (!gate.ok) return { ok: false, error: gate.error };
   const { supabase } = gate.auth;
+
+  // Spec 192: a project must keep ≥1 member, or it becomes invisible to everyone
+  // but super_admin (can_see_project, ADR 0056). Guard the last removal server-
+  // side — the UI mirrors this but the action is the load-bearing check.
+  const { count } = await supabase
+    .from("project_members")
+    .select("user_id", { count: "exact", head: true })
+    .eq("project_id", projectId);
+  if (evaluateMemberRemoval({ totalMembers: count ?? 0, removingSelf: false }).blocked) {
+    return {
+      ok: false,
+      error: "โครงการต้องมีสมาชิกอย่างน้อย 1 คน — เพิ่มสมาชิกคนอื่นก่อนนำคนสุดท้ายออก",
+    };
+  }
 
   const { error } = await supabase
     .from("project_members")
