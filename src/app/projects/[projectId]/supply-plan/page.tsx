@@ -11,6 +11,8 @@ import Link from "next/link";
 import { SUPPLY_PLAN_ROLES } from "@/lib/auth/role-home";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
+import { mintSignedUrls } from "@/lib/storage/signed-urls";
+import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { projectHref, supplyPlanHref } from "@/lib/nav/project-paths";
@@ -21,6 +23,7 @@ import {
   type PlanLine,
 } from "@/components/features/supply-plan/supply-plan-manager";
 import { NewPlanButton } from "@/components/features/supply-plan/new-plan-button";
+import { DeletePlanButton } from "@/components/features/supply-plan/delete-plan-button";
 import { buildPlanList, type SupplyPlanRow } from "@/lib/supply-plan/plan-list";
 import {
   SupplyPlanAccuracy,
@@ -122,17 +125,24 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
     lines = baseLines.map((l) => ({ ...l, converted: convertedSet.has(l.id) }));
   }
 
+  // Spec 189 follow-up: the supply-plan item picker is the SAME catalog picker as
+  // the purchase request, so it needs image_path + signed thumbnail URLs.
   const { data: catRows } = await supabase
     .from("catalog_items")
-    .select("id, category, base_item, spec_attrs, unit")
+    .select("id, category, base_item, spec_attrs, unit, image_path")
     .eq("is_active", true)
     .order("base_item", { ascending: true });
+  const catalogThumbs = await mintSignedUrls(
+    CATALOG_IMAGES_BUCKET,
+    (catRows ?? []).map((r) => ({ id: r.id, storage_path: r.image_path })),
+  );
   const catalogItems: CatalogPick[] = (catRows ?? []).map((r) => ({
     id: r.id,
     category: r.category,
     baseItem: r.base_item,
     specAttrs: r.spec_attrs,
     unit: r.unit,
+    thumbnailUrl: catalogThumbs.get(r.id) ?? null,
   }));
 
   const { data: wpRows } = await supabase
@@ -188,11 +198,11 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
         ) : (
           <ul className="flex flex-col gap-2">
             {planItems.map((p) => (
-              <li key={p.id}>
+              <li key={p.id} className="flex items-stretch gap-2">
                 <Link
                   href={`${supplyPlanHref(project.id)}?plan=${p.id}`}
                   aria-current={p.selected ? "true" : undefined}
-                  className={`rounded-control flex items-center justify-between gap-3 border px-4 py-3 ${
+                  className={`rounded-control flex min-w-0 flex-1 items-center justify-between gap-3 border px-4 py-3 ${
                     p.selected
                       ? "border-action bg-sunk"
                       : "border-edge bg-card hover:border-edge-strong"
@@ -208,6 +218,12 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
                     {PLAN_STATUS_LABEL[p.status]}
                   </span>
                 </Link>
+                {/* Spec 189: a draft/rejected plan can be deleted (submitted/approved are locked). */}
+                {p.status === "draft" || p.status === "rejected" ? (
+                  <div className="flex items-center">
+                    <DeletePlanButton projectId={project.id} planId={p.id} />
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>

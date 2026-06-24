@@ -239,7 +239,7 @@ async function findLandedAttachment(
     // pin the actual kind (an id-only check would let a forged replay claim
     // a foreign row, spec-35 lesson).
     kind: AttachmentFileKind;
-    purpose: "delivery_confirmation" | "reference" | "invoice" | "quote";
+    purpose: "delivery_confirmation" | "reference" | "invoice" | "quote" | "payment";
     storagePath: string;
   },
 ): Promise<boolean> {
@@ -404,6 +404,84 @@ export async function addInvoiceAttachment(
       purchaseRequestId: input.purchaseRequestId,
       kind: fileKind,
       purpose: "invoice",
+      storagePath,
+    });
+    if (!landed) {
+      return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
+    }
+  }
+
+  revalidatePath("/requests");
+  return { ok: true };
+}
+
+// addPaymentProofAttachment (procurement bug 2): the buyer's proof of payment
+// (สลิปโอน / หลักฐานการชำระเงิน) — distinct from the supplier's invoice/receipt.
+// Mirrors addInvoiceAttachment but purpose 'payment'; same parent gate (a payment
+// exists once the PR is purchased). RLS re-enforces purpose + status.
+export async function addPaymentProofAttachment(
+  input: AddDeliveryConfirmationPhotoInput,
+): Promise<AttachmentActionResult> {
+  if (!UUID_REGEX.test(input.purchaseRequestId) || !UUID_REGEX.test(input.attachmentId)) {
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
+  }
+  if (!isValidAttachmentExt(input.ext)) {
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
+  }
+  const fileKind: AttachmentFileKind = attachmentKindForExt(input.ext);
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
+
+  const { data: pr } = await readPrParent(supabase, input.purchaseRequestId);
+  const projectId = pr?.work_packages?.project_id;
+  if (!pr || !projectId) {
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
+  }
+
+  const storagePath = buildPrAttachmentStoragePath(
+    projectId,
+    input.purchaseRequestId,
+    input.attachmentId,
+    input.ext,
+  );
+  if (!storagePath) {
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
+  }
+
+  if (!(INVOICE_PARENT_STATUSES as readonly string[]).includes(pr.status)) {
+    const landed = await findLandedAttachment(supabase, {
+      attachmentId: input.attachmentId,
+      purchaseRequestId: input.purchaseRequestId,
+      kind: fileKind,
+      purpose: "payment",
+      storagePath,
+    });
+    if (landed) {
+      revalidatePath("/requests");
+      return { ok: true };
+    }
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
+  }
+
+  const { error } = await supabase.from("purchase_request_attachments").insert({
+    id: input.attachmentId,
+    purchase_request_id: input.purchaseRequestId,
+    kind: fileKind,
+    purpose: "payment",
+    storage_path: storagePath,
+    created_by: user.id,
+  });
+  if (error) {
+    if (error.code !== "23505") {
+      return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
+    }
+    const landed = await findLandedAttachment(supabase, {
+      attachmentId: input.attachmentId,
+      purchaseRequestId: input.purchaseRequestId,
+      kind: fileKind,
+      purpose: "payment",
       storagePath,
     });
     if (!landed) {

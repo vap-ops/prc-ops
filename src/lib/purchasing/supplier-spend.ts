@@ -28,8 +28,8 @@ export function aggregateSupplierSpend(
   return bySupplier;
 }
 
-const baht = (n: number) =>
-  `฿${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// Summary badge — rounded to whole baht on purpose (compact spend chip).
+const baht = (n: number) => `฿${Math.round(n).toLocaleString("en-US")}`;
 
 // Build the per-supplier spend chips as a SERIALIZABLE map (supplier id → badge),
 // so a Server Component can pass it across the RSC boundary to the client

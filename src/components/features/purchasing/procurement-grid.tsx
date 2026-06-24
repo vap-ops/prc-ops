@@ -40,6 +40,7 @@ import { procurementDrawerActions } from "@/lib/purchasing/drawer-actions";
 import type { SupplierOption } from "@/components/features/purchasing/purchase-record-form";
 import { PurchaseRequestShip } from "@/components/features/purchasing/purchase-request-ship";
 import { InvoiceUploader } from "@/components/features/purchasing/invoice-uploader";
+import { PaymentProofUploader } from "@/components/features/purchasing/payment-proof-uploader";
 import { DeliveryPhotoUploader } from "@/components/features/purchasing/delivery-photo-uploader";
 import {
   CreatePurchaseOrderSheet,
@@ -638,6 +639,10 @@ function DrawerBody({
           ) : null}
           {actions.invoice && record.project_id ? (
             <InvoiceUploader purchaseRequestId={record.id} projectId={record.project_id} />
+          ) : null}
+          {/* Bug 2: proof of payment shares the invoice visibility window. */}
+          {actions.invoice && record.project_id ? (
+            <PaymentProofUploader purchaseRequestId={record.id} projectId={record.project_id} />
           ) : null}
         </div>
       ) : null}

@@ -96,8 +96,8 @@ select has_table('public', 'purchase_request_attachment_tokens', 'token side tab
 select enum_has_labels('public', 'purchase_request_attachment_kind',
   array['image', 'link', 'pdf'], 'kind enum is {image,link,pdf} (pdf added spec 121 / ADR 0046 Layer A)');
 select enum_has_labels('public', 'purchase_request_attachment_purpose',
-  array['reference', 'delivery_confirmation', 'invoice', 'quote'],
-  'purpose enum is {reference,delivery_confirmation,invoice,quote} (ADR 0028/0043; quote=spec 182 U4)');
+  array['reference', 'delivery_confirmation', 'invoice', 'quote', 'payment'],
+  'purpose enum is {reference,delivery_confirmation,invoice,quote,payment} (ADR 0028/0043; quote=spec 182 U4; payment=bug-2 proof of payment)');
 select has_column('public', 'purchase_request_attachments', 'purpose', 'purpose column exists');
 select col_default_is('public', 'purchase_request_attachments', 'purpose',
   'reference'::public.purchase_request_attachment_purpose,
@@ -117,8 +117,10 @@ select policies_are('public', 'purchase_request_attachments',
         'insert reference while pending or confirmation when delivered',
         'appsheet_writer select via parent status',
         -- Spec 182 U4: a RESTRICTIVE select gate for quote-purpose rows (money).
-        'quote attachments readable by back office only'],
-  'attachments has exactly four policies — zero UPDATE/DELETE policies');
+        'quote attachments readable by back office only',
+        -- Procurement bug 2: a separate permissive INSERT policy for payment proofs.
+        'insert payment proof when purchased'],
+  'attachments has exactly five policies — zero UPDATE/DELETE policies');
 select policies_are('public', 'purchase_request_attachment_tokens',
   array['appsheet_writer select tokens via attachment'],
   'tokens has exactly the appsheet SELECT policy');

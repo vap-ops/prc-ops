@@ -40,6 +40,30 @@ export async function createPlan(input: {
   return { ok: true, planId };
 }
 
+// Spec 189 follow-up — delete a DRAFT/REJECTED supply plan. delete_supply_plan
+// carries the planner-tier + membership gates and the editable-only guard.
+export async function deletePlan(input: {
+  projectId: string;
+  planId: string;
+}): Promise<SupplyPlanResult> {
+  if (!UUID_REGEX.test(input.projectId) || !UUID_REGEX.test(input.planId)) {
+    return { ok: false, error: FAILED };
+  }
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("delete_supply_plan", { p_plan_id: input.planId });
+  if (error) {
+    if (error.code === "42501") return { ok: false, error: NO_PERMISSION };
+    if (error.code === "22023") {
+      return { ok: false, error: "ลบได้เฉพาะแผนฉบับร่างหรือแผนที่ถูกตีกลับ" };
+    }
+    return { ok: false, error: FAILED };
+  }
+  revalidatePath(supplyPlanHref(input.projectId));
+  return { ok: true };
+}
+
 export async function addPlanLine(input: {
   projectId: string;
   planId: string;

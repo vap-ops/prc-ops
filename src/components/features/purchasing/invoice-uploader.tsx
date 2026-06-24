@@ -32,11 +32,19 @@ interface InvoiceUploaderProps {
   projectId: string;
   /** Idle button label — defaults to the attach copy. */
   label?: string;
+  /** Save action — defaults to addInvoiceAttachment; PaymentProofUploader passes
+   *  addPaymentProofAttachment (same input/result contract, different purpose). */
+  action?: typeof addInvoiceAttachment;
 }
 
 type UploadPhase = "idle" | "uploading" | "saving" | "error";
 
-export function InvoiceUploader({ purchaseRequestId, projectId, label }: InvoiceUploaderProps) {
+export function InvoiceUploader({
+  purchaseRequestId,
+  projectId,
+  label,
+  action = addInvoiceAttachment,
+}: InvoiceUploaderProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<UploadPhase>("idle");
@@ -87,7 +95,7 @@ export function InvoiceUploader({ purchaseRequestId, projectId, label }: Invoice
       setPhase("saving");
       let result: Awaited<ReturnType<typeof addInvoiceAttachment>>;
       try {
-        result = await addInvoiceAttachment({ purchaseRequestId, attachmentId, ext });
+        result = await action({ purchaseRequestId, attachmentId, ext });
       } catch (err) {
         console.error("[invoice-uploader] action invocation failed", err);
         result = { ok: false, error: "บันทึกเอกสารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };

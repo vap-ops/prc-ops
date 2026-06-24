@@ -40,9 +40,17 @@ const catalogItems = [
     baseItem: "สายไฟ NYY",
     specAttrs: "3x6",
     unit: "ม้วน",
+    thumbnailUrl: null,
   },
 ];
 const workPackages = [{ id: "wp1", code: "WP-01", name: "งานก่อสร้าง" }];
+
+// Spec 189: the วัสดุ field is the shared CatalogItemPicker (a BottomSheet),
+// not a <select> — open it and click the item row.
+function pickFirstMaterial() {
+  fireEvent.click(screen.getByRole("button", { name: "เลือกวัสดุจากแคตตาล็อก" }));
+  fireEvent.click(screen.getByRole("button", { name: /สายไฟ NYY/ }));
+}
 const oneLine: PlanLine = {
   id: "l1",
   baseItem: "สายไฟ NYY",
@@ -87,14 +95,14 @@ describe("SupplyPlanManager grid (spec 181 U2)", () => {
     renderManager({ planStatus: "draft" });
     const save = screen.getByRole("button", { name: /บันทึก/ });
     expect(save).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("วัสดุ"), { target: { value: "ci1" } });
+    pickFirstMaterial();
     fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "10" } });
     expect(save).toBeEnabled();
   });
 
   it("bulk-saves filled rows via bulkAddPlanLines", async () => {
     renderManager({ planStatus: "draft" });
-    fireEvent.change(screen.getByLabelText("วัสดุ"), { target: { value: "ci1" } });
+    pickFirstMaterial();
     fireEvent.change(screen.getByLabelText("งาน"), { target: { value: "wp1" } });
     fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "10" } });
     fireEvent.click(screen.getByRole("button", { name: /บันทึก/ }));
@@ -111,7 +119,7 @@ describe("SupplyPlanManager grid (spec 181 U2)", () => {
 
   it("sends workPackageId null for a whole-project line (no WP chosen)", async () => {
     renderManager({ planStatus: "draft" });
-    fireEvent.change(screen.getByLabelText("วัสดุ"), { target: { value: "ci1" } });
+    pickFirstMaterial();
     fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "4" } });
     fireEvent.click(screen.getByRole("button", { name: /บันทึก/ }));
     await waitFor(() =>
@@ -125,9 +133,10 @@ describe("SupplyPlanManager grid (spec 181 U2)", () => {
 
   it("adds another row so multiple items can be entered at once", () => {
     renderManager({ planStatus: "draft" });
-    expect(screen.getAllByLabelText("วัสดุ")).toHaveLength(1);
+    // One material picker trigger per row.
+    expect(screen.getAllByRole("button", { name: "เลือกวัสดุจากแคตตาล็อก" })).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: /เพิ่มแถว/ }));
-    expect(screen.getAllByLabelText("วัสดุ")).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "เลือกวัสดุจากแคตตาล็อก" })).toHaveLength(2);
   });
 
   it("removes a saved line", async () => {

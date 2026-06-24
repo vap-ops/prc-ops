@@ -11,8 +11,9 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
-import { ITEM_CATEGORY_LABEL } from "@/lib/i18n/labels";
 import type { Database } from "@/lib/db/database.types";
+import { CatalogItemPicker } from "@/components/features/purchasing/catalog-item-picker";
+import type { PurchaseRequestCatalogItem } from "@/components/features/purchasing/purchase-request-form";
 import {
   approvePlan,
   bulkAddPlanLines,
@@ -22,18 +23,14 @@ import {
   submitPlan,
 } from "@/app/projects/[projectId]/supply-plan/actions";
 
-type ItemCategory = Database["public"]["Enums"]["item_category"];
 export type PlanStatus = Database["public"]["Enums"]["supply_plan_status"];
 
 type LifecycleResult = { ok: true } | { ok: false; error: string };
 
-export type CatalogPick = {
-  id: string;
-  category: ItemCategory;
-  baseItem: string;
-  specAttrs: string | null;
-  unit: string;
-};
+// Spec 189 follow-up: the supply-plan item picker is now the SAME catalog picker
+// as the purchase request (operator: "must match on-site PR"), so the rows take
+// the thumbnail-bearing PR catalog item shape.
+export type CatalogPick = PurchaseRequestCatalogItem;
 
 export type PlanLine = {
   id: string;
@@ -104,8 +101,6 @@ export function SupplyPlanManager({
 
   const [acting, startAct] = useTransition();
   const [actError, setActError] = useState<string | null>(null);
-
-  const categories = Object.keys(ITEM_CATEGORY_LABEL) as ItemCategory[];
 
   // A row counts once it has an item + a positive qty; WP is optional (null =
   // whole-project). Blank / partial rows are ignored on save (a trailing empty
@@ -391,33 +386,14 @@ export function SupplyPlanManager({
               className="border-edge bg-card rounded-control flex flex-col gap-2 border p-3 sm:flex-row sm:items-end"
             >
               <div className="flex min-w-0 flex-[2] flex-col gap-1">
-                <label htmlFor={`spl-item-${r.key}`} className={LABEL}>
-                  วัสดุ
-                </label>
-                <select
-                  id={`spl-item-${r.key}`}
-                  aria-label="วัสดุ"
-                  value={r.catalogItemId}
-                  onChange={(e) => patchRow(r.key, { catalogItemId: e.target.value })}
+                <CatalogItemPicker
+                  label="วัสดุ"
+                  items={catalogItems}
+                  selectedId={r.catalogItemId}
+                  onSelect={(id) => patchRow(r.key, { catalogItemId: id })}
+                  onClear={() => patchRow(r.key, { catalogItemId: "" })}
                   disabled={saving}
-                  className={SELECT}
-                >
-                  <option value="">เลือกวัสดุ</option>
-                  {categories.map((c) => {
-                    const opts = catalogItems.filter((ci) => ci.category === c);
-                    if (opts.length === 0) return null;
-                    return (
-                      <optgroup key={c} label={ITEM_CATEGORY_LABEL[c]}>
-                        {opts.map((ci) => (
-                          <option key={ci.id} value={ci.id}>
-                            {ci.baseItem}
-                            {ci.specAttrs ? ` · ${ci.specAttrs}` : ""} ({ci.unit})
-                          </option>
-                        ))}
-                      </optgroup>
-                    );
-                  })}
-                </select>
+                />
               </div>
               <div className="flex min-w-0 flex-[2] flex-col gap-1">
                 <label htmlFor={`spl-wp-${r.key}`} className={LABEL}>

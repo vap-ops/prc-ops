@@ -53,7 +53,7 @@ describe("CreatePurchaseOrderSheet", () => {
     const prices = screen.getAllByLabelText(/ราคาของ/);
     fireEvent.change(prices[0]!, { target: { value: "100" } });
     fireEvent.change(prices[1]!, { target: { value: "200" } });
-    expect(screen.getByText("฿300")).toBeInTheDocument();
+    expect(screen.getByText("฿300.00")).toBeInTheDocument();
   });
 
   it("submits { supplierId, eta, lines } and calls onCreated on success", async () => {

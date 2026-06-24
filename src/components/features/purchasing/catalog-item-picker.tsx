@@ -62,12 +62,15 @@ export function CatalogItemPicker({
   onSelect,
   onClear,
   disabled = false,
+  label = "รายการวัสดุ",
 }: {
   items: PurchaseRequestCatalogItem[];
   selectedId: string;
   onSelect: (id: string) => void;
   onClear: () => void;
   disabled?: boolean;
+  /** Field label above the trigger (the supply-plan grid passes "วัสดุ"). */
+  label?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -107,7 +110,7 @@ export function CatalogItemPicker({
 
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-ink text-sm font-medium">รายการวัสดุ</span>
+      <span className="text-ink text-sm font-medium">{label}</span>
 
       {selected ? (
         <div className="rounded-control border-edge-strong bg-card flex items-center gap-3 border px-3 py-2">

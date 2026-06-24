@@ -48,6 +48,7 @@ import { mintSignedUrlsForAttachments } from "@/lib/purchasing/attachment-signed
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { AttentionCard } from "@/components/features/common/attention-card";
 import { InvoiceUploader } from "@/components/features/purchasing/invoice-uploader";
+import { PaymentProofUploader } from "@/components/features/purchasing/payment-proof-uploader";
 import { AttachmentPdf } from "@/components/features/purchasing/attachment-pdf";
 import { SitePurchaseAcknowledge } from "@/components/features/purchasing/site-purchase-acknowledge";
 
@@ -102,6 +103,11 @@ export default async function RequestDetailPage({ params }: PageProps) {
     (row) => row.purpose === "invoice" && row.kind === "image",
   );
   const invoicePdfs = attachments.filter((row) => row.purpose === "invoice" && row.kind === "pdf");
+  // Bug 2: the buyer's proof of payment (สลิปโอน), a distinct purpose.
+  const paymentImages = attachments.filter(
+    (row) => row.purpose === "payment" && row.kind === "image",
+  );
+  const paymentPdfs = attachments.filter((row) => row.purpose === "payment" && row.kind === "pdf");
   const referenceImages = attachments.filter(
     (row) => row.purpose === "reference" && row.kind === "image",
   );
@@ -564,6 +570,64 @@ export default async function RequestDetailPage({ params }: PageProps) {
               ) : null}
               {wp ? (
                 <InvoiceUploader purchaseRequestId={request.id} projectId={wp.project_id} />
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {/* Bug 2: proof of payment (สลิปโอน) — its own section + uploader. */}
+        {status === "purchased" ||
+        status === "on_route" ||
+        status === "delivered" ||
+        status === "site_purchased" ? (
+          <div className="rounded-card border-edge bg-card shadow-card border p-4">
+            <h2 className="text-ink text-base font-semibold">หลักฐานการชำระเงิน</h2>
+            <div className="mt-2 flex flex-col gap-2">
+              {paymentImages.length > 0 ? (
+                <ul className="flex flex-wrap gap-2">
+                  {paymentImages.map((doc, idx, arr) => {
+                    const url = doc.id ? attachmentUrls.get(doc.id) : undefined;
+                    if (!doc.id || !url) return null;
+                    const groupUrls = arr.flatMap((a) =>
+                      a.id && attachmentUrls.get(a.id) ? [attachmentUrls.get(a.id) as string] : [],
+                    );
+                    const groupIndex = arr
+                      .slice(0, idx)
+                      .filter((a) => a.id && attachmentUrls.get(a.id)).length;
+                    return (
+                      <li key={doc.id} className="flex flex-col items-center gap-0.5">
+                        <span className="border-edge block h-20 w-20 overflow-hidden rounded-lg border">
+                          <ZoomablePhoto src={url} group={groupUrls} groupIndex={groupIndex} />
+                        </span>
+                        {doc.created_by === ctx.id ? (
+                          <AttachmentRemoveButton attachmentId={doc.id} />
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
+              {paymentPdfs.length > 0 ? (
+                <ul className="flex flex-col gap-2">
+                  {paymentPdfs.map((doc) => {
+                    const url = doc.id ? attachmentUrls.get(doc.id) : undefined;
+                    if (!doc.id || !url) return null;
+                    return (
+                      <li key={doc.id} className="flex flex-col gap-0.5">
+                        <AttachmentPdf src={url} />
+                        {doc.created_by === ctx.id ? (
+                          <AttachmentRemoveButton attachmentId={doc.id} />
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
+              {paymentImages.length === 0 && paymentPdfs.length === 0 ? (
+                <p className="text-ink-secondary text-xs">ยังไม่มีหลักฐานการชำระเงิน</p>
+              ) : null}
+              {wp ? (
+                <PaymentProofUploader purchaseRequestId={request.id} projectId={wp.project_id} />
               ) : null}
             </div>
           </div>

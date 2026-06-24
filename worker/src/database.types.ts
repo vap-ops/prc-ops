@@ -3697,7 +3697,7 @@ export type Database = {
           {
             foreignKeyName: "supply_plans_project_id_fkey"
             columns: ["project_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
@@ -4892,6 +4892,7 @@ export type Database = {
         Args: { p_deliverable_id: string }
         Returns: boolean
       }
+      delete_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
       delete_work_package: {
         Args: { p_work_package_id: string }
         Returns: boolean
@@ -5133,6 +5134,10 @@ export type Database = {
           team_added: boolean
           work_packages_added: boolean
         }[]
+      }
+      prune_gl_posting_outbox: {
+        Args: { p_max_age_days?: number }
+        Returns: number
       }
       prune_notification_outbox: {
         Args: { p_max_age_days?: number }
@@ -5718,6 +5723,7 @@ export type Database = {
         | "delivery_confirmation"
         | "invoice"
         | "quote"
+        | "payment"
       purchase_request_priority: "normal" | "urgent" | "critical"
       purchase_request_reason_code:
         | "unplanned_miss"
@@ -6040,6 +6046,7 @@ export const Constants = {
         "delivery_confirmation",
         "invoice",
         "quote",
+        "payment",
       ],
       purchase_request_priority: ["normal", "urgent", "critical"],
       purchase_request_reason_code: [
