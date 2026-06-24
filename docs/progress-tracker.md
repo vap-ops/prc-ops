@@ -6,6 +6,33 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 198 — check into inventory from the delivery page, U3 (2026-06-24)
+
+Status: **SHIPPED to prod — 2026-06-24** (no DB; lint · typecheck · vitest green).
+Operator: "checking into inventory from delivery related page." U2 put the
+ย้ายเข้าคลัง (divert) on the คลัง page; U3 surfaces the **same** action on the
+delivery detail page (`/requests/orders/[poId]/deliveries/[deliveryId]`), where
+the goods actually arrive. UI-only — reuses `divert_purchase_to_store` +
+`DivertToStoreList` (no engine change).
+
+**Test-first** (RED): `tests/unit/divert-lines.test.ts` — a shared pure helper
+`toDivertLines(rows, divertedIds)` mapping PR rows → `DivertLine` + dropping
+already-diverted lines (tolerates missing joins / null amount). 3 RED → green.
+
+**App:**
+
+- New `src/lib/store/divert-lines.ts` (`toDivertLines`) — the row→DivertLine
+  mapping, extracted so the คลัง page and the delivery page stay identical (DRY).
+  The คลัง page refactored to use it.
+- The delivery detail page reads **this งวด's** delivered + WP-bound + catalogued
+  lines not yet diverted (scoped by `purchase_order_id` + `delivery_id`, RLS +
+  filter on `stock_receipts.purchase_request_id`), gated to `SITE_STAFF`
+  (procurement reaches the page via `PURCHASING_ROLES` but is read-only in the
+  store), and renders `DivertToStoreList` after รายการในงวดนี้.
+
+**SPEC 198 — U1 (grid) · U2 (divert + GL transfer, ADR 0064) · U3 (divert from
+the delivery page). The store check-in arc is complete on both surfaces.**
+
 ## Spec 198 — divert a delivered WP-bound line into the store, U2 (2026-06-24)
 
 Status: **SHIPPED to prod — 2026-06-24** (ADR 0064; mig 20260813000900; pgTAP

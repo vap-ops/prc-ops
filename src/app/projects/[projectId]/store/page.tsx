@@ -33,6 +33,7 @@ import {
   DivertToStoreList,
   type DivertLine,
 } from "@/components/features/store/divert-to-store-list";
+import { toDivertLines } from "@/lib/store/divert-lines";
 import { STORE_LABEL } from "@/lib/i18n/labels";
 
 interface PageProps {
@@ -191,18 +192,7 @@ export default async function ProjectStorePage({ params }: PageProps) {
         .in("purchase_request_id", prIds);
       for (const s of srRows ?? []) if (s.purchase_request_id) diverted.add(s.purchase_request_id);
     }
-    divertLines = (prRows ?? [])
-      .filter((r) => !diverted.has(r.id))
-      .map((r) => ({
-        requestId: r.id,
-        itemLabel: `${r.catalog_items?.base_item ?? ""}${
-          r.catalog_items?.spec_attrs ? ` · ${r.catalog_items.spec_attrs}` : ""
-        }`,
-        qty: Number(r.quantity),
-        unit: r.unit ?? "",
-        wpLabel: r.work_packages ? `${r.work_packages.code} ${r.work_packages.name}` : "",
-        cost: Number(r.amount ?? 0),
-      }));
+    divertLines = toDivertLines(prRows ?? [], diverted);
   }
 
   let pnlRows: StorePnlRow[] = [];

@@ -120,6 +120,24 @@ nothing from U1's ad-hoc grid beyond the store surface.)
 - Likely warrants an ADR (inventory diversion + cost transfer is an architecture
   decision).
 
+### U3 — Check into inventory from the delivery page
+
+**Why (operator):** "checking into inventory from delivery related page." U2 put
+the ย้ายเข้าคลัง (divert) action on the คลัง page; the natural place to do it is
+also the **delivery detail page** — where you actually receive the goods and see
+the งวด's lines. Surface the same divert there.
+
+- The delivery detail page (`/requests/orders/[poId]/deliveries/[deliveryId]`)
+  already lists "รายการในงวดนี้". Add a `DivertToStoreList` section (the U2
+  component, unchanged) fed by **this delivery's** delivered, WP-bound, catalogued
+  lines not yet diverted. Gated to `SITE_STAFF` (the divert RPC gate; procurement
+  reaches the page via `PURCHASING_ROLES` but stays read-only in the store).
+- Engine is unchanged — reuses `divert_purchase_to_store` + `divertPurchaseToStore`.
+  No DB. The line read mirrors the คลัง page's, scoped by `purchase_order_id` +
+  `delivery_id` instead of `project_id`.
+- Extract the row→`DivertLine` mapping into a shared, tested helper
+  (`toDivertLines`) used by both the คลัง page and the delivery page (DRY).
+
 ## Out of scope / open
 
 - No change to the cost model, moving-average, GL posting, or custody — only the

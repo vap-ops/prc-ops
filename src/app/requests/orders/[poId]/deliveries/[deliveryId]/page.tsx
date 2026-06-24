@@ -6,8 +6,13 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { requireRole } from "@/lib/auth/require-role";
-import { PURCHASING_ROLES } from "@/lib/auth/role-home";
+import { PURCHASING_ROLES, SITE_STAFF_ROLES } from "@/lib/auth/role-home";
 import { isBackOfficeRole } from "@/lib/purchasing/back-office";
+import {
+  DivertToStoreList,
+  type DivertLine,
+} from "@/components/features/store/divert-to-store-list";
+import { toDivertLines } from "@/lib/store/divert-lines";
 import { createClient } from "@/lib/db/server";
 import { isValidUuid } from "@/lib/photos/path";
 import { DETAIL_TITLE } from "@/lib/ui/classes";
@@ -69,6 +74,34 @@ export default async function DeliveryDetailPage({ params }: PageProps) {
   const lines = members.filter((m) => m.delivery_id === deliveryId);
   // Spec 135 U6: lines still 'purchased' can be dispatched (→ on_route → in_transit).
   const dispatchableCount = lines.filter((m) => m.status === "purchased").length;
+
+  // Spec 198 U3: check this งวด's delivered, WP-bound, catalogued lines into the
+  // store (ย้ายเข้าคลัง) — the same divert as the คลัง page, surfaced where the
+  // goods arrive. SITE_STAFF only (the divert RPC gate); procurement reaches this
+  // page via PURCHASING_ROLES but is read-only in the store (spec 197).
+  let divertLines: DivertLine[] = [];
+  if (SITE_STAFF_ROLES.includes(ctx.role)) {
+    const { data: prRows } = await supabase
+      .from("purchase_requests")
+      .select(
+        "id, quantity, unit, amount, catalog_items ( base_item, spec_attrs ), work_packages ( code, name )",
+      )
+      .eq("purchase_order_id", poId)
+      .eq("delivery_id", deliveryId)
+      .eq("status", "delivered")
+      .not("work_package_id", "is", null)
+      .not("catalog_item_id", "is", null);
+    const prIds = (prRows ?? []).map((r) => r.id);
+    const diverted = new Set<string>();
+    if (prIds.length > 0) {
+      const { data: srRows } = await supabase
+        .from("stock_receipts")
+        .select("purchase_request_id")
+        .in("purchase_request_id", prIds);
+      for (const s of srRows ?? []) if (s.purchase_request_id) diverted.add(s.purchase_request_id);
+    }
+    divertLines = toDivertLines(prRows ?? [], diverted);
+  }
 
   return (
     <PageShell>
@@ -157,6 +190,10 @@ export default async function DeliveryDetailPage({ params }: PageProps) {
             <p className="text-ink-secondary text-xs">งวดนี้ยังไม่มีรายการ</p>
           ) : null}
         </div>
+
+        {/* Spec 198 U3: move this งวด's delivered WP-bound lines into the store.
+            Renders nothing when there are none / for non-store roles. */}
+        <DivertToStoreList lines={divertLines} />
       </section>
     </PageShell>
   );
