@@ -130,6 +130,8 @@ export default async function AccountingPage({ searchParams }: AccountingPagePro
             { href: "/accounting/payables", label: "เจ้าหนี้การค้า", hint: "ยอดค้างชำระรายผู้ขาย" },
             // Spec 196 Tier 3: purchase register → voucher (source docs + GL entry).
             { href: "/accounting/purchases", label: "การจัดซื้อ", hint: "ตรวจสอบเอกสารการซื้อ" },
+            // Spec 196 Tier 4: month-end close (open → closing → closed → locked).
+            { href: "/accounting/periods", label: "ปิดงวดบัญชี", hint: "เปิด/ปิดงวดบัญชีรายเดือน" },
           ].map((l) => (
             <Link
               key={l.href}
