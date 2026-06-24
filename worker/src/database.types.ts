@@ -3718,6 +3718,8 @@ export type Database = {
           created_by: string | null
           id: string
           note: string | null
+          overridden_at: string | null
+          overridden_by: string | null
           project_id: string
           status: Database["public"]["Enums"]["supply_plan_status"]
           submitted_at: string | null
@@ -3729,6 +3731,8 @@ export type Database = {
           created_by?: string | null
           id?: string
           note?: string | null
+          overridden_at?: string | null
+          overridden_by?: string | null
           project_id: string
           status?: Database["public"]["Enums"]["supply_plan_status"]
           submitted_at?: string | null
@@ -3740,6 +3744,8 @@ export type Database = {
           created_by?: string | null
           id?: string
           note?: string | null
+          overridden_at?: string | null
+          overridden_by?: string | null
           project_id?: string
           status?: Database["public"]["Enums"]["supply_plan_status"]
           submitted_at?: string | null
@@ -3755,6 +3761,13 @@ export type Database = {
           {
             foreignKeyName: "supply_plans_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supply_plans_overridden_by_fkey"
+            columns: ["overridden_by"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -5331,6 +5344,7 @@ export type Database = {
         Args: { p_predecessor: string; p_successor: string }
         Returns: boolean
       }
+      reopen_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
       reopen_work_package_for_defect: {
         Args: { p_reason: string; p_wp: string }
         Returns: boolean

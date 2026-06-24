@@ -6,16 +6,25 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockBulkAdd, mockRemove, mockSubmit, mockApprove, mockReject, mockGenerate, mockRefresh } =
-  vi.hoisted(() => ({
-    mockBulkAdd: vi.fn(),
-    mockRemove: vi.fn(),
-    mockSubmit: vi.fn(),
-    mockApprove: vi.fn(),
-    mockReject: vi.fn(),
-    mockGenerate: vi.fn(),
-    mockRefresh: vi.fn(),
-  }));
+const {
+  mockBulkAdd,
+  mockRemove,
+  mockSubmit,
+  mockApprove,
+  mockReject,
+  mockGenerate,
+  mockReopen,
+  mockRefresh,
+} = vi.hoisted(() => ({
+  mockBulkAdd: vi.fn(),
+  mockRemove: vi.fn(),
+  mockSubmit: vi.fn(),
+  mockApprove: vi.fn(),
+  mockReject: vi.fn(),
+  mockGenerate: vi.fn(),
+  mockReopen: vi.fn(),
+  mockRefresh: vi.fn(),
+}));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
 vi.mock("@/app/projects/[projectId]/supply-plan/actions", () => ({
@@ -25,6 +34,7 @@ vi.mock("@/app/projects/[projectId]/supply-plan/actions", () => ({
   approvePlan: mockApprove,
   rejectPlan: mockReject,
   generatePlanPurchaseRequests: mockGenerate,
+  reopenPlan: mockReopen,
 }));
 
 import {
@@ -68,6 +78,7 @@ beforeEach(() => {
   mockApprove.mockReset().mockResolvedValue({ ok: true });
   mockReject.mockReset().mockResolvedValue({ ok: true });
   mockGenerate.mockReset().mockResolvedValue({ ok: true, count: 1 });
+  mockReopen.mockReset().mockResolvedValue({ ok: true });
   mockRefresh.mockReset();
 });
 
@@ -75,6 +86,8 @@ function renderManager(opts: {
   planStatus: PlanStatus | null;
   planId?: string | null;
   canApprove?: boolean;
+  canOverride?: boolean;
+  overriddenByName?: string | null;
   lines?: PlanLine[];
 }) {
   render(
@@ -83,6 +96,8 @@ function renderManager(opts: {
       planId={opts.planId ?? "pl1"}
       planStatus={opts.planStatus}
       canApprove={opts.canApprove ?? false}
+      canOverride={opts.canOverride ?? false}
+      overriddenByName={opts.overriddenByName ?? null}
       lines={opts.lines ?? []}
       catalogItems={catalogItems}
       workPackages={workPackages}
@@ -244,5 +259,24 @@ describe("SupplyPlanManager convert mode (spec 181 U4)", () => {
     renderManager({ planStatus: "draft", lines: [convertibleLine] });
     expect(screen.queryByRole("button", { name: /สร้างคำขอซื้อ/ })).toBeNull();
     expect(screen.queryByLabelText("เลือก ปูน")).toBeNull();
+  });
+
+  // Spec 194: super_admin reopen + the override marker.
+  it("super_admin gets a reopen button on an approved plan; it calls reopenPlan", async () => {
+    renderManager({ planStatus: "approved", canOverride: true });
+    fireEvent.click(screen.getByRole("button", { name: /เปิดแก้ไข/ }));
+    await waitFor(() =>
+      expect(mockReopen).toHaveBeenCalledWith({ projectId: "p1", planId: "pl1" }),
+    );
+  });
+
+  it("hides the reopen button when the viewer cannot override", () => {
+    renderManager({ planStatus: "approved", canOverride: false });
+    expect(screen.queryByRole("button", { name: /เปิดแก้ไข/ })).toBeNull();
+  });
+
+  it("shows the overridden-by marker when the plan was reopened", () => {
+    renderManager({ planStatus: "draft", canOverride: true, overriddenByName: "สมชาย" });
+    expect(screen.getByText(/ปรับแก้โดย สมชาย/)).toBeInTheDocument();
   });
 });

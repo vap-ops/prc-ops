@@ -20,6 +20,7 @@ import {
   generatePlanPurchaseRequests,
   rejectPlan,
   removePlanLine,
+  reopenPlan,
   submitPlan,
 } from "@/app/projects/[projectId]/supply-plan/actions";
 
@@ -75,6 +76,8 @@ export function SupplyPlanManager({
   planId,
   planStatus,
   canApprove,
+  canOverride,
+  overriddenByName,
   lines,
   catalogItems,
   workPackages,
@@ -83,6 +86,9 @@ export function SupplyPlanManager({
   planId: string | null;
   planStatus: PlanStatus | null;
   canApprove: boolean;
+  // Spec 194: super_admin can reopen a frozen (submitted/approved) plan to edit it.
+  canOverride: boolean;
+  overriddenByName: string | null;
   lines: PlanLine[];
   catalogItems: CatalogPick[];
   workPackages: { id: string; code: string; name: string }[];
@@ -231,8 +237,24 @@ export function SupplyPlanManager({
           <span className="text-ink font-semibold">
             {planStatus ? PLAN_STATUS_LABEL[planStatus] : "ยังไม่เริ่ม"}
           </span>
+          {/* Spec 194: a permanent marker that this plan was force-reopened. */}
+          {overriddenByName ? (
+            <span className="text-attn-ink"> · ปรับแก้โดย {overriddenByName}</span>
+          ) : null}
         </span>
         <div className="flex flex-wrap items-center gap-2">
+          {/* Spec 194: super_admin reopens a frozen plan (submitted/approved) to
+              edit it — the operator escape hatch, audited by the overridden stamp. */}
+          {canOverride && planId && (planStatus === "submitted" || planStatus === "approved") ? (
+            <button
+              type="button"
+              disabled={acting}
+              onClick={() => runLifecycle(reopenPlan)}
+              className={BUTTON_SECONDARY}
+            >
+              {acting ? "กำลังเปิด…" : "เปิดแก้ไข (ผู้ดูแลระบบ)"}
+            </button>
+          ) : null}
           {editable && planId ? (
             <button
               type="button"

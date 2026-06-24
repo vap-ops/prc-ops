@@ -11,6 +11,7 @@ import Link from "next/link";
 import { SUPPLY_PLAN_ROLES } from "@/lib/auth/role-home";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
+import { createClient as createAdminClient } from "@/lib/db/admin";
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
@@ -65,7 +66,7 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
   // stable). Line counts come from a single grouped read.
   const { data: planRows } = await supabase
     .from("supply_plans")
-    .select("id, status, created_at")
+    .select("id, status, created_at, overridden_by")
     .eq("project_id", project.id)
     .order("created_at", { ascending: true });
   const plans: SupplyPlanRow[] = (planRows ?? []).map((p) => ({
@@ -91,6 +92,20 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
   const selectedId = planParam && planIds.includes(planParam) ? planParam : null;
   const selectedPlan = selectedId ? plans.find((p) => p.id === selectedId)! : null;
   const planItems = buildPlanList(plans, lineCounts, selectedId);
+
+  // Spec 194: if the selected plan was force-reopened by a super_admin, resolve the
+  // overrider's name for the "ปรับแก้โดย …" marker (users.full_name needs the admin
+  // client — public.users is read-self, ADR 0011).
+  let overriddenByName: string | null = null;
+  const selectedOverriddenBy = (planRows ?? []).find((p) => p.id === selectedId)?.overridden_by;
+  if (selectedOverriddenBy) {
+    const { data: overrider } = await createAdminClient()
+      .from("users")
+      .select("full_name")
+      .eq("id", selectedOverriddenBy)
+      .maybeSingle();
+    overriddenByName = overrider?.full_name ?? "ผู้ดูแลระบบ";
+  }
 
   let lines: PlanLine[] = [];
   if (selectedPlan) {
@@ -240,6 +255,9 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
             // Approver tier: PD/super (separation of duties — the PM submits, the
             // PD approves). The submit/approve RPCs re-enforce this.
             canApprove={ctx.role === "project_director" || ctx.role === "super_admin"}
+            // Spec 194: super_admin can reopen a frozen plan to edit it.
+            canOverride={ctx.role === "super_admin"}
+            overriddenByName={overriddenByName}
             lines={lines}
             catalogItems={catalogItems}
             workPackages={workPackages}

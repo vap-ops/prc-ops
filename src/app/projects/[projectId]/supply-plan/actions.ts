@@ -281,3 +281,20 @@ export async function rejectPlan(input: {
   revalidatePath(supplyPlanHref(input.projectId));
   return { ok: true };
 }
+
+// Spec 194 — super_admin override: reopen a submitted/approved (frozen) plan back
+// to draft (editable), stamped overridden_by. super-only (the RPC enforces it).
+export async function reopenPlan(input: {
+  projectId: string;
+  planId: string;
+}): Promise<SupplyPlanResult> {
+  if (!UUID_REGEX.test(input.projectId) || !UUID_REGEX.test(input.planId)) {
+    return { ok: false, error: FAILED };
+  }
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { error } = await auth.supabase.rpc("reopen_supply_plan", { p_plan_id: input.planId });
+  if (error) return { ok: false, error: mapLifecycleError(error.code) };
+  revalidatePath(supplyPlanHref(input.projectId));
+  return { ok: true };
+}
