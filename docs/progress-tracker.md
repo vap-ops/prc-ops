@@ -6,6 +6,32 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 192 — first-real-project readiness, U1 (2026-06-24)
+
+Status: **U1 SHIPPED to prod — 2026-06-24** (commit 69d94b0, NO DB; lint · typecheck
+· vitest 1547 green). After dark mode the operator said "decide and proceed" — I
+pivoted from feature-breadth to **adoption** (the app is feature-complete but
+operator-incomplete; ~0 real data in prod, so the machinery is hollow without a
+first real project producing data). Two cliffs mapped from the live code; U1 fixes
+the **silent membership dead-end**: project visibility is membership-gated
+(`can_see_project` = a `project_members` row OR the project_lead, ADR 0056), and
+`removeProjectMember` had **no guard** — a PM could remove the last member (or
+themselves) and orphan the project (visible only to super_admin), with no in-app
+recovery for the locked-out person. **Fix (invariant: a project keeps ≥1 member):**
+`lib/projects/member-removal.ts` pure `evaluateMemberRemoval({totalMembers,
+removingSelf})` → `{blocked (last), needsConfirm (self + others remain)}`;
+`removeProjectMember` counts first and refuses the last removal (load-bearing Thai
+error); `settings-form.tsx` (+`currentUserId` prop) disables the last member's ✕
+with a hint, routes a self-removal through the themed `ConfirmDialog`
+("…คุณจะไม่เห็นโครงการนี้อีก…"), keeps other-removal one-click, marks the current
+user "(คุณ)". **NO migration** — an action-level UX-footgun guard at the right
+altitude (member ops are direct table writes under RLS, not RPCs; projects are
+never hard-deleted, so no DELETE-cascade concern a DB trigger would hit). Tests:
+`member-removal.test.ts` + 3 `settings-form.test.tsx` cases. **U2+ (next):**
+onboarding leads with "add your team" (+ the visibility why); a non-member 404 →
+"ask a PM to add you" explainer (admin exists-check); a **site-admin daily-loop
+home** (log labor/photos/PR in one tap) — net-new surface, wants a mock-first pass.
+
 ## Spec 190 — dark mode (opt-in night theme), U1 (2026-06-24)
 
 Status: **U1 SHIPPED to prod — 2026-06-24** (commit 40358c6, NO DB; lint · typecheck
