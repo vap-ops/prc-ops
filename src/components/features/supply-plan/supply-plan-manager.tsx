@@ -182,11 +182,11 @@ export function SupplyPlanManager({
     });
   }
 
-  // Spec 181 U4: convert an APPROVED plan's lines into purchase requests. A line
-  // is convertible when it's WP-bound (a PR is raised against a WP) and not yet
-  // converted; whole-project lines must be assigned a WP first.
+  // Spec 181 U4 / spec 195 P2: convert an APPROVED plan's lines into purchase
+  // requests. Any not-yet-converted line is convertible — a WP-bound line becomes
+  // a WP-bound PR, a whole-project line becomes a WP-less (store-bound) PR.
   const convertMode = planStatus === "approved";
-  const convertible = lines.filter((l) => l.wpLabel !== null && !l.converted);
+  const convertible = lines.filter((l) => !l.converted);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [generating, startGenerate] = useTransition();
   const [genError, setGenError] = useState<string | null>(null);
@@ -312,7 +312,7 @@ export function SupplyPlanManager({
               key={l.id}
               className="border-edge bg-card rounded-control flex items-center gap-3 border px-4 py-3"
             >
-              {convertMode && l.wpLabel !== null && !l.converted ? (
+              {convertMode && !l.converted ? (
                 <input
                   type="checkbox"
                   aria-label={`เลือก ${l.baseItem}`}
@@ -336,9 +336,6 @@ export function SupplyPlanManager({
                 <span className="bg-sunk text-done-strong text-meta rounded-control shrink-0 px-2 py-1 font-medium">
                   สร้าง PR แล้ว
                 </span>
-              ) : null}
-              {convertMode && l.wpLabel === null && !l.converted ? (
-                <span className="text-ink-muted text-meta shrink-0">ต้องระบุงานก่อน</span>
               ) : null}
               {editable ? (
                 <button

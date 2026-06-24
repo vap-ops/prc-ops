@@ -1,5 +1,5 @@
 begin;
-select plan(10);
+select plan(12);
 
 -- ============================================================================
 -- Spec 181 U3 — generate_purchase_requests_from_plan: an APPROVED plan's lines
@@ -89,11 +89,21 @@ select is(
            '12000000-0000-0000-0000-000000000191']::uuid[])),
   0, 'idempotent — already-converted lines are skipped (returns 0)');
 
--- C. A whole-project line (no WP) cannot become a PR.
-select throws_ok(
-  $$ select public.generate_purchase_requests_from_plan('ff000000-0000-0000-0000-000000000191',
-       array['13000000-0000-0000-0000-000000000191']::uuid[]) $$,
-  '22023', null, 'a whole-project line (no WP) is rejected (22023)');
+-- C. Spec 195 P2 / ADR 0063: a whole-project line (no WP) NOW generates a
+--    WP-less, project-scoped PR (was rejected with 22023 in spec 181).
+select is(
+  (select public.generate_purchase_requests_from_plan('ff000000-0000-0000-0000-000000000191',
+     array['13000000-0000-0000-0000-000000000191']::uuid[])),
+  1, 'a whole-project line generates one WP-less PR (spec 195 P2)');
+select is(
+  (select work_package_id from public.purchase_requests
+     where supply_plan_line_id='13000000-0000-0000-0000-000000000191'),
+  null::uuid, 'the generated PR is WP-less (work_package_id null)');
+select is(
+  (select project_id from public.purchase_requests
+     where supply_plan_line_id='13000000-0000-0000-0000-000000000191'),
+  'aa000000-0000-0000-0000-000000000191'::uuid,
+  'the generated WP-less PR is scoped to the plan''s project');
 
 -- D. A non-approved plan is rejected.
 select throws_ok(

@@ -226,11 +226,11 @@ describe("SupplyPlanManager convert mode (spec 181 U4)", () => {
       planStatus: "approved",
       lines: [convertibleLine, convertedLine, wholeProjectLine],
     });
-    // An already-converted line shows the badge (no checkbox); a whole-project
-    // line is not selectable.
+    // An already-converted line shows the badge (no checkbox). Spec 195 P2: a
+    // whole-project line is now selectable too (it becomes a WP-less PR).
     expect(screen.getByText("สร้าง PR แล้ว")).toBeInTheDocument();
     expect(screen.queryByLabelText("เลือก เหล็ก")).toBeNull();
-    expect(screen.queryByLabelText("เลือก สีรองพื้น")).toBeNull();
+    expect(screen.getByLabelText("เลือก สีรองพื้น")).toBeInTheDocument();
 
     const generate = screen.getByRole("button", { name: /สร้างคำขอซื้อ/ });
     expect(generate).toBeDisabled();

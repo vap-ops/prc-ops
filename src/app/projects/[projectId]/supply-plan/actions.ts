@@ -194,10 +194,9 @@ export async function generatePlanPurchaseRequests(input: {
   if (error) {
     if (error.code === "42501") return { ok: false, error: NO_PERMISSION };
     if (error.code === "22023") {
-      return {
-        ok: false,
-        error: "สร้างคำขอซื้อไม่ได้: แผนต้องอนุมัติแล้ว และทุกรายการต้องระบุงาน (WP)",
-      };
+      // Spec 195 P2: whole-project lines are allowed now — 22023 means the plan
+      // isn't approved (or no lines / unknown plan).
+      return { ok: false, error: "สร้างคำขอซื้อไม่ได้: แผนต้องอนุมัติก่อน" };
     }
     return { ok: false, error: FAILED };
   }
