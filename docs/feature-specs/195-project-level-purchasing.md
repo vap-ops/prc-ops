@@ -1,6 +1,26 @@
 # Spec 195 — project-level purchasing (supply plan → store → เบิก)
 
-**Status:** DESIGN — operator-approved direction 2026-06-24, phased build pending.
+**Status:** COMPLETE — all four phases shipped 2026-06-24 (ADR 0063).
+P1 PR WP-optional + RLS (mig …300, pgTAP 211) · P2 plan→WP-less PRs (mig …400,
+pgTAP 191) · P3 receive-into-store (mig …500, pgTAP 212) · P4 cost-integrity
+verification (pgTAP 213).
+
+**P4 finding (cost lands once, no double-count):** the store-bound buy → receive
+→ เบิก cycle books material exactly once. A WP-less purchase posts NO GL
+(`post_purchase_to_gl` no-ops; the enqueue triggers skip it); the **receipt** is
+the single AP event (`Dr Inventory 1500 / Cr AP`, P3); เบิก then moves it
+`Dr WIP 1400 / Cr 1500` and folds into `wp_profit` materials at the sell price
+(`stock_issues`-sourced, disjoint from the `purchase_requests`-sourced 1400 term —
+no double). `gl_reconciliation` (1500 ↔ Σ on-hand) holds. The dashboard's
+materials-by-project is purchase-amount-based and excludes WP-less PRs (query +
+guard), so store-bound material is not double-counted there either.
+
+**Open follow-up (out of scope, not a correctness gap):** the manager dashboard's
+materials-by-project shows direct WP-bound purchase spend only — store-sourced
+material (received into the store, then เบิก'd) is reflected in `wp_profit` and
+Store P&L but not in that dashboard figure. A project that procures heavily into
+the store will show low dashboard materials. Surfacing store-issued cost on the
+dashboard is a separate enhancement.
 
 ## The decision (operator, 2026-06-24)
 
