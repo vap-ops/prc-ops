@@ -44,8 +44,9 @@ const STATIC_DETAIL = [
   "equipment",
   // Spec 175: the item catalog drills down from /settings (back chip).
   "catalog",
-  // Spec 177: the on-site store (stock-in) drills down from /settings (back chip).
-  "store",
+  // Spec 197 U1: /store left /settings for the per-project sub-route
+  // (/projects/[id]/store, a dynamic-segment DETAIL route auto-classified above).
+  // The legacy top-level /store is now a thin redirect → EXCLUDED below.
   // Spec 178 B2: the site_admin stock-count surface drills down from /settings.
   "stock-count",
   "payroll",
@@ -55,6 +56,12 @@ const STATIC_DETAIL = [
   "accounting/retention",
   "accounting/billings",
   "accounting/wht",
+  // Spec 196: the accounting audit surfaces also drill down from /accounting
+  // (back chip). Classified here for the anti-drift completeness guard.
+  "accounting/ledger",
+  "accounting/payables",
+  "accounting/periods",
+  "accounting/purchases",
   "contacts/customers",
   "contacts/vendors",
   // Spec 168: the crews group split into separate subcontractor + DC pages.
@@ -100,6 +107,10 @@ const EXCLUDED_ROUTES = [
   "login/page.tsx",
   "coming-soon/page.tsx",
   "contacts/page.tsx",
+  // Spec 197 U1: the legacy top-level /store is now a thin redirect to /projects
+  // (the store moved to the per-project sub-route) — neither header, like the
+  // bare /contacts redirect.
+  "store/page.tsx",
   "grid-preview/page.tsx",
   // Spec 130: the contractor invite-claim entry — a bespoke single-card layout
   // (neither header), reachable by a freshly-logged-in visitor before binding.

@@ -6,6 +6,59 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 197 — คลัง as a per-project surface, U1 (2026-06-24)
+
+Status: **SHIPPED to prod — 2026-06-24** (mig 20260813000700; pgTAP 181; lint ·
+typecheck · vitest · db:test green). The store stops being a global `/settings`
+drill-down reached through a project picker and becomes a **per-project
+destination**: a sub-route `/projects/[projectId]/store` reached from a `คลัง`
+header icon-chip (after `แผนจัดหา`), exactly like `ตารางงาน` / `แผนจัดหา`.
+
+**Test-first** (RED): `tests/unit/store-project-surface.test.tsx` — pins the
+testable contract (`storeHref` builder, `STORE_LABEL = "คลัง"`, the settings tab
+drops `/store`, the projects tab lights on `/projects/[id]/store`, StoreManager
+`hidePicker` hides the picker). 4 RED → green.
+
+**App:**
+
+- New route `app/projects/[projectId]/store/page.tsx` mirroring
+  `schedule/page.tsx`: own `DetailHeader` (back → project), gated to
+  `WP_DETAIL_ROLES`, projectId from the route (RLS scopes the viewer), renders
+  the existing `StoreManager` with `hidePicker`. `canIssue = SITE_STAFF` (admits
+  site_admin's เบิก; procurement stays read-only); P&L stays super/director.
+- `app/projects/[projectId]/page.tsx`: `canSeeStore = WP_DETAIL_ROLES.includes(role)`
+  - a `Warehouse` `คลัง` chip after `แผนจัดหา`.
+- `StoreManager` gains an optional `hidePicker` prop (default false) — the
+  per-project route supplies the project, so the global picker is suppressed.
+- `labels.ts`: `STORE_LABEL` changed `"สโตร์หน้างาน"` → **`"คลัง"`** (the
+  destination SSOT, used by chip + sub-route header).
+- `project-paths.ts`: new `storeHref(projectId)` builder.
+- Removed the two `/store` `SettingsLink`s (procurement + isManager blocks) +
+  the now-orphan `Warehouse` / `STORE_LABEL` imports in `settings/page.tsx`.
+- Legacy `/store` → thin `redirect("/projects")`.
+- `bottom-tab-bar.tsx`: `SETTINGS_TAB.match` drops `/store` (the projects tab
+  owns the new sub-route; `/projects` prefix already lights it). `/stock-count`
+  kept — retired in U2.
+- `nav-back-affordance.test.ts`: legacy `/store` moved to EXCLUDED (now a
+  redirect). **Also swept in 4 pre-existing-unclassified spec-196 accounting
+  routes** (ledger/payables/periods/purchases) that had left this anti-drift
+  completeness test RED — same test file, kept the suite green.
+
+**DB:** mig 20260813000700 — `record_stock_in` definer widened to admit
+`site_admin` (was BACK_OFFICE tier only). `CREATE OR REPLACE`, **same signature**
+(uuid,uuid,numeric,numeric,uuid,text) so grants + pgTAP positional pins hold;
+body reconstructed verbatim from LIVE pg_proc, the only edited line is the role
+gate `in (...)` set. pgTAP 181 +1 (plan 24→25): a site_admin member records a
+รับเข้า into their own project. No `db:types` (signature unchanged).
+
+**Scope held:** placement + access-widening only; no new store capability. U2
+(unify ตรวจนับ, retire `/stock-count`) and U3 (empty-คลัง state) NOT started.
+
+**Open / deferred:** the legacy `/store` `actions.ts` still `revalidatePath("/store")`
+(harmless — `router.refresh()` drives the per-project route UI; left untouched
+per scope). Action gates beyond รับเข้า/เบิก (ตรวจนับ widening to site_admin) land
+naturally in U2 when the count surface unifies.
+
 ## Spec 195 follow-up — dashboard store-material spend (2026-06-24)
 
 Status: **DONE — 2026-06-24** (no DB; lint · typecheck · vitest 1575 green). Closes

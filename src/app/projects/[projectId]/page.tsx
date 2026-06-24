@@ -2,7 +2,7 @@ import { PageShell } from "@/components/features/chrome/page-shell";
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
-import { CalendarDays, ClipboardList, FileText, Settings } from "lucide-react";
+import { CalendarDays, ClipboardList, FileText, Settings, Warehouse } from "lucide-react";
 import {
   PROJECT_VIEW_ROLES,
   SCHEDULE_VIEW_ROLES,
@@ -14,13 +14,14 @@ import {
   projectSettingsHref,
   reportsHref,
   scheduleHref,
+  storeHref,
   supplyPlanHref,
 } from "@/lib/nav/project-paths";
 import { ICON_CHIP_MUTED } from "@/lib/ui/classes";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { ProjectInfoButton } from "@/components/features/work-packages/project-info-button";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
-import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
+import { PROJECT_STATUS_LABEL, STORE_LABEL } from "@/lib/i18n/labels";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
@@ -100,6 +101,11 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
   // Spec 181: who reaches the supply plan — PM tier + procurement (PM's stead).
   // Its own door, separate from the manager-only reports/settings chips below.
   const canPlanSupply = SUPPLY_PLAN_ROLES.includes(ctx.role);
+  // Spec 197 U1: the คลัง (store) chip — the per-project store destination.
+  // WP_DETAIL_ROLES (site staff + procurement), the same set that opens the WPs;
+  // this finally admits site_admin (the on-site storekeeper). RLS scopes the
+  // viewer inside the sub-route.
+  const canSeeStore = WP_DETAIL_ROLES.includes(ctx.role);
   // Spec 145: a completed/archived project is locked for new work — the UI hides
   // the seeding controls + onboarding and shows a banner. Defect-rework stays.
   const projectOpen = project.status === "active" || project.status === "on_hold";
@@ -174,6 +180,18 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
                 className={ICON_CHIP_MUTED}
               >
                 <ClipboardList aria-hidden className="h-5 w-5" />
+              </Link>
+            ) : null}
+            {/* Spec 197 U1: the คลัง (store) chip — after แผนจัดหา (plan → hold
+                lifecycle order). WP_DETAIL_ROLES, so site_admin (storekeeper) now
+                reaches its own store. */}
+            {canSeeStore ? (
+              <Link
+                href={storeHref(project.id)}
+                aria-label={STORE_LABEL}
+                className={ICON_CHIP_MUTED}
+              >
+                <Warehouse aria-hidden className="h-5 w-5" />
               </Link>
             ) : null}
             {isManagerRole(ctx.role) ? (

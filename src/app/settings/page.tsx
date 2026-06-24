@@ -15,7 +15,6 @@ import {
   Store,
   Users,
   Wallet,
-  Warehouse,
   Wrench,
   MessageSquarePlus,
 } from "lucide-react";
@@ -29,12 +28,7 @@ import { THEME_COOKIE, parseThemeSetting } from "@/lib/ui/theme";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { createClient } from "@/lib/db/server";
 import { ACCOUNTING_ROLES, isManagerRole } from "@/lib/auth/role-home";
-import {
-  CATALOG_LABEL,
-  STOCK_COUNT_LABEL,
-  STORE_LABEL,
-  SUBCONTRACTOR_LABEL,
-} from "@/lib/i18n/labels";
+import { CATALOG_LABEL, STOCK_COUNT_LABEL, SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
 // Server-only import (this page is a Server Component) — no client bundle bloat,
 // no version drift vs package.json.
 import pkg from "../../../package.json";
@@ -167,13 +161,8 @@ export default async function SettingsPage() {
                 label={CATALOG_LABEL}
                 hint="รายการวัสดุมาตรฐานสำหรับจัดซื้อ"
               />
-              {/* Spec 177: the on-site store — record stock-in (รับเข้า) at cost. */}
-              <SettingsLink
-                href="/store"
-                icon={Warehouse}
-                label={STORE_LABEL}
-                hint="สต๊อกในมือ + รับเข้าวัสดุ"
-              />
+              {/* Spec 197 U1: the store (คลัง) left settings for the per-project
+                  sub-route — reached from each project's header chip, not here. */}
             </div>
 
             {/* Spec 187: การเงิน parity — procurement views + pays DC payroll
@@ -237,13 +226,8 @@ export default async function SettingsPage() {
                 label={CATALOG_LABEL}
                 hint="รายการวัสดุมาตรฐาน"
               />
-              {/* Spec 177: the on-site store — record stock-in (รับเข้า) at cost. */}
-              <SettingsLink
-                href="/store"
-                icon={Warehouse}
-                label={STORE_LABEL}
-                hint="สต๊อกในมือ + รับเข้าวัสดุ"
-              />
+              {/* Spec 197 U1: the store (คลัง) left settings for the per-project
+                  sub-route — reached from each project's header chip, not here. */}
             </div>
 
             {/* Finance — PM/super */}

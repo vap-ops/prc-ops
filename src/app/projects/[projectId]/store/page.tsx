@@ -1,0 +1,216 @@
+// Spec 197 U1 — คลัง as a per-project surface. The store is no longer a global
+// /settings drill-down reached through a project picker; it is a project
+// sub-route reached from the project-detail chip row (like ตารางงาน / แผนจัดหา).
+// projectId comes from the route, so the picker disappears and RLS already
+// scopes the viewer. Gated to WP_DETAIL_ROLES — the same set that can open a
+// project's WPs — which finally admits site_admin (the on-site storekeeper),
+// the headline access change. Within the page each action keeps its own gate
+// (เบิก = site staff, รับเข้า = the record_stock_in RPC, P&L = super/director).
+
+import { PageShell } from "@/components/features/chrome/page-shell";
+import { PAGE_MAX_W } from "@/lib/ui/page-width";
+import { notFound } from "next/navigation";
+import { requireRole } from "@/lib/auth/require-role";
+import { SITE_STAFF_ROLES, WP_DETAIL_ROLES } from "@/lib/auth/role-home";
+import { createClient } from "@/lib/db/server";
+import { DetailHeader } from "@/components/features/chrome/detail-header";
+import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
+import { projectHref } from "@/lib/nav/project-paths";
+import {
+  StoreManager,
+  type CatalogPick,
+  type CountRow,
+  type IssueRow,
+  type ReceiptRow,
+  type StockRow,
+} from "@/components/features/store/store-manager";
+import { StorePnlView, type StorePnlRow } from "@/components/features/store/store-pnl-view";
+import { STORE_LABEL } from "@/lib/i18n/labels";
+
+interface PageProps {
+  params: Promise<{ projectId: string }>;
+}
+
+export const metadata = { title: STORE_LABEL };
+
+export default async function ProjectStorePage({ params }: PageProps) {
+  const { projectId } = await params;
+  const ctx = await requireRole(WP_DETAIL_ROLES);
+  const supabase = await createClient();
+
+  // RLS scopes the viewer to projects they can see; a hidden/absent project 404s.
+  const { data: project } = await supabase
+    .from("projects")
+    .select("id, code, name")
+    .eq("id", projectId)
+    .maybeSingle();
+  if (!project) notFound();
+
+  // เบิก (issue-out) follows the issue_stock RPC gate (SITE_STAFF): site_admin +
+  // the PM tier issue; procurement reaches the page (WP_DETAIL_ROLES) read-only.
+  const canIssue = SITE_STAFF_ROLES.includes(ctx.role);
+  // Store P&L (the margin view) is super_admin / project_director — the store_pnl
+  // RPC's money gate (mirrors wp_profit). Procurement/PM/SA never see it.
+  const canSeePnl = ctx.role === "super_admin" || ctx.role === "project_director";
+
+  const { data: ohRows } = await supabase
+    .from("stock_on_hand")
+    .select(
+      "catalog_item_id, qty_on_hand, total_value, catalog_items ( base_item, spec_attrs, unit )",
+    )
+    .eq("project_id", project.id);
+  const onHand: StockRow[] = (ohRows ?? [])
+    .map((r) => ({
+      catalogItemId: r.catalog_item_id,
+      baseItem: r.catalog_items?.base_item ?? "",
+      specAttrs: r.catalog_items?.spec_attrs ?? null,
+      unit: r.catalog_items?.unit ?? "",
+      qtyOnHand: Number(r.qty_on_hand),
+      totalValue: Number(r.total_value),
+    }))
+    .sort((a, b) => a.baseItem.localeCompare(b.baseItem, "th"));
+
+  const { data: catRows } = await supabase
+    .from("catalog_items")
+    .select("id, category, base_item, spec_attrs, unit")
+    .eq("is_active", true)
+    .order("base_item", { ascending: true });
+  const catalogItems: CatalogPick[] = (catRows ?? []).map((r) => ({
+    id: r.id,
+    category: r.category,
+    baseItem: r.base_item,
+    specAttrs: r.spec_attrs,
+    unit: r.unit,
+  }));
+
+  const { data: supRows } = await supabase
+    .from("suppliers")
+    .select("id, name")
+    .order("name", { ascending: true });
+  const suppliers = (supRows ?? []).map((s) => ({ id: s.id, name: s.name }));
+
+  const { data: wpRows } = await supabase
+    .from("work_packages")
+    .select("id, code, name")
+    .eq("project_id", project.id)
+    .order("code", { ascending: true });
+  const workPackages = (wpRows ?? []).map((w) => ({ id: w.id, code: w.code, name: w.name }));
+
+  const { data: workerRows } = await supabase
+    .from("workers")
+    .select("id, name")
+    .eq("project_id", project.id)
+    .eq("active", true)
+    .order("name", { ascending: true });
+  const workers = (workerRows ?? []).map((w) => ({ id: w.id, name: w.name }));
+
+  const { data: issueRows } = await supabase
+    .from("stock_issues")
+    .select(
+      "id, qty, unit, unit_cost, receiver_worker_id, received_at, catalog_items ( base_item, spec_attrs ), work_packages ( code, name )",
+    )
+    .eq("project_id", project.id)
+    .order("issued_at", { ascending: false })
+    .limit(10);
+  const issues: IssueRow[] = (issueRows ?? []).map((r) => ({
+    id: r.id,
+    baseItem: r.catalog_items?.base_item ?? "",
+    specAttrs: r.catalog_items?.spec_attrs ?? null,
+    unit: r.unit,
+    qty: Number(r.qty),
+    unitCost: Number(r.unit_cost),
+    wpLabel: r.work_packages ? `${r.work_packages.code} ${r.work_packages.name}` : "",
+    receiverWorkerId: r.receiver_worker_id,
+    receivedAt: r.received_at,
+  }));
+
+  const { data: receiptRows } = await supabase
+    .from("stock_receipts")
+    .select("id, qty, unit, unit_cost, catalog_items ( base_item, spec_attrs )")
+    .eq("project_id", project.id)
+    .order("received_at", { ascending: false })
+    .limit(10);
+  const receipts: ReceiptRow[] = (receiptRows ?? []).map((r) => ({
+    id: r.id,
+    baseItem: r.catalog_items?.base_item ?? "",
+    specAttrs: r.catalog_items?.spec_attrs ?? null,
+    unit: r.unit,
+    qty: Number(r.qty),
+    unitCost: Number(r.unit_cost),
+  }));
+
+  const { data: countRows } = await supabase
+    .from("stock_counts")
+    .select("id, counted_qty, variance, unit, catalog_items ( base_item, spec_attrs )")
+    .eq("project_id", project.id)
+    .order("counted_at", { ascending: false })
+    .limit(10);
+  const counts: CountRow[] = (countRows ?? []).map((r) => ({
+    id: r.id,
+    baseItem: r.catalog_items?.base_item ?? "",
+    specAttrs: r.catalog_items?.spec_attrs ?? null,
+    unit: r.unit,
+    countedQty: Number(r.counted_qty),
+    variance: Number(r.variance),
+  }));
+
+  let pnlRows: StorePnlRow[] = [];
+  if (canSeePnl) {
+    const { data: pnl } = await supabase.rpc("store_pnl", { p_project_id: project.id });
+    const ids = (pnl ?? []).map((r) => r.catalog_item_id);
+    const nameMap = new Map<string, { base_item: string; spec_attrs: string | null }>();
+    if (ids.length > 0) {
+      const { data: nameRows } = await supabase
+        .from("catalog_items")
+        .select("id, base_item, spec_attrs")
+        .in("id", ids);
+      for (const n of nameRows ?? []) nameMap.set(n.id, n);
+    }
+    pnlRows = (pnl ?? [])
+      .map((r) => {
+        const meta = nameMap.get(r.catalog_item_id);
+        return {
+          catalogItemId: r.catalog_item_id,
+          baseItem: meta?.base_item ?? "",
+          specAttrs: meta?.spec_attrs ?? null,
+          qtyIssued: Number(r.qty_issued),
+          costTotal: Number(r.cost_total),
+          sellTotal: Number(r.sell_total),
+          margin: Number(r.margin),
+          shrinkageValue: Number(r.shrinkage_value),
+        };
+      })
+      .sort((a, b) => a.baseItem.localeCompare(b.baseItem, "th"));
+  }
+
+  return (
+    <PageShell>
+      <BottomTabBar role={ctx.role} />
+      <DetailHeader backHref={projectHref(project.id)} backLabel="กลับไปโครงการ">
+        <div>
+          <p className="text-meta text-ink-secondary font-mono">{project.code}</p>
+          <h1 className="text-title text-ink font-bold tracking-tight">
+            {STORE_LABEL} — {project.name}
+          </h1>
+        </div>
+      </DetailHeader>
+      <div className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-5 px-5 py-6`}>
+        <StoreManager
+          projects={[{ id: project.id, code: project.code, name: project.name }]}
+          selectedProjectId={project.id}
+          hidePicker
+          onHand={onHand}
+          catalogItems={catalogItems}
+          suppliers={suppliers}
+          canIssue={canIssue}
+          workPackages={workPackages}
+          workers={workers}
+          issues={issues}
+          receipts={receipts}
+          counts={counts}
+        />
+        {canSeePnl ? <StorePnlView rows={pnlRows} /> : null}
+      </div>
+    </PageShell>
+  );
+}

@@ -1,5 +1,5 @@
 begin;
-select plan(24);
+select plan(25);
 
 -- ============================================================================
 -- Spec 177 U1 — Store + Stock-In (รับเข้า) at cost.
@@ -16,10 +16,13 @@ insert into auth.users (id, email, raw_user_meta_data) values
   ('12121212-1212-1212-1212-000000000181', 'pmoutsider@st.local', '{}'::jsonb),
   ('13131313-1313-1313-1313-000000000181', 'procurement@st.local','{}'::jsonb),
   ('14141414-1414-1414-1414-000000000181', 'visitor@st.local',    '{}'::jsonb),
+  ('15151515-1515-1515-1515-000000000181', 'sitemember@st.local', '{}'::jsonb),
   ('19191919-1919-1919-1919-000000000181', 'super@st.local',      '{}'::jsonb);
 update public.users set role='project_manager'  where id='11111111-1111-1111-1111-000000000181';
 update public.users set role='project_manager'  where id='12121212-1212-1212-1212-000000000181';
 update public.users set role='procurement'      where id='13131313-1313-1313-1313-000000000181';
+-- Spec 197 U1: site_admin (the on-site storekeeper) now records รับเข้า.
+update public.users set role='site_admin'       where id='15151515-1515-1515-1515-000000000181';
 update public.users set role='super_admin'      where id='19191919-1919-1919-1919-000000000181';
 -- '1414…' stays visitor.
 
@@ -32,9 +35,11 @@ insert into public.catalog_items (id, category, base_item, unit, is_active) valu
 insert into public.suppliers (id, name, created_by) values
   ('5a000000-0000-0000-0000-000000000181', 'ผู้ขายทดสอบ',
    '19191919-1919-1919-1919-000000000181');
--- pm_member is on project 1; pm_outsider is not.
+-- pm_member is on project 1; pm_outsider is not. site_member (site_admin) is too.
 insert into public.project_members (project_id, user_id, added_by) values
   ('aa000000-0000-0000-0000-000000000181', '11111111-1111-1111-1111-000000000181',
+   '19191919-1919-1919-1919-000000000181'),
+  ('aa000000-0000-0000-0000-000000000181', '15151515-1515-1515-1515-000000000181',
    '19191919-1919-1919-1919-000000000181');
 
 grant insert on _tap_buf to authenticated;
@@ -157,6 +162,14 @@ select is(
   (select count(*)::int from public.stock_on_hand
      where project_id='aa000000-0000-0000-0000-000000000181'),
   0, 'non-member PM cannot read another project on-hand');
+
+-- I. Spec 197 U1: site_admin member (the on-site storekeeper) records a stock-in
+-- into their own project — the widened role gate now admits site_admin.
+set local "request.jwt.claims" = '{"sub": "15151515-1515-1515-1515-000000000181"}';
+select isnt(
+  (select public.record_stock_in('aa000000-0000-0000-0000-000000000181',
+     'ee000000-0000-0000-0000-000000000181', 3, 30, null, null)),
+  null, 'site_admin member records a stock-in into own project — returns id');
 
 reset role;
 

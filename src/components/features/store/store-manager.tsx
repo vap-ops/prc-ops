@@ -92,6 +92,7 @@ export function StoreManager({
   issues,
   receipts,
   counts,
+  hidePicker = false,
 }: {
   projects: { id: string; code: string; name: string }[];
   selectedProjectId: string | null;
@@ -106,6 +107,10 @@ export function StoreManager({
   receipts: ReceiptRow[];
   // Spec 178 B3 — recent physical counts (the ประวัติการนับ history).
   counts: CountRow[];
+  // Spec 197 U1: on the per-project คลัง sub-route the project comes from the
+  // URL, so the picker is suppressed (RLS already scopes the viewer). The legacy
+  // global picker is kept (default false) for any caller still passing a list.
+  hidePicker?: boolean;
 }) {
   const router = useRouter();
 
@@ -253,24 +258,26 @@ export function StoreManager({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="store-project" className={LABEL}>
-          โครงการ
-        </label>
-        <select
-          id="store-project"
-          value={selectedProjectId ?? ""}
-          onChange={(e) => router.push(`/store?project=${e.target.value}`)}
-          className={FIELD}
-        >
-          <option value="">เลือกโครงการ</option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.code} {p.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      {hidePicker ? null : (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="store-project" className={LABEL}>
+            โครงการ
+          </label>
+          <select
+            id="store-project"
+            value={selectedProjectId ?? ""}
+            onChange={(e) => router.push(`/store?project=${e.target.value}`)}
+            className={FIELD}
+          >
+            <option value="">เลือกโครงการ</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.code} {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {selectedProjectId ? (
         <>

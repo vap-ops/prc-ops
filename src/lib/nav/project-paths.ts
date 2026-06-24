@@ -40,3 +40,11 @@ export function scheduleHref(projectId: string): string {
 export function supplyPlanHref(projectId: string): string {
   return `/projects/${projectId}/supply-plan`;
 }
+
+// Spec 197 U1: the on-site store (คลัง) is a per-project destination now — a
+// sub-route reached from the project-detail chip row, not a global /settings
+// picker. The URL names what is shown (this project's store), per the spec-82
+// content-named convention.
+export function storeHref(projectId: string): string {
+  return `/projects/${projectId}/store`;
+}

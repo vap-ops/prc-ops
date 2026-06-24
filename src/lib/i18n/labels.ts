@@ -72,7 +72,10 @@ export const CATALOG_NON_STOCKABLE_LABEL = "สั่งตรงเข้าง
 
 // Spec 177 — the on-site store (stock on hand) + the stock-in (รับเข้า) /
 // issue-out (เบิก) actions.
-export const STORE_LABEL = "สโตร์หน้างาน";
+// Spec 197 U1: the store became a per-project destination (a project sub-route +
+// header chip, like ตารางงาน). Its term is คลัง — single-sourced here for the
+// chip, the sub-route header, and the bottom-tab match.
+export const STORE_LABEL = "คลัง";
 export const STORE_RECEIVE_LABEL = "รับเข้าสต๊อก";
 export const STORE_ISSUE_LABEL = "เบิกออก";
 
