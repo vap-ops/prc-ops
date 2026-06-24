@@ -46,13 +46,18 @@ RLS-hidden (not a member) from truly-gone: gone → still 404; hidden → render
 `NoAccessNotice` ("คุณยังไม่ได้อยู่ในทีมของโครงการนี้ — ติดต่อผู้จัดการโครงการ…") in the
 standard chrome with a back link. super_admin / coordinator see-all, never reach it.
 
-## U4 — site-admin daily home (DESIGN APPROVED 2026-06-24, mock-first; NOT yet built)
+## U4 — site-admin daily home (shipped 2026-06-24, commit f7e927f)
 
-Cliff 2: the SA's home is the project hub `/projects` (the old `/sa` merged into it,
-spec 82) — so the daily loop (log labor / photos / PR) is buried 3–4 taps deep in a
+Cliff 2: the SA's home was the project hub `/projects` (the old `/sa` merged into it,
+spec 82) — so the daily loop (log labor / photos / PR) was buried 3–4 taps deep in a
 WP tab. Operator approved (AskUserQuestion, after a `show_widget` mock): **build an
 action-forward SA daily home, and make it the SA's landing** (the full project list
-stays a bottom tab).
+stays a bottom tab). v1 shipped: greeting + "งานของฉัน" (the SA's visible not-done
+WPs, each 1-tap to detail + per-WP action chips deep-linking the labor/photo/PR tabs
+via the WP-detail `hashTabMap`, extended with `wp-photos`/`wp-labor`). The standalone
+hero "ลงเวลาทีมงานวันนี้" + quick photo/PR buttons need a global "pick a งาน" step →
+**U4b** (v1 surfaces the actions per-WP instead). All five nav pins updated
+(role-home, bottom-tab-bar, hub-nav, nav-back-affordance, handoff-poll-route).
 
 Design (from the approved mock): greeting → a hero "ลงเวลาทีมงานวันนี้" (the
 highest-frequency daily task) → quick photos / PR actions → "งานของฉัน" = the SA's

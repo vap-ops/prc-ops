@@ -6,6 +6,28 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 192 — first-real-project readiness, U4 SA daily home (2026-06-24)
+
+Status: **U4 SHIPPED to prod — 2026-06-24** (commit f7e927f; NO DB; lint · typecheck
+· vitest 1555 green; /sa compiles + the site_admin gate redirects unauth → /login,
+preview). Cliff 2 fixed: the SA landed on the project hub `/projects`, so the daily
+loop (log labor / photos / PR) was buried 3–4 taps deep in a WP tab. **Mock-first**
+(show_widget → AskUserQuestion: build it + make it the SA's landing). Revived `/sa` =
+greeting + "งานของฉัน" — the SA's visible **not-done** work packages (RLS-scoped to
+member projects, drops complete + pending_approval), each row 1-tap to its detail +
+three action chips (รูปถ่าย / ทีมงาน / คำขอซื้อ) deep-linking the WP-detail tabs.
+`lib/sa/my-work.ts` pure `buildMyWorkList` (join project name, sort project-then-WP).
+WP-detail `hashTabMap` gained `wp-photos` / `wp-labor` (only `wp-requests` existed).
+**Nav rework + 5 pin updates:** `roleHome(site_admin)` → `/sa`; `SA_TABS` prepend
+หน้าหลัก (Home icon) + drop ภาพรวม (four tabs); `SA_HUB_NAV` the same; pins
+role-home, bottom-tab-bar (+ a /sa-lit test), hub-nav, nav-back-affordance
+(NON_DETAIL + HUB_STRIP both + `sa`), and **handoff-poll-route** (the roleHome
+consumer missed on the first pass — grep ALL `roleHome("site_admin")` pins on a home
+change). **U4b (deferred):** the standalone hero "ลงเวลาทีมงานวันนี้" + quick photo/PR
+buttons need a global "pick a งาน" picker (v1 surfaces the actions per-WP instead).
+**Spec 192 = U1 membership guard + U2 onboarding + U3 non-member explainer + U4 SA
+home — the first-real-project adoption arc, both cliffs addressed.**
+
 ## Spec 192 — first-real-project readiness, U2+U3 (2026-06-24)
 
 Status: **U2 + U3 SHIPPED to prod — 2026-06-24** (commits 93225df, 14b842e; NO DB;
