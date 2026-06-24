@@ -17,7 +17,6 @@ import {
   Wrench,
   MessageSquarePlus,
 } from "lucide-react";
-import { LogoutButton } from "@/components/auth/logout-button";
 import { AvatarSurface } from "@/components/features/common/avatar-surface";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
@@ -93,9 +92,9 @@ export default async function SettingsPage() {
             </span>
             <ChevronRight aria-hidden className="text-ink-muted h-5 w-5 shrink-0" />
           </Link>
-          <div className="flex justify-end">
-            <LogoutButton />
-          </div>
+          {/* Spec 193 feedback: logout removed here — it's redundant with the
+              /profile screen (one tap via the row above) and the browser
+              app-header. "logout lives on /profile." */}
         </div>
 
         {/* Field tools — site_admin (spec 141 U5). The field can view + move

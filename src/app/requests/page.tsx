@@ -813,6 +813,8 @@ function worklistChipClass(active: boolean): string {
   }`;
 }
 
-// Spec 106: compact THB formatter for the outstanding tile.
-const baht = (n: number) =>
-  `฿${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// Spec 106: compact THB formatter for the outstanding KPI tile. Summary figures
+// stay ROUNDED (no satang) — the 2-decimal form belongs on per-row PR/PO amounts,
+// not this hero total (a long ฿…​.00 string overflowed the half-width phone tile,
+// spec 193 feedback).
+const baht = (n: number) => `฿${Math.round(n).toLocaleString("en-US")}`;

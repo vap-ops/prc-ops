@@ -68,8 +68,16 @@ export function WorklistKpiTile({ tile }: { tile: Tile }) {
           <Icon aria-hidden className="size-4" />
         </span>
       </div>
-      <div>
-        <div className={`text-3xl leading-none font-extrabold tabular-nums ${tone.value}`}>
+      {/* min-w-0 lets the value column shrink inside the flex card so a long ฿
+          amount wraps instead of spilling out (spec 193 feedback overflow fix). */}
+      <div className="min-w-0">
+        {/* The money tile (ค้างจ่าย) holds a long ฿ string vs the others' small
+            counts — render it smaller and allow it to wrap so it can't overflow. */}
+        <div
+          className={`${
+            tile.key === "outstanding" ? "text-2xl break-words" : "text-3xl"
+          } leading-none font-extrabold tabular-nums ${tone.value}`}
+        >
           {tile.value}
         </div>
         <div className={`text-meta mt-1 font-medium ${tone.caption}`}>{tile.caption}</div>
