@@ -31,7 +31,17 @@ export function OnboardingChecklist({
   // the project_onboarding_status RPC. Nudges งวด setup after WPs exist.
   deliverablesDone: boolean;
 }) {
-  const rows = [
+  const rows: { key: string; label: string; hint?: string; done: boolean; href: string }[] = [
+    {
+      // Spec 192 U2: team leads — it's the access prerequisite. A project is only
+      // visible to its members (can_see_project, ADR 0056), so adding the team
+      // first is what lets the site admin see and work on it at all.
+      key: "team",
+      label: "เพิ่มทีมงาน",
+      hint: "เพิ่มก่อนเป็นอันดับแรก เพื่อให้พวกเขาเห็นโครงการและเริ่มทำงานได้",
+      done: status.team_added,
+      href: projectSettingsHref(projectId),
+    },
     {
       key: "dates_lead",
       label: "กำหนดวันและผู้รับผิดชอบ",
@@ -42,12 +52,6 @@ export function OnboardingChecklist({
       key: "budget",
       label: "ระบุงบประมาณ",
       done: status.budget_set,
-      href: projectSettingsHref(projectId),
-    },
-    {
-      key: "team",
-      label: "เพิ่มทีมงาน",
-      done: status.team_added,
       href: projectSettingsHref(projectId),
     },
     {
@@ -107,7 +111,10 @@ export function OnboardingChecklist({
                 href={r.href}
                 className="rounded-control border-edge bg-page hover:bg-sunk focus-visible:ring-action flex min-h-11 items-center justify-between gap-3 border px-3 py-2 transition-colors focus:outline-none focus-visible:ring-2"
               >
-                <span className="text-ink text-sm font-medium">{r.label}</span>
+                <span className="min-w-0">
+                  <span className="text-ink block text-sm font-medium">{r.label}</span>
+                  {r.hint ? <span className="text-ink-muted block text-xs">{r.hint}</span> : null}
+                </span>
                 <ChevronRight aria-hidden className="text-ink-muted size-4 shrink-0" />
               </Link>
             </li>

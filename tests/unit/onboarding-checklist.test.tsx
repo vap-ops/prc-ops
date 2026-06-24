@@ -46,6 +46,15 @@ describe("OnboardingChecklist", () => {
     expect(settingsLinks.length).toBeGreaterThan(0);
   });
 
+  // Spec 192 U2: team leads the checklist (it's the access prerequisite — without
+  // a member the project is invisible to that person) and explains the consequence.
+  it("leads with the team item and explains the visibility consequence", () => {
+    render(<OnboardingChecklist projectId="p1" status={FRESH} deliverablesDone={false} />);
+    const links = screen.getAllByRole("link");
+    expect(links[0]).toHaveTextContent("เพิ่มทีมงาน");
+    expect(screen.getByText(/ให้พวกเขาเห็นโครงการ/)).toBeInTheDocument();
+  });
+
   it("links the deliverables item to the งวดงาน section when not set up", () => {
     render(<OnboardingChecklist projectId="p1" status={FRESH} deliverablesDone={false} />);
     const link = screen
