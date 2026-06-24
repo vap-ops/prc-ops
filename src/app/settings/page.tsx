@@ -5,7 +5,6 @@ import { cookies } from "next/headers";
 import {
   Calculator,
   ChevronRight,
-  ClipboardCheck,
   Contact,
   Files,
   Hammer,
@@ -28,7 +27,7 @@ import { THEME_COOKIE, parseThemeSetting } from "@/lib/ui/theme";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { createClient } from "@/lib/db/server";
 import { ACCOUNTING_ROLES, isManagerRole } from "@/lib/auth/role-home";
-import { CATALOG_LABEL, STOCK_COUNT_LABEL, SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
+import { CATALOG_LABEL, SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
 // Server-only import (this page is a Server Component) — no client bundle bloat,
 // no version drift vs package.json.
 import pkg from "../../../package.json";
@@ -111,14 +110,9 @@ export default async function SettingsPage() {
               label="อุปกรณ์"
               hint="ดูและย้ายอุปกรณ์หน้างาน"
             />
-            {/* Spec 178 B2: site_admin keeps the store but can't reach /store
-                (back-office); this count-only surface lets them reconcile it. */}
-            <SettingsLink
-              href="/stock-count"
-              icon={ClipboardCheck}
-              label={STOCK_COUNT_LABEL}
-              hint="นับสต๊อกในสโตร์หน้างาน"
-            />
+            {/* Spec 197 U2: the stock-count surface left settings — ตรวจนับ is
+                now reached through a project's คลัง chip (per-row spot count +
+                ตรวจนับทั้งคลัง full stocktake). */}
           </div>
         )}
 

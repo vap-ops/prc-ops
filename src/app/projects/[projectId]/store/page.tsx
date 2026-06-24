@@ -24,6 +24,10 @@ import {
   type ReceiptRow,
   type StockRow,
 } from "@/components/features/store/store-manager";
+import {
+  StoreCountManager,
+  type CountStockRow,
+} from "@/components/features/store/store-count-manager";
 import { StorePnlView, type StorePnlRow } from "@/components/features/store/store-pnl-view";
 import { STORE_LABEL } from "@/lib/i18n/labels";
 
@@ -209,6 +213,27 @@ export default async function ProjectStorePage({ params }: PageProps) {
           receipts={receipts}
           counts={counts}
         />
+        {/* Spec 197 U2: ตรวจนับทั้งคลัง — the full-stocktake pass (the relocated
+            /stock-count count-list), behind a toggle so it does not compete with
+            the per-row spot count above. Same SITE_STAFF gate as the spot count
+            (record_stock_count); the project comes from the route (hidePicker). */}
+        {canIssue ? (
+          <StoreCountManager
+            projects={[{ id: project.id, code: project.code, name: project.name }]}
+            selectedProjectId={project.id}
+            onHand={onHand.map(
+              (r): CountStockRow => ({
+                catalogItemId: r.catalogItemId,
+                baseItem: r.baseItem,
+                specAttrs: r.specAttrs,
+                unit: r.unit,
+                qtyOnHand: r.qtyOnHand,
+              }),
+            )}
+            hidePicker
+            collapsible
+          />
+        ) : null}
         {canSeePnl ? <StorePnlView rows={pnlRows} /> : null}
       </div>
     </PageShell>

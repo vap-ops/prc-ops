@@ -44,11 +44,10 @@ const STATIC_DETAIL = [
   "equipment",
   // Spec 175: the item catalog drills down from /settings (back chip).
   "catalog",
-  // Spec 197 U1: /store left /settings for the per-project sub-route
-  // (/projects/[id]/store, a dynamic-segment DETAIL route auto-classified above).
-  // The legacy top-level /store is now a thin redirect → EXCLUDED below.
-  // Spec 178 B2: the site_admin stock-count surface drills down from /settings.
-  "stock-count",
+  // Spec 197 U1/U2: /store and /stock-count left /settings for the per-project
+  // คลัง surface (/projects/[id]/store, a dynamic-segment DETAIL route
+  // auto-classified above). Both legacy top-level routes are now thin
+  // redirects → EXCLUDED below.
   "payroll",
   // Spec 149 U9: the read-only ledger surface, drilled down from /settings.
   "accounting",
@@ -107,10 +106,11 @@ const EXCLUDED_ROUTES = [
   "login/page.tsx",
   "coming-soon/page.tsx",
   "contacts/page.tsx",
-  // Spec 197 U1: the legacy top-level /store is now a thin redirect to /projects
-  // (the store moved to the per-project sub-route) — neither header, like the
-  // bare /contacts redirect.
+  // Spec 197 U1/U2: the legacy top-level /store and /stock-count are now thin
+  // redirects to /projects (counting + store moved to the per-project คลัง
+  // surface) — neither header, like the bare /contacts redirect.
   "store/page.tsx",
+  "stock-count/page.tsx",
   "grid-preview/page.tsx",
   // Spec 130: the contractor invite-claim entry — a bespoke single-card layout
   // (neither header), reachable by a freshly-logged-in visitor before binding.

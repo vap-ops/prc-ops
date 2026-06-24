@@ -13,6 +13,7 @@ import { useState, useTransition } from "react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
 import { recordStockCount } from "@/app/store/actions";
+import { FULL_STOCKTAKE_LABEL } from "@/lib/i18n/labels";
 
 export type CountStockRow = {
   catalogItemId: string;
@@ -30,13 +31,25 @@ export function StoreCountManager({
   projects,
   selectedProjectId,
   onHand,
+  hidePicker = false,
+  collapsible = false,
 }: {
   projects: { id: string; code: string; name: string }[];
   selectedProjectId: string | null;
   onHand: CountStockRow[];
+  // Spec 197 U2: on the per-project คลัง surface the project comes from the
+  // route, so the picker is suppressed (the legacy /stock-count picker is gone).
+  hidePicker?: boolean;
+  // Spec 197 U2: render this as a ตรวจนับทั้งคลัง full-stocktake panel — the item
+  // list stays hidden behind a toggle until the operator opens the count pass,
+  // so it does not compete with the per-row spot count already on the surface.
+  collapsible?: boolean;
 }) {
   const router = useRouter();
 
+  // When collapsible, the full list starts closed behind the ตรวจนับทั้งคลัง
+  // toggle; otherwise (the legacy standalone surface) it is always open.
+  const [open, setOpen] = useState(!collapsible);
   const [countRow, setCountRow] = useState<CountStockRow | null>(null);
   const [countQty, setCountQty] = useState("");
   const [countNote, setCountNote] = useState("");
@@ -76,29 +89,42 @@ export function StoreCountManager({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="count-project" className={LABEL}>
-          โครงการ
-        </label>
-        <select
-          id="count-project"
-          value={selectedProjectId ?? ""}
-          onChange={(e) => {
-            const v = e.target.value;
-            router.push(v === "" ? "/stock-count" : `/stock-count?project=${v}`);
-          }}
-          className={FIELD}
-        >
-          <option value="">เลือกโครงการ</option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.code} {p.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      {hidePicker ? null : (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="count-project" className={LABEL}>
+            โครงการ
+          </label>
+          <select
+            id="count-project"
+            value={selectedProjectId ?? ""}
+            onChange={(e) => {
+              const v = e.target.value;
+              router.push(v === "" ? "/stock-count" : `/stock-count?project=${v}`);
+            }}
+            className={FIELD}
+          >
+            <option value="">เลือกโครงการ</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.code} {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
-      {selectedProjectId ? (
+      {collapsible ? (
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className={BUTTON_SECONDARY}
+        >
+          {FULL_STOCKTAKE_LABEL}
+        </button>
+      ) : null}
+
+      {open && selectedProjectId ? (
         onHand.length === 0 ? (
           <p className="text-ink-secondary text-body">ยังไม่มีสต๊อกในสโตร์ของโครงการนี้</p>
         ) : (

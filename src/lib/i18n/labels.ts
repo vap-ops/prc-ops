@@ -83,8 +83,11 @@ export const STORE_ISSUE_LABEL = "เบิกออก";
 export const ITEM_SELL_RATE_LABEL = "ราคาขาย";
 export const SET_ITEM_SELL_RATE_LABEL = "ตั้งราคาขาย";
 export const STORE_PNL_LABEL = "กำไร-ขาดทุนสโตร์";
-// Spec 178 B2 — the site_admin stock-count surface (count-only /stock-count).
-export const STOCK_COUNT_LABEL = "ตรวจนับสต๊อก";
+// Spec 197 U2 — the full-stocktake action on the per-project คลัง page (the
+// relocated /stock-count count-list, opened as a deliberate count-everything pass
+// alongside the per-row spot count). The spec-178-B2 standalone STOCK_COUNT_LABEL
+// is retired with its /stock-count route.
+export const FULL_STOCKTAKE_LABEL = "ตรวจนับทั้งคลัง";
 
 // Spec 134 / ADR 0044 — derived PO roll-up status (not a DB enum; the union
 // lives in src/lib/purchasing/purchase-order.ts). open never shows for a live PO

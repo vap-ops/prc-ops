@@ -55,10 +55,9 @@ const SETTINGS_TAB: TabItem = {
     "/workers",
     "/equipment",
     "/catalog",
-    // Spec 197 U1: /store left settings for the per-project sub-route
-    // (/projects/[id]/store), so the projects tab owns it now — the settings tab
-    // no longer claims /store. (/stock-count is retired in U2.)
-    "/stock-count",
+    // Spec 197 U1/U2: /store and /stock-count left settings for the per-project
+    // คลัง surface (/projects/[id]/store), so the projects tab owns them now —
+    // the settings tab no longer claims either.
     "/payroll",
     "/accounting",
   ],

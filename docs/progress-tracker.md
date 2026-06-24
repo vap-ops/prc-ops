@@ -6,6 +6,53 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 197 — ตรวจนับ unified into คลัง, U2 (2026-06-24)
+
+Status: **SHIPPED to prod — 2026-06-24** (no DB; lint · typecheck · vitest green).
+Retires the standalone `/stock-count` route and folds counting into the
+per-project `คลัง` surface. Two modes, one home, one `record_stock_count`:
+
+- **Mode A — spot count** (unchanged): the per-row `ตรวจนับ` on `StoreManager`,
+  already on the คลัง page for SITE_STAFF (`canIssue`).
+- **Mode B — full stocktake** (relocated): the `/stock-count` page's
+  `StoreCountManager` (the focused count-only item list) now renders on the
+  คลัง page behind a `ตรวจนับทั้งคลัง` toggle, gated to `canIssue` (SITE_STAFF).
+
+**Test-first** (RED): `tests/unit/store-full-stocktake.test.tsx` — `FULL_STOCKTAKE_LABEL`,
+`hidePicker` suppresses the picker, `collapsible` hides the list behind the
+`ตรวจนับทั้งคลัง` toggle until opened. 3 RED → green.
+
+**App:**
+
+- `StoreCountManager` gains `hidePicker` (default false → existing B2 picker
+  behavior preserved) + `collapsible` (default false → list always open). When
+  `collapsible`, the list starts closed behind a `ตรวจนับทั้งคลัง` toggle.
+- `app/projects/[projectId]/store/page.tsx` renders `<StoreCountManager hidePicker
+collapsible>` after `StoreManager` (maps the on-hand to `CountStockRow[]`),
+  gated to `canIssue`.
+- `labels.ts`: `+FULL_STOCKTAKE_LABEL = "ตรวจนับทั้งคลัง"`; retired `STOCK_COUNT_LABEL`
+  (its only consumer, the `/stock-count` page, is gone).
+- `app/stock-count/page.tsx` → thin `redirect("/projects")`.
+- Removed the site_admin `/stock-count` `SettingsLink` (+ orphan `ClipboardCheck`
+  / `STOCK_COUNT_LABEL` imports).
+- `bottom-tab-bar.tsx`: `SETTINGS_TAB.match` drops `/stock-count`.
+- `nav-back-affordance.test.ts`: `/stock-count` → EXCLUDED (now a redirect).
+
+**Scope note / open question:** the spec describes Mode B as a "batch submit"
+full-list form (every item with an inline counted-qty field, one submit). The
+actual `/stock-count` component is **per-row** (a sheet per item) — the spec
+author's recollection of the existing surface was inaccurate. Per the spec's own
+overriding rule ("no new store capability — relocation + consolidation only"), I
+**relocated the existing per-row component** rather than build a new batch form
+(that would be new capability). If the operator genuinely wants a single-submit
+batch grid, that is a follow-up spec, not U2.
+
+**Dead-but-tested:** `StoreCountManager`'s picker `onChange` still pushes
+`/stock-count?project=…` — unreachable now (prod always passes `hidePicker`; the
+standalone route redirects), but kept so the spec-178-B2 picker test stays green.
+
+**U3 (empty-คลัง state) NOT started.**
+
 ## Spec 197 — คลัง as a per-project surface, U1 (2026-06-24)
 
 Status: **SHIPPED to prod — 2026-06-24** (mig 20260813000700; pgTAP 181; lint ·
