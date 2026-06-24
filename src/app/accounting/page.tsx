@@ -126,6 +126,8 @@ export default async function AccountingPage({ searchParams }: AccountingPagePro
               hint: "เงิน 5% ที่ลูกค้าหักไว้",
             },
             { href: "/accounting/wht", label: "ภาษีหัก ณ ที่จ่าย", hint: "ใบ ภ.ง.ด.3/53/1" },
+            // Spec 196 Tier 2: the AP subledger behind the 2100 control total.
+            { href: "/accounting/payables", label: "เจ้าหนี้การค้า", hint: "ยอดค้างชำระรายผู้ขาย" },
           ].map((l) => (
             <Link
               key={l.href}

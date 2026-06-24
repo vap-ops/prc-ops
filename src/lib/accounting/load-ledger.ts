@@ -51,6 +51,7 @@ export async function loadAccountLedger(
   from: string,
   to: string,
   projectId?: string,
+  supplierId?: string,
 ): Promise<AccountLedger> {
   const { data: acct } = await admin
     .from("gl_accounts")
@@ -85,6 +86,7 @@ export async function loadAccountLedger(
     .eq("account_id", acct.id)
     .in("entry_id", [...entryById.keys()]);
   if (projectId) q = q.eq("project_id", projectId);
+  if (supplierId) q = q.eq("supplier_id", supplierId);
   const { data: lines, error: lineErr } = await q;
   if (lineErr) throw new Error(`journal_lines: ${lineErr.message}`);
 

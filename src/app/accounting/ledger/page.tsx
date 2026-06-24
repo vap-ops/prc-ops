@@ -24,32 +24,54 @@ const baht = (n: number) =>
   n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 interface LedgerPageProps {
-  searchParams: Promise<{ code?: string; from?: string; to?: string; project?: string }>;
+  searchParams: Promise<{
+    code?: string;
+    from?: string;
+    to?: string;
+    project?: string;
+    supplier?: string;
+  }>;
 }
 
 export default async function LedgerPage({ searchParams }: LedgerPageProps) {
   const ctx = await requireRole(ACCOUNTING_ROLES);
-  const { code, from: qFrom, to: qTo, project: qProject } = await searchParams;
+  const { code, from: qFrom, to: qTo, project: qProject, supplier: qSupplier } = await searchParams;
   const today = bangkokTodayIso();
-  const from = qFrom || `${today.slice(0, 7)}-01`;
+  const supplierId = qSupplier || undefined;
+  // A supplier-scoped drill is the AP statement — its total must reconcile to the
+  // (all-time) payables balance, so default the window to full history, not the
+  // month. An account drill from the trial balance keeps the period it came from.
+  const from = qFrom || (supplierId ? "2000-01-01" : `${today.slice(0, 7)}-01`);
   const to = qTo || today;
   const projectId = qProject || undefined;
 
-  // Back to the trial balance on the same period/scope the drill came from.
-  const backQuery = new URLSearchParams({ from, to });
-  if (projectId) backQuery.set("project", projectId);
-  const backHref = `/accounting?${backQuery.toString()}`;
-
   const admin = createAdminClient();
   const { account, rows } = code
-    ? await loadAccountLedger(admin, code, from, to, projectId)
+    ? await loadAccountLedger(admin, code, from, to, projectId, supplierId)
     : { account: null, rows: [] };
   const totals = summarizeLedger(rows);
+
+  // A supplier-scoped drill (Tier 2: AP statement) returns to the payables
+  // register; otherwise back to the trial balance on the same period/scope.
+  const supplierLabel = supplierId
+    ? (rows.find((r) => r.supplierLabel)?.supplierLabel ?? null)
+    : null;
+  let backHref: string;
+  let backLabel: string;
+  if (supplierId) {
+    backHref = "/accounting/payables";
+    backLabel = "เจ้าหนี้การค้า";
+  } else {
+    const backQuery = new URLSearchParams({ from, to });
+    if (projectId) backQuery.set("project", projectId);
+    backHref = `/accounting?${backQuery.toString()}`;
+    backLabel = "งบทดลอง";
+  }
 
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <DetailHeader backHref={backHref} backLabel="งบทดลอง">
+      <DetailHeader backHref={backHref} backLabel={backLabel}>
         <h1 className="text-title text-ink font-bold tracking-tight">บัญชีแยกประเภท</h1>
       </DetailHeader>
 
@@ -59,7 +81,12 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
         ) : (
           <>
             <div className={`${CARD} mb-6`}>
-              <p className="text-ink font-semibold">{account.nameTh}</p>
+              <p className="text-ink font-semibold">
+                {account.nameTh}
+                {supplierLabel ? (
+                  <span className="text-ink-secondary font-normal"> · {supplierLabel}</span>
+                ) : null}
+              </p>
               <p className="text-ink-muted text-xs">
                 {account.code} · {formatThaiDate(from)} – {formatThaiDate(to)}
               </p>
