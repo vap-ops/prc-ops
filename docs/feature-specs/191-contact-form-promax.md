@@ -34,7 +34,7 @@ reusable field types + per-form config + server validation + (U2/U3) columns.
   write for every relevant create/update (defense + paste-safety); blank stays
   optional → null. No DB change.
 
-## U2 — suppliers VAT (DB) — PENDING
+## U2 — suppliers VAT (DB) — SHIPPED (mig 20260811000600, pgTAP 206)
 
 - Migration: `suppliers + is_vat_registered boolean` + **column-level insert/update
   grants** (suppliers uses column grants — the spec-174 lesson). New `RecordManager`
@@ -42,7 +42,7 @@ reusable field types + per-form config + server validation + (U2/U3) columns.
   config gets the VAT field + `taxId.requiredWhenTruthy = "isVatRegistered"`.
   Actions map the boolean. pgTAP for the column grants/RLS.
 
-## U3 — service providers parity (DB) — PENDING
+## U3 — service providers parity (DB) — SHIPPED (mig 20260811000700, pgTAP 207)
 
 - Migration: `service_providers + tax_id + payment_terms + is_vat_registered` (3
   cols + column grants). Wire SERVICE_FIELDS with taxid + credit-terms select + VAT;

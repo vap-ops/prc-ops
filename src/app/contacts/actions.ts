@@ -431,6 +431,9 @@ export async function createServiceProviderRecord(input: {
   vehicleType?: string;
   plateNo?: string;
   note?: string;
+  taxId?: string;
+  paymentTerms?: string;
+  isVatRegistered?: string;
 }): Promise<RecordActionResult> {
   const gate = await pmSession();
   if (!gate.ok) return gate;
@@ -448,6 +451,11 @@ export async function createServiceProviderRecord(input: {
 
   const phoneRes = normPhone(input.phone);
   if (!phoneRes.ok) return { ok: false, error: BAD_PHONE };
+  const taxRes = normTaxId(input.taxId);
+  if (!taxRes.ok) return { ok: false, error: BAD_TAX_ID };
+  // Spec 191 U3: a VAT-registered service provider must carry the 13-digit tax id.
+  const isVat = input.isVatRegistered === "true";
+  if (isVat && taxRes.value === null) return { ok: false, error: VAT_NEEDS_TAX_ID };
 
   const { error } = await gate.supabase.from("service_providers").insert({
     name: input.name.trim(),
@@ -458,6 +466,9 @@ export async function createServiceProviderRecord(input: {
     vehicle_type: norm(input.vehicleType),
     plate_no: norm(input.plateNo),
     note: noteRes.value,
+    tax_id: taxRes.value,
+    payment_terms: norm(input.paymentTerms),
+    is_vat_registered: isVat,
     created_by: gate.userId,
     ...(sub.value !== undefined ? { service_subtype: sub.value } : {}),
     ...(st.value !== undefined ? { status: st.value } : {}),
@@ -479,6 +490,9 @@ export async function updateServiceProviderRecord(input: {
   vehicleType?: string;
   plateNo?: string;
   note?: string;
+  taxId?: string;
+  paymentTerms?: string;
+  isVatRegistered?: string;
 }): Promise<RecordActionResult> {
   const gate = await pmSession();
   if (!gate.ok) return gate;
@@ -504,6 +518,15 @@ export async function updateServiceProviderRecord(input: {
   if (input.mailingAddress !== undefined) patch.mailing_address = norm(input.mailingAddress);
   if (input.vehicleType !== undefined) patch.vehicle_type = norm(input.vehicleType);
   if (input.plateNo !== undefined) patch.plate_no = norm(input.plateNo);
+  if (input.taxId !== undefined) {
+    const taxRes = normTaxId(input.taxId);
+    if (!taxRes.ok) return { ok: false, error: BAD_TAX_ID };
+    patch.tax_id = taxRes.value;
+  }
+  if (input.paymentTerms !== undefined) patch.payment_terms = norm(input.paymentTerms);
+  if (input.isVatRegistered !== undefined) {
+    patch.is_vat_registered = input.isVatRegistered === "true";
+  }
   if (input.note !== undefined) {
     const noteRes = validateNotes(input.note);
     if (!noteRes.ok) return { ok: false, error: noteRes.error };

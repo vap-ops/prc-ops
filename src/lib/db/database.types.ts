@@ -3014,13 +3014,16 @@ export type Database = {
           created_by: string
           email: string | null
           id: string
+          is_vat_registered: boolean
           mailing_address: string | null
           name: string
           note: string | null
+          payment_terms: string | null
           phone: string | null
           plate_no: string | null
           service_subtype: Database["public"]["Enums"]["service_subtype"]
           status: Database["public"]["Enums"]["contact_status"]
+          tax_id: string | null
           vehicle_type: string | null
         }
         Insert: {
@@ -3029,13 +3032,16 @@ export type Database = {
           created_by: string
           email?: string | null
           id?: string
+          is_vat_registered?: boolean
           mailing_address?: string | null
           name: string
           note?: string | null
+          payment_terms?: string | null
           phone?: string | null
           plate_no?: string | null
           service_subtype?: Database["public"]["Enums"]["service_subtype"]
           status?: Database["public"]["Enums"]["contact_status"]
+          tax_id?: string | null
           vehicle_type?: string | null
         }
         Update: {
@@ -3044,13 +3050,16 @@ export type Database = {
           created_by?: string
           email?: string | null
           id?: string
+          is_vat_registered?: boolean
           mailing_address?: string | null
           name?: string
           note?: string | null
+          payment_terms?: string | null
           phone?: string | null
           plate_no?: string | null
           service_subtype?: Database["public"]["Enums"]["service_subtype"]
           status?: Database["public"]["Enums"]["contact_status"]
+          tax_id?: string | null
           vehicle_type?: string | null
         }
         Relationships: [

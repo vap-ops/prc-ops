@@ -53,7 +53,7 @@ export default async function ContactsVendorsPage() {
     const serviceRes = await supabase
       .from("service_providers")
       .select(
-        "id, name, phone, service_subtype, status, contact_person, email, mailing_address, vehicle_type, plate_no, note",
+        "id, name, phone, service_subtype, status, contact_person, email, mailing_address, vehicle_type, plate_no, tax_id, payment_terms, is_vat_registered, note",
       )
       .order("name", { ascending: true });
     serviceProviders = (serviceRes.data ?? []).map((r) => ({
@@ -68,6 +68,10 @@ export default async function ContactsVendorsPage() {
         mailingAddress: r.mailing_address,
         vehicleType: r.vehicle_type,
         plateNo: r.plate_no,
+        // Spec 191 U3: service providers reach vendor parity (VAT + tax id + terms).
+        taxId: r.tax_id,
+        paymentTerms: r.payment_terms,
+        isVatRegistered: r.is_vat_registered ? "true" : "false",
         note: r.note,
       },
     }));
