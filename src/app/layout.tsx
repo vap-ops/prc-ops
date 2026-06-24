@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { SwRegister } from "@/components/features/chrome/sw-register";
 import { UploadQueueRunnerLazy } from "@/components/features/photos/upload-queue-runner-lazy";
 import { ViewportScrollGuard } from "@/components/features/chrome/viewport-scroll-guard";
+import { KeyboardViewportFit } from "@/components/features/chrome/keyboard-viewport-fit";
 import { ToastProvider } from "@/components/features/common/toast-provider";
 import { ThemeScript } from "@/components/features/chrome/theme-script";
 import { THEME_COOKIE, parseThemeSetting } from "@/lib/ui/theme";
@@ -80,6 +81,10 @@ export default async function RootLayout({
             scroll 0 if iOS scrolls it to reveal a focused input. The primary
             keyboard fix is maximum-scale=1 in `viewport` above (no auto-zoom). */}
         <ViewportScrollGuard />
+        {/* Keyboard-fit for the page scroller: caps PageShell's <main> to the
+            band above the soft keyboard so a focused field on any non-sheet form
+            is reachable + centred (BottomSheet already handles sheet forms). */}
+        <KeyboardViewportFit />
       </body>
     </html>
   );
