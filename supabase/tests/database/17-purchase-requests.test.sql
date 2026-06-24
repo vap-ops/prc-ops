@@ -1,5 +1,5 @@
 begin;
-select plan(100);
+select plan(103);
 
 -- ============================================================================
 -- A. Setup as postgres (the test transaction's outer role, which bypasses
@@ -131,7 +131,19 @@ select col_type_is('public', 'purchase_requests', 'id', 'uuid', 'id is uuid');
 select col_has_default('public', 'purchase_requests', 'id', 'id has a default (gen_random_uuid)');
 
 select col_type_is('public', 'purchase_requests', 'work_package_id', 'uuid', 'work_package_id is uuid');
-select col_not_null('public', 'purchase_requests', 'work_package_id', 'work_package_id is NOT NULL');
+-- Spec 195 P1 / ADR 0063 — the work package is now OPTIONAL (project-level
+-- purchasing); a WP-less PR is store-bound. Posture flip from col_not_null.
+select col_is_null('public', 'purchase_requests', 'work_package_id', 'work_package_id is NULLABLE (spec 195 — WP optional)');
+
+-- Spec 195 P1 / ADR 0063 — project-level scope. project_id is NOT NULL (every
+-- PR is project-scoped, backfilled from the WP); the WP is optional (above).
+select col_type_is('public', 'purchase_requests', 'project_id', 'uuid', 'project_id is uuid');
+select col_not_null('public', 'purchase_requests', 'project_id', 'project_id is NOT NULL (spec 195)');
+select fk_ok(
+  'public', 'purchase_requests', 'project_id',
+  'public', 'projects', 'id',
+  'project_id FK references projects.id'
+);
 
 select col_type_is('public', 'purchase_requests', 'item_description', 'text', 'item_description is text');
 select col_not_null('public', 'purchase_requests', 'item_description', 'item_description is NOT NULL');

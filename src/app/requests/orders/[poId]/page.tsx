@@ -199,7 +199,7 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
           <h2 className="text-ink mb-3 text-base font-semibold">รายการในใบสั่งซื้อ</h2>
           <ul className="flex flex-col gap-2">
             {members.map((m) => {
-              const wp = wpById.get(m.work_package_id);
+              const wp = m.work_package_id ? wpById.get(m.work_package_id) : undefined;
               const amount = amountById.get(m.id) ?? null;
               return (
                 <li key={m.id}>

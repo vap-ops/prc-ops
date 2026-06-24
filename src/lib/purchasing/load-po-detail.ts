@@ -40,7 +40,10 @@ export async function loadPurchaseOrderDetail(
   ]);
 
   const members = memberRows ?? [];
-  const wpIds = Array.from(new Set(members.map((m) => m.work_package_id)));
+  // Spec 195 P1: a PR's work package is optional — drop null ids before the lookup.
+  const wpIds = Array.from(
+    new Set(members.map((m) => m.work_package_id).filter((id): id is string => id !== null)),
+  );
   const memberIds = members.map((m) => m.id);
 
   // Dependent tail: both need the member rows. WP chips (RLS client) and per-line

@@ -87,7 +87,8 @@ export interface ProcurementGridRecord {
   purchased_at: string | null;
   shipped_at: string | null;
   delivered_at: string | null;
-  work_package_id: string;
+  // Spec 195 P1: optional — a WP-less (project-level / store-bound) PR has null.
+  work_package_id: string | null;
   wp_code: string | null;
   wp_name: string | null;
   // Spec 114 drawer enrichment.

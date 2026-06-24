@@ -1387,6 +1387,45 @@ export type Database = {
           },
         ]
       }
+      feedback_attachments: {
+        Row: {
+          created_at: string
+          feedback_id: string
+          id: string
+          storage_path: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          feedback_id: string
+          id?: string
+          storage_path: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          feedback_id?: string
+          id?: string
+          storage_path?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_attachments_feedback_id_fkey"
+            columns: ["feedback_id"]
+            isOneToOne: false
+            referencedRelation: "feedback"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gl_accounts: {
         Row: {
           account_type: Database["public"]["Enums"]["gl_account_type"]
@@ -2702,6 +2741,7 @@ export type Database = {
           order_ref: string | null
           pr_number: number
           priority: Database["public"]["Enums"]["purchase_request_priority"]
+          project_id: string
           purchase_order_id: string | null
           purchased_at: string | null
           quantity: number
@@ -2723,7 +2763,7 @@ export type Database = {
           unit: string
           updated_at: string
           vat_rate: number
-          work_package_id: string
+          work_package_id: string | null
         }
         Insert: {
           acknowledged_at?: string | null
@@ -2749,6 +2789,7 @@ export type Database = {
           order_ref?: string | null
           pr_number?: number
           priority?: Database["public"]["Enums"]["purchase_request_priority"]
+          project_id: string
           purchase_order_id?: string | null
           purchased_at?: string | null
           quantity: number
@@ -2770,7 +2811,7 @@ export type Database = {
           unit: string
           updated_at?: string
           vat_rate?: number
-          work_package_id: string
+          work_package_id?: string | null
         }
         Update: {
           acknowledged_at?: string | null
@@ -2796,6 +2837,7 @@ export type Database = {
           order_ref?: string | null
           pr_number?: number
           priority?: Database["public"]["Enums"]["purchase_request_priority"]
+          project_id?: string
           purchase_order_id?: string | null
           purchased_at?: string | null
           quantity?: number
@@ -2817,7 +2859,7 @@ export type Database = {
           unit?: string
           updated_at?: string
           vat_rate?: number
-          work_package_id?: string
+          work_package_id?: string | null
         }
         Relationships: [
           {
@@ -2853,6 +2895,13 @@ export type Database = {
             columns: ["delivery_id"]
             isOneToOne: false
             referencedRelation: "purchase_order_deliveries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_requests_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -4741,6 +4790,10 @@ export type Database = {
           p_storage_path?: string
           p_supplier_id?: string
         }
+        Returns: string
+      }
+      add_feedback_attachment: {
+        Args: { p_feedback_id: string; p_storage_path: string }
         Returns: string
       }
       add_purchase_quote: {

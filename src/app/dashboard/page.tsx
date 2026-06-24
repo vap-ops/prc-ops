@@ -125,7 +125,9 @@ export default async function DashboardPage() {
       laborByProject.set(pid, arr);
     }
     for (const pr of prRes.data ?? []) {
-      const pid = wpProject.get(pr.work_package_id);
+      // Spec 195 P1: a WP-less PR has no WP to attribute to here (its cost lands
+      // at เบิก, not purchase, ADR 0063) — skip it from WP-grouped materials.
+      const pid = pr.work_package_id ? wpProject.get(pr.work_package_id) : undefined;
       if (!pid) continue;
       const arr = materialsByProject.get(pid) ?? [];
       arr.push({ status: pr.status, amount: pr.amount });

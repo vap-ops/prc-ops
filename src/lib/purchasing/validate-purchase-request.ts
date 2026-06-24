@@ -34,7 +34,12 @@ function isRealIsoDate(value: string): boolean {
 }
 
 export type ValidatedPurchaseRequestInput = {
-  workPackageId: string;
+  // Spec 195 P1: the scope. A PR is bound to a project; the work package is
+  // OPTIONAL (null = "ทั้งโครงการ / เข้าสโตร์"). When a WP is present the DB
+  // derives project_id from it (a BEFORE INSERT trigger), so a WP-bound PR may
+  // leave projectId null here; a WP-less PR must carry projectId.
+  projectId: string | null;
+  workPackageId: string | null;
   itemDescription: string;
   quantity: number;
   unit: string;
@@ -53,7 +58,10 @@ export type ValidateCreatePurchaseRequestResult =
   | { ok: false; error: string };
 
 export function validateCreatePurchaseRequest(input: {
-  workPackageId: string;
+  // Spec 195 P1: scope. Both optional individually, but at least one is
+  // required — a WP (project derived) OR a project (WP-less / store-bound).
+  projectId?: string | null | undefined;
+  workPackageId?: string | null | undefined;
   itemDescription: string;
   quantity: number;
   unit: string;
@@ -67,8 +75,29 @@ export function validateCreatePurchaseRequest(input: {
   // requester free-types an off-catalog item.
   catalogItemId?: string | null | undefined;
 }): ValidateCreatePurchaseRequestResult {
-  if (!UUID_REGEX.test(input.workPackageId)) {
-    return { ok: false, error: "รหัสรายการงานไม่ถูกต้อง" };
+  // Spec 195 P1 scope: the work package is optional. A non-blank workPackageId
+  // must be a uuid; blank/omitted collapses to null (a project-level request).
+  const workPackageRaw = input.workPackageId?.trim() ?? "";
+  let workPackageId: string | null = null;
+  if (workPackageRaw.length > 0) {
+    if (!UUID_REGEX.test(workPackageRaw)) {
+      return { ok: false, error: "รหัสรายการงานไม่ถูกต้อง" };
+    }
+    workPackageId = workPackageRaw;
+  }
+  // projectId: a non-blank value must be a uuid; blank/omitted collapses to
+  // null. Required only when there is no WP (the DB derives project_id from a
+  // WP; a WP-less PR has nothing to derive from).
+  const projectRaw = input.projectId?.trim() ?? "";
+  let projectId: string | null = null;
+  if (projectRaw.length > 0) {
+    if (!UUID_REGEX.test(projectRaw)) {
+      return { ok: false, error: "รหัสโครงการไม่ถูกต้อง" };
+    }
+    projectId = projectRaw;
+  }
+  if (workPackageId === null && projectId === null) {
+    return { ok: false, error: "ต้องระบุงานหรือโครงการ" };
   }
   const itemDescription = input.itemDescription.trim();
   if (itemDescription.length === 0) {
@@ -150,7 +179,8 @@ export function validateCreatePurchaseRequest(input: {
   return {
     ok: true,
     value: {
-      workPackageId: input.workPackageId,
+      projectId,
+      workPackageId,
       itemDescription,
       quantity: input.quantity,
       unit,

@@ -235,12 +235,18 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // inflection would also work, but a separate query mirrors the
   // pm/page.tsx + current-photos.ts convention and keeps the typed shape
   // legible to readers.
-  const wpIdsInRequests = Array.from(new Set(myRequests.map((r) => r.work_package_id)));
+  // Spec 195 P1: a PR's work package is optional — drop null ids before the WP
+  // lookup (a null in the `.in(...)` list matches nothing and is noise).
+  const wpIdsInRequests = Array.from(
+    new Set(myRequests.map((r) => r.work_package_id).filter((id): id is string => id !== null)),
+  );
   const { data: wpForRequests } = await supabase
     .from("work_packages")
     .select("id, code, name, project_id")
     .in("id", wpIdsInRequests);
   const wpById = new Map((wpForRequests ?? []).map((wp) => [wp.id, wp]));
+  // A WP-less PR (null work_package_id) is project-level / store-bound.
+  const wpFor = (id: string | null) => (id ? wpById.get(id) : undefined);
 
   const isProcurement = ctx.role === "procurement";
   const today = bangkokTodayISO();
@@ -253,7 +259,9 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // read-only since spec 102 — RLS admits it, no migration). Procurement-only.
   const projectNameById = new Map<string, string>();
   if (isProcurement) {
-    const projectIds = Array.from(new Set((wpForRequests ?? []).map((wp) => wp.project_id)));
+    // Spec 195 P1: resolve names from the PR's own project_id (covers WP-less
+    // PRs, whose project is not in the WP lookup above).
+    const projectIds = Array.from(new Set(myRequests.map((r) => r.project_id)));
     if (projectIds.length > 0) {
       const { data: projectRows } = await supabase
         .from("projects")
@@ -262,15 +270,13 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
       for (const p of projectRows ?? []) projectNameById.set(p.id, p.name);
     }
   }
-  const projectIdOf = (wpId: string) => wpById.get(wpId)?.project_id ?? null;
-
   // Spec 110: filter picker options come from the UNFILTERED set so the filter
   // can always be changed.
   const supplierOptions = isProcurement ? distinctSuppliers(myRequests) : [];
   const projectOptions = isProcurement
     ? distinctProjects(
         myRequests.map((r) => {
-          const pid = projectIdOf(r.work_package_id);
+          const pid = r.project_id;
           return { projectId: pid, projectName: pid ? (projectNameById.get(pid) ?? null) : null };
         }),
       )
@@ -287,7 +293,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
             status: r.status,
             eta: r.eta,
             supplier: r.supplier,
-            projectId: projectIdOf(r.work_package_id),
+            projectId: r.project_id,
           },
           filter,
           today,
@@ -337,7 +343,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                 status: r.status,
                 eta: r.eta,
                 supplier: r.supplier,
-                projectId: projectIdOf(r.work_package_id),
+                projectId: r.project_id,
               },
               { ...filter, band: null, overdue: false, status: null },
               today,
@@ -484,7 +490,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         })()
       : items
     ).map((r): ProcurementGridRecord => {
-      const wp = wpById.get(r.work_package_id);
+      const wp = wpFor(r.work_package_id);
       return {
         id: r.id,
         purchase_order_id: r.purchase_order_id,
@@ -506,8 +512,9 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         work_package_id: r.work_package_id,
         wp_code: wp?.code ?? null,
         wp_name: wp?.name ?? null,
-        // Spec 114 drawer enrichment.
-        project_id: wp?.project_id ?? null,
+        // Spec 114 drawer enrichment. Spec 195 P1: the PR's own project_id
+        // (covers WP-less PRs, where there is no WP to derive it from).
+        project_id: r.project_id,
         requested_by: r.requested_by,
         requester_name:
           (r.requested_by ? requesterNames.get(r.requested_by) : null) ??
@@ -546,7 +553,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
 
   type RequestRow = (typeof myRequests)[number];
   const cardFor = (r: RequestRow) => {
-    const wp = wpById.get(r.work_package_id);
+    const wp = wpFor(r.work_package_id);
     // Spec 47: a slim tappable summary linking to /requests/[id].
     return (
       <li key={r.id}>

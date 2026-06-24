@@ -23,6 +23,8 @@ import {
 import { PURCHASE_REASON_CODES, isPurchaseReasonCode } from "@/lib/purchasing/reason-code";
 
 const VALID_WP = "11111111-2222-3333-4444-555555555555";
+// Spec 195 P1: a project the PR is scoped to (WP-less = "ทั้งโครงการ / เข้าสโตร์").
+const VALID_PROJECT = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 const VALID_REASON = "unplanned_miss";
 // Spec 179: a catalog_items.id the request may link to (uuid-or-null).
 const VALID_CATALOG_ITEM = "99999999-8888-7777-6666-555555555555";
@@ -51,6 +53,9 @@ describe("validateCreatePurchaseRequest", () => {
     expect(r).toEqual({
       ok: true,
       value: {
+        // Spec 195 P1: WP-bound PR — projectId is left null (the DB derives it
+        // from the WP); callers may still pass it (the form does).
+        projectId: null,
         workPackageId: VALID_WP,
         itemDescription: "Cement bag 50kg",
         quantity: 10,
@@ -63,6 +68,78 @@ describe("validateCreatePurchaseRequest", () => {
         catalogItemId: null,
       },
     });
+  });
+
+  // Spec 195 P1 — the work package is now OPTIONAL; a PR may be scoped to the
+  // whole project ("ทั้งโครงการ / เข้าสโตร์") with work_package_id null. Exactly
+  // one scope is required: a WP (project derived) OR a project (WP-less).
+  it("accepts a WP-less project-level request (projectId set, workPackageId omitted)", () => {
+    const r = validateCreatePurchaseRequest({
+      projectId: VALID_PROJECT,
+      itemDescription: "Cement bag 50kg",
+      quantity: 10,
+      unit: "bag",
+      reasonCode: VALID_REASON,
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.workPackageId).toBeNull();
+      expect(r.value.projectId).toBe(VALID_PROJECT);
+    }
+  });
+
+  it("collapses null/blank workPackageId to null when a projectId is given", () => {
+    for (const empty of [undefined, null, "", "   "]) {
+      const r = validateCreatePurchaseRequest({
+        projectId: VALID_PROJECT,
+        workPackageId: empty,
+        itemDescription: "Cement",
+        quantity: 1,
+        unit: "bag",
+        reasonCode: VALID_REASON,
+      });
+      expect(r.ok).toBe(true);
+      if (r.ok) expect(r.value.workPackageId).toBeNull();
+    }
+  });
+
+  it("echoes both ids when a WP-bound request also carries its projectId (form path)", () => {
+    const r = validateCreatePurchaseRequest({
+      projectId: VALID_PROJECT,
+      workPackageId: VALID_WP,
+      itemDescription: "Cement",
+      quantity: 1,
+      unit: "bag",
+      reasonCode: VALID_REASON,
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.workPackageId).toBe(VALID_WP);
+      expect(r.value.projectId).toBe(VALID_PROJECT);
+    }
+  });
+
+  it("rejects a request with neither a workPackageId nor a projectId", () => {
+    const r = validateCreatePurchaseRequest({
+      itemDescription: "Cement",
+      quantity: 1,
+      unit: "bag",
+      reasonCode: VALID_REASON,
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(/งานหรือโครงการ/);
+  });
+
+  it("rejects a malformed projectId", () => {
+    const r = validateCreatePurchaseRequest({
+      projectId: "not-a-uuid",
+      itemDescription: "Cement",
+      quantity: 1,
+      unit: "bag",
+      reasonCode: VALID_REASON,
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(/โครงการ/);
   });
 
   // Spec 179 — optional catalog link (catalog_item_id FK). uuid echoes through;

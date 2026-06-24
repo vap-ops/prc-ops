@@ -93,6 +93,11 @@ export function PurchaseRequestForm({
   catalogItems,
 }: PurchaseRequestFormProps) {
   const router = useRouter();
+  // Spec 195 P1: the work package is now optional. "wp" binds the request to
+  // this WP (the default — you're on its screen); "project" makes it a
+  // project-level / store-bound request (work_package_id null, เบิกเข้างานภายหลัง).
+  const [scope, setScope] = useState<"wp" | "project">("wp");
+  const effectiveWorkPackageId = scope === "wp" ? workPackage.id : null;
   // Spec 180: the PR item is catalog-only — catalogItemId is the chosen item
   // ("" = none yet). The search/category/sheet state lives in CatalogItemPicker;
   // the description + unit are DERIVED here from the chosen item (no free text).
@@ -128,7 +133,8 @@ export function PurchaseRequestForm({
   const quantity = quantityText.trim().length === 0 ? Number.NaN : Number.parseFloat(quantityText);
 
   const localValidation = validateCreatePurchaseRequest({
-    workPackageId: workPackage.id,
+    projectId,
+    workPackageId: effectiveWorkPackageId,
     itemDescription,
     quantity,
     unit,
@@ -148,7 +154,8 @@ export function PurchaseRequestForm({
     setSavedAt(null);
     startSubmit(async () => {
       const result = await createPurchaseRequest({
-        workPackageId: workPackage.id,
+        projectId,
+        workPackageId: effectiveWorkPackageId,
         itemDescription,
         quantity,
         unit,
@@ -237,14 +244,55 @@ export function PurchaseRequestForm({
       onSubmit={handleSubmit}
       className="rounded-control border-edge-strong bg-page shadow-card flex flex-col gap-3 border p-4"
     >
-      <div className="flex min-w-0 flex-col gap-1">
-        <span className="text-ink text-sm font-medium">รายการงาน</span>
-        <p className="border-edge-strong bg-card truncate rounded-md border px-3 py-2 text-sm">
-          <span className="text-ink-secondary font-mono">{workPackage.code}</span>
-          <span className="text-ink-muted mx-1">·</span>
-          <span className="text-ink">{workPackage.name}</span>
-        </p>
-      </div>
+      {/* Spec 195 P1: the work package is optional. Bind the request to this WP
+          (default), or raise it for the whole project (เข้าสโตร์ — material is
+          received into the project store, เบิกเข้างานภายหลัง). */}
+      <fieldset className="flex min-w-0 flex-col gap-1">
+        <legend className="text-ink text-sm font-medium">ขอซื้อเข้า</legend>
+        <div className="flex gap-1.5">
+          {(
+            [
+              ["wp", "ผูกกับงานนี้"],
+              ["project", "ทั้งโครงการ (เข้าสโตร์)"],
+            ] as const
+          ).map(([value, label]) => (
+            <label
+              key={value}
+              className={`focus-within:ring-action inline-flex h-11 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-md border text-center text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-offset-1 ${
+                scope === value
+                  ? "border-fill bg-fill text-on-fill"
+                  : "border-edge-strong bg-card text-ink"
+              } ${submitting ? "cursor-not-allowed opacity-60" : ""}`}
+            >
+              <input
+                type="radio"
+                name="pr-scope"
+                value={value}
+                checked={scope === value}
+                onChange={() => {
+                  setScope(value);
+                  setError(null);
+                  setSavedAt(null);
+                }}
+                disabled={submitting}
+                className="sr-only"
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+        {scope === "wp" ? (
+          <p className="border-edge-strong bg-card mt-1 truncate rounded-md border px-3 py-2 text-sm">
+            <span className="text-ink-secondary font-mono">{workPackage.code}</span>
+            <span className="text-ink-muted mx-1">·</span>
+            <span className="text-ink">{workPackage.name}</span>
+          </p>
+        ) : (
+          <p className="text-ink-secondary mt-1 text-xs">
+            วัสดุเข้าสโตร์ของโครงการ แล้วเบิกเข้างานภายหลัง
+          </p>
+        )}
+      </fieldset>
 
       {/* Spec 180 (pro-max): catalog-only material picker — a search-driven
           bottom sheet (CatalogItemPicker). The chosen item drives the

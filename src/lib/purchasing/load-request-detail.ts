@@ -33,33 +33,42 @@ export async function loadRequestDetail(
   const poId = request.purchase_order_id;
 
   // The fan: every read depends only on the request, never on a sibling read.
-  const [{ data: wp }, requesterNames, { data: attachmentRows }, { data: poRow }, { data: poDocRows }, suppliers] =
-    await Promise.all([
-      supabase
-        .from("work_packages")
-        .select("id, code, name, project_id")
-        .eq("id", request.work_package_id)
-        .maybeSingle(),
-      fetchDisplayNames(request.requested_by ? [request.requested_by] : [], "[requests/detail]"),
-      supabase
-        .from("purchase_request_attachments_current")
-        .select("id, purchase_request_id, kind, purpose, storage_path, url, created_by, created_at")
-        .eq("purchase_request_id", request.id)
-        .order("created_at", { ascending: true }),
-      poId
-        ? supabase.from("purchase_orders").select("po_number").eq("id", poId).maybeSingle()
-        : Promise.resolve({ data: null }),
-      poId
-        ? supabase
-            .from("purchase_order_attachments_current")
-            .select("id, kind, storage_path, created_at")
-            // Spec 134 U4a: source docs only — proof-of-delivery is its own purpose.
-            .eq("purchase_order_id", poId)
-            .eq("purpose", "source_document")
-            .order("created_at", { ascending: true })
-        : Promise.resolve({ data: null }),
-      loadSuppliers(supabase, opts.isBackOffice, request.status),
-    ]);
+  const [
+    { data: wp },
+    requesterNames,
+    { data: attachmentRows },
+    { data: poRow },
+    { data: poDocRows },
+    suppliers,
+  ] = await Promise.all([
+    // Spec 195 P1: a WP-less PR has a null work_package_id (no WP chip).
+    request.work_package_id
+      ? supabase
+          .from("work_packages")
+          .select("id, code, name, project_id")
+          .eq("id", request.work_package_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    fetchDisplayNames(request.requested_by ? [request.requested_by] : [], "[requests/detail]"),
+    supabase
+      .from("purchase_request_attachments_current")
+      .select("id, purchase_request_id, kind, purpose, storage_path, url, created_by, created_at")
+      .eq("purchase_request_id", request.id)
+      .order("created_at", { ascending: true }),
+    poId
+      ? supabase.from("purchase_orders").select("po_number").eq("id", poId).maybeSingle()
+      : Promise.resolve({ data: null }),
+    poId
+      ? supabase
+          .from("purchase_order_attachments_current")
+          .select("id, kind, storage_path, created_at")
+          // Spec 134 U4a: source docs only — proof-of-delivery is its own purpose.
+          .eq("purchase_order_id", poId)
+          .eq("purpose", "source_document")
+          .order("created_at", { ascending: true })
+      : Promise.resolve({ data: null }),
+    loadSuppliers(supabase, opts.isBackOffice, request.status),
+  ]);
 
   const attachments = attachmentRows ?? [];
   const poDocs = poDocRows ?? [];

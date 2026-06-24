@@ -57,7 +57,10 @@ const ERR_SAVE_DOC_FAILED = "บันทึกเอกสารไม่สำ
 const ERR_REMOVE_ATTACHMENT_FAILED = "ลบรายการแนบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
 export interface CreatePurchaseRequestInput {
-  workPackageId: string;
+  // Spec 195 P1: scope. project-bound; the work package is OPTIONAL (null = a
+  // project-level / store-bound request "ทั้งโครงการ"). At least one is required.
+  projectId?: string | null | undefined;
+  workPackageId?: string | null | undefined;
   itemDescription: string;
   quantity: number;
   unit: string;
@@ -83,10 +86,21 @@ export async function createPurchaseRequest(
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
   const { supabase, user } = auth;
 
+  // Spec 195 P1: a PR is project-scoped. The form always supplies the project
+  // (a WP-less PR names it directly; a WP-bound PR passes its WP's project,
+  // re-derived by the BEFORE INSERT trigger). project_id is NOT NULL.
+  const projectId = validated.value.projectId;
+  if (!projectId) {
+    return { ok: false, error: "ต้องระบุโครงการของคำขอซื้อ" };
+  }
+
   const { data, error } = await supabase
     .from("purchase_requests")
     .insert({
+      // Spec 195 P1: a WP-less PR carries project_id and a null work_package_id.
+      // For a WP-bound PR the BEFORE INSERT trigger re-derives project_id.
       work_package_id: validated.value.workPackageId,
+      project_id: projectId,
       item_description: validated.value.itemDescription,
       quantity: validated.value.quantity,
       unit: validated.value.unit,

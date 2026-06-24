@@ -68,6 +68,7 @@ later one corrects — read both when the topic is live.
 | 0060 | Project-based profit-sharing via Nova coins (HT/DC self-governance)  | Proposed/design; under 0061; extends 0051               |
 | 0061 | Worker ecosystem — mission & foundation invariants                   | Proposed/vision; umbrella over 0060                     |
 | 0062 | A DC is a worker, not a contractor party                             | Proposed; supersedes spec-168 DC half; specs 46/127/130 |
+| 0063 | Project-level purchasing — a PR's work package is optional           | Amends 0022; extends 0056; spec 195 P1                  |
 
 **Absent numbers** (never authored as standalone files; do not look for them):
 0023, 0024 — skipped. 0029 — AppSheet image bridge, cancelled before authoring
