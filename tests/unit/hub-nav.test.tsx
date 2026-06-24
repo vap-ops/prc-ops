@@ -33,10 +33,10 @@ describe("canonical nav sets", () => {
 
   it("pins the SA set's destinations and order", () => {
     expect(SA_HUB_NAV).toEqual([
+      // Spec 192 U4: the daily home leads; ภาพรวม dropped from the SA strip.
+      { label: "หน้าหลัก", href: "/sa" },
       { label: "โครงการ", href: "/projects" },
       { label: "คำขอซื้อ", href: "/requests" },
-      // Spec 100: ภาพรวม is the live dashboard, before ตั้งค่า.
-      { label: "ภาพรวม", href: "/dashboard" },
       { label: "ตั้งค่า", href: "/settings" },
     ]);
   });

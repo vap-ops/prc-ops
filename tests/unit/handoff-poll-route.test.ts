@@ -151,8 +151,8 @@ describe("POST /auth/handoff/poll", () => {
     handoffRow = approvedRow();
     claimResult = [{ id: "h1" }];
     const response = await POST(makeRequest({ device_code: "d" }));
-    // Spec 82 Unit 3: site_admin's role home folded to /projects.
-    expect(await response.json()).toEqual({ status: "ok", redirect: "/projects" });
+    // Spec 192 U4: site_admin's role home is the daily home /sa.
+    expect(await response.json()).toEqual({ status: "ok", redirect: "/sa" });
 
     // Atomic claim before any minting.
     expect(claimUpdateMock).toHaveBeenCalledWith({ status: "consumed" });

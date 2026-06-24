@@ -198,9 +198,12 @@ export const PROJECT_VIEW_ROLES: ReadonlyArray<UserRole> = [
 export const ACCOUNTING_ROLES: ReadonlyArray<UserRole> = ["accounting", "super_admin"];
 
 export function roleHome(role: UserRole): string {
-  // Spec 82 Unit 3: site_admin lands on the folded content-named project hub
-  // /projects (was /sa, before the two hubs merged).
-  if (role === "site_admin") return "/projects";
+  // Spec 192 U4: site_admin lands on the daily home /sa — their not-done work
+  // packages, one tap from the labor/photo/PR actions (the daily loop was buried
+  // 3–4 taps deep under the project hub). The full project hub stays a bottom tab.
+  // (Spec 82 had folded the old /sa into /projects; the field needs an
+  // action-forward home, so /sa is revived as the worklist home.)
+  if (role === "site_admin") return "/sa";
   // Spec 183 U2: the PM tier (pm / super_admin / project_director) lands on
   // ภาพรวม (/dashboard). The review queue moved off the tab bar into a dashboard
   // card (the รอตรวจ awareness card), so the dashboard is the home that shows the

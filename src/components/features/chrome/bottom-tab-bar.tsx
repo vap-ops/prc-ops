@@ -21,6 +21,7 @@ import {
 import {
   Calculator,
   FolderKanban,
+  Home,
   LayoutDashboard,
   Settings,
   ShoppingCart,
@@ -75,12 +76,15 @@ const DASHBOARD_TAB: TabItem = {
   match: ["/review"],
 };
 
+// Spec 192 U4: the SA lands on the daily home (/sa, หน้าหลัก). ภาพรวม (the
+// money-free portfolio overview) is dropped from the SA bar — the daily home
+// supersedes it as the SA's at-a-glance surface — keeping the bar to four tabs.
 export const SA_TABS: ReadonlyArray<TabItem> = [
+  { label: "หน้าหลัก", href: "/sa", icon: Home },
   // Spec 82 Unit 3: the project hub folded to the content-named /projects;
   // the tab points straight at it (and lights on every /projects/* screen).
   { label: "โครงการ", href: "/projects", icon: FolderKanban },
   { label: "คำขอซื้อ", href: "/requests", icon: ShoppingCart },
-  DASHBOARD_TAB,
   SETTINGS_TAB,
 ];
 

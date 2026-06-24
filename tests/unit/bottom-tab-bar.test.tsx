@@ -44,10 +44,11 @@ describe("BottomTabBar", () => {
       ["ตั้งค่า", "/settings"],
     ]);
     expect(SA_TABS.map((t) => [t.label, t.href])).toEqual([
+      // Spec 192 U4: the SA lands on the daily home หน้าหลัก (/sa); ภาพรวม dropped
+      // from the SA bar (the home supersedes it), keeping four tabs.
+      ["หน้าหลัก", "/sa"],
       ["โครงการ", "/projects"],
       ["คำขอซื้อ", "/requests"],
-      // Spec 100: ภาพรวม is the live dashboard tab (last content tab).
-      ["ภาพรวม", "/dashboard"],
       ["ตั้งค่า", "/settings"],
     ]);
     // procurement's back-office tab set: คำขอซื้อ (spec 70), โครงการ read-only
@@ -172,6 +173,15 @@ describe("BottomTabBar", () => {
     const active = activeTabs(container);
     expect(active).toHaveLength(1);
     expect(active[0]?.textContent).toContain("โครงการ");
+  });
+
+  // Spec 192 U4: the SA daily home is the landing — its หน้าหลัก tab lights on /sa.
+  it("lights หน้าหลัก for site_admin on the daily home /sa", () => {
+    mockUsePathname.mockReturnValue("/sa");
+    const { container } = render(<BottomTabBar role="site_admin" />);
+    const active = activeTabs(container);
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toContain("หน้าหลัก");
   });
 
   it("renders the SA set for site_admin and super uses the PM set", () => {

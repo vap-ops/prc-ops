@@ -78,9 +78,17 @@ const DETAIL_ROUTES = [...dynamicDetail, ...STATIC_DETAIL];
 // never a back chip.
 // Spec 130: /portal is the external contractor tier's primary destination
 // (its own header + logout, no back chip — leaves via logout, not a hub).
-const NON_DETAIL_ROUTES = ["review", "projects", "settings", "requests", "dashboard", "portal"].map(
-  (r) => `${r}/page.tsx`,
-);
+// Spec 192 U4: /sa is the site-admin daily home — a primary tab hub (BottomTabBar
+// + HubNav, no back chip), like /projects.
+const NON_DETAIL_ROUTES = [
+  "sa",
+  "review",
+  "projects",
+  "settings",
+  "requests",
+  "dashboard",
+  "portal",
+].map((r) => `${r}/page.tsx`);
 
 // EXCLUDED: bespoke layouts that use neither header — the root dispatcher,
 // login, coming-soon, the bare /contacts redirect (spec 99), and the spec-113
@@ -119,7 +127,7 @@ describe("nav back-affordance (spec 63)", () => {
 // sm:hidden) the strip is its only nav affordance. Every primary-tab hub must
 // render it; /portal is the documented exception (its own header + logout).
 describe("desktop hub-strip coverage (spec 153)", () => {
-  const HUB_STRIP_ROUTES = ["review", "projects", "requests", "settings", "dashboard"].map(
+  const HUB_STRIP_ROUTES = ["sa", "review", "projects", "requests", "settings", "dashboard"].map(
     (r) => `${r}/page.tsx`,
   );
 

@@ -542,7 +542,10 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
       {/* Spec 167: photos / purchases / labor / info (+ จัดการ for planners)
           fold into segmented tabs — each visit shows only the relevant
           section. The pending-requests chip (#wp-requests) opens คำขอซื้อ. */}
-      <WpDetailTabs tabs={tabs} hashTabMap={{ "wp-requests": "purchases" }} />
+      <WpDetailTabs
+        tabs={tabs}
+        hashTabMap={{ "wp-requests": "purchases", "wp-photos": "photos", "wp-labor": "labor" }}
+      />
     </PageShell>
   );
 }

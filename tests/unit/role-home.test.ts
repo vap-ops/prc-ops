@@ -14,9 +14,9 @@ import { PROJECT_VIEW_ROLES, PURCHASING_ROLES, roleHome } from "@/lib/auth/role-
 
 describe("roleHome", () => {
   it("sends each served role to its real surface", () => {
-    // Spec 82 Unit 3: site_admin lands on the folded content-named project
-    // hub /projects (was the role-named /sa hub).
-    expect(roleHome("site_admin")).toBe("/projects");
+    // Spec 192 U4: site_admin lands on the daily home /sa (revived as the
+    // action-forward worklist home; the project hub stays a bottom tab).
+    expect(roleHome("site_admin")).toBe("/sa");
     // Spec 183 U2: the PM tier lands on ภาพรวม (/dashboard) — the review queue
     // moved off the tab bar into a dashboard card (was /review, was /pm).
     expect(roleHome("project_manager")).toBe("/dashboard");

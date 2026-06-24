@@ -40,12 +40,13 @@ export const PM_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "ตั้งค่า", href: "/settings" },
 ];
 
+// Spec 192 U4: the SA lands on the daily home (/sa, หน้าหลัก) — it leads the strip
+// and ภาพรวม drops from the SA set (the home supersedes it for the SA).
 export const SA_HUB_NAV: ReadonlyArray<HubNavItem> = [
+  { label: "หน้าหลัก", href: "/sa" },
   // Spec 82 Unit 3: the SA project hub folded to the shared /projects hub.
   { label: "โครงการ", href: "/projects" },
   { label: "คำขอซื้อ", href: "/requests" },
-  // Spec 100: ภาพรวม is the live role-aware dashboard.
-  { label: "ภาพรวม", href: "/dashboard" },
   { label: "ตั้งค่า", href: "/settings" },
 ];
 
