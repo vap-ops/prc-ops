@@ -6,6 +6,27 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 192 U4b — /sa daily-action hero (2026-06-24)
+
+Status: **SHIPPED to prod — 2026-06-24** (no DB; lint · typecheck · vitest green).
+Builds the U4b hero deferred in spec 192 U4. Operator flagged หน้าหลัก (/sa) as
+"does nothing" — it's the SA daily worklist, empty only because there are no
+active WPs yet; chose "make it more useful." The hero surfaces the daily loop
+(log labour / add photo) at the top of /sa instead of scan-card-then-tap-chip.
+
+**Test-first** (RED): `tests/unit/daily-hero.test.tsx` — single active WP → each
+action is a direct link to that WP's #wp-labor / #wp-photos; several → a เลือกงาน
+picker that navigates the chosen WP to that tab; nothing when no WPs. 4 RED→green.
+
+**App:**
+
+- New `src/components/features/sa/daily-hero.tsx` (`DailyHero`) — two primary
+  actions `ลงเวลาวันนี้` (→ #wp-labor) + `เพิ่มรูปวันนี้` (→ #wp-photos). One active
+  WP → direct `<Link>`s; many → a `BottomSheet` เลือกงาน picker → `router.push`.
+  No new capture — routes into the existing WP-detail hash deep-links.
+- `/sa` renders it above งานของฉัน, fed by the same `items` (returns null when
+  empty, so the empty-state home is unchanged).
+
 ## Spec 199 — a single-project site_admin lands on their project (2026-06-24)
 
 Status: **SHIPPED to prod — 2026-06-24** (no DB; lint · typecheck · vitest green).

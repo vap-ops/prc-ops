@@ -20,6 +20,7 @@ import { WORK_PACKAGE_STATUS_LABEL, formatThaiDate } from "@/lib/i18n/labels";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import { bangkokTodayIso } from "@/lib/dates";
 import { buildMyWorkList } from "@/lib/sa/my-work";
+import { DailyHero } from "@/components/features/sa/daily-hero";
 
 export const metadata = { title: "หน้าหลัก" };
 
@@ -61,6 +62,18 @@ export default async function SaHomePage() {
             สวัสดี{ctx.fullName ? ` ${ctx.fullName}` : ""}
           </h1>
         </div>
+
+        {/* Spec 192 U4b: the daily-action hero — one tap to log labour / add a
+            photo (direct when there's a single active WP, else a เลือกงาน
+            picker). Renders nothing when there's no active work. */}
+        <DailyHero
+          wps={items.map((it) => ({
+            id: it.id,
+            projectId: it.projectId,
+            code: it.code,
+            name: it.name,
+          }))}
+        />
 
         <div className="flex flex-col gap-3">
           <h2 className="text-meta text-ink-secondary font-semibold">งานของฉัน</h2>
