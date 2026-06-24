@@ -115,6 +115,32 @@ export async function recordStockInBulk(input: {
   return { ok: true };
 }
 
+// Spec 198 U2 / ADR 0064 — divert a delivered WP-bound purchase into the store.
+// Calls the divert_purchase_to_store definer RPC (SITE_STAFF gate + member),
+// which transfers the cost WP-WIP -> Inventory (reverse the WP purchase + book a
+// stock_receipt) and reclassifies the PR store-bound. Maps its error codes.
+export async function divertPurchaseToStore(input: { requestId: string }): Promise<StockInResult> {
+  if (!UUID_REGEX.test(input.requestId)) return { ok: false, error: FAILED };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("divert_purchase_to_store", {
+    p_request_id: input.requestId,
+  });
+  if (error) {
+    if (error.code === "42501") return { ok: false, error: NO_PERMISSION };
+    if (error.code === "22023")
+      return { ok: false, error: "ย้ายเข้าคลังไม่ได้ — ตรวจสอบสถานะรายการ" };
+    return { ok: false, error: FAILED };
+  }
+
+  // The diverted line leaves the WP and becomes store stock — revalidate the
+  // project surfaces (คลัง + WP detail). The คลัง list also router.refresh()es.
+  revalidatePath("/projects", "layout");
+  return { ok: true };
+}
+
 // Spec 177 U10 — record a physical count. Calls the SECURITY DEFINER
 // record_stock_count RPC (SITE_STAFF gate + member), which reconciles on-hand to
 // the counted truth and logs the variance (shrinkage) at the moving-average cost.

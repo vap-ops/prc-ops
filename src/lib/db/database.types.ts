@@ -5055,6 +5055,10 @@ export type Database = {
           total_distributed: number
         }[]
       }
+      divert_purchase_to_store: {
+        Args: { p_request_id: string }
+        Returns: string
+      }
       drain_gl_posting: { Args: { p_limit?: number }; Returns: number }
       enqueue_gl_posting: {
         Args: {

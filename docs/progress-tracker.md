@@ -6,6 +6,63 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 198 — divert a delivered WP-bound line into the store, U2 (2026-06-24)
+
+Status: **SHIPPED to prod — 2026-06-24** (ADR 0064; mig 20260813000900; pgTAP
+216; lint · typecheck · vitest · db:test). **SPEC 198 COMPLETE (U1+U2).**
+Operator chose Option 3 (AskUserQuestion) — the cost-clean version of "pre-fill
+รับเข้า from a delivery." Investigation found the simple pre-fill has no target
+(store-bound lines already auto-check-in via spec 195 P3; stocking a WP-bound
+line as-is double-counts), so U2 is an inventory **diversion with a GL transfer**.
+
+**ADR 0064** — divert a delivered WP-bound purchase into the store (cost transfer
+WP-WIP → Inventory). Surfaced the GL risk + the design BEFORE building; operator
+approved "build it + push (with ADR)."
+
+**GL transfer (net):** reverse the WP purchase (Dr 2100 AP / Cr 1400 WP-WIP) +
+the new stock_receipt (Dr 1500 Inventory / Cr 2100 AP) → WP-WIP 0 · Inventory
++cost · **AP unchanged**. A later เบิก returns it Dr 1400 / Cr 1500 (cost lands on
+the WP once, at usage — the store-bound model).
+
+**DB (migs 20260813000900 + 20260813001000):**
+
+- New `divert_purchase_to_store(p_request_id)` definer RPC — gate `SITE_STAFF`
+  (procurement read-only in the store, spec 197), membership `can_see_project`,
+  guards (delivered, WP-bound, catalogued, not already diverted — the
+  `stock_receipts_pr_uniq` index is the hard guard). It **reverses the WP purchase
+  GL entry directly** (`reverse_journal_internal`, Dr 2100/Cr 1400) + **skips any
+  pending purchase outbox job**, then inserts the `stock_receipt` (PR-stamped,
+  all-in cost → auto-enqueues Dr 1500/Cr AP), rolls `stock_on_hand`, sets the PR
+  `work_package_id = NULL`.
+- **`post_purchase_to_gl` is UNCHANGED.** The first attempt (000900) re-enqueued a
+  `purchase` job to do the reversal + reordered `post_purchase_to_gl`'s
+  reverse-before-suppress — but that poster only accepts `purchased`/`site_purchased`,
+  so a _delivered_ PR raises `P0001` and the reversal never fires. **pgTAP 216
+  caught this** (WP-WIP stayed 300 = double-count). The corrective mig 001000
+  reverts `post_purchase_to_gl` to LIVE and rewrites the RPC to reverse directly +
+  skip the stale job. **Lesson: the async GL poster won't process a status it
+  gates on — reverse synchronously in the RPC.**
+- **Async-safe:** purchase posted → reverse it; still pending → skip it (no WP-WIP
+  ever). Both converge.
+
+**App:** `divertPurchaseToStore({ requestId })` action + `DivertToStoreList`
+client component (per-line `ย้ายเข้าคลัง` via `ConfirmActionButton`). The คลัง page
+reads the project's delivered + WP-bound + catalogued PRs not yet diverted (RLS
+
+- filter out those with a `stock_receipts.purchase_request_id`), gated to
+  `canIssue` (SITE_STAFF); renders the list after `StoreManager`. `db:types` regen.
+
+**Test-first** (RED): `tests/unit/divert-to-store-list.test.tsx` (list + confirm
+→ `divertPurchaseToStore`). **pgTAP 216 (plan 17, the ledger proof):**
+structure/anon-deny; pre-divert WP-WIP=300; guards (visitor/non-member 42501,
+not-delivered/WP-less 22023); happy divert; receipt-stamped + on-hand rolled + PR
+WP-less; post the GL; **WP-WIP nets to 0 · Inventory=300 · AP net credit=300**;
+already-diverted 22023.
+
+**v1 scope:** whole-line divert only (no partial); the PR loses its WP identity in
+the list (trace via `stock_receipts.purchase_request_id`); full undo of a divert
+(re-attach the WP) is out of scope.
+
 ## Spec 198 — multi-line รับเข้า (bulk stock check-in), U1 (2026-06-24)
 
 Status: **SHIPPED to prod — 2026-06-24** (mig 20260813000800; pgTAP 215; lint ·

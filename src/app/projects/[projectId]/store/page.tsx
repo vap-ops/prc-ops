@@ -29,6 +29,10 @@ import {
   type CountStockRow,
 } from "@/components/features/store/store-count-manager";
 import { StorePnlView, type StorePnlRow } from "@/components/features/store/store-pnl-view";
+import {
+  DivertToStoreList,
+  type DivertLine,
+} from "@/components/features/store/divert-to-store-list";
 import { STORE_LABEL } from "@/lib/i18n/labels";
 
 interface PageProps {
@@ -162,6 +166,45 @@ export default async function ProjectStorePage({ params }: PageProps) {
     variance: Number(r.variance),
   }));
 
+  // Spec 198 U2 / ADR 0064: delivered WP-bound catalogued lines not yet diverted
+  // — the storekeeper can move them into store stock (cost transfers WP-WIP →
+  // Inventory). SITE_STAFF only (the divert RPC gate); procurement is read-only.
+  let divertLines: DivertLine[] = [];
+  if (canIssue) {
+    const { data: prRows } = await supabase
+      .from("purchase_requests")
+      .select(
+        "id, quantity, unit, amount, catalog_items ( base_item, spec_attrs ), work_packages ( code, name )",
+      )
+      .eq("project_id", project.id)
+      .eq("status", "delivered")
+      .not("work_package_id", "is", null)
+      .not("catalog_item_id", "is", null)
+      .order("delivered_at", { ascending: false })
+      .limit(50);
+    const prIds = (prRows ?? []).map((r) => r.id);
+    const diverted = new Set<string>();
+    if (prIds.length > 0) {
+      const { data: srRows } = await supabase
+        .from("stock_receipts")
+        .select("purchase_request_id")
+        .in("purchase_request_id", prIds);
+      for (const s of srRows ?? []) if (s.purchase_request_id) diverted.add(s.purchase_request_id);
+    }
+    divertLines = (prRows ?? [])
+      .filter((r) => !diverted.has(r.id))
+      .map((r) => ({
+        requestId: r.id,
+        itemLabel: `${r.catalog_items?.base_item ?? ""}${
+          r.catalog_items?.spec_attrs ? ` · ${r.catalog_items.spec_attrs}` : ""
+        }`,
+        qty: Number(r.quantity),
+        unit: r.unit ?? "",
+        wpLabel: r.work_packages ? `${r.work_packages.code} ${r.work_packages.name}` : "",
+        cost: Number(r.amount ?? 0),
+      }));
+  }
+
   let pnlRows: StorePnlRow[] = [];
   if (canSeePnl) {
     const { data: pnl } = await supabase.rpc("store_pnl", { p_project_id: project.id });
@@ -218,6 +261,9 @@ export default async function ProjectStorePage({ params }: PageProps) {
           counts={counts}
           emptyStateSupplyPlanHref={canPlanSupply ? supplyPlanHref(project.id) : null}
         />
+        {/* Spec 198 U2: move delivered WP-bound lines into the store (cost
+            transfer). Renders nothing when there are none. */}
+        <DivertToStoreList lines={divertLines} />
         {/* Spec 197 U2: ตรวจนับทั้งคลัง — the full-stocktake pass (the relocated
             /stock-count count-list), behind a toggle so it does not compete with
             the per-row spot count above. Same SITE_STAFF gate as the spot count
