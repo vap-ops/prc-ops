@@ -15,12 +15,17 @@ no double). `gl_reconciliation` (1500 ↔ Σ on-hand) holds. The dashboard's
 materials-by-project is purchase-amount-based and excludes WP-less PRs (query +
 guard), so store-bound material is not double-counted there either.
 
-**Open follow-up (out of scope, not a correctness gap):** the manager dashboard's
-materials-by-project shows direct WP-bound purchase spend only — store-sourced
-material (received into the store, then เบิก'd) is reflected in `wp_profit` and
-Store P&L but not in that dashboard figure. A project that procures heavily into
-the store will show low dashboard materials. Surfacing store-issued cost on the
-dashboard is a separate enhancement.
+**Follow-up RESOLVED 2026-06-24 (dashboard store-material, no DB):** the manager
+dashboard's materials-by-project now adds the project's non-reversed `stock_issues`
+(เบิก) at **cost** (`total_cost`) alongside the direct WP-bound purchase amounts.
+Disjoint sources — store-bound material comes from WP-less PRs, which `sumMaterials`
+excludes — so additive with no double-count. Valued at cost (not the sell layer
+`wp_profit` folds in) to keep the budget-vs-spend view on the money-out basis the
+dashboard already uses for labor (cost) and purchases (supplier amount); the store's
+internal transfer margin is not external spend. New pure helper `sumStoreIssues`
+(`src/lib/dashboard/spend.ts`) + a 4th/5th admin read (`stock_issues` /
+`stock_reversals`) in `src/app/dashboard/page.tsx`. A project that procures heavily
+into the store no longer shows artificially low dashboard materials.
 
 ## The decision (operator, 2026-06-24)
 

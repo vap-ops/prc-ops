@@ -2,7 +2,7 @@
 // materials; materials counts only spend-status PRs that recorded a price.
 
 import { describe, expect, it } from "vitest";
-import { SPEND_STATUSES, sumMaterials, budgetStatus } from "@/lib/dashboard/spend";
+import { SPEND_STATUSES, sumMaterials, sumStoreIssues, budgetStatus } from "@/lib/dashboard/spend";
 
 describe("SPEND_STATUSES", () => {
   it("is exactly the four spent statuses", () => {
@@ -32,6 +32,22 @@ describe("sumMaterials", () => {
 
   it("empty → 0", () => {
     expect(sumMaterials([])).toBe(0);
+  });
+});
+
+describe("sumStoreIssues", () => {
+  it("sums store-issue cost (total_cost), skipping unpriced rows", () => {
+    expect(
+      sumStoreIssues([
+        { total_cost: 1000 },
+        { total_cost: 500 },
+        { total_cost: null }, // legacy/unpriced — no cost recorded
+      ]),
+    ).toBe(1500);
+  });
+
+  it("empty → 0", () => {
+    expect(sumStoreIssues([])).toBe(0);
   });
 });
 

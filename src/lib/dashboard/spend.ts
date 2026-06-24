@@ -23,6 +23,23 @@ export function sumMaterials(
   return total;
 }
 
+// Spec 195 follow-up — store-issued material cost. เบิก (stock_issues) draws
+// material from the on-site store TO a work package. Store-bound material comes
+// from WP-less purchase requests, which sumMaterials EXCLUDES (no WP to attribute
+// at purchase, ADR 0063) — so this is disjoint from the purchase sum and additive
+// with no double-count. Valued at COST (total_cost) to match the dashboard's
+// external-spend basis (labor at cost, purchases at the supplier amount); the
+// store's internal transfer margin (the sell layer that wp_profit folds in) is
+// NOT money out the door, so it stays out of a budget-vs-spend view. Reversed
+// issues never charged a WP and are filtered out at the query, not here.
+export function sumStoreIssues(issues: ReadonlyArray<{ total_cost: number | null }>): number {
+  let total = 0;
+  for (const i of issues) {
+    if (i.total_cost != null) total += i.total_cost;
+  }
+  return total;
+}
+
 export interface BudgetStatus {
   hasBudget: boolean;
   budget: number | null;

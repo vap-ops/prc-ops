@@ -6,6 +6,25 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 195 follow-up — dashboard store-material spend (2026-06-24)
+
+Status: **DONE — 2026-06-24** (no DB; lint · typecheck · vitest 1575 green). Closes
+the "Open follow-up" flagged in `docs/feature-specs/195-project-level-purchasing.md`:
+the manager dashboard's materials-by-project showed direct WP-bound purchase spend
+only, so a project that procures heavily **into the on-site store** read as
+artificially low (the cost is real — it sits in `wp_profit` + Store P&L, just not
+on the dashboard). **Fix:** `materials` now adds the project's non-reversed
+`stock_issues` (เบิก) at **cost** (`total_cost`). Disjoint sources — store-bound
+material comes from WP-less PRs, which `sumMaterials` excludes (ADR 0063) — so
+additive with no double-count (mirrors `wp_profit`'s two-term materials, but at COST
+not the sell layer: the dashboard is budget-vs-**money-out**, like labor-at-cost and
+purchases-at-supplier-amount; the store's internal transfer margin is not external
+spend). New pure helper `sumStoreIssues` (`src/lib/dashboard/spend.ts`, tested) +
+two admin reads (`stock_issues` by project_id, `stock_reversals` for the non-reversed
+filter) in `src/app/dashboard/page.tsx`. Test-first (dashboard-spend.test.ts).
+**Open:** dashboard total ignores store stock procured-but-not-yet-เบิก'd (inventory,
+not yet WP-consumed) — deliberate, consistent with the cost-at-usage model.
+
 ## Spec 194 — super_admin override on an approved supply plan (2026-06-24)
 
 Status: **SHIPPED to prod — 2026-06-24** (commit 58dc371; mig 20260813000100; pgTAP

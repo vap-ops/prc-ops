@@ -21,7 +21,12 @@ import { getPendingBankChangeCount } from "@/lib/approvals/pending-bank-changes"
 import { getPendingWorkerBankChangeCount } from "@/lib/approvals/pending-worker-bank-changes";
 import { Landmark } from "lucide-react";
 import { rollupProgress } from "@/lib/dashboard/overview";
-import { sumMaterials, budgetStatus, type BudgetStatus } from "@/lib/dashboard/spend";
+import {
+  sumMaterials,
+  sumStoreIssues,
+  budgetStatus,
+  type BudgetStatus,
+} from "@/lib/dashboard/spend";
 import { aggregateLaborCost, type CostInputRow } from "@/lib/labor/cost";
 
 export const metadata = { title: "ภาพรวม" };
@@ -94,10 +99,13 @@ export default async function DashboardPage() {
   const budgetById = new Map<string, number | null>();
   const laborByProject = new Map<string, CostInputRow[]>();
   const materialsByProject = new Map<string, { status: string; amount: number | null }[]>();
+  // Spec 195 follow-up — store-issued (เบิก) cost, grouped by project. Disjoint
+  // from materialsByProject (WP-less store-bound PRs are excluded there).
+  const storeIssuesByProject = new Map<string, { total_cost: number | null }[]>();
   if (isManager && projectIds.length) {
     const admin = createAdminSupabase();
     const wpIds = wps.map((w) => w.id);
-    const [{ data: budgetRows }, laborRes, prRes] = await Promise.all([
+    const [{ data: budgetRows }, laborRes, prRes, issuesRes, reversalsRes] = await Promise.all([
       admin.from("projects").select("id, budget_amount_thb").in("id", projectIds),
       wpIds.length
         ? admin
@@ -115,8 +123,24 @@ export default async function DashboardPage() {
         : Promise.resolve({
             data: [] as { work_package_id: string; status: string; amount: number | null }[],
           }),
+      // Store issues are project-scoped (project_id is set + WP-in-project
+      // validated by issue_stock), so group by project_id directly.
+      admin.from("stock_issues").select("id, project_id, total_cost").in("project_id", projectIds),
+      // Reversed issues never charged a WP — exclude them (matches wp_profit). A
+      // stock_reversals row may target a receipt OR an issue; issue_id is null for
+      // receipt reversals, so filter to the issue-reversal rows.
+      admin.from("stock_reversals").select("issue_id").not("issue_id", "is", null),
     ]);
     for (const b of budgetRows ?? []) budgetById.set(b.id, b.budget_amount_thb);
+    const reversedIssueIds = new Set(
+      (reversalsRes.data ?? []).map((r) => r.issue_id).filter((id): id is string => id != null),
+    );
+    for (const si of issuesRes.data ?? []) {
+      if (reversedIssueIds.has(si.id)) continue;
+      const arr = storeIssuesByProject.get(si.project_id) ?? [];
+      arr.push({ total_cost: si.total_cost });
+      storeIssuesByProject.set(si.project_id, arr);
+    }
     for (const r of laborRes.data ?? []) {
       const pid = wpProject.get(r.work_package_id);
       if (!pid) continue;
@@ -140,7 +164,11 @@ export default async function DashboardPage() {
     let money: ProjectVM["money"] = null;
     if (isManager) {
       const labor = aggregateLaborCost(laborByProject.get(p.id) ?? []).total;
-      const materials = sumMaterials(materialsByProject.get(p.id) ?? []);
+      // Materials = direct WP-bound purchases (at supplier amount) + store-issued
+      // material (เบิก at cost). Disjoint sources, so additive — no double-count.
+      const materials =
+        sumMaterials(materialsByProject.get(p.id) ?? []) +
+        sumStoreIssues(storeIssuesByProject.get(p.id) ?? []);
       const spend = labor + materials;
       money = { spend, status: budgetStatus(budgetById.get(p.id) ?? null, spend) };
     }
