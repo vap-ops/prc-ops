@@ -6,6 +6,30 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 193 — in-app feedback (bug report / feature request) (2026-06-24)
+
+Status: **SHIPPED to prod — 2026-06-24** (commit d7b7b0d; mig 20260813000000; pgTAP
+208; lint · typecheck · vitest 1564 · db:test 158/0 green; /feedback compiles +
+gates unauth → /login, preview). Operator: add a bug-report / feature-request
+channel in settings, **designed so CC has enough to fix or build without a
+round-trip** (chose the guided single details field via AskUserQuestion). A
+ความช่วยเหลือ row in /settings → /feedback (settings sub-surface, getClaims so every
+authenticated role can file): type toggle (แจ้งปัญหา / ขอฟีเจอร์) + title + ONE
+details box whose placeholder swaps by type (bug: did → expected → actual; feature:
+what + why) + optional "related screen". **The design point — auto-attach the triage
+context the user shouldn't type:** role_snapshot (most bugs are role/RLS-gated),
+app_version (package.json, server-side), user_agent (mobile vs desktop), best-effort
+page_path. **mig:** feedback table + feedback_type / feedback_status enums; writes
+via submit_feedback definer (stamps submitted_by + role_snapshot); RLS = submitter
+reads own, super_admin reads all (operator + CC's read role). **pgTAP 208** (submit,
+role-stamp, RLS scoping, execute lockdown). Files: lib/feedback/validate.ts (pure),
+app/feedback/{page,actions}.ts, components/features/feedback/feedback-form.tsx,
+settings row. Guards: feature-components-structure (+feedback domain),
+nav-back-affordance (+feedback STATIC_DETAIL). **CC reads submissions via
+`pnpm exec supabase db query --linked` on the feedback table** (full per-row
+context). **Deferred:** in-app super_admin review list · screenshot attachment ·
+status-update RPC + a Telegram ping on new feedback.
+
 ## Spec 192 — first-real-project readiness, U4 SA daily home (2026-06-24)
 
 Status: **U4 SHIPPED to prod — 2026-06-24** (commit f7e927f; NO DB; lint · typecheck
