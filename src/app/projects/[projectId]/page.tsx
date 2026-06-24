@@ -23,6 +23,8 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
+import { createClient as createAdminClient } from "@/lib/db/admin";
+import { NoAccessNotice } from "./no-access-notice";
 import { PROJECT_TYPE_LABEL } from "@/lib/projects/validate-settings";
 import { rankFromPriority } from "@/lib/work-packages/action-bands";
 import { loadProjectDetail } from "@/lib/projects/load-detail";
@@ -54,7 +56,26 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
     .maybeSingle();
 
   if (!project) {
-    notFound();
+    // Spec 192 U3: the user session can't see it — but is it RLS-hidden (the
+    // caller isn't a member/lead, can_see_project) or truly gone? An admin
+    // exists-check tells them apart, so a non-member gets an explanation + the
+    // way back in instead of a dead-end 404. super_admin / coordinator see all,
+    // so they never reach here for a real project.
+    const { data: exists } = await createAdminClient()
+      .from("projects")
+      .select("id")
+      .eq("id", projectId)
+      .maybeSingle();
+    if (!exists) notFound();
+    return (
+      <PageShell>
+        <BottomTabBar role={ctx.role} />
+        <DetailHeader backHref="/projects" backLabel="กลับไปรายการโครงการ">
+          <h1 className="text-ink text-xl font-semibold tracking-tight">ไม่มีสิทธิ์เข้าถึง</h1>
+        </DetailHeader>
+        <NoAccessNotice />
+      </PageShell>
+    );
   }
 
   // Spec 173: procurement is a first-class READ-ONLY viewer of this page now —
