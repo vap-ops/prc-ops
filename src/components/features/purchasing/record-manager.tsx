@@ -40,7 +40,7 @@ export interface RecordFieldDef {
   /** Spec 191: "phone" auto-formats 0XX-XXX-XXXX + validates 10 digits; "taxid"
    *  auto-formats X-XXXX-XXXXX-XX-X + validates 13 digits (both optional unless a
    *  requiredWhenTruthy gate fires). */
-  type: "text" | "tel" | "email" | "textarea" | "select" | "phone" | "taxid";
+  type: "text" | "tel" | "email" | "textarea" | "select" | "phone" | "taxid" | "vat";
   /** Required for text/tel/email/textarea/phone/taxid; ignored for select. */
   maxLength?: number;
   /** Required for type "select": the dropdown options (spec 86). */
@@ -60,14 +60,15 @@ function fieldInlineError(field: RecordFieldDef, values: Record<string, string>)
   if (v.length === 0) {
     return gatedRequired ? "จำเป็นต้องกรอก" : null;
   }
-  if (field.type === "phone" && !isValidThaiPhone(v)) return "เบอร์โทรต้องเป็นตัวเลข 10 หลัก";
+  if (field.type === "phone" && !isValidThaiPhone(v)) return "เบอร์โทรต้องเป็นตัวเลข 9-10 หลัก";
   if (field.type === "taxid" && !isValidThaiTaxId(v)) return "เลขผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก";
   return null;
 }
 
 // Spec 191: submit is blocked when the name (first field) is blank OR any field
-// has a format / gated-required error. Shared by the add + edit forms.
-function recordHasErrors(fields: RecordFieldDef[], values: Record<string, string>): boolean {
+// has a format / gated-required error. Shared by the add + edit forms. Exported
+// for unit tests (the VAT→TaxID gate).
+export function recordHasErrors(fields: RecordFieldDef[], values: Record<string, string>): boolean {
   const nameKey = fields[0]?.key ?? "name";
   if ((values[nameKey] ?? "").trim().length === 0) return true;
   return fields.some((f) => fieldInlineError(f, values) !== null);
@@ -138,6 +139,31 @@ function FieldInputs({
                   </option>
                 ))}
               </select>
+            ) : f.type === "vat" ? (
+              <div className="mt-1 flex gap-2">
+                {[
+                  { v: "true", l: "จด VAT" },
+                  { v: "false", l: "ไม่จด VAT" },
+                ].map((o) => {
+                  const on = (values[f.key] ?? "false") === o.v;
+                  return (
+                    <button
+                      key={o.v}
+                      type="button"
+                      disabled={disabled}
+                      aria-pressed={on}
+                      onClick={() => setValue(f.key, o.v)}
+                      className={
+                        on
+                          ? "border-action bg-action-soft text-action rounded-control border px-3 py-1.5 text-sm font-medium"
+                          : "border-edge text-ink-secondary rounded-control border px-3 py-1.5 text-sm"
+                      }
+                    >
+                      {o.l}
+                    </button>
+                  );
+                })}
+              </div>
             ) : isMasked ? (
               <>
                 <input
@@ -184,7 +210,10 @@ function FieldInputs({
 function blankValues(fields: RecordFieldDef[]): Record<string, string> {
   // A select defaults to its first option (a valid enum value), not "".
   return Object.fromEntries(
-    fields.map((f) => [f.key, f.type === "select" ? (f.options?.[0]?.value ?? "") : ""]),
+    fields.map((f) => [
+      f.key,
+      f.type === "select" ? (f.options?.[0]?.value ?? "") : f.type === "vat" ? "false" : "",
+    ]),
   );
 }
 

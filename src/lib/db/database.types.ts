@@ -3550,6 +3550,7 @@ export type Database = {
           created_by: string
           email: string | null
           id: string
+          is_vat_registered: boolean
           mailing_address: string | null
           name: string
           note: string | null
@@ -3563,6 +3564,7 @@ export type Database = {
           created_by: string
           email?: string | null
           id?: string
+          is_vat_registered?: boolean
           mailing_address?: string | null
           name: string
           note?: string | null
@@ -3576,6 +3578,7 @@ export type Database = {
           created_by?: string
           email?: string | null
           id?: string
+          is_vat_registered?: boolean
           mailing_address?: string | null
           name?: string
           note?: string | null

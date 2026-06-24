@@ -93,8 +93,9 @@ function normTaxId(value: string | undefined): { ok: true; value: string | null 
   return { ok: true, value: formatThaiTaxId(t) };
 }
 
-const BAD_PHONE = "เบอร์โทรต้องเป็นตัวเลข 10 หลัก";
+const BAD_PHONE = "เบอร์โทรต้องเป็นตัวเลข 9-10 หลัก";
 const BAD_TAX_ID = "เลขผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก";
+const VAT_NEEDS_TAX_ID = "ผู้ขายที่จด VAT ต้องมีเลขประจำตัวผู้เสียภาษี 13 หลัก";
 
 function validName(value: string, max: number): boolean {
   const t = value.trim();
@@ -201,6 +202,7 @@ export async function createSupplierRecord(input: {
   mailingAddress?: string;
   taxId?: string;
   paymentTerms?: string;
+  isVatRegistered?: string;
 }): Promise<RecordActionResult> {
   const gate = await backOfficeSession();
   if (!gate.ok) return gate;
@@ -214,6 +216,9 @@ export async function createSupplierRecord(input: {
   if (!phoneRes.ok) return { ok: false, error: BAD_PHONE };
   const taxRes = normTaxId(input.taxId);
   if (!taxRes.ok) return { ok: false, error: BAD_TAX_ID };
+  // Spec 191 U2: a VAT-registered supplier must carry the 13-digit tax id.
+  const isVat = input.isVatRegistered === "true";
+  if (isVat && taxRes.value === null) return { ok: false, error: VAT_NEEDS_TAX_ID };
 
   const { error } = await gate.supabase.from("suppliers").insert({
     name: input.name.trim(),
@@ -224,6 +229,7 @@ export async function createSupplierRecord(input: {
     mailing_address: norm(input.mailingAddress),
     tax_id: taxRes.value,
     payment_terms: norm(input.paymentTerms),
+    is_vat_registered: isVat,
     created_by: gate.userId,
   });
   if (error) return { ok: false, error: GENERIC };
@@ -241,6 +247,7 @@ export async function updateSupplierRecord(input: {
   mailingAddress?: string;
   taxId?: string;
   paymentTerms?: string;
+  isVatRegistered?: string;
 }): Promise<RecordActionResult> {
   const gate = await backOfficeSession();
   if (!gate.ok) return gate;
@@ -272,6 +279,9 @@ export async function updateSupplierRecord(input: {
     patch.tax_id = taxRes.value;
   }
   if (input.paymentTerms !== undefined) patch.payment_terms = norm(input.paymentTerms);
+  if (input.isVatRegistered !== undefined) {
+    patch.is_vat_registered = input.isVatRegistered === "true";
+  }
   if (Object.keys(patch).length === 0) return { ok: true };
 
   const { error } = await gate.supabase.from("suppliers").update(patch).eq("id", input.id);

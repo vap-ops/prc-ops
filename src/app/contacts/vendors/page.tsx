@@ -26,7 +26,9 @@ export default async function ContactsVendorsPage() {
 
   const suppliersRes = await supabase
     .from("suppliers")
-    .select("id, name, phone, contact_person, email, mailing_address, tax_id, payment_terms, note")
+    .select(
+      "id, name, phone, contact_person, email, mailing_address, tax_id, payment_terms, is_vat_registered, note",
+    )
     .order("name", { ascending: true });
 
   const suppliers: RecordRow[] = (suppliersRes.data ?? []).map((r) => ({
@@ -39,6 +41,8 @@ export default async function ContactsVendorsPage() {
       mailingAddress: r.mailing_address,
       taxId: r.tax_id,
       paymentTerms: r.payment_terms,
+      // Spec 191 U2: the VAT segmented toggle reads/writes "true"/"false".
+      isVatRegistered: r.is_vat_registered ? "true" : "false",
       note: r.note,
     },
   }));
