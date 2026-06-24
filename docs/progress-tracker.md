@@ -6,6 +6,47 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 198 — multi-line รับเข้า (bulk stock check-in), U1 (2026-06-24)
+
+Status: **SHIPPED to prod — 2026-06-24** (mig 20260813000800; pgTAP 215; lint ·
+typecheck · vitest · db:test green). Operator: "checking in items is too
+difficult, one at a time — the check-in list should be the same as delivery."
+The คลัง `รับเข้าสต๊อก` form was single-item-per-submit; U1 makes it a multi-row
+**grid** recorded in one atomic call. (Operator chose **Both** grid + pre-fill-
+from-delivery; U2 = pre-fill, sequenced next.)
+
+**Test-first** (RED): `tests/unit/store-checkin-grid.test.tsx` — opens a grid with
+one draft row + `เพิ่มรายการ` add-row + disabled `บันทึกทั้งหมด`; enables on a
+complete row; records every complete row in one `recordStockInBulk` call; drops
+incomplete rows. 4 RED → green.
+
+**DB:** new `record_stock_in_bulk(p_project_id uuid, p_lines jsonb)` definer RPC
+(mig 20260813000800) — same role gate as the post-197 `record_stock_in`
+(site_admin + PM tier + procurement + director), membership (`can_see_project OR
+procurement`), per-line validation (qty>0, cost≥0, active item, supplier exists),
+**atomic** (any bad line rolls back the whole batch — no partial check-in), each
+line inserts a `stock_receipts` row + rolls into `stock_on_hand`. Returns the
+count. `CREATE` (new fn) + explicit grants (anon revoked). The single
+`record_stock_in` is **KEPT** (spec 195 P3 auto-receipt depends on it). pgTAP 215
+(plan 18): structure/anon-deny · 2-line additive happy · 7 validations · atomicity
+(good+bad line → 0 receipts) · visitor/non-member 42501 · site_admin member happy.
+
+**App:**
+
+- `recordStockInBulk({ projectId, lines })` action (`src/app/store/actions.ts`) —
+  maps rows → jsonb `[{catalog_item_id, qty, unit_cost, supplier_id, note}]`,
+  calls the RPC, maps 42501/22023, `revalidatePath` the project store.
+- `StoreManager` รับเข้า sheet rewritten as a draft-row grid (`DraftReceiptRow[]`
+  state, `+ เพิ่มรายการ` add, per-row `ลบ` remove, one `บันทึกทั้งหมด` submit;
+  enabled once ≥1 complete row; incomplete rows dropped on submit). Reuses the
+  category-grouped item `<select>` per row. Swapped `recordStockIn`→`recordStockInBulk`.
+- Updated the two spec-177 `store-manager.test.tsx` รับเข้า tests to the grid
+  (button `บันทึกทั้งหมด`, asserts `recordStockInBulk` with a `lines` array).
+- `db:types` regenerated (new RPC).
+
+**U2 (pre-fill รับเข้า from a PO delivery — incl. the anti-double-book rule vs
+spec 195 P3 auto-receipt) NOT started.**
+
 ## Spec 197 — empty-คลัง state, U3 (2026-06-24)
 
 Status: **SHIPPED to prod — 2026-06-24** (no DB; lint · typecheck · vitest green).

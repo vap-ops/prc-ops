@@ -5364,6 +5364,10 @@ export type Database = {
         }
         Returns: string
       }
+      record_stock_in_bulk: {
+        Args: { p_lines: Json; p_project_id: string }
+        Returns: number
+      }
       record_wht_certificate: {
         Args: {
           p_base_amount: number

@@ -17,10 +17,39 @@ import {
   confirmStockIssueOnBehalf,
   issueStock,
   recordStockCount,
-  recordStockIn,
+  recordStockInBulk,
   reverseStockIssue,
   reverseStockReceipt,
 } from "@/app/store/actions";
+
+// Spec 198 U1 — one draft row of the multi-line รับเข้า grid.
+type DraftReceiptRow = {
+  item: string;
+  qty: string;
+  unitCost: string;
+  supplier: string;
+  note: string;
+};
+const emptyReceiptRow = (): DraftReceiptRow => ({
+  item: "",
+  qty: "",
+  unitCost: "",
+  supplier: "",
+  note: "",
+});
+const receiptRowComplete = (r: DraftReceiptRow): boolean => {
+  const q = Number(r.qty);
+  const c = Number(r.unitCost);
+  return (
+    r.item !== "" &&
+    r.qty !== "" &&
+    Number.isFinite(q) &&
+    q > 0 &&
+    r.unitCost !== "" &&
+    Number.isFinite(c) &&
+    c >= 0
+  );
+};
 
 type ItemCategory = Database["public"]["Enums"]["item_category"];
 
@@ -122,13 +151,21 @@ export function StoreManager({
   const router = useRouter();
 
   const [open, setOpen] = useState(false);
-  const [item, setItem] = useState("");
-  const [qty, setQty] = useState("");
-  const [unitCost, setUnitCost] = useState("");
-  const [supplier, setSupplier] = useState("");
-  const [note, setNote] = useState("");
+  // Spec 198 U1 — the รับเข้า grid: a list of draft rows, recorded in one bulk
+  // call. Starts with a single empty row.
+  const [rows, setRows] = useState<DraftReceiptRow[]>([emptyReceiptRow()]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
+
+  function updateRow(i: number, patch: Partial<DraftReceiptRow>) {
+    setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  }
+  function addRow() {
+    setRows((rs) => [...rs, emptyReceiptRow()]);
+  }
+  function removeRow(i: number) {
+    setRows((rs) => (rs.length <= 1 ? rs : rs.filter((_, idx) => idx !== i)));
+  }
 
   // เบิก (issue-out) sheet — opened for a specific on-hand row.
   const [issueRow, setIssueRow] = useState<StockRow | null>(null);
@@ -217,42 +254,29 @@ export function StoreManager({
     });
   }
 
-  const qtyNum = Number(qty);
-  const costNum = Number(unitCost);
-  const canSubmit =
-    item !== "" &&
-    qty !== "" &&
-    Number.isFinite(qtyNum) &&
-    qtyNum > 0 &&
-    unitCost !== "" &&
-    Number.isFinite(costNum) &&
-    costNum >= 0 &&
-    !submitting;
+  const completeRows = rows.filter(receiptRowComplete);
+  const canSubmit = completeRows.length > 0 && !submitting;
 
   const categories = Object.keys(ITEM_CATEGORY_LABEL) as ItemCategory[];
 
   function reset() {
-    setItem("");
-    setQty("");
-    setUnitCost("");
-    setSupplier("");
-    setNote("");
+    setRows([emptyReceiptRow()]);
     setError(null);
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!canSubmit || !selectedProjectId) return;
+    const lines = completeRows.map((r) => ({
+      catalogItemId: r.item,
+      qty: Number(r.qty),
+      unitCost: Number(r.unitCost),
+      supplierId: r.supplier,
+      note: r.note,
+    }));
     setError(null);
     startSubmit(async () => {
-      const result = await recordStockIn({
-        projectId: selectedProjectId,
-        catalogItemId: item,
-        qty: qtyNum,
-        unitCost: costNum,
-        supplierId: supplier,
-        note,
-      });
+      const result = await recordStockInBulk({ projectId: selectedProjectId, lines });
       if (!result.ok) {
         setError(result.error);
         return;
@@ -496,103 +520,140 @@ export function StoreManager({
 
           <BottomSheet open={open} title={STORE_RECEIVE_LABEL} onClose={() => setOpen(false)}>
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="store-item" className={LABEL}>
-                  วัสดุ
-                </label>
-                <select
-                  id="store-item"
-                  value={item}
-                  onChange={(e) => setItem(e.target.value)}
-                  disabled={submitting}
-                  className={FIELD}
-                >
-                  <option value="">เลือกวัสดุ</option>
-                  {categories.map((c) => {
-                    const opts = catalogItems.filter((ci) => ci.category === c);
-                    if (opts.length === 0) return null;
-                    return (
-                      <optgroup key={c} label={ITEM_CATEGORY_LABEL[c]}>
-                        {opts.map((ci) => (
-                          <option key={ci.id} value={ci.id}>
-                            {ci.baseItem}
-                            {ci.specAttrs ? ` · ${ci.specAttrs}` : ""} ({ci.unit})
+              {/* Spec 198 U1: a multi-row grid — check in a whole delivery at once
+                  instead of one item per submit. */}
+              <ul className="flex flex-col gap-4">
+                {rows.map((r, i) => (
+                  <li
+                    key={i}
+                    className="border-edge rounded-control flex flex-col gap-3 border p-3"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-meta text-ink-secondary font-semibold">
+                        รายการ {i + 1}
+                      </span>
+                      {rows.length > 1 ? (
+                        <button
+                          type="button"
+                          onClick={() => removeRow(i)}
+                          disabled={submitting}
+                          className="text-danger text-meta font-medium"
+                        >
+                          ลบ
+                        </button>
+                      ) : null}
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor={`store-item-${i}`} className={LABEL}>
+                        วัสดุ
+                      </label>
+                      <select
+                        id={`store-item-${i}`}
+                        value={r.item}
+                        onChange={(e) => updateRow(i, { item: e.target.value })}
+                        disabled={submitting}
+                        className={FIELD}
+                      >
+                        <option value="">เลือกวัสดุ</option>
+                        {categories.map((c) => {
+                          const opts = catalogItems.filter((ci) => ci.category === c);
+                          if (opts.length === 0) return null;
+                          return (
+                            <optgroup key={c} label={ITEM_CATEGORY_LABEL[c]}>
+                              {opts.map((ci) => (
+                                <option key={ci.id} value={ci.id}>
+                                  {ci.baseItem}
+                                  {ci.specAttrs ? ` · ${ci.specAttrs}` : ""} ({ci.unit})
+                                </option>
+                              ))}
+                            </optgroup>
+                          );
+                        })}
+                      </select>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <div className="flex flex-1 flex-col gap-1.5">
+                        <label htmlFor={`store-qty-${i}`} className={LABEL}>
+                          จำนวน
+                        </label>
+                        <input
+                          id={`store-qty-${i}`}
+                          type="number"
+                          inputMode="decimal"
+                          min="0"
+                          step="any"
+                          value={r.qty}
+                          onChange={(e) => updateRow(i, { qty: e.target.value })}
+                          disabled={submitting}
+                          className={FIELD}
+                        />
+                      </div>
+                      <div className="flex flex-1 flex-col gap-1.5">
+                        <label htmlFor={`store-cost-${i}`} className={LABEL}>
+                          ราคาต้นทุน/หน่วย (บาท)
+                        </label>
+                        <input
+                          id={`store-cost-${i}`}
+                          type="number"
+                          inputMode="decimal"
+                          min="0"
+                          step="any"
+                          value={r.unitCost}
+                          onChange={(e) => updateRow(i, { unitCost: e.target.value })}
+                          disabled={submitting}
+                          className={FIELD}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor={`store-supplier-${i}`} className={LABEL}>
+                        ผู้ขาย (ถ้ามี)
+                      </label>
+                      <select
+                        id={`store-supplier-${i}`}
+                        value={r.supplier}
+                        onChange={(e) => updateRow(i, { supplier: e.target.value })}
+                        disabled={submitting}
+                        className={FIELD}
+                      >
+                        <option value="">ไม่ระบุ</option>
+                        {suppliers.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
                           </option>
                         ))}
-                      </optgroup>
-                    );
-                  })}
-                </select>
-              </div>
+                      </select>
+                    </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="store-qty" className={LABEL}>
-                  จำนวน
-                </label>
-                <input
-                  id="store-qty"
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  step="any"
-                  value={qty}
-                  onChange={(e) => setQty(e.target.value)}
-                  disabled={submitting}
-                  className={FIELD}
-                />
-              </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor={`store-note-${i}`} className={LABEL}>
+                        หมายเหตุ (ถ้ามี)
+                      </label>
+                      <input
+                        id={`store-note-${i}`}
+                        type="text"
+                        value={r.note}
+                        maxLength={1000}
+                        onChange={(e) => updateRow(i, { note: e.target.value })}
+                        disabled={submitting}
+                        className={FIELD}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
 
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="store-cost" className={LABEL}>
-                  ราคาต้นทุน/หน่วย (บาท)
-                </label>
-                <input
-                  id="store-cost"
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  step="any"
-                  value={unitCost}
-                  onChange={(e) => setUnitCost(e.target.value)}
-                  disabled={submitting}
-                  className={FIELD}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="store-supplier" className={LABEL}>
-                  ผู้ขาย (ถ้ามี)
-                </label>
-                <select
-                  id="store-supplier"
-                  value={supplier}
-                  onChange={(e) => setSupplier(e.target.value)}
-                  disabled={submitting}
-                  className={FIELD}
-                >
-                  <option value="">ไม่ระบุ</option>
-                  {suppliers.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="store-note" className={LABEL}>
-                  หมายเหตุ (ถ้ามี)
-                </label>
-                <input
-                  id="store-note"
-                  type="text"
-                  value={note}
-                  maxLength={1000}
-                  onChange={(e) => setNote(e.target.value)}
-                  disabled={submitting}
-                  className={FIELD}
-                />
-              </div>
+              <button
+                type="button"
+                onClick={addRow}
+                disabled={submitting}
+                className={BUTTON_SECONDARY}
+              >
+                + เพิ่มรายการ
+              </button>
 
               {error ? (
                 <div role="alert" className={INLINE_ERROR}>
@@ -605,7 +666,7 @@ export function StoreManager({
                   ยกเลิก
                 </button>
                 <button type="submit" disabled={!canSubmit} className={BUTTON_PRIMARY}>
-                  {submitting ? "กำลังบันทึก…" : "บันทึก"}
+                  {submitting ? "กำลังบันทึก…" : "บันทึกทั้งหมด"}
                 </button>
               </div>
             </form>

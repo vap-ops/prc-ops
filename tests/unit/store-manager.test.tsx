@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   mockRecord,
+  mockRecordBulk,
   mockIssue,
   mockCount,
   mockRevReceipt,
@@ -16,6 +17,7 @@ const {
   mockPush,
 } = vi.hoisted(() => ({
   mockRecord: vi.fn(),
+  mockRecordBulk: vi.fn(),
   mockIssue: vi.fn(),
   mockCount: vi.fn(),
   mockRevReceipt: vi.fn(),
@@ -30,6 +32,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/app/store/actions", () => ({
   recordStockIn: mockRecord,
+  recordStockInBulk: mockRecordBulk,
   issueStock: mockIssue,
   recordStockCount: mockCount,
   reverseStockReceipt: mockRevReceipt,
@@ -101,6 +104,7 @@ const receipts: ReceiptRow[] = [
 
 beforeEach(() => {
   mockRecord.mockReset().mockResolvedValue({ ok: true });
+  mockRecordBulk.mockReset().mockResolvedValue({ ok: true });
   mockIssue.mockReset().mockResolvedValue({ ok: true });
   mockCount.mockReset().mockResolvedValue({ ok: true });
   mockRevReceipt.mockReset().mockResolvedValue({ ok: true });
@@ -156,10 +160,12 @@ describe("StoreManager (spec 177 U2)", () => {
     expect(mockPush).toHaveBeenCalledWith("/store?project=p2");
   });
 
+  // Spec 198 U1: the รับเข้า form is a multi-row grid; one complete row enables
+  // the บันทึกทั้งหมด submit.
   it("disables the record submit until item, qty and unit cost are set", () => {
     renderManager({});
     fireEvent.click(screen.getByRole("button", { name: /รับเข้าสต๊อก/ }));
-    const submit = screen.getByRole("button", { name: "บันทึก" });
+    const submit = screen.getByRole("button", { name: "บันทึกทั้งหมด" });
     expect(submit).toBeDisabled();
     fireEvent.change(screen.getByLabelText("วัสดุ"), { target: { value: "ci1" } });
     fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "10" } });
@@ -167,6 +173,7 @@ describe("StoreManager (spec 177 U2)", () => {
     expect(submit).toBeEnabled();
   });
 
+  // Spec 198 U1: a single-row check-in records one bulk line.
   it("records a stock-in with the chosen item, qty, unit cost, supplier and note", async () => {
     renderManager({});
     fireEvent.click(screen.getByRole("button", { name: /รับเข้าสต๊อก/ }));
@@ -175,16 +182,12 @@ describe("StoreManager (spec 177 U2)", () => {
     fireEvent.change(screen.getByLabelText(/ราคาต้นทุน/), { target: { value: "25" } });
     fireEvent.change(screen.getByLabelText(/ผู้ขาย/), { target: { value: "s1" } });
     fireEvent.change(screen.getByLabelText(/หมายเหตุ/), { target: { value: "งวดแรก" } });
-    fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
+    fireEvent.click(screen.getByRole("button", { name: "บันทึกทั้งหมด" }));
 
     await waitFor(() =>
-      expect(mockRecord).toHaveBeenCalledWith({
+      expect(mockRecordBulk).toHaveBeenCalledWith({
         projectId: "p1",
-        catalogItemId: "ci1",
-        qty: 10,
-        unitCost: 25,
-        supplierId: "s1",
-        note: "งวดแรก",
+        lines: [{ catalogItemId: "ci1", qty: 10, unitCost: 25, supplierId: "s1", note: "งวดแรก" }],
       }),
     );
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());

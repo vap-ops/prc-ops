@@ -64,6 +64,57 @@ export async function recordStockIn(input: {
   return { ok: true };
 }
 
+// Spec 198 U1 — multi-line รับเข้า. Records many check-in lines in ONE atomic
+// call via the record_stock_in_bulk definer RPC (same gate/validation as the
+// single record_stock_in; any bad line rolls back the whole batch). The single
+// record_stock_in stays for the spec-195 P3 auto-receipt.
+export async function recordStockInBulk(input: {
+  projectId: string;
+  lines: {
+    catalogItemId: string;
+    qty: number;
+    unitCost: number;
+    supplierId: string;
+    note: string;
+  }[];
+}): Promise<StockInResult> {
+  if (!UUID_REGEX.test(input.projectId)) return { ok: false, error: FAILED };
+  if (input.lines.length === 0) return { ok: false, error: FAILED };
+  for (const l of input.lines) {
+    if (!UUID_REGEX.test(l.catalogItemId)) return { ok: false, error: FAILED };
+    const supplierId = l.supplierId === "" ? null : l.supplierId;
+    if (supplierId !== null && !UUID_REGEX.test(supplierId)) return { ok: false, error: FAILED };
+    if (!Number.isFinite(l.qty) || l.qty <= 0) return { ok: false, error: "จำนวนต้องมากกว่า 0" };
+    if (!Number.isFinite(l.unitCost) || l.unitCost < 0) {
+      return { ok: false, error: "ราคาต้นทุนต้องไม่ติดลบ" };
+    }
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("record_stock_in_bulk", {
+    p_project_id: input.projectId,
+    // The RPC reads supplier_id with nullif(…, '') so an empty string → NULL.
+    p_lines: input.lines.map((l) => ({
+      catalog_item_id: l.catalogItemId,
+      qty: l.qty,
+      unit_cost: l.unitCost,
+      supplier_id: l.supplierId,
+      note: l.note,
+    })),
+  });
+  if (error) {
+    if (error.code === "42501") return { ok: false, error: NO_PERMISSION };
+    if (error.code === "22023")
+      return { ok: false, error: "ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง" };
+    return { ok: false, error: FAILED };
+  }
+
+  revalidatePath(`/projects/${input.projectId}/store`);
+  return { ok: true };
+}
+
 // Spec 177 U10 — record a physical count. Calls the SECURITY DEFINER
 // record_stock_count RPC (SITE_STAFF gate + member), which reconciles on-hand to
 // the counted truth and logs the variance (shrinkage) at the moving-average cost.
