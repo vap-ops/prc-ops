@@ -18,6 +18,7 @@ import { useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/lib/ui/use-toast";
 import {
+  assignWorkerToProject,
   createWorker,
   setWorkerDayRate,
   updateWorker,
@@ -57,7 +58,12 @@ export type ManagedWorker = {
   dc_arrangement: DcArrangement | null;
   // ADR 0062 U4a: is this DC worker bound to a portal LINE login (workers.user_id)?
   portalBound: boolean;
+  // Spec 200: the worker's current project (one at a time), or null if unassigned.
+  project_id: string | null;
 };
+
+// Spec 200: a project the assigner can put a worker on.
+export type AssignableProject = { id: string; code: string; name: string };
 
 function AddWorkerForm() {
   const router = useRouter();
@@ -243,9 +249,11 @@ function AddWorkerForm() {
 function WorkerRow({
   worker,
   contractorName,
+  projects,
 }: {
   worker: ManagedWorker;
   contractorName: string | null;
+  projects: AssignableProject[];
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -253,8 +261,11 @@ function WorkerRow({
   const [name, setName] = useState(worker.name);
   const [rate, setRate] = useState(String(worker.day_rate));
   const [note, setNote] = useState(worker.note ?? "");
+  // Spec 200: the project assignment (one at a time); "" = unassigned.
+  const [project, setProject] = useState(worker.project_id ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const currentProject = projects.find((p) => p.id === worker.project_id) ?? null;
   // Spec 139: optimistic active-toggle. `committedActive` is the post-mount truth
   // (seeded from the prop, advanced only by a successful flip); `optimisticActive`
   // shows the tapped value instantly while the action is in flight and auto-reverts
@@ -289,8 +300,13 @@ function WorkerRow({
             dayRate: Number.isFinite(newRate) ? newRate : -1,
           })
         : { ok: true };
+    // Spec 200: move the worker's project if it changed ("" = unassign).
+    const projectChanged = project !== (worker.project_id ?? "");
+    const projectResult: WorkerActionResult = projectChanged
+      ? await assignWorkerToProject({ workerId: worker.id, projectId: project })
+      : { ok: true };
     setBusy(false);
-    const failed = [nameResult, rateResult].find((r) => !r.ok);
+    const failed = [nameResult, rateResult, projectResult].find((r) => !r.ok);
     if (failed && !failed.ok) {
       setError(failed.error);
       return;
@@ -333,6 +349,16 @@ function WorkerRow({
           </p>
           <p className="text-ink-secondary text-xs">
             {worker.day_rate.toLocaleString("th-TH")} บาท/วัน
+          </p>
+          {/* Spec 200: the worker's current project (one at a time). */}
+          <p className="text-ink-secondary text-xs">
+            {currentProject ? (
+              <>
+                โครงการ: {currentProject.code} {currentProject.name}
+              </>
+            ) : (
+              <span className="text-ink-muted">ยังไม่ระบุโครงการ</span>
+            )}
           </p>
           {/* Spec 75: roster note. */}
           {worker.note ? (
@@ -389,6 +415,22 @@ function WorkerRow({
               className={FIELD_STACKED}
             />
           </label>
+          {/* Spec 200: assign the worker to a project (one at a time). */}
+          <label className="text-ink-secondary mt-2 block text-sm">
+            โครงการ
+            <select
+              value={project}
+              onChange={(e) => setProject(e.target.value)}
+              className={FIELD_STACKED}
+            >
+              <option value="">ไม่ระบุ</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.code} {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
           {error ? <p className="text-danger mt-2 text-sm">{error}</p> : null}
           <div className="mt-3 flex gap-2">
             <button
@@ -424,11 +466,14 @@ function WorkerRow({
 export function WorkerRosterManager({
   workers,
   contractors,
+  projects = [],
 }: {
   workers: ManagedWorker[];
   // Legacy DC parents (pre-ADR-0062) still resolve a name for display; new DC
   // workers have no contractor parent.
   contractors: { id: string; name: string; status?: string; contractor_category?: string }[];
+  // Spec 200: projects the assigner can put a worker on (the assign picker).
+  projects?: AssignableProject[];
 }) {
   const contractorNames = new Map(contractors.map((c) => [c.id, c.name]));
   const own = workers.filter((w) => w.worker_type === "own");
@@ -454,6 +499,7 @@ export function WorkerRosterManager({
                   contractorName={
                     w.contractor_id ? (contractorNames.get(w.contractor_id) ?? null) : null
                   }
+                  projects={projects}
                 />
               ))}
             </ul>

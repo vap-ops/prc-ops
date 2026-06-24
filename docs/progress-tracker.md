@@ -6,6 +6,37 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 200 — assign a worker to a project (the missing UI) (2026-06-24)
+
+Status: **SHIPPED to prod — 2026-06-24** (no DB; lint · typecheck · vitest green).
+Operator asked "how do we assign DC to projects?" — the answer was _you couldn't
+from the app_. The `assign_worker_to_project` RPC + `workers.project_id` (one
+project at a time, audit trail) existed since spec 172/the assignment migration,
+but `/workers` only created/edited/set-rate/invited — no assign control. This
+wires the engine to the UI. No DB change.
+
+**Test-first** (RED): extended `tests/unit/worker-roster-manager.test.tsx` — shows
+the current project on the row; the edit sheet's โครงการ select → `assignWorkerToProject`
+on save; no assign when unchanged. 3 RED → green (existing 7 still pass).
+
+**App:**
+
+- `assignWorkerToProject({ workerId, projectId })` action — relays to the
+  `assign_worker_to_project` definer (gate PM/super/director/procurement); `""`/null
+  unassigns (RPC `p_project` defaults null → cleared).
+- `WorkerRosterManager`: `ManagedWorker` += `project_id`; new `projects` prop
+  (`AssignableProject[]`, default `[]`); each row shows its current project (or
+  "ยังไม่ระบุโครงการ"); the per-row edit sheet gains a โครงการ `<select>` →
+  assign-on-save (reassign moves it; one project at a time).
+- `/workers` reads `workers.project_id` + the assigner's RLS-scoped projects.
+
+**Note for the operator:** assignment is NOT required to log labour (the WP
+labour picker lists everyone, ordering the project's crew first) — it powers the
+/store custody-receiver picker + the labour-picker ordering. Labour itself is
+logged as full/half **days** (DC paid per day), per worker per day, on the WP
+ทีมงาน (#wp-labor) tab. **Out of scope:** assign-at-creation (the add form still
+makes a project-less worker — `create_worker` takes no project; follow-up if wanted).
+
 ## Spec 192 U4b — /sa daily-action hero (2026-06-24)
 
 Status: **SHIPPED to prod — 2026-06-24** (no DB; lint · typecheck · vitest green).

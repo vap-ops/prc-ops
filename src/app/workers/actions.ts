@@ -164,3 +164,27 @@ export async function createWorkerInvite(input: { workerId: string }): Promise<W
   if (error || !data) return { ok: false, error: GENERIC_ERROR };
   return { ok: true, token: data };
 }
+
+// Spec 200: assign a worker to a project (workers.project_id — one project at a
+// time). Calls the assign_worker_to_project definer RPC (gate PM/super/director/
+// procurement, append-only move trail). A null/"" project unassigns (the RPC's
+// p_project defaults to null → cleared).
+export async function assignWorkerToProject(input: {
+  workerId: string;
+  projectId: string | null;
+}): Promise<WorkerActionResult> {
+  if (!UUID_REGEX.test(input.workerId)) return { ok: false, error: GENERIC_ERROR };
+  const projectId = input.projectId && input.projectId !== "" ? input.projectId : null;
+  if (projectId !== null && !UUID_REGEX.test(projectId)) return { ok: false, error: GENERIC_ERROR };
+
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("assign_worker_to_project", {
+    p_worker: input.workerId,
+    // Omit p_project to unassign (the RPC's default null clears project_id).
+    ...(projectId !== null ? { p_project: projectId } : {}),
+  });
+  if (error) return { ok: false, error: GENERIC_ERROR };
+
+  revalidatePath("/workers");
+  return { ok: true };
+}

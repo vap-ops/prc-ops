@@ -29,7 +29,9 @@ export default async function WorkersPage() {
   const admin = createAdminSupabase();
   const { data: workerRows } = await admin
     .from("workers")
-    .select("id, name, worker_type, contractor_id, day_rate, active, note, dc_arrangement, user_id")
+    .select(
+      "id, name, worker_type, contractor_id, day_rate, active, note, dc_arrangement, user_id, project_id",
+    )
     .order("name", { ascending: true });
   // ADR 0062 U4a: derive portalBound from user_id (the LINE binding); user_id
   // itself stays server-side — only the boolean reaches the client roster.
@@ -46,6 +48,14 @@ export default async function WorkersPage() {
     .select("id, name, status, contractor_category")
     .order("name", { ascending: true });
 
+  // Spec 200: the projects the assigner can put a worker on. RLS-scoped (the
+  // assign gate is PM/super/director/procurement, the same audience as this page);
+  // procurement sees all, PM sees members, super/director all.
+  const { data: projectRows } = await supabase
+    .from("projects")
+    .select("id, code, name")
+    .order("code", { ascending: true });
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -53,7 +63,11 @@ export default async function WorkersPage() {
         <h1 className="text-title text-ink font-bold tracking-tight">รายชื่อทีมงานและค่าแรง</h1>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
-        <WorkerRosterManager workers={workers} contractors={contractorRows ?? []} />
+        <WorkerRosterManager
+          workers={workers}
+          contractors={contractorRows ?? []}
+          projects={projectRows ?? []}
+        />
       </div>
     </PageShell>
   );

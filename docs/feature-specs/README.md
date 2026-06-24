@@ -186,5 +186,7 @@ for reading the spec itself.
 
 | 199 | A single-project site_admin lands on their project — operator "site admins can't normally work on more than 1 project at a time." At the LINE callback + homepage redirect, a site_admin with exactly ONE project (member ∪ project_lead) lands on `/projects/[id]` instead of `/sa`; 0/many keep `/sa`. New `resolve-home.ts` (`resolveHomePath` pure + `homePathForUser` async, admin-client lookup); `roleHome` stays pure (the fallback). Other roles unchanged. Code-only |
 
+| 200 | Assign a worker to a project (the missing UI) — operator "how do we assign DC to projects?" The engine existed (`assign_worker_to_project` RPC + `workers.project_id`, one at a time, audit trail) but `/workers` had no assign control. Adds `assignWorkerToProject` action + a โครงการ `<select>` in the per-row edit sheet (+ current-project on the row) on `WorkerRosterManager`; gate PM/super/director/procurement. No DB (RPC + column already exist). Labour logging already worked without assignment (it lists everyone) — assignment powers the /store custody picker + labour-picker ordering |
+
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30.

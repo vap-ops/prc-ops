@@ -6,19 +6,23 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockCreate, mockUpdate, mockSetRate, mockRefresh, mockToastError } = vi.hoisted(() => ({
-  mockCreate: vi.fn(),
-  mockUpdate: vi.fn(),
-  mockSetRate: vi.fn(),
-  mockRefresh: vi.fn(),
-  mockToastError: vi.fn(),
-}));
+const { mockCreate, mockUpdate, mockSetRate, mockAssign, mockRefresh, mockToastError } = vi.hoisted(
+  () => ({
+    mockCreate: vi.fn(),
+    mockUpdate: vi.fn(),
+    mockSetRate: vi.fn(),
+    mockAssign: vi.fn(),
+    mockRefresh: vi.fn(),
+    mockToastError: vi.fn(),
+  }),
+);
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
 vi.mock("@/app/workers/actions", () => ({
   createWorker: mockCreate,
   updateWorker: mockUpdate,
   setWorkerDayRate: mockSetRate,
+  assignWorkerToProject: mockAssign,
 }));
 // Spec 139: the optimistic toggle surfaces a failed flip via toast.error.
 vi.mock("@/lib/ui/use-toast", () => ({
@@ -47,6 +51,7 @@ const WORKERS: ManagedWorker[] = [
     note: "หัวหน้าทีม",
     dc_arrangement: null,
     portalBound: false,
+    project_id: null,
   },
 ];
 
@@ -54,6 +59,7 @@ beforeEach(() => {
   mockCreate.mockReset().mockResolvedValue({ ok: true });
   mockUpdate.mockReset().mockResolvedValue({ ok: true });
   mockSetRate.mockReset().mockResolvedValue({ ok: true });
+  mockAssign.mockReset().mockResolvedValue({ ok: true });
   mockRefresh.mockReset();
   mockToastError.mockReset();
 });
@@ -167,5 +173,52 @@ describe("WorkerRosterManager optimistic active-toggle", () => {
     expect(screen.getByRole("button", { name: "ปิดใช้งาน" })).toBeInTheDocument();
     expect(screen.queryByText(/\(ปิดใช้งาน\)/)).not.toBeInTheDocument();
     expect(mockRefresh).not.toHaveBeenCalled();
+  });
+});
+
+// A worker is assigned to one project at a time (workers.project_id). The roster
+// surfaces the current project and lets the assigner move it.
+describe("WorkerRosterManager project assignment", () => {
+  const PROJECTS = [
+    { id: "p1", code: "PRC-2026-001", name: "บ้านคุณเอ" },
+    { id: "p2", code: "PRC-2026-002", name: "อาคารบี" },
+  ];
+
+  it("shows the worker's current project on the row", () => {
+    render(
+      <WorkerRosterManager
+        workers={[{ ...WORKERS[0]!, project_id: "p1" }]}
+        contractors={[]}
+        projects={PROJECTS}
+      />,
+    );
+    expect(screen.getByText(/PRC-2026-001/)).toBeInTheDocument();
+  });
+
+  it("assigns the worker to the chosen project on save", async () => {
+    render(<WorkerRosterManager workers={WORKERS} contractors={[]} projects={PROJECTS} />);
+    fireEvent.click(screen.getByRole("button", { name: "แก้ไข" }));
+    fireEvent.change(screen.getByLabelText("โครงการ"), { target: { value: "p2" } });
+    fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
+    await waitFor(() =>
+      expect(mockAssign).toHaveBeenCalledWith({ workerId: "w1", projectId: "p2" }),
+    );
+  });
+
+  it("does not call assign when the project is unchanged", async () => {
+    render(
+      <WorkerRosterManager
+        workers={[{ ...WORKERS[0]!, project_id: "p1" }]}
+        contractors={[]}
+        projects={PROJECTS}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "แก้ไข" }));
+    // change only the name (the edit sheet's, not the add form's), project stays p1
+    const names = screen.getAllByLabelText("ชื่อ");
+    fireEvent.change(names[names.length - 1]!, { target: { value: "ช่างใหม่" } });
+    fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+    expect(mockAssign).not.toHaveBeenCalled();
   });
 });
