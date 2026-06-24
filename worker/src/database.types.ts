@@ -1334,6 +1334,59 @@ export type Database = {
           },
         ]
       }
+      feedback: {
+        Row: {
+          app_version: string | null
+          body: string
+          created_at: string
+          id: string
+          page_path: string | null
+          role_snapshot: Database["public"]["Enums"]["user_role"]
+          screen: string | null
+          status: Database["public"]["Enums"]["feedback_status"]
+          submitted_by: string
+          title: string
+          type: Database["public"]["Enums"]["feedback_type"]
+          user_agent: string | null
+        }
+        Insert: {
+          app_version?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          page_path?: string | null
+          role_snapshot: Database["public"]["Enums"]["user_role"]
+          screen?: string | null
+          status?: Database["public"]["Enums"]["feedback_status"]
+          submitted_by: string
+          title: string
+          type: Database["public"]["Enums"]["feedback_type"]
+          user_agent?: string | null
+        }
+        Update: {
+          app_version?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          page_path?: string | null
+          role_snapshot?: Database["public"]["Enums"]["user_role"]
+          screen?: string | null
+          status?: Database["public"]["Enums"]["feedback_status"]
+          submitted_by?: string
+          title?: string
+          type?: Database["public"]["Enums"]["feedback_type"]
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gl_accounts: {
         Row: {
           account_type: Database["public"]["Enums"]["gl_account_type"]
@@ -5459,6 +5512,18 @@ export type Database = {
         }
         Returns: string
       }
+      submit_feedback: {
+        Args: {
+          p_app_version?: string
+          p_body: string
+          p_page_path?: string
+          p_screen?: string
+          p_title: string
+          p_type: Database["public"]["Enums"]["feedback_type"]
+          p_user_agent?: string
+        }
+        Returns: string
+      }
       submit_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
       submit_worker_bank_change: {
         Args: {
@@ -5689,6 +5754,8 @@ export type Database = {
         | "returned"
         | "lost"
       equipment_tracking: "unit" | "bulk"
+      feedback_status: "open" | "in_progress" | "done" | "declined"
+      feedback_type: "bug" | "feature"
       gl_account_type: "asset" | "liability" | "equity" | "income" | "expense"
       gl_posting_status: "pending" | "posting" | "posted" | "failed" | "skipped"
       item_category:
@@ -6006,6 +6073,8 @@ export const Constants = {
         "lost",
       ],
       equipment_tracking: ["unit", "bulk"],
+      feedback_status: ["open", "in_progress", "done", "declined"],
+      feedback_type: ["bug", "feature"],
       gl_account_type: ["asset", "liability", "equity", "income", "expense"],
       gl_posting_status: ["pending", "posting", "posted", "failed", "skipped"],
       item_category: [

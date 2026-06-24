@@ -62,6 +62,8 @@ const STATIC_DETAIL = [
   "contacts/subcontractors",
   // Spec 186: the contractor bank-change approval queue (back chip → /dashboard).
   "contacts/bank-changes",
+  // Spec 193: แจ้งปัญหา / ขอฟีเจอร์ drills down from /settings (back chip).
+  "feedback",
   // Spec 162: the Nova operator console drills down from /settings (back chip).
   "nova",
   // Spec 161 U7: the dials calibration console drills down from /nova.

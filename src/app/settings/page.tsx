@@ -17,6 +17,7 @@ import {
   Wallet,
   Warehouse,
   Wrench,
+  MessageSquarePlus,
 } from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { AvatarSurface } from "@/components/features/common/avatar-surface";
@@ -298,6 +299,18 @@ export default async function SettingsPage() {
         <div className="flex flex-col gap-2">
           <h2 className="text-meta text-ink-secondary font-semibold">การแสดงผล</h2>
           <ThemeToggle initial={themeSetting} />
+        </div>
+
+        {/* Help / feedback — everyone (spec 193). Report a bug or ask for a
+            feature; the form auto-attaches role/version/device for the team. */}
+        <div className="flex flex-col gap-2">
+          <h2 className="text-meta text-ink-secondary font-semibold">ความช่วยเหลือ</h2>
+          <SettingsLink
+            href="/feedback"
+            icon={MessageSquarePlus}
+            label="แจ้งปัญหา / ขอฟีเจอร์"
+            hint="พบข้อผิดพลาด หรืออยากให้ระบบทำอะไรได้เพิ่ม"
+          />
         </div>
 
         {/* About — everyone */}

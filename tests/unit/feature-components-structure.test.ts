@@ -27,6 +27,8 @@ const ALLOWED_DOMAINS = [
   "store",
   // Spec 183: the ภาพรวม dashboard feature components (pending-approvals card).
   "dashboard",
+  // Spec 193: the in-app feedback (bug/feature report) form.
+  "feedback",
 ] as const;
 
 describe("feature components are grouped into domain folders", () => {
