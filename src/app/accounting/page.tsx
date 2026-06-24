@@ -80,6 +80,14 @@ export default async function AccountingPage({ searchParams }: AccountingPagePro
   const grouped = groupTrialBalance(trialBalance);
   const pl = profitAndLoss(trialBalance);
 
+  // Spec 196 Tier 1: each trial-balance account drills into its ledger (the posted
+  // lines behind the total), carrying the current period + project scope.
+  const ledgerHref = (accountCode: string) => {
+    const q = new URLSearchParams({ code: accountCode, from, to });
+    if (projectId) q.set("project", projectId);
+    return `/accounting/ledger?${q.toString()}`;
+  };
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -220,19 +228,27 @@ export default async function AccountingPage({ searchParams }: AccountingPagePro
                 </div>
                 <ul className="divide-edge flex flex-col divide-y">
                   {grouped.sections[cls].map((row) => (
-                    <li key={row.code} className="flex items-center justify-between gap-3 py-2">
-                      <div className="min-w-0">
-                        <p className="text-ink truncate text-sm font-medium">{row.nameTh}</p>
-                        <p className="text-ink-muted text-xs">{row.code}</p>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <p className="text-ink text-sm font-medium tabular-nums">
-                          {row.debitTotal > 0 ? baht(row.debitTotal) : "—"}
-                        </p>
-                        <p className="text-ink-secondary text-xs tabular-nums">
-                          {row.creditTotal > 0 ? baht(row.creditTotal) : "—"}
-                        </p>
-                      </div>
+                    <li key={row.code}>
+                      <Link
+                        href={ledgerHref(row.code)}
+                        className="hover:bg-sunk focus-visible:ring-action -mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-2 transition-colors focus:outline-none focus-visible:ring-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-ink truncate text-sm font-medium">{row.nameTh}</p>
+                          <p className="text-ink-muted text-xs">{row.code}</p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1.5 text-right">
+                          <div>
+                            <p className="text-ink text-sm font-medium tabular-nums">
+                              {row.debitTotal > 0 ? baht(row.debitTotal) : "—"}
+                            </p>
+                            <p className="text-ink-secondary text-xs tabular-nums">
+                              {row.creditTotal > 0 ? baht(row.creditTotal) : "—"}
+                            </p>
+                          </div>
+                          <ChevronRight aria-hidden className="text-ink-muted h-4 w-4 shrink-0" />
+                        </div>
+                      </Link>
                     </li>
                   ))}
                 </ul>
