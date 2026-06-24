@@ -5472,6 +5472,13 @@ export type Database = {
         Args: { p_id: string; p_rate: number }
         Returns: undefined
       }
+      set_feedback_status: {
+        Args: {
+          p_id: string
+          p_status: Database["public"]["Enums"]["feedback_status"]
+        }
+        Returns: undefined
+      }
       set_item_sell_rate: {
         Args: { p_catalog_item_id: string; p_sell_rate: number }
         Returns: undefined

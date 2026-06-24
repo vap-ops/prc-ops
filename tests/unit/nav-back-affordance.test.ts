@@ -70,6 +70,8 @@ const STATIC_DETAIL = [
   "contacts/bank-changes",
   // Spec 193: แจ้งปัญหา / ขอฟีเจอร์ drills down from /settings (back chip).
   "feedback",
+  // Spec 193 U3: the super_admin triage backlog drills down from /settings.
+  "feedback/review",
   // Spec 162: the Nova operator console drills down from /settings (back chip).
   "nova",
   // Spec 161 U7: the dials calibration console drills down from /nova.

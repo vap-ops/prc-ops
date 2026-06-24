@@ -5,12 +5,19 @@
 
 export type FeedbackType = "bug" | "feature";
 
+// Spec 193 U3 — the triage lifecycle (mirrors the feedback_status enum).
+export type FeedbackStatus = "open" | "in_progress" | "done" | "declined";
+
 export const FEEDBACK_TITLE_MAX = 200;
 export const FEEDBACK_BODY_MAX = 4000;
 export const FEEDBACK_SCREEN_MAX = 200;
 
 export function isFeedbackType(v: string): v is FeedbackType {
   return v === "bug" || v === "feature";
+}
+
+export function isFeedbackStatus(v: string): v is FeedbackStatus {
+  return v === "open" || v === "in_progress" || v === "done" || v === "declined";
 }
 
 export function validateFeedback(input: {

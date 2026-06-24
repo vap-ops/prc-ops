@@ -43,8 +43,32 @@ title, screen, page_path, body from public.feedback where status = 'open' order 
 created_at desc;` — every row carries enough to locate the code (screen / page_path
 / role) and act.
 
+## U2 — screenshot attachments (shipped)
+
+mig `20260813000200`, pgTAP `210`: a private `feedback-attachments` bucket + a
+path-bound own-feedback upload policy + an append-only `feedback_attachments`
+table (zero authenticated read; admin/super reads) written via the
+`add_feedback_attachment` definer (caller must own the feedback). The form gained
+an image picker (≤4, best-effort post-submit upload).
+
+## U3 — super_admin review list + status RPC (shipped)
+
+The deferred backlog view. `super_admin` only.
+
+- **mig `20260813001100`, pgTAP `217`:** `set_feedback_status(p_id, p_status)` —
+  a super_admin-only definer that moves a report through its lifecycle
+  (`open → in_progress → done / declined`). The `feedback` table has no UPDATE
+  grant/policy, so the definer is the sole status writer; `feedback` is NOT
+  append-only (status is a mutable lifecycle, by design). Raises `42501` for a
+  non-super caller, `22023` for an unknown id.
+- **`/feedback/review`** (drills down from `/settings`, super-only `SettingsLink`):
+  every report newest-first with the auto-captured triage context (role / version
+  / device / page / screen) + signed-URL screenshot thumbnails (read via the
+  service-role admin, gated to super_admin) + a `FeedbackStatusControl` per row.
+- Labels single-sourced in `labels.ts` (`FEEDBACK_TYPE_LABEL` /
+  `FEEDBACK_STATUS_LABEL`); `isFeedbackStatus` guards the action input.
+
 ## Deferred
 
-- An in-app `super_admin` review list (today CC reads via `db query`).
-- Screenshot attachment (storage bucket + RLS) — would help UI bugs.
-- A status-update RPC (mark triaged/done) + a Telegram ping on new feedback.
+- A Telegram ping on new feedback.
+- Status-filter chips on the review list (currently lists all, newest-first).

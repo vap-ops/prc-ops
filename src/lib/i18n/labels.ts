@@ -168,6 +168,21 @@ export const USER_ROLE_LABEL: Record<Enums["user_role"], string> = {
   project_director: "Project Director",
 };
 
+// Spec 193 U3 — feedback type + triage-status labels for the super_admin review
+// list. (The form's segmented toggle uses verb phrases — แจ้งปัญหา / ขอฟีเจอร์;
+// these are the short NOUN badges the backlog list shows.)
+export const FEEDBACK_TYPE_LABEL: Record<Enums["feedback_type"], string> = {
+  bug: "ปัญหา",
+  feature: "ฟีเจอร์",
+};
+
+export const FEEDBACK_STATUS_LABEL: Record<Enums["feedback_status"], string> = {
+  open: "ใหม่",
+  in_progress: "กำลังดำเนินการ",
+  done: "เสร็จแล้ว",
+  declined: "ปฏิเสธ",
+};
+
 // One date-time formatter for the whole UI: Thai Buddhist era (what Thai
 // users read everywhere), pinned to Asia/Bangkok so a server render and
 // a client render of the same instant produce the same string — the two

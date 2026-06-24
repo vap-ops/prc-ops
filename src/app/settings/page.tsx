@@ -9,6 +9,7 @@ import {
   Files,
   Hammer,
   HardHat,
+  Inbox,
   Package,
   Sparkles,
   Store,
@@ -288,6 +289,16 @@ export default async function SettingsPage() {
             label="แจ้งปัญหา / ขอฟีเจอร์"
             hint="พบข้อผิดพลาด หรืออยากให้ระบบทำอะไรได้เพิ่ม"
           />
+          {/* Spec 193 U3: the operator's triage backlog — every report filed,
+              with status control. super_admin only (RLS reads all). */}
+          {role === "super_admin" && (
+            <SettingsLink
+              href="/feedback/review"
+              icon={Inbox}
+              label="รายการที่แจ้งเข้ามา"
+              hint="ดูและจัดการคำขอ/ปัญหาที่ผู้ใช้แจ้ง"
+            />
+          )}
         </div>
 
         {/* About — everyone */}

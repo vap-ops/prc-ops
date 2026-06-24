@@ -3,7 +3,7 @@
 // lengths. Thai, user-facing.
 
 import { describe, it, expect } from "vitest";
-import { validateFeedback } from "@/lib/feedback/validate";
+import { validateFeedback, isFeedbackStatus } from "@/lib/feedback/validate";
 
 function input(over: Partial<Parameters<typeof validateFeedback>[0]> = {}) {
   return {
@@ -38,5 +38,22 @@ describe("validateFeedback", () => {
   it("allows an absent / empty screen (optional)", () => {
     expect(validateFeedback(input({ screen: "" }))).toBeNull();
     expect(validateFeedback(input({ screen: "หน้ารายการงาน" }))).toBeNull();
+  });
+});
+
+// Spec 193 U3 — the triage lifecycle. set_feedback_status accepts only the four
+// enum values; the server action narrows untrusted input with this guard.
+describe("isFeedbackStatus", () => {
+  it("accepts the four lifecycle statuses", () => {
+    expect(isFeedbackStatus("open")).toBe(true);
+    expect(isFeedbackStatus("in_progress")).toBe(true);
+    expect(isFeedbackStatus("done")).toBe(true);
+    expect(isFeedbackStatus("declined")).toBe(true);
+  });
+
+  it("rejects anything else", () => {
+    expect(isFeedbackStatus("resolved")).toBe(false);
+    expect(isFeedbackStatus("")).toBe(false);
+    expect(isFeedbackStatus("bug")).toBe(false);
   });
 });
