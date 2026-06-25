@@ -1,6 +1,6 @@
 # Spec 202 — Equipment usage UI: activate the dormant rental economics
 
-**Status:** U1·U2 shipped · U3 next — 2026-06-25. **Driver:** the 2026-06-25 material/equipment
+**Status:** U1·U2 shipped · U3 building (schema — flag before push) — 2026-06-25. **Driver:** the 2026-06-25 material/equipment
 lifecycle review found that spec 146 (P2 rental money, ADR 0055 decision 5) shipped
 **all** of its DB plumbing — `equipment_items.daily_rate`, the
 `set_equipment_daily_rate` / `create_equipment_rental_batch` /
@@ -231,3 +231,92 @@ item (U1), then as a site_admin open a WP → อุปกรณ์ → check th
 - **U3 (next):** the F2/F3 coherence guards — `check_out_equipment` rejects an item not
   physically on hand and flips `equipment_items.status` to/from `in_use`. That one carries
   an RPC migration (change-management gate), flagged before push.
+
+---
+
+## U3 — check-out coherence guards: F2 (physical availability) + F3 (in_use overlay) (2026-06-25)
+
+**Status:** building. **SCHEMA** (change-management gate — flag before `db:push`). The two
+latent bugs the 2026-06-25 lifecycle review surfaced, now that U2 made checkout reachable:
+the two "where is it" systems (`equipment_movements` = project-grain custody;
+`equipment_usage_logs` = WP-grain billing) had **no cross-check**, so you could bill a WP
+for gear that's lost/returned, and `equipment_status='in_use'` was a dead enum value
+(nothing set it). U3 closes both with a `CREATE OR REPLACE` of the two usage RPCs — **no
+new table, column, grant, policy, or enum value**.
+
+### Re-source discipline (binding)
+
+The new bodies are sourced from the **LIVE** definitions in
+`20260767000400_equipment_usage_director_gates.sql` (the latest — confirmed no later
+redefinition), which carry the **five-role gate** `site_admin / project_manager /
+project_director / procurement / super_admin` (ADR 0058, pgTAP 90/91). The F2/F3 lines are
+**added** to that exact body — never re-derived from the pre-director `20260767000100`
+original, or the director arm is dropped and the ADR-0058 slip returns.
+
+### What ships
+
+- **Migration `20260813001900_spec202u3_equipment_checkout_guards.sql`** — `CREATE OR
+REPLACE` of both RPCs (grants preserved across replace; no DROP):
+  - **F2 (check-out):** read `status` alongside `daily_rate`; after the priced check, reject
+    when `status NOT IN ('available','on_site','in_use')` → `P0001` "equipment not on site
+    (maintenance/returned/lost)". **`in_use` is allowed through** — a genuine `in_use` has an
+    open span and is caught by the existing one-open-checkout guard with the precise "already
+    checked out" message; a manually-set `in_use` with no open span is legitimately
+    checkout-able. Placed before the WP checks (item validity grouped).
+  - **F3 (check-out):** after the insert, `update equipment_items set status='in_use'`. A
+    **best-effort overlay, NOT authoritative** — any later `equipment_movements` row
+    re-derives status via its trigger and clobbers it; the open usage log stays the source of
+    truth for "is it out". Documented as a seam.
+  - **F3 (check-in):** after closing the span, restore status to what the item's **latest
+    movement** implies (`deployed→on_site`, `returned→returned`, …; **no movement →
+    available**), reusing the `equipment_movement_derive_status` mapping. Unconditional
+    re-derive (idempotent — coherent whatever the current status).
+  - **Everything else byte-for-byte from `20260767000400`:** the five-role gates, the
+    advisory locks, the date/exists/priced/complete/double-open guards, the exact inserts.
+
+- **App — `checkOutEquipment` error mapping** (`src/lib/equipment/usage-actions.ts`): add a
+  branch mapping the new `not on site` `P0001` → Thai ("อุปกรณ์นี้ไม่พร้อมใช้งาน
+  (ซ่อม/คืน/สูญหาย)"). Backward-compatible (the message can't occur until `db:push`), so the
+  app commit is safe to ship before the migration applies.
+
+### Scope
+
+- **IN:** the `CREATE OR REPLACE` migration (F2 + F3 on both RPCs), the one app error branch,
+  pgTAP, spec/tracker. **OUT:** any new column/table/enum/grant/policy; an audit_log row (the
+  usage RPCs are self-auditing append-only — the status flip is a denormalization like the
+  movement trigger, no audit, consistent with the existing posture); blocking a movement that
+  clobbers `in_use` (the documented overlay seam); the project-scoped item picker (a U2 seam);
+  bulk/quantity; the materials F4 `stockable` guard (separate one-liner).
+
+### Money posture
+
+Unchanged — F2/F3 touch only `equipment_items.status` (field-visible tracking, never money)
+and read no money column. `daily_rate_snapshot` stays anti-granted.
+
+### Tests
+
+- **pgTAP — new file `223-equipment-checkout-guards.test.sql`** (RED first, before
+  `db:push`): seed items in each status + a director/site_admin/visitor + a `deployed`-movement
+  item + a no-movement item. Assert: **F2** maintenance/returned/lost → `P0001`, available &
+  on_site → `lives_ok`; **F3** checkout sets `status='in_use'`; **F3 restore** check-in →
+  `on_site` (deployed movement) and → `available` (no movement); **gate regression**
+  (project_director `lives_ok`, visitor `42501` — the re-source trap guard); **existing-guard
+  regression** (unpriced → `P0001`, complete WP → `P0001`, double-open → `P0001` with the
+  "already checked out" message, proving `in_use` passes the F2 status guard). UUIDs hex-only;
+  `_tap_buf` grants before `set local role authenticated`; no `COMMIT`, closing `ROLLBACK`.
+
+### Verification
+
+`pnpm lint && pnpm typecheck && pnpm test` green (the app branch). **pgTAP RED pre-apply**
+(well-formed, fails for the right reason against the un-migrated DB). Then — **after operator
+OK to push (schema gate)** — `db:push` → `db:test` green → `db:types` (no signature change, so
+types are unaffected; regenerate to confirm). Operator on-device: an item in ซ่อมบำรุง can't be
+checked out; checking an item out shows it กำลังใช้งาน in the registry; checking it back in
+returns it to อยู่หน้างาน/พร้อมใช้งาน.
+
+### Seams
+
+- **Movements clobber `in_use`.** A movement recorded mid-checkout re-derives status and
+  overwrites the overlay; the open usage log remains authoritative. A reconciliation (a movement
+  that refuses to disturb an in_use item, or a combined status view) is a later refinement.
+- **F4 (materials):** `record_stock_in` still doesn't enforce `stockable=false` — separate one-liner.

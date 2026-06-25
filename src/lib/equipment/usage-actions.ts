@@ -23,6 +23,8 @@ function checkOutErrorToThai(message: string): string {
   if (message.includes("daily rate") || message.includes("price it first")) {
     return "อุปกรณ์นี้ยังไม่ได้ตั้งค่าเช่า — ให้ผู้จัดการตั้งราคาก่อน";
   }
+  // Spec 202 U3 (F2): the item isn't physically on hand (maintenance/returned/lost).
+  if (message.includes("not on site")) return "อุปกรณ์นี้ไม่พร้อมใช้งาน (ซ่อม/คืน/สูญหาย)";
   if (message.includes("complete")) return "งานปิดแล้ว เช็คเอาท์อุปกรณ์ไม่ได้";
   if (message.includes("not found")) return "ไม่พบอุปกรณ์หรืองานนี้";
   return GENERIC_ERROR;

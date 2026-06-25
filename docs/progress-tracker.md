@@ -6,6 +6,23 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 202 U3 — equipment check-out coherence guards F2 + F3 (2026-06-25)
+
+Status: **IN PROGRESS — 2026-06-25** (SCHEMA — RPC migration, flag before db:push).
+Closes the two latent bugs the lifecycle review surfaced, now reachable via U2:
+F2 = `check_out_equipment` rejects gear not physically on hand (status ∉
+{available,on_site,in_use}); F3 = checkout flips `equipment_items.status`→`in_use`,
+check-in restores the movement-derived status. `CREATE OR REPLACE` of both usage RPCs —
+**no new table/column/grant/policy/enum**.
+
+**Re-source discipline:** bodies sourced from the LIVE `20260767000400` (five-role gate
+incl. project_director, ADR 0058) + the F2/F3 lines — never the pre-director original.
+
+**Test-first** (pgTAP RED before db:push): `223-equipment-checkout-guards.test.sql` —
+F2 status blocks, F3 in_use set + restore (deployed→on_site, none→available), gate
+regression (director lives / visitor 42501 = the re-source guard), existing-guard
+regression (unpriced/complete/double-open). App: one `checkOutEquipment` error branch.
+
 ## Spec 202 U2 — check-out / check-in equipment on the WP page (2026-06-25)
 
 Status: **SHIPPED to prod — 2026-06-25** (no DB; lint · typecheck · vitest 1690 green).
