@@ -6,6 +6,23 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 203 U1 — schedule the GL posting drain (2026-06-25)
+
+Status: **BUILT — awaiting db:push OK** (2026-06-25; SCHEMA — pg_cron). A dig into 3
+"pre-existing" pgTAP fails (85/86/87) found a PROD GAP: `drain_gl_posting` (spec 149)
+was never scheduled — cron had gl-posting-PRUNE but not DRAIN, worker is PDF-only. 27
+purchase_requests sat pending since 06-23; in-app GL posting nothing.
+
+**B (done, operator-approved one-off):** `select drain_gl_posting(100)` posted 18 backlog
+jobs; this re-greened 85/86/87 (pending backlog gone). **A (this unit):** mig
+20260813002000 = pg_cron `gl-posting-drain` every minute calling `drain_gl_posting(100)`
+directly (pure SQL, no app endpoint, mirrors the prune cron). pgTAP 224 (plan 3) asserts
+the cron exists — RED pre-apply, GREEN post-apply.
+
+**Discovered follow-ups (own units):** (1) 9 WP-bound `delivered` PRs (~฿102k) won't post —
+`post_purchase_to_gl` gates on status purchased/site_purchased; relax + re-post. (2) drain
+lacks FOR UPDATE SKIP LOCKED (overlap). (3) 85/86/87 assert total count not own-job (fragile).
+
 ## Spec 202 U3 — equipment check-out coherence guards F2 + F3 (2026-06-25)
 
 Status: **SHIPPED to prod — 2026-06-25** (be54719, mig 20260813001900, pgTAP 223
