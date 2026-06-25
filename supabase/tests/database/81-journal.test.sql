@@ -159,9 +159,17 @@ select is(
   (select count(*) from public.journal_entries
     where reversal_of = (select id from public.journal_entries where memo = 'TAP-J-1')),
   1::bigint, 'a reversal entry exists linked via reversal_of');
+-- Scope to THIS fixture's entries (audit_log.target_id = the journal entry id):
+-- the table-wide journal_posted count grows with every real drained posting, so
+-- a global `= 2` goes red the moment prod posts a journal entry.
 select is(
-  (select count(*) from public.audit_log where action = 'journal_posted'),
-  2::bigint, 'two journal_posted audit rows (the entry + its reversal)');
+  (select count(*) from public.audit_log
+    where action = 'journal_posted'
+      and target_id in (
+        select id from public.journal_entries
+         where memo = 'TAP-J-1'
+            or reversal_of = (select id from public.journal_entries where memo = 'TAP-J-1'))),
+  2::bigint, 'two journal_posted audit rows for this fixture (the entry + its reversal)');
 select is(
   (select count(*) from public.journal_lines
     where entry_id = (select id from public.journal_entries where memo = 'TAP-J-1')

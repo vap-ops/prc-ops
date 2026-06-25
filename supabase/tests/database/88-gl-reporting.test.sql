@@ -29,6 +29,16 @@ insert into public.projects (id, code, name, client_id) values
 -- in-flight job would trip it. Owner context here; rolled back with the test.
 delete from public.gl_posting_outbox;
 
+-- Capture the pre-fixture retention-control (1210) GL balance. gl_reconciliation
+-- reports a GLOBAL control value over an unpruned ledger, so the fixture's effect
+-- is asserted below as a DELTA (after − before = 5000), not an absolute total.
+create temp table _tap_1210_pre as
+  select coalesce(sum(l.debit) - sum(l.credit), 0)::numeric as bal
+    from public.journal_lines l
+    join public.gl_accounts a on a.id = l.account_id
+   where a.code = '1210';
+grant select on _tap_1210_pre to authenticated;
+
 -- ============================================================================
 -- A. Catalog.
 -- ============================================================================
@@ -80,20 +90,27 @@ select is(
   (select sum(debit_total) from public.gl_trial_balance(date '2026-01-01', date '2027-12-31')),
   (select sum(credit_total) from public.gl_trial_balance(date '2026-01-01', date '2027-12-31')),
   'trial balance balances (Σdebit = Σcredit)');
+-- Project-scoped so prod revenue/retention in OTHER projects can't inflate these
+-- (the billing poster stamps project_id on every line). The fixture project holds
+-- exactly this one billing.
 select is(
-  (select credit_total from public.gl_trial_balance(date '2026-01-01', date '2027-12-31') where code = '4100'),
-  100000::numeric, 'Revenue (4100) credit total = 100000');
+  (select credit_total from public.gl_trial_balance(
+     date '2026-01-01', date '2027-12-31', 'cc000001-0000-4000-8000-000000000648') where code = '4100'),
+  100000::numeric, 'Revenue (4100) credit total = 100000 (project-scoped)');
 select is(
-  (select debit_total from public.gl_trial_balance(date '2026-01-01', date '2027-12-31') where code = '1210'),
-  5000::numeric, 'Retention receivable (1210) debit total = 5000');
+  (select debit_total from public.gl_trial_balance(
+     date '2026-01-01', date '2027-12-31', 'cc000001-0000-4000-8000-000000000648') where code = '1210'),
+  5000::numeric, 'Retention receivable (1210) debit total = 5000 (project-scoped)');
 
 -- ============================================================================
 -- D. Reconciliation (pm).
 -- ============================================================================
 select is((select ok from public.gl_reconciliation() where check_name = 'trial_balance_balanced'),
   true, 'global trial balance reconciles');
-select is((select gl_value from public.gl_reconciliation() where check_name = 'retention_receivable_1210'),
-  5000::numeric, 'retention control = 5000');
+select is(
+  (select gl_value from public.gl_reconciliation() where check_name = 'retention_receivable_1210')
+    - (select bal from _tap_1210_pre),
+  5000::numeric, 'the fixture raises the retention 1210 control by exactly 5000 (delta)');
 select is((select ok from public.gl_reconciliation() where check_name = 'retention_receivable_1210'),
   true, 'retention 1210 ties to its subledger');
 select is((select ok from public.gl_reconciliation() where check_name = 'output_vat_2200'),

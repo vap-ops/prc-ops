@@ -19,6 +19,12 @@ update public.users set role = 'site_admin'      where id = '22222222-2222-2222-
 insert into public.contractors (id, name, created_by) values
   ('dd000001-0000-4000-8000-000000000647', 'WHT Subcon', '11111111-1111-1111-1111-111111110647');
 
+-- Isolate from any pre-existing prod gl_posting_outbox rows: the queue is not
+-- pruned, so a real in-flight job would inflate the table-wide drain count below.
+-- Only the deducted cert (further down) enqueues after this point. Owner context;
+-- rolled back with the test. (Mirrors 84.)
+delete from public.gl_posting_outbox;
+
 -- ============================================================================
 -- A. Catalog + seed.
 -- ============================================================================

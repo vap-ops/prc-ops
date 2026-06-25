@@ -56,6 +56,12 @@ reset role;
 create temp table _tap_cb as
   select id from public.client_billings where project_id = 'cc000001-0000-4000-8000-000000000635';
 grant select on _tap_cb to authenticated;
+
+-- Isolate from any pre-existing prod gl_posting_outbox rows: the queue is not
+-- pruned, so a real in-flight job would inflate the table-wide drain count below.
+-- The certify (further down) enqueues exactly one job after this point. Owner
+-- context; rolled back with the test. (Mirrors 84.)
+delete from public.gl_posting_outbox;
 select is(
   (select status from public.client_billings where project_id = 'cc000001-0000-4000-8000-000000000635'),
   'draft'::public.client_billing_status, 'new billing is draft');
