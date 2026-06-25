@@ -18,6 +18,7 @@ import { photoExtToMime } from "@/lib/photos/path";
 import {
   bucketForKind,
   classifyStorageUploadError,
+  isAuthzDenied,
   nextPassDelayMs,
   processQueue,
   type ProcessDeps,
@@ -204,12 +205,22 @@ export function UploadQueueRunner() {
 
   if (items.length === 0) return null;
 
+  // Honest banner: if every queued item is failing on a permanent permission
+  // denial (RLS / 403), it is NOT waiting for signal — it will never send. Say so
+  // rather than blaming the connection (spec 201 bug — a project_director's denied
+  // upload looked like a connectivity wait).
+  const allDenied = items.every((item) => isAuthzDenied(item.lastError));
+
   return (
     <details className="border-attn-edge bg-attn-soft text-attn-ink fixed inset-x-0 bottom-16 z-30 mx-auto w-fit max-w-[90vw] rounded-2xl border px-4 py-1.5 text-xs font-medium shadow sm:bottom-4">
       <summary className="cursor-pointer">
         {/* role=status on the count text only — a live region must not
             swallow the disclosure semantics or the buttons below. */}
-        <span role="status">รอส่งรูป {items.length} รูป — จะส่งอัตโนมัติเมื่อมีสัญญาณ</span>
+        <span role="status">
+          {allDenied
+            ? `ส่งรูปไม่ได้ ${items.length} รูป — สิทธิ์ไม่พอ ติดต่อผู้ดูแลระบบ`
+            : `รอส่งรูป ${items.length} รูป — จะส่งอัตโนมัติเมื่อมีสัญญาณ`}
+        </span>
       </summary>
       {/* Spec 37: the manual-discard seam — the ONLY way an item ever
           leaves the queue without landing; confirm-guarded. Foreign
@@ -221,7 +232,13 @@ export function UploadQueueRunner() {
               <>
                 <span className="min-w-0 flex-1 truncate">{item.fileName}</span>
                 {item.lastError ? (
-                  <span className="text-attn-press shrink-0 text-[10px]">รอส่งใหม่</span>
+                  isAuthzDenied(item.lastError) ? (
+                    <span className="text-danger shrink-0 text-[10px] font-semibold">
+                      สิทธิ์ไม่พอ
+                    </span>
+                  ) : (
+                    <span className="text-attn-press shrink-0 text-[10px]">รอส่งใหม่</span>
+                  )
                 ) : null}
                 <button
                   type="button"

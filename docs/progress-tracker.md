@@ -3149,3 +3149,17 @@ with_check like '%project_director%'). No types/app-code change. **STILL OPEN (h
 operator's running task task_1efe2a55):** the SIBLING pr-attachments bucket upload policies carry the
 same ADR-0058 gap (delivery/invoice photos), and the upload-queue banner lies on a permanent 403
 (treats authz denial like a connectivity wait — classifyStorageUploadError only detects alreadyExists).
+
+**FOLLOW-UP 2026-06-25 (code-only, no DB):** (1) **pr-attachments bucket — NO gap, verified.** Queried
+the LIVE catalog (not the stale migration files): the `pr attachment uploads by request owner or
+receiver` storage policy ALREADY admits project_director (+procurement) — a later migration widened it.
+The migration FILES (20260614100200 etc.) showed sa/pm/super but were stale; **source-from-LIVE caught
+it before I wrote a migration that would have REVERTED the procurement grant** (the recurring lesson, now
+also for storage policies). (2) **Banner truthfulness SHIPPED** — new pure `isAuthzDenied(message)`
+(`src/lib/photos/upload-queue.ts`, matches row-level-security/unauthorized/403/forbidden) + `upload-queue-runner`
+uses it: when every queued item is a permanent permission denial the banner says `ส่งรูปไม่ได้ N รูป —
+สิทธิ์ไม่พอ ติดต่อผู้ดูแลระบบ` (and the per-item label `สิทธิ์ไม่พอ`) instead of the misleading
+`…เมื่อมีสัญญาณ`. Queue logic unchanged — items still kept (evidence never auto-dropped), just labelled
+honestly. Test-first: `upload-queue.test.ts` +isAuthzDenied (20 total). typecheck+lint clean. **The PD
+photo-upload class is now fully closed: photos bucket fixed (PD upload works), pr-attachments confirmed
+already-fine, and a blocked upload no longer lies about why.**

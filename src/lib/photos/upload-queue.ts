@@ -168,6 +168,20 @@ export function classifyStorageUploadError(error: {
   };
 }
 
+// A PERMANENT permission failure (RLS denial / 403), as opposed to a transient or
+// offline one. The queue keeps the item either way (evidence is never auto-dropped),
+// but the banner must tell the truth: a denied upload is NOT "waiting for signal" —
+// it will never send until the permission changes, so the UI says "สิทธิ์ไม่พอ"
+// instead. Works off the stored error message (the only failure signal the queue
+// keeps); a Supabase storage RLS denial reads "new row violates row-level security
+// policy", a 403 reads "Unauthorized" / "Forbidden".
+export function isAuthzDenied(message: string | null | undefined): boolean {
+  if (!message) return false;
+  return /row-level security|unauthorized|not authorized|permission denied|forbidden|\b403\b/i.test(
+    message,
+  );
+}
+
 // Timestamp source for queue ordering — lives here (not in component
 // scope) so the React Compiler's purity lint sees a plain lib call.
 export function queueNowMs(): number {

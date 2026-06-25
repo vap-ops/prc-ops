@@ -3,6 +3,7 @@ import {
   backoffMs,
   bucketForKind,
   classifyStorageUploadError,
+  isAuthzDenied,
   nextPassDelayMs,
   normalizeQueuedUpload,
   processQueue,
@@ -294,6 +295,25 @@ describe("classifyStorageUploadError", () => {
     expect(classifyStorageUploadError({ message: "Failed to fetch" })).toEqual({
       alreadyExists: false,
     });
+  });
+});
+
+describe("isAuthzDenied", () => {
+  it("flags a permanent permission failure (RLS / 403 / unauthorized)", () => {
+    expect(isAuthzDenied("new row violates row-level security policy for table objects")).toBe(
+      true,
+    );
+    expect(isAuthzDenied("Unauthorized")).toBe(true);
+    expect(isAuthzDenied("permission denied for bucket photos")).toBe(true);
+    expect(isAuthzDenied("403: Forbidden")).toBe(true);
+  });
+
+  it("does not flag transient / offline failures (those really do wait for signal)", () => {
+    expect(isAuthzDenied("network down")).toBe(false);
+    expect(isAuthzDenied("Failed to fetch")).toBe(false);
+    expect(isAuthzDenied("upstream")).toBe(false);
+    expect(isAuthzDenied(null)).toBe(false);
+    expect(isAuthzDenied(undefined)).toBe(false);
   });
 });
 
