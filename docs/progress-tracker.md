@@ -3132,3 +3132,20 @@ the reporter list moved to its own route `/feedback/mine` (reuses `MyFeedbackLis
 guard red until classified → added to STATIC_DETAIL** (it renders DetailHeader, back→/feedback).
 Full suite green after the fix (the other red, supply-plan-manager, was a load flake — passes in
 isolation). typecheck+lint clean. No DB. Not browser-verified (LINE-auth-gated; review is super-only).
+
+**BUG FIX (from feedback triage) SHIPPED prod 2026-06-25 (mig `20260813001500`, pgTAP 11 6/6) —
+project_director could not upload photos.** Symptom (real report 0e3a7f3d, a PD): adding a photo
+stuck forever on "รอส่งรูป…เมื่อมีสัญญาณ" on every device with working net. **ROOT CAUSE:** ADR 0058
+(spec 152, mig 20260752000000) made project_director a see-all writer and added it to the
+`photo_logs` INSERT policy — but that sweep only reconstructed `public.*` table policies from
+pg_policies; the `photos` STORAGE bucket upload policy (on `storage.objects`, mig 20260524040000)
+was MISSED. So a PD's capture enqueued → bytes upload to `photos` denied by RLS → offline queue
+(`src/lib/photos/upload-queue.ts`) stuck at step `upload`, retried forever → the generic "waiting
+for signal" banner never cleared (it never reached the photo_logs insert, which already admits PD).
+**FIX:** DROP+CREATE "photos uploads by sa/pm/super" adding `project_director` (kept the policy name
+— precedent: 20260752 added PD to "photo_logs insert by sa/pm/super" without renaming). Verified
+live (pg_policies with_check now lists project_director). Test-first: pgTAP 11 +assert (plan 5→6,
+with_check like '%project_director%'). No types/app-code change. **STILL OPEN (handed to the
+operator's running task task_1efe2a55):** the SIBLING pr-attachments bucket upload policies carry the
+same ADR-0058 gap (delivery/invoice photos), and the upload-queue banner lies on a permanent 403
+(treats authz denial like a connectivity wait — classifyStorageUploadError only detects alreadyExists).

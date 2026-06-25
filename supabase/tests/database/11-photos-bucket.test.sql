@@ -1,5 +1,5 @@
 begin;
-select plan(5);
+select plan(6);
 
 -- ============================================================================
 -- Catalog-only assertions for the `photos` Storage bucket + upload policy.
@@ -58,6 +58,20 @@ select is(
        and 'authenticated' = any(roles)),
   1,
   'INSERT policy "photos uploads by sa/pm/super" exists on storage.objects for authenticated'
+);
+
+-- 6. The upload policy admits project_director (spec 201 bug fix). ADR 0058 added
+--    project_director to the photo_logs INSERT policy but its sweep (20260752) only
+--    covered public.* table policies — this storage.objects policy was missed, so a
+--    director's photo upload was denied (the queue stuck on "waiting for signal").
+select is(
+  (select count(*)::int from pg_policies
+     where schemaname = 'storage'
+       and tablename  = 'objects'
+       and policyname = 'photos uploads by sa/pm/super'
+       and with_check like '%project_director%'),
+  1,
+  'photos upload policy admits project_director'
 );
 
 select * from finish();
