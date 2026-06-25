@@ -20,6 +20,18 @@ describe("PageShell", () => {
     expect(main?.className).toContain("overscroll-y-contain");
   });
 
+  // The page scroller must CLIP horizontal overflow. overflow-y-auto coerces an
+  // unset overflow-x (visible) to auto, so without this any over-wide child
+  // (a non-shrinking flex row, a wide table) would scroll the whole page
+  // left-right — the 2026-06-25 bug (feedback 887ab7d8). clip (not hidden) pins
+  // the x-axis without it ever becoming user-scrollable. This guard is the
+  // single systemic defense: every route renders PageShell.
+  it("clips horizontal overflow so no child can scroll the page left-right", () => {
+    const { container } = render(<PageShell>x</PageShell>);
+    const main = mainOf(container);
+    expect(main?.className).toContain("overflow-x-clip");
+  });
+
   it("app variant (default) carries the page wash + tab-bar clearance", () => {
     const { container } = render(<PageShell>x</PageShell>);
     const main = mainOf(container);

@@ -9,7 +9,15 @@
 
 type PageShellVariant = "app" | "card" | "bare";
 
-const SHELL_BASE = "h-full overflow-y-auto overscroll-y-contain text-ink";
+// overflow-x-clip is the app-wide guard against the "page scrolls left-right"
+// bug (feedback 887ab7d8): overflow-y-auto coerces an unset overflow-x to auto,
+// so any over-wide child (a non-shrinking flex row, a wide table) would make
+// THIS scroller pan horizontally. clip pins the x-axis — it never becomes
+// user- or programmatically-scrollable — while overflow-y-auto keeps the
+// vertical scroll. Every route renders PageShell, so this one line contains the
+// whole class. Children that legitimately need a horizontal scroll (chip/tab
+// strips) carry their own overflow-x-auto and scroll within themselves.
+const SHELL_BASE = "h-full overflow-x-clip overflow-y-auto overscroll-y-contain text-ink";
 
 const VARIANT_CLASSES: Record<PageShellVariant, string> = {
   /** Content pages: zinc wash + phone tab-bar clearance. */

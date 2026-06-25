@@ -67,9 +67,17 @@ export function WpDetailTabs({
 
   return (
     <>
-      {/* Full-bleed tab bar — matches the pinned progress-bar row above it. */}
+      {/* Full-bleed tab bar — matches the pinned progress-bar row above it.
+          The strip CONTAINS its own horizontal overflow (overflow-x-auto,
+          scrollbar hidden): when the tabs fit they fill the row; when they
+          don't (many tabs / narrow phone) only the strip scrolls — the page
+          never moves (feedback 887ab7d8). */}
       <div className="border-edge bg-card border-b px-5">
-        <div role="tablist" aria-label="ส่วนต่าง ๆ ของงาน" className={`mx-auto flex ${PAGE_MAX_W}`}>
+        <div
+          role="tablist"
+          aria-label="ส่วนต่าง ๆ ของงาน"
+          className={`mx-auto flex ${PAGE_MAX_W} overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
+        >
           {tabs.map((t, i) => {
             const isActive = t.key === active;
             return (
@@ -86,7 +94,7 @@ export function WpDetailTabs({
                 tabIndex={isActive ? 0 : -1}
                 onClick={() => setActive(t.key)}
                 onKeyDown={(e) => onKeyDown(e, i)}
-                className={`text-body focus-visible:ring-action relative flex min-h-11 flex-1 items-center justify-center px-3 py-2 font-semibold whitespace-nowrap transition-colors focus:outline-none focus-visible:ring-2 ${
+                className={`text-body focus-visible:ring-action relative flex min-h-11 min-w-max flex-1 items-center justify-center px-3 py-2 font-semibold whitespace-nowrap transition-colors focus:outline-none focus-visible:ring-2 ${
                   isActive ? "text-action" : "text-ink-secondary hover:text-ink"
                 }`}
               >

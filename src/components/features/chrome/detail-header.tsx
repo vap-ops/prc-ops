@@ -29,7 +29,7 @@ export function DetailHeader({ backHref, backLabel, actions, children }: DetailH
           <Link href={backHref} aria-label={backLabel} className={ICON_CHIP}>
             <ArrowLeft aria-hidden className="h-5 w-5" />
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {actions}
             {/* Spec 53: the PWA's only reload affordance. */}
             <RefreshButton variant="light" />

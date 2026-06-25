@@ -105,6 +105,39 @@ describe("design doctrine (Field-First)", () => {
     expect(/\bwindow\.confirm\s*\(/.test(allSrc)).toBe(false);
   });
 
+  // Horizontal-overflow containment (the 2026-06-25 "page moves left-right"
+  // bug class, feedback 887ab7d8). The page scroller is the ONLY place an
+  // over-wide child can drag the whole page sideways, so the defense lives
+  // there: every <main> in src must clip horizontal overflow, and <main> may
+  // exist ONLY in the two shell primitives (so no route hand-rolls a scroller
+  // that bypasses the guard — ui-conventions §5).
+  it("every page scroller clips horizontal overflow (no left-right page scroll)", () => {
+    const mains = sources.filter((f) => /<main\s+className/.test(f.text));
+    expect(mains.map((f) => f.rel).sort()).toEqual([
+      join("components", "features", "chrome", "page-shell.tsx"),
+      join("components", "features", "chrome", "page-skeleton.tsx"),
+    ]);
+    for (const f of mains) {
+      expect(f.text, `${f.rel} <main> must clip horizontal overflow`).toMatch(
+        /overflow-x-clip|overflow-hidden/,
+      );
+    }
+  });
+
+  // The shared detail-header action row (back chip + gear/reports/store chips +
+  // refresh) must WRAP, never sit in a fixed non-wrapping row — on a narrow
+  // phone a packed chip set would otherwise be clipped by the page scroller's
+  // overflow-x-clip (feedback eee78c24 "menu up top is packed").
+  it("the detail-header action row wraps rather than clipping its chips", () => {
+    const header = readFileSync(join(SRC, "components/features/chrome/detail-header.tsx"), "utf8");
+    // The {actions}+refresh cluster is the second flex child of the top row.
+    const i = header.indexOf("{actions}");
+    expect(i, "actions slot not found").toBeGreaterThan(-1);
+    const enclosing = header.slice(0, i);
+    const lastDiv = enclosing.lastIndexOf("<div");
+    expect(header.slice(lastDiv, i)).toContain("flex-wrap");
+  });
+
   // Tap targets: the capture shutter + hero bar hold the ≥44px floor (the
   // hero bar is h-16 = 64px; the shutter is h-26/w-26 = 104px).
   it("the capture hero bar is at least 44px tall", () => {
