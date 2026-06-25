@@ -3163,3 +3163,15 @@ uses it: when every queued item is a permanent permission denial the banner says
 honestly. Test-first: `upload-queue.test.ts` +isAuthzDenied (20 total). typecheck+lint clean. **The PD
 photo-upload class is now fully closed: photos bucket fixed (PD upload works), pr-attachments confirmed
 already-fine, and a blocked upload no longer lies about why.**
+
+**FOLLOW-UP 2026-06-25 (test-only, no DB) — closed the missing photo_logs regression guard.** The
+photos-bucket guard landed in pgTAP 11, but `photo_logs` had NO photo-specific assertion that
+`project_director` can INSERT/SELECT — that widening shipped in spec-152's mig 20260752 and pgTAP 91 only
+holds the meta-invariant "no policy NAMES project_manager without director", which can't see the photo_logs
+SELECT (it gates on `procurement OR can_see_wp`, no PM literal) nor prove the INSERT behaviorally. Added a
+`project_director` fixture (NOT enrolled in project_members — deliberately exercises the can_see_project
+see-all branch) + 2 cases to `09-photo-logs.test.sql`: H.4 director INSERT lives_ok, I.4 director SELECT
+isnt-0 (plan 48→50). **db:test 09 = 50/50, 11 = 6/6 green** (full suite 167/170 files; the 3 reds are the
+pre-existing `drain posts …` GL-queue flake in 85/86/87 — `have:19 want:1`, the shared-remote
+`drain_gl_posting` count polluted by other sessions; the actual posted-line assertions pass — unrelated to
+photos). unit 20/20 · typecheck · lint green. **PD photo class fully closed AND regression-guarded.**

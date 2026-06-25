@@ -1,5 +1,5 @@
 begin;
-select plan(48);
+select plan(50);
 
 -- ============================================================================
 -- A. Setup as postgres (the test transaction's outer role, which bypasses
@@ -18,6 +18,7 @@ insert into auth.users (id, email, raw_user_meta_data) values
   ('11111111-1111-1111-1111-111111111111', 'super@photo-test.local',   '{}'::jsonb),
   ('22222222-2222-2222-2222-222222222222', 'site@photo-test.local',    '{}'::jsonb),
   ('33333333-3333-3333-3333-333333333333', 'pm@photo-test.local',      '{}'::jsonb),
+  ('55555555-5555-5555-5555-555555555555', 'director@photo-test.local','{}'::jsonb),
   ('44444444-4444-4444-4444-444444444444', 'visitor@photo-test.local', '{}'::jsonb);
 
 update public.users set role = 'super_admin'
@@ -26,6 +27,11 @@ update public.users set role = 'site_admin'
   where id = '22222222-2222-2222-2222-222222222222';
 update public.users set role = 'project_manager'
   where id = '33333333-3333-3333-3333-333333333333';
+-- project_director (ADR 0058) — a see-all PM. Deliberately NOT enrolled in
+-- project_members below: its photo access rides can_see_project's see-all
+-- branch, so these assertions prove the see-all path, not membership.
+update public.users set role = 'project_director'
+  where id = '55555555-5555-5555-5555-555555555555';
 -- '4444…' keeps the default 'visitor' role from the trigger.
 
 insert into public.projects (id, code, name) values
@@ -374,7 +380,21 @@ select lives_ok(
   'project_manager can INSERT into photo_logs'
 );
 
--- H.4 visitor INSERT is denied (RLS WITH CHECK violation → SQLSTATE 42501).
+-- H.4 project_director can INSERT (spec 152 / ADR 0058 widened the INSERT
+--     policy; spec 201 bug fix relies on it). Not a project member — its
+--     can_see_wp rides the see-all branch.
+set local "request.jwt.claims" = '{"sub": "55555555-5555-5555-5555-555555555555"}';
+select lives_ok(
+  $$ insert into public.photo_logs
+       (work_package_id, phase, storage_path, uploaded_by)
+     values ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'::uuid,
+             'during'::public.photo_phase,
+             'projects/A1/during/by-director.jpg',
+             '55555555-5555-5555-5555-555555555555'::uuid) $$,
+  'project_director can INSERT into photo_logs (see-all writer)'
+);
+
+-- H.5 visitor INSERT is denied (RLS WITH CHECK violation → SQLSTATE 42501).
 set local "request.jwt.claims" = '{"sub": "44444444-4444-4444-4444-444444444444"}';
 select throws_ok(
   $$ insert into public.photo_logs
@@ -416,7 +436,15 @@ select isnt(
   'project_manager sees at least one photo_log'
 );
 
--- I.4 visitor sees NOTHING. Load-bearing for the role-level read contract.
+-- I.4 project_director sees rows via can_see_wp's see-all branch (no membership).
+set local "request.jwt.claims" = '{"sub": "55555555-5555-5555-5555-555555555555"}';
+select isnt(
+  (select count(*)::int from public.photo_logs),
+  0,
+  'project_director sees photo_logs (see-all read)'
+);
+
+-- I.5 visitor sees NOTHING. Load-bearing for the role-level read contract.
 set local "request.jwt.claims" = '{"sub": "44444444-4444-4444-4444-444444444444"}';
 select is(
   (select count(*)::int from public.photo_logs),
