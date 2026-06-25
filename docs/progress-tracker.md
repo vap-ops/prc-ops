@@ -3061,3 +3061,20 @@ for super_admin) · `MyFeedbackList` rows + review cards link to it. Reporter vi
 1653/1653, typecheck+lint clean, db:test 165/168 (3 reds = pre-existing GL-drain cluster
 85/86/87, unrelated). db:types regenerated (+feedback_messages, +feedback_author_kind).
 **NEXT = U3 reporter reply (widen post path to the submitter + reporter composer).**
+
+**U3 SHIPPED prod 2026-06-25 (mig `20260813001300`, pgTAP 219 5/5) — reporter reply.** The
+loop closes from the reporter's side. `post_feedback_message` **widened** (same sig → CREATE
+OR REPLACE, grants preserved, body re-sourced from the U2 mig-1200 body — the source-from-LIVE
+discipline) so the author voice is DERIVED from the caller, never trusted: super_admin →
+`operator`, the report's submitter → `reporter`, else 42501. One RPC, role-derived (no second
+write path). **UI:** `/feedback/[id]` shows the `FeedbackReply` composer to `canReply =
+super_admin || submitted_by === viewer` (page fetches `submitted_by`); composer copy
+neutralised (`ตอบกลับ`) so it serves both ends — same component+action, the RPC stamps the
+voice. **Test-first:** pgTAP 219 (submitter posts · stamped reporter · author_id=submitter ·
+non-owner non-super 42501 · super still operator); file 218's "cannot post" retargeted to a
+true outsider (the submitter posting is now the U3 path). No type drift (sig unchanged). Full
+suite 1653/1653, typecheck+lint clean, db:test 165/169 (4 reds = pre-existing GL-drain 85/86/87
+
+- a transient 502 on 05-audit-log-revoke, green in the U2 run — infra hiccup, not code).
+  **NEXT = U4: CC drafts → operator approves — the core (status +awaiting_review/+awaiting_user,
+  draft/publish/resolve RPCs, `state` col on feedback_messages so drafts hide pre-approval, approve UI).**

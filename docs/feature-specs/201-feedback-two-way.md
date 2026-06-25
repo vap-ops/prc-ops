@@ -95,3 +95,25 @@ body)` — super_admin-only definer, stamps `author_kind='operator'` + `author_i
   unknown id / empty body (22023) · append-only UPDATE/DELETE (P0001).
 - `feedback-thread.test.tsx` (4) + `feedback-reply.test.tsx` (2).
 - `pnpm lint && pnpm typecheck && pnpm test` green; `pnpm db:test` 218 green.
+
+## U3 — reporter reply (scope)
+
+The loop closes from the reporter's side: the report's own submitter can now post onto
+the thread. `post_feedback_message` **widens** (same signature → CREATE OR REPLACE,
+grants preserved, body re-sourced from the U2 body) so the author voice is DERIVED from
+the caller, never trusted: super_admin → `operator`, the submitter → `reporter`, anyone
+else → 42501. One RPC, role-derived — no second write path.
+
+- **DB (`20260813001300`, pgTAP 219):** widened gate. file 218's "cannot post" case
+  retargeted to a true non-owner non-super (the submitter posting is now the U3 path).
+- **UI:** `/feedback/[id]` shows the `FeedbackReply` composer to `canReply = super_admin
+|| submitted_by === viewer`; the page fetches `submitted_by` to decide. The composer
+  copy is neutralised (`ตอบกลับ`) so it reads correctly for both ends; the same component
+  - action serve both because the RPC stamps the voice.
+- No new column/enum/type (no `database.types` drift).
+
+### Verification (U3)
+
+- pgTAP `219-feedback-reporter-reply` (5): submitter posts · stamped `reporter` · author_id
+  = submitter · non-owner non-super denied (42501) · super still stamped `operator`.
+- `pnpm lint && pnpm typecheck && pnpm test` green; `pnpm db:test` 218 + 219 green.

@@ -51,7 +51,7 @@ export default async function FeedbackDetailPage({ params }: PageProps) {
   // comes back null (not theirs / not found) → notFound.
   const { data: feedback } = await supabase
     .from("feedback")
-    .select("id, type, status, title, body, created_at")
+    .select("id, type, status, title, body, created_at, submitted_by")
     .eq("id", id)
     .maybeSingle();
   if (!feedback) notFound();
@@ -68,7 +68,9 @@ export default async function FeedbackDetailPage({ params }: PageProps) {
     createdAt: m.created_at,
   }));
 
-  const isSuper = row.role === "super_admin";
+  // U3 — both ends of the conversation may reply: the super_admin operator and the
+  // report's own submitter. (The RPC derives the author voice from the caller.)
+  const canReply = row.role === "super_admin" || feedback.submitted_by === claimsData.claims.sub;
 
   return (
     <PageShell>
@@ -99,7 +101,7 @@ export default async function FeedbackDetailPage({ params }: PageProps) {
           <FeedbackThread messages={messages} />
         </div>
 
-        {isSuper ? <FeedbackReply feedbackId={feedback.id} /> : null}
+        {canReply ? <FeedbackReply feedbackId={feedback.id} /> : null}
       </section>
     </PageShell>
   );

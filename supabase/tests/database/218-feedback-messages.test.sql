@@ -68,12 +68,13 @@ select is(
   0, 'a non-submitter non-super reads nothing');
 reset role;
 
--- E. a non-super caller cannot post (42501) — reporter-reply is a later unit.
+-- E. a non-owner non-super caller cannot post (42501). (The submitter posting is
+-- the reporter-reply path — covered by U3 / file 219.)
 set local role authenticated;
-set local "request.jwt.claims" = '{"sub": "5a000000-0000-4000-8000-000000000218"}';
+set local "request.jwt.claims" = '{"sub": "50000000-0000-4000-8000-000000000218"}';
 select throws_ok(
   $$ select public.post_feedback_message('7e000000-0000-4000-8000-000000000218', 'ตอบกลับ') $$,
-  '42501', null, 'a non-super caller cannot post a message');
+  '42501', null, 'a non-owner non-super cannot post a message');
 reset role;
 
 -- F. unknown feedback id raises not-found (22023); empty body raises 22023.

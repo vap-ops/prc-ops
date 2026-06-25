@@ -1,9 +1,11 @@
 "use client";
 
-// Spec 201 U2 — the operator's reply composer on a feedback thread. A textarea +
-// send; on send it relays to postFeedbackMessage (super-only RPC), clears, and
-// refreshes the thread. A blank reply is a no-op. (The reporter-reply composer is
-// a later unit; in U2 this renders only for the super_admin operator.)
+// Spec 201 U2/U3 — the reply composer on a feedback thread. A textarea + send; on
+// send it relays to postFeedbackMessage, clears, and refreshes the thread. A blank
+// reply is a no-op. The same composer serves both ends of the conversation — the
+// super_admin operator and the report's own submitter — because the RPC derives the
+// author voice (operator vs reporter) from the caller (U3); the page decides who
+// sees it (canReply = super_admin || submitter).
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -35,14 +37,14 @@ export function FeedbackReply({ feedbackId }: { feedbackId: string }) {
   return (
     <div className="flex flex-col gap-2">
       <label className="text-ink-secondary block text-sm font-medium">
-        ตอบกลับผู้แจ้ง
+        ตอบกลับ
         <textarea
           value={body}
           maxLength={4000}
           rows={3}
           disabled={pending}
           onChange={(e) => setBody(e.target.value)}
-          placeholder="พิมพ์ข้อความถึงผู้แจ้ง เช่น ขอรายละเอียดเพิ่ม หรือแจ้งความคืบหน้า"
+          placeholder="พิมพ์ข้อความ…"
           className={`${FIELD_STACKED} resize-y`}
         />
       </label>
