@@ -6,6 +6,54 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 206 — WHT certificate recording UI (2026-06-26)
+
+Status: **SHIPPED — 2026-06-26** (code-only, NO schema/db:push). Audit gap **G11** —
+the last accounting back-office write gap. The `record_wht_certificate` RPC, the
+`wht_certificates`/`wht_rates` tables, the GL-posting trigger, the pure
+`validateWhtCertificate` validator, and the read-only register `/accounting/wht`
+all existed since spec 149 U6, but the validator was **orphaned** — no write
+surface. This unit adds the "+ บันทึกใบหักภาษี" form over the existing RPC.
+
+**Live-DB gate verification (the key find).** Before wiring the gate I queried the
+live RPC: `record_wht_certificate` admits `pm/super/project_director` — the
+migration _file_ shows pm/super, but `…0751…_project_director_rpc_gates.sql`
+widened it live (the "live-body re-source trap"). Same for `create_client_billing`
+
+- `post_journal_entry` (both pd live). So the gate reuses **`PM_ROLES`** (the
+  role-home SSOT) via `isManagerRole`, NOT a fresh `[pm,super]` literal — matching
+  the journal/G8 precedent and the live RPC. Among ACCOUNTING_ROLES reachers only
+  super_admin is a manager, so today the write affordance lights up for super_admin
+  only (auto-widens if spec 166 re-adds PM/PD to the page gate).
+
+**TDD:** `resolveWhtRate(incomeType, override, rates)` (mirrors the RPC's
+`coalesce(p_wht_rate, default_rate)` — finite override wins incl. 0; else the
+income-type default; unknown+no-override → null) written RED-first (6 cases) then
+GREEN. `validateWhtCertificate` unchanged (still the amount gate). **Files:**
+`resolveWhtRate` in `wht-certificate.ts`; `loadWhtFormData` in `load-registers.ts`
+(income types + 3 party masters, parallel reads); `wht/actions.ts`
+`recordWhtCertificate` (gate PM_ROLES, pre-validate, deducted-needs-party friendly
+error, omit-optional args, call on auth.supabase, revalidate); `wht/record-wht-form.tsx`
+(`'use client'` bottom-sheet — direction/form/income-type→rate-autofill/13-digit
+tax id/base/party[supplier|contractor for เราหัก, client for ถูกหัก]/date/note +
+live wht_amount preview); wired into `wht/page.tsx` (canWrite = isManagerRole,
+parallel load). Reuses `AccountingActionResult` + `ACCOUNTING_ACTION_ERROR` from
+`billing-actions.ts`. Verified: typecheck · lint · full vitest **1723/1723** green.
+Visual preview skipped (no dev-auth path — LINE OAuth only; the form is a 1:1 twin
+of the shipped spec-204 billing form). Money renders via the canonical `baht()`
+SSOT.
+
+**Open questions / follow-ups:**
+
+- `BILLING_WRITE_ROLES = [pm,super]` (spec 204) is now confirmed **stale vs its
+  live RPC** (which admits project_director) — a pre-existing UI under-grant (PD
+  can post billings per the RPC but the form never offers it). Not a security hole;
+  flagged for the role-set SSOT consolidation (architecture-audit **rank 2**:
+  fold billing/journal/wht's identical pm/super/pd accounting-write sets into one
+  `ACCOUNTING_WRITE_ROLES`). Not fixed here (scope).
+- `pay_source_table`/`pay_source_id` linking (cert → its source payment), WHT-cert
+  auto-record at billing certify, and ภ.ง.ด. PDF generation remain deferred.
+
 ## Gap G8 — manual journal-entry UI (2026-06-25)
 
 Status: **SHIPPED — 2026-06-25** (code-only, NO schema/db:push). Audit gap **G8** —

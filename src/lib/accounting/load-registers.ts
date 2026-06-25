@@ -148,3 +148,35 @@ async function nameMap(
   for (const row of data ?? []) map.set(row.id, row.name);
   return map;
 }
+
+// Spec 206 — the pickers the WHT recording form needs: income types (with their
+// standard rate) + the three party masters. Writers only; read via admin (the
+// money tables/masters aren't RLS-visible to the accounting role). Parallel reads,
+// no waterfall (specs 147/148).
+export interface WhtFormData {
+  incomeTypes: { value: string; label: string; defaultRate: number }[];
+  suppliers: { id: string; label: string }[];
+  contractors: { id: string; label: string }[];
+  clients: { id: string; label: string }[];
+}
+
+export async function loadWhtFormData(admin: Admin): Promise<WhtFormData> {
+  const [ratesRes, suppliersRes, contractorsRes, clientsRes] = await Promise.all([
+    admin.from("wht_rates").select("income_type, label_th, default_rate").order("income_type"),
+    admin.from("suppliers").select("id, name").order("name"),
+    admin.from("contractors").select("id, name").order("name"),
+    admin.from("clients").select("id, name").order("name"),
+  ]);
+  const party = (rows: { id: string; name: string }[] | null) =>
+    (rows ?? []).map((r) => ({ id: r.id, label: r.name }));
+  return {
+    incomeTypes: (ratesRes.data ?? []).map((r) => ({
+      value: r.income_type,
+      label: r.label_th,
+      defaultRate: Number(r.default_rate),
+    })),
+    suppliers: party(suppliersRes.data),
+    contractors: party(contractorsRes.data),
+    clients: party(clientsRes.data),
+  };
+}

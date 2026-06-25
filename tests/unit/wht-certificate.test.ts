@@ -4,7 +4,7 @@
 // this; deducted certs post Dr (payable) / Cr WHT-payable.
 
 import { describe, it, expect } from "vitest";
-import { validateWhtCertificate } from "@/lib/accounting/wht-certificate";
+import { validateWhtCertificate, resolveWhtRate } from "@/lib/accounting/wht-certificate";
 
 function input(over: Partial<Parameters<typeof validateWhtCertificate>[0]> = {}) {
   return {
@@ -58,5 +58,42 @@ describe("validateWhtCertificate", () => {
   it("rejects a rate outside 0..100", () => {
     expect(validateWhtCertificate(input({ whtRate: 150 })).ok).toBe(false);
     expect(validateWhtCertificate(input({ whtRate: -1 })).ok).toBe(false);
+  });
+});
+
+// Spec 206 — resolveWhtRate mirrors the RPC's coalesce(p_wht_rate, default_rate):
+// the explicit override wins; otherwise the income type's standard rate; unknown
+// type with no override resolves to null (the RPC raises on unknown income_type).
+describe("resolveWhtRate", () => {
+  const rates = [
+    { incomeType: "service", defaultRate: 3 },
+    { incomeType: "rent", defaultRate: 5 },
+    { incomeType: "transport", defaultRate: 1 },
+  ] as const;
+
+  it("uses the income type's default when no override", () => {
+    expect(resolveWhtRate("service", null, rates)).toBe(3);
+    expect(resolveWhtRate("rent", null, rates)).toBe(5);
+    expect(resolveWhtRate("transport", null, rates)).toBe(1);
+  });
+
+  it("lets a finite override win over the default", () => {
+    expect(resolveWhtRate("service", 7, rates)).toBe(7);
+  });
+
+  it("treats a 0 override as a real rate (coalesce, not falsy)", () => {
+    expect(resolveWhtRate("service", 0, rates)).toBe(0);
+  });
+
+  it("falls back to the default when the override is not finite", () => {
+    expect(resolveWhtRate("service", Number.NaN, rates)).toBe(3);
+  });
+
+  it("returns null for an unknown income type with no override", () => {
+    expect(resolveWhtRate("bonus", null, rates)).toBeNull();
+  });
+
+  it("still honours an override for an unknown income type", () => {
+    expect(resolveWhtRate("bonus", 10, rates)).toBe(10);
   });
 });

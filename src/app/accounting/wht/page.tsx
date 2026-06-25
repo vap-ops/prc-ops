@@ -8,11 +8,12 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { requireRole } from "@/lib/auth/require-role";
-import { ACCOUNTING_ROLES } from "@/lib/auth/role-home";
+import { ACCOUNTING_ROLES, isManagerRole } from "@/lib/auth/role-home";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { formatThaiDate } from "@/lib/i18n/labels";
 import { SECTION_HEADING, CARD } from "@/lib/ui/classes";
-import { loadWhtRegister } from "@/lib/accounting/load-registers";
+import { loadWhtRegister, loadWhtFormData } from "@/lib/accounting/load-registers";
+import { RecordWhtForm } from "./record-wht-form";
 
 export const metadata = { title: "ภาษีหัก ณ ที่จ่าย" };
 
@@ -32,7 +33,14 @@ const FORM_LABEL: Record<string, string> = {
 export default async function WhtRegisterPage() {
   const ctx = await requireRole(ACCOUNTING_ROLES);
   const admin = createAdminClient();
-  const rows = await loadWhtRegister(admin);
+  // Among ACCOUNTING_ROLES reachers only super_admin is a manager — exactly the
+  // journal-link gate. Load the form pickers only for writers (parallel, no
+  // waterfall).
+  const canWrite = isManagerRole(ctx.role);
+  const [rows, formData] = await Promise.all([
+    loadWhtRegister(admin),
+    canWrite ? loadWhtFormData(admin) : Promise.resolve(null),
+  ]);
 
   return (
     <PageShell>
@@ -42,6 +50,8 @@ export default async function WhtRegisterPage() {
       </DetailHeader>
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
+        {canWrite && formData ? <RecordWhtForm data={formData} /> : null}
+
         <h2 className={SECTION_HEADING}>ใบหักภาษี ณ ที่จ่าย</h2>
         {rows.length === 0 ? (
           <EmptyNotice>ยังไม่มีใบหักภาษี ณ ที่จ่าย</EmptyNotice>

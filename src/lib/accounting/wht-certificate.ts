@@ -47,3 +47,23 @@ export function validateWhtCertificate(input: WhtCertificateInput): ValidateWhtR
 
   return { ok: true, value: { whtAmount: round2((baseAmount * whtRate) / 100) } };
 }
+
+// Spec 206 — the form's rate resolver, mirroring the RPC's
+// coalesce(p_wht_rate, default_rate): a finite explicit override wins (0 included —
+// coalesce treats it as a real value, not falsy); otherwise the income type's
+// standard rate; an unknown type with no override resolves to null (the RPC raises
+// 'unknown income_type' in that case).
+export interface WhtRateOption {
+  incomeType: string;
+  defaultRate: number;
+}
+
+export function resolveWhtRate(
+  incomeType: string,
+  override: number | null,
+  rates: readonly WhtRateOption[],
+): number | null {
+  if (override !== null && Number.isFinite(override)) return override;
+  const match = rates.find((r) => r.incomeType === incomeType);
+  return match ? match.defaultRate : null;
+}
