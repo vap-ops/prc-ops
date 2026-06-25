@@ -6,6 +6,24 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 203 U2 — widen post_purchase_to_gl gate + remediate the 9 (2026-06-25)
+
+Status: **BUILT — in adversarial review, awaiting db:push OK** (2026-06-25; SCHEMA +
+data remediation). The drain-outage left 9 WP-bound PRs that advanced purchased→delivered
+before any drain ran; `post_purchase_to_gl` gated on purchased/site_purchased only, so it
+refused them (~฿102k unposted). U2 widens the gate to the committed-and-not-voided set
+(purchased/site_purchased/on_route/delivered) and re-enqueues the 9 (failed→pending) so the
+cron posts them. SAFE (no double-book): the enqueue trigger fires ONLY at the purchased
+transition, so one job per PR; WP-less stays suppressed (return null); divert reverses
+directly (doesn't rely on the refusal). Re-sourced from LIVE 20260813001000.
+
+mig 20260813002100 (gate + remediation UPDATE) · pgTAP 225 (plan 12, RED on delivered/
+on_route posting). A applied first verified green (224 + 85/86/87). **A's drain surfaced a
+test-fragility casualty: 81-journal test 28 counts journal_posted audit rows table-wide
+(have 20 want 2) — same class the prune author flagged for 82/84/88. Folds into a
+test-hardening sweep (scope all such counts to their fixtures) — own follow-up, AFTER U2
+posts the 9.**
+
 ## Spec 203 U1 — schedule the GL posting drain (2026-06-25)
 
 Status: **BUILT — awaiting db:push OK** (2026-06-25; SCHEMA — pg_cron). A dig into 3

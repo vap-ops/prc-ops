@@ -1,6 +1,6 @@
 # Spec 203 — Schedule the GL posting drain (the consumer spec 149 never scheduled)
 
-**Status:** U1 built — 2026-06-25 (schema — flag before `db:push`). **Driver:** a
+**Status:** U1 SHIPPED · U2 built (awaiting db:push) — 2026-06-25 (schema). **Driver:** a
 2026-06-25 dig into three "pre-existing" pgTAP failures (`85-client-billing` /
 `86-retention-release` / `87-wht-certificates`, all the `is(drain_gl_posting(100), 1)`
 assert) found a **production gap**: `drain_gl_posting` (spec 149 / ADR 0057, mig
@@ -35,19 +35,49 @@ so this cron makes that durable (the outbox stays drained instead of re-accumula
 `db:push` (after operator OK — schema) → `db:test`: `224` green AND `85/86/87` now green (the
 backlog was drained). No app/code change → no lint/typecheck/vitest impact.
 
+## U2 — widen the poster gate + remediate the 9 (built)
+
+**Status:** built — adversarially reviewed (4 lenses → migration logic ships safe; one
+test-only blocker found + fixed) — awaiting `db:push` OK. **SCHEMA + data remediation.**
+
+The drain outage stranded 9 WP-bound PRs that advanced `purchased → delivered` before any
+drain ran; `post_purchase_to_gl` gated on `purchased`/`site_purchased` only, so it refuses
+them (`failed`, no entry, ~฿102k). The cron can't rescue them (drains `pending`, not
+`failed`, and the poster would still refuse `delivered`).
+
+**Migration `20260813002100`** — `CREATE OR REPLACE post_purchase_to_gl` (re-sourced
+verbatim from the LIVE `20260813001000`, only the gate line changed) widening the gate to
+the **committed-and-not-voided** set `('purchased','site_purchased','on_route','delivered')`;
+still refuses pre-purchase (`requested`/`approved`) and voided (`rejected`/`cancelled`). Plus
+a scoped remediation `UPDATE` resetting the 9 `failed` purchase jobs → `pending` so the cron
+posts them.
+
+**Why no double-book (verified against ground truth by the review):** the WP-bound enqueue
+trigger fires ONLY at the `purchased`/`site_purchased` transition (never `on_route`/`delivered`),
+so exactly one purchase job exists per PR; WP-less PRs hit `return null` after the gate (cost
+via the receipt poster); reverse-and-repost dedups any re-post; the current divert reverses
+directly and no longer relies on the poster refusing `delivered`.
+
+- **pgTAP `225-post-purchase-gate.test.sql`** (plan 14): delivered/on_route WP-bound post
+  (the RED discriminators); the delivered re-post leaves exactly one current entry (the
+  no-double-book dedup); `purchased` still posts; WP-less posts nothing (suppressed); the
+  voided/pre-purchase/null-amount states stay refused. **Review caught a blocker — the
+  original seed's `cancelled`/`rejected` rows violated `pr_cancel_shape` / `pr_reject_has_comment`
+  and aborted the file before any assertion ran (a silent no-op); fixed by adding
+  `cancelled_at` / `decision_comment`.**
+
+**Apply order (the concurrency note):** after `db:push`, run a single operator-context
+`drain_gl_posting(100)` to post the 9 deterministically (rather than leaning on the unguarded
+every-minute cron) — same one-off path that drained the first 18 cleanly.
+
 ## Discovered follow-ups (NOT this unit — own decisions)
 
-1. **The 9 unposted `delivered` purchases (~฿102k).** During the outage, 9 WP-bound PRs
-   advanced `purchased → delivered`; `post_purchase_to_gl` gates on
-   `status in ('purchased','site_purchased')` and now refuses them (`failed`, no journal
-   entry). The cron does **not** rescue them (it drains `pending`, not `failed`, and the
-   poster would still refuse `delivered`). Fix = relax the poster's status gate to post a
-   purchase that has progressed past `purchased` (purchased/shipped/delivered — but not
-   requested/approved/rejected/cancelled), then re-enqueue/re-post the 9. A poster-logic
-   migration + careful double-book check (these are WP-bound with no receipt path, so safe).
-2. **Drain concurrency.** `drain_gl_posting` has no `FOR UPDATE SKIP LOCKED`; an every-minute
+1. **Drain concurrency.** `drain_gl_posting` has no `FOR UPDATE SKIP LOCKED`; an every-minute
    cron could overlap if a run outlives the minute. Reverse-and-repost makes a double-post
    self-correcting for now; adding `SKIP LOCKED` is a small hardening unit.
-3. **Test hardening.** `85/86/87` assert the _total_ drain count, so they only pass against an
-   empty outbox. They should assert their _own_ job posted (its outbox row → `posted` / its
-   journal entry exists) — backlog-immune.
+2. **Test hardening sweep (now concrete).** Table-wide-count GL pgTAP tests break as the GL
+   posts real data — the prune author flagged `82/84/88`; the B drain tripped `81-journal`
+   test 28 (counts `journal_posted` audit rows table-wide → `have 20 want 2`), and U2 posting
+   the 9 will trip more. Scope every such count to its own fixture (by `source_id` / entry id),
+   backlog-immune. One sweep, after U2 posts the 9 so the full set is visible. (`85/86/87` were
+   the same class — now green because the backlog drained, but still total-count-fragile.)
