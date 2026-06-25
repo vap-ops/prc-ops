@@ -4532,6 +4532,7 @@ export type Database = {
         Row: {
           budget: number | null
           is_external: boolean
+          labor_budget: number | null
           updated_at: string
           updated_by: string | null
           work_package_id: string
@@ -4539,6 +4540,7 @@ export type Database = {
         Insert: {
           budget?: number | null
           is_external?: boolean
+          labor_budget?: number | null
           updated_at?: string
           updated_by?: string | null
           work_package_id: string
@@ -4546,6 +4548,7 @@ export type Database = {
         Update: {
           budget?: number | null
           is_external?: boolean
+          labor_budget?: number | null
           updated_at?: string
           updated_by?: string | null
           work_package_id?: string
@@ -5674,6 +5677,10 @@ export type Database = {
       }
       set_wp_external: {
         Args: { p_is_external: boolean; p_wp: string }
+        Returns: undefined
+      }
+      set_wp_labor_budget: {
+        Args: { p_budget: number; p_wp: string }
         Returns: undefined
       }
       settle_project: {

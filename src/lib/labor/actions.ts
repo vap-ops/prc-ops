@@ -157,6 +157,45 @@ export async function refreezeWpLaborCost(input: {
   return { ok: true };
 }
 
+// Spec 205 U1 — set the WP's labor budget (a money cost ceiling, baht). The PM
+// OR the PD (PM_ROLES): the set_wp_labor_budget RPC gates pm/director/super, and
+// the authed session makes that gate pass and pins the audit actor to the setter.
+// The budget-vs-actual surface on the PM review page reads it back via admin.
+export type SetWpLaborBudgetResult = { ok: true } | { ok: false; error: string };
+
+const GENERIC_BUDGET_ERROR = "บันทึกงบค่าแรงไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+
+export async function setWpLaborBudget(input: {
+  workPackageId: string;
+  budget: number;
+  revalidate: string;
+}): Promise<SetWpLaborBudgetResult> {
+  if (!UUID_REGEX.test(input.workPackageId) || !input.revalidate.startsWith("/")) {
+    return { ok: false, error: GENERIC_BUDGET_ERROR };
+  }
+  if (!Number.isFinite(input.budget) || input.budget < 0) {
+    return { ok: false, error: "งบค่าแรงต้องเป็นจำนวนเงินที่ไม่ติดลบ" };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
+
+  const { data: me } = await supabase.from("users").select("role").eq("id", user.id).maybeSingle();
+  if (!me || !PM_ROLES.includes(me.role)) {
+    return { ok: false, error: "เฉพาะ PM หรือ PD เท่านั้นที่ตั้งงบค่าแรงได้" };
+  }
+
+  const { error } = await supabase.rpc("set_wp_labor_budget", {
+    p_wp: input.workPackageId,
+    p_budget: input.budget,
+  });
+  if (error) return { ok: false, error: GENERIC_BUDGET_ERROR };
+
+  revalidatePath(input.revalidate);
+  return { ok: true };
+}
+
 // Spec 127 U2 / spec 170 U3 — record a DC payment for a worker × period.
 // pm/super only (money). The record_dc_payment RPC recomputes the owed amount
 // server-side, re-gates the role, locks per (worker, period) and refuses a

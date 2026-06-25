@@ -3413,3 +3413,40 @@ reds = pre-existing GL-drain 85/86/87); typecheck · lint green. db:types regene
 agent author_id null → target feedback.submitted_by); lower urgency, reporter pools ~0 (spec 192).**
 **SEPARATE: the operator may want to ACTIVATE LINE (set LINE_MESSAGING_CHANNEL_ACCESS_TOKEN + the
 pg_cron drain) — 49 notifications sit queued unsent; that go-live is an operator config task.**
+
+## Spec 205 — WP labor budget, U1: data layer (set_wp_labor_budget) (2026-06-25)
+
+Status: **U1 SHIPPED prod 2026-06-25 (migs `20260813002200` + harden `20260813002300`, pgTAP 226 21/21).**
+Operator directive: "Each WP will have its own labor budget which will be set by either PM or PD."
+
+**Decision (no new ADR — extends ADR 0060):** labor budget = a money (baht) **cost ceiling**
+for labor, distinct from `wp_economics.budget` (the PD-only profit denominator). Money, not
+man-days — the whole labor/profit stack is baht (`wp_labor_costs`, `wp_profit`, `budgetStatus`);
+a man-day budget would have nothing to compare against. Single total (not own/dc split). Lives on
+`wp_economics` (DRY with budget/is_external, same zero-grant MONEY posture + upsert+audit setter).
+Does NOT feed `wp_profit` — display target only. **Gate = PM or PD** (`project_manager`,
+`project_director`, `super_admin`) — deliberately **widens** vs `set_wp_budget` (PD-only) because
+the PM owns crew cost; mirrors `set_wp_external`; names project_manager so project_director rides
+along (ADR 0058 / pgTAP 90, still green).
+
+**DB:** `wp_economics.labor_budget numeric(20,4)` nullable + non-negative check;
+`set_wp_labor_budget(p_wp, p_budget)` definer, upsert preserving budget/is_external, audits
+`{field:'labor_budget'}`. **Server action** `setWpLaborBudget` (`src/lib/labor/actions.ts`):
+shape+non-negative validate, gate PM_ROLES on the authed session, call RPC on the user client.
+
+**Adversarial review (workflow, 15 agents) caught a real medium security bug → harden migration
+`20260813002300`:** the first migration revoked EXECUTE only from `public`, not `anon` (Supabase
+auto-grants EXECUTE to anon on new functions), and the gate was null-unsafe (`current_user_role()`
+is NULL for anon → `NULL not in (...)` is NULL → 42501 never fired → anon could write `labor_budget`
+via direct PostgREST with `actor_id` NULL). Fixed: `revoke ... from public, anon` + null-safe gate
+(role captured once into `v_role`, explicit `is null` check). Verified live: anon_exec=false,
+auth_exec=true. Also softened the table comment ("read by PM review page" → "spec 205 U2, not built
+yet"). **pgTAP 226 (21):** catalog + zero-grant col + anon/auth EXECUTE lockdown · PM/PD/super set ·
+0 accepted (≠ NULL) · SA/visitor/null-role denied (42501) · unknown/negative/null (P0001) · upsert
+preserves budget+is_external · audit count. Full suite green (vitest 1699/1699, typecheck, lint);
+pgTAP 176 files / 3000 assertions / 0 failures incl. 90/99/36. **U2 (PLANNED):** budget-vs-actual
+card on `/review/work-packages/[id]` ค่าแรง section + inline set control.
+
+**Follow-up surfaced (out of scope):** `set_wp_budget` / `set_wp_external` (20260761000000) have NO
+grant management at all → share the latent anon-exec exposure; should get the same `from public, anon`
+revoke + null-safe gate in a hardening sweep.
