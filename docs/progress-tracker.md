@@ -3115,3 +3115,20 @@ U6 reporter notify · `/triage-feedback` skill (the draft gate is now ready for 
   (returns the 2 open reports; untrusted-data boundary confirms the guard). Cadence stays manual.
   **ARC U1–U4 + skill COMPLETE — the loop runs end to end. Remaining (optional): U5 annotated screenshots
   (reuse photo_markups) · U6 reporter notification of a published reply.\*\*
+
+**REVIEW KANBAN + reporter-list split SHIPPED prod 2026-06-25 (no DB, code-only) — UX
+refinement.** Operator: "why is the reporter list crammed under the submit form? also apply
+kanban." Chose (AskUserQuestion) kanban on the **operator triage board** + split the list off
+the form. **Kanban (`/feedback/review`):** four `feedback_status` columns in lifecycle order
+(ใหม่→กำลังดำเนินการ→เสร็จ→ปฏิเสธ), each report a compact card. **NO drag** — no dnd dep + drag
+poor on mobile (operator's device); the card's existing `FeedbackStatusControl` is the move
+mechanism (pick status → set_feedback_status → card lands in that column on refresh). Columns
+scroll horizontally on narrow screens; cards link to the conversation. Pure `groupFeedbackByStatus`
+(`src/lib/feedback/kanban.ts`) + `FeedbackKanban` (server component embedding the client status
+control island). **List split:** `/feedback` is now SUBMIT-only (+ `เรื่องที่เคยแจ้ง →` link);
+the reporter list moved to its own route `/feedback/mine` (reuses `MyFeedbackList`). **Test-first:**
+`feedback-kanban.test.tsx` (5: grouping order/placement/stability + board renders columns+cards).
+**TRAP (the recurring one): new `/feedback/mine` page.tsx → `nav-back-affordance` completeness
+guard red until classified → added to STATIC_DETAIL** (it renders DetailHeader, back→/feedback).
+Full suite green after the fix (the other red, supply-plan-manager, was a load flake — passes in
+isolation). typecheck+lint clean. No DB. Not browser-verified (LINE-auth-gated; review is super-only).

@@ -72,6 +72,9 @@ const STATIC_DETAIL = [
   "feedback",
   // Spec 193 U3: the super_admin triage backlog drills down from /settings.
   "feedback/review",
+  // Spec 201 (review-kanban refinement): the reporter's own submissions split out
+  // of the submit form to their own page (back chip → /feedback).
+  "feedback/mine",
   // Spec 162: the Nova operator console drills down from /settings (back chip).
   "nova",
   // Spec 161 U7: the dials calibration console drills down from /nova.
