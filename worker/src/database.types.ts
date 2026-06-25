@@ -1426,6 +1426,48 @@ export type Database = {
           },
         ]
       }
+      feedback_messages: {
+        Row: {
+          author_id: string | null
+          author_kind: Database["public"]["Enums"]["feedback_author_kind"]
+          body: string
+          created_at: string
+          feedback_id: string
+          id: string
+        }
+        Insert: {
+          author_id?: string | null
+          author_kind: Database["public"]["Enums"]["feedback_author_kind"]
+          body: string
+          created_at?: string
+          feedback_id: string
+          id?: string
+        }
+        Update: {
+          author_id?: string | null
+          author_kind?: Database["public"]["Enums"]["feedback_author_kind"]
+          body?: string
+          created_at?: string
+          feedback_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_messages_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_messages_feedback_id_fkey"
+            columns: ["feedback_id"]
+            isOneToOne: false
+            referencedRelation: "feedback"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gl_accounts: {
         Row: {
           account_type: Database["public"]["Enums"]["gl_account_type"]
@@ -5220,6 +5262,10 @@ export type Database = {
         Returns: string
       }
       post_dc_payment_to_gl: { Args: { p_source_id: string }; Returns: string }
+      post_feedback_message: {
+        Args: { p_body: string; p_feedback_id: string }
+        Returns: string
+      }
       post_journal_entry: {
         Args: { p_entry_date: string; p_lines: Json; p_memo: string }
         Returns: string
@@ -5846,6 +5892,7 @@ export type Database = {
         | "returned"
         | "lost"
       equipment_tracking: "unit" | "bulk"
+      feedback_author_kind: "reporter" | "operator" | "agent"
       feedback_status: "open" | "in_progress" | "done" | "declined"
       feedback_type: "bug" | "feature"
       gl_account_type: "asset" | "liability" | "equity" | "income" | "expense"
@@ -6165,6 +6212,7 @@ export const Constants = {
         "lost",
       ],
       equipment_tracking: ["unit", "bulk"],
+      feedback_author_kind: ["reporter", "operator", "agent"],
       feedback_status: ["open", "in_progress", "done", "declined"],
       feedback_type: ["bug", "feature"],
       gl_account_type: ["asset", "liability", "equity", "income", "expense"],

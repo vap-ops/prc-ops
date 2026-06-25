@@ -66,3 +66,32 @@ fetches via the user's RLS context (server client).
   type + status, sorts newest-first, shows the empty state.
 - `pnpm lint && pnpm typecheck && pnpm test` green.
 - Manual: submit a report → it appears in the list below the form with status `ใหม่`.
+
+## U2 — thread (scope)
+
+A report becomes a conversation. Scope call: U2 needs a seed writer or the thread is
+empty to read — so U2 includes the **operator-posts-a-reply** path. An operator (a
+human) writing IS the human-approved channel; the draft→approve gate (locked dial 1)
+governs **CC-generated** replies, which arrive in U4. Reporter-reply = U3.
+
+- **DB (`20260813001200`, pgTAP 218):** `feedback_messages` (append-only — the message
+  doctrine, like `feedback_attachments`): `feedback_id` FK, `author_kind`
+  (`feedback_author_kind` enum = reporter/operator/agent), `author_id` (null for agent),
+  `body` (1..4000), `created_at`. RLS SELECT: submitter reads the thread on their own
+  report; super_admin reads all. Writes RPC-only. `post_feedback_message(feedback_id,
+body)` — super_admin-only definer, stamps `author_kind='operator'` + `author_id`.
+- **UI:** `FeedbackThread` (presentational, oldest-first, author-labelled, team accent) ·
+  `FeedbackReply` (operator composer → `postFeedbackMessage` action) · a single thread
+  surface at `/feedback/[id]` (RLS own-or-super → notFound otherwise; the composer renders
+  only for super_admin). `MyFeedbackList` rows link to it; the review cards link to it
+  (`ดูบทสนทนา / ตอบกลับ`). `FEEDBACK_AUTHOR_LABEL` added.
+- Reporter view is **read-only** in U2 (reporter-reply composer is U3). No `state`
+  (draft/published) column yet — added in U4 when CC drafts need hiding pre-approval.
+
+### Verification (U2)
+
+- pgTAP `218-feedback-messages` (13): catalog + execute lockdown · super posts (operator) ·
+  submitter reads own thread · non-submitter reads nothing · non-super cannot post (42501) ·
+  unknown id / empty body (22023) · append-only UPDATE/DELETE (P0001).
+- `feedback-thread.test.tsx` (4) + `feedback-reply.test.tsx` (2).
+- `pnpm lint && pnpm typecheck && pnpm test` green; `pnpm db:test` 218 green.

@@ -3041,3 +3041,23 @@ can't read their own attachment rows yet (`feedback_attachments` zero-auth-acces
 to an owner-read policy in a later unit). Test-first: `tests/unit/my-feedback-list.test.tsx`
 (4: titles · type+status badges · newest-first sort · empty state) — red (no module) → green.
 typecheck + lint clean.
+
+**U2 SHIPPED prod 2026-06-25 (mig `20260813001200`, pgTAP 218 13/13) — feedback thread +
+operator reply.** Scope call: a thread needs a seed writer, so U2 includes the
+operator-posts path (a human reply IS the human-approved channel; the draft→approve gate
+governs CC replies in U4). **DB:** `feedback_messages` append-only (message doctrine, like
+`feedback_attachments`) — `feedback_id` FK, `author_kind` (new enum `feedback_author_kind` =
+reporter/operator/agent), `author_id` (null=agent), `body` 1..4000, `created_at`. RLS SELECT
+own-thread (submitter) or super_admin; writes RPC-only. `post_feedback_message(uuid,text)`
+super_admin-only definer → stamps `operator` + `auth.uid()`. pgTAP 218: catalog/lockdown ·
+super posts · submitter reads own · non-submitter reads nothing · non-super cannot post
+(42501) · unknown-id/empty-body (22023) · append-only UPDATE/DELETE (P0001). **UI:**
+`FeedbackThread` (presentational, oldest-first, author-labelled `FEEDBACK_AUTHOR_LABEL`, team
+left-accent) · `FeedbackReply` (operator composer → `postFeedbackMessage` action) · single
+thread surface `/feedback/[id]` (RLS own-or-super → notFound otherwise; composer renders only
+for super_admin) · `MyFeedbackList` rows + review cards link to it. Reporter view read-only
+(reporter-reply = U3); no `state` column yet (draft/published = U4). Test-first:
+`feedback-thread.test.tsx` (4) + `feedback-reply.test.tsx` (2) red→green. Full suite
+1653/1653, typecheck+lint clean, db:test 165/168 (3 reds = pre-existing GL-drain cluster
+85/86/87, unrelated). db:types regenerated (+feedback_messages, +feedback_author_kind).
+**NEXT = U3 reporter reply (widen post path to the submitter + reporter composer).**

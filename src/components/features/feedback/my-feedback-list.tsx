@@ -5,6 +5,7 @@
 // reporter cannot read their own attachment rows (feedback_attachments is zero-
 // authenticated-access); that waits for an owner-read policy in a later unit.
 
+import Link from "next/link";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { CARD } from "@/lib/ui/classes";
 import { FEEDBACK_TYPE_LABEL, FEEDBACK_STATUS_LABEL, formatThaiDateTime } from "@/lib/i18n/labels";
@@ -47,17 +48,24 @@ export function MyFeedbackList({ items }: { items: MyFeedbackItem[] }) {
   return (
     <ul className="flex flex-col gap-3">
       {ordered.map((f) => (
-        <li key={f.id} className={`${CARD} flex flex-col gap-2`}>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={`${BADGE} ${TYPE_BADGE[f.type]}`}>{FEEDBACK_TYPE_LABEL[f.type]}</span>
-            <span className={`${BADGE} ${STATUS_BADGE[f.status]}`}>
-              {FEEDBACK_STATUS_LABEL[f.status]}
-            </span>
-            <span className="text-ink-muted ml-auto text-xs">
-              {formatThaiDateTime(f.createdAt)}
-            </span>
-          </div>
-          <p className="text-ink text-base font-semibold">{f.title}</p>
+        <li key={f.id}>
+          <Link
+            href={`/feedback/${f.id}`}
+            className={`${CARD} hover:bg-sunk focus-visible:ring-action flex flex-col gap-2 focus:outline-none focus-visible:ring-2`}
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`${BADGE} ${TYPE_BADGE[f.type]}`}>
+                {FEEDBACK_TYPE_LABEL[f.type]}
+              </span>
+              <span className={`${BADGE} ${STATUS_BADGE[f.status]}`}>
+                {FEEDBACK_STATUS_LABEL[f.status]}
+              </span>
+              <span className="text-ink-muted ml-auto text-xs">
+                {formatThaiDateTime(f.createdAt)}
+              </span>
+            </div>
+            <p className="text-ink text-base font-semibold">{f.title}</p>
+          </Link>
         </li>
       ))}
     </ul>

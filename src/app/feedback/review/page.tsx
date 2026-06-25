@@ -4,6 +4,7 @@
 // page / screen) and any attached screenshots, and lets the operator move each
 // through its lifecycle (open → in_progress → done / declined) via the status RPC.
 
+import Link from "next/link";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
@@ -173,6 +174,13 @@ export default async function FeedbackReviewPage() {
                   </dl>
 
                   <FeedbackStatusControl id={f.id} status={f.status} />
+
+                  <Link
+                    href={`/feedback/${f.id}`}
+                    className="text-action text-sm font-medium underline-offset-2 hover:underline"
+                  >
+                    ดูบทสนทนา / ตอบกลับ →
+                  </Link>
                 </li>
               );
             })}

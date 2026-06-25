@@ -183,6 +183,15 @@ export const FEEDBACK_STATUS_LABEL: Record<Enums["feedback_status"], string> = {
   declined: "ปฏิเสธ",
 };
 
+// Spec 201 U2 — who authored a thread message. 'operator' = the PRC team/CC reply
+// channel; 'reporter' = the person who filed the report; 'agent' = a CC-drafted
+// reply (arrives in U4).
+export const FEEDBACK_AUTHOR_LABEL: Record<Enums["feedback_author_kind"], string> = {
+  reporter: "ผู้แจ้ง",
+  operator: "ทีมงาน",
+  agent: "ผู้ช่วย AI",
+};
+
 // One date-time formatter for the whole UI: Thai Buddhist era (what Thai
 // users read everywhere), pinned to Asia/Bangkok so a server render and
 // a client render of the same instant produce the same string — the two
