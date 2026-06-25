@@ -19,7 +19,8 @@ import { AwarenessCard } from "@/components/features/dashboard/awareness-card";
 import { getPendingApprovalsSummary } from "@/lib/approvals/pending-summary";
 import { getPendingBankChangeCount } from "@/lib/approvals/pending-bank-changes";
 import { getPendingWorkerBankChangeCount } from "@/lib/approvals/pending-worker-bank-changes";
-import { Landmark } from "lucide-react";
+import { getOpenFeedbackCount } from "@/lib/feedback/triage-count";
+import { Inbox, Landmark } from "lucide-react";
 import { rollupProgress } from "@/lib/dashboard/overview";
 import {
   sumMaterials,
@@ -69,6 +70,12 @@ export default async function DashboardPage() {
     ? (await getPendingBankChangeCount(supabase)) +
       (await getPendingWorkerBankChangeCount(supabase))
     : 0;
+
+  // Spec 201 (awareness arc A1): new feedback (bug reports / feature requests) is a
+  // tabless operator action, so its awareness joins the dashboard inbox. super_admin
+  // only — they alone triage at /feedback/review (RLS reads all open reports); the PM
+  // tier shares this dashboard but cannot triage, so no card for them.
+  const openFeedback = ctx.role === "super_admin" ? await getOpenFeedbackCount(supabase) : 0;
 
   // Operational reads — user session, SA-readable.
   const { data: projectRows } = await supabase
@@ -208,6 +215,17 @@ export default async function DashboardPage() {
             label="การเปลี่ยนบัญชีรอการอนุมัติ"
             href="/contacts/bank-changes"
             icon={Landmark}
+          />
+        ) : null}
+        {/* Spec 201 awareness arc A1: new feedback awaiting triage — the operator's
+            (super_admin) tabless inbox row. Links to the triage kanban; renders only
+            when there is something to triage (AwarenessCard hides at zero). */}
+        {ctx.role === "super_admin" ? (
+          <AwarenessCard
+            count={openFeedback}
+            label="เรื่องแจ้งใหม่รอตรวจ"
+            href="/feedback/review"
+            icon={Inbox}
           />
         ) : null}
 

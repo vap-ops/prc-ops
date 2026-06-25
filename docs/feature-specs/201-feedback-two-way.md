@@ -202,3 +202,77 @@ form? (2) apply a kanban. Operator chose: kanban on the **operator triage board*
 - No DB change (reuses `set_feedback_status`). Test-first: `feedback-kanban.test.tsx` (5 —
   grouping order/placement/stability + board renders columns & cards). Not browser-verified
   (LINE-auth-gated; `/feedback/review` is super-only).
+
+## Awareness arc — closing the silent loop (2026-06-25)
+
+The two-way loop (U1–U4) is **feature-complete but silent**: no signal fires on any event —
+not when a report is filed, not when a reply (operator/agent) is published, not when a draft
+is staged. The reporter must re-poll `/feedback/mine`; the operator must remember to open
+`/feedback/review` or run `/triage-feedback`. The app already has **two** awareness rails and
+feedback uses neither: (1) in-app RLS-scoped head-counts — `AwarenessCard` (dashboard inbox,
+spec 188) + `SelfCountBadge` (nav badges, specs 183–188); (2) the LINE push outbox
+(`notification_outbox`, ADR 0037). This arc closes the loop across both rails, cheapest and
+most self-contained first. It is the in-app realisation of the deferred **U6** (reporter
+notify) plus the symmetric operator side.
+
+**Doctrine fit.** Feedback triage is a _tabless_ operator action, so it belongs in the
+dashboard "inbox" exactly like the WP-review hero and the bank-change card (spec 188: "the
+dashboard inbox surfaces the tabless approvals"). The PM tier — incl. `super_admin`, the
+operator — lands on `/dashboard` (`roleHome`, spec 183), so a card there is the highest-pull,
+lowest-cost surface. "Each item is badged in exactly one place."
+
+### Steps (ranked)
+
+- **A1 — operator new-feedback awareness card** (this unit; code-only, NO DB). A super_admin-only
+  `AwarenessCard` on `/dashboard` showing the count of `open` feedback → `/feedback/review`.
+  Mirrors `getPendingBankChangeCount` + the bank-change card exactly. Honest count→destination
+  (open reports are the `ใหม่` column of the review kanban). Renders only when count > 0.
+- **A2 — reporter reply-awareness** (own unit; needs DB). When the operator/agent publishes a
+  reply, the reporter sees it without re-polling: a per-thread unread dot on `/feedback/mine`
+  - a roll-up signal on the settings เรื่องที่เคยแจ้ง entry. **Modelled with a NEW mutable
+    `feedback_views(feedback_id, user_id, last_viewed_at, pk(feedback_id,user_id))` table** — NOT
+    an UPDATE on append-only `feedback_messages` (P0001), and NOT a column on the shared
+    `feedback` row (per-viewer seen-state is a category error there); the blessed precedent is
+    `feedback_message_drafts` getting its own table for the same append-only reason. Unread =
+    the user's submission has a `feedback_messages` row with `author_kind IN ('operator','agent')`
+    and `created_at > coalesce(last_viewed_at,'-infinity')`; the reporter's own `reporter`
+    messages are excluded. `mark_feedback_viewed(uuid)` definer (visibility-gated upsert) fires
+    **server-side after the thread renders** in `/feedback/[id]` (not on list render, or the dot
+    clears prematurely). Own pgTAP file. Routine schema flag-before-push.
+- **A3 — operator pending-CC-draft surfacing.** A staged draft awaiting approval is unsurfaced
+  (the operator must open each thread). Surface the `feedback_message_drafts` count for the
+  operator (reuses the A1/A2 rail). Distinct destination from A1 (drafts live per-thread), so
+  kept a separate step rather than summed into A1's card.
+- **A4 — LINE push** (outward-facing; needs BOTH the schema flag AND an explicit outbound-LINE
+  flag). Add a `notification_event_type` value + an AFTER-INSERT swallow-failure DEFINER capture
+  trigger: `feedback_submitted` → notify super_admins (operator ping; recipient pool guaranteed
+  non-empty — Preston's LINE id exists), then the reporter-reply mirror on `feedback_messages`
+  routed by `author_kind` (operator/agent → `feedback.submitted_by`; `agent` has `author_id`
+  null, so target the thread's submitter, not the author). Needs `superIds` added to
+  `RecipientContext` (absent today) + a Thai formatter + the lockstep `enum_has_labels` pin
+  update. Enum-add is its own migration (add-then-use). Sequenced last: real outward messages,
+  and reporter pools are ~0 until the first real project (spec 192).
+- **Deferred (unchanged):** reporter-read-own-attachments (RLS owner-read), U5 annotation
+  (`photo_markups` supersede), scheduled triage cadence, status-filter chips, relax-to-auto-send.
+
+### A1 — scope (shipped)
+
+- **No DB.** Both signals already exist; A1 reads `feedback.status='open'` under the operator's
+  RLS (`feedback` "readable by super_admin", mig 20260813000000). pgTAP file 221 is **not**
+  consumed (left for A2's `feedback_views`).
+- New `getOpenFeedbackCount(supabase)` (`src/lib/feedback/triage-count.ts`, `server-only`) —
+  head-count of `open` feedback, best-effort `0` on error. Mirrors `getPendingBankChangeCount`.
+- `src/app/dashboard/page.tsx`: super_admin-only fetch + an `AwarenessCard`
+  (`label="เรื่องแจ้งใหม่รอตรวจ"`, `href="/feedback/review"`, `icon={Inbox}`). Non-super roles
+  never fetch and never see the card (`/feedback/review` is super-only; field roles can't triage).
+- No `labels.ts` churn (the card label is inline, like the bank-change card's). No new enum/RPC.
+
+### Verification (A1)
+
+- `pnpm test tests/unit/feedback-triage-count.test.ts` — `getOpenFeedbackCount` queries
+  `feedback` with `status='open'` head-count and returns the count; returns `0` on error and on
+  a null count. (Mocked-supabase idiom, mirrors `storage-signed-urls.test.ts`.)
+- `AwarenessCard` presentation already pinned by `awareness-card.test.tsx` (renders only when
+  count > 0, shows count + label, links to the surface).
+- `pnpm lint && pnpm typecheck && pnpm test` green. No `db:test` (no DB change). Code-only,
+  in-app, not outward-facing → ships under the auto-commit-merge posture, no pre-push flag.

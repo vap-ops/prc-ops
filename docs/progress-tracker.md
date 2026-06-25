@@ -3175,3 +3175,23 @@ isnt-0 (plan 48→50). **db:test 09 = 50/50, 11 = 6/6 green** (full suite 167/17
 pre-existing `drain posts …` GL-queue flake in 85/86/87 — `have:19 want:1`, the shared-remote
 `drain_gl_posting` count polluted by other sessions; the actual posted-line assertions pass — unrelated to
 photos). unit 20/20 · typecheck · lint green. **PD photo class fully closed AND regression-guarded.**
+
+**AWARENESS ARC A1 SHIPPED 2026-06-25 (code-only, NO DB) — operator new-feedback triage card.**
+The two-way loop was feature-complete but SILENT: no signal fires on submit, reply, draft, or
+status change, and feedback wired into NEITHER awareness rail (in-app AwarenessCard/SelfCountBadge
+nor the LINE outbox). A1 closes the operator side cheapest-first: a super_admin-only AwarenessCard
+on `/dashboard` showing the count of `open` feedback → `/feedback/review`. Doctrine-perfect — feedback
+triage is a _tabless_ operator action, so it joins the dashboard inbox exactly like the WP-review hero
+
+- bank-change card (spec 188); the PM tier incl. super_admin lands on `/dashboard` (roleHome, spec 183),
+  so it's the highest-pull surface. Mirrors `getPendingBankChangeCount` + the bank-change card exactly:
+  new `getOpenFeedbackCount(supabase)` (`src/lib/feedback/triage-count.ts`, server-only, best-effort 0 on
+  error; RLS gives super all open rows) + super-only fetch & card in `dashboard/page.tsx` (label
+  `เรื่องแจ้งใหม่รอตรวจ`, icon Inbox; renders only when >0). Honest count→destination (open reports =
+  the `ใหม่` column of the review kanban). Test-first: `tests/unit/feedback-triage-count.test.ts` (3 —
+  head-count query shape + status='open' + 0 on error/null) RED (no module) → GREEN; AwarenessCard
+  presentation already pinned by `awareness-card.test.tsx`. **Full suite 257 files / 1668 / 0; typecheck
+  · lint green. No DB → pgTAP file 221 left for A2.** Spec `201-feedback-two-way.md` gained the
+  **Awareness arc** section (A1 now · A2 reporter reply-awareness via a new mutable `feedback_views`
+  table · A3 operator pending-draft surfacing · A4 LINE push — outward-facing, flagged). No flag (code-only,
+  in-app, not outward-facing) → auto-merge.
