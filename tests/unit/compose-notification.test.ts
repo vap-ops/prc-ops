@@ -73,4 +73,24 @@ describe("composeNotification", () => {
       "คำขอซื้อ PR-0003 ถูกยกเลิก",
     );
   });
+
+  it("composes feedback_submitted with the type label, reporter role, and title (A4)", () => {
+    expect(
+      composeNotification(
+        "feedback_submitted",
+        { feedbackType: "bug", roleSnapshot: "site_admin", feedbackTitle: "รูปอัปโหลดไม่ขึ้น" },
+        {},
+      ),
+    ).toBe("ข้อเสนอแนะใหม่ (ปัญหา) จากผู้ดูแลหน้างาน: รูปอัปโหลดไม่ขึ้น");
+  });
+
+  it("composes a feature feedback_submitted with the feature label", () => {
+    expect(
+      composeNotification(
+        "feedback_submitted",
+        { feedbackType: "feature", roleSnapshot: "project_manager", feedbackTitle: "ขอกลุ่มวัสดุ" },
+        {},
+      ),
+    ).toBe("ข้อเสนอแนะใหม่ (ฟีเจอร์) จากผู้จัดการโครงการ: ขอกลุ่มวัสดุ");
+  });
 });

@@ -38,6 +38,24 @@ describe("parseNotificationPayload", () => {
     });
   });
 
+  it("maps the feedback_submitted snapshot fields (spec 201 A4)", () => {
+    expect(
+      parseNotificationPayload({
+        feedback_id: "fb-1",
+        feedback_type: "bug",
+        feedback_title: "รูปอัปโหลดไม่ขึ้น",
+        role_snapshot: "site_admin",
+        submitted_by: "uuid-sa",
+      }),
+    ).toEqual({
+      feedbackId: "fb-1",
+      feedbackType: "bug",
+      feedbackTitle: "รูปอัปโหลดไม่ขึ้น",
+      roleSnapshot: "site_admin",
+      submittedBy: "uuid-sa",
+    });
+  });
+
   it("drops wrongly-typed fields instead of passing them through", () => {
     expect(
       parseNotificationPayload({

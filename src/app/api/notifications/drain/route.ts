@@ -125,6 +125,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const needsPmPool = rows.some(
     (r) => r.event_type === "wp_pending_approval" || r.event_type === "pr_created",
   );
+  // Spec 201 A4 — feedback_submitted pings the super_admin operator pool.
+  const needsSuperPool = rows.some((r) => r.event_type === "feedback_submitted");
   const individualIds = [
     ...new Set(
       parsed.flatMap(({ payload }) =>
@@ -135,7 +137,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     ),
   ];
 
-  const [wpResult, pmResult, uploaderResult] = await Promise.all([
+  const [wpResult, pmResult, uploaderResult, superResult] = await Promise.all([
     wpIds.length > 0
       ? admin.from("work_packages").select("id, code").in("id", wpIds)
       : Promise.resolve({ data: [], error: null }),
@@ -154,12 +156,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           // not an uploader; exclude them from the recipient pool.
           .not("storage_path", "is", null)
       : Promise.resolve({ data: [], error: null }),
+    needsSuperPool
+      ? admin.from("users").select("id, line_user_id").eq("role", "super_admin")
+      : Promise.resolve({ data: [], error: null }),
   ]);
-  if (wpResult.error || pmResult.error || uploaderResult.error) {
+  if (wpResult.error || pmResult.error || uploaderResult.error || superResult.error) {
     console.error("[notifications/drain] enrichment failed", {
       wp: wpResult.error?.message,
       pm: pmResult.error?.message,
       uploaders: uploaderResult.error?.message,
+      supers: superResult.error?.message,
     });
     return NextResponse.json({ error: "enrichment_failed" }, { status: 500 });
   }
@@ -179,7 +185,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const lineIdByUser = new Map<string, string>();
-  for (const u of pmResult.data ?? []) {
+  for (const u of [...(pmResult.data ?? []), ...(superResult.data ?? [])]) {
     if (u.line_user_id) lineIdByUser.set(u.id, u.line_user_id);
   }
   const uploaderIds = (uploaderResult.data ?? []).map((l) => l.uploaded_by);
@@ -205,6 +211,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     wpCodeById.set(wp.id, wp.code);
   }
   const pmIds = (pmResult.data ?? []).map((u) => u.id);
+  const superIds = (superResult.data ?? []).map((u) => u.id);
 
   // --- Deliver --------------------------------------------------------------
 
@@ -216,6 +223,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const recipients = resolveRecipients(row.event_type, payload, {
       pmIds,
       wpUploaderIds: row.work_package_id ? (uploaderIdsByWp.get(row.work_package_id) ?? []) : [],
+      superIds,
     });
     const lineTargets = recipients
       .map((id) => lineIdByUser.get(id))

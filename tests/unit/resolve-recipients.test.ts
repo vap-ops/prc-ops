@@ -5,8 +5,10 @@ const PM_A = "aaaaaaaa-0000-4000-8000-000000000001";
 const PM_B = "aaaaaaaa-0000-4000-8000-000000000002";
 const SA_1 = "bbbbbbbb-0000-4000-8000-000000000001";
 const SA_2 = "bbbbbbbb-0000-4000-8000-000000000002";
+const SU_1 = "cccccccc-0000-4000-8000-000000000001";
+const SU_2 = "cccccccc-0000-4000-8000-000000000002";
 
-const ctx = { pmIds: [PM_A, PM_B], wpUploaderIds: [SA_1, SA_2] };
+const ctx = { pmIds: [PM_A, PM_B], wpUploaderIds: [SA_1, SA_2], superIds: [SU_1, SU_2] };
 
 describe("resolveRecipients", () => {
   it("sends wp_pending_approval to every PM/super", () => {
@@ -52,7 +54,19 @@ describe("resolveRecipients", () => {
 
   it("deduplicates recipients", () => {
     expect(
-      resolveRecipients("wp_decision", {}, { pmIds: [], wpUploaderIds: [SA_1, SA_1, SA_2] }),
+      resolveRecipients(
+        "wp_decision",
+        {},
+        { pmIds: [], wpUploaderIds: [SA_1, SA_1, SA_2], superIds: [] },
+      ),
     ).toEqual([SA_1, SA_2]);
+  });
+
+  it("sends feedback_submitted to every super_admin (the operator pool) — spec 201 A4", () => {
+    expect(resolveRecipients("feedback_submitted", {}, ctx)).toEqual([SU_1, SU_2]);
+  });
+
+  it("excludes a super_admin who filed their own feedback (no self-ping)", () => {
+    expect(resolveRecipients("feedback_submitted", { submittedBy: SU_1 }, ctx)).toEqual([SU_2]);
   });
 });

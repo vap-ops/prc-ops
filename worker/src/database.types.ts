@@ -5995,6 +5995,7 @@ export type Database = {
         | "pr_decision"
         | "pr_progress"
         | "pr_cancelled"
+        | "feedback_submitted"
       notification_status: "pending" | "sending" | "sent" | "failed" | "expired"
       peak_doc_type: "contact" | "expense"
       peak_entity_type: "contact" | "expense"
@@ -6316,6 +6317,7 @@ export const Constants = {
         "pr_decision",
         "pr_progress",
         "pr_cancelled",
+        "feedback_submitted",
       ],
       notification_status: ["pending", "sending", "sent", "failed", "expired"],
       peak_doc_type: ["contact", "expense"],

@@ -2,7 +2,12 @@
 // (WP code for wp_decision) arrive via context, everything else comes from
 // the trigger's payload snapshot.
 
-import { APPROVAL_DECISION_LABEL, PURCHASE_REQUEST_STATUS_LABEL } from "@/lib/i18n/labels";
+import {
+  APPROVAL_DECISION_LABEL,
+  PURCHASE_REQUEST_STATUS_LABEL,
+  FEEDBACK_TYPE_LABEL,
+  USER_ROLE_LABEL,
+} from "@/lib/i18n/labels";
 import type { Database } from "@/lib/db/database.types";
 import type { NotificationPayload } from "./payload";
 
@@ -58,6 +63,14 @@ export function composeNotification(
     case "pr_cancelled": {
       const head = `คำขอซื้อ ${formatPrNumber(payload.prNumber)} ถูกยกเลิก`;
       return payload.cancellationReason ? `${head}\nเหตุผล: ${payload.cancellationReason}` : head;
+    }
+
+    // Spec 201 A4 — a new bug report / feature request, to the operator (super_admin).
+    // The reporter's role helps the operator triage (mirrors the review card).
+    case "feedback_submitted": {
+      const type = label(FEEDBACK_TYPE_LABEL, payload.feedbackType);
+      const role = label(USER_ROLE_LABEL, payload.roleSnapshot);
+      return `ข้อเสนอแนะใหม่ (${type}) จาก${role}: ${payload.feedbackTitle ?? ""}`;
     }
   }
 }

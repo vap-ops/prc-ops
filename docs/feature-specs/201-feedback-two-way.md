@@ -245,15 +245,14 @@ lowest-cost surface. "Each item is badged in exactly one place."
   (the operator must open each thread). Surface the `feedback_message_drafts` count for the
   operator (reuses the A1/A2 rail). Distinct destination from A1 (drafts live per-thread), so
   kept a separate step rather than summed into A1's card.
-- **A4 — LINE push** (outward-facing; needs BOTH the schema flag AND an explicit outbound-LINE
-  flag). Add a `notification_event_type` value + an AFTER-INSERT swallow-failure DEFINER capture
-  trigger: `feedback_submitted` → notify super_admins (operator ping; recipient pool guaranteed
-  non-empty — Preston's LINE id exists), then the reporter-reply mirror on `feedback_messages`
-  routed by `author_kind` (operator/agent → `feedback.submitted_by`; `agent` has `author_id`
-  null, so target the thread's submitter, not the author). Needs `superIds` added to
-  `RecipientContext` (absent today) + a Thai formatter + the lockstep `enum_has_labels` pin
-  update. Enum-add is its own migration (add-then-use). Sequenced last: real outward messages,
-  and reporter pools are ~0 until the first real project (spec 192).
+- **A4 — LINE push, operator ping** (SHIPPED — migs `…001700`+`…001800`, pgTAP 222; see A4 scope
+  below). `feedback_submitted` → notify super_admins via the ADR 0037 outbox. **Found at build
+  time: the LINE channel is DARK** (49 outbox rows, 0 ever sent — token/cron not configured), so
+  A4 is **wired but inert** until go-live; nothing sends now. **A4b (deferred)** = the reporter-reply
+  mirror on `feedback_messages` routed by `author_kind` (operator/agent → `feedback.submitted_by`;
+  `agent` has `author_id` null, so target the submitter, not the author) — its own trigger + a
+  feedback→submitter lookup in the drain; lower urgency (reporter pools are ~0 until the first real
+  project, spec 192).
 - **Deferred (unchanged):** reporter-read-own-attachments (RLS owner-read), U5 annotation
   (`photo_markups` supersede), scheduled triage cadence, status-filter chips, relax-to-auto-send.
 
@@ -310,3 +309,37 @@ pk(feedback_id,user_id))` — MUTABLE, zero direct access (revoke all; no polici
 - `my-feedback-list.test.tsx` (+2): the dot shows only on unread rows; none when nothing is unread.
 - `pnpm lint && pnpm typecheck && pnpm test` green; `pnpm db:test` 221 green (the 3 pre-existing
   GL-drain reds in 85/86/87 are unrelated). Schema migration → flagged before `db:push`.
+
+### A4 — scope (shipped, operator ping)
+
+The first outbound (LINE) feedback unit, on the ADR 0037 outbox. **Pre-flight check:**
+`select status, count(*) from notification_outbox` returned 49 rows, all `pending`, `last_sent`
+null — the LINE channel has **never been activated** (token/cron unset; the WP/PR notifications
+are dark too). So A4 is **wired but inert**: a `feedback_submitted` row enqueues on every report
+but sends nothing until the operator configures the LINE channel at go-live (which lights up the
+whole outbox, feedback included). That made applying A4 non-outward-facing now.
+
+- **DB:** mig `…001700` (`alter type notification_event_type add value 'feedback_submitted'` — its
+  OWN migration, add-then-use) · mig `…001800` (`notify_feedback_submitted()` SECURITY DEFINER,
+  pinned search_path, failure-SWALLOW — `raise warning`, never blocks `submit_feedback` + `after
+insert on feedback` trigger). Feedback rows have no WP/PR FK → the whole snapshot rides in
+  `payload` (the drain SELECT is unchanged).
+- **Code:** `payload.ts` (+`feedbackId/feedbackType/feedbackTitle/roleSnapshot/submittedBy`,
+  parsed from snake_case) · `compose-notification.ts` (+`feedback_submitted` Thai message
+  `ข้อเสนอแนะใหม่ (<type>) จาก<role>: <title>`, using `FEEDBACK_TYPE_LABEL` + `USER_ROLE_LABEL`) ·
+  `resolve-recipients.ts` (+`superIds` on `RecipientContext`; `feedback_submitted` → super pool,
+  excluding a self-filing super) · `drain/route.ts` (+`needsSuperPool` super-admin fetch → their
+  LINE ids + `superIds` into the context). Target = **super_admins only** (feedback review is
+  super-only; pinging PMs who can't triage = noise).
+- **Not in A4:** the reporter-reply mirror (A4b) — its own trigger on `feedback_messages`.
+
+### Verification (A4)
+
+- pgTAP `222-feedback-notify` (8): trigger exists · the fn is DEFINER+pinned-search_path ·
+  `submit_feedback` succeeds (trigger doesn't block) · one `feedback_submitted` row with the full
+  snapshot payload · defaults pending/0 · failure-swallow (outbox renamed away → the report still
+  lands, no row written). `25`'s `enum_has_labels` updated in lockstep (+`feedback_submitted`).
+- Unit (+5): `resolve-recipients` (super pool, self-filing-super excluded) · `compose-notification`
+  (bug + feature Thai) · `notification-payload` (feedback fields parsed).
+- `pnpm lint && pnpm typecheck && pnpm test` + `pnpm db:test` green. Outward-facing + schema → the
+  outbound behavior was flagged; confirmed inert (dark channel) before applying.

@@ -12,6 +12,8 @@ export interface RecipientContext {
   pmIds: ReadonlyArray<string>;
   /** Distinct photo uploader ids for the event's work package. */
   wpUploaderIds: ReadonlyArray<string>;
+  /** Every super_admin user id — the operator pool for feedback (spec 201 A4). */
+  superIds: ReadonlyArray<string>;
 }
 
 function unique(ids: ReadonlyArray<string>): string[] {
@@ -40,5 +42,9 @@ export function resolveRecipients(
       return payload.requestedBy ? [payload.requestedBy] : [];
     case "pr_cancelled":
       return payload.requestedBy ? without([payload.requestedBy], payload.cancelledBy) : [];
+    // Spec 201 A4 — a new feedback report pings the operator pool (super_admins).
+    // A super filing their own report is excluded (no self-notification).
+    case "feedback_submitted":
+      return without(context.superIds, payload.submittedBy);
   }
 }

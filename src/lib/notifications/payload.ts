@@ -20,6 +20,12 @@ export interface NotificationPayload {
   decisionComment?: string;
   cancelledBy?: string;
   cancellationReason?: string;
+  // feedback_submitted (spec 201 A4)
+  feedbackId?: string;
+  feedbackType?: string;
+  feedbackTitle?: string;
+  roleSnapshot?: string;
+  submittedBy?: string;
 }
 
 function str(value: unknown): string | undefined {
@@ -73,5 +79,15 @@ export function parseNotificationPayload(json: unknown): NotificationPayload {
   if (cancelledBy !== undefined) payload.cancelledBy = cancelledBy;
   const cancellationReason = str(record["cancellation_reason"]);
   if (cancellationReason !== undefined) payload.cancellationReason = cancellationReason;
+  const feedbackId = str(record["feedback_id"]);
+  if (feedbackId !== undefined) payload.feedbackId = feedbackId;
+  const feedbackType = str(record["feedback_type"]);
+  if (feedbackType !== undefined) payload.feedbackType = feedbackType;
+  const feedbackTitle = str(record["feedback_title"]);
+  if (feedbackTitle !== undefined) payload.feedbackTitle = feedbackTitle;
+  const roleSnapshot = str(record["role_snapshot"]);
+  if (roleSnapshot !== undefined) payload.roleSnapshot = roleSnapshot;
+  const submittedBy = str(record["submitted_by"]);
+  if (submittedBy !== undefined) payload.submittedBy = submittedBy;
   return payload;
 }

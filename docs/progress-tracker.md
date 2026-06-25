@@ -3217,3 +3217,26 @@ pre-existing GL-drain 85/86/87, unrelated); typecheck · lint green. db:types re
 (+feedback_views, +mark_feedback_viewed, +feedback_unread_ids). Schema migration flagged before
 db:push (additive, reversible). **NEXT = A3 (operator pending-draft surfacing) or A4 (LINE push —
 outward-facing, needs both flags).**
+
+**AWARENESS ARC A4 SHIPPED 2026-06-25 (migs `20260813001700`+`20260813001800`, pgTAP 222 8/8) —
+LINE push, operator ping (`feedback_submitted` → super_admins via the ADR 0037 outbox).** First
+outbound feedback unit. **PRE-FLIGHT: the LINE channel is DARK** — `select status,count(*) from
+notification_outbox` = 49 rows ALL `pending`, `last_sent` null (token/cron never configured; the
+WP/PR notifications are dark too). So A4 is **wired but inert**: a row enqueues on every report but
+sends NOTHING until LINE go-live (which lights the whole outbox, feedback included) — applying was
+non-outward-facing now (flagged + confirmed dark before db:push). **DB:** mig …1700 = enum add
+`feedback_submitted` (own migration, add-then-use); mig …1800 = `notify_feedback_submitted()`
+DEFINER + pinned search_path + failure-SWALLOW (raise warning, never blocks submit_feedback) +
+`after insert on feedback` trigger; snapshot rides in `payload` (feedback has no WP/PR FK → drain
+SELECT unchanged). **Code:** payload.ts (+feedbackId/Type/Title/roleSnapshot/submittedBy) ·
+compose-notification.ts (+Thai `ข้อเสนอแนะใหม่ (<type>) จาก<role>: <title>`) · resolve-recipients.ts
+(+`superIds` on RecipientContext; target super-only, exclude self-filing super) · drain/route.ts
+(+`needsSuperPool` super fetch → LINE ids + superIds into context). Target = super_admins ONLY
+(feedback review is super-only). Test-first: pgTAP 222 (8 — trigger/definer/enqueue payload/pending+0/
+swallow-failure) + file 25 enum_has_labels lockstep (+feedback_submitted) + unit +5 (resolve super
+pool/self-exclude · compose bug+feature Thai · payload parse). Full suite 257/1675; pgTAP 169/172 (3
+reds = pre-existing GL-drain 85/86/87); typecheck · lint green. db:types regenerated (+enum value).
+**A4b DEFERRED = reporter-reply LINE mirror (trigger on feedback_messages, route by author_kind;
+agent author_id null → target feedback.submitted_by); lower urgency, reporter pools ~0 (spec 192).**
+**SEPARATE: the operator may want to ACTIVATE LINE (set LINE_MESSAGING_CHANNEL_ACCESS_TOKEN + the
+pg_cron drain) — 49 notifications sit queued unsent; that go-live is an operator config task.**
