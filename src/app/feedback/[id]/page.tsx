@@ -1,8 +1,9 @@
-// Spec 201 U2 — a feedback report's conversation. The reporter reaches it from
+// Spec 201 U2–U4 — a feedback report's conversation. The reporter reaches it from
 // their own list (เรื่องที่เคยแจ้ง); the operator reaches it from the review list.
 // Both read the report + its thread via their RLS context (own-or-super_admin); a
-// row they cannot see resolves to notFound. The super_admin operator also gets the
-// reply composer (post_feedback_message is super-only). Reporter-reply is U3.
+// row they cannot see resolves to notFound. Both ends may reply (U3 — the RPC derives
+// the author voice). The super_admin operator also reviews CC's pending drafts and
+// approves/discards them (U4); the reporter never sees a draft.
 
 import { redirect, notFound } from "next/navigation";
 import { PageShell } from "@/components/features/chrome/page-shell";
@@ -10,6 +11,7 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { FeedbackThread } from "@/components/features/feedback/feedback-thread";
 import { FeedbackReply } from "@/components/features/feedback/feedback-reply";
+import { FeedbackDrafts } from "@/components/features/feedback/feedback-drafts";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { CARD } from "@/lib/ui/classes";
 import { createClient } from "@/lib/db/server";
@@ -70,7 +72,22 @@ export default async function FeedbackDetailPage({ params }: PageProps) {
 
   // U3 — both ends of the conversation may reply: the super_admin operator and the
   // report's own submitter. (The RPC derives the author voice from the caller.)
-  const canReply = row.role === "super_admin" || feedback.submitted_by === claimsData.claims.sub;
+  const isSuper = row.role === "super_admin";
+  const canReply = isSuper || feedback.submitted_by === claimsData.claims.sub;
+
+  // U4 — pending CC drafts awaiting the operator's approval. RLS scopes the read to
+  // super_admin, so the reporter never sees a draft even if this fetch ran for them.
+  const drafts = isSuper
+    ? (
+        (
+          await supabase
+            .from("feedback_message_drafts")
+            .select("id, body, created_at")
+            .eq("feedback_id", id)
+            .order("created_at", { ascending: true })
+        ).data ?? []
+      ).map((d) => ({ id: d.id, body: d.body, createdAt: d.created_at }))
+    : [];
 
   return (
     <PageShell>
@@ -100,6 +117,8 @@ export default async function FeedbackDetailPage({ params }: PageProps) {
           <h2 className="text-ink text-base font-semibold">การตอบกลับ</h2>
           <FeedbackThread messages={messages} />
         </div>
+
+        {isSuper ? <FeedbackDrafts drafts={drafts} /> : null}
 
         {canReply ? <FeedbackReply feedbackId={feedback.id} /> : null}
       </section>

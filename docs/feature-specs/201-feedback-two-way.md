@@ -117,3 +117,40 @@ else → 42501. One RPC, role-derived — no second write path.
 - pgTAP `219-feedback-reporter-reply` (5): submitter posts · stamped `reporter` · author_id
   = submitter · non-owner non-super denied (42501) · super still stamped `operator`.
 - `pnpm lint && pnpm typecheck && pnpm test` green; `pnpm db:test` 218 + 219 green.
+
+## U4 — CC drafts → operator approves (the core)
+
+The human-in-the-loop gate (locked dial 1). **Model refinement** (driven by the
+append-only constraint): a CC draft cannot be a `feedback_messages` row toggled
+draft→published, because `feedback_messages` is append-only/immutable. So a draft is
+**not a message yet** — it is staged in a separate **`feedback_message_drafts`** table
+(mutable, super_admin-only read; the reporter has NO read path). Approval = insert a
+real append-only agent message + delete the draft. This keeps the thread immutable,
+auto-hides drafts, and makes "approve" the only path a CC reply reaches the reporter.
+
+**Deferred from the original dial wording:** the `feedback_status` enum is NOT extended
+with `awaiting_review`/`awaiting_user`. The presence of a pending draft already signals
+"awaiting the operator" (derived, not denormalised), and resolution reuses the existing
+`set_feedback_status` (done/declined). A dedicated worklist status can come later if the
+review list needs it — it would be its own enum-add migration.
+
+- **DB (`20260813001400`, pgTAP 220):** `feedback_message_drafts` (feedback_id FK, body
+  1..4000) — super_admin-only RLS, RPC-only writes. `draft_feedback_message(uuid,text)`
+  **service_role-only** (CC stages via `supabase db query`; app users cannot draft).
+  `publish_feedback_draft(uuid)` super_admin-only — inserts an `agent` message + deletes
+  the draft, atomic. `discard_feedback_draft(uuid)` super_admin-only — drops it unsent.
+- **UI:** `FeedbackDrafts` (super-only, on `/feedback/[id]` above the composer) lists
+  pending drafts with อนุมัติและส่ง / ทิ้ง → `publishFeedbackDraft` / `discardFeedbackDraft`
+  actions. The page fetches drafts only for super (RLS belt-and-braces). A published
+  draft shows in the thread as `ผู้ช่วย AI` (transparent that it is AI-assisted).
+- **Not in U4:** the `/triage-feedback` skill (CC's procedure that calls
+  `draft_feedback_message`) is its own deliverable; U4 ships the gate the skill needs.
+
+### Verification (U4)
+
+- pgTAP `220-feedback-drafts` (16): catalog + service_role/super lockdown · reporter
+  cannot see drafts · super sees them · draft_feedback_message stages · publish →
+  agent message + draft gone · reporter then sees the agent reply · non-super cannot
+  publish/discard (42501) · discard removes · unknown draft (22023).
+- `feedback-drafts.test.tsx` (4).
+- `pnpm lint && pnpm typecheck && pnpm test` green; `pnpm db:test` 220 green.

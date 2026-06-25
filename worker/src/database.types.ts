@@ -1426,6 +1426,35 @@ export type Database = {
           },
         ]
       }
+      feedback_message_drafts: {
+        Row: {
+          body: string
+          created_at: string
+          feedback_id: string
+          id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          feedback_id: string
+          id?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          feedback_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_message_drafts_feedback_id_fkey"
+            columns: ["feedback_id"]
+            isOneToOne: false
+            referencedRelation: "feedback"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feedback_messages: {
         Row: {
           author_id: string | null
@@ -5080,6 +5109,10 @@ export type Database = {
         Args: { p_work_package_id: string }
         Returns: boolean
       }
+      discard_feedback_draft: {
+        Args: { p_draft_id: string }
+        Returns: undefined
+      }
       dismiss_project_onboarding: {
         Args: { p_project_id: string }
         Returns: boolean
@@ -5099,6 +5132,10 @@ export type Database = {
       }
       divert_purchase_to_store: {
         Args: { p_request_id: string }
+        Returns: string
+      }
+      draft_feedback_message: {
+        Args: { p_body: string; p_feedback_id: string }
         Returns: string
       }
       drain_gl_posting: { Args: { p_limit?: number }; Returns: number }
@@ -5334,6 +5371,7 @@ export type Database = {
         Args: { p_max_age_days?: number }
         Returns: number
       }
+      publish_feedback_draft: { Args: { p_draft_id: string }; Returns: string }
       reap_stale_reports: {
         Args: { p_max_age_minutes?: number }
         Returns: number

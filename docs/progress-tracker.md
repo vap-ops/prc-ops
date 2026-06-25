@@ -3076,5 +3076,27 @@ true outsider (the submitter posting is now the U3 path). No type drift (sig unc
 suite 1653/1653, typecheck+lint clean, db:test 165/169 (4 reds = pre-existing GL-drain 85/86/87
 
 - a transient 502 on 05-audit-log-revoke, green in the U2 run — infra hiccup, not code).
-  **NEXT = U4: CC drafts → operator approves — the core (status +awaiting_review/+awaiting_user,
-  draft/publish/resolve RPCs, `state` col on feedback_messages so drafts hide pre-approval, approve UI).**
+  **NEXT = U4: CC drafts → operator approves — the core.**
+
+**U4 SHIPPED prod 2026-06-25 (mig `20260813001400`, pgTAP 220 17/17) — CC drafts → operator
+approves (the human-in-loop gate, locked dial 1).** **MODEL REFINEMENT (vs the planned `state`
+column):** feedback_messages is append-only/immutable, so a draft can't be a message toggled
+draft→published. Instead a draft is NOT a message yet — staged in a separate mutable
+`feedback_message_drafts` table (super_admin-only RLS; reporter has NO read path). Approve =
+insert a real append-only `agent` message + delete the draft (atomic). Keeps the thread
+immutable, auto-hides drafts, makes approval the only path to the reporter. **DEFERRED:** the
+`feedback_status` enum is NOT extended (no awaiting_review/awaiting_user) — a pending draft
+already signals "awaiting operator" (derived); resolution reuses `set_feedback_status`. **DB:**
+`draft_feedback_message(uuid,text)` SERVICE_ROLE-only (CC stages via `db query`; app users
+can't draft — revoke public/auth/anon + grant service_role, the claim_next_report idiom);
+`publish_feedback_draft(uuid)` + `discard_feedback_draft(uuid)` super_admin-only definers.
+**UI:** `FeedbackDrafts` (super-only, `/feedback/[id]` above the composer) → อนุมัติและส่ง /
+ทิ้ง → publish/discard actions; published draft shows as `ผู้ช่วย AI` (transparent it's AI).
+**Test-first:** pgTAP 220 (service_role/super lockdown · reporter can't see drafts · super
+sees · stage · publish→agent msg+draft gone · reporter then sees agent reply · non-super
+can't publish/discard 42501 · discard · unknown 22023); `feedback-drafts.test.tsx` (4). Trap:
+planned 16 but wrote 17 asserts → fixed plan(17) (runner ignores the diagnostic, corrected).
+Full suite 1657/1657, typecheck+lint clean, db:test 167/170 (3 reds = pre-existing GL-drain
+85/86/87; the U3-run's transient 502 on 05 cleared). db:types regenerated
+(+feedback_message_drafts, +3 RPCs). **NEXT = U5 annotated screenshot (reuse photo_markups) ·
+U6 reporter notify · `/triage-feedback` skill (the draft gate is now ready for CC).**

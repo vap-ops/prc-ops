@@ -9,8 +9,10 @@ import "server-only";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
 
 export type PostFeedbackMessageResult = { ok: true; id: string } | { ok: false; error: string };
+export type DraftActionResult = { ok: true } | { ok: false; error: string };
 
 const GENERIC = "ส่งข้อความไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+const GENERIC_DRAFT = "ดำเนินการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
 export async function postFeedbackMessage(
   feedbackId: string,
@@ -28,4 +30,23 @@ export async function postFeedbackMessage(
   });
   if (error || !data) return { ok: false, error: GENERIC };
   return { ok: true, id: data };
+}
+
+// Spec 201 U4 — the operator's approval gate. publish_feedback_draft and
+// discard_feedback_draft are super_admin-only (the RPC re-checks the role); these
+// actions relay. The thread + draft list refresh on success.
+export async function publishFeedbackDraft(draftId: string): Promise<DraftActionResult> {
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { error } = await auth.supabase.rpc("publish_feedback_draft", { p_draft_id: draftId });
+  if (error) return { ok: false, error: GENERIC_DRAFT };
+  return { ok: true };
+}
+
+export async function discardFeedbackDraft(draftId: string): Promise<DraftActionResult> {
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { error } = await auth.supabase.rpc("discard_feedback_draft", { p_draft_id: draftId });
+  if (error) return { ok: false, error: GENERIC_DRAFT };
+  return { ok: true };
 }
