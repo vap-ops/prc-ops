@@ -13,7 +13,7 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { requireRole } from "@/lib/auth/require-role";
-import { ACCOUNTING_ROLES } from "@/lib/auth/role-home";
+import { ACCOUNTING_ROLES, isManagerRole } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { bangkokTodayIso } from "@/lib/dates";
@@ -146,6 +146,24 @@ export default async function AccountingPage({ searchParams }: AccountingPagePro
             </Link>
           ))}
         </nav>
+
+        {/* Manual general journal (gap G8) — a WRITE surface gated to PM_ROLES, so
+            it is shown only to managers (super_admin among accounting-reachers);
+            accounting-role can't post per the RPC, so it gets no dead link. */}
+        {isManagerRole(ctx.role) ? (
+          <Link
+            href="/accounting/journal"
+            className="border-edge bg-card hover:bg-sunk focus-visible:ring-action rounded-control mb-6 flex items-center gap-3 border px-4 py-3 transition-colors focus:outline-none focus-visible:ring-2"
+          >
+            <span className="min-w-0 flex-1">
+              <span className="text-ink text-body block font-semibold">สมุดรายวันทั่วไป</span>
+              <span className="text-ink-secondary text-meta block">
+                บันทึก/กลับรายการบัญชีด้วยตนเอง
+              </span>
+            </span>
+            <ChevronRight aria-hidden className="text-ink-muted h-5 w-5 shrink-0" />
+          </Link>
+        ) : null}
 
         {/* Period selector — zero-client-JS GET form, defaults to the month. */}
         <form

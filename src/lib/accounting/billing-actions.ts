@@ -26,3 +26,8 @@ export function canReleaseRetention(status: string): boolean {
 }
 
 export type AccountingActionResult = { ok: true } | { ok: false; error: string };
+
+// The shared generic failure message for accounting write actions (billings,
+// retention, manual journal). Hoisted next to AccountingActionResult so every
+// accounting action surfaces one consistent Thai message instead of re-inlining it.
+export const ACCOUNTING_ACTION_ERROR = "ทำรายการไม่สำเร็จ กรุณาลองใหม่";

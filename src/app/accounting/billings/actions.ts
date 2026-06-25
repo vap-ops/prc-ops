@@ -10,10 +10,11 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { requireActionRole } from "@/lib/auth/action-gate";
 import { computeBillingBreakdown } from "@/lib/accounting/client-billing";
-import { BILLING_WRITE_ROLES } from "@/lib/accounting/billing-actions";
+import {
+  BILLING_WRITE_ROLES,
+  ACCOUNTING_ACTION_ERROR as GENERIC,
+} from "@/lib/accounting/billing-actions";
 import type { AccountingActionResult } from "@/lib/accounting/billing-actions";
-
-const GENERIC = "ทำรายการไม่สำเร็จ กรุณาลองใหม่";
 
 export interface CreateBillingInput {
   projectId: string;

@@ -61,6 +61,9 @@ const STATIC_DETAIL = [
   "accounting/payables",
   "accounting/periods",
   "accounting/purchases",
+  // Gap G8: the manual general-journal surface drills down from /accounting
+  // (back chip → /accounting). Gated to PM_ROLES (the post/reverse RPCs' roles).
+  "accounting/journal",
   "contacts/customers",
   "contacts/vendors",
   // Spec 168: the crews group split into separate subcontractor + DC pages.

@@ -55,3 +55,13 @@ export function validateJournalLines(lines: JournalLineInput[]): ValidateJournal
 
   return { ok: true };
 }
+
+// Spec G8 — gates the "กลับรายการ" (reverse) control. Mirrors the
+// reverse_journal_entry RPC guard: only a posted entry that has not already been
+// reversed may be reversed. The original entry stays 'posted' after reversal (a
+// mirror entry is inserted via reversal_of — the original is never UPDATEd), so
+// reversibility cannot key on status alone; alreadyReversed is true when a
+// reversal entry already points back at this one.
+export function canReverseJournalEntry(status: string, alreadyReversed: boolean): boolean {
+  return status === "posted" && !alreadyReversed;
+}

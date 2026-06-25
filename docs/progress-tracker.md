@@ -6,6 +6,49 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Gap G8 — manual journal-entry UI (2026-06-25)
+
+Status: **SHIPPED — 2026-06-25** (code-only, NO schema/db:push). Audit gap **G8** —
+the `post_journal_entry` / `reverse_journal_entry` RPCs existed since spec 149 with
+no screen. New `/accounting/journal` (general journal): a multi-line entry form
+(date + memo + account-picker/debit/credit rows, one-sided enforced at input, LIVE
+double-entry balance preview via `validateJournalLines`) + a recent-entries list
+with a per-entry กลับรายการ (reverse) control. **Gate = `PM_ROLES`** (pm/super/
+project_director — exactly who the RPCs admit; verified LIVE that a later migration
+widened the gate to add project_director, NOT what the original migration file
+shows). Placed in /accounting but gated to PM_ROLES (the journal-POST capability is
+distinct from accounting-VIEW; only super_admin overlaps = today's operator); entry
+point on the accounting landing shown only to `isManagerRole` so accounting-role
+gets no dead link. **TDD:** `canReverseJournalEntry(status, alreadyReversed)`
+predicate (mirrors the RPC guard — original stays 'posted' after reversal since
+append-only, so reversibility needs both) written RED-first then GREEN. **Loader**
+`load-manual-journals.ts` parallelises fetches (specs 147/148) + one account map
+resolves picker labels AND line codes (no N+1). **Riders (audit rank 7+12):**
+standardised the new action on `requireActionRole`; hoisted the shared
+`ACCOUNTING_ACTION_ERROR` next to `AccountingActionResult` and pointed billings at
+it (DRY); wired the previously-dormant `validateJournalLines` (rank 12 — its
+intended consumer). Verified: typecheck · lint · full vitest 1698/1698 · build
+green; loader queries confirmed against live schema. Visual preview skipped (no
+dev-auth path — LINE OAuth only). **Open:** PM/PD have no nav entry point (can't
+reach /accounting landing); accounting-role can't post manual JEs (RPC excludes it,
+accounting is v3) — both deferred, not blockers. Money renders via the canonical
+`baht()` SSOT (audit rank 1 consolidation is a separate follow-up unit).
+
+## Audit — architecture & quality + GL test de-brittle (2026-06-25)
+
+Status: **SHIPPED.** Ran an 8-lens multi-agent architecture/quality audit (49
+agents, adversarial verify) before resuming feature builds: 40 candidates → 24
+confirmed + 16 partial, 0 refuted → 15-item ranked register
+(`docs/architecture-quality-audit-2026-06.md`), woven into the phase plan. Codebase
+healthy; debt = latent drift/hygiene. **Acted on the one real blocker (rank 3):**
+de-brittled GL pgTAP 81/85/86/87/88 (asserted table-wide aggregates that go red
+once real revenue posts; 81 was already RED against the live DB's 27 real
+journal_posted rows). 81 → fixture-scoped audit count (target_id); 85/86/87 → clear
+gl_posting_outbox before the enqueue (mirrors 84); 88 → project-scope the
+4100/1210 totals + delta the global retention control, keeping Σdebit=Σcredit +
+tie-out flags. Full pgTAP 175/175, 2983 assertions, 0 failures. Next recommended:
+rank 1 money-SSOT, rank 2 role-set dedup (incl. drain omits project_director).
+
 ## Spec 204 — client billing + retention write UI (2026-06-25)
 
 Status: **SHIPPED — 2026-06-25** (code-only, NO schema/db:push). Audit gap **G10** — the

@@ -6,7 +6,7 @@
 // validated here.
 
 import { describe, it, expect } from "vitest";
-import { validateJournalLines } from "@/lib/accounting/journal";
+import { validateJournalLines, canReverseJournalEntry } from "@/lib/accounting/journal";
 
 function line(over: Partial<Parameters<typeof validateJournalLines>[0][number]> = {}) {
   return { accountCode: "1110", debit: 0, credit: 0, ...over };
@@ -74,5 +74,30 @@ describe("validateJournalLines", () => {
     expect(
       validateJournalLines([line({ accountCode: "", debit: 100 }), line({ credit: 100 })]).ok,
     ).toBe(false);
+  });
+});
+
+// Spec G8 §Tests (TDD, RED first) — the reverse predicate gates the "กลับรายการ"
+// control. It mirrors the reverse_journal_entry RPC guard: only a posted entry
+// that has not already been reversed may be reversed. The original entry stays
+// 'posted' after reversal (append-only — a mirror entry is inserted, the original
+// is never UPDATEd), so reversibility cannot key on status alone; the loader
+// passes whether a reversal already points back at the entry.
+describe("canReverseJournalEntry", () => {
+  it("allows reversing a posted entry that is not yet reversed", () => {
+    expect(canReverseJournalEntry("posted", false)).toBe(true);
+  });
+
+  it("refuses a posted entry that is already reversed", () => {
+    expect(canReverseJournalEntry("posted", true)).toBe(false);
+  });
+
+  it("refuses a non-posted entry (draft / reversed status)", () => {
+    expect(canReverseJournalEntry("draft", false)).toBe(false);
+    expect(canReverseJournalEntry("reversed", false)).toBe(false);
+  });
+
+  it("never reverses on an unknown status", () => {
+    expect(canReverseJournalEntry("weird", false)).toBe(false);
   });
 });
