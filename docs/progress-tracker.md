@@ -3019,3 +3019,25 @@ Status: **SHIPPED to prod — 2026-06-24.** typecheck · lint · vitest (plan-li
 **U2 UI:** `createPlan(projectId)` action → returns new planId; `addPlanLine`/`bulkAddPlanLines` now take an explicit `planId` (no get-or-create); `NewPlanButton` (`'use client'`) creates → navigates `?plan=<id>`; pure `buildPlanList` (unit-tested) → list view models (auto-label `แผน #N`, status, line count, selected); page lists all plans (date · count · status) + new-plan button, `?plan=<id>` opens the existing `SupplyPlanManager`; `PLAN_STATUS_LABEL` exported from the manager (single source). **Unchanged downstream:** `supply_plan_accuracy` already aggregates all a project's plan lines (plan-agnostic); `generate_purchase_requests_from_plan` is per-plan.
 
 **LESSON (reinforced):** changing a DEFINER RPC body → source from the LIVE function (latest patch migration / `pg_get_functiondef`), never an older migration file — role lists drift forward (spec 181 added procurement).
+
+## Spec 201 — Feedback two-way + CC triage agent — U1 (2026-06-25)
+
+Status: **U1 IN PROGRESS — my-requests list.** Operator asked: (1) let users see their own
+submitted reports, (2) redesign feedback into a two-way, CC-triaged loop (ultrathink +
+Anthropic best-practices research). Spec `201-feedback-two-way.md` records the arc + the
+three locked dials (AskUserQuestion): **draft→operator-approves** replies · **manual**
+cadence (`/triage-feedback` skill, no scheduler v1) · **annotation later** (reuse
+`photo_markups`). Architecture (per Anthropic building-effective-agents): outer loop =
+workflow, inner triage = agent; CC = the operator's Claude Code, app holds only the thread
+data model. Estimates given to PO: U1=2 · U2=5 · U3=3 · U4=8 · U5=5 · U6=3 · skill=3 (MVP
+loop = 21, full = 29 pts).
+
+**U1 (code-only, no DB):** the submitter-read RLS (`submitted_by = auth.uid()`, mig 20260813000000) already permits the read — no migration. New presentational
+`MyFeedbackList` (`src/components/features/feedback/my-feedback-list.tsx`): own reports,
+newest-first, type + status badge + title; empty state `ยังไม่มีเรื่องที่เคยแจ้ง`.
+`/feedback` page fetches the caller's own rows (RLS-scoped) and renders the list under the
+form (`router.refresh()` on submit already refreshes it). Attachments NOT shown — a reporter
+can't read their own attachment rows yet (`feedback_attachments` zero-auth-access; deferred
+to an owner-read policy in a later unit). Test-first: `tests/unit/my-feedback-list.test.tsx`
+(4: titles · type+status badges · newest-first sort · empty state) — red (no module) → green.
+typecheck + lint clean.
