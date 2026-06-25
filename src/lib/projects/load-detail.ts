@@ -49,7 +49,6 @@ export interface ProjectDetailData {
   criticalIds: Set<string>;
   onboarding: OnboardingStatusRow | null;
   sourceProjects: SourceProjectRow[];
-  templateAvailable: boolean;
 }
 
 export async function loadProjectDetail(
@@ -58,8 +57,8 @@ export async function loadProjectDetail(
   isPmRole: boolean,
 ): Promise<ProjectDetailData> {
   // The fan: every read depends only on the project, never on a sibling read.
-  // PM-only reads (onboarding / copy-from sources / template availability) join
-  // the same batch so PMs pay no extra serial round-trips.
+  // PM-only reads (onboarding / copy-from sources) join the same batch so PMs
+  // pay no extra serial round-trips.
   const [
     clientRes,
     { data: memberRows },
@@ -67,7 +66,6 @@ export async function loadProjectDetail(
     { data: deliverables },
     onbRes,
     srcRes,
-    templateRes,
   ] = await Promise.all([
     project.client_id
       ? supabase.from("clients").select("name").eq("id", project.client_id).maybeSingle()
@@ -95,12 +93,6 @@ export async function loadProjectDetail(
           .neq("id", project.id)
           .order("code", { ascending: true })
       : Promise.resolve({ data: [] as SourceProjectRow[] }),
-    isPmRole && project.project_type
-      ? supabase
-          .from("wp_templates")
-          .select("id", { count: "exact", head: true })
-          .eq("project_type", project.project_type)
-      : Promise.resolve({ count: 0 }),
   ]);
 
   const clientName = clientRes.data?.name ?? null;
@@ -147,6 +139,5 @@ export async function loadProjectDetail(
     criticalIds,
     onboarding: onbRes.data?.[0] ?? null,
     sourceProjects: srcRes.data ?? [],
-    templateAvailable: (templateRes.count ?? 0) > 0,
   };
 }

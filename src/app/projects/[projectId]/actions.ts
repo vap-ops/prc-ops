@@ -237,42 +237,6 @@ export async function importWorkPackagesCsv(
   return { ok: true, inserted };
 }
 
-// Spec 142 U5 — seed a project's work packages from its project_type's template.
-// Gate mirrors the other project writes; apply_wp_template (SECURITY DEFINER) is
-// the load-bearing authorisation.
-export type ApplyTemplateResult = { ok: true; inserted: number } | { ok: false; error: string };
-
-export async function applyWpTemplate(projectId: string): Promise<ApplyTemplateResult> {
-  if (!isValidUuid(projectId)) return { ok: false, error: "รหัสโครงการไม่ถูกต้อง" };
-
-  const auth = await getActionUser();
-  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
-  const { supabase, user } = auth;
-
-  const { data: userRow } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (!userRow || !PM_ROLES.includes(userRow.role)) {
-    return { ok: false, error: PM_ONLY_ERROR };
-  }
-
-  const { data: inserted, error } = await supabase.rpc("apply_wp_template", {
-    p_project_id: projectId,
-  });
-  if (error) {
-    console.error("[applyWpTemplate] RPC failed", { projectId, error: error.message });
-    if (error.code === "42501") return { ok: false, error: PM_ONLY_ERROR };
-    if (error.code === "P0002") return { ok: false, error: PROJECT_CLOSED_ERROR };
-    if (error.code === "22023") return { ok: false, error: "ไม่พบโครงการ" };
-    return { ok: false, error: "ใช้เทมเพลตไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
-  }
-
-  revalidatePath(projectHref(projectId));
-  return { ok: true, inserted: inserted ?? 0 };
-}
-
 // Spec 164 U1 — create a งวดงาน (deliverable) under the project. Gate mirrors
 // the other project writes; the SECURITY DEFINER create_deliverable RPC is the
 // load-bearing authorisation. sort_order is auto-assigned in the RPC.

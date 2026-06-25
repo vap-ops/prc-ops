@@ -35,7 +35,6 @@ import { DeliverablesManager } from "./deliverables-manager";
 import { AddWorkPackageSheet } from "./add-work-package-sheet";
 import { CopyWorkPackagesSheet } from "./copy-work-packages-sheet";
 import { ImportWorkPackagesSheet } from "./import-work-packages-sheet";
-import { ApplyTemplateButton } from "./apply-template-button";
 
 interface PageProps {
   params: Promise<{ projectId: string }>;
@@ -122,7 +121,6 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
     criticalIds,
     onboarding,
     sourceProjects,
-    templateAvailable,
   } = await loadProjectDetail(supabase, project, isPmRole);
   const typeLabel = project.project_type ? PROJECT_TYPE_LABEL[project.project_type] : null;
   // Spec 174: a pasted Google-Maps link (exact pin) wins; spec 173 falls back to an
@@ -268,7 +266,6 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
           </h2>
           {isPmRole && projectOpen && (
             <div className="flex flex-wrap items-center justify-end gap-2">
-              {templateAvailable && <ApplyTemplateButton projectId={project.id} />}
               <ImportWorkPackagesSheet projectId={project.id} />
               {sourceProjects.length > 0 && (
                 <CopyWorkPackagesSheet projectId={project.id} sourceProjects={sourceProjects} />

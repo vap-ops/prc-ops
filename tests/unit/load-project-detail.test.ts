@@ -67,7 +67,7 @@ const LIST: Record<string, unknown[]> = {
   projects: SOURCE_PROJECTS,
   work_package_dependencies: [],
 };
-const COUNT: Record<string, number> = { wp_templates: 2 };
+const COUNT: Record<string, number> = {};
 const RPC: Record<string, unknown> = { project_onboarding_status: ONBOARDING };
 
 function track<T>(value: T): Promise<T> {
@@ -110,8 +110,8 @@ beforeEach(() => {
 describe("loadProjectDetail", () => {
   it("runs the independent fan concurrently (not a serial waterfall)", async () => {
     await loadProjectDetail(supabase, PROJECT as never, true);
-    // clients + project_members + work_packages + deliverables + projects +
-    // wp_templates = 6 reads that depend only on the project → must overlap.
+    // clients + project_members + work_packages + deliverables + onboarding +
+    // projects = 6 reads that depend only on the project → must overlap.
     expect(maxInFlight).toBeGreaterThanOrEqual(6);
   });
 
@@ -125,14 +125,12 @@ describe("loadProjectDetail", () => {
     expect(data.criticalIds).toBeInstanceOf(Set);
     expect(data.onboarding?.work_packages_added).toBe(true);
     expect(data.sourceProjects).toEqual(SOURCE_PROJECTS);
-    expect(data.templateAvailable).toBe(true);
   });
 
   it("skips the PM-only reads when not a PM", async () => {
     const data = await loadProjectDetail(supabase, PROJECT as never, false);
     expect(data.onboarding).toBeNull();
     expect(data.sourceProjects).toEqual([]);
-    expect(data.templateAvailable).toBe(false);
     // non-PM still gets the core project context + worklist data
     expect(data.workPackages).toEqual(WORK_PACKAGES);
     expect(data.clientName).toBe("ลูกค้า");
