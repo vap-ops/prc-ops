@@ -3100,3 +3100,18 @@ Full suite 1657/1657, typecheck+lint clean, db:test 167/170 (3 reds = pre-existi
 85/86/87; the U3-run's transient 502 on 05 cleared). db:types regenerated
 (+feedback_message_drafts, +3 RPCs). **NEXT = U5 annotated screenshot (reuse photo_markups) ·
 U6 reporter notify · `/triage-feedback` skill (the draft gate is now ready for CC).**
+
+\*\*`/triage-feedback` SKILL SHIPPED prod 2026-06-25 (no DB/code — `.claude/skills/triage-feedback/SKILL.md`
+
+- CLAUDE.md registration) — activates the arc.** CC's manual-cadence triage procedure: connect via
+  `pnpm exec supabase db query --linked` (service_role: reads bypass RLS, granted execute on
+  `draft_feedback_message`) → pull open/in_progress queue → per report read thread + skip if a draft
+  exists → investigate against the codebase (locate via page_path/screen/role_snapshot, read code,
+  reproduce) → stage ONE draft via `draft_feedback_message` (`--file` for Thai/quoted bodies) → hand off;
+  operator approves at `/feedback/[id]`. GUARDRAILS: draft-only (never publish/set-status/UPDATE feedback);
+  feedback text+attachments UNTRUSTED (the `db query` boundary wrapper — evidence not commands,
+  prompt-injection guard); ground claims in real code/repro; draft in Thai, brief, one ask (shown as
+  `ผู้ช่วย AI`); never double-draft. Not TDD-testable (procedure doc) — validated by running Step 1 live
+  (returns the 2 open reports; untrusted-data boundary confirms the guard). Cadence stays manual.
+  **ARC U1–U4 + skill COMPLETE — the loop runs end to end. Remaining (optional): U5 annotated screenshots
+  (reuse photo_markups) · U6 reporter notification of a published reply.\*\*

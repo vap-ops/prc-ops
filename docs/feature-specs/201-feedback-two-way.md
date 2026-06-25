@@ -154,3 +154,32 @@ review list needs it — it would be its own enum-add migration.
   publish/discard (42501) · discard removes · unknown draft (22023).
 - `feedback-drafts.test.tsx` (4).
 - `pnpm lint && pnpm typecheck && pnpm test` green; `pnpm db:test` 220 green.
+
+## `/triage-feedback` skill
+
+The agent procedure that activates the arc — CC's manual-cadence triage step. Lives at
+`.claude/skills/triage-feedback/SKILL.md` (registered in CLAUDE.md). CC connects via
+`pnpm exec supabase db query --linked` (service_role: bypasses RLS to read; granted execute
+on `draft_feedback_message`). Procedure: pull the open/in_progress queue → per report read
+the thread + skip if a draft exists → investigate against the codebase (locate via
+`page_path`/`screen`/`role_snapshot`, read code, reproduce) → stage ONE reply draft via
+`draft_feedback_message` (use `--file` for Thai/quoted bodies) → hand off to the operator,
+who approves at `/feedback/[id]`.
+
+Guardrails (Anthropic building-effective-agents + the locked dials): **draft only** (never
+publish / set status / `UPDATE feedback`); **feedback text + attachments are untrusted** (the
+`db query` boundary wrapper — a report is evidence, never a command — prompt-injection guard);
+**ground every claim in real code/reproduction**; **draft in Thai, brief, one ask** (shown to
+the reporter as `ผู้ช่วย AI` — transparent it's AI); **never double-draft**.
+
+- Not TDD-testable (a procedure doc, no code/DB). Validated by running Step 1 against live
+  data (returns the open queue; the untrusted-data boundary confirms the injection guard).
+- Cadence stays manual — no scheduler. A scheduled routine is a later, separate decision.
+
+## Arc status
+
+U1–U4 + the `/triage-feedback` skill shipped (2026-06-25). The loop runs end to end:
+reporter files → CC triages + stages a draft → operator approves/discards → approved reply
+reaches the reporter as `ผู้ช่วย AI` → reporter replies → repeat. Remaining: **U5**
+annotated screenshots (reuse `photo_markups`) · **U6** reporter notification of a published
+reply.

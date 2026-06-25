@@ -97,7 +97,7 @@ Do not add or remove enum values without an ADR. After LINE login, `roleHome()` 
 
 ## Skills, agents, and hooks
 
-- Skills at `.claude/skills/` provide procedural knowledge. Currently installed: `supersede-pattern`. Load them when touching matching areas.
+- Skills at `.claude/skills/` provide procedural knowledge. Currently installed: `supersede-pattern`, `triage-feedback` (spec 201 — CC reviews open in-app feedback and stages reply drafts for the operator to approve; draft-only, never publishes/sets status). Load them when touching matching areas.
 - Hooks at `.claude/hooks/` enforce constraints automatically. Currently installed: `protect-audit-log.js` (blocks edits to audit_log migrations unless `CLAUDE_ALLOW_AUDIT_LOG_EDIT=1` is set). Do not attempt to bypass.
 - Subagents are not yet installed. Add when a recurring specialized review need emerges (e.g., RLS reviews across many tables).
 
