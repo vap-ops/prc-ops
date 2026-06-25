@@ -6,6 +6,24 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 202 U2 — check-out / check-in equipment on the WP page (2026-06-25)
+
+Status: **SHIPPED to prod — 2026-06-25** (no DB; lint · typecheck · vitest 1690 green).
+The value driver of spec 202: the
+**อุปกรณ์** tab on WP detail that calls `check_out_equipment`/`check_in_equipment`
+(spec 146 U3, already shipped) — this is what finally populates `equipment_usage_logs`
+so `wp_profit`'s equipment term stops being structurally ฿0. Mirrors the ทีมงาน
+(labor) tab: a **rate-free field surface** (no money on screen; the definer snapshots
+the rate server-side).
+
+**Test-first** (RED): `equipment-usage-rows.test.ts` (the `splitEquipmentUsage`
+supersede-anti-join helper) + `wp-equipment-zone.test.tsx` (check-out/in call shapes,
+picker omits already-out items, `locked` hides write controls).
+
+**App:** `splitEquipmentUsage` helper · `checkOutEquipment`/`checkInEquipment` actions
+(mirror `src/lib/labor/actions.ts`) · `WpEquipmentZone` component · 4 labels · WP-detail
+page reads (ride the Promise.all, no money column) + new อุปกรณ์ tab + hashTabMap.
+
 ## Spec 202 U1 — per-item equipment daily-rate UI (2026-06-25)
 
 Status: **SHIPPED to prod — 2026-06-25** (no DB; lint · typecheck · vitest 1682 green).

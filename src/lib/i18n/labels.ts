@@ -86,6 +86,11 @@ export const STORE_PNL_LABEL = "กำไร-ขาดทุนสโตร์";
 // Spec 202 U1 — the per-item equipment charge-out rate (money; back-office only).
 export const EQUIPMENT_DAILY_RATE_LABEL = "ค่าเช่า/วัน";
 export const EQUIPMENT_SET_DAILY_RATE_LABEL = "ตั้งค่าเช่า/วัน";
+// Spec 202 U2 — the WP equipment check-out/check-in tab (rate-free field surface).
+export const EQUIPMENT_TAB_LABEL = "อุปกรณ์";
+export const EQUIPMENT_CHECK_OUT_LABEL = "เช็คเอาท์";
+export const EQUIPMENT_CHECK_IN_LABEL = "คืน";
+export const EQUIPMENT_IN_USE_LABEL = "กำลังใช้งาน";
 // Spec 197 U2 — the full-stocktake action on the per-project คลัง page (the
 // relocated /stock-count count-list, opened as a deliberate count-everything pass
 // alongside the per-row spot count). The spec-178-B2 standalone STOCK_COUNT_LABEL

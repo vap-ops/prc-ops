@@ -1,6 +1,6 @@
 # Spec 202 — Equipment usage UI: activate the dormant rental economics
 
-**Status:** U1 building — 2026-06-25. **Driver:** the 2026-06-25 material/equipment
+**Status:** U1·U2 shipped · U3 next — 2026-06-25. **Driver:** the 2026-06-25 material/equipment
 lifecycle review found that spec 146 (P2 rental money, ADR 0055 decision 5) shipped
 **all** of its DB plumbing — `equipment_items.daily_rate`, the
 `set_equipment_daily_rate` / `create_equipment_rental_batch` /
@@ -51,7 +51,8 @@ a separate one-line follow-up, **not** in this spec — recorded so it is not lo
 
 ## U1 — per-item daily-rate UI on `/equipment` (2026-06-25)
 
-**Status:** building. **No schema** — `set_equipment_daily_rate` (spec 146 U1) and
+**Status:** SHIPPED to prod 2026-06-25 (`c6c1217`, no DB; lint·typecheck·vitest green).
+**No schema** — `set_equipment_daily_rate` (spec 146 U1) and
 `validateEquipmentDailyRate` already exist; this unit is the missing UI + action that
 call them. Pure app code → auto-merge eligible.
 
@@ -128,3 +129,105 @@ it persists; as a site_admin confirm **no** rate control or value is visible.
   so U2 is a clean rate-free field surface.
 - Rate **history** (the `equipment_rate_change` audit rows) has no reader — a later admin
   surface, with the rental-batch/allocation money views (U4/U5).
+
+---
+
+## U2 — check-out / check-in equipment on the WP detail page (2026-06-25)
+
+**Status:** SHIPPED to prod 2026-06-25 (no DB; lint·typecheck·vitest green).
+**No schema** — `check_out_equipment` / `check_in_equipment`
+(spec 146 U3) already exist; this unit is the missing **อุปกรณ์** tab that calls them.
+The value driver: this is the surface that actually populates `equipment_usage_logs`,
+so `wp_equipment_sell` (and `wp_profit`'s equipment term) stops being structurally 0.
+Mirrors the **ทีมงาน** (labor) tab — a **rate-free field surface**: the field records
+check-out/check-in, the definer snapshots the rate server-side, the screen never shows
+money (`daily_rate_snapshot` is omitted from the read, like `labor_logs.day_rate_snapshot`).
+
+### What ships
+
+- **Pure helper — `splitEquipmentUsage(rows)`** (`src/lib/equipment/usage-rows.ts`,
+  **TDD first**): applies the supersede anti-join (current = no newer row whose
+  `superseded_by` points at it) and partitions current rows into `open`
+  (`checked_in_on === null`, sorted by check-out date) and `history`
+  (`checked_in_on !== null`, most recent first). Mirrors `current-location.ts` —
+  compiles before `db:types`, no money.
+
+- **Actions** (`src/lib/equipment/usage-actions.ts`, mirroring `src/lib/labor/actions.ts`):
+  - `checkOutEquipment({ workPackageId, itemId, checkoutDate, revalidate })` →
+    `supabase.rpc("check_out_equipment", { p_item, p_wp, p_date })`. UUID + `/`-prefix +
+    ISO-date shape guards; relays to the RPC (the gate/serialisation/rate-snapshot are
+    the DB's). Maps the RPC's `P0001` messages → Thai: already-checked-out, **no daily
+    rate ("ตั้งราคาก่อน" — ties to U1)**, WP complete; `42501` → no-permission.
+  - `checkInEquipment({ logId, checkinDate, revalidate })` →
+    `check_in_equipment(p_log, p_date)`. Maps already-closed/superseded and
+    check-in-before-check-out → Thai.
+  - RLS server client (the definer runs under the caller's session, like the labor
+    actions); `revalidatePath` on success.
+
+- **Component — `WpEquipmentZone`** (`src/components/features/equipment/wp-equipment-zone.tsx`,
+  `'use client'`, mirroring `LaborLogZone` minus money/roster complexity). Props:
+  `workPackageId`, `revalidate`, `items` (`{ id, name, assetTag }[]` — rate-free),
+  `open` / `history` (`splitEquipmentUsage` output), `itemNames` (id → name), `locked`,
+  `defaultDate` (Bangkok today, server-computed). Renders:
+  - **Check-out form** (hidden when `locked`): a date input (default today) + an item
+    `<select>` listing items **not currently checked out** + a เช็คเอาท์ button →
+    `checkOutEquipment`.
+  - **กำลังใช้งาน** (currently out): each open row = item name + check-out date + (when
+    not `locked`) a **คืน** control revealing a date input → `checkInEquipment`.
+  - **ประวัติ** (history): closed rows, read-only (`{out} – {in}`). Empty states.
+  - **No money anywhere** — no rate column requested or shown.
+
+- **Labels** (`src/lib/i18n/labels.ts`, SSOT): `EQUIPMENT_TAB_LABEL = "อุปกรณ์"`,
+  `EQUIPMENT_CHECK_OUT_LABEL = "เช็คเอาท์"`, `EQUIPMENT_CHECK_IN_LABEL = "คืน"`,
+  `EQUIPMENT_IN_USE_LABEL = "กำลังใช้งาน"`.
+
+- **Wiring — WP detail page** (`…/work-packages/[workPackageId]/page.tsx`): two reads
+  ride the existing `Promise.all` — `equipment_items (id, name, asset_tag)` and
+  `equipment_usage_logs (id, item_id, checked_out_on, checked_in_on, superseded_by)` for
+  this WP (RLS client, **no money column**, readable by every `WP_DETAIL_ROLES` role). A
+  new **อุปกรณ์** tab is inserted after ทีมงาน, `locked = readOnly || status==='complete'`
+  (the labor posture: procurement reads history, the field checks out); `hashTabMap` gains
+  `"wp-equipment": "equipment"`.
+
+### Scope
+
+- **IN:** the pure helper, the two actions, the `WpEquipmentZone` component, the four
+  labels, the page reads + tab. Tests below.
+- **OUT:** a **correction/cancel** of a usage span (the `superseded_by` + `correction_reason`
+  columns exist; a `correct_equipment_usage` RPC + UI is a later seam — check-in already
+  closes an open span); filtering the item picker by the item's **movement-derived project**
+  (a U3/seam refinement — for now the picker lists all visible items, the RPC guards rate +
+  one-open-checkout); the F2/F3 status/location guards (**U3**, an RPC migration); any money
+  display; bulk/quantity checkout; half-day proration (whole-day, per spec 146 U3).
+
+### Money posture
+
+The whole surface is **rate-free** and therefore site_admin-safe (unlike U1's pricing).
+`daily_rate_snapshot` is never selected or shown; the field records spans only. Identical
+to the ทีมงาน tab (`log_labor_day` snapshots the rate server-side; the screen shows none).
+
+### Tests
+
+- **TDD (RED first):** `tests/unit/equipment-usage-rows.test.ts` — `splitEquipmentUsage`:
+  an open span surfaces in `open`; a checked-in span (open row superseded by a closed
+  successor) surfaces in `history` (the closed successor, not the superseded open row);
+  ordering. State **"Writing failing test first."**
+- **`tests/unit/wp-equipment-zone.test.tsx`** (mock actions + router): the check-out form
+  calls `checkOutEquipment` with `{ itemId, checkoutDate }`; an open row's คืน calls
+  `checkInEquipment` with `{ logId, checkinDate }`; the picker omits an already-out item;
+  `locked` hides the check-out form and คืน controls (history still shows).
+
+### Verification
+
+`pnpm lint && pnpm typecheck && pnpm test` green. **No DB**. Operator on-device: price an
+item (U1), then as a site_admin open a WP → อุปกรณ์ → check the item out, see it under
+กำลังใช้งาน, check it back in, see it move to ประวัติ — all with **no money on screen**.
+
+### Seams
+
+- **Correction/cancel** of a usage span — not built (the supersede columns are in place).
+- **Project-scoped item picker** — once movements drive deployment, filter the picker to
+  items on this WP's project; for now it lists all visible items (the RPC still guards).
+- **U3 (next):** the F2/F3 coherence guards — `check_out_equipment` rejects an item not
+  physically on hand and flips `equipment_items.status` to/from `in_use`. That one carries
+  an RPC migration (change-management gate), flagged before push.

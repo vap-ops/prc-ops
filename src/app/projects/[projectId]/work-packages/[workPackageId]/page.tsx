@@ -17,6 +17,7 @@ import { PurchaseRequestCard } from "@/components/features/purchasing/purchase-r
 import {
   APPROVAL_DECISION_LABEL,
   WORK_PACKAGE_STATUS_LABEL,
+  EQUIPMENT_TAB_LABEL,
   formatThaiDateTime,
   formatThaiTime,
 } from "@/lib/i18n/labels";
@@ -50,6 +51,9 @@ import {
 } from "@/components/features/store/wp-issue-stock";
 import { PhaseGallery } from "@/components/features/photos/phase-gallery";
 import { LaborLogZone } from "@/components/features/labor/labor-log-zone";
+import { WpEquipmentZone } from "@/components/features/equipment/wp-equipment-zone";
+import { splitEquipmentUsage } from "@/lib/equipment/usage-rows";
+import { bangkokTodayIso } from "@/lib/dates";
 import { PhotoCaptureZone } from "./phase-uploader";
 import { ReportDefectControl } from "./report-defect-control";
 
@@ -85,6 +89,8 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
     { data: issueRows },
     { data: wkRows },
     { data: catalogRows },
+    { data: eqItemRows },
+    { data: eqUsageRows },
   ] = await Promise.all([
     loadWorkPackageDetail(supabase, { workPackageId, projectId, isPlanner }),
     isPlanner
@@ -122,6 +128,18 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
       .select("id, category, base_item, spec_attrs, unit, image_path")
       .eq("is_active", true)
       .order("base_item", { ascending: true }),
+    // Spec 202 U2: the อุปกรณ์ tab. The registry (RATE-FREE — daily_rate is
+    // admin-only and omitted) feeds the check-out picker; this WP's usage spans
+    // feed the open/history lists. Both RLS-readable by WP_DETAIL_ROLES; no money.
+    supabase
+      .from("equipment_items")
+      .select("id, name, asset_tag")
+      .order("name", { ascending: true }),
+    supabase
+      .from("equipment_usage_logs")
+      .select("id, item_id, checked_out_on, checked_in_on, superseded_by")
+      .eq("work_package_id", workPackageId)
+      .order("created_at", { ascending: true }),
   ]);
   if (!data.wp) {
     notFound();
@@ -220,6 +238,16 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
     receiverName: r.receiver_worker_id ? (workerNames.get(r.receiver_worker_id) ?? "—") : null,
     receivedAt: r.received_at,
   }));
+
+  // Spec 202 U2: shape the equipment usage tab (rate-free). The picker lists every
+  // visible item; open/history come from the supersede anti-join.
+  const equipmentItems = (eqItemRows ?? []).map((r) => ({
+    id: r.id,
+    name: r.name,
+    assetTag: r.asset_tag,
+  }));
+  const equipmentItemNames = Object.fromEntries(equipmentItems.map((i) => [i.id, i.name]));
+  const { open: equipmentOpen, history: equipmentHistory } = splitEquipmentUsage(eqUsageRows ?? []);
 
   // Spec 167: the body folds into segmented tabs. Order = the SA's frequency
   // (capture first, then purchases, labor, reference info); the planner-only
@@ -345,6 +373,25 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
           // (locked drops the capture form and the per-row edit button).
           showFlags={!readOnly && ctx.role !== "site_admin"}
           locked={readOnly || wp.status === "complete"}
+        />
+      ),
+    },
+    {
+      // Spec 202 U2: check equipment out/in to this WP. Rate-free (no money on
+      // screen) — same locked posture as labor (procurement reads history; the
+      // field checks out; a complete WP is read-only).
+      key: "equipment",
+      label: EQUIPMENT_TAB_LABEL,
+      panel: (
+        <WpEquipmentZone
+          workPackageId={wp.id}
+          revalidate={workPackageHref(projectId, workPackageId)}
+          items={equipmentItems}
+          itemNames={equipmentItemNames}
+          open={equipmentOpen}
+          history={equipmentHistory}
+          locked={readOnly || wp.status === "complete"}
+          defaultDate={bangkokTodayIso()}
         />
       ),
     },
@@ -544,7 +591,12 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
           section. The pending-requests chip (#wp-requests) opens คำขอซื้อ. */}
       <WpDetailTabs
         tabs={tabs}
-        hashTabMap={{ "wp-requests": "purchases", "wp-photos": "photos", "wp-labor": "labor" }}
+        hashTabMap={{
+          "wp-requests": "purchases",
+          "wp-photos": "photos",
+          "wp-labor": "labor",
+          "wp-equipment": "equipment",
+        }}
       />
     </PageShell>
   );
