@@ -6,6 +6,40 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 204 — client billing + retention write UI (2026-06-25)
+
+Status: **SHIPPED — 2026-06-25** (code-only, NO schema/db:push). Audit gap **G10** — the
+single biggest "backend-shipped-no-UI" gap. Spec 149 U5 shipped the client_billings /
+retention_receivables tables, the create/certify/mark-due/release RPCs, the GL-posting
+triggers, and the read-only registers — but no UI to create a claim, certify it (book
+AR/revenue/VAT/WHT + accrue retention), mark retention due, or release it. The GL had a
+cost side, no revenue side. This unit adds the write surfaces.
+
+- TDD (RED first): `tests/unit/billing-actions.test.ts` (status predicates
+  canCertifyBilling/canMarkRetentionDue/canReleaseRetention mirroring the RPC guards) →
+  `src/lib/accounting/billing-actions.ts` (+ `BILLING_WRITE_ROLES` SSOT =
+  [project_manager, super_admin], matching the RPC gate exactly — NOT project_director).
+- Actions: `billings/actions.ts` (createClientBilling, certifyClientBilling), `retention/
+actions.ts` (markRetentionDue, releaseRetention) — gate the AUTHED session, call the RPC
+  on auth.supabase (never admin), revalidate both registers.
+- UI: `CreateBillingForm` (BottomSheet + live computeBillingBreakdown preview), certify via
+  ConfirmActionButton on draft/submitted rows; `RetentionRowActions` (mark-due date +
+  release). Controls gated to BILLING_WRITE_ROLES (beta: super_admin only; auto-widens when
+  spec 166 re-adds PM). Accounting role stays READ-ONLY on billing/retention (RPC = pm/super).
+- QUALITY (architecture-first bar): extracted the copy-pasted server-action role-check into
+  a shared `requireActionRole()` in `src/lib/auth/action-gate.ts` (periods/billings/retention
+  now use it); extracted `baht()` into `src/lib/i18n/labels.ts` (3 of ~12 inline copies
+  migrated); parallelized the billings-page reads (no waterfall, spec 147/148). Adversarial
+  `/code-review high` → 3 real findings FIXED (rate-field reset leak across claims; canWrite
+  hardcoded→SSOT drift; baht DRY); rest refuted (input type=date guards dates; empty≠error).
+- Verify: typecheck + lint + full vitest green; pgTAP 85/86 + client-billing.test already
+  cover the RPCs/math. Operator visual-confirm on /accounting/billings + /accounting/retention
+  as super_admin.
+
+Open follow-ups (architecture-audit sweep): accounting→certify yes/no (a spec/product call —
+RPC currently pm/super); migrate the remaining ~9 inline `baht` copies and the rest of the
+server-action files to `requireActionRole()`.
+
 ## Spec 203 U2 — widen post_purchase_to_gl gate + remediate the 9 (2026-06-25)
 
 Status: **SHIPPED to prod — 2026-06-25** (0f13656, mig 20260813002100, pgTAP 225 plan 14).

@@ -1,21 +1,24 @@
-// Spec 149 U9b — client-billing (งวด) register, read-only. Drills from /accounting.
+// Spec 149 U9b — client-billing (งวด) register. Spec 204 adds the write path
+// (create a draft claim + certify it) for the billing-write roles; the read view is
+// unchanged for accounting. Certify books AR/revenue/VAT/WHT and accrues retention.
 
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { EmptyNotice } from "@/components/features/common/notices";
+import { ConfirmActionButton } from "@/components/features/common/confirm-action-button";
 import { requireRole } from "@/lib/auth/require-role";
 import { ACCOUNTING_ROLES } from "@/lib/auth/role-home";
 import { createClient as createAdminClient } from "@/lib/db/admin";
-import { formatThaiDate } from "@/lib/i18n/labels";
-import { SECTION_HEADING, CARD } from "@/lib/ui/classes";
+import { formatThaiDate, baht } from "@/lib/i18n/labels";
+import { SECTION_HEADING, CARD, BUTTON_PRIMARY_COMPACT } from "@/lib/ui/classes";
 import { loadBillingRegister } from "@/lib/accounting/load-registers";
+import { canCertifyBilling, BILLING_WRITE_ROLES } from "@/lib/accounting/billing-actions";
+import { CreateBillingForm } from "./create-billing-form";
+import { certifyClientBilling } from "./actions";
 
 export const metadata = { title: "งวดงาน" };
-
-const baht = (n: number) =>
-  n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const STATUS_LABEL: Record<string, string> = {
   draft: "ร่าง",
@@ -28,7 +31,18 @@ const STATUS_LABEL: Record<string, string> = {
 export default async function BillingRegisterPage() {
   const ctx = await requireRole(ACCOUNTING_ROLES);
   const admin = createAdminClient();
-  const rows = await loadBillingRegister(admin);
+  // In beta only super_admin is in both ACCOUNTING_ROLES and BILLING_WRITE_ROLES, so
+  // accounting sees read-only; when spec 166 re-adds PM to the page gate the write
+  // controls light up automatically (the action/RPC already admit pm).
+  const canWrite = BILLING_WRITE_ROLES.includes(ctx.role);
+
+  // Parallel reads (no waterfall, spec 147/148): the register + the project picker
+  // (writers only — the create form needs it).
+  const [rows, projectRes] = await Promise.all([
+    loadBillingRegister(admin),
+    canWrite ? admin.from("projects").select("id, code, name").order("code") : null,
+  ]);
+  const projects = (projectRes?.data ?? []).map((p) => ({ id: p.id, label: p.name ?? p.code }));
 
   return (
     <PageShell>
@@ -38,6 +52,8 @@ export default async function BillingRegisterPage() {
       </DetailHeader>
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
+        {canWrite ? <CreateBillingForm projects={projects} /> : null}
+
         <h2 className={SECTION_HEADING}>รายการวางบิลลูกค้า</h2>
         {rows.length === 0 ? (
           <EmptyNotice>ยังไม่มีงวดงาน</EmptyNotice>
@@ -63,6 +79,18 @@ export default async function BillingRegisterPage() {
                   </span>
                   <span>รับสุทธิ {r.netReceivable === null ? "—" : baht(r.netReceivable)}</span>
                 </div>
+                {canWrite && canCertifyBilling(r.status) ? (
+                  <div className="border-edge mt-3 flex justify-end border-t pt-3">
+                    <ConfirmActionButton
+                      idleLabel="รับรองงวด"
+                      pendingLabel="กำลังรับรอง…"
+                      confirmMessage="รับรองงวดนี้? ระบบจะลงบัญชีรายได้ + ภาษี และตั้งเงินประกันค้างรับ"
+                      confirmLabel="รับรอง"
+                      buttonClassName={BUTTON_PRIMARY_COMPACT}
+                      action={certifyClientBilling.bind(null, r.id)}
+                    />
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>
