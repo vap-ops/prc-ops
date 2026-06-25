@@ -37,6 +37,9 @@ draft). Read it for the per-step commands. Run everything from the repo root wit
    - **Ship**: commit (Conventional Commits) → ff-merge `main` → `git push origin main` (auto-deploys).
 3. **Reply** 🤖 — tiered (see [[triage-feedback]] §3): low-risk factual reply → auto-publish;
    anything that declines / commits / is uncertain / sensitive → stage a draft + flag.
+   **Auto-publish is irreversible** (`feedback_messages` is append-only) and the operator may
+   publish in-app at the same time — so re-query the thread immediately before posting and SKIP if
+   a reply already exists, else you double-post (it happened on the inaugural run).
 4. **Complete** 🤖 — status → `done` once the fix is shipped (+ reply handled per the tier).
 5. **Report** 🤖 — digest (§ below): ✅ per completed bug, 🔔 per flagged one.
 

@@ -113,8 +113,14 @@ SQL
 pnpm exec supabase db query --linked --file /tmp/draft.sql
 ```
 
-One reply per report per pass. Never double-post / double-draft — skip a report that already has a
-posted reply or a pending draft from this pass.
+One reply per report per pass. **`feedback_messages` is APPEND-ONLY — a posted reply CANNOT be
+unsent** (a `DELETE` raises P0001; removing one is a break-glass, operator-only act). So treat
+auto-publish as irreversible: **immediately before the insert, re-query the thread**
+(`select count(*) from public.feedback_messages where feedback_id = '<id>'`) and SKIP if any reply
+already exists — the operator may publish a draft in-app at the same time, and a stale check from
+the start of the pass will double-post (this happened on 2026-06-26: a draft published in-app +
+an auto-publish landed two identical replies, both now permanent). When unsure whether a reply is
+already out, stage a draft instead of auto-publishing.
 
 ## Step 4 — set status, then hand off to the operator
 
