@@ -1,5 +1,5 @@
 begin;
-select plan(19);
+select plan(25);
 
 -- ============================================================================
 -- Spec 161 U2 / ADR 0060 — WP economic identity. wp_economics (one row per WP,
@@ -37,6 +37,23 @@ select has_column('public', 'wp_economics', 'budget', 'has budget');
 select has_column('public', 'wp_economics', 'is_external', 'has is_external');
 select ok(not has_table_privilege('authenticated', 'public.wp_economics', 'SELECT'),
   'authenticated has no SELECT on wp_economics (budget is money)');
+-- Execute lockdown (hardening 20260813002400): anon must never reach either money
+-- setter; authenticated keeps it (the app call path). The original 20260761000000
+-- did NO grant management, so Supabase's ALTER DEFAULT PRIVILEGES left anon with
+-- EXECUTE on both. Mirrors file 226 (set_wp_labor_budget). Guards a future
+-- DROP+CREATE that would re-open the hole.
+select is(
+  has_function_privilege('anon', 'public.set_wp_budget(uuid, numeric)', 'EXECUTE'),
+  false, 'anon cannot execute set_wp_budget (money write)');
+select is(
+  has_function_privilege('authenticated', 'public.set_wp_budget(uuid, numeric)', 'EXECUTE'),
+  true, 'authenticated can execute set_wp_budget');
+select is(
+  has_function_privilege('anon', 'public.set_wp_external(uuid, boolean)', 'EXECUTE'),
+  false, 'anon cannot execute set_wp_external (money-table write)');
+select is(
+  has_function_privilege('authenticated', 'public.set_wp_external(uuid, boolean)', 'EXECUTE'),
+  true, 'authenticated can execute set_wp_external');
 
 grant insert on _tap_buf to authenticated;
 grant select on _tap_buf to authenticated;
@@ -86,6 +103,17 @@ set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333330199"
 select throws_ok(
   $$ select public.set_wp_external('dddddddd-0199-0199-0199-dddddddd0199', true) $$,
   'P0001', null, 'an unknown WP is rejected (external)');
+
+-- Null-safe gate (hardening): a session with no sub → auth.uid() NULL →
+-- current_user_role() NULL → both setters must REJECT, not fall through into the
+-- money write (the original gates evaluated `NULL not in (...)` = NULL = no raise).
+set local "request.jwt.claims" = '{}';
+select throws_ok(
+  $$ select public.set_wp_budget('c0010199-0199-0199-0199-c0c0c0c10199', 90000) $$,
+  '42501', null, 'a null-role / anon session cannot set the budget (null-safe gate)');
+select throws_ok(
+  $$ select public.set_wp_external('c0010199-0199-0199-0199-c0c0c0c10199', true) $$,
+  '42501', null, 'a null-role / anon session cannot classify the WP (null-safe gate)');
 
 reset role;
 
