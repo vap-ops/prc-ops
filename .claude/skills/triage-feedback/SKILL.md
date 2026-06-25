@@ -18,9 +18,9 @@ the repo root.
 ## Hard guardrails — read first
 
 1. **Never publish/discard drafts** — `publish_feedback_draft` / `discard_feedback_draft`
-   stay the operator's (super*admin); a reply reaches a reporter only after they approve.
+   stay the operator's (`super_admin`); a reply reaches a reporter only after they approve.
    **BUT set status as part of triage** (operator standing instruction, 2026-06-26):
-   \_a report you have triaged must never stay `open`/`ใหม่`.* Move it to `in_progress`
+   a report you have triaged must never stay `open`/`ใหม่`. Move it to `in_progress`
    (กำลังดำเนินการ — triaged / being worked / acknowledged), `done` (เสร็จแล้ว — fixed &
    shipped), or `declined` (ปฏิเสธ). Mechanism: `set_feedback_status` is `super_admin`-gated
    and **raises 42501 under the `db query` service-role connection** (role resolves null), so
