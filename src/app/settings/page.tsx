@@ -29,6 +29,7 @@ import { THEME_COOKIE, parseThemeSetting } from "@/lib/ui/theme";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { createClient } from "@/lib/db/server";
 import { ACCOUNTING_ROLES, isManagerRole } from "@/lib/auth/role-home";
+import { getOpenFeedbackCount } from "@/lib/feedback/triage-count";
 import { CATALOG_LABEL, SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
 // Server-only import (this page is a Server Component) — no client bundle bloat,
 // no version drift vs package.json.
@@ -69,6 +70,10 @@ export default async function SettingsPage() {
   // badge on failure); feedback_unread_ids is definer + caller-scoped.
   const { data: unreadFeedbackIds } = await supabase.rpc("feedback_unread_ids");
   const unreadFeedback = unreadFeedbackIds?.length ?? 0;
+  // Spec 201 / feedback 152d2e34: the open-feedback triage count lives HERE (the
+  // app-admin surface), not on the ภาพรวม dashboard. super_admin only (they alone
+  // triage; RLS reads all open reports).
+  const openFeedback = role === "super_admin" ? await getOpenFeedbackCount(supabase) : 0;
   // Spec 190: current theme setting (cookie) — drives the toggle's initial state
   // with no flash / no hydration mismatch.
   const themeSetting = parseThemeSetting((await cookies()).get(THEME_COOKIE)?.value);
@@ -305,6 +310,7 @@ export default async function SettingsPage() {
               icon={Inbox}
               label="รายการที่แจ้งเข้ามา"
               hint="ดูและจัดการคำขอ/ปัญหาที่ผู้ใช้แจ้ง"
+              badge={<ApprovalsBadge count={openFeedback} position="inline" label="รอตรวจ" />}
             />
           )}
         </div>
