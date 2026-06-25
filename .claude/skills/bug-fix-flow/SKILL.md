@@ -41,7 +41,17 @@ draft). Read it for the per-step commands. Run everything from the repo root wit
    publish in-app at the same time — so re-query the thread immediately before posting and SKIP if
    a reply already exists, else you double-post (it happened on the inaugural run).
 4. **Complete** 🤖 — status → `done` once the fix is shipped (+ reply handled per the tier).
-5. **Report** 🤖 — digest (§ below): ✅ per completed bug, 🔔 per flagged one.
+   A report you CANNOT auto-complete (product/UX judgment — see § flag) stays `in_progress`
+   **and must be flagged**; `done` is only for a shipped fix. `in_progress` + a digest 🔔 entry =
+   "awaiting your decision" — never leave it bare (no flag), or it just looks stuck.
+5. **Reconcile & close** 🤖 — before ending, **RE-PULL the queue** — reports can be filed mid-pass
+   and miss the opening snapshot (this is exactly how 6fbcc039 was missed on 2026-06-26: filed 11
+   min after the run started). Process any newcomer. Then assert the invariant: **nothing is left
+   at `open`/`ใหม่`, and every report is either `done` (you shipped a fix) or `in_progress` with a
+   flag raised.** If a straggler still arrives after the re-pull, leave it `in_progress` and note
+   it as deferred to the next run.
+6. **Report** 🤖 — ALWAYS send the digest (§ below), even if nothing shipped
+   ("triaged N · shipped M · awaiting your decision on K · deferred D").
 
 ## Flag the operator — ONLY these, and be CRISP
 
