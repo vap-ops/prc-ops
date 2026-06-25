@@ -30,6 +30,7 @@ import {
 } from "@/lib/equipment/current-location";
 import { equipmentLocationLabel } from "@/lib/equipment/equipment-location-label";
 import { EQUIPMENT_MOVEMENT_KIND_LABEL } from "@/lib/i18n/labels";
+import { SetDailyRate } from "@/components/features/equipment/set-daily-rate";
 import {
   createEquipment,
   createEquipmentCategory,
@@ -446,6 +447,7 @@ function EquipmentRow({
   categoryName,
   locationLabel,
   canManageRegistry,
+  dailyRate,
 }: {
   item: ManagedEquipmentItem;
   categories: Ref[];
@@ -455,6 +457,9 @@ function EquipmentRow({
   categoryName: string | null;
   locationLabel: string;
   canManageRegistry: boolean;
+  // Spec 202 U1 — present ONLY for the money audience (page omits it otherwise).
+  // `undefined` = not the money audience → no rate control renders. MONEY.
+  dailyRate?: number | null;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -543,6 +548,9 @@ function EquipmentRow({
             >
               แก้ไข
             </button>
+          ) : null}
+          {dailyRate !== undefined ? (
+            <SetDailyRate itemId={item.id} currentRate={dailyRate} />
           ) : null}
         </div>
       </div>
@@ -704,6 +712,7 @@ export function EquipmentManager({
   projects,
   movements,
   canManageRegistry,
+  dailyRates,
 }: {
   items: ManagedEquipmentItem[];
   categories: Ref[];
@@ -714,11 +723,18 @@ export function EquipmentManager({
   // no registry editing (add/edit items, bootstrap categories/owners). RLS is
   // the real guard; this just hides the affordances the field can't use.
   canManageRegistry: boolean;
+  // Spec 202 U1 — the per-item daily charge-out rate map (id → baht/day | null).
+  // MONEY: present ONLY when the page resolved the back-office money audience; the
+  // field view (site_admin) never receives it, so no rate ever reaches that client.
+  dailyRates?: Record<string, number | null>;
 }) {
   const ownerNames = new Map(owners.map((o) => [o.id, o.name]));
   const categoryNames = new Map(categories.map((c) => [c.id, c.name]));
   const projectNames = new Map(projects.map((p) => [p.id, p.name]));
   const locations = currentEquipmentLocation(movements);
+  // Belt-and-braces: only surface rates when BOTH the audience flag and the map
+  // are present (a rate map must never render on the field view).
+  const canPriceEquipment = canManageRegistry && dailyRates !== undefined;
 
   return (
     <div className="flex flex-col gap-4">
@@ -749,6 +765,7 @@ export function EquipmentManager({
                   categoryName={categoryNames.get(it.category_id) ?? null}
                   locationLabel={equipmentLocationLabel(loc, projectName)}
                   canManageRegistry={canManageRegistry}
+                  {...(canPriceEquipment ? { dailyRate: dailyRates![it.id] ?? null } : {})}
                 />
               );
             })}

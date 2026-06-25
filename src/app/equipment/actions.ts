@@ -16,6 +16,7 @@ import { requireRole } from "@/lib/auth/require-role";
 import { BACK_OFFICE_ROLES, EQUIPMENT_MOVE_ROLES } from "@/lib/auth/role-home";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { validateEquipmentItem } from "@/lib/equipment/validate-equipment-item";
+import { validateEquipmentDailyRate } from "@/lib/equipment/validate-equipment-daily-rate";
 import type { Database } from "@/lib/db/database.types";
 
 type EquipmentStatus = Database["public"]["Enums"]["equipment_status"];
@@ -169,6 +170,38 @@ export async function createEquipmentOwner(input: {
     created_by: ctx.id,
   });
   if (error) return { ok: false, error: GENERIC_ERROR };
+
+  revalidatePath("/equipment");
+  return { ok: true };
+}
+
+// Spec 202 U1 — set the per-item equipment daily charge-out rate (MONEY). Goes
+// through the SECURITY DEFINER set_equipment_daily_rate RPC (the real gate +
+// audit live in the DB; daily_rate has NO authenticated grant, so this is the
+// only write path). requireRole(BACK_OFFICE_ROLES) is defense-in-depth and matches
+// the RPC's final gate (pm/super/procurement/project_director, 20260751000000).
+// Mirrors setItemSellRate; the RPC raises P0001 for both not-found and a bad rate.
+export async function setEquipmentDailyRate(input: {
+  id: string;
+  rate: number;
+}): Promise<EquipmentActionResult> {
+  await requireRole(BACK_OFFICE_ROLES);
+
+  if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC_ERROR };
+  const rate = validateEquipmentDailyRate(input.rate);
+  if (!rate.ok) return rate;
+
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("set_equipment_daily_rate", {
+    p_id: input.id,
+    p_rate: rate.value,
+  });
+  if (error) {
+    if (error.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์ตั้งค่าเช่าอุปกรณ์" };
+    if (error.code === "P0001")
+      return { ok: false, error: "ไม่พบอุปกรณ์นี้ หรือค่าเช่าไม่ถูกต้อง" };
+    return { ok: false, error: GENERIC_ERROR };
+  }
 
   revalidatePath("/equipment");
   return { ok: true };

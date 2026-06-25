@@ -26,6 +26,8 @@ vi.mock("@/app/equipment/actions", () => ({
   createEquipmentCategory: mockAddCategory,
   createEquipmentOwner: mockAddOwner,
   recordEquipmentMovement: mockMove,
+  // Spec 202 U1 — SetDailyRate renders inside the row; mock its action too.
+  setEquipmentDailyRate: vi.fn().mockResolvedValue({ ok: true }),
 }));
 
 import {
@@ -75,6 +77,7 @@ function renderManager(over?: {
   items?: ManagedEquipmentItem[];
   movements?: EquipmentMovementRow[];
   canManageRegistry?: boolean;
+  dailyRates?: Record<string, number | null>;
 }) {
   render(
     <EquipmentManager
@@ -84,6 +87,7 @@ function renderManager(over?: {
       projects={PROJECTS}
       movements={over?.movements ?? []}
       canManageRegistry={over?.canManageRegistry ?? true}
+      {...(over?.dailyRates ? { dailyRates: over.dailyRates } : {})}
     />,
   );
 }
@@ -232,6 +236,25 @@ describe("EquipmentManager", () => {
         expect.objectContaining({ itemId: "e2", quantity: 50 }),
       ),
     );
+  });
+
+  // Spec 202 U1 — per-item daily-rate control (money audience only)
+  it("shows the daily-rate control for the money audience when dailyRates is given", () => {
+    renderManager({ items: ITEMS, dailyRates: { e1: null } });
+    expect(screen.getByText("ตั้งค่าเช่า/วัน")).toBeInTheDocument();
+  });
+
+  it("shows the current daily rate when set", () => {
+    renderManager({ items: ITEMS, dailyRates: { e1: 1500 } });
+    expect(screen.getByText(/฿1,?500/)).toBeInTheDocument();
+  });
+
+  it("never renders a daily-rate control on the site_admin field view", () => {
+    // The page omits dailyRates for site_admin; even if a rate map leaked in,
+    // canManageRegistry=false must suppress the money control.
+    renderManager({ items: ITEMS, canManageRegistry: false, dailyRates: { e1: 1500 } });
+    expect(screen.queryByText("ตั้งค่าเช่า/วัน")).not.toBeInTheDocument();
+    expect(screen.queryByText(/฿1,?500/)).not.toBeInTheDocument();
   });
 
   // U5 — site_admin field view: list + move, no registry management

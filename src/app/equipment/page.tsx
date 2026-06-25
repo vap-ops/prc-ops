@@ -8,6 +8,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
 import { BACK_OFFICE_ROLES, EQUIPMENT_MOVE_ROLES } from "@/lib/auth/role-home";
 import { createClient as createServerSupabase } from "@/lib/db/server";
+import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import {
@@ -52,6 +53,17 @@ export default async function EquipmentPage() {
     occurredAt: m.occurred_at,
   }));
 
+  // Spec 202 U1 — the per-item daily charge-out rate is money (zero authenticated
+  // grant, ADR 0055 decision 6), so it is read ONLY for the back-office money
+  // audience (canManageRegistry) and ONLY via the admin client. The site_admin
+  // field view never gets the map, so no rate reaches that client (spec 46).
+  let dailyRates: Record<string, number | null> | undefined;
+  if (canManageRegistry) {
+    const admin = createAdminSupabase();
+    const { data: rateRows } = await admin.from("equipment_items").select("id, daily_rate");
+    dailyRates = Object.fromEntries((rateRows ?? []).map((r) => [r.id, r.daily_rate]));
+  }
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -66,6 +78,7 @@ export default async function EquipmentPage() {
           projects={projectRows ?? []}
           movements={movements}
           canManageRegistry={canManageRegistry}
+          {...(dailyRates ? { dailyRates } : {})}
         />
       </div>
     </PageShell>

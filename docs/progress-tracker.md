@@ -6,6 +6,25 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 202 U1 — per-item equipment daily-rate UI (2026-06-25)
+
+Status: **SHIPPED to prod — 2026-06-25** (no DB; lint · typecheck · vitest 1682 green).
+The 2026-06-25 lifecycle review found
+spec 146 (equipment rental money) fully built in the DB + validators but with **zero
+UI / call sites** — `equipment_usage_logs` is unpopulatable, so `wp_profit`'s equipment
+term is structurally ฿0. Spec 202 activates it; U1 is the dependency root (pricing).
+
+Pure app code — `set_equipment_daily_rate` (spec 146 U1) + `validateEquipmentDailyRate`
+already exist; this wires the missing UI. Mirrors the catalog sell-rate money control.
+
+**Test-first** (RED): `set-daily-rate.test.tsx` (new) + extend `equipment-manager.test.tsx`
+(price control shows for the money audience, hidden on the site_admin field view).
+
+**App:** `setEquipmentDailyRate` action → `set_equipment_daily_rate` definer;
+`SetDailyRate` component (BottomSheet, `฿x/วัน`); `dailyRates` prop threaded through
+`EquipmentManager`/`EquipmentRow`, rendered only under `canManageRegistry`; `/equipment`
+admin-reads `daily_rate` for the money audience only.
+
 ## Spec 200 U2 — assign a worker to a project at creation (2026-06-24)
 
 Status: **SHIPPED to prod — 2026-06-24** (no DB; lint · typecheck · vitest green).
