@@ -51,6 +51,8 @@ import {
 } from "@/components/features/store/wp-issue-stock";
 import { PhaseGallery } from "@/components/features/photos/phase-gallery";
 import { LaborLogZone } from "@/components/features/labor/labor-log-zone";
+import { LaborBudgetCard } from "@/components/features/labor/labor-budget-card";
+import { fetchWpLaborBudgetSummary } from "@/lib/labor/wp-budget-summary";
 import { WpEquipmentZone } from "@/components/features/equipment/wp-equipment-zone";
 import { splitEquipmentUsage } from "@/lib/equipment/usage-rows";
 import { bangkokTodayIso } from "@/lib/dates";
@@ -91,6 +93,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
     { data: catalogRows },
     { data: eqItemRows },
     { data: eqUsageRows },
+    laborBudget,
   ] = await Promise.all([
     loadWorkPackageDetail(supabase, { workPackageId, projectId, isPlanner }),
     isPlanner
@@ -140,6 +143,9 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
       .select("id, item_id, checked_out_on, checked_in_on, superseded_by")
       .eq("work_package_id", workPackageId)
       .order("created_at", { ascending: true }),
+    // Spec 205 U3: the labor budget vs actual for the จัดการ tab — MONEY, so only
+    // for the planner (PM/PD/super); a site_admin/procurement view never reads it.
+    isPlanner ? fetchWpLaborBudgetSummary(workPackageId) : Promise.resolve(null),
   ]);
   if (!data.wp) {
     notFound();
@@ -454,6 +460,15 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
       label: "จัดการ",
       panel: (
         <>
+          {/* Spec 205 U3: the labor budget (money) lives here — the everyday
+              manage surface, already planner-gated so site staff never see it. */}
+          {laborBudget ? (
+            <LaborBudgetCard
+              summary={laborBudget}
+              workPackageId={wp.id}
+              revalidate={workPackageHref(projectId, workPackageId)}
+            />
+          ) : null}
           <WpNameControl projectId={wp.project_id} workPackageId={wp.id} name={wp.name} />
           <WpPriorityControl
             projectId={wp.project_id}

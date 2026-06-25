@@ -1,6 +1,6 @@
 # 205 — WP labor budget (งบค่าแรงต่อรายการงาน)
 
-Status: U1 SHIPPED (2026-06-25, migs 20260813002200 + harden 20260813002300, pgTAP 226 21/21) · U2 SHIPPED (2026-06-25, code-only, budget-vs-actual card on the PM review ค่าแรง section). **SPEC 205 COMPLETE.**
+Status: U1 SHIPPED (2026-06-25, migs 20260813002200 + harden 20260813002300, pgTAP 226 21/21) · U2 SHIPPED (2026-06-25, code-only, budget-vs-actual card on the PM review ค่าแรง section) · U3 SHIPPED (2026-06-26, code-only, budget on the WP detail จัดการ tab — discoverability fix).
 Relates: ADR 0060 (WP economic identity / `wp_economics`), ADR 0058 (project_director
 ride-along), spec 68 (labor cost + freeze), spec 161 (`set_wp_budget`/`set_wp_external`).
 
@@ -90,13 +90,34 @@ Code-only.
   widens so it also shows when a labor budget exists (not only when there's cost).
 - Screenshot the budget-vs-actual card → Telegram ✅.
 
+## U3 — surface on the everyday WP detail page (discoverability)
+
+Code-only. After U2 shipped, the operator (super_admin) couldn't find the control:
+U2 put it only on `/review/work-packages/[id]`, which is linked **solely** from the
+รอตรวจ queue ([review/page.tsx](../../src/app/review/page.tsx) lists only
+`pending_approval` WPs). With nothing pending review there's no link at all — and a
+budget is not something you'd look for in an approval queue. So the control is now
+also on the everyday WP detail page (`/projects/[id]/work-packages/[id]`).
+
+- New `src/lib/labor/wp-budget-summary.ts` — `fetchWpLaborBudgetSummary(wpId)`:
+  server-only, admin-client read of `labor_logs` (cost) + `wp_economics.labor_budget`
+  → `laborBudgetSummary`. Extracted from the review page's inline reads; callers MUST
+  gate on `isManagerRole`.
+- WP detail page: a 9th entry in the existing `Promise.all` (no waterfall) —
+  `isPlanner ? fetchWpLaborBudgetSummary(workPackageId) : Promise.resolve(null)`. The
+  `จัดการ` tab (already pushed only `if (isPlanner)`, i.e. PM/PD/super) renders the
+  `LaborBudgetCard` at its top. site_admin/procurement never run the read, never see
+  the tab → money stays off field/read-only sessions.
+- Kept on the review page too (both surfaces). Card/control/RPC unchanged from U1/U2.
+
 ## Out of scope
 
 - Feeding the labor budget into `wp_profit` / over-budget into approvals/alerts
   (planning display only this spec).
 - own/dc split budgets; project-roll-up of labor budgets; budget history/versioning.
 - Surfacing on the SA field page (money stays PM-tier).
-- Setting a labor budget at WP creation (set/edit anytime from the review page).
+- Setting a labor budget at WP creation (set/edit anytime from the WP detail
+  จัดการ tab or the review page — U3).
 
 ## Verification
 

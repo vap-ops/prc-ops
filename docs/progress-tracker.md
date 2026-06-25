@@ -3478,3 +3478,26 @@ threshold exactly 90% · (3) progress bar gains `role="progressbar"` + aria-valu
 aria-label (matches work-package-list's bar) · (4) spec body updated from the stale "thin wrapper"
 sketch to the as-built purpose-built helper. +3 tests (fractional near-budget, 90% boundary,
 progressbar role). Full suite green, typecheck + lint clean.
+
+## Spec 205 — WP labor budget, U3: surface on the WP detail จัดการ tab (2026-06-26)
+
+Status: **U3 SHIPPED 2026-06-26 (code-only, no DB).** Operator (super_admin) feedback right after
+U2: "I can't find it." Root cause = placement, not permission: U2 mounted the card only on
+`/review/work-packages/[id]`, which `review/page.tsx` links **solely** for `pending_approval` WPs via
+the รอตรวจ queue — with nothing pending review there's no link at all, and a budget isn't something
+you'd hunt for in an approval queue. Fix = also surface it on the everyday WP detail page's `จัดการ`
+(manage) tab, which is already gated to `isPlanner` (PM/PD/super) so it's money-safe (site
+staff/procurement don't get the tab).
+
+New `src/lib/labor/wp-budget-summary.ts` — `fetchWpLaborBudgetSummary(wpId)`: server-only,
+admin-client read of `labor_logs`→`aggregateLaborCost` + `wp_economics.labor_budget` →
+`laborBudgetSummary` (DRY-extracted from the review page's inline reads; callers MUST gate on
+`isManagerRole`). WP detail page (`projects/[id]/work-packages/[id]`): added a 9th entry to the
+existing `Promise.all` (no waterfall) — `isPlanner ? fetchWpLaborBudgetSummary(workPackageId) :
+Promise.resolve(null)` → `laborBudget`; the `จัดการ` tab renders `LaborBudgetCard` at its top under
+`{laborBudget ? … : null}`. **Money posture:** the read AND the tab are both `isPlanner`-gated → a
+`site_admin`/`procurement` session never runs the admin read nor sees the card. Card/control/RPC
+unchanged from U1/U2; visual identical to the U2 screenshot. No new unit test (server fetch glue —
+consistent with `load-detail`/`fetch-zone-data`, neither unit-tested); covered by the U2 card/helper
+tests + pgTAP 226 + a U3 adversarial review. typecheck + lint clean, full suite green. Kept on the
+review page too (both surfaces).
