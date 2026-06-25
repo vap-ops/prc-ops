@@ -8,8 +8,11 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ## Spec 203 U2 — widen post_purchase_to_gl gate + remediate the 9 (2026-06-25)
 
-Status: **BUILT — in adversarial review, awaiting db:push OK** (2026-06-25; SCHEMA +
-data remediation). The drain-outage left 9 WP-bound PRs that advanced purchased→delivered
+Status: **SHIPPED to prod — 2026-06-25** (0f13656, mig 20260813002100, pgTAP 225 plan 14).
+Applied via db:push after operator OK; a manual `drain_gl_posting(100)` posted the 9 →
+**verified: gl_posting_outbox purchase jobs = 27 posted / 0 failed / 0 pending; 9 new
+WP-bound purchase entries, AP total ฿102,453.57** (matches the stranded amount exactly).
+4-lens review → logic ships safe; the one blocker (seed aborting on CHECKs) was fixed. The drain-outage left 9 WP-bound PRs that advanced purchased→delivered
 before any drain ran; `post_purchase_to_gl` gated on purchased/site_purchased only, so it
 refused them (~฿102k unposted). U2 widens the gate to the committed-and-not-voided set
 (purchased/site_purchased/on_route/delivered) and re-enqueues the 9 (failed→pending) so the

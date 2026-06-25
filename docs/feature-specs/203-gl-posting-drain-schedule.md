@@ -1,6 +1,8 @@
 # Spec 203 — Schedule the GL posting drain (the consumer spec 149 never scheduled)
 
-**Status:** U1 SHIPPED · U2 built (awaiting db:push) — 2026-06-25 (schema). **Driver:** a
+**Status:** U1 + U2 SHIPPED — 2026-06-25 (schema). The GL drain is scheduled and the 9
+stranded purchases (฿102,453.57) are posted. Remaining: drain SKIP-LOCKED + the test-hardening
+sweep (own follow-ups). **Driver:** a
 2026-06-25 dig into three "pre-existing" pgTAP failures (`85-client-billing` /
 `86-retention-release` / `87-wht-certificates`, all the `is(drain_gl_posting(100), 1)`
 assert) found a **production gap**: `drain_gl_posting` (spec 149 / ADR 0057, mig
@@ -35,10 +37,13 @@ so this cron makes that durable (the outbox stays drained instead of re-accumula
 `db:push` (after operator OK — schema) → `db:test`: `224` green AND `85/86/87` now green (the
 backlog was drained). No app/code change → no lint/typecheck/vitest impact.
 
-## U2 — widen the poster gate + remediate the 9 (built)
+## U2 — widen the poster gate + remediate the 9 (SHIPPED)
 
-**Status:** built — adversarially reviewed (4 lenses → migration logic ships safe; one
-test-only blocker found + fixed) — awaiting `db:push` OK. **SCHEMA + data remediation.**
+**Status:** SHIPPED to prod 2026-06-25 (0f13656, mig 20260813002100, pgTAP 225). Applied
+via db:push after operator OK; a manual `drain_gl_posting(100)` posted the 9 →
+**verified: 27 posted / 0 failed / 0 pending purchase jobs; 9 new WP-bound purchase entries,
+AP total ฿102,453.57** (matches the stranded amount). 4-lens review → logic ships safe; the
+test-only blocker (seed aborting on CHECKs) was fixed.
 
 The drain outage stranded 9 WP-bound PRs that advanced `purchased → delivered` before any
 drain ran; `post_purchase_to_gl` gated on `purchased`/`site_purchased` only, so it refuses
