@@ -5,7 +5,7 @@ select plan(10);
 -- Spec 175 U1 — item catalog (storage / inventory foundation).
 --   catalog_items (reference data: category, base_item, spec_attrs, unit,
 --     stockable, ...) — read-only to authenticated; seeded by migration.
---   item_category enum (12 labels). Unique identity on (base_item, spec_attrs).
+--   item_category enum (13 labels). Unique identity on (base_item, spec_attrs).
 -- ============================================================================
 
 insert into auth.users (id, email, raw_user_meta_data) values
@@ -25,9 +25,9 @@ select is(
 select enum_has_labels(
   'public', 'item_category',
   array['steel_fixing','plumbing_sanitary','site_safety','roofing','ceiling_tile',
-        'electrical','door_fire','paint','masonry_tools','paving','tank_septic',
-        'custom_fabrication'],
-  'item_category enum has the 12 spec labels');
+        'electrical','door_fire','paint','masonry_tools','machinery_tools','paving',
+        'tank_septic','custom_fabrication'],
+  'item_category enum has the 13 spec labels');
 select is(
   has_table_privilege('anon', 'public.catalog_items', 'SELECT'),
   false, 'anon cannot select catalog_items');

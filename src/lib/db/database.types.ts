@@ -5990,6 +5990,7 @@ export type Database = {
         | "door_fire"
         | "paint"
         | "masonry_tools"
+        | "machinery_tools"
         | "paving"
         | "tank_septic"
         | "custom_fabrication"
@@ -6311,6 +6312,7 @@ export const Constants = {
         "door_fire",
         "paint",
         "masonry_tools",
+        "machinery_tools",
         "paving",
         "tank_septic",
         "custom_fabrication",

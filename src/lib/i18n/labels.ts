@@ -61,6 +61,7 @@ export const ITEM_CATEGORY_LABEL: Record<Enums["item_category"], string> = {
   door_fire: "ประตู / งานหนีไฟ",
   paint: "สี",
   masonry_tools: "เครื่องมืองานปูน",
+  machinery_tools: "เครื่องจักร / เครื่องมือ",
   paving: "อิฐทางเท้า",
   tank_septic: "ถังบำบัด / ถังน้ำ",
   custom_fabrication: "งานสั่งทำ",
