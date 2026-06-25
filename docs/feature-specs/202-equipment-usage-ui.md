@@ -1,6 +1,6 @@
 # Spec 202 — Equipment usage UI: activate the dormant rental economics
 
-**Status:** U1·U2 shipped · U3 building (schema — flag before push) — 2026-06-25. **Driver:** the 2026-06-25 material/equipment
+**Status:** ARC COMPLETE — U1·U2·U3 shipped 2026-06-25 (U3 = the only schema unit, applied via db:push after operator OK). U4/U5/U6 remain optional (rental-batch / allocation UI + budget-vs-spend & owner portal). **Driver:** the 2026-06-25 material/equipment
 lifecycle review found that spec 146 (P2 rental money, ADR 0055 decision 5) shipped
 **all** of its DB plumbing — `equipment_items.daily_rate`, the
 `set_equipment_daily_rate` / `create_equipment_rental_batch` /
@@ -236,7 +236,8 @@ item (U1), then as a site_admin open a WP → อุปกรณ์ → check th
 
 ## U3 — check-out coherence guards: F2 (physical availability) + F3 (in_use overlay) (2026-06-25)
 
-**Status:** building. **SCHEMA** (change-management gate — flag before `db:push`). The two
+**Status:** SHIPPED to prod 2026-06-25 (be54719, mig 20260813001900, pgTAP 223 24/24).
+**SCHEMA** (change-management gate — applied via `db:push` after operator OK). The two
 latent bugs the 2026-06-25 lifecycle review surfaced, now that U2 made checkout reachable:
 the two "where is it" systems (`equipment_movements` = project-grain custody;
 `equipment_usage_logs` = WP-grain billing) had **no cross-check**, so you could bill a WP

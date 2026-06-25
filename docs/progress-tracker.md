@@ -8,7 +8,11 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ## Spec 202 U3 — equipment check-out coherence guards F2 + F3 (2026-06-25)
 
-Status: **IN PROGRESS — 2026-06-25** (SCHEMA — RPC migration, flag before db:push).
+Status: **SHIPPED to prod — 2026-06-25** (be54719, mig 20260813001900, pgTAP 223
+24/24 green post-apply; db:types no diff; lint·typecheck·vitest 1690 green). Applied
+via db:push after operator OK (5-lens adversarial review → ship; pgTAP RED→GREEN
+confirmed F2 blocks + F3 sets/restores). The 3 pre-existing GL-drain failures
+(85/86/87) are unchanged — unrelated.
 Closes the two latent bugs the lifecycle review surfaced, now reachable via U2:
 F2 = `check_out_equipment` rejects gear not physically on hand (status ∉
 {available,on_site,in_use}); F3 = checkout flips `equipment_items.status`→`in_use`,
