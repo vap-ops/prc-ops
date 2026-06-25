@@ -1497,6 +1497,39 @@ export type Database = {
           },
         ]
       }
+      feedback_views: {
+        Row: {
+          feedback_id: string
+          last_viewed_at: string
+          user_id: string
+        }
+        Insert: {
+          feedback_id: string
+          last_viewed_at?: string
+          user_id: string
+        }
+        Update: {
+          feedback_id?: string
+          last_viewed_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_views_feedback_id_fkey"
+            columns: ["feedback_id"]
+            isOneToOne: false
+            referencedRelation: "feedback"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_views_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gl_accounts: {
         Row: {
           account_type: Database["public"]["Enums"]["gl_account_type"]
@@ -5157,6 +5190,7 @@ export type Database = {
         }
         Returns: string
       }
+      feedback_unread_ids: { Args: never; Returns: string[] }
       freeze_wp_labor_cost: { Args: { p_wp: string }; Returns: undefined }
       generate_purchase_requests_from_plan: {
         Args: { p_line_ids: string[]; p_plan_id: string }
@@ -5272,6 +5306,10 @@ export type Database = {
           p_wp: string
         }
         Returns: string
+      }
+      mark_feedback_viewed: {
+        Args: { p_feedback_id: string }
+        Returns: undefined
       }
       mark_retention_due: {
         Args: { p_due_date: string; p_id: string }

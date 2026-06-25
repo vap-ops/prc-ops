@@ -29,12 +29,19 @@ export default async function MyFeedbackPage() {
     .from("feedback")
     .select("id, type, status, title, created_at")
     .order("created_at", { ascending: false });
+
+  // Spec 201 A2 — which of these reports have a team reply the reporter hasn't seen
+  // (feedback_unread_ids, definer, caller-scoped). Best-effort: on failure no dots.
+  const { data: unreadIds } = await supabase.rpc("feedback_unread_ids");
+  const unread = new Set(unreadIds ?? []);
+
   const myFeedback = (mine ?? []).map((f) => ({
     id: f.id,
     type: f.type,
     status: f.status,
     title: f.title,
     createdAt: f.created_at,
+    hasUnreadReply: unread.has(f.id),
   }));
 
   return (

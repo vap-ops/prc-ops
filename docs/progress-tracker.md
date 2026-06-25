@@ -3179,9 +3179,9 @@ photos). unit 20/20 · typecheck · lint green. **PD photo class fully closed AN
 **AWARENESS ARC A1 SHIPPED 2026-06-25 (code-only, NO DB) — operator new-feedback triage card.**
 The two-way loop was feature-complete but SILENT: no signal fires on submit, reply, draft, or
 status change, and feedback wired into NEITHER awareness rail (in-app AwarenessCard/SelfCountBadge
-nor the LINE outbox). A1 closes the operator side cheapest-first: a super_admin-only AwarenessCard
+nor the LINE outbox). A1 closes the operator side cheapest-first: a super*admin-only AwarenessCard
 on `/dashboard` showing the count of `open` feedback → `/feedback/review`. Doctrine-perfect — feedback
-triage is a _tabless_ operator action, so it joins the dashboard inbox exactly like the WP-review hero
+triage is a \_tabless* operator action, so it joins the dashboard inbox exactly like the WP-review hero
 
 - bank-change card (spec 188); the PM tier incl. super_admin lands on `/dashboard` (roleHome, spec 183),
   so it's the highest-pull surface. Mirrors `getPendingBankChangeCount` + the bank-change card exactly:
@@ -3195,3 +3195,25 @@ triage is a _tabless_ operator action, so it joins the dashboard inbox exactly l
   **Awareness arc** section (A1 now · A2 reporter reply-awareness via a new mutable `feedback_views`
   table · A3 operator pending-draft surfacing · A4 LINE push — outward-facing, flagged). No flag (code-only,
   in-app, not outward-facing) → auto-merge.
+
+**AWARENESS ARC A2 SHIPPED 2026-06-25 (mig `20260813001600`, pgTAP 221 16/16) — reporter
+reply-awareness (unread dot).** Closes the reporter side of the silent loop: when the
+operator/agent publishes a reply, the reporter sees it without re-polling. **Unread modelled
+in a NEW mutable `feedback_views(feedback_id, user_id, last_viewed_at, pk)` table** — append-only
+forbids a seen-flag on `feedback_messages` (P0001), and per-viewer state can't live on the shared
+`feedback` row; the blessed precedent is `feedback_message_drafts` getting its own table for the
+same reason. Zero direct access (revoke all, no policies) — RPC-only via two definers:
+`mark_feedback_viewed(uuid)` (visibility-gated upsert: submitter OR super, else 42501; unknown 22023) + `feedback_unread_ids() setof uuid` (the caller's OWN submissions with an operator/agent
+message newer than last view; the reporter's own messages never count). **UI:** unread dot
+("ตอบกลับใหม่") per `/feedback/mine` row (`MyFeedbackList` +`hasUnreadReply`; mine page builds the
+set from `feedback_unread_ids`) · `MarkFeedbackViewed` client island on `/feedback/[id]`
+(best-effort `mark_feedback_viewed` on mount, after render — not during, or the dot clears early) ·
+roll-up `ApprovalsBadge` on the settings feedback entry (`SettingsLink` +`badge` slot). Test-first:
+pgTAP 221 (16 — lockdown, unread detect/clear/re-flag, own-messages-never-count, caller-scope, gate,
+mutability) + `my-feedback-list.test.tsx` (+2). **LESSON: a zero-grant RLS table raises 42501 on a
+direct SELECT (not 0 rows) — assert the ABSENT privilege (`has_table_privilege`), never run the
+SELECT (first 221 run failed on exactly this).** Full suite 257/1670; pgTAP 168/171 (3 reds =
+pre-existing GL-drain 85/86/87, unrelated); typecheck · lint green. db:types regenerated
+(+feedback_views, +mark_feedback_viewed, +feedback_unread_ids). Schema migration flagged before
+db:push (additive, reversible). **NEXT = A3 (operator pending-draft surfacing) or A4 (LINE push —
+outward-facing, needs both flags).**

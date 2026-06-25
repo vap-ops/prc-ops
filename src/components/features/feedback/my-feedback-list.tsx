@@ -20,6 +20,9 @@ export type MyFeedbackItem = {
   status: FeedbackStatus;
   title: string;
   createdAt: string;
+  // Spec 201 A2 — the report has a team reply (operator/agent) the reporter hasn't
+  // seen yet. Drives the "new reply" dot so a reply is visible without re-polling.
+  hasUnreadReply?: boolean;
 };
 
 const TYPE_BADGE: Record<FeedbackType, string> = {
@@ -60,7 +63,16 @@ export function MyFeedbackList({ items }: { items: MyFeedbackItem[] }) {
               <span className={`${BADGE} ${STATUS_BADGE[f.status]}`}>
                 {FEEDBACK_STATUS_LABEL[f.status]}
               </span>
-              <span className="text-ink-muted ml-auto text-xs">
+              {f.hasUnreadReply ? (
+                <span
+                  role="status"
+                  aria-label="มีการตอบกลับใหม่"
+                  className="bg-attn text-on-attn ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                >
+                  ตอบกลับใหม่
+                </span>
+              ) : null}
+              <span className={`text-ink-muted text-xs ${f.hasUnreadReply ? "" : "ml-auto"}`}>
                 {formatThaiDateTime(f.createdAt)}
               </span>
             </div>

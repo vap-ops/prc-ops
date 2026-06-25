@@ -12,6 +12,7 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { FeedbackThread } from "@/components/features/feedback/feedback-thread";
 import { FeedbackReply } from "@/components/features/feedback/feedback-reply";
 import { FeedbackDrafts } from "@/components/features/feedback/feedback-drafts";
+import { MarkFeedbackViewed } from "@/components/features/feedback/mark-feedback-viewed";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { CARD } from "@/lib/ui/classes";
 import { createClient } from "@/lib/db/server";
@@ -97,6 +98,8 @@ export default async function FeedbackDetailPage({ params }: PageProps) {
       </DetailHeader>
 
       <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-5 px-5 py-6`}>
+        {/* Spec 201 A2 — mark this report viewed (clears the unread-reply dot). */}
+        <MarkFeedbackViewed feedbackId={feedback.id} />
         <div className={`${CARD} flex flex-col gap-2`}>
           <div className="flex flex-wrap items-center gap-2">
             <span className={`${BADGE} ${TYPE_BADGE[feedback.type]}`}>

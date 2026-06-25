@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -23,6 +24,7 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
 import { ComingSoonBadge } from "@/components/features/chrome/coming-soon-badge";
 import { ThemeToggle } from "@/components/features/chrome/theme-toggle";
+import { ApprovalsBadge } from "@/components/features/dashboard/pending-approvals-badge";
 import { THEME_COOKIE, parseThemeSetting } from "@/lib/ui/theme";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { createClient } from "@/lib/db/server";
@@ -62,6 +64,11 @@ export default async function SettingsPage() {
 
   const role = row.role;
   const isManager = isManagerRole(role);
+  // Spec 201 A2 — the caller's unread team replies, badged on the feedback entry so a
+  // reply is visible from settings without drilling into the thread. Best-effort (no
+  // badge on failure); feedback_unread_ids is definer + caller-scoped.
+  const { data: unreadFeedbackIds } = await supabase.rpc("feedback_unread_ids");
+  const unreadFeedback = unreadFeedbackIds?.length ?? 0;
   // Spec 190: current theme setting (cookie) — drives the toggle's initial state
   // with no flash / no hydration mismatch.
   const themeSetting = parseThemeSetting((await cookies()).get(THEME_COOKIE)?.value);
@@ -288,6 +295,7 @@ export default async function SettingsPage() {
             icon={MessageSquarePlus}
             label="แจ้งปัญหา / ขอฟีเจอร์"
             hint="พบข้อผิดพลาด หรืออยากให้ระบบทำอะไรได้เพิ่ม"
+            badge={<ApprovalsBadge count={unreadFeedback} position="inline" label="ตอบกลับใหม่" />}
           />
           {/* Spec 193 U3: the operator's triage backlog — every report filed,
               with status control. super_admin only (RLS reads all). */}
@@ -319,11 +327,14 @@ function SettingsLink({
   icon: Icon,
   label,
   hint,
+  badge,
 }: {
   href: string;
   icon: typeof Contact;
   label: string;
   hint: string;
+  // Optional trailing awareness pill (spec 201 A2) — sits before the chevron.
+  badge?: ReactNode;
 }) {
   return (
     <Link href={href} className={ROW}>
@@ -334,6 +345,7 @@ function SettingsLink({
         <span className="text-ink text-body block font-semibold">{label}</span>
         <span className="text-ink-secondary text-meta block">{hint}</span>
       </span>
+      {badge}
       <ChevronRight aria-hidden className="text-ink-muted h-5 w-5 shrink-0" />
     </Link>
   );

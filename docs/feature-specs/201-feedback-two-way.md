@@ -227,7 +227,8 @@ lowest-cost surface. "Each item is badged in exactly one place."
   `AwarenessCard` on `/dashboard` showing the count of `open` feedback → `/feedback/review`.
   Mirrors `getPendingBankChangeCount` + the bank-change card exactly. Honest count→destination
   (open reports are the `ใหม่` column of the review kanban). Renders only when count > 0.
-- **A2 — reporter reply-awareness** (own unit; needs DB). When the operator/agent publishes a
+- **A2 — reporter reply-awareness** (SHIPPED — mig `20260813001600`, pgTAP 221; see A2 scope
+  below). When the operator/agent publishes a
   reply, the reporter sees it without re-polling: a per-thread unread dot on `/feedback/mine`
   - a roll-up signal on the settings เรื่องที่เคยแจ้ง entry. **Modelled with a NEW mutable
     `feedback_views(feedback_id, user_id, last_viewed_at, pk(feedback_id,user_id))` table** — NOT
@@ -237,8 +238,9 @@ lowest-cost surface. "Each item is badged in exactly one place."
     the user's submission has a `feedback_messages` row with `author_kind IN ('operator','agent')`
     and `created_at > coalesce(last_viewed_at,'-infinity')`; the reporter's own `reporter`
     messages are excluded. `mark_feedback_viewed(uuid)` definer (visibility-gated upsert) fires
-    **server-side after the thread renders** in `/feedback/[id]` (not on list render, or the dot
-    clears prematurely). Own pgTAP file. Routine schema flag-before-push.
+    from a **client mount effect after the thread renders** in `/feedback/[id]` (a best-effort
+    island, like the `SelfCountBadge` head-counts — never during render, or the dot clears
+    prematurely). Own pgTAP file. Routine schema flag-before-push.
 - **A3 — operator pending-CC-draft surfacing.** A staged draft awaiting approval is unsurfaced
   (the operator must open each thread). Surface the `feedback_message_drafts` count for the
   operator (reuses the A1/A2 rail). Distinct destination from A1 (drafts live per-thread), so
@@ -276,3 +278,35 @@ lowest-cost surface. "Each item is badged in exactly one place."
   count > 0, shows count + label, links to the surface).
 - `pnpm lint && pnpm typecheck && pnpm test` green. No `db:test` (no DB change). Code-only,
   in-app, not outward-facing → ships under the auto-commit-merge posture, no pre-push flag.
+
+### A2 — scope (shipped)
+
+- **DB (`20260813001600`, pgTAP 221):** `feedback_views(feedback_id, user_id, last_viewed_at,
+pk(feedback_id,user_id))` — MUTABLE, zero direct access (revoke all; no policies), like
+  `feedback_attachments` reads + the `feedback_message_drafts` own-table precedent.
+  `mark_feedback_viewed(uuid)` definer — visibility-gated upsert (caller is the submitter OR
+  super_admin, else 42501; unknown id 22023). `feedback_unread_ids() returns setof uuid` definer
+  (stable) — the caller's OWN submissions with an `operator`/`agent` message newer than their last
+  view; the reporter's own `reporter` messages never count. Both `grant execute to authenticated`.
+- **UI:** unread dot ("ตอบกลับใหม่", `aria-label="มีการตอบกลับใหม่"`) per `/feedback/mine` row
+  (`MyFeedbackList` gains `hasUnreadReply`; `mine/page.tsx` builds the set from
+  `feedback_unread_ids`) · `MarkFeedbackViewed` client island on `/feedback/[id]` (best-effort
+  `mark_feedback_viewed` rpc on mount, after render) · a roll-up `ApprovalsBadge`
+  (`label="ตอบกลับใหม่"`, inline) on the settings ความช่วยเหลือ feedback entry (`SettingsLink`
+  gains an optional `badge` slot; the settings page fetches the unread count). No `labels.ts`
+  churn (aria/badge strings are inline, like A1).
+- **Why a client island, not a server mark:** marking during a server render is a side-effect in
+  render (unreliable under streaming/caching); a mount effect fires once the reporter has actually
+  loaded the thread. Best-effort (swallows failure) — a missed view just leaves the dot.
+
+### Verification (A2)
+
+- pgTAP `221-feedback-views` (16): catalog + execute lockdown (mark/unread auth-yes anon-no) +
+  `feedback_views` has no direct authenticated SELECT (RPC-only — assert the privilege, never run
+  a SELECT, since zero-grant raises 42501) · an unanswered team reply is unread · the reporter's
+  own message is never unread · mark clears it · a newer team reply re-flags it · unread is
+  caller-scoped · non-owner non-super cannot mark (42501) · super can mark any · unknown id 22023 ·
+  `feedback_views` is mutable (UPDATE allowed, contrast `feedback_messages` P0001).
+- `my-feedback-list.test.tsx` (+2): the dot shows only on unread rows; none when nothing is unread.
+- `pnpm lint && pnpm typecheck && pnpm test` green; `pnpm db:test` 221 green (the 3 pre-existing
+  GL-drain reds in 85/86/87 are unrelated). Schema migration → flagged before `db:push`.

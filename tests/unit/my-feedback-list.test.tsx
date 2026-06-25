@@ -64,4 +64,21 @@ describe("MyFeedbackList (spec 201)", () => {
     render(<MyFeedbackList items={[]} />);
     expect(screen.getByText(/ยังไม่มีเรื่องที่เคยแจ้ง/)).toBeInTheDocument();
   });
+
+  // Spec 201 A2 — a per-report "new team reply" dot, shown only on reports with an
+  // unread reply (hasUnreadReply), so the reporter sees a reply landed without polling.
+  it("flags only the reports with an unread reply", () => {
+    const withUnread: MyFeedbackItem[] = [
+      { ...items[0]!, hasUnreadReply: true },
+      { ...items[1]! }, // no unread flag
+      { ...items[2]!, hasUnreadReply: false },
+    ];
+    render(<MyFeedbackList items={withUnread} />);
+    expect(screen.getAllByLabelText("มีการตอบกลับใหม่")).toHaveLength(1);
+  });
+
+  it("shows no reply dot when nothing is unread", () => {
+    render(<MyFeedbackList items={items} />);
+    expect(screen.queryByLabelText("มีการตอบกลับใหม่")).toBeNull();
+  });
 });
