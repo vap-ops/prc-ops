@@ -86,6 +86,15 @@ export const STORE_PNL_LABEL = "กำไร-ขาดทุนสโตร์";
 // Spec 202 U1 — the per-item equipment charge-out rate (money; back-office only).
 export const EQUIPMENT_DAILY_RATE_LABEL = "ค่าเช่า/วัน";
 export const EQUIPMENT_SET_DAILY_RATE_LABEL = "ตั้งค่าเช่า/วัน";
+// Spec 205 — the per-WP labor budget (a money cost ceiling, PM/PD-set; PM review only).
+export const LABOR_BUDGET_LABEL = "งบค่าแรง";
+export const SET_LABOR_BUDGET_LABEL = "ตั้งงบค่าแรง";
+export const EDIT_LABOR_BUDGET_LABEL = "แก้งบค่าแรง";
+export const LABOR_BUDGET_USED_LABEL = "ใช้ไป";
+export const LABOR_BUDGET_REMAINING_LABEL = "คงเหลือ";
+export const LABOR_BUDGET_OVER_LABEL = "เกินงบ";
+export const LABOR_BUDGET_UNSET_LABEL = "ยังไม่ได้ตั้งงบค่าแรง";
+
 // Spec 202 U2 — the WP equipment check-out/check-in tab (rate-free field surface).
 export const EQUIPMENT_TAB_LABEL = "อุปกรณ์";
 export const EQUIPMENT_CHECK_OUT_LABEL = "เช็คเอาท์";

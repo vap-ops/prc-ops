@@ -35,8 +35,10 @@ import {
   type OverAllocatedDay,
 } from "@/lib/labor/cost";
 import { computeLaborVariance } from "@/lib/labor/variance";
+import { laborBudgetSummary } from "@/lib/labor/budget";
 import { bangkokDateOf } from "@/lib/dates";
 import { LaborCostView } from "@/components/features/labor/labor-cost-view";
+import { LaborBudgetCard } from "@/components/features/labor/labor-budget-card";
 import { AttentionCard } from "@/components/features/common/attention-card";
 import { RecordDecisionForm } from "./record-decision-form";
 import { HoldToggle } from "./hold-toggle";
@@ -134,6 +136,16 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
     .select("own_cost, dc_cost, computed_at, frozen_by")
     .eq("work_package_id", wp.id)
     .maybeSingle();
+
+  // Spec 205: the PM/PD-set labor budget (a money cost ceiling). Zero-grant, so
+  // read via the admin client like wp_labor_costs; compared against the live
+  // labor total for the budget-vs-actual card.
+  const { data: econRow } = await admin
+    .from("wp_economics")
+    .select("labor_budget")
+    .eq("work_package_id", wp.id)
+    .maybeSingle();
+  const budgetSummary = laborBudgetSummary(econRow?.labor_budget ?? null, costSummary.total);
 
   // C5: over-allocation is cross-WP — fetch the workers+dates on THIS WP
   // across all WPs, flag >1.0/day, keep only the pairs that touch this WP.
@@ -264,38 +276,43 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
           />
         </section>
 
-        {/* Spec 68: PM-only labor cost + close-out variance. Renders only
-            when there is cost content or a variance to flag. The SA page
-            never shows money — this section lives only on the PM surface. */}
-        {costSummary.workers.length > 0 || frozenSnapshot || variance.surfaces ? (
-          <section>
-            <h2 className={SECTION_HEADING}>ค่าแรง</h2>
-            <div className="flex flex-col gap-4">
-              {variance.surfaces ? (
-                <AttentionCard tone="amber" title="ภาพถ่ายกับวันลงทีมงานไม่ตรงกัน">
-                  <p className="text-ink-secondary text-xs">
-                    {variance.photoOnlyDays.length > 0
-                      ? `มีรูปแต่ไม่ได้ลงทีมงาน ${variance.photoOnlyDays.length} วัน`
-                      : null}
-                    {variance.photoOnlyDays.length > 0 && variance.laborOnlyDays.length > 0
-                      ? " · "
-                      : null}
-                    {variance.laborOnlyDays.length > 0
-                      ? `ลงทีมงานแต่ไม่มีรูป ${variance.laborOnlyDays.length} วัน`
-                      : null}
-                  </p>
-                </AttentionCard>
-              ) : null}
-              <LaborCostView
-                summary={costSummary}
-                frozen={frozenSnapshot}
-                overAllocated={overAllocated}
-                workPackageId={wp.id}
-                revalidate={`/review/work-packages/${workPackageId}`}
-              />
-            </div>
-          </section>
-        ) : null}
+        {/* Spec 68 + 205: PM-only labor money. The labor budget card always
+            renders here (the PM/PD can set a cost ceiling before any labor); the
+            variance flag and the cost view self-gate to actual content
+            (LaborCostView returns null with no cost/freeze). The SA page never
+            shows money — this section lives only on the PM surface. */}
+        <section>
+          <h2 className={SECTION_HEADING}>ค่าแรง</h2>
+          <div className="flex flex-col gap-4">
+            <LaborBudgetCard
+              summary={budgetSummary}
+              workPackageId={wp.id}
+              revalidate={`/review/work-packages/${workPackageId}`}
+            />
+            {variance.surfaces ? (
+              <AttentionCard tone="amber" title="ภาพถ่ายกับวันลงทีมงานไม่ตรงกัน">
+                <p className="text-ink-secondary text-xs">
+                  {variance.photoOnlyDays.length > 0
+                    ? `มีรูปแต่ไม่ได้ลงทีมงาน ${variance.photoOnlyDays.length} วัน`
+                    : null}
+                  {variance.photoOnlyDays.length > 0 && variance.laborOnlyDays.length > 0
+                    ? " · "
+                    : null}
+                  {variance.laborOnlyDays.length > 0
+                    ? `ลงทีมงานแต่ไม่มีรูป ${variance.laborOnlyDays.length} วัน`
+                    : null}
+                </p>
+              </AttentionCard>
+            ) : null}
+            <LaborCostView
+              summary={costSummary}
+              frozen={frozenSnapshot}
+              overAllocated={overAllocated}
+              workPackageId={wp.id}
+              revalidate={`/review/work-packages/${workPackageId}`}
+            />
+          </div>
+        </section>
 
         <section>
           <h2 className={SECTION_HEADING}>ประวัติการตรวจ</h2>

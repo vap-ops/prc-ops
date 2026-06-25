@@ -3449,4 +3449,32 @@ card on `/review/work-packages/[id]` ค่าแรง section + inline set con
 
 **Follow-up surfaced (out of scope):** `set_wp_budget` / `set_wp_external` (20260761000000) have NO
 grant management at all → share the latent anon-exec exposure; should get the same `from public, anon`
-revoke + null-safe gate in a hardening sweep.
+revoke + null-safe gate in a hardening sweep. (Spawned as a background task.)
+
+## Spec 205 — WP labor budget, U2: budget-vs-actual UI (ARC COMPLETE) (2026-06-25)
+
+Status: **U2 SHIPPED 2026-06-25 (code-only, no DB). SPEC 205 COMPLETE (U1 data + U2 UI).**
+
+Budget-vs-actual surface in the `ค่าแรง` section of the PM WP review page
+(`/review/work-packages/[id]`). **Pure** `src/lib/labor/budget.ts` — `laborBudgetSummary(budget,
+spend)`: purpose-built (NOT a thin `budgetStatus` wrapper as the spec first sketched — the review
+flagged that `budgetStatus` treats 0 as "no budget", but the data layer stores 0 ≠ NULL on purpose,
+so the card must distinguish set-zero from unset). Returns `isSet` (budget !== null), remaining,
+`pctUsed` (null when budget 0 with spend), `over`, and a `tone` (ok / attn ≥90% / over). Unit-tested
+8/8 incl. the two 0-budget cases. **UI:** `LaborBudgetCard` (server, presentational — money rendered
+server-side) shows งบค่าแรง · ใช้ไป (with %) · คงเหลือ/เกินงบ + a toned progress bar; embeds
+`LaborBudgetControl` (client, mirrors the equipment `SetDailyRate` — BottomSheet + numeric input →
+`setWpLaborBudget`). Card test 3/3 (unset prompt / under / over). Labels SSOT'd in `labels.ts`
+(`LABOR_BUDGET_*`). The card always renders on this PM-gated page (the PM/PD can set a ceiling before
+any labor); `LaborCostView` self-gates to actual cost. Page reads `wp_economics.labor_budget` via the
+admin client (zero-grant) next to the existing `wp_labor_costs` read; compares against
+`costSummary.total`. **Verified with a real render** (temp route + preview MCP screenshot, 4 states:
+unset / under-42% green / attn-94% amber / over-128% red — all correct). Render gate: the `ค่าแรง`
+section now always shows on the review page. **Adversarial review (10 agents) → 4 low/nit fixes
+applied:** (1) `pctUsed` floors instead of rounds — rounding up showed a full 100% bar with money
+still remaining on a fractional spend, and tripped amber at 89.5%; floor keeps the % honest and the
+90% boundary exact (over stays the single source of the full-bar truth) · (2) same fix makes the attn
+threshold exactly 90% · (3) progress bar gains `role="progressbar"` + aria-valuenow/min/max + Thai
+aria-label (matches work-package-list's bar) · (4) spec body updated from the stale "thin wrapper"
+sketch to the as-built purpose-built helper. +3 tests (fractional near-budget, 90% boundary,
+progressbar role). Full suite green, typecheck + lint clean.

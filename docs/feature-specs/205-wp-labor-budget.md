@@ -1,6 +1,6 @@
 # 205 — WP labor budget (งบค่าแรงต่อรายการงาน)
 
-Status: U1 SHIPPED (2026-06-25, migs 20260813002200 + harden 20260813002300, pgTAP 226 21/21) · U2 PLANNED.
+Status: U1 SHIPPED (2026-06-25, migs 20260813002200 + harden 20260813002300, pgTAP 226 21/21) · U2 SHIPPED (2026-06-25, code-only, budget-vs-actual card on the PM review ค่าแรง section). **SPEC 205 COMPLETE.**
 Relates: ADR 0060 (WP economic identity / `wp_economics`), ADR 0058 (project_director
 ride-along), spec 68 (labor cost + freeze), spec 161 (`set_wp_budget`/`set_wp_external`).
 
@@ -72,9 +72,13 @@ to authenticated`. Mirror `set_wp_external`.
 
 Code-only.
 
-- **Pure** `src/lib/labor/budget.ts` — `laborBudgetSummary(laborBudget, actualTotal)`
-  thin wrapper over `budgetStatus` (`src/lib/dashboard/spend.ts`) returning the
-  status + a `tone` (`over` → danger, `pctUsed >= 90` → attn, else ok). Unit-tested.
+- **Pure** `src/lib/labor/budget.ts` — `laborBudgetSummary(budget, spend)`,
+  **purpose-built** (NOT a `budgetStatus` wrapper: `budgetStatus` collapses 0 into
+  "no budget", but U1 stores `labor_budget` 0 ≠ NULL on purpose, so the card must tell
+  set-zero from unset). Returns `isSet` (budget !== null), `remaining`, `pctUsed`
+  (floored — never shows 100% while under budget; null when budget 0 with spend),
+  `over`, and a `tone` (`over` → danger, floored `pctUsed >= 90` → attn, else ok).
+  Unit-tested incl. both 0-budget cases + the fractional near-budget / 90% boundary.
 - **Read** `wp_economics.labor_budget` via the admin client on
   `/review/work-packages/[workPackageId]` (the page is already
   `requireRole(PM_ROLES)` + admin-client money reads).
