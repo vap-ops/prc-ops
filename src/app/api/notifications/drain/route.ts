@@ -13,6 +13,7 @@ import { createClient as createAdminClient } from "@/lib/db/admin";
 import { composeNotification, type ComposeContext } from "@/lib/notifications/compose-notification";
 import { parseNotificationPayload } from "@/lib/notifications/payload";
 import { resolveRecipients } from "@/lib/notifications/resolve-recipients";
+import { PM_ROLES } from "@/lib/auth/role-home";
 import {
   DRAIN_BATCH_SIZE,
   expiryCutoffIso,
@@ -145,7 +146,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       ? admin
           .from("users")
           .select("id, line_user_id")
-          .in("role", ["project_manager", "super_admin"])
+          // The PM-tier pool = PM_ROLES (incl. project_director, a see-all PM —
+          // ADR 0058) so the director receives pending-approval / PR pings too
+          // (operator confirmed 2026-06-26). SSOT'd to role-home, not re-listed.
+          .in("role", [...PM_ROLES])
       : Promise.resolve({ data: [], error: null }),
     decisionWpIds.length > 0
       ? admin

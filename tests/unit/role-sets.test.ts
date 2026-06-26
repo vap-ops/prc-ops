@@ -18,6 +18,7 @@ import {
 } from "@/lib/auth/role-home";
 import { isBackOfficeRole } from "@/lib/purchasing/back-office";
 import { validateLaborEntry } from "@/lib/labor/validate";
+import { BILLING_WRITE_ROLES } from "@/lib/accounting/billing-actions";
 
 describe("role sets", () => {
   // Spec 166: beta finance gating — the GL /accounting surface is operator-only
@@ -291,6 +292,23 @@ describe("labor back-date allowance follows the PM set", () => {
   it("allows it for every PM-tier role (incl. project_director)", () => {
     for (const role of PM_ROLES) {
       expect(validateLaborEntry(OLD, { today: TODAY, role })).toBeNull();
+    }
+  });
+});
+
+// Operator decision 2026-06-26: project_director (a see-all PM) joins the two
+// gates that still excluded it. BILLING_WRITE_ROLES (certify/mark-due/release —
+// migration 20260751000000 already widened the RPCs to PD) now = the PM set.
+// The drain LINE-ping PM pool likewise uses PM_ROLES at notifications/drain.
+describe("BILLING_WRITE_ROLES follows the PM set (incl. project_director)", () => {
+  it("equals PM_ROLES and contains project_director", () => {
+    expect([...BILLING_WRITE_ROLES]).toEqual([...PM_ROLES]);
+    expect(BILLING_WRITE_ROLES).toContain("project_director");
+  });
+
+  it("excludes field + non-manager roles (site_admin, procurement, accounting)", () => {
+    for (const role of ["site_admin", "procurement", "accounting", "visitor"] as const) {
+      expect(BILLING_WRITE_ROLES).not.toContain(role);
     }
   });
 });

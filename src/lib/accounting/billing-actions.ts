@@ -5,10 +5,14 @@
 // string from the register loaders, so an unknown value is never actionable.
 
 import type { UserRole } from "@/lib/db/enums";
+import { PM_ROLES } from "@/lib/auth/role-home";
 
-// The certify / mark-due / release RPCs admit project_manager/super_admin exactly
-// (NOT project_director) — the single source for who may write billings/retention.
-export const BILLING_WRITE_ROLES: readonly UserRole[] = ["project_manager", "super_admin"];
+// Who may write billings/retention. The certify / mark-due / release RPCs admit
+// the PM tier INCLUDING project_director (a see-all PM — migration 20260751000000
+// widened all three gates; an earlier comment here saying "NOT project_director"
+// predated it). Derived from the PM_ROLES SSOT rather than re-listed, so the gate
+// tracks the manager set in one place (operator confirmed PD 2026-06-26).
+export const BILLING_WRITE_ROLES: readonly UserRole[] = [...PM_ROLES];
 
 const CERTIFIABLE = new Set(["draft", "submitted"]);
 const RELEASABLE = new Set(["held", "due"]);

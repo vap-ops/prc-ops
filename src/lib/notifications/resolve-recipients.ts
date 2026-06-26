@@ -8,7 +8,7 @@ import type { NotificationEventType } from "./compose-notification";
 import type { NotificationPayload } from "./payload";
 
 export interface RecipientContext {
-  /** Every project_manager + super_admin user id. */
+  /** Every PM-tier user id (project_manager / super_admin / project_director). */
   pmIds: ReadonlyArray<string>;
   /** Distinct photo uploader ids for the event's work package. */
   wpUploaderIds: ReadonlyArray<string>;
