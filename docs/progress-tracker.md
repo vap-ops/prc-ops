@@ -3606,3 +3606,22 @@ it passed silently; corrected to plan(17)). Full pgTAP suite 184/0 (0 failures);
 test 270 / 1760 green. db:types regen (+`category_id` +`set_work_package_category`). **NEXT = U3**
 (category authoring + WpCategoryControl UI; first UI unit of the taxonomy track; requires U1+U2,
 both now merged).
+
+**SPEC 207 U3a — หมวดงาน authoring manager SHIPPED 2026-06-26 (code-only, no DB).** U3 was a large
+UI unit (manager + WP-binding control across ~10 files), so SPLIT for the quality bar: U3a = the
+in-app category authoring (create + list); U3b = rename/reorder/deactivate; U3c = `WpCategoryControl`
+binding. **U3a:** `CategoriesManager` server component on the project page (PM-only / open-project,
+mounted next to `DeliverablesManager`) lists the project's categories (code · name) + hosts the
+`AddCategorySheet` client island (clone of Add/DeliverablesManager, spec 164). `createProjectCategory`
+action (`projects/[projectId]/actions.ts`) shape-validates + relays to the `create_project_category`
+RPC, maps 23505/42501/22023, and appends `sort_order` = current max + 1 (read under the caller's RLS;
+relies on the RPC gate — no client role re-read, so it stays correct regardless of PM_ROLES contents).
+`PROJECT_CATEGORY_LABEL = "หมวดงาน"` added to labels.ts (SSOT; distinct from งวดงาน/ประเภทโครงการ).
+`src/lib/categories/validate.ts` (code ≤40 / name ≤120, mirrors deliverables). `loadProjectDetail`
+extended with a 7th parallel category read (concurrency test updated 6→7 + shape assertion). No new
+`features/` folder → no allowlist edit (manager lives in the app-route folder; `WpCategoryControl`
+will live in the existing `work-packages/` folder in U3c). Test-first: `categories-validate.test.ts`
+(7) + `add-category-sheet.test.ts` (3, submit-gating/create+refresh/inline-error) +
+load-project-detail (categories). Full suite + lint + typecheck green. **NEXT = U3b** (rename/reorder/
+deactivate from the manager rows) then **U3c** (`WpCategoryControl` in the WP จัดการ tab) → then the
+drawings track U4–U6.

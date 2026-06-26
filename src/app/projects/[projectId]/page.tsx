@@ -32,6 +32,7 @@ import { loadProjectDetail } from "@/lib/projects/load-detail";
 import { WorkPackageList } from "./work-package-list";
 import { OnboardingChecklist } from "./onboarding-checklist";
 import { DeliverablesManager } from "./deliverables-manager";
+import { CategoriesManager } from "./categories-manager";
 import { AddWorkPackageSheet } from "./add-work-package-sheet";
 import { CopyWorkPackagesSheet } from "./copy-work-packages-sheet";
 import { ImportWorkPackagesSheet } from "./import-work-packages-sheet";
@@ -118,6 +119,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
     memberNames,
     workPackages,
     deliverables,
+    categories,
     criticalIds,
     onboarding,
     sourceProjects,
@@ -256,6 +258,15 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
             ungroupedWorkPackages={(workPackages ?? [])
               .filter((wp) => wp.deliverable_id === null)
               .map((wp) => ({ id: wp.id, code: wp.code, name: wp.name }))}
+          />
+        )}
+        {/* Spec 207 U3: หมวดงาน manager — per-project work-category authoring
+            (PM-only, open projects). Categories scope construction drawings
+            (later units) and tag each WP with exactly one (U3b). */}
+        {isPmRole && projectOpen && (
+          <CategoriesManager
+            projectId={project.id}
+            categories={(categories ?? []).map((c) => ({ id: c.id, code: c.code, name: c.name }))}
           />
         )}
         <div className="mb-3 flex items-center justify-between gap-3">

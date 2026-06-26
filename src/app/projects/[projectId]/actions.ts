@@ -20,6 +20,7 @@ import {
   validateDeliverableCode,
   validateDeliverableName,
 } from "@/lib/deliverables/validate-new-deliverable";
+import { validateCategoryCode, validateCategoryName } from "@/lib/categories/validate";
 import { parseAndValidate } from "@/lib/wp-import/parse";
 import type { Database } from "@/lib/db/database.types";
 
@@ -27,6 +28,68 @@ const PM_ONLY_ERROR = "เฉพาะผู้จัดการโครงก
 // Spec 145: the work_packages BEFORE INSERT trigger raises P0002 on a closed
 // (completed/archived) project.
 const PROJECT_CLOSED_ERROR = "โครงการนี้ปิดแล้ว เปิดโครงการก่อนจึงจะเพิ่มหรือนำเข้างานได้";
+
+// Spec 207 U3 — create a per-project work-category (หมวดงาน). Shape-validate +
+// relay; the SECURITY DEFINER create_project_category RPC is the load-bearing
+// authorisation (null-safe role gate pm/super/director + can_see_project
+// membership), so this action does NOT re-read the role — it maps the RPC's
+// error codes. sort_order appends to the end (current max + 1, read under the
+// caller's RLS — a member can see the project's categories).
+export interface CreateProjectCategoryInput {
+  projectId: string;
+  code: string;
+  name: string;
+}
+
+export type CreateProjectCategoryResult = { ok: true; id: string } | { ok: false; error: string };
+
+export async function createProjectCategory(
+  input: CreateProjectCategoryInput,
+): Promise<CreateProjectCategoryResult> {
+  if (!isValidUuid(input.projectId)) return { ok: false, error: "รหัสโครงการไม่ถูกต้อง" };
+
+  const codeResult = validateCategoryCode(input.code);
+  if (!codeResult.ok) return { ok: false, error: codeResult.error };
+  const nameResult = validateCategoryName(input.name);
+  if (!nameResult.ok) return { ok: false, error: nameResult.error };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase } = auth;
+
+  // Append to the end. A non-member's RLS read returns nothing → sort_order 0,
+  // and the RPC then rejects with 42501 (mapped below) — no leak.
+  const { data: lastRow } = await supabase
+    .from("project_categories")
+    .select("sort_order")
+    .eq("project_id", input.projectId)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextSortOrder = (lastRow?.sort_order ?? -1) + 1;
+
+  const { data: newId, error } = await supabase.rpc("create_project_category", {
+    p_project_id: input.projectId,
+    p_code: codeResult.code,
+    p_name: nameResult.name,
+    p_sort_order: nextSortOrder,
+  });
+  if (error) {
+    console.error("[createProjectCategory] RPC failed", {
+      projectId: input.projectId,
+      error: error.message,
+    });
+    if (error.code === "23505")
+      return { ok: false, error: "รหัสหมวดนี้มีอยู่แล้วในโครงการ กรุณาใช้รหัสอื่น" };
+    if (error.code === "42501") return { ok: false, error: PM_ONLY_ERROR };
+    if (error.code === "22023") return { ok: false, error: "ข้อมูลหมวดงานไม่ถูกต้อง" };
+    return { ok: false, error: "เพิ่มหมวดงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+  if (!newId) return { ok: false, error: "เพิ่มหมวดงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+
+  revalidatePath(projectHref(input.projectId));
+  return { ok: true, id: newId };
+}
 
 export type DismissOnboardingResult = { ok: true } | { ok: false; error: string };
 

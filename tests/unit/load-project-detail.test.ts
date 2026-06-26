@@ -47,6 +47,9 @@ const WORK_PACKAGES = [
   },
 ];
 const DELIVERABLES = [{ id: "d1", code: "D-01", name: "งวด 1", sort_order: 1 }];
+const CATEGORIES = [
+  { id: "c1", code: "STRUCT", name: "งานโครงสร้าง", sort_order: 1, is_active: true },
+];
 const SOURCE_PROJECTS = [{ id: "p2", code: "PRJ-02", name: "โครงการอื่น" }];
 const ONBOARDING = [
   {
@@ -64,6 +67,7 @@ const LIST: Record<string, unknown[]> = {
   project_members: MEMBERS,
   work_packages: WORK_PACKAGES,
   deliverables: DELIVERABLES,
+  project_categories: CATEGORIES,
   projects: SOURCE_PROJECTS,
   work_package_dependencies: [],
 };
@@ -110,9 +114,9 @@ beforeEach(() => {
 describe("loadProjectDetail", () => {
   it("runs the independent fan concurrently (not a serial waterfall)", async () => {
     await loadProjectDetail(supabase, PROJECT as never, true);
-    // clients + project_members + work_packages + deliverables + onboarding +
-    // projects = 6 reads that depend only on the project → must overlap.
-    expect(maxInFlight).toBeGreaterThanOrEqual(6);
+    // clients + project_members + work_packages + deliverables + project_categories
+    // + onboarding + projects = 7 reads that depend only on the project → overlap.
+    expect(maxInFlight).toBeGreaterThanOrEqual(7);
   });
 
   it("assembles the correct shape (PM role)", async () => {
@@ -122,6 +126,7 @@ describe("loadProjectDetail", () => {
     expect(data.memberNames).toEqual(["สมาชิก"]);
     expect(data.workPackages).toEqual(WORK_PACKAGES);
     expect(data.deliverables).toEqual(DELIVERABLES);
+    expect(data.categories).toEqual(CATEGORIES);
     expect(data.criticalIds).toBeInstanceOf(Set);
     expect(data.onboarding?.work_packages_added).toBe(true);
     expect(data.sourceProjects).toEqual(SOURCE_PROJECTS);

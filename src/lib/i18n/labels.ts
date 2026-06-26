@@ -16,6 +16,13 @@ type Enums = Database["public"]["Enums"];
 // composition (`ชื่อ${SUBCONTRACTOR_LABEL}` etc.). See prc-ops-pay-model.
 export const SUBCONTRACTOR_LABEL = "ผู้รับเหมาช่วง";
 
+// Spec 207 — a project work-category (หมวดงาน): the per-project trade/scope
+// taxonomy a WP belongs to (exactly one). Distinct from งวดงาน (deliverable,
+// billing milestone) and ประเภทโครงการ (project_type). Single-sourced (used on
+// the project category manager + the WP control + drawings); the operator-
+// authored category `name` is its own label — only this term constant is SSOT'd.
+export const PROJECT_CATEGORY_LABEL = "หมวดงาน";
+
 export const WORK_PACKAGE_STATUS_LABEL: Record<Enums["work_package_status"], string> = {
   not_started: "ยังไม่เริ่ม",
   in_progress: "กำลังดำเนินการ",

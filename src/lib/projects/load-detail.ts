@@ -30,6 +30,11 @@ type WpListRow = Pick<
   | "planned_end"
 >;
 type DeliverableRow = Pick<Tbl["deliverables"]["Row"], "id" | "code" | "name" | "sort_order">;
+// Spec 207 U3 — the project's work-category taxonomy (หมวดงาน) for the manager.
+type ProjectCategoryRow = Pick<
+  Tbl["project_categories"]["Row"],
+  "id" | "code" | "name" | "sort_order" | "is_active"
+>;
 type SourceProjectRow = Pick<Tbl["projects"]["Row"], "id" | "code" | "name">;
 type OnboardingStatusRow =
   Database["public"]["Functions"]["project_onboarding_status"]["Returns"][number];
@@ -46,6 +51,7 @@ export interface ProjectDetailData {
   memberNames: string[];
   workPackages: WpListRow[];
   deliverables: DeliverableRow[];
+  categories: ProjectCategoryRow[];
   criticalIds: Set<string>;
   onboarding: OnboardingStatusRow | null;
   sourceProjects: SourceProjectRow[];
@@ -64,6 +70,7 @@ export async function loadProjectDetail(
     { data: memberRows },
     { data: workPackages },
     { data: deliverables },
+    { data: categories },
     onbRes,
     srcRes,
   ] = await Promise.all([
@@ -81,6 +88,11 @@ export async function loadProjectDetail(
     supabase
       .from("deliverables")
       .select("id, code, name, sort_order")
+      .eq("project_id", project.id)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("project_categories")
+      .select("id, code, name, sort_order, is_active")
       .eq("project_id", project.id)
       .order("sort_order", { ascending: true }),
     isPmRole
@@ -136,6 +148,7 @@ export async function loadProjectDetail(
     memberNames,
     workPackages: wpRows,
     deliverables: deliverables ?? [],
+    categories: categories ?? [],
     criticalIds,
     onboarding: onbRes.data?.[0] ?? null,
     sourceProjects: srcRes.data ?? [],
