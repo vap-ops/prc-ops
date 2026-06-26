@@ -330,3 +330,53 @@ export async function issueStock(input: {
   revalidatePath("/store");
   return { ok: true };
 }
+
+// Spec 208 U3 — multi-line เบิก. Issues many catalog items from the project store
+// to ONE work package in one atomic call via the issue_stock_bulk definer RPC
+// (same gate/validation/costing as the single issue_stock; any bad line rolls the
+// whole batch back). The WP is at slip level (one slip → one WP — the form lives
+// on the WP detail page).
+export async function issueStockBulk(input: {
+  projectId: string;
+  workPackageId: string;
+  lines: {
+    catalogItemId: string;
+    qty: number;
+    receiverWorkerId?: string;
+    note: string;
+  }[];
+}): Promise<StockInResult> {
+  if (!UUID_REGEX.test(input.projectId) || !UUID_REGEX.test(input.workPackageId)) {
+    return { ok: false, error: ISSUE_FAILED };
+  }
+  if (input.lines.length === 0) return { ok: false, error: ISSUE_FAILED };
+  for (const l of input.lines) {
+    if (!UUID_REGEX.test(l.catalogItemId)) return { ok: false, error: ISSUE_FAILED };
+    const receiver = l.receiverWorkerId && l.receiverWorkerId !== "" ? l.receiverWorkerId : null;
+    if (receiver !== null && !UUID_REGEX.test(receiver)) return { ok: false, error: ISSUE_FAILED };
+    if (!Number.isFinite(l.qty) || l.qty <= 0) return { ok: false, error: "จำนวนต้องมากกว่า 0" };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("issue_stock_bulk", {
+    p_project_id: input.projectId,
+    p_work_package_id: input.workPackageId,
+    // The RPC reads receiver_worker_id with nullif(…, '') so an empty string → NULL.
+    p_lines: input.lines.map((l) => ({
+      catalog_item_id: l.catalogItemId,
+      qty: l.qty,
+      receiver_worker_id: l.receiverWorkerId ?? "",
+      note: l.note,
+    })),
+  });
+  if (error) {
+    if (error.code === "42501") return { ok: false, error: NO_PERMISSION };
+    if (error.code === "22023") return { ok: false, error: "สต๊อกไม่พอ หรือข้อมูลไม่ถูกต้อง" };
+    return { ok: false, error: ISSUE_FAILED };
+  }
+
+  revalidatePath(`/projects/${input.projectId}/work-packages/${input.workPackageId}`);
+  return { ok: true };
+}

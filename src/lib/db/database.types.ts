@@ -5291,6 +5291,10 @@ export type Database = {
         }
         Returns: string
       }
+      issue_stock_bulk: {
+        Args: { p_lines: Json; p_project_id: string; p_work_package_id: string }
+        Returns: number
+      }
       item_price_history: {
         Args: { p_catalog_item_id: string }
         Returns: {

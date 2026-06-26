@@ -1,9 +1,11 @@
 "use client";
 
-// Spec 177 U5 — เบิก at the WP detail. A site staffer (site_admin draws at the WP,
-// plus the PM tier) pulls stock from the project store TO this work package, at
-// the moving-average cost (the issue_stock RPC handles the costing + decrement).
-// 'use client': the เบิก-sheet state, the submit transition, the refresh.
+// Spec 177 U5 + spec 208 U3 — เบิก at the WP detail. A site staffer (site_admin
+// draws at the WP, plus the PM tier) pulls stock from the project store TO this
+// work package, at moving-average cost (the issue_stock_bulk RPC handles costing +
+// decrement). Spec 208 U3: the เบิก sheet is a MULTI-LINE grid — withdraw several
+// items to this WP in one atomic call. 'use client': the grid state, the submit
+// transition, the refresh.
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -11,7 +13,7 @@ import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { ConfirmActionButton } from "@/components/features/common/confirm-action-button";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
 import { STORE_ISSUE_LABEL } from "@/lib/i18n/labels";
-import { issueStock, reverseStockIssue } from "@/app/store/actions";
+import { issueStockBulk, reverseStockIssue } from "@/app/store/actions";
 
 // On-hand for the picker — only what the WP เบิก needs (the value/avg-cost columns
 // the /store console shows are not relevant when drawing to a WP).
@@ -34,6 +36,10 @@ export type WpIssueRow = {
   receiverName: string | null;
   receivedAt: string | null;
 };
+
+// Spec 208 U3 — one draft row of the multi-line เบิก grid.
+type DraftIssueRow = { item: string; qty: string; receiver: string; note: string };
+const emptyIssueRow = (): DraftIssueRow => ({ item: "", qty: "", receiver: "", note: "" });
 
 const LABEL = "text-sm font-medium text-ink";
 const FIELD =
@@ -58,26 +64,38 @@ export function WpIssueStock({
   const router = useRouter();
 
   const [open, setOpen] = useState(false);
-  const [item, setItem] = useState("");
-  const [qty, setQty] = useState("");
-  const [receiver, setReceiver] = useState("");
-  const [note, setNote] = useState("");
+  const [rows, setRows] = useState<DraftIssueRow[]>([emptyIssueRow()]);
   const [error, setError] = useState<string | null>(null);
   const [issuing, startIssue] = useTransition();
 
-  const selected = onHand.find((o) => o.catalogItemId === item) ?? null;
-  const qtyNum = Number(qty);
-  // Spec 208 U2 — you cannot เบิก more than is on hand. The issue_stock RPC also
-  // guards this (22023), but block it before the round-trip.
-  const overStock = selected !== null && Number.isFinite(qtyNum) && qtyNum > selected.qtyOnHand;
-  const canSubmit =
-    item !== "" && qty !== "" && Number.isFinite(qtyNum) && qtyNum > 0 && !overStock && !issuing;
+  function updateRow(i: number, patch: Partial<DraftIssueRow>) {
+    setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  }
+  function addRow() {
+    setRows((rs) => [...rs, emptyIssueRow()]);
+  }
+  function removeRow(i: number) {
+    setRows((rs) => (rs.length <= 1 ? rs : rs.filter((_, idx) => idx !== i)));
+  }
+
+  const onHandOf = (id: string) => onHand.find((o) => o.catalogItemId === id) ?? null;
+  // Spec 208 U2/U3 — per-row qty ceiling: you cannot เบิก more than is on hand
+  // (the issue_stock_bulk RPC also 22023s; this blocks it before the round-trip).
+  const rowOverStock = (r: DraftIssueRow) => {
+    const oh = onHandOf(r.item);
+    const q = Number(r.qty);
+    return oh !== null && Number.isFinite(q) && q > oh.qtyOnHand;
+  };
+  const rowComplete = (r: DraftIssueRow) => {
+    const q = Number(r.qty);
+    return r.item !== "" && r.qty !== "" && Number.isFinite(q) && q > 0 && !rowOverStock(r);
+  };
+  const completeRows = rows.filter(rowComplete);
+  const anyOverStock = rows.some(rowOverStock);
+  const canSubmit = completeRows.length > 0 && !anyOverStock && !issuing;
 
   function reset() {
-    setItem("");
-    setQty("");
-    setReceiver("");
-    setNote("");
+    setRows([emptyIssueRow()]);
     setError(null);
   }
 
@@ -86,13 +104,15 @@ export function WpIssueStock({
     if (!canSubmit) return;
     setError(null);
     startIssue(async () => {
-      const result = await issueStock({
+      const result = await issueStockBulk({
         projectId,
-        catalogItemId: item,
         workPackageId,
-        qty: qtyNum,
-        note,
-        ...(receiver !== "" ? { receiverWorkerId: receiver } : {}),
+        lines: completeRows.map((r) => ({
+          catalogItemId: r.item,
+          qty: Number(r.qty),
+          note: r.note,
+          ...(r.receiver !== "" ? { receiverWorkerId: r.receiver } : {}),
+        })),
       });
       if (!result.ok) {
         setError(result.error);
@@ -159,87 +179,118 @@ export function WpIssueStock({
 
       <BottomSheet open={open} title={STORE_ISSUE_LABEL} onClose={() => setOpen(false)}>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="wp-issue-item" className={LABEL}>
-              วัสดุ
-            </label>
-            <select
-              id="wp-issue-item"
-              value={item}
-              onChange={(e) => setItem(e.target.value)}
-              disabled={issuing}
-              className={FIELD}
-            >
-              <option value="">เลือกวัสดุ</option>
-              {onHand.map((o) => (
-                <option key={o.catalogItemId} value={o.catalogItemId}>
-                  {o.baseItem}
-                  {o.specAttrs ? ` · ${o.specAttrs}` : ""} (มี {o.qtyOnHand} {o.unit})
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Spec 208 U3: a multi-row grid — เบิก a whole list to this WP at once. */}
+          <ul className="flex flex-col gap-4">
+            {rows.map((r, i) => {
+              const selected = onHandOf(r.item);
+              const over = rowOverStock(r);
+              return (
+                <li key={i} className="border-edge rounded-control flex flex-col gap-3 border p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-meta text-ink-secondary font-semibold">
+                      รายการ {i + 1}
+                    </span>
+                    {rows.length > 1 ? (
+                      <button
+                        type="button"
+                        onClick={() => removeRow(i)}
+                        disabled={issuing}
+                        className="text-danger text-meta font-medium"
+                      >
+                        ลบ
+                      </button>
+                    ) : null}
+                  </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="wp-issue-qty" className={LABEL}>
-              จำนวน
-            </label>
-            <input
-              id="wp-issue-qty"
-              type="number"
-              inputMode="decimal"
-              min="0"
-              step="any"
-              value={qty}
-              onChange={(e) => setQty(e.target.value)}
-              disabled={issuing}
-              className={FIELD}
-            />
-            {selected ? (
-              <p className={`text-meta ${overStock ? "text-danger" : "text-ink-secondary"}`}>
-                {overStock
-                  ? `เกินจำนวนในสโตร์ (มี ${selected.qtyOnHand} ${selected.unit})`
-                  : `มีในมือ ${selected.qtyOnHand} ${selected.unit}`}
-              </p>
-            ) : null}
-          </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor={`wp-issue-item-${i}`} className={LABEL}>
+                      วัสดุ
+                    </label>
+                    <select
+                      id={`wp-issue-item-${i}`}
+                      value={r.item}
+                      onChange={(e) => updateRow(i, { item: e.target.value })}
+                      disabled={issuing}
+                      className={FIELD}
+                    >
+                      <option value="">เลือกวัสดุ</option>
+                      {onHand.map((o) => (
+                        <option key={o.catalogItemId} value={o.catalogItemId}>
+                          {o.baseItem}
+                          {o.specAttrs ? ` · ${o.specAttrs}` : ""} (มี {o.qtyOnHand} {o.unit})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-          {/* Custody (spec 177 U7): name the receiver who takes the material; they
-              confirm receipt later from the worker portal. Optional. */}
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="wp-issue-receiver" className={LABEL}>
-              ผู้รับ (ถ้ามี)
-            </label>
-            <select
-              id="wp-issue-receiver"
-              value={receiver}
-              onChange={(e) => setReceiver(e.target.value)}
-              disabled={issuing}
-              className={FIELD}
-            >
-              <option value="">ไม่ระบุ</option>
-              {workers.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name}
-                </option>
-              ))}
-            </select>
-          </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor={`wp-issue-qty-${i}`} className={LABEL}>
+                      จำนวน
+                    </label>
+                    <input
+                      id={`wp-issue-qty-${i}`}
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="any"
+                      value={r.qty}
+                      onChange={(e) => updateRow(i, { qty: e.target.value })}
+                      disabled={issuing}
+                      className={FIELD}
+                    />
+                    {selected ? (
+                      <p className={`text-meta ${over ? "text-danger" : "text-ink-secondary"}`}>
+                        {over
+                          ? `เกินจำนวนในสโตร์ (มี ${selected.qtyOnHand} ${selected.unit})`
+                          : `มีในมือ ${selected.qtyOnHand} ${selected.unit}`}
+                      </p>
+                    ) : null}
+                  </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="wp-issue-note" className={LABEL}>
-              หมายเหตุ (ถ้ามี)
-            </label>
-            <input
-              id="wp-issue-note"
-              type="text"
-              value={note}
-              maxLength={1000}
-              onChange={(e) => setNote(e.target.value)}
-              disabled={issuing}
-              className={FIELD}
-            />
-          </div>
+                  {/* Custody (spec 177 U7): name the receiver who takes the material;
+                      they confirm receipt later from the worker portal. Optional. */}
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor={`wp-issue-receiver-${i}`} className={LABEL}>
+                      ผู้รับ (ถ้ามี)
+                    </label>
+                    <select
+                      id={`wp-issue-receiver-${i}`}
+                      value={r.receiver}
+                      onChange={(e) => updateRow(i, { receiver: e.target.value })}
+                      disabled={issuing}
+                      className={FIELD}
+                    >
+                      <option value="">ไม่ระบุ</option>
+                      {workers.map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {w.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor={`wp-issue-note-${i}`} className={LABEL}>
+                      หมายเหตุ (ถ้ามี)
+                    </label>
+                    <input
+                      id={`wp-issue-note-${i}`}
+                      type="text"
+                      value={r.note}
+                      maxLength={1000}
+                      onChange={(e) => updateRow(i, { note: e.target.value })}
+                      disabled={issuing}
+                      className={FIELD}
+                    />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+
+          <button type="button" onClick={addRow} disabled={issuing} className={BUTTON_SECONDARY}>
+            + เพิ่มรายการ
+          </button>
 
           {error ? (
             <div role="alert" className={INLINE_ERROR}>

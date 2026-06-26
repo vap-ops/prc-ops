@@ -4,14 +4,17 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockIssue, mockRev, mockRefresh } = vi.hoisted(() => ({
-  mockIssue: vi.fn(),
+const { mockIssueBulk, mockRev, mockRefresh } = vi.hoisted(() => ({
+  mockIssueBulk: vi.fn(),
   mockRev: vi.fn(),
   mockRefresh: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
-vi.mock("@/app/store/actions", () => ({ issueStock: mockIssue, reverseStockIssue: mockRev }));
+vi.mock("@/app/store/actions", () => ({
+  issueStockBulk: mockIssueBulk,
+  reverseStockIssue: mockRev,
+}));
 
 import {
   WpIssueStock,
@@ -37,7 +40,7 @@ const issues: WpIssueRow[] = [
 ];
 
 beforeEach(() => {
-  mockIssue.mockReset().mockResolvedValue({ ok: true });
+  mockIssueBulk.mockReset().mockResolvedValue({ ok: true });
   mockRev.mockReset().mockResolvedValue({ ok: true });
   mockRefresh.mockReset();
 });
@@ -75,15 +78,43 @@ describe("WpIssueStock (spec 177 U5)", () => {
     fireEvent.click(screen.getByRole("button", { name: "ยืนยันการเบิก" }));
 
     await waitFor(() =>
-      expect(mockIssue).toHaveBeenCalledWith({
+      expect(mockIssueBulk).toHaveBeenCalledWith({
         projectId: "p1",
-        catalogItemId: "ci1",
         workPackageId: "wp1",
-        qty: 5,
-        note: "หน้างาน",
+        lines: [{ catalogItemId: "ci1", qty: 5, note: "หน้างาน" }],
       }),
     );
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
+  });
+
+  // Spec 208 U3 — multi-line: withdraw several items to this WP in one atomic call.
+  it("issues several rows to this WP in one bulk call", async () => {
+    renderZone({
+      onHand: [
+        { catalogItemId: "ci1", baseItem: "สายไฟ", specAttrs: null, unit: "ม้วน", qtyOnHand: 20 },
+        { catalogItemId: "ci2", baseItem: "ท่อ", specAttrs: null, unit: "เส้น", qtyOnHand: 50 },
+      ],
+    });
+    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากสโตร์/ }));
+    // row 1
+    fireEvent.change(screen.getAllByLabelText("วัสดุ")[0]!, { target: { value: "ci1" } });
+    fireEvent.change(screen.getAllByLabelText("จำนวน")[0]!, { target: { value: "5" } });
+    // add row 2
+    fireEvent.click(screen.getByRole("button", { name: /เพิ่มรายการ/ }));
+    fireEvent.change(screen.getAllByLabelText("วัสดุ")[1]!, { target: { value: "ci2" } });
+    fireEvent.change(screen.getAllByLabelText("จำนวน")[1]!, { target: { value: "8" } });
+    fireEvent.click(screen.getByRole("button", { name: "ยืนยันการเบิก" }));
+
+    await waitFor(() =>
+      expect(mockIssueBulk).toHaveBeenCalledWith({
+        projectId: "p1",
+        workPackageId: "wp1",
+        lines: [
+          { catalogItemId: "ci1", qty: 5, note: "" },
+          { catalogItemId: "ci2", qty: 8, note: "" },
+        ],
+      }),
+    );
   });
 
   it("disables the submit until an item and qty are set", () => {
@@ -136,13 +167,10 @@ describe("WpIssueStock (spec 177 U5)", () => {
     fireEvent.click(screen.getByRole("button", { name: "ยืนยันการเบิก" }));
 
     await waitFor(() =>
-      expect(mockIssue).toHaveBeenCalledWith({
+      expect(mockIssueBulk).toHaveBeenCalledWith({
         projectId: "p1",
-        catalogItemId: "ci1",
         workPackageId: "wp1",
-        qty: 5,
-        note: "",
-        receiverWorkerId: "w1",
+        lines: [{ catalogItemId: "ci1", qty: 5, note: "", receiverWorkerId: "w1" }],
       }),
     );
   });
