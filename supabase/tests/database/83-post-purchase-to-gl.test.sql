@@ -110,7 +110,11 @@ select is(
       and not exists (select 1 from public.journal_entries r where r.reversal_of = e.id)),
   1::bigint, 'exactly one CURRENT (non-reversed) purchase entry after re-post');
 select is(
-  (select count(*) from public.journal_entries where source_event='reversal'),
+  (select count(*) from public.journal_entries r
+    where r.source_event='reversal'
+      and r.reversal_of in (select e.id from public.journal_entries e
+        where e.source_table='purchase_requests'
+          and e.source_id='a1000001-0000-4000-8000-000000000613')),
   1::bigint, 'one reversal entry was created for the superseded purchase entry');
 select is(
   (select credit from public.journal_lines l

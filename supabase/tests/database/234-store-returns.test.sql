@@ -21,20 +21,23 @@ update public.users set role='super_admin' where id='19190000-0000-0000-0000-000
 insert into public.projects (id, code, name) values
   ('a2340000-0000-0000-0000-000000000234', 'RET-234', 'store returns 234');
 insert into public.work_packages (id, project_id, code, name) values
-  ('c2340000-0000-0000-0000-000000000234', 'a2340000-0000-0000-0000-000000000234', 'WP-234', 'wp 234');
+  ('c2340000-0000-0000-0000-000000000234', 'a2340000-0000-0000-0000-000000000234', 'WP-234', 'wp 234'),
+  -- issue2 (the reversed-issue case) lives on its OWN WP so it never contributes to
+  -- the wp_profit assertion on WP-234.
+  ('c2340000-0000-0000-0000-0000000002b2', 'a2340000-0000-0000-0000-000000000234', 'WP-234b', 'wp 234b');
 insert into public.catalog_items (id, category, base_item, unit, is_active) values
   ('e2340000-0000-0000-0000-000000000234', 'steel_fixing', 'เหล็ก 234', 'เส้น', true);
 insert into public.project_members (project_id, user_id, added_by) values
   ('a2340000-0000-0000-0000-000000000234', '51510000-0000-0000-0000-000000000234',
    '19190000-0000-0000-0000-000000000234');
--- on-hand 100 @ avg 10; issue1 (10) to reverse-FROM via returns; issue2 (5) to be voided.
+-- on-hand 100 @ avg 10; issue1 (10) on WP-234 to return-FROM; issue2 (5) on WP-234b to be voided.
 insert into public.stock_on_hand (project_id, catalog_item_id, qty_on_hand, total_value) values
   ('a2340000-0000-0000-0000-000000000234', 'e2340000-0000-0000-0000-000000000234', 100, 1000);
 insert into public.stock_issues (id, project_id, catalog_item_id, work_package_id, qty, unit, unit_cost) values
   ('12340000-0000-0000-0000-000000000234', 'a2340000-0000-0000-0000-000000000234',
    'e2340000-0000-0000-0000-000000000234', 'c2340000-0000-0000-0000-000000000234', 10, 'เส้น', 10),
   ('12340000-0000-0000-0000-0000000002b2', 'a2340000-0000-0000-0000-000000000234',
-   'e2340000-0000-0000-0000-000000000234', 'c2340000-0000-0000-0000-000000000234', 5, 'เส้น', 10);
+   'e2340000-0000-0000-0000-000000000234', 'c2340000-0000-0000-0000-0000000002b2', 5, 'เส้น', 10);
 
 grant insert on _tap_buf to authenticated;
 grant select on _tap_buf to authenticated;
