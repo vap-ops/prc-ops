@@ -10,6 +10,11 @@
 # Needs:  node on PATH (no jq on this box); the SSH deploy key for the branch push.
 set -euo pipefail
 
+# This box keeps node outside the default PATH (cloud-PC quirk — see the
+# cloud-pc-quirks memory). Make it resolvable so the JSON build/parse below works
+# regardless of the caller's PATH; a no-op when node is already on PATH (e.g. CI).
+command -v node >/dev/null 2>&1 || PATH="/c/Program Files/nodejs:$PATH"
+
 title="${1:?usage: scripts/ship-pr.sh <title> [body]}"
 body="${2:-}"
 repo="VAP-Solution/prc-ops"
@@ -27,9 +32,11 @@ branch="$(git rev-parse --abbrev-ref HEAD)"
 git push -u origin "$branch" >/dev/null 2>&1 || git push origin "$branch"
 
 # Open the PR (REST). Build/parse JSON with node since jq isn't installed.
+# Pipe the payload via stdin (--data @-), NOT -d "$payload": this box's mingw curl
+# mangles a JSON arg (GitHub then 400s "Problems parsing JSON"); stdin is byte-clean.
 payload="$(TITLE="$title" HEAD="$branch" BODY="$body" node -e 'process.stdout.write(JSON.stringify({title:process.env.TITLE,head:process.env.HEAD,base:"main",body:process.env.BODY}))')"
-resp="$(curl -sS -X POST -H "Authorization: Bearer $token" -H "Accept: application/vnd.github+json" \
-  -H "Content-Type: application/json" "https://api.github.com/repos/$repo/pulls" -d "$payload")"
+resp="$(printf '%s' "$payload" | curl -sS -X POST -H "Authorization: Bearer $token" -H "Accept: application/vnd.github+json" \
+  -H "Content-Type: application/json" "https://api.github.com/repos/$repo/pulls" --data @-)"
 read -r node_id number url <<<"$(RESP="$resp" node -e 'const r=JSON.parse(process.env.RESP);process.stdout.write(`${r.node_id||""} ${r.number||""} ${r.html_url||""}`)')"
 if [ -z "$node_id" ]; then
   echo "PR open failed: $(RESP="$resp" node -e 'const r=JSON.parse(process.env.RESP);process.stdout.write(r.message||JSON.stringify(r))')" >&2
