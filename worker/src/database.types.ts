@@ -4229,6 +4229,7 @@ export type Database = {
       }
       work_packages: {
         Row: {
+          category_id: string | null
           code: string
           contractor_id: string | null
           created_at: string
@@ -4246,6 +4247,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          category_id?: string | null
           code: string
           contractor_id?: string | null
           created_at?: string
@@ -4263,6 +4265,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          category_id?: string | null
           code?: string
           contractor_id?: string | null
           created_at?: string
@@ -4280,6 +4283,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "work_packages_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "project_categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "work_packages_contractor_id_fkey"
             columns: ["contractor_id"]
@@ -5719,6 +5729,10 @@ export type Database = {
       set_shop_item_active: {
         Args: { p_active: boolean; p_id: string }
         Returns: undefined
+      }
+      set_work_package_category: {
+        Args: { p_category_id: string; p_work_package_id: string }
+        Returns: boolean
       }
       set_work_package_contractor: {
         Args: { p_contractor_id?: string; p_work_package_id: string }

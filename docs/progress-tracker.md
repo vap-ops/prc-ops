@@ -3589,3 +3589,20 @@ membership 42501 (non-member + unseen project, both create-deny and read-zero), 
 lint · typecheck · test 270 files / 1760 green. db:types regen (+`project_categories`+4 RPCs, both
 app + worker). **NEXT = U2** (work_packages.category_id nullable FK +`set_work_package_category`,
 clone of `set_work_package_deliverable`).
+
+**SPEC 207 U2 — one-category-per-WP FK SHIPPED 2026-06-26 (mig `20260813003400`, pgTAP 233).**
+THE locked decision as a single NULLABLE FK: `work_packages.category_id uuid null references
+project_categories(id) ON DELETE SET NULL` + index — the `deliverable_id` precedent EXACTLY, never a
+join table; NULL = uncategorised. `set_work_package_category(p_work_package_id, p_category_id)` is a
+clone of `set_work_package_deliverable` (spec 155): SECURITY DEFINER, NULL-safe role gate
+(pm/super/director), `can_see_wp` membership FIRST (unknown WP → 42501, no existence disclosure),
+NULL = uncategorise, a non-null category must EXIST + be `is_active` + share the WP's project else
+22023, writes `category_id` ONLY (the sole writer — SA/PM have no direct work_packages UPDATE path),
+`revoke … from public, anon`. pgTAP 233 (17 assertions): column/nullable/FK-`ON DELETE SET NULL`,
+fn secdef + anon-deny + auth-allow, bind + NULL-uncategorise, cross-project/inactive/unknown category
+all 22023, membership 42501 (non-member), role-gate 42501 (site_admin + visitor). Caught my own
+plan/count slip pre-commit (declared plan(16), ran 17 — the custom runner counts only not-ok lines so
+it passed silently; corrected to plan(17)). Full pgTAP suite 184/0 (0 failures); lint · typecheck ·
+test 270 / 1760 green. db:types regen (+`category_id` +`set_work_package_category`). **NEXT = U3**
+(category authoring + WpCategoryControl UI; first UI unit of the taxonomy track; requires U1+U2,
+both now merged).
