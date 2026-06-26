@@ -15,6 +15,7 @@ import { Camera, HardHat } from "lucide-react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { BUTTON_PRIMARY } from "@/lib/ui/classes";
 import { workPackageHref } from "@/lib/nav/project-paths";
+import { withBackFrom } from "@/lib/nav/back-href";
 
 export type DailyHeroWp = { id: string; projectId: string; code: string; name: string };
 
@@ -41,7 +42,7 @@ export function DailyHero({ wps }: { wps: DailyHeroWp[] }) {
           single ? (
             <Link
               key={hash}
-              href={`${workPackageHref(single.projectId, single.id)}${hash}`}
+              href={withBackFrom(`${workPackageHref(single.projectId, single.id)}${hash}`, "/sa")}
               className={`${BUTTON_PRIMARY} flex-1 gap-2`}
             >
               <Icon aria-hidden className="size-5 shrink-0" />
@@ -68,7 +69,10 @@ export function DailyHero({ wps }: { wps: DailyHeroWp[] }) {
               <button
                 type="button"
                 onClick={() => {
-                  if (pickHash) router.push(`${workPackageHref(w.projectId, w.id)}${pickHash}`);
+                  if (pickHash)
+                    router.push(
+                      withBackFrom(`${workPackageHref(w.projectId, w.id)}${pickHash}`, "/sa"),
+                    );
                   setPickHash(null);
                 }}
                 className="border-edge bg-card hover:bg-sunk focus-visible:ring-action rounded-control flex w-full items-center gap-2 border px-4 py-3 text-left text-sm transition-colors focus:outline-none focus-visible:ring-2"

@@ -15,7 +15,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, X } from "lucide-react";
-import { workPackageHref } from "@/lib/nav/project-paths";
+import { workPackageHref, scheduleHref } from "@/lib/nav/project-paths";
+import { withBackFrom } from "@/lib/nav/back-href";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
@@ -519,7 +520,10 @@ export function ScheduleGantt({
                 {WORK_PACKAGE_STATUS_LABEL[selectedWp.status] ?? selectedWp.status}
               </StatusPill>
               <Link
-                href={workPackageHref(projectId, selectedWp.id)}
+                href={withBackFrom(
+                  workPackageHref(projectId, selectedWp.id),
+                  scheduleHref(projectId),
+                )}
                 className="rounded-control bg-fill text-on-fill hover:bg-fill-press focus-visible:ring-action text-meta inline-flex h-11 shrink-0 items-center gap-1 px-3 font-semibold transition-colors focus:outline-none focus-visible:ring-2"
               >
                 เปิดรายละเอียด <ArrowRight aria-hidden className="h-4 w-4" />

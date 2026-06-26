@@ -54,7 +54,12 @@ describe("ScheduleGantt", () => {
     // tap the bar (its accessible label is "code name")
     fireEvent.click(screen.getByRole("button", { name: "WP-1 งานเสาเข็ม" }));
     const open = screen.getByRole("link", { name: /เปิดรายละเอียด/ });
-    expect(open).toHaveAttribute("href", "/projects/p1/work-packages/w1");
+    // Records the schedule as the referrer so the WP detail back chip returns to
+    // the schedule, not the project page (sitemap review 2026-06-26).
+    expect(open).toHaveAttribute(
+      "href",
+      "/projects/p1/work-packages/w1?from=%2Fprojects%2Fp1%2Fschedule",
+    );
   });
 
   it("always shows completed WPs (muted, never hidden)", () => {

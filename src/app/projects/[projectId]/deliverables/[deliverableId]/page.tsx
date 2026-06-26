@@ -13,7 +13,8 @@ import { EmptyNotice } from "@/components/features/common/notices";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
 import { PROJECT_VIEW_ROLES, isManagerRole } from "@/lib/auth/role-home";
-import { projectHref, workPackageHref } from "@/lib/nav/project-paths";
+import { projectHref, workPackageHref, deliverableHref } from "@/lib/nav/project-paths";
+import { withBackFrom } from "@/lib/nav/back-href";
 import { createClient } from "@/lib/db/server";
 import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
@@ -100,7 +101,10 @@ export default async function DeliverableDetailPage({ params }: PageProps) {
             {wps.map((wp) => (
               <li key={wp.id}>
                 <Link
-                  href={workPackageHref(projectId, wp.id)}
+                  href={withBackFrom(
+                    workPackageHref(projectId, wp.id),
+                    deliverableHref(projectId, deliverableId),
+                  )}
                   className="hover:bg-sunk focus-visible:ring-action flex items-center gap-3 px-4 py-3 transition-colors focus:outline-none focus-visible:ring-2"
                 >
                   <span className="text-meta text-ink-secondary font-mono">{wp.code}</span>

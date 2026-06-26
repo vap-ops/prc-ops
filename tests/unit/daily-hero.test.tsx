@@ -21,15 +21,18 @@ const many: DailyHeroWp[] = [...one, { id: "wp2", projectId: "p2", code: "WP-02"
 beforeEach(() => mockPush.mockReset());
 
 describe("DailyHero (spec 192 U4b)", () => {
+  // The links record /sa as the referrer (?from=%2Fsa, before the #hash) so the
+  // WP detail back chip returns here instead of jumping to the project page
+  // (sitemap review 2026-06-26, see lib/nav/back-href).
   it("with a single active WP, each action links straight to that WP's tab", () => {
     render(<DailyHero wps={one} />);
     expect(screen.getByRole("link", { name: /ลงเวลาวันนี้/ })).toHaveAttribute(
       "href",
-      "/projects/p1/work-packages/wp1#wp-labor",
+      "/projects/p1/work-packages/wp1?from=%2Fsa#wp-labor",
     );
     expect(screen.getByRole("link", { name: /เพิ่มรูปวันนี้/ })).toHaveAttribute(
       "href",
-      "/projects/p1/work-packages/wp1#wp-photos",
+      "/projects/p1/work-packages/wp1?from=%2Fsa#wp-photos",
     );
   });
 
@@ -40,14 +43,14 @@ describe("DailyHero (spec 192 U4b)", () => {
     fireEvent.click(screen.getByRole("button", { name: /ลงเวลาวันนี้/ }));
     // the picker lists the WPs
     fireEvent.click(screen.getByRole("button", { name: /WP-02/ }));
-    expect(mockPush).toHaveBeenCalledWith("/projects/p2/work-packages/wp2#wp-labor");
+    expect(mockPush).toHaveBeenCalledWith("/projects/p2/work-packages/wp2?from=%2Fsa#wp-labor");
   });
 
   it("with several WPs, เพิ่มรูปวันนี้ routes the chosen WP to its photo tab", () => {
     render(<DailyHero wps={many} />);
     fireEvent.click(screen.getByRole("button", { name: /เพิ่มรูปวันนี้/ }));
     fireEvent.click(screen.getByRole("button", { name: /WP-01/ }));
-    expect(mockPush).toHaveBeenCalledWith("/projects/p1/work-packages/wp1#wp-photos");
+    expect(mockPush).toHaveBeenCalledWith("/projects/p1/work-packages/wp1?from=%2Fsa#wp-photos");
   });
 
   it("renders nothing when there are no active WPs", () => {

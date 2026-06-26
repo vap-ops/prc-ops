@@ -16,6 +16,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { workPackageHref } from "@/lib/nav/project-paths";
+import { withBackFrom } from "@/lib/nav/back-href";
 import { WORK_PACKAGE_STATUS_LABEL, formatThaiDate } from "@/lib/i18n/labels";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import { bangkokTodayIso } from "@/lib/dates";
@@ -92,7 +93,7 @@ export default async function SaHomePage() {
               {items.map((it) => (
                 <li key={it.id} className="rounded-card border-edge bg-card shadow-card border p-4">
                   <Link
-                    href={workPackageHref(it.projectId, it.id)}
+                    href={withBackFrom(workPackageHref(it.projectId, it.id), "/sa")}
                     className="focus-visible:ring-action rounded-control block focus:outline-none focus-visible:ring-2"
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -113,17 +114,23 @@ export default async function SaHomePage() {
 
                   <div className="mt-3 flex gap-2">
                     <ActionChip
-                      href={`${workPackageHref(it.projectId, it.id)}#wp-photos`}
+                      href={withBackFrom(
+                        `${workPackageHref(it.projectId, it.id)}#wp-photos`,
+                        "/sa",
+                      )}
                       icon={Camera}
                       label="รูปถ่าย"
                     />
                     <ActionChip
-                      href={`${workPackageHref(it.projectId, it.id)}#wp-labor`}
+                      href={withBackFrom(`${workPackageHref(it.projectId, it.id)}#wp-labor`, "/sa")}
                       icon={HardHat}
                       label="ทีมงาน"
                     />
                     <ActionChip
-                      href={`${workPackageHref(it.projectId, it.id)}#wp-requests`}
+                      href={withBackFrom(
+                        `${workPackageHref(it.projectId, it.id)}#wp-requests`,
+                        "/sa",
+                      )}
                       icon={ShoppingCart}
                       label="คำขอซื้อ"
                     />

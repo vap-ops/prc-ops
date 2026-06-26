@@ -7,6 +7,7 @@
 
 import Link from "next/link";
 import { EmptyNotice } from "@/components/features/common/notices";
+import { withBackFrom } from "@/lib/nav/back-href";
 import { CARD } from "@/lib/ui/classes";
 import { FEEDBACK_TYPE_LABEL, FEEDBACK_STATUS_LABEL, formatThaiDateTime } from "@/lib/i18n/labels";
 import type { Database } from "@/lib/db/database.types";
@@ -53,7 +54,7 @@ export function MyFeedbackList({ items }: { items: MyFeedbackItem[] }) {
       {ordered.map((f) => (
         <li key={f.id}>
           <Link
-            href={`/feedback/${f.id}`}
+            href={withBackFrom(`/feedback/${f.id}`, "/feedback/mine")}
             className={`${CARD} hover:bg-sunk focus-visible:ring-action flex flex-col gap-2 focus:outline-none focus-visible:ring-2`}
           >
             <div className="flex flex-wrap items-center gap-2">

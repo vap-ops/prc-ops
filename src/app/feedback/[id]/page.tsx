@@ -15,6 +15,7 @@ import { FeedbackDrafts } from "@/components/features/feedback/feedback-drafts";
 import { MarkFeedbackViewed } from "@/components/features/feedback/mark-feedback-viewed";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { CARD } from "@/lib/ui/classes";
+import { safeBackHref } from "@/lib/nav/back-href";
 import { createClient } from "@/lib/db/server";
 import { FEEDBACK_TYPE_LABEL, FEEDBACK_STATUS_LABEL, formatThaiDateTime } from "@/lib/i18n/labels";
 
@@ -34,10 +35,14 @@ const STATUS_BADGE = {
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  // The back chip follows where you came from — the operator review kanban or the
+  // reporter's own list — falling back to the submit form (see safeBackHref).
+  searchParams: Promise<{ from?: string }>;
 }
 
-export default async function FeedbackDetailPage({ params }: PageProps) {
+export default async function FeedbackDetailPage({ params, searchParams }: PageProps) {
   const { id } = await params;
+  const { from } = await searchParams;
 
   const supabase = await createClient();
   const { data: claimsData } = await supabase.auth.getClaims();
@@ -93,7 +98,7 @@ export default async function FeedbackDetailPage({ params }: PageProps) {
   return (
     <PageShell>
       <BottomTabBar role={row.role} />
-      <DetailHeader backHref="/feedback" backLabel="กลับ">
+      <DetailHeader backHref={safeBackHref(from, "/feedback")} backLabel="กลับ">
         <h1 className="text-ink text-xl font-semibold tracking-tight">บทสนทนา</h1>
       </DetailHeader>
 

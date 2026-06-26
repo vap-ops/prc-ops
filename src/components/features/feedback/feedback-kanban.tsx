@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { FeedbackStatusControl } from "@/components/features/feedback/feedback-status-control";
 import { groupFeedbackByStatus, FEEDBACK_STATUS_ORDER } from "@/lib/feedback/kanban";
+import { withBackFrom } from "@/lib/nav/back-href";
 import { CARD } from "@/lib/ui/classes";
 import {
   FEEDBACK_TYPE_LABEL,
@@ -119,7 +120,7 @@ export function FeedbackKanban({ cards }: { cards: FeedbackCardVM[] }) {
                   <FeedbackStatusControl id={f.id} status={f.status} />
 
                   <Link
-                    href={`/feedback/${f.id}`}
+                    href={withBackFrom(`/feedback/${f.id}`, "/feedback/review")}
                     className="text-action text-xs font-medium underline-offset-2 hover:underline"
                   >
                     ดูบทสนทนา / ตอบกลับ →

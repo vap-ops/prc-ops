@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/require-role";
 import { WP_DETAIL_ROLES, isManagerRole, isReadOnlyWpViewer } from "@/lib/auth/role-home";
 import { projectHref, workPackageHref } from "@/lib/nav/project-paths";
+import { safeBackHref } from "@/lib/nav/back-href";
 import { createClient } from "@/lib/db/server";
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
@@ -62,12 +63,16 @@ import { ReportDefectControl } from "./report-defect-control";
 
 interface PageProps {
   params: Promise<{ projectId: string; workPackageId: string }>;
+  // The back chip follows where you came from — /sa, the schedule, a purchase
+  // request, a งวด — falling back to the project page (see safeBackHref).
+  searchParams: Promise<{ from?: string }>;
 }
 
 export const metadata = { title: "รูปถ่ายงาน" };
 
-export default async function WorkPackagePhotoScreen({ params }: PageProps) {
+export default async function WorkPackagePhotoScreen({ params, searchParams }: PageProps) {
   const { projectId, workPackageId } = await params;
+  const { from } = await searchParams;
   const ctx = await requireRole(WP_DETAIL_ROLES);
   const supabase = await createClient();
   // Spec 171: procurement opens this screen to raise a purchase request, seeing
@@ -527,8 +532,8 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
       {/* Field-First: the tab bar gives way to the thumb-anchored capture
           bar on this detail screen; the back chip handles return nav. */}
       <DetailHeader
-        backHref={projectHref(projectId)}
-        backLabel="กลับไปรายการงาน"
+        backHref={safeBackHref(from, projectHref(projectId))}
+        backLabel="กลับ"
         actions={
           // Spec 94: contractor (display + reassign) + the read-only description
           // fold into this ⓘ sheet so the header stays the WP nameplate.
