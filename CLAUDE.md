@@ -90,8 +90,8 @@ Do not add or remove enum values without an ADR. After LINE login, `roleHome()` 
 ## Operating environment
 
 - The operator is non-developer, working from cloud PC and mobile.
-- Auto-commit-and-merge is the standing posture (operator grant, 2026-06-20): commit, ff-merge to `main`, and `git push origin main` directly from the cloud PC for routine work — no per-task confirm, and a per-task "I push from the laptop" note does not apply. `main` auto-deploys (Vercel).
-- Still flag genuinely risky changes before pushing: **destructive/irreversible** schema migrations (DROP, column-type change, mass DELETE/TRUNCATE — `break-glass.md` Procedure B) and worker/Railway redeploys. **Additive/non-destructive** migrations (new tables/columns/RPCs/policies/grants) auto-push once their pgTAP is green (standing grant, 2026-06-25); see the tiers in `docs/policies/change-management.md` §1.
+- **Ship through the gate, not a direct push (autonomous-build fence, 2026-06-26):** `main` is branch-protected; every change lands as a PR via `scripts/ship-pr.sh` (pushes a branch → opens a PR → requests auto-merge). Required CI (lint+typecheck+test+secret-scan) must be green to merge, and the **danger-path guard** fails — and so HOLDS — any PR touching a protected surface (migrations, `src/lib/auth/**`, RLS, money/GL/payroll, the service-role client, notifications, `worker/`, infra, or the governance files). So a clean code-only PR with green CI **auto-merges itself**; a dangerous or red PR **waits for the operator** (one-tap merge / admin override). `main` auto-deploys (Vercel). Token + mechanics: memory `autonomous-build-fence`.
+- **Still operator-held (the ~20%):** destructive/irreversible migrations (DROP, column-type, mass DELETE/TRUNCATE — `break-glass.md` Procedure B) and worker/Railway redeploys, AND now additive migrations + any danger-path change — the guard holds them until pgTAP is a required CI check. This enforces the earlier "additive auto-push" grant (2026-06-25) **mechanically** rather than on prose; `docs/policies/change-management.md` §1 to be reconciled.
 - Never auto-authenticate `gh`.
 - After merge: delete merged branches.
 
