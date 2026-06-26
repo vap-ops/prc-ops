@@ -81,6 +81,37 @@ jobs:
           tar -xzf gitleaks.tar.gz gitleaks
           ./gitleaks detect --no-git --redact --exit-code 1
 
+  # Danger-path guard (autonomous-build ship gate): an autonomous PR that touches a
+  # security/money/infra/governance surface must NOT auto-merge — it FAILS this
+  # required check so it's held for the operator's manual merge, while a safe code-only
+  # PR with everything green merges itself. The single-account-friendly stand-in for
+  # CODEOWNERS (which would deadlock when the only reviewer authored the PR). The
+  # operator can still merge a held PR via admin override after reviewing.
+  danger-path-guard:
+    name: Danger-path guard
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Block auto-merge of protected paths
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+          changed="$(git diff --name-only "$base" "$head")"
+          echo "Changed files:"; echo "$changed"
+          deny='^(supabase/migrations/|supabase/tests/|src/lib/auth/|src/lib/db/admin\.ts|src/lib/accounting/|src/lib/labor/|src/lib/notifications/|src/app/api/notifications/|worker/|\.github/|\.claude/|CLAUDE\.md|docs/decisions/|docs/policies/|CODEOWNERS|package\.json|pnpm-lock\.yaml|\.env)'
+          hits="$(echo "$changed" | grep -E "$deny" || true)"
+          if [ -n "$hits" ]; then
+            echo "::error::Protected path(s) touched — this PR needs operator review and cannot auto-merge:"
+            echo "$hits"
+            exit 1
+          fi
+          echo "OK — no protected paths touched; safe to auto-merge."
+
   # Tier C (ADR 0048): pgTAP against the linked SHARED remote. Inert by default —
   # runs only on a manual dispatch AND when the operator has opted in via the
   # `ENABLE_DB_TEST` repository variable, so no automatic run ever references a
