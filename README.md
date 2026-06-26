@@ -80,3 +80,13 @@ docs/
 3. [`docs/decisions/README.md`](docs/decisions/README.md) — the ADR index (one-line titles, 0001 through the latest); read the ADRs relevant to your change before implementing. The directory is the source of truth.
 4. [`docs/feature-specs/README.md`](docs/feature-specs/README.md) — the feature-spec index (find the numbered spec for the unit you're building).
 5. The tail of [`docs/progress-tracker.md`](docs/progress-tracker.md) — the most recent unit's state and its open-questions queue (older history archived in [`docs/progress-archive.md`](docs/progress-archive.md)).
+
+## How changes land
+
+`main` is protected and auto-deploys to production — nothing is pushed to it directly. Every change lands as a pull request that must pass CI before it can merge:
+
+- **Lint, Typecheck, Test** and **Worker — Typecheck, Test** — the build must be green.
+- **Secret scan** — a leaked credential can never reach `main` (irreversible once public).
+- **Danger-path guard** — a PR that touches a security/money/infra/governance surface (migrations, `src/lib/auth`, accounting/labor, notifications, `worker/`, `.github/`, `.claude/`, `CLAUDE.md`, ADRs/policies) fails this check and is **held for a maintainer's review and manual merge**. A safe, code-only PR with everything green auto-merges itself.
+
+This is the mechanical safety net behind the autonomous bug-fix flow: routine fixes ship hands-off, while anything sensitive waits for a human.
