@@ -1,5 +1,5 @@
 begin;
-select plan(8);
+select plan(11);
 
 -- ============================================================================
 -- Spec 195 Phase 4 / ADR 0063 — cost integrity for the store-bound flow. The
@@ -161,6 +161,73 @@ select is(
       and e.source_id = (select id from public.stock_receipts
                            where purchase_request_id='b2130000-0000-0000-0000-000000000214')),
   107.00::numeric, 'VAT receipt: AP 2100 credited the full gross (107)');
+
+-- ============================================================================
+-- AP must equal the supplier invoice EXACTLY, even when per-unit rounding makes
+-- net*qty drift from the gross (qty > 1). The receipt poster credits 2100 with
+-- the originating PR's amount and books Input VAT as the residual (gross − net),
+-- so a multi-unit VAT line never books a phantom satang of AP. (Regression guard
+-- for the U4b adversarial-review finding.)
+-- ============================================================================
+
+-- gross 215 for qty 2 @ 7%: net_total round(215/1.07)=200.93 → unit_cost 100.47 →
+-- total_cost (net inventory) 200.94; Input VAT = 215 − 200.94 = 14.06; AP = 215.
+insert into public.catalog_items (id, category, base_item, spec_attrs, unit, is_active) values
+  ('e2130000-0000-0000-0000-000000000215', 'electrical', 'รางเดินสาย', null, 'เส้น', true);
+insert into public.purchase_requests
+  (id, project_id, work_package_id, catalog_item_id, item_description, quantity, unit,
+   status, source, requested_by, supplier_id, amount, vat_rate, purchased_at)
+values
+  ('b2130000-0000-0000-0000-000000000215',
+   'a2130000-0000-0000-0000-000000000213', null,
+   'e2130000-0000-0000-0000-000000000215', 'รางเดินสาย', 2, 'เส้น',
+   'purchased', 'app', 'd1111111-1111-1111-1111-111111111213',
+   '5e130000-0000-0000-0000-000000000213', 215, 7, now());
+
+update public.purchase_requests
+   set delivered_at = now(), status = 'delivered'
+ where id = 'b2130000-0000-0000-0000-000000000215';
+
+do $$
+begin
+  perform public.post_stock_receipt_to_gl(
+    (select id from public.stock_receipts
+       where purchase_request_id = 'b2130000-0000-0000-0000-000000000215'));
+end $$;
+
+-- 9. AP (2100) credited EXACTLY the supplier invoice (215.00), not a reconstruction.
+select is(
+  (select coalesce(sum(jl.credit), 0)
+     from public.journal_lines jl
+     join public.gl_accounts a on a.id = jl.account_id
+     join public.journal_entries e on e.id = jl.entry_id
+    where a.code = '2100'
+      and e.source_table = 'stock_receipts' and e.status = 'posted'
+      and e.source_id = (select id from public.stock_receipts
+                           where purchase_request_id='b2130000-0000-0000-0000-000000000215')),
+  215.00::numeric, 'qty>1 VAT receipt: AP credited the exact invoice (215.00), no satang drift');
+
+-- 10. ...and the entry balances (Σdebit = Σcredit) — net 200.94 + VAT 14.06 = 215.
+select is(
+  (select coalesce(sum(jl.debit), 0) - coalesce(sum(jl.credit), 0)
+     from public.journal_lines jl
+     join public.journal_entries e on e.id = jl.entry_id
+    where e.source_table = 'stock_receipts' and e.status = 'posted'
+      and e.source_id = (select id from public.stock_receipts
+                           where purchase_request_id='b2130000-0000-0000-0000-000000000215')),
+  0::numeric, 'qty>1 VAT receipt: the journal entry balances');
+
+-- 11. Input VAT (1300) is the residual gross − net (14.06), keeping AP exact.
+select is(
+  (select coalesce(sum(jl.debit), 0)
+     from public.journal_lines jl
+     join public.gl_accounts a on a.id = jl.account_id
+     join public.journal_entries e on e.id = jl.entry_id
+    where a.code = '1300'
+      and e.source_table = 'stock_receipts' and e.status = 'posted'
+      and e.source_id = (select id from public.stock_receipts
+                           where purchase_request_id='b2130000-0000-0000-0000-000000000215')),
+  14.06::numeric, 'qty>1 VAT receipt: Input VAT is the residual (14.06)');
 
 select * from finish();
 rollback;

@@ -119,6 +119,8 @@ declare
   v_rate     numeric;
   v_vat      numeric(16,2);
   v_gross    numeric(16,2);
+  v_pr       uuid;
+  v_pr_gross numeric(16,2);
   v_supplier uuid;
   v_actor    uuid;
   v_at       date;
@@ -128,19 +130,29 @@ begin
   -- total_cost is the NET (ex-VAT) inventory value (qty * unit_cost); vat_rate is
   -- the snapshot of the purchase's VAT rate (0 for manual stock-ins).
   select project_id, total_cost, coalesce(vat_rate, 0), supplier_id, created_by,
-         coalesce(received_at::date, current_date)
-    into v_project, v_net, v_rate, v_supplier, v_actor, v_at
+         coalesce(received_at::date, current_date), purchase_request_id
+    into v_project, v_net, v_rate, v_supplier, v_actor, v_at, v_pr
     from public.stock_receipts where id = p_source_id;
   if not found then
     raise exception 'post_stock_receipt_to_gl: receipt not found' using errcode = 'P0001';
   end if;
 
+  -- AP must equal the supplier invoice EXACTLY. For a VAT purchase the gross is the
+  -- originating PR's all-in amount; Input VAT is the residual (gross − net), so AP
+  -- never drifts from the invoice on a per-unit rounding (a multi-unit line would
+  -- otherwise book a phantom satang). Net stays the inventory value, so the entry
+  -- still balances (net + (gross−net) = gross) and the 1500↔on-hand tie holds.
   if v_rate > 0 then
-    v_vat := round(v_net * v_rate / 100, 2);
+    if v_pr is not null then
+      select amount into v_pr_gross from public.purchase_requests where id = v_pr;
+    end if;
+    -- Fallback (no PR, e.g. a future manual VAT receipt): reconstruct the gross.
+    v_gross := coalesce(v_pr_gross, round(v_net * (1 + v_rate / 100), 2));
+    v_vat   := v_gross - v_net;
   else
-    v_vat := 0;
+    v_vat   := 0;
+    v_gross := v_net;
   end if;
-  v_gross := v_net + v_vat;
 
   -- Reverse-and-repost: reverse the current (non-reversed) entry for this receipt.
   select e.id into v_old
