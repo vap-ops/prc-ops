@@ -17,6 +17,7 @@
 import { Fragment, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ChevronLeft, ChevronRight, Info, Package, ShoppingCart } from "lucide-react";
+import { bahtWithSymbol as baht } from "@/lib/format";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { PurchaseRequestTracker } from "@/components/features/purchasing/purchase-request-tracker";
@@ -122,9 +123,6 @@ export interface PoHeaderFacts {
   status: PurchaseOrderStatus;
   lineCount: number;
 }
-
-const baht = (n: number) =>
-  `฿${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function ProcurementGrid({
   groups,

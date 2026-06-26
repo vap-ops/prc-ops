@@ -14,14 +14,12 @@ import { ACCOUNTING_ROLES } from "@/lib/auth/role-home";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { bangkokTodayIso } from "@/lib/dates";
 import { formatThaiDate } from "@/lib/i18n/labels";
+import { baht } from "@/lib/format";
 import { SECTION_HEADING, CARD } from "@/lib/ui/classes";
 import { loadAccountLedger } from "@/lib/accounting/load-ledger";
 import { summarizeLedger } from "@/lib/accounting/ledger-view";
 
 export const metadata = { title: "บัญชีแยกประเภท" };
-
-const baht = (n: number) =>
-  n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 interface LedgerPageProps {
   searchParams: Promise<{

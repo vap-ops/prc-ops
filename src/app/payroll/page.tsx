@@ -27,12 +27,9 @@ import { fetchPayrollReport } from "@/lib/labor/fetch-payroll";
 import { annotatePayrollPayments, DC_PAYMENT_METHOD_LABELS } from "@/lib/labor/payments";
 import { fetchPeriodPayments, fetchWorkerBanks } from "@/lib/labor/fetch-payments";
 import { RecordPaymentSheet } from "@/components/features/labor/record-payment-sheet";
+import { bahtUnit as baht } from "@/lib/format";
 
 export const metadata = { title: "ค่าแรง DC" };
-
-function baht(n: number): string {
-  return `${n.toLocaleString("th-TH", { maximumFractionDigits: 2 })} บาท`;
-}
 
 function formatDays(n: number): string {
   return n.toLocaleString("th-TH", { maximumFractionDigits: 1 });

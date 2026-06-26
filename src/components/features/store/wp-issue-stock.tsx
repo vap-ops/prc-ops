@@ -13,6 +13,7 @@ import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { ConfirmActionButton } from "@/components/features/common/confirm-action-button";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
 import { STORE_ISSUE_LABEL } from "@/lib/i18n/labels";
+import { baht } from "@/lib/format";
 import { issueStockBulk, reverseStockIssue } from "@/app/store/actions";
 
 // On-hand for the picker — only what the WP เบิก needs (the value/avg-cost columns
@@ -44,9 +45,6 @@ const emptyIssueRow = (): DraftIssueRow => ({ item: "", qty: "", receiver: "", n
 const LABEL = "text-sm font-medium text-ink";
 const FIELD =
   "rounded-control border-edge-strong bg-card text-ink shadow-input focus-visible:ring-action w-full min-w-0 border px-3 py-2 text-sm focus:outline-none focus-visible:ring-2";
-
-const baht = (n: number) =>
-  n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function WpIssueStock({
   projectId,

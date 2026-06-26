@@ -24,6 +24,7 @@ import {
   FIELD_STACKED,
   INLINE_ALERT_TEXT,
 } from "@/lib/ui/classes";
+import { bahtUnit as baht } from "@/lib/format";
 
 interface RecordPaymentSheetProps {
   workerId: string;
@@ -35,10 +36,6 @@ interface RecordPaymentSheetProps {
   bank: ContactBank | null;
   todayIso: string;
   revalidate: string;
-}
-
-function baht(n: number): string {
-  return `${n.toLocaleString("th-TH", { maximumFractionDigits: 2 })} บาท`;
 }
 
 export function RecordPaymentSheet({

@@ -7,7 +7,7 @@
 // Cr Revenue gross + Cr Output VAT. Balances because
 // net + retention + wht == gross + vat (net = gross + vat − retention − wht).
 
-const round2 = (n: number) => Math.round(n * 100) / 100;
+import { round2 } from "@/lib/format";
 
 export interface BillingInput {
   grossAmount: number;

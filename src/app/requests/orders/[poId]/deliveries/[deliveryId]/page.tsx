@@ -1,6 +1,7 @@
 import { PageShell } from "@/components/features/chrome/page-shell";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { bahtWithSymbol as baht } from "@/lib/format";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { StatusPill } from "@/components/features/common/status-pill";
@@ -198,7 +199,3 @@ export default async function DeliveryDetailPage({ params }: PageProps) {
     </PageShell>
   );
 }
-
-// Spec 106 compact THB formatter (mirrors the PO detail).
-const baht = (n: number) =>
-  `฿${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

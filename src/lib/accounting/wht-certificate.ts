@@ -4,7 +4,7 @@
 // taxpayer id. A deducted cert posts Dr (party payable) / Cr WHT-payable; a
 // suffered cert is a document only (the WHT-prepaid already posts at billing).
 
-const round2 = (n: number) => Math.round(n * 100) / 100;
+import { round2 } from "@/lib/format";
 
 export const WHT_DIRECTIONS = ["deducted", "suffered"] as const;
 export type WhtDirection = (typeof WHT_DIRECTIONS)[number];

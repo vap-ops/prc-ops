@@ -11,7 +11,8 @@ import { ConfirmActionButton } from "@/components/features/common/confirm-action
 import { requireRole } from "@/lib/auth/require-role";
 import { ACCOUNTING_ROLES } from "@/lib/auth/role-home";
 import { createClient as createAdminClient } from "@/lib/db/admin";
-import { formatThaiDate, baht } from "@/lib/i18n/labels";
+import { formatThaiDate } from "@/lib/i18n/labels";
+import { baht } from "@/lib/format";
 import { SECTION_HEADING, CARD, BUTTON_PRIMARY_COMPACT } from "@/lib/ui/classes";
 import { loadBillingRegister } from "@/lib/accounting/load-registers";
 import { canCertifyBilling, BILLING_WRITE_ROLES } from "@/lib/accounting/billing-actions";

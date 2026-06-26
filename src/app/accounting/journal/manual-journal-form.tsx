@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { Input } from "@/components/ui/input";
 import { BUTTON_PRIMARY, INLINE_ERROR } from "@/lib/ui/classes";
-import { baht } from "@/lib/i18n/labels";
+import { baht } from "@/lib/format";
 import { validateJournalLines } from "@/lib/accounting/journal";
 import type { PostableAccount } from "@/lib/accounting/load-manual-journals";
 import { postManualJournal } from "./actions";

@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FileText, X } from "lucide-react";
+import { bahtWithSymbol as baht } from "@/lib/format";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { RadioChip } from "@/components/features/common/radio-chip";
 import {
@@ -57,9 +58,6 @@ export interface CreatePoLine {
   unit: string;
   wp_code: string | null;
 }
-
-const baht = (n: number) =>
-  `฿${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const FIELD_DATE =
   "rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action h-11 w-full min-w-0 appearance-none border px-3 text-sm shadow-xs focus:outline-none focus-visible:ring-2";

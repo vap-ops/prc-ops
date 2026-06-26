@@ -10,6 +10,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Paperclip, Trash2 } from "lucide-react";
+import { bahtWithSymbol as baht } from "@/lib/format";
 import { BUTTON_PRIMARY, FIELD_INPUT, INLINE_ERROR } from "@/lib/ui/classes";
 import { addPurchaseQuote, removePurchaseQuote } from "@/app/requests/actions";
 import { QuoteDocAttach } from "@/components/features/purchasing/quote-doc-attach";
@@ -39,10 +40,6 @@ export type ItemPriceHistory = {
 
 const SELECT =
   "rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action h-11 w-full min-w-0 border px-2 text-sm shadow-xs focus:outline-none focus-visible:ring-2";
-
-function baht(n: number): string {
-  return `฿${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
-}
 
 export function PriceComparison({
   purchaseRequestId,

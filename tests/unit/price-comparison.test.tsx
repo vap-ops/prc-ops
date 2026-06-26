@@ -157,7 +157,7 @@ describe("PriceComparison last-paid benchmark (spec 182 U3)", () => {
   it("shows the newest purchase price, its supplier, and the times-bought count", () => {
     renderPC({ history });
     const line = screen.getByText(/เคยซื้อล่าสุด/);
-    expect(line).toHaveTextContent("฿88/ท่อน");
+    expect(line).toHaveTextContent("฿88.00/ท่อน");
     expect(line).toHaveTextContent("ส.รุ่งเรือง");
     expect(line).toHaveTextContent("3 ครั้ง");
   });

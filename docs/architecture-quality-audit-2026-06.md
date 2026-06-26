@@ -7,6 +7,18 @@ uniformity, dead code & duplication, bundle/perf, naming SSOT, test fragility.
 **40 candidate findings → 24 confirmed + 16 partial, 0 refuted → 15-item ranked
 register.**
 
+## Status
+
+- **rank 1 `money-ssot` + rank 9 `formatters-discoverability` — DONE (2026-06-26).**
+  Extracted `src/lib/format.ts` (`baht`, `bahtWithSymbol`, `bahtCompact`,
+  `bahtUnit`, `round2`); pointed all ~35 hand-rolled copies at it (aliased
+  imports where a site wanted the ฿/unit variant under the local name `baht`),
+  removed the formatter from `labels.ts`, and added an anti-drift guard
+  (`tests/unit/format.test.ts`) that fails if any module re-declares a money
+  formatter. Behaviour-preserving except two deliberate normalizations
+  (price-comparison + store-pnl whole numbers now show 2dp; nova-settlement
+  capped to 2dp) — one test pin updated.
+
 ## Headline
 
 prc-ops is a **healthy, well-governed codebase**. The debt found is almost

@@ -14,15 +14,12 @@ import {
   LABOR_BUDGET_OVER_LABEL,
   LABOR_BUDGET_UNSET_LABEL,
 } from "@/lib/i18n/labels";
+import { bahtUnit as baht } from "@/lib/format";
 
 interface LaborBudgetCardProps {
   summary: LaborBudgetSummary;
   workPackageId: string;
   revalidate: string;
-}
-
-function baht(n: number): string {
-  return `${n.toLocaleString("th-TH", { maximumFractionDigits: 2 })} บาท`;
 }
 
 // Tone → bar fill + remaining/over text. ok = on track, attn = ≥90% committed,

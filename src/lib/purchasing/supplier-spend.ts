@@ -5,6 +5,7 @@
 
 import type { RecordBadge } from "@/components/features/purchasing/record-manager";
 import { procurementBand } from "./procurement-pipeline";
+import { bahtCompact as baht } from "@/lib/format";
 
 export interface SupplierStat {
   spend: number;
@@ -27,9 +28,6 @@ export function aggregateSupplierSpend(
   }
   return bySupplier;
 }
-
-// Summary badge — rounded to whole baht on purpose (compact spend chip).
-const baht = (n: number) => `฿${Math.round(n).toLocaleString("en-US")}`;
 
 // Build the per-supplier spend chips as a SERIALIZABLE map (supplier id → badge),
 // so a Server Component can pass it across the RSC boundary to the client

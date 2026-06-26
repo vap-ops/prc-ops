@@ -11,14 +11,12 @@ import { requireRole } from "@/lib/auth/require-role";
 import { ACCOUNTING_ROLES, isManagerRole } from "@/lib/auth/role-home";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { formatThaiDate } from "@/lib/i18n/labels";
+import { baht } from "@/lib/format";
 import { SECTION_HEADING, CARD } from "@/lib/ui/classes";
 import { loadWhtRegister, loadWhtFormData } from "@/lib/accounting/load-registers";
 import { RecordWhtForm } from "./record-wht-form";
 
 export const metadata = { title: "ภาษีหัก ณ ที่จ่าย" };
-
-const baht = (n: number) =>
-  n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const DIRECTION_LABEL: Record<string, string> = {
   deducted: "เราหัก (ค้างนำส่ง)",

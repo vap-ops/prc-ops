@@ -9,13 +9,10 @@ import Link from "next/link";
 import { AlertTriangle, ChevronRight } from "lucide-react";
 
 import type { OverdueAttentionItem } from "@/lib/purchasing/overdue-attention";
+import { bahtWithSymbol } from "@/lib/format";
 
-// Module-local THB formatter — the codebase pattern (procurement-grid,
-// create-purchase-order-sheet, supplier-spend each carry their own).
-const baht = (n: number | null) =>
-  n == null
-    ? "—"
-    : `฿${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// Null-guarded THB formatter — "—" for a missing amount, else the SSOT formatter.
+const bahtOrDash = (n: number | null) => (n == null ? "—" : bahtWithSymbol(n));
 
 interface OverdueFollowUpPanelProps {
   items: OverdueAttentionItem[];
@@ -60,7 +57,7 @@ export function OverdueFollowUpPanel({ items, overdueHref }: OverdueFollowUpPane
                   เกิน {it.overdueDays} วัน
                 </span>
                 <span className="text-ink-secondary block font-mono text-xs">
-                  {baht(it.amount)}
+                  {bahtOrDash(it.amount)}
                 </span>
               </span>
             </Link>

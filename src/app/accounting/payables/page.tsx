@@ -13,13 +13,11 @@ import { EmptyNotice } from "@/components/features/common/notices";
 import { requireRole } from "@/lib/auth/require-role";
 import { ACCOUNTING_ROLES } from "@/lib/auth/role-home";
 import { createClient as createAdminClient } from "@/lib/db/admin";
+import { baht } from "@/lib/format";
 import { SECTION_HEADING, CARD } from "@/lib/ui/classes";
 import { loadPayables, AP_ACCOUNT_CODE } from "@/lib/accounting/load-payables";
 
 export const metadata = { title: "เจ้าหนี้การค้า" };
-
-const baht = (n: number) =>
-  n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default async function PayablesPage() {
   const ctx = await requireRole(ACCOUNTING_ROLES);

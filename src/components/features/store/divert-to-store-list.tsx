@@ -9,6 +9,7 @@
 
 import { ConfirmActionButton } from "@/components/features/common/confirm-action-button";
 import { BUTTON_SECONDARY } from "@/lib/ui/classes";
+import { baht } from "@/lib/format";
 import { divertPurchaseToStore } from "@/app/store/actions";
 
 export type DivertLine = {
@@ -19,9 +20,6 @@ export type DivertLine = {
   wpLabel: string;
   cost: number;
 };
-
-const baht = (n: number) =>
-  n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function DivertToStoreList({ lines }: { lines: DivertLine[] }) {
   if (lines.length === 0) return null;

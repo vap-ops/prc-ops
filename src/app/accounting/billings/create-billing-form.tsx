@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { BUTTON_PRIMARY, INLINE_ERROR } from "@/lib/ui/classes";
 import { computeBillingBreakdown } from "@/lib/accounting/client-billing";
-import { baht } from "@/lib/i18n/labels";
+import { baht } from "@/lib/format";
 import { createClientBilling } from "./actions";
 
 const FIELD =

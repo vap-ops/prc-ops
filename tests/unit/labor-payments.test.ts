@@ -6,7 +6,7 @@
 // idea as the cost-freeze drift, spec 68). Pure — no I/O.
 
 import { describe, it, expect } from "vitest";
-import { annotatePayrollPayments, round2, type DcPaymentRow } from "@/lib/labor/payments";
+import { annotatePayrollPayments, type DcPaymentRow } from "@/lib/labor/payments";
 import type { WorkerPay, PayrollReport, PayrollRange } from "@/lib/labor/payroll";
 
 const RANGE: PayrollRange = { from: "2026-06-01", to: "2026-06-30" };
@@ -147,13 +147,5 @@ describe("annotatePayrollPayments", () => {
     expect(r.outstandingAmount).toBe(800);
     // passthrough totals from the underlying report are preserved
     expect(r.totalAmount).toBe(2700);
-  });
-});
-
-describe("round2", () => {
-  it("rounds to 2 decimal places", () => {
-    expect(round2(1900.004)).toBe(1900);
-    expect(round2(1900.005)).toBe(1900.01);
-    expect(round2(1899.995)).toBe(1900);
   });
 });

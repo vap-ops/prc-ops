@@ -248,12 +248,6 @@ export function formatThaiDate(iso: string): string {
   return THAI_DATE.format(d);
 }
 
-// Money: Thai-grouped baht, always 2dp (spec 204 — was inline-duplicated across the
-// accounting + store surfaces). Prefix a ฿ at the call site where the unit is wanted.
-export function baht(n: number): string {
-  return n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
 // Time-only sibling (spec 54 photo-tile overlays + last-updated lines).
 // 24h HH:MM — Thai users read clock time, not the Buddhist-era date.
 // Same zone pin and raw-string degradation as the two formatters above.

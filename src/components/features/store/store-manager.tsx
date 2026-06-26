@@ -12,6 +12,7 @@ import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { ConfirmActionButton } from "@/components/features/common/confirm-action-button";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
 import { ITEM_CATEGORY_LABEL, STORE_RECEIVE_LABEL } from "@/lib/i18n/labels";
+import { baht } from "@/lib/format";
 import type { Database } from "@/lib/db/database.types";
 import {
   confirmStockIssueOnBehalf,
@@ -104,10 +105,6 @@ export type CountRow = {
 const LABEL = "text-sm font-medium text-ink";
 const FIELD =
   "rounded-control border-edge-strong bg-card text-ink shadow-input focus-visible:ring-action w-full min-w-0 border px-3 py-2 text-sm focus:outline-none focus-visible:ring-2";
-
-// Baht formatter for the cost columns (2dp, thousands separators).
-const baht = (n: number) =>
-  n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function StoreManager({
   projects,

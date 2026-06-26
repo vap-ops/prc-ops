@@ -8,6 +8,7 @@
 // money is read via the admin client and rendered only on the PM payroll surface
 // (requireRole-gated).
 
+import { round2 } from "@/lib/format";
 import type { Database } from "@/lib/db/database.types";
 import type { WorkerPay, PayrollRange, PayrollReport } from "./payroll";
 
@@ -66,11 +67,6 @@ export const DC_PAYMENT_METHOD_LABELS: Record<DcPaymentMethod, string> = {
   cash: "เงินสด",
   cheque: "เช็ค",
 };
-
-// 2-dp money compare — avoids float noise flagging spurious drift.
-export function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
 
 // Current rows only: drop anything pointed at by another row's superseded_by.
 // Trivially replicated (not cross-imported) to keep modules decoupled, same as

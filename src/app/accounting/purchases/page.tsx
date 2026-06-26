@@ -15,14 +15,12 @@ import { ACCOUNTING_ROLES } from "@/lib/auth/role-home";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { bangkokTodayIso } from "@/lib/dates";
 import { formatThaiDate } from "@/lib/i18n/labels";
+import { baht } from "@/lib/format";
 import { SECTION_HEADING, CARD, FIELD_INPUT, BUTTON_PRIMARY } from "@/lib/ui/classes";
 import { loadPurchaseRegister } from "@/lib/accounting/load-purchases";
 import { summarizePurchases, purchaseStatusLabel } from "@/lib/accounting/purchases-view";
 
 export const metadata = { title: "การจัดซื้อ" };
-
-const baht = (n: number) =>
-  n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 interface PurchasesPageProps {
   searchParams: Promise<{ from?: string; to?: string; project?: string }>;

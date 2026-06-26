@@ -3,12 +3,12 @@
 // what you pay) plus the rate. net / VAT / gross are DERIVED for display, never
 // stored separately (no rounding drift to maintain). Thai standard VAT = 7%.
 
+import { round2 } from "@/lib/format";
+
 /** Thai standard VAT rate (%). */
 export const VAT_RATE = 7;
 
 export type VatMode = "inclusive" | "exclusive" | "none";
-
-const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** The rate to STORE for a chosen mode — none keeps no VAT (0). */
 export function rateForMode(mode: VatMode): number {

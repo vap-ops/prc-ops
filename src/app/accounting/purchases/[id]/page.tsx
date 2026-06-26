@@ -13,15 +13,13 @@ import { requireRole } from "@/lib/auth/require-role";
 import { ACCOUNTING_ROLES } from "@/lib/auth/role-home";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { formatThaiDate } from "@/lib/i18n/labels";
+import { baht } from "@/lib/format";
 import { SECTION_HEADING, CARD } from "@/lib/ui/classes";
 import { deriveVatBreakdown } from "@/lib/purchasing/vat";
 import { loadPurchaseVoucher } from "@/lib/accounting/load-voucher";
 import { purchaseStatusLabel, attachmentPurposeLabel } from "@/lib/accounting/purchases-view";
 
 export const metadata = { title: "ใบสำคัญจัดซื้อ" };
-
-const baht = (n: number) =>
-  n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 interface VoucherPageProps {
   params: Promise<{ id: string }>;

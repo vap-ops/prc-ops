@@ -9,6 +9,7 @@ import { formatThaiDateTime } from "@/lib/i18n/labels";
 import { CARD } from "@/lib/ui/classes";
 import type { LaborCostSummary, OverAllocatedDay } from "@/lib/labor/cost";
 import { RefreezeButton } from "@/components/features/labor/refreeze-button";
+import { bahtUnit as baht, round2 } from "@/lib/format";
 
 interface FrozenSnapshot {
   ownCost: number;
@@ -26,12 +27,6 @@ interface LaborCostViewProps {
 }
 
 const WORKER_TYPE_LABEL = { own: "ทีมตัวเอง", dc: "ผู้รับเหมา" } as const;
-
-function baht(n: number): string {
-  return `${n.toLocaleString("th-TH", { maximumFractionDigits: 2 })} บาท`;
-}
-
-const round2 = (n: number) => Math.round(n * 100) / 100;
 
 function formatDays(days: number): string {
   // half-day granularity — show 1, 1.5, 0.5 etc.

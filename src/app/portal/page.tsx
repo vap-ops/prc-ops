@@ -26,12 +26,9 @@ import { WorkerConsents } from "@/components/features/portal/worker-consents";
 import { PortalReceipts, type PortalReceipt } from "@/components/features/portal/portal-receipts";
 import { loadPortalData } from "@/lib/portal/load-portal-data";
 import { contractorPacketStatus, dcTypeOfSubtype, type DcPacket } from "@/lib/contacts/packet";
+import { bahtUnit as baht } from "@/lib/format";
 
 export const metadata = { title: "พอร์ทัลผู้รับเหมา" };
-
-function baht(n: number): string {
-  return `${n.toLocaleString("th-TH", { maximumFractionDigits: 2 })} บาท`;
-}
 
 export default async function PortalPage() {
   await requireRole(["contractor"]);

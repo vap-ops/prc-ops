@@ -17,6 +17,7 @@ import { ConfirmActionButton } from "@/components/features/common/confirm-action
 import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
 import type { Database } from "@/lib/db/database.types";
 import { CARD } from "@/lib/ui/classes";
+import { bahtUnit as baht } from "@/lib/format";
 
 const ACTION_BTN =
   "bg-fill text-on-fill hover:bg-fill-press inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-2 text-sm font-medium shadow-xs transition-colors active:translate-y-px disabled:opacity-50";
@@ -43,7 +44,6 @@ export type SettlementProject = {
 };
 
 const coins = (n: number) => `${n.toLocaleString("th-TH")} เหรียญ`;
-const baht = (n: number) => `${n.toLocaleString("th-TH")} บาท`;
 
 function statusLabel(status: string): string {
   return PROJECT_STATUS_LABEL[status as ProjectStatus] ?? status;

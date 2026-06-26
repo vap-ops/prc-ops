@@ -5,6 +5,7 @@
 // component (the page reads store_pnl via the user session, gated by the RPC).
 
 import { STORE_PNL_LABEL } from "@/lib/i18n/labels";
+import { bahtWithSymbol as baht } from "@/lib/format";
 
 export type StorePnlRow = {
   catalogItemId: string;
@@ -16,11 +17,6 @@ export type StorePnlRow = {
   margin: number;
   shrinkageValue: number;
 };
-
-function baht(n: number): string {
-  const abs = Math.abs(n).toLocaleString("th-TH", { maximumFractionDigits: 2 });
-  return n < 0 ? `-฿${abs}` : `฿${abs}`;
-}
 
 function marginClass(n: number): string {
   if (n > 0) return "text-action text-meta font-semibold shrink-0";

@@ -72,6 +72,7 @@ import {
   type ProcurementFilter,
 } from "@/lib/purchasing/worklist-filter";
 import { PURCHASE_REQUEST_STATUS_LABEL } from "@/lib/i18n/labels";
+import { bahtCompact as baht } from "@/lib/format";
 import type { Database } from "@/lib/db/database.types";
 
 // Spec 19 §4: the single purchasing surface for every role. The list is
@@ -812,9 +813,3 @@ function worklistChipClass(active: boolean): string {
       : "border-edge-strong bg-card text-ink-secondary hover:bg-sunk"
   }`;
 }
-
-// Spec 106: compact THB formatter for the outstanding KPI tile. Summary figures
-// stay ROUNDED (no satang) — the 2-decimal form belongs on per-row PR/PO amounts,
-// not this hero total (a long ฿…​.00 string overflowed the half-width phone tile,
-// spec 193 feedback).
-const baht = (n: number) => `฿${Math.round(n).toLocaleString("en-US")}`;

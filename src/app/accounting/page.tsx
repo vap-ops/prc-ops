@@ -18,6 +18,7 @@ import { createClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { bangkokTodayIso } from "@/lib/dates";
 import { formatThaiDate } from "@/lib/i18n/labels";
+import { baht } from "@/lib/format";
 import { SECTION_HEADING, CARD, FIELD_INPUT, BUTTON_PRIMARY } from "@/lib/ui/classes";
 import { loadAccountingDashboard } from "@/lib/accounting/load-dashboard";
 import {
@@ -27,10 +28,6 @@ import {
 } from "@/lib/accounting/trial-balance-view";
 
 export const metadata = { title: "บัญชี" };
-
-function baht(n: number): string {
-  return n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
 const CLASS_LABELS: Record<GlClass, string> = {
   asset: "สินทรัพย์",
