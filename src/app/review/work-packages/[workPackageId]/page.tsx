@@ -177,6 +177,9 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
     new Set([
       ...approvalsRows.map((r) => r.decided_by),
       ...(frozenRow?.frozen_by ? [frozenRow.frozen_by] : []),
+      // Feedback a6037564: resolve photo uploaders too, for the gallery's
+      // "ถ่ายโดย <name>" attribution (one admin read covers all names).
+      ...allPhotos.map((p) => p.uploaded_by),
     ]),
   );
   const displayNames = await fetchDisplayNames(nameIds, "[pm/work-packages]");
@@ -258,6 +261,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
                 label={label}
                 photos={photosByPhase[phase]}
                 signedUrls={signedUrls}
+                uploaderNames={displayNames}
               />
             ))}
           </div>

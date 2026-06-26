@@ -11,6 +11,7 @@ import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
 import { latestCreatedAt, PHASES } from "@/lib/photos/phases";
 import { derivePhaseProgress } from "@/lib/photos/phase-progress";
+import { fetchDisplayNames } from "@/lib/users/display-names";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { WorkPackageInfoButton } from "@/components/features/work-packages/work-package-info-button";
@@ -199,6 +200,15 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     after: photosByPhase.after.length,
   };
   const currentPhase = derivePhaseProgress(phaseCounts).currentPhase;
+  // Feedback a6037564: a PD wants to know who uploaded each photo. uploaded_by
+  // is already on every photo_logs row; resolve the names once (admin read,
+  // same pattern as photo-markups) and surface them in the lightbox.
+  const uploaderNames = await fetchDisplayNames(
+    Array.from(
+      new Set(PHASES.flatMap(({ phase }) => photosByPhase[phase].map((p) => p.uploaded_by))),
+    ),
+    "[wp-photos]",
+  );
   const phaseData = PHASES.map(({ phase, label }) => {
     const rows = photosByPhase[phase];
     const latest = latestCreatedAt(rows);
@@ -209,6 +219,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
         id: p.id,
         url: signedUrls.get(p.id) ?? null,
         timeLabel: formatThaiTime(p.captured_at_client ?? p.created_at),
+        uploaderName: uploaderNames.get(p.uploaded_by) ?? null,
       })),
       lastUpdatedLabel: latest ? formatThaiTime(latest) : null,
     };
@@ -279,6 +290,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               label={label}
               photos={photosByPhase[phase]}
               signedUrls={signedUrls}
+              uploaderNames={uploaderNames}
             />
           ))}
         </div>

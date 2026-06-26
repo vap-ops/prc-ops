@@ -139,3 +139,37 @@ describe("ZoomablePhoto group navigation (spec 50)", () => {
     expect(screen.queryByText("1/1")).not.toBeInTheDocument();
   });
 });
+
+// Feedback a6037564 — a project director wants to know who uploaded each
+// photo. The enlarged view shows "ถ่ายโดย <name>"; in a group the name
+// tracks the current photo. Thumbnails stay time-only (decision: lightbox
+// detail only, visible to anyone who can already see the photo).
+describe("ZoomablePhoto uploader attribution (feedback a6037564)", () => {
+  it("shows the uploader name in the open dialog", () => {
+    render(<ZoomablePhoto src={SRC} uploaderName="สมชาย ใจดี" />);
+    fireEvent.click(screen.getByRole("button", { name: "ดูรูปขยาย" }));
+    expect(screen.getByRole("dialog").textContent).toContain("ถ่ายโดย สมชาย ใจดี");
+  });
+
+  it("shows no attribution line when no uploader name is given", () => {
+    render(<ZoomablePhoto src={SRC} />);
+    fireEvent.click(screen.getByRole("button", { name: "ดูรูปขยาย" }));
+    expect(screen.getByRole("dialog").textContent).not.toContain("ถ่ายโดย");
+  });
+
+  it("tracks the current photo's uploader across group navigation", () => {
+    const GROUP = [
+      "https://example.test/storage/photo-1.jpg",
+      "https://example.test/storage/photo-2.jpg",
+    ];
+    const NAMES = ["อาทิตย์ แดนไกล", "บุญมี ขยันงาน"];
+    render(
+      <ZoomablePhoto src={GROUP[0]!} group={GROUP} groupIndex={0} groupUploaderNames={NAMES} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "ดูรูปขยาย" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.textContent).toContain("ถ่ายโดย อาทิตย์ แดนไกล");
+    fireEvent.click(screen.getByRole("button", { name: "รูปถัดไป" }));
+    expect(dialog.textContent).toContain("ถ่ายโดย บุญมี ขยันงาน");
+  });
+});

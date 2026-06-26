@@ -15,9 +15,12 @@ interface PhaseGalleryProps {
   label: string;
   photos: ReadonlyArray<PhotoLogRow>;
   signedUrls: ReadonlyMap<string, string>;
+  /** uploaded_by → display name (feedback a6037564). Shown as "ถ่ายโดย
+   *  <name>" in the lightbox; missing ids render no attribution line. */
+  uploaderNames: ReadonlyMap<string, string>;
 }
 
-export function PhaseGallery({ label, photos, signedUrls }: PhaseGalleryProps) {
+export function PhaseGallery({ label, photos, signedUrls, uploaderNames }: PhaseGalleryProps) {
   const hasPhotos = photos.length > 0;
   const latest = latestCreatedAt(photos);
   return (
@@ -58,11 +61,15 @@ export function PhaseGallery({ label, photos, signedUrls }: PhaseGalleryProps) {
             {(() => {
               const loaded = photos.flatMap((p) => {
                 const u = signedUrls.get(p.id);
-                return u ? [{ id: p.id, url: u }] : [];
+                return u
+                  ? [{ id: p.id, url: u, uploaderName: uploaderNames.get(p.uploaded_by) ?? null }]
+                  : [];
               });
               const loadedUrls = loaded.map((l) => l.url);
               /* Spec 51: ids aligned with urls — markup follows navigation. */
               const loadedPhotoIds = loaded.map((l) => l.id);
+              /* Feedback a6037564: names aligned with urls — same as ids. */
+              const loadedUploaderNames = loaded.map((l) => l.uploaderName);
               let loadedIndex = 0;
               return photos.map((p) => {
                 const url = signedUrls.get(p.id);
@@ -74,8 +81,10 @@ export function PhaseGallery({ label, photos, signedUrls }: PhaseGalleryProps) {
                         src={url}
                         group={loadedUrls}
                         groupPhotoIds={loadedPhotoIds}
+                        groupUploaderNames={loadedUploaderNames}
                         groupIndex={groupIndex}
                         photoId={p.id}
+                        uploaderName={uploaderNames.get(p.uploaded_by) ?? null}
                       />
                     ) : (
                       <div className="text-ink-secondary flex h-full w-full items-center justify-center text-xs">

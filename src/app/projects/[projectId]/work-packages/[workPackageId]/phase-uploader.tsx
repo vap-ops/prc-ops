@@ -30,6 +30,9 @@ interface ThumbnailPhoto {
   id: string;
   url: string | null;
   timeLabel: string | null;
+  /** Display name of who uploaded the photo (feedback a6037564). Shown in
+   *  the lightbox detail; null when the name can't be resolved. */
+  uploaderName: string | null;
 }
 
 export interface PhaseData {
@@ -78,6 +81,7 @@ export function PhotoCaptureZone({
   const stripPhotos = currentData.photos;
   const loadedUrls = stripPhotos.flatMap((p) => (p.url !== null ? [p.url] : []));
   const loadedPhotoIds = stripPhotos.flatMap((p) => (p.url !== null ? [p.id] : []));
+  const loadedUploaderNames = stripPhotos.flatMap((p) => (p.url !== null ? [p.uploaderName] : []));
   const loadedIndexById = new Map<string, number>();
   {
     let i = 0;
@@ -168,8 +172,10 @@ export function PhotoCaptureZone({
                   src={p.url}
                   group={loadedUrls}
                   groupPhotoIds={loadedPhotoIds}
+                  groupUploaderNames={loadedUploaderNames}
                   groupIndex={loadedIndexById.get(p.id) ?? 0}
                   photoId={p.id}
+                  uploaderName={p.uploaderName}
                 />
               ) : (
                 <div className="text-meta text-ink-secondary flex h-full w-full items-center justify-center">

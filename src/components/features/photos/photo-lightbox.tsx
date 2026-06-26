@@ -47,6 +47,11 @@ interface ZoomablePhotoProps {
   /** photo_logs ids aligned with `group` (null = markup off for that
    *  member). */
   groupPhotoIds?: ReadonlyArray<string | null>;
+  /** Uploader display name for the single (non-group) photo (feedback
+   *  a6037564). Rendered as "ถ่ายโดย <name>" in the enlarged view. */
+  uploaderName?: string | null;
+  /** Uploader display names aligned with `group` (null when unresolved). */
+  groupUploaderNames?: ReadonlyArray<string | null>;
 }
 
 export function ZoomablePhoto({
@@ -55,6 +60,8 @@ export function ZoomablePhoto({
   groupIndex,
   photoId,
   groupPhotoIds,
+  uploaderName,
+  groupUploaderNames,
 }: ZoomablePhotoProps) {
   const [open, setOpen] = useState(false);
   // Position inside the group while the dialog is open. Re-initialized
@@ -67,6 +74,8 @@ export function ZoomablePhoto({
   const shown = photos[Math.min(current, photos.length - 1)] ?? src;
   const currentPhotoId =
     group && group.length > 0 ? (groupPhotoIds?.[current] ?? null) : (photoId ?? null);
+  const currentUploaderName =
+    group && group.length > 0 ? (groupUploaderNames?.[current] ?? null) : (uploaderName ?? null);
 
   // --- Markup state (spec 51) --------------------------------------------
   const [markupsByPhoto, setMarkupsByPhoto] = useState<Record<string, PhotoMarkupRow[]>>({});
@@ -328,6 +337,15 @@ export function ZoomablePhoto({
               </svg>
             ) : null}
           </span>
+
+          {currentUploaderName ? (
+            <p
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-xl text-center text-xs text-zinc-300"
+            >
+              ถ่ายโดย <span className="font-semibold text-zinc-100">{currentUploaderName}</span>
+            </p>
+          ) : null}
 
           {currentPhotoId ? (
             <div
