@@ -93,11 +93,11 @@ export function PurchaseRequestForm({
   catalogItems,
 }: PurchaseRequestFormProps) {
   const router = useRouter();
-  // Spec 195 P1: the work package is now optional. "wp" binds the request to
-  // this WP (the default — you're on its screen); "project" makes it a
-  // project-level / store-bound request (work_package_id null, เบิกเข้างานภายหลัง).
-  const [scope, setScope] = useState<"wp" | "project">("wp");
-  const effectiveWorkPackageId = scope === "wp" ? workPackage.id : null;
+  // Spec 208 U4a / ADR 0065: store-only procurement — every purchase is
+  // store-bound. The WP-vs-project scope toggle is gone; a PR always lands in the
+  // project store (work_package_id null) and is เบิก'd to a WP later. The pinned
+  // WP is now context only (the page you raised it from), not a binding.
+  const effectiveWorkPackageId = null;
   // Spec 180: the PR item is catalog-only — catalogItemId is the chosen item
   // ("" = none yet). The search/category/sheet state lives in CatalogItemPicker;
   // the description + unit are DERIVED here from the chosen item (no free text).
@@ -244,55 +244,23 @@ export function PurchaseRequestForm({
       onSubmit={handleSubmit}
       className="rounded-control border-edge-strong bg-page shadow-card flex flex-col gap-3 border p-4"
     >
-      {/* Spec 195 P1: the work package is optional. Bind the request to this WP
-          (default), or raise it for the whole project (เข้าสโตร์ — material is
-          received into the project store, เบิกเข้างานภายหลัง). */}
-      <fieldset className="flex min-w-0 flex-col gap-1">
-        <legend className="text-ink text-sm font-medium">ขอซื้อเข้า</legend>
-        <div className="flex gap-1.5">
-          {(
-            [
-              ["wp", "ผูกกับงานนี้"],
-              ["project", "ทั้งโครงการ (เข้าสโตร์)"],
-            ] as const
-          ).map(([value, label]) => (
-            <label
-              key={value}
-              className={`focus-within:ring-action inline-flex h-11 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-md border text-center text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-offset-1 ${
-                scope === value
-                  ? "border-fill bg-fill text-on-fill"
-                  : "border-edge-strong bg-card text-ink"
-              } ${submitting ? "cursor-not-allowed opacity-60" : ""}`}
-            >
-              <input
-                type="radio"
-                name="pr-scope"
-                value={value}
-                checked={scope === value}
-                onChange={() => {
-                  setScope(value);
-                  setError(null);
-                  setSavedAt(null);
-                }}
-                disabled={submitting}
-                className="sr-only"
-              />
-              {label}
-            </label>
-          ))}
-        </div>
-        {scope === "wp" ? (
-          <p className="border-edge-strong bg-card mt-1 truncate rounded-md border px-3 py-2 text-sm">
-            <span className="text-ink-secondary font-mono">{workPackage.code}</span>
-            <span className="text-ink-muted mx-1">·</span>
-            <span className="text-ink">{workPackage.name}</span>
-          </p>
-        ) : (
-          <p className="text-ink-secondary mt-1 text-xs">
-            วัสดุเข้าสโตร์ของโครงการ แล้วเบิกเข้างานภายหลัง
-          </p>
-        )}
-      </fieldset>
+      {/* Spec 208 U4a / ADR 0065: store-only procurement — every purchase goes
+          into the project store; there is no WP-bind choice. The material is
+          received into the store and เบิก'd into a work package later. The pinned
+          WP shows only as the context this request was raised from. */}
+      <div className="flex min-w-0 flex-col gap-1">
+        <span className="text-ink text-sm font-medium">ขอซื้อเข้าสโตร์ของโครงการ</span>
+        <p className="text-ink-secondary text-xs">
+          วัสดุที่สั่งจะรับเข้าสโตร์ของโครงการ แล้วเบิกเข้างานภายหลัง
+        </p>
+        <p className="border-edge-strong bg-card mt-1 truncate rounded-md border px-3 py-2 text-sm">
+          <span className="text-ink-muted">จากงาน</span>
+          <span className="text-ink-muted mx-1">·</span>
+          <span className="text-ink-secondary font-mono">{workPackage.code}</span>
+          <span className="text-ink-muted mx-1">·</span>
+          <span className="text-ink">{workPackage.name}</span>
+        </p>
+      </div>
 
       {/* Spec 180 (pro-max): catalog-only material picker — a search-driven
           bottom sheet (CatalogItemPicker). The chosen item drives the

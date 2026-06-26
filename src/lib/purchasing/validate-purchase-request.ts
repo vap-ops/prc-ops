@@ -193,6 +193,28 @@ export function validateCreatePurchaseRequest(input: {
   };
 }
 
+// Spec 208 U4a / ADR 0065 — store-only procurement. Every manual purchase request
+// is project-scoped (store-bound, work_package_id NULL) and references a catalog
+// item. The generic validateCreatePurchaseRequest stays lenient (it is shared and
+// its many field rules are pinned); this gate is the store-only policy the
+// createPurchaseRequest action applies before inserting. An off-catalog or
+// project-less store purchase books NOTHING at receipt (the receive trigger needs
+// a catalog item + WP-less PR) → its cost would vanish, so both are hard-required.
+export type StoreBoundPurchase = { projectId: string; catalogItemId: string };
+
+export function toStoreBoundPurchase(input: {
+  projectId: string | null;
+  catalogItemId: string | null;
+}): { ok: true; value: StoreBoundPurchase } | { ok: false; error: string } {
+  if (!input.projectId) {
+    return { ok: false, error: "ต้องระบุโครงการของคำขอซื้อ" };
+  }
+  if (!input.catalogItemId) {
+    return { ok: false, error: "กรุณาเลือกวัสดุจากแคตตาล็อก (สั่งซื้อเข้าสโตร์)" };
+  }
+  return { ok: true, value: { projectId: input.projectId, catalogItemId: input.catalogItemId } };
+}
+
 // Decision predicates for the approve / reject action.
 //
 // The lifecycle has five values but the native decide path only writes two
