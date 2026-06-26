@@ -39,6 +39,7 @@ import {
 import { validateAttachmentLink } from "@/lib/purchasing/validate-attachment";
 import {
   validateCreatePurchaseRequest,
+  toStoreBoundPurchase,
   isDecisionCommentValid,
   isPurchaseDecision,
   type PurchaseDecision,
@@ -82,25 +83,28 @@ export async function createPurchaseRequest(
   const validated = validateCreatePurchaseRequest(input);
   if (!validated.ok) return validated;
 
+  // Spec 208 U4a / ADR 0065 — store-only: a manual PR is always store-bound
+  // (project-scoped, work_package_id NULL) and catalogued. This gate is the
+  // server-side guard (the form already enforces both); off-catalog or
+  // project-less would book nothing at receipt → cost vanishes.
+  const storeBound = toStoreBoundPurchase({
+    projectId: validated.value.projectId,
+    catalogItemId: validated.value.catalogItemId,
+  });
+  if (!storeBound.ok) return storeBound;
+
   const auth = await getActionUser();
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
   const { supabase, user } = auth;
 
-  // Spec 195 P1: a PR is project-scoped. The form always supplies the project
-  // (a WP-less PR names it directly; a WP-bound PR passes its WP's project,
-  // re-derived by the BEFORE INSERT trigger). project_id is NOT NULL.
-  const projectId = validated.value.projectId;
-  if (!projectId) {
-    return { ok: false, error: "ต้องระบุโครงการของคำขอซื้อ" };
-  }
-
   const { data, error } = await supabase
     .from("purchase_requests")
     .insert({
-      // Spec 195 P1: a WP-less PR carries project_id and a null work_package_id.
-      // For a WP-bound PR the BEFORE INSERT trigger re-derives project_id.
-      work_package_id: validated.value.workPackageId,
-      project_id: projectId,
+      // Spec 208 U4a / ADR 0065: every purchase is store-bound — work_package_id
+      // is forced NULL so the material lands in the project store at receipt and
+      // is เบิก'd to a WP later (the WP intent, if any, is no longer recorded here).
+      work_package_id: null,
+      project_id: storeBound.value.projectId,
       item_description: validated.value.itemDescription,
       quantity: validated.value.quantity,
       unit: validated.value.unit,
@@ -108,8 +112,8 @@ export async function createPurchaseRequest(
       priority: validated.value.priority,
       notes: validated.value.notes,
       reason_code: validated.value.reasonCode,
-      // Spec 179: link the requisition to the catalog master (null = off-catalog).
-      catalog_item_id: validated.value.catalogItemId,
+      // Spec 179/208 U4a: the catalog master link — required under store-only.
+      catalog_item_id: storeBound.value.catalogItemId,
       requested_by: user.id,
       source: "app",
     })

@@ -87,6 +87,25 @@ through receive-then-withdraw is redundant. Decision:
 Captured as **U3b** below (additive; autonomous-eligible). Phase 2 stays in this document as the
 parked "future store-only" option, should the trial ever conclude that direction.
 
+### Operator decisions — design pass 4 (2026-06-26): LIFT the deferral — build store-only now
+
+The deferral (pass 3) was reversed after a **procurement** user filed feedback
+`e4c02550` ("Accepting items from delivery should always go to the store… change the
+workflow") and the operator chose **build it, staged** (AskUserQuestion). The four
+pass-2 resolutions are re-confirmed and Q3 is now answered:
+
+1. **`stockable=false` → route through the store** (force-through; the flag goes dead) — as pass 2.
+2. **Force-catalog at PR entry** (resolves Q4 off-catalog) — every PR picks a catalog item.
+3. **Procurement may confirm physical arrival (รับของ)** — Q3 answered **YES**: relax the
+   site-staff-only `canReceive` (reverses spec 134 U8); ships as the U6 gated micro-unit.
+4. **`wp_profit` sell-price basis app-wide** (Q6) — confirmed; mixed-basis across the cutover accepted.
+
+Input-VAT-1300-split-at-receipt (Q7) and the cutover date (Q2, rides U5) carry over from pass 2.
+**ADR 0065 authored + accepted 2026-06-26.** Phase 2 is now ACTIVE and built **staged**: ADR +
+U4a + U4b + Q3 as held PRs (operator one-tap); **U5 (irreversible backfill) stays held for an
+explicit separate operator sign-off** (pg_dump + preview rehearsal). The "DEFERRED" markers below
+are superseded by this pass.
+
 ### Why this is mostly a flow/UI change, not new accounting
 
 The store-first cost engine **already exists and is pgTAP-pinned (test 213)**. Spec 195

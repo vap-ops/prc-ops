@@ -13,6 +13,7 @@
 import { describe, it, expect } from "vitest";
 import {
   validateCreatePurchaseRequest,
+  toStoreBoundPurchase,
   isDecisionCommentValid,
   commentRequiredForDecision,
   isPurchaseDecision,
@@ -509,6 +510,46 @@ describe("validateCreatePurchaseRequest", () => {
     });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toMatch(/รายการงาน/);
+  });
+});
+
+// Spec 208 U4a / ADR 0065 — store-only: a manual PR is always project-scoped
+// (store-bound) and catalogued; the generic validator stays lenient (shared) and
+// this gate is what createPurchaseRequest applies before inserting (work_package_id
+// forced null). Off-catalog or project-less store purchases book nothing → cost
+// vanishes, so both are hard-required here.
+describe("toStoreBoundPurchase", () => {
+  it("accepts a project-scoped, catalogued purchase and echoes the two ids", () => {
+    const r = toStoreBoundPurchase({
+      projectId: VALID_PROJECT,
+      catalogItemId: VALID_CATALOG_ITEM,
+    });
+    expect(r).toEqual({
+      ok: true,
+      value: { projectId: VALID_PROJECT, catalogItemId: VALID_CATALOG_ITEM },
+    });
+  });
+
+  it("rejects a purchase with no project (store-bound requires a project)", () => {
+    for (const empty of [null, undefined]) {
+      const r = toStoreBoundPurchase({
+        projectId: empty as string | null,
+        catalogItemId: VALID_CATALOG_ITEM,
+      });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error).toMatch(/โครงการ/);
+    }
+  });
+
+  it("rejects an off-catalog purchase (force-catalog under store-only)", () => {
+    for (const empty of [null, undefined]) {
+      const r = toStoreBoundPurchase({
+        projectId: VALID_PROJECT,
+        catalogItemId: empty as string | null,
+      });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error).toMatch(/แคตตาล็อก/);
+    }
   });
 });
 

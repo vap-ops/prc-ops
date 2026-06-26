@@ -1,5 +1,5 @@
 begin;
-select plan(5);
+select plan(11);
 
 -- ============================================================================
 -- Spec 195 Phase 4 / ADR 0063 — cost integrity for the store-bound flow. The
@@ -91,6 +91,143 @@ select is(
       and e.source_id = (select id from public.stock_receipts
                            where purchase_request_id='b2130000-0000-0000-0000-000000000213')),
   214.00::numeric, 'the material lands as Inventory 1500 at receipt (cost booked once)');
+
+-- ============================================================================
+-- Spec 208 Phase 2 / ADR 0065 — under store-only, EVERY purchase routes through
+-- the store, so a VAT-registered purchase that today splits reclaimable Input VAT
+-- to 1300 at the purchase posting must STILL split it — now at RECEIPT. Otherwise
+-- the all-in gross is buried in Inventory 1500 (Input VAT understated, VAT
+-- overpaid, silently — reconciliation still balances). The receipt poster must
+-- book Dr 1500 NET / Dr 1300 Input VAT / Cr 2100 GROSS when vat_rate > 0.
+-- ============================================================================
+
+-- A VAT-registered store-bound (WP-less) PR: gross 107 for qty 1 at 7% VAT
+-- → net 100, Input VAT 7. Inventory carries NET (100); VAT is reclaimable, not cost.
+insert into public.catalog_items (id, category, base_item, spec_attrs, unit, is_active) values
+  ('e2130000-0000-0000-0000-000000000214', 'electrical', 'ท่อร้อยสาย', null, 'เส้น', true);
+insert into public.purchase_requests
+  (id, project_id, work_package_id, catalog_item_id, item_description, quantity, unit,
+   status, source, requested_by, supplier_id, amount, vat_rate, purchased_at)
+values
+  ('b2130000-0000-0000-0000-000000000214',
+   'a2130000-0000-0000-0000-000000000213', null,
+   'e2130000-0000-0000-0000-000000000214', 'ท่อร้อยสาย', 1, 'เส้น',
+   'purchased', 'app', 'd1111111-1111-1111-1111-111111111213',
+   '5e130000-0000-0000-0000-000000000213', 107, 7, now());
+
+update public.purchase_requests
+   set delivered_at = now(), status = 'delivered'
+ where id = 'b2130000-0000-0000-0000-000000000214';
+
+do $$
+begin
+  perform public.post_stock_receipt_to_gl(
+    (select id from public.stock_receipts
+       where purchase_request_id = 'b2130000-0000-0000-0000-000000000214'));
+end $$;
+
+-- 6. Inventory (1500) carries the NET cost only (100) — VAT is not an inventory cost.
+select is(
+  (select coalesce(sum(jl.debit), 0)
+     from public.journal_lines jl
+     join public.gl_accounts a on a.id = jl.account_id
+     join public.journal_entries e on e.id = jl.entry_id
+    where a.code = '1500'
+      and e.source_table = 'stock_receipts' and e.status = 'posted'
+      and e.source_id = (select id from public.stock_receipts
+                           where purchase_request_id='b2130000-0000-0000-0000-000000000214')),
+  100.00::numeric, 'VAT receipt: Inventory 1500 debited NET only (100)');
+
+-- 7. Input VAT (1300) is split out and reclaimable (7).
+select is(
+  (select coalesce(sum(jl.debit), 0)
+     from public.journal_lines jl
+     join public.gl_accounts a on a.id = jl.account_id
+     join public.journal_entries e on e.id = jl.entry_id
+    where a.code = '1300'
+      and e.source_table = 'stock_receipts' and e.status = 'posted'
+      and e.source_id = (select id from public.stock_receipts
+                           where purchase_request_id='b2130000-0000-0000-0000-000000000214')),
+  7.00::numeric, 'VAT receipt: Input VAT 1300 split out (7)');
+
+-- 8. AP (2100) credited the full GROSS (107) — one liability, the supplier invoice total.
+select is(
+  (select coalesce(sum(jl.credit), 0)
+     from public.journal_lines jl
+     join public.gl_accounts a on a.id = jl.account_id
+     join public.journal_entries e on e.id = jl.entry_id
+    where a.code = '2100'
+      and e.source_table = 'stock_receipts' and e.status = 'posted'
+      and e.source_id = (select id from public.stock_receipts
+                           where purchase_request_id='b2130000-0000-0000-0000-000000000214')),
+  107.00::numeric, 'VAT receipt: AP 2100 credited the full gross (107)');
+
+-- ============================================================================
+-- AP must equal the supplier invoice EXACTLY, even when per-unit rounding makes
+-- net*qty drift from the gross (qty > 1). The receipt poster credits 2100 with
+-- the originating PR's amount and books Input VAT as the residual (gross − net),
+-- so a multi-unit VAT line never books a phantom satang of AP. (Regression guard
+-- for the U4b adversarial-review finding.)
+-- ============================================================================
+
+-- gross 215 for qty 2 @ 7%: net_total round(215/1.07)=200.93 → unit_cost 100.47 →
+-- total_cost (net inventory) 200.94; Input VAT = 215 − 200.94 = 14.06; AP = 215.
+insert into public.catalog_items (id, category, base_item, spec_attrs, unit, is_active) values
+  ('e2130000-0000-0000-0000-000000000215', 'electrical', 'รางเดินสาย', null, 'เส้น', true);
+insert into public.purchase_requests
+  (id, project_id, work_package_id, catalog_item_id, item_description, quantity, unit,
+   status, source, requested_by, supplier_id, amount, vat_rate, purchased_at)
+values
+  ('b2130000-0000-0000-0000-000000000215',
+   'a2130000-0000-0000-0000-000000000213', null,
+   'e2130000-0000-0000-0000-000000000215', 'รางเดินสาย', 2, 'เส้น',
+   'purchased', 'app', 'd1111111-1111-1111-1111-111111111213',
+   '5e130000-0000-0000-0000-000000000213', 215, 7, now());
+
+update public.purchase_requests
+   set delivered_at = now(), status = 'delivered'
+ where id = 'b2130000-0000-0000-0000-000000000215';
+
+do $$
+begin
+  perform public.post_stock_receipt_to_gl(
+    (select id from public.stock_receipts
+       where purchase_request_id = 'b2130000-0000-0000-0000-000000000215'));
+end $$;
+
+-- 9. AP (2100) credited EXACTLY the supplier invoice (215.00), not a reconstruction.
+select is(
+  (select coalesce(sum(jl.credit), 0)
+     from public.journal_lines jl
+     join public.gl_accounts a on a.id = jl.account_id
+     join public.journal_entries e on e.id = jl.entry_id
+    where a.code = '2100'
+      and e.source_table = 'stock_receipts' and e.status = 'posted'
+      and e.source_id = (select id from public.stock_receipts
+                           where purchase_request_id='b2130000-0000-0000-0000-000000000215')),
+  215.00::numeric, 'qty>1 VAT receipt: AP credited the exact invoice (215.00), no satang drift');
+
+-- 10. ...and the entry balances (Σdebit = Σcredit) — net 200.94 + VAT 14.06 = 215.
+select is(
+  (select coalesce(sum(jl.debit), 0) - coalesce(sum(jl.credit), 0)
+     from public.journal_lines jl
+     join public.journal_entries e on e.id = jl.entry_id
+    where e.source_table = 'stock_receipts' and e.status = 'posted'
+      and e.source_id = (select id from public.stock_receipts
+                           where purchase_request_id='b2130000-0000-0000-0000-000000000215')),
+  0::numeric, 'qty>1 VAT receipt: the journal entry balances');
+
+-- 11. Input VAT (1300) is the residual gross − net (14.06), keeping AP exact.
+select is(
+  (select coalesce(sum(jl.debit), 0)
+     from public.journal_lines jl
+     join public.gl_accounts a on a.id = jl.account_id
+     join public.journal_entries e on e.id = jl.entry_id
+    where a.code = '1300'
+      and e.source_table = 'stock_receipts' and e.status = 'posted'
+      and e.source_id = (select id from public.stock_receipts
+                           where purchase_request_id='b2130000-0000-0000-0000-000000000215')),
+  14.06::numeric, 'qty>1 VAT receipt: Input VAT is the residual (14.06)');
 
 select * from finish();
 rollback;
