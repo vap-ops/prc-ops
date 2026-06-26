@@ -61,6 +61,26 @@ jobs:
         working-directory: worker
         run: pnpm test
 
+  # Autonomous-build safety gate (the bug-fix-flow ship gate): a secret must never
+  # reach main — it is irreversible once pushed. gitleaks scans the working tree
+  # (--no-git, so historical commits don't block PRs); pinned binary because the
+  # official action requires a paid license on org-owned repos. Make this a REQUIRED
+  # check in branch protection once it's seen green once.
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: gitleaks
+        run: |
+          TAG=$(curl -sSf https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep -oP '"tag_name":\s*"\K[^"]+')
+          VER=${TAG#v}
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/${TAG}/gitleaks_${VER}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          tar -xzf gitleaks.tar.gz gitleaks
+          ./gitleaks detect --no-git --redact --exit-code 1
+
   # Tier C (ADR 0048): pgTAP against the linked SHARED remote. Inert by default —
   # runs only on a manual dispatch AND when the operator has opted in via the
   # `ENABLE_DB_TEST` repository variable, so no automatic run ever references a
