@@ -1,5 +1,5 @@
 begin;
-select plan(13);
+select plan(14);
 
 -- ============================================================================
 -- Spec 134 U5 / ADR 0053 — receive_po_lines: explicit PO-level receive. Marks the
@@ -67,11 +67,8 @@ select throws_ok(
   $$ select public.receive_po_lines(array['c1000153-0000-4000-8000-000000000001']::uuid[]) $$,
   '42501', null, 'a visitor cannot receive');
 
--- Spec 134 U8: the off-site purchase team (procurement) cannot mark received.
-set local "request.jwt.claims" = '{"sub": "44444444-4444-4444-4444-444444440153"}';
-select throws_ok(
-  $$ select public.receive_po_lines(array['c1000153-0000-4000-8000-000000000001']::uuid[]) $$,
-  '42501', null, 'procurement (off-site) cannot mark received');
+-- Spec 208 Q3 (reverses spec 134 U8): procurement may now receive — asserted in
+-- section E below, not here (it is no longer a rejection).
 
 set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222220153"}';
 select throws_ok(
@@ -118,6 +115,21 @@ select throws_ok(
 select ok((select status = 'on_route' from public.purchase_requests
   where id = 'c4000153-0000-4000-8000-000000000004'),
   'm4 stays on_route — the failed receive rolled back');
+
+-- ============================================================================
+-- E. Spec 208 Q3 (reverses spec 134 U8 / feedback 6fbcc039) — procurement may
+--    now receive on the site's behalf (off-site team helps when site_admin is
+--    short-staffed). receive_po_lines books the single auto-receipt for a WP-less
+--    line / the WP-WIP posting for a WP-bound line — no double-count. Procurement
+--    receives m4 (still on_route after section D's rolled-back attempt).
+-- ============================================================================
+set local "request.jwt.claims" = '{"sub": "44444444-4444-4444-4444-444444440153"}';
+select is(
+  (select public.receive_po_lines(array['c4000153-0000-4000-8000-000000000004']::uuid[])),
+  1, 'procurement can now receive an in-transit line (spec 208 Q3)');
+select ok((select status = 'delivered' from public.purchase_requests
+  where id = 'c4000153-0000-4000-8000-000000000004'),
+  'm4 received by procurement is now delivered');
 
 reset role;
 

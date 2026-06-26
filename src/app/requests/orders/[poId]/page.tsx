@@ -6,7 +6,7 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { requireRole } from "@/lib/auth/require-role";
-import { PURCHASING_ROLES, SITE_STAFF_ROLES } from "@/lib/auth/role-home";
+import { PURCHASING_ROLES, RECEIVE_ROLES } from "@/lib/auth/role-home";
 import { isBackOfficeRole } from "@/lib/purchasing/back-office";
 import { createClient } from "@/lib/db/server";
 import { isValidUuid } from "@/lib/photos/path";
@@ -62,9 +62,10 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
 
   const supabase = await createClient();
   const isBackOffice = isBackOfficeRole(ctx.role);
-  // Spec 134 U8: receiving is a SITE action — the off-site purchase team
-  // (procurement) sees the PO + delivery status but never the รับของ controls.
-  const canReceive = SITE_STAFF_ROLES.includes(ctx.role);
+  // Spec 208 Q3 (reverses spec 134 U8 / feedback 6fbcc039): receiving is a site
+  // action PLUS procurement — the off-site team may confirm arrival on the site's
+  // behalf when site staff are short. Mirrors the widened receive_po_lines gate.
+  const canReceive = RECEIVE_ROLES.includes(ctx.role);
 
   // Spec 148 U1: one loader batches the PO-detail reads (was a serial waterfall).
   // Same queries/columns/results — only the scheduling changes. Per-line amount
@@ -189,8 +190,8 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
           activeCountByDelivery={activeCountByDelivery}
         />
 
-        {/* Spec 134 U5 + U8: the receive checklist — site staff only (procurement,
-            off-site, can't confirm arrival). */}
+        {/* Spec 134 U5 + spec 208 Q3: the receive checklist — site staff PLUS
+            procurement (the off-site team may confirm arrival on the site's behalf). */}
         {inTransitLines.length > 0 && canReceive ? (
           <PoReceiveSection lines={inTransitLines} />
         ) : null}

@@ -55,6 +55,18 @@ export const SITE_STAFF_ROLES: ReadonlyArray<UserRole> = [
 export const WP_DETAIL_ROLES: ReadonlyArray<UserRole> = [...SITE_STAFF_ROLES, "procurement"];
 
 /**
+ * Spec 208 Q3 (reverses spec 134 U8 / feedback 6fbcc039): who may RECEIVE a PO's
+ * in-transit lines — the รับของ checklist — site staff PLUS procurement. Receiving
+ * was deliberately site-only (the off-site team confirmed nothing); the operator
+ * reopened it (2026-06-26) so procurement can receive on the site's behalf when
+ * site staff are short. Mirrors the widened `receive_po_lines` RPC gate
+ * (migration 20260813002700). Kept distinct from SITE_STAFF_ROLES, which still
+ * gates field capture procurement must not reach. Members coincide with
+ * WP_DETAIL_ROLES today, but the meaning differs ("who confirms PO arrival").
+ */
+export const RECEIVE_ROLES: ReadonlyArray<UserRole> = [...SITE_STAFF_ROLES, "procurement"];
+
+/**
  * Spec 171: on the WP detail screen, procurement is the read-only viewer — it may
  * read the WP context and raise a purchase request, but every other capture
  * (photos, labour, notes, contractor assignment, defect, site purchase) is shown
