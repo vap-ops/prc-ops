@@ -190,17 +190,17 @@ describe("WpIssueStock (spec 177 U5)", () => {
     expect(screen.getByText(/รับแล้ว/)).toBeInTheDocument();
   });
 
-  // Spec 178 Stream B — a กลับรายการ control on each recent เบิก, mirroring /store
+  // Spec 178 Stream B — a แก้รายการที่บันทึกผิด control on each recent เบิก, mirroring /store
   // U12. The render gate is SITE_STAFF (the WP-detail !readOnly), the same gate as
   // reverse_stock_issue, so every issue here is reversible by the field staffer.
-  it("offers a กลับรายการ control on each recent เบิก", () => {
+  it("offers a แก้รายการที่บันทึกผิด control on each recent เบิก", () => {
     renderZone({ issues });
-    expect(screen.getByRole("button", { name: "กลับรายการ" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "แก้รายการที่บันทึกผิด" })).toBeInTheDocument();
   });
 
   it("reverses the issue after confirm", async () => {
     renderZone({ issues });
-    fireEvent.click(screen.getByRole("button", { name: "กลับรายการ" }));
+    fireEvent.click(screen.getByRole("button", { name: "แก้รายการที่บันทึกผิด" }));
     fireEvent.click(screen.getByRole("button", { name: "ยืนยัน" }));
     await waitFor(() => expect(mockRev).toHaveBeenCalledWith({ issueId: "i1" }));
   });

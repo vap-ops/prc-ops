@@ -87,6 +87,13 @@ export const STORE_LABEL = "คลัง";
 export const STORE_RECEIVE_LABEL = "รับเข้าสต๊อก";
 export const STORE_ISSUE_LABEL = "เบิกออก";
 
+// Spec 209 — two DISTINCT actions that the ambiguous "กลับรายการ" used to conflate
+// (operator 2026-06-27). Single-sourced here so the button term can't drift again:
+//  - the mistake-undo (reverse_stock_*): correcting a WRONG entry, not a return;
+//  - the real WP→store return (return_stock_to_store): material physically back.
+export const STORE_FIX_WRONG_ENTRY_LABEL = "แก้รายการที่บันทึกผิด";
+export const STORE_RETURN_TO_STORE_LABEL = "คืนเข้าสโตร์";
+
 // Spec 178 — the store margin layer: the per-item SELL price (transfer price).
 export const ITEM_SELL_RATE_LABEL = "ราคาขาย";
 export const SET_ITEM_SELL_RATE_LABEL = "ตั้งราคาขาย";

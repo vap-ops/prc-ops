@@ -12,7 +12,7 @@ import { useState, useTransition } from "react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { ConfirmActionButton } from "@/components/features/common/confirm-action-button";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
-import { STORE_ISSUE_LABEL } from "@/lib/i18n/labels";
+import { STORE_ISSUE_LABEL, STORE_FIX_WRONG_ENTRY_LABEL } from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
 import { issueStockBulk, reverseStockIssue } from "@/app/store/actions";
 
@@ -163,9 +163,9 @@ export function WpIssueStock({
                   This block only renders for SITE_STAFF (the WP-detail !readOnly
                   gate), which is the reverse_stock_issue gate. */}
               <ConfirmActionButton
-                idleLabel="กลับรายการ"
-                pendingLabel="กำลังกลับ…"
-                confirmMessage={`กลับรายการเบิก ${i.baseItem} ${i.qty} ${i.unit}? ของจะถูกคืนเข้าสโตร์`}
+                idleLabel={STORE_FIX_WRONG_ENTRY_LABEL}
+                pendingLabel="กำลังแก้ไข…"
+                confirmMessage={`ลบรายการเบิกที่บันทึกผิด — ${i.baseItem} ${i.qty} ${i.unit}? ใช้เมื่อบันทึกผิด ไม่ใช่การคืนของจริง (ของจะถูกคืนเข้าสโตร์)`}
                 confirmLabel="ยืนยัน"
                 buttonClassName={`${BUTTON_SECONDARY} shrink-0`}
                 action={() => reverseStockIssue({ issueId: i.id })}
