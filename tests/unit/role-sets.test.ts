@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   ACCOUNTING_ROLES,
+  BACK_OFFICE_ROLES,
   PAYROLL_ROLES,
   PM_ROLES,
   SCHEDULE_VIEW_ROLES,
@@ -15,6 +16,8 @@ import {
   isReadOnlyWpViewer,
   roleHome,
 } from "@/lib/auth/role-home";
+import { isBackOfficeRole } from "@/lib/purchasing/back-office";
+import { validateLaborEntry } from "@/lib/labor/validate";
 
 describe("role sets", () => {
   // Spec 166: beta finance gating — the GL /accounting surface is operator-only
@@ -40,6 +43,18 @@ describe("role sets", () => {
       "super_admin",
       "project_director",
     ]);
+  });
+
+  // Spec 101: the back-office write set (suppliers master + purchase/shipment
+  // recording) — the PM set PLUS procurement, deliberately NOT site_admin.
+  it("BACK_OFFICE_ROLES is the PM set plus procurement, no site_admin", () => {
+    expect([...BACK_OFFICE_ROLES]).toEqual([
+      "project_manager",
+      "super_admin",
+      "procurement",
+      "project_director",
+    ]);
+    expect(BACK_OFFICE_ROLES).not.toContain("site_admin");
   });
 
   it("every PM role lands on /dashboard (consistency with roleHome)", () => {
@@ -233,6 +248,49 @@ describe("PAYROLL_ROLES (spec 187)", () => {
       "contractor",
     ] as const) {
       expect(PAYROLL_ROLES).not.toContain(role);
+    }
+  });
+});
+
+// rank-2 role-set dedup (architecture audit 2026-06): purchasing/back-office.ts
+// re-declared its own BACK_OFFICE_ROLES copy. isBackOfficeRole is the render seam;
+// this pins it to the SSOT set so the copy can't silently drift.
+describe("isBackOfficeRole (SSOT seam)", () => {
+  it("is true for exactly the BACK_OFFICE_ROLES set", () => {
+    for (const role of BACK_OFFICE_ROLES) expect(isBackOfficeRole(role)).toBe(true);
+  });
+
+  it("is false for roles outside the set (incl. site_admin)", () => {
+    for (const role of [
+      "site_admin",
+      "project_coordinator",
+      "accounting",
+      "hr",
+      "technician",
+      "subcon_manager",
+      "visitor",
+      "contractor",
+    ] as const) {
+      expect(isBackOfficeRole(role)).toBe(false);
+    }
+  });
+});
+
+// rank-2 role-set dedup: labor/validate.ts re-listed PM_ROLES as a local
+// BACKOFFICE_BACKDATE_ROLES set ("who may back-date past the limit"). This pins
+// the behaviour to the manager tier — the PM set (incl. project_director)
+// bypasses the limit, field roles do not — so the dedup to isManagerRole is safe.
+describe("labor back-date allowance follows the PM set", () => {
+  const OLD = { workDate: "2026-01-01", workerIds: ["w1"] };
+  const TODAY = "2026-06-26"; // ~176 days later, well past the back-date limit
+
+  it("blocks a far back-date for a field role (site_admin)", () => {
+    expect(validateLaborEntry(OLD, { today: TODAY, role: "site_admin" })).toMatch(/ย้อนหลัง/);
+  });
+
+  it("allows it for every PM-tier role (incl. project_director)", () => {
+    for (const role of PM_ROLES) {
+      expect(validateLaborEntry(OLD, { today: TODAY, role })).toBeNull();
     }
   });
 });

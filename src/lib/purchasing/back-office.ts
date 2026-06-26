@@ -4,14 +4,10 @@
 // helper is the render condition's testable seam.
 
 import type { UserRole } from "@/lib/db/enums";
-
-const BACK_OFFICE_ROLES: ReadonlyArray<UserRole> = [
-  "project_manager",
-  "procurement",
-  "super_admin",
-  // Spec 152 / ADR 0058: project_director gets PM-tier back-office writes.
-  "project_director",
-];
+// SSOT for the back-office write set lives in role-home.ts (the role-doctrine
+// home). This was a local re-declared copy — deduped to the canonical set so a
+// membership change happens in one place (rank-2 role-set audit, 2026-06).
+import { BACK_OFFICE_ROLES } from "@/lib/auth/role-home";
 
 export function isBackOfficeRole(role: UserRole): boolean {
   return BACK_OFFICE_ROLES.includes(role);

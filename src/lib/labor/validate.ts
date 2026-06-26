@@ -7,6 +7,7 @@ import type { Database } from "@/lib/db/database.types";
 import type { UserRole } from "@/lib/db/enums";
 import { ISO_DATE_REGEX } from "@/lib/dates";
 import { UUID_REGEX } from "@/lib/validate/uuid";
+import { isManagerRole } from "@/lib/auth/role-home";
 import { DC_PAYMENT_METHODS } from "./payments";
 
 type DayFraction = Database["public"]["Enums"]["day_fraction"];
@@ -70,13 +71,9 @@ export function validateDcPayment(input: {
   return null;
 }
 
-const BACKOFFICE_BACKDATE_ROLES: ReadonlySet<UserRole> = new Set([
-  "project_manager",
-  "super_admin",
-  // Spec 152 / ADR 0058: project_director has the PM back-date allowance.
-  "project_director",
-]);
-
+// Back-dating past the limit is a manager-tier allowance (incl. project_director).
+// Use the canonical PM-set predicate rather than a local re-list (rank-2 role-set
+// audit, 2026-06) so the manager set lives in one place (role-home.ts).
 function daysBetween(earlierIso: string, laterIso: string): number {
   return Math.round((Date.parse(laterIso) - Date.parse(earlierIso)) / 86_400_000);
 }
@@ -96,7 +93,7 @@ export function validateLaborEntry(
   }
   if (
     daysBetween(entry.workDate, context.today) > BACKDATE_LIMIT_DAYS &&
-    !BACKOFFICE_BACKDATE_ROLES.has(context.role)
+    !isManagerRole(context.role)
   ) {
     return `ย้อนหลังได้ไม่เกิน ${BACKDATE_LIMIT_DAYS} วัน — แจ้งผู้จัดการโครงการ`;
   }
