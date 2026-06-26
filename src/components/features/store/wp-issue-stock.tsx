@@ -67,7 +67,11 @@ export function WpIssueStock({
 
   const selected = onHand.find((o) => o.catalogItemId === item) ?? null;
   const qtyNum = Number(qty);
-  const canSubmit = item !== "" && qty !== "" && Number.isFinite(qtyNum) && qtyNum > 0 && !issuing;
+  // Spec 208 U2 — you cannot เบิก more than is on hand. The issue_stock RPC also
+  // guards this (22023), but block it before the round-trip.
+  const overStock = selected !== null && Number.isFinite(qtyNum) && qtyNum > selected.qtyOnHand;
+  const canSubmit =
+    item !== "" && qty !== "" && Number.isFinite(qtyNum) && qtyNum > 0 && !overStock && !issuing;
 
   function reset() {
     setItem("");
@@ -192,8 +196,10 @@ export function WpIssueStock({
               className={FIELD}
             />
             {selected ? (
-              <p className="text-ink-secondary text-meta">
-                มีในมือ {selected.qtyOnHand} {selected.unit}
+              <p className={`text-meta ${overStock ? "text-danger" : "text-ink-secondary"}`}>
+                {overStock
+                  ? `เกินจำนวนในสโตร์ (มี ${selected.qtyOnHand} ${selected.unit})`
+                  : `มีในมือ ${selected.qtyOnHand} ${selected.unit}`}
               </p>
             ) : null}
           </div>

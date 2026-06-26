@@ -316,19 +316,6 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
               </div>
             </details>
           ) : null}
-          {/* Spec 177 U5: เบิก from the project store TO this WP. issue_stock's gate
-              excludes procurement, matching the !readOnly branch. */}
-          {!readOnly ? (
-            <div className={CARD}>
-              <WpIssueStock
-                projectId={wp.project_id}
-                workPackageId={wp.id}
-                onHand={wpOnHand}
-                workers={wpWorkers}
-                issues={wpIssues}
-              />
-            </div>
-          ) : null}
           {(wpRequests ?? []).length > 0 ? (
             <ul className="flex flex-col gap-2">
               {(wpRequests ?? []).map((r) => (
@@ -450,6 +437,29 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
       ),
     },
   ];
+
+  // Spec 208 U2: เบิก gets its own first-class tab on the WP detail page (operator
+  // 2026-06-26: withdrawals are made on the WP page, not buried in คำขอซื้อ). Placed
+  // right after คำขอซื้อ (purchase → withdraw flow). issue_stock's gate excludes
+  // procurement, so the tab only appears for site staff (!readOnly).
+  if (!readOnly) {
+    const purchasesIdx = tabs.findIndex((t) => t.key === "purchases");
+    tabs.splice(purchasesIdx + 1, 0, {
+      key: "issue",
+      label: "เบิกของ",
+      panel: (
+        <div className={CARD}>
+          <WpIssueStock
+            projectId={wp.project_id}
+            workPackageId={wp.id}
+            onHand={wpOnHand}
+            workers={wpWorkers}
+            issues={wpIssues}
+          />
+        </div>
+      ),
+    });
+  }
 
   // PM/super/director management: rename · priority · งวดงาน bind · schedule +
   // dependencies · delete-empty. Tucked behind its own tab so it no longer
@@ -611,6 +621,7 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
           "wp-photos": "photos",
           "wp-labor": "labor",
           "wp-equipment": "equipment",
+          "wp-issue": "issue",
         }}
       />
     </PageShell>

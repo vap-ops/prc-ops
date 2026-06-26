@@ -96,6 +96,32 @@ describe("WpIssueStock (spec 177 U5)", () => {
     expect(submit).toBeEnabled();
   });
 
+  // Spec 208 U2 — the client-side qty ceiling the sheet was missing: you cannot
+  // เบิก more than is on hand (the server also 22023s, but block it before submit).
+  it("blocks the submit when the qty exceeds what is on hand", () => {
+    renderZone({});
+    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากสโตร์/ }));
+    fireEvent.change(screen.getByLabelText("วัสดุ"), { target: { value: "ci1" } });
+    fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "25" } });
+    expect(screen.getByRole("button", { name: "ยืนยันการเบิก" })).toBeDisabled();
+  });
+
+  it("warns when the qty exceeds what is on hand", () => {
+    renderZone({});
+    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากสโตร์/ }));
+    fireEvent.change(screen.getByLabelText("วัสดุ"), { target: { value: "ci1" } });
+    fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "25" } });
+    expect(screen.getByText(/เกินจำนวนในสโตร์/)).toBeInTheDocument();
+  });
+
+  it("allows the submit at exactly the on-hand qty", () => {
+    renderZone({});
+    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากสโตร์/ }));
+    fireEvent.change(screen.getByLabelText("วัสดุ"), { target: { value: "ci1" } });
+    fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "20" } });
+    expect(screen.getByRole("button", { name: "ยืนยันการเบิก" })).toBeEnabled();
+  });
+
   it("lists this WP's recent เบิก", () => {
     renderZone({ issues });
     expect(screen.getByText("ท่อ PVC")).toBeInTheDocument();
