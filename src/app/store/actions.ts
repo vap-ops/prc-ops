@@ -380,3 +380,51 @@ export async function issueStockBulk(input: {
   revalidatePath(`/projects/${input.projectId}/work-packages/${input.workPackageId}`);
   return { ok: true };
 }
+
+// Spec 208 U3b — on-site "ใช้ที่งานนี้เลย" (buy & use on this WP now). Receives a
+// catalogued item into the project store AND immediately issues it to the WP in
+// one atomic call via the site_purchase_use_now definer RPC (net Dr 1400/Cr 2100
+// at cost — same as a direct on-site purchase, but routed through the store).
+export async function sitePurchaseUseNow(input: {
+  projectId: string;
+  workPackageId: string;
+  catalogItemId: string;
+  qty: number;
+  unitCost: number;
+  note: string;
+}): Promise<StockInResult> {
+  if (
+    !UUID_REGEX.test(input.projectId) ||
+    !UUID_REGEX.test(input.workPackageId) ||
+    !UUID_REGEX.test(input.catalogItemId)
+  ) {
+    return { ok: false, error: ISSUE_FAILED };
+  }
+  if (!Number.isFinite(input.qty) || input.qty <= 0) {
+    return { ok: false, error: "จำนวนต้องมากกว่า 0" };
+  }
+  if (!Number.isFinite(input.unitCost) || input.unitCost < 0) {
+    return { ok: false, error: "ราคาต้นทุนต้องไม่ติดลบ" };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("site_purchase_use_now", {
+    p_project_id: input.projectId,
+    p_work_package_id: input.workPackageId,
+    p_catalog_item_id: input.catalogItemId,
+    p_qty: input.qty,
+    p_unit_cost: input.unitCost,
+    p_note: input.note,
+  });
+  if (error) {
+    if (error.code === "42501") return { ok: false, error: NO_PERMISSION };
+    if (error.code === "22023")
+      return { ok: false, error: "ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง" };
+    return { ok: false, error: ISSUE_FAILED };
+  }
+
+  revalidatePath(`/projects/${input.projectId}/work-packages/${input.workPackageId}`);
+  return { ok: true };
+}

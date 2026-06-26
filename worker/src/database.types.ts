@@ -5698,6 +5698,17 @@ export type Database = {
           wp_skipped_null_budget_count: number
         }[]
       }
+      site_purchase_use_now: {
+        Args: {
+          p_catalog_item_id: string
+          p_note?: string
+          p_project_id: string
+          p_qty: number
+          p_unit_cost: number
+          p_work_package_id: string
+        }
+        Returns: string
+      }
       split_purchase_order_delivery: {
         Args: {
           p_cost?: number

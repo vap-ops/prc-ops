@@ -49,6 +49,7 @@ import {
   type WpIssueRow,
   type WpStockRow,
 } from "@/components/features/store/wp-issue-stock";
+import { SitePurchaseUseNow } from "@/components/features/store/site-purchase-use-now";
 import { PhaseGallery } from "@/components/features/photos/phase-gallery";
 import { LaborLogZone } from "@/components/features/labor/labor-log-zone";
 import { LaborBudgetCard } from "@/components/features/labor/labor-budget-card";
@@ -448,14 +449,26 @@ export default async function WorkPackagePhotoScreen({ params }: PageProps) {
       key: "issue",
       label: "เบิกของ",
       panel: (
-        <div className={CARD}>
-          <WpIssueStock
-            projectId={wp.project_id}
-            workPackageId={wp.id}
-            onHand={wpOnHand}
-            workers={wpWorkers}
-            issues={wpIssues}
-          />
+        <div className="flex flex-col gap-4">
+          <div className={CARD}>
+            <WpIssueStock
+              projectId={wp.project_id}
+              workPackageId={wp.id}
+              onHand={wpOnHand}
+              workers={wpWorkers}
+              issues={wpIssues}
+            />
+          </div>
+          {/* Spec 208 U3b: buy a catalogued item and use it on this WP in one tap
+              (receive into store + เบิก). Off-catalog buys keep the free-text
+              บันทึกการซื้อหน้างาน path in the คำขอซื้อ tab. */}
+          <div className={CARD}>
+            <SitePurchaseUseNow
+              projectId={wp.project_id}
+              workPackageId={wp.id}
+              catalogItems={catalogItems}
+            />
+          </div>
         </div>
       ),
     });

@@ -302,6 +302,16 @@ cost **once** via the 1400 leg; AP/cash credited once; Input-VAT split present w
 two tested posters, no enforcement, no irreversible step. As a money RPC, get a quick operator
 nod before pushing the migration.
 
+**SHIPPED 2026-06-26 — option B (operator decision).** An adversarial GL review caught that the
+store path is **VAT-agnostic**, so U3b does NOT split Input VAT (1300) the way the direct on-site
+purchase (`record_site_purchase` → `post_purchase_to_gl`) does. Net GL = Dr 1400 / Cr 2100 at cost
+equals the direct path **only at zero VAT**. Decision **B**: the use-now shortcut is for **cash
+buys without a full tax invoice** (no reclaimable VAT → VAT-inclusive cost is correct); a
+**VAT-invoiced** on-site buy uses the existing free-text บันทึกการซื้อหน้างาน form (which splits
+VAT). The UI labels it "ซื้อเงินสด" + a "ไม่มีใบกำกับภาษี" note. When Phase-2 VAT-split-at-receipt
+lands, the shortcut inherits it and the cash-only framing can relax. pgTAP 228 pins the option-B
+GL (Dr 1400 / Cr 2100 at cost, AP once, Inventory 1500 nets to 0, **no 1300 line**).
+
 ---
 
 > ## ⛔ HARD STOP — operator sign-off gate before Phase 2 (⏸ DEFERRED — see design pass 3)
