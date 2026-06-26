@@ -29,7 +29,7 @@ merged to `main` via reviewed PR, and the agent MUST verify post-apply
 (`db:test` / targeted check) and report. The agent never applies un-merged or
 un-reviewed migrations, never mutates prod via the dashboard SQL editor, and
 emergency/out-of-band changes remain operator-only with an `audit_log` row.
-`git push` and merges to `main` remain operator-only.
+For schema, data, Storage, and DB-role changes, `git push` and merges to `main` remain operator-only — routine code follows CLAUDE.md's standing auto-commit-and-merge grant.
 
 **The dashboard SQL editor is read-only / diagnostics only.** Use it to
 inspect, audit, and verify — never to mutate shared state.
