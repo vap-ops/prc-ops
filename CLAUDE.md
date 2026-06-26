@@ -95,6 +95,17 @@ Do not add or remove enum values without an ADR. After LINE login, `roleHome()` 
 - Never auto-authenticate `gh`.
 - After merge: delete merged branches.
 
+## Parallel sessions
+
+Multiple sessions may run against this repo, but two in the SAME working dir clobber each other (shared `.git` HEAD/index — observed live). Full protocol: memory `safe-parallel-sessions`.
+
+- **Worktree per session.** Each session works in its own git worktree (`../prc-ops-<lane>`, a sibling of the repo), NEVER two sessions in `D:\claude\projects\prc-ops\prc-ops`. If the main dir is already in use, create your own: `git worktree add ../prc-ops-<lane> -b <branch> origin/main`.
+- **Schema is single-lane.** Only ONE session at a time may touch `supabase/migrations/`, run `db:push`, or `db:test` (one shared remote DB). Never start a second schema lane.
+- **Parallelize only disjoint, code-only work.** A second lane is allowed only if ALL hold: no schema; pure `src/`/`docs/`/test; no file overlap with another lane; different domain; touches no shared SSOT (`src/lib/i18n/labels.ts`, `src/lib/auth/action-gate.ts`, `role-home.ts`, role-set constants, enums, `package.json`, this file). Otherwise serialize. Unsure → serialize; one session is never wrong.
+- **Coordination is a whiteboard, not a lock.** `D:\claude\projects\prc-ops\LANES.md` (outside the repo) lists active lanes + the schema holder. Read it on start, append your lane, clear it on merge. Safety comes from the worktrees + these rules, not from the file.
+- **Memory is single-writer**, appended at session end — never two sessions editing a memory file at once.
+- Merge a lane: in its worktree run `pnpm lint && pnpm typecheck && pnpm test`, push, ff-merge `main`, then `git worktree remove ../prc-ops-<lane>` + delete the branch + clear your `LANES.md` lines.
+
 ## Skills, agents, and hooks
 
 - Skills at `.claude/skills/` provide procedural knowledge. Currently installed: `supersede-pattern`; `bug-fix-flow` (the autonomous bug-fix pipeline — discover→triage→fix→ship→reply→complete, driven by CC, flagging the operator only at genuine decision points; runs scheduled daily + on demand); `triage-feedback` (spec 201 — the queue/message/status mechanics `bug-fix-flow` builds on: CC investigates reports, sets status off `ใหม่`, and replies tiered — auto-publishes low-risk replies, stages a draft + flags the operator for anything that declines/commits/is uncertain). Load them when touching matching areas.
