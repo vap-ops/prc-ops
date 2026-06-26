@@ -11,7 +11,11 @@ import { useState, useTransition } from "react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { ConfirmActionButton } from "@/components/features/common/confirm-action-button";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
-import { ITEM_CATEGORY_LABEL, STORE_RECEIVE_LABEL } from "@/lib/i18n/labels";
+import {
+  ITEM_CATEGORY_LABEL,
+  STORE_RECEIVE_LABEL,
+  STORE_FIX_WRONG_ENTRY_LABEL,
+} from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
 import type { Database } from "@/lib/db/database.types";
 import {
@@ -344,9 +348,9 @@ export function StoreManager({
                       {rc.qty} {rc.unit}
                     </span>
                     <ConfirmActionButton
-                      idleLabel="กลับรายการ"
-                      pendingLabel="กำลังกลับ…"
-                      confirmMessage={`กลับรายการรับเข้า ${rc.baseItem} ${rc.qty} ${rc.unit}? ของจะถูกตัดออกจากสโตร์`}
+                      idleLabel={STORE_FIX_WRONG_ENTRY_LABEL}
+                      pendingLabel="กำลังแก้ไข…"
+                      confirmMessage={`ลบรายการรับเข้าที่บันทึกผิด — ${rc.baseItem} ${rc.qty} ${rc.unit}? ใช้เมื่อบันทึกผิดเท่านั้น (ของจะถูกตัดออกจากสโตร์)`}
                       confirmLabel="ยืนยัน"
                       buttonClassName={`${BUTTON_SECONDARY} shrink-0`}
                       action={() => reverseStockReceipt({ receiptId: rc.id })}
@@ -403,9 +407,9 @@ export function StoreManager({
                     {/* เบิก reversal = SITE_STAFF; on /store that is the manager tier. */}
                     {canIssue ? (
                       <ConfirmActionButton
-                        idleLabel="กลับรายการ"
-                        pendingLabel="กำลังกลับ…"
-                        confirmMessage={`กลับรายการเบิก ${i.baseItem} ${i.qty} ${i.unit}? ของจะถูกคืนเข้าสโตร์`}
+                        idleLabel={STORE_FIX_WRONG_ENTRY_LABEL}
+                        pendingLabel="กำลังแก้ไข…"
+                        confirmMessage={`ลบรายการเบิกที่บันทึกผิด — ${i.baseItem} ${i.qty} ${i.unit}? ใช้เมื่อบันทึกผิด ไม่ใช่การคืนของจริง (ของจะถูกคืนเข้าสโตร์)`}
                         confirmLabel="ยืนยัน"
                         buttonClassName={`${BUTTON_SECONDARY} shrink-0`}
                         action={() => reverseStockIssue({ issueId: i.id })}

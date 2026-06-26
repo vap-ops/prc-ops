@@ -254,34 +254,34 @@ describe("StoreManager ตรวจนับ/count (spec 177 U10)", () => {
   });
 });
 
-describe("StoreManager กลับรายการ/reversal (spec 177 U12)", () => {
-  it("lists recent รับเข้า with a กลับรายการ control (any /store user)", () => {
+describe("StoreManager แก้รายการที่บันทึกผิด/reversal (spec 177 U12)", () => {
+  it("lists recent รับเข้า with a แก้รายการที่บันทึกผิด control (any /store user)", () => {
     renderManager({ canIssue: false, receipts });
     expect(screen.getByText("ปูนซีเมนต์")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "กลับรายการ" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "แก้รายการที่บันทึกผิด" })).toBeInTheDocument();
   });
 
   it("reverses a receipt after confirm", async () => {
     renderManager({ canIssue: false, receipts });
-    fireEvent.click(screen.getByRole("button", { name: "กลับรายการ" }));
+    fireEvent.click(screen.getByRole("button", { name: "แก้รายการที่บันทึกผิด" }));
     // ConfirmActionButton opens the dialog; confirm with the ยืนยัน button.
     fireEvent.click(screen.getByRole("button", { name: "ยืนยัน" }));
     await waitFor(() => expect(mockRevReceipt).toHaveBeenCalledWith({ receiptId: "rc1" }));
   });
 
-  it("offers กลับรายการ on an issue only when the user can issue", () => {
+  it("offers แก้รายการที่บันทึกผิด on an issue only when the user can issue", () => {
     renderManager({ canIssue: true, issues });
-    expect(screen.getByRole("button", { name: "กลับรายการ" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "แก้รายการที่บันทึกผิด" })).toBeInTheDocument();
   });
 
-  it("hides issue กลับรายการ when the user cannot issue", () => {
+  it("hides issue แก้รายการที่บันทึกผิด when the user cannot issue", () => {
     renderManager({ canIssue: false, issues });
-    expect(screen.queryByRole("button", { name: "กลับรายการ" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "แก้รายการที่บันทึกผิด" })).toBeNull();
   });
 
   it("reverses an issue after confirm", async () => {
     renderManager({ canIssue: true, issues });
-    fireEvent.click(screen.getByRole("button", { name: "กลับรายการ" }));
+    fireEvent.click(screen.getByRole("button", { name: "แก้รายการที่บันทึกผิด" }));
     fireEvent.click(screen.getByRole("button", { name: "ยืนยัน" }));
     await waitFor(() => expect(mockRevIssue).toHaveBeenCalledWith({ issueId: "iss1" }));
   });
