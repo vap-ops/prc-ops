@@ -107,6 +107,38 @@ describe("buildWorklistKpis", () => {
     expect(out.active).toBe(false);
   });
 
+  // Spec 208 follow-up (feedback e4c02550): when every PR is delivered, the four
+  // active-work tiles are all 0 and the procurement landing looked "broken". The
+  // optional ส่งมอบแล้ว tile surfaces the cumulative delivered spend so the money is
+  // visible. Appended only when deliveredSpend is supplied (the page always does).
+  it("appends a ส่งมอบแล้ว (delivered) tile when deliveredSpend is provided", () => {
+    const tiles = buildWorklistKpis({
+      summary: SUMMARY,
+      outstanding: "฿0",
+      deliveredSpend: "฿507,172",
+      filter: EMPTY_FILTER,
+    });
+    expect(tiles.map((t) => t.key)).toEqual([
+      "to_order",
+      "in_transit",
+      "overdue",
+      "outstanding",
+      "delivered",
+    ]);
+    const delivered = tiles.find((t) => t.key === "delivered")!;
+    expect([delivered.label, delivered.value]).toEqual(["ส่งมอบแล้ว", "฿507,172"]);
+    expect(delivered.icon).toBe("delivered");
+    expect(delivered.tone).toBe("neutral");
+    expect(delivered.href).toBeNull();
+    expect(delivered.active).toBe(false);
+  });
+
+  it("omits the delivered tile when deliveredSpend is not provided (back-compat)", () => {
+    const tiles = buildWorklistKpis({ summary: SUMMARY, outstanding: "฿0", filter: EMPTY_FILTER });
+    expect(tiles.some((t) => t.key === "delivered")).toBe(false);
+    expect(tiles).toHaveLength(4);
+  });
+
   it("overdue tone is danger when there are overdue items OR the filter is active, else neutral", () => {
     const danger = buildWorklistKpis({
       summary: { toOrder: 0, inTransit: 0, overdue: 2 },

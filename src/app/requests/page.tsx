@@ -378,6 +378,17 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     );
   }
 
+  // Feedback e4c02550: once every PR reaches delivered, the four active-work tiles
+  // all read 0 and the landing looked "broken". Surface the cumulative delivered
+  // spend so the money stays visible (a figure, not a metric redefinition — ค้างจ่าย
+  // is unchanged). Reuses the back-office amounts already read above.
+  let deliveredSpend = 0;
+  if (isProcurement) {
+    for (const r of myRequests) {
+      if (r.status === "delivered") deliveredSpend += amountById.get(r.id) ?? 0;
+    }
+  }
+
   // Spec 138 U1: the ต้องติดตามด่วน panel — the actual overdue in-transit
   // deliveries (the items behind the เกินกำหนด count), most-overdue first. Reads
   // the same unfiltered set as the KPI so the two agree; amount is the back-
@@ -651,6 +662,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                     {buildWorklistKpis({
                       summary: buyerSummary,
                       outstanding: baht(outstanding),
+                      deliveredSpend: baht(deliveredSpend),
                       filter,
                     }).map((tile) => (
                       <WorklistKpiTile key={tile.key} tile={tile} />

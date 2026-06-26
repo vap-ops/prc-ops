@@ -5,7 +5,7 @@
 // tokens only (flat amber, NOT the mock's raw gradient).
 
 import Link from "next/link";
-import { AlertTriangle, Clock, Truck, Wallet, type LucideIcon } from "lucide-react";
+import { AlertTriangle, Clock, PackageCheck, Truck, Wallet, type LucideIcon } from "lucide-react";
 
 import type {
   WorklistKpiIcon,
@@ -18,7 +18,12 @@ const ICON: Record<WorklistKpiIcon, LucideIcon> = {
   shipping: Truck,
   overdue: AlertTriangle,
   outstanding: Wallet,
+  delivered: PackageCheck,
 };
+
+// Money tiles hold a long ฿ string (vs the others' small counts) → render smaller
+// and allow wrapping so they can't overflow (spec 193 feedback overflow fix).
+const MONEY_TILE_KEYS = new Set(["outstanding", "delivered"]);
 
 // Per-tone class trio (card / value / icon-chip / caption). Hot is the amber hero
 // (the icon sits directly on the fill, no chip); the rest are white/soft cards.
@@ -71,11 +76,11 @@ export function WorklistKpiTile({ tile }: { tile: Tile }) {
       {/* min-w-0 lets the value column shrink inside the flex card so a long ฿
           amount wraps instead of spilling out (spec 193 feedback overflow fix). */}
       <div className="min-w-0">
-        {/* The money tile (ค้างจ่าย) holds a long ฿ string vs the others' small
-            counts — render it smaller and allow it to wrap so it can't overflow. */}
+        {/* Money tiles (ค้างจ่าย / ส่งมอบแล้ว) hold a long ฿ string vs the others'
+            small counts — render smaller and allow wrapping so they can't overflow. */}
         <div
           className={`${
-            tile.key === "outstanding" ? "text-2xl break-words" : "text-3xl"
+            MONEY_TILE_KEYS.has(tile.key) ? "text-2xl break-words" : "text-3xl"
           } leading-none font-extrabold tabular-nums ${tone.value}`}
         >
           {tile.value}

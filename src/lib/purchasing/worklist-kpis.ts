@@ -10,10 +10,10 @@ import type { ProcurementSummary } from "@/lib/purchasing/procurement-pipeline";
 import { buildWorklistQuery, type ProcurementFilter } from "@/lib/purchasing/worklist-filter";
 
 export type WorklistKpiTone = "hot" | "shipping" | "danger" | "neutral";
-export type WorklistKpiIcon = "waiting" | "shipping" | "overdue" | "outstanding";
+export type WorklistKpiIcon = "waiting" | "shipping" | "overdue" | "outstanding" | "delivered";
 
 export interface WorklistKpiTile {
-  key: "to_order" | "in_transit" | "overdue" | "outstanding";
+  key: "to_order" | "in_transit" | "overdue" | "outstanding" | "delivered";
   label: string;
   value: string;
   caption: string;
@@ -29,10 +29,15 @@ export function buildWorklistKpis(input: {
   summary: ProcurementSummary;
   /** Preformatted ฿ string (money — read back-office by the page). */
   outstanding: string;
+  /** Preformatted ฿ string — cumulative value of delivered purchases. When
+   *  supplied, appends the ส่งมอบแล้ว tile so the spend stays visible once every
+   *  request has reached delivered (the active-work tiles all read 0 then). The
+   *  page always supplies it for procurement; omitted = no tile (back-compat). */
+  deliveredSpend?: string;
   /** The current worklist filter — drives every tile's href/active. */
   filter: ProcurementFilter;
 }): WorklistKpiTile[] {
-  const { summary, outstanding, filter } = input;
+  const { summary, outstanding, deliveredSpend, filter } = input;
   // U4 band toggle: set this band (clearing overdue), or clear it if already the selection —
   // mirrors the U3 status chips. A band tile reads active only when overdue is off.
   const bandTile = (band: "to_order" | "in_transit") => ({
@@ -84,5 +89,21 @@ export function buildWorklistKpis(input: {
       href: null,
       active: false,
     },
+    // ส่งมอบแล้ว — cumulative delivered spend. Appended only when supplied so the
+    // money stays visible after every PR reaches delivered (active tiles → 0).
+    ...(deliveredSpend !== undefined
+      ? [
+          {
+            key: "delivered" as const,
+            label: "ส่งมอบแล้ว",
+            value: deliveredSpend,
+            caption: "ยอดซื้อที่รับของแล้ว",
+            tone: "neutral" as const,
+            icon: "delivered" as const,
+            href: null,
+            active: false,
+          },
+        ]
+      : []),
   ];
 }
