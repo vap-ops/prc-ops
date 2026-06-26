@@ -102,21 +102,6 @@ export default async function ProjectStorePage({ params }: PageProps) {
     .order("name", { ascending: true });
   const suppliers = (supRows ?? []).map((s) => ({ id: s.id, name: s.name }));
 
-  const { data: wpRows } = await supabase
-    .from("work_packages")
-    .select("id, code, name")
-    .eq("project_id", project.id)
-    .order("code", { ascending: true });
-  const workPackages = (wpRows ?? []).map((w) => ({ id: w.id, code: w.code, name: w.name }));
-
-  const { data: workerRows } = await supabase
-    .from("workers")
-    .select("id, name")
-    .eq("project_id", project.id)
-    .eq("active", true)
-    .order("name", { ascending: true });
-  const workers = (workerRows ?? []).map((w) => ({ id: w.id, name: w.name }));
-
   const { data: issueRows } = await supabase
     .from("stock_issues")
     .select(
@@ -244,8 +229,6 @@ export default async function ProjectStorePage({ params }: PageProps) {
           catalogItems={catalogItems}
           suppliers={suppliers}
           canIssue={canIssue}
-          workPackages={workPackages}
-          workers={workers}
           issues={issues}
           receipts={receipts}
           counts={counts}

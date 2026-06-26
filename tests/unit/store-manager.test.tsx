@@ -8,7 +8,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   mockRecord,
   mockRecordBulk,
-  mockIssue,
   mockCount,
   mockRevReceipt,
   mockRevIssue,
@@ -18,7 +17,6 @@ const {
 } = vi.hoisted(() => ({
   mockRecord: vi.fn(),
   mockRecordBulk: vi.fn(),
-  mockIssue: vi.fn(),
   mockCount: vi.fn(),
   mockRevReceipt: vi.fn(),
   mockRevIssue: vi.fn(),
@@ -33,7 +31,6 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/app/store/actions", () => ({
   recordStockIn: mockRecord,
   recordStockInBulk: mockRecordBulk,
-  issueStock: mockIssue,
   recordStockCount: mockCount,
   reverseStockReceipt: mockRevReceipt,
   reverseStockIssue: mockRevIssue,
@@ -62,8 +59,6 @@ const catalogItems = [
   },
 ];
 const suppliers = [{ id: "s1", name: "ร้านวัสดุดี" }];
-const workPackages = [{ id: "wp1", code: "WP-01", name: "งานเดินไฟ" }];
-const workers = [{ id: "w1", name: "สมชาย" }];
 const counts: CountRow[] = [
   {
     id: "cnt1",
@@ -105,7 +100,6 @@ const receipts: ReceiptRow[] = [
 beforeEach(() => {
   mockRecord.mockReset().mockResolvedValue({ ok: true });
   mockRecordBulk.mockReset().mockResolvedValue({ ok: true });
-  mockIssue.mockReset().mockResolvedValue({ ok: true });
   mockCount.mockReset().mockResolvedValue({ ok: true });
   mockRevReceipt.mockReset().mockResolvedValue({ ok: true });
   mockRevIssue.mockReset().mockResolvedValue({ ok: true });
@@ -130,8 +124,6 @@ function renderManager(opts: {
       catalogItems={catalogItems}
       suppliers={suppliers}
       canIssue={opts.canIssue ?? false}
-      workPackages={workPackages}
-      workers={workers}
       issues={opts.issues ?? []}
       receipts={opts.receipts ?? []}
       counts={opts.counts ?? []}
@@ -199,64 +191,13 @@ describe("StoreManager (spec 177 U2)", () => {
   });
 });
 
-describe("StoreManager เบิก/issue (spec 177 U4)", () => {
-  it("shows no เบิก control on on-hand rows when the user cannot issue", () => {
-    renderManager({ canIssue: false });
+// Spec 208: withdrawal is INITIATED on the WP detail page (เบิกของ tab), not the
+// store console. The store console keeps the read-only เบิกล่าสุด history (+ the
+// confirm-on-behalf / reverse management below); it no longer offers a เบิก button.
+describe("StoreManager เบิกล่าสุด history (spec 177 U4 / spec 208)", () => {
+  it("shows no เบิก initiation control on the store console", () => {
+    renderManager({ canIssue: true });
     expect(screen.queryByRole("button", { name: "เบิก" })).toBeNull();
-  });
-
-  it("offers a เบิก control per on-hand row when the user can issue", () => {
-    renderManager({ canIssue: true });
-    expect(screen.getByRole("button", { name: "เบิก" })).toBeInTheDocument();
-  });
-
-  it("issues the row's item to the chosen WP and qty", async () => {
-    renderManager({ canIssue: true });
-    fireEvent.click(screen.getByRole("button", { name: "เบิก" }));
-    fireEvent.change(screen.getByLabelText("งาน"), { target: { value: "wp1" } });
-    fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "5" } });
-    fireEvent.click(screen.getByRole("button", { name: "ยืนยันการเบิก" }));
-
-    await waitFor(() =>
-      expect(mockIssue).toHaveBeenCalledWith({
-        projectId: "p1",
-        catalogItemId: "ci1",
-        workPackageId: "wp1",
-        qty: 5,
-        note: "",
-      }),
-    );
-    await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
-  });
-
-  it("names a receiver worker on a /store เบิก (custody handshake)", async () => {
-    renderManager({ canIssue: true });
-    fireEvent.click(screen.getByRole("button", { name: "เบิก" }));
-    fireEvent.change(screen.getByLabelText("งาน"), { target: { value: "wp1" } });
-    fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "5" } });
-    fireEvent.change(screen.getByLabelText(/ผู้รับ/), { target: { value: "w1" } });
-    fireEvent.click(screen.getByRole("button", { name: "ยืนยันการเบิก" }));
-
-    await waitFor(() =>
-      expect(mockIssue).toHaveBeenCalledWith({
-        projectId: "p1",
-        catalogItemId: "ci1",
-        workPackageId: "wp1",
-        qty: 5,
-        note: "",
-        receiverWorkerId: "w1",
-      }),
-    );
-  });
-
-  it("disables the เบิก submit until a WP and qty are set", () => {
-    renderManager({ canIssue: true });
-    fireEvent.click(screen.getByRole("button", { name: "เบิก" }));
-    const submit = screen.getByRole("button", { name: "ยืนยันการเบิก" });
-    expect(submit).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("งาน"), { target: { value: "wp1" } });
-    fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "5" } });
-    expect(submit).toBeEnabled();
   });
 
   it("lists recent เบิก for the project", () => {

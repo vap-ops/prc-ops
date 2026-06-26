@@ -74,8 +74,6 @@ function open() {
       catalogItems={catalogItems}
       suppliers={suppliers}
       canIssue={false}
-      workPackages={[]}
-      workers={[]}
       issues={[]}
       receipts={[]}
       counts={[]}

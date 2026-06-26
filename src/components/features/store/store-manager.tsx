@@ -11,11 +11,10 @@ import { useState, useTransition } from "react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { ConfirmActionButton } from "@/components/features/common/confirm-action-button";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
-import { ITEM_CATEGORY_LABEL, STORE_ISSUE_LABEL, STORE_RECEIVE_LABEL } from "@/lib/i18n/labels";
+import { ITEM_CATEGORY_LABEL, STORE_RECEIVE_LABEL } from "@/lib/i18n/labels";
 import type { Database } from "@/lib/db/database.types";
 import {
   confirmStockIssueOnBehalf,
-  issueStock,
   recordStockCount,
   recordStockInBulk,
   reverseStockIssue,
@@ -117,8 +116,6 @@ export function StoreManager({
   catalogItems,
   suppliers,
   canIssue,
-  workPackages,
-  workers,
   issues,
   receipts,
   counts,
@@ -131,9 +128,6 @@ export function StoreManager({
   catalogItems: CatalogPick[];
   suppliers: { id: string; name: string }[];
   canIssue: boolean;
-  workPackages: { id: string; code: string; name: string }[];
-  // Spec 178 B4 — project workers, for the optional custody receiver picker.
-  workers: { id: string; name: string }[];
   issues: IssueRow[];
   receipts: ReceiptRow[];
   // Spec 178 B3 — recent physical counts (the ประวัติการนับ history).
@@ -166,15 +160,6 @@ export function StoreManager({
   function removeRow(i: number) {
     setRows((rs) => (rs.length <= 1 ? rs : rs.filter((_, idx) => idx !== i)));
   }
-
-  // เบิก (issue-out) sheet — opened for a specific on-hand row.
-  const [issueRow, setIssueRow] = useState<StockRow | null>(null);
-  const [issueWp, setIssueWp] = useState("");
-  const [issueQty, setIssueQty] = useState("");
-  const [issueReceiver, setIssueReceiver] = useState("");
-  const [issueNote, setIssueNote] = useState("");
-  const [issueError, setIssueError] = useState<string | null>(null);
-  const [issuing, startIssue] = useTransition();
 
   // ตรวจนับ (physical count) sheet — opened for a specific on-hand row.
   const [countRow, setCountRow] = useState<StockRow | null>(null);
@@ -210,46 +195,6 @@ export function StoreManager({
         return;
       }
       setCountRow(null);
-      router.refresh();
-    });
-  }
-
-  const issueQtyNum = Number(issueQty);
-  const canIssueSubmit =
-    issueRow !== null &&
-    issueWp !== "" &&
-    issueQty !== "" &&
-    Number.isFinite(issueQtyNum) &&
-    issueQtyNum > 0 &&
-    !issuing;
-
-  function openIssue(row: StockRow) {
-    setIssueRow(row);
-    setIssueWp("");
-    setIssueQty("");
-    setIssueReceiver("");
-    setIssueNote("");
-    setIssueError(null);
-  }
-
-  function handleIssueSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!canIssueSubmit || !selectedProjectId || !issueRow) return;
-    setIssueError(null);
-    startIssue(async () => {
-      const result = await issueStock({
-        projectId: selectedProjectId,
-        catalogItemId: issueRow.catalogItemId,
-        workPackageId: issueWp,
-        qty: issueQtyNum,
-        note: issueNote,
-        ...(issueReceiver !== "" ? { receiverWorkerId: issueReceiver } : {}),
-      });
-      if (!result.ok) {
-        setIssueError(result.error);
-        return;
-      }
-      setIssueRow(null);
       router.refresh();
     });
   }
@@ -363,15 +308,8 @@ export function StoreManager({
                         {baht(r.totalValue)} ฿
                       </span>
                     </span>
-                    {canIssue ? (
-                      <button
-                        type="button"
-                        onClick={() => openIssue(r)}
-                        className={`${BUTTON_SECONDARY} shrink-0`}
-                      >
-                        เบิก
-                      </button>
-                    ) : null}
+                    {/* Spec 208: เบิก is initiated on the WP detail page (เบิกของ tab),
+                        not the store console — only ตรวจนับ stays here. */}
                     {canIssue ? (
                       <button
                         type="button"
@@ -667,116 +605,6 @@ export function StoreManager({
                 </button>
                 <button type="submit" disabled={!canSubmit} className={BUTTON_PRIMARY}>
                   {submitting ? "กำลังบันทึก…" : "บันทึกทั้งหมด"}
-                </button>
-              </div>
-            </form>
-          </BottomSheet>
-
-          <BottomSheet
-            open={issueRow !== null}
-            title={STORE_ISSUE_LABEL}
-            onClose={() => setIssueRow(null)}
-          >
-            <form onSubmit={handleIssueSubmit} className="flex flex-col gap-4">
-              <p className="text-ink-secondary text-meta">
-                เบิก{" "}
-                <span className="text-ink font-semibold">
-                  {issueRow?.baseItem}
-                  {issueRow?.specAttrs ? ` · ${issueRow.specAttrs}` : ""}
-                </span>{" "}
-                — มีในมือ {issueRow?.qtyOnHand} {issueRow?.unit}
-              </p>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="issue-wp" className={LABEL}>
-                  งาน
-                </label>
-                <select
-                  id="issue-wp"
-                  value={issueWp}
-                  onChange={(e) => setIssueWp(e.target.value)}
-                  disabled={issuing}
-                  className={FIELD}
-                >
-                  <option value="">เลือกงาน (WP)</option>
-                  {workPackages.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.code} {w.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="issue-qty" className={LABEL}>
-                  จำนวน
-                </label>
-                <input
-                  id="issue-qty"
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  step="any"
-                  value={issueQty}
-                  onChange={(e) => setIssueQty(e.target.value)}
-                  disabled={issuing}
-                  className={FIELD}
-                />
-              </div>
-
-              {/* Spec 178 B4 — custody: name the receiver who takes the material
-                  (they confirm on the portal). Optional; mirrors WpIssueStock U7. */}
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="issue-receiver" className={LABEL}>
-                  ผู้รับ (ถ้ามี)
-                </label>
-                <select
-                  id="issue-receiver"
-                  value={issueReceiver}
-                  onChange={(e) => setIssueReceiver(e.target.value)}
-                  disabled={issuing}
-                  className={FIELD}
-                >
-                  <option value="">ไม่ระบุ</option>
-                  {workers.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="issue-note" className={LABEL}>
-                  หมายเหตุ (ถ้ามี)
-                </label>
-                <input
-                  id="issue-note"
-                  type="text"
-                  value={issueNote}
-                  maxLength={1000}
-                  onChange={(e) => setIssueNote(e.target.value)}
-                  disabled={issuing}
-                  className={FIELD}
-                />
-              </div>
-
-              {issueError ? (
-                <div role="alert" className={INLINE_ERROR}>
-                  {issueError}
-                </div>
-              ) : null}
-
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIssueRow(null)}
-                  className={BUTTON_SECONDARY}
-                >
-                  ยกเลิก
-                </button>
-                <button type="submit" disabled={!canIssueSubmit} className={BUTTON_PRIMARY}>
-                  {issuing ? "กำลังเบิก…" : "ยืนยันการเบิก"}
                 </button>
               </div>
             </form>
