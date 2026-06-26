@@ -223,6 +223,41 @@ export async function reverseStockIssue(input: { issueId: string }): Promise<Sto
   return { ok: true };
 }
 
+// Spec 209 U2 — a REAL WP→store return (distinct from the mistake-undo above): a
+// partial qty of issued material goes back to the store at the issue cost. Calls
+// the SECURITY DEFINER return_stock_to_store RPC (SITE_STAFF + member; the RPC
+// guards qty ≤ issued − already-returned and blocks a reversed issue).
+export async function returnStockToStore(input: {
+  issueId: string;
+  qty: number;
+  note?: string | null;
+}): Promise<StockInResult> {
+  if (!UUID_REGEX.test(input.issueId)) {
+    return { ok: false, error: "คืนเข้าสโตร์ไม่สำเร็จ" };
+  }
+  if (!Number.isFinite(input.qty) || input.qty <= 0) {
+    return { ok: false, error: "จำนวนที่คืนต้องมากกว่าศูนย์" };
+  }
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("return_stock_to_store", {
+    p_issue_id: input.issueId,
+    p_qty: input.qty,
+    ...(input.note ? { p_note: input.note } : {}),
+  });
+  if (error) {
+    if (error.code === "42501") return { ok: false, error: NO_PERMISSION };
+    if (error.code === "22023") {
+      return { ok: false, error: "คืนได้ไม่เกินจำนวนที่เบิกไป และต้องเป็นรายการที่ยังไม่ถูกแก้" };
+    }
+    return { ok: false, error: "คืนเข้าสโตร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  revalidatePath("/store");
+  return { ok: true };
+}
+
 // Spec 177 U8 — the receiver worker attests receipt of an issued item (the worker
 // portal). Calls the SECURITY DEFINER confirm_stock_issue RPC, which enforces that
 // current_user_worker_id equals the issue's named receiver.

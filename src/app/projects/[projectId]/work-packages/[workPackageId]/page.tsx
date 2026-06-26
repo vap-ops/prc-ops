@@ -96,6 +96,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     { data: projectDeliverables },
     { data: ohRows },
     { data: issueRows },
+    { data: returnRows },
     { data: wkRows },
     { data: catalogRows },
     { data: eqItemRows },
@@ -123,6 +124,9 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
       .eq("work_package_id", workPackageId)
       .order("issued_at", { ascending: false })
       .limit(10),
+    // Spec 209 U2: returns booked against this WP's issues — to show the
+    // remaining-returnable per issued line (issued − Σ returns).
+    supabase.from("stock_returns").select("issue_id, qty").eq("work_package_id", workPackageId),
     // Spec 177 U7: the project's active workers — the receiver picker for เบิก.
     supabase
       .from("workers")
@@ -251,6 +255,12 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     thumbnailUrl: catalogThumbs.get(r.id) ?? null,
   }));
 
+  // Spec 209 U2: Σ returned qty per issue, to derive the remaining-returnable.
+  const returnedByIssue = new Map<string, number>();
+  for (const r of returnRows ?? []) {
+    returnedByIssue.set(r.issue_id, (returnedByIssue.get(r.issue_id) ?? 0) + Number(r.qty));
+  }
+
   const wpIssues: WpIssueRow[] = (issueRows ?? []).map((r) => ({
     id: r.id,
     baseItem: r.catalog_items?.base_item ?? "",
@@ -260,6 +270,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     unitCost: Number(r.unit_cost),
     receiverName: r.receiver_worker_id ? (workerNames.get(r.receiver_worker_id) ?? "—") : null,
     receivedAt: r.received_at,
+    returnedQty: returnedByIssue.get(r.id) ?? 0,
   }));
 
   // Spec 202 U2: shape the equipment usage tab (rate-free). The picker lists every

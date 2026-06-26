@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { ConfirmActionButton } from "@/components/features/common/confirm-action-button";
+import { ReturnToStoreControl } from "@/components/features/store/return-to-store-control";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
 import { STORE_ISSUE_LABEL, STORE_FIX_WRONG_ENTRY_LABEL } from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
@@ -36,6 +37,8 @@ export type WpIssueRow = {
   // Custody (spec 177 U6/U7): the named receiver + whether they've confirmed.
   receiverName: string | null;
   receivedAt: string | null;
+  // Spec 209 U2: qty already returned to the store from this issue (≤ qty).
+  returnedQty: number;
 };
 
 // Spec 208 U3 — one draft row of the multi-line เบิก grid.
@@ -139,7 +142,7 @@ export function WpIssueStock({
           {issues.map((i) => (
             <li
               key={i.id}
-              className="border-edge bg-card rounded-control flex items-center gap-3 border px-4 py-3"
+              className="border-edge bg-card rounded-control flex flex-wrap items-center gap-3 border px-4 py-3"
             >
               <span className="min-w-0 flex-1">
                 <span className="text-ink text-body block font-semibold">{i.baseItem}</span>
@@ -159,6 +162,14 @@ export function WpIssueStock({
               <span className="text-ink text-body shrink-0 font-semibold">
                 {i.qty} {i.unit}
               </span>
+              {/* Spec 209 U2 — the REAL return: send a partial qty of issued
+                  material back to the store (offcuts/leftovers), at the issue cost. */}
+              <ReturnToStoreControl
+                issueId={i.id}
+                baseItem={i.baseItem}
+                unit={i.unit}
+                remaining={i.qty - i.returnedQty}
+              />
               {/* Spec 178 Stream B — undo a wrong เบิก here too (mirrors /store U12).
                   This block only renders for SITE_STAFF (the WP-detail !readOnly
                   gate), which is the reverse_stock_issue gate. */}
