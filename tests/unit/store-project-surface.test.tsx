@@ -58,7 +58,6 @@ describe("spec 197 U1 — คลัง per-project surface", () => {
         catalogItems={[]}
         suppliers={[]}
         canIssue={false}
-        issues={[]}
         receipts={[]}
         counts={[]}
       />,

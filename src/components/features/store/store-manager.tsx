@@ -18,13 +18,7 @@ import {
 } from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
 import type { Database } from "@/lib/db/database.types";
-import {
-  confirmStockIssueOnBehalf,
-  recordStockCount,
-  recordStockInBulk,
-  reverseStockIssue,
-  reverseStockReceipt,
-} from "@/app/store/actions";
+import { recordStockCount, recordStockInBulk, reverseStockReceipt } from "@/app/store/actions";
 
 // Spec 198 U1 — one draft row of the multi-line รับเข้า grid.
 type DraftReceiptRow = {
@@ -74,19 +68,6 @@ export type StockRow = {
   totalValue: number;
 };
 
-export type IssueRow = {
-  id: string;
-  baseItem: string;
-  specAttrs: string | null;
-  unit: string;
-  qty: number;
-  unitCost: number;
-  wpLabel: string;
-  // Custody (spec 177 U6/U7): a named receiver + whether they've confirmed.
-  receiverWorkerId: string | null;
-  receivedAt: string | null;
-};
-
 export type ReceiptRow = {
   id: string;
   baseItem: string;
@@ -117,7 +98,6 @@ export function StoreManager({
   catalogItems,
   suppliers,
   canIssue,
-  issues,
   receipts,
   counts,
   hidePicker = false,
@@ -129,7 +109,6 @@ export function StoreManager({
   catalogItems: CatalogPick[];
   suppliers: { id: string; name: string }[];
   canIssue: boolean;
-  issues: IssueRow[];
   receipts: ReceiptRow[];
   // Spec 178 B3 — recent physical counts (the ประวัติการนับ history).
   counts: CountRow[];
@@ -355,66 +334,6 @@ export function StoreManager({
                       buttonClassName={`${BUTTON_SECONDARY} shrink-0`}
                       action={() => reverseStockReceipt({ receiptId: rc.id })}
                     />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          {issues.length > 0 ? (
-            <div className="flex flex-col gap-2">
-              <h2 className="text-ink text-body font-semibold">เบิกล่าสุด</h2>
-              <ul className="flex flex-col gap-2">
-                {issues.map((i) => (
-                  <li
-                    key={i.id}
-                    className="border-edge bg-card rounded-control flex items-center gap-3 border px-4 py-3"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="text-ink text-body block font-semibold">{i.baseItem}</span>
-                      <span className="text-ink-secondary text-meta block">
-                        {i.specAttrs ? `${i.specAttrs} · ` : ""}
-                        {i.wpLabel} · ต้นทุน {baht(i.unitCost)} ฿/{i.unit}
-                      </span>
-                      {/* Custody (spec 177 U7): pending vs received, when a receiver
-                          was named (the manager path may leave it unnamed). */}
-                      {i.receiverWorkerId ? (
-                        <span
-                          className={`text-meta mt-0.5 block ${
-                            i.receivedAt ? "text-action" : "text-ink-muted"
-                          }`}
-                        >
-                          {i.receivedAt ? "รับแล้ว" : "รอรับ"}
-                        </span>
-                      ) : null}
-                    </span>
-                    <span className="text-ink text-body shrink-0 font-semibold">
-                      {i.qty} {i.unit}
-                    </span>
-                    {/* Spec 178 B5 — confirm-on-behalf: a manager attests receipt for
-                        a login-less named receiver who's still รอรับ. The RPC blocks
-                        the issuer (separation of duties); the error maps cleanly. */}
-                    {canIssue && i.receiverWorkerId && !i.receivedAt ? (
-                      <ConfirmActionButton
-                        idleLabel="ยืนยันรับแทน"
-                        pendingLabel="กำลังยืนยัน…"
-                        confirmMessage={`ยืนยันว่าผู้รับได้รับ ${i.baseItem} ${i.qty} ${i.unit} แล้ว (ยืนยันแทนผู้รับ)?`}
-                        confirmLabel="ยืนยัน"
-                        buttonClassName={`${BUTTON_SECONDARY} shrink-0`}
-                        action={() => confirmStockIssueOnBehalf({ issueId: i.id })}
-                      />
-                    ) : null}
-                    {/* เบิก reversal = SITE_STAFF; on /store that is the manager tier. */}
-                    {canIssue ? (
-                      <ConfirmActionButton
-                        idleLabel={STORE_FIX_WRONG_ENTRY_LABEL}
-                        pendingLabel="กำลังแก้ไข…"
-                        confirmMessage={`ลบรายการเบิกที่บันทึกผิด — ${i.baseItem} ${i.qty} ${i.unit}? ใช้เมื่อบันทึกผิด ไม่ใช่การคืนของจริง (ของจะถูกคืนเข้าสโตร์)`}
-                        confirmLabel="ยืนยัน"
-                        buttonClassName={`${BUTTON_SECONDARY} shrink-0`}
-                        action={() => reverseStockIssue({ issueId: i.id })}
-                      />
-                    ) : null}
                   </li>
                 ))}
               </ul>

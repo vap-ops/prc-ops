@@ -33,7 +33,6 @@ const base = {
   canIssue: false,
   workPackages: [],
   workers: [],
-  issues: [],
   receipts: [],
   counts: [],
   hidePicker: true,

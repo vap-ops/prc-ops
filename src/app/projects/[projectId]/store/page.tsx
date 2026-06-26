@@ -20,7 +20,6 @@ import {
   StoreManager,
   type CatalogPick,
   type CountRow,
-  type IssueRow,
   type ReceiptRow,
   type StockRow,
 } from "@/components/features/store/store-manager";
@@ -101,26 +100,6 @@ export default async function ProjectStorePage({ params }: PageProps) {
     .select("id, name")
     .order("name", { ascending: true });
   const suppliers = (supRows ?? []).map((s) => ({ id: s.id, name: s.name }));
-
-  const { data: issueRows } = await supabase
-    .from("stock_issues")
-    .select(
-      "id, qty, unit, unit_cost, receiver_worker_id, received_at, catalog_items ( base_item, spec_attrs ), work_packages ( code, name )",
-    )
-    .eq("project_id", project.id)
-    .order("issued_at", { ascending: false })
-    .limit(10);
-  const issues: IssueRow[] = (issueRows ?? []).map((r) => ({
-    id: r.id,
-    baseItem: r.catalog_items?.base_item ?? "",
-    specAttrs: r.catalog_items?.spec_attrs ?? null,
-    unit: r.unit,
-    qty: Number(r.qty),
-    unitCost: Number(r.unit_cost),
-    wpLabel: r.work_packages ? `${r.work_packages.code} ${r.work_packages.name}` : "",
-    receiverWorkerId: r.receiver_worker_id,
-    receivedAt: r.received_at,
-  }));
 
   const { data: receiptRows } = await supabase
     .from("stock_receipts")
@@ -229,7 +208,6 @@ export default async function ProjectStorePage({ params }: PageProps) {
           catalogItems={catalogItems}
           suppliers={suppliers}
           canIssue={canIssue}
-          issues={issues}
           receipts={receipts}
           counts={counts}
           emptyStateSupplyPlanHref={canPlanSupply ? supplyPlanHref(project.id) : null}
