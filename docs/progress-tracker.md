@@ -3549,3 +3549,22 @@ unchanged from U1/U2; visual identical to the U2 screenshot. No new unit test (s
 consistent with `load-detail`/`fetch-zone-data`, neither unit-tested); covered by the U2 card/helper
 tests + pgTAP 226 + a U3 adversarial review. typecheck + lint clean, full suite green. Kept on the
 review page too (both surfaces).
+
+**TELEGRAM notification channel SHIPPED 2026-06-26 (mig `20260813003100`, pgTAP 230) — second
+delivery channel alongside LINE (ADR 0037 extension).** Operator: "apart from notifying superadmins
+in LINE, also notify them in Telegram — currently only me." Built as a PARALLEL channel in the drain
+(not a replacement): every notification goes to each recipient via LINE (if `line_user_id`) AND
+Telegram (if `telegram_chat_id`); a user gets Telegram only once their chat id is set (today, just the
+operator). **DB:** mig …3100 = `users.telegram_chat_id text` nullable (drain reads via service_role
+admin; `users` table-level grants cover it; same exposure as line_user_id — an id not a credential).
+**Code:** new `pushTelegramMessage` (`src/lib/notifications/telegram-push.ts`, mirrors line-push:
+Bot API sendMessage, 4096-char truncate, per-chat best-effort) · `env.server.ts` +`TELEGRAM_BOT_TOKEN`
+(optional, drain skips Telegram when absent) · `drain/route.ts` fetches `telegram_chat_id` alongside
+`line_user_id` in all 3 user selects, builds `telegramChatByUser`, sends a second pass; `anySuccess`
+= either channel reached the recipient, `recipientCount` = line+telegram (so a Telegram-only recipient
+counts; row retried only if EVERY push failed). Reuses the operator's existing progress bot. Test-first:
+`telegram-push.test.ts` (4) + pgTAP 230 (3 — column exists/text/service_role-readable). Full suite
+270/1757; pgTAP 181/181 (0 failures); typecheck · lint green. db:types regen (+telegram_chat_id).
+**ACTIVATION (operator): (1) set super-admin `telegram_chat_id` (SQL, from .telegram.env chat); (2)
+add `TELEGRAM_BOT_TOKEN` to Vercel prod + redeploy.** Inert until both done (like LINE). Schema lane:
+telegram-notify (LANES.md), sole session.

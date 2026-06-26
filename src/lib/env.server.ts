@@ -30,6 +30,10 @@ const serverSchema = z.object({
   // not crash boot.
   LINE_MESSAGING_CHANNEL_ACCESS_TOKEN: optionalNonEmpty,
   NOTIFICATION_DRAIN_SECRET: optionalNonEmpty,
+  // Telegram Bot token — the notification drain's SECOND delivery channel
+  // (super-admins with a telegram_chat_id). OPTIONAL like the LINE token: the
+  // drain simply skips Telegram pushes when it's absent.
+  TELEGRAM_BOT_TOKEN: optionalNonEmpty,
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;

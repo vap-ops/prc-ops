@@ -21,6 +21,7 @@ import {
   rowOutcomeAfterPushes,
 } from "@/lib/notifications/drain-policy";
 import { pushLineMessage } from "@/lib/notifications/line-push";
+import { pushTelegramMessage } from "@/lib/notifications/telegram-push";
 
 // First-activation backlog: up to 50 rows × several sequential LINE pushes
 // each — needs more than the default function duration.
@@ -42,6 +43,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (!token || !secret) {
     return NextResponse.json({ error: "not_configured" }, { status: 503 });
   }
+  // Telegram is an OPTIONAL second channel: when set, recipients with a
+  // telegram_chat_id also get a Telegram push (in addition to LINE).
+  const telegramToken = serverEnv.TELEGRAM_BOT_TOKEN;
   if (!secretMatches(request.headers.get("x-drain-secret"), secret)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
@@ -145,7 +149,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     needsPmPool
       ? admin
           .from("users")
-          .select("id, line_user_id")
+          .select("id, line_user_id, telegram_chat_id")
           // The PM-tier pool = PM_ROLES (incl. project_director, a see-all PM —
           // ADR 0058) so the director receives pending-approval / PR pings too
           // (operator confirmed 2026-06-26). SSOT'd to role-home, not re-listed.
@@ -161,7 +165,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           .not("storage_path", "is", null)
       : Promise.resolve({ data: [], error: null }),
     needsSuperPool
-      ? admin.from("users").select("id, line_user_id").eq("role", "super_admin")
+      ? admin.from("users").select("id, line_user_id, telegram_chat_id").eq("role", "super_admin")
       : Promise.resolve({ data: [], error: null }),
   ]);
   if (wpResult.error || pmResult.error || uploaderResult.error || superResult.error) {
@@ -189,8 +193,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const lineIdByUser = new Map<string, string>();
+  const telegramChatByUser = new Map<string, string>();
   for (const u of [...(pmResult.data ?? []), ...(superResult.data ?? [])]) {
     if (u.line_user_id) lineIdByUser.set(u.id, u.line_user_id);
+    if (u.telegram_chat_id) telegramChatByUser.set(u.id, u.telegram_chat_id);
   }
   const uploaderIds = (uploaderResult.data ?? []).map((l) => l.uploaded_by);
   const remainingIds = [...new Set([...individualIds, ...uploaderIds])].filter(
@@ -199,7 +205,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (remainingIds.length > 0) {
     const { data: extraUsers, error: usersError } = await admin
       .from("users")
-      .select("id, line_user_id")
+      .select("id, line_user_id, telegram_chat_id")
       .in("id", remainingIds);
     if (usersError) {
       console.error("[notifications/drain] user lookup failed", usersError.message);
@@ -207,6 +213,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     for (const u of extraUsers ?? []) {
       if (u.line_user_id) lineIdByUser.set(u.id, u.line_user_id);
+      if (u.telegram_chat_id) telegramChatByUser.set(u.id, u.telegram_chat_id);
     }
   }
 
@@ -232,6 +239,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const lineTargets = recipients
       .map((id) => lineIdByUser.get(id))
       .filter((lineId): lineId is string => lineId !== undefined);
+    const telegramTargets = telegramToken
+      ? recipients
+          .map((id) => telegramChatByUser.get(id))
+          .filter((chatId): chatId is string => chatId !== undefined)
+      : [];
 
     const wpCode = row.work_package_id ? wpCodeById.get(row.work_package_id) : undefined;
     const composeContext: ComposeContext = wpCode !== undefined ? { wpCode } : {};
@@ -247,11 +259,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         lastError = `LINE ${result.status}: ${result.body}`.slice(0, 500);
       }
     }
+    // Second channel: Telegram (only recipients with a telegram_chat_id, and only
+    // when the bot token is configured). A delivery counts as success if EITHER
+    // channel reached the recipient; the row is only retried if every push failed.
+    if (telegramToken) {
+      for (const chatId of telegramTargets) {
+        const result = await pushTelegramMessage({ token: telegramToken, chatId, text });
+        if (result.ok) {
+          anySuccess = true;
+        } else {
+          lastError = `Telegram ${result.status}: ${result.body}`.slice(0, 500);
+        }
+      }
+    }
 
     const outcome = rowOutcomeAfterPushes({
       attempts: row.attempts,
       anySuccess,
-      recipientCount: lineTargets.length,
+      recipientCount: lineTargets.length + telegramTargets.length,
       lastError,
       nowMs,
     });

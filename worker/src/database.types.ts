@@ -3952,6 +3952,7 @@ export type Database = {
           line_avatar_url: string | null
           line_user_id: string | null
           role: Database["public"]["Enums"]["user_role"]
+          telegram_chat_id: string | null
           updated_at: string
         }
         Insert: {
@@ -3961,6 +3962,7 @@ export type Database = {
           line_avatar_url?: string | null
           line_user_id?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          telegram_chat_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -3970,6 +3972,7 @@ export type Database = {
           line_avatar_url?: string | null
           line_user_id?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          telegram_chat_id?: string | null
           updated_at?: string
         }
         Relationships: []
