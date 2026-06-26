@@ -4,9 +4,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockIssueBulk, mockRev, mockRefresh } = vi.hoisted(() => ({
+const { mockIssueBulk, mockRev, mockReturn, mockRefresh } = vi.hoisted(() => ({
   mockIssueBulk: vi.fn(),
   mockRev: vi.fn(),
+  mockReturn: vi.fn(),
   mockRefresh: vi.fn(),
 }));
 
@@ -14,6 +15,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) 
 vi.mock("@/app/store/actions", () => ({
   issueStockBulk: mockIssueBulk,
   reverseStockIssue: mockRev,
+  returnStockToStore: mockReturn,
 }));
 
 import {
@@ -36,12 +38,14 @@ const issues: WpIssueRow[] = [
     unitCost: 40,
     receiverName: null,
     receivedAt: null,
+    returnedQty: 0,
   },
 ];
 
 beforeEach(() => {
   mockIssueBulk.mockReset().mockResolvedValue({ ok: true });
   mockRev.mockReset().mockResolvedValue({ ok: true });
+  mockReturn.mockReset().mockResolvedValue({ ok: true });
   mockRefresh.mockReset();
 });
 
@@ -203,5 +207,26 @@ describe("WpIssueStock (spec 177 U5)", () => {
     fireEvent.click(screen.getByRole("button", { name: "แก้รายการที่บันทึกผิด" }));
     fireEvent.click(screen.getByRole("button", { name: "ยืนยัน" }));
     await waitFor(() => expect(mockRev).toHaveBeenCalledWith({ issueId: "i1" }));
+  });
+
+  // Spec 209 U2 — the real WP→store return (partial), distinct from the mistake-undo.
+  it("offers a คืนเข้าสโตร์ control on an issued line with qty left to return", () => {
+    renderZone({ issues });
+    expect(screen.getByRole("button", { name: "คืนเข้าสโตร์" })).toBeInTheDocument();
+  });
+
+  it("returns a partial qty after confirm (defaults to the remaining, accepts less)", async () => {
+    renderZone({ issues }); // issue i1: qty 5, returnedQty 0 → remaining 5
+    fireEvent.click(screen.getByRole("button", { name: "คืนเข้าสโตร์" }));
+    const input = screen.getByLabelText(/จำนวนที่คืน/);
+    expect((input as HTMLInputElement).value).toBe("5"); // default = remaining
+    fireEvent.change(input, { target: { value: "2" } });
+    fireEvent.click(screen.getByRole("button", { name: "ยืนยันคืน" }));
+    await waitFor(() => expect(mockReturn).toHaveBeenCalledWith({ issueId: "i1", qty: 2 }));
+  });
+
+  it("hides the return control once the issue is fully returned", () => {
+    renderZone({ issues: [{ ...issues[0]!, qty: 5, returnedQty: 5 }] });
+    expect(screen.queryByRole("button", { name: "คืนเข้าสโตร์" })).toBeNull();
   });
 });
