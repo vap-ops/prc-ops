@@ -18,18 +18,29 @@ migration, on a reviewed branch, applied with `supabase db push`.** Not
 the dashboard SQL editor, not dashboard toggles, not ad-hoc `psql`.
 
 - One change → one timestamped migration under `supabase/migrations/`.
-- Reviewed via PR to `main` before it reaches prod (per CLAUDE.md: merges
-  and `db push` are laptop/operator actions).
+- Reviewed before it reaches prod: **destructive** migrations via operator
+  PR + merge; **additive** migrations the agent self-reviews against green
+  pgTAP and ships per the 2026-06-25 standing grant (tiers below).
 - `supabase db pull` is not a substitute for committing the migration —
   the migration file is the artifact of record.
 
-**Who runs `db push`.** Applying a migration to prod with `supabase db push`
-may be delegated to the agent (Claude Code), but ONLY for migrations already
-merged to `main` via reviewed PR, and the agent MUST verify post-apply
-(`db:test` / targeted check) and report. The agent never applies un-merged or
-un-reviewed migrations, never mutates prod via the dashboard SQL editor, and
-emergency/out-of-band changes remain operator-only with an `audit_log` row.
-For schema, data, Storage, and DB-role changes, `git push` and merges to `main` remain operator-only — routine code follows CLAUDE.md's standing auto-commit-and-merge grant.
+**Who runs `db push`.** Two tiers by migration class:
+
+- **Additive / non-destructive** (new tables, columns, RPCs, policies,
+  grants — anything _not_ in `break-glass.md` Procedure B): the agent
+  (Claude Code) ships end-to-end once its pgTAP is green — commit, ff-merge
+  to `main`, `git push origin main`, `supabase db push`, then verify
+  post-apply (`db:test` / targeted check) and report. No per-task confirm
+  (operator standing grant, 2026-06-25).
+- **Destructive / irreversible** (DROP, destructive ALTER incl. column-type
+  change, mass DELETE, TRUNCATE — `break-glass.md` Procedure B):
+  operator-gated. The operator owns the merge and `git push` and runs the
+  three break-glass floors; the agent may `db push` only an already-merged
+  migration, then verifies and reports.
+
+The agent never mutates prod via the dashboard SQL editor, and emergency /
+out-of-band changes remain operator-only with an `audit_log` row. Routine
+(non-schema) code follows CLAUDE.md's standing auto-commit-and-merge grant.
 
 **The dashboard SQL editor is read-only / diagnostics only.** Use it to
 inspect, audit, and verify — never to mutate shared state.
