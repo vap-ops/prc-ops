@@ -4,10 +4,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockIssueBulk, mockRev, mockReturn, mockRefresh } = vi.hoisted(() => ({
+const { mockIssueBulk, mockRev, mockReturn, mockConfirmOB, mockRefresh } = vi.hoisted(() => ({
   mockIssueBulk: vi.fn(),
   mockRev: vi.fn(),
   mockReturn: vi.fn(),
+  mockConfirmOB: vi.fn(),
   mockRefresh: vi.fn(),
 }));
 
@@ -16,6 +17,7 @@ vi.mock("@/app/store/actions", () => ({
   issueStockBulk: mockIssueBulk,
   reverseStockIssue: mockRev,
   returnStockToStore: mockReturn,
+  confirmStockIssueOnBehalf: mockConfirmOB,
 }));
 
 import {
@@ -46,6 +48,7 @@ beforeEach(() => {
   mockIssueBulk.mockReset().mockResolvedValue({ ok: true });
   mockRev.mockReset().mockResolvedValue({ ok: true });
   mockReturn.mockReset().mockResolvedValue({ ok: true });
+  mockConfirmOB.mockReset().mockResolvedValue({ ok: true });
   mockRefresh.mockReset();
 });
 
@@ -228,5 +231,38 @@ describe("WpIssueStock (spec 177 U5)", () => {
   it("hides the return control once the issue is fully returned", () => {
     renderZone({ issues: [{ ...issues[0]!, qty: 5, returnedQty: 5 }] });
     expect(screen.queryByRole("button", { name: "คืนเข้าสโตร์" })).toBeNull();
+  });
+});
+
+// Spec 210 — confirm-on-behalf moves here from the store console: when a เบิก
+// names a receiver who hasn't confirmed yet, the site staffer can attest receipt
+// on their behalf right where the issue was made (the WP). The RPC blocks the
+// issuer (separation of duties); the UI shows the control whenever a named
+// receiver is still รอรับ and maps the error if the issuer taps it.
+describe("WpIssueStock confirm-on-behalf (spec 210)", () => {
+  const pending: WpIssueRow[] = [{ ...issues[0]!, receiverName: "สมชาย", receivedAt: null }];
+
+  it("offers ยืนยันรับแทน on a pending named issue", () => {
+    renderZone({ issues: pending });
+    expect(screen.getByRole("button", { name: "ยืนยันรับแทน" })).toBeInTheDocument();
+  });
+
+  it("hides ยืนยันรับแทน once the issue is received", () => {
+    renderZone({
+      issues: [{ ...issues[0]!, receiverName: "สมชาย", receivedAt: "2026-06-22T10:00:00Z" }],
+    });
+    expect(screen.queryByRole("button", { name: "ยืนยันรับแทน" })).toBeNull();
+  });
+
+  it("hides ยืนยันรับแทน when no receiver was named", () => {
+    renderZone({ issues });
+    expect(screen.queryByRole("button", { name: "ยืนยันรับแทน" })).toBeNull();
+  });
+
+  it("confirms on behalf after confirm", async () => {
+    renderZone({ issues: pending });
+    fireEvent.click(screen.getByRole("button", { name: "ยืนยันรับแทน" }));
+    fireEvent.click(screen.getByRole("button", { name: "ยืนยัน" }));
+    await waitFor(() => expect(mockConfirmOB).toHaveBeenCalledWith({ issueId: "i1" }));
   });
 });

@@ -15,7 +15,7 @@ import { ReturnToStoreControl } from "@/components/features/store/return-to-stor
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
 import { STORE_ISSUE_LABEL, STORE_FIX_WRONG_ENTRY_LABEL } from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
-import { issueStockBulk, reverseStockIssue } from "@/app/store/actions";
+import { confirmStockIssueOnBehalf, issueStockBulk, reverseStockIssue } from "@/app/store/actions";
 
 // On-hand for the picker — only what the WP เบิก needs (the value/avg-cost columns
 // the /store console shows are not relevant when drawing to a WP).
@@ -170,6 +170,20 @@ export function WpIssueStock({
                 unit={i.unit}
                 remaining={i.qty - i.returnedQty}
               />
+              {/* Spec 210 — confirm-on-behalf moved here from the store console: a
+                  site staffer attests receipt for a named receiver who is still
+                  รอรับ, right where the เบิก was made. The RPC blocks the issuer
+                  (separation of duties) and the error maps cleanly. */}
+              {i.receiverName && !i.receivedAt ? (
+                <ConfirmActionButton
+                  idleLabel="ยืนยันรับแทน"
+                  pendingLabel="กำลังยืนยัน…"
+                  confirmMessage={`ยืนยันว่าผู้รับได้รับ ${i.baseItem} ${i.qty} ${i.unit} แล้ว (ยืนยันแทนผู้รับ)?`}
+                  confirmLabel="ยืนยัน"
+                  buttonClassName={`${BUTTON_SECONDARY} shrink-0`}
+                  action={() => confirmStockIssueOnBehalf({ issueId: i.id })}
+                />
+              ) : null}
               {/* Spec 178 Stream B — undo a wrong เบิก here too (mirrors /store U12).
                   This block only renders for SITE_STAFF (the WP-detail !readOnly
                   gate), which is the reverse_stock_issue gate. */}

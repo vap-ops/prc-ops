@@ -5,25 +5,16 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const {
-  mockRecord,
-  mockRecordBulk,
-  mockCount,
-  mockRevReceipt,
-  mockRevIssue,
-  mockConfirmOB,
-  mockRefresh,
-  mockPush,
-} = vi.hoisted(() => ({
-  mockRecord: vi.fn(),
-  mockRecordBulk: vi.fn(),
-  mockCount: vi.fn(),
-  mockRevReceipt: vi.fn(),
-  mockRevIssue: vi.fn(),
-  mockConfirmOB: vi.fn(),
-  mockRefresh: vi.fn(),
-  mockPush: vi.fn(),
-}));
+const { mockRecord, mockRecordBulk, mockCount, mockRevReceipt, mockRefresh, mockPush } = vi.hoisted(
+  () => ({
+    mockRecord: vi.fn(),
+    mockRecordBulk: vi.fn(),
+    mockCount: vi.fn(),
+    mockRevReceipt: vi.fn(),
+    mockRefresh: vi.fn(),
+    mockPush: vi.fn(),
+  }),
+);
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: mockRefresh, push: mockPush }),
@@ -33,14 +24,11 @@ vi.mock("@/app/store/actions", () => ({
   recordStockInBulk: mockRecordBulk,
   recordStockCount: mockCount,
   reverseStockReceipt: mockRevReceipt,
-  reverseStockIssue: mockRevIssue,
-  confirmStockIssueOnBehalf: mockConfirmOB,
 }));
 
 import {
   StoreManager,
   type StockRow,
-  type IssueRow,
   type ReceiptRow,
   type CountRow,
 } from "@/components/features/store/store-manager";
@@ -69,19 +57,6 @@ const counts: CountRow[] = [
     variance: -2,
   },
 ];
-const issues: IssueRow[] = [
-  {
-    id: "iss1",
-    baseItem: "ท่อ PVC",
-    specAttrs: null,
-    unit: "เส้น",
-    qty: 8,
-    unitCost: 45,
-    wpLabel: "WP-01 งานเดินไฟ",
-    receiverWorkerId: "w1",
-    receivedAt: null,
-  },
-];
 const onHand: StockRow[] = [
   {
     catalogItemId: "ci1",
@@ -102,8 +77,6 @@ beforeEach(() => {
   mockRecordBulk.mockReset().mockResolvedValue({ ok: true });
   mockCount.mockReset().mockResolvedValue({ ok: true });
   mockRevReceipt.mockReset().mockResolvedValue({ ok: true });
-  mockRevIssue.mockReset().mockResolvedValue({ ok: true });
-  mockConfirmOB.mockReset().mockResolvedValue({ ok: true });
   mockRefresh.mockReset();
   mockPush.mockReset();
 });
@@ -112,7 +85,6 @@ function renderManager(opts: {
   selectedProjectId?: string | null;
   onHand?: StockRow[];
   canIssue?: boolean;
-  issues?: IssueRow[];
   receipts?: ReceiptRow[];
   counts?: CountRow[];
 }) {
@@ -124,7 +96,6 @@ function renderManager(opts: {
       catalogItems={catalogItems}
       suppliers={suppliers}
       canIssue={opts.canIssue ?? false}
-      issues={opts.issues ?? []}
       receipts={opts.receipts ?? []}
       counts={opts.counts ?? []}
     />,
@@ -191,29 +162,18 @@ describe("StoreManager (spec 177 U2)", () => {
   });
 });
 
-// Spec 208: withdrawal is INITIATED on the WP detail page (เบิกของ tab), not the
-// store console. The store console keeps the read-only เบิกล่าสุด history (+ the
-// confirm-on-behalf / reverse management below); it no longer offers a เบิก button.
-describe("StoreManager เบิกล่าสุด history (spec 177 U4 / spec 208)", () => {
-  it("shows no เบิก initiation control on the store console", () => {
+// Spec 210: the store console is no longer the เบิก surface. Withdrawal is
+// created AND managed (history / undo / confirm-on-behalf) on the WP detail
+// เบิกของ tab; the console keeps only inventory (on-hand, รับเข้า, ตรวจนับ).
+describe("StoreManager has no เบิก surface (spec 210)", () => {
+  it("shows no เบิกล่าสุด history on the store console", () => {
     renderManager({ canIssue: true });
-    expect(screen.queryByRole("button", { name: "เบิก" })).toBeNull();
+    expect(screen.queryByText("เบิกล่าสุด")).toBeNull();
   });
 
-  it("lists recent เบิก for the project", () => {
-    renderManager({ canIssue: true, issues });
-    expect(screen.getByText("ท่อ PVC")).toBeInTheDocument();
-    expect(screen.getByText(/WP-01/)).toBeInTheDocument();
-  });
-
-  it("badges a named issue as pending vs received", () => {
-    renderManager({ canIssue: true, issues });
-    expect(screen.getByText(/รอรับ/)).toBeInTheDocument();
-    renderManager({
-      canIssue: true,
-      issues: [{ ...issues[0]!, receivedAt: "2026-06-22T10:00:00Z" }],
-    });
-    expect(screen.getByText(/รับแล้ว/)).toBeInTheDocument();
+  it("shows no confirm-on-behalf control on the store console", () => {
+    renderManager({ canIssue: true });
+    expect(screen.queryByRole("button", { name: "ยืนยันรับแทน" })).toBeNull();
   });
 });
 
@@ -269,49 +229,6 @@ describe("StoreManager แก้รายการที่บันทึกผ
     await waitFor(() => expect(mockRevReceipt).toHaveBeenCalledWith({ receiptId: "rc1" }));
   });
 
-  it("offers แก้รายการที่บันทึกผิด on an issue only when the user can issue", () => {
-    renderManager({ canIssue: true, issues });
-    expect(screen.getByRole("button", { name: "แก้รายการที่บันทึกผิด" })).toBeInTheDocument();
-  });
-
-  it("hides issue แก้รายการที่บันทึกผิด when the user cannot issue", () => {
-    renderManager({ canIssue: false, issues });
-    expect(screen.queryByRole("button", { name: "แก้รายการที่บันทึกผิด" })).toBeNull();
-  });
-
-  it("reverses an issue after confirm", async () => {
-    renderManager({ canIssue: true, issues });
-    fireEvent.click(screen.getByRole("button", { name: "แก้รายการที่บันทึกผิด" }));
-    fireEvent.click(screen.getByRole("button", { name: "ยืนยัน" }));
-    await waitFor(() => expect(mockRevIssue).toHaveBeenCalledWith({ issueId: "iss1" }));
-  });
-});
-
-describe("StoreManager confirm-on-behalf (spec 178 B5)", () => {
-  it("offers ยืนยันรับแทน on a pending named issue for a manager", () => {
-    renderManager({ canIssue: true, issues });
-    expect(screen.getByRole("button", { name: "ยืนยันรับแทน" })).toBeInTheDocument();
-  });
-
-  it("hides ยืนยันรับแทน once the issue is received", () => {
-    renderManager({
-      canIssue: true,
-      issues: [{ ...issues[0]!, receivedAt: "2026-06-22T10:00:00Z" }],
-    });
-    expect(screen.queryByRole("button", { name: "ยืนยันรับแทน" })).toBeNull();
-  });
-
-  it("hides ยืนยันรับแทน for a non-manager", () => {
-    renderManager({ canIssue: false, issues });
-    expect(screen.queryByRole("button", { name: "ยืนยันรับแทน" })).toBeNull();
-  });
-
-  it("confirms on behalf after confirm", async () => {
-    renderManager({ canIssue: true, issues });
-    fireEvent.click(screen.getByRole("button", { name: "ยืนยันรับแทน" }));
-    fireEvent.click(screen.getByRole("button", { name: "ยืนยัน" }));
-    await waitFor(() => expect(mockConfirmOB).toHaveBeenCalledWith({ issueId: "iss1" }));
-  });
 });
 
 describe("StoreManager count history (spec 178 B3)", () => {
