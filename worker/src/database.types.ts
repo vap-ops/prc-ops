@@ -3672,6 +3672,7 @@ export type Database = {
           total_cost: number | null
           unit: string
           unit_cost: number
+          vat_rate: number
         }
         Insert: {
           catalog_item_id: string
@@ -3687,6 +3688,7 @@ export type Database = {
           total_cost?: number | null
           unit: string
           unit_cost: number
+          vat_rate?: number
         }
         Update: {
           catalog_item_id?: string
@@ -3702,6 +3704,7 @@ export type Database = {
           total_cost?: number | null
           unit?: string
           unit_cost?: number
+          vat_rate?: number
         }
         Relationships: [
           {
