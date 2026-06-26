@@ -5283,6 +5283,18 @@ export type Database = {
         }[]
       }
       invoke_notification_drain: { Args: never; Returns: undefined }
+      is_back_office: {
+        Args: { p_role: Database["public"]["Enums"]["user_role"] }
+        Returns: boolean
+      }
+      is_manager: {
+        Args: { p_role: Database["public"]["Enums"]["user_role"] }
+        Returns: boolean
+      }
+      is_site_staff: {
+        Args: { p_role: Database["public"]["Enums"]["user_role"] }
+        Returns: boolean
+      }
       issue_stock: {
         Args: {
           p_catalog_item_id: string
