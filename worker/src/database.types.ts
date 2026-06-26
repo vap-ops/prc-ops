@@ -2235,6 +2235,57 @@ export type Database = {
           },
         ]
       }
+      project_categories: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean
+          name: string
+          project_id: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean
+          name: string
+          project_id: string
+          sort_order: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          project_id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_categories_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_coin_distributions: {
         Row: {
           coin_pool: number
@@ -5087,6 +5138,15 @@ export type Database = {
         }
         Returns: string
       }
+      create_project_category: {
+        Args: {
+          p_code: string
+          p_name: string
+          p_project_id: string
+          p_sort_order: number
+        }
+        Returns: string
+      }
       create_purchase_order: {
         Args: {
           p_eta: string
@@ -5564,6 +5624,10 @@ export type Database = {
         Args: { p_reason: string; p_wp: string }
         Returns: boolean
       }
+      reorder_project_categories: {
+        Args: { p_ids: string[]; p_project_id: string }
+        Returns: undefined
+      }
       resolve_posting_period: { Args: { p_date: string }; Returns: string }
       reverse_journal_entry: {
         Args: { p_entry_id: string; p_memo?: string }
@@ -5629,6 +5693,10 @@ export type Database = {
       }
       set_nova_dial: {
         Args: { p_key: string; p_value: number }
+        Returns: undefined
+      }
+      set_project_category_active: {
+        Args: { p_id: string; p_is_active: boolean }
         Returns: undefined
       }
       set_project_client: {
@@ -5845,6 +5913,10 @@ export type Database = {
           p_emergency_relation?: string
           p_phone?: string
         }
+        Returns: undefined
+      }
+      update_project_category: {
+        Args: { p_id: string; p_name: string; p_sort_order: number }
         Returns: undefined
       }
       update_project_settings: {

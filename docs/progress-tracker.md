@@ -3568,3 +3568,24 @@ counts; row retried only if EVERY push failed). Reuses the operator's existing p
 **ACTIVATION (operator): (1) set super-admin `telegram_chat_id` (SQL, from .telegram.env chat); (2)
 add `TELEGRAM_BOT_TOKEN` to Vercel prod + redeploy.** Inert until both done (like LINE). Schema lane:
 telegram-notify (LANES.md), sole session.
+
+**SPEC 207 U1 — project_categories taxonomy SHIPPED 2026-06-26 (mig `20260813003300`, pgTAP
+232).** Operator approved spec 207 (project work-categories + category-scoped construction
+drawings, feedback 1a556584) and resolved open decision #2 → master drawings are INTERNAL-ONLY
+(subcontractors see only their own category's drawings; U6 will drop the `OR category_id IS NULL`
+arm). **U1 = the per-project หมวดงาน taxonomy (DB only, strictly additive):** new
+`project_categories` table (project*id FK cascade · code unique-per-project · name nonblank/≤120 ·
+sort_order · is_active · created_by · timestamps + the shared `set_updated_at` trigger); RLS
+membership-gated read via `can_see_project` (the deliverables/reports precedent); NO delete
+(deactivate-not-delete, the catalog_items/masters convention); writes ONLY via four SECURITY
+DEFINER RPCs `create*/update*/reorder*/set_project_category_active`— NULL-safe role gate
+(pm/super/director) +`can_see_project`membership +`revoke … from public, anon`(the hardened
+anon-exec doctrine, [[anon-exec-definer-audit-2026-06]]). A TABLE not an enum (ADR 0055 dec.2 —
+each project owns its set, operator-extensible at runtime); the operator-authored Thai`name` IS the
+label (no labels.ts Record). pgTAP 232 (37 assertions): table/RLS/4-fns-secdef/anon-deny,
+no-delete + RPC-only-write grants, full CRUD as a member PM, dup-code 23505, blank code/name 22023,
+membership 42501 (non-member + unseen project, both create-deny and read-zero), role-gate 42501
+(site_admin + visitor), reorder-by-ordinality. Full pgTAP suite 183/0 (3178 assertions, 0 failures);
+lint · typecheck · test 270 files / 1760 green. db:types regen (+`project_categories`+4 RPCs, both
+app + worker). **NEXT = U2** (work_packages.category_id nullable FK +`set_work_package_category`,
+clone of `set_work_package_deliverable`).

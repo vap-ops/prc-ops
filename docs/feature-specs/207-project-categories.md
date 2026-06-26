@@ -1,6 +1,8 @@
 # 207 — Project work-categories + construction-drawing access (หมวดงาน + แบบก่อสร้าง)
 
-STATUS: DRAFT — pending operator approval; do not implement yet.
+STATUS: APPROVED — operator 2026-06-26. Building along U1→U6 (one unit per session).
+Open decision #2 RESOLVED → master drawings are INTERNAL-ONLY (subcontractors never see
+the master; U6 drops the `OR d.category_id IS NULL` arm; no per-drawing opt-in in v1).
 
 Status: DRAFT (authored 2026-06-26, not started). Next number 207 verified against
 `docs/feature-specs/` (highest existing = 206-wht-certificate-recording-ui.md).
@@ -601,10 +603,11 @@ of v1 core; ship only if requested.
 
 ## Open decisions (product judgment — recommendation + flag)
 
-> These are flagged for explicit operator approval before build. The subcontractor-axis
-> question (1) is now ✅ RESOLVED (firm axis, confirmed in shipped code). The
-> master-visibility question (2) remains the one 🔔 product-judgment blocker for U6 — do
-> NOT ship U6 on an assumed answer to (2).
+> These were flagged for explicit operator approval before build. (1) Subcontractor-axis
+> ✅ RESOLVED (firm axis, confirmed in shipped code). (2) Master-visibility ✅ RESOLVED
+> (operator 2026-06-26): master drawings are INTERNAL-ONLY — subcontractors see only their
+> own category's drawings; U6 drops the `OR d.category_id IS NULL` arm; no per-drawing
+> opt-in in v1. (3)–(6) proceed on the recommendations below.
 
 1. **✅ RESOLVED — Subcontractor axis = the FIRM (`work_packages.contractor_id`).**
    Confirmed against shipped code (CC, 2026-06-26), not assumed: the canonical "assign a
@@ -623,7 +626,9 @@ p_contractor_id)` (migration `20260751000000`), which writes `work_packages.cont
    WP empty-state nudge so a category-less / firm-less WP is visibly "ผู้รับเหมาจะยังไม่เห็นแบบ."
    Worker-axis (per-DC-person) drawing visibility stays out of scope (separate spec).
 
-2. **🔔 Master drawing visible to subcontractors, or internal-only?** The `OR d.category_id
+2. **✅ RESOLVED (operator 2026-06-26) → INTERNAL-ONLY** (subcons see only their own
+   category's drawings; U6 drops the `OR d.category_id IS NULL` arm; no per-drawing opt-in
+   in v1). Original analysis kept for context. Master drawing visible to subcontractors, or internal-only? The `OR d.category_id
 IS NULL` arm grants EVERY bound firm the project MASTER for any project it has even one
    WP in. A master construction drawing often carries the whole project (all trades, scopes,
    possibly client/commercial annotations). The feedback text says "project-level MASTER
