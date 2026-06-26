@@ -44,12 +44,17 @@ set local "request.jwt.claims" = '{"sub": "19191919-1919-1919-1919-000000000200"
 select is(
   (select count(*)::int from public.gl_reconciliation() where check_name = 'inventory_1500'),
   1, 'gl_reconciliation has an inventory_1500 check');
+-- gl_reconciliation() is TABLE-WIDE; assert the INVARIANT (GL 1500 ties to the
+-- on-hand subledger) rather than a fixture-coupled absolute, so real store data
+-- (e.g. the spec-208/209 backfill) doesn't break it.
 select is(
   (select gl_value from public.gl_reconciliation() where check_name = 'inventory_1500'),
-  500::numeric, 'GL Inventory (1500) balance = 500');
+  (select subledger_value from public.gl_reconciliation() where check_name = 'inventory_1500'),
+  'GL Inventory (1500) ties to the on-hand subledger');
 select is(
   (select subledger_value from public.gl_reconciliation() where check_name = 'inventory_1500'),
-  500::numeric, 'subledger = Σ stock_on_hand.total_value = 500');
+  (select coalesce(sum(total_value), 0) from public.stock_on_hand),
+  'subledger = Σ stock_on_hand.total_value (table-wide-safe)');
 select is(
   (select ok from public.gl_reconciliation() where check_name = 'inventory_1500'),
   true, 'inventory ties (GL 1500 = on-hand) when the backlog is clear');

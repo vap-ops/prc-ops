@@ -3672,6 +3672,7 @@ export type Database = {
           total_cost: number | null
           unit: string
           unit_cost: number
+          vat_rate: number
         }
         Insert: {
           catalog_item_id: string
@@ -3687,6 +3688,7 @@ export type Database = {
           total_cost?: number | null
           unit: string
           unit_cost: number
+          vat_rate?: number
         }
         Update: {
           catalog_item_id?: string
@@ -3702,6 +3704,7 @@ export type Database = {
           total_cost?: number | null
           unit?: string
           unit_cost?: number
+          vat_rate?: number
         }
         Relationships: [
           {
@@ -3737,6 +3740,90 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_returns: {
+        Row: {
+          catalog_item_id: string
+          created_at: string
+          id: string
+          issue_id: string
+          note: string | null
+          project_id: string
+          qty: number
+          returned_at: string
+          returned_by: string | null
+          total_cost: number | null
+          unit: string
+          unit_cost: number
+          work_package_id: string
+        }
+        Insert: {
+          catalog_item_id: string
+          created_at?: string
+          id?: string
+          issue_id: string
+          note?: string | null
+          project_id: string
+          qty: number
+          returned_at?: string
+          returned_by?: string | null
+          total_cost?: number | null
+          unit: string
+          unit_cost: number
+          work_package_id: string
+        }
+        Update: {
+          catalog_item_id?: string
+          created_at?: string
+          id?: string
+          issue_id?: string
+          note?: string | null
+          project_id?: string
+          qty?: number
+          returned_at?: string
+          returned_by?: string | null
+          total_cost?: number | null
+          unit?: string
+          unit_cost?: number
+          work_package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_returns_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_returns_issue_id_fkey"
+            columns: ["issue_id"]
+            isOneToOne: false
+            referencedRelation: "stock_issues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_returns_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_returns_returned_by_fkey"
+            columns: ["returned_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_returns_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_packages"
             referencedColumns: ["id"]
           },
         ]
@@ -5469,6 +5556,10 @@ export type Database = {
         Args: { p_source_id: string }
         Returns: string
       }
+      post_stock_return_to_gl: {
+        Args: { p_source_id: string }
+        Returns: string
+      }
       post_stock_reversal_to_gl: {
         Args: { p_source_id: string }
         Returns: string
@@ -5639,6 +5730,10 @@ export type Database = {
         Returns: undefined
       }
       resolve_posting_period: { Args: { p_date: string }; Returns: string }
+      return_stock_to_store: {
+        Args: { p_issue_id: string; p_note?: string; p_qty: number }
+        Returns: string
+      }
       reverse_journal_entry: {
         Args: { p_entry_id: string; p_memo?: string }
         Returns: string
