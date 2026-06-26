@@ -91,7 +91,7 @@ Do not add or remove enum values without an ADR. After LINE login, `roleHome()` 
 
 - The operator is non-developer, working from cloud PC and mobile.
 - Auto-commit-and-merge is the standing posture (operator grant, 2026-06-20): commit, ff-merge to `main`, and `git push origin main` directly from the cloud PC for routine work — no per-task confirm, and a per-task "I push from the laptop" note does not apply. `main` auto-deploys (Vercel).
-- Still flag genuinely risky changes before pushing: schema migrations and worker/Railway redeploys.
+- Still flag genuinely risky changes before pushing: **destructive/irreversible** schema migrations (DROP, column-type change, mass DELETE/TRUNCATE — `break-glass.md` Procedure B) and worker/Railway redeploys. **Additive/non-destructive** migrations (new tables/columns/RPCs/policies/grants) auto-push once their pgTAP is green (standing grant, 2026-06-25); see the tiers in `docs/policies/change-management.md` §1.
 - Never auto-authenticate `gh`.
 - After merge: delete merged branches.
 
