@@ -1,5 +1,5 @@
 begin;
-select plan(30);
+select plan(32);
 
 -- Spec 66 / ADR 0043 — on-site purchases (record_site_purchase +
 -- acknowledge_site_purchase) and invoice attachments.
@@ -245,6 +245,30 @@ select throws_ok(
   $$ update public.purchase_request_attachments set storage_path = 'x'
        where purpose = 'invoice' $$,
   '42501', null, 'invoice attachments are append-only (no UPDATE grant)');
+
+-- ============================================================================
+-- E. Item-photo (reference) attachment on a site purchase (spec 211 U11b).
+--    A self-purchase carries an item image in addition to the receipt/invoice.
+--    Still role authenticated + SA jwt (set at D.1).
+-- ============================================================================
+-- E.1 SA attaches a 'reference' (item photo) to the site-purchased parent —
+--     the widened reference arm now admits status='site_purchased'.
+select lives_ok(
+  $$ insert into public.purchase_request_attachments
+       (purchase_request_id, kind, purpose, storage_path, created_by)
+     values ((select id from public.purchase_requests where item_description = 'SITE-BUY-66'),
+             'image', 'reference', 'p/pr/item1.jpeg',
+             '22222222-2222-2222-2222-2222222266aa') $$,
+  'SA attaches an item photo (reference) to a site-purchased parent');
+
+-- E.2 the widening is site_purchased-SCOPED: a 'reference' on an on_route
+--     parent is still denied (not all post-requested statuses are admitted).
+select throws_ok(
+  $$ insert into public.purchase_request_attachments
+       (purchase_request_id, kind, purpose, storage_path, created_by)
+     values ('a1000000-0000-4000-8000-0000000066aa', 'image', 'reference',
+             'p/pr/item2.jpeg', '22222222-2222-2222-2222-2222222266aa') $$,
+  '42501', null, 'item photo (reference) on an on_route parent is still denied');
 
 -- Back to the connection role so finish() + the buffer read-back run as
 -- the table owner (the authenticated role cannot write _tap_buf).

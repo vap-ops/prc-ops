@@ -514,6 +514,90 @@ export async function addPaymentProofAttachment(
   return { ok: true };
 }
 
+// addReferenceAttachment (spec 211 U11b): a self-purchase's ITEM photo — the
+// picture of WHAT was bought, distinct from the receipt/invoice (docs). Mirrors
+// addInvoiceAttachment but purpose 'reference', gated to a site_purchased parent
+// — where record_site_purchase lands the PR, and where the widened reference RLS
+// arm now admits the insert. The creation-time reference (status 'requested')
+// keeps its own staging path; this is the post-record item image for an on-site
+// cash buy.
+
+const SITE_PURCHASE_REFERENCE_STATUSES = ["site_purchased"] as const;
+
+export async function addReferenceAttachment(
+  input: AddDeliveryConfirmationPhotoInput,
+): Promise<AttachmentActionResult> {
+  if (!UUID_REGEX.test(input.purchaseRequestId) || !UUID_REGEX.test(input.attachmentId)) {
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
+  }
+  if (!isValidAttachmentExt(input.ext)) {
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
+  }
+  const fileKind: AttachmentFileKind = attachmentKindForExt(input.ext);
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
+
+  const { data: pr } = await readPrParent(supabase, input.purchaseRequestId);
+  const projectId = prProjectId(pr);
+  if (!pr || !projectId) {
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
+  }
+
+  const storagePath = buildPrAttachmentStoragePath(
+    projectId,
+    input.purchaseRequestId,
+    input.attachmentId,
+    input.ext,
+  );
+  if (!storagePath) {
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
+  }
+
+  if (!(SITE_PURCHASE_REFERENCE_STATUSES as readonly string[]).includes(pr.status)) {
+    const landed = await findLandedAttachment(supabase, {
+      attachmentId: input.attachmentId,
+      purchaseRequestId: input.purchaseRequestId,
+      kind: fileKind,
+      purpose: "reference",
+      storagePath,
+    });
+    if (landed) {
+      revalidatePath("/requests");
+      return { ok: true };
+    }
+    return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
+  }
+
+  const { error } = await supabase.from("purchase_request_attachments").insert({
+    id: input.attachmentId,
+    purchase_request_id: input.purchaseRequestId,
+    kind: fileKind,
+    purpose: "reference",
+    storage_path: storagePath,
+    created_by: user.id,
+  });
+  if (error) {
+    if (error.code !== "23505") {
+      return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
+    }
+    const landed = await findLandedAttachment(supabase, {
+      attachmentId: input.attachmentId,
+      purchaseRequestId: input.purchaseRequestId,
+      kind: fileKind,
+      purpose: "reference",
+      storagePath,
+    });
+    if (!landed) {
+      return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
+    }
+  }
+
+  revalidatePath("/requests");
+  return { ok: true };
+}
+
 // addPurchaseOrderAttachment (spec 125 / ADR 0046 Layer B): the PO source
 // document (quotation/invoice). Mirrors addInvoiceAttachment but the parent is
 // a purchase_order (no status gate — a PO doc attaches whenever the PO exists)

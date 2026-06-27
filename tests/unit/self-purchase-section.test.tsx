@@ -17,6 +17,9 @@ vi.mock("@/app/store/actions", () => ({
 vi.mock("@/components/features/purchasing/invoice-uploader", () => ({
   InvoiceUploader: () => <div data-testid="invoice-uploader" />,
 }));
+vi.mock("@/components/features/purchasing/item-photo-uploader", () => ({
+  ItemPhotoUploader: () => <div data-testid="item-photo-uploader" />,
+}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 import {
