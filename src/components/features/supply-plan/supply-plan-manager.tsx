@@ -334,7 +334,7 @@ export function SupplyPlanManager({
               </span>
               {convertMode && l.converted ? (
                 <span className="bg-sunk text-done-strong text-meta rounded-control shrink-0 px-2 py-1 font-medium">
-                  สร้าง PR แล้ว
+                  สร้างคำขอซื้อแล้ว
                 </span>
               ) : null}
               {editable ? (

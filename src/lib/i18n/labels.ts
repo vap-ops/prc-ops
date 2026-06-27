@@ -139,6 +139,11 @@ export const PURCHASE_ORDER_STATUS_LABEL: Record<PurchaseOrderStatus, string> = 
 // their own "คาดว่าจะได้รับของ" prompt.
 export const ETA_LABEL = "กำหนดรับของ";
 
+// Spec 211 U10d — ONE label for the create-purchase-order action (was "สร้าง PO" /
+// "สร้างใบสั่งซื้อ (PO)" across the bundle bar, drawer, sheet title, single-PR button
+// and price-comparison). Drops the bare English "PO".
+export const CREATE_PO_LABEL = "สร้างใบสั่งซื้อ";
+
 // Spec 134 U9 — single source for the PO delivery-proof copy. The section sub-label,
 // the upload button, and the empty state all derive from this ONE term so it can't
 // drift (the รับของ→จัดส่ง button straggler that prompted this — shotgun surgery).

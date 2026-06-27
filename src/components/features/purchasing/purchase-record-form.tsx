@@ -146,7 +146,7 @@ export function PurchaseRecordForm({ requestId, suppliers }: PurchaseRecordFormP
         </details>
 
         <label htmlFor={`order-ref-${requestId}`} className="text-ink text-xs font-medium">
-          เลขที่ใบสั่งซื้อ (ไม่บังคับ)
+          เลขอ้างอิงผู้ขาย (ไม่บังคับ)
         </label>
         <input
           id={`order-ref-${requestId}`}

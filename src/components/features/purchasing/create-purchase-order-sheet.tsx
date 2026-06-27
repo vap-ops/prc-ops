@@ -14,6 +14,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FileText, X } from "lucide-react";
 import { bahtWithSymbol as baht } from "@/lib/format";
+import { CREATE_PO_LABEL } from "@/lib/i18n/labels";
 import { formatPrNumber } from "@/lib/purchasing/format-id";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { RadioChip } from "@/components/features/common/radio-chip";
@@ -352,7 +353,7 @@ export function CreatePurchaseOrderSheet({
       open={open}
       side="right"
       wide={docFile !== null}
-      title="สร้างใบสั่งซื้อ (PO)"
+      title={CREATE_PO_LABEL}
       onClose={onClose}
     >
       <input
@@ -507,7 +508,7 @@ export function CreatePurchaseOrderSheet({
             </fieldset>
 
             <label htmlFor="po-order-ref" className="text-ink text-xs font-medium">
-              เลขที่ใบสั่งซื้อ / อ้างอิงผู้ขาย (ไม่บังคับ)
+              เลขอ้างอิงผู้ขาย (ไม่บังคับ)
             </label>
             <input
               id="po-order-ref"
@@ -595,7 +596,7 @@ export function CreatePurchaseOrderSheet({
                 disabled={pending || !ready}
                 className={BUTTON_PRIMARY}
               >
-                {pending ? "กำลังสร้าง…" : `สร้าง PO (${lines.length})`}
+                {pending ? "กำลังสร้าง…" : `${CREATE_PO_LABEL} (${lines.length})`}
               </button>
             </div>
 

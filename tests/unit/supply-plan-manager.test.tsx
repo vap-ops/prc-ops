@@ -228,7 +228,7 @@ describe("SupplyPlanManager convert mode (spec 181 U4)", () => {
     });
     // An already-converted line shows the badge (no checkbox). Spec 195 P2: a
     // whole-project line is now selectable too (it becomes a WP-less PR).
-    expect(screen.getByText("สร้าง PR แล้ว")).toBeInTheDocument();
+    expect(screen.getByText("สร้างคำขอซื้อแล้ว")).toBeInTheDocument();
     expect(screen.queryByLabelText("เลือก เหล็ก")).toBeNull();
     expect(screen.getByLabelText("เลือก สีรองพื้น")).toBeInTheDocument();
 

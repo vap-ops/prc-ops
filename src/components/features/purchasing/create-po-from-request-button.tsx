@@ -10,6 +10,7 @@
 
 import { useState } from "react";
 import { ShoppingCart } from "lucide-react";
+import { CREATE_PO_LABEL } from "@/lib/i18n/labels";
 import { BUTTON_PRIMARY } from "@/lib/ui/classes";
 import {
   CreatePurchaseOrderSheet,
@@ -29,7 +30,7 @@ export function CreatePoFromRequestButton({
     <>
       <button type="button" onClick={() => setOpen(true)} className={`${BUTTON_PRIMARY} w-full`}>
         <ShoppingCart aria-hidden className="mr-1.5 size-4" />
-        สร้างใบสั่งซื้อ (PO)
+        {CREATE_PO_LABEL}
       </button>
       <CreatePurchaseOrderSheet
         open={open}

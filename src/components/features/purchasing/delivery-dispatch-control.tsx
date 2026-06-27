@@ -41,7 +41,7 @@ export function DeliveryDispatchControl({
         ทำเครื่องหมายว่างวดนี้กำลังจัดส่ง ({count} รายการ)
       </p>
       <button type="button" onClick={submit} disabled={pending} className={BUTTON_PRIMARY}>
-        {pending ? "กำลังบันทึก…" : "บันทึกการจัดส่ง"}
+        {pending ? "กำลังบันทึก…" : "บันทึกว่ากำลังจัดส่ง"}
       </button>
       {error ? (
         <p role="alert" className={INLINE_ALERT_TEXT}>
