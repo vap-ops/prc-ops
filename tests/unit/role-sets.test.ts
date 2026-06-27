@@ -7,6 +7,8 @@ import {
   BACK_OFFICE_ROLES,
   PAYROLL_ROLES,
   PM_ROLES,
+  PO_DETAIL_VIEW_ROLES,
+  PURCHASING_ROLES,
   SCHEDULE_VIEW_ROLES,
   SITE_STAFF_ROLES,
   SUPPLY_PLAN_ROLES,
@@ -309,6 +311,34 @@ describe("BILLING_WRITE_ROLES follows the PM set (incl. project_director)", () =
   it("excludes field + non-manager roles (site_admin, procurement, accounting)", () => {
     for (const role of ["site_admin", "procurement", "accounting", "visitor"] as const) {
       expect(BILLING_WRITE_ROLES).not.toContain(role);
+    }
+  });
+});
+
+// Spec 211 U9b: accounting may OPEN the PO detail (read-only) so the accounting
+// voucher's PO can be a live link. PO_DETAIL_VIEW_ROLES = PURCHASING_ROLES +
+// accounting. Money is shown (accounting is the money role); the page's write
+// actions (manage deliveries / receive) stay gated out of accounting separately.
+describe("PO_DETAIL_VIEW_ROLES (spec 211 U9b)", () => {
+  it("is PURCHASING_ROLES plus accounting", () => {
+    expect([...PO_DETAIL_VIEW_ROLES]).toEqual([...PURCHASING_ROLES, "accounting"]);
+  });
+
+  it("admits accounting (the voucher → PO link audience) and every purchasing role", () => {
+    expect(PO_DETAIL_VIEW_ROLES).toContain("accounting");
+    for (const role of PURCHASING_ROLES) expect(PO_DETAIL_VIEW_ROLES).toContain(role);
+  });
+
+  it("denies field/unserved roles outside purchasing + accounting", () => {
+    for (const role of [
+      "project_coordinator",
+      "hr",
+      "technician",
+      "subcon_manager",
+      "visitor",
+      "contractor",
+    ] as const) {
+      expect(PO_DETAIL_VIEW_ROLES).not.toContain(role);
     }
   });
 });

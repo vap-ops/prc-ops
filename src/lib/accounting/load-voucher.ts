@@ -26,6 +26,8 @@ export interface VoucherHeader {
   requesterName: string | null;
   approverName: string | null;
   poNumber: number | null;
+  // Spec 211 U9b: the PO's id, for the voucher's live link into the PO detail.
+  poId: string | null;
 }
 
 export interface VoucherAttachment {
@@ -124,6 +126,7 @@ export async function loadPurchaseVoucher(admin: Admin, id: string): Promise<Pur
     requesterName: pr.requested_by ? (names.get(pr.requested_by) ?? null) : null,
     approverName: pr.approved_by ? (names.get(pr.approved_by) ?? null) : null,
     poNumber: poRow?.po_number ?? null,
+    poId: pr.purchase_order_id,
   };
 
   return { header, attachments, glLines };

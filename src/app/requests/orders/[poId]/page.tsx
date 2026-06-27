@@ -7,9 +7,10 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { requireRole } from "@/lib/auth/require-role";
-import { PURCHASING_ROLES, RECEIVE_ROLES } from "@/lib/auth/role-home";
+import { PO_DETAIL_VIEW_ROLES, RECEIVE_ROLES } from "@/lib/auth/role-home";
 import { isBackOfficeRole } from "@/lib/purchasing/back-office";
 import { createClient } from "@/lib/db/server";
+import { createClient as createAdminClient } from "@/lib/db/admin";
 import { isValidUuid } from "@/lib/photos/path";
 import { buildPoDetailView } from "@/lib/purchasing/po-detail";
 import { loadPurchaseOrderDetail } from "@/lib/purchasing/load-po-detail";
@@ -37,7 +38,7 @@ import { PoDeliverySection } from "@/components/features/purchasing/po-delivery-
 import { buildDeliveriesView } from "@/lib/purchasing/po-deliveries";
 import { formatPrNumber } from "@/lib/purchasing/format-id";
 import { PoBreadcrumb } from "@/components/features/purchasing/po-breadcrumb";
-import { withBackFrom } from "@/lib/nav/back-href";
+import { safeBackHref, withBackFrom } from "@/lib/nav/back-href";
 
 // /requests/orders/[poId] — the purchase-order detail screen (spec 134 U1). A PO
 // groups N approved tickets into one supplier order (ADR 0044); spec 115 shipped
@@ -57,11 +58,16 @@ export const metadata = { title: "รายละเอียดใบสั่�
 
 interface PageProps {
   params: Promise<{ poId: string }>;
+  // Spec 211 U9b: a PO reached from an accounting voucher records that path via
+  // ?from, so back returns to the voucher (not the /requests worklist, which
+  // accounting can't open). Falls back to /requests for the procurement entries.
+  searchParams: Promise<{ from?: string }>;
 }
 
-export default async function PurchaseOrderDetailPage({ params }: PageProps) {
-  const ctx = await requireRole(PURCHASING_ROLES);
+export default async function PurchaseOrderDetailPage({ params, searchParams }: PageProps) {
+  const ctx = await requireRole(PO_DETAIL_VIEW_ROLES);
   const { poId } = await params;
+  const { from } = await searchParams;
 
   // Non-UUID params skip the query (the /requests/[requestId] convention):
   // "garbage", "unknown", and "not allowed" are deliberately indistinguishable.
@@ -69,8 +75,15 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const supabase = await createClient();
+  // Spec 211 U9b: accounting opens this read-only (the voucher → PO link). It reads
+  // the PO via the admin client (its org-wide money posture, like the voucher/
+  // register) since RLS doesn't grant it purchase tables; purchasing roles keep the
+  // RLS client (membership-scoped). Money is shown to accounting (the money role);
+  // the write actions (manage/receive) stay gated out below.
+  const isAccounting = ctx.role === "accounting";
+  const supabase = isAccounting ? createAdminClient() : await createClient();
   const isBackOffice = isBackOfficeRole(ctx.role);
+  const canSeeMoney = isBackOffice || isAccounting;
   // Spec 208 Q3 (reverses spec 134 U8 / feedback 6fbcc039): receiving is a site
   // action PLUS procurement — the off-site team may confirm arrival on the site's
   // behalf when site staff are short. Mirrors the widened receive_po_lines gate.
@@ -82,7 +95,7 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
   const { po, members, deliveryRows, wpById, amountById } = await loadPurchaseOrderDetail(
     supabase,
     poId,
-    { isBackOffice },
+    { isBackOffice: canSeeMoney },
   );
 
   if (!po) {
@@ -140,7 +153,7 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <DetailHeader backHref="/requests" backLabel="กลับไปจัดซื้อ">
+      <DetailHeader backHref={safeBackHref(from, "/requests")} backLabel="กลับไปจัดซื้อ">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <PoBreadcrumb poNumber={po.po_number} />
@@ -161,7 +174,7 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
         <div className="rounded-card border-edge bg-card shadow-card border p-4">
           <p className="text-ink text-sm">
             {view.activeLineCount} รายการในใบสั่งซื้อ
-            {isBackOffice ? (
+            {canSeeMoney ? (
               <>
                 <span className="text-ink-muted mx-1">·</span>
                 รวม {baht(view.total)}
@@ -246,7 +259,7 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
                     </div>
                     <p className="text-ink-secondary mt-1 text-xs">
                       จำนวน {m.quantity} {m.unit}
-                      {isBackOffice && amount != null ? (
+                      {canSeeMoney && amount != null ? (
                         <>
                           <span className="text-ink-muted mx-1">·</span>
                           {baht(amount)}

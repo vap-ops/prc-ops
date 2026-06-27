@@ -209,6 +209,19 @@ export const PROJECT_VIEW_ROLES: ReadonlyArray<UserRole> = [
  */
 export const ACCOUNTING_ROLES: ReadonlyArray<UserRole> = ["accounting", "super_admin"];
 
+/**
+ * Spec 211 U9b: who may OPEN the purchase-order detail (`/requests/orders/[poId]`).
+ * = PURCHASING_ROLES PLUS `accounting`, so the accounting voucher's PO can be a
+ * live link (an auditor drills from a voucher into the order behind it). Accounting
+ * is read-only there — it sees the money (it is the money role) but the page's
+ * write actions (manage deliveries / receive) stay gated out of it (those key on
+ * isBackOfficeRole / RECEIVE_ROLES, neither of which admits accounting). Accounting
+ * reads the PO via the admin client (its org-wide money posture, like the voucher),
+ * so no RLS grant is needed. Kept distinct from PURCHASING_ROLES (the worklist
+ * gate) per the "members coincide, meaning differs" doctrine.
+ */
+export const PO_DETAIL_VIEW_ROLES: ReadonlyArray<UserRole> = [...PURCHASING_ROLES, "accounting"];
+
 export function roleHome(role: UserRole): string {
   // Spec 192 U4: site_admin lands on the daily home /sa — their not-done work
   // packages, one tap from the labor/photo/PR actions (the daily loop was buried
