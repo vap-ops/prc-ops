@@ -1,5 +1,7 @@
-import { SelfPurchaseForm } from "@/components/features/purchasing/self-purchase-form";
-import { type CatalogPick } from "@/components/features/store/site-purchase-use-now";
+import {
+  SelfPurchaseForm,
+  type CatalogPick,
+} from "@/components/features/purchasing/self-purchase-form";
 import { CARD } from "@/lib/ui/classes";
 
 export type { CatalogPick };
