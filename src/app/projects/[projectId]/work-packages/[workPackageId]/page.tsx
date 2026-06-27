@@ -46,13 +46,12 @@ import {
   PurchaseRequestForm,
   type PurchaseRequestCatalogItem,
 } from "@/components/features/purchasing/purchase-request-form";
-import { SitePurchaseForm } from "@/components/features/purchasing/site-purchase-form";
+import { SelfPurchaseSection } from "@/components/features/purchasing/self-purchase-section";
 import {
   WpIssueStock,
   type WpIssueRow,
   type WpStockRow,
 } from "@/components/features/store/wp-issue-stock";
-import { SitePurchaseUseNow } from "@/components/features/store/site-purchase-use-now";
 import { PhaseGallery } from "@/components/features/photos/phase-gallery";
 import { LaborLogZone } from "@/components/features/labor/labor-log-zone";
 import { LaborBudgetCard } from "@/components/features/labor/labor-budget-card";
@@ -334,17 +333,17 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               />
             </div>
           </details>
-          {/* Spec 171: บันทึกการซื้อหน้างาน calls record_site_purchase, whose RPC
-              gate excludes procurement — hidden for the read-only viewer. */}
+          {/* Spec 211 U11a: self-purchase (จ่ายเงินเองหน้างาน) consolidated in ONE
+              place — บันทึกการซื้อหน้างาน (off-catalog + invoice) AND ซื้อเงินสด
+              ใช้ที่งานนี้เลย (catalogued cash, was in the เบิกของ tab). Both calls'
+              RPC gates exclude procurement → hidden for the read-only viewer. The PR
+              path (สร้างคำขอซื้อ, above) stays its own affordance — "PR is PR". */}
           {!readOnly ? (
-            <details className={CARD}>
-              <summary className="text-body text-ink cursor-pointer font-semibold">
-                บันทึกการซื้อหน้างาน
-              </summary>
-              <div className="mt-3">
-                <SitePurchaseForm workPackageId={wp.id} projectId={wp.project_id} />
-              </div>
-            </details>
+            <SelfPurchaseSection
+              projectId={wp.project_id}
+              workPackageId={wp.id}
+              catalogItems={catalogItems}
+            />
           ) : null}
           {(wpRequests ?? []).length > 0 ? (
             <ul className="flex flex-col gap-2">
@@ -491,16 +490,9 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               issues={wpIssues}
             />
           </div>
-          {/* Spec 208 U3b: buy a catalogued item and use it on this WP in one tap
-              (receive into store + เบิก). Off-catalog buys keep the free-text
-              บันทึกการซื้อหน้างาน path in the คำขอซื้อ tab. */}
-          <div className={CARD}>
-            <SitePurchaseUseNow
-              projectId={wp.project_id}
-              workPackageId={wp.id}
-              catalogItems={catalogItems}
-            />
-          </div>
+          {/* Spec 211 U11a: the on-site cash buy (ซื้อเงินสด ใช้ที่งานนี้เลย) moved
+              to the consolidated ซื้อเอง self-purchase section in the คำขอซื้อ tab —
+              this tab is now the pure เบิก (withdraw) surface. */}
         </div>
       ),
     });
