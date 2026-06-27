@@ -224,6 +224,49 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const pmIds = (pmResult.data ?? []).map((u) => u.id);
   const superIds = (superResult.data ?? []).map((u) => u.id);
 
+  // Spec 211 U8 — a PR notification names its parent ใบสั่งซื้อ when it has one, so
+  // the recipient can tell which ORDER the line belongs to (critic gap X1). Resolve
+  // purchase_request_id → purchase_order → po_number for every PR-bearing row,
+  // batched (2-hop), for composeNotification's poNumber context.
+  const prIds = [
+    ...new Set(rows.map((r) => r.purchase_request_id).filter((id): id is string => id !== null)),
+  ];
+  const poNumberByPrId = new Map<string, number>();
+  if (prIds.length > 0) {
+    const { data: prRows, error: prError } = await admin
+      .from("purchase_requests")
+      .select("id, purchase_order_id")
+      .in("id", prIds);
+    if (prError) {
+      console.error("[notifications/drain] PR→PO enrichment failed", prError.message);
+      return NextResponse.json({ error: "enrichment_failed" }, { status: 500 });
+    }
+    const poIdByPrId = new Map<string, string>();
+    const poIds = new Set<string>();
+    for (const pr of prRows ?? []) {
+      if (pr.purchase_order_id) {
+        poIdByPrId.set(pr.id, pr.purchase_order_id);
+        poIds.add(pr.purchase_order_id);
+      }
+    }
+    if (poIds.size > 0) {
+      const { data: poRows, error: poError } = await admin
+        .from("purchase_orders")
+        .select("id, po_number")
+        .in("id", [...poIds]);
+      if (poError) {
+        console.error("[notifications/drain] PO number enrichment failed", poError.message);
+        return NextResponse.json({ error: "enrichment_failed" }, { status: 500 });
+      }
+      const poNumberByPoId = new Map<string, number>();
+      for (const po of poRows ?? []) poNumberByPoId.set(po.id, po.po_number);
+      for (const [prId, poId] of poIdByPrId) {
+        const n = poNumberByPoId.get(poId);
+        if (n !== undefined) poNumberByPrId.set(prId, n);
+      }
+    }
+  }
+
   // --- Deliver --------------------------------------------------------------
 
   let sent = 0;
@@ -246,7 +289,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       : [];
 
     const wpCode = row.work_package_id ? wpCodeById.get(row.work_package_id) : undefined;
-    const composeContext: ComposeContext = wpCode !== undefined ? { wpCode } : {};
+    const poNumber = row.purchase_request_id
+      ? poNumberByPrId.get(row.purchase_request_id)
+      : undefined;
+    const composeContext: ComposeContext = {
+      ...(wpCode !== undefined ? { wpCode } : {}),
+      ...(poNumber !== undefined ? { poNumber } : {}),
+    };
     const text = composeNotification(row.event_type, payload, composeContext);
 
     let anySuccess = false;
