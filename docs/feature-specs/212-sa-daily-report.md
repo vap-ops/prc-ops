@@ -1,6 +1,8 @@
 # 212 — SA daily report (รายงานประจำวัน)
 
-Status: SPEC (authored 2026-06-27, from a real operator-supplied example). Not started.
+Status: IN PROGRESS — design confirmed with the operator 2026-06-28 (see "Design
+revisions" below). Flex-message generator + tests shipped (`src/lib/daily-report/flex.ts`,
+`sample.ts`). Data layer (U1) + capture screen next.
 Relates: spec 46 (`labor_logs` / attendance), ADR 0016 + spec 04 (deliverable grouping),
 spec 39/61 (PM project PDF report — distinct from this), spec 144 (defect rework), spec 92
 (WP schedule), spec 130 (DC self-service portal — feeds a later unit), spec 143 (project
@@ -32,8 +34,9 @@ tomorrow's plan) have no structured home at all.
 
 This spec makes the daily report a **byproduct of structured capture**: the app assembles
 the day's attendance + photos; the SA adds only the human narrative (summary, problems,
-plan) and submits; a PM confirms (รอยืนยัน → ยืนยันแล้ว). A "share as text" action
-reproduces the exact LINE-style message so the existing habit transfers with zero friction.
+plan) and submits; a PM confirms (รอยืนยัน → ยืนยันแล้ว). The shared output is a **LINE
+Flex Message** (a rich bubble) reproducing the report, so the existing LINE habit
+transfers — richer and more scannable than the current plain-text message.
 
 ### Decisions
 
@@ -45,17 +48,29 @@ reproduces the exact LINE-style message so the existing habit transfers with zer
   `daily_reports` row stores ONLY the SA's authored text + workflow state. The single
   source of truth stays in the existing tables; the report cannot drift from them. Those
   tables are append-only / supersede, so a past day's numbers are stable once confirmed.
-- **No clock in/out.** In the sample every worker's time is the identical 08:00–17:00 —
-  ritual boilerplate, not signal. `labor_logs` already carries full/half-day; the report
-  shows headcount + names + full/half under a single project-level **standard site-hours**
-  label (configurable later; default 08:00–17:00). A per-worker timesheet would be real
-  effort for ~no information. Explicitly deferred (see Out of scope).
-- **Group work by WP/deliverable, not by ad-hoc pay-class.** The sample mixes a pay-class
-  ("DC") with a trade/area ("ฐานราก / ช่างนัน"). The app's spine is the WP under its
-  deliverable; the report groups attendance by the WP each worker logged to and shows each
-  person's type (own / DC / subcon). This resolves the SA's inconsistent grouping into the
-  data model. A free-text "general site work" bucket covers labor not tied to a WP.
-- **SA-owned, PM confirms, money-free.** The report carries no rates/costs (headcount +
+- **Standard hours by default; late/OT are exceptions (operator-corrected 2026-06-28).**
+  Workers default to the project's **standard site hours** (configurable; default
+  08:00–17:00). The SA flags only deviations per person — `สาย` (late, with time),
+  `ออกก่อน` (left early), `OT` (+hours). These are operational annotations on the day's
+  labour record (additive on `labor_logs`), **money-free in v1** (shown on the report; OT
+  _pay_ is the downstream payment flow's job — deferred). Captures exactly the signal the
+  operator named ("they are late, or stayed over for OTs") without a full per-worker
+  timesheet.
+- **The work is the spine; worker type is a TAG, never a group (operator-corrected).** DC
+  and subcontractor describe _who_; the work package describes _what_ — never mixed as a
+  heading. Each report entry = the work done (a WP, or "ไม่ผูก WP" general site work) + the
+  crew, every person tagged `บริษัท / DC / ผู้รับเหมา`. So the sample's "•DC" heading is
+  wrong-by-design — it becomes a per-person tag; **ช่างนัน is a subcontractor** on the
+  ฐานราก work, not a DC.
+- **Every worker is identified, because daily pay needs the names (operator).** The firm
+  pays DC and daily-paid subs _every day_, so the attendance roster is the record of _who
+  gets paid that day_ — it must name each person, across all three types. The in-app report
+  holds the full identified roster; the LINE bubble lists them grouped by work. This is the
+  clean source the existing DC/subcon daily-payment flow consumes (specs 127/128). **Model
+  note:** the app identifies company + DC today; **subcontractor members** need to be
+  identifiable in the same daily-attendance model — confirm/extend when building the data
+  layer.
+- **SA-owned, PM confirms, money-free to read.** No rates/costs on the report (headcount +
   names only), so it is safe on the SA field tier. SA authors; PM/PD/super confirm — SA
   cannot self-confirm (mirrors the approvals tier split). Read = project-visible roles
   (spec 143).
@@ -63,8 +78,25 @@ reproduces the exact LINE-style message so the existing habit transfers with zer
   `draft | submitted | confirmed`. Editable by the SA while draft/submitted; `confirm`
   locks it and stamps `confirmed_by/at`. Not append-only (it is a working doc, not an
   audit/photo log); the confirm event is audited.
-- **Adoption bridge first.** The "share as text" formatter (U5) is what makes SAs switch —
-  it emits the message they already send. Prioritized, not an afterthought.
+- **Output = LINE Flex Message, kept FLEXIBLE (operator: "keep the report flexible, review
+  and change as needed").** The shared report is a LINE Flex bubble — header · headcount by
+  type · per-work entries with named late/OT · problems · next-day plan · status — built by
+  a **template-driven generator** (`src/lib/daily-report/flex.ts`) so the layout can be
+  re-styled/reordered without rewiring callers. A text `altText` is the fallback. Validated
+  with the operator on the real bubble before it reaches the team.
+
+## Design revisions (2026-06-28, operator-confirmed)
+
+Confirmed live with the operator after the first draft:
+
+1. One report per project/day — **kept.**
+2. Auto-assemble attendance + photos (derive, don't copy) — **kept.**
+3. ~~No clock in/out~~ → **overturned**: capture late/OT exceptions (standard-hours default).
+4. Group by work, type-as-tag — **kept + sharpened**: DC is a person-type not a group;
+   ช่างนัน is a subcontractor; every worker identified (daily pay).
+5. SA writes / PM confirms / money-free — **kept.**
+6. ~~Share as plain text~~ → **LINE Flex Message**, template-driven + flexible; test with
+   the operator first.
 
 ## U1 — data layer (`daily_reports`)
 
@@ -139,21 +171,31 @@ Code-only.
 - Optional: a "rooms to confirm" count for PMs mirroring the รอตรวจ queue — defer if budget
   is tight.
 
-## U5 — share as text (the adoption bridge)
+## U5 — LINE Flex output (the adoption bridge) — built FIRST
 
-Code-only.
+The output the team sees. Built and validated with the operator before the capture layer
+(operator: "try flex messages, test with me first").
 
-- Pure `src/lib/daily-report/format-text.ts` — render the assembled report (auto attendance
-  - authored summary/problems/plan) into the **exact LINE-style message** the SA sends
-    today: `สรุปรายละเอียดงาน`, per-group narrative + headcount + worker list, `ปัญหาที่พบ`,
-    `แผนงานวันที่ …`, status. Unit-tested against the supplied sample.
-- A คัดลอกข้อความ (copy) / share button producing that text. (Auto-push via LINE OA is a
-  later unit.)
+- **SHIPPED (code-only):** pure `src/lib/daily-report/flex.ts` — `dailyReportBubble` /
+  `dailyReportFlexMessage` / `dailyReportAltText` over a `DailyReportView`. Template-driven
+  (one `bodyContents()` composer + a `C` palette to restyle) so the layout stays flexible
+  to iterate. `src/lib/daily-report/sample.ts` drives the test + the preview. Unit-tested
+  (`tests/unit/daily-report-flex.test.ts`, 7 cases).
+- **NEXT — the real LINE test (held PR, danger-path = notifications):** a flex-capable push
+  (`pushLineFlex`, extending `src/lib/notifications/line-push.ts`) + an in-app
+  "ส่งรายงานตัวอย่างเข้า LINE ของฉัน" action that targets the **logged-in** user's
+  `line_user_id` — no guessing (there are ≥2 LINE-linked super_admins, so an ad-hoc
+  to-the-operator send is unsafe). The operator merges the held PR, taps it, and the real
+  bubble lands in their LINE; we iterate on `flex.ts` from there.
+- **THEN:** push the confirmed report to the project's recipients via the same flex push
+  (reuse the notifications drain) — a later unit.
 
 ## Out of scope (v1)
 
-- Per-worker clock in/out timesheets (sample times are boilerplate; revisit only if real
-  variable hours emerge).
+- Full per-worker clock in/out **timesheets** — v1 captures only the late / early-leave /
+  OT _exceptions_ the operator flagged, not a continuous time clock.
+- **OT pay** (rates × OT hours) — OT is captured as hours for the report; turning it into
+  pay is the downstream DC/subcon payment flow's job (specs 127/128), deferred here.
 - AI-drafted narrative (summary/problems from photos + labor + WP progress) — the natural
   next step under the AI-first doctrine; its own unit once the manual flow is proven.
 - DC / field-worker self-report feeding attendance — covered by spec 130 (DC portal); this
@@ -167,8 +209,8 @@ Code-only.
 ## Verification
 
 - `pnpm db:test` → the new file green; role-completeness (90) green.
-- Unit: `assemble.ts` + `format-text.ts` green (incl. the empty day + the sample-format
-  match).
+- Unit: `flex.ts` green (header/identification/WP-tag/late+OT/headcount-by-type/
+  data-driven/altText); `assemble.ts` green when U2 lands.
 - `pnpm lint && pnpm typecheck && pnpm test` green.
 - Preview `/projects/[id]/daily-report`: SA sees auto attendance + photos, fills
   summary/problems/plan, submits → รอยืนยัน; PM confirms → locked; คัดลอกข้อความ
