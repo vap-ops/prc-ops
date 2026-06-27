@@ -20,7 +20,8 @@ import { sitePurchaseUseNow } from "@/app/store/actions";
 import { validateSitePurchase } from "@/lib/purchasing/validate-site-purchase";
 import { PURCHASE_REASON_CODES } from "@/lib/purchasing/reason-code";
 import { CATALOG_LABEL, PURCHASE_REQUEST_REASON_CODE_LABEL } from "@/lib/i18n/labels";
-import type { Database } from "@/lib/db/database.types";
+import { CatalogItemPicker } from "@/components/features/purchasing/catalog-item-picker";
+import type { PurchaseRequestCatalogItem } from "@/components/features/purchasing/purchase-request-form";
 import { ItemPhotoUploader } from "@/components/features/purchasing/item-photo-uploader";
 import { InvoiceUploader } from "@/components/features/purchasing/invoice-uploader";
 import { BUTTON_PRIMARY, FIELD_INPUT, INLINE_ERROR } from "@/lib/ui/classes";
@@ -29,19 +30,6 @@ const SELECT =
   "rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action h-11 w-full min-w-0 border px-2 text-sm shadow-xs focus:outline-none focus-visible:ring-2";
 const LABEL = "text-ink flex flex-col gap-1 text-sm font-medium";
 const TOGGLE_ROW = "text-ink flex items-center gap-2 text-sm font-medium";
-
-type ItemCategory = Database["public"]["Enums"]["item_category"];
-
-// A catalogued item the self-purchase form can pick (id + display fields). Lived
-// in the now-removed store/site-purchase-use-now component; re-homed here, its
-// sole live consumer (re-exported by self-purchase-section for callers/tests).
-export type CatalogPick = {
-  id: string;
-  category: ItemCategory;
-  baseItem: string;
-  specAttrs: string | null;
-  unit: string;
-};
 
 type Mode = "catalog" | "freetext";
 
@@ -52,7 +40,7 @@ export function SelfPurchaseForm({
 }: {
   projectId: string;
   workPackageId: string;
-  catalogItems: CatalogPick[];
+  catalogItems: PurchaseRequestCatalogItem[];
 }) {
   const router = useRouter();
   const hasCatalog = catalogItems.length > 0;
@@ -203,27 +191,19 @@ export function SelfPurchaseForm({
       ) : null}
 
       {mode === "catalog" ? (
-        <label htmlFor="sp-catalog" className={LABEL}>
-          สินค้าจาก{CATALOG_LABEL}
-          <select
-            id="sp-catalog"
-            value={catalogItemId}
-            onChange={(e) => {
-              setCatalogItemId(e.target.value);
-              if (e.target.value === "") setUseNow(false);
-            }}
-            disabled={pending}
-            className={SELECT}
-          >
-            <option value="">เลือกสินค้า</option>
-            {catalogItems.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.baseItem}
-                {c.specAttrs ? ` ${c.specAttrs}` : ""}
-              </option>
-            ))}
-          </select>
-        </label>
+        // Same search picker as สร้างคำขอซื้อ (CatalogItemPicker): a trigger opens a
+        // bottom sheet with search + category chips + thumbnail rows. Picking an
+        // item drives the description + unit (derived from `selected` below).
+        <CatalogItemPicker
+          items={catalogItems}
+          selectedId={catalogItemId}
+          onSelect={setCatalogItemId}
+          onClear={() => {
+            setCatalogItemId("");
+            setUseNow(false);
+          }}
+          disabled={pending}
+        />
       ) : (
         <>
           <label className={LABEL}>

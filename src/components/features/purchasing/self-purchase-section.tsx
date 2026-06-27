@@ -1,11 +1,7 @@
-import {
-  SelfPurchaseForm,
-  type CatalogPick,
-} from "@/components/features/purchasing/self-purchase-form";
+import { SelfPurchaseForm } from "@/components/features/purchasing/self-purchase-form";
+import type { PurchaseRequestCatalogItem } from "@/components/features/purchasing/purchase-request-form";
 import { CATALOG_LABEL } from "@/lib/i18n/labels";
 import { CARD } from "@/lib/ui/classes";
-
-export type { CatalogPick };
 
 // Spec 211 U11a→U11c-B — self-purchase, ONE guided ซื้อเอง form. U11a first put
 // the two self-purchase actions in one place; U11c unified them into a single
@@ -21,7 +17,7 @@ export function SelfPurchaseSection({
 }: {
   projectId: string;
   workPackageId: string;
-  catalogItems: CatalogPick[];
+  catalogItems: PurchaseRequestCatalogItem[];
 }) {
   return (
     <section className="flex flex-col gap-2">
