@@ -18,7 +18,11 @@ import { formatThaiDate } from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
 import { SECTION_HEADING, CARD, FIELD_INPUT, BUTTON_PRIMARY } from "@/lib/ui/classes";
 import { loadPurchaseRegister } from "@/lib/accounting/load-purchases";
-import { summarizePurchases, purchaseStatusLabel } from "@/lib/accounting/purchases-view";
+import {
+  summarizePurchases,
+  purchaseStatusLabel,
+  purchaseRegisterCountLabel,
+} from "@/lib/accounting/purchases-view";
 
 export const metadata = { title: "การจัดซื้อ" };
 
@@ -95,7 +99,8 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
         {/* Period totals (gross / VAT / net). */}
         <div className={`${CARD} mb-6`}>
           <p className="text-ink-secondary text-xs">
-            {formatThaiDate(from)} – {formatThaiDate(to)} · {summary.count} รายการ
+            {formatThaiDate(from)} – {formatThaiDate(to)} ·{" "}
+            {purchaseRegisterCountLabel(summary.count)}
           </p>
           <dl className="divide-edge mt-2 flex flex-col divide-y">
             <div className="flex items-center justify-between py-1.5">

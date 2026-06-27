@@ -12,6 +12,7 @@ import {
   summarizePurchases,
   isAuditableAttachmentPurpose,
   attachmentPurposeLabel,
+  purchaseRegisterCountLabel,
 } from "@/lib/accounting/purchases-view";
 
 describe("summarizePurchases", () => {
@@ -33,6 +34,13 @@ describe("summarizePurchases", () => {
       totalVat: 0,
       totalNet: 0,
     });
+  });
+});
+
+describe("purchaseRegisterCountLabel (spec 211 U9 — accounting-ap-02)", () => {
+  it("counts register rows as ใบขอซื้อ, not the overloaded รายการ", () => {
+    expect(purchaseRegisterCountLabel(3)).toBe("3 ใบขอซื้อ");
+    expect(purchaseRegisterCountLabel(0)).toBe("0 ใบขอซื้อ");
   });
 });
 
