@@ -3,6 +3,7 @@
 // document → ledger tie. Gated to ACCOUNTING_ROLES; reads via admin behind the
 // gate. Quote/price evidence is omitted (procurement-only, the spec-196 decision).
 
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
@@ -17,6 +18,7 @@ import { baht } from "@/lib/format";
 import { SECTION_HEADING, CARD } from "@/lib/ui/classes";
 import { deriveVatBreakdown } from "@/lib/purchasing/vat";
 import { formatPoNumber } from "@/lib/purchasing/format-id";
+import { withBackFrom } from "@/lib/nav/back-href";
 import { loadPurchaseVoucher } from "@/lib/accounting/load-voucher";
 import { purchaseStatusLabel, attachmentPurposeLabel } from "@/lib/accounting/purchases-view";
 
@@ -35,22 +37,30 @@ export default async function VoucherPage({ params }: VoucherPageProps) {
 
   const vat = deriveVatBreakdown(header.gross, header.vatRate);
 
-  const META: Array<[string, string]> = [
+  // Spec 211 U9b: the PO row links into the PO detail (accounting may now open it,
+  // PO_DETAIL_VIEW_ROLES); ?from returns its back chip to this voucher. Other rows
+  // are plain text (the optional 3rd tuple element is the link href).
+  type MetaRow = [string, string, string?];
+  const META: MetaRow[] = [
     ["โครงการ", header.projectLabel],
-    ...(header.wpLabel ? ([["งานย่อย", header.wpLabel]] as Array<[string, string]>) : []),
+    ...(header.wpLabel ? ([["งานย่อย", header.wpLabel]] as MetaRow[]) : []),
     ["สถานะ", purchaseStatusLabel(header.status)],
     ...(header.poNumber !== null
-      ? ([["ใบสั่งซื้อ", formatPoNumber(header.poNumber)]] as Array<[string, string]>)
+      ? ([
+          [
+            "ใบสั่งซื้อ",
+            formatPoNumber(header.poNumber),
+            header.poId
+              ? withBackFrom(`/requests/orders/${header.poId}`, `/accounting/purchases/${id}`)
+              : undefined,
+          ],
+        ] as MetaRow[])
       : []),
     ...(header.purchasedAt
-      ? ([["วันที่จัดซื้อ", formatThaiDate(header.purchasedAt)]] as Array<[string, string]>)
+      ? ([["วันที่จัดซื้อ", formatThaiDate(header.purchasedAt)]] as MetaRow[])
       : []),
-    ...(header.requesterName
-      ? ([["ผู้ขอซื้อ", header.requesterName]] as Array<[string, string]>)
-      : []),
-    ...(header.approverName
-      ? ([["ผู้อนุมัติ", header.approverName]] as Array<[string, string]>)
-      : []),
+    ...(header.requesterName ? ([["ผู้ขอซื้อ", header.requesterName]] as MetaRow[]) : []),
+    ...(header.approverName ? ([["ผู้อนุมัติ", header.approverName]] as MetaRow[]) : []),
   ];
 
   return (
@@ -85,10 +95,21 @@ export default async function VoucherPage({ params }: VoucherPageProps) {
         {/* Document facts. */}
         <div className={`${CARD} mb-6`}>
           <dl className="divide-edge flex flex-col divide-y">
-            {META.map(([k, v]) => (
+            {META.map(([k, v, href]) => (
               <div key={k} className="flex items-center justify-between gap-3 py-1.5">
                 <dt className="text-ink-secondary shrink-0 text-sm">{k}</dt>
-                <dd className="text-ink min-w-0 truncate text-right text-sm font-medium">{v}</dd>
+                <dd className="text-ink min-w-0 truncate text-right text-sm font-medium">
+                  {href ? (
+                    <Link
+                      href={href}
+                      className="text-action underline-offset-2 hover:underline focus:outline-none focus-visible:underline"
+                    >
+                      {v}
+                    </Link>
+                  ) : (
+                    v
+                  )}
+                </dd>
               </div>
             ))}
           </dl>
