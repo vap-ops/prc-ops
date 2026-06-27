@@ -1,6 +1,6 @@
 // Spec 138 U3 — the scrollable status-chip filter with live counts. Pure: turns the
 // supplier/project-narrowed rows + the current filter into the four band-level chip
-// descriptors the pill row renders (ทั้งหมด / อนุมัติแล้ว=to_order / กำลังจัดส่ง=in_transit /
+// descriptors the pill row renders (ทั้งหมด / รอสั่งซื้อ=to_order / กำลังจัดส่ง=in_transit /
 // เกินกำหนด=overdue). Counts reuse the spec-105 procurementSummary so they agree with the KPI
 // hero (U2), and are LIVE to the supplier/project axes (the caller passes the narrowed rows).
 // The chips drive the band axis added to ProcurementFilter (worklist-filter.ts); the raw
