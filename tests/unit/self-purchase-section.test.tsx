@@ -48,7 +48,7 @@ describe("SelfPurchaseSection (spec 211 U11c-B)", () => {
 
   it("renders the unified form's item-source toggle (catalog OR free-text)", () => {
     renderSection();
-    expect(screen.getByRole("button", { name: "เลือกจากคลัง" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "เลือกจากทะเบียนวัสดุ" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "พิมพ์เอง" })).toBeInTheDocument();
   });
 

@@ -2,6 +2,7 @@ import {
   SelfPurchaseForm,
   type CatalogPick,
 } from "@/components/features/purchasing/self-purchase-form";
+import { CATALOG_LABEL } from "@/lib/i18n/labels";
 import { CARD } from "@/lib/ui/classes";
 
 export type { CatalogPick };
@@ -27,7 +28,7 @@ export function SelfPurchaseSection({
       <div>
         <h3 className="text-body text-ink font-semibold">ซื้อเอง</h3>
         <p className="text-meta text-ink-secondary mt-0.5">
-          จ่ายเงินเองหน้างาน — เลือกของจากคลังหรือพิมพ์เอง ระบุว่ามีใบกำกับภาษีไหม
+          จ่ายเงินเองหน้างาน — เลือกจาก{CATALOG_LABEL}หรือพิมพ์เอง ระบุว่ามีใบกำกับภาษีไหม
           และจะใช้ที่งานนี้เลยหรือเก็บไว้เป็นบันทึก
         </p>
       </div>

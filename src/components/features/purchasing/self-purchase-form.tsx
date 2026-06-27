@@ -19,7 +19,7 @@ import { recordSitePurchase } from "@/app/requests/actions";
 import { sitePurchaseUseNow } from "@/app/store/actions";
 import { validateSitePurchase } from "@/lib/purchasing/validate-site-purchase";
 import { PURCHASE_REASON_CODES } from "@/lib/purchasing/reason-code";
-import { PURCHASE_REQUEST_REASON_CODE_LABEL } from "@/lib/i18n/labels";
+import { CATALOG_LABEL, PURCHASE_REQUEST_REASON_CODE_LABEL } from "@/lib/i18n/labels";
 import type { Database } from "@/lib/db/database.types";
 import { ItemPhotoUploader } from "@/components/features/purchasing/item-photo-uploader";
 import { InvoiceUploader } from "@/components/features/purchasing/invoice-uploader";
@@ -98,7 +98,7 @@ export function SelfPurchaseForm({
     if (goUseNow) {
       // Catalog + use-now: amount is the GROSS cost; the RPC takes a gross unit cost.
       if (!selected) {
-        setError("เลือกสินค้าจากคลัง");
+        setError(`เลือกสินค้าจาก${CATALOG_LABEL}`);
         return;
       }
       if (!Number.isFinite(qtyNum) || qtyNum <= 0) {
@@ -189,7 +189,7 @@ export function SelfPurchaseForm({
             aria-pressed={mode === "catalog"}
             className={`rounded-control border px-3 py-2 text-sm font-medium ${mode === "catalog" ? "border-action bg-action-soft text-action" : "border-edge-strong bg-card text-ink-secondary"}`}
           >
-            เลือกจากคลัง
+            เลือกจาก{CATALOG_LABEL}
           </button>
           <button
             type="button"
@@ -204,7 +204,7 @@ export function SelfPurchaseForm({
 
       {mode === "catalog" ? (
         <label htmlFor="sp-catalog" className={LABEL}>
-          สินค้าจากคลัง
+          สินค้าจาก{CATALOG_LABEL}
           <select
             id="sp-catalog"
             value={catalogItemId}

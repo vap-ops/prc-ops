@@ -79,7 +79,7 @@ describe("SelfPurchaseForm (spec 211 U11c-B)", () => {
   it("buys-&-uses a catalog item now (routes to sitePurchaseUseNow at gross unit cost)", async () => {
     const user = userEvent.setup();
     renderForm();
-    await user.selectOptions(screen.getByLabelText("สินค้าจากคลัง"), "ci-1");
+    await user.selectOptions(screen.getByLabelText("สินค้าจากทะเบียนวัสดุ"), "ci-1");
     await user.click(screen.getByLabelText("ซื้อเข้าคลังแล้วใช้ที่งานนี้เลย"));
     await user.type(screen.getByLabelText("จำนวน"), "2");
     await user.type(screen.getByLabelText("จำนวนเงิน (บาท)"), "200");
