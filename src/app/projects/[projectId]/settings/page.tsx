@@ -11,6 +11,7 @@ import { createClient as createAdminClient } from "@/lib/db/admin";
 import { PM_ROLES, SITE_STAFF_ROLES } from "@/lib/auth/role-home";
 import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
 import { projectStatusPillClasses } from "@/lib/status-colors";
+import { projectStatusIcon } from "@/lib/status-icons";
 import { SettingsForm } from "./settings-form";
 
 // Project settings (spec 58 / 79, ADR 0042) — back office only. SA never
@@ -74,7 +75,11 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
             <p className="text-ink-secondary font-mono text-xs">{project.code}</p>
             <h1 className="text-2xl font-bold tracking-tight break-words">ตั้งค่าโครงการ</h1>
           </div>
-          <StatusPill pillClasses={projectStatusPillClasses(project.status)} className="mt-1">
+          <StatusPill
+            pillClasses={projectStatusPillClasses(project.status)}
+            icon={projectStatusIcon(project.status)}
+            className="mt-1"
+          >
             {PROJECT_STATUS_LABEL[project.status] ?? project.status}
           </StatusPill>
         </div>

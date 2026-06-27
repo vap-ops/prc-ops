@@ -35,6 +35,11 @@ import {
   purchaseRequestPriorityPillClasses,
   purchaseRequestStatusPillClasses,
 } from "@/lib/status-colors";
+import {
+  purchaseOrderStatusIcon,
+  purchaseRequestPriorityIcon,
+  purchaseRequestStatusIcon,
+} from "@/lib/status-icons";
 import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/lib/ui/classes";
 import { adjacentRecordIds, flattenRecordOrder } from "@/lib/purchasing/grid-record-nav";
@@ -388,7 +393,10 @@ function BandRows({
                   of the tracker). */}
                 <PurchaseMiniStepper status={r.status} />
                 <div className="mt-1.5">
-                  <StatusPill pillClasses={purchaseRequestStatusPillClasses(r.status)}>
+                  <StatusPill
+                    pillClasses={purchaseRequestStatusPillClasses(r.status)}
+                    icon={purchaseRequestStatusIcon(r.status)}
+                  >
                     {PURCHASE_REQUEST_STATUS_LABEL[r.status]}
                   </StatusPill>
                 </div>
@@ -430,7 +438,10 @@ function PoHeaderRow({ poId, facts }: { poId: string; facts: PoHeaderFacts }) {
             <span className="text-ink-muted text-meta shrink-0">· {facts.lineCount} รายการ</span>
           </span>
           <span className="flex shrink-0 items-center gap-1.5">
-            <StatusPill pillClasses={purchaseOrderStatusPillClasses(facts.status)}>
+            <StatusPill
+              pillClasses={purchaseOrderStatusPillClasses(facts.status)}
+              icon={purchaseOrderStatusIcon(facts.status)}
+            >
               {PURCHASE_ORDER_STATUS_LABEL[facts.status]}
             </StatusPill>
             <ChevronRight aria-hidden className="text-ink-muted size-4" />
@@ -546,11 +557,17 @@ function DrawerBody({
             </h3>
           </div>
           <span className="mt-0.5 flex shrink-0 flex-col items-end gap-1">
-            <StatusPill pillClasses={purchaseRequestStatusPillClasses(record.status)}>
+            <StatusPill
+              pillClasses={purchaseRequestStatusPillClasses(record.status)}
+              icon={purchaseRequestStatusIcon(record.status)}
+            >
               {PURCHASE_REQUEST_STATUS_LABEL[record.status]}
             </StatusPill>
             {record.priority !== "normal" ? (
-              <StatusPill pillClasses={purchaseRequestPriorityPillClasses(record.priority)}>
+              <StatusPill
+                pillClasses={purchaseRequestPriorityPillClasses(record.priority)}
+                icon={purchaseRequestPriorityIcon(record.priority)}
+              >
                 {PURCHASE_REQUEST_PRIORITY_LABEL[record.priority]}
               </StatusPill>
             ) : null}

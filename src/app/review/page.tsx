@@ -13,6 +13,7 @@ import { SECTION_HEADING } from "@/lib/ui/classes";
 import { getLatestDecisionsForWorkPackages } from "@/lib/approvals/latest-decision";
 import { APPROVAL_DECISION_LABEL, formatThaiDateTime } from "@/lib/i18n/labels";
 import { approvalDecisionPillClasses, type ApprovalDecision } from "@/lib/status-colors";
+import { approvalDecisionIcon } from "@/lib/status-icons";
 
 export const metadata = { title: "รายการรอตรวจ" };
 
@@ -105,7 +106,10 @@ export default async function ProjectManagerLandingPage() {
                         เข้าคิวเมื่อ {formatThaiDateTime(wp.updated_at)}
                       </p>
                     </div>
-                    <StatusPill pillClasses={approvalDecisionPillClasses(latest?.decision ?? null)}>
+                    <StatusPill
+                      pillClasses={approvalDecisionPillClasses(latest?.decision ?? null)}
+                      icon={approvalDecisionIcon(latest?.decision ?? null)}
+                    >
                       {label}
                     </StatusPill>
                   </Link>

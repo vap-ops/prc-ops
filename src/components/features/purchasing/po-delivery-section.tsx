@@ -8,6 +8,7 @@
 import { Check, ChevronRight } from "lucide-react";
 import { formatThaiDate, PURCHASE_ORDER_STATUS_LABEL } from "@/lib/i18n/labels";
 import { purchaseOrderStatusPillClasses } from "@/lib/status-colors";
+import { purchaseOrderStatusIcon } from "@/lib/status-icons";
 import { StatusPill } from "@/components/features/common/status-pill";
 import Link from "next/link";
 import type { DeliveryView } from "@/lib/purchasing/po-deliveries";
@@ -78,7 +79,10 @@ export function PoDeliverySection({
                     {formatThaiDate(d.receivedAt)}
                   </span>
                 ) : null}
-                <StatusPill pillClasses={purchaseOrderStatusPillClasses(d.status)}>
+                <StatusPill
+                  pillClasses={purchaseOrderStatusPillClasses(d.status)}
+                  icon={purchaseOrderStatusIcon(d.status)}
+                >
                   {PURCHASE_ORDER_STATUS_LABEL[d.status]}
                 </StatusPill>
                 <ChevronRight aria-hidden className="text-ink-muted size-4" />

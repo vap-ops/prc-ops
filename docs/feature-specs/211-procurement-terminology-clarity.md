@@ -1,6 +1,6 @@
 # Spec 211 — Procurement terminology & level clarity
 
-**Status:** in progress — U1 (#97) + U2 (#98) + U3 (#99) + U5 (#100) shipped, U6 shipping (U4 deferred)
+**Status:** in progress — U1 (#97) + U2 (#98) + U3 (#99) + U5 (#100) + U6 (#101) shipped, U4 shipping
 **Source:** operator report — "admins cannot intuitively distinguish the PO from the PO Items." Full evidence: [`docs/procurement-uxui-audit-2026-06.md`](../procurement-uxui-audit-2026-06.md) (multi-agent audit, 85 surfaces, 91 verified findings).
 
 ## Problem (root cause)
@@ -46,9 +46,11 @@ The purest form of the reported pain (audit `po-vs-items-01`, confirmed **high**
 
 `po-vs-items-03`, `terminology-07`, `worklist-hub-04`. Reserve `รายการ` for genuine line-items. On the worklist grid: column header → `สิ่งที่ขอซื้อ`; bundle hint → `เลือกหลายคำขอ…`; selection count → `เลือก {n} คำขอ`; drawer doc count → `{n} ไฟล์`. The PO line-count (`{n} รายการ` on a PO group/header) is a correct line-item use and is KEPT. The accounting register count (`{n} รายการ` → `{n} ใบขอซื้อ`, `accounting-ap-02`) is moved to U9 (the accounting pass), keeping U3 a single-file procurement change. Code-only.
 
-### U4 — Distinct PO pill + level captions on PO detail
+### U4 — Status icons app-wide _(this unit — operator-directed)_
 
-`po-detail-03`, `po-vs-items-06`, `po-detail-06`, `po-vs-items-04`. PO-level pills get a distinct variant (outline/ring + glyph); add `สถานะทั้งใบ` / `สถานะแถว` captions; tint + indent the grid PO group so the parent reads as a sub-band, not a peer. Touches `src/lib/status-colors.ts` (not a danger path) + grid/detail.
+`po-detail-03`, `po-vs-items-06`, `po-detail-06`. Operator (2026-06-27): "use icons to distinguish statuses, consistent with detail pages." Rather than restyle the PO pill colour (which would regress the spec-20 sun-readable solid fills), give **every** status pill a colour-independent **icon** — a state-distinguishing glyph that also serves sun-glare + colour-blind legibility, and resolves PO-vs-line level confusion (PO `ordered` = `FileText` "ออกใบสั่งซื้อ" vs PR `purchased` = `ShoppingCart`).
+
+New SSOT `src/lib/status-icons.ts` parallel to `status-colors.ts`: icon maps + accessor fns for all 7 domains (WP / project / approval / report / PR-priority / PR-status / PO-status), `Record<Enum, LucideIcon>` so a new enum value is a type error. `StatusPill` gains an optional `icon` prop (renders the glyph before the label; backward-compatible). All **28** `StatusPill` call sites across **18** files pass `icon={domainIcon(sameArg)}` — applied by a one-agent-per-file workflow, so it renders identically on the worklist AND every detail page / card / tracker (operator's "consistent with detail pages"). Test-first `status-icons.test.ts` (totality, mirrors i18n-labels). Cross-domain consistency: Check=done, X=negative, Clock=waiting, Truck=shipping, PackageCheck=received. Code-only. **Scope chosen: app-wide** (every StatusPill domain), not procurement-only. Feedback-status pills use a separate mechanism (not `StatusPill`) → follow-up.
 
 ### U5 — PO membership visible in every band _(SHIPPED #100)_
 

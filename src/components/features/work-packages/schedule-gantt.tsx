@@ -19,6 +19,7 @@ import { workPackageHref, scheduleHref } from "@/lib/nav/project-paths";
 import { withBackFrom } from "@/lib/nav/back-href";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
+import { workPackageStatusIcon } from "@/lib/status-icons";
 import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 import {
   buildTimeline,
@@ -516,7 +517,10 @@ export function ScheduleGantt({
                   {selectedWp.name}
                 </span>
               </span>
-              <StatusPill pillClasses={workPackageStatusPillClasses(selectedWp.status)}>
+              <StatusPill
+                pillClasses={workPackageStatusPillClasses(selectedWp.status)}
+                icon={workPackageStatusIcon(selectedWp.status)}
+              >
                 {WORK_PACKAGE_STATUS_LABEL[selectedWp.status] ?? selectedWp.status}
               </StatusPill>
               <Link

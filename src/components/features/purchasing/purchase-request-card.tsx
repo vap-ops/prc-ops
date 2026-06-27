@@ -19,6 +19,7 @@ import {
   purchaseRequestStatusPillClasses,
   type PurchaseRequestPriority,
 } from "@/lib/status-colors";
+import { purchaseRequestPriorityIcon, purchaseRequestStatusIcon } from "@/lib/status-icons";
 import { formatPrNumber } from "@/lib/purchasing/format-id";
 import { PoNumberTag } from "@/components/features/purchasing/po-number-tag";
 import type { Database } from "@/lib/db/database.types";
@@ -110,11 +111,17 @@ export function PurchaseRequestCard({
         </div>
         <span className="flex shrink-0 items-start gap-1.5">
           <span className="flex flex-col items-end gap-1">
-            <StatusPill pillClasses={purchaseRequestStatusPillClasses(request.status)}>
+            <StatusPill
+              pillClasses={purchaseRequestStatusPillClasses(request.status)}
+              icon={purchaseRequestStatusIcon(request.status)}
+            >
               {PURCHASE_REQUEST_STATUS_LABEL[request.status]}
             </StatusPill>
             {request.priority !== "normal" ? (
-              <StatusPill pillClasses={purchaseRequestPriorityPillClasses(request.priority)}>
+              <StatusPill
+                pillClasses={purchaseRequestPriorityPillClasses(request.priority)}
+                icon={purchaseRequestPriorityIcon(request.priority)}
+              >
                 {PURCHASE_REQUEST_PRIORITY_LABEL[request.priority]}
               </StatusPill>
             ) : null}

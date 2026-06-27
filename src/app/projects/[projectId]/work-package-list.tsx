@@ -34,6 +34,7 @@ import {
 } from "@/lib/deliverables/group-work-packages";
 import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
+import { workPackageStatusIcon } from "@/lib/status-icons";
 import {
   ACTION_BAND_META,
   deriveActionBand,
@@ -446,7 +447,10 @@ function DeliverableLens({
                   )}
                 </span>
                 <span className="flex shrink-0 flex-col items-end gap-1">
-                  <StatusPill pillClasses={workPackageStatusPillClasses(progress.status)}>
+                  <StatusPill
+                    pillClasses={workPackageStatusPillClasses(progress.status)}
+                    icon={workPackageStatusIcon(progress.status)}
+                  >
                     {WORK_PACKAGE_STATUS_LABEL[progress.status]}
                   </StatusPill>
                   <span className="text-meta text-ink-secondary">

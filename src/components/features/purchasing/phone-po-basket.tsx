@@ -15,6 +15,7 @@ import Link from "next/link";
 import { ArrowRight, Check, Plus, ShoppingCart } from "lucide-react";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { purchaseRequestStatusPillClasses } from "@/lib/status-colors";
+import { purchaseRequestStatusIcon } from "@/lib/status-icons";
 import { PURCHASE_REQUEST_STATUS_LABEL } from "@/lib/i18n/labels";
 import { formatPrNumber } from "@/lib/purchasing/format-id";
 import { BUTTON_SECONDARY } from "@/lib/ui/classes";
@@ -92,7 +93,10 @@ export function PhonePoBasket({
                   {r.quantity} {r.unit}
                 </span>
                 <span className="mt-0.5">
-                  <StatusPill pillClasses={purchaseRequestStatusPillClasses(r.status)}>
+                  <StatusPill
+                    pillClasses={purchaseRequestStatusPillClasses(r.status)}
+                    icon={purchaseRequestStatusIcon(r.status)}
+                  >
                     {PURCHASE_REQUEST_STATUS_LABEL[r.status]}
                   </StatusPill>
                 </span>

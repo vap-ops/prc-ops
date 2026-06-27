@@ -31,6 +31,7 @@ import {
   purchaseRequestPriorityPillClasses,
   purchaseRequestStatusPillClasses,
 } from "@/lib/status-colors";
+import { purchaseRequestPriorityIcon, purchaseRequestStatusIcon } from "@/lib/status-icons";
 import { PurchaseRequestTracker } from "@/components/features/purchasing/purchase-request-tracker";
 import { PurchaseRequestNotes } from "@/components/features/purchasing/purchase-request-notes";
 import { PurchaseRequestDecision } from "@/components/features/purchasing/purchase-request-decision";
@@ -221,11 +222,17 @@ export default async function RequestDetailPage({ params }: PageProps) {
             <h1 className={DETAIL_TITLE}>{request.item_description}</h1>
           </div>
           <span className="mt-1 flex shrink-0 flex-col items-end gap-1">
-            <StatusPill pillClasses={purchaseRequestStatusPillClasses(status)}>
+            <StatusPill
+              pillClasses={purchaseRequestStatusPillClasses(status)}
+              icon={purchaseRequestStatusIcon(status)}
+            >
               {PURCHASE_REQUEST_STATUS_LABEL[status]}
             </StatusPill>
             {priority !== "normal" ? (
-              <StatusPill pillClasses={purchaseRequestPriorityPillClasses(priority)}>
+              <StatusPill
+                pillClasses={purchaseRequestPriorityPillClasses(priority)}
+                icon={purchaseRequestPriorityIcon(priority)}
+              >
                 {PURCHASE_REQUEST_PRIORITY_LABEL[priority]}
               </StatusPill>
             ) : null}

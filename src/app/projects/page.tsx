@@ -20,6 +20,7 @@ import { createClient } from "@/lib/db/server";
 import { loadProjectsHub } from "@/lib/projects/load-hub";
 import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
 import { projectStatusPillClasses } from "@/lib/status-colors";
+import { projectStatusIcon } from "@/lib/status-icons";
 
 // Spec 82 Unit 3: THE project hub — the content-named /projects, folded from
 // the two role-named hubs (/sa for site_admin, /pm/projects for pm/super)
@@ -100,7 +101,10 @@ export default async function ProjectsHubPage() {
                       </p>
                     )}
                   </div>
-                  <StatusPill pillClasses={projectStatusPillClasses(p.status)}>
+                  <StatusPill
+                    pillClasses={projectStatusPillClasses(p.status)}
+                    icon={projectStatusIcon(p.status)}
+                  >
                     {PROJECT_STATUS_LABEL[p.status as keyof typeof PROJECT_STATUS_LABEL] ??
                       p.status}
                   </StatusPill>

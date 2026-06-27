@@ -22,6 +22,7 @@ import { EmptyNotice } from "@/components/features/common/notices";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { REPORT_STATUS_LABEL, isReportInFlight, type ReportStatus } from "@/lib/reports/predicates";
 import { reportStatusPillClasses } from "@/lib/status-colors";
+import { reportStatusIcon } from "@/lib/status-icons";
 import { formatThaiDateTime } from "@/lib/i18n/labels";
 import { CARD } from "@/lib/ui/classes";
 import { getReportDownloadUrl } from "./actions";
@@ -70,7 +71,10 @@ function ReportRow({ report }: { report: ReportListItem }) {
   return (
     <li className={CARD}>
       <div className="flex items-center justify-between gap-3">
-        <StatusPill pillClasses={reportStatusPillClasses(report.status)}>
+        <StatusPill
+          pillClasses={reportStatusPillClasses(report.status)}
+          icon={reportStatusIcon(report.status)}
+        >
           {REPORT_STATUS_LABEL[report.status]}
         </StatusPill>
         <span className="text-ink-secondary text-xs">{formatThaiDateTime(report.createdAt)}</span>

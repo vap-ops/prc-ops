@@ -25,6 +25,11 @@ import {
   purchaseRequestPriorityPillClasses,
   purchaseRequestStatusPillClasses,
 } from "@/lib/status-colors";
+import {
+  purchaseOrderStatusIcon,
+  purchaseRequestPriorityIcon,
+  purchaseRequestStatusIcon,
+} from "@/lib/status-icons";
 import { PoReceiveSection } from "@/components/features/purchasing/po-receive-section";
 import { PurchaseOrderTracker } from "@/components/features/purchasing/purchase-order-tracker";
 import { PoDeliveriesTracker } from "@/components/features/purchasing/po-deliveries-tracker";
@@ -141,7 +146,10 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
             <h1 className={`${DETAIL_TITLE} mt-0.5`}>{po.supplier}</h1>
           </div>
           <span className="mt-1 flex shrink-0 flex-col items-end gap-1">
-            <StatusPill pillClasses={purchaseOrderStatusPillClasses(view.status)}>
+            <StatusPill
+              pillClasses={purchaseOrderStatusPillClasses(view.status)}
+              icon={purchaseOrderStatusIcon(view.status)}
+            >
               {PURCHASE_ORDER_STATUS_LABEL[view.status]}
             </StatusPill>
           </span>
@@ -219,11 +227,17 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
                         </p>
                       </div>
                       <span className="flex shrink-0 flex-col items-end gap-1">
-                        <StatusPill pillClasses={purchaseRequestStatusPillClasses(m.status)}>
+                        <StatusPill
+                          pillClasses={purchaseRequestStatusPillClasses(m.status)}
+                          icon={purchaseRequestStatusIcon(m.status)}
+                        >
                           {PURCHASE_REQUEST_STATUS_LABEL[m.status]}
                         </StatusPill>
                         {m.priority !== "normal" ? (
-                          <StatusPill pillClasses={purchaseRequestPriorityPillClasses(m.priority)}>
+                          <StatusPill
+                            pillClasses={purchaseRequestPriorityPillClasses(m.priority)}
+                            icon={purchaseRequestPriorityIcon(m.priority)}
+                          >
                             {PURCHASE_REQUEST_PRIORITY_LABEL[m.priority]}
                           </StatusPill>
                         ) : null}
