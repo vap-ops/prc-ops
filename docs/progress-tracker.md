@@ -6,7 +6,7 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 211 — Procurement terminology & level clarity, U1 (2026-06-27)
+## Spec 211 — Procurement terminology & level clarity, U1+U2 (2026-06-27)
 
 Status: **shipping U1** (code-only, NO schema). Spec: `211-procurement-terminology-clarity.md`. Evidence: `docs/procurement-uxui-audit-2026-06.md` (multi-agent UX audit, 85 surfaces / 91 verified findings).
 
@@ -14,7 +14,9 @@ Operator report: admins can't intuitively distinguish a PO (ใบสั่ง�
 
 **U1 (this unit):** split the PO roll-up vocabulary in `src/lib/i18n/labels.ts` — `ordered: สั่งซื้อแล้ว → ออกใบสั่งซื้อแล้ว`, `in_transit: กำลังจัดส่ง → กำลังจัดส่งทั้งใบ` (PR map untouched; `open`/`partially_received`/`received` already order-scoped). Test-first: added a cross-map invariant in `tests/unit/i18n-labels.test.ts` — the PR-status and PO-status maps must share NO string value (regression guard), plus pins for the two new strings. Display-only (logic keys on enums), so all PO surfaces (detail header, grid PO header row, phone PO card, delivery page) inherit it with no other code change. Verify limitation: not exercised in a live browser (PO detail needs LINE auth + seeded PO data); the unit test asserts the exact rendered strings the surfaces consume.
 
-Remaining units U2–U11 queued in the spec (U8 notifications + U9 accounting are danger-path → operator-held). Per CLAUDE.md, one unit per session — stop after U1.
+**U2 (PR #?? — shipping):** visually type the IDs. New `src/lib/purchasing/format-id.ts` SSOT (`formatPoNumber`/`formatPrNumber`, zero-pad 4) routed through all 16 PR/PO render sites — fixes the bare-`PR-7`-vs-`PR-0007` drift (the grid/basket/create-sheet showed bare numbers, everything else 4-padded). New server-safe `<PoNumberTag>` (a `bg-sunk` chip with the Package icon) marks every PO number as an order, visually distinct from the plain-mono PR number — applied on the worklist grid PO header + phone PO card, the PO detail header, the delivery detail eyebrow, and the PR→PO parent link. Notifications keep their own copy of the formatter (`compose-notification.ts` is danger-path → U8). Test-first `tests/unit/format-id.test.ts`; no existing test broke (purchase-request-card already rendered `PR-0007`). Code-only.
+
+Remaining units U3–U11 queued in the spec (U8 notifications + U9 accounting are danger-path → operator-held).
 
 ---
 

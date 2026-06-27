@@ -14,6 +14,7 @@ import Link from "next/link";
 import { receivePoLines } from "@/app/requests/actions";
 import { PartialReceiveControl } from "@/components/features/purchasing/partial-receive-control";
 import { BUTTON_PRIMARY, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
+import { formatPrNumber } from "@/lib/purchasing/format-id";
 
 export interface ReceivableLine {
   id: string;
@@ -86,7 +87,7 @@ export function PoReceiveSection({ lines }: { lines: ReceivableLine[] }) {
                   className="hover:underline focus:outline-none focus-visible:underline"
                 >
                   <span className="text-ink-muted mr-1.5 font-mono text-xs">
-                    PR-{String(l.pr_number).padStart(4, "0")}
+                    {formatPrNumber(l.pr_number)}
                   </span>
                   <span className="text-ink text-sm">{l.item_description}</span>
                   <span className="text-ink-secondary text-xs">

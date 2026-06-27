@@ -12,6 +12,8 @@ import { createClient } from "@/lib/db/server";
 import { isValidUuid } from "@/lib/photos/path";
 import { PR_LIST_COLUMNS } from "@/lib/purchasing/columns";
 import { DETAIL_TITLE } from "@/lib/ui/classes";
+import { formatPrNumber } from "@/lib/purchasing/format-id";
+import { PoNumberTag } from "@/components/features/purchasing/po-number-tag";
 
 // /requests/[requestId] — the order detail screen (spec 47). The list
 // card is a slim summary now; every fact and action moved here. Same
@@ -213,7 +215,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-ink-secondary font-mono text-xs">
-              PR-{String(request.pr_number).padStart(4, "0")}
+              {formatPrNumber(request.pr_number)}
             </p>
             {/* Spec 57: the page's subject never truncates. */}
             <h1 className={DETAIL_TITLE}>{request.item_description}</h1>
@@ -308,12 +310,14 @@ export default async function RequestDetailPage({ params }: PageProps) {
           ) : null}
           {/* Spec 134 U1: this ticket belongs to a grouped PO — link to it. */}
           {poId && poRow ? (
-            <p className="mt-3 text-xs">
+            <p className="mt-3 flex items-center gap-1.5 text-xs">
+              <span className="text-ink-secondary">อยู่ใน</span>
               <Link
                 href={`/requests/orders/${poId}`}
-                className="text-action font-medium underline-offset-2 hover:underline focus:outline-none focus-visible:underline"
+                className="text-action inline-flex items-center gap-1 font-medium underline-offset-2 hover:underline focus:outline-none focus-visible:underline"
               >
-                ส่วนของใบสั่งซื้อ PO-{String(poRow.po_number).padStart(4, "0")} →
+                <PoNumberTag poNumber={poRow.po_number} />
+                <span>ใบสั่งซื้อ →</span>
               </Link>
             </p>
           ) : null}

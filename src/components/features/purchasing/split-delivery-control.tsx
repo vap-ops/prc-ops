@@ -14,6 +14,7 @@ import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { splitPurchaseOrderDelivery } from "@/app/requests/actions";
 import { deliverySplitWouldEmptySource } from "@/lib/purchasing/po-deliveries";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY_MUTED, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
+import { formatPrNumber } from "@/lib/purchasing/format-id";
 
 export interface SplittableLine {
   id: string;
@@ -133,7 +134,7 @@ export function SplitDeliveryControl({
                 />
                 <span className="min-w-0">
                   <span className="text-ink-muted mr-1.5 font-mono text-xs">
-                    PR-{String(l.pr_number).padStart(4, "0")}
+                    {formatPrNumber(l.pr_number)}
                   </span>
                   <span className="text-ink text-sm">{l.item_description}</span>
                 </span>

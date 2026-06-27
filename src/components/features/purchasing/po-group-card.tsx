@@ -6,7 +6,8 @@
 // the detail page shows), so the card reads consistently with /requests/orders/[id].
 
 import Link from "next/link";
-import { ChevronRight, Package } from "lucide-react";
+import { ChevronRight } from "lucide-react";
+import { PoNumberTag } from "@/components/features/purchasing/po-number-tag";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { PURCHASE_ORDER_STATUS_LABEL, formatThaiDate } from "@/lib/i18n/labels";
 import { purchaseOrderStatusPillClasses } from "@/lib/status-colors";
@@ -37,8 +38,7 @@ export function PoGroupCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-0.5">
           <p className="text-ink-secondary flex items-center gap-1.5 text-xs">
-            <Package aria-hidden className="size-3.5 shrink-0" />
-            <span className="font-mono">PO-{String(poNumber).padStart(4, "0")}</span>
+            <PoNumberTag poNumber={poNumber} />
             <span className="mx-0.5">·</span>
             ใบสั่งซื้อรวม
           </p>

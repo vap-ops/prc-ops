@@ -16,6 +16,7 @@ import { ArrowRight, Check, Plus, ShoppingCart } from "lucide-react";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { purchaseRequestStatusPillClasses } from "@/lib/status-colors";
 import { PURCHASE_REQUEST_STATUS_LABEL } from "@/lib/i18n/labels";
+import { formatPrNumber } from "@/lib/purchasing/format-id";
 import { BUTTON_SECONDARY } from "@/lib/ui/classes";
 import type { SupplierOption } from "@/components/features/purchasing/purchase-record-form";
 import type { ProcurementGridRecord } from "@/components/features/purchasing/procurement-grid";
@@ -84,7 +85,9 @@ export function PhonePoBasket({
               <Link href={`/requests/${r.id}`} className="flex min-w-0 flex-col gap-1">
                 <span className="text-ink font-medium break-words">{r.item_description}</span>
                 <span className="text-ink-muted text-meta">
-                  {r.pr_number ? <span className="font-mono">PR-{r.pr_number}</span> : null}
+                  {r.pr_number ? (
+                    <span className="font-mono">{formatPrNumber(r.pr_number)}</span>
+                  ) : null}
                   {r.wp_code ? <span className="font-mono"> · {r.wp_code}</span> : null} ·{" "}
                   {r.quantity} {r.unit}
                 </span>

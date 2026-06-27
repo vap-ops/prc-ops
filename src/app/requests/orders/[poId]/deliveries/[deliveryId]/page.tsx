@@ -30,6 +30,8 @@ import { loadDeliveryDetail } from "@/lib/purchasing/load-delivery-detail";
 import { DeliveryProofBlock } from "@/components/features/purchasing/delivery-proof-block";
 import { DeliveryDispatchControl } from "@/components/features/purchasing/delivery-dispatch-control";
 import { poDetailHref } from "@/lib/nav/order-paths";
+import { formatPrNumber } from "@/lib/purchasing/format-id";
+import { PoNumberTag } from "@/components/features/purchasing/po-number-tag";
 
 // /requests/orders/[poId]/deliveries/[deliveryId] — the delivery (งวดจัดส่ง) detail
 // screen (spec 135 U5). A PO ships in deliveries procurement arranges; this is where a
@@ -110,8 +112,8 @@ export default async function DeliveryDetailPage({ params }: PageProps) {
       <DetailHeader backHref={poDetailHref(poId)} backLabel="กลับไปใบสั่งซื้อ">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-ink-secondary truncate font-mono text-xs">
-              PO-{String(po.po_number).padStart(4, "0")} · {po.supplier}
+            <p className="text-ink-secondary truncate text-xs">
+              <PoNumberTag poNumber={po.po_number} /> <span>· {po.supplier}</span>
             </p>
             <h1 className={DETAIL_TITLE}>งวดที่ {ordinal}</h1>
           </div>
@@ -172,7 +174,7 @@ export default async function DeliveryDetailPage({ params }: PageProps) {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-ink-secondary font-mono text-xs">
-                        PR-{String(m.pr_number).padStart(4, "0")}
+                        {formatPrNumber(m.pr_number)}
                       </p>
                       <p className="text-ink truncate text-sm font-medium">{m.item_description}</p>
                     </div>
