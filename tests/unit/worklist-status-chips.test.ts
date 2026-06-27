@@ -3,7 +3,7 @@ import { buildWorklistStatusChips } from "@/lib/purchasing/worklist-status-chips
 import type { ProcurementFilter } from "@/lib/purchasing/worklist-filter";
 
 // Spec 138 U3 — the scrollable status-chip filter with live counts. Pure, TDD-first.
-// Chips are BAND-level (ทั้งหมด / อนุมัติแล้ว=to_order / กำลังจัดส่ง=in_transit / เกินกำหนด=overdue);
+// Chips are BAND-level (ทั้งหมด / รอสั่งซื้อ=to_order / กำลังจัดส่ง=in_transit / เกินกำหนด=overdue);
 // counts reuse the spec-105 procurementSummary and are live to the supplier/project axes.
 
 const NONE: ProcurementFilter = {
@@ -33,7 +33,7 @@ describe("buildWorklistStatusChips", () => {
     expect(chips.map((c) => c.key)).toEqual(["all", "to_order", "in_transit", "overdue"]);
     expect(chips.map((c) => c.label)).toEqual([
       "ทั้งหมด",
-      "อนุมัติแล้ว",
+      "รอสั่งซื้อ",
       "กำลังจัดส่ง",
       "เกินกำหนด",
     ]);

@@ -1,6 +1,6 @@
 # Spec 211 — Procurement terminology & level clarity
 
-**Status:** in progress — U1 (#97) + U2 (#98) + U3 (#99) + U5 (#100) + U6 (#101) shipped, U4 shipping
+**Status:** in progress — U1–U6 shipped (#97–#102), U7 shipping
 **Source:** operator report — "admins cannot intuitively distinguish the PO from the PO Items." Full evidence: [`docs/procurement-uxui-audit-2026-06.md`](../procurement-uxui-audit-2026-06.md) (multi-agent audit, 85 surfaces, 91 verified findings).
 
 ## Problem (root cause)
@@ -46,7 +46,7 @@ The purest form of the reported pain (audit `po-vs-items-01`, confirmed **high**
 
 `po-vs-items-03`, `terminology-07`, `worklist-hub-04`. Reserve `รายการ` for genuine line-items. On the worklist grid: column header → `สิ่งที่ขอซื้อ`; bundle hint → `เลือกหลายคำขอ…`; selection count → `เลือก {n} คำขอ`; drawer doc count → `{n} ไฟล์`. The PO line-count (`{n} รายการ` on a PO group/header) is a correct line-item use and is KEPT. The accounting register count (`{n} รายการ` → `{n} ใบขอซื้อ`, `accounting-ap-02`) is moved to U9 (the accounting pass), keeping U3 a single-file procurement change. Code-only.
 
-### U4 — Status icons app-wide _(this unit — operator-directed)_
+### U4 — Status icons app-wide _(SHIPPED #102 — operator-directed)_
 
 `po-detail-03`, `po-vs-items-06`, `po-detail-06`. Operator (2026-06-27): "use icons to distinguish statuses, consistent with detail pages." Rather than restyle the PO pill colour (which would regress the spec-20 sun-readable solid fills), give **every** status pill a colour-independent **icon** — a state-distinguishing glyph that also serves sun-glare + colour-blind legibility, and resolves PO-vs-line level confusion (PO `ordered` = `FileText` "ออกใบสั่งซื้อ" vs PR `purchased` = `ShoppingCart`).
 
@@ -62,9 +62,11 @@ New SSOT `src/lib/status-icons.ts` parallel to `status-colors.ts`: icon maps + a
 
 **Deferred → U6b:** the breadcrumb `จัดซื้อ › ใบสั่งซื้อ PO-0012` and the `?from=` PR→PO referrer back-href (so a PR reached from its PO returns to the PO). Kept separate to keep this unit a clean rename.
 
-### U7 — One band-label SSOT
+### U7 — One band-label SSOT _(this unit — procurement view)_
 
-`worklist-hub-08`, `worklist-hub-16`, `terminology-05`. Define one `BAND_LABEL` keyed by band, reused by `worklist-status-chips.ts`, `procurement-pipeline.ts`, `request-bands.ts` (today `to_order` reads `อนุมัติแล้ว` / `รอสั่งซื้อ` / `อนุมัติแล้ว รอสั่งซื้อ` across the same screen). Code-only.
+`worklist-hub-08`. New `PROCUREMENT_BAND_LABEL` SSOT in `procurement-pipeline.ts`, consumed by the pipeline band headers (`PROCUREMENT_BANDS`), the status-chip filter (`worklist-status-chips.ts`) and the KPI tiles (`worklist-kpis.ts`) — so a band reads ONE way on the procurement screen. The visible fix: the `to_order` chip was `อนุมัติแล้ว` while the header + tile were `รอสั่งซื้อ`; the chip now uses the canonical `รอสั่งซื้อ`. `in_transit`/`overdue` already agreed and are now SSOT-sourced (no visible change). Test-first: flipped the chip-label assertion + added `band-label-ssot.test.ts` (the three sources must derive from `PROCUREMENT_BAND_LABEL`). Code-only.
+
+**Deferred (cross-engine):** the SITE band engine (`request-bands.ts`, a different role-view with its own banding — e.g. `to_order` = `อนุมัติแล้ว รอสั่งซื้อ`) is NOT force-unified here (critic gap: site vs procurement are two parallel band engines over one table; reconciling them is its own change). `terminology-05`/`worklist-hub-16` cross-view reconciliation tracked there.
 
 ### U8 — Notification PO-awareness _(operator-held: danger path)_
 

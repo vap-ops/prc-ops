@@ -6,7 +6,10 @@
 // U3 buildWorklistStatusChips so href/active live in one place. The /requests page renders
 // from it for procurement only.
 
-import type { ProcurementSummary } from "@/lib/purchasing/procurement-pipeline";
+import {
+  PROCUREMENT_BAND_LABEL,
+  type ProcurementSummary,
+} from "@/lib/purchasing/procurement-pipeline";
 import { buildWorklistQuery, type ProcurementFilter } from "@/lib/purchasing/worklist-filter";
 
 export type WorklistKpiTone = "hot" | "shipping" | "danger" | "neutral";
@@ -51,7 +54,7 @@ export function buildWorklistKpis(input: {
   return [
     {
       key: "to_order",
-      label: "รอสั่งซื้อ",
+      label: PROCUREMENT_BAND_LABEL.to_order,
       value: String(summary.toOrder),
       caption: "พร้อมออกใบสั่งซื้อ",
       tone: "hot",
@@ -60,7 +63,7 @@ export function buildWorklistKpis(input: {
     },
     {
       key: "in_transit",
-      label: "กำลังจัดส่ง",
+      label: PROCUREMENT_BAND_LABEL.in_transit,
       value: String(summary.inTransit),
       caption: "ระหว่างขนส่ง",
       tone: "shipping",
@@ -69,7 +72,7 @@ export function buildWorklistKpis(input: {
     },
     {
       key: "overdue",
-      label: "เกินกำหนด",
+      label: PROCUREMENT_BAND_LABEL.overdue,
       value: String(summary.overdue),
       caption: "ติดตามด่วน",
       // Danger when there's something to chase OR the chase filter is on; calm otherwise.
