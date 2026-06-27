@@ -16,6 +16,7 @@ import { PURCHASE_REASON_CODES } from "@/lib/purchasing/reason-code";
 import { PURCHASE_REQUEST_REASON_CODE_LABEL } from "@/lib/i18n/labels";
 import { BUTTON_PRIMARY, FIELD_INPUT, INLINE_ERROR } from "@/lib/ui/classes";
 import { InvoiceUploader } from "@/components/features/purchasing/invoice-uploader";
+import { ItemPhotoUploader } from "@/components/features/purchasing/item-photo-uploader";
 
 interface SitePurchaseFormProps {
   workPackageId: string;
@@ -67,11 +68,14 @@ export function SitePurchaseForm({ workPackageId, projectId }: SitePurchaseFormP
   }
 
   if (recordedId) {
+    // Spec 211 U11b: a self-purchase carries TWO image types — the item photo
+    // (รูปสินค้า) and the receipt/invoice docs.
     return (
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-3">
         <p role="status" className="text-done-strong text-sm font-medium">
-          บันทึกการซื้อแล้ว — แนบใบส่งของ / ใบเสร็จ
+          บันทึกการซื้อแล้ว — แนบรูปสินค้า และใบส่งของ / ใบเสร็จ
         </p>
+        <ItemPhotoUploader purchaseRequestId={recordedId} projectId={projectId} />
         <InvoiceUploader purchaseRequestId={recordedId} projectId={projectId} />
       </div>
     );

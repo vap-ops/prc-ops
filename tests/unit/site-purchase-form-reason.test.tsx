@@ -19,6 +19,9 @@ vi.mock("@/app/requests/actions", () => ({
 vi.mock("@/components/features/purchasing/invoice-uploader", () => ({
   InvoiceUploader: () => <div data-testid="invoice-uploader" />,
 }));
+vi.mock("@/components/features/purchasing/item-photo-uploader", () => ({
+  ItemPhotoUploader: () => <div data-testid="item-photo-uploader" />,
+}));
 
 import { SitePurchaseForm } from "@/components/features/purchasing/site-purchase-form";
 
