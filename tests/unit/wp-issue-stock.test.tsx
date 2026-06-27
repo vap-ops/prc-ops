@@ -67,18 +67,18 @@ function renderZone(opts: { onHand?: WpStockRow[]; issues?: WpIssueRow[] }) {
 describe("WpIssueStock (spec 177 U5)", () => {
   it("offers a เบิก control when the store has stock", () => {
     renderZone({});
-    expect(screen.getByRole("button", { name: /เบิกวัสดุจากสโตร์/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ })).toBeInTheDocument();
   });
 
   it("shows an empty state and no เบิก control when the store is empty", () => {
     renderZone({ onHand: [] });
-    expect(screen.getByText("ยังไม่มีสต๊อกในสโตร์")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /เบิกวัสดุจากสโตร์/ })).toBeNull();
+    expect(screen.getByText("ยังไม่มีสต๊อกในคลัง")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /เบิกวัสดุจากคลัง/ })).toBeNull();
   });
 
   it("issues the chosen item to this work package", async () => {
     renderZone({});
-    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากสโตร์/ }));
+    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
     fireEvent.change(screen.getByLabelText("วัสดุ"), { target: { value: "ci1" } });
     fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "5" } });
     fireEvent.change(screen.getByLabelText(/หมายเหตุ/), { target: { value: "หน้างาน" } });
@@ -102,7 +102,7 @@ describe("WpIssueStock (spec 177 U5)", () => {
         { catalogItemId: "ci2", baseItem: "ท่อ", specAttrs: null, unit: "เส้น", qtyOnHand: 50 },
       ],
     });
-    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากสโตร์/ }));
+    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
     // row 1
     fireEvent.change(screen.getAllByLabelText("วัสดุ")[0]!, { target: { value: "ci1" } });
     fireEvent.change(screen.getAllByLabelText("จำนวน")[0]!, { target: { value: "5" } });
@@ -126,7 +126,7 @@ describe("WpIssueStock (spec 177 U5)", () => {
 
   it("disables the submit until an item and qty are set", () => {
     renderZone({});
-    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากสโตร์/ }));
+    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
     const submit = screen.getByRole("button", { name: "ยืนยันการเบิก" });
     expect(submit).toBeDisabled();
     fireEvent.change(screen.getByLabelText("วัสดุ"), { target: { value: "ci1" } });
@@ -138,7 +138,7 @@ describe("WpIssueStock (spec 177 U5)", () => {
   // เบิก more than is on hand (the server also 22023s, but block it before submit).
   it("blocks the submit when the qty exceeds what is on hand", () => {
     renderZone({});
-    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากสโตร์/ }));
+    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
     fireEvent.change(screen.getByLabelText("วัสดุ"), { target: { value: "ci1" } });
     fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "25" } });
     expect(screen.getByRole("button", { name: "ยืนยันการเบิก" })).toBeDisabled();
@@ -146,15 +146,15 @@ describe("WpIssueStock (spec 177 U5)", () => {
 
   it("warns when the qty exceeds what is on hand", () => {
     renderZone({});
-    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากสโตร์/ }));
+    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
     fireEvent.change(screen.getByLabelText("วัสดุ"), { target: { value: "ci1" } });
     fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "25" } });
-    expect(screen.getByText(/เกินจำนวนในสโตร์/)).toBeInTheDocument();
+    expect(screen.getByText(/เกินจำนวนในคลัง/)).toBeInTheDocument();
   });
 
   it("allows the submit at exactly the on-hand qty", () => {
     renderZone({});
-    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากสโตร์/ }));
+    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
     fireEvent.change(screen.getByLabelText("วัสดุ"), { target: { value: "ci1" } });
     fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "20" } });
     expect(screen.getByRole("button", { name: "ยืนยันการเบิก" })).toBeEnabled();
@@ -167,7 +167,7 @@ describe("WpIssueStock (spec 177 U5)", () => {
 
   it("names a receiver worker on the issue (custody handshake)", async () => {
     renderZone({});
-    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากสโตร์/ }));
+    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
     fireEvent.change(screen.getByLabelText("วัสดุ"), { target: { value: "ci1" } });
     fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "5" } });
     fireEvent.change(screen.getByLabelText(/ผู้รับ/), { target: { value: "w1" } });
@@ -213,14 +213,14 @@ describe("WpIssueStock (spec 177 U5)", () => {
   });
 
   // Spec 209 U2 — the real WP→store return (partial), distinct from the mistake-undo.
-  it("offers a คืนเข้าสโตร์ control on an issued line with qty left to return", () => {
+  it("offers a คืนเข้าคลัง control on an issued line with qty left to return", () => {
     renderZone({ issues });
-    expect(screen.getByRole("button", { name: "คืนเข้าสโตร์" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "คืนเข้าคลัง" })).toBeInTheDocument();
   });
 
   it("returns a partial qty after confirm (defaults to the remaining, accepts less)", async () => {
     renderZone({ issues }); // issue i1: qty 5, returnedQty 0 → remaining 5
-    fireEvent.click(screen.getByRole("button", { name: "คืนเข้าสโตร์" }));
+    fireEvent.click(screen.getByRole("button", { name: "คืนเข้าคลัง" }));
     const input = screen.getByLabelText(/จำนวนที่คืน/);
     expect((input as HTMLInputElement).value).toBe("5"); // default = remaining
     fireEvent.change(input, { target: { value: "2" } });
@@ -230,7 +230,7 @@ describe("WpIssueStock (spec 177 U5)", () => {
 
   it("hides the return control once the issue is fully returned", () => {
     renderZone({ issues: [{ ...issues[0]!, qty: 5, returnedQty: 5 }] });
-    expect(screen.queryByRole("button", { name: "คืนเข้าสโตร์" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "คืนเข้าคลัง" })).toBeNull();
   });
 });
 

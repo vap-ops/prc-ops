@@ -1,6 +1,6 @@
 # Spec 211 — Procurement terminology & level clarity
 
-**Status:** in progress — U1–U7 + U10a shipped (#97–#104), U10b shipping
+**Status:** in progress — U1–U7 + U10a/b shipped (#97–#105), U10c shipping
 **Source:** operator report — "admins cannot intuitively distinguish the PO from the PO Items." Full evidence: [`docs/procurement-uxui-audit-2026-06.md`](../procurement-uxui-audit-2026-06.md) (multi-agent audit, 85 surfaces, 91 verified findings).
 
 ## Problem (root cause)
@@ -82,7 +82,7 @@ A cluster of independent term fixes, shipped as small focused sub-units rather t
 
 - **U10a — delivery-installment term _(SHIPPED this unit)_:** `terminology-08`/`delivery-receiving-01`. New `deliveryOrdinalLabel(n)` SSOT in `po-deliveries.ts` → `งวดจัดส่งที่ N`, used by the deliveries section, the per-`งวด` tracker, and the delivery detail title. Disambiguates the PO shipment installment from `งวดงาน` (the billing/work milestone on deliverables + schedule gantt — deliberately left as `งวดที่`). Test-first `delivery-ordinal-label.test.ts`. Code-only.
 - **U10b — ETA term _(SHIPPED this unit)_:** `worklist-hub-13`. New `ETA_LABEL = "กำหนดรับของ"` in labels.ts, used for the record's expected-arrival display on the grid header (`สถานะ / ETA` → `สถานะ / กำหนดรับของ`), the grid cell (was English `ETA`), the review drawer (was `คาดว่าจะได้รับ`) and the PO group card. The set-the-date FORM inputs (create-PO sheet, purchase-record-form) keep their own `คาดว่าจะได้รับของ` prompt (input intent vs display). Test-first (grid-terminology test asserts the header drops English ETA). Code-only.
-- **U10c — store noun:** `site-store-08`. One place-noun `คลัง` (retire `สโตร์`; reserve `สต๊อก` for quantity). _(queued)_
+- **U10c — store noun _(SHIPPED this unit)_:** `site-store-08`. Retired `สโตร์` (English-loanword duplicate of the store) → the SSOT place-noun `คลัง`, across labels (`STORE_RETURN_TO_STORE_LABEL`→`คืนเข้าคลัง`, `STORE_PNL_LABEL`→`กำไร-ขาดทุนคลัง`), store actions errors, the PR form, store-count-manager, store-manager, wp-issue-stock, and validate-purchase-request. `สต๊อก` (= stock/quantity) is left intact — that's the kept distinction (`คลัง`=place, `สต๊อก`=quantity). Tests `store-returns-labels` + `wp-issue-stock` updated in lockstep. Conservative scope: the `สต๊อก`-as-place reframing of a couple of StoreManager headings is deferred (debatable place-vs-quantity). Code-only.
 - **U10d — misc:** supplier-ref field off `เลขที่ใบสั่งซื้อ` (`terminology-02`), PR-stepper aria-label `สถานะการสั่งซื้อ`→`สถานะคำขอซื้อ` (`terminology-04`), dispatch button wording (`delivery-receiving-05`), one `CREATE_PO_LABEL`. _(queued)_
 
 ### U11 — Site / supply-plan buy-action consolidation

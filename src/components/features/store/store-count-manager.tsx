@@ -126,7 +126,7 @@ export function StoreCountManager({
 
       {open && selectedProjectId ? (
         onHand.length === 0 ? (
-          <p className="text-ink-secondary text-body">ยังไม่มีสต๊อกในสโตร์ของโครงการนี้</p>
+          <p className="text-ink-secondary text-body">ยังไม่มีสต๊อกในคลังของโครงการนี้</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {onHand.map((row) => (

@@ -35,7 +35,7 @@ function isRealIsoDate(value: string): boolean {
 
 export type ValidatedPurchaseRequestInput = {
   // Spec 195 P1: the scope. A PR is bound to a project; the work package is
-  // OPTIONAL (null = "ทั้งโครงการ / เข้าสโตร์"). When a WP is present the DB
+  // OPTIONAL (null = "ทั้งโครงการ / เข้าคลัง"). When a WP is present the DB
   // derives project_id from it (a BEFORE INSERT trigger), so a WP-bound PR may
   // leave projectId null here; a WP-less PR must carry projectId.
   projectId: string | null;
@@ -210,7 +210,7 @@ export function toStoreBoundPurchase(input: {
     return { ok: false, error: "ต้องระบุโครงการของคำขอซื้อ" };
   }
   if (!input.catalogItemId) {
-    return { ok: false, error: "กรุณาเลือกวัสดุจากแคตตาล็อก (สั่งซื้อเข้าสโตร์)" };
+    return { ok: false, error: "กรุณาเลือกวัสดุจากแคตตาล็อก (สั่งซื้อเข้าคลัง)" };
   }
   return { ok: true, value: { projectId: input.projectId, catalogItemId: input.catalogItemId } };
 }

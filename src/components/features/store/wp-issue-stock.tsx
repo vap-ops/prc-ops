@@ -128,11 +128,11 @@ export function WpIssueStock({
   return (
     <div className="flex flex-col gap-3">
       {onHand.length === 0 ? (
-        <p className="text-ink-secondary text-body">ยังไม่มีสต๊อกในสโตร์</p>
+        <p className="text-ink-secondary text-body">ยังไม่มีสต๊อกในคลัง</p>
       ) : (
         <div>
           <button type="button" onClick={() => setOpen(true)} className={BUTTON_SECONDARY}>
-            เบิกวัสดุจากสโตร์
+            เบิกวัสดุจากคลัง
           </button>
         </div>
       )}
@@ -190,7 +190,7 @@ export function WpIssueStock({
               <ConfirmActionButton
                 idleLabel={STORE_FIX_WRONG_ENTRY_LABEL}
                 pendingLabel="กำลังแก้ไข…"
-                confirmMessage={`ลบรายการเบิกที่บันทึกผิด — ${i.baseItem} ${i.qty} ${i.unit}? ใช้เมื่อบันทึกผิด ไม่ใช่การคืนของจริง (ของจะถูกคืนเข้าสโตร์)`}
+                confirmMessage={`ลบรายการเบิกที่บันทึกผิด — ${i.baseItem} ${i.qty} ${i.unit}? ใช้เมื่อบันทึกผิด ไม่ใช่การคืนของจริง (ของจะถูกคืนเข้าคลัง)`}
                 confirmLabel="ยืนยัน"
                 buttonClassName={`${BUTTON_SECONDARY} shrink-0`}
                 action={() => reverseStockIssue({ issueId: i.id })}
@@ -264,7 +264,7 @@ export function WpIssueStock({
                     {selected ? (
                       <p className={`text-meta ${over ? "text-danger" : "text-ink-secondary"}`}>
                         {over
-                          ? `เกินจำนวนในสโตร์ (มี ${selected.qtyOnHand} ${selected.unit})`
+                          ? `เกินจำนวนในคลัง (มี ${selected.qtyOnHand} ${selected.unit})`
                           : `มีในมือ ${selected.qtyOnHand} ${selected.unit}`}
                       </p>
                     ) : null}

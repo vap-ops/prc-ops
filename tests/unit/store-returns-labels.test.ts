@@ -12,7 +12,7 @@ const THAI_CHAR = /[฀-๿]/;
 describe("store returns vs mistake-undo labels (spec 209)", () => {
   it("defines two distinct, Thai, non-empty terms", () => {
     expect(STORE_FIX_WRONG_ENTRY_LABEL).toBe("แก้รายการที่บันทึกผิด");
-    expect(STORE_RETURN_TO_STORE_LABEL).toBe("คืนเข้าสโตร์");
+    expect(STORE_RETURN_TO_STORE_LABEL).toBe("คืนเข้าคลัง");
     expect(STORE_FIX_WRONG_ENTRY_LABEL).not.toBe(STORE_RETURN_TO_STORE_LABEL);
     for (const l of [STORE_FIX_WRONG_ENTRY_LABEL, STORE_RETURN_TO_STORE_LABEL]) {
       expect(l.trim().length).toBeGreaterThan(0);

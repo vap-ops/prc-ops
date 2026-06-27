@@ -24,7 +24,7 @@ import {
 import { PURCHASE_REASON_CODES, isPurchaseReasonCode } from "@/lib/purchasing/reason-code";
 
 const VALID_WP = "11111111-2222-3333-4444-555555555555";
-// Spec 195 P1: a project the PR is scoped to (WP-less = "ทั้งโครงการ / เข้าสโตร์").
+// Spec 195 P1: a project the PR is scoped to (WP-less = "ทั้งโครงการ / เข้าคลัง").
 const VALID_PROJECT = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 const VALID_REASON = "unplanned_miss";
 // Spec 179: a catalog_items.id the request may link to (uuid-or-null).
@@ -72,7 +72,7 @@ describe("validateCreatePurchaseRequest", () => {
   });
 
   // Spec 195 P1 — the work package is now OPTIONAL; a PR may be scoped to the
-  // whole project ("ทั้งโครงการ / เข้าสโตร์") with work_package_id null. Exactly
+  // whole project ("ทั้งโครงการ / เข้าคลัง") with work_package_id null. Exactly
   // one scope is required: a WP (project derived) OR a project (WP-less).
   it("accepts a WP-less project-level request (projectId set, workPackageId omitted)", () => {
     const r = validateCreatePurchaseRequest({

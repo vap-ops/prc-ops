@@ -169,7 +169,7 @@ export async function recordStockCount(input: {
   if (error) {
     if (error.code === "42501") return { ok: false, error: NO_PERMISSION };
     if (error.code === "22023") {
-      return { ok: false, error: "ตรวจนับได้เฉพาะวัสดุที่มีในสโตร์ หรือข้อมูลไม่ถูกต้อง" };
+      return { ok: false, error: "ตรวจนับได้เฉพาะวัสดุที่มีในคลัง หรือข้อมูลไม่ถูกต้อง" };
     }
     return { ok: false, error: "บันทึกการนับไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
@@ -234,7 +234,7 @@ export async function returnStockToStore(input: {
   note?: string | null;
 }): Promise<StockInResult> {
   if (!UUID_REGEX.test(input.issueId)) {
-    return { ok: false, error: "คืนเข้าสโตร์ไม่สำเร็จ" };
+    return { ok: false, error: "คืนเข้าคลังไม่สำเร็จ" };
   }
   if (!Number.isFinite(input.qty) || input.qty <= 0) {
     return { ok: false, error: "จำนวนที่คืนต้องมากกว่าศูนย์" };
@@ -252,10 +252,10 @@ export async function returnStockToStore(input: {
     if (error.code === "22023") {
       return { ok: false, error: "คืนได้ไม่เกินจำนวนที่เบิกไป และต้องเป็นรายการที่ยังไม่ถูกแก้" };
     }
-    return { ok: false, error: "คืนเข้าสโตร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    return { ok: false, error: "คืนเข้าคลังไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
 
-  // Spec 209 U2: คืนเข้าสโตร์ is invoked from the WP detail page, not /store.
+  // Spec 209 U2: คืนเข้าคลัง is invoked from the WP detail page, not /store.
   revalidatePath("/projects", "layout");
   return { ok: true };
 }
