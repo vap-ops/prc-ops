@@ -1,6 +1,6 @@
 # Spec 211 — Procurement terminology & level clarity
 
-**Status:** in progress — U1–U6 shipped (#97–#102), U7 shipping
+**Status:** in progress — U1–U7 shipped (#97–#103), U10a shipping
 **Source:** operator report — "admins cannot intuitively distinguish the PO from the PO Items." Full evidence: [`docs/procurement-uxui-audit-2026-06.md`](../procurement-uxui-audit-2026-06.md) (multi-agent audit, 85 surfaces, 91 verified findings).
 
 ## Problem (root cause)
@@ -62,7 +62,7 @@ New SSOT `src/lib/status-icons.ts` parallel to `status-colors.ts`: icon maps + a
 
 **Deferred → U6b:** the breadcrumb `จัดซื้อ › ใบสั่งซื้อ PO-0012` and the `?from=` PR→PO referrer back-href (so a PR reached from its PO returns to the PO). Kept separate to keep this unit a clean rename.
 
-### U7 — One band-label SSOT _(this unit — procurement view)_
+### U7 — One band-label SSOT _(SHIPPED #103 — procurement view)_
 
 `worklist-hub-08`. New `PROCUREMENT_BAND_LABEL` SSOT in `procurement-pipeline.ts`, consumed by the pipeline band headers (`PROCUREMENT_BANDS`), the status-chip filter (`worklist-status-chips.ts`) and the KPI tiles (`worklist-kpis.ts`) — so a band reads ONE way on the procurement screen. The visible fix: the `to_order` chip was `อนุมัติแล้ว` while the header + tile were `รอสั่งซื้อ`; the chip now uses the canonical `รอสั่งซื้อ`. `in_transit`/`overdue` already agreed and are now SSOT-sourced (no visible change). Test-first: flipped the chip-label assertion + added `band-label-ssot.test.ts` (the three sources must derive from `PROCUREMENT_BAND_LABEL`). Code-only.
 
@@ -76,9 +76,14 @@ Critic gap X1. `src/lib/notifications/compose-notification.ts` pushes raw PR sta
 
 Critic gap X3 / `accounting-ap-03/04/05`. Use `formatPoNumber()` (from U2) on the voucher (`#3` → `PO-0003`), make the linked PO a live link, group the register by PO with a subtotal, and rename the register count `{n} รายการ` → `{n} ใบขอซื้อ` (`accounting-ap-02`, moved here from U3). `src/lib/accounting/**` is a danger path → held.
 
-### U10 — Remaining terminology SSOT
+### U10 — Remaining terminology SSOT _(split into sub-units — done incrementally)_
 
-`terminology-02/04/08`, `delivery-receiving-01/05`, `site-store-08`, `worklist-hub-13`. One store noun (`คลัง`), qualify `งวด` → `งวดจัดส่ง`, one `ETA_LABEL`, one `CREATE_PO_LABEL`, rename the supplier-ref field off `เลขที่ใบสั่งซื้อ`. Code-only.
+A cluster of independent term fixes, shipped as small focused sub-units rather than one grab-bag:
+
+- **U10a — delivery-installment term _(SHIPPED this unit)_:** `terminology-08`/`delivery-receiving-01`. New `deliveryOrdinalLabel(n)` SSOT in `po-deliveries.ts` → `งวดจัดส่งที่ N`, used by the deliveries section, the per-`งวด` tracker, and the delivery detail title. Disambiguates the PO shipment installment from `งวดงาน` (the billing/work milestone on deliverables + schedule gantt — deliberately left as `งวดที่`). Test-first `delivery-ordinal-label.test.ts`. Code-only.
+- **U10b — ETA term:** `worklist-hub-13`. One `ETA_LABEL` (grid header/cell uses English "ETA"; drawer `คาดว่าจะได้รับ`; PO card `กำหนดรับของ`). _(queued)_
+- **U10c — store noun:** `site-store-08`. One place-noun `คลัง` (retire `สโตร์`; reserve `สต๊อก` for quantity). _(queued)_
+- **U10d — misc:** supplier-ref field off `เลขที่ใบสั่งซื้อ` (`terminology-02`), PR-stepper aria-label `สถานะการสั่งซื้อ`→`สถานะคำขอซื้อ` (`terminology-04`), dispatch button wording (`delivery-receiving-05`), one `CREATE_PO_LABEL`. _(queued)_
 
 ### U11 — Site / supply-plan buy-action consolidation
 
