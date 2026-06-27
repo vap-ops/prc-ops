@@ -22,7 +22,9 @@ import {
   summarizePurchases,
   purchaseStatusLabel,
   purchaseRegisterCountLabel,
+  groupRegisterByPo,
 } from "@/lib/accounting/purchases-view";
+import { PoNumberTag } from "@/components/features/purchasing/po-number-tag";
 
 export const metadata = { title: "การจัดซื้อ" };
 
@@ -44,6 +46,8 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
 
   const rows = await loadPurchaseRegister(admin, from, to, projectId);
   const summary = summarizePurchases(rows);
+  // Spec 211 (accounting-ap-03): read the register a PO at a time, with a subtotal.
+  const groups = groupRegisterByPo(rows);
 
   return (
     <PageShell>
@@ -128,28 +132,47 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
         {rows.length === 0 ? (
           <EmptyNotice>ไม่มีการจัดซื้อในช่วงนี้</EmptyNotice>
         ) : (
-          <ul className="flex flex-col gap-2">
-            {rows.map((r) => (
-              <li key={r.id} className={CARD}>
-                <Link
-                  href={`/accounting/purchases/${r.id}`}
-                  className="hover:bg-sunk focus-visible:ring-action -m-1 flex items-center justify-between gap-3 rounded-md p-1 transition-colors focus:outline-none focus-visible:ring-2"
-                >
-                  <div className="min-w-0">
-                    <p className="text-ink truncate text-sm font-medium">{r.supplierLabel}</p>
-                    <p className="text-ink-muted text-xs">
-                      {r.projectLabel} · {purchaseStatusLabel(r.status)}
-                      {r.purchasedAt ? ` · ${formatThaiDate(r.purchasedAt)}` : ""}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <p className="text-ink text-sm font-bold tabular-nums">{baht(r.gross)}</p>
-                    <ChevronRight aria-hidden className="text-ink-muted h-4 w-4" />
-                  </div>
-                </Link>
-              </li>
+          <div className="flex flex-col gap-5">
+            {groups.map((group) => (
+              <div key={group.poNumber ?? "no-po"}>
+                {/* PO group header: the order + its subtotal (direct buys grouped last). */}
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  {group.poNumber !== null ? (
+                    <PoNumberTag poNumber={group.poNumber} />
+                  ) : (
+                    <span className="text-ink-secondary text-xs font-medium">
+                      ซื้อตรง (ไม่มีใบสั่งซื้อ)
+                    </span>
+                  )}
+                  <p className="text-ink-secondary text-xs tabular-nums">
+                    รวม {baht(group.subtotalGross)}
+                  </p>
+                </div>
+                <ul className="flex flex-col gap-2">
+                  {group.rows.map((r) => (
+                    <li key={r.id} className={CARD}>
+                      <Link
+                        href={`/accounting/purchases/${r.id}`}
+                        className="hover:bg-sunk focus-visible:ring-action -m-1 flex items-center justify-between gap-3 rounded-md p-1 transition-colors focus:outline-none focus-visible:ring-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-ink truncate text-sm font-medium">{r.supplierLabel}</p>
+                          <p className="text-ink-muted text-xs">
+                            {r.projectLabel} · {purchaseStatusLabel(r.status)}
+                            {r.purchasedAt ? ` · ${formatThaiDate(r.purchasedAt)}` : ""}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <p className="text-ink text-sm font-bold tabular-nums">{baht(r.gross)}</p>
+                          <ChevronRight aria-hidden className="text-ink-muted h-4 w-4" />
+                        </div>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </section>
     </PageShell>

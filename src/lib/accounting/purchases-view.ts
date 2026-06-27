@@ -40,6 +40,48 @@ export function purchaseRegisterCountLabel(count: number): string {
   return `${count} ใบขอซื้อ`;
 }
 
+export interface RegisterPoGroup<T> {
+  // The PO this group belongs to; null = the direct/site purchases (no PO).
+  poNumber: number | null;
+  rows: T[];
+  subtotalGross: number;
+}
+
+// Spec 211 (accounting-ap-03): group the register by purchase order so an auditor
+// reads a PO's purchases together with a subtotal. PO groups keep first-appearance
+// order (the rows arrive purchased_at-desc); the no-PO group (direct/site buys)
+// sorts last. Subtotal is satang-summed (mirrors summarizePurchases).
+export function groupRegisterByPo<T extends { gross: number; poNumber: number | null }>(
+  rows: ReadonlyArray<T>,
+): RegisterPoGroup<T>[] {
+  const byPo = new Map<number, T[]>();
+  const order: number[] = [];
+  const noPo: T[] = [];
+  for (const r of rows) {
+    if (r.poNumber === null) {
+      noPo.push(r);
+      continue;
+    }
+    let group = byPo.get(r.poNumber);
+    if (!group) {
+      group = [];
+      byPo.set(r.poNumber, group);
+      order.push(r.poNumber);
+    }
+    group.push(r);
+  }
+  const subtotal = (g: ReadonlyArray<T>): number =>
+    g.reduce((sat, r) => sat + Math.round(r.gross * 100), 0) / 100;
+  const groups: RegisterPoGroup<T>[] = order.map((po) => {
+    const g = byPo.get(po) ?? [];
+    return { poNumber: po, rows: g, subtotalGross: subtotal(g) };
+  });
+  if (noPo.length > 0) {
+    groups.push({ poNumber: null, rows: noPo, subtotalGross: subtotal(noPo) });
+  }
+  return groups;
+}
+
 export function summarizePurchases(rows: PurchaseAmount[]): PurchasesSummary {
   let grossSatang = 0;
   let vatSatang = 0;
