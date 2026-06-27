@@ -26,7 +26,6 @@ export async function createCatalogItem(input: {
   baseItem: string;
   specAttrs: string;
   unit: string;
-  stockable: boolean;
   note: string;
 }): Promise<CatalogActionResult> {
   await requireRole(BACK_OFFICE_ROLES);
@@ -54,7 +53,9 @@ export async function createCatalogItem(input: {
     // Empty → NULL is done in the RPC (nullif(btrim(coalesce(...,'')),'')).
     p_spec_attrs: specAttrs,
     p_unit: unit,
-    p_stockable: input.stockable,
+    // Spec 208 / ADR 0065: the stockable carve-out is retired — every catalog item
+    // routes through the store, so items are always stockable.
+    p_stockable: true,
     p_note: note,
   });
   if (error) {
@@ -73,7 +74,6 @@ export async function updateCatalogItem(input: {
   baseItem: string;
   specAttrs: string;
   unit: string;
-  stockable: boolean;
   note: string;
 }): Promise<CatalogActionResult> {
   await requireRole(BACK_OFFICE_ROLES);
@@ -103,7 +103,7 @@ export async function updateCatalogItem(input: {
     // Empty → NULL is done in the RPC.
     p_spec_attrs: specAttrs,
     p_unit: unit,
-    p_stockable: input.stockable,
+    p_stockable: true,
     p_note: note,
   });
   if (error) {

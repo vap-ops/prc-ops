@@ -15,11 +15,7 @@ vi.mock("@/app/catalog/actions", () => ({
 }));
 
 import { CatalogList, type CatalogItem } from "@/components/features/catalog/catalog-list";
-import {
-  ITEM_CATEGORY_LABEL,
-  CATALOG_STOCKABLE_LABEL,
-  CATALOG_NON_STOCKABLE_LABEL,
-} from "@/lib/i18n/labels";
+import { ITEM_CATEGORY_LABEL } from "@/lib/i18n/labels";
 
 const items: CatalogItem[] = [
   // deliberately out of enum order — the list must re-sort to enum order
@@ -29,7 +25,6 @@ const items: CatalogItem[] = [
     baseItem: "สายไฟ NYY 450/750V",
     specAttrs: "2x4 sqmm Yazaki 100m",
     unit: "ม้วน",
-    stockable: true,
   },
   {
     id: "s1",
@@ -37,7 +32,6 @@ const items: CatalogItem[] = [
     baseItem: "เหล็กข้ออ้อย",
     specAttrs: "12 มิล",
     unit: "ท่อน",
-    stockable: true,
   },
   {
     id: "r1",
@@ -45,7 +39,6 @@ const items: CatalogItem[] = [
     baseItem: "แผ่นหลังคาลอนตรง CC/760",
     specAttrs: "สีขาว / ตัดตามแบบ",
     unit: "แผ่น",
-    stockable: false,
   },
 ];
 
@@ -78,11 +71,10 @@ describe("CatalogList (spec 175)", () => {
     expect(screen.getAllByText(/ท่อน/).length).toBeGreaterThan(0);
   });
 
-  it("badges stockable vs direct-to-WP items", () => {
+  it("does not show a stockable badge (carve-out retired — everything routes through the store)", () => {
     render(<CatalogList items={items} />);
-    // two stockable + one non-stockable in the fixture
-    expect(screen.getAllByText(CATALOG_STOCKABLE_LABEL).length).toBe(2);
-    expect(screen.getAllByText(CATALOG_NON_STOCKABLE_LABEL).length).toBe(1);
+    expect(screen.queryByText("เก็บสต๊อก")).toBeNull();
+    expect(screen.queryByText("สั่งตรงเข้างาน")).toBeNull();
   });
 
   it("renders an empty state when there are no items", () => {

@@ -28,7 +28,6 @@ const item: CatalogItem = {
   baseItem: "สายไฟเดิม",
   specAttrs: "2x4",
   unit: "ม้วน",
-  stockable: true,
   note: "",
 };
 
@@ -62,7 +61,6 @@ describe("EditCatalogItem (spec 175 U3)", () => {
         baseItem: "สายไฟใหม่",
         specAttrs: "2x4",
         unit: "ม้วน",
-        stockable: true,
         note: "",
       }),
     );

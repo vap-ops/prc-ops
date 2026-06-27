@@ -19,7 +19,6 @@ export type CatalogItemValues = {
   baseItem: string;
   specAttrs: string;
   unit: string;
-  stockable: boolean;
   note: string;
 };
 
@@ -30,7 +29,6 @@ export const EMPTY_CATALOG_VALUES: CatalogItemValues = {
   baseItem: "",
   specAttrs: "",
   unit: "",
-  stockable: true,
   note: "",
 };
 
@@ -65,7 +63,6 @@ export function CatalogItemForm({
     initial.unit === "" ? "" : initUnitIsCommon ? initial.unit : UNIT_OTHER_VALUE,
   );
   const [unitOther, setUnitOther] = useState(initUnitIsCommon ? "" : initial.unit);
-  const [stockable, setStockable] = useState(initial.stockable);
   const [note, setNote] = useState(initial.note);
   const [error, setError] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
@@ -83,7 +80,6 @@ export function CatalogItemForm({
         baseItem,
         specAttrs,
         unit: resolvedUnit,
-        stockable,
         note,
       });
       if (!result.ok) {
@@ -186,19 +182,6 @@ export function CatalogItemForm({
           />
         </div>
       )}
-
-      <label htmlFor="ci-stockable" className="flex items-center gap-2">
-        <input
-          id="ci-stockable"
-          type="checkbox"
-          checked={stockable}
-          onChange={(e) => setStockable(e.target.checked)}
-          disabled={submitting}
-          className="size-5"
-        />
-        <span className="text-ink text-sm">เก็บสต๊อกในคลัง</span>
-        <span className="text-ink-muted text-xs">(ไม่เลือก = สั่งตรงเข้างาน)</span>
-      </label>
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="ci-note" className={LABEL}>
