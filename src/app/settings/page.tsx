@@ -25,6 +25,7 @@ import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
 import { ComingSoonBadge } from "@/components/features/chrome/coming-soon-badge";
 import { ThemeToggle } from "@/components/features/chrome/theme-toggle";
 import { ApprovalsBadge } from "@/components/features/dashboard/pending-approvals-badge";
+import { DailyReportPreviewButton } from "@/components/features/daily-report/daily-report-preview-button";
 import { THEME_COOKIE, parseThemeSetting } from "@/lib/ui/theme";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { createClient } from "@/lib/db/server";
@@ -314,6 +315,21 @@ export default async function SettingsPage() {
             />
           )}
         </div>
+
+        {/* Spec 212: daily-report Flex preview — operator only. Sends a sample
+            report to the caller's OWN LINE (no guessed recipient) to validate the
+            bubble layout before the feature is wired for the team. */}
+        {role === "super_admin" && (
+          <div className="flex flex-col gap-2">
+            <h2 className="text-meta text-ink-secondary font-semibold">รายงานประจำวัน (ทดสอบ)</h2>
+            <div className="border-edge bg-card rounded-control flex flex-col gap-2 border px-4 py-3">
+              <p className="text-ink-secondary text-meta">
+                ส่งรายงานตัวอย่างเข้า LINE ของคุณ เพื่อดูรูปแบบจริงก่อนเปิดใช้งานจริง
+              </p>
+              <DailyReportPreviewButton />
+            </div>
+          </div>
+        )}
 
         {/* About — everyone */}
         <div className="flex flex-col gap-2">
