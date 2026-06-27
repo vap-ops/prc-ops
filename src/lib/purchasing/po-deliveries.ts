@@ -35,6 +35,13 @@ export interface DeliveryView {
   receivedAt: string | null;
 }
 
+// Spec 211 U10 — one home for the delivery-installment label. A bare "งวดที่ N"
+// collides with งวดงาน (the billing/work milestone, e.g. deliverables + schedule
+// gantt); qualify the PO shipment installment as "งวดจัดส่งที่ N" everywhere.
+export function deliveryOrdinalLabel(ordinal: number): string {
+  return `งวดจัดส่งที่ ${ordinal}`;
+}
+
 function isActive(status: PurchaseRequestStatus): boolean {
   return status !== "rejected" && status !== "cancelled";
 }

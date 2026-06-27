@@ -5,7 +5,7 @@
 // tracker (caller decides). Server-safe presentational.
 
 import { formatThaiDate } from "@/lib/i18n/labels";
-import type { DeliveryView } from "@/lib/purchasing/po-deliveries";
+import { deliveryOrdinalLabel, type DeliveryView } from "@/lib/purchasing/po-deliveries";
 import { PurchaseOrderTracker } from "@/components/features/purchasing/purchase-order-tracker";
 
 export function PoDeliveriesTracker({ deliveries }: { deliveries: DeliveryView[] }) {
@@ -14,7 +14,7 @@ export function PoDeliveriesTracker({ deliveries }: { deliveries: DeliveryView[]
       {deliveries.map((d) => (
         <div key={d.id} className="border-edge-strong border-l-2 pl-3">
           <p className="text-ink-secondary mb-2 text-xs font-medium">
-            งวดที่ {d.ordinal}
+            {deliveryOrdinalLabel(d.ordinal)}
             {d.eta ? (
               <span className="text-ink-muted"> · กำหนด {formatThaiDate(d.eta)}</span>
             ) : null}

@@ -11,7 +11,7 @@ import { purchaseOrderStatusPillClasses } from "@/lib/status-colors";
 import { purchaseOrderStatusIcon } from "@/lib/status-icons";
 import { StatusPill } from "@/components/features/common/status-pill";
 import Link from "next/link";
-import type { DeliveryView } from "@/lib/purchasing/po-deliveries";
+import { deliveryOrdinalLabel, type DeliveryView } from "@/lib/purchasing/po-deliveries";
 import { deliveryDetailHref } from "@/lib/nav/order-paths";
 import {
   SplitDeliveryControl,
@@ -61,7 +61,7 @@ export function PoDeliverySection({
               <span className="text-ink min-w-0">
                 {multi ? (
                   <>
-                    งวดที่ {d.ordinal}
+                    {deliveryOrdinalLabel(d.ordinal)}
                     <span className="text-ink-secondary">
                       {" "}
                       · {d.lineCount} รายการ

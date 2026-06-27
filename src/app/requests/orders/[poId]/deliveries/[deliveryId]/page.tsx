@@ -28,6 +28,7 @@ import {
 } from "@/lib/status-colors";
 import { purchaseOrderStatusIcon, purchaseRequestStatusIcon } from "@/lib/status-icons";
 import { loadDeliveryDetail } from "@/lib/purchasing/load-delivery-detail";
+import { deliveryOrdinalLabel } from "@/lib/purchasing/po-deliveries";
 import { DeliveryProofBlock } from "@/components/features/purchasing/delivery-proof-block";
 import { DeliveryDispatchControl } from "@/components/features/purchasing/delivery-dispatch-control";
 import { poDetailHref } from "@/lib/nav/order-paths";
@@ -116,7 +117,7 @@ export default async function DeliveryDetailPage({ params }: PageProps) {
             <p className="text-ink-secondary truncate text-xs">
               <PoNumberTag poNumber={po.po_number} /> <span>· {po.supplier}</span>
             </p>
-            <h1 className={DETAIL_TITLE}>งวดที่ {ordinal}</h1>
+            <h1 className={DETAIL_TITLE}>{deliveryOrdinalLabel(ordinal)}</h1>
           </div>
           <span className="mt-1 flex shrink-0 flex-col items-end gap-1">
             <StatusPill
