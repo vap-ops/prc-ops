@@ -6,6 +6,7 @@
 
 import type { Database } from "@/lib/db/database.types";
 import { comparePendingRequests } from "@/lib/purchasing/pending-order";
+import { WORKLIST_BAND_TERM } from "@/lib/purchasing/worklist-band-vocab";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
 type PurchaseRequestPriority = Database["public"]["Enums"]["purchase_request_priority"];
@@ -22,9 +23,13 @@ const REQUEST_BAND_ORDER: ReadonlyArray<RequestBand> = [
 ];
 
 export const REQUEST_BAND_LABEL: Record<RequestBand, string> = {
-  awaiting_approval: "รออนุมัติ",
-  to_order: "อนุมัติแล้ว รอสั่งซื้อ",
-  in_transit: "กำลังจัดส่ง",
+  // Shared with the procurement engine → cross-engine SSOT (worklist-band-vocab).
+  awaiting_approval: WORKLIST_BAND_TERM.awaiting_approval,
+  // The site adds "อนุมัติแล้ว" to the shared core — the requester wants to know
+  // their request passed approval, not just that it's awaiting an order.
+  to_order: `อนุมัติแล้ว ${WORKLIST_BAND_TERM.to_order}`,
+  in_transit: WORKLIST_BAND_TERM.in_transit,
+  // The site's own terminal framing — procurement calls the same state "ได้รับแล้ว".
   done: "เสร็จแล้ว",
   closed: "ไม่อนุมัติ / ยกเลิก",
 };

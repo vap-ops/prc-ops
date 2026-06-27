@@ -3,6 +3,8 @@
 // into those action bands so "what to buy now" is the top of the screen.
 // Pure (no UI) — the /requests page renders from it for procurement only.
 
+import { WORKLIST_BAND_TERM } from "@/lib/purchasing/worklist-band-vocab";
+
 export type ProcurementBand = "to_order" | "in_transit" | "received" | "awaiting_approval";
 
 export interface ProcurementBandMeta {
@@ -20,10 +22,13 @@ export interface ProcurementBandMeta {
 // are chip/tile pseudo-bands (a filter view, not a row band) but share this home.
 export const PROCUREMENT_BAND_LABEL = {
   all: "ทั้งหมด",
-  awaiting_approval: "รออนุมัติ",
-  to_order: "รอสั่งซื้อ",
-  in_transit: "กำลังจัดส่ง",
+  // The three terms shared with the site engine come from the cross-engine SSOT.
+  awaiting_approval: WORKLIST_BAND_TERM.awaiting_approval,
+  to_order: WORKLIST_BAND_TERM.to_order,
+  in_transit: WORKLIST_BAND_TERM.in_transit,
   overdue: "เกินกำหนด",
+  // received (delivered/site_purchased) is procurement's own framing — the site
+  // engine calls the same terminal state "เสร็จแล้ว" (done). Kept distinct.
   received: "ได้รับแล้ว",
 } as const;
 
