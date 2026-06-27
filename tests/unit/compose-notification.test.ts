@@ -74,6 +74,40 @@ describe("composeNotification", () => {
     );
   });
 
+  // Spec 211 U8 (critic gap X1) — a PR notification that belongs to a PO names the
+  // ใบสั่งซื้อ, so the recipient knows which ORDER the line is part of (the PR-vs-PO
+  // level confusion no longer reaches them pre-screen). The PO comes via context
+  // (compose-time enrichment); absent → the message is unchanged.
+  it("names the parent PO on a pr_progress when the PR belongs to one", () => {
+    expect(
+      composeNotification(
+        "pr_progress",
+        { prNumber: 12, transition: ["purchased", "on_route"] },
+        { poNumber: 3 },
+      ),
+    ).toBe("คำขอซื้อ PR-0012 · ใบสั่งซื้อ PO-0003: กำลังจัดส่ง");
+  });
+
+  it("names the parent PO on a pr_decision when the PR belongs to one", () => {
+    expect(
+      composeNotification(
+        "pr_decision",
+        { prNumber: 12, transition: ["requested", "approved"] },
+        { poNumber: 3 },
+      ),
+    ).toBe("คำขอซื้อ PR-0012 · ใบสั่งซื้อ PO-0003: อนุมัติแล้ว");
+  });
+
+  it("leaves a PR notification unchanged when there is no parent PO", () => {
+    expect(
+      composeNotification(
+        "pr_progress",
+        { prNumber: 12, transition: ["purchased", "on_route"] },
+        {},
+      ),
+    ).toBe("คำขอซื้อ PR-0012: กำลังจัดส่ง");
+  });
+
   it("composes feedback_submitted with the type label, reporter role, and title (A4)", () => {
     expect(
       composeNotification(

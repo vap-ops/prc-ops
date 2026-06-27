@@ -8,6 +8,7 @@ import {
   FEEDBACK_TYPE_LABEL,
   USER_ROLE_LABEL,
 } from "@/lib/i18n/labels";
+import { formatPoNumber, formatPrNumber } from "@/lib/purchasing/format-id";
 import type { Database } from "@/lib/db/database.types";
 import type { NotificationPayload } from "./payload";
 
@@ -15,6 +16,10 @@ export type NotificationEventType = Database["public"]["Enums"]["notification_ev
 
 export interface ComposeContext {
   wpCode?: string;
+  // Spec 211 U8: the parent PO number for a PR event, resolved at compose time
+  // (the drain enriches it from purchase_request_id → purchase_order). Absent for
+  // a PR with no PO yet.
+  poNumber?: number;
 }
 
 function label(map: Record<string, string>, value: string | undefined): string {
@@ -22,8 +27,13 @@ function label(map: Record<string, string>, value: string | undefined): string {
   return map[value] ?? value;
 }
 
-function formatPrNumber(prNumber: number | undefined): string {
-  return `PR-${String(prNumber ?? 0).padStart(4, "0")}`;
+// Spec 211 U8 (critic gap X1) — a PR's identity in a notification, naming its
+// parent ใบสั่งซื้อ when it has one, so the recipient can tell which ORDER the line
+// belongs to (the PR-vs-PO level confusion no longer reaches them pre-screen).
+// Uses the U2 SSOT formatters (formatPrNumber was a duplicated local copy).
+function prRef(prNumber: number | undefined, poNumber: number | undefined): string {
+  const pr = formatPrNumber(prNumber);
+  return poNumber !== undefined ? `${pr} · ใบสั่งซื้อ ${formatPoNumber(poNumber)}` : pr;
 }
 
 export function composeNotification(
@@ -44,10 +54,10 @@ export function composeNotification(
     }
 
     case "pr_created":
-      return `คำขอซื้อใหม่ ${formatPrNumber(payload.prNumber)}: ${payload.itemDescription ?? ""} (${String(payload.quantity ?? "")} ${payload.unit ?? ""})`;
+      return `คำขอซื้อใหม่ ${prRef(payload.prNumber, context.poNumber)}: ${payload.itemDescription ?? ""} (${String(payload.quantity ?? "")} ${payload.unit ?? ""})`;
 
     case "pr_decision": {
-      const head = `คำขอซื้อ ${formatPrNumber(payload.prNumber)}: ${label(
+      const head = `คำขอซื้อ ${prRef(payload.prNumber, context.poNumber)}: ${label(
         PURCHASE_REQUEST_STATUS_LABEL,
         payload.transition?.[1],
       )}`;
@@ -55,13 +65,13 @@ export function composeNotification(
     }
 
     case "pr_progress":
-      return `คำขอซื้อ ${formatPrNumber(payload.prNumber)}: ${label(
+      return `คำขอซื้อ ${prRef(payload.prNumber, context.poNumber)}: ${label(
         PURCHASE_REQUEST_STATUS_LABEL,
         payload.transition?.[1],
       )}`;
 
     case "pr_cancelled": {
-      const head = `คำขอซื้อ ${formatPrNumber(payload.prNumber)} ถูกยกเลิก`;
+      const head = `คำขอซื้อ ${prRef(payload.prNumber, context.poNumber)} ถูกยกเลิก`;
       return payload.cancellationReason ? `${head}\nเหตุผล: ${payload.cancellationReason}` : head;
     }
 
