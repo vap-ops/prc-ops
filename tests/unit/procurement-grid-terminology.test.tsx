@@ -6,6 +6,7 @@ import {
   type ProcurementGridRecord,
 } from "@/components/features/purchasing/procurement-grid";
 import { groupByProcurementBand } from "@/lib/purchasing/procurement-pipeline";
+import { ETA_LABEL } from "@/lib/i18n/labels";
 
 // Spec 211 U3 — reserve "รายการ" for PO line-items. The worklist grid used
 // "รายการ" for the item-column header, the bundle hint and the selection count
@@ -59,5 +60,14 @@ describe("ProcurementGrid terminology — reserve รายการ for line-it
     // standalone label (it used to be the item-column header). The legitimate
     // line-count use ("{n} รายการ" on a PO group) is unaffected — none here.
     expect(screen.queryByText("รายการ")).toBeNull();
+  });
+
+  // Spec 211 U10b — expected-arrival reads three ways across surfaces (grid "ETA",
+  // drawer "คาดว่าจะได้รับ", PO card "กำหนดรับของ"). One ETA_LABEL SSOT; the grid drops
+  // the English "ETA".
+  it("labels the status/eta column with the Thai ETA term, not English ETA", () => {
+    render(<ProcurementGrid groups={groupByProcurementBand(ROWS)} today={TODAY} />);
+    expect(screen.getByText(`สถานะ / ${ETA_LABEL}`)).toBeInTheDocument();
+    expect(screen.queryByText("สถานะ / ETA")).toBeNull();
   });
 });

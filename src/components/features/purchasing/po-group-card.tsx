@@ -9,7 +9,7 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { PoNumberTag } from "@/components/features/purchasing/po-number-tag";
 import { StatusPill } from "@/components/features/common/status-pill";
-import { PURCHASE_ORDER_STATUS_LABEL, formatThaiDate } from "@/lib/i18n/labels";
+import { ETA_LABEL, PURCHASE_ORDER_STATUS_LABEL, formatThaiDate } from "@/lib/i18n/labels";
 import { purchaseOrderStatusPillClasses } from "@/lib/status-colors";
 import { purchaseOrderStatusIcon } from "@/lib/status-icons";
 import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
@@ -49,7 +49,7 @@ export function PoGroupCard({
             {eta ? (
               <>
                 <span className="text-ink-muted mx-1">·</span>
-                กำหนดรับของ {formatThaiDate(eta)}
+                {ETA_LABEL} {formatThaiDate(eta)}
               </>
             ) : null}
           </p>

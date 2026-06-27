@@ -133,6 +133,12 @@ export const PURCHASE_ORDER_STATUS_LABEL: Record<PurchaseOrderStatus, string> = 
   received: "รับของครบแล้ว",
 };
 
+// Spec 211 U10b — ONE term for a record's expected-arrival date, shown on the
+// worklist grid (was English "ETA"), the review drawer (was "คาดว่าจะได้รับ") and the
+// PO group card (was "กำหนดรับของ"). Display label; the set-the-date form inputs keep
+// their own "คาดว่าจะได้รับของ" prompt.
+export const ETA_LABEL = "กำหนดรับของ";
+
 // Spec 134 U9 — single source for the PO delivery-proof copy. The section sub-label,
 // the upload button, and the empty state all derive from this ONE term so it can't
 // drift (the รับของ→จัดส่ง button straggler that prompted this — shotgun surgery).

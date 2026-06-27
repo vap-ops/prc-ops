@@ -1,6 +1,6 @@
 # Spec 211 — Procurement terminology & level clarity
 
-**Status:** in progress — U1–U7 shipped (#97–#103), U10a shipping
+**Status:** in progress — U1–U7 + U10a shipped (#97–#104), U10b shipping
 **Source:** operator report — "admins cannot intuitively distinguish the PO from the PO Items." Full evidence: [`docs/procurement-uxui-audit-2026-06.md`](../procurement-uxui-audit-2026-06.md) (multi-agent audit, 85 surfaces, 91 verified findings).
 
 ## Problem (root cause)
@@ -81,7 +81,7 @@ Critic gap X3 / `accounting-ap-03/04/05`. Use `formatPoNumber()` (from U2) on th
 A cluster of independent term fixes, shipped as small focused sub-units rather than one grab-bag:
 
 - **U10a — delivery-installment term _(SHIPPED this unit)_:** `terminology-08`/`delivery-receiving-01`. New `deliveryOrdinalLabel(n)` SSOT in `po-deliveries.ts` → `งวดจัดส่งที่ N`, used by the deliveries section, the per-`งวด` tracker, and the delivery detail title. Disambiguates the PO shipment installment from `งวดงาน` (the billing/work milestone on deliverables + schedule gantt — deliberately left as `งวดที่`). Test-first `delivery-ordinal-label.test.ts`. Code-only.
-- **U10b — ETA term:** `worklist-hub-13`. One `ETA_LABEL` (grid header/cell uses English "ETA"; drawer `คาดว่าจะได้รับ`; PO card `กำหนดรับของ`). _(queued)_
+- **U10b — ETA term _(SHIPPED this unit)_:** `worklist-hub-13`. New `ETA_LABEL = "กำหนดรับของ"` in labels.ts, used for the record's expected-arrival display on the grid header (`สถานะ / ETA` → `สถานะ / กำหนดรับของ`), the grid cell (was English `ETA`), the review drawer (was `คาดว่าจะได้รับ`) and the PO group card. The set-the-date FORM inputs (create-PO sheet, purchase-record-form) keep their own `คาดว่าจะได้รับของ` prompt (input intent vs display). Test-first (grid-terminology test asserts the header drops English ETA). Code-only.
 - **U10c — store noun:** `site-store-08`. One place-noun `คลัง` (retire `สโตร์`; reserve `สต๊อก` for quantity). _(queued)_
 - **U10d — misc:** supplier-ref field off `เลขที่ใบสั่งซื้อ` (`terminology-02`), PR-stepper aria-label `สถานะการสั่งซื้อ`→`สถานะคำขอซื้อ` (`terminology-04`), dispatch button wording (`delivery-receiving-05`), one `CREATE_PO_LABEL`. _(queued)_
 

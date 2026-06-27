@@ -25,6 +25,7 @@ import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { PurchaseRequestTracker } from "@/components/features/purchasing/purchase-request-tracker";
 import { PurchaseMiniStepper } from "@/components/features/purchasing/purchase-mini-stepper";
 import {
+  ETA_LABEL,
   PURCHASE_ORDER_STATUS_LABEL,
   PURCHASE_REQUEST_PRIORITY_LABEL,
   PURCHASE_REQUEST_STATUS_LABEL,
@@ -222,7 +223,7 @@ export function ProcurementGrid({
             <tr className="text-ink-muted border-edge text-meta border-b text-left">
               <th className="px-4 py-2 font-normal">สิ่งที่ขอซื้อ</th>
               <th className="px-2 py-2 font-normal">ผู้ขาย</th>
-              <th className="px-2 py-2 font-normal">สถานะ / ETA</th>
+              <th className="px-2 py-2 font-normal">สถานะ / {ETA_LABEL}</th>
               <th className="px-4 py-2 text-right font-normal">จำนวนเงิน</th>
             </tr>
           </thead>
@@ -404,7 +405,7 @@ function BandRows({
                   <div
                     className={`text-meta mt-1 ${health === "late" ? "text-danger font-semibold" : "text-ink-muted"}`}
                   >
-                    ETA {r.eta}
+                    {ETA_LABEL} {r.eta}
                   </div>
                 ) : null}
               </td>
@@ -603,7 +604,7 @@ function DrawerBody({
         {record.needed_by ? (
           <Fact label="ต้องการภายใน">{formatThaiDate(record.needed_by)}</Fact>
         ) : null}
-        {record.eta ? <Fact label="คาดว่าจะได้รับ">{formatThaiDate(record.eta)}</Fact> : null}
+        {record.eta ? <Fact label={ETA_LABEL}>{formatThaiDate(record.eta)}</Fact> : null}
         {record.status === "delivered" && record.received_by ? (
           <Fact label="ผู้รับของ">{record.received_by}</Fact>
         ) : null}
