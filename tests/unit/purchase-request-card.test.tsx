@@ -87,4 +87,30 @@ describe("PurchaseRequestCard (spec 47)", () => {
     expect(container.querySelector("form")).toBeNull();
     expect(container.querySelector("button")).toBeNull();
   });
+
+  // Spec 211 U5 — PO membership must be visible in every band, not only the
+  // in_transit PO group. A request that belongs to an order shows a PO chip; a
+  // loose request shows none.
+  it("shows a PO chip when the request belongs to a purchase order", () => {
+    const { rerender } = render(
+      <PurchaseRequestCard
+        request={BASE_REQUEST}
+        workPackage={null}
+        requesterName="สมชาย"
+        isMine={false}
+        poNumber={12}
+      />,
+    );
+    expect(screen.getByText("PO-0012")).toBeInTheDocument();
+    rerender(
+      <PurchaseRequestCard
+        request={BASE_REQUEST}
+        workPackage={null}
+        requesterName="สมชาย"
+        isMine={false}
+        poNumber={null}
+      />,
+    );
+    expect(screen.queryByText(/PO-/)).toBeNull();
+  });
 });

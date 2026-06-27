@@ -75,6 +75,9 @@ export interface ProcurementGridRecord {
   // in_transit band, rows are pre-ordered so a PO's members are contiguous and the
   // grid renders one PoHeaderRow before each group.
   purchase_order_id: string | null;
+  // Spec 211 U5: the PO's human number, for the per-row PO chip shown in every
+  // band (the in_transit band groups under a PoHeaderRow instead).
+  po_number: number | null;
   pr_number: number | null;
   item_description: string;
   status: PurchaseRequestStatus;
@@ -363,11 +366,16 @@ function BandRows({
                     >
                       {r.item_description}
                     </button>
-                    <div className="text-ink-muted text-meta">
+                    <div className="text-ink-muted text-meta flex flex-wrap items-center gap-x-1.5 gap-y-1">
                       {r.pr_number ? (
                         <span className="font-mono">{formatPrNumber(r.pr_number)}</span>
                       ) : null}
-                      {r.wp_name ? <span> · {r.wp_name}</span> : null}
+                      {/* Spec 211 U5: PO membership visible outside the in_transit
+                          band too (in_transit groups under a PoHeaderRow). */}
+                      {r.po_number != null && meta.band !== "in_transit" ? (
+                        <PoNumberTag poNumber={r.po_number} />
+                      ) : null}
+                      {r.wp_name ? <span>· {r.wp_name}</span> : null}
                     </div>
                   </div>
                 </div>
