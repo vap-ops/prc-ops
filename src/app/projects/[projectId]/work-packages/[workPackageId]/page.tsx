@@ -32,6 +32,7 @@ import {
   type PurchaseRequestPriority,
   type PurchaseRequestStatus,
 } from "@/lib/status-colors";
+import { approvalDecisionIcon, workPackageStatusIcon } from "@/lib/status-icons";
 import { loadWorkPackageDetail } from "@/lib/work-packages/load-detail";
 import { WpAssignmentPanel } from "@/components/features/work-packages/wp-assignment-panel";
 import { WpPriorityControl } from "@/components/features/work-packages/wp-priority-control";
@@ -445,7 +446,10 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
                 {approvals.map((a) => (
                   <li key={a.id} className="border-edge border-t pt-2 first:border-t-0">
                     <div className="flex items-center justify-between gap-2">
-                      <StatusPill pillClasses={approvalDecisionPillClasses(a.decision)}>
+                      <StatusPill
+                        pillClasses={approvalDecisionPillClasses(a.decision)}
+                        icon={approvalDecisionIcon(a.decision)}
+                      >
                         {APPROVAL_DECISION_LABEL[a.decision]}
                       </StatusPill>
                       <span className="text-meta text-ink-secondary">
@@ -583,7 +587,11 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
             {/* Spec 57: WP name never truncates — the nameplate. */}
             <h1 className={DETAIL_TITLE}>{wp.name}</h1>
           </div>
-          <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)} className="mt-1">
+          <StatusPill
+            pillClasses={workPackageStatusPillClasses(wp.status)}
+            icon={workPackageStatusIcon(wp.status)}
+            className="mt-1"
+          >
             {WORK_PACKAGE_STATUS_LABEL[wp.status as keyof typeof WORK_PACKAGE_STATUS_LABEL] ??
               wp.status}
           </StatusPill>

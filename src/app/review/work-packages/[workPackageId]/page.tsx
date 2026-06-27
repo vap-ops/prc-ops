@@ -23,6 +23,7 @@ import {
 import { CARD, DETAIL_TITLE, SECTION_HEADING } from "@/lib/ui/classes";
 import { PhaseProgressBar } from "@/components/features/work-packages/phase-progress-bar";
 import { approvalDecisionPillClasses, workPackageStatusPillClasses } from "@/lib/status-colors";
+import { approvalDecisionIcon, workPackageStatusIcon } from "@/lib/status-icons";
 import { PhaseGallery } from "@/components/features/photos/phase-gallery";
 import { LaborLogZone } from "@/components/features/labor/labor-log-zone";
 import { fetchLaborZoneData } from "@/lib/labor/fetch-zone-data";
@@ -210,7 +211,11 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
             {/* Spec 57: WP name never truncates — full wrap. */}
             <h1 className={DETAIL_TITLE}>{wp.name}</h1>
           </div>
-          <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)} className="mt-1">
+          <StatusPill
+            pillClasses={workPackageStatusPillClasses(wp.status)}
+            icon={workPackageStatusIcon(wp.status)}
+            className="mt-1"
+          >
             {WORK_PACKAGE_STATUS_LABEL[wp.status as keyof typeof WORK_PACKAGE_STATUS_LABEL] ??
               wp.status}
           </StatusPill>
@@ -327,7 +332,10 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
               {approvalsRows.map((a) => (
                 <li key={a.id} className={CARD}>
                   <div className="flex items-center justify-between gap-3">
-                    <StatusPill pillClasses={approvalDecisionPillClasses(a.decision)}>
+                    <StatusPill
+                      pillClasses={approvalDecisionPillClasses(a.decision)}
+                      icon={approvalDecisionIcon(a.decision)}
+                    >
                       {APPROVAL_DECISION_LABEL[a.decision]}
                     </StatusPill>
                     <span className="text-ink-secondary text-xs">

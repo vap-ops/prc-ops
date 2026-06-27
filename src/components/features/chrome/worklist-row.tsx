@@ -19,6 +19,7 @@ import { CRITICAL_BADGE } from "@/lib/ui/classes";
 import { listEnterProps } from "@/lib/ui/list-enter";
 import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
+import { workPackageStatusIcon } from "@/lib/status-icons";
 import {
   nextAction,
   type NextActionKind,
@@ -130,7 +131,10 @@ export function WorklistRow({
         </span>
       </span>
       <span className="flex shrink-0 flex-col items-end justify-center gap-1 py-3 pr-2 pl-1">
-        <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)}>
+        <StatusPill
+          pillClasses={workPackageStatusPillClasses(wp.status)}
+          icon={workPackageStatusIcon(wp.status)}
+        >
           {WORK_PACKAGE_STATUS_LABEL[wp.status] ?? wp.status}
         </StatusPill>
       </span>

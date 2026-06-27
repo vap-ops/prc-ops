@@ -11,6 +11,7 @@ import { PoNumberTag } from "@/components/features/purchasing/po-number-tag";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { PURCHASE_ORDER_STATUS_LABEL, formatThaiDate } from "@/lib/i18n/labels";
 import { purchaseOrderStatusPillClasses } from "@/lib/status-colors";
+import { purchaseOrderStatusIcon } from "@/lib/status-icons";
 import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
 
 export interface PoGroupCardProps {
@@ -54,7 +55,10 @@ export function PoGroupCard({
           </p>
         </div>
         <span className="flex shrink-0 items-start gap-1.5">
-          <StatusPill pillClasses={purchaseOrderStatusPillClasses(status)}>
+          <StatusPill
+            pillClasses={purchaseOrderStatusPillClasses(status)}
+            icon={purchaseOrderStatusIcon(status)}
+          >
             {PURCHASE_ORDER_STATUS_LABEL[status]}
           </StatusPill>
           <ChevronRight aria-hidden className="text-ink-muted mt-1 size-4 shrink-0" />

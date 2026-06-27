@@ -18,6 +18,7 @@ import { withBackFrom } from "@/lib/nav/back-href";
 import { createClient } from "@/lib/db/server";
 import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
+import { workPackageStatusIcon } from "@/lib/status-icons";
 import { EditDeliverableSheet } from "../../edit-deliverable-sheet";
 import { RemoveWorkPackagesSheet } from "../../remove-work-packages-sheet";
 import { DeleteDeliverableButton } from "../../delete-deliverable-button";
@@ -109,7 +110,10 @@ export default async function DeliverableDetailPage({ params }: PageProps) {
                 >
                   <span className="text-meta text-ink-secondary font-mono">{wp.code}</span>
                   <span className="text-body text-ink min-w-0 flex-1 truncate">{wp.name}</span>
-                  <StatusPill pillClasses={workPackageStatusPillClasses(wp.status)}>
+                  <StatusPill
+                    pillClasses={workPackageStatusPillClasses(wp.status)}
+                    icon={workPackageStatusIcon(wp.status)}
+                  >
                     {WORK_PACKAGE_STATUS_LABEL[wp.status]}
                   </StatusPill>
                 </Link>

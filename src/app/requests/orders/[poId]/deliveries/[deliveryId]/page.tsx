@@ -26,6 +26,7 @@ import {
   purchaseOrderStatusPillClasses,
   purchaseRequestStatusPillClasses,
 } from "@/lib/status-colors";
+import { purchaseOrderStatusIcon, purchaseRequestStatusIcon } from "@/lib/status-icons";
 import { loadDeliveryDetail } from "@/lib/purchasing/load-delivery-detail";
 import { DeliveryProofBlock } from "@/components/features/purchasing/delivery-proof-block";
 import { DeliveryDispatchControl } from "@/components/features/purchasing/delivery-dispatch-control";
@@ -118,7 +119,10 @@ export default async function DeliveryDetailPage({ params }: PageProps) {
             <h1 className={DETAIL_TITLE}>งวดที่ {ordinal}</h1>
           </div>
           <span className="mt-1 flex shrink-0 flex-col items-end gap-1">
-            <StatusPill pillClasses={purchaseOrderStatusPillClasses(status)}>
+            <StatusPill
+              pillClasses={purchaseOrderStatusPillClasses(status)}
+              icon={purchaseOrderStatusIcon(status)}
+            >
               {PURCHASE_ORDER_STATUS_LABEL[status]}
             </StatusPill>
           </span>
@@ -178,7 +182,10 @@ export default async function DeliveryDetailPage({ params }: PageProps) {
                       </p>
                       <p className="text-ink truncate text-sm font-medium">{m.item_description}</p>
                     </div>
-                    <StatusPill pillClasses={purchaseRequestStatusPillClasses(m.status)}>
+                    <StatusPill
+                      pillClasses={purchaseRequestStatusPillClasses(m.status)}
+                      icon={purchaseRequestStatusIcon(m.status)}
+                    >
                       {PURCHASE_REQUEST_STATUS_LABEL[m.status]}
                     </StatusPill>
                   </div>
