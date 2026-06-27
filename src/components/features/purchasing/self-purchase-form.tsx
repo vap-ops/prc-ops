@@ -20,7 +20,7 @@ import { sitePurchaseUseNow } from "@/app/store/actions";
 import { validateSitePurchase } from "@/lib/purchasing/validate-site-purchase";
 import { PURCHASE_REASON_CODES } from "@/lib/purchasing/reason-code";
 import { PURCHASE_REQUEST_REASON_CODE_LABEL } from "@/lib/i18n/labels";
-import type { CatalogPick } from "@/components/features/store/site-purchase-use-now";
+import type { Database } from "@/lib/db/database.types";
 import { ItemPhotoUploader } from "@/components/features/purchasing/item-photo-uploader";
 import { InvoiceUploader } from "@/components/features/purchasing/invoice-uploader";
 import { BUTTON_PRIMARY, FIELD_INPUT, INLINE_ERROR } from "@/lib/ui/classes";
@@ -29,6 +29,18 @@ const SELECT =
   "rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action h-11 w-full min-w-0 border px-2 text-sm shadow-xs focus:outline-none focus-visible:ring-2";
 const LABEL = "text-ink flex flex-col gap-1 text-sm font-medium";
 const TOGGLE_ROW = "text-ink flex items-center gap-2 text-sm font-medium";
+
+type ItemCategory = Database["public"]["Enums"]["item_category"];
+
+// The catalog-item pick shape for the self-purchase picker (relocated here from
+// the removed site-purchase-use-now component, spec 211 U11c cleanup).
+export type CatalogPick = {
+  id: string;
+  category: ItemCategory;
+  baseItem: string;
+  specAttrs: string | null;
+  unit: string;
+};
 
 type Mode = "catalog" | "freetext";
 
