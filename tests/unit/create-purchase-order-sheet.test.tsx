@@ -65,7 +65,7 @@ describe("CreatePurchaseOrderSheet", () => {
       target: { value: "2026-07-15" },
     });
     fireEvent.change(screen.getAllByLabelText(/ราคาของ/)[0]!, { target: { value: "100" } });
-    fireEvent.click(screen.getByRole("button", { name: /สร้าง PO/ }));
+    fireEvent.click(screen.getByRole("button", { name: /สร้างใบสั่งซื้อ/ }));
 
     await waitFor(() =>
       expect(createPurchaseOrderMock).toHaveBeenCalledWith({
@@ -93,7 +93,7 @@ describe("CreatePurchaseOrderSheet", () => {
     });
     fireEvent.click(screen.getByRole("radio", { name: "รวม VAT แล้ว" }));
     fireEvent.change(screen.getAllByLabelText(/ราคาของ/)[0]!, { target: { value: "100" } });
-    fireEvent.click(screen.getByRole("button", { name: /สร้าง PO/ }));
+    fireEvent.click(screen.getByRole("button", { name: /สร้างใบสั่งซื้อ/ }));
 
     await waitFor(() =>
       expect(createPurchaseOrderMock).toHaveBeenCalledWith({
@@ -117,7 +117,7 @@ describe("CreatePurchaseOrderSheet", () => {
     fireEvent.change(screen.getByLabelText("คาดว่าจะได้รับของ"), {
       target: { value: "2026-07-15" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /สร้าง PO/ }));
+    fireEvent.click(screen.getByRole("button", { name: /สร้างใบสั่งซื้อ/ }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("บูม");
     expect(onCreated).not.toHaveBeenCalled();
@@ -131,7 +131,7 @@ describe("CreatePurchaseOrderSheet", () => {
       target: { value: "2026-07-15" },
     });
     fireEvent.change(screen.getAllByLabelText(/ราคาของ/)[0]!, { target: { value: "-5" } });
-    fireEvent.click(screen.getByRole("button", { name: /สร้าง PO/ }));
+    fireEvent.click(screen.getByRole("button", { name: /สร้างใบสั่งซื้อ/ }));
 
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(createPurchaseOrderMock).not.toHaveBeenCalled();

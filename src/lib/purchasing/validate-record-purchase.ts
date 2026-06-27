@@ -34,7 +34,7 @@ export function validateRecordPurchase(input: {
   }
   const orderRef = input.orderRef.trim();
   if (orderRef.length > ORDER_REF_MAX) {
-    return { ok: false, error: `เลขที่ใบสั่งซื้อต้องไม่เกิน ${ORDER_REF_MAX} ตัวอักษร` };
+    return { ok: false, error: `เลขอ้างอิงผู้ขายต้องไม่เกิน ${ORDER_REF_MAX} ตัวอักษร` };
   }
   if (input.amount !== null && (!Number.isFinite(input.amount) || input.amount <= 0)) {
     return { ok: false, error: "จำนวนเงินต้องเป็นตัวเลขมากกว่าศูนย์" };

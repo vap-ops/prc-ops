@@ -102,7 +102,7 @@ describe("PhonePoBasket", () => {
     fireEvent.click(screen.getByRole("button", { name: /ดำเนินการ/ }));
     // the sheet's supplier select is unique to the checkout sheet
     expect(screen.getByLabelText("ผู้ขาย")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /สร้าง PO \(2\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /สร้างใบสั่งซื้อ \(2\)/ })).toBeInTheDocument();
   });
 
   it("drops a line from inside the sheet", async () => {

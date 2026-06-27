@@ -11,6 +11,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Paperclip, Trash2 } from "lucide-react";
 import { bahtWithSymbol as baht } from "@/lib/format";
+import { CREATE_PO_LABEL } from "@/lib/i18n/labels";
 import { BUTTON_PRIMARY, FIELD_INPUT, INLINE_ERROR } from "@/lib/ui/classes";
 import { addPurchaseQuote, removePurchaseQuote } from "@/app/requests/actions";
 import { QuoteDocAttach } from "@/components/features/purchasing/quote-doc-attach";
@@ -262,7 +263,7 @@ export function PriceComparison({
       {/* Spec 182 U2: create the PO from the picked quote (supplier + net price
           prefilled). With no quotes, the sheet opens blank — same as before. */}
       <button type="button" onClick={() => setPoOpen(true)} className={`${BUTTON_PRIMARY} w-full`}>
-        {picked ? `สร้างใบสั่งซื้อจาก ${picked.supplierName}` : "สร้างใบสั่งซื้อ (PO)"}
+        {picked ? `สร้างใบสั่งซื้อจาก ${picked.supplierName}` : CREATE_PO_LABEL}
       </button>
       <CreatePurchaseOrderSheet
         key={picked?.id ?? "blank"}

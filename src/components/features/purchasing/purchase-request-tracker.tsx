@@ -54,7 +54,7 @@ export function PurchaseRequestTracker({
   };
 
   return (
-    <ol aria-label="สถานะการสั่งซื้อ" className="flex items-start">
+    <ol aria-label="สถานะคำขอซื้อ" className="flex items-start">
       {steps.map((step, i) => {
         const { stage, state, isCurrent, reached } = step;
         const date = stageDate[stage];

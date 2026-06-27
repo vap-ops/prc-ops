@@ -25,6 +25,7 @@ import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { PurchaseRequestTracker } from "@/components/features/purchasing/purchase-request-tracker";
 import { PurchaseMiniStepper } from "@/components/features/purchasing/purchase-mini-stepper";
 import {
+  CREATE_PO_LABEL,
   ETA_LABEL,
   PURCHASE_ORDER_STATUS_LABEL,
   PURCHASE_REQUEST_PRIORITY_LABEL,
@@ -255,7 +256,7 @@ export function ProcurementGrid({
               ล้าง
             </button>
             <button type="button" onClick={() => setPoOpen(true)} className={BUTTON_PRIMARY}>
-              สร้าง PO ({selectedForPO.size})
+              {CREATE_PO_LABEL} ({selectedForPO.size})
             </button>
           </div>
         </div>
@@ -652,7 +653,7 @@ function DrawerBody({
               className={`${BUTTON_PRIMARY} w-full`}
             >
               <ShoppingCart aria-hidden className="mr-1.5 size-4" />
-              สร้างใบสั่งซื้อ (PO)
+              {CREATE_PO_LABEL}
             </button>
           ) : null}
           {actions.ship ? <PurchaseRequestShip requestId={record.id} /> : null}
