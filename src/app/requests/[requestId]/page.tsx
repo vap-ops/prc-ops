@@ -7,7 +7,7 @@ import { StatusPill } from "@/components/features/common/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
 import { PURCHASING_ROLES, isManagerRole } from "@/lib/auth/role-home";
 import { workPackageHref } from "@/lib/nav/project-paths";
-import { withBackFrom } from "@/lib/nav/back-href";
+import { safeBackHref, withBackFrom } from "@/lib/nav/back-href";
 import { createClient } from "@/lib/db/server";
 import { isValidUuid } from "@/lib/photos/path";
 import { PR_LIST_COLUMNS } from "@/lib/purchasing/columns";
@@ -60,11 +60,16 @@ export const metadata = { title: "รายละเอียดคำขอซ�
 
 interface PageProps {
   params: Promise<{ requestId: string }>;
+  // Spec 211 U6b: a request reached from its PO records that path via ?from, so
+  // back returns to the order (not the worklist). Falls back to /requests for
+  // direct loads / other entry points (see safeBackHref).
+  searchParams: Promise<{ from?: string }>;
 }
 
-export default async function RequestDetailPage({ params }: PageProps) {
+export default async function RequestDetailPage({ params, searchParams }: PageProps) {
   const ctx = await requireRole(PURCHASING_ROLES);
   const { requestId } = await params;
+  const { from } = await searchParams;
 
   // Non-UUID params skip the query entirely — same shape as the ?wp=
   // resolution on /requests; "garbage", "unknown", and "not allowed"
@@ -194,7 +199,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
     <PageShell>
       <BottomTabBar role={ctx.role} />
       {/* Spec 63: the consolidated shell. */}
-      <DetailHeader backHref="/requests" backLabel="กลับไปจัดซื้อ">
+      <DetailHeader backHref={safeBackHref(from, "/requests")} backLabel="กลับไปจัดซื้อ">
         {wp ? (
           isProcurement ? (
             <span className="text-ink-secondary w-fit truncate text-xs">
