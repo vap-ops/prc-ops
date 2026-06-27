@@ -329,7 +329,7 @@ export function StoreManager({
                     <ConfirmActionButton
                       idleLabel={STORE_FIX_WRONG_ENTRY_LABEL}
                       pendingLabel="กำลังแก้ไข…"
-                      confirmMessage={`ลบรายการรับเข้าที่บันทึกผิด — ${rc.baseItem} ${rc.qty} ${rc.unit}? ใช้เมื่อบันทึกผิดเท่านั้น (ของจะถูกตัดออกจากสโตร์)`}
+                      confirmMessage={`ลบรายการรับเข้าที่บันทึกผิด — ${rc.baseItem} ${rc.qty} ${rc.unit}? ใช้เมื่อบันทึกผิดเท่านั้น (ของจะถูกตัดออกจากคลัง)`}
                       confirmLabel="ยืนยัน"
                       buttonClassName={`${BUTTON_SECONDARY} shrink-0`}
                       action={() => reverseStockReceipt({ receiptId: rc.id })}

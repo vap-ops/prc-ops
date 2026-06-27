@@ -249,9 +249,9 @@ export function PurchaseRequestForm({
           received into the store and เบิก'd into a work package later. The pinned
           WP shows only as the context this request was raised from. */}
       <div className="flex min-w-0 flex-col gap-1">
-        <span className="text-ink text-sm font-medium">ขอซื้อเข้าสโตร์ของโครงการ</span>
+        <span className="text-ink text-sm font-medium">ขอซื้อเข้าคลังของโครงการ</span>
         <p className="text-ink-secondary text-xs">
-          วัสดุที่สั่งจะรับเข้าสโตร์ของโครงการ แล้วเบิกเข้างานภายหลัง
+          วัสดุที่สั่งจะรับเข้าคลังของโครงการ แล้วเบิกเข้างานภายหลัง
         </p>
         <p className="border-edge-strong bg-card mt-1 truncate rounded-md border px-3 py-2 text-sm">
           <span className="text-ink-muted">จากงาน</span>
