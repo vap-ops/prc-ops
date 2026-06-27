@@ -200,7 +200,7 @@ export function ProcurementGrid({
         {canBundle ? (
           <div className="border-edge text-ink-secondary text-meta flex items-center gap-1.5 border-b px-4 py-2">
             <Info aria-hidden className="size-3.5 shrink-0" />
-            เลือกหลายรายการที่อนุมัติแล้ว เพื่อรวมเป็นใบสั่งซื้อเดียว
+            เลือกหลายคำขอที่อนุมัติแล้ว เพื่อรวมเป็นใบสั่งซื้อเดียว
           </div>
         ) : null}
         <table className="w-full table-fixed border-collapse text-sm">
@@ -212,7 +212,7 @@ export function ProcurementGrid({
           </colgroup>
           <thead>
             <tr className="text-ink-muted border-edge text-meta border-b text-left">
-              <th className="px-4 py-2 font-normal">รายการ</th>
+              <th className="px-4 py-2 font-normal">สิ่งที่ขอซื้อ</th>
               <th className="px-2 py-2 font-normal">ผู้ขาย</th>
               <th className="px-2 py-2 font-normal">สถานะ / ETA</th>
               <th className="px-4 py-2 text-right font-normal">จำนวนเงิน</th>
@@ -240,7 +240,7 @@ export function ProcurementGrid({
       {/* Spec 116: bundle bar — appears once ≥1 approved ticket is checked. */}
       {canBundle && selectedForPO.size > 0 ? (
         <div className="border-edge bg-card shadow-card rounded-card sticky bottom-4 z-20 mt-3 flex items-center justify-between gap-3 border px-4 py-3">
-          <span className="text-ink text-sm font-medium">เลือก {selectedForPO.size} รายการ</span>
+          <span className="text-ink text-sm font-medium">เลือก {selectedForPO.size} คำขอ</span>
           <div className="flex gap-2">
             <button type="button" onClick={clearPO} className={BUTTON_SECONDARY}>
               ล้าง
@@ -582,7 +582,7 @@ function DrawerBody({
         {record.status === "delivered" && record.received_by ? (
           <Fact label="ผู้รับของ">{record.received_by}</Fact>
         ) : null}
-        <Fact label="เอกสาร/รูป">{record.doc_count > 0 ? `${record.doc_count} รายการ` : "—"}</Fact>
+        <Fact label="เอกสาร/รูป">{record.doc_count > 0 ? `${record.doc_count} ไฟล์` : "—"}</Fact>
       </dl>
 
       {record.notes ? (

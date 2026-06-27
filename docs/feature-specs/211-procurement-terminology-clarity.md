@@ -1,6 +1,6 @@
 # Spec 211 — Procurement terminology & level clarity
 
-**Status:** in progress — U1 shipped (#97), U2 shipping
+**Status:** in progress — U1 (#97) + U2 (#98) shipped, U3 shipping
 **Source:** operator report — "admins cannot intuitively distinguish the PO from the PO Items." Full evidence: [`docs/procurement-uxui-audit-2026-06.md`](../procurement-uxui-audit-2026-06.md) (multi-agent audit, 85 surfaces, 91 verified findings).
 
 ## Problem (root cause)
@@ -38,13 +38,13 @@ The purest form of the reported pain (audit `po-vs-items-01`, confirmed **high**
 
 **Out of scope for U1:** the PO progress-stepper verbs (`สั่งซื้อ/จัดส่ง/รับของ` in `purchase-order-tracker.tsx`) — they don't collide identically; addressed under U4.
 
-### U2 — Visually type the IDs (`PO-####` vs `PR-####`) _(this unit)_
+### U2 — Visually type the IDs (`PO-####` vs `PR-####`) _(SHIPPED #98)_
 
 `po-vs-items-02`, `terminology-10`, `pr-lifecycle-13`, `worklist-hub-10`. Add `formatPoNumber()` / `formatPrNumber()` SSOT helpers (zero-pad 4) — fixes the bare-vs-padded inconsistency (`PR-7` in grid vs `PR-0007` in drawer) — and give `PO-####` a distinct chip (Package icon + `ใบสั่งซื้อ`) everywhere, PR plain. Code-only.
 
-### U3 — De-overload `รายการ`
+### U3 — De-overload `รายการ` _(this unit — procurement worklist scope)_
 
-`po-vs-items-03`, `terminology-07`, `worklist-hub-04`, `accounting-ap-02`. Reserve `รายการ` for line-items: grid column header → `สิ่งที่ขอซื้อ`; selection count → `เลือกไว้ {n} คำขอ`; doc count → `{n} ไฟล์`; register count → `{n} ใบขอซื้อ`. Code-only.
+`po-vs-items-03`, `terminology-07`, `worklist-hub-04`. Reserve `รายการ` for genuine line-items. On the worklist grid: column header → `สิ่งที่ขอซื้อ`; bundle hint → `เลือกหลายคำขอ…`; selection count → `เลือก {n} คำขอ`; drawer doc count → `{n} ไฟล์`. The PO line-count (`{n} รายการ` on a PO group/header) is a correct line-item use and is KEPT. The accounting register count (`{n} รายการ` → `{n} ใบขอซื้อ`, `accounting-ap-02`) is moved to U9 (the accounting pass), keeping U3 a single-file procurement change. Code-only.
 
 ### U4 — Distinct PO pill + level captions on PO detail
 
@@ -68,7 +68,7 @@ Critic gap X1. `src/lib/notifications/compose-notification.ts` pushes raw PR sta
 
 ### U9 — Accounting trail _(operator-held: danger path)_
 
-Critic gap X3 / `accounting-ap-03/04/05`. Use `formatPoNumber()` on the voucher (`#3` → `PO-0003`), make the linked PO a live link, group the register by PO with a subtotal. `src/lib/accounting/**` is a danger path → held.
+Critic gap X3 / `accounting-ap-03/04/05`. Use `formatPoNumber()` (from U2) on the voucher (`#3` → `PO-0003`), make the linked PO a live link, group the register by PO with a subtotal, and rename the register count `{n} รายการ` → `{n} ใบขอซื้อ` (`accounting-ap-02`, moved here from U3). `src/lib/accounting/**` is a danger path → held.
 
 ### U10 — Remaining terminology SSOT
 
