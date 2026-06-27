@@ -6,7 +6,11 @@
 // The chips drive the band axis added to ProcurementFilter (worklist-filter.ts); the raw
 // `status` axis stays an URL-only escape and is preserved across chip clicks.
 
-import { procurementBand, procurementSummary } from "./procurement-pipeline";
+import {
+  PROCUREMENT_BAND_LABEL,
+  procurementBand,
+  procurementSummary,
+} from "./procurement-pipeline";
 import { buildWorklistQuery, type ProcurementFilter } from "./worklist-filter";
 
 export type WorklistStatusChipKey = "all" | "to_order" | "in_transit" | "overdue";
@@ -36,28 +40,28 @@ export function buildWorklistStatusChips(input: {
   return [
     {
       key: "all",
-      label: "ทั้งหมด",
+      label: PROCUREMENT_BAND_LABEL.all,
       count: all,
       href: buildWorklistQuery({ ...filter, band: null, overdue: false }),
       active: !filter.overdue && filter.band === null,
     },
     {
       key: "to_order",
-      label: "อนุมัติแล้ว",
+      label: PROCUREMENT_BAND_LABEL.to_order,
       count: summary.toOrder,
       href: buildWorklistQuery({ ...filter, band: "to_order", overdue: false }),
       active: !filter.overdue && filter.band === "to_order",
     },
     {
       key: "in_transit",
-      label: "กำลังจัดส่ง",
+      label: PROCUREMENT_BAND_LABEL.in_transit,
       count: summary.inTransit,
       href: buildWorklistQuery({ ...filter, band: "in_transit", overdue: false }),
       active: !filter.overdue && filter.band === "in_transit",
     },
     {
       key: "overdue",
-      label: "เกินกำหนด",
+      label: PROCUREMENT_BAND_LABEL.overdue,
       count: summary.overdue,
       href: buildWorklistQuery({ ...filter, band: null, overdue: true }),
       active: filter.overdue,

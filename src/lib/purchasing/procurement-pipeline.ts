@@ -13,12 +13,27 @@ export interface ProcurementBandMeta {
 }
 
 // Display order: the buyer's action first, history last.
+// Spec 211 U7 — ONE label per worklist band, shared by the pipeline band headers,
+// the status-chip filter (worklist-status-chips.ts), and the KPI tiles
+// (worklist-kpis.ts), so a band never reads two ways on one screen (to_order was
+// "อนุมัติแล้ว" on the chip but "รอสั่งซื้อ" on the header + tile). "all" and "overdue"
+// are chip/tile pseudo-bands (a filter view, not a row band) but share this home.
+export const PROCUREMENT_BAND_LABEL = {
+  all: "ทั้งหมด",
+  awaiting_approval: "รออนุมัติ",
+  to_order: "รอสั่งซื้อ",
+  in_transit: "กำลังจัดส่ง",
+  overdue: "เกินกำหนด",
+  received: "ได้รับแล้ว",
+} as const;
+
+// Display order: the buyer's action first, history last.
 export const PROCUREMENT_BANDS: ReadonlyArray<ProcurementBandMeta> = [
-  { band: "to_order", label: "รอสั่งซื้อ", hot: true },
-  { band: "in_transit", label: "กำลังจัดส่ง", hot: false },
-  { band: "received", label: "ได้รับแล้ว", hot: false },
+  { band: "to_order", label: PROCUREMENT_BAND_LABEL.to_order, hot: true },
+  { band: "in_transit", label: PROCUREMENT_BAND_LABEL.in_transit, hot: false },
+  { band: "received", label: PROCUREMENT_BAND_LABEL.received, hot: false },
   // Waiting on the PM's decision — procurement can't act yet (visibility only).
-  { band: "awaiting_approval", label: "รออนุมัติ", hot: false },
+  { band: "awaiting_approval", label: PROCUREMENT_BAND_LABEL.awaiting_approval, hot: false },
 ];
 
 // Map a purchase-request status to a procurement band. rejected/cancelled are
