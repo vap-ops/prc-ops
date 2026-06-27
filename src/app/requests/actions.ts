@@ -30,6 +30,7 @@ import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN, type ActionAuth } from "@/lib/auth/action-gate";
 import { isValidPhotoExt, type PhotoExt } from "@/lib/photos/path";
 import { buildPrAttachmentStoragePath } from "@/lib/purchasing/attachment-path";
+import { prProjectId } from "@/lib/purchasing/pr-project-id";
 import { buildPoAttachmentStoragePath } from "@/lib/purchasing/po-attachment-path";
 import {
   attachmentKindForExt,
@@ -234,12 +235,14 @@ export async function cancelPurchaseRequest(
 // removePurchaseRequestAttachment: a tombstone INSERT, never a DELETE
 // (ADR 0015). RLS enforces creator-only removal for confirmation photos.
 
-// Read the parent under caller RLS (maybeSingle — no existence leak),
-// joined to the WP for project_id, to rebuild the canonical path.
+// Read the parent under caller RLS (maybeSingle — no existence leak), to rebuild
+// the canonical path. The PR's own project_id is the source (NOT NULL since spec
+// 195 P1; store-bound PRs have no WP); the WP join stays as a belt-and-braces
+// fallback. See prProjectId.
 async function readPrParent(supabase: ActionAuth["supabase"], purchaseRequestId: string) {
   return await supabase
     .from("purchase_requests")
-    .select("id, status, work_packages ( project_id )")
+    .select("id, status, project_id, work_packages ( project_id )")
     .eq("id", purchaseRequestId)
     .maybeSingle();
 }
@@ -296,7 +299,7 @@ export async function addDeliveryConfirmationPhoto(
   const { supabase, user } = auth;
 
   const { data: pr } = await readPrParent(supabase, input.purchaseRequestId);
-  const projectId = pr?.work_packages?.project_id;
+  const projectId = prProjectId(pr);
   // on_route joined delivered as a legal photo state in ADR 0030 — the
   // photo on an on_route parent is what COMPLETES the delivery (the
   // delivered-only check here outlived the policy widening; operator-
@@ -372,7 +375,7 @@ export async function addInvoiceAttachment(
   const { supabase, user } = auth;
 
   const { data: pr } = await readPrParent(supabase, input.purchaseRequestId);
-  const projectId = pr?.work_packages?.project_id;
+  const projectId = prProjectId(pr);
   if (!pr || !projectId) {
     return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
   }
@@ -453,7 +456,7 @@ export async function addPaymentProofAttachment(
   const { supabase, user } = auth;
 
   const { data: pr } = await readPrParent(supabase, input.purchaseRequestId);
-  const projectId = pr?.work_packages?.project_id;
+  const projectId = prProjectId(pr);
   if (!pr || !projectId) {
     return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
   }
@@ -957,7 +960,7 @@ export async function addPurchaseRequestAttachment(
   const fileKind: AttachmentFileKind = attachmentKindForExt(input.ext);
 
   const { data: pr } = await readPrParent(supabase, input.purchaseRequestId);
-  const projectId = pr?.work_packages?.project_id;
+  const projectId = prProjectId(pr);
   if (!pr || !projectId) {
     return { ok: false, error: ERR_SAVE_PHOTO_FAILED };
   }
@@ -1211,7 +1214,7 @@ export async function addQuoteAttachment(
   const { supabase, user } = auth;
 
   const { data: pr } = await readPrParent(supabase, input.purchaseRequestId);
-  const projectId = pr?.work_packages?.project_id;
+  const projectId = prProjectId(pr);
   if (!pr || !projectId) {
     return { ok: false, error: ERR_SAVE_DOC_FAILED };
   }

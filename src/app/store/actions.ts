@@ -219,7 +219,8 @@ export async function reverseStockIssue(input: { issueId: string }): Promise<Sto
     return { ok: false, error: "กลับรายการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
 
-  revalidatePath("/store");
+  // Spec 210: เบิก undo lives on the WP detail page now, not /store.
+  revalidatePath("/projects", "layout");
   return { ok: true };
 }
 
@@ -254,7 +255,8 @@ export async function returnStockToStore(input: {
     return { ok: false, error: "คืนเข้าสโตร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
 
-  revalidatePath("/store");
+  // Spec 209 U2: คืนเข้าสโตร์ is invoked from the WP detail page, not /store.
+  revalidatePath("/projects", "layout");
   return { ok: true };
 }
 
@@ -305,7 +307,8 @@ export async function confirmStockIssueOnBehalf(input: {
     return { ok: false, error: "ยืนยันการรับไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
 
-  revalidatePath("/store");
+  // Spec 210: confirm-on-behalf moved to the WP detail page, not /store.
+  revalidatePath("/projects", "layout");
   return { ok: true };
 }
 

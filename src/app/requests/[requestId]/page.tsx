@@ -415,14 +415,14 @@ export default async function RequestDetailPage({ params }: PageProps) {
                 </ul>
               </div>
             ) : null}
-            {status === "requested" && isMine && wp ? (
+            {status === "requested" && isMine ? (
               <details className="mt-2">
                 <summary className="text-action cursor-pointer text-xs font-medium underline-offset-2 hover:underline">
                   เพิ่มรูปหรือลิงก์
                 </summary>
                 <div className="mt-2">
                   <PurchaseRequestAttachmentStager
-                    projectId={wp.project_id}
+                    projectId={request.project_id}
                     purchaseRequestId={request.id}
                     userId={ctx.id}
                   />
@@ -466,13 +466,11 @@ export default async function RequestDetailPage({ params }: PageProps) {
                   </ul>
                 </div>
               ) : null}
-              {wp ? (
-                <DeliveryPhotoUploader
-                  purchaseRequestId={request.id}
-                  projectId={wp.project_id}
-                  userId={ctx.id}
-                />
-              ) : null}
+              <DeliveryPhotoUploader
+                purchaseRequestId={request.id}
+                projectId={request.project_id}
+                userId={ctx.id}
+              />
             </div>
           </div>
         ) : null}
@@ -569,9 +567,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
               {invoiceImages.length === 0 && invoicePdfs.length === 0 ? (
                 <p className="text-ink-secondary text-xs">ยังไม่มีเอกสาร</p>
               ) : null}
-              {wp ? (
-                <InvoiceUploader purchaseRequestId={request.id} projectId={wp.project_id} />
-              ) : null}
+              <InvoiceUploader purchaseRequestId={request.id} projectId={request.project_id} />
             </div>
           </div>
         ) : null}
@@ -627,9 +623,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
               {paymentImages.length === 0 && paymentPdfs.length === 0 ? (
                 <p className="text-ink-secondary text-xs">ยังไม่มีหลักฐานการชำระเงิน</p>
               ) : null}
-              {wp ? (
-                <PaymentProofUploader purchaseRequestId={request.id} projectId={wp.project_id} />
-              ) : null}
+              <PaymentProofUploader purchaseRequestId={request.id} projectId={request.project_id} />
             </div>
           </div>
         ) : null}
@@ -644,7 +638,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
                  picked one (PriceComparison owns the create-PO sheet, U2). */
               <PriceComparison
                 purchaseRequestId={request.id}
-                projectId={wp?.project_id ?? ""}
+                projectId={request.project_id}
                 quantity={request.quantity}
                 unit={request.unit}
                 quotes={quotes}
