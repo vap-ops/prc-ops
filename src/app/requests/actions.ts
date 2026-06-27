@@ -947,6 +947,9 @@ export interface RecordSitePurchaseInput {
   amount: number | null;
   // Spec 176 U4: required reactive-reason tag (validated below).
   reasonCode?: string | null | undefined;
+  // Spec 211 U11c-B: VAT rate (%) of a tax-invoiced buy; 0/absent = cash. > 0
+  // makes record_site_purchase split the reclaimable Input VAT (1300).
+  vatRate?: number | null | undefined;
 }
 
 export type RecordSitePurchaseResult = { ok: true; id: string } | { ok: false; error: string };
@@ -970,6 +973,8 @@ export async function recordSitePurchase(
     p_reason_code: validated.value.reasonCode,
     // Spec 103: omit when null so the RPC default applies (no amount recorded).
     ...(validated.value.amount !== null ? { p_amount: validated.value.amount } : {}),
+    // Spec 211 U11c-B: pass the VAT rate only when set (0 → RPC default, no split).
+    ...(validated.value.vatRate > 0 ? { p_vat_rate: validated.value.vatRate } : {}),
   });
   if (error || !data) {
     return { ok: false, error: "บันทึกการซื้อหน้างานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };

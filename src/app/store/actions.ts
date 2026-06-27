@@ -430,6 +430,9 @@ export async function sitePurchaseUseNow(input: {
   qty: number;
   unitCost: number;
   note: string;
+  // Spec 211 U11c-B: VAT rate (%) of a tax-invoiced buy; 0/absent = cash. unitCost
+  // stays GROSS; > 0 makes the RPC carry the receipt NET + split Input VAT (1300).
+  vatRate?: number;
 }): Promise<StockInResult> {
   if (
     !UUID_REGEX.test(input.projectId) ||
@@ -444,6 +447,10 @@ export async function sitePurchaseUseNow(input: {
   if (!Number.isFinite(input.unitCost) || input.unitCost < 0) {
     return { ok: false, error: "ราคาต้นทุนต้องไม่ติดลบ" };
   }
+  const vatRate = input.vatRate ?? 0;
+  if (!Number.isFinite(vatRate) || vatRate < 0 || vatRate > 100) {
+    return { ok: false, error: "อัตราภาษีต้องอยู่ระหว่าง 0–100" };
+  }
 
   const auth = await getActionUser();
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
@@ -455,6 +462,8 @@ export async function sitePurchaseUseNow(input: {
     p_qty: input.qty,
     p_unit_cost: input.unitCost,
     p_note: input.note,
+    // Spec 211 U11c-B: pass the VAT rate only when set (0 → RPC default, no split).
+    ...(vatRate > 0 ? { p_vat_rate: vatRate } : {}),
   });
   if (error) {
     if (error.code === "42501") return { ok: false, error: NO_PERMISSION };

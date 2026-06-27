@@ -19,6 +19,9 @@ export interface ValidatedSitePurchase {
   amount: number | null;
   // Spec 176 U4: the reactive-reason tag — required, no default.
   reasonCode: PurchaseReasonCode;
+  // Spec 211 U11c-B: VAT rate (%) of a tax-invoiced buy; 0 = cash / no invoice.
+  // record_site_purchase splits the reclaimable Input VAT (1300) when > 0.
+  vatRate: number;
 }
 
 export type ValidateSitePurchaseResult =
@@ -32,6 +35,7 @@ export function validateSitePurchase(input: {
   unit: string;
   amount: number | null;
   reasonCode?: string | null | undefined;
+  vatRate?: number | null | undefined;
 }): ValidateSitePurchaseResult {
   if (!UUID_REGEX.test(input.workPackageId)) {
     return { ok: false, error: "รหัสงานไม่ถูกต้อง" };
@@ -60,6 +64,11 @@ export function validateSitePurchase(input: {
   if (!isPurchaseReasonCode(input.reasonCode)) {
     return { ok: false, error: "กรุณาเลือกเหตุผลของการซื้อ" };
   }
+  // Spec 211 U11c-B: VAT rate (%) — 0 when absent (cash / no invoice).
+  const vatRate = input.vatRate ?? 0;
+  if (!Number.isFinite(vatRate) || vatRate < 0 || vatRate > 100) {
+    return { ok: false, error: "อัตราภาษีต้องอยู่ระหว่าง 0–100" };
+  }
   return {
     ok: true,
     value: {
@@ -69,6 +78,7 @@ export function validateSitePurchase(input: {
       unit,
       amount: input.amount,
       reasonCode: input.reasonCode,
+      vatRate,
     },
   };
 }

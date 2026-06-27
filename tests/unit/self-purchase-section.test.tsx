@@ -1,9 +1,6 @@
-// Spec 211 U11a — self-purchase consolidation. The operator's steer: "PR is PR,
-// self purchase is self purchase … consolidate in 1 place." The two self-purchase
-// actions previously sat in different WP tabs (บันทึกการซื้อหน้างาน in คำขอซื้อ,
-// ซื้อเงินสด ใช้ที่งานนี้เลย in เบิกของ). This section groups BOTH under one ซื้อเอง
-// heading. Load-bearing: both self-purchase affordances are present in one place;
-// the ask-procurement PR form is NOT part of this section (kept separate).
+// Spec 211 U11a→U11c-B — self-purchase consolidation, now ONE guided ซื้อเอง form
+// (U11c unified U11a's two cards). Load-bearing: the ซื้อเอง heading frames it, and
+// the unified form's item-source toggle is present (catalog OR free-text).
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -43,19 +40,20 @@ function renderSection() {
   );
 }
 
-describe("SelfPurchaseSection (spec 211 U11a)", () => {
-  it("groups both self-purchase actions under one ซื้อเอง heading", () => {
+describe("SelfPurchaseSection (spec 211 U11c-B)", () => {
+  it("frames the unified self-purchase form under one ซื้อเอง heading", () => {
     renderSection();
     expect(screen.getByText("ซื้อเอง")).toBeInTheDocument();
   });
 
-  it("offers the off-catalog record path (#2 บันทึกการซื้อหน้างาน)", () => {
+  it("renders the unified form's item-source toggle (catalog OR free-text)", () => {
     renderSection();
-    expect(screen.getByText("บันทึกการซื้อหน้างาน")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "เลือกจากคลัง" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "พิมพ์เอง" })).toBeInTheDocument();
   });
 
-  it("offers the catalogued cash use-now path (#3 ใช้ที่งานนี้เลย)", () => {
+  it("offers the record submit by default (no catalog item picked yet)", () => {
     renderSection();
-    expect(screen.getByRole("button", { name: /ใช้ที่งานนี้เลย/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "บันทึกการซื้อ" })).toBeInTheDocument();
   });
 });
