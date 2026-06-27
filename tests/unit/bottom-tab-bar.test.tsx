@@ -37,7 +37,7 @@ describe("BottomTabBar", () => {
       // /review (the queue is now a sub-surface of ภาพรวม).
       // Spec 82 Unit 3: the project hub folded to /projects.
       ["โครงการ", "/projects"],
-      ["คำขอซื้อ", "/requests"],
+      ["จัดซื้อ", "/requests"],
       // Spec 100: ภาพรวม is the live dashboard tab (last content tab).
       ["ภาพรวม", "/dashboard"],
       // Spec 93: contacts/payroll/workers/account moved into the ตั้งค่า hub.
@@ -48,14 +48,14 @@ describe("BottomTabBar", () => {
       // from the SA bar (the home supersedes it), keeping four tabs.
       ["หน้าหลัก", "/sa"],
       ["โครงการ", "/projects"],
-      ["คำขอซื้อ", "/requests"],
+      ["จัดซื้อ", "/requests"],
       ["ตั้งค่า", "/settings"],
     ]);
-    // procurement's back-office tab set: คำขอซื้อ (spec 70), โครงการ read-only
+    // procurement's back-office tab set: จัดซื้อ (spec 70), โครงการ read-only
     // (spec 102), ผู้ขาย suppliers master (spec 101), ตั้งค่า. No รอตรวจ (not a
     // decider) and no ภาพรวม (money, spec 100).
     expect(PROCUREMENT_TABS.map((t) => [t.label, t.href])).toEqual([
-      ["คำขอซื้อ", "/requests"],
+      ["จัดซื้อ", "/requests"],
       ["โครงการ", "/projects"],
       ["ผู้ขาย", "/contacts/vendors"],
       ["ตั้งค่า", "/settings"],
@@ -94,7 +94,7 @@ describe("BottomTabBar", () => {
     mockUsePathname.mockReturnValue("/dashboard");
     render(<BottomTabBar role="project_manager" />);
     expect(screen.getByRole("link", { name: /โครงการ/ })).toHaveAttribute("href", "/projects");
-    expect(screen.getByRole("link", { name: /คำขอซื้อ/ })).toHaveAttribute("href", "/requests");
+    expect(screen.getByRole("link", { name: /จัดซื้อ/ })).toHaveAttribute("href", "/requests");
     expect(screen.getByRole("link", { name: /ตั้งค่า/ })).toHaveAttribute("href", "/settings");
     expect(screen.getByRole("link", { name: /ภาพรวม/ })).toHaveAttribute("href", "/dashboard");
     // Spec 183 U2: there is no longer a รอตรวจ tab.
@@ -188,7 +188,7 @@ describe("BottomTabBar", () => {
     mockUsePathname.mockReturnValue("/projects");
     const { container, unmount } = render(<BottomTabBar role="site_admin" />);
     expect(activeTabs(container)[0]?.textContent).toContain("โครงการ");
-    expect(screen.getByRole("link", { name: /คำขอซื้อ/ })).toHaveAttribute("href", "/requests");
+    expect(screen.getByRole("link", { name: /จัดซื้อ/ })).toHaveAttribute("href", "/requests");
     unmount();
     // Spec 183 U2: super (PM set) on /review lights ภาพรวม (the queue's home),
     // not a รอตรวจ tab — that tab is gone.
@@ -197,9 +197,9 @@ describe("BottomTabBar", () => {
     expect(activeTabs(c2)[0]?.textContent).toContain("ภาพรวม");
   });
 
-  // Spec 70/101/102: procurement gets คำขอซื้อ + โครงการ + ผู้ขาย + ตั้งค่า, and
+  // Spec 70/101/102: procurement gets จัดซื้อ + โครงการ + ผู้ขาย + ตั้งค่า, and
   // NEVER รอตรวจ (not a decider). โครงการ is read-only project browse (spec 102).
-  it("renders the procurement set: คำขอซื้อ + โครงการ + ผู้ขาย + ตั้งค่า, no รอตรวจ", () => {
+  it("renders the procurement set: จัดซื้อ + โครงการ + ผู้ขาย + ตั้งค่า, no รอตรวจ", () => {
     mockUsePathname.mockReturnValue("/requests");
     const { container } = render(<BottomTabBar role="procurement" />);
     expect(screen.getByRole("link", { name: /โครงการ/ })).toHaveAttribute("href", "/projects");
@@ -209,11 +209,11 @@ describe("BottomTabBar", () => {
     );
     expect(screen.getByRole("link", { name: /ตั้งค่า/ })).toHaveAttribute("href", "/settings");
     expect(screen.queryByText("รอตรวจ")).not.toBeInTheDocument();
-    // คำขอซื้อ is the active tab on /requests — now a link to its root, marked by
+    // จัดซื้อ is the active tab on /requests — now a link to its root, marked by
     // aria-current (every bottom tab is a first-layer destination).
     const active = activeTabs(container);
     expect(active).toHaveLength(1);
-    expect(active[0]?.textContent).toContain("คำขอซื้อ");
+    expect(active[0]?.textContent).toContain("จัดซื้อ");
   });
 
   // Spec 101: ผู้ขาย lights on the suppliers screen (longest-prefix beats the
@@ -232,7 +232,7 @@ describe("BottomTabBar", () => {
     const { container } = render(<BottomTabBar role="project_coordinator" />);
     expect(screen.getByText("ตั้งค่า")).toBeInTheDocument();
     expect(screen.queryByText("รอตรวจ")).not.toBeInTheDocument();
-    expect(screen.queryByText("คำขอซื้อ")).not.toBeInTheDocument();
+    expect(screen.queryByText("จัดซื้อ")).not.toBeInTheDocument();
     const active = activeTabs(container);
     expect(active).toHaveLength(1);
     expect(active[0]?.textContent).toContain("โครงการ");

@@ -193,7 +193,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
     <PageShell>
       <BottomTabBar role={ctx.role} />
       {/* Spec 63: the consolidated shell. */}
-      <DetailHeader backHref="/requests" backLabel="กลับไปคำขอซื้อ">
+      <DetailHeader backHref="/requests" backLabel="กลับไปจัดซื้อ">
         {wp ? (
           isProcurement ? (
             <span className="text-ink-secondary w-fit truncate text-xs">

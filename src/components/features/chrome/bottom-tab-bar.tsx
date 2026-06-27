@@ -85,7 +85,7 @@ export const SA_TABS: ReadonlyArray<TabItem> = [
   // Spec 82 Unit 3: the project hub folded to the content-named /projects;
   // the tab points straight at it (and lights on every /projects/* screen).
   { label: "โครงการ", href: "/projects", icon: FolderKanban },
-  { label: "คำขอซื้อ", href: "/requests", icon: ShoppingCart },
+  { label: "จัดซื้อ", href: "/requests", icon: ShoppingCart },
   SETTINGS_TAB,
 ];
 
@@ -97,7 +97,7 @@ export const PM_TABS: ReadonlyArray<TabItem> = [
   // Spec 82 Unit 3: same folded /projects hub for PM/super; the href lights
   // on the hub and every /projects/* detail screen, so no extra match.
   { label: "โครงการ", href: "/projects", icon: FolderKanban },
-  { label: "คำขอซื้อ", href: "/requests", icon: ShoppingCart },
+  { label: "จัดซื้อ", href: "/requests", icon: ShoppingCart },
   DASHBOARD_TAB,
   SETTINGS_TAB,
 ];
@@ -105,7 +105,7 @@ export const PM_TABS: ReadonlyArray<TabItem> = [
 // Spec 70: procurement's worklist-only nav — the purchasing surface plus
 // settings. No โครงการ (no project/WP hub in v1) and no รอตรวจ (not a decider).
 export const PROCUREMENT_TABS: ReadonlyArray<TabItem> = [
-  { label: "คำขอซื้อ", href: "/requests", icon: ShoppingCart },
+  { label: "จัดซื้อ", href: "/requests", icon: ShoppingCart },
   // Spec 102: procurement browses projects read-only for purchase context
   // (lights on /projects + /projects/[id]).
   { label: "โครงการ", href: "/projects", icon: FolderKanban },
@@ -183,7 +183,7 @@ export function BottomTabBar({ role }: { role: string }) {
           // tab but does not approve, so no badge.
           const showApprovalsBadge = tab.href === "/dashboard" && isManagerRole(role as UserRole);
           // Spec 184 U1: purchase requests awaiting the PM tier's decision ride
-          // the คำขอซื้อ tab (SA requesters / procurement processors share it but
+          // the จัดซื้อ tab (SA requesters / procurement processors share it but
           // don't decide, so no badge for them).
           const showPurchaseBadge = tab.href === "/requests" && isManagerRole(role as UserRole);
           return (

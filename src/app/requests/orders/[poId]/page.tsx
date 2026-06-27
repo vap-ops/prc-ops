@@ -134,7 +134,7 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <DetailHeader backHref="/requests" backLabel="กลับไปคำขอซื้อ">
+      <DetailHeader backHref="/requests" backLabel="กลับไปจัดซื้อ">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <PoNumberTag poNumber={po.po_number} />

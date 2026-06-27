@@ -21,7 +21,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 // dashboard card; ภาพรวม leads the PM strip and carries the pending count.
 const PM_ITEMS = [
   { label: "โครงการและรายงาน", href: "/projects" },
-  { label: "คำขอซื้อ", href: "/requests" },
+  { label: "จัดซื้อ", href: "/requests" },
   { label: "ภาพรวม", href: "/dashboard" },
   { label: "ตั้งค่า", href: "/settings" },
 ];
@@ -36,7 +36,7 @@ describe("canonical nav sets", () => {
       // Spec 192 U4: the daily home leads; ภาพรวม dropped from the SA strip.
       { label: "หน้าหลัก", href: "/sa" },
       { label: "โครงการ", href: "/projects" },
-      { label: "คำขอซื้อ", href: "/requests" },
+      { label: "จัดซื้อ", href: "/requests" },
       { label: "ตั้งค่า", href: "/settings" },
     ]);
   });
@@ -46,7 +46,7 @@ describe("canonical nav sets", () => {
   // ทีมงาน → /workers (DC onboarding). Both back-office domains procurement owns.
   it("pins the procurement set's destinations and order", () => {
     expect(PROCUREMENT_HUB_NAV).toEqual([
-      { label: "คำขอซื้อ", href: "/requests" },
+      { label: "จัดซื้อ", href: "/requests" },
       { label: "โครงการ", href: "/projects" },
       { label: "ผู้ขาย", href: "/contacts/vendors" },
       { label: "ผู้รับเหมาช่วง", href: "/contacts/subcontractors" },
@@ -93,7 +93,7 @@ describe("HubNav", () => {
     const current = screen.getByRole("link", { name: "โครงการและรายงาน" });
     expect(current).toHaveAttribute("href", "/projects");
     expect(current).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "คำขอซื้อ" })).toHaveAttribute("href", "/requests");
+    expect(screen.getByRole("link", { name: "จัดซื้อ" })).toHaveAttribute("href", "/requests");
   });
 
   it("renders no directional arrow glyphs", () => {
@@ -105,7 +105,7 @@ describe("HubNav", () => {
 
   it("gives links a min-h-11 tap target", () => {
     render(<HubNav maxWidthClass={PAGE_MAX_W} items={PM_ITEMS} currentHref="/review" />);
-    expect(screen.getByRole("link", { name: "คำขอซื้อ" }).className).toContain("min-h-11");
+    expect(screen.getByRole("link", { name: "จัดซื้อ" }).className).toContain("min-h-11");
   });
 
   // Spec 100/169: ภาพรวม is a live link; on /dashboard it stays a link, marked

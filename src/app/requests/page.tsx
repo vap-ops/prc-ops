@@ -81,7 +81,7 @@ import type { Database } from "@/lib/db/database.types";
 // addendum A1 / ADR 0026. Spec 47: each row is a slim card linking to
 // /requests/[id] — facts and every action zone (decision, recording,
 // shipping, cancel, attachments) render on the detail screen.
-export const metadata = { title: "คำขอซื้อ" };
+export const metadata = { title: "จัดซื้อ" };
 
 interface RequestsPageProps {
   searchParams: Promise<{
@@ -622,7 +622,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <AppHeader kicker="คำขอซื้อ" fullName={ctx.fullName} maxWidthClass={PAGE_MAX_W} />
+      <AppHeader kicker="จัดซื้อ" fullName={ctx.fullName} maxWidthClass={PAGE_MAX_W} />
 
       {/* Primary-tab nav: the desktop HubNav strip like the sibling hubs
           (/review, /projects); phones leave via the bottom tab bar.
