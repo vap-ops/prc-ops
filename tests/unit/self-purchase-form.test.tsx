@@ -34,6 +34,7 @@ const catalogItems = [
     baseItem: "สายไฟ",
     specAttrs: "3x6",
     unit: "ม้วน",
+    thumbnailUrl: null,
   },
 ];
 
@@ -79,7 +80,10 @@ describe("SelfPurchaseForm (spec 211 U11c-B)", () => {
   it("buys-&-uses a catalog item now (routes to sitePurchaseUseNow at gross unit cost)", async () => {
     const user = userEvent.setup();
     renderForm();
-    await user.selectOptions(screen.getByLabelText("สินค้าจากทะเบียนวัสดุ"), "ci-1");
+    // Catalog selection is the same search picker as สร้างคำขอซื้อ (CatalogItemPicker):
+    // open the sheet, pick the result row.
+    await user.click(screen.getByRole("button", { name: "เลือกวัสดุจากแคตตาล็อก" }));
+    await user.click(screen.getByRole("button", { name: /สายไฟ/ }));
     await user.click(screen.getByLabelText("ซื้อเข้าคลังแล้วใช้ที่งานนี้เลย"));
     await user.type(screen.getByLabelText("จำนวน"), "2");
     await user.type(screen.getByLabelText("จำนวนเงิน (บาท)"), "200");

@@ -19,15 +19,20 @@ vi.mock("@/components/features/purchasing/item-photo-uploader", () => ({
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
-import {
-  SelfPurchaseSection,
-  type CatalogPick,
-} from "@/components/features/purchasing/self-purchase-section";
+import { SelfPurchaseSection } from "@/components/features/purchasing/self-purchase-section";
+import type { PurchaseRequestCatalogItem } from "@/components/features/purchasing/purchase-request-form";
 
 const WP_ID = "00000000-0000-0000-0000-000000000001";
 const PROJECT_ID = "00000000-0000-0000-0000-000000000002";
-const catalogItems: CatalogPick[] = [
-  { id: "ci1", category: "electrical", baseItem: "สายไฟ NYY", specAttrs: "3x6", unit: "ม้วน" },
+const catalogItems: PurchaseRequestCatalogItem[] = [
+  {
+    id: "ci1",
+    category: "electrical",
+    baseItem: "สายไฟ NYY",
+    specAttrs: "3x6",
+    unit: "ม้วน",
+    thumbnailUrl: null,
+  },
 ];
 
 function renderSection() {
