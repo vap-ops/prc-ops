@@ -1,6 +1,6 @@
 # Spec 211 — Procurement terminology & level clarity
 
-**Status:** in progress — U1 (#97) + U2 (#98) + U3 (#99) shipped, U5 shipping (U4 deferred)
+**Status:** in progress — U1 (#97) + U2 (#98) + U3 (#99) + U5 (#100) shipped, U6 shipping (U4 deferred)
 **Source:** operator report — "admins cannot intuitively distinguish the PO from the PO Items." Full evidence: [`docs/procurement-uxui-audit-2026-06.md`](../procurement-uxui-audit-2026-06.md) (multi-agent audit, 85 surfaces, 91 verified findings).
 
 ## Problem (root cause)
@@ -50,13 +50,15 @@ The purest form of the reported pain (audit `po-vs-items-01`, confirmed **high**
 
 `po-detail-03`, `po-vs-items-06`, `po-detail-06`, `po-vs-items-04`. PO-level pills get a distinct variant (outline/ring + glyph); add `สถานะทั้งใบ` / `สถานะแถว` captions; tint + indent the grid PO group so the parent reads as a sub-band, not a peer. Touches `src/lib/status-colors.ts` (not a danger path) + grid/detail.
 
-### U5 — PO membership visible in every band _(this unit)_
+### U5 — PO membership visible in every band _(SHIPPED #100)_
 
 `worklist-hub-06` (high). Show a `PO-####` chip (`<PoNumberTag>` from U2) on any worklist row/card with a `purchase_order_id`, in every band and on both phone and desktop (today the PO header only renders in the `in_transit` band — `procurement-grid.tsx` `meta.band==="in_transit"` gate). The page fetches `po_number` for every PO any row belongs to (`poNumberById`), bakes it onto `ProcurementGridRecord.po_number` + passes `poNumber` to `PurchaseRequestCard`; the grid shows the per-row chip outside `in_transit` (which keeps its group header), the phone card shows it whenever the request has a PO. Code-only.
 
-### U6 — Make the level legible in nav
+### U6 — Make the level legible in nav _(this unit — nav rename + back-labels)_
 
-`worklist-hub-05`, `po-vs-items-05`, `pr-lifecycle-09`, `delivery-receiving-02`, `terminology-03`. Rename the nav landmark to a neutral umbrella (`จัดซื้อ`); PO back-chip → `กลับไปรายการจัดซื้อ`; breadcrumb `จัดซื้อ › ใบสั่งซื้อ PO-0012`; promote the PR→PO parent link to a header eyebrow + `?from=` back-href. Touches `hub-nav.tsx` (role tab-sets) — review carefully; not a danger path but high-visibility.
+`worklist-hub-05`, `po-vs-items-05`, `pr-lifecycle-09`, `delivery-receiving-02`, `terminology-03`. **This unit:** rename the nav landmark from `คำขอซื้อ` (which named the whole area after just the PR) to the neutral umbrella **`จัดซื้อ`** — in BOTH nav sources (`hub-nav.tsx` desktop strip + `bottom-tab-bar.tsx` phone bar, all role tab-sets) plus the worklist page title/kicker; and fix the back-chips that read `กลับไปคำขอซื้อ` on a **PO** detail (and the PR detail) → `กลับไปจัดซื้อ`. The PR-concept term `คำขอซื้อ` stays for the actual purchase-request list/empty-state/create buttons. Not a danger path; high-visibility (every role's nav).
+
+**Deferred → U6b:** the breadcrumb `จัดซื้อ › ใบสั่งซื้อ PO-0012` and the `?from=` PR→PO referrer back-href (so a PR reached from its PO returns to the PO). Kept separate to keep this unit a clean rename.
 
 ### U7 — One band-label SSOT
 

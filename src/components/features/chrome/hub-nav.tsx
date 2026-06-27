@@ -34,7 +34,7 @@ export interface HubNavItem {
 export const PM_HUB_NAV: ReadonlyArray<HubNavItem> = [
   // Spec 82 Unit 3: the project hub folded to the content-named /projects.
   { label: "โครงการและรายงาน", href: "/projects" },
-  { label: "คำขอซื้อ", href: "/requests" },
+  { label: "จัดซื้อ", href: "/requests" },
   // Spec 100: ภาพรวม is the live role-aware dashboard.
   { label: "ภาพรวม", href: "/dashboard" },
   { label: "ตั้งค่า", href: "/settings" },
@@ -46,14 +46,14 @@ export const SA_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "หน้าหลัก", href: "/sa" },
   // Spec 82 Unit 3: the SA project hub folded to the shared /projects hub.
   { label: "โครงการ", href: "/projects" },
-  { label: "คำขอซื้อ", href: "/requests" },
+  { label: "จัดซื้อ", href: "/requests" },
   { label: "ตั้งค่า", href: "/settings" },
 ];
 
 // Spec 101: procurement's desktop strip — its worklist + the suppliers master
 // + settings. No project/review/dashboard surfaces (those stay PM/SA).
 export const PROCUREMENT_HUB_NAV: ReadonlyArray<HubNavItem> = [
-  { label: "คำขอซื้อ", href: "/requests" },
+  { label: "จัดซื้อ", href: "/requests" },
   // Spec 102: read-only project browse.
   { label: "โครงการ", href: "/projects" },
   { label: "ผู้ขาย", href: "/contacts/vendors" },
