@@ -1,6 +1,6 @@
 # Spec 211 — Procurement terminology & level clarity
 
-**Status:** in progress — U1 (#97) + U2 (#98) shipped, U3 shipping
+**Status:** in progress — U1 (#97) + U2 (#98) + U3 (#99) shipped, U5 shipping (U4 deferred)
 **Source:** operator report — "admins cannot intuitively distinguish the PO from the PO Items." Full evidence: [`docs/procurement-uxui-audit-2026-06.md`](../procurement-uxui-audit-2026-06.md) (multi-agent audit, 85 surfaces, 91 verified findings).
 
 ## Problem (root cause)
@@ -42,7 +42,7 @@ The purest form of the reported pain (audit `po-vs-items-01`, confirmed **high**
 
 `po-vs-items-02`, `terminology-10`, `pr-lifecycle-13`, `worklist-hub-10`. Add `formatPoNumber()` / `formatPrNumber()` SSOT helpers (zero-pad 4) — fixes the bare-vs-padded inconsistency (`PR-7` in grid vs `PR-0007` in drawer) — and give `PO-####` a distinct chip (Package icon + `ใบสั่งซื้อ`) everywhere, PR plain. Code-only.
 
-### U3 — De-overload `รายการ` _(this unit — procurement worklist scope)_
+### U3 — De-overload `รายการ` _(SHIPPED #99 — procurement worklist scope)_
 
 `po-vs-items-03`, `terminology-07`, `worklist-hub-04`. Reserve `รายการ` for genuine line-items. On the worklist grid: column header → `สิ่งที่ขอซื้อ`; bundle hint → `เลือกหลายคำขอ…`; selection count → `เลือก {n} คำขอ`; drawer doc count → `{n} ไฟล์`. The PO line-count (`{n} รายการ` on a PO group/header) is a correct line-item use and is KEPT. The accounting register count (`{n} รายการ` → `{n} ใบขอซื้อ`, `accounting-ap-02`) is moved to U9 (the accounting pass), keeping U3 a single-file procurement change. Code-only.
 
@@ -50,9 +50,9 @@ The purest form of the reported pain (audit `po-vs-items-01`, confirmed **high**
 
 `po-detail-03`, `po-vs-items-06`, `po-detail-06`, `po-vs-items-04`. PO-level pills get a distinct variant (outline/ring + glyph); add `สถานะทั้งใบ` / `สถานะแถว` captions; tint + indent the grid PO group so the parent reads as a sub-band, not a peer. Touches `src/lib/status-colors.ts` (not a danger path) + grid/detail.
 
-### U5 — PO membership visible in every band
+### U5 — PO membership visible in every band _(this unit)_
 
-`worklist-hub-06` (high). Show a `PO-####` chip on any worklist row/card with a `purchase_order_id`, in every band and on both phone and desktop (today the PO header only renders in the `in_transit` band — `procurement-grid.tsx:324-327`). Code-only.
+`worklist-hub-06` (high). Show a `PO-####` chip (`<PoNumberTag>` from U2) on any worklist row/card with a `purchase_order_id`, in every band and on both phone and desktop (today the PO header only renders in the `in_transit` band — `procurement-grid.tsx` `meta.band==="in_transit"` gate). The page fetches `po_number` for every PO any row belongs to (`poNumberById`), bakes it onto `ProcurementGridRecord.po_number` + passes `poNumber` to `PurchaseRequestCard`; the grid shows the per-row chip outside `in_transit` (which keeps its group header), the phone card shows it whenever the request has a PO. Code-only.
 
 ### U6 — Make the level legible in nav
 

@@ -26,6 +26,7 @@ function rec(over: Partial<ProcurementGridRecord>): ProcurementGridRecord {
   return {
     id: "x",
     purchase_order_id: null,
+    po_number: null,
     pr_number: 1,
     item_description: "item",
     status: "approved",

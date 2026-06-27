@@ -20,6 +20,7 @@ import {
   type PurchaseRequestPriority,
 } from "@/lib/status-colors";
 import { formatPrNumber } from "@/lib/purchasing/format-id";
+import { PoNumberTag } from "@/components/features/purchasing/po-number-tag";
 import type { Database } from "@/lib/db/database.types";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
@@ -46,6 +47,9 @@ interface PurchaseRequestCardProps {
   workPackage: { code: string; name: string } | null;
   requesterName: string | null;
   isMine: boolean;
+  // Spec 211 U5: the PO this request belongs to (null = loose). Shown as a chip so
+  // PO membership is visible in every band, not only the in_transit PO group.
+  poNumber?: number | null;
 }
 
 export function PurchaseRequestCard({
@@ -53,6 +57,7 @@ export function PurchaseRequestCard({
   workPackage,
   requesterName,
   isMine,
+  poNumber = null,
 }: PurchaseRequestCardProps) {
   return (
     <Link
@@ -66,6 +71,11 @@ export function PurchaseRequestCard({
               <span className="font-mono">{workPackage.code}</span>
               <span className="mx-1">·</span>
               {workPackage.name}
+            </p>
+          ) : null}
+          {poNumber != null ? (
+            <p className="text-xs">
+              <PoNumberTag poNumber={poNumber} />
             </p>
           ) : null}
           <p className="text-ink truncate text-base">

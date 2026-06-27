@@ -456,6 +456,25 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     }
   }
 
+  // Spec 211 U5: PO membership must be visible in EVERY band (not just the
+  // in_transit PO group header), so fetch the human PO number for every PO any
+  // row belongs to and bake it onto the grid row / phone card as a PO chip.
+  const poNumberById = new Map<string, number>();
+  if (isProcurement) {
+    const allPoIds = [
+      ...new Set(
+        myRequests.map((r) => r.purchase_order_id).filter((id): id is string => id != null),
+      ),
+    ];
+    if (allPoIds.length > 0) {
+      const { data: poNumRows } = await supabase
+        .from("purchase_orders")
+        .select("id, po_number")
+        .in("id", allPoIds);
+      for (const po of poNumRows ?? []) poNumberById.set(po.id, po.po_number);
+    }
+  }
+
   // Spec 114: suppliers feed the in-drawer record-purchase form; a per-request
   // attachment count feeds the drawer's document indicator. Procurement only —
   // both read under the user session (RLS admits procurement: suppliers SELECT
@@ -506,6 +525,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
       return {
         id: r.id,
         purchase_order_id: r.purchase_order_id,
+        po_number: r.purchase_order_id ? (poNumberById.get(r.purchase_order_id) ?? null) : null,
         pr_number: r.pr_number,
         item_description: r.item_description,
         status: r.status,
@@ -593,6 +613,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
             null
           }
           isMine={r.requested_by === ctx.id}
+          poNumber={r.purchase_order_id ? (poNumberById.get(r.purchase_order_id) ?? null) : null}
         />
       </li>
     );

@@ -39,6 +39,7 @@ function row(over: Partial<ProcurementGridRecord> & Pick<ProcurementGridRecord, 
     delivery_note: null,
     doc_count: 0,
     purchase_order_id: null,
+    po_number: null,
     ...over,
   } satisfies ProcurementGridRecord;
 }
