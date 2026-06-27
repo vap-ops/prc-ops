@@ -20,6 +20,18 @@ export interface PurchaseRegisterRow {
   vatRate: number;
   status: string;
   purchasedAt: string | null;
+  // Spec 211 (accounting-ap-03): the PO this purchase belongs to (null = a direct/
+  // site buy), so the register can group by order.
+  poNumber: number | null;
+}
+
+async function poNumbers(admin: Admin, ids: string[]): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return map;
+  const { data } = await admin.from("purchase_orders").select("id, po_number").in("id", unique);
+  for (const p of data ?? []) map.set(p.id, p.po_number);
+  return map;
 }
 
 async function projectLabels(admin: Admin, ids: string[]): Promise<Map<string, string>> {
@@ -48,7 +60,9 @@ export async function loadPurchaseRegister(
 ): Promise<PurchaseRegisterRow[]> {
   let q = admin
     .from("purchase_requests")
-    .select("id, supplier_id, supplier, amount, vat_rate, status, purchased_at, project_id")
+    .select(
+      "id, supplier_id, supplier, amount, vat_rate, status, purchased_at, project_id, purchase_order_id",
+    )
     .not("purchased_at", "is", null)
     .gte("purchased_at", from)
     // purchased_at is a timestamptz; make the upper bound inclusive of the whole
@@ -60,7 +74,7 @@ export async function loadPurchaseRegister(
   if (error) throw new Error(`purchase_requests: ${error.message}`);
   const rows = data ?? [];
 
-  const [suppliers, projects] = await Promise.all([
+  const [suppliers, projects, pos] = await Promise.all([
     supplierNames(
       admin,
       rows.map((r) => r.supplier_id).filter((id): id is string => id !== null),
@@ -68,6 +82,10 @@ export async function loadPurchaseRegister(
     projectLabels(
       admin,
       rows.map((r) => r.project_id).filter((id): id is string => id !== null),
+    ),
+    poNumbers(
+      admin,
+      rows.map((r) => r.purchase_order_id).filter((id): id is string => id !== null),
     ),
   ]);
 
@@ -82,5 +100,6 @@ export async function loadPurchaseRegister(
     vatRate: Number(r.vat_rate ?? 0),
     status: r.status,
     purchasedAt: r.purchased_at,
+    poNumber: (r.purchase_order_id ? pos.get(r.purchase_order_id) : null) ?? null,
   }));
 }
