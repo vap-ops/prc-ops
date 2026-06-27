@@ -33,6 +33,13 @@ export interface PurchasesSummary {
   totalNet: number;
 }
 
+// Spec 211 U9 (accounting-ap-02): each register row is a purchase request (one
+// ใบขอซื้อ, drilling into its voucher), not a generic รายการ — `รายการ` is
+// reserved for genuine line-items (the U3 de-overload, carried into accounting).
+export function purchaseRegisterCountLabel(count: number): string {
+  return `${count} ใบขอซื้อ`;
+}
+
 export function summarizePurchases(rows: PurchaseAmount[]): PurchasesSummary {
   let grossSatang = 0;
   let vatSatang = 0;

@@ -76,9 +76,11 @@ The two pieces split out of U6, both safe nav polish. **(1)** New server-safe `<
 
 Critic gap X1. `src/lib/notifications/compose-notification.ts` pushes raw PR status words to LINE with no PO/supplier context — the headline confusion reaches the user pre-screen. `src/lib/notifications/**` is a danger path → PR will be held for operator merge.
 
-### U9 — Accounting trail _(operator-held: danger path)_
+### U9 — Accounting trail _(operator-held: danger path; U9a SHIPPED)_
 
-Critic gap X3 / `accounting-ap-03/04/05`. Use `formatPoNumber()` (from U2) on the voucher (`#3` → `PO-0003`), make the linked PO a live link, group the register by PO with a subtotal, and rename the register count `{n} รายการ` → `{n} ใบขอซื้อ` (`accounting-ap-02`, moved here from U3). `src/lib/accounting/**` is a danger path → held.
+Critic gap X3 / `accounting-ap-03/04/05`. **U9a (SHIPPED — held danger-path PR):** the two clear, safe terminology/format wins — (1) the voucher's PO reference `#3` → `formatPoNumber()` = `PO-0003` (reuses the U2 SSOT; `[id]/page.tsx` META row); (2) the register count `{n} รายการ` → `{n} ใบขอซื้อ` via a new tested `purchaseRegisterCountLabel()` in `purchases-view.ts` (`accounting-ap-02`, moved here from U3). Test-first `purchases-view.test.ts`. `src/app/accounting/**` is a danger path → held.
+
+**Deferred → U9b (own unit):** (a) **live PO link** — the voucher is `ACCOUNTING_ROLES`-gated (`accounting`, `super_admin`), but the PO detail route `/requests/orders/[poId]` is `PURCHASING_ROLES`-gated, which **excludes `accounting`** → a link there would be a dead link for the primary accounting role. Needs an access-policy decision (open the PO detail to accounting read, or a voucher-local PO view) before linking, and `load-voucher.ts` to also expose the PO `id`. (b) **group the register by PO with a subtotal** — a bigger list restructure; debatable layout. Both raised before building.
 
 ### U10 — Remaining terminology SSOT _(split into sub-units — done incrementally)_
 

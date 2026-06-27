@@ -16,6 +16,7 @@ import { formatThaiDate } from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
 import { SECTION_HEADING, CARD } from "@/lib/ui/classes";
 import { deriveVatBreakdown } from "@/lib/purchasing/vat";
+import { formatPoNumber } from "@/lib/purchasing/format-id";
 import { loadPurchaseVoucher } from "@/lib/accounting/load-voucher";
 import { purchaseStatusLabel, attachmentPurposeLabel } from "@/lib/accounting/purchases-view";
 
@@ -39,7 +40,7 @@ export default async function VoucherPage({ params }: VoucherPageProps) {
     ...(header.wpLabel ? ([["งานย่อย", header.wpLabel]] as Array<[string, string]>) : []),
     ["สถานะ", purchaseStatusLabel(header.status)],
     ...(header.poNumber !== null
-      ? ([["ใบสั่งซื้อ", `#${header.poNumber}`]] as Array<[string, string]>)
+      ? ([["ใบสั่งซื้อ", formatPoNumber(header.poNumber)]] as Array<[string, string]>)
       : []),
     ...(header.purchasedAt
       ? ([["วันที่จัดซื้อ", formatThaiDate(header.purchasedAt)]] as Array<[string, string]>)
