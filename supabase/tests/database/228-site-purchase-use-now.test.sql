@@ -1,5 +1,5 @@
 begin;
-select plan(21);
+select plan(28);
 
 -- ============================================================================
 -- Spec 208 U3b — on-site "ใช้ที่งานนี้เลย" (buy & use on this WP now).
@@ -34,7 +34,9 @@ insert into public.work_packages (id, project_id, code, name, status) values
 insert into public.catalog_items (id, category, base_item, unit, is_active) values
   ('dd000000-0000-0000-0000-000000000228', 'electrical', 'วัสดุซื้อใช้ A', 'ชิ้น', true),
   ('de000000-0000-0000-0000-000000000228', 'electrical', 'วัสดุซื้อใช้ B', 'ชิ้น', true),
-  ('df000000-0000-0000-0000-000000000228', 'electrical', 'วัสดุปิดใช้งาน', 'ชิ้น', false);
+  ('df000000-0000-0000-0000-000000000228', 'electrical', 'วัสดุปิดใช้งาน', 'ชิ้น', false),
+  -- spec 211 U11c-A: a VAT buy-&-use item.
+  ('d1000000-0000-0000-0000-000000000228', 'electrical', 'วัสดุมีใบกำกับ', 'ชิ้น', true);
 
 insert into public.project_members (project_id, user_id, added_by) values
   ('aa000000-0000-0000-0000-000000000228', '15151515-1515-1515-1515-000000000228',
@@ -53,10 +55,10 @@ grant usage  on sequence _tap_buf_ord_seq to authenticated;
 -- ============================================================================
 -- A. Structure.
 -- ============================================================================
-select ok(to_regprocedure('public.site_purchase_use_now(uuid, uuid, uuid, numeric, numeric, text)')
-  is not null, 'site_purchase_use_now exists');
+select ok(to_regprocedure('public.site_purchase_use_now(uuid, uuid, uuid, numeric, numeric, text, numeric)')
+  is not null, 'site_purchase_use_now exists (7-arg, +p_vat_rate)');
 select is(has_function_privilege('anon',
-  'public.site_purchase_use_now(uuid, uuid, uuid, numeric, numeric, text)', 'EXECUTE'),
+  'public.site_purchase_use_now(uuid, uuid, uuid, numeric, numeric, text, numeric)', 'EXECUTE'),
   false, 'anon cannot execute site_purchase_use_now');
 
 set local role authenticated;
@@ -224,6 +226,78 @@ select is(
                    where work_package_id='ee000000-0000-0000-0000-000000000228'
                      and catalog_item_id='dd000000-0000-0000-0000-000000000228'))))),
   0::numeric, 'no Input VAT (1300) line — the cash-buy shortcut is VAT-inclusive (option B)');
+
+-- ============================================================================
+-- F. VAT buy-&-use (spec 211 U11c-A): a catalogued buy WITH a tax invoice now
+--    reclaims Input VAT (1300). itemD1 qty 1 @ GROSS 107, vat_rate 7 → net 100,
+--    vat 7. Inventory carries NET (100); the WP is charged NET (100); AP = GROSS
+--    (107). Mirrors the receipt poster's no-PR VAT fallback (spec 208 U4b).
+-- ============================================================================
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "15151515-1515-1515-1515-000000000228"}';
+select ok(
+  (select public.site_purchase_use_now(
+     'aa000000-0000-0000-0000-000000000228',
+     'ee000000-0000-0000-0000-000000000228',
+     'd1000000-0000-0000-0000-000000000228', 1, 107, null, 7)) is not null,
+  'VAT buy-&-use returns the issue id');
+select is(
+  (select unit_cost from public.stock_receipts
+     where catalog_item_id='d1000000-0000-0000-0000-000000000228'),
+  100.00::numeric, 'the receipt carries the NET unit cost (107 gross / 1.07 = 100)');
+select is(
+  (select vat_rate from public.stock_receipts
+     where catalog_item_id='d1000000-0000-0000-0000-000000000228'),
+  7::numeric, 'the receipt snapshots vat_rate 7');
+reset role;
+
+do $$
+begin
+  perform public.post_stock_receipt_to_gl(
+    (select id from public.stock_receipts where catalog_item_id='d1000000-0000-0000-0000-000000000228'));
+  perform public.post_stock_issue_to_gl(
+    (select id from public.stock_issues
+       where work_package_id='ee000000-0000-0000-0000-000000000228'
+         and catalog_item_id='d1000000-0000-0000-0000-000000000228'));
+end $$;
+
+select is(
+  (select coalesce(sum(jl.debit), 0)
+     from public.journal_lines jl
+     join public.gl_accounts a on a.id = jl.account_id
+     join public.journal_entries e on e.id = jl.entry_id
+    where a.code = '1500' and e.status = 'posted' and e.source_table = 'stock_receipts'
+      and e.source_id = (select id from public.stock_receipts
+        where catalog_item_id='d1000000-0000-0000-0000-000000000228')),
+  100.00::numeric, 'VAT receipt debits Inventory 1500 at NET (100)');
+select is(
+  (select coalesce(sum(jl.debit), 0)
+     from public.journal_lines jl
+     join public.gl_accounts a on a.id = jl.account_id
+     join public.journal_entries e on e.id = jl.entry_id
+    where a.code = '1300' and e.status = 'posted' and e.source_table = 'stock_receipts'
+      and e.source_id = (select id from public.stock_receipts
+        where catalog_item_id='d1000000-0000-0000-0000-000000000228')),
+  7.00::numeric, 'VAT receipt splits Input VAT 1300 (7)');
+select is(
+  (select coalesce(sum(jl.credit), 0)
+     from public.journal_lines jl
+     join public.gl_accounts a on a.id = jl.account_id
+     join public.journal_entries e on e.id = jl.entry_id
+    where a.code = '2100' and e.status = 'posted' and e.source_table = 'stock_receipts'
+      and e.source_id = (select id from public.stock_receipts
+        where catalog_item_id='d1000000-0000-0000-0000-000000000228')),
+  107.00::numeric, 'VAT receipt credits AP 2100 at GROSS (107)');
+select is(
+  (select coalesce(sum(jl.debit), 0)
+     from public.journal_lines jl
+     join public.gl_accounts a on a.id = jl.account_id
+     join public.journal_entries e on e.id = jl.entry_id
+    where a.code = '1400' and e.status = 'posted' and e.source_table = 'stock_issues'
+      and e.source_id = (select id from public.stock_issues
+        where work_package_id='ee000000-0000-0000-0000-000000000228'
+          and catalog_item_id='d1000000-0000-0000-0000-000000000228')),
+  100.00::numeric, 'VAT use charges the WP at NET (Dr 1400 = 100) — Input VAT is not a WP cost');
 
 select * from finish();
 rollback;
