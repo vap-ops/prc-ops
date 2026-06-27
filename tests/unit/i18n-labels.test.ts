@@ -73,6 +73,28 @@ describe("PURCHASE_ORDER_STATUS_LABEL (derived roll-up, not a DB enum)", () => {
   });
 });
 
+describe("PR vs PO status vocabularies must not collide (spec 211 U1)", () => {
+  // A purchase_order has no status column — its roll-up status is DERIVED from the
+  // member purchase_requests (derivePurchaseOrderStatus), so the two label maps
+  // historically shared "สั่งซื้อแล้ว" (PR purchased / PO ordered) and "กำลังจัดส่ง"
+  // (PR on_route / PO in_transit). On the PO detail the order pill and a line pill
+  // then read IDENTICALLY — the operator's "can't tell the PO from its items" pain.
+  // Guard: the line vocabulary and the order vocabulary share no string value, ever.
+  it("share no common label between the PR-status and PO-status maps", () => {
+    const poValues = new Set(Object.values(PURCHASE_ORDER_STATUS_LABEL));
+    const collisions = Object.values(PURCHASE_REQUEST_STATUS_LABEL).filter((v) => poValues.has(v));
+    expect(collisions, `PR/PO status labels collide: ${collisions.join(", ")}`).toEqual([]);
+  });
+
+  it("uses order-scoped wording for the PO roll-up states, line-scoped for the PR states", () => {
+    expect(PURCHASE_ORDER_STATUS_LABEL.ordered).toBe("ออกใบสั่งซื้อแล้ว");
+    expect(PURCHASE_ORDER_STATUS_LABEL.in_transit).toBe("กำลังจัดส่งทั้งใบ");
+    // The line-level words stay as-is — this unit must not touch the PR map.
+    expect(PURCHASE_REQUEST_STATUS_LABEL.purchased).toBe("สั่งซื้อแล้ว");
+    expect(PURCHASE_REQUEST_STATUS_LABEL.on_route).toBe("กำลังจัดส่ง");
+  });
+});
+
 describe("formatThaiDateTime", () => {
   it("renders Buddhist-era Thai date-time pinned to Asia/Bangkok", () => {
     const s = formatThaiDateTime("2026-06-11T05:30:00Z");

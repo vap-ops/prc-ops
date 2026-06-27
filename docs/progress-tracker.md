@@ -6,6 +6,18 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 211 — Procurement terminology & level clarity, U1 (2026-06-27)
+
+Status: **shipping U1** (code-only, NO schema). Spec: `211-procurement-terminology-clarity.md`. Evidence: `docs/procurement-uxui-audit-2026-06.md` (multi-agent UX audit, 85 surfaces / 91 verified findings).
+
+Operator report: admins can't intuitively distinguish a PO (ใบสั่งซื้อ) from its PO-items. The headline cause (audit `po-vs-items-01`, confirmed **high**, independently rediscovered ×9): a PO has no status column — its roll-up is derived from member PRs — so `PURCHASE_ORDER_STATUS_LABEL` and `PURCHASE_REQUEST_STATUS_LABEL` shared the byte-identical strings `สั่งซื้อแล้ว` (PR purchased / PO ordered) and `กำลังจัดส่ง` (PR on_route / PO in_transit). On the PO detail the order pill and a line pill then read the same word.
+
+**U1 (this unit):** split the PO roll-up vocabulary in `src/lib/i18n/labels.ts` — `ordered: สั่งซื้อแล้ว → ออกใบสั่งซื้อแล้ว`, `in_transit: กำลังจัดส่ง → กำลังจัดส่งทั้งใบ` (PR map untouched; `open`/`partially_received`/`received` already order-scoped). Test-first: added a cross-map invariant in `tests/unit/i18n-labels.test.ts` — the PR-status and PO-status maps must share NO string value (regression guard), plus pins for the two new strings. Display-only (logic keys on enums), so all PO surfaces (detail header, grid PO header row, phone PO card, delivery page) inherit it with no other code change. Verify limitation: not exercised in a live browser (PO detail needs LINE auth + seeded PO data); the unit test asserts the exact rendered strings the surfaces consume.
+
+Remaining units U2–U11 queued in the spec (U8 notifications + U9 accounting are danger-path → operator-held). Per CLAUDE.md, one unit per session — stop after U1.
+
+---
+
 ## Spec 206 — WHT certificate recording UI (2026-06-26)
 
 Status: **SHIPPED — 2026-06-26** (code-only, NO schema/db:push). Audit gap **G11** —
