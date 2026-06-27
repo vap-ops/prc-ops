@@ -60,7 +60,11 @@ New SSOT `src/lib/status-icons.ts` parallel to `status-colors.ts`: icon maps + a
 
 `worklist-hub-05`, `po-vs-items-05`, `pr-lifecycle-09`, `delivery-receiving-02`, `terminology-03`. **This unit:** rename the nav landmark from `คำขอซื้อ` (which named the whole area after just the PR) to the neutral umbrella **`จัดซื้อ`** — in BOTH nav sources (`hub-nav.tsx` desktop strip + `bottom-tab-bar.tsx` phone bar, all role tab-sets) plus the worklist page title/kicker; and fix the back-chips that read `กลับไปคำขอซื้อ` on a **PO** detail (and the PR detail) → `กลับไปจัดซื้อ`. The PR-concept term `คำขอซื้อ` stays for the actual purchase-request list/empty-state/create buttons. Not a danger path; high-visibility (every role's nav).
 
-**Deferred → U6b:** the breadcrumb `จัดซื้อ › ใบสั่งซื้อ PO-0012` and the `?from=` PR→PO referrer back-href (so a PR reached from its PO returns to the PO). Kept separate to keep this unit a clean rename.
+**Deferred → U6b _(now SHIPPED)_.**
+
+### U6b — Breadcrumb + PR→PO referrer back-href _(SHIPPED — this unit)_
+
+The two pieces split out of U6, both safe nav polish. **(1)** New server-safe `<PoBreadcrumb>` (`src/components/features/purchasing/po-breadcrumb.tsx`, parallel to U2's `PoNumberTag`) renders `จัดซื้อ › ใบสั่งซื้อ [PO-####]` in the PO-detail `DetailHeader` nameplate (replacing the bare `<PoNumberTag>` eyebrow) — the `จัดซื้อ` area crumb links back to `/requests` (the U6 landmark), the order crumb is terminal (`aria-current="page"`, the typed chip). Names the level the operator couldn't read. **(2)** `?from=` PR→PO back-href: the PO detail wraps each member-PR link in `withBackFrom(.../requests/{id}, /requests/orders/{poId})`; the PR detail reads `?from` → `safeBackHref(from, "/requests")` for its back chip — so a PR opened from its PO returns to the PO, while every other entry point keeps the `/requests` fallback. Built on the already-tested `src/lib/nav/back-href.ts` primitives (same mechanism as WP / feedback detail). Test-first `po-breadcrumb.test.tsx`. Code-only.
 
 ### U7 — One band-label SSOT _(SHIPPED #103 — procurement view)_
 

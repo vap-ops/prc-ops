@@ -36,7 +36,8 @@ import { PoDeliveriesTracker } from "@/components/features/purchasing/po-deliver
 import { PoDeliverySection } from "@/components/features/purchasing/po-delivery-section";
 import { buildDeliveriesView } from "@/lib/purchasing/po-deliveries";
 import { formatPrNumber } from "@/lib/purchasing/format-id";
-import { PoNumberTag } from "@/components/features/purchasing/po-number-tag";
+import { PoBreadcrumb } from "@/components/features/purchasing/po-breadcrumb";
+import { withBackFrom } from "@/lib/nav/back-href";
 
 // /requests/orders/[poId] — the purchase-order detail screen (spec 134 U1). A PO
 // groups N approved tickets into one supplier order (ADR 0044); spec 115 shipped
@@ -142,7 +143,7 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
       <DetailHeader backHref="/requests" backLabel="กลับไปจัดซื้อ">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <PoNumberTag poNumber={po.po_number} />
+            <PoBreadcrumb poNumber={po.po_number} />
             <h1 className={`${DETAIL_TITLE} mt-0.5`}>{po.supplier}</h1>
           </div>
           <span className="mt-1 flex shrink-0 flex-col items-end gap-1">
@@ -214,7 +215,7 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
               return (
                 <li key={m.id}>
                   <Link
-                    href={`/requests/${m.id}`}
+                    href={withBackFrom(`/requests/${m.id}`, `/requests/orders/${po.id}`)}
                     className="rounded-card border-edge bg-card shadow-card hover:bg-sunk focus-visible:ring-action block border p-3 transition-colors focus:outline-none focus-visible:ring-2"
                   >
                     <div className="flex items-start justify-between gap-3">
