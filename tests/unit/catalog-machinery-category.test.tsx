@@ -42,7 +42,6 @@ describe("catalog machinery / tools category (feedback 1c700df6)", () => {
         baseItem: "สว่านไฟฟ้า",
         specAttrs: "18V",
         unit: "ตัว",
-        stockable: true,
       },
     ];
     render(<CatalogList items={items} />);

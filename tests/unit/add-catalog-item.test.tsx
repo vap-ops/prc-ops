@@ -53,7 +53,6 @@ describe("AddCatalogItem (spec 175 U2)", () => {
         baseItem: "สายไฟใหม่",
         specAttrs: "",
         unit: "ม้วน",
-        stockable: true,
         note: "",
       }),
     );

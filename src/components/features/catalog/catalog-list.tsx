@@ -11,11 +11,7 @@ import { useState } from "react";
 import { ImageIcon } from "lucide-react";
 import { RadioChip } from "@/components/features/common/radio-chip";
 import type { Database } from "@/lib/db/database.types";
-import {
-  ITEM_CATEGORY_LABEL,
-  CATALOG_STOCKABLE_LABEL,
-  CATALOG_NON_STOCKABLE_LABEL,
-} from "@/lib/i18n/labels";
+import { ITEM_CATEGORY_LABEL } from "@/lib/i18n/labels";
 import { EditCatalogItem } from "./edit-catalog-item";
 import { SetSellRate } from "./set-sell-rate";
 
@@ -27,7 +23,6 @@ export type CatalogItem = {
   baseItem: string;
   specAttrs: string | null;
   unit: string;
-  stockable: boolean;
   note?: string | null;
   // Spec 175 U4 — a signed URL for the item's reference image (minted by the
   // page); null when the item has no image.
@@ -120,15 +115,6 @@ export function CatalogList({
                       ) : null}
                     </span>
                     <span className="text-ink-secondary text-meta shrink-0">{it.unit}</span>
-                    <span
-                      className={
-                        it.stockable
-                          ? "bg-sunk text-ink-secondary rounded-control text-meta shrink-0 px-2 py-1 font-medium"
-                          : "border-edge text-ink-muted rounded-control text-meta shrink-0 border px-2 py-1 font-medium"
-                      }
-                    >
-                      {it.stockable ? CATALOG_STOCKABLE_LABEL : CATALOG_NON_STOCKABLE_LABEL}
-                    </span>
                     {canSetSellRate ? (
                       <SetSellRate itemId={it.id} currentRate={it.sellRate ?? null} />
                     ) : null}

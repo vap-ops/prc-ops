@@ -74,10 +74,6 @@ export const ITEM_CATEGORY_LABEL: Record<Enums["item_category"], string> = {
   custom_fabrication: "งานสั่งทำ",
 };
 
-// stockable=true is held in the store; false is made-to-order / direct-to-WP.
-export const CATALOG_STOCKABLE_LABEL = "เก็บสต๊อก";
-export const CATALOG_NON_STOCKABLE_LABEL = "สั่งตรงเข้างาน";
-
 // Spec 177 — the on-site store (stock on hand) + the stock-in (รับเข้า) /
 // issue-out (เบิก) actions.
 // Spec 197 U1: the store became a per-project destination (a project sub-route +

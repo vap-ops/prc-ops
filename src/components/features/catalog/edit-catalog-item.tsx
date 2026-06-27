@@ -61,7 +61,6 @@ export function EditCatalogItem({ item }: { item: CatalogItem }) {
             baseItem: item.baseItem,
             specAttrs: item.specAttrs ?? "",
             unit: item.unit,
-            stockable: item.stockable,
             note: item.note ?? "",
           }}
           submitLabel="บันทึก"
