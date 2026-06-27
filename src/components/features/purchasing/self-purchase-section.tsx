@@ -1,20 +1,16 @@
-import { SitePurchaseForm } from "@/components/features/purchasing/site-purchase-form";
-import {
-  SitePurchaseUseNow,
-  type CatalogPick,
-} from "@/components/features/store/site-purchase-use-now";
+import { SelfPurchaseForm } from "@/components/features/purchasing/self-purchase-form";
+import { type CatalogPick } from "@/components/features/store/site-purchase-use-now";
 import { CARD } from "@/lib/ui/classes";
 
 export type { CatalogPick };
 
-// Spec 211 U11a — self-purchase, consolidated in one place (operator steer
-// 2026-06-27: "PR is PR, self purchase is self purchase … consolidate in 1
-// place"). The two self-purchase actions used to live in DIFFERENT WP tabs —
-// บันทึกการซื้อหน้างาน (off-catalog, with a VAT invoice) in คำขอซื้อ, and
-// ซื้อเงินสด ใช้ที่งานนี้เลย (catalogued, cash, buy + เบิก) in เบิกของ. This groups
-// both under one ซื้อเอง heading so "I paid for it myself on site" is one place;
-// the ask-procurement PR form (สร้างคำขอซื้อ) stays its own affordance above.
-// Server-safe wrapper (no 'use client') over the two client forms.
+// Spec 211 U11a→U11c-B — self-purchase, ONE guided ซื้อเอง form. U11a first put
+// the two self-purchase actions in one place; U11c unified them into a single
+// form: item (catalog OR free-text), จำนวนเงิน, มีใบกำกับภาษี? (Input VAT split),
+// and — catalog items only — ซื้อใช้ที่งานนี้เลย (receive into store + เบิก, the
+// VAT-aware site_purchase_use_now). Free-text routes to the record path
+// (books the WP). The ask-procurement PR form (สร้างคำขอซื้อ) stays its own
+// affordance above. Server-safe wrapper (no 'use client') over the client form.
 export function SelfPurchaseSection({
   projectId,
   workPackageId,
@@ -29,23 +25,12 @@ export function SelfPurchaseSection({
       <div>
         <h3 className="text-body text-ink font-semibold">ซื้อเอง</h3>
         <p className="text-meta text-ink-secondary mt-0.5">
-          จ่ายเงินเองหน้างาน — เลือก &quot;บันทึกการซื้อหน้างาน&quot;
-          เมื่อมีใบกำกับภาษี/นอกแคตตาล็อก หรือ &quot;ซื้อเงินสด ใช้ที่งานนี้เลย&quot;
-          สำหรับของในคลังที่จ่ายสดและใช้ทันที
+          จ่ายเงินเองหน้างาน — เลือกของจากคลังหรือพิมพ์เอง ระบุว่ามีใบกำกับภาษีไหม
+          และจะใช้ที่งานนี้เลยหรือเก็บไว้เป็นบันทึก
         </p>
       </div>
-      {/* #2 — off-catalog record + receipt/invoice (docs) image. */}
-      <details className={CARD}>
-        <summary className="text-body text-ink cursor-pointer font-semibold">
-          บันทึกการซื้อหน้างาน
-        </summary>
-        <div className="mt-3">
-          <SitePurchaseForm workPackageId={workPackageId} projectId={projectId} />
-        </div>
-      </details>
-      {/* #3 — catalogued cash buy that receives into the store + เบิก in one tap. */}
       <div className={CARD}>
-        <SitePurchaseUseNow
+        <SelfPurchaseForm
           projectId={projectId}
           workPackageId={workPackageId}
           catalogItems={catalogItems}

@@ -19,6 +19,30 @@ function base() {
   };
 }
 
+describe("validateSitePurchase — VAT (spec 211 U11c-B)", () => {
+  it("defaults vatRate to 0 when absent (a cash buy, no Input VAT)", () => {
+    const r = validateSitePurchase(base());
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.vatRate).toBe(0);
+  });
+
+  it("passes a positive vatRate through", () => {
+    const r = validateSitePurchase({ ...base(), amount: 107, vatRate: 7 });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.vatRate).toBe(7);
+  });
+
+  it("rejects a negative vatRate", () => {
+    const r = validateSitePurchase({ ...base(), vatRate: -1 });
+    expect(r.ok).toBe(false);
+  });
+
+  it("rejects a vatRate over 100", () => {
+    const r = validateSitePurchase({ ...base(), vatRate: 101 });
+    expect(r.ok).toBe(false);
+  });
+});
+
 describe("validateSitePurchase", () => {
   it("accepts a well-formed on-site purchase and trims text", () => {
     const r = validateSitePurchase({ ...base(), itemDescription: "  ทราย  ", unit: " คิว " });
@@ -31,6 +55,7 @@ describe("validateSitePurchase", () => {
         unit: "คิว",
         amount: null,
         reasonCode: "unplanned_miss",
+        vatRate: 0,
       });
     }
   });
