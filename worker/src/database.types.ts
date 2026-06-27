@@ -5897,6 +5897,7 @@ export type Database = {
           p_project_id: string
           p_qty: number
           p_unit_cost: number
+          p_vat_rate?: number
           p_work_package_id: string
         }
         Returns: string
