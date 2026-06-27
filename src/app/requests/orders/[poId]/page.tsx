@@ -30,6 +30,8 @@ import { PurchaseOrderTracker } from "@/components/features/purchasing/purchase-
 import { PoDeliveriesTracker } from "@/components/features/purchasing/po-deliveries-tracker";
 import { PoDeliverySection } from "@/components/features/purchasing/po-delivery-section";
 import { buildDeliveriesView } from "@/lib/purchasing/po-deliveries";
+import { formatPrNumber } from "@/lib/purchasing/format-id";
+import { PoNumberTag } from "@/components/features/purchasing/po-number-tag";
 
 // /requests/orders/[poId] — the purchase-order detail screen (spec 134 U1). A PO
 // groups N approved tickets into one supplier order (ADR 0044); spec 115 shipped
@@ -135,10 +137,8 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
       <DetailHeader backHref="/requests" backLabel="กลับไปคำขอซื้อ">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-ink-secondary font-mono text-xs">
-              PO-{String(po.po_number).padStart(4, "0")}
-            </p>
-            <h1 className={DETAIL_TITLE}>{po.supplier}</h1>
+            <PoNumberTag poNumber={po.po_number} />
+            <h1 className={`${DETAIL_TITLE} mt-0.5`}>{po.supplier}</h1>
           </div>
           <span className="mt-1 flex shrink-0 flex-col items-end gap-1">
             <StatusPill pillClasses={purchaseOrderStatusPillClasses(view.status)}>
@@ -212,7 +212,7 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-ink-secondary font-mono text-xs">
-                          PR-{String(m.pr_number).padStart(4, "0")}
+                          {formatPrNumber(m.pr_number)}
                         </p>
                         <p className="text-ink truncate text-sm font-medium">
                           {m.item_description}

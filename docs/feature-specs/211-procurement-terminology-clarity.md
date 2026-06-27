@@ -1,6 +1,6 @@
 # Spec 211 — Procurement terminology & level clarity
 
-**Status:** in progress (U1 shipping)
+**Status:** in progress — U1 shipped (#97), U2 shipping
 **Source:** operator report — "admins cannot intuitively distinguish the PO from the PO Items." Full evidence: [`docs/procurement-uxui-audit-2026-06.md`](../procurement-uxui-audit-2026-06.md) (multi-agent audit, 85 surfaces, 91 verified findings).
 
 ## Problem (root cause)
@@ -21,7 +21,7 @@ Single-source the vocabulary and make the PR/PO **level** legible. Most of Phase
 
 ## Units
 
-### U1 — Split the PO status vocabulary from the PR status vocabulary _(this unit)_
+### U1 — Split the PO status vocabulary from the PR status vocabulary _(SHIPPED #97)_
 
 The purest form of the reported pain (audit `po-vs-items-01`, confirmed **high**; rediscovered ×9).
 
@@ -38,7 +38,7 @@ The purest form of the reported pain (audit `po-vs-items-01`, confirmed **high**
 
 **Out of scope for U1:** the PO progress-stepper verbs (`สั่งซื้อ/จัดส่ง/รับของ` in `purchase-order-tracker.tsx`) — they don't collide identically; addressed under U4.
 
-### U2 — Visually type the IDs (`PO-####` vs `PR-####`)
+### U2 — Visually type the IDs (`PO-####` vs `PR-####`) _(this unit)_
 
 `po-vs-items-02`, `terminology-10`, `pr-lifecycle-13`, `worklist-hub-10`. Add `formatPoNumber()` / `formatPrNumber()` SSOT helpers (zero-pad 4) — fixes the bare-vs-padded inconsistency (`PR-7` in grid vs `PR-0007` in drawer) — and give `PO-####` a distinct chip (Package icon + `ใบสั่งซื้อ`) everywhere, PR plain. Code-only.
 

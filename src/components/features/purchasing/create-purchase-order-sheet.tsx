@@ -14,6 +14,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FileText, X } from "lucide-react";
 import { bahtWithSymbol as baht } from "@/lib/format";
+import { formatPrNumber } from "@/lib/purchasing/format-id";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { RadioChip } from "@/components/features/common/radio-chip";
 import {
@@ -524,7 +525,9 @@ export function CreatePurchaseOrderSheet({
                   <div className="min-w-0 flex-1">
                     <p className="text-ink text-sm font-medium break-words">{l.item_description}</p>
                     <p className="text-ink-muted text-meta">
-                      {l.pr_number ? <span className="font-mono">PR-{l.pr_number} · </span> : null}
+                      {l.pr_number ? (
+                        <span className="font-mono">{formatPrNumber(l.pr_number)} · </span>
+                      ) : null}
                       {l.wp_code ? <span className="font-mono">{l.wp_code} · </span> : null}
                       {l.quantity} {l.unit}
                     </p>

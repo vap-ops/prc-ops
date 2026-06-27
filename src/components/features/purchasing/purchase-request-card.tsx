@@ -19,6 +19,7 @@ import {
   purchaseRequestStatusPillClasses,
   type PurchaseRequestPriority,
 } from "@/lib/status-colors";
+import { formatPrNumber } from "@/lib/purchasing/format-id";
 import type { Database } from "@/lib/db/database.types";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
@@ -71,7 +72,7 @@ export function PurchaseRequestCard({
             {/* PR running number (spec 27) — the phone-callable identity
                 for site ↔ procurement talk. */}
             <span className="text-ink-muted mr-1.5 font-mono text-xs">
-              PR-{String(request.pr_number).padStart(4, "0")}
+              {formatPrNumber(request.pr_number)}
             </span>
             {request.item_description}
             <span className="text-ink-muted mx-2">·</span>

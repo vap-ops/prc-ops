@@ -10,6 +10,7 @@ import { AlertTriangle, ChevronRight } from "lucide-react";
 
 import type { OverdueAttentionItem } from "@/lib/purchasing/overdue-attention";
 import { bahtWithSymbol } from "@/lib/format";
+import { formatPrNumber } from "@/lib/purchasing/format-id";
 
 // Null-guarded THB formatter — "—" for a missing amount, else the SSOT formatter.
 const bahtOrDash = (n: number | null) => (n == null ? "—" : bahtWithSymbol(n));
@@ -44,7 +45,7 @@ export function OverdueFollowUpPanel({ items, overdueHref }: OverdueFollowUpPane
               <span className="min-w-0 flex-1">
                 <span className="text-ink block truncate text-sm font-semibold">
                   <span className="text-ink-muted mr-1.5 font-mono text-xs">
-                    PR-{String(it.prNumber).padStart(4, "0")}
+                    {formatPrNumber(it.prNumber)}
                   </span>
                   {it.itemDescription}
                 </span>

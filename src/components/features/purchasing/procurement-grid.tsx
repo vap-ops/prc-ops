@@ -16,7 +16,9 @@
 
 import { Fragment, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronLeft, ChevronRight, Info, Package, ShoppingCart } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, Info, ShoppingCart } from "lucide-react";
+import { PoNumberTag } from "@/components/features/purchasing/po-number-tag";
+import { formatPrNumber } from "@/lib/purchasing/format-id";
 import { bahtWithSymbol as baht } from "@/lib/format";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
@@ -362,7 +364,9 @@ function BandRows({
                       {r.item_description}
                     </button>
                     <div className="text-ink-muted text-meta">
-                      {r.pr_number ? <span className="font-mono">PR-{r.pr_number}</span> : null}
+                      {r.pr_number ? (
+                        <span className="font-mono">{formatPrNumber(r.pr_number)}</span>
+                      ) : null}
                       {r.wp_name ? <span> · {r.wp_name}</span> : null}
                     </div>
                   </div>
@@ -413,10 +417,7 @@ function PoHeaderRow({ poId, facts }: { poId: string; facts: PoHeaderFacts }) {
           className="text-ink hover:bg-sunk focus-visible:ring-action -mx-2 flex items-center justify-between gap-2 rounded-md px-2 py-1 transition-colors focus:outline-none focus-visible:ring-2"
         >
           <span className="flex min-w-0 items-center gap-2">
-            <Package aria-hidden className="text-ink-muted size-3.5 shrink-0" />
-            <span className="text-ink-secondary text-meta font-mono">
-              PO-{String(facts.poNumber).padStart(4, "0")}
-            </span>
+            <PoNumberTag poNumber={facts.poNumber} />
             <span className="text-ink truncate text-sm font-medium">{facts.supplier}</span>
             <span className="text-ink-muted text-meta shrink-0">· {facts.lineCount} รายการ</span>
           </span>
@@ -529,7 +530,7 @@ function DrawerBody({
           <div className="min-w-0">
             {record.pr_number ? (
               <p className="text-ink-secondary font-mono text-xs">
-                PR-{String(record.pr_number).padStart(4, "0")}
+                {formatPrNumber(record.pr_number)}
               </p>
             ) : null}
             <h3 className="text-ink mt-0.5 text-base font-semibold break-words">
