@@ -11,13 +11,16 @@ import type { Database } from "@/lib/db/database.types";
 
 type Tbl = Database["public"]["Tables"];
 type Db = SupabaseClient<Database>;
-type ProjectRow = Pick<Tbl["projects"]["Row"], "id" | "code" | "name" | "status" | "client_id">;
+type ProjectRow = Pick<
+  Tbl["projects"]["Row"],
+  "id" | "code" | "name" | "status" | "client_id" | "created_at"
+>;
 type ClientRow = Pick<Tbl["clients"]["Row"], "id" | "name">;
 
 export async function loadProjectsHub(supabase: Db, isPm: boolean) {
   const { data: projects, error } = await supabase
     .from("projects")
-    .select("id, code, name, status, client_id")
+    .select("id, code, name, status, client_id, created_at")
     .order("code", { ascending: true });
 
   const clientIds = [
