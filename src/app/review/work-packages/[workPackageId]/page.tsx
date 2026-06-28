@@ -263,7 +263,14 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
         <section>
           <h2 className={SECTION_HEADING}>รูปถ่าย</h2>
           <div className="flex flex-col gap-5">
-            {PHASES.map(({ phase, label }) => (
+            {PHASES.filter(
+              ({ phase }) =>
+                // หลังแก้ไข is a rework bucket — show it only when this WP is in
+                // rework or already has after_fix photos (never on a normal WP).
+                phase !== "after_fix" ||
+                wp.status === "rework" ||
+                photosByPhase.after_fix.length > 0,
+            ).map(({ phase, label }) => (
               <PhaseGallery
                 key={phase}
                 label={label}

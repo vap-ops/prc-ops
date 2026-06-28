@@ -44,6 +44,7 @@ describe("PhotoCaptureZone after_fix tile (feedback 0fa23307)", () => {
         userId="u1"
         phases={phases}
         currentPhase="before"
+        showAfterFix
       />,
     );
     // all four capture tiles present
@@ -62,6 +63,7 @@ describe("PhotoCaptureZone after_fix tile (feedback 0fa23307)", () => {
         userId="u1"
         phases={phases}
         currentPhase="before"
+        showAfterFix
       />,
     );
     const before = screen.getByRole("button", { name: "ถ่ายรูป เตรียมงาน" });
@@ -72,5 +74,23 @@ describe("PhotoCaptureZone after_fix tile (feedback 0fa23307)", () => {
     expect(lifecycleGrid).toContainElement(after);
     // …and หลังแก้ไข lives OUTSIDE it (its own divided-off line).
     expect(lifecycleGrid).not.toContainElement(afterFix);
+  });
+
+  it("hides หลังแก้ไข entirely when the WP is not in rework and has no after_fix photos", () => {
+    render(
+      <PhotoCaptureZone
+        projectId="p1"
+        workPackageId="w1"
+        userId="u1"
+        phases={phases}
+        currentPhase="before"
+        showAfterFix={false}
+      />,
+    );
+    // the three lifecycle tiles still render…
+    expect(screen.getByRole("button", { name: "ถ่ายรูป เตรียมงาน" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "ถ่ายรูป แล้วเสร็จ" })).toBeInTheDocument();
+    // …but the rework bucket does not surface on a never-reworked WP.
+    expect(screen.queryByRole("button", { name: "ถ่ายรูป หลังแก้ไข" })).not.toBeInTheDocument();
   });
 });

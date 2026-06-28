@@ -49,6 +49,10 @@ interface PhotoCaptureZoneProps {
   phases: ReadonlyArray<PhaseData>;
   /** The phase capture defaults to (server-derived from progress). */
   currentPhase: PhotoPhase;
+  /** Surface the หลังแก้ไข (after_fix) rework bucket. Server passes true only
+   *  when the WP is in rework OR already has after_fix photos — a never-reworked
+   *  WP shouldn't show a rework bucket at all. */
+  showAfterFix: boolean;
 }
 
 export function PhotoCaptureZone({
@@ -57,15 +61,17 @@ export function PhotoCaptureZone({
   userId,
   phases,
   currentPhase,
+  showAfterFix,
 }: PhotoCaptureZoneProps) {
   const [open, setOpen] = useState(false);
   const [activePhase, setActivePhase] = useState<PhotoPhase>(currentPhase);
 
   // after_fix is a rework addendum, NOT a 4th step in the before→during→after
   // chain — it renders on its own divided-off line, never inside the lifecycle
-  // switcher grid (feedback: don't put it on the same row as the others).
+  // switcher grid (feedback: don't put it on the same row as the others), and
+  // only when the WP is actually in a rework cycle (showAfterFix).
   const lifecyclePhases = phases.filter((p) => p.phase !== "after_fix");
-  const afterFix = phases.find((p) => p.phase === "after_fix") ?? null;
+  const afterFix = showAfterFix ? (phases.find((p) => p.phase === "after_fix") ?? null) : null;
   const order = lifecyclePhases.map((p) => p.phase);
   const currentIndex = order.indexOf(currentPhase);
   // phases is the photo-phase display list (PHASES); this guard narrows the

@@ -208,6 +208,10 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     after_fix: photosByPhase.after_fix.length,
   };
   const currentPhase = derivePhaseProgress(phaseCounts).currentPhase;
+  // หลังแก้ไข (after_fix) is a rework bucket — surface it only when the WP is in
+  // rework OR already carries after_fix photos (a never-reworked WP shows no
+  // rework bucket at all). Drives both the capture zone and the read-only gallery.
+  const showAfterFix = wp.status === "rework" || photosByPhase.after_fix.length > 0;
   // Feedback a6037564: a PD wants to know who uploaded each photo. uploaded_by
   // is already on every photo_logs row; resolve the names once (admin read,
   // same pattern as photo-markups) and surface them in the lightbox.
@@ -300,15 +304,17 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
         // Spec 171: procurement views the photos read-only — the PM-side gallery,
         // not the capture zone (which owns the thumb-anchored shutter bar).
         <div className="flex flex-col gap-5">
-          {PHASES.map(({ phase, label }) => (
-            <PhaseGallery
-              key={phase}
-              label={label}
-              photos={photosByPhase[phase]}
-              signedUrls={signedUrls}
-              uploaderNames={uploaderNames}
-            />
-          ))}
+          {PHASES.filter(({ phase }) => phase !== "after_fix" || showAfterFix).map(
+            ({ phase, label }) => (
+              <PhaseGallery
+                key={phase}
+                label={label}
+                photos={photosByPhase[phase]}
+                signedUrls={signedUrls}
+                uploaderNames={uploaderNames}
+              />
+            ),
+          )}
         </div>
       ) : (
         <PhotoCaptureZone
@@ -317,6 +323,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           userId={ctx.id}
           phases={phaseData}
           currentPhase={currentPhase}
+          showAfterFix={showAfterFix}
         />
       ),
     },
