@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Camera } from "lucide-react";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { CARD, DETAIL_TITLE } from "@/lib/ui/classes";
@@ -652,6 +654,16 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               {attention.comment ? (
                 <p className="mt-1 whitespace-pre-wrap">{attention.comment}</p>
               ) : null}
+              {/* Spec 218: the SA's next action — add the photos the PM asked for. */}
+              {!readOnly ? (
+                <Link
+                  href="#wp-photos"
+                  className="bg-attn-press text-on-attn rounded-control focus-visible:ring-action mt-2.5 inline-flex h-9 items-center gap-1.5 px-3 text-sm font-bold focus:outline-none focus-visible:ring-2"
+                >
+                  <Camera aria-hidden className="size-4" />
+                  ถ่ายรูปเพิ่ม
+                </Link>
+              ) : null}
             </AttentionCard>
           ) : null}
           {!assignedContractor && isAssigner ? (
@@ -687,6 +699,17 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
             ) : (
               <p className="text-ink-secondary">แก้ไขแล้วถ่ายรูปใหม่เพื่อส่งตรวจอีกครั้ง</p>
             )}
+            {/* Spec 218: the SA's next action — capture หลังแก้ไข; then ส่งงานเข้าตรวจ
+                (the FB2 submit control below) sends it back to review. */}
+            {!readOnly ? (
+              <Link
+                href="#wp-photos"
+                className="bg-attn-press text-on-attn rounded-control focus-visible:ring-action mt-2.5 inline-flex h-9 items-center gap-1.5 px-3 text-sm font-bold focus:outline-none focus-visible:ring-2"
+              >
+                <Camera aria-hidden className="size-4" />
+                ถ่ายรูปหลังแก้ไข
+              </Link>
+            ) : null}
           </AttentionCard>
         </div>
       ) : null}

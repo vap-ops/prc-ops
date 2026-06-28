@@ -6,6 +6,34 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 218 — SA rework clarity ("ต้องแก้ไข") (2026-06-28)
+
+Status: **U1–U4 in one code-only PR** (in-app clarity); **U5 notifications = separate
+held PR** (danger-path). Spec: `218-sa-rework-worklist.md`. Operator: "there are WPs
+that require rework but the SA workflow is unclear — make it clear on SA pages (color,
+notification)." Three "needs my fix" cases: defect-reopened (status=rework), PM ให้แก้ไข
+(needs_revision) — incl. **"request for more photos"** — and PM ไม่อนุมัติ (rejected).
+Cases 2–3 stay `pending_approval` (the SA home excluded them, no notification → broken
+loop). Scope (operator): cover all three; cases 2–3 **display-only** (no status change —
+that's a separate decision, with FB2/#149).
+
+- **U1 — classifier.** Pure `buildSaActionList` (`src/lib/sa/action-list.ts`): rework |
+  revision | rejected, ordered rejected→rework→revision, rest = the everyday list.
+- **U2 — /sa "ต้องแก้ไข" section** pinned above งานของฉัน. The home now keeps
+  `pending_approval` and surfaces those whose **latest decision** is negative
+  (`getLatestDecisionsForWorkPackages`) + the reopen reason/source/round for rework.
+  Color = severity (amber=fix, red=rejected), one-tap CTA to the photo capture.
+- **U3 — WP-detail CTAs.** The rework banner + the needs_revision/rejected attention
+  card each get a Camera CTA (ถ่ายรูปหลังแก้ไข / ถ่ายรูปเพิ่ม → #wp-photos), !readOnly.
+- **U4 — tab badge.** `SaActionBadge` on the SA's หน้าหลัก tab (count = rework +
+  bounced), visible app-wide (mirrors PendingApprovalsBadge).
+
+⚠️ Overlaps #149 (FB2 explicit-submit) on the WP-detail page.tsx — additive CTAs vs
+their submit button, neutral copy; resolve any trivial conflict at merge.
+U5 (notifications on reopen + needs_revision/rejected via notification_outbox) follows.
+
+---
+
 ## Spec 217 — Rework source (ตรวจภายใน vs ลูกค้าแจ้ง) (2026-06-28)
 
 Status: **U1–U3 in one held PR** (migration + definer RPC → danger-path; one-tap).
