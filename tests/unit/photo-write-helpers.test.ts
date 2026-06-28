@@ -123,6 +123,16 @@ describe("shouldTransitionToPendingApproval", () => {
     expect(shouldTransitionToPendingApproval("after", "pending_approval")).toBe(false);
     expect(shouldTransitionToPendingApproval("after", "complete")).toBe(false);
   });
+
+  // Feedback 0fa23307: a rework-completion photo (after_fix) closes the rework
+  // loop the same as the After photo — capturing it on a งานแก้ไข WP → review.
+  it("transitions on an after_fix photo from a transitionable status (incl. rework)", () => {
+    for (const status of ["not_started", "in_progress", "on_hold", "rework"] as const) {
+      expect(shouldTransitionToPendingApproval("after_fix", status)).toBe(true);
+    }
+    expect(shouldTransitionToPendingApproval("after_fix", "pending_approval")).toBe(false);
+    expect(shouldTransitionToPendingApproval("after_fix", "complete")).toBe(false);
+  });
 });
 
 describe("shouldTransitionToInProgress", () => {

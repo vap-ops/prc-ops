@@ -69,8 +69,9 @@ grant usage  on sequence _tap_buf_ord_seq to authenticated;
 select has_type('public', 'photo_phase', 'photo_phase enum exists');
 select enum_has_labels(
   'public', 'photo_phase',
-  array['before', 'during', 'after'],
-  'photo_phase has the three expected values'
+  -- Feedback 0fa23307: after_fix (หลังแก้ไข) = rework-completion photos.
+  array['before', 'during', 'after', 'after_fix'],
+  'photo_phase has the four expected values'
 );
 
 select has_table('public', 'photo_logs', 'public.photo_logs exists');

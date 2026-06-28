@@ -48,7 +48,7 @@ import {
   type PhotoPhase,
 } from "@/lib/photos/transitions";
 
-const PHOTO_PHASES: ReadonlyArray<PhotoPhase> = ["before", "during", "after"];
+const PHOTO_PHASES: ReadonlyArray<PhotoPhase> = ["before", "during", "after", "after_fix"];
 function isValidPhase(value: unknown): value is PhotoPhase {
   return typeof value === "string" && (PHOTO_PHASES as readonly string[]).includes(value);
 }

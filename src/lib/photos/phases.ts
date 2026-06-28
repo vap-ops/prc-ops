@@ -11,6 +11,10 @@ export const PHASES: ReadonlyArray<{ phase: PhotoPhase; label: string }> = [
   { phase: "before", label: PHOTO_PHASE_LABEL.before },
   { phase: "during", label: PHOTO_PHASE_LABEL.during },
   { phase: "after", label: PHOTO_PHASE_LABEL.after },
+  // Feedback 0fa23307 — rework-completion photos: a 4th gallery + capture bucket.
+  // Deliberately NOT in the 3-step lifecycle progress bar (PHASE_ORDER in
+  // phase-progress.ts) — it's a rework addendum, not normal progression.
+  { phase: "after_fix", label: PHOTO_PHASE_LABEL.after_fix },
 ];
 
 // Spec 54: tile overlay = capture time (client clock when known, else

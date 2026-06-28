@@ -6,6 +6,16 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 215 — After-fix photos (หลังแก้ไข) (2026-06-28)
+
+Status: **shipped as one held PR** (additive enum-add → danger-path; one-tap merge). Spec: `215-after-fix-photos.md`. From feedback `0fa23307` (project_director, WP detail): capture completion photos when a WP's rework is done, distinct from the original แล้วเสร็จ work photos. **Operator chose (via design question) the explicit new-phase option** over auto-distinguish / discoverability-only.
+
+**Schema** (mig `20260813006000`, db:push'd + db:types'd, schema lane claimed→released): `alter type photo_phase add value 'after_fix' after 'after'` (own migration, the enum-add convention). **Totality updates** (same held PR — depend on the regenerated enum): `PHOTO_PHASE_LABEL.after_fix = "หลังแก้ไข"`; `PHASES` += after_fix bucket; `CurrentPhotosByPhase`/`selectCurrentPhotosByPhase` += after_fix (load-detail adopts the canonical type + spreads it into `allPhotos`; both page count literals add the key); `PHOTO_PHASES` validation += after_fix; `shouldTransitionToPendingApproval` fires on after **or** after_fix (closes the rework loop); capture tile grid → 2×2 with after_fix lock-free + never auto-"current"; pgTAP `09` enum pin → four values. **after_fix is deliberately NOT in `PHASE_ORDER`** (the 3-step progress bar) — it's a rework addendum, so a never-reworked WP's progress is unchanged. Test-first/after: phase-progress (ignores after_fix), current-photos (groups after_fix), photo-write-helpers (after_fix transition), photos-phases (4 buckets), capture tile renders + tappable (`phase-uploader-after-fix.test.tsx`). Lint + typecheck + full suite green.
+
+**Deferred:** auto-pre-select the หลังแก้ไข tile when the WP is in rework (zero-tap); after-fix photos in the PDF report.
+
+---
+
 ## Spec 214 — Product code (รหัสสินค้า) (2026-06-28)
 
 Status: **shipped as one held PR** (additive migration → danger-path; one-tap merge). Spec: `214-product-code.md`. From feedback `dfd70375` (procurement): a structured 6-digit code per catalog item (main 2 + sub 2 + sequence 2), prefix-searchable. Operator already has a scheme (procurement owns it).

@@ -21,6 +21,8 @@ export interface CurrentPhotosByPhase {
   before: PhotoLogRow[];
   during: PhotoLogRow[];
   after: PhotoLogRow[];
+  // Feedback 0fa23307 — rework-completion photos.
+  after_fix: PhotoLogRow[];
 }
 
 export function selectCurrentPhotosByPhase(rows: ReadonlyArray<PhotoLogRow>): CurrentPhotosByPhase {
@@ -31,7 +33,7 @@ export function selectCurrentPhotosByPhase(rows: ReadonlyArray<PhotoLogRow>): Cu
     }
   }
 
-  const result: CurrentPhotosByPhase = { before: [], during: [], after: [] };
+  const result: CurrentPhotosByPhase = { before: [], during: [], after: [], after_fix: [] };
   for (const r of rows) {
     if (r.storage_path === null) continue;
     if (supersededIds.has(r.id)) continue;

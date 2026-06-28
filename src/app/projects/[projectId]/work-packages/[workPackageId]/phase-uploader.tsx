@@ -63,8 +63,9 @@ export function PhotoCaptureZone({
 
   const order = phases.map((p) => p.phase);
   const currentIndex = order.indexOf(currentPhase);
-  // phases is always the three photo phases; this guard narrows the fallback
-  // for strict index access (noUncheckedIndexedAccess) without changing behavior.
+  // phases is the photo-phase display list (PHASES); this guard narrows the
+  // fallback for strict index access (noUncheckedIndexedAccess) without changing
+  // behavior.
   const fallback = phases[0];
   if (!fallback) throw new Error("PhotoCaptureZone requires at least one phase");
   const active = phases.find((p) => p.phase === activePhase) ?? fallback;
@@ -90,12 +91,17 @@ export function PhotoCaptureZone({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Phase switcher tiles */}
-      <div className="grid grid-cols-3 gap-2">
+      {/* Phase switcher tiles — 2×2 since feedback 0fa23307 added a 4th bucket
+          (after_fix / หลังแก้ไข). */}
+      <div className="grid grid-cols-2 gap-2">
         {phases.map((p, idx) => {
+          // after_fix is a rework addendum, NOT part of the sequential
+          // before→during→after lock chain — it's always available (no lock),
+          // and never the derived "current" phase.
+          const isAfterFix = p.phase === "after_fix";
           const isCurrent = p.phase === currentPhase;
-          const isPassed = idx < currentIndex; // an earlier phase the flow moved past
-          const reached = idx <= currentIndex;
+          const isPassed = !isAfterFix && idx < currentIndex; // an earlier phase the flow moved past
+          const reached = isAfterFix || idx <= currentIndex;
           return (
             <button
               key={p.phase}

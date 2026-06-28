@@ -8,12 +8,14 @@ import { PHOTO_ACCEPT_MIME } from "@/lib/photos/path";
 import { PHOTO_PHASE_LABEL } from "@/lib/i18n/labels";
 
 describe("PHASES", () => {
-  it("keeps the before/during/after display order with canonical labels", () => {
-    expect(PHASES.map((p) => p.phase)).toEqual(["before", "during", "after"]);
+  it("keeps the before/during/after order + the after_fix addendum, canonical labels", () => {
+    // Feedback 0fa23307: after_fix (หลังแก้ไข) is a 4th display bucket.
+    expect(PHASES.map((p) => p.phase)).toEqual(["before", "during", "after", "after_fix"]);
     expect(PHASES.map((p) => p.label)).toEqual([
       PHOTO_PHASE_LABEL.before,
       PHOTO_PHASE_LABEL.during,
       PHOTO_PHASE_LABEL.after,
+      PHOTO_PHASE_LABEL.after_fix,
     ]);
   });
 });

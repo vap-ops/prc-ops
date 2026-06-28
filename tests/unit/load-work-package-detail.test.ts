@@ -16,7 +16,12 @@ vi.mock("@/lib/labor/fetch-zone-data", () => ({
   })),
 }));
 vi.mock("@/lib/photos/current-photos", () => ({
-  getCurrentPhotosForWorkPackage: vi.fn(async () => ({ before: [], during: [], after: [] })),
+  getCurrentPhotosForWorkPackage: vi.fn(async () => ({
+    before: [],
+    during: [],
+    after: [],
+    after_fix: [],
+  })),
 }));
 vi.mock("@/lib/photos/signed-urls", () => ({
   mintSignedUrlsForPhotos: vi.fn(async () => new Map<string, string>()),

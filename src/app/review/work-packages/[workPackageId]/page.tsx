@@ -106,6 +106,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
     ...photosByPhase.before,
     ...photosByPhase.during,
     ...photosByPhase.after,
+    ...photosByPhase.after_fix,
   ];
   const signedUrls = await mintSignedUrlsForPhotos(allPhotos);
 
@@ -236,6 +237,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
               before: photosByPhase.before.length,
               during: photosByPhase.during.length,
               after: photosByPhase.after.length,
+              after_fix: photosByPhase.after_fix.length,
             }}
           />
         </div>

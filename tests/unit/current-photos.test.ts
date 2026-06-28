@@ -28,20 +28,23 @@ describe("selectCurrentPhotosByPhase", () => {
       before: [],
       during: [],
       after: [],
+      after_fix: [],
     });
   });
 
-  it("groups real photos by phase", () => {
+  it("groups real photos by phase (incl. after_fix — feedback 0fa23307)", () => {
     const rows: PhotoLogRow[] = [
       row({ id: "a", phase: "before" }),
       row({ id: "b", phase: "during" }),
       row({ id: "c", phase: "after" }),
       row({ id: "d", phase: "before" }),
+      row({ id: "e", phase: "after_fix" }),
     ];
     const result = selectCurrentPhotosByPhase(rows);
     expect(result.before.map((r) => r.id).sort()).toEqual(["a", "d"]);
     expect(result.during.map((r) => r.id)).toEqual(["b"]);
     expect(result.after.map((r) => r.id)).toEqual(["c"]);
+    expect(result.after_fix.map((r) => r.id)).toEqual(["e"]);
   });
 
   it("excludes tombstone rows (storage_path NULL)", () => {
