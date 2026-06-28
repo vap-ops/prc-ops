@@ -6,6 +6,7 @@ import {
   photoReworkRoundFor,
   groupAfterFixByRound,
   reworkReasonsFromAuditRows,
+  reworkSourcesFromAuditRows,
   reworkRoundTag,
   afterFixRoundHeading,
   type AfterFixRoundGroup,
@@ -61,6 +62,13 @@ describe("reworkRoundTag / afterFixRoundHeading", () => {
     expect(afterFixRoundHeading("หลังแก้ไข", 1)).toBe("หลังแก้ไข — รอบ 1");
     expect(afterFixRoundHeading("หลังแก้ไข", 0)).toBe("หลังแก้ไข");
   });
+
+  it("appends the source label when known, omits it when null (spec 217)", () => {
+    expect(afterFixRoundHeading("หลังแก้ไข", 2, "ลูกค้าแจ้ง")).toBe(
+      "หลังแก้ไข — รอบ 2 · ลูกค้าแจ้ง",
+    );
+    expect(afterFixRoundHeading("หลังแก้ไข", 2, null)).toBe("หลังแก้ไข — รอบ 2");
+  });
 });
 
 describe("reworkReasonsFromAuditRows", () => {
@@ -84,5 +92,27 @@ describe("reworkReasonsFromAuditRows", () => {
     expect(map.get(1)).toBe("ok");
     expect(map.has(2)).toBe(false);
     expect(map.size).toBe(1);
+  });
+});
+
+describe("reworkSourcesFromAuditRows", () => {
+  it("maps each round to its source (internal/client)", () => {
+    const map = reworkSourcesFromAuditRows([
+      { payload: { event: "wp_reopened_for_defect", round: 1, source: "internal" } },
+      { payload: { event: "wp_reopened_for_defect", round: 2, source: "client" } },
+    ]);
+    expect(map.get(1)).toBe("internal");
+    expect(map.get(2)).toBe("client");
+    expect(map.size).toBe(2);
+  });
+
+  it("skips rows with an invalid/missing source or round (legacy reopens have none)", () => {
+    const map = reworkSourcesFromAuditRows([
+      { payload: { round: 1, source: "bogus" } },
+      { payload: { round: 2 } },
+      { payload: { source: "client" } },
+      { payload: null },
+    ]);
+    expect(map.size).toBe(0);
   });
 });

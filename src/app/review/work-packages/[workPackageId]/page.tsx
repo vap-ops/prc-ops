@@ -14,6 +14,7 @@ import { PHASES } from "@/lib/photos/phases";
 import {
   groupAfterFixByRound,
   reworkReasonsFromAuditRows,
+  reworkSourcesFromAuditRows,
   afterFixRoundHeading,
 } from "@/lib/photos/rework-round";
 import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
@@ -24,6 +25,7 @@ import {
   APPROVAL_DECISION_LABEL,
   WORK_PACKAGE_STATUS_LABEL,
   PHOTO_PHASE_LABEL,
+  reworkSourceLabel,
   formatThaiDateTime,
 } from "@/lib/i18n/labels";
 import { CARD, DETAIL_TITLE, SECTION_HEADING } from "@/lib/ui/classes";
@@ -128,6 +130,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
     .eq("payload->>event", "wp_reopened_for_defect")
     .order("created_at", { ascending: false });
   const reworkReasons = reworkReasonsFromAuditRows(reopenRows ?? []);
+  const reworkSources = reworkSourcesFromAuditRows(reopenRows ?? []);
 
   // Decision history: newest first. RLS admits sa/pm/super to SELECT
   // approvals so the PM (and super_admin) can read every row for this
@@ -295,7 +298,11 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
               ? afterFixRounds.map(({ round, photos }) => (
                   <PhaseGallery
                     key={`after_fix-${round}`}
-                    label={afterFixRoundHeading(PHOTO_PHASE_LABEL.after_fix, round)}
+                    label={afterFixRoundHeading(
+                      PHOTO_PHASE_LABEL.after_fix,
+                      round,
+                      reworkSourceLabel(reworkSources.get(round)),
+                    )}
                     photos={photos}
                     signedUrls={signedUrls}
                     uploaderNames={displayNames}

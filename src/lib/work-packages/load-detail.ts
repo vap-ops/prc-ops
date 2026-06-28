@@ -18,7 +18,8 @@ import {
   type CurrentPhotosByPhase,
 } from "@/lib/photos/current-photos";
 import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
-import { reworkReasonsFromAuditRows } from "@/lib/photos/rework-round";
+import { reworkReasonsFromAuditRows, reworkSourcesFromAuditRows } from "@/lib/photos/rework-round";
+import type { ReworkSource } from "@/lib/db/enums";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 
 type Tbl = Database["public"]["Tables"];
@@ -81,6 +82,11 @@ export interface WorkPackageDetailData {
   /** Spec 216: rework round → the defect reason that opened it, for the per-round
    *  หลังแก้ไข gallery sections. */
   reworkReasons: Map<number, string>;
+  /** Spec 217: rework round → its source (internal/client). */
+  reworkSources: Map<number, ReworkSource>;
+  /** Spec 217: the current (latest) rework's source — for the rework banner; null
+   *  when not in rework or a legacy reopen carried no source. */
+  defectSource: ReworkSource | null;
 }
 
 type Db = SupabaseClient<Database>;
@@ -113,6 +119,8 @@ export async function loadWorkPackageDetail(
       displayNames: new Map(),
       defectReason: null,
       reworkReasons: new Map(),
+      reworkSources: new Map(),
+      defectSource: null,
     };
   }
 
@@ -185,6 +193,8 @@ export async function loadWorkPackageDetail(
     displayNames,
     defectReason: reworkData.defectReason,
     reworkReasons: reworkData.reworkReasons,
+    reworkSources: reworkData.reworkSources,
+    defectSource: reworkData.defectSource,
   };
 }
 
@@ -219,7 +229,12 @@ async function loadReworkData(
   supabase: Db,
   wpId: string,
   status: WpRow["status"],
-): Promise<{ defectReason: string | null; reworkReasons: Map<number, string> }> {
+): Promise<{
+  defectReason: string | null;
+  reworkReasons: Map<number, string>;
+  reworkSources: Map<number, ReworkSource>;
+  defectSource: ReworkSource | null;
+}> {
   const { data: rows } = await supabase
     .from("audit_log")
     .select("payload")
@@ -228,10 +243,16 @@ async function loadReworkData(
     .order("created_at", { ascending: false });
   const reopenRows = rows ?? [];
   // Rows are newest-first; the first is the current/most-recent reopen.
-  const latestReason =
-    (reopenRows[0]?.payload as unknown as { reason?: string } | null)?.reason ?? null;
+  const latest = reopenRows[0]?.payload as unknown as {
+    reason?: string;
+    source?: ReworkSource;
+  } | null;
+  const latestSource =
+    latest?.source === "client" || latest?.source === "internal" ? latest.source : null;
   return {
-    defectReason: status === "rework" ? latestReason : null,
+    defectReason: status === "rework" ? (latest?.reason ?? null) : null,
     reworkReasons: reworkReasonsFromAuditRows(reopenRows),
+    reworkSources: reworkSourcesFromAuditRows(reopenRows),
+    defectSource: status === "rework" ? latestSource : null,
   };
 }

@@ -196,6 +196,20 @@ export const PHOTO_PHASE_LABEL: Record<Enums["photo_phase"], string> = {
   after_fix: "หลังแก้ไข",
 };
 
+// Spec 217 — who called a rework round: internal QA/SA vs the client.
+export const REWORK_SOURCE_LABEL: Record<Enums["rework_source"], string> = {
+  internal: "ตรวจภายใน",
+  client: "ลูกค้าแจ้ง",
+};
+
+// Optional-source → label (or null when absent, e.g. a legacy reopen). Keeps the
+// per-round heading + banner call sites tidy.
+export function reworkSourceLabel(
+  source: Enums["rework_source"] | null | undefined,
+): string | null {
+  return source ? REWORK_SOURCE_LABEL[source] : null;
+}
+
 // Spec 141 U4 — equipment movement kinds (the append-only custody log, ADR
 // 0055 §4). Single-sourced here because the move-form kind picker and the
 // where-is-it badge both render them. 'deployed' composes with a project name in

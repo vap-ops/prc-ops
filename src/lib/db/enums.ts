@@ -15,3 +15,4 @@ export type ApprovalDecision = Enums["approval_decision"];
 export type ReportStatus = Enums["report_status"];
 export type PurchaseRequestStatus = Enums["purchase_request_status"];
 export type PurchaseRequestPriority = Enums["purchase_request_priority"];
+export type ReworkSource = Enums["rework_source"];

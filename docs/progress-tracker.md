@@ -6,6 +6,33 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 217 — Rework source (ตรวจภายใน vs ลูกค้าแจ้ง) (2026-06-28)
+
+Status: **U1–U3 in one held PR** (migration + definer RPC → danger-path; one-tap).
+Spec: `217-rework-source.md`. Operator: two rework types — internal call (our QA/SA) vs
+client call (the client). Scope (operator-chosen): **record + display only**. Labels
+(operator-chosen): internal → ตรวจภายใน, client → ลูกค้าแจ้ง.
+
+- **U1 — schema.** New enum `public.rework_source {internal, client}`. Migration
+  `20260813009000`: DROP the 2-arg `reopen_work_package_for_defect`, CREATE 3-arg with
+  `p_source default 'internal'` (from the LIVE 216 body — project_director gate +
+  rework_round increment kept), stamping `source` into the audit payload; re-REVOKE
+  public/anon + GRANT authenticated. Default keeps the still-2-arg app call working
+  until U2. pgTAP 75 += signature + default-internal + explicit-client (keyed on
+  `round`, not time — `now()` is fixed within a pgTAP txn so both reopen rows tie).
+- **U2 — write.** `REWORK_SOURCE_LABEL` (SSOT); `reportDefect` action takes + validates
+  `source`, passes `p_source`; report-defect form gains a required ตรวจภายใน/ลูกค้าแจ้ง
+  toggle (default internal).
+- **U3 — read + display.** `reworkSourcesFromAuditRows` (pure); `load-detail` returns
+  `reworkSources` + `defectSource`; review page reads the same. Per-round heading →
+  "หลังแก้ไข — รอบ N · <source>" (`afterFixRoundHeading` gains an optional source label;
+  `reworkSourceLabel` helper); the rework banner shows "ที่มา: <source>". Legacy reopens
+  (no source) omit the label.
+
+Open: behaviour per source (notify / warranty / SLA) — out of scope (operator).
+
+---
+
 ## Spec 216 — Multi-rework rounds (2026-06-28)
 
 Status: **U1 shipped as a held PR** (additive migration + RPC → danger-path; one-tap merge).

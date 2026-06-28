@@ -42,6 +42,7 @@ import {
 } from "@/lib/photos/path";
 import { buildTombstoneRow } from "@/lib/photos/tombstone";
 import { photoReworkRoundFor } from "@/lib/photos/rework-round";
+import type { ReworkSource } from "@/lib/db/enums";
 import {
   shouldTransitionToInProgress,
   shouldTransitionToPendingApproval,
@@ -261,6 +262,9 @@ export interface ReportDefectInput {
   projectId: string;
   workPackageId: string;
   reason: string;
+  // Spec 217: who called this rework — internal QA/SA (ตรวจภายใน) or the client
+  // (ลูกค้าแจ้ง).
+  source: ReworkSource;
 }
 export type ReportDefectResult = { ok: true } | { ok: false; error: string };
 
@@ -269,6 +273,9 @@ export async function reportDefect(input: ReportDefectInput): Promise<ReportDefe
   const reason = input.reason.trim();
   if (reason === "") return { ok: false, error: "กรุณาระบุรายละเอียดข้อบกพร่อง" };
   if (reason.length > 1000) return { ok: false, error: "รายละเอียดต้องไม่เกิน 1000 ตัวอักษร" };
+  if (input.source !== "internal" && input.source !== "client") {
+    return { ok: false, error: "ระบุที่มาของข้อบกพร่องไม่ถูกต้อง" };
+  }
 
   const auth = await getActionUser();
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
@@ -277,6 +284,7 @@ export async function reportDefect(input: ReportDefectInput): Promise<ReportDefe
   const { data, error } = await supabase.rpc("reopen_work_package_for_defect", {
     p_wp: input.workPackageId,
     p_reason: reason,
+    p_source: input.source,
   });
   if (error) {
     console.error("[reportDefect] RPC failed", { wp: input.workPackageId, error: error.message });
