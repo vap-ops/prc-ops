@@ -13,6 +13,7 @@ import { RadioChip } from "@/components/features/common/radio-chip";
 import { FIELD_INPUT } from "@/lib/ui/classes";
 import type { Database } from "@/lib/db/database.types";
 import { ITEM_CATEGORY_LABEL } from "@/lib/i18n/labels";
+import type { CatalogSubcategoryOption } from "./catalog-item-form";
 import { EditCatalogItem } from "./edit-catalog-item";
 import { SetSellRate } from "./set-sell-rate";
 
@@ -27,6 +28,9 @@ export type CatalogItem = {
   // Spec 214 — the structured 6-digit product code; null when unset.
   productCode?: string | null;
   note?: string | null;
+  // Spec 219 — the item's subcategory FK; null/undefined when unset. Fed to the
+  // edit form's cascading picker.
+  subcategoryId?: string | null;
   // Spec 175 U4 — a signed URL for the item's reference image (minted by the
   // page); null when the item has no image.
   thumbnailUrl?: string | null;
@@ -40,10 +44,12 @@ const ALL = "all";
 
 export function CatalogList({
   items,
+  subcategories = [],
   editable = false,
   canSetSellRate = false,
 }: {
   items: CatalogItem[];
+  subcategories?: CatalogSubcategoryOption[];
   editable?: boolean;
   canSetSellRate?: boolean;
 }) {
@@ -157,7 +163,7 @@ export function CatalogList({
                     {canSetSellRate ? (
                       <SetSellRate itemId={it.id} currentRate={it.sellRate ?? null} />
                     ) : null}
-                    {editable ? <EditCatalogItem item={it} /> : null}
+                    {editable ? <EditCatalogItem item={it} subcategories={subcategories} /> : null}
                   </li>
                 ))}
               </ul>

@@ -58,6 +58,12 @@ export const PURCHASE_REQUEST_STATUS_LABEL: Record<Enums["purchase_request_statu
 // yields the canonical section order.
 export const CATALOG_LABEL = "ทะเบียนวัสดุ";
 
+// Spec 219 — the modelled subcategory level under each item_category. Term SSOT
+// for the manage screen, the cascading picker on the item form, and (U3) the
+// drill filter. SUBCATEGORY = the named sub level; MANAGE = the /catalog drill.
+export const CATALOG_SUBCATEGORY_LABEL = "หมวดย่อย";
+export const MANAGE_SUBCATEGORIES_LABEL = "จัดการหมวดย่อย";
+
 export const ITEM_CATEGORY_LABEL: Record<Enums["item_category"], string> = {
   steel_fixing: "เหล็ก / อุปกรณ์ยึด",
   plumbing_sanitary: "ประปา / สุขภัณฑ์",

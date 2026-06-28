@@ -44,6 +44,8 @@ const STATIC_DETAIL = [
   "equipment",
   // Spec 175: the item catalog drills down from /settings (back chip).
   "catalog",
+  // Spec 219 U2: the subcategory manage screen drills down from /catalog.
+  "catalog/subcategories",
   // Spec 197 U1/U2: /store and /stock-count left /settings for the per-project
   // คลัง surface (/projects/[id]/store, a dynamic-segment DETAIL route
   // auto-classified above). Both legacy top-level routes are now thin

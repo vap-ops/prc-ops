@@ -21,6 +21,13 @@ const CATEGORIES = Object.keys(ITEM_CATEGORY_LABEL) as ItemCategory[];
 const GENERIC_ERROR = "บันทึกรายการวัสดุไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 const CODE_FORMAT_ERROR = "รหัสสินค้าต้องเป็นตัวเลข 6 หลัก";
 const CODE_DUP_ERROR = "รหัสสินค้านี้ถูกใช้แล้ว";
+// Spec 219 — the chosen subcategory must belong to the item's main category (the
+// cascading picker enforces it; this is the defence-in-depth message).
+const SUBCATEGORY_MISMATCH_ERROR = "หมวดย่อยไม่ตรงกับหมวดหมู่หลัก";
+const SUBCATEGORY_GENERIC_ERROR = "บันทึกหมวดย่อยไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+const SUBCATEGORY_CODE_FORMAT_ERROR = "รหัสหมวดย่อยต้องเป็นตัวเลข 2 หลัก";
+const SUBCATEGORY_CODE_DUP_ERROR = "รหัสหมวดย่อยนี้ถูกใช้แล้ว";
+const SUBCATEGORY_NAME_ERROR = "กรอกชื่อหมวดย่อย (ไม่เกิน 120 ตัวอักษร)";
 
 export type CatalogActionResult = { ok: true } | { ok: false; error: string };
 
@@ -40,6 +47,9 @@ export async function createCatalogItem(input: {
   unit: string;
   note: string;
   productCode: string;
+  // Spec 219 — optional subcategory FK (empty = none). The RPC enforces it
+  // belongs to the item's main category.
+  subcategoryId: string;
 }): Promise<CatalogActionResult> {
   await requireRole(BACK_OFFICE_ROLES);
 
@@ -60,6 +70,10 @@ export async function createCatalogItem(input: {
   if (note.length > 1000) return { ok: false, error: GENERIC_ERROR };
   const productCode = input.productCode.trim();
   if (!isValidProductCode(productCode)) return { ok: false, error: CODE_FORMAT_ERROR };
+  const subcategoryId = input.subcategoryId.trim();
+  if (subcategoryId !== "" && !UUID_REGEX.test(subcategoryId)) {
+    return { ok: false, error: GENERIC_ERROR };
+  }
 
   const supabase = await createServerSupabase();
   const { error } = await supabase.rpc("create_catalog_item", {
@@ -73,10 +87,15 @@ export async function createCatalogItem(input: {
     p_stockable: true,
     p_note: note,
     p_product_code: productCode,
+    // Omit the key when empty → the RPC's default null (clears the FK); a uuid
+    // sets it. exactOptionalPropertyTypes forbids an explicit undefined here.
+    ...(subcategoryId === "" ? {} : { p_subcategory_id: subcategoryId }),
   });
   if (error) {
     if (error.code === "23505") return { ok: false, error: duplicateMessage(error.message) };
     if (error.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์เพิ่มรายการวัสดุ" };
+    // The only 22023 here (inputs are pre-validated above) is the subcategory guard.
+    if (error.code === "22023") return { ok: false, error: SUBCATEGORY_MISMATCH_ERROR };
     return { ok: false, error: GENERIC_ERROR };
   }
 
@@ -92,6 +111,8 @@ export async function updateCatalogItem(input: {
   unit: string;
   note: string;
   productCode: string;
+  // Spec 219 — optional subcategory FK (empty = none); category-matched by the RPC.
+  subcategoryId: string;
 }): Promise<CatalogActionResult> {
   await requireRole(BACK_OFFICE_ROLES);
 
@@ -113,6 +134,10 @@ export async function updateCatalogItem(input: {
   if (note.length > 1000) return { ok: false, error: GENERIC_ERROR };
   const productCode = input.productCode.trim();
   if (!isValidProductCode(productCode)) return { ok: false, error: CODE_FORMAT_ERROR };
+  const subcategoryId = input.subcategoryId.trim();
+  if (subcategoryId !== "" && !UUID_REGEX.test(subcategoryId)) {
+    return { ok: false, error: GENERIC_ERROR };
+  }
 
   const supabase = await createServerSupabase();
   const { error } = await supabase.rpc("update_catalog_item", {
@@ -125,11 +150,22 @@ export async function updateCatalogItem(input: {
     p_stockable: true,
     p_note: note,
     p_product_code: productCode,
+    // Omit the key when empty → the RPC's default null (clears the FK); a uuid
+    // sets it. exactOptionalPropertyTypes forbids an explicit undefined here.
+    ...(subcategoryId === "" ? {} : { p_subcategory_id: subcategoryId }),
   });
   if (error) {
     if (error.code === "23505") return { ok: false, error: duplicateMessage(error.message) };
     if (error.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์แก้ไขรายการวัสดุ" };
-    if (error.code === "22023") return { ok: false, error: "ไม่พบรายการวัสดุนี้" };
+    // 22023 is either the subcategory mismatch or an unknown id — disambiguate on message.
+    if (error.code === "22023") {
+      return {
+        ok: false,
+        error: error.message?.includes("subcategory")
+          ? SUBCATEGORY_MISMATCH_ERROR
+          : "ไม่พบรายการวัสดุนี้",
+      };
+    }
     return { ok: false, error: GENERIC_ERROR };
   }
 
@@ -212,6 +248,85 @@ export async function setCatalogItemImage(input: {
     return { ok: false, error: GENERIC_ERROR };
   }
 
+  revalidatePath("/catalog");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Spec 219 U2 — subcategory taxonomy CRUD (back-office). Both go through the
+// SECURITY DEFINER create/update_catalog_subcategory RPCs (role gate +
+// (category, code) uniqueness live in the DB); catalog_subcategories has no
+// write grant. requireRole here is defence-in-depth.
+// ---------------------------------------------------------------------------
+
+const SUBCATEGORY_CODE_RE = /^[0-9]{2}$/;
+
+export async function createCatalogSubcategory(input: {
+  category: string;
+  code: string;
+  name: string;
+  sortOrder: number;
+}): Promise<CatalogActionResult> {
+  await requireRole(BACK_OFFICE_ROLES);
+
+  if (!CATEGORIES.includes(input.category as ItemCategory)) {
+    return { ok: false, error: "กรุณาเลือกหมวดหมู่หลัก" };
+  }
+  const code = input.code.trim();
+  if (!SUBCATEGORY_CODE_RE.test(code)) return { ok: false, error: SUBCATEGORY_CODE_FORMAT_ERROR };
+  const name = input.name.trim();
+  if (name.length === 0 || name.length > 120) {
+    return { ok: false, error: SUBCATEGORY_NAME_ERROR };
+  }
+  const sortOrder = Number.isFinite(input.sortOrder) ? Math.trunc(input.sortOrder) : 0;
+
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("create_catalog_subcategory", {
+    p_category: input.category as ItemCategory,
+    p_code: code,
+    p_name: name,
+    p_sort_order: sortOrder,
+  });
+  if (error) {
+    if (error.code === "23505") return { ok: false, error: SUBCATEGORY_CODE_DUP_ERROR };
+    if (error.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์เพิ่มหมวดย่อย" };
+    return { ok: false, error: SUBCATEGORY_GENERIC_ERROR };
+  }
+
+  revalidatePath("/catalog/subcategories");
+  revalidatePath("/catalog");
+  return { ok: true };
+}
+
+export async function updateCatalogSubcategory(input: {
+  id: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+}): Promise<CatalogActionResult> {
+  await requireRole(BACK_OFFICE_ROLES);
+
+  if (!UUID_REGEX.test(input.id)) return { ok: false, error: SUBCATEGORY_GENERIC_ERROR };
+  const name = input.name.trim();
+  if (name.length === 0 || name.length > 120) {
+    return { ok: false, error: SUBCATEGORY_NAME_ERROR };
+  }
+  const sortOrder = Number.isFinite(input.sortOrder) ? Math.trunc(input.sortOrder) : 0;
+
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("update_catalog_subcategory", {
+    p_id: input.id,
+    p_name: name,
+    p_sort_order: sortOrder,
+    p_is_active: input.isActive,
+  });
+  if (error) {
+    if (error.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์แก้ไขหมวดย่อย" };
+    if (error.code === "22023") return { ok: false, error: "ไม่พบหมวดย่อยนี้" };
+    return { ok: false, error: SUBCATEGORY_GENERIC_ERROR };
+  }
+
+  revalidatePath("/catalog/subcategories");
   revalidatePath("/catalog");
   return { ok: true };
 }

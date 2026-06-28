@@ -13,9 +13,11 @@ import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
+import Link from "next/link";
 import { CatalogList, type CatalogItem } from "@/components/features/catalog/catalog-list";
+import type { CatalogSubcategoryOption } from "@/components/features/catalog/catalog-item-form";
 import { AddCatalogItem } from "@/components/features/catalog/add-catalog-item";
-import { CATALOG_LABEL } from "@/lib/i18n/labels";
+import { CATALOG_LABEL, MANAGE_SUBCATEGORIES_LABEL } from "@/lib/i18n/labels";
 
 export const metadata = { title: CATALOG_LABEL };
 
@@ -25,9 +27,25 @@ export default async function CatalogPage() {
   const supabase = await createServerSupabase();
   const { data: rows } = await supabase
     .from("catalog_items")
-    .select("id, category, base_item, spec_attrs, unit, note, image_path, product_code")
+    .select(
+      "id, category, base_item, spec_attrs, unit, note, image_path, product_code, subcategory_id",
+    )
     .eq("is_active", true)
     .order("base_item", { ascending: true });
+
+  // Spec 219 — the subcategory options for the add/edit cascading picker.
+  const { data: subRows } = await supabase
+    .from("catalog_subcategories")
+    .select("id, category, code, name")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .order("code", { ascending: true });
+  const subcategories: CatalogSubcategoryOption[] = (subRows ?? []).map((r) => ({
+    id: r.id,
+    category: r.category,
+    code: r.code,
+    name: r.name,
+  }));
 
   // Reads on the private catalog-images bucket go through service-role signed
   // URLs (the rows above were already read under the user's RLS).
@@ -57,6 +75,7 @@ export default async function CatalogPage() {
     unit: r.unit,
     productCode: r.product_code,
     note: r.note,
+    subcategoryId: r.subcategory_id,
     thumbnailUrl: signed.get(r.id) ?? null,
     // Omit the key entirely for non-super (exactOptionalPropertyTypes forbids an
     // explicit `undefined`) — the rate never reaches the client for them.
@@ -70,10 +89,21 @@ export default async function CatalogPage() {
         <h1 className="text-title text-ink font-bold tracking-tight">{CATALOG_LABEL}</h1>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-5 px-5 py-6`}>
-        <div className="flex justify-end">
-          <AddCatalogItem />
+        <div className="flex items-center justify-between gap-2">
+          <Link
+            href="/catalog/subcategories"
+            className="text-action text-sm font-medium hover:underline"
+          >
+            {MANAGE_SUBCATEGORIES_LABEL}
+          </Link>
+          <AddCatalogItem subcategories={subcategories} />
         </div>
-        <CatalogList items={items} editable canSetSellRate={canSetSellRate} />
+        <CatalogList
+          items={items}
+          subcategories={subcategories}
+          editable
+          canSetSellRate={canSetSellRate}
+        />
       </div>
     </PageShell>
   );

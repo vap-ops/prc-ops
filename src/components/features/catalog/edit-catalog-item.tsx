@@ -12,11 +12,17 @@ import { Pencil } from "lucide-react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
 import { setCatalogItemActive, updateCatalogItem } from "@/app/catalog/actions";
-import { CatalogItemForm } from "./catalog-item-form";
+import { CatalogItemForm, type CatalogSubcategoryOption } from "./catalog-item-form";
 import { CatalogImageControl } from "./catalog-image-control";
 import type { CatalogItem } from "./catalog-list";
 
-export function EditCatalogItem({ item }: { item: CatalogItem }) {
+export function EditCatalogItem({
+  item,
+  subcategories = [],
+}: {
+  item: CatalogItem;
+  subcategories?: CatalogSubcategoryOption[];
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [deactivating, startDeactivate] = useTransition();
@@ -63,7 +69,9 @@ export function EditCatalogItem({ item }: { item: CatalogItem }) {
             unit: item.unit,
             note: item.note ?? "",
             productCode: item.productCode ?? "",
+            subcategoryId: item.subcategoryId ?? "",
           }}
+          subcategories={subcategories}
           submitLabel="บันทึก"
           submittingLabel="กำลังบันทึก…"
           onSubmit={(values) => updateCatalogItem({ id: item.id, ...values })}

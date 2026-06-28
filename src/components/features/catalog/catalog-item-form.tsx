@@ -7,7 +7,11 @@
 
 import { useState, useTransition } from "react";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
-import { ITEM_CATEGORY_LABEL, PRODUCT_CODE_LABEL } from "@/lib/i18n/labels";
+import {
+  CATALOG_SUBCATEGORY_LABEL,
+  ITEM_CATEGORY_LABEL,
+  PRODUCT_CODE_LABEL,
+} from "@/lib/i18n/labels";
 import { COMMON_UNITS, UNIT_OTHER_VALUE } from "@/lib/purchasing/units";
 import { isValidProductCode } from "@/lib/catalog/validate";
 import type { Database } from "@/lib/db/database.types";
@@ -22,6 +26,17 @@ export type CatalogItemValues = {
   unit: string;
   note: string;
   productCode: string;
+  // Spec 219 — optional subcategory FK (empty = none).
+  subcategoryId: string;
+};
+
+// Spec 219 — the subcategory options the cascading picker scopes to the chosen
+// category. Loaded by the /catalog page from catalog_subcategories.
+export type CatalogSubcategoryOption = {
+  id: string;
+  category: string;
+  code: string;
+  name: string;
 };
 
 export type CatalogFormResult = { ok: true } | { ok: false; error: string };
@@ -33,6 +48,7 @@ export const EMPTY_CATALOG_VALUES: CatalogItemValues = {
   unit: "",
   note: "",
   productCode: "",
+  subcategoryId: "",
 };
 
 const LABEL = "text-sm font-medium text-ink";
@@ -41,6 +57,7 @@ const FIELD =
 
 export function CatalogItemForm({
   initial,
+  subcategories = [],
   submitLabel,
   submittingLabel,
   onSubmit,
@@ -49,6 +66,7 @@ export function CatalogItemForm({
   extra,
 }: {
   initial: CatalogItemValues;
+  subcategories?: CatalogSubcategoryOption[];
   submitLabel: string;
   submittingLabel: string;
   onSubmit: (values: CatalogItemValues) => Promise<CatalogFormResult>;
@@ -68,9 +86,12 @@ export function CatalogItemForm({
   const [unitOther, setUnitOther] = useState(initUnitIsCommon ? "" : initial.unit);
   const [note, setNote] = useState(initial.note);
   const [productCode, setProductCode] = useState(initial.productCode);
+  const [subcategoryId, setSubcategoryId] = useState(initial.subcategoryId);
   const [error, setError] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
 
+  // Spec 219 — the picker offers only the chosen category's subcategories.
+  const availableSubs = subcategories.filter((s) => s.category === category);
   const resolvedUnit = unitChoice === UNIT_OTHER_VALUE ? unitOther.trim() : unitChoice;
   const codeValid = isValidProductCode(productCode);
   const canSubmit =
@@ -88,6 +109,7 @@ export function CatalogItemForm({
         unit: resolvedUnit,
         note,
         productCode: productCode.trim(),
+        subcategoryId,
       });
       if (!result.ok) {
         setError(result.error);
@@ -106,7 +128,11 @@ export function CatalogItemForm({
         <select
           id="ci-category"
           value={category}
-          onChange={(e) => setCategory(e.target.value)}
+          onChange={(e) => {
+            // Changing the main category invalidates any chosen subcategory.
+            setCategory(e.target.value);
+            setSubcategoryId("");
+          }}
           disabled={submitting}
           className={FIELD}
         >
@@ -118,6 +144,28 @@ export function CatalogItemForm({
           ))}
         </select>
       </div>
+
+      {availableSubs.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="ci-subcategory" className={LABEL}>
+            {CATALOG_SUBCATEGORY_LABEL}
+          </label>
+          <select
+            id="ci-subcategory"
+            value={subcategoryId}
+            onChange={(e) => setSubcategoryId(e.target.value)}
+            disabled={submitting}
+            className={FIELD}
+          >
+            <option value="">— ไม่ระบุ —</option>
+            {availableSubs.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.code} · {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="ci-base" className={LABEL}>

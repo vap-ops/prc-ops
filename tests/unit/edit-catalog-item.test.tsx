@@ -65,6 +65,8 @@ describe("EditCatalogItem (spec 175 U3)", () => {
         unit: "ม้วน",
         note: "",
         productCode: "010120",
+        // Spec 219 — optional subcategory; this item has none.
+        subcategoryId: "",
       }),
     );
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
