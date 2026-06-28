@@ -13,11 +13,21 @@ export const SPEND_STATUSES: ReadonlySet<string> = new Set([
 // Material spend = Σ amount over spend-status PRs that recorded a price.
 // amount is often null (site-staff PRs / site purchases don't capture it), so
 // this is a PARTIAL figure — the UI discloses that.
+//
+// Store-first doctrine (U4): `storedPrIds` is the set of PR ids whose goods have
+// entered the store (a `stock_receipt` exists for them). Those are EXCLUDED here
+// because their cost is attributed at เบิก via sumStoreIssues — counting the PR
+// amount too would double-count. Today the receive trigger only stocks WP-less
+// PRs (already excluded upstream by having no WP), so this set is empty in
+// practice and the guard is a no-op; once U1 auto-stocks WP-bound receives, it
+// prevents the double-count with no further dashboard change.
 export function sumMaterials(
-  prs: ReadonlyArray<{ status: string; amount: number | null }>,
+  prs: ReadonlyArray<{ id: string; status: string; amount: number | null }>,
+  storedPrIds: ReadonlySet<string> = new Set(),
 ): number {
   let total = 0;
   for (const pr of prs) {
+    if (storedPrIds.has(pr.id)) continue;
     if (SPEND_STATUSES.has(pr.status) && pr.amount != null) total += pr.amount;
   }
   return total;
