@@ -96,40 +96,67 @@ export default async function DashboardPage() {
   // Money — PM/super only, admin client (RLS-bypass for the zero-grant cols).
   const budgetById = new Map<string, number | null>();
   const laborByProject = new Map<string, CostInputRow[]>();
-  const materialsByProject = new Map<string, { status: string; amount: number | null }[]>();
+  const materialsByProject = new Map<
+    string,
+    { id: string; status: string; amount: number | null }[]
+  >();
   // Spec 195 follow-up — store-issued (เบิก) cost, grouped by project. Disjoint
   // from materialsByProject (WP-less store-bound PRs are excluded there).
   const storeIssuesByProject = new Map<string, { total_cost: number | null }[]>();
+  // Store-first U4 — PR ids whose goods entered the store (a stock_receipt links
+  // back to them). Their cost is counted at เบิก (sumStoreIssues), so they are
+  // excluded from sumMaterials to avoid a double-count once U1 auto-stocks
+  // WP-bound receives. Empty today (the trigger only stocks WP-less PRs).
+  const storedPrIds = new Set<string>();
   if (isManager && projectIds.length) {
     const admin = createAdminSupabase();
     const wpIds = wps.map((w) => w.id);
-    const [{ data: budgetRows }, laborRes, prRes, issuesRes, reversalsRes] = await Promise.all([
-      admin.from("projects").select("id, budget_amount_thb").in("id", projectIds),
-      wpIds.length
-        ? admin
-            .from("labor_logs")
-            .select(
-              "id, worker_id, work_date, day_fraction, day_rate_snapshot, worker_type_snapshot, worker_name_snapshot, self_logged, superseded_by, work_package_id",
-            )
-            .in("work_package_id", wpIds)
-        : Promise.resolve({ data: [] as (CostInputRow & { work_package_id: string })[] }),
-      wpIds.length
-        ? admin
-            .from("purchase_requests")
-            .select("work_package_id, status, amount")
-            .in("work_package_id", wpIds)
-        : Promise.resolve({
-            data: [] as { work_package_id: string; status: string; amount: number | null }[],
-          }),
-      // Store issues are project-scoped (project_id is set + WP-in-project
-      // validated by issue_stock), so group by project_id directly.
-      admin.from("stock_issues").select("id, project_id, total_cost").in("project_id", projectIds),
-      // Reversed issues never charged a WP — exclude them (matches wp_profit). A
-      // stock_reversals row may target a receipt OR an issue; issue_id is null for
-      // receipt reversals, so filter to the issue-reversal rows.
-      admin.from("stock_reversals").select("issue_id").not("issue_id", "is", null),
-    ]);
+    const [{ data: budgetRows }, laborRes, prRes, issuesRes, reversalsRes, receiptsRes] =
+      await Promise.all([
+        admin.from("projects").select("id, budget_amount_thb").in("id", projectIds),
+        wpIds.length
+          ? admin
+              .from("labor_logs")
+              .select(
+                "id, worker_id, work_date, day_fraction, day_rate_snapshot, worker_type_snapshot, worker_name_snapshot, self_logged, superseded_by, work_package_id",
+              )
+              .in("work_package_id", wpIds)
+          : Promise.resolve({ data: [] as (CostInputRow & { work_package_id: string })[] }),
+        wpIds.length
+          ? admin
+              .from("purchase_requests")
+              .select("id, work_package_id, status, amount")
+              .in("work_package_id", wpIds)
+          : Promise.resolve({
+              data: [] as {
+                id: string;
+                work_package_id: string;
+                status: string;
+                amount: number | null;
+              }[],
+            }),
+        // Store issues are project-scoped (project_id is set + WP-in-project
+        // validated by issue_stock), so group by project_id directly.
+        admin
+          .from("stock_issues")
+          .select("id, project_id, total_cost")
+          .in("project_id", projectIds),
+        // Reversed issues never charged a WP — exclude them (matches wp_profit). A
+        // stock_reversals row may target a receipt OR an issue; issue_id is null for
+        // receipt reversals, so filter to the issue-reversal rows.
+        admin.from("stock_reversals").select("issue_id").not("issue_id", "is", null),
+        // Store-first U4 — receipts that link back to a PR mark goods that entered
+        // the store; those PRs are counted at เบิก, not here. (No-op pre-U1.)
+        admin
+          .from("stock_receipts")
+          .select("purchase_request_id")
+          .in("project_id", projectIds)
+          .not("purchase_request_id", "is", null),
+      ]);
     for (const b of budgetRows ?? []) budgetById.set(b.id, b.budget_amount_thb);
+    for (const r of receiptsRes.data ?? []) {
+      if (r.purchase_request_id) storedPrIds.add(r.purchase_request_id);
+    }
     const reversedIssueIds = new Set(
       (reversalsRes.data ?? []).map((r) => r.issue_id).filter((id): id is string => id != null),
     );
@@ -152,7 +179,7 @@ export default async function DashboardPage() {
       const pid = pr.work_package_id ? wpProject.get(pr.work_package_id) : undefined;
       if (!pid) continue;
       const arr = materialsByProject.get(pid) ?? [];
-      arr.push({ status: pr.status, amount: pr.amount });
+      arr.push({ id: pr.id, status: pr.status, amount: pr.amount });
       materialsByProject.set(pid, arr);
     }
   }
@@ -163,9 +190,11 @@ export default async function DashboardPage() {
     if (isManager) {
       const labor = aggregateLaborCost(laborByProject.get(p.id) ?? []).total;
       // Materials = direct WP-bound purchases (at supplier amount) + store-issued
-      // material (เบิก at cost). Disjoint sources, so additive — no double-count.
+      // material (เบิก at cost). Disjoint sources, so additive — no double-count:
+      // store-routed PRs (storedPrIds) are dropped from the purchase sum since
+      // their cost is counted via the เบิก sum instead.
       const materials =
-        sumMaterials(materialsByProject.get(p.id) ?? []) +
+        sumMaterials(materialsByProject.get(p.id) ?? [], storedPrIds) +
         sumStoreIssues(storeIssuesByProject.get(p.id) ?? []);
       const spend = labor + materials;
       money = { spend, status: budgetStatus(budgetById.get(p.id) ?? null, spend) };
