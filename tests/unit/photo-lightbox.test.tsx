@@ -5,15 +5,15 @@
 // the enlarged photo itself is clicked (so panning a finger on mobile
 // doesn't dismiss the view).
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 // Spec 51 made the lightbox import the markup server actions; the
 // module carries `import "server-only"`, so client-component tests mock
-// it (the established action-module pattern). No test here passes a
-// photoId, so the mocks are never called.
+// it (the established action-module pattern). The delete tests below DO
+// pass a photoId (markup loads on open), so listPhotoMarkups resolves.
 vi.mock("@/app/photo-markups/actions", () => ({
-  listPhotoMarkups: vi.fn(),
+  listPhotoMarkups: vi.fn().mockResolvedValue({ ok: true, markups: [] }),
   addPhotoMarkup: vi.fn(),
   removePhotoMarkup: vi.fn(),
 }));
@@ -137,6 +137,86 @@ describe("ZoomablePhoto group navigation (spec 50)", () => {
     fireEvent.click(screen.getByRole("button", { name: "ดูรูปขยาย" }));
     expect(screen.queryByRole("button", { name: "รูปถัดไป" })).not.toBeInTheDocument();
     expect(screen.queryByText("1/1")).not.toBeInTheDocument();
+  });
+});
+
+// Feedback 7c3347b3 — clicking a photo should open a detail view that
+// OWNS the delete action (off the small grid thumbnail, so an upload
+// can't be deleted by a mis-tap and feels permanent). Delete is opt-in
+// per surface: only the SA capture context passes `canDelete` +
+// `onDeletePhoto`; read-only surfaces (PM gallery, the recent strip)
+// pass neither and show no delete. Deletion still routes through the
+// supersede tombstone (the parent's onDeletePhoto), guarded by a confirm.
+describe("ZoomablePhoto detail-view delete (feedback 7c3347b3)", () => {
+  const PID = "11111111-1111-1111-1111-111111111111";
+
+  it("shows no delete button on a read-only surface (no canDelete)", () => {
+    render(<ZoomablePhoto src={SRC} photoId={PID} />);
+    fireEvent.click(screen.getByRole("button", { name: "ดูรูปขยาย" }));
+    expect(screen.queryByRole("button", { name: "ลบรูป" })).not.toBeInTheDocument();
+  });
+
+  it("shows a delete button inside the open detail when canDelete is set", () => {
+    render(<ZoomablePhoto src={SRC} photoId={PID} canDelete onDeletePhoto={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "ลบรูป" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "ดูรูปขยาย" }));
+    expect(screen.getByRole("button", { name: "ลบรูป" })).toBeInTheDocument();
+  });
+
+  it("requires a confirm, then calls onDeletePhoto with the id and closes", () => {
+    const onDelete = vi.fn();
+    render(<ZoomablePhoto src={SRC} photoId={PID} canDelete onDeletePhoto={onDelete} />);
+    fireEvent.click(screen.getByRole("button", { name: "ดูรูปขยาย" }));
+    fireEvent.click(screen.getByRole("button", { name: "ลบรูป" }));
+    // The supersede is irreversible to the user — a confirm gates it.
+    const prompt = screen.getByText("ลบรูปนี้หรือไม่? การลบไม่สามารถย้อนกลับได้");
+    const confirmDialog = prompt.closest('[role="dialog"]') as HTMLElement;
+    expect(onDelete).not.toHaveBeenCalled();
+    fireEvent.click(within(confirmDialog).getByRole("button", { name: "ลบรูป" }));
+    expect(onDelete).toHaveBeenCalledTimes(1);
+    expect(onDelete).toHaveBeenCalledWith(PID);
+    // After deleting, the photo is gone — close the detail.
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("does not delete when the confirm is cancelled and keeps the detail open", () => {
+    const onDelete = vi.fn();
+    render(<ZoomablePhoto src={SRC} photoId={PID} canDelete onDeletePhoto={onDelete} />);
+    fireEvent.click(screen.getByRole("button", { name: "ดูรูปขยาย" }));
+    fireEvent.click(screen.getByRole("button", { name: "ลบรูป" }));
+    fireEvent.click(screen.getByRole("button", { name: "ยกเลิก" }));
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("deletes the CURRENT photo after navigating within a group", () => {
+    const onDelete = vi.fn();
+    const GROUP = [
+      "https://example.test/storage/photo-1.jpg",
+      "https://example.test/storage/photo-2.jpg",
+    ];
+    const IDS = ["aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"];
+    render(
+      <ZoomablePhoto
+        src={GROUP[0]!}
+        group={GROUP}
+        groupPhotoIds={IDS}
+        groupIndex={0}
+        photoId={IDS[0]!}
+        canDelete
+        onDeletePhoto={onDelete}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "ดูรูปขยาย" }));
+    fireEvent.click(screen.getByRole("button", { name: "รูปถัดไป" }));
+    fireEvent.click(screen.getByRole("button", { name: "ลบรูป" }));
+    const prompt = screen.getByText("ลบรูปนี้หรือไม่? การลบไม่สามารถย้อนกลับได้");
+    fireEvent.click(
+      within(prompt.closest('[role="dialog"]') as HTMLElement).getByRole("button", {
+        name: "ลบรูป",
+      }),
+    );
+    expect(onDelete).toHaveBeenCalledWith(IDS[1]);
   });
 });
 
