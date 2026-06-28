@@ -57,9 +57,37 @@ describe("AddCatalogItem (spec 175 U2)", () => {
         unit: "ม้วน",
         note: "",
         productCode: "010120",
+        // Spec 219 — optional subcategory; none chosen here.
+        subcategoryId: "",
       }),
     );
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
+  });
+
+  // Spec 219 U2 — the subcategory select cascades off the chosen category.
+  it("shows only the chosen category's subcategories and submits the picked one", async () => {
+    const SUBS = [
+      { id: "se1", category: "electrical", code: "01", name: "สายไฟ" },
+      { id: "ss1", category: "steel_fixing", code: "01", name: "วัสดุโครงสร้าง" },
+    ];
+    render(<AddCatalogItem subcategories={SUBS} />);
+    fireEvent.click(screen.getByRole("button", { name: /เพิ่มวัสดุ/ }));
+    fireEvent.change(screen.getByLabelText("หมวดหมู่"), { target: { value: "electrical" } });
+
+    // Only the electrical subcategory is offered, not the steel one.
+    const subSelect = screen.getByLabelText("หมวดย่อย");
+    expect(subSelect).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /สายไฟ/ })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /วัสดุโครงสร้าง/ })).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("ชื่อวัสดุ"), { target: { value: "สายไฟใหม่" } });
+    fireEvent.change(screen.getByLabelText("หน่วยนับ"), { target: { value: "ม้วน" } });
+    fireEvent.change(subSelect, { target: { value: "se1" } });
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายการ" }));
+
+    await waitFor(() =>
+      expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ subcategoryId: "se1" })),
+    );
   });
 
   it("reveals a free-text unit field when หน่วยนับ is 'อื่น ๆ' and submits it", async () => {

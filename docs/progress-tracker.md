@@ -8,7 +8,7 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ## Spec 219 — Catalog subcategory taxonomy + 2-level filter (2026-06-28)
 
-Status: **U1 COMPLETE** (schema lane, held PR — touches `migrations/` + `worker/`).
+Status: **U1 (schema) + U2 (manage UI) COMPLETE; U3 next.**
 Spec: `219-catalog-subcategory-taxonomy.md`. Operator asked to redesign the
 ทะเบียนวัสดุ (`/catalog`) filter "uxui pro max" because the register has categories +
 subcategories; chose to **model the subcategory as a real taxonomy table** (over a
@@ -37,9 +37,24 @@ name, sort_order, is_active, created_at)`; unique `(category, code)` + unique
     `015000`, pushed to the shared DB (only `015000` applied — `013000`/`014000` already
     present). Transient main-gap until #159 (`014000`) merges, per the operator's go.
 
-- **U2 (next, code-only)** — back-office manage-screen + cascading subcategory `<select>`
-  on the item form.
-- **U3 (code-only, the original ask)** — rewrite `catalog-list.tsx` to the 2-level drill
+- **U2 — manage UI + cascading picker (this unit, code-only).**
+  - New route `/catalog/subcategories` (a `/catalog` drill, `DetailHeader` back → /catalog,
+    `BACK_OFFICE_ROLES`): active subcategories grouped by main category; add / edit /
+    deactivate. New `AddSubcategory` + `EditSubcategory` (`Subcategory` type) components.
+  - `catalog/actions.ts` gains `createCatalogSubcategory` / `updateCatalogSubcategory`
+    (wrap the U1 RPCs; map 23505 → "รหัสหมวดย่อยนี้ถูกใช้แล้ว", 42501, 22023). The item
+    actions now thread `subcategoryId` → `p_subcategory_id` (omit-when-empty spread so
+    `exactOptionalPropertyTypes` is happy); 22023 disambiguated (subcategory vs unknown id).
+  - `CatalogItemForm` gains a **cascading subcategory `<select>`** — offered only for the
+    chosen category's subcategories, reset on category change, optional (`— ไม่ระบุ —`).
+    Threaded `subcategories` through page → `AddCatalogItem` / `CatalogList` → `EditCatalogItem`.
+    `/catalog` loads `catalog_subcategories` + each item's `subcategory_id`, and links to the
+    manage screen (`MANAGE_SUBCATEGORIES_LABEL`). Term SSOT `CATALOG_SUBCATEGORY_LABEL = "หมวดย่อย"`.
+  - **Test-first**: `add-subcategory` / `edit-subcategory` tests + cascade test on
+    `add-catalog-item` (scoped options) + `subcategoryId` added to the existing add/edit
+    call-shape assertions + `nav-back-affordance` route registered. lint · typecheck ·
+    vitest **1935** green. Code-only — auto-merges on green CI.
+- **U3 (next, code-only, the original ask)** — rewrite `catalog-list.tsx` to the 2-level drill
   (search · หมวดหลัก strip · drill-in หมวดย่อย strip with real names · breadcrumb ·
   grouped results · `ยังไม่มีหมวดย่อย` bucket).
 
