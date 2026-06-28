@@ -20,25 +20,26 @@ import { withBackFrom } from "@/lib/nav/back-href";
 import { WORK_PACKAGE_STATUS_LABEL, formatThaiDate } from "@/lib/i18n/labels";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import { bangkokTodayIso } from "@/lib/dates";
-import { buildMyWorkList } from "@/lib/sa/my-work";
+import { buildSaActionList, type BouncedWp, type ReworkInfo } from "@/lib/sa/action-list";
+import { getLatestDecisionsForWorkPackages } from "@/lib/approvals/latest-decision";
+import { SaActionSection } from "@/components/features/sa/action-section";
 import { DailyHero } from "@/components/features/sa/daily-hero";
+import type { ReworkSource } from "@/lib/db/enums";
 
 export const metadata = { title: "หน้าหลัก" };
-
-// The SA's daily worklist = work packages still in play (everything but the two
-// "off the field admin's plate" states: complete, and submitted-for-approval).
-const DONE_STATUSES = "(complete,pending_approval)";
 
 export default async function SaHomePage() {
   const ctx = await requireRole(["site_admin", "super_admin"]);
   const supabase = await createClient();
 
   // RLS scopes work_packages to the SA's member projects (can_see_wp / ADR 0056),
-  // so this is already "my" work — just drop the done states.
+  // so this is already "my" work. Spec 218: keep pending_approval (drop only
+  // complete) — a WP the PM bounced (ให้แก้ไข / ไม่อนุมัติ) stays pending_approval
+  // but is back on the SA's plate; we surface it from its latest decision.
   const { data: wpRows } = await supabase
     .from("work_packages")
-    .select("id, code, name, status, project_id")
-    .not("status", "in", DONE_STATUSES);
+    .select("id, code, name, status, project_id, rework_round")
+    .neq("status", "complete");
   const wps = wpRows ?? [];
 
   const projectIds = Array.from(new Set(wps.map((w) => w.project_id)));
@@ -47,7 +48,53 @@ export default async function SaHomePage() {
     : { data: [] };
   const projectsById = new Map((projects ?? []).map((p) => [p.id, { code: p.code, name: p.name }]));
 
-  const items = buildMyWorkList(wps, projectsById);
+  // pending_approval WPs whose LATEST decision is negative = the PM bounced them
+  // back to the SA (spec 218). One read per the latest-decision pattern.
+  const pendingWps = wps.filter((w) => w.status === "pending_approval");
+  const latestDecisions = pendingWps.length
+    ? await getLatestDecisionsForWorkPackages(
+        supabase,
+        pendingWps.map((w) => w.id),
+      )
+    : new Map();
+  const bounced: BouncedWp[] = pendingWps.flatMap((w) => {
+    const dec = latestDecisions.get(w.id);
+    if (dec?.decision === "needs_revision" || dec?.decision === "rejected") {
+      return [{ wp: w, decision: dec.decision, comment: dec.comment }];
+    }
+    return [];
+  });
+
+  // rework WPs: the latest reopen audit row carries the current reason + source
+  // (spec 216/217); the round is on the WP itself.
+  const reworkWps = wps.filter((w) => w.status === "rework");
+  const reworkInfo = new Map<string, ReworkInfo>();
+  if (reworkWps.length) {
+    const { data: reopenRows } = await supabase
+      .from("audit_log")
+      .select("target_id, payload")
+      .in(
+        "target_id",
+        reworkWps.map((w) => w.id),
+      )
+      .eq("payload->>event", "wp_reopened_for_defect")
+      .order("created_at", { ascending: false });
+    for (const w of reworkWps) {
+      const p = (reopenRows ?? []).find((r) => r.target_id === w.id)?.payload as {
+        reason?: string;
+        source?: ReworkSource;
+      } | null;
+      reworkInfo.set(w.id, {
+        reason: p?.reason ?? null,
+        source: p?.source === "client" || p?.source === "internal" ? p.source : null,
+        round: w.rework_round,
+      });
+    }
+  }
+
+  const inPlay = wps.filter((w) => w.status !== "pending_approval");
+  const { actions, rest } = buildSaActionList({ inPlay, bounced, reworkInfo, projectsById });
+  const items = rest;
   const hubItems = hubNavForRole(ctx.role);
 
   return (
@@ -63,6 +110,10 @@ export default async function SaHomePage() {
             สวัสดี{ctx.fullName ? ` ${ctx.fullName}` : ""}
           </h1>
         </div>
+
+        {/* Spec 218: WPs the PM/defect bounced back — pinned above everything,
+            color-coded (amber = fix, red = rejected), one tap to the capture. */}
+        <SaActionSection items={actions} />
 
         {/* Spec 192 U4b: the daily-action hero — one tap to log labour / add a
             photo (direct when there's a single active WP, else a เลือกงาน
