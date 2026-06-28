@@ -12,10 +12,7 @@ import {
   PHOTO_EXTS,
   type PhotoExt,
 } from "@/lib/photos/path";
-import {
-  shouldTransitionToInProgress,
-  shouldTransitionToPendingApproval,
-} from "@/lib/photos/transitions";
+import { shouldTransitionToInProgress } from "@/lib/photos/transitions";
 import { buildTombstoneRow } from "@/lib/photos/tombstone";
 import { photoReworkRoundFor } from "@/lib/photos/rework-round";
 
@@ -97,44 +94,9 @@ describe("mimeToPhotoExt", () => {
   });
 });
 
-describe("shouldTransitionToPendingApproval", () => {
-  it("transitions only when phase is 'after' AND status is transitionable", () => {
-    // Spec 144: 'rework' (a defect reopened a complete WP) is transitionable too
-    // — re-shooting the After photo sends it back to pending_approval.
-    for (const status of ["not_started", "in_progress", "on_hold", "rework"] as const) {
-      expect(shouldTransitionToPendingApproval("after", status)).toBe(true);
-    }
-  });
-
-  it("does NOT transition for non-After phases regardless of status", () => {
-    for (const phase of ["before", "during"] as const) {
-      for (const status of [
-        "not_started",
-        "in_progress",
-        "on_hold",
-        "pending_approval",
-        "complete",
-      ] as const) {
-        expect(shouldTransitionToPendingApproval(phase, status)).toBe(false);
-      }
-    }
-  });
-
-  it("does NOT regress 'pending_approval' or 'complete' on an After photo", () => {
-    expect(shouldTransitionToPendingApproval("after", "pending_approval")).toBe(false);
-    expect(shouldTransitionToPendingApproval("after", "complete")).toBe(false);
-  });
-
-  // Feedback 0fa23307: a rework-completion photo (after_fix) closes the rework
-  // loop the same as the After photo — capturing it on a งานแก้ไข WP → review.
-  it("transitions on an after_fix photo from a transitionable status (incl. rework)", () => {
-    for (const status of ["not_started", "in_progress", "on_hold", "rework"] as const) {
-      expect(shouldTransitionToPendingApproval("after_fix", status)).toBe(true);
-    }
-    expect(shouldTransitionToPendingApproval("after_fix", "pending_approval")).toBe(false);
-    expect(shouldTransitionToPendingApproval("after_fix", "complete")).toBe(false);
-  });
-});
+// FB2 (b9e942f0): the After-photo → pending_approval auto-flip
+// (shouldTransitionToPendingApproval) was removed — submission is now an explicit
+// SA act (submitWorkPackageForApproval). The During → in_progress flip stays.
 
 describe("shouldTransitionToInProgress", () => {
   it("transitions ONLY for phase 'during' on a 'not_started' WP (one true cell in the matrix)", () => {

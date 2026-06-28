@@ -31,7 +31,8 @@
 import "server-only";
 
 import { revalidatePath } from "next/cache";
-import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
+import { getActionUser, NOT_SIGNED_IN, requireActionRole } from "@/lib/auth/action-gate";
+import { SITE_STAFF_ROLES } from "@/lib/auth/role-home";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { projectHref, workPackageHref } from "@/lib/nav/project-paths";
 import {
@@ -45,7 +46,6 @@ import { photoReworkRoundFor } from "@/lib/photos/rework-round";
 import type { ReworkSource } from "@/lib/db/enums";
 import {
   shouldTransitionToInProgress,
-  shouldTransitionToPendingApproval,
   TRANSITIONABLE_FROM_STATUSES,
   type PhotoPhase,
 } from "@/lib/photos/transitions";
@@ -129,34 +129,12 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
     }
   }
 
+  // FB2 (b9e942f0): an "after" photo no longer auto-flips the WP to
+  // pending_approval. That sent a partly-done WP to review on its FIRST after
+  // photo; submission is now an explicit SA act (submitWorkPackageForApproval —
+  // the "ส่งงานเข้าตรวจ" button), reversing the spec-03 decision-14 auto-flip.
+  // The During → in_progress flip below is unaffected (operator kept it).
   let transitioned = false;
-  if (shouldTransitionToPendingApproval(input.phase, wp.status)) {
-    // Option (a): admin-client UPDATE, narrow to status only, with a
-    // SQL guard so the rule can't be widened by a future caller. The
-    // .in("status", TRANSITIONABLE_FROM_STATUSES) clause is the
-    // load-bearing safety net — even if the JS predicate above
-    // changes, this UPDATE will still no-op against pending_approval
-    // and complete WPs.
-    const admin = createAdminClient();
-    const { data: updated, error: updateError } = await admin
-      .from("work_packages")
-      .update({ status: "pending_approval" })
-      .eq("id", wp.id)
-      .in("status", TRANSITIONABLE_FROM_STATUSES)
-      .select("id");
-    // We deliberately don't roll back the photo_logs insert if the
-    // status update fails — the photo is real and recorded; the
-    // status transition is recoverable on the next After upload (or
-    // a future PM action). Logged for the operator.
-    if (updateError) {
-      console.error("[addPhoto] WP status transition failed", {
-        workPackageId: wp.id,
-        error: updateError.message,
-      });
-    } else if (updated && updated.length > 0) {
-      transitioned = true;
-    }
-  }
 
   // Spec 52: first During photo flips not_started → in_progress. Same
   // option-(a) shape as the After branch above; the two predicates are
@@ -186,6 +164,61 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
 
   revalidatePath(workPackageHref(wp.project_id, wp.id));
   return { ok: true, photoId: input.photoId, transitioned };
+}
+
+// FB2 (b9e942f0) — explicit "ส่งงานเข้าตรวจ": the SA submits a finished WP for
+// approval. Replaces the addPhoto auto-flip (above) so a partly-done WP is no
+// longer pushed to review on its first "after" photo. Same shape as that flip:
+// gate the caller, then an admin-client status UPDATE doubly guarded by the SQL
+// `status in (TRANSITIONABLE)` net so it can never regress a pending/complete WP
+// (work_packages UPDATE RLS does not admit site_admin — admin client per the
+// spec-03 decision-15 option (a) escalation).
+export interface SubmitForApprovalInput {
+  projectId: string;
+  workPackageId: string;
+}
+
+export type SubmitForApprovalResult = { ok: true } | { ok: false; error: string };
+
+export async function submitWorkPackageForApproval(
+  input: SubmitForApprovalInput,
+): Promise<SubmitForApprovalResult> {
+  if (!isValidUuid(input.workPackageId)) return { ok: false, error: "รหัสรายการงานไม่ถูกต้อง" };
+
+  // Site staff only — the field-capture population that drove the old auto-flip.
+  // Procurement is a read-only WP viewer (isReadOnlyWpViewer) and must not submit.
+  const gate = await requireActionRole(SITE_STAFF_ROLES);
+  if ("error" in gate) return { ok: false, error: gate.error };
+  const { supabase } = gate.auth;
+
+  // RLS-scoped read = the membership/visibility gate. A caller who can't see the
+  // WP (wrong role / not a project member) gets null and is refused, without
+  // leaking whether the row exists.
+  const { data: wp, error: wpError } = await supabase
+    .from("work_packages")
+    .select("id, project_id, status")
+    .eq("id", input.workPackageId)
+    .maybeSingle();
+  if (wpError || !wp) return { ok: false, error: "ไม่พบรายการงาน" };
+
+  const admin = createAdminClient();
+  const { data: updated, error: updateError } = await admin
+    .from("work_packages")
+    .update({ status: "pending_approval" })
+    .eq("id", wp.id)
+    .in("status", TRANSITIONABLE_FROM_STATUSES)
+    .select("id");
+  if (updateError) {
+    return { ok: false, error: "ส่งงานเข้าตรวจไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+  if (!updated || updated.length === 0) {
+    // Already pending_approval / complete (or a concurrent change) — the SQL
+    // guard no-opped. Tell the SA plainly rather than silently "succeeding".
+    return { ok: false, error: "งานนี้ส่งตรวจแล้ว หรือยังไม่พร้อมส่ง" };
+  }
+
+  revalidatePath(workPackageHref(wp.project_id, wp.id));
+  return { ok: true };
 }
 
 export interface RemovePhotoInput {
