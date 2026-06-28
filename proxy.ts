@@ -36,15 +36,21 @@ export async function proxy(request: NextRequest) {
     },
   );
 
-  // Refresh the session. Do not insert code between createServerClient and getUser:
-  // anything that runs in between can desync cookies and randomly sign users out.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Verify + refresh the session. getClaims() verifies the JWT LOCALLY against
+  // the cached JWKS — the project is on asymmetric signing keys (ADR 0021), so
+  // there is no GoTrue round-trip on the hot path, unlike getUser() which called
+  // the Auth server on EVERY navigation. Refresh is preserved: getClaims() reads
+  // the session via getSession(), which auto-refreshes an expired access token
+  // (auth-js _callRefreshToken), and the @supabase/ssr cookie adapter (setAll
+  // above) persists the rotated tokens onto supabaseResponse. data is null when
+  // there is no/invalid session (mirrors the render-path gate in require-role.ts).
+  // Do not insert code between createServerClient and getClaims: anything that
+  // runs in between can desync cookies and randomly sign users out.
+  const { data } = await supabase.auth.getClaims();
 
   const pathname = request.nextUrl.pathname;
   const isPublic = PUBLIC_PATHS.has(pathname);
-  if (!user && !isPublic) {
+  if (!data && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = "";
