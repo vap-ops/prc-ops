@@ -6,6 +6,36 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 221 — Managed category taxonomy (enum → table) + product-code derivation (2026-06-29)
+
+Status: **U1 (additive foundation) COMPLETE; U2 cutover = BREAK-GLASS, operator-gated.**
+Spec: `221-managed-category-taxonomy.md`. Follows spec 219. Operator chose **full
+self-service** for main categories (add/remove/rename/recode) + **auto-build** the item
+product code. The main `item_category` **enum** becomes a managed `catalog_categories` table.
+
+> ⚠️ **Spec-number note:** this work began as spec 220 and **migration `20260813018000`,
+> collided with a concurrent session (G63 role-admin, also spec 220 / `018000`), and was
+> renumbered to **spec 221** by operator decision. G63 kept spec 220 + renumbered its
+> migration to `019000`. My `018000` was already applied + green, so it stays; the migration
+> **file keeps the `spec220u1` name\*\* (matches the recorded DB version name). See LANES.md.
+
+- **U1 — additive foundation (this unit).** Migration `20260813018000` (additive, no drops):
+  - `catalog_categories (id, code 2-digit unique, name, sort_order, is_active, + transient
+`legacy_category` enum map)` + RLS (select to authenticated, RPC writes); **seed the 13**
+    enum values (codes 01–13, names from `ITEM_CATEGORY_LABEL`).
+  - `category_id uuid` (nullable FK) on `catalog_items` + `catalog_subcategories` + **backfill**
+    from `legacy_category`; a `BEFORE INSERT/UPDATE` **sync trigger** keeps `category_id`
+    current from the enum while the app still writes `category` (no drift pre-cutover).
+  - `create_catalog_category` / `update_catalog_category` RPCs (back-office gate; code editable —
+    items key on `category_id`, not the code). pgTAP `221-catalog-categories` (18 asserts:
+    structure, RLS/grants, seed=13, backfill, sync trigger, create/dup/bad-code/update). **`db:test`
+    189/189 · 3294 asserts · 0 fails**; `db:types` regenerated. Held PR (migrations/).
+- **U2 — CUTOVER ⚠️ BREAK-GLASS (operator-gated, irreversible).** Drop the enum + old columns,
+  rebuild the composite FK on `category_id`, swap the catalog RPCs + ~8 code files to
+  `category_id` + table-sourced names. Needs `pg_dump` floor + preview rehearsal + operator go.
+- **U3 — unified taxonomy tree manager (code-only).** Main + sub in one screen.
+- **U4 — product-code auto-derive (code-only).** Form composes digits 1-4 from the taxonomy.
+
 ## Spec 219 — Catalog subcategory taxonomy + 2-level filter (2026-06-28)
 
 Status: **SHIPPED — U1 (schema) + U2 (manage UI) + U3 (drill filter) all COMPLETE.**

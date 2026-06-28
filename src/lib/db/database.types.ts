@@ -152,10 +152,41 @@ export type Database = {
         }
         Relationships: []
       }
+      catalog_categories: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          legacy_category: Database["public"]["Enums"]["item_category"] | null
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          legacy_category?: Database["public"]["Enums"]["item_category"] | null
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          legacy_category?: Database["public"]["Enums"]["item_category"] | null
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       catalog_items: {
         Row: {
           base_item: string
           category: Database["public"]["Enums"]["item_category"]
+          category_id: string | null
           created_at: string
           id: string
           image_path: string | null
@@ -170,6 +201,7 @@ export type Database = {
         Insert: {
           base_item: string
           category: Database["public"]["Enums"]["item_category"]
+          category_id?: string | null
           created_at?: string
           id?: string
           image_path?: string | null
@@ -184,6 +216,7 @@ export type Database = {
         Update: {
           base_item?: string
           category?: Database["public"]["Enums"]["item_category"]
+          category_id?: string | null
           created_at?: string
           id?: string
           image_path?: string | null
@@ -197,6 +230,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "catalog_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_categories"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "catalog_items_subcategory_fk"
             columns: ["subcategory_id", "category"]
             isOneToOne: false
@@ -208,6 +248,7 @@ export type Database = {
       catalog_subcategories: {
         Row: {
           category: Database["public"]["Enums"]["item_category"]
+          category_id: string | null
           code: string
           created_at: string
           id: string
@@ -217,6 +258,7 @@ export type Database = {
         }
         Insert: {
           category: Database["public"]["Enums"]["item_category"]
+          category_id?: string | null
           code: string
           created_at?: string
           id?: string
@@ -226,6 +268,7 @@ export type Database = {
         }
         Update: {
           category?: Database["public"]["Enums"]["item_category"]
+          category_id?: string | null
           code?: string
           created_at?: string
           id?: string
@@ -233,7 +276,15 @@ export type Database = {
           name?: string
           sort_order?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "catalog_subcategories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       client_billings: {
         Row: {
@@ -5224,6 +5275,10 @@ export type Database = {
         }
         Returns: string
       }
+      create_catalog_category: {
+        Args: { p_code: string; p_name: string; p_sort_order?: number }
+        Returns: string
+      }
       create_catalog_item: {
         Args: {
           p_base_item: string
@@ -6044,6 +6099,16 @@ export type Database = {
       swap_deliverable_order: {
         Args: { p_a: string; p_b: string }
         Returns: boolean
+      }
+      update_catalog_category: {
+        Args: {
+          p_code: string
+          p_id: string
+          p_is_active: boolean
+          p_name: string
+          p_sort_order: number
+        }
+        Returns: undefined
       }
       update_catalog_item: {
         Args: {
