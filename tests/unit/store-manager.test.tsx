@@ -32,6 +32,7 @@ import {
   type ReceiptRow,
   type CountRow,
 } from "@/components/features/store/store-manager";
+import { STORE_FIX_WRONG_ENTRY_LABEL } from "@/lib/i18n/labels";
 
 const projects = [
   { id: "p1", code: "PRC-2026-001", name: "บ้านคุณเอ" },
@@ -196,6 +197,17 @@ describe("StoreManager ตรวจนับ/count (spec 177 U10)", () => {
     expect(screen.getByText(/ส่วนต่าง -2/)).toBeInTheDocument();
   });
 
+  // Feedback 8bb3dc63: ตรวจนับ is not an entry-undo — the cost of a เบิก
+  // recorded with the wrong qty does not reverse by recounting. The sheet warns
+  // and points to the real tool (the issue-undo lives on the WP page, spec 210).
+  it("the count sheet warns it is not how to undo a wrong เบิก, pointing to the WP", () => {
+    renderManager({ canIssue: true });
+    fireEvent.click(screen.getByRole("button", { name: "ตรวจนับ" }));
+    const hint = screen.getByText(/ไม่ใช่การแก้รายการเบิกที่บันทึกผิด/);
+    expect(hint).toHaveTextContent("หน้างาน (WP)");
+    expect(hint).toHaveTextContent(STORE_FIX_WRONG_ENTRY_LABEL);
+  });
+
   it("records a count with the counted qty", async () => {
     renderManager({ canIssue: true });
     fireEvent.click(screen.getByRole("button", { name: "ตรวจนับ" }));
@@ -228,7 +240,6 @@ describe("StoreManager แก้รายการที่บันทึกผ
     fireEvent.click(screen.getByRole("button", { name: "ยืนยัน" }));
     await waitFor(() => expect(mockRevReceipt).toHaveBeenCalledWith({ receiptId: "rc1" }));
   });
-
 });
 
 describe("StoreManager count history (spec 178 B3)", () => {

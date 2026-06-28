@@ -15,6 +15,7 @@ import {
   ITEM_CATEGORY_LABEL,
   STORE_RECEIVE_LABEL,
   STORE_FIX_WRONG_ENTRY_LABEL,
+  STOCK_COUNT_NOT_UNDO_HINT,
 } from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
 import type { Database } from "@/lib/db/database.types";
@@ -543,6 +544,12 @@ export function StoreManager({
                   {countRow?.specAttrs ? ` · ${countRow.specAttrs}` : ""}
                 </span>{" "}
                 — ระบบมี {countRow?.qtyOnHand} {countRow?.unit}
+              </p>
+
+              {/* Feedback 8bb3dc63: redirect the "I'll recount to undo a wrong
+                  เบิก" misuse — a recount adjusts the number, not the cost. */}
+              <p className="border-edge bg-sunk text-ink-secondary text-meta rounded-control border px-3 py-2">
+                {STOCK_COUNT_NOT_UNDO_HINT}
               </p>
 
               <div className="flex flex-col gap-1.5">

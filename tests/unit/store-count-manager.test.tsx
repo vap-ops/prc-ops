@@ -21,6 +21,7 @@ import {
   StoreCountManager,
   type CountStockRow,
 } from "@/components/features/store/store-count-manager";
+import { STORE_FIX_WRONG_ENTRY_LABEL } from "@/lib/i18n/labels";
 
 const projects = [
   { id: "p1", code: "PRC-2026-001", name: "บ้านคุณเอ" },
@@ -62,6 +63,19 @@ describe("StoreCountManager (spec 178 B2)", () => {
   it("shows an empty state when the store has no stock", () => {
     renderCount({ onHand: [] });
     expect(screen.getByText(/ยังไม่มีสต๊อก/)).toBeInTheDocument();
+  });
+
+  // Feedback 8bb3dc63: a project_director reached for ตรวจนับ to "fix" a เบิก
+  // recorded with the wrong qty, expecting the cost to reverse — it didn't,
+  // because a recount reconciles the on-hand number, it does not undo an entry.
+  // The count sheet must say so and point to the real tool (the issue-undo lives
+  // on the WP page, spec 210).
+  it("the count sheet warns it is not how to undo a wrong เบิก, pointing to the WP", () => {
+    renderCount({});
+    fireEvent.click(screen.getByRole("button", { name: "ตรวจนับ" }));
+    const hint = screen.getByText(/ไม่ใช่การแก้รายการเบิกที่บันทึกผิด/);
+    expect(hint).toHaveTextContent("หน้างาน (WP)");
+    expect(hint).toHaveTextContent(STORE_FIX_WRONG_ENTRY_LABEL);
   });
 
   it("records a count with the live variance and refreshes", async () => {

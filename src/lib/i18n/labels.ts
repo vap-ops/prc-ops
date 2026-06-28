@@ -90,6 +90,15 @@ export const STORE_ISSUE_LABEL = "เบิกออก";
 export const STORE_FIX_WRONG_ENTRY_LABEL = "แก้รายการที่บันทึกผิด";
 export const STORE_RETURN_TO_STORE_LABEL = "คืนเข้าคลัง";
 
+// Feedback 8bb3dc63 — people reached for ตรวจนับ (recount) to "fix" a เบิก they
+// recorded with the wrong qty, expecting the cost to reverse; it didn't, because
+// a recount reconciles the on-hand NUMBER to physical truth, it is not an
+// entry-undo. This hint sits in the count sheet and redirects them to the real
+// tool — the issue-undo (STORE_FIX_WRONG_ENTRY_LABEL) lives on the WP page
+// (spec 210). Single-sourced so both count sheets (store-manager +
+// store-count-manager) stay in step and the action term can't drift.
+export const STOCK_COUNT_NOT_UNDO_HINT = `การตรวจนับใช้ปรับยอดให้ตรงของจริงเท่านั้น ไม่ใช่การแก้รายการเบิกที่บันทึกผิด — ถ้าบันทึกเบิกผิด ให้เปิดหน้างาน (WP) ของรายการนั้น แล้วกด “${STORE_FIX_WRONG_ENTRY_LABEL}” ค่าใช้จ่ายจึงจะถูกคืน`;
+
 // Spec 178 — the store margin layer: the per-item SELL price (transfer price).
 export const ITEM_SELL_RATE_LABEL = "ราคาขาย";
 export const SET_ITEM_SELL_RATE_LABEL = "ตั้งราคาขาย";
