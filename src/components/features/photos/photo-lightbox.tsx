@@ -20,6 +20,7 @@
 // never touched. Navigation is gated while composing.
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import { Trash2 } from "lucide-react";
 import {
   addPhotoMarkup,
   listPhotoMarkups,
@@ -52,6 +53,18 @@ interface ZoomablePhotoProps {
   uploaderName?: string | null;
   /** Uploader display names aligned with `group` (null when unresolved). */
   groupUploaderNames?: ReadonlyArray<string | null>;
+  /** SA capture context: enables an in-detail delete affordance for the
+   *  CURRENT photo (feedback 7c3347b3 — delete lives in the detail view,
+   *  never on the small grid tile, so an upload can't be wiped by a
+   *  mis-tap and feels permanent). Read-only surfaces (PM gallery, the
+   *  recent strip) omit these props → no delete is shown. */
+  canDelete?: boolean;
+  /** Supersedes (tombstones) the given photo_logs id — wired to the
+   *  capture engine's handleRemoveConfirmed. */
+  onDeletePhoto?: (photoId: string) => void;
+  /** photo_logs id currently being removed (parent optimistic state) →
+   *  disables the button while the tombstone is in flight. */
+  deletingPhotoId?: string | null;
 }
 
 export function ZoomablePhoto({
@@ -62,6 +75,9 @@ export function ZoomablePhoto({
   groupPhotoIds,
   uploaderName,
   groupUploaderNames,
+  canDelete,
+  onDeletePhoto,
+  deletingPhotoId,
 }: ZoomablePhotoProps) {
   const [open, setOpen] = useState(false);
   // Position inside the group while the dialog is open. Re-initialized
@@ -86,6 +102,10 @@ export function ZoomablePhoto({
   const [draftComment, setDraftComment] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [removeTarget, setRemoveTarget] = useState<string | null>(null);
+  // Photo-level delete (feedback 7c3347b3) — distinct from the markup
+  // (comment) removal above. Gated by `canDelete`; the confirm is its own
+  // state so navigation/close can dismiss a pending prompt.
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [busy, startBusy] = useTransition();
   const drawSurfaceRef = useRef<SVGSVGElement | null>(null);
 
@@ -130,10 +150,14 @@ export function ZoomablePhoto({
 
   function closeDialog() {
     resetCompose();
+    setConfirmDeleteOpen(false);
     setOpen(false);
   }
 
   function step(delta: -1 | 1) {
+    // Dismiss a pending delete prompt — it targets the photo you're
+    // leaving, never the one you land on.
+    setConfirmDeleteOpen(false);
     setCurrent((prev) => Math.min(photos.length - 1, Math.max(0, prev + delta)));
   }
 
@@ -142,6 +166,7 @@ export function ZoomablePhoto({
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
         resetCompose();
+        setConfirmDeleteOpen(false);
         setOpen(false);
         return;
       }
@@ -227,6 +252,22 @@ export function ZoomablePhoto({
       }
       invalidateMarkups(currentPhotoId);
     });
+  }
+
+  // Photo-level delete (feedback 7c3347b3). Only the SA capture surface
+  // passes `canDelete` + `onDeletePhoto`; the affordance applies to the
+  // CURRENT photo and is hidden while composing markup (no delete mid-draw).
+  const canDeleteCurrent =
+    canDelete === true && currentPhotoId !== null && onDeletePhoto !== undefined && !composing;
+  const isDeleting = deletingPhotoId !== null && deletingPhotoId === currentPhotoId;
+
+  function handleDeleteConfirmed() {
+    setConfirmDeleteOpen(false);
+    if (currentPhotoId && onDeletePhoto) {
+      onDeletePhoto(currentPhotoId);
+      // The photo is gone — drop the detail back to the grid.
+      closeDialog();
+    }
   }
 
   const savedStrokes: MarkupStroke[] = (markups ?? []).flatMap((m) => m.strokes ?? []);
@@ -507,6 +548,30 @@ export function ZoomablePhoto({
               </button>
             </>
           ) : null}
+          {/* Photo delete lives HERE, in the detail view — never on the
+              grid thumbnail (feedback 7c3347b3). Top-center: clear of the
+              group counter (top-left) and the close button (top-right). */}
+          {canDeleteCurrent ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setConfirmDeleteOpen(true);
+              }}
+              disabled={isDeleting}
+              className="absolute top-3 left-1/2 inline-flex h-10 -translate-x-1/2 items-center gap-1.5 rounded-full border border-red-500/60 bg-zinc-950/80 px-3.5 text-xs font-semibold text-red-300 backdrop-blur-sm transition-colors hover:bg-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:opacity-50"
+            >
+              {isDeleting ? (
+                <span
+                  aria-hidden="true"
+                  className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-red-300/40 border-t-red-300"
+                />
+              ) : (
+                <Trash2 aria-hidden className="h-4 w-4" />
+              )}
+              ลบรูป
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={closeDialog}
@@ -533,6 +598,21 @@ export function ZoomablePhoto({
                 if (removeTarget) handleRemoveConfirmed(removeTarget);
               }}
               onCancel={() => setRemoveTarget(null)}
+            />
+          </span>
+          {/* Photo delete confirm (feedback 7c3347b3) — same stop-bubbling
+              wrapper so the prompt's own backdrop doesn't close the lightbox. */}
+          <span
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerUp={(e) => e.stopPropagation()}
+          >
+            <ConfirmDialog
+              open={confirmDeleteOpen}
+              message={"ลบรูปนี้หรือไม่? การลบไม่สามารถย้อนกลับได้"}
+              confirmLabel="ลบรูป"
+              onConfirm={handleDeleteConfirmed}
+              onCancel={() => setConfirmDeleteOpen(false)}
             />
           </span>
         </div>
