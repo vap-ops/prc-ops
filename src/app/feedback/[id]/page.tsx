@@ -12,7 +12,9 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { FeedbackThread } from "@/components/features/feedback/feedback-thread";
 import { FeedbackReply } from "@/components/features/feedback/feedback-reply";
 import { FeedbackDrafts } from "@/components/features/feedback/feedback-drafts";
+import { FeedbackAttachmentGallery } from "@/components/features/feedback/feedback-attachment-gallery";
 import { MarkFeedbackViewed } from "@/components/features/feedback/mark-feedback-viewed";
+import { loadFeedbackAttachmentUrls } from "@/lib/feedback/attachment-urls";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { CARD } from "@/lib/ui/classes";
 import { safeBackHref } from "@/lib/nav/back-href";
@@ -63,6 +65,11 @@ export default async function FeedbackDetailPage({ params, searchParams }: PageP
     .eq("id", id)
     .maybeSingle();
   if (!feedback) notFound();
+
+  // Bug 8e9c9fc7 — surface the attached screenshots. Reading the feedback row above
+  // means the viewer passed its RLS (own-or-super_admin), so they're authorised for
+  // its attachments; loadFeedbackAttachmentUrls mints the signed URLs via the admin.
+  const attachmentUrls = (await loadFeedbackAttachmentUrls([feedback.id])).get(feedback.id) ?? [];
 
   const { data: msgs } = await supabase
     .from("feedback_messages")
@@ -119,6 +126,7 @@ export default async function FeedbackDetailPage({ params, searchParams }: PageP
           </div>
           <p className="text-ink text-base font-semibold">{feedback.title}</p>
           <p className="text-ink-secondary text-sm whitespace-pre-wrap">{feedback.body}</p>
+          <FeedbackAttachmentGallery urls={attachmentUrls} />
         </div>
 
         <div className="flex flex-col gap-3">
