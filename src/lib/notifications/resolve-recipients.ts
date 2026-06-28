@@ -36,6 +36,10 @@ export function resolveRecipients(
       return without(context.pmIds, payload.requestedBy);
     case "wp_decision":
       return without(context.wpUploaderIds, payload.decidedBy);
+    // Spec 218 U5 — a defect reopened the WP; ping the SAs who shot it (minus the
+    // reopener — no self-notification) to come fix it.
+    case "wp_reopened":
+      return without(context.wpUploaderIds, payload.reopenedBy);
     case "pr_decision":
       return payload.requestedBy ? without([payload.requestedBy], payload.decidedBy) : [];
     case "pr_progress":
