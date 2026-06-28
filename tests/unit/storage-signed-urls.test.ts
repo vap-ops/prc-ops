@@ -106,6 +106,7 @@ describe("wrappers", () => {
         uploaded_by: "u",
         created_at: "2026-06-13T00:00:00Z",
         superseded_by: null,
+        rework_round: 0,
       },
     ]);
     expect(createSignedUrls.mock.calls[0]?.[0]).toBe("photos");

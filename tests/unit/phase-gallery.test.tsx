@@ -17,6 +17,7 @@ function photo(id: string, uploadedBy: string): PhotoLogRow {
     uploaded_by: uploadedBy,
     created_at: "2026-06-28T03:00:00Z",
     captured_at_client: "2026-06-28T03:00:00Z",
+    rework_round: 0,
   };
 }
 

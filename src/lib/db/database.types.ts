@@ -2130,6 +2130,7 @@ export type Database = {
           created_at: string
           id: string
           phase: Database["public"]["Enums"]["photo_phase"]
+          rework_round: number
           storage_path: string | null
           superseded_by: string | null
           uploaded_by: string
@@ -2140,6 +2141,7 @@ export type Database = {
           created_at?: string
           id?: string
           phase: Database["public"]["Enums"]["photo_phase"]
+          rework_round?: number
           storage_path?: string | null
           superseded_by?: string | null
           uploaded_by: string
@@ -2150,6 +2152,7 @@ export type Database = {
           created_at?: string
           id?: string
           phase?: Database["public"]["Enums"]["photo_phase"]
+          rework_round?: number
           storage_path?: string | null
           superseded_by?: string | null
           uploaded_by?: string
@@ -4333,6 +4336,7 @@ export type Database = {
           planned_start: string | null
           priority: Database["public"]["Enums"]["work_package_priority"]
           project_id: string
+          rework_round: number
           status: Database["public"]["Enums"]["work_package_status"]
           updated_at: string
         }
@@ -4351,6 +4355,7 @@ export type Database = {
           planned_start?: string | null
           priority?: Database["public"]["Enums"]["work_package_priority"]
           project_id: string
+          rework_round?: number
           status?: Database["public"]["Enums"]["work_package_status"]
           updated_at?: string
         }
@@ -4369,6 +4374,7 @@ export type Database = {
           planned_start?: string | null
           priority?: Database["public"]["Enums"]["work_package_priority"]
           project_id?: string
+          rework_round?: number
           status?: Database["public"]["Enums"]["work_package_status"]
           updated_at?: string
         }
