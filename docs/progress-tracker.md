@@ -8,7 +8,7 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ## Spec 219 — Catalog subcategory taxonomy + 2-level filter (2026-06-28)
 
-Status: **U1 (schema) + U2 (manage UI) COMPLETE; U3 next.**
+Status: **SHIPPED — U1 (schema) + U2 (manage UI) + U3 (drill filter) all COMPLETE.**
 Spec: `219-catalog-subcategory-taxonomy.md`. Operator asked to redesign the
 ทะเบียนวัสดุ (`/catalog`) filter "uxui pro max" because the register has categories +
 subcategories; chose to **model the subcategory as a real taxonomy table** (over a
@@ -54,9 +54,17 @@ name, sort_order, is_active, created_at)`; unique `(category, code)` + unique
     `add-catalog-item` (scoped options) + `subcategoryId` added to the existing add/edit
     call-shape assertions + `nav-back-affordance` route registered. lint · typecheck ·
     vitest **1935** green. Code-only — auto-merges on green CI.
-- **U3 (next, code-only, the original ask)** — rewrite `catalog-list.tsx` to the 2-level drill
-  (search · หมวดหลัก strip · drill-in หมวดย่อย strip with real names · breadcrumb ·
-  grouped results · `ยังไม่มีหมวดย่อย` bucket).
+- **U3 — the 2-level drill filter (this unit, code-only, the original ask).** Rewrote
+  `catalog-list.tsx` from the flat 13-chip cloud to a drill: a horizontal-scroll หมวดหลัก
+  strip (single-select, counts) → on category select a drill-in หมวดย่อย strip reading the
+  real `catalog_subcategories` names (counts) + a `ยังไม่มีหมวดย่อย` bucket for uncoded items
+  → a breadcrumb (`ทั้งหมด › category › subcategory`, crumbs pop a level) → results grouped by
+  subcategory (vs by category at the top level). Search **overrides** the drill (flat,
+  category-grouped). No schema, no new data — the page already feeds `subcategories` +
+  `subcategory_id` (U2). Test-first: 6 drill tests added to `catalog-list.test.tsx` (strip
+  reveal, sub filter, uncoded bucket, breadcrumb reset); the existing 13 still pass (kept the
+  RadioChip strips + grouped sections; the sub "all" chip is `ทุกหมวดย่อย` to avoid a radio-name
+  clash, breadcrumb reset is a `button`). lint · typecheck · vitest **1940** green.
 
 ## Spec 218 — SA rework clarity ("ต้องแก้ไข") (2026-06-28)
 

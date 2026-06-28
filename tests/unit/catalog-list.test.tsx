@@ -154,3 +154,91 @@ describe("CatalogList (spec 175)", () => {
     expect(screen.getByText(/ไม่พบวัสดุที่ค้นหา/)).toBeInTheDocument();
   });
 });
+
+// Spec 219 U3 — the 2-level drill (category → subcategory). Selecting a category
+// reveals a subcategory strip (real names + a ยังไม่มีหมวดย่อย bucket); a
+// breadcrumb pops levels.
+describe("CatalogList — 2-level drill (spec 219 U3)", () => {
+  const SUBS = [
+    { id: "sub-struct", category: "steel_fixing", code: "01", name: "วัสดุโครงสร้าง" },
+    { id: "sub-fasten", category: "steel_fixing", code: "02", name: "อุปกรณ์ยึด" },
+  ];
+  const drillItems: CatalogItem[] = [
+    {
+      id: "s1",
+      category: "steel_fixing",
+      baseItem: "เหล็กข้ออ้อย",
+      specAttrs: "12 มิล",
+      unit: "ท่อน",
+      subcategoryId: "sub-struct",
+    },
+    {
+      id: "s2",
+      category: "steel_fixing",
+      baseItem: "ลวดผูกเหล็ก",
+      specAttrs: null,
+      unit: "กก.",
+      subcategoryId: "sub-fasten",
+    },
+    {
+      id: "s3",
+      category: "steel_fixing",
+      baseItem: "ตะปูเหล็ก",
+      specAttrs: null,
+      unit: "กล่อง",
+      subcategoryId: null,
+    },
+    {
+      id: "e1",
+      category: "electrical",
+      baseItem: "สายไฟ",
+      specAttrs: null,
+      unit: "ม้วน",
+      subcategoryId: null,
+    },
+  ];
+
+  function selectSteel() {
+    render(<CatalogList items={drillItems} subcategories={SUBS} />);
+    fireEvent.click(
+      screen.getByRole("radio", { name: new RegExp(ITEM_CATEGORY_LABEL.steel_fixing) }),
+    );
+  }
+
+  it("no subcategory strip until a category is chosen", () => {
+    render(<CatalogList items={drillItems} subcategories={SUBS} />);
+    expect(screen.queryByRole("radio", { name: /ทุกหมวดย่อย/ })).toBeNull();
+  });
+
+  it("reveals a subcategory strip (names + an uncoded bucket) when a category is selected", () => {
+    selectSteel();
+    expect(screen.getByRole("radio", { name: /ทุกหมวดย่อย/ })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /วัสดุโครงสร้าง/ })).toBeInTheDocument();
+    // anchored: the category chip "เหล็ก / อุปกรณ์ยึด" also contains "อุปกรณ์ยึด"
+    expect(screen.getByRole("radio", { name: /^อุปกรณ์ยึด/ })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /ยังไม่มีหมวดย่อย/ })).toBeInTheDocument();
+  });
+
+  it("filtering by a subcategory shows only that subcategory's items", () => {
+    selectSteel();
+    fireEvent.click(screen.getByRole("radio", { name: /วัสดุโครงสร้าง/ }));
+    expect(screen.getByText("เหล็กข้ออ้อย")).toBeInTheDocument();
+    expect(screen.queryByText("ลวดผูกเหล็ก")).toBeNull();
+    expect(screen.queryByText("ตะปูเหล็ก")).toBeNull();
+  });
+
+  it("the uncoded bucket filters to items with no subcategory", () => {
+    selectSteel();
+    fireEvent.click(screen.getByRole("radio", { name: /ยังไม่มีหมวดย่อย/ }));
+    expect(screen.getByText("ตะปูเหล็ก")).toBeInTheDocument();
+    expect(screen.queryByText("เหล็กข้ออ้อย")).toBeNull();
+  });
+
+  it("shows a breadcrumb whose ทั้งหมด crumb restores all categories", () => {
+    selectSteel();
+    // electrical is hidden while drilled into the steel category
+    expect(screen.queryByText("สายไฟ")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "ทั้งหมด" }));
+    expect(screen.getByText("สายไฟ")).toBeInTheDocument();
+  });
+});
