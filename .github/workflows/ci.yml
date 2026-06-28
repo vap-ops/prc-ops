@@ -103,7 +103,7 @@ jobs:
           head="${{ github.event.pull_request.head.sha }}"
           changed="$(git diff --name-only "$base" "$head")"
           echo "Changed files:"; echo "$changed"
-          deny='^(supabase/migrations/|supabase/tests/|src/lib/auth/|src/lib/db/admin\.ts|src/lib/accounting/|src/lib/labor/|src/lib/notifications/|src/app/api/notifications/|worker/|\.github/|\.claude/|CLAUDE\.md|docs/decisions/|docs/policies/|CODEOWNERS|package\.json|pnpm-lock\.yaml|\.env)'
+          deny='^(supabase/migrations/|supabase/tests/|src/lib/auth/|proxy\.ts$|middleware\.ts$|src/lib/db/admin\.ts|src/lib/accounting/|src/lib/labor/|src/lib/notifications/|src/app/api/notifications/|worker/|\.github/|\.claude/|CLAUDE\.md|docs/decisions/|docs/policies/|CODEOWNERS|package\.json|pnpm-lock\.yaml|\.env)'
           hits="$(echo "$changed" | grep -E "$deny" || true)"
           if [ -n "$hits" ]; then
             echo "::error::Protected path(s) touched — this PR needs operator review and cannot auto-merge:"
