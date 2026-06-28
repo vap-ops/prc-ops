@@ -20,8 +20,11 @@ spec 215) photos collided in one bucket and only the latest reason showed. Opera
   WP counter and stamp `round` into the audit payload. Applied to the shared DB; db:types
   regen'd. pgTAP 75 += round-1 / audit-round / second-reopen / round-2 (187/187, 0 fails).
   Test fixtures that build full `PhotoLogRow` literals gained `rework_round: 0`.
-- **U2 (next) — write side.** `addPhoto` stamps after_fix inserts with `wp.rework_round`;
-  supersede/tombstone propagates the round.
+- **U2 (this PR) — write side.** `addPhoto` selects `wp.rework_round` and stamps
+  after_fix inserts with it (other phases → 0) via the pure `photoReworkRoundFor`
+  helper; `removePhoto` reads the target's round and `buildTombstoneRow` carries it so
+  a removal stays in the same cycle. Unit-tested (photo-write-helpers). No schema change
+  — rides on U1's columns, so it folds into the same held PR (#145).
 - **U3 — read side.** Group after_fix by round; map round → reason from the
   `wp_reopened_for_defect` audit rows.
 - **U4 — UI.** Capture into the current round ("หลังแก้ไข · รอบ N"); galleries render one

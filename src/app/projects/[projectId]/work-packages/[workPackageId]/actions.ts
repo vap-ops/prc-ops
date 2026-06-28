@@ -41,6 +41,7 @@ import {
   type PhotoExt,
 } from "@/lib/photos/path";
 import { buildTombstoneRow } from "@/lib/photos/tombstone";
+import { photoReworkRoundFor } from "@/lib/photos/rework-round";
 import {
   shouldTransitionToInProgress,
   shouldTransitionToPendingApproval,
@@ -80,7 +81,7 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
   // and we refuse without leaking whether the row exists.
   const { data: wp, error: wpError } = await supabase
     .from("work_packages")
-    .select("id, project_id, status")
+    .select("id, project_id, status, rework_round")
     .eq("id", input.workPackageId)
     .maybeSingle();
   if (wpError || !wp) return { ok: false, error: "ไม่พบรายการงาน" };
@@ -99,6 +100,9 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
     storage_path: storagePath,
     uploaded_by: user.id,
     captured_at_client: input.capturedAtClient ?? null,
+    // Spec 216: an after_fix (หลังแก้ไข) photo belongs to the WP's current rework
+    // cycle; every other phase stays round 0.
+    rework_round: photoReworkRoundFor(input.phase, wp.rework_round),
   });
   if (insertError) {
     // Spec 35 / ADR 0039: idempotent replay — the offline queue may
@@ -202,7 +206,7 @@ export async function removePhoto(input: RemovePhotoInput): Promise<RemovePhotoR
   // tombstone) — guards against double-remove from a stale UI.
   const { data: target, error: targetError } = await supabase
     .from("photo_logs")
-    .select("id, work_package_id, phase, storage_path")
+    .select("id, work_package_id, phase, storage_path, rework_round")
     .eq("id", input.photoLogId)
     .maybeSingle();
   if (targetError || !target) return { ok: false, error: "ไม่พบรูป" };
@@ -228,6 +232,8 @@ export async function removePhoto(input: RemovePhotoInput): Promise<RemovePhotoR
       phase: target.phase,
       targetPhotoId: target.id,
       uploadedBy: user.id,
+      // Spec 216: the removal stays in the same rework cycle as its target.
+      reworkRound: target.rework_round,
     }),
   );
   if (tombstoneError) {
