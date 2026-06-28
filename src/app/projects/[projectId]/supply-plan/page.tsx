@@ -144,7 +144,7 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
   // the purchase request, so it needs image_path + signed thumbnail URLs.
   const { data: catRows } = await supabase
     .from("catalog_items")
-    .select("id, category, base_item, spec_attrs, unit, image_path")
+    .select("id, category, base_item, spec_attrs, unit, image_path, product_code")
     .eq("is_active", true)
     .order("base_item", { ascending: true });
   const catalogThumbs = await mintSignedUrls(
@@ -158,6 +158,7 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
     specAttrs: r.spec_attrs,
     unit: r.unit,
     thumbnailUrl: catalogThumbs.get(r.id) ?? null,
+    productCode: r.product_code,
   }));
 
   const { data: wpRows } = await supabase

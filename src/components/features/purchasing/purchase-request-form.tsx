@@ -49,6 +49,9 @@ export interface PurchaseRequestCatalogItem {
   // Spec 180 pro-max: a signed URL for the item's reference image (minted by the
   // page), or null when the item has no image.
   thumbnailUrl: string | null;
+  // Spec 214 — the 6-digit product code; optional so existing item sources (and
+  // fixtures) need no change. The picker searches and shows it when present.
+  productCode?: string | null;
 }
 
 // Selected-segment colors mirror the request list's status pills (spec 21):

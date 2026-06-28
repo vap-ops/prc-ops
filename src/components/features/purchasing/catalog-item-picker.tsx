@@ -87,7 +87,11 @@ export function CatalogItemPicker({
   const matches = items.filter(
     (i) =>
       (category === ALL || i.category === category) &&
-      `${i.baseItem} ${i.specAttrs ?? ""} ${i.unit}`.toLowerCase().includes(q),
+      // Spec 214: the product code joins the haystack, so typing a code prefix
+      // (e.g. 0101) filters to it.
+      `${i.baseItem} ${i.specAttrs ?? ""} ${i.unit} ${i.productCode ?? ""}`
+        .toLowerCase()
+        .includes(q),
   );
 
   // Focus the search when the sheet opens. rAF runs after the BottomSheet's own
@@ -214,6 +218,11 @@ export function CatalogItemPicker({
                         <span className="text-ink-secondary">({i.unit})</span>
                       </span>
                       <span className="text-ink-muted text-meta block">
+                        {i.productCode ? (
+                          <span className="text-ink bg-sunk mr-1.5 rounded px-1.5 py-0.5 font-mono">
+                            {i.productCode}
+                          </span>
+                        ) : null}
                         {ITEM_CATEGORY_LABEL[i.category]}
                       </span>
                     </span>
