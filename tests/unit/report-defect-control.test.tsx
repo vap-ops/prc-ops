@@ -40,7 +40,7 @@ describe("ReportDefectControl", () => {
     expect(submit).toBeEnabled();
   });
 
-  it("reopens with the reason and refreshes on success", async () => {
+  it("reopens with the reason + the default internal source, and refreshes on success", async () => {
     open();
     fireEvent.change(screen.getByLabelText("รายละเอียดข้อบกพร่อง"), {
       target: { value: "รอยร้าวที่ผนัง" },
@@ -52,9 +52,26 @@ describe("ReportDefectControl", () => {
         projectId: "p1",
         workPackageId: "wp1",
         reason: "รอยร้าวที่ผนัง",
+        // Spec 217: defaults to internal (ตรวจภายใน) unless the client toggle is picked.
+        source: "internal",
       }),
     );
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
+  });
+
+  it("passes source=client when ลูกค้าแจ้ง is selected (spec 217)", async () => {
+    open();
+    fireEvent.change(screen.getByLabelText("รายละเอียดข้อบกพร่อง"), {
+      target: { value: "ลูกค้าพบรอยรั่ว" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "ลูกค้าแจ้ง" }));
+    fireEvent.click(screen.getByRole("button", { name: "เปิดงานใหม่" }));
+
+    await waitFor(() =>
+      expect(mockReport).toHaveBeenCalledWith(
+        expect.objectContaining({ source: "client", reason: "ลูกค้าพบรอยรั่ว" }),
+      ),
+    );
   });
 
   it("shows the action error inline and does not refresh", async () => {

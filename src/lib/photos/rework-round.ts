@@ -6,7 +6,7 @@
 // the original work cycle and stays round 0. All pure — unit-testable without a
 // Supabase mock.
 
-import type { PhotoPhase } from "@/lib/db/enums";
+import type { PhotoPhase, ReworkSource } from "@/lib/db/enums";
 import type { PhotoLogRow } from "@/lib/photos/current-photos";
 
 export function photoReworkRoundFor(phase: PhotoPhase, wpReworkRound: number): number {
@@ -21,9 +21,15 @@ export function reworkRoundTag(round: number): string {
 
 // The heading for a per-round หลังแก้ไข gallery section. Round 0 (legacy after_fix
 // rows captured before the round counter existed) shows the plain label — no
-// "รอบ 0".
-export function afterFixRoundHeading(baseLabel: string, round: number): string {
-  return round >= 1 ? `${baseLabel} — ${reworkRoundTag(round)}` : baseLabel;
+// "รอบ 0". Spec 217: an optional source label (ตรวจภายใน / ลูกค้าแจ้ง) is appended
+// when known; legacy rounds with no source omit it.
+export function afterFixRoundHeading(
+  baseLabel: string,
+  round: number,
+  sourceLabel?: string | null,
+): string {
+  const base = round >= 1 ? `${baseLabel} — ${reworkRoundTag(round)}` : baseLabel;
+  return sourceLabel ? `${base} · ${sourceLabel}` : base;
 }
 
 export interface AfterFixRoundGroup {
@@ -59,6 +65,24 @@ export function reworkReasonsFromAuditRows(
     const { round, reason } = p as { round?: unknown; reason?: unknown };
     if (typeof round === "number" && typeof reason === "string" && reason.length > 0) {
       map.set(round, reason);
+    }
+  }
+  return map;
+}
+
+// Map each rework round to its source (internal/client, spec 217), parsed from the
+// same `wp_reopened_for_defect` audit rows. Legacy reopens (pre-217) carry no
+// source and are skipped — callers render no source label for those rounds.
+export function reworkSourcesFromAuditRows(
+  rows: ReadonlyArray<{ payload: unknown }>,
+): Map<number, ReworkSource> {
+  const map = new Map<number, ReworkSource>();
+  for (const r of rows) {
+    const p = r.payload;
+    if (typeof p !== "object" || p === null) continue;
+    const { round, source } = p as { round?: unknown; source?: unknown };
+    if (typeof round === "number" && (source === "internal" || source === "client")) {
+      map.set(round, source);
     }
   }
   return map;

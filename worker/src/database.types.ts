@@ -5732,7 +5732,11 @@ export type Database = {
       }
       reopen_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
       reopen_work_package_for_defect: {
-        Args: { p_reason: string; p_wp: string }
+        Args: {
+          p_reason: string
+          p_source?: Database["public"]["Enums"]["rework_source"]
+          p_wp: string
+        }
         Returns: boolean
       }
       reorder_project_categories: {
@@ -6268,6 +6272,7 @@ export type Database = {
         | "site_purchased"
       report_status: "requested" | "processing" | "complete" | "failed"
       retention_status: "held" | "due" | "released" | "forfeited"
+      rework_source: "internal" | "client"
       service_subtype: "transport"
       supply_plan_status: "draft" | "submitted" | "approved" | "rejected"
       user_role:
@@ -6599,6 +6604,7 @@ export const Constants = {
       ],
       report_status: ["requested", "processing", "complete", "failed"],
       retention_status: ["held", "due", "released", "forfeited"],
+      rework_source: ["internal", "client"],
       service_subtype: ["transport"],
       supply_plan_status: ["draft", "submitted", "approved", "rejected"],
       user_role: [

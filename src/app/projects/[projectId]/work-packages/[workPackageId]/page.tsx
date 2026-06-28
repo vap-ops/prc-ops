@@ -22,6 +22,7 @@ import {
   WORK_PACKAGE_STATUS_LABEL,
   EQUIPMENT_TAB_LABEL,
   PHOTO_PHASE_LABEL,
+  reworkSourceLabel,
   formatThaiDateTime,
   formatThaiTime,
 } from "@/lib/i18n/labels";
@@ -177,6 +178,8 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     displayNames,
     defectReason,
     reworkReasons,
+    reworkSources,
+    defectSource,
   } = data;
 
   const assignedContractor = wp.contractor_id
@@ -323,7 +326,11 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
             ? afterFixRounds.map(({ round, photos }) => (
                 <PhaseGallery
                   key={`after_fix-${round}`}
-                  label={afterFixRoundHeading(PHOTO_PHASE_LABEL.after_fix, round)}
+                  label={afterFixRoundHeading(
+                    PHOTO_PHASE_LABEL.after_fix,
+                    round,
+                    reworkSourceLabel(reworkSources.get(round)),
+                  )}
                   photos={photos}
                   signedUrls={signedUrls}
                   uploaderNames={uploaderNames}
@@ -667,6 +674,12 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
       {wp.status === "rework" ? (
         <div className={`mx-auto ${PAGE_MAX_W} px-5 pt-5`}>
           <AttentionCard tone="amber" title="งานแก้ไข — เปิดใหม่จากข้อบกพร่อง">
+            {/* Spec 217: who called this rework (ตรวจภายใน / ลูกค้าแจ้ง). */}
+            {defectSource ? (
+              <p className="text-meta text-ink-secondary mb-1 font-semibold">
+                ที่มา: {reworkSourceLabel(defectSource)}
+              </p>
+            ) : null}
             {defectReason ? (
               <p className="whitespace-pre-wrap">{defectReason}</p>
             ) : (
