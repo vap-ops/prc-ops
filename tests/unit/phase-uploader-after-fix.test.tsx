@@ -53,4 +53,24 @@ describe("PhotoCaptureZone after_fix tile (feedback 0fa23307)", () => {
     // available, not locked-out (the tile is always tappable)
     expect(afterFix).toBeEnabled();
   });
+
+  it("separates หลังแก้ไข from the lifecycle row — it is a rework addendum, not a 4th sequential phase", () => {
+    render(
+      <PhotoCaptureZone
+        projectId="p1"
+        workPackageId="w1"
+        userId="u1"
+        phases={phases}
+        currentPhase="before"
+      />,
+    );
+    const before = screen.getByRole("button", { name: "ถ่ายรูป เตรียมงาน" });
+    const after = screen.getByRole("button", { name: "ถ่ายรูป แล้วเสร็จ" });
+    const afterFix = screen.getByRole("button", { name: "ถ่ายรูป หลังแก้ไข" });
+    // The three lifecycle tiles share one switcher grid…
+    const lifecycleGrid = before.parentElement;
+    expect(lifecycleGrid).toContainElement(after);
+    // …and หลังแก้ไข lives OUTSIDE it (its own divided-off line).
+    expect(lifecycleGrid).not.toContainElement(afterFix);
+  });
 });
