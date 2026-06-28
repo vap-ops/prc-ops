@@ -31,6 +31,8 @@ const ALLOWED_DOMAINS = [
   "feedback",
   // Spec 192 U4b: the site-admin daily home (/sa) feature components (DailyHero).
   "sa",
+  // Feedback 1d648880: the projects-hub filter/sort bar.
+  "projects",
 ] as const;
 
 describe("feature components are grouped into domain folders", () => {
