@@ -161,6 +161,7 @@ export type Database = {
           image_path: string | null
           is_active: boolean
           note: string | null
+          product_code: string | null
           spec_attrs: string | null
           stockable: boolean
           unit: string
@@ -173,6 +174,7 @@ export type Database = {
           image_path?: string | null
           is_active?: boolean
           note?: string | null
+          product_code?: string | null
           spec_attrs?: string | null
           stockable?: boolean
           unit: string
@@ -185,6 +187,7 @@ export type Database = {
           image_path?: string | null
           is_active?: boolean
           note?: string | null
+          product_code?: string | null
           spec_attrs?: string | null
           stockable?: boolean
           unit?: string
@@ -5179,6 +5182,7 @@ export type Database = {
           p_base_item: string
           p_category: Database["public"]["Enums"]["item_category"]
           p_note: string
+          p_product_code?: string
           p_spec_attrs: string
           p_stockable: boolean
           p_unit: string
@@ -5986,6 +5990,7 @@ export type Database = {
           p_category: Database["public"]["Enums"]["item_category"]
           p_id: string
           p_note: string
+          p_product_code?: string
           p_spec_attrs: string
           p_stockable: boolean
           p_unit: string

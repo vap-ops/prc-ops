@@ -7,8 +7,9 @@
 
 import { useState, useTransition } from "react";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
-import { ITEM_CATEGORY_LABEL } from "@/lib/i18n/labels";
+import { ITEM_CATEGORY_LABEL, PRODUCT_CODE_LABEL } from "@/lib/i18n/labels";
 import { COMMON_UNITS, UNIT_OTHER_VALUE } from "@/lib/purchasing/units";
+import { isValidProductCode } from "@/lib/catalog/validate";
 import type { Database } from "@/lib/db/database.types";
 
 type ItemCategory = Database["public"]["Enums"]["item_category"];
@@ -20,6 +21,7 @@ export type CatalogItemValues = {
   specAttrs: string;
   unit: string;
   note: string;
+  productCode: string;
 };
 
 export type CatalogFormResult = { ok: true } | { ok: false; error: string };
@@ -30,6 +32,7 @@ export const EMPTY_CATALOG_VALUES: CatalogItemValues = {
   specAttrs: "",
   unit: "",
   note: "",
+  productCode: "",
 };
 
 const LABEL = "text-sm font-medium text-ink";
@@ -64,11 +67,14 @@ export function CatalogItemForm({
   );
   const [unitOther, setUnitOther] = useState(initUnitIsCommon ? "" : initial.unit);
   const [note, setNote] = useState(initial.note);
+  const [productCode, setProductCode] = useState(initial.productCode);
   const [error, setError] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
 
   const resolvedUnit = unitChoice === UNIT_OTHER_VALUE ? unitOther.trim() : unitChoice;
-  const canSubmit = category !== "" && baseItem.trim() !== "" && resolvedUnit !== "" && !submitting;
+  const codeValid = isValidProductCode(productCode);
+  const canSubmit =
+    category !== "" && baseItem.trim() !== "" && resolvedUnit !== "" && codeValid && !submitting;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -81,6 +87,7 @@ export function CatalogItemForm({
         specAttrs,
         unit: resolvedUnit,
         note,
+        productCode: productCode.trim(),
       });
       if (!result.ok) {
         setError(result.error);
@@ -142,6 +149,27 @@ export function CatalogItemForm({
           className={FIELD}
           placeholder="เช่น 12 มิล"
         />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="ci-code" className={LABEL}>
+          {PRODUCT_CODE_LABEL} (ถ้ามี)
+        </label>
+        <input
+          id="ci-code"
+          type="text"
+          inputMode="numeric"
+          value={productCode}
+          maxLength={6}
+          onChange={(e) => setProductCode(e.target.value.replace(/[^0-9]/g, ""))}
+          disabled={submitting}
+          className={FIELD}
+          placeholder="เช่น 010120"
+          aria-invalid={!codeValid}
+        />
+        <p className={codeValid ? "text-ink-muted text-meta" : "text-danger text-meta"}>
+          6 หลัก — 2 หลักแรกหมวดหลัก · 2 หลักถัดไปหมวดย่อย · 2 หลักท้ายลำดับ
+        </p>
       </div>
 
       <div className="flex flex-col gap-1.5">

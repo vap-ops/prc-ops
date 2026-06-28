@@ -95,6 +95,9 @@ export const STORE_RETURN_TO_STORE_LABEL = "คืนเข้าคลัง";
 export const MATERIAL_LOG_LABEL = "ประวัติวัสดุ";
 export const STOCK_COUNT_LABEL = "ตรวจนับ";
 
+// Spec 214 — the structured 6-digit product code (main 2 + sub 2 + sequence 2).
+export const PRODUCT_CODE_LABEL = "รหัสสินค้า";
+
 // Feedback 8bb3dc63 — people reached for ตรวจนับ (recount) to "fix" a เบิก they
 // recorded with the wrong qty, expecting the cost to reverse; it didn't, because
 // a recount reconciles the on-hand NUMBER to physical truth, it is not an

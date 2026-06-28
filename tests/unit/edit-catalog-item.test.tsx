@@ -28,6 +28,7 @@ const item: CatalogItem = {
   baseItem: "สายไฟเดิม",
   specAttrs: "2x4",
   unit: "ม้วน",
+  productCode: "010120",
   note: "",
 };
 
@@ -43,10 +44,11 @@ function open() {
 }
 
 describe("EditCatalogItem (spec 175 U3)", () => {
-  it("opens pre-filled with the item's values", () => {
+  it("opens pre-filled with the item's values (incl. product code)", () => {
     open();
     expect(screen.getByLabelText("ชื่อวัสดุ")).toHaveValue("สายไฟเดิม");
     expect(screen.getByLabelText("หน่วยนับ")).toHaveValue("ม้วน");
+    expect(screen.getByLabelText(/รหัสสินค้า/)).toHaveValue("010120");
   });
 
   it("saves the edited values and refreshes", async () => {
@@ -62,6 +64,7 @@ describe("EditCatalogItem (spec 175 U3)", () => {
         specAttrs: "2x4",
         unit: "ม้วน",
         note: "",
+        productCode: "010120",
       }),
     );
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());

@@ -45,6 +45,8 @@ describe("AddCatalogItem (spec 175 U2)", () => {
   it("creates the item with the entered values and refreshes", async () => {
     open();
     fillRequired();
+    // Spec 214 — an optional 6-digit product code flows through.
+    fireEvent.change(screen.getByLabelText(/รหัสสินค้า/), { target: { value: "010120" } });
     fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายการ" }));
 
     await waitFor(() =>
@@ -54,6 +56,7 @@ describe("AddCatalogItem (spec 175 U2)", () => {
         specAttrs: "",
         unit: "ม้วน",
         note: "",
+        productCode: "010120",
       }),
     );
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());

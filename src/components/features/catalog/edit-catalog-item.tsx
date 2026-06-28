@@ -62,6 +62,7 @@ export function EditCatalogItem({ item }: { item: CatalogItem }) {
             specAttrs: item.specAttrs ?? "",
             unit: item.unit,
             note: item.note ?? "",
+            productCode: item.productCode ?? "",
           }}
           submitLabel="บันทึก"
           submittingLabel="กำลังบันทึก…"
