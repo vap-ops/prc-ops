@@ -84,7 +84,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
   // signed thumbnail URLs (private bucket → service-role signed URLs).
   const { data: catalogRows } = await supabase
     .from("catalog_items")
-    .select("id, category, base_item, spec_attrs, unit, image_path")
+    .select("id, category, base_item, spec_attrs, unit, image_path, product_code")
     .eq("is_active", true)
     .order("base_item", { ascending: true });
   const catalogThumbs = await mintSignedUrls(
@@ -98,6 +98,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
     specAttrs: r.spec_attrs,
     unit: r.unit,
     thumbnailUrl: catalogThumbs.get(r.id) ?? null,
+    productCode: r.product_code,
   }));
 
   const photosByPhase = await getCurrentPhotosForWorkPackage(supabase, wp.id);

@@ -137,9 +137,10 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     // Spec 179: the active catalog master feeds the คำขอซื้อ item picker
     // (project-agnostic reference data; readable by any authenticated user).
     // Spec 180: image_path rides along for the picker's thumbnails.
+    // Spec 214: product_code rides along so the picker searches by code.
     supabase
       .from("catalog_items")
-      .select("id, category, base_item, spec_attrs, unit, image_path")
+      .select("id, category, base_item, spec_attrs, unit, image_path, product_code")
       .eq("is_active", true)
       .order("base_item", { ascending: true }),
     // Spec 202 U2: the อุปกรณ์ tab. The registry (RATE-FREE — daily_rate is
@@ -253,6 +254,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     specAttrs: r.spec_attrs,
     unit: r.unit,
     thumbnailUrl: catalogThumbs.get(r.id) ?? null,
+    productCode: r.product_code,
   }));
 
   // Spec 209 U2: Σ returned qty per issue, to derive the remaining-returnable.
