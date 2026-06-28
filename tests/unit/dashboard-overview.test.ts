@@ -31,4 +31,17 @@ describe("rollupProgress", () => {
   it("all complete → 100", () => {
     expect(rollupProgress([{ status: "complete" }, { status: "complete" }]).pctComplete).toBe(100);
   });
+
+  // Operator (spec 218): a defect-reopened WP (rework) needs a human — it must
+  // count in งานต้องดูแล alongside on_hold + pending_approval.
+  it("counts 'rework' as needs-attention", () => {
+    const r = rollupProgress([
+      { status: "rework" },
+      { status: "on_hold" },
+      { status: "pending_approval" },
+      { status: "in_progress" },
+      { status: "complete" },
+    ]);
+    expect(r.needsAttention).toBe(3); // rework + on_hold + pending_approval
+  });
 });

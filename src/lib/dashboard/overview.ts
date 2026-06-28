@@ -6,11 +6,13 @@ export interface ProjectProgress {
   complete: number;
   /** 0..100, rounded; 0 when there are no work packages. */
   pctComplete: number;
-  /** WPs that need a human: on_hold or pending_approval. */
+  /** WPs that need a human: on_hold, pending_approval, or rework. */
   needsAttention: number;
 }
 
-const ATTENTION = new Set(["on_hold", "pending_approval"]);
+// Spec 218: rework (a defect reopened the WP — the site must fix + recapture)
+// needs a human as much as on_hold / pending_approval, so it counts here too.
+const ATTENTION = new Set(["on_hold", "pending_approval", "rework"]);
 
 export function rollupProgress(wps: ReadonlyArray<{ status: string }>): ProjectProgress {
   const total = wps.length;
