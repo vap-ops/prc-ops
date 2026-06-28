@@ -6,6 +6,43 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 219 — Catalog subcategory taxonomy + 2-level filter (2026-06-28)
+
+Status: **U1 COMPLETE** (schema lane, held PR — touches `migrations/` + `worker/`).
+Spec: `219-catalog-subcategory-taxonomy.md`. Operator asked to redesign the
+ทะเบียนวัสดุ (`/catalog`) filter "uxui pro max" because the register has categories +
+subcategories; chose to **model the subcategory as a real taxonomy table** (over a
+labels-map / code-only shim), then chose to **build it now** (schema lane was free).
+
+- **U1 — schema + CRUD RPCs (this unit).** Migration `20260813015000`:
+  - `public.catalog_subcategories (id, category item_category, code text 2-digit,
+name, sort_order, is_active, created_at)`; unique `(category, code)` + unique
+    `(id, category)`; RLS on, `select` to authenticated, no write policy (reference
+    data — written via RPC, the `catalog_items` posture). Seed one anchor:
+    `(steel_fixing, '01', 'วัสดุโครงสร้าง')`.
+  - `catalog_items.subcategory_id uuid` nullable + **composite FK**
+    `(subcategory_id, category) → catalog_subcategories(id, category)` so an item's
+    category must equal its subcategory's (nulls skip the check — uncoded items OK).
+  - RPCs (definer, back-office gate, revoke public/anon, grant authenticated):
+    `create_catalog_subcategory` / `update_catalog_subcategory`; **DROP+CREATE**
+    `create_catalog_item` (+`p_subcategory_id`, now 8-arg) and `update_catalog_item`
+    (+`p_subcategory_id`, now 9-arg) with a category-match guard (→ 22023). `product_code`
+    stays the free spec-214 string.
+  - **Test-first** `219-catalog-subcategory.test.sql` (21 asserts: structure, composite
+    FK, RLS/grants, seed, both RPCs + the item-RPC category-match guard). Updated the
+    signature **pins** in `120-create-catalog-item` / `121-edit-catalog-item` to the new
+    arity (the DROP+CREATE moved them). `pnpm db:test` 188/188 files · 3276 asserts · 0
+    fails; lint · typecheck · vitest 1927 all green. `db:types` regenerated.
+  - Note: branched off `origin/main` (which lacks the held `014000`); migration is
+    `015000`, pushed to the shared DB (only `015000` applied — `013000`/`014000` already
+    present). Transient main-gap until #159 (`014000`) merges, per the operator's go.
+
+- **U2 (next, code-only)** — back-office manage-screen + cascading subcategory `<select>`
+  on the item form.
+- **U3 (code-only, the original ask)** — rewrite `catalog-list.tsx` to the 2-level drill
+  (search · หมวดหลัก strip · drill-in หมวดย่อย strip with real names · breadcrumb ·
+  grouped results · `ยังไม่มีหมวดย่อย` bucket).
+
 ## Spec 218 — SA rework clarity ("ต้องแก้ไข") (2026-06-28)
 
 Status: **U1–U4 in one code-only PR** (in-app clarity); **U5 notifications = separate

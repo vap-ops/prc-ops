@@ -164,6 +164,7 @@ export type Database = {
           product_code: string | null
           spec_attrs: string | null
           stockable: boolean
+          subcategory_id: string | null
           unit: string
         }
         Insert: {
@@ -177,6 +178,7 @@ export type Database = {
           product_code?: string | null
           spec_attrs?: string | null
           stockable?: boolean
+          subcategory_id?: string | null
           unit: string
         }
         Update: {
@@ -190,7 +192,46 @@ export type Database = {
           product_code?: string | null
           spec_attrs?: string | null
           stockable?: boolean
+          subcategory_id?: string | null
           unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_items_subcategory_fk"
+            columns: ["subcategory_id", "category"]
+            isOneToOne: false
+            referencedRelation: "catalog_subcategories"
+            referencedColumns: ["id", "category"]
+          },
+        ]
+      }
+      catalog_subcategories: {
+        Row: {
+          category: Database["public"]["Enums"]["item_category"]
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["item_category"]
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["item_category"]
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
         }
         Relationships: []
       }
@@ -5191,7 +5232,17 @@ export type Database = {
           p_product_code?: string
           p_spec_attrs: string
           p_stockable: boolean
+          p_subcategory_id?: string
           p_unit: string
+        }
+        Returns: string
+      }
+      create_catalog_subcategory: {
+        Args: {
+          p_category: Database["public"]["Enums"]["item_category"]
+          p_code: string
+          p_name: string
+          p_sort_order?: number
         }
         Returns: string
       }
@@ -6003,7 +6054,17 @@ export type Database = {
           p_product_code?: string
           p_spec_attrs: string
           p_stockable: boolean
+          p_subcategory_id?: string
           p_unit: string
+        }
+        Returns: undefined
+      }
+      update_catalog_subcategory: {
+        Args: {
+          p_id: string
+          p_is_active: boolean
+          p_name: string
+          p_sort_order: number
         }
         Returns: undefined
       }
