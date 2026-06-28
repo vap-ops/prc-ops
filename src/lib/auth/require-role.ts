@@ -16,6 +16,7 @@
 
 import "server-only";
 
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/db/server";
 import { roleHome, type UserRole } from "./role-home";
@@ -28,11 +29,20 @@ export interface UserContext {
   fullName: string | null;
 }
 
-export async function requireRole(allowedRoles: ReadonlyArray<UserRole>): Promise<UserContext> {
+// Per-request memo of the caller's identity. A protected page and the server
+// components it renders (labor cost views, contact blocks, the upload-queue
+// runner, …) each call requireRole independently — without this, every one of
+// them fires its own getClaims + users-row SELECT on the same render. React's
+// cache() dedups them to a single load per request: the cache is request-scoped
+// (it never crosses requests, so it can never return one user's row to another)
+// and within a request the caller is always the same user. Returns null for the
+// no-session / verify-failure / missing-row cases; requireRole maps null to the
+// appropriate redirect so the gate's observable behaviour is unchanged.
+const loadUserContext = cache(async (): Promise<UserContext | null> => {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
   if (!data) {
-    redirect("/login");
+    return null;
   }
   const userId = data.claims.sub;
 
@@ -47,17 +57,19 @@ export async function requireRole(allowedRoles: ReadonlyArray<UserRole>): Promis
     // it's somehow missing the safest thing is to send the user back to /login
     // rather than guess a role.
     console.error("[requireRole] users row missing", { userId });
+    return null;
+  }
+
+  return { id: userId, role: row.role, fullName: row.full_name };
+});
+
+export async function requireRole(allowedRoles: ReadonlyArray<UserRole>): Promise<UserContext> {
+  const ctx = await loadUserContext();
+  if (!ctx) {
     redirect("/login");
   }
-
-  const role = row.role;
-  if (!allowedRoles.includes(role)) {
-    redirect(roleHome(role));
+  if (!allowedRoles.includes(ctx.role)) {
+    redirect(roleHome(ctx.role));
   }
-
-  return {
-    id: userId,
-    role,
-    fullName: row.full_name,
-  };
+  return ctx;
 }
