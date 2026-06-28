@@ -24,6 +24,18 @@ describe("composeNotification", () => {
     );
   });
 
+  it("composes wp_reopened with the round + WP, pointing back to the app (spec 218)", () => {
+    expect(
+      composeNotification("wp_reopened", { code: "WP-014", name: "ผนังกันตก", round: 2 }, {}),
+    ).toBe("งานถูกเปิดใหม่เพื่อแก้ไข (รอบ 2): WP-014 ผนังกันตก — เปิดแอปดูข้อบกพร่อง");
+  });
+
+  it("drops the round suffix for a legacy reopen with round 0", () => {
+    expect(composeNotification("wp_reopened", { code: "WP-014", name: "ผนัง", round: 0 }, {})).toBe(
+      "งานถูกเปิดใหม่เพื่อแก้ไข: WP-014 ผนัง — เปิดแอปดูข้อบกพร่อง",
+    );
+  });
+
   it("composes pr_created with the padded PR number, item, and quantity", () => {
     expect(
       composeNotification(
