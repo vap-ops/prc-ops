@@ -25,7 +25,7 @@ export default async function CatalogPage() {
   const supabase = await createServerSupabase();
   const { data: rows } = await supabase
     .from("catalog_items")
-    .select("id, category, base_item, spec_attrs, unit, note, image_path")
+    .select("id, category, base_item, spec_attrs, unit, note, image_path, product_code")
     .eq("is_active", true)
     .order("base_item", { ascending: true });
 
@@ -55,6 +55,7 @@ export default async function CatalogPage() {
     baseItem: r.base_item,
     specAttrs: r.spec_attrs,
     unit: r.unit,
+    productCode: r.product_code,
     note: r.note,
     thumbnailUrl: signed.get(r.id) ?? null,
     // Omit the key entirely for non-super (exactOptionalPropertyTypes forbids an

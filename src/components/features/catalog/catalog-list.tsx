@@ -8,8 +8,9 @@
 // server-injected render-prop now that this is a client component.
 
 import { useState } from "react";
-import { ImageIcon } from "lucide-react";
+import { ImageIcon, Search } from "lucide-react";
 import { RadioChip } from "@/components/features/common/radio-chip";
+import { FIELD_INPUT } from "@/lib/ui/classes";
 import type { Database } from "@/lib/db/database.types";
 import { ITEM_CATEGORY_LABEL } from "@/lib/i18n/labels";
 import { EditCatalogItem } from "./edit-catalog-item";
@@ -23,6 +24,8 @@ export type CatalogItem = {
   baseItem: string;
   specAttrs: string | null;
   unit: string;
+  // Spec 214 — the structured 6-digit product code; null when unset.
+  productCode?: string | null;
   note?: string | null;
   // Spec 175 U4 — a signed URL for the item's reference image (minted by the
   // page); null when the item has no image.
@@ -45,22 +48,49 @@ export function CatalogList({
   canSetSellRate?: boolean;
 }) {
   const [selected, setSelected] = useState<string>(ALL);
+  const [query, setQuery] = useState("");
 
   if (items.length === 0) {
     return <p className="text-ink-secondary text-body">ยังไม่มีรายการวัสดุ</p>;
   }
 
+  // Spec 214 — text search across name, spec and product code, so typing a code
+  // prefix (e.g. 0101) filters to it. Applied before the category grouping.
+  const q = query.trim().toLowerCase();
+  const queried =
+    q === ""
+      ? items
+      : items.filter((it) =>
+          `${it.baseItem} ${it.specAttrs ?? ""} ${it.productCode ?? ""}`.toLowerCase().includes(q),
+        );
+
   // Enum order = the ITEM_CATEGORY_LABEL key order (declared to match the enum).
   const allCategories = Object.keys(ITEM_CATEGORY_LABEL) as ItemCategory[];
-  const present = allCategories.filter((c) => items.some((it) => it.category === c));
+  const present = allCategories.filter((c) => queried.some((it) => it.category === c));
   const visible = selected === ALL ? present : present.filter((c) => c === selected);
 
   return (
     <div className="flex flex-col gap-5">
+      <div className="relative">
+        <Search
+          aria-hidden
+          className="text-ink-muted pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2"
+        />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className={`${FIELD_INPUT} pl-10`}
+          placeholder="ค้นหาด้วยชื่อ หรือรหัสสินค้า (เช่น 0101)"
+          aria-label="ค้นหาวัสดุ"
+          autoComplete="off"
+        />
+      </div>
+
       <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="กรองตามหมวดหมู่">
         <RadioChip
           name="catalog-category"
-          label={`ทั้งหมด (${items.length})`}
+          label={`ทั้งหมด (${queried.length})`}
           checked={selected === ALL}
           onSelect={() => setSelected(ALL)}
         />
@@ -68,16 +98,20 @@ export function CatalogList({
           <RadioChip
             key={c}
             name="catalog-category"
-            label={`${ITEM_CATEGORY_LABEL[c]} (${items.filter((it) => it.category === c).length})`}
+            label={`${ITEM_CATEGORY_LABEL[c]} (${queried.filter((it) => it.category === c).length})`}
             checked={selected === c}
             onSelect={() => setSelected(c)}
           />
         ))}
       </div>
 
+      {queried.length === 0 ? (
+        <p className="text-ink-secondary text-body">ไม่พบวัสดุที่ค้นหา</p>
+      ) : null}
+
       <div className="flex flex-col gap-6">
         {visible.map((cat) => {
-          const rows = items.filter((it) => it.category === cat);
+          const rows = queried.filter((it) => it.category === cat);
           if (rows.length === 0) return null;
           return (
             <section key={cat} className="flex flex-col gap-2">
@@ -110,9 +144,14 @@ export function CatalogList({
                     )}
                     <span className="min-w-0 flex-1">
                       <span className="text-ink text-body block font-semibold">{it.baseItem}</span>
-                      {it.specAttrs ? (
-                        <span className="text-ink-secondary text-meta block">{it.specAttrs}</span>
-                      ) : null}
+                      <span className="text-ink-secondary text-meta block">
+                        {it.productCode ? (
+                          <span className="text-ink bg-sunk mr-1.5 rounded px-1.5 py-0.5 font-mono">
+                            {it.productCode}
+                          </span>
+                        ) : null}
+                        {it.specAttrs}
+                      </span>
                     </span>
                     <span className="text-ink-secondary text-meta shrink-0">{it.unit}</span>
                     {canSetSellRate ? (

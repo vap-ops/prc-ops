@@ -25,19 +25,19 @@ grant usage  on sequence _tap_buf_ord_seq to authenticated;
 
 -- A. Structure.
 select ok(
-  to_regprocedure('public.create_catalog_item(public.item_category, text, text, text, boolean, text)') is not null,
+  to_regprocedure('public.create_catalog_item(public.item_category, text, text, text, boolean, text, text)') is not null,
   'create_catalog_item exists');
 select is(
   (select prosecdef from pg_proc
-     where oid='public.create_catalog_item(public.item_category, text, text, text, boolean, text)'::regprocedure),
+     where oid='public.create_catalog_item(public.item_category, text, text, text, boolean, text, text)'::regprocedure),
   true, 'create_catalog_item is SECURITY DEFINER');
 select is(
   has_function_privilege('anon',
-    'public.create_catalog_item(public.item_category, text, text, text, boolean, text)', 'EXECUTE'),
+    'public.create_catalog_item(public.item_category, text, text, text, boolean, text, text)', 'EXECUTE'),
   false, 'anon cannot execute create_catalog_item');
 select is(
   has_function_privilege('authenticated',
-    'public.create_catalog_item(public.item_category, text, text, text, boolean, text)', 'EXECUTE'),
+    'public.create_catalog_item(public.item_category, text, text, text, boolean, text, text)', 'EXECUTE'),
   true, 'authenticated can execute create_catalog_item');
 
 set local role authenticated;

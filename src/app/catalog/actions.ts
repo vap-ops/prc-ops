@@ -13,13 +13,25 @@ import { requireRole } from "@/lib/auth/require-role";
 import { BACK_OFFICE_ROLES } from "@/lib/auth/role-home";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { ITEM_CATEGORY_LABEL } from "@/lib/i18n/labels";
+import { isValidProductCode } from "@/lib/catalog/validate";
 import type { Database } from "@/lib/db/database.types";
 
 type ItemCategory = Database["public"]["Enums"]["item_category"];
 const CATEGORIES = Object.keys(ITEM_CATEGORY_LABEL) as ItemCategory[];
 const GENERIC_ERROR = "บันทึกรายการวัสดุไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+const CODE_FORMAT_ERROR = "รหัสสินค้าต้องเป็นตัวเลข 6 หลัก";
+const CODE_DUP_ERROR = "รหัสสินค้านี้ถูกใช้แล้ว";
 
 export type CatalogActionResult = { ok: true } | { ok: false; error: string };
+
+// A 23505 from these RPCs is either the (base_item, spec_attrs) identity index or
+// the product_code unique index — disambiguate on the constraint name in the
+// message so the inline error names the right field.
+function duplicateMessage(message: string | undefined): string {
+  return message?.includes("product_code")
+    ? CODE_DUP_ERROR
+    : "รายการนี้มีอยู่แล้ว (ชื่อ + สเปกซ้ำ)";
+}
 
 export async function createCatalogItem(input: {
   category: string;
@@ -27,6 +39,7 @@ export async function createCatalogItem(input: {
   specAttrs: string;
   unit: string;
   note: string;
+  productCode: string;
 }): Promise<CatalogActionResult> {
   await requireRole(BACK_OFFICE_ROLES);
 
@@ -45,6 +58,8 @@ export async function createCatalogItem(input: {
   if (specAttrs.length > 200) return { ok: false, error: GENERIC_ERROR };
   const note = input.note.trim();
   if (note.length > 1000) return { ok: false, error: GENERIC_ERROR };
+  const productCode = input.productCode.trim();
+  if (!isValidProductCode(productCode)) return { ok: false, error: CODE_FORMAT_ERROR };
 
   const supabase = await createServerSupabase();
   const { error } = await supabase.rpc("create_catalog_item", {
@@ -57,9 +72,10 @@ export async function createCatalogItem(input: {
     // routes through the store, so items are always stockable.
     p_stockable: true,
     p_note: note,
+    p_product_code: productCode,
   });
   if (error) {
-    if (error.code === "23505") return { ok: false, error: "รายการนี้มีอยู่แล้ว (ชื่อ + สเปกซ้ำ)" };
+    if (error.code === "23505") return { ok: false, error: duplicateMessage(error.message) };
     if (error.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์เพิ่มรายการวัสดุ" };
     return { ok: false, error: GENERIC_ERROR };
   }
@@ -75,6 +91,7 @@ export async function updateCatalogItem(input: {
   specAttrs: string;
   unit: string;
   note: string;
+  productCode: string;
 }): Promise<CatalogActionResult> {
   await requireRole(BACK_OFFICE_ROLES);
 
@@ -94,6 +111,8 @@ export async function updateCatalogItem(input: {
   if (specAttrs.length > 200) return { ok: false, error: GENERIC_ERROR };
   const note = input.note.trim();
   if (note.length > 1000) return { ok: false, error: GENERIC_ERROR };
+  const productCode = input.productCode.trim();
+  if (!isValidProductCode(productCode)) return { ok: false, error: CODE_FORMAT_ERROR };
 
   const supabase = await createServerSupabase();
   const { error } = await supabase.rpc("update_catalog_item", {
@@ -105,9 +124,10 @@ export async function updateCatalogItem(input: {
     p_unit: unit,
     p_stockable: true,
     p_note: note,
+    p_product_code: productCode,
   });
   if (error) {
-    if (error.code === "23505") return { ok: false, error: "รายการนี้มีอยู่แล้ว (ชื่อ + สเปกซ้ำ)" };
+    if (error.code === "23505") return { ok: false, error: duplicateMessage(error.message) };
     if (error.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์แก้ไขรายการวัสดุ" };
     if (error.code === "22023") return { ok: false, error: "ไม่พบรายการวัสดุนี้" };
     return { ok: false, error: GENERIC_ERROR };

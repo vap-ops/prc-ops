@@ -27,11 +27,11 @@ grant usage  on sequence _tap_buf_ord_seq to authenticated;
 
 -- A. Structure.
 select ok(
-  to_regprocedure('public.update_catalog_item(uuid, public.item_category, text, text, text, boolean, text)') is not null,
+  to_regprocedure('public.update_catalog_item(uuid, public.item_category, text, text, text, boolean, text, text)') is not null,
   'update_catalog_item exists');
 select is(
   (select prosecdef from pg_proc
-     where oid='public.update_catalog_item(uuid, public.item_category, text, text, text, boolean, text)'::regprocedure),
+     where oid='public.update_catalog_item(uuid, public.item_category, text, text, text, boolean, text, text)'::regprocedure),
   true, 'update_catalog_item is SECURITY DEFINER');
 select ok(
   to_regprocedure('public.set_catalog_item_active(uuid, boolean)') is not null,
@@ -42,7 +42,7 @@ select is(
   true, 'set_catalog_item_active is SECURITY DEFINER');
 select is(
   has_function_privilege('anon',
-    'public.update_catalog_item(uuid, public.item_category, text, text, text, boolean, text)', 'EXECUTE'),
+    'public.update_catalog_item(uuid, public.item_category, text, text, text, boolean, text, text)', 'EXECUTE'),
   false, 'anon cannot execute update_catalog_item');
 select is(
   has_function_privilege('anon', 'public.set_catalog_item_active(uuid, boolean)', 'EXECUTE'),

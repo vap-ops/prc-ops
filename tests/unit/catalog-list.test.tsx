@@ -25,6 +25,7 @@ const items: CatalogItem[] = [
     baseItem: "สายไฟ NYY 450/750V",
     specAttrs: "2x4 sqmm Yazaki 100m",
     unit: "ม้วน",
+    productCode: "060150",
   },
   {
     id: "s1",
@@ -32,6 +33,7 @@ const items: CatalogItem[] = [
     baseItem: "เหล็กข้ออ้อย",
     specAttrs: "12 มิล",
     unit: "ท่อน",
+    productCode: "010120",
   },
   {
     id: "r1",
@@ -128,5 +130,27 @@ describe("CatalogList (spec 175)", () => {
     fireEvent.click(screen.getByRole("radio", { name: /ทั้งหมด/ }));
     expect(screen.getByText("เหล็กข้ออ้อย")).toBeInTheDocument();
     expect(screen.getByText("สายไฟ NYY 450/750V")).toBeInTheDocument();
+  });
+
+  // Spec 214 — the product code shows as a chip and is searchable by prefix.
+  it("shows each item's product code", () => {
+    render(<CatalogList items={items} />);
+    expect(screen.getByText("010120")).toBeInTheDocument();
+    expect(screen.getByText("060150")).toBeInTheDocument();
+  });
+
+  it("filters by a product-code prefix typed in the search box", () => {
+    render(<CatalogList items={items} />);
+    fireEvent.change(screen.getByLabelText("ค้นหาวัสดุ"), { target: { value: "0101" } });
+    // 010120 = steel → shown; the others (no 0101 prefix) → hidden.
+    expect(screen.getByText("เหล็กข้ออ้อย")).toBeInTheDocument();
+    expect(screen.queryByText("สายไฟ NYY 450/750V")).toBeNull();
+    expect(screen.queryByText("แผ่นหลังคาลอนตรง CC/760")).toBeNull();
+  });
+
+  it("shows a no-match message when the search matches nothing", () => {
+    render(<CatalogList items={items} />);
+    fireEvent.change(screen.getByLabelText("ค้นหาวัสดุ"), { target: { value: "999999" } });
+    expect(screen.getByText(/ไม่พบวัสดุที่ค้นหา/)).toBeInTheDocument();
   });
 });

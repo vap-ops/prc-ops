@@ -6,6 +6,22 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 214 — Product code (รหัสสินค้า) (2026-06-28)
+
+Status: **shipped as one held PR** (additive migration → danger-path; one-tap merge). Spec: `214-product-code.md`. From feedback `dfd70375` (procurement): a structured 6-digit code per catalog item (main 2 + sub 2 + sequence 2), prefix-searchable. Operator already has a scheme (procurement owns it).
+
+**Design (v1):** the code is a FREE 6-digit string (`^[0-9]{6}$`), not a modelled main/sub taxonomy — the existing `item_category` is a flat 13-value enum, and the company taxonomy is procurement's business decision, not a schema lock. Manual assignment, no backfill (existing items stay NULL).
+
+**Schema** (mig `20260813005000`, db:push'd + db:types'd, schema lane claimed): `catalog_items.product_code` (nullable) + format CHECK + partial-unique index (unique when set). DROP+CREATE `create_catalog_item`/`update_catalog_item` to add `p_product_code text default null` (default keeps existing named calls valid; full-replace on update — the form always sends the field). pgTAP `214` (column/nullable/index + RPC stores code + bad format→22023 + dup→23505 + null allowed) all green; updated the signature pins in `120`/`121` (the "grep all pins" discipline).
+
+**UI** (code-only, same held PR — depends on the regenerated types): `src/lib/catalog/validate.ts` (`isValidProductCode`); `catalog-item-form.tsx` gains a 6-digit `รหัสสินค้า` field (segment hint + inline validity, digit-only input); `createCatalogItem`/`updateCatalogItem` thread `productCode` + disambiguate the 23505 (identity vs code); `catalog-list.tsx` shows the code as a mono chip AND gains a search box matching name/spec/code (type `0101` → prefix filter) + a no-match state; `/catalog` page selects `product_code`. New `PRODUCT_CODE_LABEL`. Test-first-ish: `catalog-validate.test.ts` (5) + catalog-list display/search/no-match + add/edit flow updated to carry the code. Lint + typecheck + **1866** unit tests green.
+
+**Deferred:** threading the code into the PR-creation picker (`PurchaseRequestCatalogItem` + loaders) — a follow-up that avoids touching the PR flow in this PR. Modelled main/sub taxonomy + auto-derived/auto-sequence codes = a later spec.
+
+**Pre-existing pgTAP failures (NOT from this change):** `104-settlement` errored on a transient `524` API timeout; `200-store-inventory-reconciliation` fails its table-wide GL-1500-vs-subledger tie (have 459,539 / want 443,139 = the documented ฿16k unposted-equipment drift, [[spec208-store-centric-procurement]]). My branch touches no GL/on-hand/settlement files.
+
+---
+
 ## Spec 213 — Material logs (ประวัติวัสดุ), U1 (2026-06-28)
 
 Status: **U1+U2+U3 shipped** (spec + assembly lib + page + drill-in, code-only, NO schema). Spec: `213-material-logs.md`. From feedback `15151fb3` (project_director, คลัง): wants each material's history + current status "like order tracking." Operator clarified: **"no need to be a dashboard, item-specific logs."**
