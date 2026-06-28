@@ -7,6 +7,7 @@ import { ViewportScrollGuard } from "@/components/features/chrome/viewport-scrol
 import { KeyboardViewportFit } from "@/components/features/chrome/keyboard-viewport-fit";
 import { ToastProvider } from "@/components/features/common/toast-provider";
 import { ThemeScript } from "@/components/features/chrome/theme-script";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { THEME_COOKIE, parseThemeSetting } from "@/lib/ui/theme";
 import "./globals.css";
 
@@ -74,6 +75,10 @@ export default async function RootLayout({
             before a router.refresh() survives the RSC re-render. */}
         <ToastProvider>{children}</ToastProvider>
         <SwRegister />
+        {/* Perf observability: streams real-user Web Vitals (LCP/CLS/INP/TTFB)
+            per route to the Vercel Speed Insights dashboard. Inert off Vercel
+            (no-op without the platform endpoint); zero config, no PII. */}
+        <SpeedInsights />
         {/* Spec 35: drains the offline photo queue (leftovers from
             crash/offline/navigation); renders only when items wait. */}
         <UploadQueueRunnerLazy />
