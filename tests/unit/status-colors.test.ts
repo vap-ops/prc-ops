@@ -81,6 +81,15 @@ describe("workPackageStatusPillClasses", () => {
     expect(workPackageStatusPillClasses("pending_approval")).toContain("amber");
   });
 
+  // Operator (spec 218): rework looked identical to pending_approval (both amber)
+  // — a defect that needs the SITE to act must read distinct from "with the PM".
+  it("gives 'rework' its own colour, distinct from pending_approval's amber", () => {
+    const rework = workPackageStatusPillClasses("rework");
+    expect(rework).not.toContain("amber");
+    expect(rework).not.toBe(workPackageStatusPillClasses("pending_approval"));
+    expect(rework).toContain("orange");
+  });
+
   it("uses the zinc palette for 'not_started' (idle default)", () => {
     expect(workPackageStatusPillClasses("not_started")).toContain("zinc");
   });
