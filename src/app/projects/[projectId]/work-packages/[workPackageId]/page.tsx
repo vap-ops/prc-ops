@@ -12,6 +12,7 @@ import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
 import { latestCreatedAt, PHASES } from "@/lib/photos/phases";
 import { groupAfterFixByRound, afterFixRoundHeading } from "@/lib/photos/rework-round";
 import { derivePhaseProgress } from "@/lib/photos/phase-progress";
+import { TRANSITIONABLE_FROM_STATUSES } from "@/lib/photos/transitions";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
@@ -64,6 +65,7 @@ import { splitEquipmentUsage } from "@/lib/equipment/usage-rows";
 import { bangkokTodayIso } from "@/lib/dates";
 import { PhotoCaptureZone } from "./phase-uploader";
 import { ReportDefectControl } from "./report-defect-control";
+import { SubmitForApprovalControl } from "./submit-for-approval-control";
 
 interface PageProps {
   params: Promise<{ projectId: string; workPackageId: string }>;
@@ -686,6 +688,14 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               <p className="text-ink-secondary">แก้ไขแล้วถ่ายรูปใหม่เพื่อส่งตรวจอีกครั้ง</p>
             )}
           </AttentionCard>
+        </div>
+      ) : null}
+      {/* FB2 (b9e942f0): explicit "ส่งงานเข้าตรวจ" — replaces the photo auto-flip.
+          Shown to non-read-only site staff while the WP is still pre-approval
+          (TRANSITIONABLE); the action's SQL guard no-ops on pending/complete. */}
+      {!readOnly && (TRANSITIONABLE_FROM_STATUSES as readonly string[]).includes(wp.status) ? (
+        <div className={`mx-auto ${PAGE_MAX_W} flex justify-end px-5 pt-5`}>
+          <SubmitForApprovalControl projectId={wp.project_id} workPackageId={wp.id} />
         </div>
       ) : null}
       {wp.status === "complete" && !readOnly ? (
