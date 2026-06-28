@@ -14,8 +14,7 @@ import {
 } from "@/components/features/feedback/feedback-kanban";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
-import { createClient as createAdminClient } from "@/lib/db/admin";
-import { mintSignedUrls } from "@/lib/storage/signed-urls";
+import { loadFeedbackAttachmentUrls } from "@/lib/feedback/attachment-urls";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 
 export const metadata = { title: "รายการแจ้งปัญหา / ขอฟีเจอร์" };
@@ -33,28 +32,9 @@ export default async function FeedbackReviewPage() {
     .order("created_at", { ascending: false });
   const feedback = rows ?? [];
 
-  // Attachments live behind zero authenticated access — read via the service-role
-  // admin (we're already gated to super_admin) and mint short-lived signed URLs.
-  const urlsByFeedback = new Map<string, string[]>();
-  if (feedback.length > 0) {
-    const admin = createAdminClient();
-    const { data: atts } = await admin
-      .from("feedback_attachments")
-      .select("id, feedback_id, storage_path")
-      .in(
-        "feedback_id",
-        feedback.map((f) => f.id),
-      )
-      .order("created_at", { ascending: true });
-    const signed = await mintSignedUrls("feedback-attachments", atts ?? []);
-    for (const a of atts ?? []) {
-      const url = signed.get(a.id);
-      if (!url) continue;
-      const list = urlsByFeedback.get(a.feedback_id) ?? [];
-      list.push(url);
-      urlsByFeedback.set(a.feedback_id, list);
-    }
-  }
+  // Attachments live behind zero authenticated access — loaded via the service-role
+  // admin (we're already gated to super_admin) and minted as short-lived signed URLs.
+  const urlsByFeedback = await loadFeedbackAttachmentUrls(feedback.map((f) => f.id));
 
   const cards: FeedbackCardVM[] = feedback.map((f) => ({
     id: f.id,
