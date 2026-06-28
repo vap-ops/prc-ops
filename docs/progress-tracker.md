@@ -6,6 +6,14 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 213 — Material logs (ประวัติวัสดุ), U1 (2026-06-28)
+
+Status: **U1 shipped** (spec + assembly lib, code-only, NO schema). Spec: `213-material-logs.md`. From feedback `15151fb3` (project_director, คลัง): wants each material's history + current status "like order tracking." Operator clarified: **"no need to be a dashboard, item-specific logs."**
+
+**U1 (this unit):** the pure assembly `src/lib/store/material-log.ts` — `buildMaterialLog(sources)` unions the five movement sources (receipts / issues / counts / returns / reversals) for one (project, item) into a newest-first `MaterialLogEntry[]` with a signed on-hand delta per kind (receipt/return `+`, issue `−`, count `= variance`, reversal flips by which FK it undoes), the cost-side figure only (line cost / variance value / reversal value-delta — never sell/margin, per the spec money rule), the WP for issue/return, and a running balance (ascending cumulative sum) whose newest row equals current on-hand. Stable tie-break (at → createdAt → id). No I/O — the page (U2) does the RLS-scoped reads and maps rows into the inputs. Test-first `tests/unit/material-log.test.ts` (7: ordering, signed deltas incl. receipt-vs-issue reversal, balance invariant lands on 52, cost-side figures, tie-break, empty). Lint + typecheck green. **NEXT = U2** (route `/projects/[projectId]/store/items/[catalogItemId]` + DetailHeader + status card + `MaterialLogView`), then **U3** (store on-hand row → drill-in link).
+
+---
+
 ## Spec 211 — Procurement terminology & level clarity, U1–U7 + U10a/b/c/d + U6b + U11a + U11b (2026-06-27)
 
 Status: **shipping U1** (code-only, NO schema). Spec: `211-procurement-terminology-clarity.md`. Evidence: `docs/procurement-uxui-audit-2026-06.md` (multi-agent UX audit, 85 surfaces / 91 verified findings).
