@@ -6226,7 +6226,7 @@ export type Database = {
       peak_entity_type: "contact" | "expense"
       peak_sync_operation: "create" | "void"
       peak_sync_status: "pending" | "sending" | "sent" | "failed" | "skipped"
-      photo_phase: "before" | "during" | "after"
+      photo_phase: "before" | "during" | "after" | "after_fix"
       project_status: "active" | "on_hold" | "completed" | "archived"
       project_type:
         | "new_building"
@@ -6550,7 +6550,7 @@ export const Constants = {
       peak_entity_type: ["contact", "expense"],
       peak_sync_operation: ["create", "void"],
       peak_sync_status: ["pending", "sending", "sent", "failed", "skipped"],
-      photo_phase: ["before", "during", "after"],
+      photo_phase: ["before", "during", "after", "after_fix"],
       project_status: ["active", "on_hold", "completed", "archived"],
       project_type: [
         "new_building",

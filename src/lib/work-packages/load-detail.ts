@@ -12,7 +12,11 @@ import type { Database } from "@/lib/db/database.types";
 import { fetchLaborZoneData } from "@/lib/labor/fetch-zone-data";
 import { groupRoster, type GroupedRoster } from "@/lib/labor/group-workers";
 import type { LaborDisplayRow } from "@/lib/labor/types";
-import { getCurrentPhotosForWorkPackage, type PhotoLogRow } from "@/lib/photos/current-photos";
+import {
+  getCurrentPhotosForWorkPackage,
+  type PhotoLogRow,
+  type CurrentPhotosByPhase,
+} from "@/lib/photos/current-photos";
 import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 
@@ -67,7 +71,7 @@ export interface WorkPackageDetailData {
   siblingWps: SiblingRow[];
   predecessorIds: string[];
   labor: { roster: GroupedRoster; projectWorkerIds: string[]; rows: LaborDisplayRow[] };
-  photosByPhase: { before: PhotoLogRow[]; during: PhotoLogRow[]; after: PhotoLogRow[] };
+  photosByPhase: CurrentPhotosByPhase;
   signedUrls: Map<string, string>;
   displayNames: Map<string, string>;
   defectReason: string | null;
@@ -98,7 +102,7 @@ export async function loadWorkPackageDetail(
       siblingWps: [],
       predecessorIds: [],
       labor: { roster: groupRoster([], []), projectWorkerIds: [], rows: [] },
-      photosByPhase: { before: [], during: [], after: [] },
+      photosByPhase: { before: [], during: [], after: [], after_fix: [] },
       signedUrls: new Map(),
       displayNames: new Map(),
       defectReason: null,
@@ -154,6 +158,7 @@ export async function loadWorkPackageDetail(
     ...photosByPhase.before,
     ...photosByPhase.during,
     ...photosByPhase.after,
+    ...photosByPhase.after_fix,
   ];
   const [displayNames, signedUrls] = await Promise.all([
     fetchDisplayNames(nameIds, "[wp-detail]"),

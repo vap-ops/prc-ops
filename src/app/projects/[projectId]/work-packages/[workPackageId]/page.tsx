@@ -203,6 +203,9 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     before: photosByPhase.before.length,
     during: photosByPhase.during.length,
     after: photosByPhase.after.length,
+    // after_fix is a rework addendum, not part of the 3-step progress derivation
+    // (PHASE_ORDER), but the Record<PhotoPhase, number> shape requires the key.
+    after_fix: photosByPhase.after_fix.length,
   };
   const currentPhase = derivePhaseProgress(phaseCounts).currentPhase;
   // Feedback a6037564: a PD wants to know who uploaded each photo. uploaded_by

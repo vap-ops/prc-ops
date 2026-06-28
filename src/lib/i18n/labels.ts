@@ -191,6 +191,9 @@ export const PHOTO_PHASE_LABEL: Record<Enums["photo_phase"], string> = {
   before: "เตรียมงาน",
   during: "ระหว่างทำ",
   after: "แล้วเสร็จ",
+  // Feedback 0fa23307 — completion photos for a WP's rework (defect fix),
+  // distinct from the original "แล้วเสร็จ" work photos.
+  after_fix: "หลังแก้ไข",
 };
 
 // Spec 141 U4 — equipment movement kinds (the append-only custody log, ADR

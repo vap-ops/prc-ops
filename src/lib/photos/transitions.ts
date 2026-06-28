@@ -28,7 +28,10 @@ export function shouldTransitionToPendingApproval(
   phase: PhotoPhase,
   currentStatus: WorkPackageStatus,
 ): boolean {
-  if (phase !== "after") return false;
+  // Feedback 0fa23307: a rework's completion photo (after_fix / หลังแก้ไข) sends
+  // the WP to review the same as the original After photo — so capturing it on a
+  // งานแก้ไข WP closes the rework loop (rework → pending_approval).
+  if (phase !== "after" && phase !== "after_fix") return false;
   return (TRANSITIONABLE_FROM_STATUSES as readonly string[]).includes(currentStatus);
 }
 
