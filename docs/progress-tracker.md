@@ -25,8 +25,10 @@ spec 215) photos collided in one bucket and only the latest reason showed. Opera
   helper; `removePhoto` reads the target's round and `buildTombstoneRow` carries it so
   a removal stays in the same cycle. Unit-tested (photo-write-helpers). No schema change
   — rides on U1's columns, so it folds into the same held PR (#145).
-- **U3 — read side.** Group after_fix by round; map round → reason from the
-  `wp_reopened_for_defect` audit rows.
+- **U3 (this PR) — read-side helpers.** Pure + unit-tested: `groupAfterFixByRound`
+  (after_fix rows → per-round groups, ascending) and `reworkReasonsFromAuditRows`
+  (the `wp_reopened_for_defect` audit rows → round→reason map; audit_log SELECT is
+  `using(true)` for authenticated). No page wiring yet — U4 consumes these.
 - **U4 — UI.** Capture into the current round ("หลังแก้ไข · รอบ N"); galleries render one
   labeled section per round with its reason.
 
