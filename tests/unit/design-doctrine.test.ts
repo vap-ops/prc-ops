@@ -124,6 +124,23 @@ describe("design doctrine (Field-First)", () => {
     }
   });
 
+  // Text-containment (the "text box overflows its container" bug class,
+  // feedback fab7980b — "happens on a lot of pages, fix it for good"). A long
+  // unbroken string (URL, code, hash, space-less Thai) must wrap INSIDE its
+  // box, not burst it sideways. Distinct from the page-scroller guard above:
+  // that stops the whole PAGE panning; this stops content overrunning a CARD.
+  // The systemic net is a base-layer default — body carries overflow-wrap, so
+  // every descendant wraps unless it explicitly opts out — rather than a
+  // per-component patch that the next new surface forgets.
+  it("body sets a default overflow-wrap so long strings wrap inside containers", () => {
+    const css = readFileSync(join(SRC, "app", "globals.css"), "utf8");
+    const body = css.match(/\bbody\s*\{[^}]*\}/);
+    expect(body, "body base rule not found in globals.css").not.toBeNull();
+    expect(body![0], "body must default overflow-wrap (break-word|anywhere)").toMatch(
+      /overflow-wrap:\s*(?:break-word|anywhere)/,
+    );
+  });
+
   // The shared detail-header action row (back chip + gear/reports/store chips +
   // refresh) must WRAP, never sit in a fixed non-wrapping row — on a narrow
   // phone a packed chip set would otherwise be clipped by the page scroller's
