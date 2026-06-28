@@ -18,9 +18,18 @@ interface PhaseGalleryProps {
   /** uploaded_by → display name (feedback a6037564). Shown as "ถ่ายโดย
    *  <name>" in the lightbox; missing ids render no attribution line. */
   uploaderNames: ReadonlyMap<string, string>;
+  /** Spec 216: an optional sub-line under the label — used by the per-round
+   *  หลังแก้ไข sections to show the defect reason that opened that round. */
+  note?: string | null;
 }
 
-export function PhaseGallery({ label, photos, signedUrls, uploaderNames }: PhaseGalleryProps) {
+export function PhaseGallery({
+  label,
+  photos,
+  signedUrls,
+  uploaderNames,
+  note,
+}: PhaseGalleryProps) {
   const hasPhotos = photos.length > 0;
   const latest = latestCreatedAt(photos);
   return (
@@ -51,6 +60,12 @@ export function PhaseGallery({ label, photos, signedUrls, uploaderNames }: Phase
           hasPhotos ? "border-done" : "border-edge"
         }`}
       >
+        {/* Spec 216: the defect reason that opened this rework round. */}
+        {note ? (
+          <p className="text-ink-secondary text-sm whitespace-pre-wrap">
+            <span className="text-ink-muted">ข้อบกพร่อง:</span> {note}
+          </p>
+        ) : null}
         <p className="text-ink-secondary text-sm">
           {latest ? `อัปเดตล่าสุด ${formatThaiTime(latest)}` : "ยังไม่มีรูป"}
         </p>

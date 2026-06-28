@@ -6,6 +6,8 @@ import {
   photoReworkRoundFor,
   groupAfterFixByRound,
   reworkReasonsFromAuditRows,
+  reworkRoundTag,
+  afterFixRoundHeading,
   type AfterFixRoundGroup,
 } from "@/lib/photos/rework-round";
 import type { PhotoLogRow } from "@/lib/photos/current-photos";
@@ -47,6 +49,17 @@ describe("groupAfterFixByRound", () => {
   it("preserves input order within a round", () => {
     const rows = [photo("x", 1), photo("y", 1), photo("z", 1)];
     expect(groupAfterFixByRound(rows)[0]?.photos.map((p) => p.id)).toEqual(["x", "y", "z"]);
+  });
+});
+
+describe("reworkRoundTag / afterFixRoundHeading", () => {
+  it("tags a round", () => {
+    expect(reworkRoundTag(2)).toBe("รอบ 2");
+  });
+
+  it("builds a per-round heading, dropping the round for legacy round 0", () => {
+    expect(afterFixRoundHeading("หลังแก้ไข", 1)).toBe("หลังแก้ไข — รอบ 1");
+    expect(afterFixRoundHeading("หลังแก้ไข", 0)).toBe("หลังแก้ไข");
   });
 });
 

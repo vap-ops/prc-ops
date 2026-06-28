@@ -29,8 +29,16 @@ spec 215) photos collided in one bucket and only the latest reason showed. Opera
   (after_fix rows → per-round groups, ascending) and `reworkReasonsFromAuditRows`
   (the `wp_reopened_for_defect` audit rows → round→reason map; audit_log SELECT is
   `using(true)` for authenticated). No page wiring yet — U4 consumes these.
-- **U4 — UI.** Capture into the current round ("หลังแก้ไข · รอบ N"); galleries render one
-  labeled section per round with its reason.
+- **U4 (this PR) — UI + #144 gate folded in.** PhotoCaptureZone gains `showAfterFix`
+  (gate) + `currentReworkRound` — the หลังแก้ไข tile surfaces only inside a rework
+  cycle and is labelled "รอบ N · …". Both galleries (review + read-only project) render
+  the lifecycle phases, then one PhaseGallery per rework round
+  (`groupAfterFixByRound`), headed "หลังแก้ไข — รอบ N" with that round's defect reason
+  (`PhaseGallery` gains a `note` prop). `load-detail` returns `reworkReasons` (round →
+  reason from the reopen audit rows, one read); the review page reads the same. The
+  "รอบ N" tag + per-round heading are SSOT helpers (`reworkRoundTag` /
+  `afterFixRoundHeading`; legacy round-0 shows the plain label). This supersedes PR
+  #144 (its show-only-for-reworked gate is reimplemented here), so #144 is closed.
 
 Open: per-round approval attribution; after-fix in the PDF report (both deferred).
 

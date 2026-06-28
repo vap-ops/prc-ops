@@ -13,6 +13,19 @@ export function photoReworkRoundFor(phase: PhotoPhase, wpReworkRound: number): n
   return phase === "after_fix" ? wpReworkRound : 0;
 }
 
+// "รอบ N" — the user-facing tag for a rework cycle. SSOT: the capture tile and the
+// per-round gallery headings both use it, so the term never drifts.
+export function reworkRoundTag(round: number): string {
+  return `รอบ ${round}`;
+}
+
+// The heading for a per-round หลังแก้ไข gallery section. Round 0 (legacy after_fix
+// rows captured before the round counter existed) shows the plain label — no
+// "รอบ 0".
+export function afterFixRoundHeading(baseLabel: string, round: number): string {
+  return round >= 1 ? `${baseLabel} — ${reworkRoundTag(round)}` : baseLabel;
+}
+
 export interface AfterFixRoundGroup {
   round: number;
   photos: PhotoLogRow[];
