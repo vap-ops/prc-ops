@@ -12,6 +12,9 @@ export interface BuildTombstoneRowInput {
   phase: PhotoPhase;
   targetPhotoId: string;
   uploadedBy: string;
+  /** Spec 216 — the target photo's rework cycle; the tombstone inherits it so a
+   *  removal stays in the same round as the photo it supersedes. */
+  reworkRound: number;
 }
 
 export function buildTombstoneRow(input: BuildTombstoneRowInput): TablesInsert<"photo_logs"> {
@@ -21,5 +24,6 @@ export function buildTombstoneRow(input: BuildTombstoneRowInput): TablesInsert<"
     storage_path: null,
     superseded_by: input.targetPhotoId,
     uploaded_by: input.uploadedBy,
+    rework_round: input.reworkRound,
   };
 }

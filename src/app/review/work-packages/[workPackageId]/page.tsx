@@ -11,6 +11,11 @@ import { createClient } from "@/lib/db/server";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { getCurrentPhotosForWorkPackage, type PhotoLogRow } from "@/lib/photos/current-photos";
 import { PHASES } from "@/lib/photos/phases";
+import {
+  groupAfterFixByRound,
+  reworkReasonsFromAuditRows,
+  afterFixRoundHeading,
+} from "@/lib/photos/rework-round";
 import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
@@ -18,6 +23,7 @@ import { getDecisionHistoryForWorkPackage } from "@/lib/approvals/latest-decisio
 import {
   APPROVAL_DECISION_LABEL,
   WORK_PACKAGE_STATUS_LABEL,
+  PHOTO_PHASE_LABEL,
   formatThaiDateTime,
 } from "@/lib/i18n/labels";
 import { CARD, DETAIL_TITLE, SECTION_HEADING } from "@/lib/ui/classes";
@@ -109,6 +115,19 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
     ...photosByPhase.after_fix,
   ];
   const signedUrls = await mintSignedUrlsForPhotos(allPhotos);
+
+  // Spec 216: the หลังแก้ไข bucket surfaces only inside a rework cycle, grouped by
+  // round, each labelled with the defect reason that opened it (one
+  // wp_reopened_for_defect audit row per round; audit_log SELECT is using(true)).
+  const showAfterFix = wp.status === "rework" || photosByPhase.after_fix.length > 0;
+  const afterFixRounds = groupAfterFixByRound(photosByPhase.after_fix);
+  const { data: reopenRows } = await supabase
+    .from("audit_log")
+    .select("payload")
+    .eq("target_id", wp.id)
+    .eq("payload->>event", "wp_reopened_for_defect")
+    .order("created_at", { ascending: false });
+  const reworkReasons = reworkReasonsFromAuditRows(reopenRows ?? []);
 
   // Decision history: newest first. RLS admits sa/pm/super to SELECT
   // approvals so the PM (and super_admin) can read every row for this
@@ -263,7 +282,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
         <section>
           <h2 className={SECTION_HEADING}>รูปถ่าย</h2>
           <div className="flex flex-col gap-5">
-            {PHASES.map(({ phase, label }) => (
+            {PHASES.filter(({ phase }) => phase !== "after_fix").map(({ phase, label }) => (
               <PhaseGallery
                 key={phase}
                 label={label}
@@ -272,6 +291,18 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
                 uploaderNames={displayNames}
               />
             ))}
+            {showAfterFix
+              ? afterFixRounds.map(({ round, photos }) => (
+                  <PhaseGallery
+                    key={`after_fix-${round}`}
+                    label={afterFixRoundHeading(PHOTO_PHASE_LABEL.after_fix, round)}
+                    photos={photos}
+                    signedUrls={signedUrls}
+                    uploaderNames={displayNames}
+                    note={reworkReasons.get(round) ?? null}
+                  />
+                ))
+              : null}
           </div>
         </section>
 

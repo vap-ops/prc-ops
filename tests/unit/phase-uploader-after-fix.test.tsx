@@ -35,18 +35,23 @@ const phases: PhaseData[] = PHASES.map(({ phase, label }) => ({
   lastUpdatedLabel: null,
 }));
 
-describe("PhotoCaptureZone after_fix tile (feedback 0fa23307)", () => {
+function renderZone(props: { showAfterFix?: boolean; currentReworkRound?: number } = {}) {
+  return render(
+    <PhotoCaptureZone
+      projectId="p1"
+      workPackageId="w1"
+      userId="u1"
+      phases={phases}
+      currentPhase="before"
+      showAfterFix={props.showAfterFix ?? true}
+      currentReworkRound={props.currentReworkRound ?? 1}
+    />,
+  );
+}
+
+describe("PhotoCaptureZone after_fix tile (feedback 0fa23307, spec 216)", () => {
   it("renders a tappable หลังแก้ไข capture tile alongside the three lifecycle phases", () => {
-    render(
-      <PhotoCaptureZone
-        projectId="p1"
-        workPackageId="w1"
-        userId="u1"
-        phases={phases}
-        currentPhase="before"
-      />,
-    );
-    // all four capture tiles present
+    renderZone();
     expect(screen.getByRole("button", { name: "ถ่ายรูป เตรียมงาน" })).toBeInTheDocument();
     const afterFix = screen.getByRole("button", { name: "ถ่ายรูป หลังแก้ไข" });
     expect(afterFix).toBeInTheDocument();
@@ -55,15 +60,7 @@ describe("PhotoCaptureZone after_fix tile (feedback 0fa23307)", () => {
   });
 
   it("separates หลังแก้ไข from the lifecycle row — it is a rework addendum, not a 4th sequential phase", () => {
-    render(
-      <PhotoCaptureZone
-        projectId="p1"
-        workPackageId="w1"
-        userId="u1"
-        phases={phases}
-        currentPhase="before"
-      />,
-    );
+    renderZone();
     const before = screen.getByRole("button", { name: "ถ่ายรูป เตรียมงาน" });
     const after = screen.getByRole("button", { name: "ถ่ายรูป แล้วเสร็จ" });
     const afterFix = screen.getByRole("button", { name: "ถ่ายรูป หลังแก้ไข" });
@@ -72,5 +69,17 @@ describe("PhotoCaptureZone after_fix tile (feedback 0fa23307)", () => {
     expect(lifecycleGrid).toContainElement(after);
     // …and หลังแก้ไข lives OUTSIDE it (its own divided-off line).
     expect(lifecycleGrid).not.toContainElement(afterFix);
+  });
+
+  it("hides หลังแก้ไข entirely when the WP is not in a rework cycle (showAfterFix=false)", () => {
+    renderZone({ showAfterFix: false });
+    expect(screen.getByRole("button", { name: "ถ่ายรูป เตรียมงาน" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "ถ่ายรูป หลังแก้ไข" })).not.toBeInTheDocument();
+  });
+
+  it("labels the หลังแก้ไข tile with the current rework round (multi-rework support)", () => {
+    renderZone({ currentReworkRound: 2 });
+    const afterFix = screen.getByRole("button", { name: "ถ่ายรูป หลังแก้ไข" });
+    expect(afterFix).toHaveTextContent("รอบ 2");
   });
 });

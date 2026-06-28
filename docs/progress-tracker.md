@@ -6,6 +6,44 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 216 — Multi-rework rounds (2026-06-28)
+
+Status: **U1 shipped as a held PR** (additive migration + RPC → danger-path; one-tap merge).
+Spec: `216-multi-rework-rounds.md`. Operator asked the system to support more than one
+rework. The defect loop (spec 144) already repeats, but every round's after_fix (หลังแก้ไข,
+spec 215) photos collided in one bucket and only the latest reason showed. Operator chose
+(design question) **model A — round counter** over a defect-cycle table or photo-only tagging.
+
+- **U1 (this PR) — schema + reopen increment.** Migration `20260813008000`: `rework_round`
+  smallint (default 0) on `work_packages` + `photo_logs`; `reopen_work_package_for_defect`
+  CREATE-OR-REPLACE'd from its LIVE body (project_director gate preserved) to increment the
+  WP counter and stamp `round` into the audit payload. Applied to the shared DB; db:types
+  regen'd. pgTAP 75 += round-1 / audit-round / second-reopen / round-2 (187/187, 0 fails).
+  Test fixtures that build full `PhotoLogRow` literals gained `rework_round: 0`.
+- **U2 (this PR) — write side.** `addPhoto` selects `wp.rework_round` and stamps
+  after_fix inserts with it (other phases → 0) via the pure `photoReworkRoundFor`
+  helper; `removePhoto` reads the target's round and `buildTombstoneRow` carries it so
+  a removal stays in the same cycle. Unit-tested (photo-write-helpers). No schema change
+  — rides on U1's columns, so it folds into the same held PR (#145).
+- **U3 (this PR) — read-side helpers.** Pure + unit-tested: `groupAfterFixByRound`
+  (after_fix rows → per-round groups, ascending) and `reworkReasonsFromAuditRows`
+  (the `wp_reopened_for_defect` audit rows → round→reason map; audit_log SELECT is
+  `using(true)` for authenticated). No page wiring yet — U4 consumes these.
+- **U4 (this PR) — UI + #144 gate folded in.** PhotoCaptureZone gains `showAfterFix`
+  (gate) + `currentReworkRound` — the หลังแก้ไข tile surfaces only inside a rework
+  cycle and is labelled "รอบ N · …". Both galleries (review + read-only project) render
+  the lifecycle phases, then one PhaseGallery per rework round
+  (`groupAfterFixByRound`), headed "หลังแก้ไข — รอบ N" with that round's defect reason
+  (`PhaseGallery` gains a `note` prop). `load-detail` returns `reworkReasons` (round →
+  reason from the reopen audit rows, one read); the review page reads the same. The
+  "รอบ N" tag + per-round heading are SSOT helpers (`reworkRoundTag` /
+  `afterFixRoundHeading`; legacy round-0 shows the plain label). This supersedes PR
+  #144 (its show-only-for-reworked gate is reimplemented here), so #144 is closed.
+
+Open: per-round approval attribution; after-fix in the PDF report (both deferred).
+
+---
+
 ## Spec 215 — After-fix photos (หลังแก้ไข) (2026-06-28)
 
 Status: **shipped as one held PR** (additive enum-add → danger-path; one-tap merge). Spec: `215-after-fix-photos.md`. From feedback `0fa23307` (project_director, WP detail): capture completion photos when a WP's rework is done, distinct from the original แล้วเสร็จ work photos. **Operator chose (via design question) the explicit new-phase option** over auto-distinguish / discoverability-only.

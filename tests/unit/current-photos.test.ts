@@ -18,6 +18,7 @@ function row(partial: Partial<PhotoLogRow> & Pick<PhotoLogRow, "id">): PhotoLogR
     uploaded_by: "user-1",
     created_at: "2026-05-24T00:00:00Z",
     captured_at_client: null,
+    rework_round: 0,
     ...partial,
   };
 }

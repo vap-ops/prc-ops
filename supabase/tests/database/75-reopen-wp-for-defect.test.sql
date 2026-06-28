@@ -1,5 +1,5 @@
 begin;
-select plan(10);
+select plan(14);
 
 -- ============================================================================
 -- Spec 144 U1 — reopen_work_package_for_defect(p_wp, p_reason).
@@ -59,6 +59,32 @@ select is(
      where target_id='c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1'
        and payload->>'event'='wp_reopened_for_defect'),
   1, 'an audit_log row recorded the defect reopen');
+
+-- 216 U1: the reopen advanced the WP's rework_round counter 0 → 1, and stamped
+-- the round into the audit payload so each cycle is addressable.
+select is(
+  (select rework_round::int from public.work_packages where id='c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1'),
+  1, 'reopen advances rework_round to 1');
+select is(
+  (select (payload->>'round')::int from public.audit_log
+     where target_id='c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1'
+       and payload->>'event'='wp_reopened_for_defect'
+     order by created_at desc limit 1),
+  1, 'the audit payload records round 1');
+
+-- 216 U1: a SECOND defect on the same WP (after its round-1 fix is re-approved
+-- back to complete) advances to round 2 — multi-rework support. The status reset
+-- drops to the table owner; the reopen itself runs as the authenticated member.
+reset role;
+update public.work_packages set status='complete' where id='c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222222222"}';
+select is(
+  (select public.reopen_work_package_for_defect('c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1', 'รอยร้าวกลับมาอีก')),
+  true, 'the WP can be reopened a second time');
+select is(
+  (select rework_round::int from public.work_packages where id='c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1'),
+  2, 'a second reopen advances rework_round to 2');
 
 -- B.2 A non-complete WP cannot be reopened (22023).
 select throws_ok(

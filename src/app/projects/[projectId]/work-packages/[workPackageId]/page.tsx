@@ -10,6 +10,7 @@ import { createClient } from "@/lib/db/server";
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
 import { latestCreatedAt, PHASES } from "@/lib/photos/phases";
+import { groupAfterFixByRound, afterFixRoundHeading } from "@/lib/photos/rework-round";
 import { derivePhaseProgress } from "@/lib/photos/phase-progress";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { StatusPill } from "@/components/features/common/status-pill";
@@ -20,6 +21,7 @@ import {
   APPROVAL_DECISION_LABEL,
   WORK_PACKAGE_STATUS_LABEL,
   EQUIPMENT_TAB_LABEL,
+  PHOTO_PHASE_LABEL,
   formatThaiDateTime,
   formatThaiTime,
 } from "@/lib/i18n/labels";
@@ -174,6 +176,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     signedUrls,
     displayNames,
     defectReason,
+    reworkReasons,
   } = data;
 
   const assignedContractor = wp.contractor_id
@@ -208,6 +211,11 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     after_fix: photosByPhase.after_fix.length,
   };
   const currentPhase = derivePhaseProgress(phaseCounts).currentPhase;
+  // Spec 216: the หลังแก้ไข rework bucket surfaces only inside a rework cycle (in
+  // rework OR already has after_fix photos); a WP can be reworked more than once, so
+  // its photos group by round (each with the defect reason that opened it).
+  const showAfterFix = wp.status === "rework" || photosByPhase.after_fix.length > 0;
+  const afterFixRounds = groupAfterFixByRound(photosByPhase.after_fix);
   // Feedback a6037564: a PD wants to know who uploaded each photo. uploaded_by
   // is already on every photo_logs row; resolve the names once (admin read,
   // same pattern as photo-markups) and surface them in the lightbox.
@@ -299,8 +307,10 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
       panel: readOnly ? (
         // Spec 171: procurement views the photos read-only — the PM-side gallery,
         // not the capture zone (which owns the thumb-anchored shutter bar).
+        // Spec 216: lifecycle phases first, then one หลังแก้ไข section per rework
+        // round (each with the defect reason that opened it) — only when reworked.
         <div className="flex flex-col gap-5">
-          {PHASES.map(({ phase, label }) => (
+          {PHASES.filter(({ phase }) => phase !== "after_fix").map(({ phase, label }) => (
             <PhaseGallery
               key={phase}
               label={label}
@@ -309,6 +319,18 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               uploaderNames={uploaderNames}
             />
           ))}
+          {showAfterFix
+            ? afterFixRounds.map(({ round, photos }) => (
+                <PhaseGallery
+                  key={`after_fix-${round}`}
+                  label={afterFixRoundHeading(PHOTO_PHASE_LABEL.after_fix, round)}
+                  photos={photos}
+                  signedUrls={signedUrls}
+                  uploaderNames={uploaderNames}
+                  note={reworkReasons.get(round) ?? null}
+                />
+              ))
+            : null}
         </div>
       ) : (
         <PhotoCaptureZone
@@ -317,6 +339,8 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           userId={ctx.id}
           phases={phaseData}
           currentPhase={currentPhase}
+          showAfterFix={showAfterFix}
+          currentReworkRound={wp.rework_round}
         />
       ),
     },
