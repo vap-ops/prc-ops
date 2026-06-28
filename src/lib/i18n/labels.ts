@@ -90,6 +90,11 @@ export const STORE_ISSUE_LABEL = "เบิกออก";
 export const STORE_FIX_WRONG_ENTRY_LABEL = "แก้รายการที่บันทึกผิด";
 export const STORE_RETURN_TO_STORE_LABEL = "คืนเข้าคลัง";
 
+// Spec 213 — the per-material activity log (ประวัติวัสดุ). STOCK_COUNT_LABEL
+// single-sources the count verb already used inline across the store surfaces.
+export const MATERIAL_LOG_LABEL = "ประวัติวัสดุ";
+export const STOCK_COUNT_LABEL = "ตรวจนับ";
+
 // Feedback 8bb3dc63 — people reached for ตรวจนับ (recount) to "fix" a เบิก they
 // recorded with the wrong qty, expecting the cost to reverse; it didn't, because
 // a recount reconciles the on-hand NUMBER to physical truth, it is not an
