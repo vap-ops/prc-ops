@@ -18,6 +18,8 @@ import {
   STOCK_COUNT_NOT_UNDO_HINT,
 } from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
+import { storeHref, storeItemHref } from "@/lib/nav/project-paths";
+import { withBackFrom } from "@/lib/nav/back-href";
 import type { Database } from "@/lib/db/database.types";
 import { recordStockCount, recordStockInBulk, reverseStockReceipt } from "@/app/store/actions";
 
@@ -274,21 +276,36 @@ export function StoreManager({
                     key={r.catalogItemId}
                     className="border-edge bg-card rounded-control flex items-center gap-3 border px-4 py-3"
                   >
-                    <span className="min-w-0 flex-1">
-                      <span className="text-ink text-body block font-semibold">{r.baseItem}</span>
-                      <span className="text-ink-secondary text-meta block">
-                        {r.specAttrs ? `${r.specAttrs} · ` : ""}
-                        ต้นทุนเฉลี่ย {baht(avg)} ฿/{r.unit}
+                    {/* Spec 213 U3: the identity + qty drill into the material's
+                        activity log; the ตรวจนับ action stays beside it, not nested
+                        in the anchor. */}
+                    <Link
+                      href={
+                        selectedProjectId
+                          ? withBackFrom(
+                              storeItemHref(selectedProjectId, r.catalogItemId),
+                              storeHref(selectedProjectId),
+                            )
+                          : "#"
+                      }
+                      className="hover:bg-sunk focus-visible:ring-action rounded-control -mx-2 -my-1 flex min-w-0 flex-1 items-center gap-3 px-2 py-1 transition-colors focus:outline-none focus-visible:ring-2"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="text-ink text-body block font-semibold">{r.baseItem}</span>
+                        <span className="text-ink-secondary text-meta block">
+                          {r.specAttrs ? `${r.specAttrs} · ` : ""}
+                          ต้นทุนเฉลี่ย {baht(avg)} ฿/{r.unit}
+                        </span>
                       </span>
-                    </span>
-                    <span className="shrink-0 text-right">
-                      <span className="text-ink text-body block font-semibold">
-                        {r.qtyOnHand} {r.unit}
+                      <span className="shrink-0 text-right">
+                        <span className="text-ink text-body block font-semibold">
+                          {r.qtyOnHand} {r.unit}
+                        </span>
+                        <span className="text-ink-secondary text-meta block">
+                          {baht(r.totalValue)} ฿
+                        </span>
                       </span>
-                      <span className="text-ink-secondary text-meta block">
-                        {baht(r.totalValue)} ฿
-                      </span>
-                    </span>
+                    </Link>
                     {/* Spec 208: เบิก is initiated on the WP detail page (เบิกของ tab),
                         not the store console — only ตรวจนับ stays here. */}
                     {canIssue ? (

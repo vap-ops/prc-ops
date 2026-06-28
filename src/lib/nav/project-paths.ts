@@ -48,3 +48,8 @@ export function supplyPlanHref(projectId: string): string {
 export function storeHref(projectId: string): string {
   return `/projects/${projectId}/store`;
 }
+
+// Spec 213: a material's activity log — drilled in from the store on-hand row.
+export function storeItemHref(projectId: string, catalogItemId: string): string {
+  return `/projects/${projectId}/store/items/${catalogItemId}`;
+}

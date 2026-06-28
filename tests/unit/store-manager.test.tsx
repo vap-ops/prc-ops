@@ -118,6 +118,13 @@ describe("StoreManager (spec 177 U2)", () => {
     expect(screen.getByText(/ยังไม่มีของในคลัง/)).toBeInTheDocument();
   });
 
+  // Spec 213 U3: tapping a material drills into its activity log.
+  it("links each on-hand row to its material log", () => {
+    renderManager({});
+    const link = screen.getByRole("link", { name: /สายไฟ NYY/ });
+    expect(link.getAttribute("href")).toContain("/projects/p1/store/items/ci1");
+  });
+
   it("switching the project selector navigates to that project's store", () => {
     renderManager({});
     fireEvent.change(screen.getByLabelText("โครงการ"), { target: { value: "p2" } });
