@@ -6,6 +6,35 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## ADR 0066 — Procurement taxonomy redesign (specs 223–232) — SPEC AUTHORED (2026-06-30, session S0)
+
+Status: **SPECS AUTHORED / not started.** Session S0 (docs-only) accepted
+[ADR 0066](decisions/0066-procurement-taxonomy-redesign.md) and authored the 10 phase
+specs below (one per build session, S0–S10). Schema is single-lane and serialized
+(S1→S2→S4→S5→S6); reserved migration timestamps `20260813029000`–`20260813033000`. S0
+ships as ONE governance-held PR (touches `docs/decisions/`). **Next: S1 (spec 223).**
+
+| Spec                                                     | Session | Title                                                                           | Autonomy             | Reserved migration ts  | Status      |
+| -------------------------------------------------------- | ------- | ------------------------------------------------------------------------------- | -------------------- | ---------------------- | ----------- |
+| [223](feature-specs/223-units-ssot.md)                   | S1      | Units SSOT — `catalog_units` + structured picker                                | 🔔 ONE-TAP HOLD      | `20260813029000`       | not started |
+| [224](feature-specs/224-catalog-item-facets.md)          | S2      | Catalog facets `kind`/`fulfillment_mode`/`owner_supplied` + derived `stockable` | 🔔 ONE-TAP HOLD      | `20260813030000`       | not started |
+| [225](feature-specs/225-catalog-secondary-membership.md) | S4      | Secondary membership `catalog_item_categories` (reuse spec-219 composite FK)    | 🔔 ONE-TAP HOLD      | `20260813031000`       | not started |
+| [226](feature-specs/226-global-work-categories.md)       | S5      | Global `work_categories` library + seed + reconcile FK + ship 207-U3c           | 🔔 ONE-TAP HOLD      | `20260813032000`       | not started |
+| [227](feature-specs/227-work-material-relation.md)       | S6      | Relation R `work_category_material_categories` bridge + seed                    | 🔔 ONE-TAP HOLD      | `20260813033000`       | not started |
+| [228](feature-specs/228-scoped-supply-plan-picker.md)    | S7      | UC1 scoped supply-plan picker (show-all-default)                                | ✅ AUTO-MERGE        | — (code-only)          | not started |
+| [229](feature-specs/229-scoped-wp-detail-pickers.md)     | S8      | UC2 scoped WP-detail pickers + work-cat badge                                   | ✅ AUTO-MERGE        | — (code-only)          | not started |
+| [230](feature-specs/230-category-read-side-wins.md)      | S9      | Read-side wins (3 disjoint files, parallelizable)                               | ✅ AUTO-MERGE        | — (code-only)          | not started |
+| [231](feature-specs/231-estimate-template-bid-layer.md)  | S10     | Estimate/template/bid layer + assemblies (LATER epic)                           | MIXED, multi-session | assigned at build      | not started |
+| [232](feature-specs/232-category-rehome-breakglass.md)   | S3      | C1 re-home cats 09/10/13 (product_code shift)                                   | 🧨 BREAK-GLASS       | assigned at scheduling | not started |
+
+**Open questions surfaced (S0):** (1) the exact `stockable` derivation rule + whether
+`p_stockable` is ignored or fallback (spec 224 — pin in pgTAP at build); (2) the
+`work_categories` subsection grain (self-FK `parent_code` vs flat 2-level code, spec 226);
+(3) the spend-by-category lens (work-cat vs material-cat, spec 230); (4) BOQ seed content
+for W01–W09 + Relation R rows (specs 226/227 — sourced from the BuildAll BOQ at build).
+
+---
+
 ## Spec 221 — Managed category taxonomy (enum → table) + product-code derivation (2026-06-29)
 
 Status: **U1 + U2 + U3 + U3b + U3c + U4 COMPLETE (2026-06-29).** The catalog item form + browse filter
