@@ -72,7 +72,7 @@ select throws_ok(
   '23505', null, 'a duplicate category code is rejected (23505)');
 select throws_ok(
   $$ select public.create_catalog_category('8', 'สั้น', 0::smallint) $$,
-  '22123', null, 'a non-2-digit code is rejected (22123)');
+  '22023', null, 'a non-2-digit code is rejected (22023)');
 select lives_ok(
   $$ select public.update_catalog_category(
        (select id from public.catalog_categories where code='80'),

@@ -69,18 +69,47 @@ Migration `20260813018000`, all additive (no drops → reversible):
 - pgTAP: table + RLS + grants; seed count = 13; backfill correctness; trigger keeps in sync;
   the two RPCs (create/dup/bad-code/update/unknown). `db:types` regenerated.
 
-### U2 — CUTOVER · ⚠️ BREAK-GLASS (operator-gated, irreversible)
+### U2 — category_id becomes source of truth (enum kept VESTIGIAL) · SCHEMA lane · held PR (NOT break-glass)
 
-Per `docs/break-glass.md` Procedure B: \*\*verified `pg_dump` floor + preview-branch rehearsal
+**Revised 2026-06-29.** The original plan dropped the `item_category` enum (break-glass,
+irreversible). But dropping it is **not required** to deliver the value — a new user-created
+main category simply has no enum value. So instead: make `category_id` the source of truth and
+leave the enum **vestigial** (nullable, ignored). Fully **additive + backward-compatible** — a
+normal held PR, no break-glass. The actual `DROP TYPE` is **deferred** to an optional later
+cleanup (its own break-glass unit, or never).
 
-- explicit operator authorization\*\* before running. Migration:
+Migration `20260813020000` (additive, backward-compatible):
 
-* `category_id` set NOT NULL (verified no nulls); drop the old composite FK + the enum
-  `category` columns on both tables; rebuild the composite FK on `(subcategory_id,
-category_id)`; drop `legacy_category` + the sync triggers; **`drop type public.item_category`**.
-* **DROP+CREATE** the catalog RPCs to take `category_id uuid` (not the enum). Switch the ~8
-  code files to `category_id` + read category names/codes from `catalog_categories` (the
-  static `ITEM_CATEGORY_LABEL` retires to a seed/fallback). Update pgTAP `119/120/121`.
+- enum `category` columns → **nullable** on both tables (a new category has no enum value);
+- subcategory identity + the item↔subcategory match move onto `category_id`:
+  `unique (category_id, code)` + `unique (id, category_id)` + composite FK
+  `catalog_items(subcategory_id, category_id) → catalog_subcategories(id, category_id)`. The
+  legacy enum unique/FK stay (just unenforced when `category` is null);
+- the **sync trigger** → only fill `category_id` when it's null (the RPCs now set it directly);
+- **DROP+CREATE** `create/update_catalog_item` + `create_catalog_subcategory` to add a trailing
+  `p_category_id uuid` (default → old enum-only calls still resolve, so the live app keeps
+  working in the push→deploy window). `category_id` is the source of truth (explicit wins, else
+  derived from the enum); the enum is written through (NULL for a user-created category); the
+  subcategory guard now matches on `category_id`.
+- pgTAP: `120/121` signature pins → new 9-arg; a new test for the `category_id` path (create by
+  `p_category_id`, the guard on `category_id`, a new-category insert with a NULL enum).
+
+The app keeps using the enum until U3 switches it to `category_id` — both work meanwhile.
+**U3 carry-forwards (from the U2 adversarial review):** (a) regen `db:types` (the `category`
+columns become nullable + RPC Args gain `p_category_id`) and switch every `catalog_items.category` /
+`catalog_subcategories.category` read (catalog-list, `/catalog/subcategories`, store, supply-plan) to
+`category_id` + a `catalog_categories` join — until then a user-created (enum-null) category can't be
+surfaced. (b) `update_catalog_item` writes both columns from `coalesce(p_category_id, derive(enum))`,
+so the OLD enum-only edit form could demote a user-category item back to an enum category — U3 must
+make the edit path pass `p_category_id` (or preserve `category_id` when `p_category_id` is null and the
+row's `category` is already null).
+
+### U2-cleanup — deferred, optional, ⚠️ BREAK-GLASS
+
+Once everything is proven on the table: drop the vestigial enum columns + `legacy_category` +
+the sync trigger + `drop type public.item_category`. `pg_dump` floor + preview-branch rehearsal
+
+- operator go (`break-glass.md` Procedure B). **Not required for the feature** — may never run.
 
 ### U3 — unified taxonomy manager UX · code-only
 
