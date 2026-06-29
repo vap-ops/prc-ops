@@ -85,6 +85,27 @@ export const ITEM_CATEGORY_LABEL: Record<Enums["item_category"], string> = {
   custom_fabrication: "งานสั่งทำ",
 };
 
+// Spec 224 (ADR 0066 D3) — the catalog item FACETS. Term SSOT for the item-form
+// controls (and any later facet readers). `kind` = what class of thing it is;
+// `fulfillment_mode` = how it is sourced (stockable derives from this).
+export const ITEM_KIND_LABEL = "ประเภทรายการ";
+export const FULFILLMENT_MODE_LABEL = "การจัดหา";
+export const OWNER_SUPPLIED_LABEL = "เจ้าของโครงการจัดหาเอง";
+
+export const ITEM_KIND_OPTION_LABEL: Record<Enums["catalog_item_kind"], string> = {
+  material: "วัสดุ",
+  tool: "เครื่องมือ",
+  equipment: "ครุภัณฑ์",
+  labor: "ค่าแรง",
+  service: "บริการ",
+  softcost: "ค่าใช้จ่ายแฝง",
+};
+
+export const FULFILLMENT_MODE_OPTION_LABEL: Record<Enums["catalog_fulfillment_mode"], string> = {
+  off_shelf: "มีขายทั่วไป",
+  made_to_order: "สั่งทำ",
+};
+
 // Spec 177 — the on-site store (stock on hand) + the stock-in (รับเข้า) /
 // issue-out (เบิก) actions.
 // Spec 197 U1: the store became a per-project destination (a project sub-route +

@@ -34,6 +34,9 @@ const item: CatalogItem = {
   unit: "ม้วน",
   productCode: "010120",
   note: "",
+  kind: "material",
+  fulfillmentMode: "off_shelf",
+  ownerSupplied: false,
 };
 
 beforeEach(() => {
@@ -73,6 +76,10 @@ describe("EditCatalogItem (spec 175 U3)", () => {
         productCode: "010120",
         // Spec 219 — optional subcategory; this item has none.
         subcategoryId: "",
+        // Spec 224 — the facets carried through unchanged from the item.
+        kind: "material",
+        fulfillmentMode: "off_shelf",
+        ownerSupplied: false,
       }),
     );
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());

@@ -16,10 +16,10 @@ grant insert on _tap_buf to authenticated;
 grant select on _tap_buf to authenticated;
 grant usage  on sequence _tap_buf_ord_seq to authenticated;
 
--- Signatures are unchanged (only defaults added) → the U2/spec-175 pins still hold.
+-- Spec 224 added the trailing facet params (defaults) → the facet arity resolves.
 select ok(
-  to_regprocedure('public.create_catalog_item(public.item_category, text, text, text, boolean, text, text, uuid, uuid)') is not null,
-  'create_catalog_item signature unchanged (defaults added)');
+  to_regprocedure('public.create_catalog_item(public.item_category, text, text, text, boolean, text, text, uuid, uuid, public.catalog_item_kind, public.catalog_fulfillment_mode, boolean)') is not null,
+  'create_catalog_item facet arity exists (defaults keep old callers valid)');
 
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333333223"}';

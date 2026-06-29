@@ -60,6 +60,10 @@ describe("AddCatalogItem (spec 175 U2 / 221 U3c)", () => {
         note: "",
         productCode: "060120",
         subcategoryId: "",
+        // Spec 224 — the facet defaults (off-the-shelf material, firm-supplied).
+        kind: "material",
+        fulfillmentMode: "off_shelf",
+        ownerSupplied: false,
       }),
     );
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());

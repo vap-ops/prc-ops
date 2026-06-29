@@ -78,6 +78,9 @@ export function EditCatalogItem({
             note: item.note ?? "",
             productCode: item.productCode ?? "",
             subcategoryId: item.subcategoryId ?? "",
+            kind: item.kind,
+            fulfillmentMode: item.fulfillmentMode,
+            ownerSupplied: item.ownerSupplied,
           }}
           categories={categories}
           subcategories={subcategories}

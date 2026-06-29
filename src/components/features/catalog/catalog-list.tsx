@@ -10,6 +10,7 @@ import { useState } from "react";
 import { ImageIcon, Search } from "lucide-react";
 import { RadioChip } from "@/components/features/common/radio-chip";
 import { FIELD_INPUT } from "@/lib/ui/classes";
+import type { Database } from "@/lib/db/database.types";
 import type { CatalogSubcategoryOption, CatalogUnitOption } from "./catalog-item-form";
 import { EditCatalogItem } from "./edit-catalog-item";
 import { SetSellRate } from "./set-sell-rate";
@@ -32,6 +33,10 @@ export type CatalogItem = {
   note?: string | null;
   // Spec 219 — the item's subcategory FK; null/undefined when unset.
   subcategoryId?: string | null;
+  // Spec 224 (ADR 0066 D3) — the catalog item facets (for the edit form pre-fill).
+  kind: Database["public"]["Enums"]["catalog_item_kind"];
+  fulfillmentMode: Database["public"]["Enums"]["catalog_fulfillment_mode"];
+  ownerSupplied: boolean;
   // Spec 175 U4 — a signed URL for the item's reference image; null when none.
   thumbnailUrl?: string | null;
   // Spec 178 U5 — the per-item SELL rate (super_admin only).

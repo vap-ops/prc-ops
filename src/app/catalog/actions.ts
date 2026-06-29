@@ -14,10 +14,16 @@ import { BACK_OFFICE_ROLES } from "@/lib/auth/role-home";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { ITEM_CATEGORY_LABEL } from "@/lib/i18n/labels";
 import { isValidProductCode } from "@/lib/catalog/validate";
-import type { Database } from "@/lib/db/database.types";
+import { Constants, type Database } from "@/lib/db/database.types";
 
 type ItemCategory = Database["public"]["Enums"]["item_category"];
+type ItemKind = Database["public"]["Enums"]["catalog_item_kind"];
+type FulfillmentMode = Database["public"]["Enums"]["catalog_fulfillment_mode"];
 const CATEGORIES = Object.keys(ITEM_CATEGORY_LABEL) as ItemCategory[];
+// Spec 224 (ADR 0066) — the known facet sets for defense-in-depth validation of
+// the (untrusted) server-action input; the RPC also rejects bad enums.
+const ITEM_KINDS = new Set<string>(Constants.public.Enums.catalog_item_kind);
+const FULFILLMENT_MODES = new Set<string>(Constants.public.Enums.catalog_fulfillment_mode);
 const GENERIC_ERROR = "บันทึกรายการวัสดุไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 const CODE_FORMAT_ERROR = "รหัสสินค้าต้องเป็นตัวเลข 6 หลัก";
 const CODE_DUP_ERROR = "รหัสสินค้านี้ถูกใช้แล้ว";
@@ -51,11 +57,19 @@ export async function createCatalogItem(input: {
   // Spec 219 — optional subcategory FK (empty = none). The RPC enforces it
   // belongs to the item's main category.
   subcategoryId: string;
+  // Spec 224 (ADR 0066 D3) — the catalog item facets. stockable is DERIVED in the
+  // RPC from fulfillmentMode, so it is not sent here.
+  kind: ItemKind;
+  fulfillmentMode: FulfillmentMode;
+  ownerSupplied: boolean;
 }): Promise<CatalogActionResult> {
   await requireRole(BACK_OFFICE_ROLES);
 
   const categoryId = input.categoryId.trim();
   if (!UUID_REGEX.test(categoryId)) return { ok: false, error: "กรุณาเลือกหมวดหมู่" };
+  if (!ITEM_KINDS.has(input.kind) || !FULFILLMENT_MODES.has(input.fulfillmentMode)) {
+    return { ok: false, error: GENERIC_ERROR };
+  }
   const baseItem = input.baseItem.trim();
   if (baseItem.length === 0 || baseItem.length > 200) {
     return { ok: false, error: "กรอกชื่อวัสดุ (ไม่เกิน 200 ตัวอักษร)" };
@@ -98,6 +112,10 @@ export async function createCatalogItem(input: {
     p_stockable: true,
     p_note: note,
     p_product_code: productCode,
+    // Spec 224 — the facets. fulfillment_mode is the SSOT; the RPC derives stockable.
+    p_kind: input.kind,
+    p_fulfillment_mode: input.fulfillmentMode,
+    p_owner_supplied: input.ownerSupplied === true,
     ...(legacy ? { p_category: legacy } : {}),
     // Omit the key when empty → the RPC's default null (clears the FK); a uuid
     // sets it. exactOptionalPropertyTypes forbids an explicit undefined here.
@@ -126,12 +144,19 @@ export async function updateCatalogItem(input: {
   productCode: string;
   // Spec 219 — optional subcategory FK (empty = none); category-matched by the RPC.
   subcategoryId: string;
+  // Spec 224 (ADR 0066 D3) — the catalog item facets (stockable derives from mode).
+  kind: ItemKind;
+  fulfillmentMode: FulfillmentMode;
+  ownerSupplied: boolean;
 }): Promise<CatalogActionResult> {
   await requireRole(BACK_OFFICE_ROLES);
 
   if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC_ERROR };
   const categoryId = input.categoryId.trim();
   if (!UUID_REGEX.test(categoryId)) return { ok: false, error: "กรุณาเลือกหมวดหมู่" };
+  if (!ITEM_KINDS.has(input.kind) || !FULFILLMENT_MODES.has(input.fulfillmentMode)) {
+    return { ok: false, error: GENERIC_ERROR };
+  }
   const baseItem = input.baseItem.trim();
   if (baseItem.length === 0 || baseItem.length > 200) {
     return { ok: false, error: "กรอกชื่อวัสดุ (ไม่เกิน 200 ตัวอักษร)" };
@@ -170,6 +195,10 @@ export async function updateCatalogItem(input: {
     p_stockable: true,
     p_note: note,
     p_product_code: productCode,
+    // Spec 224 — the facets. fulfillment_mode is the SSOT; the RPC derives stockable.
+    p_kind: input.kind,
+    p_fulfillment_mode: input.fulfillmentMode,
+    p_owner_supplied: input.ownerSupplied === true,
     ...(legacy ? { p_category: legacy } : {}),
     // Omit the key when empty → the RPC's default null (clears the FK); a uuid
     // sets it. exactOptionalPropertyTypes forbids an explicit undefined here.
