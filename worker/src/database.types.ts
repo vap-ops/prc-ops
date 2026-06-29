@@ -185,7 +185,7 @@ export type Database = {
       catalog_items: {
         Row: {
           base_item: string
-          category: Database["public"]["Enums"]["item_category"]
+          category: Database["public"]["Enums"]["item_category"] | null
           category_id: string | null
           created_at: string
           id: string
@@ -200,7 +200,7 @@ export type Database = {
         }
         Insert: {
           base_item: string
-          category: Database["public"]["Enums"]["item_category"]
+          category?: Database["public"]["Enums"]["item_category"] | null
           category_id?: string | null
           created_at?: string
           id?: string
@@ -215,7 +215,7 @@ export type Database = {
         }
         Update: {
           base_item?: string
-          category?: Database["public"]["Enums"]["item_category"]
+          category?: Database["public"]["Enums"]["item_category"] | null
           category_id?: string | null
           created_at?: string
           id?: string
@@ -237,6 +237,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "catalog_items_subcategory_category_id_fk"
+            columns: ["subcategory_id", "category_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_subcategories"
+            referencedColumns: ["id", "category_id"]
+          },
+          {
             foreignKeyName: "catalog_items_subcategory_fk"
             columns: ["subcategory_id", "category"]
             isOneToOne: false
@@ -247,7 +254,7 @@ export type Database = {
       }
       catalog_subcategories: {
         Row: {
-          category: Database["public"]["Enums"]["item_category"]
+          category: Database["public"]["Enums"]["item_category"] | null
           category_id: string | null
           code: string
           created_at: string
@@ -257,7 +264,7 @@ export type Database = {
           sort_order: number
         }
         Insert: {
-          category: Database["public"]["Enums"]["item_category"]
+          category?: Database["public"]["Enums"]["item_category"] | null
           category_id?: string | null
           code: string
           created_at?: string
@@ -267,7 +274,7 @@ export type Database = {
           sort_order?: number
         }
         Update: {
-          category?: Database["public"]["Enums"]["item_category"]
+          category?: Database["public"]["Enums"]["item_category"] | null
           category_id?: string | null
           code?: string
           created_at?: string
@@ -5283,6 +5290,7 @@ export type Database = {
         Args: {
           p_base_item: string
           p_category: Database["public"]["Enums"]["item_category"]
+          p_category_id?: string
           p_note: string
           p_product_code?: string
           p_spec_attrs: string
@@ -5295,6 +5303,7 @@ export type Database = {
       create_catalog_subcategory: {
         Args: {
           p_category: Database["public"]["Enums"]["item_category"]
+          p_category_id?: string
           p_code: string
           p_name: string
           p_sort_order?: number
@@ -6121,6 +6130,7 @@ export type Database = {
         Args: {
           p_base_item: string
           p_category: Database["public"]["Enums"]["item_category"]
+          p_category_id?: string
           p_id: string
           p_note: string
           p_product_code?: string

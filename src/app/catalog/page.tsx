@@ -17,7 +17,7 @@ import Link from "next/link";
 import { CatalogList, type CatalogItem } from "@/components/features/catalog/catalog-list";
 import type { CatalogSubcategoryOption } from "@/components/features/catalog/catalog-item-form";
 import { AddCatalogItem } from "@/components/features/catalog/add-catalog-item";
-import { CATALOG_LABEL, MANAGE_SUBCATEGORIES_LABEL } from "@/lib/i18n/labels";
+import { CATALOG_LABEL, MANAGE_TAXONOMY_LABEL } from "@/lib/i18n/labels";
 
 export const metadata = { title: CATALOG_LABEL };
 
@@ -42,7 +42,8 @@ export default async function CatalogPage() {
     .order("code", { ascending: true });
   const subcategories: CatalogSubcategoryOption[] = (subRows ?? []).map((r) => ({
     id: r.id,
-    category: r.category,
+    // Spec 221: category is now nullable (vestigial enum); non-null until the item form switches to category_id (later unit).
+    category: r.category as NonNullable<typeof r.category>,
     code: r.code,
     name: r.name,
   }));
@@ -69,7 +70,8 @@ export default async function CatalogPage() {
 
   const items: CatalogItem[] = (rows ?? []).map((r) => ({
     id: r.id,
-    category: r.category,
+    // Spec 221: category is now nullable (vestigial enum); non-null until the item form switches to category_id (later unit).
+    category: r.category as NonNullable<typeof r.category>,
     baseItem: r.base_item,
     specAttrs: r.spec_attrs,
     unit: r.unit,
@@ -94,7 +96,7 @@ export default async function CatalogPage() {
             href="/catalog/subcategories"
             className="text-action text-sm font-medium hover:underline"
           >
-            {MANAGE_SUBCATEGORIES_LABEL}
+            {MANAGE_TAXONOMY_LABEL}
           </Link>
           <AddCatalogItem subcategories={subcategories} />
         </div>

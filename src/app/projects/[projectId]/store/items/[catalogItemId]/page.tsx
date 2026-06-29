@@ -174,7 +174,8 @@ export default async function MaterialLogPage({ params, searchParams }: PageProp
       >
         <div>
           <p className="text-meta text-ink-secondary">
-            {MATERIAL_LOG_LABEL} · {ITEM_CATEGORY_LABEL[item.category]}
+            {MATERIAL_LOG_LABEL}
+            {item.category ? ` · ${ITEM_CATEGORY_LABEL[item.category]}` : ""}
           </p>
           <h1 className="text-title text-ink font-bold tracking-tight">
             {item.base_item}

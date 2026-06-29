@@ -64,6 +64,11 @@ export const CATALOG_LABEL = "ทะเบียนวัสดุ";
 export const CATALOG_SUBCATEGORY_LABEL = "หมวดย่อย";
 export const MANAGE_SUBCATEGORIES_LABEL = "จัดการหมวดย่อย";
 
+// Spec 221 — the managed MAIN category (catalog_categories). Term SSOT for the
+// taxonomy manage screen + the U3 add/edit-category controls.
+export const CATALOG_CATEGORY_LABEL = "หมวดหลัก";
+export const MANAGE_TAXONOMY_LABEL = "จัดการหมวดหมู่";
+
 export const ITEM_CATEGORY_LABEL: Record<Enums["item_category"], string> = {
   steel_fixing: "เหล็ก / อุปกรณ์ยึด",
   plumbing_sanitary: "ประปา / สุขภัณฑ์",
