@@ -21,9 +21,11 @@ import { loadProjectsHub } from "@/lib/projects/load-hub";
 import {
   parseProjectStatusFilter,
   parseProjectClientFilter,
+  parseProjectQuery,
   viewProjects,
   buildProjectStatusChips,
   buildProjectClientChips,
+  projectListHref,
 } from "@/lib/projects/list-view";
 import { ProjectsFilterBar } from "@/components/features/projects/projects-filter-bar";
 import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
@@ -40,8 +42,13 @@ import { projectStatusIcon } from "@/lib/status-icons";
 export const metadata = { title: "โครงการ" };
 
 interface ProjectsHubPageProps {
-  // Next 16: searchParams is async. Feedback 1d648880 reads ?status; 7d9d2c2b ?client.
-  searchParams: Promise<{ status?: string | string[]; client?: string | string[] }>;
+  // Next 16: searchParams is async. Feedback 1d648880 reads ?status; 7d9d2c2b ?client;
+  // the project search reads ?q.
+  searchParams: Promise<{
+    status?: string | string[];
+    client?: string | string[];
+    q?: string | string[];
+  }>;
 }
 
 export default async function ProjectsHubPage({ searchParams }: ProjectsHubPageProps) {
@@ -52,6 +59,7 @@ export default async function ProjectsHubPage({ searchParams }: ProjectsHubPageP
   const pick = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const status = parseProjectStatusFilter(pick(sp.status));
   const client = parseProjectClientFilter(pick(sp.client));
+  const query = parseProjectQuery(pick(sp.q));
 
   const isPm = isManagerRole(ctx.role);
   const isProcurement = ctx.role === "procurement";
@@ -70,9 +78,11 @@ export default async function ProjectsHubPage({ searchParams }: ProjectsHubPageP
   // filters (sorting retired → default code sort). The RLS-scoped list is small
   // (membership-bounded), so filter/count in JS — keeps the chip counts live with
   // one query and no extra round-trips.
-  const { rows, counts, clientCounts } = viewProjects(projects, { status, client });
-  const statusChips = buildProjectStatusChips({ counts, status, client });
-  const clientChips = buildProjectClientChips({ clientCounts, clientNames, status, client });
+  const { rows, counts, clientCounts } = viewProjects(projects, { status, client, query });
+  const statusChips = buildProjectStatusChips({ counts, status, client, query });
+  const clientChips = buildProjectClientChips({ clientCounts, clientNames, status, client, query });
+  // "×" target: the current facet view with the search cleared.
+  const searchClearHref = projectListHref(status, client);
 
   // Spec 102: procurement browses projects read-only for purchase context.
   const kicker = isCoordinator
@@ -112,7 +122,14 @@ export default async function ProjectsHubPage({ searchParams }: ProjectsHubPageP
           <EmptyNotice>ยังไม่มีโครงการ</EmptyNotice>
         ) : (
           <>
-            <ProjectsFilterBar statusChips={statusChips} clientChips={clientChips} />
+            <ProjectsFilterBar
+              statusChips={statusChips}
+              clientChips={clientChips}
+              query={query}
+              status={status}
+              client={client}
+              searchClearHref={searchClearHref}
+            />
             {rows.length === 0 ? (
               <EmptyNotice>ไม่มีโครงการในตัวกรองนี้</EmptyNotice>
             ) : (

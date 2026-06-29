@@ -1,7 +1,8 @@
 // Writing failing test first.
 //
 // Feedback 7d9d2c2b — the hub filter bar gains a client facet and drops the sort
-// control. Presentational (server-safe) component: it maps the descriptors from
+// control. A later ask adds a project name/code search (?q=) as a plain GET form.
+// Presentational (server-safe) component: it maps the descriptors from
 // list-view.ts to deep-linkable <Link> chips. The chip logic is unit-tested in
 // projects-list-view.test.ts; this pins the render contract.
 
@@ -20,9 +21,18 @@ const clientChips: ProjectClientChip[] = [
   { key: "none", label: "ไม่ระบุลูกค้า", count: 1, href: "/projects?client=none", active: false },
 ];
 
+const base = {
+  statusChips,
+  clientChips,
+  query: "",
+  status: "all" as const,
+  client: "all",
+  searchClearHref: "/projects",
+};
+
 describe("ProjectsFilterBar (feedback 7d9d2c2b)", () => {
   it("renders a status filter group and a client filter group", () => {
-    render(<ProjectsFilterBar statusChips={statusChips} clientChips={clientChips} />);
+    render(<ProjectsFilterBar {...base} />);
     expect(screen.getByRole("group", { name: "กรองตามสถานะ" })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "กรองตามลูกค้า" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Alpha/ })).toHaveAttribute(
@@ -33,8 +43,52 @@ describe("ProjectsFilterBar (feedback 7d9d2c2b)", () => {
   });
 
   it("no longer renders a sort control", () => {
-    render(<ProjectsFilterBar statusChips={statusChips} clientChips={clientChips} />);
+    render(<ProjectsFilterBar {...base} />);
     expect(screen.queryByRole("group", { name: "เรียงลำดับ" })).toBeNull();
     expect(screen.queryByText("เรียง")).toBeNull();
+  });
+});
+
+describe("ProjectsFilterBar — project search", () => {
+  it("renders a GET search form posting q to /projects, seeded with the current query", () => {
+    render(<ProjectsFilterBar {...base} query="บ้าน" />);
+    const box = screen.getByRole("searchbox", { name: "ค้นหาโครงการ" });
+    expect(box).toHaveAttribute("name", "q");
+    expect(box).toHaveValue("บ้าน");
+    const form = box.closest("form")!;
+    expect(form).toHaveAttribute("method", "get");
+    expect(form).toHaveAttribute("action", "/projects");
+  });
+
+  it("preserves active facets as hidden inputs so a search keeps them", () => {
+    const { container } = render(
+      <ProjectsFilterBar {...base} status="active" client="cli-a" query="x" />,
+    );
+    expect(container.querySelector('input[type="hidden"][name="status"]')).toHaveValue("active");
+    expect(container.querySelector('input[type="hidden"][name="client"]')).toHaveValue("cli-a");
+  });
+
+  it("omits hidden facet inputs when they are at their defaults (clean URL)", () => {
+    const { container } = render(<ProjectsFilterBar {...base} />);
+    expect(container.querySelector('input[type="hidden"][name="status"]')).toBeNull();
+    expect(container.querySelector('input[type="hidden"][name="client"]')).toBeNull();
+  });
+
+  it("shows a clear control only when a query is active, linking to the facets-without-q href", () => {
+    const { rerender } = render(<ProjectsFilterBar {...base} query="" />);
+    expect(screen.queryByRole("link", { name: "ล้างการค้นหา" })).toBeNull();
+
+    rerender(
+      <ProjectsFilterBar
+        {...base}
+        status="active"
+        query="บ้าน"
+        searchClearHref="/projects?status=active"
+      />,
+    );
+    expect(screen.getByRole("link", { name: "ล้างการค้นหา" })).toHaveAttribute(
+      "href",
+      "/projects?status=active",
+    );
   });
 });
