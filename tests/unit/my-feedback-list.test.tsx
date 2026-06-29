@@ -12,6 +12,7 @@ const items: MyFeedbackItem[] = [
   // deliberately out of date order — the list must re-sort newest-first
   {
     id: "a",
+    feedbackNumber: 1,
     type: "bug",
     status: "open",
     title: "เพิ่มรูปไม่ได้",
@@ -19,6 +20,7 @@ const items: MyFeedbackItem[] = [
   },
   {
     id: "b",
+    feedbackNumber: 2,
     type: "feature",
     status: "done",
     title: "ขอเพิ่มกลุ่มวัสดุ",
@@ -26,6 +28,7 @@ const items: MyFeedbackItem[] = [
   },
   {
     id: "c",
+    feedbackNumber: 3,
     type: "bug",
     status: "in_progress",
     title: "ปุ่มออกจากระบบซ้ำ",
@@ -58,6 +61,13 @@ describe("MyFeedbackList (spec 201)", () => {
     // newest (06-24) → 06-22 → oldest (06-20)
     expect(text.indexOf("ขอเพิ่มกลุ่มวัสดุ")).toBeLessThan(text.indexOf("ปุ่มออกจากระบบซ้ำ"));
     expect(text.indexOf("ปุ่มออกจากระบบซ้ำ")).toBeLessThan(text.indexOf("เพิ่มรูปไม่ได้"));
+  });
+
+  it("renders each submission's human FB code", () => {
+    render(<MyFeedbackList items={items} />);
+    expect(screen.getByText("FB-0001")).toBeInTheDocument();
+    expect(screen.getByText("FB-0002")).toBeInTheDocument();
+    expect(screen.getByText("FB-0003")).toBeInTheDocument();
   });
 
   it("renders an empty state when the reporter has no submissions", () => {

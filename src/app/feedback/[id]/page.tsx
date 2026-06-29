@@ -19,6 +19,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { CARD } from "@/lib/ui/classes";
 import { safeBackHref } from "@/lib/nav/back-href";
 import { createClient } from "@/lib/db/server";
+import { FeedbackNumberTag } from "@/components/features/feedback/feedback-number-tag";
 import { FEEDBACK_TYPE_LABEL, FEEDBACK_STATUS_LABEL, formatThaiDateTime } from "@/lib/i18n/labels";
 
 export const metadata = { title: "บทสนทนา · แจ้งปัญหา / ขอฟีเจอร์" };
@@ -61,7 +62,7 @@ export default async function FeedbackDetailPage({ params, searchParams }: PageP
   // comes back null (not theirs / not found) → notFound.
   const { data: feedback } = await supabase
     .from("feedback")
-    .select("id, type, status, title, body, created_at, submitted_by")
+    .select("id, feedback_number, type, status, title, body, created_at, submitted_by")
     .eq("id", id)
     .maybeSingle();
   if (!feedback) notFound();
@@ -114,6 +115,7 @@ export default async function FeedbackDetailPage({ params, searchParams }: PageP
         <MarkFeedbackViewed feedbackId={feedback.id} />
         <div className={`${CARD} flex flex-col gap-2`}>
           <div className="flex flex-wrap items-center gap-2">
+            <FeedbackNumberTag feedbackNumber={feedback.feedback_number} />
             <span className={`${BADGE} ${TYPE_BADGE[feedback.type]}`}>
               {FEEDBACK_TYPE_LABEL[feedback.type]}
             </span>
