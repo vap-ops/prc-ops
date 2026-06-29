@@ -22,11 +22,13 @@ vi.mock("@/app/catalog/actions", () => ({
 
 import { EditCatalogItem } from "@/components/features/catalog/edit-catalog-item";
 
-const CATS = [{ id: "cat-elec", code: "06", name: "ไฟฟ้า" }];
+// Spec 221 U4 — the category's 2-digit code is the product-code prefix; this
+// item's code "010120" is category "01" + the "0120" sequence tail.
+const CATS = [{ id: "cat-steel", code: "01", name: "เหล็ก" }];
 
 const item: CatalogItem = {
   id: "c1",
-  categoryId: "cat-elec",
+  categoryId: "cat-steel",
   baseItem: "สายไฟเดิม",
   specAttrs: "2x4",
   unit: "ม้วน",
@@ -50,7 +52,8 @@ describe("EditCatalogItem (spec 175 U3)", () => {
     open();
     expect(screen.getByLabelText("ชื่อวัสดุ")).toHaveValue("สายไฟเดิม");
     expect(screen.getByLabelText("หน่วยนับ")).toHaveValue("ม้วน");
-    expect(screen.getByLabelText(/รหัสสินค้า/)).toHaveValue("010120");
+    // Spec 221 U4 — only the sequence tail is editable; the prefix is derived.
+    expect(screen.getByLabelText(/รหัสสินค้า/)).toHaveValue("0120");
   });
 
   it("saves the edited values and refreshes", async () => {
@@ -61,11 +64,12 @@ describe("EditCatalogItem (spec 175 U3)", () => {
     await waitFor(() =>
       expect(mockUpdate).toHaveBeenCalledWith({
         id: "c1",
-        categoryId: "cat-elec",
+        categoryId: "cat-steel",
         baseItem: "สายไฟใหม่",
         specAttrs: "2x4",
         unit: "ม้วน",
         note: "",
+        // Spec 221 U4 — recomposed from category "01" + the unchanged tail "0120".
         productCode: "010120",
         // Spec 219 — optional subcategory; this item has none.
         subcategoryId: "",

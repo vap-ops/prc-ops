@@ -9,7 +9,11 @@ import { useState, useTransition } from "react";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
 import { CATALOG_SUBCATEGORY_LABEL, PRODUCT_CODE_LABEL } from "@/lib/i18n/labels";
 import { COMMON_UNITS, UNIT_OTHER_VALUE } from "@/lib/purchasing/units";
-import { isValidProductCode } from "@/lib/catalog/validate";
+import {
+  composeProductCode,
+  isValidProductCode,
+  productCodeTailLength,
+} from "@/lib/catalog/validate";
 import type { CatalogCategoryOption } from "./catalog-list";
 
 export type CatalogItemValues = {
@@ -48,6 +52,26 @@ export const EMPTY_CATALOG_VALUES: CatalogItemValues = {
 const LABEL = "text-sm font-medium text-ink";
 const FIELD =
   "rounded-control border-edge-strong bg-card text-ink shadow-input placeholder:text-ink-muted focus-visible:ring-action w-full min-w-0 border px-3 py-2 text-sm focus:outline-none focus-visible:ring-2";
+// Spec 221 U4 — the read-only derived product-code prefix shown before the tail.
+const CODE_PREFIX_BADGE =
+  "rounded-control border-edge-strong bg-card text-ink-muted shadow-input inline-flex shrink-0 items-center border px-3 py-2 text-sm font-mono tabular-nums";
+
+// Spec 221 U4 — seed the editable tail from an existing 6-digit code by stripping
+// the prefix the chosen taxonomy derives (category code [+ subcategory code]).
+function initialProductCodeTail(
+  initial: CatalogItemValues,
+  categories: CatalogCategoryOption[],
+  subcategories: CatalogSubcategoryOption[],
+): string {
+  if (initial.productCode.length !== 6) return "";
+  const cat = categories.find((c) => c.id === initial.categoryId);
+  if (!cat) return "";
+  const subLen =
+    initial.subcategoryId === ""
+      ? 0
+      : (subcategories.find((s) => s.id === initial.subcategoryId)?.code.length ?? 0);
+  return initial.productCode.slice(cat.code.length + subLen);
+}
 
 export function CatalogItemForm({
   initial,
@@ -79,15 +103,36 @@ export function CatalogItemForm({
   );
   const [unitOther, setUnitOther] = useState(initUnitIsCommon ? "" : initial.unit);
   const [note, setNote] = useState(initial.note);
-  const [productCode, setProductCode] = useState(initial.productCode);
   const [subcategoryId, setSubcategoryId] = useState(initial.subcategoryId);
+  // Spec 221 U4 — the user types only the sequence "tail"; the prefix is derived.
+  const [tail, setTail] = useState(() =>
+    initialProductCodeTail(initial, categories, subcategories),
+  );
+  // Spec 221 U4 — only RE-compose the stored code once the user actually touches
+  // the sequence or the taxonomy. Until then keep the existing code verbatim, so
+  // an unrelated edit (e.g. a name change) never silently rewrites a code whose
+  // stored prefix predates this scheme (spec 214 allowed free 6-digit codes).
+  const [codeEdited, setCodeEdited] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
 
   // Spec 219/221 — the picker offers only the chosen category's subcategories.
   const availableSubs = subcategories.filter((s) => s.categoryId === categoryId);
   const resolvedUnit = unitChoice === UNIT_OTHER_VALUE ? unitOther.trim() : unitChoice;
+
+  // Spec 221 U4 — the product code is composed from the chosen taxonomy: the
+  // prefix is the category code (+ the subcategory code when one is chosen); the
+  // user enters only the trailing sequence.
+  const catCode = categories.find((c) => c.id === categoryId)?.code ?? "";
+  const subCode =
+    subcategoryId === "" ? "" : (subcategories.find((s) => s.id === subcategoryId)?.code ?? "");
+  const codePrefix = catCode + subCode;
+  const tailLen = productCodeTailLength(catCode, subCode);
+  const composedCode = composeProductCode(catCode, subCode, tail);
+  // Preserve the stored code until the user edits it; then submit the composition.
+  const productCode = codeEdited ? composedCode : initial.productCode;
   const codeValid = isValidProductCode(productCode);
+
   const canSubmit =
     categoryId !== "" && baseItem.trim() !== "" && resolvedUnit !== "" && codeValid && !submitting;
 
@@ -102,7 +147,7 @@ export function CatalogItemForm({
         specAttrs,
         unit: resolvedUnit,
         note,
-        productCode: productCode.trim(),
+        productCode,
         subcategoryId,
       });
       if (!result.ok) {
@@ -123,9 +168,12 @@ export function CatalogItemForm({
           id="ci-category"
           value={categoryId}
           onChange={(e) => {
-            // Changing the main category invalidates any chosen subcategory.
+            // Changing the main category invalidates any chosen subcategory and
+            // the typed sequence (the derived prefix — and its length — changed).
             setCategoryId(e.target.value);
             setSubcategoryId("");
+            setTail("");
+            setCodeEdited(true);
           }}
           disabled={submitting}
           className={FIELD}
@@ -147,7 +195,12 @@ export function CatalogItemForm({
           <select
             id="ci-subcategory"
             value={subcategoryId}
-            onChange={(e) => setSubcategoryId(e.target.value)}
+            onChange={(e) => {
+              // A subcategory adds 2 prefix digits → the tail length changes; reset it.
+              setSubcategoryId(e.target.value);
+              setTail("");
+              setCodeEdited(true);
+            }}
             disabled={submitting}
             className={FIELD}
           >
@@ -197,20 +250,38 @@ export function CatalogItemForm({
         <label htmlFor="ci-code" className={LABEL}>
           {PRODUCT_CODE_LABEL} (ถ้ามี)
         </label>
-        <input
-          id="ci-code"
-          type="text"
-          inputMode="numeric"
-          value={productCode}
-          maxLength={6}
-          onChange={(e) => setProductCode(e.target.value.replace(/[^0-9]/g, ""))}
-          disabled={submitting}
-          className={FIELD}
-          placeholder="เช่น 010120"
-          aria-invalid={!codeValid}
-        />
-        <p className={codeValid ? "text-ink-muted text-meta" : "text-danger text-meta"}>
-          6 หลัก — 2 หลักแรกหมวดหลัก · 2 หลักถัดไปหมวดย่อย · 2 หลักท้ายลำดับ
+        <div className="flex items-stretch gap-2">
+          {/* The derived prefix is decorative here — its value + meaning are
+              spoken via the input's aria-describedby (ci-code-hint) below. */}
+          <span className={CODE_PREFIX_BADGE} aria-hidden="true">
+            {codePrefix === "" ? "— —" : codePrefix}
+          </span>
+          <input
+            id="ci-code"
+            type="text"
+            inputMode="numeric"
+            value={tail}
+            maxLength={tailLen}
+            onChange={(e) => {
+              setTail(e.target.value.replace(/[^0-9]/g, ""));
+              setCodeEdited(true);
+            }}
+            disabled={submitting || categoryId === ""}
+            className={FIELD}
+            placeholder={"0".repeat(tailLen)}
+            aria-invalid={!codeValid}
+            aria-describedby="ci-code-hint"
+          />
+        </div>
+        <p
+          id="ci-code-hint"
+          className={codeValid ? "text-ink-muted text-meta" : "text-danger text-meta"}
+        >
+          {codePrefix === ""
+            ? "รหัส 6 หลัก — 2 หลักแรกมาจากหมวดหลักอัตโนมัติ · พิมพ์เฉพาะเลขลำดับท้าย"
+            : subCode !== ""
+              ? `รหัส 6 หลัก — ขึ้นต้น ${codePrefix} จากหมวดหลัก+หมวดย่อยอัตโนมัติ · พิมพ์เฉพาะ 2 หลักท้าย (ลำดับ)`
+              : `รหัส 6 หลัก — ขึ้นต้น ${codePrefix} จากหมวดหลักอัตโนมัติ · พิมพ์เฉพาะ 4 หลักท้าย (ลำดับ)`}
         </p>
       </div>
 

@@ -8,10 +8,30 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ## Spec 221 — Managed category taxonomy (enum → table) + product-code derivation (2026-06-29)
 
-Status: **U1 + U2 + U3 + U3b + U3c COMPLETE.** The catalog item form + browse filter now run on
-`category_id` (the managed table) — **user-created categories are usable on items + visible in the
-filter.** **▶ U4** (product-code auto-derive) is the remaining unit. `DROP TYPE` = deferred optional
-cleanup. Spec: `221-managed-category-taxonomy.md`. Follows spec 219.
+Status: **U1 + U2 + U3 + U3b + U3c + U4 COMPLETE (2026-06-29).** The catalog item form + browse filter
+run on `category_id` (the managed table); the item **product code is now composed from the taxonomy**
+(category code + subcategory code + a typed sequence), not free-typed. `DROP TYPE` = deferred optional
+cleanup — **spec 221 functional units are done.** Spec: `221-managed-category-taxonomy.md`. Follows spec 219.
+
+- **U4 — product-code auto-derive on the item form (this unit, code-only).** `src/lib/catalog/validate.ts`
+  gains `composeProductCode(catCode, subCode, tail)` + `productCodeTailLength(...)` (single-sourced). The
+  form (`catalog-item-form.tsx`) derives the code **prefix** from the chosen category (+ subcategory)
+  `.code` and shows it read-only; the user types only the **sequence tail** (4 digits with no subcategory,
+  2 with one); `productCode = prefix + tail` (still the stored 6-digit string, spec 214; empty tail = no
+  code). On edit the tail is seeded from the existing code. **Adversarial 4-lens review (workflow) found +
+  fixed two real issues:** (1) **data-integrity** — recomposing on every save would silently rewrite a
+  _divergent_ legacy code (stored prefix ≠ category, which spec 214 permitted) even on a name-only edit;
+  fixed with a `codeEdited` gate that **preserves the stored code until the user actually edits the
+  sequence/taxonomy**, then recomposes. (2) **a11y** — the derived-prefix badge is `aria-hidden`, so the
+  field is linked to a hint (`aria-describedby="ci-code-hint"`) that **names the derived prefix** so a
+  screen-reader user perceives the full code. TDD: `catalog-validate` (compose/tail-length),
+  `catalog-product-code-derive` (prefix display, with/without subcategory, empty=optional, incomplete
+  blocks submit, category-change resets, edit-seed, **divergent-preserve + recompose-on-edit + a11y
+  link**); updated the add/edit form tests to the composed code. lint·typecheck·vitest **1963** green.
+  **Open question (not a bug):** for a divergent legacy item the badge+tail visually show the _would-be_
+  recomposed code while the preserved stored code differs until the user edits the tail — accepted cosmetic
+  edge (a real fix is a data audit of pre-scheme codes, out of scope for a code-only form unit). The
+  subcategory-change tail reset is intentional + uncommented to the user (review nit, left as-is).
 
 - **U3c — item form + browse filter switched to `category_id` (this unit, code-only; held: db:types →
   worker/).** `catalog-list.tsx` groups/filters by `category_id` with names from a `categories` prop (not

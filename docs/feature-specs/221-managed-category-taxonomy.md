@@ -132,6 +132,16 @@ the typed RPC requires the enum). (c) the `update_catalog_item` demote-guard. (d
 Item form composes digits 1-4 from category.code + subcategory.code; user enters the 2-digit
 sequence; validate the stored code's prefix against the chosen taxonomy.
 
+**Shipped (2026-06-29):** `composeProductCode` / `productCodeTailLength` in `src/lib/catalog/validate.ts`
+(single-sourced); the item form derives a read-only prefix from the chosen category (+ subcategory) code
+and the user types only the trailing sequence (4 digits with no subcategory, 2 with one). The prefix
+matches the taxonomy **by construction** (the form composes, never free-types), so the "validate the
+prefix" requirement is met at the form. Two adversarial-review fixes: (a) a `codeEdited` gate preserves an
+existing stored code until the user edits the sequence/taxonomy — so an unrelated edit never silently
+rewrites a divergent legacy code (spec 214 allowed free codes); (b) the field is `aria-describedby` a hint
+that names the derived prefix (the prefix badge is `aria-hidden`). The DB CHECK / RPC stay the 6-digit
+floor (no server-side prefix check added — code-only unit). product_code remains OPTIONAL.
+
 ## Verification
 
 Schema units: `pnpm db:test`. All units: `pnpm lint && typecheck && test`. Manual: procurement

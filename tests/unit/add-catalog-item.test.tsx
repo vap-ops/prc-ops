@@ -47,7 +47,8 @@ describe("AddCatalogItem (spec 175 U2 / 221 U3c)", () => {
   it("creates the item with the entered values (categoryId) and refreshes", async () => {
     open();
     fillRequired();
-    fireEvent.change(screen.getByLabelText(/รหัสสินค้า/), { target: { value: "010120" } });
+    // Spec 221 U4 — the code is composed: cat-elec code "06" + the 4-digit tail.
+    fireEvent.change(screen.getByLabelText(/รหัสสินค้า/), { target: { value: "0120" } });
     fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายการ" }));
 
     await waitFor(() =>
@@ -57,7 +58,7 @@ describe("AddCatalogItem (spec 175 U2 / 221 U3c)", () => {
         specAttrs: "",
         unit: "ม้วน",
         note: "",
-        productCode: "010120",
+        productCode: "060120",
         subcategoryId: "",
       }),
     );
