@@ -27,7 +27,7 @@ export default async function FeedbackReviewPage() {
   const { data: rows } = await supabase
     .from("feedback")
     .select(
-      "id, type, status, title, body, screen, page_path, app_version, user_agent, role_snapshot, created_at",
+      "id, feedback_number, type, status, title, body, screen, page_path, app_version, user_agent, role_snapshot, created_at",
     )
     .order("created_at", { ascending: false });
   const feedback = rows ?? [];
@@ -38,6 +38,7 @@ export default async function FeedbackReviewPage() {
 
   const cards: FeedbackCardVM[] = feedback.map((f) => ({
     id: f.id,
+    feedbackNumber: f.feedback_number,
     type: f.type,
     status: f.status,
     title: f.title,

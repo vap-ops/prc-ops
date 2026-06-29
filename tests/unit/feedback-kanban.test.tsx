@@ -54,6 +54,7 @@ describe("groupFeedbackByStatus", () => {
 
 const card = (over: Partial<FeedbackCardVM>): FeedbackCardVM => ({
   id: "f1",
+  feedbackNumber: 1,
   type: "bug",
   status: "open",
   title: "หัวข้อ",
@@ -89,5 +90,10 @@ describe("FeedbackKanban", () => {
     );
     expect(screen.getByText("เรื่องใหม่")).toBeInTheDocument();
     expect(screen.getByText("เรื่องเสร็จ")).toBeInTheDocument();
+  });
+
+  it("renders each report's human FB code", () => {
+    render(<FeedbackKanban cards={[card({ id: "a", feedbackNumber: 7 })]} />);
+    expect(screen.getByText("FB-0007")).toBeInTheDocument();
   });
 });

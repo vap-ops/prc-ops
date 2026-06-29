@@ -1441,6 +1441,7 @@ export type Database = {
           app_version: string | null
           body: string
           created_at: string
+          feedback_number: number
           id: string
           page_path: string | null
           role_snapshot: Database["public"]["Enums"]["user_role"]
@@ -1455,6 +1456,7 @@ export type Database = {
           app_version?: string | null
           body: string
           created_at?: string
+          feedback_number?: number
           id?: string
           page_path?: string | null
           role_snapshot: Database["public"]["Enums"]["user_role"]
@@ -1469,6 +1471,7 @@ export type Database = {
           app_version?: string | null
           body?: string
           created_at?: string
+          feedback_number?: number
           id?: string
           page_path?: string | null
           role_snapshot?: Database["public"]["Enums"]["user_role"]
