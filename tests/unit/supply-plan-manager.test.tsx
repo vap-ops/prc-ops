@@ -309,11 +309,20 @@ describe("expandRowToWorkPackages (spec 222)", () => {
 });
 
 describe("SupplyPlanManager multi-WP fan-out (spec 222)", () => {
-  it("disables the multi-WP affordance until an item is picked", () => {
+  it("keeps the multi-WP button tappable and guides item-first via the confirm", () => {
     renderManager({ planStatus: "draft" });
-    expect(screen.getByRole("button", { name: /หลายงาน/ })).toBeDisabled();
+    // The button is always tappable — no greyed dead state before an item exists.
+    const open = screen.getByRole("button", { name: /หลายงาน/ });
+    expect(open).toBeEnabled();
+    fireEvent.click(open);
+    // The panel opens and explains the order; confirm waits for an item even after
+    // a WP is ticked.
+    expect(screen.getByText(/เลือกวัสดุ.*ก่อน/)).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("เลือกงาน WP-01"));
+    expect(screen.getByRole("button", { name: "ยืนยันเลือกหลายงาน" })).toBeDisabled();
+    // Picking the item enables confirm.
     pickFirstMaterial();
-    expect(screen.getByRole("button", { name: /หลายงาน/ })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "ยืนยันเลือกหลายงาน" })).toBeEnabled();
   });
 
   it("fans a picked item into one row per chosen WP, then bulk-saves them", async () => {
