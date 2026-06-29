@@ -377,26 +377,21 @@ function SpendBar({ status }: { status: BudgetStatus }) {
 
 function ProjectMoney({ money }: { money: { breakdown: SpendBreakdown; status: BudgetStatus } }) {
   const { status, breakdown } = money;
-  // Show the split only when there is paid-for store stock not yet withdrawn —
-  // otherwise the project pool is 0 and the total alone IS the WP-level spend, so a
-  // single line (matching the old card) avoids printing the same number twice.
-  const hasPool = breakdown.projectPool > 0;
+  // Always show all three lines — WP-level cost, the project store pool, and the
+  // combined total vs budget — so the card reads consistently across projects. The
+  // pool line is ฿0 when nothing paid-for is sitting in the store.
   return (
     <div className="border-edge mt-3 flex flex-col gap-1 border-t pt-3">
-      {hasPool ? (
-        <>
-          <div className="text-meta flex justify-between">
-            <span className="text-ink-secondary">ใช้ในงาน</span>
-            <span className="text-ink font-medium">{baht(breakdown.wpLevel)}</span>
-          </div>
-          <div className="text-meta flex justify-between">
-            <span className="text-ink-secondary">พักในคลังโครงการ</span>
-            <span className="text-ink font-medium">{baht(breakdown.projectPool)}</span>
-          </div>
-        </>
-      ) : null}
       <div className="text-meta flex justify-between">
-        <span className="text-ink-secondary">{hasPool ? "ใช้จริงรวม" : "งบ vs ใช้จริง"}</span>
+        <span className="text-ink-secondary">ใช้ในงาน</span>
+        <span className="text-ink font-medium">{baht(breakdown.wpLevel)}</span>
+      </div>
+      <div className="text-meta flex justify-between">
+        <span className="text-ink-secondary">พักในคลังโครงการ</span>
+        <span className="text-ink font-medium">{baht(breakdown.projectPool)}</span>
+      </div>
+      <div className="text-meta flex justify-between">
+        <span className="text-ink-secondary">ใช้จริงรวม</span>
         <span className={status.over ? "text-danger font-bold" : "text-ink font-semibold"}>
           {baht(breakdown.total)}
           {status.hasBudget
