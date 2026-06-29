@@ -139,16 +139,14 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
 
 // setHoldStatus: the PM on-hold toggle (spec 52 part B).
 //
-// Unlike the photo path there is NO admin escalation here —
-// work_packages UPDATE RLS already admits project_manager/super_admin,
-// so the UPDATE runs under the caller's own session and RLS is the
-// load-bearing backstop. Each direction is double-guarded: the
-// canHold/canRelease predicate plus a SQL WHERE clause on the current
-// status, so a stale UI can never hold a pending/complete WP or
-// "release" one that isn't held.
-//
-// Release re-derives the landing status from current During photos
-// (deriveReleaseStatus) instead of snapshotting — see hold.ts.
+// Since ERD-audit M2, work_packages.status is not settable by a direct
+// user-context UPDATE (the column grant is revoked). The transition is
+// delegated to the set_work_package_hold SECURITY DEFINER RPC, which is the
+// load-bearing authorisation: it re-checks role (PM_ROLES) + membership
+// (can_see_wp) + current status, and re-derives the release landing status
+// from current During photos (deriveReleaseStatus, now in SQL — see the RPC in
+// migration 20260813025000). canHold/canRelease stay here only to return a
+// friendly Thai message before the round-trip.
 
 export interface SetHoldStatusInput {
   workPackageId: string;
