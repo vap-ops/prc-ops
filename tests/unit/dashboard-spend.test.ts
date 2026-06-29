@@ -9,6 +9,7 @@ import {
   sumStoreReturns,
   sumStorePool,
   spendBreakdown,
+  spendBarSegments,
   budgetStatus,
 } from "@/lib/dashboard/spend";
 
@@ -161,6 +162,58 @@ describe("spendBreakdown", () => {
     expect(b.wpLevel).toBe(600);
     expect(b.projectPool).toBe(400);
     expect(b.total).toBe(1000); // not 1400
+  });
+});
+
+// PD dashboard money split — the two-colour spend bar. The bar stacks two segments
+// over the budget track: wpLevel (ใช้ในงาน) then projectPool (พักในคลังโครงการ).
+// Widths are % of budget; the pool segment is clamped to the remaining track so the
+// two never exceed 100% (over-budget clips). `over` keys the danger styling.
+describe("spendBarSegments", () => {
+  it("returns each segment as a % of budget when under budget", () => {
+    expect(spendBarSegments({ wpLevel: 560, projectPool: 40, total: 600 }, 1000)).toEqual({
+      wpPct: 56,
+      poolPct: 4,
+      over: false,
+    });
+  });
+
+  it("clamps the pool segment to the remaining track and flags over when total exceeds budget", () => {
+    // wp 900 + pool 300 = 1200 over 1000: wp 90%, pool clamped to the last 10%, over.
+    expect(spendBarSegments({ wpLevel: 900, projectPool: 300, total: 1200 }, 1000)).toEqual({
+      wpPct: 90,
+      poolPct: 10,
+      over: true,
+    });
+  });
+
+  it("caps the wp segment at 100% when wpLevel alone exceeds budget", () => {
+    expect(spendBarSegments({ wpLevel: 1200, projectPool: 0, total: 1200 }, 1000)).toEqual({
+      wpPct: 100,
+      poolPct: 0,
+      over: true,
+    });
+  });
+
+  it("a pool-only project fills just the pool segment", () => {
+    expect(spendBarSegments({ wpLevel: 0, projectPool: 200, total: 200 }, 1000)).toEqual({
+      wpPct: 0,
+      poolPct: 20,
+      over: false,
+    });
+  });
+
+  it("no budget (null or zero) → empty bar, never over", () => {
+    expect(spendBarSegments({ wpLevel: 500, projectPool: 0, total: 500 }, null)).toEqual({
+      wpPct: 0,
+      poolPct: 0,
+      over: false,
+    });
+    expect(spendBarSegments({ wpLevel: 500, projectPool: 0, total: 500 }, 0)).toEqual({
+      wpPct: 0,
+      poolPct: 0,
+      over: false,
+    });
   });
 });
 

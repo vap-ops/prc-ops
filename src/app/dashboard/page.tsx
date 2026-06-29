@@ -27,9 +27,11 @@ import {
   sumStoreReturns,
   sumStorePool,
   spendBreakdown,
+  spendBarSegments,
   budgetStatus,
   type BudgetStatus,
   type SpendBreakdown,
+  type SpendBarSegments,
 } from "@/lib/dashboard/spend";
 import { aggregateLaborCost, type CostInputRow } from "@/lib/labor/cost";
 import { bahtCompact as baht } from "@/lib/format";
@@ -375,19 +377,42 @@ function SpendBar({ status }: { status: BudgetStatus }) {
   );
 }
 
+// The two-colour spend bar: a strong segment for ใช้ในงาน (consumed by work) then a
+// lighter segment for พักในคลังโครงการ (paid-for stock still in the store), stacked
+// over the budget track so the two parts of the total read at a glance. Over budget
+// keeps both colours but rings the track in danger (the total text also turns red).
+function SpendSplitBar({ segments }: { segments: SpendBarSegments }) {
+  const { wpPct, poolPct, over } = segments;
+  return (
+    <div
+      className={`bg-sunk flex h-2 w-full overflow-hidden rounded-full ${over ? "ring-danger ring-1" : ""}`}
+    >
+      <div className="bg-done-strong h-full" style={{ width: `${wpPct}%` }} />
+      <div className="bg-done h-full" style={{ width: `${poolPct}%` }} />
+    </div>
+  );
+}
+
 function ProjectMoney({ money }: { money: { breakdown: SpendBreakdown; status: BudgetStatus } }) {
   const { status, breakdown } = money;
   // Always show all three lines — WP-level cost, the project store pool, and the
   // combined total vs budget — so the card reads consistently across projects. The
-  // pool line is ฿0 when nothing paid-for is sitting in the store.
+  // pool line is ฿0 when nothing paid-for is sitting in the store. The first two are
+  // colour-keyed to the bar segments below (strong = ใช้ในงาน, lighter = คลัง).
   return (
     <div className="border-edge mt-3 flex flex-col gap-1 border-t pt-3">
       <div className="text-meta flex justify-between">
-        <span className="text-ink-secondary">ใช้ในงาน</span>
+        <span className="text-ink-secondary flex items-center gap-1.5">
+          <span aria-hidden className="bg-done-strong inline-block size-2 rounded-full" />
+          ใช้ในงาน
+        </span>
         <span className="text-ink font-medium">{baht(breakdown.wpLevel)}</span>
       </div>
       <div className="text-meta flex justify-between">
-        <span className="text-ink-secondary">พักในคลังโครงการ</span>
+        <span className="text-ink-secondary flex items-center gap-1.5">
+          <span aria-hidden className="bg-done inline-block size-2 rounded-full" />
+          พักในคลังโครงการ
+        </span>
         <span className="text-ink font-medium">{baht(breakdown.projectPool)}</span>
       </div>
       <div className="text-meta flex justify-between">
@@ -399,7 +424,9 @@ function ProjectMoney({ money }: { money: { breakdown: SpendBreakdown; status: B
             : " · ยังไม่ตั้งงบ"}
         </span>
       </div>
-      {status.hasBudget ? <SpendBar status={status} /> : null}
+      {status.hasBudget ? (
+        <SpendSplitBar segments={spendBarSegments(breakdown, status.budget)} />
+      ) : null}
     </div>
   );
 }
