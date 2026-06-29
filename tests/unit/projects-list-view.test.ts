@@ -12,9 +12,11 @@ import { describe, it, expect } from "vitest";
 import {
   parseProjectStatusFilter,
   parseProjectClientFilter,
+  parseProjectQuery,
   viewProjects,
   buildProjectStatusChips,
   buildProjectClientChips,
+  projectListHref,
   PROJECT_CLIENT_ALL,
   PROJECT_CLIENT_NONE,
   type ProjectListItem,
@@ -57,6 +59,80 @@ describe("parseProjectClientFilter", () => {
   it("passes a client id (or the 'none' sentinel) through", () => {
     expect(parseProjectClientFilter("cli-a")).toBe("cli-a");
     expect(parseProjectClientFilter(PROJECT_CLIENT_NONE)).toBe(PROJECT_CLIENT_NONE);
+  });
+});
+
+describe("parseProjectQuery", () => {
+  it("defaults to an empty string for a missing/blank value", () => {
+    expect(parseProjectQuery(undefined)).toBe("");
+    expect(parseProjectQuery("   ")).toBe("");
+  });
+  it("trims the query", () => {
+    expect(parseProjectQuery("  บ้าน ")).toBe("บ้าน");
+  });
+});
+
+describe("viewProjects — project name/code search (q)", () => {
+  it("filters rows by a case-insensitive name substring", () => {
+    expect(ids(viewProjects(P, { ...ALL, query: "บ้าน" }).rows)).toEqual(["1"]); // บ้านเอ
+  });
+  it("filters rows by a case-insensitive code substring", () => {
+    expect(ids(viewProjects(P, { ...ALL, query: "b-004" }).rows)).toEqual(["4"]); // อาคารดี / B-004
+  });
+  it("combines with the status + client filters (AND)", () => {
+    // อาคาร matches id4 (อาคารดี), which has no client → none bucket keeps it.
+    expect(
+      ids(viewProjects(P, { status: "all", client: PROJECT_CLIENT_NONE, query: "อาคาร" }).rows),
+    ).toEqual(["4"]);
+    // บ้านเอ is cli-a, so the none bucket excludes it even though the text matches.
+    expect(
+      ids(viewProjects(P, { status: "all", client: PROJECT_CLIENT_NONE, query: "บ้าน" }).rows),
+    ).toEqual([]);
+  });
+  it("does NOT change the status counts or client facet counts (search narrows rows only)", () => {
+    const v = viewProjects(P, { ...ALL, query: "บ้าน" });
+    expect(v.rows).toHaveLength(1);
+    expect(v.counts).toEqual({ all: 3, active: 1, on_hold: 1, completed: 1, archived: 1 });
+    expect(v.clientCounts.get("cli-a")).toBe(1); // facet count unaffected by the query
+  });
+  it("an empty query is a no-op", () => {
+    expect(ids(viewProjects(P, { ...ALL, query: "" }).rows)).toEqual(
+      ids(viewProjects(P, ALL).rows),
+    );
+  });
+});
+
+describe("projectListHref carries the search query", () => {
+  it("appends q after status/client, omitting defaults", () => {
+    expect(projectListHref("all", PROJECT_CLIENT_ALL, "baan")).toBe("/projects?q=baan");
+    expect(projectListHref("active", "cli-a", "x")).toBe(
+      "/projects?status=active&client=cli-a&q=x",
+    );
+  });
+  it("omits q when blank (clean canonical URL)", () => {
+    expect(projectListHref("all", PROJECT_CLIENT_ALL, "")).toBe("/projects");
+    expect(projectListHref("active", PROJECT_CLIENT_ALL)).toBe("/projects?status=active");
+  });
+});
+
+describe("chip hrefs preserve an active search query", () => {
+  it("status + client chips keep q", () => {
+    const { counts, clientCounts } = viewProjects(P, ALL);
+    const s = buildProjectStatusChips({
+      counts,
+      status: "all",
+      client: PROJECT_CLIENT_ALL,
+      query: "baan",
+    });
+    expect(s.find((c) => c.key === "archived")!.href).toBe("/projects?status=archived&q=baan");
+    const c = buildProjectClientChips({
+      clientCounts,
+      clientNames: CLIENT_NAMES,
+      status: "all",
+      client: PROJECT_CLIENT_ALL,
+      query: "baan",
+    });
+    expect(c.find((x) => x.key === "cli-a")!.href).toBe("/projects?client=cli-a&q=baan");
   });
 });
 

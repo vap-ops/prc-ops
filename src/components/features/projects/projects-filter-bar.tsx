@@ -4,15 +4,29 @@
 // (worklist-status-chips.tsx). Two facets — status and client; sorting was
 // retired (feedback 7d9d2c2b: "remove all sorting, default sort, focus on
 // filtering"). The descriptors come from list-view.ts so the logic stays
-// unit-tested.
+// unit-tested. The project search is a plain GET <form> (?q=) — also no JS —
+// that preserves the active facets via hidden inputs and deep-links like the chips.
 
 import Link from "next/link";
+import { Search, X } from "lucide-react";
 
-import type { ProjectStatusChip, ProjectClientChip } from "@/lib/projects/list-view";
+import {
+  PROJECT_CLIENT_ALL,
+  type ProjectStatusChip,
+  type ProjectClientChip,
+  type ProjectStatusFilter,
+} from "@/lib/projects/list-view";
 
 interface ProjectsFilterBarProps {
   statusChips: ProjectStatusChip[];
   clientChips: ProjectClientChip[];
+  /** Current search text (controls the input's initial value). */
+  query: string;
+  /** Active facets — preserved across a search submit via hidden inputs. */
+  status: ProjectStatusFilter;
+  client: string;
+  /** Href that clears the search but keeps the active facets. */
+  searchClearHref: string;
 }
 
 const CHIP_BASE =
@@ -43,9 +57,53 @@ function FilterChip({ chip }: { chip: ProjectStatusChip | ProjectClientChip }) {
 const ROW =
   "-mx-5 flex gap-2 overflow-x-auto px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
-export function ProjectsFilterBar({ statusChips, clientChips }: ProjectsFilterBarProps) {
+export function ProjectsFilterBar({
+  statusChips,
+  clientChips,
+  query,
+  status,
+  client,
+  searchClearHref,
+}: ProjectsFilterBarProps) {
   return (
     <div className="mb-4 flex flex-col gap-2.5">
+      {/* Project search — a plain GET form (?q=). Hidden inputs carry the active
+          facets so a search doesn't drop them; submits on Enter or the button. */}
+      <form method="get" action="/projects" role="search" className="relative">
+        {status !== "all" ? <input type="hidden" name="status" value={status} /> : null}
+        {client !== PROJECT_CLIENT_ALL ? (
+          <input type="hidden" name="client" value={client} />
+        ) : null}
+        <Search
+          aria-hidden
+          className="text-ink-secondary pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
+        />
+        <input
+          type="search"
+          name="q"
+          defaultValue={query}
+          placeholder="ค้นหาชื่อหรือรหัสโครงการ"
+          aria-label="ค้นหาโครงการ"
+          enterKeyHint="search"
+          className="border-edge-strong bg-card text-ink placeholder:text-ink-secondary focus-visible:ring-action h-11 w-full rounded-full border pr-20 pl-9 text-sm focus:outline-none focus-visible:ring-2"
+        />
+        {query ? (
+          <Link
+            href={searchClearHref}
+            aria-label="ล้างการค้นหา"
+            className="text-ink-secondary hover:bg-sunk hover:text-ink focus-visible:ring-action absolute top-1/2 right-12 grid size-7 -translate-y-1/2 place-items-center rounded-full focus:outline-none focus-visible:ring-2"
+          >
+            <X className="size-4" />
+          </Link>
+        ) : null}
+        <button
+          type="submit"
+          className="bg-fill text-on-fill focus-visible:ring-action absolute top-1/2 right-1.5 inline-flex h-8 items-center rounded-full px-3 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+        >
+          ค้นหา
+        </button>
+      </form>
+
       {/* Status filter — archived is hidden under "ทั้งหมด" and reachable only
           via its own chip. */}
       <div role="group" aria-label="กรองตามสถานะ" className={ROW}>

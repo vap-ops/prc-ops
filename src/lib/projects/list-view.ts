@@ -54,6 +54,11 @@ export function parseProjectClientFilter(value: string | undefined): string {
   return v === "" ? PROJECT_CLIENT_ALL : v;
 }
 
+/** Free-text project search (matches name OR code). Trimmed; blank = no search. */
+export function parseProjectQuery(value: string | undefined): string {
+  return (value ?? "").trim();
+}
+
 export interface ProjectStatusCounts {
   /** Non-archived working set — the "ทั้งหมด" chip. */
   all: number;
@@ -74,7 +79,7 @@ export interface ProjectListView<T> {
 
 export function viewProjects<T extends ProjectListItem>(
   projects: ReadonlyArray<T>,
-  opts: { status: ProjectStatusFilter; client: string },
+  opts: { status: ProjectStatusFilter; client: string; query?: string },
 ): ProjectListView<T> {
   const counts: ProjectStatusCounts = { all: 0, active: 0, on_hold: 0, completed: 0, archived: 0 };
   for (const p of projects) {
@@ -95,10 +100,20 @@ export function viewProjects<T extends ProjectListItem>(
     clientCounts.set(key, (clientCounts.get(key) ?? 0) + 1);
   }
 
+  // Free-text search narrows the ROWS only (not the facet counts) — it's an
+  // orthogonal text filter layered on top of the status + client facets, so the
+  // chip counts keep describing the faceted set the user can still navigate to.
+  const q = (opts.query ?? "").trim().toLowerCase();
   const filtered = inStatus.filter((p) => {
-    if (opts.client === PROJECT_CLIENT_ALL) return true;
-    if (opts.client === PROJECT_CLIENT_NONE) return p.client_id === null;
-    return p.client_id === opts.client;
+    const clientOk =
+      opts.client === PROJECT_CLIENT_ALL
+        ? true
+        : opts.client === PROJECT_CLIENT_NONE
+          ? p.client_id === null
+          : p.client_id === opts.client;
+    if (!clientOk) return false;
+    if (q === "") return true;
+    return p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q);
   });
   // Sorting control retired (feedback 7d9d2c2b) — always default to code ascending.
   const rows = [...filtered].sort((a, b) => a.code.localeCompare(b.code));
@@ -106,11 +121,12 @@ export function viewProjects<T extends ProjectListItem>(
 }
 
 // Clean, deep-linkable URLs: omit a param when it equals its default (status=all
-// / client=all) so the canonical hub URL stays "/projects".
-function projectListHref(status: ProjectStatusFilter, client: string): string {
+// / client=all / empty query) so the canonical hub URL stays "/projects".
+export function projectListHref(status: ProjectStatusFilter, client: string, query = ""): string {
   const params = new URLSearchParams();
   if (status !== "all") params.set("status", status);
   if (client !== PROJECT_CLIENT_ALL) params.set("client", client);
+  if (query.trim() !== "") params.set("q", query.trim());
   const qs = params.toString();
   return qs ? `/projects?${qs}` : "/projects";
 }
@@ -127,8 +143,9 @@ export function buildProjectStatusChips(input: {
   counts: ProjectStatusCounts;
   status: ProjectStatusFilter;
   client: string;
+  query?: string;
 }): ProjectStatusChip[] {
-  const { counts, status, client } = input;
+  const { counts, status, client, query = "" } = input;
   const defs: ReadonlyArray<{ key: ProjectStatusFilter; label: string; count: number }> = [
     { key: "all", label: "ทั้งหมด", count: counts.all },
     { key: "active", label: PROJECT_STATUS_LABEL.active, count: counts.active },
@@ -138,7 +155,7 @@ export function buildProjectStatusChips(input: {
   ];
   return defs.map((d) => ({
     ...d,
-    href: projectListHref(d.key, client), // switching status keeps the client filter
+    href: projectListHref(d.key, client, query), // switching status keeps client + search
     active: status === d.key,
   }));
 }
@@ -156,8 +173,9 @@ export function buildProjectClientChips(input: {
   clientNames: ReadonlyMap<string, string>;
   status: ProjectStatusFilter;
   client: string;
+  query?: string;
 }): ProjectClientChip[] {
-  const { clientCounts, clientNames, status, client } = input;
+  const { clientCounts, clientNames, status, client, query = "" } = input;
   // The "ทั้งหมด" count is the facet total, so it always equals the row count of
   // the current status view (every project in the set falls in exactly one chip).
   const allCount = [...clientCounts.values()].reduce((sum, n) => sum + n, 0);
@@ -180,7 +198,7 @@ export function buildProjectClientChips(input: {
 
   return chips.map((c) => ({
     ...c,
-    href: projectListHref(status, c.key), // switching client keeps the status filter
+    href: projectListHref(status, c.key, query), // switching client keeps status + search
     active: client === c.key,
   }));
 }
