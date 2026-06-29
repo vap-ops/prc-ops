@@ -1,11 +1,17 @@
-// Unit-picker vocabulary (spec 16 §1). TS constant, not a DB table —
-// static presentation data; AppSheet reads the stored text, never this
-// list. The operator amends it by code PR; the unit test pins the exact
-// contents so any change is deliberate.
+// Unit-picker vocabulary — HISTORICAL SEED-OF-RECORD (spec 16 §1).
+//
+// Spec 223 (ADR 0066 / S1) moved the managed picker vocabulary into the
+// public.catalog_units table — now the SSOT for the picker options (the
+// migration 20260813029000 seeds the table from this exact list). AppSheet was
+// sunset (ADR 0034), so the original "TS constant, AppSheet reads the stored
+// text" rationale no longer holds. This constant is KEPT as the seed-of-record +
+// a test anchor (and the in-code fallback the form uses when no rows are
+// threaded). The unit test pins the exact contents so any change is deliberate.
 //
 // UNIT_OTHER_VALUE is the <select> sentinel that reveals the free-text
-// input (อื่น ๆ (ระบุเอง)). It is UI state only and must never be
-// persisted — the form submits the derived unit string instead.
+// input (อื่น ๆ (ระบุเอง)) — the escape hatch RETAINED by spec 223. It is UI
+// state only and must never be persisted — the form submits the typed unit
+// string instead.
 
 export const COMMON_UNITS: ReadonlyArray<string> = [
   "ถุง",

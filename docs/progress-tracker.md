@@ -16,7 +16,7 @@ ships as ONE governance-held PR (touches `docs/decisions/`). **Next: S1 (spec 22
 
 | Spec                                                     | Session | Title                                                                           | Autonomy             | Reserved migration ts  | Status      |
 | -------------------------------------------------------- | ------- | ------------------------------------------------------------------------------- | -------------------- | ---------------------- | ----------- |
-| [223](feature-specs/223-units-ssot.md)                   | S1      | Units SSOT — `catalog_units` + structured picker                                | 🔔 ONE-TAP HOLD      | `20260813029000`       | not started |
+| [223](feature-specs/223-units-ssot.md)                   | S1      | Units SSOT — `catalog_units` + structured picker                                | 🔔 ONE-TAP HOLD      | `20260813029000`       | ✅ COMPLETE |
 | [224](feature-specs/224-catalog-item-facets.md)          | S2      | Catalog facets `kind`/`fulfillment_mode`/`owner_supplied` + derived `stockable` | 🔔 ONE-TAP HOLD      | `20260813030000`       | not started |
 | [225](feature-specs/225-catalog-secondary-membership.md) | S4      | Secondary membership `catalog_item_categories` (reuse spec-219 composite FK)    | 🔔 ONE-TAP HOLD      | `20260813031000`       | not started |
 | [226](feature-specs/226-global-work-categories.md)       | S5      | Global `work_categories` library + seed + reconcile FK + ship 207-U3c           | 🔔 ONE-TAP HOLD      | `20260813032000`       | not started |
@@ -32,6 +32,48 @@ ships as ONE governance-held PR (touches `docs/decisions/`). **Next: S1 (spec 22
 `work_categories` subsection grain (self-FK `parent_code` vs flat 2-level code, spec 226);
 (3) the spend-by-category lens (work-cat vs material-cat, spec 230); (4) BOQ seed content
 for W01–W09 + Relation R rows (specs 226/227 — sourced from the BuildAll BOQ at build).
+
+### S1 — Units SSOT (spec 223) — ✅ COMPLETE (2026-06-30)
+
+Migration `20260813029000_spec223_catalog_units.sql` (applied to the shared DB; main↔DB
+sync moves to `029000` once the held PR merges). `public.catalog_units` (`code` PK =
+the stable key AND the stored value; `display_name`, `abbr_short`, `unit_class`,
+`sort_order`, `is_active`, `created_by`, `created_at`/`updated_at` via the existing
+`set_updated_at` trigger; blank-name CHECK). RLS = enable + revoke anon/authenticated +
+grant SELECT to authenticated + `using (true)` policy (firm-wide vocabulary, matched to
+`catalog_categories`); **no DELETE** (deactivate-not-delete). Seeded the 25 `COMMON_UNITS`,
+classed. Writes via three SECURITY DEFINER RPCs (`create`/`update_catalog_unit`,
+`set_catalog_unit_active`) mirroring the spec 221 U2 posture. Structured picker: the item
+form's `หน่วยนับ` `<select>` now sources options from `catalog_units` (threaded from the
+`/catalog` loader through `AddCatalogItem` + `CatalogList`→`EditCatalogItem`); the
+`UNIT_OTHER_VALUE` (`อื่น ๆ (ระบุเอง)`) free-text escape hatch is retained verbatim.
+
+**Decisions made:**
+
+- **`unit_class` is a Postgres ENUM** (`count|length|area|volume|weight|trips`), not a
+  CHECK set — the house rule (CLAUDE.md: "status fields are enums") and so code can switch
+  on it type-safely. Pinned in the migration comment.
+- **`code` = the Thai unit string** (PK, not a surrogate uuid) — it is BOTH the stable key
+  and the value already persisted on consuming rows (`catalog_items.unit`, supply-plan
+  lines). So the picker submits `code` and it matches existing stored text with zero
+  backfill. Code is therefore **not editable** in `update_catalog_unit` (recoding would
+  orphan stored references); the editable fields are name/abbr/class/sort.
+- **Null-safe role gate** — captured `v_role := current_user_role()::text` once and gated
+  `v_role IS NULL OR v_role NOT IN (...)` → 42501 (ADR 0066 D8). This is **stricter than the
+  literal spec 221 U2 body**, which uses `current_user_role() NOT IN (...)` directly — that
+  evaluates to NULL (treated as false) for an unbound caller, opening the gate
+  ([[rls-self-check-coalesce]]). pgTAP pins both the null-role and visitor-role denials.
+- **`COMMON_UNITS` kept** as the seed-of-record + a test anchor + the form's in-code
+  fallback when no rows are threaded (so the picker is never empty in isolated tests).
+
+**Verification:** pgTAP `237-spec223-catalog-units.test.sql` (42 asserts) green; full suite
+**199 files / 3422 / 0 fails**. lint·typecheck·vitest **2021** green. New vitest
+`catalog-unit-picker.test.tsx` (options from threaded units + escape-hatch).
+
+**Open questions (S1):** none new. (Out of scope per spec: a `unit_code` FK on consuming
+rows; a units management CRUD screen — the RPCs exist, the admin screen is a later unit;
+abbreviations seeded NULL — no `abbr_short` values in the seed, added later if a picker
+wants them.)
 
 ---
 

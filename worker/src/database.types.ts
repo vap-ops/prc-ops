@@ -293,6 +293,42 @@ export type Database = {
           },
         ]
       }
+      catalog_units: {
+        Row: {
+          abbr_short: string | null
+          code: string
+          created_at: string
+          created_by: string | null
+          display_name: string
+          is_active: boolean
+          sort_order: number
+          unit_class: Database["public"]["Enums"]["unit_class"]
+          updated_at: string
+        }
+        Insert: {
+          abbr_short?: string | null
+          code: string
+          created_at?: string
+          created_by?: string | null
+          display_name: string
+          is_active?: boolean
+          sort_order?: number
+          unit_class: Database["public"]["Enums"]["unit_class"]
+          updated_at?: string
+        }
+        Update: {
+          abbr_short?: string | null
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          display_name?: string
+          is_active?: boolean
+          sort_order?: number
+          unit_class?: Database["public"]["Enums"]["unit_class"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       client_billings: {
         Row: {
           billing_no: number
@@ -5313,6 +5349,16 @@ export type Database = {
         }
         Returns: string
       }
+      create_catalog_unit: {
+        Args: {
+          p_abbr_short?: string
+          p_code: string
+          p_display_name: string
+          p_sort_order?: number
+          p_unit_class?: Database["public"]["Enums"]["unit_class"]
+        }
+        Returns: undefined
+      }
       create_client_billing: {
         Args: {
           p_gross_amount: number
@@ -5898,6 +5944,10 @@ export type Database = {
         Args: { p_id: string; p_image_path: string }
         Returns: undefined
       }
+      set_catalog_unit_active: {
+        Args: { p_code: string; p_is_active: boolean }
+        Returns: undefined
+      }
       set_contact_bank: {
         Args: {
           p_bank_account_name?: string
@@ -6154,6 +6204,16 @@ export type Database = {
           p_is_active: boolean
           p_name: string
           p_sort_order: number
+        }
+        Returns: undefined
+      }
+      update_catalog_unit: {
+        Args: {
+          p_abbr_short?: string
+          p_code: string
+          p_display_name: string
+          p_sort_order?: number
+          p_unit_class?: Database["public"]["Enums"]["unit_class"]
         }
         Returns: undefined
       }
@@ -6426,6 +6486,7 @@ export type Database = {
       rework_source: "internal" | "client"
       service_subtype: "transport"
       supply_plan_status: "draft" | "submitted" | "approved" | "rejected"
+      unit_class: "count" | "length" | "area" | "volume" | "weight" | "trips"
       user_role:
         | "site_admin"
         | "project_manager"
@@ -6759,6 +6820,7 @@ export const Constants = {
       rework_source: ["internal", "client"],
       service_subtype: ["transport"],
       supply_plan_status: ["draft", "submitted", "approved", "rejected"],
+      unit_class: ["count", "length", "area", "volume", "weight", "trips"],
       user_role: [
         "site_admin",
         "project_manager",
