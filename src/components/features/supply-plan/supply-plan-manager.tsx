@@ -80,6 +80,7 @@ export function SupplyPlanManager({
   overriddenByName,
   lines,
   catalogItems,
+  categories,
   workPackages,
 }: {
   projectId: string;
@@ -91,6 +92,9 @@ export function SupplyPlanManager({
   overriddenByName: string | null;
   lines: PlanLine[];
   catalogItems: CatalogPick[];
+  // Spec 221 cleanup: the managed main categories (ordered, id + name) for the
+  // shared catalog picker — group by category_id, label with the managed name.
+  categories: { id: string; name: string }[];
   workPackages: { id: string; code: string; name: string }[];
 }) {
   const router = useRouter();
@@ -408,6 +412,7 @@ export function SupplyPlanManager({
                 <CatalogItemPicker
                   label="วัสดุ"
                   items={catalogItems}
+                  categories={categories}
                   selectedId={r.catalogItemId}
                   onSelect={(id) => patchRow(r.key, { catalogItemId: id })}
                   onClear={() => patchRow(r.key, { catalogItemId: "" })}

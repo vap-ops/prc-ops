@@ -3,8 +3,8 @@
 // Spec 180 (pro-max UX) — the purchase-request material picker. The PR item is
 // catalog-only (spec 175 master), so this replaces the free-text box with a
 // search-driven picker in the app's BottomSheet idiom (same as เบิก / stock):
-// a trigger opens a sheet with a pinned search, category filter chips (the
-// /catalog "select category first" pattern), and thumbnail result rows with the
+// a trigger opens a sheet with a pinned search, category filter chips (spec 221:
+// the MANAGED catalog_categories, grouped by category_id), and thumbnail rows with the
 // matched text highlighted. Picking links catalog_item_id and the parent form
 // derives the description + unit. An item not in the catalog is registered first
 // at ตั้งค่า → แคตตาล็อก (no inline add) — a no-match search points there.
@@ -15,12 +15,12 @@ import { ImageIcon, Search } from "lucide-react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { RadioChip } from "@/components/features/common/radio-chip";
 import { FIELD_INPUT } from "@/lib/ui/classes";
-import { ITEM_CATEGORY_LABEL } from "@/lib/i18n/labels";
-import type { Database } from "@/lib/db/database.types";
 import type { PurchaseRequestCatalogItem } from "./purchase-request-form";
 
-type ItemCategory = Database["public"]["Enums"]["item_category"];
 const ALL = "all";
+// Sentinel for the "items with no managed category" bucket (distinct from a uuid).
+const UNCAT = "__uncat__";
+const UNCAT_LABEL = "ไม่ระบุหมวด";
 
 function itemLabel(item: PurchaseRequestCatalogItem): string {
   return item.baseItem + (item.specAttrs ? ` ${item.specAttrs}` : "");
@@ -58,6 +58,7 @@ function Thumb({ url }: { url: string | null | undefined }) {
 
 export function CatalogItemPicker({
   items,
+  categories,
   selectedId,
   onSelect,
   onClear,
@@ -65,6 +66,9 @@ export function CatalogItemPicker({
   label = "รายการวัสดุ",
 }: {
   items: PurchaseRequestCatalogItem[];
+  /** Spec 221 cleanup: the managed main categories (ordered, id + name). Chips
+   *  group items by category_id and label with the managed name. */
+  categories: { id: string; name: string }[];
   selectedId: string;
   onSelect: (id: string) => void;
   onClear: () => void;
@@ -79,14 +83,17 @@ export function CatalogItemPicker({
 
   const selected = selectedId ? (items.find((i) => i.id === selectedId) ?? null) : null;
 
-  // Category chips: ทั้งหมด + each category actually present, in enum order.
-  const allCategories = Object.keys(ITEM_CATEGORY_LABEL) as ItemCategory[];
-  const present = allCategories.filter((c) => items.some((i) => i.category === c));
+  // Spec 221 cleanup — category chips: ทั้งหมด + each MANAGED category that has
+  // items (group by category_id), in the prop's order, labelled by name. A
+  // ไม่ระบุหมวด bucket is appended only when some item has no category_id.
+  const present = categories.filter((c) => items.some((i) => i.categoryId === c.id));
+  const hasUncategorised = items.some((i) => i.categoryId === null);
 
   const q = query.trim().toLowerCase();
   const matches = items.filter(
     (i) =>
-      (category === ALL || i.category === category) &&
+      (category === ALL ||
+        (category === UNCAT ? i.categoryId === null : i.categoryId === category)) &&
       // Spec 214: the product code joins the haystack, so typing a code prefix
       // (e.g. 0101) filters to it.
       `${i.baseItem} ${i.specAttrs ?? ""} ${i.unit} ${i.productCode ?? ""}`
@@ -122,7 +129,8 @@ export function CatalogItemPicker({
           <span className="min-w-0 flex-1">
             <span className="text-ink block text-sm font-medium">{itemLabel(selected)}</span>
             <span className="text-ink-secondary text-meta block">
-              {ITEM_CATEGORY_LABEL[selected.category]} · {selected.unit}
+              {selected.categoryId ? `${selected.categoryName} · ` : ""}
+              {selected.unit}
             </span>
           </span>
           <button
@@ -168,7 +176,7 @@ export function CatalogItemPicker({
             />
           </div>
 
-          {present.length > 1 ? (
+          {present.length + (hasUncategorised ? 1 : 0) > 1 ? (
             <div
               role="radiogroup"
               aria-label="กรองตามหมวดหมู่"
@@ -191,14 +199,23 @@ export function CatalogItemPicker({
               />
               {present.map((c) => (
                 <RadioChip
-                  key={c}
+                  key={c.id}
                   name="pr-catalog-category"
-                  label={ITEM_CATEGORY_LABEL[c]}
-                  checked={category === c}
-                  onSelect={() => setCategory(c)}
+                  label={c.name}
+                  checked={category === c.id}
+                  onSelect={() => setCategory(c.id)}
                   className="shrink-0 whitespace-nowrap"
                 />
               ))}
+              {hasUncategorised ? (
+                <RadioChip
+                  name="pr-catalog-category"
+                  label={UNCAT_LABEL}
+                  checked={category === UNCAT}
+                  onSelect={() => setCategory(UNCAT)}
+                  className="shrink-0 whitespace-nowrap"
+                />
+              ) : null}
             </div>
           ) : null}
 
@@ -223,7 +240,7 @@ export function CatalogItemPicker({
                             {i.productCode}
                           </span>
                         ) : null}
-                        {ITEM_CATEGORY_LABEL[i.category]}
+                        {i.categoryId ? i.categoryName : UNCAT_LABEL}
                       </span>
                     </span>
                   </button>

@@ -20,6 +20,7 @@ import {
 import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
+import { loadCatalogCategories, categoryNameById } from "@/lib/catalog/categories";
 import { getDecisionHistoryForWorkPackage } from "@/lib/approvals/latest-decision";
 import {
   APPROVAL_DECISION_LABEL,
@@ -90,19 +91,24 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
   // Spec 179/180: the active catalog master feeds the คำขอซื้อ item picker
   // (project-agnostic reference data; readable by any authenticated user), with
   // signed thumbnail URLs (private bucket → service-role signed URLs).
+  // Spec 221 cleanup: read category_id (the managed FK) + the managed category
+  // name, not the vestigial item_category enum.
   const { data: catalogRows } = await supabase
     .from("catalog_items")
-    .select("id, category, base_item, spec_attrs, unit, image_path, product_code")
+    .select("id, category_id, base_item, spec_attrs, unit, image_path, product_code")
     .eq("is_active", true)
     .order("base_item", { ascending: true });
+  const catalogCategories = await loadCatalogCategories(supabase);
+  const categoryName = categoryNameById(catalogCategories);
+  const catalogCategoryList = catalogCategories.map((c) => ({ id: c.id, name: c.name }));
   const catalogThumbs = await mintSignedUrls(
     CATALOG_IMAGES_BUCKET,
     (catalogRows ?? []).map((r) => ({ id: r.id, storage_path: r.image_path })),
   );
   const catalogItems: PurchaseRequestCatalogItem[] = (catalogRows ?? []).map((r) => ({
     id: r.id,
-    // Spec 221: category is now nullable (vestigial enum); non-null until the item form switches to category_id (later unit).
-    category: r.category as NonNullable<typeof r.category>,
+    categoryId: r.category_id,
+    categoryName: r.category_id ? (categoryName.get(r.category_id) ?? "") : "",
     baseItem: r.base_item,
     specAttrs: r.spec_attrs,
     unit: r.unit,
@@ -280,6 +286,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
               userId={ctx.id}
               canSelfApprove
               catalogItems={catalogItems}
+              categories={catalogCategoryList}
             />
           </div>
         </details>

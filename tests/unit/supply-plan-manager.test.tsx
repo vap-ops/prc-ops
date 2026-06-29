@@ -46,13 +46,16 @@ import {
 const catalogItems = [
   {
     id: "ci1",
-    category: "electrical" as const,
+    // Spec 221 cleanup — managed category (id + name), not the item_category enum.
+    categoryId: "cat-elec",
+    categoryName: "งานไฟฟ้า",
     baseItem: "สายไฟ NYY",
     specAttrs: "3x6",
     unit: "ม้วน",
     thumbnailUrl: null,
   },
 ];
+const categories = [{ id: "cat-elec", name: "งานไฟฟ้า" }];
 const workPackages = [{ id: "wp1", code: "WP-01", name: "งานก่อสร้าง" }];
 
 // Spec 189: the วัสดุ field is the shared CatalogItemPicker (a BottomSheet),
@@ -100,6 +103,7 @@ function renderManager(opts: {
       overriddenByName={opts.overriddenByName ?? null}
       lines={opts.lines ?? []}
       catalogItems={catalogItems}
+      categories={categories}
       workPackages={workPackages}
     />,
   );

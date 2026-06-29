@@ -11,6 +11,7 @@ import { safeBackHref } from "@/lib/nav/back-href";
 import { createClient } from "@/lib/db/server";
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
+import { loadCatalogCategories, categoryNameById } from "@/lib/catalog/categories";
 import { latestCreatedAt, PHASES } from "@/lib/photos/phases";
 import { groupAfterFixByRound, afterFixRoundHeading } from "@/lib/photos/rework-round";
 import { derivePhaseProgress } from "@/lib/photos/phase-progress";
@@ -106,6 +107,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     { data: returnRows },
     { data: wkRows },
     { data: catalogRows },
+    catalogCategories,
     { data: eqItemRows },
     { data: eqUsageRows },
     laborBudget,
@@ -145,11 +147,15 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     // (project-agnostic reference data; readable by any authenticated user).
     // Spec 180: image_path rides along for the picker's thumbnails.
     // Spec 214: product_code rides along so the picker searches by code.
+    // Spec 221 cleanup: read category_id (the managed FK), not the vestigial enum.
     supabase
       .from("catalog_items")
-      .select("id, category, base_item, spec_attrs, unit, image_path, product_code")
+      .select("id, category_id, base_item, spec_attrs, unit, image_path, product_code")
       .eq("is_active", true)
       .order("base_item", { ascending: true }),
+    // Spec 221 cleanup: the managed main categories (id + name + order) for the
+    // picker's grouping; rides the Promise.all (no waterfall).
+    loadCatalogCategories(supabase),
     // Spec 202 U2: the อุปกรณ์ tab. The registry (RATE-FREE — daily_rate is
     // admin-only and omitted) feeds the check-out picker; this WP's usage spans
     // feed the open/history lists. Both RLS-readable by WP_DETAIL_ROLES; no money.
@@ -265,10 +271,14 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     CATALOG_IMAGES_BUCKET,
     (catalogRows ?? []).map((r) => ({ id: r.id, storage_path: r.image_path })),
   );
+  // Spec 221 cleanup: read the managed category (id + name) so user-created
+  // categories group + label correctly; the item_category enum is no longer read.
+  const categoryName = categoryNameById(catalogCategories);
+  const catalogCategoryList = catalogCategories.map((c) => ({ id: c.id, name: c.name }));
   const catalogItems: PurchaseRequestCatalogItem[] = (catalogRows ?? []).map((r) => ({
     id: r.id,
-    // Spec 221: category is now nullable (vestigial enum); non-null until the item form switches to category_id (later unit).
-    category: r.category as NonNullable<typeof r.category>,
+    categoryId: r.category_id,
+    categoryName: r.category_id ? (categoryName.get(r.category_id) ?? "") : "",
     baseItem: r.base_item,
     specAttrs: r.spec_attrs,
     unit: r.unit,
@@ -371,6 +381,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
                 projectId={wp.project_id}
                 userId={ctx.id}
                 catalogItems={catalogItems}
+                categories={catalogCategoryList}
               />
             </div>
           </details>
@@ -384,6 +395,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               projectId={wp.project_id}
               workPackageId={wp.id}
               catalogItems={catalogItems}
+              categories={catalogCategoryList}
             />
           ) : null}
           {(wpRequests ?? []).length > 0 ? (
