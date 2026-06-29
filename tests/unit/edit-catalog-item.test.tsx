@@ -22,9 +22,11 @@ vi.mock("@/app/catalog/actions", () => ({
 
 import { EditCatalogItem } from "@/components/features/catalog/edit-catalog-item";
 
+const CATS = [{ id: "cat-elec", code: "06", name: "ไฟฟ้า" }];
+
 const item: CatalogItem = {
   id: "c1",
-  category: "electrical",
+  categoryId: "cat-elec",
   baseItem: "สายไฟเดิม",
   specAttrs: "2x4",
   unit: "ม้วน",
@@ -39,7 +41,7 @@ beforeEach(() => {
 });
 
 function open() {
-  render(<EditCatalogItem item={item} />);
+  render(<EditCatalogItem item={item} categories={CATS} />);
   fireEvent.click(screen.getByRole("button", { name: /แก้ไข/ }));
 }
 
@@ -59,7 +61,7 @@ describe("EditCatalogItem (spec 175 U3)", () => {
     await waitFor(() =>
       expect(mockUpdate).toHaveBeenCalledWith({
         id: "c1",
-        category: "electrical",
+        categoryId: "cat-elec",
         baseItem: "สายไฟใหม่",
         specAttrs: "2x4",
         unit: "ม้วน",

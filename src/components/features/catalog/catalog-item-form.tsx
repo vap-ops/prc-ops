@@ -1,26 +1,20 @@
 "use client";
 
-// Spec 175 U3 — the shared catalog-item field set, used by both add (U2) and
-// edit (U3) so the form never drifts between the two. Owns field state + the
-// unit free-text reveal + submit pending + inline error. The caller owns the
-// sheet + which action runs (onSubmit) + what happens after success (onSuccess).
+// Spec 175 U3 — the shared catalog-item field set (add + edit). Owns field state
+// + the unit free-text reveal + submit pending + inline error. Spec 221 U3c — the
+// main category is chosen from the managed catalog_categories (by `categoryId`),
+// not the item_category enum; the cascading subcategory scopes by category_id.
 
 import { useState, useTransition } from "react";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
-import {
-  CATALOG_SUBCATEGORY_LABEL,
-  ITEM_CATEGORY_LABEL,
-  PRODUCT_CODE_LABEL,
-} from "@/lib/i18n/labels";
+import { CATALOG_SUBCATEGORY_LABEL, PRODUCT_CODE_LABEL } from "@/lib/i18n/labels";
 import { COMMON_UNITS, UNIT_OTHER_VALUE } from "@/lib/purchasing/units";
 import { isValidProductCode } from "@/lib/catalog/validate";
-import type { Database } from "@/lib/db/database.types";
-
-type ItemCategory = Database["public"]["Enums"]["item_category"];
-const CATEGORIES = Object.keys(ITEM_CATEGORY_LABEL) as ItemCategory[];
+import type { CatalogCategoryOption } from "./catalog-list";
 
 export type CatalogItemValues = {
-  category: string;
+  // Spec 221 — the chosen main category (catalog_categories.id).
+  categoryId: string;
   baseItem: string;
   specAttrs: string;
   unit: string;
@@ -30,11 +24,11 @@ export type CatalogItemValues = {
   subcategoryId: string;
 };
 
-// Spec 219 — the subcategory options the cascading picker scopes to the chosen
-// category. Loaded by the /catalog page from catalog_subcategories.
+// Spec 219/221 — the subcategory options the cascading picker scopes to the
+// chosen category (by category_id). Loaded by the page from catalog_subcategories.
 export type CatalogSubcategoryOption = {
   id: string;
-  category: string;
+  categoryId: string;
   code: string;
   name: string;
 };
@@ -42,7 +36,7 @@ export type CatalogSubcategoryOption = {
 export type CatalogFormResult = { ok: true } | { ok: false; error: string };
 
 export const EMPTY_CATALOG_VALUES: CatalogItemValues = {
-  category: "",
+  categoryId: "",
   baseItem: "",
   specAttrs: "",
   unit: "",
@@ -57,6 +51,7 @@ const FIELD =
 
 export function CatalogItemForm({
   initial,
+  categories = [],
   subcategories = [],
   submitLabel,
   submittingLabel,
@@ -66,6 +61,7 @@ export function CatalogItemForm({
   extra,
 }: {
   initial: CatalogItemValues;
+  categories?: CatalogCategoryOption[];
   subcategories?: CatalogSubcategoryOption[];
   submitLabel: string;
   submittingLabel: string;
@@ -74,10 +70,8 @@ export function CatalogItemForm({
   onCancel: () => void;
   extra?: React.ReactNode;
 }) {
-  // A seeded unit that isn't in COMMON_UNITS (e.g. วง / ฝา / ตู้) opens as the
-  // free-text "other" so editing preserves it.
   const initUnitIsCommon = initial.unit !== "" && COMMON_UNITS.includes(initial.unit);
-  const [category, setCategory] = useState(initial.category);
+  const [categoryId, setCategoryId] = useState(initial.categoryId);
   const [baseItem, setBaseItem] = useState(initial.baseItem);
   const [specAttrs, setSpecAttrs] = useState(initial.specAttrs);
   const [unitChoice, setUnitChoice] = useState(
@@ -90,12 +84,12 @@ export function CatalogItemForm({
   const [error, setError] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
 
-  // Spec 219 — the picker offers only the chosen category's subcategories.
-  const availableSubs = subcategories.filter((s) => s.category === category);
+  // Spec 219/221 — the picker offers only the chosen category's subcategories.
+  const availableSubs = subcategories.filter((s) => s.categoryId === categoryId);
   const resolvedUnit = unitChoice === UNIT_OTHER_VALUE ? unitOther.trim() : unitChoice;
   const codeValid = isValidProductCode(productCode);
   const canSubmit =
-    category !== "" && baseItem.trim() !== "" && resolvedUnit !== "" && codeValid && !submitting;
+    categoryId !== "" && baseItem.trim() !== "" && resolvedUnit !== "" && codeValid && !submitting;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -103,7 +97,7 @@ export function CatalogItemForm({
     setError(null);
     startSubmit(async () => {
       const result = await onSubmit({
-        category,
+        categoryId,
         baseItem,
         specAttrs,
         unit: resolvedUnit,
@@ -127,19 +121,19 @@ export function CatalogItemForm({
         </label>
         <select
           id="ci-category"
-          value={category}
+          value={categoryId}
           onChange={(e) => {
             // Changing the main category invalidates any chosen subcategory.
-            setCategory(e.target.value);
+            setCategoryId(e.target.value);
             setSubcategoryId("");
           }}
           disabled={submitting}
           className={FIELD}
         >
           <option value="">เลือกหมวดหมู่</option>
-          {CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {ITEM_CATEGORY_LABEL[c]}
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
             </option>
           ))}
         </select>

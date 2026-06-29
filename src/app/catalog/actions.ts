@@ -41,7 +41,8 @@ function duplicateMessage(message: string | undefined): string {
 }
 
 export async function createCatalogItem(input: {
-  category: string;
+  // Spec 221 U3c — the main category is the managed catalog_categories.id.
+  categoryId: string;
   baseItem: string;
   specAttrs: string;
   unit: string;
@@ -53,9 +54,8 @@ export async function createCatalogItem(input: {
 }): Promise<CatalogActionResult> {
   await requireRole(BACK_OFFICE_ROLES);
 
-  if (!CATEGORIES.includes(input.category as ItemCategory)) {
-    return { ok: false, error: "กรุณาเลือกหมวดหมู่" };
-  }
+  const categoryId = input.categoryId.trim();
+  if (!UUID_REGEX.test(categoryId)) return { ok: false, error: "กรุณาเลือกหมวดหมู่" };
   const baseItem = input.baseItem.trim();
   if (baseItem.length === 0 || baseItem.length > 200) {
     return { ok: false, error: "กรอกชื่อวัสดุ (ไม่เกิน 200 ตัวอักษร)" };
@@ -76,8 +76,19 @@ export async function createCatalogItem(input: {
   }
 
   const supabase = await createServerSupabase();
+  // Resolve the legacy enum to write through (kept populated for the 13
+  // enum-backed categories so the legacy enum readers keep displaying; null for
+  // a user-created category). Unknown id → not a real category.
+  const { data: catRow } = await supabase
+    .from("catalog_categories")
+    .select("legacy_category")
+    .eq("id", categoryId)
+    .maybeSingle();
+  if (!catRow) return { ok: false, error: "กรุณาเลือกหมวดหมู่" };
+  const legacy = catRow.legacy_category;
+
   const { error } = await supabase.rpc("create_catalog_item", {
-    p_category: input.category as ItemCategory,
+    p_category_id: categoryId,
     p_base_item: baseItem,
     // Empty → NULL is done in the RPC (nullif(btrim(coalesce(...,'')),'')).
     p_spec_attrs: specAttrs,
@@ -87,6 +98,7 @@ export async function createCatalogItem(input: {
     p_stockable: true,
     p_note: note,
     p_product_code: productCode,
+    ...(legacy ? { p_category: legacy } : {}),
     // Omit the key when empty → the RPC's default null (clears the FK); a uuid
     // sets it. exactOptionalPropertyTypes forbids an explicit undefined here.
     ...(subcategoryId === "" ? {} : { p_subcategory_id: subcategoryId }),
@@ -105,7 +117,8 @@ export async function createCatalogItem(input: {
 
 export async function updateCatalogItem(input: {
   id: string;
-  category: string;
+  // Spec 221 U3c — the managed catalog_categories.id.
+  categoryId: string;
   baseItem: string;
   specAttrs: string;
   unit: string;
@@ -117,9 +130,8 @@ export async function updateCatalogItem(input: {
   await requireRole(BACK_OFFICE_ROLES);
 
   if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC_ERROR };
-  if (!CATEGORIES.includes(input.category as ItemCategory)) {
-    return { ok: false, error: "กรุณาเลือกหมวดหมู่" };
-  }
+  const categoryId = input.categoryId.trim();
+  if (!UUID_REGEX.test(categoryId)) return { ok: false, error: "กรุณาเลือกหมวดหมู่" };
   const baseItem = input.baseItem.trim();
   if (baseItem.length === 0 || baseItem.length > 200) {
     return { ok: false, error: "กรอกชื่อวัสดุ (ไม่เกิน 200 ตัวอักษร)" };
@@ -140,9 +152,17 @@ export async function updateCatalogItem(input: {
   }
 
   const supabase = await createServerSupabase();
+  const { data: catRow } = await supabase
+    .from("catalog_categories")
+    .select("legacy_category")
+    .eq("id", categoryId)
+    .maybeSingle();
+  if (!catRow) return { ok: false, error: "กรุณาเลือกหมวดหมู่" };
+  const legacy = catRow.legacy_category;
+
   const { error } = await supabase.rpc("update_catalog_item", {
     p_id: input.id,
-    p_category: input.category as ItemCategory,
+    p_category_id: categoryId,
     p_base_item: baseItem,
     // Empty → NULL is done in the RPC.
     p_spec_attrs: specAttrs,
@@ -150,6 +170,7 @@ export async function updateCatalogItem(input: {
     p_stockable: true,
     p_note: note,
     p_product_code: productCode,
+    ...(legacy ? { p_category: legacy } : {}),
     // Omit the key when empty → the RPC's default null (clears the FK); a uuid
     // sets it. exactOptionalPropertyTypes forbids an explicit undefined here.
     ...(subcategoryId === "" ? {} : { p_subcategory_id: subcategoryId }),

@@ -15,10 +15,13 @@ import {
   EMPTY_CATALOG_VALUES,
   type CatalogSubcategoryOption,
 } from "./catalog-item-form";
+import type { CatalogCategoryOption } from "./catalog-list";
 
 export function AddCatalogItem({
+  categories = [],
   subcategories = [],
 }: {
+  categories?: CatalogCategoryOption[];
   subcategories?: CatalogSubcategoryOption[];
 }) {
   const router = useRouter();
@@ -33,6 +36,7 @@ export function AddCatalogItem({
       <BottomSheet open={open} title="เพิ่มรายการวัสดุ" onClose={() => setOpen(false)}>
         <CatalogItemForm
           initial={EMPTY_CATALOG_VALUES}
+          categories={categories}
           subcategories={subcategories}
           submitLabel="เพิ่มรายการ"
           submittingLabel="กำลังเพิ่ม…"

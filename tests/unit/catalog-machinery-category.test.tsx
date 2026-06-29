@@ -35,17 +35,19 @@ describe("catalog machinery / tools category (feedback 1c700df6)", () => {
   });
 
   it("surfaces the group as a section + filter chip in the catalog list", () => {
+    const label = (ITEM_CATEGORY_LABEL as Record<string, string>)["machinery_tools"]!;
     const items: CatalogItem[] = [
       {
         id: "m1",
-        category: "machinery_tools" as CatalogItem["category"],
+        categoryId: "cat-mach",
         baseItem: "สว่านไฟฟ้า",
         specAttrs: "18V",
         unit: "ตัว",
       },
     ];
-    render(<CatalogList items={items} />);
-    const label = (ITEM_CATEGORY_LABEL as Record<string, string>)["machinery_tools"]!;
+    render(
+      <CatalogList items={items} categories={[{ id: "cat-mach", code: "10", name: label }]} />,
+    );
     expect(screen.getByRole("heading", { name: new RegExp(label) })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: new RegExp(label) })).toBeInTheDocument();
   });

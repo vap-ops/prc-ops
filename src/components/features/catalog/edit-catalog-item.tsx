@@ -14,13 +14,15 @@ import { BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
 import { setCatalogItemActive, updateCatalogItem } from "@/app/catalog/actions";
 import { CatalogItemForm, type CatalogSubcategoryOption } from "./catalog-item-form";
 import { CatalogImageControl } from "./catalog-image-control";
-import type { CatalogItem } from "./catalog-list";
+import type { CatalogItem, CatalogCategoryOption } from "./catalog-list";
 
 export function EditCatalogItem({
   item,
+  categories = [],
   subcategories = [],
 }: {
   item: CatalogItem;
+  categories?: CatalogCategoryOption[];
   subcategories?: CatalogSubcategoryOption[];
 }) {
   const router = useRouter();
@@ -63,7 +65,7 @@ export function EditCatalogItem({
         </div>
         <CatalogItemForm
           initial={{
-            category: item.category,
+            categoryId: item.categoryId ?? "",
             baseItem: item.baseItem,
             specAttrs: item.specAttrs ?? "",
             unit: item.unit,
@@ -71,6 +73,7 @@ export function EditCatalogItem({
             productCode: item.productCode ?? "",
             subcategoryId: item.subcategoryId ?? "",
           }}
+          categories={categories}
           subcategories={subcategories}
           submitLabel="บันทึก"
           submittingLabel="กำลังบันทึก…"

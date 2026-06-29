@@ -14,7 +14,11 @@ import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import Link from "next/link";
-import { CatalogList, type CatalogItem } from "@/components/features/catalog/catalog-list";
+import {
+  CatalogList,
+  type CatalogItem,
+  type CatalogCategoryOption,
+} from "@/components/features/catalog/catalog-list";
 import type { CatalogSubcategoryOption } from "@/components/features/catalog/catalog-item-form";
 import { AddCatalogItem } from "@/components/features/catalog/add-catalog-item";
 import { CATALOG_LABEL, MANAGE_TAXONOMY_LABEL } from "@/lib/i18n/labels";
@@ -28,22 +32,34 @@ export default async function CatalogPage() {
   const { data: rows } = await supabase
     .from("catalog_items")
     .select(
-      "id, category, base_item, spec_attrs, unit, note, image_path, product_code, subcategory_id",
+      "id, category_id, base_item, spec_attrs, unit, note, image_path, product_code, subcategory_id",
     )
     .eq("is_active", true)
     .order("base_item", { ascending: true });
 
-  // Spec 219 — the subcategory options for the add/edit cascading picker.
+  // Spec 221 U3c — the managed main categories (names + order for the filter + form).
+  const { data: catRows } = await supabase
+    .from("catalog_categories")
+    .select("id, code, name")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .order("code", { ascending: true });
+  const categories: CatalogCategoryOption[] = (catRows ?? []).map((r) => ({
+    id: r.id,
+    code: r.code,
+    name: r.name,
+  }));
+
+  // Spec 219/221 — the subcategory options for the add/edit cascading picker.
   const { data: subRows } = await supabase
     .from("catalog_subcategories")
-    .select("id, category, code, name")
+    .select("id, category_id, code, name")
     .eq("is_active", true)
     .order("sort_order", { ascending: true })
     .order("code", { ascending: true });
   const subcategories: CatalogSubcategoryOption[] = (subRows ?? []).map((r) => ({
     id: r.id,
-    // Spec 221: category is now nullable (vestigial enum); non-null until the item form switches to category_id (later unit).
-    category: r.category as NonNullable<typeof r.category>,
+    categoryId: r.category_id ?? "",
     code: r.code,
     name: r.name,
   }));
@@ -70,8 +86,7 @@ export default async function CatalogPage() {
 
   const items: CatalogItem[] = (rows ?? []).map((r) => ({
     id: r.id,
-    // Spec 221: category is now nullable (vestigial enum); non-null until the item form switches to category_id (later unit).
-    category: r.category as NonNullable<typeof r.category>,
+    categoryId: r.category_id,
     baseItem: r.base_item,
     specAttrs: r.spec_attrs,
     unit: r.unit,
@@ -98,10 +113,11 @@ export default async function CatalogPage() {
           >
             {MANAGE_TAXONOMY_LABEL}
           </Link>
-          <AddCatalogItem subcategories={subcategories} />
+          <AddCatalogItem categories={categories} subcategories={subcategories} />
         </div>
         <CatalogList
           items={items}
+          categories={categories}
           subcategories={subcategories}
           editable
           canSetSellRate={canSetSellRate}

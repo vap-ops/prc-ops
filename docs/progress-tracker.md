@@ -8,12 +8,22 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ## Spec 221 — Managed category taxonomy (enum → table) + product-code derivation (2026-06-29)
 
-Status: **U1 + U2 + U3 + U3b(RPC) COMPLETE.** U2 = non-destructive `category_id` source of truth (enum
-**vestigial**). **U3** = the taxonomy manage screen + main-category CRUD. **U3b (RPC fix, this unit)** =
-made the catalog write RPCs' `p_category` OPTIONAL so a user-category (no enum) can be used by
-`category_id` alone. **▶ U3c** (the code switch: item form + browse filter + adjacent reads → `category_id`,
-so user-categories are usable on items + visible) + **U4** (product-code derive) next. `DROP TYPE` =
-deferred optional cleanup. Spec: `221-managed-category-taxonomy.md`. Follows spec 219.
+Status: **U1 + U2 + U3 + U3b + U3c COMPLETE.** The catalog item form + browse filter now run on
+`category_id` (the managed table) — **user-created categories are usable on items + visible in the
+filter.** **▶ U4** (product-code auto-derive) is the remaining unit. `DROP TYPE` = deferred optional
+cleanup. Spec: `221-managed-category-taxonomy.md`. Follows spec 219.
+
+- **U3c — item form + browse filter switched to `category_id` (this unit, code-only; held: db:types →
+  worker/).** `catalog-list.tsx` groups/filters by `category_id` with names from a `categories` prop (not
+  the enum + `ITEM_CATEGORY_LABEL`); `catalog-item-form.tsx` picks the category from the managed
+  `categories` (by id), cascading the subcategory by `categoryId`; `/catalog` loads `catalog_categories`
+  - each item's `category_id` and threads `categories` through add/list/edit. `createCatalogItem` /
+    `updateCatalogItem` take `categoryId` + look up `legacy_category` to write the enum through (keeps the
+    13 displaying in the not-yet-switched adjacent readers; NULL for a user-category). `CatalogItem.category`
+    → `categoryId`; `CatalogSubcategoryOption.category` → `categoryId`. Rewrote the 4 catalog test files to
+    `categoryId` + a `categories` prop. lint·typecheck·vitest **1949** green. **Remaining (not blocking):**
+    the adjacent readers (store / supply-plan / work-packages / review / picker) still read the vestigial
+    enum (cast) — a user-category item shows blank category there until they switch too (a cleanup unit).
 
 - **U3b — RPC `p_category` made OPTIONAL (this unit; SCHEMA, held PR).** Migration `20260813021000`:
   DROP+CREATE `create/update_catalog_item` + `create_catalog_subcategory` with `default`s added to the
