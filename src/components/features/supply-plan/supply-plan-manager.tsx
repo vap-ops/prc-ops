@@ -155,7 +155,9 @@ export function SupplyPlanManager({
     // Replace the source row with one pre-filled row per ticked WP (item copied,
     // qty blank). Ticking none and confirming just closes the panel (no-op).
     setRows((rs) =>
-      rs.flatMap((r) => (r.key === key ? expandRowToWorkPackages(r, multiChecked) : [r])),
+      rs.flatMap((r) =>
+        r.key === key && r.catalogItemId !== "" ? expandRowToWorkPackages(r, multiChecked) : [r],
+      ),
     );
     setMultiOpenKey(null);
     setMultiChecked([]);
@@ -486,7 +488,7 @@ export function SupplyPlanManager({
                   <button
                     type="button"
                     onClick={() => openMulti(r.key)}
-                    disabled={saving || r.catalogItemId === ""}
+                    disabled={saving}
                     className="text-action text-meta focus-visible:ring-action disabled:text-ink-muted self-start rounded font-medium underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 disabled:no-underline"
                   >
                     ＋ หลายงาน
@@ -498,6 +500,14 @@ export function SupplyPlanManager({
                     aria-label="เลือกหลายงาน"
                     className="border-edge bg-page rounded-control mt-1 flex flex-col gap-2 border p-2"
                   >
+                    {/* Spec 222 follow-up: the button is always tappable; if the
+                        row has no item yet, explain the order instead of silently
+                        disabling (the old greyed state read as "broken"). */}
+                    {r.catalogItemId === "" ? (
+                      <p className="text-ink-secondary text-meta">
+                        เลือกวัสดุของแถวนี้ก่อน เพื่อกระจายไปยังงานที่เลือก
+                      </p>
+                    ) : null}
                     <ul className="flex max-h-40 flex-col gap-1 overflow-y-auto">
                       {workPackages.map((w) => (
                         <li key={w.id}>
@@ -531,7 +541,7 @@ export function SupplyPlanManager({
                         type="button"
                         aria-label="ยืนยันเลือกหลายงาน"
                         onClick={() => applyMulti(r.key)}
-                        disabled={multiChecked.length === 0}
+                        disabled={multiChecked.length === 0 || r.catalogItemId === ""}
                         className={BUTTON_PRIMARY_COMPACT}
                       >
                         เพิ่ม ({multiChecked.length})

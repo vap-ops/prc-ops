@@ -36,10 +36,14 @@ insert an array atomically. The whole change is client-side in `SupplyPlanManage
 Keep the per-row single WP `<select>` (the single / whole-project path; existing
 behaviour and tests unchanged). Add, per editable row, a secondary affordance:
 
-- A **`＋ หลายงาน`** button, enabled only once the row has a catalog item picked
-  (you fan out an item, so the item comes first).
+- A **`＋ หลายงาน`** button, **always tappable** (only `saving` disables it). Item-first
+  is still the logical order (you fan out an item), but the button must never sit greyed —
+  a disabled link read as "broken / can't pick multiple WP" (operator, 2026-06-29). So the
+  requirement moved to the confirm step (below) instead of disabling the opener.
 - Clicking it opens an **inline checklist** of the project's work packages (a checkbox
-  per WP, code + name).
+  per WP, code + name). If the row has no item yet, the panel shows the hint
+  _"เลือกวัสดุของแถวนี้ก่อน เพื่อกระจายไปยังงานที่เลือก"_ and the confirm stays disabled
+  until an item is picked.
 - The planner ticks ≥1 WP and confirms (`เพิ่ม (N)`). The row is **replaced** by one
   draft row per ticked WP: same `catalogItemId`, `workPackageId` = that WP, **qty blank**,
   note blank. Ticking 0 and confirming is a no-op (closes the panel, row unchanged).
