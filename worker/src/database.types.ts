@@ -796,7 +796,7 @@ export type Database = {
           created_by: string
           expires_at: string
           id: string
-          token: string
+          token_hash: string
         }
         Insert: {
           claimed_at?: string | null
@@ -806,7 +806,7 @@ export type Database = {
           created_by: string
           expires_at: string
           id?: string
-          token: string
+          token_hash: string
         }
         Update: {
           claimed_at?: string | null
@@ -816,7 +816,7 @@ export type Database = {
           created_by?: string
           expires_at?: string
           id?: string
-          token?: string
+          token_hash?: string
         }
         Relationships: [
           {
@@ -4584,7 +4584,7 @@ export type Database = {
           created_by: string
           expires_at: string
           id: string
-          token: string
+          token_hash: string
           worker_id: string
         }
         Insert: {
@@ -4594,7 +4594,7 @@ export type Database = {
           created_by: string
           expires_at: string
           id?: string
-          token: string
+          token_hash: string
           worker_id: string
         }
         Update: {
@@ -4604,7 +4604,7 @@ export type Database = {
           created_by?: string
           expires_at?: string
           id?: string
-          token?: string
+          token_hash?: string
           worker_id?: string
         }
         Relationships: [

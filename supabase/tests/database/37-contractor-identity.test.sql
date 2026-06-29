@@ -24,12 +24,14 @@ insert into public.contractors (id, name, created_by) values
 
 -- Invites seeded directly (owner) so the claim tests have known tokens; the
 -- create RPC is exercised separately below.
-insert into public.contractor_invites (contractor_id, token, created_by, expires_at) values
-  ('dd000001-0000-4000-8000-000000000130', 'tokvalidaaaaaaaaaaaa',
+-- token_hash seeded as the SHA-256 digest of the cleartext (M1, 2026-06-29).
+-- The claim calls below still pass the cleartext, which the RPC hashes to match.
+insert into public.contractor_invites (contractor_id, token_hash, created_by, expires_at) values
+  ('dd000001-0000-4000-8000-000000000130', encode(extensions.digest('tokvalidaaaaaaaaaaaa', 'sha256'), 'hex'),
    '11111111-1111-1111-1111-111111110130', now() + interval '14 days'),
-  ('dd000001-0000-4000-8000-000000000130', 'tokexpiredbbbbbbbbbb',
+  ('dd000001-0000-4000-8000-000000000130', encode(extensions.digest('tokexpiredbbbbbbbbbb', 'sha256'), 'hex'),
    '11111111-1111-1111-1111-111111110130', now() - interval '1 day'),
-  ('dd000001-0000-4000-8000-000000000130', 'tokotherccccccccccc',
+  ('dd000001-0000-4000-8000-000000000130', encode(extensions.digest('tokotherccccccccccc', 'sha256'), 'hex'),
    '11111111-1111-1111-1111-111111110130', now() + interval '14 days');
 
 grant insert on _tap_buf to authenticated, anon;
@@ -100,7 +102,8 @@ select is(
   (select role from public.users where id = '33333333-3333-3333-3333-333333330130'),
   'contractor'::public.user_role, 'v1 role flipped visitor → contractor');
 select is(
-  (select claimed_by from public.contractor_invites where token = 'tokvalidaaaaaaaaaaaa'),
+  (select claimed_by from public.contractor_invites
+     where token_hash = encode(extensions.digest('tokvalidaaaaaaaaaaaa', 'sha256'), 'hex')),
   '33333333-3333-3333-3333-333333330130'::uuid, 'invite marked claimed by v1');
 select is(
   (select count(*) from public.audit_log
