@@ -37,10 +37,14 @@ export function SelfPurchaseForm({
   projectId,
   workPackageId,
   catalogItems,
+  categories,
 }: {
   projectId: string;
   workPackageId: string;
   catalogItems: PurchaseRequestCatalogItem[];
+  // Spec 221 cleanup: the managed main categories (ordered, id + name) for the
+  // shared catalog picker — group by category_id, label with the managed name.
+  categories: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const hasCatalog = catalogItems.length > 0;
@@ -196,6 +200,7 @@ export function SelfPurchaseForm({
         // item drives the description + unit (derived from `selected` below).
         <CatalogItemPicker
           items={catalogItems}
+          categories={categories}
           selectedId={catalogItemId}
           onSelect={setCatalogItemId}
           onClear={() => {

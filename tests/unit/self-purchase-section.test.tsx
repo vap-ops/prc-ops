@@ -27,13 +27,15 @@ const PROJECT_ID = "00000000-0000-0000-0000-000000000002";
 const catalogItems: PurchaseRequestCatalogItem[] = [
   {
     id: "ci1",
-    category: "electrical",
+    categoryId: "cat-elec",
+    categoryName: "งานไฟฟ้า",
     baseItem: "สายไฟ NYY",
     specAttrs: "3x6",
     unit: "ม้วน",
     thumbnailUrl: null,
   },
 ];
+const categories = [{ id: "cat-elec", name: "งานไฟฟ้า" }];
 
 function renderSection() {
   render(
@@ -41,6 +43,7 @@ function renderSection() {
       projectId={PROJECT_ID}
       workPackageId={WP_ID}
       catalogItems={catalogItems}
+      categories={categories}
     />,
   );
 }

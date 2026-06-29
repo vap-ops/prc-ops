@@ -34,15 +34,16 @@ import {
   PURCHASE_REQUEST_PRIORITY_LABEL,
   PURCHASE_REQUEST_REASON_CODE_LABEL,
 } from "@/lib/i18n/labels";
-import type { Database } from "@/lib/db/database.types";
 import { bangkokTodayIso } from "@/lib/dates";
-
-type ItemCategory = Database["public"]["Enums"]["item_category"];
 
 // Spec 179/180: a catalog master item the requester picks (search + thumbnail).
 export interface PurchaseRequestCatalogItem {
   id: string;
-  category: ItemCategory;
+  // Spec 221 cleanup — the item's managed main category FK + its name (from the
+  // catalog_categories table), NOT the vestigial item_category enum, so
+  // user-created categories group + label correctly. null = uncategorised.
+  categoryId: string | null;
+  categoryName: string;
   baseItem: string;
   specAttrs: string | null;
   unit: string;
@@ -86,6 +87,9 @@ interface PurchaseRequestFormProps {
    *  needs the catalog. An item not in the catalog is registered first at
    *  ตั้งค่า → แคตตาล็อก (no inline add). */
   catalogItems: PurchaseRequestCatalogItem[];
+  /** Spec 221 cleanup: the managed main categories (ordered, id + name) — the
+   *  picker groups items by category_id and labels chips with the managed name. */
+  categories: { id: string; name: string }[];
 }
 
 export function PurchaseRequestForm({
@@ -94,6 +98,7 @@ export function PurchaseRequestForm({
   userId,
   canSelfApprove = false,
   catalogItems,
+  categories,
 }: PurchaseRequestFormProps) {
   const router = useRouter();
   // Spec 208 U4a / ADR 0065: store-only procurement — every purchase is
@@ -270,6 +275,7 @@ export function PurchaseRequestForm({
           description + unit; an off-catalog item is registered at /catalog. */}
       <CatalogItemPicker
         items={catalogItems}
+        categories={categories}
         selectedId={catalogItemId}
         onSelect={selectCatalogItem}
         onClear={clearCatalogItem}
