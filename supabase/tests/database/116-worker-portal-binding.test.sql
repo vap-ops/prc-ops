@@ -55,12 +55,14 @@ insert into public.dc_payments (worker_id, period_from, period_to, computed_amou
 
 -- Invites seeded directly (owner) so the claim tests have known tokens; the
 -- create RPC is exercised separately below.
-insert into public.worker_invites (worker_id, token, created_by, expires_at) values
-  ('aa000001-0000-4000-8000-000000000170', 'wtokvalidaaaaaaaaaaaa',
+-- token_hash seeded as the SHA-256 digest of the cleartext (M1, 2026-06-29).
+-- The claim calls below still pass the cleartext, which the RPC hashes to match.
+insert into public.worker_invites (worker_id, token_hash, created_by, expires_at) values
+  ('aa000001-0000-4000-8000-000000000170', encode(extensions.digest('wtokvalidaaaaaaaaaaaa', 'sha256'), 'hex'),
    '11111111-1111-1111-1111-111111110170', now() + interval '14 days'),
-  ('aa000001-0000-4000-8000-000000000170', 'wtokexpiredbbbbbbbbbb',
+  ('aa000001-0000-4000-8000-000000000170', encode(extensions.digest('wtokexpiredbbbbbbbbbb', 'sha256'), 'hex'),
    '11111111-1111-1111-1111-111111110170', now() - interval '1 day'),
-  ('aa000002-0000-4000-8000-000000000170', 'wtokotherccccccccccc',
+  ('aa000002-0000-4000-8000-000000000170', encode(extensions.digest('wtokotherccccccccccc', 'sha256'), 'hex'),
    '11111111-1111-1111-1111-111111110170', now() + interval '14 days');
 
 grant insert on _tap_buf to authenticated, anon;
@@ -131,7 +133,8 @@ select is(
   (select role from public.users where id = '33333333-3333-3333-3333-333333330170'),
   'contractor'::public.user_role, 'v1 role flipped visitor → contractor');
 select is(
-  (select claimed_by from public.worker_invites where token = 'wtokvalidaaaaaaaaaaaa'),
+  (select claimed_by from public.worker_invites
+     where token_hash = encode(extensions.digest('wtokvalidaaaaaaaaaaaa', 'sha256'), 'hex')),
   '33333333-3333-3333-3333-333333330170'::uuid, 'invite marked claimed by v1');
 select is(
   (select count(*) from public.audit_log
