@@ -37,6 +37,14 @@ export type CatalogSubcategoryOption = {
   name: string;
 };
 
+// Spec 223 (ADR 0066) — the structured unit-picker options, loaded by the page
+// from catalog_units (active rows). `code` is the value stored on the item, so it
+// is what the picker submits as `unit`.
+export type CatalogUnitOption = {
+  code: string;
+  displayName: string;
+};
+
 export type CatalogFormResult = { ok: true } | { ok: false; error: string };
 
 export const EMPTY_CATALOG_VALUES: CatalogItemValues = {
@@ -77,6 +85,7 @@ export function CatalogItemForm({
   initial,
   categories = [],
   subcategories = [],
+  units = [],
   submitLabel,
   submittingLabel,
   onSubmit,
@@ -87,6 +96,7 @@ export function CatalogItemForm({
   initial: CatalogItemValues;
   categories?: CatalogCategoryOption[];
   subcategories?: CatalogSubcategoryOption[];
+  units?: CatalogUnitOption[];
   submitLabel: string;
   submittingLabel: string;
   onSubmit: (values: CatalogItemValues) => Promise<CatalogFormResult>;
@@ -94,7 +104,13 @@ export function CatalogItemForm({
   onCancel: () => void;
   extra?: React.ReactNode;
 }) {
-  const initUnitIsCommon = initial.unit !== "" && COMMON_UNITS.includes(initial.unit);
+  // Spec 223 (ADR 0066) — the picker options come from the managed catalog_units
+  // (threaded from the page loader; the table is the SSOT). COMMON_UNITS is the
+  // historical seed-of-record kept as the in-code fallback/anchor when no rows are
+  // threaded (e.g. isolated tests) so the vocabulary is never empty.
+  const unitOptions: CatalogUnitOption[] =
+    units.length > 0 ? units : COMMON_UNITS.map((u) => ({ code: u, displayName: u }));
+  const initUnitIsCommon = initial.unit !== "" && unitOptions.some((u) => u.code === initial.unit);
   const [categoryId, setCategoryId] = useState(initial.categoryId);
   const [baseItem, setBaseItem] = useState(initial.baseItem);
   const [specAttrs, setSpecAttrs] = useState(initial.specAttrs);
@@ -297,9 +313,9 @@ export function CatalogItemForm({
           className={FIELD}
         >
           <option value="">เลือกหน่วยนับ</option>
-          {COMMON_UNITS.map((u) => (
-            <option key={u} value={u}>
-              {u}
+          {unitOptions.map((u) => (
+            <option key={u.code} value={u.code}>
+              {u.displayName}
             </option>
           ))}
           <option value={UNIT_OTHER_VALUE}>อื่น ๆ (ระบุเอง)</option>

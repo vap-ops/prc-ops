@@ -10,7 +10,7 @@ import { useState } from "react";
 import { ImageIcon, Search } from "lucide-react";
 import { RadioChip } from "@/components/features/common/radio-chip";
 import { FIELD_INPUT } from "@/lib/ui/classes";
-import type { CatalogSubcategoryOption } from "./catalog-item-form";
+import type { CatalogSubcategoryOption, CatalogUnitOption } from "./catalog-item-form";
 import { EditCatalogItem } from "./edit-catalog-item";
 import { SetSellRate } from "./set-sell-rate";
 
@@ -47,12 +47,14 @@ export function CatalogList({
   items,
   categories = [],
   subcategories = [],
+  units = [],
   editable = false,
   canSetSellRate = false,
 }: {
   items: CatalogItem[];
   categories?: CatalogCategoryOption[];
   subcategories?: CatalogSubcategoryOption[];
+  units?: CatalogUnitOption[];
   editable?: boolean;
   canSetSellRate?: boolean;
 }) {
@@ -150,7 +152,12 @@ export function CatalogList({
         <span className="text-ink-secondary text-meta shrink-0">{it.unit}</span>
         {canSetSellRate ? <SetSellRate itemId={it.id} currentRate={it.sellRate ?? null} /> : null}
         {editable ? (
-          <EditCatalogItem item={it} categories={categories} subcategories={subcategories} />
+          <EditCatalogItem
+            item={it}
+            categories={categories}
+            subcategories={subcategories}
+            units={units}
+          />
         ) : null}
       </li>
     );

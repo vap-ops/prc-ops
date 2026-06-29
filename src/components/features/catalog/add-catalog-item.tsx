@@ -14,15 +14,18 @@ import {
   CatalogItemForm,
   EMPTY_CATALOG_VALUES,
   type CatalogSubcategoryOption,
+  type CatalogUnitOption,
 } from "./catalog-item-form";
 import type { CatalogCategoryOption } from "./catalog-list";
 
 export function AddCatalogItem({
   categories = [],
   subcategories = [],
+  units = [],
 }: {
   categories?: CatalogCategoryOption[];
   subcategories?: CatalogSubcategoryOption[];
+  units?: CatalogUnitOption[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -38,6 +41,7 @@ export function AddCatalogItem({
           initial={EMPTY_CATALOG_VALUES}
           categories={categories}
           subcategories={subcategories}
+          units={units}
           submitLabel="เพิ่มรายการ"
           submittingLabel="กำลังเพิ่ม…"
           onSubmit={(values) => createCatalogItem(values)}

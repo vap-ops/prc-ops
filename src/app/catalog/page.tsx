@@ -15,7 +15,10 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import Link from "next/link";
 import { CatalogList, type CatalogItem } from "@/components/features/catalog/catalog-list";
-import type { CatalogSubcategoryOption } from "@/components/features/catalog/catalog-item-form";
+import type {
+  CatalogSubcategoryOption,
+  CatalogUnitOption,
+} from "@/components/features/catalog/catalog-item-form";
 import { loadCatalogCategories } from "@/lib/catalog/categories";
 import { AddCatalogItem } from "@/components/features/catalog/add-catalog-item";
 import { CATALOG_LABEL, MANAGE_TAXONOMY_LABEL } from "@/lib/i18n/labels";
@@ -49,6 +52,19 @@ export default async function CatalogPage() {
     categoryId: r.category_id ?? "",
     code: r.code,
     name: r.name,
+  }));
+
+  // Spec 223 (ADR 0066) — the managed unit vocabulary for the item-form picker
+  // (active rows; the table is the SSOT, COMMON_UNITS is only an in-code fallback).
+  const { data: unitRows } = await supabase
+    .from("catalog_units")
+    .select("code, display_name")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .order("code", { ascending: true });
+  const units: CatalogUnitOption[] = (unitRows ?? []).map((r) => ({
+    code: r.code,
+    displayName: r.display_name,
   }));
 
   // Reads on the private catalog-images bucket go through service-role signed
@@ -100,12 +116,13 @@ export default async function CatalogPage() {
           >
             {MANAGE_TAXONOMY_LABEL}
           </Link>
-          <AddCatalogItem categories={categories} subcategories={subcategories} />
+          <AddCatalogItem categories={categories} subcategories={subcategories} units={units} />
         </div>
         <CatalogList
           items={items}
           categories={categories}
           subcategories={subcategories}
+          units={units}
           editable
           canSetSellRate={canSetSellRate}
         />
