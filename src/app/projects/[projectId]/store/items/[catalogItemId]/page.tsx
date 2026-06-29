@@ -17,8 +17,9 @@ import { createClient } from "@/lib/db/server";
 import { storeHref } from "@/lib/nav/project-paths";
 import { safeBackHref } from "@/lib/nav/back-href";
 import { buildMaterialLog, type MaterialLogSources } from "@/lib/store/material-log";
+import { loadCatalogCategories, categoryNameById } from "@/lib/catalog/categories";
 import { baht } from "@/lib/format";
-import { ITEM_CATEGORY_LABEL, MATERIAL_LOG_LABEL, STORE_LABEL } from "@/lib/i18n/labels";
+import { MATERIAL_LOG_LABEL, STORE_LABEL } from "@/lib/i18n/labels";
 
 interface PageProps {
   params: Promise<{ projectId: string; catalogItemId: string }>;
@@ -37,12 +38,14 @@ export default async function MaterialLogPage({ params, searchParams }: PageProp
   const supabase = await createClient();
 
   // RLS scopes the project to those the caller can see; the id pins prevent a
-  // cross-project leak. A hidden/absent project or unknown item 404s.
-  const [{ data: project }, { data: item }, { data: onHandRow }] = await Promise.all([
+  // cross-project leak. A hidden/absent project or unknown item 404s. Spec 221
+  // cleanup — the category is shown by its managed name (via category_id), not
+  // the vestigial item_category enum.
+  const [{ data: project }, { data: item }, { data: onHandRow }, categories] = await Promise.all([
     supabase.from("projects").select("id, code, name").eq("id", projectId).maybeSingle(),
     supabase
       .from("catalog_items")
-      .select("id, base_item, spec_attrs, unit, category")
+      .select("id, base_item, spec_attrs, unit, category_id")
       .eq("id", catalogItemId)
       .maybeSingle(),
     supabase
@@ -51,8 +54,13 @@ export default async function MaterialLogPage({ params, searchParams }: PageProp
       .eq("project_id", projectId)
       .eq("catalog_item_id", catalogItemId)
       .maybeSingle(),
+    loadCatalogCategories(supabase),
   ]);
   if (!project || !item) notFound();
+
+  const categoryName = item.category_id
+    ? (categoryNameById(categories).get(item.category_id) ?? null)
+    : null;
 
   const where = { project_id: projectId, catalog_item_id: catalogItemId };
   const [
@@ -175,7 +183,7 @@ export default async function MaterialLogPage({ params, searchParams }: PageProp
         <div>
           <p className="text-meta text-ink-secondary">
             {MATERIAL_LOG_LABEL}
-            {item.category ? ` · ${ITEM_CATEGORY_LABEL[item.category]}` : ""}
+            {categoryName ? ` · ${categoryName}` : ""}
           </p>
           <h1 className="text-title text-ink font-bold tracking-tight">
             {item.base_item}

@@ -12,7 +12,6 @@ import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { ConfirmActionButton } from "@/components/features/common/confirm-action-button";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
 import {
-  ITEM_CATEGORY_LABEL,
   STORE_RECEIVE_LABEL,
   STORE_FIX_WRONG_ENTRY_LABEL,
   STOCK_COUNT_NOT_UNDO_HINT,
@@ -20,7 +19,6 @@ import {
 import { baht } from "@/lib/format";
 import { storeHref, storeItemHref } from "@/lib/nav/project-paths";
 import { withBackFrom } from "@/lib/nav/back-href";
-import type { Database } from "@/lib/db/database.types";
 import { recordStockCount, recordStockInBulk, reverseStockReceipt } from "@/app/store/actions";
 
 // Spec 198 U1 — one draft row of the multi-line รับเข้า grid.
@@ -52,11 +50,13 @@ const receiptRowComplete = (r: DraftReceiptRow): boolean => {
   );
 };
 
-type ItemCategory = Database["public"]["Enums"]["item_category"];
-
 export type CatalogPick = {
   id: string;
-  category: ItemCategory;
+  // Spec 221 cleanup — the item's managed main category FK + its name (from the
+  // catalog_categories table), NOT the vestigial item_category enum, so
+  // user-created categories group + label correctly. null = uncategorised.
+  categoryId: string | null;
+  categoryName: string;
   baseItem: string;
   specAttrs: string | null;
   unit: string;
@@ -99,6 +99,7 @@ export function StoreManager({
   selectedProjectId,
   onHand,
   catalogItems,
+  categories = [],
   suppliers,
   canIssue,
   receipts,
@@ -110,6 +111,9 @@ export function StoreManager({
   selectedProjectId: string | null;
   onHand: StockRow[];
   catalogItems: CatalogPick[];
+  // Spec 221 cleanup — the managed main categories (ordered, id + name), so the
+  // รับเข้า item picker groups by category_id and labels with the managed name.
+  categories?: { id: string; name: string }[];
   suppliers: { id: string; name: string }[];
   canIssue: boolean;
   receipts: ReceiptRow[];
@@ -185,7 +189,11 @@ export function StoreManager({
   const completeRows = rows.filter(receiptRowComplete);
   const canSubmit = completeRows.length > 0 && !submitting;
 
-  const categories = Object.keys(ITEM_CATEGORY_LABEL) as ItemCategory[];
+  // Spec 221 cleanup — group the วัสดุ picker by the managed category (in the
+  // ordered `categories` list), with an "uncategorised" group only when some item
+  // has no categoryId. Replaces the old item_category enum grouping.
+  const itemsByCategory = (id: string) => catalogItems.filter((ci) => ci.categoryId === id);
+  const uncategorisedItems = catalogItems.filter((ci) => ci.categoryId === null);
 
   function reset() {
     setRows([emptyReceiptRow()]);
@@ -432,11 +440,11 @@ export function StoreManager({
                         className={FIELD}
                       >
                         <option value="">เลือกวัสดุ</option>
-                        {categories.map((c) => {
-                          const opts = catalogItems.filter((ci) => ci.category === c);
+                        {categories.map((cat) => {
+                          const opts = itemsByCategory(cat.id);
                           if (opts.length === 0) return null;
                           return (
-                            <optgroup key={c} label={ITEM_CATEGORY_LABEL[c]}>
+                            <optgroup key={cat.id} label={cat.name}>
                               {opts.map((ci) => (
                                 <option key={ci.id} value={ci.id}>
                                   {ci.baseItem}
@@ -446,6 +454,16 @@ export function StoreManager({
                             </optgroup>
                           );
                         })}
+                        {uncategorisedItems.length > 0 ? (
+                          <optgroup label="ไม่ระบุหมวด">
+                            {uncategorisedItems.map((ci) => (
+                              <option key={ci.id} value={ci.id}>
+                                {ci.baseItem}
+                                {ci.specAttrs ? ` · ${ci.specAttrs}` : ""} ({ci.unit})
+                              </option>
+                            ))}
+                          </optgroup>
+                        ) : null}
                       </select>
                     </div>
 

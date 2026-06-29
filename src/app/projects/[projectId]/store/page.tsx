@@ -33,6 +33,7 @@ import {
   type DivertLine,
 } from "@/components/features/store/divert-to-store-list";
 import { toDivertLines } from "@/lib/store/divert-lines";
+import { loadCatalogCategories, categoryNameById } from "@/lib/catalog/categories";
 import { STORE_LABEL } from "@/lib/i18n/labels";
 
 interface PageProps {
@@ -82,15 +83,20 @@ export default async function ProjectStorePage({ params }: PageProps) {
     }))
     .sort((a, b) => a.baseItem.localeCompare(b.baseItem, "th"));
 
+  // Spec 221 cleanup — the รับเข้า item picker reads the managed category (id +
+  // name) so user-created categories group + label correctly; the item_category
+  // enum is no longer read here.
+  const categories = await loadCatalogCategories(supabase);
+  const categoryName = categoryNameById(categories);
   const { data: catRows } = await supabase
     .from("catalog_items")
-    .select("id, category, base_item, spec_attrs, unit")
+    .select("id, category_id, base_item, spec_attrs, unit")
     .eq("is_active", true)
     .order("base_item", { ascending: true });
   const catalogItems: CatalogPick[] = (catRows ?? []).map((r) => ({
     id: r.id,
-    // Spec 221: category is now nullable (vestigial enum); non-null until the item form switches to category_id (later unit).
-    category: r.category as NonNullable<typeof r.category>,
+    categoryId: r.category_id,
+    categoryName: r.category_id ? (categoryName.get(r.category_id) ?? "") : "",
     baseItem: r.base_item,
     specAttrs: r.spec_attrs,
     unit: r.unit,
@@ -207,6 +213,7 @@ export default async function ProjectStorePage({ params }: PageProps) {
           hidePicker
           onHand={onHand}
           catalogItems={catalogItems}
+          categories={categories.map((c) => ({ id: c.id, name: c.name }))}
           suppliers={suppliers}
           canIssue={canIssue}
           receipts={receipts}

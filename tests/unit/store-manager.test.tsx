@@ -38,10 +38,12 @@ const projects = [
   { id: "p1", code: "PRC-2026-001", name: "บ้านคุณเอ" },
   { id: "p2", code: "PRC-2026-002", name: "อาคารบี" },
 ];
+const categories = [{ id: "cat-elec", name: "งานไฟฟ้า" }];
 const catalogItems = [
   {
     id: "ci1",
-    category: "electrical" as const,
+    categoryId: "cat-elec",
+    categoryName: "งานไฟฟ้า",
     baseItem: "สายไฟ NYY",
     specAttrs: "3x6",
     unit: "ม้วน",
@@ -95,6 +97,7 @@ function renderManager(opts: {
       selectedProjectId={opts.selectedProjectId === undefined ? "p1" : opts.selectedProjectId}
       onHand={opts.onHand ?? onHand}
       catalogItems={catalogItems}
+      categories={categories}
       suppliers={suppliers}
       canIssue={opts.canIssue ?? false}
       receipts={opts.receipts ?? []}
@@ -167,6 +170,17 @@ describe("StoreManager (spec 177 U2)", () => {
   it("the record control is hidden until a project is selected", () => {
     renderManager({ selectedProjectId: null, onHand: [] });
     expect(screen.queryByRole("button", { name: /รับเข้าสต๊อก/ })).toBeNull();
+  });
+
+  // Spec 221 cleanup: the วัสดุ picker groups items under the managed category
+  // NAME (from the categories prop, keyed by categoryId), not the enum label.
+  it("groups รับเข้า items under the managed category name", () => {
+    renderManager({});
+    fireEvent.click(screen.getByRole("button", { name: /รับเข้าสต๊อก/ }));
+    const select = screen.getByLabelText("วัสดุ") as HTMLSelectElement;
+    const group = select.querySelector("optgroup");
+    expect(group?.label).toBe("งานไฟฟ้า");
+    expect(group?.querySelector("option")?.textContent).toContain("สายไฟ NYY");
   });
 });
 

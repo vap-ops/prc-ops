@@ -14,12 +14,9 @@ import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import Link from "next/link";
-import {
-  CatalogList,
-  type CatalogItem,
-  type CatalogCategoryOption,
-} from "@/components/features/catalog/catalog-list";
+import { CatalogList, type CatalogItem } from "@/components/features/catalog/catalog-list";
 import type { CatalogSubcategoryOption } from "@/components/features/catalog/catalog-item-form";
+import { loadCatalogCategories } from "@/lib/catalog/categories";
 import { AddCatalogItem } from "@/components/features/catalog/add-catalog-item";
 import { CATALOG_LABEL, MANAGE_TAXONOMY_LABEL } from "@/lib/i18n/labels";
 
@@ -38,17 +35,7 @@ export default async function CatalogPage() {
     .order("base_item", { ascending: true });
 
   // Spec 221 U3c — the managed main categories (names + order for the filter + form).
-  const { data: catRows } = await supabase
-    .from("catalog_categories")
-    .select("id, code, name")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true })
-    .order("code", { ascending: true });
-  const categories: CatalogCategoryOption[] = (catRows ?? []).map((r) => ({
-    id: r.id,
-    code: r.code,
-    name: r.name,
-  }));
+  const categories = await loadCatalogCategories(supabase);
 
   // Spec 219/221 — the subcategory options for the add/edit cascading picker.
   const { data: subRows } = await supabase
