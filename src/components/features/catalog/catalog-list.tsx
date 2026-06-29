@@ -14,8 +14,11 @@ import type { CatalogSubcategoryOption } from "./catalog-item-form";
 import { EditCatalogItem } from "./edit-catalog-item";
 import { SetSellRate } from "./set-sell-rate";
 
-// Spec 221 — the managed main categories (id + name), loaded by the page.
-export type CatalogCategoryOption = { id: string; code: string; name: string };
+// Spec 221 — the managed main categories (id + name). The type now lives in the
+// shared loader (src/lib/catalog/categories.ts); re-exported here so the existing
+// catalog importers keep their path while the definition is single-sourced.
+import type { CatalogCategoryOption } from "@/lib/catalog/categories";
+export type { CatalogCategoryOption };
 
 export type CatalogItem = {
   id: string;
