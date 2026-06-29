@@ -24,8 +24,12 @@ import { rollupProgress } from "@/lib/dashboard/overview";
 import {
   sumMaterials,
   sumStoreIssues,
+  sumStoreReturns,
+  sumStorePool,
+  spendBreakdown,
   budgetStatus,
   type BudgetStatus,
+  type SpendBreakdown,
 } from "@/lib/dashboard/spend";
 import { aggregateLaborCost, type CostInputRow } from "@/lib/labor/cost";
 import { bahtCompact as baht } from "@/lib/format";
@@ -43,7 +47,7 @@ interface ProjectVM {
   complete: number;
   pctComplete: number;
   needsAttention: number;
-  money: { spend: number; status: BudgetStatus } | null;
+  money: { breakdown: SpendBreakdown; status: BudgetStatus } | null;
 }
 
 export default async function DashboardPage() {
@@ -103,6 +107,16 @@ export default async function DashboardPage() {
   // Spec 195 follow-up — store-issued (เบิก) cost, grouped by project. Disjoint
   // from materialsByProject (WP-less store-bound PRs are excluded there).
   const storeIssuesByProject = new Map<string, { total_cost: number | null }[]>();
+  // PD money split — project store pool (stock currently on hand), at cost via
+  // stock_on_hand.total_value, grouped by project. Issued material has left
+  // stock_on_hand, so this is disjoint from storeIssuesByProject — PROVIDED returns
+  // are netted out of the WP level (see storeReturnsByProject).
+  const storePoolByProject = new Map<string, { total_value: number | null }[]>();
+  // PD money split — WP→store returns (spec 209), grouped by project. A return
+  // restores on-hand value (→ storePoolByProject) but leaves its issue non-reversed
+  // (→ still in storeIssuesByProject), so its cost must be netted OUT of the WP level
+  // to avoid double-counting. Mirrors wp_profit's return netting.
+  const storeReturnsByProject = new Map<string, { total_cost: number | null }[]>();
   // Store-first U4 — PR ids whose goods entered the store (a stock_receipt links
   // back to them). Their cost is counted at เบิก (sumStoreIssues), so they are
   // excluded from sumMaterials to avoid a double-count once U1 auto-stocks
@@ -111,48 +125,62 @@ export default async function DashboardPage() {
   if (isManager && projectIds.length) {
     const admin = createAdminSupabase();
     const wpIds = wps.map((w) => w.id);
-    const [{ data: budgetRows }, laborRes, prRes, issuesRes, reversalsRes, receiptsRes] =
-      await Promise.all([
-        admin.from("projects").select("id, budget_amount_thb").in("id", projectIds),
-        wpIds.length
-          ? admin
-              .from("labor_logs")
-              .select(
-                "id, worker_id, work_date, day_fraction, day_rate_snapshot, worker_type_snapshot, worker_name_snapshot, self_logged, superseded_by, work_package_id",
-              )
-              .in("work_package_id", wpIds)
-          : Promise.resolve({ data: [] as (CostInputRow & { work_package_id: string })[] }),
-        wpIds.length
-          ? admin
-              .from("purchase_requests")
-              .select("id, work_package_id, status, amount")
-              .in("work_package_id", wpIds)
-          : Promise.resolve({
-              data: [] as {
-                id: string;
-                work_package_id: string;
-                status: string;
-                amount: number | null;
-              }[],
-            }),
-        // Store issues are project-scoped (project_id is set + WP-in-project
-        // validated by issue_stock), so group by project_id directly.
-        admin
-          .from("stock_issues")
-          .select("id, project_id, total_cost")
-          .in("project_id", projectIds),
-        // Reversed issues never charged a WP — exclude them (matches wp_profit). A
-        // stock_reversals row may target a receipt OR an issue; issue_id is null for
-        // receipt reversals, so filter to the issue-reversal rows.
-        admin.from("stock_reversals").select("issue_id").not("issue_id", "is", null),
-        // Store-first U4 — receipts that link back to a PR mark goods that entered
-        // the store; those PRs are counted at เบิก, not here. (No-op pre-U1.)
-        admin
-          .from("stock_receipts")
-          .select("purchase_request_id")
-          .in("project_id", projectIds)
-          .not("purchase_request_id", "is", null),
-      ]);
+    const [
+      { data: budgetRows },
+      laborRes,
+      prRes,
+      issuesRes,
+      reversalsRes,
+      receiptsRes,
+      poolRes,
+      returnsRes,
+    ] = await Promise.all([
+      admin.from("projects").select("id, budget_amount_thb").in("id", projectIds),
+      wpIds.length
+        ? admin
+            .from("labor_logs")
+            .select(
+              "id, worker_id, work_date, day_fraction, day_rate_snapshot, worker_type_snapshot, worker_name_snapshot, self_logged, superseded_by, work_package_id",
+            )
+            .in("work_package_id", wpIds)
+        : Promise.resolve({ data: [] as (CostInputRow & { work_package_id: string })[] }),
+      wpIds.length
+        ? admin
+            .from("purchase_requests")
+            .select("id, work_package_id, status, amount")
+            .in("work_package_id", wpIds)
+        : Promise.resolve({
+            data: [] as {
+              id: string;
+              work_package_id: string;
+              status: string;
+              amount: number | null;
+            }[],
+          }),
+      // Store issues are project-scoped (project_id is set + WP-in-project
+      // validated by issue_stock), so group by project_id directly.
+      admin.from("stock_issues").select("id, project_id, total_cost").in("project_id", projectIds),
+      // Reversed issues never charged a WP — exclude them (matches wp_profit). A
+      // stock_reversals row may target a receipt OR an issue; issue_id is null for
+      // receipt reversals, so filter to the issue-reversal rows.
+      admin.from("stock_reversals").select("issue_id").not("issue_id", "is", null),
+      // Store-first U4 — receipts that link back to a PR mark goods that entered
+      // the store; those PRs are counted at เบิก, not here. (No-op pre-U1.)
+      admin
+        .from("stock_receipts")
+        .select("purchase_request_id")
+        .in("project_id", projectIds)
+        .not("purchase_request_id", "is", null),
+      // PD money split — store stock currently on hand, at cost. total_value is the
+      // live maintained balance (receipts/returns add, issues subtract, reversals
+      // restore), so summing it per project gives the pool value with no separate
+      // reversal handling needed.
+      admin.from("stock_on_hand").select("project_id, total_value").in("project_id", projectIds),
+      // PD money split — WP→store returns, netted out of the WP level so returned
+      // material (which restores on-hand value above) is not also counted via its
+      // still-non-reversed issue. Mirrors wp_profit's return netting.
+      admin.from("stock_returns").select("project_id, total_cost").in("project_id", projectIds),
+    ]);
     for (const b of budgetRows ?? []) budgetById.set(b.id, b.budget_amount_thb);
     for (const r of receiptsRes.data ?? []) {
       if (r.purchase_request_id) storedPrIds.add(r.purchase_request_id);
@@ -165,6 +193,16 @@ export default async function DashboardPage() {
       const arr = storeIssuesByProject.get(si.project_id) ?? [];
       arr.push({ total_cost: si.total_cost });
       storeIssuesByProject.set(si.project_id, arr);
+    }
+    for (const soh of poolRes.data ?? []) {
+      const arr = storePoolByProject.get(soh.project_id) ?? [];
+      arr.push({ total_value: soh.total_value });
+      storePoolByProject.set(soh.project_id, arr);
+    }
+    for (const rt of returnsRes.data ?? []) {
+      const arr = storeReturnsByProject.get(rt.project_id) ?? [];
+      arr.push({ total_cost: rt.total_cost });
+      storeReturnsByProject.set(rt.project_id, arr);
     }
     for (const r of laborRes.data ?? []) {
       const pid = wpProject.get(r.work_package_id);
@@ -196,14 +234,25 @@ export default async function DashboardPage() {
       const materials =
         sumMaterials(materialsByProject.get(p.id) ?? [], storedPrIds) +
         sumStoreIssues(storeIssuesByProject.get(p.id) ?? []);
-      const spend = labor + materials;
-      money = { spend, status: budgetStatus(budgetById.get(p.id) ?? null, spend) };
+      // wpLevel = cost that reached a WP and stayed there: the old figure (labor +
+      // materials) NET of WP→store returns (returned material moved back into the
+      // store pool below, so it must leave the WP level or it double-counts).
+      // projectPool = store stock currently on hand. Disjoint, so the two add to a
+      // no-double-count total that also corrects the old understated number.
+      const returns = sumStoreReturns(storeReturnsByProject.get(p.id) ?? []);
+      const wpLevel = labor + materials - returns;
+      const projectPool = sumStorePool(storePoolByProject.get(p.id) ?? []);
+      const breakdown = spendBreakdown(wpLevel, projectPool);
+      money = {
+        breakdown,
+        status: budgetStatus(budgetById.get(p.id) ?? null, breakdown.total),
+      };
     }
     return { id: p.id, name: p.name, code: p.code, ...progress, money };
   });
 
   const totalBudget = items.reduce((s, i) => s + (i.money?.status.budget ?? 0), 0);
-  const totalSpend = items.reduce((s, i) => s + (i.money?.spend ?? 0), 0);
+  const totalSpend = items.reduce((s, i) => s + (i.money?.breakdown.total ?? 0), 0);
 
   // Spec 153: the desktop hub strip, like the sibling hubs (/projects, /review).
   // Phones leave via the bottom tab bar.
@@ -257,7 +306,7 @@ export default async function DashboardPage() {
                   <SpendBar status={budgetStatus(totalBudget, totalSpend)} />
                 ) : null}
                 <p className="text-ink-muted text-meta">
-                  ใช้ไปทั้งหมด · ค่าวัสดุนับเฉพาะรายการที่บันทึกราคา
+                  ใช้ไปทั้งหมด รวมของที่พักในคลังโครงการ · ค่าวัสดุนับเฉพาะรายการที่บันทึกราคา
                 </p>
               </div>
             ) : null}
@@ -326,14 +375,30 @@ function SpendBar({ status }: { status: BudgetStatus }) {
   );
 }
 
-function ProjectMoney({ money }: { money: { spend: number; status: BudgetStatus } }) {
-  const { status, spend } = money;
+function ProjectMoney({ money }: { money: { breakdown: SpendBreakdown; status: BudgetStatus } }) {
+  const { status, breakdown } = money;
+  // Show the split only when there is paid-for store stock not yet withdrawn —
+  // otherwise the project pool is 0 and the total alone IS the WP-level spend, so a
+  // single line (matching the old card) avoids printing the same number twice.
+  const hasPool = breakdown.projectPool > 0;
   return (
     <div className="border-edge mt-3 flex flex-col gap-1 border-t pt-3">
+      {hasPool ? (
+        <>
+          <div className="text-meta flex justify-between">
+            <span className="text-ink-secondary">ใช้ในงาน</span>
+            <span className="text-ink font-medium">{baht(breakdown.wpLevel)}</span>
+          </div>
+          <div className="text-meta flex justify-between">
+            <span className="text-ink-secondary">พักในคลังโครงการ</span>
+            <span className="text-ink font-medium">{baht(breakdown.projectPool)}</span>
+          </div>
+        </>
+      ) : null}
       <div className="text-meta flex justify-between">
-        <span className="text-ink-secondary">งบ vs ใช้จริง</span>
+        <span className="text-ink-secondary">{hasPool ? "ใช้จริงรวม" : "งบ vs ใช้จริง"}</span>
         <span className={status.over ? "text-danger font-bold" : "text-ink font-semibold"}>
-          {baht(spend)}
+          {baht(breakdown.total)}
           {status.hasBudget
             ? ` / ${baht(status.budget as number)} · ${status.pctUsed}%`
             : " · ยังไม่ตั้งงบ"}
