@@ -330,3 +330,80 @@ export async function updateCatalogSubcategory(input: {
   revalidatePath("/catalog");
   return { ok: true };
 }
+
+// ---------------------------------------------------------------------------
+// Spec 221 U3 — main-category CRUD (back-office). Wraps the U1
+// create/update_catalog_category SECURITY DEFINER RPCs. The main-category code
+// IS editable (recode) — items key on category_id, not the code.
+// ---------------------------------------------------------------------------
+
+const CATEGORY_GENERIC_ERROR = "บันทึกหมวดหลักไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+const CATEGORY_CODE_FORMAT_ERROR = "รหัสหมวดหลักต้องเป็นตัวเลข 2 หลัก";
+const CATEGORY_CODE_DUP_ERROR = "รหัสหมวดหลักนี้ถูกใช้แล้ว";
+const CATEGORY_NAME_ERROR = "กรอกชื่อหมวดหลัก (ไม่เกิน 120 ตัวอักษร)";
+
+export async function createCatalogCategory(input: {
+  code: string;
+  name: string;
+  sortOrder: number;
+}): Promise<CatalogActionResult> {
+  await requireRole(BACK_OFFICE_ROLES);
+
+  const code = input.code.trim();
+  if (!SUBCATEGORY_CODE_RE.test(code)) return { ok: false, error: CATEGORY_CODE_FORMAT_ERROR };
+  const name = input.name.trim();
+  if (name.length === 0 || name.length > 120) return { ok: false, error: CATEGORY_NAME_ERROR };
+  const sortOrder = Number.isFinite(input.sortOrder) ? Math.trunc(input.sortOrder) : 0;
+
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("create_catalog_category", {
+    p_code: code,
+    p_name: name,
+    p_sort_order: sortOrder,
+  });
+  if (error) {
+    if (error.code === "23505") return { ok: false, error: CATEGORY_CODE_DUP_ERROR };
+    if (error.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์เพิ่มหมวดหลัก" };
+    return { ok: false, error: CATEGORY_GENERIC_ERROR };
+  }
+
+  revalidatePath("/catalog/subcategories");
+  revalidatePath("/catalog");
+  return { ok: true };
+}
+
+export async function updateCatalogCategory(input: {
+  id: string;
+  code: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+}): Promise<CatalogActionResult> {
+  await requireRole(BACK_OFFICE_ROLES);
+
+  if (!UUID_REGEX.test(input.id)) return { ok: false, error: CATEGORY_GENERIC_ERROR };
+  const code = input.code.trim();
+  if (!SUBCATEGORY_CODE_RE.test(code)) return { ok: false, error: CATEGORY_CODE_FORMAT_ERROR };
+  const name = input.name.trim();
+  if (name.length === 0 || name.length > 120) return { ok: false, error: CATEGORY_NAME_ERROR };
+  const sortOrder = Number.isFinite(input.sortOrder) ? Math.trunc(input.sortOrder) : 0;
+
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("update_catalog_category", {
+    p_id: input.id,
+    p_code: code,
+    p_name: name,
+    p_sort_order: sortOrder,
+    p_is_active: input.isActive,
+  });
+  if (error) {
+    if (error.code === "23505") return { ok: false, error: CATEGORY_CODE_DUP_ERROR };
+    if (error.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์แก้ไขหมวดหลัก" };
+    if (error.code === "22023") return { ok: false, error: "ไม่พบหมวดหลักนี้" };
+    return { ok: false, error: CATEGORY_GENERIC_ERROR };
+  }
+
+  revalidatePath("/catalog/subcategories");
+  revalidatePath("/catalog");
+  return { ok: true };
+}

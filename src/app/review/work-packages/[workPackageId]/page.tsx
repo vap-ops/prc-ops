@@ -101,7 +101,8 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
   );
   const catalogItems: PurchaseRequestCatalogItem[] = (catalogRows ?? []).map((r) => ({
     id: r.id,
-    category: r.category,
+    // Spec 221: category is now nullable (vestigial enum); non-null until the item form switches to category_id (later unit).
+    category: r.category as NonNullable<typeof r.category>,
     baseItem: r.base_item,
     specAttrs: r.spec_attrs,
     unit: r.unit,

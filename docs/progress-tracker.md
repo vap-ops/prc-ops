@@ -8,12 +8,24 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ## Spec 221 — Managed category taxonomy (enum → table) + product-code derivation (2026-06-29)
 
-Status: **U1 + U2 COMPLETE.** U2 was REDESIGNED off the original break-glass enum-drop →
-a **non-destructive** migration: `category_id` becomes the source of truth, the
-`item_category` enum is kept **vestigial** (nullable, ignored). U3 (tree UI + switch reads to
-`category_id`) + U4 (product-code derive) next; the actual `DROP TYPE` is deferred optional
-cleanup. Spec: `221-managed-category-taxonomy.md`. Follows spec 219. Operator chose **full
-self-service** for main categories (add/remove/rename/recode) + **auto-build** the item product code.
+Status: **U1 + U2 + U3 COMPLETE.** U2 was REDESIGNED off the break-glass enum-drop → a
+**non-destructive** migration (`category_id` source of truth, enum kept **vestigial**). **U3 = the
+taxonomy manage screen + main-category CRUD** (add/recode/rename categories). **U3b** (switch the item
+form + browse filter + adjacent reads to `category_id` so user-categories are usable on items; + a small
+RPC fix for subcategories-under-new-categories) + **U4** (product-code derive) are next. `DROP TYPE` =
+deferred optional cleanup. Spec: `221-managed-category-taxonomy.md`. Follows spec 219. Operator chose
+**full self-service** for main categories + **auto-build** the item product code.
+
+- **U3 — taxonomy manage screen + main-category CRUD (this unit, code-only; held: db:types → worker/).**
+  `/catalog/subcategories` → the **taxonomy manager** (`จัดการหมวดหมู่`): a MAIN-category section
+  (`AddCategory`/`EditCategory`; code editable = recode, name, order, deactivate; wraps the U1
+  `create/update_catalog_category` RPCs via new server actions) above the subcategory section.
+  Regenerated `db:types` (category nullable + `p_category_id`); the ~8 nullable-`category` read sites
+  (catalog/store/supply-plan/work-packages/review) got a safe non-null narrowing (data non-null until
+  the item form switches). Term SSOT `CATALOG_CATEGORY_LABEL`/`MANAGE_TAXONOMY_LABEL`. Test-first
+  `add-category` + `edit-category`. lint·typecheck·vitest **1949** green. **U3b deferred** (item
+  form/filter switch to category_id; the `create_catalog_subcategory` p_category-optional RPC fix so a
+  brand-new user-category can hold subcategories/items) — noted in the spec.
 
 - **U2 — category_id source of truth (enum vestigial) (this unit, NOT break-glass).** Migration
   `20260813020000` (additive + backward-compatible): enum `category` columns → nullable; subcategory

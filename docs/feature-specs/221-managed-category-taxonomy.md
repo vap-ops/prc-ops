@@ -111,11 +111,21 @@ the sync trigger + `drop type public.item_category`. `pg_dump` floor + preview-b
 
 - operator go (`break-glass.md` Procedure B). **Not required for the feature** — may never run.
 
-### U3 — unified taxonomy manager UX · code-only
+### U3 — taxonomy manage screen + main-category CRUD · code-only (held: db:types touches worker/)
 
-The tree screen (main + sub in one place): `AddCategory` / `EditCategory` + the existing
-`AddSubcategory` / `EditSubcategory`; add/edit/recode/rename/deactivate both levels; reads
-`catalog_categories`. The drill filter (spec 219 U3) already reads names — repoint to the table.
+**Shipped:** the `/catalog/subcategories` screen became the **taxonomy manager** (`จัดการหมวดหมู่`):
+a MAIN-category section (`catalog_categories` — `AddCategory` / `EditCategory`, code **editable** =
+recode, name, order, deactivate, via the U1 `create/update_catalog_category` RPCs) above the existing
+subcategory section. `db:types` regenerated (category nullable + `p_category_id` args); the ~8 nullable
+`category` read sites across catalog/store/supply-plan/work-packages/review got a safe non-null narrowing
+(data is non-null until the item form switches). Test-first `add-category` / `edit-category`.
+
+**Deferred to U3b (a follow-up):** (a) switch the item FORM + the catalog browse drill FILTER +
+`catalog-list` + the adjacent reads to `category_id` + table-sourced names, so a NEW user-category is
+selectable on items + visible in the filter (today the form/filter still use the enum, so a user-created
+category is manageable but not yet usable on items). (b) Make `create_catalog_subcategory`'s `p_category`
+arg optional (a small RPC migration) so subcategories can be added under a brand-new user-category (today
+the typed RPC requires the enum). (c) the `update_catalog_item` demote-guard. (d) U4 product-code derive.
 
 ### U4 — product-code auto-derive · code-only
 
