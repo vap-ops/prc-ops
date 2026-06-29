@@ -66,8 +66,9 @@ export interface ProjectStatusCounts {
 export interface ProjectListView<T> {
   rows: T[];
   counts: ProjectStatusCounts;
-  /** Per-client project counts over the non-archived working set; keyed by
-   *  client_id, with PROJECT_CLIENT_NONE for projects that have no client. */
+  /** Per-client project counts over the status-scoped set the rows are drawn
+   *  from; keyed by client_id, with PROJECT_CLIENT_NONE for projects that have
+   *  no client. */
   clientCounts: Map<string, number>;
 }
 
