@@ -20,10 +20,10 @@ import { createClient } from "@/lib/db/server";
 import { loadProjectsHub } from "@/lib/projects/load-hub";
 import {
   parseProjectStatusFilter,
-  parseProjectSort,
+  parseProjectClientFilter,
   viewProjects,
   buildProjectStatusChips,
-  buildProjectSortControls,
+  buildProjectClientChips,
 } from "@/lib/projects/list-view";
 import { ProjectsFilterBar } from "@/components/features/projects/projects-filter-bar";
 import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
@@ -40,8 +40,8 @@ import { projectStatusIcon } from "@/lib/status-icons";
 export const metadata = { title: "โครงการ" };
 
 interface ProjectsHubPageProps {
-  // Next 16: searchParams is async. Feedback 1d648880 reads ?status / ?sort.
-  searchParams: Promise<{ status?: string | string[]; sort?: string | string[] }>;
+  // Next 16: searchParams is async. Feedback 1d648880 reads ?status; 7d9d2c2b ?client.
+  searchParams: Promise<{ status?: string | string[]; client?: string | string[] }>;
 }
 
 export default async function ProjectsHubPage({ searchParams }: ProjectsHubPageProps) {
@@ -51,7 +51,7 @@ export default async function ProjectsHubPage({ searchParams }: ProjectsHubPageP
   const sp = await searchParams;
   const pick = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const status = parseProjectStatusFilter(pick(sp.status));
-  const sort = parseProjectSort(pick(sp.sort));
+  const client = parseProjectClientFilter(pick(sp.client));
 
   const isPm = isManagerRole(ctx.role);
   const isProcurement = ctx.role === "procurement";
@@ -66,12 +66,13 @@ export default async function ProjectsHubPage({ searchParams }: ProjectsHubPageP
     isPm,
   );
 
-  // Feedback 1d648880: hide archived by default + status filter + sort. The
-  // RLS-scoped list is small (membership-bounded), so filter/sort/count in JS —
-  // keeps the chip counts live with one query and no extra round-trips.
-  const { rows, counts } = viewProjects(projects, { status, sort });
-  const statusChips = buildProjectStatusChips({ counts, status, sort });
-  const sortOptions = buildProjectSortControls({ status, sort });
+  // Feedback 1d648880 + 7d9d2c2b: hide archived by default + status & client
+  // filters (sorting retired → default code sort). The RLS-scoped list is small
+  // (membership-bounded), so filter/count in JS — keeps the chip counts live with
+  // one query and no extra round-trips.
+  const { rows, counts, clientCounts } = viewProjects(projects, { status, client });
+  const statusChips = buildProjectStatusChips({ counts, status, client });
+  const clientChips = buildProjectClientChips({ clientCounts, clientNames, status, client });
 
   // Spec 102: procurement browses projects read-only for purchase context.
   const kicker = isCoordinator
@@ -111,7 +112,7 @@ export default async function ProjectsHubPage({ searchParams }: ProjectsHubPageP
           <EmptyNotice>ยังไม่มีโครงการ</EmptyNotice>
         ) : (
           <>
-            <ProjectsFilterBar statusChips={statusChips} sortOptions={sortOptions} />
+            <ProjectsFilterBar statusChips={statusChips} clientChips={clientChips} />
             {rows.length === 0 ? (
               <EmptyNotice>ไม่มีโครงการในตัวกรองนี้</EmptyNotice>
             ) : (
