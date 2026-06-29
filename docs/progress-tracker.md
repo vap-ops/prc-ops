@@ -8,13 +8,22 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ## Spec 221 — Managed category taxonomy (enum → table) + product-code derivation (2026-06-29)
 
-Status: **U1 + U2 + U3 COMPLETE.** U2 was REDESIGNED off the break-glass enum-drop → a
-**non-destructive** migration (`category_id` source of truth, enum kept **vestigial**). **U3 = the
-taxonomy manage screen + main-category CRUD** (add/recode/rename categories). **U3b** (switch the item
-form + browse filter + adjacent reads to `category_id` so user-categories are usable on items; + a small
-RPC fix for subcategories-under-new-categories) + **U4** (product-code derive) are next. `DROP TYPE` =
-deferred optional cleanup. Spec: `221-managed-category-taxonomy.md`. Follows spec 219. Operator chose
-**full self-service** for main categories + **auto-build** the item product code.
+Status: **U1 + U2 + U3 + U3b(RPC) COMPLETE.** U2 = non-destructive `category_id` source of truth (enum
+**vestigial**). **U3** = the taxonomy manage screen + main-category CRUD. **U3b (RPC fix, this unit)** =
+made the catalog write RPCs' `p_category` OPTIONAL so a user-category (no enum) can be used by
+`category_id` alone. **▶ U3c** (the code switch: item form + browse filter + adjacent reads → `category_id`,
+so user-categories are usable on items + visible) + **U4** (product-code derive) next. `DROP TYPE` =
+deferred optional cleanup. Spec: `221-managed-category-taxonomy.md`. Follows spec 219.
+
+- **U3b — RPC `p_category` made OPTIONAL (this unit; SCHEMA, held PR).** Migration `20260813021000`:
+  DROP+CREATE `create/update_catalog_item` + `create_catalog_subcategory` with `default`s added to the
+  leading params (so `p_category` can be omitted) — the param **types are unchanged**, so every
+  `::regprocedure` pin + positional test call stays valid (no test churn). Bodies made null-safe
+  (`coalesce(p_base_item,'')` / `p_unit`) so omitting a genuinely-required field still raises the friendly
+  22023, not a 23502. Test-first pgTAP `223-spec221u3b` (p_category omitted → item/subcategory created
+  under a user-category by category_id; base_item omitted → 22023). **db:test 192/192 (3334 asserts)**; no
+  src/db:types change (deferred to U3c) → CI green except the migration guard. Adversarial-review of the
+  near-identical U2 bodies already done; this delta is defaults + coalesce only.
 
 - **U3 — taxonomy manage screen + main-category CRUD (this unit, code-only; held: db:types → worker/).**
   `/catalog/subcategories` → the **taxonomy manager** (`จัดการหมวดหมู่`): a MAIN-category section
