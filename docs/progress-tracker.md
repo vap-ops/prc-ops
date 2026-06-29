@@ -3971,3 +3971,18 @@ will live in the existing `work-packages/` folder in U3c). Test-first: `categori
 load-project-detail (categories). Full suite + lint + typecheck green. **NEXT = U3b** (rename/reorder/
 deactivate from the manager rows) then **U3c** (`WpCategoryControl` in the WP จัดการ tab) → then the
 drawings track U4–U6.
+
+## Spec 222 — Supply plan: one item into multiple work packages, U1 (2026-06-29)
+
+Status: **U1 SHIPPED 2026-06-29 (code-only, no DB / no RPC).** Operator: "when procurement
+creates a แผนจัดหา, don't force a WP, but let them pick multiple WPs per item if they want."
+WP-not-forced was already true (`work_package_id` nullable; save needs only item + qty). New =
+one item → many WPs. Operator chose the **"pre-fill rows"** model (over per-WP qty nested in one
+row): a per-row `＋ หลายงาน` button (enabled once an item is picked) opens an inline WP checklist;
+confirming replaces that draft row with one pre-filled row per ticked WP (item copied, qty blank),
+which the planner fills, saved via the existing `bulkAddPlanLines` one-shot. No schema/RPC change —
+a line is already `(plan,item,WP)` with nullable WP + array insert. Pure helper
+`expandRowToWorkPackages(row, wpIds)` holds the fan-out. Test-first: helper test (0→unchanged,
+N→N blank-qty rows, distinct keys) + behavioral test (pick → tick 2 WPs → 2 rows → fill → save 2
+lines) + affordance-disabled-until-item. Full suite **1994/0** green; lint · typecheck clean.
+No SSOT files touched (inline Thai strings). SPEC 222 COMPLETE (single unit).

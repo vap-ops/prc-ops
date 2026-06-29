@@ -10,7 +10,13 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
+import {
+  BUTTON_PRIMARY,
+  BUTTON_PRIMARY_COMPACT,
+  BUTTON_SECONDARY,
+  BUTTON_SECONDARY_COMPACT,
+  INLINE_ERROR,
+} from "@/lib/ui/classes";
 import type { Database } from "@/lib/db/database.types";
 import { CatalogItemPicker } from "@/components/features/purchasing/catalog-item-picker";
 import type { PurchaseRequestCatalogItem } from "@/components/features/purchasing/purchase-request-form";
@@ -44,7 +50,7 @@ export type PlanLine = {
   converted: boolean;
 };
 
-type DraftRow = {
+export type DraftRow = {
   key: number;
   catalogItemId: string;
   workPackageId: string;
@@ -69,6 +75,19 @@ let rowSeq = 0;
 function blankRow(): DraftRow {
   rowSeq += 1;
   return { key: rowSeq, catalogItemId: "", workPackageId: "", qty: "", note: "" };
+}
+
+// Spec 222 — "one item into many work packages". Fan a single draft row into one
+// fresh row per chosen WP: the catalog item carries over, each gets its own WP and
+// a BLANK qty (the planner fills each — quantities differ per WP). Empty list →
+// the row is left as-is (a single / whole-project line). Pure so it's unit-tested.
+export function expandRowToWorkPackages(row: DraftRow, wpIds: string[]): DraftRow[] {
+  if (wpIds.length === 0) return [row];
+  return wpIds.map((wpId) => ({
+    ...blankRow(),
+    catalogItemId: row.catalogItemId,
+    workPackageId: wpId,
+  }));
 }
 
 export function SupplyPlanManager({
@@ -119,6 +138,29 @@ export function SupplyPlanManager({
     (r) => r.catalogItemId !== "" && Number.isFinite(Number(r.qty)) && Number(r.qty) > 0,
   );
   const canSave = !saving && validRows.length > 0 && planId !== null;
+
+  // Spec 222 — the per-row multi-WP picker. multiOpenKey is which row's WP
+  // checklist is open (one at a time); multiChecked is its ticked WP ids.
+  const [multiOpenKey, setMultiOpenKey] = useState<number | null>(null);
+  const [multiChecked, setMultiChecked] = useState<string[]>([]);
+
+  function openMulti(key: number) {
+    setMultiOpenKey(key);
+    setMultiChecked([]);
+  }
+  function toggleMultiWp(id: string) {
+    setMultiChecked((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+  }
+  function applyMulti(key: number) {
+    // Replace the source row with one pre-filled row per ticked WP (item copied,
+    // qty blank). Ticking none and confirming just closes the panel (no-op).
+    setRows((rs) =>
+      rs.flatMap((r) => (r.key === key ? expandRowToWorkPackages(r, multiChecked) : [r])),
+    );
+    setMultiOpenKey(null);
+    setMultiChecked([]);
+    setError(null);
+  }
 
   function patchRow(key: number, patch: Partial<DraftRow>) {
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
@@ -438,6 +480,65 @@ export function SupplyPlanManager({
                     </option>
                   ))}
                 </select>
+                {/* Spec 222: fan this item into several WPs at once. Each ticked WP
+                    becomes its own draft row (qty blank) for the planner to fill. */}
+                {workPackages.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => openMulti(r.key)}
+                    disabled={saving || r.catalogItemId === ""}
+                    className="text-action text-meta focus-visible:ring-action disabled:text-ink-muted self-start rounded font-medium underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 disabled:no-underline"
+                  >
+                    ＋ หลายงาน
+                  </button>
+                ) : null}
+                {multiOpenKey === r.key ? (
+                  <div
+                    role="group"
+                    aria-label="เลือกหลายงาน"
+                    className="border-edge bg-page rounded-control mt-1 flex flex-col gap-2 border p-2"
+                  >
+                    <ul className="flex max-h-40 flex-col gap-1 overflow-y-auto">
+                      {workPackages.map((w) => (
+                        <li key={w.id}>
+                          <label className="text-ink flex cursor-pointer items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              aria-label={`เลือกงาน ${w.code}`}
+                              checked={multiChecked.includes(w.id)}
+                              onChange={() => toggleMultiWp(w.id)}
+                              className="accent-action size-4 shrink-0"
+                            />
+                            <span className="min-w-0 truncate">
+                              {w.code} {w.name}
+                            </span>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMultiOpenKey(null);
+                          setMultiChecked([]);
+                        }}
+                        className={BUTTON_SECONDARY_COMPACT}
+                      >
+                        ยกเลิก
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="ยืนยันเลือกหลายงาน"
+                        onClick={() => applyMulti(r.key)}
+                        disabled={multiChecked.length === 0}
+                        className={BUTTON_PRIMARY_COMPACT}
+                      >
+                        เพิ่ม ({multiChecked.length})
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
               <div className="flex w-full min-w-0 flex-col gap-1 sm:w-24">
                 <label htmlFor={`spl-qty-${r.key}`} className={LABEL}>
