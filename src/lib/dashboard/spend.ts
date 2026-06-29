@@ -99,6 +99,35 @@ export function spendBreakdown(wpLevel: number, projectPool: number): SpendBreak
   return { wpLevel, projectPool, total: wpLevel + projectPool };
 }
 
+// PD dashboard money split — the two-colour spend bar. The bar stacks two segments
+// over the budget track: wpLevel (ใช้ในงาน, consumed by work) then projectPool
+// (พักในคลังโครงการ, paid-for stock still in the store). Each is a % of budget; the
+// pool segment is clamped to whatever track wpLevel leaves, so the two never exceed
+// 100% (an over-budget total simply clips at the track end). `over` keys the danger
+// styling. No budget → an empty bar (the card hides it anyway).
+export interface SpendBarSegments {
+  /** wpLevel as % of budget, 0..100. */
+  wpPct: number;
+  /** projectPool as % of budget, clamped to the track wpLevel leaves (wpPct+poolPct ≤ 100). */
+  poolPct: number;
+  over: boolean;
+}
+
+export function spendBarSegments(
+  breakdown: SpendBreakdown,
+  budget: number | null,
+): SpendBarSegments {
+  if (budget == null || budget <= 0) return { wpPct: 0, poolPct: 0, over: false };
+  // Round to whole percent (a 2px bar needs no more) — and clamp the pool to the
+  // rounded remaining track so the two segments never sum past 100, even over budget.
+  const wpPct = Math.max(0, Math.min(100, Math.round((breakdown.wpLevel / budget) * 100)));
+  const poolPct = Math.max(
+    0,
+    Math.min(100 - wpPct, Math.round((breakdown.projectPool / budget) * 100)),
+  );
+  return { wpPct, poolPct, over: breakdown.total > budget };
+}
+
 export interface BudgetStatus {
   hasBudget: boolean;
   budget: number | null;
