@@ -8,10 +8,30 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ## Spec 221 — Managed category taxonomy (enum → table) + product-code derivation (2026-06-29)
 
-Status: **U1 (additive foundation) COMPLETE; U2 cutover = BREAK-GLASS, operator-gated.**
-Spec: `221-managed-category-taxonomy.md`. Follows spec 219. Operator chose **full
-self-service** for main categories (add/remove/rename/recode) + **auto-build** the item
-product code. The main `item_category` **enum** becomes a managed `catalog_categories` table.
+Status: **U1 + U2 COMPLETE.** U2 was REDESIGNED off the original break-glass enum-drop →
+a **non-destructive** migration: `category_id` becomes the source of truth, the
+`item_category` enum is kept **vestigial** (nullable, ignored). U3 (tree UI + switch reads to
+`category_id`) + U4 (product-code derive) next; the actual `DROP TYPE` is deferred optional
+cleanup. Spec: `221-managed-category-taxonomy.md`. Follows spec 219. Operator chose **full
+self-service** for main categories (add/remove/rename/recode) + **auto-build** the item product code.
+
+- **U2 — category_id source of truth (enum vestigial) (this unit, NOT break-glass).** Migration
+  `20260813020000` (additive + backward-compatible): enum `category` columns → nullable; subcategory
+  identity + the item↔subcategory match move onto `category_id` (`unique(category_id, code)` +
+  `unique(id, category_id)` + composite FK `catalog_items(subcategory_id, category_id)`); sync trigger
+  → only-fill-when-null; **DROP+CREATE** `create/update_catalog_item` + `create_catalog_subcategory`
+  to add a trailing `p_category_id` (uuid) — old enum-only calls still resolve (trailing default), so
+  the live app keeps working; category_id is the source of truth (explicit wins, else derived); enum
+  written through (NULL for a user-category); subcategory guard now on `category_id`. **Adversarially
+  verified by a 5-lens workflow** before applying (DDL/ordering, backward-compat, trigger/data,
+  RPC/grant, test-pins — all clean; the migration is sound). Test-first: new pgTAP `222-spec221u2`
+  (signatures + DEFINER + anon-revoke, explicit-category_id-wins, enum-only-resolves, sync no-overwrite,
+  constraints, the category_id guard) + bumped `120/121` signature pins to 9-arg. **db:types + the
+  consumer null/category_id switch = U3** (intentional defer — keeps U2 a clean schema unit; no src
+  change → CI green). U3 carry-forwards (the demote-on-old-edit risk + the enum-keyed reads) noted in
+  the spec. **Also fixed a latent bug from #165:** the spec220→221 renumber `sed 's/220/221/g'`
+  corrupted `22023`→`22123` in `221-catalog-categories.test.sql` (shipped uncaught because the
+  post-renumber db:test was skipped) — restored to `22023`. db:test 191/191; lint·typecheck green.
 
 > ⚠️ **Spec-number note:** this work began as spec 220 and **migration `20260813018000`,
 > collided with a concurrent session (G63 role-admin, also spec 220 / `018000`), and was
