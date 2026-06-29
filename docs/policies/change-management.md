@@ -1,6 +1,9 @@
 # Policy: Database & Infrastructure Change Management
 
-**Status:** Adopted — 2026-06-07. Binding.
+**Status:** Adopted — 2026-06-07. Binding. Amended 2026-06-26 — change-landing
+mechanics updated for the autonomous-build gate (every change is a PR through
+branch protection; the danger-path guard holds migration/security/infra PRs for
+the operator). The intent is unchanged; the enforcement is now mechanical, not prose.
 **Applies to:** the live Supabase project (Postgres schema, data, Storage
 buckets, DB roles) and any other shared production state.
 **Why this exists:** three confirmed changes reached the live pilot DB
@@ -18,9 +21,13 @@ migration, on a reviewed branch, applied with `supabase db push`.** Not
 the dashboard SQL editor, not dashboard toggles, not ad-hoc `psql`.
 
 - One change → one timestamped migration under `supabase/migrations/`.
-- Reviewed before it reaches prod: **destructive** migrations via operator
-  PR + merge; **additive** migrations the agent self-reviews against green
-  pgTAP and ships per the 2026-06-25 standing grant (tiers below).
+- Reviewed before it reaches prod via the **autonomous-build gate** (branch
+  protection on `main` + the danger-path guard, 2026-06-26): every change lands
+  as a PR, never a direct push. `supabase/migrations/` is a protected path, so
+  **both destructive _and_ additive** migration PRs are HELD by the guard for
+  the operator's review and merge — the agent authors and self-reviews against
+  green pgTAP, but a human merges. (Once pgTAP is a required CI check, additive
+  migrations may auto-merge again, mechanically gated — see the tiers below.)
 - `supabase db pull` is not a substitute for committing the migration —
   the migration file is the artifact of record.
 
@@ -28,10 +35,14 @@ the dashboard SQL editor, not dashboard toggles, not ad-hoc `psql`.
 
 - **Additive / non-destructive** (new tables, columns, RPCs, policies,
   grants — anything _not_ in `break-glass.md` Procedure B): the agent
-  (Claude Code) ships end-to-end once its pgTAP is green — commit, ff-merge
-  to `main`, `git push origin main`, `supabase db push`, then verify
-  post-apply (`db:test` / targeted check) and report. No per-task confirm
-  (operator standing grant, 2026-06-25).
+  (Claude Code) authors the migration, gets its pgTAP green, and opens a PR
+  through the gate (`scripts/ship-pr.sh`). Because `supabase/migrations/` is a
+  protected path, the danger-path guard **holds** the PR — the operator reviews
+  and merges it. The agent then `supabase db push`es the merged migration and
+  verifies post-apply (`db:test` / targeted check) and reports. This supersedes
+  the 2026-06-25 direct-`ff-merge`-to-`main` grant: the human gates the merge
+  until pgTAP is a required CI check, after which additive migrations may
+  auto-merge again.
 - **Destructive / irreversible** (DROP, destructive ALTER incl. column-type
   change, mass DELETE, TRUNCATE — `break-glass.md` Procedure B):
   operator-gated. The operator owns the merge and `git push` and runs the
@@ -40,7 +51,9 @@ the dashboard SQL editor, not dashboard toggles, not ad-hoc `psql`.
 
 The agent never mutates prod via the dashboard SQL editor, and emergency /
 out-of-band changes remain operator-only with an `audit_log` row. Routine
-(non-schema) code follows CLAUDE.md's standing auto-commit-and-merge grant.
+(non-schema) code also lands through the gate: a clean, code-only PR that
+touches no protected path auto-merges on green CI (no human), per the
+autonomous-build fence — superseding the older direct auto-commit-and-merge.
 
 **The dashboard SQL editor is read-only / diagnostics only.** Use it to
 inspect, audit, and verify — never to mutate shared state.
