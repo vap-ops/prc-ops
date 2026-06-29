@@ -5945,6 +5945,13 @@ export type Database = {
         Args: { p_active: boolean; p_id: string }
         Returns: undefined
       }
+      set_user_role: {
+        Args: {
+          p_role: Database["public"]["Enums"]["user_role"]
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       set_work_package_category: {
         Args: { p_category_id: string; p_work_package_id: string }
         Returns: boolean

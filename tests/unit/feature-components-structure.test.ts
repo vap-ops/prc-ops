@@ -33,6 +33,8 @@ const ALLOWED_DOMAINS = [
   "sa",
   // Feedback 1d648880: the projects-hub filter/sort bar.
   "projects",
+  // Spec 220 (G63): the super_admin role-admin controls.
+  "roles",
 ] as const;
 
 describe("feature components are grouped into domain folders", () => {
