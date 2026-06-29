@@ -5288,24 +5288,24 @@ export type Database = {
       }
       create_catalog_item: {
         Args: {
-          p_base_item: string
-          p_category: Database["public"]["Enums"]["item_category"]
+          p_base_item?: string
+          p_category?: Database["public"]["Enums"]["item_category"]
           p_category_id?: string
-          p_note: string
+          p_note?: string
           p_product_code?: string
-          p_spec_attrs: string
-          p_stockable: boolean
+          p_spec_attrs?: string
+          p_stockable?: boolean
           p_subcategory_id?: string
-          p_unit: string
+          p_unit?: string
         }
         Returns: string
       }
       create_catalog_subcategory: {
         Args: {
-          p_category: Database["public"]["Enums"]["item_category"]
+          p_category?: Database["public"]["Enums"]["item_category"]
           p_category_id?: string
-          p_code: string
-          p_name: string
+          p_code?: string
+          p_name?: string
           p_sort_order?: number
         }
         Returns: string
@@ -6128,16 +6128,16 @@ export type Database = {
       }
       update_catalog_item: {
         Args: {
-          p_base_item: string
-          p_category: Database["public"]["Enums"]["item_category"]
+          p_base_item?: string
+          p_category?: Database["public"]["Enums"]["item_category"]
           p_category_id?: string
           p_id: string
-          p_note: string
+          p_note?: string
           p_product_code?: string
-          p_spec_attrs: string
-          p_stockable: boolean
+          p_spec_attrs?: string
+          p_stockable?: boolean
           p_subcategory_id?: string
-          p_unit: string
+          p_unit?: string
         }
         Returns: undefined
       }

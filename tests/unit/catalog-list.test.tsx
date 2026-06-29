@@ -1,11 +1,8 @@
-// Spec 175 U1 — CatalogList renders the item master grouped by category.
+// Spec 175 U1 / 221 U3c — CatalogList renders the item master grouped by the
+// managed main category (category_id + names from the `categories` prop).
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 
-// CatalogList now (U6) imports EditCatalogItem (a client component that imports
-// the "use server" actions) for its per-row edit control. Mock the actions +
-// router so the module graph loads in jsdom (the edit control is only rendered
-// when editable; these tests don't pass it, but the import still resolves).
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/app/catalog/actions", () => ({
   createCatalogItem: vi.fn(),
@@ -14,14 +11,27 @@ vi.mock("@/app/catalog/actions", () => ({
   setCatalogItemImage: vi.fn(),
 }));
 
-import { CatalogList, type CatalogItem } from "@/components/features/catalog/catalog-list";
-import { ITEM_CATEGORY_LABEL } from "@/lib/i18n/labels";
+import {
+  CatalogList,
+  type CatalogItem,
+  type CatalogCategoryOption,
+} from "@/components/features/catalog/catalog-list";
+
+// The managed categories (id + name), in display order (sort_order, code).
+const CATS: CatalogCategoryOption[] = [
+  { id: "cat-steel", code: "01", name: "เหล็ก / อุปกรณ์ยึด" },
+  { id: "cat-roof", code: "04", name: "หลังคา / ครอบ" },
+  { id: "cat-elec", code: "06", name: "ไฟฟ้า" },
+];
+const STEEL = "เหล็ก / อุปกรณ์ยึด";
+const ELEC = "ไฟฟ้า";
+const ROOF = "หลังคา / ครอบ";
 
 const items: CatalogItem[] = [
-  // deliberately out of enum order — the list must re-sort to enum order
+  // deliberately out of order — the list re-sorts to the categories prop order
   {
     id: "e1",
-    category: "electrical",
+    categoryId: "cat-elec",
     baseItem: "สายไฟ NYY 450/750V",
     specAttrs: "2x4 sqmm Yazaki 100m",
     unit: "ม้วน",
@@ -29,7 +39,7 @@ const items: CatalogItem[] = [
   },
   {
     id: "s1",
-    category: "steel_fixing",
+    categoryId: "cat-steel",
     baseItem: "เหล็กข้ออ้อย",
     specAttrs: "12 มิล",
     unit: "ท่อน",
@@ -37,56 +47,51 @@ const items: CatalogItem[] = [
   },
   {
     id: "r1",
-    category: "roofing",
+    categoryId: "cat-roof",
     baseItem: "แผ่นหลังคาลอนตรง CC/760",
     specAttrs: "สีขาว / ตัดตามแบบ",
     unit: "แผ่น",
   },
 ];
 
-describe("CatalogList (spec 175)", () => {
+describe("CatalogList (spec 175 / 221)", () => {
   it("renders a section header only for categories that have items", () => {
-    render(<CatalogList items={items} />);
-    expect(screen.getByText(ITEM_CATEGORY_LABEL.steel_fixing)).toBeInTheDocument();
-    expect(screen.getByText(ITEM_CATEGORY_LABEL.electrical)).toBeInTheDocument();
-    expect(screen.getByText(ITEM_CATEGORY_LABEL.roofing)).toBeInTheDocument();
+    render(<CatalogList items={items} categories={CATS} />);
+    expect(screen.getByText(STEEL)).toBeInTheDocument();
+    expect(screen.getByText(ELEC)).toBeInTheDocument();
+    expect(screen.getByText(ROOF)).toBeInTheDocument();
     // a category with no items must NOT render
-    expect(screen.queryByText(ITEM_CATEGORY_LABEL.paint)).not.toBeInTheDocument();
+    expect(screen.queryByText("สี")).not.toBeInTheDocument();
   });
 
-  it("orders sections by the item_category enum order, not input order", () => {
-    const { container } = render(<CatalogList items={items} />);
+  it("orders sections by the categories prop order, not input order", () => {
+    const { container } = render(<CatalogList items={items} categories={CATS} />);
     const text = container.textContent ?? "";
-    // enum order is steel_fixing → roofing → electrical (input order was scrambled)
-    expect(text.indexOf(ITEM_CATEGORY_LABEL.steel_fixing)).toBeLessThan(
-      text.indexOf(ITEM_CATEGORY_LABEL.roofing),
-    );
-    expect(text.indexOf(ITEM_CATEGORY_LABEL.roofing)).toBeLessThan(
-      text.indexOf(ITEM_CATEGORY_LABEL.electrical),
-    );
+    // categories order is steel → roof → electrical (input order was scrambled)
+    expect(text.indexOf(STEEL)).toBeLessThan(text.indexOf(ROOF));
+    expect(text.indexOf(ROOF)).toBeLessThan(text.indexOf(ELEC));
   });
 
   it("shows each item's base name, spec and unit", () => {
-    render(<CatalogList items={items} />);
+    render(<CatalogList items={items} categories={CATS} />);
     expect(screen.getByText("เหล็กข้ออ้อย")).toBeInTheDocument();
     expect(screen.getByText(/12 มิล/)).toBeInTheDocument();
     expect(screen.getAllByText(/ท่อน/).length).toBeGreaterThan(0);
   });
 
-  it("does not show a stockable badge (carve-out retired — everything routes through the store)", () => {
-    render(<CatalogList items={items} />);
+  it("does not show a stockable badge (carve-out retired)", () => {
+    render(<CatalogList items={items} categories={CATS} />);
     expect(screen.queryByText("เก็บสต๊อก")).toBeNull();
     expect(screen.queryByText("สั่งตรงเข้างาน")).toBeNull();
   });
 
   it("renders an empty state when there are no items", () => {
-    render(<CatalogList items={[]} />);
+    render(<CatalogList items={[]} categories={CATS} />);
     expect(screen.getByText(/ยังไม่มีรายการวัสดุ/)).toBeInTheDocument();
   });
 
   it("renders a consistent placeholder slot for items without an image", () => {
-    render(<CatalogList items={items} />);
-    // none of the fixture items has a thumbnail → every row shows a placeholder
+    render(<CatalogList items={items} categories={CATS} />);
     expect(screen.getAllByRole("img", { name: "ไม่มีรูปภาพ" })).toHaveLength(items.length);
   });
 
@@ -94,79 +99,68 @@ describe("CatalogList (spec 175)", () => {
     const withImg: CatalogItem[] = [
       { ...items[1]!, thumbnailUrl: "https://img.example/steel.jpg" },
     ];
-    const { container } = render(<CatalogList items={withImg} />);
+    const { container } = render(<CatalogList items={withImg} categories={CATS} />);
     expect(container.querySelector('img[src="https://img.example/steel.jpg"]')).not.toBeNull();
     expect(screen.queryByRole("img", { name: "ไม่มีรูปภาพ" })).toBeNull();
   });
 
   it("shows a category filter — ทั้งหมด plus a chip per present category", () => {
-    render(<CatalogList items={items} />);
+    render(<CatalogList items={items} categories={CATS} />);
     expect(screen.getByRole("radio", { name: /ทั้งหมด/ })).toBeInTheDocument();
-    expect(
-      screen.getByRole("radio", { name: new RegExp(ITEM_CATEGORY_LABEL.steel_fixing) }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("radio", { name: new RegExp(ITEM_CATEGORY_LABEL.electrical) }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: new RegExp(STEEL) })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: new RegExp(ELEC) })).toBeInTheDocument();
     // a category with no items gets no chip
-    expect(screen.queryByRole("radio", { name: new RegExp(ITEM_CATEGORY_LABEL.paint) })).toBeNull();
+    expect(screen.queryByRole("radio", { name: /สี/ })).toBeNull();
   });
 
   it("selecting a category shows only that category's items", () => {
-    render(<CatalogList items={items} />);
-    fireEvent.click(
-      screen.getByRole("radio", { name: new RegExp(ITEM_CATEGORY_LABEL.steel_fixing) }),
-    );
+    render(<CatalogList items={items} categories={CATS} />);
+    fireEvent.click(screen.getByRole("radio", { name: new RegExp(STEEL) }));
     expect(screen.getByText("เหล็กข้ออ้อย")).toBeInTheDocument();
     expect(screen.queryByText("สายไฟ NYY 450/750V")).toBeNull(); // electrical hidden
     expect(screen.queryByText("แผ่นหลังคาลอนตรง CC/760")).toBeNull(); // roofing hidden
   });
 
   it("ทั้งหมด restores every category", () => {
-    render(<CatalogList items={items} />);
-    fireEvent.click(
-      screen.getByRole("radio", { name: new RegExp(ITEM_CATEGORY_LABEL.steel_fixing) }),
-    );
+    render(<CatalogList items={items} categories={CATS} />);
+    fireEvent.click(screen.getByRole("radio", { name: new RegExp(STEEL) }));
     fireEvent.click(screen.getByRole("radio", { name: /ทั้งหมด/ }));
     expect(screen.getByText("เหล็กข้ออ้อย")).toBeInTheDocument();
     expect(screen.getByText("สายไฟ NYY 450/750V")).toBeInTheDocument();
   });
 
-  // Spec 214 — the product code shows as a chip and is searchable by prefix.
   it("shows each item's product code", () => {
-    render(<CatalogList items={items} />);
+    render(<CatalogList items={items} categories={CATS} />);
     expect(screen.getByText("010120")).toBeInTheDocument();
     expect(screen.getByText("060150")).toBeInTheDocument();
   });
 
   it("filters by a product-code prefix typed in the search box", () => {
-    render(<CatalogList items={items} />);
+    render(<CatalogList items={items} categories={CATS} />);
     fireEvent.change(screen.getByLabelText("ค้นหาวัสดุ"), { target: { value: "0101" } });
-    // 010120 = steel → shown; the others (no 0101 prefix) → hidden.
     expect(screen.getByText("เหล็กข้ออ้อย")).toBeInTheDocument();
     expect(screen.queryByText("สายไฟ NYY 450/750V")).toBeNull();
     expect(screen.queryByText("แผ่นหลังคาลอนตรง CC/760")).toBeNull();
   });
 
   it("shows a no-match message when the search matches nothing", () => {
-    render(<CatalogList items={items} />);
+    render(<CatalogList items={items} categories={CATS} />);
     fireEvent.change(screen.getByLabelText("ค้นหาวัสดุ"), { target: { value: "999999" } });
     expect(screen.getByText(/ไม่พบวัสดุที่ค้นหา/)).toBeInTheDocument();
   });
 });
 
-// Spec 219 U3 — the 2-level drill (category → subcategory). Selecting a category
-// reveals a subcategory strip (real names + a ยังไม่มีหมวดย่อย bucket); a
-// breadcrumb pops levels.
-describe("CatalogList — 2-level drill (spec 219 U3)", () => {
+// Spec 219 U3 / 221 U3c — the 2-level drill (category → subcategory), now keyed
+// on category_id.
+describe("CatalogList — 2-level drill", () => {
   const SUBS = [
-    { id: "sub-struct", category: "steel_fixing", code: "01", name: "วัสดุโครงสร้าง" },
-    { id: "sub-fasten", category: "steel_fixing", code: "02", name: "อุปกรณ์ยึด" },
+    { id: "sub-struct", categoryId: "cat-steel", code: "01", name: "วัสดุโครงสร้าง" },
+    { id: "sub-fasten", categoryId: "cat-steel", code: "02", name: "อุปกรณ์ยึด" },
   ];
   const drillItems: CatalogItem[] = [
     {
       id: "s1",
-      category: "steel_fixing",
+      categoryId: "cat-steel",
       baseItem: "เหล็กข้ออ้อย",
       specAttrs: "12 มิล",
       unit: "ท่อน",
@@ -174,7 +168,7 @@ describe("CatalogList — 2-level drill (spec 219 U3)", () => {
     },
     {
       id: "s2",
-      category: "steel_fixing",
+      categoryId: "cat-steel",
       baseItem: "ลวดผูกเหล็ก",
       specAttrs: null,
       unit: "กก.",
@@ -182,7 +176,7 @@ describe("CatalogList — 2-level drill (spec 219 U3)", () => {
     },
     {
       id: "s3",
-      category: "steel_fixing",
+      categoryId: "cat-steel",
       baseItem: "ตะปูเหล็ก",
       specAttrs: null,
       unit: "กล่อง",
@@ -190,7 +184,7 @@ describe("CatalogList — 2-level drill (spec 219 U3)", () => {
     },
     {
       id: "e1",
-      category: "electrical",
+      categoryId: "cat-elec",
       baseItem: "สายไฟ",
       specAttrs: null,
       unit: "ม้วน",
@@ -199,14 +193,12 @@ describe("CatalogList — 2-level drill (spec 219 U3)", () => {
   ];
 
   function selectSteel() {
-    render(<CatalogList items={drillItems} subcategories={SUBS} />);
-    fireEvent.click(
-      screen.getByRole("radio", { name: new RegExp(ITEM_CATEGORY_LABEL.steel_fixing) }),
-    );
+    render(<CatalogList items={drillItems} categories={CATS} subcategories={SUBS} />);
+    fireEvent.click(screen.getByRole("radio", { name: new RegExp(STEEL) }));
   }
 
   it("no subcategory strip until a category is chosen", () => {
-    render(<CatalogList items={drillItems} subcategories={SUBS} />);
+    render(<CatalogList items={drillItems} categories={CATS} subcategories={SUBS} />);
     expect(screen.queryByRole("radio", { name: /ทุกหมวดย่อย/ })).toBeNull();
   });
 
@@ -236,7 +228,6 @@ describe("CatalogList — 2-level drill (spec 219 U3)", () => {
 
   it("shows a breadcrumb whose ทั้งหมด crumb restores all categories", () => {
     selectSteel();
-    // electrical is hidden while drilled into the steel category
     expect(screen.queryByText("สายไฟ")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "ทั้งหมด" }));
     expect(screen.getByText("สายไฟ")).toBeInTheDocument();
