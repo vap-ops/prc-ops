@@ -130,6 +130,8 @@ export const ITEM_KIND_OPTION_LABEL: Record<Enums["catalog_item_kind"], string> 
   labor: "ค่าแรง",
   service: "บริการ",
   softcost: "ค่าใช้จ่ายแฝง",
+  // Spec 238 (ADR 0066 D7) — an assembly/ชุด: a priced item with an optional BOM.
+  assembly: "ชุดประกอบ",
 };
 
 export const FULFILLMENT_MODE_OPTION_LABEL: Record<Enums["catalog_fulfillment_mode"], string> = {
