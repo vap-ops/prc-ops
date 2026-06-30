@@ -21,9 +21,12 @@ ADR 0066 S6 (`033000`) merged; reserved migration ts `034000` (U1 enum) / `03500
 | ---- | ---------------------------------------------------------------------- | ------ | ----------- |
 | U1   | ADR 0067 + `client` enum + `CLIENT_ISSUER_ROLES` + `/client` routing   | enum   | ✅ done     |
 | U2   | `client_portal_access` + `client_invites` + helper + 3 RPCs + RLS arms | yes    | ✅ done     |
-| U3   | PD invite block (date → create link → list/revoke) + actions           | —      | not started |
-| U4   | `/client` read-only render (4 surfaces, signed URLs)                   | —      | not started |
+| U3   | PD invite block (date → create link → list/revoke) + actions           | —      | ✅ done     |
+| U4   | `/client` read-only render (4 surfaces, signed URLs)                   | —      | in progress |
 | U5   | `/client/claim` LINE bind flow + already-bound redirect                | —      | not started |
+
+> U3–U5 are CODE-ONLY → shipped as ONE auto-merge PR (branch `spec-233-ui`, three TDD commits) to
+> minimise the concurrent-disruption window after the spec-225-fix session reclaimed the schema lane.
 
 ### U1 — ADR 0067 + `client` role + routing skeleton — ✅ done (2026-06-30)
 
@@ -76,6 +79,19 @@ project_id)` is per spec §3.2. Once revoked, that client (now role `client`, no
   `catalog_items` row has 0 `is_primary` memberships (spec-225 / S4 backfill orphan, PR #191 /
   `2f3caad`; pgTAP isn't in CI so it merged). Orthogonal to spec 233 (no client-portal migration
   touches `catalog_item_categories`). Flagged for a separate fix.
+
+### U3 — PD invite block + actions — ✅ done (2026-06-30)
+
+`buildClientClaimUrl` (`src/lib/client-portal/claim-url.ts`, mirrors the portal one, `/client/claim`
+route). Server actions `createClientInvite` / `revokeClientAccess` on `src/app/projects/[projectId]/actions.ts`
+— gated via `requireActionRole(CLIENT_ISSUER_ROLES, …)` (PD+super, friendly early check;
+the definer RPCs gate again), valid-until parsed to Thai end-of-day (`+07:00`), relayed through the
+RLS session. `<ClientInviteBlock>` (`src/components/features/client-portal/`): date picker → สร้างลิงก์
+→ copyable claim URL; below, the active bindings (admin-loaded name + valid-until) each with a เพิกถอน
+button. Mounted on the project page beside `CategoriesManager`, gated `isClientIssuer`. **Tests:**
+`client-portal-actions.test.ts` (pm→reject, pd→{ok,token}, bad date→reject, revoke gate) +
+`client-invite-block.test.tsx` (date required, link shown, bindings+revoke) red→green; registered
+`client-portal` in the feature-domain structure test; lint + typecheck clean.
 
 ## ADR 0066 — Procurement taxonomy redesign (specs 223–232) — SPEC AUTHORED (2026-06-30, session S0)
 
