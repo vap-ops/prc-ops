@@ -9,6 +9,7 @@ vi.mock("@/app/catalog/actions", () => ({
   updateCatalogItem: vi.fn(),
   setCatalogItemActive: vi.fn(),
   setCatalogItemImage: vi.fn(),
+  createCatalogCategory: vi.fn(),
 }));
 
 import {
@@ -168,39 +169,30 @@ describe("CatalogList (spec 175 / 221)", () => {
     fireEvent.change(screen.getByLabelText("ค้นหาวัสดุ"), { target: { value: "999999" } });
     expect(screen.getByText(/ไม่พบวัสดุที่ค้นหา/)).toBeInTheDocument();
   });
+
+  // Spec 239 U2 — search also matches the search_terms synonyms.
+  it("finds an item by a search-term synonym, not just its name", () => {
+    const withSynonym: CatalogItem[] = [
+      { ...items[1]!, searchTerms: "rebar deformed bar เหล็กเส้น" },
+    ];
+    render(<CatalogList items={withSynonym} categories={CATS} />);
+    fireEvent.change(screen.getByLabelText("ค้นหาวัสดุ"), { target: { value: "rebar" } });
+    expect(screen.getByText("เหล็กข้ออ้อย")).toBeInTheDocument();
+  });
 });
 
-// Spec 219 U3 / 221 U3c — the 2-level drill (category → subcategory), now keyed
-// on category_id.
-describe("CatalogList — 2-level drill", () => {
-  const SUBS = [
-    { id: "sub-struct", categoryId: "cat-steel", code: "01", name: "วัสดุโครงสร้าง" },
-    { id: "sub-fasten", categoryId: "cat-steel", code: "02", name: "อุปกรณ์ยึด" },
-  ];
-  const drillItems: CatalogItem[] = [
+// Spec 239 U2 (ADR 0066 / C1) — BROWSE-BY-UNION: an item appears under its primary
+// category AND each secondary membership (catalog_item_categories).
+describe("CatalogList — browse by union (spec 239 U2)", () => {
+  const unionItems: CatalogItem[] = [
     {
       id: "s1",
-      categoryId: "cat-steel",
-      baseItem: "เหล็กข้ออ้อย",
-      specAttrs: "12 มิล",
-      unit: "ท่อน",
-      subcategoryId: "sub-struct",
-    },
-    {
-      id: "s2",
       categoryId: "cat-steel",
       baseItem: "ลวดผูกเหล็ก",
       specAttrs: null,
       unit: "กก.",
-      subcategoryId: "sub-fasten",
-    },
-    {
-      id: "s3",
-      categoryId: "cat-steel",
-      baseItem: "ตะปูเหล็ก",
-      specAttrs: null,
-      unit: "กล่อง",
-      subcategoryId: null,
+      // primary steel, but ALSO appears under electrical
+      secondaryCategoryIds: ["cat-elec"],
     },
     {
       id: "e1",
@@ -208,48 +200,32 @@ describe("CatalogList — 2-level drill", () => {
       baseItem: "สายไฟ",
       specAttrs: null,
       unit: "ม้วน",
-      subcategoryId: null,
     },
   ].map((it): CatalogItem => ({ ...FACETS, ...it }));
 
-  function selectSteel() {
-    render(<CatalogList items={drillItems} categories={CATS} subcategories={SUBS} />);
-    fireEvent.click(screen.getByRole("radio", { name: new RegExp(STEEL) }));
-  }
-
-  it("no subcategory strip until a category is chosen", () => {
-    render(<CatalogList items={drillItems} categories={CATS} subcategories={SUBS} />);
-    expect(screen.queryByRole("radio", { name: /ทุกหมวดย่อย/ })).toBeNull();
+  it("lists a multi-category item under its primary AND its secondary category", () => {
+    render(<CatalogList items={unionItems} categories={CATS} />);
+    // steel section has the wire, electrical section has BOTH the wire and the cable
+    const steelHeading = screen.getByRole("heading", { name: new RegExp(STEEL) });
+    const elecHeading = screen.getByRole("heading", { name: new RegExp(ELEC) });
+    const steelSection = steelHeading.closest("section") as HTMLElement;
+    const elecSection = elecHeading.closest("section") as HTMLElement;
+    expect(within(steelSection).getByText("ลวดผูกเหล็ก")).toBeInTheDocument();
+    expect(within(elecSection).getByText("ลวดผูกเหล็ก")).toBeInTheDocument();
+    expect(within(elecSection).getByText("สายไฟ")).toBeInTheDocument();
   });
 
-  it("reveals a subcategory strip (names + an uncoded bucket) when a category is selected", () => {
-    selectSteel();
-    expect(screen.getByRole("radio", { name: /ทุกหมวดย่อย/ })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: /วัสดุโครงสร้าง/ })).toBeInTheDocument();
-    // anchored: the category chip "เหล็ก / อุปกรณ์ยึด" also contains "อุปกรณ์ยึด"
-    expect(screen.getByRole("radio", { name: /^อุปกรณ์ยึด/ })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: /ยังไม่มีหมวดย่อย/ })).toBeInTheDocument();
+  it("counts the multi-category item under both category chips", () => {
+    render(<CatalogList items={unionItems} categories={CATS} />);
+    // steel chip counts 1 (the wire); electrical chip counts 2 (wire + cable)
+    expect(screen.getByRole("radio", { name: `${STEEL} (1)` })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: `${ELEC} (2)` })).toBeInTheDocument();
   });
 
-  it("filtering by a subcategory shows only that subcategory's items", () => {
-    selectSteel();
-    fireEvent.click(screen.getByRole("radio", { name: /วัสดุโครงสร้าง/ }));
-    expect(screen.getByText("เหล็กข้ออ้อย")).toBeInTheDocument();
-    expect(screen.queryByText("ลวดผูกเหล็ก")).toBeNull();
-    expect(screen.queryByText("ตะปูเหล็ก")).toBeNull();
-  });
-
-  it("the uncoded bucket filters to items with no subcategory", () => {
-    selectSteel();
-    fireEvent.click(screen.getByRole("radio", { name: /ยังไม่มีหมวดย่อย/ }));
-    expect(screen.getByText("ตะปูเหล็ก")).toBeInTheDocument();
-    expect(screen.queryByText("เหล็กข้ออ้อย")).toBeNull();
-  });
-
-  it("shows a breadcrumb whose ทั้งหมด crumb restores all categories", () => {
-    selectSteel();
-    expect(screen.queryByText("สายไฟ")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "ทั้งหมด" }));
+  it("filtering to the secondary category still shows the item", () => {
+    render(<CatalogList items={unionItems} categories={CATS} />);
+    fireEvent.click(screen.getByRole("radio", { name: `${ELEC} (2)` }));
+    expect(screen.getByText("ลวดผูกเหล็ก")).toBeInTheDocument(); // secondary membership
     expect(screen.getByText("สายไฟ")).toBeInTheDocument();
   });
 });

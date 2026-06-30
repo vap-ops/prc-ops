@@ -2,6 +2,8 @@
 
 // Spec 175 U3 — per-row edit / deactivate. Owns the sheet open state + the
 // deactivate (soft-delete) action; the fields live in the shared CatalogItemForm.
+// Spec 239 U2 — subcategory picker flattened away; the secondary memberships
+// pre-fill the multi-category control; categories can be created in-flow.
 // updateCatalogItem / setCatalogItemActive (SECURITY DEFINER RPCs) carry the
 // back-office role gate + identity uniqueness. Deactivated items drop off the
 // active /catalog list (reversible — is_active=false, not a hard delete).
@@ -11,24 +13,22 @@ import { useState, useTransition } from "react";
 import { Pencil } from "lucide-react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
-import { setCatalogItemActive, updateCatalogItem } from "@/app/catalog/actions";
 import {
-  CatalogItemForm,
-  type CatalogSubcategoryOption,
-  type CatalogUnitOption,
-} from "./catalog-item-form";
+  setCatalogItemActive,
+  updateCatalogItem,
+  createCatalogCategory,
+} from "@/app/catalog/actions";
+import { CatalogItemForm, type CatalogUnitOption } from "./catalog-item-form";
 import { CatalogImageControl } from "./catalog-image-control";
 import type { CatalogItem, CatalogCategoryOption } from "./catalog-list";
 
 export function EditCatalogItem({
   item,
   categories = [],
-  subcategories = [],
   units = [],
 }: {
   item: CatalogItem;
   categories?: CatalogCategoryOption[];
-  subcategories?: CatalogSubcategoryOption[];
   units?: CatalogUnitOption[];
 }) {
   const router = useRouter();
@@ -81,13 +81,17 @@ export function EditCatalogItem({
             kind: item.kind,
             fulfillmentMode: item.fulfillmentMode,
             ownerSupplied: item.ownerSupplied,
+            secondaryCategoryIds: item.secondaryCategoryIds ?? [],
           }}
           categories={categories}
-          subcategories={subcategories}
           units={units}
           submitLabel="บันทึก"
           submittingLabel="กำลังบันทึก…"
           onSubmit={(values) => updateCatalogItem({ id: item.id, ...values })}
+          onCreateCategory={async ({ code, name }) => {
+            const result = await createCatalogCategory({ code, name, sortOrder: 0 });
+            return result.ok ? { ok: true, id: result.id } : { ok: false, error: result.error };
+          }}
           onSuccess={() => {
             setOpen(false);
             router.refresh();

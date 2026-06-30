@@ -1,17 +1,20 @@
 "use client";
 
-// Spec 175 U1 — item-catalog list. Spec 219 U3 — a 2-level drill (หมวดหลัก →
-// หมวดย่อย). Spec 221 U3c — the main category is now keyed on `categoryId` (the
-// managed catalog_categories table) with names from the `categories` prop, NOT
-// the item_category enum — so user-created categories appear here too. Search
-// overrides the drill. 'use client' justified: the filter selection state.
+// Spec 175 U1 — item-catalog list. Spec 221 U3c — grouped by the managed main
+// category (category_id + names from the `categories` prop). Spec 239 U2 (ADR 0066
+// / C1):
+//   • BROWSE-BY-UNION — an item appears under its PRIMARY category AND every
+//     SECONDARY membership (catalog_item_categories), not just the primary.
+//   • The subcategory drill is FLATTENED away (0/251 items use it; schema parked).
+//   • SEARCH-BY-SYNONYM — the search box also matches the item's search_terms.
+// 'use client' justified: the filter selection + search state.
 
 import { useState } from "react";
 import { ImageIcon, Search } from "lucide-react";
 import { RadioChip } from "@/components/features/common/radio-chip";
 import { FIELD_INPUT } from "@/lib/ui/classes";
 import type { Database } from "@/lib/db/database.types";
-import type { CatalogSubcategoryOption, CatalogUnitOption } from "./catalog-item-form";
+import type { CatalogUnitOption } from "./catalog-item-form";
 import { EditCatalogItem } from "./edit-catalog-item";
 import { SetSellRate } from "./set-sell-rate";
 
@@ -23,7 +26,7 @@ export type { CatalogCategoryOption };
 
 export type CatalogItem = {
   id: string;
-  // Spec 221 — the item's main category FK (catalog_categories.id).
+  // Spec 221 — the item's PRIMARY (canonical) category FK (catalog_categories.id).
   categoryId: string | null;
   baseItem: string;
   specAttrs: string | null;
@@ -31,12 +34,17 @@ export type CatalogItem = {
   // Spec 214 — the structured 6-digit product code; null when unset.
   productCode?: string | null;
   note?: string | null;
-  // Spec 219 — the item's subcategory FK; null/undefined when unset.
+  // Spec 219 — the item's subcategory FK; null/undefined when unset (UI flattened).
   subcategoryId?: string | null;
   // Spec 224 (ADR 0066 D3) — the catalog item facets (for the edit form pre-fill).
   kind: Database["public"]["Enums"]["catalog_item_kind"];
   fulfillmentMode: Database["public"]["Enums"]["catalog_fulfillment_mode"];
   ownerSupplied: boolean;
+  // Spec 239 U2 — the SECONDARY category memberships (the item also appears under
+  // these). The primary is `categoryId`; this list excludes it.
+  secondaryCategoryIds?: string[];
+  // Spec 239 U2 — search synonyms / alt names (matched by the search box).
+  searchTerms?: string | null;
   // Spec 175 U4 — a signed URL for the item's reference image; null when none.
   thumbnailUrl?: string | null;
   // Spec 178 U5 — the per-item SELL rate (super_admin only).
@@ -44,27 +52,30 @@ export type CatalogItem = {
 };
 
 const ALL = "all";
-// Sentinel for the "items with no subcategory" bucket (distinct from a uuid).
-const NO_SUB = "__none__";
-const NO_SUB_LABEL = "ยังไม่มีหมวดย่อย";
+
+// Spec 239 U2 — the full set of categories an item is browsable under: primary ∪
+// secondaries (de-duplicated). Falls back to just the primary when no secondary
+// data is threaded (keeps the existing single-category callers working).
+function unionCategoryIds(it: CatalogItem): Set<string> {
+  const ids = new Set<string>(it.secondaryCategoryIds ?? []);
+  if (it.categoryId) ids.add(it.categoryId);
+  return ids;
+}
 
 export function CatalogList({
   items,
   categories = [],
-  subcategories = [],
   units = [],
   editable = false,
   canSetSellRate = false,
 }: {
   items: CatalogItem[];
   categories?: CatalogCategoryOption[];
-  subcategories?: CatalogSubcategoryOption[];
   units?: CatalogUnitOption[];
   editable?: boolean;
   canSetSellRate?: boolean;
 }) {
   const [selectedCat, setSelectedCat] = useState<string>(ALL);
-  const [selectedSub, setSelectedSub] = useState<string>(ALL);
   const [query, setQuery] = useState("");
 
   if (items.length === 0) {
@@ -73,58 +84,42 @@ export function CatalogList({
 
   const catName = (id: string) => categories.find((c) => c.id === id)?.name ?? id;
 
-  // Spec 214 — text search across name, spec and product code. Overrides the drill.
+  // Spec 214 / 239 U2 — text search across name, spec, product code and the
+  // search-term synonyms. Overrides the category filter.
   const q = query.trim().toLowerCase();
   const searching = q !== "";
   const queried = !searching
     ? items
     : items.filter((it) =>
-        `${it.baseItem} ${it.specAttrs ?? ""} ${it.productCode ?? ""}`.toLowerCase().includes(q),
+        `${it.baseItem} ${it.specAttrs ?? ""} ${it.productCode ?? ""} ${it.searchTerms ?? ""}`
+          .toLowerCase()
+          .includes(q),
       );
 
-  // Category order = the loaded `categories` order (sort_order, code); only
-  // those present in the (queried) items get a chip / section.
+  // Spec 239 U2 — a category is "present" when SOME (queried) item is browsable
+  // under it (primary OR secondary). Order = the loaded `categories` order.
   const present = categories
     .map((c) => c.id)
-    .filter((id) => queried.some((it) => it.categoryId === id));
+    .filter((id) => queried.some((it) => unionCategoryIds(it).has(id)));
 
-  const drillActive = !searching && selectedCat !== ALL;
-
-  const catItems = drillActive ? queried.filter((it) => it.categoryId === selectedCat) : [];
-  const catSubs = drillActive ? subcategories.filter((s) => s.categoryId === selectedCat) : [];
-  const presentSubs = catSubs.filter((s) => catItems.some((it) => it.subcategoryId === s.id));
-  const hasUncoded = catItems.some((it) => !it.subcategoryId);
-  const showSubStrip = drillActive && presentSubs.length > 0;
-
-  const visibleCatItems =
-    selectedSub === ALL
-      ? catItems
-      : selectedSub === NO_SUB
-        ? catItems.filter((it) => !it.subcategoryId)
-        : catItems.filter((it) => it.subcategoryId === selectedSub);
+  const countIn = (id: string) => queried.filter((it) => unionCategoryIds(it).has(id)).length;
 
   const sections: { key: string; label: string; rows: CatalogItem[] }[] = [];
-  if (drillActive) {
-    for (const s of presentSubs) {
-      const rows = visibleCatItems.filter((it) => it.subcategoryId === s.id);
-      if (rows.length) sections.push({ key: s.id, label: s.name, rows });
-    }
-    const uncoded = visibleCatItems.filter((it) => !it.subcategoryId);
-    if (uncoded.length) sections.push({ key: NO_SUB, label: NO_SUB_LABEL, rows: uncoded });
+  if (!searching && selectedCat !== ALL) {
+    // Single chosen category: one section of every item browsable under it.
+    const rows = queried.filter((it) => unionCategoryIds(it).has(selectedCat));
+    if (rows.length) sections.push({ key: selectedCat, label: catName(selectedCat), rows });
   } else {
+    // All categories (or search): an item appears under each category it belongs to.
     for (const id of present) {
-      const rows = queried.filter((it) => it.categoryId === id);
+      const rows = queried.filter((it) => unionCategoryIds(it).has(id));
       if (rows.length) sections.push({ key: id, label: catName(id), rows });
     }
   }
 
-  const subName = (id: string) =>
-    id === NO_SUB ? NO_SUB_LABEL : (subcategories.find((s) => s.id === id)?.name ?? id);
-
   function renderRow(it: CatalogItem) {
-    // Spec 230 (ADR 0066 / S9) — the row's material-category context badge. Name from
-    // the loadCatalogCategories `categories` prop; null/unresolved → no badge (never a
-    // raw uuid), so an uncategorised item simply shows none.
+    // Spec 230 (ADR 0066 / S9) — the row's PRIMARY material-category badge (the
+    // canonical home). Name from the `categories` prop; null/unresolved → no badge.
     const rowCat = it.categoryId
       ? (categories.find((c) => c.id === it.categoryId)?.name ?? null)
       : null;
@@ -167,14 +162,7 @@ export function CatalogList({
         </span>
         <span className="text-ink-secondary text-meta shrink-0">{it.unit}</span>
         {canSetSellRate ? <SetSellRate itemId={it.id} currentRate={it.sellRate ?? null} /> : null}
-        {editable ? (
-          <EditCatalogItem
-            item={it}
-            categories={categories}
-            subcategories={subcategories}
-            units={units}
-          />
-        ) : null}
+        {editable ? <EditCatalogItem item={it} categories={categories} units={units} /> : null}
       </li>
     );
   }
@@ -191,46 +179,11 @@ export function CatalogList({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className={`${FIELD_INPUT} pl-10`}
-          placeholder="ค้นหาด้วยชื่อ หรือรหัสสินค้า (เช่น 0101)"
+          placeholder="ค้นหาด้วยชื่อ คำพ้อง หรือรหัสสินค้า (เช่น 0101)"
           aria-label="ค้นหาวัสดุ"
           autoComplete="off"
         />
       </div>
-
-      {drillActive ? (
-        <nav aria-label="เส้นทางหมวดหมู่" className="text-meta flex flex-wrap items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedCat(ALL);
-              setSelectedSub(ALL);
-            }}
-            className="text-action font-medium"
-          >
-            ทั้งหมด
-          </button>
-          <span aria-hidden className="text-ink-muted">
-            ›
-          </span>
-          <button
-            type="button"
-            onClick={() => setSelectedSub(ALL)}
-            className={
-              selectedSub === ALL ? "text-ink-secondary font-medium" : "text-action font-medium"
-            }
-          >
-            {catName(selectedCat)}
-          </button>
-          {selectedSub !== ALL ? (
-            <>
-              <span aria-hidden className="text-ink-muted">
-                ›
-              </span>
-              <span className="text-ink-secondary font-medium">{subName(selectedSub)}</span>
-            </>
-          ) : null}
-        </nav>
-      ) : null}
 
       <div
         className="flex gap-2 overflow-x-auto pb-1"
@@ -241,56 +194,18 @@ export function CatalogList({
           name="catalog-category"
           label={`ทั้งหมด (${queried.length})`}
           checked={selectedCat === ALL}
-          onSelect={() => {
-            setSelectedCat(ALL);
-            setSelectedSub(ALL);
-          }}
+          onSelect={() => setSelectedCat(ALL)}
         />
         {present.map((id) => (
           <RadioChip
             key={id}
             name="catalog-category"
-            label={`${catName(id)} (${queried.filter((it) => it.categoryId === id).length})`}
+            label={`${catName(id)} (${countIn(id)})`}
             checked={selectedCat === id}
-            onSelect={() => {
-              setSelectedCat(id);
-              setSelectedSub(ALL);
-            }}
+            onSelect={() => setSelectedCat(id)}
           />
         ))}
       </div>
-
-      {showSubStrip ? (
-        <div
-          className="flex gap-2 overflow-x-auto pb-1"
-          role="radiogroup"
-          aria-label="กรองตามหมวดย่อย"
-        >
-          <RadioChip
-            name="catalog-subcategory"
-            label={`ทุกหมวดย่อย (${catItems.length})`}
-            checked={selectedSub === ALL}
-            onSelect={() => setSelectedSub(ALL)}
-          />
-          {presentSubs.map((s) => (
-            <RadioChip
-              key={s.id}
-              name="catalog-subcategory"
-              label={`${s.name} (${catItems.filter((it) => it.subcategoryId === s.id).length})`}
-              checked={selectedSub === s.id}
-              onSelect={() => setSelectedSub(s.id)}
-            />
-          ))}
-          {hasUncoded ? (
-            <RadioChip
-              name="catalog-subcategory"
-              label={`${NO_SUB_LABEL} (${catItems.filter((it) => !it.subcategoryId).length})`}
-              checked={selectedSub === NO_SUB}
-              onSelect={() => setSelectedSub(NO_SUB)}
-            />
-          ) : null}
-        </div>
-      ) : null}
 
       {searching && queried.length === 0 ? (
         <p className="text-ink-secondary text-body">ไม่พบวัสดุที่ค้นหา</p>

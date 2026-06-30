@@ -14,7 +14,9 @@ import { BACK_OFFICE_ROLES } from "@/lib/auth/role-home";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { ITEM_CATEGORY_LABEL } from "@/lib/i18n/labels";
 import { isValidProductCode } from "@/lib/catalog/validate";
+import { diffSecondaryMemberships } from "@/lib/catalog/categories";
 import { Constants, type Database } from "@/lib/db/database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type ItemCategory = Database["public"]["Enums"]["item_category"];
 type ItemKind = Database["public"]["Enums"]["catalog_item_kind"];
@@ -46,6 +48,40 @@ function duplicateMessage(message: string | undefined): string {
     : "รายการนี้มีอยู่แล้ว (ชื่อ + สเปกซ้ำ)";
 }
 
+// Spec 239 U2 (ADR 0066 / C1) — reconcile an item's SECONDARY category memberships
+// (catalog_item_categories) to the chosen set. The PRIMARY (canonical home) is
+// maintained by create/update_catalog_item itself, so it is never a secondary; the
+// diff (diffSecondaryMemberships) drops it from both sides. Secondaries are an
+// additive, low-risk surface — a benign duplicate (23505) or unknown-membership
+// (22023) is swallowed so a secondary hiccup never fails an otherwise-saved item.
+async function reconcileSecondaryMemberships(
+  supabase: SupabaseClient<Database>,
+  itemId: string,
+  desiredCategoryIds: string[],
+  primaryCategoryId: string,
+): Promise<void> {
+  const desired = desiredCategoryIds.filter((id) => UUID_REGEX.test(id));
+  const { data: rows } = await supabase
+    .from("catalog_item_categories")
+    .select("category_id")
+    .eq("catalog_item_id", itemId)
+    .eq("is_primary", false);
+  const current = (rows ?? []).map((r) => r.category_id);
+  const { toAdd, toRemove } = diffSecondaryMemberships(current, desired, primaryCategoryId);
+  for (const categoryId of toAdd) {
+    await supabase.rpc("add_catalog_item_category", {
+      p_item_id: itemId,
+      p_category_id: categoryId,
+    });
+  }
+  for (const categoryId of toRemove) {
+    await supabase.rpc("remove_catalog_item_category", {
+      p_item_id: itemId,
+      p_category_id: categoryId,
+    });
+  }
+}
+
 export async function createCatalogItem(input: {
   // Spec 221 U3c — the main category is the managed catalog_categories.id.
   categoryId: string;
@@ -62,6 +98,8 @@ export async function createCatalogItem(input: {
   kind: ItemKind;
   fulfillmentMode: FulfillmentMode;
   ownerSupplied: boolean;
+  // Spec 239 U2 (ADR 0066 / C1) — additional (secondary) category memberships.
+  secondaryCategoryIds?: string[];
 }): Promise<CatalogActionResult> {
   await requireRole(BACK_OFFICE_ROLES);
 
@@ -101,7 +139,7 @@ export async function createCatalogItem(input: {
   if (!catRow) return { ok: false, error: "กรุณาเลือกหมวดหมู่" };
   const legacy = catRow.legacy_category;
 
-  const { error } = await supabase.rpc("create_catalog_item", {
+  const { data: newId, error } = await supabase.rpc("create_catalog_item", {
     p_category_id: categoryId,
     p_base_item: baseItem,
     // Empty → NULL is done in the RPC (nullif(btrim(coalesce(...,'')),'')).
@@ -129,6 +167,12 @@ export async function createCatalogItem(input: {
     return { ok: false, error: GENERIC_ERROR };
   }
 
+  // Spec 239 U2 — attach the chosen secondary memberships to the new item. The
+  // create RPC already wrote the canonical is_primary membership.
+  if (typeof newId === "string" && input.secondaryCategoryIds?.length) {
+    await reconcileSecondaryMemberships(supabase, newId, input.secondaryCategoryIds, categoryId);
+  }
+
   revalidatePath("/catalog");
   return { ok: true };
 }
@@ -148,6 +192,8 @@ export async function updateCatalogItem(input: {
   kind: ItemKind;
   fulfillmentMode: FulfillmentMode;
   ownerSupplied: boolean;
+  // Spec 239 U2 (ADR 0066 / C1) — additional (secondary) category memberships.
+  secondaryCategoryIds?: string[];
 }): Promise<CatalogActionResult> {
   await requireRole(BACK_OFFICE_ROLES);
 
@@ -217,6 +263,12 @@ export async function updateCatalogItem(input: {
       };
     }
     return { ok: false, error: GENERIC_ERROR };
+  }
+
+  // Spec 239 U2 — reconcile the secondary memberships to the chosen set. The
+  // update RPC already re-synced the canonical is_primary membership.
+  if (input.secondaryCategoryIds) {
+    await reconcileSecondaryMemberships(supabase, input.id, input.secondaryCategoryIds, categoryId);
   }
 
   revalidatePath("/catalog");
@@ -392,11 +444,15 @@ const CATEGORY_CODE_FORMAT_ERROR = "รหัสหมวดหลักต้�
 const CATEGORY_CODE_DUP_ERROR = "รหัสหมวดหลักนี้ถูกใช้แล้ว";
 const CATEGORY_NAME_ERROR = "กรอกชื่อหมวดหลัก (ไม่เกิน 120 ตัวอักษร)";
 
+// Spec 239 U2 — the create returns the new id so the in-flow item-form picker can
+// select the just-created category immediately.
+export type CategoryCreateResult = { ok: true; id: string } | { ok: false; error: string };
+
 export async function createCatalogCategory(input: {
   code: string;
   name: string;
   sortOrder: number;
-}): Promise<CatalogActionResult> {
+}): Promise<CategoryCreateResult> {
   await requireRole(BACK_OFFICE_ROLES);
 
   const code = input.code.trim();
@@ -406,7 +462,7 @@ export async function createCatalogCategory(input: {
   const sortOrder = Number.isFinite(input.sortOrder) ? Math.trunc(input.sortOrder) : 0;
 
   const supabase = await createServerSupabase();
-  const { error } = await supabase.rpc("create_catalog_category", {
+  const { data: newId, error } = await supabase.rpc("create_catalog_category", {
     p_code: code,
     p_name: name,
     p_sort_order: sortOrder,
@@ -416,10 +472,15 @@ export async function createCatalogCategory(input: {
     if (error.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์เพิ่มหมวดหลัก" };
     return { ok: false, error: CATEGORY_GENERIC_ERROR };
   }
+  // The RPC returns the new uuid; a non-string is an unexpected contract break —
+  // fail rather than hand the in-flow picker an empty id (it would select nothing).
+  if (typeof newId !== "string" || newId === "") {
+    return { ok: false, error: CATEGORY_GENERIC_ERROR };
+  }
 
   revalidatePath("/catalog/subcategories");
   revalidatePath("/catalog");
-  return { ok: true };
+  return { ok: true, id: newId };
 }
 
 export async function updateCatalogCategory(input: {

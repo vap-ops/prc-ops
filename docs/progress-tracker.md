@@ -6,7 +6,7 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 239 — ทะเบียนวัสดุ category cleanup (ADR 0066 C1) — 🔔 U1 HELD PR (2026-06-30)
+## Spec 239 — ทะเบียนวัสดุ category cleanup (ADR 0066 C1) — ✅ U1 MERGED · U2 SHIPPED (2026-06-30)
 
 Supersedes [spec 232](feature-specs/232-category-rehome-breakglass.md) — the C1 re-home, **de-risked to
 an additive migration** (verified live: 0 of 256 catalog items have any `product_code` → re-home
@@ -38,8 +38,37 @@ changed those facts). Adversarial review (cavecrew-reviewer) = no issues.
 **Open questions (U1):** (1) ⚠️ **for U2:** the item form must write `category_id` (NOT the vestigial
 `category` enum) — else the sync trigger could pull a re-homed item back to its old enum category. (2)
 ไดวอล sits in the catch-all pending operator recognition. (3) migrating the 2 machines into `equipment_items`
-as tracked assets = later optional. **U2 (next, code-only):** item-form learn-by-doing + multi-category
-control + browse-by-union + flatten subcategory UI + retire the dormant BOQ screen.
+as tracked assets = later optional.
+
+**U1 ✅ MERGED — PR #210** (`ee6887a`, PAT admin-override); main↔DB synced through `043000`.
+
+**U2 (code-only, ✅ auto-merge) — the learn-by-doing item form + browse.** Five parts:
+
+1. **Progressive-disclosure form** (`catalog-item-form.tsx`): required set = ชื่อ + หมวดหมู่ + หน่วยนับ only;
+   two reveals — **เพิ่มรายละเอียด** (spec · product code · the multi-category control) and **ไม่ใช่วัสดุทั่วไป?**
+   (kind · fulfillment · owner-supplied), each auto-opened when an edited item already carries a value there.
+   The save button is ALWAYS live and NAMES the first blank required field (no greyed dead-end). In-flow
+   **เพิ่มหมวดหมู่ใหม่…** in the category picker creates a category without leaving the form
+   (`createCatalogCategory` now returns the new id).
+2. **Multi-category** (`ปรากฏในหมวดอื่นด้วย`): the form collects `secondaryCategoryIds`; the create/update
+   actions reconcile `catalog_item_categories` SECONDARY memberships via the existing
+   `add_/remove_catalog_item_category` RPCs + the pure `diffSecondaryMemberships` helper (primary excluded —
+   it is the canonical home, maintained by `update_catalog_item`). `createCatalogItem` captures the new id to
+   attach secondaries.
+3. **Browse-by-union** (`catalog-list.tsx`): an item appears under its primary ∪ every secondary category
+   (chips + sections + filter all use the union; falls back to `[categoryId]` when no membership data).
+4. **Flatten subcategory** — the 2-level drill + the form's subcategory field are removed (0/251 items use it;
+   schema parked, `subcategoryId` carried through untouched; `composeProductCode` already handles no-subcat).
+5. **Retire the dormant BOQ link** (`/catalog` → BOQ Templates) + **search-by-synonym** (the search box also
+   matches `search_terms`). The BOQ screen + tables stay (operator chose hide-not-drop).
+
+⚠️ **TRAP honoured:** the form/actions write `category_id` (NOT the vestigial `category` enum) — re-homed items
+keep their canonical home. **Verification:** TDD; new `diffSecondaryMemberships` + browse-union + search-synonym
+
+- form tests; lint·typecheck·vitest **2162**; cavecrew-reviewer. **NOT in U2 (→ a held migration, see below):**
+  wiring `search_terms` + `lead_time_days` into the FORM requires adding two trailing-default params to
+  `create/update_catalog_item` (the live RPC has neither) — a schema/danger-path change, split into its own
+  held PR. U2 reads `search_terms` (search) but does not yet write it.
 
 ---
 
