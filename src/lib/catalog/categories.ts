@@ -28,3 +28,55 @@ export async function loadCatalogCategories(
 export function categoryNameById(cats: CatalogCategoryOption[]): Map<string, string> {
   return new Map(cats.map((c) => [c.id, c.name]));
 }
+
+// Spec 225 (ADR 0066 D2) — secondary material membership. A catalog item keeps ONE
+// canonical home (category_id) but can ALSO appear under other groupings via the
+// additive catalog_item_categories junction. Scoped pickers read the UNION of the
+// canonical home and the secondary memberships (de-duplicated). The helpers below
+// are the SSOT for that union — the picker filters delegate to itemInCategoryScope.
+
+/** One row of the catalog_item_categories junction (membership = item ↔ category). */
+export type CatalogItemMembership = { catalogItemId: string; categoryId: string };
+
+/** Load every item↔category membership (primary + secondary) for the picker union. */
+export async function loadCatalogItemMemberships(
+  supabase: SupabaseClient<Database>,
+): Promise<CatalogItemMembership[]> {
+  const { data } = await supabase
+    .from("catalog_item_categories")
+    .select("catalog_item_id, category_id");
+  return (data ?? []).map((r) => ({
+    catalogItemId: r.catalog_item_id,
+    categoryId: r.category_id,
+  }));
+}
+
+/** Group membership category ids per item → itemId → Set(categoryId). */
+export function membershipsByItem(rows: CatalogItemMembership[]): Map<string, Set<string>> {
+  const byItem = new Map<string, Set<string>>();
+  for (const r of rows) {
+    const set = byItem.get(r.catalogItemId) ?? new Set<string>();
+    set.add(r.categoryId);
+    byItem.set(r.catalogItemId, set);
+  }
+  return byItem;
+}
+
+/** The de-duplicated set of category ids an item belongs to: canonical ∪ secondary. */
+export function itemCategoryIds(
+  canonicalCategoryId: string | null,
+  secondary: Set<string> | undefined,
+): Set<string> {
+  const ids = new Set<string>(secondary ?? []);
+  if (canonicalCategoryId) ids.add(canonicalCategoryId);
+  return ids;
+}
+
+/** Does an item fall under a category scope? (union of canonical + secondary) */
+export function itemInCategoryScope(
+  canonicalCategoryId: string | null,
+  secondary: Set<string> | undefined,
+  scopeCategoryId: string,
+): boolean {
+  return itemCategoryIds(canonicalCategoryId, secondary).has(scopeCategoryId);
+}
