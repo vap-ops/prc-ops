@@ -11,6 +11,7 @@
 
 import { useState, useTransition } from "react";
 import { FIELD_SELECT } from "@/lib/ui/classes";
+import { WORK_CATEGORY_UNSET_LABEL } from "@/lib/i18n/labels";
 import { useToast } from "@/lib/ui/use-toast";
 import { categoryPickerOptions, type WpCategoryOption } from "@/lib/work-packages/category-picker";
 import { setWorkPackageCategory } from "@/app/projects/[projectId]/work-packages/[workPackageId]/category-actions";
@@ -65,7 +66,7 @@ export function WpCategoryControl({
         disabled={pending}
         onChange={(e) => choose(e.target.value)}
       >
-        <option value={UNCATEGORISED}>ยังไม่ระบุหมวดงาน</option>
+        <option value={UNCATEGORISED}>{WORK_CATEGORY_UNSET_LABEL}</option>
         {options.map((c) => (
           <option key={c.id} value={c.id}>
             {c.code} · {c.name}

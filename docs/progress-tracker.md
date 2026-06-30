@@ -139,7 +139,7 @@ Status: **SPECS AUTHORED / not started.** Session S0 (docs-only) accepted
 [ADR 0066](decisions/0066-procurement-taxonomy-redesign.md) and authored the 10 phase
 specs below (one per build session, S0–S10). Schema is single-lane and serialized
 (S1→S2→S4→S5→S6); reserved migration timestamps `20260813029000`–`20260813033000`. S0
-ships as ONE governance-held PR (touches `docs/decisions/`). **S1 (223) + S2 (224) + S4 (225) + S5 (226) + S6 (227) + S7 (228) ✅ COMPLETE; next: S8 (spec 229, scoped WP-detail PR + stock-issue pickers — code-only).** (S3 / spec 232 is
+ships as ONE governance-held PR (touches `docs/decisions/`). **S1 (223) + S2 (224) + S4 (225) + S5 (226) + S6 (227) + S7 (228) + S8 (229) ✅ COMPLETE; next: S9 (spec 230, read-side wins — 3 disjoint code-only units).** (S3 / spec 232 is
 break-glass, off-sequence, operator-scheduled.)
 
 | Spec                                                     | Session | Title                                                                           | Autonomy             | Reserved migration ts  | Status      |
@@ -150,7 +150,7 @@ break-glass, off-sequence, operator-scheduled.)
 | [226](feature-specs/226-global-work-categories.md)       | S5      | Global `work_categories` library + seed + reconcile FK + ship 207-U3c           | 🔔 ONE-TAP HOLD      | `20260813032000`       | ✅ COMPLETE |
 | [227](feature-specs/227-work-material-relation.md)       | S6      | Relation R `work_category_material_categories` bridge + seed                    | 🔔 ONE-TAP HOLD      | `20260813033000`       | ✅ COMPLETE |
 | [228](feature-specs/228-scoped-supply-plan-picker.md)    | S7      | UC1 scoped supply-plan picker (show-all-default)                                | ✅ AUTO-MERGE        | — (code-only)          | ✅ COMPLETE |
-| [229](feature-specs/229-scoped-wp-detail-pickers.md)     | S8      | UC2 scoped WP-detail pickers + work-cat badge                                   | ✅ AUTO-MERGE        | — (code-only)          | not started |
+| [229](feature-specs/229-scoped-wp-detail-pickers.md)     | S8      | UC2 scoped WP-detail pickers + work-cat badge                                   | ✅ AUTO-MERGE        | — (code-only)          | ✅ COMPLETE |
 | [230](feature-specs/230-category-read-side-wins.md)      | S9      | Read-side wins (3 disjoint files, parallelizable)                               | ✅ AUTO-MERGE        | — (code-only)          | not started |
 | [231](feature-specs/231-estimate-template-bid-layer.md)  | S10     | Estimate/template/bid layer + assemblies (LATER epic)                           | MIXED, multi-session | assigned at build      | not started |
 | [232](feature-specs/232-category-rehome-breakglass.md)   | S3      | C1 re-home cats 09/10/13 (product_code shift)                                   | 🧨 BREAK-GLASS       | assigned at scheduling | not started |
@@ -474,6 +474,68 @@ show-all, which is correct-but-broad until a later unit adds subsection rows / p
 ✓ "ตรงกับงาน" string + "แสดงทั้งหมด"/"เฉพาะที่ตรงกับงาน" escape labels are used once each (inline
 Thai, no `labels.ts` SSOT needed yet — the SSOT rule triggers at 2+ call sites; S8 will reuse the
 picker and may promote them).
+
+---
+
+### S8 — UC2: scoped WP-detail pickers + WorkCategoryBadge (spec 229) — ✅ COMPLETE (2026-06-30)
+
+**Second CODE-ONLY unit** — no migration, no schema lane. The WP-detail screen now (a) shows the WP's
+bound **หมวดงาน** as a header badge, (b) scopes the **คำขอซื้อ (PR) item picker** to the WP's
+work-category, and (c) scopes the **เบิก (issue-stock) on-hand `<select>`** the same way — both with the
+same D8 **never-hide** discipline (the scope reorders/pre-filters, an escape/fallback always reaches the
+full set).
+
+**The call sites (all in `…/work-packages/[workPackageId]/page.tsx`, one loader):**
+
+- **PR picker** — `PurchaseRequestForm` gained optional `scopedCategoryIds` + `membershipsByItem`,
+  threaded straight to the already-shipped `ScopedCatalogItemPicker` (S7). **Category-only** scope
+  (spec 229 AC2 — no `kind` on the catalog-item shape), reusing the S7 `scopeCatalogItems` helper
+  untouched: in-scope first + ✓ "ตรงกับงาน", **"แสดงทั้งหมด"** escape, empty scope → full catalog.
+- **เบิก picker** — the spec's **caveat**: this is a native `<select>` over an `onHand WpStockRow[]`
+  list (NOT the catalog bottom-sheet), so it is NOT swapped. `WpStockRow` gained `categoryId` + `kind`;
+  a **new kind-aware helper** `scopeStockRows(rows, membershipsByItem, relation)` (+ predicate
+  `itemInRelationScope`) in `scoped-picker.ts` partitions the on-hand list against Relation R's
+  **`(category_id, kind_filter)`** rows. When a scope matches, the select renders **two `<optgroup>`s**
+  — `ตรงกับงาน` (in-scope) then `วัสดุอื่นในคลัง` (rest) — so the relevant stock surfaces first while
+  **every item stays selectable**. Empty/unmapped relation → the unchanged flat list.
+- **Badge** — new reusable `WorkCategoryBadge` (`components/features/work-packages/work-category-badge.tsx`),
+  in the header under the WP name. Shows `หมวดงาน · <name>` or the muted **"ยังไม่ระบุหมวดงาน"** nudge.
+
+**How the WP resolves its work-category (server, page loader):** `wp.category_id` →
+`project_categories (name, work_category_id)` (the spec-226 reconcile, **membership-readable** so it
+works for every WP_DETAIL_ROLES viewer, incl. site_admin/procurement) → name = the badge; the
+`work_category_id` → **S6 resolver** `resolveScopedCategories` → Relation R rows. Resolved once for the
+single WP (no N+1). Item memberships from the **S4 loader** `loadCatalogItemMemberships` →
+`membershipsByItem` map, shared by both pickers. The on-hand read gained `category_id, kind` on the
+embedded `catalog_items`.
+
+**kind_filter (S8's new wrinkle vs S7):** applies **only** on the เบิก side (spec 229 AC3). A Relation R
+row `(category, kindFilter)` matches an on-hand item when the category is in the item's
+canonical∪secondary set **and** `kindFilter` is null (any kind) or equals the item's `kind` — so a
+`kind_filter='tool'` relation surfaces tools and not the materials in the same category, while still
+never hiding them.
+
+**SSOT promotion ([[ui-term-consistency-ssot]]):** the ✓ relevance string **"ตรงกับงาน"** now hits 2
+call sites (PR picker + the เบิก optgroup) → promoted to `WORK_CATEGORY_MATCH_LABEL` in `labels.ts`; the
+uncategorised nudge **"ยังไม่ระบุหมวดงาน"** likewise (badge + `WpCategoryControl`) →
+`WORK_CATEGORY_UNSET_LABEL`. The PR picker's "แสดงทั้งหมด"/"เฉพาะที่ตรงกับงาน" stay inline (1 site).
+
+**Tests (TDD, failing-first; +15 → vitest 2099):** `catalog-scoped-picker.test.ts` (+`scopeStockRows`
+/`itemInRelationScope` — empty fallback, category-only, **kind tool-vs-material separation**,
+secondary-membership, no-match-shows-all); `work-category-badge.test.tsx` (name + nudge);
+`wp-issue-stock.test.tsx` (+optgroup-surfaces-first-never-hides, kind separation, flat-when-unmapped);
+`purchase-request-form-catalog.test.tsx` (+scope surfaces-first + แสดงทั้งหมด escape + empty→full).
+`lint`·`typecheck`·`vitest` all green; no `db:test` (no schema).
+
+**Reused / not re-rolled:** S7 `ScopedCatalogItemPicker` + `scopeCatalogItems`; S6 `resolveScopedCategories`;
+S4 `loadCatalogItemMemberships`/`membershipsByItem`/`itemCategoryIds`. **Deferred (NOT built, scope
+discipline):** read-side spend-by-category / worklist filter / catalog badges (**S9 / spec 230**); the
+self-purchase section is left unscoped (not named by spec 229); Relation-management UI.
+
+**Open questions (S8):** same S6 W-TOP seed-grain limitation as S7 — a subsection-reconciled WP resolves
+empty → show-all (correct-but-broad) until a later unit adds subsection rows / prefix-climbing. The เบิก
+scope reorders via `<optgroup>` (the native-select analog of the bottom-sheet's pre-filter+escape) rather
+than removing rows — the spec's "filter" intent realised as never-hide partitioning per D8 / §10.1.
 
 ---
 

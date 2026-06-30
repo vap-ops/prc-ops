@@ -13,8 +13,14 @@ import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { ConfirmActionButton } from "@/components/features/common/confirm-action-button";
 import { ReturnToStoreControl } from "@/components/features/store/return-to-store-control";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
-import { STORE_ISSUE_LABEL, STORE_FIX_WRONG_ENTRY_LABEL } from "@/lib/i18n/labels";
+import {
+  STORE_ISSUE_LABEL,
+  STORE_FIX_WRONG_ENTRY_LABEL,
+  WORK_CATEGORY_MATCH_LABEL,
+} from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
+import { scopeStockRows } from "@/lib/catalog/scoped-picker";
+import type { CatalogItemKind, ScopedMaterialCategory } from "@/lib/catalog/scoped-categories";
 import { confirmStockIssueOnBehalf, issueStockBulk, reverseStockIssue } from "@/app/store/actions";
 
 // On-hand for the picker — only what the WP เบิก needs (the value/avg-cost columns
@@ -25,6 +31,11 @@ export type WpStockRow = {
   specAttrs: string | null;
   unit: string;
   qtyOnHand: number;
+  // Spec 229 (ADR 0066 / S8): the item's canonical category + kind, so the เบิก
+  // <select> can scope the on-hand list to the WP's work-category (Relation R),
+  // separating tools from materials. Nullable — an item may be uncategorised.
+  categoryId: string | null;
+  kind: CatalogItemKind | null;
 };
 
 export type WpIssueRow = {
@@ -49,18 +60,30 @@ const LABEL = "text-sm font-medium text-ink";
 const FIELD =
   "rounded-control border-edge-strong bg-card text-ink shadow-input focus-visible:ring-action w-full min-w-0 border px-3 py-2 text-sm focus:outline-none focus-visible:ring-2";
 
+// Spec 229: a stable empty membership map for the unscoped show-all fallback.
+const EMPTY_MEMBERSHIPS: ReadonlyMap<string, Set<string>> = new Map();
+
 export function WpIssueStock({
   projectId,
   workPackageId,
   onHand,
   workers,
   issues,
+  scopedRelation,
+  membershipsByItem,
 }: {
   projectId: string;
   workPackageId: string;
   onHand: WpStockRow[];
   workers: { id: string; name: string }[];
   issues: WpIssueRow[];
+  // Spec 229 (ADR 0066 D5/D8): the WP work-category's Relation R (category +
+  // optional kind narrowing). Non-empty → surface the matching on-hand stock
+  // first under a ตรงกับงาน optgroup; empty/absent → a flat list (show-all
+  // fallback). NEVER hides — every on-hand item stays selectable.
+  scopedRelation?: ScopedMaterialCategory[] | undefined;
+  // Spec 229: catalogItemId → its secondary category ids (the S4 union source).
+  membershipsByItem?: ReadonlyMap<string, Set<string>> | undefined;
 }) {
   const router = useRouter();
 
@@ -124,6 +147,24 @@ export function WpIssueStock({
       router.refresh();
     });
   }
+
+  // Spec 229: order + flag the on-hand list against the WP work-category's
+  // Relation R (kind-aware). scopeActive only when the scope has real matches —
+  // otherwise the flat list shows (never an empty / over-grouped select).
+  const scopedOnHand = scopeStockRows(
+    onHand,
+    membershipsByItem ?? EMPTY_MEMBERSHIPS,
+    scopedRelation,
+  );
+  const scopeActive = scopedOnHand.scoped && scopedOnHand.inScopeCount > 0;
+  const inScopeRows = scopedOnHand.entries.filter((e) => e.inScope).map((e) => e.row);
+  const restRows = scopedOnHand.entries.filter((e) => !e.inScope).map((e) => e.row);
+  const stockOption = (o: WpStockRow) => (
+    <option key={o.catalogItemId} value={o.catalogItemId}>
+      {o.baseItem}
+      {o.specAttrs ? ` · ${o.specAttrs}` : ""} (มี {o.qtyOnHand} {o.unit})
+    </option>
+  );
 
   return (
     <div className="flex flex-col gap-3">
@@ -237,12 +278,19 @@ export function WpIssueStock({
                       className={FIELD}
                     >
                       <option value="">เลือกวัสดุ</option>
-                      {onHand.map((o) => (
-                        <option key={o.catalogItemId} value={o.catalogItemId}>
-                          {o.baseItem}
-                          {o.specAttrs ? ` · ${o.specAttrs}` : ""} (มี {o.qtyOnHand} {o.unit})
-                        </option>
-                      ))}
+                      {/* Spec 229 (ADR 0066 D8): the WP's materials surface first
+                          under a ตรงกับงาน group, the rest stay below — nothing is
+                          hidden. No scope (or no matches) → one flat list. */}
+                      {scopeActive ? (
+                        <>
+                          <optgroup label={WORK_CATEGORY_MATCH_LABEL}>
+                            {inScopeRows.map(stockOption)}
+                          </optgroup>
+                          <optgroup label="วัสดุอื่นในคลัง">{restRows.map(stockOption)}</optgroup>
+                        </>
+                      ) : (
+                        onHand.map(stockOption)
+                      )}
                     </select>
                   </div>
 
