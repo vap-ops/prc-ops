@@ -222,8 +222,8 @@ break-glass, off-sequence, operator-scheduled.)
 | [228](feature-specs/228-scoped-supply-plan-picker.md)    | S7      | UC1 scoped supply-plan picker (show-all-default)                                | ✅ AUTO-MERGE        | — (code-only)          | ✅ COMPLETE       |
 | [229](feature-specs/229-scoped-wp-detail-pickers.md)     | S8      | UC2 scoped WP-detail pickers + work-cat badge                                   | ✅ AUTO-MERGE        | — (code-only)          | ✅ COMPLETE       |
 | [230](feature-specs/230-category-read-side-wins.md)      | S9      | Read-side wins (3 disjoint files, parallelizable)                               | ✅ AUTO-MERGE        | — (code-only)          | ✅ COMPLETE       |
-| [231](feature-specs/231-estimate-template-bid-layer.md)  | S10     | Estimate/template/bid layer + assemblies (LATER epic — decomposed into U1–U6)   | MIXED, multi-session | per sub-unit at build  | 🔨 U1 IN PROGRESS |
-| [236](feature-specs/236-boq-template-line-core.md)       | S10-U1  | BOQ estimate core: `boq_template` + `boq_line` + 6 RPCs (3-grain invariant)     | 🔔 ONE-TAP HOLD      | `20260813040000`       | 🔨 in progress    |
+| [231](feature-specs/231-estimate-template-bid-layer.md)  | S10     | Estimate/template/bid layer + assemblies (LATER epic — decomposed into U1–U6)   | MIXED, multi-session | per sub-unit at build  | 🔨 U1 HELD (#207) |
+| [236](feature-specs/236-boq-template-line-core.md)       | S10-U1  | BOQ estimate core: `boq_template` + `boq_line` + 6 RPCs (3-grain invariant)     | 🔔 ONE-TAP HOLD      | `20260813040000`       | 🔔 HELD PR #207   |
 | [232](feature-specs/232-category-rehome-breakglass.md)   | S3      | C1 re-home cats 09/10/13 (product_code shift)                                   | 🧨 BREAK-GLASS       | assigned at scheduling | not started       |
 
 **Open questions surfaced (S0):** (1) the exact `stockable` derivation rule + whether
