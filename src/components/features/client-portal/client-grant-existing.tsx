@@ -3,9 +3,9 @@
 // Spec 234 / ADR 0067 U3 — PD/super affordance on the project page to attach an
 // EXISTING client login (a person the PD already granted on another project) to
 // THIS project. Pick the client + a valid-until → grant_client_access via the
-// action. Renders nothing when there are no candidates (every client is already
-// on this project, or there are none yet — the create-link block covers new
-// clients). Mirrors client-invite-block.tsx.
+// action. Always renders for an issuer (discoverability); when there are no
+// candidate clients yet it shows a hint pointing at the create-link block above,
+// instead of the picker. Mirrors client-invite-block.tsx.
 
 import { useState, useTransition } from "react";
 import { grantClientAccess } from "@/app/projects/[projectId]/actions";
@@ -31,8 +31,6 @@ export function ClientGrantExisting({
   const [userId, setUserId] = useState("");
   const [validUntil, setValidUntil] = useState("");
   const [error, setError] = useState<string | null>(null);
-
-  if (candidates.length === 0) return null;
 
   function grant() {
     setError(null);
@@ -63,44 +61,56 @@ export function ClientGrantExisting({
         ให้ลูกค้าที่เคยเข้าถึงโครงการอื่นแล้ว ติดตามความคืบหน้าของโครงการนี้ด้วย
       </p>
 
-      <div className="mt-3 flex flex-col gap-2">
-        <label htmlFor="grant-existing-client" className="text-ink-secondary text-xs">
-          ลูกค้าที่มีอยู่
-        </label>
-        <select
-          id="grant-existing-client"
-          value={userId}
-          onChange={(e) => setUserId(e.target.value)}
-          className={FIELD}
-        >
-          <option value="">เลือกลูกค้า…</option>
-          {candidates.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+      {candidates.length === 0 ? (
+        <p className="text-ink-secondary mt-3 text-xs">
+          ยังไม่มีลูกค้าที่เคยเข้าถึงโครงการอื่น — สร้างลิงก์เชิญด้านบนก่อน
+          เมื่อลูกค้ายืนยันลิงก์แล้วจะเพิ่มเข้าโครงการนี้ได้
+        </p>
+      ) : (
+        <div className="mt-3 flex flex-col gap-2">
+          <label htmlFor="grant-existing-client" className="text-ink-secondary text-xs">
+            ลูกค้าที่มีอยู่
+          </label>
+          <select
+            id="grant-existing-client"
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+            className={FIELD}
+          >
+            <option value="">เลือกลูกค้า…</option>
+            {candidates.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
 
-        <label htmlFor="grant-existing-valid-until" className="text-ink-secondary text-xs">
-          ให้สิทธิ์เข้าถึงได้ถึงวันที่
-        </label>
-        <input
-          id="grant-existing-valid-until"
-          type="date"
-          value={validUntil}
-          onChange={(e) => setValidUntil(e.target.value)}
-          className={FIELD}
-        />
+          <label htmlFor="grant-existing-valid-until" className="text-ink-secondary text-xs">
+            ให้สิทธิ์เข้าถึงได้ถึงวันที่
+          </label>
+          <input
+            id="grant-existing-valid-until"
+            type="date"
+            value={validUntil}
+            onChange={(e) => setValidUntil(e.target.value)}
+            className={FIELD}
+          />
 
-        <button type="button" disabled={pending} onClick={grant} className={BUTTON_SECONDARY_MUTED}>
-          {pending ? "กำลังให้สิทธิ์…" : "ให้สิทธิ์เข้าถึง"}
-        </button>
-        {error ? (
-          <p role="alert" className={INLINE_ALERT_TEXT}>
-            {error}
-          </p>
-        ) : null}
-      </div>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={grant}
+            className={BUTTON_SECONDARY_MUTED}
+          >
+            {pending ? "กำลังให้สิทธิ์…" : "ให้สิทธิ์เข้าถึง"}
+          </button>
+          {error ? (
+            <p role="alert" className={INLINE_ALERT_TEXT}>
+              {error}
+            </p>
+          ) : null}
+        </div>
+      )}
     </section>
   );
 }
