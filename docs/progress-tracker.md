@@ -15,8 +15,22 @@ projects via explicit per-project grant; `/client` becomes a project list → dr
 | Unit | Scope                                                                | Schema | Status      |
 | ---- | -------------------------------------------------------------------- | ------ | ----------- |
 | U1   | `grant_client_access` RPC + re-entrant `claim_client_invite`         | yes    | ✅ done     |
-| U2   | `/client` list → `/client/[projectId]` drill + `loadClientView(pid)` | —      | not started |
-| U3   | PD "grant an existing client login" picker on the project page       | —      | not started |
+| U2   | `/client` list → `/client/[projectId]` drill + `loadClientView(pid)` | —      | ✅ done     |
+| U3   | PD "grant an existing client login" picker on the project page       | —      | in progress |
+
+> U2 + U3 ship as ONE code-only auto-merge PR (branch `spec-234-ui`, two TDD commits).
+
+### U2 — `/client` multi-project render — ✅ done (2026-06-30)
+
+`loadClientView(supabase, projectId)` gained a project arg — scopes projects/`.eq(id)`,
+work_packages/`.eq(project_id)`, photos to the project's WP set, reports/`.eq(project_id)`; RLS is
+still the boundary (a non-live projectId → null). New `loadClientProjects(supabase)` lists the
+client's live projects (safe cols only). `/client`: 0 → access-ended, **1 → opens straight in**
+(unchanged), ≥2 → `<ClientProjectList>`; new `/client/[projectId]` drill renders `ClientProgressView`
+with a `backHref="/client"` chip. `/client/claim` made re-entrant (a client WITH a token may claim).
+nav anti-drift test treats the `/client` tree as bespoke external (dynamic drill excluded from the
+DetailHeader requirement). Tests: load-client-view (project arg + foreign-WP photo scoping) +
+load-client-projects red→green; lint·typecheck clean.
 
 ### U1 — grant RPC + re-entrant claim — ✅ done (2026-06-30)
 

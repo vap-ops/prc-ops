@@ -48,11 +48,16 @@ export interface ClientView {
   reports: ClientReportView[];
 }
 
-export async function loadClientView(supabase: RlsClient): Promise<ClientView | null> {
-  // The client read arm returns ONLY the one live-access project (or 0 rows).
+export async function loadClientView(
+  supabase: RlsClient,
+  projectId: string,
+): Promise<ClientView | null> {
+  // Scope to the chosen project. RLS is still the boundary: a project not in the
+  // caller's live set returns 0 rows → null (a forged projectId sees nothing).
   const { data: project } = await supabase
     .from("projects")
     .select("id, code, name, status, site_address, start_date, planned_completion_date")
+    .eq("id", projectId)
     .maybeSingle();
   if (!project) return null;
 
@@ -76,12 +81,18 @@ export async function loadClientView(supabase: RlsClient): Promise<ClientView | 
     allPhotos.map((p) => p.superseded_by).filter((x): x is string => x !== null),
   );
   const currentPhotos = allPhotos.filter((p) => !superseded.has(p.id) && p.storage_path !== null);
-  const photoUrls = await mintSignedUrls(PHOTOS_BUCKET, currentPhotos);
+  // Scope photos to THIS project's work packages — with N live projects the RLS
+  // arm returns approved photos across all of them; the project's WP set is the
+  // boundary (photo_logs has no project_id).
+  const wpIds = new Set((wpRows ?? []).map((w) => w.id));
+  const scopedPhotos = currentPhotos.filter((p) => wpIds.has(p.work_package_id));
+  const photoUrls = await mintSignedUrls(PHOTOS_BUCKET, scopedPhotos);
 
-  // reports RLS = completed reports of the live project. Mint download URLs.
+  // reports RLS = completed reports; scope to this project. Mint download URLs.
   const { data: reportRows } = await supabase
     .from("reports")
     .select("id, storage_path, created_at")
+    .eq("project_id", projectId)
     .order("created_at", { ascending: false });
   const reportUrls = await mintSignedUrls(REPORTS_BUCKET, reportRows ?? []);
 
@@ -101,7 +112,7 @@ export async function loadClientView(supabase: RlsClient): Promise<ClientView | 
       name: w.name,
       status: w.status,
     })),
-    photos: currentPhotos
+    photos: scopedPhotos
       .filter((p) => photoUrls.has(p.id))
       .map((p) => ({
         id: p.id,
