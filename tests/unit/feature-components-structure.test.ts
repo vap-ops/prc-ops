@@ -35,6 +35,8 @@ const ALLOWED_DOMAINS = [
   "projects",
   // Spec 220 (G63): the super_admin role-admin controls.
   "roles",
+  // Spec 233 / ADR 0067: the temporary client progress portal (PD invite block).
+  "client-portal",
 ] as const;
 
 describe("feature components are grouped into domain folders", () => {

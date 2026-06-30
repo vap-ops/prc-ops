@@ -6,9 +6,9 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 233 — Client progress portal (ADR 0067) — IN PROGRESS (2026-06-30)
+## Spec 233 — Client progress portal (ADR 0067) — ✅ COMPLETE (2026-06-30)
 
-Status: **building, all 5 units one session (operator grant).** Temporary, scoped, read-only
+Status: **all 5 units shipped + merged in one session (operator grant).** Temporary, scoped, read-only
 client login per [spec 233](feature-specs/233-client-progress-portal.md) — a `project_director`/
 `super_admin` issues a LINE claim link letting a project's client watch progress (summary · WP
 status · approved photos · report PDFs) for one project, with a valid-until date + early revoke.
@@ -17,13 +17,16 @@ route, and dedicated read-only RLS arms (never widening a staff query). Schema l
 ADR 0066 S6 (`033000`) merged; reserved migration ts `034000` (U1 enum) / `035000` (U2 tables/RLS)
 / `036000` (U2 RPCs).
 
-| Unit | Scope                                                                  | Schema | Status      |
-| ---- | ---------------------------------------------------------------------- | ------ | ----------- |
-| U1   | ADR 0067 + `client` enum + `CLIENT_ISSUER_ROLES` + `/client` routing   | enum   | ✅ done     |
-| U2   | `client_portal_access` + `client_invites` + helper + 3 RPCs + RLS arms | yes    | ✅ done     |
-| U3   | PD invite block (date → create link → list/revoke) + actions           | —      | not started |
-| U4   | `/client` read-only render (4 surfaces, signed URLs)                   | —      | not started |
-| U5   | `/client/claim` LINE bind flow + already-bound redirect                | —      | not started |
+| Unit | Scope                                                                  | Schema | Status  |
+| ---- | ---------------------------------------------------------------------- | ------ | ------- |
+| U1   | ADR 0067 + `client` enum + `CLIENT_ISSUER_ROLES` + `/client` routing   | enum   | ✅ done |
+| U2   | `client_portal_access` + `client_invites` + helper + 3 RPCs + RLS arms | yes    | ✅ done |
+| U3   | PD invite block (date → create link → list/revoke) + actions           | —      | ✅ done |
+| U4   | `/client` read-only render (4 surfaces, signed URLs)                   | —      | ✅ done |
+| U5   | `/client/claim` LINE bind flow + already-bound redirect                | —      | ✅ done |
+
+> U3–U5 are CODE-ONLY → shipped as ONE auto-merge PR (branch `spec-233-ui`, three TDD commits) to
+> minimise the concurrent-disruption window after the spec-225-fix session reclaimed the schema lane.
 
 ### U1 — ADR 0067 + `client` role + routing skeleton — ✅ done (2026-06-30)
 
@@ -81,6 +84,54 @@ project_id)` is per spec §3.2. Once revoked, that client (now role `client`, no
   membership (CREATE OR REPLACE, LIVE-sourced; signatures unchanged → grants preserved, no type drift) +
   idempotent orphan backfill; `239` extended with create/update regression asserts (47 asserts). Full
   `pnpm db:test` = 204/204, LIVE orphan count = 0.
+
+### U3 — PD invite block + actions — ✅ done (2026-06-30)
+
+`buildClientClaimUrl` (`src/lib/client-portal/claim-url.ts`, mirrors the portal one, `/client/claim`
+route). Server actions `createClientInvite` / `revokeClientAccess` on `src/app/projects/[projectId]/actions.ts`
+— gated via `requireActionRole(CLIENT_ISSUER_ROLES, …)` (PD+super, friendly early check;
+the definer RPCs gate again), valid-until parsed to Thai end-of-day (`+07:00`), relayed through the
+RLS session. `<ClientInviteBlock>` (`src/components/features/client-portal/`): date picker → สร้างลิงก์
+→ copyable claim URL; below, the active bindings (admin-loaded name + valid-until) each with a เพิกถอน
+button. Mounted on the project page beside `CategoriesManager`, gated `isClientIssuer`. **Tests:**
+`client-portal-actions.test.ts` (pm→reject, pd→{ok,token}, bad date→reject, revoke gate) +
+`client-invite-block.test.tsx` (date required, link shown, bindings+revoke) red→green; registered
+`client-portal` in the feature-domain structure test; lint + typecheck clean.
+
+### U4 — `/client` read-only render — ✅ done (2026-06-30)
+
+`loadClientView(supabase)` (`src/lib/client-portal/load-client-view.ts`) — reads the four surfaces
+through the caller's RLS server client (the U2 client read arms scope rows to the one live project);
+returns `null` when there is no live project (→ access-ended). **SAFE COLUMNS ONLY** — no money
+column is ever selected (pinned by the test's money-regex over every `.select`). Photos are
+supersede-anti-joined (ADR 0009) + tombstone-filtered, then signed via the shared `mintSignedUrls`
+(PHOTOS_BUCKET / REPORTS_BUCKET). `<ClientProgressView>` renders summary · WP status ·
+approved-photo grid · completed-report download links + logout — a Server Component, no edit
+affordance. `/client/page.tsx` = `requireRole(['client'])` → `loadClientView` → `null` redirects to
+`/client/access-ended`, else renders. **Tests:** `load-client-view.test.ts` (null-when-no-project,
+no-money-columns, supersede anti-join) + `client-progress-view.test.tsx` (4 surfaces, report link,
+no edit controls); lint + typecheck clean.
+
+**Open question (U4):** the spec calls for **watermarked** photos, but the app has **no watermark
+mechanism** (ADR 0003 intent, never built — `grep watermark src/` is empty). Per
+library/scope discipline I did not invent one; the portal serves approved-photo signed URLs directly
+(same exposure model as every other signed-URL surface). Watermarking is a follow-up if wanted.
+
+### U5 — `/client/claim` LINE bind flow — ✅ done (2026-06-30)
+
+`claimClientInvite({ token })` (`src/lib/client-portal/actions.ts`) — trims the token, relays to the
+`claim_client_invite` RPC through the caller's RLS session (never admin), maps the RPC raises to Thai
+via the shared `claimErrorToThai` (substrings overlap the contractor invite's → reused, not
+re-rolled). `<ClientClaimButton>` (mirrors the portal claim button): confirm → on success
+`router.replace('/client')`, on failure shows the Thai reason. `/client/claim/page.tsx` (built on the
+U1 stub): visitor-reachable, already-bound client → `/client`, mounts the button when a token is
+present else the invalid-link notice. **Tests:** `client-claim.test.ts` (empty token short-circuits,
+trimmed relay, visitor-only / expired / used → Thai) red→green. Full suite **2084** green; lint +
+typecheck clean.
+
+**Spec 233 DONE** — `/client` renders the four read-only surfaces for a live client; an
+expired/revoked client → `/client/access-ended`; PD/super issue + revoke from the project page. PRs:
+U1 #195, U2 #197 (both PAT-merged, danger-path), U3–U5 one code-only auto-merge PR.
 
 ## ADR 0066 — Procurement taxonomy redesign (specs 223–232) — SPEC AUTHORED (2026-06-30, session S0)
 
