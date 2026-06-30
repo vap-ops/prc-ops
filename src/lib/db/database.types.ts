@@ -5820,9 +5820,11 @@ export type Database = {
           p_category_id?: string
           p_fulfillment_mode?: Database["public"]["Enums"]["catalog_fulfillment_mode"]
           p_kind?: Database["public"]["Enums"]["catalog_item_kind"]
+          p_lead_time_days?: number
           p_note?: string
           p_owner_supplied?: boolean
           p_product_code?: string
+          p_search_terms?: string
           p_spec_attrs?: string
           p_stockable?: boolean
           p_subcategory_id?: string
@@ -6767,9 +6769,11 @@ export type Database = {
           p_fulfillment_mode?: Database["public"]["Enums"]["catalog_fulfillment_mode"]
           p_id: string
           p_kind?: Database["public"]["Enums"]["catalog_item_kind"]
+          p_lead_time_days?: number
           p_note?: string
           p_owner_supplied?: boolean
           p_product_code?: string
+          p_search_terms?: string
           p_spec_attrs?: string
           p_stockable?: boolean
           p_subcategory_id?: string
