@@ -8,7 +8,7 @@
 // transitions. The grid replaces the spec-176 one-at-a-time bottom sheet.
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import {
   BUTTON_PRIMARY,
@@ -18,8 +18,9 @@ import {
   INLINE_ERROR,
 } from "@/lib/ui/classes";
 import type { Database } from "@/lib/db/database.types";
-import { CatalogItemPicker } from "@/components/features/purchasing/catalog-item-picker";
+import { ScopedCatalogItemPicker } from "@/components/features/purchasing/catalog-item-picker";
 import type { PurchaseRequestCatalogItem } from "@/components/features/purchasing/purchase-request-form";
+import { membershipsByItem, type CatalogItemMembership } from "@/lib/catalog/categories";
 import {
   approvePlan,
   bulkAddPlanLines,
@@ -101,6 +102,8 @@ export function SupplyPlanManager({
   catalogItems,
   categories,
   workPackages,
+  itemMemberships,
+  wpScopedCategories,
 }: {
   projectId: string;
   planId: string | null;
@@ -115,11 +118,22 @@ export function SupplyPlanManager({
   // shared catalog picker — group by category_id, label with the managed name.
   categories: { id: string; name: string }[];
   workPackages: { id: string; code: string; name: string }[];
+  // Spec 228 (ADR 0066 / S7): the canonical∪secondary membership rows feeding the
+  // scoped picker's union (the S4 SSOT). Absent → an unscoped (full-catalog) picker.
+  itemMemberships?: CatalogItemMembership[];
+  // Spec 228: per-WP resolved Relation-R material category ids (server-side, via
+  // resolveScopedCategories). A WP absent from the map — or a whole-project row —
+  // has no scope, so the picker shows the full catalog (D8 show-all fallback).
+  wpScopedCategories?: Record<string, string[]>;
 }) {
   const router = useRouter();
   // Editable while draft/rejected (or before a plan exists); submitted/approved
   // are the frozen baseline.
   const editable = planStatus === null || planStatus === "draft" || planStatus === "rejected";
+
+  // Spec 228 — the canonical∪secondary membership union, built once for every
+  // row's scoped picker (the same membership data backs all rows).
+  const membershipMap = useMemo(() => membershipsByItem(itemMemberships ?? []), [itemMemberships]);
 
   const [rows, setRows] = useState<DraftRow[]>([blankRow()]);
   const [error, setError] = useState<string | null>(null);
@@ -453,7 +467,7 @@ export function SupplyPlanManager({
               className="border-edge bg-card rounded-control flex flex-col gap-2 border p-3 sm:flex-row sm:items-end"
             >
               <div className="flex min-w-0 flex-[2] flex-col gap-1">
-                <CatalogItemPicker
+                <ScopedCatalogItemPicker
                   label="วัสดุ"
                   items={catalogItems}
                   categories={categories}
@@ -461,6 +475,13 @@ export function SupplyPlanManager({
                   onSelect={(id) => patchRow(r.key, { catalogItemId: id })}
                   onClear={() => patchRow(r.key, { catalogItemId: "" })}
                   disabled={saving}
+                  // Spec 228: scope to THIS row's WP work-category via Relation R
+                  // (resolved server-side). A whole-project row (no WP) → no scope
+                  // → the full catalog (D8 show-all fallback).
+                  scopedCategoryIds={
+                    r.workPackageId ? wpScopedCategories?.[r.workPackageId] : undefined
+                  }
+                  membershipsByItem={membershipMap}
                 />
               </div>
               <div className="flex min-w-0 flex-[2] flex-col gap-1">

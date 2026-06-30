@@ -45,7 +45,7 @@ Status: **SPECS AUTHORED / not started.** Session S0 (docs-only) accepted
 [ADR 0066](decisions/0066-procurement-taxonomy-redesign.md) and authored the 10 phase
 specs below (one per build session, S0–S10). Schema is single-lane and serialized
 (S1→S2→S4→S5→S6); reserved migration timestamps `20260813029000`–`20260813033000`. S0
-ships as ONE governance-held PR (touches `docs/decisions/`). **S1 (223) + S2 (224) + S4 (225) + S5 (226) + S6 (227) ✅ COMPLETE; next: S7 (spec 228, scoped supply-plan picker — first code-only unit).** (S3 / spec 232 is
+ships as ONE governance-held PR (touches `docs/decisions/`). **S1 (223) + S2 (224) + S4 (225) + S5 (226) + S6 (227) + S7 (228) ✅ COMPLETE; next: S8 (spec 229, scoped WP-detail PR + stock-issue pickers — code-only).** (S3 / spec 232 is
 break-glass, off-sequence, operator-scheduled.)
 
 | Spec                                                     | Session | Title                                                                           | Autonomy             | Reserved migration ts  | Status      |
@@ -55,7 +55,7 @@ break-glass, off-sequence, operator-scheduled.)
 | [225](feature-specs/225-catalog-secondary-membership.md) | S4      | Secondary membership `catalog_item_categories` (reuse spec-219 composite FK)    | 🔔 ONE-TAP HOLD      | `20260813031000`       | ✅ COMPLETE |
 | [226](feature-specs/226-global-work-categories.md)       | S5      | Global `work_categories` library + seed + reconcile FK + ship 207-U3c           | 🔔 ONE-TAP HOLD      | `20260813032000`       | ✅ COMPLETE |
 | [227](feature-specs/227-work-material-relation.md)       | S6      | Relation R `work_category_material_categories` bridge + seed                    | 🔔 ONE-TAP HOLD      | `20260813033000`       | ✅ COMPLETE |
-| [228](feature-specs/228-scoped-supply-plan-picker.md)    | S7      | UC1 scoped supply-plan picker (show-all-default)                                | ✅ AUTO-MERGE        | — (code-only)          | not started |
+| [228](feature-specs/228-scoped-supply-plan-picker.md)    | S7      | UC1 scoped supply-plan picker (show-all-default)                                | ✅ AUTO-MERGE        | — (code-only)          | ✅ COMPLETE |
 | [229](feature-specs/229-scoped-wp-detail-pickers.md)     | S8      | UC2 scoped WP-detail pickers + work-cat badge                                   | ✅ AUTO-MERGE        | — (code-only)          | not started |
 | [230](feature-specs/230-category-read-side-wins.md)      | S9      | Read-side wins (3 disjoint files, parallelizable)                               | ✅ AUTO-MERGE        | — (code-only)          | not started |
 | [231](feature-specs/231-estimate-template-bid-layer.md)  | S10     | Estimate/template/bid layer + assemblies (LATER epic)                           | MIXED, multi-session | assigned at build      | not started |
@@ -331,6 +331,55 @@ it exists for a future tool/equipment-narrowing relation (the UC2 picker, spec 2
 family). The Relation-R **management UI** (link/unlink screen) is out of scope (RPCs exist; later
 unit). Equipment-category side of Relation R (ADR 0066 D5 mentions `{material-cat, equipment-cat}`)
 is deferred — this unit ships the material side only, per spec 227's scope.
+
+### S7 — UC1: scoped supply-plan item picker (spec 228) — ✅ COMPLETE (2026-06-30)
+
+**First CODE-ONLY unit** — no migration, no schema lane. The supply-plan grid's item picker now
+surfaces the materials a row's WP work-category actually buys (Relation R), **without ever hiding the
+rest** (ADR 0066 **D8** / §10.1 — the scope reorders/pre-filters, never gates).
+
+**Helper API (the tested core):** `src/lib/catalog/scoped-picker.ts` →
+`scopeCatalogItems(items, membershipsByItem, scopedCategoryIds)` returns
+`{ scoped, entries: [{ item, inScope }], inScopeCount }`. In-scope items (canonical∪secondary ∩
+scope ≠ ∅) come **first** (stable order), flagged; the rest follow, still present. **Show-all
+fallback:** an empty/undefined `scopedCategoryIds` → the full catalog in original order, `scoped:
+false`, all `inScope: false`. A scope that matches **no** item → `scoped: true` but `inScopeCount: 0`
+and every item present (never an empty picker). Reuses the S4 SSOT `itemCategoryIds` (no re-rolled
+union).
+
+**How a row resolves its scope (server-side, page loader):** row WP → `work_packages.category_id` →
+`project_categories.work_category_id` (spec 226 reconcile) → the **S6 resolver**
+`resolveScopedCategories(supabase, workCategoryId)` → distinct material `category_id`s. Resolved once
+**per DISTINCT work-category** (not per WP — no N+1), fanned onto every WP into a
+`wpScopedCategories: Record<wpId, string[]>`. Item memberships come from the **S4 loader**
+`loadCatalogItemMemberships` (canonical + secondary). Both pass through `SupplyPlanManager` → the
+picker; the manager builds the membership Map **once** for all rows.
+
+**Component:** `CatalogItemPicker` → renamed **`ScopedCatalogItemPicker`** (spec 228 AC1; the PR +
+self-purchase forms import the new name unchanged — they pass no scope → full catalog, behaviour
+identical; PR-side scoping is **S8**). New optional props `scopedCategoryIds` + `membershipsByItem`.
+When a scope is active it pre-filters to the in-scope items, flags each with a **"ตรงกับงาน"** ✓, and
+always shows a **"แสดงทั้งหมด"** escape that reveals the full catalog (toggles to "เฉพาะที่ตรงกับงาน").
+A whole-project row (no WP), an uncategorised WP, or an empty Relation R → no escape, full catalog.
+
+**Tests (TDD, +14 → vitest 2063):** `catalog-scoped-picker.test.ts` (6 — fallback, reorder/flag,
+multi-category, secondary-membership, no-match-shows-all); `catalog-item-picker.test.tsx` (+5 scope
+cases incl. the mandated empty-scope→full-catalog + escape-reveals-hidden); `supply-plan-manager.test.tsx`
+(+3 wiring — WP→scope, whole-project, unmapped-WP). `lint`·`typecheck`·`vitest` all green; no `db:test`
+(no schema).
+
+**Reused / not re-rolled:** S6 `resolveScopedCategories`, S4 `loadCatalogItemMemberships` /
+`membershipsByItem` / `itemCategoryIds`. **Deferred (NOT built here, per scope discipline):** the
+UC2 WP-detail PR + stock-issue pickers + WorkCategoryBadge (**S8 / spec 229**); read-side
+spend-by-category / worklist filter / catalog badges (**S9 / spec 230**); `kind_filter` narrowing
+(tools-vs-materials — the supply-plan item shape carries no `kind`, so S7 scopes by category only;
+lands with the equipment-family pickers in S8/S9).
+
+**Open questions (S7):** subsection-reconciled WPs still resolve empty (the S6 W-TOP seed grain) →
+show-all, which is correct-but-broad until a later unit adds subsection rows / prefix-climbing. The
+✓ "ตรงกับงาน" string + "แสดงทั้งหมด"/"เฉพาะที่ตรงกับงาน" escape labels are used once each (inline
+Thai, no `labels.ts` SSOT needed yet — the SSOT rule triggers at 2+ call sites; S8 will reuse the
+picker and may promote them).
 
 ---
 

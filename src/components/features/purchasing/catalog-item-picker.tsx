@@ -8,19 +8,29 @@
 // matched text highlighted. Picking links catalog_item_id and the parent form
 // derives the description + unit. An item not in the catalog is registered first
 // at ตั้งค่า → แคตตาล็อก (no inline add) — a no-match search points there.
+//
+// Spec 228 (ADR 0066 / S7, D5/D8) — ScopedCatalogItemPicker: an optional
+// `scopedCategoryIds` (the WP work-category's Relation-R material categories) +
+// the item membership union surface the relevant items FIRST and pre-filter to
+// them, but NEVER hide the rest — an always-present "แสดงทั้งหมด" escape clears
+// the scope, and an empty/absent scope falls back to the full catalog. The
+// ordering/flagging lives in the pure `scopeCatalogItems` helper.
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ImageIcon, Search } from "lucide-react";
+import { Check, ImageIcon, Search } from "lucide-react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { RadioChip } from "@/components/features/common/radio-chip";
 import { FIELD_INPUT } from "@/lib/ui/classes";
+import { scopeCatalogItems } from "@/lib/catalog/scoped-picker";
 import type { PurchaseRequestCatalogItem } from "./purchase-request-form";
 
 const ALL = "all";
 // Sentinel for the "items with no managed category" bucket (distinct from a uuid).
 const UNCAT = "__uncat__";
 const UNCAT_LABEL = "ไม่ระบุหมวด";
+// Spec 228: a stable empty membership map for the unscoped show-all fallback.
+const EMPTY_MEMBERSHIPS: ReadonlyMap<string, Set<string>> = new Map();
 
 function itemLabel(item: PurchaseRequestCatalogItem): string {
   return item.baseItem + (item.specAttrs ? ` ${item.specAttrs}` : "");
@@ -56,7 +66,7 @@ function Thumb({ url }: { url: string | null | undefined }) {
   );
 }
 
-export function CatalogItemPicker({
+export function ScopedCatalogItemPicker({
   items,
   categories,
   selectedId,
@@ -64,6 +74,8 @@ export function CatalogItemPicker({
   onClear,
   disabled = false,
   label = "รายการวัสดุ",
+  scopedCategoryIds,
+  membershipsByItem,
 }: {
   items: PurchaseRequestCatalogItem[];
   /** Spec 221 cleanup: the managed main categories (ordered, id + name). Chips
@@ -75,10 +87,20 @@ export function CatalogItemPicker({
   disabled?: boolean;
   /** Field label above the trigger (the supply-plan grid passes "วัสดุ"). */
   label?: string;
+  /** Spec 228 (ADR 0066 D5/D8): the WP work-category's Relation-R material
+   *  categories. Non-empty → surface those items first + pre-filter to them with
+   *  an always-present "แสดงทั้งหมด" escape; empty/absent → the full catalog
+   *  (show-all fallback). The PR/self-purchase forms pass nothing (unscoped). */
+  scopedCategoryIds?: readonly string[] | undefined;
+  /** Spec 228: itemId → its secondary category ids (the S4 canonical∪secondary
+   *  union source), so an item linked secondarily to a scoped category surfaces. */
+  membershipsByItem?: ReadonlyMap<string, Set<string>> | undefined;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>(ALL);
+  // Spec 228: clears the scope pre-filter (the แสดงทั้งหมด escape).
+  const [showAll, setShowAll] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const selected = selectedId ? (items.find((i) => i.id === selectedId) ?? null) : null;
@@ -90,8 +112,22 @@ export function CatalogItemPicker({
   const hasUncategorised = items.some((i) => i.categoryId === null);
 
   const q = query.trim().toLowerCase();
-  const matches = items.filter(
-    (i) =>
+
+  // Spec 228 — order + flag the catalog against the WP work-category's scope:
+  // in-scope items first, the rest still present. Empty/absent scope → the full
+  // catalog in order (D8 show-all fallback).
+  const scoped = useMemo(
+    () => scopeCatalogItems(items, membershipsByItem ?? EMPTY_MEMBERSHIPS, scopedCategoryIds),
+    [items, membershipsByItem, scopedCategoryIds],
+  );
+  // Pre-filter to in-scope only when the scope actually has matches — otherwise
+  // show everything (never an empty picker). The แสดงทั้งหมด escape clears it.
+  const scopeActive = scoped.scoped && scoped.inScopeCount > 0;
+  const baseEntries =
+    scopeActive && !showAll ? scoped.entries.filter((e) => e.inScope) : scoped.entries;
+
+  const matches = baseEntries.filter(
+    ({ item: i }) =>
       (category === ALL ||
         (category === UNCAT ? i.categoryId === null : i.categoryId === category)) &&
       // Spec 214: the product code joins the haystack, so typing a code prefix
@@ -113,6 +149,7 @@ export function CatalogItemPicker({
     setOpen(false);
     setQuery("");
     setCategory(ALL);
+    setShowAll(false);
   }
   function choose(id: string) {
     onSelect(id);
@@ -219,9 +256,21 @@ export function CatalogItemPicker({
             </div>
           ) : null}
 
+          {/* Spec 228 (ADR 0066 D8): the scope pre-filters to the งาน's materials
+              but NEVER hides the rest — this always-present escape clears it. */}
+          {scopeActive ? (
+            <button
+              type="button"
+              onClick={() => setShowAll((v) => !v)}
+              className="text-action text-meta focus-visible:ring-action self-start rounded font-medium underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2"
+            >
+              {showAll ? "เฉพาะที่ตรงกับงาน" : "แสดงทั้งหมด"}
+            </button>
+          ) : null}
+
           {matches.length > 0 ? (
             <ul className="flex flex-col">
-              {matches.map((i) => (
+              {matches.map(({ item: i, inScope }) => (
                 <li key={i.id}>
                   <button
                     type="button"
@@ -241,6 +290,13 @@ export function CatalogItemPicker({
                           </span>
                         ) : null}
                         {i.categoryId ? i.categoryName : UNCAT_LABEL}
+                        {/* Spec 228: relevance flag — this item belongs to the
+                            WP work-category's material scope (Relation R). */}
+                        {inScope ? (
+                          <span className="text-done-strong ml-1.5 inline-flex items-center gap-0.5 font-medium">
+                            <Check aria-hidden className="size-3.5" /> ตรงกับงาน
+                          </span>
+                        ) : null}
                       </span>
                     </span>
                   </button>

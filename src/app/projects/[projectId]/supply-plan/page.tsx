@@ -14,7 +14,12 @@ import { createClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
-import { loadCatalogCategories, categoryNameById } from "@/lib/catalog/categories";
+import {
+  loadCatalogCategories,
+  categoryNameById,
+  loadCatalogItemMemberships,
+} from "@/lib/catalog/categories";
+import { resolveScopedCategories } from "@/lib/catalog/scoped-categories";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { projectHref, supplyPlanHref } from "@/lib/nav/project-paths";
@@ -170,10 +175,37 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
 
   const { data: wpRows } = await supabase
     .from("work_packages")
-    .select("id, code, name")
+    .select("id, code, name, project_categories ( work_category_id )")
     .eq("project_id", project.id)
     .order("code", { ascending: true });
   const workPackages = (wpRows ?? []).map((w) => ({ id: w.id, code: w.code, name: w.name }));
+
+  // Spec 228 (ADR 0066 / S7) — scope each WP's item picker to the material
+  // categories its work-category buys (Relation R). A WP carries a project
+  // category (spec 226 reconcile) whose work_category_id resolves, via the S6
+  // resolver, to a set of material category ids. Resolve once per DISTINCT
+  // work-category (not per WP — avoids an N+1), then fan onto every WP. WPs with
+  // no work-category resolve to nothing → their picker shows the full catalog.
+  const wpWorkCategory = new Map<string, string>();
+  for (const w of wpRows ?? []) {
+    const workCatId = w.project_categories?.work_category_id;
+    if (workCatId) wpWorkCategory.set(w.id, workCatId);
+  }
+  const scopeByWorkCat = new Map<string, string[]>();
+  for (const workCatId of new Set(wpWorkCategory.values())) {
+    const rels = await resolveScopedCategories(supabase, workCatId);
+    const catIds = [...new Set(rels.map((r) => r.categoryId))];
+    if (catIds.length > 0) scopeByWorkCat.set(workCatId, catIds);
+  }
+  const wpScopedCategories: Record<string, string[]> = {};
+  for (const [wpId, workCatId] of wpWorkCategory) {
+    const catIds = scopeByWorkCat.get(workCatId);
+    if (catIds) wpScopedCategories[wpId] = catIds;
+  }
+
+  // Spec 228 — the item membership union (canonical + secondary, S4) the scoped
+  // picker reads to decide which items fall in a WP's material scope.
+  const itemMemberships = await loadCatalogItemMemberships(supabase);
 
   // Spec 176 U5 — the PM-accuracy measure (planned vs reactive, per WP). It
   // aggregates ALL of a project's plan lines (plan-agnostic), so it is unchanged
@@ -270,6 +302,8 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
             catalogItems={catalogItems}
             categories={catalogCategoryList}
             workPackages={workPackages}
+            itemMemberships={itemMemberships}
+            wpScopedCategories={wpScopedCategories}
           />
         </section>
       ) : planItems.length > 0 ? (
