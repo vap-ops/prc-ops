@@ -72,6 +72,7 @@ later one corrects — read both when the topic is live.
 | 0064 | Divert a delivered WP-bound purchase into the store (cost transfer)  | Extends 0063; spec 198 U2                                               |
 | 0065 | Store-only procurement — every purchase routes through the store     | Supersedes 0022/0063 (new purchases); uses 0064 (U5); spec 208 Phase 2  |
 | 0066 | Procurement taxonomy redesign — split WORK axis from MATERIAL axis   | Extends 0055/0056/0058/0016; builds on specs 221/219/207; specs 223–232 |
+| 0067 | `client` role — temporary scoped read-only progress portal           | Extends 0051/0013/0058/0008; spec 233                                   |
 
 **Absent numbers** (never authored as standalone files; do not look for them):
 0023, 0024 — skipped. 0029 — AppSheet image bridge, cancelled before authoring

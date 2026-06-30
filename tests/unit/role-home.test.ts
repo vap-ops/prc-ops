@@ -45,6 +45,13 @@ describe("roleHome", () => {
   it("sends an external contractor to the portal", () => {
     expect(roleHome("contractor")).toBe("/portal");
   });
+
+  // Spec 233 / ADR 0067: the external client lands on the read-only progress
+  // portal. An expired/revoked client still has role 'client'; the /client page
+  // gate forwards it to /client/access-ended — roleHome stays /client.
+  it("routes client to /client", () => {
+    expect(roleHome("client")).toBe("/client");
+  });
 });
 
 // Spec 70: the canonical allowlist for the purchasing surface (/requests

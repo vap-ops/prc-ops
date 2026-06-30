@@ -108,6 +108,10 @@ const NON_DETAIL_ROUTES = [
   "requests",
   "dashboard",
   "portal",
+  // Spec 233 / ADR 0067: /client is the external client tier's primary
+  // destination — its own header + logout, no back chip (mirrors /portal). U4
+  // fills the read-only render; the U1 stub redirects to access-ended.
+  "client",
 ].map((r) => `${r}/page.tsx`);
 
 // EXCLUDED: bespoke layouts that use neither header — the root dispatcher,
@@ -127,6 +131,13 @@ const EXCLUDED_ROUTES = [
   // Spec 130: the contractor invite-claim entry — a bespoke single-card layout
   // (neither header), reachable by a freshly-logged-in visitor before binding.
   "portal/claim/page.tsx",
+  // Spec 233 / ADR 0067: the client invite-claim entry mirrors /portal/claim —
+  // a bespoke single-card layout (neither header), reached by a freshly
+  // logged-in visitor before binding.
+  "client/claim/page.tsx",
+  // Spec 233 / ADR 0067: the calm lapsed-access notice (neither header), where
+  // an expired/revoked client lands — like /coming-soon.
+  "client/access-ended/page.tsx",
 ];
 
 describe("nav back-affordance (spec 63)", () => {

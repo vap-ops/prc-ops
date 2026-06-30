@@ -6,6 +6,39 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 233 — Client progress portal (ADR 0067) — IN PROGRESS (2026-06-30)
+
+Status: **building, all 5 units one session (operator grant).** Temporary, scoped, read-only
+client login per [spec 233](feature-specs/233-client-progress-portal.md) — a `project_director`/
+`super_admin` issues a LINE claim link letting a project's client watch progress (summary · WP
+status · approved photos · report PDFs) for one project, with a valid-until date + early revoke.
+Mirrors the spec-130/ADR-0051 contractor portal machinery with its own `client` role, `/client`
+route, and dedicated read-only RLS arms (never widening a staff query). Schema lane claimed after
+ADR 0066 S6 (`033000`) merged; reserved migration ts `034000` (U1 enum) / `035000` (U2 tables/RLS)
+/ `036000` (U2 RPCs).
+
+| Unit | Scope                                                                  | Schema | Status      |
+| ---- | ---------------------------------------------------------------------- | ------ | ----------- |
+| U1   | ADR 0067 + `client` enum + `CLIENT_ISSUER_ROLES` + `/client` routing   | enum   | ✅ done     |
+| U2   | `client_portal_access` + `client_invites` + helper + 3 RPCs + RLS arms | yes    | not started |
+| U3   | PD invite block (date → create link → list/revoke) + actions           | —      | not started |
+| U4   | `/client` read-only render (4 surfaces, signed URLs)                   | —      | not started |
+| U5   | `/client/claim` LINE bind flow + already-bound redirect                | —      | not started |
+
+### U1 — ADR 0067 + `client` role + routing skeleton — ✅ done (2026-06-30)
+
+Migration `20260813034000_add_client_role.sql` (`ALTER TYPE public.user_role ADD VALUE 'client'`,
+own file per ADR 0008) applied to the shared DB; `db:types` regenerated (app + worker copies, ADR
+0047 drift-guard green). [ADR 0067](decisions/0067-client-progress-portal-role.md) authored +
+indexed. `CLIENT_ISSUER_ROLES = ['project_director','super_admin']` added to `role-home.ts`
+(deliberately NOT `PM_ROLES`, pinned by `client-issuer-roles.test.ts`); `roleHome('client') →
+/client`. Three gated route stubs: `/client` (requireRole client → redirect access-ended,
+safe-by-default until U2/U4), `/client/claim` (visitor-reachable, already-bound → /client; U5 wires
+the action), `/client/access-ended` (calm lapsed notice, no gate). Added the `client` label
+(`ลูกค้า`) to the exhaustive `USER_ROLE_LABEL`, and classified the 3 routes in the nav anti-drift
+registry (mirrors `/portal`). **Tests:** role-home + client-issuer red→green; full suite **2052**
+pass; lint + typecheck clean.
+
 ## ADR 0066 — Procurement taxonomy redesign (specs 223–232) — SPEC AUTHORED (2026-06-30, session S0)
 
 Status: **SPECS AUTHORED / not started.** Session S0 (docs-only) accepted
