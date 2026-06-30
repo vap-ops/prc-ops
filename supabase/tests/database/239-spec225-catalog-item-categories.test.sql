@@ -1,5 +1,5 @@
 begin;
-select plan(42);
+select plan(47);
 
 -- ============================================================================
 -- Spec 225 — Secondary material membership (ADR 0066 / S4, decision D2). An
@@ -150,14 +150,20 @@ select lives_ok(
        p_category_id := (select id from public.catalog_categories where code='95')) $$,
   'create item homed in cat A');
 
--- give the fixture item its canonical primary membership (post-backfill insert,
--- mirroring what the migration backfill does for pre-existing rows).
-reset role;
-insert into public.catalog_item_categories (catalog_item_id, category_id, is_primary)
-  values ((select id from public.catalog_items where base_item='s4 item'),
-          (select id from public.catalog_categories where code='95'), true);
-set local role authenticated;
-set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333333225"}';
+-- create_catalog_item must ITSELF write the canonical is_primary membership (S4
+-- follow-up — previously it wrote none, leaving the new item orphaned and breaking
+-- the "exactly one primary per item" invariant for items created after the backfill).
+select is(
+  (select count(*)::int from public.catalog_item_categories
+     where catalog_item_id=(select id from public.catalog_items where base_item='s4 item')
+       and is_primary),
+  1, 'create_catalog_item writes exactly one is_primary membership');
+select is(
+  (select category_id from public.catalog_item_categories
+     where catalog_item_id=(select id from public.catalog_items where base_item='s4 item')
+       and is_primary),
+  (select id from public.catalog_categories where code='95'),
+  'the primary membership mirrors the item canonical category');
 
 -- add a SECONDARY membership in cat B.
 select lives_ok(
@@ -211,6 +217,27 @@ select throws_ok(
        (select id from public.catalog_items where base_item='s4 item'),
        (select id from public.catalog_categories where code='96'), null) $$,
   '22023', null, 'removing a non-existent membership raises 22023');
+
+-- update_catalog_item must re-sync the canonical primary membership when the item's
+-- home moves (same invariant: the primary must mirror the canonical home). 's4 item'
+-- now has only its primary in cat A (95); move the canonical home to cat B (96).
+select lives_ok(
+  $$ select public.update_catalog_item(
+       p_id := (select id from public.catalog_items where base_item='s4 item'),
+       p_base_item := 's4 item', p_unit := 'ชิ้น',
+       p_category_id := (select id from public.catalog_categories where code='96')) $$,
+  'move the item canonical home from cat A to cat B');
+select is(
+  (select count(*)::int from public.catalog_item_categories
+     where catalog_item_id=(select id from public.catalog_items where base_item='s4 item')
+       and is_primary),
+  1, 'still exactly one is_primary membership after the home moves');
+select is(
+  (select category_id from public.catalog_item_categories
+     where catalog_item_id=(select id from public.catalog_items where base_item='s4 item')
+       and is_primary),
+  (select id from public.catalog_categories where code='96'),
+  'the primary membership follows the new canonical home');
 
 -- I. Role gate (null-safe per ADR 0066 D8) -----------------------------------
 set local "request.jwt.claims" = '{"sub": "55555555-5555-5555-5555-555555555225"}';

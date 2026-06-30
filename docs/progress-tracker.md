@@ -72,10 +72,15 @@ project_id)` is per spec §3.2. Once revoked, that client (now role `client`, no
   A reviewer flagged the constraint as a re-grant blocker; verified it is not a live bug (gate blocks
   the path) and left as-specified. If renewal is ever built, switch to a partial unique index
   (`where revoked_at is null`) in that spec.
-- **Pre-existing pgTAP failure (NOT spec 233):** `239-spec225-catalog-item-categories` fails — one
-  `catalog_items` row has 0 `is_primary` memberships (spec-225 / S4 backfill orphan, PR #191 /
-  `2f3caad`; pgTAP isn't in CI so it merged). Orthogonal to spec 233 (no client-portal migration
-  touches `catalog_item_categories`). Flagged for a separate fix.
+- **Pre-existing pgTAP failure (NOT spec 233) — ✅ RESOLVED 2026-06-30:** `239-spec225-catalog-item-categories`
+  was failing — one `catalog_items` row had 0 `is_primary` memberships (spec-225 / S4 backfill orphan, PR #191 /
+  `2f3caad`; pgTAP isn't in CI so it merged). Root cause: S4 added the junction + backfilled existing items but
+  did NOT wire `create_catalog_item` to write the canonical primary membership for NEW items (and
+  `update_catalog_item` never re-synced it on a category change — same invariant). Fixed in migration
+  `20260813037000_spec225fix_create_catalog_item_membership.sql`: both RPCs now maintain the `is_primary`
+  membership (CREATE OR REPLACE, LIVE-sourced; signatures unchanged → grants preserved, no type drift) +
+  idempotent orphan backfill; `239` extended with create/update regression asserts (47 asserts). Full
+  `pnpm db:test` = 204/204, LIVE orphan count = 0.
 
 ## ADR 0066 — Procurement taxonomy redesign (specs 223–232) — SPEC AUTHORED (2026-06-30, session S0)
 
@@ -244,14 +249,14 @@ is_primary`. The primary row is **backfilled to MIRROR** each item's canonical
   returns true when `scope` is the canonical home OR a secondary membership (de-duplicated).
   The live picker components stay untouched here; they consume this SSOT in specs 228/229.
 
-**Open questions (S4):** **new items created after the migration get no junction primary
-row** — the backfill is one-time and the spec did not request an insert trigger (scope
-discipline). This does not break the picker union (the canonical `category_id` is read
-directly, so a new item still appears under its home), and it does not violate the
-exactly-one-primary index (zero primaries is allowed). The primary-membership-for-new-items
-anchor should be created when the item-form integration / management UI lands (specs
-228/229 or a later unit) — flagged here, not implemented. (Out of scope per spec: the
-add/remove management UI on the item form; rewiring the live pickers.)
+**Open questions (S4):** ~~**new items created after the migration get no junction primary
+row**~~ — **✅ RESOLVED 2026-06-30** (migration `20260813037000`). The S4 assessment that this
+was "harmless" was incomplete: it does break the invariant TEST (`239` assert 20) and produced
+1 LIVE orphan. `create_catalog_item` now writes the canonical `is_primary` membership for new
+items, and `update_catalog_item` re-syncs it when the canonical home moves (CREATE OR REPLACE,
+LIVE-sourced; signatures unchanged) + a one-time idempotent orphan backfill. Regression asserts
+added to `239`. (Out of scope, still deferred: the add/remove management UI on the item form;
+rewiring the live pickers — specs 228/229.)
 
 ---
 
