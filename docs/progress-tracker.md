@@ -6,7 +6,19 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 241 — PWA static-asset runtime cache (skeleton perf) — 🔨 IN PROGRESS (2026-07-01)
+## Spec 242 — Parallelize the dashboard's independent reads (perf) — 🔨 IN PROGRESS (2026-07-01)
+
+Follow-on to spec 241. The ภาพรวม dashboard (highest-traffic landing, flagged among the heaviest routes by
+Vercel Observability) ran its three independent opening reads serially — approvals summary, the two
+bank-change counts, and the live-projects list — four sequential round-trips for no reason. Fire them in one
+`Promise.all` (the two bank-change counts parallelized within it). The `projects → work_packages → money`
+spine stays sequential (a genuine dependency); the money rollup block is untouched. Behavior-preserving —
+identical `ProjectVM` output, only concurrency changes. Worktree `../prc-ops-perf2`, branch
+`perf/dashboard-parallel`. Spec: `feature-specs/242-dashboard-parallel-reads.md`. Started 2026-07-01.
+
+---
+
+## Spec 241 — PWA static-asset runtime cache (skeleton perf) — ✅ MERGED (2026-07-01)
 
 Operator report: "every page change feels slow, the skeleton too." Diagnosed live (Vercel Observability +
 Supabase dashboards + deployed-bundle measure): every route is dynamic (`ƒ`); `public/sw.js` (spec 18) is
