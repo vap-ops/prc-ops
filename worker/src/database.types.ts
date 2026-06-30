@@ -152,6 +152,124 @@ export type Database = {
         }
         Relationships: []
       }
+      boq_line: {
+        Row: {
+          boq_template_id: string
+          catalog_item_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          exclusivity_group: string | null
+          id: string
+          is_standard: boolean
+          labor_rate: number
+          line_status: Database["public"]["Enums"]["boq_line_status"]
+          material_rate: number
+          qty: number
+          sort_order: number
+          unit: string
+          updated_at: string
+          variation_type: Database["public"]["Enums"]["boq_variation_type"]
+          work_category_id: string | null
+        }
+        Insert: {
+          boq_template_id: string
+          catalog_item_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description: string
+          exclusivity_group?: string | null
+          id?: string
+          is_standard?: boolean
+          labor_rate?: number
+          line_status?: Database["public"]["Enums"]["boq_line_status"]
+          material_rate?: number
+          qty: number
+          sort_order?: number
+          unit: string
+          updated_at?: string
+          variation_type?: Database["public"]["Enums"]["boq_variation_type"]
+          work_category_id?: string | null
+        }
+        Update: {
+          boq_template_id?: string
+          catalog_item_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          exclusivity_group?: string | null
+          id?: string
+          is_standard?: boolean
+          labor_rate?: number
+          line_status?: Database["public"]["Enums"]["boq_line_status"]
+          material_rate?: number
+          qty?: number
+          sort_order?: number
+          unit?: string
+          updated_at?: string
+          variation_type?: Database["public"]["Enums"]["boq_variation_type"]
+          work_category_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boq_line_boq_template_id_fkey"
+            columns: ["boq_template_id"]
+            isOneToOne: false
+            referencedRelation: "boq_template"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "boq_line_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "boq_line_work_category_id_fkey"
+            columns: ["work_category_id"]
+            isOneToOne: false
+            referencedRelation: "work_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boq_template: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       catalog_categories: {
         Row: {
           code: string
@@ -5469,6 +5587,22 @@ export type Database = {
     }
     Functions: {
       acknowledge_site_purchase: { Args: { p_id: string }; Returns: undefined }
+      add_boq_line: {
+        Args: {
+          p_boq_template_id: string
+          p_catalog_item_id?: string
+          p_description: string
+          p_exclusivity_group?: string
+          p_is_standard?: boolean
+          p_labor_rate?: number
+          p_material_rate?: number
+          p_qty: number
+          p_unit: string
+          p_variation_type?: Database["public"]["Enums"]["boq_variation_type"]
+          p_work_category_id?: string
+        }
+        Returns: string
+      }
       add_catalog_item_category: {
         Args: {
           p_category_id: string
@@ -5609,6 +5743,10 @@ export type Database = {
           p_reason: string
           p_tombstone?: boolean
         }
+        Returns: string
+      }
+      create_boq_template: {
+        Args: { p_code: string; p_description?: string; p_name: string }
         Returns: string
       }
       create_catalog_category: {
@@ -6193,6 +6331,7 @@ export type Database = {
       }
       reject_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
       release_retention: { Args: { p_id: string }; Returns: string }
+      remove_boq_line: { Args: { p_id: string }; Returns: undefined }
       remove_catalog_item_category: {
         Args: {
           p_category_id: string
@@ -6266,6 +6405,10 @@ export type Database = {
           p_status: Database["public"]["Enums"]["accounting_period_status"]
         }
         Returns: boolean
+      }
+      set_boq_template_active: {
+        Args: { p_id: string; p_is_active: boolean }
+        Returns: undefined
       }
       set_catalog_item_active: {
         Args: { p_active: boolean; p_id: string }
@@ -6512,6 +6655,26 @@ export type Database = {
         Args: { p_a: string; p_b: string }
         Returns: boolean
       }
+      update_boq_line: {
+        Args: {
+          p_catalog_item_id?: string
+          p_description: string
+          p_exclusivity_group?: string
+          p_id: string
+          p_is_standard?: boolean
+          p_labor_rate?: number
+          p_material_rate?: number
+          p_qty: number
+          p_unit: string
+          p_variation_type?: Database["public"]["Enums"]["boq_variation_type"]
+          p_work_category_id?: string
+        }
+        Returns: undefined
+      }
+      update_boq_template: {
+        Args: { p_description?: string; p_id: string; p_name: string }
+        Returns: undefined
+      }
       update_catalog_category: {
         Args: {
           p_code: string
@@ -6712,6 +6875,8 @@ export type Database = {
         | "retention_due"
         | "retention_release"
         | "wht_certificate_record"
+      boq_line_status: "draft" | "frozen" | "superseded"
+      boq_variation_type: "standard" | "added" | "omitted" | "provisional_sum"
       catalog_fulfillment_mode: "off_shelf" | "made_to_order"
       catalog_item_kind:
         | "material"
@@ -7039,6 +7204,8 @@ export const Constants = {
         "retention_release",
         "wht_certificate_record",
       ],
+      boq_line_status: ["draft", "frozen", "superseded"],
+      boq_variation_type: ["standard", "added", "omitted", "provisional_sum"],
       catalog_fulfillment_mode: ["off_shelf", "made_to_order"],
       catalog_item_kind: [
         "material",
