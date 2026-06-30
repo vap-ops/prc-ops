@@ -38,19 +38,21 @@ select ok(
 
 -- B. Seed + backfill --------------------------------------------------------
 select is(
-  (select count(*)::int from public.catalog_categories), 13, 'seeded the 13 enum categories');
+  (select count(*)::int from public.catalog_categories), 14, 'seeded 13 enum categories + 1 user category (spec 239 fasteners, code 14)');
 select is(
   (select code from public.catalog_categories where legacy_category='steel_fixing'),
   '01', 'steel_fixing seeded as code 01');
 select is(
   (select count(*)::int from public.catalog_items where category_id is null), 0,
   'every catalog_item was backfilled with a category_id');
+-- Spec 239 decoupled category_id from the vestigial `category` enum (the C1
+-- re-home moved items into user-categories with no legacy enum). category_id is
+-- now the source of truth; the FK guarantees referential validity.
 select ok(
-  (select ci.category_id = cc.id
-     from public.catalog_items ci
-     join public.catalog_categories cc on cc.legacy_category = ci.category
-    limit 1),
-  'a catalog_item category_id matches its category mapping');
+  (select count(*)::int from public.catalog_items ci
+     join public.catalog_categories cc on cc.id = ci.category_id
+    where cc.legacy_category is null) > 0,
+  'items live in user-categories with no legacy enum (spec 239 re-home; category_id is source of truth)');
 
 -- C. Sync trigger (direct insert as owner; trigger derives category_id) ------
 insert into public.catalog_items (category, base_item, unit)

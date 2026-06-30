@@ -6,6 +6,43 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 239 — ทะเบียนวัสดุ category cleanup (ADR 0066 C1) — 🔔 U1 HELD PR (2026-06-30)
+
+Supersedes [spec 232](feature-specs/232-category-rehome-breakglass.md) — the C1 re-home, **de-risked to
+an additive migration** (verified live: 0 of 256 catalog items have any `product_code` → re-home
+renumbers nothing → NOT break-glass). Operator-approved full design (decisions A–G + lead_time +
+multi-category + equipment-stays-asset-subsystem). Material axis only.
+
+**U1 (schema/data) — migration `20260813043000` applied to the shared DB; main↔DB sync moves to `043000`
+once the held PR merges.** Two additive item columns (`search_terms`, `lead_time_days int CHECK>=0`).
+**Category re-grain → 14 clean categories:** renames 01→เหล็กโครงสร้าง · 02→ประปา/สุขาภิบาล [+12 tanks]
+· 03→วัสดุหน้างาน/ความปลอดภัย · 08→สี/เคมีก่อสร้าง · 11→อิฐทางเท้า/งานก่อ; **repurpose** (rename +
+redistribute, all stay active) 09→เครื่องมือ/อุปกรณ์ช่าง · 10→คอนกรีต/ปูน/มวลรวม · 12→งานผนัง/ผิวอาคาร ·
+13→ทั่วไป/อื่นๆ (catch-all); **new** code 14 อุปกรณ์ยึด/น็อตสกรู (steel split). **Item re-home:** 12 steel
+fasteners → 14; 9 tools → 09 (kind tool/equipment); concrete+sand → 10 (concrete made_to_order); 2 fab
+bundles → 12 (kind=assembly); 2 stainless caps → 04; tanks → 02; ไดวอล → 13 catch-all. is_primary
+membership synced to canonical.
+
+**Decisions:** repurpose freed codes (not deactivate) = truest "reuse codes", no dead rows. Steel split
+via a verified name pattern (ตะปู/สกรู/ลวด/พุก/L-Bolt → fasteners; 50 structural stay). Equipment-as-asset
+stays in its own subsystem (`equipment_items`), catalog only flags via `kind`. ไดวอล → catch-all
+(re-home in-app when recognized). Additive + reversible; the spec-221 `category` enum-sync trigger doesn't
+interfere (fires only on `category` enum change, never on `category_id`).
+
+**Verification:** pgTAP `247-spec239` (10 stable invariants: columns, cat 14, no-null-category, is_primary
+integrity, no-product-code) green; full suite **209/3832/0**. lint·typecheck·vitest **2157**. 3 pre-existing
+assertions updated to the post-cleanup reality (221 count 13→14; 221 enum↔category_id coupling →
+decoupling check; 238 all-material → kind-not-null) — faithful, not weakening (the cleanup deliberately
+changed those facts). Adversarial review (cavecrew-reviewer) = no issues.
+
+**Open questions (U1):** (1) ⚠️ **for U2:** the item form must write `category_id` (NOT the vestigial
+`category` enum) — else the sync trigger could pull a re-homed item back to its old enum category. (2)
+ไดวอล sits in the catch-all pending operator recognition. (3) migrating the 2 machines into `equipment_items`
+as tracked assets = later optional. **U2 (next, code-only):** item-form learn-by-doing + multi-category
+control + browse-by-union + flatten subcategory UI + retire the dormant BOQ screen.
+
+---
+
 ## Spec 234 — Multi-project client access (extends ADR 0067) — ✅ COMPLETE (2026-06-30)
 
 Status: **all 3 units shipped (operator-approved design 2026-06-30).** A `client` login holds live access to N

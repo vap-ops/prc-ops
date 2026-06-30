@@ -50,8 +50,8 @@ select is(
      where stockable is false and fulfillment_mode <> 'made_to_order'),
   0, 'every non-stockable row backfilled to made_to_order');
 select is(
-  (select count(*)::int from public.catalog_items where kind <> 'material'),
-  0, 'all existing rows backfilled kind=material (re-home is S3)');
+  (select count(*)::int from public.catalog_items where kind is null),
+  0, 'every catalog item has a non-null kind (S2 defaulted material; spec 239 re-homed tools/equipment/assembly off the default)');
 select is(
   (select count(*)::int from public.catalog_items where owner_supplied),
   0, 'all existing rows backfilled owner_supplied=false');
