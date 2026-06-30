@@ -411,9 +411,11 @@ export type Database = {
           image_path: string | null
           is_active: boolean
           kind: Database["public"]["Enums"]["catalog_item_kind"]
+          lead_time_days: number | null
           note: string | null
           owner_supplied: boolean
           product_code: string | null
+          search_terms: string | null
           spec_attrs: string | null
           stockable: boolean
           subcategory_id: string | null
@@ -429,9 +431,11 @@ export type Database = {
           image_path?: string | null
           is_active?: boolean
           kind?: Database["public"]["Enums"]["catalog_item_kind"]
+          lead_time_days?: number | null
           note?: string | null
           owner_supplied?: boolean
           product_code?: string | null
+          search_terms?: string | null
           spec_attrs?: string | null
           stockable?: boolean
           subcategory_id?: string | null
@@ -447,9 +451,11 @@ export type Database = {
           image_path?: string | null
           is_active?: boolean
           kind?: Database["public"]["Enums"]["catalog_item_kind"]
+          lead_time_days?: number | null
           note?: string | null
           owner_supplied?: boolean
           product_code?: string | null
+          search_terms?: string | null
           spec_attrs?: string | null
           stockable?: boolean
           subcategory_id?: string | null
