@@ -75,9 +75,12 @@ jobs:
 
       - name: gitleaks
         run: |
-          TAG=$(curl -sSf https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep -oP '"tag_name":\s*"\K[^"]+')
-          VER=${TAG#v}
-          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/${TAG}/gitleaks_${VER}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          # Pinned version — DON'T fetch releases/latest: that unauthenticated
+          # api.github.com call randomly 403s on the runner (GitHub API rate-limit),
+          # which empties $TAG and fails the step on a flake, not a real secret.
+          # Bump deliberately. Release-asset download is unauthenticated-friendly.
+          VER=8.30.1
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VER}/gitleaks_${VER}_linux_x64.tar.gz" -o gitleaks.tar.gz
           tar -xzf gitleaks.tar.gz gitleaks
           ./gitleaks detect --no-git --redact --exit-code 1
 
@@ -101,9 +104,12 @@ jobs:
         run: |
           base="${{ github.event.pull_request.base.sha }}"
           head="${{ github.event.pull_request.head.sha }}"
-          changed="$(git diff --name-only "$base" "$head")"
+          # 3-dot (merge-base) so we see only what THIS branch changed, not files
+          # main advanced past the branch — a 2-dot diff false-positive-holds a behind
+          # branch on main's newer protected paths (it spuriously held PR #140).
+          changed="$(git diff --name-only "$base...$head")"
           echo "Changed files:"; echo "$changed"
-          deny='^(supabase/migrations/|supabase/tests/|src/lib/auth/|src/lib/db/admin\.ts|src/lib/accounting/|src/lib/labor/|src/lib/notifications/|src/app/api/notifications/|worker/|\.github/|\.claude/|CLAUDE\.md|docs/decisions/|docs/policies/|CODEOWNERS|package\.json|pnpm-lock\.yaml|\.env)'
+          deny='^(supabase/migrations/|supabase/tests/|src/lib/auth/|proxy\.ts$|middleware\.ts$|src/lib/db/admin\.ts|src/lib/accounting/|src/lib/labor/|src/lib/notifications/|src/app/api/notifications/|worker/|\.github/|\.claude/|CLAUDE\.md|docs/decisions/|docs/policies/|CODEOWNERS|package\.json|pnpm-lock\.yaml|\.env)'
           hits="$(echo "$changed" | grep -E "$deny" || true)"
           if [ -n "$hits" ]; then
             echo "::error::Protected path(s) touched — this PR needs operator review and cannot auto-merge:"

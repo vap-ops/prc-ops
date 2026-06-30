@@ -22,13 +22,21 @@ vi.mock("@/app/catalog/actions", () => ({
 
 import { EditCatalogItem } from "@/components/features/catalog/edit-catalog-item";
 
+// Spec 221 U4 — the category's 2-digit code is the product-code prefix; this
+// item's code "010120" is category "01" + the "0120" sequence tail.
+const CATS = [{ id: "cat-steel", code: "01", name: "เหล็ก" }];
+
 const item: CatalogItem = {
   id: "c1",
-  category: "electrical",
+  categoryId: "cat-steel",
   baseItem: "สายไฟเดิม",
   specAttrs: "2x4",
   unit: "ม้วน",
+  productCode: "010120",
   note: "",
+  kind: "material",
+  fulfillmentMode: "off_shelf",
+  ownerSupplied: false,
 };
 
 beforeEach(() => {
@@ -38,15 +46,17 @@ beforeEach(() => {
 });
 
 function open() {
-  render(<EditCatalogItem item={item} />);
+  render(<EditCatalogItem item={item} categories={CATS} />);
   fireEvent.click(screen.getByRole("button", { name: /แก้ไข/ }));
 }
 
 describe("EditCatalogItem (spec 175 U3)", () => {
-  it("opens pre-filled with the item's values", () => {
+  it("opens pre-filled with the item's values (incl. product code)", () => {
     open();
     expect(screen.getByLabelText("ชื่อวัสดุ")).toHaveValue("สายไฟเดิม");
     expect(screen.getByLabelText("หน่วยนับ")).toHaveValue("ม้วน");
+    // Spec 221 U4 — only the sequence tail is editable; the prefix is derived.
+    expect(screen.getByLabelText(/รหัสสินค้า/)).toHaveValue("0120");
   });
 
   it("saves the edited values and refreshes", async () => {
@@ -57,11 +67,19 @@ describe("EditCatalogItem (spec 175 U3)", () => {
     await waitFor(() =>
       expect(mockUpdate).toHaveBeenCalledWith({
         id: "c1",
-        category: "electrical",
+        categoryId: "cat-steel",
         baseItem: "สายไฟใหม่",
         specAttrs: "2x4",
         unit: "ม้วน",
         note: "",
+        // Spec 221 U4 — recomposed from category "01" + the unchanged tail "0120".
+        productCode: "010120",
+        // Spec 219 — optional subcategory; this item has none.
+        subcategoryId: "",
+        // Spec 224 — the facets carried through unchanged from the item.
+        kind: "material",
+        fulfillmentMode: "off_shelf",
+        ownerSupplied: false,
       }),
     );
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());

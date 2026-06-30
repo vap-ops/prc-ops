@@ -23,7 +23,7 @@ import {
   PurchaseRequestAttachmentStager,
   type AttachmentStagerHandle,
 } from "@/components/features/purchasing/purchase-request-attachment-stager";
-import { CatalogItemPicker } from "@/components/features/purchasing/catalog-item-picker";
+import { ScopedCatalogItemPicker } from "@/components/features/purchasing/catalog-item-picker";
 import {
   PURCHASE_PRIORITIES,
   validateCreatePurchaseRequest,
@@ -34,21 +34,25 @@ import {
   PURCHASE_REQUEST_PRIORITY_LABEL,
   PURCHASE_REQUEST_REASON_CODE_LABEL,
 } from "@/lib/i18n/labels";
-import type { Database } from "@/lib/db/database.types";
 import { bangkokTodayIso } from "@/lib/dates";
-
-type ItemCategory = Database["public"]["Enums"]["item_category"];
 
 // Spec 179/180: a catalog master item the requester picks (search + thumbnail).
 export interface PurchaseRequestCatalogItem {
   id: string;
-  category: ItemCategory;
+  // Spec 221 cleanup — the item's managed main category FK + its name (from the
+  // catalog_categories table), NOT the vestigial item_category enum, so
+  // user-created categories group + label correctly. null = uncategorised.
+  categoryId: string | null;
+  categoryName: string;
   baseItem: string;
   specAttrs: string | null;
   unit: string;
   // Spec 180 pro-max: a signed URL for the item's reference image (minted by the
   // page), or null when the item has no image.
   thumbnailUrl: string | null;
+  // Spec 214 — the 6-digit product code; optional so existing item sources (and
+  // fixtures) need no change. The picker searches and shows it when present.
+  productCode?: string | null;
 }
 
 // Selected-segment colors mirror the request list's status pills (spec 21):
@@ -83,6 +87,17 @@ interface PurchaseRequestFormProps {
    *  needs the catalog. An item not in the catalog is registered first at
    *  ตั้งค่า → แคตตาล็อก (no inline add). */
   catalogItems: PurchaseRequestCatalogItem[];
+  /** Spec 221 cleanup: the managed main categories (ordered, id + name) — the
+   *  picker groups items by category_id and labels chips with the managed name. */
+  categories: { id: string; name: string }[];
+  /** Spec 229 (ADR 0066 D5/D8): the WP work-category's Relation-R material
+   *  categories. Non-empty → the picker surfaces those items first + flags them;
+   *  empty/absent → the full catalog (show-all fallback). Threaded straight to
+   *  ScopedCatalogItemPicker (spec 228). */
+  scopedCategoryIds?: readonly string[] | undefined;
+  /** Spec 229: catalogItemId → its secondary category ids (the S4 union source),
+   *  so an item linked secondarily to a scoped category still surfaces. */
+  membershipsByItem?: ReadonlyMap<string, Set<string>> | undefined;
 }
 
 export function PurchaseRequestForm({
@@ -91,6 +106,9 @@ export function PurchaseRequestForm({
   userId,
   canSelfApprove = false,
   catalogItems,
+  categories,
+  scopedCategoryIds,
+  membershipsByItem,
 }: PurchaseRequestFormProps) {
   const router = useRouter();
   // Spec 208 U4a / ADR 0065: store-only procurement — every purchase is
@@ -265,12 +283,15 @@ export function PurchaseRequestForm({
       {/* Spec 180 (pro-max): catalog-only material picker — a search-driven
           bottom sheet (CatalogItemPicker). The chosen item drives the
           description + unit; an off-catalog item is registered at /catalog. */}
-      <CatalogItemPicker
+      <ScopedCatalogItemPicker
         items={catalogItems}
+        categories={categories}
         selectedId={catalogItemId}
         onSelect={selectCatalogItem}
         onClear={clearCatalogItem}
         disabled={submitting}
+        scopedCategoryIds={scopedCategoryIds}
+        membershipsByItem={membershipsByItem}
       />
 
       {/* Spec 180: หน่วย is derived from the chosen catalog item (shown in the

@@ -23,6 +23,10 @@ describe("resolveRecipients", () => {
     expect(resolveRecipients("wp_decision", { decidedBy: SA_2 }, ctx)).toEqual([SA_1]);
   });
 
+  it("sends wp_reopened to the WP's photo uploaders, excluding the reopener (spec 218)", () => {
+    expect(resolveRecipients("wp_reopened", { reopenedBy: SA_2 }, ctx)).toEqual([SA_1]);
+  });
+
   it("sends pr_decision to the requester", () => {
     expect(resolveRecipients("pr_decision", { requestedBy: SA_1, decidedBy: PM_A }, ctx)).toEqual([
       SA_1,

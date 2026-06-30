@@ -44,6 +44,8 @@ const STATIC_DETAIL = [
   "equipment",
   // Spec 175: the item catalog drills down from /settings (back chip).
   "catalog",
+  // Spec 219 U2: the subcategory manage screen drills down from /catalog.
+  "catalog/subcategories",
   // Spec 197 U1/U2: /store and /stock-count left /settings for the per-project
   // คลัง surface (/projects/[id]/store, a dynamic-segment DETAIL route
   // auto-classified above). Both legacy top-level routes are now thin
@@ -78,6 +80,8 @@ const STATIC_DETAIL = [
   // Spec 201 (review-kanban refinement): the reporter's own submissions split out
   // of the submit form to their own page (back chip → /feedback).
   "feedback/mine",
+  // Spec 220 (G63): the super_admin role-admin drills down from /settings (back chip).
+  "settings/roles",
   // Spec 162: the Nova operator console drills down from /settings (back chip).
   "nova",
   // Spec 161 U7: the dials calibration console drills down from /nova.
@@ -87,7 +91,12 @@ const STATIC_DETAIL = [
   // Spec 161 U9: the shop admin drills down from /nova.
   "nova/shop",
 ].map((r) => `${r}/page.tsx`);
-const dynamicDetail = allPages.map(routeOf).filter(hasDynamicSegment);
+// Spec 234: the external /client tree is bespoke (own header + logout, no app
+// DetailHeader — like /portal), so its dynamic drill (/client/[projectId]) is
+// EXCLUDED below rather than required to render DetailHeader.
+const dynamicDetail = allPages
+  .map(routeOf)
+  .filter((r) => hasDynamicSegment(r) && !r.startsWith("client/"));
 const DETAIL_ROUTES = [...dynamicDetail, ...STATIC_DETAIL];
 
 // NON-DETAIL: hubs and primary-tab destinations — left via tab bar / HubNav,
@@ -104,6 +113,10 @@ const NON_DETAIL_ROUTES = [
   "requests",
   "dashboard",
   "portal",
+  // Spec 233 / ADR 0067: /client is the external client tier's primary
+  // destination — its own header + logout, no back chip (mirrors /portal). U4
+  // fills the read-only render; the U1 stub redirects to access-ended.
+  "client",
 ].map((r) => `${r}/page.tsx`);
 
 // EXCLUDED: bespoke layouts that use neither header — the root dispatcher,
@@ -123,6 +136,17 @@ const EXCLUDED_ROUTES = [
   // Spec 130: the contractor invite-claim entry — a bespoke single-card layout
   // (neither header), reachable by a freshly-logged-in visitor before binding.
   "portal/claim/page.tsx",
+  // Spec 233 / ADR 0067: the client invite-claim entry mirrors /portal/claim —
+  // a bespoke single-card layout (neither header), reached by a freshly
+  // logged-in visitor before binding.
+  "client/claim/page.tsx",
+  // Spec 233 / ADR 0067: the calm lapsed-access notice (neither header), where
+  // an expired/revoked client lands — like /coming-soon.
+  "client/access-ended/page.tsx",
+  // Spec 234 / ADR 0067: the per-project drill in the external client portal —
+  // bespoke (ClientProgressView's own header + logout + back chip, no app
+  // DetailHeader). Excluded from the dynamic-DetailHeader requirement above.
+  "client/[projectId]/page.tsx",
 ];
 
 describe("nav back-affordance (spec 63)", () => {

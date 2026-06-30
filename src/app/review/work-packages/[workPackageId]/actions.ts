@@ -23,13 +23,7 @@ import {
   shouldTransitionToComplete,
   type ApprovalDecision,
 } from "@/lib/approvals/predicates";
-import { getCurrentPhotosForWorkPackage } from "@/lib/photos/current-photos";
-import {
-  canHold,
-  canRelease,
-  deriveReleaseStatus,
-  HOLDABLE_FROM_STATUSES,
-} from "@/lib/work-packages/hold";
+import { canHold, canRelease } from "@/lib/work-packages/hold";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
 import { PM_ROLES } from "@/lib/auth/role-home";
 import { isValidUuid } from "@/lib/validate/uuid";
@@ -145,16 +139,14 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
 
 // setHoldStatus: the PM on-hold toggle (spec 52 part B).
 //
-// Unlike the photo path there is NO admin escalation here —
-// work_packages UPDATE RLS already admits project_manager/super_admin,
-// so the UPDATE runs under the caller's own session and RLS is the
-// load-bearing backstop. Each direction is double-guarded: the
-// canHold/canRelease predicate plus a SQL WHERE clause on the current
-// status, so a stale UI can never hold a pending/complete WP or
-// "release" one that isn't held.
-//
-// Release re-derives the landing status from current During photos
-// (deriveReleaseStatus) instead of snapshotting — see hold.ts.
+// Since ERD-audit M2, work_packages.status is not settable by a direct
+// user-context UPDATE (the column grant is revoked). The transition is
+// delegated to the set_work_package_hold SECURITY DEFINER RPC, which is the
+// load-bearing authorisation: it re-checks role (PM_ROLES) + membership
+// (can_see_wp) + current status, and re-derives the release landing status
+// from current During photos (deriveReleaseStatus, now in SQL — see the RPC in
+// migration 20260813025000). canHold/canRelease stay here only to return a
+// friendly Thai message before the round-trip.
 
 export interface SetHoldStatusInput {
   workPackageId: string;
@@ -186,43 +178,30 @@ export async function setHoldStatus(input: SetHoldStatusInput): Promise<SetHoldS
     .maybeSingle();
   if (wpError || !wp) return { ok: false, error: "ไม่พบรายการงาน" };
 
-  if (input.hold) {
-    if (!canHold(wp.status)) {
-      return { ok: false, error: "รายการงานนี้พักไม่ได้ในสถานะปัจจุบัน" };
-    }
-    const { data: updated, error: updateError } = await supabase
-      .from("work_packages")
-      .update({ status: "on_hold" })
-      .eq("id", wp.id)
-      .in("status", [...HOLDABLE_FROM_STATUSES])
-      .select("id");
-    if (updateError || !updated || updated.length === 0) {
-      return { ok: false, error: "พักงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
-    }
-  } else {
-    if (!canRelease(wp.status)) {
-      return { ok: false, error: "รายการงานนี้ไม่ได้พักอยู่" };
-    }
-    // getCurrentPhotosForWorkPackage throws on a query error — catch it
-    // so the action keeps its result-object error contract (spec-35
-    // lesson: server-action throws surface as opaque digests).
-    let hasDuring: boolean;
-    try {
-      const photos = await getCurrentPhotosForWorkPackage(supabase, wp.id);
-      hasDuring = photos.during.length > 0;
-    } catch {
-      return { ok: false, error: "กลับมาดำเนินการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
-    }
-    const target = deriveReleaseStatus(hasDuring);
-    const { data: updated, error: updateError } = await supabase
-      .from("work_packages")
-      .update({ status: target })
-      .eq("id", wp.id)
-      .eq("status", "on_hold")
-      .select("id");
-    if (updateError || !updated || updated.length === 0) {
-      return { ok: false, error: "กลับมาดำเนินการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
-    }
+  // The transition itself moved into the set_work_package_hold definer RPC
+  // (ERD audit M2): work_packages.status is no longer settable via a direct
+  // user-context UPDATE. canHold/canRelease stay here only to give a friendly
+  // Thai message before the round-trip; the RPC re-checks role, membership, and
+  // current status, and re-derives the release landing status from current
+  // During photos (the same deriveReleaseStatus rule, now in SQL).
+  if (input.hold ? !canHold(wp.status) : !canRelease(wp.status)) {
+    return {
+      ok: false,
+      error: input.hold ? "รายการงานนี้พักไม่ได้ในสถานะปัจจุบัน" : "รายการงานนี้ไม่ได้พักอยู่",
+    };
+  }
+
+  const { error: rpcError } = await supabase.rpc("set_work_package_hold", {
+    p_wp: wp.id,
+    p_hold: input.hold,
+  });
+  if (rpcError) {
+    return {
+      ok: false,
+      error: input.hold
+        ? "พักงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
+        : "กลับมาดำเนินการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+    };
   }
 
   revalidatePath("/review");

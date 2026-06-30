@@ -12,11 +12,25 @@ import { Pencil } from "lucide-react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
 import { setCatalogItemActive, updateCatalogItem } from "@/app/catalog/actions";
-import { CatalogItemForm } from "./catalog-item-form";
+import {
+  CatalogItemForm,
+  type CatalogSubcategoryOption,
+  type CatalogUnitOption,
+} from "./catalog-item-form";
 import { CatalogImageControl } from "./catalog-image-control";
-import type { CatalogItem } from "./catalog-list";
+import type { CatalogItem, CatalogCategoryOption } from "./catalog-list";
 
-export function EditCatalogItem({ item }: { item: CatalogItem }) {
+export function EditCatalogItem({
+  item,
+  categories = [],
+  subcategories = [],
+  units = [],
+}: {
+  item: CatalogItem;
+  categories?: CatalogCategoryOption[];
+  subcategories?: CatalogSubcategoryOption[];
+  units?: CatalogUnitOption[];
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [deactivating, startDeactivate] = useTransition();
@@ -57,12 +71,20 @@ export function EditCatalogItem({ item }: { item: CatalogItem }) {
         </div>
         <CatalogItemForm
           initial={{
-            category: item.category,
+            categoryId: item.categoryId ?? "",
             baseItem: item.baseItem,
             specAttrs: item.specAttrs ?? "",
             unit: item.unit,
             note: item.note ?? "",
+            productCode: item.productCode ?? "",
+            subcategoryId: item.subcategoryId ?? "",
+            kind: item.kind,
+            fulfillmentMode: item.fulfillmentMode,
+            ownerSupplied: item.ownerSupplied,
           }}
+          categories={categories}
+          subcategories={subcategories}
+          units={units}
           submitLabel="บันทึก"
           submittingLabel="กำลังบันทึก…"
           onSubmit={(values) => updateCatalogItem({ id: item.id, ...values })}

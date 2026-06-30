@@ -8,12 +8,19 @@
 // transitions. The grid replaces the spec-176 one-at-a-time bottom sheet.
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
+import {
+  BUTTON_PRIMARY,
+  BUTTON_PRIMARY_COMPACT,
+  BUTTON_SECONDARY,
+  BUTTON_SECONDARY_COMPACT,
+  INLINE_ERROR,
+} from "@/lib/ui/classes";
 import type { Database } from "@/lib/db/database.types";
-import { CatalogItemPicker } from "@/components/features/purchasing/catalog-item-picker";
+import { ScopedCatalogItemPicker } from "@/components/features/purchasing/catalog-item-picker";
 import type { PurchaseRequestCatalogItem } from "@/components/features/purchasing/purchase-request-form";
+import { membershipsByItem, type CatalogItemMembership } from "@/lib/catalog/categories";
 import {
   approvePlan,
   bulkAddPlanLines,
@@ -44,7 +51,7 @@ export type PlanLine = {
   converted: boolean;
 };
 
-type DraftRow = {
+export type DraftRow = {
   key: number;
   catalogItemId: string;
   workPackageId: string;
@@ -71,6 +78,19 @@ function blankRow(): DraftRow {
   return { key: rowSeq, catalogItemId: "", workPackageId: "", qty: "", note: "" };
 }
 
+// Spec 222 — "one item into many work packages". Fan a single draft row into one
+// fresh row per chosen WP: the catalog item carries over, each gets its own WP and
+// a BLANK qty (the planner fills each — quantities differ per WP). Empty list →
+// the row is left as-is (a single / whole-project line). Pure so it's unit-tested.
+export function expandRowToWorkPackages(row: DraftRow, wpIds: string[]): DraftRow[] {
+  if (wpIds.length === 0) return [row];
+  return wpIds.map((wpId) => ({
+    ...blankRow(),
+    catalogItemId: row.catalogItemId,
+    workPackageId: wpId,
+  }));
+}
+
 export function SupplyPlanManager({
   projectId,
   planId,
@@ -80,7 +100,10 @@ export function SupplyPlanManager({
   overriddenByName,
   lines,
   catalogItems,
+  categories,
   workPackages,
+  itemMemberships,
+  wpScopedCategories,
 }: {
   projectId: string;
   planId: string | null;
@@ -91,12 +114,26 @@ export function SupplyPlanManager({
   overriddenByName: string | null;
   lines: PlanLine[];
   catalogItems: CatalogPick[];
+  // Spec 221 cleanup: the managed main categories (ordered, id + name) for the
+  // shared catalog picker — group by category_id, label with the managed name.
+  categories: { id: string; name: string }[];
   workPackages: { id: string; code: string; name: string }[];
+  // Spec 228 (ADR 0066 / S7): the canonical∪secondary membership rows feeding the
+  // scoped picker's union (the S4 SSOT). Absent → an unscoped (full-catalog) picker.
+  itemMemberships?: CatalogItemMembership[];
+  // Spec 228: per-WP resolved Relation-R material category ids (server-side, via
+  // resolveScopedCategories). A WP absent from the map — or a whole-project row —
+  // has no scope, so the picker shows the full catalog (D8 show-all fallback).
+  wpScopedCategories?: Record<string, string[]>;
 }) {
   const router = useRouter();
   // Editable while draft/rejected (or before a plan exists); submitted/approved
   // are the frozen baseline.
   const editable = planStatus === null || planStatus === "draft" || planStatus === "rejected";
+
+  // Spec 228 — the canonical∪secondary membership union, built once for every
+  // row's scoped picker (the same membership data backs all rows).
+  const membershipMap = useMemo(() => membershipsByItem(itemMemberships ?? []), [itemMemberships]);
 
   const [rows, setRows] = useState<DraftRow[]>([blankRow()]);
   const [error, setError] = useState<string | null>(null);
@@ -115,6 +152,31 @@ export function SupplyPlanManager({
     (r) => r.catalogItemId !== "" && Number.isFinite(Number(r.qty)) && Number(r.qty) > 0,
   );
   const canSave = !saving && validRows.length > 0 && planId !== null;
+
+  // Spec 222 — the per-row multi-WP picker. multiOpenKey is which row's WP
+  // checklist is open (one at a time); multiChecked is its ticked WP ids.
+  const [multiOpenKey, setMultiOpenKey] = useState<number | null>(null);
+  const [multiChecked, setMultiChecked] = useState<string[]>([]);
+
+  function openMulti(key: number) {
+    setMultiOpenKey(key);
+    setMultiChecked([]);
+  }
+  function toggleMultiWp(id: string) {
+    setMultiChecked((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+  }
+  function applyMulti(key: number) {
+    // Replace the source row with one pre-filled row per ticked WP (item copied,
+    // qty blank). Ticking none and confirming just closes the panel (no-op).
+    setRows((rs) =>
+      rs.flatMap((r) =>
+        r.key === key && r.catalogItemId !== "" ? expandRowToWorkPackages(r, multiChecked) : [r],
+      ),
+    );
+    setMultiOpenKey(null);
+    setMultiChecked([]);
+    setError(null);
+  }
 
   function patchRow(key: number, patch: Partial<DraftRow>) {
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
@@ -405,13 +467,21 @@ export function SupplyPlanManager({
               className="border-edge bg-card rounded-control flex flex-col gap-2 border p-3 sm:flex-row sm:items-end"
             >
               <div className="flex min-w-0 flex-[2] flex-col gap-1">
-                <CatalogItemPicker
+                <ScopedCatalogItemPicker
                   label="วัสดุ"
                   items={catalogItems}
+                  categories={categories}
                   selectedId={r.catalogItemId}
                   onSelect={(id) => patchRow(r.key, { catalogItemId: id })}
                   onClear={() => patchRow(r.key, { catalogItemId: "" })}
                   disabled={saving}
+                  // Spec 228: scope to THIS row's WP work-category via Relation R
+                  // (resolved server-side). A whole-project row (no WP) → no scope
+                  // → the full catalog (D8 show-all fallback).
+                  scopedCategoryIds={
+                    r.workPackageId ? wpScopedCategories?.[r.workPackageId] : undefined
+                  }
+                  membershipsByItem={membershipMap}
                 />
               </div>
               <div className="flex min-w-0 flex-[2] flex-col gap-1">
@@ -433,6 +503,73 @@ export function SupplyPlanManager({
                     </option>
                   ))}
                 </select>
+                {/* Spec 222: fan this item into several WPs at once. Each ticked WP
+                    becomes its own draft row (qty blank) for the planner to fill. */}
+                {workPackages.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => openMulti(r.key)}
+                    disabled={saving}
+                    className="text-action text-meta focus-visible:ring-action disabled:text-ink-muted self-start rounded font-medium underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 disabled:no-underline"
+                  >
+                    ＋ หลายงาน
+                  </button>
+                ) : null}
+                {multiOpenKey === r.key ? (
+                  <div
+                    role="group"
+                    aria-label="เลือกหลายงาน"
+                    className="border-edge bg-page rounded-control mt-1 flex flex-col gap-2 border p-2"
+                  >
+                    {/* Spec 222 follow-up: the button is always tappable; if the
+                        row has no item yet, explain the order instead of silently
+                        disabling (the old greyed state read as "broken"). */}
+                    {r.catalogItemId === "" ? (
+                      <p className="text-ink-secondary text-meta">
+                        เลือกวัสดุของแถวนี้ก่อน เพื่อกระจายไปยังงานที่เลือก
+                      </p>
+                    ) : null}
+                    <ul className="flex max-h-40 flex-col gap-1 overflow-y-auto">
+                      {workPackages.map((w) => (
+                        <li key={w.id}>
+                          <label className="text-ink flex cursor-pointer items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              aria-label={`เลือกงาน ${w.code}`}
+                              checked={multiChecked.includes(w.id)}
+                              onChange={() => toggleMultiWp(w.id)}
+                              className="accent-action size-4 shrink-0"
+                            />
+                            <span className="min-w-0 truncate">
+                              {w.code} {w.name}
+                            </span>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMultiOpenKey(null);
+                          setMultiChecked([]);
+                        }}
+                        className={BUTTON_SECONDARY_COMPACT}
+                      >
+                        ยกเลิก
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="ยืนยันเลือกหลายงาน"
+                        onClick={() => applyMulti(r.key)}
+                        disabled={multiChecked.length === 0 || r.catalogItemId === ""}
+                        className={BUTTON_PRIMARY_COMPACT}
+                      >
+                        เพิ่ม ({multiChecked.length})
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
               <div className="flex w-full min-w-0 flex-col gap-1 sm:w-24">
                 <label htmlFor={`spl-qty-${r.key}`} className={LABEL}>

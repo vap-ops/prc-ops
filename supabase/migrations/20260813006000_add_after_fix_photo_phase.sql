@@ -1,0 +1,11 @@
+-- Feedback 0fa23307 — a 4th photo phase 'after_fix' (หลังแก้ไข): completion
+-- photos for a WP's rework (defect correction), distinct from the original
+-- 'after' (แล้วเสร็จ) work photos.
+--
+-- Enum-add ONLY. Postgres requires a new enum value be added in its own
+-- migration/transaction, separate from any statement that uses it (the
+-- machinery_tools item_category add follows the same convention). The TS
+-- totality maps (PHOTO_PHASE_LABEL / PHASES / the addPhoto validation array /
+-- the photo-transition rule) and the pgTAP enum pin land in this PR's later
+-- commits, after db:types regenerates the enum.
+alter type public.photo_phase add value 'after_fix' after 'after';

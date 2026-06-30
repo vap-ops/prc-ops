@@ -38,6 +38,14 @@ describe("parseNotificationPayload", () => {
     });
   });
 
+  it("maps the wp_reopened snapshot fields — round + reopened_by (spec 218 U5)", () => {
+    expect(parseNotificationPayload({ code: "WP-014", round: 2, reopened_by: "uuid-sa" })).toEqual({
+      code: "WP-014",
+      round: 2,
+      reopenedBy: "uuid-sa",
+    });
+  });
+
   it("maps the feedback_submitted snapshot fields (spec 201 A4)", () => {
     expect(
       parseNotificationPayload({

@@ -8,8 +8,8 @@
 import "server-only";
 
 import { revalidatePath } from "next/cache";
-import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
-import { PM_ROLES } from "@/lib/auth/role-home";
+import { getActionUser, NOT_SIGNED_IN, requireActionRole } from "@/lib/auth/action-gate";
+import { CLIENT_ISSUER_ROLES, PM_ROLES } from "@/lib/auth/role-home";
 import { projectHref } from "@/lib/nav/project-paths";
 import { isValidUuid } from "@/lib/validate/uuid";
 import {
@@ -660,4 +660,77 @@ export async function removeWorkPackagesFromDeliverable(
 
   revalidatePath(projectHref(projectId));
   return { ok: true, count };
+}
+
+// ── Spec 233 / ADR 0067 — temporary client portal access. Issue/revoke gated to
+// CLIENT_ISSUER_ROLES (project_director + super_admin ONLY — NOT pm). The action
+// does a friendly early role check; the SECURITY DEFINER create_client_invite /
+// revoke_client_access RPCs gate again server-side (defense-in-depth) and run
+// through the caller's RLS session (never the admin client).
+const CLIENT_ISSUER_ONLY_ERROR = "เฉพาะผู้อำนวยการโครงการเท่านั้น";
+const CLIENT_INVITE_GENERIC = "ไม่สามารถสร้างลิงก์เชิญลูกค้าได้ กรุณาลองใหม่";
+const VALID_UNTIL_BAD = "กรุณาเลือกวันหมดอายุที่ถูกต้อง";
+const VALID_UNTIL_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export type ClientInviteResult = { ok: true; token: string } | { ok: false; error: string };
+export type ClientRevokeResult = { ok: true } | { ok: false; error: string };
+
+export async function createClientInvite(input: {
+  projectId: string;
+  validUntil: string;
+}): Promise<ClientInviteResult> {
+  const gate = await requireActionRole(CLIENT_ISSUER_ROLES, CLIENT_ISSUER_ONLY_ERROR);
+  if ("error" in gate) return { ok: false, error: gate.error };
+  if (!isValidUuid(input.projectId)) return { ok: false, error: CLIENT_INVITE_GENERIC };
+  if (!VALID_UNTIL_RE.test(input.validUntil)) return { ok: false, error: VALID_UNTIL_BAD };
+
+  // Access is live through the END of the chosen day, Thai time (+07).
+  const { data, error } = await gate.auth.supabase.rpc("create_client_invite", {
+    p_project: input.projectId,
+    p_valid_until: `${input.validUntil}T23:59:59+07:00`,
+  });
+  if (error || !data) return { ok: false, error: CLIENT_INVITE_GENERIC };
+  revalidatePath(projectHref(input.projectId));
+  return { ok: true, token: data };
+}
+
+export async function revokeClientAccess(input: {
+  accessId: string;
+  projectId: string;
+}): Promise<ClientRevokeResult> {
+  const gate = await requireActionRole(CLIENT_ISSUER_ROLES, CLIENT_ISSUER_ONLY_ERROR);
+  if ("error" in gate) return { ok: false, error: gate.error };
+  if (!isValidUuid(input.accessId)) return { ok: false, error: CLIENT_INVITE_GENERIC };
+
+  const { error } = await gate.auth.supabase.rpc("revoke_client_access", {
+    p_access_id: input.accessId,
+  });
+  if (error) return { ok: false, error: CLIENT_INVITE_GENERIC };
+  revalidatePath(projectHref(input.projectId));
+  return { ok: true };
+}
+
+// Spec 234 / ADR 0067 — attach an EXISTING client login to this project. Same
+// PD/super gate; the grant_client_access definer RPC gates again + verifies the
+// target is already a client. Relayed through the RLS session.
+export async function grantClientAccess(input: {
+  userId: string;
+  projectId: string;
+  validUntil: string;
+}): Promise<ClientRevokeResult> {
+  const gate = await requireActionRole(CLIENT_ISSUER_ROLES, CLIENT_ISSUER_ONLY_ERROR);
+  if ("error" in gate) return { ok: false, error: gate.error };
+  if (!isValidUuid(input.userId) || !isValidUuid(input.projectId)) {
+    return { ok: false, error: CLIENT_INVITE_GENERIC };
+  }
+  if (!VALID_UNTIL_RE.test(input.validUntil)) return { ok: false, error: VALID_UNTIL_BAD };
+
+  const { error } = await gate.auth.supabase.rpc("grant_client_access", {
+    p_user_id: input.userId,
+    p_project: input.projectId,
+    p_valid_until: `${input.validUntil}T23:59:59+07:00`,
+  });
+  if (error) return { ok: false, error: CLIENT_INVITE_GENERIC };
+  revalidatePath(projectHref(input.projectId));
+  return { ok: true };
 }

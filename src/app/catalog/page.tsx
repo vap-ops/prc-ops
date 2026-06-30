@@ -13,9 +13,15 @@ import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
+import Link from "next/link";
 import { CatalogList, type CatalogItem } from "@/components/features/catalog/catalog-list";
+import type {
+  CatalogSubcategoryOption,
+  CatalogUnitOption,
+} from "@/components/features/catalog/catalog-item-form";
+import { loadCatalogCategories } from "@/lib/catalog/categories";
 import { AddCatalogItem } from "@/components/features/catalog/add-catalog-item";
-import { CATALOG_LABEL } from "@/lib/i18n/labels";
+import { CATALOG_LABEL, MANAGE_TAXONOMY_LABEL } from "@/lib/i18n/labels";
 
 export const metadata = { title: CATALOG_LABEL };
 
@@ -25,9 +31,41 @@ export default async function CatalogPage() {
   const supabase = await createServerSupabase();
   const { data: rows } = await supabase
     .from("catalog_items")
-    .select("id, category, base_item, spec_attrs, unit, note, image_path")
+    .select(
+      "id, category_id, base_item, spec_attrs, unit, note, image_path, product_code, subcategory_id, kind, fulfillment_mode, owner_supplied",
+    )
     .eq("is_active", true)
     .order("base_item", { ascending: true });
+
+  // Spec 221 U3c — the managed main categories (names + order for the filter + form).
+  const categories = await loadCatalogCategories(supabase);
+
+  // Spec 219/221 — the subcategory options for the add/edit cascading picker.
+  const { data: subRows } = await supabase
+    .from("catalog_subcategories")
+    .select("id, category_id, code, name")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .order("code", { ascending: true });
+  const subcategories: CatalogSubcategoryOption[] = (subRows ?? []).map((r) => ({
+    id: r.id,
+    categoryId: r.category_id ?? "",
+    code: r.code,
+    name: r.name,
+  }));
+
+  // Spec 223 (ADR 0066) — the managed unit vocabulary for the item-form picker
+  // (active rows; the table is the SSOT, COMMON_UNITS is only an in-code fallback).
+  const { data: unitRows } = await supabase
+    .from("catalog_units")
+    .select("code, display_name")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .order("code", { ascending: true });
+  const units: CatalogUnitOption[] = (unitRows ?? []).map((r) => ({
+    code: r.code,
+    displayName: r.display_name,
+  }));
 
   // Reads on the private catalog-images bucket go through service-role signed
   // URLs (the rows above were already read under the user's RLS).
@@ -51,11 +89,16 @@ export default async function CatalogPage() {
 
   const items: CatalogItem[] = (rows ?? []).map((r) => ({
     id: r.id,
-    category: r.category,
+    categoryId: r.category_id,
     baseItem: r.base_item,
     specAttrs: r.spec_attrs,
     unit: r.unit,
+    productCode: r.product_code,
     note: r.note,
+    subcategoryId: r.subcategory_id,
+    kind: r.kind,
+    fulfillmentMode: r.fulfillment_mode,
+    ownerSupplied: r.owner_supplied,
     thumbnailUrl: signed.get(r.id) ?? null,
     // Omit the key entirely for non-super (exactOptionalPropertyTypes forbids an
     // explicit `undefined`) — the rate never reaches the client for them.
@@ -69,10 +112,23 @@ export default async function CatalogPage() {
         <h1 className="text-title text-ink font-bold tracking-tight">{CATALOG_LABEL}</h1>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-5 px-5 py-6`}>
-        <div className="flex justify-end">
-          <AddCatalogItem />
+        <div className="flex items-center justify-between gap-2">
+          <Link
+            href="/catalog/subcategories"
+            className="text-action text-sm font-medium hover:underline"
+          >
+            {MANAGE_TAXONOMY_LABEL}
+          </Link>
+          <AddCatalogItem categories={categories} subcategories={subcategories} units={units} />
         </div>
-        <CatalogList items={items} editable canSetSellRate={canSetSellRate} />
+        <CatalogList
+          items={items}
+          categories={categories}
+          subcategories={subcategories}
+          units={units}
+          editable
+          canSetSellRate={canSetSellRate}
+        />
       </div>
     </PageShell>
   );

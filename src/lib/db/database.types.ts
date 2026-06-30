@@ -152,42 +152,244 @@ export type Database = {
         }
         Relationships: []
       }
+      catalog_categories: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          legacy_category: Database["public"]["Enums"]["item_category"] | null
+          name: string
+          name_en: string | null
+          sort_order: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          legacy_category?: Database["public"]["Enums"]["item_category"] | null
+          name: string
+          name_en?: string | null
+          sort_order?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          legacy_category?: Database["public"]["Enums"]["item_category"] | null
+          name?: string
+          name_en?: string | null
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      catalog_item_categories: {
+        Row: {
+          catalog_item_id: string
+          category_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_primary: boolean
+          subcategory_id: string | null
+        }
+        Insert: {
+          catalog_item_id: string
+          category_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_primary?: boolean
+          subcategory_id?: string | null
+        }
+        Update: {
+          catalog_item_id?: string
+          category_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_primary?: boolean
+          subcategory_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_item_categories_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_item_categories_category_id_fk"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_item_categories_subcategory_category_id_fk"
+            columns: ["subcategory_id", "category_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_subcategories"
+            referencedColumns: ["id", "category_id"]
+          },
+        ]
+      }
       catalog_items: {
         Row: {
           base_item: string
-          category: Database["public"]["Enums"]["item_category"]
+          category: Database["public"]["Enums"]["item_category"] | null
+          category_id: string | null
           created_at: string
+          fulfillment_mode: Database["public"]["Enums"]["catalog_fulfillment_mode"]
           id: string
           image_path: string | null
           is_active: boolean
+          kind: Database["public"]["Enums"]["catalog_item_kind"]
           note: string | null
+          owner_supplied: boolean
+          product_code: string | null
           spec_attrs: string | null
           stockable: boolean
+          subcategory_id: string | null
           unit: string
         }
         Insert: {
           base_item: string
-          category: Database["public"]["Enums"]["item_category"]
+          category?: Database["public"]["Enums"]["item_category"] | null
+          category_id?: string | null
           created_at?: string
+          fulfillment_mode?: Database["public"]["Enums"]["catalog_fulfillment_mode"]
           id?: string
           image_path?: string | null
           is_active?: boolean
+          kind?: Database["public"]["Enums"]["catalog_item_kind"]
           note?: string | null
+          owner_supplied?: boolean
+          product_code?: string | null
           spec_attrs?: string | null
           stockable?: boolean
+          subcategory_id?: string | null
           unit: string
         }
         Update: {
           base_item?: string
-          category?: Database["public"]["Enums"]["item_category"]
+          category?: Database["public"]["Enums"]["item_category"] | null
+          category_id?: string | null
           created_at?: string
+          fulfillment_mode?: Database["public"]["Enums"]["catalog_fulfillment_mode"]
           id?: string
           image_path?: string | null
           is_active?: boolean
+          kind?: Database["public"]["Enums"]["catalog_item_kind"]
           note?: string | null
+          owner_supplied?: boolean
+          product_code?: string | null
           spec_attrs?: string | null
           stockable?: boolean
+          subcategory_id?: string | null
           unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_items_subcategory_category_id_fk"
+            columns: ["subcategory_id", "category_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_subcategories"
+            referencedColumns: ["id", "category_id"]
+          },
+          {
+            foreignKeyName: "catalog_items_subcategory_fk"
+            columns: ["subcategory_id", "category"]
+            isOneToOne: false
+            referencedRelation: "catalog_subcategories"
+            referencedColumns: ["id", "category"]
+          },
+        ]
+      }
+      catalog_subcategories: {
+        Row: {
+          category: Database["public"]["Enums"]["item_category"] | null
+          category_id: string | null
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          category?: Database["public"]["Enums"]["item_category"] | null
+          category_id?: string | null
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["item_category"] | null
+          category_id?: string | null
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_subcategories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_units: {
+        Row: {
+          abbr_short: string | null
+          code: string
+          created_at: string
+          created_by: string | null
+          display_name: string
+          is_active: boolean
+          sort_order: number
+          unit_class: Database["public"]["Enums"]["unit_class"]
+          updated_at: string
+        }
+        Insert: {
+          abbr_short?: string | null
+          code: string
+          created_at?: string
+          created_by?: string | null
+          display_name: string
+          is_active?: boolean
+          sort_order?: number
+          unit_class: Database["public"]["Enums"]["unit_class"]
+          updated_at?: string
+        }
+        Update: {
+          abbr_short?: string | null
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          display_name?: string
+          is_active?: boolean
+          sort_order?: number
+          unit_class?: Database["public"]["Enums"]["unit_class"]
+          updated_at?: string
         }
         Relationships: []
       }
@@ -278,6 +480,123 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_invites: {
+        Row: {
+          access_expires_at: string
+          claimed_at: string | null
+          claimed_by: string | null
+          created_at: string
+          created_by: string
+          id: string
+          project_id: string
+          token_hash: string
+        }
+        Insert: {
+          access_expires_at: string
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          project_id: string
+          token_hash: string
+        }
+        Update: {
+          access_expires_at?: string
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          project_id?: string
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_invites_claimed_by_fkey"
+            columns: ["claimed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_invites_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_invites_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_portal_access: {
+        Row: {
+          expires_at: string | null
+          granted_at: string
+          granted_by: string
+          id: string
+          project_id: string
+          revoked_at: string | null
+          revoked_by: string | null
+          user_id: string
+        }
+        Insert: {
+          expires_at?: string | null
+          granted_at?: string
+          granted_by: string
+          id?: string
+          project_id: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          user_id: string
+        }
+        Update: {
+          expires_at?: string | null
+          granted_at?: string
+          granted_by?: string
+          id?: string
+          project_id?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_portal_access_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_portal_access_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_portal_access_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_portal_access_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -694,7 +1013,7 @@ export type Database = {
           created_by: string
           expires_at: string
           id: string
-          token: string
+          token_hash: string
         }
         Insert: {
           claimed_at?: string | null
@@ -704,7 +1023,7 @@ export type Database = {
           created_by: string
           expires_at: string
           id?: string
-          token: string
+          token_hash: string
         }
         Update: {
           claimed_at?: string | null
@@ -714,7 +1033,7 @@ export type Database = {
           created_by?: string
           expires_at?: string
           id?: string
-          token?: string
+          token_hash?: string
         }
         Relationships: [
           {
@@ -1339,6 +1658,7 @@ export type Database = {
           app_version: string | null
           body: string
           created_at: string
+          feedback_number: number
           id: string
           page_path: string | null
           role_snapshot: Database["public"]["Enums"]["user_role"]
@@ -1353,6 +1673,7 @@ export type Database = {
           app_version?: string | null
           body: string
           created_at?: string
+          feedback_number?: number
           id?: string
           page_path?: string | null
           role_snapshot: Database["public"]["Enums"]["user_role"]
@@ -1367,6 +1688,7 @@ export type Database = {
           app_version?: string | null
           body?: string
           created_at?: string
+          feedback_number?: number
           id?: string
           page_path?: string | null
           role_snapshot?: Database["public"]["Enums"]["user_role"]
@@ -2127,6 +2449,7 @@ export type Database = {
           created_at: string
           id: string
           phase: Database["public"]["Enums"]["photo_phase"]
+          rework_round: number
           storage_path: string | null
           superseded_by: string | null
           uploaded_by: string
@@ -2137,6 +2460,7 @@ export type Database = {
           created_at?: string
           id?: string
           phase: Database["public"]["Enums"]["photo_phase"]
+          rework_round?: number
           storage_path?: string | null
           superseded_by?: string | null
           uploaded_by: string
@@ -2147,6 +2471,7 @@ export type Database = {
           created_at?: string
           id?: string
           phase?: Database["public"]["Enums"]["photo_phase"]
+          rework_round?: number
           storage_path?: string | null
           superseded_by?: string | null
           uploaded_by?: string
@@ -2246,6 +2571,7 @@ export type Database = {
           project_id: string
           sort_order: number
           updated_at: string
+          work_category_id: string | null
         }
         Insert: {
           code: string
@@ -2257,6 +2583,7 @@ export type Database = {
           project_id: string
           sort_order: number
           updated_at?: string
+          work_category_id?: string | null
         }
         Update: {
           code?: string
@@ -2268,6 +2595,7 @@ export type Database = {
           project_id?: string
           sort_order?: number
           updated_at?: string
+          work_category_id?: string | null
         }
         Relationships: [
           {
@@ -2282,6 +2610,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_categories_work_category_id_fkey"
+            columns: ["work_category_id"]
+            isOneToOne: false
+            referencedRelation: "work_categories"
             referencedColumns: ["id"]
           },
         ]
@@ -4232,6 +4567,87 @@ export type Database = {
         }
         Relationships: []
       }
+      work_categories: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          masterformat_code: string | null
+          name_en: string | null
+          name_th: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          masterformat_code?: string | null
+          name_en?: string | null
+          name_th: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          masterformat_code?: string | null
+          name_en?: string | null
+          name_th?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      work_category_material_categories: {
+        Row: {
+          category_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          kind_filter: Database["public"]["Enums"]["catalog_item_kind"] | null
+          work_category_id: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind_filter?: Database["public"]["Enums"]["catalog_item_kind"] | null
+          work_category_id: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind_filter?: Database["public"]["Enums"]["catalog_item_kind"] | null
+          work_category_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_category_material_categories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_category_material_categories_work_category_id_fkey"
+            columns: ["work_category_id"]
+            isOneToOne: false
+            referencedRelation: "work_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_package_dependencies: {
         Row: {
           created_at: string
@@ -4330,6 +4746,7 @@ export type Database = {
           planned_start: string | null
           priority: Database["public"]["Enums"]["work_package_priority"]
           project_id: string
+          rework_round: number
           status: Database["public"]["Enums"]["work_package_status"]
           updated_at: string
         }
@@ -4348,6 +4765,7 @@ export type Database = {
           planned_start?: string | null
           priority?: Database["public"]["Enums"]["work_package_priority"]
           project_id: string
+          rework_round?: number
           status?: Database["public"]["Enums"]["work_package_status"]
           updated_at?: string
         }
@@ -4366,6 +4784,7 @@ export type Database = {
           planned_start?: string | null
           priority?: Database["public"]["Enums"]["work_package_priority"]
           project_id?: string
+          rework_round?: number
           status?: Database["public"]["Enums"]["work_package_status"]
           updated_at?: string
         }
@@ -4476,7 +4895,7 @@ export type Database = {
           created_by: string
           expires_at: string
           id: string
-          token: string
+          token_hash: string
           worker_id: string
         }
         Insert: {
@@ -4486,7 +4905,7 @@ export type Database = {
           created_by: string
           expires_at: string
           id?: string
-          token: string
+          token_hash: string
           worker_id: string
         }
         Update: {
@@ -4496,7 +4915,7 @@ export type Database = {
           created_by?: string
           expires_at?: string
           id?: string
-          token?: string
+          token_hash?: string
           worker_id?: string
         }
         Relationships: [
@@ -5050,6 +5469,14 @@ export type Database = {
     }
     Functions: {
       acknowledge_site_purchase: { Args: { p_id: string }; Returns: undefined }
+      add_catalog_item_category: {
+        Args: {
+          p_category_id: string
+          p_item_id: string
+          p_subcategory_id?: string
+        }
+        Returns: string
+      }
       add_contact_document: {
         Args: {
           p_contractor_id?: string
@@ -5087,6 +5514,14 @@ export type Database = {
         Args: { p_lines: Json; p_plan_id: string }
         Returns: number
       }
+      add_work_category_material_category: {
+        Args: {
+          p_category_id: string
+          p_kind_filter?: Database["public"]["Enums"]["catalog_item_kind"]
+          p_work_category_id: string
+        }
+        Returns: string
+      }
       add_work_package_dependency: {
         Args: { p_predecessor: string; p_successor: string }
         Returns: boolean
@@ -5114,6 +5549,7 @@ export type Database = {
         Args: { p_date: string; p_item: string; p_wp: string }
         Returns: string
       }
+      claim_client_invite: { Args: { p_token: string }; Returns: undefined }
       claim_contractor_invite: { Args: { p_token: string }; Returns: string }
       claim_next_report: {
         Args: never
@@ -5143,6 +5579,7 @@ export type Database = {
           clawed_workers: number
         }[]
       }
+      client_has_live_access: { Args: { p_project: string }; Returns: boolean }
       clone_work_packages: {
         Args: { p_dst_project_id: string; p_src_project_id: string }
         Returns: number
@@ -5174,16 +5611,46 @@ export type Database = {
         }
         Returns: string
       }
+      create_catalog_category: {
+        Args: { p_code: string; p_name: string; p_sort_order?: number }
+        Returns: string
+      }
       create_catalog_item: {
         Args: {
-          p_base_item: string
-          p_category: Database["public"]["Enums"]["item_category"]
-          p_note: string
-          p_spec_attrs: string
-          p_stockable: boolean
-          p_unit: string
+          p_base_item?: string
+          p_category?: Database["public"]["Enums"]["item_category"]
+          p_category_id?: string
+          p_fulfillment_mode?: Database["public"]["Enums"]["catalog_fulfillment_mode"]
+          p_kind?: Database["public"]["Enums"]["catalog_item_kind"]
+          p_note?: string
+          p_owner_supplied?: boolean
+          p_product_code?: string
+          p_spec_attrs?: string
+          p_stockable?: boolean
+          p_subcategory_id?: string
+          p_unit?: string
         }
         Returns: string
+      }
+      create_catalog_subcategory: {
+        Args: {
+          p_category?: Database["public"]["Enums"]["item_category"]
+          p_category_id?: string
+          p_code?: string
+          p_name?: string
+          p_sort_order?: number
+        }
+        Returns: string
+      }
+      create_catalog_unit: {
+        Args: {
+          p_abbr_short?: string
+          p_code: string
+          p_display_name: string
+          p_sort_order?: number
+          p_unit_class?: Database["public"]["Enums"]["unit_class"]
+        }
+        Returns: undefined
       }
       create_client_billing: {
         Args: {
@@ -5196,6 +5663,10 @@ export type Database = {
           p_vat_rate?: number
           p_wht_rate?: number
         }
+        Returns: string
+      }
+      create_client_invite: {
+        Args: { p_project: string; p_valid_until: string }
         Returns: string
       }
       create_contractor_invite: {
@@ -5255,6 +5726,16 @@ export type Database = {
         Returns: string
       }
       create_supply_plan: { Args: { p_project_id: string }; Returns: string }
+      create_work_category: {
+        Args: {
+          p_code: string
+          p_masterformat_code?: string
+          p_name_en?: string
+          p_name_th: string
+          p_sort_order?: number
+        }
+        Returns: undefined
+      }
       create_work_package: {
         Args: {
           p_code: string
@@ -5438,6 +5919,10 @@ export type Database = {
           debit_total: number
           name_th: string
         }[]
+      }
+      grant_client_access: {
+        Args: { p_project: string; p_user_id: string; p_valid_until: string }
+        Returns: undefined
       }
       invoke_notification_drain: { Args: never; Returns: undefined }
       is_back_office: {
@@ -5708,6 +6193,14 @@ export type Database = {
       }
       reject_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
       release_retention: { Args: { p_id: string }; Returns: string }
+      remove_catalog_item_category: {
+        Args: {
+          p_category_id: string
+          p_item_id: string
+          p_subcategory_id?: string
+        }
+        Returns: undefined
+      }
       remove_purchase_quote: {
         Args: { p_quote_id: string }
         Returns: undefined
@@ -5716,13 +6209,25 @@ export type Database = {
         Args: { p_line_id: string }
         Returns: undefined
       }
+      remove_work_category_material_category: {
+        Args: {
+          p_category_id: string
+          p_kind_filter?: Database["public"]["Enums"]["catalog_item_kind"]
+          p_work_category_id: string
+        }
+        Returns: undefined
+      }
       remove_work_package_dependency: {
         Args: { p_predecessor: string; p_successor: string }
         Returns: boolean
       }
       reopen_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
       reopen_work_package_for_defect: {
-        Args: { p_reason: string; p_wp: string }
+        Args: {
+          p_reason: string
+          p_source?: Database["public"]["Enums"]["rework_source"]
+          p_wp: string
+        }
         Returns: boolean
       }
       reorder_project_categories: {
@@ -5750,6 +6255,10 @@ export type Database = {
         Args: { p_note?: string; p_receipt_id: string }
         Returns: string
       }
+      revoke_client_access: {
+        Args: { p_access_id: string }
+        Returns: undefined
+      }
       revoke_contractor_consent: { Args: { p_id: string }; Returns: undefined }
       set_accounting_period_status: {
         Args: {
@@ -5764,6 +6273,10 @@ export type Database = {
       }
       set_catalog_item_image: {
         Args: { p_id: string; p_image_path: string }
+        Returns: undefined
+      }
+      set_catalog_unit_active: {
+        Args: { p_code: string; p_is_active: boolean }
         Returns: undefined
       }
       set_contact_bank: {
@@ -5804,6 +6317,10 @@ export type Database = {
         Args: { p_id: string; p_is_active: boolean }
         Returns: undefined
       }
+      set_project_category_work_category: {
+        Args: { p_project_category_id: string; p_work_category_id: string }
+        Returns: undefined
+      }
       set_project_client: {
         Args: { p_client_id: string; p_project_id: string }
         Returns: boolean
@@ -5825,6 +6342,17 @@ export type Database = {
         Args: { p_active: boolean; p_id: string }
         Returns: undefined
       }
+      set_user_role: {
+        Args: {
+          p_role: Database["public"]["Enums"]["user_role"]
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      set_work_category_active: {
+        Args: { p_code: string; p_is_active: boolean }
+        Returns: undefined
+      }
       set_work_package_category: {
         Args: { p_category_id: string; p_work_package_id: string }
         Returns: boolean
@@ -5836,6 +6364,10 @@ export type Database = {
       set_work_package_deliverable: {
         Args: { p_deliverable_id?: string; p_work_package_id: string }
         Returns: boolean
+      }
+      set_work_package_hold: {
+        Args: { p_hold: boolean; p_wp: string }
+        Returns: string
       }
       set_work_package_name: {
         Args: { p_name: string; p_work_package_id: string }
@@ -5980,15 +6512,50 @@ export type Database = {
         Args: { p_a: string; p_b: string }
         Returns: boolean
       }
+      update_catalog_category: {
+        Args: {
+          p_code: string
+          p_id: string
+          p_is_active: boolean
+          p_name: string
+          p_sort_order: number
+        }
+        Returns: undefined
+      }
       update_catalog_item: {
         Args: {
-          p_base_item: string
-          p_category: Database["public"]["Enums"]["item_category"]
+          p_base_item?: string
+          p_category?: Database["public"]["Enums"]["item_category"]
+          p_category_id?: string
+          p_fulfillment_mode?: Database["public"]["Enums"]["catalog_fulfillment_mode"]
           p_id: string
-          p_note: string
-          p_spec_attrs: string
-          p_stockable: boolean
-          p_unit: string
+          p_kind?: Database["public"]["Enums"]["catalog_item_kind"]
+          p_note?: string
+          p_owner_supplied?: boolean
+          p_product_code?: string
+          p_spec_attrs?: string
+          p_stockable?: boolean
+          p_subcategory_id?: string
+          p_unit?: string
+        }
+        Returns: undefined
+      }
+      update_catalog_subcategory: {
+        Args: {
+          p_id: string
+          p_is_active: boolean
+          p_name: string
+          p_sort_order: number
+        }
+        Returns: undefined
+      }
+      update_catalog_unit: {
+        Args: {
+          p_abbr_short?: string
+          p_code: string
+          p_display_name: string
+          p_sort_order?: number
+          p_unit_class?: Database["public"]["Enums"]["unit_class"]
         }
         Returns: undefined
       }
@@ -6044,6 +6611,16 @@ export type Database = {
           p_status: Database["public"]["Enums"]["project_status"]
         }
         Returns: boolean
+      }
+      update_work_category: {
+        Args: {
+          p_code: string
+          p_masterformat_code?: string
+          p_name_en?: string
+          p_name_th: string
+          p_sort_order?: number
+        }
+        Returns: undefined
       }
       update_worker: {
         Args: {
@@ -6135,6 +6712,14 @@ export type Database = {
         | "retention_due"
         | "retention_release"
         | "wht_certificate_record"
+      catalog_fulfillment_mode: "off_shelf" | "made_to_order"
+      catalog_item_kind:
+        | "material"
+        | "tool"
+        | "equipment"
+        | "labor"
+        | "service"
+        | "softcost"
       client_billing_status:
         | "draft"
         | "submitted"
@@ -6216,12 +6801,13 @@ export type Database = {
         | "pr_progress"
         | "pr_cancelled"
         | "feedback_submitted"
+        | "wp_reopened"
       notification_status: "pending" | "sending" | "sent" | "failed" | "expired"
       peak_doc_type: "contact" | "expense"
       peak_entity_type: "contact" | "expense"
       peak_sync_operation: "create" | "void"
       peak_sync_status: "pending" | "sending" | "sent" | "failed" | "skipped"
-      photo_phase: "before" | "during" | "after"
+      photo_phase: "before" | "during" | "after" | "after_fix"
       project_status: "active" | "on_hold" | "completed" | "archived"
       project_type:
         | "new_building"
@@ -6257,8 +6843,10 @@ export type Database = {
         | "site_purchased"
       report_status: "requested" | "processing" | "complete" | "failed"
       retention_status: "held" | "due" | "released" | "forfeited"
+      rework_source: "internal" | "client"
       service_subtype: "transport"
       supply_plan_status: "draft" | "submitted" | "approved" | "rejected"
+      unit_class: "count" | "length" | "area" | "volume" | "weight" | "trips"
       user_role:
         | "site_admin"
         | "project_manager"
@@ -6272,6 +6860,7 @@ export type Database = {
         | "visitor"
         | "contractor"
         | "project_director"
+        | "client"
       wht_direction: "deducted" | "suffered"
       wht_form: "pnd3" | "pnd53" | "pnd1"
       work_package_priority: "normal" | "urgent" | "critical"
@@ -6450,6 +7039,15 @@ export const Constants = {
         "retention_release",
         "wht_certificate_record",
       ],
+      catalog_fulfillment_mode: ["off_shelf", "made_to_order"],
+      catalog_item_kind: [
+        "material",
+        "tool",
+        "equipment",
+        "labor",
+        "service",
+        "softcost",
+      ],
       client_billing_status: [
         "draft",
         "submitted",
@@ -6539,13 +7137,14 @@ export const Constants = {
         "pr_progress",
         "pr_cancelled",
         "feedback_submitted",
+        "wp_reopened",
       ],
       notification_status: ["pending", "sending", "sent", "failed", "expired"],
       peak_doc_type: ["contact", "expense"],
       peak_entity_type: ["contact", "expense"],
       peak_sync_operation: ["create", "void"],
       peak_sync_status: ["pending", "sending", "sent", "failed", "skipped"],
-      photo_phase: ["before", "during", "after"],
+      photo_phase: ["before", "during", "after", "after_fix"],
       project_status: ["active", "on_hold", "completed", "archived"],
       project_type: [
         "new_building",
@@ -6588,8 +7187,10 @@ export const Constants = {
       ],
       report_status: ["requested", "processing", "complete", "failed"],
       retention_status: ["held", "due", "released", "forfeited"],
+      rework_source: ["internal", "client"],
       service_subtype: ["transport"],
       supply_plan_status: ["draft", "submitted", "approved", "rejected"],
+      unit_class: ["count", "length", "area", "volume", "weight", "trips"],
       user_role: [
         "site_admin",
         "project_manager",
@@ -6603,6 +7204,7 @@ export const Constants = {
         "visitor",
         "contractor",
         "project_director",
+        "client",
       ],
       wht_direction: ["deducted", "suffered"],
       wht_form: ["pnd3", "pnd53", "pnd1"],

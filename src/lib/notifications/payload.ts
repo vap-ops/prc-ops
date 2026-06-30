@@ -10,6 +10,9 @@ export interface NotificationPayload {
   decision?: string;
   comment?: string;
   decidedBy?: string;
+  // wp_reopened (spec 218 U5) — code/name reused from above; round + the reopener.
+  round?: number;
+  reopenedBy?: string;
   // pr_*
   itemDescription?: string;
   quantity?: number;
@@ -62,6 +65,10 @@ export function parseNotificationPayload(json: unknown): NotificationPayload {
   if (comment !== undefined) payload.comment = comment;
   const decidedBy = str(record["decided_by"]);
   if (decidedBy !== undefined) payload.decidedBy = decidedBy;
+  const round = num(record["round"]);
+  if (round !== undefined) payload.round = round;
+  const reopenedBy = str(record["reopened_by"]);
+  if (reopenedBy !== undefined) payload.reopenedBy = reopenedBy;
   const itemDescription = str(record["item_description"]);
   if (itemDescription !== undefined) payload.itemDescription = itemDescription;
   const quantity = num(record["quantity"]);

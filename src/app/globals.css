@@ -259,6 +259,13 @@
   }
   body {
     @apply bg-page text-ink;
+    /* Feedback fab7980b — "text box overflows its container, on a lot of
+       pages, fix it for good." Systemic net: a long unbroken string (URL,
+       code, hash, space-less Thai) breaks to stay INSIDE its box instead of
+       bursting it sideways. break-word only acts when a word would otherwise
+       overflow — it never re-breaks normal wrapping text or changes intrinsic
+       sizing. Per-surface min-w-0 / break-words still apply on top. */
+    overflow-wrap: break-word;
   }
   /* Spec 77: instant taps — drop the ~300ms double-tap-zoom delay. */
   a,

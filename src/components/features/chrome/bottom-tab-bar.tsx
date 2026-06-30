@@ -18,6 +18,7 @@ import {
   PendingApprovalsBadge,
   PendingPurchaseDecisionsBadge,
 } from "@/components/features/dashboard/pending-approvals-badge";
+import { SaActionBadge } from "@/components/features/sa/sa-action-badge";
 import {
   Calculator,
   FolderKanban,
@@ -186,6 +187,10 @@ export function BottomTabBar({ role }: { role: string }) {
           // the จัดซื้อ tab (SA requesters / procurement processors share it but
           // don't decide, so no badge for them).
           const showPurchaseBadge = tab.href === "/requests" && isManagerRole(role as UserRole);
+          // Spec 218: WPs the PM/defect bounced back to the SA ride the หน้าหลัก
+          // tab, so the SA sees them while anywhere in the app. site_admin only —
+          // super/PM use a different bar and don't field rework.
+          const showReworkBadge = tab.href === "/sa" && role === "site_admin";
           return (
             <Link
               key={tab.href}
@@ -209,6 +214,7 @@ export function BottomTabBar({ role }: { role: string }) {
                 <Icon aria-hidden className="size-6" />
                 {showApprovalsBadge ? <PendingApprovalsBadge /> : null}
                 {showPurchaseBadge ? <PendingPurchaseDecisionsBadge /> : null}
+                {showReworkBadge ? <SaActionBadge /> : null}
               </span>
               <span className={isActive ? "text-xs font-bold" : "text-xs font-medium"}>
                 {tab.label}

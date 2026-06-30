@@ -28,10 +28,20 @@ const USER = "00000000-0000-0000-0000-0000000000aa";
 const STEEL = "11111111-1111-1111-1111-111111111111";
 const PAINT = "22222222-2222-2222-2222-222222222222";
 
+// Spec 221 cleanup — managed categories (id + name), user-created via the
+// catalog_categories table (NOT the vestigial item_category enum).
+const CAT_STEEL = "cat-steel";
+const CAT_PAINT = "cat-paint";
+const CATEGORIES = [
+  { id: CAT_STEEL, name: "เหล็กเสริม" },
+  { id: CAT_PAINT, name: "งานสี" },
+];
+
 const CATALOG: PurchaseRequestCatalogItem[] = [
   {
     id: STEEL,
-    category: "steel_fixing",
+    categoryId: CAT_STEEL,
+    categoryName: "เหล็กเสริม",
     baseItem: "เหล็กข้ออ้อย",
     specAttrs: "12 มิล",
     unit: "ท่อน",
@@ -39,7 +49,8 @@ const CATALOG: PurchaseRequestCatalogItem[] = [
   },
   {
     id: PAINT,
-    category: "paint",
+    categoryId: CAT_PAINT,
+    categoryName: "งานสี",
     baseItem: "สีเคลือบกึ่งเงา",
     specAttrs: null,
     unit: "แกลลอน",
@@ -54,6 +65,7 @@ function renderForm() {
       projectId={PROJECT}
       userId={USER}
       catalogItems={CATALOG}
+      categories={CATEGORIES}
     />,
   );
 }
@@ -82,12 +94,12 @@ describe("PurchaseRequestForm catalog picker — pro-max (spec 180)", () => {
     expect(screen.queryByRole("button", { name: /สีเคลือบ/ })).not.toBeInTheDocument();
   });
 
-  it("filters by category chip", async () => {
+  it("filters by a managed category chip (group by category_id, not the enum)", async () => {
     const user = userEvent.setup();
     renderForm();
     await user.click(screen.getByRole("button", { name: TRIGGER }));
-    // ทั้งหมด shows both; picking the สี (paint) category drops the steel item.
-    await user.click(screen.getByRole("radio", { name: "สี" }));
+    // ทั้งหมด shows both; picking the งานสี (managed) category drops the steel item.
+    await user.click(screen.getByRole("radio", { name: "งานสี" }));
     expect(screen.getByRole("button", { name: /สีเคลือบ/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /เหล็กข้ออ้อย/ })).not.toBeInTheDocument();
   });
@@ -144,5 +156,47 @@ describe("PurchaseRequestForm catalog picker — pro-max (spec 180)", () => {
     expect(screen.getByText(/เพิ่มวัสดุ/)).toBeInTheDocument();
     const link = screen.getByRole("link", { name: /แคตตาล็อก/ });
     expect(link).toHaveAttribute("href", "/catalog");
+  });
+});
+
+// Spec 229 (ADR 0066 / S8) — the WP-detail PR form threads the WP's work-category
+// Relation-R scope into the picker: the WP's materials surface first and flag
+// ตรงกับงาน, the rest stay reachable via แสดงทั้งหมด, and an empty scope falls back
+// to the full catalog (D8 show-all). This pins the form→picker prop wiring.
+describe("PurchaseRequestForm catalog picker — WP work-category scope (spec 229 / S8)", () => {
+  function renderScopedForm(scopedCategoryIds: string[]) {
+    render(
+      <PurchaseRequestForm
+        workPackage={WP}
+        projectId={PROJECT}
+        userId={USER}
+        catalogItems={CATALOG}
+        categories={CATEGORIES}
+        scopedCategoryIds={scopedCategoryIds}
+        membershipsByItem={new Map()}
+      />,
+    );
+  }
+
+  it("surfaces the WP work-category's materials first + flags them, hiding nothing", async () => {
+    const user = userEvent.setup();
+    renderScopedForm([CAT_PAINT]); // this WP's work-category buys งานสี
+    await user.click(screen.getByRole("button", { name: TRIGGER }));
+    // the paint item is pre-surfaced and flagged ตรงกับงาน.
+    expect(screen.getByRole("button", { name: /สีเคลือบ/ })).toBeInTheDocument();
+    expect(screen.getByText(/ตรงกับงาน/)).toBeInTheDocument();
+    // pre-filtered: the out-of-scope steel is not shown — but an escape exists.
+    expect(screen.queryByRole("button", { name: /เหล็กข้ออ้อย/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "แสดงทั้งหมด" }));
+    expect(screen.getByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeInTheDocument();
+  });
+
+  it("falls back to the full catalog when the WP has no work-category scope", async () => {
+    const user = userEvent.setup();
+    renderScopedForm([]); // empty scope → show-all fallback
+    await user.click(screen.getByRole("button", { name: TRIGGER }));
+    expect(screen.getByRole("button", { name: /สีเคลือบ/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeInTheDocument();
+    expect(screen.queryByText(/ตรงกับงาน/)).not.toBeInTheDocument();
   });
 });

@@ -13,7 +13,7 @@ import { useState, useTransition } from "react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
 import { recordStockCount } from "@/app/store/actions";
-import { FULL_STOCKTAKE_LABEL } from "@/lib/i18n/labels";
+import { FULL_STOCKTAKE_LABEL, STOCK_COUNT_NOT_UNDO_HINT } from "@/lib/i18n/labels";
 
 export type CountStockRow = {
   catalogItemId: string;
@@ -163,6 +163,12 @@ export function StoreCountManager({
               {countRow?.specAttrs ? ` · ${countRow.specAttrs}` : ""}
             </span>{" "}
             — ระบบมี {countRow?.qtyOnHand} {countRow?.unit}
+          </p>
+
+          {/* Feedback 8bb3dc63: redirect the "I'll recount to undo a wrong เบิก"
+              misuse — a recount adjusts the number, it does not reverse the cost. */}
+          <p className="border-edge bg-sunk text-ink-secondary text-meta rounded-control border px-3 py-2">
+            {STOCK_COUNT_NOT_UNDO_HINT}
           </p>
 
           <div className="flex flex-col gap-1.5">

@@ -18,6 +18,16 @@ import { projectHref } from "@/lib/nav/project-paths";
 import { NewProjectSheet } from "./new-project-sheet";
 import { createClient } from "@/lib/db/server";
 import { loadProjectsHub } from "@/lib/projects/load-hub";
+import {
+  parseProjectStatusFilter,
+  parseProjectClientFilter,
+  parseProjectQuery,
+  viewProjects,
+  buildProjectStatusChips,
+  buildProjectClientChips,
+  projectListHref,
+} from "@/lib/projects/list-view";
+import { ProjectsFilterBar } from "@/components/features/projects/projects-filter-bar";
 import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
 import { projectStatusPillClasses } from "@/lib/status-colors";
 import { projectStatusIcon } from "@/lib/status-icons";
@@ -31,9 +41,25 @@ import { projectStatusIcon } from "@/lib/status-icons";
 
 export const metadata = { title: "โครงการ" };
 
-export default async function ProjectsHubPage() {
+interface ProjectsHubPageProps {
+  // Next 16: searchParams is async. Feedback 1d648880 reads ?status; 7d9d2c2b ?client;
+  // the project search reads ?q.
+  searchParams: Promise<{
+    status?: string | string[];
+    client?: string | string[];
+    q?: string | string[];
+  }>;
+}
+
+export default async function ProjectsHubPage({ searchParams }: ProjectsHubPageProps) {
   const ctx = await requireRole(PROJECT_VIEW_ROLES);
   const supabase = await createClient();
+
+  const sp = await searchParams;
+  const pick = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  const status = parseProjectStatusFilter(pick(sp.status));
+  const client = parseProjectClientFilter(pick(sp.client));
+  const query = parseProjectQuery(pick(sp.q));
 
   const isPm = isManagerRole(ctx.role);
   const isProcurement = ctx.role === "procurement";
@@ -47,6 +73,16 @@ export default async function ProjectsHubPage() {
     supabase,
     isPm,
   );
+
+  // Feedback 1d648880 + 7d9d2c2b: hide archived by default + status & client
+  // filters (sorting retired → default code sort). The RLS-scoped list is small
+  // (membership-bounded), so filter/count in JS — keeps the chip counts live with
+  // one query and no extra round-trips.
+  const { rows, counts, clientCounts } = viewProjects(projects, { status, client, query });
+  const statusChips = buildProjectStatusChips({ counts, status, client, query });
+  const clientChips = buildProjectClientChips({ clientCounts, clientNames, status, client, query });
+  // "×" target: the current facet view with the search cleared.
+  const searchClearHref = projectListHref(status, client);
 
   // Spec 102: procurement browses projects read-only for purchase context.
   const kicker = isCoordinator
@@ -85,33 +121,47 @@ export default async function ProjectsHubPage() {
         ) : !projects || projects.length === 0 ? (
           <EmptyNotice>ยังไม่มีโครงการ</EmptyNotice>
         ) : (
-          <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3">
-            {projects.map((p) => (
-              <li key={p.id}>
-                <Link
-                  href={projectHref(p.id)}
-                  className="rounded-card border-edge bg-card shadow-card hover:bg-page focus-visible:ring-action active:bg-sunk flex min-h-14 items-center justify-between gap-3 border px-4 py-3 transition-colors focus:outline-none focus-visible:ring-2"
-                >
-                  <div className="min-w-0">
-                    <p className="text-ink-secondary font-mono text-xs">{p.code}</p>
-                    <p className="text-ink truncate text-base font-medium">{p.name}</p>
-                    {p.client_id && clientNames.get(p.client_id) && (
-                      <p className="text-ink-secondary truncate text-xs">
-                        ลูกค้า: {clientNames.get(p.client_id)}
-                      </p>
-                    )}
-                  </div>
-                  <StatusPill
-                    pillClasses={projectStatusPillClasses(p.status)}
-                    icon={projectStatusIcon(p.status)}
-                  >
-                    {PROJECT_STATUS_LABEL[p.status as keyof typeof PROJECT_STATUS_LABEL] ??
-                      p.status}
-                  </StatusPill>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <>
+            <ProjectsFilterBar
+              statusChips={statusChips}
+              clientChips={clientChips}
+              query={query}
+              status={status}
+              client={client}
+              searchClearHref={searchClearHref}
+            />
+            {rows.length === 0 ? (
+              <EmptyNotice>ไม่มีโครงการในตัวกรองนี้</EmptyNotice>
+            ) : (
+              <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3">
+                {rows.map((p) => (
+                  <li key={p.id}>
+                    <Link
+                      href={projectHref(p.id)}
+                      className="rounded-card border-edge bg-card shadow-card hover:bg-page focus-visible:ring-action active:bg-sunk flex min-h-14 items-center justify-between gap-3 border px-4 py-3 transition-colors focus:outline-none focus-visible:ring-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-ink-secondary font-mono text-xs">{p.code}</p>
+                        <p className="text-ink truncate text-base font-medium">{p.name}</p>
+                        {p.client_id && clientNames.get(p.client_id) && (
+                          <p className="text-ink-secondary truncate text-xs">
+                            ลูกค้า: {clientNames.get(p.client_id)}
+                          </p>
+                        )}
+                      </div>
+                      <StatusPill
+                        pillClasses={projectStatusPillClasses(p.status)}
+                        icon={projectStatusIcon(p.status)}
+                      >
+                        {PROJECT_STATUS_LABEL[p.status as keyof typeof PROJECT_STATUS_LABEL] ??
+                          p.status}
+                      </StatusPill>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
         )}
       </section>
     </PageShell>

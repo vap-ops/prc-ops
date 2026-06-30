@@ -149,14 +149,16 @@ select is(
   'RLS enabled on public.work_packages'
 );
 
--- Policy commands on work_packages are exactly SELECT, INSERT, UPDATE — NO
+-- Policy commands on work_packages are exactly INSERT, SELECT×2, UPDATE — NO
 -- DELETE. Load-bearing per ADR 0013: archive via status, never hard-delete.
+-- The second SELECT is the spec-233 / ADR-0067 client read arm (additive,
+-- read-only, scoped to client_has_live_access). No DELETE remains the invariant.
 select results_eq(
   $$ select cmd::text from pg_policies
      where schemaname = 'public' and tablename = 'work_packages'
      order by cmd $$,
-  array['INSERT'::text, 'SELECT'::text, 'UPDATE'::text],
-  'work_packages has exactly SELECT/INSERT/UPDATE policies — no DELETE policy'
+  array['INSERT'::text, 'SELECT'::text, 'SELECT'::text, 'UPDATE'::text],
+  'work_packages has exactly INSERT/SELECT×2/UPDATE policies — no DELETE policy'
 );
 
 -- ============================================================================

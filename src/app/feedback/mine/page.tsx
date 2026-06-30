@@ -27,7 +27,7 @@ export default async function MyFeedbackPage() {
 
   const { data: mine } = await supabase
     .from("feedback")
-    .select("id, type, status, title, created_at")
+    .select("id, feedback_number, type, status, title, created_at")
     .order("created_at", { ascending: false });
 
   // Spec 201 A2 — which of these reports have a team reply the reporter hasn't seen
@@ -37,6 +37,7 @@ export default async function MyFeedbackPage() {
 
   const myFeedback = (mine ?? []).map((f) => ({
     id: f.id,
+    feedbackNumber: f.feedback_number,
     type: f.type,
     status: f.status,
     title: f.title,

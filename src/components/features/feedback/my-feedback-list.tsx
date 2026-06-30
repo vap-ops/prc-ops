@@ -7,6 +7,7 @@
 
 import Link from "next/link";
 import { EmptyNotice } from "@/components/features/common/notices";
+import { FeedbackNumberTag } from "@/components/features/feedback/feedback-number-tag";
 import { withBackFrom } from "@/lib/nav/back-href";
 import { CARD } from "@/lib/ui/classes";
 import { FEEDBACK_TYPE_LABEL, FEEDBACK_STATUS_LABEL, formatThaiDateTime } from "@/lib/i18n/labels";
@@ -17,6 +18,7 @@ type FeedbackStatus = Database["public"]["Enums"]["feedback_status"];
 
 export type MyFeedbackItem = {
   id: string;
+  feedbackNumber: number;
   type: FeedbackType;
   status: FeedbackStatus;
   title: string;
@@ -58,6 +60,7 @@ export function MyFeedbackList({ items }: { items: MyFeedbackItem[] }) {
             className={`${CARD} hover:bg-sunk focus-visible:ring-action flex flex-col gap-2 focus:outline-none focus-visible:ring-2`}
           >
             <div className="flex flex-wrap items-center gap-2">
+              <FeedbackNumberTag feedbackNumber={f.feedbackNumber} />
               <span className={`${BADGE} ${TYPE_BADGE[f.type]}`}>
                 {FEEDBACK_TYPE_LABEL[f.type]}
               </span>

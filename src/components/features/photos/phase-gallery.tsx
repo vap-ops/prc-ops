@@ -18,9 +18,18 @@ interface PhaseGalleryProps {
   /** uploaded_by → display name (feedback a6037564). Shown as "ถ่ายโดย
    *  <name>" in the lightbox; missing ids render no attribution line. */
   uploaderNames: ReadonlyMap<string, string>;
+  /** Spec 216: an optional sub-line under the label — used by the per-round
+   *  หลังแก้ไข sections to show the defect reason that opened that round. */
+  note?: string | null;
 }
 
-export function PhaseGallery({ label, photos, signedUrls, uploaderNames }: PhaseGalleryProps) {
+export function PhaseGallery({
+  label,
+  photos,
+  signedUrls,
+  uploaderNames,
+  note,
+}: PhaseGalleryProps) {
   const hasPhotos = photos.length > 0;
   const latest = latestCreatedAt(photos);
   return (
@@ -51,6 +60,12 @@ export function PhaseGallery({ label, photos, signedUrls, uploaderNames }: Phase
           hasPhotos ? "border-done" : "border-edge"
         }`}
       >
+        {/* Spec 216: the defect reason that opened this rework round. */}
+        {note ? (
+          <p className="text-ink-secondary text-sm whitespace-pre-wrap">
+            <span className="text-ink-muted">ข้อบกพร่อง:</span> {note}
+          </p>
+        ) : null}
         <p className="text-ink-secondary text-sm">
           {latest ? `อัปเดตล่าสุด ${formatThaiTime(latest)}` : "ยังไม่มีรูป"}
         </p>
@@ -74,6 +89,7 @@ export function PhaseGallery({ label, photos, signedUrls, uploaderNames }: Phase
               return photos.map((p) => {
                 const url = signedUrls.get(p.id);
                 const groupIndex = url ? loadedIndex++ : 0;
+                const uploaderName = uploaderNames.get(p.uploaded_by) ?? null;
                 return (
                   <li key={p.id} className={PHOTO_STRIP_TILE}>
                     {url ? (
@@ -84,16 +100,26 @@ export function PhaseGallery({ label, photos, signedUrls, uploaderNames }: Phase
                         groupUploaderNames={loadedUploaderNames}
                         groupIndex={groupIndex}
                         photoId={p.id}
-                        uploaderName={uploaderNames.get(p.uploaded_by) ?? null}
+                        uploaderName={uploaderName}
                       />
                     ) : (
                       <div className="text-ink-secondary flex h-full w-full items-center justify-center text-xs">
                         ไม่พร้อมแสดง
                       </div>
                     )}
-                    {/* Spec 54: capture-time overlay (mockup tiles). */}
-                    <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 pt-4 pb-1 text-[11px] font-medium text-white">
-                      {formatThaiTime(p.captured_at_client ?? p.created_at)}
+                    {/* Spec 54: capture-time overlay (mockup tiles). Feedback
+                        a6037564: the uploader's name rides below the time so you
+                        see WHO uploaded at a glance, not only in the lightbox.
+                        break-words (not truncate) — Thai clips mid-word. */}
+                    <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 pt-4 pb-1 text-[11px] font-medium text-white">
+                      <span className="block">
+                        {formatThaiTime(p.captured_at_client ?? p.created_at)}
+                      </span>
+                      {uploaderName ? (
+                        <span className="block font-normal break-words opacity-90">
+                          {uploaderName}
+                        </span>
+                      ) : null}
                     </span>
                   </li>
                 );

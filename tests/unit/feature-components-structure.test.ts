@@ -33,6 +33,12 @@ const ALLOWED_DOMAINS = [
   "sa",
   // Spec 212: the SA daily report (LINE Flex preview button, capture screen).
   "daily-report",
+  // Feedback 1d648880: the projects-hub filter/sort bar.
+  "projects",
+  // Spec 220 (G63): the super_admin role-admin controls.
+  "roles",
+  // Spec 233 / ADR 0067: the temporary client progress portal (PD invite block).
+  "client-portal",
 ] as const;
 
 describe("feature components are grouped into domain folders", () => {

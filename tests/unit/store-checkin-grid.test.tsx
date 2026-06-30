@@ -30,17 +30,20 @@ vi.mock("@/app/store/actions", () => ({
 
 import { StoreManager, type StockRow } from "@/components/features/store/store-manager";
 
+const categories = [{ id: "cat-elec", name: "งานไฟฟ้า" }];
 const catalogItems = [
   {
     id: "ci1",
-    category: "electrical" as const,
+    categoryId: "cat-elec",
+    categoryName: "งานไฟฟ้า",
     baseItem: "สายไฟ NYY",
     specAttrs: "3x6",
     unit: "ม้วน",
   },
   {
     id: "ci2",
-    category: "electrical" as const,
+    categoryId: "cat-elec",
+    categoryName: "งานไฟฟ้า",
     baseItem: "ท่อ PVC",
     specAttrs: null,
     unit: "เส้น",
@@ -72,6 +75,7 @@ function open() {
       hidePicker
       onHand={onHand}
       catalogItems={catalogItems}
+      categories={categories}
       suppliers={suppliers}
       canIssue={false}
       receipts={[]}

@@ -53,6 +53,13 @@ export function composeNotification(
       return payload.comment ? `${head}\nความเห็น: ${payload.comment}` : head;
     }
 
+    // Spec 218 U5 — a defect reopened the WP to งานแก้ไข. The reason/source live in
+    // the app's "ต้องแก้ไข" surface; the ping names the WP + round and sends them in.
+    case "wp_reopened": {
+      const round = payload.round && payload.round >= 1 ? ` (รอบ ${payload.round})` : "";
+      return `งานถูกเปิดใหม่เพื่อแก้ไข${round}: ${payload.code ?? ""} ${payload.name ?? ""} — เปิดแอปดูข้อบกพร่อง`.trim();
+    }
+
     case "pr_created":
       return `คำขอซื้อใหม่ ${prRef(payload.prNumber, context.poNumber)}: ${payload.itemDescription ?? ""} (${String(payload.quantity ?? "")} ${payload.unit ?? ""})`;
 

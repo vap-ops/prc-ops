@@ -1,5 +1,5 @@
 begin;
-select plan(10);
+select plan(16);
 
 -- ============================================================================
 -- Spec 144 U1 — reopen_work_package_for_defect(p_wp, p_reason).
@@ -37,11 +37,12 @@ grant insert on _tap_buf to authenticated;
 grant select on _tap_buf to authenticated;
 grant usage  on sequence _tap_buf_ord_seq to authenticated;
 
--- A. Catalog.
-select ok(to_regprocedure('public.reopen_work_package_for_defect(uuid,text)') is not null,
-  'reopen_work_package_for_defect(uuid,text) exists');
+-- A. Catalog. Spec 217: the RPC now takes a third arg p_source (rework_source,
+-- default 'internal'); the 2-arg signature was dropped.
+select ok(to_regprocedure('public.reopen_work_package_for_defect(uuid,text,public.rework_source)') is not null,
+  'reopen_work_package_for_defect(uuid,text,rework_source) exists');
 select is((select prosecdef from pg_proc
-            where oid='public.reopen_work_package_for_defect(uuid,text)'::regprocedure),
+            where oid='public.reopen_work_package_for_defect(uuid,text,public.rework_source)'::regprocedure),
   true, 'reopen_work_package_for_defect is SECURITY DEFINER');
 
 set local role authenticated;
@@ -59,6 +60,50 @@ select is(
      where target_id='c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1'
        and payload->>'event'='wp_reopened_for_defect'),
   1, 'an audit_log row recorded the defect reopen');
+
+-- 216 U1: the reopen advanced the WP's rework_round counter 0 → 1, and stamped
+-- the round into the audit payload so each cycle is addressable.
+select is(
+  (select rework_round::int from public.work_packages where id='c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1'),
+  1, 'reopen advances rework_round to 1');
+select is(
+  (select (payload->>'round')::int from public.audit_log
+     where target_id='c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1'
+       and payload->>'event'='wp_reopened_for_defect'
+     order by created_at desc limit 1),
+  1, 'the audit payload records round 1');
+
+-- 217: B.1 reopened with the 2-arg form → p_source defaults to 'internal' and is
+-- stamped into the payload (ตรวจภายใน). Key on round=1 — in one pgTAP txn every
+-- row shares created_at (now() is fixed per transaction), so order-by-time can't
+-- pick a specific reopen.
+select is(
+  (select payload->>'source' from public.audit_log
+     where target_id='c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1'
+       and payload->>'event'='wp_reopened_for_defect'
+       and payload->>'round'='1'),
+  'internal', 'the audit payload defaults source to internal');
+
+-- 216 U1: a SECOND defect on the same WP (after its round-1 fix is re-approved
+-- back to complete) advances to round 2 — multi-rework support. The status reset
+-- drops to the table owner; the reopen itself runs as the authenticated member.
+reset role;
+update public.work_packages set status='complete' where id='c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222222222"}';
+-- 217: this round-2 reopen is a CLIENT call (ลูกค้าแจ้ง) — pass p_source explicitly.
+select is(
+  (select public.reopen_work_package_for_defect('c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1', 'รอยร้าวกลับมาอีก', 'client')),
+  true, 'the WP can be reopened a second time (client call)');
+select is(
+  (select rework_round::int from public.work_packages where id='c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1'),
+  2, 'a second reopen advances rework_round to 2');
+select is(
+  (select payload->>'source' from public.audit_log
+     where target_id='c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1'
+       and payload->>'event'='wp_reopened_for_defect'
+       and payload->>'round'='2'),
+  'client', 'an explicit client-call reopen stamps source=client');
 
 -- B.2 A non-complete WP cannot be reopened (22023).
 select throws_ok(

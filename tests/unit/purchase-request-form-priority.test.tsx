@@ -24,13 +24,15 @@ const WP = { id: "00000000-0000-0000-0000-000000000001", code: "WP01", name: "�
 const CATALOG: PurchaseRequestCatalogItem[] = [
   {
     id: "11111111-1111-1111-1111-111111111111",
-    category: "paint",
+    categoryId: "cat-paint",
+    categoryName: "งานสี",
     baseItem: "สี",
     specAttrs: null,
     unit: "แกลลอน",
     thumbnailUrl: null,
   },
 ];
+const CATEGORIES = [{ id: "cat-paint", name: "งานสี" }];
 
 describe("PurchaseRequestForm priority segmented control (spec 21)", () => {
   it("renders all three priorities as radios with Thai labels, normal preselected", () => {
@@ -40,6 +42,7 @@ describe("PurchaseRequestForm priority segmented control (spec 21)", () => {
         projectId="00000000-0000-0000-0000-000000000002"
         userId="00000000-0000-0000-0000-0000000000aa"
         catalogItems={CATALOG}
+        categories={CATEGORIES}
       />,
     );
     const normal = screen.getByRole("radio", { name: "ปกติ" });
@@ -58,6 +61,7 @@ describe("PurchaseRequestForm priority segmented control (spec 21)", () => {
         projectId="00000000-0000-0000-0000-000000000002"
         userId="00000000-0000-0000-0000-0000000000aa"
         catalogItems={CATALOG}
+        categories={CATEGORIES}
       />,
     );
     await user.click(screen.getByRole("radio", { name: "ด่วนมาก" }));

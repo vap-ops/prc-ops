@@ -12,6 +12,7 @@ import {
   HardHat,
   Inbox,
   Package,
+  ShieldCheck,
   Sparkles,
   Store,
   Users,
@@ -328,6 +329,20 @@ export default async function SettingsPage() {
               </p>
               <DailyReportPreviewButton />
             </div>
+          </div>
+        )}
+
+        {/* Admin — super_admin only (spec 220 / ADR 0050). In-app role assignment
+            replaces out-of-band SQL promotion. */}
+        {role === "super_admin" && (
+          <div className="flex flex-col gap-2">
+            <h2 className="text-meta text-ink-secondary font-semibold">ผู้ดูแลระบบ</h2>
+            <SettingsLink
+              href="/settings/roles"
+              icon={ShieldCheck}
+              label="จัดการสิทธิ์ผู้ใช้"
+              hint="กำหนด/เปลี่ยน role ของผู้ใช้ในระบบ"
+            />
           </div>
         )}
 

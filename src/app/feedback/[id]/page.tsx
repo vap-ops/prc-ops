@@ -12,11 +12,14 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { FeedbackThread } from "@/components/features/feedback/feedback-thread";
 import { FeedbackReply } from "@/components/features/feedback/feedback-reply";
 import { FeedbackDrafts } from "@/components/features/feedback/feedback-drafts";
+import { FeedbackAttachmentGallery } from "@/components/features/feedback/feedback-attachment-gallery";
 import { MarkFeedbackViewed } from "@/components/features/feedback/mark-feedback-viewed";
+import { loadFeedbackAttachmentUrls } from "@/lib/feedback/attachment-urls";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { CARD } from "@/lib/ui/classes";
 import { safeBackHref } from "@/lib/nav/back-href";
 import { createClient } from "@/lib/db/server";
+import { FeedbackNumberTag } from "@/components/features/feedback/feedback-number-tag";
 import { FEEDBACK_TYPE_LABEL, FEEDBACK_STATUS_LABEL, formatThaiDateTime } from "@/lib/i18n/labels";
 
 export const metadata = { title: "บทสนทนา · แจ้งปัญหา / ขอฟีเจอร์" };
@@ -59,10 +62,15 @@ export default async function FeedbackDetailPage({ params, searchParams }: PageP
   // comes back null (not theirs / not found) → notFound.
   const { data: feedback } = await supabase
     .from("feedback")
-    .select("id, type, status, title, body, created_at, submitted_by")
+    .select("id, feedback_number, type, status, title, body, created_at, submitted_by")
     .eq("id", id)
     .maybeSingle();
   if (!feedback) notFound();
+
+  // Bug 8e9c9fc7 — surface the attached screenshots. Reading the feedback row above
+  // means the viewer passed its RLS (own-or-super_admin), so they're authorised for
+  // its attachments; loadFeedbackAttachmentUrls mints the signed URLs via the admin.
+  const attachmentUrls = (await loadFeedbackAttachmentUrls([feedback.id])).get(feedback.id) ?? [];
 
   const { data: msgs } = await supabase
     .from("feedback_messages")
@@ -107,6 +115,7 @@ export default async function FeedbackDetailPage({ params, searchParams }: PageP
         <MarkFeedbackViewed feedbackId={feedback.id} />
         <div className={`${CARD} flex flex-col gap-2`}>
           <div className="flex flex-wrap items-center gap-2">
+            <FeedbackNumberTag feedbackNumber={feedback.feedback_number} />
             <span className={`${BADGE} ${TYPE_BADGE[feedback.type]}`}>
               {FEEDBACK_TYPE_LABEL[feedback.type]}
             </span>
@@ -119,6 +128,7 @@ export default async function FeedbackDetailPage({ params, searchParams }: PageP
           </div>
           <p className="text-ink text-base font-semibold">{feedback.title}</p>
           <p className="text-ink-secondary text-sm whitespace-pre-wrap">{feedback.body}</p>
+          <FeedbackAttachmentGallery urls={attachmentUrls} />
         </div>
 
         <div className="flex flex-col gap-3">

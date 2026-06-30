@@ -30,13 +30,16 @@ const PROJECT = "00000000-0000-0000-0000-000000000002";
 const catalogItems = [
   {
     id: "ci-1",
-    category: "electrical" as const,
+    // Spec 221 cleanup — managed category (id + name), not the item_category enum.
+    categoryId: "cat-elec",
+    categoryName: "งานไฟฟ้า",
     baseItem: "สายไฟ",
     specAttrs: "3x6",
     unit: "ม้วน",
     thumbnailUrl: null,
   },
 ];
+const categories = [{ id: "cat-elec", name: "งานไฟฟ้า" }];
 
 beforeEach(() => {
   mockRecord.mockReset().mockResolvedValue({ ok: true, id: "rec-1" });
@@ -45,7 +48,14 @@ beforeEach(() => {
 });
 
 function renderForm() {
-  render(<SelfPurchaseForm projectId={PROJECT} workPackageId={WP} catalogItems={catalogItems} />);
+  render(
+    <SelfPurchaseForm
+      projectId={PROJECT}
+      workPackageId={WP}
+      catalogItems={catalogItems}
+      categories={categories}
+    />,
+  );
 }
 
 describe("SelfPurchaseForm (spec 211 U11c-B)", () => {
@@ -108,5 +118,14 @@ describe("SelfPurchaseForm (spec 211 U11c-B)", () => {
     renderForm();
     await user.click(screen.getByRole("button", { name: "พิมพ์เอง" }));
     expect(screen.queryByLabelText("ซื้อเข้าคลังแล้วใช้ที่งานนี้เลย")).not.toBeInTheDocument();
+  });
+
+  it("labels a picked catalog item with its managed category name (spec 221)", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.click(screen.getByRole("button", { name: "เลือกวัสดุจากแคตตาล็อก" }));
+    await user.click(screen.getByRole("button", { name: /สายไฟ/ }));
+    // The chosen chip shows "<managed category name> · <unit>", not an enum label.
+    expect(screen.getByText(/งานไฟฟ้า · ม้วน/)).toBeInTheDocument();
   });
 });

@@ -25,9 +25,18 @@ import {
   type WpStockRow,
   type WpIssueRow,
 } from "@/components/features/store/wp-issue-stock";
+import type { ScopedMaterialCategory } from "@/lib/catalog/scoped-categories";
 
 const onHand: WpStockRow[] = [
-  { catalogItemId: "ci1", baseItem: "สายไฟ NYY", specAttrs: "3x6", unit: "ม้วน", qtyOnHand: 20 },
+  {
+    catalogItemId: "ci1",
+    baseItem: "สายไฟ NYY",
+    specAttrs: "3x6",
+    unit: "ม้วน",
+    qtyOnHand: 20,
+    categoryId: null,
+    kind: null,
+  },
 ];
 const workers = [{ id: "w1", name: "สมชาย" }];
 const issues: WpIssueRow[] = [
@@ -98,8 +107,24 @@ describe("WpIssueStock (spec 177 U5)", () => {
   it("issues several rows to this WP in one bulk call", async () => {
     renderZone({
       onHand: [
-        { catalogItemId: "ci1", baseItem: "สายไฟ", specAttrs: null, unit: "ม้วน", qtyOnHand: 20 },
-        { catalogItemId: "ci2", baseItem: "ท่อ", specAttrs: null, unit: "เส้น", qtyOnHand: 50 },
+        {
+          catalogItemId: "ci1",
+          baseItem: "สายไฟ",
+          specAttrs: null,
+          unit: "ม้วน",
+          qtyOnHand: 20,
+          categoryId: null,
+          kind: null,
+        },
+        {
+          catalogItemId: "ci2",
+          baseItem: "ท่อ",
+          specAttrs: null,
+          unit: "เส้น",
+          qtyOnHand: 50,
+          categoryId: null,
+          kind: null,
+        },
       ],
     });
     fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
@@ -264,5 +289,97 @@ describe("WpIssueStock confirm-on-behalf (spec 210)", () => {
     fireEvent.click(screen.getByRole("button", { name: "ยืนยันรับแทน" }));
     fireEvent.click(screen.getByRole("button", { name: "ยืนยัน" }));
     await waitFor(() => expect(mockConfirmOB).toHaveBeenCalledWith({ issueId: "i1" }));
+  });
+});
+
+// Spec 229 (ADR 0066 / S8) — the เบิก picker scopes its on-hand <select> to the
+// WP's work-category via Relation R: the relevant stock surfaces under a ตรงกับงาน
+// optgroup (kind_filter separating tools from materials), but NOTHING is hidden —
+// every on-hand item stays selectable (D8 show-all). An empty relation → a flat
+// list (the unchanged default).
+const ELEC = "cat-elec";
+const scopedOnHand: WpStockRow[] = [
+  {
+    catalogItemId: "wire",
+    baseItem: "สายไฟ",
+    specAttrs: null,
+    unit: "ม้วน",
+    qtyOnHand: 10,
+    categoryId: ELEC,
+    kind: "material",
+  },
+  {
+    catalogItemId: "drill",
+    baseItem: "สว่าน",
+    specAttrs: null,
+    unit: "ตัว",
+    qtyOnHand: 3,
+    categoryId: ELEC,
+    kind: "tool",
+  },
+  {
+    catalogItemId: "paint",
+    baseItem: "สีรองพื้น",
+    specAttrs: null,
+    unit: "ถัง",
+    qtyOnHand: 5,
+    categoryId: "cat-paint",
+    kind: "material",
+  },
+];
+
+describe("WpIssueStock work-category scope (spec 229 / S8)", () => {
+  function renderScoped(relation: ScopedMaterialCategory[]) {
+    render(
+      <WpIssueStock
+        projectId="p1"
+        workPackageId="wp1"
+        onHand={scopedOnHand}
+        workers={workers}
+        issues={[]}
+        scopedRelation={relation}
+        membershipsByItem={new Map()}
+      />,
+    );
+  }
+
+  const realOptions = (select: HTMLSelectElement) =>
+    [...select.querySelectorAll("option")].filter((o) => o.value !== "");
+
+  it("groups the WP's materials under a ตรงกับงาน optgroup but keeps every item selectable", () => {
+    renderScoped([{ categoryId: ELEC, kindFilter: null }]);
+    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
+    const select = screen.getAllByLabelText("วัสดุ")[0]! as HTMLSelectElement;
+    const groups = [...select.querySelectorAll("optgroup")];
+    expect(groups.some((g) => g.label.includes("ตรงกับงาน"))).toBe(true);
+    // never hides: all three on-hand items remain as options.
+    expect(
+      realOptions(select)
+        .map((o) => o.value)
+        .sort(),
+    ).toEqual(["drill", "paint", "wire"]);
+  });
+
+  it("separates tools from materials via kind_filter, still hiding nothing", () => {
+    // Relation R: within ELEC, only TOOLS are relevant for this work-category.
+    renderScoped([{ categoryId: ELEC, kindFilter: "tool" }]);
+    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
+    const select = screen.getAllByLabelText("วัสดุ")[0]! as HTMLSelectElement;
+    const matchGroup = [...select.querySelectorAll("optgroup")].find((g) =>
+      g.label.includes("ตรงกับงาน"),
+    )!;
+    const matchValues = [...matchGroup.querySelectorAll("option")].map((o) => o.value);
+    expect(matchValues).toContain("drill"); // the tool surfaced
+    expect(matchValues).not.toContain("wire"); // the material is NOT in the match group
+    // but the material is still selectable elsewhere in the select.
+    expect(select.querySelector('option[value="wire"]')).not.toBeNull();
+  });
+
+  it("shows a flat list (no scope grouping) when the WP has no Relation R", () => {
+    renderScoped([]);
+    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
+    const select = screen.getAllByLabelText("วัสดุ")[0]! as HTMLSelectElement;
+    expect(select.querySelectorAll("optgroup")).toHaveLength(0);
+    expect(realOptions(select)).toHaveLength(3);
   });
 });

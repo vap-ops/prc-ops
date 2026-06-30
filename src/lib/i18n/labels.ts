@@ -23,6 +23,14 @@ export const SUBCONTRACTOR_LABEL = "ผู้รับเหมาช่วง";
 // authored category `name` is its own label — only this term constant is SSOT'd.
 export const PROJECT_CATEGORY_LABEL = "หมวดงาน";
 
+// Spec 229 (ADR 0066 / S8) — the relevance flag a scoped picker shows on an item
+// that falls in the WP work-category's material scope (Relation R). Used by the
+// PR/supply-plan catalog picker AND the เบิก on-hand select → SSOT here.
+export const WORK_CATEGORY_MATCH_LABEL = "ตรงกับงาน";
+// Spec 229 — the nudge when a WP is not yet bound to a หมวดงาน. Used by the WP
+// work-category badge AND the WpCategoryControl select → SSOT here.
+export const WORK_CATEGORY_UNSET_LABEL = "ยังไม่ระบุหมวดงาน";
+
 export const WORK_PACKAGE_STATUS_LABEL: Record<Enums["work_package_status"], string> = {
   not_started: "ยังไม่เริ่ม",
   in_progress: "กำลังดำเนินการ",
@@ -58,6 +66,17 @@ export const PURCHASE_REQUEST_STATUS_LABEL: Record<Enums["purchase_request_statu
 // yields the canonical section order.
 export const CATALOG_LABEL = "ทะเบียนวัสดุ";
 
+// Spec 219 — the modelled subcategory level under each item_category. Term SSOT
+// for the manage screen, the cascading picker on the item form, and (U3) the
+// drill filter. SUBCATEGORY = the named sub level; MANAGE = the /catalog drill.
+export const CATALOG_SUBCATEGORY_LABEL = "หมวดย่อย";
+export const MANAGE_SUBCATEGORIES_LABEL = "จัดการหมวดย่อย";
+
+// Spec 221 — the managed MAIN category (catalog_categories). Term SSOT for the
+// taxonomy manage screen + the U3 add/edit-category controls.
+export const CATALOG_CATEGORY_LABEL = "หมวดหลัก";
+export const MANAGE_TAXONOMY_LABEL = "จัดการหมวดหมู่";
+
 export const ITEM_CATEGORY_LABEL: Record<Enums["item_category"], string> = {
   steel_fixing: "เหล็ก / อุปกรณ์ยึด",
   plumbing_sanitary: "ประปา / สุขภัณฑ์",
@@ -72,6 +91,27 @@ export const ITEM_CATEGORY_LABEL: Record<Enums["item_category"], string> = {
   paving: "อิฐทางเท้า",
   tank_septic: "ถังบำบัด / ถังน้ำ",
   custom_fabrication: "งานสั่งทำ",
+};
+
+// Spec 224 (ADR 0066 D3) — the catalog item FACETS. Term SSOT for the item-form
+// controls (and any later facet readers). `kind` = what class of thing it is;
+// `fulfillment_mode` = how it is sourced (stockable derives from this).
+export const ITEM_KIND_LABEL = "ประเภทรายการ";
+export const FULFILLMENT_MODE_LABEL = "การจัดหา";
+export const OWNER_SUPPLIED_LABEL = "เจ้าของโครงการจัดหาเอง";
+
+export const ITEM_KIND_OPTION_LABEL: Record<Enums["catalog_item_kind"], string> = {
+  material: "วัสดุ",
+  tool: "เครื่องมือ",
+  equipment: "ครุภัณฑ์",
+  labor: "ค่าแรง",
+  service: "บริการ",
+  softcost: "ค่าใช้จ่ายแฝง",
+};
+
+export const FULFILLMENT_MODE_OPTION_LABEL: Record<Enums["catalog_fulfillment_mode"], string> = {
+  off_shelf: "มีขายทั่วไป",
+  made_to_order: "สั่งทำ",
 };
 
 // Spec 177 — the on-site store (stock on hand) + the stock-in (รับเข้า) /
@@ -89,6 +129,23 @@ export const STORE_ISSUE_LABEL = "เบิกออก";
 //  - the real WP→store return (return_stock_to_store): material physically back.
 export const STORE_FIX_WRONG_ENTRY_LABEL = "แก้รายการที่บันทึกผิด";
 export const STORE_RETURN_TO_STORE_LABEL = "คืนเข้าคลัง";
+
+// Spec 213 — the per-material activity log (ประวัติวัสดุ). STOCK_COUNT_LABEL
+// single-sources the count verb already used inline across the store surfaces.
+export const MATERIAL_LOG_LABEL = "ประวัติวัสดุ";
+export const STOCK_COUNT_LABEL = "ตรวจนับ";
+
+// Spec 214 — the structured 6-digit product code (main 2 + sub 2 + sequence 2).
+export const PRODUCT_CODE_LABEL = "รหัสสินค้า";
+
+// Feedback 8bb3dc63 — people reached for ตรวจนับ (recount) to "fix" a เบิก they
+// recorded with the wrong qty, expecting the cost to reverse; it didn't, because
+// a recount reconciles the on-hand NUMBER to physical truth, it is not an
+// entry-undo. This hint sits in the count sheet and redirects them to the real
+// tool — the issue-undo (STORE_FIX_WRONG_ENTRY_LABEL) lives on the WP page
+// (spec 210). Single-sourced so both count sheets (store-manager +
+// store-count-manager) stay in step and the action term can't drift.
+export const STOCK_COUNT_NOT_UNDO_HINT = `การตรวจนับใช้ปรับยอดให้ตรงของจริงเท่านั้น ไม่ใช่การแก้รายการเบิกที่บันทึกผิด — ถ้าบันทึกเบิกผิด ให้เปิดหน้างาน (WP) ของรายการนั้น แล้วกด “${STORE_FIX_WRONG_ENTRY_LABEL}” ค่าใช้จ่ายจึงจะถูกคืน`;
 
 // Spec 178 — the store margin layer: the per-item SELL price (transfer price).
 export const ITEM_SELL_RATE_LABEL = "ราคาขาย";
@@ -174,7 +231,24 @@ export const PHOTO_PHASE_LABEL: Record<Enums["photo_phase"], string> = {
   before: "เตรียมงาน",
   during: "ระหว่างทำ",
   after: "แล้วเสร็จ",
+  // Feedback 0fa23307 — completion photos for a WP's rework (defect fix),
+  // distinct from the original "แล้วเสร็จ" work photos.
+  after_fix: "หลังแก้ไข",
 };
+
+// Spec 217 — who called a rework round: internal QA/SA vs the client.
+export const REWORK_SOURCE_LABEL: Record<Enums["rework_source"], string> = {
+  internal: "ตรวจภายใน",
+  client: "ลูกค้าแจ้ง",
+};
+
+// Optional-source → label (or null when absent, e.g. a legacy reopen). Keeps the
+// per-round heading + banner call sites tidy.
+export function reworkSourceLabel(
+  source: Enums["rework_source"] | null | undefined,
+): string | null {
+  return source ? REWORK_SOURCE_LABEL[source] : null;
+}
 
 // Spec 141 U4 — equipment movement kinds (the append-only custody log, ADR
 // 0055 §4). Single-sourced here because the move-form kind picker and the
@@ -209,6 +283,8 @@ export const USER_ROLE_LABEL: Record<Enums["user_role"], string> = {
   contractor: "ผู้รับเหมา (DC)",
   // Spec 152 / ADR 0058: no Thai label requested by the operator for this role.
   project_director: "Project Director",
+  // Spec 233 / ADR 0067: the external read-only client/customer audience.
+  client: "ลูกค้า",
 };
 
 // Spec 193 U3 — feedback type + triage-status labels for the super_admin review

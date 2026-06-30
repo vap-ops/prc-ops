@@ -11,13 +11,22 @@ import { createClient } from "@/lib/db/server";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { getCurrentPhotosForWorkPackage, type PhotoLogRow } from "@/lib/photos/current-photos";
 import { PHASES } from "@/lib/photos/phases";
+import {
+  groupAfterFixByRound,
+  reworkReasonsFromAuditRows,
+  reworkSourcesFromAuditRows,
+  afterFixRoundHeading,
+} from "@/lib/photos/rework-round";
 import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
+import { loadCatalogCategories, categoryNameById } from "@/lib/catalog/categories";
 import { getDecisionHistoryForWorkPackage } from "@/lib/approvals/latest-decision";
 import {
   APPROVAL_DECISION_LABEL,
   WORK_PACKAGE_STATUS_LABEL,
+  PHOTO_PHASE_LABEL,
+  reworkSourceLabel,
   formatThaiDateTime,
 } from "@/lib/i18n/labels";
 import { CARD, DETAIL_TITLE, SECTION_HEADING } from "@/lib/ui/classes";
@@ -82,22 +91,29 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
   // Spec 179/180: the active catalog master feeds the คำขอซื้อ item picker
   // (project-agnostic reference data; readable by any authenticated user), with
   // signed thumbnail URLs (private bucket → service-role signed URLs).
+  // Spec 221 cleanup: read category_id (the managed FK) + the managed category
+  // name, not the vestigial item_category enum.
   const { data: catalogRows } = await supabase
     .from("catalog_items")
-    .select("id, category, base_item, spec_attrs, unit, image_path")
+    .select("id, category_id, base_item, spec_attrs, unit, image_path, product_code")
     .eq("is_active", true)
     .order("base_item", { ascending: true });
+  const catalogCategories = await loadCatalogCategories(supabase);
+  const categoryName = categoryNameById(catalogCategories);
+  const catalogCategoryList = catalogCategories.map((c) => ({ id: c.id, name: c.name }));
   const catalogThumbs = await mintSignedUrls(
     CATALOG_IMAGES_BUCKET,
     (catalogRows ?? []).map((r) => ({ id: r.id, storage_path: r.image_path })),
   );
   const catalogItems: PurchaseRequestCatalogItem[] = (catalogRows ?? []).map((r) => ({
     id: r.id,
-    category: r.category,
+    categoryId: r.category_id,
+    categoryName: r.category_id ? (categoryName.get(r.category_id) ?? "") : "",
     baseItem: r.base_item,
     specAttrs: r.spec_attrs,
     unit: r.unit,
     thumbnailUrl: catalogThumbs.get(r.id) ?? null,
+    productCode: r.product_code,
   }));
 
   const photosByPhase = await getCurrentPhotosForWorkPackage(supabase, wp.id);
@@ -105,8 +121,23 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
     ...photosByPhase.before,
     ...photosByPhase.during,
     ...photosByPhase.after,
+    ...photosByPhase.after_fix,
   ];
   const signedUrls = await mintSignedUrlsForPhotos(allPhotos);
+
+  // Spec 216: the หลังแก้ไข bucket surfaces only inside a rework cycle, grouped by
+  // round, each labelled with the defect reason that opened it (one
+  // wp_reopened_for_defect audit row per round; audit_log SELECT is using(true)).
+  const showAfterFix = wp.status === "rework" || photosByPhase.after_fix.length > 0;
+  const afterFixRounds = groupAfterFixByRound(photosByPhase.after_fix);
+  const { data: reopenRows } = await supabase
+    .from("audit_log")
+    .select("payload")
+    .eq("target_id", wp.id)
+    .eq("payload->>event", "wp_reopened_for_defect")
+    .order("created_at", { ascending: false });
+  const reworkReasons = reworkReasonsFromAuditRows(reopenRows ?? []);
+  const reworkSources = reworkSourcesFromAuditRows(reopenRows ?? []);
 
   // Decision history: newest first. RLS admits sa/pm/super to SELECT
   // approvals so the PM (and super_admin) can read every row for this
@@ -235,6 +266,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
               before: photosByPhase.before.length,
               during: photosByPhase.during.length,
               after: photosByPhase.after.length,
+              after_fix: photosByPhase.after_fix.length,
             }}
           />
         </div>
@@ -254,13 +286,14 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
               userId={ctx.id}
               canSelfApprove
               catalogItems={catalogItems}
+              categories={catalogCategoryList}
             />
           </div>
         </details>
         <section>
           <h2 className={SECTION_HEADING}>รูปถ่าย</h2>
           <div className="flex flex-col gap-5">
-            {PHASES.map(({ phase, label }) => (
+            {PHASES.filter(({ phase }) => phase !== "after_fix").map(({ phase, label }) => (
               <PhaseGallery
                 key={phase}
                 label={label}
@@ -269,6 +302,22 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
                 uploaderNames={displayNames}
               />
             ))}
+            {showAfterFix
+              ? afterFixRounds.map(({ round, photos }) => (
+                  <PhaseGallery
+                    key={`after_fix-${round}`}
+                    label={afterFixRoundHeading(
+                      PHOTO_PHASE_LABEL.after_fix,
+                      round,
+                      reworkSourceLabel(reworkSources.get(round)),
+                    )}
+                    photos={photos}
+                    signedUrls={signedUrls}
+                    uploaderNames={displayNames}
+                    note={reworkReasons.get(round) ?? null}
+                  />
+                ))
+              : null}
           </div>
         </section>
 

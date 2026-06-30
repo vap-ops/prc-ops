@@ -10,9 +10,23 @@ import { useState } from "react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { BUTTON_PRIMARY } from "@/lib/ui/classes";
 import { createCatalogItem } from "@/app/catalog/actions";
-import { CatalogItemForm, EMPTY_CATALOG_VALUES } from "./catalog-item-form";
+import {
+  CatalogItemForm,
+  EMPTY_CATALOG_VALUES,
+  type CatalogSubcategoryOption,
+  type CatalogUnitOption,
+} from "./catalog-item-form";
+import type { CatalogCategoryOption } from "./catalog-list";
 
-export function AddCatalogItem() {
+export function AddCatalogItem({
+  categories = [],
+  subcategories = [],
+  units = [],
+}: {
+  categories?: CatalogCategoryOption[];
+  subcategories?: CatalogSubcategoryOption[];
+  units?: CatalogUnitOption[];
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
@@ -25,6 +39,9 @@ export function AddCatalogItem() {
       <BottomSheet open={open} title="เพิ่มรายการวัสดุ" onClose={() => setOpen(false)}>
         <CatalogItemForm
           initial={EMPTY_CATALOG_VALUES}
+          categories={categories}
+          subcategories={subcategories}
+          units={units}
           submitLabel="เพิ่มรายการ"
           submittingLabel="กำลังเพิ่ม…"
           onSubmit={(values) => createCatalogItem(values)}

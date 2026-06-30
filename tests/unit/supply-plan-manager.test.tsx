@@ -39,6 +39,7 @@ vi.mock("@/app/projects/[projectId]/supply-plan/actions", () => ({
 
 import {
   SupplyPlanManager,
+  expandRowToWorkPackages,
   type PlanLine,
   type PlanStatus,
 } from "@/components/features/supply-plan/supply-plan-manager";
@@ -46,14 +47,20 @@ import {
 const catalogItems = [
   {
     id: "ci1",
-    category: "electrical" as const,
+    // Spec 221 cleanup — managed category (id + name), not the item_category enum.
+    categoryId: "cat-elec",
+    categoryName: "งานไฟฟ้า",
     baseItem: "สายไฟ NYY",
     specAttrs: "3x6",
     unit: "ม้วน",
     thumbnailUrl: null,
   },
 ];
-const workPackages = [{ id: "wp1", code: "WP-01", name: "งานก่อสร้าง" }];
+const categories = [{ id: "cat-elec", name: "งานไฟฟ้า" }];
+const workPackages = [
+  { id: "wp1", code: "WP-01", name: "งานก่อสร้าง" },
+  { id: "wp2", code: "WP-02", name: "งานติดตั้ง" },
+];
 
 // Spec 189: the วัสดุ field is the shared CatalogItemPicker (a BottomSheet),
 // not a <select> — open it and click the item row.
@@ -100,6 +107,7 @@ function renderManager(opts: {
       overriddenByName={opts.overriddenByName ?? null}
       lines={opts.lines ?? []}
       catalogItems={catalogItems}
+      categories={categories}
       workPackages={workPackages}
     />,
   );
@@ -278,5 +286,154 @@ describe("SupplyPlanManager convert mode (spec 181 U4)", () => {
   it("shows the overridden-by marker when the plan was reopened", () => {
     renderManager({ planStatus: "draft", canOverride: true, overriddenByName: "สมชาย" });
     expect(screen.getByText(/ปรับแก้โดย สมชาย/)).toBeInTheDocument();
+  });
+});
+
+// Spec 222 — one item into multiple work packages (the "pre-fill rows" model).
+// Spec 228 (ADR 0066 / S7) — the row's picker is scoped to its chosen WP's
+// work-category via Relation R (resolved server-side into wpScopedCategories).
+describe("SupplyPlanManager scoped picker wiring (spec 228)", () => {
+  const twoItems = [
+    {
+      id: "ci-elec",
+      categoryId: "cat-elec",
+      categoryName: "งานไฟฟ้า",
+      baseItem: "สายไฟ NYY",
+      specAttrs: "3x6",
+      unit: "ม้วน",
+      thumbnailUrl: null,
+    },
+    {
+      id: "ci-steel",
+      categoryId: "cat-steel",
+      categoryName: "เหล็กเสริม",
+      baseItem: "เหล็กข้ออ้อย",
+      specAttrs: "12 มิล",
+      unit: "ท่อน",
+      thumbnailUrl: null,
+    },
+  ];
+  const twoCategories = [
+    { id: "cat-elec", name: "งานไฟฟ้า" },
+    { id: "cat-steel", name: "เหล็กเสริม" },
+  ];
+
+  function renderScoped() {
+    render(
+      <SupplyPlanManager
+        projectId="p1"
+        planId="pl1"
+        planStatus="draft"
+        canApprove={false}
+        canOverride={false}
+        overriddenByName={null}
+        lines={[]}
+        catalogItems={twoItems}
+        categories={twoCategories}
+        workPackages={workPackages}
+        itemMemberships={[]}
+        // WP-01 buys งานไฟฟ้า materials; WP-02 is unmapped (no scope).
+        wpScopedCategories={{ wp1: ["cat-elec"] }}
+      />,
+    );
+  }
+
+  it("scopes the picker to the chosen WP's work-category, the rest still reachable", () => {
+    renderScoped();
+    fireEvent.change(screen.getByLabelText("งาน"), { target: { value: "wp1" } });
+    fireEvent.click(screen.getByRole("button", { name: "เลือกวัสดุจากแคตตาล็อก" }));
+    // The in-scope (งานไฟฟ้า) item surfaces; the steel item is pre-filtered out.
+    expect(screen.getByRole("button", { name: /สายไฟ NYY/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeNull();
+    // Never hides — the แสดงทั้งหมด escape reveals the full catalog.
+    fireEvent.click(screen.getByRole("button", { name: /แสดงทั้งหมด/ }));
+    expect(screen.getByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeInTheDocument();
+  });
+
+  it("shows the full catalog for a whole-project row (no WP → no scope)", () => {
+    renderScoped();
+    // งาน left as ทั้งโครงการ (workPackageId "") → unscoped show-all.
+    fireEvent.click(screen.getByRole("button", { name: "เลือกวัสดุจากแคตตาล็อก" }));
+    expect(screen.getByRole("button", { name: /สายไฟ NYY/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /แสดงทั้งหมด/ })).toBeNull();
+  });
+
+  it("shows the full catalog for a WP whose work-category is unmapped", () => {
+    renderScoped();
+    fireEvent.change(screen.getByLabelText("งาน"), { target: { value: "wp2" } });
+    fireEvent.click(screen.getByRole("button", { name: "เลือกวัสดุจากแคตตาล็อก" }));
+    expect(screen.getByRole("button", { name: /สายไฟ NYY/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeInTheDocument();
+  });
+});
+
+describe("expandRowToWorkPackages (spec 222)", () => {
+  const row = { key: 1, catalogItemId: "ci1", workPackageId: "", qty: "5", note: "n" };
+
+  it("returns the row unchanged when no WPs are given", () => {
+    expect(expandRowToWorkPackages(row, [])).toEqual([row]);
+  });
+
+  it("fans one item-row into one blank-qty row per WP", () => {
+    const out = expandRowToWorkPackages(row, ["wp1", "wp2"]);
+    expect(out).toHaveLength(2);
+    expect(out.map((r) => r.workPackageId)).toEqual(["wp1", "wp2"]);
+    expect(out.every((r) => r.catalogItemId === "ci1")).toBe(true);
+    expect(out.every((r) => r.qty === "" && r.note === "")).toBe(true);
+    // Each spawned row is a distinct draft row (its own key).
+    expect(new Set(out.map((r) => r.key)).size).toBe(2);
+  });
+});
+
+describe("SupplyPlanManager multi-WP fan-out (spec 222)", () => {
+  it("keeps the multi-WP button tappable and guides item-first via the confirm", () => {
+    renderManager({ planStatus: "draft" });
+    // The button is always tappable — no greyed dead state before an item exists.
+    const open = screen.getByRole("button", { name: /หลายงาน/ });
+    expect(open).toBeEnabled();
+    fireEvent.click(open);
+    // The panel opens and explains the order; confirm waits for an item even after
+    // a WP is ticked.
+    expect(screen.getByText(/เลือกวัสดุ.*ก่อน/)).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("เลือกงาน WP-01"));
+    expect(screen.getByRole("button", { name: "ยืนยันเลือกหลายงาน" })).toBeDisabled();
+    // Picking the item enables confirm.
+    pickFirstMaterial();
+    expect(screen.getByRole("button", { name: "ยืนยันเลือกหลายงาน" })).toBeEnabled();
+  });
+
+  it("fans a picked item into one row per chosen WP, then bulk-saves them", async () => {
+    renderManager({ planStatus: "draft" });
+    pickFirstMaterial();
+
+    // Open the WP checklist, tick both WPs, confirm.
+    fireEvent.click(screen.getByRole("button", { name: /หลายงาน/ }));
+    fireEvent.click(screen.getByLabelText("เลือกงาน WP-01"));
+    fireEvent.click(screen.getByLabelText("เลือกงาน WP-02"));
+    fireEvent.click(screen.getByRole("button", { name: "ยืนยันเลือกหลายงาน" }));
+
+    // The single row became two — one per WP — each with the same item, blank qty.
+    const qtys = screen.getAllByLabelText("จำนวน") as HTMLInputElement[];
+    expect(qtys).toHaveLength(2);
+    expect(qtys.every((q) => q.value === "")).toBe(true);
+    const wps = screen.getAllByLabelText("งาน") as HTMLSelectElement[];
+    expect(wps.map((w) => w.value)).toEqual(["wp1", "wp2"]);
+
+    // The planner fills each WP's quantity, then saves.
+    fireEvent.change(qtys[0]!, { target: { value: "10" } });
+    fireEvent.change(qtys[1]!, { target: { value: "5" } });
+    fireEvent.click(screen.getByRole("button", { name: /บันทึก/ }));
+
+    await waitFor(() =>
+      expect(mockBulkAdd).toHaveBeenCalledWith({
+        projectId: "p1",
+        planId: "pl1",
+        lines: [
+          { catalogItemId: "ci1", workPackageId: "wp1", qty: 10, note: "" },
+          { catalogItemId: "ci1", workPackageId: "wp2", qty: 5, note: "" },
+        ],
+      }),
+    );
   });
 });

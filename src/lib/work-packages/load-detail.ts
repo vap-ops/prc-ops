@@ -12,8 +12,14 @@ import type { Database } from "@/lib/db/database.types";
 import { fetchLaborZoneData } from "@/lib/labor/fetch-zone-data";
 import { groupRoster, type GroupedRoster } from "@/lib/labor/group-workers";
 import type { LaborDisplayRow } from "@/lib/labor/types";
-import { getCurrentPhotosForWorkPackage, type PhotoLogRow } from "@/lib/photos/current-photos";
+import {
+  getCurrentPhotosForWorkPackage,
+  type PhotoLogRow,
+  type CurrentPhotosByPhase,
+} from "@/lib/photos/current-photos";
 import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
+import { reworkReasonsFromAuditRows, reworkSourcesFromAuditRows } from "@/lib/photos/rework-round";
+import type { ReworkSource } from "@/lib/db/enums";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 
 type Tbl = Database["public"]["Tables"];
@@ -32,6 +38,10 @@ type WpRow = Pick<
   | "planned_end"
   // Spec 155: the WP-detail deliverable control reads the current binding.
   | "deliverable_id"
+  // Spec 226 / 207 U3c: the WP-detail work-category control reads the current binding.
+  | "category_id"
+  // Spec 216: the current rework cycle — the หลังแก้ไข tile captures into it.
+  | "rework_round"
 >;
 type ContractorRow = Pick<Tbl["contractors"]["Row"], "id" | "name" | "phone" | "status">;
 type ApprovalRow = Pick<
@@ -67,10 +77,18 @@ export interface WorkPackageDetailData {
   siblingWps: SiblingRow[];
   predecessorIds: string[];
   labor: { roster: GroupedRoster; projectWorkerIds: string[]; rows: LaborDisplayRow[] };
-  photosByPhase: { before: PhotoLogRow[]; during: PhotoLogRow[]; after: PhotoLogRow[] };
+  photosByPhase: CurrentPhotosByPhase;
   signedUrls: Map<string, string>;
   displayNames: Map<string, string>;
   defectReason: string | null;
+  /** Spec 216: rework round → the defect reason that opened it, for the per-round
+   *  หลังแก้ไข gallery sections. */
+  reworkReasons: Map<number, string>;
+  /** Spec 217: rework round → its source (internal/client). */
+  reworkSources: Map<number, ReworkSource>;
+  /** Spec 217: the current (latest) rework's source — for the rework banner; null
+   *  when not in rework or a legacy reopen carried no source. */
+  defectSource: ReworkSource | null;
 }
 
 type Db = SupabaseClient<Database>;
@@ -84,7 +102,7 @@ export async function loadWorkPackageDetail(
   const { data: wp } = await supabase
     .from("work_packages")
     .select(
-      "id, code, name, status, project_id, description, contractor_id, notes, priority, planned_start, planned_end, deliverable_id",
+      "id, code, name, status, project_id, description, contractor_id, notes, priority, planned_start, planned_end, deliverable_id, category_id, rework_round",
     )
     .eq("id", workPackageId)
     .maybeSingle();
@@ -98,10 +116,13 @@ export async function loadWorkPackageDetail(
       siblingWps: [],
       predecessorIds: [],
       labor: { roster: groupRoster([], []), projectWorkerIds: [], rows: [] },
-      photosByPhase: { before: [], during: [], after: [] },
+      photosByPhase: { before: [], during: [], after: [], after_fix: [] },
       signedUrls: new Map(),
       displayNames: new Map(),
       defectReason: null,
+      reworkReasons: new Map(),
+      reworkSources: new Map(),
+      defectSource: null,
     };
   }
 
@@ -114,7 +135,7 @@ export async function loadWorkPackageDetail(
     planner,
     labor,
     photosByPhase,
-    defectReason,
+    reworkData,
   ] = await Promise.all([
     supabase
       .from("contractors")
@@ -135,7 +156,7 @@ export async function loadWorkPackageDetail(
     loadPlanner(supabase, wp.id, wp.project_id, isPlanner),
     fetchLaborZoneData(supabase, wp.id, wp.project_id),
     getCurrentPhotosForWorkPackage(supabase, wp.id),
-    loadDefectReason(supabase, wp.id, wp.status),
+    loadReworkData(supabase, wp.id, wp.status),
   ]);
 
   const approvals = approvalRows ?? [];
@@ -154,6 +175,7 @@ export async function loadWorkPackageDetail(
     ...photosByPhase.before,
     ...photosByPhase.during,
     ...photosByPhase.after,
+    ...photosByPhase.after_fix,
   ];
   const [displayNames, signedUrls] = await Promise.all([
     fetchDisplayNames(nameIds, "[wp-detail]"),
@@ -171,7 +193,10 @@ export async function loadWorkPackageDetail(
     photosByPhase,
     signedUrls,
     displayNames,
-    defectReason,
+    defectReason: reworkData.defectReason,
+    reworkReasons: reworkData.reworkReasons,
+    reworkSources: reworkData.reworkSources,
+    defectSource: reworkData.defectSource,
   };
 }
 
@@ -198,20 +223,38 @@ async function loadPlanner(
   };
 }
 
-// Spec 144: a WP reopened for a defect surfaces its latest reason (audit_log).
-async function loadDefectReason(
+// Spec 144/216: a WP reopened for a defect records one wp_reopened_for_defect
+// audit_log row per round (newest first). One read serves both the rework banner
+// (the latest reason, only while in rework) and the per-round หลังแก้ไข gallery
+// reasons (round → reason, every round). audit_log SELECT is using(true).
+async function loadReworkData(
   supabase: Db,
   wpId: string,
   status: WpRow["status"],
-): Promise<string | null> {
-  if (status !== "rework") return null;
-  const { data: defectRow } = await supabase
+): Promise<{
+  defectReason: string | null;
+  reworkReasons: Map<number, string>;
+  reworkSources: Map<number, ReworkSource>;
+  defectSource: ReworkSource | null;
+}> {
+  const { data: rows } = await supabase
     .from("audit_log")
     .select("payload")
     .eq("target_id", wpId)
     .eq("payload->>event", "wp_reopened_for_defect")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return (defectRow?.payload as unknown as { reason?: string } | null)?.reason ?? null;
+    .order("created_at", { ascending: false });
+  const reopenRows = rows ?? [];
+  // Rows are newest-first; the first is the current/most-recent reopen.
+  const latest = reopenRows[0]?.payload as unknown as {
+    reason?: string;
+    source?: ReworkSource;
+  } | null;
+  const latestSource =
+    latest?.source === "client" || latest?.source === "internal" ? latest.source : null;
+  return {
+    defectReason: status === "rework" ? (latest?.reason ?? null) : null,
+    reworkReasons: reworkReasonsFromAuditRows(reopenRows),
+    reworkSources: reworkSourcesFromAuditRows(reopenRows),
+    defectSource: status === "rework" ? latestSource : null,
+  };
 }

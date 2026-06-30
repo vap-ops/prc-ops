@@ -5,6 +5,17 @@ const nextConfig: NextConfig = {
   // node_modules at runtime — bundling breaks those reads.
   serverExternalPackages: ["pdfkit"],
 
+  // Perf: re-enable the client Router Cache. Next 15 changed the default
+  // staleTimes.dynamic to 0s, so EVERY back/repeat navigation re-fetches the
+  // RSC payload from the server even within one session — a big part of the
+  // "page loads feel sluggish" report on revisits. dynamic:30 serves a cached
+  // tree for up to 30s on client nav (low staleness risk — mutations already
+  // call router.refresh(), which invalidates this cache); static:180 caches
+  // prefetched static segments (must be >= 30 per Next's constraint).
+  experimental: {
+    staleTimes: { dynamic: 30, static: 180 },
+  },
+
   // Spec 82 Unit 1: the project detail surfaces moved out of the role-named
   // /sa namespace into the content-named /projects namespace (the URL names
   // what is shown, not the viewer's role). In-app links all point at the new

@@ -18,7 +18,7 @@
 
 import { Camera, Check, Image as ImageIcon, X } from "lucide-react";
 import { BUTTON_SECONDARY_MUTED, INLINE_ERROR } from "@/lib/ui/classes";
-import { ConfirmDialog } from "@/components/features/common/confirm-dialog";
+import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
 import { PHOTO_ACCEPT_MIME } from "@/lib/photos/path";
 import type { PhotoPhase } from "@/lib/photos/transitions";
 import { usePhaseCapture, type PendingUpload } from "./use-phase-capture";
@@ -145,15 +145,21 @@ function SheetCapture({ projectId, workPackageId, userId, phase, photos }: Sheet
     pending,
     topLevelError,
     removingId,
-    confirmRemoveId,
     fileInputRef,
     handleFiles,
     retry,
-    requestRemove,
-    cancelRemove,
     handleRemoveConfirmed,
   } = usePhaseCapture({ projectId, workPackageId, userId, phase });
   const hasContent = pending.length > 0 || photos.length > 0;
+
+  // One lightbox group per phase (spec 50): the loaded photos in capture
+  // order. A null-url tile (not yet displayable) is excluded from the
+  // group but still renders its placeholder.
+  const loaded = photos.filter((p) => p.url !== null);
+  const loadedUrls = loaded.map((p) => p.url as string);
+  const loadedPhotoIds = loaded.map((p) => p.id);
+  const loadedIndexById = new Map<string, number>();
+  loaded.forEach((p, i) => loadedIndexById.set(p.id, i));
 
   return (
     <>
@@ -171,11 +177,14 @@ function SheetCapture({ projectId, workPackageId, userId, phase, photos }: Sheet
                 <PendingThumb key={up.id} upload={up} onRetry={() => void retry(up.id)} />
               ))}
               {photos.map((p) => (
-                <LoadedThumb
+                <LoadedTile
                   key={p.id}
                   photo={p}
-                  isRemoving={removingId === p.id}
-                  onRemove={() => requestRemove(p.id)}
+                  group={loadedUrls}
+                  groupPhotoIds={loadedPhotoIds}
+                  groupIndex={loadedIndexById.get(p.id) ?? 0}
+                  removingId={removingId}
+                  onDelete={handleRemoveConfirmed}
                 />
               ))}
             </ul>
@@ -230,16 +239,6 @@ function SheetCapture({ projectId, workPackageId, userId, phase, photos }: Sheet
           />
         </label>
       </div>
-
-      <ConfirmDialog
-        open={confirmRemoveId !== null}
-        message={"ลบรูปนี้หรือไม่? การลบไม่สามารถย้อนกลับได้"}
-        confirmLabel="ลบรูป"
-        onConfirm={() => {
-          if (confirmRemoveId) void handleRemoveConfirmed(confirmRemoveId);
-        }}
-        onCancel={cancelRemove}
-      />
     </>
   );
 }
@@ -272,20 +271,43 @@ function PendingThumb({ upload, onRetry }: { upload: PendingUpload; onRetry: () 
   );
 }
 
-function LoadedThumb({
+// A loaded photo is a tap-to-enlarge DETAIL trigger — delete lives inside
+// that detail, never as a red × on the tile (feedback 7c3347b3), so an
+// upload can't be wiped by a mis-tap and reads as permanent. The tiles in
+// a phase form one lightbox group so the SA can swipe between them.
+function LoadedTile({
   photo,
-  isRemoving,
-  onRemove,
+  group,
+  groupPhotoIds,
+  groupIndex,
+  removingId,
+  onDelete,
 }: {
   photo: SheetPhoto;
-  isRemoving: boolean;
-  onRemove: () => void;
+  group: ReadonlyArray<string>;
+  groupPhotoIds: ReadonlyArray<string>;
+  groupIndex: number;
+  removingId: string | null;
+  onDelete: (photoId: string) => void;
 }) {
+  const isRemoving = removingId === photo.id;
   return (
-    <li className="rounded-control border-edge bg-sunk relative h-20 w-20 shrink-0 overflow-hidden border">
+    <li
+      className={`rounded-control border-edge bg-sunk relative h-20 w-20 shrink-0 overflow-hidden border transition-opacity ${
+        isRemoving ? "opacity-50" : ""
+      }`}
+    >
       {photo.url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={photo.url} alt="" className="h-full w-full object-cover" />
+        <ZoomablePhoto
+          src={photo.url}
+          group={group}
+          groupPhotoIds={groupPhotoIds}
+          groupIndex={groupIndex}
+          photoId={photo.id}
+          canDelete
+          onDeletePhoto={onDelete}
+          deletingPhotoId={removingId}
+        />
       ) : (
         <span className="text-meta text-ink-secondary flex h-full w-full items-center justify-center">
           ไม่พร้อม
@@ -296,26 +318,6 @@ function LoadedThumb({
           {photo.timeLabel}
         </span>
       ) : null}
-      <button
-        type="button"
-        onClick={onRemove}
-        disabled={isRemoving}
-        aria-label="ลบรูป"
-        className="focus-visible:ring-action absolute top-0 right-0 inline-flex h-11 w-11 items-center justify-center focus:outline-none focus-visible:ring-2 disabled:opacity-50"
-      >
-        <span className="border-danger-ink bg-danger text-on-fill inline-flex h-6 w-6 items-center justify-center rounded-full border">
-          {isRemoving ? (
-            <span
-              aria-hidden
-              className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white"
-            />
-          ) : (
-            <span aria-hidden className="text-sm leading-none">
-              ×
-            </span>
-          )}
-        </span>
-      </button>
     </li>
   );
 }

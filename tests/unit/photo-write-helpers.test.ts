@@ -12,11 +12,9 @@ import {
   PHOTO_EXTS,
   type PhotoExt,
 } from "@/lib/photos/path";
-import {
-  shouldTransitionToInProgress,
-  shouldTransitionToPendingApproval,
-} from "@/lib/photos/transitions";
+import { shouldTransitionToInProgress } from "@/lib/photos/transitions";
 import { buildTombstoneRow } from "@/lib/photos/tombstone";
+import { photoReworkRoundFor } from "@/lib/photos/rework-round";
 
 describe("isValidPhotoExt", () => {
   it("accepts exactly the four canonical extensions", () => {
@@ -96,34 +94,9 @@ describe("mimeToPhotoExt", () => {
   });
 });
 
-describe("shouldTransitionToPendingApproval", () => {
-  it("transitions only when phase is 'after' AND status is transitionable", () => {
-    // Spec 144: 'rework' (a defect reopened a complete WP) is transitionable too
-    // — re-shooting the After photo sends it back to pending_approval.
-    for (const status of ["not_started", "in_progress", "on_hold", "rework"] as const) {
-      expect(shouldTransitionToPendingApproval("after", status)).toBe(true);
-    }
-  });
-
-  it("does NOT transition for non-After phases regardless of status", () => {
-    for (const phase of ["before", "during"] as const) {
-      for (const status of [
-        "not_started",
-        "in_progress",
-        "on_hold",
-        "pending_approval",
-        "complete",
-      ] as const) {
-        expect(shouldTransitionToPendingApproval(phase, status)).toBe(false);
-      }
-    }
-  });
-
-  it("does NOT regress 'pending_approval' or 'complete' on an After photo", () => {
-    expect(shouldTransitionToPendingApproval("after", "pending_approval")).toBe(false);
-    expect(shouldTransitionToPendingApproval("after", "complete")).toBe(false);
-  });
-});
+// FB2 (b9e942f0): the After-photo → pending_approval auto-flip
+// (shouldTransitionToPendingApproval) was removed — submission is now an explicit
+// SA act (submitWorkPackageForApproval). The During → in_progress flip stays.
 
 describe("shouldTransitionToInProgress", () => {
   it("transitions ONLY for phase 'during' on a 'not_started' WP (one true cell in the matrix)", () => {
@@ -152,6 +125,21 @@ describe("shouldTransitionToInProgress", () => {
   });
 });
 
+// Spec 216 U2: the rework cycle stamped on a NEW photo. after_fix (หลังแก้ไข)
+// carries the WP's current rework_round; every other phase is the original cycle.
+describe("photoReworkRoundFor", () => {
+  it("stamps an after_fix photo with the WP's current rework_round", () => {
+    expect(photoReworkRoundFor("after_fix", 1)).toBe(1);
+    expect(photoReworkRoundFor("after_fix", 3)).toBe(3);
+  });
+
+  it("stamps every non-after_fix phase with 0 regardless of the WP's round", () => {
+    for (const phase of ["before", "during", "after"] as const) {
+      expect(photoReworkRoundFor(phase, 2)).toBe(0);
+    }
+  });
+});
+
 describe("buildTombstoneRow", () => {
   it("produces a row with storage_path NULL and superseded_by set to the target id", () => {
     const row = buildTombstoneRow({
@@ -159,6 +147,7 @@ describe("buildTombstoneRow", () => {
       phase: "after",
       targetPhotoId: "target-uuid",
       uploadedBy: "user-uuid",
+      reworkRound: 0,
     });
     expect(row.storage_path).toBeNull();
     expect(row.superseded_by).toBe("target-uuid");
@@ -173,10 +162,24 @@ describe("buildTombstoneRow", () => {
       phase: "before",
       targetPhotoId: "t",
       uploadedBy: "u",
+      reworkRound: 0,
     });
     // Both sides of the CHECK constraint must agree.
     expect(row.storage_path === null).toBe(true);
     expect(row.superseded_by !== null).toBe(true);
+  });
+
+  // Spec 216 U2: a tombstone inherits its target's rework_round so the removal
+  // stays in the same cycle as the photo it supersedes.
+  it("carries the target's rework_round (an after_fix round-2 removal stays round 2)", () => {
+    const row = buildTombstoneRow({
+      workPackageId: "wp",
+      phase: "after_fix",
+      targetPhotoId: "t",
+      uploadedBy: "u",
+      reworkRound: 2,
+    });
+    expect(row.rework_round).toBe(2);
   });
 });
 

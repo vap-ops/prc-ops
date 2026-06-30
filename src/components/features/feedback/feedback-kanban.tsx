@@ -7,6 +7,7 @@
 
 import Link from "next/link";
 import { FeedbackStatusControl } from "@/components/features/feedback/feedback-status-control";
+import { FeedbackNumberTag } from "@/components/features/feedback/feedback-number-tag";
 import { groupFeedbackByStatus, FEEDBACK_STATUS_ORDER } from "@/lib/feedback/kanban";
 import { withBackFrom } from "@/lib/nav/back-href";
 import { CARD } from "@/lib/ui/classes";
@@ -24,6 +25,7 @@ type UserRole = Database["public"]["Enums"]["user_role"];
 
 export type FeedbackCardVM = {
   id: string;
+  feedbackNumber: number;
   type: FeedbackType;
   status: FeedbackStatus;
   title: string;
@@ -75,6 +77,7 @@ export function FeedbackKanban({ cards }: { cards: FeedbackCardVM[] }) {
               col.items.map((f) => (
                 <article key={f.id} className={`${CARD} flex flex-col gap-2`}>
                   <div className="flex items-center gap-2">
+                    <FeedbackNumberTag feedbackNumber={f.feedbackNumber} />
                     <span className={`${BADGE} ${TYPE_BADGE[f.type]}`}>
                       {FEEDBACK_TYPE_LABEL[f.type]}
                     </span>

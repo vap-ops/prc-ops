@@ -6,6 +6,903 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 234 — Multi-project client access (extends ADR 0067) — ✅ COMPLETE (2026-06-30)
+
+Status: **all 3 units shipped (operator-approved design 2026-06-30).** A `client` login holds live access to N
+projects via explicit per-project grant; `/client` becomes a project list → drill. No new tables/RLS
+(access table + read arms already per-project). Spec `234`; plan `2026-06-30-multi-project-client-access`.
+
+| Unit | Scope                                                                | Schema | Status  |
+| ---- | -------------------------------------------------------------------- | ------ | ------- |
+| U1   | `grant_client_access` RPC + re-entrant `claim_client_invite`         | yes    | ✅ done |
+| U2   | `/client` list → `/client/[projectId]` drill + `loadClientView(pid)` | —      | ✅ done |
+| U3   | PD "grant an existing client login" picker on the project page       | —      | ✅ done |
+
+> U2 + U3 ship as ONE code-only auto-merge PR (branch `spec-234-ui`, two TDD commits).
+
+### U2 — `/client` multi-project render — ✅ done (2026-06-30)
+
+`loadClientView(supabase, projectId)` gained a project arg — scopes projects/`.eq(id)`,
+work_packages/`.eq(project_id)`, photos to the project's WP set, reports/`.eq(project_id)`; RLS is
+still the boundary (a non-live projectId → null). New `loadClientProjects(supabase)` lists the
+client's live projects (safe cols only). `/client`: 0 → access-ended, **1 → opens straight in**
+(unchanged), ≥2 → `<ClientProjectList>`; new `/client/[projectId]` drill renders `ClientProgressView`
+with a `backHref="/client"` chip. `/client/claim` made re-entrant (a client WITH a token may claim).
+nav anti-drift test treats the `/client` tree as bespoke external (dynamic drill excluded from the
+DetailHeader requirement). Tests: load-client-view (project arg + foreign-WP photo scoping) +
+load-client-projects red→green; lint·typecheck clean.
+
+### U1 — grant RPC + re-entrant claim — ✅ done (2026-06-30)
+
+Migration `20260813038000` (applied): NEW `grant_client_access(user, project, valid_until)` definer
+RPC — PD/super gate (coalesce-false), target must be an existing `client`, project must exist,
+`ON CONFLICT (user_id, project_id) DO UPDATE` un-revokes + refreshes (resolves the spec-233
+revoke-terminal limit); audit `client_access_granted`. DROP+CREATE re-entrant `claim_client_invite`
+(body sourced from LIVE): gate now `visitor` OR `client` (staff/contractor still 42501); a visitor
+flips role + `role_change` audit (unchanged), an existing client adds the project (no flip) +
+`client_access_granted` audit; insert `ON CONFLICT DO UPDATE`. `db:types` regen (app + worker).
+pgTAP `243` (15 asserts): grant gate (pm→42501), grant-non-client→P0001, re-grant un-revokes,
+unknown-project→P0001, client claims a 2nd project (no flip), visitor-flip regression, staff
+locked out, 2-project client sees both. **Full pgTAP 205/205 · 0 fails** (spec-233 `242` still
+green); lint·typecheck clean.
+
+### U3 — PD grant-existing-client picker — ✅ done (2026-06-30)
+
+`grantClientAccess({ userId, projectId, validUntil })` server action (PD/super gate; relays to the
+`grant_client_access` RPC). `<ClientGrantExisting>` — a `<select>` of existing client logins (by LINE
+name) + a valid-until date → grant; renders nothing when there are no candidates. The project page
+loads candidates = client logins live on ANOTHER project, excluding any already on this one
+(admin-read), and renders the control beside `ClientInviteBlock` (gated `isClientIssuer`). Tests:
+`grantClientAccess` (pm→reject, pd→{ok}, bad-date→reject) + `client-grant-existing` (empty→null,
+pick+grant→relay+toast). Full suite **2106** green; lint·typecheck clean.
+
+**Spec 234 DONE** — a client login holds access to N projects; PD attaches via direct-pick OR a
+re-issued invite link; `/client` lists live projects → drill (1 opens straight in). PRs: U1 #201
+(PAT-merged, danger-path), U2+U3 one code-only auto-merge PR. (Also resolved the spec-233
+revoke-terminal caveat — re-grant un-revokes.)
+
+### Follow-ups (2026-06-30)
+
+- **Empty-state discoverability (#203):** `ClientGrantExisting` returned null when no candidates →
+  the card looked missing. Now always renders for an issuer with a hint when empty.
+- **Broken-link STOPGAP (mig `039000`, operator directive — claim link is broken, to be investigated
+  separately):** `grant_client_access` relaxed (DROP+CREATE from LIVE) to accept a **visitor** target
+  (flips them to `client`, the manual no-token equivalent of claim) OR an existing client; staff /
+  contractor stay ineligible (`P0001`); visitor-flip writes a `role_change` audit (`via=manual_grant`).
+  The project-page picker now lists eligible logins = role `visitor`+`client` not on this project (by
+  LINE name); the card relabeled "เพิ่มลูกค้าให้ดูโครงการ". So a client just LINE-logs-in (→ visitor)
+  and the PD picks them — no link needed. pgTAP `244` (6) + `243` updated; danger-path. **Open
+  question:** the picker lists ALL logged-in visitors (every signup) — fine at beta scale; revisit
+  (search/scope) if the visitor pool grows. Once the claim link is fixed, this stays as a useful
+  alternative path.
+
+## Spec 233 — Client progress portal (ADR 0067) — ✅ COMPLETE (2026-06-30)
+
+Status: **all 5 units shipped + merged in one session (operator grant).** Temporary, scoped, read-only
+client login per [spec 233](feature-specs/233-client-progress-portal.md) — a `project_director`/
+`super_admin` issues a LINE claim link letting a project's client watch progress (summary · WP
+status · approved photos · report PDFs) for one project, with a valid-until date + early revoke.
+Mirrors the spec-130/ADR-0051 contractor portal machinery with its own `client` role, `/client`
+route, and dedicated read-only RLS arms (never widening a staff query). Schema lane claimed after
+ADR 0066 S6 (`033000`) merged; reserved migration ts `034000` (U1 enum) / `035000` (U2 tables/RLS)
+/ `036000` (U2 RPCs).
+
+| Unit | Scope                                                                  | Schema | Status  |
+| ---- | ---------------------------------------------------------------------- | ------ | ------- |
+| U1   | ADR 0067 + `client` enum + `CLIENT_ISSUER_ROLES` + `/client` routing   | enum   | ✅ done |
+| U2   | `client_portal_access` + `client_invites` + helper + 3 RPCs + RLS arms | yes    | ✅ done |
+| U3   | PD invite block (date → create link → list/revoke) + actions           | —      | ✅ done |
+| U4   | `/client` read-only render (4 surfaces, signed URLs)                   | —      | ✅ done |
+| U5   | `/client/claim` LINE bind flow + already-bound redirect                | —      | ✅ done |
+
+> U3–U5 are CODE-ONLY → shipped as ONE auto-merge PR (branch `spec-233-ui`, three TDD commits) to
+> minimise the concurrent-disruption window after the spec-225-fix session reclaimed the schema lane.
+
+### U1 — ADR 0067 + `client` role + routing skeleton — ✅ done (2026-06-30)
+
+Migration `20260813034000_add_client_role.sql` (`ALTER TYPE public.user_role ADD VALUE 'client'`,
+own file per ADR 0008) applied to the shared DB; `db:types` regenerated (app + worker copies, ADR
+0047 drift-guard green). [ADR 0067](decisions/0067-client-progress-portal-role.md) authored +
+indexed. `CLIENT_ISSUER_ROLES = ['project_director','super_admin']` added to `role-home.ts`
+(deliberately NOT `PM_ROLES`, pinned by `client-issuer-roles.test.ts`); `roleHome('client') →
+/client`. Three gated route stubs: `/client` (requireRole client → redirect access-ended,
+safe-by-default until U2/U4), `/client/claim` (visitor-reachable, already-bound → /client; U5 wires
+the action), `/client/access-ended` (calm lapsed notice, no gate). Added the `client` label
+(`ลูกค้า`) to the exhaustive `USER_ROLE_LABEL`, and classified the 3 routes in the nav anti-drift
+registry (mirrors `/portal`). **Tests:** role-home + client-issuer red→green; full suite **2052**
+pass; lint + typecheck clean. Shipped PR #195, PAT-merged (`d24045f`).
+
+### U2 — schema + RPCs + RLS — ✅ done (2026-06-30)
+
+Migrations `20260813035000_client_portal_access.sql` (tables `client_portal_access` +
+`client_invites`; `client_has_live_access(uuid)` SECURITY DEFINER predicate; RLS enable + revoke-all
+
+- explicit SELECT grants; PD/super manage arms + client-reads-own-access; **dedicated client read
+  arms** on projects / work_packages / complete-WP photos / completed reports) and
+  `20260813036000_client_invite_rpcs.sql` (`create_client_invite` / `claim_client_invite` /
+  `revoke_client_access`) applied to the shared DB; `db:types` regenerated (app + worker, ADR 0047).
+  RPC bodies cloned from the **live** `create_contractor_invite` / `claim_contractor_invite`
+  (`pg_get_functiondef`): SHA-256 token hashing via `extensions.digest`, visitor-only claim, role
+  flip, `audit_log`. Gate = PD/super only (coalesce-false null-safe), EXECUTE revoked from
+  public/anon. pgTAP `242-spec233-client-portal.test.sql` (**34 assertions, all green**): catalog/RLS,
+  helper live/revoked/expired, client visibility scoped to the one live project (cross-project +
+  non-complete-WP photos + non-complete reports all invisible), money no-leak (no client arm on
+  `wp_labor_costs`; arms only on the 4 surfaces), PD-only create/revoke (pm → 42501), visitor-only
+  single-use claim. Six existing pins updated for the legit policy/enum changes (`01-users` +
+  `231-sql-role-predicates` enum 12→13; `07`/`08`/`09`/`12` policy-exactness gain the client SELECT
+  arm, "no DELETE / append-only" invariants intact). Full pgTAP **203/204 files** green.
+
+**Open questions / notes (U2):**
+
+- **`projects.budget_amount_thb` is a money column on a row the client CAN read.** Postgres RLS is
+  row-level only and `client` shares the `authenticated` DB role with staff, so a column grant
+  cannot block it per app-role. Mitigation: the **U4 client reader MUST select only safe columns**
+  (never `budget_amount_thb`); the money _tables_ carry no client arm. Flagged so U4 honours it.
+- **Revoke is terminal per (client, project) pair in v1 (intentional).** `unique (user_id,
+project_id)` is per spec §3.2. Once revoked, that client (now role `client`, not `visitor`) cannot
+  re-claim — the visitor-only gate in `claim_client_invite` rejects it (42501) before any INSERT, so
+  the unique constraint is never actually hit. Re-grant/renewal is explicitly out of scope (spec §8).
+  A reviewer flagged the constraint as a re-grant blocker; verified it is not a live bug (gate blocks
+  the path) and left as-specified. If renewal is ever built, switch to a partial unique index
+  (`where revoked_at is null`) in that spec.
+- **Pre-existing pgTAP failure (NOT spec 233) — ✅ RESOLVED 2026-06-30:** `239-spec225-catalog-item-categories`
+  was failing — one `catalog_items` row had 0 `is_primary` memberships (spec-225 / S4 backfill orphan, PR #191 /
+  `2f3caad`; pgTAP isn't in CI so it merged). Root cause: S4 added the junction + backfilled existing items but
+  did NOT wire `create_catalog_item` to write the canonical primary membership for NEW items (and
+  `update_catalog_item` never re-synced it on a category change — same invariant). Fixed in migration
+  `20260813037000_spec225fix_create_catalog_item_membership.sql`: both RPCs now maintain the `is_primary`
+  membership (CREATE OR REPLACE, LIVE-sourced; signatures unchanged → grants preserved, no type drift) +
+  idempotent orphan backfill; `239` extended with create/update regression asserts (47 asserts). Full
+  `pnpm db:test` = 204/204, LIVE orphan count = 0.
+
+### U3 — PD invite block + actions — ✅ done (2026-06-30)
+
+`buildClientClaimUrl` (`src/lib/client-portal/claim-url.ts`, mirrors the portal one, `/client/claim`
+route). Server actions `createClientInvite` / `revokeClientAccess` on `src/app/projects/[projectId]/actions.ts`
+— gated via `requireActionRole(CLIENT_ISSUER_ROLES, …)` (PD+super, friendly early check;
+the definer RPCs gate again), valid-until parsed to Thai end-of-day (`+07:00`), relayed through the
+RLS session. `<ClientInviteBlock>` (`src/components/features/client-portal/`): date picker → สร้างลิงก์
+→ copyable claim URL; below, the active bindings (admin-loaded name + valid-until) each with a เพิกถอน
+button. Mounted on the project page beside `CategoriesManager`, gated `isClientIssuer`. **Tests:**
+`client-portal-actions.test.ts` (pm→reject, pd→{ok,token}, bad date→reject, revoke gate) +
+`client-invite-block.test.tsx` (date required, link shown, bindings+revoke) red→green; registered
+`client-portal` in the feature-domain structure test; lint + typecheck clean.
+
+### U4 — `/client` read-only render — ✅ done (2026-06-30)
+
+`loadClientView(supabase)` (`src/lib/client-portal/load-client-view.ts`) — reads the four surfaces
+through the caller's RLS server client (the U2 client read arms scope rows to the one live project);
+returns `null` when there is no live project (→ access-ended). **SAFE COLUMNS ONLY** — no money
+column is ever selected (pinned by the test's money-regex over every `.select`). Photos are
+supersede-anti-joined (ADR 0009) + tombstone-filtered, then signed via the shared `mintSignedUrls`
+(PHOTOS_BUCKET / REPORTS_BUCKET). `<ClientProgressView>` renders summary · WP status ·
+approved-photo grid · completed-report download links + logout — a Server Component, no edit
+affordance. `/client/page.tsx` = `requireRole(['client'])` → `loadClientView` → `null` redirects to
+`/client/access-ended`, else renders. **Tests:** `load-client-view.test.ts` (null-when-no-project,
+no-money-columns, supersede anti-join) + `client-progress-view.test.tsx` (4 surfaces, report link,
+no edit controls); lint + typecheck clean.
+
+**Open question (U4):** the spec calls for **watermarked** photos, but the app has **no watermark
+mechanism** (ADR 0003 intent, never built — `grep watermark src/` is empty). Per
+library/scope discipline I did not invent one; the portal serves approved-photo signed URLs directly
+(same exposure model as every other signed-URL surface). Watermarking is a follow-up if wanted.
+
+### U5 — `/client/claim` LINE bind flow — ✅ done (2026-06-30)
+
+`claimClientInvite({ token })` (`src/lib/client-portal/actions.ts`) — trims the token, relays to the
+`claim_client_invite` RPC through the caller's RLS session (never admin), maps the RPC raises to Thai
+via the shared `claimErrorToThai` (substrings overlap the contractor invite's → reused, not
+re-rolled). `<ClientClaimButton>` (mirrors the portal claim button): confirm → on success
+`router.replace('/client')`, on failure shows the Thai reason. `/client/claim/page.tsx` (built on the
+U1 stub): visitor-reachable, already-bound client → `/client`, mounts the button when a token is
+present else the invalid-link notice. **Tests:** `client-claim.test.ts` (empty token short-circuits,
+trimmed relay, visitor-only / expired / used → Thai) red→green. Full suite **2084** green; lint +
+typecheck clean.
+
+**Spec 233 DONE** — `/client` renders the four read-only surfaces for a live client; an
+expired/revoked client → `/client/access-ended`; PD/super issue + revoke from the project page. PRs:
+U1 #195, U2 #197 (both PAT-merged, danger-path), U3–U5 one code-only auto-merge PR.
+
+## ADR 0066 — Procurement taxonomy redesign (specs 223–232) — SPEC AUTHORED (2026-06-30, session S0)
+
+Status: **SPECS AUTHORED / not started.** Session S0 (docs-only) accepted
+[ADR 0066](decisions/0066-procurement-taxonomy-redesign.md) and authored the 10 phase
+specs below (one per build session, S0–S10). Schema is single-lane and serialized
+(S1→S2→S4→S5→S6); reserved migration timestamps `20260813029000`–`20260813033000`. S0
+ships as ONE governance-held PR (touches `docs/decisions/`). **S1 (223) + S2 (224) + S4 (225) + S5 (226) + S6 (227) + S7 (228) + S8 (229) ✅ COMPLETE; next: S9 (spec 230, read-side wins — 3 disjoint code-only units).** (S3 / spec 232 is
+break-glass, off-sequence, operator-scheduled.)
+
+| Spec                                                     | Session | Title                                                                           | Autonomy             | Reserved migration ts  | Status      |
+| -------------------------------------------------------- | ------- | ------------------------------------------------------------------------------- | -------------------- | ---------------------- | ----------- |
+| [223](feature-specs/223-units-ssot.md)                   | S1      | Units SSOT — `catalog_units` + structured picker                                | 🔔 ONE-TAP HOLD      | `20260813029000`       | ✅ COMPLETE |
+| [224](feature-specs/224-catalog-item-facets.md)          | S2      | Catalog facets `kind`/`fulfillment_mode`/`owner_supplied` + derived `stockable` | 🔔 ONE-TAP HOLD      | `20260813030000`       | ✅ COMPLETE |
+| [225](feature-specs/225-catalog-secondary-membership.md) | S4      | Secondary membership `catalog_item_categories` (reuse spec-219 composite FK)    | 🔔 ONE-TAP HOLD      | `20260813031000`       | ✅ COMPLETE |
+| [226](feature-specs/226-global-work-categories.md)       | S5      | Global `work_categories` library + seed + reconcile FK + ship 207-U3c           | 🔔 ONE-TAP HOLD      | `20260813032000`       | ✅ COMPLETE |
+| [227](feature-specs/227-work-material-relation.md)       | S6      | Relation R `work_category_material_categories` bridge + seed                    | 🔔 ONE-TAP HOLD      | `20260813033000`       | ✅ COMPLETE |
+| [228](feature-specs/228-scoped-supply-plan-picker.md)    | S7      | UC1 scoped supply-plan picker (show-all-default)                                | ✅ AUTO-MERGE        | — (code-only)          | ✅ COMPLETE |
+| [229](feature-specs/229-scoped-wp-detail-pickers.md)     | S8      | UC2 scoped WP-detail pickers + work-cat badge                                   | ✅ AUTO-MERGE        | — (code-only)          | ✅ COMPLETE |
+| [230](feature-specs/230-category-read-side-wins.md)      | S9      | Read-side wins (3 disjoint files, parallelizable)                               | ✅ AUTO-MERGE        | — (code-only)          | not started |
+| [231](feature-specs/231-estimate-template-bid-layer.md)  | S10     | Estimate/template/bid layer + assemblies (LATER epic)                           | MIXED, multi-session | assigned at build      | not started |
+| [232](feature-specs/232-category-rehome-breakglass.md)   | S3      | C1 re-home cats 09/10/13 (product_code shift)                                   | 🧨 BREAK-GLASS       | assigned at scheduling | not started |
+
+**Open questions surfaced (S0):** (1) the exact `stockable` derivation rule + whether
+`p_stockable` is ignored or fallback (spec 224 — pin in pgTAP at build); (2) the
+`work_categories` subsection grain (self-FK `parent_code` vs flat 2-level code, spec 226);
+(3) the spend-by-category lens (work-cat vs material-cat, spec 230); (4) BOQ seed content
+for W01–W09 + Relation R rows (specs 226/227 — sourced from the BuildAll BOQ at build).
+
+### S1 — Units SSOT (spec 223) — ✅ COMPLETE (2026-06-30)
+
+Migration `20260813029000_spec223_catalog_units.sql` (applied to the shared DB; main↔DB
+sync moves to `029000` once the held PR merges). `public.catalog_units` (`code` PK =
+the stable key AND the stored value; `display_name`, `abbr_short`, `unit_class`,
+`sort_order`, `is_active`, `created_by`, `created_at`/`updated_at` via the existing
+`set_updated_at` trigger; blank-name CHECK). RLS = enable + revoke anon/authenticated +
+grant SELECT to authenticated + `using (true)` policy (firm-wide vocabulary, matched to
+`catalog_categories`); **no DELETE** (deactivate-not-delete). Seeded the 25 `COMMON_UNITS`,
+classed. Writes via three SECURITY DEFINER RPCs (`create`/`update_catalog_unit`,
+`set_catalog_unit_active`) mirroring the spec 221 U2 posture. Structured picker: the item
+form's `หน่วยนับ` `<select>` now sources options from `catalog_units` (threaded from the
+`/catalog` loader through `AddCatalogItem` + `CatalogList`→`EditCatalogItem`); the
+`UNIT_OTHER_VALUE` (`อื่น ๆ (ระบุเอง)`) free-text escape hatch is retained verbatim.
+
+**Decisions made:**
+
+- **`unit_class` is a Postgres ENUM** (`count|length|area|volume|weight|trips`), not a
+  CHECK set — the house rule (CLAUDE.md: "status fields are enums") and so code can switch
+  on it type-safely. Pinned in the migration comment.
+- **`code` = the Thai unit string** (PK, not a surrogate uuid) — it is BOTH the stable key
+  and the value already persisted on consuming rows (`catalog_items.unit`, supply-plan
+  lines). So the picker submits `code` and it matches existing stored text with zero
+  backfill. Code is therefore **not editable** in `update_catalog_unit` (recoding would
+  orphan stored references); the editable fields are name/abbr/class/sort.
+- **Null-safe role gate** — captured `v_role := current_user_role()::text` once and gated
+  `v_role IS NULL OR v_role NOT IN (...)` → 42501 (ADR 0066 D8). This is **stricter than the
+  literal spec 221 U2 body**, which uses `current_user_role() NOT IN (...)` directly — that
+  evaluates to NULL (treated as false) for an unbound caller, opening the gate
+  ([[rls-self-check-coalesce]]). pgTAP pins both the null-role and visitor-role denials.
+- **`COMMON_UNITS` kept** as the seed-of-record + a test anchor + the form's in-code
+  fallback when no rows are threaded (so the picker is never empty in isolated tests).
+
+**Verification:** pgTAP `237-spec223-catalog-units.test.sql` (42 asserts) green; full suite
+**199 files / 3422 / 0 fails**. lint·typecheck·vitest **2021** green. New vitest
+`catalog-unit-picker.test.tsx` (options from threaded units + escape-hatch).
+
+**Open questions (S1):** none new. (Out of scope per spec: a `unit_code` FK on consuming
+rows; a units management CRUD screen — the RPCs exist, the admin screen is a later unit;
+abbreviations seeded NULL — no `abbr_short` values in the seed, added later if a picker
+wants them.)
+
+### S2 — Catalog item facets (spec 224) — ✅ COMPLETE (2026-06-30)
+
+Migration `20260813030000_spec224_catalog_item_facets.sql` (applied to the shared DB;
+main↔DB sync moves to `030000` once the held PR merges). Two facet ENUMS
+`catalog_item_kind` (`material|tool|equipment|labor|service|softcost`; `assembly` is
+spec 231/S7) + `catalog_fulfillment_mode` (`off_shelf|made_to_order`); three NOT-NULL
+columns on `catalog_items` (`kind` default `material`, `fulfillment_mode` default
+`off_shelf`, `owner_supplied` default `false`). `create`/`update_catalog_item` were
+**DROP+CREATE'd from the LIVE bodies** (`pg_get_functiondef`, verified identical to the
+221 U3b file — no drift) adding three **trailing-default** facet params, so every
+existing positional caller + `::regprocedure` pin keeps resolving. The item form gained a
+`kind` select, a `fulfillment_mode` select, and an `owner_supplied` checkbox (threaded
+through `AddCatalogItem` + `CatalogList`→`EditCatalogItem`, like spec 223's units);
+`actions.ts` routes the three facets through and lets the RPC derive `stockable`.
+
+**Decisions made:**
+
+- **`fulfillment_mode` is the SSOT; `stockable` is DERIVED on write** —
+  `v_mode := coalesce(p_fulfillment_mode, case when coalesce(p_stockable,true) then 'off_shelf' else 'made_to_order' end)`
+  then `stockable := (v_mode = 'off_shelf')`. So the explicit `p_fulfillment_mode` **wins**
+  over the legacy `p_stockable`, and an **old-arity caller** (no facet args) still derives
+  correctly because `p_stockable` only **bootstraps** the mode when no facet is supplied.
+  This resolves the S0 open question #1 (the rule is "facet wins; p_stockable is a
+  back-compat fallback, never an override"). Pinned in pgTAP both ways
+  (made_to_order over p_stockable=true ⇒ stockable=false; old 6-positional-arg call
+  p_stockable=false ⇒ made_to_order/false).
+- **Enum-typed facet params** (`p_kind`, `p_fulfillment_mode`) — matching the `p_category`
+  precedent + the house rule. An invalid value is rejected by Postgres at the **cast
+  boundary (22P02)**; there is no free-text path into a facet, so no in-body `22023` enum
+  check is added (the existing `22023` arms — category/base/unit/code/subcategory — are
+  preserved verbatim and pinned).
+- **Null-safe role gate** — upgraded the LIVE `current_user_role() NOT IN (...)` to the
+  captured `v_role := current_user_role()::text; v_role IS NULL OR v_role NOT IN (...)` →
+  42501 form (ADR 0066 D8, matching S1). pgTAP pins both null-role (unbound sub) and
+  visitor-role denials. `revoke … from public, anon` + `grant execute … to authenticated`
+  re-pinned to the new 12-arg/13-arg signatures; never `service_role`.
+- **Backfill** — `kind` → `material` for all existing rows (the C1 re-home of cats
+  09/10/13 to tool/equipment is **spec 232 / S3**, deliberately off this sequence);
+  `fulfillment_mode` derived from the existing `stockable` signal (`stockable is false ⇒
+made_to_order`, else the `off_shelf` column default); `owner_supplied` → `false`. pgTAP
+  asserts the derivation invariant holds for every pre-existing row.
+
+**Verification:** pgTAP `238-spec224-catalog-item-facets.test.sql` (41 asserts) green;
+full suite **200 files / 3464 / 0 fails** (incl. the 4 sig-pin tests 120/121/222/223
+re-pinned to the new arity). lint·typecheck·vitest **2024** green. New vitest
+`catalog-item-facets.test.tsx` (controls render + defaults + facets submit through the
+action); existing `add`/`edit` exact-payload assertions extended with the facets.
+
+**Open questions (S2):** none new. (Out of scope per spec: the C1 re-home + product-code
+prefix shift — spec 232/S3 break-glass; `kind = assembly` + BOM — spec 231/S10; any picker
+scoping — specs 228/229. No facet display on the read-only list yet — only the edit form
+pre-fills them.)
+
+---
+
+### S4 — Secondary material membership (spec 225) — ✅ COMPLETE (2026-06-30)
+
+Migration `20260813031000_spec225_catalog_item_categories.sql` (applied to the shared DB;
+main↔DB sync moves to `031000` once the held PR merges). Additive junction
+`catalog_item_categories(id, catalog_item_id, category_id, subcategory_id, is_primary,
+created_by, created_at)` (defect **C2**) so one catalog item appears under **more than one**
+material grouping — discoverability only; the canonical `catalog_items.category_id`/
+`subcategory_id` stay authoritative and untouched (they still drive `product_code`). Writes
+go only through two null-safe SECURITY DEFINER RPCs `add_/remove_catalog_item_category`.
+Data layer + the picker-union reader/helpers in `src/lib/catalog/categories.ts`
+(`loadCatalogItemMemberships`, `membershipsByItem`, `itemCategoryIds`,
+`itemInCategoryScope`) — **no management UI** (that's a later unit; the union-reading
+pickers are specs 228/229).
+
+**Decisions made:**
+
+- **Composite FK is REUSED, not minted** — the junction carries
+  `(subcategory_id, category_id) → catalog_subcategories(id, category_id)` byte-identical to
+  the spec-219/221 key on `catalog_items` (pinned in pgTAP by `pg_get_constraintdef`
+  equality). A membership can never reference a `(subcategory, category)` pair the canonical
+  schema would reject. A **plain FK** `category_id → catalog_categories(id)` guards the
+  category-grain membership (`subcategory_id` NULL — MATCH SIMPLE skips the composite check
+  then), mirroring exactly how `catalog_items` guards its `category_id`.
+- **Exactly one primary per item** — partial unique index `(catalog_item_id) where
+is_primary`. The primary row is **backfilled to MIRROR** each item's canonical
+  `category_id`/`subcategory_id` (one row per existing item; verified all 254 items have a
+  non-null `category_id`, 0 had a subcategory), so canonical-home and primary-membership can
+  never disagree. pgTAP pins: primary count == item count, zero mismatches, no item has >1
+  primary.
+- **Adds are always SECONDARY** — `add_catalog_item_category` inserts `is_primary=false`;
+  the primary belongs to the canonical home (backfill). `remove_` refuses to unlink the
+  primary (`22023`). Duplicate membership → `23505` (unique index with a coalesce sentinel
+  on the nullable `subcategory_id` so two NULL-subcategory rows collide); mismatched pair /
+  unknown item or category → `22023`; null/disallowed role → `42501` (D8 null-safe gate,
+  `revoke … from public, anon`, never `service_role`).
+- **No DELETE grant** to authenticated — the table follows the D8 grant-select-only
+  posture; `remove_` deletes as the SECURITY DEFINER owner. No `updated_at`/`set_updated_at`
+  (the junction is add/remove only, not edited in place).
+- **Picker union is a reader, not UI** — `itemInCategoryScope(canonical, secondary, scope)`
+  returns true when `scope` is the canonical home OR a secondary membership (de-duplicated).
+  The live picker components stay untouched here; they consume this SSOT in specs 228/229.
+
+**Open questions (S4):** ~~**new items created after the migration get no junction primary
+row**~~ — **✅ RESOLVED 2026-06-30** (migration `20260813037000`). The S4 assessment that this
+was "harmless" was incomplete: it does break the invariant TEST (`239` assert 20) and produced
+1 LIVE orphan. `create_catalog_item` now writes the canonical `is_primary` membership for new
+items, and `update_catalog_item` re-syncs it when the canonical home moves (CREATE OR REPLACE,
+LIVE-sourced; signatures unchanged) + a one-time idempotent orphan backfill. Regression asserts
+added to `239`. (Out of scope, still deferred: the add/remove management UI on the item form;
+rewiring the live pickers — specs 228/229.)
+
+---
+
+### S5 — Global `work_categories` library + reconcile FK + ship 207-U3c (spec 226) — ✅ COMPLETE (2026-06-30)
+
+Migration `20260813032000_spec226_work_categories.sql` (applied to the shared DB; main↔DB
+sync moves to `032000` once the held PR merges). Firm-wide **`work_categories`** library (the
+WORK axis, defect **C3**): `id` uuid PK + stable unique `code`, bilingual `name_th`/`name_en`,
+optional `masterformat_code`, `sort_order`, `is_active`. RLS = enable + revoke anon/authenticated
+
+- grant SELECT to authenticated + `using (true)` policy (firm-wide vocabulary); **no DELETE**
+  (deactivate-not-delete). `project_categories` gains a **NULLABLE** `work_category_id` reconcile
+  FK → `work_categories(id)` (`ON DELETE SET NULL`, indexed). Material-axis parity:
+  `catalog_categories.name_en` (additive nullable). Writes via four null-safe SECURITY DEFINER
+  RPCs `create_/update_work_category`, `set_work_category_active`, `set_project_category_work_category`.
+  **Ship spec-207 U3c** `WpCategoryControl` — the จัดการ-tab control binding a WP to one of its
+  project's active `project_categories` via the **already-shipped** `set_work_package_category`
+  RPC (no new WP schema); active-only picker that still renders a bound-inactive category as the
+  current value, empty-state nudge on an uncategorised WP.
+
+**Decisions made:**
+
+- **Subsection grain = FLAT 2-level code, not a self-FK `parent_code`** (the S0 open question).
+  The spec's own §Schema column list names no `parent_code`, so the column list implies the
+  flat model. Top category = 3-char code (`W01`..`W09`); subsection = 5-char code (`W0101`); a
+  subsection's parent is `left(code, 3)`. pgTAP pins zero orphan prefixes. No self-FK column.
+- **Seed sourced from the reconciled BuildAll BOQ** (PRC-2026-004, 308 m² Thai Foods Fresh
+  Market) work axis at build — **9 top categories W01–W09 + 43 subsections = 52 rows**. The BOQ
+  has 44 distinct subsection hints; one (`W07` งานป้าย) has no subsection breakdown → W07 is a
+  leaf top category (no children), so 43 seeded subsections. `name_th` = BOQ label verbatim
+  (trimmed, operator-editable); `name_en` = faithful translation (C3 bilingual parity). Parsed
+  the BOQ CSV programmatically (no hand-transcription of Thai).
+- **RPC role gate = `pm/super/director` (NO procurement)** — per spec 226 line 76 (the
+  WP/project-side role set), which overrides ADR 0066 D8's broader "work-library on the
+  catalog side" list. Matches the already-shipped `set_work_package_category` (also 3-role).
+- **`set_project_category_work_category` additionally membership-gates** (`can_see_project`):
+  it writes a per-project row, so a role-only gate would let a PM of one project reconcile
+  another project's category. The 3 firm-wide work-library RPCs stay role-only (firm-wide
+  vocabulary, like spec 221 U2 / units). Unknown project-category or work-category → `22023`;
+  non-member or null/disallowed role → `42501`; dup code → `23505`.
+- **Reconcile, don't replace** — `project_categories.work_category_id` is nullable; NULL =
+  un-reconciled (per-project freedom + the locked one-category-per-WP rule both preserved). The
+  global library sits ABOVE the per-project taxonomy.
+
+pgTAP `240-spec226-work-categories.test.sql` (60 asserts: table+RLS+grant+no-delete, seed
+count/grain/anchors/bilingual, nullable reconcile FK via `fk_ok`, `catalog_categories.name_en`,
+4× DEFINER+anon-revoke posture, behaviour + 23505/22023/42501 + membership gate). Full pgTAP
+suite + `lint`·`typecheck`·`vitest 2045` (+11 new) green. `name_en` parity column verified
+not to break existing readers (no `columns_are` pins anywhere; additive nullable).
+
+**Open questions (S5):** `masterformat_code` is seeded **NULL** for all rows (the column is
+optional; the BOQ carries no MasterFormat anchors, and inventing them would be unfaithful —
+operators/a later unit can populate). The global-library **management UI** (CRUD screen) is
+out of scope (RPCs exist; later unit). Auto-reconciling existing project categories to global
+ones is left to the operator (the FK is nullable on purpose).
+
+---
+
+### S6 — Relation R: `work_category_material_categories` bridge + seed (spec 227) — ✅ COMPLETE (2026-06-30)
+
+Migration `20260813033000_spec227_work_material_relation.sql`. The additive M2M bridge on the
+GLOBAL library (defect **D5**) connecting the WORK axis (`work_categories`, S5) to the MATERIAL
+axis (`catalog_categories`, spec 221): `id` uuid PK, `work_category_id` → `work_categories(id)`
+**ON DELETE CASCADE**, `category_id` → `catalog_categories(id)` **ON DELETE CASCADE**, nullable
+`kind_filter catalog_item_kind` (NULL = no kind filter), `created_by`, `created_at`. RLS = enable
+
+- revoke anon/authenticated + grant SELECT to authenticated + `using (true)` policy; **no direct
+  write grant** (RPC-sole-writer). Writes via two null-safe SECURITY DEFINER RPCs
+  `add_/remove_work_category_material_category(p_work_category_id, p_category_id, p_kind_filter
+default null)`. Read resolver `src/lib/catalog/scoped-categories.ts` →
+  `resolveScopedCategories(supabase, workCategoryId)` returns `[{categoryId, kindFilter}]`, EMPTY for
+  an unmapped work-category (the pickers' show-all fallback). This is the **last schema unit** before
+  the code-only scoped pickers (S7/S8).
+
+**Decisions made:**
+
+- **Seed grain = W-TOP** (`work_categories.code` length 3, W01–W09), NOT the W0101 subsections. The
+  BuildAll BOQ items aren't loaded into `catalog_items` (different grain, ADR 0066 §10.6), so a
+  per-item material-category join is unavailable; the honest, reproducible signal is "which of the
+  13 managed `catalog_categories` does a TOP work-category's BOQ items fall under". Pinned in the
+  migration comment. Source = `boq_work_axis.csv` (S0 scratchpad), cross-read against LIVE
+  `catalog_categories`, parsed programmatically (RFC4180 CSV parser; no hand-transcription of Thai).
+- **19 pairs across 8 of 9 top categories**, looked up by stable `code` (no hard-coded uuids),
+  `on conflict do nothing` (idempotent). W01→{01,03}; W02→{01,08}; W03→{02,04,05,07,08}; W04→{02,12};
+  W05→{06}; W06→{01,08}; W08→{01,02,06,08}; W09→{01}.
+- **W07 ป้าย (signage) INTENTIONALLY UNSEEDED** — vinyl/stainless sign boxes fit no material
+  category among the 13 — so it is the clean **empty-Relation-R anchor** the resolver/picker
+  show-all fallback is tested against (ADR 0066 §10.1 adoption-cliff caveat).
+- **RPC role gate = `pm/super/procurement/director` (4 roles, INCLUDES procurement)** — per spec 227
+  §RPC posture / ADR 0066 D8's catalog-side list. This differs from S5's 3-role work-library gate:
+  Relation R is firm-wide MATERIAL curation, so procurement is admitted (pinned by a `lives_ok`
+  procurement-add assert).
+- **NULL-`kind_filter` uniqueness via a PARTIAL INDEX PAIR**, not `coalesce(kind_filter::text,…)`:
+  an enum→text cast is only STABLE, not IMMUTABLE, so it is rejected in an index expression
+  (`42P17`). Pair: typed-kind rows unique on `(work_category_id, category_id, kind_filter)
+WHERE kind_filter IS NOT NULL`; NULL-kind rows unique on `(work_category_id, category_id)
+WHERE kind_filter IS NULL`. Together: a NULL-kind and a typed-kind row coexist; two NULL-kind (or
+  two identical typed) rows collide (`23505`). All seed rows carry NULL `kind_filter` (no v1 kind
+  narrowing). The remove RPC matches with the same `coalesce((kind_filter)::text,'')` in its WHERE
+  (runtime-stable is fine; only index expressions require immutability).
+- **Resolver = DIRECT lookup** (work_category_id → its rows). A WP reconciled to a SUBSECTION
+  (5-char code) resolves empty → picker shows-all. Subsection-grain rows / prefix-climbing are a
+  future unit (out of scope; CLAUDE.md scope discipline).
+
+pgTAP `241-spec227-work-material-relation.test.sql` (52 asserts: table+RLS+grant+no-write,
+FK validity + ON DELETE CASCADE (both), nullable+typed `kind_filter`, seed count/span/W07-empty/
+anchors, resolver mapped-vs-empty contract, uniqueness incl. NULL-kind coexistence + dup, 2× DEFINER
++anon-revoke posture, behaviour + 23505/22023/42501 + procurement-admit + null-safe + visitor deny).
+Vitest `catalog-scoped-categories.test.ts` (4: mapped rows, kind_filter preserved, empty array for
+unmapped, empty for null data). Full pgTAP suite + `lint`·`typecheck`·`vitest` green.
+
+**Open questions (S6):** seed is W-TOP grain only — subsection-reconciled WPs resolve empty (show-all)
+until a later unit adds subsection rows or prefix-climbing. `kind_filter` is unused in v1 (all NULL);
+it exists for a future tool/equipment-narrowing relation (the UC2 picker, spec 229 + the equipment
+family). The Relation-R **management UI** (link/unlink screen) is out of scope (RPCs exist; later
+unit). Equipment-category side of Relation R (ADR 0066 D5 mentions `{material-cat, equipment-cat}`)
+is deferred — this unit ships the material side only, per spec 227's scope.
+
+### S7 — UC1: scoped supply-plan item picker (spec 228) — ✅ COMPLETE (2026-06-30)
+
+**First CODE-ONLY unit** — no migration, no schema lane. The supply-plan grid's item picker now
+surfaces the materials a row's WP work-category actually buys (Relation R), **without ever hiding the
+rest** (ADR 0066 **D8** / §10.1 — the scope reorders/pre-filters, never gates).
+
+**Helper API (the tested core):** `src/lib/catalog/scoped-picker.ts` →
+`scopeCatalogItems(items, membershipsByItem, scopedCategoryIds)` returns
+`{ scoped, entries: [{ item, inScope }], inScopeCount }`. In-scope items (canonical∪secondary ∩
+scope ≠ ∅) come **first** (stable order), flagged; the rest follow, still present. **Show-all
+fallback:** an empty/undefined `scopedCategoryIds` → the full catalog in original order, `scoped:
+false`, all `inScope: false`. A scope that matches **no** item → `scoped: true` but `inScopeCount: 0`
+and every item present (never an empty picker). Reuses the S4 SSOT `itemCategoryIds` (no re-rolled
+union).
+
+**How a row resolves its scope (server-side, page loader):** row WP → `work_packages.category_id` →
+`project_categories.work_category_id` (spec 226 reconcile) → the **S6 resolver**
+`resolveScopedCategories(supabase, workCategoryId)` → distinct material `category_id`s. Resolved once
+**per DISTINCT work-category** (not per WP — no N+1), fanned onto every WP into a
+`wpScopedCategories: Record<wpId, string[]>`. Item memberships come from the **S4 loader**
+`loadCatalogItemMemberships` (canonical + secondary). Both pass through `SupplyPlanManager` → the
+picker; the manager builds the membership Map **once** for all rows.
+
+**Component:** `CatalogItemPicker` → renamed **`ScopedCatalogItemPicker`** (spec 228 AC1; the PR +
+self-purchase forms import the new name unchanged — they pass no scope → full catalog, behaviour
+identical; PR-side scoping is **S8**). New optional props `scopedCategoryIds` + `membershipsByItem`.
+When a scope is active it pre-filters to the in-scope items, flags each with a **"ตรงกับงาน"** ✓, and
+always shows a **"แสดงทั้งหมด"** escape that reveals the full catalog (toggles to "เฉพาะที่ตรงกับงาน").
+A whole-project row (no WP), an uncategorised WP, or an empty Relation R → no escape, full catalog.
+
+**Tests (TDD, +14 → vitest 2063):** `catalog-scoped-picker.test.ts` (6 — fallback, reorder/flag,
+multi-category, secondary-membership, no-match-shows-all); `catalog-item-picker.test.tsx` (+5 scope
+cases incl. the mandated empty-scope→full-catalog + escape-reveals-hidden); `supply-plan-manager.test.tsx`
+(+3 wiring — WP→scope, whole-project, unmapped-WP). `lint`·`typecheck`·`vitest` all green; no `db:test`
+(no schema).
+
+**Reused / not re-rolled:** S6 `resolveScopedCategories`, S4 `loadCatalogItemMemberships` /
+`membershipsByItem` / `itemCategoryIds`. **Deferred (NOT built here, per scope discipline):** the
+UC2 WP-detail PR + stock-issue pickers + WorkCategoryBadge (**S8 / spec 229**); read-side
+spend-by-category / worklist filter / catalog badges (**S9 / spec 230**); `kind_filter` narrowing
+(tools-vs-materials — the supply-plan item shape carries no `kind`, so S7 scopes by category only;
+lands with the equipment-family pickers in S8/S9).
+
+**Open questions (S7):** subsection-reconciled WPs still resolve empty (the S6 W-TOP seed grain) →
+show-all, which is correct-but-broad until a later unit adds subsection rows / prefix-climbing. The
+✓ "ตรงกับงาน" string + "แสดงทั้งหมด"/"เฉพาะที่ตรงกับงาน" escape labels are used once each (inline
+Thai, no `labels.ts` SSOT needed yet — the SSOT rule triggers at 2+ call sites; S8 will reuse the
+picker and may promote them).
+
+---
+
+### S8 — UC2: scoped WP-detail pickers + WorkCategoryBadge (spec 229) — ✅ COMPLETE (2026-06-30)
+
+**Second CODE-ONLY unit** — no migration, no schema lane. The WP-detail screen now (a) shows the WP's
+bound **หมวดงาน** as a header badge, (b) scopes the **คำขอซื้อ (PR) item picker** to the WP's
+work-category, and (c) scopes the **เบิก (issue-stock) on-hand `<select>`** the same way — both with the
+same D8 **never-hide** discipline (the scope reorders/pre-filters, an escape/fallback always reaches the
+full set).
+
+**The call sites (all in `…/work-packages/[workPackageId]/page.tsx`, one loader):**
+
+- **PR picker** — `PurchaseRequestForm` gained optional `scopedCategoryIds` + `membershipsByItem`,
+  threaded straight to the already-shipped `ScopedCatalogItemPicker` (S7). **Category-only** scope
+  (spec 229 AC2 — no `kind` on the catalog-item shape), reusing the S7 `scopeCatalogItems` helper
+  untouched: in-scope first + ✓ "ตรงกับงาน", **"แสดงทั้งหมด"** escape, empty scope → full catalog.
+- **เบิก picker** — the spec's **caveat**: this is a native `<select>` over an `onHand WpStockRow[]`
+  list (NOT the catalog bottom-sheet), so it is NOT swapped. `WpStockRow` gained `categoryId` + `kind`;
+  a **new kind-aware helper** `scopeStockRows(rows, membershipsByItem, relation)` (+ predicate
+  `itemInRelationScope`) in `scoped-picker.ts` partitions the on-hand list against Relation R's
+  **`(category_id, kind_filter)`** rows. When a scope matches, the select renders **two `<optgroup>`s**
+  — `ตรงกับงาน` (in-scope) then `วัสดุอื่นในคลัง` (rest) — so the relevant stock surfaces first while
+  **every item stays selectable**. Empty/unmapped relation → the unchanged flat list.
+- **Badge** — new reusable `WorkCategoryBadge` (`components/features/work-packages/work-category-badge.tsx`),
+  in the header under the WP name. Shows `หมวดงาน · <name>` or the muted **"ยังไม่ระบุหมวดงาน"** nudge.
+
+**How the WP resolves its work-category (server, page loader):** `wp.category_id` →
+`project_categories (name, work_category_id)` (the spec-226 reconcile, **membership-readable** so it
+works for every WP_DETAIL_ROLES viewer, incl. site_admin/procurement) → name = the badge; the
+`work_category_id` → **S6 resolver** `resolveScopedCategories` → Relation R rows. Resolved once for the
+single WP (no N+1). Item memberships from the **S4 loader** `loadCatalogItemMemberships` →
+`membershipsByItem` map, shared by both pickers. The on-hand read gained `category_id, kind` on the
+embedded `catalog_items`.
+
+**kind_filter (S8's new wrinkle vs S7):** applies **only** on the เบิก side (spec 229 AC3). A Relation R
+row `(category, kindFilter)` matches an on-hand item when the category is in the item's
+canonical∪secondary set **and** `kindFilter` is null (any kind) or equals the item's `kind` — so a
+`kind_filter='tool'` relation surfaces tools and not the materials in the same category, while still
+never hiding them.
+
+**SSOT promotion ([[ui-term-consistency-ssot]]):** the ✓ relevance string **"ตรงกับงาน"** now hits 2
+call sites (PR picker + the เบิก optgroup) → promoted to `WORK_CATEGORY_MATCH_LABEL` in `labels.ts`; the
+uncategorised nudge **"ยังไม่ระบุหมวดงาน"** likewise (badge + `WpCategoryControl`) →
+`WORK_CATEGORY_UNSET_LABEL`. The PR picker's "แสดงทั้งหมด"/"เฉพาะที่ตรงกับงาน" stay inline (1 site).
+
+**Tests (TDD, failing-first; +15 → vitest 2099):** `catalog-scoped-picker.test.ts` (+`scopeStockRows`
+/`itemInRelationScope` — empty fallback, category-only, **kind tool-vs-material separation**,
+secondary-membership, no-match-shows-all); `work-category-badge.test.tsx` (name + nudge);
+`wp-issue-stock.test.tsx` (+optgroup-surfaces-first-never-hides, kind separation, flat-when-unmapped);
+`purchase-request-form-catalog.test.tsx` (+scope surfaces-first + แสดงทั้งหมด escape + empty→full).
+`lint`·`typecheck`·`vitest` all green; no `db:test` (no schema).
+
+**Reused / not re-rolled:** S7 `ScopedCatalogItemPicker` + `scopeCatalogItems`; S6 `resolveScopedCategories`;
+S4 `loadCatalogItemMemberships`/`membershipsByItem`/`itemCategoryIds`. **Deferred (NOT built, scope
+discipline):** read-side spend-by-category / worklist filter / catalog badges (**S9 / spec 230**); the
+self-purchase section is left unscoped (not named by spec 229); Relation-management UI.
+
+**Open questions (S8):** same S6 W-TOP seed-grain limitation as S7 — a subsection-reconciled WP resolves
+empty → show-all (correct-but-broad) until a later unit adds subsection rows / prefix-climbing. The เบิก
+scope reorders via `<optgroup>` (the native-select analog of the bottom-sheet's pre-filter+escape) rather
+than removing rows — the spec's "filter" intent realised as never-hide partitioning per D8 / §10.1.
+
+---
+
+## Spec 221 — Managed category taxonomy (enum → table) + product-code derivation (2026-06-29)
+
+Status: **U1 + U2 + U3 + U3b + U3c + U4 COMPLETE (2026-06-29).** The catalog item form + browse filter
+run on `category_id` (the managed table); the item **product code is now composed from the taxonomy**
+(category code + subcategory code + a typed sequence), not free-typed. `DROP TYPE` = deferred optional
+cleanup — **spec 221 functional units are done.** Spec: `221-managed-category-taxonomy.md`. Follows spec 219.
+
+- **U4 — product-code auto-derive on the item form (this unit, code-only).** `src/lib/catalog/validate.ts`
+  gains `composeProductCode(catCode, subCode, tail)` + `productCodeTailLength(...)` (single-sourced). The
+  form (`catalog-item-form.tsx`) derives the code **prefix** from the chosen category (+ subcategory)
+  `.code` and shows it read-only; the user types only the **sequence tail** (4 digits with no subcategory,
+  2 with one); `productCode = prefix + tail` (still the stored 6-digit string, spec 214; empty tail = no
+  code). On edit the tail is seeded from the existing code. **Adversarial 4-lens review (workflow) found +
+  fixed two real issues:** (1) **data-integrity** — recomposing on every save would silently rewrite a
+  _divergent_ legacy code (stored prefix ≠ category, which spec 214 permitted) even on a name-only edit;
+  fixed with a `codeEdited` gate that **preserves the stored code until the user actually edits the
+  sequence/taxonomy**, then recomposes. (2) **a11y** — the derived-prefix badge is `aria-hidden`, so the
+  field is linked to a hint (`aria-describedby="ci-code-hint"`) that **names the derived prefix** so a
+  screen-reader user perceives the full code. TDD: `catalog-validate` (compose/tail-length),
+  `catalog-product-code-derive` (prefix display, with/without subcategory, empty=optional, incomplete
+  blocks submit, category-change resets, edit-seed, **divergent-preserve + recompose-on-edit + a11y
+  link**); updated the add/edit form tests to the composed code. lint·typecheck·vitest **1963** green.
+  **Open question (not a bug):** for a divergent legacy item the badge+tail visually show the _would-be_
+  recomposed code while the preserved stored code differs until the user edits the tail — accepted cosmetic
+  edge (a real fix is a data audit of pre-scheme codes, out of scope for a code-only form unit). The
+  subcategory-change tail reset is intentional + uncommented to the user (review nit, left as-is).
+
+- **U3c — item form + browse filter switched to `category_id` (this unit, code-only; held: db:types →
+  worker/).** `catalog-list.tsx` groups/filters by `category_id` with names from a `categories` prop (not
+  the enum + `ITEM_CATEGORY_LABEL`); `catalog-item-form.tsx` picks the category from the managed
+  `categories` (by id), cascading the subcategory by `categoryId`; `/catalog` loads `catalog_categories`
+  - each item's `category_id` and threads `categories` through add/list/edit. `createCatalogItem` /
+    `updateCatalogItem` take `categoryId` + look up `legacy_category` to write the enum through (keeps the
+    13 displaying in the not-yet-switched adjacent readers; NULL for a user-category). `CatalogItem.category`
+    → `categoryId`; `CatalogSubcategoryOption.category` → `categoryId`. Rewrote the 4 catalog test files to
+    `categoryId` + a `categories` prop. lint·typecheck·vitest **1949** green. **Remaining (not blocking):**
+    the adjacent readers (store / supply-plan / work-packages / review / picker) still read the vestigial
+    enum (cast) — a user-category item shows blank category there until they switch too (a cleanup unit).
+
+- **U3b — RPC `p_category` made OPTIONAL (this unit; SCHEMA, held PR).** Migration `20260813021000`:
+  DROP+CREATE `create/update_catalog_item` + `create_catalog_subcategory` with `default`s added to the
+  leading params (so `p_category` can be omitted) — the param **types are unchanged**, so every
+  `::regprocedure` pin + positional test call stays valid (no test churn). Bodies made null-safe
+  (`coalesce(p_base_item,'')` / `p_unit`) so omitting a genuinely-required field still raises the friendly
+  22023, not a 23502. Test-first pgTAP `223-spec221u3b` (p_category omitted → item/subcategory created
+  under a user-category by category_id; base_item omitted → 22023). **db:test 192/192 (3334 asserts)**; no
+  src/db:types change (deferred to U3c) → CI green except the migration guard. Adversarial-review of the
+  near-identical U2 bodies already done; this delta is defaults + coalesce only.
+
+- **U3 — taxonomy manage screen + main-category CRUD (this unit, code-only; held: db:types → worker/).**
+  `/catalog/subcategories` → the **taxonomy manager** (`จัดการหมวดหมู่`): a MAIN-category section
+  (`AddCategory`/`EditCategory`; code editable = recode, name, order, deactivate; wraps the U1
+  `create/update_catalog_category` RPCs via new server actions) above the subcategory section.
+  Regenerated `db:types` (category nullable + `p_category_id`); the ~8 nullable-`category` read sites
+  (catalog/store/supply-plan/work-packages/review) got a safe non-null narrowing (data non-null until
+  the item form switches). Term SSOT `CATALOG_CATEGORY_LABEL`/`MANAGE_TAXONOMY_LABEL`. Test-first
+  `add-category` + `edit-category`. lint·typecheck·vitest **1949** green. **U3b deferred** (item
+  form/filter switch to category_id; the `create_catalog_subcategory` p_category-optional RPC fix so a
+  brand-new user-category can hold subcategories/items) — noted in the spec.
+
+- **U2 — category_id source of truth (enum vestigial) (this unit, NOT break-glass).** Migration
+  `20260813020000` (additive + backward-compatible): enum `category` columns → nullable; subcategory
+  identity + the item↔subcategory match move onto `category_id` (`unique(category_id, code)` +
+  `unique(id, category_id)` + composite FK `catalog_items(subcategory_id, category_id)`); sync trigger
+  → only-fill-when-null; **DROP+CREATE** `create/update_catalog_item` + `create_catalog_subcategory`
+  to add a trailing `p_category_id` (uuid) — old enum-only calls still resolve (trailing default), so
+  the live app keeps working; category_id is the source of truth (explicit wins, else derived); enum
+  written through (NULL for a user-category); subcategory guard now on `category_id`. **Adversarially
+  verified by a 5-lens workflow** before applying (DDL/ordering, backward-compat, trigger/data,
+  RPC/grant, test-pins — all clean; the migration is sound). Test-first: new pgTAP `222-spec221u2`
+  (signatures + DEFINER + anon-revoke, explicit-category_id-wins, enum-only-resolves, sync no-overwrite,
+  constraints, the category_id guard) + bumped `120/121` signature pins to 9-arg. **db:types + the
+  consumer null/category_id switch = U3** (intentional defer — keeps U2 a clean schema unit; no src
+  change → CI green). U3 carry-forwards (the demote-on-old-edit risk + the enum-keyed reads) noted in
+  the spec. **Also fixed a latent bug from #165:** the spec220→221 renumber `sed 's/220/221/g'`
+  corrupted `22023`→`22123` in `221-catalog-categories.test.sql` (shipped uncaught because the
+  post-renumber db:test was skipped) — restored to `22023`. db:test 191/191; lint·typecheck green.
+
+> ⚠️ **Spec-number note:** this work began as spec 220 and **migration `20260813018000`,
+> collided with a concurrent session (G63 role-admin, also spec 220 / `018000`), and was
+> renumbered to **spec 221** by operator decision. G63 kept spec 220 + renumbered its
+> migration to `019000`. My `018000` was already applied + green, so it stays; the migration
+> **file keeps the `spec220u1` name\*\* (matches the recorded DB version name). See LANES.md.
+
+- **U1 — additive foundation (this unit).** Migration `20260813018000` (additive, no drops):
+  - `catalog_categories (id, code 2-digit unique, name, sort_order, is_active, + transient
+`legacy_category` enum map)` + RLS (select to authenticated, RPC writes); **seed the 13**
+    enum values (codes 01–13, names from `ITEM_CATEGORY_LABEL`).
+  - `category_id uuid` (nullable FK) on `catalog_items` + `catalog_subcategories` + **backfill**
+    from `legacy_category`; a `BEFORE INSERT/UPDATE` **sync trigger** keeps `category_id`
+    current from the enum while the app still writes `category` (no drift pre-cutover).
+  - `create_catalog_category` / `update_catalog_category` RPCs (back-office gate; code editable —
+    items key on `category_id`, not the code). pgTAP `221-catalog-categories` (18 asserts:
+    structure, RLS/grants, seed=13, backfill, sync trigger, create/dup/bad-code/update). **`db:test`
+    189/189 · 3294 asserts · 0 fails**; `db:types` regenerated. Held PR (migrations/).
+- **U2 — CUTOVER ⚠️ BREAK-GLASS (operator-gated, irreversible).** Drop the enum + old columns,
+  rebuild the composite FK on `category_id`, swap the catalog RPCs + ~8 code files to
+  `category_id` + table-sourced names. Needs `pg_dump` floor + preview rehearsal + operator go.
+- **U3 — unified taxonomy tree manager (code-only).** Main + sub in one screen.
+- **U4 — product-code auto-derive (code-only).** Form composes digits 1-4 from the taxonomy.
+
+## Spec 219 — Catalog subcategory taxonomy + 2-level filter (2026-06-28)
+
+Status: **SHIPPED — U1 (schema) + U2 (manage UI) + U3 (drill filter) all COMPLETE.**
+Spec: `219-catalog-subcategory-taxonomy.md`. Operator asked to redesign the
+ทะเบียนวัสดุ (`/catalog`) filter "uxui pro max" because the register has categories +
+subcategories; chose to **model the subcategory as a real taxonomy table** (over a
+labels-map / code-only shim), then chose to **build it now** (schema lane was free).
+
+- **U1 — schema + CRUD RPCs (this unit).** Migration `20260813015000`:
+  - `public.catalog_subcategories (id, category item_category, code text 2-digit,
+name, sort_order, is_active, created_at)`; unique `(category, code)` + unique
+    `(id, category)`; RLS on, `select` to authenticated, no write policy (reference
+    data — written via RPC, the `catalog_items` posture). Seed one anchor:
+    `(steel_fixing, '01', 'วัสดุโครงสร้าง')`.
+  - `catalog_items.subcategory_id uuid` nullable + **composite FK**
+    `(subcategory_id, category) → catalog_subcategories(id, category)` so an item's
+    category must equal its subcategory's (nulls skip the check — uncoded items OK).
+  - RPCs (definer, back-office gate, revoke public/anon, grant authenticated):
+    `create_catalog_subcategory` / `update_catalog_subcategory`; **DROP+CREATE**
+    `create_catalog_item` (+`p_subcategory_id`, now 8-arg) and `update_catalog_item`
+    (+`p_subcategory_id`, now 9-arg) with a category-match guard (→ 22023). `product_code`
+    stays the free spec-214 string.
+  - **Test-first** `219-catalog-subcategory.test.sql` (21 asserts: structure, composite
+    FK, RLS/grants, seed, both RPCs + the item-RPC category-match guard). Updated the
+    signature **pins** in `120-create-catalog-item` / `121-edit-catalog-item` to the new
+    arity (the DROP+CREATE moved them). `pnpm db:test` 188/188 files · 3276 asserts · 0
+    fails; lint · typecheck · vitest 1927 all green. `db:types` regenerated.
+  - Note: branched off `origin/main` (which lacks the held `014000`); migration is
+    `015000`, pushed to the shared DB (only `015000` applied — `013000`/`014000` already
+    present). Transient main-gap until #159 (`014000`) merges, per the operator's go.
+
+- **U2 — manage UI + cascading picker (this unit, code-only).**
+  - New route `/catalog/subcategories` (a `/catalog` drill, `DetailHeader` back → /catalog,
+    `BACK_OFFICE_ROLES`): active subcategories grouped by main category; add / edit /
+    deactivate. New `AddSubcategory` + `EditSubcategory` (`Subcategory` type) components.
+  - `catalog/actions.ts` gains `createCatalogSubcategory` / `updateCatalogSubcategory`
+    (wrap the U1 RPCs; map 23505 → "รหัสหมวดย่อยนี้ถูกใช้แล้ว", 42501, 22023). The item
+    actions now thread `subcategoryId` → `p_subcategory_id` (omit-when-empty spread so
+    `exactOptionalPropertyTypes` is happy); 22023 disambiguated (subcategory vs unknown id).
+  - `CatalogItemForm` gains a **cascading subcategory `<select>`** — offered only for the
+    chosen category's subcategories, reset on category change, optional (`— ไม่ระบุ —`).
+    Threaded `subcategories` through page → `AddCatalogItem` / `CatalogList` → `EditCatalogItem`.
+    `/catalog` loads `catalog_subcategories` + each item's `subcategory_id`, and links to the
+    manage screen (`MANAGE_SUBCATEGORIES_LABEL`). Term SSOT `CATALOG_SUBCATEGORY_LABEL = "หมวดย่อย"`.
+  - **Test-first**: `add-subcategory` / `edit-subcategory` tests + cascade test on
+    `add-catalog-item` (scoped options) + `subcategoryId` added to the existing add/edit
+    call-shape assertions + `nav-back-affordance` route registered. lint · typecheck ·
+    vitest **1935** green. Code-only — auto-merges on green CI.
+- **U3 — the 2-level drill filter (this unit, code-only, the original ask).** Rewrote
+  `catalog-list.tsx` from the flat 13-chip cloud to a drill: a horizontal-scroll หมวดหลัก
+  strip (single-select, counts) → on category select a drill-in หมวดย่อย strip reading the
+  real `catalog_subcategories` names (counts) + a `ยังไม่มีหมวดย่อย` bucket for uncoded items
+  → a breadcrumb (`ทั้งหมด › category › subcategory`, crumbs pop a level) → results grouped by
+  subcategory (vs by category at the top level). Search **overrides** the drill (flat,
+  category-grouped). No schema, no new data — the page already feeds `subcategories` +
+  `subcategory_id` (U2). Test-first: 6 drill tests added to `catalog-list.test.tsx` (strip
+  reveal, sub filter, uncoded bucket, breadcrumb reset); the existing 13 still pass (kept the
+  RadioChip strips + grouped sections; the sub "all" chip is `ทุกหมวดย่อย` to avoid a radio-name
+  clash, breadcrumb reset is a `button`). lint · typecheck · vitest **1940** green.
+
+## Spec 218 — SA rework clarity ("ต้องแก้ไข") (2026-06-28)
+
+Status: **U1–U4 in one code-only PR** (in-app clarity); **U5 notifications = separate
+held PR** (danger-path). Spec: `218-sa-rework-worklist.md`. Operator: "there are WPs
+that require rework but the SA workflow is unclear — make it clear on SA pages (color,
+notification)." Three "needs my fix" cases: defect-reopened (status=rework), PM ให้แก้ไข
+(needs_revision) — incl. **"request for more photos"** — and PM ไม่อนุมัติ (rejected).
+Cases 2–3 stay `pending_approval` (the SA home excluded them, no notification → broken
+loop). Scope (operator): cover all three; cases 2–3 **display-only** (no status change —
+that's a separate decision, with FB2/#149).
+
+- **U1 — classifier.** Pure `buildSaActionList` (`src/lib/sa/action-list.ts`): rework |
+  revision | rejected, ordered rejected→rework→revision, rest = the everyday list.
+- **U2 — /sa "ต้องแก้ไข" section** pinned above งานของฉัน. The home now keeps
+  `pending_approval` and surfaces those whose **latest decision** is negative
+  (`getLatestDecisionsForWorkPackages`) + the reopen reason/source/round for rework.
+  Color = severity (amber=fix, red=rejected), one-tap CTA to the photo capture.
+- **U3 — WP-detail CTAs.** The rework banner + the needs_revision/rejected attention
+  card each get a Camera CTA (ถ่ายรูปหลังแก้ไข / ถ่ายรูปเพิ่ม → #wp-photos), !readOnly.
+- **U4 — tab badge.** `SaActionBadge` on the SA's หน้าหลัก tab (count = rework +
+  bounced), visible app-wide (mirrors PendingApprovalsBadge).
+
+⚠️ Overlaps #149 (FB2 explicit-submit) on the WP-detail page.tsx — additive CTAs vs
+their submit button, neutral copy; resolve any trivial conflict at merge.
+U5 (notifications on reopen + needs_revision/rejected via notification_outbox) follows.
+
+---
+
+## Spec 217 — Rework source (ตรวจภายใน vs ลูกค้าแจ้ง) (2026-06-28)
+
+Status: **U1–U3 in one held PR** (migration + definer RPC → danger-path; one-tap).
+Spec: `217-rework-source.md`. Operator: two rework types — internal call (our QA/SA) vs
+client call (the client). Scope (operator-chosen): **record + display only**. Labels
+(operator-chosen): internal → ตรวจภายใน, client → ลูกค้าแจ้ง.
+
+- **U1 — schema.** New enum `public.rework_source {internal, client}`. Migration
+  `20260813009000`: DROP the 2-arg `reopen_work_package_for_defect`, CREATE 3-arg with
+  `p_source default 'internal'` (from the LIVE 216 body — project_director gate +
+  rework_round increment kept), stamping `source` into the audit payload; re-REVOKE
+  public/anon + GRANT authenticated. Default keeps the still-2-arg app call working
+  until U2. pgTAP 75 += signature + default-internal + explicit-client (keyed on
+  `round`, not time — `now()` is fixed within a pgTAP txn so both reopen rows tie).
+- **U2 — write.** `REWORK_SOURCE_LABEL` (SSOT); `reportDefect` action takes + validates
+  `source`, passes `p_source`; report-defect form gains a required ตรวจภายใน/ลูกค้าแจ้ง
+  toggle (default internal).
+- **U3 — read + display.** `reworkSourcesFromAuditRows` (pure); `load-detail` returns
+  `reworkSources` + `defectSource`; review page reads the same. Per-round heading →
+  "หลังแก้ไข — รอบ N · <source>" (`afterFixRoundHeading` gains an optional source label;
+  `reworkSourceLabel` helper); the rework banner shows "ที่มา: <source>". Legacy reopens
+  (no source) omit the label.
+
+Open: behaviour per source (notify / warranty / SLA) — out of scope (operator).
+
+---
+
+## Spec 216 — Multi-rework rounds (2026-06-28)
+
+Status: **U1 shipped as a held PR** (additive migration + RPC → danger-path; one-tap merge).
+Spec: `216-multi-rework-rounds.md`. Operator asked the system to support more than one
+rework. The defect loop (spec 144) already repeats, but every round's after_fix (หลังแก้ไข,
+spec 215) photos collided in one bucket and only the latest reason showed. Operator chose
+(design question) **model A — round counter** over a defect-cycle table or photo-only tagging.
+
+- **U1 (this PR) — schema + reopen increment.** Migration `20260813008000`: `rework_round`
+  smallint (default 0) on `work_packages` + `photo_logs`; `reopen_work_package_for_defect`
+  CREATE-OR-REPLACE'd from its LIVE body (project_director gate preserved) to increment the
+  WP counter and stamp `round` into the audit payload. Applied to the shared DB; db:types
+  regen'd. pgTAP 75 += round-1 / audit-round / second-reopen / round-2 (187/187, 0 fails).
+  Test fixtures that build full `PhotoLogRow` literals gained `rework_round: 0`.
+- **U2 (this PR) — write side.** `addPhoto` selects `wp.rework_round` and stamps
+  after_fix inserts with it (other phases → 0) via the pure `photoReworkRoundFor`
+  helper; `removePhoto` reads the target's round and `buildTombstoneRow` carries it so
+  a removal stays in the same cycle. Unit-tested (photo-write-helpers). No schema change
+  — rides on U1's columns, so it folds into the same held PR (#145).
+- **U3 (this PR) — read-side helpers.** Pure + unit-tested: `groupAfterFixByRound`
+  (after_fix rows → per-round groups, ascending) and `reworkReasonsFromAuditRows`
+  (the `wp_reopened_for_defect` audit rows → round→reason map; audit_log SELECT is
+  `using(true)` for authenticated). No page wiring yet — U4 consumes these.
+- **U4 (this PR) — UI + #144 gate folded in.** PhotoCaptureZone gains `showAfterFix`
+  (gate) + `currentReworkRound` — the หลังแก้ไข tile surfaces only inside a rework
+  cycle and is labelled "รอบ N · …". Both galleries (review + read-only project) render
+  the lifecycle phases, then one PhaseGallery per rework round
+  (`groupAfterFixByRound`), headed "หลังแก้ไข — รอบ N" with that round's defect reason
+  (`PhaseGallery` gains a `note` prop). `load-detail` returns `reworkReasons` (round →
+  reason from the reopen audit rows, one read); the review page reads the same. The
+  "รอบ N" tag + per-round heading are SSOT helpers (`reworkRoundTag` /
+  `afterFixRoundHeading`; legacy round-0 shows the plain label). This supersedes PR
+  #144 (its show-only-for-reworked gate is reimplemented here), so #144 is closed.
+
+Open: per-round approval attribution; after-fix in the PDF report (both deferred).
+
+---
+
+## Spec 215 — After-fix photos (หลังแก้ไข) (2026-06-28)
+
+Status: **shipped as one held PR** (additive enum-add → danger-path; one-tap merge). Spec: `215-after-fix-photos.md`. From feedback `0fa23307` (project_director, WP detail): capture completion photos when a WP's rework is done, distinct from the original แล้วเสร็จ work photos. **Operator chose (via design question) the explicit new-phase option** over auto-distinguish / discoverability-only.
+
+**Schema** (mig `20260813006000`, db:push'd + db:types'd, schema lane claimed→released): `alter type photo_phase add value 'after_fix' after 'after'` (own migration, the enum-add convention). **Totality updates** (same held PR — depend on the regenerated enum): `PHOTO_PHASE_LABEL.after_fix = "หลังแก้ไข"`; `PHASES` += after_fix bucket; `CurrentPhotosByPhase`/`selectCurrentPhotosByPhase` += after_fix (load-detail adopts the canonical type + spreads it into `allPhotos`; both page count literals add the key); `PHOTO_PHASES` validation += after_fix; `shouldTransitionToPendingApproval` fires on after **or** after_fix (closes the rework loop); capture tile grid → 2×2 with after_fix lock-free + never auto-"current"; pgTAP `09` enum pin → four values. **after_fix is deliberately NOT in `PHASE_ORDER`** (the 3-step progress bar) — it's a rework addendum, so a never-reworked WP's progress is unchanged. Test-first/after: phase-progress (ignores after_fix), current-photos (groups after_fix), photo-write-helpers (after_fix transition), photos-phases (4 buckets), capture tile renders + tappable (`phase-uploader-after-fix.test.tsx`). Lint + typecheck + full suite green.
+
+**Deferred:** auto-pre-select the หลังแก้ไข tile when the WP is in rework (zero-tap); after-fix photos in the PDF report.
+
+---
+
+## Spec 214 — Product code (รหัสสินค้า) (2026-06-28)
+
+Status: **shipped as one held PR** (additive migration → danger-path; one-tap merge). Spec: `214-product-code.md`. From feedback `dfd70375` (procurement): a structured 6-digit code per catalog item (main 2 + sub 2 + sequence 2), prefix-searchable. Operator already has a scheme (procurement owns it).
+
+**Design (v1):** the code is a FREE 6-digit string (`^[0-9]{6}$`), not a modelled main/sub taxonomy — the existing `item_category` is a flat 13-value enum, and the company taxonomy is procurement's business decision, not a schema lock. Manual assignment, no backfill (existing items stay NULL).
+
+**Schema** (mig `20260813005000`, db:push'd + db:types'd, schema lane claimed): `catalog_items.product_code` (nullable) + format CHECK + partial-unique index (unique when set). DROP+CREATE `create_catalog_item`/`update_catalog_item` to add `p_product_code text default null` (default keeps existing named calls valid; full-replace on update — the form always sends the field). pgTAP `214` (column/nullable/index + RPC stores code + bad format→22023 + dup→23505 + null allowed) all green; updated the signature pins in `120`/`121` (the "grep all pins" discipline).
+
+**UI** (code-only, same held PR — depends on the regenerated types): `src/lib/catalog/validate.ts` (`isValidProductCode`); `catalog-item-form.tsx` gains a 6-digit `รหัสสินค้า` field (segment hint + inline validity, digit-only input); `createCatalogItem`/`updateCatalogItem` thread `productCode` + disambiguate the 23505 (identity vs code); `catalog-list.tsx` shows the code as a mono chip AND gains a search box matching name/spec/code (type `0101` → prefix filter) + a no-match state; `/catalog` page selects `product_code`. New `PRODUCT_CODE_LABEL`. Test-first-ish: `catalog-validate.test.ts` (5) + catalog-list display/search/no-match + add/edit flow updated to carry the code. Lint + typecheck + **1866** unit tests green.
+
+**Deferred:** threading the code into the PR-creation picker (`PurchaseRequestCatalogItem` + loaders) — a follow-up that avoids touching the PR flow in this PR. Modelled main/sub taxonomy + auto-derived/auto-sequence codes = a later spec.
+
+**Pre-existing pgTAP failures (NOT from this change):** `104-settlement` errored on a transient `524` API timeout; `200-store-inventory-reconciliation` fails its table-wide GL-1500-vs-subledger tie (have 459,539 / want 443,139 = the documented ฿16k unposted-equipment drift, [[spec208-store-centric-procurement]]). My branch touches no GL/on-hand/settlement files.
+
+---
+
+## Spec 213 — Material logs (ประวัติวัสดุ), U1 (2026-06-28)
+
+Status: **U1+U2+U3 shipped** (spec + assembly lib + page + drill-in, code-only, NO schema). Spec: `213-material-logs.md`. From feedback `15151fb3` (project_director, คลัง): wants each material's history + current status "like order tracking." Operator clarified: **"no need to be a dashboard, item-specific logs."**
+
+**U2 (route + view):** `src/app/projects/[projectId]/store/items/[catalogItemId]/page.tsx` (`requireRole(WP_DETAIL_ROLES)`; project_id-pinned reads so a cross-project id or hidden project 404s; an item with no on-hand row AND no movements 404s). Six parallel RLS-scoped reads (project, catalog_item, on-hand, + the five movement tables with WP/supplier joins) → `buildMaterialLog` → `DetailHeader` (back to คลัง via `safeBackHref(from, storeHref)`) + a cost-side status card (on-hand qty + `ต้นทุนเฉลี่ย` + total value, mirroring what the console already shows) + `MaterialLogView`. New presentational `material-log-view.tsx`: a newest-first timeline, per row an icon + reused Thai kind label (`STORE_RECEIVE_LABEL`/`STORE_ISSUE_LABEL`/`STOCK_COUNT_LABEL`/`STORE_RETURN_TO_STORE_LABEL`/`STORE_FIX_WRONG_ENTRY_LABEL`) + signed qty + cost (baht) + WP + count detail + note + running balance; empty state otherwise. New labels `MATERIAL_LOG_LABEL`/`STOCK_COUNT_LABEL` + nav SSOT `storeItemHref`. Test-first `material-log-view.test.tsx` (6).
+
+**U3 (drill-in):** the store console on-hand row's identity+qty is now a `<Link>` to `storeItemHref(...)` (with `withBackFrom` so back returns to คลัง); the `ตรวจนับ` action stays beside it, outside the anchor. Test-first: added a link assertion to `store-manager.test.tsx`.
+
+Verify limit: the page is behind LINE auth + a project-with-stock, so not exercised in a live browser; the assembly lib + the view component are fully unit-tested (13 tests across the two files) and the row-link is asserted. Lint + typecheck + full suite green. **SPEC 213 COMPLETE (U1+U2+U3).**
+
+**U1 (this unit):** the pure assembly `src/lib/store/material-log.ts` — `buildMaterialLog(sources)` unions the five movement sources (receipts / issues / counts / returns / reversals) for one (project, item) into a newest-first `MaterialLogEntry[]` with a signed on-hand delta per kind (receipt/return `+`, issue `−`, count `= variance`, reversal flips by which FK it undoes), the cost-side figure only (line cost / variance value / reversal value-delta — never sell/margin, per the spec money rule), the WP for issue/return, and a running balance (ascending cumulative sum) whose newest row equals current on-hand. Stable tie-break (at → createdAt → id). No I/O — the page (U2) does the RLS-scoped reads and maps rows into the inputs. Test-first `tests/unit/material-log.test.ts` (7: ordering, signed deltas incl. receipt-vs-issue reversal, balance invariant lands on 52, cost-side figures, tie-break, empty). Lint + typecheck green.
+
+---
+
 ## Spec 211 — Procurement terminology & level clarity, U1–U7 + U10a/b/c/d + U6b + U11a + U11b (2026-06-27)
 
 Status: **shipping U1** (code-only, NO schema). Spec: `211-procurement-terminology-clarity.md`. Evidence: `docs/procurement-uxui-audit-2026-06.md` (multi-agent UX audit, 85 surfaces / 91 verified findings).
@@ -3677,3 +4574,18 @@ will live in the existing `work-packages/` folder in U3c). Test-first: `categori
 load-project-detail (categories). Full suite + lint + typecheck green. **NEXT = U3b** (rename/reorder/
 deactivate from the manager rows) then **U3c** (`WpCategoryControl` in the WP จัดการ tab) → then the
 drawings track U4–U6.
+
+## Spec 222 — Supply plan: one item into multiple work packages, U1 (2026-06-29)
+
+Status: **U1 SHIPPED 2026-06-29 (code-only, no DB / no RPC).** Operator: "when procurement
+creates a แผนจัดหา, don't force a WP, but let them pick multiple WPs per item if they want."
+WP-not-forced was already true (`work_package_id` nullable; save needs only item + qty). New =
+one item → many WPs. Operator chose the **"pre-fill rows"** model (over per-WP qty nested in one
+row): a per-row `＋ หลายงาน` button (enabled once an item is picked) opens an inline WP checklist;
+confirming replaces that draft row with one pre-filled row per ticked WP (item copied, qty blank),
+which the planner fills, saved via the existing `bulkAddPlanLines` one-shot. No schema/RPC change —
+a line is already `(plan,item,WP)` with nullable WP + array insert. Pure helper
+`expandRowToWorkPackages(row, wpIds)` holds the fan-out. Test-first: helper test (0→unchanged,
+N→N blank-qty rows, distinct keys) + behavioral test (pick → tick 2 WPs → 2 rows → fill → save 2
+lines) + affordance-disabled-until-item. Full suite **1994/0** green; lint · typecheck clean.
+No SSOT files touched (inline Thai strings). SPEC 222 COMPLETE (single unit).

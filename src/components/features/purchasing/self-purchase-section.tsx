@@ -14,10 +14,14 @@ export function SelfPurchaseSection({
   projectId,
   workPackageId,
   catalogItems,
+  categories,
 }: {
   projectId: string;
   workPackageId: string;
   catalogItems: PurchaseRequestCatalogItem[];
+  // Spec 221 cleanup: the managed main categories (ordered, id + name) threaded
+  // to the shared catalog picker.
+  categories: { id: string; name: string }[];
 }) {
   return (
     <section className="flex flex-col gap-2">
@@ -33,6 +37,7 @@ export function SelfPurchaseSection({
           projectId={projectId}
           workPackageId={workPackageId}
           catalogItems={catalogItems}
+          categories={categories}
         />
       </div>
     </section>

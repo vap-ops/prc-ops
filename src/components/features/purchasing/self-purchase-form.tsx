@@ -20,7 +20,7 @@ import { sitePurchaseUseNow } from "@/app/store/actions";
 import { validateSitePurchase } from "@/lib/purchasing/validate-site-purchase";
 import { PURCHASE_REASON_CODES } from "@/lib/purchasing/reason-code";
 import { CATALOG_LABEL, PURCHASE_REQUEST_REASON_CODE_LABEL } from "@/lib/i18n/labels";
-import { CatalogItemPicker } from "@/components/features/purchasing/catalog-item-picker";
+import { ScopedCatalogItemPicker } from "@/components/features/purchasing/catalog-item-picker";
 import type { PurchaseRequestCatalogItem } from "@/components/features/purchasing/purchase-request-form";
 import { ItemPhotoUploader } from "@/components/features/purchasing/item-photo-uploader";
 import { InvoiceUploader } from "@/components/features/purchasing/invoice-uploader";
@@ -37,10 +37,14 @@ export function SelfPurchaseForm({
   projectId,
   workPackageId,
   catalogItems,
+  categories,
 }: {
   projectId: string;
   workPackageId: string;
   catalogItems: PurchaseRequestCatalogItem[];
+  // Spec 221 cleanup: the managed main categories (ordered, id + name) for the
+  // shared catalog picker — group by category_id, label with the managed name.
+  categories: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const hasCatalog = catalogItems.length > 0;
@@ -194,8 +198,9 @@ export function SelfPurchaseForm({
         // Same search picker as สร้างคำขอซื้อ (CatalogItemPicker): a trigger opens a
         // bottom sheet with search + category chips + thumbnail rows. Picking an
         // item drives the description + unit (derived from `selected` below).
-        <CatalogItemPicker
+        <ScopedCatalogItemPicker
           items={catalogItems}
+          categories={categories}
           selectedId={catalogItemId}
           onSelect={setCatalogItemId}
           onClear={() => {

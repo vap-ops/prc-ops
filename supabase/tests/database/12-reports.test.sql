@@ -153,12 +153,15 @@ select is(
   'RLS enabled on public.reports'
 );
 
+-- The second SELECT is the spec-233 / ADR-0067 client read arm (additive,
+-- read-only, completed reports scoped to client_has_live_access). The
+-- append-only invariant (no UPDATE, no DELETE) is unchanged.
 select results_eq(
   $$ select cmd::text from pg_policies
      where schemaname = 'public' and tablename = 'reports'
      order by cmd $$,
-  array['INSERT'::text, 'SELECT'::text],
-  'reports has exactly INSERT + SELECT policies — no UPDATE, no DELETE'
+  array['INSERT'::text, 'SELECT'::text, 'SELECT'::text],
+  'reports has exactly INSERT + SELECT×2 policies — no UPDATE, no DELETE'
 );
 
 -- ============================================================================

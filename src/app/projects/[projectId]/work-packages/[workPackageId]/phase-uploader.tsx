@@ -18,11 +18,12 @@
 // the detail page imports { PhotoCaptureZone }.
 
 import { useState } from "react";
-import { Camera, Check, Lock } from "lucide-react";
+import { Camera, Check, Lock, RotateCcw } from "lucide-react";
 import { BUTTON_CAPTURE } from "@/lib/ui/classes";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { PhotoStrip, PHOTO_STRIP_TILE } from "@/components/features/photos/photo-strip";
 import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
+import { reworkRoundTag } from "@/lib/photos/rework-round";
 import type { PhotoPhase } from "@/lib/photos/transitions";
 import { CaptureSheet, type SheetPhoto } from "./capture-sheet";
 
@@ -49,6 +50,12 @@ interface PhotoCaptureZoneProps {
   phases: ReadonlyArray<PhaseData>;
   /** The phase capture defaults to (server-derived from progress). */
   currentPhase: PhotoPhase;
+  /** Spec 216: surface the หลังแก้ไข rework bucket only when the WP is in a rework
+   *  cycle (in rework OR already has after_fix photos) — never on a normal WP. */
+  showAfterFix: boolean;
+  /** Spec 216: the WP's current rework cycle (≥1 once reopened); the หลังแก้ไข tile
+   *  captures into this round and is labelled with it. */
+  currentReworkRound: number;
 }
 
 export function PhotoCaptureZone({
@@ -57,14 +64,23 @@ export function PhotoCaptureZone({
   userId,
   phases,
   currentPhase,
+  showAfterFix,
+  currentReworkRound,
 }: PhotoCaptureZoneProps) {
   const [open, setOpen] = useState(false);
   const [activePhase, setActivePhase] = useState<PhotoPhase>(currentPhase);
 
-  const order = phases.map((p) => p.phase);
+  // after_fix is a rework addendum, NOT a 4th step in the before→during→after
+  // chain — it renders on its own divided-off line, never inside the lifecycle
+  // switcher grid (feedback: don't put it on the same row as the others).
+  const lifecyclePhases = phases.filter((p) => p.phase !== "after_fix");
+  // Spec 216: the rework bucket surfaces only inside a rework cycle (showAfterFix).
+  const afterFix = showAfterFix ? (phases.find((p) => p.phase === "after_fix") ?? null) : null;
+  const order = lifecyclePhases.map((p) => p.phase);
   const currentIndex = order.indexOf(currentPhase);
-  // phases is always the three photo phases; this guard narrows the fallback
-  // for strict index access (noUncheckedIndexedAccess) without changing behavior.
+  // phases is the photo-phase display list (PHASES); this guard narrows the
+  // fallback for strict index access (noUncheckedIndexedAccess) without changing
+  // behavior.
   const fallback = phases[0];
   if (!fallback) throw new Error("PhotoCaptureZone requires at least one phase");
   const active = phases.find((p) => p.phase === activePhase) ?? fallback;
@@ -90,9 +106,10 @@ export function PhotoCaptureZone({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Phase switcher tiles */}
+      {/* Lifecycle phase switcher — the linear before→during→after sequence
+          (a clean 3-up row; the lock chain + current glow live here). */}
       <div className="grid grid-cols-3 gap-2">
-        {phases.map((p, idx) => {
+        {lifecyclePhases.map((p, idx) => {
           const isCurrent = p.phase === currentPhase;
           const isPassed = idx < currentIndex; // an earlier phase the flow moved past
           const reached = idx <= currentIndex;
@@ -136,6 +153,36 @@ export function PhotoCaptureZone({
           );
         })}
       </div>
+
+      {/* หลังแก้ไข (after_fix) — a rework addendum, NOT a 4th sequential phase.
+          Divided off onto its own line (feedback 0fa23307: don't sit it next to
+          the before→during→after tiles). Always tappable: lock-free, never the
+          derived "current" phase. Full-width so it never reads as a step. */}
+      {afterFix && (
+        <div className="border-edge border-t pt-3">
+          <button
+            type="button"
+            onClick={() => openSheet(afterFix.phase)}
+            aria-label={`ถ่ายรูป ${afterFix.label}`}
+            className="rounded-card shadow-card border-edge bg-card hover:bg-sunk focus-visible:ring-action flex w-full items-center gap-3 border-[1.5px] px-3 py-2.5 text-left transition-colors focus:outline-none focus-visible:ring-2"
+          >
+            <span className="border-edge-strong bg-card text-ink-muted flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2">
+              <RotateCcw aria-hidden className="h-4 w-4" />
+            </span>
+            <span className="flex min-w-0 flex-col">
+              <span className="text-body text-ink font-bold">{afterFix.label}</span>
+              <span className="text-meta text-ink-secondary font-semibold">
+                {/* Spec 216: name the cycle being captured into; a WP can be reworked
+                    more than once, so "รอบ N" disambiguates the round. */}
+                {currentReworkRound >= 1 ? `${reworkRoundTag(currentReworkRound)} · ` : ""}
+                {afterFix.photos.length > 0
+                  ? `${afterFix.photos.length} รูป`
+                  : "ถ่ายเมื่อแก้ไขงานเสร็จ"}
+              </span>
+            </span>
+          </button>
+        </div>
+      )}
 
       {/* Current-phase recent strip (lightbox preserved) */}
       <div>

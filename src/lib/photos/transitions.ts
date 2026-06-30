@@ -1,36 +1,27 @@
-// Decision logic for the photo-driven WP status transition (spec 03
-// decision 14). When the first After photo lands on a WP whose status
-// is not_started / in_progress / on_hold, the addPhoto action flips it
-// to pending_approval. Already-pending / already-complete WPs are
-// never regressed.
+// Decision logic for the photo-driven WP status transitions.
 //
-// Per spec 03 decision 15 the operator picked option (a) — admin-
-// client escalation INSIDE the upload server action. The transition
-// itself is a single guarded UPDATE (this decision predicates it; the
-// SQL guard in the action mirrors it so the rule is enforced in two
-// independent layers).
+// FB2 (b9e942f0): the After-photo → pending_approval auto-flip (spec 03 decision
+// 14) was REMOVED — it sent a partly-done WP to review on its first "after"
+// photo. Submitting for approval is now an explicit SA act
+// (submitWorkPackageForApproval / the "ส่งงานเข้าตรวจ" button), which reuses
+// TRANSITIONABLE_FROM_STATUSES below as its allowed-from set. The During →
+// in_progress flip stays (operator kept it).
 
 import type { PhotoPhase, WorkPackageStatus } from "@/lib/db/enums";
 
 export type { PhotoPhase, WorkPackageStatus };
 
-// Spec 144: 'rework' (a defect reopened a complete WP) is transitionable —
-// re-shooting the After photo sends it back to pending_approval, same as the
-// other pre-approval states.
+// The statuses a WP may be submitted for approval FROM — consumed by the
+// submitWorkPackageForApproval action's SQL guard. Spec 144: 'rework' (a defect
+// reopened a complete WP) is included — fixing it and submitting sends it back to
+// review, same as the other pre-approval states. pending_approval / complete are
+// excluded so a submit can never regress them.
 export const TRANSITIONABLE_FROM_STATUSES = [
   "not_started",
   "in_progress",
   "on_hold",
   "rework",
 ] as const;
-
-export function shouldTransitionToPendingApproval(
-  phase: PhotoPhase,
-  currentStatus: WorkPackageStatus,
-): boolean {
-  if (phase !== "after") return false;
-  return (TRANSITIONABLE_FROM_STATUSES as readonly string[]).includes(currentStatus);
-}
 
 // Spec 52: the first During photo flips a not_started WP to in_progress.
 // From not_started ONLY — a During upload must not release on_hold (the

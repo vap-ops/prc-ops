@@ -1,43 +1,115 @@
 "use client";
 
-// Spec 175 U3 — the shared catalog-item field set, used by both add (U2) and
-// edit (U3) so the form never drifts between the two. Owns field state + the
-// unit free-text reveal + submit pending + inline error. The caller owns the
-// sheet + which action runs (onSubmit) + what happens after success (onSuccess).
+// Spec 175 U3 — the shared catalog-item field set (add + edit). Owns field state
+// + the unit free-text reveal + submit pending + inline error. Spec 221 U3c — the
+// main category is chosen from the managed catalog_categories (by `categoryId`),
+// not the item_category enum; the cascading subcategory scopes by category_id.
 
 import { useState, useTransition } from "react";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
-import { ITEM_CATEGORY_LABEL } from "@/lib/i18n/labels";
+import {
+  CATALOG_SUBCATEGORY_LABEL,
+  FULFILLMENT_MODE_LABEL,
+  FULFILLMENT_MODE_OPTION_LABEL,
+  ITEM_KIND_LABEL,
+  ITEM_KIND_OPTION_LABEL,
+  OWNER_SUPPLIED_LABEL,
+  PRODUCT_CODE_LABEL,
+} from "@/lib/i18n/labels";
 import { COMMON_UNITS, UNIT_OTHER_VALUE } from "@/lib/purchasing/units";
+import {
+  composeProductCode,
+  isValidProductCode,
+  productCodeTailLength,
+} from "@/lib/catalog/validate";
 import type { Database } from "@/lib/db/database.types";
+import type { CatalogCategoryOption } from "./catalog-list";
 
-type ItemCategory = Database["public"]["Enums"]["item_category"];
-const CATEGORIES = Object.keys(ITEM_CATEGORY_LABEL) as ItemCategory[];
+type ItemKind = Database["public"]["Enums"]["catalog_item_kind"];
+type FulfillmentMode = Database["public"]["Enums"]["catalog_fulfillment_mode"];
 
 export type CatalogItemValues = {
-  category: string;
+  // Spec 221 — the chosen main category (catalog_categories.id).
+  categoryId: string;
   baseItem: string;
   specAttrs: string;
   unit: string;
   note: string;
+  productCode: string;
+  // Spec 219 — optional subcategory FK (empty = none).
+  subcategoryId: string;
+  // Spec 224 (ADR 0066 D3) — the catalog item facets. fulfillment_mode is the
+  // SSOT for stocking; the RPC derives `stockable` from it (no stockable input).
+  kind: ItemKind;
+  fulfillmentMode: FulfillmentMode;
+  ownerSupplied: boolean;
+};
+
+// Spec 219/221 — the subcategory options the cascading picker scopes to the
+// chosen category (by category_id). Loaded by the page from catalog_subcategories.
+export type CatalogSubcategoryOption = {
+  id: string;
+  categoryId: string;
+  code: string;
+  name: string;
+};
+
+// Spec 223 (ADR 0066) — the structured unit-picker options, loaded by the page
+// from catalog_units (active rows). `code` is the value stored on the item, so it
+// is what the picker submits as `unit`.
+export type CatalogUnitOption = {
+  code: string;
+  displayName: string;
 };
 
 export type CatalogFormResult = { ok: true } | { ok: false; error: string };
 
 export const EMPTY_CATALOG_VALUES: CatalogItemValues = {
-  category: "",
+  categoryId: "",
   baseItem: "",
   specAttrs: "",
   unit: "",
   note: "",
+  productCode: "",
+  subcategoryId: "",
+  // Spec 224 — sensible defaults: an off-the-shelf material the firm supplies.
+  kind: "material",
+  fulfillmentMode: "off_shelf",
+  ownerSupplied: false,
 };
+
+const ITEM_KINDS = Object.keys(ITEM_KIND_OPTION_LABEL) as ItemKind[];
+const FULFILLMENT_MODES = Object.keys(FULFILLMENT_MODE_OPTION_LABEL) as FulfillmentMode[];
 
 const LABEL = "text-sm font-medium text-ink";
 const FIELD =
   "rounded-control border-edge-strong bg-card text-ink shadow-input placeholder:text-ink-muted focus-visible:ring-action w-full min-w-0 border px-3 py-2 text-sm focus:outline-none focus-visible:ring-2";
+// Spec 221 U4 — the read-only derived product-code prefix shown before the tail.
+const CODE_PREFIX_BADGE =
+  "rounded-control border-edge-strong bg-card text-ink-muted shadow-input inline-flex shrink-0 items-center border px-3 py-2 text-sm font-mono tabular-nums";
+
+// Spec 221 U4 — seed the editable tail from an existing 6-digit code by stripping
+// the prefix the chosen taxonomy derives (category code [+ subcategory code]).
+function initialProductCodeTail(
+  initial: CatalogItemValues,
+  categories: CatalogCategoryOption[],
+  subcategories: CatalogSubcategoryOption[],
+): string {
+  if (initial.productCode.length !== 6) return "";
+  const cat = categories.find((c) => c.id === initial.categoryId);
+  if (!cat) return "";
+  const subLen =
+    initial.subcategoryId === ""
+      ? 0
+      : (subcategories.find((s) => s.id === initial.subcategoryId)?.code.length ?? 0);
+  return initial.productCode.slice(cat.code.length + subLen);
+}
 
 export function CatalogItemForm({
   initial,
+  categories = [],
+  subcategories = [],
+  units = [],
   submitLabel,
   submittingLabel,
   onSubmit,
@@ -46,6 +118,9 @@ export function CatalogItemForm({
   extra,
 }: {
   initial: CatalogItemValues;
+  categories?: CatalogCategoryOption[];
+  subcategories?: CatalogSubcategoryOption[];
+  units?: CatalogUnitOption[];
   submitLabel: string;
   submittingLabel: string;
   onSubmit: (values: CatalogItemValues) => Promise<CatalogFormResult>;
@@ -53,10 +128,14 @@ export function CatalogItemForm({
   onCancel: () => void;
   extra?: React.ReactNode;
 }) {
-  // A seeded unit that isn't in COMMON_UNITS (e.g. วง / ฝา / ตู้) opens as the
-  // free-text "other" so editing preserves it.
-  const initUnitIsCommon = initial.unit !== "" && COMMON_UNITS.includes(initial.unit);
-  const [category, setCategory] = useState(initial.category);
+  // Spec 223 (ADR 0066) — the picker options come from the managed catalog_units
+  // (threaded from the page loader; the table is the SSOT). COMMON_UNITS is the
+  // historical seed-of-record kept as the in-code fallback/anchor when no rows are
+  // threaded (e.g. isolated tests) so the vocabulary is never empty.
+  const unitOptions: CatalogUnitOption[] =
+    units.length > 0 ? units : COMMON_UNITS.map((u) => ({ code: u, displayName: u }));
+  const initUnitIsCommon = initial.unit !== "" && unitOptions.some((u) => u.code === initial.unit);
+  const [categoryId, setCategoryId] = useState(initial.categoryId);
   const [baseItem, setBaseItem] = useState(initial.baseItem);
   const [specAttrs, setSpecAttrs] = useState(initial.specAttrs);
   const [unitChoice, setUnitChoice] = useState(
@@ -64,11 +143,42 @@ export function CatalogItemForm({
   );
   const [unitOther, setUnitOther] = useState(initUnitIsCommon ? "" : initial.unit);
   const [note, setNote] = useState(initial.note);
+  const [subcategoryId, setSubcategoryId] = useState(initial.subcategoryId);
+  // Spec 224 (ADR 0066) — the catalog item facets.
+  const [kind, setKind] = useState<ItemKind>(initial.kind);
+  const [fulfillmentMode, setFulfillmentMode] = useState<FulfillmentMode>(initial.fulfillmentMode);
+  const [ownerSupplied, setOwnerSupplied] = useState(initial.ownerSupplied);
+  // Spec 221 U4 — the user types only the sequence "tail"; the prefix is derived.
+  const [tail, setTail] = useState(() =>
+    initialProductCodeTail(initial, categories, subcategories),
+  );
+  // Spec 221 U4 — only RE-compose the stored code once the user actually touches
+  // the sequence or the taxonomy. Until then keep the existing code verbatim, so
+  // an unrelated edit (e.g. a name change) never silently rewrites a code whose
+  // stored prefix predates this scheme (spec 214 allowed free 6-digit codes).
+  const [codeEdited, setCodeEdited] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
 
+  // Spec 219/221 — the picker offers only the chosen category's subcategories.
+  const availableSubs = subcategories.filter((s) => s.categoryId === categoryId);
   const resolvedUnit = unitChoice === UNIT_OTHER_VALUE ? unitOther.trim() : unitChoice;
-  const canSubmit = category !== "" && baseItem.trim() !== "" && resolvedUnit !== "" && !submitting;
+
+  // Spec 221 U4 — the product code is composed from the chosen taxonomy: the
+  // prefix is the category code (+ the subcategory code when one is chosen); the
+  // user enters only the trailing sequence.
+  const catCode = categories.find((c) => c.id === categoryId)?.code ?? "";
+  const subCode =
+    subcategoryId === "" ? "" : (subcategories.find((s) => s.id === subcategoryId)?.code ?? "");
+  const codePrefix = catCode + subCode;
+  const tailLen = productCodeTailLength(catCode, subCode);
+  const composedCode = composeProductCode(catCode, subCode, tail);
+  // Preserve the stored code until the user edits it; then submit the composition.
+  const productCode = codeEdited ? composedCode : initial.productCode;
+  const codeValid = isValidProductCode(productCode);
+
+  const canSubmit =
+    categoryId !== "" && baseItem.trim() !== "" && resolvedUnit !== "" && codeValid && !submitting;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -76,11 +186,16 @@ export function CatalogItemForm({
     setError(null);
     startSubmit(async () => {
       const result = await onSubmit({
-        category,
+        categoryId,
         baseItem,
         specAttrs,
         unit: resolvedUnit,
         note,
+        productCode,
+        subcategoryId,
+        kind,
+        fulfillmentMode,
+        ownerSupplied,
       });
       if (!result.ok) {
         setError(result.error);
@@ -98,19 +213,53 @@ export function CatalogItemForm({
         </label>
         <select
           id="ci-category"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
+          value={categoryId}
+          onChange={(e) => {
+            // Changing the main category invalidates any chosen subcategory and
+            // the typed sequence (the derived prefix — and its length — changed).
+            setCategoryId(e.target.value);
+            setSubcategoryId("");
+            setTail("");
+            setCodeEdited(true);
+          }}
           disabled={submitting}
           className={FIELD}
         >
           <option value="">เลือกหมวดหมู่</option>
-          {CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {ITEM_CATEGORY_LABEL[c]}
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
             </option>
           ))}
         </select>
       </div>
+
+      {availableSubs.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="ci-subcategory" className={LABEL}>
+            {CATALOG_SUBCATEGORY_LABEL}
+          </label>
+          <select
+            id="ci-subcategory"
+            value={subcategoryId}
+            onChange={(e) => {
+              // A subcategory adds 2 prefix digits → the tail length changes; reset it.
+              setSubcategoryId(e.target.value);
+              setTail("");
+              setCodeEdited(true);
+            }}
+            disabled={submitting}
+            className={FIELD}
+          >
+            <option value="">— ไม่ระบุ —</option>
+            {availableSubs.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.code} · {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="ci-base" className={LABEL}>
@@ -145,6 +294,45 @@ export function CatalogItemForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
+        <label htmlFor="ci-code" className={LABEL}>
+          {PRODUCT_CODE_LABEL} (ถ้ามี)
+        </label>
+        <div className="flex items-stretch gap-2">
+          {/* The derived prefix is decorative here — its value + meaning are
+              spoken via the input's aria-describedby (ci-code-hint) below. */}
+          <span className={CODE_PREFIX_BADGE} aria-hidden="true">
+            {codePrefix === "" ? "— —" : codePrefix}
+          </span>
+          <input
+            id="ci-code"
+            type="text"
+            inputMode="numeric"
+            value={tail}
+            maxLength={tailLen}
+            onChange={(e) => {
+              setTail(e.target.value.replace(/[^0-9]/g, ""));
+              setCodeEdited(true);
+            }}
+            disabled={submitting || categoryId === ""}
+            className={FIELD}
+            placeholder={"0".repeat(tailLen)}
+            aria-invalid={!codeValid}
+            aria-describedby="ci-code-hint"
+          />
+        </div>
+        <p
+          id="ci-code-hint"
+          className={codeValid ? "text-ink-muted text-meta" : "text-danger text-meta"}
+        >
+          {codePrefix === ""
+            ? "รหัส 6 หลัก — 2 หลักแรกมาจากหมวดหลักอัตโนมัติ · พิมพ์เฉพาะเลขลำดับท้าย"
+            : subCode !== ""
+              ? `รหัส 6 หลัก — ขึ้นต้น ${codePrefix} จากหมวดหลัก+หมวดย่อยอัตโนมัติ · พิมพ์เฉพาะ 2 หลักท้าย (ลำดับ)`
+              : `รหัส 6 หลัก — ขึ้นต้น ${codePrefix} จากหมวดหลักอัตโนมัติ · พิมพ์เฉพาะ 4 หลักท้าย (ลำดับ)`}
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
         <label htmlFor="ci-unit" className={LABEL}>
           หน่วยนับ
         </label>
@@ -156,9 +344,9 @@ export function CatalogItemForm({
           className={FIELD}
         >
           <option value="">เลือกหน่วยนับ</option>
-          {COMMON_UNITS.map((u) => (
-            <option key={u} value={u}>
-              {u}
+          {unitOptions.map((u) => (
+            <option key={u.code} value={u.code}>
+              {u.displayName}
             </option>
           ))}
           <option value={UNIT_OTHER_VALUE}>อื่น ๆ (ระบุเอง)</option>
@@ -182,6 +370,59 @@ export function CatalogItemForm({
           />
         </div>
       )}
+
+      {/* Spec 224 (ADR 0066 D3) — the catalog item facets. fulfillment_mode is the
+          SSOT for stocking; the RPC derives `stockable` from it, so there is no
+          stockable control here. */}
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="ci-kind" className={LABEL}>
+          {ITEM_KIND_LABEL}
+        </label>
+        <select
+          id="ci-kind"
+          value={kind}
+          onChange={(e) => setKind(e.target.value as ItemKind)}
+          disabled={submitting}
+          className={FIELD}
+        >
+          {ITEM_KINDS.map((k) => (
+            <option key={k} value={k}>
+              {ITEM_KIND_OPTION_LABEL[k]}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="ci-fulfillment" className={LABEL}>
+          {FULFILLMENT_MODE_LABEL}
+        </label>
+        <select
+          id="ci-fulfillment"
+          value={fulfillmentMode}
+          onChange={(e) => setFulfillmentMode(e.target.value as FulfillmentMode)}
+          disabled={submitting}
+          className={FIELD}
+        >
+          {FULFILLMENT_MODES.map((m) => (
+            <option key={m} value={m}>
+              {FULFILLMENT_MODE_OPTION_LABEL[m]}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <label htmlFor="ci-owner" className="flex items-center gap-2">
+        <input
+          id="ci-owner"
+          type="checkbox"
+          checked={ownerSupplied}
+          onChange={(e) => setOwnerSupplied(e.target.checked)}
+          disabled={submitting}
+          className="accent-action size-4 shrink-0"
+        />
+        <span className={LABEL}>{OWNER_SUPPLIED_LABEL}</span>
+      </label>
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="ci-note" className={LABEL}>

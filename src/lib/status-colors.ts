@@ -48,6 +48,10 @@ const PILL_AMBER = "border-amber-600 bg-amber-400 text-zinc-950";
 // 5.37:1 (AA pass) while keeping the positive hue identifiable.
 const PILL_EMERALD = "border-emerald-800 bg-emerald-700 text-white";
 const PILL_RED = "border-red-700 bg-red-600 text-white";
+// orange-600 fill, white text (4.5:1, AA pass): a distinct "site must redo"
+// hue for `rework` — clearly NOT the amber of in-flight/pending nor the red of
+// a hard rejection. Operator (spec 218): rework must read apart from รอตรวจ.
+const PILL_ORANGE = "border-orange-700 bg-orange-600 text-white";
 // sky-700 fill: white-on-sky-600 is ~3.7:1 (AA fail); 700 passes while
 // staying clearly "in transit" blue, distinct from the blue-700 action hue.
 const PILL_SKY = "border-sky-800 bg-sky-700 text-white";
@@ -216,12 +220,14 @@ export function workPackageStatusPillClasses(status: WorkPackageStatus): string 
     case "in_progress":
     case "on_hold":
     case "pending_approval":
-    case "rework":
-      // All "in flight" from the SA's perspective: work is happening, paused,
-      // with the PM, or reopened for a defect (spec 144). Amber across the
-      // board; the pill text label is what tells them apart precisely. Same
-      // amber the PM side uses for `processing` / `needs_revision`.
+      // In flight from the SA's perspective: work happening, paused, or with the
+      // PM (รอตรวจ). Amber; the pill label tells them apart precisely.
       return PILL_AMBER;
+    case "rework":
+      // Spec 144/218: a defect reopened the WP — the SITE must fix + recapture.
+      // Distinct ORANGE so it never reads as "with the PM" (pending_approval's
+      // amber / รอตรวจ); the RotateCcw icon reinforces it.
+      return PILL_ORANGE;
     case "complete":
       // Positive terminal — same emerald as PM `complete` report.
       return PILL_EMERALD;

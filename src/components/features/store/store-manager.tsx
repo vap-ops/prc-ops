@@ -12,12 +12,13 @@ import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { ConfirmActionButton } from "@/components/features/common/confirm-action-button";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
 import {
-  ITEM_CATEGORY_LABEL,
   STORE_RECEIVE_LABEL,
   STORE_FIX_WRONG_ENTRY_LABEL,
+  STOCK_COUNT_NOT_UNDO_HINT,
 } from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
-import type { Database } from "@/lib/db/database.types";
+import { storeHref, storeItemHref } from "@/lib/nav/project-paths";
+import { withBackFrom } from "@/lib/nav/back-href";
 import { recordStockCount, recordStockInBulk, reverseStockReceipt } from "@/app/store/actions";
 
 // Spec 198 U1 — one draft row of the multi-line รับเข้า grid.
@@ -49,11 +50,13 @@ const receiptRowComplete = (r: DraftReceiptRow): boolean => {
   );
 };
 
-type ItemCategory = Database["public"]["Enums"]["item_category"];
-
 export type CatalogPick = {
   id: string;
-  category: ItemCategory;
+  // Spec 221 cleanup — the item's managed main category FK + its name (from the
+  // catalog_categories table), NOT the vestigial item_category enum, so
+  // user-created categories group + label correctly. null = uncategorised.
+  categoryId: string | null;
+  categoryName: string;
   baseItem: string;
   specAttrs: string | null;
   unit: string;
@@ -96,6 +99,7 @@ export function StoreManager({
   selectedProjectId,
   onHand,
   catalogItems,
+  categories = [],
   suppliers,
   canIssue,
   receipts,
@@ -107,6 +111,9 @@ export function StoreManager({
   selectedProjectId: string | null;
   onHand: StockRow[];
   catalogItems: CatalogPick[];
+  // Spec 221 cleanup — the managed main categories (ordered, id + name), so the
+  // รับเข้า item picker groups by category_id and labels with the managed name.
+  categories?: { id: string; name: string }[];
   suppliers: { id: string; name: string }[];
   canIssue: boolean;
   receipts: ReceiptRow[];
@@ -182,7 +189,11 @@ export function StoreManager({
   const completeRows = rows.filter(receiptRowComplete);
   const canSubmit = completeRows.length > 0 && !submitting;
 
-  const categories = Object.keys(ITEM_CATEGORY_LABEL) as ItemCategory[];
+  // Spec 221 cleanup — group the วัสดุ picker by the managed category (in the
+  // ordered `categories` list), with an "uncategorised" group only when some item
+  // has no categoryId. Replaces the old item_category enum grouping.
+  const itemsByCategory = (id: string) => catalogItems.filter((ci) => ci.categoryId === id);
+  const uncategorisedItems = catalogItems.filter((ci) => ci.categoryId === null);
 
   function reset() {
     setRows([emptyReceiptRow()]);
@@ -273,21 +284,36 @@ export function StoreManager({
                     key={r.catalogItemId}
                     className="border-edge bg-card rounded-control flex items-center gap-3 border px-4 py-3"
                   >
-                    <span className="min-w-0 flex-1">
-                      <span className="text-ink text-body block font-semibold">{r.baseItem}</span>
-                      <span className="text-ink-secondary text-meta block">
-                        {r.specAttrs ? `${r.specAttrs} · ` : ""}
-                        ต้นทุนเฉลี่ย {baht(avg)} ฿/{r.unit}
+                    {/* Spec 213 U3: the identity + qty drill into the material's
+                        activity log; the ตรวจนับ action stays beside it, not nested
+                        in the anchor. */}
+                    <Link
+                      href={
+                        selectedProjectId
+                          ? withBackFrom(
+                              storeItemHref(selectedProjectId, r.catalogItemId),
+                              storeHref(selectedProjectId),
+                            )
+                          : "#"
+                      }
+                      className="hover:bg-sunk focus-visible:ring-action rounded-control -mx-2 -my-1 flex min-w-0 flex-1 items-center gap-3 px-2 py-1 transition-colors focus:outline-none focus-visible:ring-2"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="text-ink text-body block font-semibold">{r.baseItem}</span>
+                        <span className="text-ink-secondary text-meta block">
+                          {r.specAttrs ? `${r.specAttrs} · ` : ""}
+                          ต้นทุนเฉลี่ย {baht(avg)} ฿/{r.unit}
+                        </span>
                       </span>
-                    </span>
-                    <span className="shrink-0 text-right">
-                      <span className="text-ink text-body block font-semibold">
-                        {r.qtyOnHand} {r.unit}
+                      <span className="shrink-0 text-right">
+                        <span className="text-ink text-body block font-semibold">
+                          {r.qtyOnHand} {r.unit}
+                        </span>
+                        <span className="text-ink-secondary text-meta block">
+                          {baht(r.totalValue)} ฿
+                        </span>
                       </span>
-                      <span className="text-ink-secondary text-meta block">
-                        {baht(r.totalValue)} ฿
-                      </span>
-                    </span>
+                    </Link>
                     {/* Spec 208: เบิก is initiated on the WP detail page (เบิกของ tab),
                         not the store console — only ตรวจนับ stays here. */}
                     {canIssue ? (
@@ -414,11 +440,11 @@ export function StoreManager({
                         className={FIELD}
                       >
                         <option value="">เลือกวัสดุ</option>
-                        {categories.map((c) => {
-                          const opts = catalogItems.filter((ci) => ci.category === c);
+                        {categories.map((cat) => {
+                          const opts = itemsByCategory(cat.id);
                           if (opts.length === 0) return null;
                           return (
-                            <optgroup key={c} label={ITEM_CATEGORY_LABEL[c]}>
+                            <optgroup key={cat.id} label={cat.name}>
                               {opts.map((ci) => (
                                 <option key={ci.id} value={ci.id}>
                                   {ci.baseItem}
@@ -428,6 +454,16 @@ export function StoreManager({
                             </optgroup>
                           );
                         })}
+                        {uncategorisedItems.length > 0 ? (
+                          <optgroup label="ไม่ระบุหมวด">
+                            {uncategorisedItems.map((ci) => (
+                              <option key={ci.id} value={ci.id}>
+                                {ci.baseItem}
+                                {ci.specAttrs ? ` · ${ci.specAttrs}` : ""} ({ci.unit})
+                              </option>
+                            ))}
+                          </optgroup>
+                        ) : null}
                       </select>
                     </div>
 
@@ -543,6 +579,12 @@ export function StoreManager({
                   {countRow?.specAttrs ? ` · ${countRow.specAttrs}` : ""}
                 </span>{" "}
                 — ระบบมี {countRow?.qtyOnHand} {countRow?.unit}
+              </p>
+
+              {/* Feedback 8bb3dc63: redirect the "I'll recount to undo a wrong
+                  เบิก" misuse — a recount adjusts the number, not the cost. */}
+              <p className="border-edge bg-sunk text-ink-secondary text-meta rounded-control border px-3 py-2">
+                {STOCK_COUNT_NOT_UNDO_HINT}
               </p>
 
               <div className="flex flex-col gap-1.5">

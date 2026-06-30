@@ -1,5 +1,5 @@
 begin;
-select plan(37);
+select plan(39);
 
 -- ============================================================================
 -- Spec 32 / ADR 0037 — LINE notification outbox.
@@ -63,7 +63,7 @@ select has_table('public', 'notification_outbox', 'notification_outbox exists');
 select enum_has_labels('public', 'notification_event_type',
   array['wp_pending_approval', 'wp_decision', 'pr_created',
         'pr_decision', 'pr_progress', 'pr_cancelled',
-        'feedback_submitted'],
+        'feedback_submitted', 'wp_reopened'],
   'notification_event_type labels');
 select enum_has_labels('public', 'notification_status',
   array['pending', 'sending', 'sent', 'failed', 'expired'],
@@ -119,10 +119,11 @@ select is(
      join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
       and p.proname in ('notify_wp_pending_approval', 'notify_wp_decision',
-                        'notify_pr_created', 'notify_pr_status_change')
+                        'notify_pr_created', 'notify_pr_status_change',
+                        'notify_wp_reopened')
       and p.prosecdef
       and array_to_string(p.proconfig, ',') like '%search_path=public%'),
-  4, 'all four capture functions are SECURITY DEFINER with pinned search_path');
+  5, 'all five capture functions are SECURITY DEFINER with pinned search_path');
 
 -- ============================================================================
 -- D. Capture triggers exist.
@@ -130,6 +131,8 @@ select is(
 
 select has_trigger('public', 'work_packages',
   'work_packages_notify_pending_approval', 'WP pending_approval capture trigger exists');
+select has_trigger('public', 'work_packages',
+  'work_packages_notify_reopened', 'WP reopen (→rework) capture trigger exists');
 select has_trigger('public', 'approvals',
   'approvals_notify_decision', 'approvals decision capture trigger exists');
 select has_trigger('public', 'purchase_requests',
@@ -273,6 +276,24 @@ select is(
        and payload->>'comment' = 'แก้ไขรูปช่วงหลัง'
        and payload->>'decided_by' = '33333333-3333-3333-3333-33333333feed'),
   1, 'approvals insert produced one wp_decision row with snapshot payload');
+
+-- F.4 (spec 218 U5) complete → rework (defect reopen) → one wp_reopened row,
+-- snapshotting code + round. Direct UPDATE exercises the trigger independent of
+-- the reopen RPC (the RPC path is covered by 75-reopen-wp-for-defect).
+update public.work_packages
+   set status = 'complete'
+ where id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeefeed';
+update public.work_packages
+   set status = 'rework', rework_round = 1
+ where id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeefeed';
+
+select is(
+  (select count(*)::int from public.notification_outbox
+     where event_type = 'wp_reopened'
+       and work_package_id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeefeed'::uuid
+       and payload->>'code' = 'WP-NOTIF-1'
+       and payload->>'round' = '1'),
+  1, 'complete → rework produced one wp_reopened row with code + round');
 
 -- ============================================================================
 -- F2. Failure-swallowing posture (ADR 0037's headline divergence from the

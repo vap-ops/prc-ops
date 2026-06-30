@@ -32,15 +32,18 @@ import {
   type ReceiptRow,
   type CountRow,
 } from "@/components/features/store/store-manager";
+import { STORE_FIX_WRONG_ENTRY_LABEL } from "@/lib/i18n/labels";
 
 const projects = [
   { id: "p1", code: "PRC-2026-001", name: "บ้านคุณเอ" },
   { id: "p2", code: "PRC-2026-002", name: "อาคารบี" },
 ];
+const categories = [{ id: "cat-elec", name: "งานไฟฟ้า" }];
 const catalogItems = [
   {
     id: "ci1",
-    category: "electrical" as const,
+    categoryId: "cat-elec",
+    categoryName: "งานไฟฟ้า",
     baseItem: "สายไฟ NYY",
     specAttrs: "3x6",
     unit: "ม้วน",
@@ -94,6 +97,7 @@ function renderManager(opts: {
       selectedProjectId={opts.selectedProjectId === undefined ? "p1" : opts.selectedProjectId}
       onHand={opts.onHand ?? onHand}
       catalogItems={catalogItems}
+      categories={categories}
       suppliers={suppliers}
       canIssue={opts.canIssue ?? false}
       receipts={opts.receipts ?? []}
@@ -115,6 +119,13 @@ describe("StoreManager (spec 177 U2)", () => {
   it("shows an empty state when the project has no stock (spec 197 U3)", () => {
     renderManager({ onHand: [] });
     expect(screen.getByText(/ยังไม่มีของในคลัง/)).toBeInTheDocument();
+  });
+
+  // Spec 213 U3: tapping a material drills into its activity log.
+  it("links each on-hand row to its material log", () => {
+    renderManager({});
+    const link = screen.getByRole("link", { name: /สายไฟ NYY/ });
+    expect(link.getAttribute("href")).toContain("/projects/p1/store/items/ci1");
   });
 
   it("switching the project selector navigates to that project's store", () => {
@@ -160,6 +171,17 @@ describe("StoreManager (spec 177 U2)", () => {
     renderManager({ selectedProjectId: null, onHand: [] });
     expect(screen.queryByRole("button", { name: /รับเข้าสต๊อก/ })).toBeNull();
   });
+
+  // Spec 221 cleanup: the วัสดุ picker groups items under the managed category
+  // NAME (from the categories prop, keyed by categoryId), not the enum label.
+  it("groups รับเข้า items under the managed category name", () => {
+    renderManager({});
+    fireEvent.click(screen.getByRole("button", { name: /รับเข้าสต๊อก/ }));
+    const select = screen.getByLabelText("วัสดุ") as HTMLSelectElement;
+    const group = select.querySelector("optgroup");
+    expect(group?.label).toBe("งานไฟฟ้า");
+    expect(group?.querySelector("option")?.textContent).toContain("สายไฟ NYY");
+  });
 });
 
 // Spec 210: the store console is no longer the เบิก surface. Withdrawal is
@@ -196,6 +218,17 @@ describe("StoreManager ตรวจนับ/count (spec 177 U10)", () => {
     expect(screen.getByText(/ส่วนต่าง -2/)).toBeInTheDocument();
   });
 
+  // Feedback 8bb3dc63: ตรวจนับ is not an entry-undo — the cost of a เบิก
+  // recorded with the wrong qty does not reverse by recounting. The sheet warns
+  // and points to the real tool (the issue-undo lives on the WP page, spec 210).
+  it("the count sheet warns it is not how to undo a wrong เบิก, pointing to the WP", () => {
+    renderManager({ canIssue: true });
+    fireEvent.click(screen.getByRole("button", { name: "ตรวจนับ" }));
+    const hint = screen.getByText(/ไม่ใช่การแก้รายการเบิกที่บันทึกผิด/);
+    expect(hint).toHaveTextContent("หน้างาน (WP)");
+    expect(hint).toHaveTextContent(STORE_FIX_WRONG_ENTRY_LABEL);
+  });
+
   it("records a count with the counted qty", async () => {
     renderManager({ canIssue: true });
     fireEvent.click(screen.getByRole("button", { name: "ตรวจนับ" }));
@@ -228,7 +261,6 @@ describe("StoreManager แก้รายการที่บันทึกผ
     fireEvent.click(screen.getByRole("button", { name: "ยืนยัน" }));
     await waitFor(() => expect(mockRevReceipt).toHaveBeenCalledWith({ receiptId: "rc1" }));
   });
-
 });
 
 describe("StoreManager count history (spec 178 B3)", () => {

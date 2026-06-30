@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Camera } from "lucide-react";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { CARD, DETAIL_TITLE } from "@/lib/ui/classes";
@@ -9,8 +11,17 @@ import { safeBackHref } from "@/lib/nav/back-href";
 import { createClient } from "@/lib/db/server";
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
+import {
+  loadCatalogCategories,
+  categoryNameById,
+  loadCatalogItemMemberships,
+  membershipsByItem,
+} from "@/lib/catalog/categories";
+import { resolveScopedCategories } from "@/lib/catalog/scoped-categories";
 import { latestCreatedAt, PHASES } from "@/lib/photos/phases";
+import { groupAfterFixByRound, afterFixRoundHeading } from "@/lib/photos/rework-round";
 import { derivePhaseProgress } from "@/lib/photos/phase-progress";
+import { TRANSITIONABLE_FROM_STATUSES } from "@/lib/photos/transitions";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
@@ -20,6 +31,8 @@ import {
   APPROVAL_DECISION_LABEL,
   WORK_PACKAGE_STATUS_LABEL,
   EQUIPMENT_TAB_LABEL,
+  PHOTO_PHASE_LABEL,
+  reworkSourceLabel,
   formatThaiDateTime,
   formatThaiTime,
 } from "@/lib/i18n/labels";
@@ -37,6 +50,8 @@ import { loadWorkPackageDetail } from "@/lib/work-packages/load-detail";
 import { WpAssignmentPanel } from "@/components/features/work-packages/wp-assignment-panel";
 import { WpPriorityControl } from "@/components/features/work-packages/wp-priority-control";
 import { WpDeliverableControl } from "@/components/features/work-packages/wp-deliverable-control";
+import { WpCategoryControl } from "@/components/features/work-packages/wp-category-control";
+import { WorkCategoryBadge } from "@/components/features/work-packages/work-category-badge";
 import { WpNameControl } from "@/components/features/work-packages/wp-name-control";
 import { WpDeleteControl } from "@/components/features/work-packages/wp-delete-control";
 import { WpSchedulePanel } from "@/components/features/work-packages/wp-schedule-panel";
@@ -61,6 +76,7 @@ import { splitEquipmentUsage } from "@/lib/equipment/usage-rows";
 import { bangkokTodayIso } from "@/lib/dates";
 import { PhotoCaptureZone } from "./phase-uploader";
 import { ReportDefectControl } from "./report-defect-control";
+import { SubmitForApprovalControl } from "./submit-for-approval-control";
 
 interface PageProps {
   params: Promise<{ projectId: string; workPackageId: string }>;
@@ -94,11 +110,13 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
   const [
     data,
     { data: projectDeliverables },
+    { data: projectCategories },
     { data: ohRows },
     { data: issueRows },
     { data: returnRows },
     { data: wkRows },
     { data: catalogRows },
+    catalogCategories,
     { data: eqItemRows },
     { data: eqUsageRows },
     laborBudget,
@@ -111,9 +129,25 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           .eq("project_id", projectId)
           .order("sort_order", { ascending: true })
       : Promise.resolve({ data: [] as { id: string; code: string; name: string }[] }),
+    // Spec 226 / 207 U3c: the project's work-categories feed the planner-only
+    // WpCategoryControl. Load ALL (incl. inactive) so a WP bound to a now-inactive
+    // category still renders it; the picker filters active-only client-side.
+    isPlanner
+      ? supabase
+          .from("project_categories")
+          .select("id, code, name, is_active")
+          .eq("project_id", projectId)
+          .order("sort_order", { ascending: true })
+      : Promise.resolve({
+          data: [] as { id: string; code: string; name: string; is_active: boolean }[],
+        }),
+    // Spec 229 (ADR 0066 / S8): category_id + kind ride along so the เบิก picker
+    // can scope the on-hand list to the WP's work-category (Relation R, kind-aware).
     supabase
       .from("stock_on_hand")
-      .select("catalog_item_id, qty_on_hand, catalog_items ( base_item, spec_attrs, unit )")
+      .select(
+        "catalog_item_id, qty_on_hand, catalog_items ( base_item, spec_attrs, unit, category_id, kind )",
+      )
       .eq("project_id", projectId)
       .gt("qty_on_hand", 0),
     supabase
@@ -137,11 +171,16 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     // Spec 179: the active catalog master feeds the คำขอซื้อ item picker
     // (project-agnostic reference data; readable by any authenticated user).
     // Spec 180: image_path rides along for the picker's thumbnails.
+    // Spec 214: product_code rides along so the picker searches by code.
+    // Spec 221 cleanup: read category_id (the managed FK), not the vestigial enum.
     supabase
       .from("catalog_items")
-      .select("id, category, base_item, spec_attrs, unit, image_path")
+      .select("id, category_id, base_item, spec_attrs, unit, image_path, product_code")
       .eq("is_active", true)
       .order("base_item", { ascending: true }),
+    // Spec 221 cleanup: the managed main categories (id + name + order) for the
+    // picker's grouping; rides the Promise.all (no waterfall).
+    loadCatalogCategories(supabase),
     // Spec 202 U2: the อุปกรณ์ tab. The registry (RATE-FREE — daily_rate is
     // admin-only and omitted) feeds the check-out picker; this WP's usage spans
     // feed the open/history lists. Both RLS-readable by WP_DETAIL_ROLES; no money.
@@ -173,6 +212,9 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     signedUrls,
     displayNames,
     defectReason,
+    reworkReasons,
+    reworkSources,
+    defectSource,
   } = data;
 
   const assignedContractor = wp.contractor_id
@@ -202,8 +244,16 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     before: photosByPhase.before.length,
     during: photosByPhase.during.length,
     after: photosByPhase.after.length,
+    // after_fix is a rework addendum, not part of the 3-step progress derivation
+    // (PHASE_ORDER), but the Record<PhotoPhase, number> shape requires the key.
+    after_fix: photosByPhase.after_fix.length,
   };
   const currentPhase = derivePhaseProgress(phaseCounts).currentPhase;
+  // Spec 216: the หลังแก้ไข rework bucket surfaces only inside a rework cycle (in
+  // rework OR already has after_fix photos); a WP can be reworked more than once, so
+  // its photos group by round (each with the defect reason that opened it).
+  const showAfterFix = wp.status === "rework" || photosByPhase.after_fix.length > 0;
+  const afterFixRounds = groupAfterFixByRound(photosByPhase.after_fix);
   // Feedback a6037564: a PD wants to know who uploaded each photo. uploaded_by
   // is already on every photo_logs row; resolve the names once (admin read,
   // same pattern as photo-markups) and surface them in the lightbox.
@@ -238,6 +288,8 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     specAttrs: r.catalog_items?.spec_attrs ?? null,
     unit: r.catalog_items?.unit ?? "",
     qtyOnHand: Number(r.qty_on_hand),
+    categoryId: r.catalog_items?.category_id ?? null,
+    kind: r.catalog_items?.kind ?? null,
   }));
   // Spec 179/180: the catalog master for the คำขอซื้อ item picker, with signed
   // thumbnail URLs (private bucket → service-role signed URLs; rows already read
@@ -246,14 +298,44 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     CATALOG_IMAGES_BUCKET,
     (catalogRows ?? []).map((r) => ({ id: r.id, storage_path: r.image_path })),
   );
+  // Spec 221 cleanup: read the managed category (id + name) so user-created
+  // categories group + label correctly; the item_category enum is no longer read.
+  const categoryName = categoryNameById(catalogCategories);
+  const catalogCategoryList = catalogCategories.map((c) => ({ id: c.id, name: c.name }));
   const catalogItems: PurchaseRequestCatalogItem[] = (catalogRows ?? []).map((r) => ({
     id: r.id,
-    category: r.category,
+    categoryId: r.category_id,
+    categoryName: r.category_id ? (categoryName.get(r.category_id) ?? "") : "",
     baseItem: r.base_item,
     specAttrs: r.spec_attrs,
     unit: r.unit,
     thumbnailUrl: catalogThumbs.get(r.id) ?? null,
+    productCode: r.product_code,
   }));
+
+  // Spec 229 (ADR 0066 / S8): resolve THIS WP's work-category — its name for the
+  // header badge, and (via the spec-226 reconcile + the S6 resolver) the material
+  // categories its work buys (Relation R) for the scoped PR + เบิก pickers. The WP
+  // binds to a project category (wp.category_id); an unbound / unmapped WP → empty
+  // scope → the pickers fall back to the full catalog/on-hand (D8 show-all) and the
+  // badge shows the nudge. project_categories is membership-readable, so this works
+  // for every WP_DETAIL_ROLES viewer.
+  let workCategoryName: string | null = null;
+  let scopedRelation: Awaited<ReturnType<typeof resolveScopedCategories>> = [];
+  if (wp.category_id) {
+    const { data: wpCategory } = await supabase
+      .from("project_categories")
+      .select("name, work_category_id")
+      .eq("id", wp.category_id)
+      .maybeSingle();
+    workCategoryName = wpCategory?.name ?? null;
+    if (wpCategory?.work_category_id) {
+      scopedRelation = await resolveScopedCategories(supabase, wpCategory.work_category_id);
+    }
+  }
+  const scopedCategoryIds = [...new Set(scopedRelation.map((r) => r.categoryId))];
+  // The canonical∪secondary membership union (S4) both scoped pickers read.
+  const itemMembershipMap = membershipsByItem(await loadCatalogItemMemberships(supabase));
 
   // Spec 209 U2: Σ returned qty per issue, to derive the remaining-returnable.
   const returnedByIssue = new Map<string, number>();
@@ -294,8 +376,10 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
       panel: readOnly ? (
         // Spec 171: procurement views the photos read-only — the PM-side gallery,
         // not the capture zone (which owns the thumb-anchored shutter bar).
+        // Spec 216: lifecycle phases first, then one หลังแก้ไข section per rework
+        // round (each with the defect reason that opened it) — only when reworked.
         <div className="flex flex-col gap-5">
-          {PHASES.map(({ phase, label }) => (
+          {PHASES.filter(({ phase }) => phase !== "after_fix").map(({ phase, label }) => (
             <PhaseGallery
               key={phase}
               label={label}
@@ -304,6 +388,22 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               uploaderNames={uploaderNames}
             />
           ))}
+          {showAfterFix
+            ? afterFixRounds.map(({ round, photos }) => (
+                <PhaseGallery
+                  key={`after_fix-${round}`}
+                  label={afterFixRoundHeading(
+                    PHOTO_PHASE_LABEL.after_fix,
+                    round,
+                    reworkSourceLabel(reworkSources.get(round)),
+                  )}
+                  photos={photos}
+                  signedUrls={signedUrls}
+                  uploaderNames={uploaderNames}
+                  note={reworkReasons.get(round) ?? null}
+                />
+              ))
+            : null}
         </div>
       ) : (
         <PhotoCaptureZone
@@ -312,6 +412,8 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           userId={ctx.id}
           phases={phaseData}
           currentPhase={currentPhase}
+          showAfterFix={showAfterFix}
+          currentReworkRound={wp.rework_round}
         />
       ),
     },
@@ -330,6 +432,9 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
                 projectId={wp.project_id}
                 userId={ctx.id}
                 catalogItems={catalogItems}
+                categories={catalogCategoryList}
+                scopedCategoryIds={scopedCategoryIds}
+                membershipsByItem={itemMembershipMap}
               />
             </div>
           </details>
@@ -343,6 +448,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               projectId={wp.project_id}
               workPackageId={wp.id}
               catalogItems={catalogItems}
+              categories={catalogCategoryList}
             />
           ) : null}
           {(wpRequests ?? []).length > 0 ? (
@@ -488,6 +594,8 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               onHand={wpOnHand}
               workers={wpWorkers}
               issues={wpIssues}
+              scopedRelation={scopedRelation}
+              membershipsByItem={itemMembershipMap}
             />
           </div>
           {/* Spec 211 U11a: the on-site cash buy (ซื้อเงินสด ใช้ที่งานนี้เลย) moved
@@ -527,6 +635,12 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
             workPackageId={wp.id}
             deliverableId={wp.deliverable_id}
             deliverables={projectDeliverables ?? []}
+          />
+          <WpCategoryControl
+            projectId={wp.project_id}
+            workPackageId={wp.id}
+            categoryId={wp.category_id}
+            categories={projectCategories ?? []}
           />
           <WpSchedulePanel
             projectId={wp.project_id}
@@ -578,6 +692,11 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
             <p className="text-meta text-ink-secondary font-mono">{wp.code}</p>
             {/* Spec 57: WP name never truncates — the nameplate. */}
             <h1 className={DETAIL_TITLE}>{wp.name}</h1>
+            {/* Spec 229 (ADR 0066 / S8): the WP's หมวดงาน (work-category) — the same
+                binding that scopes the PR + เบิก pickers below. */}
+            <div className="mt-1.5">
+              <WorkCategoryBadge name={workCategoryName} />
+            </div>
           </div>
           <StatusPill
             pillClasses={workPackageStatusPillClasses(wp.status)}
@@ -614,6 +733,16 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               {attention.comment ? (
                 <p className="mt-1 whitespace-pre-wrap">{attention.comment}</p>
               ) : null}
+              {/* Spec 218: the SA's next action — add the photos the PM asked for. */}
+              {!readOnly ? (
+                <Link
+                  href="#wp-photos"
+                  className="bg-attn-press text-on-attn rounded-control focus-visible:ring-action mt-2.5 inline-flex h-9 items-center gap-1.5 px-3 text-sm font-bold focus:outline-none focus-visible:ring-2"
+                >
+                  <Camera aria-hidden className="size-4" />
+                  ถ่ายรูปเพิ่ม
+                </Link>
+              ) : null}
             </AttentionCard>
           ) : null}
           {!assignedContractor && isAssigner ? (
@@ -638,12 +767,37 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
       {wp.status === "rework" ? (
         <div className={`mx-auto ${PAGE_MAX_W} px-5 pt-5`}>
           <AttentionCard tone="amber" title="งานแก้ไข — เปิดใหม่จากข้อบกพร่อง">
+            {/* Spec 217: who called this rework (ตรวจภายใน / ลูกค้าแจ้ง). */}
+            {defectSource ? (
+              <p className="text-meta text-ink-secondary mb-1 font-semibold">
+                ที่มา: {reworkSourceLabel(defectSource)}
+              </p>
+            ) : null}
             {defectReason ? (
               <p className="whitespace-pre-wrap">{defectReason}</p>
             ) : (
               <p className="text-ink-secondary">แก้ไขแล้วถ่ายรูปใหม่เพื่อส่งตรวจอีกครั้ง</p>
             )}
+            {/* Spec 218: the SA's next action — capture หลังแก้ไข; then ส่งงานเข้าตรวจ
+                (the FB2 submit control below) sends it back to review. */}
+            {!readOnly ? (
+              <Link
+                href="#wp-photos"
+                className="bg-attn-press text-on-attn rounded-control focus-visible:ring-action mt-2.5 inline-flex h-9 items-center gap-1.5 px-3 text-sm font-bold focus:outline-none focus-visible:ring-2"
+              >
+                <Camera aria-hidden className="size-4" />
+                ถ่ายรูปหลังแก้ไข
+              </Link>
+            ) : null}
           </AttentionCard>
+        </div>
+      ) : null}
+      {/* FB2 (b9e942f0): explicit "ส่งงานเข้าตรวจ" — replaces the photo auto-flip.
+          Shown to non-read-only site staff while the WP is still pre-approval
+          (TRANSITIONABLE); the action's SQL guard no-ops on pending/complete. */}
+      {!readOnly && (TRANSITIONABLE_FROM_STATUSES as readonly string[]).includes(wp.status) ? (
+        <div className={`mx-auto ${PAGE_MAX_W} flex justify-end px-5 pt-5`}>
+          <SubmitForApprovalControl projectId={wp.project_id} workPackageId={wp.id} />
         </div>
       ) : null}
       {wp.status === "complete" && !readOnly ? (
