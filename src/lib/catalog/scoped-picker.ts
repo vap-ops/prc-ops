@@ -9,6 +9,7 @@
 // picker is usable even though almost nothing is categorised yet.
 
 import { itemCategoryIds } from "@/lib/catalog/categories";
+import type { CatalogItemKind, ScopedMaterialCategory } from "@/lib/catalog/scoped-categories";
 
 /** One catalog item paired with whether it falls in the active scope. */
 export type ScopedPickerEntry<T> = { item: T; inScope: boolean };
@@ -60,6 +61,82 @@ export function scopeCatalogItems<T extends { id: string; categoryId: string | n
       }
     }
     (hit ? inScope : rest).push({ item, inScope: hit });
+  }
+
+  return { scoped: true, entries: [...inScope, ...rest], inScopeCount: inScope.length };
+}
+
+// ── Spec 229 (ADR 0066 / S8): UC2 เบิก on-hand scope ────────────────────────────
+// The WP เบิก picker is a native <select> over the project store's on-hand stock.
+// Unlike the PR/supply-plan picker above (category-only, UC1), it honours Relation
+// R's per-row kindFilter so it can SEPARATE tools (equipment family) from materials.
+// Same D8 contract: in-scope rows surface first, the rest stay present, and an
+// empty relation = the full on-hand list untouched (the show-all fallback).
+
+/** One on-hand row paired with whether it matches the active Relation-R scope. */
+export type ScopedStockEntry<T> = { row: T; inScope: boolean };
+
+export type ScopedStockList<T> = {
+  /** True only when a non-empty Relation R is active. */
+  scoped: boolean;
+  /** Rows, in-scope first (stable). Unscoped → original order, all `inScope: false`. */
+  entries: ScopedStockEntry<T>[];
+  /** How many entries are in scope (0 when not scoped). */
+  inScopeCount: number;
+};
+
+/**
+ * Does an item — identified by its canonical∪secondary category ids and its
+ * `kind` (the spec-224 facet) — match ANY Relation-R row? A relation row
+ * `(categoryId, kindFilter)` matches when its category is among the item's
+ * categories AND its kindFilter is null (any kind in that category) or equals the
+ * item's kind. This is how UC2 honours the tool-vs-material split.
+ */
+export function itemInRelationScope(
+  categoryIds: ReadonlySet<string>,
+  kind: CatalogItemKind | null,
+  relation: readonly ScopedMaterialCategory[],
+): boolean {
+  for (const r of relation) {
+    if (!categoryIds.has(r.categoryId)) continue;
+    if (r.kindFilter === null || r.kindFilter === kind) return true;
+  }
+  return false;
+}
+
+/**
+ * Order + flag on-hand stock rows against a WP work-category's Relation R.
+ *
+ * @param rows the on-hand stock rows (each carries its canonical `categoryId`
+ *   and `kind`).
+ * @param membershipsByItem catalogItemId → secondary category ids (the S4 union).
+ * @param relation the resolved Relation-R rows, or empty/undefined for the
+ *   show-all fallback.
+ */
+export function scopeStockRows<
+  T extends { catalogItemId: string; categoryId: string | null; kind: CatalogItemKind | null },
+>(
+  rows: readonly T[],
+  membershipsByItem: ReadonlyMap<string, Set<string>>,
+  relation: readonly ScopedMaterialCategory[] | null | undefined,
+): ScopedStockList<T> {
+  const rel = relation ?? [];
+
+  // D8 show-all fallback: no relation → the full on-hand list, untouched.
+  if (rel.length === 0) {
+    return {
+      scoped: false,
+      entries: rows.map((row) => ({ row, inScope: false })),
+      inScopeCount: 0,
+    };
+  }
+
+  const inScope: ScopedStockEntry<T>[] = [];
+  const rest: ScopedStockEntry<T>[] = [];
+  for (const row of rows) {
+    const ids = itemCategoryIds(row.categoryId, membershipsByItem.get(row.catalogItemId));
+    const hit = itemInRelationScope(ids, row.kind, rel);
+    (hit ? inScope : rest).push({ row, inScope: hit });
   }
 
   return { scoped: true, entries: [...inScope, ...rest], inScopeCount: inScope.length };

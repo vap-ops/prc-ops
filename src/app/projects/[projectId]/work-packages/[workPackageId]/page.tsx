@@ -11,7 +11,13 @@ import { safeBackHref } from "@/lib/nav/back-href";
 import { createClient } from "@/lib/db/server";
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
-import { loadCatalogCategories, categoryNameById } from "@/lib/catalog/categories";
+import {
+  loadCatalogCategories,
+  categoryNameById,
+  loadCatalogItemMemberships,
+  membershipsByItem,
+} from "@/lib/catalog/categories";
+import { resolveScopedCategories } from "@/lib/catalog/scoped-categories";
 import { latestCreatedAt, PHASES } from "@/lib/photos/phases";
 import { groupAfterFixByRound, afterFixRoundHeading } from "@/lib/photos/rework-round";
 import { derivePhaseProgress } from "@/lib/photos/phase-progress";
@@ -45,6 +51,7 @@ import { WpAssignmentPanel } from "@/components/features/work-packages/wp-assign
 import { WpPriorityControl } from "@/components/features/work-packages/wp-priority-control";
 import { WpDeliverableControl } from "@/components/features/work-packages/wp-deliverable-control";
 import { WpCategoryControl } from "@/components/features/work-packages/wp-category-control";
+import { WorkCategoryBadge } from "@/components/features/work-packages/work-category-badge";
 import { WpNameControl } from "@/components/features/work-packages/wp-name-control";
 import { WpDeleteControl } from "@/components/features/work-packages/wp-delete-control";
 import { WpSchedulePanel } from "@/components/features/work-packages/wp-schedule-panel";
@@ -134,9 +141,13 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
       : Promise.resolve({
           data: [] as { id: string; code: string; name: string; is_active: boolean }[],
         }),
+    // Spec 229 (ADR 0066 / S8): category_id + kind ride along so the เบิก picker
+    // can scope the on-hand list to the WP's work-category (Relation R, kind-aware).
     supabase
       .from("stock_on_hand")
-      .select("catalog_item_id, qty_on_hand, catalog_items ( base_item, spec_attrs, unit )")
+      .select(
+        "catalog_item_id, qty_on_hand, catalog_items ( base_item, spec_attrs, unit, category_id, kind )",
+      )
       .eq("project_id", projectId)
       .gt("qty_on_hand", 0),
     supabase
@@ -277,6 +288,8 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     specAttrs: r.catalog_items?.spec_attrs ?? null,
     unit: r.catalog_items?.unit ?? "",
     qtyOnHand: Number(r.qty_on_hand),
+    categoryId: r.catalog_items?.category_id ?? null,
+    kind: r.catalog_items?.kind ?? null,
   }));
   // Spec 179/180: the catalog master for the คำขอซื้อ item picker, with signed
   // thumbnail URLs (private bucket → service-role signed URLs; rows already read
@@ -299,6 +312,30 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     thumbnailUrl: catalogThumbs.get(r.id) ?? null,
     productCode: r.product_code,
   }));
+
+  // Spec 229 (ADR 0066 / S8): resolve THIS WP's work-category — its name for the
+  // header badge, and (via the spec-226 reconcile + the S6 resolver) the material
+  // categories its work buys (Relation R) for the scoped PR + เบิก pickers. The WP
+  // binds to a project category (wp.category_id); an unbound / unmapped WP → empty
+  // scope → the pickers fall back to the full catalog/on-hand (D8 show-all) and the
+  // badge shows the nudge. project_categories is membership-readable, so this works
+  // for every WP_DETAIL_ROLES viewer.
+  let workCategoryName: string | null = null;
+  let scopedRelation: Awaited<ReturnType<typeof resolveScopedCategories>> = [];
+  if (wp.category_id) {
+    const { data: wpCategory } = await supabase
+      .from("project_categories")
+      .select("name, work_category_id")
+      .eq("id", wp.category_id)
+      .maybeSingle();
+    workCategoryName = wpCategory?.name ?? null;
+    if (wpCategory?.work_category_id) {
+      scopedRelation = await resolveScopedCategories(supabase, wpCategory.work_category_id);
+    }
+  }
+  const scopedCategoryIds = [...new Set(scopedRelation.map((r) => r.categoryId))];
+  // The canonical∪secondary membership union (S4) both scoped pickers read.
+  const itemMembershipMap = membershipsByItem(await loadCatalogItemMemberships(supabase));
 
   // Spec 209 U2: Σ returned qty per issue, to derive the remaining-returnable.
   const returnedByIssue = new Map<string, number>();
@@ -396,6 +433,8 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
                 userId={ctx.id}
                 catalogItems={catalogItems}
                 categories={catalogCategoryList}
+                scopedCategoryIds={scopedCategoryIds}
+                membershipsByItem={itemMembershipMap}
               />
             </div>
           </details>
@@ -555,6 +594,8 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               onHand={wpOnHand}
               workers={wpWorkers}
               issues={wpIssues}
+              scopedRelation={scopedRelation}
+              membershipsByItem={itemMembershipMap}
             />
           </div>
           {/* Spec 211 U11a: the on-site cash buy (ซื้อเงินสด ใช้ที่งานนี้เลย) moved
@@ -651,6 +692,11 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
             <p className="text-meta text-ink-secondary font-mono">{wp.code}</p>
             {/* Spec 57: WP name never truncates — the nameplate. */}
             <h1 className={DETAIL_TITLE}>{wp.name}</h1>
+            {/* Spec 229 (ADR 0066 / S8): the WP's หมวดงาน (work-category) — the same
+                binding that scopes the PR + เบิก pickers below. */}
+            <div className="mt-1.5">
+              <WorkCategoryBadge name={workCategoryName} />
+            </div>
           </div>
           <StatusPill
             pillClasses={workPackageStatusPillClasses(wp.status)}

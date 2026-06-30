@@ -158,3 +158,45 @@ describe("PurchaseRequestForm catalog picker — pro-max (spec 180)", () => {
     expect(link).toHaveAttribute("href", "/catalog");
   });
 });
+
+// Spec 229 (ADR 0066 / S8) — the WP-detail PR form threads the WP's work-category
+// Relation-R scope into the picker: the WP's materials surface first and flag
+// ตรงกับงาน, the rest stay reachable via แสดงทั้งหมด, and an empty scope falls back
+// to the full catalog (D8 show-all). This pins the form→picker prop wiring.
+describe("PurchaseRequestForm catalog picker — WP work-category scope (spec 229 / S8)", () => {
+  function renderScopedForm(scopedCategoryIds: string[]) {
+    render(
+      <PurchaseRequestForm
+        workPackage={WP}
+        projectId={PROJECT}
+        userId={USER}
+        catalogItems={CATALOG}
+        categories={CATEGORIES}
+        scopedCategoryIds={scopedCategoryIds}
+        membershipsByItem={new Map()}
+      />,
+    );
+  }
+
+  it("surfaces the WP work-category's materials first + flags them, hiding nothing", async () => {
+    const user = userEvent.setup();
+    renderScopedForm([CAT_PAINT]); // this WP's work-category buys งานสี
+    await user.click(screen.getByRole("button", { name: TRIGGER }));
+    // the paint item is pre-surfaced and flagged ตรงกับงาน.
+    expect(screen.getByRole("button", { name: /สีเคลือบ/ })).toBeInTheDocument();
+    expect(screen.getByText(/ตรงกับงาน/)).toBeInTheDocument();
+    // pre-filtered: the out-of-scope steel is not shown — but an escape exists.
+    expect(screen.queryByRole("button", { name: /เหล็กข้ออ้อย/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "แสดงทั้งหมด" }));
+    expect(screen.getByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeInTheDocument();
+  });
+
+  it("falls back to the full catalog when the WP has no work-category scope", async () => {
+    const user = userEvent.setup();
+    renderScopedForm([]); // empty scope → show-all fallback
+    await user.click(screen.getByRole("button", { name: TRIGGER }));
+    expect(screen.getByRole("button", { name: /สีเคลือบ/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeInTheDocument();
+    expect(screen.queryByText(/ตรงกับงาน/)).not.toBeInTheDocument();
+  });
+});

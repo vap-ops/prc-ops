@@ -23,6 +23,14 @@ export const SUBCONTRACTOR_LABEL = "ผู้รับเหมาช่วง";
 // authored category `name` is its own label — only this term constant is SSOT'd.
 export const PROJECT_CATEGORY_LABEL = "หมวดงาน";
 
+// Spec 229 (ADR 0066 / S8) — the relevance flag a scoped picker shows on an item
+// that falls in the WP work-category's material scope (Relation R). Used by the
+// PR/supply-plan catalog picker AND the เบิก on-hand select → SSOT here.
+export const WORK_CATEGORY_MATCH_LABEL = "ตรงกับงาน";
+// Spec 229 — the nudge when a WP is not yet bound to a หมวดงาน. Used by the WP
+// work-category badge AND the WpCategoryControl select → SSOT here.
+export const WORK_CATEGORY_UNSET_LABEL = "ยังไม่ระบุหมวดงาน";
+
 export const WORK_PACKAGE_STATUS_LABEL: Record<Enums["work_package_status"], string> = {
   not_started: "ยังไม่เริ่ม",
   in_progress: "กำลังดำเนินการ",

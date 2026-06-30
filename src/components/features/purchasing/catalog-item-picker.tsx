@@ -23,6 +23,7 @@ import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { RadioChip } from "@/components/features/common/radio-chip";
 import { FIELD_INPUT } from "@/lib/ui/classes";
 import { scopeCatalogItems } from "@/lib/catalog/scoped-picker";
+import { WORK_CATEGORY_MATCH_LABEL } from "@/lib/i18n/labels";
 import type { PurchaseRequestCatalogItem } from "./purchase-request-form";
 
 const ALL = "all";
@@ -294,7 +295,7 @@ export function ScopedCatalogItemPicker({
                             WP work-category's material scope (Relation R). */}
                         {inScope ? (
                           <span className="text-done-strong ml-1.5 inline-flex items-center gap-0.5 font-medium">
-                            <Check aria-hidden className="size-3.5" /> ตรงกับงาน
+                            <Check aria-hidden className="size-3.5" /> {WORK_CATEGORY_MATCH_LABEL}
                           </span>
                         ) : null}
                       </span>
