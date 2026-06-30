@@ -41,6 +41,10 @@ import {
   ClientInviteBlock,
   type ClientBindingView,
 } from "@/components/features/client-portal/client-invite-block";
+import {
+  ClientGrantExisting,
+  type ClientCandidate,
+} from "@/components/features/client-portal/client-grant-existing";
 
 interface PageProps {
   params: Promise<{ projectId: string }>;
@@ -144,6 +148,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
   // read-self), and ONLY for an issuer so a normal viewer triggers no admin read.
   const isClientIssuer = CLIENT_ISSUER_ROLES.includes(ctx.role);
   let clientBindings: ClientBindingView[] = [];
+  let clientCandidates: ClientCandidate[] = [];
   if (isClientIssuer) {
     const admin = createAdminClient();
     const { data: accessRows } = await admin
@@ -161,6 +166,29 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
       id: r.id,
       name: nameById.get(r.user_id) ?? "ลูกค้า",
       expiresAt: r.expires_at,
+    }));
+
+    // Spec 234: existing client logins with live access on ANOTHER project (so
+    // the PD can attach them to this one too), excluding any already here.
+    const onThisProject = new Set(userIds);
+    const { data: liveElsewhere } = await admin
+      .from("client_portal_access")
+      .select("user_id")
+      .is("revoked_at", null)
+      .neq("project_id", project.id);
+    const candidateIds = [...new Set((liveElsewhere ?? []).map((r) => r.user_id))].filter(
+      (id) => !onThisProject.has(id),
+    );
+    const { data: candidateUsers } = candidateIds.length
+      ? await admin
+          .from("users")
+          .select("id, full_name")
+          .eq("role", "client")
+          .in("id", candidateIds)
+      : { data: [] as { id: string; full_name: string | null }[] };
+    clientCandidates = (candidateUsers ?? []).map((u) => ({
+      id: u.id,
+      name: u.full_name ?? "ลูกค้า",
     }));
   }
 
@@ -303,6 +331,9 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
         {/* Spec 233 / ADR 0067: PD/super issue a temporary read-only client
             login (LINE claim link) + revoke active client bindings. */}
         {isClientIssuer && <ClientInviteBlock projectId={project.id} bindings={clientBindings} />}
+        {isClientIssuer && (
+          <ClientGrantExisting projectId={project.id} candidates={clientCandidates} />
+        )}
         <div className="mb-3 flex items-center justify-between gap-3">
           {/* SECTION_HEADING tokens minus its mb-3 — the row owns the gap so
               the heading and the h-11 action buttons center on each other. */}
