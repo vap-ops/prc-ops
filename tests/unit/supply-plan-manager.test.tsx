@@ -290,6 +290,84 @@ describe("SupplyPlanManager convert mode (spec 181 U4)", () => {
 });
 
 // Spec 222 — one item into multiple work packages (the "pre-fill rows" model).
+// Spec 228 (ADR 0066 / S7) — the row's picker is scoped to its chosen WP's
+// work-category via Relation R (resolved server-side into wpScopedCategories).
+describe("SupplyPlanManager scoped picker wiring (spec 228)", () => {
+  const twoItems = [
+    {
+      id: "ci-elec",
+      categoryId: "cat-elec",
+      categoryName: "งานไฟฟ้า",
+      baseItem: "สายไฟ NYY",
+      specAttrs: "3x6",
+      unit: "ม้วน",
+      thumbnailUrl: null,
+    },
+    {
+      id: "ci-steel",
+      categoryId: "cat-steel",
+      categoryName: "เหล็กเสริม",
+      baseItem: "เหล็กข้ออ้อย",
+      specAttrs: "12 มิล",
+      unit: "ท่อน",
+      thumbnailUrl: null,
+    },
+  ];
+  const twoCategories = [
+    { id: "cat-elec", name: "งานไฟฟ้า" },
+    { id: "cat-steel", name: "เหล็กเสริม" },
+  ];
+
+  function renderScoped() {
+    render(
+      <SupplyPlanManager
+        projectId="p1"
+        planId="pl1"
+        planStatus="draft"
+        canApprove={false}
+        canOverride={false}
+        overriddenByName={null}
+        lines={[]}
+        catalogItems={twoItems}
+        categories={twoCategories}
+        workPackages={workPackages}
+        itemMemberships={[]}
+        // WP-01 buys งานไฟฟ้า materials; WP-02 is unmapped (no scope).
+        wpScopedCategories={{ wp1: ["cat-elec"] }}
+      />,
+    );
+  }
+
+  it("scopes the picker to the chosen WP's work-category, the rest still reachable", () => {
+    renderScoped();
+    fireEvent.change(screen.getByLabelText("งาน"), { target: { value: "wp1" } });
+    fireEvent.click(screen.getByRole("button", { name: "เลือกวัสดุจากแคตตาล็อก" }));
+    // The in-scope (งานไฟฟ้า) item surfaces; the steel item is pre-filtered out.
+    expect(screen.getByRole("button", { name: /สายไฟ NYY/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeNull();
+    // Never hides — the แสดงทั้งหมด escape reveals the full catalog.
+    fireEvent.click(screen.getByRole("button", { name: /แสดงทั้งหมด/ }));
+    expect(screen.getByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeInTheDocument();
+  });
+
+  it("shows the full catalog for a whole-project row (no WP → no scope)", () => {
+    renderScoped();
+    // งาน left as ทั้งโครงการ (workPackageId "") → unscoped show-all.
+    fireEvent.click(screen.getByRole("button", { name: "เลือกวัสดุจากแคตตาล็อก" }));
+    expect(screen.getByRole("button", { name: /สายไฟ NYY/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /แสดงทั้งหมด/ })).toBeNull();
+  });
+
+  it("shows the full catalog for a WP whose work-category is unmapped", () => {
+    renderScoped();
+    fireEvent.change(screen.getByLabelText("งาน"), { target: { value: "wp2" } });
+    fireEvent.click(screen.getByRole("button", { name: "เลือกวัสดุจากแคตตาล็อก" }));
+    expect(screen.getByRole("button", { name: /สายไฟ NYY/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeInTheDocument();
+  });
+});
+
 describe("expandRowToWorkPackages (spec 222)", () => {
   const row = { key: 1, catalogItemId: "ci1", workPackageId: "", qty: "5", note: "n" };
 

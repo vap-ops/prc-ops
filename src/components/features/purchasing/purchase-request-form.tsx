@@ -23,7 +23,7 @@ import {
   PurchaseRequestAttachmentStager,
   type AttachmentStagerHandle,
 } from "@/components/features/purchasing/purchase-request-attachment-stager";
-import { CatalogItemPicker } from "@/components/features/purchasing/catalog-item-picker";
+import { ScopedCatalogItemPicker } from "@/components/features/purchasing/catalog-item-picker";
 import {
   PURCHASE_PRIORITIES,
   validateCreatePurchaseRequest,
@@ -273,7 +273,7 @@ export function PurchaseRequestForm({
       {/* Spec 180 (pro-max): catalog-only material picker — a search-driven
           bottom sheet (CatalogItemPicker). The chosen item drives the
           description + unit; an off-catalog item is registered at /catalog. */}
-      <CatalogItemPicker
+      <ScopedCatalogItemPicker
         items={catalogItems}
         categories={categories}
         selectedId={catalogItemId}

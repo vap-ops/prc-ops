@@ -5,10 +5,15 @@
 // `categories` prop, id + name from catalog_categories), NOT the vestigial
 // item_category enum, so user-created categories (categoryId set, enum NULL)
 // appear as chips and per-item labels.
+//
+// Spec 228 (ADR 0066 / S7) — the picker is refactored into ScopedCatalogItemPicker:
+// an optional `scopedCategoryIds` (the WP work-category's Relation-R material
+// categories) + the item membership union surface the relevant items FIRST without
+// ever hiding the rest (D8 show-all-default + always-present แสดงทั้งหมด escape).
 
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { CatalogItemPicker } from "@/components/features/purchasing/catalog-item-picker";
+import { ScopedCatalogItemPicker } from "@/components/features/purchasing/catalog-item-picker";
 import type { PurchaseRequestCatalogItem } from "@/components/features/purchasing/purchase-request-form";
 
 const STEEL = "cat-steel";
@@ -41,20 +46,26 @@ const items: PurchaseRequestCatalogItem[] = [
   },
 ];
 
-function openPicker(opts?: { items?: PurchaseRequestCatalogItem[] }) {
+function openPicker(opts?: {
+  items?: PurchaseRequestCatalogItem[];
+  scopedCategoryIds?: string[];
+  membershipsByItem?: Map<string, Set<string>>;
+}) {
   render(
-    <CatalogItemPicker
+    <ScopedCatalogItemPicker
       items={opts?.items ?? items}
       categories={categories}
       selectedId=""
       onSelect={vi.fn()}
       onClear={vi.fn()}
+      {...(opts?.scopedCategoryIds ? { scopedCategoryIds: opts.scopedCategoryIds } : {})}
+      {...(opts?.membershipsByItem ? { membershipsByItem: opts.membershipsByItem } : {})}
     />,
   );
   fireEvent.click(screen.getByRole("button", { name: /เลือกวัสดุจากแคตตาล็อก/ }));
 }
 
-describe("CatalogItemPicker product code (spec 214)", () => {
+describe("ScopedCatalogItemPicker product code (spec 214)", () => {
   it("filters results by a product-code prefix", () => {
     openPicker();
     fireEvent.change(screen.getByLabelText("ค้นหาวัสดุ"), { target: { value: "0101" } });
@@ -69,7 +80,7 @@ describe("CatalogItemPicker product code (spec 214)", () => {
   });
 });
 
-describe("CatalogItemPicker managed category (spec 221)", () => {
+describe("ScopedCatalogItemPicker managed category (spec 221)", () => {
   it("builds chips from the managed category names (in the prop order), not the enum", () => {
     openPicker();
     // Chips: ทั้งหมด + each managed category that has items, by name.
@@ -97,7 +108,7 @@ describe("CatalogItemPicker managed category (spec 221)", () => {
 
   it("shows the selected item's managed category name", () => {
     render(
-      <CatalogItemPicker
+      <ScopedCatalogItemPicker
         items={items}
         categories={categories}
         selectedId="s1"
@@ -128,5 +139,52 @@ describe("CatalogItemPicker managed category (spec 221)", () => {
     fireEvent.click(screen.getByRole("radio", { name: "ไม่ระบุหมวด" }));
     expect(screen.getByRole("button", { name: /ของเบ็ดเตล็ด/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeNull();
+  });
+});
+
+describe("ScopedCatalogItemPicker scope (spec 228 / ADR 0066 D8)", () => {
+  it("shows the FULL catalog when the scope is empty (show-all fallback)", () => {
+    // An uncategorised WP / whole-project row → no scope → every item present.
+    openPicker({ scopedCategoryIds: [] });
+    expect(screen.getByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /สายไฟ NYY/ })).toBeInTheDocument();
+    // No scope → no clear-scope escape needed.
+    expect(screen.queryByRole("button", { name: /แสดงทั้งหมด/ })).toBeNull();
+  });
+
+  it("pre-filters to the in-scope items but NEVER hides the rest (แสดงทั้งหมด escape)", () => {
+    // Scope to {ELEC}: the elec item surfaces; the steel item is pre-filtered out
+    // by default but reachable via the always-present แสดงทั้งหมด escape.
+    openPicker({ scopedCategoryIds: [ELEC] });
+    expect(screen.getByRole("button", { name: /สายไฟ NYY/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeNull();
+
+    // The escape is always present while scoped — clicking it reveals everything.
+    const showAll = screen.getByRole("button", { name: /แสดงทั้งหมด/ });
+    fireEvent.click(showAll);
+    expect(screen.getByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /สายไฟ NYY/ })).toBeInTheDocument();
+  });
+
+  it("flags an in-scope row as relevant to the งาน", () => {
+    openPicker({ scopedCategoryIds: [ELEC] });
+    const elecRow = screen.getByRole("button", { name: /สายไฟ NYY/ });
+    expect(elecRow).toHaveTextContent("ตรงกับงาน");
+  });
+
+  it("counts a SECONDARY membership as in-scope (canonical∪secondary union)", () => {
+    // The steel item is also a secondary member of ELEC → surfaces under {ELEC}.
+    openPicker({
+      scopedCategoryIds: [ELEC],
+      membershipsByItem: new Map([["s1", new Set([ELEC])]]),
+    });
+    expect(screen.getByRole("button", { name: /สายไฟ NYY/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeInTheDocument();
+  });
+
+  it("shows everything when the scope matches no catalog item (never empty)", () => {
+    openPicker({ scopedCategoryIds: ["cat-none"] });
+    expect(screen.getByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /สายไฟ NYY/ })).toBeInTheDocument();
   });
 });
