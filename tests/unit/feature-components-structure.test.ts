@@ -31,6 +31,8 @@ const ALLOWED_DOMAINS = [
   "feedback",
   // Spec 192 U4b: the site-admin daily home (/sa) feature components (DailyHero).
   "sa",
+  // Spec 212: the SA daily report (LINE Flex preview button, capture screen).
+  "daily-report",
   // Feedback 1d648880: the projects-hub filter/sort bar.
   "projects",
   // Spec 220 (G63): the super_admin role-admin controls.
