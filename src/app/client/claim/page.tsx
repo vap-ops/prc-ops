@@ -29,7 +29,9 @@ export default async function ClientClaimPage({ searchParams }: ClientClaimPageP
     .select("role")
     .eq("id", data.claims.sub)
     .maybeSingle();
-  if (row?.role === "client") redirect("/client");
+  // Spec 234: an existing client WITH a token may claim an additional project
+  // (re-entrant claim). A client with no token has nothing to claim → home.
+  if (row?.role === "client" && !token) redirect("/client");
 
   return (
     <PageShell>

@@ -91,7 +91,12 @@ const STATIC_DETAIL = [
   // Spec 161 U9: the shop admin drills down from /nova.
   "nova/shop",
 ].map((r) => `${r}/page.tsx`);
-const dynamicDetail = allPages.map(routeOf).filter(hasDynamicSegment);
+// Spec 234: the external /client tree is bespoke (own header + logout, no app
+// DetailHeader — like /portal), so its dynamic drill (/client/[projectId]) is
+// EXCLUDED below rather than required to render DetailHeader.
+const dynamicDetail = allPages
+  .map(routeOf)
+  .filter((r) => hasDynamicSegment(r) && !r.startsWith("client/"));
 const DETAIL_ROUTES = [...dynamicDetail, ...STATIC_DETAIL];
 
 // NON-DETAIL: hubs and primary-tab destinations — left via tab bar / HubNav,
@@ -138,6 +143,10 @@ const EXCLUDED_ROUTES = [
   // Spec 233 / ADR 0067: the calm lapsed-access notice (neither header), where
   // an expired/revoked client lands — like /coming-soon.
   "client/access-ended/page.tsx",
+  // Spec 234 / ADR 0067: the per-project drill in the external client portal —
+  // bespoke (ClientProgressView's own header + logout + back chip, no app
+  // DetailHeader). Excluded from the dynamic-DetailHeader requirement above.
+  "client/[projectId]/page.tsx",
 ];
 
 describe("nav back-affordance (spec 63)", () => {

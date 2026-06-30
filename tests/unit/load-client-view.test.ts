@@ -75,7 +75,7 @@ beforeEach(() => {
 describe("loadClientView", () => {
   it("returns null when there is no live-access project", async () => {
     const supabase = makeSupabase({ project: null, workPackages: [], photos: [], reports: [] });
-    expect(await loadClientView(supabase as never)).toBeNull();
+    expect(await loadClientView(supabase as never, "p1")).toBeNull();
   });
 
   it("selects NO money columns on any surface", async () => {
@@ -85,7 +85,7 @@ describe("loadClientView", () => {
       photos: [],
       reports: [],
     });
-    await loadClientView(supabase as never);
+    await loadClientView(supabase as never, "p1");
     const MONEY = /cost|amount|rate|budget|price|labor|sell|profit/i;
     for (const [table, cols] of Object.entries(selects)) {
       expect(cols, `${table} select must expose no money column`).not.toMatch(MONEY);
@@ -123,10 +123,20 @@ describe("loadClientView", () => {
           created_at: "3",
           superseded_by: null,
         },
+        // spec 234: a photo on a WP NOT in this project's WP set is dropped
+        // (the reader scopes photos to the chosen project's work packages).
+        {
+          id: "foreign",
+          work_package_id: "wpX",
+          phase: "after",
+          storage_path: "c",
+          created_at: "4",
+          superseded_by: null,
+        },
       ],
       reports: [{ id: "r1", storage_path: "rep.pdf", created_at: "2026-06-01" }],
     });
-    const view = await loadClientView(supabase as never);
+    const view = await loadClientView(supabase as never, "p1");
     expect(view).not.toBeNull();
     expect(view!.project.id).toBe("p1");
     expect(view!.workPackages).toHaveLength(1);

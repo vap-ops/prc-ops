@@ -4,6 +4,7 @@
 // affordances — a logout is the only control. A Server Component (no 'use
 // client'): every value is already loaded server-side by loadClientView.
 
+import Link from "next/link";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { LogoutButton } from "@/components/auth/logout-button";
@@ -21,7 +22,7 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function ClientProgressView({ view }: { view: ClientView }) {
+export function ClientProgressView({ view, backHref }: { view: ClientView; backHref?: string }) {
   const { project, workPackages, photos, reports } = view;
   const hasSummary = project.siteAddress || project.startDate || project.plannedCompletion;
 
@@ -29,11 +30,22 @@ export function ClientProgressView({ view }: { view: ClientView }) {
     <PageShell>
       <header className="border-edge bg-card sticky top-0 z-20 border-b px-5 py-4">
         <div className={`mx-auto flex ${PAGE_MAX_W} items-center justify-between gap-3`}>
-          <div className="min-w-0">
-            <p className="text-meta text-ink-secondary font-mono">{project.code}</p>
-            <h1 className="text-title text-ink truncate font-bold tracking-tight">
-              {project.name}
-            </h1>
+          <div className="flex min-w-0 items-center gap-2">
+            {backHref ? (
+              <Link
+                href={backHref}
+                aria-label="ย้อนกลับ"
+                className="text-ink-secondary hover:text-ink shrink-0 text-xl leading-none"
+              >
+                ←
+              </Link>
+            ) : null}
+            <div className="min-w-0">
+              <p className="text-meta text-ink-secondary font-mono">{project.code}</p>
+              <h1 className="text-title text-ink truncate font-bold tracking-tight">
+                {project.name}
+              </h1>
+            </div>
           </div>
           <LogoutButton />
         </div>

@@ -6,17 +6,31 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 234 — Multi-project client access (extends ADR 0067) — IN PROGRESS (2026-06-30)
+## Spec 234 — Multi-project client access (extends ADR 0067) — ✅ COMPLETE (2026-06-30)
 
-Status: **building (operator-approved design 2026-06-30).** A `client` login holds live access to N
+Status: **all 3 units shipped (operator-approved design 2026-06-30).** A `client` login holds live access to N
 projects via explicit per-project grant; `/client` becomes a project list → drill. No new tables/RLS
 (access table + read arms already per-project). Spec `234`; plan `2026-06-30-multi-project-client-access`.
 
-| Unit | Scope                                                                | Schema | Status      |
-| ---- | -------------------------------------------------------------------- | ------ | ----------- |
-| U1   | `grant_client_access` RPC + re-entrant `claim_client_invite`         | yes    | ✅ done     |
-| U2   | `/client` list → `/client/[projectId]` drill + `loadClientView(pid)` | —      | not started |
-| U3   | PD "grant an existing client login" picker on the project page       | —      | not started |
+| Unit | Scope                                                                | Schema | Status  |
+| ---- | -------------------------------------------------------------------- | ------ | ------- |
+| U1   | `grant_client_access` RPC + re-entrant `claim_client_invite`         | yes    | ✅ done |
+| U2   | `/client` list → `/client/[projectId]` drill + `loadClientView(pid)` | —      | ✅ done |
+| U3   | PD "grant an existing client login" picker on the project page       | —      | ✅ done |
+
+> U2 + U3 ship as ONE code-only auto-merge PR (branch `spec-234-ui`, two TDD commits).
+
+### U2 — `/client` multi-project render — ✅ done (2026-06-30)
+
+`loadClientView(supabase, projectId)` gained a project arg — scopes projects/`.eq(id)`,
+work_packages/`.eq(project_id)`, photos to the project's WP set, reports/`.eq(project_id)`; RLS is
+still the boundary (a non-live projectId → null). New `loadClientProjects(supabase)` lists the
+client's live projects (safe cols only). `/client`: 0 → access-ended, **1 → opens straight in**
+(unchanged), ≥2 → `<ClientProjectList>`; new `/client/[projectId]` drill renders `ClientProgressView`
+with a `backHref="/client"` chip. `/client/claim` made re-entrant (a client WITH a token may claim).
+nav anti-drift test treats the `/client` tree as bespoke external (dynamic drill excluded from the
+DetailHeader requirement). Tests: load-client-view (project arg + foreign-WP photo scoping) +
+load-client-projects red→green; lint·typecheck clean.
 
 ### U1 — grant RPC + re-entrant claim — ✅ done (2026-06-30)
 
@@ -31,6 +45,21 @@ pgTAP `243` (15 asserts): grant gate (pm→42501), grant-non-client→P0001, re-
 unknown-project→P0001, client claims a 2nd project (no flip), visitor-flip regression, staff
 locked out, 2-project client sees both. **Full pgTAP 205/205 · 0 fails** (spec-233 `242` still
 green); lint·typecheck clean.
+
+### U3 — PD grant-existing-client picker — ✅ done (2026-06-30)
+
+`grantClientAccess({ userId, projectId, validUntil })` server action (PD/super gate; relays to the
+`grant_client_access` RPC). `<ClientGrantExisting>` — a `<select>` of existing client logins (by LINE
+name) + a valid-until date → grant; renders nothing when there are no candidates. The project page
+loads candidates = client logins live on ANOTHER project, excluding any already on this one
+(admin-read), and renders the control beside `ClientInviteBlock` (gated `isClientIssuer`). Tests:
+`grantClientAccess` (pm→reject, pd→{ok}, bad-date→reject) + `client-grant-existing` (empty→null,
+pick+grant→relay+toast). Full suite **2106** green; lint·typecheck clean.
+
+**Spec 234 DONE** — a client login holds access to N projects; PD attaches via direct-pick OR a
+re-issued invite link; `/client` lists live projects → drill (1 opens straight in). PRs: U1 #201
+(PAT-merged, danger-path), U2+U3 one code-only auto-merge PR. (Also resolved the spec-233
+revoke-terminal caveat — re-grant un-revokes.)
 
 ## Spec 233 — Client progress portal (ADR 0067) — ✅ COMPLETE (2026-06-30)
 

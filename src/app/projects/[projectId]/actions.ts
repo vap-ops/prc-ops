@@ -709,3 +709,28 @@ export async function revokeClientAccess(input: {
   revalidatePath(projectHref(input.projectId));
   return { ok: true };
 }
+
+// Spec 234 / ADR 0067 — attach an EXISTING client login to this project. Same
+// PD/super gate; the grant_client_access definer RPC gates again + verifies the
+// target is already a client. Relayed through the RLS session.
+export async function grantClientAccess(input: {
+  userId: string;
+  projectId: string;
+  validUntil: string;
+}): Promise<ClientRevokeResult> {
+  const gate = await requireActionRole(CLIENT_ISSUER_ROLES, CLIENT_ISSUER_ONLY_ERROR);
+  if ("error" in gate) return { ok: false, error: gate.error };
+  if (!isValidUuid(input.userId) || !isValidUuid(input.projectId)) {
+    return { ok: false, error: CLIENT_INVITE_GENERIC };
+  }
+  if (!VALID_UNTIL_RE.test(input.validUntil)) return { ok: false, error: VALID_UNTIL_BAD };
+
+  const { error } = await gate.auth.supabase.rpc("grant_client_access", {
+    p_user_id: input.userId,
+    p_project: input.projectId,
+    p_valid_until: `${input.validUntil}T23:59:59+07:00`,
+  });
+  if (error) return { ok: false, error: CLIENT_INVITE_GENERIC };
+  revalidatePath(projectHref(input.projectId));
+  return { ok: true };
+}
