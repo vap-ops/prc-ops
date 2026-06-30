@@ -46,6 +46,10 @@ const STATIC_DETAIL = [
   "catalog",
   // Spec 219 U2: the subcategory manage screen drills down from /catalog.
   "catalog/subcategories",
+  // Spec 237 (ADR 0066 S10): the BOQ template authoring list drills down from
+  // /catalog (back chip → /catalog). Its [templateId] detail is a dynamic
+  // DetailHeader route, auto-classified above.
+  "catalog/boq-templates",
   // Spec 197 U1/U2: /store and /stock-count left /settings for the per-project
   // คลัง surface (/projects/[id]/store, a dynamic-segment DETAIL route
   // auto-classified above). Both legacy top-level routes are now thin

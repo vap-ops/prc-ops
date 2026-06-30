@@ -21,7 +21,11 @@ import type {
 } from "@/components/features/catalog/catalog-item-form";
 import { loadCatalogCategories } from "@/lib/catalog/categories";
 import { AddCatalogItem } from "@/components/features/catalog/add-catalog-item";
-import { CATALOG_LABEL, MANAGE_TAXONOMY_LABEL } from "@/lib/i18n/labels";
+import {
+  CATALOG_LABEL,
+  MANAGE_TAXONOMY_LABEL,
+  MANAGE_BOQ_TEMPLATES_LABEL,
+} from "@/lib/i18n/labels";
 
 export const metadata = { title: CATALOG_LABEL };
 
@@ -113,12 +117,21 @@ export default async function CatalogPage() {
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-5 px-5 py-6`}>
         <div className="flex items-center justify-between gap-2">
-          <Link
-            href="/catalog/subcategories"
-            className="text-action text-sm font-medium hover:underline"
-          >
-            {MANAGE_TAXONOMY_LABEL}
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/catalog/subcategories"
+              className="text-action text-sm font-medium hover:underline"
+            >
+              {MANAGE_TAXONOMY_LABEL}
+            </Link>
+            {/* Spec 237 (ADR 0066 S10) — the BOQ template authoring screen. */}
+            <Link
+              href="/catalog/boq-templates"
+              className="text-action text-sm font-medium hover:underline"
+            >
+              {MANAGE_BOQ_TEMPLATES_LABEL}
+            </Link>
+          </div>
           <AddCatalogItem categories={categories} subcategories={subcategories} units={units} />
         </div>
         <CatalogList

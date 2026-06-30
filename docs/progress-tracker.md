@@ -212,19 +212,20 @@ specs below (one per build session, S0–S10). Schema is single-lane and seriali
 ships as ONE governance-held PR (touches `docs/decisions/`). **S1 (223) + S2 (224) + S4 (225) + S5 (226) + S6 (227) + S7 (228) + S8 (229) + S9 (230) ✅ COMPLETE; next: S10 (spec 231, estimate/template/bid epic — operator-scoped planning, NOT a single auto-merge unit).** (S3 / spec 232 is
 break-glass, off-sequence, operator-scheduled.)
 
-| Spec                                                     | Session | Title                                                                           | Autonomy             | Reserved migration ts  | Status            |
-| -------------------------------------------------------- | ------- | ------------------------------------------------------------------------------- | -------------------- | ---------------------- | ----------------- |
-| [223](feature-specs/223-units-ssot.md)                   | S1      | Units SSOT — `catalog_units` + structured picker                                | 🔔 ONE-TAP HOLD      | `20260813029000`       | ✅ COMPLETE       |
-| [224](feature-specs/224-catalog-item-facets.md)          | S2      | Catalog facets `kind`/`fulfillment_mode`/`owner_supplied` + derived `stockable` | 🔔 ONE-TAP HOLD      | `20260813030000`       | ✅ COMPLETE       |
-| [225](feature-specs/225-catalog-secondary-membership.md) | S4      | Secondary membership `catalog_item_categories` (reuse spec-219 composite FK)    | 🔔 ONE-TAP HOLD      | `20260813031000`       | ✅ COMPLETE       |
-| [226](feature-specs/226-global-work-categories.md)       | S5      | Global `work_categories` library + seed + reconcile FK + ship 207-U3c           | 🔔 ONE-TAP HOLD      | `20260813032000`       | ✅ COMPLETE       |
-| [227](feature-specs/227-work-material-relation.md)       | S6      | Relation R `work_category_material_categories` bridge + seed                    | 🔔 ONE-TAP HOLD      | `20260813033000`       | ✅ COMPLETE       |
-| [228](feature-specs/228-scoped-supply-plan-picker.md)    | S7      | UC1 scoped supply-plan picker (show-all-default)                                | ✅ AUTO-MERGE        | — (code-only)          | ✅ COMPLETE       |
-| [229](feature-specs/229-scoped-wp-detail-pickers.md)     | S8      | UC2 scoped WP-detail pickers + work-cat badge                                   | ✅ AUTO-MERGE        | — (code-only)          | ✅ COMPLETE       |
-| [230](feature-specs/230-category-read-side-wins.md)      | S9      | Read-side wins (3 disjoint files, parallelizable)                               | ✅ AUTO-MERGE        | — (code-only)          | ✅ COMPLETE       |
-| [231](feature-specs/231-estimate-template-bid-layer.md)  | S10     | Estimate/template/bid layer + assemblies (LATER epic — decomposed into U1–U6)   | MIXED, multi-session | per sub-unit at build  | 🔨 U1 HELD (#207) |
-| [236](feature-specs/236-boq-template-line-core.md)       | S10-U1  | BOQ estimate core: `boq_template` + `boq_line` + 6 RPCs (3-grain invariant)     | 🔔 ONE-TAP HOLD      | `20260813040000`       | 🔔 HELD PR #207   |
-| [232](feature-specs/232-category-rehome-breakglass.md)   | S3      | C1 re-home cats 09/10/13 (product_code shift)                                   | 🧨 BREAK-GLASS       | assigned at scheduling | not started       |
+| Spec                                                     | Session | Title                                                                                | Autonomy             | Reserved migration ts  | Status            |
+| -------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------ | -------------------- | ---------------------- | ----------------- |
+| [223](feature-specs/223-units-ssot.md)                   | S1      | Units SSOT — `catalog_units` + structured picker                                     | 🔔 ONE-TAP HOLD      | `20260813029000`       | ✅ COMPLETE       |
+| [224](feature-specs/224-catalog-item-facets.md)          | S2      | Catalog facets `kind`/`fulfillment_mode`/`owner_supplied` + derived `stockable`      | 🔔 ONE-TAP HOLD      | `20260813030000`       | ✅ COMPLETE       |
+| [225](feature-specs/225-catalog-secondary-membership.md) | S4      | Secondary membership `catalog_item_categories` (reuse spec-219 composite FK)         | 🔔 ONE-TAP HOLD      | `20260813031000`       | ✅ COMPLETE       |
+| [226](feature-specs/226-global-work-categories.md)       | S5      | Global `work_categories` library + seed + reconcile FK + ship 207-U3c                | 🔔 ONE-TAP HOLD      | `20260813032000`       | ✅ COMPLETE       |
+| [227](feature-specs/227-work-material-relation.md)       | S6      | Relation R `work_category_material_categories` bridge + seed                         | 🔔 ONE-TAP HOLD      | `20260813033000`       | ✅ COMPLETE       |
+| [228](feature-specs/228-scoped-supply-plan-picker.md)    | S7      | UC1 scoped supply-plan picker (show-all-default)                                     | ✅ AUTO-MERGE        | — (code-only)          | ✅ COMPLETE       |
+| [229](feature-specs/229-scoped-wp-detail-pickers.md)     | S8      | UC2 scoped WP-detail pickers + work-cat badge                                        | ✅ AUTO-MERGE        | — (code-only)          | ✅ COMPLETE       |
+| [230](feature-specs/230-category-read-side-wins.md)      | S9      | Read-side wins (3 disjoint files, parallelizable)                                    | ✅ AUTO-MERGE        | — (code-only)          | ✅ COMPLETE       |
+| [231](feature-specs/231-estimate-template-bid-layer.md)  | S10     | Estimate/template/bid layer + assemblies (LATER epic — decomposed into U1–U6)        | MIXED, multi-session | per sub-unit at build  | 🔨 U1 HELD (#207) |
+| [236](feature-specs/236-boq-template-line-core.md)       | S10-U1  | BOQ estimate core: `boq_template` + `boq_line` + 6 RPCs (3-grain invariant)          | 🔔 ONE-TAP HOLD      | `20260813040000`       | 🔔 HELD PR #207   |
+| [237](feature-specs/237-boq-estimate-authoring-ui.md)    | S10-U2  | BOQ estimate authoring UI (list/create + detail/line table/totals + add/edit/remove) | ✅ AUTO-MERGE        | — (code-only)          | ✅ SHIPPED        |
+| [232](feature-specs/232-category-rehome-breakglass.md)   | S3      | C1 re-home cats 09/10/13 (product_code shift)                                        | 🧨 BREAK-GLASS       | assigned at scheduling | not started       |
 
 **Open questions surfaced (S0):** (1) the exact `stockable` derivation rule + whether
 `p_stockable` is ignored or fallback (spec 224 — pin in pgTAP at build); (2) the
@@ -710,6 +711,44 @@ AC5 / spec 221 U2); if rate data should be money-read-scoped, that's a deliberat
 will need this thinking). (2) `qty > 0` enforced (omissions modelled via `variation_type=omitted`, not negative
 qty). (3) no clone/instantiate RPC yet (D3 instantiation is U2/U6). (4) `sort_order` exists but no reorder RPC
 (authoring UI concern, U2).
+
+### S10-U2 — BOQ estimate authoring UI (spec 237) — ✅ SHIPPED (2026-06-30)
+
+Second sub-unit of the S10 epic: the authoring surface over the U1 RPCs. **CODE-ONLY** (no migration — the
+`boq_template`/`boq_line` tables + 6 RPCs already exist on this branch from U1), so ✅ AUTO-MERGE posture.
+
+- **Templates list + create** — `/catalog/boq-templates` (a `/catalog` drill, `DetailHeader` back → /catalog,
+  `BottomTabBar`), gated `requireRole(BACK_OFFICE_ROLES)`. Active templates first, inactive muted; each row
+  links to its detail + shows its line count + grand total. `AddBoqTemplate` sheet → `create_boq_template`.
+- **Template detail** — `[templateId]/page.tsx` loads the template + lines + picker data; `notFound()` when the
+  template is null. `BoqTemplateDetail` renders the header (code · name · active state) with rename
+  (`update_boq_template`) + activate/deactivate (`set_boq_template_active`), the priced line table
+  (description · catalog-item-or-free-text · work-cat · qty×unit · material/labor rate · computed **line
+  total** · variation/standard/exclusivity when set), and a **template grand total** (Σ).
+- **Add / edit / remove line** — `BoqLineForm` (one form for both add `add_boq_line` and edit `update_boq_line`,
+  prefilled) reuses the **S1** `catalog_units` picker (+ `UNIT_OTHER_VALUE` free-text escape), the **S7**
+  `ScopedCatalogItemPicker` passed **NO scope → the full catalog** (D1: a line need not be a catalog item),
+  and an optional **S5** global `work_categories` `<select>`. Remove is confirm-gated (`remove_boq_line`).
+- **Money** routes through `src/lib/format.ts` (`baht`) + a new pure `src/lib/boq/totals.ts`
+  (`lineTotal` = `qty×(material+labor)`, `templateTotal` = Σ, both `round2`). Terms in `labels.ts` (the
+  `// Spec 237` block). The `/catalog` page links to the new screen next to จัดการหมวดหมู่.
+
+**`'use client'` justification:** ONLY the three interactive forms (`add-boq-template`, `boq-line-form`,
+`boq-template-detail`) — each owns sheet/confirm open state, field inputs, a `useTransition` pending state, and
+an inline post-submit error (transient client-only state). The two pages + the three `src/lib/boq/*` modules
+are Server-side.
+
+**Verification:** `lint`·`typecheck` green; `vitest` green. New tests: `boq-totals` (6), `boq-actions` (15:
+role-reject + RPC-arg-shape incl. the omit-empty-optional spread), `boq-line-form` (5: renders the S1/S5/S7
+pickers + submits the typed payload). `nav-back-affordance` STATIC_DETAIL gains `catalog/boq-templates`
+(anti-drift registry). No migration → `db:test` unaffected.
+
+**Open questions (S10-U2):** (1) the line picker is UNSCOPED (full catalog) per the spec — scoping it by the
+line's work-category via Relation R (S6) is logged as a nice-to-have that couples item-pick to work-cat-pick
+ordering (deferred). (2) No line reorder control (the `sort_order` column exists; deferred per the spec). (3)
+The spec's AC1 names `requireActionRole` for the server action; this unit uses `requireRole(BACK_OFFICE_ROLES)`
+to match the sibling `src/app/catalog/actions.ts` (createCatalogItem) pattern exactly — same role set, same
+defense-in-depth posture, friendlier `requireRole` redirect on a non-curator. The DEFINER RPC gates again.
 
 ---
 
