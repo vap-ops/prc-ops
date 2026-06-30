@@ -128,6 +128,57 @@ export function spendBarSegments(
   return { wpPct, poolPct, over: breakdown.total > budget };
 }
 
+// Spec 230 (ADR 0066 / S9) — the spend-by-หมวดงาน lens. One row per work-category,
+// the amount being that category's net WP-level spend. Built by tagging each spend
+// atom the dashboard already sums (labor + WP materials + เบิก − returns, plus the
+// project store pool) with the work-category of its WP; atoms with no work-category
+// (uncategorised WPs, and the project pool which has no WP) carry a null tag.
+export interface WorkCategorySpend {
+  /** The global work_categories id, or null for the unset/project-pool bucket. */
+  workCategoryId: string | null;
+  /** work_categories.name_th, or unsetLabel for the null bucket. */
+  name: string;
+  amount: number;
+}
+
+/**
+ * Partition spend atoms by work-category. Each atom is a piece of the SAME total the
+ * dashboard already computes, so the returned rows sum to that total — a true
+ * partition, no double-count (a return is a negative atom, mirroring wp_profit's
+ * netting). An atom whose workCategoryId is null OR not in nameById folds into a
+ * single unset bucket (workCategoryId null). Rows that net to zero are dropped. Sorted
+ * by amount desc (name asc tie-break); the unset bucket sorts last regardless of size.
+ */
+export function spendByWorkCategory(
+  atoms: ReadonlyArray<{ workCategoryId: string | null; amount: number }>,
+  nameById: ReadonlyMap<string, string>,
+  unsetLabel: string,
+): WorkCategorySpend[] {
+  const sums = new Map<string | null, number>();
+  for (const a of atoms) {
+    // Anything that does not resolve to a known work-category is the unset bucket.
+    const key =
+      a.workCategoryId != null && nameById.has(a.workCategoryId) ? a.workCategoryId : null;
+    sums.set(key, (sums.get(key) ?? 0) + a.amount);
+  }
+  const rows: WorkCategorySpend[] = [];
+  for (const [key, amount] of sums) {
+    if (amount === 0) continue;
+    rows.push({
+      workCategoryId: key,
+      name: key === null ? unsetLabel : (nameById.get(key) ?? unsetLabel),
+      amount,
+    });
+  }
+  rows.sort((x, y) => {
+    // The unset bucket always sorts last, whatever its amount.
+    if (x.workCategoryId === null) return 1;
+    if (y.workCategoryId === null) return -1;
+    return y.amount - x.amount || x.name.localeCompare(y.name);
+  });
+  return rows;
+}
+
 export interface BudgetStatus {
   hasBudget: boolean;
   budget: number | null;

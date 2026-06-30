@@ -28,12 +28,15 @@ import {
   sumStorePool,
   spendBreakdown,
   spendBarSegments,
+  spendByWorkCategory,
   budgetStatus,
   type BudgetStatus,
   type SpendBreakdown,
   type SpendBarSegments,
+  type WorkCategorySpend,
 } from "@/lib/dashboard/spend";
 import { aggregateLaborCost, type CostInputRow } from "@/lib/labor/cost";
+import { WORK_CATEGORY_UNSET_LABEL } from "@/lib/i18n/labels";
 import { bahtCompact as baht } from "@/lib/format";
 
 export const metadata = { title: "ภาพรวม" };
@@ -86,18 +89,25 @@ export default async function DashboardPage() {
   const { data: wpRows } = projectIds.length
     ? await supabase
         .from("work_packages")
-        .select("id, project_id, status")
+        .select("id, project_id, status, category_id")
         .in("project_id", projectIds)
     : { data: [] };
   const wps = wpRows ?? [];
 
   const wpProject = new Map(wps.map((w) => [w.id, w.project_id]));
+  // Spec 230 (ADR 0066 / S9): each WP's bound project-category, for the
+  // spend-by-หมวดงาน card. Resolved to a global work_category below.
+  const wpCategory = new Map(wps.map((w) => [w.id, w.category_id]));
   const wpsByProject = new Map<string, { status: string }[]>();
   for (const w of wps) {
     const arr = wpsByProject.get(w.project_id) ?? [];
     arr.push({ status: w.status });
     wpsByProject.set(w.project_id, arr);
   }
+
+  // Spec 230 (ADR 0066 / S9): the spend-by-หมวดงาน breakdown (PM/super only). Rows
+  // partition the SAME `total` the cards already show — no new figure, no double-count.
+  let categorySpend: WorkCategorySpend[] = [];
 
   // Money — PM/super only, admin client (RLS-bypass for the zero-grant cols).
   const budgetById = new Map<string, number | null>();
@@ -136,6 +146,8 @@ export default async function DashboardPage() {
       receiptsRes,
       poolRes,
       returnsRes,
+      projCatsRes,
+      workCatsRes,
     ] = await Promise.all([
       admin.from("projects").select("id, budget_amount_thb").in("id", projectIds),
       wpIds.length
@@ -160,8 +172,12 @@ export default async function DashboardPage() {
             }[],
           }),
       // Store issues are project-scoped (project_id is set + WP-in-project
-      // validated by issue_stock), so group by project_id directly.
-      admin.from("stock_issues").select("id, project_id, total_cost").in("project_id", projectIds),
+      // validated by issue_stock), so group by project_id directly. work_package_id
+      // (spec 230) tags the issue's WP for the spend-by-หมวดงาน card.
+      admin
+        .from("stock_issues")
+        .select("id, project_id, total_cost, work_package_id")
+        .in("project_id", projectIds),
       // Reversed issues never charged a WP — exclude them (matches wp_profit). A
       // stock_reversals row may target a receipt OR an issue; issue_id is null for
       // receipt reversals, so filter to the issue-reversal rows.
@@ -180,8 +196,18 @@ export default async function DashboardPage() {
       admin.from("stock_on_hand").select("project_id, total_value").in("project_id", projectIds),
       // PD money split — WP→store returns, netted out of the WP level so returned
       // material (which restores on-hand value above) is not also counted via its
-      // still-non-reversed issue. Mirrors wp_profit's return netting.
-      admin.from("stock_returns").select("project_id, total_cost").in("project_id", projectIds),
+      // still-non-reversed issue. Mirrors wp_profit's return netting. work_package_id
+      // (spec 230) tags the originating WP for the spend-by-หมวดงาน card.
+      admin
+        .from("stock_returns")
+        .select("project_id, total_cost, work_package_id")
+        .in("project_id", projectIds),
+      // Spec 230: WP → project-category → global work-category, for the
+      // spend-by-หมวดงาน card (name resolved firm-wide so categories aggregate across
+      // projects). Not money — but read here alongside the money so the card is built
+      // only for the manager tier.
+      admin.from("project_categories").select("id, work_category_id").in("project_id", projectIds),
+      admin.from("work_categories").select("id, name_th"),
     ]);
     for (const b of budgetRows ?? []) budgetById.set(b.id, b.budget_amount_thb);
     for (const r of receiptsRes.data ?? []) {
@@ -222,6 +248,71 @@ export default async function DashboardPage() {
       arr.push({ id: pr.id, status: pr.status, amount: pr.amount });
       materialsByProject.set(pid, arr);
     }
+
+    // Spec 230: tag each WP-level spend atom with its work-category. The atoms are
+    // exactly the pieces of the portfolio total below (per WP: labor + WP materials +
+    // เบิก − returns; plus the project store pool, which has no WP), so the card
+    // partitions the SAME total — a true breakdown, no double-count.
+    const projCatToWorkCat = new Map<string, string | null>();
+    for (const pc of projCatsRes.data ?? []) projCatToWorkCat.set(pc.id, pc.work_category_id);
+    const workCatName = new Map<string, string>();
+    for (const wc of workCatsRes.data ?? []) workCatName.set(wc.id, wc.name_th);
+    const wpWorkCat = (wpId: string): string | null => {
+      const pc = wpCategory.get(wpId);
+      return pc ? (projCatToWorkCat.get(pc) ?? null) : null;
+    };
+
+    const atoms: { workCategoryId: string | null; amount: number }[] = [];
+    // labor, per WP (supersession is within-WP, so per-WP sums match the project sum).
+    const laborByWp = new Map<string, CostInputRow[]>();
+    for (const r of laborRes.data ?? []) {
+      const arr = laborByWp.get(r.work_package_id) ?? [];
+      arr.push(r);
+      laborByWp.set(r.work_package_id, arr);
+    }
+    for (const [wpId, rows] of laborByWp) {
+      atoms.push({ workCategoryId: wpWorkCat(wpId), amount: aggregateLaborCost(rows).total });
+    }
+    // WP-bound material purchases, per WP (store-routed PRs excluded — counted at เบิก).
+    const matByWp = new Map<string, { id: string; status: string; amount: number | null }[]>();
+    for (const pr of prRes.data ?? []) {
+      // The query is WP-bound (.in work_package_id), but the column is nullable —
+      // skip any WP-less row (its cost lands at เบิก, not here; matches above).
+      if (!pr.work_package_id) continue;
+      const arr = matByWp.get(pr.work_package_id) ?? [];
+      arr.push({ id: pr.id, status: pr.status, amount: pr.amount });
+      matByWp.set(pr.work_package_id, arr);
+    }
+    for (const [wpId, rows] of matByWp) {
+      atoms.push({ workCategoryId: wpWorkCat(wpId), amount: sumMaterials(rows, storedPrIds) });
+    }
+    // เบิก (store issues), per WP, excluding reversed issues (matches the project sum).
+    const issByWp = new Map<string, { total_cost: number | null }[]>();
+    for (const si of issuesRes.data ?? []) {
+      if (reversedIssueIds.has(si.id)) continue;
+      const arr = issByWp.get(si.work_package_id) ?? [];
+      arr.push({ total_cost: si.total_cost });
+      issByWp.set(si.work_package_id, arr);
+    }
+    for (const [wpId, rows] of issByWp) {
+      atoms.push({ workCategoryId: wpWorkCat(wpId), amount: sumStoreIssues(rows) });
+    }
+    // WP→store returns, per WP — a NEGATIVE atom, netted out of the WP level (wp_profit).
+    const retByWp = new Map<string, { total_cost: number | null }[]>();
+    for (const rt of returnsRes.data ?? []) {
+      const arr = retByWp.get(rt.work_package_id) ?? [];
+      arr.push({ total_cost: rt.total_cost });
+      retByWp.set(rt.work_package_id, arr);
+    }
+    for (const [wpId, rows] of retByWp) {
+      atoms.push({ workCategoryId: wpWorkCat(wpId), amount: -sumStoreReturns(rows) });
+    }
+    // The project store pool has no WP → the unset bucket.
+    let poolTotal = 0;
+    for (const rows of storePoolByProject.values()) poolTotal += sumStorePool(rows);
+    if (poolTotal !== 0) atoms.push({ workCategoryId: null, amount: poolTotal });
+
+    categorySpend = spendByWorkCategory(atoms, workCatName, WORK_CATEGORY_UNSET_LABEL);
   }
 
   const items: ProjectVM[] = projects.map((p) => {
@@ -313,6 +404,13 @@ export default async function DashboardPage() {
               </div>
             ) : null}
 
+            {/* Spec 230 (ADR 0066 / S9): the spend-by-หมวดงาน lens — partitions the same
+                ใช้จริงรวม above. Shown only once at least one WP carries a work-category
+                (before adoption every baht would sit in the unset bucket — no signal). */}
+            {categorySpend.some((r) => r.workCategoryId !== null) ? (
+              <SpendByCategoryCard rows={categorySpend} total={totalSpend} />
+            ) : null}
+
             <ul className="flex flex-col gap-3">
               {items.map((it) => (
                 <li key={it.id}>
@@ -394,6 +492,42 @@ function SpendSplitBar({ segments }: { segments: SpendBarSegments }) {
     >
       <div className="bg-ink h-full" style={{ width: `${wpPct}%` }} />
       <div className="bg-attn h-full" style={{ width: `${poolPct}%` }} />
+    </div>
+  );
+}
+
+// Spec 230 (ADR 0066 / S9): the spend-by-หมวดงาน card. One row per work-category, the
+// amount being that category's net WP-level spend; the bars are sized relative to the
+// largest row (a comparison, not a budget %). Uncategorised spend + the project store
+// pool sit in the unset bucket (rendered last by spendByWorkCategory). Money stays the
+// ink hue — never the emerald `done` used for progress.
+function SpendByCategoryCard({ rows, total }: { rows: WorkCategorySpend[]; total: number }) {
+  const max = rows.reduce((m, r) => Math.max(m, r.amount), 0);
+  return (
+    <div className="border-edge bg-card shadow-card rounded-card flex flex-col gap-3 border p-4">
+      <div className="flex items-baseline justify-between">
+        <span className="text-ink-secondary text-meta font-semibold">ใช้จริงตามหมวดงาน</span>
+        <span className="text-ink text-body font-bold">{baht(total)}</span>
+      </div>
+      <ul className="flex flex-col gap-2">
+        {rows.map((r) => {
+          const pct = max > 0 ? Math.max(0, Math.min(100, Math.round((r.amount / max) * 100))) : 0;
+          return (
+            <li key={r.workCategoryId ?? "__unset__"} className="flex flex-col gap-1">
+              <div className="text-meta flex justify-between gap-3">
+                <span className="text-ink-secondary min-w-0 truncate">{r.name}</span>
+                <span className="text-ink font-medium tabular-nums">{baht(r.amount)}</span>
+              </div>
+              <div className="bg-sunk h-1.5 w-full overflow-hidden rounded-full">
+                <div className="bg-ink h-full rounded-full" style={{ width: `${pct}%` }} />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="text-ink-muted text-meta">
+        แบ่งยอดใช้จริงรวมตามหมวดงาน · วัสดุในคลังที่ยังไม่เบิกนับรวมใน{WORK_CATEGORY_UNSET_LABEL}
+      </p>
     </div>
   );
 }

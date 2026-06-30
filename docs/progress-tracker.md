@@ -209,7 +209,7 @@ Status: **SPECS AUTHORED / not started.** Session S0 (docs-only) accepted
 [ADR 0066](decisions/0066-procurement-taxonomy-redesign.md) and authored the 10 phase
 specs below (one per build session, S0–S10). Schema is single-lane and serialized
 (S1→S2→S4→S5→S6); reserved migration timestamps `20260813029000`–`20260813033000`. S0
-ships as ONE governance-held PR (touches `docs/decisions/`). **S1 (223) + S2 (224) + S4 (225) + S5 (226) + S6 (227) + S7 (228) + S8 (229) ✅ COMPLETE; next: S9 (spec 230, read-side wins — 3 disjoint code-only units).** (S3 / spec 232 is
+ships as ONE governance-held PR (touches `docs/decisions/`). **S1 (223) + S2 (224) + S4 (225) + S5 (226) + S6 (227) + S7 (228) + S8 (229) + S9 (230) ✅ COMPLETE; next: S10 (spec 231, estimate/template/bid epic — operator-scoped planning, NOT a single auto-merge unit).** (S3 / spec 232 is
 break-glass, off-sequence, operator-scheduled.)
 
 | Spec                                                     | Session | Title                                                                           | Autonomy             | Reserved migration ts  | Status      |
@@ -221,7 +221,7 @@ break-glass, off-sequence, operator-scheduled.)
 | [227](feature-specs/227-work-material-relation.md)       | S6      | Relation R `work_category_material_categories` bridge + seed                    | 🔔 ONE-TAP HOLD      | `20260813033000`       | ✅ COMPLETE |
 | [228](feature-specs/228-scoped-supply-plan-picker.md)    | S7      | UC1 scoped supply-plan picker (show-all-default)                                | ✅ AUTO-MERGE        | — (code-only)          | ✅ COMPLETE |
 | [229](feature-specs/229-scoped-wp-detail-pickers.md)     | S8      | UC2 scoped WP-detail pickers + work-cat badge                                   | ✅ AUTO-MERGE        | — (code-only)          | ✅ COMPLETE |
-| [230](feature-specs/230-category-read-side-wins.md)      | S9      | Read-side wins (3 disjoint files, parallelizable)                               | ✅ AUTO-MERGE        | — (code-only)          | not started |
+| [230](feature-specs/230-category-read-side-wins.md)      | S9      | Read-side wins (3 disjoint files, parallelizable)                               | ✅ AUTO-MERGE        | — (code-only)          | ✅ COMPLETE |
 | [231](feature-specs/231-estimate-template-bid-layer.md)  | S10     | Estimate/template/bid layer + assemblies (LATER epic)                           | MIXED, multi-session | assigned at build      | not started |
 | [232](feature-specs/232-category-rehome-breakglass.md)   | S3      | C1 re-home cats 09/10/13 (product_code shift)                                   | 🧨 BREAK-GLASS       | assigned at scheduling | not started |
 
@@ -606,6 +606,69 @@ self-purchase section is left unscoped (not named by spec 229); Relation-managem
 empty → show-all (correct-but-broad) until a later unit adds subsection rows / prefix-climbing. The เบิก
 scope reorders via `<optgroup>` (the native-select analog of the bottom-sheet's pre-filter+escape) rather
 than removing rows — the spec's "filter" intent realised as never-hide partitioning per D8 / §10.1.
+
+### S9 — Read-side wins: spend-by-หมวดงาน card + procurement filter + catalog badge (spec 230) — ✅ COMPLETE (2026-06-30)
+
+**Third CODE-ONLY unit** — no migration, no schema lane, no danger-path. Three DISJOINT read surfaces, each
+read-only + show-all-safe (opt-in facets, never hide rows by default per ADR 0066 §10.1 / D8). Resolved the
+S0 open question (3): **the dashboard uses the WORK-category (หมวดงาน) lens; the procurement grid + catalog
+use the MATERIAL category** — coherent with each surface's axis (the dashboard reads money per WP→work-cat;
+procurement/catalog deal in the catalog item's material category). Shipped as **one combined PR** (disjoint
+files, all green together, one review/CI cycle; the diff is self-evidently 3 units).
+
+**(i) Dashboard spend-by-หมวดงาน card (`/dashboard`).** New pure helper `spendByWorkCategory(atoms, nameById,
+unsetLabel)` in `src/lib/dashboard/spend.ts` partitions the SAME ใช้จริงรวม the cards already compute — each
+WP-level spend atom (labor + WP materials + เบิก − returns, the existing per-project building blocks, reused
+**per-WP**) is tagged with its work-category; the project store pool (no WP) + uncategorised WPs fold into a
+single unset bucket. **Σ rows ≡ the existing portfolio total → a true partition, no double-count** (a return
+is a NEGATIVE atom, mirroring `wp_profit`'s netting — same discipline as [[prc-ops-dashboard-spend-model]]).
+The page loader (`src/app/dashboard/page.tsx`) resolves `wp.category_id → project_categories.work_category_id
+→ work_categories.name_th` (global name so categories aggregate across projects), and reads `work_package_id`
+on the issues/returns admin queries to tag those atoms. Card shown only once ≥1 WP carries a work-category
+(pre-adoption every baht would sit in the unset bucket — no signal). Money stays the `ink` hue (never `done`).
+
+**(ii) Procurement grid material-category facet + badge (`procurement-grid.tsx`).** New pure helper pair
+`src/lib/purchasing/category-facet.ts` — `buildCategoryFacets(records, unsetLabel)` (chip counts over the
+FULL set so they don't shift as the user filters; unset bucket last) + `recordMatchesCategory(record,
+selected)` (ALL = show-all default). The grid grew an opt-in `RadioChip` row (`ทั้งหมด (N)` + a chip per
+present category + `ไม่ระบุหมวดหมู่`) that narrows ROWS only (`visibleGroups`, empty bands dropped; drawer
+prev/next follows the visible order) and a per-row category badge. The PR resolves its material category in
+the page loader (`src/app/requests/page.tsx`, procurement-only): `purchase_requests.catalog_item_id →
+catalog_items.category_id → catalog_categories.name` (a targeted read — `catalog_item_id` is NOT in the shared
+`PR_LIST_COLUMNS` SSOT, so fetched separately rather than widen it for the detail page that doesn't need it).
+
+**(iii) Catalog row material-category badge (`catalog-list.tsx`).** Each item row carries a muted category
+chip, name resolved from the existing `categories` prop (sourced from `loadCatalogCategories` — reuse, no
+re-roll), null/unresolved → no badge (never a raw uuid). The existing section-header test was tightened to
+target the heading role (the category name now also appears as a row badge, so a bare `getByText` would be
+ambiguous).
+
+**No reverse Relation-R lookup was needed.** The orchestration flagged a possible material-cat→work-cat
+reverse helper; spec 230 resolves D2/D3 by the catalog item's OWN managed material category (the populated,
+useful axis for procurement — PRs are store-bound since spec 208, so a work-cat would mostly be absent), so
+no new reverse helper was built. (Logged here per scope discipline — the spec, not the orchestration, is the
+contract.)
+
+**Reused / not re-rolled:** the spend model + its tested primitives (`sumMaterials`/`sumStoreIssues`/
+`sumStoreReturns`/`sumStorePool`/`aggregateLaborCost`); `loadCatalogCategories`/`categoryNameById` (S4/221
+SSOT); `WORK_CATEGORY_UNSET_LABEL` (S8 labels SSOT); `RadioChip`. **NOT reused:** the S8 `WorkCategoryBadge`
+— it prefixes `หมวดงาน` (a WORK category), wrong for a MATERIAL-category chip on catalog/procurement rows.
+
+**Tests (TDD, failing-first; +19 → vitest 2129):** `dashboard-spend.test.ts` (+`spendByWorkCategory`: the
+partition-sums-to-total invariant, return-netting, unknown-id folds to unset, unset-sorts-last, zero-drop);
+`category-facet.test.ts` (full-dataset counts, unset omitted/last, name tie-break, match predicate);
+`procurement-grid-category.test.tsx` (per-row badge, facet chips, show-all default, filter-rows-not-counts,
+unset bucket); `catalog-list.test.tsx` (+per-row badge inside a row). `lint`·`typecheck`·`vitest` green; no
+`db:test` (no schema). **Adversarial review (cavecrew-reviewer) fixed one finding pre-ship:** the facet
+builder could surface a raw-uuid chip for a deactivated category (id resolves, name doesn't — active-only
+`loadCatalogCategories`); now folds id-without-name into the unset bucket (helper + the page loader keep
+`category_id`/`category_name` consistent so the chip count and the row filter agree).
+
+**Open questions (S9):** the D3 catalog badge is somewhat redundant with the existing per-category section
+headers (rows are already grouped under a category heading) — implemented per the spec's explicit DoD, kept
+visually muted; a future cleanup could drop the section headers in favour of the row badge, or vice-versa.
+The dashboard card's per-WP atom re-aggregation assumes labor supersession never crosses WPs (true today —
+a labor log belongs to one WP); if that ever changes, the per-WP labor sum could diverge from the project sum.
 
 ---
 
