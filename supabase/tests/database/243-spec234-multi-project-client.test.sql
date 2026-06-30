@@ -58,9 +58,11 @@ set local "request.jwt.claims" = '{"sub": "a0000000-0000-4000-8000-000000000234"
 select lives_ok(
   $$ select public.grant_client_access('d0000000-0000-4000-8000-000000000234', '11110000-0000-4000-8000-000000000234', '2027-12-31'::timestamptz) $$,
   'project_director grants an existing client (re-grant on A)');
+-- Spec 234 follow-up (mig 039000): grant now accepts a visitor (flips them) OR a
+-- client; only STAFF/contractor are ineligible. site_admin (c…) is staff → P0001.
 select throws_ok(
-  $$ select public.grant_client_access('f0000000-0000-4000-8000-000000000234', '11110000-0000-4000-8000-000000000234', '2027-12-31'::timestamptz) $$,
-  'P0001', null, 'grant_client_access refuses a non-client target');
+  $$ select public.grant_client_access('c0000000-0000-4000-8000-000000000234', '11110000-0000-4000-8000-000000000234', '2027-12-31'::timestamptz) $$,
+  'P0001', null, 'grant_client_access refuses a STAFF target (only visitor/client eligible)');
 select throws_ok(
   $$ select public.grant_client_access('d0000000-0000-4000-8000-000000000234', '99990000-0000-4000-8000-000000000099', '2027-12-31'::timestamptz) $$,
   'P0001', null, 'grant_client_access refuses an unknown project');
