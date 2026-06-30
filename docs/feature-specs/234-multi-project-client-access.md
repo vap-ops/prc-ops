@@ -11,12 +11,14 @@ A client login may hold live access to **more than one** project. A `project_dir
 
 This answers "how do I let a client see related projects": the director attaches the same client login to each project they should watch; the portal becomes a project list.
 
+**Terminology (load-bearing).** "Client" here is the **portal login** — a `public.users` row of role `client`, a specific **person** identified by their LINE display name, bound to projects via `client_portal_access.user_id`. It is **NOT** the CRM `clients` company (`projects.client_id`); a login has no company association in v1 (ADR 0067 D1 — do not conflate). Every grant path (direct-pick **and** invite link) operates on one login (person), never a company.
+
 ## 2. Locked decisions (brainstorm 2026-06-30)
 
 | #   | Decision                                                                                                                                                                                                  |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | D1  | **Mapping = explicit per-project grant** (one `client_portal_access` row per project). **NOT** auto-derived from `projects.client_id` — that would leak a customer's every project, including future ones. |
-| D2  | **Two grant paths, both:** (a) **direct grant** — the PD picks an existing client and grants this project; (b) **re-send invite link** — an existing client taps a fresh per-project link.                  |
+| D2  | **Two grant paths, both:** (a) **direct grant** — the PD picks an existing client **login** (a person, by LINE display name — not a company) and grants this project; (b) **re-send invite link** — an existing client login taps a fresh per-project link.                  |
 | D3  | **Render = project list → drill.** `/client` lists the live projects; tapping one opens its progress page. **One project → opens straight in** (spec-233 behaviour preserved).                            |
 | D4  | **Grant/revoke gate = `project_director` + `super_admin` only** (`CLIENT_ISSUER_ROLES`) — unchanged from spec 233.                                                                                        |
 | D5  | **Re-grant un-revokes.** `ON CONFLICT (user_id, project_id) DO UPDATE` clears `revoked_at` + refreshes the valid-until. This resolves the spec-233 "revoke is terminal per pair" limitation.              |
@@ -40,7 +42,7 @@ This answers "how do I let a client see related projects": the director attaches
 - **`/client`** — `requireRole(['client'])`. Load the client's live projects (RLS-scoped). **0 → `/client/access-ended`; 1 → render that project's `ClientProgressView`** (unchanged); **≥2 → `ClientProjectList`** (a card per project: code · name · status → links to `/client/[projectId]`).
 - **`/client/[projectId]`** — NEW. `requireRole(['client'])` + `loadClientView(supabase, projectId)`; `null` (not a live project for this client — RLS returns nothing) → redirect `/client`. Renders `ClientProgressView` + a back chip to `/client`.
 - **`/client/claim`** — re-entrancy: a signed-in **client** with a token present may claim (don't bounce to `/client` until the claim runs); after a successful claim → `/client`. A client with **no** token → `/client` (as today). A visitor path is unchanged.
-- **Project page (PD/super)** — beside the existing `ClientInviteBlock` (create a NEW client link), a **"grant an existing client"** control: a picker of clients the PD has granted elsewhere (excluding clients already on this project), each with a valid-until → `grantClientAccess` action → `grant_client_access`. Active client bindings + revoke (spec 233) unchanged.
+- **Project page (PD/super)** — beside the existing `ClientInviteBlock` (create a NEW client link), a **"grant an existing client"** control: a picker of existing client **logins** (each a person, shown by LINE display name) the PD has granted on other projects (excluding logins already on this project), each with a valid-until → `grantClientAccess` action → `grant_client_access`. The picker is sourced from distinct `client_portal_access.user_id` rows across the PD's visible projects (admin-read for the LINE name); it never lists CRM `clients` companies. Active client bindings + revoke (spec 233) unchanged.
 
 ## 7. Units (test-first)
 
