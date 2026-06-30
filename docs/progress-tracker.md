@@ -12,14 +12,14 @@ Status: **SPECS AUTHORED / not started.** Session S0 (docs-only) accepted
 [ADR 0066](decisions/0066-procurement-taxonomy-redesign.md) and authored the 10 phase
 specs below (one per build session, S0–S10). Schema is single-lane and serialized
 (S1→S2→S4→S5→S6); reserved migration timestamps `20260813029000`–`20260813033000`. S0
-ships as ONE governance-held PR (touches `docs/decisions/`). **S1 (spec 223) + S2 (spec 224) ✅ COMPLETE; next: S4 (spec 225, secondary membership).** (S3 / spec 232 is
+ships as ONE governance-held PR (touches `docs/decisions/`). **S1 (spec 223) + S2 (spec 224) + S4 (spec 225) ✅ COMPLETE; next: S5 (spec 226, global work_categories).** (S3 / spec 232 is
 break-glass, off-sequence, operator-scheduled.)
 
 | Spec                                                     | Session | Title                                                                           | Autonomy             | Reserved migration ts  | Status      |
 | -------------------------------------------------------- | ------- | ------------------------------------------------------------------------------- | -------------------- | ---------------------- | ----------- |
 | [223](feature-specs/223-units-ssot.md)                   | S1      | Units SSOT — `catalog_units` + structured picker                                | 🔔 ONE-TAP HOLD      | `20260813029000`       | ✅ COMPLETE |
 | [224](feature-specs/224-catalog-item-facets.md)          | S2      | Catalog facets `kind`/`fulfillment_mode`/`owner_supplied` + derived `stockable` | 🔔 ONE-TAP HOLD      | `20260813030000`       | ✅ COMPLETE |
-| [225](feature-specs/225-catalog-secondary-membership.md) | S4      | Secondary membership `catalog_item_categories` (reuse spec-219 composite FK)    | 🔔 ONE-TAP HOLD      | `20260813031000`       | not started |
+| [225](feature-specs/225-catalog-secondary-membership.md) | S4      | Secondary membership `catalog_item_categories` (reuse spec-219 composite FK)    | 🔔 ONE-TAP HOLD      | `20260813031000`       | ✅ COMPLETE |
 | [226](feature-specs/226-global-work-categories.md)       | S5      | Global `work_categories` library + seed + reconcile FK + ship 207-U3c           | 🔔 ONE-TAP HOLD      | `20260813032000`       | not started |
 | [227](feature-specs/227-work-material-relation.md)       | S6      | Relation R `work_category_material_categories` bridge + seed                    | 🔔 ONE-TAP HOLD      | `20260813033000`       | not started |
 | [228](feature-specs/228-scoped-supply-plan-picker.md)    | S7      | UC1 scoped supply-plan picker (show-all-default)                                | ✅ AUTO-MERGE        | — (code-only)          | not started |
@@ -128,6 +128,59 @@ action); existing `add`/`edit` exact-payload assertions extended with the facets
 prefix shift — spec 232/S3 break-glass; `kind = assembly` + BOM — spec 231/S10; any picker
 scoping — specs 228/229. No facet display on the read-only list yet — only the edit form
 pre-fills them.)
+
+---
+
+### S4 — Secondary material membership (spec 225) — ✅ COMPLETE (2026-06-30)
+
+Migration `20260813031000_spec225_catalog_item_categories.sql` (applied to the shared DB;
+main↔DB sync moves to `031000` once the held PR merges). Additive junction
+`catalog_item_categories(id, catalog_item_id, category_id, subcategory_id, is_primary,
+created_by, created_at)` (defect **C2**) so one catalog item appears under **more than one**
+material grouping — discoverability only; the canonical `catalog_items.category_id`/
+`subcategory_id` stay authoritative and untouched (they still drive `product_code`). Writes
+go only through two null-safe SECURITY DEFINER RPCs `add_/remove_catalog_item_category`.
+Data layer + the picker-union reader/helpers in `src/lib/catalog/categories.ts`
+(`loadCatalogItemMemberships`, `membershipsByItem`, `itemCategoryIds`,
+`itemInCategoryScope`) — **no management UI** (that's a later unit; the union-reading
+pickers are specs 228/229).
+
+**Decisions made:**
+
+- **Composite FK is REUSED, not minted** — the junction carries
+  `(subcategory_id, category_id) → catalog_subcategories(id, category_id)` byte-identical to
+  the spec-219/221 key on `catalog_items` (pinned in pgTAP by `pg_get_constraintdef`
+  equality). A membership can never reference a `(subcategory, category)` pair the canonical
+  schema would reject. A **plain FK** `category_id → catalog_categories(id)` guards the
+  category-grain membership (`subcategory_id` NULL — MATCH SIMPLE skips the composite check
+  then), mirroring exactly how `catalog_items` guards its `category_id`.
+- **Exactly one primary per item** — partial unique index `(catalog_item_id) where
+is_primary`. The primary row is **backfilled to MIRROR** each item's canonical
+  `category_id`/`subcategory_id` (one row per existing item; verified all 254 items have a
+  non-null `category_id`, 0 had a subcategory), so canonical-home and primary-membership can
+  never disagree. pgTAP pins: primary count == item count, zero mismatches, no item has >1
+  primary.
+- **Adds are always SECONDARY** — `add_catalog_item_category` inserts `is_primary=false`;
+  the primary belongs to the canonical home (backfill). `remove_` refuses to unlink the
+  primary (`22023`). Duplicate membership → `23505` (unique index with a coalesce sentinel
+  on the nullable `subcategory_id` so two NULL-subcategory rows collide); mismatched pair /
+  unknown item or category → `22023`; null/disallowed role → `42501` (D8 null-safe gate,
+  `revoke … from public, anon`, never `service_role`).
+- **No DELETE grant** to authenticated — the table follows the D8 grant-select-only
+  posture; `remove_` deletes as the SECURITY DEFINER owner. No `updated_at`/`set_updated_at`
+  (the junction is add/remove only, not edited in place).
+- **Picker union is a reader, not UI** — `itemInCategoryScope(canonical, secondary, scope)`
+  returns true when `scope` is the canonical home OR a secondary membership (de-duplicated).
+  The live picker components stay untouched here; they consume this SSOT in specs 228/229.
+
+**Open questions (S4):** **new items created after the migration get no junction primary
+row** — the backfill is one-time and the spec did not request an insert trigger (scope
+discipline). This does not break the picker union (the canonical `category_id` is read
+directly, so a new item still appears under its home), and it does not violate the
+exactly-one-primary index (zero primaries is allowed). The primary-membership-for-new-items
+anchor should be created when the item-form integration / management UI lands (specs
+228/229 or a later unit) — flagged here, not implemented. (Out of scope per spec: the
+add/remove management UI on the item form; rewiring the live pickers.)
 
 ---
 

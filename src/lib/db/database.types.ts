@@ -182,6 +182,58 @@ export type Database = {
         }
         Relationships: []
       }
+      catalog_item_categories: {
+        Row: {
+          catalog_item_id: string
+          category_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_primary: boolean
+          subcategory_id: string | null
+        }
+        Insert: {
+          catalog_item_id: string
+          category_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_primary?: boolean
+          subcategory_id?: string | null
+        }
+        Update: {
+          catalog_item_id?: string
+          category_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_primary?: boolean
+          subcategory_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_item_categories_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_item_categories_category_id_fk"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_item_categories_subcategory_category_id_fk"
+            columns: ["subcategory_id", "category_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_subcategories"
+            referencedColumns: ["id", "category_id"]
+          },
+        ]
+      }
       catalog_items: {
         Row: {
           base_item: string
@@ -5206,6 +5258,14 @@ export type Database = {
     }
     Functions: {
       acknowledge_site_purchase: { Args: { p_id: string }; Returns: undefined }
+      add_catalog_item_category: {
+        Args: {
+          p_category_id: string
+          p_item_id: string
+          p_subcategory_id?: string
+        }
+        Returns: string
+      }
       add_contact_document: {
         Args: {
           p_contractor_id?: string
@@ -5894,6 +5954,14 @@ export type Database = {
       }
       reject_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
       release_retention: { Args: { p_id: string }; Returns: string }
+      remove_catalog_item_category: {
+        Args: {
+          p_category_id: string
+          p_item_id: string
+          p_subcategory_id?: string
+        }
+        Returns: undefined
+      }
       remove_purchase_quote: {
         Args: { p_quote_id: string }
         Returns: undefined
