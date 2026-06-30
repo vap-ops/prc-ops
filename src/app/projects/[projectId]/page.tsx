@@ -168,28 +168,19 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
       expiresAt: r.expires_at,
     }));
 
-    // Spec 234: existing client logins with live access on ANOTHER project (so
-    // the PD can attach them to this one too), excluding any already here.
+    // Spec 234 follow-up (broken-link stopgap): eligible logins a PD/super can
+    // attach as a read-only client viewer — anyone who has logged in (role
+    // `visitor`) OR an existing `client` — excluding anyone already on this
+    // project. grant_client_access (mig 039000) flips a visitor → client.
     const onThisProject = new Set(userIds);
-    const { data: liveElsewhere } = await admin
-      .from("client_portal_access")
-      .select("user_id")
-      .is("revoked_at", null)
-      .neq("project_id", project.id);
-    const candidateIds = [...new Set((liveElsewhere ?? []).map((r) => r.user_id))].filter(
-      (id) => !onThisProject.has(id),
-    );
-    const { data: candidateUsers } = candidateIds.length
-      ? await admin
-          .from("users")
-          .select("id, full_name")
-          .eq("role", "client")
-          .in("id", candidateIds)
-      : { data: [] as { id: string; full_name: string | null }[] };
-    clientCandidates = (candidateUsers ?? []).map((u) => ({
-      id: u.id,
-      name: u.full_name ?? "ลูกค้า",
-    }));
+    const { data: eligible } = await admin
+      .from("users")
+      .select("id, full_name")
+      .in("role", ["visitor", "client"])
+      .order("full_name", { ascending: true });
+    clientCandidates = (eligible ?? [])
+      .filter((u) => !onThisProject.has(u.id))
+      .map((u) => ({ id: u.id, name: u.full_name ?? "(ยังไม่ตั้งชื่อ)" }));
   }
 
   return (

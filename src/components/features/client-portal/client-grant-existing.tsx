@@ -1,11 +1,12 @@
 "use client";
 
-// Spec 234 / ADR 0067 U3 — PD/super affordance on the project page to attach an
-// EXISTING client login (a person the PD already granted on another project) to
-// THIS project. Pick the client + a valid-until → grant_client_access via the
-// action. Always renders for an issuer (discoverability); when there are no
-// candidate clients yet it shows a hint pointing at the create-link block above,
-// instead of the picker. Mirrors client-invite-block.tsx.
+// Spec 234 / ADR 0067 U3 (+ broken-link follow-up) — PD/super affordance on the
+// project page to grant a client (read-only viewer) login to THIS project
+// WITHOUT the claim link. Pick a logged-in user (a `visitor` who is flipped to
+// client, or an existing client) + a valid-until → grant_client_access (mig
+// 039000) via the action. Always renders for an issuer (discoverability); with
+// no eligible users it shows a hint instead of the picker. Mirrors
+// client-invite-block.tsx.
 
 import { useState, useTransition } from "react";
 import { grantClientAccess } from "@/app/projects/[projectId]/actions";
@@ -56,20 +57,20 @@ export function ClientGrantExisting({
 
   return (
     <section className={`${CARD} mb-4`}>
-      <p className="text-ink text-sm font-semibold">เพิ่มลูกค้าที่มีอยู่</p>
+      <p className="text-ink text-sm font-semibold">เพิ่มลูกค้าให้ดูโครงการ</p>
       <p className="text-ink-muted mt-0.5 text-xs">
-        ให้ลูกค้าที่เคยเข้าถึงโครงการอื่นแล้ว ติดตามความคืบหน้าของโครงการนี้ด้วย
+        เลือกผู้ใช้ที่เข้าสู่ระบบแล้ว ให้เป็นลูกค้าดูความคืบหน้าโครงการนี้ (อ่านอย่างเดียว)
       </p>
 
       {candidates.length === 0 ? (
         <p className="text-ink-secondary mt-3 text-xs">
-          ยังไม่มีลูกค้าที่เคยเข้าถึงโครงการอื่น — สร้างลิงก์เชิญด้านบนก่อน
-          เมื่อลูกค้ายืนยันลิงก์แล้วจะเพิ่มเข้าโครงการนี้ได้
+          ยังไม่มีผู้ใช้ที่เข้าสู่ระบบ — ให้ลูกค้าเข้าสู่ระบบด้วย LINE และตั้งชื่อก่อน
+          แล้วจึงเลือกที่นี่
         </p>
       ) : (
         <div className="mt-3 flex flex-col gap-2">
           <label htmlFor="grant-existing-client" className="text-ink-secondary text-xs">
-            ลูกค้าที่มีอยู่
+            เลือกผู้ใช้
           </label>
           <select
             id="grant-existing-client"
@@ -77,7 +78,7 @@ export function ClientGrantExisting({
             onChange={(e) => setUserId(e.target.value)}
             className={FIELD}
           >
-            <option value="">เลือกลูกค้า…</option>
+            <option value="">เลือกผู้ใช้…</option>
             {candidates.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}

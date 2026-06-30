@@ -61,6 +61,21 @@ re-issued invite link; `/client` lists live projects → drill (1 opens straight
 (PAT-merged, danger-path), U2+U3 one code-only auto-merge PR. (Also resolved the spec-233
 revoke-terminal caveat — re-grant un-revokes.)
 
+### Follow-ups (2026-06-30)
+
+- **Empty-state discoverability (#203):** `ClientGrantExisting` returned null when no candidates →
+  the card looked missing. Now always renders for an issuer with a hint when empty.
+- **Broken-link STOPGAP (mig `039000`, operator directive — claim link is broken, to be investigated
+  separately):** `grant_client_access` relaxed (DROP+CREATE from LIVE) to accept a **visitor** target
+  (flips them to `client`, the manual no-token equivalent of claim) OR an existing client; staff /
+  contractor stay ineligible (`P0001`); visitor-flip writes a `role_change` audit (`via=manual_grant`).
+  The project-page picker now lists eligible logins = role `visitor`+`client` not on this project (by
+  LINE name); the card relabeled "เพิ่มลูกค้าให้ดูโครงการ". So a client just LINE-logs-in (→ visitor)
+  and the PD picks them — no link needed. pgTAP `244` (6) + `243` updated; danger-path. **Open
+  question:** the picker lists ALL logged-in visitors (every signup) — fine at beta scale; revisit
+  (search/scope) if the visitor pool grows. Once the claim link is fixed, this stays as a useful
+  alternative path.
+
 ## Spec 233 — Client progress portal (ADR 0067) — ✅ COMPLETE (2026-06-30)
 
 Status: **all 5 units shipped + merged in one session (operator grant).** Temporary, scoped, read-only
