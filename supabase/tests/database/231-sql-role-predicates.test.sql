@@ -13,12 +13,14 @@ select plan(18);
 -- plus an explicit true for every member and a representative denial.
 -- ============================================================================
 
--- Enum-completeness guard: 12 roles today. If someone ADDs a user_role value,
+-- Enum-completeness guard: 13 roles today. If someone ADDs a user_role value,
 -- this fails until they decide which predicate(s) admit it (kills silent drift).
+-- 'client' (spec 233 / ADR 0067) is an EXTERNAL read-only audience admitted by
+-- NONE of the staff predicates below — so the per-predicate counts are unchanged.
 select is(
   (select count(*)::int from unnest(enum_range(null::public.user_role))),
-  12,
-  'user_role enum has 12 values (add one => classify it in the predicates)');
+  13,
+  'user_role enum has 13 values (add one => classify it in the predicates)');
 
 -- --- is_manager = PM_ROLES (project_manager, super_admin, project_director) ---
 select is(

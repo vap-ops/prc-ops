@@ -116,15 +116,16 @@ select is(
   'RLS enabled on public.projects'
 );
 
--- Policy commands on projects are exactly SELECT, INSERT, UPDATE — NO DELETE.
+-- Policy commands on projects are exactly INSERT, SELECT×2, UPDATE — NO DELETE.
 -- This is load-bearing per ADR 0013: hard deletes are not allowed through the
--- app. Sorted alphabetically (INSERT, SELECT, UPDATE).
+-- app. The second SELECT is the spec-233 / ADR-0067 client read arm (additive,
+-- read-only, scoped to client_has_live_access). No DELETE remains the invariant.
 select results_eq(
   $$ select cmd::text from pg_policies
      where schemaname = 'public' and tablename = 'projects'
      order by cmd $$,
-  array['INSERT'::text, 'SELECT'::text, 'UPDATE'::text],
-  'projects has exactly SELECT/INSERT/UPDATE policies — no DELETE policy'
+  array['INSERT'::text, 'SELECT'::text, 'SELECT'::text, 'UPDATE'::text],
+  'projects has exactly INSERT/SELECT×2/UPDATE policies — no DELETE policy'
 );
 
 -- ============================================================================
