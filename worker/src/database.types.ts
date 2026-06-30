@@ -160,6 +160,7 @@ export type Database = {
           is_active: boolean
           legacy_category: Database["public"]["Enums"]["item_category"] | null
           name: string
+          name_en: string | null
           sort_order: number
         }
         Insert: {
@@ -169,6 +170,7 @@ export type Database = {
           is_active?: boolean
           legacy_category?: Database["public"]["Enums"]["item_category"] | null
           name: string
+          name_en?: string | null
           sort_order?: number
         }
         Update: {
@@ -178,6 +180,7 @@ export type Database = {
           is_active?: boolean
           legacy_category?: Database["public"]["Enums"]["item_category"] | null
           name?: string
+          name_en?: string | null
           sort_order?: number
         }
         Relationships: []
@@ -2451,6 +2454,7 @@ export type Database = {
           project_id: string
           sort_order: number
           updated_at: string
+          work_category_id: string | null
         }
         Insert: {
           code: string
@@ -2462,6 +2466,7 @@ export type Database = {
           project_id: string
           sort_order: number
           updated_at?: string
+          work_category_id?: string | null
         }
         Update: {
           code?: string
@@ -2473,6 +2478,7 @@ export type Database = {
           project_id?: string
           sort_order?: number
           updated_at?: string
+          work_category_id?: string | null
         }
         Relationships: [
           {
@@ -2487,6 +2493,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_categories_work_category_id_fkey"
+            columns: ["work_category_id"]
+            isOneToOne: false
+            referencedRelation: "work_categories"
             referencedColumns: ["id"]
           },
         ]
@@ -4437,6 +4450,45 @@ export type Database = {
         }
         Relationships: []
       }
+      work_categories: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          masterformat_code: string | null
+          name_en: string | null
+          name_th: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          masterformat_code?: string | null
+          name_en?: string | null
+          name_th: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          masterformat_code?: string | null
+          name_en?: string | null
+          name_th?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       work_package_dependencies: {
         Row: {
           created_at: string
@@ -5501,6 +5553,16 @@ export type Database = {
         Returns: string
       }
       create_supply_plan: { Args: { p_project_id: string }; Returns: string }
+      create_work_category: {
+        Args: {
+          p_code: string
+          p_masterformat_code?: string
+          p_name_en?: string
+          p_name_th: string
+          p_sort_order?: number
+        }
+        Returns: undefined
+      }
       create_work_package: {
         Args: {
           p_code: string
@@ -6066,6 +6128,10 @@ export type Database = {
         Args: { p_id: string; p_is_active: boolean }
         Returns: undefined
       }
+      set_project_category_work_category: {
+        Args: { p_project_category_id: string; p_work_category_id: string }
+        Returns: undefined
+      }
       set_project_client: {
         Args: { p_client_id: string; p_project_id: string }
         Returns: boolean
@@ -6092,6 +6158,10 @@ export type Database = {
           p_role: Database["public"]["Enums"]["user_role"]
           p_user_id: string
         }
+        Returns: undefined
+      }
+      set_work_category_active: {
+        Args: { p_code: string; p_is_active: boolean }
         Returns: undefined
       }
       set_work_package_category: {
@@ -6352,6 +6422,16 @@ export type Database = {
           p_status: Database["public"]["Enums"]["project_status"]
         }
         Returns: boolean
+      }
+      update_work_category: {
+        Args: {
+          p_code: string
+          p_masterformat_code?: string
+          p_name_en?: string
+          p_name_th: string
+          p_sort_order?: number
+        }
+        Returns: undefined
       }
       update_worker: {
         Args: {

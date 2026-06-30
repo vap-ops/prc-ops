@@ -12,7 +12,7 @@ Status: **SPECS AUTHORED / not started.** Session S0 (docs-only) accepted
 [ADR 0066](decisions/0066-procurement-taxonomy-redesign.md) and authored the 10 phase
 specs below (one per build session, S0–S10). Schema is single-lane and serialized
 (S1→S2→S4→S5→S6); reserved migration timestamps `20260813029000`–`20260813033000`. S0
-ships as ONE governance-held PR (touches `docs/decisions/`). **S1 (spec 223) + S2 (spec 224) + S4 (spec 225) ✅ COMPLETE; next: S5 (spec 226, global work_categories).** (S3 / spec 232 is
+ships as ONE governance-held PR (touches `docs/decisions/`). **S1 (223) + S2 (224) + S4 (225) + S5 (226) ✅ COMPLETE; next: S6 (spec 227, Relation R).** (S3 / spec 232 is
 break-glass, off-sequence, operator-scheduled.)
 
 | Spec                                                     | Session | Title                                                                           | Autonomy             | Reserved migration ts  | Status      |
@@ -20,7 +20,7 @@ break-glass, off-sequence, operator-scheduled.)
 | [223](feature-specs/223-units-ssot.md)                   | S1      | Units SSOT — `catalog_units` + structured picker                                | 🔔 ONE-TAP HOLD      | `20260813029000`       | ✅ COMPLETE |
 | [224](feature-specs/224-catalog-item-facets.md)          | S2      | Catalog facets `kind`/`fulfillment_mode`/`owner_supplied` + derived `stockable` | 🔔 ONE-TAP HOLD      | `20260813030000`       | ✅ COMPLETE |
 | [225](feature-specs/225-catalog-secondary-membership.md) | S4      | Secondary membership `catalog_item_categories` (reuse spec-219 composite FK)    | 🔔 ONE-TAP HOLD      | `20260813031000`       | ✅ COMPLETE |
-| [226](feature-specs/226-global-work-categories.md)       | S5      | Global `work_categories` library + seed + reconcile FK + ship 207-U3c           | 🔔 ONE-TAP HOLD      | `20260813032000`       | not started |
+| [226](feature-specs/226-global-work-categories.md)       | S5      | Global `work_categories` library + seed + reconcile FK + ship 207-U3c           | 🔔 ONE-TAP HOLD      | `20260813032000`       | ✅ COMPLETE |
 | [227](feature-specs/227-work-material-relation.md)       | S6      | Relation R `work_category_material_categories` bridge + seed                    | 🔔 ONE-TAP HOLD      | `20260813033000`       | not started |
 | [228](feature-specs/228-scoped-supply-plan-picker.md)    | S7      | UC1 scoped supply-plan picker (show-all-default)                                | ✅ AUTO-MERGE        | — (code-only)          | not started |
 | [229](feature-specs/229-scoped-wp-detail-pickers.md)     | S8      | UC2 scoped WP-detail pickers + work-cat badge                                   | ✅ AUTO-MERGE        | — (code-only)          | not started |
@@ -181,6 +181,61 @@ exactly-one-primary index (zero primaries is allowed). The primary-membership-fo
 anchor should be created when the item-form integration / management UI lands (specs
 228/229 or a later unit) — flagged here, not implemented. (Out of scope per spec: the
 add/remove management UI on the item form; rewiring the live pickers.)
+
+---
+
+### S5 — Global `work_categories` library + reconcile FK + ship 207-U3c (spec 226) — ✅ COMPLETE (2026-06-30)
+
+Migration `20260813032000_spec226_work_categories.sql` (applied to the shared DB; main↔DB
+sync moves to `032000` once the held PR merges). Firm-wide **`work_categories`** library (the
+WORK axis, defect **C3**): `id` uuid PK + stable unique `code`, bilingual `name_th`/`name_en`,
+optional `masterformat_code`, `sort_order`, `is_active`. RLS = enable + revoke anon/authenticated
+
+- grant SELECT to authenticated + `using (true)` policy (firm-wide vocabulary); **no DELETE**
+  (deactivate-not-delete). `project_categories` gains a **NULLABLE** `work_category_id` reconcile
+  FK → `work_categories(id)` (`ON DELETE SET NULL`, indexed). Material-axis parity:
+  `catalog_categories.name_en` (additive nullable). Writes via four null-safe SECURITY DEFINER
+  RPCs `create_/update_work_category`, `set_work_category_active`, `set_project_category_work_category`.
+  **Ship spec-207 U3c** `WpCategoryControl` — the จัดการ-tab control binding a WP to one of its
+  project's active `project_categories` via the **already-shipped** `set_work_package_category`
+  RPC (no new WP schema); active-only picker that still renders a bound-inactive category as the
+  current value, empty-state nudge on an uncategorised WP.
+
+**Decisions made:**
+
+- **Subsection grain = FLAT 2-level code, not a self-FK `parent_code`** (the S0 open question).
+  The spec's own §Schema column list names no `parent_code`, so the column list implies the
+  flat model. Top category = 3-char code (`W01`..`W09`); subsection = 5-char code (`W0101`); a
+  subsection's parent is `left(code, 3)`. pgTAP pins zero orphan prefixes. No self-FK column.
+- **Seed sourced from the reconciled BuildAll BOQ** (PRC-2026-004, 308 m² Thai Foods Fresh
+  Market) work axis at build — **9 top categories W01–W09 + 43 subsections = 52 rows**. The BOQ
+  has 44 distinct subsection hints; one (`W07` งานป้าย) has no subsection breakdown → W07 is a
+  leaf top category (no children), so 43 seeded subsections. `name_th` = BOQ label verbatim
+  (trimmed, operator-editable); `name_en` = faithful translation (C3 bilingual parity). Parsed
+  the BOQ CSV programmatically (no hand-transcription of Thai).
+- **RPC role gate = `pm/super/director` (NO procurement)** — per spec 226 line 76 (the
+  WP/project-side role set), which overrides ADR 0066 D8's broader "work-library on the
+  catalog side" list. Matches the already-shipped `set_work_package_category` (also 3-role).
+- **`set_project_category_work_category` additionally membership-gates** (`can_see_project`):
+  it writes a per-project row, so a role-only gate would let a PM of one project reconcile
+  another project's category. The 3 firm-wide work-library RPCs stay role-only (firm-wide
+  vocabulary, like spec 221 U2 / units). Unknown project-category or work-category → `22023`;
+  non-member or null/disallowed role → `42501`; dup code → `23505`.
+- **Reconcile, don't replace** — `project_categories.work_category_id` is nullable; NULL =
+  un-reconciled (per-project freedom + the locked one-category-per-WP rule both preserved). The
+  global library sits ABOVE the per-project taxonomy.
+
+pgTAP `240-spec226-work-categories.test.sql` (60 asserts: table+RLS+grant+no-delete, seed
+count/grain/anchors/bilingual, nullable reconcile FK via `fk_ok`, `catalog_categories.name_en`,
+4× DEFINER+anon-revoke posture, behaviour + 23505/22023/42501 + membership gate). Full pgTAP
+suite + `lint`·`typecheck`·`vitest 2045` (+11 new) green. `name_en` parity column verified
+not to break existing readers (no `columns_are` pins anywhere; additive nullable).
+
+**Open questions (S5):** `masterformat_code` is seeded **NULL** for all rows (the column is
+optional; the BOQ carries no MasterFormat anchors, and inventing them would be unfaithful —
+operators/a later unit can populate). The global-library **management UI** (CRUD screen) is
+out of scope (RPCs exist; later unit). Auto-reconciling existing project categories to global
+ones is left to the operator (the FK is nullable on purpose).
 
 ---
 

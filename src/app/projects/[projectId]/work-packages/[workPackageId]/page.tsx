@@ -44,6 +44,7 @@ import { loadWorkPackageDetail } from "@/lib/work-packages/load-detail";
 import { WpAssignmentPanel } from "@/components/features/work-packages/wp-assignment-panel";
 import { WpPriorityControl } from "@/components/features/work-packages/wp-priority-control";
 import { WpDeliverableControl } from "@/components/features/work-packages/wp-deliverable-control";
+import { WpCategoryControl } from "@/components/features/work-packages/wp-category-control";
 import { WpNameControl } from "@/components/features/work-packages/wp-name-control";
 import { WpDeleteControl } from "@/components/features/work-packages/wp-delete-control";
 import { WpSchedulePanel } from "@/components/features/work-packages/wp-schedule-panel";
@@ -102,6 +103,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
   const [
     data,
     { data: projectDeliverables },
+    { data: projectCategories },
     { data: ohRows },
     { data: issueRows },
     { data: returnRows },
@@ -120,6 +122,18 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           .eq("project_id", projectId)
           .order("sort_order", { ascending: true })
       : Promise.resolve({ data: [] as { id: string; code: string; name: string }[] }),
+    // Spec 226 / 207 U3c: the project's work-categories feed the planner-only
+    // WpCategoryControl. Load ALL (incl. inactive) so a WP bound to a now-inactive
+    // category still renders it; the picker filters active-only client-side.
+    isPlanner
+      ? supabase
+          .from("project_categories")
+          .select("id, code, name, is_active")
+          .eq("project_id", projectId)
+          .order("sort_order", { ascending: true })
+      : Promise.resolve({
+          data: [] as { id: string; code: string; name: string; is_active: boolean }[],
+        }),
     supabase
       .from("stock_on_hand")
       .select("catalog_item_id, qty_on_hand, catalog_items ( base_item, spec_attrs, unit )")
@@ -580,6 +594,12 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
             workPackageId={wp.id}
             deliverableId={wp.deliverable_id}
             deliverables={projectDeliverables ?? []}
+          />
+          <WpCategoryControl
+            projectId={wp.project_id}
+            workPackageId={wp.id}
+            categoryId={wp.category_id}
+            categories={projectCategories ?? []}
           />
           <WpSchedulePanel
             projectId={wp.project_id}
