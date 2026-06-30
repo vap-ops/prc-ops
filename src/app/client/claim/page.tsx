@@ -4,6 +4,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { createClient } from "@/lib/db/server";
 import { CARD, SECTION_HEADING } from "@/lib/ui/classes";
+import { ClientClaimButton } from "@/components/features/client-portal/client-claim-button";
 
 export const metadata = { title: "รับสิทธิ์เข้าชมความคืบหน้าโครงการ" };
 
@@ -11,11 +12,11 @@ interface ClientClaimPageProps {
   searchParams: Promise<{ token?: string }>;
 }
 
-// Spec 233 / ADR 0067 — U1 stub (mirrors /portal/claim). Reachable by a
-// signed-in visitor — NOT requireRole(["client"]), because a fresh LINE signup
-// is role `visitor` and would bounce to /coming-soon. Gated only on being
-// signed in. An already-bound client is sent straight to /client. U5 wires the
-// confirm action (ClientClaimButton → claim_client_invite) onto this card.
+// Spec 233 / ADR 0067 (mirrors /portal/claim). Reachable by a signed-in visitor
+// — NOT requireRole(["client"]), because a fresh LINE signup is role `visitor`
+// and would bounce to /coming-soon. Gated only on being signed in. An already-
+// bound client is sent straight to /client. ClientClaimButton confirms →
+// claim_client_invite → /client.
 export default async function ClientClaimPage({ searchParams }: ClientClaimPageProps) {
   const { token } = await searchParams;
   const supabase = await createClient();
@@ -39,7 +40,7 @@ export default async function ClientClaimPage({ searchParams }: ClientClaimPageP
             <p className="text-ink-secondary text-sm">
               กดยืนยันเพื่อเข้าชมความคืบหน้าของโครงการที่คุณได้รับเชิญ
             </p>
-            {/* U5 mounts the confirm action (ClientClaimButton token={token}) here. */}
+            <ClientClaimButton token={token} />
           </div>
         ) : (
           <EmptyNotice>ลิงก์ไม่ถูกต้อง — กรุณาขอลิงก์ใหม่จากผู้อำนวยการโครงการ</EmptyNotice>
