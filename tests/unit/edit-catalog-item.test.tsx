@@ -90,6 +90,9 @@ describe("EditCatalogItem (spec 175 U3 / 239 U2)", () => {
         ownerSupplied: false,
         // Spec 239 U2 — no secondary memberships.
         secondaryCategoryIds: [],
+        // Spec 239 U2-fields — neither field set on this item.
+        searchTerms: "",
+        leadTimeDays: "",
       }),
     );
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());

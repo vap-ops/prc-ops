@@ -57,6 +57,10 @@ export type CatalogItemValues = {
   // Spec 239 U2 (ADR 0066 / C1) — the SECONDARY categories this item also appears
   // under (catalog_item_categories). The primary (categoryId) is never listed here.
   secondaryCategoryIds: string[];
+  // Spec 239 U2-fields — search synonyms + lead time (days). Kept as form strings;
+  // the action trims / parses (empty → null / no lead time).
+  searchTerms: string;
+  leadTimeDays: string;
 };
 
 // Spec 223 (ADR 0066) — the structured unit-picker options, loaded by the page
@@ -96,6 +100,8 @@ export const EMPTY_CATALOG_VALUES: CatalogItemValues = {
   fulfillmentMode: "off_shelf",
   ownerSupplied: false,
   secondaryCategoryIds: [],
+  searchTerms: "",
+  leadTimeDays: "",
 };
 
 const ITEM_KINDS = Object.keys(ITEM_KIND_OPTION_LABEL) as ItemKind[];
@@ -167,6 +173,9 @@ export function CatalogItemForm({
   );
   const [unitOther, setUnitOther] = useState(initUnitIsCommon ? "" : initial.unit);
   const [note, setNote] = useState(initial.note);
+  // Spec 239 U2-fields — search synonyms + lead time (kept as form strings).
+  const [searchTerms, setSearchTerms] = useState(initial.searchTerms);
+  const [leadTimeDays, setLeadTimeDays] = useState(initial.leadTimeDays);
   // Spec 224 (ADR 0066 D3) — the catalog item facets.
   const [kind, setKind] = useState<ItemKind>(initial.kind);
   const [fulfillmentMode, setFulfillmentMode] = useState<FulfillmentMode>(initial.fulfillmentMode);
@@ -188,6 +197,8 @@ export function CatalogItemForm({
   const [detailsOpen, setDetailsOpen] = useState(
     initial.specAttrs !== "" ||
       initial.productCode !== "" ||
+      initial.searchTerms !== "" ||
+      initial.leadTimeDays !== "" ||
       initial.secondaryCategoryIds.some((id) => id !== initial.categoryId),
   );
   const [advancedOpen, setAdvancedOpen] = useState(
@@ -283,6 +294,8 @@ export function CatalogItemForm({
         fulfillmentMode,
         ownerSupplied,
         secondaryCategoryIds: secondaryCategoryIds.filter((id) => id !== categoryId),
+        searchTerms,
+        leadTimeDays,
       });
       if (!result.ok) {
         setError(result.error);
@@ -507,6 +520,44 @@ export function CatalogItemForm({
                 ? "รหัส 6 หลัก — 2 หลักแรกมาจากหมวดหมู่อัตโนมัติ · พิมพ์เฉพาะเลขลำดับท้าย"
                 : `รหัส 6 หลัก — ขึ้นต้น ${codePrefix} จากหมวดหมู่อัตโนมัติ · พิมพ์เฉพาะ 4 หลักท้าย (ลำดับ)`}
             </p>
+          </div>
+
+          {/* Spec 239 U2-fields — search synonyms (alt names) for the catalog search. */}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="ci-search-terms" className={LABEL}>
+              คำค้น / ชื่อเรียกอื่น (ถ้ามี)
+            </label>
+            <input
+              id="ci-search-terms"
+              type="text"
+              value={searchTerms}
+              maxLength={500}
+              onChange={(e) => setSearchTerms(e.target.value)}
+              disabled={submitting}
+              className={FIELD}
+              placeholder="เช่น เหล็กเส้น rebar"
+            />
+            <p className="text-ink-muted text-meta">
+              คั่นหลายคำด้วยช่องว่าง — ช่วยให้ค้นเจอง่ายขึ้น
+            </p>
+          </div>
+
+          {/* Spec 239 U2-fields — lead time (normal days to procure). */}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="ci-lead-time" className={LABEL}>
+              ระยะเวลาสั่งซื้อ (วัน) (ถ้ามี)
+            </label>
+            <input
+              id="ci-lead-time"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={leadTimeDays}
+              onChange={(e) => setLeadTimeDays(e.target.value)}
+              disabled={submitting}
+              className={FIELD}
+              placeholder="เช่น 7"
+            />
           </div>
 
           {/* Spec 239 U2 — multi-category: also list under other categories. */}

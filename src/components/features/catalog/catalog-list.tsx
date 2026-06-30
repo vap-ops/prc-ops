@@ -45,6 +45,8 @@ export type CatalogItem = {
   secondaryCategoryIds?: string[];
   // Spec 239 U2 — search synonyms / alt names (matched by the search box).
   searchTerms?: string | null;
+  // Spec 239 U2-fields — normal days to procure (for the edit-form pre-fill).
+  leadTimeDays?: number | null;
   // Spec 175 U4 — a signed URL for the item's reference image; null when none.
   thumbnailUrl?: string | null;
   // Spec 178 U5 — the per-item SELL rate (super_admin only).

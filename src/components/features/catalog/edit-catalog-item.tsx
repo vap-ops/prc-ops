@@ -82,6 +82,8 @@ export function EditCatalogItem({
             fulfillmentMode: item.fulfillmentMode,
             ownerSupplied: item.ownerSupplied,
             secondaryCategoryIds: item.secondaryCategoryIds ?? [],
+            searchTerms: item.searchTerms ?? "",
+            leadTimeDays: item.leadTimeDays != null ? String(item.leadTimeDays) : "",
           }}
           categories={categories}
           units={units}

@@ -78,9 +78,27 @@ describe("AddCatalogItem (spec 175 / 221 / 239 U2)", () => {
         ownerSupplied: false,
         // Spec 239 U2 — no extra categories chosen.
         secondaryCategoryIds: [],
+        // Spec 239 U2-fields — search synonyms + lead time, left blank here.
+        searchTerms: "",
+        leadTimeDays: "",
       }),
     );
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
+  });
+
+  it("submits the search-terms + lead-time fields when filled", async () => {
+    open();
+    fillRequired();
+    fireEvent.click(screen.getByRole("button", { name: /เพิ่มรายละเอียด/ }));
+    fireEvent.change(screen.getByLabelText(/คำค้น/), { target: { value: "rebar เหล็กเส้น" } });
+    fireEvent.change(screen.getByLabelText(/ระยะเวลาสั่งซื้อ/), { target: { value: "7" } });
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายการ" }));
+
+    await waitFor(() =>
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({ searchTerms: "rebar เหล็กเส้น", leadTimeDays: "7" }),
+      ),
+    );
   });
 
   it("submits chosen secondary memberships from the multi-category control", async () => {

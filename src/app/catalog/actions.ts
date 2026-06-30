@@ -13,7 +13,7 @@ import { requireRole } from "@/lib/auth/require-role";
 import { BACK_OFFICE_ROLES } from "@/lib/auth/role-home";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { ITEM_CATEGORY_LABEL } from "@/lib/i18n/labels";
-import { isValidProductCode } from "@/lib/catalog/validate";
+import { isValidProductCode, parseItemFields } from "@/lib/catalog/validate";
 import { diffSecondaryMemberships } from "@/lib/catalog/categories";
 import { Constants, type Database } from "@/lib/db/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -100,6 +100,9 @@ export async function createCatalogItem(input: {
   ownerSupplied: boolean;
   // Spec 239 U2 (ADR 0066 / C1) — additional (secondary) category memberships.
   secondaryCategoryIds?: string[];
+  // Spec 239 U2-fields — search synonyms + lead time (days). Form strings.
+  searchTerms?: string;
+  leadTimeDays?: string;
 }): Promise<CatalogActionResult> {
   await requireRole(BACK_OFFICE_ROLES);
 
@@ -126,6 +129,8 @@ export async function createCatalogItem(input: {
   if (subcategoryId !== "" && !UUID_REGEX.test(subcategoryId)) {
     return { ok: false, error: GENERIC_ERROR };
   }
+  const fields = parseItemFields(input);
+  if (!fields.ok) return { ok: false, error: fields.error };
 
   const supabase = await createServerSupabase();
   // Resolve the legacy enum to write through (kept populated for the 13
@@ -158,6 +163,9 @@ export async function createCatalogItem(input: {
     // Omit the key when empty → the RPC's default null (clears the FK); a uuid
     // sets it. exactOptionalPropertyTypes forbids an explicit undefined here.
     ...(subcategoryId === "" ? {} : { p_subcategory_id: subcategoryId }),
+    // Spec 239 U2-fields — omit when empty/null → the RPC default null (clears it).
+    ...(fields.searchTerms === "" ? {} : { p_search_terms: fields.searchTerms }),
+    ...(fields.leadTimeDays === null ? {} : { p_lead_time_days: fields.leadTimeDays }),
   });
   if (error) {
     if (error.code === "23505") return { ok: false, error: duplicateMessage(error.message) };
@@ -194,6 +202,9 @@ export async function updateCatalogItem(input: {
   ownerSupplied: boolean;
   // Spec 239 U2 (ADR 0066 / C1) — additional (secondary) category memberships.
   secondaryCategoryIds?: string[];
+  // Spec 239 U2-fields — search synonyms + lead time (days). Form strings.
+  searchTerms?: string;
+  leadTimeDays?: string;
 }): Promise<CatalogActionResult> {
   await requireRole(BACK_OFFICE_ROLES);
 
@@ -221,6 +232,8 @@ export async function updateCatalogItem(input: {
   if (subcategoryId !== "" && !UUID_REGEX.test(subcategoryId)) {
     return { ok: false, error: GENERIC_ERROR };
   }
+  const fields = parseItemFields(input);
+  if (!fields.ok) return { ok: false, error: fields.error };
 
   const supabase = await createServerSupabase();
   const { data: catRow } = await supabase
@@ -249,6 +262,9 @@ export async function updateCatalogItem(input: {
     // Omit the key when empty → the RPC's default null (clears the FK); a uuid
     // sets it. exactOptionalPropertyTypes forbids an explicit undefined here.
     ...(subcategoryId === "" ? {} : { p_subcategory_id: subcategoryId }),
+    // Spec 239 U2-fields — omit when empty/null → the RPC default null (clears it).
+    ...(fields.searchTerms === "" ? {} : { p_search_terms: fields.searchTerms }),
+    ...(fields.leadTimeDays === null ? {} : { p_lead_time_days: fields.leadTimeDays }),
   });
   if (error) {
     if (error.code === "23505") return { ok: false, error: duplicateMessage(error.message) };

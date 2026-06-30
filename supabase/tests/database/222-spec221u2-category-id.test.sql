@@ -19,21 +19,21 @@ grant usage  on sequence _tap_buf_ord_seq to authenticated;
 
 -- A. Signatures + security (the new arities) -------------------------------
 select ok(
-  to_regprocedure('public.create_catalog_item(public.item_category, text, text, text, boolean, text, text, uuid, uuid, public.catalog_item_kind, public.catalog_fulfillment_mode, boolean)') is not null,
+  to_regprocedure('public.create_catalog_item(public.item_category, text, text, text, boolean, text, text, uuid, uuid, public.catalog_item_kind, public.catalog_fulfillment_mode, boolean, text, int)') is not null,
   'create_catalog_item facet arity exists (spec 224: + p_kind/p_fulfillment_mode/p_owner_supplied)');
 select ok(
-  to_regprocedure('public.update_catalog_item(uuid, public.item_category, text, text, text, boolean, text, text, uuid, uuid, public.catalog_item_kind, public.catalog_fulfillment_mode, boolean)') is not null,
+  to_regprocedure('public.update_catalog_item(uuid, public.item_category, text, text, text, boolean, text, text, uuid, uuid, public.catalog_item_kind, public.catalog_fulfillment_mode, boolean, text, int)') is not null,
   'update_catalog_item facet arity exists (spec 224: + p_kind/p_fulfillment_mode/p_owner_supplied)');
 select ok(
   to_regprocedure('public.create_catalog_subcategory(public.item_category, text, text, smallint, uuid)') is not null,
   'create_catalog_subcategory 5-arg (+ p_category_id) exists');
 select ok(
   (select prosecdef from pg_proc
-     where oid='public.create_catalog_item(public.item_category, text, text, text, boolean, text, text, uuid, uuid, public.catalog_item_kind, public.catalog_fulfillment_mode, boolean)'::regprocedure),
+     where oid='public.create_catalog_item(public.item_category, text, text, text, boolean, text, text, uuid, uuid, public.catalog_item_kind, public.catalog_fulfillment_mode, boolean, text, int)'::regprocedure),
   'create_catalog_item is SECURITY DEFINER');
 select ok(
   not has_function_privilege('anon',
-    'public.create_catalog_item(public.item_category, text, text, text, boolean, text, text, uuid, uuid, public.catalog_item_kind, public.catalog_fulfillment_mode, boolean)', 'execute'),
+    'public.create_catalog_item(public.item_category, text, text, text, boolean, text, text, uuid, uuid, public.catalog_item_kind, public.catalog_fulfillment_mode, boolean, text, int)', 'execute'),
   'anon cannot execute create_catalog_item');
 
 -- B. Constraints moved onto category_id ------------------------------------

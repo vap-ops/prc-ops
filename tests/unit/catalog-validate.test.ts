@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   composeProductCode,
   isValidProductCode,
+  parseItemFields,
   productCodeTailLength,
 } from "@/lib/catalog/validate";
 
@@ -51,5 +52,45 @@ describe("composeProductCode (spec 221 U4)", () => {
   it("yields an empty code when the tail is blank (the code is optional)", () => {
     expect(composeProductCode("06", "01", "")).toBe("");
     expect(composeProductCode("06", "01", "   ")).toBe("");
+  });
+});
+
+// Spec 239 U2-fields — parse the optional form strings (search synonyms + lead
+// time days) into RPC args (empty → "" / null; the RPC omit-when-empty clears).
+describe("parseItemFields (spec 239 U2-fields)", () => {
+  it("trims search terms and parses a non-negative integer lead time", () => {
+    expect(parseItemFields({ searchTerms: "  rebar เหล็กเส้น  ", leadTimeDays: "7" })).toEqual({
+      ok: true,
+      searchTerms: "rebar เหล็กเส้น",
+      leadTimeDays: 7,
+    });
+  });
+
+  it("treats blank inputs as empty / null (both fields optional)", () => {
+    expect(parseItemFields({})).toEqual({ ok: true, searchTerms: "", leadTimeDays: null });
+    expect(parseItemFields({ searchTerms: "   ", leadTimeDays: "  " })).toEqual({
+      ok: true,
+      searchTerms: "",
+      leadTimeDays: null,
+    });
+  });
+
+  it("accepts a zero lead time", () => {
+    expect(parseItemFields({ leadTimeDays: "0" })).toEqual({
+      ok: true,
+      searchTerms: "",
+      leadTimeDays: 0,
+    });
+  });
+
+  it("rejects a negative or non-integer lead time", () => {
+    expect(parseItemFields({ leadTimeDays: "-1" }).ok).toBe(false);
+    expect(parseItemFields({ leadTimeDays: "2.5" }).ok).toBe(false);
+    expect(parseItemFields({ leadTimeDays: "abc" }).ok).toBe(false);
+  });
+
+  it("rejects an over-long search-terms string (<=500)", () => {
+    expect(parseItemFields({ searchTerms: "x".repeat(501) }).ok).toBe(false);
+    expect(parseItemFields({ searchTerms: "x".repeat(500) }).ok).toBe(true);
   });
 });

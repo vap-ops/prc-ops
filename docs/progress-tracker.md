@@ -6,7 +6,7 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 239 — ทะเบียนวัสดุ category cleanup (ADR 0066 C1) — ✅ U1 MERGED · U2 SHIPPED (2026-06-30)
+## Spec 239 — ทะเบียนวัสดุ category cleanup (ADR 0066 C1) — ✅ U1+U2 MERGED · 🔔 U2-fields HELD (2026-07-01)
 
 Supersedes [spec 232](feature-specs/232-category-rehome-breakglass.md) — the C1 re-home, **de-risked to
 an additive migration** (verified live: 0 of 256 catalog items have any `product_code` → re-home
@@ -65,10 +65,20 @@ as tracked assets = later optional.
 ⚠️ **TRAP honoured:** the form/actions write `category_id` (NOT the vestigial `category` enum) — re-homed items
 keep their canonical home. **Verification:** TDD; new `diffSecondaryMemberships` + browse-union + search-synonym
 
-- form tests; lint·typecheck·vitest **2162**; cavecrew-reviewer. **NOT in U2 (→ a held migration, see below):**
-  wiring `search_terms` + `lead_time_days` into the FORM requires adding two trailing-default params to
-  `create/update_catalog_item` (the live RPC has neither) — a schema/danger-path change, split into its own
-  held PR. U2 reads `search_terms` (search) but does not yet write it.
+- form tests; lint·typecheck·vitest **2162**; cavecrew-reviewer (1 finding fixed: createCatalogCategory
+  non-string id fails closed). **U2 code ✅ MERGED — PR #211** (`c175ac2`, native code-only auto-merge on green).
+
+**U2-fields (🔔 HELD migration) — let the form SAVE `search_terms` + `lead_time_days`.** Split out of U2
+because it touches the RPC signatures. Migration `20260813044000`: DROP+CREATE `create_catalog_item` +
+`update_catalog_item` adding trailing-default `p_search_terms text` (≤500) + `p_lead_time_days int` (≥0)
+params (arity 12→14 → DROP+CREATE per the spec 224 precedent; LIVE `037000` body verbatim + the 2 params/
+columns/guards + the canonical is_primary membership maintenance preserved). Item form surfaces both behind
+เพิ่มรายละเอียด (auto-open when set); `parseItemFields` (in `validate.ts`, unit-tested) trims/parses the form
+strings; the create/update actions pass them (omit-when-empty → the RPC default clears the column); the page
+selects + threads `lead_time_days`. pgTAP `248` (13: signatures/grants, persist on create+update, null→NULL,
+negative lead + over-long search → 22023); 5 existing sig-pins (120/121/222/223/238) bumped to the 14-arg
+shape. **db:push applied `044000` → main↔DB AHEAD by `044000` until the held PR merges (operator one-tap).**
+db:types regen touched `worker/` (held). lint·typecheck·vitest **2168**; full pgTAP green; cavecrew-reviewer.
 
 ---
 

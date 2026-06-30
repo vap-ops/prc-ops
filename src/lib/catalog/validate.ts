@@ -33,3 +33,27 @@ export function composeProductCode(
   if (t === "") return "";
   return `${categoryCode}${subcategoryCode}${t}`;
 }
+
+// Spec 239 U2-fields — parse the item form's optional search-synonym + lead-time
+// strings into RPC args. Empty stays "" / null so the action's omit-when-empty
+// pattern leaves the RPC default (which clears the column). Single-sourced so the
+// form's expectations and the server action validate identically; the DB CHECK
+// (lead_time_days >= 0) + the RPC guards are the floor.
+const SEARCH_TERMS_LONG_ERROR = "คำค้นยาวเกินไป (ไม่เกิน 500 ตัวอักษร)";
+const LEAD_TIME_ERROR = "ระยะเวลาสั่งซื้อต้องเป็นจำนวนวันที่ไม่ติดลบ";
+
+export function parseItemFields(input: {
+  searchTerms?: string;
+  leadTimeDays?: string;
+}): { ok: true; searchTerms: string; leadTimeDays: number | null } | { ok: false; error: string } {
+  const searchTerms = (input.searchTerms ?? "").trim();
+  if (searchTerms.length > 500) return { ok: false, error: SEARCH_TERMS_LONG_ERROR };
+  const leadRaw = (input.leadTimeDays ?? "").trim();
+  let leadTimeDays: number | null = null;
+  if (leadRaw !== "") {
+    const n = Number(leadRaw);
+    if (!Number.isInteger(n) || n < 0) return { ok: false, error: LEAD_TIME_ERROR };
+    leadTimeDays = n;
+  }
+  return { ok: true, searchTerms, leadTimeDays };
+}

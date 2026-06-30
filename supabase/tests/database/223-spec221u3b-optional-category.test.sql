@@ -18,7 +18,7 @@ grant usage  on sequence _tap_buf_ord_seq to authenticated;
 
 -- Spec 224 added the trailing facet params (defaults) → the facet arity resolves.
 select ok(
-  to_regprocedure('public.create_catalog_item(public.item_category, text, text, text, boolean, text, text, uuid, uuid, public.catalog_item_kind, public.catalog_fulfillment_mode, boolean)') is not null,
+  to_regprocedure('public.create_catalog_item(public.item_category, text, text, text, boolean, text, text, uuid, uuid, public.catalog_item_kind, public.catalog_fulfillment_mode, boolean, text, int)') is not null,
   'create_catalog_item facet arity exists (defaults keep old callers valid)');
 
 set local role authenticated;

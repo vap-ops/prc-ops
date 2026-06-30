@@ -33,7 +33,7 @@ export default async function CatalogPage() {
   const { data: rows } = await supabase
     .from("catalog_items")
     .select(
-      "id, category_id, base_item, spec_attrs, unit, note, image_path, product_code, subcategory_id, kind, fulfillment_mode, owner_supplied, search_terms",
+      "id, category_id, base_item, spec_attrs, unit, note, image_path, product_code, subcategory_id, kind, fulfillment_mode, owner_supplied, search_terms, lead_time_days",
     )
     .eq("is_active", true)
     .order("base_item", { ascending: true });
@@ -95,6 +95,7 @@ export default async function CatalogPage() {
       fulfillmentMode: r.fulfillment_mode,
       ownerSupplied: r.owner_supplied,
       searchTerms: r.search_terms,
+      leadTimeDays: r.lead_time_days,
       secondaryCategoryIds: secondary,
       thumbnailUrl: signed.get(r.id) ?? null,
       // Omit the key entirely for non-super (exactOptionalPropertyTypes forbids an
