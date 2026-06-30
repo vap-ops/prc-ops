@@ -1,0 +1,11 @@
+-- Spec 233 / ADR 0067 — adds the external read-only `client` role to
+-- public.user_role. The client is a project's customer, granted a temporary,
+-- scoped, read-only login to watch progress (summary, WP status, approved
+-- photos, report PDFs) for one project. Distinct from `visitor`/`contractor`
+-- and unrelated to the CRM `clients` table (customer records, not logins).
+--
+-- Own migration on purpose: `ALTER TYPE ... ADD VALUE` cannot run inside a
+-- transaction block alongside other DDL (ADR 0008 precedent). The tables, RLS,
+-- and RPCs that consume this value land in the following migrations (035000 /
+-- 036000) so the new enum label is committed before it is referenced.
+ALTER TYPE public.user_role ADD VALUE IF NOT EXISTS 'client';

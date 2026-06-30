@@ -33,6 +33,16 @@ export function isManagerRole(role: UserRole): boolean {
   return PM_ROLES.includes(role);
 }
 
+/**
+ * Spec 233 / ADR 0067: who may ISSUE or REVOKE a temporary client portal login —
+ * project_director + super_admin ONLY. Deliberately NOT PM_ROLES: that set also
+ * contains project_manager, and the operator scoped client access to the director
+ * tier. A client login is customer-facing; the PM does not grant it. Pinned by
+ * client-issuer-roles.test.ts so a future widen of PM_ROLES can never silently
+ * widen who issues a client login.
+ */
+export const CLIENT_ISSUER_ROLES: ReadonlyArray<UserRole> = ["project_director", "super_admin"];
+
 /** All site staff: SA plus the PM set. */
 export const SITE_STAFF_ROLES: ReadonlyArray<UserRole> = [
   "site_admin",
@@ -245,6 +255,10 @@ export function roleHome(role: UserRole): string {
   if (role === "contractor") return "/portal";
   // Spec 149 U9: the accounting role is onboarded onto the read-only ledger surface.
   if (role === "accounting") return "/accounting";
+  // Spec 233 / ADR 0067: the external client lands on the read-only progress
+  // portal. An expired/revoked client still has role 'client'; the /client page
+  // gate sends it on to /client/access-ended (not /coming-soon).
+  if (role === "client") return "/client";
   return "/coming-soon";
 }
 

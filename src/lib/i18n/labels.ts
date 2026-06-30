@@ -275,6 +275,8 @@ export const USER_ROLE_LABEL: Record<Enums["user_role"], string> = {
   contractor: "ผู้รับเหมา (DC)",
   // Spec 152 / ADR 0058: no Thai label requested by the operator for this role.
   project_director: "Project Director",
+  // Spec 233 / ADR 0067: the external read-only client/customer audience.
+  client: "ลูกค้า",
 };
 
 // Spec 193 U3 — feedback type + triage-status labels for the super_admin review
