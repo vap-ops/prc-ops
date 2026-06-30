@@ -484,6 +484,123 @@ export type Database = {
           },
         ]
       }
+      client_invites: {
+        Row: {
+          access_expires_at: string
+          claimed_at: string | null
+          claimed_by: string | null
+          created_at: string
+          created_by: string
+          id: string
+          project_id: string
+          token_hash: string
+        }
+        Insert: {
+          access_expires_at: string
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          project_id: string
+          token_hash: string
+        }
+        Update: {
+          access_expires_at?: string
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          project_id?: string
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_invites_claimed_by_fkey"
+            columns: ["claimed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_invites_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_invites_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_portal_access: {
+        Row: {
+          expires_at: string | null
+          granted_at: string
+          granted_by: string
+          id: string
+          project_id: string
+          revoked_at: string | null
+          revoked_by: string | null
+          user_id: string
+        }
+        Insert: {
+          expires_at?: string | null
+          granted_at?: string
+          granted_by: string
+          id?: string
+          project_id: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          user_id: string
+        }
+        Update: {
+          expires_at?: string | null
+          granted_at?: string
+          granted_by?: string
+          id?: string
+          project_id?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_portal_access_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_portal_access_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_portal_access_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_portal_access_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           contact_person: string | null
@@ -5432,6 +5549,7 @@ export type Database = {
         Args: { p_date: string; p_item: string; p_wp: string }
         Returns: string
       }
+      claim_client_invite: { Args: { p_token: string }; Returns: undefined }
       claim_contractor_invite: { Args: { p_token: string }; Returns: string }
       claim_next_report: {
         Args: never
@@ -5461,6 +5579,7 @@ export type Database = {
           clawed_workers: number
         }[]
       }
+      client_has_live_access: { Args: { p_project: string }; Returns: boolean }
       clone_work_packages: {
         Args: { p_dst_project_id: string; p_src_project_id: string }
         Returns: number
@@ -5544,6 +5663,10 @@ export type Database = {
           p_vat_rate?: number
           p_wht_rate?: number
         }
+        Returns: string
+      }
+      create_client_invite: {
+        Args: { p_project: string; p_valid_until: string }
         Returns: string
       }
       create_contractor_invite: {
@@ -6127,6 +6250,10 @@ export type Database = {
       reverse_stock_receipt: {
         Args: { p_note?: string; p_receipt_id: string }
         Returns: string
+      }
+      revoke_client_access: {
+        Args: { p_access_id: string }
+        Returns: undefined
       }
       revoke_contractor_consent: { Args: { p_id: string }; Returns: undefined }
       set_accounting_period_status: {

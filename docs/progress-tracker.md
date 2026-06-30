@@ -20,7 +20,7 @@ ADR 0066 S6 (`033000`) merged; reserved migration ts `034000` (U1 enum) / `03500
 | Unit | Scope                                                                  | Schema | Status      |
 | ---- | ---------------------------------------------------------------------- | ------ | ----------- |
 | U1   | ADR 0067 + `client` enum + `CLIENT_ISSUER_ROLES` + `/client` routing   | enum   | ✅ done     |
-| U2   | `client_portal_access` + `client_invites` + helper + 3 RPCs + RLS arms | yes    | not started |
+| U2   | `client_portal_access` + `client_invites` + helper + 3 RPCs + RLS arms | yes    | ✅ done     |
 | U3   | PD invite block (date → create link → list/revoke) + actions           | —      | not started |
 | U4   | `/client` read-only render (4 surfaces, signed URLs)                   | —      | not started |
 | U5   | `/client/claim` LINE bind flow + already-bound redirect                | —      | not started |
@@ -37,7 +37,45 @@ safe-by-default until U2/U4), `/client/claim` (visitor-reachable, already-bound 
 the action), `/client/access-ended` (calm lapsed notice, no gate). Added the `client` label
 (`ลูกค้า`) to the exhaustive `USER_ROLE_LABEL`, and classified the 3 routes in the nav anti-drift
 registry (mirrors `/portal`). **Tests:** role-home + client-issuer red→green; full suite **2052**
-pass; lint + typecheck clean.
+pass; lint + typecheck clean. Shipped PR #195, PAT-merged (`d24045f`).
+
+### U2 — schema + RPCs + RLS — ✅ done (2026-06-30)
+
+Migrations `20260813035000_client_portal_access.sql` (tables `client_portal_access` +
+`client_invites`; `client_has_live_access(uuid)` SECURITY DEFINER predicate; RLS enable + revoke-all
+
+- explicit SELECT grants; PD/super manage arms + client-reads-own-access; **dedicated client read
+  arms** on projects / work_packages / complete-WP photos / completed reports) and
+  `20260813036000_client_invite_rpcs.sql` (`create_client_invite` / `claim_client_invite` /
+  `revoke_client_access`) applied to the shared DB; `db:types` regenerated (app + worker, ADR 0047).
+  RPC bodies cloned from the **live** `create_contractor_invite` / `claim_contractor_invite`
+  (`pg_get_functiondef`): SHA-256 token hashing via `extensions.digest`, visitor-only claim, role
+  flip, `audit_log`. Gate = PD/super only (coalesce-false null-safe), EXECUTE revoked from
+  public/anon. pgTAP `242-spec233-client-portal.test.sql` (**34 assertions, all green**): catalog/RLS,
+  helper live/revoked/expired, client visibility scoped to the one live project (cross-project +
+  non-complete-WP photos + non-complete reports all invisible), money no-leak (no client arm on
+  `wp_labor_costs`; arms only on the 4 surfaces), PD-only create/revoke (pm → 42501), visitor-only
+  single-use claim. Six existing pins updated for the legit policy/enum changes (`01-users` +
+  `231-sql-role-predicates` enum 12→13; `07`/`08`/`09`/`12` policy-exactness gain the client SELECT
+  arm, "no DELETE / append-only" invariants intact). Full pgTAP **203/204 files** green.
+
+**Open questions / notes (U2):**
+
+- **`projects.budget_amount_thb` is a money column on a row the client CAN read.** Postgres RLS is
+  row-level only and `client` shares the `authenticated` DB role with staff, so a column grant
+  cannot block it per app-role. Mitigation: the **U4 client reader MUST select only safe columns**
+  (never `budget_amount_thb`); the money _tables_ carry no client arm. Flagged so U4 honours it.
+- **Revoke is terminal per (client, project) pair in v1 (intentional).** `unique (user_id,
+project_id)` is per spec §3.2. Once revoked, that client (now role `client`, not `visitor`) cannot
+  re-claim — the visitor-only gate in `claim_client_invite` rejects it (42501) before any INSERT, so
+  the unique constraint is never actually hit. Re-grant/renewal is explicitly out of scope (spec §8).
+  A reviewer flagged the constraint as a re-grant blocker; verified it is not a live bug (gate blocks
+  the path) and left as-specified. If renewal is ever built, switch to a partial unique index
+  (`where revoked_at is null`) in that spec.
+- **Pre-existing pgTAP failure (NOT spec 233):** `239-spec225-catalog-item-categories` fails — one
+  `catalog_items` row has 0 `is_primary` memberships (spec-225 / S4 backfill orphan, PR #191 /
+  `2f3caad`; pgTAP isn't in CI so it merged). Orthogonal to spec 233 (no client-portal migration
+  touches `catalog_item_categories`). Flagged for a separate fix.
 
 ## ADR 0066 — Procurement taxonomy redesign (specs 223–232) — SPEC AUTHORED (2026-06-30, session S0)
 
