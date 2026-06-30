@@ -124,8 +124,10 @@ export function ClientProgressView({ view, backHref }: { view: ClientView; backH
                   rel="noopener noreferrer"
                   className={`${CARD} flex items-center justify-between gap-3`}
                 >
-                  <span className="text-ink text-sm">รายงาน {formatThaiDate(r.createdAt)}</span>
-                  <span className="text-action text-xs font-medium">เปิด</span>
+                  <span className="text-ink min-w-0 truncate text-sm">
+                    รายงาน {formatThaiDate(r.createdAt)}
+                  </span>
+                  <span className="text-action shrink-0 text-xs font-medium">เปิด</span>
                 </a>
               </li>
             ))}
