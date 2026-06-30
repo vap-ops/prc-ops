@@ -3,9 +3,9 @@
 // Spec 234 / ADR 0067 U3 — PD/super affordance on the project page to attach an
 // EXISTING client login (a person the PD already granted on another project) to
 // THIS project. Pick the client + a valid-until → grant_client_access via the
-// action. Renders nothing when there are no candidates (every client is already
-// on this project, or there are none yet — the create-link block covers new
-// clients). Mirrors client-invite-block.tsx.
+// action. Always renders for an issuer (discoverability); when there are no
+// candidate clients yet it shows a hint pointing at the create-link block above,
+// instead of the picker. Mirrors client-invite-block.tsx.
 
 import { useState, useTransition } from "react";
 import { grantClientAccess } from "@/app/projects/[projectId]/actions";
