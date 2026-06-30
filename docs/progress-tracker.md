@@ -22,8 +22,8 @@ ADR 0066 S6 (`033000`) merged; reserved migration ts `034000` (U1 enum) / `03500
 | U1   | ADR 0067 + `client` enum + `CLIENT_ISSUER_ROLES` + `/client` routing   | enum   | ✅ done     |
 | U2   | `client_portal_access` + `client_invites` + helper + 3 RPCs + RLS arms | yes    | ✅ done     |
 | U3   | PD invite block (date → create link → list/revoke) + actions           | —      | ✅ done     |
-| U4   | `/client` read-only render (4 surfaces, signed URLs)                   | —      | in progress |
-| U5   | `/client/claim` LINE bind flow + already-bound redirect                | —      | not started |
+| U4   | `/client` read-only render (4 surfaces, signed URLs)                   | —      | ✅ done     |
+| U5   | `/client/claim` LINE bind flow + already-bound redirect                | —      | in progress |
 
 > U3–U5 are CODE-ONLY → shipped as ONE auto-merge PR (branch `spec-233-ui`, three TDD commits) to
 > minimise the concurrent-disruption window after the spec-225-fix session reclaimed the schema lane.
@@ -92,6 +92,25 @@ button. Mounted on the project page beside `CategoriesManager`, gated `isClientI
 `client-portal-actions.test.ts` (pm→reject, pd→{ok,token}, bad date→reject, revoke gate) +
 `client-invite-block.test.tsx` (date required, link shown, bindings+revoke) red→green; registered
 `client-portal` in the feature-domain structure test; lint + typecheck clean.
+
+### U4 — `/client` read-only render — ✅ done (2026-06-30)
+
+`loadClientView(supabase)` (`src/lib/client-portal/load-client-view.ts`) — reads the four surfaces
+through the caller's RLS server client (the U2 client read arms scope rows to the one live project);
+returns `null` when there is no live project (→ access-ended). **SAFE COLUMNS ONLY** — no money
+column is ever selected (pinned by the test's money-regex over every `.select`). Photos are
+supersede-anti-joined (ADR 0009) + tombstone-filtered, then signed via the shared `mintSignedUrls`
+(PHOTOS_BUCKET / REPORTS_BUCKET). `<ClientProgressView>` renders summary · WP status ·
+approved-photo grid · completed-report download links + logout — a Server Component, no edit
+affordance. `/client/page.tsx` = `requireRole(['client'])` → `loadClientView` → `null` redirects to
+`/client/access-ended`, else renders. **Tests:** `load-client-view.test.ts` (null-when-no-project,
+no-money-columns, supersede anti-join) + `client-progress-view.test.tsx` (4 surfaces, report link,
+no edit controls); lint + typecheck clean.
+
+**Open question (U4):** the spec calls for **watermarked** photos, but the app has **no watermark
+mechanism** (ADR 0003 intent, never built — `grep watermark src/` is empty). Per
+library/scope discipline I did not invent one; the portal serves approved-photo signed URLs directly
+(same exposure model as every other signed-URL surface). Watermarking is a follow-up if wanted.
 
 ## ADR 0066 — Procurement taxonomy redesign (specs 223–232) — SPEC AUTHORED (2026-06-30, session S0)
 
