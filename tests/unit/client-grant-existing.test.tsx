@@ -26,9 +26,11 @@ beforeEach(() => {
 });
 
 describe("ClientGrantExisting", () => {
-  it("renders nothing when there are no candidate clients", () => {
-    const { container } = render(<ClientGrantExisting projectId="p1" candidates={[]} />);
-    expect(container).toBeEmptyDOMElement();
+  it("shows a hint (and no client picker) when there are no candidate clients", () => {
+    render(<ClientGrantExisting projectId="p1" candidates={[]} />);
+    // discoverable: the card + an explanatory hint, not a hidden component
+    expect(screen.getByText(/ยังไม่มีลูกค้าที่เคยเข้าถึงโครงการอื่น/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("ลูกค้าที่มีอยู่")).toBeNull();
   });
 
   it("grants the picked client for the chosen date", async () => {
