@@ -225,6 +225,7 @@ break-glass, off-sequence, operator-scheduled.)
 | [231](feature-specs/231-estimate-template-bid-layer.md)  | S10     | Estimate/template/bid layer + assemblies (LATER epic — decomposed into U1–U6)        | MIXED, multi-session | per sub-unit at build  | 🔨 U1 HELD (#207) |
 | [236](feature-specs/236-boq-template-line-core.md)       | S10-U1  | BOQ estimate core: `boq_template` + `boq_line` + 6 RPCs (3-grain invariant)          | 🔔 ONE-TAP HOLD      | `20260813040000`       | 🔔 HELD PR #207   |
 | [237](feature-specs/237-boq-estimate-authoring-ui.md)    | S10-U2  | BOQ estimate authoring UI (list/create + detail/line table/totals + add/edit/remove) | ✅ AUTO-MERGE        | — (code-only)          | ✅ SHIPPED        |
+| [238](feature-specs/238-boq-assemblies.md)               | S10-U3  | Assemblies: `kind=assembly` + `catalog_assembly_components` BOM + explode (D5)       | 🔔 ONE-TAP HOLD      | `041000`+`042000`      | 🔔 HELD PR #209   |
 | [232](feature-specs/232-category-rehome-breakglass.md)   | S3      | C1 re-home cats 09/10/13 (product_code shift)                                        | 🧨 BREAK-GLASS       | assigned at scheduling | not started       |
 
 **Open questions surfaced (S0):** (1) the exact `stockable` derivation rule + whether
@@ -749,6 +750,42 @@ ordering (deferred). (2) No line reorder control (the `sort_order` column exists
 The spec's AC1 names `requireActionRole` for the server action; this unit uses `requireRole(BACK_OFFICE_ROLES)`
 to match the sibling `src/app/catalog/actions.ts` (createCatalogItem) pattern exactly — same role set, same
 defense-in-depth posture, friendlier `requireRole` redirect on a non-curator. The DEFINER RPC gates again.
+
+### S10-U3 — Assemblies: `kind=assembly` + BOM + explode (spec 238) — 🔔 HELD PR (2026-06-30)
+
+Decision **D5 = explode COMPUTED-ON-READ** (resolver, no persisted explosion rows). Two migrations:
+`20260813041000` (`alter type catalog_item_kind add value 'assembly'` — its OWN migration: `ALTER TYPE ADD
+VALUE` can't share a txn with code that uses the new label) + `20260813042000` (the BOM table + RPCs +
+explode). Applied to the shared DB; main↔DB sync moves to `042000` once the held PR merges.
+
+`catalog_assembly_components(id, assembly_id → catalog_items ON DELETE CASCADE, component_item_id →
+catalog_items ON DELETE RESTRICT, qty_per numeric(14,4) >0, waste_factor numeric(6,4) >=0, created_by,
+created_at)` + `cac_no_self_ref` CHECK (`assembly_id <> component_item_id`) + unique `(assembly_id,
+component_item_id)` + both FK indexes. RLS + grant-select-to-authenticated + `using(true)`, no write/delete
+grant. 3 null-safe SECURITY DEFINER RPCs `add/update/remove_assembly_component` (pm/super/procurement/director)
+— `add_` rejects a non-assembly parent / self-ref / unknown assembly·component / qty<=0 / negative waste with
+`22023`, dup with native `23505`. **`explode_assembly(p_assembly_id, p_qty default 1)`** = a `stable` SQL
+function, **SECURITY INVOKER** (reads via the caller's RLS), `grant execute to authenticated` + revoke
+public/anon; returns `(component_item_id, qty_per, waste_factor, effective_qty)` with `effective_qty =
+round(qty_per*(1+waste_factor)*p_qty, 4)`; no BOM → zero rows.
+
+**Decisions made:** D5 computed-on-read; explode is **single-level** (direct components) for v1; the
+`assembly` enum label add necessitated an `assembly` entry in `ITEM_KIND_OPTION_LABEL` (`ชุดประกอบ`) — caught
+by typecheck (`Record<catalog_item_kind, string>`). Role set = pm/super/procurement/director (catalog/material
+side, ADR 0066 D8). Component FK is RESTRICT (an item used in a BOM can't be hard-deleted out from under it);
+assembly FK is CASCADE.
+
+**Verification:** pgTAP `246-spec238-boq-assemblies.test.sql` (45 asserts: enum label, table/RLS/grant/no-delete,
+FKs, the 3 RPCs' DEFINER+anon-revoke posture + behaviour [22023/23505/42501, non-assembly-parent, self-ref,
+explode arithmetic 3*1.1*2=6.6], procurement-admit, null-safe deny). Full pgTAP suite **208/3822/0** (one libuv
+timer flake on the first run — re-ran clean). `lint`·`typecheck`·`vitest 2157` green. Adversarial review
+(cavecrew-reviewer) = no issues.
+
+**Open questions (S10-U3):** (1) **nested explosion** (a component that is itself an assembly) is NOT handled —
+v1 explode is single-level; recursive expansion + cycle handling is a future unit. (2) explode is
+computed-on-read (D5); persisting exploded rows into a boq/supply grain is deferred. (3) the BOM editor UI +
+explode view is **S10-U4**. (4) `explode_assembly` reads via RLS (INVOKER) but the table policy is `using(true)`
+firm-wide, so no per-project scoping (estimate library is firm-wide, matching the rest of the chain).
 
 ---
 

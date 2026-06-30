@@ -270,6 +270,51 @@ export type Database = {
         }
         Relationships: []
       }
+      catalog_assembly_components: {
+        Row: {
+          assembly_id: string
+          component_item_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          qty_per: number
+          waste_factor: number
+        }
+        Insert: {
+          assembly_id: string
+          component_item_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          qty_per: number
+          waste_factor?: number
+        }
+        Update: {
+          assembly_id?: string
+          component_item_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          qty_per?: number
+          waste_factor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_assembly_components_assembly_id_fkey"
+            columns: ["assembly_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_assembly_components_component_item_id_fkey"
+            columns: ["component_item_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       catalog_categories: {
         Row: {
           code: string
@@ -5587,6 +5632,15 @@ export type Database = {
     }
     Functions: {
       acknowledge_site_purchase: { Args: { p_id: string }; Returns: undefined }
+      add_assembly_component: {
+        Args: {
+          p_assembly_id: string
+          p_component_item_id: string
+          p_qty_per: number
+          p_waste_factor?: number
+        }
+        Returns: string
+      }
       add_boq_line: {
         Args: {
           p_boq_template_id: string
@@ -5972,6 +6026,15 @@ export type Database = {
         }
         Returns: string
       }
+      explode_assembly: {
+        Args: { p_assembly_id: string; p_qty?: number }
+        Returns: {
+          component_item_id: string
+          effective_qty: number
+          qty_per: number
+          waste_factor: number
+        }[]
+      }
       feedback_unread_ids: { Args: never; Returns: string[] }
       freeze_wp_labor_cost: { Args: { p_wp: string }; Returns: undefined }
       generate_purchase_requests_from_plan: {
@@ -6331,6 +6394,7 @@ export type Database = {
       }
       reject_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
       release_retention: { Args: { p_id: string }; Returns: string }
+      remove_assembly_component: { Args: { p_id: string }; Returns: undefined }
       remove_boq_line: { Args: { p_id: string }; Returns: undefined }
       remove_catalog_item_category: {
         Args: {
@@ -6655,6 +6719,10 @@ export type Database = {
         Args: { p_a: string; p_b: string }
         Returns: boolean
       }
+      update_assembly_component: {
+        Args: { p_id: string; p_qty_per: number; p_waste_factor?: number }
+        Returns: undefined
+      }
       update_boq_line: {
         Args: {
           p_catalog_item_id?: string
@@ -6885,6 +6953,7 @@ export type Database = {
         | "labor"
         | "service"
         | "softcost"
+        | "assembly"
       client_billing_status:
         | "draft"
         | "submitted"
@@ -7214,6 +7283,7 @@ export const Constants = {
         "labor",
         "service",
         "softcost",
+        "assembly",
       ],
       client_billing_status: [
         "draft",
