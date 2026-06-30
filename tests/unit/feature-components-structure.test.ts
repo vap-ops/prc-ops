@@ -39,6 +39,8 @@ const ALLOWED_DOMAINS = [
   "roles",
   // Spec 233 / ADR 0067: the temporary client progress portal (PD invite block).
   "client-portal",
+  // Spec 237 (ADR 0066 S10): the BOQ estimate authoring components (template + line).
+  "boq",
 ] as const;
 
 describe("feature components are grouped into domain folders", () => {
