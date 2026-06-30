@@ -33,9 +33,16 @@ function renderForm(onSubmit = vi.fn().mockResolvedValue({ ok: true } as const))
   return onSubmit;
 }
 
-describe("CatalogItemForm facets (spec 224)", () => {
-  it("renders the kind / fulfillment / owner-supplied facet controls", () => {
+// Spec 239 U2 — the facets moved behind the "ไม่ใช่วัสดุทั่วไป?" reveal.
+function openFacets() {
+  fireEvent.click(screen.getByRole("button", { name: /ไม่ใช่วัสดุทั่วไป/ }));
+}
+
+describe("CatalogItemForm facets (spec 224 / 239 U2)", () => {
+  it("hides the facet controls until the ไม่ใช่วัสดุทั่วไป reveal is opened", () => {
     renderForm();
+    expect(screen.queryByLabelText("ประเภทรายการ")).toBeNull();
+    openFacets();
     expect(screen.getByLabelText("ประเภทรายการ")).toBeInTheDocument();
     expect(screen.getByLabelText("การจัดหา")).toBeInTheDocument();
     expect(screen.getByLabelText("เจ้าของโครงการจัดหาเอง")).toBeInTheDocument();
@@ -46,7 +53,7 @@ describe("CatalogItemForm facets (spec 224)", () => {
     expect(screen.queryByLabelText("เก็บสต๊อกได้")).toBeNull();
   });
 
-  it("defaults the facets to material / off_shelf / not-owner-supplied", () => {
+  it("defaults the facets to material / off_shelf / not-owner-supplied (reveal untouched)", () => {
     const onSubmit = renderForm();
     fireEvent.change(screen.getByLabelText("หมวดหมู่"), { target: { value: "cat-elec" } });
     fireEvent.change(screen.getByLabelText("ชื่อวัสดุ"), { target: { value: "ของปกติ" } });
@@ -68,6 +75,7 @@ describe("CatalogItemForm facets (spec 224)", () => {
     fireEvent.change(screen.getByLabelText("หมวดหมู่"), { target: { value: "cat-elec" } });
     fireEvent.change(screen.getByLabelText("ชื่อวัสดุ"), { target: { value: "ของสั่งทำ" } });
     fireEvent.change(screen.getByLabelText("หน่วยนับ"), { target: { value: "อัน" } });
+    openFacets();
     fireEvent.change(screen.getByLabelText("ประเภทรายการ"), { target: { value: "tool" } });
     fireEvent.change(screen.getByLabelText("การจัดหา"), { target: { value: "made_to_order" } });
     fireEvent.click(screen.getByLabelText("เจ้าของโครงการจัดหาเอง"));

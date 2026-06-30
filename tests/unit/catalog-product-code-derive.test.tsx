@@ -1,6 +1,7 @@
-// Spec 221 U4 — the item form COMPOSES the product code from the taxonomy: the
-// prefix (the main-category code, plus the subcategory code when one is chosen)
-// is derived + shown read-only; the user types only the trailing "sequence".
+// Spec 221 U4 / 239 U2 — the item form COMPOSES the product code from the
+// category code (subcategory flattened away in spec 239 U2): the prefix is derived
+// + shown read-only; the user types only the trailing "sequence". The field lives
+// behind the "เพิ่มรายละเอียด" reveal (auto-opened when the item already has a code).
 // An empty tail means no code (the code stays optional, spec 214).
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -15,7 +16,6 @@ const CATS: CatalogCategoryOption[] = [
   { id: "cat-steel", code: "01", name: "เหล็ก" },
   { id: "cat-elec", code: "06", name: "ไฟฟ้า" },
 ];
-const SUBS = [{ id: "sub-struct", categoryId: "cat-steel", code: "02", name: "วัสดุโครงสร้าง" }];
 
 function renderForm(
   initial: CatalogItemValues,
@@ -25,7 +25,6 @@ function renderForm(
     <CatalogItemForm
       initial={initial}
       categories={CATS}
-      subcategories={SUBS}
       submitLabel="บันทึก"
       submittingLabel="กำลังบันทึก"
       onSubmit={onSubmit}
@@ -36,7 +35,14 @@ function renderForm(
   return onSubmit;
 }
 
-describe("CatalogItemForm — product-code derivation (spec 221 U4)", () => {
+// Spec 239 U2 — open the details reveal if it is collapsed (it auto-opens for an
+// item that already carries a product code or spec).
+function openDetails() {
+  const toggle = screen.queryByRole("button", { name: /เพิ่มรายละเอียด/ });
+  if (toggle && toggle.getAttribute("aria-expanded") === "false") fireEvent.click(toggle);
+}
+
+describe("CatalogItemForm — product-code derivation (spec 221 U4 / 239 U2)", () => {
   it("category-only: shows the category code as prefix and composes a 4-digit tail", async () => {
     const onSubmit = renderForm({
       ...EMPTY_CATALOG_VALUES,
@@ -44,29 +50,12 @@ describe("CatalogItemForm — product-code derivation (spec 221 U4)", () => {
       baseItem: "สายไฟ",
       unit: "ม้วน",
     });
+    openDetails();
     expect(screen.getByText("06")).toBeInTheDocument(); // derived prefix
     fireEvent.change(screen.getByLabelText(/รหัสสินค้า/), { target: { value: "0120" } });
     fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ productCode: "060120" })),
-    );
-  });
-
-  it("with a subcategory: prefix = category + subcategory code and the tail is 2 digits", async () => {
-    const onSubmit = renderForm({
-      ...EMPTY_CATALOG_VALUES,
-      categoryId: "cat-steel",
-      baseItem: "เหล็ก",
-      unit: "ท่อน",
-    });
-    fireEvent.change(screen.getByLabelText("หมวดย่อย"), { target: { value: "sub-struct" } });
-    expect(screen.getByText("0102")).toBeInTheDocument(); // derived prefix
-    fireEvent.change(screen.getByLabelText(/รหัสสินค้า/), { target: { value: "50" } });
-    fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
-    await waitFor(() =>
-      expect(onSubmit).toHaveBeenCalledWith(
-        expect.objectContaining({ productCode: "010250", subcategoryId: "sub-struct" }),
-      ),
     );
   });
 
@@ -83,15 +72,18 @@ describe("CatalogItemForm — product-code derivation (spec 221 U4)", () => {
     );
   });
 
-  it("an incomplete tail blocks submit (4 digits required when there is no subcategory)", () => {
-    renderForm({
+  it("an incomplete tail is named (not silently blocked) and does not submit", async () => {
+    const onSubmit = renderForm({
       ...EMPTY_CATALOG_VALUES,
       categoryId: "cat-elec",
       baseItem: "สายไฟ",
       unit: "ม้วน",
     });
+    openDetails();
     fireEvent.change(screen.getByLabelText(/รหัสสินค้า/), { target: { value: "01" } });
-    expect(screen.getByRole("button", { name: "บันทึก" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("6 หลัก"));
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it("changing the category resets the typed sequence (the prefix changed)", () => {
@@ -101,6 +93,7 @@ describe("CatalogItemForm — product-code derivation (spec 221 U4)", () => {
       baseItem: "สายไฟ",
       unit: "ม้วน",
     });
+    openDetails();
     const tail = screen.getByLabelText(/รหัสสินค้า/) as HTMLInputElement;
     fireEvent.change(tail, { target: { value: "0120" } });
     expect(tail.value).toBe("0120");
@@ -111,11 +104,12 @@ describe("CatalogItemForm — product-code derivation (spec 221 U4)", () => {
   it("edit: seeds the tail from the existing code by stripping the derived prefix", () => {
     renderForm({
       ...EMPTY_CATALOG_VALUES,
-      categoryId: "cat-elec", // code 06, no subcategory → prefix length 2
+      categoryId: "cat-elec", // code 06 → prefix length 2
       baseItem: "สายไฟ",
       unit: "ม้วน",
       productCode: "060150",
     });
+    // Auto-revealed because the item carries a code.
     expect((screen.getByLabelText(/รหัสสินค้า/) as HTMLInputElement).value).toBe("0150");
   });
 
@@ -157,6 +151,7 @@ describe("CatalogItemForm — product-code derivation (spec 221 U4)", () => {
       baseItem: "สายไฟ",
       unit: "ม้วน",
     });
+    openDetails();
     expect(screen.getByLabelText(/รหัสสินค้า/)).toHaveAttribute("aria-describedby", "ci-code-hint");
     expect(document.getElementById("ci-code-hint")?.textContent).toContain("06");
   });

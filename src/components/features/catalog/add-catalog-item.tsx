@@ -1,30 +1,24 @@
 "use client";
 
 // Spec 175 U2 — "add item" to the catalog. Thin wrapper: owns the sheet open
-// state; the fields + submit live in the shared CatalogItemForm (U3). The
-// createCatalogItem action + the SECURITY DEFINER RPC carry the role gate +
-// identity uniqueness. BottomSheet unmounts the form on close, so it reopens blank.
+// state; the fields + submit live in the shared CatalogItemForm. Spec 239 U2 —
+// the subcategory picker is flattened away, and the form can create a category
+// in-flow (onCreateCategory → createCatalogCategory). The createCatalogItem action
+// + the SECURITY DEFINER RPC carry the role gate + identity uniqueness.
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { BUTTON_PRIMARY } from "@/lib/ui/classes";
-import { createCatalogItem } from "@/app/catalog/actions";
-import {
-  CatalogItemForm,
-  EMPTY_CATALOG_VALUES,
-  type CatalogSubcategoryOption,
-  type CatalogUnitOption,
-} from "./catalog-item-form";
+import { createCatalogItem, createCatalogCategory } from "@/app/catalog/actions";
+import { CatalogItemForm, EMPTY_CATALOG_VALUES, type CatalogUnitOption } from "./catalog-item-form";
 import type { CatalogCategoryOption } from "./catalog-list";
 
 export function AddCatalogItem({
   categories = [],
-  subcategories = [],
   units = [],
 }: {
   categories?: CatalogCategoryOption[];
-  subcategories?: CatalogSubcategoryOption[];
   units?: CatalogUnitOption[];
 }) {
   const router = useRouter();
@@ -40,11 +34,14 @@ export function AddCatalogItem({
         <CatalogItemForm
           initial={EMPTY_CATALOG_VALUES}
           categories={categories}
-          subcategories={subcategories}
           units={units}
           submitLabel="เพิ่มรายการ"
           submittingLabel="กำลังเพิ่ม…"
           onSubmit={(values) => createCatalogItem(values)}
+          onCreateCategory={async ({ code, name }) => {
+            const result = await createCatalogCategory({ code, name, sortOrder: 0 });
+            return result.ok ? { ok: true, id: result.id } : { ok: false, error: result.error };
+          }}
           onSuccess={() => {
             setOpen(false);
             router.refresh();

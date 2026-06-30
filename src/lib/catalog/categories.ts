@@ -80,3 +80,23 @@ export function itemInCategoryScope(
 ): boolean {
   return itemCategoryIds(canonicalCategoryId, secondary).has(scopeCategoryId);
 }
+
+// Spec 239 U2 (ADR 0066 / C1) — the item-form multi-category control writes
+// SECONDARY memberships. The save action reconciles the item's current secondary
+// set against the chosen one. This is the SSOT for that diff: the primary (the
+// canonical home) is maintained by update_catalog_item, so it is excluded from
+// both sides — it can never be a secondary.
+
+/** The secondary memberships to add / remove to reach `desired` from `current`,
+ *  excluding the primary category (it is the canonical home, never a secondary). */
+export function diffSecondaryMemberships(
+  currentSecondaryIds: string[],
+  desiredCategoryIds: string[],
+  primaryCategoryId: string,
+): { toAdd: string[]; toRemove: string[] } {
+  const current = new Set(currentSecondaryIds.filter((id) => id !== primaryCategoryId));
+  const desired = new Set(desiredCategoryIds.filter((id) => id !== primaryCategoryId));
+  const toAdd = [...desired].filter((id) => !current.has(id));
+  const toRemove = [...current].filter((id) => !desired.has(id));
+  return { toAdd, toRemove };
+}

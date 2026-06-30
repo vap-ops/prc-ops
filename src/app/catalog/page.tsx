@@ -15,17 +15,14 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import Link from "next/link";
 import { CatalogList, type CatalogItem } from "@/components/features/catalog/catalog-list";
-import type {
-  CatalogSubcategoryOption,
-  CatalogUnitOption,
-} from "@/components/features/catalog/catalog-item-form";
-import { loadCatalogCategories } from "@/lib/catalog/categories";
-import { AddCatalogItem } from "@/components/features/catalog/add-catalog-item";
+import type { CatalogUnitOption } from "@/components/features/catalog/catalog-item-form";
 import {
-  CATALOG_LABEL,
-  MANAGE_TAXONOMY_LABEL,
-  MANAGE_BOQ_TEMPLATES_LABEL,
-} from "@/lib/i18n/labels";
+  loadCatalogCategories,
+  loadCatalogItemMemberships,
+  membershipsByItem,
+} from "@/lib/catalog/categories";
+import { AddCatalogItem } from "@/components/features/catalog/add-catalog-item";
+import { CATALOG_LABEL, MANAGE_TAXONOMY_LABEL } from "@/lib/i18n/labels";
 
 export const metadata = { title: CATALOG_LABEL };
 
@@ -36,7 +33,7 @@ export default async function CatalogPage() {
   const { data: rows } = await supabase
     .from("catalog_items")
     .select(
-      "id, category_id, base_item, spec_attrs, unit, note, image_path, product_code, subcategory_id, kind, fulfillment_mode, owner_supplied",
+      "id, category_id, base_item, spec_attrs, unit, note, image_path, product_code, subcategory_id, kind, fulfillment_mode, owner_supplied, search_terms",
     )
     .eq("is_active", true)
     .order("base_item", { ascending: true });
@@ -44,19 +41,10 @@ export default async function CatalogPage() {
   // Spec 221 U3c — the managed main categories (names + order for the filter + form).
   const categories = await loadCatalogCategories(supabase);
 
-  // Spec 219/221 — the subcategory options for the add/edit cascading picker.
-  const { data: subRows } = await supabase
-    .from("catalog_subcategories")
-    .select("id, category_id, code, name")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true })
-    .order("code", { ascending: true });
-  const subcategories: CatalogSubcategoryOption[] = (subRows ?? []).map((r) => ({
-    id: r.id,
-    categoryId: r.category_id ?? "",
-    code: r.code,
-    name: r.name,
-  }));
+  // Spec 239 U2 — the secondary memberships (catalog_item_categories) for browse-by-
+  // union + the edit-form multi-category pre-fill. The primary is on the row itself,
+  // so it is stripped from each item's secondary set.
+  const memberships = membershipsByItem(await loadCatalogItemMemberships(supabase));
 
   // Spec 223 (ADR 0066) — the managed unit vocabulary for the item-form picker
   // (active rows; the table is the SSOT, COMMON_UNITS is only an in-code fallback).
@@ -91,23 +79,29 @@ export default async function CatalogPage() {
     for (const r of rates ?? []) sellRates.set(r.catalog_item_id, r.sell_rate);
   }
 
-  const items: CatalogItem[] = (rows ?? []).map((r) => ({
-    id: r.id,
-    categoryId: r.category_id,
-    baseItem: r.base_item,
-    specAttrs: r.spec_attrs,
-    unit: r.unit,
-    productCode: r.product_code,
-    note: r.note,
-    subcategoryId: r.subcategory_id,
-    kind: r.kind,
-    fulfillmentMode: r.fulfillment_mode,
-    ownerSupplied: r.owner_supplied,
-    thumbnailUrl: signed.get(r.id) ?? null,
-    // Omit the key entirely for non-super (exactOptionalPropertyTypes forbids an
-    // explicit `undefined`) — the rate never reaches the client for them.
-    ...(canSetSellRate ? { sellRate: sellRates.get(r.id) ?? null } : {}),
-  }));
+  const items: CatalogItem[] = (rows ?? []).map((r) => {
+    // Spec 239 U2 — the secondary set is every membership minus the primary.
+    const secondary = [...(memberships.get(r.id) ?? [])].filter((id) => id !== r.category_id);
+    return {
+      id: r.id,
+      categoryId: r.category_id,
+      baseItem: r.base_item,
+      specAttrs: r.spec_attrs,
+      unit: r.unit,
+      productCode: r.product_code,
+      note: r.note,
+      subcategoryId: r.subcategory_id,
+      kind: r.kind,
+      fulfillmentMode: r.fulfillment_mode,
+      ownerSupplied: r.owner_supplied,
+      searchTerms: r.search_terms,
+      secondaryCategoryIds: secondary,
+      thumbnailUrl: signed.get(r.id) ?? null,
+      // Omit the key entirely for non-super (exactOptionalPropertyTypes forbids an
+      // explicit `undefined`) — the rate never reaches the client for them.
+      ...(canSetSellRate ? { sellRate: sellRates.get(r.id) ?? null } : {}),
+    };
+  });
 
   return (
     <PageShell>
@@ -124,20 +118,14 @@ export default async function CatalogPage() {
             >
               {MANAGE_TAXONOMY_LABEL}
             </Link>
-            {/* Spec 237 (ADR 0066 S10) — the BOQ template authoring screen. */}
-            <Link
-              href="/catalog/boq-templates"
-              className="text-action text-sm font-medium hover:underline"
-            >
-              {MANAGE_BOQ_TEMPLATES_LABEL}
-            </Link>
+            {/* Spec 239 U2 — the dormant BOQ-template link is retired (the screen +
+                tables stay; operator chose hide-not-drop). */}
           </div>
-          <AddCatalogItem categories={categories} subcategories={subcategories} units={units} />
+          <AddCatalogItem categories={categories} units={units} />
         </div>
         <CatalogList
           items={items}
           categories={categories}
-          subcategories={subcategories}
           units={units}
           editable
           canSetSellRate={canSetSellRate}

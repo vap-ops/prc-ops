@@ -1,26 +1,34 @@
-// Spec 175 U2 / 221 U3c — the "add item" form on /catalog. Back-office fills the
-// managed category (by category_id) / name / unit and the item is created.
+// Spec 175 U2 / 221 U3c / 239 U2 — the "add item" form on /catalog. Back-office
+// fills the required set (หมวดหมู่ / ชื่อ / หน่วยนับ); everything else lives behind
+// progressive-disclosure reveals. The save button is always live and NAMES a blank
+// required field. An item can be created in extra categories, and a category can be
+// created in-flow.
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockCreate, mockRefresh } = vi.hoisted(() => ({
+const { mockCreate, mockCreateCategory, mockRefresh } = vi.hoisted(() => ({
   mockCreate: vi.fn(),
+  mockCreateCategory: vi.fn(),
   mockRefresh: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
-vi.mock("@/app/catalog/actions", () => ({ createCatalogItem: mockCreate }));
+vi.mock("@/app/catalog/actions", () => ({
+  createCatalogItem: mockCreate,
+  createCatalogCategory: mockCreateCategory,
+}));
 
 import { AddCatalogItem } from "@/components/features/catalog/add-catalog-item";
 
 const CATS = [
   { id: "cat-elec", code: "06", name: "ไฟฟ้า" },
-  { id: "cat-steel", code: "01", name: "เหล็ก / อุปกรณ์ยึด" },
+  { id: "cat-steel", code: "01", name: "เหล็กโครงสร้าง" },
 ];
 
 beforeEach(() => {
   mockCreate.mockReset().mockResolvedValue({ ok: true });
+  mockCreateCategory.mockReset().mockResolvedValue({ ok: true, id: "cat-new" });
   mockRefresh.mockReset();
 });
 
@@ -35,18 +43,22 @@ function fillRequired() {
   fireEvent.change(screen.getByLabelText("หน่วยนับ"), { target: { value: "ม้วน" } });
 }
 
-describe("AddCatalogItem (spec 175 U2 / 221 U3c)", () => {
-  it("disables submit until category, name and unit are set", () => {
+describe("AddCatalogItem (spec 175 / 221 / 239 U2)", () => {
+  it("keeps the save button live and names the missing field instead of greying out", async () => {
     open();
     const submit = screen.getByRole("button", { name: "เพิ่มรายการ" });
-    expect(submit).toBeDisabled();
-    fillRequired();
     expect(submit).toBeEnabled();
+    // Click with nothing filled → it names the first missing field and does not submit.
+    fireEvent.click(submit);
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("เลือกหมวดหมู่"));
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 
-  it("creates the item with the entered values (categoryId) and refreshes", async () => {
+  it("creates the item with the entered values (categoryId, empty secondaries) and refreshes", async () => {
     open();
     fillRequired();
+    // The product code lives behind the "เพิ่มรายละเอียด" reveal.
+    fireEvent.click(screen.getByRole("button", { name: /เพิ่มรายละเอียด/ }));
     // Spec 221 U4 — the code is composed: cat-elec code "06" + the 4-digit tail.
     fireEvent.change(screen.getByLabelText(/รหัสสินค้า/), { target: { value: "0120" } });
     fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายการ" }));
@@ -64,33 +76,44 @@ describe("AddCatalogItem (spec 175 U2 / 221 U3c)", () => {
         kind: "material",
         fulfillmentMode: "off_shelf",
         ownerSupplied: false,
+        // Spec 239 U2 — no extra categories chosen.
+        secondaryCategoryIds: [],
       }),
     );
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
   });
 
-  it("shows only the chosen category's subcategories and submits the picked one", async () => {
-    const SUBS = [
-      { id: "se1", categoryId: "cat-elec", code: "01", name: "สายไฟ" },
-      { id: "ss1", categoryId: "cat-steel", code: "01", name: "วัสดุโครงสร้าง" },
-    ];
-    render(<AddCatalogItem categories={CATS} subcategories={SUBS} />);
-    fireEvent.click(screen.getByRole("button", { name: /เพิ่มวัสดุ/ }));
-    fireEvent.change(screen.getByLabelText("หมวดหมู่"), { target: { value: "cat-elec" } });
-
-    const subSelect = screen.getByLabelText("หมวดย่อย");
-    expect(subSelect).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: /สายไฟ/ })).toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: /วัสดุโครงสร้าง/ })).toBeNull();
-
-    fireEvent.change(screen.getByLabelText("ชื่อวัสดุ"), { target: { value: "สายไฟใหม่" } });
-    fireEvent.change(screen.getByLabelText("หน่วยนับ"), { target: { value: "ม้วน" } });
-    fireEvent.change(subSelect, { target: { value: "se1" } });
+  it("submits chosen secondary memberships from the multi-category control", async () => {
+    open();
+    fillRequired();
+    fireEvent.click(screen.getByRole("button", { name: /เพิ่มรายละเอียด/ }));
+    // The other category (not the primary cat-elec) is offered as a secondary.
+    fireEvent.click(screen.getByLabelText("เหล็กโครงสร้าง"));
     fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายการ" }));
 
     await waitFor(() =>
-      expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ subcategoryId: "se1" })),
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({ secondaryCategoryIds: ["cat-steel"] }),
+      ),
     );
+  });
+
+  it("creates a category in-flow and selects it", async () => {
+    open();
+    fireEvent.change(screen.getByLabelText("หมวดหมู่"), { target: { value: "__add_category__" } });
+    fireEvent.change(screen.getByLabelText("รหัสหมวดหมู่ใหม่"), { target: { value: "15" } });
+    fireEvent.change(screen.getByLabelText("ชื่อหมวดหมู่ใหม่"), { target: { value: "งานใหม่" } });
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มหมวดหมู่" }));
+
+    await waitFor(() =>
+      expect(mockCreateCategory).toHaveBeenCalledWith({
+        code: "15",
+        name: "งานใหม่",
+        sortOrder: 0,
+      }),
+    );
+    // The new category becomes the selected primary.
+    await waitFor(() => expect(screen.getByLabelText("หมวดหมู่")).toHaveValue("cat-new"));
   });
 
   it("reveals a free-text unit field when หน่วยนับ is 'อื่น ๆ' and submits it", async () => {
