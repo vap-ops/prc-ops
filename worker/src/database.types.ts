@@ -4489,6 +4489,48 @@ export type Database = {
         }
         Relationships: []
       }
+      work_category_material_categories: {
+        Row: {
+          category_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          kind_filter: Database["public"]["Enums"]["catalog_item_kind"] | null
+          work_category_id: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind_filter?: Database["public"]["Enums"]["catalog_item_kind"] | null
+          work_category_id: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind_filter?: Database["public"]["Enums"]["catalog_item_kind"] | null
+          work_category_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_category_material_categories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_category_material_categories_work_category_id_fkey"
+            columns: ["work_category_id"]
+            isOneToOne: false
+            referencedRelation: "work_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_package_dependencies: {
         Row: {
           created_at: string
@@ -5355,6 +5397,14 @@ export type Database = {
         Args: { p_lines: Json; p_plan_id: string }
         Returns: number
       }
+      add_work_category_material_category: {
+        Args: {
+          p_category_id: string
+          p_kind_filter?: Database["public"]["Enums"]["catalog_item_kind"]
+          p_work_category_id: string
+        }
+        Returns: string
+      }
       add_work_package_dependency: {
         Args: { p_predecessor: string; p_successor: string }
         Returns: boolean
@@ -6030,6 +6080,14 @@ export type Database = {
       }
       remove_supply_plan_line: {
         Args: { p_line_id: string }
+        Returns: undefined
+      }
+      remove_work_category_material_category: {
+        Args: {
+          p_category_id: string
+          p_kind_filter?: Database["public"]["Enums"]["catalog_item_kind"]
+          p_work_category_id: string
+        }
         Returns: undefined
       }
       remove_work_package_dependency: {

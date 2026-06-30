@@ -12,7 +12,7 @@ Status: **SPECS AUTHORED / not started.** Session S0 (docs-only) accepted
 [ADR 0066](decisions/0066-procurement-taxonomy-redesign.md) and authored the 10 phase
 specs below (one per build session, S0–S10). Schema is single-lane and serialized
 (S1→S2→S4→S5→S6); reserved migration timestamps `20260813029000`–`20260813033000`. S0
-ships as ONE governance-held PR (touches `docs/decisions/`). **S1 (223) + S2 (224) + S4 (225) + S5 (226) ✅ COMPLETE; next: S6 (spec 227, Relation R).** (S3 / spec 232 is
+ships as ONE governance-held PR (touches `docs/decisions/`). **S1 (223) + S2 (224) + S4 (225) + S5 (226) + S6 (227) ✅ COMPLETE; next: S7 (spec 228, scoped supply-plan picker — first code-only unit).** (S3 / spec 232 is
 break-glass, off-sequence, operator-scheduled.)
 
 | Spec                                                     | Session | Title                                                                           | Autonomy             | Reserved migration ts  | Status      |
@@ -21,7 +21,7 @@ break-glass, off-sequence, operator-scheduled.)
 | [224](feature-specs/224-catalog-item-facets.md)          | S2      | Catalog facets `kind`/`fulfillment_mode`/`owner_supplied` + derived `stockable` | 🔔 ONE-TAP HOLD      | `20260813030000`       | ✅ COMPLETE |
 | [225](feature-specs/225-catalog-secondary-membership.md) | S4      | Secondary membership `catalog_item_categories` (reuse spec-219 composite FK)    | 🔔 ONE-TAP HOLD      | `20260813031000`       | ✅ COMPLETE |
 | [226](feature-specs/226-global-work-categories.md)       | S5      | Global `work_categories` library + seed + reconcile FK + ship 207-U3c           | 🔔 ONE-TAP HOLD      | `20260813032000`       | ✅ COMPLETE |
-| [227](feature-specs/227-work-material-relation.md)       | S6      | Relation R `work_category_material_categories` bridge + seed                    | 🔔 ONE-TAP HOLD      | `20260813033000`       | not started |
+| [227](feature-specs/227-work-material-relation.md)       | S6      | Relation R `work_category_material_categories` bridge + seed                    | 🔔 ONE-TAP HOLD      | `20260813033000`       | ✅ COMPLETE |
 | [228](feature-specs/228-scoped-supply-plan-picker.md)    | S7      | UC1 scoped supply-plan picker (show-all-default)                                | ✅ AUTO-MERGE        | — (code-only)          | not started |
 | [229](feature-specs/229-scoped-wp-detail-pickers.md)     | S8      | UC2 scoped WP-detail pickers + work-cat badge                                   | ✅ AUTO-MERGE        | — (code-only)          | not started |
 | [230](feature-specs/230-category-read-side-wins.md)      | S9      | Read-side wins (3 disjoint files, parallelizable)                               | ✅ AUTO-MERGE        | — (code-only)          | not started |
@@ -236,6 +236,68 @@ optional; the BOQ carries no MasterFormat anchors, and inventing them would be u
 operators/a later unit can populate). The global-library **management UI** (CRUD screen) is
 out of scope (RPCs exist; later unit). Auto-reconciling existing project categories to global
 ones is left to the operator (the FK is nullable on purpose).
+
+---
+
+### S6 — Relation R: `work_category_material_categories` bridge + seed (spec 227) — ✅ COMPLETE (2026-06-30)
+
+Migration `20260813033000_spec227_work_material_relation.sql`. The additive M2M bridge on the
+GLOBAL library (defect **D5**) connecting the WORK axis (`work_categories`, S5) to the MATERIAL
+axis (`catalog_categories`, spec 221): `id` uuid PK, `work_category_id` → `work_categories(id)`
+**ON DELETE CASCADE**, `category_id` → `catalog_categories(id)` **ON DELETE CASCADE**, nullable
+`kind_filter catalog_item_kind` (NULL = no kind filter), `created_by`, `created_at`. RLS = enable
+
+- revoke anon/authenticated + grant SELECT to authenticated + `using (true)` policy; **no direct
+  write grant** (RPC-sole-writer). Writes via two null-safe SECURITY DEFINER RPCs
+  `add_/remove_work_category_material_category(p_work_category_id, p_category_id, p_kind_filter
+default null)`. Read resolver `src/lib/catalog/scoped-categories.ts` →
+  `resolveScopedCategories(supabase, workCategoryId)` returns `[{categoryId, kindFilter}]`, EMPTY for
+  an unmapped work-category (the pickers' show-all fallback). This is the **last schema unit** before
+  the code-only scoped pickers (S7/S8).
+
+**Decisions made:**
+
+- **Seed grain = W-TOP** (`work_categories.code` length 3, W01–W09), NOT the W0101 subsections. The
+  BuildAll BOQ items aren't loaded into `catalog_items` (different grain, ADR 0066 §10.6), so a
+  per-item material-category join is unavailable; the honest, reproducible signal is "which of the
+  13 managed `catalog_categories` does a TOP work-category's BOQ items fall under". Pinned in the
+  migration comment. Source = `boq_work_axis.csv` (S0 scratchpad), cross-read against LIVE
+  `catalog_categories`, parsed programmatically (RFC4180 CSV parser; no hand-transcription of Thai).
+- **19 pairs across 8 of 9 top categories**, looked up by stable `code` (no hard-coded uuids),
+  `on conflict do nothing` (idempotent). W01→{01,03}; W02→{01,08}; W03→{02,04,05,07,08}; W04→{02,12};
+  W05→{06}; W06→{01,08}; W08→{01,02,06,08}; W09→{01}.
+- **W07 ป้าย (signage) INTENTIONALLY UNSEEDED** — vinyl/stainless sign boxes fit no material
+  category among the 13 — so it is the clean **empty-Relation-R anchor** the resolver/picker
+  show-all fallback is tested against (ADR 0066 §10.1 adoption-cliff caveat).
+- **RPC role gate = `pm/super/procurement/director` (4 roles, INCLUDES procurement)** — per spec 227
+  §RPC posture / ADR 0066 D8's catalog-side list. This differs from S5's 3-role work-library gate:
+  Relation R is firm-wide MATERIAL curation, so procurement is admitted (pinned by a `lives_ok`
+  procurement-add assert).
+- **NULL-`kind_filter` uniqueness via a PARTIAL INDEX PAIR**, not `coalesce(kind_filter::text,…)`:
+  an enum→text cast is only STABLE, not IMMUTABLE, so it is rejected in an index expression
+  (`42P17`). Pair: typed-kind rows unique on `(work_category_id, category_id, kind_filter)
+WHERE kind_filter IS NOT NULL`; NULL-kind rows unique on `(work_category_id, category_id)
+WHERE kind_filter IS NULL`. Together: a NULL-kind and a typed-kind row coexist; two NULL-kind (or
+  two identical typed) rows collide (`23505`). All seed rows carry NULL `kind_filter` (no v1 kind
+  narrowing). The remove RPC matches with the same `coalesce((kind_filter)::text,'')` in its WHERE
+  (runtime-stable is fine; only index expressions require immutability).
+- **Resolver = DIRECT lookup** (work_category_id → its rows). A WP reconciled to a SUBSECTION
+  (5-char code) resolves empty → picker shows-all. Subsection-grain rows / prefix-climbing are a
+  future unit (out of scope; CLAUDE.md scope discipline).
+
+pgTAP `241-spec227-work-material-relation.test.sql` (52 asserts: table+RLS+grant+no-write,
+FK validity + ON DELETE CASCADE (both), nullable+typed `kind_filter`, seed count/span/W07-empty/
+anchors, resolver mapped-vs-empty contract, uniqueness incl. NULL-kind coexistence + dup, 2× DEFINER
++anon-revoke posture, behaviour + 23505/22023/42501 + procurement-admit + null-safe + visitor deny).
+Vitest `catalog-scoped-categories.test.ts` (4: mapped rows, kind_filter preserved, empty array for
+unmapped, empty for null data). Full pgTAP suite + `lint`·`typecheck`·`vitest` green.
+
+**Open questions (S6):** seed is W-TOP grain only — subsection-reconciled WPs resolve empty (show-all)
+until a later unit adds subsection rows or prefix-climbing. `kind_filter` is unused in v1 (all NULL);
+it exists for a future tool/equipment-narrowing relation (the UC2 picker, spec 229 + the equipment
+family). The Relation-R **management UI** (link/unlink screen) is out of scope (RPCs exist; later
+unit). Equipment-category side of Relation R (ADR 0066 D5 mentions `{material-cat, equipment-cat}`)
+is deferred — this unit ships the material side only, per spec 227's scope.
 
 ---
 
