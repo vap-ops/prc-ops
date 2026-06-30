@@ -6,6 +6,20 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 241 — PWA static-asset runtime cache (skeleton perf) — 🔨 IN PROGRESS (2026-07-01)
+
+Operator report: "every page change feels slow, the skeleton too." Diagnosed live (Vercel Observability +
+Supabase dashboards + deployed-bundle measure): every route is dynamic (`ƒ`); `public/sw.js` (spec 18) is
+**network-only** → ~1 MB of JS chunks re-downloaded per navigation before the `loading.tsx` skeleton can
+paint; runtime deps are lean (react-dom + supabase-js + zod) so bundle-splitting has low headroom. Fix =
+runtime **cache-first for same-origin GET `/_next/static/` only** (immutable, content-hashed); everything
+else (RSC `?_rsc`, HTML/nav, `/api`, `/auth`, Supabase/cross-origin, POST) passes straight to network —
+that allowlist is the entire PDPA boundary. Spec: `feature-specs/241-pwa-static-asset-cache.md`. Worktree
+`../prc-ops-perf`, branch `perf/skeleton-bundle`. Started 2026-07-01. (Data-phase floor handled separately:
+operator upsized Supabase compute Nano→Micro the same day — RAM-starved nano was swapping continuously.)
+
+---
+
 ## Spec 240 / ADR 0068 — App usage tracking & user leveling (two-tier) — 📐 DESIGN APPROVED, not built (2026-07-01)
 
 Operator: "track user's app usage, gather interactions first, then evaluate their levels; imagine what we
