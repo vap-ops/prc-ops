@@ -188,10 +188,13 @@ export type Database = {
           category: Database["public"]["Enums"]["item_category"] | null
           category_id: string | null
           created_at: string
+          fulfillment_mode: Database["public"]["Enums"]["catalog_fulfillment_mode"]
           id: string
           image_path: string | null
           is_active: boolean
+          kind: Database["public"]["Enums"]["catalog_item_kind"]
           note: string | null
+          owner_supplied: boolean
           product_code: string | null
           spec_attrs: string | null
           stockable: boolean
@@ -203,10 +206,13 @@ export type Database = {
           category?: Database["public"]["Enums"]["item_category"] | null
           category_id?: string | null
           created_at?: string
+          fulfillment_mode?: Database["public"]["Enums"]["catalog_fulfillment_mode"]
           id?: string
           image_path?: string | null
           is_active?: boolean
+          kind?: Database["public"]["Enums"]["catalog_item_kind"]
           note?: string | null
+          owner_supplied?: boolean
           product_code?: string | null
           spec_attrs?: string | null
           stockable?: boolean
@@ -218,10 +224,13 @@ export type Database = {
           category?: Database["public"]["Enums"]["item_category"] | null
           category_id?: string | null
           created_at?: string
+          fulfillment_mode?: Database["public"]["Enums"]["catalog_fulfillment_mode"]
           id?: string
           image_path?: string | null
           is_active?: boolean
+          kind?: Database["public"]["Enums"]["catalog_item_kind"]
           note?: string | null
+          owner_supplied?: boolean
           product_code?: string | null
           spec_attrs?: string | null
           stockable?: boolean
@@ -5330,7 +5339,10 @@ export type Database = {
           p_base_item?: string
           p_category?: Database["public"]["Enums"]["item_category"]
           p_category_id?: string
+          p_fulfillment_mode?: Database["public"]["Enums"]["catalog_fulfillment_mode"]
+          p_kind?: Database["public"]["Enums"]["catalog_item_kind"]
           p_note?: string
+          p_owner_supplied?: boolean
           p_product_code?: string
           p_spec_attrs?: string
           p_stockable?: boolean
@@ -6188,8 +6200,11 @@ export type Database = {
           p_base_item?: string
           p_category?: Database["public"]["Enums"]["item_category"]
           p_category_id?: string
+          p_fulfillment_mode?: Database["public"]["Enums"]["catalog_fulfillment_mode"]
           p_id: string
+          p_kind?: Database["public"]["Enums"]["catalog_item_kind"]
           p_note?: string
+          p_owner_supplied?: boolean
           p_product_code?: string
           p_spec_attrs?: string
           p_stockable?: boolean
@@ -6360,6 +6375,14 @@ export type Database = {
         | "retention_due"
         | "retention_release"
         | "wht_certificate_record"
+      catalog_fulfillment_mode: "off_shelf" | "made_to_order"
+      catalog_item_kind:
+        | "material"
+        | "tool"
+        | "equipment"
+        | "labor"
+        | "service"
+        | "softcost"
       client_billing_status:
         | "draft"
         | "submitted"
@@ -6677,6 +6700,15 @@ export const Constants = {
         "retention_due",
         "retention_release",
         "wht_certificate_record",
+      ],
+      catalog_fulfillment_mode: ["off_shelf", "made_to_order"],
+      catalog_item_kind: [
+        "material",
+        "tool",
+        "equipment",
+        "labor",
+        "service",
+        "softcost",
       ],
       client_billing_status: [
         "draft",

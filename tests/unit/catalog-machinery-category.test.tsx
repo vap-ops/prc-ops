@@ -43,6 +43,9 @@ describe("catalog machinery / tools category (feedback 1c700df6)", () => {
         baseItem: "สว่านไฟฟ้า",
         specAttrs: "18V",
         unit: "ตัว",
+        kind: "material",
+        fulfillmentMode: "off_shelf",
+        ownerSupplied: false,
       },
     ];
     render(

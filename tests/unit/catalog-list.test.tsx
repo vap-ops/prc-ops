@@ -27,6 +27,14 @@ const STEEL = "เหล็ก / อุปกรณ์ยึด";
 const ELEC = "ไฟฟ้า";
 const ROOF = "หลังคา / ครอบ";
 
+// Spec 224 — facet defaults for the list/display fixtures (the loader always
+// provides these NOT-NULL columns; not exercised by the grouping/drill here).
+const FACETS = {
+  kind: "material",
+  fulfillmentMode: "off_shelf",
+  ownerSupplied: false,
+} as const;
+
 const items: CatalogItem[] = [
   // deliberately out of order — the list re-sorts to the categories prop order
   {
@@ -52,7 +60,7 @@ const items: CatalogItem[] = [
     specAttrs: "สีขาว / ตัดตามแบบ",
     unit: "แผ่น",
   },
-];
+].map((it): CatalogItem => ({ ...FACETS, ...it }));
 
 describe("CatalogList (spec 175 / 221)", () => {
   it("renders a section header only for categories that have items", () => {
@@ -190,7 +198,7 @@ describe("CatalogList — 2-level drill", () => {
       unit: "ม้วน",
       subcategoryId: null,
     },
-  ];
+  ].map((it): CatalogItem => ({ ...FACETS, ...it }));
 
   function selectSteel() {
     render(<CatalogList items={drillItems} categories={CATS} subcategories={SUBS} />);

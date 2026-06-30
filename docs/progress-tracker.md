@@ -12,12 +12,13 @@ Status: **SPECS AUTHORED / not started.** Session S0 (docs-only) accepted
 [ADR 0066](decisions/0066-procurement-taxonomy-redesign.md) and authored the 10 phase
 specs below (one per build session, S0–S10). Schema is single-lane and serialized
 (S1→S2→S4→S5→S6); reserved migration timestamps `20260813029000`–`20260813033000`. S0
-ships as ONE governance-held PR (touches `docs/decisions/`). **Next: S1 (spec 223).**
+ships as ONE governance-held PR (touches `docs/decisions/`). **S1 (spec 223) + S2 (spec 224) ✅ COMPLETE; next: S4 (spec 225, secondary membership).** (S3 / spec 232 is
+break-glass, off-sequence, operator-scheduled.)
 
 | Spec                                                     | Session | Title                                                                           | Autonomy             | Reserved migration ts  | Status      |
 | -------------------------------------------------------- | ------- | ------------------------------------------------------------------------------- | -------------------- | ---------------------- | ----------- |
 | [223](feature-specs/223-units-ssot.md)                   | S1      | Units SSOT — `catalog_units` + structured picker                                | 🔔 ONE-TAP HOLD      | `20260813029000`       | ✅ COMPLETE |
-| [224](feature-specs/224-catalog-item-facets.md)          | S2      | Catalog facets `kind`/`fulfillment_mode`/`owner_supplied` + derived `stockable` | 🔔 ONE-TAP HOLD      | `20260813030000`       | not started |
+| [224](feature-specs/224-catalog-item-facets.md)          | S2      | Catalog facets `kind`/`fulfillment_mode`/`owner_supplied` + derived `stockable` | 🔔 ONE-TAP HOLD      | `20260813030000`       | ✅ COMPLETE |
 | [225](feature-specs/225-catalog-secondary-membership.md) | S4      | Secondary membership `catalog_item_categories` (reuse spec-219 composite FK)    | 🔔 ONE-TAP HOLD      | `20260813031000`       | not started |
 | [226](feature-specs/226-global-work-categories.md)       | S5      | Global `work_categories` library + seed + reconcile FK + ship 207-U3c           | 🔔 ONE-TAP HOLD      | `20260813032000`       | not started |
 | [227](feature-specs/227-work-material-relation.md)       | S6      | Relation R `work_category_material_categories` bridge + seed                    | 🔔 ONE-TAP HOLD      | `20260813033000`       | not started |
@@ -74,6 +75,59 @@ form's `หน่วยนับ` `<select>` now sources options from `catalog_u
 rows; a units management CRUD screen — the RPCs exist, the admin screen is a later unit;
 abbreviations seeded NULL — no `abbr_short` values in the seed, added later if a picker
 wants them.)
+
+### S2 — Catalog item facets (spec 224) — ✅ COMPLETE (2026-06-30)
+
+Migration `20260813030000_spec224_catalog_item_facets.sql` (applied to the shared DB;
+main↔DB sync moves to `030000` once the held PR merges). Two facet ENUMS
+`catalog_item_kind` (`material|tool|equipment|labor|service|softcost`; `assembly` is
+spec 231/S7) + `catalog_fulfillment_mode` (`off_shelf|made_to_order`); three NOT-NULL
+columns on `catalog_items` (`kind` default `material`, `fulfillment_mode` default
+`off_shelf`, `owner_supplied` default `false`). `create`/`update_catalog_item` were
+**DROP+CREATE'd from the LIVE bodies** (`pg_get_functiondef`, verified identical to the
+221 U3b file — no drift) adding three **trailing-default** facet params, so every
+existing positional caller + `::regprocedure` pin keeps resolving. The item form gained a
+`kind` select, a `fulfillment_mode` select, and an `owner_supplied` checkbox (threaded
+through `AddCatalogItem` + `CatalogList`→`EditCatalogItem`, like spec 223's units);
+`actions.ts` routes the three facets through and lets the RPC derive `stockable`.
+
+**Decisions made:**
+
+- **`fulfillment_mode` is the SSOT; `stockable` is DERIVED on write** —
+  `v_mode := coalesce(p_fulfillment_mode, case when coalesce(p_stockable,true) then 'off_shelf' else 'made_to_order' end)`
+  then `stockable := (v_mode = 'off_shelf')`. So the explicit `p_fulfillment_mode` **wins**
+  over the legacy `p_stockable`, and an **old-arity caller** (no facet args) still derives
+  correctly because `p_stockable` only **bootstraps** the mode when no facet is supplied.
+  This resolves the S0 open question #1 (the rule is "facet wins; p_stockable is a
+  back-compat fallback, never an override"). Pinned in pgTAP both ways
+  (made_to_order over p_stockable=true ⇒ stockable=false; old 6-positional-arg call
+  p_stockable=false ⇒ made_to_order/false).
+- **Enum-typed facet params** (`p_kind`, `p_fulfillment_mode`) — matching the `p_category`
+  precedent + the house rule. An invalid value is rejected by Postgres at the **cast
+  boundary (22P02)**; there is no free-text path into a facet, so no in-body `22023` enum
+  check is added (the existing `22023` arms — category/base/unit/code/subcategory — are
+  preserved verbatim and pinned).
+- **Null-safe role gate** — upgraded the LIVE `current_user_role() NOT IN (...)` to the
+  captured `v_role := current_user_role()::text; v_role IS NULL OR v_role NOT IN (...)` →
+  42501 form (ADR 0066 D8, matching S1). pgTAP pins both null-role (unbound sub) and
+  visitor-role denials. `revoke … from public, anon` + `grant execute … to authenticated`
+  re-pinned to the new 12-arg/13-arg signatures; never `service_role`.
+- **Backfill** — `kind` → `material` for all existing rows (the C1 re-home of cats
+  09/10/13 to tool/equipment is **spec 232 / S3**, deliberately off this sequence);
+  `fulfillment_mode` derived from the existing `stockable` signal (`stockable is false ⇒
+made_to_order`, else the `off_shelf` column default); `owner_supplied` → `false`. pgTAP
+  asserts the derivation invariant holds for every pre-existing row.
+
+**Verification:** pgTAP `238-spec224-catalog-item-facets.test.sql` (41 asserts) green;
+full suite **200 files / 3464 / 0 fails** (incl. the 4 sig-pin tests 120/121/222/223
+re-pinned to the new arity). lint·typecheck·vitest **2024** green. New vitest
+`catalog-item-facets.test.tsx` (controls render + defaults + facets submit through the
+action); existing `add`/`edit` exact-payload assertions extended with the facets.
+
+**Open questions (S2):** none new. (Out of scope per spec: the C1 re-home + product-code
+prefix shift — spec 232/S3 break-glass; `kind = assembly` + BOM — spec 231/S10; any picker
+scoping — specs 228/229. No facet display on the read-only list yet — only the edit form
+pre-fills them.)
 
 ---
 

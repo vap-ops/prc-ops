@@ -32,7 +32,7 @@ export default async function CatalogPage() {
   const { data: rows } = await supabase
     .from("catalog_items")
     .select(
-      "id, category_id, base_item, spec_attrs, unit, note, image_path, product_code, subcategory_id",
+      "id, category_id, base_item, spec_attrs, unit, note, image_path, product_code, subcategory_id, kind, fulfillment_mode, owner_supplied",
     )
     .eq("is_active", true)
     .order("base_item", { ascending: true });
@@ -96,6 +96,9 @@ export default async function CatalogPage() {
     productCode: r.product_code,
     note: r.note,
     subcategoryId: r.subcategory_id,
+    kind: r.kind,
+    fulfillmentMode: r.fulfillment_mode,
+    ownerSupplied: r.owner_supplied,
     thumbnailUrl: signed.get(r.id) ?? null,
     // Omit the key entirely for non-super (exactOptionalPropertyTypes forbids an
     // explicit `undefined`) — the rate never reaches the client for them.

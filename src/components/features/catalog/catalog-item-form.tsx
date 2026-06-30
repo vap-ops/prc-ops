@@ -7,14 +7,26 @@
 
 import { useState, useTransition } from "react";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
-import { CATALOG_SUBCATEGORY_LABEL, PRODUCT_CODE_LABEL } from "@/lib/i18n/labels";
+import {
+  CATALOG_SUBCATEGORY_LABEL,
+  FULFILLMENT_MODE_LABEL,
+  FULFILLMENT_MODE_OPTION_LABEL,
+  ITEM_KIND_LABEL,
+  ITEM_KIND_OPTION_LABEL,
+  OWNER_SUPPLIED_LABEL,
+  PRODUCT_CODE_LABEL,
+} from "@/lib/i18n/labels";
 import { COMMON_UNITS, UNIT_OTHER_VALUE } from "@/lib/purchasing/units";
 import {
   composeProductCode,
   isValidProductCode,
   productCodeTailLength,
 } from "@/lib/catalog/validate";
+import type { Database } from "@/lib/db/database.types";
 import type { CatalogCategoryOption } from "./catalog-list";
+
+type ItemKind = Database["public"]["Enums"]["catalog_item_kind"];
+type FulfillmentMode = Database["public"]["Enums"]["catalog_fulfillment_mode"];
 
 export type CatalogItemValues = {
   // Spec 221 — the chosen main category (catalog_categories.id).
@@ -26,6 +38,11 @@ export type CatalogItemValues = {
   productCode: string;
   // Spec 219 — optional subcategory FK (empty = none).
   subcategoryId: string;
+  // Spec 224 (ADR 0066 D3) — the catalog item facets. fulfillment_mode is the
+  // SSOT for stocking; the RPC derives `stockable` from it (no stockable input).
+  kind: ItemKind;
+  fulfillmentMode: FulfillmentMode;
+  ownerSupplied: boolean;
 };
 
 // Spec 219/221 — the subcategory options the cascading picker scopes to the
@@ -55,7 +72,14 @@ export const EMPTY_CATALOG_VALUES: CatalogItemValues = {
   note: "",
   productCode: "",
   subcategoryId: "",
+  // Spec 224 — sensible defaults: an off-the-shelf material the firm supplies.
+  kind: "material",
+  fulfillmentMode: "off_shelf",
+  ownerSupplied: false,
 };
+
+const ITEM_KINDS = Object.keys(ITEM_KIND_OPTION_LABEL) as ItemKind[];
+const FULFILLMENT_MODES = Object.keys(FULFILLMENT_MODE_OPTION_LABEL) as FulfillmentMode[];
 
 const LABEL = "text-sm font-medium text-ink";
 const FIELD =
@@ -120,6 +144,10 @@ export function CatalogItemForm({
   const [unitOther, setUnitOther] = useState(initUnitIsCommon ? "" : initial.unit);
   const [note, setNote] = useState(initial.note);
   const [subcategoryId, setSubcategoryId] = useState(initial.subcategoryId);
+  // Spec 224 (ADR 0066) — the catalog item facets.
+  const [kind, setKind] = useState<ItemKind>(initial.kind);
+  const [fulfillmentMode, setFulfillmentMode] = useState<FulfillmentMode>(initial.fulfillmentMode);
+  const [ownerSupplied, setOwnerSupplied] = useState(initial.ownerSupplied);
   // Spec 221 U4 — the user types only the sequence "tail"; the prefix is derived.
   const [tail, setTail] = useState(() =>
     initialProductCodeTail(initial, categories, subcategories),
@@ -165,6 +193,9 @@ export function CatalogItemForm({
         note,
         productCode,
         subcategoryId,
+        kind,
+        fulfillmentMode,
+        ownerSupplied,
       });
       if (!result.ok) {
         setError(result.error);
@@ -339,6 +370,59 @@ export function CatalogItemForm({
           />
         </div>
       )}
+
+      {/* Spec 224 (ADR 0066 D3) — the catalog item facets. fulfillment_mode is the
+          SSOT for stocking; the RPC derives `stockable` from it, so there is no
+          stockable control here. */}
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="ci-kind" className={LABEL}>
+          {ITEM_KIND_LABEL}
+        </label>
+        <select
+          id="ci-kind"
+          value={kind}
+          onChange={(e) => setKind(e.target.value as ItemKind)}
+          disabled={submitting}
+          className={FIELD}
+        >
+          {ITEM_KINDS.map((k) => (
+            <option key={k} value={k}>
+              {ITEM_KIND_OPTION_LABEL[k]}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="ci-fulfillment" className={LABEL}>
+          {FULFILLMENT_MODE_LABEL}
+        </label>
+        <select
+          id="ci-fulfillment"
+          value={fulfillmentMode}
+          onChange={(e) => setFulfillmentMode(e.target.value as FulfillmentMode)}
+          disabled={submitting}
+          className={FIELD}
+        >
+          {FULFILLMENT_MODES.map((m) => (
+            <option key={m} value={m}>
+              {FULFILLMENT_MODE_OPTION_LABEL[m]}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <label htmlFor="ci-owner" className="flex items-center gap-2">
+        <input
+          id="ci-owner"
+          type="checkbox"
+          checked={ownerSupplied}
+          onChange={(e) => setOwnerSupplied(e.target.checked)}
+          disabled={submitting}
+          className="accent-action size-4 shrink-0"
+        />
+        <span className={LABEL}>{OWNER_SUPPLIED_LABEL}</span>
+      </label>
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="ci-note" className={LABEL}>
