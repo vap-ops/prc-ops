@@ -1,7 +1,7 @@
 // Spec 175 U1 / 221 U3c — CatalogList renders the item master grouped by the
 // managed main category (category_id + names from the `categories` prop).
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/app/catalog/actions", () => ({
@@ -65,10 +65,12 @@ const items: CatalogItem[] = [
 describe("CatalogList (spec 175 / 221)", () => {
   it("renders a section header only for categories that have items", () => {
     render(<CatalogList items={items} categories={CATS} />);
-    expect(screen.getByText(STEEL)).toBeInTheDocument();
-    expect(screen.getByText(ELEC)).toBeInTheDocument();
-    expect(screen.getByText(ROOF)).toBeInTheDocument();
-    // a category with no items must NOT render
+    // Target the section headings specifically — the category name also appears as a
+    // per-row badge (spec 230), so a bare getByText would be ambiguous.
+    expect(screen.getByRole("heading", { name: new RegExp(STEEL) })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: new RegExp(ELEC) })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: new RegExp(ROOF) })).toBeInTheDocument();
+    // a category with no items must NOT render (no heading, no badge)
     expect(screen.queryByText("สี")).not.toBeInTheDocument();
   });
 
@@ -96,6 +98,16 @@ describe("CatalogList (spec 175 / 221)", () => {
   it("renders an empty state when there are no items", () => {
     render(<CatalogList items={[]} categories={CATS} />);
     expect(screen.getByText(/ยังไม่มีรายการวัสดุ/)).toBeInTheDocument();
+  });
+
+  // Spec 230 (ADR 0066 / S9) — each row carries a material-category badge so a row is
+  // self-describing (the category name comes from the loadCatalogCategories `categories`
+  // prop). The badge sits inside the row, distinct from the section heading above it.
+  it("renders a material-category badge inside each item row", () => {
+    render(<CatalogList items={items} categories={CATS} />);
+    const row = screen.getByText("เหล็กข้ออ้อย").closest("li");
+    expect(row).not.toBeNull();
+    expect(within(row as HTMLElement).getByText(STEEL)).toBeInTheDocument();
   });
 
   it("renders a consistent placeholder slot for items without an image", () => {

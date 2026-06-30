@@ -45,6 +45,12 @@ import {
 import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/lib/ui/classes";
 import { adjacentRecordIds, flattenRecordOrder } from "@/lib/purchasing/grid-record-nav";
+import { RadioChip } from "@/components/features/common/radio-chip";
+import {
+  CATEGORY_ALL,
+  buildCategoryFacets,
+  recordMatchesCategory,
+} from "@/lib/purchasing/category-facet";
 import { rowHealth, rowHealthLabel, type RowHealth } from "@/lib/purchasing/row-health";
 import { procurementDrawerActions } from "@/lib/purchasing/drawer-actions";
 import type { SupplierOption } from "@/components/features/purchasing/purchase-record-form";
@@ -71,6 +77,10 @@ const HEALTH_BORDER: Record<RowHealth, string> = {
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
 type PurchaseRequestPriority = Database["public"]["Enums"]["purchase_request_priority"];
+
+// Spec 230 (ADR 0066 / S9): the "uncategorised" facet bucket label (PRs with no
+// catalog-item category). Single use here, so it stays a local literal.
+const CATEGORY_UNSET_LABEL = "ไม่ระบุหมวดหมู่";
 
 // One serializable record — everything the grid row AND the review drawer need.
 // The page enriches each purchase_requests row with wp_code/wp_name + amount, and
@@ -113,6 +123,11 @@ export interface ProcurementGridRecord {
   received_by: string | null;
   delivery_note: string | null;
   doc_count: number;
+  // Spec 230 (ADR 0066 / S9): the managed material category the PR buys (resolved from
+  // its catalog item), for the opt-in category facet + per-row badge. Null when the PR
+  // has no catalog item (free-text) or its item is uncategorised.
+  category_id: string | null;
+  category_name: string | null;
 }
 
 // Structural group meta — a real pipeline band (ProcurementBandMeta) OR a
@@ -156,6 +171,38 @@ export function ProcurementGrid({
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  // Spec 230 (ADR 0066 / S9): opt-in material-category filter. The chips count over
+  // the FULL record set (a facet count is a property of the data, not the filter), so
+  // they stay put as the user narrows; default CATEGORY_ALL shows everything.
+  const [selectedCategory, setSelectedCategory] = useState<string>(CATEGORY_ALL);
+  const allRecords = useMemo(() => groups.flatMap((g) => g.items), [groups]);
+  const categoryFacets = useMemo(
+    () =>
+      buildCategoryFacets(
+        allRecords.map((r) => ({ categoryId: r.category_id, categoryName: r.category_name })),
+        CATEGORY_UNSET_LABEL,
+      ),
+    [allRecords],
+  );
+  // Only worth a filter row when there is at least one real category to pick.
+  const hasCategoryFacet = categoryFacets.some((f) => f.id !== "__none__");
+  // Narrow each band's rows to the selected category (rows only — the chip counts
+  // above are unaffected); drop bands that empty out so no "· 0" header is left behind.
+  const visibleGroups = useMemo(
+    () =>
+      selectedCategory === CATEGORY_ALL
+        ? groups
+        : groups
+            .map((g) => ({
+              meta: g.meta,
+              items: g.items.filter((r) =>
+                recordMatchesCategory({ categoryId: r.category_id }, selectedCategory),
+              ),
+            }))
+            .filter((g) => g.items.length > 0),
+    [groups, selectedCategory],
+  );
+
   // Spec 116: multi-select approved tickets → bundle into one PO. Only possible
   // when the page supplied suppliers (procurement); the spec-113 preview/smoke
   // passes none, so the grid stays selection-free there.
@@ -178,8 +225,9 @@ export function ProcurementGrid({
     setPoOpen(true);
   };
 
-  // Reading order + id→record lookup, recomputed only when the data changes.
-  const order = useMemo(() => flattenRecordOrder(groups), [groups]);
+  // Reading order + id→record lookup, recomputed only when the data changes. Follows
+  // the VISIBLE (filtered) groups so drawer prev/next steps through what is on screen.
+  const order = useMemo(() => flattenRecordOrder(visibleGroups), [visibleGroups]);
   const byId = useMemo(() => new Map(order.map((r) => [r.id, r])), [order]);
 
   // The selected approved tickets, as PO lines (reading order).
@@ -206,6 +254,31 @@ export function ProcurementGrid({
   return (
     <>
       <div className="border-edge bg-card shadow-card rounded-card overflow-hidden border">
+        {/* Spec 230: opt-in material-category filter. Always-present "ทั้งหมด" keeps the
+            grid show-all by default; selecting a chip narrows the rows below. */}
+        {hasCategoryFacet ? (
+          <div
+            className="border-edge flex gap-2 overflow-x-auto border-b px-4 py-2"
+            role="radiogroup"
+            aria-label="กรองตามหมวดวัสดุ"
+          >
+            <RadioChip
+              name="procurement-category"
+              label={`ทั้งหมด (${allRecords.length})`}
+              checked={selectedCategory === CATEGORY_ALL}
+              onSelect={() => setSelectedCategory(CATEGORY_ALL)}
+            />
+            {categoryFacets.map((f) => (
+              <RadioChip
+                key={f.id}
+                name="procurement-category"
+                label={`${f.name} (${f.count})`}
+                checked={selectedCategory === f.id}
+                onSelect={() => setSelectedCategory(f.id)}
+              />
+            ))}
+          </div>
+        ) : null}
         {/* Spec 117: discoverability — what the checkboxes are for. */}
         {canBundle ? (
           <div className="border-edge text-ink-secondary text-meta flex items-center gap-1.5 border-b px-4 py-2">
@@ -229,7 +302,7 @@ export function ProcurementGrid({
             </tr>
           </thead>
           <tbody>
-            {groups.map(({ meta, items }) => (
+            {visibleGroups.map(({ meta, items }) => (
               <BandRows
                 key={meta.band}
                 meta={meta}
@@ -383,6 +456,13 @@ function BandRows({
                         <PoNumberTag poNumber={r.po_number} />
                       ) : null}
                       {r.wp_name ? <span>· {r.wp_name}</span> : null}
+                      {/* Spec 230: the material-category badge — which managed
+                          category this PR buys (its catalog item's category). */}
+                      {r.category_name ? (
+                        <span className="border-edge bg-sunk text-ink-secondary inline-flex max-w-full items-center rounded-full border px-1.5">
+                          <span className="truncate">{r.category_name}</span>
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 </div>

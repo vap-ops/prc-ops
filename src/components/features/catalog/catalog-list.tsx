@@ -122,6 +122,12 @@ export function CatalogList({
     id === NO_SUB ? NO_SUB_LABEL : (subcategories.find((s) => s.id === id)?.name ?? id);
 
   function renderRow(it: CatalogItem) {
+    // Spec 230 (ADR 0066 / S9) — the row's material-category context badge. Name from
+    // the loadCatalogCategories `categories` prop; null/unresolved → no badge (never a
+    // raw uuid), so an uncategorised item simply shows none.
+    const rowCat = it.categoryId
+      ? (categories.find((c) => c.id === it.categoryId)?.name ?? null)
+      : null;
     return (
       <li
         key={it.id}
@@ -153,6 +159,11 @@ export function CatalogList({
             ) : null}
             {it.specAttrs}
           </span>
+          {rowCat ? (
+            <span className="border-edge bg-sunk text-ink-secondary text-meta mt-1 inline-flex max-w-full items-center rounded-full border px-2 py-0.5">
+              <span className="truncate">{rowCat}</span>
+            </span>
+          ) : null}
         </span>
         <span className="text-ink-secondary text-meta shrink-0">{it.unit}</span>
         {canSetSellRate ? <SetSellRate itemId={it.id} currentRate={it.sellRate ?? null} /> : null}

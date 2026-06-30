@@ -13,6 +13,7 @@ import { PURCHASING_ROLES, isManagerRole } from "@/lib/auth/role-home";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { PR_LIST_COLUMNS } from "@/lib/purchasing/columns";
+import { loadCatalogCategories, categoryNameById } from "@/lib/catalog/categories";
 
 // /requests — THE purchasing worklist for every role (spec 19 §4 merged
 // the PM decision queue here; spec 16 A1 / ADR 0026 made the list
@@ -389,6 +390,45 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     }
   }
 
+  // Spec 230 (ADR 0066 / S9): resolve each PR's managed material category — the
+  // category of its catalog item — for the desktop grid's category facet + per-row
+  // badge. Procurement only (the grid is procurement-only); read under the user
+  // session (RLS admits procurement to purchase_requests + the catalog). catalog_item_id
+  // is not in PR_LIST_COLUMNS, so fetch the item links separately rather than widen the
+  // shared SSOT (the detail page does not need them).
+  const prCategory = new Map<string, { id: string | null; name: string | null }>();
+  if (isProcurement && myRequests.length > 0) {
+    const { data: itemLinks } = await supabase
+      .from("purchase_requests")
+      .select("id, catalog_item_id")
+      .in(
+        "id",
+        myRequests.map((r) => r.id),
+      );
+    const itemIds = [
+      ...new Set(
+        (itemLinks ?? []).map((l) => l.catalog_item_id).filter((x): x is string => x != null),
+      ),
+    ];
+    const itemCategory = new Map<string, string | null>();
+    if (itemIds.length > 0) {
+      const { data: itemRows } = await supabase
+        .from("catalog_items")
+        .select("id, category_id")
+        .in("id", itemIds);
+      for (const it of itemRows ?? []) itemCategory.set(it.id, it.category_id);
+    }
+    const nameById = categoryNameById(await loadCatalogCategories(supabase));
+    for (const l of itemLinks ?? []) {
+      const catId = l.catalog_item_id ? (itemCategory.get(l.catalog_item_id) ?? null) : null;
+      const name = catId ? (nameById.get(catId) ?? null) : null;
+      // Keep id + name consistent: a category with no resolvable name (deactivated →
+      // absent from active-only loadCatalogCategories) is treated as uncategorised, so
+      // the grid's facet bucket and row filter agree (and no raw uuid ever shows).
+      prCategory.set(l.id, { id: name ? catId : null, name });
+    }
+  }
+
   // Spec 138 U1: the ต้องติดตามด่วน panel — the actual overdue in-transit
   // deliveries (the items behind the เกินกำหนด count), most-overdue first. Reads
   // the same unfiltered set as the KPI so the two agree; amount is the back-
@@ -557,6 +597,9 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         received_by: r.received_by,
         delivery_note: r.delivery_note,
         doc_count: docCountById.get(r.id) ?? 0,
+        // Spec 230: the PR's managed material category (its catalog item's category).
+        category_id: prCategory.get(r.id)?.id ?? null,
+        category_name: prCategory.get(r.id)?.name ?? null,
       };
     }),
   }));

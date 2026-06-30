@@ -10,6 +10,7 @@ import {
   sumStorePool,
   spendBreakdown,
   spendBarSegments,
+  spendByWorkCategory,
   budgetStatus,
 } from "@/lib/dashboard/spend";
 
@@ -214,6 +215,93 @@ describe("spendBarSegments", () => {
       poolPct: 0,
       over: false,
     });
+  });
+});
+
+// Spec 230 (ADR 0066 / S9) — the spend-by-หมวดงาน lens. The card partitions the SAME
+// no-double-count total the dashboard already computes: each WP-level spend atom is
+// tagged with its work-category, and atoms with no work-category (uncategorised WPs +
+// the project store pool, which has no WP) fall into a single unset bucket. The rows
+// therefore SUM to the existing portfolio total — a true partition, not a new figure.
+describe("spendByWorkCategory", () => {
+  const names = new Map([
+    ["A", "งานโครงสร้าง"],
+    ["B", "งานสถาปัตยกรรม"],
+  ]);
+  const UNSET = "ยังไม่ระบุหมวดงาน";
+
+  it("groups atoms by work-category and sums to the input total (no double-count)", () => {
+    const atoms = [
+      { workCategoryId: "A", amount: 100 },
+      { workCategoryId: "B", amount: 50 },
+      { workCategoryId: "A", amount: 25 },
+      { workCategoryId: null, amount: 30 },
+    ];
+    const rows = spendByWorkCategory(atoms, names, UNSET);
+    expect(rows).toEqual([
+      { workCategoryId: "A", name: "งานโครงสร้าง", amount: 125 },
+      { workCategoryId: "B", name: "งานสถาปัตยกรรม", amount: 50 },
+      { workCategoryId: null, name: UNSET, amount: 30 },
+    ]);
+    // The partition invariant: rows sum to the same total as the atoms.
+    const atomTotal = atoms.reduce((s, a) => s + a.amount, 0);
+    const rowTotal = rows.reduce((s, r) => s + r.amount, 0);
+    expect(rowTotal).toBe(atomTotal);
+  });
+
+  it("nets a return out within its category (negative atom), still summing to total", () => {
+    // เบิก ฿1000 to a WP in cat A, return ฿400 (negative atom in A), ฿400 back in the
+    // project pool (no WP → unset). True total ฿1000 (A nets to ฿600).
+    const atoms = [
+      { workCategoryId: "A", amount: 1000 },
+      { workCategoryId: "A", amount: -400 },
+      { workCategoryId: null, amount: 400 },
+    ];
+    const rows = spendByWorkCategory(atoms, names, UNSET);
+    expect(rows).toEqual([
+      { workCategoryId: "A", name: "งานโครงสร้าง", amount: 600 },
+      { workCategoryId: null, name: UNSET, amount: 400 },
+    ]);
+    expect(rows.reduce((s, r) => s + r.amount, 0)).toBe(1000);
+  });
+
+  it("folds an unknown/unresolvable work-category id into the single unset bucket", () => {
+    const rows = spendByWorkCategory(
+      [
+        { workCategoryId: "ghost", amount: 70 },
+        { workCategoryId: null, amount: 30 },
+      ],
+      names,
+      UNSET,
+    );
+    expect(rows).toEqual([{ workCategoryId: null, name: UNSET, amount: 100 }]);
+  });
+
+  it("always sorts the unset bucket last, even when it is the largest", () => {
+    const rows = spendByWorkCategory(
+      [
+        { workCategoryId: "A", amount: 10 },
+        { workCategoryId: null, amount: 999 },
+      ],
+      names,
+      UNSET,
+    );
+    expect(rows.map((r) => r.workCategoryId)).toEqual(["A", null]);
+  });
+
+  it("drops zero-net rows and returns [] for no atoms", () => {
+    expect(spendByWorkCategory([], names, UNSET)).toEqual([]);
+    // A category that nets to exactly zero contributes no row.
+    expect(
+      spendByWorkCategory(
+        [
+          { workCategoryId: "A", amount: 500 },
+          { workCategoryId: "A", amount: -500 },
+        ],
+        names,
+        UNSET,
+      ),
+    ).toEqual([]);
   });
 });
 
