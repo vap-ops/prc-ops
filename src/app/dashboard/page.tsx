@@ -60,30 +60,32 @@ export default async function DashboardPage() {
   const isManager = PM_ROLES.includes(ctx.role);
   const supabase = await createServerSupabase();
 
-  // Spec 183 U1: the review queue, reframed as awareness on the PM home. Only
-  // the PM tier approves, so site_admin (also on this dashboard) gets no card.
-  const pendingSummary = isManager
-    ? await getPendingApprovalsSummary(supabase)
-    : { count: 0, oldest: null };
-
-  // Spec 188: PR is no longer surfaced on ภาพรวม — it owns the คำขอซื้อ tab (with
-  // its own badge); double-surfacing it here read as a redundant notification. The
-  // dashboard inbox now covers only the tabless approvals: WP review + bank
-  // changes.
-  // Spec 170 U4c-2: the bank-change card now covers BOTH contractor and worker
-  // changes (the merged queue at /contacts/bank-changes); one combined count.
-  const pendingBankChanges = isManager
-    ? (await getPendingBankChangeCount(supabase)) +
-      (await getPendingWorkerBankChangeCount(supabase))
-    : 0;
-
-  // Operational reads — user session, SA-readable.
-  const { data: projectRows } = await supabase
-    .from("projects")
-    .select("id, name, code, status")
-    .in("status", LIVE_STATUSES)
-    .order("name", { ascending: true });
-  const projects = projectRows ?? [];
+  // Spec 242: these three opening reads are mutually independent — the approvals
+  // summary, the merged bank-change count, and the live-projects list don't depend
+  // on each other — so fire them in one wave instead of four serial round-trips. The
+  // work_packages + money reads below still chain off projectIds and stay sequential
+  // (a genuine data dependency).
+  //
+  // Spec 183 U1: the review queue, reframed as awareness on the PM home — only the
+  // PM tier approves, so site_admin (also on this dashboard) gets no card.
+  // Spec 188 / 170 U4c-2: the dashboard inbox surfaces the tabless approvals — WP
+  // review + the merged contractor+worker bank-change queue (one combined count). PR
+  // is NOT here; it owns the คำขอซื้อ tab + badge.
+  const [pendingSummary, pendingBankChanges, projectsRes] = await Promise.all([
+    isManager ? getPendingApprovalsSummary(supabase) : Promise.resolve({ count: 0, oldest: null }),
+    isManager
+      ? Promise.all([
+          getPendingBankChangeCount(supabase),
+          getPendingWorkerBankChangeCount(supabase),
+        ]).then(([contractor, worker]) => contractor + worker)
+      : Promise.resolve(0),
+    supabase
+      .from("projects")
+      .select("id, name, code, status")
+      .in("status", LIVE_STATUSES)
+      .order("name", { ascending: true }),
+  ]);
+  const projects = projectsRes.data ?? [];
   const projectIds = projects.map((p) => p.id);
 
   const { data: wpRows } = projectIds.length
