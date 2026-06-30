@@ -6,6 +6,28 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 240 / ADR 0068 — App usage tracking & user leveling (two-tier) — 📐 DESIGN APPROVED, not built (2026-07-01)
+
+Operator: "track user's app usage, gather interactions first, then evaluate their levels; imagine what we
+can do, design the data architecture." Brainstormed → **ADR 0068** (two-tier capture: Tier A = derive from
+the existing `audit_log`, ~฿0 new cost; Tier B = a new flag-gated `interaction_events` table, deferred) +
+**spec 240** (Tier-A v1). Use-case catalog / cost / gsheet decision in
+`docs/research/usage-data-use-cases-2026-07.md` (10-lens fan-out → ~30 purposes).
+
+**Decisions:** Tier A first; v1 = 4 `audit_log`-derived signals (cycle-time x-ray · stuck-instance ·
+fatigue [protective, welfare-scoped, never a productivity score] · segregation-of-duties); readout =
+in-app worklist + Telegram (gsheet deferred); levels = a later consumer; telemetry stays SEPARATE from
+`audit_log`; PDPA + anti-surveillance + self-governance binding.
+
+**Status:** docs only (this PR — ADR + spec + research note + index entries). No code, no migrations.
+**Precondition before building U2+:** audit-log emission-coverage audit (spec 240 U1) — some transitions
+(receive→stock_in, store issue, DC-pay staging) may not currently emit an `audit_log` row.
+
+**Open (operator):** consent basis for behavioral capture (opt-in vs legitimate-interest, the Tier-B gate);
+fatigue threshold + welfare owner; forbidden-vs-delegated actor combos for the SoD check.
+
+---
+
 ## Spec 239 — ทะเบียนวัสดุ category cleanup (ADR 0066 C1) — ✅ U1+U2 MERGED · 🔔 U2-fields HELD (2026-07-01)
 
 Supersedes [spec 232](feature-specs/232-category-rehome-breakglass.md) — the C1 re-home, **de-risked to
