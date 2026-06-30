@@ -212,18 +212,19 @@ specs below (one per build session, S0–S10). Schema is single-lane and seriali
 ships as ONE governance-held PR (touches `docs/decisions/`). **S1 (223) + S2 (224) + S4 (225) + S5 (226) + S6 (227) + S7 (228) + S8 (229) + S9 (230) ✅ COMPLETE; next: S10 (spec 231, estimate/template/bid epic — operator-scoped planning, NOT a single auto-merge unit).** (S3 / spec 232 is
 break-glass, off-sequence, operator-scheduled.)
 
-| Spec                                                     | Session | Title                                                                           | Autonomy             | Reserved migration ts  | Status      |
-| -------------------------------------------------------- | ------- | ------------------------------------------------------------------------------- | -------------------- | ---------------------- | ----------- |
-| [223](feature-specs/223-units-ssot.md)                   | S1      | Units SSOT — `catalog_units` + structured picker                                | 🔔 ONE-TAP HOLD      | `20260813029000`       | ✅ COMPLETE |
-| [224](feature-specs/224-catalog-item-facets.md)          | S2      | Catalog facets `kind`/`fulfillment_mode`/`owner_supplied` + derived `stockable` | 🔔 ONE-TAP HOLD      | `20260813030000`       | ✅ COMPLETE |
-| [225](feature-specs/225-catalog-secondary-membership.md) | S4      | Secondary membership `catalog_item_categories` (reuse spec-219 composite FK)    | 🔔 ONE-TAP HOLD      | `20260813031000`       | ✅ COMPLETE |
-| [226](feature-specs/226-global-work-categories.md)       | S5      | Global `work_categories` library + seed + reconcile FK + ship 207-U3c           | 🔔 ONE-TAP HOLD      | `20260813032000`       | ✅ COMPLETE |
-| [227](feature-specs/227-work-material-relation.md)       | S6      | Relation R `work_category_material_categories` bridge + seed                    | 🔔 ONE-TAP HOLD      | `20260813033000`       | ✅ COMPLETE |
-| [228](feature-specs/228-scoped-supply-plan-picker.md)    | S7      | UC1 scoped supply-plan picker (show-all-default)                                | ✅ AUTO-MERGE        | — (code-only)          | ✅ COMPLETE |
-| [229](feature-specs/229-scoped-wp-detail-pickers.md)     | S8      | UC2 scoped WP-detail pickers + work-cat badge                                   | ✅ AUTO-MERGE        | — (code-only)          | ✅ COMPLETE |
-| [230](feature-specs/230-category-read-side-wins.md)      | S9      | Read-side wins (3 disjoint files, parallelizable)                               | ✅ AUTO-MERGE        | — (code-only)          | ✅ COMPLETE |
-| [231](feature-specs/231-estimate-template-bid-layer.md)  | S10     | Estimate/template/bid layer + assemblies (LATER epic)                           | MIXED, multi-session | assigned at build      | not started |
-| [232](feature-specs/232-category-rehome-breakglass.md)   | S3      | C1 re-home cats 09/10/13 (product_code shift)                                   | 🧨 BREAK-GLASS       | assigned at scheduling | not started |
+| Spec                                                     | Session | Title                                                                           | Autonomy             | Reserved migration ts  | Status            |
+| -------------------------------------------------------- | ------- | ------------------------------------------------------------------------------- | -------------------- | ---------------------- | ----------------- |
+| [223](feature-specs/223-units-ssot.md)                   | S1      | Units SSOT — `catalog_units` + structured picker                                | 🔔 ONE-TAP HOLD      | `20260813029000`       | ✅ COMPLETE       |
+| [224](feature-specs/224-catalog-item-facets.md)          | S2      | Catalog facets `kind`/`fulfillment_mode`/`owner_supplied` + derived `stockable` | 🔔 ONE-TAP HOLD      | `20260813030000`       | ✅ COMPLETE       |
+| [225](feature-specs/225-catalog-secondary-membership.md) | S4      | Secondary membership `catalog_item_categories` (reuse spec-219 composite FK)    | 🔔 ONE-TAP HOLD      | `20260813031000`       | ✅ COMPLETE       |
+| [226](feature-specs/226-global-work-categories.md)       | S5      | Global `work_categories` library + seed + reconcile FK + ship 207-U3c           | 🔔 ONE-TAP HOLD      | `20260813032000`       | ✅ COMPLETE       |
+| [227](feature-specs/227-work-material-relation.md)       | S6      | Relation R `work_category_material_categories` bridge + seed                    | 🔔 ONE-TAP HOLD      | `20260813033000`       | ✅ COMPLETE       |
+| [228](feature-specs/228-scoped-supply-plan-picker.md)    | S7      | UC1 scoped supply-plan picker (show-all-default)                                | ✅ AUTO-MERGE        | — (code-only)          | ✅ COMPLETE       |
+| [229](feature-specs/229-scoped-wp-detail-pickers.md)     | S8      | UC2 scoped WP-detail pickers + work-cat badge                                   | ✅ AUTO-MERGE        | — (code-only)          | ✅ COMPLETE       |
+| [230](feature-specs/230-category-read-side-wins.md)      | S9      | Read-side wins (3 disjoint files, parallelizable)                               | ✅ AUTO-MERGE        | — (code-only)          | ✅ COMPLETE       |
+| [231](feature-specs/231-estimate-template-bid-layer.md)  | S10     | Estimate/template/bid layer + assemblies (LATER epic — decomposed into U1–U6)   | MIXED, multi-session | per sub-unit at build  | 🔨 U1 IN PROGRESS |
+| [236](feature-specs/236-boq-template-line-core.md)       | S10-U1  | BOQ estimate core: `boq_template` + `boq_line` + 6 RPCs (3-grain invariant)     | 🔔 ONE-TAP HOLD      | `20260813040000`       | 🔨 in progress    |
+| [232](feature-specs/232-category-rehome-breakglass.md)   | S3      | C1 re-home cats 09/10/13 (product_code shift)                                   | 🧨 BREAK-GLASS       | assigned at scheduling | not started       |
 
 **Open questions surfaced (S0):** (1) the exact `stockable` derivation rule + whether
 `p_stockable` is ignored or fallback (spec 224 — pin in pgTAP at build); (2) the
@@ -669,6 +670,46 @@ headers (rows are already grouped under a category heading) — implemented per 
 visually muted; a future cleanup could drop the section headers in favour of the row badge, or vice-versa.
 The dashboard card's per-WP atom re-aggregation assumes labor supersession never crosses WPs (true today —
 a labor log belongs to one WP); if that ever changes, the per-WP labor sum could diverge from the project sum.
+
+### S10-U1 — BOQ estimate core: `boq_template` + `boq_line` + 6 RPCs (spec 236) — 🔔 HELD PR (2026-06-30)
+
+First build sub-unit of the S10 estimate/template/bid epic (the 231 decomposition: U1 schema core → U2 UI →
+U3/U4 assemblies → U5 bid/freeze → U6 wp_templates). Operator greenlit D1/D2/D3. Migration
+`20260813040000_spec236_boq_template_line.sql` (applied to the shared DB; main↔DB sync moves to `040000`
+once the held PR merges). Two new enums `boq_line_status` (draft/frozen/superseded) + `boq_variation_type`
+(standard/added/omitted/provisional_sum) — created inline (new `CREATE TYPE`, not an `ALTER TYPE ADD VALUE`).
+`boq_template` (firm-wide reusable header, D3 — stable unique `code`, deactivate-not-delete via `is_active`)
+
+- `boq_line` with **rates ON THE LINE** (`material_rate` + `labor_rate`, D6). RLS + grant-select-to-
+  authenticated + `using(true)`, no write/delete grant; 6 null-safe SECURITY DEFINER RPCs
+  (create/update/set_active template + add/update/remove line), role = pm/super/procurement/director.
+
+**Decisions made (operator-locked):**
+
+- **D1 — `boq_line.catalog_item_id` NULLABLE + required free-text `description`.** BOQ lines mostly aren't
+  catalog items (ADR §10.6); the catalog link is optional enrichment, the human label mandatory. pgTAP pins
+  `col_is_null(catalog_item_id)` + `col_not_null(description)` + a free-text add returning a NULL item.
+- **D2 — status enums + `exclusivity_group`** as above; new lines default `line_status=draft` /
+  `variation_type=standard` (behaviourally pinned). The draft→frozen transition + bids are **S10-U5** (the
+  `line_status` column exists; nothing in U1 drives it past draft).
+- **D3 — `boq_template` firm-wide reusable.** Instantiation-per-project via a clone is a later unit.
+- **THREE-GRAIN INVARIANT pgTAP-pinned (D6 headline):** `boq_line` HAS material_rate/labor_rate;
+  `catalog_items` has NEITHER (price-free); `supply_plan_lines` has NEITHER + keeps `qty` (qty-only).
+- **Role gate = pm/super/procurement/director** (the catalog/material-side set per ADR D8 — estimating is
+  procurement-adjacent, matching Relation R / spec 227); null-safe (`v_role IS NULL OR NOT IN (...)` → 42501).
+  FK existence pre-checked in the RPCs so a bad catalog/work/template id is a friendly `22023`, not a raw
+  `23503`. Errcodes 42501/22023/23505.
+
+**Verification:** pgTAP `245-spec236-boq-core.test.sql` (99 asserts: structure + RLS/grant, the 3-grain
+invariant, all 6 RPCs' DEFINER+anon-revoke posture, behaviour incl. 23505/22023/42501 + procurement-admit +
+null-safe deny). Full pgTAP suite **207 files / 3777 / 0 fails**. `lint`·`typecheck`·`vitest 2129` green
+(no vitest delta — pure schema). Adversarial review (cavecrew-reviewer) = no issues.
+
+**Open questions (S10-U1):** (1) `boq_line` rates are readable by all authenticated (grant-select posture per
+AC5 / spec 221 U2); if rate data should be money-read-scoped, that's a deliberate later refinement (bids, U5,
+will need this thinking). (2) `qty > 0` enforced (omissions modelled via `variation_type=omitted`, not negative
+qty). (3) no clone/instantiate RPC yet (D3 instantiation is U2/U6). (4) `sort_order` exists but no reorder RPC
+(authoring UI concern, U2).
 
 ---
 
