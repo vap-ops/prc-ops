@@ -44,3 +44,26 @@ describe("WorklistRow canOpen", () => {
     expect(screen.getByText(WORK_PACKAGE_STATUS_LABEL[WP.status])).toBeInTheDocument();
   });
 });
+
+// Spec 243: every WorklistRow carries content-visibility:auto + contain-intrinsic-size
+// so off-screen rows skip style/layout/paint. A long worklist (a project with hundreds
+// of ungrouped WPs) otherwise mounts every row at once — a >100 ms main-thread long task
+// = the "tap freezes before the screen changes" report. The utility rides on BOTH roots
+// (the Link and the read-only container) so it covers every list context.
+describe("WorklistRow content-visibility (spec 243)", () => {
+  it("the interactive (Link) root skips off-screen render work", () => {
+    render(<WorklistRow projectId={PROJECT_ID} wp={WP} spine="bg-attn" />);
+    const root = screen.getByRole("link");
+    expect(root.className).toContain("[content-visibility:auto]");
+    expect(root.className).toContain("[contain-intrinsic-size:auto_96px]");
+  });
+
+  it("the read-only (canOpen=false) root also skips off-screen render work", () => {
+    const { container } = render(
+      <WorklistRow projectId={PROJECT_ID} wp={WP} spine="bg-attn" canOpen={false} />,
+    );
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.className).toContain("[content-visibility:auto]");
+    expect(root.className).toContain("[contain-intrinsic-size:auto_96px]");
+  });
+});

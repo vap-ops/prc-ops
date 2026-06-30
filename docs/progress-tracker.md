@@ -6,6 +6,22 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 243 — content-visibility on WorklistRow (interaction freeze / INP) — 🔨 IN PROGRESS (2026-07-01)
+
+Operator: "press a button → screen freezes before changing." **Profiled live** (drove the real app via the
+connected browser + Performance API): light transitions = 0 long tasks; opening the worklist of a 262-WP
+project = a **108 ms main-thread long task** (8-core desktop) → ~430 ms on a phone = the freeze. DOM proof:
+the `flex flex-col gap-2.5` worklist container held **262 children** — every outstanding `WorklistRow`
+mounts at once (component comment assumes "~80 rows"). Lean fix: `content-visibility:auto` +
+`contain-intrinsic-size:auto 96px` on both `WorklistRow` roots → browser skips style/layout/paint for
+off-screen rows; covers every worklist (project / review / requests) from one shared edit. No dependency, no
+virtualization, no UX change. The **INP** layer — distinct from the network/DB floors (Micro upsize, spec
+241 SW cache, spec 242 dashboard reads). Follow-up only if real per-route INP (Speed Insights, once enabled)
+shows it's insufficient: virtualization / row-cap. Worktree `../prc-ops-inp`, branch
+`perf/worklist-content-visibility`. Spec: `feature-specs/243-worklist-content-visibility.md`. Started 2026-07-01.
+
+---
+
 ## Spec 242 — Parallelize the dashboard's independent reads (perf) — 🔨 IN PROGRESS (2026-07-01)
 
 Follow-on to spec 241. The ภาพรวม dashboard (highest-traffic landing, flagged among the heaviest routes by

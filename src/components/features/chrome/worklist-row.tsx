@@ -146,7 +146,7 @@ export function WorklistRow({
   if (!canOpen) {
     return (
       <div
-        className={`rounded-card border-edge bg-card shadow-card flex items-stretch gap-0 overflow-hidden border${
+        className={`rounded-card border-edge bg-card shadow-card flex items-stretch gap-0 overflow-hidden border [content-visibility:auto] [contain-intrinsic-size:auto_96px]${
           enter ? ` ${enter.className}` : ""
         }`}
         {...(enter ? { style: enter.style } : {})}
@@ -159,7 +159,7 @@ export function WorklistRow({
   return (
     <Link
       href={workPackageHref(projectId, wp.id)}
-      className={`rounded-card border-edge bg-card shadow-card hover:bg-sunk focus-visible:ring-action active:bg-sunk flex items-stretch gap-0 overflow-hidden border transition-colors focus:outline-none focus-visible:ring-2${
+      className={`rounded-card border-edge bg-card shadow-card hover:bg-sunk focus-visible:ring-action active:bg-sunk flex items-stretch gap-0 overflow-hidden border transition-colors [content-visibility:auto] focus:outline-none focus-visible:ring-2 [contain-intrinsic-size:auto_96px]${
         enter ? ` ${enter.className}` : ""
       }`}
       {...(enter ? { style: enter.style } : {})}
