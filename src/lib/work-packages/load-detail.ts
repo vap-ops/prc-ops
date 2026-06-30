@@ -38,6 +38,8 @@ type WpRow = Pick<
   | "planned_end"
   // Spec 155: the WP-detail deliverable control reads the current binding.
   | "deliverable_id"
+  // Spec 226 / 207 U3c: the WP-detail work-category control reads the current binding.
+  | "category_id"
   // Spec 216: the current rework cycle — the หลังแก้ไข tile captures into it.
   | "rework_round"
 >;
@@ -100,7 +102,7 @@ export async function loadWorkPackageDetail(
   const { data: wp } = await supabase
     .from("work_packages")
     .select(
-      "id, code, name, status, project_id, description, contractor_id, notes, priority, planned_start, planned_end, deliverable_id, rework_round",
+      "id, code, name, status, project_id, description, contractor_id, notes, priority, planned_start, planned_end, deliverable_id, category_id, rework_round",
     )
     .eq("id", workPackageId)
     .maybeSingle();
