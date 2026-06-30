@@ -11,14 +11,18 @@
 import { useState, useTransition } from "react";
 import { grantClientAccess } from "@/app/projects/[projectId]/actions";
 import { useToast } from "@/lib/ui/use-toast";
-import { CARD, BUTTON_SECONDARY_MUTED, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
+import {
+  CARD,
+  BUTTON_SECONDARY_MUTED,
+  FIELD_INPUT,
+  FIELD_SELECT,
+  INLINE_ALERT_TEXT,
+} from "@/lib/ui/classes";
 
 export interface ClientCandidate {
   id: string;
   name: string;
 }
-
-const FIELD = "border-edge-strong rounded-control text-ink bg-card w-full border px-3 py-2 text-xs";
 
 export function ClientGrantExisting({
   projectId,
@@ -76,7 +80,7 @@ export function ClientGrantExisting({
             id="grant-existing-client"
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
-            className={FIELD}
+            className={FIELD_SELECT}
           >
             <option value="">เลือกผู้ใช้…</option>
             {candidates.map((c) => (
@@ -94,7 +98,7 @@ export function ClientGrantExisting({
             type="date"
             value={validUntil}
             onChange={(e) => setValidUntil(e.target.value)}
-            className={FIELD}
+            className={FIELD_INPUT}
           />
 
           <button

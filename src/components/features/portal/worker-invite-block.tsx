@@ -14,7 +14,13 @@ import { useState, useTransition } from "react";
 import { createWorkerInvite } from "@/app/workers/actions";
 import { buildClaimUrl } from "@/lib/portal/claim-url";
 import { useToast } from "@/lib/ui/use-toast";
-import { CARD, BUTTON_PRIMARY, BUTTON_SECONDARY_MUTED, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
+import {
+  CARD,
+  BUTTON_PRIMARY,
+  BUTTON_SECONDARY_MUTED,
+  FIELD_INPUT,
+  INLINE_ALERT_TEXT,
+} from "@/lib/ui/classes";
 
 export function WorkerInviteBlock({
   workerId,
@@ -66,7 +72,7 @@ export function WorkerInviteBlock({
                 readOnly
                 value={url}
                 onFocus={(e) => e.currentTarget.select()}
-                className="border-edge-strong rounded-control text-ink bg-card w-full border px-3 py-2 text-xs"
+                className={FIELD_INPUT}
               />
               <button type="button" onClick={() => void copy()} className={BUTTON_PRIMARY}>
                 คัดลอกลิงก์

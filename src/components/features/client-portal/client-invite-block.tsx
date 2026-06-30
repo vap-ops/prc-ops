@@ -13,7 +13,13 @@ import { useState, useTransition } from "react";
 import { createClientInvite, revokeClientAccess } from "@/app/projects/[projectId]/actions";
 import { buildClientClaimUrl } from "@/lib/client-portal/claim-url";
 import { useToast } from "@/lib/ui/use-toast";
-import { CARD, BUTTON_PRIMARY, BUTTON_SECONDARY_MUTED, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
+import {
+  CARD,
+  BUTTON_PRIMARY,
+  BUTTON_SECONDARY_MUTED,
+  FIELD_INPUT,
+  INLINE_ALERT_TEXT,
+} from "@/lib/ui/classes";
 
 export interface ClientBindingView {
   id: string;
@@ -21,8 +27,6 @@ export interface ClientBindingView {
   /** ISO timestamp (access valid-until), or null. */
   expiresAt: string | null;
 }
-
-const FIELD = "border-edge-strong rounded-control text-ink bg-card w-full border px-3 py-2 text-xs";
 
 export function ClientInviteBlock({
   projectId,
@@ -92,7 +96,7 @@ export function ClientInviteBlock({
           type="date"
           value={validUntil}
           onChange={(e) => setValidUntil(e.target.value)}
-          className={FIELD}
+          className={FIELD_INPUT}
         />
         {url ? (
           <>
@@ -100,7 +104,7 @@ export function ClientInviteBlock({
               readOnly
               value={url}
               onFocus={(e) => e.currentTarget.select()}
-              className={FIELD}
+              className={FIELD_INPUT}
             />
             <button type="button" onClick={() => void copy()} className={BUTTON_PRIMARY}>
               คัดลอกลิงก์
