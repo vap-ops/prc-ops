@@ -6,6 +6,32 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 234 — Multi-project client access (extends ADR 0067) — IN PROGRESS (2026-06-30)
+
+Status: **building (operator-approved design 2026-06-30).** A `client` login holds live access to N
+projects via explicit per-project grant; `/client` becomes a project list → drill. No new tables/RLS
+(access table + read arms already per-project). Spec `234`; plan `2026-06-30-multi-project-client-access`.
+
+| Unit | Scope                                                                | Schema | Status      |
+| ---- | -------------------------------------------------------------------- | ------ | ----------- |
+| U1   | `grant_client_access` RPC + re-entrant `claim_client_invite`         | yes    | ✅ done     |
+| U2   | `/client` list → `/client/[projectId]` drill + `loadClientView(pid)` | —      | not started |
+| U3   | PD "grant an existing client login" picker on the project page       | —      | not started |
+
+### U1 — grant RPC + re-entrant claim — ✅ done (2026-06-30)
+
+Migration `20260813038000` (applied): NEW `grant_client_access(user, project, valid_until)` definer
+RPC — PD/super gate (coalesce-false), target must be an existing `client`, project must exist,
+`ON CONFLICT (user_id, project_id) DO UPDATE` un-revokes + refreshes (resolves the spec-233
+revoke-terminal limit); audit `client_access_granted`. DROP+CREATE re-entrant `claim_client_invite`
+(body sourced from LIVE): gate now `visitor` OR `client` (staff/contractor still 42501); a visitor
+flips role + `role_change` audit (unchanged), an existing client adds the project (no flip) +
+`client_access_granted` audit; insert `ON CONFLICT DO UPDATE`. `db:types` regen (app + worker).
+pgTAP `243` (15 asserts): grant gate (pm→42501), grant-non-client→P0001, re-grant un-revokes,
+unknown-project→P0001, client claims a 2nd project (no flip), visitor-flip regression, staff
+locked out, 2-project client sees both. **Full pgTAP 205/205 · 0 fails** (spec-233 `242` still
+green); lint·typecheck clean.
+
 ## Spec 233 — Client progress portal (ADR 0067) — ✅ COMPLETE (2026-06-30)
 
 Status: **all 5 units shipped + merged in one session (operator grant).** Temporary, scoped, read-only

@@ -5920,6 +5920,10 @@ export type Database = {
           name_th: string
         }[]
       }
+      grant_client_access: {
+        Args: { p_project: string; p_user_id: string; p_valid_until: string }
+        Returns: undefined
+      }
       invoke_notification_drain: { Args: never; Returns: undefined }
       is_back_office: {
         Args: { p_role: Database["public"]["Enums"]["user_role"] }
