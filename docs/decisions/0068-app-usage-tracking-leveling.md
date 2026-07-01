@@ -1,9 +1,43 @@
 # ADR 0068 — App usage tracking & user leveling (two-tier capture)
 
-**Status:** Proposed (2026-07-01)
+**Status:** Accepted (2026-07-01); **Amended 2026-07-01** — see Amendment below.
 **Extends:** 0004 (audit trail & immutability), 0049 (AI feature governance), 0051 (external partner access / PDPA posture)
-**Spec:** `docs/feature-specs/240-usage-tracking-tier-a.md` (Tier-A v1)
+**Spec:** `docs/feature-specs/244-sa-usage-friction-tracking.md` (Tier-B, current) · ~~`240-usage-tracking-tier-a.md`~~ (Tier-A, SHELVED — see Amendment)
 **Research:** `docs/research/usage-data-use-cases-2026-07.md` (use-case catalog, cost, gsheet decision)
+
+## Amendment (2026-07-01) — Tier B first; refocus on on-site SA engagement + support
+
+After an audit of `audit_log` emission coverage (spec 240 U1) and a goal-realignment
+with the operator, the **build order and focus flip**:
+
+- **The real goal is to measure the USER, not the process.** The operator wants to
+  know **who needs help** — specifically the **on-site site-admins (SA)**: low-tech,
+  mobile-PWA, field users. Signals wanted: **real app usage (screen time → DAU, app
+  opens even without a domain action)** and **friction** (where they struggle). The
+  action taken: **reach out to struggling SAs** and **improve UX where it matters.**
+  Support + UX, **not** a scoreboard, **not** fraud/process mining.
+
+- **`audit_log` is the wrong substrate for this.** The U1 audit found `audit_log` is
+  nearly empty of lifecycle events and, by design, records only completed domain
+  *actions* — it is blind to screen time, app opens, navigation, confusion, and
+  rage-taps. Those live **only** in client-side session/interaction telemetry.
+
+- **Therefore Tier B (the `interaction_events` client tracker) is promoted to the
+  FIRST build, and Tier A (audit_log process mining) is SHELVED.** Decision §1's
+  "Tier A first / Tier B once earned" is **superseded**: build the SA usage+friction
+  tracker first. Spec 240's process-mining units (U2–U6, the audit_log emission epic)
+  are **not built** unless a distinct future need revives them.
+
+- **The "levels" consumer (§4) is reframed as a SUPPORT signal**, not gamification:
+  a per-SA *struggle/health* read that produces (a) a **needs-help list** for a
+  supervisor to act on, and (b) a **per-screen UX friction map** to prioritize fixes.
+  Governance §5 stands and is **reinforced** — this monitors field workers, so the
+  protective "help, not surveillance" framing, PDPA minimization, and offline-batched
+  capture are mandatory, not optional.
+
+- **Current implementing spec = `244-sa-usage-friction-tracking.md`.** Everything below
+  (the two-tier model, telemetry-separate-from-audit_log, retention/RLS, governance)
+  still holds; only the **sequencing and initial focus** change.
 
 ## Context
 
