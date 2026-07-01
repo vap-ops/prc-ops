@@ -6,7 +6,7 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — ✅ U1a · ✅ U1b-1 · ✅ U1b-2 · ✅ U1c · ✅ U2a MERGED · 🔨 U2b-1 upload_fail BUILT (2026-07-01)
+## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — ✅ U1a · ✅ U1b-1 · ✅ U1b-2 · ✅ U1c · ✅ U2a · ✅ U2b-1 MERGED · 🔨 U2b-2 validation_error BUILT (2026-07-01)
 
 Realigned with operator: goal = measure REAL on-site **site_admin** app usage (screen time → DAU, opens) +
 friction on the mobile PWA → (a) **who needs help** (a supervisor check-in list) + (b) **where UX hurts** (a
@@ -101,9 +101,25 @@ mislabel field connectivity as friction). New pure `pickUploadFailures(items, cu
 `UploadQueueRunner` emits `upload_fail {kind}` once per stuck item after each drain pass, deduped via a per-session
 `reportedFailuresRef` Set. PDPA-min: aggregate `{kind}` only, no content. vitest `telemetry-friction` (5) +
 `telemetry-friction-provider` (3, RTL) + `pickUploadFailures` (5) → full suite **2226**; typecheck·lint·build
-clean. Code-only (no protected paths) → NATIVE auto-merge on green (standing grant). **▶ next = U2b-2**
-(`validation_error` + `form_abandon` on the WP-submit + photo-capture forms — code-only), then U2b-3 (`rage_tap`,
-a global rapid-repeat-tap heuristic).
+clean. Code-only (no protected paths) → NATIVE auto-merge on green (standing grant). **U2b-1 MERGED (PR #224).**
+
+**U2b-2 — `validation_error` on the photo-capture flow (🔨 done, CODE-ONLY, no schema).** Third friction signal,
+reuses the U2b-1 friction bridge + the U2a enum value. **Scope reshaped by a code scout (transparent):** the
+originally-planned pairing "validation_error + form_abandon on the WP-submit + photo-capture forms" doesn't map —
+`submit-for-approval-control.tsx` has **no client-side validation** (server-gated only), so there is nothing to
+hook there for a client `validation_error`; and the app-wide convention is manual `useState` + disabled-submit, not
+react-hook-form/zod. The one genuine client-side validation failure on the **core SA flow** is the photo-capture
+**unsupported-file-type rejection** (`use-phase-capture.ts` `handleFiles`: `preparePhotoForUpload()` returns null
+for a non-image MIME → existing Thai top-level error + `continue`). Wired `trackFriction("validation_error",
+{ reason: "unsupported_file_type" })` in that branch. **PDPA-min: a stable reason code ONLY — never the file name
+(`file.name`) or content**; the tracker stamps the route (the WP-detail screen). One emit per rejected file (each
+a real friction instance; tracker's 50/session cap bounds a loop). `form_abandon` **deferred to U2b-3** (a
+different surface — the defect-report textarea — plus a dirty→leave lifecycle detector = its own unit). TDD: RED
+first (real hook renders in jsdom — mock only `./actions` to skip the server import chain; `preparePhotoForUpload`
+is the real guard) → GREEN. vitest `use-phase-capture-friction` (3: emits reason-only on rejection · once per
+rejected file · no emit on empty selection) → full suite **2229**; typecheck·lint·build clean. **▶ next = U2b-3**
+(`form_abandon` on the defect-report form: dirty-then-leave-without-submit), then U2b-4 (`rage_tap`, a global
+rapid-repeat-tap heuristic).
 
 ---
 

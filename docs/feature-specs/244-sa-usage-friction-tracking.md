@@ -122,13 +122,26 @@ screen-time**. Small, kept longer than raw.
     `UsageTracker.trackFriction()` is capped 50/session (separate from the js_error 25
     cap). \*\*Signal = the \_permanent* give-up:** the queue never drops items, so its only
     terminal state is `isAuthzDenied` (RLS/403 — never sends); a transient offline
-    failure is a legitimate retry, **not** a give-up, so it is excluded (emitting there
+    failure is a legitimate retry, **not\*\* a give-up, so it is excluded (emitting there
     would flood + mislabel field connectivity as friction). Pure
     `pickUploadFailures(items, currentUserId, reported)` returns own-user (ADR 0039
     attribution), permanently-denied, not-yet-reported items; the `UploadQueueRunner`
     emits `upload_fail {kind}` once per stuck item per session (deduped via a
-    `reportedFailuresRef` Set). PDPA-min: aggregate `{kind}` only. ▶ next: **U2b-2**
-    `validation_error` + `form_abandon` on the WP-submit + photo forms; **U2b-3\*\*
+    `reportedFailuresRef` Set). PDPA-min: aggregate `{kind}` only.
+  - **U2b-2 (2026-07-01, code-only) = `validation_error` on the photo-capture flow.**
+    A code scout reshaped the slice (transparent): the planned pairing with the
+    WP-submit form doesn't map — `submit-for-approval-control.tsx` has **no
+    client-side validation** (server-gated only), and the app-wide convention is
+    manual `useState` + disabled-submit (no react-hook-form/zod). The one genuine
+    client-side validation failure on the **core SA flow** is the photo-capture
+    **unsupported-file-type rejection** (`use-phase-capture.ts` `handleFiles`:
+    `preparePhotoForUpload()` returns null for a non-image MIME → the existing Thai
+    top-level error + `continue`). Emit `trackFriction("validation_error",
+{ reason: "unsupported_file_type" })` there — **PDPA-min: a stable reason code
+    ONLY, never the file name/content**; the tracker stamps the route. One emit per
+    rejected file (tracker's 50/session cap bounds a loop). `form_abandon` **deferred
+    to U2b-3** (a different surface — the defect-report textarea — plus a dirty→leave
+    lifecycle detector = its own unit). ▶ next: **U2b-3** `form_abandon`; **U2b-4**
     `rage_tap` (global rapid-repeat-tap heuristic).
 - **U3 — needs-help list.** Per-SA struggle read + supervisor surface (protective copy).
 - **U4 — UX friction map.** Per-screen friction ranking + a fix-list surface.
