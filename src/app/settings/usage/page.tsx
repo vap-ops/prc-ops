@@ -25,6 +25,19 @@ const WINDOW_DAYS = 14;
 // External portal tiers are out of scope (spec 244 U1c) — the read is internal staff.
 const EXTERNAL_ROLES = new Set(["client", "contractor"]);
 
+// Spec 244 U3 — the friction subset of interaction_event_type (mirrors the enum).
+// Counted per person as a needs-help signal. Friction events are low-volume (rare,
+// unlike heartbeats), so a raw RLS read + a JS count is fine for this rarely-loaded
+// super_admin view at current scale; if the volume ever approaches the PostgREST page
+// cap, move to a partial index + an aggregation RPC (a documented scale-up path).
+const FRICTION_TYPES = [
+  "js_error",
+  "upload_fail",
+  "validation_error",
+  "form_abandon",
+  "rage_tap",
+] as const;
+
 const roleLabel = (r: string): string => (USER_ROLE_LABEL as Record<string, string>)[r] ?? r;
 
 // The last N calendar days (UTC, matching usage_daily.day), oldest -> newest.
@@ -51,16 +64,28 @@ export default async function UsagePage() {
   const windowStart = windowDays[0]!;
 
   const supabase = await createClient();
-  const [usageRes, usersRes] = await Promise.all([
+  const [usageRes, usersRes, frictionRes] = await Promise.all([
     supabase
       .from("usage_daily")
       .select("actor_id, day, sessions, active, screen_time_ms")
       .gte("day", windowStart)
       .order("day", { ascending: true }),
     supabase.from("users").select("id, full_name, role"),
+    supabase
+      .from("interaction_events")
+      .select("actor_id")
+      .in("event_type", FRICTION_TYPES)
+      .gte("created_at", `${windowStart}T00:00:00.000Z`),
   ]);
 
   const users = new Map((usersRes.data ?? []).map((u) => [u.id, u]));
+
+  // Per-actor friction counts over the window (a needs-help signal, spec 244 U3).
+  const frictionByActor = new Map<string, number>();
+  for (const e of frictionRes.data ?? []) {
+    if (!e.actor_id) continue;
+    frictionByActor.set(e.actor_id, (frictionByActor.get(e.actor_id) ?? 0) + 1);
+  }
 
   // All INTERNAL staff roles (spec 244 U1c) — exclude the external client/contractor
   // portal tiers (they aren't captured either, but guard the read defensively).
@@ -80,7 +105,32 @@ export default async function UsagePage() {
     ];
   });
 
-  const { dau, perSa, peakDau, totalActiveSas } = summarizeUsage(rows, windowDays);
+  // Spec 244 U3: friction is read live (through today), but usage_daily lags a day
+  // (the rollup cron runs 03:30 UTC). A person whose only window activity is today —
+  // before the rollup — has friction but no usage_daily row yet. That is a STRONG
+  // needs-help signal (friction + near-zero engagement, e.g. a new SA's first day),
+  // so surface them with zero engagement rather than dropping them from the list.
+  const seen = new Set(rows.map((r) => r.actorId));
+  for (const actorId of frictionByActor.keys()) {
+    if (seen.has(actorId)) continue;
+    const u = users.get(actorId);
+    if (!u || EXTERNAL_ROLES.has(u.role)) continue;
+    rows.push({
+      actorId,
+      name: u.full_name?.trim() || "(ไม่มีชื่อ)",
+      role: u.role,
+      day: windowStart,
+      sessions: 0,
+      active: false,
+      screenTimeMs: 0,
+    });
+  }
+
+  const { dau, perSa, peakDau, totalActiveSas, totalFriction } = summarizeUsage(
+    rows,
+    windowDays,
+    frictionByActor,
+  );
 
   return (
     <PageShell>
@@ -91,9 +141,9 @@ export default async function UsagePage() {
 
       <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-5 px-5 py-6`}>
         <p className="text-ink-secondary text-meta">
-          ดูว่าผู้ใช้แต่ละ role เปิดใช้แอปมากน้อยแค่ไหนในช่วง {WINDOW_DAYS} วันที่ผ่านมา
-          เพื่อช่วยเหลือคนที่อาจติดขัด — ไม่ใช่การจัดอันดับหรือวัดผลงาน
-          เวลาใช้งานคือช่วงที่เปิดแอปค้างไว้เท่าที่วัดได้
+          ดูว่าผู้ใช้แต่ละ role เปิดใช้แอปมากน้อยแค่ไหนในช่วง {WINDOW_DAYS} วันที่ผ่านมา และเจอ
+          “จุดสะดุด” (error / อัปโหลดไม่ได้ / กดรัว ๆ) กี่ครั้ง เพื่อช่วยเหลือคนที่อาจติดขัด —
+          ไม่ใช่การจัดอันดับหรือวัดผลงาน เวลาใช้งานคือช่วงที่เปิดแอปค้างไว้เท่าที่วัดได้
         </p>
 
         {perSa.length === 0 ? (
@@ -137,7 +187,10 @@ export default async function UsagePage() {
 
             {/* Per-SA rollup */}
             <div className="flex flex-col gap-2">
-              <h2 className="text-meta text-ink-secondary font-semibold">รายคน (เรียงตามชื่อ)</h2>
+              <h2 className="text-meta text-ink-secondary font-semibold">
+                รายคน (เรียงตามชื่อ)
+                {totalFriction > 0 ? ` · จุดสะดุดรวม ${totalFriction} ครั้ง` : ""}
+              </h2>
               <div className="border-edge bg-card rounded-control divide-edge divide-y border">
                 {perSa.map((p) => (
                   <div
@@ -149,6 +202,9 @@ export default async function UsagePage() {
                       <span className="text-ink-secondary text-meta">
                         {roleLabel(p.role)} · ใช้งาน {p.activeDays}/{WINDOW_DAYS} วัน ·{" "}
                         {p.totalSessions} ครั้ง · ล่าสุด {ddmm(p.lastActiveDay)}
+                        {p.frictionCount > 0 ? (
+                          <span className="text-attn-press"> · จุดสะดุด {p.frictionCount}</span>
+                        ) : null}
                       </span>
                     </div>
                     <span className="text-ink text-meta shrink-0 tabular-nums">

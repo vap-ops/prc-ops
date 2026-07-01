@@ -30,6 +30,9 @@ export interface PerSaUsage {
   totalScreenTimeMs: number;
   totalSessions: number;
   lastActiveDay: string | null;
+  // Spec 244 U3 — friction events this person hit over the window (errors /
+  // upload-fails / abandons / rage-taps). A support signal, never a score.
+  frictionCount: number;
 }
 
 export interface UsageSummary {
@@ -37,10 +40,18 @@ export interface UsageSummary {
   perSa: PerSaUsage[];
   peakDau: number;
   totalActiveSas: number;
+  totalFriction: number;
 }
 
-// Distinct active actors per day (DAU) across the window + a per-SA rollup.
-export function summarizeUsage(rows: UsageDailyRow[], windowDays: string[]): UsageSummary {
+// Distinct active actors per day (DAU) across the window + a per-SA rollup. Spec 244
+// U3: an optional `frictionByActor` map folds each person's friction count into their
+// row (a needs-help signal); an actor with usage but no friction defaults to 0. The
+// caller supplies the counts so this helper stays pure.
+export function summarizeUsage(
+  rows: UsageDailyRow[],
+  windowDays: string[],
+  frictionByActor?: ReadonlyMap<string, number>,
+): UsageSummary {
   const activeByDay = new Map<string, Set<string>>();
   for (const day of windowDays) activeByDay.set(day, new Set());
   for (const r of rows) {
@@ -64,6 +75,7 @@ export function summarizeUsage(rows: UsageDailyRow[], windowDays: string[]): Usa
         totalScreenTimeMs: 0,
         totalSessions: 0,
         lastActiveDay: null,
+        frictionCount: frictionByActor?.get(r.actorId) ?? 0,
       };
       byActor.set(r.actorId, acc);
     }
@@ -78,8 +90,10 @@ export function summarizeUsage(rows: UsageDailyRow[], windowDays: string[]): Usa
 
   const peakDau = dau.reduce((m, p) => Math.max(m, p.count), 0);
   const totalActiveSas = perSa.filter((p) => p.activeDays > 0).length;
+  // Sum over the displayed (internal) actors, so the tile matches the list.
+  const totalFriction = perSa.reduce((s, p) => s + p.frictionCount, 0);
 
-  return { dau, perSa, peakDau, totalActiveSas };
+  return { dau, perSa, peakDau, totalActiveSas, totalFriction };
 }
 
 // Screen time -> a short Thai duration. Screen time is a coarse foreground-visible
