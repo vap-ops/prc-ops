@@ -30,6 +30,10 @@ import {
   type PlanLine,
 } from "@/components/features/supply-plan/supply-plan-manager";
 import { NewPlanButton } from "@/components/features/supply-plan/new-plan-button";
+import {
+  CloneTemplateButton,
+  type TemplatePick,
+} from "@/components/features/supply-plan/clone-template-button";
 import { DeletePlanButton } from "@/components/features/supply-plan/delete-plan-button";
 import { buildPlanList, type SupplyPlanRow } from "@/lib/supply-plan/plan-list";
 import {
@@ -79,6 +83,18 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
     id: p.id,
     status: p.status,
     createdAt: p.created_at,
+  }));
+
+  // Spec 245 U2 — the 2 global templates (is_template=true, project_id=null),
+  // readable by the same write-tier per the spec 245 U1 RLS branch.
+  const { data: templateRows } = await supabase
+    .from("supply_plans")
+    .select("id, name")
+    .eq("is_template", true)
+    .order("name", { ascending: true });
+  const templates: TemplatePick[] = (templateRows ?? []).map((t) => ({
+    id: t.id,
+    name: t.name ?? "เทมเพลต",
   }));
 
   const planIds = plans.map((p) => p.id);
@@ -243,7 +259,10 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
       <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-3 px-5 py-6`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-ink text-body font-semibold">แผนทั้งหมด ({planItems.length})</h2>
-          <NewPlanButton projectId={project.id} />
+          <div className="flex flex-wrap items-center gap-3">
+            <CloneTemplateButton projectId={project.id} templates={templates} />
+            <NewPlanButton projectId={project.id} />
+          </div>
         </div>
 
         {planItems.length === 0 ? (
