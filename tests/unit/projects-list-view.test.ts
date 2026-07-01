@@ -21,6 +21,7 @@ import {
   PROJECT_CLIENT_NONE,
   type ProjectListItem,
 } from "@/lib/projects/list-view";
+import { UNKNOWN_NAME_LABEL } from "@/lib/i18n/labels";
 
 const P: ProjectListItem[] = [
   { id: "1", code: "B-003", name: "บ้านเอ", status: "active", client_id: "cli-a" },
@@ -267,6 +268,17 @@ describe("buildProjectClientChips (feedback 7d9d2c2b)", () => {
     );
     const chips2 = buildProjectClientChips({ ...base, clientCounts: noNull.clientCounts });
     expect(chips2.some((c) => c.key === PROJECT_CLIENT_NONE)).toBe(false);
+  });
+
+  it("shows a neutral label — never the raw id — when a client name can't be resolved (feedback bc6df601)", () => {
+    // procurement can't read `public.clients`, so the loader's name map is empty
+    // even though the project rows (and thus the counts) reference real clients.
+    const chips = buildProjectClientChips({ ...base, clientNames: new Map() });
+    const a = chips.find((c) => c.key === "cli-a")!;
+    expect(a.label).toBe(UNKNOWN_NAME_LABEL);
+    expect(a.label).not.toBe("cli-a");
+    // The href still filters by the real id — only the label is neutralised.
+    expect(a.href).toBe("/projects?client=cli-a");
   });
 
   it("builds hrefs that preserve the status filter and omit the default", () => {
