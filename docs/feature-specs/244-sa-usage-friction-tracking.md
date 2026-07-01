@@ -50,9 +50,8 @@ session + friction telemetry** (ADR 0068 Tier B), the `interaction_events` table
 | `client_ts`   | timestamptz   | device time (offline)                                                |
 | `created_at`  | timestamptz   | server receive time (default now())                                  |
 
-- **RLS:** insert by `authenticated` (own `actor_id` only); select by a support/analyst
-  role set (super_admin/PM/PD — see open Q) **and a subject may select its own rows**
-  (self-mirror, PDPA). No user UPDATE/DELETE. Retention DELETE runs via service-role
+- **RLS:** insert by `authenticated` (own `actor_id` only); select by **`super_admin`
+  only** (v1) **and a subject may select its own rows** (self-mirror, PDPA). No user UPDATE/DELETE. Retention DELETE runs via service-role
   cron only — so this is **not** the `audit_log` triple-lock (it is retention-managed).
 
 ### 3.2 `public.usage_daily` (rollup, cron-refreshed)
@@ -119,12 +118,13 @@ supervisor**, per operator — the app does not act on the user). Surface as fol
 - **DB lessons:** additive migration; RLS own-row insert + self-select + no cross-read;
   pgTAP `plan(N)` + 42501 + anti-join; rollup refresh idempotent.
 
-## 9. Open questions (operator)
+## 9. Resolved (operator, 2026-07-01)
 
-1. **Who sees the needs-help list?** super_admin only, or also PM / project_director /
-   a designated supervisor? (Sets the read RLS.)
-2. **Consent basis** for SA usage capture — legitimate-interest (operational support) vs
-   explicit opt-in. This is worker behavioral data; needs an operator (ideally legal) call.
-   Recommend a one-time in-app notice ("we measure app usage to improve it and help you").
-3. **Retention window** — 30 vs 60 vs 90 days for raw events (rollups kept longer).
-4. **Heartbeat interval / sampling** — trade fidelity vs volume (default: 15–30s heartbeat).
+1. **Reads = `super_admin` only** (v1; widen later). The needs-help list + usage reads
+   admit `super_admin` (plus each subject's own self-mirror row). No PM/PD access yet.
+2. **Consent = a one-time in-app notice** ("we measure app usage to improve it and help
+   you"), acknowledged once per SA. Legitimate-interest basis for operational support;
+   revisit with legal if scope widens.
+3. **Retention = 90 days** raw events (changeable later); daily rollups kept longer.
+4. **Heartbeat = 20s** while foreground (CC decision — balances screen-time fidelity vs
+   volume/battery on low-end field phones); coarser sampling for other high-frequency events.
