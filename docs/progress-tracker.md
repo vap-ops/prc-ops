@@ -6,7 +6,7 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — ✅ U1a · ✅ U1b-1 · ✅ U1b-2 MERGED · 🔨 U1c widen-to-all-roles BUILT (2026-07-01)
+## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — ✅ U1a · ✅ U1b-1 · ✅ U1b-2 · ✅ U1c MERGED · 🔨 U2a friction/js_error BUILT (2026-07-01)
 
 Realigned with operator: goal = measure REAL on-site **site_admin** app usage (screen time → DAU, opens) +
 friction on the mobile PWA → (a) **who needs help** (a supervisor check-in list) + (b) **where UX hurts** (a
@@ -73,7 +73,20 @@ external `client`/`contractor` portals + unauth pages skipped (consent notice ne
 `/settings/usage` drops the `site_admin`-only filter → shows **all internal roles** with a role badge (reuses
 `USER_ROLE_LABEL`), excludes external tiers; copy generalized ("การใช้งานแอป", per-role). `usage-view` helpers gain a
 `role` passthrough. vitest `telemetry-scope` (4) + `usage-view` (8, role-extended) → full suite **2201**;
-typecheck·lint clean; `pnpm build` OK (root client-boundary safe). Code-only → auto-merge on green.
+typecheck·lint clean; `pnpm build` OK (root client-boundary safe). Code-only → auto-merge on green (PR #222, `241821d3`).
+
+**U2a — friction vocabulary + first signal `js_error` (🔨 done, schema).** The start of U2 (friction capture),
+sliced. Migration `20260813047000` = enum-only `alter type interaction_event_type add value` × 5
+(`rage_tap`·`form_abandon`·`validation_error`·`upload_fail`·`js_error`; `if not exists`, own migration per ADR 0008).
+Wires the FIRST signal = **js_error**: a pure `errorMessageForTelemetry()` in `session.ts` (name+message, stack
+STRIPPED, ≤300 chars, PDPA-min) + `UsageTracker.trackError()` (emits `js_error` with `{message}` context, **capped
+25/session** so an error loop can't flood) + the root `TelemetryProvider` installs `window` `error`/`unhandledrejection`
+listeners in its trackable effect (no-op until the tracker starts; removed on leave) + `/api/telemetry` allowlist
+extended. The other 4 friction signals reuse these enum values (code-only U2b+). pgTAP `251` **2/2** (enum label set +
+order); vitest `telemetry-error` (6) + `telemetry-provider-error` (3, RTL via an addEventListener-spy so no real
+dispatch trips vitest's global error handlers) → full suite **2213**; typecheck·lint clean. Migration = danger-path
+→ additive → auto-merge after self-review (standing grant). **▶ next = U2b** (rage_tap / form_abandon /
+validation_error / upload_fail on the photo-capture→WP-submit flow — code-only).
 
 ---
 

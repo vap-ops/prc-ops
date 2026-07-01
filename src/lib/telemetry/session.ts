@@ -6,11 +6,19 @@
 // server-side, so a client cannot spoof who an event belongs to.
 
 export type TelemetryEventType =
+  // U1 — session + navigation
   | "session_start"
   | "heartbeat"
   | "session_end"
   | "route_view"
-  | "feature_touch";
+  | "feature_touch"
+  // U2 — friction (mirrors the interaction_event_type enum; js_error wired in
+  // U2a, the rest are code-only follow-ups)
+  | "rage_tap"
+  | "form_abandon"
+  | "validation_error"
+  | "upload_fail"
+  | "js_error";
 
 export interface TelemetryEvent {
   session_id: string;
@@ -41,6 +49,32 @@ export function makeEvent(
     app_version: opts.appVersion ?? null,
     client_ts: nowIso,
   };
+}
+
+const MAX_ERROR_MESSAGE = 300;
+
+// Extract a short, safe message from an uncaught error for a `js_error` friction
+// event: a name + message for real Errors, the raw string for a string throw, a
+// `.message` off an object, else a fallback. NEVER the stack trace — PDPA-minimized
+// and size-bounded (spec 244 D5).
+export function errorMessageForTelemetry(err: unknown): string {
+  let msg: string;
+  if (err instanceof Error) {
+    msg = `${err.name}: ${err.message}`;
+  } else if (typeof err === "string" && err.length > 0) {
+    msg = err;
+  } else if (
+    typeof err === "object" &&
+    err !== null &&
+    "message" in err &&
+    typeof (err as { message: unknown }).message === "string" &&
+    (err as { message: string }).message.length > 0
+  ) {
+    msg = (err as { message: string }).message;
+  } else {
+    msg = "unknown error";
+  }
+  return msg.slice(0, MAX_ERROR_MESSAGE);
 }
 
 // A bounded FIFO buffer. Normal path: flush at `maxBatch`. If flushes keep

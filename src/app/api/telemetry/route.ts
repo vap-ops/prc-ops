@@ -16,6 +16,12 @@ const EVENT_TYPES: readonly TelemetryEventType[] = [
   "session_end",
   "route_view",
   "feature_touch",
+  // U2 friction (js_error wired in U2a; the rest are code-only follow-ups)
+  "rage_tap",
+  "form_abandon",
+  "validation_error",
+  "upload_fail",
+  "js_error",
 ];
 const MAX_EVENTS = 100;
 const MAX_CONTEXT_CHARS = 4000; // bound the jsonb so a client can't bloat storage

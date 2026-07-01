@@ -7117,6 +7117,11 @@ export type Database = {
         | "session_end"
         | "route_view"
         | "feature_touch"
+        | "rage_tap"
+        | "form_abandon"
+        | "validation_error"
+        | "upload_fail"
+        | "js_error"
       item_category:
         | "steel_fixing"
         | "plumbing_sanitary"
@@ -7461,6 +7466,11 @@ export const Constants = {
         "session_end",
         "route_view",
         "feature_touch",
+        "rage_tap",
+        "form_abandon",
+        "validation_error",
+        "upload_fail",
+        "js_error",
       ],
       item_category: [
         "steel_fixing",
