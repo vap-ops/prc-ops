@@ -6,7 +6,7 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — ✅ U1a · ✅ U1b-1 · ✅ U1b-2 · ✅ U1c · ✅ U2a · ✅ U2b-1 · ✅ U2b-2 MERGED · 🔨 U2b-3 form_abandon BUILT (2026-07-01)
+## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — ✅ U1a–U1c · ✅ U2a · ✅ U2b-1 · ✅ U2b-2 · ✅ U2b-3 MERGED · 🔨 U2b-4 rage_tap BUILT — friction capture COMPLETE; ▶ U3/U4 reads next (2026-07-01)
 
 Realigned with operator: goal = measure REAL on-site **site_admin** app usage (screen time → DAU, opens) +
 friction on the mobile PWA → (a) **who needs help** (a supervisor check-in list) + (b) **where UX hurts** (a
@@ -134,10 +134,28 @@ form is a `BottomSheet` (toggled by state, does NOT unmount on close)** → defe
 sheet-close-transition handling, not unmount. PDPA-min: a **stable form id only** ("feedback"), never the typed
 title/body. TDD: RED first → GREEN. vitest `use-form-abandon` (3: emits form-id-only on dirty-unmount · no emit
 after submit · no emit when untouched) + `feedback-form` (+3: abandon on leave-while-dirty · no abandon after
-submit · no abandon when never filled) → full suite **2235**; typecheck·lint·build clean. **▶ next = U2b-4**
-(`rage_tap`, a global rapid-repeat-tap heuristic — N taps < M ms on the same target, conservative thresholds).
-Follow-up form_abandon adopters (defect sheet, others) can reuse `useFormAbandon` once a sheet-close variant is
-added.
+submit · no abandon when never filled) → full suite **2235**; typecheck·lint·build clean. **U2b-3 MERGED (PR
+#226).** Follow-up form_abandon adopters (defect sheet, others) can reuse `useFormAbandon` once a sheet-close
+variant is added.
+
+**U2b-4 — `rage_tap` (🔨 done, CODE-ONLY, no schema). LAST friction capture signal — U2 friction vocabulary now
+fully wired.** Reuses the U2b-1 friction bridge + the U2a enum value. New pure detector
+`src/lib/telemetry/rage-tap.ts` — `RageTapDetector(threshold=4, windowMs=700)`; `.tap(target, ts)` returns true
+**exactly once per burst** (on the tap crossing the threshold) when N taps hit the **same target** within the
+window; a different target or an elapsed window starts a new burst. **DOM-free** (target identity + timestamp
+injected) so the heuristic is unit-testable + tunable. **Conservative defaults** — a double/triple-tap never fires.
+Wired in `telemetry-provider.tsx`'s trackable effect (mirroring the js_error listeners): a fresh detector per
+trackable mount + a capture-phase `window` `pointerdown` listener → on detection calls
+`trackerRef.current?.trackFriction("rage_tap")` (no-op until the tracker starts; gated by `isTrackableRoute`;
+removed on cleanup with the same capture flag). PDPA-min: **NO context — route only** (tracker-stamped); no
+coordinates / target text. Accepted tradeoff (documented): rapid legit tapping (a +/- stepper) can false-positive;
+the friction map (U4) reads aggregate per-screen rates, so genuine jank still surfaces, and thresholds are tunable.
+TDD: RED first → GREEN. vitest `rage-tap` (6: fires on Nth same-target tap · fires once per burst · no fire below
+threshold · resets on target change · new burst outside window · custom threshold/window) + `telemetry-rage-tap`
+(4, RTL via the addEventListener-spy: fires after rapid same-target taps · no fire below threshold · no fire across
+different targets · not registered on a non-trackable route) → full suite **2246**; typecheck·lint·build clean.
+**▶ next = U3 (needs-help list) / U4 (UX friction map)** — the READ surfaces over the now-complete capture set
+(session/screen-time + all 5 friction signals). U2 friction capture is DONE.
 
 ---
 

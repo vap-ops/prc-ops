@@ -155,8 +155,23 @@ screen-time**. Small, kept longer than raw.
     needs a real form. **The defect-report form is a `BottomSheet` (toggled by state,
     does NOT unmount on close) → deferred** as a follow-up adopter that needs a
     sheet-close variant of the hook. **PDPA-min: a stable form id ONLY, never the
-    typed content.** ▶ next: **U2b-4** `rage_tap` (a global rapid-repeat-tap
-    heuristic — N taps < M ms on the same target, conservative thresholds).
+    typed content.**
+  - **U2b-4 (2026-07-01, code-only) = `rage_tap` — the LAST friction capture
+    signal.** New pure detector `src/lib/telemetry/rage-tap.ts` —
+    `RageTapDetector(threshold=4, windowMs=700)`; `.tap(target, ts)` returns true
+    **once per burst** when N taps hit the **same target** within the window (a
+    different target / elapsed window starts a new burst). DOM-free (target + ts
+    injected) so it's unit-testable + tunable; conservative defaults so a
+    double/triple-tap never fires. Wired in `telemetry-provider.tsx`'s trackable
+    effect (like the js_error listeners): a fresh detector + a capture-phase `window`
+    `pointerdown` listener → on detection `trackerRef.current?.trackFriction("rage_tap")`
+    (no-op until the tracker starts; removed on cleanup). **PDPA-min: NO context —
+    route only** (tracker-stamped), no coordinates/target text. Accepted tradeoff:
+    rapid legit tapping (a +/- stepper) may false-positive; the friction map (U4)
+    reads aggregate per-screen rates so genuine jank still surfaces, and thresholds
+    are tunable. **▶ With U2b-4 the 5-signal friction vocabulary
+    (`js_error`/`upload_fail`/`validation_error`/`form_abandon`/`rage_tap`) is fully
+    captured — next are the READ surfaces U3/U4.**
 - **U3 — needs-help list.** Per-SA struggle read + supervisor surface (protective copy).
 - **U4 — UX friction map.** Per-screen friction ranking + a fix-list surface.
 

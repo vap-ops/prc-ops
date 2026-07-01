@@ -15,6 +15,7 @@ import { UsageTracker } from "@/lib/telemetry/tracker";
 import { isTrackableRoute } from "@/lib/telemetry/scope";
 import { errorMessageForTelemetry } from "@/lib/telemetry/session";
 import { setFrictionSink } from "@/lib/telemetry/friction";
+import { RageTapDetector } from "@/lib/telemetry/rage-tap";
 import { UsageNotice } from "./usage-notice";
 
 const CONSENT_KEY = "telemetry_notice_ack_v1";
@@ -64,11 +65,21 @@ export function TelemetryProvider({ enabled = true }: { enabled?: boolean }) {
     window.addEventListener("error", onError);
     window.addEventListener("unhandledrejection", onRejection);
 
+    // Spec 244 U2b-4: rapid repeated taps on one target = rage_tap friction. Fresh
+    // detector per trackable mount; capture-phase so we see the tap early. No-op
+    // until the tracker starts (trackFriction guards on `started`).
+    const rage = new RageTapDetector();
+    const onPointerDown = (e: PointerEvent) => {
+      if (rage.tap(e.target, e.timeStamp)) trackerRef.current?.trackFriction("rage_tap");
+    };
+    window.addEventListener("pointerdown", onPointerDown, true);
+
     // On leaving a trackable surface (or unmount), drop the listeners + end the
     // session cleanly.
     return () => {
       window.removeEventListener("error", onError);
       window.removeEventListener("unhandledrejection", onRejection);
+      window.removeEventListener("pointerdown", onPointerDown, true);
       stop();
     };
   }, [trackable]);
