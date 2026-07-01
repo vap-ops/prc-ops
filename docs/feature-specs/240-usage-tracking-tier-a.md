@@ -1,6 +1,13 @@
 # 240 — Usage tracking Tier A (analytics on `audit_log`)
 
-**Status:** design approved (brainstorm 2026-07-01), spec pending operator review → plan.
+> **⚠️ SHELVED (2026-07-01).** The U1 audit found `audit_log` is nearly empty of
+> lifecycle events and blind to screen time / app opens / friction — the wrong
+> substrate for the operator's actual goal (measure on-site SA usage + who needs help).
+> Per the **ADR 0068 amendment**, focus flipped to **Tier B**; the current implementing
+> spec is **`244-sa-usage-friction-tracking.md`**. These Tier-A process-mining units
+> (U2–U6) are **not built** unless a distinct future need revives them. Kept for record.
+
+**Status:** SHELVED (was: design approved 2026-07-01) — superseded in focus by spec 244.
 **Requires:** ADR **0068** (two-tier usage-tracking architecture).
 **Research:** `docs/research/usage-data-use-cases-2026-07.md`.
 **Scope:** the **Tier-A** half only — derived analytics over the existing `audit_log`. **No new capture table** (that is Tier B, deferred). **No "levels" layer** (a later consumer). No Google-Sheets readout (deferred; readout is in-app + Telegram).

@@ -6,6 +6,25 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — 📐 DESIGN, not built (2026-07-01)
+
+Realigned with operator: goal = measure REAL on-site **site_admin** app usage (screen time → DAU, opens) +
+friction on the mobile PWA → (a) **who needs help** (a supervisor check-in list) + (b) **where UX hurts** (a
+fix list). Support + UX, NOT ranking / process / fraud.
+
+**Pivot:** spec 240 U1 audit found `audit_log` nearly empty of lifecycle events + blind to screen-time / opens
+→ WRONG substrate. Per the **ADR 0068 amendment**, focus flipped to **Tier B** (the `interaction_events`
+client tracker); spec 240 (Tier-A process mining) is **SHELVED**. New implementing spec = **244**.
+
+**Scope:** `site_admin` / PWA first. **U1** = event pipe + session/screen-time → DAU + screen-time (the
+smallest useful slice) · **U2** friction on photo-capture→WP-submit · **U3** needs-help list · **U4** UX
+friction map. Guardrails: help-not-surveillance, PDPA-minimized, offline-batched, sampled + retention.
+
+**Status:** docs only (ADR amend + spec 244 + shelve 240 + indexes). No code yet. **Open (operator):** who
+sees the needs-help list; consent basis; retention window; heartbeat interval.
+
+---
+
 ## Spec 243 — content-visibility on WorklistRow (interaction freeze / INP) — 🔨 IN PROGRESS (2026-07-01)
 
 Operator: "press a button → screen freezes before changing." **Profiled live** (drove the real app via the
