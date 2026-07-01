@@ -6,7 +6,7 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — ✅ U1a–U1c · ✅ U2a · ✅ U2b-1–U2b-4 MERGED (capture COMPLETE) · 🔨 U3 needs-help list BUILT; ▶ U4 friction map next (2026-07-01)
+## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — ✅ U1a–U1c · ✅ U2a · ✅ U2b-1–U2b-4 · ✅ U3 MERGED (capture + needs-help done) · 🔨 U4 friction map BUILT — **spec 244 v1 COMPLETE** (2026-07-01)
 
 Realigned with operator: goal = measure REAL on-site **site_admin** app usage (screen time → DAU, opens) +
 friction on the mobile PWA → (a) **who needs help** (a supervisor check-in list) + (b) **where UX hurts** (a
@@ -172,9 +172,28 @@ the code comments the **partial-index + aggregation-RPC scale-up path** (move th
 approaches the PostgREST page cap). PDPA: only counts, no event content; super_admin-only. TDD: RED first → GREEN.
 vitest `usage-view` (+3: carries per-actor friction when a map is supplied · defaults to 0 without a map · totals
 across actors; 2 existing exact-object assertions updated for the new field) → full suite **2249**;
-typecheck·lint·build clean. **▶ next = U4 (UX friction map)** — the per-SCREEN friction read (rank routes/flows by
-friction rate → a fix-list). Different grain from U3 (per-route, not per-person) → it likely DOES want a rollup or
-partial index (heartbeat-heavy table, aggregate across ALL users) — scope that aggregation first.
+typecheck·lint·build clean. **U3 MERGED (PR #228).**
+
+**U4 — UX friction map (🔨 done, CODE-ONLY, no schema). SECOND read surface (D3b) — completes spec 244 v1.** A new
+super_admin page `/settings/friction-map` that ranks SCREENS by how much friction they generate (aggregate across
+all users) → a fix-list of where UX hurts most. New pure helpers `src/lib/usage/friction-map.ts`: `normalizeRoute`
+collapses uuid + numeric path segments to `:id` (the tracker captures the raw pathname WITH ids, so grouping must
+normalize, else every project/WP/request fragments); `buildFrictionMap(rows)` groups friction by normalized route →
+per-route total + per-type breakdown, ranked by total desc (route asc tie-break). The page reads
+`interaction_events` (`route, event_type where event_type in <5 friction types> and created_at >= window-start`) via
+the RLS session client, `buildFrictionMap`, renders a ranked list of screens with per-type friction chips
+(กดรัว/error/อัปโหลดไม่ได้/กรอกไม่ผ่าน/ทิ้งฟอร์ม) + fix-list copy. Registered in the settings hub (TriangleAlert
+icon) + the `nav-back-affordance` guard (STATIC_DETAIL) + renders DetailHeader. **v1 ranks by ABSOLUTE friction
+count per screen; a per-view RATE (friction ÷ route_views) needs the high-volume route_view denominator aggregated
+server-side (partial index + RPC/rollup) — deferred as a documented scale-up** (absolute counts are still an
+actionable fix-list; friction is low-volume so a raw RLS read + JS group-by is fine at beta, same tradeoff as U3).
+`new Date()` not `Date.now()` (React Compiler purity lint). PDPA: aggregate route + type counts only, no per-person
+data / content; super_admin-only. TDD: RED first → GREEN. vitest `friction-map` (7: normalizeRoute keep/collapse/root
+· buildFrictionMap group+per-type · id-collapse-to-one-row · rank+tie-break · empty) + nav-back guard (+1
+DetailHeader) → full suite **2258**; typecheck·lint·build clean. **▶ spec 244 v1 COMPLETE** — capture (U1 +
+5 friction) + both read outputs (U3 per-person needs-help, U4 per-screen friction map). Follow-ups (not v1): the
+per-view RATE (route_view aggregation), friction rollup/index if volume grows, a friction-map link from the
+needs-help page. **This is a natural stopping point for the epic.**
 
 ---
 

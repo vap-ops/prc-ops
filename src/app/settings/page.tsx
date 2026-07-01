@@ -20,6 +20,7 @@ import {
   Wrench,
   MessageSquarePlus,
   Activity,
+  TriangleAlert,
 } from "lucide-react";
 import { AvatarSurface } from "@/components/features/common/avatar-surface";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
@@ -349,6 +350,12 @@ export default async function SettingsPage() {
               icon={Activity}
               label="การใช้งานแอป"
               hint="ดูว่าผู้ใช้แต่ละ role ใช้แอปมากน้อยแค่ไหน เพื่อช่วยเหลือคนที่อาจติดขัด"
+            />
+            <SettingsLink
+              href="/settings/friction-map"
+              icon={TriangleAlert}
+              label="จุดสะดุดรายจอ"
+              hint="จอไหนที่ผู้ใช้เจอปัญหามากที่สุด เพื่อจัดลำดับการปรับ UX"
             />
           </div>
         )}
