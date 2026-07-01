@@ -10,6 +10,7 @@
 export interface UsageDailyRow {
   actorId: string;
   name: string;
+  role: string;
   day: string; // 'YYYY-MM-DD'
   sessions: number;
   active: boolean;
@@ -24,6 +25,7 @@ export interface DauPoint {
 export interface PerSaUsage {
   actorId: string;
   name: string;
+  role: string;
   activeDays: number;
   totalScreenTimeMs: number;
   totalSessions: number;
@@ -57,6 +59,7 @@ export function summarizeUsage(rows: UsageDailyRow[], windowDays: string[]): Usa
       acc = {
         actorId: r.actorId,
         name: r.name,
+        role: r.role,
         activeDays: 0,
         totalScreenTimeMs: 0,
         totalSessions: 0,

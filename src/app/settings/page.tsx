@@ -347,8 +347,8 @@ export default async function SettingsPage() {
             <SettingsLink
               href="/settings/usage"
               icon={Activity}
-              label="การใช้งานแอป (หน้างาน)"
-              hint="ดูว่าทีมงานหน้างานใช้แอปมากน้อยแค่ไหน เพื่อช่วยเหลือคนที่อาจติดขัด"
+              label="การใช้งานแอป"
+              hint="ดูว่าผู้ใช้แต่ละ role ใช้แอปมากน้อยแค่ไหน เพื่อช่วยเหลือคนที่อาจติดขัด"
             />
           </div>
         )}
