@@ -6,7 +6,7 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — 📐 DESIGN, not built (2026-07-01)
+## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — 🔨 U1a schema BUILT · held (2026-07-01)
 
 Realigned with operator: goal = measure REAL on-site **site_admin** app usage (screen time → DAU, opens) +
 friction on the mobile PWA → (a) **who needs help** (a supervisor check-in list) + (b) **where UX hurts** (a
@@ -20,8 +20,20 @@ client tracker); spec 240 (Tier-A process mining) is **SHELVED**. New implementi
 smallest useful slice) · **U2** friction on photo-capture→WP-submit · **U3** needs-help list · **U4** UX
 friction map. Guardrails: help-not-surveillance, PDPA-minimized, offline-batched, sampled + retention.
 
-**Status:** docs only (ADR amend + spec 244 + shelve 240 + indexes). No code yet. **Open (operator):** who
-sees the needs-help list; consent basis; retention window; heartbeat interval.
+**Decisions (operator 2026-07-01):** reads = `super_admin` only (v1) + subject self-mirror; consent = a
+one-time in-app notice; retention = 90d raw; heartbeat = 20s.
+
+**U1 split** (U1 as speced is multi-layer → sequenced): **U1a — schema foundation (THIS, 🔨 done, held)** =
+migration `20260813045000`: `interaction_event_type` enum (session_start/heartbeat/session_end/route_view/
+feature_touch) + `interaction_events` table + a BEFORE-INSERT stamp trigger forcing actor_id=auth.uid() +
+actor_role=current_user_role() (tamper-proof identity) + RLS (insert-own · select super_admin-or-own · no
+user update/delete) + `prune_interaction_events(90)` SECURITY DEFINER + daily pg_cron prune. Applied to the
+shared DB (DB ahead of main by `045000` until the held PR merges). pgTAP `249` = **12/12** (RLS, stamp,
+self-mirror, no cross-read, no update/delete, anon-blocked); typecheck·lint clean; db:types regen (+ vendored
+worker copy). **▶ U1b (next) = the code layer:** client session module (open/heartbeat/close, batched +
+offline-safe) + `/api/telemetry` ingest + one-time consent notice + `usage_daily` rollup + refresh fn + cron +
+the super_admin DAU/screen-time read. (The rollup's screen-time math couples to the client event contract, so
+it lands with U1b, not the schema.)
 
 ---
 

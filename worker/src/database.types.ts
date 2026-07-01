@@ -2124,6 +2124,53 @@ export type Database = {
           },
         ]
       }
+      interaction_events: {
+        Row: {
+          actor_id: string
+          actor_role: Database["public"]["Enums"]["user_role"]
+          app_version: string | null
+          client_ts: string | null
+          context: Json | null
+          created_at: string
+          event_type: Database["public"]["Enums"]["interaction_event_type"]
+          id: string
+          route: string | null
+          session_id: string
+        }
+        Insert: {
+          actor_id: string
+          actor_role: Database["public"]["Enums"]["user_role"]
+          app_version?: string | null
+          client_ts?: string | null
+          context?: Json | null
+          created_at?: string
+          event_type: Database["public"]["Enums"]["interaction_event_type"]
+          id?: string
+          route?: string | null
+          session_id: string
+        }
+        Update: {
+          actor_id?: string
+          actor_role?: Database["public"]["Enums"]["user_role"]
+          app_version?: string | null
+          client_ts?: string | null
+          context?: Json | null
+          created_at?: string
+          event_type?: Database["public"]["Enums"]["interaction_event_type"]
+          id?: string
+          route?: string | null
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interaction_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       item_sell_rates: {
         Row: {
           catalog_item_id: string
@@ -6282,6 +6329,10 @@ export type Database = {
         Args: { p_max_age_days?: number }
         Returns: number
       }
+      prune_interaction_events: {
+        Args: { p_max_age_days?: number }
+        Returns: number
+      }
       prune_notification_outbox: {
         Args: { p_max_age_days?: number }
         Returns: number
@@ -7021,6 +7072,12 @@ export type Database = {
       feedback_type: "bug" | "feature"
       gl_account_type: "asset" | "liability" | "equity" | "income" | "expense"
       gl_posting_status: "pending" | "posting" | "posted" | "failed" | "skipped"
+      interaction_event_type:
+        | "session_start"
+        | "heartbeat"
+        | "session_end"
+        | "route_view"
+        | "feature_touch"
       item_category:
         | "steel_fixing"
         | "plumbing_sanitary"
@@ -7359,6 +7416,13 @@ export const Constants = {
       feedback_type: ["bug", "feature"],
       gl_account_type: ["asset", "liability", "equity", "income", "expense"],
       gl_posting_status: ["pending", "posting", "posted", "failed", "skipped"],
+      interaction_event_type: [
+        "session_start",
+        "heartbeat",
+        "session_end",
+        "route_view",
+        "feature_touch",
+      ],
       item_category: [
         "steel_fixing",
         "plumbing_sanitary",
