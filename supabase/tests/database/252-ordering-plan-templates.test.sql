@@ -1,5 +1,5 @@
 begin;
-select plan(13);
+select plan(14);
 
 -- ============================================================================
 -- Spec 245 U1 — ordering-plan templates: supply_plans gains is_template/name,
@@ -15,10 +15,12 @@ select plan(13);
 insert into auth.users (id, email, raw_user_meta_data) values
   ('a1111111-1111-1111-1111-111111111245', 'pm@sp245.local', '{}'::jsonb),
   ('a2222222-2222-2222-2222-222222222245', 'sa@sp245.local', '{}'::jsonb),
-  ('a3333333-3333-3333-3333-333333333245', 'proc@sp245.local', '{}'::jsonb);
+  ('a3333333-3333-3333-3333-333333333245', 'proc@sp245.local', '{}'::jsonb),
+  ('a4444444-4444-4444-4444-444444444245', 'pd@sp245.local', '{}'::jsonb);
 update public.users set role='project_manager' where id='a1111111-1111-1111-1111-111111111245';
 update public.users set role='site_admin'      where id='a2222222-2222-2222-2222-222222222245';
 update public.users set role='procurement'     where id='a3333333-3333-3333-3333-333333333245';
+update public.users set role='project_director' where id='a4444444-4444-4444-4444-444444444245';
 
 insert into public.projects (id, code, name) values
   ('aa000000-0000-0000-0000-000000000245', 'SP245', 'โครงการ 245');
@@ -125,6 +127,20 @@ set local "request.jwt.claims" = '{"sub": "a3333333-3333-3333-3333-333333333245"
 select is(
   (select count(*)::int from public.supply_plans where id = 'cc000000-0000-0000-0000-000000000245'),
   1, 'procurement can read the template row (its existing cross-project branch)');
+
+reset role;
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "a4444444-4444-4444-4444-444444444245"}';
+
+-- L. project_director can read the template row — direct evidence for the
+-- is_template branch's explicit project_director disjunct (added to satisfy the
+-- ADR 0058 / spec 152 "PM implies PD" RLS-naming convention, 91-project-director-
+-- write-rls.test.sql assertion 1). Also true independently via can_see_project's
+-- own unconditional director branch, so this proves the row is readable either
+-- way — the point is direct test evidence exists, not which branch fired.
+select is(
+  (select count(*)::int from public.supply_plans where id = 'cc000000-0000-0000-0000-000000000245'),
+  1, 'project_director can read the template row');
 
 reset role;
 
