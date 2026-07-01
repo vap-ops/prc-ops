@@ -47,7 +47,7 @@ alter policy "supply_plans readable by project viewers"
   using (
     (select public.can_see_project(project_id))
     or (select public.current_user_role()) = 'procurement'
-    or (is_template and (select public.current_user_role()) = 'project_manager')
+    or (is_template and (select public.current_user_role()) in ('project_manager', 'project_director'))
   );
 
 alter policy "supply_plan_lines readable by project viewers"
@@ -59,7 +59,7 @@ alter policy "supply_plan_lines readable by project viewers"
        where sp.id = supply_plan_id
          and (
            public.can_see_project(sp.project_id)
-           or (sp.is_template and (select public.current_user_role()) = 'project_manager')
+           or (sp.is_template and (select public.current_user_role()) in ('project_manager', 'project_director'))
          )
     )
   );
