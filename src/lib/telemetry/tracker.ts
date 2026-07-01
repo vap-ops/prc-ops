@@ -12,6 +12,8 @@ import { EventBuffer, makeEvent, type TelemetryEvent, type TelemetryEventType } 
 const INGEST_URL = "/api/telemetry";
 const HEARTBEAT_MS = 20_000;
 const FLUSH_MS = 20_000;
+// Cap js_error events per session so an app error loop can't flood the pipe.
+const MAX_ERRORS_PER_SESSION = 25;
 
 export class UsageTracker {
   private readonly buffer = new EventBuffer();
@@ -19,6 +21,7 @@ export class UsageTracker {
   private heartbeatTimer: number | null = null;
   private flushTimer: number | null = null;
   private started = false;
+  private errorCount = 0;
 
   start(): void {
     if (this.started || typeof window === "undefined") return;
@@ -37,6 +40,16 @@ export class UsageTracker {
     this.emit("route_view", pathname);
   }
 
+  // Spec 244 U2a — an uncaught error on the current screen = a friction signal
+  // ("this screen hurts"). Best-effort + capped per session; the message is
+  // already extracted + bounded by the caller (errorMessageForTelemetry).
+  trackError(message: string): void {
+    if (!this.started) return;
+    if (this.errorCount >= MAX_ERRORS_PER_SESSION) return;
+    this.errorCount++;
+    this.emit("js_error", undefined, { message });
+  }
+
   stop(): void {
     if (!this.started) return;
     this.started = false;
@@ -51,12 +64,12 @@ export class UsageTracker {
     return typeof window !== "undefined" ? window.location.pathname : null;
   }
 
-  private emit(type: TelemetryEventType, route?: string): void {
+  private emit(type: TelemetryEventType, route?: string, context?: Record<string, unknown>): void {
     this.buffer.add(
       makeEvent(
         this.sessionId,
         type,
-        { route: route ?? this.currentRoute() },
+        { route: route ?? this.currentRoute(), context: context ?? null },
         new Date().toISOString(),
       ),
     );

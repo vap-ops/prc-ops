@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { UsageTracker } from "@/lib/telemetry/tracker";
 import { isTrackableRoute } from "@/lib/telemetry/scope";
+import { errorMessageForTelemetry } from "@/lib/telemetry/session";
 import { UsageNotice } from "./usage-notice";
 
 const CONSENT_KEY = "telemetry_notice_ack_v1";
@@ -47,8 +48,24 @@ export function TelemetryProvider({ enabled = true }: { enabled?: boolean }) {
     // post-mount (reading it in a lazy initializer would hydration-mismatch).
     // eslint-disable-next-line react-hooks/set-state-in-effect
     else setNeedsNotice(true);
-    // On leaving a trackable surface (or unmount), end the session cleanly.
-    return () => stop();
+
+    // Spec 244 U2a: uncaught errors on a trackable screen = js_error friction.
+    // These are a no-op until the tracker starts (e.g. before consent is acked),
+    // since trackError guards on `started`.
+    const onError = (e: ErrorEvent) =>
+      trackerRef.current?.trackError(errorMessageForTelemetry(e.error ?? e.message));
+    const onRejection = (e: PromiseRejectionEvent) =>
+      trackerRef.current?.trackError(errorMessageForTelemetry(e.reason));
+    window.addEventListener("error", onError);
+    window.addEventListener("unhandledrejection", onRejection);
+
+    // On leaving a trackable surface (or unmount), drop the listeners + end the
+    // session cleanly.
+    return () => {
+      window.removeEventListener("error", onError);
+      window.removeEventListener("unhandledrejection", onRejection);
+      stop();
+    };
   }, [trackable]);
 
   useEffect(() => {

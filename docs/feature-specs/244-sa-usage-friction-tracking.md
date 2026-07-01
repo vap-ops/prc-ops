@@ -104,7 +104,13 @@ screen-time**. Small, kept longer than raw.
   `super_admin`-only.
 - **U2 — friction capture on the core SA flow (photo capture → WP submit).**
   `rage_tap`, `form_abandon`, `validation_error`, `upload_fail`, `js_error` events on
-  that flow.
+  that flow. **Sliced:** **U2a (2026-07-01)** = add the 5 friction values to the
+  `interaction_event_type` enum (own enum-only migration) + wire the FIRST signal =
+  **`js_error`** (a global uncaught-error/unhandled-rejection handler on the
+  root-mounted tracker → the telemetry pipe; gated by `isTrackableRoute`,
+  message-only + stack-stripped + capped 25/session). The other four
+  (`rage_tap`/`form_abandon`/`validation_error`/`upload_fail`) are code-only
+  follow-ups (U2b+) that reuse these enum values.
 - **U3 — needs-help list.** Per-SA struggle read + supervisor surface (protective copy).
 - **U4 — UX friction map.** Per-screen friction ranking + a fix-list surface.
 
@@ -123,6 +129,10 @@ supervisor**, per operator — the app does not act on the user). Surface as fol
 - **PDPA / anti-surveillance (ADR 0068 §5):** minimized dimensions (no content/keystrokes);
   protective framing; retention windows enforced; subject self-mirror read. This monitors
   workers — the "help not surveillance" posture is mandatory.
+- **U2a `js_error` message text:** stores the error name + message only — stack **stripped**,
+  ≤300 chars, capped 25/session. The message string may _incidentally_ carry app-generated
+  text; accepted as the standard error-telemetry tradeoff, mitigated by no-stack + bounded +
+  `super_admin`-only read + 90d retention. Revisit (hash/redact) if a message is found to leak PII.
 - **Performance:** capture must not slow the SA PWA — coarse heartbeat, batched flush,
   sampling; measure that the module adds negligible main-thread cost.
 - **DB lessons:** additive migration; RLS own-row insert + self-select + no cross-read;
