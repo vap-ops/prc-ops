@@ -41,6 +41,8 @@ const ALLOWED_DOMAINS = [
   "client-portal",
   // Spec 237 (ADR 0066 S10): the BOQ estimate authoring components (template + line).
   "boq",
+  // Spec 244 (ADR 0068 Tier B): the SA usage-telemetry provider + consent notice.
+  "telemetry",
 ] as const;
 
 describe("feature components are grouped into domain folders", () => {
