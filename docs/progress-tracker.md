@@ -6,7 +6,7 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — ✅ U1a MERGED · 🔨 U1b-1 capture BUILT (2026-07-01)
+## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — ✅ U1a MERGED · ✅ U1b-1 capture MERGED · 🔨 U1b-2 rollup+read BUILT/HELD (2026-07-01)
 
 Realigned with operator: goal = measure REAL on-site **site_admin** app usage (screen time → DAU, opens) +
 friction on the mobile PWA → (a) **who needs help** (a supervisor check-in list) + (b) **where UX hurts** (a
@@ -42,9 +42,27 @@ client `UsageTracker` (session_start on foreground · heartbeat 20s while visibl
 inserts via the RLS server client so the DB trigger stamps identity) + a one-time consent banner (`UsageNotice`,
 localStorage-acked, design tokens) mounted via a new `src/app/sa/layout.tsx` (scopes telemetry to /sa) +
 `NEXT_PUBLIC_TELEMETRY_ENABLED` kill switch (default on). vitest `telemetry-session` (5) + structure-guard
-updated; full suite **2188**; typecheck·lint clean. Code-only → auto-merge on green. **▶ U1b-2 (next) = the
-payoff:** `usage_daily` rollup + refresh fn + daily cron (schema lane) + the super_admin **DAU + screen-time**
-read surface — where the numbers become visible.
+updated; full suite **2188**; typecheck·lint clean. Code-only → auto-merge on green (PR #220, `f240ea06`).
+
+**U1b-2 — the visible payoff (🔨 done, HELD for operator merge).** Migration `20260813046000` = the
+`usage_daily` rollup table (PK `(actor_id, day)`; `sessions` · `active` · `screen_time_ms` · `opens` ·
+`routes_touched`; RLS **"super_admin or own"** mirroring `interaction_events`; **no user writes** — no
+insert/update/delete policy) + `refresh_usage_daily(p_day date default current_date-1)` **SECURITY DEFINER**
+upsert (idempotent): `screen_time_ms` = heartbeat-count × 20000ms (a 20s-heartbeat proxy, robust to a missed
+`session_end` — simpler than pairing start/end), `sessions` = distinct `session_id`, `opens` = `session_start`
+count, `routes_touched` = distinct `route`, day bucketed by server `created_at`; revoked from
+public/anon/authenticated (writer-only) + daily pg_cron `usage-daily-refresh` (03:30, rolls up yesterday,
+unschedule-if-exists guard). Applied to the shared DB (DB ahead of main by `046000` until the held PR merges).
+**READ = a super_admin page `/settings/usage`** (`requireRole(["super_admin"])` + RLS session client, so RLS
+auto-scopes — no admin client) showing **per-SA DAU + screen-time over the last 14 days**: a DAU-per-day bar +
+a per-SA rollup (active days / sessions / total screen time / last-seen), **protective framing** (help-not-
+ranking; list sorted by name, not usage), empty/low state until numbers accrue. New pure helpers
+`src/lib/usage/usage-view.ts` (`summarizeUsage` + `formatScreenTime`, unit-tested) + a settings-hub link under
+ผู้ดูแลระบบ. pgTAP `250` = **18/18** (RLS super/own/no-cross-read + no user insert/update + no client EXECUTE of
+the definer writer + refresh math + idempotency);
+vitest `usage-view` (8) + nav-classification guard updated; full suite **2196**; typecheck·lint clean; db:types
+regen (+ vendored worker copy). Migration = danger-path → **HELD for operator merge**. **▶ next = U2**
+(friction capture on the core SA flow: photo-capture → WP-submit).
 
 ---
 

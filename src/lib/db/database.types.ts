@@ -4633,6 +4633,44 @@ export type Database = {
           },
         ]
       }
+      usage_daily: {
+        Row: {
+          active: boolean
+          actor_id: string
+          day: string
+          opens: number
+          routes_touched: number
+          screen_time_ms: number
+          sessions: number
+        }
+        Insert: {
+          active?: boolean
+          actor_id: string
+          day: string
+          opens?: number
+          routes_touched?: number
+          screen_time_ms?: number
+          sessions?: number
+        }
+        Update: {
+          active?: boolean
+          actor_id?: string
+          day?: string
+          opens?: number
+          routes_touched?: number
+          screen_time_ms?: number
+          sessions?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_daily_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           created_at: string
@@ -6451,6 +6489,7 @@ export type Database = {
         Args: { p_item: string; p_worker: string }
         Returns: string
       }
+      refresh_usage_daily: { Args: { p_day?: string }; Returns: number }
       reject_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
       release_retention: { Args: { p_id: string }; Returns: string }
       remove_assembly_component: { Args: { p_id: string }; Returns: undefined }
