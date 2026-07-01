@@ -32,6 +32,7 @@ import {
   type QueuedUpload,
 } from "@/lib/photos/upload-queue";
 import { notifyQueueChanged, safeQueuePut, safeQueueRemove } from "@/lib/photos/upload-queue-idb";
+import { trackFriction } from "@/lib/telemetry/friction";
 import type { PhotoPhase } from "@/lib/photos/transitions";
 import { addPhoto, removePhoto } from "./actions";
 
@@ -159,6 +160,11 @@ export function usePhaseCapture({ projectId, workPackageId, userId, phase }: Use
         setTopLevelError(
           `ไฟล์ "${file.name}" ไม่ใช่รูปภาพที่รองรับ — ใช้ JPEG, PNG, WebP หรือ HEIC`,
         );
+        // Spec 244 U2b-2: an unsupported-file rejection is a validation_error the
+        // user hits on this screen — a friction signal. PDPA-min: a stable reason
+        // code only, NEVER the file name/content. Best-effort (no-ops if capture is
+        // inactive); the tracker stamps the route.
+        trackFriction("validation_error", { reason: "unsupported_file_type" });
         continue;
       }
       const id = crypto.randomUUID();
