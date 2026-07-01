@@ -20,6 +20,7 @@ import {
   classifyStorageUploadError,
   isAuthzDenied,
   nextPassDelayMs,
+  pickUploadFailures,
   processQueue,
   type ProcessDeps,
   type QueuedUpload,
@@ -29,6 +30,7 @@ import {
   QUEUE_CHANGED_EVENT,
   safeQueueRemove,
 } from "@/lib/photos/upload-queue-idb";
+import { trackFriction } from "@/lib/telemetry/friction";
 import { addPhoto } from "@/app/projects/[projectId]/work-packages/[workPackageId]/actions";
 import { addDeliveryConfirmationPhoto, addPurchaseRequestAttachment } from "@/app/requests/actions";
 import { ConfirmDialog } from "@/components/features/common/confirm-dialog";
@@ -105,6 +107,9 @@ export function UploadQueueRunner() {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const runningRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Spec 244 U2b-1 — ids already reported as upload_fail this session, so a
+  // permanently-denied item surfaces once (not on every retry pass).
+  const reportedFailuresRef = useRef<Set<string>>(new Set());
 
   const runPass = useCallback(async () => {
     const store = createIdbQueueStore();
@@ -126,6 +131,13 @@ export function UploadQueueRunner() {
       await refreshCount();
       if (result.sent > 0) router.refresh();
       const remaining = await store.all();
+      // Spec 244 U2b-1: a permanently-denied upload (RLS/403 — it will never send,
+      // unlike a transient offline wait) is a friction signal. Emit once per stuck
+      // item (own-user only, deduped); best-effort — no-ops if capture is inactive.
+      for (const failure of pickUploadFailures(remaining, uid, reportedFailuresRef.current)) {
+        reportedFailuresRef.current.add(failure.id);
+        trackFriction("upload_fail", { kind: failure.kind });
+      }
       const delay = nextPassDelayMs(remaining);
       if (delay !== null) {
         if (timerRef.current) clearTimeout(timerRef.current);

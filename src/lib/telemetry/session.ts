@@ -20,6 +20,16 @@ export type TelemetryEventType =
   | "upload_fail"
   | "js_error";
 
+// The friction subset of the vocabulary — the signals a feature component reports
+// through the friction bridge (friction.ts). js_error is included for completeness,
+// though in practice it is emitted by the provider's own window handlers.
+export type FrictionEventType =
+  | "rage_tap"
+  | "form_abandon"
+  | "validation_error"
+  | "upload_fail"
+  | "js_error";
+
 export interface TelemetryEvent {
   session_id: string;
   event_type: TelemetryEventType;

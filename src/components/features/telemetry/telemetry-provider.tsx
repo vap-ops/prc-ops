@@ -14,6 +14,7 @@ import { usePathname } from "next/navigation";
 import { UsageTracker } from "@/lib/telemetry/tracker";
 import { isTrackableRoute } from "@/lib/telemetry/scope";
 import { errorMessageForTelemetry } from "@/lib/telemetry/session";
+import { setFrictionSink } from "@/lib/telemetry/friction";
 import { UsageNotice } from "./usage-notice";
 
 const CONSENT_KEY = "telemetry_notice_ack_v1";
@@ -29,10 +30,14 @@ export function TelemetryProvider({ enabled = true }: { enabled?: boolean }) {
     const t = new UsageTracker();
     trackerRef.current = t;
     t.start();
+    // Register the live tracker so feature components (upload queue, forms) can
+    // emit friction app-wide via the module-level bridge (spec 244 U2b).
+    setFrictionSink(t);
   }
   function stop() {
     trackerRef.current?.stop();
     trackerRef.current = null;
+    setFrictionSink(null);
   }
 
   useEffect(() => {

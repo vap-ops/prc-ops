@@ -111,6 +111,25 @@ screen-time**. Small, kept longer than raw.
   message-only + stack-stripped + capped 25/session). The other four
   (`rage_tap`/`form_abandon`/`validation_error`/`upload_fail`) are code-only
   follow-ups (U2b+) that reuse these enum values.
+  - **U2b-1 (2026-07-01, code-only) = `upload_fail` on the offline photo-upload
+    queue (ADR 0039).** First, the architectural gap: `trackError` was reachable only
+    inside `TelemetryProvider` (which emits js*error from its own window handlers), so
+    feature components could not emit friction. Added a module-level bridge
+    `src/lib/telemetry/friction.ts` (`setFrictionSink(tracker|null)` +
+    `trackFriction(type, context)`): the provider registers its live tracker on start,
+    clears it on stop/leave; `trackFriction` no-ops when no tracker is active (before
+    consent / non-trackable routes / external portals), mirroring the js_error gate.
+    `UsageTracker.trackFriction()` is capped 50/session (separate from the js_error 25
+    cap). \*\*Signal = the \_permanent* give-up:** the queue never drops items, so its only
+    terminal state is `isAuthzDenied` (RLS/403 — never sends); a transient offline
+    failure is a legitimate retry, **not** a give-up, so it is excluded (emitting there
+    would flood + mislabel field connectivity as friction). Pure
+    `pickUploadFailures(items, currentUserId, reported)` returns own-user (ADR 0039
+    attribution), permanently-denied, not-yet-reported items; the `UploadQueueRunner`
+    emits `upload_fail {kind}` once per stuck item per session (deduped via a
+    `reportedFailuresRef` Set). PDPA-min: aggregate `{kind}` only. ▶ next: **U2b-2**
+    `validation_error` + `form_abandon` on the WP-submit + photo forms; **U2b-3\*\*
+    `rage_tap` (global rapid-repeat-tap heuristic).
 - **U3 — needs-help list.** Per-SA struggle read + supervisor surface (protective copy).
 - **U4 — UX friction map.** Per-screen friction ranking + a fix-list surface.
 
