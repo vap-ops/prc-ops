@@ -4569,10 +4569,12 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          is_template: boolean
+          name: string | null
           note: string | null
           overridden_at: string | null
           overridden_by: string | null
-          project_id: string
+          project_id: string | null
           status: Database["public"]["Enums"]["supply_plan_status"]
           submitted_at: string | null
         }
@@ -4582,10 +4584,12 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_template?: boolean
+          name?: string | null
           note?: string | null
           overridden_at?: string | null
           overridden_by?: string | null
-          project_id: string
+          project_id?: string | null
           status?: Database["public"]["Enums"]["supply_plan_status"]
           submitted_at?: string | null
         }
@@ -4595,10 +4599,12 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_template?: boolean
+          name?: string | null
           note?: string | null
           overridden_at?: string | null
           overridden_by?: string | null
-          project_id?: string
+          project_id?: string | null
           status?: Database["public"]["Enums"]["supply_plan_status"]
           submitted_at?: string | null
         }
