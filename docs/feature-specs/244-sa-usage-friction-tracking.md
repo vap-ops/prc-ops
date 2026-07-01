@@ -141,8 +141,22 @@ screen-time**. Small, kept longer than raw.
     ONLY, never the file name/content**; the tracker stamps the route. One emit per
     rejected file (tracker's 50/session cap bounds a loop). `form_abandon` **deferred
     to U2b-3** (a different surface — the defect-report textarea — plus a dirty→leave
-    lifecycle detector = its own unit). ▶ next: **U2b-3** `form_abandon`; **U2b-4**
-    `rage_tap` (global rapid-repeat-tap heuristic).
+    lifecycle detector = its own unit).
+  - **U2b-3 (2026-07-01, code-only) = `form_abandon` (a reusable hook + first
+    adopter).** New reusable client hook `src/lib/telemetry/use-form-abandon.ts` —
+    `useFormAbandon(formId)` → `{ markDirty, markSubmitted }`; on **unmount** it emits
+    `trackFriction("form_abandon", { form: formId })` **iff `dirty && !submitted`**
+    (refs, not state, so marking never re-renders the form). Adopter = the **feedback
+    form** (`feedback-form.tsx`): a **full-page inline form** where unmount =
+    navigate-away = the clean abandon moment, and the highest-value form to know
+    abandonment for (a started-but-unsent report = a lost user voice). `markDirty()`
+    on the title + body onChange; `markSubmitted()` on submit success. **The core SA
+    flow (photo-capture → WP-submit) has NO fillable text form**, so form_abandon
+    needs a real form. **The defect-report form is a `BottomSheet` (toggled by state,
+    does NOT unmount on close) → deferred** as a follow-up adopter that needs a
+    sheet-close variant of the hook. **PDPA-min: a stable form id ONLY, never the
+    typed content.** ▶ next: **U2b-4** `rage_tap` (a global rapid-repeat-tap
+    heuristic — N taps < M ms on the same target, conservative thresholds).
 - **U3 — needs-help list.** Per-SA struggle read + supervisor surface (protective copy).
 - **U4 — UX friction map.** Per-screen friction ranking + a fix-list surface.
 

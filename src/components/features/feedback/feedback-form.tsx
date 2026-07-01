@@ -12,6 +12,7 @@ import { Bug, Lightbulb, ImagePlus, X } from "lucide-react";
 import { submitFeedback } from "@/app/feedback/actions";
 import { validateFeedback, type FeedbackType } from "@/lib/feedback/validate";
 import { createClient as createBrowserClient } from "@/lib/db/browser";
+import { useFormAbandon } from "@/lib/telemetry/use-form-abandon";
 import { useToast } from "@/lib/ui/use-toast";
 import { BUTTON_PRIMARY, CARD, FIELD_STACKED, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
 
@@ -64,6 +65,9 @@ export function FeedbackForm() {
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  // Spec 244 U2b-3 — report form_abandon if the user starts a report then leaves
+  // without submitting (a lost user voice = high-value friction).
+  const abandon = useFormAbandon("feedback");
 
   if (done) {
     return (
@@ -109,6 +113,8 @@ export function FeedbackForm() {
         setError(result.error);
         return;
       }
+      // The report is saved — this is a completed form, not an abandon.
+      abandon.markSubmitted();
       // Best-effort: a failed image upload never blocks the saved text report.
       if (files.length > 0) await uploadAttachments(result.id, files);
       toast.success("ส่งแล้ว ขอบคุณ");
@@ -158,6 +164,7 @@ export function FeedbackForm() {
           onChange={(e) => {
             setTitle(e.target.value);
             setError(null);
+            abandon.markDirty();
           }}
           placeholder={type === "bug" ? "สรุปปัญหาสั้น ๆ" : "สรุปสิ่งที่อยากได้สั้น ๆ"}
           className={FIELD_STACKED}
@@ -174,6 +181,7 @@ export function FeedbackForm() {
           onChange={(e) => {
             setBody(e.target.value);
             setError(null);
+            abandon.markDirty();
           }}
           placeholder={BODY_PLACEHOLDER[type]}
           className={`${FIELD_STACKED} resize-y`}

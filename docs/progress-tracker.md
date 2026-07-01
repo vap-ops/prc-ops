@@ -6,7 +6,7 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — ✅ U1a · ✅ U1b-1 · ✅ U1b-2 · ✅ U1c · ✅ U2a · ✅ U2b-1 MERGED · 🔨 U2b-2 validation_error BUILT (2026-07-01)
+## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — ✅ U1a · ✅ U1b-1 · ✅ U1b-2 · ✅ U1c · ✅ U2a · ✅ U2b-1 · ✅ U2b-2 MERGED · 🔨 U2b-3 form_abandon BUILT (2026-07-01)
 
 Realigned with operator: goal = measure REAL on-site **site_admin** app usage (screen time → DAU, opens) +
 friction on the mobile PWA → (a) **who needs help** (a supervisor check-in list) + (b) **where UX hurts** (a
@@ -117,9 +117,27 @@ a real friction instance; tracker's 50/session cap bounds a loop). `form_abandon
 different surface — the defect-report textarea — plus a dirty→leave lifecycle detector = its own unit). TDD: RED
 first (real hook renders in jsdom — mock only `./actions` to skip the server import chain; `preparePhotoForUpload`
 is the real guard) → GREEN. vitest `use-phase-capture-friction` (3: emits reason-only on rejection · once per
-rejected file · no emit on empty selection) → full suite **2229**; typecheck·lint·build clean. **▶ next = U2b-3**
-(`form_abandon` on the defect-report form: dirty-then-leave-without-submit), then U2b-4 (`rage_tap`, a global
-rapid-repeat-tap heuristic).
+rejected file · no emit on empty selection) → full suite **2229**; typecheck·lint·build clean. **U2b-2 MERGED (PR
+#225).**
+
+**U2b-3 — `form_abandon` (a reusable hook + first adopter, 🔨 done, CODE-ONLY, no schema).** Fourth friction
+signal, reuses the U2b-1 friction bridge + the U2a enum value. New reusable client hook
+`src/lib/telemetry/use-form-abandon.ts` — `useFormAbandon(formId)` → `{ markDirty, markSubmitted }`; on UNMOUNT
+(useEffect cleanup) it emits `trackFriction("form_abandon", { form: formId })` **iff `dirty && !submitted`**. Uses
+**refs, not state**, so marking never re-renders the form; best-effort via the bridge (no-ops when capture is
+inactive, never throws). **Adopter = the feedback form** (`feedback-form.tsx`) — chosen because it is a **full-page
+inline form** (unmount = navigate-away = the clean abandon moment), and it's the highest-value form to know
+abandonment for (a started-but-unsent report = a lost user voice). `markDirty()` on the title + body onChange;
+`markSubmitted()` in the submit success path (report saved). **Scope (transparent): the core SA flow
+(photo-capture → WP-submit) has NO fillable text form**, so `form_abandon` needs a real form; the **defect-report
+form is a `BottomSheet` (toggled by state, does NOT unmount on close)** → deferred as a follow-up adopter needing
+sheet-close-transition handling, not unmount. PDPA-min: a **stable form id only** ("feedback"), never the typed
+title/body. TDD: RED first → GREEN. vitest `use-form-abandon` (3: emits form-id-only on dirty-unmount · no emit
+after submit · no emit when untouched) + `feedback-form` (+3: abandon on leave-while-dirty · no abandon after
+submit · no abandon when never filled) → full suite **2235**; typecheck·lint·build clean. **▶ next = U2b-4**
+(`rage_tap`, a global rapid-repeat-tap heuristic — N taps < M ms on the same target, conservative thresholds).
+Follow-up form_abandon adopters (defect sheet, others) can reuse `useFormAbandon` once a sheet-close variant is
+added.
 
 ---
 
