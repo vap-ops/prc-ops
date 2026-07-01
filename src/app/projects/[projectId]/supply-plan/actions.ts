@@ -11,6 +11,7 @@ import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
 import { supplyPlanHref } from "@/lib/nav/project-paths";
 import { UUID_REGEX } from "@/lib/validate/uuid";
+import { mapTemplateLinesToClonePayload } from "@/lib/supply-plan/clone-template";
 
 export type SupplyPlanResult = { ok: true } | { ok: false; error: string };
 
@@ -33,6 +34,70 @@ export async function createPlan(input: {
   });
   if (error || !planId) {
     if (error?.code === "42501") return { ok: false, error: NO_PERMISSION };
+    return { ok: false, error: FAILED };
+  }
+
+  revalidatePath(supplyPlanHref(input.projectId));
+  return { ok: true, planId };
+}
+
+// Spec 245 U2 — clone a global template (is_template=true) into a fresh draft
+// plan for a project. Zero new RPCs: create_supply_plan (always fresh, spec
+// 189) + a plain select of the template's lines (permitted by the spec 245 U1
+// RLS branch) + add_supply_plan_lines (the ATOMIC bulk RPC — never the
+// singular add_supply_plan_line, which still carries the pre-U1 null-check bug
+// against a template). If the add step fails, the fresh plan from step 1 is
+// left behind as a harmless empty draft (spec 245 §5) — not auto-deleted.
+export async function cloneSupplyPlanTemplate(input: {
+  templateId: string;
+  projectId: string;
+}): Promise<SupplyPlanResult & { planId?: string }> {
+  if (!UUID_REGEX.test(input.templateId) || !UUID_REGEX.test(input.projectId)) {
+    return { ok: false, error: FAILED };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase } = auth;
+
+  const { data: planId, error: createError } = await supabase.rpc("create_supply_plan", {
+    p_project_id: input.projectId,
+  });
+  if (createError || !planId) {
+    if (createError?.code === "42501") return { ok: false, error: NO_PERMISSION };
+    return { ok: false, error: FAILED };
+  }
+
+  const { data: templateLines, error: readError } = await supabase
+    .from("supply_plan_lines")
+    .select("catalog_item_id, qty, note")
+    .eq("supply_plan_id", input.templateId);
+  if (readError) return { ok: false, error: FAILED };
+
+  if (!templateLines || templateLines.length === 0) {
+    revalidatePath(supplyPlanHref(input.projectId));
+    return { ok: true, planId };
+  }
+
+  const payload = mapTemplateLinesToClonePayload(
+    templateLines.map((l) => ({
+      catalogItemId: l.catalog_item_id,
+      qty: Number(l.qty),
+      note: l.note,
+    })),
+  );
+
+  const { error: addError } = await supabase.rpc("add_supply_plan_lines", {
+    p_plan_id: planId,
+    p_lines: payload.map((l) => ({
+      catalog_item_id: l.catalogItemId,
+      work_package_id: l.workPackageId,
+      qty: l.qty,
+      note: l.note,
+    })),
+  });
+  if (addError) {
+    if (addError.code === "42501") return { ok: false, error: NO_PERMISSION };
     return { ok: false, error: FAILED };
   }
 
