@@ -185,9 +185,20 @@ frictionByActor?)` folds each person's **friction count** (over the 14d window)
     (documented partial-index + aggregation-RPC scale-up path). super_admin-only;
     counts only, no event content.
 - **U4 — UX friction map.** Per-screen friction ranking + a fix-list surface.
-  - Different grain from U3 (per-**route**, aggregated across ALL users) over a
-    heartbeat-heavy table → likely wants a rollup or a partial index; scope the
-    aggregation first (not necessarily code-only like U3).
+  - **U4 (2026-07-01, code-only) SHIPPED** as a new super_admin page
+    `/settings/friction-map` (D3b) ranking SCREENS by friction count (aggregate across
+    all users). Pure `src/lib/usage/friction-map.ts`: `normalizeRoute` collapses uuid +
+    numeric segments to `:id` (the tracker captures the raw pathname with ids);
+    `buildFrictionMap` groups friction by normalized route → per-route total + per-type
+    breakdown, ranked by total desc. Page reads `interaction_events` (5 friction types
+    in the window) via the RLS session client + renders the ranked fix-list with
+    per-type chips. **v1 = ABSOLUTE friction count per screen; a per-view RATE (÷
+    route_views) is deferred** (needs the high-volume route_view denominator aggregated
+    server-side — partial index + RPC/rollup). Raw RLS read + JS group-by (friction is
+    low-volume; rarely-loaded admin page). super_admin-only; counts only.
+  - **▶ spec 244 v1 is now COMPLETE**: capture (U1 session/screen-time + U2 five
+    friction signals) + both read outputs (U3 per-person needs-help · U4 per-screen
+    friction map).
 
 ## 7. Out of scope (YAGNI — list, don't build)
 
