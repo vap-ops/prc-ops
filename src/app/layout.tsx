@@ -8,7 +8,9 @@ import { KeyboardViewportFit } from "@/components/features/chrome/keyboard-viewp
 import { ToastProvider } from "@/components/features/common/toast-provider";
 import { ThemeScript } from "@/components/features/chrome/theme-script";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { TelemetryProvider } from "@/components/features/telemetry/telemetry-provider";
 import { THEME_COOKIE, parseThemeSetting } from "@/lib/ui/theme";
+import { clientEnv } from "@/lib/env";
 import "./globals.css";
 
 // Sarabun matches the PDF reports (spec 13) — one Thai face across web
@@ -74,6 +76,10 @@ export default async function RootLayout({
         {/* Spec 76: the toast viewport wraps {children} so a toast fired just
             before a router.refresh() survives the RSC re-render. */}
         <ToastProvider>{children}</ToastProvider>
+        {/* Spec 244 U1c: usage telemetry across all INTERNAL app surfaces (the
+            provider self-gates via isTrackableRoute — skips unauth + external
+            client/contractor portals). Kill switch via NEXT_PUBLIC_TELEMETRY_ENABLED. */}
+        <TelemetryProvider enabled={clientEnv.NEXT_PUBLIC_TELEMETRY_ENABLED !== "false"} />
         <SwRegister />
         {/* Perf observability: streams real-user Web Vitals (LCP/CLS/INP/TTFB)
             per route to the Vercel Speed Insights dashboard. Inert off Vercel

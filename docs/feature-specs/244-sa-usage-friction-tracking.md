@@ -24,31 +24,31 @@ session + friction telemetry** (ADR 0068 Tier B), the `interaction_events` table
 
 ## 2. Locked decisions (from brainstorm)
 
-| #   | Decision                                                                                                                                     |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| D1  | Substrate = a NEW `public.interaction_events` table (ADR 0068 Tier B). **Never** `audit_log`.                                                |
-| D2  | Audience v1 = **`site_admin` on the PWA/`/sa` surfaces.** Widen to other roles later.                                                        |
-| D3  | Two outputs: (a) per-SA **needs-help list**; (b) per-screen **UX friction map**. Same data, two reads.                                       |
+| #   | Decision                                                                                                                                              |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Substrate = a NEW `public.interaction_events` table (ADR 0068 Tier B). **Never** `audit_log`.                                                         |
+| D2  | Audience v1 = **`site_admin` on the PWA/`/sa` surfaces.** Widen to other roles later.                                                                 |
+| D3  | Two outputs: (a) per-SA **needs-help list**; (b) per-screen **UX friction map**. Same data, two reads.                                                |
 | D4  | Framing = **help, not surveillance** (protective, per ADR 0068 §5). PDPA-minimized. Offline-batched (field connectivity). Sampled + retention-capped. |
-| D5  | Capture aggregate dimensions (counts, durations, route, event-type) — **not** full keystroke/content clickstreams.                            |
-| D6  | Retention: raw events 30–90 days → daily rollups via `pg_cron` → drop raw. Not append-forever.                                               |
+| D5  | Capture aggregate dimensions (counts, durations, route, event-type) — **not** full keystroke/content clickstreams.                                    |
+| D6  | Retention: raw events 30–90 days → daily rollups via `pg_cron` → drop raw. Not append-forever.                                                        |
 
 ## 3. Data model
 
 ### 3.1 `public.interaction_events` (append-only, retention-managed)
 
-| column        | type          | note                                                                 |
-| ------------- | ------------- | -------------------------------------------------------------------- |
-| `id`          | uuid pk       |                                                                      |
-| `actor_id`    | uuid → users  | the SA (nullable pre-login)                                          |
-| `actor_role`  | user_role     | denormalized for cheap role-scoped reads                             |
-| `session_id`  | text          | client-generated per app session                                     |
-| `event_type`  | text/enum     | `session_start`·`heartbeat`·`session_end`·`route_view`·`feature_touch` (U1); `rage_tap`·`form_abandon`·`validation_error`·`upload_fail`·`js_error` (U2) |
-| `route`       | text          | normalized route (no ids in the path)                                |
-| `context`     | jsonb         | minimized: `{wp_id?, duration_ms?, from?, to?, error_code?, net_type?}` |
-| `app_version` | text          | for release-segmenting                                               |
-| `client_ts`   | timestamptz   | device time (offline)                                                |
-| `created_at`  | timestamptz   | server receive time (default now())                                  |
+| column        | type         | note                                                                                                                                                    |
+| ------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`          | uuid pk      |                                                                                                                                                         |
+| `actor_id`    | uuid → users | the SA (nullable pre-login)                                                                                                                             |
+| `actor_role`  | user_role    | denormalized for cheap role-scoped reads                                                                                                                |
+| `session_id`  | text         | client-generated per app session                                                                                                                        |
+| `event_type`  | text/enum    | `session_start`·`heartbeat`·`session_end`·`route_view`·`feature_touch` (U1); `rage_tap`·`form_abandon`·`validation_error`·`upload_fail`·`js_error` (U2) |
+| `route`       | text         | normalized route (no ids in the path)                                                                                                                   |
+| `context`     | jsonb        | minimized: `{wp_id?, duration_ms?, from?, to?, error_code?, net_type?}`                                                                                 |
+| `app_version` | text         | for release-segmenting                                                                                                                                  |
+| `client_ts`   | timestamptz  | device time (offline)                                                                                                                                   |
+| `created_at`  | timestamptz  | server receive time (default now())                                                                                                                     |
 
 - **RLS:** insert by `authenticated` (own `actor_id` only); select by **`super_admin`
   only** (v1) **and a subject may select its own rows** (self-mirror, PDPA). No user UPDATE/DELETE. Retention DELETE runs via service-role
@@ -66,7 +66,7 @@ screen-time**. Small, kept longer than raw.
   foreground, a `heartbeat` every N seconds while `document.visibilityState === 'visible'`,
   and `session_end` on `visibilitychange→hidden`/`pagehide`. Screen-time = Σ visible
   intervals. **Caveat (documented, not a blocker):** PWA/mobile can't observe time while
-  the app is fully closed; screen-time = *foreground time we can see*, which is exactly
+  the app is fully closed; screen-time = _foreground time we can see_, which is exactly
   the engagement signal wanted.
 - **Batched + offline-safe:** events buffer in an IndexedDB queue and flush in batches to
   an ingest route; survives intermittent field connectivity (reuses the offline-upload
@@ -77,7 +77,7 @@ screen-time**. Small, kept longer than raw.
 
 ## 5. Consumers (reads)
 
-- **Needs-help list (per SA)** — a *struggle/health* read combining low engagement
+- **Needs-help list (per SA)** — a _struggle/health_ read combining low engagement
   (few sessions / low screen-time / lapsing) + high friction (U2 signals) +
   task-abandonment → a supervisor surface: "these SAs may need a check-in." Protective
   copy; **no ranking, no per-person score shown to peers.**
@@ -93,6 +93,15 @@ screen-time**. Small, kept longer than raw.
   screen-time per SA**. Verifies real numbers from field users. pgTAP (RLS: own-insert,
   self-select, no cross-read, no user delete) + vitest (session module timing, batch
   flush) + a read test.
+- **U1c — widen audience to all internal roles (operator 2026-07-01; code-only, no
+  schema).** The table/RLS/rollup are already role-agnostic (the DB stamps
+  `actor_role`; `usage_daily` is keyed by `actor_id`). Move the `TelemetryProvider`
+  mount from `/sa` to the **root layout**, gated by a pure `isTrackableRoute()` that
+  excludes unauth/external surfaces (`/login`, `/coming-soon`, `/client`, `/portal`,
+  and the `/` dispatcher) so every INTERNAL staff role is captured while the external
+  `client`/`contractor` portals are not. The `/settings/usage` read drops the
+  `site_admin`-only filter → shows all internal roles with a role label; reads stay
+  `super_admin`-only.
 - **U2 — friction capture on the core SA flow (photo capture → WP submit).**
   `rage_tap`, `form_abandon`, `validation_error`, `upload_fail`, `js_error` events on
   that flow.
@@ -101,8 +110,9 @@ screen-time**. Small, kept longer than raw.
 
 ## 7. Out of scope (YAGNI — list, don't build)
 
-Tier-A audit_log process mining (spec 240, shelved). Other roles beyond SA (v1 is SA
-only). Full clickstream/keystroke capture. Gamification/levels/Nova. AI-agent substrate.
+Tier-A audit_log process mining (spec 240, shelved). ~~Other roles beyond SA~~ (U1c
+widened capture to all **internal** roles, 2026-07-01; the external `client`/`contractor`
+portals stay out of scope). Full clickstream/keystroke capture. Gamification/levels/Nova. AI-agent substrate.
 gsheet readout. In-app nudges to the user (v1 output is a **people list for a
 supervisor**, per operator — the app does not act on the user). Surface as follow-ups.
 
@@ -128,3 +138,8 @@ supervisor**, per operator — the app does not act on the user). Surface as fol
 3. **Retention = 90 days** raw events (changeable later); daily rollups kept longer.
 4. **Heartbeat = 20s** while foreground (CC decision — balances screen-time fidelity vs
    volume/battery on low-end field phones); coarser sampling for other high-frequency events.
+5. **Audience WIDENED to all internal staff roles (2026-07-01, U1c).** v1 was
+   `site_admin`-only (D2); the operator chose to capture every internal role, not just
+   on-site SAs. External tiers — the `client` portal (`/client`, spec 234) and the
+   `contractor` portal (`/portal`, ADR 0062) — stay **excluded**. Reads remain
+   `super_admin`-only + subject self-mirror.

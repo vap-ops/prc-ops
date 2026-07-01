@@ -30,6 +30,7 @@ describe("summarizeUsage", () => {
     {
       actorId: "a",
       name: "Anan",
+      role: "site_admin",
       day: "2026-06-30",
       sessions: 2,
       active: true,
@@ -38,6 +39,7 @@ describe("summarizeUsage", () => {
     {
       actorId: "a",
       name: "Anan",
+      role: "site_admin",
       day: "2026-07-01",
       sessions: 1,
       active: true,
@@ -46,13 +48,22 @@ describe("summarizeUsage", () => {
     {
       actorId: "b",
       name: "Boon",
+      role: "project_manager",
       day: "2026-07-01",
       sessions: 1,
       active: true,
       screenTimeMs: 20_000,
     },
     // an inactive day-row must NOT count toward DAU / active days
-    { actorId: "c", name: "Chai", day: "2026-06-29", sessions: 0, active: false, screenTimeMs: 0 },
+    {
+      actorId: "c",
+      name: "Chai",
+      role: "procurement",
+      day: "2026-06-29",
+      sessions: 0,
+      active: false,
+      screenTimeMs: 0,
+    },
   ];
 
   it("builds a DAU point per window day, counting only active actors", () => {
@@ -76,6 +87,7 @@ describe("summarizeUsage", () => {
     expect(perSa[0]).toEqual({
       actorId: "a",
       name: "Anan",
+      role: "site_admin",
       activeDays: 2,
       totalScreenTimeMs: 120_000,
       totalSessions: 3,
@@ -84,6 +96,7 @@ describe("summarizeUsage", () => {
     expect(perSa[2]).toEqual({
       actorId: "c",
       name: "Chai",
+      role: "procurement",
       activeDays: 0,
       totalScreenTimeMs: 0,
       totalSessions: 0,

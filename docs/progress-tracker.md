@@ -6,7 +6,7 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — ✅ U1a MERGED · ✅ U1b-1 capture MERGED · 🔨 U1b-2 rollup+read BUILT/HELD (2026-07-01)
+## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — ✅ U1a · ✅ U1b-1 · ✅ U1b-2 MERGED · 🔨 U1c widen-to-all-roles BUILT (2026-07-01)
 
 Realigned with operator: goal = measure REAL on-site **site_admin** app usage (screen time → DAU, opens) +
 friction on the mobile PWA → (a) **who needs help** (a supervisor check-in list) + (b) **where UX hurts** (a
@@ -63,6 +63,17 @@ the definer writer + refresh math + idempotency);
 vitest `usage-view` (8) + nav-classification guard updated; full suite **2196**; typecheck·lint clean; db:types
 regen (+ vendored worker copy). Migration = danger-path → **HELD for operator merge**. **▶ next = U2**
 (friction capture on the core SA flow: photo-capture → WP-submit).
+
+**U1c — widen audience to all internal roles (🔨 done, code-only, no schema).** Operator asked "what about other
+roles?" → chose to widen. The table/RLS/rollup were already role-agnostic (DB stamps `actor_role`; `usage_daily`
+keyed by `actor_id`), so U1c is capture + read only: (1) new pure `src/lib/telemetry/scope.ts` `isTrackableRoute()`
+(excludes `/login`·`/coming-soon`·`/client`·`/portal`·`/`); (2) `TelemetryProvider` refactored childless + gated by
+`isTrackableRoute`, **moved from `/sa/layout.tsx` (deleted) to the root layout** → every INTERNAL surface tracked,
+external `client`/`contractor` portals + unauth pages skipped (consent notice never shows pre-login); (3)
+`/settings/usage` drops the `site_admin`-only filter → shows **all internal roles** with a role badge (reuses
+`USER_ROLE_LABEL`), excludes external tiers; copy generalized ("การใช้งานแอป", per-role). `usage-view` helpers gain a
+`role` passthrough. vitest `telemetry-scope` (4) + `usage-view` (8, role-extended) → full suite **2201**;
+typecheck·lint clean; `pnpm build` OK (root client-boundary safe). Code-only → auto-merge on green.
 
 ---
 

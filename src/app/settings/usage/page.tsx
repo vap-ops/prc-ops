@@ -1,12 +1,12 @@
-// Spec 244 U1b-2 / ADR 0068 (amended, Tier B) — the VISIBLE payoff of the SA
-// usage tracker: a super_admin read of per-SA DAU + screen time over the last 14
-// days, from the usage_daily rollup. super_admin-only (spec 244 §9): the
-// usage_daily RLS "super_admin or own" policy already permits the all-rows read,
-// so this uses the RLS-scoped session client (no admin client). Framing is
-// PROTECTIVE (ADR 0068 §5) — a "who's using it / who might need help" support
-// view, not a productivity ranking; the per-SA list sorts by name, not by usage.
-// Numbers start empty and accrue as field SAs use the app over days (the cron
-// rolls up yesterday each morning).
+// Spec 244 U1b-2 + U1c / ADR 0068 (amended, Tier B) — the VISIBLE payoff of the
+// usage tracker: a super_admin read of per-user DAU + screen time over the last 14
+// days, from the usage_daily rollup. U1c widened it from SA-only to ALL internal
+// roles (external client/contractor portals excluded). super_admin-only (spec 244
+// §9): the usage_daily RLS "super_admin or own" policy already permits the all-rows
+// read, so this uses the RLS-scoped session client (no admin client). Framing is
+// PROTECTIVE (ADR 0068 §5) — a "who's using it / who might need help" support view,
+// not a productivity ranking; the list sorts by name, not by usage. Numbers start
+// empty and accrue as staff use the app over days (the cron rolls up yesterday).
 
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
@@ -15,11 +15,17 @@ import { EmptyNotice } from "@/components/features/common/notices";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
+import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
 import { formatScreenTime, summarizeUsage, type UsageDailyRow } from "@/lib/usage/usage-view";
 
-export const metadata = { title: "การใช้งานแอป (หน้างาน)" };
+export const metadata = { title: "การใช้งานแอป" };
 
 const WINDOW_DAYS = 14;
+
+// External portal tiers are out of scope (spec 244 U1c) — the read is internal staff.
+const EXTERNAL_ROLES = new Set(["client", "contractor"]);
+
+const roleLabel = (r: string): string => (USER_ROLE_LABEL as Record<string, string>)[r] ?? r;
 
 // The last N calendar days (UTC, matching usage_daily.day), oldest -> newest.
 function buildWindow(now: Date, days: number): string[] {
@@ -56,14 +62,16 @@ export default async function UsagePage() {
 
   const users = new Map((usersRes.data ?? []).map((u) => [u.id, u]));
 
-  // Keep only site_admin actors — this is the on-site SA usage view (spec 244 D2).
+  // All INTERNAL staff roles (spec 244 U1c) — exclude the external client/contractor
+  // portal tiers (they aren't captured either, but guard the read defensively).
   const rows: UsageDailyRow[] = (usageRes.data ?? []).flatMap((r) => {
     const u = users.get(r.actor_id);
-    if (!u || u.role !== "site_admin") return [];
+    if (!u || EXTERNAL_ROLES.has(u.role)) return [];
     return [
       {
         actorId: r.actor_id,
         name: u.full_name?.trim() || "(ไม่มีชื่อ)",
+        role: u.role,
         day: r.day,
         sessions: r.sessions,
         active: r.active,
@@ -78,19 +86,19 @@ export default async function UsagePage() {
     <PageShell>
       <BottomTabBar role="super_admin" />
       <DetailHeader backHref="/settings" backLabel="กลับไปตั้งค่า">
-        <h1 className="text-ink text-xl font-semibold tracking-tight">การใช้งานแอป (หน้างาน)</h1>
+        <h1 className="text-ink text-xl font-semibold tracking-tight">การใช้งานแอป</h1>
       </DetailHeader>
 
       <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-5 px-5 py-6`}>
         <p className="text-ink-secondary text-meta">
-          ดูว่าทีมงานหน้างาน (SA) เปิดใช้แอปมากน้อยแค่ไหนในช่วง {WINDOW_DAYS} วันที่ผ่านมา
-          เพื่อช่วยเหลือคนที่อาจ ติดขัด — ไม่ใช่การจัดอันดับหรือวัดผลงาน
+          ดูว่าผู้ใช้แต่ละ role เปิดใช้แอปมากน้อยแค่ไหนในช่วง {WINDOW_DAYS} วันที่ผ่านมา
+          เพื่อช่วยเหลือคนที่อาจติดขัด — ไม่ใช่การจัดอันดับหรือวัดผลงาน
           เวลาใช้งานคือช่วงที่เปิดแอปค้างไว้เท่าที่วัดได้
         </p>
 
         {perSa.length === 0 ? (
           <EmptyNotice>
-            ยังไม่มีข้อมูลการใช้งาน — จะเริ่มสะสมเมื่อทีมงานหน้างานเปิดใช้แอปในแต่ละวัน
+            ยังไม่มีข้อมูลการใช้งาน — จะเริ่มสะสมเมื่อผู้ใช้เปิดใช้แอปในแต่ละวัน
           </EmptyNotice>
         ) : (
           <>
@@ -139,8 +147,8 @@ export default async function UsagePage() {
                     <div className="flex min-w-0 flex-col">
                       <span className="text-ink text-body truncate font-semibold">{p.name}</span>
                       <span className="text-ink-secondary text-meta">
-                        ใช้งาน {p.activeDays}/{WINDOW_DAYS} วัน · {p.totalSessions} ครั้ง · ล่าสุด{" "}
-                        {ddmm(p.lastActiveDay)}
+                        {roleLabel(p.role)} · ใช้งาน {p.activeDays}/{WINDOW_DAYS} วัน ·{" "}
+                        {p.totalSessions} ครั้ง · ล่าสุด {ddmm(p.lastActiveDay)}
                       </span>
                     </div>
                     <span className="text-ink text-meta shrink-0 tabular-nums">
