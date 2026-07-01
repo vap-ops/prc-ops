@@ -6,6 +6,58 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 245 — Ordering-plan templates (qty-only, clone-per-project) — 🔨 U1 (schema/RLS/RPC foundation) MERGED (2026-07-01)
+
+**U1 — schema, RLS, RPC null-check fix. Built via subagent-driven-development** (design →
+plan → dispatched implementer → task review → whole-branch review → shipped), PR #232
+`75520428`, 2 migrations. `supply_plans.project_id` becomes nullable; new
+`is_template boolean not null default false` + `name text` (nullable) columns; check
+constraint enforcing exactly one of (`is_template` ∧ `project_id is null`) or
+(`not is_template` ∧ `project_id is not null`); 2 seed templates ("TFM 16m"/"TFM 20m"),
+EMPTY — the operator fills real quantities through the app itself in a later unit, no
+BOM data guessed in the migration. RLS: `project_manager` gets a new narrow
+`is_template` read branch (verified: `super_admin`/`project_coordinator`/
+`project_director` already read ANY `project_id` incl. null via `can_see_project`'s
+existing unconditional-true branch for those roles; `procurement` already had its own
+separate cross-project branch — only PM genuinely needed the new disjunct).
+`add_supply_plan_lines`/`remove_supply_plan_line` fixed: their `select project_id ...
+if project_id is null then raise 'unknown plan'` pattern conflated "row absent" with
+"row is a template" once `project_id` can be legitimately null — rewritten to
+`FOUND`-based existence checks (role/status/validation logic otherwise untouched,
+verbatim from LIVE bodies).
+
+**Two real issues surfaced and fixed during the build (not hidden):**
+1. An implementer subagent's harness process crashed mid-run before it could confirm
+   pgTAP green; the controller re-ran `pnpm db:test` directly and confirmed the new
+   file (`252-ordering-plan-templates.test.sql`) genuinely passed — but the SAME run
+   surfaced a real regression: the new RLS branch named `project_manager` without
+   `project_director`, violating an existing ADR 0058 / spec-152 catalog-completeness
+   convention (`91-project-director-write-rls.test.sql`).
+2. A first fix attempt edited the ALREADY-APPLIED migration file's SQL and re-ran
+   `db:push`, reporting success — but Supabase's CLI silently skips an already-recorded
+   migration timestamp regardless of file-content edits, so the fix never reached the
+   live DB (confirmed false by directly querying `pg_policies`, not by trusting the
+   report). The real fix is migration `20260813049000` — a genuine, separately-
+   timestamped follow-up patch, matching this repo's own established convention
+   (never edit an applied migration in place; patch forward, e.g. spec 181's
+   procurement addendum over spec 176).
+
+A task-scoped reviewer then found 1 real Important gap (zero direct pgTAP evidence for
+`project_director`'s template read, even though the branch names that role) — closed
+with one more assertion (`plan(13)`→`plan(14)`), verified 14/14 real. A final
+whole-branch reviewer independently re-verified every claim against the live RPC/RLS
+bodies and returned **Ready to merge: Yes**, 2 Minor forward-looking notes for later
+units (no code change needed in U1). Shipped via the standing PAT-override grant
+(additive migration + code, danger-path guard red by design, all real CI green).
+**main↔DB SYNCED THRU `049000`; schema lane FREE.**
+
+**▶ next = U2 (clone mechanism, code-only, zero new RPCs)** — reuses `create_supply_plan`
++ `add_supply_plan_lines`; its own future session/plan. U3 (category-grouped line list)
+and U4 (template editor) follow. Full spec: `docs/feature-specs/245-ordering-plan-templates.md`.
+Full build plan: `docs/superpowers/plans/2026-07-01-ordering-plan-templates-u1.md`.
+
+---
+
 ## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — ✅ U1a–U1c · ✅ U2a · ✅ U2b-1–U2b-4 · ✅ U3 MERGED (capture + needs-help done) · 🔨 U4 friction map BUILT — **spec 244 v1 COMPLETE** (2026-07-01)
 
 Realigned with operator: goal = measure REAL on-site **site_admin** app usage (screen time → DAU, opens) +
