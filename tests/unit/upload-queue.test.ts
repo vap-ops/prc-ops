@@ -6,6 +6,7 @@ import {
   isAuthzDenied,
   nextPassDelayMs,
   normalizeQueuedUpload,
+  pickUploadFailures,
   processQueue,
   type ProcessDeps,
   type QueueStore,
@@ -332,5 +333,53 @@ describe("backoff", () => {
 
   it("nextPassDelayMs is null for an empty queue", () => {
     expect(nextPassDelayMs([])).toBeNull();
+  });
+});
+
+// Spec 244 U2b-1 — which queued uploads have PERMANENTLY failed (RLS/403 denial —
+// they will never send, unlike a transient offline wait) and warrant one upload_fail
+// friction event this session. Pure: the session's already-reported Set is the
+// caller's; this only decides. Own-user only (ADR 0039 attribution guard).
+describe("pickUploadFailures (spec 244 U2b-1)", () => {
+  const none = new Set<string>();
+
+  it("picks own permanently-denied items not yet reported, with their kind", () => {
+    const items = [
+      makeItem({ id: "d1", lastError: "new row violates row-level security policy" }),
+      makeItem({
+        id: "d2",
+        kind: "delivery_photo",
+        purchaseRequestId: "pr-1",
+        lastError: "403: Forbidden",
+      } as Partial<QueuedUpload>),
+    ];
+    expect(pickUploadFailures(items, "user-a", none)).toEqual([
+      { id: "d1", kind: "phase_photo" },
+      { id: "d2", kind: "delivery_photo" },
+    ]);
+  });
+
+  it("skips transient / offline failures (those wait for signal, not a give-up)", () => {
+    const items = [
+      makeItem({ id: "t1", lastError: "network down" }),
+      makeItem({ id: "t2", lastError: "Failed to fetch" }),
+      makeItem({ id: "t3", lastError: null }),
+    ];
+    expect(pickUploadFailures(items, "user-a", none)).toEqual([]);
+  });
+
+  it("skips ids already reported this session (one event per stuck upload)", () => {
+    const items = [makeItem({ id: "d1", lastError: "Unauthorized" })];
+    expect(pickUploadFailures(items, "user-a", new Set(["d1"]))).toEqual([]);
+  });
+
+  it("skips another user's items (attribution guard, ADR 0039)", () => {
+    const items = [makeItem({ id: "d1", userId: "user-b", lastError: "permission denied" })];
+    expect(pickUploadFailures(items, "user-a", none)).toEqual([]);
+  });
+
+  it("returns nothing when there is no session user", () => {
+    const items = [makeItem({ id: "d1", lastError: "Unauthorized" })];
+    expect(pickUploadFailures(items, null, none)).toEqual([]);
   });
 });

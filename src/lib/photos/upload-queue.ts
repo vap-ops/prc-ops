@@ -182,6 +182,27 @@ export function isAuthzDenied(message: string | null | undefined): boolean {
   );
 }
 
+// Spec 244 U2b-1 — which queued uploads have PERMANENTLY failed (an RLS/403 denial:
+// they will never send, unlike a transient offline wait that the queue legitimately
+// retries) and have not yet been reported this session. The runner emits ONE
+// `upload_fail` friction event per id so a stuck upload surfaces once — not on every
+// retry pass — feeding the who-needs-help + UX-friction reads (U3/U4). Own-user only
+// (ADR 0039 attribution guard: never attribute another user's stuck upload to this
+// session). Pure — the caller owns the already-reported Set; this only decides.
+export function pickUploadFailures(
+  items: ReadonlyArray<Pick<QueuedUpload, "id" | "kind" | "lastError" | "userId">>,
+  currentUserId: string | null,
+  reported: ReadonlySet<string>,
+): { id: string; kind: QueuedUploadKind }[] {
+  if (!currentUserId) return [];
+  return items
+    .filter(
+      (item) =>
+        item.userId === currentUserId && isAuthzDenied(item.lastError) && !reported.has(item.id),
+    )
+    .map((item) => ({ id: item.id, kind: item.kind }));
+}
+
 // Timestamp source for queue ordering — lives here (not in component
 // scope) so the React Compiler's purity lint sees a plain lib call.
 export function queueNowMs(): number {

@@ -7,13 +7,22 @@
 // intervals these events describe: session_start on foreground, heartbeat every
 // 20s while visible, session_end on hide/pagehide.
 
-import { EventBuffer, makeEvent, type TelemetryEvent, type TelemetryEventType } from "./session";
+import {
+  EventBuffer,
+  makeEvent,
+  type FrictionEventType,
+  type TelemetryEvent,
+  type TelemetryEventType,
+} from "./session";
 
 const INGEST_URL = "/api/telemetry";
 const HEARTBEAT_MS = 20_000;
 const FLUSH_MS = 20_000;
 // Cap js_error events per session so an app error loop can't flood the pipe.
 const MAX_ERRORS_PER_SESSION = 25;
+// Cap the other friction signals (rage_tap/form_abandon/validation_error/
+// upload_fail) per session — a repeating signal must not flood the pipe either.
+const MAX_FRICTION_PER_SESSION = 50;
 
 export class UsageTracker {
   private readonly buffer = new EventBuffer();
@@ -22,6 +31,7 @@ export class UsageTracker {
   private flushTimer: number | null = null;
   private started = false;
   private errorCount = 0;
+  private frictionCount = 0;
 
   start(): void {
     if (this.started || typeof window === "undefined") return;
@@ -48,6 +58,18 @@ export class UsageTracker {
     if (this.errorCount >= MAX_ERRORS_PER_SESSION) return;
     this.errorCount++;
     this.emit("js_error", undefined, { message });
+  }
+
+  // Spec 244 U2b — a friction signal reported by a feature component through the
+  // module-level friction bridge (friction.ts): rage_tap / form_abandon /
+  // validation_error / upload_fail. Best-effort + capped per session; no-op until
+  // the tracker starts (so pre-consent calls are dropped). The caller supplies only
+  // aggregate context (route/kind/type), never content — PDPA-minimized (spec 244 D5).
+  trackFriction(type: FrictionEventType, context?: Record<string, unknown>): void {
+    if (!this.started) return;
+    if (this.frictionCount >= MAX_FRICTION_PER_SESSION) return;
+    this.frictionCount++;
+    this.emit(type, undefined, context);
   }
 
   stop(): void {

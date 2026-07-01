@@ -6,7 +6,7 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — ✅ U1a · ✅ U1b-1 · ✅ U1b-2 · ✅ U1c MERGED · 🔨 U2a friction/js_error BUILT (2026-07-01)
+## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — ✅ U1a · ✅ U1b-1 · ✅ U1b-2 · ✅ U1c · ✅ U2a MERGED · 🔨 U2b-1 upload_fail BUILT (2026-07-01)
 
 Realigned with operator: goal = measure REAL on-site **site_admin** app usage (screen time → DAU, opens) +
 friction on the mobile PWA → (a) **who needs help** (a supervisor check-in list) + (b) **where UX hurts** (a
@@ -85,8 +85,25 @@ listeners in its trackable effect (no-op until the tracker starts; removed on le
 extended. The other 4 friction signals reuse these enum values (code-only U2b+). pgTAP `251` **2/2** (enum label set +
 order); vitest `telemetry-error` (6) + `telemetry-provider-error` (3, RTL via an addEventListener-spy so no real
 dispatch trips vitest's global error handlers) → full suite **2213**; typecheck·lint clean. Migration = danger-path
-→ additive → auto-merge after self-review (standing grant). **▶ next = U2b** (rage_tap / form_abandon /
-validation_error / upload_fail on the photo-capture→WP-submit flow — code-only).
+→ additive → auto-merge after self-review (standing grant). **U2a MERGED (PR #223).**
+
+**U2b-1 — `upload_fail` on the offline photo-upload queue (🔨 done, CODE-ONLY, no schema).** Second friction
+signal, reusing the U2a enum value. **Architectural gap fixed first:** the tracker was only reachable from inside
+`TelemetryProvider` (js_error is emitted by the provider's own window handlers), so feature components could not
+emit friction. Added a module-level bridge `src/lib/telemetry/friction.ts` — `setFrictionSink(tracker|null)` +
+`trackFriction(type, context)` — that the provider registers its live tracker into on start and clears on
+stop/leave; `trackFriction` no-ops when no tracker is active (before consent / non-trackable routes / external
+portals), mirroring the js_error gate. `UsageTracker.trackFriction()` is capped 50/session (separate from the
+25/session js_error cap) and no-ops until started. **Signal definition = the PERMANENT give-up:** the queue (ADR 0039) never drops items, so its only terminal state is `isAuthzDenied` (RLS/403 — will never send); a transient
+offline failure is a legitimate retry, NOT a give-up, so it is deliberately excluded (firing there would flood +
+mislabel field connectivity as friction). New pure `pickUploadFailures(items, currentUserId, reported)` in
+`upload-queue.ts` returns own-user (ADR 0039 attribution), permanently-denied, not-yet-reported items; the
+`UploadQueueRunner` emits `upload_fail {kind}` once per stuck item after each drain pass, deduped via a per-session
+`reportedFailuresRef` Set. PDPA-min: aggregate `{kind}` only, no content. vitest `telemetry-friction` (5) +
+`telemetry-friction-provider` (3, RTL) + `pickUploadFailures` (5) → full suite **2226**; typecheck·lint·build
+clean. Code-only (no protected paths) → NATIVE auto-merge on green (standing grant). **▶ next = U2b-2**
+(`validation_error` + `form_abandon` on the WP-submit + photo-capture forms — code-only), then U2b-3 (`rage_tap`,
+a global rapid-repeat-tap heuristic).
 
 ---
 
