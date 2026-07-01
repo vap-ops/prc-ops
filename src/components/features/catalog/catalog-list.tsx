@@ -13,6 +13,7 @@ import { useState } from "react";
 import { ImageIcon, Search } from "lucide-react";
 import { RadioChip } from "@/components/features/common/radio-chip";
 import { FIELD_INPUT } from "@/lib/ui/classes";
+import { displayName } from "@/lib/i18n/display-name";
 import type { Database } from "@/lib/db/database.types";
 import type { CatalogUnitOption } from "./catalog-item-form";
 import { EditCatalogItem } from "./edit-catalog-item";
@@ -84,7 +85,7 @@ export function CatalogList({
     return <p className="text-ink-secondary text-body">ยังไม่มีรายการวัสดุ</p>;
   }
 
-  const catName = (id: string) => categories.find((c) => c.id === id)?.name ?? id;
+  const catName = (id: string) => displayName(categories.find((c) => c.id === id)?.name);
 
   // Spec 214 / 239 U2 — text search across name, spec, product code and the
   // search-term synonyms. Overrides the category filter.

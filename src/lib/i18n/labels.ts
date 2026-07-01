@@ -16,6 +16,14 @@ type Enums = Database["public"]["Enums"];
 // composition (`ชื่อ${SUBCONTRACTOR_LABEL}` etc.). See prc-ops-pay-model.
 export const SUBCONTRACTOR_LABEL = "ผู้รับเหมาช่วง";
 
+// Feedback bc6df601 — neutral fallback shown when a display name can't be
+// resolved from its id (e.g. a role that can't read `public.clients` sees a
+// project's client but not its name). The UI must NEVER echo the raw id/UUID;
+// resolve names through displayName() (src/lib/i18n/display-name.ts) so this is
+// the single fallback. Distinct from WORK_CATEGORY_UNSET_LABEL / "ไม่ระบุลูกค้า"
+// (which mean "no value set", not "value present but name unresolved").
+export const UNKNOWN_NAME_LABEL = "ไม่ทราบชื่อ";
+
 // Spec 207 — a project work-category (หมวดงาน): the per-project trade/scope
 // taxonomy a WP belongs to (exactly one). Distinct from งวดงาน (deliverable,
 // billing milestone) and ประเภทโครงการ (project_type). Single-sourced (used on

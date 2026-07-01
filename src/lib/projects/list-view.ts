@@ -8,6 +8,7 @@
 
 import type { Database } from "@/lib/db/database.types";
 import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
+import { displayName } from "@/lib/i18n/display-name";
 
 export type ProjectStatus = Database["public"]["Enums"]["project_status"];
 
@@ -183,7 +184,13 @@ export function buildProjectClientChips(input: {
   // Named clients present in the working set, ordered by display name (Thai).
   const named = [...clientCounts.keys()]
     .filter((key) => key !== PROJECT_CLIENT_NONE)
-    .map((key) => ({ key, label: clientNames.get(key) ?? key, count: clientCounts.get(key) ?? 0 }))
+    .map((key) => ({
+      key,
+      // Never leak the raw client id when the name can't be resolved (feedback
+      // bc6df601 — procurement can't read `clients`, so the map misses the id).
+      label: displayName(clientNames.get(key)),
+      count: clientCounts.get(key) ?? 0,
+    }))
     .sort((a, b) => a.label.localeCompare(b.label, "th"));
 
   const chips: Array<{ key: string; label: string; count: number }> = [
