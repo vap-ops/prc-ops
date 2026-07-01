@@ -6,7 +6,7 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — ✅ U1a–U1c · ✅ U2a · ✅ U2b-1 · ✅ U2b-2 · ✅ U2b-3 MERGED · 🔨 U2b-4 rage_tap BUILT — friction capture COMPLETE; ▶ U3/U4 reads next (2026-07-01)
+## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — ✅ U1a–U1c · ✅ U2a · ✅ U2b-1–U2b-4 MERGED (capture COMPLETE) · 🔨 U3 needs-help list BUILT; ▶ U4 friction map next (2026-07-01)
 
 Realigned with operator: goal = measure REAL on-site **site_admin** app usage (screen time → DAU, opens) +
 friction on the mobile PWA → (a) **who needs help** (a supervisor check-in list) + (b) **where UX hurts** (a
@@ -154,8 +154,27 @@ TDD: RED first → GREEN. vitest `rage-tap` (6: fires on Nth same-target tap · 
 threshold · resets on target change · new burst outside window · custom threshold/window) + `telemetry-rage-tap`
 (4, RTL via the addEventListener-spy: fires after rapid same-target taps · no fire below threshold · no fire across
 different targets · not registered on a non-trackable route) → full suite **2246**; typecheck·lint·build clean.
-**▶ next = U3 (needs-help list) / U4 (UX friction map)** — the READ surfaces over the now-complete capture set
-(session/screen-time + all 5 friction signals). U2 friction capture is DONE.
+**U2b-4 MERGED (PR #227). Friction capture is DONE** (session/screen-time + all 5 friction signals).
+
+**U3 — needs-help list (🔨 done, CODE-ONLY, no schema). First READ surface.** Enriches the existing super_admin
+`/settings/usage` per-SA read (which was already framed as a protective "who might need help" view — spec 244 D3a,
+the per-SA output) with each person's **friction count** over the 14-day window. `usage-view.ts`
+`summarizeUsage(rows, windowDays, frictionByActor?)` gains `frictionCount` per `PerSaUsage` (from the injected map,
+default 0) + a `totalFriction` summed over the displayed internal actors — pure/injected, still **sorted by NAME**
+(a support view, never a ranking; ADR 0068 §5). The page adds a 3rd parallel RLS read of `interaction_events`
+(`select actor_id where event_type in <5 friction types> and created_at >= window-start`), counts per actor in JS
+→ `frictionByActor` → `summarizeUsage`; displays a gentle attn-colored friction count per person + a total in the
+section header + protective copy. **Aggregation decision (scoped, as flagged last turn): friction is low-volume
+(rare events, not per-heartbeat) and this is a rarely-loaded super_admin admin page, so a raw RLS read + JS count
+is adequate at beta scale** (the `interaction_events` RLS "super_admin or own" lets the super_admin session client
+see all; no admin client). There is **no `event_type` index** — accepted for a rarely-loaded admin read at beta;
+the code comments the **partial-index + aggregation-RPC scale-up path** (move there if friction volume ever
+approaches the PostgREST page cap). PDPA: only counts, no event content; super_admin-only. TDD: RED first → GREEN.
+vitest `usage-view` (+3: carries per-actor friction when a map is supplied · defaults to 0 without a map · totals
+across actors; 2 existing exact-object assertions updated for the new field) → full suite **2249**;
+typecheck·lint·build clean. **▶ next = U4 (UX friction map)** — the per-SCREEN friction read (rank routes/flows by
+friction rate → a fix-list). Different grain from U3 (per-route, not per-person) → it likely DOES want a rollup or
+partial index (heartbeat-heavy table, aggregate across ALL users) — scope that aggregation first.
 
 ---
 

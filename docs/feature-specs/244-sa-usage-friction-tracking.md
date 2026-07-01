@@ -173,7 +173,21 @@ screen-time**. Small, kept longer than raw.
     (`js_error`/`upload_fail`/`validation_error`/`form_abandon`/`rage_tap`) is fully
     captured — next are the READ surfaces U3/U4.**
 - **U3 — needs-help list.** Per-SA struggle read + supervisor surface (protective copy).
+  - **U3 (2026-07-01, code-only) SHIPPED as an enrichment of the existing super_admin
+    `/settings/usage` per-SA read** (D3a — the per-SA output; the page was already the
+    protective "who might need help" view). `summarizeUsage(rows, windowDays,
+frictionByActor?)` folds each person's **friction count** (over the 14d window)
+    into their row + a `totalFriction`, still **sorted by name** (no ranking, ADR 0068
+    §5). The page adds a 3rd RLS read of `interaction_events` (the 5 friction types,
+    within the window), counts per actor in JS, and shows a gentle friction count per
+    person + total. **Aggregation: raw RLS read + JS count** — friction is low-volume
+    and this is a rarely-loaded super_admin page, so no rollup/index at beta scale
+    (documented partial-index + aggregation-RPC scale-up path). super_admin-only;
+    counts only, no event content.
 - **U4 — UX friction map.** Per-screen friction ranking + a fix-list surface.
+  - Different grain from U3 (per-**route**, aggregated across ALL users) over a
+    heartbeat-heavy table → likely wants a rollup or a partial index; scope the
+    aggregation first (not necessarily code-only like U3).
 
 ## 7. Out of scope (YAGNI — list, don't build)
 
