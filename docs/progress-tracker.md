@@ -6,7 +6,7 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — 🔨 U1a schema BUILT · held (2026-07-01)
+## Spec 244 / ADR 0068 (amended) — SA usage & friction tracking (Tier B) — ✅ U1a MERGED · 🔨 U1b-1 capture BUILT (2026-07-01)
 
 Realigned with operator: goal = measure REAL on-site **site_admin** app usage (screen time → DAU, opens) +
 friction on the mobile PWA → (a) **who needs help** (a supervisor check-in list) + (b) **where UX hurts** (a
@@ -34,6 +34,17 @@ worker copy). **▶ U1b (next) = the code layer:** client session module (open/h
 offline-safe) + `/api/telemetry` ingest + one-time consent notice + `usage_daily` rollup + refresh fn + cron +
 the super_admin DAU/screen-time read. (The rollup's screen-time math couples to the client event contract, so
 it lands with U1b, not the schema.)
+
+**U1b split further** (U1b is multi-layer): **U1b-1 — capture + ingest + consent (🔨 done, code-only)** = the
+client `UsageTracker` (session_start on foreground · heartbeat 20s while visible · session_end on hide/pagehide
+· route_view on nav; bounded `EventBuffer`, batched flush + `navigator.sendBeacon` on unload) + the pure core
+`src/lib/telemetry/session.ts` (unit-tested) + `POST /api/telemetry` ingest (untrusted-input-validated;
+inserts via the RLS server client so the DB trigger stamps identity) + a one-time consent banner (`UsageNotice`,
+localStorage-acked, design tokens) mounted via a new `src/app/sa/layout.tsx` (scopes telemetry to /sa) +
+`NEXT_PUBLIC_TELEMETRY_ENABLED` kill switch (default on). vitest `telemetry-session` (5) + structure-guard
+updated; full suite **2188**; typecheck·lint clean. Code-only → auto-merge on green. **▶ U1b-2 (next) = the
+payoff:** `usage_daily` rollup + refresh fn + daily cron (schema lane) + the super_admin **DAU + screen-time**
+read surface — where the numbers become visible.
 
 ---
 

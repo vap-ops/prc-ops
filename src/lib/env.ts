@@ -10,6 +10,9 @@ const clientSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
   NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
+  // Usage-telemetry kill switch (spec 244). Defaults on; set to "false" to stop
+  // client capture app-wide without a deploy of the feature itself.
+  NEXT_PUBLIC_TELEMETRY_ENABLED: z.string().optional().default("true"),
 });
 
 export type ClientEnv = z.infer<typeof clientSchema>;
@@ -31,4 +34,5 @@ export const clientEnv = parseClientEnv({
   NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
   NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+  NEXT_PUBLIC_TELEMETRY_ENABLED: process.env.NEXT_PUBLIC_TELEMETRY_ENABLED,
 });
