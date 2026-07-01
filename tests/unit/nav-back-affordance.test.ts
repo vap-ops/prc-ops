@@ -86,6 +86,8 @@ const STATIC_DETAIL = [
   "feedback/mine",
   // Spec 220 (G63): the super_admin role-admin drills down from /settings (back chip).
   "settings/roles",
+  // Spec 244 U1b-2: the super_admin SA app-usage read drills down from /settings (back chip).
+  "settings/usage",
   // Spec 162: the Nova operator console drills down from /settings (back chip).
   "nova",
   // Spec 161 U7: the dials calibration console drills down from /nova.

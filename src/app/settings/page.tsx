@@ -19,6 +19,7 @@ import {
   Wallet,
   Wrench,
   MessageSquarePlus,
+  Activity,
 } from "lucide-react";
 import { AvatarSurface } from "@/components/features/common/avatar-surface";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
@@ -342,6 +343,12 @@ export default async function SettingsPage() {
               icon={ShieldCheck}
               label="จัดการสิทธิ์ผู้ใช้"
               hint="กำหนด/เปลี่ยน role ของผู้ใช้ในระบบ"
+            />
+            <SettingsLink
+              href="/settings/usage"
+              icon={Activity}
+              label="การใช้งานแอป (หน้างาน)"
+              hint="ดูว่าทีมงานหน้างานใช้แอปมากน้อยแค่ไหน เพื่อช่วยเหลือคนที่อาจติดขัด"
             />
           </div>
         )}
