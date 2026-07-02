@@ -116,7 +116,7 @@ export async function loadWorkPackageDetail(
       siblingWps: [],
       predecessorIds: [],
       labor: { roster: groupRoster([], []), projectWorkerIds: [], rows: [] },
-      photosByPhase: { before: [], during: [], after: [], after_fix: [] },
+      photosByPhase: { before: [], during: [], after: [], after_fix: [], defect: [] },
       signedUrls: new Map(),
       displayNames: new Map(),
       defectReason: null,

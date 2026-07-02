@@ -5324,3 +5324,11 @@ standing U2b follow-up.
 - Decisions: visible-but-disabled over hidden (discoverability); hint strings inline
   (used twice but only via submitEvidenceHint — single source in transitions.ts).
 - Open questions: none.
+
+## Spec 248 — defect photos + paired after-fix (2026-07-03)
+
+- U1 (schema) in progress: migrations 059000 (enum 'defect') + 060000 (answers_photo_id +
+  CHECK + guard trigger + uploaded_by pin + portal defect exclusion) + 061000 (guard
+  anti-join fix — pgTAP 256 B.5 caught that a tombstoned target still passed; "current"
+  needs both ADR-0009 filters). Tolerant photo reader + defect round-stamp + Record-shape
+  keys shipped alongside. pgTAP 256 (18 asserts) + 09 enum pin updated to 5 values.

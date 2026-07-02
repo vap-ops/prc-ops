@@ -19,6 +19,7 @@ function row(partial: Partial<PhotoLogRow> & Pick<PhotoLogRow, "id">): PhotoLogR
     created_at: "2026-05-24T00:00:00Z",
     captured_at_client: null,
     rework_round: 0,
+    answers_photo_id: null,
     ...partial,
   };
 }
@@ -30,7 +31,37 @@ describe("selectCurrentPhotosByPhase", () => {
       during: [],
       after: [],
       after_fix: [],
+      defect: [],
     });
+  });
+
+  // Spec 248 U1 — deploy-window tolerance: a phase value this build does not
+  // know (the enum grew on the DB before the next deploy) must be SKIPPED,
+  // never thrown on — a single unknown row used to TypeError every photo read
+  // for the WP.
+  it("skips rows whose phase is unknown to this build instead of throwing", () => {
+    const rows = [
+      row({ id: "a", phase: "after" }),
+      row({ id: "x", phase: "some_future_phase" as PhotoLogRow["phase"] }),
+    ];
+    const result = selectCurrentPhotosByPhase(rows);
+    expect(result.after.map((r) => r.id)).toEqual(["a"]);
+    expect(
+      Object.values(result)
+        .flat()
+        .map((r) => r.id),
+    ).toEqual(["a"]);
+  });
+
+  // Spec 248 — defect photos are a first-class bucket.
+  it("groups defect-phase photos into their own bucket", () => {
+    const rows = [
+      row({ id: "d1", phase: "defect" as PhotoLogRow["phase"], rework_round: 1 }),
+      row({ id: "f1", phase: "after_fix", rework_round: 1 }),
+    ];
+    const result = selectCurrentPhotosByPhase(rows);
+    expect(result.defect.map((r) => r.id)).toEqual(["d1"]);
+    expect(result.after_fix.map((r) => r.id)).toEqual(["f1"]);
   });
 
   it("groups real photos by phase (incl. after_fix — feedback 0fa23307)", () => {
