@@ -19,7 +19,7 @@ import {
   categoryNameById,
   loadCatalogItemMemberships,
 } from "@/lib/catalog/categories";
-import { resolveScopedCategories } from "@/lib/catalog/scoped-categories";
+import { resolveWorkCategoryScopes } from "@/lib/catalog/scoped-categories";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { projectHref, supplyPlanHref } from "@/lib/nav/project-paths";
@@ -72,114 +72,160 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
     .maybeSingle();
   if (!project) notFound();
 
-  // Spec 189: all of the project's plans, oldest first (so the #N labels are
-  // stable). Line counts come from a single grouped read.
-  const { data: planRows } = await supabase
-    .from("supply_plans")
-    .select("id, status, created_at, overridden_by")
-    .eq("project_id", project.id)
-    .order("created_at", { ascending: true });
+  // Perf debt rank 4 (architecture audit 2026-06): these reads used to run as a
+  // serial waterfall. Independent reads now ride ONE Promise.all (the spec 147 U1
+  // pattern); a second batch below holds the reads that depend on this one.
+  // Same queries/columns/results — only the scheduling changes.
+  const [
+    // Spec 189: all of the project's plans, oldest first (so the #N labels are
+    // stable). Line counts come from a single grouped read (second batch).
+    { data: planRows },
+    // Spec 245 U2 — the 2 global templates (is_template=true, project_id=null),
+    // readable by the same write-tier per the spec 245 U1 RLS branch.
+    { data: templateRows },
+    // Spec 189 follow-up: the supply-plan item picker is the SAME catalog picker as
+    // the purchase request, so it needs image_path + signed thumbnail URLs.
+    // Spec 221 cleanup: read category_id (the managed FK) + the managed category
+    // name, not the vestigial item_category enum.
+    { data: catRows },
+    catalogCategories,
+    // Spec 228 — the item membership union (canonical + secondary, S4) the scoped
+    // picker reads to decide which items fall in a WP's material scope.
+    itemMemberships,
+    { data: wpRows },
+    // Spec 176 U5 — the PM-accuracy measure (planned vs reactive, per WP). It
+    // aggregates ALL of a project's plan lines (plan-agnostic), so it is unchanged
+    // by multi-plan. Planner-only (the RPC is PM-gated).
+    { data: accRows },
+  ] = await Promise.all([
+    supabase
+      .from("supply_plans")
+      .select("id, status, created_at, overridden_by")
+      .eq("project_id", project.id)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("supply_plans")
+      .select("id, name")
+      .eq("is_template", true)
+      .order("name", { ascending: true }),
+    supabase
+      .from("catalog_items")
+      .select("id, category_id, base_item, spec_attrs, unit, image_path, product_code")
+      .eq("is_active", true)
+      .order("base_item", { ascending: true }),
+    loadCatalogCategories(supabase),
+    loadCatalogItemMemberships(supabase),
+    supabase
+      .from("work_packages")
+      .select("id, code, name, project_categories ( work_category_id )")
+      .eq("project_id", project.id)
+      .order("code", { ascending: true }),
+    isPlanner
+      ? supabase.rpc("supply_plan_accuracy", { p_project_id: project.id })
+      : Promise.resolve({ data: null }),
+  ]);
+
   const plans: SupplyPlanRow[] = (planRows ?? []).map((p) => ({
     id: p.id,
     status: p.status,
     createdAt: p.created_at,
   }));
-
-  // Spec 245 U2 — the 2 global templates (is_template=true, project_id=null),
-  // readable by the same write-tier per the spec 245 U1 RLS branch.
-  const { data: templateRows } = await supabase
-    .from("supply_plans")
-    .select("id, name")
-    .eq("is_template", true)
-    .order("name", { ascending: true });
   const templates: TemplatePick[] = (templateRows ?? []).map((t) => ({
     id: t.id,
     name: t.name ?? "เทมเพลต",
   }));
 
-  const planIds = plans.map((p) => p.id);
-  const lineCounts: Record<string, number> = {};
-  if (planIds.length > 0) {
-    const { data: countRows } = await supabase
-      .from("supply_plan_lines")
-      .select("supply_plan_id")
-      .in("supply_plan_id", planIds);
-    for (const r of countRows ?? []) {
-      lineCounts[r.supply_plan_id] = (lineCounts[r.supply_plan_id] ?? 0) + 1;
-    }
-  }
-
   // The selected plan must belong to this project; an unknown/absent param
   // selects nothing (the list is shown, prompting a pick).
+  const planIds = plans.map((p) => p.id);
   const selectedId = planParam && planIds.includes(planParam) ? planParam : null;
   const selectedPlan = selectedId ? plans.find((p) => p.id === selectedId)! : null;
+  const selectedOverriddenBy = (planRows ?? []).find((p) => p.id === selectedId)?.overridden_by;
+
+  // Spec 228 (ADR 0066 / S7) — scope each WP's item picker to the material
+  // categories its work-category buys (Relation R). A WP carries a project
+  // category (spec 226 reconcile) whose work_category_id resolves, via the S6
+  // resolver, to a set of material category ids. Resolved once per DISTINCT
+  // work-category (not per WP — avoids an N+1) inside resolveWorkCategoryScopes,
+  // then fanned onto every WP. WPs with no work-category resolve to nothing →
+  // their picker shows the full catalog.
+  const wpWorkCategory = new Map<string, string>();
+  for (const w of wpRows ?? []) {
+    const workCatId = w.project_categories?.work_category_id;
+    if (workCatId) wpWorkCategory.set(w.id, workCatId);
+  }
+
+  // Second batch: everything that needs a first-batch result (plan ids, the
+  // selected plan, catalog image paths, WP work-categories) — mutually
+  // independent, so they also ride one Promise.all.
+  const [{ data: countRows }, overriddenByName, lines, catalogThumbs, scopeByWorkCat] =
+    await Promise.all([
+      planIds.length > 0
+        ? supabase.from("supply_plan_lines").select("supply_plan_id").in("supply_plan_id", planIds)
+        : Promise.resolve({ data: null }),
+      // Spec 194: if the selected plan was force-reopened by a super_admin, resolve the
+      // overrider's name for the "ปรับแก้โดย …" marker (users.full_name needs the admin
+      // client — public.users is read-self, ADR 0011).
+      (async (): Promise<string | null> => {
+        if (!selectedOverriddenBy) return null;
+        const { data: overrider } = await createAdminClient()
+          .from("users")
+          .select("full_name")
+          .eq("id", selectedOverriddenBy)
+          .maybeSingle();
+        return overrider?.full_name ?? "ผู้ดูแลระบบ";
+      })(),
+      (async (): Promise<PlanLine[]> => {
+        if (!selectedPlan) return [];
+        const { data: lineRows } = await supabase
+          .from("supply_plan_lines")
+          .select(
+            "id, qty, catalog_items ( category_id, base_item, spec_attrs, unit ), work_packages ( code, name )",
+          )
+          .eq("supply_plan_id", selectedPlan.id)
+          .order("created_at", { ascending: true });
+        const baseLines = (lineRows ?? []).map((r) => ({
+          id: r.id,
+          // Spec 245 U3: the item's managed category, used to group the line list.
+          categoryId: r.catalog_items?.category_id ?? null,
+          baseItem: r.catalog_items?.base_item ?? "",
+          specAttrs: r.catalog_items?.spec_attrs ?? null,
+          unit: r.catalog_items?.unit ?? "",
+          qty: Number(r.qty),
+          wpLabel: r.work_packages ? `${r.work_packages.code} ${r.work_packages.name}` : null,
+        }));
+        // Spec 181 U4: a line already converted to a PR shows "สร้าง PR แล้ว" and is
+        // excluded from selection (idempotent).
+        const lineIds = baseLines.map((l) => l.id);
+        let convertedSet = new Set<string>();
+        if (lineIds.length > 0) {
+          const { data: prRows } = await supabase
+            .from("purchase_requests")
+            .select("supply_plan_line_id")
+            .in("supply_plan_line_id", lineIds);
+          convertedSet = new Set(
+            (prRows ?? [])
+              .map((r) => r.supply_plan_line_id)
+              .filter((id): id is string => id !== null),
+          );
+        }
+        return baseLines.map((l) => ({ ...l, converted: convertedSet.has(l.id) }));
+      })(),
+      mintSignedUrls(
+        CATALOG_IMAGES_BUCKET,
+        (catRows ?? []).map((r) => ({ id: r.id, storage_path: r.image_path })),
+      ),
+      resolveWorkCategoryScopes(supabase, wpWorkCategory.values()),
+    ]);
+
+  const lineCounts: Record<string, number> = {};
+  for (const r of countRows ?? []) {
+    lineCounts[r.supply_plan_id] = (lineCounts[r.supply_plan_id] ?? 0) + 1;
+  }
   const planItems = buildPlanList(plans, lineCounts, selectedId);
 
-  // Spec 194: if the selected plan was force-reopened by a super_admin, resolve the
-  // overrider's name for the "ปรับแก้โดย …" marker (users.full_name needs the admin
-  // client — public.users is read-self, ADR 0011).
-  let overriddenByName: string | null = null;
-  const selectedOverriddenBy = (planRows ?? []).find((p) => p.id === selectedId)?.overridden_by;
-  if (selectedOverriddenBy) {
-    const { data: overrider } = await createAdminClient()
-      .from("users")
-      .select("full_name")
-      .eq("id", selectedOverriddenBy)
-      .maybeSingle();
-    overriddenByName = overrider?.full_name ?? "ผู้ดูแลระบบ";
-  }
-
-  let lines: PlanLine[] = [];
-  if (selectedPlan) {
-    const { data: lineRows } = await supabase
-      .from("supply_plan_lines")
-      .select(
-        "id, qty, catalog_items ( category_id, base_item, spec_attrs, unit ), work_packages ( code, name )",
-      )
-      .eq("supply_plan_id", selectedPlan.id)
-      .order("created_at", { ascending: true });
-    const baseLines = (lineRows ?? []).map((r) => ({
-      id: r.id,
-      // Spec 245 U3: the item's managed category, used to group the line list.
-      categoryId: r.catalog_items?.category_id ?? null,
-      baseItem: r.catalog_items?.base_item ?? "",
-      specAttrs: r.catalog_items?.spec_attrs ?? null,
-      unit: r.catalog_items?.unit ?? "",
-      qty: Number(r.qty),
-      wpLabel: r.work_packages ? `${r.work_packages.code} ${r.work_packages.name}` : null,
-    }));
-    // Spec 181 U4: a line already converted to a PR shows "สร้าง PR แล้ว" and is
-    // excluded from selection (idempotent).
-    const lineIds = baseLines.map((l) => l.id);
-    let convertedSet = new Set<string>();
-    if (lineIds.length > 0) {
-      const { data: prRows } = await supabase
-        .from("purchase_requests")
-        .select("supply_plan_line_id")
-        .in("supply_plan_line_id", lineIds);
-      convertedSet = new Set(
-        (prRows ?? []).map((r) => r.supply_plan_line_id).filter((id): id is string => id !== null),
-      );
-    }
-    lines = baseLines.map((l) => ({ ...l, converted: convertedSet.has(l.id) }));
-  }
-
-  // Spec 189 follow-up: the supply-plan item picker is the SAME catalog picker as
-  // the purchase request, so it needs image_path + signed thumbnail URLs.
-  // Spec 221 cleanup: read category_id (the managed FK) + the managed category
-  // name, not the vestigial item_category enum.
-  const { data: catRows } = await supabase
-    .from("catalog_items")
-    .select("id, category_id, base_item, spec_attrs, unit, image_path, product_code")
-    .eq("is_active", true)
-    .order("base_item", { ascending: true });
-  const catalogCategories = await loadCatalogCategories(supabase);
   const categoryName = categoryNameById(catalogCategories);
   const catalogCategoryList = catalogCategories.map((c) => ({ id: c.id, name: c.name }));
-  const catalogThumbs = await mintSignedUrls(
-    CATALOG_IMAGES_BUCKET,
-    (catRows ?? []).map((r) => ({ id: r.id, storage_path: r.image_path })),
-  );
   const catalogItems: CatalogPick[] = (catRows ?? []).map((r) => ({
     id: r.id,
     categoryId: r.category_id,
@@ -191,59 +237,23 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
     productCode: r.product_code,
   }));
 
-  const { data: wpRows } = await supabase
-    .from("work_packages")
-    .select("id, code, name, project_categories ( work_category_id )")
-    .eq("project_id", project.id)
-    .order("code", { ascending: true });
   const workPackages = (wpRows ?? []).map((w) => ({ id: w.id, code: w.code, name: w.name }));
-
-  // Spec 228 (ADR 0066 / S7) — scope each WP's item picker to the material
-  // categories its work-category buys (Relation R). A WP carries a project
-  // category (spec 226 reconcile) whose work_category_id resolves, via the S6
-  // resolver, to a set of material category ids. Resolve once per DISTINCT
-  // work-category (not per WP — avoids an N+1), then fan onto every WP. WPs with
-  // no work-category resolve to nothing → their picker shows the full catalog.
-  const wpWorkCategory = new Map<string, string>();
-  for (const w of wpRows ?? []) {
-    const workCatId = w.project_categories?.work_category_id;
-    if (workCatId) wpWorkCategory.set(w.id, workCatId);
-  }
-  const scopeByWorkCat = new Map<string, string[]>();
-  for (const workCatId of new Set(wpWorkCategory.values())) {
-    const rels = await resolveScopedCategories(supabase, workCatId);
-    const catIds = [...new Set(rels.map((r) => r.categoryId))];
-    if (catIds.length > 0) scopeByWorkCat.set(workCatId, catIds);
-  }
   const wpScopedCategories: Record<string, string[]> = {};
   for (const [wpId, workCatId] of wpWorkCategory) {
     const catIds = scopeByWorkCat.get(workCatId);
     if (catIds) wpScopedCategories[wpId] = catIds;
   }
 
-  // Spec 228 — the item membership union (canonical + secondary, S4) the scoped
-  // picker reads to decide which items fall in a WP's material scope.
-  const itemMemberships = await loadCatalogItemMemberships(supabase);
-
-  // Spec 176 U5 — the PM-accuracy measure (planned vs reactive, per WP). It
-  // aggregates ALL of a project's plan lines (plan-agnostic), so it is unchanged
-  // by multi-plan. Planner-only (the RPC is PM-gated).
-  let accuracy: AccuracyRow[] = [];
-  if (isPlanner) {
-    const { data: accRows } = await supabase.rpc("supply_plan_accuracy", {
-      p_project_id: project.id,
-    });
-    accuracy = (accRows ?? []).map((r) => ({
-      workPackageId: r.work_package_id,
-      wpCode: r.wp_code,
-      wpName: r.wp_name,
-      plannedLines: r.planned_lines,
-      plannedQty: Number(r.planned_qty),
-      unplannedMiss: r.unplanned_miss,
-      fairReactive: r.fair_reactive,
-      untagged: r.untagged,
-    }));
-  }
+  const accuracy: AccuracyRow[] = (accRows ?? []).map((r) => ({
+    workPackageId: r.work_package_id,
+    wpCode: r.wp_code,
+    wpName: r.wp_name,
+    plannedLines: r.planned_lines,
+    plannedQty: Number(r.planned_qty),
+    unplannedMiss: r.unplanned_miss,
+    fairReactive: r.fair_reactive,
+    untagged: r.untagged,
+  }));
 
   return (
     <PageShell>

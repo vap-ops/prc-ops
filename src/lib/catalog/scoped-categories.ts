@@ -33,3 +33,26 @@ export async function resolveScopedCategories(
     .eq("work_category_id", workCategoryId);
   return (data ?? []).map((r) => ({ categoryId: r.category_id, kindFilter: r.kind_filter }));
 }
+
+/**
+ * Resolve MANY work-categories at once (perf debt rank 4 — the supply-plan page
+ * previously looped resolveScopedCategories serially). Duplicates collapse to one
+ * read; all reads are issued concurrently. Returns workCategoryId -> deduped
+ * material-category ids, OMITTING unmapped work-categories — callers' show-all
+ * fallback (ADR 0066 D8) keys off the id's absence, exactly as before.
+ */
+export async function resolveWorkCategoryScopes(
+  supabase: SupabaseClient<Database>,
+  workCategoryIds: Iterable<string>,
+): Promise<Map<string, string[]>> {
+  const distinct = [...new Set(workCategoryIds)];
+  const resolved = await Promise.all(
+    distinct.map(async (id) => [id, await resolveScopedCategories(supabase, id)] as const),
+  );
+  const scopeByWorkCat = new Map<string, string[]>();
+  for (const [id, rels] of resolved) {
+    const catIds = [...new Set(rels.map((r) => r.categoryId))];
+    if (catIds.length > 0) scopeByWorkCat.set(id, catIds);
+  }
+  return scopeByWorkCat;
+}

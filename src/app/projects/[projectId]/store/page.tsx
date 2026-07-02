@@ -66,12 +66,71 @@ export default async function ProjectStorePage({ params }: PageProps) {
   // (SUPPLY_PLAN_ROLES; site_admin can't plan, so for them it stays plain text).
   const canPlanSupply = SUPPLY_PLAN_ROLES.includes(ctx.role);
 
-  const { data: ohRows } = await supabase
-    .from("stock_on_hand")
-    .select(
-      "catalog_item_id, qty_on_hand, total_value, catalog_items ( base_item, spec_attrs, unit )",
-    )
-    .eq("project_id", project.id);
+  // Perf debt rank 4 (architecture audit 2026-06): these reads used to run as a
+  // serial waterfall. All are independent given project.id, so they ride ONE
+  // Promise.all (the spec 147 U1 pattern); the two follow-up reads that depend
+  // on a first-batch result run in a second, smaller batch below. Same
+  // queries/columns/results — only the scheduling changes.
+  const [
+    { data: ohRows },
+    // Spec 221 cleanup — the รับเข้า item picker reads the managed category (id +
+    // name) so user-created categories group + label correctly; the item_category
+    // enum is no longer read here.
+    categories,
+    { data: catRows },
+    { data: supRows },
+    { data: receiptRows },
+    { data: countRows },
+    // Spec 198 U2 / ADR 0064: delivered WP-bound catalogued lines not yet diverted
+    // — the storekeeper can move them into store stock (cost transfers WP-WIP →
+    // Inventory). SITE_STAFF only (the divert RPC gate); procurement is read-only.
+    { data: prRows },
+    // Store P&L rows — only for the roles that may see them (canSeePnl gate above).
+    { data: pnl },
+  ] = await Promise.all([
+    supabase
+      .from("stock_on_hand")
+      .select(
+        "catalog_item_id, qty_on_hand, total_value, catalog_items ( base_item, spec_attrs, unit )",
+      )
+      .eq("project_id", project.id),
+    loadCatalogCategories(supabase),
+    supabase
+      .from("catalog_items")
+      .select("id, category_id, base_item, spec_attrs, unit")
+      .eq("is_active", true)
+      .order("base_item", { ascending: true }),
+    supabase.from("suppliers").select("id, name").order("name", { ascending: true }),
+    supabase
+      .from("stock_receipts")
+      .select("id, qty, unit, unit_cost, catalog_items ( base_item, spec_attrs )")
+      .eq("project_id", project.id)
+      .order("received_at", { ascending: false })
+      .limit(10),
+    supabase
+      .from("stock_counts")
+      .select("id, counted_qty, variance, unit, catalog_items ( base_item, spec_attrs )")
+      .eq("project_id", project.id)
+      .order("counted_at", { ascending: false })
+      .limit(10),
+    canIssue
+      ? supabase
+          .from("purchase_requests")
+          .select(
+            "id, quantity, unit, amount, catalog_items ( base_item, spec_attrs ), work_packages ( code, name )",
+          )
+          .eq("project_id", project.id)
+          .eq("status", "delivered")
+          .not("work_package_id", "is", null)
+          .not("catalog_item_id", "is", null)
+          .order("delivered_at", { ascending: false })
+          .limit(50)
+      : Promise.resolve({ data: null }),
+    canSeePnl
+      ? supabase.rpc("store_pnl", { p_project_id: project.id })
+      : Promise.resolve({ data: null }),
+  ]);
+
   const onHand: StockRow[] = (ohRows ?? [])
     .map((r) => ({
       catalogItemId: r.catalog_item_id,
@@ -83,16 +142,7 @@ export default async function ProjectStorePage({ params }: PageProps) {
     }))
     .sort((a, b) => a.baseItem.localeCompare(b.baseItem, "th"));
 
-  // Spec 221 cleanup — the รับเข้า item picker reads the managed category (id +
-  // name) so user-created categories group + label correctly; the item_category
-  // enum is no longer read here.
-  const categories = await loadCatalogCategories(supabase);
   const categoryName = categoryNameById(categories);
-  const { data: catRows } = await supabase
-    .from("catalog_items")
-    .select("id, category_id, base_item, spec_attrs, unit")
-    .eq("is_active", true)
-    .order("base_item", { ascending: true });
   const catalogItems: CatalogPick[] = (catRows ?? []).map((r) => ({
     id: r.id,
     categoryId: r.category_id,
@@ -102,18 +152,8 @@ export default async function ProjectStorePage({ params }: PageProps) {
     unit: r.unit,
   }));
 
-  const { data: supRows } = await supabase
-    .from("suppliers")
-    .select("id, name")
-    .order("name", { ascending: true });
   const suppliers = (supRows ?? []).map((s) => ({ id: s.id, name: s.name }));
 
-  const { data: receiptRows } = await supabase
-    .from("stock_receipts")
-    .select("id, qty, unit, unit_cost, catalog_items ( base_item, spec_attrs )")
-    .eq("project_id", project.id)
-    .order("received_at", { ascending: false })
-    .limit(10);
   const receipts: ReceiptRow[] = (receiptRows ?? []).map((r) => ({
     id: r.id,
     baseItem: r.catalog_items?.base_item ?? "",
@@ -123,12 +163,6 @@ export default async function ProjectStorePage({ params }: PageProps) {
     unitCost: Number(r.unit_cost),
   }));
 
-  const { data: countRows } = await supabase
-    .from("stock_counts")
-    .select("id, counted_qty, variance, unit, catalog_items ( base_item, spec_attrs )")
-    .eq("project_id", project.id)
-    .order("counted_at", { ascending: false })
-    .limit(10);
   const counts: CountRow[] = (countRows ?? []).map((r) => ({
     id: r.id,
     baseItem: r.catalog_items?.base_item ?? "",
@@ -138,46 +172,33 @@ export default async function ProjectStorePage({ params }: PageProps) {
     variance: Number(r.variance),
   }));
 
-  // Spec 198 U2 / ADR 0064: delivered WP-bound catalogued lines not yet diverted
-  // — the storekeeper can move them into store stock (cost transfers WP-WIP →
-  // Inventory). SITE_STAFF only (the divert RPC gate); procurement is read-only.
+  // Second batch: the divert set (needs the delivered-PR ids) and the P&L item
+  // names (needs the P&L rows) — independent of each other.
+  const prIds = (prRows ?? []).map((r) => r.id);
+  const pnlItemIds = (pnl ?? []).map((r) => r.catalog_item_id);
+  const [{ data: srRows }, { data: nameRows }] = await Promise.all([
+    prIds.length > 0
+      ? supabase
+          .from("stock_receipts")
+          .select("purchase_request_id")
+          .in("purchase_request_id", prIds)
+      : Promise.resolve({ data: null }),
+    pnlItemIds.length > 0
+      ? supabase.from("catalog_items").select("id, base_item, spec_attrs").in("id", pnlItemIds)
+      : Promise.resolve({ data: null }),
+  ]);
+
   let divertLines: DivertLine[] = [];
   if (canIssue) {
-    const { data: prRows } = await supabase
-      .from("purchase_requests")
-      .select(
-        "id, quantity, unit, amount, catalog_items ( base_item, spec_attrs ), work_packages ( code, name )",
-      )
-      .eq("project_id", project.id)
-      .eq("status", "delivered")
-      .not("work_package_id", "is", null)
-      .not("catalog_item_id", "is", null)
-      .order("delivered_at", { ascending: false })
-      .limit(50);
-    const prIds = (prRows ?? []).map((r) => r.id);
     const diverted = new Set<string>();
-    if (prIds.length > 0) {
-      const { data: srRows } = await supabase
-        .from("stock_receipts")
-        .select("purchase_request_id")
-        .in("purchase_request_id", prIds);
-      for (const s of srRows ?? []) if (s.purchase_request_id) diverted.add(s.purchase_request_id);
-    }
+    for (const s of srRows ?? []) if (s.purchase_request_id) diverted.add(s.purchase_request_id);
     divertLines = toDivertLines(prRows ?? [], diverted);
   }
 
   let pnlRows: StorePnlRow[] = [];
   if (canSeePnl) {
-    const { data: pnl } = await supabase.rpc("store_pnl", { p_project_id: project.id });
-    const ids = (pnl ?? []).map((r) => r.catalog_item_id);
     const nameMap = new Map<string, { base_item: string; spec_attrs: string | null }>();
-    if (ids.length > 0) {
-      const { data: nameRows } = await supabase
-        .from("catalog_items")
-        .select("id, base_item, spec_attrs")
-        .in("id", ids);
-      for (const n of nameRows ?? []) nameMap.set(n.id, n);
-    }
+    for (const n of nameRows ?? []) nameMap.set(n.id, n);
     pnlRows = (pnl ?? [])
       .map((r) => {
         const meta = nameMap.get(r.catalog_item_id);
