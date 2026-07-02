@@ -38,7 +38,7 @@ select is(
 
 -- first-of-month CHECK (run as owner — RLS bypassed, the CHECK fires).
 select throws_ok(
-  $$ insert into public.accounting_periods (period_month) values (date '2026-07-15') $$,
+  $$ insert into public.accounting_periods (period_month) values (date '2033-07-15') $$,
   '23514', null, 'a non-first-of-month period_month is rejected');
 
 grant insert on _tap_buf to authenticated, anon;
@@ -55,7 +55,7 @@ select throws_ok(
   $$ select status from public.accounting_periods limit 1 $$,
   '42501', null, 'authenticated cannot read accounting_periods (zero grant)');
 select throws_ok(
-  $$ select public.open_accounting_period(date '2026-07-01') $$,
+  $$ select public.open_accounting_period(date '2033-07-01') $$,
   '42501', null, 'open_accounting_period refuses site_admin');
 
 -- ============================================================================
@@ -63,46 +63,46 @@ select throws_ok(
 -- ============================================================================
 set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111110468"}';
 select lives_ok(
-  $$ select public.open_accounting_period(date '2026-07-01') $$,
+  $$ select public.open_accounting_period(date '2033-07-01') $$,
   'project_manager opens month A');
 select lives_ok(
-  $$ select public.open_accounting_period(date '2026-07-01') $$,
+  $$ select public.open_accounting_period(date '2033-07-01') $$,
   'opening the same month again is an idempotent no-op');
 
 -- ============================================================================
 -- D. set_accounting_period_status — transitions + guards.
 -- ============================================================================
 select lives_ok(
-  $$ select public.set_accounting_period_status(date '2026-07-01', 'closing') $$,
+  $$ select public.set_accounting_period_status(date '2033-07-01', 'closing') $$,
   'pm: open -> closing');
 select lives_ok(
-  $$ select public.set_accounting_period_status(date '2026-07-01', 'closed') $$,
+  $$ select public.set_accounting_period_status(date '2033-07-01', 'closed') $$,
   'pm: closing -> closed');
 select throws_ok(
-  $$ select public.set_accounting_period_status(date '2026-07-01', 'locked') $$,
+  $$ select public.set_accounting_period_status(date '2033-07-01', 'locked') $$,
   '42501', null, 'pm cannot lock a closed period (super only)');
 
 select lives_ok(
-  $$ select public.open_accounting_period(date '2026-08-01') $$,
+  $$ select public.open_accounting_period(date '2033-08-01') $$,
   'pm opens month B');
 select throws_ok(
-  $$ select public.set_accounting_period_status(date '2026-08-01', 'closed') $$,
+  $$ select public.set_accounting_period_status(date '2033-08-01', 'closed') $$,
   'P0001', null, 'illegal transition open -> closed is rejected');
 select throws_ok(
-  $$ select public.set_accounting_period_status(date '2026-10-01', 'closing') $$,
+  $$ select public.set_accounting_period_status(date '2033-10-01', 'closing') $$,
   'P0001', null, 'set status on a never-opened month is rejected');
 
 -- ============================================================================
 -- E. resolve_posting_period — the U3 poster seam.
 -- ============================================================================
 select lives_ok(
-  $$ select public.resolve_posting_period(date '2026-08-20') $$,
+  $$ select public.resolve_posting_period(date '2033-08-20') $$,
   'resolves an OPEN month (B) to its period id');
 select lives_ok(
-  $$ select public.resolve_posting_period(date '2026-09-10') $$,
+  $$ select public.resolve_posting_period(date '2033-09-10') $$,
   'auto-opens a missing month (C)');
 select throws_ok(
-  $$ select public.resolve_posting_period(date '2026-07-10') $$,
+  $$ select public.resolve_posting_period(date '2033-07-10') $$,
   'P0002', null, 'refuses to resolve a CLOSED month (A)');
 
 -- ============================================================================
@@ -110,27 +110,31 @@ select throws_ok(
 -- ============================================================================
 set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333330468"}';
 select lives_ok(
-  $$ select public.set_accounting_period_status(date '2026-07-01', 'locked') $$,
+  $$ select public.set_accounting_period_status(date '2033-07-01', 'locked') $$,
   'super_admin: closed -> locked');
 
 -- ============================================================================
 -- G. Effects + audit (reset to owner to read past the zero-grant posture).
 -- ============================================================================
 reset role;
+-- Scope to this file's 2033 fixture months: prod is a LIVE shared DB — real
+-- accounting activity would inflate a global count (2026-07 rollover broke this).
 select is(
-  (select count(*) from public.audit_log where action = 'accounting_period_open'),
+  (select count(*) from public.audit_log where action = 'accounting_period_open'
+     and payload->>'period_month' in ('2033-07-01', '2033-08-01')),
   2::bigint, 'two accounting_period_open audit rows (A + B; idempotent + auto-open do not audit)');
 select is(
-  (select count(*) from public.audit_log where action = 'accounting_period_status_change'),
+  (select count(*) from public.audit_log where action = 'accounting_period_status_change'
+     and payload->>'period_month' in ('2033-07-01', '2033-08-01', '2033-09-01', '2033-10-01')),
   3::bigint, 'three status-change audit rows (A: closing, closed, locked)');
 select is(
-  (select count(*) from public.accounting_periods where period_month = date '2026-09-01'),
+  (select count(*) from public.accounting_periods where period_month = date '2033-09-01'),
   1::bigint, 'month C was auto-opened by resolve_posting_period');
 select is(
-  (select status from public.accounting_periods where period_month = date '2026-07-01'),
+  (select status from public.accounting_periods where period_month = date '2033-07-01'),
   'locked'::public.accounting_period_status, 'month A is locked');
 select is(
-  (select status from public.accounting_periods where period_month = date '2026-09-01'),
+  (select status from public.accounting_periods where period_month = date '2033-09-01'),
   'open'::public.accounting_period_status, 'the auto-opened month C is open');
 
 -- ============================================================================
