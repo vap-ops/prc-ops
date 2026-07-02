@@ -144,6 +144,9 @@ select throws_ok(
 -- 11. Audit row was appended for the successful happy-path call.
 --     Expect exactly one row for A with action='profile_update',
 --     target_table='users', target_id=A.
+--     Read as the OWNER: audit_log SELECT is scoped to privileged internal
+--     roles (rls-audit-2026-07 F2) — a visitor session sees no audit rows.
+reset role;
 select is(
   (select count(*)::int from public.audit_log
      where actor_id = '00000000-0000-0000-0000-0000000000a1'

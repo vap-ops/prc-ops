@@ -89,14 +89,15 @@ select throws_ok(
   $$ select public.delete_deliverable('d4670167-0167-0167-0167-d4d4d4d40167') $$,
   '42501', null, 'visitor denied');
 
--- F. the empty deletes were audited.
+-- F. the empty deletes were audited. Read as the OWNER: audit_log SELECT is
+-- scoped to privileged internal roles (rls-audit-2026-07 F2) — the visitor
+-- session left by section E sees no audit rows.
+reset role;
 select ok(
   exists (select 1 from public.audit_log
             where target_table='deliverables' and action='other'
               and payload->>'event'='deliverable_deleted'),
   'delete writes an audit_log row');
-
-reset role;
 
 select * from finish();
 rollback;
