@@ -8,14 +8,27 @@ import { requireRole } from "@/lib/auth/require-role";
 import { projectHref } from "@/lib/nav/project-paths";
 import { createClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
-import { PM_ROLES, SITE_STAFF_ROLES } from "@/lib/auth/role-home";
+import { CLIENT_ISSUER_ROLES, PM_ROLES, SITE_STAFF_ROLES } from "@/lib/auth/role-home";
 import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
 import { projectStatusPillClasses } from "@/lib/status-colors";
 import { projectStatusIcon } from "@/lib/status-icons";
 import { SettingsForm } from "./settings-form";
+import { DeliverablesManager } from "../deliverables-manager";
+import { CategoriesManager } from "../categories-manager";
+import {
+  ClientInviteBlock,
+  type ClientBindingView,
+} from "@/components/features/client-portal/client-invite-block";
+import {
+  ClientGrantExisting,
+  type ClientCandidate,
+} from "@/components/features/client-portal/client-grant-existing";
 
 // Project settings (spec 58 / 79, ADR 0042) — back office only. SA never
 // lands here: requireRole redirects non-pm/super to their role home.
+// Feedback f625f04d: the per-project CONFIG blocks (งวดงาน manager, หมวดงาน
+// manager, client-portal access) live here too — the project page stays a
+// pure WP list. Guarded by tests/unit/project-config-placement.test.ts.
 
 interface PageProps {
   params: Promise<{ projectId: string }>;
@@ -46,18 +59,42 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
   // clients list, and the staff roster for the project-lead picker. Staff
   // come via admin because public.users RLS is read-self (ADR 0011).
   const admin = createAdminClient();
-  const [{ data: budgetRow }, { data: clients }, { data: staff }, { data: members }] =
-    await Promise.all([
-      admin.from("projects").select("budget_amount_thb").eq("id", projectId).maybeSingle(),
-      supabase.from("clients").select("id, name").order("name"),
-      admin
-        .from("users")
-        .select("id, full_name")
-        .in("role", [...SITE_STAFF_ROLES])
-        .order("full_name", { nullsFirst: false }),
-      // Spec 80: current team members (staff SELECT allows the user session).
-      supabase.from("project_members").select("user_id").eq("project_id", projectId),
-    ]);
+  const [
+    { data: budgetRow },
+    { data: clients },
+    { data: staff },
+    { data: members },
+    { data: deliverables },
+    { data: categories },
+    { data: workPackages },
+  ] = await Promise.all([
+    admin.from("projects").select("budget_amount_thb").eq("id", projectId).maybeSingle(),
+    supabase.from("clients").select("id, name").order("name"),
+    admin
+      .from("users")
+      .select("id, full_name")
+      .in("role", [...SITE_STAFF_ROLES])
+      .order("full_name", { nullsFirst: false }),
+    // Spec 80: current team members (staff SELECT allows the user session).
+    supabase.from("project_members").select("user_id").eq("project_id", projectId),
+    // Feedback f625f04d — the config blocks' data (same queries the project
+    // page's loader ran for them before the move).
+    supabase
+      .from("deliverables")
+      .select("id, code, name")
+      .eq("project_id", projectId)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("project_categories")
+      .select("id, code, name")
+      .eq("project_id", projectId)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("work_packages")
+      .select("id, code, name, deliverable_id")
+      .eq("project_id", projectId)
+      .order("code", { ascending: true }),
+  ]);
 
   const staffList = (staff ?? []).map((u) => ({ id: u.id, name: u.full_name }));
   const staffName = new Map(staffList.map((s) => [s.id, s.name]));
@@ -65,6 +102,48 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
     id: m.user_id,
     name: staffName.get(m.user_id) ?? null,
   }));
+
+  // Spec 145 mirror: seeding-type config only on an open project (same gate the
+  // blocks had on the project page).
+  const projectOpen = project.status === "active" || project.status === "on_hold";
+
+  // Spec 233 / ADR 0067: PD/super only — PM reaches this page but must not
+  // issue client logins. Bindings + candidates load only for an issuer.
+  const isClientIssuer = CLIENT_ISSUER_ROLES.includes(ctx.role);
+  let clientBindings: ClientBindingView[] = [];
+  let clientCandidates: ClientCandidate[] = [];
+  if (isClientIssuer) {
+    const { data: accessRows } = await admin
+      .from("client_portal_access")
+      .select("id, expires_at, granted_at, user_id")
+      .eq("project_id", project.id)
+      .is("revoked_at", null)
+      .order("granted_at", { ascending: false });
+    const userIds = (accessRows ?? []).map((r) => r.user_id);
+    const { data: clientUsers } = userIds.length
+      ? await admin.from("users").select("id, full_name").in("id", userIds)
+      : { data: [] as { id: string; full_name: string | null }[] };
+    const nameById = new Map((clientUsers ?? []).map((u) => [u.id, u.full_name]));
+    clientBindings = (accessRows ?? []).map((r) => ({
+      id: r.id,
+      name: nameById.get(r.user_id) ?? "ลูกค้า",
+      expiresAt: r.expires_at,
+    }));
+
+    // Spec 234 follow-up (broken-link stopgap): eligible logins a PD/super can
+    // attach as a read-only client viewer — anyone who has logged in (role
+    // `visitor`) OR an existing `client` — excluding anyone already on this
+    // project. grant_client_access (mig 039000) flips a visitor → client.
+    const onThisProject = new Set(userIds);
+    const { data: eligible } = await admin
+      .from("users")
+      .select("id, full_name")
+      .in("role", ["visitor", "client"])
+      .order("full_name", { ascending: true });
+    clientCandidates = (eligible ?? [])
+      .filter((u) => !onThisProject.has(u.id))
+      .map((u) => ({ id: u.id, name: u.full_name ?? "(ยังไม่ตั้งชื่อ)" }));
+  }
 
   return (
     <PageShell>
@@ -110,6 +189,32 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
           members={memberList}
           currentUserId={ctx.id}
         />
+
+        {/* Feedback f625f04d — per-project config, moved off the WP list page. */}
+        {projectOpen && (
+          <DeliverablesManager
+            projectId={project.id}
+            deliverables={(deliverables ?? []).map((d) => ({
+              id: d.id,
+              code: d.code,
+              name: d.name,
+              wpCount: (workPackages ?? []).filter((wp) => wp.deliverable_id === d.id).length,
+            }))}
+            ungroupedWorkPackages={(workPackages ?? [])
+              .filter((wp) => wp.deliverable_id === null)
+              .map((wp) => ({ id: wp.id, code: wp.code, name: wp.name }))}
+          />
+        )}
+        {projectOpen && (
+          <CategoriesManager
+            projectId={project.id}
+            categories={(categories ?? []).map((c) => ({ id: c.id, code: c.code, name: c.name }))}
+          />
+        )}
+        {isClientIssuer && <ClientInviteBlock projectId={project.id} bindings={clientBindings} />}
+        {isClientIssuer && (
+          <ClientGrantExisting projectId={project.id} candidates={clientCandidates} />
+        )}
       </div>
     </PageShell>
   );

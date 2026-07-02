@@ -4,7 +4,6 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
 import { CalendarDays, ClipboardList, FileText, Settings, Warehouse } from "lucide-react";
 import {
-  CLIENT_ISSUER_ROLES,
   PROJECT_VIEW_ROLES,
   SCHEDULE_VIEW_ROLES,
   SUPPLY_PLAN_ROLES,
@@ -32,19 +31,9 @@ import { rankFromPriority } from "@/lib/work-packages/action-bands";
 import { loadProjectDetail } from "@/lib/projects/load-detail";
 import { WorkPackageList } from "./work-package-list";
 import { OnboardingChecklist } from "./onboarding-checklist";
-import { DeliverablesManager } from "./deliverables-manager";
-import { CategoriesManager } from "./categories-manager";
 import { AddWorkPackageSheet } from "./add-work-package-sheet";
 import { CopyWorkPackagesSheet } from "./copy-work-packages-sheet";
 import { ImportWorkPackagesSheet } from "./import-work-packages-sheet";
-import {
-  ClientInviteBlock,
-  type ClientBindingView,
-} from "@/components/features/client-portal/client-invite-block";
-import {
-  ClientGrantExisting,
-  type ClientCandidate,
-} from "@/components/features/client-portal/client-grant-existing";
 
 interface PageProps {
   params: Promise<{ projectId: string }>;
@@ -128,7 +117,6 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
     memberNames,
     workPackages,
     deliverables,
-    categories,
     criticalIds,
     onboarding,
     sourceProjects,
@@ -141,47 +129,6 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
     (project.site_address
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(project.site_address)}`
       : null);
-
-  // Spec 233 / ADR 0067: PD/super may issue a temporary read-only client login.
-  // Load the active (non-revoked) client bindings + their names via the admin
-  // client (cross-user name read — the PD manages its own clients; users RLS is
-  // read-self), and ONLY for an issuer so a normal viewer triggers no admin read.
-  const isClientIssuer = CLIENT_ISSUER_ROLES.includes(ctx.role);
-  let clientBindings: ClientBindingView[] = [];
-  let clientCandidates: ClientCandidate[] = [];
-  if (isClientIssuer) {
-    const admin = createAdminClient();
-    const { data: accessRows } = await admin
-      .from("client_portal_access")
-      .select("id, expires_at, granted_at, user_id")
-      .eq("project_id", project.id)
-      .is("revoked_at", null)
-      .order("granted_at", { ascending: false });
-    const userIds = (accessRows ?? []).map((r) => r.user_id);
-    const { data: clientUsers } = userIds.length
-      ? await admin.from("users").select("id, full_name").in("id", userIds)
-      : { data: [] as { id: string; full_name: string | null }[] };
-    const nameById = new Map((clientUsers ?? []).map((u) => [u.id, u.full_name]));
-    clientBindings = (accessRows ?? []).map((r) => ({
-      id: r.id,
-      name: nameById.get(r.user_id) ?? "ลูกค้า",
-      expiresAt: r.expires_at,
-    }));
-
-    // Spec 234 follow-up (broken-link stopgap): eligible logins a PD/super can
-    // attach as a read-only client viewer — anyone who has logged in (role
-    // `visitor`) OR an existing `client` — excluding anyone already on this
-    // project. grant_client_access (mig 039000) flips a visitor → client.
-    const onThisProject = new Set(userIds);
-    const { data: eligible } = await admin
-      .from("users")
-      .select("id, full_name")
-      .in("role", ["visitor", "client"])
-      .order("full_name", { ascending: true });
-    clientCandidates = (eligible ?? [])
-      .filter((u) => !onThisProject.has(u.id))
-      .map((u) => ({ id: u.id, name: u.full_name ?? "(ยังไม่ตั้งชื่อ)" }));
-  }
 
   return (
     <PageShell>
@@ -293,38 +240,10 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
             }
           />
         )}
-        {/* Spec 164 U1: งวดงาน manager — the in-app home/door for deliverables
-            (PM-only, open projects). Counts derive from the WP list already
-            loaded. */}
-        {isPmRole && projectOpen && (
-          <DeliverablesManager
-            projectId={project.id}
-            deliverables={(deliverables ?? []).map((d) => ({
-              id: d.id,
-              code: d.code,
-              name: d.name,
-              wpCount: (workPackages ?? []).filter((wp) => wp.deliverable_id === d.id).length,
-            }))}
-            ungroupedWorkPackages={(workPackages ?? [])
-              .filter((wp) => wp.deliverable_id === null)
-              .map((wp) => ({ id: wp.id, code: wp.code, name: wp.name }))}
-          />
-        )}
-        {/* Spec 207 U3: หมวดงาน manager — per-project work-category authoring
-            (PM-only, open projects). Categories scope construction drawings
-            (later units) and tag each WP with exactly one (U3b). */}
-        {isPmRole && projectOpen && (
-          <CategoriesManager
-            projectId={project.id}
-            categories={(categories ?? []).map((c) => ({ id: c.id, code: c.code, name: c.name }))}
-          />
-        )}
-        {/* Spec 233 / ADR 0067: PD/super issue a temporary read-only client
-            login (LINE claim link) + revoke active client bindings. */}
-        {isClientIssuer && <ClientInviteBlock projectId={project.id} bindings={clientBindings} />}
-        {isClientIssuer && (
-          <ClientGrantExisting projectId={project.id} candidates={clientCandidates} />
-        )}
+        {/* Feedback f625f04d: the per-project CONFIG blocks (งวดงาน manager,
+            หมวดงาน manager, client-portal access — specs 164/207/233/234) moved
+            to the settings page behind the gear; this page stays the WP list.
+            Guarded by tests/unit/project-config-placement.test.ts. */}
         <div className="mb-3 flex items-center justify-between gap-3">
           {/* SECTION_HEADING tokens minus its mb-3 — the row owns the gap so
               the heading and the h-11 action buttons center on each other. */}

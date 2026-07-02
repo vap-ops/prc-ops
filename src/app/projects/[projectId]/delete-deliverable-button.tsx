@@ -11,7 +11,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/features/common/confirm-dialog";
 import { INLINE_ALERT_TEXT } from "@/lib/ui/classes";
-import { projectHref } from "@/lib/nav/project-paths";
+import { projectSettingsHref } from "@/lib/nav/project-paths";
 import { deleteDeliverable } from "./actions";
 
 const DELETE_BUTTON =
@@ -38,7 +38,8 @@ export function DeleteDeliverableButton({
         setError(result.error);
         return;
       }
-      router.push(`${projectHref(projectId)}#deliverables`);
+      // Feedback f625f04d: the งวดงาน manager lives on the settings page now.
+      router.push(`${projectSettingsHref(projectId)}#deliverables`);
       router.refresh();
     });
   }

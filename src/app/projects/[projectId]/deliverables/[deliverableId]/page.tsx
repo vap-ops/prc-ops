@@ -13,7 +13,7 @@ import { EmptyNotice } from "@/components/features/common/notices";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
 import { PROJECT_VIEW_ROLES, isManagerRole } from "@/lib/auth/role-home";
-import { projectHref, workPackageHref, deliverableHref } from "@/lib/nav/project-paths";
+import { projectSettingsHref, workPackageHref, deliverableHref } from "@/lib/nav/project-paths";
 import { withBackFrom } from "@/lib/nav/back-href";
 import { createClient } from "@/lib/db/server";
 import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
@@ -59,8 +59,10 @@ export default async function DeliverableDetailPage({ params }: PageProps) {
     <PageShell>
       <BottomTabBar role={ctx.role} />
       <DetailHeader
-        backHref={`${projectHref(projectId)}#deliverables`}
-        backLabel="กลับไปโครงการ"
+        // Feedback f625f04d: the งวดงาน manager (this page's only entry point)
+        // lives on the settings page now.
+        backHref={`${projectSettingsHref(projectId)}#deliverables`}
+        backLabel="กลับไปตั้งค่าโครงการ"
         actions={
           isPmRole ? (
             <EditDeliverableSheet
