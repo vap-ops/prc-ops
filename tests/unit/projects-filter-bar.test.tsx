@@ -74,6 +74,19 @@ describe("ProjectsFilterBar — project search", () => {
     expect(container.querySelector('input[type="hidden"][name="client"]')).toBeNull();
   });
 
+  // Regression guard (feedback 703d7e91 "Elements misplaced": "the search button
+  // is misplaced"). The ค้นหา submit button is absolutely positioned with
+  // `top-1/2` inside the h-11 field but was missing `-translate-y-1/2`, so its
+  // TOP sat on the field's midline and the h-8 button hung 10px below the field.
+  // The sibling search icon and clear-× both carry the translate; this pins the
+  // button to the same vertical-centering contract.
+  it("vertically centers the submit button inside the search field (703d7e91)", () => {
+    render(<ProjectsFilterBar {...base} />);
+    const submit = screen.getByRole("button", { name: "ค้นหา" });
+    expect(submit.className).toContain("top-1/2");
+    expect(submit.className).toContain("-translate-y-1/2");
+  });
+
   it("shows a clear control only when a query is active, linking to the facets-without-q href", () => {
     const { rerender } = render(<ProjectsFilterBar {...base} query="" />);
     expect(screen.queryByRole("link", { name: "ล้างการค้นหา" })).toBeNull();
