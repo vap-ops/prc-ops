@@ -21,6 +21,7 @@ import type { Database } from "@/lib/db/database.types";
 import { ScopedCatalogItemPicker } from "@/components/features/purchasing/catalog-item-picker";
 import type { PurchaseRequestCatalogItem } from "@/components/features/purchasing/purchase-request-form";
 import { membershipsByItem, type CatalogItemMembership } from "@/lib/catalog/categories";
+import { groupLinesByCategory } from "@/lib/supply-plan/group-lines";
 import {
   approvePlan,
   bulkAddPlanLines,
@@ -42,6 +43,10 @@ export type CatalogPick = PurchaseRequestCatalogItem;
 
 export type PlanLine = {
   id: string;
+  // Spec 245 U3: the item's managed category (catalog_items.category_id), used
+  // to group the saved-lines list for category-by-category review. Null = the
+  // item has no managed category → the trailing "อื่นๆ" group.
+  categoryId: string | null;
   baseItem: string;
   specAttrs: string | null;
   unit: string;
@@ -134,6 +139,13 @@ export function SupplyPlanManager({
   // Spec 228 — the canonical∪secondary membership union, built once for every
   // row's scoped picker (the same membership data backs all rows).
   const membershipMap = useMemo(() => membershipsByItem(itemMemberships ?? []), [itemMemberships]);
+
+  // Spec 245 U3 — the saved lines, grouped by managed category for
+  // category-by-category review (D6). Applies to every plan, not just cloned
+  // ones. Purely a display grouping; selection/convert/remove still key off the
+  // flat `lines`/`convertible` arrays below, so all interactive state carries
+  // across the group boundaries unchanged.
+  const lineGroups = useMemo(() => groupLinesByCategory(lines, categories), [lines, categories]);
 
   const [rows, setRows] = useState<DraftRow[]>([blankRow()]);
   const [error, setError] = useState<string | null>(null);
@@ -364,55 +376,62 @@ export function SupplyPlanManager({
         </div>
       ) : null}
 
-      {/* Saved lines (the plan so far). */}
+      {/* Saved lines (the plan so far), grouped by category (spec 245 U3). */}
       {lines.length === 0 ? (
         <p className="text-ink-secondary text-body">ยังไม่มีรายการในแผน</p>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {lines.map((l) => (
-            <li
-              key={l.id}
-              className="border-edge bg-card rounded-control flex items-center gap-3 border px-4 py-3"
-            >
-              {convertMode && !l.converted ? (
-                <input
-                  type="checkbox"
-                  aria-label={`เลือก ${l.baseItem}`}
-                  checked={selected.has(l.id)}
-                  onChange={() => toggleLine(l.id)}
-                  disabled={generating}
-                  className="accent-action size-5 shrink-0"
-                />
-              ) : null}
-              <span className="min-w-0 flex-1">
-                <span className="text-ink text-body block font-semibold">{l.baseItem}</span>
-                <span className="text-ink-secondary text-meta block">
-                  {l.specAttrs ? `${l.specAttrs} · ` : ""}
-                  {l.wpLabel ?? "ทั้งโครงการ"}
-                </span>
-              </span>
-              <span className="text-ink text-body shrink-0 font-semibold">
-                {l.qty} {l.unit}
-              </span>
-              {convertMode && l.converted ? (
-                <span className="bg-sunk text-done-strong text-meta rounded-control shrink-0 px-2 py-1 font-medium">
-                  สร้างคำขอซื้อแล้ว
-                </span>
-              ) : null}
-              {editable ? (
-                <button
-                  type="button"
-                  aria-label="ลบ"
-                  disabled={removing}
-                  onClick={() => handleRemove(l.id)}
-                  className="text-ink-muted hover:text-ink focus-visible:ring-action shrink-0 rounded-md p-1 focus:outline-none focus-visible:ring-2"
-                >
-                  <Trash2 aria-hidden className="size-5" />
-                </button>
-              ) : null}
-            </li>
+        <div className="flex flex-col gap-4">
+          {lineGroups.map((group) => (
+            <div key={group.categoryId ?? "__uncategorized__"} className="flex flex-col gap-2">
+              <h3 className="text-ink-secondary text-meta font-semibold">{group.categoryName}</h3>
+              <ul className="flex flex-col gap-2">
+                {group.lines.map((l) => (
+                  <li
+                    key={l.id}
+                    className="border-edge bg-card rounded-control flex items-center gap-3 border px-4 py-3"
+                  >
+                    {convertMode && !l.converted ? (
+                      <input
+                        type="checkbox"
+                        aria-label={`เลือก ${l.baseItem}`}
+                        checked={selected.has(l.id)}
+                        onChange={() => toggleLine(l.id)}
+                        disabled={generating}
+                        className="accent-action size-5 shrink-0"
+                      />
+                    ) : null}
+                    <span className="min-w-0 flex-1">
+                      <span className="text-ink text-body block font-semibold">{l.baseItem}</span>
+                      <span className="text-ink-secondary text-meta block">
+                        {l.specAttrs ? `${l.specAttrs} · ` : ""}
+                        {l.wpLabel ?? "ทั้งโครงการ"}
+                      </span>
+                    </span>
+                    <span className="text-ink text-body shrink-0 font-semibold">
+                      {l.qty} {l.unit}
+                    </span>
+                    {convertMode && l.converted ? (
+                      <span className="bg-sunk text-done-strong text-meta rounded-control shrink-0 px-2 py-1 font-medium">
+                        สร้างคำขอซื้อแล้ว
+                      </span>
+                    ) : null}
+                    {editable ? (
+                      <button
+                        type="button"
+                        aria-label="ลบ"
+                        disabled={removing}
+                        onClick={() => handleRemove(l.id)}
+                        className="text-ink-muted hover:text-ink focus-visible:ring-action shrink-0 rounded-md p-1 focus:outline-none focus-visible:ring-2"
+                      >
+                        <Trash2 aria-hidden className="size-5" />
+                      </button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
 
       {/* Spec 181 U4: convert an approved plan's lines into purchase requests. */}
