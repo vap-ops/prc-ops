@@ -386,6 +386,41 @@ describe("expandRowToWorkPackages (spec 222)", () => {
   });
 });
 
+// Writing failing test first.
+//
+// Feedback dff83444 "WP selection is redundant" (procurement, annotated
+// screenshot): with the ＋หลายงาน checklist OPEN, the per-row งาน <select>
+// stays visible right above it — two WP pickers at once. And the checklist
+// rows were bare 16px tickboxes ("change WP selection style to highlight the
+// whole row instead of tick box").
+describe("SupplyPlanManager multi-WP picker UX (feedback dff83444)", () => {
+  it("hides the per-row งาน select while that row's checklist is open, restores it on cancel", () => {
+    renderManager({ planStatus: "draft" });
+    expect(screen.getByLabelText("งาน")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /หลายงาน/ }));
+    // The checklist replaces the single-WP select — only one WP picker at a time.
+    expect(screen.queryByLabelText("งาน")).toBeNull();
+    expect(screen.getByRole("group", { name: "เลือกหลายงาน" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "ยกเลิก" }));
+    expect(screen.getByLabelText("งาน")).toBeInTheDocument();
+  });
+
+  it("highlights the whole checklist row when its WP is ticked (44px target, no bare tickbox)", () => {
+    renderManager({ planStatus: "draft" });
+    fireEvent.click(screen.getByRole("button", { name: /หลายงาน/ }));
+    const box = screen.getByLabelText("เลือกงาน WP-01");
+    const row = box.closest("label")!;
+    // The native checkbox stays for a11y but is visually hidden — the ROW is
+    // the control: 44px tap target, full-row selected fill when checked.
+    expect(box.className).toContain("sr-only");
+    expect(row.className).toContain("min-h-11");
+    expect(row.className).not.toContain("bg-fill");
+    fireEvent.click(box);
+    expect((box as HTMLInputElement).checked).toBe(true);
+    expect(row.className).toContain("bg-fill");
+  });
+});
+
 describe("SupplyPlanManager multi-WP fan-out (spec 222)", () => {
   it("keeps the multi-WP button tappable and guides item-first via the confirm", () => {
     renderManager({ planStatus: "draft" });
