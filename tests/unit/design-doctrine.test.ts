@@ -163,6 +163,22 @@ describe("design doctrine (Field-First)", () => {
     );
   });
 
+  // Date-input containment (feedback df3c2bb4 — "text box still overflowing",
+  // the client-portal date pickers bursting their card on an iPhone). iOS
+  // Safari (WebKit ≤ iOS 17) gives <input type="date"> an intrinsic width that
+  // ignores width:100%, so even FIELD_INPUT's `w-full min-w-0` can't contain
+  // it. `appearance: none` makes WebKit lay the control out as a normal text
+  // field that obeys the box — the same fix the PO sheet's local FIELD_DATE
+  // already ships. The systemic net is a base-layer rule so every current and
+  // future date input is covered, not a per-surface class the next one forgets.
+  it("date inputs get a base-layer appearance reset so iOS respects their width", () => {
+    const css = readFileSync(join(SRC, "app", "globals.css"), "utf8");
+    const rule = css.match(/input\[type="date"\]\s*\{[^}]*\}/);
+    expect(rule, 'input[type="date"] base rule not found in globals.css').not.toBeNull();
+    expect(rule![0], "must reset -webkit-appearance").toMatch(/-webkit-appearance:\s*none/);
+    expect(rule![0], "must reset standard appearance").toMatch(/[^-]appearance:\s*none/);
+  });
+
   // The shared detail-header action row (back chip + gear/reports/store chips +
   // refresh) must WRAP, never sit in a fixed non-wrapping row — on a narrow
   // phone a packed chip set would otherwise be clipped by the page scroller's
