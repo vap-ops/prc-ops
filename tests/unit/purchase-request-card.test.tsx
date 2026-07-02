@@ -39,7 +39,11 @@ describe("PurchaseRequestCard (spec 47)", () => {
     expect(link).toHaveAttribute("href", `/requests/${BASE_REQUEST.id}`);
   });
 
-  it("shows PR number, item, quantity, and Thai status label", () => {
+  // Feedback 30a1a520 — the text status pill crushed the item name and
+  // duplicated the tracker below. Status is now an icon-only badge (colored
+  // trio + glyph, Thai label kept for screen readers via aria-label); the
+  // label must NOT render as visible text on the card.
+  it("shows PR number, item, quantity, and an icon-only status badge", () => {
     render(
       <PurchaseRequestCard
         request={BASE_REQUEST}
@@ -51,7 +55,39 @@ describe("PurchaseRequestCard (spec 47)", () => {
     expect(screen.getByText("PR-0007")).toBeInTheDocument();
     expect(screen.getByText(/ปูนซีเมนต์/)).toBeInTheDocument();
     expect(screen.getByText(/10 ถุง/)).toBeInTheDocument();
-    expect(screen.getByText("ส่งคำขอแล้ว")).toBeInTheDocument();
+    expect(screen.getByLabelText("ส่งคำขอแล้ว")).toBeInTheDocument();
+    expect(screen.queryByText("ส่งคำขอแล้ว")).not.toBeInTheDocument();
+  });
+
+  // ด่วนมาก stays a loud TEXT pill — urgency must read at a glance; only the
+  // status (already carried by the tracker) went icon-only.
+  it("keeps the urgent priority as a text pill", () => {
+    render(
+      <PurchaseRequestCard
+        request={{ ...BASE_REQUEST, status: "approved", priority: "critical" }}
+        workPackage={null}
+        requesterName="สมชาย"
+        isMine={false}
+      />,
+    );
+    expect(screen.getByText("ด่วนมาก")).toBeInTheDocument();
+    expect(screen.getByLabelText("อนุมัติแล้ว")).toBeInTheDocument();
+    expect(screen.queryByText("อนุมัติแล้ว")).not.toBeInTheDocument();
+  });
+
+  // The freed width goes to the item name: it wraps instead of truncating
+  // (design doctrine: Thai must not be clipped mid-word).
+  it("lets the item name wrap rather than truncate", () => {
+    render(
+      <PurchaseRequestCard
+        request={BASE_REQUEST}
+        workPackage={null}
+        requesterName="สมชาย"
+        isMine={false}
+      />,
+    );
+    const name = screen.getByText(/ปูนซีเมนต์/);
+    expect(name.className).not.toMatch(/truncate/);
   });
 
   it("shows the ของฉัน badge only on the viewer's own request", () => {

@@ -7,7 +7,7 @@
 
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { StatusPill } from "@/components/features/common/status-pill";
+import { StatusIconBadge, StatusPill } from "@/components/features/common/status-pill";
 import { PurchaseRequestTracker } from "@/components/features/purchasing/purchase-request-tracker";
 import {
   PURCHASE_REQUEST_PRIORITY_LABEL,
@@ -79,9 +79,11 @@ export function PurchaseRequestCard({
               <PoNumberTag poNumber={poNumber} />
             </p>
           ) : null}
-          <p className="text-ink truncate text-base">
+          <p className="text-ink text-base break-words">
             {/* PR running number (spec 27) — the phone-callable identity
-                for site ↔ procurement talk. */}
+                for site ↔ procurement talk. Feedback 30a1a520: the name
+                WRAPS (Thai is never clipped mid-word) — the status pill
+                that used to crush it is icon-only now. */}
             <span className="text-ink-muted mr-1.5 font-mono text-xs">
               {formatPrNumber(request.pr_number)}
             </span>
@@ -111,12 +113,14 @@ export function PurchaseRequestCard({
         </div>
         <span className="flex shrink-0 items-start gap-1.5">
           <span className="flex flex-col items-end gap-1">
-            <StatusPill
+            {/* Feedback 30a1a520: status is icon-only — the text pill crushed
+                the item name and duplicated the tracker below. Colour trio +
+                glyph carry the state; the Thai label stays for screen readers. */}
+            <StatusIconBadge
               pillClasses={purchaseRequestStatusPillClasses(request.status)}
               icon={purchaseRequestStatusIcon(request.status)}
-            >
-              {PURCHASE_REQUEST_STATUS_LABEL[request.status]}
-            </StatusPill>
+              label={PURCHASE_REQUEST_STATUS_LABEL[request.status]}
+            />
             {request.priority !== "normal" ? (
               <StatusPill
                 pillClasses={purchaseRequestPriorityPillClasses(request.priority)}
