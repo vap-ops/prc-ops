@@ -32,7 +32,7 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN, requireActionRole } from "@/lib/auth/action-gate";
-import { SITE_STAFF_ROLES } from "@/lib/auth/role-home";
+import { isManagerRole, SITE_STAFF_ROLES } from "@/lib/auth/role-home";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { projectHref, workPackageHref } from "@/lib/nav/project-paths";
 import {
@@ -53,7 +53,16 @@ import {
 } from "@/lib/photos/transitions";
 import { getCurrentPhotosForWorkPackage } from "@/lib/photos/current-photos";
 
-const PHOTO_PHASES: ReadonlyArray<PhotoPhase> = ["before", "during", "after", "after_fix"];
+// Spec 248: 'defect' is insertable ONLY through the scoped branch inside
+// addPhoto (filing roles + WP in rework) — listing it here just admits it to
+// phase validation; a runtime list, typecheck never checks it.
+const PHOTO_PHASES: ReadonlyArray<PhotoPhase> = [
+  "before",
+  "during",
+  "after",
+  "after_fix",
+  "defect",
+];
 function isValidPhase(value: unknown): value is PhotoPhase {
   return typeof value === "string" && (PHOTO_PHASES as readonly string[]).includes(value);
 }
@@ -89,6 +98,21 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
     .eq("id", input.workPackageId)
     .maybeSingle();
   if (wpError || !wp) return { ok: false, error: "ไม่พบรายการงาน" };
+
+  // Spec 248: a defect photo is the FILING roles' evidence (PM/PD/super —
+  // isManagerRole) and only lands while the WP is actually in rework, i.e.
+  // right after the reopen RPC bumped the round. No SA-side defect inserts,
+  // no closed-round pollution. The RLS uploaded_by pin + the DB guard
+  // trigger gate again underneath; this is the friendly early check.
+  if (input.phase === "defect") {
+    const { data: self } = await supabase.from("users").select("role").eq("id", user.id).single();
+    if (!self?.role || !isManagerRole(self.role)) {
+      return { ok: false, error: "เฉพาะผู้จัดการที่รายงานข้อบกพร่องจึงแนบรูปได้" };
+    }
+    if (wp.status !== "rework") {
+      return { ok: false, error: "แนบรูปข้อบกพร่องได้เฉพาะงานที่เปิดแก้ไขอยู่" };
+    }
+  }
 
   // Server reconstructs the canonical storage path from validated
   // inputs and the WP's own project_id. The client never sends a

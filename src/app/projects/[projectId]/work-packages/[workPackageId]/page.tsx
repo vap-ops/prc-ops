@@ -819,7 +819,12 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
       ) : null}
       {wp.status === "complete" && !readOnly ? (
         <div className={`mx-auto ${PAGE_MAX_W} flex justify-end px-5 pt-5`}>
-          <ReportDefectControl projectId={wp.project_id} workPackageId={wp.id} />
+          {/* Spec 248: photo attach = filing roles (PM/PD/super); SA files text-only. */}
+          <ReportDefectControl
+            projectId={wp.project_id}
+            workPackageId={wp.id}
+            canAttachPhotos={isPlanner}
+          />
         </div>
       ) : null}
 
