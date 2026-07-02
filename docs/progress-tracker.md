@@ -5227,3 +5227,30 @@ a line is already `(plan,item,WP)` with nullable WP + array insert. Pure helper
 N→N blank-qty rows, distinct keys) + behavioral test (pick → tick 2 WPs → 2 rows → fill → save 2
 lines) + affordance-disabled-until-item. Full suite **1994/0** green; lint · typecheck clean.
 No SSOT files touched (inline Thai strings). SPEC 222 COMPLETE (single unit).
+
+## Perf debt rank 4 — store / supply-plan / workers loader waterfalls (2026-07-02)
+
+Status: **SHIPPED (code-only, no DB).** The last three ranked RSC loader waterfalls from the
+2026-06 architecture audit (`docs/architecture-quality-audit-2026-06.md`, rank 4 — deferred then
+because it paired with the store phase; specs 197/198 have since shipped). Same treatment as the
+spec 147/148 sweep: independent reads ride ONE `Promise.all`, dependent reads follow in a second
+batch; same queries/columns/results — only the scheduling changes.
+
+- `/projects/[projectId]/store` — 10 serial awaits → batch of 8 (on-hand, categories, catalog,
+  suppliers, receipts, counts, delivered-PRs [canIssue], store_pnl [canSeePnl]) + a 2-read second
+  batch (divert set, P&L names). Conditional reads use the `canX ? query : Promise.resolve({ data:
+null })` idiom (spec 147 U1 pattern).
+- `/projects/[projectId]/supply-plan` — 13+N serial awaits → batch of 7 (plans, templates, catalog,
+  categories, memberships, WPs, accuracy [isPlanner]) + a 5-way second batch (line counts, overrider
+  name, selected-plan lines→converted chain, signed thumbs, work-category scopes). The per-work-
+  category Relation-R loop (serial N awaits) moved into a new concurrent
+  `resolveWorkCategoryScopes(supabase, ids)` in `src/lib/catalog/scoped-categories.ts` — dedups ids,
+  fans out via `Promise.all`, OMITS unmapped ids (the ADR 0066 D8 show-all fallback keys off
+  absence, unchanged).
+- `/workers` — 3 serial reads → one `Promise.all`.
+
+Test-first (RED verified): 4 new tests in `catalog-scoped-categories.test.ts` incl. a deferred-stub
+concurrency assert (all reads issued before any resolves — fails under a serial loop). Full suite
+**2307/0**; lint · typecheck green. Real-browser verified via the dev-preview login (server HTML 200
+on all 3 routes + a selected `?plan=` heavy path; no error boundary). Open question (out of scope):
+`<Suspense>` streaming / per-section skeletons for these pages remains a future, larger lever.

@@ -27,34 +27,38 @@ export default async function WorkersPage() {
   // Admin client: this page needs day_rate, which authenticated cannot
   // read by design. The requireRole gate above is what authorizes it.
   const admin = createAdminSupabase();
-  const { data: workerRows } = await admin
-    .from("workers")
-    .select(
-      "id, name, worker_type, contractor_id, day_rate, active, note, dc_arrangement, user_id, project_id",
-    )
-    .order("name", { ascending: true });
+  const supabase = await createServerSupabase();
+
+  // Perf debt rank 4 (architecture audit 2026-06): the three roster reads are
+  // independent, so they ride ONE Promise.all (the spec 147 U1 pattern). Same
+  // queries/columns/results — only the scheduling changes.
+  const [{ data: workerRows }, { data: contractorRows }, { data: projectRows }] = await Promise.all(
+    [
+      admin
+        .from("workers")
+        .select(
+          "id, name, worker_type, contractor_id, day_rate, active, note, dc_arrangement, user_id, project_id",
+        )
+        .order("name", { ascending: true }),
+      // Spec 89: status + category let WorkerRosterManager hide blacklisted/non-DC
+      // crews from the new-DC-worker picker while still resolving existing names.
+      supabase
+        .from("contractors")
+        .select("id, name, status, contractor_category")
+        .order("name", { ascending: true }),
+      // Spec 200: the projects the assigner can put a worker on. RLS-scoped (the
+      // assign gate is PM/super/director/procurement, the same audience as this page);
+      // procurement sees all, PM sees members, super/director all.
+      supabase.from("projects").select("id, code, name").order("code", { ascending: true }),
+    ],
+  );
+
   // ADR 0062 U4a: derive portalBound from user_id (the LINE binding); user_id
   // itself stays server-side — only the boolean reaches the client roster.
   const workers: ManagedWorker[] = (workerRows ?? []).map(({ user_id, ...w }) => ({
     ...w,
     portalBound: user_id !== null,
   }));
-
-  const supabase = await createServerSupabase();
-  // Spec 89: status + category let WorkerRosterManager hide blacklisted/non-DC
-  // crews from the new-DC-worker picker while still resolving existing names.
-  const { data: contractorRows } = await supabase
-    .from("contractors")
-    .select("id, name, status, contractor_category")
-    .order("name", { ascending: true });
-
-  // Spec 200: the projects the assigner can put a worker on. RLS-scoped (the
-  // assign gate is PM/super/director/procurement, the same audience as this page);
-  // procurement sees all, PM sees members, super/director all.
-  const { data: projectRows } = await supabase
-    .from("projects")
-    .select("id, code, name")
-    .order("code", { ascending: true });
 
   return (
     <PageShell>
