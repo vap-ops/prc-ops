@@ -129,7 +129,7 @@ export function CatalogList({
     return (
       <li
         key={it.id}
-        className="border-edge bg-card rounded-control flex items-center gap-3 border px-4 py-3"
+        className="border-edge bg-card rounded-control flex flex-wrap items-center gap-3 border px-4 py-3"
       >
         {it.thumbnailUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- signed URL, same as ZoomablePhoto
@@ -147,7 +147,11 @@ export function CatalogList({
             <ImageIcon aria-hidden className="size-5" />
           </div>
         )}
-        <span className="min-w-0 flex-1">
+        {/* Feedback 65de06ca — the name is floored at min-w-40 (NOT min-w-0):
+            with a no-wrap row the fixed-width unit/price/edit siblings squeezed
+            the name to ~1 character per line on a phone. The row wraps instead,
+            pushing the control cluster below the name when space runs out. */}
+        <span className="min-w-40 flex-1">
           <span className="text-ink text-body block font-semibold">{it.baseItem}</span>
           <span className="text-ink-secondary text-meta block">
             {it.productCode ? (
@@ -163,9 +167,11 @@ export function CatalogList({
             </span>
           ) : null}
         </span>
-        <span className="text-ink-secondary text-meta shrink-0">{it.unit}</span>
-        {canSetSellRate ? <SetSellRate itemId={it.id} currentRate={it.sellRate ?? null} /> : null}
-        {editable ? <EditCatalogItem item={it} categories={categories} units={units} /> : null}
+        <span className="ml-auto flex shrink-0 items-center gap-3">
+          <span className="text-ink-secondary text-meta">{it.unit}</span>
+          {canSetSellRate ? <SetSellRate itemId={it.id} currentRate={it.sellRate ?? null} /> : null}
+          {editable ? <EditCatalogItem item={it} categories={categories} units={units} /> : null}
+        </span>
       </li>
     );
   }
@@ -198,6 +204,7 @@ export function CatalogList({
           label={`ทั้งหมด (${queried.length})`}
           checked={selectedCat === ALL}
           onSelect={() => setSelectedCat(ALL)}
+          className="shrink-0 whitespace-nowrap"
         />
         {present.map((id) => (
           <RadioChip
@@ -206,6 +213,7 @@ export function CatalogList({
             label={`${catName(id)} (${countIn(id)})`}
             checked={selectedCat === id}
             onSelect={() => setSelectedCat(id)}
+            className="shrink-0 whitespace-nowrap"
           />
         ))}
       </div>
