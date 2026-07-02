@@ -15,6 +15,7 @@ import { receivePoLines } from "@/app/requests/actions";
 import { PartialReceiveControl } from "@/components/features/purchasing/partial-receive-control";
 import { BUTTON_PRIMARY, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
 import { formatPrNumber } from "@/lib/purchasing/format-id";
+import { RECEIVE_TO_STORE_LABEL } from "@/lib/i18n/labels";
 
 export interface ReceivableLine {
   id: string;
@@ -66,7 +67,7 @@ export function PoReceiveSection({ lines }: { lines: ReceivableLine[] }) {
 
   return (
     <div className="rounded-card border-edge bg-card shadow-card border p-4">
-      <h2 className="text-ink text-base font-semibold">รับของ</h2>
+      <h2 className="text-ink text-base font-semibold">{RECEIVE_TO_STORE_LABEL}</h2>
       <p className="text-ink-secondary mt-0.5 text-xs">
         เลือกไว้ทั้งหมดแล้ว — หากบางรายการยังไม่มาถึง ให้เอาเครื่องหมายออก แล้วรับเฉพาะที่มาถึง
       </p>
@@ -130,7 +131,7 @@ export function PoReceiveSection({ lines }: { lines: ReceivableLine[] }) {
         disabled={pending || count === 0}
         className={`${BUTTON_PRIMARY} mt-3 w-full`}
       >
-        {pending ? "กำลังบันทึก…" : `รับของที่เลือก (${count})`}
+        {pending ? "กำลังบันทึก…" : `${RECEIVE_TO_STORE_LABEL}ที่เลือก (${count})`}
       </button>
     </div>
   );

@@ -9,11 +9,13 @@ import {
   type PurchaseOrderStage,
   type PurchaseOrderStatus,
 } from "@/lib/purchasing/purchase-order";
+import { RECEIVE_TO_STORE_LABEL } from "@/lib/i18n/labels";
 
 const STAGE_LABEL: Record<PurchaseOrderStage, string> = {
   ordered: "สั่งซื้อ",
   in_transit: "จัดส่ง",
-  received: "รับของ",
+  // Feedback a4e37ccd: arrival = into the project store (คลัง), not "from the shop".
+  received: RECEIVE_TO_STORE_LABEL,
 };
 
 export function PurchaseOrderTracker({ status }: { status: PurchaseOrderStatus }) {

@@ -229,6 +229,15 @@ export const PURCHASE_ORDER_STATUS_LABEL: Record<PurchaseOrderStatus, string> = 
 // their own "คาดว่าจะได้รับของ" prompt.
 export const ETA_LABEL = "กำหนดรับของ";
 
+// Feedback a4e37ccd — "รับของ" read ambiguous (receive from the shop vs receive at
+// the site). Operator decision 2026-07-02 + store-first doctrine (ADR 0065 / spec
+// 208): goods reaching the site ALWAYS land in the project store (คลัง) — the
+// stock-in trigger does exactly that for a store-bound PR — so the receive ACTION
+// is named as stock-into-store. Used by the PO receive checklist (header + submit)
+// and the PO stepper's received stage. Date/needed-by labels keep "รับของ" (they
+// name a date, not the action).
+export const RECEIVE_TO_STORE_LABEL = "รับเข้าคลัง";
+
 // Spec 211 U10d — ONE label for the create-purchase-order action (was "สร้าง PO" /
 // "สร้างใบสั่งซื้อ (PO)" across the bundle bar, drawer, sheet title, single-PR button
 // and price-comparison). Drops the bare English "PO".
