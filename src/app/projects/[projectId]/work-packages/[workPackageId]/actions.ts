@@ -45,10 +45,13 @@ import { buildTombstoneRow } from "@/lib/photos/tombstone";
 import { photoReworkRoundFor } from "@/lib/photos/rework-round";
 import type { ReworkSource } from "@/lib/db/enums";
 import {
+  canSubmitForApproval,
   shouldTransitionToInProgress,
+  submitEvidenceHint,
   TRANSITIONABLE_FROM_STATUSES,
   type PhotoPhase,
 } from "@/lib/photos/transitions";
+import { getCurrentPhotosForWorkPackage } from "@/lib/photos/current-photos";
 
 const PHOTO_PHASES: ReadonlyArray<PhotoPhase> = ["before", "during", "after", "after_fix"];
 function isValidPhase(value: unknown): value is PhotoPhase {
@@ -196,10 +199,19 @@ export async function submitWorkPackageForApproval(
   // leaking whether the row exists.
   const { data: wp, error: wpError } = await supabase
     .from("work_packages")
-    .select("id, project_id, status")
+    .select("id, project_id, status, rework_round")
     .eq("id", input.workPackageId)
     .maybeSingle();
   if (wpError || !wp) return { ok: false, error: "ไม่พบรายการงาน" };
+
+  // Spec 247 — the photo gate: no submit without current completion evidence
+  // (after photo; in rework, a current-round after_fix photo). Same RLS-scoped
+  // current-state read the page uses (anti-join + tombstone, ADR 0009/0015);
+  // the UI's disabled button is convenience, this check is the enforcement.
+  const currentPhotos = await getCurrentPhotosForWorkPackage(supabase, wp.id);
+  if (!canSubmitForApproval(wp.status, currentPhotos, wp.rework_round)) {
+    return { ok: false, error: submitEvidenceHint(wp.status) };
+  }
 
   const admin = createAdminClient();
   const { data: updated, error: updateError } = await admin

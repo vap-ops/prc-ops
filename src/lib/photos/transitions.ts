@@ -33,3 +33,35 @@ export function shouldTransitionToInProgress(
 ): boolean {
   return phase === "during" && currentStatus === "not_started";
 }
+
+// Spec 247 — the photo gate on "ส่งงานเข้าตรวจ": submitting requires current
+// completion evidence. First pass (not_started/in_progress/on_hold) = ≥1 after
+// photo; rework = ≥1 after_fix photo of the WP's CURRENT rework_round (a prior
+// round's fix photo is stale evidence for this defect cycle). Callers pass the
+// already-current-filtered read (selectCurrentPhotosByPhase — anti-join +
+// tombstone, ADR 0009/0015), so a deleted photo never counts. The structural
+// row type keeps this module import-safe outside server-only code.
+
+type ReworkStampedRow = { rework_round: number };
+
+export function canSubmitForApproval(
+  status: WorkPackageStatus,
+  currentPhotos: {
+    after: ReadonlyArray<ReworkStampedRow>;
+    after_fix: ReadonlyArray<ReworkStampedRow>;
+  },
+  reworkRound: number,
+): boolean {
+  if (status === "rework") {
+    return currentPhotos.after_fix.some((p) => p.rework_round === reworkRound);
+  }
+  return currentPhotos.after.length > 0;
+}
+
+/** The user-facing reason a submit is blocked — same string on the disabled
+ *  button hint (UI) and the action refusal (enforcement). */
+export function submitEvidenceHint(status: WorkPackageStatus): string {
+  return status === "rework"
+    ? "ถ่ายรูปหลังแก้ไขก่อนจึงจะส่งตรวจได้"
+    : "ถ่ายรูปหลังทำงานก่อนจึงจะส่งตรวจได้";
+}
