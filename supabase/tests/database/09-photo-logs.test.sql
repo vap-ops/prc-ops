@@ -70,8 +70,9 @@ select has_type('public', 'photo_phase', 'photo_phase enum exists');
 select enum_has_labels(
   'public', 'photo_phase',
   -- Feedback 0fa23307: after_fix (หลังแก้ไข) = rework-completion photos.
-  array['before', 'during', 'after', 'after_fix'],
-  'photo_phase has the four expected values'
+  -- Spec 248: defect (จุดบกพร่อง) = the PM's photos filed with รายงานข้อบกพร่อง.
+  array['before', 'during', 'after', 'after_fix', 'defect'],
+  'photo_phase has the five expected values'
 );
 
 select has_table('public', 'photo_logs', 'public.photo_logs exists');

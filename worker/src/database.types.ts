@@ -2661,6 +2661,7 @@ export type Database = {
       }
       photo_logs: {
         Row: {
+          answers_photo_id: string | null
           captured_at_client: string | null
           created_at: string
           id: string
@@ -2672,6 +2673,7 @@ export type Database = {
           work_package_id: string
         }
         Insert: {
+          answers_photo_id?: string | null
           captured_at_client?: string | null
           created_at?: string
           id?: string
@@ -2683,6 +2685,7 @@ export type Database = {
           work_package_id: string
         }
         Update: {
+          answers_photo_id?: string | null
           captured_at_client?: string | null
           created_at?: string
           id?: string
@@ -2694,6 +2697,13 @@ export type Database = {
           work_package_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "photo_logs_answers_photo_id_fkey"
+            columns: ["answers_photo_id"]
+            isOneToOne: false
+            referencedRelation: "photo_logs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "photo_logs_superseded_by_fkey"
             columns: ["superseded_by"]
@@ -7169,7 +7179,7 @@ export type Database = {
       peak_entity_type: "contact" | "expense"
       peak_sync_operation: "create" | "void"
       peak_sync_status: "pending" | "sending" | "sent" | "failed" | "skipped"
-      photo_phase: "before" | "during" | "after" | "after_fix"
+      photo_phase: "before" | "during" | "after" | "after_fix" | "defect"
       project_status: "active" | "on_hold" | "completed" | "archived"
       project_type:
         | "new_building"
@@ -7521,7 +7531,7 @@ export const Constants = {
       peak_entity_type: ["contact", "expense"],
       peak_sync_operation: ["create", "void"],
       peak_sync_status: ["pending", "sending", "sent", "failed", "skipped"],
-      photo_phase: ["before", "during", "after", "after_fix"],
+      photo_phase: ["before", "during", "after", "after_fix", "defect"],
       project_status: ["active", "on_hold", "completed", "archived"],
       project_type: [
         "new_building",

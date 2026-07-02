@@ -2,15 +2,18 @@
 // reading them back grouped by cycle (read side).
 //
 // after_fix (หลังแก้ไข) photos belong to the WP's *current* rework cycle, so they
-// carry the WP's rework_round. Every other phase (before/during/after) is part of
-// the original work cycle and stays round 0. All pure — unit-testable without a
-// Supabase mock.
+// carry the WP's rework_round — and so do defect photos (spec 248): they insert
+// after the reopen RPC bumps the counter, so the current round IS the round they
+// open. Every original-cycle phase (before/during/after) stays round 0. All pure
+// — unit-testable without a Supabase mock.
 
 import type { PhotoPhase, ReworkSource } from "@/lib/db/enums";
 import type { PhotoLogRow } from "@/lib/photos/current-photos";
 
+const ROUND_STAMPED_PHASES: ReadonlyArray<PhotoPhase> = ["after_fix", "defect"];
+
 export function photoReworkRoundFor(phase: PhotoPhase, wpReworkRound: number): number {
-  return phase === "after_fix" ? wpReworkRound : 0;
+  return ROUND_STAMPED_PHASES.includes(phase) ? wpReworkRound : 0;
 }
 
 // "รอบ N" — the user-facing tag for a rework cycle. SSOT: the capture tile and the

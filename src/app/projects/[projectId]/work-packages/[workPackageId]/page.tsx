@@ -248,9 +248,11 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     before: photosByPhase.before.length,
     during: photosByPhase.during.length,
     after: photosByPhase.after.length,
-    // after_fix is a rework addendum, not part of the 3-step progress derivation
-    // (PHASE_ORDER), but the Record<PhotoPhase, number> shape requires the key.
+    // after_fix and defect are rework addenda, not part of the 3-step progress
+    // derivation (PHASE_ORDER), but the Record<PhotoPhase, number> shape
+    // requires every key.
     after_fix: photosByPhase.after_fix.length,
+    defect: photosByPhase.defect.length,
   };
   const currentPhase = derivePhaseProgress(phaseCounts).currentPhase;
   // Spec 216: the หลังแก้ไข rework bucket surfaces only inside a rework cycle (in

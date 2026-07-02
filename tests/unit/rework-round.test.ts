@@ -24,6 +24,7 @@ function photo(id: string, round: number): PhotoLogRow {
     created_at: "2026-06-28T00:00:00Z",
     captured_at_client: null,
     rework_round: round,
+    answers_photo_id: null,
   };
 }
 

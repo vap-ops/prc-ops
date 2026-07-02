@@ -283,6 +283,9 @@ export const PHOTO_PHASE_LABEL: Record<Enums["photo_phase"], string> = {
   // Feedback 0fa23307 — completion photos for a WP's rework (defect fix),
   // distinct from the original "แล้วเสร็จ" work photos.
   after_fix: "หลังแก้ไข",
+  // Spec 248 — the PM's photos of the defect itself (attached when filing
+  // รายงานข้อบกพร่อง); each is answered by an after_fix photo from the same angle.
+  defect: "จุดบกพร่อง",
 };
 
 // Spec 217 — who called a rework round: internal QA/SA vs the client.

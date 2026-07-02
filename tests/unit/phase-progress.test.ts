@@ -8,35 +8,35 @@ import { formatThaiTime } from "@/lib/i18n/labels";
 
 describe("derivePhaseProgress", () => {
   it("no photos at all → 0 of 3, current is 'before', all segments empty", () => {
-    const p = derivePhaseProgress({ before: 0, during: 0, after: 0, after_fix: 0 });
+    const p = derivePhaseProgress({ before: 0, during: 0, after: 0, after_fix: 0, defect: 0 });
     expect(p.doneCount).toBe(0);
     expect(p.currentPhase).toBe("before");
     expect(p.segments).toEqual(["empty", "empty", "empty"]);
   });
 
   it("before only → 1 of 3, current 'before' (the last phase with photos)", () => {
-    const p = derivePhaseProgress({ before: 6, during: 0, after: 0, after_fix: 0 });
+    const p = derivePhaseProgress({ before: 6, during: 0, after: 0, after_fix: 0, defect: 0 });
     expect(p.doneCount).toBe(1);
     expect(p.currentPhase).toBe("before");
     expect(p.segments).toEqual(["current", "empty", "empty"]);
   });
 
   it("mockup case: before + during → 2 of 3, current 'during', green/blue/empty", () => {
-    const p = derivePhaseProgress({ before: 6, during: 2, after: 0, after_fix: 0 });
+    const p = derivePhaseProgress({ before: 6, during: 2, after: 0, after_fix: 0, defect: 0 });
     expect(p.doneCount).toBe(2);
     expect(p.currentPhase).toBe("during");
     expect(p.segments).toEqual(["complete", "current", "empty"]);
   });
 
   it("gap case: before + after without during — skipped phase stays empty", () => {
-    const p = derivePhaseProgress({ before: 3, during: 0, after: 1, after_fix: 0 });
+    const p = derivePhaseProgress({ before: 3, during: 0, after: 1, after_fix: 0, defect: 0 });
     expect(p.doneCount).toBe(2);
     expect(p.currentPhase).toBe("after");
     expect(p.segments).toEqual(["complete", "empty", "current"]);
   });
 
   it("all phases → 3 of 3, current 'after'", () => {
-    const p = derivePhaseProgress({ before: 1, during: 1, after: 1, after_fix: 0 });
+    const p = derivePhaseProgress({ before: 1, during: 1, after: 1, after_fix: 0, defect: 0 });
     expect(p.doneCount).toBe(3);
     expect(p.currentPhase).toBe("after");
     expect(p.segments).toEqual(["complete", "complete", "current"]);
@@ -45,7 +45,7 @@ describe("derivePhaseProgress", () => {
   // Feedback 0fa23307: after_fix is a rework addendum, NOT part of the 3-step
   // lifecycle progress — the bar stays 3 segments regardless of after_fix photos.
   it("ignores after_fix photos in the 3-step progress derivation", () => {
-    const p = derivePhaseProgress({ before: 1, during: 1, after: 1, after_fix: 9 });
+    const p = derivePhaseProgress({ before: 1, during: 1, after: 1, after_fix: 9, defect: 0 });
     expect(p.doneCount).toBe(3);
     expect(p.currentPhase).toBe("after");
     expect(p.segments).toEqual(["complete", "complete", "current"]);

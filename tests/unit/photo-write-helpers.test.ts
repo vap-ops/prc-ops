@@ -177,7 +177,13 @@ describe("photoReworkRoundFor", () => {
     expect(photoReworkRoundFor("after_fix", 3)).toBe(3);
   });
 
-  it("stamps every non-after_fix phase with 0 regardless of the WP's round", () => {
+  // Spec 248 — a defect photo belongs to the round it opens (inserted after the
+  // reopen RPC bumps the counter, so the WP's current round IS that round).
+  it("stamps a defect photo with the WP's current rework_round", () => {
+    expect(photoReworkRoundFor("defect", 2)).toBe(2);
+  });
+
+  it("stamps every original-cycle phase with 0 regardless of the WP's round", () => {
     for (const phase of ["before", "during", "after"] as const) {
       expect(photoReworkRoundFor(phase, 2)).toBe(0);
     }

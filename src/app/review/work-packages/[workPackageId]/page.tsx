@@ -267,6 +267,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
               during: photosByPhase.during.length,
               after: photosByPhase.after.length,
               after_fix: photosByPhase.after_fix.length,
+              defect: photosByPhase.defect.length,
             }}
           />
         </div>

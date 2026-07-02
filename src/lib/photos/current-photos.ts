@@ -23,6 +23,9 @@ export interface CurrentPhotosByPhase {
   after: PhotoLogRow[];
   // Feedback 0fa23307 — rework-completion photos.
   after_fix: PhotoLogRow[];
+  // Spec 248 — the PM's defect-report photos (round-stamped, paired by
+  // answers_photo_id from after_fix rows).
+  defect: PhotoLogRow[];
 }
 
 export function selectCurrentPhotosByPhase(rows: ReadonlyArray<PhotoLogRow>): CurrentPhotosByPhase {
@@ -33,10 +36,20 @@ export function selectCurrentPhotosByPhase(rows: ReadonlyArray<PhotoLogRow>): Cu
     }
   }
 
-  const result: CurrentPhotosByPhase = { before: [], during: [], after: [], after_fix: [] };
+  const result: CurrentPhotosByPhase = {
+    before: [],
+    during: [],
+    after: [],
+    after_fix: [],
+    defect: [],
+  };
   for (const r of rows) {
     if (r.storage_path === null) continue;
     if (supersededIds.has(r.id)) continue;
+    // Deploy-window tolerance (spec 248): a phase value this build does not
+    // know yet (the DB enum can grow before the next deploy) is skipped —
+    // one unknown row must never TypeError the whole WP's photo read.
+    if (!Object.prototype.hasOwnProperty.call(result, r.phase)) continue;
     result[r.phase].push(r);
   }
   return result;
