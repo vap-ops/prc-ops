@@ -127,6 +127,10 @@ select is(
 
 -- B.3 exactly one insert audit row carrying source=site_purchase; no
 --     delivery-audit row (no UPDATE-path trigger fired).
+--     Read as the OWNER: audit_log SELECT is scoped to privileged internal
+--     roles (rls-audit-2026-07 F2) — a site_admin session sees only
+--     wp_reopened_for_defect rows.
+reset role;
 select is(
   (select count(*)::int from public.audit_log
      where target_id = (select id from public.purchase_requests
@@ -141,7 +145,9 @@ select is(
        and action = 'purchase_request_delivery'),
   0, 'no delivery-audit row (no UPDATE-path trigger fired)');
 
--- B.4 input re-checks.
+-- B.4 input re-checks (back under the site_admin session).
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-2222222266aa"}';
 select throws_ok(
   $$ select public.record_site_purchase(
        'eeeeeeee-eeee-eeee-eeee-eeeeeeee66aa', 'ปูน', 0, 'ถุง', 'unplanned_miss') $$,

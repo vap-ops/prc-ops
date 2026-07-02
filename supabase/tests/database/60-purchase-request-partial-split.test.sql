@@ -160,11 +160,16 @@ select ok((select pr_number is not null from public.purchase_requests
   where split_from_request_id = 'c1000134-0000-4000-8000-000000000001'),
   'the child got its own pr_number (sequence default)');
 
+-- Read as the OWNER: audit_log SELECT is scoped to privileged internal roles
+-- (rls-audit-2026-07 F2) — the acting site session sees no update-audit rows.
+reset role;
 select ok(
   (select count(*) >= 1 from public.audit_log
      where target_id = 'c1000134-0000-4000-8000-000000000001'
        and action = 'update' and payload ? 'split_child_id'),
   'a split audit row was written');
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222220134"}';
 -- Spec 134 U7: the delivered portion is stamped with its own delivery batch.
 select ok((select delivery_batch_id is not null from public.purchase_requests
   where id = 'c1000134-0000-4000-8000-000000000001'),

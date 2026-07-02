@@ -104,14 +104,15 @@ select is(
   (select reason_code::text from public.purchase_requests where item_description = 'RC-BUY'),
   'breakage', 'site purchase stores the supplied reason_code');
 
--- E.3 the audit payload carries the reason code.
+-- E.3 the audit payload carries the reason code. Read as the OWNER: audit_log
+-- SELECT is scoped to privileged internal roles (rls-audit-2026-07 F2) — the
+-- site_admin session sees only wp_reopened_for_defect rows.
+reset role;
 select is(
   (select payload->>'reason_code' from public.audit_log
      where target_id = (select id from public.purchase_requests where item_description = 'RC-BUY')
        and action = 'insert'),
   'breakage', 'audit payload carries reason_code');
-
-reset role;
 
 select * from finish();
 rollback;
