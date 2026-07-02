@@ -14,13 +14,16 @@
 //   6. Profile write: NULL-only line_user_id/full_name; avatar refresh.
 //   7. Redirect by role.
 //
-// HANDOFF (spec 43 / ADR 0041 — flow started inside the installed PWA,
-// landing context unpredictable): state validates against a pending,
-// unexpired login_handoffs row instead of the cookie. Steps 2–3 run the
-// same, then the row is atomically bound (user_email + claims stash,
-// status → approved) and the user is told to return to the app. NO
-// session is minted here — /auth/handoff/poll mints it in the PWA's own
-// cookie jar, and runs the profile write from the stashed claims.
+// HANDOFF (spec 43 / ADR 0041 as amended 2026-07-02 — flow started
+// inside the installed PWA, landing context unpredictable): state
+// validates against a pending, unexpired login_handoffs row instead of
+// the cookie. Steps 2–3 run the same, then the row is atomically bound
+// (user_email + claims stash, status → approved) and the flow FALLS
+// THROUGH into steps 5–8: the session is minted in the landing context
+// too. On Android the callback link-captures back into the installed
+// PWA, so the landing jar is the PWA's jar and this mint IS the login;
+// on iOS the landing context is Safari and the PWA still collects its
+// own session via /auth/handoff/poll from the approved row.
 //
 // Security: all Supabase clients are created INSIDE this handler (no
 // module-scope instances — Vercel Fluid Compute reuses warm processes
@@ -148,7 +151,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // Duplicate → user already provisioned from a prior login. Continue.
   }
 
-  // ---- HANDOFF: bind identity to the row; the PWA's poll mints ----
+  // ---- HANDOFF: bind identity to the row for the PWA's poll ----
   if (flow.kind === "handoff") {
     const { data: bound } = await admin
       .from("login_handoffs")
@@ -167,14 +170,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       });
       return redirectToLogin(request, "oauth_failed");
     }
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.search = "";
-    url.searchParams.set("handoff", "approved");
-    return NextResponse.redirect(url);
+    // ADR 0041 amendment (Android incident 2026-07-02): FALL THROUGH and
+    // mint the session in the landing context too, via the same steps
+    // 5–8 as the browser flow. Android link-captures the callback back
+    // into the installed PWA, so the landing jar IS the PWA's jar —
+    // minting here signs the user in regardless of client JS version,
+    // localStorage readability, or whether the initiating document
+    // survived the LINE round-trip. The approved row stays for iOS,
+    // where the landing context is Safari and the PWA still collects
+    // its own session through /auth/handoff/poll.
   }
 
-  // ---- BROWSER: 5. Mint session (generateLink → verifyOtp) ----
+  // ---- 5. Mint session (generateLink → verifyOtp) ----
   const linkResult = await admin.auth.admin.generateLink({
     type: "magiclink",
     email: syntheticEmail,
