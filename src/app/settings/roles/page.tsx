@@ -10,6 +10,7 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { RoleAdminList, type RoleUserVM } from "@/components/features/roles/role-admin-list";
+import { groupUsersByRole } from "@/lib/roles/group-users";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
@@ -26,20 +27,16 @@ export default async function RolesPage() {
     .order("created_at", { ascending: true });
   const users = rows ?? [];
 
-  // Visitors first (the onboarding promotion is the common task), then by name.
-  const sorted = [...users].sort((a, b) => {
-    const av = a.role === "visitor" ? 0 : 1;
-    const bv = b.role === "visitor" ? 0 : 1;
-    if (av !== bv) return av - bv;
-    return (a.full_name ?? "").localeCompare(b.full_name ?? "", "th");
-  });
-
-  const vms: RoleUserVM[] = sorted.map((u) => ({
+  const vms: RoleUserVM[] = users.map((u) => ({
     id: u.id,
     name: u.full_name?.trim() || "(ไม่มีชื่อ)",
     role: u.role,
     isSelf: u.id === ctx.id,
   }));
+
+  // Feedback d00c3d0e: grouped by role — visitors lead (the promotion queue),
+  // internal tiers next, external audiences last. Empty groups don't render.
+  const groups = groupUsersByRole(vms);
 
   const visitorCount = users.filter((u) => u.role === "visitor").length;
 
@@ -59,7 +56,15 @@ export default async function RolesPage() {
         {users.length === 0 ? (
           <EmptyNotice>ยังไม่มีผู้ใช้</EmptyNotice>
         ) : (
-          <RoleAdminList users={vms} />
+          groups.map((g) => (
+            <section key={g.role} aria-label={g.label}>
+              <h2 className="text-ink-secondary mb-2 flex items-baseline gap-1.5 text-sm font-semibold">
+                {g.role === "visitor" ? "รอกำหนดสิทธิ์" : g.label}
+                <span className="text-ink-muted text-xs font-normal">{g.users.length} คน</span>
+              </h2>
+              <RoleAdminList users={g.users} />
+            </section>
+          ))
         )}
       </section>
     </PageShell>
