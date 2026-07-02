@@ -64,7 +64,8 @@ export function OnboardingChecklist({
       key: "deliverables",
       label: "สร้างงวดงานและจัดกลุ่มงาน",
       done: deliverablesDone,
-      href: `${projectHref(projectId)}#deliverables`,
+      // Feedback f625f04d: the งวดงาน manager lives on the settings page now.
+      href: `${projectSettingsHref(projectId)}#deliverables`,
     },
     {
       key: "client",

@@ -57,9 +57,10 @@ describe("OnboardingChecklist", () => {
 
   it("links the deliverables item to the งวดงาน section when not set up", () => {
     render(<OnboardingChecklist projectId="p1" status={FRESH} deliverablesDone={false} />);
+    // Feedback f625f04d: the งวดงาน manager lives on the settings page now.
     const link = screen
       .getAllByRole("link")
-      .find((a) => a.getAttribute("href") === "/projects/p1#deliverables");
+      .find((a) => a.getAttribute("href") === "/projects/p1/settings#deliverables");
     expect(link).toBeDefined();
     expect(link).toHaveTextContent("งวดงาน");
   });
