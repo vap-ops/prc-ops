@@ -5283,3 +5283,12 @@ audit ('docs/architecture-quality-audit-2026-06.md') bundled into one PR.
 
 Test-first (RED verified: 4 failures, each for the intended reason). The 3 lightbox test files
 switched to awaited opens (the overlay is now an async chunk). Open questions: none.
+
+## Spec 244 U5 — per-person activity timeline (2026-07-02)
+
+Status: **IN PROGRESS.** Operator: "app usage feature is good, but it lacks information, I need
+detailed info down to individual's logged activities" → brainstormed, chose "Both": U5 = the
+app-usage timeline drill-down now (`/settings/usage/[actorId]`, RPC `get_actor_timeline` session
+rollup over `interaction_events`, migration `20260813057000`), business-action feed = a phase-2
+follow-up spec (domain-table reads, spec 240 stays shelved). Schema lane claimed (LANES.md, ts
+`057000`), worktree `../prc-ops-timeline`.

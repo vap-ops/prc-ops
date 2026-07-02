@@ -19,14 +19,15 @@ import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { buildFrictionMap } from "@/lib/usage/friction-map";
+import { FRICTION_EVENT_LABEL } from "@/lib/i18n/labels";
 import type { FrictionEventType } from "@/lib/telemetry/session";
 
 export const metadata = { title: "จุดสะดุดรายจอ" };
 
 const WINDOW_DAYS = 14;
 
-// The friction subset of interaction_event_type (mirrors the enum), with short Thai
-// labels for the per-type breakdown.
+// The friction subset of interaction_event_type (mirrors the enum). Labels live in
+// labels.ts (FRICTION_EVENT_LABEL — shared with the per-person timeline, spec 244 U5).
 const FRICTION_TYPES = [
   "js_error",
   "upload_fail",
@@ -34,14 +35,6 @@ const FRICTION_TYPES = [
   "form_abandon",
   "rage_tap",
 ] as const;
-
-const FRICTION_LABEL: Record<FrictionEventType, string> = {
-  js_error: "error",
-  upload_fail: "อัปโหลดไม่ได้",
-  validation_error: "กรอกไม่ผ่าน",
-  form_abandon: "ทิ้งฟอร์ม",
-  rage_tap: "กดรัว",
-};
 
 export default async function FrictionMapPage() {
   await requireRole(["super_admin"]);
@@ -100,7 +93,7 @@ export default async function FrictionMapPage() {
                       key={t}
                       className="border-edge bg-sunk text-ink-secondary text-meta rounded-full border px-2 py-0.5"
                     >
-                      {FRICTION_LABEL[t]} {r.byType[t]}
+                      {FRICTION_EVENT_LABEL[t]} {r.byType[t]}
                     </span>
                   ))}
                 </div>
