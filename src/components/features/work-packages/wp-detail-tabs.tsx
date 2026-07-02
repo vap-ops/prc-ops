@@ -76,7 +76,7 @@ export function WpDetailTabs({
         <div
           role="tablist"
           aria-label="ส่วนต่าง ๆ ของงาน"
-          className={`mx-auto flex ${PAGE_MAX_W} overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
+          className={`mx-auto flex ${PAGE_MAX_W} [touch-action:pan-x_pinch-zoom] overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
         >
           {tabs.map((t, i) => {
             const isActive = t.key === active;

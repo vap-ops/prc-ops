@@ -258,7 +258,7 @@ export function ProcurementGrid({
             grid show-all by default; selecting a chip narrows the rows below. */}
         {hasCategoryFacet ? (
           <div
-            className="border-edge flex gap-2 overflow-x-auto border-b px-4 py-2"
+            className="border-edge flex [touch-action:pan-x_pinch-zoom] gap-2 overflow-x-auto border-b px-4 py-2"
             role="radiogroup"
             aria-label="กรองตามหมวดวัสดุ"
           >

@@ -15,5 +15,9 @@ export const PHOTO_STRIP_TILE =
   "relative h-28 w-28 shrink-0 snap-start overflow-hidden rounded-lg border border-edge bg-sunk";
 
 export function PhotoStrip({ children }: { children: ReactNode }) {
-  return <ul className="flex snap-x gap-2 overflow-x-auto pb-1">{children}</ul>;
+  return (
+    <ul className="flex [touch-action:pan-x_pinch-zoom] snap-x gap-2 overflow-x-auto pb-1">
+      {children}
+    </ul>
+  );
 }

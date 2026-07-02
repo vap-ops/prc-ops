@@ -82,7 +82,7 @@ export function SupplyPlanAccuracy({ rows }: { rows: AccuracyRow[] }) {
             <Stat testId="acc-total-untagged" label="ไม่ระบุเหตุ" value={totals.untagged} />
           </div>
 
-          <div className={`${CARD} overflow-x-auto p-0`}>
+          <div className={`${CARD} [touch-action:pan-x_pinch-zoom] overflow-x-auto p-0`}>
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="text-meta text-ink-secondary border-edge border-b">

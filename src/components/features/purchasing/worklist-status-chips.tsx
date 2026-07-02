@@ -19,7 +19,7 @@ export function WorklistStatusChips({ chips }: WorklistStatusChipsProps) {
     <div
       role="group"
       aria-label="กรองตามสถานะ"
-      className="-mx-5 flex gap-2 overflow-x-auto px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="-mx-5 flex [touch-action:pan-x_pinch-zoom] gap-2 overflow-x-auto px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       {chips.map((chip) => (
         <Link
