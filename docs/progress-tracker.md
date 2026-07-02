@@ -5286,9 +5286,30 @@ switched to awaited opens (the overlay is now an async chunk). Open questions: n
 
 ## Spec 244 U5 — per-person activity timeline (2026-07-02)
 
-Status: **IN PROGRESS.** Operator: "app usage feature is good, but it lacks information, I need
-detailed info down to individual's logged activities" → brainstormed, chose "Both": U5 = the
-app-usage timeline drill-down now (`/settings/usage/[actorId]`, RPC `get_actor_timeline` session
-rollup over `interaction_events`, migration `20260813057000`), business-action feed = a phase-2
-follow-up spec (domain-table reads, spec 240 stays shelved). Schema lane claimed (LANES.md, ts
-`057000`), worktree `../prc-ops-timeline`.
+Status: **SHIPPED (PR through the gate; migrations 057000+058000 applied).** Operator: "app usage
+feature is good, but it lacks information, I need detailed info down to individual's logged
+activities" → brainstormed, chose "Both": U5 = the app-usage timeline drill-down now,
+business-action feed = a phase-2 follow-up spec (domain-table reads, spec 240 stays shelved).
+
+- Tapping a person on `/settings/usage` opens `/settings/usage/[actorId]`: last 14 days as
+  day-grouped sessions — start time, duration, screen sequence (normalized, consecutive-deduped
+  with ×counts), friction chips inline. Protective copy; PDPA (routes/types/timestamps only; the
+  context jsonb is never selected, let alone rendered); super_admin-only page over the RLS
+  session client.
+- RPC `get_actor_timeline(p_actor_id, p_days)` (mig `20260813057000`): SECURITY INVOKER — RLS
+  scopes the read (super_admin any actor; a subject only self; cross-subject = zero rows);
+  groups the heartbeat-dominated slice per session server-side (duration = heartbeats × 20s; a
+  raw read would hit the PostgREST page cap). pgTAP 255 (22 asserts).
+- FRICTION_EVENT_LABEL moved to labels.ts (friction map + timeline both consume);
+  formatThaiTime/formatThaiDate reused — no new formatters.
+- Adversarial 4-lens verify (RLS·math·runtime·completeness) + cavecrew-reviewer; findings folded
+  TDD-first: mig `20260813058000` client_ts order tiebreak (batched ingest shares one created_at
+  per flush — in-batch tap order was indeterminate); formatScreenTime 60-minute carry fix
+  ("1 ชม. 60 นาที"); RPC failure now throws to the error boundary instead of rendering a false
+  "no activity"; codepoint session sort (localeCompare ICU '.'/'+' inversion). RLS lens: no leak
+  path found.
+- vitest 2328, pgTAP 217 files / 3,967 asserts / 0 failures, lint/typecheck/build clean.
+
+Open questions: phase-2 business-action feed needs its own scout + spec (photo_logs, approvals,
+store moves via domain tables). The defect-report BottomSheet form_abandon adopter is still the
+standing U2b follow-up.
