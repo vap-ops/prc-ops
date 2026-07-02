@@ -3,7 +3,7 @@
 // note) and save them in one bulk write; remove saved lines; submit; an approver
 // (PD/super) approves/rejects. Mocked actions + router.
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -181,14 +181,18 @@ describe("SupplyPlanManager grid (spec 181 U2)", () => {
 
   it("an approver can approve or reject a submitted plan", async () => {
     renderManager({ planStatus: "submitted", canApprove: true, lines: [oneLine] });
-    fireEvent.click(screen.getByRole("button", { name: "อนุมัติ" }));
-    await waitFor(() =>
-      expect(mockApprove).toHaveBeenCalledWith({ projectId: "p1", planId: "pl1" }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "ตีกลับ" }));
-    await waitFor(() =>
-      expect(mockReject).toHaveBeenCalledWith({ projectId: "p1", planId: "pl1" }),
-    );
+    // Both buttons run through one useTransition (runLifecycle → startAct) and are
+    // disabled while it is pending. Flush each transition inside act() so the async
+    // action settles deterministically — otherwise, under full-suite CPU contention
+    // the transition can miss waitFor's default 1000ms window (observed 2026-07-02).
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "อนุมัติ" }));
+    });
+    expect(mockApprove).toHaveBeenCalledWith({ projectId: "p1", planId: "pl1" });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "ตีกลับ" }));
+    });
+    expect(mockReject).toHaveBeenCalledWith({ projectId: "p1", planId: "pl1" });
   });
 
   it("a submitted plan is read-only to a non-approver (no grid / remove / approve)", () => {
