@@ -105,10 +105,11 @@ describe("CaptureSheet delete relocation (feedback 7c3347b3)", () => {
     expect(screen.queryByRole("button", { name: "ลบรูป" })).not.toBeInTheDocument();
   });
 
-  it("deletes from inside the opened detail, via the confirm, through the supersede engine", () => {
+  it("deletes from inside the opened detail, via the confirm, through the supersede engine", async () => {
     renderSheet([LOADED]);
     fireEvent.click(screen.getByRole("button", { name: "ดูรูปขยาย" }));
-    fireEvent.click(screen.getByRole("button", { name: "ลบรูป" }));
+    // The detail overlay is a next/dynamic chunk — await its delete button.
+    fireEvent.click(await screen.findByRole("button", { name: "ลบรูป" }));
     const prompt = screen.getByText("ลบรูปนี้หรือไม่? การลบไม่สามารถย้อนกลับได้");
     fireEvent.click(
       within(prompt.closest('[role="dialog"]') as HTMLElement).getByRole("button", {

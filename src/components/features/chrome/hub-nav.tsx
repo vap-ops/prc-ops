@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
+import { SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
 import { isManagerRole } from "@/lib/auth/role-home";
 import type { UserRole } from "@/lib/db/enums";
 import {
@@ -58,7 +59,7 @@ export const PROCUREMENT_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "โครงการ", href: "/projects" },
   { label: "ผู้ขาย", href: "/contacts/vendors" },
   // Spec 172 Phase B: procurement curates subcontractors too.
-  { label: "ผู้รับเหมาช่วง", href: "/contacts/subcontractors" },
+  { label: SUBCONTRACTOR_LABEL, href: "/contacts/subcontractors" },
   // Spec 172 Phase C: procurement onboards DC workers (incl. the pay rate).
   { label: "ทีมงาน", href: "/workers" },
   { label: "ตั้งค่า", href: "/settings" },

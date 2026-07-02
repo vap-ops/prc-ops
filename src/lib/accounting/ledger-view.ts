@@ -5,10 +5,12 @@
 // sum of .01-amounts does not drift on IEEE floats (the money-cents convention
 // used across the accounting views).
 
+import { STORE_RECEIVE_LABEL } from "@/lib/i18n/labels";
+
 const SOURCE_LABELS: Record<string, string> = {
   purchase_requests: "ใบขอซื้อ",
   purchase_orders: "ใบสั่งซื้อ",
-  stock_receipts: "รับเข้าสต๊อก",
+  stock_receipts: STORE_RECEIVE_LABEL,
   stock_issues: "เบิกของ",
   stock_counts: "ตรวจนับสต๊อก",
   stock_reversals: "กลับรายการสต๊อก",

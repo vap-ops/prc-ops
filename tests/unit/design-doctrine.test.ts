@@ -29,10 +29,32 @@ const sources = walkSrc(SRC).map((abs) => ({
 const allSrc = sources.map((f) => f.text).join("\n");
 
 describe("design doctrine (Field-First)", () => {
-  // Positive/done hue is emerald, encoded as the `done` token — never a
-  // raw green-* literal anywhere in src.
-  it("uses no green-* colour literals (emerald is the `done` token)", () => {
-    const offenders = sources.filter((f) => /\b(?:bg|text|border|ring)-green-\d/.test(f.text));
+  // Field-First bans the raw Tailwind palette app-wide — every colour is a
+  // globals.css token (done/attn/wait/danger/brand/ink/...). The original
+  // guard only banned green-*, so raw zinc/slate/red drifted in unnoticed
+  // (audit 2026-06 rank 10). Now ALL raw hue literals are banned, with a
+  // short allowlist of files whose raw palette is intentional:
+  //   - lib/status-colors.ts — the pill palette SSOT itself (spec 20 sun
+  //     palette; solid saturated fills picked per-hue for glare/contrast).
+  //   - photos/photo-lightbox-overlay.tsx — the enlarged-photo overlay is
+  //     always-dark chrome over the photo, independent of the light/dark
+  //     theme; app tokens flip with the theme so they can't express it.
+  //   - app/login/login-button.tsx — the LINE-brand green login button
+  //     (brand colour, not a theme colour).
+  //   - components/auth/logout-button.tsx — one hover shade on the spec-38
+  //     slate brand band with no token equivalent (brand-2 is the base).
+  // Anything else using a raw hue must move to a token or earn a listed,
+  // justified exception here.
+  const RAW_HUE =
+    /\b(?:bg|text|border|ring|stroke|fill|from|via|to|outline|decoration|divide|shadow|accent|caret)-(?:red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|slate|gray|zinc|neutral|stone)-\d/;
+  const RAW_HUE_ALLOWLIST = new Set([
+    join("lib", "status-colors.ts"),
+    join("components", "features", "photos", "photo-lightbox-overlay.tsx"),
+    join("app", "login", "login-button.tsx"),
+    join("components", "auth", "logout-button.tsx"),
+  ]);
+  it("uses no raw Tailwind hue literals outside the allowlisted palette homes", () => {
+    const offenders = sources.filter((f) => !RAW_HUE_ALLOWLIST.has(f.rel) && RAW_HUE.test(f.text));
     expect(offenders.map((f) => f.rel)).toEqual([]);
   });
 
