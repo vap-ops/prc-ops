@@ -13,15 +13,27 @@
 // iOS routinely KILLS the backgrounded PWA while the user is off in
 // LINE/Safari, and sessionStorage does not survive that — the relaunch
 // (at any page rendering LoginButton) resumes the poll from
-// localStorage instead. LINE opens via SAME-WINDOW navigation (spec
-// 45): standalone PWAs have no tab model, so window.open swaps the
-// view to a dead about:blank — never use it here.
+// localStorage instead.
+//
+// How LINE opens is PLATFORM-SPLIT (Android field incident 2026-07-02:
+// an SA's handoff rows went approved-but-never-consumed — the PWA
+// window had same-window-navigated away and Android, unlike iOS, never
+// relaunches the parked task at start_url, so no surviving context
+// polled; the callback landed back in the PWA at /login?handoff=
+// approved with no readable stored code):
+// - iOS: SAME-WINDOW navigation (spec 45 — no tab model; window.open
+//   swaps the view to a dead about:blank). The iOS kill-and-relaunch
+//   cycle brings the user back to a polling page.
+// - everywhere else: window.open, so THIS document — the one holding
+//   the device_code in memory and (storage permitting) on disk — stays
+//   mounted in the waiting phase and claims the handoff itself when
+//   the user returns. Blocked popup (null) → same-window fallback.
 //
 // Polling runs only while the page is visible, plus an immediate check
 // on visibilitychange/focus — the common path is "user returns to the
 // app, first poll wins".
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { BANNER_ERROR } from "@/lib/ui/classes";
 
@@ -82,6 +94,14 @@ function clearStoredCode(): void {
     // see storeCode
   }
   emitStoreChange();
+}
+
+// iPadOS 13+ masquerades as Macintosh; touch points tell it apart.
+function isIOSDevice(nav: Pick<Navigator, "userAgent" | "maxTouchPoints">): boolean {
+  return (
+    /iPad|iPhone|iPod/.test(nav.userAgent) ||
+    (/Macintosh/.test(nav.userAgent) && (nav.maxTouchPoints ?? 0) > 1)
+  );
 }
 
 export function StandaloneLoginButton({
@@ -172,11 +192,28 @@ export function StandaloneLoginButton({
     };
   }, [phase, deviceCode, go]);
 
-  // Spec 45: SAME-WINDOW navigation, never window.open — standalone
-  // PWAs have no tab model; iOS swaps the visible view to about:blank
-  // (a dead white screen). Leaving this window is safe because the
-  // stored code resumes the poll when the PWA returns or relaunches.
+  // Platform-split (see header): iOS leaves same-window (spec 45) and
+  // relies on the relaunch-resume; everyone else opens LINE in a new
+  // context so THIS document keeps polling. Popup blocked → same-window
+  // fallback, which is exactly the old behavior.
+  function openAuthorize(url: string): void {
+    if (isIOSDevice(navigator)) {
+      go(url);
+      return;
+    }
+    const opened = window.open(url, "_blank");
+    if (!opened) go(url);
+  }
+
+  // Double-tap guard: two rapid taps fired two handoff starts 161 ms
+  // apart in the field — the second start overwrites the stored code
+  // while navigation can race the first authorize URL, leaving a code
+  // whose row is never approved.
+  const startInFlight = useRef(false);
+
   async function start() {
+    if (startInFlight.current) return;
+    startInFlight.current = true;
     try {
       const response = await fetch("/auth/handoff/start", { method: "POST" });
       if (!response.ok) throw new Error(`start failed: ${response.status}`);
@@ -184,9 +221,11 @@ export function StandaloneLoginButton({
       storeCode(json.device_code);
       setDeviceCode(json.device_code);
       setPhase("waiting");
-      go(json.authorize_url);
+      openAuthorize(json.authorize_url);
     } catch {
       setPhase("error");
+    } finally {
+      startInFlight.current = false;
     }
   }
 
