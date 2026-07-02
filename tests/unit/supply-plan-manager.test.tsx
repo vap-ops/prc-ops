@@ -70,6 +70,7 @@ function pickFirstMaterial() {
 }
 const oneLine: PlanLine = {
   id: "l1",
+  categoryId: "cat-elec",
   baseItem: "สายไฟ NYY",
   specAttrs: "3x6",
   unit: "ม้วน",
@@ -202,6 +203,7 @@ describe("SupplyPlanManager grid (spec 181 U2)", () => {
 
 const convertibleLine: PlanLine = {
   id: "lc",
+  categoryId: "cat-elec",
   baseItem: "ปูน",
   specAttrs: null,
   unit: "ถุง",
@@ -211,6 +213,7 @@ const convertibleLine: PlanLine = {
 };
 const convertedLine: PlanLine = {
   id: "ld",
+  categoryId: "cat-elec",
   baseItem: "เหล็ก",
   specAttrs: null,
   unit: "เส้น",
@@ -220,6 +223,7 @@ const convertedLine: PlanLine = {
 };
 const wholeProjectLine: PlanLine = {
   id: "lw",
+  categoryId: "cat-elec",
   baseItem: "สีรองพื้น",
   specAttrs: null,
   unit: "แกลลอน",
@@ -470,5 +474,92 @@ describe("SupplyPlanManager multi-WP fan-out (spec 222)", () => {
         ],
       }),
     );
+  });
+});
+
+// Spec 245 U3 — the saved-lines list groups by managed category (D6). The
+// grouping is display-only: convert-mode selection, the convertible filter, and
+// the remove handler must keep working across group boundaries.
+describe("SupplyPlanManager category grouping (spec 245 U3)", () => {
+  const groupCategories = [
+    { id: "cat-elec", name: "งานไฟฟ้า" },
+    { id: "cat-steel", name: "เหล็กเสริม" },
+  ];
+  const elecLine: PlanLine = {
+    id: "e1",
+    categoryId: "cat-elec",
+    baseItem: "สายไฟ",
+    specAttrs: null,
+    unit: "ม้วน",
+    qty: 2,
+    wpLabel: null,
+    converted: false,
+  };
+  const steelLine: PlanLine = {
+    id: "s1",
+    categoryId: "cat-steel",
+    baseItem: "เหล็กเส้น",
+    specAttrs: null,
+    unit: "เส้น",
+    qty: 5,
+    wpLabel: null,
+    converted: false,
+  };
+  const uncatLine: PlanLine = {
+    id: "u1",
+    categoryId: null,
+    baseItem: "ของเบ็ดเตล็ด",
+    specAttrs: null,
+    unit: "ชิ้น",
+    qty: 1,
+    wpLabel: null,
+    converted: false,
+  };
+
+  function renderGrouped(opts: { planStatus: PlanStatus; lines: PlanLine[] }) {
+    render(
+      <SupplyPlanManager
+        projectId="p1"
+        planId="pl1"
+        planStatus={opts.planStatus}
+        canApprove={false}
+        canOverride={false}
+        overriddenByName={null}
+        lines={opts.lines}
+        catalogItems={catalogItems}
+        categories={groupCategories}
+        workPackages={workPackages}
+      />,
+    );
+  }
+
+  it("groups saved lines under category headings in managed order, uncategorized last", () => {
+    // Input order is deliberately scrambled; grouping follows the managed order.
+    renderGrouped({ planStatus: "draft", lines: [steelLine, uncatLine, elecLine] });
+    const headings = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+    expect(headings).toEqual(["งานไฟฟ้า", "เหล็กเสริม", "อื่นๆ"]);
+    // Each line still renders under its group.
+    expect(screen.getByText("สายไฟ")).toBeInTheDocument();
+    expect(screen.getByText("เหล็กเส้น")).toBeInTheDocument();
+    expect(screen.getByText("ของเบ็ดเตล็ด")).toBeInTheDocument();
+  });
+
+  it("keeps convert-mode select-all working across category groups", () => {
+    // Two convertible lines in DIFFERENT category groups; select-all must tick
+    // both (the selection Set spans the group boundary) → count 2.
+    renderGrouped({ planStatus: "approved", lines: [elecLine, steelLine] });
+    fireEvent.click(screen.getByLabelText("เลือกทั้งหมด"));
+    expect((screen.getByLabelText("เลือก สายไฟ") as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText("เลือก เหล็กเส้น") as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByRole("button", { name: /สร้างคำขอซื้อ \(2\)/ })).toBeEnabled();
+  });
+
+  it("removes a saved line from within its category group", async () => {
+    renderGrouped({ planStatus: "draft", lines: [elecLine, steelLine] });
+    // Two remove buttons (one per line); removing the steel line calls removePlanLine.
+    const removeButtons = screen.getAllByRole("button", { name: "ลบ" });
+    expect(removeButtons).toHaveLength(2);
+    fireEvent.click(removeButtons[1]!);
+    await waitFor(() => expect(mockRemove).toHaveBeenCalledWith({ projectId: "p1", lineId: "s1" }));
   });
 });

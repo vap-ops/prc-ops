@@ -27,7 +27,7 @@ only — no app code path changed); verification = the checklist in the spec doc
 
 ---
 
-## Spec 245 — Ordering-plan templates (qty-only, clone-per-project) — 🔨 U1 (schema/RLS/RPC foundation) MERGED (2026-07-01)
+## Spec 245 — Ordering-plan templates (qty-only, clone-per-project) — ✅ U1 (schema/RLS/RPC) · ✅ U2 (clone) · ✅ U3 (category grouping) MERGED — 🔨 U4 (template editor) next
 
 **U1 — schema, RLS, RPC null-check fix. Built via subagent-driven-development** (design →
 plan → dispatched implementer → task review → whole-branch review → shipped), PR #232
@@ -73,11 +73,30 @@ units (no code change needed in U1). Shipped via the standing PAT-override grant
 (additive migration + code, danger-path guard red by design, all real CI green).
 **main↔DB SYNCED THRU `049000`; schema lane FREE.**
 
-**▶ next = U2 (clone mechanism, code-only, zero new RPCs)** — reuses `create_supply_plan`
+**U2 — clone mechanism (code-only, zero new RPCs). MERGED PR #234 `90f98e8a`.**
+`cloneSupplyPlanTemplate` server action composes `create_supply_plan` (always fresh,
+spec 189) → plain select of the template's lines (permitted by U1's RLS branch) →
+`add_supply_plan_lines` (the bulk RPC, never the singular one — per U1's reviewer note).
+Pure `mapTemplateLinesToClonePayload` (`src/lib/supply-plan/clone-template.ts`, forces
+`workPackageId: null` per D5) + `CloneTemplateButton` on the supply-plan page. Built solo
+(scope small/fully-specified); typecheck·lint·vitest green; native code-only auto-merge.
 
-- `add_supply_plan_lines`; its own future session/plan. U3 (category-grouped line list)
-  and U4 (template editor) follow. Full spec: `docs/feature-specs/245-ordering-plan-templates.md`.
-  Full build plan: `docs/superpowers/plans/2026-07-01-ordering-plan-templates-u1.md`.
+**U3 — category grouping (code-only, no schema). This unit.**
+The saved-lines list in `SupplyPlanManager` now groups by the item's managed category
+(D6 — display only). New pure `groupLinesByCategory` (`src/lib/supply-plan/group-lines.ts`,
+6 unit tests): groups in managed-category order, omits empty categories, folds
+null/unknown-category lines into a trailing "อื่นๆ" group, preserves within-group order.
+`PlanLine` gains `categoryId`; the page threads `catalog_items.category_id`. Grouping is
+purely a render reorg — convert-mode selection, the convertible filter, and the remove
+handler still key off the flat arrays, so all interactive state carries across group
+boundaries (proven by a select-all-across-two-groups component test). typecheck·lint·full
+vitest green.
+
+**▶ next = U4 (template editor `/settings/ordering-templates`, code-only)** — the extracted
+shared row sub-component + list + `[templateId]` editor, wired to the template-aware RPCs,
+registered in the nav-back-affordance guard. Its own future session.
+Full spec: `docs/feature-specs/245-ordering-plan-templates.md`.
+Full U1 build plan: `docs/superpowers/plans/2026-07-01-ordering-plan-templates-u1.md`.
 
 ---
 

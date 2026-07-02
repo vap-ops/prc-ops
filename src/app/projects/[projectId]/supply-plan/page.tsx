@@ -134,12 +134,14 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
     const { data: lineRows } = await supabase
       .from("supply_plan_lines")
       .select(
-        "id, qty, catalog_items ( base_item, spec_attrs, unit ), work_packages ( code, name )",
+        "id, qty, catalog_items ( category_id, base_item, spec_attrs, unit ), work_packages ( code, name )",
       )
       .eq("supply_plan_id", selectedPlan.id)
       .order("created_at", { ascending: true });
     const baseLines = (lineRows ?? []).map((r) => ({
       id: r.id,
+      // Spec 245 U3: the item's managed category, used to group the line list.
+      categoryId: r.catalog_items?.category_id ?? null,
       baseItem: r.catalog_items?.base_item ?? "",
       specAttrs: r.catalog_items?.spec_attrs ?? null,
       unit: r.catalog_items?.unit ?? "",
