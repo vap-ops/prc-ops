@@ -5332,3 +5332,6 @@ standing U2b follow-up.
   anti-join fix — pgTAP 256 B.5 caught that a tombstoned target still passed; "current"
   needs both ADR-0009 filters). Tolerant photo reader + defect round-stamp + Record-shape
   keys shipped alongside. pgTAP 256 (18 asserts) + 09 enum pin updated to 5 values.
+- U1 COMPLETE: PR #259 merged (squash 1a467bfd); main<->DB synced through 061000; full prod
+  pgTAP 218/3,985/0; vitest 2354. Next: U2 (PM defect-photo capture on ReportDefectControl,
+  code-only, online-only sequencing per spec).
