@@ -22,6 +22,17 @@ describe("formatScreenTime", () => {
     expect(formatScreenTime(3_900_000)).toBe("1 ชม. 5 นาที");
     expect(formatScreenTime(5_400_000)).toBe("1 ชม. 30 นาที");
   });
+  // Spec 244 U5 review finding: minutes used to round to 60 without carrying into
+  // the hour ("1 ชม. 60 นาที"). Both values are reachable with real data — durations
+  // are heartbeat multiples of 20,000ms (7,180,000 = 359 heartbeats).
+  it("carries a rounded-up 60 minutes into the hour", () => {
+    expect(formatScreenTime(7_180_000)).toBe("2 ชม.");
+    expect(formatScreenTime(3_580_000)).toBe("1 ชม.");
+    expect(formatScreenTime(10_780_000)).toBe("3 ชม.");
+  });
+  it("never renders 60 วินาที", () => {
+    expect(formatScreenTime(59_900)).toBe("1 นาที");
+  });
 });
 
 describe("summarizeUsage", () => {

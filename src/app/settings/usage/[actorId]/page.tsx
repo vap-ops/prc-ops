@@ -48,11 +48,18 @@ export default async function ActorTimelinePage({ params }: PageProps) {
   const { actorId } = await params;
 
   const supabase = await createClient();
-  // A malformed id makes both reads error with null data (never throw) → notFound.
   const [userRes, timelineRes] = await Promise.all([
     supabase.from("users").select("id, full_name, role").eq("id", actorId).maybeSingle(),
     supabase.rpc("get_actor_timeline", { p_actor_id: actorId, p_days: WINDOW_DAYS }),
   ]);
+
+  // A malformed id errors BOTH reads (22P02, data null, never throws) → 404 via the
+  // user guard. A transient failure on a real read must NOT render the "no activity"
+  // empty state (a false claim about a person, on a needs-help view) — throw to the
+  // error boundary instead, where a refresh recovers.
+  if (timelineRes.error && !userRes.error) {
+    throw new Error(`get_actor_timeline failed: ${timelineRes.error.message}`);
+  }
 
   const user = userRes.data;
   if (!user || EXTERNAL_ROLES.has(user.role)) notFound();

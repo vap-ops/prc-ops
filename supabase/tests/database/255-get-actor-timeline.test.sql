@@ -1,5 +1,5 @@
 begin;
-select plan(19);
+select plan(22);
 
 -- ============================================================================
 -- Spec 244 U5 / ADR 0068 (amended, Tier B) — get_actor_timeline: the per-person
@@ -49,7 +49,8 @@ grant usage  on sequence _tap_buf_ord_seq to authenticated;
 -- ── seed raw events as SA "A" (trigger stamps actor_id = A) ────────────────
 -- session u5-t1 (2h ago): start + 3 heartbeats + 2 route_views + 1 js_error
 --   => duration 60000ms, screens [/sa/photos, /sa/wp], friction [js_error].
--- session u5-t2 (1h ago): start + 1 heartbeat => duration 20000ms, no screens.
+-- session u5-t2 (1h ago): start + 1 heartbeat => duration 20000ms; its two
+-- route_views (added below) share one created_at to pin the client_ts tiebreak.
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "aa000000-0000-4000-8000-000000000255"}';
 insert into public.interaction_events (session_id, event_type, route, created_at) values
@@ -62,6 +63,18 @@ insert into public.interaction_events (session_id, event_type, route, created_at
   ('u5-t1', 'route_view',    '/sa/wp',     now() - interval '2 hours' + interval '80 seconds'),
   ('u5-t2', 'session_start', '/sa',        now() - interval '1 hour'),
   ('u5-t2', 'heartbeat',     '/sa',        now() - interval '1 hour' + interval '20 seconds');
+
+-- Batched ingest gives every event in one flush an IDENTICAL created_at (one
+-- multi-row INSERT; now() is transaction-stable), so created_at alone cannot
+-- order screens within a batch — client_ts (device time) is the tiebreaker.
+-- Insert the LATER screen first so physical/index order alone fails the assert.
+insert into public.interaction_events (session_id, event_type, route, created_at, client_ts) values
+  ('u5-t2', 'route_view', '/sa/second',
+     now() - interval '1 hour' + interval '30 seconds',
+     now() - interval '1 hour' + interval '26 seconds'),
+  ('u5-t2', 'route_view', '/sa/first',
+     now() - interval '1 hour' + interval '30 seconds',
+     now() - interval '1 hour' + interval '25 seconds');
 
 -- ── seed raw events as SA "B" (1 session) ──────────────────────────────────
 set local "request.jwt.claims" = '{"sub": "bb000000-0000-4000-8000-000000000255"}';
@@ -90,6 +103,21 @@ select is(
   (select t.started_at from public.get_actor_timeline('aa000000-0000-4000-8000-000000000255') t
     where t.session_id = 'u5-t1'),
   now() - interval '2 hours', 'started_at = min(created_at) of the session');
+select is(
+  (select t.last_seen_at from public.get_actor_timeline('aa000000-0000-4000-8000-000000000255') t
+    where t.session_id = 'u5-t1'),
+  now() - interval '2 hours' + interval '80 seconds',
+  'last_seen_at = max(created_at) of the session');
+select is(
+  (select t.screens->0->>'route'
+     from public.get_actor_timeline('aa000000-0000-4000-8000-000000000255') t
+    where t.session_id = 'u5-t2'),
+  '/sa/first', 'same-created_at screens order by the client_ts tiebreaker (1st)');
+select is(
+  (select t.screens->1->>'route'
+     from public.get_actor_timeline('aa000000-0000-4000-8000-000000000255') t
+    where t.session_id = 'u5-t2'),
+  '/sa/second', 'same-created_at screens order by the client_ts tiebreaker (2nd)');
 select is(
   (select jsonb_array_length(t.screens)
      from public.get_actor_timeline('aa000000-0000-4000-8000-000000000255') t

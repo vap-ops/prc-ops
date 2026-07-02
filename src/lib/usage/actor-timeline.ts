@@ -132,7 +132,12 @@ export function groupTimelineByDay(
     month: "2-digit",
     day: "2-digit",
   });
-  const sorted = [...sessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+  // Plain codepoint comparison, NOT localeCompare: PostgREST ISO timestamps are
+  // fixed-format through the seconds, but ICU collation orders '.' before '+',
+  // which inverts a fraction-less second against a fractional one.
+  const sorted = [...sessions].sort((a, b) =>
+    a.startedAt < b.startedAt ? 1 : a.startedAt > b.startedAt ? -1 : 0,
+  );
   const byDay = new Map<string, TimelineDay>();
   for (const s of sorted) {
     const day = dayFmt.format(new Date(s.startedAt));

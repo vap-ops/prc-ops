@@ -236,11 +236,28 @@ now() - p_days` days (p_days clamped 1..90); sessions returned newest-first.
     data (RLS), consistent with the self-mirror posture.
   - **Tests:** pgTAP `255` (function exists · invoker RLS scoping: super_admin reads
     a target actor, a subject reads self, a subject gets ZERO rows for another actor
-    · anon cannot EXECUTE · duration math = heartbeats × 20000 · screens ordered ·
+    · anon cannot EXECUTE · duration math = heartbeats × 20000 · started_at/last_seen_at
+    = min/max · screens ordered incl. the same-created_at client_ts tiebreak ·
     friction included · empty result for an actor with no events) + vitest
     `actor-timeline` pure helpers (day grouping incl. a UTC→Bangkok day-boundary
-    case, consecutive-screen dedup with counts, newest-first ordering, time
-    formatting).
+    case, consecutive-screen dedup with counts, newest-first ordering; time
+    formatting is DELEGATED to `formatThaiTime`/`formatThaiDate` — the labels.ts
+    SSOT formatters, already unit-tested — so no new formatter exists here).
+  - **Review fixes folded in (adversarial 4-lens verify + reviewer, same PR):**
+    (1) migration `20260813058000` (CREATE OR REPLACE, never editing the applied
+    `057000` — the recorded-history drift lesson): batched ingest gives every event
+    in one flush an identical `created_at` (one multi-row INSERT), so the screens /
+    friction jsonb now order by `created_at, client_ts` — without the tiebreaker a
+    real A→B tap sequence could render reversed and the consecutive-dedupe could
+    show a wrong ×count. Displayed `at` stays server-stamped `created_at` (≤ one
+    flush late — accepted). (2) `formatScreenTime` rounded minutes to 60 without
+    carrying ("1 ชม. 60 นาที"); minutes now round first then split into hours
+    (reachable with real heartbeat multiples, e.g. 7,180,000ms). (3) the page
+    throws to the error boundary when the RPC read fails for a REAL actor —
+    a transient failure must not render the "no activity" empty state (a false
+    claim about a person on a needs-help view); a malformed id still 404s.
+    (4) session sort uses plain codepoint comparison, not localeCompare (ICU
+    orders '.' before '+', inverting a fraction-less second vs a fractional one).
   - **Phase 2 (a separate spec, NOT this unit): business-action feed** — what the
     person DID (photos uploaded, WP submits, approvals, store moves), read from the
     DOMAIN source tables (`photo_logs`, `approvals`, …) — NOT audit_log
