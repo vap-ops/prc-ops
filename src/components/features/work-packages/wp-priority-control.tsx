@@ -43,7 +43,8 @@ export function WpPriorityControl({ projectId, workPackageId, priority }: WpPrio
   return (
     <div className="flex flex-col gap-1.5">
       <p className="text-meta text-ink-secondary font-semibold">ความสำคัญ</p>
-      <div role="radiogroup" aria-label="ความสำคัญของงาน" className="flex gap-2">
+      {/* flex-wrap: RadioChips are unwrappable by contract (#235 guard). */}
+      <div role="radiogroup" aria-label="ความสำคัญของงาน" className="flex flex-wrap gap-2">
         {OPTIONS.map((o) => (
           <RadioChip
             key={o.value}

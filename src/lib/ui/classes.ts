@@ -9,6 +9,16 @@
 // — those pins are UPDATED in this unit (test path (b): the design
 // changes output, so the pins follow the design). Hand-rolling a copy
 // of any shared primitive is a review reject (ui-conventions §5/§7).
+//
+// LIST-ROW LAYOUT RULE (feedback 65de06ca, #237): when a row puts a
+// flexible text block on one line with 2+ fixed-width (shrink-0)
+// controls, the text block gets a real min-width floor (min-w-40, NOT
+// min-w-0) and the row gets flex-wrap — otherwise on a phone the fixed
+// siblings eat the line and the text collapses to one character per
+// line. Group the trailing controls in a single `ml-auto flex shrink-0`
+// cluster so they wrap below as one unit. Related class-contract guards
+// (chips never shrink/wrap; top-1/2 always pairs with -translate-y-1/2)
+// are enforced in tests/unit/ui-class-contracts.test.tsx.
 
 /** Slate-900 neutral primary fill (spec 40), token-driven. */
 export const BUTTON_PRIMARY =

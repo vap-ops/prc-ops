@@ -233,7 +233,6 @@ export function ScopedCatalogItemPicker({
                 label="ทั้งหมด"
                 checked={category === ALL}
                 onSelect={() => setCategory(ALL)}
-                className="shrink-0 whitespace-nowrap"
               />
               {present.map((c) => (
                 <RadioChip
@@ -242,7 +241,6 @@ export function ScopedCatalogItemPicker({
                   label={c.name}
                   checked={category === c.id}
                   onSelect={() => setCategory(c.id)}
-                  className="shrink-0 whitespace-nowrap"
                 />
               ))}
               {hasUncategorised ? (
@@ -251,7 +249,6 @@ export function ScopedCatalogItemPicker({
                   label={UNCAT_LABEL}
                   checked={category === UNCAT}
                   onSelect={() => setCategory(UNCAT)}
-                  className="shrink-0 whitespace-nowrap"
                 />
               ) : null}
             </div>

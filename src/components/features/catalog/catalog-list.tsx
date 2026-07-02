@@ -204,7 +204,6 @@ export function CatalogList({
           label={`ทั้งหมด (${queried.length})`}
           checked={selectedCat === ALL}
           onSelect={() => setSelectedCat(ALL)}
-          className="shrink-0 whitespace-nowrap"
         />
         {present.map((id) => (
           <RadioChip
@@ -213,7 +212,6 @@ export function CatalogList({
             label={`${catName(id)} (${countIn(id)})`}
             checked={selectedCat === id}
             onSelect={() => setSelectedCat(id)}
-            className="shrink-0 whitespace-nowrap"
           />
         ))}
       </div>
