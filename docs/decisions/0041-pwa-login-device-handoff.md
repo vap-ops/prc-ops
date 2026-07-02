@@ -7,6 +7,11 @@ cookie-less state channel for flows started inside the installed PWA.
 Supersedes spec 42's `disable_auto_login` approach (items 1–2 of that
 spec; the logout-hiding item stands).
 
+**Amended — 2026-07-02 (Android field incident):** the callback's
+handoff branch now ALSO mints the session in the landing context (the
+original "no session is minted in the landing context" rule is
+dropped). See "Amendment" below.
+
 ## Context
 
 The installed iOS PWA (`display: standalone`) has a cookie jar separate
@@ -101,3 +106,40 @@ expires_at > now()`) and redirect to `/login?handoff=approved`
 - Polling is unauthenticated and unthrottled at pilot scale (a wrong
   device_code reveals only "expired"); rate limiting is a recorded
   seam.
+
+## Amendment — 2026-07-02: mint in the landing context too
+
+**Field evidence (Android SA, 12 attempts over two rounds):** every
+`login_handoffs` row went `approved` and none was ever `consumed` — the
+LINE leg succeeded every time and the collection poll never ran. The
+original design assumed the iOS lifecycle: the OS kills the backgrounded
+PWA and relaunches it at start_url, where the login page resumes the
+poll from localStorage. Android never relaunches the parked task, and
+Android link-captures the callback back INTO the installed PWA, where
+the landing document could not read the stored device_code. A first,
+client-only fix (platform-split `window.open`, PR #250) did not cure the
+field device.
+
+**Decision:** the callback's handoff branch, after binding the row,
+falls through into the browser flow's mint (generateLink → verifyOtp →
+profile write → redirect by role) instead of returning the
+"return to the app" banner. The approved row stays in place, so the
+PWA's poll path is unchanged where it works (iOS: landing = Safari,
+wrong jar; the PWA still collects via `/auth/handoff/poll`).
+
+**Why this is safe:** the landing context is the bearer of a LINE
+`code` + valid `state` — exactly what the ADR 0012 browser flow already
+trusts with a session. The original "no session minted in the landing
+context" rule was a usefulness judgment (assumed wrong jar), not a
+security control; Android proves the landing jar is often the right
+one. The inherited device-grant risk recorded above is unchanged: a
+victim completing LINE login on an attacker's authorize URL gets a
+session in the victim's own browser (normal login), while the
+attacker's device_code binding — the actual risk — exists with or
+without this amendment.
+
+**Consequence:** `/login?handoff=approved` no longer occurs in new
+flows (the banner rendering stays for backward compatibility during
+rollout); a mint failure in the landing context surfaces as the browser
+flow's `session_failed` rather than the banner (the poll path still
+works from the approved row in that case).
