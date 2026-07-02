@@ -82,9 +82,14 @@ select is(
   2, 'A still sees only its own 2 rows after B inserted (isolation both ways)');
 
 -- ── as super_admin: sees everyone's rows (the support reader) ─────────────
+-- Scoped to the fixture actors: capture is LIVE in prod, so a global count
+-- would include real telemetry rows. Cross-actor visibility is still proven
+-- (super reads BOTH A's and B's rows; A/B saw only their own above).
 set local "request.jwt.claims" = '{"sub": "55000000-0000-4000-8000-000000000244"}';
 select is(
-  (select count(*)::int from public.interaction_events),
+  (select count(*)::int from public.interaction_events
+     where actor_id in ('aa000000-0000-4000-8000-000000000244',
+                        'bb000000-0000-4000-8000-000000000244')),
   3, 'super_admin reads all interaction events (A×2 + B×1)');
 
 -- ── anon cannot insert ────────────────────────────────────────────────────

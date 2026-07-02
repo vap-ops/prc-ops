@@ -48,10 +48,10 @@ select fk_ok('public', 'journal_lines', 'account_id', 'public', 'gl_accounts', '
 -- B. One-sided line CHECK (run as owner — RLS bypassed, the CHECK fires).
 -- A period + a header are needed to hang a line on.
 -- ============================================================================
-insert into public.accounting_periods (period_month) values (date '2026-07-01');
+insert into public.accounting_periods (period_month) values (date '2033-07-01');
 insert into public.journal_entries (entry_date, period_id, source_table, source_event, posted_by)
-  values (date '2026-07-05',
-          (select id from public.accounting_periods where period_month = date '2026-07-01'),
+  values (date '2033-07-05',
+          (select id from public.accounting_periods where period_month = date '2033-07-01'),
           'tap', 'tap', '11111111-1111-1111-1111-111111110591');
 
 select throws_ok(
@@ -93,13 +93,13 @@ select throws_ok($$ select id from public.journal_entries limit 1 $$,
 select throws_ok($$ select id from public.journal_lines limit 1 $$,
   '42501', null, 'authenticated cannot read journal_lines (zero grant)');
 select throws_ok(
-  $$ select public.post_journal_entry(date '2026-07-05', 'x',
+  $$ select public.post_journal_entry(date '2033-07-05', 'x',
        '[{"account_code":"1110","debit":100},{"account_code":"4100","credit":100}]'::jsonb) $$,
   '42501', null, 'post_journal_entry refuses site_admin');
 
 set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333330591"}';
 select throws_ok(
-  $$ select public.post_journal_entry(date '2026-07-05', 'x',
+  $$ select public.post_journal_entry(date '2033-07-05', 'x',
        '[{"account_code":"1110","debit":100},{"account_code":"4100","credit":100}]'::jsonb) $$,
   '42501', null, 'post_journal_entry refuses visitor');
 
@@ -108,7 +108,7 @@ select throws_ok(
 -- ============================================================================
 set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111110591"}';
 select lives_ok(
-  $$ select public.post_journal_entry(date '2026-07-05', 'TAP-J-1',
+  $$ select public.post_journal_entry(date '2033-07-05', 'TAP-J-1',
        '[{"account_code":"1110","debit":100,"project_id":"cc000001-0000-4000-8000-000000000591"},
          {"account_code":"4100","credit":100}]'::jsonb) $$,
   'pm posts a balanced two-line entry');
@@ -117,19 +117,19 @@ select lives_ok(
 -- F. Guards (project_manager).
 -- ============================================================================
 select throws_ok(
-  $$ select public.post_journal_entry(date '2026-07-05', 'x',
+  $$ select public.post_journal_entry(date '2033-07-05', 'x',
        '[{"account_code":"1110","debit":100},{"account_code":"4100","credit":90}]'::jsonb) $$,
   'P0001', null, 'rejects an unbalanced entry');
 select throws_ok(
-  $$ select public.post_journal_entry(date '2026-07-05', 'x',
+  $$ select public.post_journal_entry(date '2033-07-05', 'x',
        '[{"account_code":"9999","debit":100},{"account_code":"4100","credit":100}]'::jsonb) $$,
   'P0001', null, 'rejects an unknown account');
 select throws_ok(
-  $$ select public.post_journal_entry(date '2026-07-05', 'x',
+  $$ select public.post_journal_entry(date '2033-07-05', 'x',
        '[{"account_code":"1000","debit":100},{"account_code":"4100","credit":100}]'::jsonb) $$,
   'P0001', null, 'rejects a non-postable (heading) account');
 select throws_ok(
-  $$ select public.post_journal_entry(date '2026-07-05', 'x',
+  $$ select public.post_journal_entry(date '2033-07-05', 'x',
        '[{"account_code":"1110","debit":100}]'::jsonb) $$,
   'P0001', null, 'rejects a single-line entry');
 

@@ -83,9 +83,16 @@ select is((select count(*)::int from public.deliverables
 select is((select count(*)::int from public.work_package_dependencies
             where predecessor_id='c2730000-0173-0173-0173-c27300000001'), 1,
   'procurement reads a dependency on a project it is not a member of');
-select is((select count(*)::int from public.deliverables), 2,
+-- Scope to the fixture projects: prod is a LIVE shared DB — real deliverables/
+-- dependencies would inflate a global count (a real deliverable broke this).
+select is((select count(*)::int from public.deliverables
+            where project_id in ('a1730000-0173-0173-0173-a17300000001',
+                                 'a2730000-0173-0173-0173-a27300000002')), 2,
   'procurement reads ALL deliverables (cross-project, like its projects/WPs read)');
-select is((select count(*)::int from public.work_package_dependencies), 2,
+select is((select count(*)::int from public.work_package_dependencies
+            where predecessor_id in (select id from public.work_packages
+                                      where project_id in ('a1730000-0173-0173-0173-a17300000001',
+                                                           'a2730000-0173-0173-0173-a27300000002'))), 2,
   'procurement reads ALL dependencies (cross-project)');
 select is((select count(*)::int from public.project_members
             where project_id='a1730000-0173-0173-0173-a17300000001'), 1,

@@ -39,28 +39,31 @@ grant usage  on sequence _tap_buf_ord_seq to authenticated;
 -- distinct routes {/sa, /sa/photos, /sa/wp} = 3.
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "aa000000-0000-4000-8000-000000000250"}';
-insert into public.interaction_events (session_id, event_type, route) values
-  ('u2-a1', 'session_start', '/sa'),
-  ('u2-a1', 'heartbeat',     '/sa'),
-  ('u2-a1', 'heartbeat',     '/sa'),
-  ('u2-a1', 'heartbeat',     '/sa'),
-  ('u2-a1', 'route_view',    '/sa/photos'),
-  ('u2-a2', 'session_start', '/sa/wp'),
-  ('u2-a2', 'heartbeat',     '/sa/wp');
+-- Events pinned to a FIXED PAST DAY (1999-01-04): capture is LIVE in prod, so
+-- refreshing current_date would also touch every real actor's rollup row and
+-- blow the exact counts below. Nobody real has 1999 events.
+insert into public.interaction_events (session_id, event_type, route, created_at) values
+  ('u2-a1', 'session_start', '/sa',        timestamptz '1999-01-04 10:00:00+00'),
+  ('u2-a1', 'heartbeat',     '/sa',        timestamptz '1999-01-04 10:00:20+00'),
+  ('u2-a1', 'heartbeat',     '/sa',        timestamptz '1999-01-04 10:00:40+00'),
+  ('u2-a1', 'heartbeat',     '/sa',        timestamptz '1999-01-04 10:01:00+00'),
+  ('u2-a1', 'route_view',    '/sa/photos', timestamptz '1999-01-04 10:01:10+00'),
+  ('u2-a2', 'session_start', '/sa/wp',     timestamptz '1999-01-04 11:00:00+00'),
+  ('u2-a2', 'heartbeat',     '/sa/wp',     timestamptz '1999-01-04 11:00:20+00');
 
 -- ── seed raw events as SA "B" (1 session, 2 heartbeats) ────────────────────
 set local "request.jwt.claims" = '{"sub": "bb000000-0000-4000-8000-000000000250"}';
-insert into public.interaction_events (session_id, event_type, route) values
-  ('u2-b1', 'session_start', '/sa'),
-  ('u2-b1', 'heartbeat',     '/sa'),
-  ('u2-b1', 'heartbeat',     '/sa');
+insert into public.interaction_events (session_id, event_type, route, created_at) values
+  ('u2-b1', 'session_start', '/sa', timestamptz '1999-01-04 12:00:00+00'),
+  ('u2-b1', 'heartbeat',     '/sa', timestamptz '1999-01-04 12:00:20+00'),
+  ('u2-b1', 'heartbeat',     '/sa', timestamptz '1999-01-04 12:00:40+00');
 
 reset role;
 
--- ── refresh the rollup for today; upsert is idempotent ─────────────────────
-select is(public.refresh_usage_daily(current_date), 2,
+-- ── refresh the rollup for the fixture day; upsert is idempotent ───────────
+select is(public.refresh_usage_daily(date '1999-01-04'), 2,
   'refresh_usage_daily upserts one row per active actor (A + B = 2)');
-select is(public.refresh_usage_daily(current_date), 2,
+select is(public.refresh_usage_daily(date '1999-01-04'), 2,
   'refresh_usage_daily is idempotent (re-run still touches 2 rows)');
 
 -- ── read the math as super_admin (RLS: the support reader sees all rows) ───
@@ -68,30 +71,30 @@ set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "55000000-0000-4000-8000-000000000250"}';
 select is(
   (select sessions from public.usage_daily
-     where actor_id = 'aa000000-0000-4000-8000-000000000250' and day = current_date),
+     where actor_id = 'aa000000-0000-4000-8000-000000000250' and day = date '1999-01-04'),
   2, 'A sessions = distinct session_id (2)');
 select is(
   (select screen_time_ms from public.usage_daily
-     where actor_id = 'aa000000-0000-4000-8000-000000000250' and day = current_date),
+     where actor_id = 'aa000000-0000-4000-8000-000000000250' and day = date '1999-01-04'),
   80000::bigint, 'A screen_time_ms = 4 heartbeats * 20000ms');
 select is(
   (select opens from public.usage_daily
-     where actor_id = 'aa000000-0000-4000-8000-000000000250' and day = current_date),
+     where actor_id = 'aa000000-0000-4000-8000-000000000250' and day = date '1999-01-04'),
   2, 'A opens = session_start count (2)');
 select is(
   (select routes_touched from public.usage_daily
-     where actor_id = 'aa000000-0000-4000-8000-000000000250' and day = current_date),
+     where actor_id = 'aa000000-0000-4000-8000-000000000250' and day = date '1999-01-04'),
   3, 'A routes_touched = distinct route (3)');
 select is(
   (select active from public.usage_daily
-     where actor_id = 'aa000000-0000-4000-8000-000000000250' and day = current_date),
+     where actor_id = 'aa000000-0000-4000-8000-000000000250' and day = date '1999-01-04'),
   true, 'A active = true');
 select is(
   (select screen_time_ms from public.usage_daily
-     where actor_id = 'bb000000-0000-4000-8000-000000000250' and day = current_date),
+     where actor_id = 'bb000000-0000-4000-8000-000000000250' and day = date '1999-01-04'),
   40000::bigint, 'B screen_time_ms = 2 heartbeats * 20000ms');
 select is(
-  (select count(*)::int from public.usage_daily where day = current_date),
+  (select count(*)::int from public.usage_daily where day = date '1999-01-04'),
   2, 'super_admin reads all usage_daily rows (A + B)');
 
 -- ── as SA "A": self-mirror read only; never B's row; no writes ─────────────
