@@ -42,6 +42,7 @@ import {
   type PhotoExt,
 } from "@/lib/photos/path";
 import { buildTombstoneRow } from "@/lib/photos/tombstone";
+import { PAIRING_REJECTED_MESSAGE } from "@/lib/photos/upload-queue";
 import { photoReworkRoundFor } from "@/lib/photos/rework-round";
 import type { ReworkSource } from "@/lib/db/enums";
 import {
@@ -154,7 +155,13 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
     // transition below): the existing row must match the FULL replayed
     // identity — same WP, same phase, same canonical path. Nothing is
     // ever UPDATEd; the transition guard below re-checks WP status.
-    if (insertError.code !== "23505") {
+    //
+    // Spec 248 U3: 23514 (the pairing guard trigger) ALSO reaches the
+    // identity probe — a BEFORE INSERT trigger fires ahead of the unique
+    // check, so a replay of an already-landed paired row raises 23514, not
+    // 23505. Probe first; only a genuinely-unlanded 23514 is terminal
+    // (target removed / round closed — retrying can never fix it).
+    if (insertError.code !== "23505" && insertError.code !== "23514") {
       return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
     }
     // Spec 248 U3: the pairing is part of the replayed identity — a replay
@@ -173,6 +180,11 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
         : identity.eq("answers_photo_id", answersPhotoId);
     const { data: existing } = await identity.maybeSingle();
     if (!existing) {
+      if (insertError.code === "23514") {
+        // Terminal: the pairing target is gone or the round moved on. The
+        // shared message string lets the queue classify this as permanent.
+        return { ok: false, error: PAIRING_REJECTED_MESSAGE };
+      }
       return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
     }
   }

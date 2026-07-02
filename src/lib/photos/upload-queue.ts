@@ -189,6 +189,25 @@ export function isAuthzDenied(message: string | null | undefined): boolean {
   );
 }
 
+// Spec 248 U3 — the pairing-rejection terminal error. A queued paired answer
+// whose defect target was removed (or whose round closed before replay) is
+// PERMANENTLY uninsertable: the U1 guard trigger raises 23514 on every
+// attempt. addPhoto returns this exact message so the queue can classify the
+// item honestly instead of hot-retrying a dead insert forever.
+export const PAIRING_REJECTED_MESSAGE =
+  "จับคู่รูปไม่ได้แล้ว — จุดบกพร่องถูกลบหรือรอบงานเปลี่ยน ลบรูปนี้แล้วถ่ายรูปใหม่จากช่องจับคู่";
+
+export function isPairingRejected(message: string | null | undefined): boolean {
+  return !!message && message.includes("จับคู่รูปไม่ได้แล้ว");
+}
+
+/** A failure retrying can never fix — authz denial or pairing rejection. The
+ *  queue keeps the item either way (evidence is never auto-dropped); this
+ *  only drives honest banner copy + one-shot friction reporting. */
+export function isPermanentUploadFailure(message: string | null | undefined): boolean {
+  return isAuthzDenied(message) || isPairingRejected(message);
+}
+
 // Spec 244 U2b-1 — which queued uploads have PERMANENTLY failed (an RLS/403 denial:
 // they will never send, unlike a transient offline wait that the queue legitimately
 // retries) and have not yet been reported this session. The runner emits ONE
@@ -205,7 +224,9 @@ export function pickUploadFailures(
   return items
     .filter(
       (item) =>
-        item.userId === currentUserId && isAuthzDenied(item.lastError) && !reported.has(item.id),
+        item.userId === currentUserId &&
+        isPermanentUploadFailure(item.lastError) &&
+        !reported.has(item.id),
     )
     .map((item) => ({ id: item.id, kind: item.kind }));
 }

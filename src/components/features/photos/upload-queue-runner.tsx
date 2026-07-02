@@ -19,6 +19,8 @@ import {
   bucketForKind,
   classifyStorageUploadError,
   isAuthzDenied,
+  isPairingRejected,
+  isPermanentUploadFailure,
   nextPassDelayMs,
   pickUploadFailures,
   processQueue,
@@ -220,11 +222,12 @@ export function UploadQueueRunner() {
 
   if (items.length === 0) return null;
 
-  // Honest banner: if every queued item is failing on a permanent permission
-  // denial (RLS / 403), it is NOT waiting for signal — it will never send. Say so
-  // rather than blaming the connection (spec 201 bug — a project_director's denied
-  // upload looked like a connectivity wait).
-  const allDenied = items.every((item) => isAuthzDenied(item.lastError));
+  // Honest banner: if every queued item is failing PERMANENTLY (RLS/403 denial,
+  // or a spec-248 pairing rejection — target defect photo removed / round moved
+  // on), it is NOT waiting for signal — it will never send. Say so rather than
+  // blaming the connection (spec 201 bug — a project_director's denied upload
+  // looked like a connectivity wait).
+  const allDenied = items.every((item) => isPermanentUploadFailure(item.lastError));
 
   return (
     <details className="border-attn-edge bg-attn-soft text-attn-ink fixed inset-x-0 bottom-16 z-30 mx-auto w-fit max-w-[90vw] rounded-2xl border px-4 py-1.5 text-xs font-medium shadow sm:bottom-4">
@@ -233,7 +236,7 @@ export function UploadQueueRunner() {
             swallow the disclosure semantics or the buttons below. */}
         <span role="status">
           {allDenied
-            ? `ส่งรูปไม่ได้ ${items.length} รูป — สิทธิ์ไม่พอ ติดต่อผู้ดูแลระบบ`
+            ? `ส่งรูปไม่ได้ ${items.length} รูป — แตะเพื่อดูรายละเอียด`
             : `รอส่งรูป ${items.length} รูป — จะส่งอัตโนมัติเมื่อมีสัญญาณ`}
         </span>
       </summary>
@@ -250,6 +253,12 @@ export function UploadQueueRunner() {
                   isAuthzDenied(item.lastError) ? (
                     <span className="text-danger shrink-0 text-[10px] font-semibold">
                       สิทธิ์ไม่พอ
+                    </span>
+                  ) : isPairingRejected(item.lastError) ? (
+                    // Spec 248 U3 — terminal: discard and re-shoot from the
+                    // (current round's) capture slot.
+                    <span className="text-danger shrink-0 text-[10px] font-semibold">
+                      จับคู่ไม่ได้แล้ว — ลบแล้วถ่ายใหม่
                     </span>
                   ) : (
                     <span className="text-attn-press shrink-0 text-[10px]">รอส่งใหม่</span>

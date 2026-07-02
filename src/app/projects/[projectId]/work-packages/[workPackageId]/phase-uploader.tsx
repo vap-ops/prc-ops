@@ -163,12 +163,9 @@ export function PhotoCaptureZone({
                 className="border-edge bg-card rounded-control flex items-center gap-3 border px-3 py-2"
               >
                 {slot.defectUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- signed URL thumb
-                  <img
-                    src={slot.defectUrl}
-                    alt="จุดบกพร่อง"
-                    className="border-edge size-14 shrink-0 rounded border object-cover"
-                  />
+                  <span className="border-edge relative block size-14 shrink-0 overflow-hidden rounded border">
+                    <ZoomablePhoto src={slot.defectUrl} />
+                  </span>
                 ) : (
                   <span className="bg-sunk text-ink-muted border-edge flex size-14 shrink-0 items-center justify-center rounded border text-xs">
                     ไม่พร้อม
@@ -181,12 +178,9 @@ export function PhotoCaptureZone({
                     </span>
                     <span className="text-done-ink text-sm font-bold">แก้ไขแล้ว</span>
                     {slot.answerUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- signed URL thumb
-                      <img
-                        src={slot.answerUrl}
-                        alt="รูปหลังแก้ไข"
-                        className="border-edge ml-auto size-14 shrink-0 rounded border object-cover"
-                      />
+                      <span className="border-edge relative ml-auto block size-14 shrink-0 overflow-hidden rounded border">
+                        <ZoomablePhoto src={slot.answerUrl} />
+                      </span>
                     ) : null}
                   </span>
                 ) : (
@@ -363,7 +357,19 @@ export function PhotoCaptureZone({
         userId={userId}
         activePhase={activePhase}
         pairing={pairing}
-        onPhaseChange={setActivePhase}
+        onPhaseChange={(phase) => {
+          // Spec 248 U3 — the in-sheet switcher is ALSO a free after_fix
+          // path: route it through the same pairing redirect as openSheet,
+          // or a mid-sheet switch shoots unpaired photos the U4 gate can
+          // never accept (review major, found by every lens).
+          const firstOpenSlot = unanswered[0];
+          if (phase === "after_fix" && firstOpenSlot) {
+            openPaired(firstOpenSlot);
+            return;
+          }
+          setPairing(null);
+          setActivePhase(phase);
+        }}
         phaseSummaries={phases.map((p) => ({
           phase: p.phase,
           label: p.label,

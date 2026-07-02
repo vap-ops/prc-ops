@@ -210,8 +210,14 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
   }
 
   // Close-out variance: photo-activity days vs labor days (Asia/Bangkok).
+  // Spec 248: defect photos are the PM's INSPECTION evidence, not site work —
+  // counting them would flag "มีรูปแต่ไม่ได้ลงทีมงาน" on inspection days.
   const photoDays = Array.from(
-    new Set(allPhotos.map((p) => bangkokDateOf(p.captured_at_client ?? p.created_at))),
+    new Set(
+      allPhotos
+        .filter((p) => p.phase !== "defect")
+        .map((p) => bangkokDateOf(p.captured_at_client ?? p.created_at)),
+    ),
   );
   const variance = computeLaborVariance(photoDays, costSummary.laborDays);
 
@@ -323,21 +329,25 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
                 uploaderNames={displayNames}
               />
             ))}
-            {/* Spec 248 — defect evidence per round (history context). */}
-            {defectRounds.map(({ round, photos }) => (
-              <PhaseGallery
-                key={`defect-${round}`}
-                label={afterFixRoundHeading(
-                  PHOTO_PHASE_LABEL.defect,
-                  round,
-                  reworkSourceLabel(reworkSources.get(round)),
-                )}
-                photos={photos}
-                signedUrls={signedUrls}
-                uploaderNames={displayNames}
-                note={reworkReasons.get(round) ?? null}
-              />
-            ))}
+            {/* Spec 248 — PRIOR rounds' defect evidence (history context).
+                The CURRENT round shows as pairs above — a second gallery of
+                the same photos would double-render it (review finding). */}
+            {defectRounds
+              .filter(({ round }) => round !== wp.rework_round)
+              .map(({ round, photos }) => (
+                <PhaseGallery
+                  key={`defect-${round}`}
+                  label={afterFixRoundHeading(
+                    PHOTO_PHASE_LABEL.defect,
+                    round,
+                    reworkSourceLabel(reworkSources.get(round)),
+                  )}
+                  photos={photos}
+                  signedUrls={signedUrls}
+                  uploaderNames={displayNames}
+                  note={reworkReasons.get(round) ?? null}
+                />
+              ))}
             {showAfterFix
               ? afterFixRounds.map(({ round, photos }) => (
                   <PhaseGallery

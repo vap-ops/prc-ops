@@ -103,4 +103,14 @@ describe("PhotoCaptureZone defect pair slots (spec 248 U3)", () => {
     // Free sheet keeps the phase switcher.
     expect(screen.getByRole("radiogroup", { name: "เลือกช่วงงาน" })).toBeInTheDocument();
   });
+
+  it("redirects the IN-SHEET after_fix switch to paired mode while pairs are pending", () => {
+    // Review major (found by all 4 lenses): the sheet's own phase switcher was
+    // an un-redirected free after_fix path — open the sheet on a lifecycle
+    // phase, then switch to หลังแก้ไข inside it.
+    renderZone([unansweredPair]);
+    fireEvent.click(screen.getByRole("button", { name: "ถ่ายรูป เตรียมงาน" }));
+    fireEvent.click(screen.getByRole("radio", { name: /หลังแก้ไข/ }));
+    expect(screen.getByAltText("รูปข้อบกพร่องที่ต้องแก้")).toBeInTheDocument();
+  });
 });
