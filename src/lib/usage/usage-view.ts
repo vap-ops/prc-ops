@@ -97,16 +97,20 @@ export function summarizeUsage(
 }
 
 // Screen time -> a short Thai duration. Screen time is a coarse foreground-visible
-// proxy (heartbeats × 20s), so whole-unit rounding is honest enough.
+// proxy (heartbeats × 20s), so whole-unit rounding is honest enough. Minutes are
+// rounded FIRST and then split into hours so a rounded-up 60 carries ("2 ชม.",
+// never "1 ชม. 60 นาที" — spec 244 U5 review finding).
 export function formatScreenTime(ms: number): string {
   if (ms < 60_000) {
     if (ms <= 0) return "0 นาที";
-    return `${Math.round(ms / 1_000)} วินาที`;
+    const seconds = Math.round(ms / 1_000);
+    return seconds === 60 ? "1 นาที" : `${seconds} วินาที`;
   }
-  if (ms < 3_600_000) {
-    return `${Math.round(ms / 60_000)} นาที`;
+  const totalMinutes = Math.round(ms / 60_000);
+  if (totalMinutes < 60) {
+    return `${totalMinutes} นาที`;
   }
-  const hours = Math.floor(ms / 3_600_000);
-  const minutes = Math.round((ms % 3_600_000) / 60_000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
   return minutes === 0 ? `${hours} ชม.` : `${hours} ชม. ${minutes} นาที`;
 }

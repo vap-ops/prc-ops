@@ -6140,6 +6140,17 @@ export type Database = {
         Args: { p_line_ids: string[]; p_plan_id: string }
         Returns: number
       }
+      get_actor_timeline: {
+        Args: { p_actor_id: string; p_days?: number }
+        Returns: {
+          duration_ms: number
+          friction: Json
+          last_seen_at: string
+          screens: Json
+          session_id: string
+          started_at: string
+        }[]
+      }
       get_my_crew_assignments: {
         Args: never
         Returns: {

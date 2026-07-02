@@ -199,6 +199,70 @@ frictionByActor?)` folds each person's **friction count** (over the 14d window)
   - **▶ spec 244 v1 is now COMPLETE**: capture (U1 session/screen-time + U2 five
     friction signals) + both read outputs (U3 per-person needs-help · U4 per-screen
     friction map).
+- **U5 — per-person activity timeline (operator 2026-07-02: "I need detailed info
+  down to individual's logged activities").** Drill-down from the needs-help list:
+  tapping a person on `/settings/usage` opens `/settings/usage/[actorId]` — their
+  last 14 days as a day-grouped SESSION timeline: when they opened the app, how long
+  each session lasted, which screens in what order, and any friction inline. Data =
+  the existing `interaction_events` raw window (90d retention) — **no new capture**.
+  - **Aggregation = a new RPC** `get_actor_timeline(p_actor_id uuid, p_days integer
+default 14)` (migration `20260813057000`, additive). Why an RPC: the raw slice is
+    heartbeat-dominated (~1 row/20s foreground; a heavy user ≈ thousands of rows per
+    14d), so a raw PostgREST read would truncate at the page cap — sessions are
+    grouped server-side instead. **SECURITY INVOKER** — RLS scopes the read:
+    super_admin gets any actor; a non-super caller gets only their own rows
+    (self-mirror-compatible). EXECUTE granted to `authenticated`, revoked from
+    `anon`/`public`. Per `session_id`: `started_at` = min(created_at),
+    `last_seen_at` = max(created_at), `duration_ms` = heartbeat count × 20000 (the
+    same screen-time proxy as `refresh_usage_daily`), `screens` = jsonb
+    `[{route, at}]` of `route_view` events in order, `friction` = jsonb
+    `[{type, route, at}]` of the 5 friction types in order. Window = `created_at >=
+now() - p_days` days (p_days clamped 1..90); sessions returned newest-first.
+  - **Page** `/settings/usage/[actorId]`: super_admin-only (`requireRole`), RLS
+    session client (no admin client). Day-grouped (Asia/Bangkok display timezone),
+    newest day first; each session card = start time + duration + the screen sequence
+    (consecutive duplicates collapsed, routes normalized via `normalizeRoute`) +
+    friction chips with time. Protective copy (help-not-surveillance, ADR 0068 §5) —
+    this is a "see what happened so you can help" read, never a scoreboard. Live data
+    (reads raw events, so no rollup-cron lag). `DetailHeader` back chip →
+    `/settings/usage` (a dynamic-segment page, auto-classified DETAIL by the
+    nav-back guard); the person rows on `/settings/usage` become links here.
+  - **Labels SSOT:** the friction-type Thai chip labels move from the friction-map
+    page into `labels.ts` (`FRICTION_EVENT_LABEL`) — used by 2 surfaces now
+    (ui-term-consistency rule).
+  - **PDPA:** renders route paths + event types + timestamps only; the `context`
+    jsonb is NOT rendered (friction chips show type + time, not payload). Reads stay
+    super_admin-only; a subject calling the RPC on themselves sees only their own
+    data (RLS), consistent with the self-mirror posture.
+  - **Tests:** pgTAP `255` (function exists · invoker RLS scoping: super_admin reads
+    a target actor, a subject reads self, a subject gets ZERO rows for another actor
+    · anon cannot EXECUTE · duration math = heartbeats × 20000 · started_at/last_seen_at
+    = min/max · screens ordered incl. the same-created_at client_ts tiebreak ·
+    friction included · empty result for an actor with no events) + vitest
+    `actor-timeline` pure helpers (day grouping incl. a UTC→Bangkok day-boundary
+    case, consecutive-screen dedup with counts, newest-first ordering; time
+    formatting is DELEGATED to `formatThaiTime`/`formatThaiDate` — the labels.ts
+    SSOT formatters, already unit-tested — so no new formatter exists here).
+  - **Review fixes folded in (adversarial 4-lens verify + reviewer, same PR):**
+    (1) migration `20260813058000` (CREATE OR REPLACE, never editing the applied
+    `057000` — the recorded-history drift lesson): batched ingest gives every event
+    in one flush an identical `created_at` (one multi-row INSERT), so the screens /
+    friction jsonb now order by `created_at, client_ts` — without the tiebreaker a
+    real A→B tap sequence could render reversed and the consecutive-dedupe could
+    show a wrong ×count. Displayed `at` stays server-stamped `created_at` (≤ one
+    flush late — accepted). (2) `formatScreenTime` rounded minutes to 60 without
+    carrying ("1 ชม. 60 นาที"); minutes now round first then split into hours
+    (reachable with real heartbeat multiples, e.g. 7,180,000ms). (3) the page
+    throws to the error boundary when the RPC read fails for a REAL actor —
+    a transient failure must not render the "no activity" empty state (a false
+    claim about a person on a needs-help view); a malformed id still 404s.
+    (4) session sort uses plain codepoint comparison, not localeCompare (ICU
+    orders '.' before '+', inverting a fraction-less second vs a fractional one).
+  - **Phase 2 (a separate spec, NOT this unit): business-action feed** — what the
+    person DID (photos uploaded, WP submits, approvals, store moves), read from the
+    DOMAIN source tables (`photo_logs`, `approvals`, …) — NOT audit_log
+    instrumentation (spec 240 stays shelved). Needs its own scout + spec before
+    build.
 
 ## 7. Out of scope (YAGNI — list, don't build)
 

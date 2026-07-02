@@ -6,6 +6,7 @@
 import type { Database } from "@/lib/db/database.types";
 import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
 import type { PurchaseReasonCode } from "@/lib/purchasing/reason-code";
+import type { FrictionEventType } from "@/lib/telemetry/session";
 
 type Enums = Database["public"]["Enums"];
 
@@ -357,6 +358,18 @@ export const FEEDBACK_AUTHOR_LABEL: Record<Enums["feedback_author_kind"], string
   reporter: "ผู้แจ้ง",
   operator: "ทีมงาน",
   agent: "ผู้ช่วย AI",
+};
+
+// Spec 244 U5 — short Thai chip labels for the friction event types (ADR 0068
+// Tier B). Used by the friction map AND the per-person timeline, so they live
+// here (ui-term-consistency: any user-facing term on 2+ surfaces is
+// single-sourced).
+export const FRICTION_EVENT_LABEL: Record<FrictionEventType, string> = {
+  js_error: "error",
+  upload_fail: "อัปโหลดไม่ได้",
+  validation_error: "กรอกไม่ผ่าน",
+  form_abandon: "ทิ้งฟอร์ม",
+  rage_tap: "กดรัว",
 };
 
 // One date-time formatter for the whole UI: Thai Buddhist era (what Thai

@@ -8,6 +8,8 @@
 // not a productivity ranking; the list sorts by name, not by usage. Numbers start
 // empty and accrue as staff use the app over days (the cron rolls up yesterday).
 
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
@@ -192,10 +194,12 @@ export default async function UsagePage() {
                 {totalFriction > 0 ? ` · จุดสะดุดรวม ${totalFriction} ครั้ง` : ""}
               </h2>
               <div className="border-edge bg-card rounded-control divide-edge divide-y border">
+                {/* Spec 244 U5: each person links to their activity timeline. */}
                 {perSa.map((p) => (
-                  <div
+                  <Link
                     key={p.actorId}
-                    className="flex items-center justify-between gap-3 px-4 py-3"
+                    href={`/settings/usage/${p.actorId}`}
+                    className="active:bg-sunk flex items-center justify-between gap-3 px-4 py-3"
                   >
                     <div className="flex min-w-0 flex-col">
                       <span className="text-ink text-body truncate font-semibold">{p.name}</span>
@@ -210,7 +214,8 @@ export default async function UsagePage() {
                     <span className="text-ink text-meta shrink-0 tabular-nums">
                       {formatScreenTime(p.totalScreenTimeMs)}
                     </span>
-                  </div>
+                    <ChevronRight aria-hidden className="text-ink-muted h-4 w-4 shrink-0" />
+                  </Link>
                 ))}
               </div>
             </div>
