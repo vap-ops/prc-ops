@@ -267,6 +267,16 @@
        sizing. Per-surface min-w-0 / break-words still apply on top. */
     overflow-wrap: break-word;
   }
+  /* Feedback df3c2bb4 — iOS Safari (WebKit ≤ iOS 17) gives date inputs an
+     intrinsic width that ignores width:100%, so they burst their card on a
+     phone even with w-full min-w-0. appearance:none makes WebKit lay the
+     control out as a normal text field that obeys the box (the PO sheet's
+     local FIELD_DATE already ships this fix with no field complaints).
+     Visual chrome (height, border, padding) comes from the field classes. */
+  input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+  }
   /* Spec 77: instant taps — drop the ~300ms double-tap-zoom delay. */
   a,
   button,
