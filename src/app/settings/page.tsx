@@ -6,6 +6,7 @@ import { cookies } from "next/headers";
 import {
   Calculator,
   ChevronRight,
+  ClipboardList,
   Contact,
   Files,
   Hammer,
@@ -34,7 +35,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { createClient } from "@/lib/db/server";
 import { ACCOUNTING_ROLES, isManagerRole } from "@/lib/auth/role-home";
 import { getOpenFeedbackCount } from "@/lib/feedback/triage-count";
-import { CATALOG_LABEL, SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
+import { CATALOG_LABEL, ORDERING_TEMPLATES_LABEL, SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
 // Server-only import (this page is a Server Component) — no client bundle bloat,
 // no version drift vs package.json.
 import pkg from "../../../package.json";
@@ -171,6 +172,14 @@ export default async function SettingsPage() {
                 label={CATALOG_LABEL}
                 hint="รายการวัสดุมาตรฐานสำหรับจัดซื้อ"
               />
+              {/* Spec 245 U4: the ordering-plan templates (TFM 16m/20m) —
+                  procurement is in the supply-plan write tier (SUPPLY_PLAN_ROLES). */}
+              <SettingsLink
+                href="/settings/ordering-templates"
+                icon={ClipboardList}
+                label={ORDERING_TEMPLATES_LABEL}
+                hint="แม่แบบรายการวัสดุ TFM 16m / 20m"
+              />
               {/* Spec 197 U1: the store (คลัง) left settings for the per-project
                   sub-route — reached from each project's header chip, not here. */}
             </div>
@@ -235,6 +244,14 @@ export default async function SettingsPage() {
                 icon={Package}
                 label={CATALOG_LABEL}
                 hint="รายการวัสดุมาตรฐาน"
+              />
+              {/* Spec 245 U4: the ordering-plan templates (TFM 16m/20m) — the
+                  PM tier edits them here; projects clone them on the plan page. */}
+              <SettingsLink
+                href="/settings/ordering-templates"
+                icon={ClipboardList}
+                label={ORDERING_TEMPLATES_LABEL}
+                hint="แม่แบบรายการวัสดุ TFM 16m / 20m"
               />
               {/* Spec 197 U1: the store (คลัง) left settings for the per-project
                   sub-route — reached from each project's header chip, not here. */}
