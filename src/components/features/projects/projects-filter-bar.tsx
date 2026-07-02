@@ -98,7 +98,7 @@ export function ProjectsFilterBar({
         ) : null}
         <button
           type="submit"
-          className="bg-fill text-on-fill focus-visible:ring-action absolute top-1/2 right-1.5 inline-flex h-8 items-center rounded-full px-3 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+          className="bg-fill text-on-fill focus-visible:ring-action absolute top-1/2 right-1.5 inline-flex h-8 -translate-y-1/2 items-center rounded-full px-3 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
         >
           ค้นหา
         </button>
