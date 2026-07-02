@@ -8,6 +8,7 @@
 // in_progress flip stays (operator kept it).
 
 import type { PhotoPhase, WorkPackageStatus } from "@/lib/db/enums";
+import { pairDefectPhotos } from "@/lib/photos/defect-pairing";
 
 export type { PhotoPhase, WorkPackageStatus };
 
@@ -64,4 +65,42 @@ export function submitEvidenceHint(status: WorkPackageStatus): string {
   return status === "rework"
     ? "ถ่ายรูปหลังแก้ไขก่อนจึงจะส่งตรวจได้"
     : "ถ่ายรูปหลังทำงานก่อนจึงจะส่งตรวจได้";
+}
+
+// Spec 248 U4 — the WHOLE submit decision, both layers: floor (spec 247's
+// evidence rule, unchanged) AND, in rework, pairing — every current defect
+// photo of the CURRENT round must be answered by a current after_fix
+// (answers_photo_id). Floor AND pairing deliberately (never a fallback a
+// removal could reach; defect-photo removal is PM/PD/super-gated at the DB).
+// Returns null when submittable, else the exact hint for the disabled button
+// and the action refusal.
+
+type PairableStampedRow = {
+  id: string;
+  rework_round: number;
+  answers_photo_id: string | null;
+};
+
+export function submitGateReason(
+  status: WorkPackageStatus,
+  currentPhotos: {
+    after: ReadonlyArray<ReworkStampedRow>;
+    after_fix: ReadonlyArray<PairableStampedRow>;
+    defect: ReadonlyArray<PairableStampedRow>;
+  },
+  reworkRound: number,
+): string | null {
+  // Floor — spec 247.
+  if (!canSubmitForApproval(status, currentPhotos, reworkRound)) {
+    return submitEvidenceHint(status);
+  }
+  // Pairing — rework only; a text-only round has zero defect photos and is
+  // vacuously answered (spec-247 behaviour preserved).
+  if (status === "rework") {
+    const { unansweredCount } = pairDefectPhotos(currentPhotos, reworkRound);
+    if (unansweredCount > 0) {
+      return `ถ่ายรูปแก้ไขให้ครบทุกจุดที่แจ้ง (เหลือ ${unansweredCount} จุด)`;
+    }
+  }
+  return null;
 }

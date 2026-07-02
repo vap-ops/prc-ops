@@ -22,11 +22,7 @@ import { latestCreatedAt, PHASES } from "@/lib/photos/phases";
 import { groupAfterFixByRound, afterFixRoundHeading } from "@/lib/photos/rework-round";
 import { pairDefectPhotos } from "@/lib/photos/defect-pairing";
 import { derivePhaseProgress } from "@/lib/photos/phase-progress";
-import {
-  canSubmitForApproval,
-  submitEvidenceHint,
-  TRANSITIONABLE_FROM_STATUSES,
-} from "@/lib/photos/transitions";
+import { submitGateReason, TRANSITIONABLE_FROM_STATUSES } from "@/lib/photos/transitions";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
@@ -870,11 +866,8 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           <SubmitForApprovalControl
             projectId={wp.project_id}
             workPackageId={wp.id}
-            disabledHint={
-              canSubmitForApproval(wp.status, photosByPhase, wp.rework_round)
-                ? null
-                : submitEvidenceHint(wp.status)
-            }
+            // Spec 247 + 248 U4: floor AND pairing — null means submittable.
+            disabledHint={submitGateReason(wp.status, photosByPhase, wp.rework_round)}
           />
         </div>
       ) : null}

@@ -16,6 +16,7 @@ import {
   canSubmitForApproval,
   shouldTransitionToInProgress,
   submitEvidenceHint,
+  submitGateReason,
 } from "@/lib/photos/transitions";
 import { buildTombstoneRow } from "@/lib/photos/tombstone";
 import { photoReworkRoundFor } from "@/lib/photos/rework-round";
@@ -166,6 +167,87 @@ describe("submitEvidenceHint (spec 247)", () => {
     for (const status of ["not_started", "in_progress", "on_hold"] as const) {
       expect(submitEvidenceHint(status)).toBe("ถ่ายรูปหลังทำงานก่อนจึงจะส่งตรวจได้");
     }
+  });
+});
+
+// Spec 248 U4 — the gate tightens for rework: floor (≥1 current-round
+// after_fix, spec 247) AND pairing (every current defect photo of the round
+// answered). submitGateReason is the ONE decision both layers consume — null
+// means submittable, else the exact hint to show/return.
+describe("submitGateReason (spec 248 U4)", () => {
+  const defect = (id: string, round: number) => ({
+    id,
+    rework_round: round,
+    answers_photo_id: null,
+  });
+  const fix = (id: string, round: number, answers: string | null = null) => ({
+    id,
+    rework_round: round,
+    answers_photo_id: answers,
+  });
+  const after = (id: string) => ({ id, rework_round: 0, answers_photo_id: null });
+
+  it("first pass: null with an after photo, evidence hint without", () => {
+    expect(
+      submitGateReason("in_progress", { after: [after("a1")], after_fix: [], defect: [] }, 0),
+    ).toBeNull();
+    expect(submitGateReason("in_progress", { after: [], after_fix: [], defect: [] }, 0)).toBe(
+      "ถ่ายรูปหลังทำงานก่อนจึงจะส่งตรวจได้",
+    );
+  });
+
+  it("rework floor unmet → evidence hint (even when there are no defect photos)", () => {
+    expect(submitGateReason("rework", { after: [], after_fix: [], defect: [] }, 2)).toBe(
+      "ถ่ายรูปหลังแก้ไขก่อนจึงจะส่งตรวจได้",
+    );
+  });
+
+  it("rework: floor met but a defect photo unanswered → pairing hint with the count", () => {
+    expect(
+      submitGateReason(
+        "rework",
+        {
+          after: [],
+          after_fix: [fix("f-free", 2)],
+          defect: [defect("d1", 2), defect("d2", 2)],
+        },
+        2,
+      ),
+    ).toBe("ถ่ายรูปแก้ไขให้ครบทุกจุดที่แจ้ง (เหลือ 2 จุด)");
+  });
+
+  it("rework: all pairs answered + floor met → submittable", () => {
+    expect(
+      submitGateReason(
+        "rework",
+        {
+          after: [],
+          after_fix: [fix("f1", 2, "d1")],
+          defect: [defect("d1", 2)],
+        },
+        2,
+      ),
+    ).toBeNull();
+  });
+
+  it("a prior round's answered pairs never satisfy the current round", () => {
+    expect(
+      submitGateReason(
+        "rework",
+        {
+          after: [],
+          after_fix: [fix("f-old", 1, "d-old")],
+          defect: [defect("d-old", 1), defect("d-now", 2)],
+        },
+        2,
+      ),
+    ).toBe("ถ่ายรูปหลังแก้ไขก่อนจึงจะส่งตรวจได้");
+  });
+
+  it("text-only round (no defect photos) is governed by the floor alone — spec-247 behaviour", () => {
+    expect(
+      submitGateReason("rework", { after: [], after_fix: [fix("f1", 2)], defect: [] }, 2),
+    ).toBeNull();
   });
 });
 
