@@ -1,0 +1,62 @@
+# Release automation (semantic-release) — versions are DERIVED from the
+# Conventional Commits already enforced in this repo, never hand-bumped:
+#   fix: → patch · feat: → minor · BREAKING CHANGE → major
+#   docs/test/refactor/chore → no release
+# On every push to main it bumps package.json (the app reads pkg.version into
+# feedback/telemetry app_version, so reports pin the real build), writes
+# CHANGELOG.md, tags vX.Y.Z, publishes a GitHub Release, and pushes ONE
+# "chore(release): X.Y.Z [skip ci]" commit back to main (Vercel redeploys it so
+# the live app carries the new version; [skip ci] keeps Actions quiet).
+#
+# Needs the RELEASE_TOKEN repo secret (the pipeline's fine-grained PAT) because
+# main is branch-protected — the default GITHUB_TOKEN cannot push to it.
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+# One release run at a time; a queued run picks up everything since the last tag.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: semantic-release
+    runs-on: ubuntu-latest
+    # The release commit itself is [skip ci], but belt-and-braces: never release
+    # off a release commit.
+    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release)') }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history — semantic-release walks commits since the last tag.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        # Skip (green, with a warning) until the operator provisions RELEASE_TOKEN —
+        # a missing secret must not paint every main push red.
+        run: |
+          if [ -z "$GITHUB_TOKEN" ]; then
+            echo "::warning::RELEASE_TOKEN secret not set — release skipped."
+            exit 0
+          fi
+          pnpm exec semantic-release

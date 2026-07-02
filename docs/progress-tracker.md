@@ -6,6 +6,27 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 246 — SemVer release automation — ✅ U1 SHIPPED (2026-07-02)
+
+Operator: "the versioning is at 0.1.0, apply best practice to versioning control."
+Adopted **semantic-release** driven by the enforced Conventional Commits: on every
+push to `main` it bumps `package.json`, writes `CHANGELOG.md`, tags `vX.Y.Z`,
+publishes a GitHub Release, and pushes one `chore(release): X.Y.Z [skip ci]` commit
+back (Vercel redeploys it, so the live app — and every feedback/telemetry row, which
+stamp `pkg.version` as `app_version` — carries the real build). Baseline tag
+`v0.1.0` pushed on `d1aa0deb`; policy: stay 0.x until beta go-live, then a
+deliberate 1.0.0. Files: `.releaserc.json` + `.github/workflows/release.yml` +
+dev-deps (`semantic-release`, `@semantic-release/changelog`, `@semantic-release/git`).
+Config validated by `--dry-run` (plugins load, off-main correctly skipped).
+
+**Open item (operator, one-time):** add repo secret `RELEASE_TOKEN` = a PAT with
+`contents: write` that can push to protected `main` (the pipeline PAT qualifies).
+The REST API 403s the pipeline PAT on secret-write, so this can't be automated.
+Until then the Release workflow skips green with a warning. No unit tests (CI/config
+only — no app code path changed); verification = the checklist in the spec doc.
+
+---
+
 ## Spec 245 — Ordering-plan templates (qty-only, clone-per-project) — 🔨 U1 (schema/RLS/RPC foundation) MERGED (2026-07-01)
 
 **U1 — schema, RLS, RPC null-check fix. Built via subagent-driven-development** (design →
@@ -27,6 +48,7 @@ if project_id is null then raise 'unknown plan'` pattern conflated "row absent" 
 verbatim from LIVE bodies).
 
 **Two real issues surfaced and fixed during the build (not hidden):**
+
 1. An implementer subagent's harness process crashed mid-run before it could confirm
    pgTAP green; the controller re-ran `pnpm db:test` directly and confirmed the new
    file (`252-ordering-plan-templates.test.sql`) genuinely passed — but the SAME run
@@ -52,9 +74,10 @@ units (no code change needed in U1). Shipped via the standing PAT-override grant
 **main↔DB SYNCED THRU `049000`; schema lane FREE.**
 
 **▶ next = U2 (clone mechanism, code-only, zero new RPCs)** — reuses `create_supply_plan`
-+ `add_supply_plan_lines`; its own future session/plan. U3 (category-grouped line list)
-and U4 (template editor) follow. Full spec: `docs/feature-specs/245-ordering-plan-templates.md`.
-Full build plan: `docs/superpowers/plans/2026-07-01-ordering-plan-templates-u1.md`.
+
+- `add_supply_plan_lines`; its own future session/plan. U3 (category-grouped line list)
+  and U4 (template editor) follow. Full spec: `docs/feature-specs/245-ordering-plan-templates.md`.
+  Full build plan: `docs/superpowers/plans/2026-07-01-ordering-plan-templates-u1.md`.
 
 ---
 
