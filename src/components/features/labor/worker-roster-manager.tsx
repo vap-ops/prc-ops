@@ -131,7 +131,7 @@ function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
         />
       </label>
       {/* Spec 67: native-radio chips (was a fake role="radio" on buttons). */}
-      <div className="mt-2 flex gap-2" role="radiogroup" aria-label="ประเภททีมงาน">
+      <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="ประเภททีมงาน">
         {(
           [
             { value: "own", label: "ช่างบริษัท" },
@@ -151,7 +151,7 @@ function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
       {isDc ? (
         <div className="mt-2">
           <p className="text-ink-secondary text-sm">ลักษณะการจ้าง</p>
-          <div className="mt-1 flex gap-2" role="radiogroup" aria-label="ลักษณะการจ้าง">
+          <div className="mt-1 flex flex-wrap gap-2" role="radiogroup" aria-label="ลักษณะการจ้าง">
             {(["regular", "temporary"] as const).map((value) => (
               <RadioChip
                 key={value}

@@ -267,7 +267,6 @@ export function ProcurementGrid({
               label={`ทั้งหมด (${allRecords.length})`}
               checked={selectedCategory === CATEGORY_ALL}
               onSelect={() => setSelectedCategory(CATEGORY_ALL)}
-              className="shrink-0 whitespace-nowrap"
             />
             {categoryFacets.map((f) => (
               <RadioChip
@@ -276,7 +275,6 @@ export function ProcurementGrid({
                 label={`${f.name} (${f.count})`}
                 checked={selectedCategory === f.id}
                 onSelect={() => setSelectedCategory(f.id)}
-                className="shrink-0 whitespace-nowrap"
               />
             ))}
           </div>

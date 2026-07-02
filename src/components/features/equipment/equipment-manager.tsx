@@ -172,7 +172,9 @@ function EquipmentFields({
           ))}
         </select>
       </label>
-      <div className="mt-2 flex gap-2" role="radiogroup" aria-label="ประเภทการติดตาม">
+      {/* flex-wrap: RadioChips are unwrappable by contract (#235 guard) — a
+          no-wrap row of these long labels would overflow a 375px phone. */}
+      <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="ประเภทการติดตาม">
         {TRACKING_OPTIONS.map((option) => (
           <RadioChip
             key={option.value}
