@@ -42,6 +42,7 @@ import {
   type PhotoExt,
 } from "@/lib/photos/path";
 import { buildTombstoneRow } from "@/lib/photos/tombstone";
+import { PAIRING_REJECTED_MESSAGE } from "@/lib/photos/upload-queue";
 import { photoReworkRoundFor } from "@/lib/photos/rework-round";
 import type { ReworkSource } from "@/lib/db/enums";
 import {
@@ -73,6 +74,10 @@ export interface AddPhotoInput {
   photoId: string;
   ext: PhotoExt;
   capturedAtClient?: string | null;
+  /** Spec 248 U3 — the defect photo this after_fix row ANSWERS (same-angle
+   *  re-shoot). Only meaningful on phase 'after_fix'; the U1 DB trigger
+   *  validates the target (same WP, same round, current defect photo). */
+  answersPhotoId?: string | null;
 }
 
 export type AddPhotoResult =
@@ -84,6 +89,14 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
   if (!isValidUuid(input.photoId)) return { ok: false, error: "รหัสรูปไม่ถูกต้อง" };
   if (!isValidPhase(input.phase)) return { ok: false, error: "ช่วงงานไม่ถูกต้อง" };
   if (!isValidPhotoExt(input.ext)) return { ok: false, error: "ไม่รองรับไฟล์รูปแบบนี้" };
+  const answersPhotoId = input.answersPhotoId ?? null;
+  if (answersPhotoId !== null) {
+    // Friendly early checks; the DB trigger re-validates the target itself.
+    if (!isValidUuid(answersPhotoId)) return { ok: false, error: "รหัสรูปข้อบกพร่องไม่ถูกต้อง" };
+    if (input.phase !== "after_fix") {
+      return { ok: false, error: "จับคู่รูปได้เฉพาะรูปหลังแก้ไข" };
+    }
+  }
 
   const auth = await getActionUser();
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
@@ -131,6 +144,8 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
     // Spec 216: an after_fix (หลังแก้ไข) photo belongs to the WP's current rework
     // cycle; every other phase stays round 0.
     rework_round: photoReworkRoundFor(input.phase, wp.rework_round),
+    // Spec 248 U3 — the pairing; the U1 trigger validates the target.
+    answers_photo_id: answersPhotoId,
   });
   if (insertError) {
     // Spec 35 / ADR 0039: idempotent replay — the offline queue may
@@ -140,18 +155,36 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
     // transition below): the existing row must match the FULL replayed
     // identity — same WP, same phase, same canonical path. Nothing is
     // ever UPDATEd; the transition guard below re-checks WP status.
-    if (insertError.code !== "23505") {
+    //
+    // Spec 248 U3: 23514 (the pairing guard trigger) ALSO reaches the
+    // identity probe — a BEFORE INSERT trigger fires ahead of the unique
+    // check, so a replay of an already-landed paired row raises 23514, not
+    // 23505. Probe first; only a genuinely-unlanded 23514 is terminal
+    // (target removed / round closed — retrying can never fix it).
+    if (insertError.code !== "23505" && insertError.code !== "23514") {
       return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
     }
-    const { data: existing } = await supabase
+    // Spec 248 U3: the pairing is part of the replayed identity — a replay
+    // must not "succeed" against a row whose answers_photo_id differs (a
+    // forged replay could otherwise claim an unpaired row as a paired one).
+    let identity = supabase
       .from("photo_logs")
       .select("id")
       .eq("id", input.photoId)
       .eq("work_package_id", wp.id)
       .eq("phase", input.phase)
-      .eq("storage_path", storagePath)
-      .maybeSingle();
+      .eq("storage_path", storagePath);
+    identity =
+      answersPhotoId === null
+        ? identity.is("answers_photo_id", null)
+        : identity.eq("answers_photo_id", answersPhotoId);
+    const { data: existing } = await identity.maybeSingle();
     if (!existing) {
+      if (insertError.code === "23514") {
+        // Terminal: the pairing target is gone or the round moved on. The
+        // shared message string lets the queue classify this as permanent.
+        return { ok: false, error: PAIRING_REJECTED_MESSAGE };
+      }
       return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
     }
   }

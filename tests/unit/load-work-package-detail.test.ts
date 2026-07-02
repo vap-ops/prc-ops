@@ -21,6 +21,7 @@ vi.mock("@/lib/photos/current-photos", () => ({
     during: [],
     after: [],
     after_fix: [],
+    defect: [],
   })),
 }));
 vi.mock("@/lib/photos/signed-urls", () => ({

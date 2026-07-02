@@ -123,3 +123,59 @@ describe("addPhoto defect scope (spec 248 U2)", () => {
     expect(insertMock).toHaveBeenCalledWith(expect.objectContaining({ phase: "after" }));
   });
 });
+
+// Spec 248 U3 — the pairing thread: an after_fix answer carries
+// answers_photo_id through AddPhotoInput to the row (the U1 trigger validates
+// the target). Plain rows insert answers_photo_id null.
+describe("addPhoto answersPhotoId (spec 248 U3)", () => {
+  const DEFECT = "44444444-4444-4444-8444-444444444444";
+
+  it("threads answersPhotoId onto an after_fix row", async () => {
+    setup("site_admin", "rework", 2);
+    const r = await addPhoto({
+      workPackageId: WP,
+      phase: "after_fix",
+      photoId: PHOTO,
+      ext: "jpeg",
+      answersPhotoId: DEFECT,
+    });
+    expect(r).toMatchObject({ ok: true });
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({ phase: "after_fix", answers_photo_id: DEFECT, rework_round: 2 }),
+    );
+  });
+
+  it("inserts answers_photo_id null when no pairing is given", async () => {
+    setup("site_admin", "rework", 2);
+    await addPhoto({ workPackageId: WP, phase: "after_fix", photoId: PHOTO, ext: "jpeg" });
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({ phase: "after_fix", answers_photo_id: null }),
+    );
+  });
+
+  it("refuses a pairing on a non-after_fix phase before any insert", async () => {
+    setup("site_admin", "in_progress");
+    const r = await addPhoto({
+      workPackageId: WP,
+      phase: "after",
+      photoId: PHOTO,
+      ext: "jpeg",
+      answersPhotoId: DEFECT,
+    });
+    expect(r.ok).toBe(false);
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses a malformed answersPhotoId", async () => {
+    setup("site_admin", "rework");
+    const r = await addPhoto({
+      workPackageId: WP,
+      phase: "after_fix",
+      photoId: PHOTO,
+      ext: "jpeg",
+      answersPhotoId: "not-a-uuid",
+    });
+    expect(r.ok).toBe(false);
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+});

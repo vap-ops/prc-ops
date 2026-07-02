@@ -176,6 +176,9 @@ export async function loadWorkPackageDetail(
     ...photosByPhase.during,
     ...photosByPhase.after,
     ...photosByPhase.after_fix,
+    // Spec 248 — defect photos render in the banner/gallery/pair slots; a
+    // phase missing here ships broken (un-signed) images.
+    ...photosByPhase.defect,
   ];
   const [displayNames, signedUrls] = await Promise.all([
     fetchDisplayNames(nameIds, "[wp-detail]"),

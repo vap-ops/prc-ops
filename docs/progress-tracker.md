@@ -5338,3 +5338,8 @@ standing U2b follow-up.
   select, metadata after the reopen RPC via useDefectPhotos — no offline queue by design);
   addPhoto admits 'defect' scoped to filing roles + WP in rework. 22 new unit asserts;
   real-browser verified (sheet + photo section + disabled offline submit).
+- U3 built: pairDefectPhotos pure lens; paired capture slots in the capture zone
+  (reference-at-framing CaptureSheet pairing mode, free-after_fix CTA redirect while
+  pairs pending); banner defect strip + per-round defect galleries (detail + review);
+  review-page DefectFixPairs; answers_photo_id through queue/runner/addPhoto with
+  replay-identity extension; defect added to signed-URL + uploader-name spreads.
