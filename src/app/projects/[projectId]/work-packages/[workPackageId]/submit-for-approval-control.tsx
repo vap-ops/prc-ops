@@ -52,11 +52,16 @@ export function SubmitForApprovalControl({
           type="button"
           onClick={() => setOpen(true)}
           disabled={blocked}
+          aria-describedby={blocked ? "submit-evidence-hint" : undefined}
           className={BUTTON_PRIMARY}
         >
           ส่งงานเข้าตรวจ
         </button>
-        {blocked ? <p className="text-ink-secondary text-meta">{disabledHint}</p> : null}
+        {blocked ? (
+          <p id="submit-evidence-hint" className="text-ink-secondary text-meta">
+            {disabledHint}
+          </p>
+        ) : null}
       </div>
 
       <BottomSheet open={open} title="ส่งงานเข้าตรวจ" onClose={() => setOpen(false)}>
