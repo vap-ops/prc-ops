@@ -12,7 +12,11 @@ import {
   PHOTO_EXTS,
   type PhotoExt,
 } from "@/lib/photos/path";
-import { shouldTransitionToInProgress } from "@/lib/photos/transitions";
+import {
+  canSubmitForApproval,
+  shouldTransitionToInProgress,
+  submitEvidenceHint,
+} from "@/lib/photos/transitions";
 import { buildTombstoneRow } from "@/lib/photos/tombstone";
 import { photoReworkRoundFor } from "@/lib/photos/rework-round";
 
@@ -122,6 +126,46 @@ describe("shouldTransitionToInProgress", () => {
   it("never regresses 'pending_approval' or 'complete'", () => {
     expect(shouldTransitionToInProgress("during", "pending_approval")).toBe(false);
     expect(shouldTransitionToInProgress("during", "complete")).toBe(false);
+  });
+});
+
+// Spec 247 — the photo gate on "ส่งงานเข้าตรวจ": a WP is submittable only with
+// current completion evidence (≥1 after photo; in rework, ≥1 after_fix photo of
+// the CURRENT round). The caller passes the already-current-filtered
+// photosByPhase (anti-join + tombstone read), so these rows are all live.
+describe("canSubmitForApproval (spec 247)", () => {
+  const round = (n: number) => ({ rework_round: n });
+
+  it("first-pass statuses require ≥1 current after photo", () => {
+    for (const status of ["not_started", "in_progress", "on_hold"] as const) {
+      expect(canSubmitForApproval(status, { after: [], after_fix: [] }, 0)).toBe(false);
+      expect(canSubmitForApproval(status, { after: [round(0)], after_fix: [] }, 0)).toBe(true);
+    }
+  });
+
+  it("rework requires an after_fix photo of the CURRENT round — a stale round doesn't count", () => {
+    expect(canSubmitForApproval("rework", { after: [round(0)], after_fix: [] }, 2)).toBe(false);
+    expect(canSubmitForApproval("rework", { after: [], after_fix: [round(1)] }, 2)).toBe(false);
+    expect(canSubmitForApproval("rework", { after: [], after_fix: [round(2)] }, 2)).toBe(true);
+    expect(canSubmitForApproval("rework", { after: [], after_fix: [round(1), round(2)] }, 2)).toBe(
+      true,
+    );
+  });
+
+  it("an after photo does not satisfy rework, and after_fix does not satisfy first pass", () => {
+    expect(canSubmitForApproval("rework", { after: [round(0)], after_fix: [] }, 1)).toBe(false);
+    expect(canSubmitForApproval("in_progress", { after: [], after_fix: [round(1)] }, 1)).toBe(
+      false,
+    );
+  });
+});
+
+describe("submitEvidenceHint (spec 247)", () => {
+  it("names the missing evidence per status", () => {
+    expect(submitEvidenceHint("rework")).toBe("ถ่ายรูปหลังแก้ไขก่อนจึงจะส่งตรวจได้");
+    for (const status of ["not_started", "in_progress", "on_hold"] as const) {
+      expect(submitEvidenceHint(status)).toBe("ถ่ายรูปหลังทำงานก่อนจึงจะส่งตรวจได้");
+    }
   });
 });
 

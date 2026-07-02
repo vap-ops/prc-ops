@@ -55,4 +55,27 @@ describe("SubmitForApprovalControl", () => {
     );
     expect(mockRefresh).not.toHaveBeenCalled();
   });
+
+  // Spec 247 — the photo gate: without completion evidence the page passes
+  // disabledHint; the button is disabled (sheet unreachable) and the hint shows
+  // the SA the next step.
+  it("renders disabled with the hint when disabledHint is set — sheet unreachable", () => {
+    render(
+      <SubmitForApprovalControl
+        projectId="p1"
+        workPackageId="wp1"
+        disabledHint="ถ่ายรูปหลังทำงานก่อนจึงจะส่งตรวจได้"
+      />,
+    );
+    const button = screen.getByRole("button", { name: "ส่งงานเข้าตรวจ" });
+    expect(button).toBeDisabled();
+    expect(screen.getByText("ถ่ายรูปหลังทำงานก่อนจึงจะส่งตรวจได้")).toBeInTheDocument();
+    fireEvent.click(button);
+    expect(screen.queryByRole("button", { name: "ส่งเข้าตรวจ" })).not.toBeInTheDocument();
+  });
+
+  it("stays fully active when no disabledHint is passed", () => {
+    render(<SubmitForApprovalControl projectId="p1" workPackageId="wp1" />);
+    expect(screen.getByRole("button", { name: "ส่งงานเข้าตรวจ" })).toBeEnabled();
+  });
 });

@@ -5313,3 +5313,14 @@ business-action feed = a phase-2 follow-up spec (domain-table reads, spec 240 st
 Open questions: phase-2 business-action feed needs its own scout + spec (photo_logs, approvals,
 store moves via domain tables). The defect-report BottomSheet form_abandon adopter is still the
 standing U2b follow-up.
+
+## Spec 247 — photo gate on ส่งงานเข้าตรวจ (2026-07-03)
+
+- Status: in progress (single unit, code-only). Started 2026-07-03 by CC.
+- Unit complete: canSubmitForApproval + submitEvidenceHint predicates (transitions.ts),
+  disabled-with-hint SubmitForApprovalControl, server-action re-check via
+  getCurrentPhotosForWorkPackage (RLS, anti-join+tombstone). vitest 2351. Real-browser
+  verified both states (disabled+hint on 0-after WP; active with evidence).
+- Decisions: visible-but-disabled over hidden (discoverability); hint strings inline
+  (used twice but only via submitEvidenceHint — single source in transitions.ts).
+- Open questions: none.

@@ -21,7 +21,11 @@ import { resolveScopedCategories } from "@/lib/catalog/scoped-categories";
 import { latestCreatedAt, PHASES } from "@/lib/photos/phases";
 import { groupAfterFixByRound, afterFixRoundHeading } from "@/lib/photos/rework-round";
 import { derivePhaseProgress } from "@/lib/photos/phase-progress";
-import { TRANSITIONABLE_FROM_STATUSES } from "@/lib/photos/transitions";
+import {
+  canSubmitForApproval,
+  submitEvidenceHint,
+  TRANSITIONABLE_FROM_STATUSES,
+} from "@/lib/photos/transitions";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
@@ -794,10 +798,21 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
       ) : null}
       {/* FB2 (b9e942f0): explicit "ส่งงานเข้าตรวจ" — replaces the photo auto-flip.
           Shown to non-read-only site staff while the WP is still pre-approval
-          (TRANSITIONABLE); the action's SQL guard no-ops on pending/complete. */}
+          (TRANSITIONABLE); the action's SQL guard no-ops on pending/complete.
+          Spec 247: without completion evidence (after photo; in rework, a
+          current-round after_fix photo) the button is disabled with a hint —
+          the action re-enforces the same gate server-side. */}
       {!readOnly && (TRANSITIONABLE_FROM_STATUSES as readonly string[]).includes(wp.status) ? (
         <div className={`mx-auto ${PAGE_MAX_W} flex justify-end px-5 pt-5`}>
-          <SubmitForApprovalControl projectId={wp.project_id} workPackageId={wp.id} />
+          <SubmitForApprovalControl
+            projectId={wp.project_id}
+            workPackageId={wp.id}
+            disabledHint={
+              canSubmitForApproval(wp.status, photosByPhase, wp.rework_round)
+                ? null
+                : submitEvidenceHint(wp.status)
+            }
+          />
         </div>
       ) : null}
       {wp.status === "complete" && !readOnly ? (
