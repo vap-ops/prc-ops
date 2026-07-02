@@ -47,21 +47,25 @@ beforeEach(() => {
   mocks.removePhotoMarkup.mockResolvedValue({ ok: true });
 });
 
-function openLightbox() {
+// The overlay is fetched through next/dynamic on first open, so opening is
+// asynchronous — click the trigger, then await the dialog.
+async function openLightbox() {
   render(<ZoomablePhoto src={SRC} photoId={PHOTO_ID} />);
   fireEvent.click(screen.getByRole("button", { name: "ดูรูปขยาย" }));
+  await screen.findByRole("dialog");
 }
 
 describe("photo markup (spec 51)", () => {
-  it("renders no markup chrome without a photoId", () => {
+  it("renders no markup chrome without a photoId", async () => {
     render(<ZoomablePhoto src={SRC} />);
     fireEvent.click(screen.getByRole("button", { name: "ดูรูปขยาย" }));
+    await screen.findByRole("dialog");
     expect(screen.queryByRole("button", { name: "วาดและความเห็น" })).not.toBeInTheDocument();
     expect(mocks.listPhotoMarkups).not.toHaveBeenCalled();
   });
 
   it("loads and shows saved comments and a strokes overlay", async () => {
-    openLightbox();
+    await openLightbox();
     expect(await screen.findByText("ตรงนี้ร้าว")).toBeInTheDocument();
     expect(screen.getByText("สมชาย")).toBeInTheDocument();
     expect(mocks.listPhotoMarkups).toHaveBeenCalledWith({ photoLogId: PHOTO_ID });
@@ -70,7 +74,7 @@ describe("photo markup (spec 51)", () => {
   });
 
   it("saves a comment-only markup from compose mode", async () => {
-    openLightbox();
+    await openLightbox();
     fireEvent.click(await screen.findByRole("button", { name: "วาดและความเห็น" }));
     fireEvent.change(screen.getByLabelText("ความเห็น"), {
       target: { value: "เก็บงานเพิ่มมุมนี้" },
@@ -107,7 +111,7 @@ describe("photo markup (spec 51)", () => {
         },
       ],
     });
-    openLightbox();
+    await openLightbox();
     await screen.findByText("ของฉันเอง");
     expect(screen.getAllByRole("button", { name: "ลบความเห็น" })).toHaveLength(1);
   });
@@ -131,7 +135,7 @@ describe("photo markup keyboard occlusion (spec 51 follow-up)", () => {
       configurable: true,
     });
 
-    openLightbox();
+    await openLightbox();
     const dialog = screen.getByRole("dialog");
     // Viewing only (no field focused yet) — overlay stays centered, no lift.
     expect(dialog.className).toContain("justify-center");

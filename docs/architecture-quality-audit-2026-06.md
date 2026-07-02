@@ -9,6 +9,27 @@ register.**
 
 ## Status
 
+- **ranks 6 `photo-lightbox-dynamic` + 10 `design-doctrine-test-broaden` +
+  11 `ssot-literal-bypass` + 15 `lucide-optimize-imports` — DONE (2026-07-02,
+  one hygiene PR).** Rank 6: the lightbox split into a thin trigger
+  (`photo-lightbox.tsx` — thumbnail + open state) and a `next/dynamic`
+  ssr-false overlay chunk (`photo-lightbox-overlay.tsx` — markup canvas,
+  comments, the photo-markups server actions), guarded by a static test so
+  the heavy deps can't creep back into the per-thumbnail module. Rank 10: the
+  design-doctrine colour guard now bans ALL raw Tailwind hue literals (was:
+  green only) with a four-file documented allowlist (`status-colors.ts` pill
+  SSOT · the always-dark lightbox overlay · LINE-brand login button · one
+  logout hover shade); `labor-log-zone`'s `accent-slate-900` migrated to
+  `accent-brand` (same colour). NOTE: the register's "lightbox migration
+  rides rank-6" idea was deliberately NOT done — the overlay is always-dark
+  chrome independent of the theme, and the theme-flipping tokens cannot
+  express that, so it is an allowlisted exception instead. Rank 11: hub-nav
+  → `SUBCONTRACTOR_LABEL`, ledger-view → `STORE_RECEIVE_LABEL`, plus a new
+  `tests/unit/label-ssot.test.ts` guarding both terms against re-hardcoding.
+  Rank 15: **closed as verified-default, zero code** — `lucide-react` is in
+  Next's built-in `optimizePackageImports` list (checked in the installed
+  `next/dist/server/config.js`, merged with user config), so an explicit
+  entry would be a no-op.
 - **rank 1 `money-ssot` + rank 9 `formatters-discoverability` — DONE (2026-06-26).**
   Extracted `src/lib/format.ts` (`baht`, `bahtWithSymbol`, `bahtCompact`,
   `bahtUnit`, `round2`); pointed all ~35 hand-rolled copies at it (aliased

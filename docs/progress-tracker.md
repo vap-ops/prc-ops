@@ -5254,3 +5254,32 @@ concurrency assert (all reads issued before any resolves — fails under a seria
 **2307/0**; lint · typecheck green. Real-browser verified via the dev-preview login (server HTML 200
 on all 3 routes + a selected `?plan=` heavy path; no error boundary). Open question (out of scope):
 `<Suspense>` streaming / per-section skeletons for these pages remains a future, larger lever.
+
+## Audit hygiene ranks 6+10+11+15 — lightbox code-split · colour-guard broaden · SSOT literals · lucide verify (2026-07-02)
+
+Status: **SHIPPED (code-only, no DB).** Four background-hygiene items from the 2026-06 architecture
+audit ('docs/architecture-quality-audit-2026-06.md') bundled into one PR.
+
+- **Rank 6 'photo-lightbox-dynamic':** 'ZoomablePhoto' split — 'photo-lightbox.tsx' is now a thin
+  trigger (thumbnail button + open state, public API unchanged, zero consumer churn) and the whole
+  enlarged view (markup canvas + comments + the photo-markups server actions) moved to
+  'photo-lightbox-overlay.tsx', loaded via 'next/dynamic' ('ssr: false', full-screen scrim as the
+  loading fallback). The heavy chunk now downloads on first tap, not with every page that renders a
+  thumbnail. Static guard test pins the split (trigger must use next/dynamic and must NOT import the
+  markup actions). Behaviour note: the markup cache now lives in the overlay, so reopening refetches
+  markups (fresher; previously cached across opens within one thumbnail instance).
+- **Rank 10 'design-doctrine-test-broaden':** the colour guard bans ALL raw Tailwind hue literals
+  (was: green only) across every utility prefix, with a documented 4-file allowlist: status-colors.ts
+  (pill palette SSOT) · photo-lightbox-overlay.tsx (always-dark chrome — theme-flipping tokens cannot
+  express it; the register's "migrate the lightbox" idea deliberately not done for this reason) ·
+  login-button.tsx (LINE-brand green) · logout-button.tsx (one brand-band hover shade).
+  'labor-log-zone' migrated 'accent-slate-900' → 'accent-brand' (identical colour per globals.css).
+- **Rank 11 'ssot-literal-bypass':** hub-nav.tsx → 'SUBCONTRACTOR_LABEL', ledger-view.ts →
+  'STORE_RECEIVE_LABEL'; new 'tests/unit/label-ssot.test.ts' guards the exact quoted literals
+  against re-hardcoding outside labels.ts.
+- **Rank 15 'lucide-optimize-imports':** closed with ZERO code — verified in the installed
+  'next/dist/server/config.js' that 'lucide-react' is in Next's built-in 'optimizePackageImports'
+  default list (merged with user config), so an explicit entry is a no-op.
+
+Test-first (RED verified: 4 failures, each for the intended reason). The 3 lightbox test files
+switched to awaited opens (the overlay is now an async chunk). Open questions: none.

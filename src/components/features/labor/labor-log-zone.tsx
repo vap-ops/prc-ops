@@ -78,7 +78,7 @@ function WorkerPickRow({
           type="checkbox"
           checked={fraction !== null}
           onChange={onToggle}
-          className="size-4 accent-slate-900"
+          className="accent-brand size-4"
         />
         <span className="truncate">{worker.name}</span>
       </label>
@@ -199,7 +199,7 @@ function CorrectionDialog({
           type="checkbox"
           checked={tombstone}
           onChange={(e) => setTombstone(e.target.checked)}
-          className="size-4 accent-slate-900"
+          className="accent-brand size-4"
         />
         ลบรายการนี้ (ลงผิดคน/ผิดงาน)
       </label>
