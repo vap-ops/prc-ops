@@ -90,6 +90,9 @@ const STATIC_DETAIL = [
   "settings/usage",
   // Spec 244 U4: the super_admin UX friction map drills down from /settings (back chip).
   "settings/friction-map",
+  // Spec 245 U4: the ordering-plan template list drills down from /settings (back
+  // chip). Its [templateId] editor is a dynamic DetailHeader route, auto-classified above.
+  "settings/ordering-templates",
   // Spec 162: the Nova operator console drills down from /settings (back chip).
   "nova",
   // Spec 161 U7: the dials calibration console drills down from /nova.

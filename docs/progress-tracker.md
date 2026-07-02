@@ -27,7 +27,7 @@ only — no app code path changed); verification = the checklist in the spec doc
 
 ---
 
-## Spec 245 — Ordering-plan templates (qty-only, clone-per-project) — ✅ U1 (schema/RLS/RPC) · ✅ U2 (clone) · ✅ U3 (category grouping) MERGED — 🔨 U4 (template editor) next
+## Spec 245 — Ordering-plan templates (qty-only, clone-per-project) — ✅ U1 (schema/RLS/RPC) · ✅ U2 (clone) · ✅ U3 (category grouping) MERGED · 🔨 U4 (template editor) built — next U5 (operator populates)
 
 **U1 — schema, RLS, RPC null-check fix. Built via subagent-driven-development** (design →
 plan → dispatched implementer → task review → whole-branch review → shipped), PR #232
@@ -92,9 +92,42 @@ handler still key off the flat arrays, so all interactive state carries across g
 boundaries (proven by a select-all-across-two-groups component test). typecheck·lint·full
 vitest green.
 
-**▶ next = U4 (template editor `/settings/ordering-templates`, code-only)** — the extracted
-shared row sub-component + list + `[templateId]` editor, wired to the template-aware RPCs,
-registered in the nav-back-affordance guard. Its own future session.
+**U4 — template editor (code-only, no schema). This unit.**
+The stripped-down editor for the 2 seeded templates, per §6 "Template editing":
+
+- **Row extraction (the §6 anti-duplication requirement):** the item-picker + qty +
+  note + remove-row draft row moved out of `SupplyPlanManager` into a shared
+  `SupplyPlanDraftRow` (`src/components/features/supply-plan/draft-row.tsx`, with
+  `DraftRow`/`blankRow`). The WP column + multi-WP fan-out are deliberately NOT part of
+  the shared row — the manager passes its WP JSX in via a `wpSlot` prop (verbatim,
+  zero behavior change: all 26 pre-existing supply-plan-manager tests pass unchanged);
+  the template editor passes no slot (a template has no project/WPs, D5).
+- **`/settings/ordering-templates`** — the list (SUPPLY_PLAN_ROLES gate, §4 write
+  tier), reads `is_template=true` rows ordered by name. No create-new UI (D4).
+- **`/settings/ordering-templates/[templateId]`** — `OrderingTemplateEditor`: saved
+  lines grouped by category (reuses U3's `groupLinesByCategory`) + the shared draft
+  rows. NO WP column, NO lifecycle (D2 — no submit/approve/reject/convert). A non-
+  template / unknown id → `notFound()`.
+- **Actions** (`settings/ordering-templates/actions.ts`): thin template-aware wrappers
+  (the project-scoped plan actions require a projectId + revalidate the project path,
+  so they don't fit): `bulkAddTemplateLines` → `add_supply_plan_lines` (the atomic
+  BULK RPC, `work_package_id` forced null server-side — NEVER the singular
+  `add_supply_plan_line`, whose pre-U1 null-check still misreads a template) +
+  `removeTemplateLine` → `remove_supply_plan_line` (U1-fixed). No new RPC.
+- Registered `settings/ordering-templates` in the nav-back-affordance STATIC_DETAIL
+  guard (the `[templateId]` route auto-classifies); settings-hub links added to both
+  the procurement and manager ข้อมูลหลัก sections; `ORDERING_TEMPLATES_LABEL` SSOT in
+  labels.ts.
+
+Tests-first: 5 draft-row + 7 editor component tests; full suite green. Real-browser
+verification (dev-preview login, worktree dev server): list renders both TFM
+templates behind the gate; editor serves the grid with no WP/lifecycle affordance;
+bogus id streams the not-found UI. (A preview-tab quirk stuck ALL routes on the
+loading skeleton — including untouched /settings — server HTML verified complete;
+orthogonal to this unit.)
+
+**▶ next = U5 (operator, not a build unit)** — populate the real TFM 16m / TFM 20m
+quantities through this editor.
 Full spec: `docs/feature-specs/245-ordering-plan-templates.md`.
 Full U1 build plan: `docs/superpowers/plans/2026-07-01-ordering-plan-templates-u1.md`.
 

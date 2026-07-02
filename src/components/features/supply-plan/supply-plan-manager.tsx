@@ -18,8 +18,13 @@ import {
   INLINE_ERROR,
 } from "@/lib/ui/classes";
 import type { Database } from "@/lib/db/database.types";
-import { ScopedCatalogItemPicker } from "@/components/features/purchasing/catalog-item-picker";
 import type { PurchaseRequestCatalogItem } from "@/components/features/purchasing/purchase-request-form";
+import {
+  SupplyPlanDraftRow,
+  blankRow,
+  DRAFT_ROW_LABEL as LABEL,
+  type DraftRow,
+} from "@/components/features/supply-plan/draft-row";
 import { membershipsByItem, type CatalogItemMembership } from "@/lib/catalog/categories";
 import { groupLinesByCategory } from "@/lib/supply-plan/group-lines";
 import {
@@ -56,13 +61,9 @@ export type PlanLine = {
   converted: boolean;
 };
 
-export type DraftRow = {
-  key: number;
-  catalogItemId: string;
-  workPackageId: string;
-  qty: string;
-  note: string;
-};
+// Spec 245 U4: the draft-row shape + shared row component moved to
+// draft-row.tsx (shared with the template editor); re-exported for callers.
+export type { DraftRow };
 
 export const PLAN_STATUS_LABEL: Record<PlanStatus, string> = {
   draft: "ร่าง",
@@ -71,17 +72,8 @@ export const PLAN_STATUS_LABEL: Record<PlanStatus, string> = {
   rejected: "ตีกลับ",
 };
 
-const LABEL = "text-meta text-ink-secondary font-medium";
-const FIELD =
-  "rounded-control border-edge-strong bg-card text-ink shadow-input focus-visible:ring-action h-11 w-full min-w-0 border px-3 text-sm focus:outline-none focus-visible:ring-2";
 const SELECT =
   "rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action h-11 w-full min-w-0 border px-2 text-sm shadow-xs focus:outline-none focus-visible:ring-2";
-
-let rowSeq = 0;
-function blankRow(): DraftRow {
-  rowSeq += 1;
-  return { key: rowSeq, catalogItemId: "", workPackageId: "", qty: "", note: "" };
-}
 
 // Spec 222 — "one item into many work packages". Fan a single draft row into one
 // fresh row per chosen WP: the catalog item carries over, each gets its own WP and
@@ -481,180 +473,136 @@ export function SupplyPlanManager({
         <div className="border-edge bg-page rounded-control flex flex-col gap-3 border p-3">
           <p className="text-ink text-sm font-semibold">เพิ่มรายการแผน (กรอกได้หลายแถว)</p>
           {rows.map((r) => (
-            <div
+            <SupplyPlanDraftRow
               key={r.key}
-              className="border-edge bg-card rounded-control flex flex-col gap-2 border p-3 sm:flex-row sm:items-end"
-            >
-              <div className="flex min-w-0 flex-[2] flex-col gap-1">
-                <ScopedCatalogItemPicker
-                  label="วัสดุ"
-                  items={catalogItems}
-                  categories={categories}
-                  selectedId={r.catalogItemId}
-                  onSelect={(id) => patchRow(r.key, { catalogItemId: id })}
-                  onClear={() => patchRow(r.key, { catalogItemId: "" })}
-                  disabled={saving}
-                  // Spec 228: scope to THIS row's WP work-category via Relation R
-                  // (resolved server-side). A whole-project row (no WP) → no scope
-                  // → the full catalog (D8 show-all fallback).
-                  scopedCategoryIds={
-                    r.workPackageId ? wpScopedCategories?.[r.workPackageId] : undefined
-                  }
-                  membershipsByItem={membershipMap}
-                />
-              </div>
-              <div className="flex min-w-0 flex-[2] flex-col gap-1">
-                {/* Feedback dff83444: only ONE WP picker at a time — while this
+              row={r}
+              catalogItems={catalogItems}
+              categories={categories}
+              disabled={saving}
+              onPatch={(patch) => patchRow(r.key, patch)}
+              onDrop={() => dropRow(r.key)}
+              // Spec 228: scope to THIS row's WP work-category via Relation R
+              // (resolved server-side). A whole-project row (no WP) → no scope
+              // → the full catalog (D8 show-all fallback).
+              scopedCategoryIds={
+                r.workPackageId ? wpScopedCategories?.[r.workPackageId] : undefined
+              }
+              membershipsByItem={membershipMap}
+              // Spec 245 U4: the WP column is the manager's own slot — the shared
+              // row carries only item + qty + note (a template has neither WP).
+              wpSlot={
+                <div className="flex min-w-0 flex-[2] flex-col gap-1">
+                  {/* Feedback dff83444: only ONE WP picker at a time — while this
                     row's multi-WP checklist is open it REPLACES the single-WP
                     select (both visible at once read as redundant). */}
-                {multiOpenKey !== r.key ? (
-                  <>
-                    <label htmlFor={`spl-wp-${r.key}`} className={LABEL}>
-                      งาน
-                    </label>
-                    <select
-                      id={`spl-wp-${r.key}`}
-                      aria-label="งาน"
-                      value={r.workPackageId}
-                      onChange={(e) => patchRow(r.key, { workPackageId: e.target.value })}
-                      disabled={saving}
-                      className={SELECT}
-                    >
-                      <option value="">ทั้งโครงการ</option>
-                      {workPackages.map((w) => (
-                        <option key={w.id} value={w.id}>
-                          {w.code} {w.name}
-                        </option>
-                      ))}
-                    </select>
-                  </>
-                ) : null}
-                {/* Spec 222: fan this item into several WPs at once. Each ticked WP
+                  {multiOpenKey !== r.key ? (
+                    <>
+                      <label htmlFor={`spl-wp-${r.key}`} className={LABEL}>
+                        งาน
+                      </label>
+                      <select
+                        id={`spl-wp-${r.key}`}
+                        aria-label="งาน"
+                        value={r.workPackageId}
+                        onChange={(e) => patchRow(r.key, { workPackageId: e.target.value })}
+                        disabled={saving}
+                        className={SELECT}
+                      >
+                        <option value="">ทั้งโครงการ</option>
+                        {workPackages.map((w) => (
+                          <option key={w.id} value={w.id}>
+                            {w.code} {w.name}
+                          </option>
+                        ))}
+                      </select>
+                    </>
+                  ) : null}
+                  {/* Spec 222: fan this item into several WPs at once. Each ticked WP
                     becomes its own draft row (qty blank) for the planner to fill. */}
-                {workPackages.length > 0 && multiOpenKey !== r.key ? (
-                  <button
-                    type="button"
-                    onClick={() => openMulti(r.key)}
-                    disabled={saving}
-                    className="text-action text-meta focus-visible:ring-action disabled:text-ink-muted self-start rounded font-medium underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 disabled:no-underline"
-                  >
-                    ＋ หลายงาน
-                  </button>
-                ) : null}
-                {multiOpenKey === r.key ? (
-                  <div
-                    role="group"
-                    aria-label="เลือกหลายงาน"
-                    className="border-edge bg-page rounded-control mt-1 flex flex-col gap-2 border p-2"
-                  >
-                    {/* Spec 222 follow-up: the button is always tappable; if the
+                  {workPackages.length > 0 && multiOpenKey !== r.key ? (
+                    <button
+                      type="button"
+                      onClick={() => openMulti(r.key)}
+                      disabled={saving}
+                      className="text-action text-meta focus-visible:ring-action disabled:text-ink-muted self-start rounded font-medium underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 disabled:no-underline"
+                    >
+                      ＋ หลายงาน
+                    </button>
+                  ) : null}
+                  {multiOpenKey === r.key ? (
+                    <div
+                      role="group"
+                      aria-label="เลือกหลายงาน"
+                      className="border-edge bg-page rounded-control mt-1 flex flex-col gap-2 border p-2"
+                    >
+                      {/* Spec 222 follow-up: the button is always tappable; if the
                         row has no item yet, explain the order instead of silently
                         disabling (the old greyed state read as "broken"). */}
-                    {r.catalogItemId === "" ? (
-                      <p className="text-ink-secondary text-meta">
-                        เลือกวัสดุของแถวนี้ก่อน เพื่อกระจายไปยังงานที่เลือก
-                      </p>
-                    ) : null}
-                    {/* Feedback dff83444: the whole row is the control (44px
+                      {r.catalogItemId === "" ? (
+                        <p className="text-ink-secondary text-meta">
+                          เลือกวัสดุของแถวนี้ก่อน เพื่อกระจายไปยังงานที่เลือก
+                        </p>
+                      ) : null}
+                      {/* Feedback dff83444: the whole row is the control (44px
                         target, full-row fill when ticked) — the native checkbox
                         stays for semantics but is visually hidden. */}
-                    <ul className="flex max-h-52 flex-col gap-1 overflow-y-auto">
-                      {workPackages.map((w) => {
-                        const ticked = multiChecked.includes(w.id);
-                        return (
-                          <li key={w.id}>
-                            <label
-                              className={`rounded-control has-[input:focus-visible]:ring-action flex min-h-11 cursor-pointer items-center gap-2 border px-2.5 text-sm has-[input:focus-visible]:ring-2 ${
-                                ticked
-                                  ? "border-fill bg-fill text-on-fill font-medium"
-                                  : "border-edge-strong bg-card text-ink hover:bg-sunk"
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                aria-label={`เลือกงาน ${w.code}`}
-                                checked={ticked}
-                                onChange={() => toggleMultiWp(w.id)}
-                                className="sr-only"
-                              />
-                              <Check
-                                aria-hidden
-                                className={`size-4 shrink-0 ${ticked ? "" : "invisible"}`}
-                              />
-                              <span className="min-w-0 truncate">
-                                {w.code} {w.name}
-                              </span>
-                            </label>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMultiOpenKey(null);
-                          setMultiChecked([]);
-                        }}
-                        className={BUTTON_SECONDARY_COMPACT}
-                      >
-                        ยกเลิก
-                      </button>
-                      <button
-                        type="button"
-                        aria-label="ยืนยันเลือกหลายงาน"
-                        onClick={() => applyMulti(r.key)}
-                        disabled={multiChecked.length === 0 || r.catalogItemId === ""}
-                        className={BUTTON_PRIMARY_COMPACT}
-                      >
-                        เพิ่ม ({multiChecked.length})
-                      </button>
+                      <ul className="flex max-h-52 flex-col gap-1 overflow-y-auto">
+                        {workPackages.map((w) => {
+                          const ticked = multiChecked.includes(w.id);
+                          return (
+                            <li key={w.id}>
+                              <label
+                                className={`rounded-control has-[input:focus-visible]:ring-action flex min-h-11 cursor-pointer items-center gap-2 border px-2.5 text-sm has-[input:focus-visible]:ring-2 ${
+                                  ticked
+                                    ? "border-fill bg-fill text-on-fill font-medium"
+                                    : "border-edge-strong bg-card text-ink hover:bg-sunk"
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  aria-label={`เลือกงาน ${w.code}`}
+                                  checked={ticked}
+                                  onChange={() => toggleMultiWp(w.id)}
+                                  className="sr-only"
+                                />
+                                <Check
+                                  aria-hidden
+                                  className={`size-4 shrink-0 ${ticked ? "" : "invisible"}`}
+                                />
+                                <span className="min-w-0 truncate">
+                                  {w.code} {w.name}
+                                </span>
+                              </label>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMultiOpenKey(null);
+                            setMultiChecked([]);
+                          }}
+                          className={BUTTON_SECONDARY_COMPACT}
+                        >
+                          ยกเลิก
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="ยืนยันเลือกหลายงาน"
+                          onClick={() => applyMulti(r.key)}
+                          disabled={multiChecked.length === 0 || r.catalogItemId === ""}
+                          className={BUTTON_PRIMARY_COMPACT}
+                        >
+                          เพิ่ม ({multiChecked.length})
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ) : null}
-              </div>
-              <div className="flex w-full min-w-0 flex-col gap-1 sm:w-24">
-                <label htmlFor={`spl-qty-${r.key}`} className={LABEL}>
-                  จำนวน
-                </label>
-                <input
-                  id={`spl-qty-${r.key}`}
-                  aria-label="จำนวน"
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  step="any"
-                  value={r.qty}
-                  onChange={(e) => patchRow(r.key, { qty: e.target.value })}
-                  disabled={saving}
-                  className={FIELD}
-                />
-              </div>
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <label htmlFor={`spl-note-${r.key}`} className={LABEL}>
-                  หมายเหตุ
-                </label>
-                <input
-                  id={`spl-note-${r.key}`}
-                  aria-label="หมายเหตุ"
-                  type="text"
-                  maxLength={1000}
-                  value={r.note}
-                  onChange={(e) => patchRow(r.key, { note: e.target.value })}
-                  disabled={saving}
-                  className={FIELD}
-                />
-              </div>
-              <button
-                type="button"
-                aria-label="เอาแถวออก"
-                disabled={saving}
-                onClick={() => dropRow(r.key)}
-                className="text-ink-muted hover:text-ink focus-visible:ring-action mb-1 shrink-0 self-end rounded-md p-1 focus:outline-none focus-visible:ring-2"
-              >
-                <Trash2 aria-hidden className="size-5" />
-              </button>
-            </div>
+                  ) : null}
+                </div>
+              }
+            />
           ))}
 
           {error ? (
