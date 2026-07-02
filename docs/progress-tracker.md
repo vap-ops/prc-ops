@@ -5343,3 +5343,6 @@ standing U2b follow-up.
   pairs pending); banner defect strip + per-round defect galleries (detail + review);
   review-page DefectFixPairs; answers_photo_id through queue/runner/addPhoto with
   replay-identity extension; defect added to signed-URL + uploader-name spreads.
+- U4 built: submitGateReason = floor (spec 247) AND pairing (every current defect photo of
+  the round answered), one decision consumed by both layers (page hint + action refusal);
+  pairing hint carries the remaining count. spec 248 build units COMPLETE.

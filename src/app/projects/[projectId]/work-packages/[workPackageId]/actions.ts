@@ -46,9 +46,8 @@ import { PAIRING_REJECTED_MESSAGE } from "@/lib/photos/upload-queue";
 import { photoReworkRoundFor } from "@/lib/photos/rework-round";
 import type { ReworkSource } from "@/lib/db/enums";
 import {
-  canSubmitForApproval,
   shouldTransitionToInProgress,
-  submitEvidenceHint,
+  submitGateReason,
   TRANSITIONABLE_FROM_STATUSES,
   type PhotoPhase,
 } from "@/lib/photos/transitions";
@@ -261,13 +260,15 @@ export async function submitWorkPackageForApproval(
     .maybeSingle();
   if (wpError || !wp) return { ok: false, error: "ไม่พบรายการงาน" };
 
-  // Spec 247 — the photo gate: no submit without current completion evidence
-  // (after photo; in rework, a current-round after_fix photo). Same RLS-scoped
-  // current-state read the page uses (anti-join + tombstone, ADR 0009/0015);
-  // the UI's disabled button is convenience, this check is the enforcement.
+  // Spec 247 + 248 U4 — the photo gate: floor (current completion evidence)
+  // AND, in rework, pairing (every current defect photo of the round
+  // answered). Same RLS-scoped current-state read the page uses (anti-join +
+  // tombstone, ADR 0009/0015); the UI's disabled button is convenience, this
+  // check is the enforcement.
   const currentPhotos = await getCurrentPhotosForWorkPackage(supabase, wp.id);
-  if (!canSubmitForApproval(wp.status, currentPhotos, wp.rework_round)) {
-    return { ok: false, error: submitEvidenceHint(wp.status) };
+  const gateReason = submitGateReason(wp.status, currentPhotos, wp.rework_round);
+  if (gateReason !== null) {
+    return { ok: false, error: gateReason };
   }
 
   const admin = createAdminClient();
