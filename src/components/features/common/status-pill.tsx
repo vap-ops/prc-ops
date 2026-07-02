@@ -31,3 +31,34 @@ export function StatusPill({ pillClasses, icon: Icon, className, children }: Sta
     </span>
   );
 }
+
+// Feedback 30a1a520 — the icon-only sibling for dense list cards where a text
+// pill would crush the row's identity (and the state is already spelled out
+// elsewhere, e.g. a tracker). Same frozen colour trio; the Thai label survives
+// as the accessible name (aria-label + title), never as visible text.
+export function StatusIconBadge({
+  pillClasses,
+  icon: Icon,
+  label,
+  className,
+}: {
+  /** Frozen colour trio from status-colors.ts (bg/border/text). */
+  pillClasses: string;
+  icon: LucideIcon;
+  /** The status label — screen-reader name + hover title. */
+  label: string;
+  className?: string;
+}) {
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      title={label}
+      className={`inline-flex size-7 shrink-0 items-center justify-center rounded-full border-[1.5px] ${pillClasses}${
+        className ? ` ${className}` : ""
+      }`}
+    >
+      <Icon aria-hidden className="size-4 shrink-0" />
+    </span>
+  );
+}
