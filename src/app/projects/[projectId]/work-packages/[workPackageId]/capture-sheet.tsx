@@ -35,6 +35,14 @@ export interface PhaseSummary {
   count: number;
 }
 
+/** Spec 248 U3 — paired-capture context: the defect photo this shot answers.
+ *  The reference image renders AT FRAMING TIME (the "same angle" instruction
+ *  is only actionable while the SA sees the original). */
+export interface CapturePairing {
+  defectPhotoId: string;
+  referenceUrl: string | null;
+}
+
 interface CaptureSheetProps {
   open: boolean;
   onClose: () => void;
@@ -46,6 +54,9 @@ interface CaptureSheetProps {
   phaseSummaries: ReadonlyArray<PhaseSummary>;
   /** Loaded photos for the ACTIVE phase (server data). */
   photos: ReadonlyArray<SheetPhoto>;
+  /** Spec 248 U3 — set when answering a defect photo: locks the sheet to
+   *  after_fix, shows the reference, stamps answers_photo_id on the rows. */
+  pairing?: CapturePairing | null;
 }
 
 export function CaptureSheet({
@@ -58,6 +69,7 @@ export function CaptureSheet({
   onPhaseChange,
   phaseSummaries,
   photos,
+  pairing = null,
 }: CaptureSheetProps) {
   if (!open) return null;
   const activeLabel = phaseSummaries.find((p) => p.phase === activePhase)?.label ?? "";
@@ -89,42 +101,64 @@ export function CaptureSheet({
           </button>
         </div>
 
-        {/* Phase switcher — three big 56px targets; current pre-selected. */}
-        <div role="radiogroup" aria-label="เลือกช่วงงาน" className="mb-4 flex gap-2">
-          {phaseSummaries.map(({ phase, label, count }) => {
-            const on = phase === activePhase;
-            return (
-              <button
-                key={phase}
-                type="button"
-                role="radio"
-                aria-checked={on}
-                onClick={() => onPhaseChange(phase)}
-                className={`rounded-card text-body focus-visible:ring-action flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 border-2 font-extrabold transition-colors focus:outline-none focus-visible:ring-2 ${
-                  on
-                    ? "border-attn bg-attn-soft text-attn-ink ring-attn/25 ring-2"
-                    : "border-edge bg-card text-ink-secondary"
-                }`}
-              >
-                {label}
-                <span
-                  className={`text-meta font-bold ${on ? "text-attn-press" : "text-ink-muted"}`}
+        {/* Phase switcher — hidden in paired mode (the answer is after_fix by
+            definition; switching mid-pair would orphan the reference). */}
+        {pairing === null ? (
+          <div role="radiogroup" aria-label="เลือกช่วงงาน" className="mb-4 flex gap-2">
+            {phaseSummaries.map(({ phase, label, count }) => {
+              const on = phase === activePhase;
+              return (
+                <button
+                  key={phase}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => onPhaseChange(phase)}
+                  className={`rounded-card text-body focus-visible:ring-action flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 border-2 font-extrabold transition-colors focus:outline-none focus-visible:ring-2 ${
+                    on
+                      ? "border-attn bg-attn-soft text-attn-ink ring-attn/25 ring-2"
+                      : "border-edge bg-card text-ink-secondary"
+                  }`}
                 >
-                  {count} รูป
-                </span>
-              </button>
-            );
-          })}
-        </div>
+                  {label}
+                  <span
+                    className={`text-meta font-bold ${on ? "text-attn-press" : "text-ink-muted"}`}
+                  >
+                    {count} รูป
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          /* Spec 248 U3 — the reference at framing time: what to re-shoot,
+             from the same angle. */
+          <div className="border-attn bg-attn-soft rounded-card mb-4 flex items-center gap-3 border p-2.5">
+            {pairing.referenceUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- signed URL thumb
+              <img
+                src={pairing.referenceUrl}
+                alt="รูปข้อบกพร่องที่ต้องแก้"
+                className="border-edge h-20 w-20 shrink-0 rounded border object-cover"
+              />
+            ) : null}
+            <p className="text-attn-ink text-sm font-semibold">
+              ถ่ายรูปหลังแก้ไข <span className="font-extrabold">จากมุมเดิม</span>{" "}
+              ของรูปข้อบกพร่องนี้
+            </p>
+          </div>
+        )}
 
-        {/* Engine subtree keyed by phase: switching clears the prior
-            phase's pending tiles (the queue runner still completes them). */}
+        {/* Engine subtree keyed by phase + pairing target: switching clears
+            the prior context's pending tiles (the queue runner still
+            completes them). */}
         <SheetCapture
-          key={activePhase}
+          key={`${activePhase}-${pairing?.defectPhotoId ?? "free"}`}
           projectId={projectId}
           workPackageId={workPackageId}
           userId={userId}
-          phase={activePhase}
+          phase={pairing ? "after_fix" : activePhase}
+          answersPhotoId={pairing?.defectPhotoId ?? null}
           photos={photos}
         />
       </div>
@@ -137,10 +171,18 @@ interface SheetCaptureProps {
   workPackageId: string;
   userId: string;
   phase: PhotoPhase;
+  answersPhotoId?: string | null;
   photos: ReadonlyArray<SheetPhoto>;
 }
 
-function SheetCapture({ projectId, workPackageId, userId, phase, photos }: SheetCaptureProps) {
+function SheetCapture({
+  projectId,
+  workPackageId,
+  userId,
+  phase,
+  answersPhotoId = null,
+  photos,
+}: SheetCaptureProps) {
   const {
     pending,
     topLevelError,
@@ -149,7 +191,7 @@ function SheetCapture({ projectId, workPackageId, userId, phase, photos }: Sheet
     handleFiles,
     retry,
     handleRemoveConfirmed,
-  } = usePhaseCapture({ projectId, workPackageId, userId, phase });
+  } = usePhaseCapture({ projectId, workPackageId, userId, phase, answersPhotoId });
   const hasContent = pending.length > 0 || photos.length > 0;
 
   // One lightbox group per phase (spec 50): the loaded photos in capture

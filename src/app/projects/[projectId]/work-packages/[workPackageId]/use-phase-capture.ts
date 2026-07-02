@@ -58,9 +58,18 @@ interface UsePhaseCaptureArgs {
   workPackageId: string;
   userId: string;
   phase: PhotoPhase;
+  /** Spec 248 U3 — when capturing a paired after_fix answer, the defect photo
+   *  it answers. Rides the queue item + the addPhoto call. */
+  answersPhotoId?: string | null;
 }
 
-export function usePhaseCapture({ projectId, workPackageId, userId, phase }: UsePhaseCaptureArgs) {
+export function usePhaseCapture({
+  projectId,
+  workPackageId,
+  userId,
+  phase,
+  answersPhotoId = null,
+}: UsePhaseCaptureArgs) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<ReadonlyArray<PendingUpload>>([]);
@@ -88,6 +97,7 @@ export function usePhaseCapture({ projectId, workPackageId, userId, phase }: Use
       userId,
       workPackageId,
       phase,
+      answersPhotoId,
       ext: upload.ext,
       blob: upload.blob,
       lastModifiedMs: upload.lastModifiedMs,
@@ -132,6 +142,7 @@ export function usePhaseCapture({ projectId, workPackageId, userId, phase }: Use
         photoId: upload.id,
         ext: upload.ext,
         capturedAtClient: new Date(upload.lastModifiedMs).toISOString(),
+        answersPhotoId,
       });
     } catch (err) {
       console.error("[phase-capture] addPhoto invocation failed", err);

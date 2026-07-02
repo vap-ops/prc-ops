@@ -41,7 +41,14 @@ interface QueuedUploadBase {
 // bucket follow the kind; everything else (steps, attempts, idempotent
 // replay) is shared.
 export type QueuedUpload =
-  | (QueuedUploadBase & { kind: "phase_photo"; workPackageId: string; phase: PhotoPhase })
+  | (QueuedUploadBase & {
+      kind: "phase_photo";
+      workPackageId: string;
+      phase: PhotoPhase;
+      // Spec 248 U3 — a paired after_fix answer carries its defect-photo target
+      // through the offline queue, or replay would silently drop the pairing.
+      answersPhotoId?: string | null;
+    })
   | (QueuedUploadBase & { kind: "reference_attachment"; purchaseRequestId: string })
   | (QueuedUploadBase & { kind: "delivery_photo"; purchaseRequestId: string });
 

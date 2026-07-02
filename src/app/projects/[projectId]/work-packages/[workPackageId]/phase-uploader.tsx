@@ -25,7 +25,18 @@ import { PhotoStrip, PHOTO_STRIP_TILE } from "@/components/features/photos/photo
 import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
 import { reworkRoundTag } from "@/lib/photos/rework-round";
 import type { PhotoPhase } from "@/lib/photos/transitions";
-import { CaptureSheet, type SheetPhoto } from "./capture-sheet";
+import { CaptureSheet, type CapturePairing, type SheetPhoto } from "./capture-sheet";
+
+/** Spec 248 U3 — one paired-capture slot: a current-round defect photo and
+ *  its answer state (computed server-side from pairDefectPhotos + signed
+ *  URLs, so this component stays presentation-only). */
+export interface DefectPairSlot {
+  defectPhotoId: string;
+  defectUrl: string | null;
+  answered: boolean;
+  /** First current answer's signed URL (thumbnail), when answered. */
+  answerUrl: string | null;
+}
 
 interface ThumbnailPhoto {
   id: string;
@@ -56,6 +67,10 @@ interface PhotoCaptureZoneProps {
   /** Spec 216: the WP's current rework cycle (≥1 once reopened); the หลังแก้ไข tile
    *  captures into this round and is labelled with it. */
   currentReworkRound: number;
+  /** Spec 248 U3 — the current round's defect photos + answer state; null
+   *  outside a rework with defect photos. While any is unanswered, free
+   *  after_fix capture redirects to the first open slot. */
+  defectPairs?: ReadonlyArray<DefectPairSlot> | null;
 }
 
 export function PhotoCaptureZone({
@@ -66,9 +81,20 @@ export function PhotoCaptureZone({
   currentPhase,
   showAfterFix,
   currentReworkRound,
+  defectPairs = null,
 }: PhotoCaptureZoneProps) {
   const [open, setOpen] = useState(false);
   const [activePhase, setActivePhase] = useState<PhotoPhase>(currentPhase);
+  const [pairing, setPairing] = useState<CapturePairing | null>(null);
+
+  const pairs = defectPairs ?? [];
+  const unanswered = pairs.filter((p) => !p.answered);
+
+  function openPaired(slot: DefectPairSlot) {
+    setPairing({ defectPhotoId: slot.defectPhotoId, referenceUrl: slot.defectUrl });
+    setActivePhase("after_fix");
+    setOpen(true);
+  }
 
   // after_fix is a rework addendum, NOT a 4th step in the before→during→after
   // chain — it renders on its own divided-off line, never inside the lifecycle
@@ -86,6 +112,15 @@ export function PhotoCaptureZone({
   const active = phases.find((p) => p.phase === activePhase) ?? fallback;
 
   function openSheet(phase: PhotoPhase) {
+    // Spec 248 U3 — CTA redirect: while any defect photo awaits its
+    // same-angle answer, a free after_fix capture would produce a photo that
+    // can never satisfy the pairing gate — route to the first open slot.
+    const firstOpenSlot = unanswered[0];
+    if (phase === "after_fix" && firstOpenSlot) {
+      openPaired(firstOpenSlot);
+      return;
+    }
+    setPairing(null);
     setActivePhase(phase);
     setOpen(true);
   }
@@ -106,6 +141,70 @@ export function PhotoCaptureZone({
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Spec 248 U3 — paired-capture slots: each current-round defect photo
+          and its same-angle answer state. Renders ABOVE the phase tiles so
+          the rework to-do list is the first thing the SA sees. */}
+      {pairs.length > 0 ? (
+        <div className="border-attn-soft bg-attn-soft/40 rounded-card border p-3">
+          <h3 className="text-body text-attn-ink mb-2 font-extrabold">
+            จุดบกพร่องที่ต้องแก้
+            {unanswered.length > 0 ? (
+              <span className="ml-1.5">
+                (เหลือ {unanswered.length} จาก {pairs.length} จุด)
+              </span>
+            ) : (
+              <span className="text-done-ink ml-1.5">— แก้ครบแล้ว</span>
+            )}
+          </h3>
+          <ul className="flex flex-col gap-2">
+            {pairs.map((slot) => (
+              <li
+                key={slot.defectPhotoId}
+                className="border-edge bg-card rounded-control flex items-center gap-3 border px-3 py-2"
+              >
+                {slot.defectUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- signed URL thumb
+                  <img
+                    src={slot.defectUrl}
+                    alt="จุดบกพร่อง"
+                    className="border-edge size-14 shrink-0 rounded border object-cover"
+                  />
+                ) : (
+                  <span className="bg-sunk text-ink-muted border-edge flex size-14 shrink-0 items-center justify-center rounded border text-xs">
+                    ไม่พร้อม
+                  </span>
+                )}
+                {slot.answered ? (
+                  <span className="flex min-w-0 flex-1 items-center gap-2">
+                    <span className="bg-done-strong text-on-fill flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
+                      <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={3} />
+                    </span>
+                    <span className="text-done-ink text-sm font-bold">แก้ไขแล้ว</span>
+                    {slot.answerUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- signed URL thumb
+                      <img
+                        src={slot.answerUrl}
+                        alt="รูปหลังแก้ไข"
+                        className="border-edge ml-auto size-14 shrink-0 rounded border object-cover"
+                      />
+                    ) : null}
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openPaired(slot)}
+                    className="border-attn bg-attn-soft text-attn-ink rounded-control focus-visible:ring-action ml-auto inline-flex min-h-11 shrink-0 items-center gap-1.5 border px-3 text-sm font-bold focus:outline-none focus-visible:ring-2"
+                  >
+                    <Camera aria-hidden className="h-4 w-4" />
+                    ถ่ายรูปแก้ไข (มุมเดิม)
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {/* Lifecycle phase switcher — the linear before→during→after sequence
           (a clean 3-up row; the lock chain + current glow live here). */}
       <div className="grid grid-cols-3 gap-2">
@@ -255,11 +354,15 @@ export function PhotoCaptureZone({
 
       <CaptureSheet
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => {
+          setOpen(false);
+          setPairing(null);
+        }}
         projectId={projectId}
         workPackageId={workPackageId}
         userId={userId}
         activePhase={activePhase}
+        pairing={pairing}
         onPhaseChange={setActivePhase}
         phaseSummaries={phases.map((p) => ({
           phase: p.phase,

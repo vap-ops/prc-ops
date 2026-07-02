@@ -16,7 +16,10 @@ import {
   reworkReasonsFromAuditRows,
   reworkSourcesFromAuditRows,
   afterFixRoundHeading,
+  reworkRoundTag,
 } from "@/lib/photos/rework-round";
+import { pairDefectPhotos } from "@/lib/photos/defect-pairing";
+import { DefectFixPairs } from "@/components/features/photos/defect-fix-pairs";
 import { mintSignedUrlsForPhotos } from "@/lib/photos/signed-urls";
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
@@ -70,7 +73,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
 
   const { data: wp } = await supabase
     .from("work_packages")
-    .select("id, code, name, status, project_id")
+    .select("id, code, name, status, project_id, rework_round")
     .eq("id", workPackageId)
     .maybeSingle();
 
@@ -122,6 +125,8 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
     ...photosByPhase.during,
     ...photosByPhase.after,
     ...photosByPhase.after_fix,
+    // Spec 248 — defect photos render in the pairs section below.
+    ...photosByPhase.defect,
   ];
   const signedUrls = await mintSignedUrlsForPhotos(allPhotos);
 
@@ -130,6 +135,15 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
   // wp_reopened_for_defect audit row per round; audit_log SELECT is using(true)).
   const showAfterFix = wp.status === "rework" || photosByPhase.after_fix.length > 0;
   const afterFixRounds = groupAfterFixByRound(photosByPhase.after_fix);
+  // Spec 248 — the current round's defect→fix pairs (the reviewer verifies
+  // "same angle" where they decide) + defect history per round.
+  const defectRounds = groupAfterFixByRound(photosByPhase.defect);
+  const pairing = pairDefectPhotos(photosByPhase, wp.rework_round);
+  const pairVMs = pairing.pairs.map((p) => ({
+    defectPhotoId: p.defect.id,
+    defectUrl: signedUrls.get(p.defect.id) ?? null,
+    answers: p.answers.map((a) => ({ id: a.id, url: signedUrls.get(a.id) ?? null })),
+  }));
   const { data: reopenRows } = await supabase
     .from("audit_log")
     .select("payload")
@@ -294,6 +308,12 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
         <section>
           <h2 className={SECTION_HEADING}>รูปถ่าย</h2>
           <div className="flex flex-col gap-5">
+            {/* Spec 248 — the current round's pairs lead the section: the
+                decision is "did each defect get its same-angle fix?" */}
+            <DefectFixPairs
+              heading={`จุดบกพร่อง → หลังแก้ไข (${reworkRoundTag(wp.rework_round)})`}
+              pairs={pairVMs}
+            />
             {PHASES.filter(({ phase }) => phase !== "after_fix").map(({ phase, label }) => (
               <PhaseGallery
                 key={phase}
@@ -301,6 +321,21 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
                 photos={photosByPhase[phase]}
                 signedUrls={signedUrls}
                 uploaderNames={displayNames}
+              />
+            ))}
+            {/* Spec 248 — defect evidence per round (history context). */}
+            {defectRounds.map(({ round, photos }) => (
+              <PhaseGallery
+                key={`defect-${round}`}
+                label={afterFixRoundHeading(
+                  PHOTO_PHASE_LABEL.defect,
+                  round,
+                  reworkSourceLabel(reworkSources.get(round)),
+                )}
+                photos={photos}
+                signedUrls={signedUrls}
+                uploaderNames={displayNames}
+                note={reworkReasons.get(round) ?? null}
               />
             ))}
             {showAfterFix

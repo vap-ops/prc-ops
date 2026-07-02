@@ -70,6 +70,9 @@ async function buildDeps(): Promise<{ deps: ProcessDeps; sessionUserId: string |
             photoId: item.id,
             ext: item.ext,
             capturedAtClient: new Date(item.lastModifiedMs).toISOString(),
+            // Spec 248 U3 — replay keeps the pairing; addPhoto's identity
+            // check makes a mismatched replay fail instead of mis-claiming.
+            answersPhotoId: item.answersPhotoId ?? null,
           });
         } else if (item.kind === "delivery_photo") {
           result = await addDeliveryConfirmationPhoto({

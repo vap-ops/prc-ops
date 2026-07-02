@@ -20,6 +20,7 @@ import {
 import { resolveScopedCategories } from "@/lib/catalog/scoped-categories";
 import { latestCreatedAt, PHASES } from "@/lib/photos/phases";
 import { groupAfterFixByRound, afterFixRoundHeading } from "@/lib/photos/rework-round";
+import { pairDefectPhotos } from "@/lib/photos/defect-pairing";
 import { derivePhaseProgress } from "@/lib/photos/phase-progress";
 import {
   canSubmitForApproval,
@@ -72,6 +73,7 @@ import {
   type WpStockRow,
 } from "@/components/features/store/wp-issue-stock";
 import { PhaseGallery } from "@/components/features/photos/phase-gallery";
+import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
 import { LaborLogZone } from "@/components/features/labor/labor-log-zone";
 import { LaborBudgetCard } from "@/components/features/labor/labor-budget-card";
 import { fetchWpLaborBudgetSummary } from "@/lib/labor/wp-budget-summary";
@@ -260,12 +262,32 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
   // its photos group by round (each with the defect reason that opened it).
   const showAfterFix = wp.status === "rework" || photosByPhase.after_fix.length > 0;
   const afterFixRounds = groupAfterFixByRound(photosByPhase.after_fix);
+  // Spec 248 — defect photos: the current round's pairing state (banner strip
+  // + capture slots) and the per-round history (read-only galleries). The
+  // grouper is round-generic, so it serves defect rows too.
+  const defectRounds = groupAfterFixByRound(photosByPhase.defect);
+  const pairing = pairDefectPhotos(photosByPhase, wp.rework_round);
+  const currentDefectPhotos = pairing.pairs.map((p) => p.defect);
+  const defectPairSlots =
+    wp.status === "rework" && pairing.pairs.length > 0
+      ? pairing.pairs.map((p) => ({
+          defectPhotoId: p.defect.id,
+          defectUrl: signedUrls.get(p.defect.id) ?? null,
+          answered: p.answers.length > 0,
+          answerUrl: p.answers[0] ? (signedUrls.get(p.answers[0].id) ?? null) : null,
+        }))
+      : null;
   // Feedback a6037564: a PD wants to know who uploaded each photo. uploaded_by
   // is already on every photo_logs row; resolve the names once (admin read,
   // same pattern as photo-markups) and surface them in the lightbox.
   const uploaderNames = await fetchDisplayNames(
     Array.from(
-      new Set(PHASES.flatMap(({ phase }) => photosByPhase[phase].map((p) => p.uploaded_by))),
+      new Set([
+        ...PHASES.flatMap(({ phase }) => photosByPhase[phase].map((p) => p.uploaded_by)),
+        // Spec 248 — PHASES deliberately excludes defect (not an SA capture
+        // phase); its uploaders still need names for the banner/gallery.
+        ...photosByPhase.defect.map((p) => p.uploaded_by),
+      ]),
     ),
     "[wp-photos]",
   );
@@ -394,6 +416,22 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               uploaderNames={uploaderNames}
             />
           ))}
+          {/* Spec 248 — per-round defect evidence (the PM's photos), kept
+              beside its round's หลังแก้ไข gallery for context. */}
+          {defectRounds.map(({ round, photos }) => (
+            <PhaseGallery
+              key={`defect-${round}`}
+              label={afterFixRoundHeading(
+                PHOTO_PHASE_LABEL.defect,
+                round,
+                reworkSourceLabel(reworkSources.get(round)),
+              )}
+              photos={photos}
+              signedUrls={signedUrls}
+              uploaderNames={uploaderNames}
+              note={reworkReasons.get(round) ?? null}
+            />
+          ))}
           {showAfterFix
             ? afterFixRounds.map(({ round, photos }) => (
                 <PhaseGallery
@@ -420,6 +458,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           currentPhase={currentPhase}
           showAfterFix={showAfterFix}
           currentReworkRound={wp.rework_round}
+          defectPairs={defectPairSlots}
         />
       ),
     },
@@ -784,6 +823,28 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
             ) : (
               <p className="text-ink-secondary">แก้ไขแล้วถ่ายรูปใหม่เพื่อส่งตรวจอีกครั้ง</p>
             )}
+            {/* Spec 248 — the PM's defect photos for THIS round: what to fix,
+                zoomable. Every one needs a same-angle after-fix answer. */}
+            {(() => {
+              const loaded = currentDefectPhotos.flatMap((d) => {
+                const url = signedUrls.get(d.id);
+                return url ? [{ id: d.id, url }] : [];
+              });
+              if (loaded.length === 0) return null;
+              const groupUrls = loaded.map((d) => d.url);
+              return (
+                <ul className="mt-2 flex [touch-action:pan-x_pinch-zoom] gap-2 overflow-x-auto pb-1">
+                  {loaded.map((p, i) => (
+                    <li
+                      key={p.id}
+                      className="border-edge bg-sunk relative h-20 w-20 shrink-0 overflow-hidden rounded border"
+                    >
+                      <ZoomablePhoto src={p.url} group={groupUrls} groupIndex={i} />
+                    </li>
+                  ))}
+                </ul>
+              );
+            })()}
             {/* Spec 218: the SA's next action — capture หลังแก้ไข; then ส่งงานเข้าตรวจ
                 (the FB2 submit control below) sends it back to review. */}
             {!readOnly ? (
