@@ -9,7 +9,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Check, Plus, Trash2 } from "lucide-react";
 import {
   BUTTON_PRIMARY,
   BUTTON_PRIMARY_COMPACT,
@@ -485,27 +485,34 @@ export function SupplyPlanManager({
                 />
               </div>
               <div className="flex min-w-0 flex-[2] flex-col gap-1">
-                <label htmlFor={`spl-wp-${r.key}`} className={LABEL}>
-                  งาน
-                </label>
-                <select
-                  id={`spl-wp-${r.key}`}
-                  aria-label="งาน"
-                  value={r.workPackageId}
-                  onChange={(e) => patchRow(r.key, { workPackageId: e.target.value })}
-                  disabled={saving}
-                  className={SELECT}
-                >
-                  <option value="">ทั้งโครงการ</option>
-                  {workPackages.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.code} {w.name}
-                    </option>
-                  ))}
-                </select>
+                {/* Feedback dff83444: only ONE WP picker at a time — while this
+                    row's multi-WP checklist is open it REPLACES the single-WP
+                    select (both visible at once read as redundant). */}
+                {multiOpenKey !== r.key ? (
+                  <>
+                    <label htmlFor={`spl-wp-${r.key}`} className={LABEL}>
+                      งาน
+                    </label>
+                    <select
+                      id={`spl-wp-${r.key}`}
+                      aria-label="งาน"
+                      value={r.workPackageId}
+                      onChange={(e) => patchRow(r.key, { workPackageId: e.target.value })}
+                      disabled={saving}
+                      className={SELECT}
+                    >
+                      <option value="">ทั้งโครงการ</option>
+                      {workPackages.map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {w.code} {w.name}
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                ) : null}
                 {/* Spec 222: fan this item into several WPs at once. Each ticked WP
                     becomes its own draft row (qty blank) for the planner to fill. */}
-                {workPackages.length > 0 ? (
+                {workPackages.length > 0 && multiOpenKey !== r.key ? (
                   <button
                     type="button"
                     onClick={() => openMulti(r.key)}
@@ -529,23 +536,39 @@ export function SupplyPlanManager({
                         เลือกวัสดุของแถวนี้ก่อน เพื่อกระจายไปยังงานที่เลือก
                       </p>
                     ) : null}
-                    <ul className="flex max-h-40 flex-col gap-1 overflow-y-auto">
-                      {workPackages.map((w) => (
-                        <li key={w.id}>
-                          <label className="text-ink flex cursor-pointer items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              aria-label={`เลือกงาน ${w.code}`}
-                              checked={multiChecked.includes(w.id)}
-                              onChange={() => toggleMultiWp(w.id)}
-                              className="accent-action size-4 shrink-0"
-                            />
-                            <span className="min-w-0 truncate">
-                              {w.code} {w.name}
-                            </span>
-                          </label>
-                        </li>
-                      ))}
+                    {/* Feedback dff83444: the whole row is the control (44px
+                        target, full-row fill when ticked) — the native checkbox
+                        stays for semantics but is visually hidden. */}
+                    <ul className="flex max-h-52 flex-col gap-1 overflow-y-auto">
+                      {workPackages.map((w) => {
+                        const ticked = multiChecked.includes(w.id);
+                        return (
+                          <li key={w.id}>
+                            <label
+                              className={`rounded-control has-[input:focus-visible]:ring-action flex min-h-11 cursor-pointer items-center gap-2 border px-2.5 text-sm has-[input:focus-visible]:ring-2 ${
+                                ticked
+                                  ? "border-fill bg-fill text-on-fill font-medium"
+                                  : "border-edge-strong bg-card text-ink hover:bg-sunk"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                aria-label={`เลือกงาน ${w.code}`}
+                                checked={ticked}
+                                onChange={() => toggleMultiWp(w.id)}
+                                className="sr-only"
+                              />
+                              <Check
+                                aria-hidden
+                                className={`size-4 shrink-0 ${ticked ? "" : "invisible"}`}
+                              />
+                              <span className="min-w-0 truncate">
+                                {w.code} {w.name}
+                              </span>
+                            </label>
+                          </li>
+                        );
+                      })}
                     </ul>
                     <div className="flex items-center justify-end gap-2">
                       <button
