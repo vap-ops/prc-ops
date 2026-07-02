@@ -60,7 +60,7 @@ export function FeedbackKanban({ cards }: { cards: FeedbackCardVM[] }) {
   const columns = groupFeedbackByStatus(cards);
 
   return (
-    <div className="-mx-5 overflow-x-auto px-5 pb-2">
+    <div className="-mx-5 [touch-action:pan-x_pinch-zoom] overflow-x-auto px-5 pb-2">
       <div className="flex min-w-full gap-3">
         {columns.map((col) => (
           <section key={col.status} className="flex w-72 shrink-0 flex-col gap-3">

@@ -226,7 +226,7 @@ export function ScopedCatalogItemPicker({
               // 2026-06-23). Stop the chip focus from reaching that handler — the
               // radio still focuses, the sheet just doesn't re-center on it.
               onFocusCapture={(e) => e.stopPropagation()}
-              className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
+              className="-mx-1 flex [touch-action:pan-x_pinch-zoom] gap-2 overflow-x-auto px-1 pb-1"
             >
               <RadioChip
                 name="pr-catalog-category"

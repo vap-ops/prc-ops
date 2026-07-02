@@ -74,3 +74,60 @@ describe("absolute-centering contract (#236 bug class)", () => {
     expect(offenders, "add -translate-y-1/2 next to top-1/2 (see #236)").toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Static scan: overflow-x-auto scroll rows must lock the gesture to the
+// horizontal axis (feedback 14263ad8 — "pills move vertically" on /projects).
+//
+// A bare `overflow-x-auto` container has NO `touch-action`, so the browser is
+// free to resolve a slightly-diagonal swipe as page scroll instead of row
+// scroll — the row (and everything in it) visibly jumps vertically mid-swipe
+// on touch devices. `touch-action: pan-x pinch-zoom` locks a pan gesture
+// starting on that element to the horizontal axis only, so the vertical
+// component of the touch never reaches the page. `pinch-zoom` MUST travel
+// with `pan-x`: the keyword alone would also disable two-finger zoom over the
+// strip (a WCAG 1.4.10 reflow regression for low-vision users) — the pair
+// keeps zoom while still killing the vertical jump.
+// ---------------------------------------------------------------------------
+
+/** String literals that scroll horizontally but never lock the touch gesture
+ *  to that axis (or lock it without preserving pinch-zoom) — each is a row
+ *  that can bleed a horizontal swipe into a vertical page-scroll jump. */
+export function scrollRowTouchActionViolations(content: string): string[] {
+  const out: string[] = [];
+  for (const [lit] of content.matchAll(STRING_LITERALS)) {
+    if (lit.includes("overflow-x-auto") && !lit.includes("touch-action:pan-x_pinch-zoom"))
+      out.push(lit);
+  }
+  return out;
+}
+
+describe("horizontal-scroll touch-action contract (14263ad8 bug class)", () => {
+  it("the checker flags overflow-x-auto without touch-action:pan-x_pinch-zoom, and only that", () => {
+    expect(scrollRowTouchActionViolations('className="flex overflow-x-auto gap-2"')).toHaveLength(
+      1,
+    );
+    // pan-x alone is ALSO a violation — it silently disables pinch-zoom.
+    expect(
+      scrollRowTouchActionViolations('className="flex overflow-x-auto gap-2 [touch-action:pan-x]"'),
+    ).toHaveLength(1);
+    expect(
+      scrollRowTouchActionViolations(
+        'className="flex overflow-x-auto gap-2 [touch-action:pan-x_pinch-zoom]"',
+      ),
+    ).toHaveLength(0);
+    expect(scrollRowTouchActionViolations('className="flex gap-2"')).toHaveLength(0);
+  });
+
+  it("no className in src/ uses overflow-x-auto without [touch-action:pan-x_pinch-zoom]", () => {
+    const srcRoot = path.resolve(__dirname, "../../src");
+    const offenders = tsxFiles(srcRoot).flatMap((f) => {
+      const hits = scrollRowTouchActionViolations(fs.readFileSync(f, "utf8"));
+      return hits.map((h) => `${path.relative(srcRoot, f)}: ${h}`);
+    });
+    expect(
+      offenders,
+      "add [touch-action:pan-x_pinch-zoom] next to overflow-x-auto (see feedback 14263ad8)",
+    ).toEqual([]);
+  });
+});

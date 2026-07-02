@@ -55,7 +55,7 @@ function FilterChip({ chip }: { chip: ProjectStatusChip | ProjectClientChip }) {
 
 // -mx-5 px-5 bleeds the scroll row to the screen edges.
 const ROW =
-  "-mx-5 flex gap-2 overflow-x-auto px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+  "-mx-5 flex gap-2 overflow-x-auto px-5 [scrollbar-width:none] [touch-action:pan-x_pinch-zoom] [&::-webkit-scrollbar]:hidden";
 
 export function ProjectsFilterBar({
   statusChips,

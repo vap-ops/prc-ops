@@ -195,7 +195,7 @@ export function CatalogList({
       </div>
 
       <div
-        className="flex gap-2 overflow-x-auto pb-1"
+        className="flex [touch-action:pan-x_pinch-zoom] gap-2 overflow-x-auto pb-1"
         role="radiogroup"
         aria-label="กรองตามหมวดหมู่"
       >
