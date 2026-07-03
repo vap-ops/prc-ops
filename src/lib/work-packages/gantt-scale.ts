@@ -49,6 +49,9 @@ export interface ScheduleBar {
 export interface TimelineItem {
   plannedStart: string | null;
   plannedEnd: string | null;
+  /** Spec 255 — photo-evidence activity span; joins the timeline domain. */
+  activityStart?: string | null;
+  activityEnd?: string | null;
 }
 export interface MonthBand {
   label: string;
@@ -99,12 +102,9 @@ export function buildTimeline(
 
   const dates: number[] = [];
   for (const it of items) {
-    if (it.plannedStart) {
-      const m = parseDay(it.plannedStart);
-      if (!Number.isNaN(m)) dates.push(m);
-    }
-    if (it.plannedEnd) {
-      const m = parseDay(it.plannedEnd);
+    for (const iso of [it.plannedStart, it.plannedEnd, it.activityStart, it.activityEnd]) {
+      if (!iso) continue;
+      const m = parseDay(iso);
       if (!Number.isNaN(m)) dates.push(m);
     }
   }
@@ -172,4 +172,50 @@ export function buildTimeline(
     todayX,
     pastWidth,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Spec 255 U3 — summary chips. Pure counts over the schedule's WPs; ISO dates
+// compare lexicographically (all are YYYY-MM-DD), so no Date parsing except the
+// +N-days arithmetic (UTC ms, DST-free — same convention as the rest of this
+// file).
+
+export interface ScheduleSummaryItem {
+  plannedEnd: string | null;
+  status: string;
+  activityEnd: string | null;
+}
+
+export interface ScheduleSummary {
+  /** planned_end < today, status ≠ complete */
+  behind: number;
+  /** planned_end within [today, today+6], status ≠ complete */
+  dueSoon: number;
+  /** activityEnd within [today−6, today] */
+  recentActivity: number;
+}
+
+function addDaysIso(iso: string, days: number): string {
+  return new Date(parseDay(iso) + days * DAY_MS).toISOString().slice(0, 10);
+}
+
+export function scheduleSummary(
+  items: readonly ScheduleSummaryItem[],
+  todayISO: string,
+): ScheduleSummary {
+  const weekAhead = addDaysIso(todayISO, 6);
+  const weekAgo = addDaysIso(todayISO, -6);
+  let behind = 0;
+  let dueSoon = 0;
+  let recentActivity = 0;
+  for (const it of items) {
+    if (it.plannedEnd && it.status !== "complete") {
+      if (it.plannedEnd < todayISO) behind++;
+      else if (it.plannedEnd <= weekAhead) dueSoon++;
+    }
+    if (it.activityEnd && it.activityEnd >= weekAgo && it.activityEnd <= todayISO) {
+      recentActivity++;
+    }
+  }
+  return { behind, dueSoon, recentActivity };
 }
