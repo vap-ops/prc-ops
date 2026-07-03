@@ -1,6 +1,6 @@
 # Spec 256 — Real calendar views: วัน / สัปดาห์ / เดือน as true views, Gantt becomes ไทม์ไลน์
 
-**Status:** in progress
+**Status:** shipped (PRs #276 + #277, 2026-07-03)
 **Depends on:** spec 255 (photo-evidence activity plumbing), spec 92 (Gantt), ADR 0004/0009/0015
 **Schema:** none — code-only.
 
