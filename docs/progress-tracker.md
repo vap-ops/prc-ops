@@ -5672,3 +5672,49 @@ standing U2b follow-up.
   vitest 2536/2536, lint/typecheck clean, db:types regenerated.
 - U2 (crew block UI, expiry-badge helper, SA read surface) NOT started — new
   unit, new session per house workflow.
+
+## Spec 260 — PO-level charges (transport / discount / other) — U1 — COMPLETE (2026-07-04)
+
+- Procurement chain S2 (after specs 260/261/262 docs, PR #290). A PO can now
+  carry transport / discount / other charges as first-class money rows, folded
+  into the PO's true cost and posted to the GL. Before this, `purchase_orders`
+  had NO money column — fees corrupted a line's `amount` or lived outside the app.
+- Migrations: `070500` (audit_action += `po_charge_add`/`po_charge_void`, own
+  migration — enum-add rule), `070600` (`po_charge_type` enum +
+  `purchase_order_charges` table + RLS + AFTER-INSERT outbox trigger,
+  `source_event 'po_charge'`), `070700` (add/void RPCs + poster
+  `post_purchase_order_charge_to_gl` + `drain_gl_posting` re-sourced from LIVE
+  with the new arm + `void_purchase_order` extended to reverse/skip charge
+  entries), `070800` (hardening — see below).
+- **GL entry**: transport/other → Dr 1400 WIP (WP-bound share) + Dr 1500
+  Inventory (store-bound share, project-only — no BU dim on journal_lines) +
+  Dr 1300 Input VAT / Cr 2100 AP, Dr side allocated proportionally over member
+  lines by line net; discount → the exact contra (Dr 2100 / Cr 1400·1500·1300).
+  Gates: add = create-roles (PM/procurement/super/PD); void = manager-only
+  (PM/super/PD — un-booking money).
+- **Adversarial pre-push review (opus ×4) caught + fixed two real GL bugs**
+  before they touched the shared DB: (1) HIGH — a naive round-then-dump-remainder
+  allocation produced a NEGATIVE debit leg when every share rounded up, which
+  post_journal_internal rejects → the charge job silently went 'failed' and never
+  posted; replaced with a non-negative largest-remainder (Hamilton) split. (2)
+  MEDIUM — the VAT leg assumed a single-project PO; since procurement can bundle
+  cross-project tickets, VAT is now allocated per member with its own project.
+  A LOW re-drain-guard finding was REFUTED on verify (charges are immutable
+  add/void — no re-enqueue path).
+- **Two more caught by the full pgTAP run** (why the whole suite matters for a
+  GL/drain change): Supabase's default privileges granted authenticated/anon full
+  DML on the new table (070600 only did `grant select`); RLS still denied writes
+  but the money posture wants zero write grant — fixed forward in `070800` with a
+  revoke + eval-once policy wrap (the bare `current_user_role()` also tripped the
+  40-rls-eval-once pin). Never edited the applied 070600 (change-management §4).
+- TS: `purchaseOrderGrandTotal` beside the pure line-sum; `buildPoDetailView` +
+  worklist switch to it; `allocateChargeSpendByProject` folds charges into the
+  dashboard spend model; PO-detail charges block + create-sheet charges section +
+  labels.ts terms. pgTAP `260` (63) + `259` charge-void extension (28); audit
+  full-label pins updated (03 + 18). vitest 2554/2554, lint/typecheck clean.
+- Migration numbering: branched off #290, spec 258 (#291) merged in between
+  claiming `070000`–`070400` — rebased onto latest main + renumbered mine to
+  `070500`–`070800`. Only pre-existing unrelated failure on the full run =
+  catalog-category live-data count drift (same as spec 258 saw — not a bug).
+- Out of scope (recorded seams): editing a charge in place (add/void composes it);
+  accounting voucher/register rendering of charge entries (GL complete, UI lags).

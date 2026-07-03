@@ -1517,3 +1517,92 @@ export async function voidPurchaseOrder(
   revalidatePath(`/requests/orders/${input.poId}`);
   return { ok: true };
 }
+
+// Spec 260 — PO-level charges (transport / discount / other). add is the same
+// back-office gate as create_purchase_order (whoever bundles the PO records its
+// charges); void is manager-only (un-booking recorded money). Both run on the
+// user session (role-gated DEFINER RPCs). The amount>0 / 'other'-needs-note
+// rules are DB CHECKs (surfaced here as a friendly message); the GL entry is
+// enqueued by the table's AFTER-INSERT trigger, drained async.
+export interface AddPurchaseOrderChargeInput {
+  poId: string;
+  chargeType: "transport" | "discount" | "other";
+  amount: number;
+  vatRate: number;
+  note?: string | null;
+}
+
+export type AddPurchaseOrderChargeResult = { ok: true } | { ok: false; error: string };
+
+export async function addPurchaseOrderCharge(
+  input: AddPurchaseOrderChargeInput,
+): Promise<AddPurchaseOrderChargeResult> {
+  if (!UUID_REGEX.test(input.poId)) return { ok: false, error: "รหัสใบสั่งซื้อไม่ถูกต้อง" };
+  if (!["transport", "discount", "other"].includes(input.chargeType)) {
+    return { ok: false, error: "ประเภทค่าใช้จ่ายไม่ถูกต้อง" };
+  }
+  if (!Number.isFinite(input.amount) || input.amount <= 0) {
+    return { ok: false, error: "จำนวนเงินต้องมากกว่า 0" };
+  }
+  if (input.chargeType === "other" && (input.note ?? "").trim() === "") {
+    return { ok: false, error: "กรุณาระบุรายละเอียดสำหรับค่าใช้จ่ายอื่น" };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase } = auth;
+
+  const { error } = await supabase.rpc("add_purchase_order_charge", {
+    p_po_id: input.poId,
+    p_charge_type: input.chargeType,
+    p_amount: input.amount,
+    p_vat_rate: input.vatRate,
+    // The RPC nullifs an empty/whitespace note, so "" is identical to NULL here
+    // (the generated type makes the required text param non-nullable).
+    p_note: input.note ?? "",
+  });
+  if (error) {
+    if (error.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์เพิ่มค่าใช้จ่าย" };
+    if (error.code === "23514") {
+      return { ok: false, error: "ข้อมูลค่าใช้จ่ายไม่ถูกต้อง (จำนวนเงิน หรือรายละเอียด)" };
+    }
+    if (error.code === "P0001") return { ok: false, error: "ไม่พบใบสั่งซื้อนี้" };
+    return { ok: false, error: "เพิ่มค่าใช้จ่ายไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  revalidatePath("/requests");
+  revalidatePath(`/requests/orders/${input.poId}`);
+  return { ok: true };
+}
+
+export interface VoidPurchaseOrderChargeInput {
+  chargeId: string;
+  // Revalidation target only (the RPC keys off chargeId alone).
+  poId: string;
+}
+
+export type VoidPurchaseOrderChargeResult = { ok: true } | { ok: false; error: string };
+
+export async function voidPurchaseOrderCharge(
+  input: VoidPurchaseOrderChargeInput,
+): Promise<VoidPurchaseOrderChargeResult> {
+  if (!UUID_REGEX.test(input.chargeId)) return { ok: false, error: "รหัสค่าใช้จ่ายไม่ถูกต้อง" };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase } = auth;
+
+  const { error } = await supabase.rpc("void_purchase_order_charge", {
+    p_charge_id: input.chargeId,
+  });
+  if (error) {
+    if (error.code === "42501")
+      return { ok: false, error: "ไม่มีสิทธิ์ลบค่าใช้จ่าย (เฉพาะผู้จัดการ)" };
+    if (error.code === "P0001") return { ok: false, error: "ไม่พบค่าใช้จ่ายนี้" };
+    return { ok: false, error: "ลบค่าใช้จ่ายไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  revalidatePath("/requests");
+  if (UUID_REGEX.test(input.poId)) revalidatePath(`/requests/orders/${input.poId}`);
+  return { ok: true };
+}
