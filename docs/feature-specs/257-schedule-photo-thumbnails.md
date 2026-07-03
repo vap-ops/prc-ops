@@ -1,6 +1,6 @@
 # Spec 257 — Photo thumbnails in the schedule calendar
 
-**Status:** in progress
+**Status:** shipped (PRs #279 + #280, 2026-07-03)
 **Depends on:** spec 256 (calendar views), ADR 0015 (photo exposure model), spec 65 (signed-URL minting)
 **Schema:** none — code-only.
 
