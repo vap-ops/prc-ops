@@ -1476,3 +1476,44 @@ export async function recordShipment(input: RecordShipmentInput): Promise<Record
   revalidatePath("/requests");
   return { ok: true };
 }
+
+export interface VoidPurchaseOrderInput {
+  poId: string;
+}
+
+export type VoidPurchaseOrderResult = { ok: true } | { ok: false; error: string };
+
+// Spec 259 / amends ADR 0038 — undo a mistakenly-created PO via
+// void_purchase_order. Same session-client posture as createPurchaseOrder
+// (role-gated DEFINER RPC, must run on the user session so auth.uid() is
+// non-null). Member tickets return to 'approved' — the RPC handles the
+// GL-safety reverse-or-skip per line and the audit row.
+export async function voidPurchaseOrder(
+  input: VoidPurchaseOrderInput,
+): Promise<VoidPurchaseOrderResult> {
+  if (!UUID_REGEX.test(input.poId)) return { ok: false, error: "รหัสใบสั่งซื้อไม่ถูกต้อง" };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase } = auth;
+
+  const { error } = await supabase.rpc("void_purchase_order", {
+    p_po_id: input.poId,
+  });
+  if (error) {
+    if (error.code === "42501") {
+      return { ok: false, error: "ไม่มีสิทธิ์ยกเลิกใบสั่งซื้อ" };
+    }
+    if (error.code === "P0001") {
+      return {
+        ok: false,
+        error: "ยกเลิกใบสั่งซื้อไม่สำเร็จ: มีรายการที่จัดส่งหรือรับของแล้ว หรือไม่พบใบสั่งซื้อนี้",
+      };
+    }
+    return { ok: false, error: "ยกเลิกใบสั่งซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+
+  revalidatePath("/requests");
+  revalidatePath(`/requests/orders/${input.poId}`);
+  return { ok: true };
+}
