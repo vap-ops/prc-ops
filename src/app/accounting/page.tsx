@@ -116,6 +116,13 @@ export default async function AccountingPage({ searchParams }: AccountingPagePro
         <h2 className={SECTION_HEADING}>ทะเบียน</h2>
         <nav className="mb-6 flex flex-col gap-2">
           {[
+            // Spec 253: the per-project finance drill — quotation → PO → contract/
+            // งวดเบิก → billed → received in one place.
+            {
+              href: "/accounting/projects",
+              label: "การเงินรายโครงการ",
+              hint: "สัญญา งวดเบิก วางบิล เงินรับ รายโครงการ",
+            },
             { href: "/accounting/billings", label: "งวดงาน", hint: "การวางบิลลูกค้า" },
             {
               href: "/accounting/retention",

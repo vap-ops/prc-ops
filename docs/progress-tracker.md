@@ -5415,3 +5415,30 @@ standing U2b follow-up.
   SURVIVOR only when a supersede lands pre-drain. pgTAP 254 grew a re-drain-attack
   regression (reset the superseded rows' outbox jobs → drain → zero unbalanced
   entries); 29/29. Twin flaw in post_dc_payment_to_gl chipped separately.
+
+## Spec 253 — finance project drill (2026-07-03)
+
+- U1: pure view-model src/lib/accounting/project-drill.ts (assembleRevenueFunnel —
+  tiles via projectReceiptSummary, per-งวด billed+received threading, Σ-vs-value
+  warning; receipts-only project first-class) + /accounting/projects list (billed/
+  received/outstanding per project) + [projectId] drill revenue section (quotation/
+  PO/contract/งวด cards + billings + receipts incl. advances) + write sheets
+  (quotation, client PO, contract upsert, installment, ADVANCE receipt) over the
+  spec 250/249 RPCs — PM-tier only; accounting renders read-only. Hub link +
+  nav-back STATIC_DETAIL registration.
+- U2: cost section (labor own/DC via aggregateLaborCost; materials COMMITTED
+  (purchased/on_route) vs ACTUAL (delivered/site_purchased + store เบิก − returns,
+  dashboard netting) + รอราคา blind-spot count via new pure splitMaterialSpend) +
+  per-WP wp_profit() P&L table with totals (RPC finally has a UI; runs on the user
+  session — the spec-252 gate admits the money-view set).
+- Verified: vitest 78 targeted (VM 7 + forms 2 + nav guard) + full suite; typecheck/
+  lint clean. REAL-BROWSER (dev-preview recipe, fin253 checkout on :3001):
+  super_admin — hub link, list, drill tiles/docs/cost/P&L + write buttons ✓;
+  accounting (role flipped + restored) — drill renders w/ P&L numbers, write
+  buttons HIDDEN, /payroll read-only (record sheet hidden), /dashboard money
+  visible + approvals card absent ✓; unauth — NEXT_REDIRECT, zero money in HTML ✓;
+  375px screenshot healthy.
+- Deferred (open questions): document upload wiring (document_path stays null —
+  needs a Storage bucket + policies, small schema follow-up); subcon cost block
+  renders with spec 251 (operator decision pending); per-installment edit/remove UI
+  (RPCs exist; v1 add-only in the sheet).

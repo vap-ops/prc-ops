@@ -70,6 +70,9 @@ const STATIC_DETAIL = [
   // Gap G8: the manual general-journal surface drills down from /accounting
   // (back chip → /accounting). Gated to PM_ROLES (the post/reverse RPCs' roles).
   "accounting/journal",
+  // Spec 253: the finance project list drills down from /accounting (back chip);
+  // its [projectId] drill is a dynamic DetailHeader route, auto-classified above.
+  "accounting/projects",
   "contacts/customers",
   "contacts/vendors",
   // Spec 168: the crews group split into separate subcontractor + DC pages.
