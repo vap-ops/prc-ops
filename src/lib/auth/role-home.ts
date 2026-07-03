@@ -151,6 +151,17 @@ export const SUPPLY_PLAN_ROLES: ReadonlyArray<UserRole> = [...PM_ROLES, "procure
 export const PAYROLL_ROLES: ReadonlyArray<UserRole> = [...PM_ROLES, "procurement"];
 
 /**
+ * Spec 252 — READ-scoped widenings for the accounting role (operator decision
+ * 2026-07-03: Finance sees everything the PM sees, READ-ONLY). These gate pages
+ * and money DISPLAY only — every write affordance and server action keeps
+ * gating on the unwidened set (PAYROLL_ROLES / PM_ROLES), so membership here
+ * can never open a write path.
+ */
+export const PAYROLL_VIEW_ROLES: ReadonlyArray<UserRole> = [...PAYROLL_ROLES, "accounting"];
+export const DASHBOARD_VIEW_ROLES: ReadonlyArray<UserRole> = [...SITE_STAFF_ROLES, "accounting"];
+export const MONEY_VIEW_ROLES: ReadonlyArray<UserRole> = [...PM_ROLES, "accounting"];
+
+/**
  * Spec 70: who can reach the purchasing surface (/requests + /requests/[id]).
  * The v1 requester base (SITE_STAFF_ROLES) PLUS procurement — the back-office
  * processor onboarded onto the worklist. Deliberately NOT folded into

@@ -5366,3 +5366,24 @@ standing U2b follow-up.
   directions (client-slow-on-paper case); document_path columns land now, the Storage
   upload wiring ships with spec 253's drill forms.
 - Open questions: none.
+
+## Spec 252 — accounting read access (2026-07-03)
+
+- Found already-done: roleHome() has routed accounting → /accounting since spec 149 U9
+  (the CLAUDE.md role table's "v3" note was stale) — no code needed for onboarding.
+- U1 (schema): migrations 064000 (wp_profit gate: super/PD-only → is_manager ∨
+  accounting; PM admitted too — the spec-253 drill is a PM∪accounting surface and the
+  old gate would have refused PMs) + 064100 (wp_labor_sell + wp_equipment_sell carry
+  their OWN gates one call deeper — caught by pgTAP 255 first run; same widening, own
+  migration because 064000 was already applied). All bodies re-sourced VERBATIM from
+  LIVE, only gate lines changed.
+- U2 (code): PAYROLL_VIEW_ROLES / DASHBOARD_VIEW_ROLES / MONEY_VIEW_ROLES read-scoped
+  constants (write sets untouched); /payroll admits accounting read-only (record sheet
+  → "ยังไม่บันทึกการจ่าย" text; record_dc_payment RPC refuses accounting anyway);
+  /dashboard admits accounting with money view (showMoney split from isManager —
+  approvals/bank work-queue cards stay PM-tier; accounting's project/WP list reads go
+  via the admin client since can_see_project has no accounting arm and spec 252 leaves
+  RLS untouched).
+- Verified: pgTAP 255 5/5; vitest constants test 5; typecheck/lint clean.
+- Open questions: real-browser accounting-role walk deferred to the spec-253
+  verification session (same journey, one dev-server round).
