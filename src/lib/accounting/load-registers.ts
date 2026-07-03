@@ -52,6 +52,7 @@ export async function loadRetentionRegister(admin: Admin): Promise<RetentionRegi
 export interface BillingRegisterRow {
   id: string;
   billingNo: number;
+  projectId: string;
   projectLabel: string;
   grossAmount: number;
   retentionAmount: number | null;
@@ -76,6 +77,7 @@ export async function loadBillingRegister(admin: Admin): Promise<BillingRegister
   return rows.map((r) => ({
     id: r.id,
     billingNo: r.billing_no,
+    projectId: r.project_id,
     projectLabel: labels.get(r.project_id) ?? "—",
     grossAmount: Number(r.gross_amount),
     retentionAmount: r.retention_amount === null ? null : Number(r.retention_amount),
