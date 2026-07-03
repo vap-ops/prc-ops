@@ -171,9 +171,11 @@ select lives_ok(
   $$ select * from public.wp_profit('ea0a0764-0764-0764-0764-ea0aea0a0764') $$,
   'project_director may read WP profit');
 set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333330764"}';
-select throws_ok(
+-- Spec 252: the gate widened super/PD-only → is_manager ∨ accounting, so the PM
+-- reads WP profit now (the finance drill is a PM ∪ accounting surface).
+select lives_ok(
   $$ select * from public.wp_profit('ea0a0764-0764-0764-0764-ea0aea0a0764') $$,
-  '42501', null, 'project_manager cannot read WP profit');
+  'project_manager may read WP profit (spec 252)');
 set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222220764"}';
 select throws_ok(
   $$ select * from public.wp_profit('ea0a0764-0764-0764-0764-ea0aea0a0764') $$,
