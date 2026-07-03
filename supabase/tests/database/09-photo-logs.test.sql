@@ -162,16 +162,18 @@ select is(
   'RLS enabled on public.photo_logs'
 );
 
--- Policy commands on photo_logs are exactly INSERT + SELECT×2 — NO UPDATE,
--- NO DELETE. Load-bearing per ADR 0004 / ADR 0015 (append-only). The second
+-- Policy commands on photo_logs are exactly INSERT + SELECT×3 — NO UPDATE,
+-- NO DELETE. Load-bearing per ADR 0004 / ADR 0015 (append-only). The 2nd
 -- SELECT is the spec-233 / ADR-0067 client read arm (additive, read-only,
--- approved-WP photos scoped to client_has_live_access). No UPDATE/DELETE remains.
+-- approved-WP photos scoped to client_has_live_access); the 3rd is the
+-- spec-254 full-tier client read arm (all-status photos, still defect-
+-- excluded, scoped to client_has_full_access). No UPDATE/DELETE remains.
 select results_eq(
   $$ select cmd::text from pg_policies
      where schemaname = 'public' and tablename = 'photo_logs'
      order by cmd $$,
-  array['INSERT'::text, 'SELECT'::text, 'SELECT'::text],
-  'photo_logs has exactly INSERT/SELECT×2 policies — no UPDATE, no DELETE policy'
+  array['INSERT'::text, 'SELECT'::text, 'SELECT'::text, 'SELECT'::text],
+  'photo_logs has exactly INSERT/SELECT×3 policies — no UPDATE, no DELETE policy'
 );
 
 -- ============================================================================

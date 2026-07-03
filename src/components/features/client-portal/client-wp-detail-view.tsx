@@ -10,7 +10,12 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { CARD, SECTION_HEADING } from "@/lib/ui/classes";
-import { WORK_PACKAGE_STATUS_LABEL, formatThaiDate } from "@/lib/i18n/labels";
+import {
+  WORK_PACKAGE_STATUS_LABEL,
+  WORK_PACKAGE_PRIORITY_LABEL,
+  WORK_CATEGORY_UNSET_LABEL,
+  formatThaiDate,
+} from "@/lib/i18n/labels";
 import type { ClientWpDetailView as ClientWpDetailViewModel } from "@/lib/client-portal/load-client-wp-detail";
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
@@ -55,6 +60,15 @@ export function ClientWpDetailView({
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
         <dl className={`${CARD} mb-6`}>
           <SummaryRow label="สถานะ" value={WORK_PACKAGE_STATUS_LABEL[detail.status]} />
+          {detail.priority !== undefined ? (
+            <>
+              <SummaryRow
+                label="หมวดงาน"
+                value={detail.categoryName ?? WORK_CATEGORY_UNSET_LABEL}
+              />
+              <SummaryRow label="ความสำคัญ" value={WORK_PACKAGE_PRIORITY_LABEL[detail.priority]} />
+            </>
+          ) : null}
           {detail.description ? <SummaryRow label="รายละเอียด" value={detail.description} /> : null}
           {detail.plannedStart ? (
             <SummaryRow label="เริ่มงาน" value={formatThaiDate(detail.plannedStart)} />

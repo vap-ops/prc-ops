@@ -115,7 +115,7 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
   if (isClientIssuer) {
     const { data: accessRows } = await admin
       .from("client_portal_access")
-      .select("id, expires_at, granted_at, user_id")
+      .select("id, expires_at, granted_at, user_id, tier")
       .eq("project_id", project.id)
       .is("revoked_at", null)
       .order("granted_at", { ascending: false });
@@ -128,6 +128,7 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
       id: r.id,
       name: nameById.get(r.user_id) ?? "ลูกค้า",
       expiresAt: r.expires_at,
+      tier: r.tier,
     }));
 
     // Spec 234 follow-up (broken-link stopgap): eligible logins a PD/super can

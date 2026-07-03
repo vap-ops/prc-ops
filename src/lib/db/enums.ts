@@ -9,6 +9,7 @@ type Enums = Database["public"]["Enums"];
 
 export type UserRole = Enums["user_role"];
 export type WorkPackageStatus = Enums["work_package_status"];
+export type WorkPackagePriority = Enums["work_package_priority"];
 export type ProjectStatus = Enums["project_status"];
 export type PhotoPhase = Enums["photo_phase"];
 export type ApprovalDecision = Enums["approval_decision"];
@@ -16,3 +17,4 @@ export type ReportStatus = Enums["report_status"];
 export type PurchaseRequestStatus = Enums["purchase_request_status"];
 export type PurchaseRequestPriority = Enums["purchase_request_priority"];
 export type ReworkSource = Enums["rework_source"];
+export type ClientAccessTier = Enums["client_access_tier"];

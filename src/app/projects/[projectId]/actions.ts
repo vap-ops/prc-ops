@@ -23,6 +23,7 @@ import {
 import { validateCategoryCode, validateCategoryName } from "@/lib/categories/validate";
 import { parseAndValidate } from "@/lib/wp-import/parse";
 import type { Database } from "@/lib/db/database.types";
+import type { ClientAccessTier } from "@/lib/db/enums";
 
 const PM_ONLY_ERROR = "เฉพาะผู้จัดการโครงการเท่านั้น";
 // Spec 145: the work_packages BEFORE INSERT trigger raises P0002 on a closed
@@ -678,6 +679,7 @@ export type ClientRevokeResult = { ok: true } | { ok: false; error: string };
 export async function createClientInvite(input: {
   projectId: string;
   validUntil: string;
+  tier?: ClientAccessTier;
 }): Promise<ClientInviteResult> {
   const gate = await requireActionRole(CLIENT_ISSUER_ROLES, CLIENT_ISSUER_ONLY_ERROR);
   if ("error" in gate) return { ok: false, error: gate.error };
@@ -688,6 +690,7 @@ export async function createClientInvite(input: {
   const { data, error } = await gate.auth.supabase.rpc("create_client_invite", {
     p_project: input.projectId,
     p_valid_until: `${input.validUntil}T23:59:59+07:00`,
+    p_tier: input.tier ?? "basic",
   });
   if (error || !data) return { ok: false, error: CLIENT_INVITE_GENERIC };
   revalidatePath(projectHref(input.projectId));
@@ -704,6 +707,26 @@ export async function revokeClientAccess(input: {
 
   const { error } = await gate.auth.supabase.rpc("revoke_client_access", {
     p_access_id: input.accessId,
+  });
+  if (error) return { ok: false, error: CLIENT_INVITE_GENERIC };
+  revalidatePath(projectHref(input.projectId));
+  return { ok: true };
+}
+
+// Spec 254 — PD/super upgrades or downgrades an existing binding's tier
+// without a re-invite. Same gate as revoke_client_access.
+export async function updateClientAccessTier(input: {
+  accessId: string;
+  projectId: string;
+  tier: ClientAccessTier;
+}): Promise<ClientRevokeResult> {
+  const gate = await requireActionRole(CLIENT_ISSUER_ROLES, CLIENT_ISSUER_ONLY_ERROR);
+  if ("error" in gate) return { ok: false, error: gate.error };
+  if (!isValidUuid(input.accessId)) return { ok: false, error: CLIENT_INVITE_GENERIC };
+
+  const { error } = await gate.auth.supabase.rpc("set_client_access_tier", {
+    p_access_id: input.accessId,
+    p_tier: input.tier,
   });
   if (error) return { ok: false, error: CLIENT_INVITE_GENERIC };
   revalidatePath(projectHref(input.projectId));

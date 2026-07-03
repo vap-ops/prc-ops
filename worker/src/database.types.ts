@@ -672,6 +672,7 @@ export type Database = {
           created_by: string
           id: string
           project_id: string
+          tier: Database["public"]["Enums"]["client_access_tier"]
           token_hash: string
         }
         Insert: {
@@ -682,6 +683,7 @@ export type Database = {
           created_by: string
           id?: string
           project_id: string
+          tier?: Database["public"]["Enums"]["client_access_tier"]
           token_hash: string
         }
         Update: {
@@ -692,6 +694,7 @@ export type Database = {
           created_by?: string
           id?: string
           project_id?: string
+          tier?: Database["public"]["Enums"]["client_access_tier"]
           token_hash?: string
         }
         Relationships: [
@@ -727,6 +730,7 @@ export type Database = {
           project_id: string
           revoked_at: string | null
           revoked_by: string | null
+          tier: Database["public"]["Enums"]["client_access_tier"]
           user_id: string
         }
         Insert: {
@@ -737,6 +741,7 @@ export type Database = {
           project_id: string
           revoked_at?: string | null
           revoked_by?: string | null
+          tier?: Database["public"]["Enums"]["client_access_tier"]
           user_id: string
         }
         Update: {
@@ -747,6 +752,7 @@ export type Database = {
           project_id?: string
           revoked_at?: string | null
           revoked_by?: string | null
+          tier?: Database["public"]["Enums"]["client_access_tier"]
           user_id?: string
         }
         Relationships: [
@@ -6207,6 +6213,7 @@ export type Database = {
           clawed_workers: number
         }[]
       }
+      client_has_full_access: { Args: { p_project: string }; Returns: boolean }
       client_has_live_access: { Args: { p_project: string }; Returns: boolean }
       clone_work_packages: {
         Args: { p_dst_project_id: string; p_src_project_id: string }
@@ -6300,7 +6307,11 @@ export type Database = {
         Returns: string
       }
       create_client_invite: {
-        Args: { p_project: string; p_valid_until: string }
+        Args: {
+          p_project: string
+          p_tier?: Database["public"]["Enums"]["client_access_tier"]
+          p_valid_until: string
+        }
         Returns: string
       }
       create_client_po: {
@@ -6991,6 +7002,13 @@ export type Database = {
         Args: { p_code: string; p_is_active: boolean }
         Returns: undefined
       }
+      set_client_access_tier: {
+        Args: {
+          p_access_id: string
+          p_tier: Database["public"]["Enums"]["client_access_tier"]
+        }
+        Returns: undefined
+      }
       set_client_billing_installment: {
         Args: { p_billing_id: string; p_installment_id: string }
         Returns: string
@@ -7538,6 +7556,7 @@ export type Database = {
         | "service"
         | "softcost"
         | "assembly"
+      client_access_tier: "basic" | "full"
       client_billing_status:
         | "draft"
         | "submitted"
@@ -7894,6 +7913,7 @@ export const Constants = {
         "softcost",
         "assembly",
       ],
+      client_access_tier: ["basic", "full"],
       client_billing_status: [
         "draft",
         "submitted",

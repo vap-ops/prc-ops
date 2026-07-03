@@ -23,7 +23,12 @@ import { loadClientWpDetail } from "@/lib/client-portal/load-client-wp-detail";
 
 const selects: Record<string, string> = {};
 
-function makeSupabase(rows: { wp: unknown; photos: unknown }) {
+function makeSupabase(rows: {
+  wp: unknown;
+  photos: unknown;
+  category?: unknown;
+  isFullTier?: boolean;
+}) {
   function query(table: string, data: unknown) {
     const builder = {
       select(cols: string) {
@@ -49,7 +54,13 @@ function makeSupabase(rows: { wp: unknown; photos: unknown }) {
     from(table: string) {
       if (table === "work_packages") return query(table, rows.wp);
       if (table === "photo_logs") return query(table, rows.photos);
+      if (table === "project_categories") return query(table, rows.category ?? null);
       throw new Error(`unexpected table ${table}`);
+    },
+    rpc(fn: string) {
+      if (fn === "client_has_full_access")
+        return Promise.resolve({ data: rows.isFullTier ?? false });
+      throw new Error(`unexpected rpc ${fn}`);
     },
   };
 }
@@ -63,6 +74,8 @@ const WP = {
   description: "หล่อเสาเข็มทั้งหมด 40 ต้น",
   planned_start: "2026-01-01",
   planned_end: "2026-02-01",
+  category_id: "cat1",
+  priority: "urgent",
 };
 
 beforeEach(() => {
@@ -130,5 +143,36 @@ describe("loadClientWpDetail", () => {
     expect(detail!.plannedStart).toBe("2026-01-01");
     expect(detail!.plannedEnd).toBe("2026-02-01");
     expect(detail!.photos.map((p) => p.id)).toEqual(["new"]);
+  });
+
+  it("omits categoryName + priority for a basic-tier client", async () => {
+    const supabase = makeSupabase({ wp: WP, photos: [], isFullTier: false });
+    const detail = await loadClientWpDetail(supabase as never, "p1", "wp1");
+    expect(detail!.categoryName).toBeUndefined();
+    expect(detail!.priority).toBeUndefined();
+    expect(selects.project_categories).toBeUndefined();
+  });
+
+  it("includes categoryName + priority for a full-tier client", async () => {
+    const supabase = makeSupabase({
+      wp: WP,
+      photos: [],
+      isFullTier: true,
+      category: { name: "งานโครงสร้าง" },
+    });
+    const detail = await loadClientWpDetail(supabase as never, "p1", "wp1");
+    expect(detail!.categoryName).toBe("งานโครงสร้าง");
+    expect(detail!.priority).toBe("urgent");
+  });
+
+  it("full tier with no category set on the WP -> categoryName null, not a crash", async () => {
+    const supabase = makeSupabase({
+      wp: { ...WP, category_id: null },
+      photos: [],
+      isFullTier: true,
+    });
+    const detail = await loadClientWpDetail(supabase as never, "p1", "wp1");
+    expect(detail!.categoryName).toBeNull();
+    expect(selects.project_categories).toBeUndefined();
   });
 });

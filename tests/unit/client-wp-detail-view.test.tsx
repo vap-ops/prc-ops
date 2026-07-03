@@ -44,4 +44,25 @@ describe("ClientWpDetailView", () => {
     render(<ClientWpDetailView detail={detail} backHref="/client/p1" />);
     expect(screen.queryByRole("button", { name: /บันทึก|แก้ไข|ลบ|ส่ง/ })).toBeNull();
   });
+
+  it("renders no category/priority rows for a basic-tier client (fields absent)", () => {
+    render(<ClientWpDetailView detail={detail} backHref="/client/p1" />);
+    expect(screen.queryByText("หมวดงาน")).toBeNull();
+    expect(screen.queryByText("ความสำคัญ")).toBeNull();
+  });
+
+  it("renders category + priority rows for a full-tier client (fields present)", () => {
+    const fullDetail = { ...detail, categoryName: "งานโครงสร้าง", priority: "urgent" as const };
+    render(<ClientWpDetailView detail={fullDetail} backHref="/client/p1" />);
+    expect(screen.getByText("หมวดงาน")).toBeInTheDocument();
+    expect(screen.getByText("งานโครงสร้าง")).toBeInTheDocument();
+    expect(screen.getByText("ความสำคัญ")).toBeInTheDocument();
+    expect(screen.getByText("เร่งด่วน")).toBeInTheDocument();
+  });
+
+  it("full tier with no category set -> shows the unset label, not a blank/crash", () => {
+    const fullDetail = { ...detail, categoryName: null, priority: "normal" as const };
+    render(<ClientWpDetailView detail={fullDetail} backHref="/client/p1" />);
+    expect(screen.getByText("ยังไม่ระบุหมวดงาน")).toBeInTheDocument();
+  });
 });
