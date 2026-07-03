@@ -3425,6 +3425,54 @@ export type Database = {
           },
         ]
       }
+      purchase_order_charges: {
+        Row: {
+          amount: number
+          charge_type: Database["public"]["Enums"]["po_charge_type"]
+          created_at: string
+          created_by: string
+          id: string
+          note: string | null
+          purchase_order_id: string
+          vat_rate: number
+        }
+        Insert: {
+          amount: number
+          charge_type: Database["public"]["Enums"]["po_charge_type"]
+          created_at?: string
+          created_by: string
+          id?: string
+          note?: string | null
+          purchase_order_id: string
+          vat_rate?: number
+        }
+        Update: {
+          amount?: number
+          charge_type?: Database["public"]["Enums"]["po_charge_type"]
+          created_at?: string
+          created_by?: string
+          id?: string
+          note?: string | null
+          purchase_order_id?: string
+          vat_rate?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_charges_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_charges_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchase_order_deliveries: {
         Row: {
           carrier: string | null
@@ -6402,6 +6450,16 @@ export type Database = {
         Args: { p_feedback_id: string; p_storage_path: string }
         Returns: string
       }
+      add_purchase_order_charge: {
+        Args: {
+          p_amount: number
+          p_charge_type: Database["public"]["Enums"]["po_charge_type"]
+          p_note: string
+          p_po_id: string
+          p_vat_rate: number
+        }
+        Returns: string
+      }
       add_purchase_quote: {
         Args: {
           p_note: string
@@ -7009,6 +7067,10 @@ export type Database = {
         Returns: string
       }
       post_labor_freeze_to_gl: {
+        Args: { p_source_id: string }
+        Returns: string
+      }
+      post_purchase_order_charge_to_gl: {
         Args: { p_source_id: string }
         Returns: string
       }
@@ -7832,6 +7894,10 @@ export type Database = {
         Returns: string
       }
       void_purchase_order: { Args: { p_po_id: string }; Returns: undefined }
+      void_purchase_order_charge: {
+        Args: { p_charge_id: string }
+        Returns: undefined
+      }
       wp_equipment_sell: { Args: { p_wp: string }; Returns: number }
       wp_labor_sell: { Args: { p_wp: string }; Returns: number }
       wp_profit: {
@@ -7903,6 +7969,8 @@ export type Database = {
         | "subcontract_crew_member_add"
         | "subcontract_crew_member_update"
         | "subcontract_crew_document_add"
+        | "po_charge_add"
+        | "po_charge_void"
       boq_line_status: "draft" | "frozen" | "superseded"
       boq_variation_type: "standard" | "added" | "omitted" | "provisional_sum"
       catalog_fulfillment_mode: "off_shelf" | "made_to_order"
@@ -8015,6 +8083,7 @@ export type Database = {
       peak_sync_operation: "create" | "void"
       peak_sync_status: "pending" | "sending" | "sent" | "failed" | "skipped"
       photo_phase: "before" | "during" | "after" | "after_fix" | "defect"
+      po_charge_type: "transport" | "discount" | "other"
       project_status: "active" | "on_hold" | "completed" | "archived"
       project_type:
         | "new_building"
@@ -8270,6 +8339,8 @@ export const Constants = {
         "subcontract_crew_member_add",
         "subcontract_crew_member_update",
         "subcontract_crew_document_add",
+        "po_charge_add",
+        "po_charge_void",
       ],
       boq_line_status: ["draft", "frozen", "superseded"],
       boq_variation_type: ["standard", "added", "omitted", "provisional_sum"],
@@ -8394,6 +8465,7 @@ export const Constants = {
       peak_sync_operation: ["create", "void"],
       peak_sync_status: ["pending", "sending", "sent", "failed", "skipped"],
       photo_phase: ["before", "during", "after", "after_fix", "defect"],
+      po_charge_type: ["transport", "discount", "other"],
       project_status: ["active", "on_hold", "completed", "archived"],
       project_type: [
         "new_building",

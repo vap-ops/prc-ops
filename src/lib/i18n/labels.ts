@@ -261,6 +261,19 @@ export const CREATE_PO_LABEL = "สร้างใบสั่งซื้อ";
 // drift (the รับของ→จัดส่ง button straggler that prompted this — shotgun surgery).
 export const PROOF_OF_DELIVERY_LABEL = "หลักฐานการจัดส่ง";
 
+// Spec 260 — PO-level charges (ค่าใช้จ่ายระดับใบสั่งซื้อ): transport / discount /
+// other, plus the charges-aware grand total. One home for these user-facing terms
+// (UI-term SSOT) — the create sheet, the PO-detail charges block, and any report
+// read from the same strings.
+export const PO_CHARGE_TYPE_LABEL: Record<Enums["po_charge_type"], string> = {
+  transport: "ค่าขนส่ง",
+  discount: "ส่วนลด",
+  other: "ค่าใช้จ่ายอื่น",
+};
+export const PO_CHARGES_SECTION_LABEL = "ค่าใช้จ่ายระดับใบสั่งซื้อ";
+export const PO_GRAND_TOTAL_LABEL = "ยอดรวมใบสั่งซื้อ";
+export const ADD_PO_CHARGE_LABEL = "เพิ่มค่าใช้จ่าย";
+
 // Requester-set urgency (spec 16 addendum A2).
 export const PURCHASE_REQUEST_PRIORITY_LABEL: Record<Enums["purchase_request_priority"], string> = {
   normal: "ปกติ",

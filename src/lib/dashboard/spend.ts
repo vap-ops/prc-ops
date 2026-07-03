@@ -1,6 +1,9 @@
 // Spec 100 — dashboard money helpers (PM/super only; rendered server-side
 // behind requireRole(PM_ROLES), fed by admin-client reads). Pure.
 
+import { round2 } from "@/lib/format";
+import type { PoChargeType } from "@/lib/purchasing/purchase-order";
+
 // Purchase-request statuses that represent money actually committed/spent.
 // requested/approved/rejected/cancelled are NOT spend.
 export const SPEND_STATUSES: ReadonlySet<string> = new Set([
@@ -177,6 +180,64 @@ export function spendByWorkCategory(
     return y.amount - x.amount || x.name.localeCompare(y.name);
   });
   return rows;
+}
+
+// Spec 260 — PO-level charges (transport/other/discount) are committed spend the
+// dashboard budget bars would otherwise miss. A charge belongs to a PO; the PO's
+// member lines carry the project(s). This allocates each charge's SIGNED spend
+// (transport/other add, discount subtracts — the amount is stored positive, the
+// direction lives in the TYPE) across those projects PROPORTIONALLY by line
+// weight, mirroring the GL poster's per-line allocation. The remainder satang
+// lands on the largest weight so the per-project shares sum EXACTLY to the
+// signed charge — the same exact-sum discipline as the poster. In practice a PO
+// is one project (the whole charge lands there); the split only matters for the
+// rare cross-project PO. The result folds into each project's spend total, so
+// dashboard total = Σ line amounts + Σ allocated charges (unit-pinned).
+export interface ChargeAllocation {
+  charge_type: PoChargeType;
+  /** Gross, ALWAYS positive — the direction comes from charge_type. */
+  amount: number;
+  /** The charge's PO member-line weights by project (line gross amounts). */
+  projectWeights: ReadonlyArray<{ projectId: string; weight: number }>;
+}
+
+export function allocateChargeSpendByProject(
+  charges: ReadonlyArray<ChargeAllocation>,
+): Map<string, number> {
+  const out = new Map<string, number>();
+  const add = (projectId: string, amount: number) =>
+    out.set(projectId, round2((out.get(projectId) ?? 0) + amount));
+
+  for (const c of charges) {
+    const signed = c.charge_type === "discount" ? -c.amount : c.amount;
+    const weighted = c.projectWeights.filter((w) => w.weight > 0);
+    const totalWeight = weighted.reduce((s, w) => s + w.weight, 0);
+
+    // Degenerate (no priced member line): attribute the whole charge to the first
+    // listed project so the total is never silently dropped. Practical POs always
+    // have priced lines, so this is a safety net, not the normal path.
+    if (weighted.length === 0 || totalWeight <= 0) {
+      const target = c.projectWeights[0]?.projectId;
+      if (target != null) add(target, signed);
+      continue;
+    }
+
+    // Largest weight first (id tie-break) so the remainder lands deterministically.
+    const ranked = [...weighted].sort(
+      (a, b) => b.weight - a.weight || a.projectId.localeCompare(b.projectId),
+    );
+    let assigned = 0;
+    const shares = ranked.map((w) => {
+      const share = round2((signed * w.weight) / totalWeight);
+      assigned = round2(assigned + share);
+      return { projectId: w.projectId, share };
+    });
+    // Exact-sum: the remainder satang lands on the largest share (index 0).
+    const first = shares[0];
+    if (first) first.share = round2(first.share + (signed - assigned));
+    for (const s of shares) add(s.projectId, s.share);
+  }
+  return out;
 }
 
 export interface BudgetStatus {

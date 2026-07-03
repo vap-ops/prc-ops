@@ -5,10 +5,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const AMOUNTS = [{ id: "pr1", amount: 500 }];
+// Spec 260 — the loader also reads the PO's charges via the admin client
+// (.select().eq().order()); the amounts read is .select().in(). One stub covers both.
+const CHARGES = [{ id: "c1", charge_type: "transport", amount: 100, note: null }];
 vi.mock("@/lib/db/admin", () => ({
   createClient: () => ({
     from: () => ({
-      select: () => ({ in: async () => ({ data: AMOUNTS, error: null }) }),
+      select: () => ({
+        in: async () => ({ data: AMOUNTS, error: null }),
+        eq: () => ({ order: async () => ({ data: CHARGES, error: null }) }),
+      }),
     }),
   }),
 }));
@@ -93,10 +99,13 @@ describe("loadPurchaseOrderDetail", () => {
     expect(data.deliveryRows).toEqual(DELIVERIES);
     expect(data.wpById.get("w1")?.code).toBe("WP-01");
     expect(data.amountById.get("pr1")).toBe(500);
+    // Spec 260 — the charges load (money, back-office gated).
+    expect(data.charges).toEqual(CHARGES);
   });
 
-  it("skips amounts for non-back-office", async () => {
+  it("skips amounts and charges for non-back-office", async () => {
     const data = await loadPurchaseOrderDetail(supabase, "po1", { isBackOffice: false });
     expect(data.amountById.size).toBe(0);
+    expect(data.charges).toEqual([]);
   });
 });

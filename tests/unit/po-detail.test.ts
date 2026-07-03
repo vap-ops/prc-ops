@@ -65,4 +65,35 @@ describe("buildPoDetailView", () => {
       ]),
     ).toEqual({ status: "open", total: 0, activeLineCount: 0 });
   });
+
+  // Spec 260 — the total is now the charges-aware GRAND total: active line sum
+  // + transport + other − discount. Charges default to none (the historical
+  // line-sum behaviour is preserved for every existing caller).
+  it("folds PO-level charges into the total (transport/other add, discount subtracts)", () => {
+    const view = buildPoDetailView(
+      [
+        { status: "purchased", amount: 300 },
+        { status: "purchased", amount: 100 },
+      ],
+      [
+        { charge_type: "transport", amount: 107 },
+        { charge_type: "discount", amount: 53.5 },
+      ],
+    );
+    expect(view.total).toBe(453.5);
+    // charges do not change the active line count (still the two priced lines).
+    expect(view.activeLineCount).toBe(2);
+  });
+
+  it("excludes rejected/cancelled lines from the line sum but still applies charges", () => {
+    const view = buildPoDetailView(
+      [
+        { status: "delivered", amount: 100 },
+        { status: "rejected", amount: 999 },
+      ],
+      [{ charge_type: "transport", amount: 20 }],
+    );
+    expect(view.total).toBe(120);
+    expect(view.activeLineCount).toBe(1);
+  });
 });

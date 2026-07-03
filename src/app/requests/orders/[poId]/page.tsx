@@ -33,7 +33,9 @@ import {
 } from "@/lib/status-icons";
 import { PoReceiveSection } from "@/components/features/purchasing/po-receive-section";
 import { VoidPurchaseOrderButton } from "@/components/features/purchasing/void-purchase-order-button";
+import { PoChargesSection } from "@/components/features/purchasing/po-charges-section";
 import { canVoidPurchaseOrder } from "@/lib/purchasing/purchase-order";
+import { isManagerRole } from "@/lib/auth/role-home";
 import { PurchaseOrderTracker } from "@/components/features/purchasing/purchase-order-tracker";
 import { PoDeliveriesTracker } from "@/components/features/purchasing/po-deliveries-tracker";
 import { PoDeliverySection } from "@/components/features/purchasing/po-delivery-section";
@@ -94,7 +96,7 @@ export default async function PurchaseOrderDetailPage({ params, searchParams }: 
   // Spec 148 U1: one loader batches the PO-detail reads (was a serial waterfall).
   // Same queries/columns/results — only the scheduling changes. Per-line amount
   // (money) stays admin-client + back-office-only (spec 106), inside the loader.
-  const { po, members, deliveryRows, wpById, amountById } = await loadPurchaseOrderDetail(
+  const { po, members, deliveryRows, wpById, amountById, charges } = await loadPurchaseOrderDetail(
     supabase,
     poId,
     { isBackOffice: canSeeMoney },
@@ -105,9 +107,11 @@ export default async function PurchaseOrderDetailPage({ params, searchParams }: 
   }
 
   // Derived roll-up: status from every member, total + active count excluding
-  // rejected/cancelled (ADR 0044 §5; buildPoDetailView pins this).
+  // rejected/cancelled (ADR 0044 §5; buildPoDetailView pins this). Spec 260: the
+  // total is the charges-aware GRAND total (line sum + transport/other − discount).
   const view = buildPoDetailView(
     members.map((m) => ({ status: m.status, amount: amountById.get(m.id) ?? null })),
+    charges.map((c) => ({ charge_type: c.charge_type, amount: c.amount })),
   );
 
   // Spec 134 U5: the in-transit lines feed the รับของ checklist (all ticked by
@@ -295,6 +299,19 @@ export default async function PurchaseOrderDetailPage({ params, searchParams }: 
             <p className="text-ink-secondary text-xs">ใบสั่งซื้อนี้ยังไม่มีรายการ</p>
           ) : null}
         </div>
+
+        {/* Spec 260: PO-level charges (transport/discount/other) + the grand
+            total, under the line list. Money surface — back office / accounting
+            only. add = create-gate roles (isBackOffice); void = manager-only. */}
+        {canSeeMoney ? (
+          <PoChargesSection
+            poId={po.id}
+            charges={charges}
+            grandTotal={view.total}
+            canAdd={isBackOffice}
+            canVoid={isManagerRole(ctx.role)}
+          />
+        ) : null}
       </section>
     </PageShell>
   );

@@ -29,7 +29,9 @@ select enum_has_labels(
         'subcontract_payment_record', 'subcontract_payment_supersede',
         -- Spec 258: subcontract crew register.
         'subcontract_crew_member_add', 'subcontract_crew_member_update',
-        'subcontract_crew_document_add'],
+        'subcontract_crew_document_add',
+        -- Spec 260: PO-level charges (transport/discount/other).
+        'po_charge_add', 'po_charge_void'],
   'audit_action has the expected v1+profile_update+purchasing+labor+equipment+accounting labels'
 );
 

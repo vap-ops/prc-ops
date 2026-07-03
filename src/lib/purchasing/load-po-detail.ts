@@ -46,17 +46,39 @@ export async function loadPurchaseOrderDetail(
   );
   const memberIds = members.map((m) => m.id);
 
-  // Dependent tail: both need the member rows. WP chips (RLS client) and per-line
-  // amounts (admin client, back-office money — spec 106) run together.
-  const [wpRes, amountById] = await Promise.all([
+  // Dependent tail: WP chips (RLS client) run with the money reads (admin client,
+  // back-office only — spec 106): per-line amounts and the PO-level charges
+  // (spec 260). Charges are money, so they follow the same gate as amounts.
+  const [wpRes, amountById, charges] = await Promise.all([
     wpIds.length
       ? supabase.from("work_packages").select("id, code, name, project_id").in("id", wpIds)
       : Promise.resolve({ data: [] as WpChip[] }),
     loadAmounts(opts.isBackOffice, memberIds),
+    loadCharges(opts.isBackOffice, poId),
   ]);
 
   const wpById = new Map((wpRes.data ?? []).map((wp) => [wp.id, wp]));
-  return { po, members, deliveryRows: deliveryRows ?? [], wpById, amountById };
+  return { po, members, deliveryRows: deliveryRows ?? [], wpById, amountById, charges };
+}
+
+// Spec 260 — the PO's charges (money): read via the admin client, gated to back
+// office / accounting exactly like the per-line amounts. Empty for non-money roles.
+export interface PoChargeRow {
+  id: string;
+  charge_type: Database["public"]["Enums"]["po_charge_type"];
+  amount: number;
+  note: string | null;
+}
+
+async function loadCharges(isBackOffice: boolean, poId: string): Promise<PoChargeRow[]> {
+  if (!isBackOffice) return [];
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("purchase_order_charges")
+    .select("id, charge_type, amount, note")
+    .eq("purchase_order_id", poId)
+    .order("created_at", { ascending: true });
+  return data ?? [];
 }
 
 // Spec 106 / ADR 0038: per-line amount via the admin client, gated to back office.
