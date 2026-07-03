@@ -9,6 +9,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/database.types";
 import { criticalWorkPackageIds } from "@/lib/work-packages/critical-path";
+import { activitySpans } from "@/lib/work-packages/activity-span";
 
 type Db = SupabaseClient<Database>;
 
@@ -31,13 +32,35 @@ export async function loadProjectSchedule(supabase: Db, projectId: string) {
   const wpRows = workPackages ?? [];
   const wpIds = wpRows.map((w) => w.id);
 
-  // Dependent tail: finish-to-start dependencies feed the critical path (spec 92).
-  const { data: depRows } = wpIds.length
-    ? await supabase
-        .from("work_package_dependencies")
-        .select("predecessor_id, successor_id")
-        .in("predecessor_id", wpIds)
-    : { data: [] as { predecessor_id: string; successor_id: string }[] };
+  // Dependent tail: finish-to-start dependencies feed the critical path (spec 92);
+  // photo rows feed the per-WP activity spans (spec 255). Both are wpIds-keyed and
+  // independent of each other, so they fan concurrently.
+  const [{ data: depRows }, { data: photoRows }] = wpIds.length
+    ? await Promise.all([
+        supabase
+          .from("work_package_dependencies")
+          .select("predecessor_id, successor_id")
+          .in("predecessor_id", wpIds),
+        supabase
+          .from("photo_logs")
+          .select(
+            "id, work_package_id, storage_path, superseded_by, captured_at_client, created_at",
+          )
+          .in("work_package_id", wpIds),
+      ])
+    : [
+        { data: [] as { predecessor_id: string; successor_id: string }[] },
+        {
+          data: [] as {
+            id: string;
+            work_package_id: string;
+            storage_path: string | null;
+            superseded_by: string | null;
+            captured_at_client: string | null;
+            created_at: string;
+          }[],
+        },
+      ];
 
   const criticalIds = criticalWorkPackageIds(
     wpRows.map((w) => ({ id: w.id, plannedStart: w.planned_start, plannedEnd: w.planned_end })),
@@ -50,5 +73,6 @@ export async function loadProjectSchedule(supabase: Db, projectId: string) {
     deliverables: deliverables ?? [],
     depRows: depRows ?? [],
     criticalIds,
+    activitySpans: activitySpans(photoRows ?? []),
   };
 }

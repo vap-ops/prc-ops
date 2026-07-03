@@ -29,6 +29,17 @@ const LIST: Record<string, unknown[]> = {
   work_packages: WPS,
   deliverables: DELIVERABLES,
   work_package_dependencies: [],
+  // Spec 255 U1 — photo evidence feeds per-WP activity spans.
+  photo_logs: [
+    {
+      id: "ph1",
+      work_package_id: "w1",
+      storage_path: "photos/ph1.jpg",
+      superseded_by: null,
+      captured_at_client: null,
+      created_at: "2026-06-15T05:00:00.000Z",
+    },
+  ],
 };
 
 function makeQuery(table: string) {
@@ -73,5 +84,10 @@ describe("loadProjectSchedule", () => {
     expect(data.deliverables).toEqual(DELIVERABLES);
     expect(data.depRows).toEqual([]);
     expect(data.criticalIds).toBeInstanceOf(Set);
+  });
+
+  it("returns per-WP activity spans from photo_logs (spec 255)", async () => {
+    const data = await loadProjectSchedule(supabase, "p1");
+    expect(data.activitySpans.get("w1")).toEqual({ firstIso: "2026-06-15", lastIso: "2026-06-15" });
   });
 });

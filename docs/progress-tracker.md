@@ -6,6 +6,18 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 255 — Schedule calendar actuals timeline — 🔨 IN PROGRESS (2026-07-03)
+
+Audit found the schedule Gantt dead in prod (274 WPs, 1 dated, 3 visits ever, all
+empty-state). Operator approved: derive activity strips from photo evidence
+(supersede/tombstone-aware per-WP min/max Bangkok photo date) + presentation fixes
+(collapse no-data rows behind toggle, auto-scroll to today, summary chips). Code-only.
+**U1** activity-span lib + `load-schedule` extension (PR 1) · **U2+U3** gantt-scale
+domain + component UI (PR 2). TDD. Out of scope: bulk date editor, real progress
+fills (follow-up specs if wanted).
+
+---
+
 ## Spec 246 — SemVer release automation — ✅ U1 SHIPPED (2026-07-02)
 
 Operator: "the versioning is at 0.1.0, apply best practice to versioning control."
