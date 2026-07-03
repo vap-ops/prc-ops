@@ -32,6 +32,8 @@ import {
   purchaseRequestStatusIcon,
 } from "@/lib/status-icons";
 import { PoReceiveSection } from "@/components/features/purchasing/po-receive-section";
+import { VoidPurchaseOrderButton } from "@/components/features/purchasing/void-purchase-order-button";
+import { canVoidPurchaseOrder } from "@/lib/purchasing/purchase-order";
 import { PurchaseOrderTracker } from "@/components/features/purchasing/purchase-order-tracker";
 import { PoDeliveriesTracker } from "@/components/features/purchasing/po-deliveries-tracker";
 import { PoDeliverySection } from "@/components/features/purchasing/po-delivery-section";
@@ -150,6 +152,11 @@ export default async function PurchaseOrderDetailPage({ params, searchParams }: 
     activeCountByDelivery[m.delivery_id] = (activeCountByDelivery[m.delivery_id] ?? 0) + 1;
   }
 
+  // Spec 259: revert a mistakenly-created PO — only while nothing has
+  // shipped (mirrors void_purchase_order's own guard; the RPC re-checks
+  // regardless). Same back-office gate as the delivery-management section.
+  const canVoid = isBackOffice && canVoidPurchaseOrder(members.map((m) => m.status));
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -171,6 +178,12 @@ export default async function PurchaseOrderDetailPage({ params, searchParams }: 
       </DetailHeader>
 
       <section className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-8 px-5 py-6`}>
+        {canVoid ? (
+          <div className="flex justify-end">
+            <VoidPurchaseOrderButton purchaseOrderId={po.id} poNumber={po.po_number} />
+          </div>
+        ) : null}
+
         <div className="rounded-card border-edge bg-card shadow-card border p-4">
           <p className="text-ink text-sm">
             {view.activeLineCount} รายการในใบสั่งซื้อ

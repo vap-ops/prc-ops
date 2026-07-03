@@ -5548,3 +5548,44 @@ standing U2b follow-up.
   (drops a one-row section; loses the spec-212 heading framing)? (b) two hint copies
   were unified — ทีมงาน now shows the manager copy to procurement, ทะเบียนวัสดุ shows
   the procurement copy to managers; flag if either reads wrong in the field.
+
+## Spec 259 — Void purchase order, procurement self-service revert (2026-07-03)
+
+- Operator: PO-3245 was created by mistake (duplicate/test order, still `ordered`,
+  nothing shipped) and there was no way to undo it — `purchase_orders` has no
+  DELETE/UPDATE policy (ADR 0044 §6), and the only "fix" would have been an
+  operator hand-editing prod rows outside the app. Operator also asked for
+  procurement to be able to self-serve this instead of needing an engineer.
+- Change: `void_purchase_order(p_po_id)` — third RPC in the ADR 0038
+  record_purchase/create_purchase_order family, same back-office gate
+  (`project_manager`/`procurement`/`super_admin`). Guard: every member must
+  still be exactly `purchased` (nothing shipped/delivered) — all-or-nothing.
+  Per member: reverses any already-posted GL entry + skips any still-pending
+  `gl_posting_outbox` job (the spec 198 U2 divert pattern — create_purchase_order's
+  approved→purchased flip is the exact transition the GL-posting triggers key
+  on, and nulling the fields back does NOT re-enqueue a reversal on its own).
+  Members reset to their exact pre-purchase shape (status/purchase_order_id/
+  delivery_id/supplier/supplier_id/amount/vat_rate(→0, NOT NULL)/order_ref/eta/
+  purchased_at) — free to be bundled into a correct PO. One `purchase_order_void`
+  audit row (new `audit_action` enum value, own migration — Postgres enum-add
+  rule). The PO row deletes; `purchase_order_deliveries` cascades.
+- Test-first: pgTAP `259-void-purchase-order` (23/23) — structure, role gate
+  (site_admin/visitor refused), 404, the shipped-line guard, GL reversal
+  (WP-WIP nets to 0 for an already-posted line) + pending-job skip, full
+  unlink, PO+delivery delete, audit row shape, and the acceptance criterion:
+  the reverted ticket bundles cleanly into a brand-new PO. Vitest
+  `canVoidPurchaseOrder` pure predicate (client-side mirror of the RPC guard).
+- Real incident, same session: migration pushed live (additive-only, no
+  collision — the concurrent spec 251 schema-lane holder hadn't pushed
+  anything yet), pgTAP proved green on the remote, then PO-3245 itself
+  (uuid `d111bcbe-a0e4-4d2f-9d48-3def1c6ecb09`, 19 store-bound lines) was
+  reverted for real via the RPC (signed in as the dev-preview super_admin
+  test account, not raw SQL) — all 19 lines back to `approved`, PO gone,
+  audit row recorded. Verified via service-role read afterward.
+- Verified: lint/typecheck clean, vitest 2536/2536. UI: a
+  "ยกเลิกใบสั่งซื้อ" confirm-button on `/requests/orders/[poId]`, gated to
+  `isBackOfficeRole` + `canVoidPurchaseOrder(members)`, mirrors the existing
+  `PurchaseRequestCancel`/`ConfirmActionButton` pattern.
+- Open questions: none. Out of scope (recorded in the spec): editing a PO in
+  place, voiding a partially-shipped order, any broader admin-powers framework
+  for procurement beyond this one action.

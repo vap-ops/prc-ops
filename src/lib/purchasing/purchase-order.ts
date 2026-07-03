@@ -111,6 +111,17 @@ export function purchaseOrderStageStates(status: PurchaseOrderStatus): PurchaseO
   ];
 }
 
+// Spec 259 — client-side mirror of void_purchase_order's own guard: a PO is
+// revertible only while nothing has shipped, i.e. EVERY member is still
+// exactly 'purchased' (record_shipment / receive not yet run on any of
+// them). Kept separate from derivePurchaseOrderStatus's roll-up (which
+// deliberately EXCLUDES rejected/cancelled members) — void must refuse a PO
+// with a rejected/cancelled member too, since that isn't the clean
+// all-purchased shape create_purchase_order produced.
+export function canVoidPurchaseOrder(memberStatuses: PurchaseRequestStatus[]): boolean {
+  return memberStatuses.length > 0 && memberStatuses.every((s) => s === "purchased");
+}
+
 export function purchaseOrderTotal(lineAmounts: Array<number | null>): number {
   return lineAmounts.reduce<number>((sum, a) => sum + (a ?? 0), 0);
 }

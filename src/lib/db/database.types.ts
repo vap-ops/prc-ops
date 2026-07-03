@@ -7483,6 +7483,7 @@ export type Database = {
         }
         Returns: string
       }
+      void_purchase_order: { Args: { p_po_id: string }; Returns: undefined }
       wp_equipment_sell: { Args: { p_wp: string }; Returns: number }
       wp_labor_sell: { Args: { p_wp: string }; Returns: number }
       wp_profit: {
@@ -7545,6 +7546,7 @@ export type Database = {
         | "client_receipt_record"
         | "client_receipt_supersede"
         | "client_billing_invoiced"
+        | "purchase_order_void"
       boq_line_status: "draft" | "frozen" | "superseded"
       boq_variation_type: "standard" | "added" | "omitted" | "provisional_sum"
       catalog_fulfillment_mode: "off_shelf" | "made_to_order"
@@ -7900,6 +7902,7 @@ export const Constants = {
         "client_receipt_record",
         "client_receipt_supersede",
         "client_billing_invoiced",
+        "purchase_order_void",
       ],
       boq_line_status: ["draft", "frozen", "superseded"],
       boq_variation_type: ["standard", "added", "omitted", "provisional_sum"],

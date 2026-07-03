@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  canVoidPurchaseOrder,
   derivePurchaseOrderStatus,
   purchaseOrderStageStates,
   purchaseOrderTotal,
@@ -58,6 +59,32 @@ describe("derivePurchaseOrderStatus", () => {
   it("returns 'open' for an empty roll-up (no members, or all excluded)", () => {
     expect(derivePurchaseOrderStatus([])).toBe("open");
     expect(derivePurchaseOrderStatus(["rejected", "cancelled"])).toBe("open");
+  });
+});
+
+describe("canVoidPurchaseOrder", () => {
+  // Spec 259: void_purchase_order's client-side mirror of the RPC's own
+  // guard — revertible only while EVERY member is still exactly 'purchased'
+  // (nothing shipped/delivered). Keeps the button from appearing for an
+  // order the RPC would refuse anyway.
+  it("is true when every member is purchased", () => {
+    expect(canVoidPurchaseOrder(["purchased"])).toBe(true);
+    expect(canVoidPurchaseOrder(["purchased", "purchased"])).toBe(true);
+  });
+
+  it("is false once any member has shipped or delivered", () => {
+    expect(canVoidPurchaseOrder(["purchased", "on_route"])).toBe(false);
+    expect(canVoidPurchaseOrder(["purchased", "delivered"])).toBe(false);
+    expect(canVoidPurchaseOrder(["delivered"])).toBe(false);
+  });
+
+  it("is false for a rejected/cancelled member too (not a clean all-purchased order)", () => {
+    expect(canVoidPurchaseOrder(["purchased", "cancelled"])).toBe(false);
+    expect(canVoidPurchaseOrder(["purchased", "rejected"])).toBe(false);
+  });
+
+  it("is false with no members (nothing to void)", () => {
+    expect(canVoidPurchaseOrder([])).toBe(false);
   });
 });
 
