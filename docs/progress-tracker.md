@@ -6,15 +6,20 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 255 — Schedule calendar actuals timeline — 🔨 IN PROGRESS (2026-07-03)
+## Spec 255 — Schedule calendar actuals timeline — ✅ SHIPPED (2026-07-03, PRs #273 + #274)
 
 Audit found the schedule Gantt dead in prod (274 WPs, 1 dated, 3 visits ever, all
 empty-state). Operator approved: derive activity strips from photo evidence
 (supersede/tombstone-aware per-WP min/max Bangkok photo date) + presentation fixes
 (collapse no-data rows behind toggle, auto-scroll to today, summary chips). Code-only.
-**U1** activity-span lib + `load-schedule` extension (PR 1) · **U2+U3** gantt-scale
-domain + component UI (PR 2). TDD. Out of scope: bulk date editor, real progress
-fills (follow-up specs if wanted).
+**U1** activity-span lib + `load-schedule` extension (#273) · **U2+U3** gantt-scale
+domain + component UI (#274). TDD; full suite 373/2466 green. Live-verified against
+prod data (DOM-level): PRC-2026-003 shows 11 activity strips instead of the former
+permanent empty state; TFM collapses 262 rows → 25 with data + "แสดงงานที่ยังไม่มีข้อมูล
+(237)" toggle; chips ช้ากว่าแผน 1 · มีงานจริง 7 วันล่าสุด 22 match the DB. Auto-scroll
+pinned by unit test (preview renderer couldn't do layout that session — environment,
+not app; hydration was dead on untouched pages too). Out of scope, surfaced for later:
+bulk date editor, real progress fills.
 
 ---
 

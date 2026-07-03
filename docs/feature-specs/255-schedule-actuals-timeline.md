@@ -1,6 +1,6 @@
 # Spec 255 — Schedule calendar: actuals-driven timeline + presentation fixes
 
-**Status:** in progress
+**Status:** shipped (PRs #273 + #274, 2026-07-03)
 **Depends on:** spec 92 (schedule Gantt), ADR 0004/0009/0015 (photo_logs supersede/tombstone read pattern)
 **Schema:** none — code-only.
 
