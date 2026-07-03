@@ -6,6 +6,21 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 257 — Schedule photo thumbnails — 🔨 IN PROGRESS (2026-07-03)
+
+Operator on spec 256: "show thumbnails as well? not just count number of images.
+This can potentially turn into daily report generator." Step 0 confirmed Supabase
+image transforms are enabled on the prod bucket (838KB→14.5KB real resize,
+HTTP 200); found `createSignedUrls` (bulk) has no transform option, so thumbnails
+mint per-photo via singular `createSignedUrl`, day-scoped. New `getSchedulePhotos`
+action (RLS-scoped read, ADR 0015 exposure model) feeds วัน/สัปดาห์ strips; reuses
+the existing `ZoomablePhoto` lightbox trigger — no new lightbox code. Code-only.
+**U1** mint-thumbnails lib + action (PR 1) · **U2** UI (PR 2). TDD. Daily-report
+generation is the follow-up spec — will need to reconcile with spec 212 (SA daily
+report, in progress, blocked on 2 operator decisions), not build two systems.
+
+---
+
 ## Spec 256 — Real schedule calendar views — ✅ SHIPPED (2026-07-03, PRs #276 + #277)
 
 Operator on the spec-255 page: "day week month are just shrinking and expanding, not
