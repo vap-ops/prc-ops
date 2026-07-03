@@ -38,12 +38,29 @@ export default async function BillingRegisterPage() {
   const canWrite = BILLING_WRITE_ROLES.includes(ctx.role);
 
   // Parallel reads (no waterfall, spec 147/148): the register + the project picker
-  // (writers only — the create form needs it).
-  const [rows, projectRes] = await Promise.all([
+  // (writers only — the create form needs it) + the งวด options per project
+  // (spec 250 U2 — installments joined through their contract's project).
+  const [rows, projectRes, installmentRes] = await Promise.all([
     loadBillingRegister(admin),
     canWrite ? admin.from("projects").select("id, code, name").order("code") : null,
+    canWrite
+      ? admin
+          .from("contract_installments")
+          .select("id, seq, label, amount, project_contracts ( project_id )")
+          .order("seq")
+      : null,
   ]);
   const projects = (projectRes?.data ?? []).map((p) => ({ id: p.id, label: p.name ?? p.code }));
+  const installmentsByProject: Record<string, { id: string; label: string; amount: number }[]> = {};
+  for (const i of installmentRes?.data ?? []) {
+    const projectId = i.project_contracts?.project_id;
+    if (!projectId) continue;
+    (installmentsByProject[projectId] ??= []).push({
+      id: i.id,
+      label: i.label,
+      amount: Number(i.amount),
+    });
+  }
 
   return (
     <PageShell>
@@ -53,7 +70,9 @@ export default async function BillingRegisterPage() {
       </DetailHeader>
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
-        {canWrite ? <CreateBillingForm projects={projects} /> : null}
+        {canWrite ? (
+          <CreateBillingForm projects={projects} installmentsByProject={installmentsByProject} />
+        ) : null}
 
         <h2 className={SECTION_HEADING}>รายการวางบิลลูกค้า</h2>
         {rows.length === 0 ? (

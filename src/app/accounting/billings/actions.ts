@@ -25,6 +25,8 @@ export interface CreateBillingInput {
   periodFrom?: string | null;
   periodTo?: string | null;
   note?: string | null;
+  // Spec 250 U2 — optional งวด claim target (contract_installments.id).
+  installmentId?: string | null;
 }
 
 export async function createClientBilling(
@@ -64,8 +66,18 @@ export async function createClientBilling(
   if (input.periodTo) args.p_period_to = input.periodTo;
   if (input.note) args.p_note = input.note;
 
-  const { error } = await g.auth.supabase.rpc("create_client_billing", args);
+  const { data: billingId, error } = await g.auth.supabase.rpc("create_client_billing", args);
   if (error) return { ok: false, error: GENERIC };
+
+  // Spec 250 U2 — link the งวด after create. Cross-project picks are re-checked
+  // by the DB trigger (22023); a failed link leaves a valid unlinked draft, so
+  // report success-with-caveat rather than a phantom failure.
+  if (input.installmentId && billingId) {
+    await g.auth.supabase.rpc("set_client_billing_installment", {
+      p_billing_id: billingId,
+      p_installment_id: input.installmentId,
+    });
+  }
   revalidatePath("/accounting/billings");
   return { ok: true };
 }
