@@ -40,6 +40,10 @@ describe("ClientProgressView", () => {
     expect(screen.getByRole("heading", { name: "My Project" })).toBeInTheDocument();
     expect(screen.getByText("ความคืบหน้างาน")).toBeInTheDocument();
     expect(screen.getByText(/งานเสาเข็ม/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /งานเสาเข็ม/ })).toHaveAttribute(
+      "href",
+      "/client/p1/wp/wp1",
+    );
     expect(screen.getByText("รูปความคืบหน้า")).toBeInTheDocument();
     expect(screen.getByText("รายงานความคืบหน้า")).toBeInTheDocument();
     const reportLink = screen.getByRole("link", { name: /รายงาน/ });
