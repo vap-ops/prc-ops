@@ -90,4 +90,9 @@ describe("loadProjectSchedule", () => {
     const data = await loadProjectSchedule(supabase, "p1");
     expect(data.activitySpans.get("w1")).toEqual({ firstIso: "2026-06-15", lastIso: "2026-06-15" });
   });
+
+  it("returns per-day activity counts from the same photo rows (spec 256)", async () => {
+    const data = await loadProjectSchedule(supabase, "p1");
+    expect(data.activityDays.get("2026-06-15")?.get("w1")).toBe(1);
+  });
 });

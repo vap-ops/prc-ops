@@ -10,6 +10,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/database.types";
 import { criticalWorkPackageIds } from "@/lib/work-packages/critical-path";
 import { activitySpans } from "@/lib/work-packages/activity-span";
+import { activityDays } from "@/lib/work-packages/activity-days";
 
 type Db = SupabaseClient<Database>;
 
@@ -74,5 +75,7 @@ export async function loadProjectSchedule(supabase: Db, projectId: string) {
     depRows: depRows ?? [],
     criticalIds,
     activitySpans: activitySpans(photoRows ?? []),
+    // Spec 256 — the same rows, aggregated per day for the calendar views.
+    activityDays: activityDays(photoRows ?? []),
   };
 }

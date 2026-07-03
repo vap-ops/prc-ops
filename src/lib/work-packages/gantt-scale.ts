@@ -13,13 +13,15 @@ export interface PeriodConfig {
   readonly showDays: boolean;
 }
 
+// Spec 256 — the toggle is honest zoom now (ใกล้/กลาง/ไกล); the calendar-view
+// names วัน/สัปดาห์/เดือน moved up to the schedule-views switch.
 export const SCHEDULE_PERIODS: readonly PeriodConfig[] = [
-  { key: "day", label: "วัน", dayWidth: 44, showDays: true },
-  { key: "week", label: "สัปดาห์", dayWidth: 16, showDays: true },
-  { key: "month", label: "เดือน", dayWidth: 5, showDays: false },
+  { key: "day", label: "ใกล้", dayWidth: 44, showDays: true },
+  { key: "week", label: "กลาง", dayWidth: 16, showDays: true },
+  { key: "month", label: "ไกล", dayWidth: 5, showDays: false },
 ];
 
-const THAI_MONTHS = [
+export const THAI_MONTHS = [
   "ม.ค.",
   "ก.พ.",
   "มี.ค.",
