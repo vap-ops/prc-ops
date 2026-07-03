@@ -153,6 +153,10 @@ export default async function FinanceProjectDrillPage({
 
   const billingNoById = new Map((billingRes.data ?? []).map((b) => [b.id, b.billing_no]));
   const nextSeq = funnel.installments.reduce((m, i) => Math.max(m, i.seq), 0) + 1;
+  // Current-state receipts for display (anti-join over the supersede chain),
+  // computed once (review nit: was filtered twice inline).
+  const supersededReceiptIds = new Set(receipts.map((n) => n.supersededBy).filter(Boolean));
+  const liveReceipts = receipts.filter((r) => r.amount !== null && !supersededReceiptIds.has(r.id));
 
   // ------------------------------------------------------------------ COST
   // Same read shapes as the dashboard money block (spec 100/230), scoped to
@@ -292,6 +296,14 @@ export default async function FinanceProjectDrillPage({
                   }))}
                 />
                 <ContractSheet
+                  // Server-keyed remount: after an edit lands (router.refresh),
+                  // fresh contract values re-seed the client form state instead
+                  // of the sheet keeping its last-typed values (review find).
+                  key={
+                    funnel.contract
+                      ? `${funnel.contract.contractValue}-${funnel.contract.retentionRate}`
+                      : "new"
+                  }
                   projectId={projectId}
                   existing={
                     funnel.contract
@@ -439,34 +451,30 @@ export default async function FinanceProjectDrillPage({
             <h2 className={SECTION_HEADING}>เงินรับ</h2>
             {canWrite ? <AdvanceReceiptSheet projectId={projectId} /> : null}
           </div>
-          {receipts.filter(
-            (r) => r.amount !== null && !receipts.some((n) => n.supersededBy === r.id),
-          ).length === 0 ? (
+          {liveReceipts.length === 0 ? (
             <p className="text-ink-muted text-sm">ยังไม่มีเงินรับ</p>
           ) : (
             <ul className="flex flex-col gap-2">
-              {receipts
-                .filter((r) => r.amount !== null && !receipts.some((n) => n.supersededBy === r.id))
-                .map((r) => (
-                  <li
-                    key={r.id}
-                    className="rounded-control bg-sunk flex items-center justify-between gap-3 px-3 py-2 text-sm"
-                  >
-                    <span className="text-ink-secondary min-w-0 truncate">
-                      {r.receivedDate ? formatThaiDate(r.receivedDate) : "—"} ·{" "}
-                      {RECEIPT_METHOD_LABEL[r.method as keyof typeof RECEIPT_METHOD_LABEL] ??
-                        r.method}
-                      {r.billingId === null ? (
-                        <span className="text-attn-ink"> · ล่วงหน้า</span>
-                      ) : (
-                        ` · งวด #${billingNoById.get(r.billingId) ?? "—"}`
-                      )}
-                    </span>
-                    <span className="text-ink shrink-0 font-semibold tabular-nums">
-                      {baht(r.amount ?? 0)}
-                    </span>
-                  </li>
-                ))}
+              {liveReceipts.map((r) => (
+                <li
+                  key={r.id}
+                  className="rounded-control bg-sunk flex items-center justify-between gap-3 px-3 py-2 text-sm"
+                >
+                  <span className="text-ink-secondary min-w-0 truncate">
+                    {r.receivedDate ? formatThaiDate(r.receivedDate) : "—"} ·{" "}
+                    {RECEIPT_METHOD_LABEL[r.method as keyof typeof RECEIPT_METHOD_LABEL] ??
+                      r.method}
+                    {r.billingId === null ? (
+                      <span className="text-attn-ink"> · ล่วงหน้า</span>
+                    ) : (
+                      ` · งวด #${billingNoById.get(r.billingId) ?? "—"}`
+                    )}
+                  </span>
+                  <span className="text-ink shrink-0 font-semibold tabular-nums">
+                    {baht(r.amount ?? 0)}
+                  </span>
+                </li>
+              ))}
             </ul>
           )}
         </div>
