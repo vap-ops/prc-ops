@@ -24,6 +24,7 @@ import {
   createClientInvite,
   grantClientAccess,
   revokeClientAccess,
+  updateClientAccessTier,
 } from "@/app/projects/[projectId]/actions";
 
 const PROJECT = "11111111-1111-4111-8111-111111111111";
@@ -62,6 +63,26 @@ describe("createClientInvite", () => {
     expect(r.ok).toBe(false);
     expect(rpc).not.toHaveBeenCalled();
   });
+
+  it("defaults p_tier to basic when tier is omitted", async () => {
+    single.mockResolvedValue({ data: { role: "project_director" } });
+    rpc.mockResolvedValue({ data: "tok-abc", error: null });
+    await createClientInvite({ projectId: PROJECT, validUntil: "2026-12-31" });
+    expect(rpc).toHaveBeenCalledWith(
+      "create_client_invite",
+      expect.objectContaining({ p_tier: "basic" }),
+    );
+  });
+
+  it("passes p_tier=full through when the caller picks full", async () => {
+    single.mockResolvedValue({ data: { role: "project_director" } });
+    rpc.mockResolvedValue({ data: "tok-abc", error: null });
+    await createClientInvite({ projectId: PROJECT, validUntil: "2026-12-31", tier: "full" });
+    expect(rpc).toHaveBeenCalledWith(
+      "create_client_invite",
+      expect.objectContaining({ p_tier: "full" }),
+    );
+  });
 });
 
 describe("revokeClientAccess", () => {
@@ -78,6 +99,26 @@ describe("revokeClientAccess", () => {
     const r = await revokeClientAccess({ accessId: ACCESS, projectId: PROJECT });
     expect(r).toEqual({ ok: true });
     expect(rpc).toHaveBeenCalledWith("revoke_client_access", { p_access_id: ACCESS });
+  });
+});
+
+describe("updateClientAccessTier (spec 254)", () => {
+  it("rejects a project_manager — the issuer gate is PD + super only", async () => {
+    single.mockResolvedValue({ data: { role: "project_manager" } });
+    const r = await updateClientAccessTier({ accessId: ACCESS, projectId: PROJECT, tier: "full" });
+    expect(r.ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("a project_director upgrades the tier → { ok: true }", async () => {
+    single.mockResolvedValue({ data: { role: "project_director" } });
+    rpc.mockResolvedValue({ error: null });
+    const r = await updateClientAccessTier({ accessId: ACCESS, projectId: PROJECT, tier: "full" });
+    expect(r).toEqual({ ok: true });
+    expect(rpc).toHaveBeenCalledWith("set_client_access_tier", {
+      p_access_id: ACCESS,
+      p_tier: "full",
+    });
   });
 });
 

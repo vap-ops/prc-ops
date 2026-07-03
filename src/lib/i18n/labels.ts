@@ -50,6 +50,12 @@ export const WORK_PACKAGE_STATUS_LABEL: Record<Enums["work_package_status"], str
   rework: "งานแก้ไข",
 };
 
+export const WORK_PACKAGE_PRIORITY_LABEL: Record<Enums["work_package_priority"], string> = {
+  normal: "ปกติ",
+  urgent: "เร่งด่วน",
+  critical: "วิกฤต",
+};
+
 export const PROJECT_STATUS_LABEL: Record<Enums["project_status"], string> = {
   active: "กำลังดำเนินการ",
   on_hold: "พักชั่วคราว",

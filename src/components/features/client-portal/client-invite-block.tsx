@@ -10,9 +10,14 @@
 // revoke transitions.
 
 import { useState, useTransition } from "react";
-import { createClientInvite, revokeClientAccess } from "@/app/projects/[projectId]/actions";
+import {
+  createClientInvite,
+  revokeClientAccess,
+  updateClientAccessTier,
+} from "@/app/projects/[projectId]/actions";
 import { buildClientClaimUrl } from "@/lib/client-portal/claim-url";
 import { useToast } from "@/lib/ui/use-toast";
+import type { ClientAccessTier } from "@/lib/db/enums";
 import {
   CARD,
   BUTTON_PRIMARY,
@@ -21,11 +26,17 @@ import {
   INLINE_ALERT_TEXT,
 } from "@/lib/ui/classes";
 
+const TIER_LABEL: Record<ClientAccessTier, string> = {
+  basic: "พื้นฐาน",
+  full: "เต็มรูปแบบ",
+};
+
 export interface ClientBindingView {
   id: string;
   name: string;
   /** ISO timestamp (access valid-until), or null. */
   expiresAt: string | null;
+  tier: ClientAccessTier;
 }
 
 export function ClientInviteBlock({
@@ -38,6 +49,7 @@ export function ClientInviteBlock({
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [validUntil, setValidUntil] = useState("");
+  const [tier, setTier] = useState<ClientAccessTier>("basic");
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,12 +60,24 @@ export function ClientInviteBlock({
       return;
     }
     startTransition(async () => {
-      const result = await createClientInvite({ projectId, validUntil });
+      const result = await createClientInvite({ projectId, validUntil, tier });
       if (!result.ok) {
         setError(result.error);
         return;
       }
       setUrl(buildClientClaimUrl(window.location.origin, result.token));
+    });
+  }
+
+  function changeTier(accessId: string, newTier: ClientAccessTier) {
+    startTransition(async () => {
+      const result = await updateClientAccessTier({ accessId, projectId, tier: newTier });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("เปลี่ยนระดับสิทธิ์แล้ว");
+      // The action revalidates the project page → the bindings list refreshes.
     });
   }
 
@@ -98,6 +122,21 @@ export function ClientInviteBlock({
           onChange={(e) => setValidUntil(e.target.value)}
           className={FIELD_INPUT}
         />
+        <fieldset className="flex items-center gap-4">
+          <legend className="text-ink-secondary text-xs">ระดับสิทธิ์</legend>
+          {(Object.keys(TIER_LABEL) as ClientAccessTier[]).map((t) => (
+            <label key={t} className="text-ink flex items-center gap-1.5 text-sm">
+              <input
+                type="radio"
+                name="client-tier"
+                value={t}
+                checked={tier === t}
+                onChange={() => setTier(t)}
+              />
+              {TIER_LABEL[t]}
+            </label>
+          ))}
+        </fieldset>
         {url ? (
           <>
             <input
@@ -137,6 +176,19 @@ export function ClientInviteBlock({
                   <span className="text-ink-muted"> · ถึง {b.expiresAt.slice(0, 10)}</span>
                 ) : null}
               </span>
+              <select
+                aria-label={`ระดับสิทธิ์ของ ${b.name}`}
+                disabled={pending}
+                value={b.tier}
+                onChange={(e) => changeTier(b.id, e.target.value as ClientAccessTier)}
+                className="border-edge shrink-0 rounded-md border bg-transparent px-1.5 py-0.5 text-xs"
+              >
+                {(Object.keys(TIER_LABEL) as ClientAccessTier[]).map((t) => (
+                  <option key={t} value={t}>
+                    {TIER_LABEL[t]}
+                  </option>
+                ))}
+              </select>
               <button
                 type="button"
                 disabled={pending}
