@@ -70,13 +70,18 @@ export function ClientProgressView({ view, backHref }: { view: ClientView; backH
         {workPackages.length > 0 ? (
           <ul className={`${CARD} divide-edge mb-6 flex flex-col divide-y`}>
             {workPackages.map((wp) => (
-              <li key={wp.id} className="flex items-center justify-between gap-3 py-2">
-                <span className="text-ink min-w-0 truncate text-sm">
-                  <span className="text-ink-muted font-mono">{wp.code}</span> {wp.name}
-                </span>
-                <span className="text-ink-secondary shrink-0 text-xs">
-                  {WORK_PACKAGE_STATUS_LABEL[wp.status]}
-                </span>
+              <li key={wp.id}>
+                <Link
+                  href={`/client/${project.id}/wp/${wp.id}`}
+                  className="flex items-center justify-between gap-3 py-2"
+                >
+                  <span className="text-ink min-w-0 truncate text-sm">
+                    <span className="text-ink-muted font-mono">{wp.code}</span> {wp.name}
+                  </span>
+                  <span className="text-ink-secondary shrink-0 text-xs">
+                    {WORK_PACKAGE_STATUS_LABEL[wp.status]}
+                  </span>
+                </Link>
               </li>
             ))}
           </ul>

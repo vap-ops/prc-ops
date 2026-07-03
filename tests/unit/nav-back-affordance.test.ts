@@ -161,6 +161,9 @@ const EXCLUDED_ROUTES = [
   // bespoke (ClientProgressView's own header + logout + back chip, no app
   // DetailHeader). Excluded from the dynamic-DetailHeader requirement above.
   "client/[projectId]/page.tsx",
+  // Client WP-detail drill: bespoke (ClientWpDetailView's own header + logout
+  // + back chip, no app DetailHeader), same as client/[projectId]/page.tsx.
+  "client/[projectId]/wp/[wpId]/page.tsx",
 ];
 
 describe("nav back-affordance (spec 63)", () => {
