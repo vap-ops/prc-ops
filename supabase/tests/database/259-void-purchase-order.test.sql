@@ -1,5 +1,5 @@
 begin;
-select plan(23);
+select plan(28);
 
 -- ============================================================================
 -- Spec 259 / amends ADR 0038 — void_purchase_order(p_po_id): procurement
@@ -45,6 +45,11 @@ insert into public.purchase_requests
    'app', '11111111-1111-1111-1111-111111110259'),
   ('fa000259-0000-4000-8000-000000000003',
    'ee000259-0000-4000-8000-000000000001', 'ทราย', 3, 'คิว', 'approved',
+   'app', '11111111-1111-1111-1111-111111110259'),
+  -- pr4: approved, WP-bound — spec 260: bundled into its own PO-C with a
+  -- transport charge, to prove void_purchase_order reverses/cascades charges.
+  ('fa000259-0000-4000-8000-000000000004',
+   'ee000259-0000-4000-8000-000000000001', 'ค่าขนส่งทดสอบ', 1, 'งาน', 'approved',
    'app', '11111111-1111-1111-1111-111111110259');
 
 grant insert on _tap_buf to authenticated, anon;
@@ -224,6 +229,55 @@ select is(
   (select amount from public.purchase_requests
     where id = 'fa000259-0000-4000-8000-000000000001'),
   90::numeric, 'pr1 now carries the CORRECT PO''s amount');
+
+-- ============================================================================
+-- J. Spec 260 — void_purchase_order additionally reverses/cascades a PO's
+--    charges. Build PO-C around pr4, add a transport charge, post it to GL,
+--    then void the whole PO: the charge entry reverses (WIP nets to 0) and the
+--    charge row cascades away with the PO.
+-- ============================================================================
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111110259"}';
+select lives_ok(
+  $$ select public.create_purchase_order(
+       'bb000259-0000-4000-8000-000000000001'::uuid, date '2026-07-25',
+       '[{"request_id":"fa000259-0000-4000-8000-000000000004","amount":40}]'::jsonb) $$,
+  'PM creates PO-C around pr4');
+select lives_ok(
+  $$ select public.add_purchase_order_charge(
+       (select purchase_order_id from public.purchase_requests
+         where id = 'fa000259-0000-4000-8000-000000000004'),
+       'transport', 30, 0, null) $$,
+  'PM adds a transport charge to PO-C');
+reset role;
+-- Post the charge (its share Dr 1400 = 30 against pr4's WP).
+select public.post_purchase_order_charge_to_gl(
+  (select id from public.purchase_order_charges
+    where purchase_order_id = (select purchase_order_id from public.purchase_requests
+                                where id = 'fa000259-0000-4000-8000-000000000004')));
+
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111110259"}';
+select lives_ok(
+  $$ select public.void_purchase_order(
+       (select purchase_order_id from public.purchase_requests
+         where id = 'fa000259-0000-4000-8000-000000000004')) $$,
+  'PM voids PO-C (which carries a posted charge)');
+reset role;
+-- Charge row cascaded (scoped to the fixture creator — data-independent).
+select is(
+  (select count(*)::int from public.purchase_order_charges
+    where created_by = '11111111-1111-1111-1111-111111110259'),
+  0, 'void: PO-C''s charge row cascaded away with the PO');
+-- The posted charge entry (Dr 1400 = 30 against pr4's WP) reversed → WP-WIP
+-- nets back to 0 (pr1's entry was already reversed in section G, so the WP's
+-- only remaining posting was PO-C's charge).
+select is(
+  (select coalesce(sum(l.debit - l.credit), 0)
+     from public.journal_lines l
+    where l.account_id = (select id from public.gl_accounts where code = '1400')
+      and l.work_package_id = 'ee000259-0000-4000-8000-000000000001'),
+  0::numeric, 'void: the charge''s WIP posting reversed (WP-WIP nets to 0)');
 
 select * from finish();
 rollback;

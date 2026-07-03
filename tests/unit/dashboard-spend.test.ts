@@ -2,6 +2,7 @@
 // materials; materials counts only spend-status PRs that recorded a price.
 
 import { describe, expect, it } from "vitest";
+import { round2 } from "@/lib/format";
 import {
   SPEND_STATUSES,
   sumMaterials,
@@ -11,6 +12,7 @@ import {
   spendBreakdown,
   spendBarSegments,
   spendByWorkCategory,
+  allocateChargeSpendByProject,
   budgetStatus,
 } from "@/lib/dashboard/spend";
 
@@ -302,6 +304,103 @@ describe("spendByWorkCategory", () => {
         UNSET,
       ),
     ).toEqual([]);
+  });
+});
+
+// Spec 260 — PO-level charges are committed spend (transport/other add, discount
+// subtracts) that the dashboard budget bars would silently understate. Each
+// charge's signed amount allocates across its PO's members' projects
+// proportionally by line amount (the same rule the GL poster uses), remainder to
+// the largest weight so the per-project shares sum EXACTLY to the charge.
+describe("allocateChargeSpendByProject", () => {
+  it("attributes a single-project PO's charge wholly to that project (transport +, discount −)", () => {
+    const alloc = allocateChargeSpendByProject([
+      { charge_type: "transport", amount: 100, projectWeights: [{ projectId: "p1", weight: 400 }] },
+      { charge_type: "discount", amount: 40, projectWeights: [{ projectId: "p1", weight: 400 }] },
+    ]);
+    expect(alloc.get("p1")).toBe(60); // 100 − 40
+  });
+
+  it("splits a multi-project PO's charge proportionally by line weight, summing exactly", () => {
+    // charge 100 over p1:300, p2:100 → p1 75, p2 25.
+    const alloc = allocateChargeSpendByProject([
+      {
+        charge_type: "transport",
+        amount: 100,
+        projectWeights: [
+          { projectId: "p1", weight: 300 },
+          { projectId: "p2", weight: 100 },
+        ],
+      },
+    ]);
+    expect(alloc.get("p1")).toBe(75);
+    expect(alloc.get("p2")).toBe(25);
+    expect(round2([...alloc.values()].reduce((s, v) => s + v, 0))).toBe(100);
+  });
+
+  it("puts the rounding remainder on the largest weight (shares sum exactly)", () => {
+    // 100 over three equal weights → 33.34 + 33.33 + 33.33 = 100.
+    const alloc = allocateChargeSpendByProject([
+      {
+        charge_type: "transport",
+        amount: 100,
+        projectWeights: [
+          { projectId: "p1", weight: 1 },
+          { projectId: "p2", weight: 1 },
+          { projectId: "p3", weight: 1 },
+        ],
+      },
+    ]);
+    expect(round2([...alloc.values()].reduce((s, v) => s + v, 0))).toBe(100);
+    expect([...alloc.values()].sort((a, b) => b - a)).toEqual([33.34, 33.33, 33.33]);
+  });
+
+  it("accumulates multiple charges of a PO into one project entry", () => {
+    const alloc = allocateChargeSpendByProject([
+      { charge_type: "transport", amount: 50, projectWeights: [{ projectId: "p1", weight: 100 }] },
+      { charge_type: "other", amount: 20, projectWeights: [{ projectId: "p1", weight: 100 }] },
+      { charge_type: "discount", amount: 10, projectWeights: [{ projectId: "p1", weight: 100 }] },
+    ]);
+    expect(alloc.get("p1")).toBe(60); // 50 + 20 − 10
+  });
+
+  it("falls back to the first listed project when no line has a positive weight", () => {
+    const alloc = allocateChargeSpendByProject([
+      {
+        charge_type: "transport",
+        amount: 30,
+        projectWeights: [
+          { projectId: "p1", weight: 0 },
+          { projectId: "p2", weight: 0 },
+        ],
+      },
+    ]);
+    expect(alloc.get("p1")).toBe(30);
+    expect(alloc.has("p2")).toBe(false);
+  });
+
+  it("returns an empty map for no charges", () => {
+    expect(allocateChargeSpendByProject([]).size).toBe(0);
+  });
+
+  // The spec's coherence invariant: dashboard project total = Σ line materials +
+  // Σ allocated charges (a mixed fixture — WP materials plus a net-positive charge).
+  it("dashboard total = line materials + allocated charges (mixed fixture)", () => {
+    const materials = sumMaterials([
+      { id: "a", status: "purchased", amount: 300 },
+      { id: "b", status: "delivered", amount: 100 },
+    ]);
+    const charge =
+      allocateChargeSpendByProject([
+        {
+          charge_type: "transport",
+          amount: 100,
+          projectWeights: [{ projectId: "p1", weight: 400 }],
+        },
+        { charge_type: "discount", amount: 40, projectWeights: [{ projectId: "p1", weight: 400 }] },
+      ]).get("p1") ?? 0;
+    const b = spendBreakdown(materials + charge, 0);
+    expect(b.total).toBe(460); // 400 line + (100 − 40) charge
   });
 });
 

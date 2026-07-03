@@ -125,3 +125,33 @@ export function canVoidPurchaseOrder(memberStatuses: PurchaseRequestStatus[]): b
 export function purchaseOrderTotal(lineAmounts: Array<number | null>): number {
   return lineAmounts.reduce<number>((sum, a) => sum + (a ?? 0), 0);
 }
+
+// Spec 260 — the PO-level charge types (ค่าขนส่ง / ส่วนลด / ค่าใช้จ่ายอื่น).
+// Mirrors the `po_charge_type` DB enum; kept as a local union so the pure
+// helpers below don't depend on a regenerated database.types.
+export type PoChargeType = "transport" | "discount" | "other";
+
+export interface PoChargeAmount {
+  charge_type: PoChargeType;
+  amount: number;
+}
+
+// Spec 260 — the charges-aware PO total, beside the pure line-sum
+// (purchaseOrderTotal, which carries NO PO id and knows nothing of charges).
+// grand total = Σ line amounts + Σ transport + Σ other − Σ discount. Charge
+// `amount` is ALWAYS positive (a discount subtracts by TYPE, never by sign),
+// so the direction lives here, not in the data. The sign passes straight
+// through: a discount larger than the rest yields a negative total, surfaced
+// as-is (a data-entry error the UI shows, never floors). The composition layer
+// (buildPoDetailView, the worklist PO rows) switches to this; the create sheet
+// keeps the pure line-sum (no charge rows exist yet at that point in the form).
+export function purchaseOrderGrandTotal(
+  lineAmounts: Array<number | null>,
+  charges: ReadonlyArray<PoChargeAmount>,
+): number {
+  let total = purchaseOrderTotal(lineAmounts);
+  for (const c of charges) {
+    total += c.charge_type === "discount" ? -c.amount : c.amount;
+  }
+  return total;
+}

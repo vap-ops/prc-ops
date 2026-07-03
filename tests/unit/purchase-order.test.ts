@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import {
   canVoidPurchaseOrder,
   derivePurchaseOrderStatus,
+  purchaseOrderGrandTotal,
   purchaseOrderStageStates,
   purchaseOrderTotal,
 } from "@/lib/purchasing/purchase-order";
@@ -100,6 +101,64 @@ describe("purchaseOrderTotal", () => {
   it("returns 0 for an empty list or an all-null list", () => {
     expect(purchaseOrderTotal([])).toBe(0);
     expect(purchaseOrderTotal([null, null])).toBe(0);
+  });
+});
+
+describe("purchaseOrderGrandTotal", () => {
+  // Spec 260 — the charges-aware total: line sum + transport + other − discount.
+  // Charge `amount` is ALWAYS positive (a discount subtracts by TYPE, never by
+  // sign), so the helper — not the data — decides the direction.
+  it("equals the pure line sum when there are no charges", () => {
+    expect(purchaseOrderGrandTotal([100, 200], [])).toBe(300);
+    expect(purchaseOrderGrandTotal([100, null, 200], [])).toBe(300);
+  });
+
+  it("adds transport and other charges", () => {
+    expect(
+      purchaseOrderGrandTotal(
+        [100, 200],
+        [
+          { charge_type: "transport", amount: 50 },
+          { charge_type: "other", amount: 25 },
+        ],
+      ),
+    ).toBe(375);
+  });
+
+  it("subtracts a discount (stored positive, subtracted by type)", () => {
+    expect(purchaseOrderGrandTotal([100, 200], [{ charge_type: "discount", amount: 40 }])).toBe(
+      260,
+    );
+  });
+
+  it("nets a mix of transport, other, and discount", () => {
+    expect(
+      purchaseOrderGrandTotal(
+        [300, 100],
+        [
+          { charge_type: "transport", amount: 107 },
+          { charge_type: "other", amount: 20 },
+          { charge_type: "discount", amount: 53.5 },
+        ],
+      ),
+    ).toBe(473.5);
+  });
+
+  it("lets a discount push the total negative (a data-entry error shown as-is, not floored)", () => {
+    expect(purchaseOrderGrandTotal([100], [{ charge_type: "discount", amount: 250 }])).toBe(-150);
+  });
+
+  it("sums multiple charges of the same type", () => {
+    expect(
+      purchaseOrderGrandTotal(
+        [100],
+        [
+          { charge_type: "transport", amount: 10 },
+          { charge_type: "transport", amount: 15 },
+          { charge_type: "discount", amount: 5 },
+        ],
+      ),
+    ).toBe(120);
   });
 });
 

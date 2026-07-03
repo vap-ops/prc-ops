@@ -10,7 +10,8 @@
 import type { PurchaseRequestStatus } from "@/lib/db/enums";
 import {
   derivePurchaseOrderStatus,
-  purchaseOrderTotal,
+  purchaseOrderGrandTotal,
+  type PoChargeAmount,
   type PurchaseOrderStatus,
 } from "@/lib/purchasing/purchase-order";
 
@@ -30,12 +31,22 @@ function isActiveLine(status: PurchaseRequestStatus): boolean {
   return status !== "rejected" && status !== "cancelled";
 }
 
-export function buildPoDetailView(lines: ReadonlyArray<PoDetailLine>): PoDetailView {
+// Spec 260: `total` is now the charges-aware GRAND total — active line sum
+// + transport + other − discount. `charges` defaults to none, preserving the
+// pure line-sum for callers that don't (yet) load charges.
+export function buildPoDetailView(
+  lines: ReadonlyArray<PoDetailLine>,
+  charges: ReadonlyArray<PoChargeAmount> = [],
+): PoDetailView {
   const active = lines.filter((line) => isActiveLine(line.status));
   return {
     // derivePurchaseOrderStatus applies its own §5 exclusion, so pass every status.
     status: derivePurchaseOrderStatus(lines.map((line) => line.status)),
-    total: purchaseOrderTotal(active.map((line) => line.amount)),
+    // Line sum excludes rejected/cancelled (§5); charges apply to the whole PO.
+    total: purchaseOrderGrandTotal(
+      active.map((line) => line.amount),
+      charges,
+    ),
     activeLineCount: active.length,
   };
 }
