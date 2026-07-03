@@ -11,7 +11,7 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { requireRole } from "@/lib/auth/require-role";
-import { PAYROLL_ROLES } from "@/lib/auth/role-home";
+import { PAYROLL_ROLES, PAYROLL_VIEW_ROLES } from "@/lib/auth/role-home";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import {
   SECTION_HEADING,
@@ -42,7 +42,11 @@ interface PayrollPageProps {
 export default async function PayrollPage({ searchParams }: PayrollPageProps) {
   // Spec 187: procurement gains project-director parity here — it views the DC
   // payroll roll-up AND records payments (record_dc_payment admits it too).
-  const ctx = await requireRole(PAYROLL_ROLES);
+  // Spec 252: accounting is admitted READ-ONLY (PAYROLL_VIEW_ROLES) — the record
+  // affordance below stays keyed to the unwidened PAYROLL_ROLES, and the
+  // record_dc_payment RPC refuses accounting regardless.
+  const ctx = await requireRole(PAYROLL_VIEW_ROLES);
+  const canRecord = PAYROLL_ROLES.includes(ctx.role);
   const { from, to } = await searchParams;
   const range = parsePayrollRange(from, to, bangkokTodayIso());
 
@@ -152,7 +156,7 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
                           </p>
                         ) : null}
                       </div>
-                    ) : (
+                    ) : canRecord ? (
                       <RecordPaymentSheet
                         workerId={w.workerId}
                         workerName={w.name}
@@ -164,6 +168,8 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
                         todayIso={todayIso}
                         revalidate="/payroll"
                       />
+                    ) : (
+                      <p className="text-ink-muted text-xs">ยังไม่บันทึกการจ่าย</p>
                     )}
                   </div>
                 </li>
