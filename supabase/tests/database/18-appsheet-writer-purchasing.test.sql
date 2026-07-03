@@ -176,7 +176,12 @@ select enum_has_labels(
     'client_po_update', 'project_contract_upsert', 'contract_installment_add',
     'contract_installment_update', 'contract_installment_remove',
     'client_billing_installment_set', 'client_receipt_record',
-    'client_receipt_supersede', 'client_billing_invoiced'
+    'client_receipt_supersede', 'client_billing_invoiced',
+    -- Spec 259: procurement self-service PO void/revert.
+    'purchase_order_void',
+    -- Spec 251: subcontracts (agreed vs paid).
+    'subcontract_create', 'subcontract_update', 'subcontract_wps_set',
+    'subcontract_payment_record', 'subcontract_payment_supersede'
   ],
   'audit_action enum includes purchase_request_purchase + purchase_request_delivery'
 );

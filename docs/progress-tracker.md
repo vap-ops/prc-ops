@@ -5589,3 +5589,41 @@ standing U2b follow-up.
 - Open questions: none. Out of scope (recorded in the spec): editing a PO in
   place, voiding a partially-shipped order, any broader admin-powers framework
   for procurement beyond this one action.
+
+## Spec 251 — Subcontracts (agreed vs paid) — U1 SCHEMA — COMPLETE (2026-07-03 night)
+
+- GL treatment resolved live with operator this session (spec doc updated same
+  commit): direct one-step post at payment time — Dr WIP-construction (1400,
+  project_id + contractor_id dimensioned, work_package_id NULL) / Cr Bank (1110).
+  No accrual step (unlike dc_payments' 2-step 2110 clearing) — subcontracts have
+  no progress-% certification signal to trigger one; explicit follow-up.
+- Migration ts claimed: `20260813067000` (schema lane, LANES.md).
+- Next: pgTAP first (TDD) for the 3 tables + 2 enums + RLS + 5 RPCs + the new
+  `post_subcontract_payment_to_gl` poster, then the migration to turn it green.
+- Verified: pgTAP 31/31 in the new file (258-spec251-subcontracts.test.sql);
+  full suite 224 files, 4112 assertions, only 1 pre-existing failure (`void_purchase_order`
+  missing project_director — unrelated, flagged separately, spawn_task task_18f20d4a).
+  vitest 2532/2532, lint/typecheck clean, db:types regenerated (pure additive diff).
+- Real concurrent-lane collision surfaced mid-build: another session (spec 259,
+  `prc-ops-povoid`) pushed migrations 068000/069000 to the shared remote despite
+  its own LANES.md note saying it would wait for this lane to release. Reconciled
+  by copying their 2 migration files (exact source, not reconstructed) from their
+  worktree into this one so `supabase db push` could see a consistent history,
+  then pushed 067000/067100 with `--include-all` (CLI-supported out-of-order
+  apply, non-destructive, domain-independent). Those 2 borrowed files are
+  deliberately NOT part of this PR (their own PR #285 carries them) — only
+  067000/067100 are staged here.
+- Pin reconcile (expected collateral of adding audit*action enum values, matches
+  the PR #269 precedent): both audit_action full-label pgTAP pins
+  (03-audit-log-shape, 18-appsheet-writer-purchasing) updated to include the 5
+  new subcontract*\* labels AND spec 259's purchase_order_void (both are live on
+  the shared DB now; the pin checks exact match against reality).
+- Open questions (unbuilt, explicit follow-ups per the spec doc): accrual-stage
+  GL posting (needs progress-% certification first); per-WP cost attribution for
+  multi-WP deals (same follow-up — wp_profit()'s account-1400 filter keys on
+  work_package_id, which subcontract payment lines leave NULL); no void/tombstone
+  path on subcontract_payments (every supersede is a correction with a full valid
+  payload, matching the spec's literal column list, not client_receipts' nullable
+  pattern).
+- U2 (deals + payments UI on the spec 253 drill) NOT started — new unit, new
+  session per house workflow ("do not start the next unit in the same session").
