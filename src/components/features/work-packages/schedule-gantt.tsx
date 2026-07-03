@@ -12,7 +12,7 @@
 // Arrowheads use an SVG <marker orient="auto"> so they ALWAYS align with the
 // curved connector (fixes the preview's fixed-orientation arrowhead).
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, X } from "lucide-react";
 import { workPackageHref, scheduleHref } from "@/lib/nav/project-paths";
@@ -24,6 +24,7 @@ import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 import {
   buildTimeline,
   barFor,
+  scheduleSummary,
   SCHEDULE_PERIODS,
   type SchedulePeriod,
 } from "@/lib/work-packages/gantt-scale";
@@ -42,6 +43,9 @@ export interface GanttWp {
   plannedEnd: string | null;
   priority: WpPriority;
   isCritical: boolean;
+  /** Spec 255 — photo-evidence activity span (Bangkok ISO dates). */
+  activityStart: string | null;
+  activityEnd: string | null;
 }
 export interface GanttDeliverable {
   id: string;
@@ -131,6 +135,14 @@ type Row =
   | { kind: "group"; id: string; code: string; name: string; top: number }
   | { kind: "wp"; wp: GanttWp; top: number };
 
+/** Spec 255 — a WP is "on the calendar" with a planned window OR photo activity. */
+function hasData(wp: GanttWp): boolean {
+  return (
+    (wp.plannedStart !== null && wp.plannedEnd !== null) ||
+    (wp.activityStart !== null && wp.activityEnd !== null)
+  );
+}
+
 /** Transitive ancestors + descendants of a node over the dependency edges. */
 function chainOf(
   selected: string | null,
@@ -172,9 +184,20 @@ export function ScheduleGantt({
 }: ScheduleGanttProps) {
   const [period, setPeriod] = useState<SchedulePeriod>("week");
   const [selected, setSelected] = useState<string | null>(null);
+  // Spec 255 — rows with neither a planned window nor photo activity collapse
+  // behind a count toggle (they used to drown the real bars).
+  const [showNoData, setShowNoData] = useState(false);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  const noDataCount = useMemo(() => workPackages.filter((w) => !hasData(w)).length, [workPackages]);
+  const visibleWps = useMemo(
+    () => (showNoData ? workPackages : workPackages.filter(hasData)),
+    [workPackages, showNoData],
+  );
 
   // Always show ALL WPs; completed ones render muted (non-vivid) rather than
-  // being hidden (operator decision 2026-06-14).
+  // being hidden (operator decision 2026-06-14). The domain covers every WP's
+  // dates (planned + activity) so toggling no-data rows never reflows the axis.
   const timeline = useMemo(
     () => buildTimeline(workPackages, period, todayISO),
     [workPackages, period, todayISO],
@@ -183,7 +206,7 @@ export function ScheduleGantt({
   // Ordered rows: each deliverable (sortOrder) with its WPs, ungrouped last.
   const { rows, totalH } = useMemo(() => {
     const byDeliv = new Map<string, GanttWp[]>();
-    for (const wp of workPackages) {
+    for (const wp of visibleWps) {
       const k = wp.deliverableId ?? UNGROUPED;
       const list = byDeliv.get(k) ?? byDeliv.set(k, []).get(k)!;
       list.push(wp);
@@ -206,7 +229,7 @@ export function ScheduleGantt({
     const ung = byDeliv.get(UNGROUPED);
     if (ung?.length) pushGroup(UNGROUPED, "", "ยังไม่จัดกลุ่ม", ung);
     return { rows: out, totalH: top };
-  }, [workPackages, deliverables]);
+  }, [visibleWps, deliverables]);
 
   // Bar geometry per scheduled WP (+ its row centre, for dependency lines).
   const geom = useMemo(() => {
@@ -219,10 +242,45 @@ export function ScheduleGantt({
     return m;
   }, [rows, timeline]);
 
+  // Spec 255 — activity-strip geometry (photo-evidence span), same x math as
+  // the planned bars via barFor over the activity window.
+  const activityGeom = useMemo(() => {
+    const m = new Map<string, { x: number; width: number }>();
+    for (const r of rows) {
+      if (r.kind !== "wp") continue;
+      const bar = barFor(
+        { plannedStart: r.wp.activityStart, plannedEnd: r.wp.activityEnd },
+        timeline.domainStartMs,
+        timeline.dayWidth,
+      );
+      if (bar) m.set(r.wp.id, bar);
+    }
+    return m;
+  }, [rows, timeline]);
+
   const { lit, direct } = useMemo(() => chainOf(selected, dependencies), [selected, dependencies]);
   const todayMs = useMemo(() => Date.parse(`${todayISO}T00:00:00Z`), [todayISO]);
-  const scheduledCount = geom.size;
+  const hasAnyData = useMemo(() => workPackages.some(hasData), [workPackages]);
+  const summary = useMemo(
+    () =>
+      scheduleSummary(
+        workPackages.map((w) => ({
+          plannedEnd: w.plannedEnd,
+          status: w.status,
+          activityEnd: w.activityEnd,
+        })),
+        todayISO,
+      ),
+    [workPackages, todayISO],
+  );
   const selectedWp = selected ? (workPackages.find((w) => w.id === selected) ?? null) : null;
+
+  // Spec 255 — open the viewport at today (~⅓ in), not at the earliest month.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || timeline.todayX === null) return;
+    el.scrollLeft = Math.max(0, timeline.todayX - Math.max(0, el.clientWidth - NAME_W) / 3);
+  }, [timeline]);
 
   const periodBtn = (on: boolean) =>
     `text-meta focus-visible:ring-action min-h-11 rounded-[0.625rem] px-3 font-bold transition-colors focus:outline-none focus-visible:ring-2 ${
@@ -251,15 +309,38 @@ export function ScheduleGantt({
         ))}
       </div>
 
-      {scheduledCount === 0 ? (
+      {!hasAnyData ? (
         <div className="border-edge bg-card text-ink-secondary rounded-card text-body border p-8 text-center">
-          ยังไม่มีงานที่กำหนดวันที่ — ตั้งวันเริ่ม/สิ้นสุดในหน้ารายละเอียดงาน (เฉพาะผู้จัดการ)
-          เพื่อให้ปรากฏบนปฏิทิน
+          ยังไม่มีข้อมูลบนปฏิทิน — ถ่ายรูปงานแล้วปฏิทินจะแสดงช่วงงานจริงให้อัตโนมัติ
+          หรือตั้งวันเริ่ม/สิ้นสุดในหน้ารายละเอียดงาน (เฉพาะผู้จัดการ)
         </div>
       ) : (
         <>
+          {/* Spec 255 — summary chips (zero counts hide) */}
+          {(summary.behind > 0 || summary.dueSoon > 0 || summary.recentActivity > 0) && (
+            <div className="text-meta flex flex-wrap items-center gap-2">
+              {summary.behind > 0 && (
+                <span className="border-danger/40 bg-danger/10 text-danger rounded-full border px-2.5 py-1 font-bold">
+                  ช้ากว่าแผน {summary.behind}
+                </span>
+              )}
+              {summary.dueSoon > 0 && (
+                <span className="border-attn bg-attn-soft text-ink rounded-full border px-2.5 py-1 font-bold">
+                  ครบกำหนดใน 7 วัน {summary.dueSoon}
+                </span>
+              )}
+              {summary.recentActivity > 0 && (
+                <span className="border-edge bg-done/10 text-ink rounded-full border px-2.5 py-1 font-bold">
+                  มีงานจริง 7 วันล่าสุด {summary.recentActivity}
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Gantt scroll container */}
           <div
+            ref={scrollRef}
+            data-testid="gantt-scroll"
             className="border-edge bg-card rounded-card relative overflow-auto border"
             style={{ maxHeight: 560 }}
           >
@@ -419,6 +500,7 @@ export function ScheduleGantt({
                   }
                   const wp = r.wp;
                   const g = geom.get(wp.id);
+                  const a = activityGeom.get(wp.id);
                   const st = STATUS_STYLE[wp.status];
                   const behind =
                     !Number.isNaN(todayMs) &&
@@ -493,10 +575,26 @@ export function ScheduleGantt({
                               </span>
                             )}
                           </button>
-                        ) : (
+                        ) : a ? null : (
                           <span className="text-ink-muted absolute top-1/2 left-2 -translate-y-1/2 text-[10px]">
                             ยังไม่กำหนดวันที่
                           </span>
+                        )}
+                        {/* Spec 255 — photo-evidence activity strip: under the
+                        planned bar when one exists, alone (centred) otherwise. */}
+                        {a && (
+                          <span
+                            aria-label={`ช่วงงานจริง ${wp.code}`}
+                            className={`bg-done/70 pointer-events-none absolute rounded-full transition-opacity ${
+                              isDim ? "opacity-25" : "opacity-100"
+                            }`}
+                            style={{
+                              left: a.x,
+                              width: Math.max(a.width, 6),
+                              top: g ? (ROW_H - BAR_H) / 2 + BAR_H + 2 : (ROW_H - 6) / 2,
+                              height: 6,
+                            }}
+                          />
                         )}
                       </div>
                     </div>
@@ -543,8 +641,25 @@ export function ScheduleGantt({
             </div>
           )}
 
+          {/* Spec 255 — no-data rows collapse behind a count toggle */}
+          {noDataCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowNoData((v) => !v)}
+              className="border-edge bg-card text-ink-secondary hover:text-ink hover:bg-sunk focus-visible:ring-action rounded-control text-meta inline-flex min-h-11 w-fit items-center border px-3 font-semibold transition-colors focus:outline-none focus-visible:ring-2"
+            >
+              {showNoData
+                ? `ซ่อนงานที่ยังไม่มีข้อมูล (${noDataCount})`
+                : `แสดงงานที่ยังไม่มีข้อมูล (${noDataCount})`}
+            </button>
+          )}
+
           {/* Legend + tap hint */}
           <div className="text-ink-secondary text-meta flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span className="flex items-center gap-1.5">
+              <span className="bg-done/70 inline-block h-1.5 w-4 rounded-full" /> ช่วงที่มีงานจริง
+              (จากรูปถ่าย)
+            </span>
             <span className="flex items-center gap-1.5">
               <span className="bg-danger inline-block h-2.5 w-1 rounded" /> เส้นทางวิกฤต
             </span>

@@ -3,7 +3,12 @@
 // past width, the วัน/สัปดาห์/เดือน period labels.
 
 import { describe, it, expect } from "vitest";
-import { buildTimeline, barFor, SCHEDULE_PERIODS } from "@/lib/work-packages/gantt-scale";
+import {
+  buildTimeline,
+  barFor,
+  scheduleSummary,
+  SCHEDULE_PERIODS,
+} from "@/lib/work-packages/gantt-scale";
 
 const ITEMS = [
   { plannedStart: "2026-07-05", plannedEnd: "2026-07-14" },
@@ -56,5 +61,49 @@ describe("gantt-scale", () => {
 
   it("exposes the three Thai period labels (day / week / month)", () => {
     expect(SCHEDULE_PERIODS.map((p) => p.label)).toEqual(["วัน", "สัปดาห์", "เดือน"]);
+  });
+
+  // Spec 255 U2 — activity spans join the timeline domain.
+  it("an activity-only item produces a non-empty timeline", () => {
+    const tl = buildTimeline(
+      [
+        {
+          plannedStart: null,
+          plannedEnd: null,
+          activityStart: "2026-07-05",
+          activityEnd: "2026-07-14",
+        },
+      ],
+      "day",
+      "2026-07-20",
+    );
+    expect(new Date(tl.domainStartMs).toISOString().slice(0, 10)).toBe("2026-07-01");
+    expect(tl.months.length).toBe(1);
+    expect(tl.widthPx).toBe(31 * 44);
+  });
+
+  describe("scheduleSummary (spec 255 U3)", () => {
+    const TODAY = "2026-07-05";
+    it("counts behind / due-in-7-days / recent-activity", () => {
+      const s = scheduleSummary(
+        [
+          // behind: planned_end < today, not complete
+          { plannedEnd: "2026-07-01", status: "in_progress", activityEnd: null },
+          // complete never counts as behind or due
+          { plannedEnd: "2026-07-01", status: "complete", activityEnd: null },
+          // due soon: today .. today+6 inclusive
+          { plannedEnd: "2026-07-05", status: "not_started", activityEnd: null },
+          { plannedEnd: "2026-07-11", status: "not_started", activityEnd: null },
+          // today+7 → not due soon
+          { plannedEnd: "2026-07-12", status: "not_started", activityEnd: null },
+          // recent activity: today-6 .. today inclusive
+          { plannedEnd: null, status: "in_progress", activityEnd: "2026-06-29" },
+          // too old
+          { plannedEnd: null, status: "in_progress", activityEnd: "2026-06-28" },
+        ],
+        TODAY,
+      );
+      expect(s).toEqual({ behind: 1, dueSoon: 2, recentActivity: 1 });
+    });
   });
 });

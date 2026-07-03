@@ -27,10 +27,8 @@ export default async function ProjectSchedulePage({ params }: PageProps) {
 
   // Spec 148 U3: one loader batches the schedule reads (was a serial waterfall).
   // Same queries/columns/results — only the scheduling changes.
-  const { project, workPackages, deliverables, depRows, criticalIds } = await loadProjectSchedule(
-    supabase,
-    projectId,
-  );
+  const { project, workPackages, deliverables, depRows, criticalIds, activitySpans } =
+    await loadProjectSchedule(supabase, projectId);
   if (!project) notFound();
 
   const todayISO = bangkokTodayISO();
@@ -61,6 +59,8 @@ export default async function ProjectSchedulePage({ params }: PageProps) {
             plannedEnd: w.planned_end,
             priority: w.priority,
             isCritical: criticalIds.has(w.id),
+            activityStart: activitySpans.get(w.id)?.firstIso ?? null,
+            activityEnd: activitySpans.get(w.id)?.lastIso ?? null,
           }))}
           deliverables={(deliverables ?? []).map((d) => ({
             id: d.id,
