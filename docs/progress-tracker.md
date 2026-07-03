@@ -5526,3 +5526,25 @@ standing U2b follow-up.
 - Verified: pgTAP 256 9/9; db:types regen zero drift (body-only change); full db:test +
   vitest/lint/typecheck run pre-ship.
 - Open questions: none.
+
+## Settings hub regroup — grouped cards + config-driven sections (2026-07-03)
+
+- Operator: "settings menu getting larger, group them." /settings had grown to ~20
+  floating single-row cards for super_admin, and ข้อมูลหลัก + การเงิน were hand-copied
+  twice (procurement vs isManager) with drifting hints.
+- Change: each section renders as ONE grouped card (rows share a bordered container,
+  hairline dividers — the settings/usage idiom; overflow-hidden + ring-inset rows).
+  New src/app/settings/sections.ts = the section/entry SSOT with per-role visibility;
+  section-card.tsx renders it. Page-scope rows (profile, theme, daily-report test,
+  version) stay hand-written. เร็วๆนี้ moved below the live sections.
+- Test-first: settings-sections.test.ts pins the role→entries matrix (procurement
+  no-customers; accounting role sees NO การเงิน section — spec 166 nesting; Nova/
+  triage/admin super_admin-only); settings-section-card.test.tsx pins the grouped-
+  card contract. contact-subcontractor-label guard repointed at sections.ts.
+- Verified: lint/typecheck clean, vitest 2532/2532; real-browser (dev-preview,
+  super_admin): 8 grouped cards, computed styles confirm dividers + clip + zero
+  per-row borders. Shipped as PR #283 (code-only, auto-merge lane).
+- Open questions: (a) merge the daily-report test block into ผู้ดูแลระบบ as a 4th row
+  (drops a one-row section; loses the spec-212 heading framing)? (b) two hint copies
+  were unified — ทีมงาน now shows the manager copy to procurement, ทะเบียนวัสดุ shows
+  the procurement copy to managers; flag if either reads wrong in the field.
