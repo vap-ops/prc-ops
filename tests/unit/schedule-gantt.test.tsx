@@ -32,9 +32,10 @@ describe("ScheduleGantt", () => {
         dependencies={[]}
       />,
     );
-    expect(screen.getByText("วัน")).toBeInTheDocument();
-    expect(screen.getByText("สัปดาห์")).toBeInTheDocument();
-    expect(screen.getByText("เดือน")).toBeInTheDocument();
+    // Spec 256 — the Gantt's internal toggle is honest zoom, not calendar views.
+    expect(screen.getByText("ใกล้")).toBeInTheDocument();
+    expect(screen.getByText("กลาง")).toBeInTheDocument();
+    expect(screen.getByText("ไกล")).toBeInTheDocument();
     expect(screen.getByText("งวดที่ 1")).toBeInTheDocument();
     expect(screen.getAllByText("งานเสาเข็ม").length).toBeGreaterThan(0);
     // ด่วน appears on the bar chip and in the legend.

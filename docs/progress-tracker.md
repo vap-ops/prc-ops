@@ -6,6 +6,17 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 256 — Real schedule calendar views — 🔨 IN PROGRESS (2026-07-03)
+
+Operator on the spec-255 page: "day week month are just shrinking and expanding, not
+helpful" — the period switch is zoom-only (`dayWidth` 44/16/5). Approved plan: view
+switch เดือน|สัปดาห์|วัน|ไทม์ไลน์ — true Thai month grid (activity dots from photos,
+due markers, tap-day drill), week agenda, day agenda; ไทม์ไลน์ = existing Gantt with
+zoom relabeled ใกล้/กลาง/ไกล. Photo-derived per-day data, zero new queries, code-only.
+**U1** pure libs + loader (PR 1) · **U2** views UI (PR 2). TDD.
+
+---
+
 ## Spec 255 — Schedule calendar actuals timeline — ✅ SHIPPED (2026-07-03, PRs #273 + #274)
 
 Audit found the schedule Gantt dead in prod (274 WPs, 1 dated, 3 visits ever, all

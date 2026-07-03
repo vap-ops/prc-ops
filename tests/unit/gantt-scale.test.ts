@@ -59,8 +59,8 @@ describe("gantt-scale", () => {
     expect(tl.months.length).toBe(0);
   });
 
-  it("exposes the three Thai period labels (day / week / month)", () => {
-    expect(SCHEDULE_PERIODS.map((p) => p.label)).toEqual(["วัน", "สัปดาห์", "เดือน"]);
+  it("exposes zoom-honest period labels (spec 256 — near / mid / far)", () => {
+    expect(SCHEDULE_PERIODS.map((p) => p.label)).toEqual(["ใกล้", "กลาง", "ไกล"]);
   });
 
   // Spec 255 U2 — activity spans join the timeline domain.

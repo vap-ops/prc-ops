@@ -289,10 +289,10 @@ export function ScheduleGantt({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Period zoom — วัน / สัปดาห์ / เดือน */}
+      {/* Zoom — ใกล้ / กลาง / ไกล (spec 256: honest zoom, not calendar views) */}
       <div
         role="radiogroup"
-        aria-label="ช่วงเวลา"
+        aria-label="ซูม"
         className="border-edge bg-sunk rounded-control flex w-fit gap-1 self-end border p-1"
       >
         {SCHEDULE_PERIODS.map((p) => (
