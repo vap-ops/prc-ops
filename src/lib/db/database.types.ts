@@ -4796,6 +4796,164 @@ export type Database = {
           },
         ]
       }
+      subcontract_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string
+          id: string
+          kind: Database["public"]["Enums"]["subcontract_payment_kind"]
+          method: Database["public"]["Enums"]["receipt_method"]
+          note: string | null
+          paid_date: string
+          subcontract_id: string
+          superseded_by: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by: string
+          id?: string
+          kind: Database["public"]["Enums"]["subcontract_payment_kind"]
+          method: Database["public"]["Enums"]["receipt_method"]
+          note?: string | null
+          paid_date: string
+          subcontract_id: string
+          superseded_by?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["subcontract_payment_kind"]
+          method?: Database["public"]["Enums"]["receipt_method"]
+          note?: string | null
+          paid_date?: string
+          subcontract_id?: string
+          superseded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subcontract_payments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcontract_payments_subcontract_id_fkey"
+            columns: ["subcontract_id"]
+            isOneToOne: false
+            referencedRelation: "subcontracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcontract_payments_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "subcontract_payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subcontract_wps: {
+        Row: {
+          subcontract_id: string
+          work_package_id: string
+        }
+        Insert: {
+          subcontract_id: string
+          work_package_id: string
+        }
+        Update: {
+          subcontract_id?: string
+          work_package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subcontract_wps_subcontract_id_fkey"
+            columns: ["subcontract_id"]
+            isOneToOne: false
+            referencedRelation: "subcontracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcontract_wps_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subcontracts: {
+        Row: {
+          agreed_amount: number
+          contractor_id: string
+          created_at: string
+          created_by: string
+          document_path: string | null
+          id: string
+          note: string | null
+          project_id: string
+          sign_date: string | null
+          status: Database["public"]["Enums"]["subcontract_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          agreed_amount: number
+          contractor_id: string
+          created_at?: string
+          created_by: string
+          document_path?: string | null
+          id?: string
+          note?: string | null
+          project_id: string
+          sign_date?: string | null
+          status?: Database["public"]["Enums"]["subcontract_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          agreed_amount?: number
+          contractor_id?: string
+          created_at?: string
+          created_by?: string
+          document_path?: string | null
+          id?: string
+          note?: string | null
+          project_id?: string
+          sign_date?: string | null
+          status?: Database["public"]["Enums"]["subcontract_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subcontracts_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "contractors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcontracts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcontracts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           contact_person: string | null
@@ -6393,6 +6551,18 @@ export type Database = {
         }
         Returns: string
       }
+      create_subcontract: {
+        Args: {
+          p_agreed_amount: number
+          p_contractor: string
+          p_document_path?: string
+          p_note?: string
+          p_project: string
+          p_sign_date?: string
+          p_title: string
+        }
+        Returns: string
+      }
       create_supply_plan: { Args: { p_project_id: string }; Returns: string }
       create_work_category: {
         Args: {
@@ -6742,6 +6912,10 @@ export type Database = {
         Args: { p_source_id: string }
         Returns: string
       }
+      post_subcontract_payment_to_gl: {
+        Args: { p_source_id: string }
+        Returns: string
+      }
       post_wht_certificate_to_gl: {
         Args: { p_source_id: string }
         Returns: string
@@ -6873,6 +7047,17 @@ export type Database = {
       record_stock_in_bulk: {
         Args: { p_lines: Json; p_project_id: string }
         Returns: number
+      }
+      record_subcontract_payment: {
+        Args: {
+          p_amount: number
+          p_kind: Database["public"]["Enums"]["subcontract_payment_kind"]
+          p_method: Database["public"]["Enums"]["receipt_method"]
+          p_note?: string
+          p_paid_date: string
+          p_subcontract: string
+        }
+        Returns: string
       }
       record_wht_certificate: {
         Args: {
@@ -7076,6 +7261,10 @@ export type Database = {
         Args: { p_active: boolean; p_id: string }
         Returns: undefined
       }
+      set_subcontract_wps: {
+        Args: { p_subcontract: string; p_wp_ids: string[] }
+        Returns: undefined
+      }
       set_user_role: {
         Args: {
           p_role: Database["public"]["Enums"]["user_role"]
@@ -7237,6 +7426,17 @@ export type Database = {
           p_note: string
           p_receipt_id: string
           p_received_date: string
+        }
+        Returns: string
+      }
+      supersede_subcontract_payment: {
+        Args: {
+          p_amount: number
+          p_kind: Database["public"]["Enums"]["subcontract_payment_kind"]
+          p_method: Database["public"]["Enums"]["receipt_method"]
+          p_note?: string
+          p_paid_date: string
+          p_payment_id: string
         }
         Returns: string
       }
@@ -7417,6 +7617,18 @@ export type Database = {
         }
         Returns: string
       }
+      update_subcontract: {
+        Args: {
+          p_agreed_amount?: number
+          p_document_path?: string
+          p_id: string
+          p_note?: string
+          p_sign_date?: string
+          p_status?: Database["public"]["Enums"]["subcontract_status"]
+          p_title?: string
+        }
+        Returns: undefined
+      }
       update_work_category: {
         Args: {
           p_code: string
@@ -7547,6 +7759,11 @@ export type Database = {
         | "client_receipt_supersede"
         | "client_billing_invoiced"
         | "purchase_order_void"
+        | "subcontract_create"
+        | "subcontract_update"
+        | "subcontract_wps_set"
+        | "subcontract_payment_record"
+        | "subcontract_payment_supersede"
       boq_line_status: "draft" | "frozen" | "superseded"
       boq_variation_type: "standard" | "added" | "omitted" | "provisional_sum"
       catalog_fulfillment_mode: "off_shelf" | "made_to_order"
@@ -7697,6 +7914,8 @@ export type Database = {
       retention_status: "held" | "due" | "released" | "forfeited"
       rework_source: "internal" | "client"
       service_subtype: "transport"
+      subcontract_payment_kind: "advance" | "progress" | "final"
+      subcontract_status: "active" | "completed" | "cancelled"
       supply_plan_status: "draft" | "submitted" | "approved" | "rejected"
       unit_class: "count" | "length" | "area" | "volume" | "weight" | "trips"
       user_role:
@@ -7903,6 +8122,11 @@ export const Constants = {
         "client_receipt_supersede",
         "client_billing_invoiced",
         "purchase_order_void",
+        "subcontract_create",
+        "subcontract_update",
+        "subcontract_wps_set",
+        "subcontract_payment_record",
+        "subcontract_payment_supersede",
       ],
       boq_line_status: ["draft", "frozen", "superseded"],
       boq_variation_type: ["standard", "added", "omitted", "provisional_sum"],
@@ -8072,6 +8296,8 @@ export const Constants = {
       retention_status: ["held", "due", "released", "forfeited"],
       rework_source: ["internal", "client"],
       service_subtype: ["transport"],
+      subcontract_payment_kind: ["advance", "progress", "final"],
+      subcontract_status: ["active", "completed", "cancelled"],
       supply_plan_status: ["draft", "submitted", "approved", "rejected"],
       unit_class: ["count", "length", "area", "volume", "weight", "trips"],
       user_role: [
