@@ -5346,3 +5346,23 @@ standing U2b follow-up.
 - U4 built: submitGateReason = floor (spec 247) AND pairing (every current defect photo of
   the round answered), one decision consumed by both layers (page hint + action refusal);
   pairing hint carries the remaining count. spec 248 build units COMPLETE.
+
+## Spec 250 — revenue documents chain (2026-07-03)
+
+- U1 (schema): migration 062000 — quotations (status pipeline) + client_pos +
+  project_contracts (one per project) + contract_installments (งวดเบิก) +
+  client_billings.installment_id; same-project link triggers (22023); MONEY DOMAIN
+  zero-grant posture (matches client_billings — the spec doc's "RLS SELECT set" line is
+  corrected to this); 9 is_manager()-gated DEFINER RPCs incl. set_client_billing_installment
+  (chosen over extending create_client_billing — no signature churn / pin churn on a money
+  RPC). 062500 follow-up: audit_action enum values (audit_log.action is an ENUM — caught by
+  pgTAP 253 on the first full run; enum-add isolated per the house rule).
+- U2 (code): CreateBillingForm gains an optional งวดตามสัญญา select (scoped to the chosen
+  project, cleared on project switch); createClientBilling forwards installmentId via the
+  set RPC after create; billings page loads installments per project (writers only).
+  Pure helpers src/lib/accounting/contract.ts (rollupInstallments + installmentSumWarning).
+- Verified: pgTAP 253 28/28; vitest full 2405 + 11 new (form + helpers); typecheck/lint clean.
+- Decisions: Σงวด ≠ contract_value warns only (never blocks); chain links nullable both
+  directions (client-slow-on-paper case); document_path columns land now, the Storage
+  upload wiring ships with spec 253's drill forms.
+- Open questions: none.
