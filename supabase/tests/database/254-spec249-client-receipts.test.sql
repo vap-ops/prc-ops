@@ -1,12 +1,13 @@
 begin;
-select plan(25);
+select plan(29);
 
 -- ============================================================================
 -- Spec 249 U1 — client receipts (เงินรับจากลูกค้า): append-only supersede money
 -- table, ADVANCE receipts (no billing link — money before paper), GL posting
 -- (Dr 1110 bank / Cr 1200 AR when billing-linked, Cr 2300 customer-advance when
--- not), billing paid auto-flip on coverage, mark_client_billing_invoiced flip.
--- MONEY DOMAIN: zero authenticated grant; ids are stashed into _fix from the
+-- not), billing paid auto-flip on coverage, mark_client_billing_invoiced flip,
+-- and the U1c RE-DRAIN GUARD (a superseded row never (re)posts).
+-- MONEY DOMAIN: zero authenticated grant; ids stashed into _fix from the
 -- superuser context between steps (the test itself may not read money tables
 -- as authenticated — that IS the posture under test).
 -- ============================================================================
@@ -102,7 +103,27 @@ select throws_ok(
       where id = (select v from _fix where k = 'r49') $$,
   'P0001', null, 'client_receipts rows are append-only (update blocked)');
 
--- 12–13. VOID via supersede (all-null payload): coverage drops, paid downgrades
+-- 12–14. FIRST DRAIN: all three live receipts post — linked → Dr 1110 / Cr 1200;
+-- the advance → Cr 2300.
+select ok((select public.drain_gl_posting(200) >= 3), 'first drain posts the three receipts');
+select ok(
+  exists (
+    select 1 from public.journal_entries e
+      join public.journal_lines dr on dr.entry_id = e.id
+      join public.gl_accounts da on da.id = dr.account_id and da.code = '1110' and dr.debit > 0
+      join public.journal_lines cr on cr.entry_id = e.id
+      join public.gl_accounts ca on ca.id = cr.account_id and ca.code = '1200' and cr.credit > 0
+     where e.source_table = 'client_receipts' and e.status = 'posted'),
+  'a billing-linked receipt posted Dr bank 1110 / Cr AR 1200');
+select ok(
+  exists (
+    select 1 from public.journal_entries e
+      join public.journal_lines cr on cr.entry_id = e.id
+      join public.gl_accounts ca on ca.id = cr.account_id and ca.code = '2300' and cr.credit > 0
+     where e.source_table = 'client_receipts' and e.status = 'posted'),
+  'the advance receipt posted Cr customer-advance 2300');
+
+-- 15–16. VOID via supersede (all-null payload): coverage drops, paid downgrades
 -- to invoiced (bill was placed; money is short again).
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "a1111111-1111-1111-1111-111111111249"}';
@@ -115,7 +136,7 @@ select is(
   (select status::text from public.client_billings where id = (select v from _fix where k = 'b1')),
   'invoiced', 'losing coverage downgrades paid → invoiced');
 
--- 14–15. RE-ALLOCATE the advance onto the billing via supersede: covered again.
+-- 17–18. RE-ALLOCATE the advance onto the billing via supersede: covered again.
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "a1111111-1111-1111-1111-111111111249"}';
 select lives_ok(
@@ -123,21 +144,49 @@ select lives_ok(
        (select v from _fix where k = 'r30'),
        49000, '2026-07-03', 'bank_transfer',
        (select v from _fix where k = 'b1'), null) $$,
-  're-allocating an advance onto the billing via supersede works');
+  're-allocating the advance onto the billing via supersede works');
 reset role;
 select is(
   (select status::text from public.client_billings where id = (select v from _fix where k = 'b1')),
   'paid', 're-allocated coverage flips the billing back to paid');
 
--- 16. Current-state read: exactly 2 live receipt rows (anti-join) — the 50000
--- original + the re-allocated 49000; the voided and superseded rows excluded.
+-- 19. Current-state read: exactly 2 live receipt rows (anti-join).
 select is(
   (select count(*)::int from public.client_receipts r
     where r.amount is not null
       and not exists (select 1 from public.client_receipts n where n.superseded_by = r.id)),
   2, 'anti-join current-state sees 2 live receipts (50000 + reallocated 49000)');
 
--- 17–18. mark_client_billing_invoiced: certified → invoiced; draft refused.
+-- 20–22. SECOND DRAIN: the void reverses r49's entry; the re-allocation reverses
+-- r30's advance entry and posts the replacement; afterwards NO superseded row
+-- retains a posted-unreversed entry.
+select ok((select public.drain_gl_posting(200) >= 2), 'second drain processes the supersede jobs');
+select ok(
+  (select count(*) >= 2 from public.journal_entries r
+     join public.journal_entries e on r.reversal_of = e.id
+    where e.source_table = 'client_receipts'),
+  'both superseded receipts had their entries reversed');
+select is(
+  (select count(*)::int from public.journal_entries e
+    where e.source_table = 'client_receipts' and e.status = 'posted'
+      and e.source_id in ((select v from _fix where k = 'r49'), (select v from _fix where k = 'r30'))
+      and not exists (select 1 from public.journal_entries r where r.reversal_of = e.id)),
+  0, 'no superseded receipt retains a posted-unreversed entry');
+
+-- 23. RE-DRAIN ATTACK (U1c guard): reset the superseded rows' jobs and drain
+-- again — the guard must NOT re-post either row.
+update public.gl_posting_outbox set status = 'pending'
+ where source_table = 'client_receipts'
+   and source_id in ((select v from _fix where k = 'r49'), (select v from _fix where k = 'r30'));
+select ok((select public.drain_gl_posting(200) >= 0), 'third drain (re-drain attack) runs');
+select is(
+  (select count(*)::int from public.journal_entries e
+    where e.source_table = 'client_receipts' and e.status = 'posted'
+      and e.source_id in ((select v from _fix where k = 'r49'), (select v from _fix where k = 'r30'))
+      and not exists (select 1 from public.journal_entries r where r.reversal_of = e.id)),
+  0, 're-drain guard: a superseded row never re-posts (no unbalanced entry)');
+
+-- 24–25. mark_client_billing_invoiced: certified → invoiced; draft refused.
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "a1111111-1111-1111-1111-111111111249"}';
 select lives_ok(
@@ -150,7 +199,7 @@ select throws_ok(
        public.create_client_billing('ab000000-0000-0000-0000-000000000249', 30000)) $$,
   'P0001', null, 'a draft billing cannot be marked invoiced');
 
--- 19–20. Gates: site_admin refused; unbound caller fails closed.
+-- 26–27. Gates: site_admin refused; unbound caller fails closed.
 reset role;
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "a2222222-2222-2222-2222-222222222249"}';
@@ -167,33 +216,7 @@ select throws_ok(
   '42501', null, 'unbound caller fails closed (42501)');
 reset role;
 
--- 21–24. Drain: posts the receipts — linked → Dr 1110 / Cr 1200; advance → Cr 2300;
--- a supersede reversed the entry of the row it replaced.
-select ok((select public.drain_gl_posting(200) >= 1), 'drain processes the queued receipt jobs');
-select ok(
-  exists (
-    select 1 from public.journal_entries e
-      join public.journal_lines dr on dr.entry_id = e.id
-      join public.gl_accounts da on da.id = dr.account_id and da.code = '1110' and dr.debit > 0
-      join public.journal_lines cr on cr.entry_id = e.id
-      join public.gl_accounts ca on ca.id = cr.account_id and ca.code = '1200' and cr.credit > 0
-     where e.source_table = 'client_receipts' and e.status = 'posted'),
-  'a billing-linked receipt posted Dr bank 1110 / Cr AR 1200');
-select ok(
-  exists (
-    select 1 from public.journal_entries e
-      join public.journal_lines cr on cr.entry_id = e.id
-      join public.gl_accounts ca on ca.id = cr.account_id and ca.code = '2300' and cr.credit > 0
-     where e.source_table = 'client_receipts' and e.status = 'posted'),
-  'an advance receipt posted Cr customer-advance 2300');
-select ok(
-  exists (
-    select 1 from public.journal_entries r
-      join public.journal_entries e on r.reversal_of = e.id
-     where e.source_table = 'client_receipts'),
-  'superseding a posted receipt reversed its old journal entry');
-
--- 25. Audit trail for the receipt writes.
+-- 28. Audit trail for the receipt writes.
 select ok(
   exists (select 1 from public.audit_log
     where action = 'client_receipt_record' and target_table = 'client_receipts'),

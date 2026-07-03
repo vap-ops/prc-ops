@@ -5410,3 +5410,8 @@ standing U2b follow-up.
 - Decisions: paid→invoiced downgrade on lost coverage (bill necessarily placed; display
   always recomputes from receipts); one receipt links one billing (split = supersede).
 - Open questions: none.
+- U1c (pre-merge self-review fix): re-drain guard on post_client_receipt_to_gl
+  (migration 064200) — a superseded row never (re)posts; first-drain now posts the
+  SURVIVOR only when a supersede lands pre-drain. pgTAP 254 grew a re-drain-attack
+  regression (reset the superseded rows' outbox jobs → drain → zero unbalanced
+  entries); 29/29. Twin flaw in post_dc_payment_to_gl chipped separately.
