@@ -181,7 +181,10 @@ select enum_has_labels(
     'purchase_order_void',
     -- Spec 251: subcontracts (agreed vs paid).
     'subcontract_create', 'subcontract_update', 'subcontract_wps_set',
-    'subcontract_payment_record', 'subcontract_payment_supersede'
+    'subcontract_payment_record', 'subcontract_payment_supersede',
+    -- Spec 258: subcontract crew register.
+    'subcontract_crew_member_add', 'subcontract_crew_member_update',
+    'subcontract_crew_document_add'
   ],
   'audit_action enum includes purchase_request_purchase + purchase_request_delivery'
 );
