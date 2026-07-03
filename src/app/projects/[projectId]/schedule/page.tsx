@@ -9,7 +9,7 @@ import { createClient } from "@/lib/db/server";
 import { projectHref } from "@/lib/nav/project-paths";
 import { loadProjectSchedule } from "@/lib/projects/load-schedule";
 import { bangkokTodayISO } from "@/lib/work-packages/schedule-today";
-import { ScheduleGantt } from "@/components/features/work-packages/schedule-gantt";
+import { ScheduleViews } from "@/components/features/work-packages/schedule-views";
 
 interface PageProps {
   params: Promise<{ projectId: string }>;
@@ -27,11 +27,17 @@ export default async function ProjectSchedulePage({ params }: PageProps) {
 
   // Spec 148 U3: one loader batches the schedule reads (was a serial waterfall).
   // Same queries/columns/results — only the scheduling changes.
-  const { project, workPackages, deliverables, depRows, criticalIds, activitySpans } =
+  const { project, workPackages, deliverables, depRows, criticalIds, activitySpans, activityDays } =
     await loadProjectSchedule(supabase, projectId);
   if (!project) notFound();
 
   const todayISO = bangkokTodayISO();
+
+  // Spec 256 — Maps don't cross the RSC boundary; flatten to a plain object.
+  const activityDaysPlain: Record<string, Record<string, number>> = {};
+  for (const [iso, perWp] of activityDays) {
+    activityDaysPlain[iso] = Object.fromEntries(perWp);
+  }
 
   return (
     <PageShell>
@@ -46,9 +52,10 @@ export default async function ProjectSchedulePage({ params }: PageProps) {
       </DetailHeader>
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
-        <ScheduleGantt
+        <ScheduleViews
           projectId={project.id}
           todayISO={todayISO}
+          activityDays={activityDaysPlain}
           workPackages={(workPackages ?? []).map((w) => ({
             id: w.id,
             code: w.code,
