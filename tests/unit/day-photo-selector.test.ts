@@ -52,4 +52,10 @@ describe("selectDayPhotos", () => {
     const out = selectDayPhotos([original, tomb], new Set(["2026-06-15"]));
     expect(out).toEqual([]);
   });
+
+  it("preserves extra fields on the row (e.g. uploaded_by) — generic over the input type", () => {
+    const withUploader = { ...row({ created_at: "2026-06-15T05:00:00.000Z" }), uploaded_by: "u1" };
+    const out = selectDayPhotos([withUploader], new Set(["2026-06-15"]));
+    expect(out[0]?.uploaded_by).toBe("u1");
+  });
 });

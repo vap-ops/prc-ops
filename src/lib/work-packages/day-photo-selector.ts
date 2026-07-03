@@ -9,10 +9,13 @@ import {
   type ActivityPhotoRow,
 } from "@/lib/work-packages/photo-evidence";
 
-export function selectDayPhotos(
-  rows: ReadonlyArray<ActivityPhotoRow>,
+// Generic over T so callers that select extra columns (e.g. uploaded_by)
+// keep them on the returned rows — the predicate only reads the
+// ActivityPhotoRow fields, but the output type isn't narrowed to them.
+export function selectDayPhotos<T extends ActivityPhotoRow>(
+  rows: ReadonlyArray<T>,
   isoDates: ReadonlySet<string>,
-): ActivityPhotoRow[] {
+): T[] {
   return currentPhotoRows(rows).filter((r) => {
     const day = photoBangkokDate(r);
     return day !== null && isoDates.has(day);
