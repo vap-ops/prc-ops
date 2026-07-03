@@ -5627,3 +5627,48 @@ standing U2b follow-up.
   pattern).
 - U2 (deals + payments UI on the spec 253 drill) NOT started — new unit, new
   session per house workflow ("do not start the next unit in the same session").
+
+## Spec 258 — Subcontract crew register (ID cards per contract) — U1 SCHEMA — COMPLETE (2026-07-04)
+
+- 2 tables (`subcontract_crew_members`, `subcontract_crew_attachments`), 1 enum
+  (`crew_doc_purpose`), 3 RPCs (`add_crew_member`/`update_crew_member`/
+  `add_crew_document`), private storage bucket + PM-only upload policy.
+  site_admin gets project-scoped READ — the deliberate inversion of the spec-97
+  pin (contact_attachments excludes site_admin; here the whole point is field
+  gate-checking).
+- **Real bug caught by the pgTAP suite before shipping, not in prod:** the
+  first-draft RLS policies referenced `public.subcontracts` directly inside a
+  `USING` clause evaluated as `authenticated` — but `subcontracts` is
+  zero-authenticated-grant (spec 251's money-domain posture), so the subquery
+  itself raised `42501: permission denied for table subcontracts`, not just
+  "returns no rows." Fixed (migration `070300`) by wrapping the lookup in a
+  new SECURITY DEFINER helper `can_see_subcontract(uuid)`, matching
+  `can_see_project`'s own shape exactly — a definer function bypasses the
+  caller's missing grant.
+- **Second bug, same class:** the new helper was created without an explicit
+  `revoke ... from public, anon` + `grant execute ... to authenticated` pair,
+  so Postgres defaulted it to PUBLIC EXECUTE (anon included) — caught by the
+  anon-exec-definer completeness pin. Fixed in a follow-up migration
+  (`070400`).
+- **Third issue, a test-fixture gap, not a schema bug:** the pgTAP file's own
+  final assertion (PM reads the crew register) initially failed because the
+  fixture never made the PM a member/lead of the test project — `can_see_project`
+  was correctly denying a real access gap in the FIXTURE, not the schema. Fixed
+  by setting `project_lead_id` on the fixture project.
+- Migration timestamps: `070000`/`070100` (schema+RPCs+storage), `070300`
+  (RLS fix), `070400` (grant fix). `070200` belongs to a concurrent lane
+  (void_purchase_order project_director gate, PR #287 — reconciled the same
+  way as the spec 251/259 collision: copied their exact file locally, never
+  committed to this PR).
+- **Anomaly, unresolved, flagged not fixed:** `supabase/tests/database/259-void-purchase-order.test.sql`
+  showed a local working-tree modification (an audit_log lookup scoping fix,
+  matching exactly what an earlier-flagged spawn_task asked for) that this
+  session never made. Left uncommitted/untouched — not part of this PR.
+- Pin reconcile (same pattern as spec 251/259 before it): both audit_action
+  full-label pgTAP pins updated to include the 3 new crew labels
+  (`subcontract_crew_member_add`/`_update`, `subcontract_crew_document_add`).
+- Verified: new pgTAP file 26/26; full suite 226 files, only 1 pre-existing
+  unrelated failure (catalog-category live-data count drift — not a bug).
+  vitest 2536/2536, lint/typecheck clean, db:types regenerated.
+- U2 (crew block UI, expiry-badge helper, SA read surface) NOT started — new
+  unit, new session per house workflow.

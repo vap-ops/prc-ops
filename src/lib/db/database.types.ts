@@ -4796,6 +4796,105 @@ export type Database = {
           },
         ]
       }
+      subcontract_crew_attachments: {
+        Row: {
+          created_at: string
+          crew_member_id: string
+          id: string
+          purpose: Database["public"]["Enums"]["crew_doc_purpose"]
+          storage_path: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          crew_member_id: string
+          id?: string
+          purpose: Database["public"]["Enums"]["crew_doc_purpose"]
+          storage_path: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          crew_member_id?: string
+          id?: string
+          purpose?: Database["public"]["Enums"]["crew_doc_purpose"]
+          storage_path?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subcontract_crew_attachments_crew_member_id_fkey"
+            columns: ["crew_member_id"]
+            isOneToOne: false
+            referencedRelation: "subcontract_crew_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcontract_crew_attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subcontract_crew_members: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          national_id_number: string | null
+          nationality: string | null
+          phone: string | null
+          subcontract_id: string
+          work_permit_expiry: string | null
+          work_permit_number: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          national_id_number?: string | null
+          nationality?: string | null
+          phone?: string | null
+          subcontract_id: string
+          work_permit_expiry?: string | null
+          work_permit_number?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          national_id_number?: string | null
+          nationality?: string | null
+          phone?: string | null
+          subcontract_id?: string
+          work_permit_expiry?: string | null
+          work_permit_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subcontract_crew_members_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcontract_crew_members_subcontract_id_fkey"
+            columns: ["subcontract_id"]
+            isOneToOne: false
+            referencedRelation: "subcontracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subcontract_payments: {
         Row: {
           amount: number
@@ -6279,6 +6378,26 @@ export type Database = {
         }
         Returns: string
       }
+      add_crew_document: {
+        Args: {
+          p_crew_member: string
+          p_purpose: Database["public"]["Enums"]["crew_doc_purpose"]
+          p_storage_path: string
+        }
+        Returns: string
+      }
+      add_crew_member: {
+        Args: {
+          p_name: string
+          p_national_id_number?: string
+          p_nationality?: string
+          p_phone?: string
+          p_subcontract: string
+          p_work_permit_expiry?: string
+          p_work_permit_number?: string
+        }
+        Returns: string
+      }
       add_feedback_attachment: {
         Args: { p_feedback_id: string; p_storage_path: string }
         Returns: string
@@ -6331,6 +6450,10 @@ export type Database = {
       award_savers_bonus: { Args: { p_worker: string }; Returns: number }
       can_see_photo_log: { Args: { p_photo_log_id: string }; Returns: boolean }
       can_see_project: { Args: { p_project_id: string }; Returns: boolean }
+      can_see_subcontract: {
+        Args: { p_subcontract_id: string }
+        Returns: boolean
+      }
       can_see_wp: { Args: { p_work_package_id: string }; Returns: boolean }
       certify_client_billing: { Args: { p_id: string }; Returns: string }
       check_in_equipment: {
@@ -7552,6 +7675,19 @@ export type Database = {
         }
         Returns: string
       }
+      update_crew_member: {
+        Args: {
+          p_active?: boolean
+          p_id: string
+          p_name?: string
+          p_national_id_number?: string
+          p_nationality?: string
+          p_phone?: string
+          p_work_permit_expiry?: string
+          p_work_permit_number?: string
+        }
+        Returns: undefined
+      }
       update_my_display_name: {
         Args: { p_full_name: string }
         Returns: undefined
@@ -7764,6 +7900,9 @@ export type Database = {
         | "subcontract_wps_set"
         | "subcontract_payment_record"
         | "subcontract_payment_supersede"
+        | "subcontract_crew_member_add"
+        | "subcontract_crew_member_update"
+        | "subcontract_crew_document_add"
       boq_line_status: "draft" | "frozen" | "superseded"
       boq_variation_type: "standard" | "added" | "omitted" | "provisional_sum"
       catalog_fulfillment_mode: "off_shelf" | "made_to_order"
@@ -7811,6 +7950,7 @@ export type Database = {
         | "dc_company"
         | "dc_regular"
         | "dc_temporary"
+      crew_doc_purpose: "id_card" | "work_permit"
       day_fraction: "full" | "half"
       dc_arrangement: "regular" | "temporary"
       dc_payment_method: "bank_transfer" | "cash" | "cheque"
@@ -8127,6 +8267,9 @@ export const Constants = {
         "subcontract_wps_set",
         "subcontract_payment_record",
         "subcontract_payment_supersede",
+        "subcontract_crew_member_add",
+        "subcontract_crew_member_update",
+        "subcontract_crew_document_add",
       ],
       boq_line_status: ["draft", "frozen", "superseded"],
       boq_variation_type: ["standard", "added", "omitted", "provisional_sum"],
@@ -8181,6 +8324,7 @@ export const Constants = {
         "dc_regular",
         "dc_temporary",
       ],
+      crew_doc_purpose: ["id_card", "work_permit"],
       day_fraction: ["full", "half"],
       dc_arrangement: ["regular", "temporary"],
       dc_payment_method: ["bank_transfer", "cash", "cheque"],
