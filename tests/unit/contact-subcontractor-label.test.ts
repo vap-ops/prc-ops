@@ -18,7 +18,9 @@ const SUBCONTRACTOR_SURFACES = [
   // Spec 168: the crews page split; the subcontractor list is its own page now.
   "src/app/contacts/subcontractors/page.tsx",
   "src/app/contacts/[type]/[id]/page.tsx",
-  "src/app/settings/page.tsx",
+  // Settings-hub regroup (2026-07-03): the settings entry list moved from
+  // page.tsx into the sections config — the SSOT usage lives there now.
+  "src/app/settings/sections.ts",
 ];
 
 describe("subcontractor label (spec 159 U1)", () => {
@@ -33,6 +35,6 @@ describe("subcontractor label (spec 159 U1)", () => {
   });
 
   it("the settings crews door no longer merges the two as ผู้รับเหมา/DC", () => {
-    expect(reads("src/app/settings/page.tsx")).not.toContain("ผู้รับเหมา/DC");
+    expect(reads("src/app/settings/sections.ts")).not.toContain("ผู้รับเหมา/DC");
   });
 });
