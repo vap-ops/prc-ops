@@ -6,18 +6,36 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 257 — Schedule photo thumbnails — 🔨 IN PROGRESS (2026-07-03)
+## Spec 257 — Schedule photo thumbnails — ✅ SHIPPED (2026-07-03, PRs #279 + #280)
 
 Operator on spec 256: "show thumbnails as well? not just count number of images.
-This can potentially turn into daily report generator." Step 0 confirmed Supabase
-image transforms are enabled on the prod bucket (838KB→14.5KB real resize,
-HTTP 200); found `createSignedUrls` (bulk) has no transform option, so thumbnails
-mint per-photo via singular `createSignedUrl`, day-scoped. New `getSchedulePhotos`
-action (RLS-scoped read, ADR 0015 exposure model) feeds วัน/สัปดาห์ strips; reuses
-the existing `ZoomablePhoto` lightbox trigger — no new lightbox code. Code-only.
-**U1** mint-thumbnails lib + action (PR 1) · **U2** UI (PR 2). TDD. Daily-report
-generation is the follow-up spec — will need to reconcile with spec 212 (SA daily
-report, in progress, blocked on 2 operator decisions), not build two systems.
+This can potentially turn into daily report generator." Step 0 confirmed live
+against the prod bucket that Supabase image transforms are enabled (838KB→14.5KB
+real resize, HTTP 200); found `createSignedUrls` (bulk) has no transform option,
+so thumbnails mint per-photo via singular `createSignedUrl`, day-scoped. New
+`getSchedulePhotos` action (RLS-scoped read, ADR 0015 exposure model) feeds
+วัน/สัปดาห์ thumbnail strips; reuses the existing `ZoomablePhoto` lightbox
+trigger — no new lightbox code, markup/comments come free. Photos refresh every
+100s while a day/week view stays open (120s signed-URL TTL). **U1** mint-thumbnails
+lib + action (#279) · **U2** UI (#280). TDD; full suite 380/2515 green (25 new
+cases across both units).
+
+**Verification:** live-verified the riskiest unknown directly via REST (step 0,
+above) — the actual platform capability the feature depends on, independent of
+any UI. Live browser click-through was blocked this session by the same
+preview-renderer defect recorded for specs 255/256 (`document.hidden=true` on
+the tab stalls React's Suspense/hydration indefinitely — an environment issue,
+not app code; server logs confirm the route serves 200 with real data in ~4s).
+Before the tab wedged, live DOM read confirmed the month-view cell
+`"1 ก.ค. งานจริง 7"` still renders correctly post-U2 (matches the SQL count
+independently verified in the spec-256 session) — no regression to the
+already-shipped count surface. Interaction behavior (fetch-per-view-change,
+skeleton→thumbnail, cap/overflow note, silent degrade, lightbox open,
+periodic refresh) rests on the 8 dedicated RTL cases in `schedule-views.test.tsx`.
+
+Daily-report generation is the follow-up spec — will need to reconcile with
+spec 212 (SA daily report, in progress, blocked on 2 operator decisions), not
+build two systems.
 
 ---
 
