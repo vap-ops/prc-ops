@@ -5442,3 +5442,21 @@ standing U2b follow-up.
   needs a Storage bucket + policies, small schema follow-up); subcon cost block
   renders with spec 251 (operator decision pending); per-installment edit/remove UI
   (RPCs exist; v1 add-only in the sheet).
+
+## GL fix — dc_payments poster re-drain guard (2026-07-03)
+
+- The chipped twin of spec 249 U1c (064200): post_dc_payment_to_gl could DOUBLE-POST a
+  superseded payment — after R2 superseded R1 and R2's drain reversed R1's entry,
+  re-running R1's outbox job found no un-reversed entry to reverse (the not-exists
+  filter skips reversed ones) and re-posted R1 unpaired.
+- Fix: migration 065000 — CREATE OR REPLACE (body sourced from LIVE via
+  pg_get_functiondef, verified equal to 20260783000000; signature unchanged, grants
+  preserved) adds the guard: any row a newer row supersedes is non-current → post
+  nothing; the successor's drain owns the reversal.
+- Test-first: new pgTAP 256-dc-payment-redrain-guard (9) — record→drain→supersede→
+  drain→re-drain attack (reset R1's job to pending, drain again) → zero
+  posted-unreversed entries for the superseded row, successor untouched. RED on the
+  unguarded poster (have 1 / want 0), GREEN after 065000.
+- Verified: pgTAP 256 9/9; db:types regen zero drift (body-only change); full db:test +
+  vitest/lint/typecheck run pre-ship.
+- Open questions: none.
