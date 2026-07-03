@@ -175,12 +175,15 @@ select ok(
     select 1 from public.purchase_orders
      where id in (
        select target_id from public.audit_log
-        where action = 'purchase_order_void')),
+        where action = 'purchase_order_void'
+          and payload -> 'request_ids' ? 'fa000259-0000-4000-8000-000000000001')),
   'the voided PO row no longer exists');
 select is(
   (select count(*)::int from public.purchase_order_deliveries
     where purchase_order_id = (
-      select target_id from public.audit_log where action = 'purchase_order_void')),
+      select target_id from public.audit_log
+       where action = 'purchase_order_void'
+         and payload -> 'request_ids' ? 'fa000259-0000-4000-8000-000000000001')),
   0, 'the voided PO''s default delivery cascaded away too');
 
 -- G. GL safety: the posted pr1 entry is reversed (WIP nets to 0); pr2's
