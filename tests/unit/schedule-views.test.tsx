@@ -166,6 +166,7 @@ const THUMB = {
   workPackageId: "w1",
   thumbUrl: "https://thumb/ph1.jpg",
   fullUrl: "https://full/ph1.jpg",
+  uploaderName: "สมชาย",
 };
 
 describe("ScheduleViews photo thumbnails (spec 257)", () => {
@@ -237,6 +238,7 @@ describe("ScheduleViews photo thumbnails (spec 257)", () => {
       workPackageId: "w1",
       thumbUrl: `https://thumb/${i}.jpg`,
       fullUrl: `https://full/${i}.jpg`,
+      uploaderName: null,
     }));
     mockGetSchedulePhotos.mockResolvedValue({ ok: true, days: { "2026-07-02": many } });
     renderViews();
@@ -244,13 +246,14 @@ describe("ScheduleViews photo thumbnails (spec 257)", () => {
     expect(await screen.findByText(/\+1/)).toBeInTheDocument();
   });
 
-  it("tapping a thumbnail opens the lightbox", async () => {
+  it("tapping a thumbnail opens the lightbox showing who uploaded it", async () => {
     mockGetSchedulePhotos.mockResolvedValue({ ok: true, days: { "2026-07-02": [THUMB] } });
     renderViews();
     fireEvent.click(screen.getByRole("button", { name: /^2 ก\.ค\./ }));
     const trigger = await screen.findByRole("button", { name: "ดูรูปขยาย" });
     fireEvent.click(trigger);
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText(THUMB.uploaderName)).toBeInTheDocument();
   });
 
   it("refreshes photos periodically so signed URLs never fully expire while viewing", async () => {

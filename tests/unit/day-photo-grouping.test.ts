@@ -7,7 +7,13 @@ import { groupPhotosByWp, DAY_PHOTO_CAP } from "@/lib/work-packages/day-photo-gr
 import type { SchedulePhotoEntry } from "@/app/projects/[projectId]/schedule/actions";
 
 function entry(photoId: string, workPackageId: string): SchedulePhotoEntry {
-  return { photoId, workPackageId, thumbUrl: `thumb/${photoId}`, fullUrl: `full/${photoId}` };
+  return {
+    photoId,
+    workPackageId,
+    thumbUrl: `thumb/${photoId}`,
+    fullUrl: `full/${photoId}`,
+    uploaderName: null,
+  };
 }
 
 describe("groupPhotosByWp", () => {

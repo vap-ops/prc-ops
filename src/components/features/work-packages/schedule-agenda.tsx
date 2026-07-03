@@ -81,6 +81,7 @@ function ThumbStrip({ photos }: { photos: ReadonlyArray<SchedulePhotoEntry> }) {
   if (photos.length === 0) return null;
   const fullUrls = photos.map((p) => p.fullUrl);
   const photoIds = photos.map((p) => p.photoId);
+  const uploaderNames = photos.map((p) => p.uploaderName);
   return (
     <div className="flex [touch-action:pan-x_pinch-zoom] gap-1.5 overflow-x-auto">
       {photos.map((p, i) => (
@@ -94,6 +95,7 @@ function ThumbStrip({ photos }: { photos: ReadonlyArray<SchedulePhotoEntry> }) {
             groupIndex={i}
             photoId={p.photoId}
             groupPhotoIds={photoIds}
+            groupUploaderNames={uploaderNames}
           />
         </div>
       ))}
@@ -269,7 +271,11 @@ export function ScheduleWeekView({
                       <div key={`a-${wp.id}`} className="flex items-center gap-1.5">
                         {first && (
                           <div className="border-edge h-10 w-10 shrink-0 overflow-hidden rounded-md border">
-                            <ZoomablePhoto src={first.thumbUrl} photoId={first.photoId} />
+                            <ZoomablePhoto
+                              src={first.thumbUrl}
+                              photoId={first.photoId}
+                              uploaderName={first.uploaderName}
+                            />
                           </div>
                         )}
                         <div className="min-w-0 flex-1">

@@ -15,8 +15,9 @@ export interface ActivityPhotoRow {
   created_at: string;
 }
 
-/** Current photos only: no tombstones, no superseded/removed rows. */
-export function currentPhotoRows(rows: ReadonlyArray<ActivityPhotoRow>): ActivityPhotoRow[] {
+/** Current photos only: no tombstones, no superseded/removed rows. Generic
+ *  so callers selecting extra columns (e.g. uploaded_by) keep them. */
+export function currentPhotoRows<T extends ActivityPhotoRow>(rows: ReadonlyArray<T>): T[] {
   const supersededIds = new Set<string>();
   for (const r of rows) {
     if (r.superseded_by !== null) supersededIds.add(r.superseded_by);

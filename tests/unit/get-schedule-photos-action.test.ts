@@ -2,15 +2,18 @@
 //
 // Spec 257 U1 — getSchedulePhotos server action. Re-reads photo_logs under the
 // caller's RLS session (SCHEDULE_VIEW_ROLES gate, same as the schedule page),
-// restricts to the requested Bangkok dates (day-photo-selector.ts), and mints
-// thumb+full signed URLs (mint-thumbnails.ts, mocked here — covered by its
-// own unit tests).
+// restricts to the requested Bangkok dates (day-photo-selector.ts), mints
+// thumb+full signed URLs (mint-thumbnails.ts, mocked — own unit tests), and
+// resolves uploader display names (fetchDisplayNames, mocked — own unit
+// tests) so the calendar can show "ถ่ายโดย <name>" like every other photo
+// surface (bug: calendar thumbnails shipped without it).
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { requireActionRole, mintPhotoThumbnails } = vi.hoisted(() => ({
+const { requireActionRole, mintPhotoThumbnails, fetchDisplayNames } = vi.hoisted(() => ({
   requireActionRole: vi.fn(),
   mintPhotoThumbnails: vi.fn(),
+  fetchDisplayNames: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/action-gate", () => ({
@@ -20,12 +23,14 @@ vi.mock("@/lib/auth/action-gate", () => ({
   NOT_PERMITTED: "not permitted",
 }));
 vi.mock("@/lib/photos/mint-thumbnails", () => ({ mintPhotoThumbnails }));
+vi.mock("@/lib/users/display-names", () => ({ fetchDisplayNames }));
 vi.mock("server-only", () => ({}));
 
 import { getSchedulePhotos } from "@/app/projects/[projectId]/schedule/actions";
 
 const PROJECT = "11111111-1111-4111-8111-111111111111";
 const WP = "22222222-2222-4222-8222-222222222222";
+const UPLOADER = "44444444-4444-4444-8444-444444444444";
 
 const PHOTO_ROW = {
   id: "33333333-3333-4333-8333-333333333333",
@@ -34,6 +39,7 @@ const PHOTO_ROW = {
   superseded_by: null,
   captured_at_client: null,
   created_at: "2026-06-15T05:00:00.000Z",
+  uploaded_by: UPLOADER,
 };
 
 function rlsClient({
@@ -66,6 +72,8 @@ beforeEach(() => {
   mintPhotoThumbnails.mockResolvedValue(
     new Map([[PHOTO_ROW.id, { thumbUrl: "https://thumb", fullUrl: "https://full" }]]),
   );
+  fetchDisplayNames.mockReset();
+  fetchDisplayNames.mockResolvedValue(new Map([[UPLOADER, "สมชาย"]]));
 });
 
 describe("getSchedulePhotos", () => {
@@ -82,19 +90,30 @@ describe("getSchedulePhotos", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("returns photos grouped by requested day", async () => {
+  it("returns photos grouped by requested day, with the uploader's display name", async () => {
     authOk();
     const result = await getSchedulePhotos(PROJECT, ["2026-06-15"]);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
+    expect(fetchDisplayNames).toHaveBeenCalledWith([UPLOADER], expect.any(String));
     expect(result.days["2026-06-15"]).toEqual([
       {
         photoId: PHOTO_ROW.id,
         workPackageId: WP,
         thumbUrl: "https://thumb",
         fullUrl: "https://full",
+        uploaderName: "สมชาย",
       },
     ]);
+  });
+
+  it("falls back to null when the uploader's name can't be resolved", async () => {
+    authOk();
+    fetchDisplayNames.mockResolvedValue(new Map());
+    const result = await getSchedulePhotos(PROJECT, ["2026-06-15"]);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.days["2026-06-15"]?.[0]?.uploaderName).toBeNull();
   });
 
   it("drops non-ISO date strings and caps the request at 8 dates", async () => {

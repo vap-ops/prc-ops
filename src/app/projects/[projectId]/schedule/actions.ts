@@ -18,6 +18,7 @@ import { ISO_DATE_REGEX } from "@/lib/dates";
 import { selectDayPhotos } from "@/lib/work-packages/day-photo-selector";
 import { mintPhotoThumbnails } from "@/lib/photos/mint-thumbnails";
 import { photoBangkokDate } from "@/lib/work-packages/photo-evidence";
+import { fetchDisplayNames } from "@/lib/users/display-names";
 
 const FETCH_FAILED = "โหลดรูปไม่สำเร็จ";
 // A day view requests 1 date, a week view 7 — 8 covers both with no slack
@@ -29,6 +30,7 @@ export interface SchedulePhotoEntry {
   workPackageId: string;
   thumbUrl: string;
   fullUrl: string;
+  uploaderName: string | null;
 }
 
 export type SchedulePhotosResult =
@@ -57,12 +59,17 @@ export async function getSchedulePhotos(
 
   const { data: photoRows, error: photoError } = await supabase
     .from("photo_logs")
-    .select("id, work_package_id, storage_path, superseded_by, captured_at_client, created_at")
+    .select(
+      "id, work_package_id, storage_path, superseded_by, captured_at_client, created_at, uploaded_by",
+    )
     .in("work_package_id", wpIds);
   if (photoError) return { ok: false, error: FETCH_FAILED };
 
   const selected = selectDayPhotos(photoRows ?? [], dates);
-  const urls = await mintPhotoThumbnails(selected);
+  const [urls, uploaderNames] = await Promise.all([
+    mintPhotoThumbnails(selected),
+    fetchDisplayNames([...new Set(selected.map((r) => r.uploaded_by))], "getSchedulePhotos"),
+  ]);
 
   const days: Record<string, SchedulePhotoEntry[]> = {};
   for (const row of selected) {
@@ -75,6 +82,7 @@ export async function getSchedulePhotos(
       workPackageId: row.work_package_id,
       thumbUrl: url.thumbUrl,
       fullUrl: url.fullUrl,
+      uploaderName: uploaderNames.get(row.uploaded_by) ?? null,
     });
   }
   return { ok: true, days };
