@@ -5346,3 +5346,99 @@ standing U2b follow-up.
 - U4 built: submitGateReason = floor (spec 247) AND pairing (every current defect photo of
   the round answered), one decision consumed by both layers (page hint + action refusal);
   pairing hint carries the remaining count. spec 248 build units COMPLETE.
+
+## Spec 250 — revenue documents chain (2026-07-03)
+
+- U1 (schema): migration 062000 — quotations (status pipeline) + client_pos +
+  project_contracts (one per project) + contract_installments (งวดเบิก) +
+  client_billings.installment_id; same-project link triggers (22023); MONEY DOMAIN
+  zero-grant posture (matches client_billings — the spec doc's "RLS SELECT set" line is
+  corrected to this); 9 is_manager()-gated DEFINER RPCs incl. set_client_billing_installment
+  (chosen over extending create_client_billing — no signature churn / pin churn on a money
+  RPC). 062500 follow-up: audit_action enum values (audit_log.action is an ENUM — caught by
+  pgTAP 253 on the first full run; enum-add isolated per the house rule).
+- U2 (code): CreateBillingForm gains an optional งวดตามสัญญา select (scoped to the chosen
+  project, cleared on project switch); createClientBilling forwards installmentId via the
+  set RPC after create; billings page loads installments per project (writers only).
+  Pure helpers src/lib/accounting/contract.ts (rollupInstallments + installmentSumWarning).
+- Verified: pgTAP 253 28/28; vitest full 2405 + 11 new (form + helpers); typecheck/lint clean.
+- Decisions: Σงวด ≠ contract_value warns only (never blocks); chain links nullable both
+  directions (client-slow-on-paper case); document_path columns land now, the Storage
+  upload wiring ships with spec 253's drill forms.
+- Open questions: none.
+
+## Spec 252 — accounting read access (2026-07-03)
+
+- Found already-done: roleHome() has routed accounting → /accounting since spec 149 U9
+  (the CLAUDE.md role table's "v3" note was stale) — no code needed for onboarding.
+- U1 (schema): migrations 064000 (wp_profit gate: super/PD-only → is_manager ∨
+  accounting; PM admitted too — the spec-253 drill is a PM∪accounting surface and the
+  old gate would have refused PMs) + 064100 (wp_labor_sell + wp_equipment_sell carry
+  their OWN gates one call deeper — caught by pgTAP 255 first run; same widening, own
+  migration because 064000 was already applied). All bodies re-sourced VERBATIM from
+  LIVE, only gate lines changed.
+- U2 (code): PAYROLL_VIEW_ROLES / DASHBOARD_VIEW_ROLES / MONEY_VIEW_ROLES read-scoped
+  constants (write sets untouched); /payroll admits accounting read-only (record sheet
+  → "ยังไม่บันทึกการจ่าย" text; record_dc_payment RPC refuses accounting anyway);
+  /dashboard admits accounting with money view (showMoney split from isManager —
+  approvals/bank work-queue cards stay PM-tier; accounting's project/WP list reads go
+  via the admin client since can_see_project has no accounting arm and spec 252 leaves
+  RLS untouched).
+- Verified: pgTAP 255 5/5; vitest constants test 5; typecheck/lint clean.
+- Open questions: real-browser accounting-role walk deferred to the spec-253
+  verification session (same journey, one dev-server round).
+
+## Spec 249 — client receipts + billed-vs-received (2026-07-03)
+
+- U1 (schema): migrations 063000 (receipt*method enum + audit_action values, enum-add
+  isolated) + 063500 — client_receipts APPEND-ONLY + supersede (void = tombstone,
+  all-null payload; guard triggers block even owner-context UPDATE/DELETE); ADVANCE
+  receipts = nullable billing link (money before paper, operator directive); GL account
+  2300 เงินรับล่วงหน้าจากลูกค้า seeded; poster post_client_receipt_to_gl (Dr 1110 /
+  Cr 1200 linked, Cr 2300 advance; supersede reverses the replaced row's entry —
+  dc_payments pattern); drain re-sourced VERBATIM from LIVE + client_receipts arm;
+  record*/supersede_client_receipt + mark_client_billing_invoiced (certified→invoiced —
+  the status machine had NO write path past certified; Finance's "วางบิลไปแล้วกี่บิล"
+  needs it) + coverage recompute (≥ net → paid; losing coverage → invoiced).
+- U2 (code): billing register rows gain รับแล้ว/ค้างรับ + เงินรับ drawer (list + record
+  form for writers) + วางบิล button on certified rows; pure helpers
+  src/lib/accounting/receipts.ts (currentReceipts anti-join, billingCoverage,
+  projectReceiptSummary); RECEIPT_METHOD_LABEL in labels.ts (SSOT — reused by 251/253).
+- Verified: pgTAP 254 25/25 (incl. drain postings + reversal + append-only + fail-closed
+  gates); vitest full 2415 (10 new); typecheck/lint clean; rebased onto post-250 main
+  (Promise.all block conflict reconciled to 4 parallel reads).
+- Decisions: paid→invoiced downgrade on lost coverage (bill necessarily placed; display
+  always recomputes from receipts); one receipt links one billing (split = supersede).
+- Open questions: none.
+- U1c (pre-merge self-review fix): re-drain guard on post_client_receipt_to_gl
+  (migration 064200) — a superseded row never (re)posts; first-drain now posts the
+  SURVIVOR only when a supersede lands pre-drain. pgTAP 254 grew a re-drain-attack
+  regression (reset the superseded rows' outbox jobs → drain → zero unbalanced
+  entries); 29/29. Twin flaw in post_dc_payment_to_gl chipped separately.
+
+## Spec 253 — finance project drill (2026-07-03)
+
+- U1: pure view-model src/lib/accounting/project-drill.ts (assembleRevenueFunnel —
+  tiles via projectReceiptSummary, per-งวด billed+received threading, Σ-vs-value
+  warning; receipts-only project first-class) + /accounting/projects list (billed/
+  received/outstanding per project) + [projectId] drill revenue section (quotation/
+  PO/contract/งวด cards + billings + receipts incl. advances) + write sheets
+  (quotation, client PO, contract upsert, installment, ADVANCE receipt) over the
+  spec 250/249 RPCs — PM-tier only; accounting renders read-only. Hub link +
+  nav-back STATIC_DETAIL registration.
+- U2: cost section (labor own/DC via aggregateLaborCost; materials COMMITTED
+  (purchased/on_route) vs ACTUAL (delivered/site_purchased + store เบิก − returns,
+  dashboard netting) + รอราคา blind-spot count via new pure splitMaterialSpend) +
+  per-WP wp_profit() P&L table with totals (RPC finally has a UI; runs on the user
+  session — the spec-252 gate admits the money-view set).
+- Verified: vitest 78 targeted (VM 7 + forms 2 + nav guard) + full suite; typecheck/
+  lint clean. REAL-BROWSER (dev-preview recipe, fin253 checkout on :3001):
+  super_admin — hub link, list, drill tiles/docs/cost/P&L + write buttons ✓;
+  accounting (role flipped + restored) — drill renders w/ P&L numbers, write
+  buttons HIDDEN, /payroll read-only (record sheet hidden), /dashboard money
+  visible + approvals card absent ✓; unauth — NEXT_REDIRECT, zero money in HTML ✓;
+  375px screenshot healthy.
+- Deferred (open questions): document upload wiring (document_path stays null —
+  needs a Storage bucket + policies, small schema follow-up); subcon cost block
+  renders with spec 251 (operator decision pending); per-installment edit/remove UI
+  (RPCs exist; v1 add-only in the sheet).

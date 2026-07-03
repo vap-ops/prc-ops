@@ -26,10 +26,24 @@ export interface ProjectOption {
   label: string;
 }
 
-export function CreateBillingForm({ projects }: { projects: ProjectOption[] }) {
+// Spec 250 U2 — the chosen project's contract งวด rows (optional claim target).
+export interface InstallmentOption {
+  id: string;
+  label: string;
+  amount: number;
+}
+
+export function CreateBillingForm({
+  projects,
+  installmentsByProject = {},
+}: {
+  projects: ProjectOption[];
+  installmentsByProject?: Record<string, InstallmentOption[]>;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [projectId, setProjectId] = useState("");
+  const [installmentId, setInstallmentId] = useState("");
   const [gross, setGross] = useState("");
   const [retentionRate, setRetentionRate] = useState("5");
   const [vatRate, setVatRate] = useState("7");
@@ -41,6 +55,7 @@ export function CreateBillingForm({ projects }: { projects: ProjectOption[] }) {
   const [submitting, startSubmit] = useTransition();
 
   const grossNum = Number(gross);
+  const installmentOptions = projectId ? (installmentsByProject[projectId] ?? []) : [];
   const breakdown = computeBillingBreakdown({
     grossAmount: grossNum,
     retentionRate: Number(retentionRate),
@@ -63,6 +78,7 @@ export function CreateBillingForm({ projects }: { projects: ProjectOption[] }) {
         periodFrom: periodFrom || null,
         periodTo: periodTo || null,
         note: note || null,
+        installmentId: installmentId || null,
       });
       if (!result.ok) {
         setError(result.error);
@@ -72,6 +88,7 @@ export function CreateBillingForm({ projects }: { projects: ProjectOption[] }) {
       // Reset to a clean draft — including the rates (else custom rates leak into
       // the next claim the user opens).
       setProjectId("");
+      setInstallmentId("");
       setGross("");
       setRetentionRate("5");
       setVatRate("7");
@@ -102,7 +119,11 @@ export function CreateBillingForm({ projects }: { projects: ProjectOption[] }) {
             <select
               id="billing-project"
               value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
+              onChange={(e) => {
+                setProjectId(e.target.value);
+                // A งวด belongs to ONE project's contract — never carry a pick across.
+                setInstallmentId("");
+              }}
               disabled={submitting}
               className={FIELD}
             >
@@ -114,6 +135,28 @@ export function CreateBillingForm({ projects }: { projects: ProjectOption[] }) {
               ))}
             </select>
           </div>
+
+          {installmentOptions.length > 0 ? (
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="billing-installment" className={LABEL}>
+                งวดตามสัญญา (ไม่บังคับ)
+              </label>
+              <select
+                id="billing-installment"
+                value={installmentId}
+                onChange={(e) => setInstallmentId(e.target.value)}
+                disabled={submitting}
+                className={FIELD}
+              >
+                <option value="">— ไม่ระบุ —</option>
+                {installmentOptions.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.label} · {baht(i.amount)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
 
           <div className="flex flex-col gap-1.5">
             <label htmlFor="billing-gross" className={LABEL}>

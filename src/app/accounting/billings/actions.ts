@@ -25,6 +25,8 @@ export interface CreateBillingInput {
   periodFrom?: string | null;
   periodTo?: string | null;
   note?: string | null;
+  // Spec 250 U2 — optional งวด claim target (contract_installments.id).
+  installmentId?: string | null;
 }
 
 export async function createClientBilling(
@@ -64,8 +66,18 @@ export async function createClientBilling(
   if (input.periodTo) args.p_period_to = input.periodTo;
   if (input.note) args.p_note = input.note;
 
-  const { error } = await g.auth.supabase.rpc("create_client_billing", args);
+  const { data: billingId, error } = await g.auth.supabase.rpc("create_client_billing", args);
   if (error) return { ok: false, error: GENERIC };
+
+  // Spec 250 U2 — link the งวด after create. Cross-project picks are re-checked
+  // by the DB trigger (22023); a failed link leaves a valid unlinked draft, so
+  // report success-with-caveat rather than a phantom failure.
+  if (input.installmentId && billingId) {
+    await g.auth.supabase.rpc("set_client_billing_installment", {
+      p_billing_id: billingId,
+      p_installment_id: input.installmentId,
+    });
+  }
   revalidatePath("/accounting/billings");
   return { ok: true };
 }
@@ -78,5 +90,65 @@ export async function certifyClientBilling(id: string): Promise<AccountingAction
   // Certify accrues a held retention row → refresh both registers.
   revalidatePath("/accounting/billings");
   revalidatePath("/accounting/retention");
+  return { ok: true };
+}
+
+// Spec 249 — record cash received against a billing (partial fine; the RPC
+// recomputes coverage and may flip the billing to paid). Advance receipts
+// (no billing) are recorded from the project drill, not this register.
+export interface RecordReceiptInput {
+  projectId: string;
+  billingId: string;
+  amount: number;
+  receivedDate: string;
+  method: string;
+  note?: string | null;
+}
+
+const RECEIPT_METHODS = ["bank_transfer", "cheque", "cash"] as const;
+type ReceiptMethod = (typeof RECEIPT_METHODS)[number];
+
+export async function recordClientReceipt(
+  input: RecordReceiptInput,
+): Promise<AccountingActionResult> {
+  const g = await requireActionRole(BILLING_WRITE_ROLES, GENERIC);
+  if ("error" in g) return { ok: false, error: g.error };
+
+  if (!Number.isFinite(input.amount) || input.amount <= 0 || !input.receivedDate) {
+    return { ok: false, error: GENERIC };
+  }
+  if (!RECEIPT_METHODS.includes(input.method as ReceiptMethod)) {
+    return { ok: false, error: GENERIC };
+  }
+
+  const args: {
+    p_project_id: string;
+    p_amount: number;
+    p_received_date: string;
+    p_method: ReceiptMethod;
+    p_billing_id: string;
+    p_note?: string;
+  } = {
+    p_project_id: input.projectId,
+    p_amount: input.amount,
+    p_received_date: input.receivedDate,
+    p_method: input.method as ReceiptMethod,
+    p_billing_id: input.billingId,
+  };
+  if (input.note) args.p_note = input.note;
+
+  const { error } = await g.auth.supabase.rpc("record_client_receipt", args);
+  if (error) return { ok: false, error: GENERIC };
+  revalidatePath("/accounting/billings");
+  return { ok: true };
+}
+
+// Spec 249 — วางบิล: certified → invoiced (answers "วางบิลไปแล้วกี่บิล").
+export async function markBillingInvoiced(id: string): Promise<AccountingActionResult> {
+  const g = await requireActionRole(BILLING_WRITE_ROLES, GENERIC);
+  if ("error" in g) return { ok: false, error: g.error };
+  const { error } = await g.auth.supabase.rpc("mark_client_billing_invoiced", { p_id: id });
+  if (error) return { ok: false, error: GENERIC };
+  revalidatePath("/accounting/billings");
   return { ok: true };
 }

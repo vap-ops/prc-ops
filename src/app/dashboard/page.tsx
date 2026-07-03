@@ -1,15 +1,18 @@
 // Spec 100 — ภาพรวม / Dashboard. A role-aware portfolio overview of live
 // projects. EVERY staff role sees the money-free operational half (progress +
-// attention); PM/super additionally see budget vs spend (money), read via the
-// admin client behind the PM gate — site_admin never sees money (budget/cost
-// have zero authenticated grant). A primary-tab hub: BottomTabBar + plain
-// header, no back chip (mirrors /settings).
+// attention); the money-view set (PM tier + accounting, spec 252) additionally
+// sees budget vs spend, read via the admin client behind the page gate —
+// site_admin never sees money (budget/cost have zero authenticated grant).
+// accounting's LIST reads also go via admin: can_see_project has no accounting
+// arm (spec 252 leaves RLS untouched — admin-behind-app-gate posture) and this
+// page offers accounting no write affordance. A primary-tab hub: BottomTabBar +
+// plain header, no back chip (mirrors /settings).
 
 import Link from "next/link";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
-import { PM_ROLES, SITE_STAFF_ROLES } from "@/lib/auth/role-home";
+import { PM_ROLES, DASHBOARD_VIEW_ROLES, MONEY_VIEW_ROLES } from "@/lib/auth/role-home";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
@@ -56,9 +59,17 @@ interface ProjectVM {
 }
 
 export default async function DashboardPage() {
-  const ctx = await requireRole(SITE_STAFF_ROLES);
+  const ctx = await requireRole(DASHBOARD_VIEW_ROLES);
   const isManager = PM_ROLES.includes(ctx.role);
+  // Spec 252: money display = PM tier ∨ accounting (read-only). The approvals /
+  // bank-change work-queue cards stay PM-tier (isManager) — work queues, not
+  // finance reading.
+  const showMoney = MONEY_VIEW_ROLES.includes(ctx.role);
   const supabase = await createServerSupabase();
+  const admin = showMoney ? createAdminSupabase() : null;
+  // accounting has no can_see_project arm — its project/WP lists read via admin
+  // behind this page gate.
+  const listDb = ctx.role === "accounting" && admin ? admin : supabase;
 
   // Spec 242: these three opening reads are mutually independent — the approvals
   // summary, the merged bank-change count, and the live-projects list don't depend
@@ -79,7 +90,7 @@ export default async function DashboardPage() {
           getPendingWorkerBankChangeCount(supabase),
         ]).then(([contractor, worker]) => contractor + worker)
       : Promise.resolve(0),
-    supabase
+    listDb
       .from("projects")
       .select("id, name, code, status")
       .in("status", LIVE_STATUSES)
@@ -89,7 +100,7 @@ export default async function DashboardPage() {
   const projectIds = projects.map((p) => p.id);
 
   const { data: wpRows } = projectIds.length
-    ? await supabase
+    ? await listDb
         .from("work_packages")
         .select("id, project_id, status, category_id")
         .in("project_id", projectIds)
@@ -136,8 +147,7 @@ export default async function DashboardPage() {
   // excluded from sumMaterials to avoid a double-count once U1 auto-stocks
   // WP-bound receives. Empty today (the trigger only stocks WP-less PRs).
   const storedPrIds = new Set<string>();
-  if (isManager && projectIds.length) {
-    const admin = createAdminSupabase();
+  if (showMoney && admin && projectIds.length) {
     const wpIds = wps.map((w) => w.id);
     const [
       { data: budgetRows },
@@ -320,7 +330,7 @@ export default async function DashboardPage() {
   const items: ProjectVM[] = projects.map((p) => {
     const progress = rollupProgress(wpsByProject.get(p.id) ?? []);
     let money: ProjectVM["money"] = null;
-    if (isManager) {
+    if (showMoney) {
       const labor = aggregateLaborCost(laborByProject.get(p.id) ?? []).total;
       // Materials = direct WP-bound purchases (at supplier amount) + store-issued
       // material (เบิก at cost). Disjoint sources, so additive — no double-count:
@@ -389,7 +399,7 @@ export default async function DashboardPage() {
           <p className="text-ink-secondary text-body">ยังไม่มีโครงการที่กำลังดำเนินการ</p>
         ) : (
           <>
-            {isManager ? (
+            {showMoney ? (
               <div className="border-edge bg-card shadow-card rounded-card flex flex-col gap-2 border p-4">
                 <div className="flex items-baseline justify-between">
                   <span className="text-ink-secondary text-meta font-semibold">งบประมาณรวม</span>

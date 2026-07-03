@@ -41,6 +41,9 @@ export const FIRM_WIDE_MONEY_READ_SITES: readonly string[] = [
   "src/lib/accounting/load-payables.ts",
   "src/lib/accounting/load-registers.ts",
   "src/lib/accounting/load-voucher.ts",
+  // Spec 253: the finance project LIST aggregates billings + receipts across
+  // every project (one funnel line per project) behind requireRole(MONEY_VIEW_ROLES).
+  "src/app/accounting/projects/page.tsx",
 ];
 
 /**
@@ -51,6 +54,10 @@ export const FIRM_WIDE_MONEY_READ_SITES: readonly string[] = [
 export const PROJECT_SCOPED_MONEY_READ_SITES: readonly string[] = [
   "src/app/review/work-packages/[workPackageId]/page.tsx",
   "src/lib/labor/wp-budget-summary.ts",
+  // Spec 253: the finance drill reads ONE project's money — every money-table
+  // read carries .eq("project_id", …) / .in("work_package_id", wpIds of that
+  // project) (the stock_reversals id-list read is not a money table).
+  "src/app/accounting/projects/[projectId]/page.tsx",
 ];
 
 /** Every file allowed to read a money table. The guard test pins this set. */

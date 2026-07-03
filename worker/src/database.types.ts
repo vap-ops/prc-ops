@@ -571,6 +571,7 @@ export type Database = {
           created_by: string
           gross_amount: number
           id: string
+          installment_id: string | null
           net_receivable: number | null
           note: string | null
           period_from: string | null
@@ -593,6 +594,7 @@ export type Database = {
           created_by: string
           gross_amount: number
           id?: string
+          installment_id?: string | null
           net_receivable?: number | null
           note?: string | null
           period_from?: string | null
@@ -615,6 +617,7 @@ export type Database = {
           created_by?: string
           gross_amount?: number
           id?: string
+          installment_id?: string | null
           net_receivable?: number | null
           note?: string | null
           period_from?: string | null
@@ -642,6 +645,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_billings_installment_id_fkey"
+            columns: ["installment_id"]
+            isOneToOne: false
+            referencedRelation: "contract_installments"
             referencedColumns: ["id"]
           },
           {
@@ -766,6 +776,138 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_pos: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string
+          document_path: string | null
+          id: string
+          note: string | null
+          po_date: string
+          po_no: string
+          project_id: string
+          quotation_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by: string
+          document_path?: string | null
+          id?: string
+          note?: string | null
+          po_date: string
+          po_no: string
+          project_id: string
+          quotation_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string
+          document_path?: string | null
+          id?: string
+          note?: string | null
+          po_date?: string
+          po_no?: string
+          project_id?: string
+          quotation_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_pos_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_pos_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_pos_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_receipts: {
+        Row: {
+          amount: number | null
+          client_billing_id: string | null
+          created_at: string
+          created_by: string
+          id: string
+          method: Database["public"]["Enums"]["receipt_method"] | null
+          note: string | null
+          project_id: string
+          received_date: string | null
+          superseded_by: string | null
+        }
+        Insert: {
+          amount?: number | null
+          client_billing_id?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          method?: Database["public"]["Enums"]["receipt_method"] | null
+          note?: string | null
+          project_id: string
+          received_date?: string | null
+          superseded_by?: string | null
+        }
+        Update: {
+          amount?: number | null
+          client_billing_id?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          method?: Database["public"]["Enums"]["receipt_method"] | null
+          note?: string | null
+          project_id?: string
+          received_date?: string | null
+          superseded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_receipts_client_billing_id_fkey"
+            columns: ["client_billing_id"]
+            isOneToOne: false
+            referencedRelation: "client_billings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_receipts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_receipts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_receipts_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "client_receipts"
             referencedColumns: ["id"]
           },
         ]
@@ -1050,6 +1192,47 @@ export type Database = {
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contract_installments: {
+        Row: {
+          amount: number
+          contract_id: string
+          created_at: string
+          id: string
+          label: string
+          planned_date: string | null
+          seq: number
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          contract_id: string
+          created_at?: string
+          id?: string
+          label: string
+          planned_date?: string | null
+          seq: number
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          contract_id?: string
+          created_at?: string
+          id?: string
+          label?: string
+          planned_date?: string | null
+          seq?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_installments_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "project_contracts"
             referencedColumns: ["id"]
           },
         ]
@@ -2902,6 +3085,89 @@ export type Database = {
           },
         ]
       }
+      project_contracts: {
+        Row: {
+          client_po_id: string | null
+          contract_no: string | null
+          contract_value: number
+          created_at: string
+          created_by: string
+          document_path: string | null
+          end_date: string | null
+          id: string
+          note: string | null
+          project_id: string
+          quotation_id: string | null
+          retention_rate: number
+          sign_date: string | null
+          start_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          client_po_id?: string | null
+          contract_no?: string | null
+          contract_value: number
+          created_at?: string
+          created_by: string
+          document_path?: string | null
+          end_date?: string | null
+          id?: string
+          note?: string | null
+          project_id: string
+          quotation_id?: string | null
+          retention_rate?: number
+          sign_date?: string | null
+          start_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          client_po_id?: string | null
+          contract_no?: string | null
+          contract_value?: number
+          created_at?: string
+          created_by?: string
+          document_path?: string | null
+          end_date?: string | null
+          id?: string
+          note?: string | null
+          project_id?: string
+          quotation_id?: string | null
+          retention_rate?: number
+          sign_date?: string | null
+          start_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_contracts_client_po_id_fkey"
+            columns: ["client_po_id"]
+            isOneToOne: false
+            referencedRelation: "client_pos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_contracts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_contracts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_contracts_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_members: {
         Row: {
           added_at: string
@@ -3667,6 +3933,63 @@ export type Database = {
             columns: ["work_package_id"]
             isOneToOne: false
             referencedRelation: "work_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotations: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string
+          document_path: string | null
+          id: string
+          note: string | null
+          project_id: string
+          quotation_no: string
+          quote_date: string
+          status: Database["public"]["Enums"]["quotation_status"]
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by: string
+          document_path?: string | null
+          id?: string
+          note?: string | null
+          project_id: string
+          quotation_no: string
+          quote_date: string
+          status?: Database["public"]["Enums"]["quotation_status"]
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string
+          document_path?: string | null
+          id?: string
+          note?: string | null
+          project_id?: string
+          quotation_no?: string
+          quote_date?: string
+          status?: Database["public"]["Enums"]["quotation_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -5782,6 +6105,16 @@ export type Database = {
         }
         Returns: string
       }
+      add_contract_installment: {
+        Args: {
+          p_amount: number
+          p_contract_id: string
+          p_label: string
+          p_planned_date?: string
+          p_seq: number
+        }
+        Returns: string
+      }
       add_feedback_attachment: {
         Args: { p_feedback_id: string; p_storage_path: string }
         Returns: string
@@ -5970,6 +6303,18 @@ export type Database = {
         Args: { p_project: string; p_valid_until: string }
         Returns: string
       }
+      create_client_po: {
+        Args: {
+          p_amount: number
+          p_document_path?: string
+          p_note?: string
+          p_po_date: string
+          p_po_no: string
+          p_project_id: string
+          p_quotation_id?: string
+        }
+        Returns: string
+      }
       create_contractor_invite: {
         Args: { p_contractor_id: string }
         Returns: string
@@ -6023,6 +6368,17 @@ export type Database = {
           p_order_ref?: string
           p_supplier_id: string
           p_vat_rate?: number
+        }
+        Returns: string
+      }
+      create_quotation: {
+        Args: {
+          p_amount: number
+          p_document_path?: string
+          p_note?: string
+          p_project_id: string
+          p_quotation_no: string
+          p_quote_date: string
         }
         Returns: string
       }
@@ -6292,6 +6648,7 @@ export type Database = {
         }
         Returns: string
       }
+      mark_client_billing_invoiced: { Args: { p_id: string }; Returns: string }
       mark_feedback_viewed: {
         Args: { p_feedback_id: string }
         Returns: undefined
@@ -6307,6 +6664,10 @@ export type Database = {
         Returns: boolean
       }
       post_client_billing_to_gl: {
+        Args: { p_source_id: string }
+        Returns: string
+      }
+      post_client_receipt_to_gl: {
         Args: { p_source_id: string }
         Returns: string
       }
@@ -6414,6 +6775,21 @@ export type Database = {
           p_request_ids: string[]
         }
         Returns: number
+      }
+      recompute_billing_receipt_status: {
+        Args: { p_billing_id: string }
+        Returns: undefined
+      }
+      record_client_receipt: {
+        Args: {
+          p_amount: number
+          p_billing_id?: string
+          p_method: Database["public"]["Enums"]["receipt_method"]
+          p_note?: string
+          p_project_id: string
+          p_received_date: string
+        }
+        Returns: string
       }
       record_contractor_consent: {
         Args: {
@@ -6529,6 +6905,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      remove_contract_installment: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
       remove_purchase_quote: {
         Args: { p_quote_id: string }
         Returns: undefined
@@ -6610,6 +6990,10 @@ export type Database = {
       set_catalog_unit_active: {
         Args: { p_code: string; p_is_active: boolean }
         Returns: undefined
+      }
+      set_client_billing_installment: {
+        Args: { p_billing_id: string; p_installment_id: string }
+        Returns: string
       }
       set_contact_bank: {
         Args: {
@@ -6827,6 +7211,17 @@ export type Database = {
         Returns: string
       }
       suggest_project_code: { Args: never; Returns: string }
+      supersede_client_receipt: {
+        Args: {
+          p_amount: number
+          p_billing_id: string
+          p_method: Database["public"]["Enums"]["receipt_method"]
+          p_note: string
+          p_receipt_id: string
+          p_received_date: string
+        }
+        Returns: string
+      }
       supply_plan_accuracy: {
         Args: { p_project_id: string }
         Returns: {
@@ -6917,6 +7312,28 @@ export type Database = {
         }
         Returns: undefined
       }
+      update_client_po: {
+        Args: {
+          p_amount?: number
+          p_document_path?: string
+          p_id: string
+          p_note?: string
+          p_po_date?: string
+          p_po_no?: string
+          p_quotation_id?: string
+        }
+        Returns: string
+      }
+      update_contract_installment: {
+        Args: {
+          p_amount: number
+          p_id: string
+          p_label: string
+          p_planned_date: string
+          p_seq: number
+        }
+        Returns: string
+      }
       update_my_display_name: {
         Args: { p_full_name: string }
         Returns: undefined
@@ -6970,6 +7387,18 @@ export type Database = {
         }
         Returns: boolean
       }
+      update_quotation: {
+        Args: {
+          p_amount?: number
+          p_document_path?: string
+          p_id: string
+          p_note?: string
+          p_quotation_no?: string
+          p_quote_date?: string
+          p_status?: Database["public"]["Enums"]["quotation_status"]
+        }
+        Returns: string
+      }
       update_work_category: {
         Args: {
           p_code: string
@@ -7007,6 +7436,22 @@ export type Database = {
           p_parent_code?: string
           p_peak_account_code?: string
           p_sort_order?: number
+        }
+        Returns: string
+      }
+      upsert_project_contract: {
+        Args: {
+          p_client_po_id?: string
+          p_contract_no?: string
+          p_contract_value: number
+          p_document_path?: string
+          p_end_date?: string
+          p_note?: string
+          p_project_id: string
+          p_quotation_id?: string
+          p_retention_rate?: number
+          p_sign_date?: string
+          p_start_date?: string
         }
         Returns: string
       }
@@ -7070,6 +7515,18 @@ export type Database = {
         | "retention_due"
         | "retention_release"
         | "wht_certificate_record"
+        | "quotation_create"
+        | "quotation_update"
+        | "client_po_create"
+        | "client_po_update"
+        | "project_contract_upsert"
+        | "contract_installment_add"
+        | "contract_installment_update"
+        | "contract_installment_remove"
+        | "client_billing_installment_set"
+        | "client_receipt_record"
+        | "client_receipt_supersede"
+        | "client_billing_invoiced"
       boq_line_status: "draft" | "frozen" | "superseded"
       boq_variation_type: "standard" | "added" | "omitted" | "provisional_sum"
       catalog_fulfillment_mode: "off_shelf" | "made_to_order"
@@ -7213,6 +7670,8 @@ export type Database = {
         | "on_route"
         | "delivered"
         | "site_purchased"
+      quotation_status: "draft" | "sent" | "accepted" | "rejected"
+      receipt_method: "bank_transfer" | "cheque" | "cash"
       report_status: "requested" | "processing" | "complete" | "failed"
       retention_status: "held" | "due" | "released" | "forfeited"
       rework_source: "internal" | "client"
@@ -7410,6 +7869,18 @@ export const Constants = {
         "retention_due",
         "retention_release",
         "wht_certificate_record",
+        "quotation_create",
+        "quotation_update",
+        "client_po_create",
+        "client_po_update",
+        "project_contract_upsert",
+        "contract_installment_add",
+        "contract_installment_update",
+        "contract_installment_remove",
+        "client_billing_installment_set",
+        "client_receipt_record",
+        "client_receipt_supersede",
+        "client_billing_invoiced",
       ],
       boq_line_status: ["draft", "frozen", "superseded"],
       boq_variation_type: ["standard", "added", "omitted", "provisional_sum"],
@@ -7572,6 +8043,8 @@ export const Constants = {
         "delivered",
         "site_purchased",
       ],
+      quotation_status: ["draft", "sent", "accepted", "rejected"],
+      receipt_method: ["bank_transfer", "cheque", "cash"],
       report_status: ["requested", "processing", "complete", "failed"],
       retention_status: ["held", "due", "released", "forfeited"],
       rework_source: ["internal", "client"],
