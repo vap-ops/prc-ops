@@ -6,14 +6,19 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 256 — Real schedule calendar views — 🔨 IN PROGRESS (2026-07-03)
+## Spec 256 — Real schedule calendar views — ✅ SHIPPED (2026-07-03, PRs #276 + #277)
 
 Operator on the spec-255 page: "day week month are just shrinking and expanding, not
-helpful" — the period switch is zoom-only (`dayWidth` 44/16/5). Approved plan: view
-switch เดือน|สัปดาห์|วัน|ไทม์ไลน์ — true Thai month grid (activity dots from photos,
-due markers, tap-day drill), week agenda, day agenda; ไทม์ไลน์ = existing Gantt with
-zoom relabeled ใกล้/กลาง/ไกล. Photo-derived per-day data, zero new queries, code-only.
-**U1** pure libs + loader (PR 1) · **U2** views UI (PR 2). TDD.
+helpful" — the period switch was zoom-only (`dayWidth` 44/16/5). Shipped: view switch
+เดือน|สัปดาห์|วัน|ไทม์ไลน์ — true Sunday-first Thai month grid (BE header, photo-activity
+counts, due markers, today ring, tap-day drill), 7-day week agenda, single-day agenda
+(มีงานจริง/ครบกำหนดวันนี้/เริ่มตามแผน); ไทม์ไลน์ = existing Gantt with zoom relabeled
+honestly ใกล้/กลาง/ไกล. `photo-evidence.ts` now the shared current-photo predicate for
+both aggregators; per-day data from the already-fetched rows (zero new queries).
+**U1** pure libs + loader (#276) · **U2** views UI (#277). TDD; full suite 373/2489
+green. Live-verified: TFM month grid cell "1 ก.ค. งานจริง 7" matches an independent
+SQL count exactly; header/weekdays/legend all render vs prod data (interactions
+pinned by 9 RTL cases — preview renderer again had no layout that session).
 
 ---
 
