@@ -170,7 +170,13 @@ select enum_has_labels(
     'equipment_allocation_create', 'gl_account_upsert',
     'accounting_period_open', 'accounting_period_status_change',
     'journal_posted', 'client_billing_create', 'client_billing_certify',
-    'retention_due', 'retention_release', 'wht_certificate_record'
+    'retention_due', 'retention_release', 'wht_certificate_record',
+    -- Spec 250/249 (finance build): revenue documents chain + client receipts.
+    'quotation_create', 'quotation_update', 'client_po_create',
+    'client_po_update', 'project_contract_upsert', 'contract_installment_add',
+    'contract_installment_update', 'contract_installment_remove',
+    'client_billing_installment_set', 'client_receipt_record',
+    'client_receipt_supersede', 'client_billing_invoiced'
   ],
   'audit_action enum includes purchase_request_purchase + purchase_request_delivery'
 );

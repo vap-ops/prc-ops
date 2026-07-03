@@ -231,9 +231,11 @@ select lives_ok(
   $$ select public.wp_equipment_sell('ea0a0104-0104-0104-0104-ea0aea0a0104') $$,
   'project_director may read the equipment charge');
 set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333330104"}';
-select throws_ok(
+-- Spec 252: the gate widened super/PD-only → is_manager ∨ accounting, so the PM
+-- reads the equipment charge now (the finance drill is a PM ∪ accounting surface).
+select lives_ok(
   $$ select public.wp_equipment_sell('ea0a0104-0104-0104-0104-ea0aea0a0104') $$,
-  '42501', null, 'project_manager cannot read the equipment charge');
+  'project_manager may read the equipment charge (spec 252)');
 set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222220104"}';
 select throws_ok(
   $$ select public.wp_equipment_sell('ea0a0104-0104-0104-0104-ea0aea0a0104') $$,
