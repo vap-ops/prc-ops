@@ -16,8 +16,10 @@ import { baht } from "@/lib/format";
 import { SECTION_HEADING, CARD, BUTTON_PRIMARY_COMPACT } from "@/lib/ui/classes";
 import { loadBillingRegister } from "@/lib/accounting/load-registers";
 import { canCertifyBilling, BILLING_WRITE_ROLES } from "@/lib/accounting/billing-actions";
+import { billingCoverage, type ReceiptRow } from "@/lib/accounting/receipts";
 import { CreateBillingForm } from "./create-billing-form";
-import { certifyClientBilling } from "./actions";
+import { BillingReceipts, type ReceiptListRow } from "./billing-receipts";
+import { certifyClientBilling, markBillingInvoiced } from "./actions";
 
 export const metadata = { title: "งวดงาน" };
 
@@ -39,8 +41,8 @@ export default async function BillingRegisterPage() {
 
   // Parallel reads (no waterfall, spec 147/148): the register + the project picker
   // (writers only — the create form needs it) + the งวด options per project
-  // (spec 250 U2 — installments joined through their contract's project).
-  const [rows, projectRes, installmentRes] = await Promise.all([
+  // (spec 250 U2) + the receipts (spec 249 coverage).
+  const [rows, projectRes, installmentRes, receiptRes] = await Promise.all([
     loadBillingRegister(admin),
     canWrite ? admin.from("projects").select("id, code, name").order("code") : null,
     canWrite
@@ -49,6 +51,10 @@ export default async function BillingRegisterPage() {
           .select("id, seq, label, amount, project_contracts ( project_id )")
           .order("seq")
       : null,
+    admin
+      .from("client_receipts")
+      .select("id, client_billing_id, amount, received_date, method, note, superseded_by")
+      .order("received_date"),
   ]);
   const projects = (projectRes?.data ?? []).map((p) => ({ id: p.id, label: p.name ?? p.code }));
   const installmentsByProject: Record<string, { id: string; label: string; amount: number }[]> = {};
@@ -61,6 +67,33 @@ export default async function BillingRegisterPage() {
       amount: Number(i.amount),
     });
   }
+
+  // Receipts per billing; current-state logic (anti-join over the supersede
+  // chain) lives in the pure helper.
+  const allReceipts: (ReceiptRow & { method: string | null; note: string | null })[] = (
+    receiptRes.data ?? []
+  ).map((r) => ({
+    id: r.id,
+    billingId: r.client_billing_id,
+    amount: r.amount === null ? null : Number(r.amount),
+    receivedDate: r.received_date,
+    supersededBy: r.superseded_by,
+    method: r.method,
+    note: r.note,
+  }));
+  const supersededIds = new Set(allReceipts.map((x) => x.supersededBy).filter(Boolean));
+  const receiptsForBilling = (billingId: string) =>
+    allReceipts.filter((r) => r.billingId === billingId);
+  const listRows = (rs: typeof allReceipts): ReceiptListRow[] =>
+    rs
+      .filter((x) => x.amount !== null && !supersededIds.has(x.id))
+      .map((x) => ({
+        id: x.id,
+        amount: x.amount ?? 0,
+        receivedDate: x.receivedDate ?? "",
+        method: x.method ?? "bank_transfer",
+        note: x.note,
+      }));
 
   return (
     <PageShell>
@@ -99,6 +132,20 @@ export default async function BillingRegisterPage() {
                   </span>
                   <span>รับสุทธิ {r.netReceivable === null ? "—" : baht(r.netReceivable)}</span>
                 </div>
+                {(() => {
+                  const rs = receiptsForBilling(r.id);
+                  const cov = billingCoverage(r.netReceivable, rs);
+                  return (
+                    <BillingReceipts
+                      billingId={r.id}
+                      projectId={r.projectId}
+                      receipts={listRows(rs)}
+                      received={cov.received}
+                      outstanding={cov.outstanding}
+                      canWrite={canWrite}
+                    />
+                  );
+                })()}
                 {canWrite && canCertifyBilling(r.status) ? (
                   <div className="border-edge mt-3 flex justify-end border-t pt-3">
                     <ConfirmActionButton
@@ -108,6 +155,18 @@ export default async function BillingRegisterPage() {
                       confirmLabel="รับรอง"
                       buttonClassName={BUTTON_PRIMARY_COMPACT}
                       action={certifyClientBilling.bind(null, r.id)}
+                    />
+                  </div>
+                ) : null}
+                {canWrite && r.status === "certified" ? (
+                  <div className="border-edge mt-3 flex justify-end border-t pt-3">
+                    <ConfirmActionButton
+                      idleLabel="วางบิล"
+                      pendingLabel="กำลังบันทึก…"
+                      confirmMessage="บันทึกว่างวดนี้วางบิลแล้ว?"
+                      confirmLabel="วางบิล"
+                      buttonClassName={BUTTON_PRIMARY_COMPACT}
+                      action={markBillingInvoiced.bind(null, r.id)}
                     />
                   </div>
                 ) : null}

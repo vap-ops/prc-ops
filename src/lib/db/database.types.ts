@@ -844,6 +844,74 @@ export type Database = {
           },
         ]
       }
+      client_receipts: {
+        Row: {
+          amount: number | null
+          client_billing_id: string | null
+          created_at: string
+          created_by: string
+          id: string
+          method: Database["public"]["Enums"]["receipt_method"] | null
+          note: string | null
+          project_id: string
+          received_date: string | null
+          superseded_by: string | null
+        }
+        Insert: {
+          amount?: number | null
+          client_billing_id?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          method?: Database["public"]["Enums"]["receipt_method"] | null
+          note?: string | null
+          project_id: string
+          received_date?: string | null
+          superseded_by?: string | null
+        }
+        Update: {
+          amount?: number | null
+          client_billing_id?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          method?: Database["public"]["Enums"]["receipt_method"] | null
+          note?: string | null
+          project_id?: string
+          received_date?: string | null
+          superseded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_receipts_client_billing_id_fkey"
+            columns: ["client_billing_id"]
+            isOneToOne: false
+            referencedRelation: "client_billings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_receipts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_receipts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_receipts_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "client_receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           contact_person: string | null
@@ -6580,6 +6648,7 @@ export type Database = {
         }
         Returns: string
       }
+      mark_client_billing_invoiced: { Args: { p_id: string }; Returns: string }
       mark_feedback_viewed: {
         Args: { p_feedback_id: string }
         Returns: undefined
@@ -6595,6 +6664,10 @@ export type Database = {
         Returns: boolean
       }
       post_client_billing_to_gl: {
+        Args: { p_source_id: string }
+        Returns: string
+      }
+      post_client_receipt_to_gl: {
         Args: { p_source_id: string }
         Returns: string
       }
@@ -6702,6 +6775,21 @@ export type Database = {
           p_request_ids: string[]
         }
         Returns: number
+      }
+      recompute_billing_receipt_status: {
+        Args: { p_billing_id: string }
+        Returns: undefined
+      }
+      record_client_receipt: {
+        Args: {
+          p_amount: number
+          p_billing_id?: string
+          p_method: Database["public"]["Enums"]["receipt_method"]
+          p_note?: string
+          p_project_id: string
+          p_received_date: string
+        }
+        Returns: string
       }
       record_contractor_consent: {
         Args: {
@@ -7123,6 +7211,17 @@ export type Database = {
         Returns: string
       }
       suggest_project_code: { Args: never; Returns: string }
+      supersede_client_receipt: {
+        Args: {
+          p_amount: number
+          p_billing_id: string
+          p_method: Database["public"]["Enums"]["receipt_method"]
+          p_note: string
+          p_receipt_id: string
+          p_received_date: string
+        }
+        Returns: string
+      }
       supply_plan_accuracy: {
         Args: { p_project_id: string }
         Returns: {
@@ -7425,6 +7524,9 @@ export type Database = {
         | "contract_installment_update"
         | "contract_installment_remove"
         | "client_billing_installment_set"
+        | "client_receipt_record"
+        | "client_receipt_supersede"
+        | "client_billing_invoiced"
       boq_line_status: "draft" | "frozen" | "superseded"
       boq_variation_type: "standard" | "added" | "omitted" | "provisional_sum"
       catalog_fulfillment_mode: "off_shelf" | "made_to_order"
@@ -7569,6 +7671,7 @@ export type Database = {
         | "delivered"
         | "site_purchased"
       quotation_status: "draft" | "sent" | "accepted" | "rejected"
+      receipt_method: "bank_transfer" | "cheque" | "cash"
       report_status: "requested" | "processing" | "complete" | "failed"
       retention_status: "held" | "due" | "released" | "forfeited"
       rework_source: "internal" | "client"
@@ -7775,6 +7878,9 @@ export const Constants = {
         "contract_installment_update",
         "contract_installment_remove",
         "client_billing_installment_set",
+        "client_receipt_record",
+        "client_receipt_supersede",
+        "client_billing_invoiced",
       ],
       boq_line_status: ["draft", "frozen", "superseded"],
       boq_variation_type: ["standard", "added", "omitted", "provisional_sum"],
@@ -7938,6 +8044,7 @@ export const Constants = {
         "site_purchased",
       ],
       quotation_status: ["draft", "sent", "accepted", "rejected"],
+      receipt_method: ["bank_transfer", "cheque", "cash"],
       report_status: ["requested", "processing", "complete", "failed"],
       retention_status: ["held", "due", "released", "forfeited"],
       rework_source: ["internal", "client"],

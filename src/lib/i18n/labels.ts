@@ -375,6 +375,13 @@ export const FRICTION_EVENT_LABEL: Record<FrictionEventType, string> = {
   rage_tap: "กดรัว",
 };
 
+// Spec 249 — how client money arrived (also reused by spec 251 subcon payments).
+export const RECEIPT_METHOD_LABEL: Record<Enums["receipt_method"], string> = {
+  bank_transfer: "โอนธนาคาร",
+  cheque: "เช็ค",
+  cash: "เงินสด",
+};
+
 // One date-time formatter for the whole UI: Thai Buddhist era (what Thai
 // users read everywhere), pinned to Asia/Bangkok so a server render and
 // a client render of the same instant produce the same string — the two

@@ -5387,3 +5387,31 @@ standing U2b follow-up.
 - Verified: pgTAP 255 5/5; vitest constants test 5; typecheck/lint clean.
 - Open questions: real-browser accounting-role walk deferred to the spec-253
   verification session (same journey, one dev-server round).
+
+## Spec 249 — client receipts + billed-vs-received (2026-07-03)
+
+- U1 (schema): migrations 063000 (receipt*method enum + audit_action values, enum-add
+  isolated) + 063500 — client_receipts APPEND-ONLY + supersede (void = tombstone,
+  all-null payload; guard triggers block even owner-context UPDATE/DELETE); ADVANCE
+  receipts = nullable billing link (money before paper, operator directive); GL account
+  2300 เงินรับล่วงหน้าจากลูกค้า seeded; poster post_client_receipt_to_gl (Dr 1110 /
+  Cr 1200 linked, Cr 2300 advance; supersede reverses the replaced row's entry —
+  dc_payments pattern); drain re-sourced VERBATIM from LIVE + client_receipts arm;
+  record*/supersede_client_receipt + mark_client_billing_invoiced (certified→invoiced —
+  the status machine had NO write path past certified; Finance's "วางบิลไปแล้วกี่บิล"
+  needs it) + coverage recompute (≥ net → paid; losing coverage → invoiced).
+- U2 (code): billing register rows gain รับแล้ว/ค้างรับ + เงินรับ drawer (list + record
+  form for writers) + วางบิล button on certified rows; pure helpers
+  src/lib/accounting/receipts.ts (currentReceipts anti-join, billingCoverage,
+  projectReceiptSummary); RECEIPT_METHOD_LABEL in labels.ts (SSOT — reused by 251/253).
+- Verified: pgTAP 254 25/25 (incl. drain postings + reversal + append-only + fail-closed
+  gates); vitest full 2415 (10 new); typecheck/lint clean; rebased onto post-250 main
+  (Promise.all block conflict reconciled to 4 parallel reads).
+- Decisions: paid→invoiced downgrade on lost coverage (bill necessarily placed; display
+  always recomputes from receipts); one receipt links one billing (split = supersede).
+- Open questions: none.
+- U1c (pre-merge self-review fix): re-drain guard on post_client_receipt_to_gl
+  (migration 064200) — a superseded row never (re)posts; first-drain now posts the
+  SURVIVOR only when a supersede lands pre-drain. pgTAP 254 grew a re-drain-attack
+  regression (reset the superseded rows' outbox jobs → drain → zero unbalanced
+  entries); 29/29. Twin flaw in post_dc_payment_to_gl chipped separately.

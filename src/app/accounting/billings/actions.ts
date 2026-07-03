@@ -92,3 +92,63 @@ export async function certifyClientBilling(id: string): Promise<AccountingAction
   revalidatePath("/accounting/retention");
   return { ok: true };
 }
+
+// Spec 249 — record cash received against a billing (partial fine; the RPC
+// recomputes coverage and may flip the billing to paid). Advance receipts
+// (no billing) are recorded from the project drill, not this register.
+export interface RecordReceiptInput {
+  projectId: string;
+  billingId: string;
+  amount: number;
+  receivedDate: string;
+  method: string;
+  note?: string | null;
+}
+
+const RECEIPT_METHODS = ["bank_transfer", "cheque", "cash"] as const;
+type ReceiptMethod = (typeof RECEIPT_METHODS)[number];
+
+export async function recordClientReceipt(
+  input: RecordReceiptInput,
+): Promise<AccountingActionResult> {
+  const g = await requireActionRole(BILLING_WRITE_ROLES, GENERIC);
+  if ("error" in g) return { ok: false, error: g.error };
+
+  if (!Number.isFinite(input.amount) || input.amount <= 0 || !input.receivedDate) {
+    return { ok: false, error: GENERIC };
+  }
+  if (!RECEIPT_METHODS.includes(input.method as ReceiptMethod)) {
+    return { ok: false, error: GENERIC };
+  }
+
+  const args: {
+    p_project_id: string;
+    p_amount: number;
+    p_received_date: string;
+    p_method: ReceiptMethod;
+    p_billing_id: string;
+    p_note?: string;
+  } = {
+    p_project_id: input.projectId,
+    p_amount: input.amount,
+    p_received_date: input.receivedDate,
+    p_method: input.method as ReceiptMethod,
+    p_billing_id: input.billingId,
+  };
+  if (input.note) args.p_note = input.note;
+
+  const { error } = await g.auth.supabase.rpc("record_client_receipt", args);
+  if (error) return { ok: false, error: GENERIC };
+  revalidatePath("/accounting/billings");
+  return { ok: true };
+}
+
+// Spec 249 — วางบิล: certified → invoiced (answers "วางบิลไปแล้วกี่บิล").
+export async function markBillingInvoiced(id: string): Promise<AccountingActionResult> {
+  const g = await requireActionRole(BILLING_WRITE_ROLES, GENERIC);
+  if ("error" in g) return { ok: false, error: g.error };
+  const { error } = await g.auth.supabase.rpc("mark_client_billing_invoiced", { p_id: id });
+  if (error) return { ok: false, error: GENERIC };
+  revalidatePath("/accounting/billings");
+  return { ok: true };
+}
