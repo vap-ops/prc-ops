@@ -6,7 +6,7 @@
 // Gantt unchanged. One selected date drives month anchor, week and day; tap a
 // month day → drill into the วัน view for that date.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ScheduleGantt,
   type GanttWp,
@@ -19,7 +19,16 @@ import {
   ScheduleWeekView,
   type DayEntries,
 } from "@/components/features/work-packages/schedule-agenda";
-import { addDaysIso, addMonthsIso } from "@/lib/work-packages/calendar-grid";
+import { addDaysIso, addMonthsIso, weekOf } from "@/lib/work-packages/calendar-grid";
+import {
+  getSchedulePhotos,
+  type SchedulePhotoEntry,
+} from "@/app/projects/[projectId]/schedule/actions";
+
+// Spec 257 — signed thumbnail/full URLs expire in 120s, so photos refresh
+// well before that while a day/week view is open (a lingering viewer must
+// never see a broken image).
+const PHOTO_REFRESH_MS = 100_000;
 
 type ScheduleView = "month" | "week" | "day" | "timeline";
 
@@ -50,6 +59,35 @@ export function ScheduleViews({
 }: ScheduleViewsProps) {
   const [view, setView] = useState<ScheduleView>("month");
   const [selectedIso, setSelectedIso] = useState(todayISO);
+
+  // Spec 257 — real thumbnails for วัน/สัปดาห์, fetched on demand (signed
+  // URLs expire in 120s, so they can't ride the page's initial server load).
+  const [photosByDay, setPhotosByDay] = useState<Record<string, SchedulePhotoEntry[]>>({});
+  const [photosLoading, setPhotosLoading] = useState(false);
+  const datesToFetch = view === "day" ? [selectedIso] : view === "week" ? weekOf(selectedIso) : [];
+  const fetchKey = datesToFetch.join(",");
+
+  useEffect(() => {
+    if (datesToFetch.length === 0) return;
+    let cancelled = false;
+    const run = () => {
+      setPhotosLoading(true);
+      void getSchedulePhotos(projectId, datesToFetch).then((result) => {
+        if (cancelled) return;
+        setPhotosLoading(false);
+        if (result.ok) setPhotosByDay((prev) => ({ ...prev, ...result.days }));
+      });
+    };
+    run();
+    const interval = setInterval(run, PHOTO_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+    // fetchKey is the stable dependency (datesToFetch is a fresh array each
+    // render); projectId is effectively constant for the page's lifetime.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, fetchKey]);
 
   const wpById = useMemo(() => new Map(workPackages.map((w) => [w.id, w])), [workPackages]);
 
@@ -141,6 +179,7 @@ export function ScheduleViews({
           anchorIso={selectedIso}
           todayISO={todayISO}
           entriesFor={entriesFor}
+          photosFor={(iso) => photosByDay[iso] ?? []}
           onPrev={() => setSelectedIso(addDaysIso(selectedIso, -7))}
           onNext={() => setSelectedIso(addDaysIso(selectedIso, 7))}
           onToday={() => setSelectedIso(todayISO)}
@@ -153,6 +192,8 @@ export function ScheduleViews({
           iso={selectedIso}
           todayISO={todayISO}
           entries={entriesFor(selectedIso)}
+          photos={photosByDay[selectedIso] ?? []}
+          photosLoading={photosLoading}
           onPrev={() => setSelectedIso(addDaysIso(selectedIso, -1))}
           onNext={() => setSelectedIso(addDaysIso(selectedIso, 1))}
           onToday={() => setSelectedIso(todayISO)}

@@ -3,10 +3,26 @@
 // due markers and tap-day drill, week/day agendas, and the Gantt intact under
 // ไทม์ไลน์.
 
-import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import { ScheduleViews } from "@/components/features/work-packages/schedule-views";
 import type { GanttWp } from "@/components/features/work-packages/schedule-gantt";
+import { getSchedulePhotos } from "@/app/projects/[projectId]/schedule/actions";
+
+// Spec 257 — thumbnails are fetched client-side (signed URLs expire in
+// 120s); the action is mocked here, covered by its own unit tests.
+vi.mock("@/app/projects/[projectId]/schedule/actions", () => ({
+  getSchedulePhotos: vi.fn(),
+}));
+// ZoomablePhoto's trigger doesn't import this, but opening the overlay does
+// (established pattern — see photo-lightbox.test.tsx).
+vi.mock("@/app/photo-markups/actions", () => ({
+  listPhotoMarkups: vi.fn().mockResolvedValue({ ok: true, markups: [] }),
+  addPhotoMarkup: vi.fn(),
+  removePhotoMarkup: vi.fn(),
+}));
+
+const mockGetSchedulePhotos = vi.mocked(getSchedulePhotos);
 
 const ACTIVE_WP: GanttWp = {
   id: "w1",
@@ -32,6 +48,14 @@ const QUIET_WP: GanttWp = {
   activityStart: null,
   activityEnd: null,
 };
+
+beforeEach(() => {
+  mockGetSchedulePhotos.mockReset();
+  mockGetSchedulePhotos.mockResolvedValue({ ok: true, days: {} });
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 function renderViews(overrides?: Partial<Parameters<typeof ScheduleViews>[0]>) {
   return render(
@@ -131,5 +155,125 @@ describe("ScheduleViews", () => {
     expect(screen.getByText("ส.ค. 2569")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "วันนี้" }));
     expect(screen.getByText("ก.ค. 2569")).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Spec 257 — real thumbnails (not just counts) in วัน/สัปดาห์.
+
+const THUMB = {
+  photoId: "ph1",
+  workPackageId: "w1",
+  thumbUrl: "https://thumb/ph1.jpg",
+  fullUrl: "https://full/ph1.jpg",
+};
+
+describe("ScheduleViews photo thumbnails (spec 257)", () => {
+  it("fetches photos for the selected date on entering the day view", async () => {
+    mockGetSchedulePhotos.mockResolvedValue({ ok: true, days: { "2026-07-02": [THUMB] } });
+    renderViews();
+    fireEvent.click(screen.getByRole("button", { name: /^2 ก\.ค\./ }));
+    await waitFor(() => {
+      expect(mockGetSchedulePhotos).toHaveBeenCalledWith("p1", ["2026-07-02"]);
+    });
+    // ZoomablePhoto's thumbnail img is alt="" (decorative) — not exposed via
+    // role "img"; query through its labelled trigger button instead.
+    const trigger = await screen.findByRole("button", { name: "ดูรูปขยาย" });
+    expect(trigger.querySelector("img")).toHaveAttribute("src", THUMB.thumbUrl);
+  });
+
+  it("fetches all 7 days of the week on entering the week view", async () => {
+    renderViews();
+    fireEvent.click(screen.getByRole("radio", { name: "สัปดาห์" }));
+    // todayISO 2026-07-05 is itself a Sunday — its week runs 07-05..07-11.
+    await waitFor(() => {
+      expect(mockGetSchedulePhotos).toHaveBeenCalledWith(
+        "p1",
+        expect.arrayContaining(["2026-07-05", "2026-07-11"]),
+      );
+    });
+  });
+
+  it("does not fetch photos for เดือน or ไทม์ไลน์", () => {
+    renderViews();
+    expect(mockGetSchedulePhotos).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("radio", { name: "ไทม์ไลน์" }));
+    expect(mockGetSchedulePhotos).not.toHaveBeenCalled();
+  });
+
+  it("shows a loading skeleton while the fetch is pending, then the thumbnail", async () => {
+    let resolveFetch: (v: Awaited<ReturnType<typeof getSchedulePhotos>>) => void = () => {};
+    mockGetSchedulePhotos.mockReturnValue(
+      new Promise((r) => {
+        resolveFetch = r;
+      }),
+    );
+    renderViews();
+    fireEvent.click(screen.getByRole("button", { name: /^2 ก\.ค\./ }));
+    expect(screen.getByTestId("photo-skeleton")).toBeInTheDocument();
+    await act(async () => {
+      resolveFetch({ ok: true, days: { "2026-07-02": [THUMB] } });
+    });
+    await waitFor(() => {
+      expect(screen.queryByTestId("photo-skeleton")).not.toBeInTheDocument();
+    });
+    const trigger = screen.getByRole("button", { name: "ดูรูปขยาย" });
+    expect(trigger.querySelector("img")).toHaveAttribute("src", THUMB.thumbUrl);
+  });
+
+  it("degrades silently on a fetch error — the count-only view keeps working", async () => {
+    mockGetSchedulePhotos.mockResolvedValue({ ok: false, error: "boom" });
+    renderViews();
+    fireEvent.click(screen.getByRole("button", { name: /^2 ก\.ค\./ }));
+    await waitFor(() => expect(mockGetSchedulePhotos).toHaveBeenCalled());
+    // no crash, no error text — WpLink (count-based) still renders
+    expect(screen.getByText("งานเสาเข็ม")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("caps thumbnails per day and notes the remainder", async () => {
+    const many = Array.from({ length: 61 }, (_, i) => ({
+      photoId: `ph${i}`,
+      workPackageId: "w1",
+      thumbUrl: `https://thumb/${i}.jpg`,
+      fullUrl: `https://full/${i}.jpg`,
+    }));
+    mockGetSchedulePhotos.mockResolvedValue({ ok: true, days: { "2026-07-02": many } });
+    renderViews();
+    fireEvent.click(screen.getByRole("button", { name: /^2 ก\.ค\./ }));
+    expect(await screen.findByText(/\+1/)).toBeInTheDocument();
+  });
+
+  it("tapping a thumbnail opens the lightbox", async () => {
+    mockGetSchedulePhotos.mockResolvedValue({ ok: true, days: { "2026-07-02": [THUMB] } });
+    renderViews();
+    fireEvent.click(screen.getByRole("button", { name: /^2 ก\.ค\./ }));
+    const trigger = await screen.findByRole("button", { name: "ดูรูปขยาย" });
+    fireEvent.click(trigger);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("refreshes photos periodically so signed URLs never fully expire while viewing", async () => {
+    vi.useFakeTimers();
+    mockGetSchedulePhotos.mockResolvedValue({ ok: true, days: {} });
+    render(
+      <ScheduleViews
+        projectId="p1"
+        todayISO="2026-07-05"
+        workPackages={[ACTIVE_WP]}
+        deliverables={[{ id: "d1", code: "D1", name: "งวดที่ 1", sortOrder: 0 }]}
+        dependencies={[]}
+        activityDays={{}}
+      />,
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole("radio", { name: "วัน" }));
+    });
+    const callsAfterMount = mockGetSchedulePhotos.mock.calls.length;
+    expect(callsAfterMount).toBeGreaterThan(0);
+    await act(async () => {
+      vi.advanceTimersByTime(100_000);
+    });
+    expect(mockGetSchedulePhotos.mock.calls.length).toBeGreaterThan(callsAfterMount);
   });
 });
