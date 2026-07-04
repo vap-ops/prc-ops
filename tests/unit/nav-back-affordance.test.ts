@@ -157,6 +157,10 @@ const EXCLUDED_ROUTES = [
   // Spec 130: the contractor invite-claim entry — a bespoke single-card layout
   // (neither header), reachable by a freshly-logged-in visitor before binding.
   "portal/claim/page.tsx",
+  // Spec 263 U2: the technician self-registration workspace — a bespoke
+  // single-card-stack layout (neither header), reachable by a freshly
+  // logged-in visitor before registering, mirrors portal/claim/page.tsx.
+  "register/technician/page.tsx",
   // Spec 233 / ADR 0067: the client invite-claim entry mirrors /portal/claim —
   // a bespoke single-card layout (neither header), reached by a freshly
   // logged-in visitor before binding.

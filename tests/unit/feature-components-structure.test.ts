@@ -43,6 +43,9 @@ const ALLOWED_DOMAINS = [
   "boq",
   // Spec 244 (ADR 0068 Tier B): the SA usage-telemetry provider + consent notice.
   "telemetry",
+  // Spec 263 U2: the technician self-registration workspace (e-card, progressive
+  // form, document uploads, Web Share button).
+  "register",
 ] as const;
 
 describe("feature components are grouped into domain folders", () => {
