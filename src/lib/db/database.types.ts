@@ -1641,6 +1641,21 @@ export type Database = {
           },
         ]
       }
+      employee_id_counters: {
+        Row: {
+          next_val: number
+          year: number
+        }
+        Insert: {
+          next_val: number
+          year: number
+        }
+        Update: {
+          next_val?: number
+          year?: number
+        }
+        Relationships: []
+      }
       equipment_categories: {
         Row: {
           created_at: string
@@ -5283,6 +5298,105 @@ export type Database = {
           },
         ]
       }
+      technician_registration_attachments: {
+        Row: {
+          created_at: string
+          id: string
+          purpose: Database["public"]["Enums"]["technician_doc_purpose"]
+          registration_id: string
+          storage_path: string
+          superseded_by: string | null
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          purpose: Database["public"]["Enums"]["technician_doc_purpose"]
+          registration_id: string
+          storage_path: string
+          superseded_by?: string | null
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          purpose?: Database["public"]["Enums"]["technician_doc_purpose"]
+          registration_id?: string
+          storage_path?: string
+          superseded_by?: string | null
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technician_registration_attachments_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "technician_registrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technician_registration_attachments_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "technician_registration_attachments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      technician_registrations: {
+        Row: {
+          created_at: string
+          date_of_birth: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          emergency_contact_relation: string | null
+          employee_id: string
+          full_name: string | null
+          id: string
+          phone: string | null
+          reject_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["registration_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date_of_birth?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relation?: string | null
+          employee_id: string
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          reject_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["registration_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date_of_birth?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relation?: string | null
+          employee_id?: string
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          reject_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["registration_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       usage_daily: {
         Row: {
           active: boolean
@@ -5911,6 +6025,7 @@ export type Database = {
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
           emergency_contact_relation: string | null
+          employee_id: string | null
           id: string
           level: Database["public"]["Enums"]["worker_level"] | null
           name: string
@@ -5936,6 +6051,7 @@ export type Database = {
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           emergency_contact_relation?: string | null
+          employee_id?: string | null
           id?: string
           level?: Database["public"]["Enums"]["worker_level"] | null
           name: string
@@ -5961,6 +6077,7 @@ export type Database = {
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           emergency_contact_relation?: string | null
+          employee_id?: string | null
           id?: string
           level?: Database["public"]["Enums"]["worker_level"] | null
           name?: string
@@ -6483,6 +6600,13 @@ export type Database = {
         Args: { p_lines: Json; p_plan_id: string }
         Returns: number
       }
+      add_technician_registration_doc: {
+        Args: {
+          p_purpose: Database["public"]["Enums"]["technician_doc_purpose"]
+          p_storage_path: string
+        }
+        Returns: string
+      }
       add_work_category_material_category: {
         Args: {
           p_category_id: string
@@ -6510,6 +6634,10 @@ export type Database = {
       can_see_project: { Args: { p_project_id: string }; Returns: boolean }
       can_see_subcontract: {
         Args: { p_subcontract_id: string }
+        Returns: boolean
+      }
+      can_see_technician_registration: {
+        Args: { p_registration_id: string }
         Returns: boolean
       }
       can_see_wp: { Args: { p_work_package_id: string }; Returns: boolean }
@@ -7582,6 +7710,10 @@ export type Database = {
         }
         Returns: string
       }
+      start_technician_registration: {
+        Args: { p_full_name: string; p_phone: string }
+        Returns: string
+      }
       store_pnl: {
         Args: { p_project_id: string }
         Returns: {
@@ -7789,6 +7921,17 @@ export type Database = {
           p_name: string
           p_phone: string
           p_relation: string
+        }
+        Returns: undefined
+      }
+      update_own_technician_registration: {
+        Args: {
+          p_date_of_birth?: string
+          p_emergency_contact_name?: string
+          p_emergency_contact_phone?: string
+          p_emergency_contact_relation?: string
+          p_full_name?: string
+          p_phone?: string
         }
         Returns: undefined
       }
@@ -8139,6 +8282,7 @@ export type Database = {
         | "site_purchased"
       quotation_status: "draft" | "sent" | "accepted" | "rejected"
       receipt_method: "bank_transfer" | "cheque" | "cash"
+      registration_status: "pending" | "approved" | "rejected"
       report_status: "requested" | "processing" | "complete" | "failed"
       retention_status: "held" | "due" | "released" | "forfeited"
       rework_source: "internal" | "client"
@@ -8146,6 +8290,7 @@ export type Database = {
       subcontract_payment_kind: "advance" | "progress" | "final"
       subcontract_status: "active" | "completed" | "cancelled"
       supply_plan_status: "draft" | "submitted" | "approved" | "rejected"
+      technician_doc_purpose: "id_card" | "consent" | "profile_photo"
       unit_class: "count" | "length" | "area" | "volume" | "weight" | "trips"
       user_role:
         | "site_admin"
@@ -8531,6 +8676,7 @@ export const Constants = {
       ],
       quotation_status: ["draft", "sent", "accepted", "rejected"],
       receipt_method: ["bank_transfer", "cheque", "cash"],
+      registration_status: ["pending", "approved", "rejected"],
       report_status: ["requested", "processing", "complete", "failed"],
       retention_status: ["held", "due", "released", "forfeited"],
       rework_source: ["internal", "client"],
@@ -8538,6 +8684,7 @@ export const Constants = {
       subcontract_payment_kind: ["advance", "progress", "final"],
       subcontract_status: ["active", "completed", "cancelled"],
       supply_plan_status: ["draft", "submitted", "approved", "rejected"],
+      technician_doc_purpose: ["id_card", "consent", "profile_photo"],
       unit_class: ["count", "length", "area", "volume", "weight", "trips"],
       user_role: [
         "site_admin",
