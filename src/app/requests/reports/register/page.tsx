@@ -4,6 +4,7 @@
 // (EXTRACT, don't copy — load-purchases.ts / purchases-view.ts). Read-only:
 // no period/project form here — go back to the report to change the filter.
 
+import Link from "next/link";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
@@ -27,6 +28,7 @@ import {
   groupRegisterByPo,
 } from "@/lib/accounting/purchases-view";
 import { PoNumberTag } from "@/components/features/purchasing/po-number-tag";
+import { withBackFrom } from "@/lib/nav/back-href";
 
 export const metadata = { title: "รายการจัดซื้อตามรายงาน" };
 
@@ -102,7 +104,19 @@ export default async function ReportRegisterPage({ searchParams }: RegisterPageP
               <div key={group.poNumber ?? "no-po"}>
                 <div className="mb-2 flex items-center justify-between gap-3">
                   {group.poNumber !== null ? (
-                    <PoNumberTag poNumber={group.poNumber} />
+                    group.rows[0]?.poId ? (
+                      <Link
+                        href={withBackFrom(
+                          `/requests/orders/${group.rows[0].poId}`,
+                          "/requests/reports/register",
+                        )}
+                        className="focus-visible:ring-action rounded focus:outline-none focus-visible:ring-2"
+                      >
+                        <PoNumberTag poNumber={group.poNumber} />
+                      </Link>
+                    ) : (
+                      <PoNumberTag poNumber={group.poNumber} />
+                    )
                   ) : (
                     <span className="text-ink-secondary text-xs font-medium">
                       ซื้อตรง (ไม่มีใบสั่งซื้อ)

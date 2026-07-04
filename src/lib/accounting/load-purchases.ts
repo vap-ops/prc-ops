@@ -23,6 +23,9 @@ export interface PurchaseRegisterRow {
   // Spec 211 (accounting-ap-03): the PO this purchase belongs to (null = a direct/
   // site buy), so the register can group by order.
   poNumber: number | null;
+  // Spec 262 U3: the PO's id (null alongside poNumber) — lets a caller link a
+  // PO group straight into its detail page (/requests/orders/[poId]).
+  poId: string | null;
 }
 
 async function poNumbers(admin: Admin, ids: string[]): Promise<Map<string, number>> {
@@ -145,5 +148,6 @@ export async function loadPurchaseRegister(
     status: r.status,
     purchasedAt: r.purchased_at,
     poNumber: (r.purchase_order_id ? pos.get(r.purchase_order_id) : null) ?? null,
+    poId: r.purchase_order_id,
   }));
 }
