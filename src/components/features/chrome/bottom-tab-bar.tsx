@@ -21,6 +21,7 @@ import {
 import { SaActionBadge } from "@/components/features/sa/sa-action-badge";
 import {
   Calculator,
+  FileText,
   FolderKanban,
   Home,
   LayoutDashboard,
@@ -107,6 +108,10 @@ export const PM_TABS: ReadonlyArray<TabItem> = [
 // settings. No โครงการ (no project/WP hub in v1) and no รอตรวจ (not a decider).
 export const PROCUREMENT_TABS: ReadonlyArray<TabItem> = [
   { label: "จัดซื้อ", href: "/requests", icon: ShoppingCart },
+  // Spec 262 follow-up: รายงาน (money reports). Longest-prefix wins so it lights
+  // on /requests/reports without stealing the bare /requests worklist; it also
+  // claims the /requests/orders PO list (a report sub-surface).
+  { label: "รายงาน", href: "/requests/reports", icon: FileText, match: ["/requests/orders"] },
   // Spec 102: procurement browses projects read-only for purchase context
   // (lights on /projects + /projects/[id]).
   { label: "โครงการ", href: "/projects", icon: FolderKanban },

@@ -46,6 +46,15 @@ import {
   type PurchaseReportRow,
   type ReportRawQuery,
 } from "@/lib/purchasing/purchase-report-view";
+import { ProcurementHomeTiles } from "@/components/features/purchasing/procurement-home-tiles";
+import {
+  buildMonthSpendTrend,
+  buildPendingPoSummary,
+  monthToDateRange,
+  previousMonthToDateRange,
+} from "@/lib/purchasing/procurement-home-tiles";
+import { loadPendingPoAging } from "@/lib/purchasing/load-po-list";
+import { loadPendingStoreReceiptCount } from "@/lib/purchasing/load-pending-store-receipt";
 
 export const metadata = { title: "รายงานยอดสั่งซื้อ" };
 
@@ -108,6 +117,37 @@ export default async function PurchaseReportsPage({ searchParams }: ReportsPageP
   const monthRange = resolvePeriod("month", today);
   const yearRange = resolvePeriod("year", today);
 
+  // Spec 262 follow-up — the procurement home tiles (เดือนนี้สั่งซื้อ / PO ค้างส่ง /
+  // ค้างรับเข้า) moved here from the /requests worklist: the report surface is their
+  // home. Every report role reaches /requests/orders (PO_DETAIL_VIEW_ROLES), so no
+  // extra gate. Month-to-date spend vs last month (purchase_report), pending-PO
+  // aging + store-receipt backlog (admin) — the same load the /requests block ran.
+  const tileMonthRange = monthToDateRange(today);
+  const tilePrevRange = previousMonthToDateRange(today);
+  const [{ data: tileCurrentRows }, { data: tilePrevRows }, tilePoAging, tileStoreReceiptCount] =
+    await Promise.all([
+      supabase.rpc("purchase_report", {
+        p_from: tileMonthRange.from,
+        p_to: tileMonthRange.to,
+        p_bucket: "month",
+        p_group_by: "none",
+      }),
+      supabase.rpc("purchase_report", {
+        p_from: tilePrevRange.from,
+        p_to: tilePrevRange.to,
+        p_bucket: "month",
+        p_group_by: "none",
+      }),
+      loadPendingPoAging(admin),
+      loadPendingStoreReceiptCount(admin),
+    ]);
+  const monthTrend = buildMonthSpendTrend(
+    (tileCurrentRows ?? []).reduce((s, r) => s + r.gross, 0),
+    (tilePrevRows ?? []).reduce((s, r) => s + r.gross, 0),
+  );
+  const pendingPoSummary = buildPendingPoSummary(tilePoAging);
+  const pendingStoreReceiptCount = tileStoreReceiptCount;
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -116,6 +156,16 @@ export default async function PurchaseReportsPage({ searchParams }: ReportsPageP
       </DetailHeader>
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
+        {/* Spec 262 follow-up: the procurement home tiles (moved off the /requests
+            worklist so it stays focused on the buyer's list) — this month's committed
+            spend, pending-PO aging, store-receipt backlog; link into the presets + PO list. */}
+        <div className="mb-6">
+          <ProcurementHomeTiles
+            monthTrend={monthTrend}
+            pendingPoSummary={pendingPoSummary}
+            pendingStoreReceiptCount={pendingStoreReceiptCount}
+          />
+        </div>
         {/* Period presets — deep-linkable chips (no client JS). */}
         <div className="mb-3 flex flex-wrap gap-2">
           <Link

@@ -47,6 +47,9 @@ describe("canonical nav sets", () => {
   it("pins the procurement set's destinations and order", () => {
     expect(PROCUREMENT_HUB_NAV).toEqual([
       { label: "จัดซื้อ", href: "/requests" },
+      // Spec 262 follow-up: the report surface gets a nav home so it is not
+      // reachable only via the /requests worklist tiles.
+      { label: "รายงาน", href: "/requests/reports" },
       { label: "โครงการ", href: "/projects" },
       { label: "ผู้ขาย", href: "/contacts/vendors" },
       { label: "ผู้รับเหมาช่วง", href: "/contacts/subcontractors" },

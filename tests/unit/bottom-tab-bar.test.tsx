@@ -56,6 +56,8 @@ describe("BottomTabBar", () => {
     // decider) and no ภาพรวม (money, spec 100).
     expect(PROCUREMENT_TABS.map((t) => [t.label, t.href])).toEqual([
       ["จัดซื้อ", "/requests"],
+      // Spec 262 follow-up: รายงาน (reports) — a nav home for the report surface.
+      ["รายงาน", "/requests/reports"],
       ["โครงการ", "/projects"],
       ["ผู้ขาย", "/contacts/vendors"],
       ["ตั้งค่า", "/settings"],
@@ -224,6 +226,39 @@ describe("BottomTabBar", () => {
     const active = activeTabs(container);
     expect(active).toHaveLength(1);
     expect(active[0]?.textContent).toContain("ผู้ขาย");
+  });
+
+  // Spec 262 follow-up: procurement's รายงาน tab (money reports). Longest-prefix
+  // wins so it lights on /requests/reports without stealing the bare /requests
+  // worklist, and it claims the /requests/orders PO list (a report sub-surface).
+  it("lights รายงาน for procurement on /requests/reports + its sub-pages", () => {
+    for (const path of ["/requests/reports", "/requests/reports/register"]) {
+      mockUsePathname.mockReturnValue(path);
+      const { container, unmount } = render(<BottomTabBar role="procurement" />);
+      const active = activeTabs(container);
+      expect(active).toHaveLength(1);
+      expect(active[0]?.textContent).toContain("รายงาน");
+      unmount();
+    }
+  });
+
+  it("lights รายงาน for procurement on the /requests/orders PO list", () => {
+    mockUsePathname.mockReturnValue("/requests/orders");
+    const { container } = render(<BottomTabBar role="procurement" />);
+    const active = activeTabs(container);
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toContain("รายงาน");
+  });
+
+  it("keeps จัดซื้อ lit (not รายงาน) on the bare worklist + a PR detail", () => {
+    for (const path of ["/requests", "/requests/abc123"]) {
+      mockUsePathname.mockReturnValue(path);
+      const { container, unmount } = render(<BottomTabBar role="procurement" />);
+      const active = activeTabs(container);
+      expect(active).toHaveLength(1);
+      expect(active[0]?.textContent).toContain("จัดซื้อ");
+      unmount();
+    }
   });
 
   // Spec 143 U2: the coordinator gets a focused set — โครงการ (sees all) + ตั้งค่า.

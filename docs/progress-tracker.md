@@ -6,6 +6,35 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 262 follow-up — procurement reports nav + /requests de-clutter — ✅ BUILT (2026-07-04, code-only)
+
+Operator: the จัดซื้อ page (`/requests`) is "packed / distracts users." Grounded finding — reports
+already have a dedicated page (`/requests/reports`, spec 262 U2) but **no nav entry**, so the spec-262
+U4 money tiles (เดือนนี้สั่งซื้อ / PO ค้างส่ง / ค้างรับเข้า) were the only door to it, bolted onto the
+worklist. Fix (operator picked "move tiles to reports page"):
+
+- Add `รายงาน` → `/requests/reports` to `PROCUREMENT_HUB_NAV` (desktop strip) + `PROCUREMENT_TABS`
+  (phone bottom bar; `FileText` icon; `match: ["/requests/orders"]` so the PO list lights รายงาน;
+  longest-prefix keeps จัดซื้อ lit on the bare worklist + PR-detail pages).
+- MOVE `<ProcurementHomeTiles>` (+ its data load: month-to-date vs last-month `purchase_report`,
+  pending-PO aging, store-receipt backlog) from `/requests` → top of `/requests/reports`. Shown to
+  ALL report viewers, no role guard — `PURCHASE_REPORT_ROLES ⊆ PO_DETAIL_VIEW_ROLES`, so every one
+  reaches the tiles' `/requests/orders` links.
+- `/requests` now shows only the buyer's worklist tools (count-KPI hero + status chips + filters +
+  list). Reports = see-the-numbers; จัดซื้อ = do-the-work.
+
+TDD: updated the hub-nav + tab-bar pin tests + 3 new tab-lighting tests (รายงาน on `/requests/reports`
+
+- `/requests/orders`; จัดซื้อ stays lit on `/requests` + a PR detail). Code-only, no schema, no
+  protected path → auto-merges on green. lint + typecheck + full vitest **2640** green.
+
+**Open questions.** Other report roles (PM/PD/super/accounting) reach `/requests/reports` only by
+URL/drill — no nav entry in their strips (pre-existing; out of scope for this de-clutter). The reports
+page keeps its DetailHeader back-to-จัดซื้อ (a sub-surface with a nav shortcut); converting it to a
+full hub page was declined as out-of-scope.
+
+---
+
 ## Spec 262 U1 — Procurement purchase reports (data layer) — ✅ BUILT (2026-07-04, PR held for operator merge)
 
 Procurement chain S4. One SECURITY DEFINER read RPC `purchase_report(p_from date,

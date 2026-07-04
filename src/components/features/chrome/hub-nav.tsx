@@ -55,6 +55,9 @@ export const SA_HUB_NAV: ReadonlyArray<HubNavItem> = [
 // + settings. No project/review/dashboard surfaces (those stay PM/SA).
 export const PROCUREMENT_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "จัดซื้อ", href: "/requests" },
+  // Spec 262 follow-up: the report surface (/requests/reports) gets a nav home,
+  // so it is reachable directly — not only via the /requests worklist tiles.
+  { label: "รายงาน", href: "/requests/reports" },
   // Spec 102: read-only project browse.
   { label: "โครงการ", href: "/projects" },
   { label: "ผู้ขาย", href: "/contacts/vendors" },
