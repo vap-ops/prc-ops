@@ -6621,6 +6621,10 @@ export type Database = {
       }
       apply_wp_template: { Args: { p_project_id: string }; Returns: number }
       approve_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
+      approve_technician_registration: {
+        Args: { p_id: string; p_project_id?: string }
+        Returns: string
+      }
       assign_project_ht: {
         Args: { p_project: string; p_worker: string }
         Returns: undefined
@@ -7423,6 +7427,10 @@ export type Database = {
       }
       refresh_usage_daily: { Args: { p_day?: string }; Returns: number }
       reject_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
+      reject_technician_registration: {
+        Args: { p_id: string; p_reason: string }
+        Returns: undefined
+      }
       release_retention: { Args: { p_id: string }; Returns: string }
       remove_assembly_component: { Args: { p_id: string }; Returns: undefined }
       remove_boq_line: { Args: { p_id: string }; Returns: undefined }
