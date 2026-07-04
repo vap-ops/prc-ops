@@ -35,6 +35,11 @@ describe("roleHome", () => {
     expect(roleHome("procurement")).toBe("/requests");
   });
 
+  // Spec 261 / ADR 0070: procurement_manager shares procurement's worklist home.
+  it("sends procurement_manager to the purchasing worklist", () => {
+    expect(roleHome("procurement_manager")).toBe("/requests");
+  });
+
   it("sends still-unserved roles to /coming-soon", () => {
     expect(roleHome("visitor")).toBe("/coming-soon");
     expect(roleHome("technician")).toBe("/coming-soon");
@@ -61,7 +66,15 @@ describe("PURCHASING_ROLES", () => {
   it("admits the requester base, procurement, and the director", () => {
     // Spec 152 / ADR 0058: project_director joins every PM-tier set.
     expect([...PURCHASING_ROLES].sort()).toEqual(
-      ["procurement", "project_director", "project_manager", "site_admin", "super_admin"].sort(),
+      [
+        "procurement",
+        // Spec 261 / ADR 0070: procurement_manager works the worklist like procurement.
+        "procurement_manager",
+        "project_director",
+        "project_manager",
+        "site_admin",
+        "super_admin",
+      ].sort(),
     );
   });
 });
@@ -74,6 +87,7 @@ describe("PROJECT_VIEW_ROLES", () => {
     expect([...PROJECT_VIEW_ROLES].sort()).toEqual(
       [
         "procurement",
+        "procurement_manager",
         "project_coordinator",
         "project_director",
         "project_manager",

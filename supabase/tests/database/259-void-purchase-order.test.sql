@@ -1,5 +1,5 @@
 begin;
-select plan(28);
+select plan(29);
 
 -- ============================================================================
 -- Spec 259 / amends ADR 0038 — void_purchase_order(p_po_id): procurement
@@ -16,10 +16,13 @@ insert into auth.users (id, email, raw_user_meta_data) values
   ('11111111-1111-1111-1111-111111110259', 'pm@void.local',   '{}'::jsonb),
   ('44444444-4444-4444-4444-444444440259', 'proc@void.local', '{}'::jsonb),
   ('22222222-2222-2222-2222-222222220259', 'sa@void.local',   '{}'::jsonb),
-  ('33333333-3333-3333-3333-333333330259', 'vi@void.local',   '{}'::jsonb);
-update public.users set role = 'project_manager' where id = '11111111-1111-1111-1111-111111110259';
-update public.users set role = 'procurement'     where id = '44444444-4444-4444-4444-444444440259';
-update public.users set role = 'site_admin'      where id = '22222222-2222-2222-2222-222222220259';
+  ('33333333-3333-3333-3333-333333330259', 'vi@void.local',   '{}'::jsonb),
+  ('55555555-5555-5555-5555-555555550259', 'pmgr@void.local', '{}'::jsonb);
+update public.users set role = 'project_manager'     where id = '11111111-1111-1111-1111-111111110259';
+update public.users set role = 'procurement'         where id = '44444444-4444-4444-4444-444444440259';
+update public.users set role = 'site_admin'          where id = '22222222-2222-2222-2222-222222220259';
+-- Spec 261 / ADR 0070 item 1: void is manager-only; a procurement_manager voids.
+update public.users set role = 'procurement_manager' where id = '55555555-5555-5555-5555-555555550259';
 -- fourth user stays visitor
 
 insert into public.projects (id, code, name) values
@@ -126,6 +129,15 @@ select throws_ok(
           where id = 'fa000259-0000-4000-8000-000000000001')) $$,
   '42501', null, 'void_purchase_order refuses visitor');
 
+-- Spec 261 / ADR 0070 item 1: void is now MANAGER-ONLY — plain procurement,
+-- which spec 259 originally admitted, is REMOVED (deliberate walk-back).
+set local "request.jwt.claims" = '{"sub": "44444444-4444-4444-4444-444444440259"}';
+select throws_ok(
+  $$ select public.void_purchase_order(
+       (select purchase_order_id from public.purchase_requests
+          where id = 'fa000259-0000-4000-8000-000000000001')) $$,
+  '42501', null, 'void_purchase_order refuses plain procurement (spec 261 item 1)');
+
 set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111110259"}';
 select throws_ok(
   $$ select public.void_purchase_order('00000000-0000-0000-0000-000000000000'::uuid) $$,
@@ -146,15 +158,16 @@ select throws_ok(
 reset role;
 
 -- ============================================================================
--- D. Happy path: procurement voids PO-A.
+-- D. Happy path: procurement_manager voids PO-A (spec 261 item 1 — the void
+--    moved from the whole create-audience to the manager tier).
 -- ============================================================================
 set local role authenticated;
-set local "request.jwt.claims" = '{"sub": "44444444-4444-4444-4444-444444440259"}';
+set local "request.jwt.claims" = '{"sub": "55555555-5555-5555-5555-555555550259"}';
 select lives_ok(
   $$ select public.void_purchase_order(
        (select purchase_order_id from public.purchase_requests
           where id = 'fa000259-0000-4000-8000-000000000001')) $$,
-  'procurement voids PO-A');
+  'procurement_manager voids PO-A');
 reset role;
 
 -- E. Both members are back to exactly their pre-purchase shape.

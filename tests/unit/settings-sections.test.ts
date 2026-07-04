@@ -33,6 +33,17 @@ describe("settings sections config (role → entries matrix)", () => {
     ]);
   });
 
+  // Spec 261 / ADR 0070: procurement_manager is a superset of procurement — it
+  // sees the SAME back-office cards (still NO customers: that stays isManagerRole,
+  // and procurement_manager is not a project-manager). Menu visibility only.
+  it("procurement_manager master-data matches procurement (back-office, NO customers)", () => {
+    expect(hrefs("master-data", "procurement_manager")).toEqual(
+      hrefs("master-data", "procurement"),
+    );
+    expect(hrefs("master-data", "procurement_manager")).not.toContain("/contacts/customers");
+    expect(hrefs("finance", "procurement_manager")).toEqual(["/payroll"]);
+  });
+
   it("project_manager master-data: customers first, 7 entries", () => {
     const list = hrefs("master-data", "project_manager");
     expect(list[0]).toBe("/contacts/customers");

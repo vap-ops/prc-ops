@@ -34,6 +34,24 @@ export function isManagerRole(role: UserRole): boolean {
 }
 
 /**
+ * Spec 261 / ADR 0070: manager-tier authority over procurement DESTRUCTIVE
+ * actions — void a PO, void a PO charge, cancel an approved PR. = PM_ROLES
+ * (project seniority, incl. project_director per ADR 0058) PLUS the new
+ * `procurement_manager` dept role. Deliberately NOT plain `procurement`: item 1
+ * tightens the void away from the whole create-audience (walks back spec 259).
+ * NOTE: this is a SUPERSET of the project-manager tier (isManagerRole), not the
+ * same set — it adds the procurement dept manager. Pinned so a future PM_ROLES
+ * widen can't silently change who holds procurement-destructive authority.
+ */
+export const PROCUREMENT_MANAGER_ROLES: ReadonlyArray<UserRole> = [
+  ...PM_ROLES,
+  "procurement_manager",
+];
+export function isProcurementManagerTier(role: UserRole): boolean {
+  return PROCUREMENT_MANAGER_ROLES.includes(role);
+}
+
+/**
  * Spec 233 / ADR 0067: who may ISSUE or REVOKE a temporary client portal login —
  * project_director + super_admin ONLY. Deliberately NOT PM_ROLES: that set also
  * contains project_manager, and the operator scoped client access to the director
@@ -62,7 +80,12 @@ export const SITE_STAFF_ROLES: ReadonlyArray<UserRole> = [
  * (migration 20260780000000) back that. Kept distinct from PURCHASING_ROLES
  * (which gates /requests): the membership coincides today but the meaning differs.
  */
-export const WP_DETAIL_ROLES: ReadonlyArray<UserRole> = [...SITE_STAFF_ROLES, "procurement"];
+export const WP_DETAIL_ROLES: ReadonlyArray<UserRole> = [
+  ...SITE_STAFF_ROLES,
+  "procurement",
+  // Spec 261 / ADR 0070: procurement_manager inherits procurement's read-only WP view.
+  "procurement_manager",
+];
 
 /**
  * Spec 208 Q3 (reverses spec 134 U8 / feedback 6fbcc039): who may RECEIVE a PO's
@@ -74,7 +97,12 @@ export const WP_DETAIL_ROLES: ReadonlyArray<UserRole> = [...SITE_STAFF_ROLES, "p
  * gates field capture procurement must not reach. Members coincide with
  * WP_DETAIL_ROLES today, but the meaning differs ("who confirms PO arrival").
  */
-export const RECEIVE_ROLES: ReadonlyArray<UserRole> = [...SITE_STAFF_ROLES, "procurement"];
+export const RECEIVE_ROLES: ReadonlyArray<UserRole> = [
+  ...SITE_STAFF_ROLES,
+  "procurement",
+  // Spec 261 / ADR 0070: procurement_manager receives on the site's behalf like procurement.
+  "procurement_manager",
+];
 
 /**
  * Spec 171: on the WP detail screen, procurement is the read-only viewer — it may
@@ -84,7 +112,9 @@ export const RECEIVE_ROLES: ReadonlyArray<UserRole> = [...SITE_STAFF_ROLES, "pro
  * the page branches on, so the read-only treatment lives in one place.
  */
 export function isReadOnlyWpViewer(role: UserRole): boolean {
-  return role === "procurement";
+  // Spec 261 / ADR 0070: procurement_manager is a superset of procurement, so it
+  // reaches the WP detail as the same read-only viewer (PR-raise only).
+  return role === "procurement" || role === "procurement_manager";
 }
 
 /**
@@ -97,6 +127,8 @@ export const BACK_OFFICE_ROLES: ReadonlyArray<UserRole> = [
   "project_manager",
   "super_admin",
   "procurement",
+  // Spec 261 / ADR 0070: procurement_manager = superset of procurement (full parity).
+  "procurement_manager",
   "project_director",
 ];
 
@@ -110,7 +142,12 @@ export const BACK_OFFICE_ROLES: ReadonlyArray<UserRole> = [
  * WP_DETAIL_ROLES today, but the meaning differs ("opens the schedule" vs "opens a
  * WP detail") — keep them separate per the role-doctrine convention.
  */
-export const SCHEDULE_VIEW_ROLES: ReadonlyArray<UserRole> = [...SITE_STAFF_ROLES, "procurement"];
+export const SCHEDULE_VIEW_ROLES: ReadonlyArray<UserRole> = [
+  ...SITE_STAFF_ROLES,
+  "procurement",
+  // Spec 261 / ADR 0070: procurement_manager reads the schedule like procurement.
+  "procurement_manager",
+];
 
 /**
  * Spec 172 Phase C / ADR 0062: who may reach /workers AND onboard DC workers —
@@ -123,7 +160,12 @@ export const SCHEDULE_VIEW_ROLES: ReadonlyArray<UserRole> = [...SITE_STAFF_ROLES
  * coincide with BACK_OFFICE_ROLES today, but the meaning differs ("who onboards
  * DC workers", not "who curates contact master data") — keep them separate.
  */
-export const WORKER_ROSTER_ROLES: ReadonlyArray<UserRole> = [...PM_ROLES, "procurement"];
+export const WORKER_ROSTER_ROLES: ReadonlyArray<UserRole> = [
+  ...PM_ROLES,
+  "procurement",
+  // Spec 261 / ADR 0070: procurement_manager owns DC onboarding like procurement.
+  "procurement_manager",
+];
 
 /**
  * Spec 181: who may PLAN supply for a project — the PM set PLUS procurement. The
@@ -135,7 +177,12 @@ export const WORKER_ROSTER_ROLES: ReadonlyArray<UserRole> = [...PM_ROLES, "procu
  * never approves its own plan). Members coincide with WORKER_ROSTER_ROLES today,
  * meaning differs ("who plans supply") — kept separate per the role-doctrine.
  */
-export const SUPPLY_PLAN_ROLES: ReadonlyArray<UserRole> = [...PM_ROLES, "procurement"];
+export const SUPPLY_PLAN_ROLES: ReadonlyArray<UserRole> = [
+  ...PM_ROLES,
+  "procurement",
+  // Spec 261 / ADR 0070: procurement_manager plans supply like procurement (approve stays PD/super).
+  "procurement_manager",
+];
 
 /**
  * Spec 187: who may reach the DC payroll surface (/payroll) AND record DC
@@ -148,7 +195,12 @@ export const SUPPLY_PLAN_ROLES: ReadonlyArray<UserRole> = [...PM_ROLES, "procure
  * WORKER_ROSTER_ROLES / SUPPLY_PLAN_ROLES today, but the meaning differs ("who
  * sees + pays DC payroll") — keep them separate per the role-doctrine convention.
  */
-export const PAYROLL_ROLES: ReadonlyArray<UserRole> = [...PM_ROLES, "procurement"];
+export const PAYROLL_ROLES: ReadonlyArray<UserRole> = [
+  ...PM_ROLES,
+  "procurement",
+  // Spec 261 / ADR 0070: procurement_manager views + pays DC payroll like procurement.
+  "procurement_manager",
+];
 
 /**
  * Spec 252 — READ-scoped widenings for the accounting role (operator decision
@@ -174,6 +226,8 @@ export const PURCHASING_ROLES: ReadonlyArray<UserRole> = [
   "project_manager",
   "super_admin",
   "procurement",
+  // Spec 261 / ADR 0070: procurement_manager works the purchasing worklist like procurement.
+  "procurement_manager",
   "project_director",
 ];
 
@@ -192,6 +246,8 @@ export const EQUIPMENT_MOVE_ROLES: ReadonlyArray<UserRole> = [
   "project_manager",
   "super_admin",
   "procurement",
+  // Spec 261 / ADR 0070: procurement_manager records equipment movement like procurement.
+  "procurement_manager",
   "project_director",
 ];
 
@@ -208,6 +264,8 @@ export const PROJECT_VIEW_ROLES: ReadonlyArray<UserRole> = [
   "project_manager",
   "super_admin",
   "procurement",
+  // Spec 261 / ADR 0070: procurement_manager browses projects like procurement.
+  "procurement_manager",
   // Spec 143 U2 / ADR 0056: project_coordinator is the see-all oversight role.
   // RLS already lets it read every project (can_see_project); this admits it to
   // the browse surfaces (/projects + /projects/[id]).
@@ -257,7 +315,8 @@ export function roleHome(role: UserRole): string {
   // that card. (Was /review since spec 82 Unit 4; was the role-named /pm before.)
   if (isManagerRole(role)) return "/dashboard";
   // Spec 70: procurement is onboarded onto the purchasing worklist.
-  if (role === "procurement") return "/requests";
+  // Spec 261 / ADR 0070: procurement_manager shares that worklist home.
+  if (role === "procurement" || role === "procurement_manager") return "/requests";
   // Spec 143 U2 / ADR 0056: project_coordinator oversees all projects — its home
   // is the project hub (no longer bounced to /coming-soon).
   if (role === "project_coordinator") return "/projects";

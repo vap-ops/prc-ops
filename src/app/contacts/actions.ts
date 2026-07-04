@@ -13,7 +13,13 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
-import { PM_ROLES, BACK_OFFICE_ROLES } from "@/lib/auth/role-home";
+import {
+  PM_ROLES,
+  BACK_OFFICE_ROLES,
+  PROCUREMENT_MANAGER_ROLES,
+  type UserRole,
+} from "@/lib/auth/role-home";
+import { crossesBlacklistBoundary } from "@/lib/contacts/blacklist";
 import type { Database } from "@/lib/db/database.types";
 import { Constants } from "@/lib/db/database.types";
 import { UUID_REGEX } from "@/lib/validate/uuid";
@@ -39,11 +45,15 @@ export type RecordActionResult = { ok: true } | { ok: false; error: string };
 
 const PM_ONLY = "เฉพาะผู้จัดการโครงการเท่านั้น";
 const BACK_OFFICE_ONLY = "เฉพาะฝ่ายจัดซื้อหรือผู้จัดการเท่านั้น";
+// Spec 261 / ADR 0070 item 4: blacklist / unblacklist is manager-tier only.
+const BLACKLIST_MANAGER_ONLY = "เฉพาะหัวหน้าจัดซื้อหรือผู้จัดการเท่านั้นที่ขึ้น/ปลดบัญชีดำได้";
 const GENERIC = "บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 const CONTACTS_PATH = "/contacts";
 
 type ServerClient = Awaited<ReturnType<typeof import("@/lib/db/server").createClient>>;
-type PmGate = { ok: true; supabase: ServerClient; userId: string } | { ok: false; error: string };
+type PmGate =
+  | { ok: true; supabase: ServerClient; userId: string; role: UserRole }
+  | { ok: false; error: string };
 
 // Gate an action to a role allowlist, returning the authenticated session.
 // An RLS UPDATE whose USING fails affects 0 rows SILENTLY (spec-80 lesson), so
@@ -59,7 +69,7 @@ async function roleSession(allowed: ReadonlyArray<string>, denyMsg: string): Pro
   if (!userRow || !allowed.includes(userRow.role)) {
     return { ok: false, error: denyMsg };
   }
-  return { ok: true, supabase: auth.supabase, userId: auth.user.id };
+  return { ok: true, supabase: auth.supabase, userId: auth.user.id, role: userRow.role };
 }
 
 const pmSession = () => roleSession(PM_ROLES, PM_ONLY);
@@ -317,6 +327,15 @@ export async function createContractorRecord(input: {
   const sub = checkEnum(E.contractor_subtype, input.contractorSubtype);
   const st = checkEnum(E.contact_status, input.status);
   if (!cat.ok || !sub.ok || !st.ok) return { ok: false, error: GENERIC };
+  // Spec 261 / ADR 0070 item 4: creating a contact directly AS blacklisted is a
+  // manager-tier action (closes the create-as-blacklisted backdoor for procurement).
+  if (
+    st.value !== undefined &&
+    crossesBlacklistBoundary(null, st.value) &&
+    !PROCUREMENT_MANAGER_ROLES.includes(gate.role)
+  ) {
+    return { ok: false, error: BLACKLIST_MANAGER_ONLY };
+  }
 
   const phoneRes = normPhone(input.phone);
   if (!phoneRes.ok) return { ok: false, error: BAD_PHONE };
@@ -409,6 +428,20 @@ export async function updateContractorRecord(input: {
     const st = checkEnum(E.contact_status, input.status);
     if (!st.ok || st.value === undefined) return { ok: false, error: GENERIC };
     patch.status = st.value;
+  }
+  // Spec 261 / ADR 0070 item 4: crossing the blacklist boundary (blacklist /
+  // unblacklist) is manager-tier only; ordinary edits (incl. active↔probation)
+  // stay back-office. Read the current status under the caller session so an
+  // unblacklist (leaving 'blacklisted') is gated too. Managers skip the read.
+  if (patch.status !== undefined && !PROCUREMENT_MANAGER_ROLES.includes(gate.role)) {
+    const { data: current } = await gate.supabase
+      .from("contractors")
+      .select("status")
+      .eq("id", input.id)
+      .maybeSingle();
+    if (crossesBlacklistBoundary(current?.status, patch.status)) {
+      return { ok: false, error: BLACKLIST_MANAGER_ONLY };
+    }
   }
   if (Object.keys(patch).length === 0) return { ok: true };
 
