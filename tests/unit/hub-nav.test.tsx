@@ -9,6 +9,7 @@ import {
   PM_HUB_NAV,
   SA_HUB_NAV,
   PROCUREMENT_HUB_NAV,
+  PROCUREMENT_MANAGER_HUB_NAV,
   COORDINATOR_HUB_NAV,
   ACCOUNTING_HUB_NAV,
   hubNavForRole,
@@ -69,6 +70,24 @@ describe("canonical nav sets", () => {
       { label: "ตั้งค่า", href: "/settings" },
     ]);
   });
+
+  // Spec 263 follow-up: procurement_manager had NO hub-nav set at all before
+  // this fix (hubNavForRole fell through to null, per the U3 comment it left
+  // behind). It's a procurement superset (spec 261) PLUS a technician-
+  // registration approver (spec 263 U3) — gets the procurement strip plus the
+  // approval-queue item.
+  it("pins the procurement_manager set's destinations and order", () => {
+    expect(PROCUREMENT_MANAGER_HUB_NAV).toEqual([
+      { label: "จัดซื้อ", href: "/requests" },
+      { label: "รายงาน", href: "/requests/reports" },
+      { label: "โครงการ", href: "/projects" },
+      { label: "ผู้ขาย", href: "/contacts/vendors" },
+      { label: "ผู้รับเหมาช่วง", href: "/contacts/subcontractors" },
+      { label: "ทีมงาน", href: "/workers" },
+      { label: "คำขอสมัครช่าง", href: "/registrations" },
+      { label: "ตั้งค่า", href: "/settings" },
+    ]);
+  });
 });
 
 // Spec 153: hubNavForRole is the single role→strip selector (mirrors tabsForRole),
@@ -81,6 +100,8 @@ describe("hubNavForRole", () => {
     expect(hubNavForRole("super_admin")).toBe(PM_HUB_NAV);
     expect(hubNavForRole("project_director")).toBe(PM_HUB_NAV);
     expect(hubNavForRole("procurement")).toBe(PROCUREMENT_HUB_NAV);
+    // Spec 263 follow-up: procurement_manager previously fell through to null.
+    expect(hubNavForRole("procurement_manager")).toBe(PROCUREMENT_MANAGER_HUB_NAV);
     expect(hubNavForRole("project_coordinator")).toBe(COORDINATOR_HUB_NAV);
     expect(hubNavForRole("accounting")).toBe(ACCOUNTING_HUB_NAV);
   });

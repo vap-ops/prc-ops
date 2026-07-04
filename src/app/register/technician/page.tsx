@@ -14,6 +14,7 @@ import { createClient } from "@/lib/db/server";
 import { roleHome } from "@/lib/auth/role-home";
 import { StartRegistrationForm } from "@/components/features/register/start-registration-form";
 import { EmployeeCard } from "@/components/features/register/employee-card";
+import { resolveCardPhoto } from "@/lib/register/card-view";
 import { RegistrationForm } from "@/components/features/register/registration-form";
 import { RegistrationDocuments } from "@/components/features/register/registration-documents";
 import { ShareCardButton } from "@/components/features/register/share-card-button";
@@ -36,7 +37,11 @@ export default async function RegisterTechnicianPage() {
   if (!data) redirect("/login?next=%2Fregister%2Ftechnician");
   const uid = data.claims.sub;
 
-  const { data: userRow } = await supabase.from("users").select("role").eq("id", uid).maybeSingle();
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("role, line_avatar_url")
+    .eq("id", uid)
+    .maybeSingle();
   if (userRow?.role === "technician") redirect(roleHome(userRow.role));
 
   const registration = await getOwnTechnicianRegistration(supabase, uid);
@@ -49,7 +54,11 @@ export default async function RegisterTechnicianPage() {
         {!registration ? (
           <StartRegistrationForm />
         ) : (
-          <RegistrationWorkspace uid={uid} registration={registration} />
+          <RegistrationWorkspace
+            uid={uid}
+            registration={registration}
+            lineAvatarUrl={userRow?.line_avatar_url ?? null}
+          />
         )}
       </section>
     </PageShell>
@@ -59,9 +68,11 @@ export default async function RegisterTechnicianPage() {
 async function RegistrationWorkspace({
   uid,
   registration,
+  lineAvatarUrl,
 }: {
   uid: string;
   registration: NonNullable<Awaited<ReturnType<typeof getOwnTechnicianRegistration>>>;
+  lineAvatarUrl: string | null;
 }) {
   const supabase = await createClient();
   const { urls } = await getOwnRegistrationDocuments(supabase, registration.id);
@@ -72,7 +83,7 @@ async function RegistrationWorkspace({
         employeeId={registration.employee_id}
         fullName={registration.full_name}
         status={registration.status}
-        photoUrl={urls.profile_photo ?? null}
+        photoUrl={resolveCardPhoto(urls.profile_photo ?? null, lineAvatarUrl)}
       />
       {registration.status === "rejected" && registration.reject_reason ? (
         <div className={`${CARD} border-danger-edge bg-danger-soft`}>

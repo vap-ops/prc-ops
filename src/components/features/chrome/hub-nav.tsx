@@ -40,9 +40,9 @@ export const PM_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "ภาพรวม", href: "/dashboard" },
   // Spec 263 U3: the technician-registration approval queue. Reaches
   // project_director + super_admin here; procurement_manager (also a
-  // TECHNICIAN_APPROVAL_ROLES member) has no hub-nav/tab set at all yet — a
-  // pre-existing gap (hubNavForRole/tabsForRole don't branch on it), not fixed
-  // in this unit. Direct URL still works for procurement_manager meanwhile.
+  // TECHNICIAN_APPROVAL_ROLES member) gets its own item in
+  // PROCUREMENT_MANAGER_HUB_NAV below (spec 263 follow-up closed the gap this
+  // comment used to flag).
   { label: "คำขอสมัครช่าง", href: "/registrations" },
   { label: "ตั้งค่า", href: "/settings" },
 ];
@@ -74,6 +74,23 @@ export const PROCUREMENT_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "ตั้งค่า", href: "/settings" },
 ];
 
+// Spec 263 follow-up: procurement_manager's desktop strip. It is a
+// procurement superset (spec 261, ADR 0070) with NO hub-nav set at all before
+// this fix (hubNavForRole had no branch for it). Gets everything
+// PROCUREMENT_HUB_NAV has (it can do everything plain procurement can, plus
+// the manager-only set) plus the technician-registration approval queue (spec
+// 263 U3 — procurement_manager is a TECHNICIAN_APPROVAL_ROLES member).
+export const PROCUREMENT_MANAGER_HUB_NAV: ReadonlyArray<HubNavItem> = [
+  { label: "จัดซื้อ", href: "/requests" },
+  { label: "รายงาน", href: "/requests/reports" },
+  { label: "โครงการ", href: "/projects" },
+  { label: "ผู้ขาย", href: "/contacts/vendors" },
+  { label: SUBCONTRACTOR_LABEL, href: "/contacts/subcontractors" },
+  { label: "ทีมงาน", href: "/workers" },
+  { label: "คำขอสมัครช่าง", href: "/registrations" },
+  { label: "ตั้งค่า", href: "/settings" },
+];
+
 // Spec 143 U2 / ADR 0056: project_coordinator's desktop strip — the see-all
 // project hub + settings. Mirrors COORDINATOR_TABS; no review/requests/dashboard
 // (those surfaces don't admit it).
@@ -98,6 +115,9 @@ export function hubNavForRole(role: string): ReadonlyArray<HubNavItem> | null {
   if (role === "site_admin") return SA_HUB_NAV;
   // Spec 152 / ADR 0058: project_director shares the PM strip (see-all PM).
   if (isManagerRole(role as UserRole)) return PM_HUB_NAV;
+  // Spec 263 follow-up: checked BEFORE plain procurement (a distinct, wider
+  // set, not a fallthrough of the plain-procurement branch below).
+  if (role === "procurement_manager") return PROCUREMENT_MANAGER_HUB_NAV;
   if (role === "procurement") return PROCUREMENT_HUB_NAV;
   if (role === "project_coordinator") return COORDINATOR_HUB_NAV;
   if (role === "accounting") return ACCOUNTING_HUB_NAV;

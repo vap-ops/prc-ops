@@ -28,6 +28,7 @@ import {
   Settings,
   ShoppingCart,
   Store,
+  UserPlus,
   type LucideIcon,
 } from "lucide-react";
 
@@ -79,6 +80,18 @@ const DASHBOARD_TAB: TabItem = {
   match: ["/review"],
 };
 
+// Spec 263 follow-up: the technician-registration approval queue was added to
+// the desktop HubNav strip (spec 263 U3) but never to this bottom bar, so
+// super_admin/project_director/procurement_manager on a phone had no way to
+// reach /registrations at all. Short label (bottom-tab space is tight — every
+// other label here is 2-4 Thai chars; the page itself is titled the longer
+// "คำขอสมัครเป็นช่าง").
+const REGISTRATIONS_TAB: TabItem = {
+  label: "สมัครช่าง",
+  href: "/registrations",
+  icon: UserPlus,
+};
+
 // Spec 192 U4: the SA lands on the daily home (/sa, หน้าหลัก). ภาพรวม (the
 // money-free portfolio overview) is dropped from the SA bar — the daily home
 // supersedes it as the SA's at-a-glance surface — keeping the bar to four tabs.
@@ -101,6 +114,8 @@ export const PM_TABS: ReadonlyArray<TabItem> = [
   { label: "โครงการ", href: "/projects", icon: FolderKanban },
   { label: "จัดซื้อ", href: "/requests", icon: ShoppingCart },
   DASHBOARD_TAB,
+  // Spec 263 follow-up: the approval queue, mirroring PM_HUB_NAV (desktop).
+  REGISTRATIONS_TAB,
   SETTINGS_TAB,
 ];
 
@@ -119,6 +134,21 @@ export const PROCUREMENT_TABS: ReadonlyArray<TabItem> = [
   // renders suppliers-only for procurement). Longest-prefix wins over the
   // ตั้งค่า /contacts match, so this tab lights on the suppliers screen.
   { label: "ผู้ขาย", href: "/contacts/vendors", icon: Store },
+  SETTINGS_TAB,
+];
+
+// Spec 263 follow-up: procurement_manager (spec 261, ADR 0070) is a
+// procurement superset with NO tab set at all before this fix — tabsForRole
+// had no branch for it, so the role saw no bottom bar whatsoever. It gets the
+// full PROCUREMENT_TABS set (it can do everything plain procurement can, plus
+// the manager-only set) plus the technician-registration approval queue (spec
+// 263 U3 — procurement_manager is a TECHNICIAN_APPROVAL_ROLES member).
+export const PROCUREMENT_MANAGER_TABS: ReadonlyArray<TabItem> = [
+  { label: "จัดซื้อ", href: "/requests", icon: ShoppingCart },
+  { label: "รายงาน", href: "/requests/reports", icon: FileText, match: ["/requests/orders"] },
+  { label: "โครงการ", href: "/projects", icon: FolderKanban },
+  { label: "ผู้ขาย", href: "/contacts/vendors", icon: Store },
+  REGISTRATIONS_TAB,
   SETTINGS_TAB,
 ];
 
@@ -143,6 +173,10 @@ function tabsForRole(role: string): ReadonlyArray<TabItem> | null {
   if (role === "site_admin") return SA_TABS;
   // Spec 152 / ADR 0058: project_director gets the PM tab set (see-all PM).
   if (isManagerRole(role as UserRole)) return PM_TABS;
+  // Spec 263 follow-up: procurement_manager checked BEFORE plain procurement
+  // (it is a distinct, wider set, not a fallthrough of the plain-procurement
+  // branch below).
+  if (role === "procurement_manager") return PROCUREMENT_MANAGER_TABS;
   if (role === "procurement") return PROCUREMENT_TABS;
   if (role === "project_coordinator") return COORDINATOR_TABS;
   if (role === "accounting") return ACCOUNTING_TABS;
