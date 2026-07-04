@@ -203,13 +203,52 @@ describe("GET /auth/line/callback — handoff flow (ADR 0041 amendment)", () => 
 });
 
 describe("GET /auth/line/callback — browser flow (pinned unchanged)", () => {
-  it("valid state cookie → mint + redirect by role, handoff table untouched", async () => {
-    stateCookieValue = "st1";
+  it("JSON-payload state cookie (no next) → mint + redirect by role, handoff untouched", async () => {
+    // Cookie is now a JSON payload {s: <state>}; the CSRF value is `s`.
+    stateCookieValue = JSON.stringify({ s: "st1" });
     const response = await GET(makeRequest("?code=abc&state=st1"));
 
     expect(generateLinkMock).toHaveBeenCalled();
     expect(verifyOtpMock).toHaveBeenCalled();
     expect(bindUpdateMock).not.toHaveBeenCalled();
+    // DEFAULT (no next): byte-identical to today — roleHome.
     expect(response.headers.get("location")).toBe("https://app.example.com/sa");
+  });
+
+  it("legacy plain-string state cookie still validates (in-flight-login compat)", async () => {
+    stateCookieValue = "st1";
+    const response = await GET(makeRequest("?code=abc&state=st1"));
+
+    expect(generateLinkMock).toHaveBeenCalled();
+    expect(bindUpdateMock).not.toHaveBeenCalled();
+    expect(response.headers.get("location")).toBe("https://app.example.com/sa");
+  });
+
+  // spec 263 follow-up — the OPTIONAL `next` return path rides the cookie.
+  it("valid `next` in the cookie payload → redirect there INSTEAD of roleHome", async () => {
+    stateCookieValue = JSON.stringify({ s: "st1", n: "/register/technician" });
+    const response = await GET(makeRequest("?code=abc&state=st1"));
+
+    expect(generateLinkMock).toHaveBeenCalled();
+    expect(verifyOtpMock).toHaveBeenCalled();
+    expect(response.headers.get("location")).toBe("https://app.example.com/register/technician");
+  });
+
+  it("unsafe `next` in the cookie payload → falls back to roleHome (defense in depth)", async () => {
+    stateCookieValue = JSON.stringify({ s: "st1", n: "https://evil.com" });
+    const response = await GET(makeRequest("?code=abc&state=st1"));
+
+    expect(response.headers.get("location")).toBe("https://app.example.com/sa");
+  });
+
+  it("still validates CSRF: cookie `s` must equal the ?state param", async () => {
+    stateCookieValue = JSON.stringify({ s: "st1", n: "/register/technician" });
+    const response = await GET(makeRequest("?code=abc&state=DIFFERENT"));
+
+    // Mismatch → invalid flow → login error, no mint.
+    expect(response.headers.get("location")).toBe(
+      "https://app.example.com/login?error=oauth_failed",
+    );
+    expect(generateLinkMock).not.toHaveBeenCalled();
   });
 });

@@ -37,6 +37,7 @@ import { createClient as createServerSupabase } from "@/lib/db/server";
 import { resolveCallbackFlow } from "@/lib/auth/handoff-flow";
 import { exchangeLineCode } from "@/lib/auth/line-token-exchange";
 import { type UserRole } from "@/lib/auth/role-home";
+import { safeNextPath } from "@/lib/auth/next-path";
 import { homePathForUser } from "@/lib/auth/resolve-home";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/database.types";
@@ -45,6 +46,29 @@ import { serverEnv } from "@/lib/env.server";
 const STATE_COOKIE_NAME = "line_oauth_state";
 const PROFILE_READ_MAX_ATTEMPTS = 3;
 const PROFILE_READ_RETRY_DELAY_MS = 50;
+
+// spec 263 follow-up — the state cookie now holds a JSON payload
+// { s: state, n?: next } (see /auth/line/start). Parse it into the bare state
+// string (which feeds the UNCHANGED CSRF cookie-vs-param comparison) and the
+// optional return path. A legacy bare-string cookie (an in-flight login across
+// the deploy boundary) is still honored: its whole value is the state, no next.
+// This never throws — a malformed cookie yields { state: null }, which fails
+// the CSRF check exactly like a missing cookie would.
+function parseStateCookie(raw: string | null): { state: string | null; next: string | null } {
+  if (raw === null) return { state: null, next: null };
+  if (raw.length > 0 && raw[0] === "{") {
+    try {
+      const parsed = JSON.parse(raw) as { s?: unknown; n?: unknown };
+      const state = typeof parsed.s === "string" ? parsed.s : null;
+      const next = typeof parsed.n === "string" ? parsed.n : null;
+      return { state, next };
+    } catch {
+      return { state: null, next: null };
+    }
+  }
+  // Legacy plain-string cookie (pre-spec-263): the value IS the state.
+  return { state: raw, next: null };
+}
 
 function redirectToLogin(request: NextRequest, error: string): NextResponse {
   const url = request.nextUrl.clone();
@@ -59,7 +83,19 @@ async function redirectByRole(
   client: SupabaseClient<Database>,
   role: UserRole,
   userId: string,
+  // spec 263 follow-up — an OPTIONAL, ALREADY-validated same-origin return
+  // path. When present it is the redirect destination INSTEAD of the role
+  // home; when null the behavior is byte-identical to before (homePathForUser).
+  nextPath: string | null,
 ): Promise<NextResponse> {
+  if (nextPath) {
+    // nextPath is a validated same-origin path that MAY carry a query/hash, so
+    // resolve it against this request's origin rather than mutating pathname
+    // (which would percent-encode "?"/"#"). safeNextPath already guaranteed it
+    // cannot escape the origin.
+    const dest = new URL(nextPath, request.nextUrl.origin);
+    return NextResponse.redirect(dest);
+  }
   const url = request.nextUrl.clone();
   url.search = "";
   // A single-project site_admin lands on their project (operator: works one
@@ -71,7 +107,12 @@ async function redirectByRole(
 export async function GET(request: NextRequest): Promise<NextResponse> {
   // ---- 1. Resolve the flow from the state channel (cookie or DB row) ----
   const cookieStore = await cookies();
-  const stateCookie = cookieStore.get(STATE_COOKIE_NAME)?.value ?? null;
+  const rawStateCookie = cookieStore.get(STATE_COOKIE_NAME)?.value ?? null;
+  // spec 263 follow-up — the cookie is a JSON payload { s, n? }; extract the
+  // bare state string (which drives the UNCHANGED CSRF comparison below) and
+  // the optional return path. A legacy plain-string cookie still parses to its
+  // state with no next.
+  const { state: stateCookie, next: nextFromCookie } = parseStateCookie(rawStateCookie);
   const stateParam = request.nextUrl.searchParams.get("state");
   // Single-use: clear the cookie regardless of outcome.
   cookieStore.delete(STATE_COOKIE_NAME);
@@ -257,7 +298,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // ---- 8. Redirect by role ----
+  // ---- 8. Redirect by role (or to a validated return path) ----
+  // spec 263 follow-up — re-validate the cookie's `next` here (defense in
+  // depth: it was validated at /auth/line/start too, but is re-checked at every
+  // point of consumption). Only the BROWSER flow carries a return path; the
+  // handoff (PWA) flow's state lives in a DB row with no cookie, so
+  // nextFromCookie is null there and the role home is used exactly as before.
+  const nextPath = flow.kind === "browser" ? safeNextPath(nextFromCookie) : null;
   // Admin client: a deterministic, RLS-independent membership lookup by id.
-  return redirectByRole(request, admin, row.role as UserRole, user.id);
+  return redirectByRole(request, admin, row.role as UserRole, user.id, nextPath);
 }

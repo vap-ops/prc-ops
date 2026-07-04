@@ -18,6 +18,15 @@ describe("LoginButton", () => {
     expect(anchor.className).toContain(STANDALONE_HIDDEN);
   });
 
+  // spec 263 follow-up — thread an OPTIONAL, already-validated `next` into
+  // the browser-flow anchor so /auth/line/start can stash it in the state
+  // cookie. Absent prop → href unchanged (default flow).
+  it("appends a `next` return-path to the browser anchor when provided", () => {
+    render(<LoginButton next="/register/technician" />);
+    const anchor = screen.getByRole("link", { name: "เข้าสู่ระบบด้วย LINE" });
+    expect(anchor).toHaveAttribute("href", "/auth/line/start?next=%2Fregister%2Ftechnician");
+  });
+
   it("renders the standalone handoff button, shown only in standalone", () => {
     render(<LoginButton />);
     const button = screen.getByRole("button", { name: "เข้าสู่ระบบด้วย LINE" });

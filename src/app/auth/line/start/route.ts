@@ -15,6 +15,7 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { buildLineAuthorizeUrl } from "@/lib/auth/line-authorize-url";
+import { safeNextPath } from "@/lib/auth/next-path";
 import { serverEnv } from "@/lib/env.server";
 
 const STATE_COOKIE_NAME = "line_oauth_state";
@@ -28,8 +29,18 @@ export function GET(request: NextRequest) {
     channelId: serverEnv.LINE_CHANNEL_ID,
   });
 
+  // spec 263 follow-up — thread an OPTIONAL return path. The cookie now holds a
+  // JSON payload { s: state, n?: next } instead of the bare state string. The
+  // CSRF `state` still rides BOTH the authorize URL and the cookie's `s` field,
+  // so the callback's cookie-vs-param check is unchanged. `next` is validated
+  // here and only stored when safe; when absent/invalid it is omitted entirely
+  // (payload = { s } → default flow, byte-identical to before). `next` never
+  // leaves this origin — it stays in the httpOnly cookie, never on the LINE URL.
+  const next = safeNextPath(request.nextUrl.searchParams.get("next"));
+  const payload: { s: string; n?: string } = next ? { s: state, n: next } : { s: state };
+
   const response = NextResponse.redirect(authorizeUrl.toString(), { status: 302 });
-  response.cookies.set(STATE_COOKIE_NAME, state, {
+  response.cookies.set(STATE_COOKIE_NAME, JSON.stringify(payload), {
     httpOnly: true,
     secure: true,
     sameSite: "lax",

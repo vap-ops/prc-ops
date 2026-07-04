@@ -28,7 +28,12 @@ export default async function RegisterTechnicianPage() {
   const supabase = await createClient();
 
   const { data } = await supabase.auth.getClaims();
-  if (!data) redirect("/login");
+  // spec 263 follow-up — thread a return path so a logged-out technician who
+  // taps /register/technician comes BACK here after LINE login instead of being
+  // stranded on /coming-soon (a fresh account defaults to role `visitor`). The
+  // path is a hard-coded same-origin literal; /login re-validates it via
+  // safeNextPath, so no open-redirect surface is introduced.
+  if (!data) redirect("/login?next=%2Fregister%2Ftechnician");
   const uid = data.claims.sub;
 
   const { data: userRow } = await supabase.from("users").select("role").eq("id", uid).maybeSingle();
