@@ -53,6 +53,68 @@ non-null-amount lines) — so report `charge_gross` is NOT the GL-posted charge 
 do not reconcile them line-by-line. **Out of scope (S5/S6):** report UI + CSV export + budget strip (U2), the
 PO list page (U3), procurement home tiles (U4).
 
+## Spec 262 U2 — Procurement purchase reports (report UI + CSV export) — ✅ BUILT (2026-07-04, PR #295 held for operator merge)
+
+Chain S5. New route `/requests/reports` (procurement's wing; accounting/PM/PD/
+super_admin reach it too via the same 6-role gate — not forked under
+`/accounting`), reading U1's `purchase_report` RPC via the regular server client
+(the RPC's own gate needs the caller's real session, not the admin client).
+
+- **Controls:** period presets วันนี้/เดือนนี้/ปีนี้/custom, bucket switch
+  วัน/เดือน/ปี, group-by switch โครงการ/ผู้ขาย/หมวดวัสดุ/ผู้สั่งซื้อ (ผู้สั่งซื้อ
+  narrowed to the manager tier ∪ procurement_manager, mirroring the RPC's own
+  check — defense in depth), project filter. Zero client JS — deep-linkable
+  `<Link>` chips + a plain GET form (the `/projects` filter-bar pattern).
+- **Totals strip** reuses `summarizePurchases`' presentation language (a new
+  `summarizeReportRows` sums the RPC's pre-aggregated rows with the same
+  satang-safe discipline — pgTAP-parity-tested against `summarizePurchases`).
+- **Trend:** hand-rolled Tailwind bars (no chart dependency, per spec) — always
+  over time, independent of the table's chosen group-by.
+- **Table → drill:** one row per bucket×group; drills into
+  `/requests/reports/register`, a filtered register-style list reusing
+  `loadPurchaseRegister`/`purchases-view.ts` (extended with an optional
+  supplier/category/purchaser dimension filter — the project filter reused the
+  existing `projectId` param unchanged). No further per-PR drill: the accounting
+  voucher and the purchasing worklist detail each gate out a role the other
+  admits, so no single destination covers all 6 report roles — the register row
+  is terminal.
+- **CSV export** `/requests/reports/export` — UTF-8 BOM, Thai headers. The page
+  and the route share **one** gate constant (`PURCHASE_REPORT_ROLES`, in
+  `role-home.ts` — the role-doctrine home for every role-set constant in this
+  app) and **one** query parser (`parseReportQuery`), pinned by a source-scan
+  identity test — the payroll page/route gate-drift bug is the named
+  anti-pattern this guards against.
+- **Budget strip:** project-grain only (shown only when a project filter is
+  active) — cumulative committed spend (`purchase_report` from a fixed
+  `REPORT_ALL_TIME_FROM` floor to today, bucket='year', group_by='project')
+  vs `projects.budget_amount_thb`, read via the **admin client** (authenticated
+  cannot read that column). Labeled ยอดสั่งซื้อสะสมเทียบงบ + ไม่รวมค่าแรง caption.
+
+TDD throughout (gate pin test, page/route/register gate-identity source-scan,
+a register-totals-parity test against `summarizePurchases`, bucket-label/window/
+CSV/href pure-function tests — 37 new cases). lint/typecheck/full vitest
+387 files / 2611 tests green (incl. the repo-wide nav-back-affordance
+completeness guard, extended for the two new routes). NO migration — `role-home.ts`
+is the only protected-path touch (danger-path guard HOLDS this PR by design).
+
+**Real-browser verified** (dev-preview account, temporarily role-swapped via the
+admin REST API, restored to `super_admin` after): procurement (reaches the
+report, ผู้สั่งซื้อ slice hidden) · accounting (reaches the report, ผู้สั่งซื้อ
+slice hidden) · super_admin (all slices; CSV BOM/headers/filename verified;
+register drill verified) · site_admin (a real top-level navigation confirms
+`requireRole` → `/sa` → the pre-existing `/sa`→`/projects` redirect). A raw
+`fetch()`/curl check without a real navigation showed a misleading stale
+result — reproduced identically against already-merged `main`, so it is an
+environment/test-method artifact (Next 16 dev-server behavior under a bare
+fetch lacking navigation headers), not a real gating gap; the real-navigation
+check is authoritative.
+
+**Decisions / open questions.** The register drill has no further per-PR link
+(see above — a genuine gap in role coverage between the two existing detail
+surfaces, not something this unit's scope covers; flagged for a future spec if
+the team wants one destination all 6 report roles can reach). **Out of scope
+(S6+):** the PO list page (U3), procurement home tiles (U4).
+
 ---
 
 ## Spec 261 — `procurement_manager` role — ✅ BUILT (2026-07-04, PR held for operator merge)
