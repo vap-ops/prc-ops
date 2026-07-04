@@ -1,14 +1,15 @@
 begin;
 select plan(12);
 
--- enum type exists with the fourteen expected values
+-- enum type exists with the sixteen expected values
 -- (spec 233 / ADR 0067 added 'client'; spec 261 / ADR 0070 appended
--- 'procurement_manager' last — the procurement dept-manager role).
+-- 'procurement_manager'; spec 263 / ADR 0071 appended 'site_owner' + 'auditor'
+-- last — two behavior-free forward-compat field roles).
 select has_type('public', 'user_role', 'user_role enum exists');
 select enum_has_labels(
   'public', 'user_role',
-  array['site_admin', 'project_manager', 'super_admin', 'project_coordinator', 'procurement', 'technician', 'hr', 'subcon_manager', 'accounting', 'visitor', 'contractor', 'project_director', 'client', 'procurement_manager'],
-  'user_role has the fourteen expected values'
+  array['site_admin', 'project_manager', 'super_admin', 'project_coordinator', 'procurement', 'technician', 'hr', 'subcon_manager', 'accounting', 'visitor', 'contractor', 'project_director', 'client', 'procurement_manager', 'site_owner', 'auditor'],
+  'user_role has the sixteen expected values'
 );
 
 -- table shape

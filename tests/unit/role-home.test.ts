@@ -43,6 +43,10 @@ describe("roleHome", () => {
   it("sends still-unserved roles to /coming-soon", () => {
     expect(roleHome("visitor")).toBe("/coming-soon");
     expect(roleHome("technician")).toBe("/coming-soon");
+    // Spec 263 / ADR 0071: site_owner + auditor ship behavior-free — no route,
+    // no gate. They fall through roleHome to /coming-soon until their own specs.
+    expect(roleHome("site_owner")).toBe("/coming-soon");
+    expect(roleHome("auditor")).toBe("/coming-soon");
   });
 
   // Spec 130 / ADR 0051: external direct-contractor accounts land on the

@@ -390,3 +390,43 @@ describe("PROCUREMENT_MANAGER_ROLES / isProcurementManagerTier (spec 261)", () =
     }
   });
 });
+
+// Spec 263 / ADR 0071: site_owner + auditor are added to the user_role enum
+// behavior-free — no route, no gate, no role-set membership. This pins them OUT
+// of every privileged set + predicate, so a future behavior unit is a deliberate
+// gate widening, never a silent inheritance from being enum values.
+describe("site_owner + auditor are behavior-free (spec 263 / ADR 0071)", () => {
+  const NEW_ROLES = ["site_owner", "auditor"] as const;
+
+  it("belong to no privileged role set", () => {
+    const SETS = [
+      ACCOUNTING_ROLES,
+      BACK_OFFICE_ROLES,
+      PAYROLL_ROLES,
+      PM_ROLES,
+      PO_DETAIL_VIEW_ROLES,
+      PROCUREMENT_MANAGER_ROLES,
+      PURCHASING_ROLES,
+      SCHEDULE_VIEW_ROLES,
+      SITE_STAFF_ROLES,
+      SUPPLY_PLAN_ROLES,
+      WORKER_ROSTER_ROLES,
+      WP_DETAIL_ROLES,
+    ];
+    for (const role of NEW_ROLES) {
+      for (const set of SETS) expect(set).not.toContain(role);
+    }
+  });
+
+  it("are not a manager, procurement-manager, or read-only WP viewer", () => {
+    for (const role of NEW_ROLES) {
+      expect(isManagerRole(role)).toBe(false);
+      expect(isProcurementManagerTier(role)).toBe(false);
+      expect(isReadOnlyWpViewer(role)).toBe(false);
+    }
+  });
+
+  it("land on /coming-soon (behavior-free)", () => {
+    for (const role of NEW_ROLES) expect(roleHome(role)).toBe("/coming-soon");
+  });
+});

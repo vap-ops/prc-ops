@@ -1,5 +1,5 @@
 begin;
-select plan(21);
+select plan(27);
 
 -- ============================================================================
 -- Architecture-quality audit rank 5 (sql-role-helpers), stage 1 — the SQL role
@@ -13,15 +13,17 @@ select plan(21);
 -- plus an explicit true for every member and a representative denial.
 -- ============================================================================
 
--- Enum-completeness guard: 14 roles today. If someone ADDs a user_role value,
+-- Enum-completeness guard: 16 roles today. If someone ADDs a user_role value,
 -- this fails until they decide which predicate(s) admit it (kills silent drift).
 -- 'client' (spec 233 / ADR 0067) is an EXTERNAL read-only audience admitted by
 -- NONE of the staff predicates below. 'procurement_manager' (spec 261 / ADR 0070)
 -- is a superset of procurement — is_back_office YES, is_manager/is_site_staff NO.
+-- 'site_owner' + 'auditor' (spec 263 / ADR 0071) are behavior-free forward-compat
+-- field roles — admitted by NONE of the staff predicates below (they do nothing yet).
 select is(
   (select count(*)::int from unnest(enum_range(null::public.user_role))),
-  14,
-  'user_role enum has 14 values (add one => classify it in the predicates)');
+  16,
+  'user_role enum has 16 values (add one => classify it in the predicates)');
 
 -- --- is_manager = PM_ROLES (project_manager, super_admin, project_director) ---
 select is(
@@ -32,6 +34,8 @@ select is(public.is_manager('super_admin'::public.user_role), true, 'is_manager:
 select is(public.is_manager('project_director'::public.user_role), true, 'is_manager: project_director (ADR 0058)');
 select is(public.is_manager('site_admin'::public.user_role), false, 'is_manager: site_admin denied');
 select is(public.is_manager('procurement_manager'::public.user_role), false, 'is_manager: procurement_manager denied (dept manager, NOT the project tier)');
+select is(public.is_manager('site_owner'::public.user_role), false, 'is_manager: site_owner denied (behavior-free, spec 263)');
+select is(public.is_manager('auditor'::public.user_role), false, 'is_manager: auditor denied (behavior-free, spec 263)');
 
 -- --- is_back_office = BACK_OFFICE_ROLES (PM set + procurement, NOT site_admin) ---
 select is(
@@ -43,6 +47,8 @@ select is(public.is_back_office('procurement'::public.user_role), true, 'is_back
 select is(public.is_back_office('procurement_manager'::public.user_role), true, 'is_back_office: procurement_manager (spec 261 parity)');
 select is(public.is_back_office('project_director'::public.user_role), true, 'is_back_office: project_director');
 select is(public.is_back_office('site_admin'::public.user_role), false, 'is_back_office: site_admin denied (financial data)');
+select is(public.is_back_office('site_owner'::public.user_role), false, 'is_back_office: site_owner denied (behavior-free, spec 263)');
+select is(public.is_back_office('auditor'::public.user_role), false, 'is_back_office: auditor denied (behavior-free, spec 263)');
 
 -- --- is_site_staff = SITE_STAFF_ROLES (site_admin + the PM set) ---
 select is(
@@ -54,6 +60,8 @@ select is(public.is_site_staff('super_admin'::public.user_role), true, 'is_site_
 select is(public.is_site_staff('project_director'::public.user_role), true, 'is_site_staff: project_director');
 select is(public.is_site_staff('procurement'::public.user_role), false, 'is_site_staff: procurement denied (read-only viewer, not staff)');
 select is(public.is_site_staff('procurement_manager'::public.user_role), false, 'is_site_staff: procurement_manager denied (dept manager, not site staff)');
+select is(public.is_site_staff('site_owner'::public.user_role), false, 'is_site_staff: site_owner denied (behavior-free, spec 263)');
+select is(public.is_site_staff('auditor'::public.user_role), false, 'is_site_staff: auditor denied (behavior-free, spec 263)');
 
 select * from finish();
 rollback;
