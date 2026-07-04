@@ -7134,6 +7134,26 @@ export type Database = {
         Returns: number
       }
       publish_feedback_draft: { Args: { p_draft_id: string }; Returns: string }
+      purchase_report: {
+        Args: {
+          p_bucket: string
+          p_from: string
+          p_group_by: string
+          p_project_id?: string
+          p_to: string
+        }
+        Returns: {
+          bucket: string
+          charge_gross: number
+          gross: number
+          group_key: string
+          group_label: string
+          line_gross: number
+          net: number
+          pr_count: number
+          vat: number
+        }[]
+      }
       reap_stale_reports: {
         Args: { p_max_age_minutes?: number }
         Returns: number

@@ -6,6 +6,55 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 262 U1 — Procurement purchase reports (data layer) — ✅ BUILT (2026-07-04, PR held for operator merge)
+
+Procurement chain S4. One SECURITY DEFINER read RPC `purchase_report(p_from date,
+p_to date, p_bucket text, p_group_by text, p_project_id uuid default null)` →
+one bucketed row per (bucket × group): `line_gross, charge_gross, gross, net, vat,
+pr_count`. Migration `20260813071100`.
+
+- **Population:** committed-spend PRs (`purchased/on_route/delivered/site_purchased`),
+  bucketed by `purchased_at` on the **Asia/Bangkok** business day (DB tz = UTC);
+  requested/approved/rejected/cancelled excluded.
+- **Money (ADR 0045):** amount is gross; `net = round2(gross/(1+vat_rate/100))`,
+  `vat = gross − net`; summed in satang (round-at-line-then-sum).
+- **Charges (spec 260):** each PO's `purchase_order_charges` allocated over its
+  committed member lines by line NET (non-negative largest-remainder, net & vat
+  separately, discount subtracts), so every slice sums EXACTLY; `charge_gross` is its
+  own column. `purchase_order_deliveries.cost` is courier metadata — not read (no
+  double count). Allocation base = the PO's committed-in-window lines across ALL
+  projects, so a `p_project_id` filter selects that project's proportional share.
+- **Dimensions:** project / supplier (`coalesce(po.supplier_id, pr.supplier_id)`) /
+  category (`catalog_item_id → catalog_categories`) / purchaser (`requested_by`) /
+  none; nullable dims → "ไม่ระบุ…" buckets, shown never dropped.
+- **Gate:** procurement | procurement_manager | project_manager | project_director |
+  super_admin | accounting (fail-closed on NULL). The by-purchaser slice narrows to
+  the manager tier ∪ procurement_manager (staff-performance data; enforced in the RPC).
+  Inline role literals satisfy the 90-project-director + 261-procurement-parity
+  source-scan pins.
+
+pgTAP `262-procurement-purchase-reports` (45 asserts: gate matrix + purchaser-slice
+narrowing, param validation, charge fold on a mixed WP+store mixed-project PO with a
+discount + a VAT-bearing charge, VAT split, day/month/year buckets incl. tz + p_to
+inclusive edges, excluded statuses, null buckets). Full suite 228/229 (only the
+pre-existing `221` catalog-count flake); lint/typecheck/vitest 2564 green; db:types
+regen added the RPC to `database.types.ts` + `worker/`.
+
+**Decisions / open questions.** Budget-vs-actual is deliberately NOT in this RPC —
+the actual side is `purchase_report(group_by='project')`; the budget side is
+`projects.budget_amount_thb`, which `authenticated` cannot read (per-column grant
+omits it), so **S5 reads it via the admin client at PROJECT grain only** (no
+per-category / time-phased budget exists — BOQ has no project FK, supply plans are
+qty-only, S10 estimate epic PARKED). Buckets use Asia/Bangkok, not the register's UTC
+date filter — **S5's register-drill/parity must account for the tz** (use wide slices
+or convert); and the report's charge-allocation base (committed-in-window lines)
+intentionally differs from the spec-260 GL poster's base (all non-rejected/cancelled,
+non-null-amount lines) — so report `charge_gross` is NOT the GL-posted charge per PO;
+do not reconcile them line-by-line. **Out of scope (S5/S6):** report UI + CSV export + budget strip (U2), the
+PO list page (U3), procurement home tiles (U4).
+
+---
+
 ## Spec 261 — `procurement_manager` role — ✅ BUILT (2026-07-04, PR held for operator merge)
 
 ADR 0070 (enum add). procurement_manager = superset of `procurement` + a
