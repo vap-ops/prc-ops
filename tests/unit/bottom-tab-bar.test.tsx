@@ -18,6 +18,7 @@ import {
   COORDINATOR_TABS,
   PM_TABS,
   PROCUREMENT_TABS,
+  PROCUREMENT_MANAGER_TABS,
   SA_TABS,
 } from "@/components/features/chrome/bottom-tab-bar";
 
@@ -40,6 +41,9 @@ describe("BottomTabBar", () => {
       ["จัดซื้อ", "/requests"],
       // Spec 100: ภาพรวม is the live dashboard tab (last content tab).
       ["ภาพรวม", "/dashboard"],
+      // Spec 263 follow-up: the technician-registration approval queue — was
+      // reachable on desktop (HubNav) only; mobile had no way in at all.
+      ["สมัครช่าง", "/registrations"],
       // Spec 93: contacts/payroll/workers/account moved into the ตั้งค่า hub.
       ["ตั้งค่า", "/settings"],
     ]);
@@ -67,6 +71,18 @@ describe("BottomTabBar", () => {
     // don't admit it).
     expect(COORDINATOR_TABS.map((t) => [t.label, t.href])).toEqual([
       ["โครงการ", "/projects"],
+      ["ตั้งค่า", "/settings"],
+    ]);
+    // Spec 263 follow-up: procurement_manager is a procurement superset (spec
+    // 261) PLUS a technician-registration approver (spec 263 U3) — it had NO
+    // tab set at all before this fix (tabsForRole fell through to null). Gets
+    // the procurement set PLUS the approval-queue tab.
+    expect(PROCUREMENT_MANAGER_TABS.map((t) => [t.label, t.href])).toEqual([
+      ["จัดซื้อ", "/requests"],
+      ["รายงาน", "/requests/reports"],
+      ["โครงการ", "/projects"],
+      ["ผู้ขาย", "/contacts/vendors"],
+      ["สมัครช่าง", "/registrations"],
       ["ตั้งค่า", "/settings"],
     ]);
   });
@@ -276,6 +292,33 @@ describe("BottomTabBar", () => {
   it("renders nothing for still-unserved roles", () => {
     const { container } = render(<BottomTabBar role="visitor" />);
     expect(container.firstChild).toBeNull();
+  });
+
+  // Spec 263 follow-up: mobile approvals-unreachable fix. procurement_manager
+  // previously had NO tab set (tabsForRole fell through to null) — now it gets
+  // the procurement set plus the approval-queue tab; plain procurement is
+  // UNCHANGED (not an approver).
+  it("gives procurement_manager the procurement set plus the approval-queue tab", () => {
+    mockUsePathname.mockReturnValue("/registrations");
+    const { container } = render(<BottomTabBar role="procurement_manager" />);
+    expect(screen.getByRole("link", { name: /จัดซื้อ/ })).toHaveAttribute("href", "/requests");
+    expect(screen.getByRole("link", { name: /รายงาน/ })).toHaveAttribute(
+      "href",
+      "/requests/reports",
+    );
+    expect(screen.getByRole("link", { name: /ผู้ขาย/ })).toHaveAttribute(
+      "href",
+      "/contacts/vendors",
+    );
+    const active = activeTabs(container);
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toContain("สมัครช่าง");
+  });
+
+  it("gives plain procurement no approval-queue tab (unchanged, not an approver)", () => {
+    mockUsePathname.mockReturnValue("/requests");
+    render(<BottomTabBar role="procurement" />);
+    expect(screen.queryByText("สมัครช่าง")).not.toBeInTheDocument();
   });
 
   it("clears the iOS safe area and hides on desktop", () => {
