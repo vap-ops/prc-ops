@@ -38,6 +38,12 @@ export const PM_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "จัดซื้อ", href: "/requests" },
   // Spec 100: ภาพรวม is the live role-aware dashboard.
   { label: "ภาพรวม", href: "/dashboard" },
+  // Spec 263 U3: the technician-registration approval queue. Reaches
+  // project_director + super_admin here; procurement_manager (also a
+  // TECHNICIAN_APPROVAL_ROLES member) has no hub-nav/tab set at all yet — a
+  // pre-existing gap (hubNavForRole/tabsForRole don't branch on it), not fixed
+  // in this unit. Direct URL still works for procurement_manager meanwhile.
+  { label: "คำขอสมัครช่าง", href: "/registrations" },
   { label: "ตั้งค่า", href: "/settings" },
 ];
 
