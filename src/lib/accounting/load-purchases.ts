@@ -23,6 +23,9 @@ export interface PurchaseRegisterRow {
   // Spec 211 (accounting-ap-03): the PO this purchase belongs to (null = a direct/
   // site buy), so the register can group by order.
   poNumber: number | null;
+  // Spec 262 U3: the PO's id (null alongside poNumber) — lets a caller link a
+  // PO group straight into its detail page (/requests/orders/[poId]).
+  poId: string | null;
 }
 
 async function poNumbers(admin: Admin, ids: string[]): Promise<Map<string, number>> {
@@ -52,11 +55,37 @@ async function supplierNames(admin: Admin, ids: string[]): Promise<Map<string, s
   return map;
 }
 
+// Spec 262 U2 — the report drill's dimension filter (supplier/category/
+// purchaser; project reuses the existing `projectId` param). `key: ""` means
+// the report's null/unassigned bucket for that dimension (e.g. "ไม่ระบุผู้ขาย"),
+// mirroring the purchase_report RPC's group_key convention.
+export interface RegisterDimensionFilter {
+  dimension: "supplier" | "category" | "purchaser";
+  key: string;
+}
+
+const NO_MATCH_ID = "00000000-0000-0000-0000-000000000000";
+
+// The report's "ไม่ระบุหมวด" bucket = a line with no catalog item, OR a
+// catalog item whose category was never assigned — same null-handling as
+// purchase_report's `coalesce(ci.category_id::text, '')`. categoryId=null
+// resolves that bucket's item ids; a real id resolves its member items.
+async function catalogItemIdsForCategory(
+  admin: Admin,
+  categoryId: string | null,
+): Promise<string[]> {
+  let q = admin.from("catalog_items").select("id");
+  q = categoryId === null ? q.is("category_id", null) : q.eq("category_id", categoryId);
+  const { data } = await q;
+  return (data ?? []).map((r) => r.id);
+}
+
 export async function loadPurchaseRegister(
   admin: Admin,
   from: string,
   to: string,
   projectId?: string,
+  slice?: RegisterDimensionFilter,
 ): Promise<PurchaseRegisterRow[]> {
   let q = admin
     .from("purchase_requests")
@@ -70,6 +99,24 @@ export async function loadPurchaseRegister(
     .lte("purchased_at", `${to}T23:59:59.999`)
     .order("purchased_at", { ascending: false });
   if (projectId) q = q.eq("project_id", projectId);
+
+  if (slice?.dimension === "supplier") {
+    q = slice.key === "" ? q.is("supplier_id", null) : q.eq("supplier_id", slice.key);
+  } else if (slice?.dimension === "purchaser") {
+    q = slice.key === "" ? q.is("requested_by", null) : q.eq("requested_by", slice.key);
+  } else if (slice?.dimension === "category") {
+    const categoryId = slice.key === "" ? null : slice.key;
+    const ids = await catalogItemIdsForCategory(admin, categoryId);
+    if (categoryId === null) {
+      q =
+        ids.length > 0
+          ? q.or(`catalog_item_id.is.null,catalog_item_id.in.(${ids.join(",")})`)
+          : q.is("catalog_item_id", null);
+    } else {
+      q = ids.length > 0 ? q.in("catalog_item_id", ids) : q.eq("id", NO_MATCH_ID);
+    }
+  }
+
   const { data, error } = await q;
   if (error) throw new Error(`purchase_requests: ${error.message}`);
   const rows = data ?? [];
@@ -101,5 +148,6 @@ export async function loadPurchaseRegister(
     status: r.status,
     purchasedAt: r.purchased_at,
     poNumber: (r.purchase_order_id ? pos.get(r.purchase_order_id) : null) ?? null,
+    poId: r.purchase_order_id,
   }));
 }

@@ -53,6 +53,161 @@ non-null-amount lines) — so report `charge_gross` is NOT the GL-posted charge 
 do not reconcile them line-by-line. **Out of scope (S5/S6):** report UI + CSV export + budget strip (U2), the
 PO list page (U3), procurement home tiles (U4).
 
+## Spec 262 U2 — Procurement purchase reports (report UI + CSV export) — ✅ BUILT (2026-07-04, PR #295 held for operator merge)
+
+Chain S5. New route `/requests/reports` (procurement's wing; accounting/PM/PD/
+super_admin reach it too via the same 6-role gate — not forked under
+`/accounting`), reading U1's `purchase_report` RPC via the regular server client
+(the RPC's own gate needs the caller's real session, not the admin client).
+
+- **Controls:** period presets วันนี้/เดือนนี้/ปีนี้/custom, bucket switch
+  วัน/เดือน/ปี, group-by switch โครงการ/ผู้ขาย/หมวดวัสดุ/ผู้สั่งซื้อ (ผู้สั่งซื้อ
+  narrowed to the manager tier ∪ procurement_manager, mirroring the RPC's own
+  check — defense in depth), project filter. Zero client JS — deep-linkable
+  `<Link>` chips + a plain GET form (the `/projects` filter-bar pattern).
+- **Totals strip** reuses `summarizePurchases`' presentation language (a new
+  `summarizeReportRows` sums the RPC's pre-aggregated rows with the same
+  satang-safe discipline — pgTAP-parity-tested against `summarizePurchases`).
+- **Trend:** hand-rolled Tailwind bars (no chart dependency, per spec) — always
+  over time, independent of the table's chosen group-by.
+- **Table → drill:** one row per bucket×group; drills into
+  `/requests/reports/register`, a filtered register-style list reusing
+  `loadPurchaseRegister`/`purchases-view.ts` (extended with an optional
+  supplier/category/purchaser dimension filter — the project filter reused the
+  existing `projectId` param unchanged). No further per-PR drill: the accounting
+  voucher and the purchasing worklist detail each gate out a role the other
+  admits, so no single destination covers all 6 report roles — the register row
+  is terminal.
+- **CSV export** `/requests/reports/export` — UTF-8 BOM, Thai headers. The page
+  and the route share **one** gate constant (`PURCHASE_REPORT_ROLES`, in
+  `role-home.ts` — the role-doctrine home for every role-set constant in this
+  app) and **one** query parser (`parseReportQuery`), pinned by a source-scan
+  identity test — the payroll page/route gate-drift bug is the named
+  anti-pattern this guards against.
+- **Budget strip:** project-grain only (shown only when a project filter is
+  active) — cumulative committed spend (`purchase_report` from a fixed
+  `REPORT_ALL_TIME_FROM` floor to today, bucket='year', group_by='project')
+  vs `projects.budget_amount_thb`, read via the **admin client** (authenticated
+  cannot read that column). Labeled ยอดสั่งซื้อสะสมเทียบงบ + ไม่รวมค่าแรง caption.
+
+TDD throughout (gate pin test, page/route/register gate-identity source-scan,
+a register-totals-parity test against `summarizePurchases`, bucket-label/window/
+CSV/href pure-function tests — 37 new cases). lint/typecheck/full vitest
+387 files / 2611 tests green (incl. the repo-wide nav-back-affordance
+completeness guard, extended for the two new routes). NO migration — `role-home.ts`
+is the only protected-path touch (danger-path guard HOLDS this PR by design).
+
+**Real-browser verified** (dev-preview account, temporarily role-swapped via the
+admin REST API, restored to `super_admin` after): procurement (reaches the
+report, ผู้สั่งซื้อ slice hidden) · accounting (reaches the report, ผู้สั่งซื้อ
+slice hidden) · super_admin (all slices; CSV BOM/headers/filename verified;
+register drill verified) · site_admin (a real top-level navigation confirms
+`requireRole` → `/sa` → the pre-existing `/sa`→`/projects` redirect). A raw
+`fetch()`/curl check without a real navigation showed a misleading stale
+result — reproduced identically against already-merged `main`, so it is an
+environment/test-method artifact (Next 16 dev-server behavior under a bare
+fetch lacking navigation headers), not a real gating gap; the real-navigation
+check is authoritative.
+
+**Decisions / open questions.** The register drill has no further per-PR link
+(see above — a genuine gap in role coverage between the two existing detail
+surfaces, not something this unit's scope covers; flagged for a future spec if
+the team wants one destination all 6 report roles can reach).
+
+## Spec 262 U3 — PO list `/requests/orders` — ✅ BUILT (2026-07-04, same PR #295, held)
+
+Chain S6, built in the same session on operator "proceed, override". The
+verified gap: PO detail existed (spec 134), no list. Filterable (supplier /
+project / period, DB-level except project which needs the pure layer since a
+PO carries no project column). One row per PO: derived status + spec-260
+charges-aware grand total (`buildPoDetailView` reuse, no duplicated roll-up
+logic) + which project(s) the PO's active lines touch + aging (days since
+`ordered_at`, null once received or never ordered).
+
+- **Gate:** `PO_DETAIL_VIEW_ROLES` — the SAME set that already opens a PO's
+  detail (PURCHASING_ROLES + accounting). No new constant; the PR would have
+  been code-only on the gate front alone.
+- **Back-nav:** the existing `withBackFrom`/`safeBackHref` referrer mechanism
+  means the PO detail page's back chip resolves to `/requests/orders`
+  automatically for any link built with `withBackFrom(href, "/requests/orders")`
+  — zero changes needed to the PO detail page itself.
+- The report's register drill (U2) now links its PO group header into the PO
+  detail the same way — `load-purchases.ts`'s `PurchaseRegisterRow` gained a
+  `poId` field (it already resolved `poNumber`; the id was one map lookup away).
+- `po-detail.ts`'s previously-private `isActiveLine` is now exported so the PO
+  list applies the IDENTICAL active-line exclusion (rejected/cancelled) when
+  deriving project membership — no duplicated predicate.
+- A `?pending=1` filter (undelivered POs only) exists specifically to serve
+  U4's PO ค้างส่ง tile link.
+
+New pure layer `po-list-view.ts` (14 tests) + loader `load-po-list.ts`
+(untested directly, matching the repo's convention for IO loaders — the DB
+query building has no branch not already covered by the pure layer it
+composes). No new gate, no migration.
+
+## Spec 262 U4 — procurement home tiles on `/requests` — ✅ BUILT (2026-07-04, same PR #295, held)
+
+Three tiles for the procurement worklist home, alongside (not replacing) the
+existing spec-138 KPI hero row:
+
+- **เดือนนี้สั่งซื้อ** — this-month committed spend vs the SAME day-of-month
+  last month (an apples-to-apples partial-month comparison, not a full-month
+  total which would compare unequal day-counts). Reuses U1's `purchase_report`
+  RPC with `p_bucket='month', p_group_by='none'` — no separate aggregation path,
+  called twice (current + previous range) via the regular session client.
+- **PO ค้างส่ง** — undelivered-PO count + worst aging, a deliberately
+  LIGHTWEIGHT variant of U3's aggregation (`loadPendingPoAging`) that skips
+  supplier/project/charge resolution entirely — this tile lives on a
+  high-traffic page, unlike the dedicated list.
+- **ค้างรับเข้า** — delivered, store-bound (WP-less) PRs with no
+  `stock_receipts` row yet (store-first doctrine, specs 195/209). Reuses the
+  EXACT `storedPrIds` query pattern the dashboard already runs
+  (`stock_receipts.purchase_request_id`), scoped company-wide.
+- Tiles link into `/requests/reports?preset=month`, `/requests/orders?pending=1`,
+  and `/requests/orders` (ค้างรับเข้า has no dedicated filter — no single
+  existing surface pre-filters that exact population, so it links to the
+  closest existing venue rather than inventing a new filter dimension).
+- **Scope:** gated `isProcurement` (role === 'procurement' exactly) — matches
+  the EXISTING KPI hero row's scope. procurement_manager currently gets the
+  generic (non-procurement) worklist view on this whole page, a pre-existing
+  gap from spec 261 this unit did NOT fix (widening `isProcurement` throughout
+  the page is a separate, much larger change — flagged below, not built).
+
+New pure layer `procurement-home-tiles.ts` (11 tests) + 2 small loaders
+(`load-po-list.ts`'s `loadPendingPoAging`, `load-pending-store-receipt.ts`) +
+a presentational component `ProcurementHomeTiles`. No new gate, no migration.
+
+**Verification (U2+U3+U4 combined).** `pnpm lint && pnpm typecheck && pnpm test`
+— 389 files / 2637 tests green (up from U2's 387/2611 — 25 new tests, 2 more
+routes classified in the nav-back-affordance guard). Real-browser role walk
+(dev-preview account, role-swapped, restored after): procurement sees all 3
+U4 tiles with real data (฿30,155 current-month spend; pending-PO aging; a
+nonzero pending-store-receipt count) and reaches `/requests/orders`;
+super_admin's CSV/register/PO-list-filter all independently re-verified;
+site_admin reaches `/requests/orders` (same reused gate as PO detail) via a
+real navigation. Danger-path guard HOLDS this PR on TWO protected paths now
+(`src/lib/auth/role-home.ts` from U2, `src/lib/accounting/load-purchases.ts`
+from U3) — was always going to be held regardless of unit boundaries.
+
+**Decisions / open questions (carried + new).**
+
+1. The register drill has no further per-PR link (spec 262 U2 note) — no
+   single existing detail surface covers all 6 report roles.
+2. `isProcurement` throughout `/requests/page.tsx` still means literally
+   `role === 'procurement'` — procurement_manager does not get the buyer's
+   pipeline view (KPIs, bands, or these new U4 tiles) despite spec 261 giving
+   it full parity elsewhere. Real gap, NOT fixed here (out of scope for U4 —
+   would mean auditing/changing ~15 call sites on an already-large page).
+   Flagged for its own follow-up spec/session if the operator wants it fixed.
+3. ค้างรับเข้า has no dedicated pre-filtered destination — links to the plain
+   PO list. A future unit could add a `?receiptPending=1`-style filter to the
+   PO list (or a dedicated store-receiving surface) if this becomes a live pain
+   point.
+
+**Next (unclaimed):** verify complete for this session; a feedback reply to
+the procurement team (the original ask this whole chain answers) is still
+open — send once PR #295 merges and the surfaces are live in prod.
+
 ---
 
 ## Spec 261 — `procurement_manager` role — ✅ BUILT (2026-07-04, PR held for operator merge)

@@ -104,6 +104,13 @@ const STATIC_DETAIL = [
   "nova/settlement",
   // Spec 161 U9: the shop admin drills down from /nova.
   "nova/shop",
+  // Spec 262 U2: the procurement report drills down from /requests (back chip
+  // → /requests); its register drill-through drills down from the report
+  // (back chip → /requests/reports).
+  "requests/reports",
+  "requests/reports/register",
+  // Spec 262 U3: the PO list drills down from /requests (back chip → /requests).
+  "requests/orders",
 ].map((r) => `${r}/page.tsx`);
 // Spec 234: the external /client tree is bespoke (own header + logout, no app
 // DetailHeader — like /portal), so its dynamic drill (/client/[projectId]) is

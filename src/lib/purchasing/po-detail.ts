@@ -26,8 +26,11 @@ export interface PoDetailView {
   activeLineCount: number;
 }
 
-// rejected/cancelled mirror the roll-up's exclusion (ADR 0044 §5).
-function isActiveLine(status: PurchaseRequestStatus): boolean {
+// rejected/cancelled mirror the roll-up's exclusion (ADR 0044 §5). Exported so
+// other PO-aggregating views (spec 262 U3's PO list) apply the SAME exclusion
+// when deriving facts (e.g. which projects a PO's active lines touch) that
+// buildPoDetailView itself doesn't expose.
+export function isActiveLine(status: PurchaseRequestStatus): boolean {
   return status !== "rejected" && status !== "cancelled";
 }
 
