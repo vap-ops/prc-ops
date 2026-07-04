@@ -46,6 +46,11 @@ const ALLOWED_DOMAINS = [
   // Spec 263 U2: the technician self-registration workspace (e-card, progressive
   // form, document uploads, Web Share button).
   "register",
+  // Spec 263 U3: the back-office approval queue + review detail (approve/reject
+  // control, read-only document viewer, queue list rows) — shared by the
+  // procurement_manager/project_director/super_admin queue AND the SA read-only
+  // view (site_owner is a forward seam, not yet a reachable surface).
+  "registrations",
 ] as const;
 
 describe("feature components are grouped into domain folders", () => {

@@ -321,6 +321,30 @@ export const PURCHASE_REPORT_ROLES: ReadonlyArray<UserRole> = [
   "accounting",
 ];
 
+/**
+ * Spec 263 U3 / ADR 0071 §4 — who may approve/reject a technician
+ * self-registration: procurement_manager, project_director, super_admin.
+ * Mirrors the U1c RPCs' (`approve_technician_registration` /
+ * `reject_technician_registration`) inline literal gate EXACTLY — a fresh
+ * explicit array, NOT PM_ROLES-derived (unlike PROCUREMENT_MANAGER_ROLES),
+ * because plain `project_manager` is deliberately excluded (mirrors
+ * CLIENT_ISSUER_ROLES' style: a small explicit set narrower than PM_ROLES).
+ * `hr` is deliberately held out (stub role today — a one-line add later, ADR
+ * 0071 §4). This is the SAME anti-drift concern `isManagerRole`'s doc names:
+ * one place to update if the gate ever widens, instead of the page gate and
+ * the server action drifting apart from each other (the "payroll" gate/route
+ * mismatch this repo has hit before — spec 187/252, see
+ * payroll-export-gate.test.ts) — the route gate here MUST equal the page gate.
+ */
+export const TECHNICIAN_APPROVAL_ROLES: ReadonlyArray<UserRole> = [
+  "procurement_manager",
+  "project_director",
+  "super_admin",
+];
+export function isTechnicianApprover(role: UserRole): boolean {
+  return TECHNICIAN_APPROVAL_ROLES.includes(role);
+}
+
 export function roleHome(role: UserRole): string {
   // Spec 192 U4: site_admin lands on the daily home /sa — their not-done work
   // packages, one tap from the labor/photo/PR actions (the daily loop was buried

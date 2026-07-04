@@ -19,10 +19,13 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 // payroll/contacts/workers/account moved into the /settings hub.
 // Spec 183 U2: รายการรอตรวจ dropped — the review queue moved off the nav into a
 // dashboard card; ภาพรวม leads the PM strip and carries the pending count.
+// Spec 263 U3: คำขอสมัครช่าง (the technician-registration approval queue) added
+// before ตั้งค่า.
 const PM_ITEMS = [
   { label: "โครงการและรายงาน", href: "/projects" },
   { label: "จัดซื้อ", href: "/requests" },
   { label: "ภาพรวม", href: "/dashboard" },
+  { label: "คำขอสมัครช่าง", href: "/registrations" },
   { label: "ตั้งค่า", href: "/settings" },
 ];
 

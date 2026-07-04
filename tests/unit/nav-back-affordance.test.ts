@@ -111,6 +111,14 @@ const STATIC_DETAIL = [
   "requests/reports/register",
   // Spec 262 U3: the PO list drills down from /requests (back chip → /requests).
   "requests/orders",
+  // Spec 263 U3: the back-office technician-registration approval queue drills
+  // down from /dashboard (back chip → /dashboard, the PM_ROLES home). Its
+  // [id] review detail is a dynamic DetailHeader route, auto-classified below.
+  "registrations",
+  // Spec 263 U3: the SA read-only registration queue drills down from /sa
+  // (back chip → /sa). Its [id] detail is a dynamic DetailHeader route,
+  // auto-classified below.
+  "sa/registrations",
 ].map((r) => `${r}/page.tsx`);
 // Spec 234: the external /client tree is bespoke (own header + logout, no app
 // DetailHeader — like /portal), so its dynamic drill (/client/[projectId]) is

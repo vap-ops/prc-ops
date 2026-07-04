@@ -13,11 +13,13 @@ import {
   SCHEDULE_VIEW_ROLES,
   SITE_STAFF_ROLES,
   SUPPLY_PLAN_ROLES,
+  TECHNICIAN_APPROVAL_ROLES,
   WORKER_ROSTER_ROLES,
   WP_DETAIL_ROLES,
   isManagerRole,
   isProcurementManagerTier,
   isReadOnlyWpViewer,
+  isTechnicianApprover,
   roleHome,
 } from "@/lib/auth/role-home";
 import { isBackOfficeRole } from "@/lib/purchasing/back-office";
@@ -395,6 +397,47 @@ describe("PROCUREMENT_MANAGER_ROLES / isProcurementManagerTier (spec 261)", () =
 // behavior-free — no route, no gate, no role-set membership. This pins them OUT
 // of every privileged set + predicate, so a future behavior unit is a deliberate
 // gate widening, never a silent inheritance from being enum values.
+// Spec 263 U3 / ADR 0071 §4 — the approval gate mirrors the U1c RPCs'
+// (approve_technician_registration / reject_technician_registration) inline
+// literal EXACTLY: procurement_manager, project_director, super_admin. A fresh
+// explicit array (NOT PM_ROLES-derived, unlike PROCUREMENT_MANAGER_ROLES) —
+// plain project_manager is deliberately excluded (mirrors CLIENT_ISSUER_ROLES'
+// style: a small explicit set, not everyone PM_ROLES admits). `hr` is
+// deliberately held out (ADR 0071 §4, stub role today).
+describe("TECHNICIAN_APPROVAL_ROLES / isTechnicianApprover (spec 263 U3)", () => {
+  it("is exactly procurement_manager + project_director + super_admin", () => {
+    expect([...TECHNICIAN_APPROVAL_ROLES]).toEqual([
+      "procurement_manager",
+      "project_director",
+      "super_admin",
+    ]);
+  });
+
+  it("excludes plain project_manager (unlike PM_ROLES / PROCUREMENT_MANAGER_ROLES)", () => {
+    expect(TECHNICIAN_APPROVAL_ROLES).not.toContain("project_manager");
+  });
+
+  it("isTechnicianApprover is true for exactly the TECHNICIAN_APPROVAL_ROLES set", () => {
+    for (const role of TECHNICIAN_APPROVAL_ROLES) expect(isTechnicianApprover(role)).toBe(true);
+  });
+
+  it("is false for every other role, incl. plain project_manager, procurement, hr, and site_admin", () => {
+    for (const role of [
+      "project_manager",
+      "procurement",
+      "site_admin",
+      "hr",
+      "technician",
+      "site_owner",
+      "auditor",
+      "visitor",
+      "contractor",
+    ] as const) {
+      expect(isTechnicianApprover(role)).toBe(false);
+    }
+  });
+});
+
 describe("site_owner + auditor are behavior-free (spec 263 / ADR 0071)", () => {
   const NEW_ROLES = ["site_owner", "auditor"] as const;
 
