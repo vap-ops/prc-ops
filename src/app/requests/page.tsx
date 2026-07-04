@@ -58,15 +58,6 @@ import { selectOverdueFollowUp } from "@/lib/purchasing/overdue-attention";
 import { OverdueFollowUpPanel } from "@/components/features/purchasing/overdue-follow-up-panel";
 import { buildWorklistKpis } from "@/lib/purchasing/worklist-kpis";
 import { WorklistKpiTile } from "@/components/features/purchasing/worklist-kpi-tile";
-import {
-  buildMonthSpendTrend,
-  buildPendingPoSummary,
-  monthToDateRange,
-  previousMonthToDateRange,
-} from "@/lib/purchasing/procurement-home-tiles";
-import { loadPendingPoAging } from "@/lib/purchasing/load-po-list";
-import { loadPendingStoreReceiptCount } from "@/lib/purchasing/load-pending-store-receipt";
-import { ProcurementHomeTiles } from "@/components/features/purchasing/procurement-home-tiles";
 import { buildWorklistStatusChips } from "@/lib/purchasing/worklist-status-chips";
 import { WorklistStatusChips } from "@/components/features/purchasing/worklist-status-chips";
 import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
@@ -397,42 +388,6 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     for (const r of myRequests) {
       if (r.status === "delivered") deliveredSpend += amountById.get(r.id) ?? 0;
     }
-  }
-
-  // Spec 262 U4 — the three home tiles: เดือนนี้สั่งซื้อ (reuses U1's
-  // purchase_report RPC via the SAME session client, p_bucket='month'/
-  // p_group_by='none' — no separate aggregation path), PO ค้างส่ง (spec 262
-  // U3's per-PO aging, lightweight variant), and ค้างรับเข้า (store-first
-  // backlog). Procurement only, alongside the rest of this buyer's-pipeline section.
-  let monthTrend: ReturnType<typeof buildMonthSpendTrend> | null = null;
-  let pendingPoSummary: ReturnType<typeof buildPendingPoSummary> | null = null;
-  let pendingStoreReceiptCount = 0;
-  if (isProcurement) {
-    const admin = createAdminSupabase();
-    const monthRange = monthToDateRange(today);
-    const prevRange = previousMonthToDateRange(today);
-    const [{ data: currentMonthRows }, { data: previousMonthRows }, poAging, storeReceiptCount] =
-      await Promise.all([
-        supabase.rpc("purchase_report", {
-          p_from: monthRange.from,
-          p_to: monthRange.to,
-          p_bucket: "month",
-          p_group_by: "none",
-        }),
-        supabase.rpc("purchase_report", {
-          p_from: prevRange.from,
-          p_to: prevRange.to,
-          p_bucket: "month",
-          p_group_by: "none",
-        }),
-        loadPendingPoAging(admin),
-        loadPendingStoreReceiptCount(admin),
-      ]);
-    const currentMonthGross = (currentMonthRows ?? []).reduce((s, r) => s + r.gross, 0);
-    const previousMonthGross = (previousMonthRows ?? []).reduce((s, r) => s + r.gross, 0);
-    monthTrend = buildMonthSpendTrend(currentMonthGross, previousMonthGross);
-    pendingPoSummary = buildPendingPoSummary(poAging);
-    pendingStoreReceiptCount = storeReceiptCount;
   }
 
   // Spec 230 (ADR 0066 / S9): resolve each PR's managed material category — the
@@ -791,16 +746,6 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                     </div>
                   ) : null}
                 </div>
-              ) : null}
-              {/* Spec 262 U4: เดือนนี้สั่งซื้อ / PO ค้างส่ง / ค้างรับเข้า — money
-                  and backlog tiles, distinct from the count-based KPI hero above.
-                  Link into the spec-262 report + PO list (pre-filtered). */}
-              {monthTrend && pendingPoSummary ? (
-                <ProcurementHomeTiles
-                  monthTrend={monthTrend}
-                  pendingPoSummary={pendingPoSummary}
-                  pendingStoreReceiptCount={pendingStoreReceiptCount}
-                />
               ) : null}
               {/* Spec 138 U3: the scrollable status-chip filter (band pills with
                   live counts) — replaces the status <select>. Sits between the KPI
