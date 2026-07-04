@@ -301,6 +301,26 @@ export const ACCOUNTING_ROLES: ReadonlyArray<UserRole> = ["accounting", "super_a
  */
 export const PO_DETAIL_VIEW_ROLES: ReadonlyArray<UserRole> = [...PURCHASING_ROLES, "accounting"];
 
+/**
+ * Spec 262 U2: who may reach the procurement report (`/requests/reports`) and
+ * its CSV export — mirrors the `purchase_report` RPC's inline literal gate
+ * (spec 262 U1 migration `20260813071100`) EXACTLY, so a future widen of
+ * PURCHASING_ROLES or PM_ROLES can't silently open (or narrow) this money-read
+ * surface out of step with the RPC it calls. Deliberately NOT PURCHASING_ROLES
+ * (which admits site_admin, a field role with no reporting need) — a fresh set
+ * per the role-doctrine convention. The by-purchaser slice within the report
+ * additionally narrows to PROCUREMENT_MANAGER_ROLES (isProcurementManagerTier)
+ * — enforced by the RPC itself, mirrored in the UI for defense-in-depth.
+ */
+export const PURCHASE_REPORT_ROLES: ReadonlyArray<UserRole> = [
+  "procurement",
+  "procurement_manager",
+  "project_manager",
+  "project_director",
+  "super_admin",
+  "accounting",
+];
+
 export function roleHome(role: UserRole): string {
   // Spec 192 U4: site_admin lands on the daily home /sa — their not-done work
   // packages, one tap from the labor/photo/PR actions (the daily loop was buried
