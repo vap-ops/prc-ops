@@ -22,6 +22,10 @@ export const ROLE_GROUP_ORDER: readonly UserRole[] = [
   // Spec 261 / ADR 0070: the procurement dept manager, grouped next to procurement.
   "procurement_manager",
   "technician",
+  // Spec 263 / ADR 0071: behavior-free forward-compat field roles, grouped with
+  // the other not-yet-built internal roles.
+  "site_owner",
+  "auditor",
   "hr",
   "subcon_manager",
   "accounting",

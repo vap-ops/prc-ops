@@ -351,6 +351,11 @@ export const USER_ROLE_LABEL: Record<Enums["user_role"], string> = {
   // is what makes the "promote to procurement_manager" option appear.
   procurement_manager: "หัวหน้าจัดซื้อ",
   technician: "ช่างเทคนิค",
+  // Spec 263 / ADR 0071: two behavior-free forward-compat field roles. Labels
+  // land here because the user-admin role picker renders Object.entries(USER_ROLE_LABEL);
+  // wording is provisional (operator to confirm/adjust).
+  site_owner: "เจ้าของไซต์",
+  auditor: "ผู้ตรวจสอบ",
   hr: "ฝ่ายบุคคล",
   subcon_manager: "ผู้จัดการผู้รับเหมาช่วง",
   accounting: "ฝ่ายบัญชี",

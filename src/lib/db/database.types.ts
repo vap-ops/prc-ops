@@ -8162,6 +8162,8 @@ export type Database = {
         | "project_director"
         | "client"
         | "procurement_manager"
+        | "site_owner"
+        | "auditor"
       wht_direction: "deducted" | "suffered"
       wht_form: "pnd3" | "pnd53" | "pnd1"
       work_package_priority: "normal" | "urgent" | "critical"
@@ -8552,6 +8554,8 @@ export const Constants = {
         "project_director",
         "client",
         "procurement_manager",
+        "site_owner",
+        "auditor",
       ],
       wht_direction: ["deducted", "suffered"],
       wht_form: ["pnd3", "pnd53", "pnd1"],
