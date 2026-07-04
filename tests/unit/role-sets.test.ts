@@ -8,6 +8,7 @@ import {
   PAYROLL_ROLES,
   PM_ROLES,
   PO_DETAIL_VIEW_ROLES,
+  PROCUREMENT_MANAGER_ROLES,
   PURCHASING_ROLES,
   SCHEDULE_VIEW_ROLES,
   SITE_STAFF_ROLES,
@@ -15,6 +16,7 @@ import {
   WORKER_ROSTER_ROLES,
   WP_DETAIL_ROLES,
   isManagerRole,
+  isProcurementManagerTier,
   isReadOnlyWpViewer,
   roleHome,
 } from "@/lib/auth/role-home";
@@ -55,6 +57,8 @@ describe("role sets", () => {
       "project_manager",
       "super_admin",
       "procurement",
+      // Spec 261 / ADR 0070: procurement_manager = superset of procurement.
+      "procurement_manager",
       "project_director",
     ]);
     expect(BACK_OFFICE_ROLES).not.toContain("site_admin");
@@ -103,6 +107,7 @@ describe("WP_DETAIL_ROLES (spec 171)", () => {
       "super_admin",
       "project_director",
       "procurement",
+      "procurement_manager",
     ]);
   });
 
@@ -133,6 +138,7 @@ describe("WORKER_ROSTER_ROLES (spec 172 Phase C)", () => {
       "super_admin",
       "project_director",
       "procurement",
+      "procurement_manager",
     ]);
   });
 
@@ -168,6 +174,7 @@ describe("SUPPLY_PLAN_ROLES (spec 181)", () => {
       "super_admin",
       "project_director",
       "procurement",
+      "procurement_manager",
     ]);
   });
 
@@ -204,6 +211,7 @@ describe("SCHEDULE_VIEW_ROLES (spec 173)", () => {
       "super_admin",
       "project_director",
       "procurement",
+      "procurement_manager",
     ]);
   });
 
@@ -232,6 +240,7 @@ describe("PAYROLL_ROLES (spec 187)", () => {
       "super_admin",
       "project_director",
       "procurement",
+      "procurement_manager",
     ]);
   });
 
@@ -343,12 +352,41 @@ describe("PO_DETAIL_VIEW_ROLES (spec 211 U9b)", () => {
   });
 });
 
-describe("isReadOnlyWpViewer (spec 171)", () => {
-  it("is true only for procurement", () => {
+describe("isReadOnlyWpViewer (spec 171 / spec 261)", () => {
+  it("is true for procurement and procurement_manager (its superset)", () => {
     expect(isReadOnlyWpViewer("procurement")).toBe(true);
+    expect(isReadOnlyWpViewer("procurement_manager")).toBe(true);
   });
 
   it("is false for full-capability site staff", () => {
     for (const role of SITE_STAFF_ROLES) expect(isReadOnlyWpViewer(role)).toBe(false);
+  });
+});
+
+// Spec 261 / ADR 0070: the manager-tier authority over procurement DESTRUCTIVE
+// actions (void PO, void PO charge, cancel an approved PR) = PM_ROLES PLUS the new
+// procurement_manager dept role. NOT plain procurement (item 1 tightens the void).
+describe("PROCUREMENT_MANAGER_ROLES / isProcurementManagerTier (spec 261)", () => {
+  it("is the PM set plus procurement_manager", () => {
+    expect([...PROCUREMENT_MANAGER_ROLES]).toEqual([...PM_ROLES, "procurement_manager"]);
+  });
+
+  it("keeps project_director (ADR 0058 rides every manager gate)", () => {
+    expect(PROCUREMENT_MANAGER_ROLES).toContain("project_director");
+  });
+
+  it("isProcurementManagerTier is true for the PM tier and procurement_manager", () => {
+    for (const role of PM_ROLES) expect(isProcurementManagerTier(role)).toBe(true);
+    expect(isProcurementManagerTier("procurement_manager")).toBe(true);
+  });
+
+  it("is FALSE for plain procurement (item 1 walk-back of spec 259)", () => {
+    expect(isProcurementManagerTier("procurement")).toBe(false);
+  });
+
+  it("is false for field + unserved roles", () => {
+    for (const role of ["site_admin", "accounting", "visitor", "contractor"] as const) {
+      expect(isProcurementManagerTier(role)).toBe(false);
+    }
   });
 });

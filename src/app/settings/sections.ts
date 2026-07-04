@@ -57,7 +57,10 @@ export function visibleEntries(section: SettingsSection, role: UserRole): Settin
   return section.entries.filter((e) => !e.visible || e.visible(role));
 }
 
-const isBackOffice = (role: UserRole) => isManagerRole(role) || role === "procurement";
+// Spec 261 / ADR 0070: procurement_manager is a superset of procurement, so it
+// sees the same back-office settings cards (visibility only; enforcement is RLS).
+const isBackOffice = (role: UserRole) =>
+  isManagerRole(role) || role === "procurement" || role === "procurement_manager";
 
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   // Field tools — site_admin (spec 141 U5). The field can view + move equipment

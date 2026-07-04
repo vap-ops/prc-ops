@@ -75,6 +75,7 @@ later one corrects — read both when the topic is live.
 | 0067 | `client` role — temporary scoped read-only progress portal                             | Extends 0051/0013/0058/0008; spec 233                                              |
 | 0068 | App usage tracking & user leveling — two-tier capture (**amended: Tier B first**)      | Accepted; amended 2026-07-01 (SA usage+friction spec 244; Tier-A spec 240 shelved) |
 | 0069 | As-built — migration-history drift recovery, 2026-07 (5 objects re-asserted from LIVE) | change-management §4; recovery mig `20260813056000`                                |
+| 0070 | `procurement_manager` role — dept-manager superset of `procurement`                    | Extends 0008/0058/0050/0013; spec 261                                              |
 
 **Absent numbers** (never authored as standalone files; do not look for them):
 0023, 0024 — skipped. 0029 — AppSheet image bridge, cancelled before authoring

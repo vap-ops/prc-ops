@@ -6,6 +6,28 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 261 — `procurement_manager` role — ✅ BUILT (2026-07-04, PR held for operator merge)
+
+ADR 0070 (enum add). procurement_manager = superset of `procurement` + a
+manager-only set. Two migrations: `20260813070900` (enum ADD VALUE, own txn) +
+`20260813071000` (parity sweep — 47 DEFINER RPCs + 47 policies re-sourced VERBATIM
+from LIVE and widened alongside every literal `'procurement'` gate; `is_back_office`
+widened; `void_purchase_order` TIGHTENED off plain procurement (item 1, walks back
+spec 259); `void_purchase_order_charge` = is_manager OR procurement_manager (item 2);
+a NEW transition-scoped policy admits procurement_manager to the approved→cancelled
+PR transition ONLY (item 3) — approval stays PM-tier, DB-blocked). Item 4: contractor
+blacklist/unblacklist gated to the manager set at the server action. TS: `role-home`
+(10 role sets + `roleHome` + `isReadOnlyWpViewer` widened; new `isProcurementManagerTier`),
+`sections.ts`, 2 page gates, `contacts/actions.ts`, `labels.ts`, `group-users.ts`.
+pgTAP `261-procurement-manager-role` (parity source-scan + behavioural crux) + flipped
+`259` + updated enum/predicate pins (`01`, `231`). `is_manager` UNTOUCHED
+(procurement_manager is NOT the project tier). Deferred (NOT built): master-data
+narrowing (templates/catalog). NOT granted: PR approval, supply-plan approval,
+accounting. **🔔 open for operator on the held PR:** item 4 interpretation + whether
+procurement_manager should ever approve PRs (currently NO, S1 rec).
+
+---
+
 ## Spec 257 — Schedule photo thumbnails — ✅ SHIPPED (2026-07-03, PRs #279 + #280)
 
 Operator on spec 256: "show thumbnails as well? not just count number of images.

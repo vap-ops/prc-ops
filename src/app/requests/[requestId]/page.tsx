@@ -5,7 +5,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
-import { PURCHASING_ROLES, isManagerRole } from "@/lib/auth/role-home";
+import { PURCHASING_ROLES, isManagerRole, isProcurementManagerTier } from "@/lib/auth/role-home";
 import { workPackageHref } from "@/lib/nav/project-paths";
 import { safeBackHref, withBackFrom } from "@/lib/nav/back-href";
 import { createClient } from "@/lib/db/server";
@@ -93,7 +93,13 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
   const priority = request.priority;
   const isMine = request.requested_by === ctx.id;
 
+  // isDecider gates the requested→approved/rejected DECISION — PM tier only
+  // (spec 261: PR approval stays project-side, procurement_manager NOT admitted).
   const isDecider = isManagerRole(ctx.role);
+  // Spec 261 / ADR 0070 item 3: cancelling an APPROVED PR is manager-tier PLUS
+  // procurement_manager (a separate predicate so it never widens the approve gate;
+  // the DB backs this with a transition-scoped approved→cancelled RLS policy).
+  const canCancel = isProcurementManagerTier(ctx.role);
   // Spec 70: the WP detail route is SITE_STAFF_ROLES-gated and would bounce
   // procurement, so the WP reference renders as plain text (not a link) for it.
   const isProcurement = ctx.role === "procurement";
@@ -193,7 +199,7 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
     (isDecider && status === "requested") ||
     (isBackOffice && status === "approved") ||
     (isBackOffice && status === "purchased") ||
-    (isDecider && status === "approved");
+    (canCancel && status === "approved");
 
   return (
     <PageShell>
@@ -674,7 +680,7 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
             {isBackOffice && status === "purchased" ? (
               <PurchaseRequestShip requestId={request.id} />
             ) : null}
-            {isDecider && status === "approved" ? (
+            {canCancel && status === "approved" ? (
               <div className="border-edge-strong mt-3 border-t pt-3">
                 <PurchaseRequestCancel requestId={request.id} />
               </div>

@@ -35,7 +35,7 @@ import { PoReceiveSection } from "@/components/features/purchasing/po-receive-se
 import { VoidPurchaseOrderButton } from "@/components/features/purchasing/void-purchase-order-button";
 import { PoChargesSection } from "@/components/features/purchasing/po-charges-section";
 import { canVoidPurchaseOrder } from "@/lib/purchasing/purchase-order";
-import { isManagerRole } from "@/lib/auth/role-home";
+import { isProcurementManagerTier } from "@/lib/auth/role-home";
 import { PurchaseOrderTracker } from "@/components/features/purchasing/purchase-order-tracker";
 import { PoDeliveriesTracker } from "@/components/features/purchasing/po-deliveries-tracker";
 import { PoDeliverySection } from "@/components/features/purchasing/po-delivery-section";
@@ -158,8 +158,11 @@ export default async function PurchaseOrderDetailPage({ params, searchParams }: 
 
   // Spec 259: revert a mistakenly-created PO — only while nothing has
   // shipped (mirrors void_purchase_order's own guard; the RPC re-checks
-  // regardless). Same back-office gate as the delivery-management section.
-  const canVoid = isBackOffice && canVoidPurchaseOrder(members.map((m) => m.status));
+  // regardless). Spec 261 / ADR 0070 item 1: void is now MANAGER-ONLY —
+  // PM tier + procurement_manager, NOT plain procurement (tightens spec 259's
+  // whole-create-audience grant). Mirrors the tightened void_purchase_order gate.
+  const canVoid =
+    isProcurementManagerTier(ctx.role) && canVoidPurchaseOrder(members.map((m) => m.status));
 
   return (
     <PageShell>
@@ -309,7 +312,7 @@ export default async function PurchaseOrderDetailPage({ params, searchParams }: 
             charges={charges}
             grandTotal={view.total}
             canAdd={isBackOffice}
-            canVoid={isManagerRole(ctx.role)}
+            canVoid={isProcurementManagerTier(ctx.role)}
           />
         ) : null}
       </section>

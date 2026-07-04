@@ -19,6 +19,8 @@ export const ROLE_GROUP_ORDER: readonly UserRole[] = [
   "project_coordinator",
   "site_admin",
   "procurement",
+  // Spec 261 / ADR 0070: the procurement dept manager, grouped next to procurement.
+  "procurement_manager",
   "technician",
   "hr",
   "subcon_manager",
