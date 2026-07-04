@@ -35,12 +35,41 @@ describe("GET /auth/line/start", () => {
     expect(url.searchParams.get("redirect_uri")).toBe("https://app.example.com/auth/line/callback");
     expect(url.searchParams.get("scope")).toBe("openid profile");
     expect(url.searchParams.get("state")).toBeTruthy();
-    expect(response.cookies.get("line_oauth_state")?.value).toBe(url.searchParams.get("state"));
+    // Cookie now holds a JSON payload; its `s` field IS the authorize `state`.
+    const payload = JSON.parse(response.cookies.get("line_oauth_state")!.value);
+    expect(payload.s).toBe(url.searchParams.get("state"));
   });
 
   it("never sets disable_auto_login (spec-42 branch removed by spec 43)", () => {
     const response = GET(makeRequest("/auth/line/start?standalone=1"));
     const url = authorizeUrl(response);
     expect(url.searchParams.get("disable_auto_login")).toBeNull();
+  });
+
+  // spec 263 follow-up — the OPTIONAL `next` return path.
+  it("stores a valid same-origin ?next inside the state cookie payload", () => {
+    const response = GET(makeRequest("/auth/line/start?next=%2Fregister%2Ftechnician"));
+    const payload = JSON.parse(response.cookies.get("line_oauth_state")!.value);
+    expect(payload.n).toBe("/register/technician");
+    // The state param is unaffected — CSRF value still rides the URL + cookie.
+    const url = authorizeUrl(response);
+    expect(url.searchParams.get("state")).toBe(payload.s);
+    // `next` never leaks into the authorize URL (only the state does).
+    expect(url.search).not.toContain("register");
+  });
+
+  it("omits `next` from the cookie payload when absent (default flow unchanged)", () => {
+    const response = GET(makeRequest("/auth/line/start"));
+    const payload = JSON.parse(response.cookies.get("line_oauth_state")!.value);
+    expect(payload.n).toBeUndefined();
+  });
+
+  it("drops an unsafe open-redirect ?next (never stored)", () => {
+    const response = GET(makeRequest("/auth/line/start?next=https%3A%2F%2Fevil.com"));
+    const payload = JSON.parse(response.cookies.get("line_oauth_state")!.value);
+    expect(payload.n).toBeUndefined();
+
+    const protoRel = GET(makeRequest("/auth/line/start?next=%2F%2Fevil.com"));
+    expect(JSON.parse(protoRel.cookies.get("line_oauth_state")!.value).n).toBeUndefined();
   });
 });

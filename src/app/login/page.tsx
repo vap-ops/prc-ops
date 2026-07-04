@@ -1,6 +1,7 @@
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { redirect } from "next/navigation";
 import { roleHome } from "@/lib/auth/role-home";
+import { safeNextPath } from "@/lib/auth/next-path";
 import { BANNER_ERROR } from "@/lib/ui/classes";
 import { createClient } from "@/lib/db/server";
 import { LoginButton } from "./login-button";
@@ -16,12 +17,17 @@ export const metadata = { title: "เข้าสู่ระบบ" };
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; handoff?: string }>;
+  searchParams: Promise<{ error?: string; handoff?: string; next?: string }>;
 }) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  const params = await searchParams;
+  // spec 263 follow-up — an OPTIONAL same-origin return path, validated here
+  // (defense in depth) before any use. Absent/invalid → null → today's behavior.
+  const nextPath = safeNextPath(params.next);
 
   if (user) {
     const { data: row } = await supabase
@@ -29,10 +35,13 @@ export default async function LoginPage({
       .select("role")
       .eq("id", user.id)
       .maybeSingle();
-    redirect(row ? roleHome(row.role) : "/coming-soon");
+    // A valid return path wins over the role home for an already-signed-in user
+    // (completes the round-trip for a bounce they hit while logged in); else the
+    // destination is byte-identical to before (roleHome, or /coming-soon when no
+    // users row exists yet).
+    redirect(nextPath ?? (row ? roleHome(row.role) : "/coming-soon"));
   }
 
-  const params = await searchParams;
   const errorMessage = params.error
     ? (ERROR_MESSAGES[params.error] ?? ERROR_MESSAGES.unknown)
     : null;
@@ -61,7 +70,7 @@ export default async function LoginPage({
             {errorMessage}
           </div>
         )}
-        <LoginButton />
+        <LoginButton {...(nextPath ? { next: nextPath } : {})} />
       </div>
     </PageShell>
   );
