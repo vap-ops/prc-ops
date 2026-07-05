@@ -6,6 +6,65 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 264 G1 — staff-substrate rename + role-parametric approve — ✅ BUILT (2026-07-05, schema, HELD)
+
+ADR 0072 (supersedes 0071). Generalizes the spec-263 technician self-registration substrate into a
+role-neutral **staff** self-onboarding substrate; technician becomes instance #1. **ATOMIC** — the DB
+rename + all `src/` references + regenerated `database.types.ts` land in ONE PR so `main` is never
+left half-renamed and CI stays green.
+
+Migration `20260813071500_spec264g1_staff_registration_rename.sql` (applied; `db push --dry-run` = up
+to date):
+
+- **Rename (ALTER TABLE RENAME, data preserved incl. the one live `PRC-26-0001` pending row):**
+  `technician_registrations`→`staff_registrations`, `technician_registration_attachments`→
+  `staff_registration_attachments`. Enum `technician_doc_purpose`→`staff_doc_purpose` **dropping
+  `consent`** → `(id_card, profile_photo)` (verified 0 live `consent` attachment rows before the swap).
+  Helper `can_see_technician_registration`→`can_see_staff_registration`. RPCs `start_/update_own_/
+add_..._staff_registration[_doc]`, `reject_staff_registration` (bodies re-sourced VERBATIM from live
+  via `pg_get_functiondef`). RLS policies + storage policies recreated on the new names (storage
+  purpose set narrowed to `id_card|profile_photo`; path prefix kept `technician/<uid>/…`). Every
+  DEFINER keeps its own `revoke public,anon` + `grant authenticated` pair.
+- **New:** `staff_registrations.declared_role_hint text NULL` (advisory, threaded through `start_`/
+  `update_own_`; never a gate, never written to `users.role`). `staff_consents` table + self-serve
+  `record_staff_consent` DEFINER RPC (PDPA in-app record; contractor_consents pattern) — replaces the
+  dropped `consent` document.
+- **Role-parametric approve** `approve_staff_registration(p_id, p_role user_role, p_project_id default
+null)`: approver gate = procurement*manager/project_director/super_admin (plain PM denied);
+  **`STAFF_ASSIGNABLE_ROLES` guard** rejects `visitor`/`contractor`/`client`/`super_admin` (raise
+  42501); floor = full_name + live id_card anti-join + **live non-revoked PDPA consent**; role flip
+  INLINE (never nests set_user_role); **per-role side-effect** branched on `STAFF_FIELD_ROLES =
+{technician}` → workers INSERT \*\*WITH `phone`/`date_of_birth`/`emergency_contact*\*` COPIED\*\* (columns
+  verified live, ADR 0062) + audits; office roles → role-only, NO workers row, employee_id stays
+  carried, returns NULL.
+
+**STAFF_ASSIGNABLE_ROLES** (v1): technician, procurement, procurement_manager, accounting, hr,
+project_coordinator, site_admin, project_manager, project_director, site_owner, subcon_manager,
+auditor. **STAFF_FIELD_ROLES** (v1): technician.
+
+App renames (to keep CI green): `.from("technician_registration*")`/`.rpc("*_technician_registration*")`
+in `src/lib/register/*` + `src/app/registrations/actions.ts` → `staff_*`; DB type/enum refs updated;
+`db:types` regenerated (src + worker). The approve action passes `p_role='technician'` for now (the
+role SELECTOR is G4). Route `/register/technician` + TS-internal names (`TECHNICIAN_APPROVAL_ROLES`,
+`approveTechnicianRegistration`, `TechnicianDocPurpose`) intentionally kept — G4 relabels the queue,
+G2 restructures the one-page form. `document-types.ts` dropped `consent` (schema-forced).
+
+pgTAP: `264-staff-registration` (78 asserts — object rename, assignable-role guard, approver gate,
+field+office branches, PII copy, floor incl. consent, reject, append-only, PRC-26-0001 preserved) +
+`264b-staff-substrate` (29 — mint/supersede/RLS reader matrix ported from 263); the two 263 test files
+deleted (superseded). Full `db:test` **229/231 files** — only the 2 known pre-existing data-drift
+flakes fail (199/200 store-inventory ~16k GL drift + 232 catalog category-count). lint + typecheck +
+full vitest **2744** green.
+
+**HELD** by the danger-path guard (migration + RLS + `src/lib/auth` role-set + auth) — operator merge.
+Do NOT start G2 (own code session).
+
+**Open (operator):** delete the `PRC-26-0001` live row as test data? (carried over by default —
+flagged, not assumed.) Flat approver set assigns any assignable role (per-target-role policy = ADR
+0072 §5 future seam).
+
+---
+
 ## Spec 262 follow-up — procurement reports nav + /requests de-clutter — ✅ BUILT (2026-07-04, code-only)
 
 Operator: the จัดซื้อ page (`/requests`) is "packed / distracts users." Grounded finding — reports

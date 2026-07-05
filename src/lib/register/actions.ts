@@ -36,7 +36,7 @@ export async function startTechnicianRegistration(input: {
   const auth = await getActionUser();
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
 
-  const { data, error } = await auth.supabase.rpc("start_technician_registration", {
+  const { data, error } = await auth.supabase.rpc("start_staff_registration", {
     p_full_name: fullName,
     p_phone: phone,
   });
@@ -76,7 +76,7 @@ export async function updateOwnTechnicianRegistration(input: {
   const emergencyRelation = input.emergencyRelation.trim();
   const emergencyPhone = input.emergencyPhone.trim();
 
-  const { error } = await auth.supabase.rpc("update_own_technician_registration", {
+  const { error } = await auth.supabase.rpc("update_own_staff_registration", {
     ...(fullName ? { p_full_name: fullName } : {}),
     ...(phone ? { p_phone: phone } : {}),
     ...(dob ? { p_date_of_birth: dob } : {}),
@@ -111,7 +111,7 @@ export async function addTechnicianRegistrationDoc(input: {
   const path = buildTechnicianDocPath(auth.user.id, input.purpose, input.attachmentId, input.ext);
   if (!path) return { ok: false, error: GENERIC };
 
-  const { error } = await auth.supabase.rpc("add_technician_registration_doc", {
+  const { error } = await auth.supabase.rpc("add_staff_registration_doc", {
     p_purpose: input.purpose,
     p_storage_path: path,
   });

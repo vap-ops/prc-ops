@@ -45,10 +45,12 @@ describe("buildRegistrationQueueRow", () => {
     expect(row.displayName).toBe("สมชาย ใจดี");
   });
 
-  it("reports 0/3 docs uploaded when nothing is uploaded", () => {
+  it("reports 0/2 docs uploaded when nothing is uploaded", () => {
+    // Spec 264 G1: the doc set narrowed to id_card + profile_photo (consent
+    // dropped — PDPA consent is now an in-app record, not a document upload).
     const row = buildRegistrationQueueRow(BASE);
     expect(row.docsUploadedCount).toBe(0);
-    expect(row.docsTotal).toBe(3);
+    expect(row.docsTotal).toBe(2);
   });
 
   it("reports partial doc completeness", () => {
@@ -56,12 +58,12 @@ describe("buildRegistrationQueueRow", () => {
     expect(row.docsUploadedCount).toBe(1);
   });
 
-  it("reports full doc completeness (3/3)", () => {
+  it("reports full doc completeness (2/2)", () => {
     const row = buildRegistrationQueueRow({
       ...BASE,
-      uploadedPurposes: ["id_card", "consent", "profile_photo"],
+      uploadedPurposes: ["id_card", "profile_photo"],
     });
-    expect(row.docsUploadedCount).toBe(3);
+    expect(row.docsUploadedCount).toBe(2);
   });
 
   it("ignores an unknown/duplicate purpose without over-counting", () => {

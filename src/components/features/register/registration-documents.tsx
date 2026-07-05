@@ -1,7 +1,8 @@
 "use client";
 
-// Spec 263 U2 — the applicant document upload block: id_card, consent (PDPA),
-// profile_photo. Mirrors PortalDocuments' upload machine (spec 131 U2c) —
+// Spec 263 U2 / spec 264 G1 — the applicant document upload block: id_card,
+// profile_photo (consent dropped — PDPA consent is an in-app record now, G2
+// wires the checkbox). Mirrors PortalDocuments' upload machine (spec 131 U2c) —
 // uploads straight to the private contact-docs bucket at the applicant's OWN
 // path (technician/<uid>/<purpose>/…), then records the row via
 // addTechnicianRegistrationDoc. RLS session client only (never admin), per the
