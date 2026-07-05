@@ -6,6 +6,19 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 270 U1 — งาน+งานย่อย hierarchy: schema + rollup + guards — ✅ BUILT (2026-07-06, schema, HELD)
+
+Migration `20260813072200_spec270u1_wp_hierarchy.sql` APPLIED to the shared DB (`db push --dry-run`
+clean after). Additive: `work_packages.is_group` + `parent_id` self-FK + partial index;
+`work_packages_hierarchy_guard` (depth 2 · same-project group parent · is_group immutable · groups born
+not_started · manual group status rejected at `pg_trigger_depth() < 2` · group priority immutable);
+`work_packages_rollup_status` (derived parent status, truth table per spec §3); generic
+`wp_reject_group_binding()` on 15 binding tables (photos/money/members/deps). TDD: pgTAP
+`270-wp-subwp.test.sql` (32 asserts) written first, red proven (42703), green after apply. Existing
+rows untouched (parentless leaves behave exactly as before — proven by test E.11). No src, no db:types
+(U2/U3 regenerates when code consumes the columns). Grouping-mandatory CHECK deferred to post-import
+(spec §2 D6). **Next: U2 template generator + dry-run import** — own session.
+
 ## Spec 269 — void a PO that has attachments (bug fix) — ✅ BUILT (2026-07-06, migration APPLIED to prod, PR HELD for operator merge)
 
 Live prod bug (PO-4073): `void_purchase_order` raises P0001 for ANY PO with a
@@ -29,6 +42,20 @@ typecheck green; `db:types` regen = zero drift from this change (spec-268's in-f
 excluded — its own PR #325 carries it). Full-suite reds that remain are NOT this change:
 200-store (pre-existing GL data-drift), 221-catalog (pre-existing user-data flake),
 100-anon-exec (spec-268 signature widen, fixed by #325). Adversarial reviewer pass: clean.
+=======
+## Spec 270 U1 — งาน+งานย่อย hierarchy: schema + rollup + guards — ✅ BUILT (2026-07-06, schema, HELD)
+
+Migration `20260813072200_spec270u1_wp_hierarchy.sql` APPLIED to the shared DB (`db push --dry-run`
+clean after). Additive: `work_packages.is_group` + `parent_id` self-FK + partial index;
+`work_packages_hierarchy_guard` (depth 2 · same-project group parent · is_group immutable · groups born
+not_started · manual group status rejected at `pg_trigger_depth() < 2` · group priority immutable);
+`work_packages_rollup_status` (derived parent status, truth table per spec §3); generic
+`wp_reject_group_binding()` on 15 binding tables (photos/money/members/deps). TDD: pgTAP
+`270-wp-subwp.test.sql` (32 asserts) written first, red proven (42703), green after apply. Existing
+rows untouched (parentless leaves behave exactly as before — proven by test E.11). No src, no db:types
+(U2/U3 regenerates when code consumes the columns). Grouping-mandatory CHECK deferred to post-import
+(spec §2 D6). **Next: U2 template generator + dry-run import** — own session.
+>>>>>>> 27ea97c0 (feat(wp): spec 270 U1 — งาน+งานย่อย hierarchy schema, rollup, guards)
 
 ## Spec 265 U2 — super_admin LINE-identity: the two view surfaces — 🚧 IN PROGRESS (2026-07-05, code-only)
 
