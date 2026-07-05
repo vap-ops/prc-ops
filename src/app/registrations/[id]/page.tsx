@@ -29,6 +29,8 @@ import {
   getTechnicianRegistrationById,
   getRegistrationDocumentUrls,
 } from "@/lib/register/admin-registrations";
+import { getLineIdentityByUserId } from "@/lib/identity/admin-line-identity";
+import { LineIdentityBlock } from "@/components/features/identity/line-identity-block";
 import { formatThaiDateTime } from "@/lib/i18n/labels";
 
 export const metadata = { title: "รายละเอียดคำขอสมัคร" };
@@ -48,6 +50,13 @@ export default async function StaffRegistrationDetailPage({
   if (!registration) notFound();
 
   const { urls } = await getRegistrationDocumentUrls(supabase, id);
+
+  // Spec 265 U2 — the applicant's LINE ground-truth identity (anti-impersonation
+  // verification at approval time). Read via the admin client scoped to the ONE
+  // registration.user_id (a proc_mgr/PD approver can't read another user's row on
+  // their RLS session — same exposure model as the doc signed-URL mint above).
+  // Visible to all three approvers (STAFF_APPROVAL_ROLES already gates this page).
+  const lineIdentity = await getLineIdentityByUserId(registration.user_id);
 
   // RLS-scoped read (never admin) — mirrors /workers' project picker. Active
   // only: the operator's ask is "active projects", and an approver has no
@@ -74,6 +83,12 @@ export default async function StaffRegistrationDetailPage({
           fullName={registration.full_name}
           status={registration.status}
           photoUrl={urls.profile_photo ?? null}
+        />
+
+        <LineIdentityBlock
+          lineDisplayName={lineIdentity.lineDisplayName}
+          lineAvatarUrl={lineIdentity.lineAvatarUrl}
+          lineSyncedAt={lineIdentity.lineSyncedAt}
         />
 
         <div className={CARD}>

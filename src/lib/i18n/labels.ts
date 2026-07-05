@@ -351,6 +351,16 @@ export const APPROVAL_DECISION_LABEL: Record<Enums["approval_decision"], string>
   needs_revision: "ให้แก้ไข",
 };
 
+// Spec 265 U2 — the super_admin LINE-identity verification block. SSOT strings
+// used by the shared LineIdentityBlock across /registrations/[id] and
+// /settings/roles/[id].
+/** Section heading for the LINE ground-truth identity block. */
+export const LINE_IDENTITY_HEADING = "ตัวตน LINE (ยืนยันตัวบุคคล)";
+/** Label for the LINE-owned display name (the verification anchor, ≠ full_name). */
+export const LINE_DISPLAY_NAME_LABEL = "ชื่อ LINE";
+/** Empty state when the user has not logged in since spec 265 U1 shipped. */
+export const LINE_IDENTITY_NOT_SYNCED_LABEL = "ยังไม่ได้ซิงค์ (รอผู้ใช้เข้าสู่ระบบครั้งถัดไป)";
+
 export const USER_ROLE_LABEL: Record<Enums["user_role"], string> = {
   site_admin: "ผู้ดูแลหน้างาน",
   project_manager: "ผู้จัดการโครงการ",
