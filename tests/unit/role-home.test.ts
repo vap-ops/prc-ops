@@ -11,6 +11,7 @@
 import { describe, expect, it } from "vitest";
 
 import { PROJECT_VIEW_ROLES, PURCHASING_ROLES, roleHome } from "@/lib/auth/role-home";
+import type { UserRole } from "@/lib/db/enums";
 
 describe("roleHome", () => {
   it("sends each served role to its real surface", () => {
@@ -29,6 +30,44 @@ describe("roleHome", () => {
     expect(roleHome("project_director")).toBe("/dashboard");
   });
 
+  // Spec 264 G3 / ADR 0072 §8: the technician arm repoints from /coming-soon to
+  // the new minimal /technician home (the anti-dead-end landing: e-card + status
+  // + assigned-WPs placeholder). This is the ONLY arm G3 changes.
+  it("sends a technician to the /technician home (spec 264 G3)", () => {
+    expect(roleHome("technician")).toBe("/technician");
+  });
+
+  // Spec 264 G3 — the rest-unchanged guard. G3 touches ONLY the technician arm;
+  // every other role's destination must be BYTE-IDENTICAL to before. This pins the
+  // full roleHome table so any future edit to role-home.ts that moves ANOTHER
+  // role's home fails here (the auth-surface protection this unit is careful of:
+  // roleHome routes EVERY user, so a slip must not silently reroute anyone else).
+  it("leaves every non-technician role's home byte-identical (rest-unchanged table)", () => {
+    const EXPECTED: Record<UserRole, string> = {
+      site_admin: "/sa",
+      project_manager: "/dashboard",
+      super_admin: "/dashboard",
+      project_director: "/dashboard",
+      project_coordinator: "/projects",
+      procurement: "/requests",
+      procurement_manager: "/requests",
+      contractor: "/portal",
+      accounting: "/accounting",
+      client: "/client",
+      // The one arm G3 changes:
+      technician: "/technician",
+      // Still genuinely-unbuilt → the static /coming-soon page.
+      visitor: "/coming-soon",
+      hr: "/coming-soon",
+      subcon_manager: "/coming-soon",
+      site_owner: "/coming-soon",
+      auditor: "/coming-soon",
+    };
+    for (const [role, home] of Object.entries(EXPECTED)) {
+      expect(roleHome(role as UserRole)).toBe(home);
+    }
+  });
+
   // Spec 70: procurement onboarding — its first real surface is the
   // /requests purchasing worklist, so it no longer bounces to /coming-soon.
   it("sends procurement to the purchasing worklist", () => {
@@ -42,7 +81,10 @@ describe("roleHome", () => {
 
   it("sends still-unserved roles to /coming-soon", () => {
     expect(roleHome("visitor")).toBe("/coming-soon");
-    expect(roleHome("technician")).toBe("/coming-soon");
+    // Spec 264 G3: technician is NO LONGER unserved — it lands on /technician
+    // (asserted above). hr / subcon_manager remain genuinely-unbuilt.
+    expect(roleHome("hr")).toBe("/coming-soon");
+    expect(roleHome("subcon_manager")).toBe("/coming-soon");
     // Spec 263 / ADR 0071: site_owner + auditor ship behavior-free — no route,
     // no gate. They fall through roleHome to /coming-soon until their own specs.
     expect(roleHome("site_owner")).toBe("/coming-soon");

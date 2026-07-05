@@ -373,6 +373,12 @@ export function roleHome(role: UserRole): string {
   // portal. An expired/revoked client still has role 'client'; the /client page
   // gate sends it on to /client/access-ended (not /coming-soon).
   if (role === "client") return "/client";
+  // Spec 264 G3 / ADR 0072 §8: an approved technician lands on the minimal
+  // /technician home (e-card + approval status + assigned-WPs placeholder) — the
+  // anti-dead-end landing that replaces the /coming-soon fall-through for the
+  // technician journey. Every OTHER still-unbuilt role (hr, subcon_manager,
+  // site_owner, auditor) keeps falling through to /coming-soon below.
+  if (role === "technician") return "/technician";
   return "/coming-soon";
 }
 

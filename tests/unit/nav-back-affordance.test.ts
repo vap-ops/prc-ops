@@ -146,6 +146,12 @@ const NON_DETAIL_ROUTES = [
   // destination — its own header + logout, no back chip (mirrors /portal). U4
   // fills the read-only render; the U1 stub redirects to access-ended.
   "client",
+  // Spec 264 G3 / ADR 0072 §8: /technician is the approved technician's minimal
+  // role home (e-card + status + assigned-WPs placeholder). A primary landing,
+  // not a drill-down — no DetailHeader back chip. Not a tab-bar/HubNav hub yet
+  // (room to grow into the real WP list later), so it is excluded from the
+  // HUB_STRIP_ROUTES coverage below, like /portal.
+  "technician",
 ].map((r) => `${r}/page.tsx`);
 
 // EXCLUDED: bespoke layouts that use neither header — the root dispatcher,
