@@ -6206,3 +6206,22 @@ standing U2b follow-up.
   `grep src for dc*`sweep must rename this key`dc_payments`→`wage_payments`. Same for
 the stale `get_my_dc_payments`comment (portal/page.tsx:7) +`record_dc_payment`
   comments (role-home.ts:192, role-sets.test.ts:236) — all U7/U8 comment cleanup.
+
+## Spec 266 U6 — settings IA: new ทีมช่าง section — ✅ BUILT (2026-07-05, code-only)
+
+- New **"ทีมช่าง"** settings section (key `labor-team`, gate `isBackOffice`) grouping
+  the ช่าง roster (`/workers`, label **รายชื่อช่าง**) + payroll (`/payroll`, label
+  **ค่าแรง**), **moved out of** ข้อมูลหลัก (master-data) and การเงิน (finance). Placed
+  between master-data and finance in the SSOT array. Subcontractors (ผู้รับเหมาช่วง)
+  **stay** under master-data (de-conflated, ADR 0073 §5).
+- Net matrix change (same isBackOffice audience → **no** door widens/narrows):
+  master-data 6 entries (was 7; PM still customers-first); finance now
+  `[/accounting, /nova]` for super_admin and **empty** for procurement/PM (payroll
+  left); new `labor-team` = `[/workers, /payroll]` for the whole back-office tier,
+  empty for site_admin/accounting.
+- Relabelled off DC: entry `/workers` "ทีมงาน"→"รายชื่อช่าง"; `/payroll`
+  "ค่าจ้าง"→"ค่าแรง" (matches U4's page); the subcontractor-door comment de-DC'd.
+- TDD: rewrote the `settings-sections` role→entries matrix + fixed
+  `settings-section-card`'s master-data link count 7→6 (RED → edited `sections.ts` →
+  GREEN). lint + typecheck clean; full suite green. Code-only → self-merges on green.
+- Note: `WORKER` label SSOT (roster/entry labels currently literals) lands in **U8**.

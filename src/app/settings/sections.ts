@@ -106,22 +106,14 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         label: "ผู้ขาย/ผู้ให้บริการ",
         hint: "ผู้ขายวัสดุ · ผู้ให้บริการ",
       },
-      // Spec 168: ผู้รับเหมาช่วง is its own door. ADR 0062 U5: DC is a WORKER
-      // (no DC firm) — DC lives only under ทีมงาน below.
+      // Spec 168: ผู้รับเหมาช่วง is its own door — a firm that hires its own crew,
+      // separate from the ทีมช่าง (ช่าง) section (spec 266 / ADR 0073).
       {
         kind: "link",
         href: "/contacts/subcontractors",
         icon: Hammer,
         label: SUBCONTRACTOR_LABEL,
         hint: "บริษัทที่จ้างช่วง (จ่ายลูกทีมเอง)",
-      },
-      // Spec 172 Phase C: procurement onboards DC workers (incl. the pay rate).
-      {
-        kind: "link",
-        href: "/workers",
-        icon: HardHat,
-        label: "ทีมงาน",
-        hint: "ทะเบียน DC (ประจำ/ชั่วคราว) · ค่าจ้าง",
       },
       {
         kind: "link",
@@ -150,6 +142,31 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     ],
   },
 
+  // Team — ทีมช่าง (spec 266 / ADR 0073). The ช่าง roster + ค่าแรง, grouped out of
+  // ข้อมูลหลัก and การเงิน into their own section. Same back-office audience
+  // (isBackOffice); subcontractors (ผู้รับเหมาช่วง) stay under master-data.
+  {
+    key: "labor-team",
+    title: "ทีมช่าง",
+    visible: isBackOffice,
+    entries: [
+      {
+        kind: "link",
+        href: "/workers",
+        icon: HardHat,
+        label: "รายชื่อช่าง",
+        hint: "ทะเบียนช่าง · การจ่าย/สถานะ · ค่าแรง",
+      },
+      {
+        kind: "link",
+        href: "/payroll",
+        icon: Wallet,
+        label: "ค่าแรง",
+        hint: "สรุปค่าแรงรายวัน · ส่งออก CSV",
+      },
+    ],
+  },
+
   // Finance. Same section gate as master-data — deliberately NOT widened to the
   // accounting role: its บัญชี door is nested behind the manager/procurement
   // section exactly as the pre-refactor JSX nested it (spec 166 beta posture).
@@ -158,14 +175,6 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     title: "การเงิน",
     visible: isBackOffice,
     entries: [
-      // Spec 187: procurement views + pays DC payroll (PAYROLL_ROLES).
-      {
-        kind: "link",
-        href: "/payroll",
-        icon: Wallet,
-        label: "ค่าจ้าง",
-        hint: "สรุปค่าจ้าง DC + ส่งออก CSV",
-      },
       // Spec 166: บัญชี (GL) hidden from PM/director during beta — its numbers
       // are provisional until the accountant config lands. ACCOUNTING_ROLES only.
       {

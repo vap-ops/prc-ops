@@ -22,7 +22,8 @@ describe("SettingsSectionCard", () => {
       <SettingsSectionCard section={section("master-data")} role="project_manager" />,
     );
     const links = container.querySelectorAll("a");
-    expect(links).toHaveLength(7);
+    // Spec 266 U6: master-data dropped /workers (→ ทีมช่าง section), 7 → 6.
+    expect(links).toHaveLength(6);
     expect(links[0]?.getAttribute("href")).toBe("/contacts/customers");
 
     const card = links[0]?.parentElement;

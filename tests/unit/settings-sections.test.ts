@@ -22,11 +22,11 @@ const hrefs = (key: string, role: UserRole): string[] =>
   visibleEntries(section(key), role).map((e) => (e.kind === "link" ? e.href : `soon:${e.key}`));
 
 describe("settings sections config (role → entries matrix)", () => {
-  it("procurement master-data: full back-office list, NO customers", () => {
+  it("procurement master-data: full back-office list, NO customers, NO ช่าง roster", () => {
+    // Spec 266 U6: /workers moved out of master-data into the ทีมช่าง section.
     expect(hrefs("master-data", "procurement")).toEqual([
       "/contacts/vendors",
       "/contacts/subcontractors",
-      "/workers",
       "/equipment",
       "/catalog",
       "/settings/ordering-templates",
@@ -41,18 +41,22 @@ describe("settings sections config (role → entries matrix)", () => {
       hrefs("master-data", "procurement"),
     );
     expect(hrefs("master-data", "procurement_manager")).not.toContain("/contacts/customers");
-    expect(hrefs("finance", "procurement_manager")).toEqual(["/payroll"]);
+    // Spec 266 U6: ค่าแรง left finance for the ทีมช่าง section.
+    expect(hrefs("finance", "procurement_manager")).toEqual([]);
+    expect(hrefs("labor-team", "procurement_manager")).toEqual(["/workers", "/payroll"]);
   });
 
-  it("project_manager master-data: customers first, 7 entries", () => {
+  it("project_manager master-data: customers first, 6 entries (ช่าง roster moved out)", () => {
     const list = hrefs("master-data", "project_manager");
     expect(list[0]).toBe("/contacts/customers");
-    expect(list).toHaveLength(7);
+    // Spec 266 U6: was 7; /workers moved to the ทีมช่าง section.
+    expect(list).toHaveLength(6);
   });
 
-  it("site_admin: field equipment only; master-data/finance/admin empty", () => {
+  it("site_admin: field equipment only; master-data/labor-team/finance/admin empty", () => {
     expect(hrefs("field", "site_admin")).toEqual(["/equipment"]);
     expect(hrefs("master-data", "site_admin")).toEqual([]);
+    expect(hrefs("labor-team", "site_admin")).toEqual([]);
     expect(hrefs("finance", "site_admin")).toEqual([]);
     expect(hrefs("admin", "site_admin")).toEqual([]);
   });
@@ -63,10 +67,21 @@ describe("settings sections config (role → entries matrix)", () => {
     }
   });
 
-  it("finance: payroll for the write tier; accounting+Nova stay narrow", () => {
-    expect(hrefs("finance", "procurement")).toEqual(["/payroll"]);
-    expect(hrefs("finance", "project_manager")).toEqual(["/payroll"]);
-    expect(hrefs("finance", "super_admin")).toEqual(["/payroll", "/accounting", "/nova"]);
+  it("finance: ค่าแรง moved to ทีมช่าง; accounting+Nova stay narrow", () => {
+    // Spec 266 U6: /payroll left finance → finance is empty for the write tier
+    // (accounting is ACCOUNTING_ROLES-only, Nova super_admin-only).
+    expect(hrefs("finance", "procurement")).toEqual([]);
+    expect(hrefs("finance", "project_manager")).toEqual([]);
+    expect(hrefs("finance", "super_admin")).toEqual(["/accounting", "/nova"]);
+  });
+
+  it("ทีมช่าง groups the ช่าง roster + ค่าแรง for the back-office tier (spec 266 U6)", () => {
+    // The new section holds the roster + payroll, moved out of master-data + finance;
+    // same audience (isBackOffice), so no door's visibility widens or narrows.
+    expect(hrefs("labor-team", "procurement")).toEqual(["/workers", "/payroll"]);
+    expect(hrefs("labor-team", "project_manager")).toEqual(["/workers", "/payroll"]);
+    expect(hrefs("labor-team", "super_admin")).toEqual(["/workers", "/payroll"]);
+    expect(hrefs("labor-team", "accounting")).toEqual([]);
   });
 
   it("accounting role sees NO finance section on /settings (spec 166 nesting pin)", () => {
