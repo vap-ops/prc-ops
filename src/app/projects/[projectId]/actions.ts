@@ -133,6 +133,9 @@ export interface CreateWorkPackageInput {
   code: string;
   name: string;
   description: string;
+  /** Spec 270 U4: the parent งาน — required in practice for an adopted project
+   *  (the U6 DB guard rejects a parentless งานย่อย there); omit for legacy. */
+  parentId?: string;
 }
 
 export type CreateWorkPackageResult = { ok: true; id: string } | { ok: false; error: string };
@@ -161,6 +164,10 @@ export async function createWorkPackage(
     return { ok: false, error: PM_ONLY_ERROR };
   }
 
+  if (input.parentId !== undefined && !isValidUuid(input.parentId)) {
+    return { ok: false, error: "งานหลักไม่ถูกต้อง" };
+  }
+
   const rpcArgs: Database["public"]["Functions"]["create_work_package"]["Args"] = {
     p_project_id: input.projectId,
     p_code: codeResult.code,
@@ -168,6 +175,9 @@ export async function createWorkPackage(
   };
   // exactOptionalPropertyTypes: omit the key rather than pass undefined.
   if (description !== "") rpcArgs.p_description = description;
+  // Spec 270 U4: pass the parent through; wp_hierarchy_guard validates it
+  // (same-project · is_group · depth · U6 grouping-mandatory).
+  if (input.parentId !== undefined) rpcArgs.p_parent_id = input.parentId;
 
   const { data: newId, error } = await supabase.rpc("create_work_package", rpcArgs);
   if (error) {
@@ -181,6 +191,12 @@ export async function createWorkPackage(
     if (error.code === "42501") return { ok: false, error: PM_ONLY_ERROR };
     if (error.code === "P0002") return { ok: false, error: PROJECT_CLOSED_ERROR };
     if (error.code === "22023") return { ok: false, error: "ข้อมูลงานไม่ถูกต้อง" };
+    // Spec 270: the hierarchy/grouping guard (parent invalid, or a parentless
+    // งานย่อย in an adopted project — the UI requires the pick, so reaching
+    // this means a stale form or a race).
+    if (error.code === "23514") {
+      return { ok: false, error: "งานใหม่ต้องอยู่ใต้งานหลักของโครงการนี้ กรุณาเลือกงานหลัก" };
+    }
     return { ok: false, error: "เพิ่มรายการงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
   if (!newId) return { ok: false, error: "เพิ่มรายการงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };

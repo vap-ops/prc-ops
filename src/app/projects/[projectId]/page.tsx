@@ -259,7 +259,14 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
               {sourceProjects.length > 0 && (
                 <CopyWorkPackagesSheet projectId={project.id} sourceProjects={sourceProjects} />
               )}
-              <AddWorkPackageSheet projectId={project.id} />
+              {/* Spec 270 U4: an adopted project creates งานย่อย under a
+                  required parent งาน (the DB guard already enforces it). */}
+              <AddWorkPackageSheet
+                projectId={project.id}
+                groups={(workPackages ?? [])
+                  .filter((wp) => wp.is_group)
+                  .map((wp) => ({ id: wp.id, code: wp.code, name: wp.name }))}
+              />
             </div>
           )}
         </div>

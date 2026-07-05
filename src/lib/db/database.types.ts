@@ -6962,6 +6962,7 @@ export type Database = {
           p_code: string
           p_description?: string
           p_name: string
+          p_parent_id?: string
           p_project_id: string
         }
         Returns: string

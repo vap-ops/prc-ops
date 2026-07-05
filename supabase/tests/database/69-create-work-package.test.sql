@@ -36,13 +36,14 @@ grant insert on _tap_buf to authenticated;
 grant select on _tap_buf to authenticated;
 grant usage  on sequence _tap_buf_ord_seq to authenticated;
 
--- A. Catalog.
+-- A. Catalog. Spec 270 U4: the canonical signature gained a trailing
+-- p_parent_id (default null) — 4-arg positional calls below keep working.
 select ok(
-  to_regprocedure('public.create_work_package(uuid,text,text,text)') is not null,
-  'create_work_package(uuid,text,text,text) exists');
+  to_regprocedure('public.create_work_package(uuid,text,text,text,uuid)') is not null,
+  'create_work_package(uuid,text,text,text,uuid) exists');
 select is(
   (select prosecdef from pg_proc
-     where oid = 'public.create_work_package(uuid,text,text,text)'::regprocedure),
+     where oid = 'public.create_work_package(uuid,text,text,text,uuid)'::regprocedure),
   true, 'create_work_package is SECURITY DEFINER');
 
 -- B. Behaviour.

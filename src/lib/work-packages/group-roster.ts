@@ -37,8 +37,10 @@ export interface GroupedRoster<T> {
   leaves: T[];
 }
 
-const byCode = (a: { code: string }, b: { code: string }) =>
+/** Natural-numeric code compare (WP-2 < WP-10 regardless of zero-padding). */
+export const compareWpCodes = (a: { code: string }, b: { code: string }) =>
   a.code.localeCompare(b.code, "en", { numeric: true });
+const byCode = compareWpCodes;
 
 export function buildGroupedRoster<T extends GroupRosterItem>(
   workPackages: ReadonlyArray<T>,
