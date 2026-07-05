@@ -79,6 +79,7 @@ later one corrects — read both when the topic is live.
 | 0071 | Technician self-registration — `user_role` += `site_owner`+`auditor` (behavior-free), person-level ID `PRC-YY-NNNN`, approver set proc_mgr/PD/super | **Superseded by 0072**; extends 0008/0070/0062/0061/0060/0051/0050; spec 263        |
 | 0072 | Staff self-onboarding — one role-parametric internal-staff flow (technician = instance #1); approver assigns role; `approve_staff_registration(p_role)`; `STAFF_ASSIGNABLE_ROLES` allowlist | **Supersedes 0071**; extends 0070/0062/0061/0051/0067/0050/0010; spec 264           |
 | 0073 | Worker identity merge — one `ช่าง` (`own`+`dc` → `pay_type` × `employment_type`); the term "DC" removed; payroll = daily-only (ค่าแรง); portal role split `technician`("ช่าง")/`contractor`("ผู้รับเหมา") | **Supersedes 0062** (spine kept); extends 0072/0071/0070/0060/0061/0051/0057/0050/0008; spec 266 |
+| 0074 | Two-level work packages — งาน groups over งานย่อย leaves, same-table `parent_id`+`is_group` hierarchy (depth 2); parent status derived; photos/money leaf-only; grouping mandatory post-import; full renumber via `OldCode` join key | spec 270; leaf-level money per operator decision; WP single-category rule applies to leaves |
 
 **Absent numbers** (never authored as standalone files; do not look for them):
 0023, 0024 — skipped. 0029 — AppSheet image bridge, cancelled before authoring

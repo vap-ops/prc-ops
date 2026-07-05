@@ -6,6 +6,16 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 270 — งาน + งานย่อย hierarchy: design + ADR 0074 — ✍️ SPEC WRITTEN (2026-07-06, docs-only)
+
+Operator directive (PRC-2026-004 restructure): two-level WPs. Design approved in-session 2026-07-06
+(naming งาน/งานย่อย · full renumber via `OldCode` join key · money stays leaf · **grouping mandatory** —
+operator overrode the draft's optional-parent). Spec `270-wp-subwp-hierarchy.md` + ADR 0074 + sample
+fixture (validated: 39 งาน / 262 งานย่อย, 0 structural errors, 5 ungrouped blockers, WP-001 typo).
+**Open:** final grouping list (site team, via U2 template); U1 schema slot after spec-269's `072100`
+lands (claim `072200+`); prod import apply = operator-gated. Next unit = U1 (schema+rollup+guards,
+test-first), its own session.
+
 ## Spec 265 U2 — super_admin LINE-identity: the two view surfaces — 🚧 IN PROGRESS (2026-07-05, code-only)
 
 The FINAL unit of spec 265. Two super_admin-gated views showing a person's LINE ground-truth identity
