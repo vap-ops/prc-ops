@@ -47,7 +47,7 @@ export default async function PortalPage() {
       { data: receiptRows },
       { data: pendingBankRows },
     ] = await Promise.all([
-      supabase.rpc("get_my_dc_payments"),
+      supabase.rpc("get_my_wage_payments"),
       // RLS scopes this to the bound worker's own consents (U4b-2 read-arm).
       supabase
         .from("contractor_consents")

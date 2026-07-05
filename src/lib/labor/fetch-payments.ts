@@ -1,5 +1,5 @@
 // Spec 127 U2 / spec 170 U3 — server reads backing the payroll payment surface.
-// dc_payments has zero authenticated grant (money) and the worker's bank columns
+// wage_payments has zero authenticated grant (money) and the worker's bank columns
 // (added in U1) have no authenticated grant either, so reads go through the
 // service-role admin client; callers MUST be behind requireRole(PM_ROLES).
 // Payments are matched to the viewed period by exact (period_from, period_to) —
@@ -11,20 +11,20 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/database.types";
 import type { ContactBank } from "@/lib/contacts/bank";
 import type { PayrollRange } from "./payroll";
-import type { DcPaymentRow } from "./payments";
+import type { WagePaymentRow } from "./payments";
 
 export async function fetchPeriodPayments(
   admin: SupabaseClient<Database>,
   range: PayrollRange,
-): Promise<DcPaymentRow[]> {
+): Promise<WagePaymentRow[]> {
   const { data, error } = await admin
-    .from("dc_payments")
+    .from("wage_payments")
     .select(
       "id, worker_id, period_from, period_to, computed_amount, paid_amount, paid_at, method, superseded_by",
     )
     .eq("period_from", range.from)
     .eq("period_to", range.to);
-  if (error) throw new Error(`fetch dc_payments: ${error.message}`);
+  if (error) throw new Error(`fetch wage_payments: ${error.message}`);
   return data ?? [];
 }
 

@@ -10,7 +10,7 @@
 import type { Database } from "@/lib/db/database.types";
 
 type Row = Database["public"]["Tables"]["labor_logs"]["Row"];
-type WorkerType = Database["public"]["Enums"]["worker_type"];
+type PayType = Database["public"]["Enums"]["pay_type"];
 type DayFraction = Database["public"]["Enums"]["day_fraction"];
 
 // The columns the PM cost read selects (money included). Pinned to the
@@ -22,7 +22,7 @@ export type CostInputRow = Pick<
   | "work_date"
   | "day_fraction"
   | "day_rate_snapshot"
-  | "worker_type_snapshot"
+  | "pay_type_snapshot"
   | "worker_name_snapshot"
   | "self_logged"
   | "superseded_by"
@@ -35,7 +35,7 @@ export function fractionDays(f: DayFraction): number {
 export interface WorkerCostLine {
   workerId: string;
   name: string;
-  type: WorkerType;
+  type: PayType;
   days: number;
   cost: number;
   selfLogged: boolean;
@@ -74,7 +74,7 @@ export function aggregateLaborCost(rows: ReadonlyArray<CostInputRow>): LaborCost
     const d = fractionDays(r.day_fraction as DayFraction);
     const cost = d * r.day_rate_snapshot;
     days.add(r.work_date);
-    if (r.worker_type_snapshot === "own") ownCost += cost;
+    if (r.pay_type_snapshot === "monthly") ownCost += cost;
     else dcCost += cost;
 
     const line = byWorker.get(r.worker_id);
@@ -86,7 +86,7 @@ export function aggregateLaborCost(rows: ReadonlyArray<CostInputRow>): LaborCost
       byWorker.set(r.worker_id, {
         workerId: r.worker_id,
         name: r.worker_name_snapshot,
-        type: r.worker_type_snapshot,
+        type: r.pay_type_snapshot,
         days: d,
         cost,
         selfLogged: r.self_logged,

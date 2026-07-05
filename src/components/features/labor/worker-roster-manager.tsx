@@ -35,27 +35,32 @@ import {
 } from "@/lib/ui/classes";
 import { NOTES_MAX } from "@/lib/notes/validate";
 
-type WorkerType = Database["public"]["Enums"]["worker_type"];
-// ADR 0062 U1 — DC arrangement; local union keeps the client decoupled from the
-// generated enum type (values match public.dc_arrangement).
-type DcArrangement = "regular" | "temporary";
+type PayType = Database["public"]["Enums"]["pay_type"];
+type EmploymentType = Database["public"]["Enums"]["employment_type"];
+// The roster UI still speaks in own/dc terms (real pay-type selectors are a
+// later unit) — this local union is the display/form vocabulary, mapped onto
+// pay_type at the createWorker call boundary (own→monthly, dc→daily).
+type WorkerType = "own" | "dc";
+// ADR 0062 U1 — DC arrangement, now employment_type's values (values match
+// public.employment_type: every worker carries one, not just DC).
+type DcArrangement = EmploymentType;
 
 const DC_ARRANGEMENT_LABEL: Record<DcArrangement, string> = {
-  regular: "ประจำ",
+  permanent: "ประจำ",
   temporary: "ชั่วคราว",
 };
 
 export type ManagedWorker = {
   id: string;
   name: string;
-  worker_type: WorkerType;
+  pay_type: PayType;
   contractor_id: string | null;
   day_rate: number;
   active: boolean;
   // Spec 75: optional roster note.
   note: string | null;
-  // ADR 0062 U1: ประจำ/ชั่วคราว for DC workers (null for own techs).
-  dc_arrangement: DcArrangement | null;
+  // ADR 0062 U1: ประจำ/ชั่วคราว — every worker carries one now (not DC-only).
+  employment_type: EmploymentType;
   // ADR 0062 U4a: is this DC worker bound to a portal LINE login (workers.user_id)?
   portalBound: boolean;
   // Spec 200: the worker's current project (one at a time), or null if unassigned.
@@ -69,7 +74,7 @@ function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [workerType, setWorkerType] = useState<WorkerType>("own");
-  const [arrangement, setArrangement] = useState<DcArrangement>("regular");
+  const [arrangement, setArrangement] = useState<DcArrangement>("permanent");
   const [rate, setRate] = useState("");
   const [note, setNote] = useState("");
   // Spec 200 U2: optionally put the new worker on a project at creation.
@@ -85,7 +90,7 @@ function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
   const isDc = workerType === "dc";
 
   function resetPayee() {
-    setArrangement("regular");
+    setArrangement("permanent");
     setPhone("");
     setTaxId("");
     setBankName("");
@@ -100,10 +105,13 @@ function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
     const result = await createWorker({
       name,
       workerType,
+      // employment_type is required for every worker now (own techs are
+      // always "permanent"; only DC workers choose via the arrangement chips).
+      employmentType: isDc ? arrangement : "permanent",
       dayRate: Number.isFinite(dayRate) ? dayRate : -1,
       note,
       ...(project ? { projectId: project } : {}),
-      ...(isDc ? { arrangement, phone, taxId, bankName, bankAccountNumber, bankAccountName } : {}),
+      ...(isDc ? { phone, taxId, bankName, bankAccountNumber, bankAccountName } : {}),
     });
     setBusy(false);
     if (!result.ok) {
@@ -152,7 +160,7 @@ function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
         <div className="mt-2">
           <p className="text-ink-secondary text-sm">ลักษณะการจ้าง</p>
           <div className="mt-1 flex flex-wrap gap-2" role="radiogroup" aria-label="ลักษณะการจ้าง">
-            {(["regular", "temporary"] as const).map((value) => (
+            {(["permanent", "temporary"] as const).map((value) => (
               <RadioChip
                 key={value}
                 name="dc-arrangement"
@@ -354,10 +362,13 @@ function WorkerRow({
         <div className="min-w-0">
           <p className={`truncate text-sm ${optimisticActive ? "text-ink" : "text-ink-muted"}`}>
             {worker.name}
-            {/* ADR 0062 U1: arrangement badge for DC workers. */}
-            {worker.dc_arrangement ? (
+            {/* ADR 0062 U1: arrangement badge for DC (daily-pay) workers. Every
+                worker now carries an employment_type, but the badge stays
+                DC-only — an own tech's ประจำ/ชั่วคราว isn't roster-relevant
+                here (unchanged visible behavior). */}
+            {worker.pay_type === "daily" ? (
               <span className="text-ink-muted ml-1.5 text-xs">
-                · {DC_ARRANGEMENT_LABEL[worker.dc_arrangement]}
+                · {DC_ARRANGEMENT_LABEL[worker.employment_type]}
               </span>
             ) : null}
             {contractorName ? (
@@ -472,7 +483,7 @@ function WorkerRow({
 
           {/* ADR 0062 U4a: a DC worker is a portal user — issue/track their LINE
               claim link here. Own techs don't have a portal. */}
-          {worker.worker_type === "dc" ? (
+          {worker.pay_type === "daily" ? (
             <div className="mt-3">
               <WorkerInviteBlock workerId={worker.id} alreadyBound={worker.portalBound} />
             </div>
@@ -496,8 +507,8 @@ export function WorkerRosterManager({
   projects?: AssignableProject[];
 }) {
   const contractorNames = new Map(contractors.map((c) => [c.id, c.name]));
-  const own = workers.filter((w) => w.worker_type === "own");
-  const dc = workers.filter((w) => w.worker_type === "dc");
+  const own = workers.filter((w) => w.pay_type === "monthly");
+  const dc = workers.filter((w) => w.pay_type === "daily");
 
   return (
     <div className="flex flex-col gap-4">

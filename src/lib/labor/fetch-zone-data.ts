@@ -25,13 +25,13 @@ export async function fetchLaborZoneData(
     supabase
       .from("workers")
       // project_id is not money (spec 160 U1) — covered by the column grant.
-      .select("id, name, worker_type, contractor_id, active, project_id")
+      .select("id, name, pay_type, contractor_id, active, project_id")
       .order("name", { ascending: true }),
     supabase.from("contractors").select("id, name"),
     supabase
       .from("labor_logs")
       .select(
-        "id, work_package_id, worker_id, work_date, day_fraction, worker_name_snapshot, worker_type_snapshot, contractor_id_snapshot, entered_by, self_logged, superseded_by, correction_reason, created_at, note",
+        "id, work_package_id, worker_id, work_date, day_fraction, worker_name_snapshot, pay_type_snapshot, entered_by, self_logged, superseded_by, correction_reason, created_at, note",
       )
       .eq("work_package_id", workPackageId)
       .order("created_at", { ascending: true }),
@@ -55,7 +55,13 @@ export async function fetchLaborZoneData(
     }));
 
   const roster = groupRoster(
-    (workers ?? []).map((w) => ({ ...w, active: w.active })),
+    (workers ?? []).map((w) => ({
+      id: w.id,
+      name: w.name,
+      worker_type: w.pay_type,
+      contractor_id: w.contractor_id,
+      active: w.active,
+    })),
     contractors ?? [],
   );
   // Spec 158 U2: ids of the active crew assigned to this WP's project.

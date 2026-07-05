@@ -20,7 +20,7 @@ export type PayrollInputRow = Pick<
   | "id"
   | "worker_id"
   | "worker_name_snapshot"
-  | "worker_type_snapshot"
+  | "pay_type_snapshot"
   | "day_fraction"
   | "day_rate_snapshot"
   | "superseded_by"
@@ -63,10 +63,10 @@ function fractionDays(f: DayFraction): number {
 }
 
 export function aggregatePayroll(rows: ReadonlyArray<PayrollInputRow>): PayrollReport {
-  // Filter to current state across ALL worker types FIRST, then keep DC: a
-  // supersede correction re-snapshots worker_type, so a DB-level type filter
-  // could drop a superseding row and miscount the stale one (spec 69).
-  const current = currentRows(rows).filter((r) => r.worker_type_snapshot === "dc");
+  // Filter to current state across ALL pay types FIRST, then keep daily-pay
+  // (DC): a supersede correction re-snapshots pay_type, so a DB-level type
+  // filter could drop a superseding row and miscount the stale one (spec 69).
+  const current = currentRows(rows).filter((r) => r.pay_type_snapshot === "daily");
 
   // worker_id -> rolled-up pay line (the worker is the payee, ADR 0062).
   const byWorker = new Map<string, WorkerPay>();

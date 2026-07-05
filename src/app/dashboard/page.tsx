@@ -166,7 +166,7 @@ export default async function DashboardPage() {
         ? admin
             .from("labor_logs")
             .select(
-              "id, worker_id, work_date, day_fraction, day_rate_snapshot, worker_type_snapshot, worker_name_snapshot, self_logged, superseded_by, work_package_id",
+              "id, worker_id, work_date, day_fraction, day_rate_snapshot, pay_type_snapshot, worker_name_snapshot, self_logged, superseded_by, work_package_id",
             )
             .in("work_package_id", wpIds)
         : Promise.resolve({ data: [] as (CostInputRow & { work_package_id: string })[] }),

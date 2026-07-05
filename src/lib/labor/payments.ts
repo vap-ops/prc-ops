@@ -1,5 +1,5 @@
 // Spec 127 U1 / spec 170 U3 — DC payment reconciliation. Pure: maps a payroll
-// report (spec 69) against recorded dc_payments rows so the payroll surface can
+// report (spec 69) against recorded wage_payments rows so the payroll surface can
 // show "จ่ายแล้ว" vs "ค้างจ่าย" per worker for the viewed period. ADR 0062: a DC
 // is a worker, so a payment is keyed to (worker × exact period); a CURRENT
 // payment is one not superseded and not a tombstone (paid_amount NULL).
@@ -12,12 +12,12 @@ import { round2 } from "@/lib/format";
 import type { Database } from "@/lib/db/database.types";
 import type { WorkerPay, PayrollRange, PayrollReport } from "./payroll";
 
-type PaymentRow = Database["public"]["Tables"]["dc_payments"]["Row"];
-type DcPaymentMethod = Database["public"]["Enums"]["dc_payment_method"];
+type PaymentRow = Database["public"]["Tables"]["wage_payments"]["Row"];
+type WagePaymentMethod = Database["public"]["Enums"]["wage_payment_method"];
 
 // Money columns present — pinned to the schema Row so a column rename is a type
 // error here. Read via the admin client (zero authenticated grant, spec 127).
-export type DcPaymentRow = Pick<
+export type WagePaymentRow = Pick<
   PaymentRow,
   | "id"
   | "worker_id"
@@ -34,7 +34,7 @@ export interface PaymentStatus {
   paid: true;
   paidAmount: number;
   paidAt: string;
-  method: DcPaymentMethod;
+  method: WagePaymentMethod;
   computedAmount: number;
   drifted: boolean;
 }
@@ -54,15 +54,15 @@ export interface AnnotatedPayrollReport {
   outstandingAmount: number;
 }
 
-// Payment methods (mirror the dc_payment_method enum) + Thai labels for the
+// Payment methods (mirror the wage_payment_method enum) + Thai labels for the
 // record sheet. Pure data — kept here with the domain types.
 export const DC_PAYMENT_METHODS = [
   "bank_transfer",
   "cash",
   "cheque",
-] as const satisfies readonly DcPaymentMethod[];
+] as const satisfies readonly WagePaymentMethod[];
 
-export const DC_PAYMENT_METHOD_LABELS: Record<DcPaymentMethod, string> = {
+export const DC_PAYMENT_METHOD_LABELS: Record<WagePaymentMethod, string> = {
   bank_transfer: "โอนเงิน",
   cash: "เงินสด",
   cheque: "เช็ค",
@@ -71,7 +71,7 @@ export const DC_PAYMENT_METHOD_LABELS: Record<DcPaymentMethod, string> = {
 // Current rows only: drop anything pointed at by another row's superseded_by.
 // Trivially replicated (not cross-imported) to keep modules decoupled, same as
 // payroll.ts currentRows.
-function currentPayments(payments: ReadonlyArray<DcPaymentRow>): DcPaymentRow[] {
+function currentPayments(payments: ReadonlyArray<WagePaymentRow>): WagePaymentRow[] {
   const superseded = new Set(
     payments.map((p) => p.superseded_by).filter((id): id is string => id !== null),
   );
@@ -80,7 +80,7 @@ function currentPayments(payments: ReadonlyArray<DcPaymentRow>): DcPaymentRow[] 
 
 export function annotatePayrollPayments(
   report: PayrollReport,
-  payments: ReadonlyArray<DcPaymentRow>,
+  payments: ReadonlyArray<WagePaymentRow>,
   range: PayrollRange,
 ): AnnotatedPayrollReport {
   const current = currentPayments(payments);

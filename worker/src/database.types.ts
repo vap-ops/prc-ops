@@ -1527,82 +1527,6 @@ export type Database = {
           },
         ]
       }
-      dc_payments: {
-        Row: {
-          computed_amount: number
-          computed_days: number
-          correction_reason: string | null
-          created_at: string
-          id: string
-          method: Database["public"]["Enums"]["dc_payment_method"]
-          note: string | null
-          paid_amount: number | null
-          paid_at: string
-          paid_by: string
-          period_from: string
-          period_to: string
-          reference: string | null
-          superseded_by: string | null
-          worker_id: string
-        }
-        Insert: {
-          computed_amount: number
-          computed_days: number
-          correction_reason?: string | null
-          created_at?: string
-          id?: string
-          method: Database["public"]["Enums"]["dc_payment_method"]
-          note?: string | null
-          paid_amount?: number | null
-          paid_at: string
-          paid_by: string
-          period_from: string
-          period_to: string
-          reference?: string | null
-          superseded_by?: string | null
-          worker_id: string
-        }
-        Update: {
-          computed_amount?: number
-          computed_days?: number
-          correction_reason?: string | null
-          created_at?: string
-          id?: string
-          method?: Database["public"]["Enums"]["dc_payment_method"]
-          note?: string | null
-          paid_amount?: number | null
-          paid_at?: string
-          paid_by?: string
-          period_from?: string
-          period_to?: string
-          reference?: string | null
-          superseded_by?: string | null
-          worker_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "dc_payments_paid_by_fkey"
-            columns: ["paid_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "dc_payments_superseded_by_fkey"
-            columns: ["superseded_by"]
-            isOneToOne: false
-            referencedRelation: "dc_payments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "dc_payments_worker_id_fkey"
-            columns: ["worker_id"]
-            isOneToOne: false
-            referencedRelation: "workers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       deliverables: {
         Row: {
           code: string
@@ -2588,7 +2512,6 @@ export type Database = {
       }
       labor_logs: {
         Row: {
-          contractor_id_snapshot: string | null
           correction_reason: string | null
           created_at: string
           day_fraction: Database["public"]["Enums"]["day_fraction"] | null
@@ -2596,16 +2519,15 @@ export type Database = {
           entered_by: string
           id: string
           note: string | null
+          pay_type_snapshot: Database["public"]["Enums"]["pay_type"]
           self_logged: boolean
           superseded_by: string | null
           work_date: string
           work_package_id: string
           worker_id: string
           worker_name_snapshot: string
-          worker_type_snapshot: Database["public"]["Enums"]["worker_type"]
         }
         Insert: {
-          contractor_id_snapshot?: string | null
           correction_reason?: string | null
           created_at?: string
           day_fraction?: Database["public"]["Enums"]["day_fraction"] | null
@@ -2613,16 +2535,15 @@ export type Database = {
           entered_by: string
           id?: string
           note?: string | null
+          pay_type_snapshot: Database["public"]["Enums"]["pay_type"]
           self_logged?: boolean
           superseded_by?: string | null
           work_date: string
           work_package_id: string
           worker_id: string
           worker_name_snapshot: string
-          worker_type_snapshot: Database["public"]["Enums"]["worker_type"]
         }
         Update: {
-          contractor_id_snapshot?: string | null
           correction_reason?: string | null
           created_at?: string
           day_fraction?: Database["public"]["Enums"]["day_fraction"] | null
@@ -2630,13 +2551,13 @@ export type Database = {
           entered_by?: string
           id?: string
           note?: string | null
+          pay_type_snapshot?: Database["public"]["Enums"]["pay_type"]
           self_logged?: boolean
           superseded_by?: string | null
           work_date?: string
           work_package_id?: string
           worker_id?: string
           worker_name_snapshot?: string
-          worker_type_snapshot?: Database["public"]["Enums"]["worker_type"]
         }
         Relationships: [
           {
@@ -5518,6 +5439,82 @@ export type Database = {
         }
         Relationships: []
       }
+      wage_payments: {
+        Row: {
+          computed_amount: number
+          computed_days: number
+          correction_reason: string | null
+          created_at: string
+          id: string
+          method: Database["public"]["Enums"]["wage_payment_method"]
+          note: string | null
+          paid_amount: number | null
+          paid_at: string
+          paid_by: string
+          period_from: string
+          period_to: string
+          reference: string | null
+          superseded_by: string | null
+          worker_id: string
+        }
+        Insert: {
+          computed_amount: number
+          computed_days: number
+          correction_reason?: string | null
+          created_at?: string
+          id?: string
+          method: Database["public"]["Enums"]["wage_payment_method"]
+          note?: string | null
+          paid_amount?: number | null
+          paid_at: string
+          paid_by: string
+          period_from: string
+          period_to: string
+          reference?: string | null
+          superseded_by?: string | null
+          worker_id: string
+        }
+        Update: {
+          computed_amount?: number
+          computed_days?: number
+          correction_reason?: string | null
+          created_at?: string
+          id?: string
+          method?: Database["public"]["Enums"]["wage_payment_method"]
+          note?: string | null
+          paid_amount?: number | null
+          paid_at?: string
+          paid_by?: string
+          period_from?: string
+          period_to?: string
+          reference?: string | null
+          superseded_by?: string | null
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dc_payments_paid_by_fkey"
+            columns: ["paid_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dc_payments_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wage_payments_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "wage_payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wht_certificates: {
         Row: {
           base_amount: number
@@ -6070,21 +6067,21 @@ export type Database = {
           created_by: string
           date_of_birth: string | null
           day_rate: number
-          dc_arrangement: Database["public"]["Enums"]["dc_arrangement"] | null
           email: string | null
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
           emergency_contact_relation: string | null
           employee_id: string | null
+          employment_type: Database["public"]["Enums"]["employment_type"]
           id: string
           level: Database["public"]["Enums"]["worker_level"] | null
           name: string
           note: string | null
+          pay_type: Database["public"]["Enums"]["pay_type"]
           phone: string | null
           project_id: string | null
           tax_id: string | null
           user_id: string | null
-          worker_type: Database["public"]["Enums"]["worker_type"]
         }
         Insert: {
           active?: boolean
@@ -6096,21 +6093,21 @@ export type Database = {
           created_by: string
           date_of_birth?: string | null
           day_rate?: number
-          dc_arrangement?: Database["public"]["Enums"]["dc_arrangement"] | null
           email?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           emergency_contact_relation?: string | null
           employee_id?: string | null
+          employment_type?: Database["public"]["Enums"]["employment_type"]
           id?: string
           level?: Database["public"]["Enums"]["worker_level"] | null
           name: string
           note?: string | null
+          pay_type?: Database["public"]["Enums"]["pay_type"]
           phone?: string | null
           project_id?: string | null
           tax_id?: string | null
           user_id?: string | null
-          worker_type: Database["public"]["Enums"]["worker_type"]
         }
         Update: {
           active?: boolean
@@ -6122,21 +6119,21 @@ export type Database = {
           created_by?: string
           date_of_birth?: string | null
           day_rate?: number
-          dc_arrangement?: Database["public"]["Enums"]["dc_arrangement"] | null
           email?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           emergency_contact_relation?: string | null
           employee_id?: string | null
+          employment_type?: Database["public"]["Enums"]["employment_type"]
           id?: string
           level?: Database["public"]["Enums"]["worker_level"] | null
           name?: string
           note?: string | null
+          pay_type?: Database["public"]["Enums"]["pay_type"]
           phone?: string | null
           project_id?: string | null
           tax_id?: string | null
           user_id?: string | null
-          worker_type?: Database["public"]["Enums"]["worker_type"]
         }
         Relationships: [
           {
@@ -6672,7 +6669,9 @@ export type Database = {
       apply_wp_template: { Args: { p_project_id: string }; Returns: number }
       approve_staff_registration: {
         Args: {
+          p_employment_type?: Database["public"]["Enums"]["employment_type"]
           p_id: string
+          p_pay_type?: Database["public"]["Enums"]["pay_type"]
           p_project_id?: string
           p_role: Database["public"]["Enums"]["user_role"]
         }
@@ -6952,17 +6951,17 @@ export type Database = {
       }
       create_worker: {
         Args: {
-          p_arrangement?: Database["public"]["Enums"]["dc_arrangement"]
           p_bank_account_name?: string
           p_bank_account_number?: string
           p_bank_name?: string
           p_contractor?: string
-          p_day_rate: number
+          p_day_rate?: number
+          p_employment_type: Database["public"]["Enums"]["employment_type"]
           p_name: string
           p_note?: string
+          p_pay_type: Database["public"]["Enums"]["pay_type"]
           p_phone?: string
           p_tax_id?: string
-          p_type: Database["public"]["Enums"]["worker_type"]
           p_user?: string
         }
         Returns: string
@@ -7076,7 +7075,7 @@ export type Database = {
           worker_id: string
         }[]
       }
-      get_my_dc_payments: {
+      get_my_wage_payments: {
         Args: never
         Returns: {
           computed_amount: number
@@ -7084,7 +7083,7 @@ export type Database = {
           correction_reason: string | null
           created_at: string
           id: string
-          method: Database["public"]["Enums"]["dc_payment_method"]
+          method: Database["public"]["Enums"]["wage_payment_method"]
           note: string | null
           paid_amount: number | null
           paid_at: string
@@ -7097,7 +7096,7 @@ export type Database = {
         }[]
         SetofOptions: {
           from: "*"
-          to: "dc_payments"
+          to: "wage_payments"
           isOneToOne: false
           isSetofReturn: true
         }
@@ -7109,11 +7108,11 @@ export type Database = {
           bank_account_number: string
           bank_name: string
           date_of_birth: string
-          dc_arrangement: Database["public"]["Enums"]["dc_arrangement"]
           email: string
           emergency_contact_name: string
           emergency_contact_phone: string
           emergency_contact_relation: string
+          employment_type: Database["public"]["Enums"]["employment_type"]
           name: string
           phone: string
           tax_id: string
@@ -7230,7 +7229,6 @@ export type Database = {
         }
         Returns: string
       }
-      post_dc_payment_to_gl: { Args: { p_source_id: string }; Returns: string }
       post_feedback_message: {
         Args: { p_body: string; p_feedback_id: string }
         Returns: string
@@ -7284,6 +7282,10 @@ export type Database = {
         Returns: string
       }
       post_subcontract_payment_to_gl: {
+        Args: { p_source_id: string }
+        Returns: string
+      }
+      post_wage_payment_to_gl: {
         Args: { p_source_id: string }
         Returns: string
       }
@@ -7375,19 +7377,6 @@ export type Database = {
         }
         Returns: string
       }
-      record_dc_payment: {
-        Args: {
-          p_from: string
-          p_method: Database["public"]["Enums"]["dc_payment_method"]
-          p_note: string
-          p_paid_amount: number
-          p_paid_at: string
-          p_reference: string
-          p_to: string
-          p_worker: string
-        }
-        Returns: string
-      }
       record_purchase: {
         Args: {
           p_amount?: number
@@ -7451,6 +7440,19 @@ export type Database = {
           p_note?: string
           p_paid_date: string
           p_subcontract: string
+        }
+        Returns: string
+      }
+      record_wage_payment: {
+        Args: {
+          p_from: string
+          p_method: Database["public"]["Enums"]["wage_payment_method"]
+          p_note: string
+          p_paid_amount: number
+          p_paid_at: string
+          p_reference: string
+          p_to: string
+          p_worker: string
         }
         Returns: string
       }
@@ -8074,14 +8076,15 @@ export type Database = {
       update_worker: {
         Args: {
           p_active?: boolean
-          p_arrangement?: Database["public"]["Enums"]["dc_arrangement"]
           p_bank_account_name?: string
           p_bank_account_number?: string
           p_bank_name?: string
           p_contractor?: string
+          p_employment_type?: Database["public"]["Enums"]["employment_type"]
           p_id: string
           p_name?: string
           p_note?: string
+          p_pay_type?: Database["public"]["Enums"]["pay_type"]
           p_phone?: string
           p_tax_id?: string
         }
@@ -8254,8 +8257,7 @@ export type Database = {
         | "dc_temporary"
       crew_doc_purpose: "id_card" | "work_permit"
       day_fraction: "full" | "half"
-      dc_arrangement: "regular" | "temporary"
-      dc_payment_method: "bank_transfer" | "cash" | "cheque"
+      employment_type: "permanent" | "temporary"
       equipment_movement_kind:
         | "received"
         | "deployed"
@@ -8312,6 +8314,7 @@ export type Database = {
         | "feedback_submitted"
         | "wp_reopened"
       notification_status: "pending" | "sending" | "sent" | "failed" | "expired"
+      pay_type: "monthly" | "daily"
       peak_doc_type: "contact" | "expense"
       peak_entity_type: "contact" | "expense"
       peak_sync_operation: "create" | "void"
@@ -8381,6 +8384,7 @@ export type Database = {
         | "procurement_manager"
         | "site_owner"
         | "auditor"
+      wage_payment_method: "bank_transfer" | "cash" | "cheque"
       wht_direction: "deducted" | "suffered"
       wht_form: "pnd3" | "pnd53" | "pnd1"
       work_package_priority: "normal" | "urgent" | "critical"
@@ -8392,7 +8396,6 @@ export type Database = {
         | "pending_approval"
         | "rework"
       worker_level: "senior" | "mid" | "junior" | "apprentice"
-      worker_type: "own" | "dc"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -8637,8 +8640,7 @@ export const Constants = {
       ],
       crew_doc_purpose: ["id_card", "work_permit"],
       day_fraction: ["full", "half"],
-      dc_arrangement: ["regular", "temporary"],
-      dc_payment_method: ["bank_transfer", "cash", "cheque"],
+      employment_type: ["permanent", "temporary"],
       equipment_movement_kind: [
         "received",
         "deployed",
@@ -8700,6 +8702,7 @@ export const Constants = {
         "wp_reopened",
       ],
       notification_status: ["pending", "sending", "sent", "failed", "expired"],
+      pay_type: ["monthly", "daily"],
       peak_doc_type: ["contact", "expense"],
       peak_entity_type: ["contact", "expense"],
       peak_sync_operation: ["create", "void"],
@@ -8777,6 +8780,7 @@ export const Constants = {
         "site_owner",
         "auditor",
       ],
+      wage_payment_method: ["bank_transfer", "cash", "cheque"],
       wht_direction: ["deducted", "suffered"],
       wht_form: ["pnd3", "pnd53", "pnd1"],
       work_package_priority: ["normal", "urgent", "critical"],
@@ -8789,7 +8793,6 @@ export const Constants = {
         "rework",
       ],
       worker_level: ["senior", "mid", "junior", "apprentice"],
-      worker_type: ["own", "dc"],
     },
   },
 } as const

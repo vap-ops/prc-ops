@@ -13,8 +13,12 @@ import type { Database } from "@/lib/db/database.types";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { validateNotes } from "@/lib/notes/validate";
 
-type WorkerType = Database["public"]["Enums"]["worker_type"];
-type DcArrangement = Database["public"]["Enums"]["dc_arrangement"];
+type PayType = Database["public"]["Enums"]["pay_type"];
+type EmploymentType = Database["public"]["Enums"]["employment_type"];
+// The roster UI still speaks in own/dc terms (spec 264/265 pay-type selectors
+// are a later unit) — this local union is the caller-facing vocabulary,
+// mapped onto pay_type/employment_type at the RPC-call boundary below.
+type WorkerType = "own" | "dc";
 
 const GENERIC_ERROR = "บันทึกทีมงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
@@ -29,9 +33,10 @@ function validRate(rate: number): boolean {
   return Number.isFinite(rate) && rate >= 0;
 }
 
-// ADR 0062 U1: a DC is a self-sufficient worker — arrangement + payee fields.
+// ADR 0062 U1: a DC is a self-sufficient worker — payee fields. Employment
+// type (permanent/temporary) is required by create_worker for every worker
+// (own techs are "permanent"); only the payee/bank fields stay DC-only.
 export interface WorkerPayeeInput {
-  arrangement?: DcArrangement | null;
   phone?: string;
   taxId?: string;
   bankName?: string;
@@ -44,8 +49,8 @@ const clean = (v: string | undefined): string | undefined => {
   return t ? t : undefined;
 };
 
-// Only forward DC payee/arrangement params that carry a value (DC workers only —
-// the RPC rejects an arrangement on a non-dc worker).
+// Only forward DC payee params that carry a value (DC workers only — the RPC
+// pairs these with the daily pay_type).
 function payeeRpcParams(workerType: WorkerType, input: WorkerPayeeInput) {
   if (workerType !== "dc") return {};
   const phone = clean(input.phone);
@@ -54,7 +59,6 @@ function payeeRpcParams(workerType: WorkerType, input: WorkerPayeeInput) {
   const bankAccountNumber = clean(input.bankAccountNumber);
   const bankAccountName = clean(input.bankAccountName);
   return {
-    ...(input.arrangement ? { p_arrangement: input.arrangement } : {}),
     ...(phone ? { p_phone: phone } : {}),
     ...(taxId ? { p_tax_id: taxId } : {}),
     ...(bankName ? { p_bank_name: bankName } : {}),
@@ -63,10 +67,20 @@ function payeeRpcParams(workerType: WorkerType, input: WorkerPayeeInput) {
   };
 }
 
+// own→pay_type monthly, dc→daily (LOGIC MAP). employment_type is a separate
+// axis the roster form still calls "arrangement" (ประจำ/ชั่วคราว); the caller
+// passes it through explicitly since create_worker/update_worker require it.
+function payTypeOf(workerType: WorkerType): PayType {
+  return workerType === "dc" ? "daily" : "monthly";
+}
+
 export async function createWorker(
   input: {
     name: string;
     workerType: WorkerType;
+    // The roster form's ประจำ/ชั่วคราว choice — required by create_worker
+    // (own techs pass "permanent"; DC workers choose either).
+    employmentType: EmploymentType;
     dayRate: number;
     // Legacy: a subcontractor's crew member is a worker tied to the contractor
     // (contact-crew-section). A directly-hired DC worker has no parent (ADR 0062).
@@ -89,7 +103,8 @@ export async function createWorker(
   const supabase = await createServerSupabase();
   const { data: workerId, error } = await supabase.rpc("create_worker", {
     p_name: input.name.trim(),
-    p_type: input.workerType,
+    p_pay_type: payTypeOf(input.workerType),
+    p_employment_type: input.employmentType,
     p_day_rate: input.dayRate,
     ...(input.contractorId && UUID_REGEX.test(input.contractorId)
       ? { p_contractor: input.contractorId }

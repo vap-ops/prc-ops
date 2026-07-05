@@ -21,7 +21,7 @@ function row(overrides: Partial<CostInputRow>): CostInputRow {
     work_date: "2026-06-10",
     day_fraction: "full",
     day_rate_snapshot: 500,
-    worker_type_snapshot: "own",
+    pay_type_snapshot: "monthly",
     worker_name_snapshot: "ช่าง ก",
     self_logged: false,
     superseded_by: null,
@@ -42,14 +42,14 @@ describe("aggregateLaborCost", () => {
       row({
         id: "a",
         worker_id: "w1",
-        worker_type_snapshot: "own",
+        pay_type_snapshot: "monthly",
         day_rate_snapshot: 500,
         day_fraction: "full",
       }),
       row({
         id: "b",
         worker_id: "w2",
-        worker_type_snapshot: "dc",
+        pay_type_snapshot: "daily",
         day_rate_snapshot: 380,
         day_fraction: "full",
       }),
@@ -61,7 +61,7 @@ describe("aggregateLaborCost", () => {
 
   it("applies the day fraction to the rate", () => {
     const s = aggregateLaborCost([
-      row({ id: "a", day_fraction: "half", day_rate_snapshot: 500, worker_type_snapshot: "own" }),
+      row({ id: "a", day_fraction: "half", day_rate_snapshot: 500, pay_type_snapshot: "monthly" }),
     ]);
     expect(s.ownCost).toBe(250);
   });
@@ -79,7 +79,7 @@ describe("aggregateLaborCost", () => {
       row({
         id: "tomb",
         worker_id: "w2",
-        worker_type_snapshot: "dc",
+        pay_type_snapshot: "daily",
         day_fraction: null,
         superseded_by: "x",
         day_rate_snapshot: 380,

@@ -20,7 +20,7 @@ import { validateCorrection, validateDcPayment, validateLaborEntry } from "./val
 import { validateNotes } from "@/lib/notes/validate";
 
 type DayFraction = Database["public"]["Enums"]["day_fraction"];
-type DcPaymentMethod = Database["public"]["Enums"]["dc_payment_method"];
+type WagePaymentMethod = Database["public"]["Enums"]["wage_payment_method"];
 
 const GENERIC_ERROR = "บันทึกทีมงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
@@ -197,7 +197,7 @@ export async function setWpLaborBudget(input: {
 }
 
 // Spec 127 U2 / spec 170 U3 — record a DC payment for a worker × period.
-// pm/super only (money). The record_dc_payment RPC recomputes the owed amount
+// pm/super only (money). The record_wage_payment RPC recomputes the owed amount
 // server-side, re-gates the role, locks per (worker, period) and refuses a
 // duplicate — this action validates shape and maps RPC errors to Thai.
 // Authenticated session so the RPC gate passes and paid_by/the audit actor is
@@ -236,13 +236,13 @@ export async function recordDcPayment(input: {
     return { ok: false, error: "เฉพาะผู้จัดการโครงการเท่านั้นที่บันทึกการจ่ายเงินได้" };
   }
 
-  const { error } = await supabase.rpc("record_dc_payment", {
+  const { error } = await supabase.rpc("record_wage_payment", {
     p_worker: input.workerId,
     p_from: input.from,
     p_to: input.to,
     p_paid_amount: input.paidAmount,
     p_paid_at: input.paidAt,
-    p_method: input.method as DcPaymentMethod,
+    p_method: input.method as WagePaymentMethod,
     p_reference: input.reference,
     p_note: input.note,
   });

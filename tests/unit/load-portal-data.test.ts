@@ -48,7 +48,7 @@ const LIST: Record<string, unknown[]> = {
   contractor_consents: CONSENTS,
 };
 const RPC: Record<string, unknown> = {
-  get_my_dc_payments: PAYMENTS,
+  get_my_wage_payments: PAYMENTS,
   my_contact_bank_present: true,
   get_my_crew_assignments: CREW,
 };
