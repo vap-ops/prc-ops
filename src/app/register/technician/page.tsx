@@ -17,6 +17,7 @@ import { EmployeeCard } from "@/components/features/register/employee-card";
 import { resolveCardPhoto } from "@/lib/register/card-view";
 import { StaffRegistrationForm } from "@/components/features/register/staff-registration-form";
 import { ShareCardButton } from "@/components/features/register/share-card-button";
+import { RegistrationPendingNotice } from "@/components/features/register/registration-pending-notice";
 import {
   getOwnTechnicianRegistration,
   getOwnRegistrationDocuments,
@@ -107,6 +108,9 @@ async function RegistrationWorkspace({
           <p className="text-danger-ink text-sm font-semibold">ใบสมัครถูกปฏิเสธ</p>
           <p className="text-danger-ink mt-1 text-sm">{registration.reject_reason}</p>
         </div>
+      ) : null}
+      {registration.status === "pending" ? (
+        <RegistrationPendingNotice employeeId={registration.employee_id} />
       ) : null}
       <ShareCardButton
         employeeId={registration.employee_id}
