@@ -36,8 +36,11 @@ select col_type_is('public', 'equipment_rental_batches', 'rate_period', 'equipme
   'rate_period is equipment_rate_period');
 select col_not_null('public', 'equipment_rental_batches', 'rate_period',
   'rate_period is not null');
+-- col_default_is casts the expected value to the COLUMN's type before
+-- comparing (pgTAP _cdi/_def_is) — pass the enum value, not the default's
+-- text form (the text form fails 22P02 "invalid input value for enum").
 select col_default_is('public', 'equipment_rental_batches', 'rate_period',
-  $$'monthly'::equipment_rate_period$$, 'rate_period defaults to monthly');
+  'monthly'::public.equipment_rate_period, 'rate_period defaults to monthly');
 
 -- ============================================================================
 -- B. RPC signature swap + execute posture.
