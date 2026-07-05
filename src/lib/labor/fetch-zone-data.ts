@@ -58,7 +58,7 @@ export async function fetchLaborZoneData(
     (workers ?? []).map((w) => ({
       id: w.id,
       name: w.name,
-      worker_type: w.pay_type,
+      pay_type: w.pay_type,
       contractor_id: w.contractor_id,
       active: w.active,
     })),

@@ -9,6 +9,8 @@ import {
   PURCHASE_REQUEST_STATUS_LABEL,
   USER_ROLE_LABEL,
   WORK_PACKAGE_STATUS_LABEL,
+  WORKER_LABEL,
+  WORKER_TEAM_LABEL,
   formatThaiDateTime,
 } from "@/lib/i18n/labels";
 
@@ -66,6 +68,15 @@ describe("USER_ROLE_LABEL portal role split (spec 266 U7)", () => {
     expect(USER_ROLE_LABEL.technician).toBe("ช่าง");
     expect(USER_ROLE_LABEL.contractor).toBe("ผู้รับเหมา");
     expect(USER_ROLE_LABEL.contractor).not.toContain("DC");
+  });
+});
+
+// Spec 266 U8 (ADR 0073) — the merged worker vocabulary SSOT: an individual is a
+// ช่าง, the group/menu is ทีมช่าง. Pinned so it can't drift back to "DC"/"ทีมงาน".
+describe("worker identity labels (spec 266)", () => {
+  it("pins ช่าง / ทีมช่าง", () => {
+    expect(WORKER_LABEL).toBe("ช่าง");
+    expect(WORKER_TEAM_LABEL).toBe("ทีมช่าง");
   });
 });
 

@@ -1,6 +1,6 @@
-// Spec 46 P1 — roster grouping for the capture picker. Own technicians
-// first, DC workers grouped per contractor (sorted by contractor
-// name). Inactive workers never appear in the picker.
+// Spec 46 P1 — roster grouping for the capture picker. Monthly ช่าง
+// first, daily ช่าง grouped per contractor (sorted by contractor name).
+// Inactive workers never appear in the picker.
 
 import type { Database } from "@/lib/db/database.types";
 
@@ -9,7 +9,7 @@ type PayType = Database["public"]["Enums"]["pay_type"];
 export type RosterWorker = {
   id: string;
   name: string;
-  worker_type: PayType;
+  pay_type: PayType;
   contractor_id: string | null;
   active: boolean;
 };
@@ -28,9 +28,9 @@ export function groupRoster(
   const names = new Map(contractors.map((c) => [c.id, c.name]));
   const active = workers.filter((w) => w.active);
 
-  const own = active.filter((w) => w.worker_type === "monthly");
+  const own = active.filter((w) => w.pay_type === "monthly");
   const dcByContractor = new Map<string, RosterWorker[]>();
-  for (const w of active.filter((w) => w.worker_type === "daily")) {
+  for (const w of active.filter((w) => w.pay_type === "daily")) {
     const key = w.contractor_id ?? "";
     const bucket = dcByContractor.get(key);
     if (bucket) bucket.push(w);
@@ -49,7 +49,7 @@ export function groupRoster(
 }
 
 // Spec 158 U1 — client-side search over the grouped picker so a site admin
-// can find a DC in a long company-wide roster. Display-only: the caller keeps
+// can find a ช่าง in a long company-wide roster. Display-only: the caller keeps
 // selection state keyed by worker id, so filtering never drops a tick.
 export function filterRoster(roster: GroupedRoster, query: string): GroupedRoster {
   const q = query.trim().toLocaleLowerCase();

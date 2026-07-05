@@ -491,7 +491,7 @@ export default async function FinanceProjectDrillPage({
                   <span className="text-ink font-semibold tabular-nums">{baht(labor.ownCost)}</span>
                 </span>
                 <span>
-                  DC รายวัน{" "}
+                  ช่างรายวัน{" "}
                   <span className="text-ink font-semibold tabular-nums">{baht(labor.dcCost)}</span>
                 </span>
                 <span>

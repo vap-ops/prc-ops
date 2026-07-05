@@ -56,7 +56,7 @@ describe("daily report flex (spec 212)", () => {
 
   it("summarises headcount by worker type", () => {
     const all = texts(dailyReportBubble(SAMPLE_DAILY_REPORT)).join(" | ");
-    expect(all).toContain("DC 8");
+    expect(all).toContain("รายวัน 8");
     expect(all).toContain("ผู้รับเหมา 1");
   });
 
@@ -75,6 +75,6 @@ describe("daily report flex (spec 212)", () => {
     expect(msg.type).toBe("flex");
     expect(msg.contents.type).toBe("bubble");
     expect(msg.altText).toContain("TFM คำม่วง");
-    expect(dailyReportAltText(SAMPLE_DAILY_REPORT)).toContain("DC 8");
+    expect(dailyReportAltText(SAMPLE_DAILY_REPORT)).toContain("รายวัน 8");
   });
 });

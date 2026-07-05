@@ -150,20 +150,20 @@ export const SCHEDULE_VIEW_ROLES: ReadonlyArray<UserRole> = [
 ];
 
 /**
- * Spec 172 Phase C / ADR 0062: who may reach /workers AND onboard DC workers —
- * the PM set PLUS procurement. The operator gave procurement full DC-onboarding
+ * Spec 172 Phase C / ADR 0062: who may reach /workers AND onboard ช่าง —
+ * the PM set PLUS procurement. The operator gave procurement full ช่าง-onboarding
  * ownership: create/update/assign workers, issue portal invites, AND set the pay
  * rate. The `create_worker` / `update_worker` / `assign_worker_to_project` /
  * `create_worker_invite` / `set_worker_day_rate` definer RPCs admit procurement
  * (bank/tax/phone/day_rate are written through the definer, bypassing the
  * zero column-grant; reads stay admin-client behind this page gate). Members
  * coincide with BACK_OFFICE_ROLES today, but the meaning differs ("who onboards
- * DC workers", not "who curates contact master data") — keep them separate.
+ * ช่าง", not "who curates contact master data") — keep them separate.
  */
 export const WORKER_ROSTER_ROLES: ReadonlyArray<UserRole> = [
   ...PM_ROLES,
   "procurement",
-  // Spec 261 / ADR 0070: procurement_manager owns DC onboarding like procurement.
+  // Spec 261 / ADR 0070: procurement_manager owns ช่าง onboarding like procurement.
   "procurement_manager",
 ];
 
@@ -185,20 +185,20 @@ export const SUPPLY_PLAN_ROLES: ReadonlyArray<UserRole> = [
 ];
 
 /**
- * Spec 187: who may reach the DC payroll surface (/payroll) AND record DC
+ * Spec 187: who may reach the ค่าแรง (wage) payroll surface (/payroll) AND record wage
  * payments — the PM set PLUS procurement. The operator gave procurement
- * project-director parity here: it already owns DC onboarding + the pay rate
+ * project-director parity here: it already owns ช่าง onboarding + the pay rate
  * (spec 172 Phase C), so it also sees the payroll roll-up and pays it. The
- * `record_dc_payment` definer admits procurement too (migration 20260811000000);
+ * `record_wage_payment` definer admits procurement too (migration 20260811000000);
  * the page reads money via the admin client behind this gate. site_admin is
  * deliberately OUT (money surface, spec 46). Members coincide with
  * WORKER_ROSTER_ROLES / SUPPLY_PLAN_ROLES today, but the meaning differs ("who
- * sees + pays DC payroll") — keep them separate per the role-doctrine convention.
+ * sees + pays ค่าแรง payroll") — keep them separate per the role-doctrine convention.
  */
 export const PAYROLL_ROLES: ReadonlyArray<UserRole> = [
   ...PM_ROLES,
   "procurement",
-  // Spec 261 / ADR 0070: procurement_manager views + pays DC payroll like procurement.
+  // Spec 261 / ADR 0070: procurement_manager views + pays ค่าแรง payroll like procurement.
   "procurement_manager",
 ];
 

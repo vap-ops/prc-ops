@@ -87,8 +87,8 @@ function WorkerPickRow({
   );
 }
 
-// Spec 158 U2: render one roster partition — own techs (ช่างบริษัท) then DC
-// crews by contractor. Extracted so the in-project and others partitions share
+// Spec 158 U2: render one roster partition — monthly ช่าง (ช่างบริษัท) then daily
+// ช่าง crews by contractor. Extracted so the in-project and others partitions share
 // exactly one rendering. Selection lives in the parent (keyed by worker id).
 function RosterGroups({
   roster,
@@ -260,7 +260,7 @@ export function LaborLogZone({
   const [error, setError] = useState<string | null>(null);
   const [failures, setFailures] = useState<{ workerId: string; message: string }[]>([]);
   const [correcting, setCorrecting] = useState<string | null>(null);
-  // Spec 158 U1: search over the (company-wide) roster so a DC is findable.
+  // Spec 158 U1: search over the (company-wide) roster so a ช่าง is findable.
   const [query, setQuery] = useState("");
 
   const today = bangkokTodayIso();
@@ -359,7 +359,7 @@ export function LaborLogZone({
             </p>
           ) : (
             <>
-              {/* Spec 158 U1: find a DC in a long company-wide roster. */}
+              {/* Spec 158 U1: find a ช่าง in a long company-wide roster. */}
               <input
                 type="search"
                 value={query}

@@ -1,4 +1,4 @@
-// Spec 69 — DC payroll CSV download. requireRole FIRST (money: the rate
+// Spec 69 — ค่าแรง (wage) payroll CSV download. requireRole FIRST (money: the rate
 // snapshot has zero authenticated grant; the report is built via the admin
 // client). Gate = PAYROLL_VIEW_ROLES, the SAME set the /payroll page admits
 // (spec 187 procurement parity; spec 252 accounting read-only) — the page

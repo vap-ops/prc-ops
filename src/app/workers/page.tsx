@@ -3,7 +3,7 @@ import { PageShell } from "@/components/features/chrome/page-shell";
 // rates render: the page is requireRole-gated and the rates are fetched
 // with the service-role client (the column has no authenticated grant —
 // C3). Nothing here flows to a field role.
-// Spec 172 Phase C / ADR 0062: procurement joins PM/super here — it owns DC
+// Spec 172 Phase C / ADR 0062: procurement joins PM/super here — it owns ช่าง
 // onboarding (incl. the pay rate). The gate widens to WORKER_ROSTER_ROLES; the
 // admin-client day_rate read stays authorized by that same gate.
 
@@ -40,8 +40,8 @@ export default async function WorkersPage() {
           "id, name, pay_type, employment_type, contractor_id, day_rate, active, note, user_id, project_id",
         )
         .order("name", { ascending: true }),
-      // Spec 89: status + category let WorkerRosterManager hide blacklisted/non-DC
-      // crews from the new-DC-worker picker while still resolving existing names.
+      // Spec 89: status + category let WorkerRosterManager hide blacklisted/non-ช่าง
+      // crews from the new-ช่าง picker while still resolving existing names.
       supabase
         .from("contractors")
         .select("id, name, status, contractor_category")

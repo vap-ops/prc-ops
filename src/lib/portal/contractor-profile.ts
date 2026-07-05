@@ -1,5 +1,5 @@
-// Spec 132 U1 — pure validation for the DC's self-edited contactability fields
-// (portal). Thai, contractor-facing. Caps mirror the contractors CHECKs
+// Spec 132 U1 — pure validation for the portal user's self-edited contactability
+// fields (portal). Thai, portal-facing. Caps mirror the contractors CHECKs
 // (contact_person ≤120, email ≤200, mailing_address ≤500); phone ≤30 like the
 // emergency phone. All fields optional — a blank value clears that field. The
 // update_own_contractor_profile RPC re-scopes to the caller's own contractor;

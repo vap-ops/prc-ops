@@ -10,12 +10,18 @@ import type { FrictionEventType } from "@/lib/telemetry/session";
 
 type Enums = Database["public"]["Enums"];
 
-// Spec 159 U1 — the subcontractor (contractor_category='contractor'): a firm PRC
-// hires that pays its OWN crew, distinct from DC (whom PRC pays directly daily)
-// and from the general WP "ผู้รับเหมา" (which may be either — left generic on
-// purpose). Single-sourced so the term never drifts; derive variants by
-// composition (`ชื่อ${SUBCONTRACTOR_LABEL}` etc.). See prc-ops-pay-model.
+// Spec 159 U1 / spec 266 — the subcontractor (contractor_category='contractor'): a
+// firm PRC hires that pays its OWN crew, distinct from a directly-hired ช่าง (whom
+// PRC pays directly, daily) and from the general WP "ผู้รับเหมา" (which may be
+// either — left generic on purpose). Single-sourced so the term never drifts;
+// derive variants by composition (`ชื่อ${SUBCONTRACTOR_LABEL}` etc.). See prc-ops-pay-model.
 export const SUBCONTRACTOR_LABEL = "ผู้รับเหมาช่วง";
+
+// Spec 266 (ADR 0073) — the merged worker identity. An individual directly-hired
+// field person is a ช่าง; the group / menu term is ทีมช่าง. SSOT so the merged
+// vocabulary can't drift back to "DC" / "ทีมงาน" (ui-term-consistency doctrine).
+export const WORKER_LABEL = "ช่าง";
+export const WORKER_TEAM_LABEL = "ทีมช่าง";
 
 // Feedback bc6df601 — neutral fallback shown when a display name can't be
 // resolved from its id (e.g. a role that can't read `public.clients` sees a

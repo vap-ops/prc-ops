@@ -688,7 +688,7 @@ export async function recordContractorConsent(input: {
 }
 
 // ── portal invite (spec 130 U5) ──────────────────────────────────────────────
-// A PM issues a single-use, 14-day claim link a DC opens to bind their LINE login
+// A PM issues a single-use, 14-day claim link a ช่าง opens to bind their LINE login
 // to this contractor. create_contractor_invite (SECURITY DEFINER, pm/super)
 // mints the token; the UI wraps it into the /portal/claim URL.
 

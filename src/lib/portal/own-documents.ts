@@ -1,6 +1,6 @@
 import "server-only";
 
-// Spec 131 U2c — a bound DC reads their OWN contact documents on /portal. Unlike
+// Spec 131 U2c — a portal user reads their OWN contact documents on /portal. Unlike
 // the PM page (service-role admin + signed URLs), the portal MUST go through the
 // RLS-respecting session (ADR 0051 §5: external sessions never touch the admin
 // client). The DB enforces ownership twice: the contact_attachments own-contractor
@@ -17,10 +17,10 @@ type ServerClient = Awaited<ReturnType<typeof import("@/lib/db/server").createCl
 const SIGNED_URL_TTL_SECONDS = 120;
 
 export interface OwnContractorDocuments {
-  /** Signed URL of the latest upload per DC-uploadable purpose (own path only). */
+  /** Signed URL of the latest upload per portal-uploadable purpose (own path only). */
   urls: Partial<Record<PortalDocPurpose, string>>;
   /** Every contact_doc_purpose present on the caller's own rows (for completeness,
-   *  incl. PM-collected company_cert / vat_cert the DC can read but not upload). */
+   *  incl. PM-collected company_cert / vat_cert the portal user can read but not upload). */
   present: Set<string>;
 }
 

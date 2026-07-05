@@ -1,7 +1,7 @@
 // Spec 68 P2 — the PM-only labor cost view. Server Component: money is
 // rendered server-side and never enters a field bundle. It ONLY mounts on
 // the PM WP-detail page (requireRole pm/super); the SA page stays
-// presence-only. Shows own/DC subtotals + grand total, the per-worker
+// presence-only. Shows monthly/daily subtotals + grand total, the per-worker
 // breakdown, cross-WP over-allocation flags (C5), and the frozen snapshot
 // vs the live figure (with a re-freeze affordance when they drift, C6).
 
@@ -26,8 +26,8 @@ interface LaborCostViewProps {
   revalidate: string;
 }
 
-// ADR 0062 merge: dc is now a DAILY-paid ช่าง, not a "ผู้รับเหมา" (contractor) —
-// neutral labels keyed by pay_type, matching the schema's own/dc→monthly/daily
+// ADR 0062 merge: the daily lane is now a DAILY-paid ช่าง, not a "ผู้รับเหมา" (contractor) —
+// neutral labels keyed by pay_type, matching the schema's monthly/daily
 // collapse (LOGIC MAP).
 const PAY_TYPE_LABEL = { monthly: "รายเดือน", daily: "รายวัน" } as const;
 
@@ -56,11 +56,11 @@ export function LaborCostView({
       {/* Live subtotals. */}
       <dl className="flex flex-col gap-1.5 text-sm">
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-ink-secondary">ทีมตัวเอง</dt>
+          <dt className="text-ink-secondary">ช่างรายเดือน</dt>
           <dd className="text-ink font-medium">{baht(summary.ownCost)}</dd>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-ink-secondary">ผู้รับเหมา (DC)</dt>
+          <dt className="text-ink-secondary">ช่างรายวัน</dt>
           <dd className="text-ink font-medium">{baht(summary.dcCost)}</dd>
         </div>
         <div className="border-edge mt-1 flex items-center justify-between gap-3 border-t pt-2">

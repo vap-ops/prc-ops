@@ -1,6 +1,6 @@
 "use client";
 
-// Spec 170 U4b-2 / ADR 0062 — a DC worker gives/withdraws PDPA + background-check
+// Spec 170 U4b-2 / ADR 0062 — a ช่าง gives/withdraws PDPA + background-check
 // consent on /portal. Records via record_worker_consent (self-scoped to the bound
 // worker); withdrawal via revoke_contractor_consent (now admits the bound worker).
 // Mirrors the contractor ConsentCard. 'use client': per-action pending state.

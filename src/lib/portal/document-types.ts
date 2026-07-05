@@ -1,9 +1,9 @@
-// Spec 131 U2c — the documents a DC may upload from /portal: a curated subset of
-// contact_doc_purpose. Pure (client + server importable — no server-only, no
-// Supabase client). The portal uploader offers exactly these; the own-doc server
+// Spec 131 U2c — the documents a portal user may upload from /portal: a curated
+// subset of contact_doc_purpose. Pure (client + server importable — no server-only,
+// no Supabase client). The portal uploader offers exactly these; the own-doc server
 // action validates against them. company_cert / vat_cert / contract are
 // PM-collected (presence-only in the completeness card), so they are NOT here —
-// don't over-ask a day-labourer, and the company papers aren't theirs to upload.
+// don't over-ask the portal user, and the company papers aren't theirs to upload.
 
 import type { Database } from "@/lib/db/database.types";
 

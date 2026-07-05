@@ -1,11 +1,11 @@
-// Spec 69 / spec 170 U3 — DC payroll aggregation + CSV export. Runs over
+// Spec 69 / spec 170 U3 — ค่าแรง (wage) payroll aggregation + CSV export. Runs over
 // labor_logs rows read via the admin client (day_rate_snapshot present —
-// authenticated sessions can never read it, by column grant). DC only: own crew
-// are salaried, out of scope. amount = Σ (day fraction × per-row rate snapshot),
+// authenticated sessions can never read it, by column grant). daily ช่าง only:
+// own crew are salaried, out of scope. amount = Σ (day fraction × per-row rate snapshot),
 // the same rule as spec 68 cost.ts. The current-state filter (supersede
 // anti-join + tombstone, ADR 0009/0015) runs here so callers pass raw rows.
 // Pure — no UI, no I/O. Money is rendered only on the PM payroll surfaces
-// (requireRole-gated). ADR 0062: a DC is a worker (the payee), so payroll rolls
+// (requireRole-gated). ADR 0062: a ช่าง binds on workers.user_id (the payee), so payroll rolls
 // up per worker — there is no contractor grouping.
 
 import type { Database } from "@/lib/db/database.types";
@@ -64,7 +64,7 @@ function fractionDays(f: DayFraction): number {
 
 export function aggregatePayroll(rows: ReadonlyArray<PayrollInputRow>): PayrollReport {
   // Filter to current state across ALL pay types FIRST, then keep daily-pay
-  // (DC): a supersede correction re-snapshots pay_type, so a DB-level type
+  // (daily ช่าง): a supersede correction re-snapshots pay_type, so a DB-level type
   // filter could drop a superseding row and miscount the stale one (spec 69).
   const current = currentRows(rows).filter((r) => r.pay_type_snapshot === "daily");
 

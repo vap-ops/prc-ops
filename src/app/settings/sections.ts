@@ -18,7 +18,12 @@ import {
   Wrench,
 } from "lucide-react";
 import { ACCOUNTING_ROLES, isManagerRole, type UserRole } from "@/lib/auth/role-home";
-import { CATALOG_LABEL, ORDERING_TEMPLATES_LABEL, SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
+import {
+  CATALOG_LABEL,
+  ORDERING_TEMPLATES_LABEL,
+  SUBCONTRACTOR_LABEL,
+  WORKER_TEAM_LABEL,
+} from "@/lib/i18n/labels";
 
 // The /settings hub's section/entry SSOT — which doors exist, under which
 // heading, visible to whom. Pure data (no JSX) so the role→entries matrix is
@@ -147,7 +152,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   // (isBackOffice); subcontractors (ผู้รับเหมาช่วง) stay under master-data.
   {
     key: "labor-team",
-    title: "ทีมช่าง",
+    title: WORKER_TEAM_LABEL,
     visible: isBackOffice,
     entries: [
       {
