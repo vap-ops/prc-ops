@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildGroupingTemplate,
   parseGroupingTemplate,
+  toExistingWp,
+  toRpcRows,
   validateGrouping,
   type ExistingWp,
 } from "@/lib/work-packages/grouping-import";
@@ -197,6 +199,39 @@ describe("validateGrouping", () => {
       res.warnings.some((w) => w.code === "WP-101" && /childless|no งานย่อย/i.test(w.message)),
     ).toBe(true);
     expect(res.warnings.some((w) => w.code === "G-9" && /format/i.test(w.message))).toBe(true);
+  });
+});
+
+describe("toExistingWp", () => {
+  it("maps DB rows to ExistingWp with parentCode resolved via the id map", () => {
+    const out = toExistingWp([
+      { id: "g1", code: "WP-101", name: "กลุ่ม", is_group: true, parent_id: null },
+      { id: "l1", code: "WP-001", name: "งาน", is_group: false, parent_id: "g1" },
+      { id: "l2", code: "WP-002", name: "งานสอง", is_group: false, parent_id: null },
+    ]);
+    expect(out).toEqual([
+      { code: "WP-101", name: "กลุ่ม", isGroup: true, parentCode: null },
+      { code: "WP-001", name: "งาน", isGroup: false, parentCode: "WP-101" },
+      { code: "WP-002", name: "งานสอง", isGroup: false, parentCode: null },
+    ]);
+  });
+});
+
+describe("toRpcRows", () => {
+  it("maps parsed rows to the RPC's snake_case payload", () => {
+    const { rows } = parseGroupingTemplate(goodText);
+    expect(toRpcRows(rows)[0]).toEqual({
+      sub_of: null,
+      code: "WP-101",
+      old_code: null,
+      name: "งานเตรียมพื้นที่",
+    });
+    expect(toRpcRows(rows)[1]).toEqual({
+      sub_of: "WP-101",
+      code: "WP-102",
+      old_code: "WP-001",
+      name: "งานหาพิกัด",
+    });
   });
 });
 

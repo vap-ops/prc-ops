@@ -1843,6 +1843,7 @@ export type Database = {
           monthly_rate: number
           note: string | null
           owner_id: string
+          rate_period: Database["public"]["Enums"]["equipment_rate_period"]
           starts_on: string
         }
         Insert: {
@@ -1853,6 +1854,7 @@ export type Database = {
           monthly_rate: number
           note?: string | null
           owner_id: string
+          rate_period?: Database["public"]["Enums"]["equipment_rate_period"]
           starts_on: string
         }
         Update: {
@@ -1863,6 +1865,7 @@ export type Database = {
           monthly_rate?: number
           note?: string | null
           owner_id?: string
+          rate_period?: Database["public"]["Enums"]["equipment_rate_period"]
           starts_on?: string
         }
         Relationships: [
@@ -5804,9 +5807,11 @@ export type Database = {
           deliverable_id: string | null
           description: string | null
           id: string
+          is_group: boolean
           name: string
           notes: string | null
           owner_id: string | null
+          parent_id: string | null
           planned_end: string | null
           planned_start: string | null
           priority: Database["public"]["Enums"]["work_package_priority"]
@@ -5823,9 +5828,11 @@ export type Database = {
           deliverable_id?: string | null
           description?: string | null
           id?: string
+          is_group?: boolean
           name: string
           notes?: string | null
           owner_id?: string | null
+          parent_id?: string | null
           planned_end?: string | null
           planned_start?: string | null
           priority?: Database["public"]["Enums"]["work_package_priority"]
@@ -5842,9 +5849,11 @@ export type Database = {
           deliverable_id?: string | null
           description?: string | null
           id?: string
+          is_group?: boolean
           name?: string
           notes?: string | null
           owner_id?: string | null
+          parent_id?: string | null
           planned_end?: string | null
           planned_start?: string | null
           priority?: Database["public"]["Enums"]["work_package_priority"]
@@ -5880,6 +5889,13 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_packages_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "work_packages"
             referencedColumns: ["id"]
           },
           {
@@ -6874,6 +6890,7 @@ export type Database = {
           p_monthly_rate: number
           p_note?: string
           p_owner_id: string
+          p_rate_period?: Database["public"]["Enums"]["equipment_rate_period"]
           p_starts_on: string
         }
         Returns: string
@@ -7147,6 +7164,10 @@ export type Database = {
       grant_client_access: {
         Args: { p_project: string; p_user_id: string; p_valid_until: string }
         Returns: undefined
+      }
+      import_wp_grouping: {
+        Args: { p_project_id: string; p_rows: Json }
+        Returns: Json
       }
       invoke_notification_drain: { Args: never; Returns: undefined }
       is_back_office: {
@@ -8264,6 +8285,7 @@ export type Database = {
         | "returned"
         | "maintenance"
         | "lost"
+      equipment_rate_period: "monthly" | "daily"
       equipment_status:
         | "available"
         | "on_site"
@@ -8648,6 +8670,7 @@ export const Constants = {
         "maintenance",
         "lost",
       ],
+      equipment_rate_period: ["monthly", "daily"],
       equipment_status: [
         "available",
         "on_site",
