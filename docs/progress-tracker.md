@@ -6225,3 +6225,25 @@ the stale `get_my_dc_payments`comment (portal/page.tsx:7) +`record_dc_payment`
   `settings-section-card`'s master-data link count 7→6 (RED → edited `sections.ts` →
   GREEN). lint + typecheck clean; full suite green. Code-only → self-merges on green.
 - Note: `WORKER` label SSOT (roster/entry labels currently literals) lands in **U8**.
+
+## Spec 266 U5 — Nova external tier — ✅ VERIFIED + CLOSED (2026-07-05, no code/DB change)
+
+- **The prompt's `p_include_dc` param does not exist** — grep of `src/ supabase/ tests/`
+  finds it only in a comment inside the U1 migration. `distribute_project_coins` takes a
+  single arg `p_project`; there is no include-flag param to rename anywhere. Closed as
+  a non-item.
+- **The Nova DB repoint was already done in U1** (folded in): `distribute_project_coins`
+  reads `w.employment_type = 'temporary'` for the external tier (migration
+  `20260813071700` line 795), and `coin_unvested_balance` likewise (line 871). The old
+  `dc_arrangement='temporary'` read is gone.
+- **`dc_count` / `dc_distributed` are deliberately KEPT** — they are persisted columns on
+  the Nova settlement table + the `distribute_project_coins` RETURN signature (U1 migration
+  line 720: "Return columns dc_distributed/dc_count kept (sig)"). Renaming them is a
+  destructive money/GL migration explicitly **out of this program's scope** (same posture
+  as the kept `dc_payment_recorded` audit value + `wp_labor_costs.own_cost/dc_cost`);
+  recorded as an **optional future cleanup**, not U5/U8. They are internal accounting names,
+  not user-facing labels.
+- Verification: full `pnpm db:test` re-confirms the Nova pgTAP (104/106/107/108/109/110/116)
+  green against the live DB (unchanged since U1's 231/233 — only pre-existing flakes 200
+  store-GL-drift + 221 catalog-count). No migration, no code edit → **verify + close**; the
+  PR carries only this tracker note (docs-only → self-merges on green).
