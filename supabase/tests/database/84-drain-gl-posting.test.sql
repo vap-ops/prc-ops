@@ -15,8 +15,8 @@ insert into public.projects (id, code, name) values
 insert into public.work_packages (id, project_id, code, name) values
   ('ee000001-0000-4000-8000-000000000624', 'cc000001-0000-4000-8000-000000000624', 'WP-DR-1', 'Drain WP');
 -- ADR 0062: a DC payment keys on the worker (the payee), not a contractor.
-insert into public.workers (id, name, worker_type, day_rate, active, created_by) values
-  ('aa000001-0000-4000-8000-000000000624', 'Drain DC', 'dc', 200.00, true,
+insert into public.workers (id, name, pay_type, employment_type, day_rate, active, created_by) values
+  ('aa000001-0000-4000-8000-000000000624', 'Drain DC', 'daily', 'permanent', 200.00, true,
    '11111111-1111-1111-1111-111111110624');
 insert into public.equipment_owners (id, name, created_by) values
   ('b0000001-0000-4000-8000-000000000624', 'Drain Sister Co', '11111111-1111-1111-1111-111111110624');
@@ -29,7 +29,7 @@ insert into public.suppliers (id, name, created_by) values
 delete from public.gl_posting_outbox;
 
 -- Subledger rows -> the U4a triggers enqueue four pending jobs.
-insert into public.dc_payments
+insert into public.wage_payments
   (id, worker_id, period_from, period_to, computed_amount, computed_days, paid_amount, paid_at, method, paid_by)
 values
   ('d1000001-0000-4000-8000-000000000624', 'aa000001-0000-4000-8000-000000000624',
@@ -51,7 +51,7 @@ values
 -- A. Catalog.
 -- ============================================================================
 select has_function('public', 'drain_gl_posting', 'drain_gl_posting exists');
-select has_function('public', 'post_dc_payment_to_gl', 'post_dc_payment_to_gl exists');
+select has_function('public', 'post_wage_payment_to_gl', 'post_wage_payment_to_gl exists');
 select has_function('public', 'post_labor_freeze_to_gl', 'post_labor_freeze_to_gl exists');
 select has_function('public', 'post_rental_batch_to_gl', 'post_rental_batch_to_gl exists');
 select is((select is_postable from public.gl_accounts where code = '2130'),
@@ -71,13 +71,13 @@ select is((select count(*) from public.gl_posting_outbox
 -- is a worker, journal_lines has no worker dimension → the line carries no party.
 select is((select count(*) from public.journal_lines
   where entry_id = (select id from public.journal_entries
-      where source_table='dc_payments' and source_id='d1000001-0000-4000-8000-000000000624' and source_event='dc_payment')
+      where source_table='wage_payments' and source_id='d1000001-0000-4000-8000-000000000624' and source_event='wage_payment')
     and account_id = (select id from public.gl_accounts where code='2110')
     and debit = 1000 and contractor_id is null),
   1::bigint, 'DC payment debits DC-clearing 1000 (no party — worker payee)');
 select is((select count(*) from public.journal_lines
   where entry_id = (select id from public.journal_entries
-      where source_table='dc_payments' and source_id='d1000001-0000-4000-8000-000000000624' and source_event='dc_payment')
+      where source_table='wage_payments' and source_id='d1000001-0000-4000-8000-000000000624' and source_event='wage_payment')
     and account_id = (select id from public.gl_accounts where code='1110') and credit = 1000),
   1::bigint, 'DC payment credits Bank 1000');
 
@@ -136,7 +136,7 @@ select is((select sum(debit) from public.journal_lines
 -- ============================================================================
 -- D. Void a DC payment (supersede -> reverse old, post nothing new).
 -- ============================================================================
-insert into public.dc_payments
+insert into public.wage_payments
   (id, worker_id, period_from, period_to, computed_amount, computed_days,
    paid_amount, paid_at, method, paid_by, superseded_by, correction_reason)
 values
@@ -145,8 +145,8 @@ values
    '11111111-1111-1111-1111-111111110624', 'd1000001-0000-4000-8000-000000000624', 'wrong amount');
 select is((select public.drain_gl_posting(100)), 1, 'drain processes the void');
 select is((select count(*) from public.journal_entries e
-  where e.source_table='dc_payments' and e.source_id='d1000001-0000-4000-8000-000000000624'
-    and e.source_event='dc_payment'
+  where e.source_table='wage_payments' and e.source_id='d1000001-0000-4000-8000-000000000624'
+    and e.source_event='wage_payment'
     and not exists (select 1 from public.journal_entries r where r.reversal_of = e.id)),
   0::bigint, 'the original DC payment entry is now reversed (no current entry)');
 select is((select count(*) from public.gl_posting_outbox

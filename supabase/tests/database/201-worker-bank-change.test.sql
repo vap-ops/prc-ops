@@ -20,10 +20,10 @@ update public.users set role = 'site_admin'      where id = '51000000-0000-4000-
 
 -- Worker A is bound to user wA (portal). Worker B is unbound (queue fixture).
 -- Both DC, both start with NO bank on file so approve/reject effects are visible.
-insert into public.workers (id, name, worker_type, day_rate, dc_arrangement, user_id, created_by) values
-  ('aa000000-0000-4000-8000-000000000201', 'Worker A', 'dc', 500, 'temporary',
+insert into public.workers (id, name, pay_type, employment_type, day_rate, user_id, created_by) values
+  ('aa000000-0000-4000-8000-000000000201', 'Worker A', 'daily', 'temporary', 500,
    'a1000000-0000-4000-8000-000000000201', '11111111-1111-1111-1111-111111110201'),
-  ('bb000000-0000-4000-8000-000000000201', 'Worker B', 'dc', 500, 'temporary',
+  ('bb000000-0000-4000-8000-000000000201', 'Worker B', 'daily', 'temporary', 500,
    null, '11111111-1111-1111-1111-111111110201');
 -- wA becomes a bound contractor-tier user (the portal role for a claimed worker).
 update public.users set role = 'contractor' where id = 'a1000000-0000-4000-8000-000000000201';

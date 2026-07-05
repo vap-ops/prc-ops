@@ -30,15 +30,15 @@ insert into public.projects (id, code, name, status) values
 insert into public.work_packages (id, project_id, code, name, status) values
   ('c2220109-0109-0109-0109-c2c2c2c20109', 'a2220109-0109-0109-0109-a2a2a2a20109',
    'WP-B', 'งาน', 'complete');
-insert into public.workers (id, name, worker_type, contractor_id, user_id, day_rate, active, level, created_by) values
-  ('d1110109-0109-0109-0109-d1d1d1d10109', 'DC1', 'dc', null, null, 0, true, 'senior', '11111111-1111-1111-1111-111111110109'),
-  ('d2220109-0109-0109-0109-d2d2d2d20109', 'DC2', 'dc', null, null, 0, true, 'senior', '11111111-1111-1111-1111-111111110109'),
-  ('d3330109-0109-0109-0109-d3d3d3d30109', 'DC3', 'dc', null, null, 0, true, 'senior', '11111111-1111-1111-1111-111111110109');
+insert into public.workers (id, name, pay_type, employment_type, contractor_id, user_id, day_rate, active, level, created_by) values
+  ('d1110109-0109-0109-0109-d1d1d1d10109', 'DC1', 'daily', 'permanent', null, null, 0, true, 'senior', '11111111-1111-1111-1111-111111110109'),
+  ('d2220109-0109-0109-0109-d2d2d2d20109', 'DC2', 'daily', 'permanent', null, null, 0, true, 'senior', '11111111-1111-1111-1111-111111110109'),
+  ('d3330109-0109-0109-0109-d3d3d3d30109', 'DC3', 'daily', 'permanent', null, null, 0, true, 'senior', '11111111-1111-1111-1111-111111110109');
 insert into public.labor_logs (id, work_package_id, worker_id, work_date, day_fraction,
-    day_rate_snapshot, worker_name_snapshot, worker_type_snapshot, contractor_id_snapshot, entered_by) values
-  ('fa110109-0109-0109-0109-fa11fa110109', 'c2220109-0109-0109-0109-c2c2c2c20109', 'd1110109-0109-0109-0109-d1d1d1d10109', date '2026-06-10', 'full', 0, 'DC1', 'dc', null, '11111111-1111-1111-1111-111111110109'),
-  ('fa220109-0109-0109-0109-fa22fa220109', 'c2220109-0109-0109-0109-c2c2c2c20109', 'd2220109-0109-0109-0109-d2d2d2d20109', date '2026-06-10', 'full', 0, 'DC2', 'dc', null, '11111111-1111-1111-1111-111111110109'),
-  ('fa330109-0109-0109-0109-fa33fa330109', 'c2220109-0109-0109-0109-c2c2c2c20109', 'd3330109-0109-0109-0109-d3d3d3d30109', date '2026-06-10', 'full', 0, 'DC3', 'dc', null, '11111111-1111-1111-1111-111111110109');
+    day_rate_snapshot, worker_name_snapshot, pay_type_snapshot, entered_by) values
+  ('fa110109-0109-0109-0109-fa11fa110109', 'c2220109-0109-0109-0109-c2c2c2c20109', 'd1110109-0109-0109-0109-d1d1d1d10109', date '2026-06-10', 'full', 0, 'DC1', 'daily', '11111111-1111-1111-1111-111111110109'),
+  ('fa220109-0109-0109-0109-fa22fa220109', 'c2220109-0109-0109-0109-c2c2c2c20109', 'd2220109-0109-0109-0109-d2d2d2d20109', date '2026-06-10', 'full', 0, 'DC2', 'daily', '11111111-1111-1111-1111-111111110109'),
+  ('fa330109-0109-0109-0109-fa33fa330109', 'c2220109-0109-0109-0109-c2c2c2c20109', 'd3330109-0109-0109-0109-d3d3d3d30109', date '2026-06-10', 'full', 0, 'DC3', 'daily', '11111111-1111-1111-1111-111111110109');
 -- Settlement pool seeded directly (no HT → full pool distributes).
 insert into public.project_settlements (project_id, coin_multiplier, banked_profit_total,
     coin_pool, wp_banked_count, wp_skipped_null_budget_count, equipment_costed, settled_by)

@@ -171,7 +171,7 @@ select ok(
   (select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.proname = 'drain_gl_posting')
     like all (array[
-      '%purchase_requests%', '%dc_payments%', '%wp_labor_costs%',
+      '%purchase_requests%', '%wage_payments%', '%wp_labor_costs%',
       '%equipment_rental_batches%', '%client_billings%', '%retention_receivables%',
       '%wht_certificates%', '%client_receipts%', '%stock_receipts%',
       '%stock_issues%', '%stock_returns%', '%stock_counts%', '%stock_reversals%',

@@ -19,11 +19,11 @@ update public.users set role='project_manager' where id='33333333-3333-3333-3333
 
 -- Buyer (500 coins) + a poor worker (50). Coins seeded with an OLD occurred_at so
 -- they are VESTED (forward-compatible with U6b, which restricts redeem to vested).
-insert into public.workers (id, name, worker_type, contractor_id, user_id,
+insert into public.workers (id, name, pay_type, employment_type, contractor_id, user_id,
                             day_rate, active, created_by) values
-  ('e1110107-0107-0107-0107-e1e1e1e10107', 'ผู้ซื้อ',   'dc', null, null, 0, true,
+  ('e1110107-0107-0107-0107-e1e1e1e10107', 'ผู้ซื้อ',   'daily', 'permanent', null, null, 0, true,
    '11111111-1111-1111-1111-111111110107'),
-  ('e2220107-0107-0107-0107-e2e2e2e20107', 'เงินน้อย', 'dc', null, null, 0, true,
+  ('e2220107-0107-0107-0107-e2e2e2e20107', 'เงินน้อย', 'daily', 'permanent', null, null, 0, true,
    '11111111-1111-1111-1111-111111110107');
 insert into public.coin_postings (worker_id, source, amount, reason, occurred_at, created_by) values
   ('e1110107-0107-0107-0107-e1e1e1e10107', 'profit_share', 500, 'seed', timestamptz '2020-01-01',

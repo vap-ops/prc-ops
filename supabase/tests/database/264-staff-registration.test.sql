@@ -99,8 +99,9 @@ select col_type_is('public', 'staff_registrations', 'declared_role_hint', 'text'
 select has_table('public', 'staff_consents', 'staff_consents table exists');
 select has_function('public', 'record_staff_consent', array['staff_consent_kind'],
   'record_staff_consent(staff_consent_kind) exists');
-select has_function('public', 'approve_staff_registration', array['uuid','user_role','uuid'],
-  'approve_staff_registration(uuid, user_role, uuid) — role-parametric');
+select has_function('public', 'approve_staff_registration',
+  array['uuid','user_role','uuid','pay_type','employment_type'],
+  'approve_staff_registration(uuid, user_role, uuid, pay_type, employment_type) — role-parametric');
 select has_function('public', 'reject_staff_registration', array['uuid','text'],
   'reject_staff_registration(uuid, text) exists');
 
@@ -134,7 +135,8 @@ select is(
         'record_staff_consent','approve_staff_registration','reject_staff_registration')
       and grantee in ('public','anon')),
   0, 'no PUBLIC/anon EXECUTE on any spec-264 function');
-select function_privs_are('public', 'approve_staff_registration', array['uuid','user_role','uuid'],
+select function_privs_are('public', 'approve_staff_registration',
+  array['uuid','user_role','uuid','pay_type','employment_type'],
   'authenticated', array['EXECUTE'], 'authenticated can execute approve_staff_registration');
 select function_privs_are('public', 'record_staff_consent', array['staff_consent_kind'],
   'authenticated', array['EXECUTE'], 'authenticated can execute record_staff_consent');
@@ -296,8 +298,8 @@ select is((select role::text from public.users where id='d1111111-1111-1111-1111
   'technician', 'applicant role flipped to technician');
 select is((select count(*)::int from public.workers where user_id='d1111111-1111-1111-1111-11111111d264'),
   1, 'exactly one workers row created for the field role');
-select is((select worker_type::text from public.workers where user_id='d1111111-1111-1111-1111-11111111d264'),
-  'own', 'worker_type = own');
+select is((select pay_type::text from public.workers where user_id='d1111111-1111-1111-1111-11111111d264'),
+  'monthly', 'pay_type = monthly');
 select is((select employee_id from public.workers where user_id='d1111111-1111-1111-1111-11111111d264'),
   'PRC-91-0001', 'workers.employee_id carried from the registration');
 -- PII COPIED onto the worker (the spec-264 correction).

@@ -8,7 +8,7 @@ select plan(10);
 -- legitimate custody UPDATE; see the migration's SCOPE CORRECTION note.) Every writer is a postgres-owned SECURITY
 -- DEFINER RPC, so REVOKE does not constrain that path — only a BEFORE
 -- UPDATE/DELETE trigger does (the layer-3 backstop that labor_logs / photo_logs
--- / dc_payments / equipment_usage_logs already carry). A re-sourced
+-- / wage_payments / equipment_usage_logs already carry). A re-sourced
 -- CREATE OR REPLACE definer bug (a trap this repo has hit on the GL drain)
 -- could otherwise silently mutate an immutable money/custody row.
 --

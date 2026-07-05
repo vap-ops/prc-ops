@@ -28,11 +28,11 @@ insert into public.contractors (id, name, created_by) values
   ('dd000001-0000-4000-8000-000000000001', 'DC Crew',
    '11111111-1111-1111-1111-111111110068');
 
-insert into public.workers (id, name, worker_type, contractor_id, user_id,
+insert into public.workers (id, name, pay_type, employment_type, contractor_id, user_id,
                             day_rate, active, created_by) values
-  ('aa000001-0000-4000-8000-000000000001', 'Own A', 'own', null, null,
+  ('aa000001-0000-4000-8000-000000000001', 'Own A', 'monthly', 'permanent', null, null,
    500.00, true, '11111111-1111-1111-1111-111111110068'),
-  ('aa000003-0000-4000-8000-000000000003', 'DC C', 'dc',
+  ('aa000003-0000-4000-8000-000000000003', 'DC C', 'daily', 'permanent',
    'dd000001-0000-4000-8000-000000000001', null, 380.00, true,
    '11111111-1111-1111-1111-111111110068');
 
@@ -43,28 +43,27 @@ insert into public.workers (id, name, worker_type, contractor_id, user_id,
 -- Expected first freeze: own = 500 + 250 = 750.00, dc = 380.00.
 insert into public.labor_logs (id, work_package_id, worker_id, work_date,
     day_fraction, day_rate_snapshot, worker_name_snapshot,
-    worker_type_snapshot, contractor_id_snapshot, entered_by) values
+    pay_type_snapshot, entered_by) values
   ('fa000001-0000-4000-8000-000000000001',
    'ee000001-0000-4000-8000-000000000001', 'aa000001-0000-4000-8000-000000000001',
-   date '2026-06-10', 'full', 500.00, 'Own A', 'own', null,
+   date '2026-06-10', 'full', 500.00, 'Own A', 'monthly',
    '11111111-1111-1111-1111-111111110068'),
   ('fa000002-0000-4000-8000-000000000002',
    'ee000001-0000-4000-8000-000000000001', 'aa000003-0000-4000-8000-000000000003',
-   date '2026-06-11', 'full', 380.00, 'DC C', 'dc',
-   'dd000001-0000-4000-8000-000000000001',
+   date '2026-06-11', 'full', 380.00, 'DC C', 'daily',
    '11111111-1111-1111-1111-111111110068'),
   ('fa000003-0000-4000-8000-000000000003',
    'ee000001-0000-4000-8000-000000000001', 'aa000001-0000-4000-8000-000000000001',
-   date '2026-06-12', 'full', 500.00, 'Own A', 'own', null,
+   date '2026-06-12', 'full', 500.00, 'Own A', 'monthly',
    '11111111-1111-1111-1111-111111110068');
 -- correction supersedes fa...03 (full -> half).
 insert into public.labor_logs (id, work_package_id, worker_id, work_date,
     day_fraction, day_rate_snapshot, worker_name_snapshot,
-    worker_type_snapshot, contractor_id_snapshot, entered_by,
+    pay_type_snapshot, entered_by,
     superseded_by, correction_reason) values
   ('fa000004-0000-4000-8000-000000000004',
    'ee000001-0000-4000-8000-000000000001', 'aa000001-0000-4000-8000-000000000001',
-   date '2026-06-12', 'half', 500.00, 'Own A', 'own', null,
+   date '2026-06-12', 'half', 500.00, 'Own A', 'monthly',
    '11111111-1111-1111-1111-111111110068',
    'fa000003-0000-4000-8000-000000000003', 'แก้เป็นครึ่งวัน');
 
@@ -151,11 +150,11 @@ select is(
 -- Supersede fa...01 (06-10 full) with a half correction -> own now 250+250=500.
 insert into public.labor_logs (id, work_package_id, worker_id, work_date,
     day_fraction, day_rate_snapshot, worker_name_snapshot,
-    worker_type_snapshot, contractor_id_snapshot, entered_by,
+    pay_type_snapshot, entered_by,
     superseded_by, correction_reason) values
   ('fa000005-0000-4000-8000-000000000005',
    'ee000001-0000-4000-8000-000000000001', 'aa000001-0000-4000-8000-000000000001',
-   date '2026-06-10', 'half', 500.00, 'Own A', 'own', null,
+   date '2026-06-10', 'half', 500.00, 'Own A', 'monthly',
    '11111111-1111-1111-1111-111111110068',
    'fa000001-0000-4000-8000-000000000001', 'แก้ย้อนหลัง');
 

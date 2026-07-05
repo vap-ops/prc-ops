@@ -31,14 +31,14 @@ insert into public.project_members (project_id, user_id, added_by) values
    '19191919-1919-1919-1919-000000000183');
 -- Workers: receiver (portal-bound, project 1), other (project 1), elsewhere
 -- (project 2), inactive (project 1).
-insert into public.workers (id, name, worker_type, project_id, user_id, active, created_by) values
-  ('b0000001-0000-0000-0000-000000000183', 'ผู้รับ', 'dc', 'aa000000-0000-0000-0000-000000000183',
+insert into public.workers (id, name, pay_type, employment_type, project_id, user_id, active, created_by) values
+  ('b0000001-0000-0000-0000-000000000183', 'ผู้รับ', 'daily', 'permanent', 'aa000000-0000-0000-0000-000000000183',
    'a1111111-1111-1111-1111-000000000183', true, '19191919-1919-1919-1919-000000000183'),
-  ('b0000002-0000-0000-0000-000000000183', 'คนอื่น', 'dc', 'aa000000-0000-0000-0000-000000000183',
+  ('b0000002-0000-0000-0000-000000000183', 'คนอื่น', 'daily', 'permanent', 'aa000000-0000-0000-0000-000000000183',
    'a2222222-2222-2222-2222-000000000183', true, '19191919-1919-1919-1919-000000000183'),
-  ('b0000003-0000-0000-0000-000000000183', 'อีกไซต์', 'dc', 'bb000000-0000-0000-0000-000000000183',
+  ('b0000003-0000-0000-0000-000000000183', 'อีกไซต์', 'daily', 'permanent', 'bb000000-0000-0000-0000-000000000183',
    null, true, '19191919-1919-1919-1919-000000000183'),
-  ('b0000004-0000-0000-0000-000000000183', 'พ้นสภาพ', 'dc', 'aa000000-0000-0000-0000-000000000183',
+  ('b0000004-0000-0000-0000-000000000183', 'พ้นสภาพ', 'daily', 'permanent', 'aa000000-0000-0000-0000-000000000183',
    null, false, '19191919-1919-1919-1919-000000000183');
 -- Seed on-hand: 100 @ avg 10.
 insert into public.stock_on_hand (project_id, catalog_item_id, qty_on_hand, total_value) values

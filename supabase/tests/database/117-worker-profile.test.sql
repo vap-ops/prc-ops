@@ -21,10 +21,10 @@ update public.users set role = 'contractor'      where id = '33333333-3333-3333-
 
 -- A DC worker bound to the portal user 33.. (workers.user_id), seeded with a
 -- name, rate and tax_id so the column-scope assertions can prove they're untouched.
-insert into public.workers (id, name, worker_type, day_rate, active, created_by, dc_arrangement,
+insert into public.workers (id, name, pay_type, employment_type, day_rate, active, created_by,
                             tax_id, bank_name, bank_account_number, bank_account_name, user_id) values
-  ('aa000001-0000-4000-8000-000000004171', 'DC A', 'dc', 400.00, true,
-   '11111111-1111-1111-1111-111111114171', 'regular', 'TAX-A',
+  ('aa000001-0000-4000-8000-000000004171', 'DC A', 'daily', 'permanent', 400.00, true,
+   '11111111-1111-1111-1111-111111114171', 'TAX-A',
    'KBank', '123-4-56789-0', 'DC A', '33333333-3333-3333-3333-333333334171');
 
 grant insert on _tap_buf to authenticated, anon;

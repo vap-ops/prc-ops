@@ -18,8 +18,8 @@ update public.users set role='super_admin'     where id='11111111-1111-1111-1111
 update public.users set role='project_manager' where id='33333333-3333-3333-3333-333333330198';
 -- '8888…' stays visitor.
 
-insert into public.workers (id, name, worker_type, contractor_id, user_id, day_rate, active, created_by)
-  values ('aaaa0198-0198-0198-0198-aaaaaaaa0198', 'ช่าง ก', 'own', null, null, 0, true,
+insert into public.workers (id, name, pay_type, employment_type, contractor_id, user_id, day_rate, active, created_by)
+  values ('aaaa0198-0198-0198-0198-aaaaaaaa0198', 'ช่าง ก', 'monthly', 'permanent', null, null, 0, true,
           '11111111-1111-1111-1111-111111110198');
 
 -- A. Catalog + seed (as owner).

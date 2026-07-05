@@ -24,23 +24,23 @@ insert into public.contractors (id, name, contractor_category, contractor_subtyp
   values ('cc550108-0108-0108-0108-cc55cc550108', 'รับเหมาชั่วคราว', 'dc', 'dc_temporary',
           '11111111-1111-1111-1111-111111110108');
 
-insert into public.workers (id, name, worker_type, contractor_id, user_id, day_rate, active, created_by) values
-  ('e1110108-0108-0108-0108-e1e1e1e10108', 'ภายในผสม',   'dc', null, null, 0, true,
+insert into public.workers (id, name, pay_type, employment_type, contractor_id, user_id, day_rate, active, created_by) values
+  ('e1110108-0108-0108-0108-e1e1e1e10108', 'ภายในผสม',   'daily', 'permanent', null, null, 0, true,
    '11111111-1111-1111-1111-111111110108'),
-  ('e2220108-0108-0108-0108-e2e2e2e20108', 'ภายนอกล็อก', 'dc',
+  ('e2220108-0108-0108-0108-e2e2e2e20108', 'ภายนอกล็อก', 'daily', 'permanent',
    'cc550108-0108-0108-0108-cc55cc550108', null, 0, true, '11111111-1111-1111-1111-111111110108'),
-  ('e3330108-0108-0108-0108-e3e3e3e30108', 'ยึดเหรียญ',  'dc', null, null, 0, true,
+  ('e3330108-0108-0108-0108-e3e3e3e30108', 'ยึดเหรียญ',  'daily', 'permanent', null, null, 0, true,
    '11111111-1111-1111-1111-111111110108'),
-  ('e4440108-0108-0108-0108-e4e4e4e40108', 'ครบกำหนด',   'dc', null, null, 0, true,
+  ('e4440108-0108-0108-0108-e4e4e4e40108', 'ครบกำหนด',   'daily', 'permanent', null, null, 0, true,
    '11111111-1111-1111-1111-111111110108'),
-  ('e5550108-0108-0108-0108-e5e5e5e50108', 'นักออม',     'dc', null, null, 0, true,
+  ('e5550108-0108-0108-0108-e5e5e5e50108', 'นักออม',     'daily', 'permanent', null, null, 0, true,
    '11111111-1111-1111-1111-111111110108'),
-  ('e6660108-0108-0108-0108-e6e6e6e60108', 'ใช้จ่าย',    'dc', null, null, 0, true,
+  ('e6660108-0108-0108-0108-e6e6e6e60108', 'ใช้จ่าย',    'daily', 'permanent', null, null, 0, true,
    '11111111-1111-1111-1111-111111110108');
 
 -- ADR 0062 U2: external = the WORKER's ชั่วคราว arrangement (was the contractor's
 -- dc_temporary subtype). Mark the locked external DC accordingly.
-update public.workers set dc_arrangement = 'temporary'
+update public.workers set employment_type = 'temporary'
  where contractor_id = 'cc550108-0108-0108-0108-cc55cc550108';
 
 -- Coins. OLD ('2020-01-01') = past the 365d tail → vested. RECENT ('2026-06-20') =

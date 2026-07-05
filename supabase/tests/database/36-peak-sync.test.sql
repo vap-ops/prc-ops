@@ -64,32 +64,32 @@ select throws_ok(
 -- visitor refused.
 set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222220129"}';
 select throws_ok(
-  $$ select public.enqueue_peak_sync('expense', 'dc_payments',
+  $$ select public.enqueue_peak_sync('expense', 'wage_payments',
        '33333333-3333-3333-3333-333333330129', 'create', '{}'::jsonb) $$,
   '42501', null, 'enqueue_peak_sync refuses a non-staff role');
 
 -- site_admin enqueues.
 set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111110129"}';
 select lives_ok(
-  $$ select public.enqueue_peak_sync('expense', 'dc_payments',
+  $$ select public.enqueue_peak_sync('expense', 'wage_payments',
        '33333333-3333-3333-3333-333333330129', 'create',
        '{"amount": 570}'::jsonb) $$,
   'site_admin enqueues a PEAK sync job');
 -- idempotent: the same (source, operation) again must NOT add a second row.
 select lives_ok(
-  $$ select public.enqueue_peak_sync('expense', 'dc_payments',
+  $$ select public.enqueue_peak_sync('expense', 'wage_payments',
        '33333333-3333-3333-3333-333333330129', 'create', '{}'::jsonb) $$,
   're-enqueue of a live job is a no-op insert (returns the existing id)');
 
 reset role;
 select is(
   (select count(*) from public.peak_sync_outbox
-    where source_table = 'dc_payments'
+    where source_table = 'wage_payments'
       and source_id = '33333333-3333-3333-3333-333333330129'),
   1::bigint, 'exactly one outbox row despite two enqueue calls (idempotent)');
 select is(
   (select status from public.peak_sync_outbox
-    where source_table = 'dc_payments'
+    where source_table = 'wage_payments'
       and source_id = '33333333-3333-3333-3333-333333330129'),
   'pending'::public.peak_sync_status, 'enqueued job starts pending');
 

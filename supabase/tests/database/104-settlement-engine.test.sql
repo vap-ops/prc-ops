@@ -55,15 +55,15 @@ insert into public.wp_economics (work_package_id, budget) values
   ('c5550104-0104-0104-0104-c5c5c5c50104', 1000);
 
 -- A senior DC, one full day on WP-1 → wp_labor_sell = senior internal_sell (800).
-insert into public.workers (id, name, worker_type, contractor_id, user_id,
+insert into public.workers (id, name, pay_type, employment_type, contractor_id, user_id,
                             day_rate, active, level, created_by) values
-  ('d1110104-0104-0104-0104-d1d1d1d10104', 'DC อาวุโส', 'dc', null, null, 0, true, 'senior',
+  ('d1110104-0104-0104-0104-d1d1d1d10104', 'DC อาวุโส', 'daily', 'permanent', null, null, 0, true, 'senior',
    '11111111-1111-1111-1111-111111110104');
 insert into public.labor_logs (id, work_package_id, worker_id, work_date,
     day_fraction, day_rate_snapshot, worker_name_snapshot,
-    worker_type_snapshot, contractor_id_snapshot, entered_by) values
+    pay_type_snapshot, entered_by) values
   ('fa110104-0104-0104-0104-fa1fa1f10104', 'c1110104-0104-0104-0104-c1c1c1c10104',
-   'd1110104-0104-0104-0104-d1d1d1d10104', date '2026-06-10', 'full', 0, 'DC อาวุโส', 'dc', null,
+   'd1110104-0104-0104-0104-d1d1d1d10104', date '2026-06-10', 'full', 0, 'DC อาวุโส', 'daily',
    '11111111-1111-1111-1111-111111110104');
 
 -- Close P1 + P2 now that their WPs exist (settlement is "at close"). P3 stays active.

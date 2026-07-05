@@ -45,7 +45,7 @@ select ok((select qual from pg_policies where tablename='labor_logs'
             and policyname='labor logs readable by field and pm') like '%can_see_wp%',
   'labor_logs staff SELECT now gates on can_see_wp');
 select is((select count(*)::int from pg_policies where tablename='labor_logs' and cmd='SELECT'),
-  3, 'labor_logs keeps its 3 SELECT policies (staff scoped + bound-contractor self-read + worker self-read, ADR 0062 U4a)');
+  2, 'labor_logs keeps 2 SELECT policies (staff scoped + worker self-read; bound-contractor self-read retired in the DC->chang merge, spec 266)');
 select ok((select qual from pg_policies where tablename='work_package_dependencies'
             and policyname='wp_dependencies readable by privileged roles') like '%can_see_wp%',
   'work_package_dependencies SELECT now gates on can_see_wp');
