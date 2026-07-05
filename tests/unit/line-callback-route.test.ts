@@ -92,6 +92,9 @@ let userRow: {
   line_user_id: string | null;
   full_name: string | null;
   line_avatar_url: string | null;
+  // spec 265 U1 — LINE-owned identity fields read for the minimal-diff write.
+  line_display_name: string | null;
+  line_synced_at: string | null;
 } | null = null;
 
 vi.mock("@/lib/db/server", () => ({
@@ -125,6 +128,8 @@ beforeEach(() => {
     line_user_id: "Uhandoff1",
     full_name: "สมชาย",
     line_avatar_url: null,
+    line_display_name: null,
+    line_synced_at: null,
   };
   cookieDeleteMock.mockReset();
   bindUpdateMock.mockReset();
@@ -250,5 +255,73 @@ describe("GET /auth/line/callback — browser flow (pinned unchanged)", () => {
       "https://app.example.com/login?error=oauth_failed",
     );
     expect(generateLinkMock).not.toHaveBeenCalled();
+  });
+});
+
+// spec 265 U1 — the profile-write block now ALSO stamps the LINE-owned identity
+// (line_display_name = claims.name, ALWAYS refreshed; line_synced_at = now()),
+// WITHOUT disturbing full_name (NULL-only, user-owned — ADR 0020/0017) or the
+// default redirect flow. The write remains in step 7 only.
+describe("GET /auth/line/callback — LINE identity write (spec 265 U1)", () => {
+  it("always refreshes line_display_name + stamps line_synced_at, and does NOT overwrite an already-set full_name", async () => {
+    // full_name is ALREADY set (the person edited their in-app name → it has
+    // drifted from the LINE name). claims.name is the CURRENT LINE display name.
+    stateCookieValue = JSON.stringify({ s: "st1" });
+    userRow = {
+      role: "site_admin",
+      line_user_id: "Uhandoff1", // already set → NOT rewritten
+      full_name: "ชื่อที่ผู้ใช้แก้เอง", // user-edited → must stay untouched
+      line_avatar_url: "https://line/pic.jpg", // same as claims → no avatar write
+      line_display_name: null,
+      line_synced_at: null,
+    };
+    exchangeMock.mockResolvedValue({
+      ok: true,
+      claims: { sub: "Uhandoff1", name: "สมชาย LINE", picture: "https://line/pic.jpg" },
+    });
+
+    const response = await GET(makeRequest("?code=abc&state=st1"));
+
+    // The admin-client write ran exactly once with the identity fields.
+    expect(adminUsersUpdateMock).toHaveBeenCalledTimes(1);
+    const written = adminUsersUpdateMock.mock.calls[0]![0] as Record<string, unknown>;
+    // line_display_name = the CURRENT LINE name, always refreshed.
+    expect(written.line_display_name).toBe("สมชาย LINE");
+    // line_synced_at is stamped as an ISO-8601 timestamp string.
+    expect(typeof written.line_synced_at).toBe("string");
+    expect(Number.isNaN(Date.parse(written.line_synced_at as string))).toBe(false);
+    // full_name (user-owned, already set) is NOT in the update.
+    expect(written).not.toHaveProperty("full_name");
+    // line_user_id (already set) is NOT rewritten; avatar unchanged (same URL).
+    expect(written).not.toHaveProperty("line_user_id");
+    expect(written).not.toHaveProperty("line_avatar_url");
+    // Default flow redirect is byte-identical to before (roleHome).
+    expect(response.headers.get("location")).toBe("https://app.example.com/sa");
+  });
+
+  it("first login (full_name NULL) sets full_name NULL-only AND stamps LINE identity together", async () => {
+    stateCookieValue = JSON.stringify({ s: "st1" });
+    userRow = {
+      role: "site_admin",
+      line_user_id: null,
+      full_name: null,
+      line_avatar_url: null,
+      line_display_name: null,
+      line_synced_at: null,
+    };
+    exchangeMock.mockResolvedValue({
+      ok: true,
+      claims: { sub: "Uhandoff1", name: "สมชาย", picture: null },
+    });
+
+    await GET(makeRequest("?code=abc&state=st1"));
+
+    const written = adminUsersUpdateMock.mock.calls[0]![0] as Record<string, unknown>;
+    // full_name seeded NULL-only from LINE (unchanged ADR 0017 behavior).
+    expect(written.full_name).toBe("สมชาย");
+    // AND the LINE-owned identity is stamped in the same write.
+    expect(written.line_display_name).toBe("สมชาย");
+    expect(typeof written.line_synced_at).toBe("string");
+    expect(written.line_user_id).toBe("Uhandoff1");
   });
 });
