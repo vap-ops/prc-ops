@@ -40,6 +40,17 @@ export const WORK_CATEGORY_MATCH_LABEL = "ตรงกับงาน";
 // work-category badge AND the WpCategoryControl select → SSOT here.
 export const WORK_CATEGORY_UNSET_LABEL = "ยังไม่ระบุหมวดงาน";
 
+// Spec 264 follow-up (site assignment at approval) — the OPTIONAL project
+// picker beside the role selector on the staff-registration approval detail.
+// The RPC only honors p_project_id for a FIELD role (workers.project_id); the
+// selector itself is shown unconditionally (harmless no-op for office roles) —
+// see RegistrationDecision. SSOT so the label/hint/empty-option text never
+// drifts between the selector and any future surface that reads it.
+export const REGISTRATION_SITE_ASSIGN_LABEL = "มอบหมายให้ไซต์งาน (ถ้ามี)";
+export const REGISTRATION_SITE_ASSIGN_HINT =
+  "เลือกไซต์ที่ช่างคนนี้จะไปประจำ — เว้นว่างได้ถ้ายังไม่ทราบ";
+export const REGISTRATION_SITE_ASSIGN_EMPTY_OPTION = "— ไม่ระบุไซต์งาน (ถ้ามี) —";
+
 export const WORK_PACKAGE_STATUS_LABEL: Record<Enums["work_package_status"], string> = {
   not_started: "ยังไม่เริ่ม",
   in_progress: "กำลังดำเนินการ",
