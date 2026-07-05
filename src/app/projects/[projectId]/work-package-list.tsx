@@ -22,7 +22,9 @@
 // stable, no server round-trip.
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { workPackageHref } from "@/lib/nav/project-paths";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { WorklistRow, type WorklistRowItem } from "@/components/features/chrome/worklist-row";
@@ -264,56 +266,69 @@ function GroupLens({
             className="rounded-card border-edge bg-card shadow-card overflow-hidden border"
           >
             {/* The งาน header is an expand/collapse control, NOT a WP link —
-                groups are grouping entities; all work happens on งานย่อย. */}
-            <button
-              type="button"
-              onClick={() => onToggle(group.id)}
-              aria-expanded={isOpen}
-              aria-controls={contentId}
-              className="border-ink bg-sunk focus-visible:ring-action flex min-h-12 w-full cursor-pointer flex-col gap-2 border-l-4 px-4 py-3 text-left transition-colors hover:brightness-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset"
-            >
-              <span className="flex w-full items-center gap-3">
-                <ChevronRight
-                  aria-hidden
-                  className={`text-ink-secondary size-4 shrink-0 transition-transform motion-reduce:transition-none ${
-                    isOpen ? "rotate-90" : ""
-                  }`}
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="text-meta text-ink-secondary font-mono font-semibold">
-                    {group.code}
-                  </span>
-                  <span className="text-heading text-ink line-clamp-2 block font-bold tracking-tight break-words">
-                    {group.name}
-                  </span>
-                </span>
-                <span className="flex shrink-0 flex-col items-end gap-1">
-                  {/* Rollup pill — the group row's own status IS the derived truth. */}
-                  <StatusPill
-                    pillClasses={workPackageStatusPillClasses(group.status)}
-                    icon={workPackageStatusIcon(group.status)}
-                  >
-                    {WORK_PACKAGE_STATUS_LABEL[group.status]}
-                  </StatusPill>
-                  <span className="text-meta text-ink-secondary">
-                    {completeCount}/{totalCount} เสร็จ
-                  </span>
-                </span>
-              </span>
-              <span
-                role="progressbar"
-                aria-valuenow={percent}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label={`${group.name} — เสร็จแล้ว ${percent}%`}
-                className="bg-edge block h-1.5 w-full overflow-hidden rounded-full"
+                groups are grouping entities; all work happens on งานย่อย.
+                U4: a SIBLING link (never nested — a11y) opens the งาน
+                oversight page (children + rollup + read-only aggregates). */}
+            <div className="border-ink bg-sunk flex items-stretch border-l-4">
+              {canOpen ? (
+                <Link
+                  href={workPackageHref(projectId, group.id)}
+                  aria-label={`รายละเอียดงาน ${group.code} ${group.name}`}
+                  className="text-ink-secondary hover:text-ink focus-visible:ring-action order-2 flex w-11 shrink-0 items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-inset"
+                >
+                  <ChevronRight aria-hidden className="h-5 w-5" />
+                </Link>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => onToggle(group.id)}
+                aria-expanded={isOpen}
+                aria-controls={contentId}
+                className="focus-visible:ring-action order-1 flex min-h-12 min-w-0 flex-1 cursor-pointer flex-col gap-2 py-3 pl-4 text-left transition-colors hover:brightness-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset"
               >
+                <span className="flex w-full items-center gap-3">
+                  <ChevronRight
+                    aria-hidden
+                    className={`text-ink-secondary size-4 shrink-0 transition-transform motion-reduce:transition-none ${
+                      isOpen ? "rotate-90" : ""
+                    }`}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="text-meta text-ink-secondary font-mono font-semibold">
+                      {group.code}
+                    </span>
+                    <span className="text-heading text-ink line-clamp-2 block font-bold tracking-tight break-words">
+                      {group.name}
+                    </span>
+                  </span>
+                  <span className="flex shrink-0 flex-col items-end gap-1">
+                    {/* Rollup pill — the group row's own status IS the derived truth. */}
+                    <StatusPill
+                      pillClasses={workPackageStatusPillClasses(group.status)}
+                      icon={workPackageStatusIcon(group.status)}
+                    >
+                      {WORK_PACKAGE_STATUS_LABEL[group.status]}
+                    </StatusPill>
+                    <span className="text-meta text-ink-secondary">
+                      {completeCount}/{totalCount} เสร็จ
+                    </span>
+                  </span>
+                </span>
                 <span
-                  className="bg-done block h-full rounded-full transition-[width] motion-reduce:transition-none"
-                  style={{ width: `${percent}%` }}
-                />
-              </span>
-            </button>
+                  role="progressbar"
+                  aria-valuenow={percent}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`${group.name} — เสร็จแล้ว ${percent}%`}
+                  className="bg-edge block h-1.5 w-full overflow-hidden rounded-full"
+                >
+                  <span
+                    className="bg-done block h-full rounded-full transition-[width] motion-reduce:transition-none"
+                    style={{ width: `${percent}%` }}
+                  />
+                </span>
+              </button>
+            </div>
             {isOpen ? (
               <ul id={contentId} className="border-edge flex flex-col gap-2.5 border-t p-3">
                 {children.length === 0 ? (

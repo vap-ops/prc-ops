@@ -48,6 +48,10 @@ import {
 } from "@/lib/status-colors";
 import { approvalDecisionIcon, workPackageStatusIcon } from "@/lib/status-icons";
 import { loadWorkPackageDetail } from "@/lib/work-packages/load-detail";
+import { loadGroupChildren, loadGroupMoney } from "@/lib/work-packages/load-group-detail";
+import { GroupDetailView } from "@/components/features/work-packages/group-detail-view";
+import { WpParentCrumb } from "@/components/features/work-packages/wp-parent-crumb";
+import { createClient as createAdminClient } from "@/lib/db/admin";
 import { WpAssignmentPanel } from "@/components/features/work-packages/wp-assignment-panel";
 import { WpPriorityControl } from "@/components/features/work-packages/wp-priority-control";
 import { WpDeliverableControl } from "@/components/features/work-packages/wp-deliverable-control";
@@ -101,6 +105,57 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
   const isAssigner = !readOnly;
   const isPlanner = isManagerRole(ctx.role);
 
+  // Spec 270 U4: a งาน (group WP) is a grouping entity — its detail is the
+  // oversight view (children + derived rollup + read-only aggregates), never
+  // the capture/PR/labor machinery below. One cheap pre-read decides the
+  // branch; the leaf path also reads its parent for the breadcrumb.
+  const { data: pre } = await supabase
+    .from("work_packages")
+    .select("id, code, name, status, project_id, is_group, parent_id")
+    .eq("id", workPackageId)
+    .maybeSingle();
+  if (!pre || pre.project_id !== projectId) notFound();
+
+  if (pre.is_group) {
+    const children = await loadGroupChildren(supabase, pre.id);
+    // Money = leaf-bound sums (returns netted) — manager tier only, admin
+    // client behind that gate (dashboard posture).
+    const money = isPlanner
+      ? await loadGroupMoney(
+          createAdminClient(),
+          projectId,
+          children.map((c) => c.id),
+        )
+      : null;
+    return (
+      <PageShell>
+        <DetailHeader backHref={safeBackHref(from, projectHref(projectId))} backLabel="กลับ">
+          <div className="min-w-0">
+            <p className="text-meta text-ink-secondary font-mono">{pre.code}</p>
+            <h1 className={DETAIL_TITLE}>{pre.name}</h1>
+          </div>
+        </DetailHeader>
+        <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
+          <GroupDetailView
+            projectId={projectId}
+            group={{ id: pre.id, code: pre.code, name: pre.name, status: pre.status }}
+            childItems={children.map((c) => ({
+              id: c.id,
+              code: c.code,
+              name: c.name,
+              status: c.status,
+              hasContractor: c.contractor_id !== null,
+              priority: c.priority,
+              isCritical: false,
+            }))}
+            money={money}
+            canOpenChildren
+          />
+        </section>
+      </PageShell>
+    );
+  }
+
   // Spec 147 U1: one loader batches the WP-detail reads (was a serial
   // waterfall). Same queries/columns/results — only the scheduling changes.
   // Spec 155: the project's deliverables feed the planner-only bind control;
@@ -122,6 +177,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     { data: eqItemRows },
     { data: eqUsageRows },
     laborBudget,
+    { data: parentRow },
   ] = await Promise.all([
     loadWorkPackageDetail(supabase, { workPackageId, projectId, isPlanner }),
     isPlanner
@@ -198,6 +254,15 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     // Spec 205 U3: the labor budget vs actual for the จัดการ tab — MONEY, so only
     // for the planner (PM/PD/super); a site_admin/procurement view never reads it.
     isPlanner ? fetchWpLaborBudgetSummary(workPackageId) : Promise.resolve(null),
+    // Spec 270 U4: the parent งาน (code + name) for the breadcrumb — only a
+    // grouped งานย่อย has one; legacy rows skip the read.
+    pre.parent_id
+      ? supabase
+          .from("work_packages")
+          .select("id, code, name")
+          .eq("id", pre.parent_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
   if (!data.wp) {
     notFound();
@@ -730,7 +795,13 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-meta text-ink-secondary font-mono">{wp.code}</p>
+            {/* Spec 270 U4: a grouped งานย่อย shows its parent งาน as a
+                breadcrumb (WP-05 › WP-05-03); legacy rows keep the bare code. */}
+            {parentRow ? (
+              <WpParentCrumb projectId={projectId} parent={parentRow} currentCode={wp.code} />
+            ) : (
+              <p className="text-meta text-ink-secondary font-mono">{wp.code}</p>
+            )}
             {/* Spec 57: WP name never truncates — the nameplate. */}
             <h1 className={DETAIL_TITLE}>{wp.name}</h1>
             {/* Spec 229 (ADR 0066 / S8): the WP's หมวดงาน (work-category) — the same

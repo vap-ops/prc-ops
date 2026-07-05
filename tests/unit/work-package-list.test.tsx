@@ -152,6 +152,21 @@ describe("WorkPackageList grouped roster (spec 270 U3)", () => {
     expect(posC2).toBeGreaterThan(posC1); // WP-05-01 before WP-05-02
   });
 
+  it("the งาน lens offers a detail link per section, beside (not inside) the expand button", () => {
+    render(
+      <WorkPackageList
+        projectId={PROJECT_ID}
+        role="project_manager"
+        workPackages={groupedFixture()}
+        deliverables={[]}
+      />,
+    );
+    const detailLink = screen.getByRole("link", { name: /รายละเอียดงาน WP-05/ });
+    expect(detailLink).toHaveAttribute("href", "/projects/proj-1/work-packages/g-1");
+    // a11y: the link must not be nested inside the expand button
+    expect(detailLink.closest("button")).toBeNull();
+  });
+
   it("the งาน header is not a WP-detail link and groups never appear in the status lens", () => {
     render(
       <WorkPackageList
