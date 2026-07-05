@@ -58,6 +58,9 @@ async function processJob(supabase: SupabaseClient<Database>, job: ReportRow): P
     .from("work_packages")
     .select("id, code, name, status")
     .eq("project_id", project.id)
+    // Spec 270 U5: the report enumerates งานย่อย only (groups carry no
+    // photos/work; their status is derived from these rows).
+    .eq("is_group", false)
     .order("code");
   if (params.scope === "complete") {
     wpQuery = wpQuery.eq("status", "complete");

@@ -22,6 +22,9 @@ export async function loadProjectSchedule(supabase: Db, projectId: string) {
       .from("work_packages")
       .select("id, code, name, status, deliverable_id, priority, planned_start, planned_end")
       .eq("project_id", projectId)
+      // Spec 270 U5: the timeline plots งานย่อย only; งาน-level bars are a
+      // later spec (270 §7 — parent dates/timeline grouping out of scope).
+      .eq("is_group", false)
       .order("code", { ascending: true }),
     supabase
       .from("deliverables")

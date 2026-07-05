@@ -26,6 +26,7 @@ import {
   type DraftRow,
 } from "@/components/features/supply-plan/draft-row";
 import { membershipsByItem, type CatalogItemMembership } from "@/lib/catalog/categories";
+import type { WpPickerGroups } from "@/lib/work-packages/picker-options";
 import { groupLinesByCategory } from "@/lib/supply-plan/group-lines";
 import {
   approvePlan,
@@ -99,6 +100,7 @@ export function SupplyPlanManager({
   catalogItems,
   categories,
   workPackages,
+  wpPickerGroups,
   itemMemberships,
   wpScopedCategories,
 }: {
@@ -115,6 +117,10 @@ export function SupplyPlanManager({
   // shared catalog picker — group by category_id, label with the managed name.
   categories: { id: string; name: string }[];
   workPackages: { id: string; code: string; name: string }[];
+  // Spec 270 U5: pre-shaped งาน→งานย่อย sections for the per-line WP select
+  // (native optgroups). workPackages then carries LEAVES ONLY (the multi-WP
+  // checklist + option values). Absent → legacy flat option list.
+  wpPickerGroups?: WpPickerGroups;
   // Spec 228 (ADR 0066 / S7): the canonical∪secondary membership rows feeding the
   // scoped picker's union (the S4 SSOT). Absent → an unscoped (full-catalog) picker.
   itemMemberships?: CatalogItemMembership[];
@@ -509,11 +515,31 @@ export function SupplyPlanManager({
                         className={SELECT}
                       >
                         <option value="">ทั้งโครงการ</option>
-                        {workPackages.map((w) => (
-                          <option key={w.id} value={w.id}>
-                            {w.code} {w.name}
-                          </option>
-                        ))}
+                        {wpPickerGroups ? (
+                          // Spec 270 U5: งานย่อย grouped under งาน headings.
+                          <>
+                            {wpPickerGroups.sections.map((s) => (
+                              <optgroup key={s.label} label={s.label}>
+                                {s.options.map((w) => (
+                                  <option key={w.id} value={w.id}>
+                                    {w.code} {w.name}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ))}
+                            {wpPickerGroups.ungrouped.map((w) => (
+                              <option key={w.id} value={w.id}>
+                                {w.code} {w.name}
+                              </option>
+                            ))}
+                          </>
+                        ) : (
+                          workPackages.map((w) => (
+                            <option key={w.id} value={w.id}>
+                              {w.code} {w.name}
+                            </option>
+                          ))
+                        )}
                       </select>
                     </>
                   ) : null}
