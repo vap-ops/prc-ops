@@ -1,20 +1,16 @@
 import "server-only";
 
-// Spec 263 U2 — an applicant reads their OWN registration + documents. Like the
-// DC portal (spec 131 U2c's getOwnContractorDocuments), this MUST go through the
-// RLS-respecting session — an external/visitor-reachable surface never uses the
-// admin client (ADR 0051 §5). The DB enforces ownership twice: the
-// technician_registrations own-row SELECT policy scopes the row, and the
-// contact-docs storage SELECT policy scopes createSignedUrls — both keyed on
-// auth.uid(). (Spec 264 G1: the substrate is renamed to staff_registrations —
-// this stays the applicant's own-row read.)
+// Spec 263 U2 / spec 264 G1+G2 — an applicant reads their OWN registration +
+// documents + PDPA consent. Like the DC portal (spec 131 U2c's
+// getOwnContractorDocuments), this MUST go through the RLS-respecting session —
+// an external/visitor-reachable surface never uses the admin client (ADR 0051
+// §5). The DB enforces ownership: the staff_registrations own-row SELECT
+// policy scopes the row, the contact-docs storage SELECT policy scopes
+// createSignedUrls, and the staff_consents own-row policy scopes the consent
+// read — all keyed on auth.uid().
 
 import { CONTACT_DOCS_BUCKET } from "@/lib/storage/buckets";
-import {
-  TECHNICIAN_DOC_PURPOSES,
-  isTechnicianDocPurpose,
-  type TechnicianDocPurpose,
-} from "./document-types";
+import { STAFF_DOC_PURPOSES, isStaffDocPurpose, type StaffDocPurpose } from "./document-types";
 import type { Database } from "@/lib/db/database.types";
 
 type ServerClient = Awaited<ReturnType<typeof import("@/lib/db/server").createClient>>;
@@ -25,7 +21,7 @@ const SIGNED_URL_TTL_SECONDS = 120;
 
 export interface OwnRegistrationDocuments {
   /** Signed URL of the latest upload per purpose (own path only). */
-  urls: Partial<Record<TechnicianDocPurpose, string>>;
+  urls: Partial<Record<StaffDocPurpose, string>>;
 }
 
 export async function getOwnTechnicianRegistration(
@@ -57,14 +53,14 @@ export async function getOwnRegistrationDocuments(
 
   const rows = data ?? [];
   // Newest-first → the first storage_path per purpose is the current (live) one.
-  const latestPath = new Map<TechnicianDocPurpose, string>();
+  const latestPath = new Map<StaffDocPurpose, string>();
   for (const r of rows) {
-    if (isTechnicianDocPurpose(r.purpose) && r.storage_path && !latestPath.has(r.purpose)) {
+    if (isStaffDocPurpose(r.purpose) && r.storage_path && !latestPath.has(r.purpose)) {
       latestPath.set(r.purpose, r.storage_path);
     }
   }
 
-  const urls: Partial<Record<TechnicianDocPurpose, string>> = {};
+  const urls: Partial<Record<StaffDocPurpose, string>> = {};
   const paths = [...latestPath.values()];
   if (paths.length > 0) {
     // Signed on the RLS session — the storage SELECT policy admits only own paths.
@@ -75,7 +71,7 @@ export async function getOwnRegistrationDocuments(
     for (const s of signed ?? []) {
       if (s.path && s.signedUrl && !s.error) byPath.set(s.path, s.signedUrl);
     }
-    for (const purpose of TECHNICIAN_DOC_PURPOSES) {
+    for (const purpose of STAFF_DOC_PURPOSES) {
       const p = latestPath.get(purpose);
       const u = p ? byPath.get(p) : undefined;
       if (u) urls[purpose] = u;
@@ -83,4 +79,22 @@ export async function getOwnRegistrationDocuments(
   }
 
   return { urls };
+}
+
+// Spec 264 G2 — the applicant's own live (non-revoked) PDPA consent record, if
+// any. Feeds both the checkbox's recorded/not-yet state and the approval-floor
+// checklist. RLS's own-row policy on staff_consents scopes this to the caller.
+export async function getOwnStaffConsent(
+  supabase: ServerClient,
+  registrationId: string,
+): Promise<{ consentedAt: string } | null> {
+  const { data } = await supabase
+    .from("staff_consents")
+    .select("consented_at, revoked_at")
+    .eq("registration_id", registrationId)
+    .is("revoked_at", null)
+    .order("consented_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data ? { consentedAt: data.consented_at } : null;
 }

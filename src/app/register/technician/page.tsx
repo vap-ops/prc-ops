@@ -1,10 +1,11 @@
-// Spec 263 U2 / ADR 0061 — the technician self-registration workspace. Reachable
+// Spec 263 U2 / spec 264 G1+G2 — the staff self-registration workspace. Reachable
 // by a fresh `visitor` (NOT requireRole, which would bounce to /coming-soon) —
 // mirrors /portal/claim's guard exactly (spec 130 U3): getClaims → redirect
 // /login if no session; an already-registered-approved user (role=technician)
 // or an approved registration is sent to their own home (roleHome). Otherwise
-// render the START form (no registration yet) or the pending workspace
-// (e-employee card + progressive form + document uploads + Web Share).
+// render ONE consolidated form (StaffRegistrationForm, spec 264 G2): identity
+// fields + document uploads + the PDPA consent checkbox together, whether or
+// not a registration row exists yet.
 
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/features/chrome/page-shell";
@@ -12,15 +13,14 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { CARD, SECTION_HEADING } from "@/lib/ui/classes";
 import { createClient } from "@/lib/db/server";
 import { roleHome } from "@/lib/auth/role-home";
-import { StartRegistrationForm } from "@/components/features/register/start-registration-form";
 import { EmployeeCard } from "@/components/features/register/employee-card";
 import { resolveCardPhoto } from "@/lib/register/card-view";
-import { RegistrationForm } from "@/components/features/register/registration-form";
-import { RegistrationDocuments } from "@/components/features/register/registration-documents";
+import { StaffRegistrationForm } from "@/components/features/register/staff-registration-form";
 import { ShareCardButton } from "@/components/features/register/share-card-button";
 import {
   getOwnTechnicianRegistration,
   getOwnRegistrationDocuments,
+  getOwnStaffConsent,
 } from "@/lib/register/own-registration";
 
 export const metadata = { title: "สมัครเป็นช่าง" };
@@ -52,7 +52,21 @@ export default async function RegisterTechnicianPage() {
       <section className={`mx-auto flex flex-col gap-4 ${PAGE_MAX_W} px-5 py-10`}>
         <h1 className={SECTION_HEADING}>สมัครเป็นช่าง</h1>
         {!registration ? (
-          <StartRegistrationForm />
+          <StaffRegistrationForm
+            registrationExists={false}
+            uid={null}
+            docUrls={{}}
+            consentedAt={null}
+            initial={{
+              fullName: "",
+              phone: "",
+              dob: "",
+              emergencyName: "",
+              emergencyRelation: "",
+              emergencyPhone: "",
+              declaredRoleHint: "",
+            }}
+          />
         ) : (
           <RegistrationWorkspace
             uid={uid}
@@ -75,7 +89,10 @@ async function RegistrationWorkspace({
   lineAvatarUrl: string | null;
 }) {
   const supabase = await createClient();
-  const { urls } = await getOwnRegistrationDocuments(supabase, registration.id);
+  const [{ urls }, consent] = await Promise.all([
+    getOwnRegistrationDocuments(supabase, registration.id),
+    getOwnStaffConsent(supabase, registration.id),
+  ]);
 
   return (
     <>
@@ -96,19 +113,21 @@ async function RegistrationWorkspace({
         fullName={registration.full_name ?? ""}
       />
       {registration.status === "pending" ? (
-        <>
-          <RegistrationForm
-            initial={{
-              fullName: registration.full_name ?? "",
-              phone: registration.phone ?? "",
-              dob: registration.date_of_birth ?? "",
-              emergencyName: registration.emergency_contact_name ?? "",
-              emergencyRelation: registration.emergency_contact_relation ?? "",
-              emergencyPhone: registration.emergency_contact_phone ?? "",
-            }}
-          />
-          <RegistrationDocuments uid={uid} urls={urls} />
-        </>
+        <StaffRegistrationForm
+          registrationExists
+          uid={uid}
+          docUrls={urls}
+          consentedAt={consent?.consentedAt ?? null}
+          initial={{
+            fullName: registration.full_name ?? "",
+            phone: registration.phone ?? "",
+            dob: registration.date_of_birth ?? "",
+            emergencyName: registration.emergency_contact_name ?? "",
+            emergencyRelation: registration.emergency_contact_relation ?? "",
+            emergencyPhone: registration.emergency_contact_phone ?? "",
+            declaredRoleHint: registration.declared_role_hint ?? "",
+          }}
+        />
       ) : null}
     </>
   );

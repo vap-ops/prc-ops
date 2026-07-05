@@ -1,0 +1,468 @@
+"use client";
+
+// Spec 264 G2 — the ONE-PAGE self-service staff registration form. Consolidates
+// the former StartRegistrationForm + RegistrationForm + RegistrationDocuments
+// (spec 263 U2) into a single cohesive card: identity fields + document uploads
+// + the PDPA consent checkbox, all editable together, per the operator's
+// directive ("let them input ALL information at the registration page,
+// including document uploads" — spec doc §"One-page self-service form").
+//
+// Two renders of the SAME markup:
+//   - no registration yet: only full_name + phone are meaningfully required
+//     (the rest are present but save is deferred until a registration exists);
+//     the first "บันทึก" calls startStaffRegistration, minting the employee_id
+//     + row, then the page (via router.refresh()) re-renders this same
+//     component in "pending" mode with everything editable.
+//   - registration exists (pending): full_name/phone/dob/emergency all save via
+//     updateOwnStaffRegistration; doc rows upload via addStaffRegistrationDoc;
+//     the consent checkbox records via recordOwnStaffConsent. All optional
+//     beyond full_name — self-service, not forced (spec doc §"Fields").
+//
+// 'use client' justified: multi-field form state, per-doc upload state machine,
+// consent-checkbox pending state, and several server-action calls — this is the
+// entire interactive surface of the page; splitting it into server/client
+// slices would only fragment one cohesive save flow.
+
+import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import {
+  startStaffRegistration,
+  updateOwnStaffRegistration,
+  addStaffRegistrationDoc,
+  recordOwnStaffConsent,
+} from "@/lib/register/actions";
+import { validateRegistrationProfile } from "@/lib/register/registration-profile";
+import { registrationApprovalFloor } from "@/lib/register/registration-floor";
+import { createClient } from "@/lib/db/browser";
+import { PHOTO_ACCEPT_MIME, photoExtToMime } from "@/lib/photos/path";
+import { preparePhotoForUpload } from "@/lib/photos/downscale";
+import { classifyStorageUploadError } from "@/lib/photos/upload-queue";
+import { CONTACT_DOCS_BUCKET } from "@/lib/storage/buckets";
+import { buildTechnicianDocPath } from "@/lib/register/technician-path";
+import {
+  STAFF_DOC_PURPOSES,
+  STAFF_DOC_LABELS,
+  type StaffDocPurpose,
+} from "@/lib/register/document-types";
+import { useToast } from "@/lib/ui/use-toast";
+import { formatThaiDate } from "@/lib/i18n/labels";
+import {
+  BUTTON_PRIMARY,
+  BUTTON_SECONDARY_MUTED,
+  CARD,
+  FIELD_STACKED,
+  INLINE_ALERT_TEXT,
+} from "@/lib/ui/classes";
+
+export interface StaffRegistrationFormInitial {
+  fullName: string;
+  phone: string;
+  dob: string;
+  emergencyName: string;
+  emergencyRelation: string;
+  emergencyPhone: string;
+  declaredRoleHint: string;
+}
+
+export interface StaffRegistrationFormProps {
+  /** null → no registration yet (first save mints it). */
+  registrationExists: boolean;
+  initial: StaffRegistrationFormInitial;
+  /** Present only once a registration exists (doc uploads need an owner uid). */
+  uid: string | null;
+  docUrls: Partial<Record<StaffDocPurpose, string>>;
+  consentedAt: string | null;
+}
+
+export function StaffRegistrationForm({
+  registrationExists,
+  initial,
+  uid,
+  docUrls,
+  consentedAt,
+}: StaffRegistrationFormProps) {
+  const router = useRouter();
+  const toast = useToast();
+  const [pending, startTransition] = useTransition();
+  const [fullName, setFullName] = useState(initial.fullName);
+  const [phone, setPhone] = useState(initial.phone);
+  const [dob, setDob] = useState(initial.dob);
+  const [emergencyName, setEmergencyName] = useState(initial.emergencyName);
+  const [emergencyRelation, setEmergencyRelation] = useState(initial.emergencyRelation);
+  const [emergencyPhone, setEmergencyPhone] = useState(initial.emergencyPhone);
+  const [declaredRoleHint, setDeclaredRoleHint] = useState(initial.declaredRoleHint);
+  const [error, setError] = useState<string | null>(null);
+
+  const floor = registrationApprovalFloor({
+    fullName,
+    hasIdCard: Boolean(docUrls.id_card),
+    hasConsent: Boolean(consentedAt),
+  });
+
+  function clear() {
+    setError(null);
+  }
+
+  function submit() {
+    setError(null);
+    const payload = { fullName, phone, dob, emergencyName, emergencyRelation, emergencyPhone };
+    if (!registrationExists && !fullName.trim()) {
+      setError("กรุณาระบุชื่อ-นามสกุล");
+      return;
+    }
+    const v = validateRegistrationProfile(payload);
+    if (v) {
+      setError(v);
+      return;
+    }
+    startTransition(async () => {
+      const result = registrationExists
+        ? await updateOwnStaffRegistration({ ...payload, declaredRoleHint })
+        : await startStaffRegistration({ fullName, phone, declaredRoleHint });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      toast.success("บันทึกแล้ว");
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className={CARD}>
+      <p className="text-ink text-sm font-semibold">ข้อมูลของฉัน</p>
+      <label className="text-ink-secondary mt-3 block text-sm">
+        ชื่อ-นามสกุล
+        <input
+          value={fullName}
+          maxLength={120}
+          disabled={pending}
+          onChange={(e) => {
+            setFullName(e.target.value);
+            clear();
+          }}
+          className={FIELD_STACKED}
+        />
+      </label>
+      <label className="text-ink-secondary mt-3 block text-sm">
+        เบอร์โทร
+        <input
+          value={phone}
+          maxLength={50}
+          inputMode="tel"
+          disabled={pending}
+          onChange={(e) => {
+            setPhone(e.target.value);
+            clear();
+          }}
+          className={FIELD_STACKED}
+        />
+      </label>
+      <label className="text-ink-secondary mt-3 block text-sm">
+        วันเกิด
+        <input
+          type="date"
+          value={dob}
+          disabled={pending}
+          onChange={(e) => {
+            setDob(e.target.value);
+            clear();
+          }}
+          className={`${FIELD_STACKED} appearance-none`}
+        />
+      </label>
+      <label className="text-ink-secondary mt-3 block text-sm">
+        คาดว่าจะทำงานตำแหน่งใด (ไม่บังคับ)
+        <input
+          value={declaredRoleHint}
+          maxLength={120}
+          disabled={pending}
+          placeholder="เช่น ช่างเทคนิค, จัดซื้อ"
+          onChange={(e) => {
+            setDeclaredRoleHint(e.target.value);
+            clear();
+          }}
+          className={FIELD_STACKED}
+        />
+      </label>
+
+      <p className="text-ink mt-4 text-sm font-semibold">ผู้ติดต่อฉุกเฉิน (ไม่บังคับ)</p>
+      <label className="text-ink-secondary mt-2 block text-sm">
+        ชื่อ
+        <input
+          value={emergencyName}
+          maxLength={120}
+          disabled={pending}
+          onChange={(e) => {
+            setEmergencyName(e.target.value);
+            clear();
+          }}
+          className={FIELD_STACKED}
+        />
+      </label>
+      <label className="text-ink-secondary mt-3 block text-sm">
+        ความสัมพันธ์
+        <input
+          value={emergencyRelation}
+          maxLength={60}
+          disabled={pending}
+          onChange={(e) => {
+            setEmergencyRelation(e.target.value);
+            clear();
+          }}
+          className={FIELD_STACKED}
+        />
+      </label>
+      <label className="text-ink-secondary mt-3 block text-sm">
+        เบอร์โทรฉุกเฉิน
+        <input
+          value={emergencyPhone}
+          maxLength={50}
+          inputMode="tel"
+          disabled={pending}
+          onChange={(e) => {
+            setEmergencyPhone(e.target.value);
+            clear();
+          }}
+          className={FIELD_STACKED}
+        />
+      </label>
+
+      {error ? (
+        <p role="alert" className={`mt-3 ${INLINE_ALERT_TEXT}`}>
+          {error}
+        </p>
+      ) : null}
+      <button
+        type="button"
+        disabled={pending}
+        onClick={submit}
+        className={`mt-4 w-full ${BUTTON_PRIMARY}`}
+      >
+        {pending ? "กำลังบันทึก…" : registrationExists ? "บันทึก" : "เริ่มสมัคร"}
+      </button>
+
+      {registrationExists && uid ? (
+        <>
+          <hr className="border-edge my-4" />
+          <StaffDocuments uid={uid} urls={docUrls} />
+          <hr className="border-edge my-4" />
+          <StaffConsentCheckbox consentedAt={consentedAt} floorMet={floor.met} />
+        </>
+      ) : (
+        <p className="text-ink-muted mt-3 text-xs">
+          กด &quot;เริ่มสมัคร&quot; เพื่อรับรหัสพนักงาน
+          จากนั้นจะสามารถอัปโหลดเอกสารและให้ความยินยอมได้ในหน้าเดียวกันนี้
+        </p>
+      )}
+    </div>
+  );
+}
+
+type UploadPhase = "idle" | "uploading" | "saving" | "error";
+
+function StaffDocuments({
+  uid,
+  urls,
+}: {
+  uid: string;
+  urls: Partial<Record<StaffDocPurpose, string>>;
+}) {
+  return (
+    <div>
+      <p className="text-ink text-sm font-semibold">เอกสาร</p>
+      <p className="text-ink-muted mt-0.5 text-xs">
+        อัปโหลดเอกสารของท่าน เฉพาะบริษัทและท่านเท่านั้นที่เห็น
+      </p>
+      <div className="mt-3 flex flex-col gap-4">
+        {STAFF_DOC_PURPOSES.map((purpose) => (
+          <DocRow key={purpose} uid={uid} purpose={purpose} currentUrl={urls[purpose] ?? null} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DocRow({
+  uid,
+  purpose,
+  currentUrl,
+}: {
+  uid: string;
+  purpose: StaffDocPurpose;
+  currentUrl: string | null;
+}) {
+  const router = useRouter();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [phase, setPhase] = useState<UploadPhase>("idle");
+  const [error, setError] = useState<string | null>(null);
+  const [, startRefresh] = useTransition();
+
+  async function handleFile(files: FileList | null) {
+    const file = files?.[0];
+    if (!file) return;
+    setError(null);
+
+    const prepared = await preparePhotoForUpload(file);
+    if (!prepared) {
+      setPhase("error");
+      setError("ไฟล์นี้ไม่รองรับ กรุณาเลือกรูปภาพ (JPEG, PNG, WebP, HEIC)");
+      return;
+    }
+    const ext = prepared.ext;
+    const attachmentId = crypto.randomUUID();
+    const path = buildTechnicianDocPath(uid, purpose, attachmentId, ext);
+    if (!path) {
+      setPhase("error");
+      setError("บันทึกเอกสารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+      return;
+    }
+
+    setPhase("uploading");
+    const supabase = createClient();
+    const { error: uploadError } = await supabase.storage
+      .from(CONTACT_DOCS_BUCKET)
+      .upload(path, prepared.blob, { upsert: false, contentType: photoExtToMime(ext) });
+    if (uploadError && !classifyStorageUploadError(uploadError).alreadyExists) {
+      setPhase("error");
+      setError("ส่งเอกสารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+      return;
+    }
+
+    setPhase("saving");
+    let result: Awaited<ReturnType<typeof addStaffRegistrationDoc>>;
+    try {
+      result = await addStaffRegistrationDoc({ purpose, attachmentId, ext });
+    } catch (err) {
+      console.error("[staff-registration-form] doc action invocation failed", err);
+      result = { ok: false, error: "บันทึกเอกสารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    }
+    if (!result.ok) {
+      setPhase("error");
+      setError(result.error);
+      return;
+    }
+
+    setPhase("idle");
+    if (inputRef.current) inputRef.current.value = "";
+    startRefresh(() => router.refresh());
+  }
+
+  const busy = phase === "uploading" || phase === "saving";
+  const required = purpose === "id_card";
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-ink text-sm font-medium">
+        {STAFF_DOC_LABELS[purpose]}
+        {required ? (
+          <span className="text-attn-ink ml-1.5 text-xs font-normal">(จำเป็นสำหรับการอนุมัติ)</span>
+        ) : (
+          <span className="text-ink-muted ml-1.5 text-xs font-normal">(ไม่บังคับ)</span>
+        )}
+      </p>
+      {currentUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={currentUrl}
+          alt={STAFF_DOC_LABELS[purpose]}
+          className="border-edge rounded-control h-40 w-full border object-contain"
+        />
+      ) : (
+        <p className="text-ink-muted text-xs">ยังไม่มีเอกสาร</p>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept={PHOTO_ACCEPT_MIME}
+        className="sr-only"
+        onChange={(e) => void handleFile(e.target.files)}
+        disabled={busy}
+      />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={busy}
+        className={BUTTON_SECONDARY_MUTED}
+      >
+        {phase === "uploading"
+          ? "กำลังอัปโหลด…"
+          : phase === "saving"
+            ? "กำลังบันทึก…"
+            : currentUrl
+              ? "เปลี่ยนไฟล์"
+              : "อัปโหลด"}
+      </button>
+      {error ? (
+        <p role="alert" className={INLINE_ALERT_TEXT}>
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function StaffConsentCheckbox({
+  consentedAt,
+  floorMet,
+}: {
+  consentedAt: string | null;
+  floorMet: boolean;
+}) {
+  const router = useRouter();
+  const toast = useToast();
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function tick() {
+    if (consentedAt) return; // already recorded — the checkbox is a one-way tick.
+    setError(null);
+    startTransition(async () => {
+      const result = await recordOwnStaffConsent();
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      toast.success("บันทึกความยินยอมแล้ว");
+      router.refresh();
+    });
+  }
+
+  return (
+    <div>
+      <p className="text-ink text-sm font-semibold">
+        ความยินยอม (PDPA)
+        <span className="text-attn-ink ml-1.5 text-xs font-normal">(จำเป็นสำหรับการอนุมัติ)</span>
+      </p>
+      <label className="mt-2 flex items-start gap-2.5">
+        <input
+          type="checkbox"
+          checked={Boolean(consentedAt)}
+          disabled={pending || Boolean(consentedAt)}
+          onChange={tick}
+          className="border-edge mt-0.5 h-4 w-4 shrink-0 rounded"
+        />
+        <span className="text-ink-secondary text-sm">
+          ยินยอมตาม PDPA ให้บริษัทเก็บและใช้ข้อมูลส่วนบุคคลของท่านเพื่อการสมัครและว่าจ้างงาน
+        </span>
+      </label>
+      {consentedAt ? (
+        <p className="text-done-strong mt-1.5 text-xs">
+          ✓ บันทึกความยินยอมแล้ว · {formatThaiDate(consentedAt)}
+        </p>
+      ) : (
+        <p className="text-ink-muted mt-1.5 text-xs">ยังไม่ได้ให้ความยินยอม</p>
+      )}
+      {error ? (
+        <p role="alert" className={`mt-1.5 ${INLINE_ALERT_TEXT}`}>
+          {error}
+        </p>
+      ) : null}
+      {!floorMet && !consentedAt ? (
+        <p className="text-ink-muted mt-2 text-xs">
+          ต้องกรอกชื่อ-นามสกุล อัปโหลดบัตรประชาชน และให้ความยินยอมนี้ ก่อนที่จะได้รับการอนุมัติ
+        </p>
+      ) : null}
+    </div>
+  );
+}

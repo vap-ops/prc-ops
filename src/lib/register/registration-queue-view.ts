@@ -8,7 +8,7 @@
 // rejection — UI hint only, the RPC remains the authoritative gate.
 
 import type { Database } from "@/lib/db/database.types";
-import { TECHNICIAN_DOC_PURPOSES, type TechnicianDocPurpose } from "./document-types";
+import { STAFF_DOC_PURPOSES, type StaffDocPurpose } from "./document-types";
 
 type RegistrationStatus = Database["public"]["Enums"]["registration_status"];
 
@@ -19,7 +19,7 @@ export interface RegistrationQueueInput {
   status: RegistrationStatus;
   createdAt: string;
   /** The live (current, supersede-head) attachment purposes on this registration. */
-  uploadedPurposes: readonly TechnicianDocPurpose[];
+  uploadedPurposes: readonly StaffDocPurpose[];
 }
 
 export interface RegistrationQueueRow {
@@ -42,8 +42,8 @@ function isNonBlank(value: string | null): value is string {
   return value !== null && value.trim().length > 0;
 }
 
-function countUploadedPurposes(uploaded: readonly TechnicianDocPurpose[]): number {
-  const unique = new Set(uploaded.filter((p) => TECHNICIAN_DOC_PURPOSES.includes(p)));
+function countUploadedPurposes(uploaded: readonly StaffDocPurpose[]): number {
+  const unique = new Set(uploaded.filter((p) => STAFF_DOC_PURPOSES.includes(p)));
   return unique.size;
 }
 
@@ -56,7 +56,7 @@ export function buildRegistrationQueueRow(input: RegistrationQueueInput): Regist
     status: input.status,
     createdAt: input.createdAt,
     docsUploadedCount: countUploadedPurposes(input.uploadedPurposes),
-    docsTotal: TECHNICIAN_DOC_PURPOSES.length,
+    docsTotal: STAFF_DOC_PURPOSES.length,
     meetsFloor: meetsApprovalFloor(input),
   };
 }
