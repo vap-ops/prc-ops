@@ -17,7 +17,7 @@ import "server-only";
 
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { CONTACT_DOCS_BUCKET } from "@/lib/storage/buckets";
-import { TECHNICIAN_DOC_PURPOSES, isTechnicianDocPurpose } from "./document-types";
+import { STAFF_DOC_PURPOSES, isStaffDocPurpose } from "./document-types";
 import type { Database } from "@/lib/db/database.types";
 import type { RegistrationQueueInput } from "./registration-queue-view";
 
@@ -30,7 +30,7 @@ type AttachmentRow = Pick<
 
 export interface RegistrationDocumentUrls {
   /** Signed URL of the latest (supersede-head) upload per purpose. */
-  urls: Partial<Record<(typeof TECHNICIAN_DOC_PURPOSES)[number], string>>;
+  urls: Partial<Record<(typeof STAFF_DOC_PURPOSES)[number], string>>;
 }
 
 /**
@@ -83,7 +83,7 @@ export async function listLiveAttachmentPurposes(
   const supersededIds = new Set(rows.map((r) => r.superseded_by).filter((v): v is string => !!v));
   for (const row of rows) {
     if (supersededIds.has(row.id)) continue; // a newer row supersedes this one — not live.
-    if (!isTechnicianDocPurpose(row.purpose)) continue;
+    if (!isStaffDocPurpose(row.purpose)) continue;
     const list = byRegistration.get(row.registration_id) ?? [];
     list.push(row.purpose);
     byRegistration.set(row.registration_id, list);
@@ -110,9 +110,9 @@ export async function getRegistrationDocumentUrls(
     .order("created_at", { ascending: false });
 
   const rows: AttachmentRow[] = data ?? [];
-  const latest = new Map<(typeof TECHNICIAN_DOC_PURPOSES)[number], AttachmentRow>();
+  const latest = new Map<(typeof STAFF_DOC_PURPOSES)[number], AttachmentRow>();
   for (const row of rows) {
-    if (isTechnicianDocPurpose(row.purpose) && row.storage_path && !latest.has(row.purpose)) {
+    if (isStaffDocPurpose(row.purpose) && row.storage_path && !latest.has(row.purpose)) {
       latest.set(row.purpose, row);
     }
   }
@@ -124,7 +124,7 @@ export async function getRegistrationDocumentUrls(
   const urls: RegistrationDocumentUrls["urls"] = {};
   if (signable.length > 0) {
     const signedById = await mintSignedUrls(CONTACT_DOCS_BUCKET, signable);
-    for (const purpose of TECHNICIAN_DOC_PURPOSES) {
+    for (const purpose of STAFF_DOC_PURPOSES) {
       const row = latest.get(purpose);
       const u = row ? signedById.get(row.id) : undefined;
       if (u) urls[purpose] = u;
