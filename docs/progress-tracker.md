@@ -6098,3 +6098,38 @@ standing U2b follow-up.
   catalog-category live-data count drift (same as spec 258 saw — not a bug).
 - Out of scope (recorded seams): editing a charge in place (add/void composes it);
   accounting voucher/register rendering of charge entries (GL complete, UI lags).
+
+## Spec 266 — Worker identity merge (DC → ช่าง) — U0 — COMPLETE (2026-07-05)
+
+- ADR **0073** (supersedes 0062) + spec 266 + this entry + both index rows.
+  Program REVERSES ADR 0062's `own`/`dc` `worker_type` split + `dc_arrangement` +
+  the term "DC"; KEEPS 0062's spine (a directly-hired worker = one `workers`
+  record, no contractor party — payment keys on worker_id, portal on
+  workers.user_id). Realizes the "DC→technician merge" ADR 0071/0072 deferred,
+  promoted from a role-layer relabel to a **greenfield schema rebuild**.
+- Locked model: **ช่าง** (individual) / **ทีมช่าง** (group/menu). Two ORTHOGONAL
+  fields — `pay_type` (การจ่าย: monthly|daily; day_rate when daily) ×
+  `employment_type` (สถานะ: permanent|temporary; Nova external = temporary).
+  own→(monthly,permanent) · dc+regular→(daily,permanent) · dc+temporary→
+  (daily,temporary). ค่าแรง pays daily only; monthly off-app. Portal role split:
+  ช่าง→`technician` ("ช่าง"); `contractor` = subcontractor only ("ผู้รับเหมา").
+- Design decision resolved in the ADR (prompt asked): `workers.contractor_id`
+  KEPT nullable / null-for-ช่าง — spec258 `subcontract_crew_members` is a SEPARATE
+  table (verified in migration `20260813070100`), so NO collision; dropping the
+  column would drag in the out-of-scope legacy `contact-crew-section` path.
+- Reconciliations vs the (pre-spec264) program prompt: ADR # is **0073** (0072
+  taken by staff-onboarding); spec # is **266** (264/265 taken); the approve RPC
+  is now `approve_staff_registration` (spec 264 G1 rename) with pgTAP file **264b**
+  (not the prompt's `263b`); PII columns (phone/DOB/emergency) DO exist on
+  `workers` (ADR 0062, re-verified live).
+- Greenfield precondition (re-verify immediately before U1): workers=1 test row,
+  dc_payments=0, labor_logs=0, contractors=2 (subcontractors), staff_registrations
+  =1 test row, no technician/contractor users. The test worker + test registration
+  are WIPED in U1.
+- U0 = docs only, governance path (ADR under docs/decisions/) → danger-path guard
+  HOLDS the PR for operator admin-merge (expected, not overridden). Sequence next:
+  **U1 schema rebuild — DESTRUCTIVE → operator-held, gates U2+.**
+- Open questions (flagged, not built): retire contact-crew-section + drop
+  `workers.contractor_id` (future cleanup); a temporary-monthly ช่าง is valid but
+  unused; approval-UI pay/tenure selectors (RPC accepts `p_pay_type`/
+  `p_employment_type`; roster-edit is the default path).

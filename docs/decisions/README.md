@@ -67,7 +67,7 @@ later one corrects — read both when the topic is live.
 | 0059 | Work-package mutation lifecycle (bind deliverable · edit · delete)                     | Extends 0016/0004/0056/0058; specs 155–157                                         |
 | 0060 | Project-based profit-sharing via Nova coins (HT/DC self-governance)                    | Proposed/design; under 0061; extends 0051                                          |
 | 0061 | Worker ecosystem — mission & foundation invariants                                     | Proposed/vision; umbrella over 0060                                                |
-| 0062 | A DC is a worker, not a contractor party                                               | Proposed; supersedes spec-168 DC half; specs 46/127/130                            |
+| 0062 | A DC is a worker, not a contractor party                                               | **Superseded by 0073**; supersedes spec-168 DC half; specs 46/127/130                            |
 | 0063 | Project-level purchasing — a PR's work package is optional                             | Amends 0022; extends 0056; spec 195 P1                                             |
 | 0064 | Divert a delivered WP-bound purchase into the store (cost transfer)                    | Extends 0063; spec 198 U2                                                          |
 | 0065 | Store-only procurement — every purchase routes through the store                       | Supersedes 0022/0063 (new purchases); uses 0064 (U5); spec 208 Phase 2             |
@@ -78,6 +78,7 @@ later one corrects — read both when the topic is live.
 | 0070 | `procurement_manager` role — dept-manager superset of `procurement`                    | Extends 0008/0058/0050/0013; spec 261                                              |
 | 0071 | Technician self-registration — `user_role` += `site_owner`+`auditor` (behavior-free), person-level ID `PRC-YY-NNNN`, approver set proc_mgr/PD/super | **Superseded by 0072**; extends 0008/0070/0062/0061/0060/0051/0050; spec 263        |
 | 0072 | Staff self-onboarding — one role-parametric internal-staff flow (technician = instance #1); approver assigns role; `approve_staff_registration(p_role)`; `STAFF_ASSIGNABLE_ROLES` allowlist | **Supersedes 0071**; extends 0070/0062/0061/0051/0067/0050/0010; spec 264           |
+| 0073 | Worker identity merge — one `ช่าง` (`own`+`dc` → `pay_type` × `employment_type`); the term "DC" removed; payroll = daily-only (ค่าแรง); portal role split `technician`("ช่าง")/`contractor`("ผู้รับเหมา") | **Supersedes 0062** (spine kept); extends 0072/0071/0070/0060/0061/0051/0057/0050/0008; spec 266 |
 
 **Absent numbers** (never authored as standalone files; do not look for them):
 0023, 0024 — skipped. 0029 — AppSheet image bridge, cancelled before authoring
