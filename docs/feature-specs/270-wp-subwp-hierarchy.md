@@ -1,7 +1,10 @@
 # Spec 270 — Two-level work packages: งาน (group WP) + งานย่อย (sub-WP)
 
 **Status:** U1–U2b + U6 SHIPPED; **PRC-2026-004 imported live 2026-07-06** (378 rows: 47 งาน + 331
-งานย่อย, fixture `270-final-grouping-2026-07-06.tsv`). Next: U3 grouped roster + labels, U4, U5.
+งานย่อย, fixture `270-final-grouping-2026-07-06.tsv`) **then renumbered hierarchically** (operator
+decision: งาน `WP-01`…`WP-47` by list order, งานย่อย `WP-01-01`… within group; fixture
+`270-renumber-2026-07-06.tsv`; pure recode — all joins are by uuid). Next: U3 grouped roster + labels,
+U4, U5.
 **ADR:** [0074-wp-subwp-hierarchy.md](../decisions/0074-wp-subwp-hierarchy.md)
 **Origin:** operator directive, project PRC-2026-004 (TFM โพธิ์ทอง ลพบุรี). The site team restructures the
 flat 262-WP list into ~39 groups. Sample mapping (incomplete): [270-sample-grouping-v0.tsv](270-sample-grouping-v0.tsv).
