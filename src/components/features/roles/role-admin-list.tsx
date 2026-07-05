@@ -6,9 +6,10 @@
 // control (mirrors the RPC's self-demotion guard). Client component: it owns the
 // sheet/optimistic-pending state and calls the server action.
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ShieldCheck } from "lucide-react";
+import { ChevronRight, ShieldCheck } from "lucide-react";
 
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
@@ -66,10 +67,19 @@ function RoleRow({ user }: { user: RoleUserVM }) {
 
   return (
     <div className="border-edge bg-card rounded-control flex items-center justify-between gap-3 border px-4 py-3">
-      <div className="flex min-w-0 flex-col">
-        <span className="text-ink text-body truncate font-semibold">{user.name}</span>
-        <span className="text-ink-secondary text-meta">{USER_ROLE_LABEL[user.role]}</span>
-      </div>
+      {/* Spec 265 U2: the name/role drills into the per-user detail
+          (/settings/roles/[id]) where the super_admin sees the LINE ground-truth
+          identity beside the app name. The role-change control stays inline. */}
+      <Link
+        href={`/settings/roles/${user.id}`}
+        className="focus-visible:ring-action -mx-1 flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-0.5 focus:outline-none focus-visible:ring-2"
+      >
+        <span className="flex min-w-0 flex-col">
+          <span className="text-ink text-body truncate font-semibold">{user.name}</span>
+          <span className="text-ink-secondary text-meta">{USER_ROLE_LABEL[user.role]}</span>
+        </span>
+        <ChevronRight aria-hidden className="text-ink-muted size-4 shrink-0" />
+      </Link>
 
       {user.isSelf ? (
         <span className="text-ink-muted text-meta shrink-0">คุณ</span>

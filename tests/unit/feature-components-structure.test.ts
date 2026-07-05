@@ -51,6 +51,9 @@ const ALLOWED_DOMAINS = [
   // procurement_manager/project_director/super_admin queue AND the SA read-only
   // view (site_owner is a forward seam, not yet a reachable surface).
   "registrations",
+  // Spec 265 U2: the shared super_admin LINE-identity verification block
+  // (LineIdentityBlock) reused by /registrations/[id] and /settings/roles/[id].
+  "identity",
 ] as const;
 
 describe("feature components are grouped into domain folders", () => {

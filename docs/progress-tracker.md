@@ -6,6 +6,28 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 265 U2 — super_admin LINE-identity: the two view surfaces — 🚧 IN PROGRESS (2026-07-05, code-only)
+
+The FINAL unit of spec 265. Two super_admin-gated views showing a person's LINE ground-truth identity
+(LINE display name + original LINE avatar + "last checked" time), reading the columns U1 shipped. A shared
+server component `LineIdentityBlock` + a pure view-model helper (`buildLineIdentityView`, unit-tested for the
+synced vs "ยังไม่ได้ซิงค์" states + date formatting) reused by both surfaces:
+
+- **Surface 1 — `/registrations/[id]`**: identity block for the applicant, resolved via
+  `staff_registrations.user_id → users`, read through the ADMIN (service-role) client scoped to that one
+  user_id (same exposure model as the doc signed-URL mint on this page — a proc_mgr/PD cannot read another
+  user's `users` row on their RLS session). Gated to all three approvers (STAFF_APPROVAL_ROLES, spec 264 G4
+  — reused, NOT a new constant), per the locked operator decision (O1 = show to all three).
+- **Surface 2 — NEW `/settings/roles/[id]`** (super_admin only, `requireRole(["super_admin"])`): per-user
+  detail showing role + full_name (app name) + the LINE-identity block side by side, so super_admin can spot
+  drift/impersonation. RLS session read (super_admin RLS already allows reading any user row). Each row on the
+  existing `/settings/roles` list links to it (mirrors `/settings/usage/[actorId]` precedent).
+
+CODE-ONLY, no schema. Thai strings via labels.ts. Likely HELD only if the final diff touches `src/lib/auth`
+(it does not — reuses existing constants). Test-first.
+
+---
+
 ## Spec 265 U1 — super_admin LINE-identity: schema + callback — ✅ BUILT (2026-07-05, schema, HELD)
 
 Adds two LINE-owned identity fields to `public.users` and stamps them on **every** LINE login, so
