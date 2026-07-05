@@ -4,11 +4,12 @@
 // requireRole-gated and server-rendered, so day rates may render here —
 // this is the one surface where money is visible, by design).
 //
-// ADR 0062 U1: a DC is a self-sufficient WORKER, hired directly (no contractor
-// firm). The add form drops the ผู้รับเหมา parent picker and instead carries the
-// DC arrangement (ประจำ/ชั่วคราว) + payee fields (phone, tax id, bank). The
-// bank/tax fields are money/PII-isolated server-side (no authenticated grant);
-// they reach this page only via the admin client behind requireRole(pm/super).
+// Spec 266 U3 / ADR 0073: a ช่าง is a self-sufficient worker, hired directly (no
+// contractor firm). The add form carries two orthogonal selectors — การจ่าย
+// (pay_type) × สถานะ (employment_type) — and, for daily ช่าง, day rate + payee
+// fields (phone, tax id, bank). Bank/tax are money/PII-isolated server-side (no
+// authenticated grant); they reach this page only via the admin client behind
+// requireRole(WORKER_ROSTER_ROLES).
 //
 // 'use client' justification: add/edit forms with busy states over the roster
 // RPC actions; spec 139 — the active-toggle is an optimistic flip (React 19
@@ -37,15 +38,14 @@ import { NOTES_MAX } from "@/lib/notes/validate";
 
 type PayType = Database["public"]["Enums"]["pay_type"];
 type EmploymentType = Database["public"]["Enums"]["employment_type"];
-// The roster UI still speaks in own/dc terms (real pay-type selectors are a
-// later unit) — this local union is the display/form vocabulary, mapped onto
-// pay_type at the createWorker call boundary (own→monthly, dc→daily).
-type WorkerType = "own" | "dc";
-// ADR 0062 U1 — DC arrangement, now employment_type's values (values match
-// public.employment_type: every worker carries one, not just DC).
-type DcArrangement = EmploymentType;
 
-const DC_ARRANGEMENT_LABEL: Record<DcArrangement, string> = {
+// Spec 266 U3 (ADR 0073): การจ่าย (pay_type) and สถานะ (employment_type) are two
+// orthogonal axes on every ช่าง; these label maps drive the two add-form selectors.
+const PAY_TYPE_LABEL: Record<PayType, string> = {
+  monthly: "รายเดือน",
+  daily: "รายวัน",
+};
+const EMPLOYMENT_TYPE_LABEL: Record<EmploymentType, string> = {
   permanent: "ประจำ",
   temporary: "ชั่วคราว",
 };
@@ -59,9 +59,9 @@ export type ManagedWorker = {
   active: boolean;
   // Spec 75: optional roster note.
   note: string | null;
-  // ADR 0062 U1: ประจำ/ชั่วคราว — every worker carries one now (not DC-only).
+  // Spec 266 U3: สถานะ (ประจำ/ชั่วคราว) — every ช่าง carries one.
   employment_type: EmploymentType;
-  // ADR 0062 U4a: is this DC worker bound to a portal LINE login (workers.user_id)?
+  // ADR 0062 U4a: is this worker bound to a portal LINE login (workers.user_id)?
   portalBound: boolean;
   // Spec 200: the worker's current project (one at a time), or null if unassigned.
   project_id: string | null;
@@ -73,8 +73,9 @@ export type AssignableProject = { id: string; code: string; name: string };
 function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
   const router = useRouter();
   const [name, setName] = useState("");
-  const [workerType, setWorkerType] = useState<WorkerType>("own");
-  const [arrangement, setArrangement] = useState<DcArrangement>("permanent");
+  // Spec 266 U3: two orthogonal selectors replace the old own/DC radio.
+  const [payType, setPayType] = useState<PayType>("monthly");
+  const [employmentType, setEmploymentType] = useState<EmploymentType>("permanent");
   const [rate, setRate] = useState("");
   const [note, setNote] = useState("");
   // Spec 200 U2: optionally put the new worker on a project at creation.
@@ -87,10 +88,12 @@ function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const isDc = workerType === "dc";
+  // Daily ช่าง are paid in-app (day_rate × days) and carry a payee; monthly ช่าง
+  // are paid off-app, so the rate + bank/tax fields only apply when รายวัน.
+  const isDaily = payType === "daily";
 
   function resetPayee() {
-    setArrangement("permanent");
+    setEmploymentType("permanent");
     setPhone("");
     setTaxId("");
     setBankName("");
@@ -99,19 +102,22 @@ function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
   }
 
   async function submit() {
-    const dayRate = Number(rate);
+    const parsedRate = Number(rate);
+    // Monthly ช่าง have no in-app rate → 0; daily parses (invalid → -1, which the
+    // action rejects with the generic error).
+    const dayRate = isDaily ? (Number.isFinite(parsedRate) ? parsedRate : -1) : 0;
     setBusy(true);
     setError(null);
     const result = await createWorker({
       name,
-      workerType,
-      // employment_type is required for every worker now (own techs are
-      // always "permanent"; only DC workers choose via the arrangement chips).
-      employmentType: isDc ? arrangement : "permanent",
-      dayRate: Number.isFinite(dayRate) ? dayRate : -1,
+      // Seam: การจ่าย maps to createWorker's own/dc vocabulary (→ pay_type at the
+      // RPC boundary); สถานะ passes straight through as employment_type.
+      workerType: isDaily ? "dc" : "own",
+      employmentType,
+      dayRate,
       note,
       ...(project ? { projectId: project } : {}),
-      ...(isDc ? { phone, taxId, bankName, bankAccountNumber, bankAccountName } : {}),
+      ...(isDaily ? { phone, taxId, bankName, bankAccountNumber, bankAccountName } : {}),
     });
     setBusy(false);
     if (!result.ok) {
@@ -138,53 +144,51 @@ function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
           className={FIELD_STACKED}
         />
       </label>
-      {/* Spec 67: native-radio chips (was a fake role="radio" on buttons). */}
-      <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="ประเภททีมงาน">
-        {(
-          [
-            { value: "own", label: "ช่างบริษัท" },
-            { value: "dc", label: "ทีมงาน DC" },
-          ] as const
-        ).map((option) => (
-          <RadioChip
-            key={option.value}
-            name="worker-type"
-            label={option.label}
-            checked={workerType === option.value}
-            onSelect={() => setWorkerType(option.value)}
-          />
-        ))}
-      </div>
-      {/* ADR 0062 U1: DC arrangement — ประจำ vs ชั่วคราว (no contractor parent). */}
-      {isDc ? (
-        <div className="mt-2">
-          <p className="text-ink-secondary text-sm">ลักษณะการจ้าง</p>
-          <div className="mt-1 flex flex-wrap gap-2" role="radiogroup" aria-label="ลักษณะการจ้าง">
-            {(["permanent", "temporary"] as const).map((value) => (
-              <RadioChip
-                key={value}
-                name="dc-arrangement"
-                label={DC_ARRANGEMENT_LABEL[value]}
-                checked={arrangement === value}
-                onSelect={() => setArrangement(value)}
-              />
-            ))}
-          </div>
+      {/* Spec 266 U3: การจ่าย (pay_type) — how the ช่าง is paid. */}
+      <div className="mt-2">
+        <p className="text-ink-secondary text-sm">การจ่าย</p>
+        <div className="mt-1 flex flex-wrap gap-2" role="radiogroup" aria-label="การจ่าย">
+          {(["monthly", "daily"] as const).map((value) => (
+            <RadioChip
+              key={value}
+              name="pay-type"
+              label={PAY_TYPE_LABEL[value]}
+              checked={payType === value}
+              onSelect={() => setPayType(value)}
+            />
+          ))}
         </div>
-      ) : null}
-      <label className="text-ink-secondary mt-2 block text-sm">
-        ค่าแรงต่อวัน (บาท)
-        <input
-          value={rate}
-          onChange={(e) => setRate(e.target.value)}
-          inputMode="decimal"
-          className={FIELD_STACKED}
-        />
-      </label>
-      {/* ADR 0062 U1: DC payee fields — paid directly, so the bank lives on the
-          person. Optional; bank/tax are server-isolated like the rate. */}
-      {isDc ? (
+      </div>
+      {/* Spec 266 U3: สถานะ (employment_type) — tenure; orthogonal to การจ่าย, so
+          shown for every ช่าง (a monthly ช่าง can be temporary too). */}
+      <div className="mt-2">
+        <p className="text-ink-secondary text-sm">สถานะ</p>
+        <div className="mt-1 flex flex-wrap gap-2" role="radiogroup" aria-label="สถานะ">
+          {(["permanent", "temporary"] as const).map((value) => (
+            <RadioChip
+              key={value}
+              name="employment-type"
+              label={EMPLOYMENT_TYPE_LABEL[value]}
+              checked={employmentType === value}
+              onSelect={() => setEmploymentType(value)}
+            />
+          ))}
+        </div>
+      </div>
+      {/* Daily ช่าง only: day rate + payee (bank/tax live on the person; both are
+          money/PII-isolated server-side, reaching this gated page via the admin
+          client). Monthly ช่าง are paid off-app, so neither applies. */}
+      {isDaily ? (
         <>
+          <label className="text-ink-secondary mt-2 block text-sm">
+            ค่าแรงต่อวัน (บาท)
+            <input
+              value={rate}
+              onChange={(e) => setRate(e.target.value)}
+              inputMode="decimal"
+              className={FIELD_STACKED}
+            />
+          </label>
           <label className="text-ink-secondary mt-2 block text-sm">
             เบอร์โทร
             <input
@@ -264,7 +268,7 @@ function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
       {error ? <p className="text-danger mt-2 text-sm">{error}</p> : null}
       <button
         type="button"
-        disabled={busy || name.trim().length === 0 || rate.trim().length === 0}
+        disabled={busy || name.trim().length === 0 || (isDaily && rate.trim().length === 0)}
         onClick={() => void submit()}
         className={`mt-3 w-full ${BUTTON_PRIMARY_COMPACT}`}
       >
@@ -362,13 +366,11 @@ function WorkerRow({
         <div className="min-w-0">
           <p className={`truncate text-sm ${optimisticActive ? "text-ink" : "text-ink-muted"}`}>
             {worker.name}
-            {/* ADR 0062 U1: arrangement badge for DC (daily-pay) workers. Every
-                worker now carries an employment_type, but the badge stays
-                DC-only — an own tech's ประจำ/ชั่วคราว isn't roster-relevant
-                here (unchanged visible behavior). */}
+            {/* Spec 266 U3: สถานะ badge (ประจำ/ชั่วคราว) for daily-paid ช่าง (a
+                monthly ช่าง's tenure isn't roster-relevant here). */}
             {worker.pay_type === "daily" ? (
               <span className="text-ink-muted ml-1.5 text-xs">
-                · {DC_ARRANGEMENT_LABEL[worker.employment_type]}
+                · {EMPLOYMENT_TYPE_LABEL[worker.employment_type]}
               </span>
             ) : null}
             {contractorName ? (
@@ -507,16 +509,17 @@ export function WorkerRosterManager({
   projects?: AssignableProject[];
 }) {
   const contractorNames = new Map(contractors.map((c) => [c.id, c.name]));
-  const own = workers.filter((w) => w.pay_type === "monthly");
-  const dc = workers.filter((w) => w.pay_type === "daily");
+  // Spec 266 U3: group the roster by การจ่าย (no own/DC vocabulary).
+  const monthlyWorkers = workers.filter((w) => w.pay_type === "monthly");
+  const dailyWorkers = workers.filter((w) => w.pay_type === "daily");
 
   return (
     <div className="flex flex-col gap-4">
       <AddWorkerForm projects={projects} />
       {(
         [
-          { label: "ช่างบริษัท", list: own },
-          { label: "ทีมงาน DC", list: dc },
+          { label: "ช่างรายเดือน", list: monthlyWorkers },
+          { label: "ช่างรายวัน", list: dailyWorkers },
         ] as const
       ).map(({ label, list }) =>
         list.length > 0 ? (

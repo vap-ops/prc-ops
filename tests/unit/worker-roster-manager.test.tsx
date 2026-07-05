@@ -2,6 +2,10 @@
 //
 // Spec 75: the worker roster gains a note field — on the add form and the
 // per-row edit block — and shows a worker's note on its row.
+//
+// Spec 266 U3 (ADR 0073) — DC→ช่าง merge: the add form now speaks in two
+// ORTHOGONAL selectors — การจ่าย (pay_type) × สถานะ (employment_type) — instead
+// of the old own/DC radio + DC-only arrangement. day_rate + payee gate on daily.
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -73,7 +77,7 @@ describe("WorkerRosterManager notes", () => {
   it("passes the note when adding a worker", async () => {
     render(<WorkerRosterManager workers={[]} contractors={[]} />);
     fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "คนใหม่" } });
-    fireEvent.change(screen.getByLabelText("ค่าแรงต่อวัน (บาท)"), { target: { value: "450" } });
+    // monthly (default) needs no day rate; the note still forwards.
     fireEvent.change(screen.getByLabelText("หมายเหตุ"), { target: { value: "ทดลองงาน" } });
     fireEvent.click(screen.getByRole("button", { name: "เพิ่มทีมงาน" }));
     await waitFor(() =>
@@ -81,33 +85,49 @@ describe("WorkerRosterManager notes", () => {
     );
   });
 
-  // ADR 0062 U1 — a DC is a self-sufficient worker: switching to DC reveals the
-  // arrangement (ประจำ/ชั่วคราว) + payee fields, and the old ผู้รับเหมา parent
-  // picker is gone (DC is hired directly, never from a firm).
-  it("DC add form shows arrangement + payee fields, no contractor picker", () => {
+  // Spec 266 U3 (ADR 0073) — DC→ช่าง merge: the add form carries two ORTHOGONAL
+  // selectors — การจ่าย (pay_type: รายเดือน/รายวัน) and สถานะ (employment_type:
+  // ประจำ/ชั่วคราว, shown for every ช่าง). day_rate + payee fields gate on
+  // การจ่าย=รายวัน. No own/DC vocabulary remains.
+  it("add form shows การจ่าย + สถานะ selectors; สถานะ is always visible", () => {
     render(<WorkerRosterManager workers={[]} contractors={[]} />);
-    expect(screen.queryByRole("radio", { name: "ประจำ" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("radio", { name: "ทีมงาน DC" }));
+    // สถานะ (employment_type) is independent of pay_type → visible from the start.
     expect(screen.getByRole("radio", { name: "ประจำ" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "ชั่วคราว" })).toBeInTheDocument();
+    // การจ่าย (pay_type).
+    expect(screen.getByRole("radio", { name: "รายเดือน" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "รายวัน" })).toBeInTheDocument();
+    // the old own/DC radio is gone.
+    expect(screen.queryByRole("radio", { name: "ทีมงาน DC" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "ช่างบริษัท" })).not.toBeInTheDocument();
+  });
+
+  it("gates day_rate + payee fields on การจ่าย=รายวัน (daily)", () => {
+    render(<WorkerRosterManager workers={[]} contractors={[]} />);
+    // monthly default → no day rate, no bank/payee.
+    expect(screen.queryByLabelText("ค่าแรงต่อวัน (บาท)")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("เลขบัญชีธนาคาร")).not.toBeInTheDocument();
+    // switch to รายวัน → day rate + payee appear; still no ผู้รับเหมา parent picker.
+    fireEvent.click(screen.getByRole("radio", { name: "รายวัน" }));
+    expect(screen.getByLabelText("ค่าแรงต่อวัน (บาท)")).toBeInTheDocument();
     expect(screen.getByLabelText("เลขบัญชีธนาคาร")).toBeInTheDocument();
     expect(screen.queryByLabelText("ผู้รับเหมา")).not.toBeInTheDocument();
   });
 
-  it("adds a DC worker with arrangement + bank, no contractor", async () => {
+  it("adds a daily, temporary ช่าง with bank via the two selectors", async () => {
     render(<WorkerRosterManager workers={[]} contractors={[]} />);
-    fireEvent.click(screen.getByRole("radio", { name: "ทีมงาน DC" }));
-    fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "DC ตรง" } });
+    fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "ช่างรายวัน" } });
+    fireEvent.click(screen.getByRole("radio", { name: "รายวัน" })); // การจ่าย
+    fireEvent.click(screen.getByRole("radio", { name: "ชั่วคราว" })); // สถานะ
     fireEvent.change(screen.getByLabelText("ค่าแรงต่อวัน (บาท)"), { target: { value: "420" } });
-    fireEvent.click(screen.getByRole("radio", { name: "ชั่วคราว" }));
-    fireEvent.change(screen.getByLabelText("เลขบัญชีธนาคาร"), {
-      target: { value: "1234567890" },
-    });
+    fireEvent.change(screen.getByLabelText("เลขบัญชีธนาคาร"), { target: { value: "1234567890" } });
     fireEvent.click(screen.getByRole("button", { name: "เพิ่มทีมงาน" }));
     await waitFor(() =>
       expect(mockCreate).toHaveBeenCalledWith(
         expect.objectContaining({
-          name: "DC ตรง",
+          name: "ช่างรายวัน",
+          // seam: การจ่าย=รายวัน maps to createWorker's workerType 'dc' (own/dc is
+          // the action's internal vocabulary → pay_type at the RPC boundary).
           workerType: "dc",
           employmentType: "temporary",
           dayRate: 420,
@@ -115,6 +135,39 @@ describe("WorkerRosterManager notes", () => {
         }),
       ),
     );
+  });
+
+  it("adds a monthly ช่าง with no day rate or payee, permanent by default", async () => {
+    render(<WorkerRosterManager workers={[]} contractors={[]} />);
+    fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "ช่างรายเดือน" } });
+    // การจ่าย stays รายเดือน; the button enables without a day rate.
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มทีมงาน" }));
+    await waitFor(() =>
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "ช่างรายเดือน",
+          workerType: "own",
+          employmentType: "permanent",
+          dayRate: 0,
+        }),
+      ),
+    );
+  });
+
+  it("groups the roster by การจ่าย, dropping the DC/own group labels", () => {
+    render(
+      <WorkerRosterManager
+        workers={[
+          { ...WORKERS[0]!, id: "m1", name: "คนรายเดือน", pay_type: "monthly" },
+          { ...WORKERS[0]!, id: "d1", name: "คนรายวัน", pay_type: "daily" },
+        ]}
+        contractors={[]}
+      />,
+    );
+    expect(screen.getByText("ช่างรายเดือน")).toBeInTheDocument();
+    expect(screen.getByText("ช่างรายวัน")).toBeInTheDocument();
+    expect(screen.queryByText("ทีมงาน DC")).not.toBeInTheDocument();
+    expect(screen.queryByText("ช่างบริษัท")).not.toBeInTheDocument();
   });
 
   it("passes the note when editing a worker", async () => {
@@ -211,7 +264,7 @@ describe("WorkerRosterManager project assignment", () => {
   it("creates a new worker already on the chosen project", async () => {
     render(<WorkerRosterManager workers={[]} contractors={[]} projects={PROJECTS} />);
     fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "ช่างใหม่" } });
-    fireEvent.change(screen.getByLabelText("ค่าแรงต่อวัน (บาท)"), { target: { value: "500" } });
+    // monthly (default) → no day-rate field; the project still forwards.
     fireEvent.change(screen.getByLabelText("โครงการ"), { target: { value: "p2" } });
     fireEvent.click(screen.getByRole("button", { name: "เพิ่มทีมงาน" }));
     await waitFor(() =>

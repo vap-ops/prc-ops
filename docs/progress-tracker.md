@@ -6133,3 +6133,49 @@ standing U2b follow-up.
   `workers.contractor_id` (future cleanup); a temporary-monthly ช่าง is valid but
   unused; approval-UI pay/tenure selectors (RPC accepts `p_pay_type`/
   `p_employment_type`; roster-edit is the default path).
+
+## Spec 266 U1 — schema rebuild (DESTRUCTIVE) — ✅ MERGED (2026-07-05, PR #316)
+
+- New enums `pay_type`/`employment_type`; `workers` gains both (dropped
+  `worker_type` + `dc_arrangement` + their enums + 2 CHECKs). `dc_payments`→
+  `wage_payments`, the 4 wage RPCs + method enum renamed,
+  `labor_logs.worker_type_snapshot`→`pay_type_snapshot` (+ dropped
+  `contractor_id_snapshot`); `approve_staff_registration` repointed (+ optional
+  `p_pay_type`/`p_employment_type`). One 17-fn atomic rebuild — folds in the U5
+  Nova + U7 portal DB-function repoints. Test rows wiped (greenfield).
+- Applied to the linked DB (operator "Go" = named break-glass go-ahead); full
+  db:test 231/233 (only pre-existing flakes 200 store-GL-drift + 221
+  catalog-count). Migration `20260813071700`. DESTRUCTIVE → operator-held → merged.
+
+## Spec 266 U2 — repoint code off worker_type → pay_type — ✅ MERGED (2026-07-05, PR #317, code-only)
+
+- `db:types` regen + ~29-file code repoint (`worker_type`→`pay_type`,
+  `dc_payments`→`wage_payments`) across labor libs + app + portal + 8 vitest
+  fixtures. `createWorker` now takes required `employmentType`. A type regen broke
+  every consumer of the renamed cols/RPCs (38 TS errors / ~26 files) — fixed in
+  lockstep. lint + typecheck + vitest 2806 green; self-merged on green CI.
+
+## Spec 266 U3 — roster /workers + worker-roster-manager — ✅ BUILT (2026-07-05, code-only)
+
+- The add form's old own/DC radio + DC-only ประจำ/ชั่วคราว arrangement is replaced
+  by two **ORTHOGONAL** selectors: **การจ่าย** (pay_type: รายเดือน/รายวัน) and
+  **สถานะ** (employment_type: ประจำ/ชั่วคราว, shown for **every** ช่าง — a monthly
+  ช่าง can be temporary too). day_rate + payee (phone/tax/bank) fields gate on
+  การจ่าย=รายวัน (daily); a monthly ช่าง submits with day_rate 0 and no payee (paid
+  off-app), and the add button no longer requires a rate for monthly.
+- Roster list groups by การจ่าย — labels **ช่างรายเดือน**/**ช่างรายวัน** (dropped
+  the "ช่างบริษัท"/"ทีมงาน DC" own/DC group labels); the per-row สถานะ badge stays
+  daily-only (unchanged visible behavior).
+- Seam kept per spec: `createWorker` still takes `workerType` (own/dc) and maps it
+  to pay_type at the RPC boundary; the component maps การจ่าย→workerType in one
+  line. **No actions.ts signature change** (U8 may retire the internal own/dc vocab).
+- TDD: rewrote the two old DC add-form tests into new-model tests (การจ่าย/สถานะ
+  selectors, daily-gate, seam payload) + a grouping-label test; fixed the two
+  monthly-add tests that had set a day rate (monthly now has no rate field). 14/14
+  roster tests green; full suite + lint + typecheck clean. Code-only → PR
+  self-merges on green CI.
+- Out of scope (recorded seam): **edit-sheet** pay_type/employment_type selectors —
+  the per-row edit block still edits only name/rate/note/project. Changing a ช่าง's
+  การจ่าย/สถานะ after creation would wire `update_worker`'s `p_pay_type`/
+  `p_employment_type` params + add selectors to the edit sheet (a follow-up; the
+  spec's concrete "replace the OLD radio form" target is the add form).
