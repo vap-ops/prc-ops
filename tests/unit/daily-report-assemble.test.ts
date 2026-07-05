@@ -23,18 +23,18 @@ const labor: AttendanceLaborRow[] = [
     workPackageId: "wp-f",
     exception: { name: "ช่างนัน", kind: "ot", detail: "+1 ชม." },
   },
-  { workerId: "d1", workerName: "วีระชาต", workerType: "dc", workPackageId: "wp-w" },
+  { workerId: "d1", workerName: "วีระชาต", workerType: "daily", workPackageId: "wp-w" },
   {
     workerId: "d2",
     workerName: "อรปรีญา",
-    workerType: "dc",
+    workerType: "daily",
     workPackageId: "wp-w",
     exception: { name: "อรปรีญา", kind: "late", detail: "มา 09:30" },
   },
   // general site work (no WP)
-  { workerId: "d3", workerName: "สุบิน", workerType: "dc", workPackageId: null },
+  { workerId: "d3", workerName: "สุบิน", workerType: "daily", workPackageId: null },
   // same worker logged to a second WP — counts once in the total
-  { workerId: "d1", workerName: "วีระชาต", workerType: "dc", workPackageId: "wp-f" },
+  { workerId: "d1", workerName: "วีระชาต", workerType: "daily", workPackageId: "wp-f" },
 ];
 
 describe("assembleAttendance (spec 212 U2)", () => {
@@ -66,7 +66,7 @@ describe("assembleAttendance (spec 212 U2)", () => {
 
   it("counts headcount by worker type (distinct workers)", () => {
     const a = assembleAttendance(labor, wps);
-    expect(a.headcountByType).toEqual({ company: 0, dc: 3, subcon: 1 });
+    expect(a.headcountByType).toEqual({ company: 0, daily: 3, subcon: 1 });
   });
 
   it("tallies late and OT exceptions", () => {
@@ -81,6 +81,6 @@ describe("assembleAttendance (spec 212 U2)", () => {
     const a = assembleAttendance([], wps);
     expect(a.entries).toEqual([]);
     expect(a.totalHeadcount).toBe(0);
-    expect(a.headcountByType).toEqual({ company: 0, dc: 0, subcon: 0 });
+    expect(a.headcountByType).toEqual({ company: 0, daily: 0, subcon: 0 });
   });
 });

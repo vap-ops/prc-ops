@@ -7,7 +7,7 @@
 // editing the `C` palette. No caller knows the layout. `altText` is the text
 // fallback LINE shows in notifications / on unsupported clients.
 
-export type WorkerType = "company" | "dc" | "subcon";
+export type WorkerType = "company" | "daily" | "subcon";
 
 export interface DailyReportWorker {
   name: string;
@@ -39,7 +39,7 @@ export interface DailyReportView {
   status: "draft" | "submitted" | "confirmed";
   /** e.g. "08:00–17:00". */
   standardHoursLabel: string;
-  headcountByType: { company: number; dc: number; subcon: number };
+  headcountByType: { company: number; daily: number; subcon: number };
   lateCount: number;
   otCount: number;
   photoCount: number;
@@ -77,7 +77,7 @@ const STATUS_LABEL: Record<DailyReportView["status"], string> = {
 
 const TYPE_LABEL: Record<WorkerType, string> = {
   company: "บริษัท",
-  dc: "DC",
+  daily: "รายวัน",
   subcon: "ผู้รับเหมา",
 };
 
@@ -157,7 +157,7 @@ function labeledRow(label: string, value: string): FlexComponent {
 // A work entry: title + WP chip, narrative, the identified crew by type, and the
 // late/OT exceptions called out by name.
 function entrySection(entry: DailyReportEntry): FlexComponent {
-  const typeChips: FlexComponent[] = (["company", "dc", "subcon"] as WorkerType[])
+  const typeChips: FlexComponent[] = (["company", "daily", "subcon"] as WorkerType[])
     .map((t) => ({ t, n: entry.workers.filter((w) => w.type === t).length }))
     .filter((x) => x.n > 0)
     .map((x) => pill(`${TYPE_LABEL[x.t]} ${x.n}`, C.tagBg, C.tagInk));
@@ -206,10 +206,10 @@ function entrySection(entry: DailyReportEntry): FlexComponent {
 }
 
 function summarySection(view: DailyReportView): FlexComponent {
-  const { company, dc, subcon } = view.headcountByType;
-  const total = company + dc + subcon;
+  const { company, daily, subcon } = view.headcountByType;
+  const total = company + daily + subcon;
   const chips: FlexComponent[] = [];
-  if (dc > 0) chips.push(pill(`DC ${dc}`, C.tagBg, C.tagInk));
+  if (daily > 0) chips.push(pill(`${TYPE_LABEL.daily} ${daily}`, C.tagBg, C.tagInk));
   if (subcon > 0) chips.push(pill(`ผู้รับเหมา ${subcon}`, C.tagBg, C.tagInk));
   if (company > 0) chips.push(pill(`บริษัท ${company}`, C.tagBg, C.tagInk));
   if (view.lateCount > 0) chips.push(pill(`สาย ${view.lateCount}`, C.lateBg, C.lateInk));
@@ -285,11 +285,11 @@ export function dailyReportBubble(view: DailyReportView): FlexBubble {
 
 // Text fallback (notification preview + the existing text-only push path).
 export function dailyReportAltText(view: DailyReportView): string {
-  const { company, dc, subcon } = view.headcountByType;
+  const { company, daily, subcon } = view.headcountByType;
   const lines = [
     `รายงานประจำวัน ${view.projectName}`,
     `${view.dateLabel} · ${STATUS_LABEL[view.status]}`,
-    `เข้างาน ${company + dc + subcon} คน (DC ${dc} · ผู้รับเหมา ${subcon} · บริษัท ${company})`,
+    `เข้างาน ${company + daily + subcon} คน (${TYPE_LABEL.daily} ${daily} · ผู้รับเหมา ${subcon} · บริษัท ${company})`,
   ];
   for (const e of view.entries) {
     lines.push(

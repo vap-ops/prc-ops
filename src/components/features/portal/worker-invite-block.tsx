@@ -1,9 +1,9 @@
 "use client";
 
-// Spec 170 U4a / ADR 0062 — PM affordance on /workers to issue a DC a portal
+// Spec 170 U4a / ADR 0062 — PM affordance on /workers to issue a ช่าง a portal
 // invite link. Generates a single-use, 14-day claim token (create_worker_invite
 // via the action) and shows the /portal/claim?token=… URL for the PM to send the
-// DC over LINE. A DC is a worker, so the link binds workers.user_id (not a
+// ช่าง over LINE. A ช่าง binds on workers.user_id, so the link binds it (not a
 // contractor party). If the worker is already bound to a portal user, there is
 // nothing to issue — show the linked state instead. Mirrors ContractorInviteBlock
 // (spec 130 U5).

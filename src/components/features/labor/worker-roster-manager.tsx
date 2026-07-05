@@ -73,7 +73,7 @@ export type AssignableProject = { id: string; code: string; name: string };
 function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
   const router = useRouter();
   const [name, setName] = useState("");
-  // Spec 266 U3: two orthogonal selectors replace the old own/DC radio.
+  // Spec 266 U3: two orthogonal selectors replace the old monthly/daily radio.
   const [payType, setPayType] = useState<PayType>("monthly");
   const [employmentType, setEmploymentType] = useState<EmploymentType>("permanent");
   const [rate, setRate] = useState("");
@@ -110,8 +110,8 @@ function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
     setError(null);
     const result = await createWorker({
       name,
-      // Seam: การจ่าย maps to createWorker's own/dc vocabulary (→ pay_type at the
-      // RPC boundary); สถานะ passes straight through as employment_type.
+      // Seam: การจ่าย maps to createWorker's monthly/daily vocabulary (→ pay_type at
+      // the RPC boundary); สถานะ passes straight through as employment_type.
       workerType: isDaily ? "dc" : "own",
       employmentType,
       dayRate,
@@ -483,8 +483,8 @@ function WorkerRow({
             </button>
           </div>
 
-          {/* ADR 0062 U4a: a DC worker is a portal user — issue/track their LINE
-              claim link here. Own techs don't have a portal. */}
+          {/* ADR 0062 U4a: a daily ช่าง is a portal user — issue/track their LINE
+              claim link here. Monthly ช่าง don't have a portal. */}
           {worker.pay_type === "daily" ? (
             <div className="mt-3">
               <WorkerInviteBlock workerId={worker.id} alreadyBound={worker.portalBound} />
@@ -502,14 +502,14 @@ export function WorkerRosterManager({
   projects = [],
 }: {
   workers: ManagedWorker[];
-  // Legacy DC parents (pre-ADR-0062) still resolve a name for display; new DC
-  // workers have no contractor parent.
+  // Legacy contractor parents (pre-ADR-0062) still resolve a name for display; new
+  // ช่าง have no contractor parent.
   contractors: { id: string; name: string; status?: string; contractor_category?: string }[];
   // Spec 200: projects the assigner can put a worker on (the assign picker).
   projects?: AssignableProject[];
 }) {
   const contractorNames = new Map(contractors.map((c) => [c.id, c.name]));
-  // Spec 266 U3: group the roster by การจ่าย (no own/DC vocabulary).
+  // Spec 266 U3: group the roster by การจ่าย / pay_type (no legacy own/contractor vocabulary).
   const monthlyWorkers = workers.filter((w) => w.pay_type === "monthly");
   const dailyWorkers = workers.filter((w) => w.pay_type === "daily");
 

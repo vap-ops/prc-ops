@@ -1,6 +1,6 @@
 "use client";
 
-// Spec 170 U4c-2 — the DC WORKER bank-change request form on /portal. The worker
+// Spec 170 U4c-2 — the ช่าง bank-change request form on /portal. The worker
 // analogue of BankChangeForm (contractors): a bound worker submits new bank
 // details; they land PENDING for PM approval (ADR 0051 §6), never live
 // immediately. While a request is pending, the form is replaced by a waiting

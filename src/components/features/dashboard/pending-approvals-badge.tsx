@@ -114,7 +114,7 @@ async function loadPendingBankChanges(): Promise<number | null> {
   return count;
 }
 
-// Spec 170 U4c-2: worker (DC) bank changes — the worker analogue, summed into the
+// Spec 170 U4c-2: ช่าง bank changes — the worker analogue, summed into the
 // same total as contractor bank changes.
 async function loadPendingWorkerBankChanges(): Promise<number | null> {
   const { count } = await createClient()

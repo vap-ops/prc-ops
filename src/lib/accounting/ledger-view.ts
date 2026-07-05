@@ -16,7 +16,7 @@ const SOURCE_LABELS: Record<string, string> = {
   stock_reversals: "กลับรายการสต๊อก",
   client_billings: "วางบิลลูกค้า",
   retention_receivables: "เงินประกันผลงาน",
-  dc_payments: "จ่ายค่าแรงรายวัน",
+  wage_payments: "จ่ายค่าแรงรายวัน",
 };
 
 // A source table's display label; the raw table name for an unmapped feed so a

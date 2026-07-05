@@ -6281,5 +6281,32 @@ the stale `get_my_dc_payments`comment (portal/page.tsx:7) +`record_dc_payment`
   receipts / pending-bank) resolve on the RLS session client. No new RLS, no new migration —
   code-only on top of the (already-applied) 071800 migration.
 - Verify: lint + typecheck clean; `WorkerPortalSections` vitest 2/2; full vitest + db:test
-  231/233 (pgTAP 116) green. **DANGER-PATH (auth migration) → PR #322 HELD for operator merge**,
-  NOT self-merged. DB ahead of main by 071800 until #322 merges (next schema claimant 071900+).
+  231/233 (pgTAP 116) green. **PR #322 MERGED** (operator one-tap → CC PAT admin-override; DB
+  synced at 071800, drift-clean; next schema claimant 071900+).
+
+## Spec 266 U8 — labels + final DC-string cleanup — 🔨 IN PROGRESS (2026-07-05, code-only)
+
+Off main (with U7). Retire the remaining "DC" vocabulary from the merge's own surfaces +
+add the WORKER label SSOT. Done so far:
+
+- **Functional:** `labor_logs.worker_type` field renamed to `pay_type` in `group-workers.ts`
+  - `fetch-zone-data.ts` (+ the two tests) — the last `worker_type` in the worker path;
+    `ledger-view.ts` SOURCE_LABELS key `dc_payments`→`wage_payments` (the GL poster writes
+    `source_table='wage_payments'` since U1 — this closes the U4-deferred label miss).
+- **Daily report** (`daily-report/flex.ts` + `assemble.ts` + `sample.ts` + 2 tests): the
+  `WorkerType` value `"dc"`→`"daily"`, `headcountByType.dc`→`.daily`, and the chip/altText
+  label "DC"→"รายวัน".
+- **User-facing labels:** `labor-cost-view.tsx` "ทีมตัวเอง"/"ผู้รับเหมา (DC)" →
+  **ช่างรายเดือน**/**ช่างรายวัน**; accounting project cost "DC รายวัน"→**ช่างรายวัน**.
+- **WORKER label SSOT** in `labels.ts`: `WORKER_LABEL = "ช่าง"`, `WORKER_TEAM_LABEL =
+"ทีมช่าง"` (+ i18n-labels pin; wired into the settings ทีมช่าง section title).
+- **Comment de-DC sweep** (in progress via subagent) across the worker/labor surfaces
+  (workers/actions, roster, labor-log-zone, hub-nav, role-home `record_dc_payment`→
+  `record_wage_payment`, etc.).
+- **Kept (out of U8 scope):** the internal lowercase `WorkerType = "own"|"dc"` seam in
+  workers/actions.ts + `roster.dc`/`.own` group keys (retiring them drags in the excluded
+  legacy `contact-crew-section` + widens blast radius — they are not the user-facing "DC"
+  term); the legacy **contractor-DC taxonomy** (`contractor_subtype dc_*`, the contacts
+  screens, contractor-portal onboarding comments) — ADR 0073 §5 keeps subcontractors
+  functionally untouched; DB-side KEPT names (`dc_payment_recorded`, `wp_labor_costs.own_cost/
+dc_cost`, `dc_count`/`dc_distributed`, `workers.contractor_id`).

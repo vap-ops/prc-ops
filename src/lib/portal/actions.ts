@@ -29,7 +29,7 @@ export async function claimContractorInvite(input: { token: string }): Promise<C
   const auth = await getActionUser();
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
 
-  // Spec 170 U4a — a DC now binds on workers.user_id, so try the worker invite
+  // Spec 170 U4a — a ช่าง binds on workers.user_id, so try the worker invite
   // first; a worker token binds the worker + flips the role. An INVALID-token
   // failure means this is a contractor-party token → fall through to the
   // contractor claim. Any other worker-claim failure (expired / used /
@@ -80,7 +80,7 @@ export async function submitBankChange(input: {
   return { ok: true };
 }
 
-// Spec 170 U4c-2 — a bound DC WORKER submits a bank change (→ pending → PM
+// Spec 170 U4c-2 — a bound ช่าง submits a bank change (→ pending → PM
 // approval). The worker analogue of submitBankChange; submit_worker_bank_change
 // enforces bound-worker-only / own / one-pending. Reuses validateBankChange (the
 // shape/UX rules are identical). RLS-scoped session.
@@ -175,7 +175,7 @@ export async function decideWorkerBankChange(input: {
   return { ok: true };
 }
 
-// Spec 131 U2b — DC self-edits their own emergency contact + DOB from the
+// Spec 131 U2b — a ช่าง self-edits their own emergency contact + DOB from the
 // portal. The RPC is column-scoped to the four fields for the caller's own
 // contractor (no broad UPDATE policy). Emergency contact is not money — direct,
 // no staging.
@@ -202,7 +202,7 @@ export async function updateOwnEmergencyContact(input: {
   return { ok: true };
 }
 
-// Spec 132 U1 — DC self-edits their own contactability (phone/email/contact
+// Spec 132 U1 — a ช่าง self-edits their own contactability (phone/email/contact
 // person/mailing address) from the portal. The RPC is column-scoped to these four
 // fields for the caller's own contractor (no broad UPDATE policy — so name/status/
 // tax_id stay out of reach). Contactability is not money — direct, no staging.
@@ -229,7 +229,7 @@ export async function updateOwnContactInfo(input: {
   return { ok: true };
 }
 
-// Spec 170 U4b / ADR 0062 — a bound DC WORKER self-edits their own portal profile
+// Spec 170 U4b / ADR 0062 — a bound ช่าง self-edits their own portal profile
 // (contact + emergency + DOB) in one call. update_own_worker_profile is
 // column-scoped to those six fields for current_user_worker_id() (name/day_rate/
 // tax_id stay out of reach). Not money → applies directly, no staging.
@@ -260,7 +260,7 @@ export async function updateOwnWorkerProfile(input: {
   return { ok: true };
 }
 
-// Spec 170 U4b-2 / ADR 0062 — a bound DC WORKER records their own PDPA /
+// Spec 170 U4b-2 / ADR 0062 — a bound ช่าง records their own PDPA /
 // background-check consent from the portal. record_worker_consent self-validates
 // (current_user_worker_id); a forged kind is rejected here, an unbound caller by
 // the RPC. Withdrawal reuses revokeOwnConsent (revoke_contractor_consent now
@@ -279,7 +279,7 @@ export async function recordOwnWorkerConsent(input: { kind: string }): Promise<A
   return { ok: true };
 }
 
-// Spec 131 U2b — DC records their own PDPA / background-check consent from the
+// Spec 131 U2b — a ช่าง records their own PDPA / background-check consent from the
 // portal. record_contractor_consent self-validates (current_user_contractor_id
 // = p_contractor), so passing the portal-read contractor id is safe — a forged
 // id fails the RPC's own-or-staff gate.
@@ -304,7 +304,7 @@ export async function recordOwnConsent(input: {
   return { ok: true };
 }
 
-// Spec 131 U3 — a bound DC withdraws their OWN consent (PDPA right to withdraw).
+// Spec 131 U3 — a bound ช่าง withdraws their OWN consent (PDPA right to withdraw).
 // revoke_contractor_consent self-validates (own contractor OR pm/super), so a
 // forged consent id 42501s; it only sets revoked_at (no deletion, append-only
 // spirit). Withdrawing reopens the completeness checklist's consent item.
@@ -320,7 +320,7 @@ export async function revokeOwnConsent(input: { id: string }): Promise<ActionRes
   return { ok: true };
 }
 
-// Spec 131 U2c — a bound DC records their OWN contact document after uploading
+// Spec 131 U2c — a bound ช่าง records their OWN contact document after uploading
 // the file to the private contact-docs bucket (browser client, own path). The
 // contractor id is read SERVER-SIDE from the RLS session (never trusted from the
 // client) and the storage path is REBUILT from it — so a forged path/id can't

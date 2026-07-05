@@ -2,7 +2,7 @@
 // and the CSV export route, so the two never diverge. Admin client (the rate
 // snapshot has zero authenticated grant); callers MUST gate on
 // requireRole(PM_ROLES) before invoking. Fetches ALL pay types in the window
-// — DC is filtered in aggregatePayroll AFTER the current-state pass (a supersede
+// — daily ช่าง are filtered in aggregatePayroll AFTER the current-state pass (a supersede
 // correction re-snapshots pay_type; a DB-level type filter could miscount).
 // ADR 0062: payroll rolls up per worker, so no contractor name lookup is needed.
 

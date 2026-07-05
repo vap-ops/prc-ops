@@ -1,5 +1,5 @@
-// Spec 131 U2b — pure validation for the DC's self-edited emergency contact.
-// Thai, contractor-facing. Length caps mirror the contractors CHECKs
+// Spec 131 U2b — pure validation for the ช่าง's self-edited emergency contact.
+// Thai, portal-facing. Length caps mirror the contractors CHECKs
 // (name ≤120, relation ≤60, phone ≤30). The RPC re-scopes to own contractor.
 
 export function validateEmergencyContact(input: {

@@ -68,7 +68,7 @@ export const PROCUREMENT_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "ผู้ขาย", href: "/contacts/vendors" },
   // Spec 172 Phase B: procurement curates subcontractors too.
   { label: SUBCONTRACTOR_LABEL, href: "/contacts/subcontractors" },
-  // Spec 172 Phase C: procurement onboards DC workers (incl. the pay rate).
+  // Spec 172 Phase C: procurement onboards ช่าง (incl. the pay rate).
   { label: "ทีมงาน", href: "/workers" },
   { label: "ตั้งค่า", href: "/settings" },
 ];

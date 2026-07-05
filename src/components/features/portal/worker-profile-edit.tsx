@@ -1,6 +1,6 @@
 "use client";
 
-// Spec 170 U4b / ADR 0062 — a DC worker self-edits their portal profile (contact
+// Spec 170 U4b / ADR 0062 — a ช่าง self-edits their portal profile (contact
 // + emergency contact + DOB) in one form, prefilled from get_my_worker_profile.
 // Direct apply via update_own_worker_profile (column-scoped server-side to these
 // six fields — name/day_rate/tax_id stay out of reach). Mirrors the contractor

@@ -34,7 +34,7 @@ export interface AssembledEntry {
 
 export interface AssembledAttendance {
   entries: AssembledEntry[];
-  headcountByType: { company: number; dc: number; subcon: number };
+  headcountByType: { company: number; daily: number; subcon: number };
   lateCount: number;
   otCount: number;
   totalHeadcount: number;
@@ -93,7 +93,7 @@ export function assembleAttendance(
   // Distinct workers across the whole day for the totals.
   const distinct = new Map<string, WorkerType>();
   for (const r of labor) if (!distinct.has(r.workerId)) distinct.set(r.workerId, r.workerType);
-  const headcountByType = { company: 0, dc: 0, subcon: 0 };
+  const headcountByType = { company: 0, daily: 0, subcon: 0 };
   for (const type of distinct.values()) headcountByType[type] += 1;
 
   const lateWorkers = new Set<string>();

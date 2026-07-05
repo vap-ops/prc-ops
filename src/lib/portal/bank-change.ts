@@ -1,5 +1,5 @@
-// Spec 130 U4 — pure validation for the DC bank-change request (contractor
-// portal). Thai, contractor-facing. Length caps mirror the contact_bank /
+// Spec 130 U4 — pure validation for the portal user's bank-change request
+// (portal). Thai, portal-facing. Length caps mirror the contact_bank /
 // contractor_bank_change_requests CHECKs; the submit RPC re-guards role/own/dup.
 
 export function validateBankChange(input: {

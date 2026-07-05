@@ -23,7 +23,7 @@ const ROSTER = {
     {
       id: "w1",
       name: "ช่างหนึ่ง",
-      worker_type: "monthly" as const,
+      pay_type: "monthly" as const,
       contractor_id: null,
       active: true,
     },
@@ -36,7 +36,7 @@ const ROSTER = {
         {
           id: "w2",
           name: "ดีซีสอง",
-          worker_type: "daily" as const,
+          pay_type: "daily" as const,
           contractor_id: "c1",
           active: true,
         },

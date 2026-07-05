@@ -1,5 +1,5 @@
-// Spec 170 U4b — pure validation for a DC worker's self-edited portal profile
-// (ADR 0062: a DC is a worker, so the profile lives on the worker). Contact
+// Spec 170 U4b — pure validation for a ช่าง's self-edited portal profile
+// (ADR 0062: a ช่าง binds on workers.user_id, so the profile lives on the worker). Contact
 // (phone/email) + emergency contact (name/relation/phone) + DOB. All optional —
 // a blank value clears that field. Caps mirror the workers CHECKs (phone ≤50,
 // email ≤200, emergency name ≤120, relation ≤60). The update_own_worker_profile

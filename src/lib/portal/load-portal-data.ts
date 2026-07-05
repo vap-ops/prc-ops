@@ -1,4 +1,4 @@
-// Spec 147 U4 — DC-portal data loader. The page formerly ran its reads in a
+// Spec 147 U4 — portal data loader. The page formerly ran its reads in a
 // serial waterfall (profile → consents → crew → payments → pending bank change →
 // own-docs → bank-present). Every read is RLS-scoped to the calling contractor
 // and independent, so they batch into one Promise.all → dependent tail (own-docs
