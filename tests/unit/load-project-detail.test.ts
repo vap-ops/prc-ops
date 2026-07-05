@@ -44,6 +44,8 @@ const WORK_PACKAGES = [
     priority: "normal",
     planned_start: null,
     planned_end: null,
+    is_group: false,
+    parent_id: null,
   },
 ];
 const DELIVERABLES = [{ id: "d1", code: "D-01", name: "งวด 1", sort_order: 1 }];
@@ -83,10 +85,15 @@ function track<T>(value: T): Promise<T> {
   });
 }
 
+const selectedColumns: Record<string, string> = {};
+
 function makeQuery(table: string) {
   const q: Record<string, unknown> = { __single: false };
   for (const m of ["select", "eq", "neq", "in", "order", "limit"]) {
-    q[m] = () => q;
+    q[m] = (arg?: unknown) => {
+      if (m === "select" && typeof arg === "string") selectedColumns[table] = arg;
+      return q;
+    };
   }
   q.maybeSingle = () => {
     q.__single = true;
@@ -130,6 +137,12 @@ describe("loadProjectDetail", () => {
     expect(data.criticalIds).toBeInstanceOf(Set);
     expect(data.onboarding?.work_packages_added).toBe(true);
     expect(data.sourceProjects).toEqual(SOURCE_PROJECTS);
+  });
+
+  it("selects the hierarchy columns on work_packages (spec 270 U3)", async () => {
+    await loadProjectDetail(supabase, PROJECT as never, true);
+    expect(selectedColumns["work_packages"]).toContain("is_group");
+    expect(selectedColumns["work_packages"]).toContain("parent_id");
   });
 
   it("skips the PM-only reads when not a PM", async () => {

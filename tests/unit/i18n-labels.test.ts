@@ -142,3 +142,11 @@ describe("formatThaiDateTime", () => {
     expect(formatThaiDateTime("not-a-date")).toBe("not-a-date");
   });
 });
+
+describe("WP hierarchy term SSOT (spec 270 D2)", () => {
+  it("pins the งาน / งานย่อย pair", async () => {
+    const labels = await import("@/lib/i18n/labels");
+    expect(labels.WP_GROUP_LABEL).toBe("งาน");
+    expect(labels.WP_LEAF_LABEL).toBe("งานย่อย");
+  });
+});

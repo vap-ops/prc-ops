@@ -28,6 +28,8 @@ type WpListRow = Pick<
   | "priority"
   | "planned_start"
   | "planned_end"
+  | "is_group"
+  | "parent_id"
 >;
 type DeliverableRow = Pick<Tbl["deliverables"]["Row"], "id" | "code" | "name" | "sort_order">;
 // Spec 207 U3 — the project's work-category taxonomy (หมวดงาน) for the manager.
@@ -81,7 +83,7 @@ export async function loadProjectDetail(
     supabase
       .from("work_packages")
       .select(
-        "id, code, name, status, deliverable_id, contractor_id, priority, planned_start, planned_end",
+        "id, code, name, status, deliverable_id, contractor_id, priority, planned_start, planned_end, is_group, parent_id",
       )
       .eq("project_id", project.id)
       .order("code", { ascending: true }),

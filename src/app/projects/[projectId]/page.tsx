@@ -233,10 +233,13 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
             projectId={project.id}
             status={onboarding}
             // Spec 164 U4: done = ≥1 งวด AND no ungrouped งาน (every WP grouped;
-            // vacuously true when there are no WPs yet).
+            // vacuously true when there are no WPs yet). Spec 270: งาน grouping
+            // rows never bind a deliverable, so only leaves count here.
             deliverablesDone={
               (deliverables ?? []).length > 0 &&
-              (workPackages ?? []).every((wp) => wp.deliverable_id !== null)
+              (workPackages ?? [])
+                .filter((wp) => !wp.is_group)
+                .every((wp) => wp.deliverable_id !== null)
             }
           />
         )}
@@ -276,6 +279,10 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
             priority: wp.priority,
             priorityRank: rankFromPriority(wp.priority),
             isCritical: criticalIds.has(wp.id),
+            // Spec 270 U3: the hierarchy fields drive the งาน lens; groups
+            // head sections and are excluded from the other lenses.
+            isGroup: wp.is_group,
+            parentId: wp.parent_id,
           }))}
           deliverables={(deliverables ?? []).map((d) => ({
             id: d.id,
