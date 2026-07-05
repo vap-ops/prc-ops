@@ -567,3 +567,53 @@ describe("SupplyPlanManager category grouping (spec 245 U3)", () => {
     await waitFor(() => expect(mockRemove).toHaveBeenCalledWith({ projectId: "p1", lineId: "s1" }));
   });
 });
+
+// Spec 270 U5 — the per-line WP picker offers งานย่อย ONLY, grouped under งาน
+// optgroup headings when the project adopted the hierarchy. The prop arrives
+// pre-shaped (pure buildWpPickerGroups at the page); absent → legacy flat list.
+describe("SupplyPlanManager WP picker grouping (spec 270 U5)", () => {
+  const PICKER_GROUPS = {
+    sections: [
+      {
+        label: "WP-05 งานหลังคา",
+        options: [
+          { id: "c1", code: "WP-05-01", name: "งานโครงหลังคา" },
+          { id: "c2", code: "WP-05-02", name: "งานมุงกระเบื้อง" },
+        ],
+      },
+    ],
+    ungrouped: [{ id: "loose", code: "WP-099", name: "งานอิสระเดิม" }],
+  };
+
+  it("renders งาน optgroups with งานย่อย options and keeps ทั้งโครงการ", () => {
+    render(
+      <SupplyPlanManager
+        projectId="p1"
+        planId="pl1"
+        planStatus="draft"
+        canApprove={false}
+        canOverride={false}
+        overriddenByName={null}
+        lines={[]}
+        catalogItems={catalogItems}
+        categories={categories}
+        workPackages={[
+          { id: "c1", code: "WP-05-01", name: "งานโครงหลังคา" },
+          { id: "c2", code: "WP-05-02", name: "งานมุงกระเบื้อง" },
+          { id: "loose", code: "WP-099", name: "งานอิสระเดิม" },
+        ]}
+        wpPickerGroups={PICKER_GROUPS}
+      />,
+    );
+    const select = screen.getByLabelText("งาน") as HTMLSelectElement;
+    const optgroups = select.querySelectorAll("optgroup");
+    expect(optgroups).toHaveLength(1);
+    expect(optgroups[0]!.getAttribute("label")).toBe("WP-05 งานหลังคา");
+    expect(optgroups[0]!.querySelectorAll("option")).toHaveLength(2);
+    // ทั้งโครงการ stays the first (empty) option; the ungrouped leaf is offered.
+    expect(select.options[0]!.textContent).toBe("ทั้งโครงการ");
+    const values = [...select.options].map((o) => o.value);
+    expect(values).toContain("loose");
+    expect(values).not.toContain("g-anything");
+  });
+});

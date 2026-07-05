@@ -65,6 +65,9 @@ export async function loadClientView(
     .from("work_packages")
     .select("id, code, name, status")
     .eq("project_id", project.id)
+    // Spec 270 U5: the client's progress list counts งานย่อย only — งาน rows
+    // are grouping entities and would inflate the denominator.
+    .eq("is_group", false)
     .order("code", { ascending: true });
 
   // photo_logs RLS = approved (complete-WP) photos of the live project. Drop

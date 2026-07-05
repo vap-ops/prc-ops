@@ -30,6 +30,7 @@ import {
   type PlanLine,
 } from "@/components/features/supply-plan/supply-plan-manager";
 import { NewPlanButton } from "@/components/features/supply-plan/new-plan-button";
+import { buildWpPickerGroups } from "@/lib/work-packages/picker-options";
 import {
   CloneTemplateButton,
   type TemplatePick,
@@ -117,7 +118,9 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
     loadCatalogItemMemberships(supabase),
     supabase
       .from("work_packages")
-      .select("id, code, name, project_categories ( work_category_id )")
+      // Spec 270 U5: hierarchy fields ride along — the picker offers งานย่อย
+      // only, grouped under งาน optgroup headings.
+      .select("id, code, name, is_group, parent_id, project_categories ( work_category_id )")
       .eq("project_id", project.id)
       .order("code", { ascending: true }),
     isPlanner
@@ -237,7 +240,20 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
     productCode: r.product_code,
   }));
 
-  const workPackages = (wpRows ?? []).map((w) => ({ id: w.id, code: w.code, name: w.name }));
+  // Spec 270 U5: pickers offer งานย่อย ONLY; the pure shaper buckets them
+  // under งาน optgroup headings (legacy flat projects fall into `ungrouped`).
+  const wpPickerGroups = buildWpPickerGroups(
+    (wpRows ?? []).map((w) => ({
+      id: w.id,
+      code: w.code,
+      name: w.name,
+      isGroup: w.is_group,
+      parentId: w.parent_id,
+    })),
+  );
+  const workPackages = (wpRows ?? [])
+    .filter((w) => !w.is_group)
+    .map((w) => ({ id: w.id, code: w.code, name: w.name }));
   const wpScopedCategories: Record<string, string[]> = {};
   for (const [wpId, workCatId] of wpWorkCategory) {
     const catIds = scopeByWorkCat.get(workCatId);
@@ -333,6 +349,7 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
             catalogItems={catalogItems}
             categories={catalogCategoryList}
             workPackages={workPackages}
+            wpPickerGroups={wpPickerGroups}
             itemMemberships={itemMemberships}
             wpScopedCategories={wpScopedCategories}
           />

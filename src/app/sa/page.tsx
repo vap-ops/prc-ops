@@ -39,6 +39,8 @@ export default async function SaHomePage() {
   const { data: wpRows } = await supabase
     .from("work_packages")
     .select("id, code, name, status, project_id, rework_round")
+    // Spec 270 U5: งาน grouping rows are never actionable — leaves only.
+    .eq("is_group", false)
     .neq("status", "complete");
   const wps = wpRows ?? [];
 

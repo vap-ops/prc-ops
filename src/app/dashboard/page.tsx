@@ -104,6 +104,9 @@ export default async function DashboardPage() {
         .from("work_packages")
         .select("id, project_id, status, category_id")
         .in("project_id", projectIds)
+        // Spec 270 U5: progress counts งานย่อย only — a งาน's status is derived
+        // FROM them; counting both would double-weight every grouped project.
+        .eq("is_group", false)
     : { data: [] };
   const wps = wpRows ?? [];
 
