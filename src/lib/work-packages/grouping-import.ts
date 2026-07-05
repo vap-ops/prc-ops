@@ -269,6 +269,42 @@ export function validateGrouping(rows: GroupingRow[], existing: ExistingWp[]): G
   return { errors, warnings, plan };
 }
 
+/** Shape of a work_packages row as read for the import surfaces. */
+export type WpDbRow = {
+  id: string;
+  code: string;
+  name: string;
+  is_group: boolean;
+  parent_id: string | null;
+};
+
+export function toExistingWp(rows: WpDbRow[]): ExistingWp[] {
+  const codeById = new Map(rows.map((r) => [r.id, r.code]));
+  return rows.map((r) => ({
+    code: r.code,
+    name: r.name,
+    isGroup: r.is_group,
+    parentCode: r.parent_id === null ? null : (codeById.get(r.parent_id) ?? null),
+  }));
+}
+
+/** The RPC payload row shape for import_wp_grouping (snake_case, jsonb). */
+export type RpcGroupingRow = {
+  sub_of: string | null;
+  code: string;
+  old_code: string | null;
+  name: string;
+};
+
+export function toRpcRows(rows: GroupingRow[]): RpcGroupingRow[] {
+  return rows.map((r) => ({
+    sub_of: r.subOf,
+    code: r.code,
+    old_code: r.oldCode,
+    name: r.name,
+  }));
+}
+
 export function buildGroupingTemplate(existing: ExistingWp[]): string {
   const lines = [["SubOf", "WP", "OldCode", "ชื่องาน"].join("\t")];
   for (const w of existing) {
