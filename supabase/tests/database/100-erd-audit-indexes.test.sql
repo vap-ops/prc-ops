@@ -22,19 +22,19 @@ select is(
 );
 
 -- M3 — "one CURRENT dc_payment per (worker, period)" was enforced only inside
--- record_dc_payment (advisory lock + EXISTS). Pin it declaratively with a partial
+-- record_wage_payment (advisory lock + EXISTS). Pin it declaratively with a partial
 -- UNIQUE index so no non-RPC writer can double-pay a period.
 select has_index(
-  'public', 'dc_payments', 'dc_payments_one_current_per_period',
-  'M3: dc_payments_one_current_per_period exists'
+  'public', 'wage_payments', 'wage_payments_one_current_per_period',
+  'M3: wage_payments_one_current_per_period exists'
 );
 select index_is_unique(
-  'public', 'dc_payments', 'dc_payments_one_current_per_period'
+  'public', 'wage_payments', 'wage_payments_one_current_per_period'
 );
 select is(
   (select i.indpred is not null
      from pg_class c join pg_index i on i.indexrelid = c.oid
-     where c.relname = 'dc_payments_one_current_per_period'),
+     where c.relname = 'wage_payments_one_current_per_period'),
   true,
   'M3: the period unique index is partial (WHERE superseded_by IS NULL)'
 );

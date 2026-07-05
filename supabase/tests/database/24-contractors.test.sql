@@ -102,13 +102,13 @@ select is(has_column_privilege('authenticated', 'public.contractors', 'status', 
 insert into public.contractors (id, name, created_by)
   values ('d5000000-dddd-dddd-dddd-dddddddd2222', 'BackfillCo',
           '33333333-3333-3333-3333-33333333dddd');
-insert into public.workers (id, name, worker_type, contractor_id, day_rate, created_by)
-  values ('77770000-dddd-dddd-dddd-dddddddd2222', 'dc-person', 'dc',
+insert into public.workers (id, name, pay_type, employment_type, contractor_id, day_rate, created_by)
+  values ('77770000-dddd-dddd-dddd-dddddddd2222', 'dc-person', 'daily', 'permanent',
           'd5000000-dddd-dddd-dddd-dddddddd2222', 500,
           '33333333-3333-3333-3333-33333333dddd');
 update public.contractors c set contractor_category = 'dc'
  where exists (select 1 from public.workers w
-                where w.contractor_id = c.id and w.worker_type = 'dc');
+                where w.contractor_id = c.id and w.pay_type = 'daily');
 select is((select contractor_category::text from public.contractors
              where id = 'd5000000-dddd-dddd-dddd-dddddddd2222'),
   'dc', 'spec 83: DC-wins backfill reclassifies a dc-worker contractor');

@@ -1,5 +1,5 @@
 begin;
-select plan(60);
+select plan(59);
 
 -- ============================================================================
 -- Spec 46 — daily labor capture: workers master + labor_logs.
@@ -45,16 +45,16 @@ insert into public.contractors (id, name, created_by) values
 
 -- Worker fixtures (direct insert as postgres — owner bypasses the
 -- zero-grant posture; the app can only use the RPCs).
-insert into public.workers (id, name, worker_type, contractor_id, user_id,
+insert into public.workers (id, name, pay_type, employment_type, contractor_id, user_id,
                             day_rate, active, created_by) values
-  ('aaaaaaa1-0000-4000-8000-000000ab0fe1', 'Own Tech A', 'own', null, null,
+  ('aaaaaaa1-0000-4000-8000-000000ab0fe1', 'Own Tech A', 'monthly', 'permanent', null, null,
    500.00, true,  '11111111-1111-1111-1111-1111111ab0fe'),
-  ('aaaaaaa2-0000-4000-8000-000000ab0fe2', 'Own Tech B (inactive)', 'own', null,
+  ('aaaaaaa2-0000-4000-8000-000000ab0fe2', 'Own Tech B (inactive)', 'monthly', 'permanent', null,
    null, 450.00, false, '11111111-1111-1111-1111-1111111ab0fe'),
-  ('aaaaaaa3-0000-4000-8000-000000ab0fe3', 'DC Worker C', 'dc',
+  ('aaaaaaa3-0000-4000-8000-000000ab0fe3', 'DC Worker C', 'daily', 'permanent',
    'dddddddd-dddd-dddd-dddd-dddddddab0fe', null, 380.00, true,
    '11111111-1111-1111-1111-1111111ab0fe'),
-  ('aaaaaaa4-0000-4000-8000-000000ab0fe4', 'SA Self Worker', 'own', null,
+  ('aaaaaaa4-0000-4000-8000-000000ab0fe4', 'SA Self Worker', 'monthly', 'permanent', null,
    '22222222-2222-2222-2222-2222222ab0fe', 520.00, true,
    '11111111-1111-1111-1111-1111111ab0fe');
 
@@ -68,8 +68,8 @@ grant usage  on sequence _tap_buf_ord_seq to authenticated, anon;
 
 select has_table('public', 'workers', 'workers exists');
 select has_table('public', 'labor_logs', 'labor_logs exists');
-select enum_has_labels('public', 'worker_type', array['own', 'dc'],
-  'worker_type labels');
+select enum_has_labels('public', 'pay_type', array['monthly', 'daily'],
+  'pay_type labels');
 select enum_has_labels('public', 'day_fraction', array['full', 'half'],
   'day_fraction labels');
 select ok((select relrowsecurity from pg_class where oid = 'public.workers'::regclass),
@@ -113,16 +113,16 @@ select throws_ok(
   $$ select day_rate_snapshot from public.labor_logs limit 1 $$,
   '42501', null, 'authenticated cannot read labor_logs.day_rate_snapshot');
 select throws_ok(
-  $$ insert into public.workers (name, worker_type, day_rate, created_by)
-     values ('Rogue', 'own', 1, '22222222-2222-2222-2222-2222222ab0fe') $$,
+  $$ insert into public.workers (name, pay_type, employment_type, day_rate, created_by)
+     values ('Rogue', 'monthly', 'permanent', 1, '22222222-2222-2222-2222-2222222ab0fe') $$,
   '42501', null, 'authenticated cannot INSERT workers directly');
 select throws_ok(
   $$ insert into public.labor_logs (work_package_id, worker_id, work_date,
        day_fraction, day_rate_snapshot, worker_name_snapshot,
-       worker_type_snapshot, entered_by)
+       pay_type_snapshot, entered_by)
      values ('eeeeeeee-eeee-eeee-eeee-eeeeeeeab0fe',
              'aaaaaaa1-0000-4000-8000-000000ab0fe1', current_date, 'full',
-             0, 'x', 'own', '22222222-2222-2222-2222-2222222ab0fe') $$,
+             0, 'x', 'monthly', '22222222-2222-2222-2222-2222222ab0fe') $$,
   '42501', null, 'authenticated cannot INSERT labor_logs directly');
 
 -- ============================================================================
@@ -130,7 +130,7 @@ select throws_ok(
 -- ============================================================================
 
 select throws_ok(
-  $$ select public.create_worker('New Guy', 'own', 400) $$,
+  $$ select public.create_worker('New Guy', 'monthly', 'permanent', 400) $$,
   '42501', null, 'create_worker refuses site_admin');
 select throws_ok(
   $$ select public.set_worker_day_rate('aaaaaaa1-0000-4000-8000-000000ab0fe1', 999) $$,
@@ -139,7 +139,7 @@ select throws_ok(
 set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-1111111ab0fe"}';
 
 select ok(
-  (select public.create_worker('New Own Tech', 'own', 470)) is not null,
+  (select public.create_worker('New Own Tech', 'monthly', 'permanent', 470)) is not null,
   'create_worker works for project_manager');
 select lives_ok(
   $$ select public.set_worker_day_rate('aaaaaaa1-0000-4000-8000-000000ab0fe1', 510) $$,
@@ -168,7 +168,7 @@ select is(
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-1111111ab0fe"}';
 select ok(
-  (select public.create_worker('Noted Tech', 'own', 400, p_note => 'มีหมายเหตุ')) is not null,
+  (select public.create_worker('Noted Tech', 'monthly', 'permanent', 400, p_note => 'มีหมายเหตุ')) is not null,
   'create_worker stores a note');
 select lives_ok(
   $$ select public.update_worker('aaaaaaa1-0000-4000-8000-000000ab0fe1',
@@ -190,9 +190,9 @@ select is(
   (select name from public.workers where id = 'aaaaaaa1-0000-4000-8000-000000ab0fe1'),
   'Own Tech A1', 'a note-only update preserves the name (coalesce)');
 
--- C.dc (ADR 0062 U1): a DC is a self-sufficient worker — an arrangement
+-- C.dc (ADR 0073, was ADR 0062 U1): a ช่าง worker's pay_type/employment_type
 -- (ประจำ/ชั่วคราว) + payee fields, no contractor parent required. bank_* + tax_id
--- are money/PII-isolated like day_rate (no authenticated grant); dc_arrangement
+-- are money/PII-isolated like day_rate (no authenticated grant); employment_type
 -- is non-sensitive and readable.
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-2222222ab0fe"}';
@@ -203,22 +203,19 @@ select throws_ok(
   $$ select tax_id from public.workers limit 1 $$,
   '42501', null, 'authenticated cannot read workers.tax_id (isolated)');
 select lives_ok(
-  $$ select dc_arrangement from public.workers limit 1 $$,
-  'authenticated can read workers.dc_arrangement (granted, non-sensitive)');
+  $$ select employment_type from public.workers limit 1 $$,
+  'authenticated can read workers.employment_type (granted, non-sensitive)');
 
 set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-1111111ab0fe"}';
 select ok(
-  (select public.create_worker('DC Direct', 'dc', 420, p_arrangement => 'temporary',
+  (select public.create_worker('DC Direct', 'daily', 'temporary', 420,
      p_bank_account_number => '1234567890')) is not null,
-  'create_worker makes a DC worker with no contractor parent + arrangement + bank');
-select throws_ok(
-  $$ select public.create_worker('Bad Own', 'own', 400, p_arrangement => 'regular') $$,
-  'P0001', null, 'create_worker rejects an arrangement on a non-dc worker');
+  'create_worker makes a daily-pay, temporary worker with no contractor parent + bank');
 
 reset role;
 select is(
-  (select dc_arrangement from public.workers where name = 'DC Direct'),
-  'temporary'::public.dc_arrangement, 'create_worker stored the dc arrangement');
+  (select employment_type from public.workers where name = 'DC Direct'),
+  'temporary'::public.employment_type, 'create_worker stored the employment_type');
 select is(
   (select bank_account_number from public.workers where name = 'DC Direct'),
   '1234567890', 'create_worker stored the (isolated) bank account number');

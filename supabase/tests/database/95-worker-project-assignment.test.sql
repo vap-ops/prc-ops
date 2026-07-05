@@ -1,5 +1,5 @@
 begin;
-select plan(25);
+select plan(24);
 
 -- ============================================================================
 -- Spec 160 U1 / ADR 0061 (invariant 1) — DC as a durable person + project
@@ -30,8 +30,8 @@ insert into public.projects (id, code, name) values
 
 -- The DC we will assign — created (as the migration/owner role) with a NULL
 -- contractor, which the relaxed CHECK now allows.
-insert into public.workers (id, name, worker_type, contractor_id, user_id, day_rate, active, created_by)
-  values ('aaaa0160-0160-0160-0160-aaaaaaaa0160', 'DC ก', 'dc', null, null, 450.00, true,
+insert into public.workers (id, name, pay_type, employment_type, contractor_id, user_id, day_rate, active, created_by)
+  values ('aaaa0160-0160-0160-0160-aaaaaaaa0160', 'DC ก', 'daily', 'permanent', null, null, 450.00, true,
           '11111111-1111-1111-1111-111111110160');
 
 -- ---------------------------------------------------------------------------
@@ -60,17 +60,15 @@ select ok(not has_table_privilege('authenticated', 'public.worker_project_moves'
 select ok(not has_table_privilege('authenticated', 'public.worker_project_moves', 'INSERT'),
   'authenticated has no INSERT privilege on worker_project_moves (RPC-only)');
 
--- C. The DC-contractor force-tie is DROPPED; the own-has-no-contractor stays.
+-- C. The DC-contractor force-tie is DROPPED (workers_own_has_no_contractor was
+-- dropped later by the spec 266 worker-identity merge; not re-asserted here).
 select is(
   (select count(*)::int from pg_constraint where conname='workers_dc_has_contractor'),
   0, 'CHECK workers_dc_has_contractor is dropped');
-select is(
-  (select count(*)::int from pg_constraint where conname='workers_own_has_no_contractor'),
-  1, 'CHECK workers_own_has_no_contractor is kept');
 -- Behavioral: a dc worker now inserts with a NULL contractor (was 23514).
 select lives_ok(
-  $$ insert into public.workers (name, worker_type, contractor_id, day_rate, created_by)
-     values ('DC ข', 'dc', null, 400.00, '11111111-1111-1111-1111-111111110160') $$,
+  $$ insert into public.workers (name, pay_type, employment_type, contractor_id, day_rate, created_by)
+     values ('DC ข', 'daily', 'permanent', null, 400.00, '11111111-1111-1111-1111-111111110160') $$,
   'a dc worker inserts with a null contractor (relaxed CHECK)');
 
 -- D. The RPC.

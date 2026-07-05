@@ -25,9 +25,9 @@ insert into public.projects (id, code, name) values
 
 -- DC worker fixture (direct insert as postgres — owner bypasses the zero-grant
 -- posture; the app can only reach these columns through the RPCs).
-insert into public.workers (id, name, worker_type, contractor_id, user_id,
+insert into public.workers (id, name, pay_type, employment_type, contractor_id, user_id,
                             day_rate, active, created_by) values
-  ('7d000000-0172-4000-8000-7d0000000172', 'Fixture DC', 'dc', null, null,
+  ('7d000000-0172-4000-8000-7d0000000172', 'Fixture DC', 'daily', 'permanent', null, null,
    400.00, true, '70000000-0172-0172-0172-700000000172');
 
 grant insert on _tap_buf to authenticated, anon;
@@ -42,10 +42,10 @@ set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "70000000-0172-0172-0172-700000000172"}';
 
 select ok(
-  (select public.create_worker('Proc DC', 'dc', 425, p_arrangement => 'regular',
+  (select public.create_worker('Proc DC', 'daily', 'permanent', 425,
      p_phone => '0812345678', p_tax_id => '1234567890123',
      p_bank_account_number => '9876543210')) is not null,
-  'procurement create_worker makes a DC with arrangement + bank + rate');
+  'procurement create_worker makes a DC with employment type + bank + rate');
 select lives_ok(
   $$ select public.update_worker('7d000000-0172-4000-8000-7d0000000172',
        p_name => 'Fixture DC (edited)') $$,
@@ -79,13 +79,13 @@ select throws_ok(
   $$ select day_rate from public.workers limit 1 $$,
   '42501', null, 'procurement cannot read workers.day_rate (isolated)');
 select lives_ok(
-  $$ select dc_arrangement from public.workers limit 1 $$,
-  'procurement can read workers.dc_arrangement (granted, non-sensitive)');
+  $$ select employment_type from public.workers limit 1 $$,
+  'procurement can read workers.employment_type (granted, non-sensitive)');
 
 -- Negative control — a non-admitted role is still refused (gate did not fall open).
 set local "request.jwt.claims" = '{"sub": "71000000-0172-0172-0172-710000000172"}';
 select throws_ok(
-  $$ select public.create_worker('Rogue', 'own', 400) $$,
+  $$ select public.create_worker('Rogue', 'monthly', 'permanent', 400) $$,
   '42501', null, 'visitor is still refused create_worker');
 
 -- ============================================================================
@@ -97,8 +97,8 @@ select is(
   (select bank_account_number from public.workers where name = 'Proc DC'),
   '9876543210', 'procurement create_worker stored the (isolated) bank account number');
 select is(
-  (select dc_arrangement from public.workers where name = 'Proc DC'),
-  'regular'::public.dc_arrangement, 'procurement create_worker stored the dc arrangement');
+  (select employment_type from public.workers where name = 'Proc DC'),
+  'permanent'::public.employment_type, 'procurement create_worker stored the employment type');
 select is(
   (select phone from public.workers where name = 'Proc DC'),
   '0812345678', 'procurement create_worker stored the (isolated) phone');

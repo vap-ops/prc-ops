@@ -21,10 +21,10 @@ update public.users set role = 'contractor' where id in
 -- 55.. stays visitor (unbound).
 
 -- Two DC workers, each bound to a portal user via workers.user_id.
-insert into public.workers (id, name, worker_type, day_rate, active, created_by, user_id) values
-  ('aa000001-0000-4000-8000-000000004172', 'DC A', 'dc', 400.00, true,
+insert into public.workers (id, name, pay_type, employment_type, day_rate, active, created_by, user_id) values
+  ('aa000001-0000-4000-8000-000000004172', 'DC A', 'daily', 'permanent', 400.00, true,
    '11111111-1111-1111-1111-111111114172', '33333333-3333-3333-3333-333333334172'),
-  ('aa000002-0000-4000-8000-000000004172', 'DC B', 'dc', 450.00, true,
+  ('aa000002-0000-4000-8000-000000004172', 'DC B', 'daily', 'permanent', 450.00, true,
    '11111111-1111-1111-1111-111111114172', '44444444-4444-4444-4444-444444444172');
 
 -- A worker consent seeded directly (known id) for the read/revoke tests.

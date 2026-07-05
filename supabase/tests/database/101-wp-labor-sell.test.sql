@@ -43,76 +43,76 @@ insert into public.wp_economics (work_package_id, is_external) values
 
 -- Graded DCs (senior/mid/junior/apprentice), one UNGRADED DC, and an own tech
 -- that carries a level (must still be excluded — own is not transfer-priced).
-insert into public.workers (id, name, worker_type, contractor_id, user_id,
+insert into public.workers (id, name, pay_type, employment_type, contractor_id, user_id,
                             day_rate, active, level, created_by) values
-  ('d1110763-0763-0763-0763-d11d11d10763', 'DC อาวุโส', 'dc',  null, null, 0, true, 'senior',
+  ('d1110763-0763-0763-0763-d11d11d10763', 'DC อาวุโส', 'daily', 'permanent',  null, null, 0, true, 'senior',
    '11111111-1111-1111-1111-111111110763'),
-  ('d2220763-0763-0763-0763-d22d22d20763', 'DC กลาง',   'dc',  null, null, 0, true, 'mid',
+  ('d2220763-0763-0763-0763-d22d22d20763', 'DC กลาง',   'daily', 'permanent',  null, null, 0, true, 'mid',
    '11111111-1111-1111-1111-111111110763'),
-  ('d3330763-0763-0763-0763-d33d33d30763', 'DC จูเนียร์', 'dc', null, null, 0, true, 'junior',
+  ('d3330763-0763-0763-0763-d33d33d30763', 'DC จูเนียร์', 'daily', 'permanent', null, null, 0, true, 'junior',
    '11111111-1111-1111-1111-111111110763'),
-  ('d4440763-0763-0763-0763-d44d44d40763', 'DC ฝึกหัด',  'dc',  null, null, 0, true, 'apprentice',
+  ('d4440763-0763-0763-0763-d44d44d40763', 'DC ฝึกหัด',  'daily', 'permanent',  null, null, 0, true, 'apprentice',
    '11111111-1111-1111-1111-111111110763'),
-  ('d5550763-0763-0763-0763-d55d55d50763', 'DC ไม่จัดเกรด', 'dc', null, null, 0, true, null,
+  ('d5550763-0763-0763-0763-d55d55d50763', 'DC ไม่จัดเกรด', 'daily', 'permanent', null, null, 0, true, null,
    '11111111-1111-1111-1111-111111110763'),
-  ('00aa0763-0763-0763-0763-00aa00aa0763', 'ช่างบริษัท', 'own', null, null, 0, true, 'senior',
+  ('00aa0763-0763-0763-0763-00aa00aa0763', 'ช่างบริษัท', 'monthly', 'permanent', null, null, 0, true, 'senior',
    '11111111-1111-1111-1111-111111110763');
 
 -- WP-A (internal): senior full (800) + mid half (350) = 1150.00.
 insert into public.labor_logs (id, work_package_id, worker_id, work_date,
     day_fraction, day_rate_snapshot, worker_name_snapshot,
-    worker_type_snapshot, contractor_id_snapshot, entered_by) values
+    pay_type_snapshot, entered_by) values
   ('fa010763-0763-0763-0763-fa01fa010763', 'ea0a0763-0763-0763-0763-ea0aea0a0763',
-   'd1110763-0763-0763-0763-d11d11d10763', date '2026-06-10', 'full', 0, 'DC อาวุโส', 'dc', null,
+   'd1110763-0763-0763-0763-d11d11d10763', date '2026-06-10', 'full', 0, 'DC อาวุโส', 'daily',
    '11111111-1111-1111-1111-111111110763'),
   ('fa020763-0763-0763-0763-fa02fa020763', 'ea0a0763-0763-0763-0763-ea0aea0a0763',
-   'd2220763-0763-0763-0763-d22d22d20763', date '2026-06-11', 'half', 0, 'DC กลาง', 'dc', null,
+   'd2220763-0763-0763-0763-d22d22d20763', date '2026-06-11', 'half', 0, 'DC กลาง', 'daily',
    '11111111-1111-1111-1111-111111110763');
 
 -- WP-B (external): the SAME crew/days → senior full (950) + mid half (425) = 1375.00.
 insert into public.labor_logs (id, work_package_id, worker_id, work_date,
     day_fraction, day_rate_snapshot, worker_name_snapshot,
-    worker_type_snapshot, contractor_id_snapshot, entered_by) values
+    pay_type_snapshot, entered_by) values
   ('fb010763-0763-0763-0763-fb01fb010763', 'eb0b0763-0763-0763-0763-eb0beb0b0763',
-   'd1110763-0763-0763-0763-d11d11d10763', date '2026-06-10', 'full', 0, 'DC อาวุโส', 'dc', null,
+   'd1110763-0763-0763-0763-d11d11d10763', date '2026-06-10', 'full', 0, 'DC อาวุโส', 'daily',
    '11111111-1111-1111-1111-111111110763'),
   ('fb020763-0763-0763-0763-fb02fb020763', 'eb0b0763-0763-0763-0763-eb0beb0b0763',
-   'd2220763-0763-0763-0763-d22d22d20763', date '2026-06-11', 'half', 0, 'DC กลาง', 'dc', null,
+   'd2220763-0763-0763-0763-d22d22d20763', date '2026-06-11', 'half', 0, 'DC กลาง', 'daily',
    '11111111-1111-1111-1111-111111110763');
 
 -- WP-C (internal): the exclusion edge cases. Only the junior's CURRENT half
 -- correction counts → 580 × 0.5 = 290.00. Everything else contributes 0.
 insert into public.labor_logs (id, work_package_id, worker_id, work_date,
     day_fraction, day_rate_snapshot, worker_name_snapshot,
-    worker_type_snapshot, contractor_id_snapshot, entered_by) values
+    pay_type_snapshot, entered_by) values
   -- ungraded DC full → no level → 0.
   ('fc010763-0763-0763-0763-fc01fc010763', 'ec0c0763-0763-0763-0763-ec0cec0c0763',
-   'd5550763-0763-0763-0763-d55d55d50763', date '2026-06-12', 'full', 0, 'DC ไม่จัดเกรด', 'dc', null,
+   'd5550763-0763-0763-0763-d55d55d50763', date '2026-06-12', 'full', 0, 'DC ไม่จัดเกรด', 'daily',
    '11111111-1111-1111-1111-111111110763'),
-  -- own (senior) full → not DC → excluded.
+  -- own (senior) full → not daily-pay → excluded.
   ('fc020763-0763-0763-0763-fc02fc020763', 'ec0c0763-0763-0763-0763-ec0cec0c0763',
-   '00aa0763-0763-0763-0763-00aa00aa0763', date '2026-06-12', 'full', 0, 'ช่างบริษัท', 'own', null,
+   '00aa0763-0763-0763-0763-00aa00aa0763', date '2026-06-12', 'full', 0, 'ช่างบริษัท', 'monthly',
    '11111111-1111-1111-1111-111111110763'),
   -- junior full → SUPERSEDED by the half correction below (excluded).
   ('fc030763-0763-0763-0763-fc03fc030763', 'ec0c0763-0763-0763-0763-ec0cec0c0763',
-   'd3330763-0763-0763-0763-d33d33d30763', date '2026-06-12', 'full', 0, 'DC จูเนียร์', 'dc', null,
+   'd3330763-0763-0763-0763-d33d33d30763', date '2026-06-12', 'full', 0, 'DC จูเนียร์', 'daily',
    '11111111-1111-1111-1111-111111110763'),
   -- apprentice full → SUPERSEDED by the tombstone below (excluded).
   ('fc050763-0763-0763-0763-fc05fc050763', 'ec0c0763-0763-0763-0763-ec0cec0c0763',
-   'd4440763-0763-0763-0763-d44d44d40763', date '2026-06-13', 'full', 0, 'DC ฝึกหัด', 'dc', null,
+   'd4440763-0763-0763-0763-d44d44d40763', date '2026-06-13', 'full', 0, 'DC ฝึกหัด', 'daily',
    '11111111-1111-1111-1111-111111110763');
 -- junior CURRENT correction (full → half): counts → 580 × 0.5 = 290.00.
 insert into public.labor_logs (id, work_package_id, worker_id, work_date,
     day_fraction, day_rate_snapshot, worker_name_snapshot,
-    worker_type_snapshot, contractor_id_snapshot, entered_by,
+    pay_type_snapshot, entered_by,
     superseded_by, correction_reason) values
   ('fc040763-0763-0763-0763-fc04fc040763', 'ec0c0763-0763-0763-0763-ec0cec0c0763',
-   'd3330763-0763-0763-0763-d33d33d30763', date '2026-06-12', 'half', 0, 'DC จูเนียร์', 'dc', null,
+   'd3330763-0763-0763-0763-d33d33d30763', date '2026-06-12', 'half', 0, 'DC จูเนียร์', 'daily',
    '11111111-1111-1111-1111-111111110763',
    'fc030763-0763-0763-0763-fc03fc030763', 'แก้เป็นครึ่งวัน'),
   -- apprentice TOMBSTONE (null fraction): removed → excluded.
   ('fc060763-0763-0763-0763-fc06fc060763', 'ec0c0763-0763-0763-0763-ec0cec0c0763',
-   'd4440763-0763-0763-0763-d44d44d40763', date '2026-06-13', null, 0, 'DC ฝึกหัด', 'dc', null,
+   'd4440763-0763-0763-0763-d44d44d40763', date '2026-06-13', null, 0, 'DC ฝึกหัด', 'daily',
    '11111111-1111-1111-1111-111111110763',
    'fc050763-0763-0763-0763-fc05fc050763', 'ลบรายการ');
 

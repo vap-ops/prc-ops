@@ -19,8 +19,8 @@ insert into public.work_packages (id, project_id, code, name) values
   ('ee000001-0000-4000-8000-000000000602', 'cc000001-0000-4000-8000-000000000602',
    'WP-GLP-1', 'Posting fixture WP');
 -- ADR 0062: a DC payment keys on the worker (the payee), not a contractor.
-insert into public.workers (id, name, worker_type, day_rate, active, created_by) values
-  ('aa000001-0000-4000-8000-000000000602', 'GLPost DC', 'dc', 200.00, true,
+insert into public.workers (id, name, pay_type, employment_type, day_rate, active, created_by) values
+  ('aa000001-0000-4000-8000-000000000602', 'GLPost DC', 'daily', 'permanent', 200.00, true,
    '11111111-1111-1111-1111-111111110602');
 insert into public.equipment_owners (id, name, created_by) values
   ('b0000001-0000-4000-8000-000000000602', 'GLPost Sister Co', '11111111-1111-1111-1111-111111110602');
@@ -45,8 +45,8 @@ select is((select count(*) from pg_policies where schemaname='public' and tablen
   0::bigint, 'gl_posting_outbox has no policies (zero access)');
 select has_trigger('public', 'purchase_requests', 'purchase_requests_enqueue_gl_posting_ins',
   'purchase_requests enqueue (insert) trigger exists');
-select has_trigger('public', 'dc_payments', 'dc_payments_enqueue_gl_posting',
-  'dc_payments enqueue trigger exists');
+select has_trigger('public', 'wage_payments', 'wage_payments_enqueue_gl_posting',
+  'wage_payments enqueue trigger exists');
 select has_trigger('public', 'wp_labor_costs', 'wp_labor_costs_enqueue_gl_posting_ins',
   'wp_labor_costs enqueue (insert) trigger exists');
 select has_trigger('public', 'equipment_rental_batches', 'equipment_rental_batches_enqueue_gl_posting',
@@ -74,12 +74,12 @@ insert into public.equipment_rental_batches (id, owner_id, monthly_rate, starts_
 select is((select count(*) from public.gl_posting_outbox where source_event = 'rental_batch'),
   1::bigint, 'a rental batch enqueues one rental_batch job');
 
-insert into public.dc_payments
+insert into public.wage_payments
   (worker_id, period_from, period_to, computed_amount, computed_days, paid_amount, paid_at, method, paid_by)
 values
   ('aa000001-0000-4000-8000-000000000602', date '2026-06-01', date '2026-06-15',
    1000, 5, 1000, date '2026-06-16', 'cash', '11111111-1111-1111-1111-111111110602');
-select is((select count(*) from public.gl_posting_outbox where source_event = 'dc_payment'),
+select is((select count(*) from public.gl_posting_outbox where source_event = 'wage_payment'),
   1::bigint, 'a dc payment enqueues one dc_payment job');
 
 insert into public.wp_labor_costs (work_package_id, own_cost, dc_cost, frozen_by) values

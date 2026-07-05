@@ -25,14 +25,14 @@ insert into public.projects (id, code, name) values
   ('a1a10200-0200-0200-0200-a1a1a1a10200', 'PRC-200-P1', 'โครงการ');
 
 -- Two active DCs (eligible), an 'own' tech (not a DC), and an inactive DC.
-insert into public.workers (id, name, worker_type, contractor_id, user_id, day_rate, active, created_by) values
-  ('dc010200-0200-0200-0200-dcdcdcdc0200', 'DC ก', 'dc',  null, null, 0, true,
+insert into public.workers (id, name, pay_type, employment_type, contractor_id, user_id, day_rate, active, created_by) values
+  ('dc010200-0200-0200-0200-dcdcdcdc0200', 'DC ก', 'daily', 'permanent', null, null, 0, true,
    '11111111-1111-1111-1111-111111110200'),
-  ('dc020200-0200-0200-0200-dcdcdcdc0200', 'DC ข', 'dc',  null, null, 0, true,
+  ('dc020200-0200-0200-0200-dcdcdcdc0200', 'DC ข', 'daily', 'permanent', null, null, 0, true,
    '11111111-1111-1111-1111-111111110200'),
-  ('0a010200-0200-0200-0200-0a0a0a0a0200', 'ช่างบริษัท', 'own', null, null, 0, true,
+  ('0a010200-0200-0200-0200-0a0a0a0a0200', 'ช่างบริษัท', 'monthly', 'permanent', null, null, 0, true,
    '11111111-1111-1111-1111-111111110200'),
-  ('dcff0200-0200-0200-0200-dcffdcff0200', 'DC พักงาน', 'dc', null, null, 0, false,
+  ('dcff0200-0200-0200-0200-dcffdcff0200', 'DC พักงาน', 'daily', 'permanent', null, null, 0, false,
    '11111111-1111-1111-1111-111111110200');
 
 -- A. Catalog (as owner).

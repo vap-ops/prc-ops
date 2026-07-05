@@ -41,9 +41,9 @@ select throws_ok(
   '42501', null, 'F1: set_item_sell_rate denies a null-role caller');
 
 select throws_ok(
-  $$ select public.record_dc_payment('dddddddd-dddd-4ddd-8ddd-dddddddddddd'::uuid,
+  $$ select public.record_wage_payment('dddddddd-dddd-4ddd-8ddd-dddddddddddd'::uuid,
        current_date, current_date, 100, current_date, 'bank_transfer', null, null) $$,
-  '42501', null, 'F1: record_dc_payment denies a null-role caller (wrapper gate)');
+  '42501', null, 'F1: record_wage_payment denies a null-role caller (wrapper gate)');
 
 select throws_ok(
   $$ select public.decide_worker_bank_change('dddddddd-dddd-4ddd-8ddd-dddddddddddd'::uuid, true) $$,

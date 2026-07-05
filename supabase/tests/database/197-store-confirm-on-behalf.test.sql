@@ -37,8 +37,8 @@ insert into public.project_members (project_id, user_id, added_by) values
   ('aa000000-0000-0000-0000-000000000197', '52525252-5252-5252-5252-000000000197',
    '19191919-1919-1919-1919-000000000197');
 -- The receiver worker (login-less — no user_id).
-insert into public.workers (id, name, worker_type, project_id, user_id, active, created_by) values
-  ('b0000001-0000-0000-0000-000000000197', 'ผู้รับไม่มีแอป', 'dc',
+insert into public.workers (id, name, pay_type, employment_type, project_id, user_id, active, created_by) values
+  ('b0000001-0000-0000-0000-000000000197', 'ผู้รับไม่มีแอป', 'daily', 'permanent',
    'aa000000-0000-0000-0000-000000000197', null, true, '19191919-1919-1919-1919-000000000197');
 
 -- Issues (inserted directly; issued_by set explicitly to drive the not-issuer rule).

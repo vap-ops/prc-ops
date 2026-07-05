@@ -44,15 +44,15 @@ insert into public.wp_economics (work_package_id, budget) values
   ('eb0b0764-0764-0764-0764-eb0beb0b0764', 4000);
 
 -- WP-A DC labor: one senior full day on an internal WP → wp_labor_sell = 800.
-insert into public.workers (id, name, worker_type, contractor_id, user_id,
+insert into public.workers (id, name, pay_type, employment_type, contractor_id, user_id,
                             day_rate, active, level, created_by) values
-  ('d1110764-0764-0764-0764-d11d11d10764', 'DC อาวุโส', 'dc', null, null, 0, true, 'senior',
+  ('d1110764-0764-0764-0764-d11d11d10764', 'DC อาวุโส', 'daily', 'permanent', null, null, 0, true, 'senior',
    '11111111-1111-1111-1111-111111110764');
 insert into public.labor_logs (id, work_package_id, worker_id, work_date,
     day_fraction, day_rate_snapshot, worker_name_snapshot,
-    worker_type_snapshot, contractor_id_snapshot, entered_by) values
+    pay_type_snapshot, entered_by) values
   ('fa010764-0764-0764-0764-fa01fa010764', 'ea0a0764-0764-0764-0764-ea0aea0a0764',
-   'd1110764-0764-0764-0764-d11d11d10764', date '2026-06-10', 'full', 0, 'DC อาวุโส', 'dc', null,
+   'd1110764-0764-0764-0764-d11d11d10764', date '2026-06-10', 'full', 0, 'DC อาวุโส', 'daily',
    '11111111-1111-1111-1111-111111110764');
 
 -- A unique accounting period to hang the seeded journal entries on (far-future

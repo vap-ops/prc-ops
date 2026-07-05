@@ -9,7 +9,7 @@ select plan(29);
 -- director; DC-worker only); claim_worker_invite flow (visitor-only, single-use,
 -- unexpired, no rebind) and effects (workers.user_id set, role→contractor,
 -- invite claimed, role_change audit, helper resolves); and the worker self-read
--- RLS (own worker row / own DC labor days / own payments via get_my_dc_payments
+-- RLS (own worker row / own DC labor days / own payments via get_my_wage_payments
 -- worker-direct) with isolation from another worker.
 -- ============================================================================
 
@@ -29,24 +29,24 @@ insert into public.work_packages (id, project_id, code, name, status) values
    'cc000001-0000-4000-8000-000000000170', 'WP-WB-1', 'WP', 'in_progress');
 
 -- Two DC workers (the payees) + one own tech (a non-DC, for the gate test).
-insert into public.workers (id, name, worker_type, day_rate, active, created_by, dc_arrangement) values
-  ('aa000001-0000-4000-8000-000000000170', 'DC A', 'dc', 400.00, true,
-   '11111111-1111-1111-1111-111111110170', 'regular'),
-  ('aa000002-0000-4000-8000-000000000170', 'DC B', 'dc', 450.00, true,
-   '11111111-1111-1111-1111-111111110170', 'regular'),
-  ('aa000003-0000-4000-8000-000000000170', 'Own Tech', 'own', 500.00, true,
-   '11111111-1111-1111-1111-111111110170', null);
+insert into public.workers (id, name, pay_type, employment_type, day_rate, active, created_by) values
+  ('aa000001-0000-4000-8000-000000000170', 'DC A', 'daily', 'permanent', 400.00, true,
+   '11111111-1111-1111-1111-111111110170'),
+  ('aa000002-0000-4000-8000-000000000170', 'DC B', 'daily', 'permanent', 450.00, true,
+   '11111111-1111-1111-1111-111111110170'),
+  ('aa000003-0000-4000-8000-000000000170', 'Own Tech', 'monthly', 'permanent', 500.00, true,
+   '11111111-1111-1111-1111-111111110170');
 
 -- DC labor days + payments for A and B (for the self-read / isolation section).
 insert into public.labor_logs (id, work_package_id, worker_id, work_date, day_fraction,
-    day_rate_snapshot, worker_name_snapshot, worker_type_snapshot, contractor_id_snapshot, entered_by) values
+    day_rate_snapshot, worker_name_snapshot, pay_type_snapshot, entered_by) values
   ('fa000001-0000-4000-8000-000000000170', 'ee000001-0000-4000-8000-000000000170',
-   'aa000001-0000-4000-8000-000000000170', date '2026-06-05', 'full', 400.00, 'DC A', 'dc', null,
+   'aa000001-0000-4000-8000-000000000170', date '2026-06-05', 'full', 400.00, 'DC A', 'daily',
    '11111111-1111-1111-1111-111111110170'),
   ('fb000001-0000-4000-8000-000000000170', 'ee000001-0000-4000-8000-000000000170',
-   'aa000002-0000-4000-8000-000000000170', date '2026-06-05', 'full', 450.00, 'DC B', 'dc', null,
+   'aa000002-0000-4000-8000-000000000170', date '2026-06-05', 'full', 450.00, 'DC B', 'daily',
    '11111111-1111-1111-1111-111111110170');
-insert into public.dc_payments (worker_id, period_from, period_to, computed_amount, computed_days,
+insert into public.wage_payments (worker_id, period_from, period_to, computed_amount, computed_days,
     paid_amount, paid_at, method, paid_by) values
   ('aa000001-0000-4000-8000-000000000170', '2026-06-01', '2026-06-30', 400.00, 1.0, 400.00,
    '2026-06-30', 'bank_transfer', '11111111-1111-1111-1111-111111110170'),
@@ -178,11 +178,11 @@ select throws_ok(
   $$ select day_rate_snapshot from public.labor_logs limit 1 $$,
   '42501', null, 'v1 cannot read labor_logs.day_rate_snapshot (money column grant)');
 select throws_ok(
-  $$ select paid_amount from public.dc_payments limit 1 $$,
-  '42501', null, 'dc_payments stays zero-grant — v1 cannot read it directly');
-select is((select count(*) from public.get_my_dc_payments()),
-  1::bigint, 'v1 reads their own payment via get_my_dc_payments (worker-direct)');
-select is((select worker_id from public.get_my_dc_payments() limit 1),
+  $$ select paid_amount from public.wage_payments limit 1 $$,
+  '42501', null, 'wage_payments stays zero-grant — v1 cannot read it directly');
+select is((select count(*) from public.get_my_wage_payments()),
+  1::bigint, 'v1 reads their own payment via get_my_wage_payments (worker-direct)');
+select is((select worker_id from public.get_my_wage_payments() limit 1),
   'aa000001-0000-4000-8000-000000000170'::uuid, 'the payment v1 reads is DC A''s');
 
 reset role;

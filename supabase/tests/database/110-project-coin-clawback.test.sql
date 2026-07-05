@@ -21,10 +21,10 @@ insert into public.projects (id, code, name, status) values
   ('a1110110-0110-0110-0110-a1a1a1a10110', 'PRC-110-P', 'โครงการมีตำหนิ', 'completed'),
   ('a2220110-0110-0110-0110-a2a2a2a20110', 'PRC-110-Q', 'โครงการอื่น',    'completed');
 
-insert into public.workers (id, name, worker_type, contractor_id, user_id, day_rate, active, created_by) values
-  ('d1110110-0110-0110-0110-d1d1d1d10110', 'W1', 'dc', null, null, 0, true, '11111111-1111-1111-1111-111111110110'),
-  ('d2220110-0110-0110-0110-d2d2d2d20110', 'W2', 'dc', null, null, 0, true, '11111111-1111-1111-1111-111111110110'),
-  ('d3330110-0110-0110-0110-d3d3d3d30110', 'W3', 'dc', null, null, 0, true, '11111111-1111-1111-1111-111111110110');
+insert into public.workers (id, name, pay_type, employment_type, contractor_id, user_id, day_rate, active, created_by) values
+  ('d1110110-0110-0110-0110-d1d1d1d10110', 'W1', 'daily', 'permanent', null, null, 0, true, '11111111-1111-1111-1111-111111110110'),
+  ('d2220110-0110-0110-0110-d2d2d2d20110', 'W2', 'daily', 'permanent', null, null, 0, true, '11111111-1111-1111-1111-111111110110'),
+  ('d3330110-0110-0110-0110-d3d3d3d30110', 'W3', 'daily', 'permanent', null, null, 0, true, '11111111-1111-1111-1111-111111110110');
 
 -- Profit_share postings, project-tagged. RECENT ('2026-06-20') = unvested; OLD = vested.
 insert into public.coin_postings (worker_id, source, amount, reason, occurred_at, created_by, source_project_id) values

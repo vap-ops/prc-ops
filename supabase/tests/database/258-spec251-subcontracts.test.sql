@@ -8,7 +8,7 @@ select plan(31);
 -- post_subcontract_payment_to_gl poster — direct one-step Dr WIP-construction
 -- (1400, project_id + contractor_id, work_package_id NULL) / Cr Bank (1110),
 -- no accrual step (operator decision 2026-07-03: subcontracts have no
--- progress-% certification signal to trigger an accrual like dc_payments'
+-- progress-% certification signal to trigger an accrual like wage_payments'
 -- 2110 clearing). Re-drain guard mirrors 256-dc-payment-redrain-guard.
 -- ============================================================================
 

@@ -33,8 +33,8 @@ insert into public.projects (id, code, name, project_lead_id) values
 insert into public.project_members (project_id, user_id, added_by) values
   ('a1a10157-0157-0157-0157-a1a1a1a10157',
    '22222222-2222-2222-2222-222222220157', '11111111-1111-1111-1111-111111110157');
-insert into public.workers (id, name, worker_type, contractor_id, user_id, day_rate, active, created_by)
-  values ('aaaa0157-0157-0157-0157-aaaaaaaa0157', 'Own A', 'own', null, null, 500.00, true,
+insert into public.workers (id, name, pay_type, employment_type, contractor_id, user_id, day_rate, active, created_by)
+  values ('aaaa0157-0157-0157-0157-aaaaaaaa0157', 'Own A', 'monthly', 'permanent', null, null, 500.00, true,
           '11111111-1111-1111-1111-111111110157');
 
 -- Empty WPs (E1 pm-deletes, E2 super, E3 director, DENY survives the deny tests)
@@ -52,9 +52,9 @@ insert into public.photo_logs (work_package_id, phase, storage_path, uploaded_by
   ('c00f0157-0157-0157-0157-c0c0c00f0157', 'before'::public.photo_phase, 'p/157.jpg',
    '11111111-1111-1111-1111-111111110157');
 insert into public.labor_logs (work_package_id, worker_id, work_date, day_fraction,
-    day_rate_snapshot, worker_name_snapshot, worker_type_snapshot, entered_by) values
+    day_rate_snapshot, worker_name_snapshot, pay_type_snapshot, entered_by) values
   ('c00a0157-0157-0157-0157-c0c0c00a0157', 'aaaa0157-0157-0157-0157-aaaaaaaa0157',
-   date '2026-06-15', 'full', 500.00, 'Own A', 'own', '11111111-1111-1111-1111-111111110157');
+   date '2026-06-15', 'full', 500.00, 'Own A', 'monthly', '11111111-1111-1111-1111-111111110157');
 insert into public.purchase_requests
   (work_package_id, item_description, quantity, unit, requested_by, status) values
   ('c00b0157-0157-0157-0157-c0c0c00b0157', 'ปูน', 1, 'ถุง',

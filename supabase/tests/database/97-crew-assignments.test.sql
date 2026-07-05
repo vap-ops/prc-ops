@@ -32,10 +32,10 @@ insert into public.projects (id, code, name) values
   ('c0000000-0000-4000-8000-000000000197', 'PRC-197-P1', 'โครงการหนึ่ง');
 
 -- Worker A is ASSIGNED to the project; Worker B is unassigned (null project).
-insert into public.workers (id, name, worker_type, contractor_id, user_id, day_rate, active, project_id, created_by) values
-  ('a2000000-0000-4000-8000-000000000197', 'ช่าง ก', 'dc', 'aa000000-0000-4000-8000-000000000197', null, 0, true,
+insert into public.workers (id, name, pay_type, employment_type, contractor_id, user_id, day_rate, active, project_id, created_by) values
+  ('a2000000-0000-4000-8000-000000000197', 'ช่าง ก', 'daily', 'permanent', 'aa000000-0000-4000-8000-000000000197', null, 0, true,
    'c0000000-0000-4000-8000-000000000197', '51000000-0000-4000-8000-000000000197'),
-  ('b2000000-0000-4000-8000-000000000197', 'ช่าง ข', 'dc', 'bb000000-0000-4000-8000-000000000197', null, 0, true,
+  ('b2000000-0000-4000-8000-000000000197', 'ช่าง ข', 'daily', 'permanent', 'bb000000-0000-4000-8000-000000000197', null, 0, true,
    null, '51000000-0000-4000-8000-000000000197');
 
 -- A. Catalog (as owner).
