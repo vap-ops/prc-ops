@@ -6,6 +6,25 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 270 U2b + U6 — grouping import RPC + page; PRC-2026-004 IMPORTED LIVE — ✅ BUILT + APPLIED (2026-07-06, schema)
+
+Migrations `072300` (import_wp_grouping RPC) + `072400` (untyped-null coalesce fix — 42804; new
+migration per never-edit-applied) + `072500` (U6 amended: grouping-mandatory FORWARD guard per adopted
+project — a global CHECK+VALIDATE is impossible while PRC-2026-003/005 hold parentless leaves; even NOT
+VALID fires on their daily status UPDATEs) + `072600` (phase C creates new งานย่อย WITH parent —
+072500 made the old parentless-then-parent two-step illegal mid-re-import). All APPLIED; dry-run clean.
+Page `/settings/wp-grouping-import` (super_admin): template download → paste → dry-run → ConfirmDialog
+→ apply. pgTAP `270-wp-grouping-import` 18 asserts (TDD red-first) + `270-wp-subwp` extended to 34.
+
+**PRODUCTION IMPORT EXECUTED (operator-authorized, 2026-07-05 20:40 UTC):** the operator's final list
+(fixture `270-final-grouping-2026-07-06.tsv`; corrections in-session: WP-369 → งานทางดาดทางเชื่อม,
+WP-001 keeps the clean name) applied to PRC-2026-004 as dev-preview super_admin via the RPC —
+`{rows: 378, groups_created: 47, leaves_created: 69, existing_updated: 262}`. Verified: 47 งาน / 331
+งานย่อย / 0 parentless / 0 nested; the 22 history-bearing leaves untouched (18 in_progress · 3 complete
+· 1 pending_approval); rollup live (e.g. WP-263 auto in_progress at 2/10 done); audit row present.
+Interim UX note: until U3/U5, groups appear in flat lists/pickers — DB guards reject any photo/money
+write against them. **Next: U3 grouped roster + labels SSOT.**
+
 ## Spec 270 U1 — งาน+งานย่อย hierarchy: schema + rollup + guards — ✅ BUILT (2026-07-06, schema, HELD)
 
 Migration `20260813072200_spec270u1_wp_hierarchy.sql` APPLIED to the shared DB (`db push --dry-run`
@@ -43,6 +62,7 @@ excluded — its own PR #325 carries it). Full-suite reds that remain are NOT th
 200-store (pre-existing GL data-drift), 221-catalog (pre-existing user-data flake),
 100-anon-exec (spec-268 signature widen, fixed by #325). Adversarial reviewer pass: clean.
 =======
+
 ## Spec 270 U1 — งาน+งานย่อย hierarchy: schema + rollup + guards — ✅ BUILT (2026-07-06, schema, HELD)
 
 Migration `20260813072200_spec270u1_wp_hierarchy.sql` APPLIED to the shared DB (`db push --dry-run`
@@ -55,7 +75,8 @@ not_started · manual group status rejected at `pg_trigger_depth() < 2` · group
 rows untouched (parentless leaves behave exactly as before — proven by test E.11). No src, no db:types
 (U2/U3 regenerates when code consumes the columns). Grouping-mandatory CHECK deferred to post-import
 (spec §2 D6). **Next: U2 template generator + dry-run import** — own session.
->>>>>>> 27ea97c0 (feat(wp): spec 270 U1 — งาน+งานย่อย hierarchy schema, rollup, guards)
+
+> > > > > > > 27ea97c0 (feat(wp): spec 270 U1 — งาน+งานย่อย hierarchy schema, rollup, guards)
 
 ## Spec 265 U2 — super_admin LINE-identity: the two view surfaces — 🚧 IN PROGRESS (2026-07-05, code-only)
 

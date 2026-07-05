@@ -1,5 +1,5 @@
 begin;
-select plan(32);
+select plan(34);
 
 -- ============================================================================
 -- Spec 270 U1 / ADR 0074 — two-level work packages (งาน groups + งานย่อย leaves).
@@ -63,14 +63,16 @@ select is(
   15, 'group-binding reject trigger attached to all 15 WP-binding tables');
 
 -- ---------------------------------------------------------------------------
--- Fixtures: groups + leaves.
+-- Fixtures: the parentless leaf is inserted BEFORE any group exists in P1
+-- (legacy state) — once a project has งาน rows, U6 forbids new parentless
+-- งานย่อย (asserted in section F).
 -- ---------------------------------------------------------------------------
+insert into public.work_packages (id, project_id, code, name) values
+  ('c3c30270-0270-0270-0270-c3c3c3c30270', 'a1a10270-0270-0270-0270-a1a1a1a10270', 'WP-003', 'งานย่อยอิสระ');
 insert into public.work_packages (id, project_id, code, name, is_group) values
   ('91910270-0270-0270-0270-919191910270', 'a1a10270-0270-0270-0270-a1a1a1a10270', 'WP-263', 'งานกลุ่มหนึ่ง', true),
   ('92920270-0270-0270-0270-929292920270', 'a1a10270-0270-0270-0270-a1a1a1a10270', 'WP-264', 'งานกลุ่มสอง', true),
   ('93930270-0270-0270-0270-939393930270', 'a2a20270-0270-0270-0270-a2a2a2a20270', 'WP-901', 'งานกลุ่มต่างโครงการ', true);
-insert into public.work_packages (id, project_id, code, name) values
-  ('c3c30270-0270-0270-0270-c3c3c3c30270', 'a1a10270-0270-0270-0270-a1a1a1a10270', 'WP-003', 'งานย่อยอิสระ');
 
 -- ---------------------------------------------------------------------------
 -- C. Hierarchy guard behavior.
@@ -216,6 +218,25 @@ select is((select status from public.work_packages where id='92920270-0270-0270-
 update public.work_packages set status='complete' where id='c3c30270-0270-0270-0270-c3c3c3c30270';
 select is((select status from public.work_packages where id='c3c30270-0270-0270-0270-c3c3c3c30270'),
   'complete', 'parentless งานย่อย still hand-editable');
+
+-- ---------------------------------------------------------------------------
+-- F. U6 (amended): grouping mandatory FORWARD, per adopted project.
+-- ---------------------------------------------------------------------------
+-- F.1 a project that has งาน rows rejects a new parentless งานย่อย.
+select throws_ok($$
+  insert into public.work_packages (project_id, code, name)
+  values ('a1a10270-0270-0270-0270-a1a1a1a10270', 'WP-F1', 'งานย่อยหลุดกลุ่ม') $$,
+  '23514', null, 'an adopted project rejects a new parentless งานย่อย');
+
+-- F.2 a legacy project (no งาน rows) still accepts one.
+insert into public.projects (id, code, name, project_lead_id) values
+  ('a3a30270-0270-0270-0270-a3a3a3a30270', 'PRC-270-P3', 'โครงการเก่า',
+   '11111111-1111-1111-1111-111111110270');
+insert into public.work_packages (project_id, code, name)
+  values ('a3a30270-0270-0270-0270-a3a3a3a30270', 'WP-F2', 'งานเดี่ยวโครงการเก่า');
+select is((select count(*)::int from public.work_packages
+            where project_id='a3a30270-0270-0270-0270-a3a3a3a30270'), 1,
+  'a legacy (group-less) project still accepts a parentless งานย่อย');
 
 select * from finish();
 rollback;

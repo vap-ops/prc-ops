@@ -1,5 +1,5 @@
 begin;
-select plan(17);
+select plan(18);
 
 -- ============================================================================
 -- Spec 270 U2b — import_wp_grouping(p_project_id, p_rows jsonb).
@@ -58,7 +58,8 @@ select lives_ok($$
     {"sub_of": null,     "code": "WP-501", "old_code": null,     "name": "กลุ่มหนึ่ง"},
     {"sub_of": null,     "code": "WP-502", "old_code": null,     "name": "กลุ่มสอง"},
     {"sub_of": "WP-501", "code": "WP-002", "old_code": "WP-001", "name": "งานเอใหม่"},
-    {"sub_of": "WP-502", "code": "WP-001", "old_code": "WP-002", "name": "งานบี"}
+    {"sub_of": "WP-502", "code": "WP-001", "old_code": "WP-002", "name": "งานบี"},
+    {"sub_of": "WP-501", "code": "WP-503", "old_code": null,     "name": "งานย่อยเกิดใหม่"}
   ]'::jsonb) $$,
   'a valid grouping file applies');
 
@@ -85,6 +86,10 @@ select is((select count(*)::int from public.audit_log
               and target_id='a1a10271-0271-0271-0271-a1a1a1a10271'
               and payload->>'kind'='wp_grouping_import'), 1,
   'the import wrote one audit_log row');
+select is((select p.code from public.work_packages c
+            join public.work_packages p on p.id = c.parent_id
+            where c.project_id='a1a10271-0271-0271-0271-a1a1a1a10271' and c.code='WP-503'),
+  'WP-501', 'a brand-new งานย่อย is created WITH its parent (phase C + U6 forward guard)');
 
 -- D. Hard validation, all-or-nothing.
 set local role authenticated;
@@ -134,8 +139,8 @@ reset role;
 
 -- D.5 atomicity: the failed imports left no partial state behind.
 select is((select count(*)::int from public.work_packages
-            where project_id='a1a10271-0271-0271-0271-a1a1a1a10271'), 4,
-  'failed imports left the project untouched (2 งาน + 2 งานย่อย only)');
+            where project_id='a1a10271-0271-0271-0271-a1a1a1a10271'), 5,
+  'failed imports left the project untouched (2 งาน + 3 งานย่อย only)');
 
 select * from finish();
 rollback;
