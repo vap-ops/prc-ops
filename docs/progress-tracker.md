@@ -6269,16 +6269,17 @@ the stale `get_my_dc_payments`comment (portal/page.tsx:7) +`record_dc_payment`
   branch-logic change. Metadata title neutralised "พอร์ทัลผู้รับเหมา"→"พอร์ทัล" (must not
   label a ช่าง as ผู้รับเหมา). No middleware role-gate exists for /portal (requireRole is
   the enforcement).
-- **role-home UNCHANGED** (technician → /technician exists per ADR 0072 §8; contractor →
-  /portal).
-- **🔔 OPEN DECISION for the operator (ช่าง landing):** a roster-claimed ช่าง (role
-  technician, worker-bound, **no** staff_registration) lands on `/technician`, which renders
-  gracefully (no crash — the e-card is skipped when there's no registration) but shows no
-  wage/coins — those live at `/portal`. Options: **[A]** redirect a worker-bound,
-  registration-less session `/technician`→`/portal` (recommended — sends claimed ช่าง to
-  their real home; spec-264 technicians with a registration keep /technician); **[B]** leave
-  it (they navigate to /portal); **[C]** surface wage/coins on /technician. Not built —
-  awaiting the operator's pick.
-- Verify: lint + typecheck clean; targeted vitest green; full db:test running (expect
-  231/233 + pgTAP 116 green). **DANGER-PATH (auth) → PR HELD for operator merge**, NOT
-  self-merged. DB ahead of main by 071800 until the PR merges (next schema claimant 071900+).
+- **role-home UNCHANGED** (technician → /technician; contractor → /portal).
+- **ช่าง landing — operator chose [C]: ช่าง get their OWN portal at `/technician`.** The
+  worker view (wage history, profile, tax id, consents, bank + change form, receipts) is
+  extracted into `WorkerPortalSections` (`src/components/features/portal/worker-portal-sections.tsx`,
+  TDD'd) and hosted on `/technician` alongside the e-card + assigned-work placeholder (+ a
+  logout header). `/portal` is reverted to **`requireRole(["contractor"])` subcontractor-only**
+  — its worker branch removed, metadata back to "พอร์ทัลผู้รับเหมา", the 4 worker-only imports
+  dropped. Every technician is a bound worker (approve + claim both set workers.user_id), so
+  the `/technician` worker reads (get_my_worker_profile / get_my_wage_payments / consents /
+  receipts / pending-bank) resolve on the RLS session client. No new RLS, no new migration —
+  code-only on top of the (already-applied) 071800 migration.
+- Verify: lint + typecheck clean; `WorkerPortalSections` vitest 2/2; full vitest + db:test
+  231/233 (pgTAP 116) green. **DANGER-PATH (auth migration) → PR #322 HELD for operator merge**,
+  NOT self-merged. DB ahead of main by 071800 until #322 merges (next schema claimant 071900+).
