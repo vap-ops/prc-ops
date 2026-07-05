@@ -1,5 +1,5 @@
 begin;
-select plan(29);
+select plan(36);
 
 -- ============================================================================
 -- Spec 259 / amends ADR 0038 — void_purchase_order(p_po_id): procurement
@@ -141,7 +141,7 @@ select throws_ok(
 set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111110259"}';
 select throws_ok(
   $$ select public.void_purchase_order('00000000-0000-0000-0000-000000000000'::uuid) $$,
-  'P0001', null, 'void_purchase_order refuses an unknown PO id');
+  'PO404', null, 'void_purchase_order refuses an unknown PO id (spec 269: distinct errcode PO404)');
 
 -- Build PO-B around pr3 alone, ship it, then prove a shipped PO cannot void.
 select lives_ok(
@@ -154,7 +154,8 @@ select throws_ok(
   $$ select public.void_purchase_order(
        (select purchase_order_id from public.purchase_requests
           where id = 'fa000259-0000-4000-8000-000000000003')) $$,
-  'P0001', null, 'void_purchase_order refuses a PO with a shipped (on_route) member');
+  'PO409', null,
+  'void_purchase_order refuses a PO with a shipped (on_route) member (spec 269: distinct errcode PO409)');
 reset role;
 
 -- ============================================================================
@@ -291,6 +292,100 @@ select is(
     where l.account_id = (select id from public.gl_accounts where code = '1400')
       and l.work_package_id = 'ee000259-0000-4000-8000-000000000001'),
   0::numeric, 'void: the charge''s WIP posting reversed (WP-WIP nets to 0)');
+
+-- ============================================================================
+-- K. Spec 269 — a PO WITH ATTACHMENTS voids clean (the case the original
+--    tests missed — live incident PO-4073). The attachments append-only
+--    trigger must admit the PO-delete's ON DELETE CASCADE (parent row already
+--    gone within the statement) while still blocking every direct write, and
+--    the void audit payload must snapshot the deleted rows.
+-- ============================================================================
+insert into public.purchase_requests
+    (id, work_package_id, item_description, quantity, unit, status,
+     source, requested_by) values
+  ('fa000259-0000-4000-8000-000000000005',
+   'ee000259-0000-4000-8000-000000000001', 'ปูนกาว', 2, 'ถุง', 'approved',
+   'app', '11111111-1111-1111-1111-111111110259');
+
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111110259"}';
+select lives_ok(
+  $$ select public.create_purchase_order(
+       'bb000259-0000-4000-8000-000000000001'::uuid, date '2026-07-27',
+       '[{"request_id":"fa000259-0000-4000-8000-000000000005","amount":60}]'::jsonb) $$,
+  'PM creates PO-D around pr5 (will carry attachments)');
+reset role;
+
+-- PO-D gets the real-world attachment shapes: a source document, a
+-- proof-of-delivery bound to the PO's default delivery, and a superseded
+-- content+tombstone pair. Plus one SURVIVOR attachment on PO-B (which lives
+-- on shipped) to prove direct writes stay blocked and bystanders are safe.
+insert into public.purchase_order_attachments (id, purchase_order_id, kind, purpose, storage_path, created_by)
+  select 'ad000259-0000-4000-8000-000000000001', purchase_order_id, 'image',
+         'source_document', 'spec269/k1.jpg', '11111111-1111-1111-1111-111111110259'
+    from public.purchase_requests where id = 'fa000259-0000-4000-8000-000000000005';
+insert into public.purchase_order_attachments (purchase_order_id, delivery_id, kind, purpose, storage_path, created_by)
+  select pr.purchase_order_id, d.id, 'pdf',
+         'proof_of_delivery', 'spec269/k2.pdf', '11111111-1111-1111-1111-111111110259'
+    from public.purchase_requests pr
+    join public.purchase_order_deliveries d on d.purchase_order_id = pr.purchase_order_id
+   where pr.id = 'fa000259-0000-4000-8000-000000000005';
+insert into public.purchase_order_attachments (id, purchase_order_id, kind, purpose, storage_path, created_by)
+  select 'ad000259-0000-4000-8000-000000000003', purchase_order_id, 'image',
+         'source_document', 'spec269/k3.jpg', '11111111-1111-1111-1111-111111110259'
+    from public.purchase_requests where id = 'fa000259-0000-4000-8000-000000000005';
+insert into public.purchase_order_attachments (purchase_order_id, kind, purpose, superseded_by, created_by)
+  select purchase_order_id, 'image', 'source_document',
+         'ad000259-0000-4000-8000-000000000003', '11111111-1111-1111-1111-111111110259'
+    from public.purchase_requests where id = 'fa000259-0000-4000-8000-000000000005';
+insert into public.purchase_order_attachments (id, purchase_order_id, kind, purpose, storage_path, created_by)
+  select 'ad000259-0000-4000-8000-000000000009', purchase_order_id, 'image',
+         'source_document', 'spec269/survivor.jpg', '11111111-1111-1111-1111-111111110259'
+    from public.purchase_requests where id = 'fa000259-0000-4000-8000-000000000003';
+
+-- Direct writes stay blocked even for the table owner (trigger layer, not
+-- grants): parent PO-B is alive, so the spec 269 carve-out must NOT open.
+select throws_ok(
+  $$ delete from public.purchase_order_attachments
+      where id = 'ad000259-0000-4000-8000-000000000009' $$,
+  'P0001', null,
+  'direct DELETE of an attachment (parent PO alive) still raises P0001');
+select throws_ok(
+  $$ update public.purchase_order_attachments
+        set storage_path = 'spec269/hacked.jpg'
+      where id = 'ad000259-0000-4000-8000-000000000009' $$,
+  'P0001', null,
+  'direct UPDATE of an attachment still raises P0001');
+
+-- THE regression: voiding a PO that has attachment rows succeeds.
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "55555555-5555-5555-5555-555555550259"}';
+select lives_ok(
+  $$ select public.void_purchase_order(
+       (select purchase_order_id from public.purchase_requests
+          where id = 'fa000259-0000-4000-8000-000000000005')) $$,
+  'procurement_manager voids PO-D although it carries 4 attachment rows (spec 269)');
+reset role;
+
+-- All four PO-D attachment rows cascaded away; the PO-B survivor is untouched.
+select is(
+  (select count(*)::int from public.purchase_order_attachments
+    where storage_path in ('spec269/k1.jpg', 'spec269/k2.pdf', 'spec269/k3.jpg')
+       or superseded_by = 'ad000259-0000-4000-8000-000000000003'),
+  0, 'all PO-D attachment rows (incl. the tombstone) cascaded away with the void');
+
+-- History preserved: the void audit payload snapshots all 4 rows.
+select is(
+  (select jsonb_array_length(payload->'attachments') from public.audit_log
+    where action = 'purchase_order_void'
+      and payload -> 'request_ids' ? 'fa000259-0000-4000-8000-000000000005'),
+  4, 'void audit payload snapshots all 4 attachment rows');
+select ok(
+  (select payload->'attachments' @> '[{"storage_path":"spec269/k1.jpg"}]'::jsonb
+     from public.audit_log
+    where action = 'purchase_order_void'
+      and payload -> 'request_ids' ? 'fa000259-0000-4000-8000-000000000005'),
+  'the snapshot retains the storage paths (orphaned bucket objects stay recoverable)');
 
 select * from finish();
 rollback;
