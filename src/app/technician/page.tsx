@@ -1,22 +1,22 @@
-// Spec 264 G3 / ADR 0072 §8 — the minimal /technician home. The anti-dead-end
-// landing an approved technician reaches after login (roleHome('technician') →
-// /technician, killing the old /coming-soon fall-through). Deliberately minimal:
-// the person's e-employee card + approval status + an "assigned WPs — coming
-// soon" placeholder, room to grow into the real work-package list later (the WP
-// list itself is out of scope now, spec doc §"Out of scope").
+// Spec 264 G3 / ADR 0072 §8 + spec 266 U7 (C) — the /technician home is a ช่าง's
+// OWN portal (a ช่าง logs in as role `technician`). It carries: the person's
+// e-employee card + approval status (from their staff_registration, if any), an
+// "assigned WPs — coming soon" placeholder, AND their worker portal — wage
+// history, profile, bank, consents, receipts (WorkerPortalSections, moved here
+// from the subcontractor /portal so the two tiers no longer share a page).
 //
-// Data: the technician's OWN staff_registration (approved) + its documents, read
-// on the RLS SESSION client (never the admin client) — the G1 own-row policy
-// scopes staff_registrations / attachments / storage to auth.uid(); the same
-// resolver the register workspace uses (getOwnTechnicianRegistration +
-// resolveCardPhoto), so the card fields (name, employee_id, status, photo) stay a
-// single source of truth. No 'use client' — this is a plain Server Component.
+// Data reads on the RLS SESSION client (never admin): the G1 own-row policy scopes
+// staff_registrations/attachments/storage to auth.uid(); the worker reads
+// (get_my_worker_profile / get_my_wage_payments / consents / receipts / pending
+// bank) self-scope on the workers.user_id binding. No 'use client' — a plain
+// Server Component (the interactive bits are already-'use client' children).
 
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
-import { CARD, SECTION_HEADING } from "@/lib/ui/classes";
+import { CARD } from "@/lib/ui/classes";
+import { LogoutButton } from "@/components/auth/logout-button";
 import { ComingSoonBadge } from "@/components/features/chrome/coming-soon-badge";
 import { EmployeeCard } from "@/components/features/register/employee-card";
 import { resolveCardPhoto } from "@/lib/register/card-view";
@@ -24,6 +24,9 @@ import {
   getOwnTechnicianRegistration,
   getOwnRegistrationDocuments,
 } from "@/lib/register/own-registration";
+import { WorkerPortalSections } from "@/components/features/portal/worker-portal-sections";
+import { type PortalReceipt } from "@/components/features/portal/portal-receipts";
+import { type PortalConsent } from "@/components/features/portal/portal-self-edit";
 
 export const metadata = { title: "หน้าหลักช่าง" };
 
@@ -42,11 +45,53 @@ export default async function TechnicianHomePage() {
     ? await getOwnRegistrationDocuments(supabase, registration.id)
     : { urls: {} };
 
+  // Spec 266 U7 (C) — a ช่าง's own portal lives here. Their profile + wage /
+  // consents / receipts / pending-bank are RLS-self-scoped (workers.user_id
+  // binding), read on the same session client. Every technician is a bound worker
+  // (approve + claim both set workers.user_id), so wp is normally present.
+  const { data: workerProfileRows } = await supabase.rpc("get_my_worker_profile");
+  const wp = workerProfileRows?.[0] ?? null;
+  const [
+    { data: workerPayments },
+    { data: workerConsentRows },
+    { data: receiptRows },
+    { data: pendingBankRows },
+  ] = await Promise.all([
+    supabase.rpc("get_my_wage_payments"),
+    supabase
+      .from("contractor_consents")
+      .select("id, kind, consented_at, revoked_at")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("stock_issues")
+      .select(
+        "id, qty, unit, catalog_items ( base_item, spec_attrs ), work_packages ( code, name )",
+      )
+      .is("received_at", null)
+      .order("issued_at", { ascending: false }),
+    supabase.from("worker_bank_change_requests").select("id").eq("status", "pending").limit(1),
+  ]);
+  const receipts: PortalReceipt[] = (receiptRows ?? []).map((r) => ({
+    id: r.id,
+    baseItem: r.catalog_items?.base_item ?? "",
+    specAttrs: r.catalog_items?.spec_attrs ?? null,
+    unit: r.unit,
+    qty: Number(r.qty),
+    wpLabel: r.work_packages ? `${r.work_packages.code} ${r.work_packages.name}` : "",
+  }));
+
   return (
     <PageShell>
-      <section className={`mx-auto flex flex-col gap-4 ${PAGE_MAX_W} px-5 py-10`}>
-        <h1 className={SECTION_HEADING}>หน้าหลักช่าง</h1>
+      <header className="border-edge bg-card sticky top-0 z-20 border-b px-5 py-4">
+        <div className={`mx-auto flex ${PAGE_MAX_W} items-center justify-between gap-3`}>
+          <h1 className="text-title text-ink min-w-0 truncate font-bold tracking-tight">
+            หน้าหลักช่าง
+          </h1>
+          <LogoutButton />
+        </div>
+      </header>
 
+      <section className={`mx-auto flex flex-col gap-4 ${PAGE_MAX_W} px-5 py-6`}>
         {registration ? (
           <EmployeeCard
             employeeId={registration.employee_id}
@@ -68,6 +113,19 @@ export default async function TechnicianHomePage() {
             รายการงานที่คุณได้รับมอบหมายจะแสดงที่นี่ เร็ว ๆ นี้
           </p>
         </div>
+
+        {/* Spec 266 U7 (C): the ช่าง's own portal — wage, profile, bank, receipts. */}
+        {wp ? (
+          <div>
+            <WorkerPortalSections
+              wp={wp}
+              payments={workerPayments ?? []}
+              consents={(workerConsentRows ?? []) as PortalConsent[]}
+              receipts={receipts}
+              hasPendingBank={(pendingBankRows?.length ?? 0) > 0}
+            />
+          </div>
+        ) : null}
       </section>
     </PageShell>
   );

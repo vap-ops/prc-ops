@@ -371,7 +371,8 @@ export const USER_ROLE_LABEL: Record<Enums["user_role"], string> = {
   // the user-admin role picker renders Object.entries(USER_ROLE_LABEL), so this entry
   // is what makes the "promote to procurement_manager" option appear.
   procurement_manager: "หัวหน้าจัดซื้อ",
-  technician: "ช่างเทคนิค",
+  // Spec 266 U7 (ADR 0073): a ช่าง's portal login is role `technician` — "ช่าง".
+  technician: "ช่าง",
   // Spec 263 / ADR 0071: two behavior-free forward-compat field roles. Labels
   // land here because the user-admin role picker renders Object.entries(USER_ROLE_LABEL);
   // wording is provisional (operator to confirm/adjust).
@@ -381,7 +382,9 @@ export const USER_ROLE_LABEL: Record<Enums["user_role"], string> = {
   subcon_manager: "ผู้จัดการผู้รับเหมาช่วง",
   accounting: "ฝ่ายบัญชี",
   visitor: "ผู้เยี่ยมชม",
-  contractor: "ผู้รับเหมา (DC)",
+  // Spec 266 U7 (ADR 0073): `contractor` is the subcontractor portal only —
+  // "ผู้รับเหมา" (the "(DC)" suffix is dropped; ช่าง are `technician` now).
+  contractor: "ผู้รับเหมา",
   // Spec 152 / ADR 0058: no Thai label requested by the operator for this role.
   project_director: "Project Director",
   // Spec 233 / ADR 0067: the external read-only client/customer audience.
