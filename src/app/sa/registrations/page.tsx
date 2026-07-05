@@ -23,9 +23,9 @@ import {
 } from "@/lib/register/admin-registrations";
 import { buildRegistrationQueueRow } from "@/lib/register/registration-queue-view";
 
-export const metadata = { title: "คำขอสมัครเป็นช่าง (ดูอย่างเดียว)" };
+export const metadata = { title: "คำขอสมัคร (ดูอย่างเดียว)" };
 
-export default async function SaTechnicianRegistrationsPage() {
+export default async function SaStaffRegistrationsPage() {
   const ctx = await requireRole(["site_admin"]);
   const supabase = await createClient();
 
@@ -52,9 +52,7 @@ export default async function SaTechnicianRegistrationsPage() {
     <PageShell>
       <BottomTabBar role={ctx.role} />
       <DetailHeader backHref="/sa" backLabel="กลับไปหน้าหลัก">
-        <h1 className="text-ink text-xl font-semibold tracking-tight">
-          คำขอสมัครเป็นช่าง (ดูอย่างเดียว)
-        </h1>
+        <h1 className="text-ink text-xl font-semibold tracking-tight">คำขอสมัคร (ดูอย่างเดียว)</h1>
       </DetailHeader>
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>

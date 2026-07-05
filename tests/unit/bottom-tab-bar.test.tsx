@@ -41,9 +41,10 @@ describe("BottomTabBar", () => {
       ["จัดซื้อ", "/requests"],
       // Spec 100: ภาพรวม is the live dashboard tab (last content tab).
       ["ภาพรวม", "/dashboard"],
-      // Spec 263 follow-up: the technician-registration approval queue — was
-      // reachable on desktop (HubNav) only; mobile had no way in at all.
-      ["สมัครช่าง", "/registrations"],
+      // Spec 263 follow-up / spec 264 G4: the staff-registration approval queue
+      // (role-neutral) — was reachable on desktop (HubNav) only; mobile had no
+      // way in at all.
+      ["คำขอสมัคร", "/registrations"],
       // Spec 93: contacts/payroll/workers/account moved into the ตั้งค่า hub.
       ["ตั้งค่า", "/settings"],
     ]);
@@ -74,15 +75,15 @@ describe("BottomTabBar", () => {
       ["ตั้งค่า", "/settings"],
     ]);
     // Spec 263 follow-up: procurement_manager is a procurement superset (spec
-    // 261) PLUS a technician-registration approver (spec 263 U3) — it had NO
-    // tab set at all before this fix (tabsForRole fell through to null). Gets
-    // the procurement set PLUS the approval-queue tab.
+    // 261) PLUS a staff-registration approver (spec 263 U3 / spec 264 G4) — it
+    // had NO tab set at all before this fix (tabsForRole fell through to null).
+    // Gets the procurement set PLUS the approval-queue tab.
     expect(PROCUREMENT_MANAGER_TABS.map((t) => [t.label, t.href])).toEqual([
       ["จัดซื้อ", "/requests"],
       ["รายงาน", "/requests/reports"],
       ["โครงการ", "/projects"],
       ["ผู้ขาย", "/contacts/vendors"],
-      ["สมัครช่าง", "/registrations"],
+      ["คำขอสมัคร", "/registrations"],
       ["ตั้งค่า", "/settings"],
     ]);
   });
@@ -312,13 +313,13 @@ describe("BottomTabBar", () => {
     );
     const active = activeTabs(container);
     expect(active).toHaveLength(1);
-    expect(active[0]?.textContent).toContain("สมัครช่าง");
+    expect(active[0]?.textContent).toContain("คำขอสมัคร");
   });
 
   it("gives plain procurement no approval-queue tab (unchanged, not an approver)", () => {
     mockUsePathname.mockReturnValue("/requests");
     render(<BottomTabBar role="procurement" />);
-    expect(screen.queryByText("สมัครช่าง")).not.toBeInTheDocument();
+    expect(screen.queryByText("คำขอสมัคร")).not.toBeInTheDocument();
   });
 
   it("clears the iOS safe area and hides on desktop", () => {

@@ -38,12 +38,11 @@ export const PM_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "จัดซื้อ", href: "/requests" },
   // Spec 100: ภาพรวม is the live role-aware dashboard.
   { label: "ภาพรวม", href: "/dashboard" },
-  // Spec 263 U3: the technician-registration approval queue. Reaches
+  // Spec 263 U3 / spec 264 G4: the staff-registration approval queue. Reaches
   // project_director + super_admin here; procurement_manager (also a
-  // TECHNICIAN_APPROVAL_ROLES member) gets its own item in
-  // PROCUREMENT_MANAGER_HUB_NAV below (spec 263 follow-up closed the gap this
-  // comment used to flag).
-  { label: "คำขอสมัครช่าง", href: "/registrations" },
+  // STAFF_APPROVAL_ROLES member) gets its own item in PROCUREMENT_MANAGER_HUB_NAV
+  // below (spec 263 follow-up closed the gap this comment used to flag).
+  { label: "คำขอสมัคร", href: "/registrations" },
   { label: "ตั้งค่า", href: "/settings" },
 ];
 
@@ -78,8 +77,8 @@ export const PROCUREMENT_HUB_NAV: ReadonlyArray<HubNavItem> = [
 // procurement superset (spec 261, ADR 0070) with NO hub-nav set at all before
 // this fix (hubNavForRole had no branch for it). Gets everything
 // PROCUREMENT_HUB_NAV has (it can do everything plain procurement can, plus
-// the manager-only set) plus the technician-registration approval queue (spec
-// 263 U3 — procurement_manager is a TECHNICIAN_APPROVAL_ROLES member).
+// the manager-only set) plus the staff-registration approval queue (spec 263 U3
+// / spec 264 G4 — procurement_manager is a STAFF_APPROVAL_ROLES member).
 export const PROCUREMENT_MANAGER_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "จัดซื้อ", href: "/requests" },
   { label: "รายงาน", href: "/requests/reports" },
@@ -87,7 +86,7 @@ export const PROCUREMENT_MANAGER_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "ผู้ขาย", href: "/contacts/vendors" },
   { label: SUBCONTRACTOR_LABEL, href: "/contacts/subcontractors" },
   { label: "ทีมงาน", href: "/workers" },
-  { label: "คำขอสมัครช่าง", href: "/registrations" },
+  { label: "คำขอสมัคร", href: "/registrations" },
   { label: "ตั้งค่า", href: "/settings" },
 ];
 

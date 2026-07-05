@@ -12,14 +12,16 @@ import {
   PURCHASING_ROLES,
   SCHEDULE_VIEW_ROLES,
   SITE_STAFF_ROLES,
+  STAFF_APPROVAL_ROLES,
+  STAFF_ONBOARDABLE_ROLES,
   SUPPLY_PLAN_ROLES,
-  TECHNICIAN_APPROVAL_ROLES,
   WORKER_ROSTER_ROLES,
   WP_DETAIL_ROLES,
   isManagerRole,
   isProcurementManagerTier,
   isReadOnlyWpViewer,
-  isTechnicianApprover,
+  isStaffApprover,
+  isStaffOnboardableRole,
   roleHome,
 } from "@/lib/auth/role-home";
 import { isBackOfficeRole } from "@/lib/purchasing/back-office";
@@ -397,16 +399,16 @@ describe("PROCUREMENT_MANAGER_ROLES / isProcurementManagerTier (spec 261)", () =
 // behavior-free — no route, no gate, no role-set membership. This pins them OUT
 // of every privileged set + predicate, so a future behavior unit is a deliberate
 // gate widening, never a silent inheritance from being enum values.
-// Spec 263 U3 / ADR 0071 §4 — the approval gate mirrors the U1c RPCs'
-// (approve_technician_registration / reject_technician_registration) inline
-// literal EXACTLY: procurement_manager, project_director, super_admin. A fresh
-// explicit array (NOT PM_ROLES-derived, unlike PROCUREMENT_MANAGER_ROLES) —
-// plain project_manager is deliberately excluded (mirrors CLIENT_ISSUER_ROLES'
-// style: a small explicit set, not everyone PM_ROLES admits). `hr` is
-// deliberately held out (ADR 0071 §4, stub role today).
-describe("TECHNICIAN_APPROVAL_ROLES / isTechnicianApprover (spec 263 U3)", () => {
+// Spec 263 U3 / spec 264 G4 / ADR 0072 §5 — the approver set (renamed from
+// spec 263's TECHNICIAN_APPROVAL_ROLES; membership UNCHANGED). Mirrors the
+// approve_staff_registration RPC's inline gate EXACTLY: procurement_manager,
+// project_director, super_admin. A fresh explicit array (NOT PM_ROLES-derived,
+// unlike PROCUREMENT_MANAGER_ROLES) — plain project_manager is deliberately
+// excluded (mirrors CLIENT_ISSUER_ROLES' style: a small explicit set, not
+// everyone PM_ROLES admits). `hr` is deliberately held out (stub role today).
+describe("STAFF_APPROVAL_ROLES / isStaffApprover (spec 263 U3 / spec 264 G4)", () => {
   it("is exactly procurement_manager + project_director + super_admin", () => {
-    expect([...TECHNICIAN_APPROVAL_ROLES]).toEqual([
+    expect([...STAFF_APPROVAL_ROLES]).toEqual([
       "procurement_manager",
       "project_director",
       "super_admin",
@@ -414,11 +416,11 @@ describe("TECHNICIAN_APPROVAL_ROLES / isTechnicianApprover (spec 263 U3)", () =>
   });
 
   it("excludes plain project_manager (unlike PM_ROLES / PROCUREMENT_MANAGER_ROLES)", () => {
-    expect(TECHNICIAN_APPROVAL_ROLES).not.toContain("project_manager");
+    expect(STAFF_APPROVAL_ROLES).not.toContain("project_manager");
   });
 
-  it("isTechnicianApprover is true for exactly the TECHNICIAN_APPROVAL_ROLES set", () => {
-    for (const role of TECHNICIAN_APPROVAL_ROLES) expect(isTechnicianApprover(role)).toBe(true);
+  it("isStaffApprover is true for exactly the STAFF_APPROVAL_ROLES set", () => {
+    for (const role of STAFF_APPROVAL_ROLES) expect(isStaffApprover(role)).toBe(true);
   });
 
   it("is false for every other role, incl. plain project_manager, procurement, hr, and site_admin", () => {
@@ -433,7 +435,72 @@ describe("TECHNICIAN_APPROVAL_ROLES / isTechnicianApprover (spec 263 U3)", () =>
       "visitor",
       "contractor",
     ] as const) {
-      expect(isTechnicianApprover(role)).toBe(false);
+      expect(isStaffApprover(role)).toBe(false);
+    }
+  });
+});
+
+// Spec 264 G4 / ADR 0072 §4 — STAFF_ONBOARDABLE_ROLES is the UI-facing role-
+// selector option list at approval: the roles that genuinely make sense to
+// self-onboard-and-approve. It is a NARROWED set, DISTINCT from the RPC's
+// STAFF_ASSIGNABLE_ROLES defensive security allowlist. Deliberately EXCLUDES
+// site_owner (a promotion path, ADR 0060 — not self-onboard), auditor,
+// subcon_manager (special/external), project_manager / project_director (senior
+// appointments, assigned deliberately), and of course visitor / contractor /
+// client / super_admin. This is an operator-tunable default; pinned so a widen
+// (or a future enum add) is a deliberate in/out decision, not a silent drift.
+describe("STAFF_ONBOARDABLE_ROLES / isStaffOnboardableRole (spec 264 G4)", () => {
+  it("is exactly the sensible-default onboard list", () => {
+    expect([...STAFF_ONBOARDABLE_ROLES]).toEqual([
+      "technician",
+      "procurement",
+      "procurement_manager",
+      "accounting",
+      "hr",
+      "project_coordinator",
+      "site_admin",
+    ]);
+  });
+
+  it("defaults to technician as the FIRST option (the common case + the entry link)", () => {
+    expect(STAFF_ONBOARDABLE_ROLES[0]).toBe("technician");
+  });
+
+  it("EXCLUDES site_owner / auditor / subcon_manager / PM / PD (senior/special/external)", () => {
+    for (const role of [
+      "site_owner",
+      "auditor",
+      "subcon_manager",
+      "project_manager",
+      "project_director",
+    ] as const) {
+      expect(STAFF_ONBOARDABLE_ROLES).not.toContain(role);
+    }
+  });
+
+  it("EXCLUDES the never-assignable roles (visitor / contractor / client / super_admin)", () => {
+    for (const role of ["visitor", "contractor", "client", "super_admin"] as const) {
+      expect(STAFF_ONBOARDABLE_ROLES).not.toContain(role);
+    }
+  });
+
+  it("isStaffOnboardableRole is true for exactly the STAFF_ONBOARDABLE_ROLES set", () => {
+    for (const role of STAFF_ONBOARDABLE_ROLES) expect(isStaffOnboardableRole(role)).toBe(true);
+  });
+
+  it("isStaffOnboardableRole is false for the excluded roles", () => {
+    for (const role of [
+      "site_owner",
+      "auditor",
+      "subcon_manager",
+      "project_manager",
+      "project_director",
+      "visitor",
+      "contractor",
+      "client",
+      "super_admin",
+    ] as const) {
+      expect(isStaffOnboardableRole(role)).toBe(false);
     }
   });
 });

@@ -1,14 +1,16 @@
-// Spec 263 U3 — the back-office technician-registration approval queue. Gate =
-// TECHNICIAN_APPROVAL_ROLES (procurement_manager/project_director/super_admin —
-// role-home.ts, mirrors the U1c RPCs' inline literal EXACTLY: the route gate
-// MUST equal the page gate, the anti-pattern named on that constant's comment).
+// Spec 263 U3 / spec 264 G4 — the back-office staff-registration approval queue
+// (role-neutral: the same queue serves every self-onboarded staff role; the
+// approver picks the role at approval). Gate = STAFF_APPROVAL_ROLES
+// (procurement_manager/project_director/super_admin — role-home.ts, mirrors the
+// approve_staff_registration RPC's inline literal EXACTLY: the route gate MUST
+// equal the page gate, the anti-pattern named on that constant's comment).
 // Drilled down from the PM hub strip (back chip → /dashboard, the PM_ROLES home).
 
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { requireRole } from "@/lib/auth/require-role";
-import { TECHNICIAN_APPROVAL_ROLES } from "@/lib/auth/role-home";
+import { STAFF_APPROVAL_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { RegistrationQueueList } from "@/components/features/registrations/registration-queue-list";
@@ -18,10 +20,10 @@ import {
 } from "@/lib/register/admin-registrations";
 import { buildRegistrationQueueRow } from "@/lib/register/registration-queue-view";
 
-export const metadata = { title: "คำขอสมัครเป็นช่าง" };
+export const metadata = { title: "คำขอสมัคร" };
 
-export default async function TechnicianRegistrationQueuePage() {
-  const ctx = await requireRole(TECHNICIAN_APPROVAL_ROLES);
+export default async function StaffRegistrationQueuePage() {
+  const ctx = await requireRole(STAFF_APPROVAL_ROLES);
   const supabase = await createClient();
 
   const registrations = await listVisibleTechnicianRegistrations(supabase);
@@ -45,7 +47,7 @@ export default async function TechnicianRegistrationQueuePage() {
     <PageShell>
       <BottomTabBar role={ctx.role} />
       <DetailHeader backHref="/dashboard" backLabel="กลับไปหน้าภาพรวม">
-        <h1 className="text-ink text-xl font-semibold tracking-tight">คำขอสมัครเป็นช่าง</h1>
+        <h1 className="text-ink text-xl font-semibold tracking-tight">คำขอสมัคร</h1>
       </DetailHeader>
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>

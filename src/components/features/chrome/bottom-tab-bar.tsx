@@ -80,14 +80,14 @@ const DASHBOARD_TAB: TabItem = {
   match: ["/review"],
 };
 
-// Spec 263 follow-up: the technician-registration approval queue was added to
-// the desktop HubNav strip (spec 263 U3) but never to this bottom bar, so
-// super_admin/project_director/procurement_manager on a phone had no way to
-// reach /registrations at all. Short label (bottom-tab space is tight — every
-// other label here is 2-4 Thai chars; the page itself is titled the longer
-// "คำขอสมัครเป็นช่าง").
+// Spec 263 follow-up / spec 264 G4: the staff-registration approval queue was
+// added to the desktop HubNav strip (spec 263 U3) but never to this bottom bar,
+// so super_admin/project_director/procurement_manager on a phone had no way to
+// reach /registrations at all. Role-neutral short label (bottom-tab space is
+// tight — every other label here is 2-4 Thai chars; the page itself is titled
+// the fuller "คำขอสมัคร").
 const REGISTRATIONS_TAB: TabItem = {
-  label: "สมัครช่าง",
+  label: "คำขอสมัคร",
   href: "/registrations",
   icon: UserPlus,
 };
@@ -141,8 +141,8 @@ export const PROCUREMENT_TABS: ReadonlyArray<TabItem> = [
 // procurement superset with NO tab set at all before this fix — tabsForRole
 // had no branch for it, so the role saw no bottom bar whatsoever. It gets the
 // full PROCUREMENT_TABS set (it can do everything plain procurement can, plus
-// the manager-only set) plus the technician-registration approval queue (spec
-// 263 U3 — procurement_manager is a TECHNICIAN_APPROVAL_ROLES member).
+// the manager-only set) plus the staff-registration approval queue (spec 263 U3
+// / spec 264 G4 — procurement_manager is a STAFF_APPROVAL_ROLES member).
 export const PROCUREMENT_MANAGER_TABS: ReadonlyArray<TabItem> = [
   { label: "จัดซื้อ", href: "/requests", icon: ShoppingCart },
   { label: "รายงาน", href: "/requests/reports", icon: FileText, match: ["/requests/orders"] },

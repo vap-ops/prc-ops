@@ -1,18 +1,19 @@
-// Spec 263 U3 — the back-office review detail: applicant fields + the
-// uploaded docs (server-minted signed URLs) + approve/reject. Same gate as the
-// queue list (TECHNICIAN_APPROVAL_ROLES) — route gate === page gate, no drift.
-// RLS (can_see_technician_registration) scopes the row read; notFound() when
-// the id doesn't resolve (deleted/never existed) rather than a silent blank
-// page — the RLS-denied case (SA/site_owner opening someone else's non-pending
-// row, or a role outside the gate entirely) never reaches here since requireRole
-// already redirected.
+// Spec 263 U3 / spec 264 G4 — the back-office review detail: applicant fields +
+// the uploaded docs (server-minted signed URLs) + approve/reject with a ROLE
+// SELECTOR (the approver picks which role the applicant becomes). Same gate as
+// the queue list (STAFF_APPROVAL_ROLES) — route gate === page gate, no drift.
+// RLS (can_see_staff_registration) scopes the row read; notFound() when the id
+// doesn't resolve (deleted/never existed) rather than a silent blank page — the
+// RLS-denied case (SA/site_owner opening someone else's non-pending row, or a
+// role outside the gate entirely) never reaches here since requireRole already
+// redirected.
 
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { requireRole } from "@/lib/auth/require-role";
-import { TECHNICIAN_APPROVAL_ROLES } from "@/lib/auth/role-home";
+import { STAFF_APPROVAL_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { CARD } from "@/lib/ui/classes";
@@ -28,7 +29,7 @@ import { formatThaiDateTime } from "@/lib/i18n/labels";
 
 export const metadata = { title: "รายละเอียดคำขอสมัคร" };
 
-export default async function TechnicianRegistrationDetailPage({
+export default async function StaffRegistrationDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -36,7 +37,7 @@ export default async function TechnicianRegistrationDetailPage({
   const { id } = await params;
   if (!isValidUuid(id)) notFound();
 
-  const ctx = await requireRole(TECHNICIAN_APPROVAL_ROLES);
+  const ctx = await requireRole(STAFF_APPROVAL_ROLES);
   const supabase = await createClient();
 
   const registration = await getTechnicianRegistrationById(supabase, id);
@@ -77,7 +78,10 @@ export default async function TechnicianRegistrationDetailPage({
         <RegistrationDocumentsView urls={urls} />
 
         {registration.status === "pending" ? (
-          <RegistrationDecision registrationId={registration.id} />
+          <RegistrationDecision
+            registrationId={registration.id}
+            declaredRoleHint={registration.declared_role_hint}
+          />
         ) : null}
       </section>
     </PageShell>
