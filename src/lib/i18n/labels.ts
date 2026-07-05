@@ -31,6 +31,13 @@ export const WORKER_TEAM_LABEL = "ทีมช่าง";
 // (which mean "no value set", not "value present but name unresolved").
 export const UNKNOWN_NAME_LABEL = "ไม่ทราบชื่อ";
 
+// Spec 270 (ADR 0074 D2) — the two-level work-package vocabulary. The parent
+// grouping row takes the plain term งาน; the leaf rows (where photos, money,
+// status edits live) are งานย่อย. Any surface that names either level reads
+// these constants (ui-term-consistency doctrine) so the pair can never drift.
+export const WP_GROUP_LABEL = "งาน";
+export const WP_LEAF_LABEL = "งานย่อย";
+
 // Spec 207 — a project work-category (หมวดงาน): the per-project trade/scope
 // taxonomy a WP belongs to (exactly one). Distinct from งวดงาน (deliverable,
 // billing milestone) and ประเภทโครงการ (project_type). Single-sourced (used on
