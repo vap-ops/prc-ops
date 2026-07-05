@@ -15,7 +15,7 @@ import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { CARD, SECTION_HEADING } from "@/lib/ui/classes";
 import { formatThaiDate } from "@/lib/i18n/labels";
-import { DC_PAYMENT_METHOD_LABELS } from "@/lib/labor/payments";
+import { WAGE_PAYMENT_METHOD_LABELS } from "@/lib/labor/payments";
 import { BankChangeForm } from "@/components/features/portal/bank-change-form";
 import { WorkerBankChangeForm } from "@/components/features/portal/worker-bank-change-form";
 import { PortalSelfEdit, type PortalConsent } from "@/components/features/portal/portal-self-edit";
@@ -162,7 +162,7 @@ export default async function PortalPage() {
                     </p>
                   </div>
                   <p className="text-ink-secondary mt-1 text-xs">
-                    จ่ายเมื่อ {formatThaiDate(p.paid_at)} · {DC_PAYMENT_METHOD_LABELS[p.method]}
+                    จ่ายเมื่อ {formatThaiDate(p.paid_at)} · {WAGE_PAYMENT_METHOD_LABELS[p.method]}
                   </p>
                 </li>
               ))}
@@ -337,7 +337,7 @@ export default async function PortalPage() {
                   <p className="text-ink shrink-0 text-sm font-bold">{baht(p.paid_amount ?? 0)}</p>
                 </div>
                 <p className="text-ink-secondary mt-1 text-xs">
-                  จ่ายเมื่อ {formatThaiDate(p.paid_at)} · {DC_PAYMENT_METHOD_LABELS[p.method]}
+                  จ่ายเมื่อ {formatThaiDate(p.paid_at)} · {WAGE_PAYMENT_METHOD_LABELS[p.method]}
                 </p>
               </li>
             ))}

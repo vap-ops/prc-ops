@@ -45,3 +45,12 @@ describe("payroll period form layout", () => {
     }
   });
 });
+
+// Spec 266 U4 (ADR 0073): the payroll surface is relabelled ค่าแรง — the "DC"
+// suffix is dropped from the page title, headings, and the empty notice.
+describe("payroll surface label (ค่าแรง, no DC)", () => {
+  it("titles the surface ค่าแรง with no DC suffix", () => {
+    expect(src).toContain('title: "ค่าแรง"');
+    expect(src).not.toContain("ค่าแรง DC");
+  });
+});

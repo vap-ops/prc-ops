@@ -6179,3 +6179,30 @@ standing U2b follow-up.
   การจ่าย/สถานะ after creation would wire `update_worker`'s `p_pay_type`/
   `p_employment_type` params + add selectors to the edit sheet (a follow-up; the
   spec's concrete "replace the OLD radio form" target is the add form).
+
+## Spec 266 U4 — payroll /payroll relabel → ค่าแรง — ✅ BUILT (2026-07-05, code-only)
+
+- The payroll surface is relabelled **ค่าแรง** (dropped the "ค่าแรง DC" suffix from
+  the page metadata title, h1, h2, and the empty notice). Only daily ช่าง appear —
+  already enforced upstream (`fetchPayrollReport` reads `pay_type_snapshot='daily'`
+  from U1/U2), so no listing change was needed.
+- **wage_payments naming through the payment UI:** renamed the last "DC" identifiers
+  in the payment path — `DC_PAYMENT_METHODS`→`WAGE_PAYMENT_METHODS`,
+  `DC_PAYMENT_METHOD_LABELS`→`WAGE_PAYMENT_METHOD_LABELS` (payments.ts),
+  `validateDcPayment`→`validateWagePayment` (validate.ts),
+  `recordDcPayment`/`RecordDcPaymentResult`→`recordWagePayment`/`RecordWagePaymentResult`
+  (actions.ts), the radio `name="dc-payment-method"`→`"wage-payment-method"`
+  (record-payment-sheet.tsx). The `record_wage_payment` RPC + `WagePaymentMethod`
+  type were already repointed in U1/U2. Fallout: portal/page.tsx imports the renamed
+  label const (2 usages) — mechanical.
+- TDD: renamed the identifiers in `labor-payment-validate.test.ts` (RED) + added a
+  "ค่าแรง (no DC)" heading assertion to `payroll-period-form-layout.test.ts` (RED) →
+  renamed source → GREEN. lint + typecheck clean; full suite green.
+- **Found, deferred to U8** (out of U4's payroll scope; money/GL): `SOURCE_LABELS` in
+  `src/lib/accounting/ledger-view.ts` still keys the GL source-doc label on
+  `dc_payments`, but U1's wage poster now writes `source_table='wage_payments'` — so a
+  wage GL line falls back to the raw table name instead of "จ่ายค่าแรงรายวัน". No live
+  impact (greenfield: 0 wage*payments / 0 GL rows), graceful `?? table` fallback. U8's
+  `grep src for dc*`sweep must rename this key`dc_payments`→`wage_payments`. Same for
+the stale `get_my_dc_payments`comment (portal/page.tsx:7) +`record_dc_payment`
+  comments (role-home.ts:192, role-sets.test.ts:236) — all U7/U8 comment cleanup.
