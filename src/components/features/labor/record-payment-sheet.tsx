@@ -1,12 +1,12 @@
 "use client";
 
-// Spec 127 U2 / spec 170 U3 — record a DC payment for one worker × the viewed
-// period. Money lives on the PM-only /payroll page; this client form prefills
-// the recomputed owed and sends what was actually paid. The record_dc_payment
-// RPC recomputes server-side (the prefill is convenience, not the source of
-// truth), re-gates the role, and refuses a duplicate. The worker's own bank is
-// shown inline as the transfer target (closes the "money scattered" gap, spec
-// 127). ADR 0062: a DC is a worker, so the payee bound here is the worker.
+// Spec 127 U2 / spec 170 U3 / spec 266 U4 — record a wage payment for one ช่าง ×
+// the viewed period. Money lives on the PM-only ค่าแรง page; this client form
+// prefills the recomputed owed and sends what was actually paid. The
+// record_wage_payment RPC recomputes server-side (the prefill is convenience, not
+// the source of truth), re-gates the role, and refuses a duplicate. The worker's
+// own bank is shown inline as the transfer target (closes the "money scattered"
+// gap, spec 127). The payee bound here is the worker (ช่าง).
 //
 // 'use client' justified: open state + form state + the server-action call.
 
@@ -14,8 +14,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { RadioChip } from "@/components/features/common/radio-chip";
-import { recordDcPayment } from "@/lib/labor/actions";
-import { DC_PAYMENT_METHODS, DC_PAYMENT_METHOD_LABELS } from "@/lib/labor/payments";
+import { recordWagePayment } from "@/lib/labor/actions";
+import { WAGE_PAYMENT_METHODS, WAGE_PAYMENT_METHOD_LABELS } from "@/lib/labor/payments";
 import type { ContactBank } from "@/lib/contacts/bank";
 import { useToast } from "@/lib/ui/use-toast";
 import {
@@ -70,7 +70,7 @@ export function RecordPaymentSheet({
       return;
     }
     startTransition(async () => {
-      const result = await recordDcPayment({
+      const result = await recordWagePayment({
         workerId,
         from,
         to,
@@ -148,11 +148,11 @@ export function RecordPaymentSheet({
         <fieldset className="mt-3">
           <legend className="text-ink-secondary text-sm">วิธีจ่าย</legend>
           <div className="mt-1 flex flex-wrap gap-2">
-            {DC_PAYMENT_METHODS.map((m) => (
+            {WAGE_PAYMENT_METHODS.map((m) => (
               <RadioChip
                 key={m}
-                name="dc-payment-method"
-                label={DC_PAYMENT_METHOD_LABELS[m]}
+                name="wage-payment-method"
+                label={WAGE_PAYMENT_METHOD_LABELS[m]}
                 checked={method === m}
                 onSelect={() => setMethod(m)}
               />

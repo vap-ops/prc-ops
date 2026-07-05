@@ -8,14 +8,14 @@ import type { UserRole } from "@/lib/db/enums";
 import { ISO_DATE_REGEX } from "@/lib/dates";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { isManagerRole } from "@/lib/auth/role-home";
-import { DC_PAYMENT_METHODS } from "./payments";
+import { WAGE_PAYMENT_METHODS } from "./payments";
 
 type DayFraction = Database["public"]["Enums"]["day_fraction"];
 
 const BACKDATE_LIMIT_DAYS = 14;
 const REASON_MAX_LENGTH = 300;
 
-// Spec 127 U2 — record-DC-payment form validation (PM-facing).
+// Spec 127 U2 / spec 266 U4 — record-wage-payment form validation (PM-facing).
 const PAYMENT_REFERENCE_MAX = 120;
 const PAYMENT_NOTE_MAX = 500;
 // numeric(12,2) holds < 10^10; reject anything that would overflow the column.
@@ -33,7 +33,7 @@ function isIsoDate(value: string): boolean {
   return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
 }
 
-export function validateDcPayment(input: {
+export function validateWagePayment(input: {
   workerId: string;
   from: string;
   to: string;
@@ -59,7 +59,7 @@ export function validateDcPayment(input: {
   ) {
     return "จำนวนเงินไม่ถูกต้อง";
   }
-  if (!(DC_PAYMENT_METHODS as readonly string[]).includes(input.method)) {
+  if (!(WAGE_PAYMENT_METHODS as readonly string[]).includes(input.method)) {
     return "เลือกวิธีจ่ายเงิน";
   }
   if (input.reference.length > PAYMENT_REFERENCE_MAX) {

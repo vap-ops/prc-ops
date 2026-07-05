@@ -16,7 +16,7 @@ import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
 import { PM_ROLES } from "@/lib/auth/role-home";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { bangkokTodayIso } from "./dates";
-import { validateCorrection, validateDcPayment, validateLaborEntry } from "./validate";
+import { validateCorrection, validateWagePayment, validateLaborEntry } from "./validate";
 import { validateNotes } from "@/lib/notes/validate";
 
 type DayFraction = Database["public"]["Enums"]["day_fraction"];
@@ -196,13 +196,13 @@ export async function setWpLaborBudget(input: {
   return { ok: true };
 }
 
-// Spec 127 U2 / spec 170 U3 — record a DC payment for a worker × period.
-// pm/super only (money). The record_wage_payment RPC recomputes the owed amount
-// server-side, re-gates the role, locks per (worker, period) and refuses a
-// duplicate — this action validates shape and maps RPC errors to Thai.
+// Spec 127 U2 / spec 170 U3 / spec 266 U4 — record a wage payment for a
+// ช่าง × period. pm/super only (money). The record_wage_payment RPC recomputes
+// the owed amount server-side, re-gates the role, locks per (worker, period) and
+// refuses a duplicate — this action validates shape and maps RPC errors to Thai.
 // Authenticated session so the RPC gate passes and paid_by/the audit actor is
-// the PM. ADR 0062: a DC is a worker, so the payee bound here is the worker.
-export type RecordDcPaymentResult = { ok: true } | { ok: false; error: string };
+// the PM. The payee bound here is the worker (ช่าง).
+export type RecordWagePaymentResult = { ok: true } | { ok: false; error: string };
 
 const GENERIC_PAYMENT_ERROR = "บันทึกการจ่ายเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
@@ -212,7 +212,7 @@ function paymentRpcErrorToThai(message: string): string {
   return GENERIC_PAYMENT_ERROR;
 }
 
-export async function recordDcPayment(input: {
+export async function recordWagePayment(input: {
   workerId: string;
   from: string;
   to: string;
@@ -222,9 +222,9 @@ export async function recordDcPayment(input: {
   reference: string;
   note: string;
   revalidate: string;
-}): Promise<RecordDcPaymentResult> {
+}): Promise<RecordWagePaymentResult> {
   if (!input.revalidate.startsWith("/")) return { ok: false, error: GENERIC_PAYMENT_ERROR };
-  const validation = validateDcPayment(input);
+  const validation = validateWagePayment(input);
   if (validation) return { ok: false, error: validation };
 
   const auth = await getActionUser();

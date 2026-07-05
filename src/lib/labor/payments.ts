@@ -1,8 +1,8 @@
-// Spec 127 U1 / spec 170 U3 — DC payment reconciliation. Pure: maps a payroll
-// report (spec 69) against recorded wage_payments rows so the payroll surface can
-// show "จ่ายแล้ว" vs "ค้างจ่าย" per worker for the viewed period. ADR 0062: a DC
-// is a worker, so a payment is keyed to (worker × exact period); a CURRENT
-// payment is one not superseded and not a tombstone (paid_amount NULL).
+// Spec 127 U1 / spec 170 U3 / spec 266 U4 — wage payment reconciliation. Pure:
+// maps a payroll report (spec 69) against recorded wage_payments rows so the
+// ค่าแรง surface can show "จ่ายแล้ว" vs "ค้างจ่าย" per ช่าง for the viewed period.
+// A wage payment is keyed to (worker × exact period); a CURRENT payment is one
+// not superseded and not a tombstone (paid_amount NULL).
 // "drifted" mirrors the cost-freeze frozen-vs-live idea (spec 68): the live owed
 // has moved away from the amount computed when the payment was recorded. No I/O —
 // money is read via the admin client and rendered only on the PM payroll surface
@@ -56,13 +56,13 @@ export interface AnnotatedPayrollReport {
 
 // Payment methods (mirror the wage_payment_method enum) + Thai labels for the
 // record sheet. Pure data — kept here with the domain types.
-export const DC_PAYMENT_METHODS = [
+export const WAGE_PAYMENT_METHODS = [
   "bank_transfer",
   "cash",
   "cheque",
 ] as const satisfies readonly WagePaymentMethod[];
 
-export const DC_PAYMENT_METHOD_LABELS: Record<WagePaymentMethod, string> = {
+export const WAGE_PAYMENT_METHOD_LABELS: Record<WagePaymentMethod, string> = {
   bank_transfer: "โอนเงิน",
   cash: "เงินสด",
   cheque: "เช็ค",

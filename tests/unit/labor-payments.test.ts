@@ -1,6 +1,6 @@
-// Spec 127 U1 / spec 170 U3 — DC payment reconciliation. annotatePayrollPayments
-// maps a payroll report (spec 69) against recorded dc_payments rows: per WORKER
-// (the payee, ADR 0062), is there a CURRENT (non-superseded, non-tombstone)
+// Spec 127 U1 / spec 170 U3 / spec 266 U4 — wage payment reconciliation.
+// annotatePayrollPayments maps a payroll report (spec 69) against recorded
+// wage_payments rows: per ช่าง, is there a CURRENT (non-superseded, non-tombstone)
 // payment for this exact period? "drifted" = the live owed (worker.amount) has
 // moved away from the computed snapshot taken at record time (same frozen-vs-live
 // idea as the cost-freeze drift, spec 68). Pure — no I/O.
