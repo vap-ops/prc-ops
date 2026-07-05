@@ -10,6 +10,14 @@
 // picks the role (STAFF_ONBOARDABLE_ROLES selector) and it is passed as p_role. The
 // action re-checks the pick against STAFF_ONBOARDABLE_ROLES client-side; the RPC
 // re-guards against the DB's STAFF_ASSIGNABLE_ROLES allowlist server-side regardless.
+//
+// Site-assignment follow-up: the approver may OPTIONALLY pick a project, forwarded
+// as p_project_id (already supported by the RPC — G1). The RPC only acts on it for
+// a FIELD role (inserts workers.project_id); for an office role it's a harmless
+// no-op. An unselected/blank projectId always normalizes to a logical null — the
+// RPC call OMITS the p_project_id key in that case (see the comment at the call
+// site for why: exactOptionalPropertyTypes + the generated Args type), which is
+// behaviorally identical to sending null since the SQL parameter defaults to null.
 
 import "server-only";
 
@@ -28,6 +36,9 @@ const QUEUE_PATH = "/registrations";
 export async function approveStaffRegistration(input: {
   registrationId: string;
   role: UserRole;
+  /** Optional site to assign — forwarded as p_project_id. A blank/absent
+   *  selection always normalizes to null. */
+  projectId?: string | null;
 }): Promise<ActionResult> {
   if (!isValidUuid(input.registrationId)) return { ok: false, error: GENERIC };
   // The picked role must be one the operator may onboard-and-approve. The RPC
@@ -38,9 +49,18 @@ export async function approveStaffRegistration(input: {
   const gate = await requireActionRole(STAFF_APPROVAL_ROLES);
   if ("error" in gate) return { ok: false, error: gate.error };
 
+  const projectId = input.projectId?.trim() || null;
+
+  // p_project_id?: string in the generated RPC Args (exactOptionalPropertyTypes
+  // forbids passing `null` where only `string | undefined` is typed) — so an
+  // unselected site OMITS the key entirely rather than sending null. The SQL
+  // parameter defaults to null regardless, so this is behaviorally identical to
+  // sending null explicitly (mirrors assign_worker_to_project's established
+  // pattern in src/app/workers/actions.ts).
   const { error } = await gate.auth.supabase.rpc("approve_staff_registration", {
     p_id: input.registrationId,
     p_role: input.role,
+    ...(projectId ? { p_project_id: projectId } : {}),
   });
   if (error) return { ok: false, error: registrationErrorToThai(error.message) };
 

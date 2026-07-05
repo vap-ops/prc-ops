@@ -7,6 +7,10 @@
 // RLS-denied case (SA/site_owner opening someone else's non-pending row, or a
 // role outside the gate entirely) never reaches here since requireRole already
 // redirected.
+//
+// Site-assignment follow-up: loads the active-projects list (RLS-session client,
+// same pattern as /workers) for RegistrationDecision's optional site selector —
+// only when the row is still pending (the selector itself is decision-only).
 
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/features/chrome/page-shell";
@@ -45,6 +49,18 @@ export default async function StaffRegistrationDetailPage({
 
   const { urls } = await getRegistrationDocumentUrls(supabase, id);
 
+  // RLS-scoped read (never admin) — mirrors /workers' project picker. Active
+  // only: the operator's ask is "active projects", and an approver has no
+  // reason to hand a new hire a completed/on-hold/archived site.
+  const { data: projectRows } =
+    registration.status === "pending"
+      ? await supabase
+          .from("projects")
+          .select("id, code, name")
+          .eq("status", "active")
+          .order("code", { ascending: true })
+      : { data: null };
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -81,6 +97,7 @@ export default async function StaffRegistrationDetailPage({
           <RegistrationDecision
             registrationId={registration.id}
             declaredRoleHint={registration.declared_role_hint}
+            projects={projectRows ?? []}
           />
         ) : null}
       </section>
