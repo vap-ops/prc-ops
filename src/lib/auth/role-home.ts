@@ -322,27 +322,61 @@ export const PURCHASE_REPORT_ROLES: ReadonlyArray<UserRole> = [
 ];
 
 /**
- * Spec 263 U3 / ADR 0071 §4 — who may approve/reject a technician
- * self-registration: procurement_manager, project_director, super_admin.
- * Mirrors the U1c RPCs' (`approve_technician_registration` /
- * `reject_technician_registration`) inline literal gate EXACTLY — a fresh
- * explicit array, NOT PM_ROLES-derived (unlike PROCUREMENT_MANAGER_ROLES),
- * because plain `project_manager` is deliberately excluded (mirrors
- * CLIENT_ISSUER_ROLES' style: a small explicit set narrower than PM_ROLES).
- * `hr` is deliberately held out (stub role today — a one-line add later, ADR
- * 0071 §4). This is the SAME anti-drift concern `isManagerRole`'s doc names:
- * one place to update if the gate ever widens, instead of the page gate and
- * the server action drifting apart from each other (the "payroll" gate/route
- * mismatch this repo has hit before — spec 187/252, see
+ * Spec 263 U3 / spec 264 G4 / ADR 0072 §5 — who may approve/reject a staff
+ * self-registration and assign the role: procurement_manager, project_director,
+ * super_admin. Renamed from spec 263's `TECHNICIAN_APPROVAL_ROLES` (the flow is
+ * now role-parametric staff onboarding, not technician-specific); membership is
+ * UNCHANGED. Mirrors the `approve_staff_registration` / `reject_staff_registration`
+ * RPCs' inline literal gate EXACTLY — a fresh explicit array, NOT PM_ROLES-derived
+ * (unlike PROCUREMENT_MANAGER_ROLES), because plain `project_manager` is
+ * deliberately excluded (mirrors CLIENT_ISSUER_ROLES' style: a small explicit set
+ * narrower than PM_ROLES). `hr` is deliberately held out (stub role today — a
+ * one-line add later, ADR 0072 §5). This is the SAME anti-drift concern
+ * `isManagerRole`'s doc names: one place to update if the gate ever widens,
+ * instead of the page gate and the server action drifting apart from each other
+ * (the "payroll" gate/route mismatch this repo has hit before — spec 187/252, see
  * payroll-export-gate.test.ts) — the route gate here MUST equal the page gate.
  */
-export const TECHNICIAN_APPROVAL_ROLES: ReadonlyArray<UserRole> = [
+export const STAFF_APPROVAL_ROLES: ReadonlyArray<UserRole> = [
   "procurement_manager",
   "project_director",
   "super_admin",
 ];
-export function isTechnicianApprover(role: UserRole): boolean {
-  return TECHNICIAN_APPROVAL_ROLES.includes(role);
+export function isStaffApprover(role: UserRole): boolean {
+  return STAFF_APPROVAL_ROLES.includes(role);
+}
+
+/**
+ * Spec 264 G4 / ADR 0072 §4 — the UI-facing role-selector option list at
+ * approval: the roles that genuinely make sense to self-onboard-and-approve.
+ * The approver picks one of these; its value is passed as `p_role` to
+ * `approve_staff_registration`, which re-guards it server-side against the DB's
+ * defensive `STAFF_ASSIGNABLE_ROLES` allowlist regardless.
+ *
+ * This is the operator-tunable ONBOARD list, DELIBERATELY DISTINCT from (and
+ * NARROWER than) the RPC's security allowlist. It excludes:
+ *   - `site_owner` — a promotion path (ADR 0060), not a self-onboard target;
+ *   - `auditor`, `subcon_manager` — special / external roles;
+ *   - `project_manager` / `project_director` — senior appointments, assigned
+ *     deliberately, not via the open self-serve queue;
+ *   - and of course `visitor` / `contractor` / `client` / `super_admin`, which
+ *     the RPC itself refuses.
+ * `technician` is first — the common case and the current open entry link
+ * (`/register/technician`) — so it is the selector's sensible default. This set
+ * is a starting point the operator may tune; pinned by role-sets.test.ts so a
+ * widen (or a future enum add) is a deliberate in/out decision, not a silent drift.
+ */
+export const STAFF_ONBOARDABLE_ROLES: ReadonlyArray<UserRole> = [
+  "technician",
+  "procurement",
+  "procurement_manager",
+  "accounting",
+  "hr",
+  "project_coordinator",
+  "site_admin",
+];
+export function isStaffOnboardableRole(role: UserRole): boolean {
+  return STAFF_ONBOARDABLE_ROLES.includes(role);
 }
 
 export function roleHome(role: UserRole): string {

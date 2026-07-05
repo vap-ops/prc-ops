@@ -20,13 +20,13 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 // payroll/contacts/workers/account moved into the /settings hub.
 // Spec 183 U2: รายการรอตรวจ dropped — the review queue moved off the nav into a
 // dashboard card; ภาพรวม leads the PM strip and carries the pending count.
-// Spec 263 U3: คำขอสมัครช่าง (the technician-registration approval queue) added
-// before ตั้งค่า.
+// Spec 263 U3 / spec 264 G4: คำขอสมัคร (the staff-registration approval queue,
+// role-neutral) added before ตั้งค่า.
 const PM_ITEMS = [
   { label: "โครงการและรายงาน", href: "/projects" },
   { label: "จัดซื้อ", href: "/requests" },
   { label: "ภาพรวม", href: "/dashboard" },
-  { label: "คำขอสมัครช่าง", href: "/registrations" },
+  { label: "คำขอสมัคร", href: "/registrations" },
   { label: "ตั้งค่า", href: "/settings" },
 ];
 
@@ -73,8 +73,8 @@ describe("canonical nav sets", () => {
 
   // Spec 263 follow-up: procurement_manager had NO hub-nav set at all before
   // this fix (hubNavForRole fell through to null, per the U3 comment it left
-  // behind). It's a procurement superset (spec 261) PLUS a technician-
-  // registration approver (spec 263 U3) — gets the procurement strip plus the
+  // behind). It's a procurement superset (spec 261) PLUS a staff-registration
+  // approver (spec 263 U3 / spec 264 G4) — gets the procurement strip plus the
   // approval-queue item.
   it("pins the procurement_manager set's destinations and order", () => {
     expect(PROCUREMENT_MANAGER_HUB_NAV).toEqual([
@@ -84,7 +84,7 @@ describe("canonical nav sets", () => {
       { label: "ผู้ขาย", href: "/contacts/vendors" },
       { label: "ผู้รับเหมาช่วง", href: "/contacts/subcontractors" },
       { label: "ทีมงาน", href: "/workers" },
-      { label: "คำขอสมัครช่าง", href: "/registrations" },
+      { label: "คำขอสมัคร", href: "/registrations" },
       { label: "ตั้งค่า", href: "/settings" },
     ]);
   });
