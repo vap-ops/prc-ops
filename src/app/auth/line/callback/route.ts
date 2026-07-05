@@ -250,16 +250,20 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const user = verifyResult.data.user;
 
   // ---- 6. Read public.users.role (retry for trigger-race) ----
+  // spec 265 U1 — also read line_display_name / line_synced_at so the step-7
+  // write can skip a needless UPDATE when nothing changed (minimal diff).
   let row: {
     role: string;
     line_user_id: string | null;
     full_name: string | null;
     line_avatar_url: string | null;
+    line_display_name: string | null;
+    line_synced_at: string | null;
   } | null = null;
   for (let attempt = 0; attempt < PROFILE_READ_MAX_ATTEMPTS; attempt++) {
     const { data } = await supabase
       .from("users")
-      .select("role, line_user_id, full_name, line_avatar_url")
+      .select("role, line_user_id, full_name, line_avatar_url, line_display_name, line_synced_at")
       .eq("id", user.id)
       .maybeSingle();
     if (data) {
@@ -282,11 +286,22 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // line_avatar_url: REFRESH-on-login (update whenever claims.picture differs from
   //   stored value, including clearing to null if the user removed their LINE picture).
   //   LINE owns this field; the user owns full_name. See ADR 0020.
-  const updates: { line_user_id?: string; full_name?: string; line_avatar_url?: string | null } =
-    {};
+  // line_display_name / line_synced_at (spec 265 U1): LINE-OWNED identity, ALWAYS
+  //   refreshed on every login — line_display_name = claims.name (the un-drifted
+  //   verification anchor, UNLIKE the NULL-only full_name), line_synced_at = now()
+  //   ("last checked"). full_name's NULL-only line above is UNCHANGED (ADR 0017/0020).
+  const updates: {
+    line_user_id?: string;
+    full_name?: string;
+    line_avatar_url?: string | null;
+    line_display_name?: string | null;
+    line_synced_at?: string;
+  } = {};
   if (row.line_user_id === null) updates.line_user_id = claims.sub;
   if (row.full_name === null && claims.name) updates.full_name = claims.name;
   if (claims.picture !== row.line_avatar_url) updates.line_avatar_url = claims.picture;
+  updates.line_display_name = claims.name;
+  updates.line_synced_at = new Date().toISOString();
   if (Object.keys(updates).length > 0) {
     const { error: updateError } = await admin.from("users").update(updates).eq("id", user.id);
     if (updateError) {

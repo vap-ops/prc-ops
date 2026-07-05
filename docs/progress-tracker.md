@@ -6,6 +6,50 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 265 U1 — super_admin LINE-identity: schema + callback — ✅ BUILT (2026-07-05, schema, HELD)
+
+Adds two LINE-owned identity fields to `public.users` and stamps them on **every** LINE login, so
+super_admin can always see a person's LINE ground-truth identity regardless of what they later edited
+(`full_name`) or uploaded (`profile_photo`). Extends ADR 0020's LINE-owned / refresh-on-login split to
+one more field; no ADR (spec 265 § "Why no ADR"). U2 (the views) is a separate session.
+
+Migration `20260813071600_spec265u1_users_line_identity.sql` (applied; `db push --dry-run` was clean —
+only this migration pending; DB now synced thru `071600`, next schema claimant `071700+`):
+
+- **Additive, nullable, NO backfill:** `alter table public.users add column line_display_name text,
+add column line_synced_at timestamptz`. Both `NULL`, no default. No RLS/policy change and no new
+  column GRANT — the columns inherit the existing `users` row-level SELECT policies (super*admin reads
+  any row; every other role reads only its own), and the write goes through the admin (service_role)
+  client exactly like `line_avatar_url` (UPDATE stays revoked from authenticated/anon — ADR 0019).
+  **No backfill by decision:** `full_name` may already be user-edited, so copying it would seed the
+  \_drifted* value into the field whose purpose is un-drifted LINE ground truth; the columns populate
+  naturally on each user's next login.
+
+Callback change — `src/app/auth/line/callback/route.ts`, **SURGICAL** (auth-outage fence):
+
+- **Step 6:** widened the users-row SELECT (and its row type) to also read `line_display_name,
+line_synced_at` — only to compute a minimal diff.
+- **Step 7 (the existing profile-update block ONLY):** added to the `updates` object
+  `line_display_name = claims.name` (LINE-owned, **always** refreshed on every login — unlike the
+  NULL-only `full_name` line directly above it, which is **untouched**) and
+  `line_synced_at = new Date().toISOString()` ("last checked"). `line_avatar_url` refresh unchanged.
+  The write remains **non-fatal** (logs + continues to the redirect) as before.
+- **UNTOUCHED:** token exchange, id_token verify, session mint (generateLink → verifyOtp), CSRF/state
+  validation, the handoff-flow branch, and the redirect logic. `full_name`'s NULL-only / user-owned
+  semantics (ADR 0017/0020) are preserved verbatim. No audit row (system-sourced, like the avatar).
+
+Verification: `pnpm db:types` regenerated (src + worker, +6/-0 lines each = the two columns on
+Row/Insert/Update, no unrelated drift). pgTAP `265-users-line-identity.test.sql` **10/10** (columns
+exist + nullable + typed; super_admin can SELECT another user's row incl. the new columns; a
+non-super_admin sees only its own row; authenticated + anon still have NO UPDATE on `users`).
+`line-callback-route.test.ts` +2 tests (always-refresh `line_display_name` + stamp `line_synced_at`
+without overwriting an already-set `full_name`; first-login NULL-only `full_name` + identity stamp
+together) — the 8 pre-existing callback tests (incl. the default browser-flow redirect) stay green,
+proving the default login flow is unchanged. lint + typecheck clean; full vitest **2785 passed**.
+HELD by the danger-path guard (migration + auth callback + worker/ types) — for operator admin-merge.
+
+---
+
 ## Spec 264 G1 — staff-substrate rename + role-parametric approve — ✅ BUILT (2026-07-05, schema, HELD)
 
 ADR 0072 (supersedes 0071). Generalizes the spec-263 technician self-registration substrate into a
