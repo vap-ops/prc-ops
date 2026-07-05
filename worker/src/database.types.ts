@@ -1843,6 +1843,7 @@ export type Database = {
           monthly_rate: number
           note: string | null
           owner_id: string
+          rate_period: Database["public"]["Enums"]["equipment_rate_period"]
           starts_on: string
         }
         Insert: {
@@ -1853,6 +1854,7 @@ export type Database = {
           monthly_rate: number
           note?: string | null
           owner_id: string
+          rate_period?: Database["public"]["Enums"]["equipment_rate_period"]
           starts_on: string
         }
         Update: {
@@ -1863,6 +1865,7 @@ export type Database = {
           monthly_rate?: number
           note?: string | null
           owner_id?: string
+          rate_period?: Database["public"]["Enums"]["equipment_rate_period"]
           starts_on?: string
         }
         Relationships: [
@@ -6874,6 +6877,7 @@ export type Database = {
           p_monthly_rate: number
           p_note?: string
           p_owner_id: string
+          p_rate_period?: Database["public"]["Enums"]["equipment_rate_period"]
           p_starts_on: string
         }
         Returns: string
@@ -8264,6 +8268,7 @@ export type Database = {
         | "returned"
         | "maintenance"
         | "lost"
+      equipment_rate_period: "monthly" | "daily"
       equipment_status:
         | "available"
         | "on_site"
@@ -8648,6 +8653,7 @@ export const Constants = {
         "maintenance",
         "lost",
       ],
+      equipment_rate_period: ["monthly", "daily"],
       equipment_status: [
         "available",
         "on_site",

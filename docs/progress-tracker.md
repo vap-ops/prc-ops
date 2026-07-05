@@ -6310,3 +6310,28 @@ add the WORKER label SSOT. Done so far:
   screens, contractor-portal onboarding comments) — ADR 0073 §5 keeps subcontractors
   functionally untouched; DB-side KEPT names (`dc_payment_recorded`, `wp_labor_costs.own_cost/
 dc_cost`, `dc_count`/`dc_distributed`, `workers.contractor_id`).
+
+## 2026-07-05 — Spec 268: equipment rental recording (/equipment/rentals + rate period)
+
+- **Status:** complete (single unit — migration + UI in one PR).
+- **Driver:** procurement-team request — rent equipment for the whole project or a
+  custom duration. Spec-146 backend (batches/allocations RPCs) was fully shipped but
+  had ZERO UI (both tables 0 rows live; missing-feature audit G17 / spec 202 U4+U5).
+- **Schema (additive, mig `20260813071900`):** enum `equipment_rate_period`
+  (monthly|daily) + `equipment_rental_batches.rate_period` (not null default monthly)
+  - `create_equipment_rental_batch` DROP 5-arg → CREATE 6-arg (trailing
+    `p_rate_period default 'monthly'`; body re-sourced verbatim from LIVE, additions =
+    null guard + INSERT column + audit payload key). pgTAP file 268 (19 asserts) +
+    file-100 signature pins moved to the 6-arg form.
+- **UI:** `/equipment/rentals` (BACK*OFFICE_ROLES; admin-client reads of the two
+  zero-grant money tables) — one form records the deal (owner · rate ต่อเดือน/ต่อวัน ·
+  ตลอดโครงการ open-ended or กำหนดช่วงเอง dated · optional allocate-on-create project) +
+  cards with per-batch ผูกโครงการ allocation. Pure view model `rental-view.ts`
+  (format-SSOT rate labels). Settings master-data door + money-audience link on
+  `/equipment`. Labels SSOT: EQUIPMENT_RENTAL*\* + EQUIPMENT_RATE_PERIOD_LABEL.
+- **Decisions:** rate-period added as additive column (day-priced short rentals are
+  real deals; monthly-only forced wrong data) — flagged to operator in the TG
+  briefing as veto-able. Nav = settings hub (NOT the procurement hub-nav strip —
+  operator dislikes strip clutter). Allocation "whole project" = ends_on null.
+- **Open questions / seams:** ending a rental early (ends_on edit RPC); per-project
+  rental cost rollup reader; batch-payment GL (ADR 0055 open question) — all follow-ups.

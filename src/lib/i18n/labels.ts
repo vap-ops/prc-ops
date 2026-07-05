@@ -217,6 +217,16 @@ export const STORE_PNL_LABEL = "กำไร-ขาดทุนคลัง";
 // Spec 202 U1 — the per-item equipment charge-out rate (money; back-office only).
 export const EQUIPMENT_DAILY_RATE_LABEL = "ค่าเช่า/วัน";
 export const EQUIPMENT_SET_DAILY_RATE_LABEL = "ตั้งค่าเช่า/วัน";
+// Spec 268 — the inbound rental-deal recorder (/equipment/rentals; money, back office).
+export const EQUIPMENT_RENTAL_LABEL = "เช่าอุปกรณ์";
+export const EQUIPMENT_RENTAL_RECORD_LABEL = "บันทึกการเช่า";
+export const EQUIPMENT_RATE_PERIOD_LABEL: Record<"monthly" | "daily", string> = {
+  monthly: "ต่อเดือน",
+  daily: "ต่อวัน",
+};
+export const EQUIPMENT_RENTAL_WHOLE_PROJECT_LABEL = "ตลอดโครงการ";
+export const EQUIPMENT_RENTAL_CUSTOM_PERIOD_LABEL = "กำหนดช่วงเอง";
+export const EQUIPMENT_RENTAL_ALLOCATE_LABEL = "ผูกโครงการ";
 // Spec 205 — the per-WP labor budget (a money cost ceiling, PM/PD-set; PM review only).
 export const LABOR_BUDGET_LABEL = "งบค่าแรง";
 export const SET_LABOR_BUDGET_LABEL = "ตั้งงบค่าแรง";

@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
+  Banknote,
   Calculator,
   ClipboardList,
   Files,
@@ -20,6 +21,7 @@ import {
 import { ACCOUNTING_ROLES, isManagerRole, type UserRole } from "@/lib/auth/role-home";
 import {
   CATALOG_LABEL,
+  EQUIPMENT_RENTAL_LABEL,
   ORDERING_TEMPLATES_LABEL,
   SUBCONTRACTOR_LABEL,
   WORKER_TEAM_LABEL,
@@ -126,6 +128,15 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         icon: Wrench,
         label: "อุปกรณ์",
         hint: "ทะเบียนอุปกรณ์เช่า",
+      },
+      // Spec 268: record inbound rental deals (money — the /equipment/rentals
+      // page re-gates to BACK_OFFICE_ROLES; this card is visibility only).
+      {
+        kind: "link",
+        href: "/equipment/rentals",
+        icon: Banknote,
+        label: EQUIPMENT_RENTAL_LABEL,
+        hint: "บันทึกการเช่า ตลอดโครงการ/รายวัน · ผูกโครงการ",
       },
       // Spec 175: the item catalog (the store's item master).
       {

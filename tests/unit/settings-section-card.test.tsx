@@ -23,7 +23,8 @@ describe("SettingsSectionCard", () => {
     );
     const links = container.querySelectorAll("a");
     // Spec 266 U6: master-data dropped /workers (→ ทีมช่าง section), 7 → 6.
-    expect(links).toHaveLength(6);
+    // Spec 268: +1 — the เช่าอุปกรณ์ rental-recorder door → 7.
+    expect(links).toHaveLength(7);
     expect(links[0]?.getAttribute("href")).toBe("/contacts/customers");
 
     const card = links[0]?.parentElement;

@@ -15,7 +15,8 @@ select plan(24);
 
 -- A. Privilege lockdown (catalog check — role-independent).
 select is(has_function_privilege('anon', 'public.set_equipment_daily_rate(uuid, numeric)', 'EXECUTE'), false, 'anon cannot execute set_equipment_daily_rate');
-select is(has_function_privilege('anon', 'public.create_equipment_rental_batch(uuid, numeric, date, date, text)', 'EXECUTE'), false, 'anon cannot execute create_equipment_rental_batch');
+-- Spec 268: create_equipment_rental_batch gained a trailing p_rate_period (6-arg).
+select is(has_function_privilege('anon', 'public.create_equipment_rental_batch(uuid, numeric, date, date, text, public.equipment_rate_period)', 'EXECUTE'), false, 'anon cannot execute create_equipment_rental_batch');
 select is(has_function_privilege('anon', 'public.create_equipment_project_allocation(uuid, uuid, date, date, text)', 'EXECUTE'), false, 'anon cannot execute create_equipment_project_allocation');
 select is(has_function_privilege('anon', 'public.check_out_equipment(uuid, uuid, date)', 'EXECUTE'), false, 'anon cannot execute check_out_equipment');
 select is(has_function_privilege('anon', 'public.check_in_equipment(uuid, date)', 'EXECUTE'), false, 'anon cannot execute check_in_equipment');
@@ -24,7 +25,7 @@ select is(has_function_privilege('anon', 'public.assign_project_ht(uuid, uuid)',
 select is(has_function_privilege('anon', 'public.assign_worker_to_project(uuid, uuid, text)', 'EXECUTE'), false, 'anon cannot execute assign_worker_to_project');
 
 select is(has_function_privilege('authenticated', 'public.set_equipment_daily_rate(uuid, numeric)', 'EXECUTE'), true, 'authenticated can execute set_equipment_daily_rate');
-select is(has_function_privilege('authenticated', 'public.create_equipment_rental_batch(uuid, numeric, date, date, text)', 'EXECUTE'), true, 'authenticated can execute create_equipment_rental_batch');
+select is(has_function_privilege('authenticated', 'public.create_equipment_rental_batch(uuid, numeric, date, date, text, public.equipment_rate_period)', 'EXECUTE'), true, 'authenticated can execute create_equipment_rental_batch');
 select is(has_function_privilege('authenticated', 'public.create_equipment_project_allocation(uuid, uuid, date, date, text)', 'EXECUTE'), true, 'authenticated can execute create_equipment_project_allocation');
 select is(has_function_privilege('authenticated', 'public.check_out_equipment(uuid, uuid, date)', 'EXECUTE'), true, 'authenticated can execute check_out_equipment');
 select is(has_function_privilege('authenticated', 'public.check_in_equipment(uuid, date)', 'EXECUTE'), true, 'authenticated can execute check_in_equipment');
