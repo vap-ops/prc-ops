@@ -47,6 +47,7 @@ import {
 } from "@/lib/purchasing/validate-purchase-request";
 import { validateRecordPurchase } from "@/lib/purchasing/validate-record-purchase";
 import { validateCreatePurchaseOrder } from "@/lib/purchasing/validate-create-purchase-order";
+import { voidPurchaseOrderErrorMessage } from "@/lib/purchasing/purchase-order";
 import { validateSitePurchase } from "@/lib/purchasing/validate-site-purchase";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 
@@ -1501,16 +1502,10 @@ export async function voidPurchaseOrder(
     p_po_id: input.poId,
   });
   if (error) {
-    if (error.code === "42501") {
-      return { ok: false, error: "ไม่มีสิทธิ์ยกเลิกใบสั่งซื้อ" };
-    }
-    if (error.code === "P0001") {
-      return {
-        ok: false,
-        error: "ยกเลิกใบสั่งซื้อไม่สำเร็จ: มีรายการที่จัดส่งหรือรับของแล้ว หรือไม่พบใบสั่งซื้อนี้",
-      };
-    }
-    return { ok: false, error: "ยกเลิกใบสั่งซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+    // Spec 269: the RPC raises distinct errcodes per refusal site (PO404
+    // not-found, PO409 shipped-line) — map through the pure helper; every
+    // unrecognized code (incl. P0001) falls back to the generic message.
+    return { ok: false, error: voidPurchaseOrderErrorMessage(error.code) };
   }
 
   revalidatePath("/requests");

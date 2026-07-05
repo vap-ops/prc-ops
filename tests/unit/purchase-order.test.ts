@@ -11,7 +11,35 @@ import {
   purchaseOrderGrandTotal,
   purchaseOrderStageStates,
   purchaseOrderTotal,
+  voidPurchaseOrderErrorMessage,
 } from "@/lib/purchasing/purchase-order";
+
+// Spec 269 — the RPC's raise sites carry distinct errcodes (PO404 not-found,
+// PO409 shipped-line) so the UI can say what actually went wrong; anything
+// else (incl. any still-blanket P0001 bubbled from GL internals or triggers)
+// gets the honest generic message, never the old misleading catch-all.
+describe("voidPurchaseOrderErrorMessage (spec 269)", () => {
+  it("maps the permission errcode", () => {
+    expect(voidPurchaseOrderErrorMessage("42501")).toBe("ไม่มีสิทธิ์ยกเลิกใบสั่งซื้อ");
+  });
+
+  it("maps PO404 to the not-found message", () => {
+    expect(voidPurchaseOrderErrorMessage("PO404")).toBe("ไม่พบใบสั่งซื้อนี้ อาจถูกยกเลิกไปแล้ว");
+  });
+
+  it("maps PO409 to the shipped/received-line message", () => {
+    expect(voidPurchaseOrderErrorMessage("PO409")).toBe(
+      "ยกเลิกไม่ได้: มีรายการที่จัดส่งหรือรับของแล้ว",
+    );
+  });
+
+  it("falls back to the generic message for anything else — incl. P0001", () => {
+    const generic = "ยกเลิกใบสั่งซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+    expect(voidPurchaseOrderErrorMessage("P0001")).toBe(generic);
+    expect(voidPurchaseOrderErrorMessage("23503")).toBe(generic);
+    expect(voidPurchaseOrderErrorMessage(undefined)).toBe(generic);
+  });
+});
 
 describe("derivePurchaseOrderStatus", () => {
   it("returns 'open' when no member is purchased yet", () => {

@@ -6,6 +6,30 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 269 — void a PO that has attachments (bug fix) — ✅ BUILT (2026-07-06, migration APPLIED to prod, PR HELD for operator merge)
+
+Live prod bug (PO-4073): `void_purchase_order` raises P0001 for ANY PO with a
+`purchase_order_attachments` row — 22/27 POs at discovery — because the attachments
+append-only block-write trigger vetoes the DELETE that the PO-delete's ON DELETE CASCADE
+requests. Fix in one unit (migration `20260813072100`, CREATE OR REPLACE only): trigger
+carve-out (DELETE allowed iff the parent PO row is already gone = FK-cascade context;
+UPDATE/TRUNCATE/direct DELETE still blocked) + `void_purchase_order` snapshots the PO's
+attachment rows into the `purchase_order_void` audit payload before the delete (history
+preserved; storage objects intentionally orphaned, paths retained in the payload) +
+distinct errcodes `PO404`/`PO409` replacing the two blanket P0001 raise sites + honest
+Thai error mapping via pure `voidPurchaseOrderErrorMessage`. pgTAP 259 extended with the
+exact case the original tests missed (a PO carrying attachments). Spec:
+`docs/feature-specs/269-void-po-with-attachments.md`.
+
+Verification: bug REPRO'd then fix PROVEN via rolled-back multi-statement preflights on prod
+(zero persistence) before `db:push`; pgTAP 259 = 36/36 on prod post-apply incl. the new
+section K; spec-261's two `void_purchase_order` errcode pins updated in the same unit (the
+grep-all-pins rule — they probed the gate via the old P0001 not-found). vitest 2820 · lint ·
+typecheck green; `db:types` regen = zero drift from this change (spec-268's in-flight surface
+excluded — its own PR #325 carries it). Full-suite reds that remain are NOT this change:
+200-store (pre-existing GL data-drift), 221-catalog (pre-existing user-data flake),
+100-anon-exec (spec-268 signature widen, fixed by #325). Adversarial reviewer pass: clean.
+
 ## Spec 265 U2 — super_admin LINE-identity: the two view surfaces — 🚧 IN PROGRESS (2026-07-05, code-only)
 
 The FINAL unit of spec 265. Two super_admin-gated views showing a person's LINE ground-truth identity
