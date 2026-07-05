@@ -19,7 +19,7 @@ export async function fetchWpLaborBudgetSummary(
   const { data: costRows } = await admin
     .from("labor_logs")
     .select(
-      "id, worker_id, work_date, day_fraction, day_rate_snapshot, worker_type_snapshot, worker_name_snapshot, self_logged, superseded_by",
+      "id, worker_id, work_date, day_fraction, day_rate_snapshot, pay_type_snapshot, worker_name_snapshot, self_logged, superseded_by",
     )
     .eq("work_package_id", workPackageId);
   const total = aggregateLaborCost((costRows ?? []) as CostInputRow[]).total;

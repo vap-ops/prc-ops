@@ -4,12 +4,12 @@
 
 import type { Database } from "@/lib/db/database.types";
 
-type WorkerType = Database["public"]["Enums"]["worker_type"];
+type PayType = Database["public"]["Enums"]["pay_type"];
 
 export type RosterWorker = {
   id: string;
   name: string;
-  worker_type: WorkerType;
+  worker_type: PayType;
   contractor_id: string | null;
   active: boolean;
 };
@@ -28,9 +28,9 @@ export function groupRoster(
   const names = new Map(contractors.map((c) => [c.id, c.name]));
   const active = workers.filter((w) => w.active);
 
-  const own = active.filter((w) => w.worker_type === "own");
+  const own = active.filter((w) => w.worker_type === "monthly");
   const dcByContractor = new Map<string, RosterWorker[]>();
-  for (const w of active.filter((w) => w.worker_type === "dc")) {
+  for (const w of active.filter((w) => w.worker_type === "daily")) {
     const key = w.contractor_id ?? "";
     const bucket = dcByContractor.get(key);
     if (bucket) bucket.push(w);

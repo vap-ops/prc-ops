@@ -18,7 +18,7 @@ function worker(overrides: Partial<RosterWorker>): RosterWorker {
   return {
     id: "w",
     name: "Worker",
-    worker_type: "own",
+    worker_type: "monthly",
     contractor_id: null,
     active: true,
     ...overrides,
@@ -30,9 +30,9 @@ describe("groupRoster", () => {
     const grouped = groupRoster(
       [
         worker({ id: "w1", name: "Tech One" }),
-        worker({ id: "w2", name: "DC One", worker_type: "dc", contractor_id: "c1" }),
-        worker({ id: "w3", name: "DC Two", worker_type: "dc", contractor_id: "c2" }),
-        worker({ id: "w4", name: "DC Three", worker_type: "dc", contractor_id: "c1" }),
+        worker({ id: "w2", name: "DC One", worker_type: "daily", contractor_id: "c1" }),
+        worker({ id: "w3", name: "DC Two", worker_type: "daily", contractor_id: "c2" }),
+        worker({ id: "w4", name: "DC Three", worker_type: "daily", contractor_id: "c1" }),
       ],
       CONTRACTORS,
     );
@@ -51,7 +51,7 @@ describe("groupRoster", () => {
 
   it("falls back to a placeholder name for an unknown contractor", () => {
     const grouped = groupRoster(
-      [worker({ id: "w1", worker_type: "dc", contractor_id: "missing" })],
+      [worker({ id: "w1", worker_type: "daily", contractor_id: "missing" })],
       CONTRACTORS,
     );
     expect(grouped.dc[0]?.contractorName).toBeTruthy();
@@ -63,9 +63,9 @@ describe("filterRoster (spec 158 U1)", () => {
   const grouped = groupRoster(
     [
       worker({ id: "w1", name: "ช่างสมชาย" }),
-      worker({ id: "w2", name: "สมหญิง", worker_type: "dc", contractor_id: "c1" }),
-      worker({ id: "w3", name: "Somsak", worker_type: "dc", contractor_id: "c1" }),
-      worker({ id: "w4", name: "วิชัย", worker_type: "dc", contractor_id: "c2" }),
+      worker({ id: "w2", name: "สมหญิง", worker_type: "daily", contractor_id: "c1" }),
+      worker({ id: "w3", name: "Somsak", worker_type: "daily", contractor_id: "c1" }),
+      worker({ id: "w4", name: "วิชัย", worker_type: "daily", contractor_id: "c2" }),
     ],
     CONTRACTORS,
   );
@@ -108,9 +108,9 @@ describe("partitionRosterByProject (spec 158 U2)", () => {
   const grouped = groupRoster(
     [
       worker({ id: "w1", name: "ช่างสมชาย" }),
-      worker({ id: "w2", name: "สมหญิง", worker_type: "dc", contractor_id: "c1" }),
-      worker({ id: "w3", name: "Somsak", worker_type: "dc", contractor_id: "c1" }),
-      worker({ id: "w4", name: "วิชัย", worker_type: "dc", contractor_id: "c2" }),
+      worker({ id: "w2", name: "สมหญิง", worker_type: "daily", contractor_id: "c1" }),
+      worker({ id: "w3", name: "Somsak", worker_type: "daily", contractor_id: "c1" }),
+      worker({ id: "w4", name: "วิชัย", worker_type: "daily", contractor_id: "c2" }),
     ],
     CONTRACTORS,
   );

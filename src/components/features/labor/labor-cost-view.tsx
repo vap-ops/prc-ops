@@ -26,7 +26,10 @@ interface LaborCostViewProps {
   revalidate: string;
 }
 
-const WORKER_TYPE_LABEL = { own: "ทีมตัวเอง", dc: "ผู้รับเหมา" } as const;
+// ADR 0062 merge: dc is now a DAILY-paid ช่าง, not a "ผู้รับเหมา" (contractor) —
+// neutral labels keyed by pay_type, matching the schema's own/dc→monthly/daily
+// collapse (LOGIC MAP).
+const PAY_TYPE_LABEL = { monthly: "รายเดือน", daily: "รายวัน" } as const;
 
 function formatDays(days: number): string {
   // half-day granularity — show 1, 1.5, 0.5 etc.
@@ -116,7 +119,7 @@ export function LaborCostView({
                   ) : null}
                 </p>
                 <p className="text-ink-secondary text-xs">
-                  {WORKER_TYPE_LABEL[w.type]} · {formatDays(w.days)} วัน
+                  {PAY_TYPE_LABEL[w.type]} · {formatDays(w.days)} วัน
                 </p>
               </div>
               <span className="text-ink shrink-0 text-sm font-medium">{baht(w.cost)}</span>

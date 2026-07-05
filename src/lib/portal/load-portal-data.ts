@@ -39,7 +39,7 @@ export async function loadPortalData(supabase: Db) {
     // Spec 160 U3: crew now carries each member's current project (definer RPC,
     // scoped to the caller's own crew; resolves the project name past projects RLS).
     supabase.rpc("get_my_crew_assignments"),
-    supabase.rpc("get_my_dc_payments"),
+    supabase.rpc("get_my_wage_payments"),
     supabase
       .from("contractor_bank_change_requests")
       .select("id")

@@ -35,6 +35,7 @@ export function ContactCrewSection({
     const result = await createWorker({
       name,
       workerType: "dc",
+      employmentType: "permanent",
       dayRate: Number.isFinite(dayRate) ? dayRate : -1,
       contractorId,
     });

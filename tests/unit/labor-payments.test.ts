@@ -6,7 +6,7 @@
 // idea as the cost-freeze drift, spec 68). Pure — no I/O.
 
 import { describe, it, expect } from "vitest";
-import { annotatePayrollPayments, type DcPaymentRow } from "@/lib/labor/payments";
+import { annotatePayrollPayments, type WagePaymentRow } from "@/lib/labor/payments";
 import type { WorkerPay, PayrollReport, PayrollRange } from "@/lib/labor/payroll";
 
 const RANGE: PayrollRange = { from: "2026-06-01", to: "2026-06-30" };
@@ -30,7 +30,7 @@ function report(workers: WorkerPay[]): PayrollReport {
   };
 }
 
-function pay(over: Partial<DcPaymentRow> = {}): DcPaymentRow {
+function pay(over: Partial<WagePaymentRow> = {}): WagePaymentRow {
   return {
     id: "p1",
     worker_id: "w1",

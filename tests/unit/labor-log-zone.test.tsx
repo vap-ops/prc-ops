@@ -20,7 +20,13 @@ import { refreshMock } from "../helpers/router-refresh";
 
 const ROSTER = {
   own: [
-    { id: "w1", name: "ช่างหนึ่ง", worker_type: "own" as const, contractor_id: null, active: true },
+    {
+      id: "w1",
+      name: "ช่างหนึ่ง",
+      worker_type: "monthly" as const,
+      contractor_id: null,
+      active: true,
+    },
   ],
   dc: [
     {
@@ -30,7 +36,7 @@ const ROSTER = {
         {
           id: "w2",
           name: "ดีซีสอง",
-          worker_type: "dc" as const,
+          worker_type: "daily" as const,
           contractor_id: "c1",
           active: true,
         },

@@ -21,7 +21,7 @@ function row(overrides: Partial<PayrollInputRow>): PayrollInputRow {
     id: "r1",
     worker_id: "w1",
     worker_name_snapshot: "ช่าง ก",
-    worker_type_snapshot: "dc",
+    pay_type_snapshot: "daily",
     day_fraction: "full",
     day_rate_snapshot: 500,
     superseded_by: null,
@@ -33,11 +33,11 @@ function row(overrides: Partial<PayrollInputRow>): PayrollInputRow {
 describe("aggregatePayroll", () => {
   it("excludes own-crew rows (DC only)", () => {
     const r = aggregatePayroll([
-      row({ id: "a", worker_id: "w1", worker_type_snapshot: "dc", day_rate_snapshot: 500 }),
+      row({ id: "a", worker_id: "w1", pay_type_snapshot: "daily", day_rate_snapshot: 500 }),
       row({
         id: "b",
         worker_id: "w2",
-        worker_type_snapshot: "own",
+        pay_type_snapshot: "monthly",
         day_rate_snapshot: 9999,
         worker_name_snapshot: "ลูกจ้างประจำ",
       }),

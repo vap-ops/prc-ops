@@ -121,7 +121,7 @@ export default async function ContactDetailPage({
       .from("workers")
       .select("id, name")
       .eq("contractor_id", id)
-      .eq("worker_type", "dc")
+      .eq("pay_type", "daily")
       .order("name", { ascending: true });
     crew = crewRows ?? [];
 

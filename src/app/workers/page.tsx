@@ -37,7 +37,7 @@ export default async function WorkersPage() {
       admin
         .from("workers")
         .select(
-          "id, name, worker_type, contractor_id, day_rate, active, note, dc_arrangement, user_id, project_id",
+          "id, name, pay_type, employment_type, contractor_id, day_rate, active, note, user_id, project_id",
         )
         .order("name", { ascending: true }),
       // Spec 89: status + category let WorkerRosterManager hide blacklisted/non-DC
