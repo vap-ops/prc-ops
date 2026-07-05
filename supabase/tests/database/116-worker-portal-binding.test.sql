@@ -7,7 +7,7 @@ select plan(29);
 -- party). Pins: catalog (worker_invites + the user_id unique index +
 -- current_user_worker_id helper); create_worker_invite role gate (pm/super/
 -- director; DC-worker only); claim_worker_invite flow (visitor-only, single-use,
--- unexpired, no rebind) and effects (workers.user_id set, role→contractor,
+-- unexpired, no rebind) and effects (workers.user_id set, role→technician (U7),
 -- invite claimed, role_change audit, helper resolves); and the worker self-read
 -- RLS (own worker row / own DC labor days / own payments via get_my_wage_payments
 -- worker-direct) with isolation from another worker.
@@ -131,7 +131,7 @@ select is(
   '33333333-3333-3333-3333-333333330170'::uuid, 'workers.user_id bound to v1');
 select is(
   (select role from public.users where id = '33333333-3333-3333-3333-333333330170'),
-  'contractor'::public.user_role, 'v1 role flipped visitor → contractor');
+  'technician'::public.user_role, 'v1 role flipped visitor → technician (spec 266 U7)');
 select is(
   (select claimed_by from public.worker_invites
      where token_hash = encode(extensions.digest('wtokvalidaaaaaaaaaaaa', 'sha256'), 'hex')),
@@ -139,8 +139,8 @@ select is(
 select is(
   (select count(*) from public.audit_log
     where action = 'role_change' and target_id = '33333333-3333-3333-3333-333333330170'
-      and payload->>'to' = 'contractor'),
-  1::bigint, 'claim wrote a role_change audit row');
+      and payload->>'to' = 'technician'),
+  1::bigint, 'claim wrote a role_change audit row (→ technician, spec 266 U7)');
 
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333330170"}';

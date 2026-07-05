@@ -1,11 +1,13 @@
-// Spec 130 U3 / ADR 0051 — the DC self-service portal landing. External
-// `contractor` tier only: requireRole(["contractor"]) is the boundary (a
-// staffer lands here → roleHome bounces them to their own home; a visitor →
+// Spec 130 U3 / ADR 0051 / spec 266 U7 — the external self-service portal
+// landing, shared by two tiers and branched on binding: a bound ช่าง (role
+// `technician`, workers.user_id) sees the worker view (own profile + wage
+// payments + coins); a subcontractor (role `contractor`, contractor_users) sees
+// the firm view (crew + packet). requireRole(["technician","contractor"]) is the
+// boundary (a staffer → roleHome bounces them to their home; a visitor →
 // /coming-soon). Reads go through the RLS-respecting server client — NOT the
-// admin client — so the DB row-level policies (U2) are the enforcement: this
-// session can only ever see its own contractor, crew, and payments. Money
-// (amounts) comes from get_my_dc_payments(); rate columns are never selected
-// (column-grant-blocked anyway).
+// admin client — so the row-level policies are the enforcement (self-scoped on
+// the workers.user_id binding, never on the role). Money comes from
+// get_my_wage_payments(); rate columns are never selected (column-grant-blocked).
 
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
@@ -28,16 +30,20 @@ import { loadPortalData } from "@/lib/portal/load-portal-data";
 import { contractorPacketStatus, dcTypeOfSubtype, type DcPacket } from "@/lib/contacts/packet";
 import { bahtUnit as baht } from "@/lib/format";
 
-export const metadata = { title: "พอร์ทัลผู้รับเหมา" };
+// Neutral title: the page serves both a ช่าง (technician) and a subcontractor
+// (contractor), so it must not label itself "ผู้รับเหมา" for the ช่าง (spec 266 U7).
+export const metadata = { title: "พอร์ทัล" };
 
 export default async function PortalPage() {
-  await requireRole(["contractor"]);
+  // Spec 266 U7: admit the ช่าง's `technician` role alongside the subcontractor's
+  // `contractor`; the body branches on the workers.user_id binding below.
+  await requireRole(["technician", "contractor"]);
   const supabase = await createClient();
 
-  // ADR 0062 U4b — a DC now binds on workers.user_id. If this session is a bound
-  // worker, render the worker portal (own profile + payments); otherwise fall
-  // through to the contractor-party portal below. (The contractor-based page
-  // surfaces — consents/bank/docs — re-home onto the worker in later units.)
+  // ADR 0062 U4b / spec 266 U7 — a ช่าง binds on workers.user_id. If this session
+  // is a bound worker (role `technician`), render the worker portal (own profile +
+  // wage payments + coins); otherwise fall through to the subcontractor-firm
+  // portal below (role `contractor`).
   const { data: workerProfileRows } = await supabase.rpc("get_my_worker_profile");
   const wp = workerProfileRows?.[0];
   if (wp) {

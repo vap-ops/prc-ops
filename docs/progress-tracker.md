@@ -6247,3 +6247,38 @@ the stale `get_my_dc_payments`comment (portal/page.tsx:7) +`record_dc_payment`
   green against the live DB (unchanged since U1's 231/233 — only pre-existing flakes 200
   store-GL-drift + 221 catalog-count). No migration, no code edit → **verify + close**; the
   PR carries only this tracker note (docs-only → self-merges on green).
+
+## Spec 266 U7 — role / portal split (technician vs contractor) — 🔨 BUILT, ⛔ HELD (2026-07-05, AUTH/RLS)
+
+- **Migration `20260813071800`** (applied to the linked DB — non-destructive
+  CREATE OR REPLACE, greenfield 0 technician/contractor users → zero live effect):
+  `claim_worker_invite` sets `role='technician'` (was `contractor`) — the users.role
+  update, the audit actor_role, and the audit payload `'to'`. Body re-sourced verbatim
+  from LIVE (pg_get_functiondef), only the three role tokens flipped. `claim_contractor_invite`
+  stays `contractor`; `create_worker_invite` untouched (U1 already repointed it to read
+  `pay_type='daily'` + de-DC'd its error string). pgTAP 116 role assertions updated →
+  technician.
+- **RLS is NOT changed** — audited: worker-portal data access gates on
+  `workers.user_id = auth.uid()` (current_user_worker_id / the labor self-worker policy),
+  **never** on the caller's role, so the flip is routing + label only. No policy rewrite.
+- Labels: `USER_ROLE_LABEL` technician "ช่างเทคนิค"→**"ช่าง"**, contractor
+  "ผู้รับเหมา (DC)"→**"ผู้รับเหมา"** (drop "(DC)"); pinned in `i18n-labels.test.ts` (also
+  satisfies U8's i18n-pin ask for the ช่าง terms).
+- `/portal`: `requireRole(["contractor"])` → **`["technician","contractor"]`**; the body
+  already branches on binding (bound worker → ช่าง view; else subcontractor view), so no
+  branch-logic change. Metadata title neutralised "พอร์ทัลผู้รับเหมา"→"พอร์ทัล" (must not
+  label a ช่าง as ผู้รับเหมา). No middleware role-gate exists for /portal (requireRole is
+  the enforcement).
+- **role-home UNCHANGED** (technician → /technician exists per ADR 0072 §8; contractor →
+  /portal).
+- **🔔 OPEN DECISION for the operator (ช่าง landing):** a roster-claimed ช่าง (role
+  technician, worker-bound, **no** staff_registration) lands on `/technician`, which renders
+  gracefully (no crash — the e-card is skipped when there's no registration) but shows no
+  wage/coins — those live at `/portal`. Options: **[A]** redirect a worker-bound,
+  registration-less session `/technician`→`/portal` (recommended — sends claimed ช่าง to
+  their real home; spec-264 technicians with a registration keep /technician); **[B]** leave
+  it (they navigate to /portal); **[C]** surface wage/coins on /technician. Not built —
+  awaiting the operator's pick.
+- Verify: lint + typecheck clean; targeted vitest green; full db:test running (expect
+  231/233 + pgTAP 116 green). **DANGER-PATH (auth) → PR HELD for operator merge**, NOT
+  self-merged. DB ahead of main by 071800 until the PR merges (next schema claimant 071900+).

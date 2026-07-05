@@ -57,6 +57,18 @@ describe("Thai label maps", () => {
   }
 });
 
+// Spec 266 U7 (ADR 0073) — the portal role split. A ช่าง's portal login is role
+// `technician` ("ช่าง"); `contractor` is the subcontractor portal only
+// ("ผู้รับเหมา", the old "(DC)" suffix dropped). Pin both so the merged vocabulary
+// can't drift.
+describe("USER_ROLE_LABEL portal role split (spec 266 U7)", () => {
+  it("labels technician ช่าง and contractor ผู้รับเหมา (no DC)", () => {
+    expect(USER_ROLE_LABEL.technician).toBe("ช่าง");
+    expect(USER_ROLE_LABEL.contractor).toBe("ผู้รับเหมา");
+    expect(USER_ROLE_LABEL.contractor).not.toContain("DC");
+  });
+});
+
 describe("PURCHASE_ORDER_STATUS_LABEL (derived roll-up, not a DB enum)", () => {
   // The union lives in purchasing/purchase-order.ts and has no Constants array;
   // pin the four states here so a new roll-up state must add a label.
