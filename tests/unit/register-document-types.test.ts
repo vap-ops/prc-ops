@@ -1,6 +1,7 @@
-// Spec 263 U2 — the applicant-uploadable technician_doc_purpose set: exactly the
-// three enum values (id_card / consent / profile_photo). Pure; mirrors
-// portal/document-types.ts's shape.
+// Spec 263 U2 / spec 264 G1 — the applicant-uploadable staff_doc_purpose set:
+// exactly the two enum values (id_card / profile_photo). `consent` was dropped —
+// PDPA consent is now an in-app record (staff_consents), not a document upload.
+// Pure; mirrors portal/document-types.ts's shape.
 
 import { describe, it, expect } from "vitest";
 import {
@@ -9,9 +10,9 @@ import {
   isTechnicianDocPurpose,
 } from "@/lib/register/document-types";
 
-describe("technician registration document types", () => {
-  it("offers exactly the three purposes", () => {
-    expect([...TECHNICIAN_DOC_PURPOSES]).toEqual(["id_card", "consent", "profile_photo"]);
+describe("staff registration document types", () => {
+  it("offers exactly the two purposes (consent dropped)", () => {
+    expect([...TECHNICIAN_DOC_PURPOSES]).toEqual(["id_card", "profile_photo"]);
   });
 
   it("has a non-empty Thai label for every purpose", () => {
@@ -20,13 +21,13 @@ describe("technician registration document types", () => {
     }
   });
 
-  it("guards the technician-uploadable purposes", () => {
+  it("guards the staff-uploadable purposes", () => {
     expect(isTechnicianDocPurpose("id_card")).toBe(true);
-    expect(isTechnicianDocPurpose("consent")).toBe(true);
     expect(isTechnicianDocPurpose("profile_photo")).toBe(true);
   });
 
-  it("rejects unknown purposes and junk", () => {
+  it("rejects unknown purposes and junk (incl. the retired consent)", () => {
+    expect(isTechnicianDocPurpose("consent")).toBe(false);
     expect(isTechnicianDocPurpose("bank_book")).toBe(false);
     expect(isTechnicianDocPurpose("nope")).toBe(false);
     expect(isTechnicianDocPurpose(null)).toBe(false);

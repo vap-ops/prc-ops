@@ -22,9 +22,9 @@ import type { Database } from "@/lib/db/database.types";
 import type { RegistrationQueueInput } from "./registration-queue-view";
 
 type ServerClient = Awaited<ReturnType<typeof import("@/lib/db/server").createClient>>;
-type RegistrationRow = Database["public"]["Tables"]["technician_registrations"]["Row"];
+type RegistrationRow = Database["public"]["Tables"]["staff_registrations"]["Row"];
 type AttachmentRow = Pick<
-  Database["public"]["Tables"]["technician_registration_attachments"]["Row"],
+  Database["public"]["Tables"]["staff_registration_attachments"]["Row"],
   "id" | "purpose" | "storage_path" | "created_at" | "superseded_by"
 >;
 
@@ -43,7 +43,7 @@ export async function listVisibleTechnicianRegistrations(
   supabase: ServerClient,
 ): Promise<RegistrationRow[]> {
   const { data } = await supabase
-    .from("technician_registrations")
+    .from("staff_registrations")
     .select("*")
     .order("created_at", { ascending: false });
   return data ?? [];
@@ -54,7 +54,7 @@ export async function getTechnicianRegistrationById(
   id: string,
 ): Promise<RegistrationRow | null> {
   const { data } = await supabase
-    .from("technician_registrations")
+    .from("staff_registrations")
     .select("*")
     .eq("id", id)
     .maybeSingle();
@@ -75,7 +75,7 @@ export async function listLiveAttachmentPurposes(
   if (registrationIds.length === 0) return byRegistration;
 
   const { data } = await supabase
-    .from("technician_registration_attachments")
+    .from("staff_registration_attachments")
     .select("id, registration_id, purpose, superseded_by")
     .in("registration_id", registrationIds as string[]);
 
@@ -104,7 +104,7 @@ export async function getRegistrationDocumentUrls(
   registrationId: string,
 ): Promise<RegistrationDocumentUrls> {
   const { data } = await supabase
-    .from("technician_registration_attachments")
+    .from("staff_registration_attachments")
     .select("id, purpose, storage_path, created_at, superseded_by")
     .eq("registration_id", registrationId)
     .order("created_at", { ascending: false });

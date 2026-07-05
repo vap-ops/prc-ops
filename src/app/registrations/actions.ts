@@ -1,12 +1,13 @@
 "use server";
 
-// Spec 263 U3 — back-office approve/reject actions over the U1c RPCs
-// (approve_technician_registration / reject_technician_registration). Both
-// relay through the caller's own RLS session (never the admin client) — the
-// RPC itself is the authoritative gate (TECHNICIAN_APPROVAL_ROLES,
-// role-home.ts), so calling on the admin client would let the RPC's
-// current_user_role() resolve to null and mis-gate. requireActionRole is
-// defense-in-depth (the friendly early check), not the sole guard.
+// Spec 263 U3 / spec 264 G1 — back-office approve/reject actions over the now
+// role-parametric staff RPCs (approve_staff_registration / reject_staff_registration).
+// Both relay through the caller's own RLS session (never the admin client) — the
+// RPC itself is the authoritative gate (TECHNICIAN_APPROVAL_ROLES, role-home.ts),
+// so calling on the admin client would let the RPC's current_user_role() resolve
+// to null and mis-gate. requireActionRole is defense-in-depth (the friendly early
+// check), not the sole guard. G1 note: the approve RPC is role-parametric, but the
+// queue passes p_role='technician' for now — the role SELECTOR is G4.
 
 import "server-only";
 
@@ -30,8 +31,9 @@ export async function approveTechnicianRegistration(input: {
   const gate = await requireActionRole(TECHNICIAN_APPROVAL_ROLES);
   if ("error" in gate) return { ok: false, error: gate.error };
 
-  const { error } = await gate.auth.supabase.rpc("approve_technician_registration", {
+  const { error } = await gate.auth.supabase.rpc("approve_staff_registration", {
     p_id: input.registrationId,
+    p_role: "technician",
   });
   if (error) return { ok: false, error: registrationErrorToThai(error.message) };
 
@@ -51,7 +53,7 @@ export async function rejectTechnicianRegistration(input: {
   const gate = await requireActionRole(TECHNICIAN_APPROVAL_ROLES);
   if ("error" in gate) return { ok: false, error: gate.error };
 
-  const { error } = await gate.auth.supabase.rpc("reject_technician_registration", {
+  const { error } = await gate.auth.supabase.rpc("reject_staff_registration", {
     p_id: input.registrationId,
     p_reason: input.reason.trim(),
   });

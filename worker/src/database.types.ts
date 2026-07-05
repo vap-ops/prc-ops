@@ -4395,6 +4395,149 @@ export type Database = {
           },
         ]
       }
+      staff_consents: {
+        Row: {
+          consented_at: string
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["staff_consent_kind"]
+          recorded_by: string
+          registration_id: string
+          revoked_at: string | null
+          user_id: string
+        }
+        Insert: {
+          consented_at?: string
+          created_at?: string
+          id?: string
+          kind: Database["public"]["Enums"]["staff_consent_kind"]
+          recorded_by: string
+          registration_id: string
+          revoked_at?: string | null
+          user_id: string
+        }
+        Update: {
+          consented_at?: string
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["staff_consent_kind"]
+          recorded_by?: string
+          registration_id?: string
+          revoked_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_consents_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "staff_registrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_registration_attachments: {
+        Row: {
+          created_at: string
+          id: string
+          purpose: Database["public"]["Enums"]["staff_doc_purpose"]
+          registration_id: string
+          storage_path: string
+          superseded_by: string | null
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          purpose: Database["public"]["Enums"]["staff_doc_purpose"]
+          registration_id: string
+          storage_path: string
+          superseded_by?: string | null
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          purpose?: Database["public"]["Enums"]["staff_doc_purpose"]
+          registration_id?: string
+          storage_path?: string
+          superseded_by?: string | null
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technician_registration_attachments_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "staff_registrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technician_registration_attachments_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "staff_registration_attachments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_registrations: {
+        Row: {
+          created_at: string
+          date_of_birth: string | null
+          declared_role_hint: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          emergency_contact_relation: string | null
+          employee_id: string
+          full_name: string | null
+          id: string
+          phone: string | null
+          reject_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["registration_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date_of_birth?: string | null
+          declared_role_hint?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relation?: string | null
+          employee_id: string
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          reject_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["registration_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date_of_birth?: string | null
+          declared_role_hint?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relation?: string | null
+          employee_id?: string
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          reject_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["registration_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       stock_counts: {
         Row: {
           catalog_item_id: string
@@ -5297,105 +5440,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      technician_registration_attachments: {
-        Row: {
-          created_at: string
-          id: string
-          purpose: Database["public"]["Enums"]["technician_doc_purpose"]
-          registration_id: string
-          storage_path: string
-          superseded_by: string | null
-          uploaded_by: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          purpose: Database["public"]["Enums"]["technician_doc_purpose"]
-          registration_id: string
-          storage_path: string
-          superseded_by?: string | null
-          uploaded_by: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          purpose?: Database["public"]["Enums"]["technician_doc_purpose"]
-          registration_id?: string
-          storage_path?: string
-          superseded_by?: string | null
-          uploaded_by?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "technician_registration_attachments_registration_id_fkey"
-            columns: ["registration_id"]
-            isOneToOne: false
-            referencedRelation: "technician_registrations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "technician_registration_attachments_superseded_by_fkey"
-            columns: ["superseded_by"]
-            isOneToOne: false
-            referencedRelation: "technician_registration_attachments"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      technician_registrations: {
-        Row: {
-          created_at: string
-          date_of_birth: string | null
-          emergency_contact_name: string | null
-          emergency_contact_phone: string | null
-          emergency_contact_relation: string | null
-          employee_id: string
-          full_name: string | null
-          id: string
-          phone: string | null
-          reject_reason: string | null
-          reviewed_at: string | null
-          reviewed_by: string | null
-          status: Database["public"]["Enums"]["registration_status"]
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          date_of_birth?: string | null
-          emergency_contact_name?: string | null
-          emergency_contact_phone?: string | null
-          emergency_contact_relation?: string | null
-          employee_id: string
-          full_name?: string | null
-          id?: string
-          phone?: string | null
-          reject_reason?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          status?: Database["public"]["Enums"]["registration_status"]
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          date_of_birth?: string | null
-          emergency_contact_name?: string | null
-          emergency_contact_phone?: string | null
-          emergency_contact_relation?: string | null
-          employee_id?: string
-          full_name?: string | null
-          id?: string
-          phone?: string | null
-          reject_reason?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          status?: Database["public"]["Enums"]["registration_status"]
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
       }
       usage_daily: {
         Row: {
@@ -6586,6 +6630,13 @@ export type Database = {
         }
         Returns: string
       }
+      add_staff_registration_doc: {
+        Args: {
+          p_purpose: Database["public"]["Enums"]["staff_doc_purpose"]
+          p_storage_path: string
+        }
+        Returns: string
+      }
       add_supply_plan_line: {
         Args: {
           p_catalog_item_id: string
@@ -6600,13 +6651,6 @@ export type Database = {
         Args: { p_lines: Json; p_plan_id: string }
         Returns: number
       }
-      add_technician_registration_doc: {
-        Args: {
-          p_purpose: Database["public"]["Enums"]["technician_doc_purpose"]
-          p_storage_path: string
-        }
-        Returns: string
-      }
       add_work_category_material_category: {
         Args: {
           p_category_id: string
@@ -6620,11 +6664,15 @@ export type Database = {
         Returns: boolean
       }
       apply_wp_template: { Args: { p_project_id: string }; Returns: number }
-      approve_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
-      approve_technician_registration: {
-        Args: { p_id: string; p_project_id?: string }
+      approve_staff_registration: {
+        Args: {
+          p_id: string
+          p_project_id?: string
+          p_role: Database["public"]["Enums"]["user_role"]
+        }
         Returns: string
       }
+      approve_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
       assign_project_ht: {
         Args: { p_project: string; p_worker: string }
         Returns: undefined
@@ -6636,12 +6684,12 @@ export type Database = {
       award_savers_bonus: { Args: { p_worker: string }; Returns: number }
       can_see_photo_log: { Args: { p_photo_log_id: string }; Returns: boolean }
       can_see_project: { Args: { p_project_id: string }; Returns: boolean }
-      can_see_subcontract: {
-        Args: { p_subcontract_id: string }
+      can_see_staff_registration: {
+        Args: { p_registration_id: string }
         Returns: boolean
       }
-      can_see_technician_registration: {
-        Args: { p_registration_id: string }
+      can_see_subcontract: {
+        Args: { p_subcontract_id: string }
         Returns: boolean
       }
       can_see_wp: { Args: { p_work_package_id: string }; Returns: boolean }
@@ -7361,6 +7409,10 @@ export type Database = {
         }
         Returns: string
       }
+      record_staff_consent: {
+        Args: { p_kind?: Database["public"]["Enums"]["staff_consent_kind"] }
+        Returns: string
+      }
       record_stock_count: {
         Args: {
           p_catalog_item_id: string
@@ -7426,11 +7478,11 @@ export type Database = {
         Returns: string
       }
       refresh_usage_daily: { Args: { p_day?: string }; Returns: number }
-      reject_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
-      reject_technician_registration: {
+      reject_staff_registration: {
         Args: { p_id: string; p_reason: string }
         Returns: undefined
       }
+      reject_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
       release_retention: { Args: { p_id: string }; Returns: string }
       remove_assembly_component: { Args: { p_id: string }; Returns: undefined }
       remove_boq_line: { Args: { p_id: string }; Returns: undefined }
@@ -7718,8 +7770,12 @@ export type Database = {
         }
         Returns: string
       }
-      start_technician_registration: {
-        Args: { p_full_name: string; p_phone: string }
+      start_staff_registration: {
+        Args: {
+          p_declared_role_hint?: string
+          p_full_name: string
+          p_phone: string
+        }
         Returns: string
       }
       store_pnl: {
@@ -7932,9 +7988,10 @@ export type Database = {
         }
         Returns: undefined
       }
-      update_own_technician_registration: {
+      update_own_staff_registration: {
         Args: {
           p_date_of_birth?: string
+          p_declared_role_hint?: string
           p_emergency_contact_name?: string
           p_emergency_contact_phone?: string
           p_emergency_contact_relation?: string
@@ -8295,10 +8352,11 @@ export type Database = {
       retention_status: "held" | "due" | "released" | "forfeited"
       rework_source: "internal" | "client"
       service_subtype: "transport"
+      staff_consent_kind: "pdpa_data"
+      staff_doc_purpose: "id_card" | "profile_photo"
       subcontract_payment_kind: "advance" | "progress" | "final"
       subcontract_status: "active" | "completed" | "cancelled"
       supply_plan_status: "draft" | "submitted" | "approved" | "rejected"
-      technician_doc_purpose: "id_card" | "consent" | "profile_photo"
       unit_class: "count" | "length" | "area" | "volume" | "weight" | "trips"
       user_role:
         | "site_admin"
@@ -8689,10 +8747,11 @@ export const Constants = {
       retention_status: ["held", "due", "released", "forfeited"],
       rework_source: ["internal", "client"],
       service_subtype: ["transport"],
+      staff_consent_kind: ["pdpa_data"],
+      staff_doc_purpose: ["id_card", "profile_photo"],
       subcontract_payment_kind: ["advance", "progress", "final"],
       subcontract_status: ["active", "completed", "cancelled"],
       supply_plan_status: ["draft", "submitted", "approved", "rejected"],
-      technician_doc_purpose: ["id_card", "consent", "profile_photo"],
       unit_class: ["count", "length", "area", "volume", "weight", "trips"],
       user_role: [
         "site_admin",

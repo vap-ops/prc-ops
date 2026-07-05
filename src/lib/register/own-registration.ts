@@ -6,7 +6,8 @@ import "server-only";
 // admin client (ADR 0051 §5). The DB enforces ownership twice: the
 // technician_registrations own-row SELECT policy scopes the row, and the
 // contact-docs storage SELECT policy scopes createSignedUrls — both keyed on
-// auth.uid().
+// auth.uid(). (Spec 264 G1: the substrate is renamed to staff_registrations —
+// this stays the applicant's own-row read.)
 
 import { CONTACT_DOCS_BUCKET } from "@/lib/storage/buckets";
 import {
@@ -17,7 +18,7 @@ import {
 import type { Database } from "@/lib/db/database.types";
 
 type ServerClient = Awaited<ReturnType<typeof import("@/lib/db/server").createClient>>;
-type RegistrationRow = Database["public"]["Tables"]["technician_registrations"]["Row"];
+type RegistrationRow = Database["public"]["Tables"]["staff_registrations"]["Row"];
 
 // Mirrors the portal signed-URL TTL (spec 03 window).
 const SIGNED_URL_TTL_SECONDS = 120;
@@ -36,7 +37,7 @@ export async function getOwnTechnicianRegistration(
   // match more than one row here — this helper is the APPLICANT's own-row read.
   // RLS's own-row policy scopes it further (user_id = auth.uid()).
   const { data } = await supabase
-    .from("technician_registrations")
+    .from("staff_registrations")
     .select("*")
     .eq("user_id", uid)
     .maybeSingle();
@@ -49,7 +50,7 @@ export async function getOwnRegistrationDocuments(
 ): Promise<OwnRegistrationDocuments> {
   // RLS scopes these rows to the caller's own registration.
   const { data } = await supabase
-    .from("technician_registration_attachments")
+    .from("staff_registration_attachments")
     .select("purpose, storage_path, created_at, superseded_by")
     .eq("registration_id", registrationId)
     .order("created_at", { ascending: false });
