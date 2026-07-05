@@ -463,3 +463,26 @@ export function formatThaiTime(iso: string): string {
   if (Number.isNaN(d.getTime())) return iso;
   return THAI_TIME.format(d);
 }
+
+// Spec 264 follow-up (Handoff Unit A) — the pending-branch waiting notice on
+// /register/technician. Operator: applicants didn't know they were DONE after
+// submitting and waiting for approval (the back-office queue already lists
+// every pending registration; nothing further is required of the applicant).
+// Copy-only fix — no new state.
+export const REGISTRATION_PENDING_NOTICE_HEADING = "ส่งใบสมัครแล้ว รอการอนุมัติ";
+export const REGISTRATION_PENDING_NOTICE_BODY =
+  "ทีมงานได้รับใบสมัครของคุณแล้ว ไม่ต้องส่งบัตรให้ใครเพิ่ม เมื่ออนุมัติแล้ว หน้านี้จะกลายเป็นหน้าช่างของคุณเอง — เปิดแอปอีกครั้งเพื่อดูสถานะได้ตลอด";
+export function registrationPendingEmployeeIdLine(employeeId: string): string {
+  return `รหัสพนักงานของคุณ: ${employeeId} — เก็บไว้อ้างอิง`;
+}
+
+// Spec 264 follow-up (Handoff Unit A) — the Web Share/clipboard-fallback
+// button on the same page. Operator: the receiving SA had no idea what was
+// wanted of them. Demoted to an optional courtesy ("ถ้ามี") and the shared
+// payload now tells the SA no action is needed — approval happens in the
+// back-office queue, not via this share.
+export const SHARE_CARD_BUTTON_LABEL = "แชร์บัตรให้หัวหน้าที่หน้างาน (ถ้ามี)";
+export const SHARE_CARD_TITLE = "บัตรพนักงาน PRC (รออนุมัติ)";
+export function shareCardText(fullName: string, employeeId: string): string {
+  return `${fullName || "ผู้สมัคร"} สมัครเป็นช่างกับ PRC แล้ว รหัส ${employeeId} — กำลังรอทีมงานอนุมัติ ไม่ต้องดำเนินการใด ๆ`;
+}
