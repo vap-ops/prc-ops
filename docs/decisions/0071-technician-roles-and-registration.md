@@ -2,6 +2,14 @@
 
 ## Status
 
+**Superseded by ADR 0072** (staff self-onboarding — one role-parametric
+internal-staff flow) — 2026-07-05. The technician-*specific* self-registration
+flow decided here shipped (spec 263, all six units merged, `main = 5f1f58fe`) and
+is now **generalized** into one role-parametric internal-staff flow: technician
+becomes instance #1, and the same substrate serves procurement / accounting / hr /
+… by config (see ADR 0072 / spec 264). This ADR's decisions still hold — 0072
+widens their scope, it does not reverse them. Read both when the topic is live.
+
 Accepted — 2026-07-04. Extends ADR 0008 (role-enum expansion — no enum change
 without an ADR), ADR 0070 (dept-manager roles are enum values not flags; the
 two-migration `ALTER TYPE ADD VALUE` precedent), ADR 0062 (a DC is a *worker*,
