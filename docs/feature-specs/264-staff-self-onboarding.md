@@ -93,12 +93,16 @@ these exact objects — know them before touching:
 - `/coming-soon/page.tsx` — static "tools not ready" page; the `visitor` (and
   every unbuilt role) destination.
 
-`workers` has **no** phone/DOB/emergency columns (base table: `id`, `name`,
-`worker_type`, `contractor_id`, `user_id`, `day_rate`, `active`, `created_by`,
-`created_at` + the spec-263 `employee_id`). So the technician side-effect INSERT
-writes only `name` = full_name (NOT NULL) + `employee_id` + link/flags — copying
-the applicant's phone/DOB/emergency onto a worker is **not possible today and is
-out of scope**.
+`workers` **has** `phone`, `date_of_birth`, `emergency_contact_name`,
+`emergency_contact_relation`, `emergency_contact_phone` columns (added by ADR 0062
+U1/U4b; all nullable — verified against the live table twice this session). Spec
+263 shipped the technician side-effect writing only `name` + `employee_id`, leaving
+those columns empty even when the applicant filled them — self-reported data thrown
+away. **G1 corrects this: the field-role side-effect COPIES the applicant's
+`phone` / `date_of_birth` / `emergency_contact_*` from the registration onto the
+`workers` row** (operator decision — self-reported data must land in the operational
+record; matches "input all information" + self-governance). Prior "no columns"
+claims in agent reports were factually wrong.
 
 ## The generalization (what G1–G4 build)
 
@@ -155,8 +159,11 @@ Atomic (one function body = one transaction). In order:
      `STAFF_FIELD_ROLES` sub-set, so a future field role joins by adding to that
      set, not by editing the branch) → INSERT one
      `workers(worker_type='own', name=full_name, user_id, employee_id=<carried>,
-     active=true, created_by=auth.uid(), project_id=p_project_id)` + `worker_change`
-     audit. (Exactly the spec-263 behavior, now a branch.)
+     active=true, created_by=auth.uid(), project_id=p_project_id,
+     phone=<reg.phone>, date_of_birth=<reg.date_of_birth>,
+     emergency_contact_name/relation/phone=<reg.*>)` — the self-reported PII is
+     COPIED onto the worker (those columns exist, ADR 0062) — + `worker_change`
+     audit. (Spec-263 wrote only name+employee_id; G1 adds the PII copy.)
    - **Office roles** (everything else in `STAFF_ASSIGNABLE_ROLES`) → **role
      assignment only, no `workers` row**. The `employee_id` stays carried on the
      staging row (the person-key anchor); no authoritative labor row is created.
@@ -281,10 +288,11 @@ renamed RPCs); **G3** depends on G1's rename (the visitor router reads
   reusing the `contractor_consents` pattern.** Replaces the spec-263 consent file
   upload. Stronger (dated, structured, revocable) and PDPA-aligned.
 - **Approve side-effect — branch on `STAFF_FIELD_ROLES`.** `technician` (field) →
-  `workers(worker_type='own')` INSERT; every office role → role-only, no worker
-  row. `workers` gains no new columns (it has no phone/DOB/emergency to copy —
-  confirmed against the live table; office-role phone/DOB stay on the staging row,
-  and a `staff_members` office record is out of scope).
+  `workers(worker_type='own')` INSERT **copying the applicant's `phone` /
+  `date_of_birth` / `emergency_contact_*` onto the worker row** (those columns
+  exist — ADR 0062 U1/U4b, verified live; the spec-263 "no columns" claim was
+  wrong). Every office role → role-only, no worker row; their phone/DOB stay on the
+  staging row (a `staff_members` office record is out of scope).
 - **Test-row disposition — CARRY OVER.** One live registration exists
   (`PRC-26-0001`, Preston, `pending`). The rename **carries it over** (the table is
   renamed in place; the row is preserved) — nothing is lost, and it becomes a live

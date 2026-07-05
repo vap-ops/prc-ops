@@ -136,8 +136,12 @@ It, atomically (one function body = one transaction):
    - **Field / own-crew roles** (`technician`, and any future field role that
      belongs in the labor/pay roster) → INSERT one
      `workers(worker_type='own', employee_id=<carried>, name=full_name,
-     user_id, active=true, project_id=p_project_id)` row + a `worker_change`
-     audit row. This is the spec-263 behavior, now a branch.
+     user_id, active=true, project_id=p_project_id, phone, date_of_birth,
+     emergency_contact_name/relation/phone)` row — the applicant's self-reported
+     PII is **copied onto the worker** (those columns exist, ADR 0062 U1/U4b) — +
+     a `worker_change` audit row. (Spec 263 wrote only name+employee_id and left
+     the PII behind; a false "workers has no such columns" claim recurred in agent
+     reports — it is wrong, verified live.)
    - **Office roles** (`procurement`, `procurement_manager`, `accounting`, `hr`,
      `project_coordinator`, …) → **role assignment ONLY**. No `workers` row —
      an office staffer is not in the labor/pay table. (A lightweight
