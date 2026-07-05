@@ -1,10 +1,13 @@
 # Spec 270 — Two-level work packages: งาน (group WP) + งานย่อย (sub-WP)
 
-**Status:** U1–U2b + U6 SHIPPED; **PRC-2026-004 imported live 2026-07-06** (378 rows: 47 งาน + 331
+**Status:** ✅ **COMPLETE — ALL UNITS SHIPPED** (U1 #328 · U2a #329 · U2b+U6 #330 · U3 #331 · U4 #332
+· U5 #333, all merged 2026-07-06). **PRC-2026-004 imported live 2026-07-06** (378 rows: 47 งาน + 331
 งานย่อย, fixture `270-final-grouping-2026-07-06.tsv`) **then renumbered hierarchically** (operator
 decision: งาน `WP-01`…`WP-47` by list order, งานย่อย `WP-01-01`… within group; fixture
-`270-renumber-2026-07-06.tsv`; pure recode — all joins are by uuid). Next: U3 grouped roster + labels,
-U4, U5.
+`270-renumber-2026-07-06.tsv`; pure recode — all joins are by uuid). As-built deltas from this spec:
+U6 = forward guard, not a global CHECK (§5 U6); U4 additionally widened `create_work_package` with a
+trailing `p_parent_id` (mig `072700`) — required once the forward guard exists (§5 U4). Remaining
+follow-ups: §8.
 **ADR:** [0074-wp-subwp-hierarchy.md](../decisions/0074-wp-subwp-hierarchy.md)
 **Origin:** operator directive, project PRC-2026-004 (TFM โพธิ์ทอง ลพบุรี). The site team restructures the
 flat 262-WP list into ~39 groups. Sample mapping (incomplete): [270-sample-grouping-v0.tsv](270-sample-grouping-v0.tsv).
@@ -97,15 +100,23 @@ the clean name); group sizes 1–48 (six single-child groups are legitimate).
 
 ## 5. UI units
 
-- **U3 grouped roster:** project WP list = งาน sections (rollup status badge, n/m งานย่อย complete)
-  with งานย่อย rows inside; labels.ts gains the งาน/งานย่อย SSOT pair; relabel swept across surfaces
-  that show leaf rows (WP detail header, review queue, pickers, daily report, portal).
-- **U4 งาน detail page:** children list + rollup + read-only aggregates (spend/labor totals from leaf
-  bindings; no new money writes). WP-centric principle now applies per level: งานย่อย detail keeps
-  photos/materials/labor; งาน detail = oversight.
-- **U5 exclusion sweep:** every WP picker (supply plan, PR form, photo upload target, review queue,
-  worklist, schedule actuals, client portal progress denominator, daily report) offers/counts
-  **leaves only**. DB guards (U1) make violations impossible; U5 makes UI not offer them. Tests pin each.
+- **U3 grouped roster (SHIPPED #331):** project WP list gains a third **ตามงาน** lens — collapsible
+  งาน sections (rollup pill from the group row's own derived status, n/m เสร็จ, progress bar) with
+  งานย่อย rows inside, natural-numeric code order; manager-tier default in adopted projects
+  (site_admin keeps the action lens — worklist-priority doctrine); groups excluded from the other
+  lenses; legacy flat projects unchanged. labels.ts gains the SSOT pair
+  (`WP_GROUP_LABEL`/`WP_LEAF_LABEL`); leaf-surface wording adopts them via U4/U5 surfaces.
+- **U4 งาน detail page (SHIPPED #332):** the WP detail route branches on `is_group` — children list +
+  rollup + manager-only read-only aggregates (labor + materials + เบิก − returns; spec-209 netting).
+  งานย่อย detail gains a parent breadcrumb (WP-05 › WP-05-03). AS-BUILT ADDITION: mig `072700` widens
+  `create_work_package` with trailing `p_parent_id` (the U6 forward guard otherwise rejects every new
+  WP in an adopted project); the add-WP sheet requires a งานหลัก pick there. WP-centric principle now
+  applies per level: งานย่อย detail keeps photos/materials/labor; งาน detail = oversight.
+- **U5 exclusion sweep (SHIPPED #333):** supply-plan picker (งานย่อย under งาน optgroups), SA
+  worklist, schedule loader, daily/PDF report, client-portal progress denominator, dashboard progress
+  counts — leaves only, each pinned by a test. Review queue / PR form / photo capture were already
+  safe by construction (groups can never be pending_approval; capture/PR live on leaf detail). DB
+  guards (U1) make violations impossible; U5 makes UI not offer them.
 - **U6 (post-prod-import, AMENDED as-built):** the planned global `CHECK ... VALIDATE` is impossible
   while legacy projects (PRC-2026-003/005) hold parentless leaves — even NOT VALID fires on their daily
   status UPDATEs. Shipped instead (`072500`): a FORWARD guard arm in `wp_hierarchy_guard` — once a
@@ -131,7 +142,11 @@ the clean name); group sizes 1–48 (six single-child groups are legitimate).
 
 ## 8. Open items
 
-1. **FINAL grouping list** (operator/site team) — resolves the 5 ungrouped + WP-001 typo + any renames;
-   arrives as the U2 template.
-2. Schema-lane slot for U1: claim `20260813072200+` after spec 269's `072100` lands (LANES.md).
-3. Prod apply of the import = operator-gated (destructive-adjacent: mass renumber).
+1. ~~FINAL grouping list~~ — arrived + imported live 2026-07-06 (renumber applied).
+2. ~~Schema-lane slot for U1~~ — done (`072200`; U4 later claimed `072700`).
+3. ~~Prod apply of the import~~ — executed 2026-07-06, operator-authorized.
+4. **Settings-hub card for `/settings/wp-grouping-import`** — deferred while #325 (spec 268) holds a
+   `sections.ts` edit open; add after it merges (page stays reachable by URL, super_admin-gated).
+5. PRC-2026-003 (11 parentless) + 005 (1) adopt via their own future imports — page/template/RPC are
+   project-generic and re-runnable.
+6. Later specs (§7): งาน-level planned dates/dependencies/timeline grouping; งาน-level profit views.

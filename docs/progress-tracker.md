@@ -6,6 +6,57 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 270 U5 — exclusion sweep: every WP picker/list/count offers งานย่อย only — ✅ SHIPPED (2026-07-06, code-only, PR #333)
+
+- Swept: supply-plan per-line WP picker (งานย่อย under native งาน `<optgroup>` headings via NEW pure
+  `buildWpPickerGroups` in `src/lib/work-packages/picker-options.ts`; multi-WP checklist leaves-only),
+  SA worklist `/sa`, schedule loader, daily/PDF report job, client-portal progress list (denominator no
+  longer inflated), `/dashboard` progress counts (groups would double-weight — their status derives FROM
+  leaves). All via query-level `.eq("is_group", false)` or page-side shaping.
+- Safe by construction (no change): review queue + pending badges (groups can never be
+  `pending_approval` — pgTAP invariant), PR form + photo capture (leaf-detail-bound; U4's group branch
+  never renders them), journal/voucher reads (binding guards).
+- Pins: loader eq-asserts (schedule + client view) · pure picker tests · optgroup render test · static
+  source pin `wp-leaf-only-queries.test.ts` (sa/dashboard/report-job) in the ui-class-contracts style.
+- Verify: lint + typecheck + vitest 2869; browser smoke on PRC-2026-004 (schedule shows zero งาน codes).
+- **Spec 270 ALL UNITS COMPLETE** (U1 #328 · U2a #329 · U2b+U6 #330 · U3 #331 · U4 #332 · U5 #333).
+- Open questions: settings-hub card for `/settings/wp-grouping-import` still deferred (sections.ts
+  conflict with open #325 — add after it merges); งาน-level dates/timeline grouping + งาน-level profit
+  views remain later specs (270 §7).
+
+## Spec 270 U4 — งาน detail (oversight) + parent breadcrumb + parent-pick create — ✅ SHIPPED (2026-07-06, additive schema, PR #332 `7301f145`)
+
+- WP detail route branches on `is_group`: งาน renders `GroupDetailView` — children list (compact,
+  hierarchical order), DB-derived rollup pill + n/m เสร็จ + progress bar, manager-only READ-ONLY money
+  card (`groupSpendSummary`: labor + materials + เบิก − WP→store returns; the spec-209 netting mirrored
+  from the dashboard; admin-client reads strictly behind the planner gate). No capture/status/priority/
+  money affordances ever render on a งาน (operator directive 2026-07-06 reconfirmed mid-session).
+- Leaf pages: parent breadcrumb `WP-05 › WP-05-03` (`WpParentCrumb`, parent linked to the oversight
+  page); roster งาน sections gained a SIBLING detail link (a11y: never nested inside the expand button).
+- **Deviation from the "code-only" brief (flagged in PR):** migration `20260813072700` widens
+  `create_work_package` with trailing `p_parent_id uuid default null` (body from LIVE; DROP+CREATE;
+  anon revoked + spot-checked) — without it the U6 forward guard 23514'd every "+ เพิ่มงาน" in adopted
+  projects. Standing additive grant covers it. Sheet requires a งานหลัก pick there (47-option select);
+  legacy projects keep the byte-identical old form + payload; 23514 → honest Thai error.
+- pgTAP: NEW `270-wp-create-parent` (14) green; `69` sig-pins → 5-arg; suite 233/236 (3 pre-existing
+  not-ours: 100→#325 · 200 GL-drift · 221 catalog). db:types regen (src + worker). main↔DB synced thru
+  `072700`.
+- Verify: TDD red-first; vitest 2860; live browser pass on PRC-2026-004 (group page, money card,
+  breadcrumb, gated parent select).
+
+## Spec 270 U3 — grouped roster (ตามงาน lens) + งาน/งานย่อย label SSOT — ✅ SHIPPED (2026-07-06, code-only, PR #331)
+
+- Adopted projects get a third **ตามงาน** lens on the project WP list (manager-tier default;
+  site_admin keeps the action-triage default per worklist-priority doctrine): collapsible งาน sections
+  (code · name · rollup pill from the group row's own derived status · n/m เสร็จ · progress bar),
+  งานย่อย rows inside, natural-numeric code order. Groups EXCLUDED from the สถานะ/งวดงาน lenses.
+  Legacy flat projects byte-identical (2 lenses).
+- NEW pure `buildGroupedRoster` (`src/lib/work-packages/group-roster.ts`); `labels.ts` gains the
+  `WP_GROUP_LABEL`/`WP_LEAF_LABEL` SSOT pair (ADR 0074 D2); `loadProjectDetail` selects
+  `is_group, parent_id` (column-pin test); onboarding `deliverablesDone` counts leaves only.
+- Verify: TDD red-first; vitest 2848; live browser pass on PRC-2026-004 (47 sections, WP-01 rollup
+  2/10, children WP-01-01…-10 ordered) at 375px.
+
 ## Spec 270 U2b + U6 — grouping import RPC + page; PRC-2026-004 IMPORTED LIVE — ✅ BUILT + APPLIED (2026-07-06, schema)
 
 Migrations `072300` (import_wp_grouping RPC) + `072400` (untyped-null coalesce fix — 42804; new
