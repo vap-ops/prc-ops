@@ -6,6 +6,19 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 270 U1 — งาน+งานย่อย hierarchy: schema + rollup + guards — ✅ BUILT (2026-07-06, schema, MERGED #328)
+
+Migration `20260813072200_spec270u1_wp_hierarchy.sql` APPLIED to the shared DB (`db push --dry-run`
+clean after). Additive: `work_packages.is_group` + `parent_id` self-FK + partial index;
+`work_packages_hierarchy_guard` (depth 2 · same-project group parent · is_group immutable · groups born
+not_started · manual group status rejected at `pg_trigger_depth() < 2` · group priority immutable);
+`work_packages_rollup_status` (derived parent status, truth table per spec §3); generic
+`wp_reject_group_binding()` on 15 binding tables (photos/money/members/deps). TDD: pgTAP
+`270-wp-subwp.test.sql` (32 asserts) written first, red proven (42703), green after apply. Existing
+rows untouched (parentless leaves behave exactly as before — proven by test E.11). No src, no db:types
+(U2 regenerates). Grouping-mandatory CHECK deferred to post-import (spec §2 D6). (Entry restored here —
+the #328 squash dropped it in a tracker-conflict resolution.)
+
 ## Spec 270 — งาน + งานย่อย hierarchy: design + ADR 0074 — ✍️ SPEC WRITTEN (2026-07-06, docs-only)
 
 Operator directive (PRC-2026-004 restructure): two-level WPs. Design approved in-session 2026-07-06
@@ -15,6 +28,30 @@ fixture (validated: 39 งาน / 262 งานย่อย, 0 structural error
 **Open:** final grouping list (site team, via U2 template); U1 schema slot after spec-269's `072100`
 lands (claim `072200+`); prod import apply = operator-gated. Next unit = U1 (schema+rollup+guards,
 test-first), its own session.
+
+## Spec 269 — void a PO that has attachments (bug fix) — ✅ BUILT (2026-07-06, migration APPLIED to prod, PR HELD for operator merge)
+
+Live prod bug (PO-4073): `void_purchase_order` raises P0001 for ANY PO with a
+`purchase_order_attachments` row — 22/27 POs at discovery — because the attachments
+append-only block-write trigger vetoes the DELETE that the PO-delete's ON DELETE CASCADE
+requests. Fix in one unit (migration `20260813072100`, CREATE OR REPLACE only): trigger
+carve-out (DELETE allowed iff the parent PO row is already gone = FK-cascade context;
+UPDATE/TRUNCATE/direct DELETE still blocked) + `void_purchase_order` snapshots the PO's
+attachment rows into the `purchase_order_void` audit payload before the delete (history
+preserved; storage objects intentionally orphaned, paths retained in the payload) +
+distinct errcodes `PO404`/`PO409` replacing the two blanket P0001 raise sites + honest
+Thai error mapping via pure `voidPurchaseOrderErrorMessage`. pgTAP 259 extended with the
+exact case the original tests missed (a PO carrying attachments). Spec:
+`docs/feature-specs/269-void-po-with-attachments.md`.
+
+Verification: bug REPRO'd then fix PROVEN via rolled-back multi-statement preflights on prod
+(zero persistence) before `db:push`; pgTAP 259 = 36/36 on prod post-apply incl. the new
+section K; spec-261's two `void_purchase_order` errcode pins updated in the same unit (the
+grep-all-pins rule — they probed the gate via the old P0001 not-found). vitest 2820 · lint ·
+typecheck green; `db:types` regen = zero drift from this change (spec-268's in-flight surface
+excluded — its own PR #325 carries it). Full-suite reds that remain are NOT this change:
+200-store (pre-existing GL data-drift), 221-catalog (pre-existing user-data flake),
+100-anon-exec (spec-268 signature widen, fixed by #325). Adversarial reviewer pass: clean.
 
 ## Spec 265 U2 — super_admin LINE-identity: the two view surfaces — 🚧 IN PROGRESS (2026-07-05, code-only)
 
