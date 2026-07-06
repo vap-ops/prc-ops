@@ -6465,3 +6465,16 @@ sessions, schema numbers `072800+`.
 
 Open questions: Thai label confirmation gates U2a; per-project staffing (distinct auditor?)
 gates scoring; U7 externally gated (contractor onboarding e2e + spec 251 U2).
+
+## Spec 271 U1 — plan baselines schema + 004 backfill — 🔨 IN PROGRESS (2026-07-06/07 night, schema lane 072800–073000)
+
+pgTAP red first (271-plan-baselines.test.sql, plan 46). Migrations: `072800` enums
+(plan_baseline_kind · variance_class, §3-table-mirroring labels) · `072900` plan_baselines
+(unique (project,version), version>=1, scoring_go_live-only-on-initial, reason-required-unless-
+initial) + plan_baseline_items (composite pk, NOT NULL window, end>=start; NULL-dated leaves
+omitted by construction) + variance_snapshots (current/baseline lens partial-unique pair) —
+all: RLS SELECT via can_see_project, zero write grants, approvals-style triple-layer
+append-only (P0001 update/delete/truncate), wp_reject_group_binding on both leaf-bound
+tables · `073000` idempotent 004 backfill (v1 initial, as_of=apply-time, scoring_go_live
+NULL per D8, items = 331 dated leaves; proposed_by/approved_by NULL = system row, real
+actors start with U3 RPCs). db:types regen rides this unit.

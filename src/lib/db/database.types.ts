@@ -2914,6 +2914,103 @@ export type Database = {
           },
         ]
       }
+      plan_baseline_items: {
+        Row: {
+          baseline_id: string
+          planned_end: string
+          planned_start: string
+          work_package_id: string
+        }
+        Insert: {
+          baseline_id: string
+          planned_end: string
+          planned_start: string
+          work_package_id: string
+        }
+        Update: {
+          baseline_id?: string
+          planned_end?: string
+          planned_start?: string
+          work_package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_baseline_items_baseline_id_fkey"
+            columns: ["baseline_id"]
+            isOneToOne: false
+            referencedRelation: "plan_baselines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_baseline_items_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plan_baselines: {
+        Row: {
+          approved_by: string | null
+          as_of: string
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["plan_baseline_kind"]
+          project_id: string
+          proposed_by: string | null
+          reason: string | null
+          scoring_go_live: string | null
+          version: number
+        }
+        Insert: {
+          approved_by?: string | null
+          as_of?: string
+          created_at?: string
+          id?: string
+          kind: Database["public"]["Enums"]["plan_baseline_kind"]
+          project_id: string
+          proposed_by?: string | null
+          reason?: string | null
+          scoring_go_live?: string | null
+          version: number
+        }
+        Update: {
+          approved_by?: string | null
+          as_of?: string
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["plan_baseline_kind"]
+          project_id?: string
+          proposed_by?: string | null
+          reason?: string | null
+          scoring_go_live?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_baselines_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_baselines_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_baselines_proposed_by_fkey"
+            columns: ["proposed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_categories: {
         Row: {
           code: string
@@ -5441,6 +5538,54 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      variance_snapshots: {
+        Row: {
+          baseline_version: number | null
+          class: Database["public"]["Enums"]["variance_class"]
+          created_at: string
+          id: string
+          project_id: string
+          slip_days: number | null
+          snapshot_date: string
+          work_package_id: string
+        }
+        Insert: {
+          baseline_version?: number | null
+          class: Database["public"]["Enums"]["variance_class"]
+          created_at?: string
+          id?: string
+          project_id: string
+          slip_days?: number | null
+          snapshot_date: string
+          work_package_id: string
+        }
+        Update: {
+          baseline_version?: number | null
+          class?: Database["public"]["Enums"]["variance_class"]
+          created_at?: string
+          id?: string
+          project_id?: string
+          slip_days?: number | null
+          snapshot_date?: string
+          work_package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "variance_snapshots_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variance_snapshots_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_packages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       wage_payments: {
         Row: {
@@ -8343,6 +8488,7 @@ export type Database = {
       peak_sync_operation: "create" | "void"
       peak_sync_status: "pending" | "sending" | "sent" | "failed" | "skipped"
       photo_phase: "before" | "during" | "after" | "after_fix" | "defect"
+      plan_baseline_kind: "initial" | "rebaseline" | "scope_change"
       po_charge_type: "transport" | "discount" | "other"
       project_status: "active" | "on_hold" | "completed" | "archived"
       project_type:
@@ -8407,6 +8553,16 @@ export type Database = {
         | "procurement_manager"
         | "site_owner"
         | "auditor"
+      variance_class:
+        | "unplanned"
+        | "no_evidence"
+        | "completed"
+        | "completed_undated"
+        | "never_started_past_end"
+        | "late_start"
+        | "late"
+        | "at_risk"
+        | "on_track"
       wage_payment_method: "bank_transfer" | "cash" | "cheque"
       wht_direction: "deducted" | "suffered"
       wht_form: "pnd3" | "pnd53" | "pnd1"
@@ -8732,6 +8888,7 @@ export const Constants = {
       peak_sync_operation: ["create", "void"],
       peak_sync_status: ["pending", "sending", "sent", "failed", "skipped"],
       photo_phase: ["before", "during", "after", "after_fix", "defect"],
+      plan_baseline_kind: ["initial", "rebaseline", "scope_change"],
       po_charge_type: ["transport", "discount", "other"],
       project_status: ["active", "on_hold", "completed", "archived"],
       project_type: [
@@ -8803,6 +8960,17 @@ export const Constants = {
         "procurement_manager",
         "site_owner",
         "auditor",
+      ],
+      variance_class: [
+        "unplanned",
+        "no_evidence",
+        "completed",
+        "completed_undated",
+        "never_started_past_end",
+        "late_start",
+        "late",
+        "at_risk",
+        "on_track",
       ],
       wage_payment_method: ["bank_transfer", "cash", "cheque"],
       wht_direction: ["deducted", "suffered"],
