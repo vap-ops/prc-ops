@@ -8,7 +8,7 @@
 import type { ReactNode } from "react";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
-import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
+import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
@@ -31,19 +31,13 @@ export default async function SaPlanPage({
   const supabase = await createClient();
   const { project: qProject } = await searchParams;
 
-  const hubItems = hubNavForRole(ctx.role);
   const shell = (body: ReactNode) => (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      {hubItems ? (
-        <HubNav
-          maxWidthClass={PAGE_MAX_W}
-          items={hubItems}
-          currentHref="/sa/plan"
-          role={ctx.role}
-        />
-      ) : null}
-      <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-6 px-5 py-6`}>{body}</section>
+      <DetailHeader backHref="/sa" backLabel="หน้าหลัก">
+        <h1 className="text-title text-ink font-bold tracking-tight">{DAILY_WORK_PLAN_LABEL}</h1>
+      </DetailHeader>
+      <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>{body}</div>
     </PageShell>
   );
 

@@ -121,6 +121,9 @@ const STATIC_DETAIL = [
   // (back chip → /sa). Its [id] detail is a dynamic DetailHeader route,
   // auto-classified below.
   "sa/registrations",
+  // Spec 273 U2: the SA next-day work board (แผนพรุ่งนี้) drills down from /sa
+  // (back chip → /sa). A separate daily-plan layer, not the master schedule.
+  "sa/plan",
 ].map((r) => `${r}/page.tsx`);
 // Spec 234: the external /client tree is bespoke (own header + logout, no app
 // DetailHeader — like /portal), so its dynamic drill (/client/[projectId]) is

@@ -8,19 +8,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  BUTTON_PRIMARY_COMPACT,
-  CARD,
-  FIELD_INPUT,
-  FIELD_SELECT,
-  SECTION_HEADING,
-} from "@/lib/ui/classes";
-import {
-  DAILY_WORK_PLAN_LABEL,
-  SUBWP_RESPONSIBLE_LABEL,
-  WP_LEAF_LABEL,
-  WORKER_LABEL,
-} from "@/lib/i18n/labels";
+import { BUTTON_PRIMARY_COMPACT, CARD, FIELD_INPUT, FIELD_SELECT } from "@/lib/ui/classes";
+import { SUBWP_RESPONSIBLE_LABEL, WP_LEAF_LABEL, WORKER_LABEL } from "@/lib/i18n/labels";
 import type { WpPickerGroups } from "@/lib/work-packages/picker-options";
 import {
   addDailyPlanItem,
@@ -44,7 +33,7 @@ type ProjectOption = { id: string; code: string; name: string };
 type CrewState = { ids: Set<string>; lead: string | null };
 
 const ROW_BTN =
-  "inline-flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-control border border-edge bg-card px-2 text-meta text-ink-secondary transition-colors hover:bg-sunk disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-control border border-edge bg-card px-2 text-meta text-ink-secondary transition-colors hover:bg-sunk disabled:cursor-not-allowed disabled:opacity-50";
 const ROW_BTN_ON = "border-edge bg-fill text-on-fill hover:bg-fill-press";
 
 export function DailyPlanBoard({
@@ -143,7 +132,6 @@ export function DailyPlanBoard({
   return (
     <section className="flex flex-col gap-4">
       <header className="flex flex-col gap-1">
-        <h1 className={SECTION_HEADING}>{DAILY_WORK_PLAN_LABEL}</h1>
         <p className="text-body text-ink-muted">{dateLabel}</p>
         {hasPicker && (
           <select
