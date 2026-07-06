@@ -100,11 +100,12 @@ one fits) · `มาทำ` / `ทั้งหมดมาทำ` (present → l
 
 ## 7. Units (one PR each; TDD; schema lane single-writer)
 
-| Unit   | Lane   | Contents                                                                                                                                                                                                                  | Depends on |
-| ------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| **U1** | schema | 3 tables + RLS SELECT + leaf/same-project + one-lead guards + the 5 definer RPCs (§5) + labels.ts terms (operator-confirm pre-merge). pgTAP first (gates, guards, unique constraints). Claims `073600+` in `../LANES.md`. | —          |
-| **U2** | code   | `/sa` แผนพรุ่งนี้ builder: add/remove leaves, crew multiselect + หัวหน้า star, note, reorder; project picker reuse; Bangkok-tz "พรุ่งนี้" default. vitest first (component + RPC-call wiring).                            | U1         |
-| **U3** | code   | Morning worklist on `/sa` (today's board) + one-tap มาทำ pre-fill via `log_labor_day` + spec-212 report render of the structured plan. vitest first.                                                                      | U1 (, U2)  |
+| Unit   | Lane   | Contents                                                                                                                                                                                                                                                                                   | Depends on |
+| ------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
+| **U1** | schema | 3 tables + RLS SELECT + leaf/same-project + one-lead guards + the 5 definer RPCs (§5) + labels.ts terms (operator-confirm pre-merge). pgTAP first (gates, guards, unique constraints). Claims `073600+` in `../LANES.md`.                                                                  | —          |
+| **U2** | code   | `/sa` แผนพรุ่งนี้ builder: add/remove leaves, crew multiselect + หัวหน้า star, note, reorder; project picker reuse; Bangkok-tz "พรุ่งนี้" default. vitest first (component + RPC-call wiring).                                                                                             | U1         |
+| **U3** | code   | Morning worklist on `/sa` (today's board, "แผนวันนี้") + one-tap มาทำ / ทั้งหมดมาทำ pre-fill via the existing `logLaborDays` (present-aware, supersede-safe). vitest first. **✅ SHIPPED.**                                                                                                | U1 (, U2)  |
+| **U4** | code   | **Spec-212 report render of the structured plan — DEFERRED / BLOCKED.** The spec-212 daily-report page + `daily_reports.next_day_plan` table do not exist yet (spec 212 U1 blocked on operator decisions), so there is nothing to render into. Revive when spec 212 ships its report page. | spec 212   |
 
 Every schema unit: pgTAP red first, migration applied via `db:push` (additive tier), danger-path guard
 **HELD** for operator merge as designed. Every code unit: failing vitest first. All units re-check
@@ -124,3 +125,6 @@ stays in the WP flow) · equipment/material planning per day.
 2. `daily_work_plan_crew.worker_id` project-membership soft-guard — confirm at U1 whether to enforce
    (workers move; a planned worker may not be reassigned yet). Default: no hard guard v1.
 3. Multi-project SA project-picker reuse — confirm the existing component fits the board header.
+4. **Spec-212 report render (U4) is blocked** — the spec-212 daily-report page + `daily_reports`
+   table are not built (212 U1 held on operator decisions). The แผนวันนี้ board data is ready to feed
+   it; revive U4 once 212 ships its report surface.
