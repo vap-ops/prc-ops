@@ -49,6 +49,10 @@ export const WP_LEAF_LABEL = "งานย่อย";
 // ทั้งหมดมาทำ / เพิ่ม+งานย่อย) is composed where used.
 export const DAILY_WORK_PLAN_LABEL = "แผนพรุ่งนี้";
 export const SUBWP_RESPONSIBLE_LABEL = "ผู้รับผิดชอบงานย่อย";
+// Spec 273 U5 — relative-day qualifiers for the date-navigable board stepper (and
+// the /sa "แก้ไขแผนวันนี้" deep-link). SSOT'd because both surfaces use them.
+export const TODAY_LABEL = "วันนี้";
+export const TOMORROW_LABEL = "พรุ่งนี้";
 
 // Spec 207 — a project work-category (หมวดงาน): the per-project trade/scope
 // taxonomy a WP belongs to (exactly one). Distinct from งวดงาน (deliverable,

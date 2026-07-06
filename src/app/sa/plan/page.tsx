@@ -14,7 +14,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { bangkokTodayIso } from "@/lib/dates";
-import { addDaysIso } from "@/lib/work-packages/calendar-grid";
+import { resolvePlanDate } from "@/app/sa/plan/plan-date";
 import { DAILY_WORK_PLAN_LABEL, formatThaiDate } from "@/lib/i18n/labels";
 import { buildWpPickerGroups, type WpPickerRow } from "@/lib/work-packages/picker-options";
 import { UUID_REGEX } from "@/lib/validate/uuid";
@@ -25,11 +25,11 @@ export const metadata = { title: DAILY_WORK_PLAN_LABEL };
 export default async function SaPlanPage({
   searchParams,
 }: {
-  searchParams: Promise<{ project?: string }>;
+  searchParams: Promise<{ project?: string; date?: string }>;
 }) {
   const ctx = await requireRole(["site_admin", "super_admin"]);
   const supabase = await createClient();
-  const { project: qProject } = await searchParams;
+  const { project: qProject, date: qDate } = await searchParams;
 
   const shell = (body: ReactNode) => (
     <PageShell>
@@ -55,7 +55,8 @@ export default async function SaPlanPage({
     qProject && UUID_REGEX.test(qProject) && projects.some((p) => p.id === qProject)
       ? qProject
       : projects[0]!.id;
-  const tomorrow = addDaysIso(bangkokTodayIso(), 1);
+  const today = bangkokTodayIso();
+  const selectedDate = resolvePlanDate(qDate, today);
 
   // Groups (for the picker's section labels) + every leaf; filter to non-complete
   // leaves below. Both levels come from one project-scoped read.
@@ -73,12 +74,12 @@ export default async function SaPlanPage({
     .order("name");
   const workers = workerRows ?? [];
 
-  // The existing board for tomorrow (at most one — unique(project, plan_date)).
+  // The existing board for the selected day (at most one — unique(project, plan_date)).
   const { data: plan } = await supabase
     .from("daily_work_plans")
     .select("id")
     .eq("project_id", selectedProjectId)
-    .eq("plan_date", tomorrow)
+    .eq("plan_date", selectedDate)
     .maybeSingle();
   const planId = plan?.id ?? null;
 
@@ -131,8 +132,9 @@ export default async function SaPlanPage({
     <DailyPlanBoard
       projects={projects}
       selectedProjectId={selectedProjectId}
-      dateIso={tomorrow}
-      dateLabel={formatThaiDate(tomorrow)}
+      today={today}
+      dateIso={selectedDate}
+      dateLabel={formatThaiDate(selectedDate)}
       planId={planId}
       leafOptions={leafOptions}
       workers={workers}
