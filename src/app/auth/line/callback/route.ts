@@ -98,8 +98,8 @@ async function redirectByRole(
   }
   const url = request.nextUrl.clone();
   url.search = "";
-  // A single-project site_admin lands on their project (operator: works one
-  // project at a time); every other role lands on its roleHome.
+  // Land by role. (Operator 2026-07-06 reverted the single-project site_admin →
+  // project rule; homePathForUser is now role-only — /sa for a site_admin.)
   url.pathname = await homePathForUser(client, role, userId);
   return NextResponse.redirect(url);
 }
