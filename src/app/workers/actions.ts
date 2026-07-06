@@ -12,6 +12,7 @@ import { createClient as createServerSupabase } from "@/lib/db/server";
 import type { Database } from "@/lib/db/database.types";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { validateNotes } from "@/lib/notes/validate";
+import { WORKER_LEVEL_ORDER, type WorkerLevel } from "@/lib/nova/dials";
 
 type PayType = Database["public"]["Enums"]["pay_type"];
 type EmploymentType = Database["public"]["Enums"]["employment_type"];
@@ -196,6 +197,50 @@ export async function createWorkerInvite(input: { workerId: string }): Promise<W
   });
   if (error || !data) return { ok: false, error: GENERIC_ERROR };
   return { ok: true, token: data };
+}
+
+// Spec 272 U1 / spec 161: super_admin grades a worker (ADR 0060 §5 — grading is
+// an operator decision). The set_worker_level DEFINER RPC re-gates; this action
+// validates shape and relays. No clear-to-null path exists by design.
+export async function setWorkerLevel(input: {
+  id: string;
+  level: WorkerLevel;
+}): Promise<WorkerActionResult> {
+  if (!UUID_REGEX.test(input.id) || !WORKER_LEVEL_ORDER.includes(input.level)) {
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("set_worker_level", {
+    p_worker: input.id,
+    p_level: input.level,
+  });
+  if (error) return { ok: false, error: GENERIC_ERROR };
+
+  revalidatePath("/workers");
+  return { ok: true };
+}
+
+// Spec 272 U2 / spec 161 U2b: promote a worker to the project's หัวหน้าช่าง.
+// assign_project_ht (DEFINER, pm/pd/super) enforces the real rules — active
+// daily worker, one HT per project, last-wins (no unassign path).
+export async function assignProjectHt(input: {
+  projectId: string;
+  workerId: string;
+}): Promise<WorkerActionResult> {
+  if (!UUID_REGEX.test(input.projectId) || !UUID_REGEX.test(input.workerId)) {
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("assign_project_ht", {
+    p_project: input.projectId,
+    p_worker: input.workerId,
+  });
+  if (error) return { ok: false, error: GENERIC_ERROR };
+
+  revalidatePath("/workers");
+  return { ok: true };
 }
 
 // Spec 200: assign a worker to a project (workers.project_id — one project at a

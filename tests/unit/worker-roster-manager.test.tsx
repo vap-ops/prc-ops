@@ -56,6 +56,8 @@ const WORKERS: ManagedWorker[] = [
     employment_type: "permanent",
     portalBound: false,
     project_id: null,
+    // Spec 272 U1: skill grade joins the roster row model.
+    level: null,
   },
 ];
 
@@ -233,8 +235,9 @@ describe("WorkerRosterManager optimistic active-toggle", () => {
 // surfaces the current project and lets the assigner move it.
 describe("WorkerRosterManager project assignment", () => {
   const PROJECTS = [
-    { id: "p1", code: "PRC-2026-001", name: "บ้านคุณเอ" },
-    { id: "p2", code: "PRC-2026-002", name: "อาคารบี" },
+    // Spec 272 U2: the assignable-project shape now carries ht_worker_id.
+    { id: "p1", code: "PRC-2026-001", name: "บ้านคุณเอ", ht_worker_id: null },
+    { id: "p2", code: "PRC-2026-002", name: "อาคารบี", ht_worker_id: null },
   ];
 
   it("shows the worker's current project on the row", () => {

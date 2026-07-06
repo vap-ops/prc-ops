@@ -7,9 +7,10 @@ import { PageShell } from "@/components/features/chrome/page-shell";
 // onboarding (incl. the pay rate). The gate widens to WORKER_ROSTER_ROLES; the
 // admin-client day_rate read stays authorized by that same gate.
 
+import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
-import { WORKER_ROSTER_ROLES } from "@/lib/auth/role-home";
+import { PM_ROLES, WORKER_ROSTER_ROLES } from "@/lib/auth/role-home";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
@@ -37,7 +38,8 @@ export default async function WorkersPage() {
       admin
         .from("workers")
         .select(
-          "id, name, pay_type, employment_type, contractor_id, day_rate, active, note, user_id, project_id",
+          // Spec 272 U1: + level (a readable category, ADR 0060 — not money).
+          "id, name, pay_type, employment_type, contractor_id, day_rate, active, note, user_id, project_id, level",
         )
         .order("name", { ascending: true }),
       // Spec 89: status + category let WorkerRosterManager hide blacklisted/non-ช่าง
@@ -49,7 +51,12 @@ export default async function WorkersPage() {
       // Spec 200: the projects the assigner can put a worker on. RLS-scoped (the
       // assign gate is PM/super/director/procurement, the same audience as this page);
       // procurement sees all, PM sees members, super/director all.
-      supabase.from("projects").select("id, code, name").order("code", { ascending: true }),
+      // Spec 272 U2: + ht_worker_id (granted column) — feeds the หัวหน้าช่าง
+      // badge + the assign block's replace-warning.
+      supabase
+        .from("projects")
+        .select("id, code, name, ht_worker_id")
+        .order("code", { ascending: true }),
     ],
   );
 
@@ -67,10 +74,22 @@ export default async function WorkersPage() {
         <h1 className="text-title text-ink font-bold tracking-tight">รายชื่อทีมงานและค่าแรง</h1>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
+        {/* Spec 272 U3: the per-level sell-rate table already has its editor at
+            /nova/dials (spec 161 U7) — link it instead of rebuilding. super_admin
+            only, matching that page's own gate. */}
+        {ctx.role === "super_admin" ? (
+          <p className="mb-4">
+            <Link href="/nova/dials" className="text-action text-sm font-medium hover:underline">
+              ตารางราคาขายตามระดับ (Nova) →
+            </Link>
+          </p>
+        ) : null}
         <WorkerRosterManager
           workers={workers}
           contractors={contractorRows ?? []}
           projects={projectRows ?? []}
+          canGrade={ctx.role === "super_admin"}
+          canAssignHt={PM_ROLES.includes(ctx.role)}
         />
       </div>
     </PageShell>
