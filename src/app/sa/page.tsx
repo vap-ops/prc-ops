@@ -7,7 +7,7 @@
 // global "pick a งาน" step — a later unit.)
 
 import Link from "next/link";
-import { Camera, HardHat, ShoppingCart } from "lucide-react";
+import { CalendarPlus, Camera, HardHat, ShoppingCart } from "lucide-react";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
@@ -17,7 +17,12 @@ import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { workPackageHref } from "@/lib/nav/project-paths";
 import { withBackFrom } from "@/lib/nav/back-href";
-import { WORK_PACKAGE_STATUS_LABEL, formatThaiDate } from "@/lib/i18n/labels";
+import {
+  DAILY_WORK_PLAN_LABEL,
+  WORK_PACKAGE_STATUS_LABEL,
+  formatThaiDate,
+} from "@/lib/i18n/labels";
+import { BUTTON_SECONDARY } from "@/lib/ui/classes";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import { bangkokTodayIso } from "@/lib/dates";
 import { buildSaActionList, type BouncedWp, type ReworkInfo } from "@/lib/sa/action-list";
@@ -112,6 +117,12 @@ export default async function SaHomePage() {
             สวัสดี{ctx.fullName ? ` ${ctx.fullName}` : ""}
           </h1>
         </div>
+
+        {/* Spec 273 U2 — entry to the next-day work board (แผนพรุ่งนี้). */}
+        <Link href="/sa/plan" className={`${BUTTON_SECONDARY} w-full gap-2`}>
+          <CalendarPlus aria-hidden className="size-4 shrink-0" />
+          {DAILY_WORK_PLAN_LABEL}
+        </Link>
 
         {/* Spec 218: WPs the PM/defect bounced back — pinned above everything,
             color-coded (amber = fix, red = rejected), one tap to the capture. */}
