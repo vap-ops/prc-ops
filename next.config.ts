@@ -39,7 +39,14 @@ const nextConfig: NextConfig = {
       // Unit 3: the two project hubs folded into one /projects hub. Exact
       // sources — /sa/projects/* and /pm/projects/*/reports keep their own
       // (earlier, more specific) rules above.
-      { source: "/sa", destination: "/projects", permanent: false },
+      //
+      // The bare `/sa` → `/projects` redirect was REMOVED 2026-07-07: spec 192
+      // revived /sa as the site_admin DAILY HOME (roleHome(site_admin) === "/sa";
+      // the spec-273 แผนพรุ่งนี้ board lives under it). The leftover spec-82 fold
+      // had been 307'ing every /sa hit to /projects, so the SA home + board were
+      // unreachable and the หน้าหลัก tab bounced to the project hub. Only the bare
+      // /sa is gone; /sa/projects/* (legacy deep links) stays above.
+      // Guard: tests/unit/next-config-redirects.test.ts.
       { source: "/pm/projects", destination: "/projects", permanent: false },
       // Unit 4: the remaining role-named surfaces move to content-named ones.
       // More-specific subtree sources first; the bare /pm exact is last (it
