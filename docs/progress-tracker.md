@@ -6450,3 +6450,18 @@ sell_rate_table 4 seeded rows. This spec = surfacing only, NO migration:
 
 Constraints honored: labels.ts / settings/sections.ts / database.types.ts untouched (open PR
 #325 owns them); level labels reuse the existing SSOT in src/lib/nova/dials.ts.
+
+## Spec 271 — plan-vs-actual + baselines + site-role incentives — 🎨 DESIGN APPROVED (2026-07-06)
+
+Design session (operator-requested). Six operator decisions (Q1–Q6) + one mid-session directive
+(client punch lists are PRC-priced; fix→full pay, no-show→deduction; contractors join rewards via
+`reward_beta` allowlist) + four panel-forced revisions re-approved (Δ1 auditor scoring, Δ2
+submit-time anchor, Δ3 004=unscored calibration, Δ4 deduction-as-payment-link). A 4-lens
+adversarial judge panel (game-theory · data-reality vs live DB · architecture · adoption) returned
+25 findings (10 high) — all folded into the spec (§3 decision table, §4 guards/posture, §7 gaming
+register). Deliverables: `docs/feature-specs/271-plan-vs-actual-baselines-incentives.md` + ADR 0075
+(Proposed) + index rows. BUILD NOT STARTED — U0 (operator bindings) has no code; U1+ are their own
+sessions, schema numbers `072800+`.
+
+Open questions: Thai label confirmation gates U2a; per-project staffing (distinct auditor?)
+gates scoring; U7 externally gated (contractor onboarding e2e + spec 251 U2).
