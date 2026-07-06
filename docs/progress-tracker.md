@@ -6466,7 +6466,7 @@ sessions, schema numbers `072800+`.
 Open questions: Thai label confirmation gates U2a; per-project staffing (distinct auditor?)
 gates scoring; U7 externally gated (contractor onboarding e2e + spec 251 U2).
 
-## Spec 271 U1 — plan baselines schema + 004 backfill — 🔨 IN PROGRESS (2026-07-06/07 night, schema lane 072800–073000)
+## Spec 271 U1 — plan baselines schema + 004 backfill — ✅ COMPLETE (2026-07-07, PR #336)
 
 pgTAP red first (271-plan-baselines.test.sql, plan 46). Migrations: `072800` enums
 (plan_baseline_kind · variance_class, §3-table-mirroring labels) · `072900` plan_baselines
@@ -6478,3 +6478,31 @@ append-only (P0001 update/delete/truncate), wp_reject_group_binding on both leaf
 tables · `073000` idempotent 004 backfill (v1 initial, as_of=apply-time, scoring_go_live
 NULL per D8, items = 331 dated leaves; proposed_by/approved_by NULL = system row, real
 actors start with U3 RPCs). db:types regen rides this unit.
+
+## Spec 271 U3 — visibility arms + gates + transition audit + baseline RPCs — ✅ COMPLETE (2026-07-07, schema lane 073100–073500)
+
+pgTAP red first (272-spec271u3-visibility-gates.test.sql, plan 47). Migrations:
+`073100` can*see_project membership arms for site_owner + auditor (added to the PM/SA arm —
+same mechanism, member OR lead; bodies from LIVE) + project_members self-read policy (the two
+roles read their OWN rows only) · `073200` work_packages transition-audit trigger — one AFTER
+UPDATE writer for every status flip (D7 submit anchor; admin-client submit/decide paths carry
+actor NULL — decision actors live in approvals) + every planned*_ edit (old→new trail); reopens
+double-log by design (uniform transition row + the richer defect row) · `073300`
+set*work_package_schedule hardening: +site_owner, can_see_wp membership, is_group reject
+(22023), planned*_ column UPDATE grant REVOKED (RPC = only authenticated edit path; M2
+precedent) · `073400` reopen_work_package_for_defect +auditor with role-conditional source
+(auditor + site_admin → internal ONLY; PM/PD/super → both) + log_labor_day Bangkok-today bound
+(anti-forgery §3) · `073500` propose_plan_baseline / approve_plan_baseline definer RPCs —
+plan_baselines is fully append-only so propose FREEZES the snapshot into an audit_log proposal
+event (immutable, unforgeable — authenticated cannot INSERT audit_log) and approve lands the
+single INSERT stamping both actors; kind rules initial/rebaseline/scope_change per D3/D8;
+vanished frozen leaves invalidate the proposal (never silently shrink what the PD approved).
+Existing tests adjusted for the tightened contracts: 47 (PM now leads its fixture project —
+membership gate) + 75 (round-2 client reopen runs as PM — site_admin tightened to internal).
+
+Open questions / deferred to later units:
+
+- งาน-signer guard on client-defect filing needs `wp_signoffs` → lands in U5 (§4.7 note).
+- `log_labor_day` p_directive_id tag rides U5's `labor_logs.directive_id` column.
+- U2b/U6 swap the actual_end FEED to the new transition rows (approvals decided_at stays the
+  pre-U3 fallback for history predating them, incl. all of 004's existing approvals).

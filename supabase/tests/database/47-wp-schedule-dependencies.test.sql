@@ -15,9 +15,12 @@ insert into auth.users (id, email, raw_user_meta_data) values
 update public.users set role = 'site_admin'      where id = '22222222-2222-2222-2222-2222222247ff';
 update public.users set role = 'project_manager' where id = '33333333-3333-3333-3333-3333333347ff';
 
-insert into public.projects (id, code, name) values
-  ('c0000047-47ff-47ff-47ff-47ff47ff47ff', 'PRC-TEST-WPS-A', 'schedule fixture A'),
-  ('c0000147-47ff-47ff-47ff-47ff47ff47ff', 'PRC-TEST-WPS-B', 'schedule fixture B');
+-- 271 U3: set_work_package_schedule is membership-gated now — the PM leads
+-- project A so the schedule lives_ok below still holds.
+insert into public.projects (id, code, name, project_lead_id) values
+  ('c0000047-47ff-47ff-47ff-47ff47ff47ff', 'PRC-TEST-WPS-A', 'schedule fixture A',
+   '33333333-3333-3333-3333-3333333347ff'),
+  ('c0000147-47ff-47ff-47ff-47ff47ff47ff', 'PRC-TEST-WPS-B', 'schedule fixture B', null);
 insert into public.work_packages (id, project_id, code, name) values
   ('a0000047-47ff-47ff-47ff-47ff47ff47ff', 'c0000047-47ff-47ff-47ff-47ff47ff47ff', 'WPS-A', 'WP A'),
   ('b0000047-47ff-47ff-47ff-47ff47ff47ff', 'c0000047-47ff-47ff-47ff-47ff47ff47ff', 'WPS-B', 'WP B'),

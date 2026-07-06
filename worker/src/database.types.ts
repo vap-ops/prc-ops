@@ -6828,6 +6828,10 @@ export type Database = {
         Returns: boolean
       }
       apply_wp_template: { Args: { p_project_id: string }; Returns: number }
+      approve_plan_baseline: {
+        Args: { p_proposal_id: string }
+        Returns: string
+      }
       approve_staff_registration: {
         Args: {
           p_employment_type?: Database["public"]["Enums"]["employment_type"]
@@ -7475,6 +7479,16 @@ export type Database = {
           team_added: boolean
           work_packages_added: boolean
         }[]
+      }
+      propose_plan_baseline: {
+        Args: {
+          p_kind: Database["public"]["Enums"]["plan_baseline_kind"]
+          p_project_id: string
+          p_reason?: string
+          p_scoring_go_live?: string
+          p_work_package_ids?: string[]
+        }
+        Returns: string
       }
       prune_gl_posting_outbox: {
         Args: { p_max_age_days?: number }
