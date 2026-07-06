@@ -34,7 +34,14 @@ import {
   groupWorkPackagesByDeliverable,
   type GroupDeliverable,
 } from "@/lib/deliverables/group-work-packages";
-import { WORK_PACKAGE_STATUS_LABEL, WP_GROUP_LABEL, WP_LEAF_LABEL } from "@/lib/i18n/labels";
+import {
+  VARIANCE_CLASS_LABEL,
+  WORK_PACKAGE_STATUS_LABEL,
+  WP_GROUP_LABEL,
+  WP_LEAF_LABEL,
+  varianceCoverageCaption,
+} from "@/lib/i18n/labels";
+import type { GroupVariancePill, VarianceClass } from "@/lib/work-packages/variance";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import { workPackageStatusIcon } from "@/lib/status-icons";
 import {
@@ -82,6 +89,11 @@ interface WorkPackageListProps {
    * threaded straight through to each WorklistRow.
    */
   canOpen?: boolean;
+  /**
+   * Spec 271 U2a: per-งาน plan-vs-actual pill (server-computed off evidence).
+   * Absent = no pill (legacy callers unchanged).
+   */
+  variancePillByGroup?: Record<string, GroupVariancePill>;
 }
 
 /**
@@ -100,6 +112,7 @@ export function WorkPackageList({
   workPackages,
   deliverables,
   canOpen = true,
+  variancePillByGroup,
 }: WorkPackageListProps) {
   // Spec 270 U3: split the roster into งาน sections + leaves. Groups head
   // sections in the งาน lens and are EXCLUDED from every other lens — they
@@ -198,6 +211,7 @@ export function WorkPackageList({
           }
           toRowItem={toRowItem}
           canOpen={canOpen}
+          variancePillByGroup={variancePillByGroup}
         />
       ) : lens === "action" ? (
         <ActionLens
@@ -244,6 +258,40 @@ interface GroupLensProps {
   onToggle: (key: string) => void;
   toRowItem: (wp: WorkPackageListItem) => WorklistRowItem;
   canOpen: boolean;
+  variancePillByGroup?: Record<string, GroupVariancePill> | undefined;
+}
+
+// Spec 271 U2a §3/§6 — the per-งาน plan-vs-actual verdict. Coverage-aware:
+// thin evidence renders a neutral caption, never a red verdict off missing
+// data. Text-only (no bg) so it reads as metadata next to the status pill.
+const VARIANCE_TEXT_CLASS: Record<VarianceClass, string> = {
+  never_started_past_end: "text-danger",
+  late: "text-danger",
+  late_start: "text-attn",
+  at_risk: "text-attn",
+  on_track: "text-done",
+  completed: "text-done",
+  completed_undated: "text-ink-secondary",
+  no_evidence: "text-ink-muted",
+  unplanned: "text-ink-muted",
+};
+
+function VariancePillView({ pill }: { pill: GroupVariancePill }) {
+  if (pill.lowCoverage) {
+    return (
+      <span className="text-meta text-ink-muted">
+        {varianceCoverageCaption(pill.coveragePct ?? 0)}
+      </span>
+    );
+  }
+  if (pill.worst === null) return null;
+  const count = pill.counts[pill.worst] ?? 0;
+  return (
+    <span className={`text-meta font-medium ${VARIANCE_TEXT_CLASS[pill.worst]}`}>
+      {VARIANCE_CLASS_LABEL[pill.worst]}
+      {count > 1 ? ` ${count}` : ""}
+    </span>
+  );
 }
 
 function GroupLens({
@@ -254,6 +302,7 @@ function GroupLens({
   onToggle,
   toRowItem,
   canOpen,
+  variancePillByGroup,
 }: GroupLensProps) {
   return (
     <div className="flex flex-col gap-3">
@@ -312,6 +361,10 @@ function GroupLens({
                     <span className="text-meta text-ink-secondary">
                       {completeCount}/{totalCount} เสร็จ
                     </span>
+                    {/* Spec 271 U2a: plan-vs-actual verdict for this งาน. */}
+                    {variancePillByGroup?.[group.id] ? (
+                      <VariancePillView pill={variancePillByGroup[group.id]!} />
+                    ) : null}
                   </span>
                 </span>
                 <span

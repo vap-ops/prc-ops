@@ -6478,3 +6478,18 @@ append-only (P0001 update/delete/truncate), wp_reject_group_binding on both leaf
 tables · `073000` idempotent 004 backfill (v1 initial, as_of=apply-time, scoring_go_live
 NULL per D8, items = 331 dated leaves; proposed_by/approved_by NULL = system row, real
 actors start with U3 RPCs). db:types regen rides this unit.
+
+## Spec 271 U2a — variance lib + roster ตามงาน pills + labels — 🔨 BUILT, DRAFT PR (2026-07-07, code-only)
+
+TDD (red-first): wp-variance (§3 ordered table — 9 classes, at-risk window min(7, half-duration),
+D7 complete-never-re-enters-late; rollup pill w/ coverage suppression COVERAGE_RED_FLOOR=0.3
+initial dial) · wp-actuals (during/after/after_fix photo anchors via shared photo-evidence
+primitives; labor entry-lag ≤3d anti-forgery — late labor stays evidence but can't move the
+metric; approvals decided_at = documented pre-U3 fallback for actual_end; start coalesces to
+end) · enum↔TS↔label pins (variance_class 1:1) · pill component (worst+count, grey หลักฐาน N%
+below floor) · loader test extended (evidence feeds in the dependent tail batch). labels.ts
+gains the spec-271 vocabulary block (classes + แผนอ้างอิง/ตรวจรับงาน/รายการแก้ไขจากลูกค้า/
+คำสั่งหน้างาน) — ⛔ OPERATOR THAI-CONFIRM GATE before merge (PR stays DRAFT).
+Live-verified on 004 (dev-preview browser): WP-01 red ช้ากว่าแผน; WP-02 หลักฐาน 0% grey;
+WP-03 หลักฐาน 20% grey. 004 audit counts (spec §8): complete=3, complete-without-approval=0,
+no-evidence=299/331.

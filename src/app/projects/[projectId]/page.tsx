@@ -120,6 +120,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
     criticalIds,
     onboarding,
     sourceProjects,
+    variancePillByGroup,
   } = await loadProjectDetail(supabase, project, isPmRole);
   const typeLabel = project.project_type ? PROJECT_TYPE_LABEL[project.project_type] : null;
   // Spec 174: a pasted Google-Maps link (exact pin) wins; spec 173 falls back to an
@@ -274,6 +275,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
           projectId={project.id}
           role={ctx.role}
           canOpen={canOpenWp}
+          variancePillByGroup={variancePillByGroup}
           workPackages={(workPackages ?? []).map((wp) => ({
             id: wp.id,
             code: wp.code,

@@ -47,6 +47,34 @@ const WORK_PACKAGES = [
     is_group: false,
     parent_id: null,
   },
+  // Spec 271 U2a: a งาน + a dated งานย่อย with timely labor evidence — planned
+  // window far in the past so the derived class is deterministically `late`.
+  {
+    id: "g1",
+    code: "WP-90",
+    name: "งานกลุ่ม",
+    status: "in_progress",
+    deliverable_id: null,
+    contractor_id: null,
+    priority: "normal",
+    planned_start: null,
+    planned_end: null,
+    is_group: true,
+    parent_id: null,
+  },
+  {
+    id: "w2",
+    code: "WP-90-01",
+    name: "งานย่อยใต้กลุ่ม",
+    status: "in_progress",
+    deliverable_id: null,
+    contractor_id: null,
+    priority: "normal",
+    planned_start: "2020-01-01",
+    planned_end: "2020-01-02",
+    is_group: false,
+    parent_id: "g1",
+  },
 ];
 const DELIVERABLES = [{ id: "d1", code: "D-01", name: "งวด 1", sort_order: 1 }];
 const CATEGORIES = [
@@ -72,6 +100,12 @@ const LIST: Record<string, unknown[]> = {
   project_categories: CATEGORIES,
   projects: SOURCE_PROJECTS,
   work_package_dependencies: [],
+  // Spec 271 U2a evidence feeds (leaf-scoped .in reads in the dependent tail).
+  photo_logs: [],
+  labor_logs: [
+    { work_package_id: "w2", work_date: "2020-01-01", created_at: "2020-01-02T03:00:00Z" },
+  ],
+  approvals: [],
 };
 const COUNT: Record<string, number> = {};
 const RPC: Record<string, unknown> = { project_onboarding_status: ONBOARDING };
@@ -143,6 +177,17 @@ describe("loadProjectDetail", () => {
     await loadProjectDetail(supabase, PROJECT as never, true);
     expect(selectedColumns["work_packages"]).toContain("is_group");
     expect(selectedColumns["work_packages"]).toContain("parent_id");
+  });
+
+  it("computes the per-งาน variance pill off the evidence rows (spec 271 U2a)", async () => {
+    const data = await loadProjectDetail(supabase, PROJECT as never, true);
+    const pill = data.variancePillByGroup["g1"];
+    expect(pill).toBeDefined();
+    // Started (timely labor in 2020) + far past its planned end → late, full coverage.
+    expect(pill?.worst).toBe("late");
+    expect(pill?.counts.late).toBe(1);
+    expect(pill?.coveragePct).toBe(100);
+    expect(pill?.lowCoverage).toBe(false);
   });
 
   it("skips the PM-only reads when not a PM", async () => {
