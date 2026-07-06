@@ -38,6 +38,14 @@ export const UNKNOWN_NAME_LABEL = "ไม่ทราบชื่อ";
 export const WP_GROUP_LABEL = "งาน";
 export const WP_LEAF_LABEL = "งานย่อย";
 
+// Spec 273 (ADR 0076) — the SA next-day work board. แผนพรุ่งนี้ is the board's
+// name (the tomorrow list of งานย่อย the crew will run); หัวหน้า marks the one
+// crew lead on a board item (flexible per-leaf crew, no team entity in v1).
+// SSOT'd so the board UI (U2) and the morning worklist (U3) can't drift.
+// Button microcopy (มาทำ / ทั้งหมดมาทำ / เพิ่ม+งานย่อย) is composed where used.
+export const DAILY_WORK_PLAN_LABEL = "แผนพรุ่งนี้";
+export const CREW_LEAD_LABEL = "หัวหน้า";
+
 // Spec 207 — a project work-category (หมวดงาน): the per-project trade/scope
 // taxonomy a WP belongs to (exactly one). Distinct from งวดงาน (deliverable,
 // billing milestone) and ประเภทโครงการ (project_type). Single-sourced (used on
