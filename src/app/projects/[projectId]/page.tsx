@@ -2,7 +2,14 @@ import { PageShell } from "@/components/features/chrome/page-shell";
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
-import { CalendarDays, ClipboardList, FileText, Settings, Warehouse } from "lucide-react";
+import {
+  CalendarDays,
+  CalendarPlus,
+  ClipboardList,
+  FileText,
+  Settings,
+  Warehouse,
+} from "lucide-react";
 import {
   PROJECT_VIEW_ROLES,
   SCHEDULE_VIEW_ROLES,
@@ -17,11 +24,11 @@ import {
   storeHref,
   supplyPlanHref,
 } from "@/lib/nav/project-paths";
-import { ICON_CHIP_MUTED } from "@/lib/ui/classes";
+import { BUTTON_SECONDARY, ICON_CHIP_MUTED } from "@/lib/ui/classes";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { ProjectInfoButton } from "@/components/features/work-packages/project-info-button";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
-import { PROJECT_STATUS_LABEL, STORE_LABEL } from "@/lib/i18n/labels";
+import { DAILY_WORK_PLAN_LABEL, PROJECT_STATUS_LABEL, STORE_LABEL } from "@/lib/i18n/labels";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
@@ -104,6 +111,11 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
   // this finally admits site_admin (the on-site storekeeper). RLS scopes the
   // viewer inside the sub-route.
   const canSeeStore = WP_DETAIL_ROLES.includes(ctx.role);
+  // Spec 273: the SA next-day board (แผนพรุ่งนี้) is SA-oriented (/sa/plan admits
+  // site_admin + super_admin). A single-project SA lands on this project screen,
+  // so surface the board here too — a labelled full-width entry, not just the
+  // /sa home tab — so it's reachable from where the SA actually is.
+  const canPlanTomorrow = ctx.role === "site_admin" || ctx.role === "super_admin";
   // Spec 145: a completed/archived project is locked for new work — the UI hides
   // the seeding controls + onboarding and shows a banner. Defect-rework stays.
   const projectOpen = project.status === "active" || project.status === "on_hold";
@@ -219,6 +231,17 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
       </DetailHeader>
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
+        {/* Spec 273: SA next-day board entry — reachable straight from the project
+            (a single-project SA lands here). Opens the board for THIS project. */}
+        {canPlanTomorrow ? (
+          <Link
+            href={`/sa/plan?project=${project.id}`}
+            className={`${BUTTON_SECONDARY} mb-4 w-full gap-2`}
+          >
+            <CalendarPlus aria-hidden className="size-4 shrink-0" />
+            {DAILY_WORK_PLAN_LABEL}
+          </Link>
+        ) : null}
         {/* Spec 145: a closed project shows a lock banner instead of seeding
             controls. Warranty defect-rework stays available on each WP page. */}
         {!projectOpen && (
