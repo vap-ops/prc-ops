@@ -1527,6 +1527,132 @@ export type Database = {
           },
         ]
       }
+      daily_work_plan_crew: {
+        Row: {
+          created_at: string
+          id: string
+          is_lead: boolean
+          item_id: string
+          worker_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_lead?: boolean
+          item_id: string
+          worker_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_lead?: boolean
+          item_id?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_work_plan_crew_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "daily_work_plan_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_work_plan_crew_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_work_plan_items: {
+        Row: {
+          created_at: string
+          id: string
+          note: string | null
+          plan_id: string
+          sort_order: number
+          updated_at: string
+          work_package_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          plan_id: string
+          sort_order?: number
+          updated_at?: string
+          work_package_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          plan_id?: string
+          sort_order?: number
+          updated_at?: string
+          work_package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_work_plan_items_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "daily_work_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_work_plan_items_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_work_plans: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          plan_date: string
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          plan_date: string
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          plan_date?: string
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_work_plans_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_work_plans_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deliverables: {
         Row: {
           code: string
@@ -6771,6 +6897,10 @@ export type Database = {
         }
         Returns: string
       }
+      add_daily_plan_item: {
+        Args: { p_date: string; p_project: string; p_wp: string }
+        Returns: string
+      }
       add_feedback_attachment: {
         Args: { p_feedback_id: string; p_storage_path: string }
         Returns: string
@@ -7140,6 +7270,10 @@ export type Database = {
         Returns: Database["public"]["Enums"]["user_role"]
       }
       current_user_worker_id: { Args: never; Returns: string }
+      daily_work_plan_assert_writer: {
+        Args: { p_project: string }
+        Returns: undefined
+      }
       decide_contractor_bank_change: {
         Args: { p_approve: boolean; p_id: string }
         Returns: undefined
@@ -7687,6 +7821,7 @@ export type Database = {
         Args: { p_id: string }
         Returns: undefined
       }
+      remove_daily_plan_item: { Args: { p_item: string }; Returns: undefined }
       remove_purchase_quote: {
         Args: { p_quote_id: string }
         Returns: undefined
@@ -7715,6 +7850,10 @@ export type Database = {
           p_wp: string
         }
         Returns: boolean
+      }
+      reorder_daily_plan_items: {
+        Args: { p_item_ids: string[]; p_plan: string }
+        Returns: undefined
       }
       reorder_project_categories: {
         Args: { p_ids: string[]; p_project_id: string }
@@ -7790,6 +7929,14 @@ export type Database = {
           p_supplier_id?: string
         }
         Returns: string
+      }
+      set_daily_plan_item_crew: {
+        Args: { p_item: string; p_lead: string; p_worker_ids: string[] }
+        Returns: undefined
+      }
+      set_daily_plan_item_note: {
+        Args: { p_item: string; p_note: string }
+        Returns: undefined
       }
       set_deliverable_name: {
         Args: { p_deliverable_id: string; p_name: string }
