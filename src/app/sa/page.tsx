@@ -7,7 +7,7 @@
 // global "pick a งาน" step — a later unit.)
 
 import Link from "next/link";
-import { CalendarPlus, Camera, HardHat, ShoppingCart } from "lucide-react";
+import { CalendarPlus, Camera, HardHat, Pencil, ShoppingCart } from "lucide-react";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
@@ -19,6 +19,7 @@ import { workPackageHref } from "@/lib/nav/project-paths";
 import { withBackFrom } from "@/lib/nav/back-href";
 import {
   DAILY_WORK_PLAN_LABEL,
+  TODAY_LABEL,
   WORK_PACKAGE_STATUS_LABEL,
   formatThaiDate,
 } from "@/lib/i18n/labels";
@@ -215,6 +216,15 @@ export default async function SaHomePage() {
           dateLabel={formatThaiDate(today)}
           items={worklistItems}
         />
+
+        {/* Spec 273 U5 — edit today's board (the builder is date-navigable). Shown
+            only when there's a today board to edit; the button above plans พรุ่งนี้. */}
+        {worklistItems.length > 0 && (
+          <Link href={`/sa/plan?date=${today}`} className={`${BUTTON_SECONDARY} w-full gap-2`}>
+            <Pencil aria-hidden className="size-4 shrink-0" />
+            แก้ไขแผน{TODAY_LABEL}
+          </Link>
+        )}
 
         {/* Spec 218: WPs the PM/defect bounced back — pinned above everything,
             color-coded (amber = fix, red = rejected), one tap to the capture. */}

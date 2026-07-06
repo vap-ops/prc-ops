@@ -9,7 +9,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BUTTON_PRIMARY_COMPACT, CARD, FIELD_INPUT, FIELD_SELECT } from "@/lib/ui/classes";
-import { SUBWP_RESPONSIBLE_LABEL, WP_LEAF_LABEL, WORKER_LABEL } from "@/lib/i18n/labels";
+import {
+  SUBWP_RESPONSIBLE_LABEL,
+  TODAY_LABEL,
+  TOMORROW_LABEL,
+  WP_LEAF_LABEL,
+  WORKER_LABEL,
+} from "@/lib/i18n/labels";
+import { addDaysIso } from "@/lib/work-packages/calendar-grid";
 import type { WpPickerGroups } from "@/lib/work-packages/picker-options";
 import {
   addDailyPlanItem,
@@ -39,6 +46,7 @@ const ROW_BTN_ON = "border-edge bg-fill text-on-fill hover:bg-fill-press";
 export function DailyPlanBoard({
   projects,
   selectedProjectId,
+  today,
   dateIso,
   dateLabel,
   planId,
@@ -48,6 +56,7 @@ export function DailyPlanBoard({
 }: {
   projects: ProjectOption[];
   selectedProjectId: string;
+  today: string;
   dateIso: string;
   dateLabel: string;
   planId: string | null;
@@ -129,16 +138,46 @@ export function DailyPlanBoard({
   const hasPicker = projects.length > 1;
   const anyLeaves = leafOptions.sections.length > 0 || leafOptions.ungrouped.length > 0;
 
+  // Date stepper — the board is navigable day-to-day, floored at today (a SA never
+  // edits a past day's plan). The page defaults the view to พรุ่งนี้.
+  const planHref = (d: string) => `/sa/plan?project=${selectedProjectId}&date=${d}`;
+  const atFloor = dateIso <= today;
+  const relativeDay =
+    dateIso === today ? TODAY_LABEL : dateIso === addDaysIso(today, 1) ? TOMORROW_LABEL : null;
+
   return (
     <section className="flex flex-col gap-4">
-      <header className="flex flex-col gap-1">
-        <p className="text-body text-ink-muted">{dateLabel}</p>
+      <header className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className={ROW_BTN}
+            aria-label="วันก่อนหน้า"
+            disabled={busy || atFloor}
+            onClick={() => router.push(planHref(addDaysIso(dateIso, -1)))}
+          >
+            ←
+          </button>
+          <div className="flex flex-1 flex-col">
+            {relativeDay && <span className="text-meta text-ink-muted">{relativeDay}</span>}
+            <span className="text-body text-ink font-medium">{dateLabel}</span>
+          </div>
+          <button
+            type="button"
+            className={ROW_BTN}
+            aria-label="วันถัดไป"
+            disabled={busy}
+            onClick={() => router.push(planHref(addDaysIso(dateIso, 1)))}
+          >
+            →
+          </button>
+        </div>
         {hasPicker && (
           <select
             aria-label="เลือกโครงการ"
-            className={`mt-1 ${FIELD_SELECT}`}
+            className={FIELD_SELECT}
             value={selectedProjectId}
-            onChange={(e) => router.push(`/sa/plan?project=${e.target.value}`)}
+            onChange={(e) => router.push(`/sa/plan?project=${e.target.value}&date=${dateIso}`)}
           >
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
@@ -149,7 +188,7 @@ export function DailyPlanBoard({
         )}
       </header>
 
-      {/* Add a งานย่อย to tomorrow's board. */}
+      {/* Add a งานย่อย to the selected day's board. */}
       <div className="flex items-center gap-2">
         <select
           aria-label="เพิ่มงานย่อย"
@@ -185,7 +224,7 @@ export function DailyPlanBoard({
       </div>
 
       {items.length === 0 ? (
-        <p className="text-body text-ink-muted">ยังไม่มี{WP_LEAF_LABEL}ในแผนพรุ่งนี้</p>
+        <p className="text-body text-ink-muted">ยังไม่มี{WP_LEAF_LABEL}ในแผน</p>
       ) : (
         <ul className="flex flex-col gap-3">
           {items.map((it, idx) => {

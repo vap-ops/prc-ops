@@ -3,6 +3,8 @@ import { render, screen, fireEvent, waitFor, within } from "@testing-library/rea
 
 // Spec 273 U2 — the /sa แผนพรุ่งนี้ board builder wires the five U1 RPCs to the UI:
 // add / remove งานย่อย, set crew (+ ผู้รับผิดชอบ), set note, reorder.
+// Spec 273 U5 — the board is now date-navigable (◀/▶ day stepper, floored at today)
+// so a SA can EDIT today's or any future board, not only tomorrow's.
 
 const {
   addDailyPlanItem,
@@ -59,17 +61,21 @@ const items: DailyPlanItemView[] = [
   },
 ];
 
-function renderBoard() {
+// today defaults to the day BEFORE dateIso so the board reads as พรุ่งนี้ (prev
+// stepper enabled). Override `today`/`dateIso` per test for floor / label cases.
+function renderBoard(props: Partial<React.ComponentProps<typeof DailyPlanBoard>> = {}) {
   return render(
     <DailyPlanBoard
       projects={projects}
       selectedProjectId="p1"
+      today="2026-07-06"
       dateIso="2026-07-07"
       dateLabel="7 กรกฎาคม 2569"
       planId="plan1"
       leafOptions={leafOptions}
       workers={workers}
       items={items}
+      {...props}
     />,
   );
 }
@@ -89,7 +95,7 @@ describe("DailyPlanBoard", () => {
     mockPush.mockReset();
   });
 
-  it("renders the tomorrow date and each planned งานย่อย", () => {
+  it("renders the date and each planned งานย่อย", () => {
     renderBoard();
     expect(screen.getByText("7 กรกฎาคม 2569")).toBeInTheDocument();
     expect(screen.getByText(/ฉาบผนัง/)).toBeInTheDocument();
@@ -104,7 +110,7 @@ describe("DailyPlanBoard", () => {
     expect(lead).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("adds the picked งานย่อย to tomorrow's board", async () => {
+  it("adds the picked งานย่อย to the board's date", async () => {
     renderBoard();
     fireEvent.change(screen.getByLabelText("เพิ่มงานย่อย"), { target: { value: "wp3" } });
     fireEvent.click(screen.getByRole("button", { name: "เพิ่ม" }));
@@ -157,13 +163,13 @@ describe("DailyPlanBoard", () => {
     );
   });
 
-  it("switches project via the picker", () => {
-    renderBoard();
+  it("switches project via the picker, keeping the current date", () => {
     // With one project the picker may be hidden; render with two to test navigation.
     render(
       <DailyPlanBoard
         projects={[...projects, { id: "p2", code: "PRC-006", name: "โครงการสอง" }]}
         selectedProjectId="p1"
+        today="2026-07-06"
         dateIso="2026-07-07"
         dateLabel="7 กรกฎาคม 2569"
         planId={null}
@@ -173,6 +179,33 @@ describe("DailyPlanBoard", () => {
       />,
     );
     fireEvent.change(screen.getByLabelText("เลือกโครงการ"), { target: { value: "p2" } });
-    expect(mockPush).toHaveBeenCalledWith("/sa/plan?project=p2");
+    expect(mockPush).toHaveBeenCalledWith("/sa/plan?project=p2&date=2026-07-07");
+  });
+
+  // ── Spec 273 U5: date stepper ──────────────────────────────────────────────
+  it("steps to the next day, preserving the project", () => {
+    renderBoard();
+    fireEvent.click(screen.getByRole("button", { name: "วันถัดไป" }));
+    expect(mockPush).toHaveBeenCalledWith("/sa/plan?project=p1&date=2026-07-08");
+  });
+
+  it("steps to the previous day when above the today floor", () => {
+    renderBoard(); // dateIso 2026-07-07, today 2026-07-06 → prev enabled
+    const prev = screen.getByRole("button", { name: "วันก่อนหน้า" });
+    expect(prev).not.toBeDisabled();
+    fireEvent.click(prev);
+    expect(mockPush).toHaveBeenCalledWith("/sa/plan?project=p1&date=2026-07-06");
+  });
+
+  it("disables the previous-day step at the today floor", () => {
+    renderBoard({ today: "2026-07-07" }); // dateIso === today
+    expect(screen.getByRole("button", { name: "วันก่อนหน้า" })).toBeDisabled();
+  });
+
+  it("labels พรุ่งนี้ and วันนี้ relative to today", () => {
+    renderBoard(); // dateIso 2026-07-07 is the day after today 2026-07-06
+    expect(screen.getByText("พรุ่งนี้")).toBeInTheDocument();
+    renderBoard({ today: "2026-07-07" }); // dateIso === today
+    expect(screen.getByText("วันนี้")).toBeInTheDocument();
   });
 });
