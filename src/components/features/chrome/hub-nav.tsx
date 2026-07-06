@@ -38,6 +38,12 @@ export const PM_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "จัดซื้อ", href: "/requests" },
   // Spec 100: ภาพรวม is the live role-aware dashboard.
   { label: "ภาพรวม", href: "/dashboard" },
+  // Operator report 2026-07-06: the ช่าง roster was reachable only through the
+  // /settings hub for the PM tier ("cannot find menu about technicians'
+  // information") while both procurement strips carry a direct ทีมงาน item.
+  // Same destination + label as those strips; PM tier is already in
+  // WORKER_ROSTER_ROLES so this widens discoverability, not access.
+  { label: "ทีมงาน", href: "/workers" },
   // Spec 263 U3 / spec 264 G4: the staff-registration approval queue. Reaches
   // project_director + super_admin here; procurement_manager (also a
   // STAFF_APPROVAL_ROLES member) gets its own item in PROCUREMENT_MANAGER_HUB_NAV

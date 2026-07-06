@@ -22,10 +22,17 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 // dashboard card; ภาพรวม leads the PM strip and carries the pending count.
 // Spec 263 U3 / spec 264 G4: คำขอสมัคร (the staff-registration approval queue,
 // role-neutral) added before ตั้งค่า.
+// Operator report 2026-07-06 ("cannot find menu about technicians' information"):
+// ทีมงาน → /workers added to the PM strip — the roster was reachable only via the
+// /settings hub for the PM tier while both procurement strips had a direct item.
+// Same label/href as those strips; placed before คำขอสมัคร, mirroring
+// PROCUREMENT_MANAGER_HUB_NAV's ordering. Access unchanged (PM tier is already
+// in WORKER_ROSTER_ROLES).
 const PM_ITEMS = [
   { label: "โครงการและรายงาน", href: "/projects" },
   { label: "จัดซื้อ", href: "/requests" },
   { label: "ภาพรวม", href: "/dashboard" },
+  { label: "ทีมงาน", href: "/workers" },
   { label: "คำขอสมัคร", href: "/registrations" },
   { label: "ตั้งค่า", href: "/settings" },
 ];
