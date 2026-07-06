@@ -6433,3 +6433,20 @@ add the WORKER label SSOT. Done so far:
   screens, contractor-portal onboarding comments) — ADR 0073 §5 keeps subcontractors
   functionally untouched; DB-side KEPT names (`dc_payment_recorded`, `wp_labor_costs.own_cost/
 dc_cost`, `dc_count`/`dc_distributed`, `workers.contractor_id`).
+
+## Spec 272 — worker level + หัวหน้าช่าง badge manage UI — 🔨 IN PROGRESS (2026-07-06, code-only)
+
+Operator-confirmed gap: no UI manages worker levels / HT badge / per-level sell rates.
+Discovery: spec 161 built ALL the schema (workers.level + set_worker_level; sell_rate_table +
+/nova/dials editor; projects.ht_worker_id + assign_project_ht) — zero roster-side UI ever landed.
+Live-verified pre-build: assign_project_ht = pm/pd/super, requires pay_type='daily' AND active,
+last-wins; set_worker_level = super_admin only; roster currently 0 workers (spec 266 wipe);
+sell_rate_table 4 seeded rows. This spec = surfacing only, NO migration:
+
+- U1 ระดับช่าง: roster chip + edit-sheet grade selector (super_admin) + setWorkerLevel action.
+- U2 หัวหน้าช่าง: row badge off projects.ht_worker_id + edit-sheet assign block (PM_ROLES,
+  daily+active+on-project; replace-warning names the current HT) + assignProjectHt action.
+- U3 sell-rate discoverability link /workers → /nova/dials (super_admin).
+
+Constraints honored: labels.ts / settings/sections.ts / database.types.ts untouched (open PR
+#325 owns them); level labels reuse the existing SSOT in src/lib/nova/dials.ts.

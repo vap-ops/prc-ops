@@ -19,13 +19,16 @@ import { useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/lib/ui/use-toast";
 import {
+  assignProjectHt,
   assignWorkerToProject,
   createWorker,
   setWorkerDayRate,
+  setWorkerLevel,
   updateWorker,
   type WorkerActionResult,
 } from "@/app/workers/actions";
 import type { Database } from "@/lib/db/database.types";
+import { WORKER_LEVEL_LABEL, WORKER_LEVEL_ORDER, type WorkerLevel } from "@/lib/nova/dials";
 import { RadioChip } from "@/components/features/common/radio-chip";
 import { WorkerInviteBlock } from "@/components/features/portal/worker-invite-block";
 import {
@@ -65,10 +68,18 @@ export type ManagedWorker = {
   portalBound: boolean;
   // Spec 200: the worker's current project (one at a time), or null if unassigned.
   project_id: string | null;
+  // Spec 272 U1 / ADR 0060: skill grade (null = ยังไม่ประเมิน; super_admin sets).
+  level: WorkerLevel | null;
 };
 
-// Spec 200: a project the assigner can put a worker on.
-export type AssignableProject = { id: string; code: string; name: string };
+// Spec 200: a project the assigner can put a worker on. Spec 272 U2: its current
+// หัวหน้าช่าง (projects.ht_worker_id) feeds the roster badge + replace-warning.
+export type AssignableProject = {
+  id: string;
+  code: string;
+  name: string;
+  ht_worker_id: string | null;
+};
 
 function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
   const router = useRouter();
@@ -282,10 +293,22 @@ function WorkerRow({
   worker,
   contractorName,
   projects,
+  canGrade = false,
+  canAssignHt = false,
+  htCodes,
+  currentProjectHt,
 }: {
   worker: ManagedWorker;
   contractorName: string | null;
   projects: AssignableProject[];
+  // Spec 272: UI gates mirroring the RPC gates (set_worker_level = super_admin;
+  // assign_project_ht = pm/pd/super) — the DEFINER RPCs re-check server-side.
+  canGrade?: boolean;
+  canAssignHt?: boolean;
+  // Spec 272 U2: codes of the projects this worker heads (the row badge)…
+  htCodes: string[];
+  // …and the current หัวหน้าช่าง of the worker's own project (replace-warning).
+  currentProjectHt: { id: string; name: string } | null;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -295,9 +318,13 @@ function WorkerRow({
   const [note, setNote] = useState(worker.note ?? "");
   // Spec 200: the project assignment (one at a time); "" = unassigned.
   const [project, setProject] = useState(worker.project_id ?? "");
+  // Spec 272 U1: the grade selector value ("" = still ungraded).
+  const [level, setLevel] = useState<string>(worker.level ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [htBusy, setHtBusy] = useState(false);
   const currentProject = projects.find((p) => p.id === worker.project_id) ?? null;
+  const isHtOfCurrentProject = currentProjectHt?.id === worker.id;
   // Spec 139: optimistic active-toggle. `committedActive` is the post-mount truth
   // (seeded from the prop, advanced only by a successful flip); `optimisticActive`
   // shows the tapped value instantly while the action is in flight and auto-reverts
@@ -337,13 +364,33 @@ function WorkerRow({
     const projectResult: WorkerActionResult = projectChanged
       ? await assignWorkerToProject({ workerId: worker.id, projectId: project })
       : { ok: true };
+    // Spec 272 U1: grade change rides the same save ("" placeholder never sends).
+    const levelChanged = canGrade && level !== "" && level !== (worker.level ?? "");
+    const levelResult: WorkerActionResult = levelChanged
+      ? await setWorkerLevel({ id: worker.id, level: level as WorkerLevel })
+      : { ok: true };
     setBusy(false);
-    const failed = [nameResult, rateResult, projectResult].find((r) => !r.ok);
+    const failed = [nameResult, rateResult, projectResult, levelResult].find((r) => !r.ok);
     if (failed && !failed.ok) {
       setError(failed.error);
       return;
     }
     setEditing(false);
+    router.refresh();
+  }
+
+  // Spec 272 U2: instant action (not save-coupled) — the RPC is last-wins; a
+  // success re-renders the badges via router.refresh (the sheet stays open).
+  async function promoteToHt() {
+    if (!worker.project_id) return;
+    setHtBusy(true);
+    setError(null);
+    const result = await assignProjectHt({ projectId: worker.project_id, workerId: worker.id });
+    setHtBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
     router.refresh();
   }
 
@@ -375,6 +422,18 @@ function WorkerRow({
             ) : null}
             {contractorName ? (
               <span className="text-ink-muted ml-1.5 text-xs">· {contractorName}</span>
+            ) : null}
+            {/* Spec 272 U1: skill grade (readable category, ADR 0060 §1). */}
+            {worker.level ? (
+              <span className="text-ink-muted ml-1.5 text-xs">
+                · ระดับ{WORKER_LEVEL_LABEL[worker.level]}
+              </span>
+            ) : null}
+            {/* Spec 272 U2: หัวหน้าช่าง badge — this worker heads these projects. */}
+            {htCodes.length > 0 ? (
+              <span className="text-action ml-1.5 text-xs font-medium">
+                · หัวหน้าช่าง {htCodes.join(", ")}
+              </span>
             ) : null}
             {!optimisticActive ? (
               <span className="text-ink-muted ml-1.5 text-xs">(ปิดใช้งาน)</span>
@@ -464,6 +523,29 @@ function WorkerRow({
               ))}
             </select>
           </label>
+          {/* Spec 272 U1: the grade selector — super_admin only (ADR 0060 §5).
+              A graded worker gets no placeholder: the RPC has no clear path. */}
+          {canGrade ? (
+            <label className="text-ink-secondary mt-2 block text-sm">
+              ระดับช่าง
+              <select
+                value={level}
+                onChange={(e) => setLevel(e.target.value)}
+                className={FIELD_STACKED}
+              >
+                {worker.level === null ? (
+                  <option value="" disabled>
+                    ยังไม่ประเมิน
+                  </option>
+                ) : null}
+                {WORKER_LEVEL_ORDER.map((l) => (
+                  <option key={l} value={l}>
+                    {WORKER_LEVEL_LABEL[l]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           {error ? <p className="text-danger mt-2 text-sm">{error}</p> : null}
           <div className="mt-3 flex gap-2">
             <button
@@ -483,6 +565,36 @@ function WorkerRow({
             </button>
           </div>
 
+          {/* Spec 272 U2: หัวหน้าช่าง assignment — pm/pd/super, daily ช่าง only
+              (the assign_project_ht gate). Last-wins: the caption names whom a
+              tap would replace. No unassign path exists (assign a successor). */}
+          {canAssignHt && worker.pay_type === "daily" ? (
+            <div className="mt-3">
+              {isHtOfCurrentProject ? (
+                <p className="text-ink-secondary text-xs font-medium">หัวหน้าช่างของโครงการนี้</p>
+              ) : !worker.project_id ? (
+                <p className="text-ink-muted text-xs">กำหนดโครงการก่อนจึงตั้งหัวหน้าช่างได้</p>
+              ) : currentProject && committedActive ? (
+                // currentProject gates the button (not just project_id): a PM's
+                // RLS-scoped projects list may omit a non-member project — no
+                // dangling "— " label, no acting on an unseen project.
+                <>
+                  <button
+                    type="button"
+                    disabled={htBusy}
+                    onClick={() => void promoteToHt()}
+                    className={BUTTON_SECONDARY_COMPACT}
+                  >
+                    ตั้งเป็นหัวหน้าช่าง — {currentProject.code}
+                  </button>
+                  {currentProjectHt && currentProjectHt.id !== worker.id ? (
+                    <p className="text-ink-muted mt-1 text-xs">จะแทนที่: {currentProjectHt.name}</p>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
+          ) : null}
+
           {/* ADR 0062 U4a: a daily ช่าง is a portal user — issue/track their LINE
               claim link here. Monthly ช่าง don't have a portal. */}
           {worker.pay_type === "daily" ? (
@@ -500,6 +612,8 @@ export function WorkerRosterManager({
   workers,
   contractors,
   projects = [],
+  canGrade = false,
+  canAssignHt = false,
 }: {
   workers: ManagedWorker[];
   // Legacy contractor parents (pre-ADR-0062) still resolve a name for display; new
@@ -507,11 +621,25 @@ export function WorkerRosterManager({
   contractors: { id: string; name: string; status?: string; contractor_category?: string }[];
   // Spec 200: projects the assigner can put a worker on (the assign picker).
   projects?: AssignableProject[];
+  // Spec 272: page-derived UI gates (super_admin grades; PM_ROLES assign HT).
+  canGrade?: boolean;
+  canAssignHt?: boolean;
 }) {
   const contractorNames = new Map(contractors.map((c) => [c.id, c.name]));
   // Spec 266 U3: group the roster by การจ่าย / pay_type (no legacy own/contractor vocabulary).
   const monthlyWorkers = workers.filter((w) => w.pay_type === "monthly");
   const dailyWorkers = workers.filter((w) => w.pay_type === "daily");
+  // Spec 272 U2: หัวหน้าช่าง lookups off the already-loaded rows (no extra query).
+  const workerNames = new Map(workers.map((w) => [w.id, w.name]));
+  const htCodesByWorker = new Map<string, string[]>();
+  for (const p of projects) {
+    if (!p.ht_worker_id) continue;
+    htCodesByWorker.set(p.ht_worker_id, [...(htCodesByWorker.get(p.ht_worker_id) ?? []), p.code]);
+  }
+  function currentProjectHtOf(w: ManagedWorker): { id: string; name: string } | null {
+    const ht = projects.find((p) => p.id === w.project_id)?.ht_worker_id ?? null;
+    return ht ? { id: ht, name: workerNames.get(ht) ?? "คนปัจจุบัน" } : null;
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -534,6 +662,10 @@ export function WorkerRosterManager({
                     w.contractor_id ? (contractorNames.get(w.contractor_id) ?? null) : null
                   }
                   projects={projects}
+                  canGrade={canGrade}
+                  canAssignHt={canAssignHt}
+                  htCodes={htCodesByWorker.get(w.id) ?? []}
+                  currentProjectHt={currentProjectHtOf(w)}
                 />
               ))}
             </ul>
