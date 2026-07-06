@@ -1,31 +1,24 @@
 // Writing failing test first.
 //
-// Operator: a site_admin "can't normally work on more than 1 project at a time",
-// so a site_admin who belongs to exactly ONE project should LAND on that project
-// (/projects/[id]) instead of the /sa daily home. With 0 or many projects they
-// keep /sa (the home that spans their work / explains the empty state). Every
-// other role ignores the project list and lands on its roleHome.
+// Operator 2026-07-06: the single-project site_admin → /projects/[id] landing was
+// REVERTED. /sa is now the SA daily home (งานของฉัน + แผนวันนี้ + the แผนพรุ่งนี้
+// board + one-tap มาทำ); a single-project SA who landed on the bare project hub
+// never saw the board (spec 273 discoverability). Landing is now pure role-only:
+// resolveHomePath === roleHome. Every role — site_admin included — lands on its
+// role home regardless of project count.
 
 import { describe, expect, it } from "vitest";
 
 import { resolveHomePath } from "@/lib/auth/resolve-home";
 
-describe("resolveHomePath (single-project site_admin lands on their project)", () => {
-  it("sends a single-project site_admin straight to that project", () => {
-    expect(resolveHomePath("site_admin", ["p1"])).toBe("/projects/p1");
+describe("resolveHomePath (role-only landing; single-project SA rule reverted)", () => {
+  it("lands a site_admin on /sa (the daily home), not their project", () => {
+    expect(resolveHomePath("site_admin")).toBe("/sa");
   });
 
-  it("keeps a multi-project site_admin on the /sa daily home", () => {
-    expect(resolveHomePath("site_admin", ["p1", "p2"])).toBe("/sa");
-  });
-
-  it("keeps a no-project site_admin on /sa (the empty-state home)", () => {
-    expect(resolveHomePath("site_admin", [])).toBe("/sa");
-  });
-
-  it("ignores the project list for non-site_admin roles (roleHome wins)", () => {
-    expect(resolveHomePath("project_manager", ["p1"])).toBe("/dashboard");
-    expect(resolveHomePath("procurement", ["p1"])).toBe("/requests");
-    expect(resolveHomePath("super_admin", ["p1"])).toBe("/dashboard");
+  it("lands each other role on its roleHome", () => {
+    expect(resolveHomePath("project_manager")).toBe("/dashboard");
+    expect(resolveHomePath("super_admin")).toBe("/dashboard");
+    expect(resolveHomePath("procurement")).toBe("/requests");
   });
 });
