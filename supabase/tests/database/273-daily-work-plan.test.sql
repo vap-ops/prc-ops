@@ -1,5 +1,5 @@
 begin;
-select plan(43);
+select plan(44);
 
 -- ============================================================================
 -- Spec 273 U1 / ADR 0076 — แผนพรุ่งนี้: the SA next-day work board.
@@ -287,6 +287,17 @@ select is(
      where project_id='a1a10273-0273-0273-0273-a1a1a1a10273'),
   0, 'a non-member site_admin cannot read the board');
 reset role;
+
+-- ----------------------------------------------- I. WP delete cascades to board
+-- An empty leaf WP that sits on a board drops from it when hard-deleted — the
+-- board is ephemeral, so the FK cascades rather than blocking the delete
+-- (delete_work_package guards WP history but not the daily board).
+delete from public.work_packages where id = 'b2b20273-0273-0273-0273-b2b2b2b20273';
+select is(
+  (select count(*)::int from public.daily_work_plan_items i
+     join public.daily_work_plans p on p.id = i.plan_id
+    where p.project_id = 'a1a10273-0273-0273-0273-a1a1a1a10273' and p.plan_date = '2026-07-07'),
+  0, 'deleting a WP cascades its board item away');
 
 select * from finish();
 rollback;
