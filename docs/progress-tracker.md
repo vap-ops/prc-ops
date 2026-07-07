@@ -6,6 +6,21 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 279 U1 — self-governance worker onboarding: crew entity + dedup key — 🔨 IN PROGRESS (2026-07-08)
+
+The roster prerequisite for spec 278's attendance muster (the muster's ANALYZE-FIRST found `workers` EMPTY firm-wide → dead-on-arrival; real blocker = onboarding). Operator chose **self-governance** onboarding (ADR 0079). U1 = the schema spine, TDD (pgTAP RED-first), **danger-path → operator-held db:push + merge**.
+
+- **New `crews`** (project-scoped org unit): `lead_worker_id` (named accountable head, nullable-but-write-gate-requires), `kind` (dc|subcon), `default_day_rate` (money, zero authenticated grant), `active`; `UNIQUE(project_id, name) WHERE active`.
+- **New `crew_members`** (SSOT, append-only tombstone): `UNIQUE(worker_id) WHERE removed_at IS NULL` — one active crew per human. Worker↔crew is **derived** (no denormalised `crew_id` pointer → zero drift).
+- **Dedup key** = reuse `workers.tax_id` (the 13-digit Thai national/tax ID) with a **firm-wide partial-unique index** (`WHERE tax_id IS NOT NULL`, spans active+inactive) — the anti-ghost / anti-double-count key. Checksum validated in the U2 add-member RPC (migrant-safe), not a rigid table CHECK.
+- **RPCs (SECURITY DEFINER)**: `create_crew` / `reassign_crew_lead` gated on `is_back_office` (the live 5-role onboarding set ≡ `WORKER_ROSTER_ROLES` — the design workflow's claimed "gate drift excluding procurement_manager" was **DISPROVEN** by a live `pg_get_functiondef` check); `current_user_led_crew_ids()` helper (`lead_worker_id IS NOT NULL` guarded). Lead authority = the `current_user_worker_id() = crews.lead_worker_id` predicate (NOT a role — `claim_worker_invite` forces role=contractor, verified), coalesce-to-false + null-guarded (spec-131 self-check trap on a new write surface).
+- **RLS** on both tables: writes via the DEFINER RPCs only (no direct DML grant); `crews` readable by `is_back_office` + the lead's own-crew predicate.
+- **Grounded pre-build** (verify-don't-guess, live queries): `tax_id`/`level`(worker_level enum)/`day_rate`(NOT NULL)/`contractor_consents.worker_id` all confirmed present; `pay_type` = {monthly, daily} so subcon members stay in `subcontract_crew_members` (D3, ต้า+สุทิน).
+
+**Open questions:** `ht_worker_id` (spec-271 project WP-owner) vs `crews.lead_worker_id` (per-crew day-lead) — the cost model must read one; resolve as U2+ progresses. ⚖️ Two counsel items (PDPA basis for phoneless; retention-vs-erasure on withdrawal) gate U3, not U1. Pre-existing ADR-0060 engine gaps (no `level` snapshot at settlement; `day_rate=0` leak) reconciled as U0 before the cost gates (U6).
+
+---
+
 ## Spec 275 U4 — rental variance roll-up (committed vs charged-to-WP vs paid-to-vendor) — ✅ SHIPPED (2026-07-08, code-only, no schema)
 
 Read-only variance roll-up on `/equipment/rentals` (money, back office; the page gate keeps site_admin out). Mirrors the subcontracts "Σ agreed vs Σ paid" pattern. Code-only — auto-merges on green.
