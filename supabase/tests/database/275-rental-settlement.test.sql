@@ -13,8 +13,9 @@ select plan(57);
 -- routed under the synthetic source_table 'rental_deposits'.
 --
 -- Pins: enum + table shape + ZERO-GRANT posture; append-only guard; the deposit
--- and settlement posters + drain arms; the gate (pm/super/procurement admitted;
--- site_admin/visitor/project_director refused); the deposit ceiling; the thin
+-- and settlement posters + drain arms; the gate (the 5-role create-audience —
+-- pm/super/procurement/procurement_manager/project_director — admitted, here
+-- represented by pm/super/procurement/PD; site_admin/visitor refused); the thin
 -- journal (proves base/fees are NOT re-posted); WHT at 5% of base; supersede
 -- reverse-and-repost; account 1320 seeded.
 --
@@ -172,9 +173,9 @@ select throws_ok($$ select public.record_rental_settlement(
   'aa000375-0000-4000-8000-000000000001'::uuid, 'INV-VI', date '2026-08-01', 0,0,0,0,0,0, 'bank_transfer', null) $$,
   '42501', null, 'record refuses visitor');
 set local "request.jwt.claims" = '{"sub": "55555555-5555-5555-5555-555555550375"}';  -- project_director
-select throws_ok($$ select public.record_rental_settlement(
-  'aa000375-0000-4000-8000-000000000001'::uuid, 'INV-PD', date '2026-08-01', 0,0,0,0,0,0, 'bank_transfer', null) $$,
-  '42501', null, 'record refuses project_director (settlement gate is pm/super/procurement)');
+select lives_ok($$ select public.record_rental_settlement(
+  'aa000375-0000-4000-8000-000000000001'::uuid, 'INV-PD', date '2026-08-01', 100,0,0,0,0,0, 'bank_transfer', null) $$,
+  'project_director may record a settlement (5-role gate: PM-gated ⊇ project_director invariant)');
 set local "request.jwt.claims" = '{"sub": "66666666-6666-6666-6666-666666660375"}';  -- super_admin
 select lives_ok($$ select public.record_rental_settlement(
   'aa000375-0000-4000-8000-000000000001'::uuid, 'INV-SUPER', date '2026-08-01', 100,0,0,0,0,0, 'bank_transfer', null) $$,

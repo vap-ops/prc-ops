@@ -320,7 +320,11 @@ vendor-invoice record exists today (ADR 0078 decision 7).
 > GL. WHT is issued only when the supplier has a valid 13-digit `tax_id` and
 > `base > 0`; it is **not** re-issued on a settlement supersede (certs are
 > immutable — a base correction that changes withholding is a manual WHT action).
-> Gate: pm/super/procurement (project_director is NOT admitted here).
+> Gate: the 5-role rental create-audience —
+> pm/super/procurement/procurement_manager/project_director (same as
+> `add_rental_charge`). The narrower pm/super/procurement first cut violated the
+> role-inclusion invariants pgTAP 90 (PM-gated ⊇ project_director) and 261
+> (procurement-gated ⊇ procurement_manager), fixed in mig `075300`.
 
 ### What ships
 
