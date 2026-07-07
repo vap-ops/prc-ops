@@ -350,29 +350,38 @@ select ok(
 -- E. Void: gate (plain procurement + site_admin refused; PM + procurement_manager
 --    admitted); posted → reversed + deleted, pending → skipped + deleted.
 -- ============================================================================
+-- rental_charges is ZERO-GRANT — the authenticated role cannot SELECT it (the
+-- void RPC reads it internally as definer). Resolve the target charge ids AS
+-- OWNER into session GUCs, so the gated void calls pass a uuid without reading
+-- the zero-grant table under authenticated (which would raise its OWN 42501 and
+-- mask the gate — a false pass).
+reset role;
+do $$
+begin
+  perform set_config('test275.charge11',
+    (select id::text from public.rental_charges
+      where rental_batch_id = 'aa000275-0000-4000-8000-000000000001'
+        and charge_type = 'delivery' and amount = 11), false);
+  perform set_config('test275.charge107',
+    (select id::text from public.rental_charges
+      where rental_batch_id = 'aa000275-0000-4000-8000-000000000001'
+        and charge_type = 'delivery' and amount = 107), false);
+end $$;
+
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "44444444-4444-4444-4444-444444440275"}';  -- procurement
 select throws_ok(
-  $$ select public.void_rental_charge(
-       (select id from public.rental_charges
-         where rental_batch_id = 'aa000275-0000-4000-8000-000000000001'
-           and charge_type = 'delivery' and amount = 11)) $$,
+  $$ select public.void_rental_charge(current_setting('test275.charge11')::uuid) $$,
   '42501', null, 'void refuses plain procurement (manager-only: un-booking money)');
 set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222220275"}';  -- site_admin
 select throws_ok(
-  $$ select public.void_rental_charge(
-       (select id from public.rental_charges
-         where rental_batch_id = 'aa000275-0000-4000-8000-000000000001'
-           and charge_type = 'delivery' and amount = 11)) $$,
+  $$ select public.void_rental_charge(current_setting('test275.charge11')::uuid) $$,
   '42501', null, 'void refuses site_admin');
 
 -- PM voids the POSTED delivery-107 charge → its entry is reversed, row deleted.
 set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111110275"}';
 select lives_ok(
-  $$ select public.void_rental_charge(
-       (select id from public.rental_charges
-         where rental_batch_id = 'aa000275-0000-4000-8000-000000000001'
-           and charge_type = 'delivery' and amount = 107)) $$,
+  $$ select public.void_rental_charge(current_setting('test275.charge107')::uuid) $$,
   'project_manager voids the posted delivery charge');
 reset role;
 -- The 2100 credit of 107 uniquely identifies the delivery-107 charge entry
@@ -398,12 +407,19 @@ set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111110275"}';  -- PM adds
 select public.add_rental_charge(
   'aa000275-0000-4000-8000-000000000001'::uuid, 'other', 30, 0, 'ค่ามัดจำ');
+reset role;
+-- Resolve the fresh charge's id as owner (zero-grant table).
+do $$
+begin
+  perform set_config('test275.charge30',
+    (select id::text from public.rental_charges
+      where rental_batch_id = 'aa000275-0000-4000-8000-000000000001'
+        and charge_type = 'other' and amount = 30), false);
+end $$;
+set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "77777777-7777-7777-7777-777777770275"}';  -- procurement_manager voids
 select lives_ok(
-  $$ select public.void_rental_charge(
-       (select id from public.rental_charges
-         where rental_batch_id = 'aa000275-0000-4000-8000-000000000001'
-           and charge_type = 'other' and amount = 30)) $$,
+  $$ select public.void_rental_charge(current_setting('test275.charge30')::uuid) $$,
   'procurement_manager voids a still-pending charge (spec 261 item 2 gate)');
 reset role;
 select is(

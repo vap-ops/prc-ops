@@ -31,7 +31,9 @@ select enum_has_labels(
         'subcontract_crew_member_add', 'subcontract_crew_member_update',
         'subcontract_crew_document_add',
         -- Spec 260: PO-level charges (transport/discount/other).
-        'po_charge_add', 'po_charge_void'],
+        'po_charge_add', 'po_charge_void',
+        -- Spec 275 U2: one-time rental fees.
+        'rental_charge_add', 'rental_charge_void'],
   'audit_action has the expected v1+profile_update+purchasing+labor+equipment+accounting labels'
 );
 
