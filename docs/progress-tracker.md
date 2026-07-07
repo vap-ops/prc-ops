@@ -6,6 +6,34 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 275 U2 — one-time rental fees (rental_charges + GL) — 🔨 IN PROGRESS (2026-07-07, additive schema + money/GL, operator-held)
+
+- New `rental_charges` (delivery|pickup|cleaning|insurance|other, amount, vat_rate, note, on
+  delete cascade → `equipment_rental_batches`) + `add_rental_charge`/`void_rental_charge` RPCs +
+  `post_rental_charge_to_gl` poster + drain arm. Mirrors `purchase_order_charges` (spec 260).
+  Migs `20260813074300`–`074600` (4-file split, mirrors spec 260's).
+- **Build decisions (locked, all consistent with spec §U2):**
+  - **Zero-grant money table** (mirror `equipment_rental_batches`, NOT the readable PO-charge
+    posture): RLS on + `revoke all from anon, authenticated`, no policy/grant, admin-read only.
+  - **No project/WP dimension** on the WIP leg — the batch header carries no project_id and
+    `post_rental_batch_to_gl` posts `1400` undimensioned; U2's fee mirrors it. No per-line split
+    (a batch has no member lines, unlike a PO): the whole net → one `1400` Dr.
+  - **Poster legs:** Dr `1400` WIP (net) + Dr `1300` Input VAT (gross-inclusive split, ADR 0045)
+    / Cr `2100` AP (gross, supplier party). 1300/1400/2100 all seeded (verified). All 5 types are
+    positive debit costs — NO discount/contra type (unlike spec 260).
+  - **add gate** = 5-role create audience `(pm, super, procurement, procurement_manager, pd)` —
+    matches spec-261-widened `add_purchase_order_charge` + `create_equipment_rental_batch`.
+  - **void gate** = `is_manager(role) OR role='procurement_manager'` (spec 261 item 2 — un-booking
+    money is manager-tier + procmgr, not plain procurement). Void = reverse posted entry / skip
+    pending job, then DELETE (no supersede column).
+  - **drain** re-sourced from the LATEST def (`071700` spec266 — carries `wage_payments`, NOT the
+    older `dc_payments`; copying `070700` would regress that) + one `rental_charges` arm; reconcile
+    vs LIVE `pg_get_functiondef` at db:push.
+- DB-only (no UI/TS per spec). db:types regen after db:push adds the types (no consumer yet).
+- TDD: `supabase/tests/database/275-rental-charges.test.sql` (pgTAP, RED before db:push). No vitest
+  change.
+- **Ends at operator db:push gate** (money/GL — will NOT self-push). PR held for operator merge.
+
 ## Spec 275 U5 — relocate rental recording to the project detail — ✅ SHIPPED (2026-07-07, code-only, no schema)
 
 - Relocates spec 268's `/equipment/rentals` recorder INTO the project. Reuses U1's
