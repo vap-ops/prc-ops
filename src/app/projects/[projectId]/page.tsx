@@ -7,10 +7,12 @@ import {
   CalendarPlus,
   ClipboardList,
   FileText,
+  Forklift,
   Settings,
   Warehouse,
 } from "lucide-react";
 import {
+  BACK_OFFICE_ROLES,
   PROJECT_VIEW_ROLES,
   SCHEDULE_VIEW_ROLES,
   SUPPLY_PLAN_ROLES,
@@ -19,6 +21,7 @@ import {
 } from "@/lib/auth/role-home";
 import {
   projectSettingsHref,
+  rentalsHref,
   reportsHref,
   scheduleHref,
   storeHref,
@@ -28,7 +31,12 @@ import { BUTTON_SECONDARY, ICON_CHIP_MUTED } from "@/lib/ui/classes";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { ProjectInfoButton } from "@/components/features/work-packages/project-info-button";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
-import { DAILY_WORK_PLAN_LABEL, PROJECT_STATUS_LABEL, STORE_LABEL } from "@/lib/i18n/labels";
+import {
+  DAILY_WORK_PLAN_LABEL,
+  EQUIPMENT_RENTAL_LABEL,
+  PROJECT_STATUS_LABEL,
+  STORE_LABEL,
+} from "@/lib/i18n/labels";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
@@ -111,6 +119,11 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
   // this finally admits site_admin (the on-site storekeeper). RLS scopes the
   // viewer inside the sub-route.
   const canSeeStore = WP_DETAIL_ROLES.includes(ctx.role);
+  // Spec 275 U5: the เช่าอุปกรณ์ chip — the equipment-rental recorder relocated
+  // into the project (was the settings /equipment/rentals hub). MONEY surface,
+  // so BACK_OFFICE_ROLES only (the create-RPC audience) — deliberately NEVER
+  // site_admin (spec 46 / ADR 0055 decision 6), unlike the store chip above.
+  const canSeeRentals = BACK_OFFICE_ROLES.includes(ctx.role);
   // Spec 273: the SA next-day board (แผนพรุ่งนี้) is SA-oriented (/sa/plan admits
   // site_admin + super_admin). A single-project SA lands on this project screen,
   // so surface the board here too — a labelled full-width entry, not just the
@@ -201,6 +214,17 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
                 className={ICON_CHIP_MUTED}
               >
                 <Warehouse aria-hidden className="h-5 w-5" />
+              </Link>
+            ) : null}
+            {/* Spec 275 U5: the เช่าอุปกรณ์ recorder — money-gated
+                (BACK_OFFICE_ROLES), so it never renders for a site_admin. */}
+            {canSeeRentals ? (
+              <Link
+                href={rentalsHref(project.id)}
+                aria-label={EQUIPMENT_RENTAL_LABEL}
+                className={ICON_CHIP_MUTED}
+              >
+                <Forklift aria-hidden className="h-5 w-5" />
               </Link>
             ) : null}
             {isManagerRole(ctx.role) ? (
