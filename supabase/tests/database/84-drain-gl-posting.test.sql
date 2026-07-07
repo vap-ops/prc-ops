@@ -37,9 +37,9 @@ values
    '11111111-1111-1111-1111-111111110624');
 insert into public.wp_labor_costs (work_package_id, own_cost, dc_cost, frozen_by) values
   ('ee000001-0000-4000-8000-000000000624', 700, 300, '11111111-1111-1111-1111-111111110624');
-insert into public.equipment_rental_batches (id, owner_id, monthly_rate, starts_on, created_by) values
+insert into public.equipment_rental_batches (id, owner_id, supplier_id, monthly_rate, starts_on, created_by) values
   ('e0000001-0000-4000-8000-000000000624', 'b0000001-0000-4000-8000-000000000624',
-   50000, date '2026-07-01', '11111111-1111-1111-1111-111111110624');
+   '5a000001-0000-4000-8000-000000000624', 50000, date '2026-07-01', '11111111-1111-1111-1111-111111110624');
 insert into public.purchase_requests
   (id, work_package_id, item_description, quantity, unit, requested_by, status, amount, vat_rate, supplier_id, purchased_at)
 values
@@ -98,13 +98,14 @@ select is((select credit from public.journal_lines
     and account_id = (select id from public.gl_accounts where code='2110')),
   300::numeric, 'labor freeze credits DC-clearing 300 (dc)');
 
--- Rental: Dr WIP 1400 50000 / Cr Intercompany AP 2120 50000 (owner party).
+-- Rental: Dr WIP 1400 50000 / Cr AP-trade 2100 50000 (supplier party). Spec 275 U0
+-- (ADR 0078) repointed the poster off intercompany 2120/owner to trade AP 2100/supplier.
 select is((select count(*) from public.journal_lines
   where entry_id = (select id from public.journal_entries
       where source_table='equipment_rental_batches' and source_id='e0000001-0000-4000-8000-000000000624')
-    and account_id = (select id from public.gl_accounts where code='2120')
-    and credit = 50000 and equipment_owner_id = 'b0000001-0000-4000-8000-000000000624'),
-  1::bigint, 'rental credits Intercompany AP 50000 (owner party)');
+    and account_id = (select id from public.gl_accounts where code='2100')
+    and credit = 50000 and supplier_id = '5a000001-0000-4000-8000-000000000624'),
+  1::bigint, 'rental credits AP-trade 2100 50000 (supplier party)');
 
 -- Purchase (poster proven in 83; one sanity line here): Cr AP 2100 1070 (supplier).
 select is((select count(*) from public.journal_lines

@@ -6506,3 +6506,30 @@ Open questions / deferred to later units:
 - `log_labor_day` p_directive_id tag rides U5's `labor_logs.directive_id` column.
 - U2b/U6 swap the actual_end FEED to the new transition rows (approvals decided_at stays the
   pre-U3 fallback for history predating them, incl. all of 004's existing approvals).
+
+## Spec 275 U0 — equipment-rental vendor unification (2026-07-07)
+
+DONE (schema, additive; PR held for operator merge — migrations + GL). ADR 0078 (amends
+0055): PRI generalized to just-another-rental-vendor.
+
+- mig `074000`: suppliers +contact_status (tax_id + is_vat_registered ALREADY existed —
+  spec 84 `20260628000100` / spec 191 U2 `20260811000600`; a seam-sweep miss caught at push
+  and corrected). Mirror equipment_owners -> suppliers (id-preserving); add+backfill
+  supplier_id on equipment_items + equipment_rental_batches; owner_id DEPRECATED (kept, not
+  dropped). Idempotent (if not exists).
+- mig `074100`: post_rental_batch_to_gl repointed 2120 (AP-intercompany, owner party) ->
+  2100 (AP-trade, supplier party); re-sourced byte-for-byte from live 20260743000100.
+- pgTAP `274` (15/15) new; `84` rental assertion updated to the 2100/supplier behavior.
+  Suite: 237/240 files pass; the 3 reds are the known pre-existing trio (100 #325, 200
+  GL-drift, 221 catalog), unrelated to U0.
+- Borrowed the DB-ahead spec-268 migs `071900`/`072000` (untracked) into the worktree so
+  db:push saw a consistent history (the known #325 drift). NOT committed.
+
+Open questions / deferred:
+
+- db:types NOT regenerated: the live schema carries spec-268's unmerged `rate_period`, so a
+  regen would pull #325 schema into database.types.ts. U0 has no app-code consumer of
+  supplier_id/contact_status — regen deferred to U1 (by when #325 should be merged).
+- owner_id drop + equipment_owners teardown = a later operator-held destructive cleanup.
+- spec 268 (`071900`) already added equipment_rental_batches.rate_period — reconcile with
+  U1's rental_rate_tiers design (may overlap); #325 should merge before U1.
