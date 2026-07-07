@@ -6558,3 +6558,24 @@ Open questions / deferred:
 - owner_id drop + equipment_owners teardown = a later operator-held destructive cleanup.
 - spec 268 (`071900`) already added equipment_rental_batches.rate_period — reconcile with
   U1's rental_rate_tiers design (may overlap); #325 should merge before U1.
+
+## Spec 275 U1 — rental agreement: vendor switch + agreement fields (2026-07-07)
+
+BUILT in worktree ../prc-ops-spec275u1 (commit 7f1bda59), AWAITING operator db:push gate.
+Thin delta over merged spec 268. Extends 268's /equipment/rentals (no rebuild).
+
+- mig `074200`: +deposit_amount/deposit_paid_date/min_rental_days/status (rental_agreement_status
+  enum active|returned|settled|cancelled); relax equipment_rental_batches.owner_id NOT NULL;
+  DROP/CREATE create_equipment_rental_batch owner_id->supplier_id (9-arg: +p_deposit_amount/
+  p_deposit_paid_date/p_min_rental_days; body re-sourced from LIVE 6-arg; anon EXECUTE revoked
+  explicitly; 5-role gate preserved); +equipment_items.rental_agreement_id (batch-grain link).
+- app: rental-view/page/actions/rental-manager owner->supplier + deposit/min-days inputs; labels.
+  Closes U0's null-party GL bug (create now sets supplier_id).
+- pgTAP file 268 rewritten (supplier-keyed, 9-arg sig, new columns, owner-id-rejected, bug-closed).
+- lint + vitest 2971 green. typecheck's ONLY error = the RPC 9-arg-vs-stale-6-arg-types gap in
+  actions.ts — resolves after db:push + db:types (inherent to a signature-changing migration).
+
+Open / deferred: status-change control deferred (create defaults active; transitions land with
+U3 settlement). rental_rate_tiers DROPPED (268's rate_period is the rate model).
+DEPLOY NOTE: dropping the 6-arg RPC briefly breaks /equipment/rentals in prod between db:push and
+the PR deploy — near-zero risk (new page, 0 rentals, back-office); merge promptly after push.

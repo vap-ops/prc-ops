@@ -1,10 +1,9 @@
-// Writing failing test first.
-//
 // Spec 268 — pure view model for /equipment/rentals: compose a rental batch's
 // rate label (฿…/เดือน | ฿…/วัน via the format SSOT), its period label (dated
-// span vs open-ended "whole project"), and the card list (owner/project name
+// span vs open-ended "whole project"), and the card list (supplier/project name
 // join, newest-first, per-batch allocation chips). MONEY presentation only —
 // the page feeds it admin-client reads; nothing here fetches.
+// Spec 275 U1: the party is a SUPPLIER (supplierId/supplierName), not an owner.
 
 import { describe, expect, it } from "vitest";
 import { formatThaiDate } from "@/lib/i18n/labels";
@@ -35,15 +34,15 @@ describe("rentalPeriodLabel", () => {
 });
 
 describe("buildRentalView", () => {
-  const owners = [
-    { id: "o1", name: "บ.เครนไทย" },
-    { id: "o2", name: "บ.นั่งร้านสยาม" },
+  const suppliers = [
+    { id: "s1", name: "บ.เครนไทย" },
+    { id: "s2", name: "บ.นั่งร้านสยาม" },
   ];
   const projects = [{ id: "p1", name: "โครงการ A" }];
   const batches = [
     {
       id: "b1",
-      ownerId: "o1",
+      supplierId: "s1",
       rate: 90000,
       ratePeriod: "monthly" as const,
       startsOn: "2026-07-01",
@@ -53,7 +52,7 @@ describe("buildRentalView", () => {
     },
     {
       id: "b2",
-      ownerId: "o2",
+      supplierId: "s2",
       rate: 3500,
       ratePeriod: "daily" as const,
       startsOn: "2026-07-10",
@@ -73,9 +72,9 @@ describe("buildRentalView", () => {
   ];
 
   it("joins names, sorts newest first, and attaches allocation chips", () => {
-    const cards = buildRentalView(batches, allocations, owners, projects);
+    const cards = buildRentalView(batches, allocations, suppliers, projects);
     expect(cards.map((c) => c.id)).toEqual(["b2", "b1"]);
-    expect(cards[1]?.ownerName).toBe("บ.เครนไทย");
+    expect(cards[1]?.supplierName).toBe("บ.เครนไทย");
     expect(cards[1]?.rateLabel).toBe("฿90,000.00/เดือน");
     expect(cards[0]?.rateLabel).toBe("฿3,500.00/วัน");
     expect(cards[0]?.note).toBe("ปั๊มคอนกรีต");
@@ -84,14 +83,14 @@ describe("buildRentalView", () => {
     expect(cards[0]?.allocations).toHaveLength(0);
   });
 
-  it("falls back to a placeholder for an unknown owner or project", () => {
+  it("falls back to a placeholder for an unknown supplier or project", () => {
     const cards = buildRentalView(
-      [{ ...batches[0]!, ownerId: "missing" }],
+      [{ ...batches[0]!, supplierId: "missing" }],
       [{ ...allocations[0]!, projectId: "missing" }],
-      owners,
+      suppliers,
       projects,
     );
-    expect(cards[0]?.ownerName).toBe("—");
+    expect(cards[0]?.supplierName).toBe("—");
     expect(cards[0]?.allocations[0]?.projectName).toBe("—");
   });
 });

@@ -30,6 +30,8 @@ import {
   EQUIPMENT_RATE_PERIOD_LABEL,
   EQUIPMENT_RENTAL_ALLOCATE_LABEL,
   EQUIPMENT_RENTAL_CUSTOM_PERIOD_LABEL,
+  EQUIPMENT_RENTAL_DEPOSIT_LABEL,
+  EQUIPMENT_RENTAL_MIN_DAYS_LABEL,
   EQUIPMENT_RENTAL_RECORD_LABEL,
   EQUIPMENT_RENTAL_WHOLE_PROJECT_LABEL,
 } from "@/lib/i18n/labels";
@@ -40,20 +42,22 @@ interface NamedRow {
 }
 
 export function RentalManager({
-  owners,
+  suppliers,
   projects,
   rentals,
   defaultDate,
 }: {
-  owners: NamedRow[];
+  suppliers: NamedRow[];
   projects: NamedRow[];
   rentals: RentalCard[];
   defaultDate: string;
 }) {
   const router = useRouter();
-  const [ownerId, setOwnerId] = useState("");
+  const [supplierId, setSupplierId] = useState("");
   const [rate, setRate] = useState("");
   const [ratePeriod, setRatePeriod] = useState<RentalRatePeriod>("monthly");
+  const [deposit, setDeposit] = useState("");
+  const [minDays, setMinDays] = useState("");
   const [wholeProject, setWholeProject] = useState(true);
   const [startsOn, setStartsOn] = useState(defaultDate);
   const [endsOn, setEndsOn] = useState("");
@@ -63,9 +67,11 @@ export function RentalManager({
   const [saving, startSave] = useTransition();
 
   function resetForm() {
-    setOwnerId("");
+    setSupplierId("");
     setRate("");
     setRatePeriod("monthly");
+    setDeposit("");
+    setMinDays("");
     setWholeProject(true);
     setStartsOn(defaultDate);
     setEndsOn("");
@@ -74,13 +80,23 @@ export function RentalManager({
   }
 
   function handleRecord() {
-    if (ownerId === "") {
+    if (supplierId === "") {
       setError("กรุณาเลือกผู้ให้เช่า");
       return;
     }
     const rateNumber = Number(rate);
     if (rate.trim() === "" || !Number.isFinite(rateNumber) || rateNumber < 0) {
       setError("กรอกค่าเช่าเป็นตัวเลข (ไม่ติดลบ)");
+      return;
+    }
+    const depositNumber = deposit.trim() === "" ? 0 : Number(deposit);
+    if (!Number.isFinite(depositNumber) || depositNumber < 0) {
+      setError("กรอกเงินมัดจำเป็นตัวเลข (ไม่ติดลบ)");
+      return;
+    }
+    const minDaysNumber = minDays.trim() === "" ? null : Number(minDays);
+    if (minDaysNumber !== null && (!Number.isInteger(minDaysNumber) || minDaysNumber <= 0)) {
+      setError("กรอกจำนวนวันเช่าขั้นต่ำเป็นจำนวนเต็มบวก");
       return;
     }
     if (startsOn.trim() === "") {
@@ -90,13 +106,15 @@ export function RentalManager({
     setError(null);
     startSave(async () => {
       const result = await createRentalBatch({
-        ownerId,
+        supplierId,
         rate: rateNumber,
         ratePeriod,
         startsOn,
         endsOn: wholeProject || endsOn.trim() === "" ? null : endsOn,
         note,
         projectId: projectId === "" ? null : projectId,
+        depositAmount: depositNumber,
+        minRentalDays: minDaysNumber,
       });
       if (!result.ok) {
         setError(result.error);
@@ -115,14 +133,14 @@ export function RentalManager({
           <label className="text-ink-secondary block text-sm">
             เช่าจาก
             <select
-              value={ownerId}
-              onChange={(e) => setOwnerId(e.target.value)}
+              value={supplierId}
+              onChange={(e) => setSupplierId(e.target.value)}
               className={`${FIELD_SELECT} mt-1`}
             >
               <option value="">— เลือกผู้ให้เช่า —</option>
-              {owners.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
+              {suppliers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
                 </option>
               ))}
             </select>
@@ -152,6 +170,32 @@ export function RentalManager({
               />
             ))}
           </div>
+
+          <label className="text-ink-secondary mt-2 block text-sm">
+            {EQUIPMENT_RENTAL_DEPOSIT_LABEL}
+            <input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step="0.01"
+              value={deposit}
+              onChange={(e) => setDeposit(e.target.value)}
+              className={FIELD_STACKED}
+            />
+          </label>
+
+          <label className="text-ink-secondary mt-2 block text-sm">
+            {EQUIPMENT_RENTAL_MIN_DAYS_LABEL}
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              step="1"
+              value={minDays}
+              onChange={(e) => setMinDays(e.target.value)}
+              className={FIELD_STACKED}
+            />
+          </label>
 
           <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="ระยะเวลาเช่า">
             <RadioChip
@@ -303,7 +347,7 @@ function RentalCardRow({
   return (
     <li className={CARD}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <span className="text-ink font-semibold break-words">{card.ownerName}</span>
+        <span className="text-ink font-semibold break-words">{card.supplierName}</span>
         <span className="text-ink shrink-0 font-semibold">{card.rateLabel}</span>
       </div>
       <p className="text-ink-secondary mt-1 text-sm">{card.periodLabel}</p>

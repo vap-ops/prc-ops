@@ -67,13 +67,13 @@ WP transfer price.
 
 ## Roadmap (units, dependency-ordered)
 
-| Unit   | Ships                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | DB?                | Depends on           |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ | -------------------- |
-| **U0** | **Vendor unification.** `suppliers` gains `contact_status` + `tax_id` + `is_vat_registered`; migrate `equipment_owners` → `suppliers`; add + backfill `supplier_id` on `equipment_items` + `equipment_rental_batches` (deprecate `owner_id` additively); repoint `post_rental_batch_to_gl` credit **2120 → 2100**, party = supplier.                                                                                                                                           | **Yes** (additive) | ADR 0078             |
-| **U1** | **Rental agreement (activate the dormant stack).** ALTER `equipment_rental_batches`: `deposit_amount`, `min_rental_days`, `status` enum (active/returned/settled/cancelled); new `rental_rate_tiers` child; `equipment_items.rental_agreement_id` (batch grain). RPCs `create_rental_agreement` / `update_rental_agreement` / `set_rental_rate_tiers` (mirror `create_subcontract`). Procurement UI on `/equipment` (new **สัญญาเช่า** section).                               | **Yes**            | U0                   |
-| **U2** | **One-time fees.** New `rental_charges` (type delivery/pickup/cleaning/insurance/other, amount, vat_rate) mirroring `purchase_order_charges` (spec 260) + `add_rental_charge` / `void_rental_charge` RPCs + GL poster.                                                                                                                                                                                                                                                         | **Yes**            | U1                   |
-| **U3** | **Settlement (VAT/WHT/deposit).** New append-only + supersede `rental_settlements` (vendor invoice: base + overtime + fees = net, VAT, WHT, method; deposit resolved separately as an asset) + `record_rental_settlement` / `supersede_rental_settlement` RPCs. GL poster: Dr WIP + Dr Input VAT (1300) / Cr AP (2100) or Bank, Cr WHT; deposit Dr 1320 at inception → released/forfeited at settlement; wire `record_wht_certificate` (rent 5%); seed account 1320 if absent. | **Yes**            | U1 (U2 for fees leg) |
-| **U4** | **Variance roll-up.** Agreement detail (admin-read): Σ charged-to-WP (`wp_equipment_sell` over the agreement's items) vs Σ paid-to-vendor (settlements) + committed (agreement rate); overpay/under-recovery flag. Read-only, subcontract-roll-up pattern.                                                                                                                                                                                                                     | **No**             | U3                   |
+| Unit   | Ships                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | DB?                | Depends on           |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ | -------------------- |
+| **U0** | **Vendor unification.** `suppliers` gains `contact_status` + `tax_id` + `is_vat_registered`; migrate `equipment_owners` → `suppliers`; add + backfill `supplier_id` on `equipment_items` + `equipment_rental_batches` (deprecate `owner_id` additively); repoint `post_rental_batch_to_gl` credit **2120 → 2100**, party = supplier.                                                                                                                                                                                                       | **Yes** (additive) | ADR 0078             |
+| **U1** | **Rental agreement — finish vendor switch + agreement fields (extends merged spec 268).** ALTER `equipment_rental_batches`: `deposit_amount`/`deposit_paid_date`/`min_rental_days`/`status` enum + relax `owner_id` NULL. Repoint `create_equipment_rental_batch` `owner_id`→`supplier_id` (closes U0's null-party GL bug). `equipment_items.rental_agreement_id`. Extend 268's `RentalManager`/`createRentalBatch`/`rental-view` (owner→supplier + deposit/min-days/status). **Adopts 268's `rate_period`; `rental_rate_tiers` DROPPED.** | **Yes**            | U0 + #325            |
+| **U2** | **One-time fees.** New `rental_charges` (type delivery/pickup/cleaning/insurance/other, amount, vat_rate) mirroring `purchase_order_charges` (spec 260) + `add_rental_charge` / `void_rental_charge` RPCs + GL poster.                                                                                                                                                                                                                                                                                                                     | **Yes**            | U1                   |
+| **U3** | **Settlement (VAT/WHT/deposit).** New append-only + supersede `rental_settlements` (vendor invoice: base + overtime + fees = net, VAT, WHT, method; deposit resolved separately as an asset) + `record_rental_settlement` / `supersede_rental_settlement` RPCs. GL poster: Dr WIP + Dr Input VAT (1300) / Cr AP (2100) or Bank, Cr WHT; deposit Dr 1320 at inception → released/forfeited at settlement; wire `record_wht_certificate` (rent 5%); seed account 1320 if absent.                                                             | **Yes**            | U1 (U2 for fees leg) |
+| **U4** | **Variance roll-up.** Agreement detail (admin-read): Σ charged-to-WP (`wp_equipment_sell` over the agreement's items) vs Σ paid-to-vendor (settlements) + committed (agreement rate); overpay/under-recovery flag. Read-only, subcontract-roll-up pattern.                                                                                                                                                                                                                                                                                 | **No**             | U3                   |
 
 WP check-out/check-in (the field value driver) is **already live** (spec 202 U2/U3) —
 this spec adds no field surface. U0 is first and riskiest (a live-table migration); it
@@ -147,69 +147,79 @@ still resolves its (now supplier-backed) vendor.
 
 ---
 
-## U1 — Rental agreement (activate the dormant `equipment_rental_batches` stack)
+## U1 — Rental agreement: finish the vendor switch + add agreement fields (extends merged spec 268)
 
-**Schema** (additive; change-management gate). Gives the dormant batch/allocation stack
-its first fields, RPCs, and UI. The agreement is the standalone rental object (ADR 0078
-decision 6), modelled on `subcontracts` (agreed-vs-paid).
+**Schema** (additive; change-management gate). **Spec 268 (#325, merged `d3139e69`) already
+activated the rental-batch stack** — the `/equipment/rentals` route, `RentalManager`,
+`create_equipment_rental_batch` (6-arg, adds `p_rate_period` monthly|daily),
+`create_equipment_project_allocation`, and allocate-on-create. U1 does **not** rebuild any of it.
+U1 (a) finishes U0's vendor unification on the _create_ path — 268's create RPC + form still set
+`owner_id`, but U0's GL poster reads `supplier_id`, so a 268-recorded batch posts rental GL with a
+**null supplier party**; and (b) adds the agreement fields 268 lacks.
+
+**Rate model:** adopt 268's `rate_period` (monthly|daily). The originally-planned
+`rental_rate_tiers` ladder is **DROPPED** (operator, 2026-07-07 — two competing rate models on one
+table; the ladder is YAGNI, revisit only for a real weekly-breakpoint deal).
 
 ### What ships
 
-- **ALTER `equipment_rental_batches`** (→ "rental agreement" conceptually): add
-  `deposit_amount numeric(12,2) NOT NULL DEFAULT 0 CHECK (>= 0)` (money, no grant),
-  `deposit_paid_date date NULL` (drives the deposit-asset GL leg in U3),
-  `min_rental_days int NULL CHECK (> 0)`, `status rental_agreement_status NOT NULL
-DEFAULT 'active'`. New enum `rental_agreement_status` = active | returned | settled |
-  cancelled.
-- **New `rental_rate_tiers`** — `(id, agreement_id FK, period_type rental_period_type
-[daily|weekly|monthly], rate numeric(12,2) CHECK (>= 0), created_by, created_at)`; the
-  vendor's price ladder (informational + drives the expected-cost figure in U4).
-  Zero-grant money table.
+- **ALTER `equipment_rental_batches`**: add `deposit_amount numeric(12,2) NOT NULL DEFAULT 0
+CHECK (>= 0)` (money, no grant), `deposit_paid_date date NULL` (drives the deposit-asset GL leg
+  in U3), `min_rental_days int NULL CHECK (> 0)`, `status rental_agreement_status NOT NULL DEFAULT
+'active'`. New enum `rental_agreement_status` = active | returned | settled | cancelled.
+  **Relax `owner_id` to NULL-able** (new batches carry `supplier_id`; `owner_id` kept for existing
+  rows, deprecated per U0).
+- **Repoint `create_equipment_rental_batch` `owner_id` → `supplier_id`** (DROP/CREATE — the
+  spec-268 arity precedent; body re-sourced VERBATIM from the LIVE 6-arg definition, then:
+  `p_owner_id`→`p_supplier_id`, the owner-exists guard → `suppliers`, the INSERT sets `supplier_id`
+  (not `owner_id`), audit payload key `owner_id`→`supplier_id`, and new trailing args
+  `p_deposit_amount`/`p_deposit_paid_date`/`p_min_rental_days` (defaulted) flow into the INSERT).
+  Re-establish grants **and `revoke ... from anon` EXPLICITLY** (the 072000 lesson — a DROP/CREATE
+  reopens anon's default execute). Keeps the 5-role gate incl. `procurement_manager`.
 - **ALTER `equipment_items`** — add `rental_agreement_id uuid NULL REFERENCES
-equipment_rental_batches(id)` (null = owned / not-rented; batch-grain membership per
-  sub-decision C). Field-visible tracking column (not money).
-- **RPCs** (SECURITY DEFINER, gate `is_manager()` + procurement, mirroring
-  `create_subcontract` / `update_subcontract`): `create_rental_agreement`
-  (supplier_id, starts_on, ends_on?, monthly_rate, deposit_amount, min_rental_days?) →
-  uuid; `update_rental_agreement` (COALESCE semantics, incl. status transitions);
-  `set_rental_rate_tiers` (reconcile the child set). Each audits
-  (`rental_agreement_create` / `_update` / `_tiers_set`, pinned in the enum + pgTAP 03
-  and 18).
-- **UI — `/equipment` gains a สัญญาเช่า section** (procurement/back-office only,
-  `canManageRegistry`): list active agreements (admin-read money), create/edit an
-  agreement (supplier picker, rate + tiers, period, deposit, min-days), assign
-  registered items to the agreement. Mirrors the existing money-gated equipment surfaces;
-  never rendered for site_admin.
+equipment_rental_batches(id)` (null = owned / not-rented; batch-grain, sub-decision C).
+  Field-visible tracking (not money).
+- **UI — extend 268's `RentalManager` + `createRentalBatch`** (`/equipment/rentals` route + gate
+  unchanged): the "เช่าจาก" select is fed by **`suppliers`** instead of `equipment_owners` (page
+  swaps the RLS-client read; prop/state `owner*`→`supplier*`; the "ผู้ให้เช่า" label stays — a
+  supplier IS the lessor); add optional **deposit** + **min-rental-days** inputs + a **status**
+  control. `createRentalBatch` input `ownerId`→`supplierId` (+ deposit/minRentalDays), RPC arg
+  `p_owner_id`→`p_supplier_id`. `rental-view.ts` `RentalBatchRow.ownerId/ownerName`→
+  `supplierId/supplierName` (join `suppliers`).
 
 ### Scope
 
-- **IN:** the three batch columns + enum; `rental_rate_tiers`; `equipment_items.rental_agreement_id`;
-  the three RPCs + audit values; the สัญญาเช่า UI + server actions; pgTAP; spec/tracker.
-- **OUT:** per-item deposit/return grain (batch grain v1, sub-decision C); fees (U2);
-  settlement (U3); variance (U4); any change to the WP check-out surface; wet-rental /
-  operator / fuel (v2).
+- **IN:** the four batch columns + `rental_agreement_status` enum; `owner_id` NULL relax; the
+  `create_equipment_rental_batch` owner→supplier repoint (+ deposit/min-days args);
+  `equipment_items.rental_agreement_id`; the `RentalManager`/`createRentalBatch`/`rental-view`
+  supplier switch + deposit/min-days/status fields; extend pgTAP file 268 + vitest; spec/tracker.
+- **OUT:** `rental_rate_tiers` (**dropped**); per-item deposit/return grain (batch grain v1);
+  fees (U2); settlement (U3); variance (U4); the WP check-out surface; the allocation UI (268
+  shipped it); wet-rental / operator / fuel (v2).
 
 ### Money posture
 
-Agreement rates, deposit, and tiers are zero-grant; the สัญญาเช่า section is admin-read
-under `canManageRegistry` only. `rental_agreement_id` on the item is field-visible
-tracking (no money).
+Deposit + rates stay zero-grant (the `equipment_rental_batches` posture); `/equipment/rentals` is
+already `BACK_OFFICE_ROLES`-gated (268), never site_admin. `rental_agreement_id` on the item is
+field-visible tracking. The `daily_rate` charge-out side is untouched (Case A).
 
 ### Tests
 
-- **TDD (RED first):** pure validators for the create/update payloads (mirror
-  `validate-rental-batch.ts`, which already exists) + the UI component tests (agreement
-  create calls the action; the section renders only under `canManageRegistry`).
-- **pgTAP:** the RPC gates (procurement/pm/super `lives_ok`, site_admin/visitor `42501`);
-  zero-grant on the new money columns + `rental_rate_tiers`; audit rows; status-enum
-  values; `set_rental_rate_tiers` reconcile.
+- **TDD (RED first):** extend `tests/unit/rental-manager.test.tsx` (supplier select fed from
+  `suppliers`; deposit/min-days submit shape; status control) + `tests/unit/rental-view.test.ts`
+  (`supplierName` join) + the `createRentalBatch` shape (`supplierId` + `p_supplier_id`).
+- **pgTAP (extend file 268):** the four new columns + `rental_agreement_status` enum; `owner_id`
+  now NULL-able; `equipment_items.rental_agreement_id`; `create_equipment_rental_batch` now takes
+  `p_supplier_id` (owner arg gone), inserts `supplier_id`, gate preserved (procurement/pm/super/pd/
+  procurement_manager `lives_ok`; site_admin/visitor `42501`; anon denied); and a created batch
+  drains rental GL to **2100 with a non-null supplier party** (the U0 bug closed end-to-end).
 
 ### Verification
 
-vitest green; pgTAP RED → operator push → `db:test` → `db:types`. Operator on-device: as
-procurement, create a rental agreement against a supplier with a monthly rate + tiers +
-deposit, assign an item to it; as site_admin confirm the สัญญาเช่า section and all money
-are invisible.
+vitest green; pgTAP RED → operator push → `db:test` → `db:types`. Operator on-device: at
+`/equipment/rentals`, record a rental from a **supplier** with a deposit + min-days; confirm it
+saves and (once a project is bound) posts rental GL crediting 2100 with the supplier party; a
+site_admin still cannot reach `/equipment/rentals`.
 
 ### Seams
 

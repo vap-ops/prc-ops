@@ -26,6 +26,10 @@ update public.users set role = 'procurement'     where id = '44444444-4444-4444-
 insert into public.equipment_owners (id, name, created_by) values
   ('b0000001-0000-4000-8000-000000000146', 'Sister Co Equipment',
    '11111111-1111-1111-1111-111111110146');
+-- Spec 275 U1: the rental payee is a SUPPLIER (create_equipment_rental_batch supplier-keyed).
+insert into public.suppliers (id, name, created_by) values
+  ('5a000001-0000-4000-8000-000000000146', 'Rental Vendor',
+   '11111111-1111-1111-1111-111111110146');
 insert into public.equipment_categories (id, name, created_by) values
   ('c0000001-0000-4000-8000-000000000146', 'Generators',
    '11111111-1111-1111-1111-111111110146');
@@ -122,13 +126,13 @@ select throws_ok(
   $$ select public.set_equipment_daily_rate('d0000099-0000-4000-8000-000000000099', 1500) $$,
   'P0001', null, 'set_equipment_daily_rate refuses a non-existent item');
 select lives_ok(
-  $$ select public.create_equipment_rental_batch('b0000001-0000-4000-8000-000000000146', 50000, date '2026-07-01') $$,
+  $$ select public.create_equipment_rental_batch('5a000001-0000-4000-8000-000000000146', 50000, date '2026-07-01') $$,
   'project_manager creates a rental batch');
 select throws_ok(
   $$ select public.create_equipment_rental_batch('b0000099-0000-4000-8000-000000000099', 50000, date '2026-07-01') $$,
-  'P0001', null, 'create_equipment_rental_batch refuses a non-existent owner');
+  'P0001', null, 'create_equipment_rental_batch refuses a non-existent supplier');
 select throws_ok(
-  $$ select public.create_equipment_rental_batch('b0000001-0000-4000-8000-000000000146', 50000, date '2026-07-01', date '2026-06-30') $$,
+  $$ select public.create_equipment_rental_batch('5a000001-0000-4000-8000-000000000146', 50000, date '2026-07-01', date '2026-06-30') $$,
   'P0001', null, 'create_equipment_rental_batch refuses ends_on before starts_on');
 
 -- ============================================================================
@@ -139,7 +143,7 @@ select lives_ok(
   $$ select public.set_equipment_daily_rate('d0000001-0000-4000-8000-000000000146', 1800) $$,
   'procurement sets the per-item daily rate (equipment back office)');
 select lives_ok(
-  $$ select public.create_equipment_rental_batch('b0000001-0000-4000-8000-000000000146', 60000, date '2026-08-01') $$,
+  $$ select public.create_equipment_rental_batch('5a000001-0000-4000-8000-000000000146', 60000, date '2026-08-01') $$,
   'procurement creates a rental batch');
 
 -- ============================================================================

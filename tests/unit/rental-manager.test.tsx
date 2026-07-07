@@ -26,7 +26,7 @@ vi.mock("@/app/equipment/rentals/actions", () => ({
 
 import { RentalManager } from "@/components/features/equipment/rental-manager";
 
-const owners = [
+const suppliers = [
   { id: "o1", name: "บ.เครนไทย" },
   { id: "o2", name: "บ.นั่งร้านสยาม" },
 ];
@@ -34,7 +34,7 @@ const projects = [{ id: "p1", name: "โครงการ A" }];
 const rentals = [
   {
     id: "b1",
-    ownerName: "บ.เครนไทย",
+    supplierName: "บ.เครนไทย",
     rateLabel: "฿90,000.00/เดือน",
     periodLabel: "เริ่ม 1 ก.ค. 2569 · ตลอดโครงการ (จนกว่าจะคืน)",
     note: null,
@@ -44,7 +44,12 @@ const rentals = [
 
 function renderManager(cards = rentals) {
   return render(
-    <RentalManager owners={owners} projects={projects} rentals={cards} defaultDate="2026-07-05" />,
+    <RentalManager
+      suppliers={suppliers}
+      projects={projects}
+      rentals={cards}
+      defaultDate="2026-07-05"
+    />,
   );
 }
 
@@ -77,13 +82,15 @@ describe("RentalManager", () => {
     fireEvent.click(screen.getByRole("button", { name: "บันทึกการเช่า" }));
     await waitFor(() =>
       expect(mockCreateBatch).toHaveBeenCalledWith({
-        ownerId: "o1",
+        supplierId: "o1",
         rate: 90000,
         ratePeriod: "monthly",
         startsOn: "2026-07-05",
         endsOn: null,
         note: "",
         projectId: null,
+        depositAmount: 0,
+        minRentalDays: null,
       }),
     );
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
@@ -101,13 +108,15 @@ describe("RentalManager", () => {
     fireEvent.click(screen.getByRole("button", { name: "บันทึกการเช่า" }));
     await waitFor(() =>
       expect(mockCreateBatch).toHaveBeenCalledWith({
-        ownerId: "o2",
+        supplierId: "o2",
         rate: 3500,
         ratePeriod: "daily",
         startsOn: "2026-07-10",
         endsOn: "2026-07-20",
         note: "",
         projectId: "p1",
+        depositAmount: 0,
+        minRentalDays: null,
       }),
     );
   });
