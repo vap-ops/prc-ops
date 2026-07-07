@@ -27,6 +27,26 @@ Open questions / for accountant review at the gate: (a) VAT on the rent/overtime
 
 ---
 
+## Spec 277 U2a — WP-list category identity (color · icon · letter-code) — ✅ SHIPPED (2026-07-07, code-only, no schema)
+
+- Every WP-list row + งาน group header now shows its category's **color + icon** and the
+  **letter-code** (the meaningless "WP" → the category letter: `WP-12` → `E-12`). Display-only;
+  DB codes never change.
+- New pure `formatWpCode(code, letter)` (`src/lib/work-packages/format-code.ts`): swaps a leading
+  `WP`/`WP-` for `${letter}-`; non-WP codes + uncategorised WPs pass through. New shared
+  `<WpCategoryCode code categoryCode />` (`src/components/features/work-packages/wp-category-code.tsx`)
+  = the SSOT render (icon + colored letter-code, graceful plain-code fallback), used by BOTH the
+  shared `WorklistRow` (all lenses + group-detail inherit it) and the `GroupLens` งาน header.
+- Data threaded: `load-detail.ts` selects `category_id` + reconciles each project-category to its
+  global `work_categories(code)` (new `categoryCodeById` map); page maps it onto `WorkPackageListItem`;
+  `WorklistRowItem` gains optional `categoryCode`.
+- Scope: project WP list (3 lenses) + group-detail (via shared row). SA-home + daily-plan worklist
+  deferred to the separate **SA-home revision**. Lens changes (วันนี้-default / cut งวดงาน) DROPPED
+  per operator (folding into SA-home revision instead).
+- TDD: `format-wp-code.test.ts` (5) + `worklist-row.test.tsx` category cases (2) RED→GREEN; list-test
+  fixtures updated for the new required field. Full suite 438 files / 2999 green; lint + typecheck clean;
+  runtime reconcile SQL-verified (WP→proj-cat→global code). Design mockup approved pre-build.
+
 ## Spec 275 U2 — one-time rental fees (rental_charges + GL) — ✅ SHIPPED (2026-07-07, additive schema + money/GL, PR #358 held for operator merge)
 
 - New `rental_charges` (delivery|pickup|cleaning|insurance|other, amount, vat_rate, note, on
