@@ -20,6 +20,8 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/db/server";
 import { roleHome, type UserRole } from "./role-home";
+import { resolveEffectiveRole } from "./effective-role";
+import { readAssumedRoleCookie } from "./assumed-role.server";
 
 export type { UserRole } from "./role-home";
 
@@ -60,7 +62,18 @@ const loadUserContext = cache(async (): Promise<UserContext | null> => {
     return null;
   }
 
-  return { id: userId, role: row.role, fullName: row.full_name };
+  // Spec 274 — super_admin "View as role". The effective role is the assumed
+  // role IFF the REAL role (row.role) is super_admin and the cookie is a valid
+  // assumable role; otherwise the real role unchanged. resolveEffectiveRole
+  // holds the forge-guard, so this is safe for every caller — a non-super with a
+  // forged cookie resolves back to their own role. ctx.role downstream (the
+  // allowlist check, roleHome, and every nav builder) follows automatically.
+  const assumedRaw = await readAssumedRoleCookie();
+  return {
+    id: userId,
+    role: resolveEffectiveRole(row.role, assumedRaw),
+    fullName: row.full_name,
+  };
 });
 
 export async function requireRole(allowedRoles: ReadonlyArray<UserRole>): Promise<UserContext> {

@@ -29,6 +29,7 @@ import { parseReportParams } from "@/lib/reports/params";
 import { runReportJob } from "@/lib/reports/run-report-job";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
 import { PM_ROLES } from "@/lib/auth/role-home";
+import { applyAssumedRole } from "@/lib/auth/apply-assumed-role";
 import { reportsHref } from "@/lib/nav/project-paths";
 import { REPORTS_BUCKET } from "@/lib/storage/buckets";
 import { isValidUuid } from "@/lib/validate/uuid";
@@ -65,7 +66,9 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+  // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
+  const effectiveRole = await applyAssumedRole(userRow?.role);
+  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
     return { ok: false, reason: "เฉพาะผู้จัดการโครงการเท่านั้นที่สร้างรายงานได้" };
   }
 
@@ -160,7 +163,9 @@ export async function getReportDownloadUrl(
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+  // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
+  const effectiveRole = await applyAssumedRole(userRow?.role);
+  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
     return { ok: false, reason: "เฉพาะผู้จัดการโครงการเท่านั้นที่ดาวน์โหลดรายงานได้" };
   }
 

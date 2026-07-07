@@ -3,6 +3,7 @@ import {
   Activity,
   Calculator,
   ClipboardList,
+  Eye,
   Files,
   Hammer,
   HardHat,
@@ -265,6 +266,14 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         icon: ShieldCheck,
         label: "จัดการสิทธิ์ผู้ใช้",
         hint: "กำหนด/เปลี่ยน role ของผู้ใช้ในระบบ",
+      },
+      {
+        // Spec 274: view the app as any role (see what they see) without impersonating a person.
+        kind: "link",
+        href: "/settings/view-as",
+        icon: Eye,
+        label: "ดูมุมมองตาม role",
+        hint: "เปิดแอปเสมือนเป็น role อื่น เพื่อดูเมนู หน้าหลัก และหน้าต่าง ๆ ที่เขาเห็น",
       },
       {
         kind: "link",

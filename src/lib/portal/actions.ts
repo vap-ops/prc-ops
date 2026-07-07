@@ -10,6 +10,7 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
 import { PM_ROLES } from "@/lib/auth/role-home";
+import { applyAssumedRole } from "@/lib/auth/apply-assumed-role";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { isValidPhotoExt } from "@/lib/photos/path";
 import { buildContactDocPath } from "@/lib/contacts/document-path";
@@ -130,7 +131,9 @@ export async function decideBankChange(input: {
     .select("role")
     .eq("id", auth.user.id)
     .maybeSingle();
-  if (!me || !PM_ROLES.includes(me.role)) {
+  // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
+  const effectiveRole = await applyAssumedRole(me?.role);
+  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
     return { ok: false, error: "เฉพาะผู้จัดการโครงการเท่านั้นที่อนุมัติได้" };
   }
 
@@ -162,7 +165,9 @@ export async function decideWorkerBankChange(input: {
     .select("role")
     .eq("id", auth.user.id)
     .maybeSingle();
-  if (!me || !PM_ROLES.includes(me.role)) {
+  // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
+  const effectiveRole = await applyAssumedRole(me?.role);
+  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
     return { ok: false, error: "เฉพาะผู้จัดการโครงการเท่านั้นที่อนุมัติได้" };
   }
 

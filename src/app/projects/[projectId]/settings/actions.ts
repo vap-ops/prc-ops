@@ -9,6 +9,7 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
 import { PM_ROLES } from "@/lib/auth/role-home";
+import { applyAssumedRole } from "@/lib/auth/apply-assumed-role";
 import { projectHref, projectSettingsHref } from "@/lib/nav/project-paths";
 import {
   isValidProjectStatus,
@@ -100,7 +101,9 @@ export async function updateProjectSettings(
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+  // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
+  const effectiveRole = await applyAssumedRole(userRow?.role);
+  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
     return { ok: false, error: PM_ONLY_ERROR };
   }
 
@@ -191,7 +194,9 @@ export async function createClient(input: CreateClientInput): Promise<CreateClie
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+  // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
+  const effectiveRole = await applyAssumedRole(userRow?.role);
+  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
     return { ok: false, error: PM_ONLY_ERROR };
   }
 
@@ -235,7 +240,9 @@ async function gateProjectMember(projectId: string, userId: string) {
     .select("role")
     .eq("id", auth.user.id)
     .maybeSingle();
-  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+  // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
+  const effectiveRole = await applyAssumedRole(userRow?.role);
+  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
     return { ok: false as const, error: PM_ONLY_ERROR };
   }
   return { ok: true as const, auth };

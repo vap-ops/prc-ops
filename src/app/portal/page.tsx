@@ -21,6 +21,7 @@ import { PortalSelfEdit, type PortalConsent } from "@/components/features/portal
 import { PortalDocuments } from "@/components/features/portal/portal-documents";
 import { PortalContactInfo } from "@/components/features/portal/portal-contact-info";
 import { loadPortalData } from "@/lib/portal/load-portal-data";
+import { ViewAsEmptyNote } from "@/components/features/chrome/view-as-empty-note";
 import { contractorPacketStatus, dcTypeOfSubtype, type DcPacket } from "@/lib/contacts/packet";
 import { bahtUnit as baht } from "@/lib/format";
 
@@ -78,6 +79,7 @@ export default async function PortalPage() {
       </header>
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
+        <ViewAsEmptyNote />
         {/* Completeness — what's still missing from the ผู้รับเหมา's onboarding file */}
         {packetStatus ? (
           <section
