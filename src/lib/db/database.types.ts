@@ -1759,6 +1759,7 @@ export type Database = {
           owner_id: string
           quantity: number | null
           status: Database["public"]["Enums"]["equipment_status"]
+          supplier_id: string | null
           tracking: Database["public"]["Enums"]["equipment_tracking"]
         }
         Insert: {
@@ -1774,6 +1775,7 @@ export type Database = {
           owner_id: string
           quantity?: number | null
           status?: Database["public"]["Enums"]["equipment_status"]
+          supplier_id?: string | null
           tracking?: Database["public"]["Enums"]["equipment_tracking"]
         }
         Update: {
@@ -1789,6 +1791,7 @@ export type Database = {
           owner_id?: string
           quantity?: number | null
           status?: Database["public"]["Enums"]["equipment_status"]
+          supplier_id?: string | null
           tracking?: Database["public"]["Enums"]["equipment_tracking"]
         }
         Relationships: [
@@ -1811,6 +1814,13 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "equipment_owners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_items_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -1971,6 +1981,7 @@ export type Database = {
           owner_id: string
           rate_period: Database["public"]["Enums"]["equipment_rate_period"]
           starts_on: string
+          supplier_id: string | null
         }
         Insert: {
           created_at?: string
@@ -1982,6 +1993,7 @@ export type Database = {
           owner_id: string
           rate_period?: Database["public"]["Enums"]["equipment_rate_period"]
           starts_on: string
+          supplier_id?: string | null
         }
         Update: {
           created_at?: string
@@ -1993,6 +2005,7 @@ export type Database = {
           owner_id?: string
           rate_period?: Database["public"]["Enums"]["equipment_rate_period"]
           starts_on?: string
+          supplier_id?: string | null
         }
         Relationships: [
           {
@@ -2007,6 +2020,13 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "equipment_owners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_rental_batches_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -5409,6 +5429,7 @@ export type Database = {
       suppliers: {
         Row: {
           contact_person: string | null
+          contact_status: Database["public"]["Enums"]["contact_status"]
           created_at: string
           created_by: string
           email: string | null
@@ -5423,6 +5444,7 @@ export type Database = {
         }
         Insert: {
           contact_person?: string | null
+          contact_status?: Database["public"]["Enums"]["contact_status"]
           created_at?: string
           created_by: string
           email?: string | null
@@ -5437,6 +5459,7 @@ export type Database = {
         }
         Update: {
           contact_person?: string | null
+          contact_status?: Database["public"]["Enums"]["contact_status"]
           created_at?: string
           created_by?: string
           email?: string | null
