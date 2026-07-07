@@ -188,7 +188,9 @@ select enum_has_labels(
     -- Spec 260: PO-level charges (transport/discount/other).
     'po_charge_add', 'po_charge_void',
     -- Spec 275 U2: one-time rental fees.
-    'rental_charge_add', 'rental_charge_void'
+    'rental_charge_add', 'rental_charge_void',
+    -- Spec 275 U3: rental settlement (vendor invoice).
+    'rental_settlement_record', 'rental_settlement_supersede'
   ],
   'audit_action enum includes purchase_request_purchase + purchase_request_delivery'
 );

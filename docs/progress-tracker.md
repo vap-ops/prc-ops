@@ -6,6 +6,27 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 275 U3 — rental settlement (vendor invoice: deposit / VAT / WHT) — 🔔 BUILT, HELD for operator db:push (2026-07-07, additive schema + money/GL)
+
+Schema + GL slice (the UI — recordRentalSettlement action + form + labels + vitest — follows post-push, since it needs the regenerated `db:types`). Migrations `074700`–`075200`; claims `074700+` (U2's `074300`–`074600` already in main, no borrow).
+
+**Operator design decision (2026-07-07): "thin settlement" (option A).** The rent is already posted at batch creation (`post_rental_batch_to_gl`) and each fee at charge time (`post_rental_charge_to_gl`), so the settlement poster booking `base+fees` again would DOUBLE-COUNT WIP + AP. Resolved: the settlement books ONLY the not-yet-booked legs.
+
+What ships:
+
+- `rental_settlements` — zero-grant, append-only + supersede vendor-invoice table (base/overtime/fees=net, vat, wht, deposit_refunded/forfeited, method, correction_reason). `net = base+overtime+fees` CHECK; deposit ceiling (refunded+forfeited ≤ agreement.deposit_amount) enforced in the RPC.
+- `record_rental_settlement` / `supersede_rental_settlement` (gate = 5-role rental create-audience pm/super/procurement/procurement_manager/project_director, mig `075300` — the narrow pm/super/procurement first cut broke role-inclusion invariants pgTAP 90/261). On record, issues the WHT cert (5% rent on base) by **direct insert** into `wht_certificates` (not `record_wht_certificate` — its `is_manager` gate would 42501 a procurement caller mid-tx), guarded on a valid 13-digit supplier `tax_id` + base>0. NOT re-issued on supersede (immutable certs — manual WHT correction).
+- `post_rental_settlement_to_gl` (thin): overtime Dr 1400 / Cr 2100 (supplier) + deposit release (refund Dr 1110 / Cr 1320; forfeit Dr 1400 / Cr 1320); reverse-and-repost on supersede; no base/fees/VAT/WHT legs.
+- `post_rental_deposit_to_gl` + deposit enqueue triggers (INSERT+UPDATE) on `equipment_rental_batches` under the **synthetic `source_table` `rental_deposits`** (the drain routes by source_table; `equipment_rental_batches` already routes to the rent poster). Deposit paid → Dr 1320 / Cr 1110 off `deposit_paid_date`.
+- Seed account **1320** (Rental deposit — prepaid; absent from the skeleton chart). Drain re-sourced from LIVE `074600` + 2 arms (`rental_settlements`, `rental_deposits`); reconcile vs `pg_get_functiondef` at db:push.
+- pgTAP `275-rental-settlement.test.sql` (57 assertions, test-first) incl. the anti-double-count pin (settlement Dr 1400 = overtime+forfeit only, NOT base). audit_action pins 03/18 updated (+`rental_settlement_record`/`_supersede`).
+
+NEXT (operator): OK db:push → CC runs `db:test` (RED→GREEN) + `db:types` + ships the held PR. NOT self-pushed (money/GL). Then U3 UI + U4 variance.
+
+Open questions / for accountant review at the gate: (a) VAT on the rent/overtime is stored as data but not GL-posted here (the rent poster books no VAT; if vendors charge VAT on rent this is an under-capture to revisit); (b) WHT not auto-corrected on settlement supersede.
+
+---
+
 ## Spec 277 U2a — WP-list category identity (color · icon · letter-code) — ✅ SHIPPED (2026-07-07, code-only, no schema)
 
 - Every WP-list row + งาน group header now shows its category's **color + icon** and the
