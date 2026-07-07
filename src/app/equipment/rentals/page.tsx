@@ -26,28 +26,28 @@ export default async function EquipmentRentalsPage() {
   const supabase = await createServerSupabase();
   const admin = createAdminSupabase();
   const [
-    { data: ownerRows },
+    { data: supplierRows },
     { data: projectRows },
     { data: batchRows },
     { data: allocationRows },
   ] = await Promise.all([
-    supabase.from("equipment_owners").select("id, name").order("name", { ascending: true }),
+    supabase.from("suppliers").select("id, name").order("name", { ascending: true }),
     supabase.from("projects").select("id, name").order("name", { ascending: true }),
     admin
       .from("equipment_rental_batches")
-      .select("id, owner_id, monthly_rate, rate_period, starts_on, ends_on, note, created_at"),
+      .select("id, supplier_id, monthly_rate, rate_period, starts_on, ends_on, note, created_at"),
     admin
       .from("equipment_project_allocations")
       .select("id, batch_id, project_id, starts_on, ends_on")
       .order("starts_on", { ascending: true }),
   ]);
 
-  const owners = ownerRows ?? [];
+  const suppliers = supplierRows ?? [];
   const projects = projectRows ?? [];
   const rentals = buildRentalView(
     (batchRows ?? []).map((b) => ({
       id: b.id,
-      ownerId: b.owner_id,
+      supplierId: b.supplier_id ?? "",
       rate: b.monthly_rate,
       ratePeriod: b.rate_period as RentalRatePeriod,
       startsOn: b.starts_on,
@@ -62,7 +62,7 @@ export default async function EquipmentRentalsPage() {
       startsOn: a.starts_on,
       endsOn: a.ends_on,
     })),
-    owners,
+    suppliers,
     projects,
   );
 
@@ -74,7 +74,7 @@ export default async function EquipmentRentalsPage() {
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
         <RentalManager
-          owners={owners}
+          suppliers={suppliers}
           projects={projects}
           rentals={rentals}
           defaultDate={bangkokTodayISO()}

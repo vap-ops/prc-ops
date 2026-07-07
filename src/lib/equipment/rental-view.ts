@@ -1,9 +1,12 @@
 // Spec 268 — pure view model for /equipment/rentals. Composes the rental
 // cards the page renders: rate label (฿…/เดือน | ฿…/วัน — the money format
 // SSOT), period label (dated custom duration vs open-ended "whole project"),
-// owner/project name joins, newest-first ordering, per-batch allocation
+// supplier/project name joins, newest-first ordering, per-batch allocation
 // chips. Presentation only — the page feeds it admin-client reads (batches +
 // allocations are zero-grant money tables, ADR 0055 decision 6).
+//
+// Spec 275 U1 (ADR 0078): the rental payee is a SUPPLIER (vendor unification),
+// not an equipment_owner — the batch's party is supplierId/supplierName.
 
 import { bahtWithSymbol } from "@/lib/format";
 import { formatThaiDate } from "@/lib/i18n/labels";
@@ -17,7 +20,7 @@ const RATE_PERIOD_SUFFIX: Record<RentalRatePeriod, string> = {
 
 export interface RentalBatchRow {
   id: string;
-  ownerId: string;
+  supplierId: string;
   rate: number;
   ratePeriod: RentalRatePeriod;
   startsOn: string;
@@ -42,7 +45,7 @@ export interface RentalAllocationChip {
 
 export interface RentalCard {
   id: string;
-  ownerName: string;
+  supplierName: string;
   rateLabel: string;
   periodLabel: string;
   note: string | null;
@@ -65,10 +68,10 @@ export function rentalPeriodLabel(startsOn: string, endsOn: string | null): stri
 export function buildRentalView(
   batches: readonly RentalBatchRow[],
   allocations: readonly RentalAllocationRow[],
-  owners: readonly { id: string; name: string }[],
+  suppliers: readonly { id: string; name: string }[],
   projects: readonly { id: string; name: string }[],
 ): RentalCard[] {
-  const ownerName = new Map(owners.map((o) => [o.id, o.name]));
+  const supplierName = new Map(suppliers.map((s) => [s.id, s.name]));
   const projectName = new Map(projects.map((p) => [p.id, p.name]));
 
   const chipsByBatch = new Map<string, RentalAllocationChip[]>();
@@ -87,7 +90,7 @@ export function buildRentalView(
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0))
     .map((b) => ({
       id: b.id,
-      ownerName: ownerName.get(b.ownerId) ?? NAME_FALLBACK,
+      supplierName: supplierName.get(b.supplierId) ?? NAME_FALLBACK,
       rateLabel: rentalRateLabel(b.rate, b.ratePeriod),
       periodLabel: rentalPeriodLabel(b.startsOn, b.endsOn),
       note: b.note,

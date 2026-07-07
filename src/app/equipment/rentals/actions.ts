@@ -29,17 +29,19 @@ export type RentalActionResult = { ok: true } | { ok: false; error: string };
 const RATE_PERIODS: ReadonlyArray<RentalRatePeriod> = ["monthly", "daily"];
 
 export async function createRentalBatch(input: {
-  ownerId: string;
+  supplierId: string;
   rate: number;
   ratePeriod: string;
   startsOn: string;
   endsOn: string | null;
   note: string;
   projectId: string | null;
+  depositAmount: number;
+  minRentalDays: number | null;
 }): Promise<RentalActionResult> {
   await requireRole(BACK_OFFICE_ROLES);
 
-  if (!UUID_REGEX.test(input.ownerId)) return { ok: false, error: "กรุณาเลือกผู้ให้เช่า" };
+  if (!UUID_REGEX.test(input.supplierId)) return { ok: false, error: "กรุณาเลือกผู้ให้เช่า" };
   if (!RATE_PERIODS.includes(input.ratePeriod as RentalRatePeriod)) {
     return { ok: false, error: GENERIC_ERROR };
   }
@@ -52,17 +54,28 @@ export async function createRentalBatch(input: {
   if (input.projectId !== null && !UUID_REGEX.test(input.projectId)) {
     return { ok: false, error: GENERIC_ERROR };
   }
+  if (!Number.isFinite(input.depositAmount) || input.depositAmount < 0) {
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  if (
+    input.minRentalDays !== null &&
+    (!Number.isInteger(input.minRentalDays) || input.minRentalDays <= 0)
+  ) {
+    return { ok: false, error: GENERIC_ERROR };
+  }
   const note = input.note.trim();
   if (note.length > 2000) return { ok: false, error: GENERIC_ERROR };
 
   const supabase = await createServerSupabase();
   const { data: batchId, error } = await supabase.rpc("create_equipment_rental_batch", {
-    p_owner_id: input.ownerId,
+    p_supplier_id: input.supplierId,
     p_monthly_rate: batch.value.monthlyRate,
     p_starts_on: batch.value.startsOn,
     ...(batch.value.endsOn !== null ? { p_ends_on: batch.value.endsOn } : {}),
     ...(note.length > 0 ? { p_note: note } : {}),
     p_rate_period: input.ratePeriod as RentalRatePeriod,
+    p_deposit_amount: input.depositAmount,
+    ...(input.minRentalDays !== null ? { p_min_rental_days: input.minRentalDays } : {}),
   });
   if (error || !batchId) {
     if (error?.code === "42501") return { ok: false, error: NO_PERMISSION };
