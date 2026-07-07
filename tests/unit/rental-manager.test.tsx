@@ -24,7 +24,10 @@ vi.mock("@/app/equipment/rentals/actions", () => ({
   createRentalAllocation: mockCreateAllocation,
 }));
 
-import { RentalManager } from "@/components/features/equipment/rental-manager";
+import {
+  EQUIPMENT_RENTAL_PARTIAL_LOCKED_MESSAGE,
+  RentalManager,
+} from "@/components/features/equipment/rental-manager";
 
 const suppliers = [
   { id: "o1", name: "บ.เครนไทย" },
@@ -205,5 +208,72 @@ describe("RentalManager", () => {
       />,
     );
     expect(screen.queryByRole("button", { name: "ผูกโครงการ" })).not.toBeInTheDocument();
+  });
+
+  // Spec 275 U5 follow-up — the partial-outcome recovery hint must match the
+  // surface. createRentalBatch tags a saved-batch-but-allocation-failed result
+  // with code "allocation_failed" and a default error that tells the user to
+  // re-allocate "ที่รายการ" (from the card). That card + its ผูกโครงการ control
+  // only exist on the settings overview; on the project-LOCKED recorder both are
+  // hidden, so the locked surface swaps in a hint pointing at the settings page.
+
+  // The default (settings-surface) error createRentalBatch returns for a partial
+  // outcome — recovery via the per-card ผูกโครงการ control.
+  const cardHint = "บันทึกการเช่าแล้ว แต่ผูกโครงการไม่สำเร็จ — กดผูกโครงการที่รายการอีกครั้ง";
+
+  function submitRecord() {
+    fireEvent.change(screen.getByLabelText("เช่าจาก"), { target: { value: "o1" } });
+    fireEvent.change(screen.getByLabelText(/ค่าเช่า/), { target: { value: "90000" } });
+    fireEvent.click(screen.getByRole("button", { name: "บันทึกการเช่า" }));
+  }
+
+  it("on the project-locked surface, a partial failure points recovery at the settings overview, not the card", async () => {
+    mockCreateBatch.mockResolvedValue({ ok: false, error: cardHint, code: "allocation_failed" });
+    render(
+      <RentalManager
+        suppliers={suppliers}
+        projects={projects}
+        rentals={[]}
+        defaultDate="2026-07-05"
+        lockedProject={{ id: "p1", name: "โครงการ A" }}
+      />,
+    );
+    submitRecord();
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(EQUIPMENT_RENTAL_PARTIAL_LOCKED_MESSAGE);
+    // the unreachable "re-allocate from the card" hint must NOT be shown here
+    expect(alert).not.toHaveTextContent("ที่รายการ");
+  });
+
+  it("on the settings overview, the same partial failure keeps the card-pointing hint", async () => {
+    mockCreateBatch.mockResolvedValue({ ok: false, error: cardHint, code: "allocation_failed" });
+    renderManager([]); // no lockedProject — the cross-project overview
+    fireEvent.change(screen.getByLabelText("เช่าจาก"), { target: { value: "o1" } });
+    fireEvent.change(screen.getByLabelText(/ค่าเช่า/), { target: { value: "90000" } });
+    fireEvent.change(screen.getByLabelText("โครงการ"), { target: { value: "p1" } });
+    fireEvent.click(screen.getByRole("button", { name: "บันทึกการเช่า" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(cardHint);
+    expect(alert).not.toHaveTextContent(EQUIPMENT_RENTAL_PARTIAL_LOCKED_MESSAGE);
+  });
+
+  it("on the locked surface, a non-allocation failure still shows the raw error unchanged", async () => {
+    mockCreateBatch.mockResolvedValue({
+      ok: false,
+      error: "ข้อมูลการเช่าไม่ถูกต้อง หรือไม่พบผู้ให้เช่า",
+    });
+    render(
+      <RentalManager
+        suppliers={suppliers}
+        projects={projects}
+        rentals={[]}
+        defaultDate="2026-07-05"
+        lockedProject={{ id: "p1", name: "โครงการ A" }}
+      />,
+    );
+    submitRecord();
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("ข้อมูลการเช่าไม่ถูกต้อง หรือไม่พบผู้ให้เช่า");
+    expect(alert).not.toHaveTextContent(EQUIPMENT_RENTAL_PARTIAL_LOCKED_MESSAGE);
   });
 });
