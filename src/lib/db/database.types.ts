@@ -4252,6 +4252,54 @@ export type Database = {
           },
         ]
       }
+      rental_charges: {
+        Row: {
+          amount: number
+          charge_type: Database["public"]["Enums"]["rental_charge_type"]
+          created_at: string
+          created_by: string
+          id: string
+          note: string | null
+          rental_batch_id: string
+          vat_rate: number
+        }
+        Insert: {
+          amount: number
+          charge_type: Database["public"]["Enums"]["rental_charge_type"]
+          created_at?: string
+          created_by: string
+          id?: string
+          note?: string | null
+          rental_batch_id: string
+          vat_rate?: number
+        }
+        Update: {
+          amount?: number
+          charge_type?: Database["public"]["Enums"]["rental_charge_type"]
+          created_at?: string
+          created_by?: string
+          id?: string
+          note?: string | null
+          rental_batch_id?: string
+          vat_rate?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_charges_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_charges_rental_batch_id_fkey"
+            columns: ["rental_batch_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_rental_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reports: {
         Row: {
           created_at: string
@@ -6969,6 +7017,16 @@ export type Database = {
         }
         Returns: string
       }
+      add_rental_charge: {
+        Args: {
+          p_amount: number
+          p_batch_id: string
+          p_charge_type: Database["public"]["Enums"]["rental_charge_type"]
+          p_note: string
+          p_vat_rate: number
+        }
+        Returns: string
+      }
       add_staff_registration_doc: {
         Args: {
           p_purpose: Database["public"]["Enums"]["staff_doc_purpose"]
@@ -7613,6 +7671,10 @@ export type Database = {
       }
       post_purchase_to_gl: { Args: { p_source_id: string }; Returns: string }
       post_rental_batch_to_gl: {
+        Args: { p_source_id: string }
+        Returns: string
+      }
+      post_rental_charge_to_gl: {
         Args: { p_source_id: string }
         Returns: string
       }
@@ -8511,6 +8573,7 @@ export type Database = {
         Args: { p_charge_id: string }
         Returns: undefined
       }
+      void_rental_charge: { Args: { p_charge_id: string }; Returns: undefined }
       wp_equipment_sell: { Args: { p_wp: string }; Returns: number }
       wp_labor_sell: { Args: { p_wp: string }; Returns: number }
       wp_profit: {
@@ -8584,6 +8647,8 @@ export type Database = {
         | "subcontract_crew_document_add"
         | "po_charge_add"
         | "po_charge_void"
+        | "rental_charge_add"
+        | "rental_charge_void"
       boq_line_status: "draft" | "frozen" | "superseded"
       boq_variation_type: "standard" | "added" | "omitted" | "provisional_sum"
       catalog_fulfillment_mode: "off_shelf" | "made_to_order"
@@ -8736,6 +8801,12 @@ export type Database = {
       receipt_method: "bank_transfer" | "cheque" | "cash"
       registration_status: "pending" | "approved" | "rejected"
       rental_agreement_status: "active" | "returned" | "settled" | "cancelled"
+      rental_charge_type:
+        | "delivery"
+        | "pickup"
+        | "cleaning"
+        | "insurance"
+        | "other"
       report_status: "requested" | "processing" | "complete" | "failed"
       retention_status: "held" | "due" | "released" | "forfeited"
       rework_source: "internal" | "client"
@@ -8973,6 +9044,8 @@ export const Constants = {
         "subcontract_crew_document_add",
         "po_charge_add",
         "po_charge_void",
+        "rental_charge_add",
+        "rental_charge_void",
       ],
       boq_line_status: ["draft", "frozen", "superseded"],
       boq_variation_type: ["standard", "added", "omitted", "provisional_sum"],
@@ -9144,6 +9217,13 @@ export const Constants = {
       receipt_method: ["bank_transfer", "cheque", "cash"],
       registration_status: ["pending", "approved", "rejected"],
       rental_agreement_status: ["active", "returned", "settled", "cancelled"],
+      rental_charge_type: [
+        "delivery",
+        "pickup",
+        "cleaning",
+        "insurance",
+        "other",
+      ],
       report_status: ["requested", "processing", "complete", "failed"],
       retention_status: ["held", "due", "released", "forfeited"],
       rework_source: ["internal", "client"],

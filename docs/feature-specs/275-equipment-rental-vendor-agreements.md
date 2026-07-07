@@ -260,6 +260,29 @@ Zero-grant money table, admin-read only. pgTAP: charge insert enqueues + posts t
 net/VAT split to 2100 with the supplier party; void reverses; gates; append-only guard.
 `pnpm test` + pgTAP RED → operator push → `db:test` → `db:types`.
 
+### Build decisions (2026-07-07, locked during build — all consistent with the above)
+
+- **Zero-grant money table**, mirroring the parent `equipment_rental_batches` (NOT the readable
+  `purchase_order_charges` posture): RLS on + `revoke all from anon, authenticated`, no policy/grant;
+  read only via the admin client behind `requireRole`. This tightens the spec-260 mirror because the
+  rental parent is itself zero-grant.
+- **No project/WP dimension** on the cost leg. A batch header carries no `project_id`, and the shipped
+  `post_rental_batch_to_gl` posts `1400` undimensioned — U2's fee mirrors it. There is **no per-member
+  split** (a batch, unlike a PO, has no member lines): the whole net posts to **one** `1400` Dr.
+- **All five charge types are positive debit costs** — there is **no `discount`/contra type** (unlike
+  spec 260's `discount`). A rental credit-note, if ever needed, is a later type + contra leg.
+- **Gates:** `add_rental_charge` = the 5-role create audience `(project_manager, super_admin,
+procurement, procurement_manager, project_director)` — identical to the spec-261-widened
+  `add_purchase_order_charge` and to `create_equipment_rental_batch`. `void_rental_charge` = manager
+  tier + procurement_manager (`is_manager(role) or role = 'procurement_manager'`, spec 261 item 2 —
+  un-booking money is not plain procurement). Void = reverse the posted entry / skip a pending job,
+  then DELETE (the table has no supersede column).
+- **Migration split** = 4 files `20260813074300`–`074600` (audit-enum in its own tx → table+enum+trigger
+  → RPCs+poster → drain arm), mirroring spec 260's split. The drain is re-sourced from the LATEST live
+  definition (spec 266 `071700`, which carries `wage_payments` — the DC→worker rename — NOT the older
+  `dc_payments`), reconciled against `pg_get_functiondef` at db:push, adding only one `rental_charges`
+  arm (the GL-drain re-source lesson).
+
 ### Seams
 
 - Per-WP fee allocation (largest-remainder split like spec 260) — v2 if wanted.

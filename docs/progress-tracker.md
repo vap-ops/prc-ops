@@ -6,6 +6,37 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 275 U2 — one-time rental fees (rental_charges + GL) — ✅ SHIPPED (2026-07-07, additive schema + money/GL, PR #358 held for operator merge)
+
+- New `rental_charges` (delivery|pickup|cleaning|insurance|other, amount, vat_rate, note, on
+  delete cascade → `equipment_rental_batches`) + `add_rental_charge`/`void_rental_charge` RPCs +
+  `post_rental_charge_to_gl` poster + drain arm. Mirrors `purchase_order_charges` (spec 260).
+  Migs `20260813074300`–`074600` APPLIED to remote via db:push (operator OK).
+- **Build decisions (locked, all consistent with spec §U2):**
+  - **Zero-grant money table** (mirror `equipment_rental_batches`, NOT the readable PO-charge
+    posture): RLS on + `revoke all from anon, authenticated`, no policy/grant, admin-read only.
+  - **No project/WP dimension** on the WIP leg — the batch header carries no project_id and
+    `post_rental_batch_to_gl` posts `1400` undimensioned; U2's fee mirrors it. No per-line split
+    (a batch has no member lines, unlike a PO): the whole net → one `1400` Dr.
+  - **Poster legs:** Dr `1400` WIP (net) + Dr `1300` Input VAT (gross-inclusive split, ADR 0045)
+    / Cr `2100` AP (gross, supplier party). 1300/1400/2100 all seeded (verified). All 5 types are
+    positive debit costs — NO discount/contra type (unlike spec 260).
+  - **add gate** = 5-role create audience `(pm, super, procurement, procurement_manager, pd)` —
+    matches spec-261-widened `add_purchase_order_charge` + `create_equipment_rental_batch`.
+  - **void gate** = `is_manager(role) OR role='procurement_manager'` (spec 261 item 2 — un-booking
+    money is manager-tier + procmgr, not plain procurement). Void = reverse posted entry / skip
+    pending job, then DELETE (no supersede column).
+  - **drain** re-sourced from the LATEST def (`071700` spec266 — carries `wage_payments`, NOT the
+    older `dc_payments`) + one `rental_charges` arm; reconciled vs LIVE `pg_get_functiondef` = +1 arm.
+- DB-only (no UI/TS consumer). db:types regen (src + worker) after db:push.
+- TDD: `275-rental-charges.test.sql` (55 assertions) RED→GREEN on the linked DB. Zero-grant charge
+  ids resolved as OWNER via a session GUC before the gated void calls (authenticated cannot SELECT the
+  zero-grant table — the naive subselect raised its own 42501, masking the gate). Collateral
+  `audit_action` pins (03/18) updated. pgTAP 240/242 (the 2 reds = pre-existing 200/221). Adversarial
+  4-lens review: 0 confirmed defects. lint + typecheck + vitest 2974 green.
+- **Ship:** review + drain diff → **db:push (operator OK)** → db:test GREEN → db:types → PR #358
+  (danger-path HELD for operator merge). NOT self-pushed (money/GL). Next schema unit claims `074700+`.
+
 ## Spec 277 U1b — wire `CategoryChip` into the WP-detail badge + apply the 379 tags — ✅ SHIPPED (2026-07-07, code-only, no schema)
 
 - **Data (prod, operator-approved):** Typhoon (`typhoon-v2.5-30b-a3b-instruct`, temp 0) classified
