@@ -8,7 +8,7 @@
 // 'use client': the button action + router refresh.
 
 import { Users } from "lucide-react";
-import { useMarkPresent } from "@/lib/labor/use-mark-present";
+import { useMarkPresent } from "@/lib/sa/use-mark-present";
 import type { MusterSummary } from "@/lib/sa/muster";
 import { BUTTON_PRIMARY_COMPACT, CARD } from "@/lib/ui/classes";
 

@@ -11,7 +11,7 @@
 // is the shared useMarkPresent hook (same action the muster's ทั้งหมดมาทำ uses).
 
 import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
-import { useMarkPresent } from "@/lib/labor/use-mark-present";
+import { useMarkPresent } from "@/lib/sa/use-mark-present";
 import { BUTTON_PRIMARY_COMPACT, BUTTON_SECONDARY_COMPACT, CARD } from "@/lib/ui/classes";
 
 export type WorklistCrew = { workerId: string; name: string; present: boolean };
