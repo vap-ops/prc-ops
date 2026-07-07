@@ -14,7 +14,13 @@ import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { RentalManager } from "@/components/features/equipment/rental-manager";
+import { RentalSettlementManager } from "@/components/features/equipment/rental-settlement-manager";
 import { buildRentalView, type RentalRatePeriod } from "@/lib/equipment/rental-view";
+import {
+  buildAgreementOptions,
+  currentSettlements,
+  type SettlementListItem,
+} from "@/lib/equipment/rental-settlement-view";
 import { bangkokTodayISO } from "@/lib/work-packages/schedule-today";
 import { EQUIPMENT_RENTAL_LABEL } from "@/lib/i18n/labels";
 
@@ -30,6 +36,7 @@ export default async function EquipmentRentalsPage() {
     { data: projectRows },
     { data: batchRows },
     { data: allocationRows },
+    { data: settlementRows },
   ] = await Promise.all([
     supabase.from("suppliers").select("id, name").order("name", { ascending: true }),
     supabase.from("projects").select("id, name").order("name", { ascending: true }),
@@ -40,6 +47,13 @@ export default async function EquipmentRentalsPage() {
       .from("equipment_project_allocations")
       .select("id, batch_id, project_id, starts_on, ends_on")
       .order("starts_on", { ascending: true }),
+    // Spec 275 U3 — settlements are a zero-grant money table (admin read behind the
+    // page gate). Pull all rows; currentSettlements does the supersede anti-join.
+    admin
+      .from("rental_settlements")
+      .select(
+        "id, agreement_id, invoice_no, invoice_date, base_amount, overtime_amount, fees_amount, net_amount, vat_amount, deposit_refunded, deposit_forfeited, method, note, superseded_by, created_at",
+      ),
   ]);
 
   const suppliers = supplierRows ?? [];
@@ -66,6 +80,43 @@ export default async function EquipmentRentalsPage() {
     projects,
   );
 
+  // Spec 275 U3 — the settlement surface: agreement options for the select + the
+  // live settlements (supersede anti-join, newest first) for the history/correct.
+  const supplierNameById = new Map(suppliers.map((s) => [s.id, s.name]));
+  const agreementOptions = buildAgreementOptions(
+    (batchRows ?? []).map((b) => ({
+      id: b.id,
+      supplierName: supplierNameById.get(b.supplier_id ?? "") ?? "—",
+      rate: b.monthly_rate,
+      ratePeriod: b.rate_period as RentalRatePeriod,
+      startsOn: b.starts_on,
+      endsOn: b.ends_on,
+    })),
+  );
+  const agreementLabelById = new Map(agreementOptions.map((o) => [o.id, o.label]));
+  const settlements: SettlementListItem[] = currentSettlements(
+    (settlementRows ?? []).map((r) => ({ ...r, supersededBy: r.superseded_by })),
+  )
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0))
+    .map((r) => ({
+      id: r.id,
+      agreementId: r.agreement_id,
+      agreementLabel: agreementLabelById.get(r.agreement_id) ?? "—",
+      invoiceNo: r.invoice_no,
+      invoiceDate: r.invoice_date,
+      base: r.base_amount,
+      overtime: r.overtime_amount,
+      fees: r.fees_amount,
+      net: r.net_amount,
+      vat: r.vat_amount,
+      depositRefunded: r.deposit_refunded,
+      depositForfeited: r.deposit_forfeited,
+      method: r.method,
+      note: r.note,
+    }));
+
+  const today = bangkokTodayISO();
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -77,8 +128,15 @@ export default async function EquipmentRentalsPage() {
           suppliers={suppliers}
           projects={projects}
           rentals={rentals}
-          defaultDate={bangkokTodayISO()}
+          defaultDate={today}
         />
+        <div className="mt-8">
+          <RentalSettlementManager
+            agreements={agreementOptions}
+            settlements={settlements}
+            defaultDate={today}
+          />
+        </div>
       </div>
     </PageShell>
   );

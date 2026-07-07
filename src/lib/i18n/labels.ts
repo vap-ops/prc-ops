@@ -253,6 +253,26 @@ export const EQUIPMENT_RENTAL_ALLOCATE_LABEL = "ผูกโครงการ";
 // Spec 275 U1 — agreement terms on the rental deal (deposit + minimum rental days).
 export const EQUIPMENT_RENTAL_DEPOSIT_LABEL = "เงินมัดจำ (บาท)";
 export const EQUIPMENT_RENTAL_MIN_DAYS_LABEL = "เช่าขั้นต่ำ (วัน)";
+// Spec 275 U3 — the rental settlement (vendor invoice) recorder (money, back
+// office; /equipment/rentals). base + overtime + fees = net; the deposit is
+// resolved separately (refund/forfeit) and never netted into net.
+export const RENTAL_SETTLEMENT_RECORD_LABEL = "บันทึกการชำระ";
+export const RENTAL_SETTLEMENT_AGREEMENT_LABEL = "สัญญาเช่า";
+export const RENTAL_SETTLEMENT_INVOICE_NO_LABEL = "เลขที่ใบแจ้งหนี้";
+export const RENTAL_SETTLEMENT_INVOICE_DATE_LABEL = "วันที่ใบแจ้งหนี้";
+export const RENTAL_SETTLEMENT_BASE_LABEL = "ค่าเช่า (บาท)";
+export const RENTAL_SETTLEMENT_OVERTIME_LABEL = "ค่าล่วงเวลา (บาท)";
+export const RENTAL_SETTLEMENT_FEES_LABEL = "ค่าบริการอื่น (บาท)";
+export const RENTAL_SETTLEMENT_NET_LABEL = "ยอดสุทธิ";
+export const RENTAL_SETTLEMENT_VAT_LABEL = "ภาษีมูลค่าเพิ่ม (บาท)";
+export const RENTAL_SETTLEMENT_DEPOSIT_REFUNDED_LABEL = "มัดจำคืน (บาท)";
+export const RENTAL_SETTLEMENT_DEPOSIT_FORFEITED_LABEL = "มัดจำริบ (บาท)";
+export const RENTAL_SETTLEMENT_METHOD_LABEL = "วิธีชำระ";
+export const RENTAL_SETTLEMENT_HISTORY_LABEL = "ประวัติการชำระ";
+export const RENTAL_SETTLEMENT_EMPTY_LABEL = "ยังไม่มีการชำระที่บันทึกไว้";
+export const RENTAL_SETTLEMENT_CORRECT_LABEL = "แก้ไข";
+export const RENTAL_SETTLEMENT_CORRECT_CONFIRM_LABEL = "ยืนยันการแก้ไข";
+export const RENTAL_SETTLEMENT_CORRECTION_REASON_LABEL = "เหตุผลการแก้ไข";
 // Spec 205 — the per-WP labor budget (a money cost ceiling, PM/PD-set; PM review only).
 export const LABOR_BUDGET_LABEL = "งบค่าแรง";
 export const SET_LABOR_BUDGET_LABEL = "ตั้งงบค่าแรง";

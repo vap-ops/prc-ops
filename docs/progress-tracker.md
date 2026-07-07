@@ -6,9 +6,23 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 275 U3 — rental settlement (vendor invoice: deposit / VAT / WHT) — 🔔 BUILT, HELD for operator db:push (2026-07-07, additive schema + money/GL)
+## Spec 275 U3 — rental settlement (vendor invoice: deposit / VAT / WHT) — ✅ SHIPPED (schema+GL #360 `d8ab88d8`; UI code-only, 2026-07-08)
 
-Schema + GL slice (the UI — recordRentalSettlement action + form + labels + vitest — follows post-push, since it needs the regenerated `db:types`). Migrations `074700`–`075200`; claims `074700+` (U2's `074300`–`074600` already in main, no borrow).
+### UI slice — ✅ SHIPPED (2026-07-08, code-only, no schema)
+
+The settlement entry screen on `/equipment/rentals` (money, back office; the page gate keeps site_admin out entirely). Code-only — auto-merges on green.
+
+- `recordRentalSettlement` / `supersedeRentalSettlement` server actions (append to `src/app/equipment/rentals/actions.ts`) wrap the merged `record_`/`supersede_rental_settlement` RPCs via the RLS session client. `requireRole(BACK_OFFICE_ROLES)` defense-in-depth (matches the definer 5-role gate); shared payload validator (invoice no/date, non-negative amounts, method ∈ receipt_method, note ≤ 2000, `p_note` omitted when empty per exactOptionalPropertyTypes); 42501→no-permission, P0001→invalid (net/deposit mismatch or agreement not found).
+- `src/lib/equipment/rental-settlement-view.ts` (pure, tested): `settlementNet` (base+overtime+fees, round2 — deposit never netted), `buildAgreementOptions` (supplier · rate · period labels), `currentSettlements` (the supersede anti-join — exclude any row a newer `superseded_by` points at).
+- `RentalSettlementManager` (`src/components/features/equipment/rental-settlement-manager.tsx`): agreement select · invoice no/date · base/overtime/fees with a live net · VAT · deposit refunded/forfeited · method radios (reuse `RECEIPT_METHOD_LABEL` term SSOT) · note. History lists live settlements; แก้ไข opens a prefilled correction form → supersede. Per-instance radio `name` (record + each correction row) so native radio grouping never crosses forms.
+- `page.tsx`: reads `rental_settlements` via the admin client behind the gate (zero-grant money table), builds agreement options + current-only settlements (newest first).
+- `labels.ts` settlement strings; TDD 29 tests (view 6 · actions 14 · form 9); lint + typecheck + vitest 3043 green.
+
+**NEXT spec 275 = U4 variance roll-up** (pure `rental-variance.ts` helper + agreement-detail Σ charged-to-WP vs Σ paid-to-vendor vs committed; code-only). Separate PR off updated main.
+
+### Schema + GL slice — ✅ MERGED (#360 `d8ab88d8`, migs `074700`–`075300`; db:push + db:test 57/57 + db:types done)
+
+Migrations `074700`–`075300`; claims `074700+` (U2's `074300`–`074600` already in main, no borrow).
 
 **Operator design decision (2026-07-07): "thin settlement" (option A).** The rent is already posted at batch creation (`post_rental_batch_to_gl`) and each fee at charge time (`post_rental_charge_to_gl`), so the settlement poster booking `base+fees` again would DOUBLE-COUNT WIP + AP. Resolved: the settlement books ONLY the not-yet-booked legs.
 
@@ -21,7 +35,7 @@ What ships:
 - Seed account **1320** (Rental deposit — prepaid; absent from the skeleton chart). Drain re-sourced from LIVE `074600` + 2 arms (`rental_settlements`, `rental_deposits`); reconcile vs `pg_get_functiondef` at db:push.
 - pgTAP `275-rental-settlement.test.sql` (57 assertions, test-first) incl. the anti-double-count pin (settlement Dr 1400 = overtime+forfeit only, NOT base). audit_action pins 03/18 updated (+`rental_settlement_record`/`_supersede`).
 
-NEXT (operator): OK db:push → CC runs `db:test` (RED→GREEN) + `db:types` + ships the held PR. NOT self-pushed (money/GL). Then U3 UI + U4 variance.
+Schema shipped via #360 (db:push + db:test 57/57 + db:types + admin-merge on operator "Merge"). UI slice shipped 2026-07-08 (above). Remaining: U4 variance.
 
 Open questions / for accountant review at the gate: (a) VAT on the rent/overtime is stored as data but not GL-posted here (the rent poster books no VAT; if vendors charge VAT on rent this is an under-capture to revisit); (b) WHT not auto-corrected on settlement supersede.
 
