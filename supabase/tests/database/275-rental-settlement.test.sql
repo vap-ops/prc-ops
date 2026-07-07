@@ -333,10 +333,11 @@ select is(
   1, 'supersede: the original settlement entry got exactly one reversal');
 -- The superseding row's own entry: Dr 1400 = overtime 2000 + forfeit 1000 = 3000.
 do $$ begin
+  -- The superseding row's OWN superseded_by points BACK at INV-MAIN (subcontract
+  -- supersede convention), so it is NOT null — identify it by its unique invoice_no.
   perform set_config('t375.mainR',
     (select id::text from public.rental_settlements
-      where agreement_id = 'aa000375-0000-4000-8000-000000000001' and invoice_no = 'INV-MAIN-R'
-        and superseded_by is null), false);
+      where agreement_id = 'aa000375-0000-4000-8000-000000000001' and invoice_no = 'INV-MAIN-R'), false);
 end $$;
 select is(
   (select coalesce(sum(l.debit), 0) from public.journal_lines l join public.gl_accounts a on a.id = l.account_id

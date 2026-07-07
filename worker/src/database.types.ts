@@ -4300,6 +4300,91 @@ export type Database = {
           },
         ]
       }
+      rental_settlements: {
+        Row: {
+          agreement_id: string
+          base_amount: number
+          correction_reason: string | null
+          created_at: string
+          created_by: string
+          deposit_forfeited: number
+          deposit_refunded: number
+          fees_amount: number
+          id: string
+          invoice_date: string
+          invoice_no: string
+          method: Database["public"]["Enums"]["receipt_method"]
+          net_amount: number
+          note: string | null
+          overtime_amount: number
+          superseded_by: string | null
+          vat_amount: number
+          wht_amount: number
+        }
+        Insert: {
+          agreement_id: string
+          base_amount?: number
+          correction_reason?: string | null
+          created_at?: string
+          created_by: string
+          deposit_forfeited?: number
+          deposit_refunded?: number
+          fees_amount?: number
+          id?: string
+          invoice_date: string
+          invoice_no: string
+          method: Database["public"]["Enums"]["receipt_method"]
+          net_amount: number
+          note?: string | null
+          overtime_amount?: number
+          superseded_by?: string | null
+          vat_amount?: number
+          wht_amount?: number
+        }
+        Update: {
+          agreement_id?: string
+          base_amount?: number
+          correction_reason?: string | null
+          created_at?: string
+          created_by?: string
+          deposit_forfeited?: number
+          deposit_refunded?: number
+          fees_amount?: number
+          id?: string
+          invoice_date?: string
+          invoice_no?: string
+          method?: Database["public"]["Enums"]["receipt_method"]
+          net_amount?: number
+          note?: string | null
+          overtime_amount?: number
+          superseded_by?: string | null
+          vat_amount?: number
+          wht_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_settlements_agreement_id_fkey"
+            columns: ["agreement_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_rental_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_settlements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_settlements_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "rental_settlements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reports: {
         Row: {
           created_at: string
@@ -7678,6 +7763,14 @@ export type Database = {
         Args: { p_source_id: string }
         Returns: string
       }
+      post_rental_deposit_to_gl: {
+        Args: { p_source_id: string }
+        Returns: string
+      }
+      post_rental_settlement_to_gl: {
+        Args: { p_source_id: string }
+        Returns: string
+      }
       post_retention_release_to_gl: {
         Args: { p_source_id: string }
         Returns: string
@@ -7812,6 +7905,22 @@ export type Database = {
           p_vat_rate?: number
         }
         Returns: undefined
+      }
+      record_rental_settlement: {
+        Args: {
+          p_agreement_id: string
+          p_base: number
+          p_deposit_forfeited: number
+          p_deposit_refunded: number
+          p_fees: number
+          p_invoice_date: string
+          p_invoice_no: string
+          p_method: Database["public"]["Enums"]["receipt_method"]
+          p_note?: string
+          p_overtime: number
+          p_vat: number
+        }
+        Returns: string
       }
       record_shipment: {
         Args: { p_purchase_request_id: string }
@@ -8276,6 +8385,23 @@ export type Database = {
         }
         Returns: string
       }
+      supersede_rental_settlement: {
+        Args: {
+          p_base: number
+          p_correction_reason: string
+          p_deposit_forfeited: number
+          p_deposit_refunded: number
+          p_fees: number
+          p_invoice_date: string
+          p_invoice_no: string
+          p_method: Database["public"]["Enums"]["receipt_method"]
+          p_note?: string
+          p_overtime: number
+          p_settlement_id: string
+          p_vat: number
+        }
+        Returns: string
+      }
       supersede_subcontract_payment: {
         Args: {
           p_amount: number
@@ -8649,6 +8775,8 @@ export type Database = {
         | "po_charge_void"
         | "rental_charge_add"
         | "rental_charge_void"
+        | "rental_settlement_record"
+        | "rental_settlement_supersede"
       boq_line_status: "draft" | "frozen" | "superseded"
       boq_variation_type: "standard" | "added" | "omitted" | "provisional_sum"
       catalog_fulfillment_mode: "off_shelf" | "made_to_order"
@@ -9046,6 +9174,8 @@ export const Constants = {
         "po_charge_void",
         "rental_charge_add",
         "rental_charge_void",
+        "rental_settlement_record",
+        "rental_settlement_supersede",
       ],
       boq_line_status: ["draft", "frozen", "superseded"],
       boq_variation_type: ["standard", "added", "omitted", "provisional_sum"],
