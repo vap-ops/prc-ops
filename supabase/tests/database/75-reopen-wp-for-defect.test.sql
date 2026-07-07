@@ -90,7 +90,9 @@ select is(
 reset role;
 update public.work_packages set status='complete' where id='c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1';
 set local role authenticated;
-set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222222222"}';
+-- 271 U3: client defects are PM-tier only (site_admin files internal only),
+-- so the round-2 CLIENT reopen now runs as the PM lead.
+set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333333333"}';
 -- 217: this round-2 reopen is a CLIENT call (ลูกค้าแจ้ง) — pass p_source explicitly.
 select is(
   (select public.reopen_work_package_for_defect('c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1', 'รอยร้าวกลับมาอีก', 'client')),

@@ -7,7 +7,7 @@
 // global "pick a งาน" step — a later unit.)
 
 import Link from "next/link";
-import { Camera, HardHat, ShoppingCart } from "lucide-react";
+import { CalendarPlus, Camera, HardHat, Pencil, ShoppingCart } from "lucide-react";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
@@ -17,7 +17,15 @@ import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { workPackageHref } from "@/lib/nav/project-paths";
 import { withBackFrom } from "@/lib/nav/back-href";
-import { WORK_PACKAGE_STATUS_LABEL, formatThaiDate } from "@/lib/i18n/labels";
+import {
+  DAILY_WORK_PLAN_LABEL,
+  TODAY_LABEL,
+  WORK_PACKAGE_STATUS_LABEL,
+  formatThaiDate,
+} from "@/lib/i18n/labels";
+import { BUTTON_SECONDARY } from "@/lib/ui/classes";
+import { currentLaborLogs } from "@/lib/labor/current-logs";
+import { DailyPlanWorklist, type WorklistItem } from "@/components/features/sa/daily-plan-worklist";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import { bangkokTodayIso } from "@/lib/dates";
 import { buildSaActionList, type BouncedWp, type ReworkInfo } from "@/lib/sa/action-list";
@@ -39,6 +47,8 @@ export default async function SaHomePage() {
   const { data: wpRows } = await supabase
     .from("work_packages")
     .select("id, code, name, status, project_id, rework_round")
+    // Spec 270 U5: งาน grouping rows are never actionable — leaves only.
+    .eq("is_group", false)
     .neq("status", "complete");
   const wps = wpRows ?? [];
 
@@ -47,6 +57,89 @@ export default async function SaHomePage() {
     ? await supabase.from("projects").select("id, code, name").in("id", projectIds)
     : { data: [] };
   const projectsById = new Map((projects ?? []).map((p) => [p.id, { code: p.code, name: p.name }]));
+
+  // Spec 273 U3 — TODAY's แผนวันนี้ worklist: today's board(s) for the SA's
+  // projects, each item's crew, and who is already logged today (present). All
+  // reads RLS-scoped (can_see_project); logging is the existing log_labor_day.
+  const today = bangkokTodayIso();
+  const { data: planRows } = projectIds.length
+    ? await supabase
+        .from("daily_work_plans")
+        .select("id, project_id")
+        .eq("plan_date", today)
+        .in("project_id", projectIds)
+    : { data: [] };
+  const plans = planRows ?? [];
+  const planProject = new Map(plans.map((p) => [p.id, p.project_id]));
+
+  let worklistItems: WorklistItem[] = [];
+  if (plans.length > 0) {
+    const { data: planItemRows } = await supabase
+      .from("daily_work_plan_items")
+      .select("id, plan_id, work_package_id, sort_order")
+      .in(
+        "plan_id",
+        plans.map((p) => p.id),
+      )
+      .order("sort_order");
+    const planItems = planItemRows ?? [];
+    const { data: crewRows } = planItems.length
+      ? await supabase
+          .from("daily_work_plan_crew")
+          .select("item_id, worker_id, is_lead")
+          .in(
+            "item_id",
+            planItems.map((i) => i.id),
+          )
+      : { data: [] };
+    const crew = crewRows ?? [];
+    const planWpIds = Array.from(new Set(planItems.map((i) => i.work_package_id)));
+    const crewWorkerIds = Array.from(new Set(crew.map((c) => c.worker_id)));
+
+    const { data: labelRows } = planWpIds.length
+      ? await supabase.from("work_packages").select("id, code, name").in("id", planWpIds)
+      : { data: [] };
+    const labelById = new Map((labelRows ?? []).map((w) => [w.id, { code: w.code, name: w.name }]));
+    const { data: crewWorkerRows } = crewWorkerIds.length
+      ? await supabase.from("workers").select("id, name").in("id", crewWorkerIds)
+      : { data: [] };
+    const workerNameById = new Map((crewWorkerRows ?? []).map((w) => [w.id, w.name]));
+
+    const { data: laborRows } =
+      planWpIds.length && crewWorkerIds.length
+        ? await supabase
+            .from("labor_logs")
+            .select(
+              "id, work_package_id, worker_id, work_date, day_fraction, worker_name_snapshot, pay_type_snapshot, entered_by, self_logged, superseded_by, correction_reason, created_at, note",
+            )
+            .eq("work_date", today)
+            .in("work_package_id", planWpIds)
+            .in("worker_id", crewWorkerIds)
+        : { data: [] };
+    const present = new Set(
+      currentLaborLogs(laborRows ?? []).map((l) => `${l.work_package_id}:${l.worker_id}`),
+    );
+
+    const multiProject = projectIds.length > 1;
+    worklistItems = planItems.map((i) => {
+      const label = labelById.get(i.work_package_id);
+      const projectCode = projectsById.get(planProject.get(i.plan_id) ?? "")?.code;
+      return {
+        id: i.id,
+        workPackageId: i.work_package_id,
+        code: label?.code ?? "",
+        name: label?.name ?? "",
+        ...(multiProject && projectCode ? { projectLabel: projectCode } : {}),
+        crew: crew
+          .filter((c) => c.item_id === i.id)
+          .map((c) => ({
+            workerId: c.worker_id,
+            name: workerNameById.get(c.worker_id) ?? "",
+            present: present.has(`${i.work_package_id}:${c.worker_id}`),
+          })),
+      };
+    });
+  }
 
   // pending_approval WPs whose LATEST decision is negative = the PM bounced them
   // back to the SA (spec 218). One read per the latest-decision pattern.
@@ -110,6 +203,28 @@ export default async function SaHomePage() {
             สวัสดี{ctx.fullName ? ` ${ctx.fullName}` : ""}
           </h1>
         </div>
+
+        {/* Spec 273 U2 — entry to the next-day work board (แผนพรุ่งนี้). */}
+        <Link href="/sa/plan" className={`${BUTTON_SECONDARY} w-full gap-2`}>
+          <CalendarPlus aria-hidden className="size-4 shrink-0" />
+          {DAILY_WORK_PLAN_LABEL}
+        </Link>
+
+        {/* Spec 273 U3 — today's แผนวันนี้ worklist (one-tap มาทำ → log_labor_day). */}
+        <DailyPlanWorklist
+          dateIso={today}
+          dateLabel={formatThaiDate(today)}
+          items={worklistItems}
+        />
+
+        {/* Spec 273 U5 — edit today's board (the builder is date-navigable). Shown
+            only when there's a today board to edit; the button above plans พรุ่งนี้. */}
+        {worklistItems.length > 0 && (
+          <Link href={`/sa/plan?date=${today}`} className={`${BUTTON_SECONDARY} w-full gap-2`}>
+            <Pencil aria-hidden className="size-4 shrink-0" />
+            แก้ไขแผน{TODAY_LABEL}
+          </Link>
+        )}
 
         {/* Spec 218: WPs the PM/defect bounced back — pinned above everything,
             color-coded (amber = fix, red = rejected), one tap to the capture. */}

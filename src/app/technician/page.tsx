@@ -25,6 +25,7 @@ import {
   getOwnRegistrationDocuments,
 } from "@/lib/register/own-registration";
 import { WorkerPortalSections } from "@/components/features/portal/worker-portal-sections";
+import { ViewAsEmptyNote } from "@/components/features/chrome/view-as-empty-note";
 import { type PortalReceipt } from "@/components/features/portal/portal-receipts";
 import { type PortalConsent } from "@/components/features/portal/portal-self-edit";
 
@@ -92,6 +93,7 @@ export default async function TechnicianHomePage() {
       </header>
 
       <section className={`mx-auto flex flex-col gap-4 ${PAGE_MAX_W} px-5 py-6`}>
+        <ViewAsEmptyNote />
         {registration ? (
           <EmployeeCard
             employeeId={registration.employee_id}

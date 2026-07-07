@@ -10,6 +10,7 @@ import {
   type PurchaseOrderStatus,
 } from "@/lib/purchasing/purchase-order";
 import { RECEIVE_TO_STORE_LABEL } from "@/lib/i18n/labels";
+import { purchaseOrderStatusIcon } from "@/lib/status-icons";
 
 const STAGE_LABEL: Record<PurchaseOrderStage, string> = {
   ordered: "สั่งซื้อ",
@@ -32,6 +33,12 @@ export function PurchaseOrderTracker({ status }: { status: PurchaseOrderStatus }
         const dotClass =
           state === "done" ? "border-done-strong bg-done-strong" : "border-edge-strong bg-card";
         const labelClass = state === "pending" ? "text-ink-secondary" : "text-ink";
+        // The stage's own SSOT glyph (FileText → Truck → PackageCheck) — the same
+        // icons the PO status pill uses. Previews (muted) on upcoming stages so the
+        // truck is visible at the จัดส่ง step regardless of progress.
+        const StageIcon = purchaseOrderStatusIcon(stage);
+        const iconTone =
+          state === "done" ? "text-white" : state === "current" ? "text-ink" : "text-ink-muted";
 
         return (
           <li
@@ -48,15 +55,11 @@ export function PurchaseOrderTracker({ status }: { status: PurchaseOrderStatus }
               />
               <span
                 aria-hidden
-                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${dotClass} ${
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 ${dotClass} ${
                   isCurrent ? "ring-done ring-2" : ""
                 }`}
               >
-                {state === "done" ? (
-                  <svg viewBox="0 0 10 10" className="h-2.5 w-2.5 fill-none stroke-white stroke-2">
-                    <path d="M2 5.2 4.2 7.4 8 3" />
-                  </svg>
-                ) : null}
+                <StageIcon className={`h-4 w-4 ${iconTone}`} />
               </span>
               <span
                 aria-hidden

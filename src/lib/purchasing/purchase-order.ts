@@ -122,6 +122,26 @@ export function canVoidPurchaseOrder(memberStatuses: PurchaseRequestStatus[]): b
   return memberStatuses.length > 0 && memberStatuses.every((s) => s === "purchased");
 }
 
+// Spec 269 — honest Thai errors for void_purchase_order. The RPC raises
+// distinct errcodes per refusal site (PO404 not-found, PO409 shipped-line;
+// 42501 role gate) so this mapping can say what actually went wrong. Any
+// OTHER code — including a P0001 bubbled from GL internals or an append-only
+// trigger — gets the generic message, never a guessed cause (the pre-269
+// blanket "มีรายการที่จัดส่งหรือรับของแล้ว หรือไม่พบใบสั่งซื้อนี้" misled on
+// every unrelated P0001).
+export function voidPurchaseOrderErrorMessage(code: string | undefined): string {
+  switch (code) {
+    case "42501":
+      return "ไม่มีสิทธิ์ยกเลิกใบสั่งซื้อ";
+    case "PO404":
+      return "ไม่พบใบสั่งซื้อนี้ อาจถูกยกเลิกไปแล้ว";
+    case "PO409":
+      return "ยกเลิกไม่ได้: มีรายการที่จัดส่งหรือรับของแล้ว";
+    default:
+      return "ยกเลิกใบสั่งซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+  }
+}
+
 export function purchaseOrderTotal(lineAmounts: Array<number | null>): number {
   return lineAmounts.reduce<number>((sum, a) => sum + (a ?? 0), 0);
 }

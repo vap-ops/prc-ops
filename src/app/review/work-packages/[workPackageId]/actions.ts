@@ -26,6 +26,7 @@ import {
 import { canHold, canRelease } from "@/lib/work-packages/hold";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
 import { PM_ROLES } from "@/lib/auth/role-home";
+import { applyAssumedRole } from "@/lib/auth/apply-assumed-role";
 import { isValidUuid } from "@/lib/validate/uuid";
 
 function isValidDecision(value: unknown): value is ApprovalDecision {
@@ -63,7 +64,9 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+  // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
+  const effectiveRole = await applyAssumedRole(userRow?.role);
+  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
     return { ok: false, error: "เฉพาะผู้จัดการโครงการเท่านั้นที่บันทึกผลการตรวจได้" };
   }
 
@@ -167,7 +170,9 @@ export async function setHoldStatus(input: SetHoldStatusInput): Promise<SetHoldS
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+  // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
+  const effectiveRole = await applyAssumedRole(userRow?.role);
+  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
     return { ok: false, error: "เฉพาะผู้จัดการโครงการเท่านั้นที่พักงานได้" };
   }
 

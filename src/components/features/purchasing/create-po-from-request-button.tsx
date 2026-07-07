@@ -9,7 +9,7 @@
 // a server page can render it directly.
 
 import { useState } from "react";
-import { ShoppingCart } from "lucide-react";
+import { FilePlus } from "lucide-react";
 import { CREATE_PO_LABEL } from "@/lib/i18n/labels";
 import { BUTTON_PRIMARY } from "@/lib/ui/classes";
 import {
@@ -29,7 +29,7 @@ export function CreatePoFromRequestButton({
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} className={`${BUTTON_PRIMARY} w-full`}>
-        <ShoppingCart aria-hidden className="mr-1.5 size-4" />
+        <FilePlus aria-hidden className="mr-1.5 size-4" />
         {CREATE_PO_LABEL}
       </button>
       <CreatePurchaseOrderSheet

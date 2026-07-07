@@ -21,24 +21,51 @@ import { createWorkPackage } from "./actions";
 
 const LABEL = "text-sm font-medium text-ink";
 
-export function AddWorkPackageSheet({ projectId }: { projectId: string }) {
+// Spec 270 U4 — in a project that adopted งาน grouping, a new WP is a งานย่อย
+// and MUST live under a งาน (the U6 DB guard rejects a parentless insert), so
+// the sheet requires the pick. Legacy projects pass no groups → old form.
+export interface ParentGroupOption {
+  id: string;
+  code: string;
+  name: string;
+}
+
+export function AddWorkPackageSheet({
+  projectId,
+  groups = [],
+}: {
+  projectId: string;
+  groups?: ReadonlyArray<ParentGroupOption>;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [parentId, setParentId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
 
+  const needsParent = groups.length > 0;
   const canSubmit =
-    validateWorkPackageCode(code).ok && validateWorkPackageName(name).ok && !submitting;
+    validateWorkPackageCode(code).ok &&
+    validateWorkPackageName(name).ok &&
+    (!needsParent || parentId !== "") &&
+    !submitting;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!canSubmit) return;
     setError(null);
     startSubmit(async () => {
-      const result = await createWorkPackage({ projectId, code, name, description });
+      const result = await createWorkPackage({
+        projectId,
+        code,
+        name,
+        description,
+        // Legacy projects keep the exact old payload (key omitted).
+        ...(needsParent ? { parentId } : {}),
+      });
       if (!result.ok) {
         setError(result.error);
         return;
@@ -46,6 +73,7 @@ export function AddWorkPackageSheet({ projectId }: { projectId: string }) {
       setCode("");
       setName("");
       setDescription("");
+      setParentId("");
       setOpen(false);
       router.refresh();
     });
@@ -59,6 +87,27 @@ export function AddWorkPackageSheet({ projectId }: { projectId: string }) {
 
       <BottomSheet open={open} title="เพิ่มรายการงาน" onClose={() => setOpen(false)}>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {needsParent ? (
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="new-wp-parent" className={LABEL}>
+                อยู่ในงาน (งานหลัก)
+              </label>
+              <select
+                id="new-wp-parent"
+                value={parentId}
+                onChange={(e) => setParentId(e.target.value)}
+                disabled={submitting}
+                className="rounded-control border-edge-strong bg-card text-ink shadow-input focus-visible:ring-action h-11 w-full min-w-0 border px-3 text-sm focus:outline-none focus-visible:ring-2"
+              >
+                <option value="">— เลือกงานหลัก —</option>
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.code} {g.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="new-wp-code" className={LABEL}>
               รหัสงาน

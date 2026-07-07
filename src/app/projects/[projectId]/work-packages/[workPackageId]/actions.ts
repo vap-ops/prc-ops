@@ -33,6 +33,7 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN, requireActionRole } from "@/lib/auth/action-gate";
 import { isManagerRole, SITE_STAFF_ROLES } from "@/lib/auth/role-home";
+import { applyAssumedRole } from "@/lib/auth/apply-assumed-role";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { projectHref, workPackageHref } from "@/lib/nav/project-paths";
 import {
@@ -118,7 +119,9 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
   // trigger gate again underneath; this is the friendly early check.
   if (input.phase === "defect") {
     const { data: self } = await supabase.from("users").select("role").eq("id", user.id).single();
-    if (!self?.role || !isManagerRole(self.role)) {
+    // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
+    const effectiveRole = await applyAssumedRole(self?.role);
+    if (!effectiveRole || !isManagerRole(effectiveRole)) {
       return { ok: false, error: "เฉพาะผู้จัดการที่รายงานข้อบกพร่องจึงแนบรูปได้" };
     }
     if (wp.status !== "rework") {

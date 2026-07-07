@@ -42,10 +42,15 @@ const LIST: Record<string, unknown[]> = {
   ],
 };
 
+const eqCalls: Record<string, Array<[string, unknown]>> = {};
+
 function makeQuery(table: string) {
   const q: Record<string, unknown> = { __single: false };
   for (const m of ["select", "eq", "neq", "in", "order", "limit"]) {
-    q[m] = () => q;
+    q[m] = (...args: unknown[]) => {
+      if (m === "eq") (eqCalls[table] ??= []).push([args[0] as string, args[1]]);
+      return q;
+    };
   }
   q.maybeSingle = () => {
     q.__single = true;
@@ -69,12 +74,18 @@ const supabase = { from: (table: string) => makeQuery(table) } as never;
 beforeEach(() => {
   inFlight = 0;
   maxInFlight = 0;
+  for (const k of Object.keys(eqCalls)) delete eqCalls[k];
 });
 
 describe("loadProjectSchedule", () => {
   it("runs project + work_packages + deliverables concurrently", async () => {
     await loadProjectSchedule(supabase, "p1");
     expect(maxInFlight).toBeGreaterThanOrEqual(3);
+  });
+
+  it("enumerates งานย่อย only — the WP query excludes group rows (spec 270 U5)", async () => {
+    await loadProjectSchedule(supabase, "p1");
+    expect(eqCalls["work_packages"]).toContainEqual(["is_group", false]);
   });
 
   it("assembles the correct shape", async () => {

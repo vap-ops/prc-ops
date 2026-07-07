@@ -10,6 +10,8 @@ import type { User } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/db/server";
 import type { UserRole } from "@/lib/db/enums";
+import { resolveEffectiveRole } from "./effective-role";
+import { readAssumedRoleCookie } from "./assumed-role.server";
 
 /** The canonical Thai "not signed in" action error. */
 export const NOT_SIGNED_IN = "ยังไม่ได้เข้าสู่ระบบ";
@@ -53,6 +55,14 @@ export async function requireActionRole(
   if (!auth) return { error: NOT_SIGNED_IN };
   const { data } = await auth.supabase.from("users").select("role").eq("id", auth.user.id).single();
   const role = data?.role as UserRole | undefined;
-  if (!role || !allowed.includes(role)) return { error: notPermitted };
+  if (!role) return { error: notPermitted };
+  // Spec 274 — super_admin "View as role" is "fully active": the assumed role
+  // gates actions too. resolveEffectiveRole overrides only when the REAL role is
+  // super_admin (forge-guard), so a narrower assumed role correctly LOSES access
+  // to actions outside it at this TS gate. NB the write still executes as
+  // super_admin at the DB (RLS/RPCs see auth.uid()) — a fidelity ceiling, not a
+  // privilege gain (super_admin could act anyway). See effective-role.ts.
+  const effectiveRole = resolveEffectiveRole(role, await readAssumedRoleCookie());
+  if (!allowed.includes(effectiveRole)) return { error: notPermitted };
   return { auth };
 }

@@ -6,6 +6,129 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 270 U5 — exclusion sweep: every WP picker/list/count offers งานย่อย only — ✅ SHIPPED (2026-07-06, code-only, PR #333)
+
+- Swept: supply-plan per-line WP picker (งานย่อย under native งาน `<optgroup>` headings via NEW pure
+  `buildWpPickerGroups` in `src/lib/work-packages/picker-options.ts`; multi-WP checklist leaves-only),
+  SA worklist `/sa`, schedule loader, daily/PDF report job, client-portal progress list (denominator no
+  longer inflated), `/dashboard` progress counts (groups would double-weight — their status derives FROM
+  leaves). All via query-level `.eq("is_group", false)` or page-side shaping.
+- Safe by construction (no change): review queue + pending badges (groups can never be
+  `pending_approval` — pgTAP invariant), PR form + photo capture (leaf-detail-bound; U4's group branch
+  never renders them), journal/voucher reads (binding guards).
+- Pins: loader eq-asserts (schedule + client view) · pure picker tests · optgroup render test · static
+  source pin `wp-leaf-only-queries.test.ts` (sa/dashboard/report-job) in the ui-class-contracts style.
+- Verify: lint + typecheck + vitest 2869; browser smoke on PRC-2026-004 (schedule shows zero งาน codes).
+- **Spec 270 ALL UNITS COMPLETE** (U1 #328 · U2a #329 · U2b+U6 #330 · U3 #331 · U4 #332 · U5 #333).
+- Open questions: settings-hub card for `/settings/wp-grouping-import` still deferred (sections.ts
+  conflict with open #325 — add after it merges); งาน-level dates/timeline grouping + งาน-level profit
+  views remain later specs (270 §7).
+
+## Spec 270 U4 — งาน detail (oversight) + parent breadcrumb + parent-pick create — ✅ SHIPPED (2026-07-06, additive schema, PR #332 `7301f145`)
+
+- WP detail route branches on `is_group`: งาน renders `GroupDetailView` — children list (compact,
+  hierarchical order), DB-derived rollup pill + n/m เสร็จ + progress bar, manager-only READ-ONLY money
+  card (`groupSpendSummary`: labor + materials + เบิก − WP→store returns; the spec-209 netting mirrored
+  from the dashboard; admin-client reads strictly behind the planner gate). No capture/status/priority/
+  money affordances ever render on a งาน (operator directive 2026-07-06 reconfirmed mid-session).
+- Leaf pages: parent breadcrumb `WP-05 › WP-05-03` (`WpParentCrumb`, parent linked to the oversight
+  page); roster งาน sections gained a SIBLING detail link (a11y: never nested inside the expand button).
+- **Deviation from the "code-only" brief (flagged in PR):** migration `20260813072700` widens
+  `create_work_package` with trailing `p_parent_id uuid default null` (body from LIVE; DROP+CREATE;
+  anon revoked + spot-checked) — without it the U6 forward guard 23514'd every "+ เพิ่มงาน" in adopted
+  projects. Standing additive grant covers it. Sheet requires a งานหลัก pick there (47-option select);
+  legacy projects keep the byte-identical old form + payload; 23514 → honest Thai error.
+- pgTAP: NEW `270-wp-create-parent` (14) green; `69` sig-pins → 5-arg; suite 233/236 (3 pre-existing
+  not-ours: 100→#325 · 200 GL-drift · 221 catalog). db:types regen (src + worker). main↔DB synced thru
+  `072700`.
+- Verify: TDD red-first; vitest 2860; live browser pass on PRC-2026-004 (group page, money card,
+  breadcrumb, gated parent select).
+
+## Spec 270 U3 — grouped roster (ตามงาน lens) + งาน/งานย่อย label SSOT — ✅ SHIPPED (2026-07-06, code-only, PR #331)
+
+- Adopted projects get a third **ตามงาน** lens on the project WP list (manager-tier default;
+  site_admin keeps the action-triage default per worklist-priority doctrine): collapsible งาน sections
+  (code · name · rollup pill from the group row's own derived status · n/m เสร็จ · progress bar),
+  งานย่อย rows inside, natural-numeric code order. Groups EXCLUDED from the สถานะ/งวดงาน lenses.
+  Legacy flat projects byte-identical (2 lenses).
+- NEW pure `buildGroupedRoster` (`src/lib/work-packages/group-roster.ts`); `labels.ts` gains the
+  `WP_GROUP_LABEL`/`WP_LEAF_LABEL` SSOT pair (ADR 0074 D2); `loadProjectDetail` selects
+  `is_group, parent_id` (column-pin test); onboarding `deliverablesDone` counts leaves only.
+- Verify: TDD red-first; vitest 2848; live browser pass on PRC-2026-004 (47 sections, WP-01 rollup
+  2/10, children WP-01-01…-10 ordered) at 375px.
+
+## Spec 270 U2b + U6 — grouping import RPC + page; PRC-2026-004 IMPORTED LIVE — ✅ BUILT + APPLIED (2026-07-06, schema)
+
+Migrations `072300` (import_wp_grouping RPC) + `072400` (untyped-null coalesce fix — 42804; new
+migration per never-edit-applied) + `072500` (U6 amended: grouping-mandatory FORWARD guard per adopted
+project — a global CHECK+VALIDATE is impossible while PRC-2026-003/005 hold parentless leaves; even NOT
+VALID fires on their daily status UPDATEs) + `072600` (phase C creates new งานย่อย WITH parent —
+072500 made the old parentless-then-parent two-step illegal mid-re-import). All APPLIED; dry-run clean.
+Page `/settings/wp-grouping-import` (super_admin): template download → paste → dry-run → ConfirmDialog
+→ apply. pgTAP `270-wp-grouping-import` 18 asserts (TDD red-first) + `270-wp-subwp` extended to 34.
+
+**PRODUCTION IMPORT EXECUTED (operator-authorized, 2026-07-05 20:40 UTC):** the operator's final list
+(fixture `270-final-grouping-2026-07-06.tsv`; corrections in-session: WP-369 → งานทางดาดทางเชื่อม,
+WP-001 keeps the clean name) applied to PRC-2026-004 as dev-preview super_admin via the RPC —
+`{rows: 378, groups_created: 47, leaves_created: 69, existing_updated: 262}`. Verified: 47 งาน / 331
+งานย่อย / 0 parentless / 0 nested; the 22 history-bearing leaves untouched (18 in_progress · 3 complete
+· 1 pending_approval); rollup live (e.g. WP-263 auto in_progress at 2/10 done); audit row present.
+Interim UX note: until U3/U5, groups appear in flat lists/pickers — DB guards reject any photo/money
+write against them. **Next: U3 grouped roster + labels SSOT.**
+
+## Spec 270 U1 — งาน+งานย่อย hierarchy: schema + rollup + guards — ✅ BUILT (2026-07-06, schema, HELD)
+
+Migration `20260813072200_spec270u1_wp_hierarchy.sql` APPLIED to the shared DB (`db push --dry-run`
+clean after). Additive: `work_packages.is_group` + `parent_id` self-FK + partial index;
+`work_packages_hierarchy_guard` (depth 2 · same-project group parent · is_group immutable · groups born
+not_started · manual group status rejected at `pg_trigger_depth() < 2` · group priority immutable);
+`work_packages_rollup_status` (derived parent status, truth table per spec §3); generic
+`wp_reject_group_binding()` on 15 binding tables (photos/money/members/deps). TDD: pgTAP
+`270-wp-subwp.test.sql` (32 asserts) written first, red proven (42703), green after apply. Existing
+rows untouched (parentless leaves behave exactly as before — proven by test E.11). No src, no db:types
+(U2/U3 regenerates when code consumes the columns). Grouping-mandatory CHECK deferred to post-import
+(spec §2 D6). **Next: U2 template generator + dry-run import** — own session.
+
+## Spec 269 — void a PO that has attachments (bug fix) — ✅ BUILT (2026-07-06, migration APPLIED to prod, PR HELD for operator merge)
+
+Live prod bug (PO-4073): `void_purchase_order` raises P0001 for ANY PO with a
+`purchase_order_attachments` row — 22/27 POs at discovery — because the attachments
+append-only block-write trigger vetoes the DELETE that the PO-delete's ON DELETE CASCADE
+requests. Fix in one unit (migration `20260813072100`, CREATE OR REPLACE only): trigger
+carve-out (DELETE allowed iff the parent PO row is already gone = FK-cascade context;
+UPDATE/TRUNCATE/direct DELETE still blocked) + `void_purchase_order` snapshots the PO's
+attachment rows into the `purchase_order_void` audit payload before the delete (history
+preserved; storage objects intentionally orphaned, paths retained in the payload) +
+distinct errcodes `PO404`/`PO409` replacing the two blanket P0001 raise sites + honest
+Thai error mapping via pure `voidPurchaseOrderErrorMessage`. pgTAP 259 extended with the
+exact case the original tests missed (a PO carrying attachments). Spec:
+`docs/feature-specs/269-void-po-with-attachments.md`.
+
+Verification: bug REPRO'd then fix PROVEN via rolled-back multi-statement preflights on prod
+(zero persistence) before `db:push`; pgTAP 259 = 36/36 on prod post-apply incl. the new
+section K; spec-261's two `void_purchase_order` errcode pins updated in the same unit (the
+grep-all-pins rule — they probed the gate via the old P0001 not-found). vitest 2820 · lint ·
+typecheck green; `db:types` regen = zero drift from this change (spec-268's in-flight surface
+excluded — its own PR #325 carries it). Full-suite reds that remain are NOT this change:
+200-store (pre-existing GL data-drift), 221-catalog (pre-existing user-data flake),
+100-anon-exec (spec-268 signature widen, fixed by #325). Adversarial reviewer pass: clean.
+=======
+
+## Spec 270 U1 — งาน+งานย่อย hierarchy: schema + rollup + guards — ✅ BUILT (2026-07-06, schema, HELD)
+
+Migration `20260813072200_spec270u1_wp_hierarchy.sql` APPLIED to the shared DB (`db push --dry-run`
+clean after). Additive: `work_packages.is_group` + `parent_id` self-FK + partial index;
+`work_packages_hierarchy_guard` (depth 2 · same-project group parent · is_group immutable · groups born
+not_started · manual group status rejected at `pg_trigger_depth() < 2` · group priority immutable);
+`work_packages_rollup_status` (derived parent status, truth table per spec §3); generic
+`wp_reject_group_binding()` on 15 binding tables (photos/money/members/deps). TDD: pgTAP
+`270-wp-subwp.test.sql` (32 asserts) written first, red proven (42703), green after apply. Existing
+rows untouched (parentless leaves behave exactly as before — proven by test E.11). No src, no db:types
+(U2/U3 regenerates when code consumes the columns). Grouping-mandatory CHECK deferred to post-import
+(spec §2 D6). **Next: U2 template generator + dry-run import** — own session.
+
+> > > > > > > 27ea97c0 (feat(wp): spec 270 U1 — งาน+งานย่อย hierarchy schema, rollup, guards)
+
 ## Spec 265 U2 — super_admin LINE-identity: the two view surfaces — 🚧 IN PROGRESS (2026-07-05, code-only)
 
 The FINAL unit of spec 265. Two super_admin-gated views showing a person's LINE ground-truth identity
@@ -6335,3 +6458,103 @@ dc_cost`, `dc_count`/`dc_distributed`, `workers.contractor_id`).
   operator dislikes strip clutter). Allocation "whole project" = ends_on null.
 - **Open questions / seams:** ending a rental early (ends_on edit RPC); per-project
   rental cost rollup reader; batch-payment GL (ADR 0055 open question) — all follow-ups.
+
+## Spec 272 — worker level + หัวหน้าช่าง badge manage UI — 🔨 IN PROGRESS (2026-07-06, code-only)
+
+Operator-confirmed gap: no UI manages worker levels / HT badge / per-level sell rates.
+Discovery: spec 161 built ALL the schema (workers.level + set_worker_level; sell_rate_table +
+/nova/dials editor; projects.ht_worker_id + assign_project_ht) — zero roster-side UI ever landed.
+Live-verified pre-build: assign_project_ht = pm/pd/super, requires pay_type='daily' AND active,
+last-wins; set_worker_level = super_admin only; roster currently 0 workers (spec 266 wipe);
+sell_rate_table 4 seeded rows. This spec = surfacing only, NO migration:
+
+- U1 ระดับช่าง: roster chip + edit-sheet grade selector (super_admin) + setWorkerLevel action.
+- U2 หัวหน้าช่าง: row badge off projects.ht_worker_id + edit-sheet assign block (PM_ROLES,
+  daily+active+on-project; replace-warning names the current HT) + assignProjectHt action.
+- U3 sell-rate discoverability link /workers → /nova/dials (super_admin).
+
+Constraints honored: labels.ts / settings/sections.ts / database.types.ts untouched (open PR
+#325 owns them); level labels reuse the existing SSOT in src/lib/nova/dials.ts.
+
+## Spec 271 — plan-vs-actual + baselines + site-role incentives — 🎨 DESIGN APPROVED (2026-07-06)
+
+Design session (operator-requested). Six operator decisions (Q1–Q6) + one mid-session directive
+(client punch lists are PRC-priced; fix→full pay, no-show→deduction; contractors join rewards via
+`reward_beta` allowlist) + four panel-forced revisions re-approved (Δ1 auditor scoring, Δ2
+submit-time anchor, Δ3 004=unscored calibration, Δ4 deduction-as-payment-link). A 4-lens
+adversarial judge panel (game-theory · data-reality vs live DB · architecture · adoption) returned
+25 findings (10 high) — all folded into the spec (§3 decision table, §4 guards/posture, §7 gaming
+register). Deliverables: `docs/feature-specs/271-plan-vs-actual-baselines-incentives.md` + ADR 0075
+(Proposed) + index rows. BUILD NOT STARTED — U0 (operator bindings) has no code; U1+ are their own
+sessions, schema numbers `072800+`.
+
+Open questions: Thai label confirmation gates U2a; per-project staffing (distinct auditor?)
+gates scoring; U7 externally gated (contractor onboarding e2e + spec 251 U2).
+
+## Spec 271 U1 — plan baselines schema + 004 backfill — ✅ COMPLETE (2026-07-07, PR #336)
+
+pgTAP red first (271-plan-baselines.test.sql, plan 46). Migrations: `072800` enums
+(plan_baseline_kind · variance_class, §3-table-mirroring labels) · `072900` plan_baselines
+(unique (project,version), version>=1, scoring_go_live-only-on-initial, reason-required-unless-
+initial) + plan_baseline_items (composite pk, NOT NULL window, end>=start; NULL-dated leaves
+omitted by construction) + variance_snapshots (current/baseline lens partial-unique pair) —
+all: RLS SELECT via can_see_project, zero write grants, approvals-style triple-layer
+append-only (P0001 update/delete/truncate), wp_reject_group_binding on both leaf-bound
+tables · `073000` idempotent 004 backfill (v1 initial, as_of=apply-time, scoring_go_live
+NULL per D8, items = 331 dated leaves; proposed_by/approved_by NULL = system row, real
+actors start with U3 RPCs). db:types regen rides this unit.
+
+## Spec 271 U3 — visibility arms + gates + transition audit + baseline RPCs — ✅ COMPLETE (2026-07-07, schema lane 073100–073500)
+
+pgTAP red first (272-spec271u3-visibility-gates.test.sql, plan 47). Migrations:
+`073100` can*see_project membership arms for site_owner + auditor (added to the PM/SA arm —
+same mechanism, member OR lead; bodies from LIVE) + project_members self-read policy (the two
+roles read their OWN rows only) · `073200` work_packages transition-audit trigger — one AFTER
+UPDATE writer for every status flip (D7 submit anchor; admin-client submit/decide paths carry
+actor NULL — decision actors live in approvals) + every planned*_ edit (old→new trail); reopens
+double-log by design (uniform transition row + the richer defect row) · `073300`
+set*work_package_schedule hardening: +site_owner, can_see_wp membership, is_group reject
+(22023), planned*_ column UPDATE grant REVOKED (RPC = only authenticated edit path; M2
+precedent) · `073400` reopen_work_package_for_defect +auditor with role-conditional source
+(auditor + site_admin → internal ONLY; PM/PD/super → both) + log_labor_day Bangkok-today bound
+(anti-forgery §3) · `073500` propose_plan_baseline / approve_plan_baseline definer RPCs —
+plan_baselines is fully append-only so propose FREEZES the snapshot into an audit_log proposal
+event (immutable, unforgeable — authenticated cannot INSERT audit_log) and approve lands the
+single INSERT stamping both actors; kind rules initial/rebaseline/scope_change per D3/D8;
+vanished frozen leaves invalidate the proposal (never silently shrink what the PD approved).
+Existing tests adjusted for the tightened contracts: 47 (PM now leads its fixture project —
+membership gate) + 75 (round-2 client reopen runs as PM — site_admin tightened to internal).
+
+Open questions / deferred to later units:
+
+- งาน-signer guard on client-defect filing needs `wp_signoffs` → lands in U5 (§4.7 note).
+- `log_labor_day` p_directive_id tag rides U5's `labor_logs.directive_id` column.
+- U2b/U6 swap the actual_end FEED to the new transition rows (approvals decided_at stays the
+  pre-U3 fallback for history predating them, incl. all of 004's existing approvals).
+
+## Spec 275 U0 — equipment-rental vendor unification (2026-07-07)
+
+DONE (schema, additive; PR held for operator merge — migrations + GL). ADR 0078 (amends
+0055): PRI generalized to just-another-rental-vendor.
+
+- mig `074000`: suppliers +contact_status (tax_id + is_vat_registered ALREADY existed —
+  spec 84 `20260628000100` / spec 191 U2 `20260811000600`; a seam-sweep miss caught at push
+  and corrected). Mirror equipment_owners -> suppliers (id-preserving); add+backfill
+  supplier_id on equipment_items + equipment_rental_batches; owner_id DEPRECATED (kept, not
+  dropped). Idempotent (if not exists).
+- mig `074100`: post_rental_batch_to_gl repointed 2120 (AP-intercompany, owner party) ->
+  2100 (AP-trade, supplier party); re-sourced byte-for-byte from live 20260743000100.
+- pgTAP `274` (15/15) new; `84` rental assertion updated to the 2100/supplier behavior.
+  Suite: 237/240 files pass; the 3 reds are the known pre-existing trio (100 #325, 200
+  GL-drift, 221 catalog), unrelated to U0.
+- Borrowed the DB-ahead spec-268 migs `071900`/`072000` (untracked) into the worktree so
+  db:push saw a consistent history (the known #325 drift). NOT committed.
+
+Open questions / deferred:
+
+- db:types NOT regenerated: the live schema carries spec-268's unmerged `rate_period`, so a
+  regen would pull #325 schema into database.types.ts. U0 has no app-code consumer of
+  supplier_id/contact_status — regen deferred to U1 (by when #325 should be merged).
+- owner_id drop + equipment_owners teardown = a later operator-held destructive cleanup.
+- spec 268 (`071900`) already added equipment_rental_batches.rate_period — reconcile with
+  U1's rental_rate_tiers design (may overlap); #325 should merge before U1.

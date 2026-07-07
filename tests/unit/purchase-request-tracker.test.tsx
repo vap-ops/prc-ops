@@ -40,6 +40,20 @@ describe("PurchaseRequestTracker (spec 22)", () => {
     expect(screen.getByText("ได้รับของ")).toBeInTheDocument();
   });
 
+  it("renders the intuitive stage glyph at every node (truck at กำลังจัดส่ง, even upcoming)", () => {
+    // status='requested' → only the first node is reached; the rest are upcoming.
+    // The stage glyph must still preview at each node so the truck is visible at
+    // the จัดส่ง step regardless of how far the order has progressed.
+    const { container } = render(<PurchaseRequestTracker status="requested" {...BASE} />);
+    expect(container.querySelector('[data-stage="on_route"] .lucide-truck')).toBeInTheDocument();
+    expect(
+      container.querySelector('[data-stage="purchased"] .lucide-shopping-cart'),
+    ).toBeInTheDocument();
+    expect(
+      container.querySelector('[data-stage="delivered"] .lucide-package-check'),
+    ).toBeInTheDocument();
+  });
+
   it("marks the furthest reached stage with aria-current=step", () => {
     render(
       <PurchaseRequestTracker

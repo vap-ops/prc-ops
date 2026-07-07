@@ -131,11 +131,12 @@ select throws_ok(
 set local "request.jwt.claims" = '{"sub": "a3000261-0000-4000-8000-000000000003"}';
 select throws_ok(
   $$ select public.void_purchase_order('00000000-0000-0000-0000-000000000000'::uuid) $$,
-  'P0001', null, 'void_purchase_order ADMITS procurement_manager (gate passes → not-found)');
+  'PO404', null,
+  'void_purchase_order ADMITS procurement_manager (gate passes → not-found; spec 269 errcode)');
 set local "request.jwt.claims" = '{"sub": "a1000261-0000-4000-8000-000000000001"}';
 select throws_ok(
   $$ select public.void_purchase_order('00000000-0000-0000-0000-000000000000'::uuid) $$,
-  'P0001', null, 'void_purchase_order still admits project_manager');
+  'PO404', null, 'void_purchase_order still admits project_manager (spec 269 errcode)');
 reset role;
 
 -- ============================================================================

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Banknote, CircleDashed } from "lucide-react";
 import { Constants } from "@/lib/db/database.types";
 import {
   approvalDecisionIcon,
@@ -50,6 +51,18 @@ describe("status icon SSOT covers every status value", () => {
     for (const state of PO_STATES) {
       expect(purchaseOrderStatusIcon(state), `${state} has no icon`).toBeTruthy();
     }
+  });
+
+  // A bare hollow Circle reads as an empty placeholder / radio dot. 'open' means
+  // "draft PO, not yet issued" — a dashed circle says draft, not "nothing here".
+  it("uses a draft glyph (CircleDashed) for the PO 'open' (draft) status", () => {
+    expect(purchaseOrderStatusIcon("open")).toBe(CircleDashed);
+  });
+
+  // Wallet is also the KPI glyph for 'outstanding' (money OWED). site_purchased
+  // means cash PAID at the site — the opposite — so it gets its own cash glyph.
+  it("uses a cash glyph (Banknote), not Wallet, for the site_purchased status", () => {
+    expect(purchaseRequestStatusIcon("site_purchased")).toBe(Banknote);
   });
 
   it("returns an icon for the no-decision (null) approval state", () => {

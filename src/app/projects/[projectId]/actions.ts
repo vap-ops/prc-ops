@@ -10,6 +10,7 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN, requireActionRole } from "@/lib/auth/action-gate";
 import { CLIENT_ISSUER_ROLES, PM_ROLES } from "@/lib/auth/role-home";
+import { applyAssumedRole } from "@/lib/auth/apply-assumed-role";
 import { projectHref } from "@/lib/nav/project-paths";
 import { isValidUuid } from "@/lib/validate/uuid";
 import {
@@ -108,7 +109,9 @@ export async function dismissProjectOnboarding(
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+  // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
+  const effectiveRole = await applyAssumedRole(userRow?.role);
+  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
     return { ok: false, error: PM_ONLY_ERROR };
   }
 
@@ -133,6 +136,9 @@ export interface CreateWorkPackageInput {
   code: string;
   name: string;
   description: string;
+  /** Spec 270 U4: the parent งาน — required in practice for an adopted project
+   *  (the U6 DB guard rejects a parentless งานย่อย there); omit for legacy. */
+  parentId?: string;
 }
 
 export type CreateWorkPackageResult = { ok: true; id: string } | { ok: false; error: string };
@@ -157,8 +163,14 @@ export async function createWorkPackage(
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+  // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
+  const effectiveRole = await applyAssumedRole(userRow?.role);
+  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
     return { ok: false, error: PM_ONLY_ERROR };
+  }
+
+  if (input.parentId !== undefined && !isValidUuid(input.parentId)) {
+    return { ok: false, error: "งานหลักไม่ถูกต้อง" };
   }
 
   const rpcArgs: Database["public"]["Functions"]["create_work_package"]["Args"] = {
@@ -168,6 +180,9 @@ export async function createWorkPackage(
   };
   // exactOptionalPropertyTypes: omit the key rather than pass undefined.
   if (description !== "") rpcArgs.p_description = description;
+  // Spec 270 U4: pass the parent through; wp_hierarchy_guard validates it
+  // (same-project · is_group · depth · U6 grouping-mandatory).
+  if (input.parentId !== undefined) rpcArgs.p_parent_id = input.parentId;
 
   const { data: newId, error } = await supabase.rpc("create_work_package", rpcArgs);
   if (error) {
@@ -181,6 +196,12 @@ export async function createWorkPackage(
     if (error.code === "42501") return { ok: false, error: PM_ONLY_ERROR };
     if (error.code === "P0002") return { ok: false, error: PROJECT_CLOSED_ERROR };
     if (error.code === "22023") return { ok: false, error: "ข้อมูลงานไม่ถูกต้อง" };
+    // Spec 270: the hierarchy/grouping guard (parent invalid, or a parentless
+    // งานย่อย in an adopted project — the UI requires the pick, so reaching
+    // this means a stale form or a race).
+    if (error.code === "23514") {
+      return { ok: false, error: "งานใหม่ต้องอยู่ใต้งานหลักของโครงการนี้ กรุณาเลือกงานหลัก" };
+    }
     return { ok: false, error: "เพิ่มรายการงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
   if (!newId) return { ok: false, error: "เพิ่มรายการงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
@@ -214,7 +235,9 @@ export async function copyWorkPackages(
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+  // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
+  const effectiveRole = await applyAssumedRole(userRow?.role);
+  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
     return { ok: false, error: PM_ONLY_ERROR };
   }
 
@@ -256,7 +279,9 @@ export async function importWorkPackagesCsv(
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+  // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
+  const effectiveRole = await applyAssumedRole(userRow?.role);
+  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
     return { ok: false, error: PM_ONLY_ERROR };
   }
 
@@ -331,7 +356,9 @@ export async function createDeliverable(
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+  // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
+  const effectiveRole = await applyAssumedRole(userRow?.role);
+  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
     return { ok: false, error: PM_ONLY_ERROR };
   }
 
@@ -379,7 +406,9 @@ export async function importDeliverables(
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+  // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
+  const effectiveRole = await applyAssumedRole(userRow?.role);
+  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
     return { ok: false, error: PM_ONLY_ERROR };
   }
 
@@ -445,7 +474,9 @@ export async function assignWorkPackagesToDeliverable(
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+  // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
+  const effectiveRole = await applyAssumedRole(userRow?.role);
+  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
     return { ok: false, error: PM_ONLY_ERROR };
   }
 
@@ -501,7 +532,9 @@ export async function setDeliverableName(
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+  // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
+  const effectiveRole = await applyAssumedRole(userRow?.role);
+  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
     return { ok: false, error: PM_ONLY_ERROR };
   }
 
@@ -547,7 +580,9 @@ export async function swapDeliverableOrder(
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+  // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
+  const effectiveRole = await applyAssumedRole(userRow?.role);
+  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
     return { ok: false, error: PM_ONLY_ERROR };
   }
 
@@ -588,7 +623,9 @@ export async function deleteDeliverable(
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+  // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
+  const effectiveRole = await applyAssumedRole(userRow?.role);
+  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
     return { ok: false, error: PM_ONLY_ERROR };
   }
 
@@ -637,7 +674,9 @@ export async function removeWorkPackagesFromDeliverable(
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  if (!userRow || !PM_ROLES.includes(userRow.role)) {
+  // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
+  const effectiveRole = await applyAssumedRole(userRow?.role);
+  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
     return { ok: false, error: PM_ONLY_ERROR };
   }
 

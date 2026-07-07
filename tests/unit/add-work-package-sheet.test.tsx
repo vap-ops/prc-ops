@@ -69,3 +69,52 @@ describe("AddWorkPackageSheet", () => {
     expect(mockRefresh).not.toHaveBeenCalled();
   });
 });
+
+// Spec 270 U4 — an adopted project (has งาน rows) creates งานย่อย only, so the
+// sheet requires a parent pick there; the DB (U6 forward guard) already rejects
+// a parentless insert — this makes the UI ask instead of erroring. Legacy
+// projects (no groups prop) keep the exact old form + payload.
+describe("AddWorkPackageSheet parent pick (spec 270 U4)", () => {
+  const GROUPS = [
+    { id: "g-1", code: "WP-05", name: "งานหลังคา" },
+    { id: "g-2", code: "WP-06", name: "งานผนัง" },
+  ];
+
+  function openAdopted() {
+    render(<AddWorkPackageSheet projectId="p1" groups={GROUPS} />);
+    fireEvent.click(screen.getByRole("button", { name: /เพิ่มงาน/ }));
+  }
+
+  it("legacy project renders no parent select", () => {
+    open();
+    expect(screen.queryByLabelText(/อยู่ในงาน/)).not.toBeInTheDocument();
+  });
+
+  it("adopted project: submit stays disabled until a parent งาน is picked", () => {
+    openAdopted();
+    fireEvent.change(screen.getByLabelText("รหัสงาน"), { target: { value: "WP-05-11" } });
+    fireEvent.change(screen.getByLabelText("ชื่องาน"), { target: { value: "งานย่อยใหม่" } });
+    const submit = screen.getByRole("button", { name: "สร้างงาน" });
+    expect(submit).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(/อยู่ในงาน/), { target: { value: "g-1" } });
+    expect(submit).toBeEnabled();
+  });
+
+  it("adopted project: the picked parent rides the action payload", async () => {
+    openAdopted();
+    fireEvent.change(screen.getByLabelText("รหัสงาน"), { target: { value: "WP-05-11" } });
+    fireEvent.change(screen.getByLabelText("ชื่องาน"), { target: { value: "งานย่อยใหม่" } });
+    fireEvent.change(screen.getByLabelText(/อยู่ในงาน/), { target: { value: "g-2" } });
+    fireEvent.click(screen.getByRole("button", { name: "สร้างงาน" }));
+
+    await waitFor(() =>
+      expect(mockCreate).toHaveBeenCalledWith({
+        projectId: "p1",
+        code: "WP-05-11",
+        name: "งานย่อยใหม่",
+        description: "",
+        parentId: "g-2",
+      }),
+    );
+  });
+});

@@ -22,7 +22,9 @@
 // stable, no server round-trip.
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { workPackageHref } from "@/lib/nav/project-paths";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { WorklistRow, type WorklistRowItem } from "@/components/features/chrome/worklist-row";
@@ -32,7 +34,7 @@ import {
   groupWorkPackagesByDeliverable,
   type GroupDeliverable,
 } from "@/lib/deliverables/group-work-packages";
-import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
+import { WORK_PACKAGE_STATUS_LABEL, WP_GROUP_LABEL, WP_LEAF_LABEL } from "@/lib/i18n/labels";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import { workPackageStatusIcon } from "@/lib/status-icons";
 import {
@@ -43,6 +45,7 @@ import {
   type WorkPackageStatus,
   type WpPriority,
 } from "@/lib/work-packages/action-bands";
+import { buildGroupedRoster, type GroupSection } from "@/lib/work-packages/group-roster";
 
 type UserRole = Database["public"]["Enums"]["user_role"];
 
@@ -60,9 +63,13 @@ export interface WorkPackageListItem {
   priority: WpPriority;
   priorityRank: number;
   isCritical: boolean;
+  /** Spec 270: true = a งาน (grouping row) — heads a section, never a row. */
+  isGroup: boolean;
+  /** Spec 270: the งานย่อย's parent งาน id (null on groups + legacy rows). */
+  parentId: string | null;
 }
 
-type Lens = "action" | "deliverable";
+type Lens = "group" | "action" | "deliverable";
 
 interface WorkPackageListProps {
   projectId: string;
@@ -77,9 +84,14 @@ interface WorkPackageListProps {
   canOpen?: boolean;
 }
 
-/** Role decides the default lens; both lenses stay one tap away. */
-function defaultLens(role: UserRole): Lens {
-  return role === "site_admin" ? "action" : "deliverable";
+/**
+ * Role decides the default lens; every lens stays one tap away. In an
+ * adopted project (spec 270) the งาน structure is the manager default;
+ * site_admin keeps the action triage (worklist-priority doctrine).
+ */
+function defaultLens(role: UserRole, adopted: boolean): Lens {
+  if (role === "site_admin") return "action";
+  return adopted ? "group" : "deliverable";
 }
 
 export function WorkPackageList({
@@ -89,12 +101,17 @@ export function WorkPackageList({
   deliverables,
   canOpen = true,
 }: WorkPackageListProps) {
-  const [lens, setLens] = useState<Lens>(() => defaultLens(role));
+  // Spec 270 U3: split the roster into งาน sections + leaves. Groups head
+  // sections in the งาน lens and are EXCLUDED from every other lens — they
+  // are grouping entities, not actionable rows (DB rejects all work on them).
+  const roster = useMemo(() => buildGroupedRoster(workPackages), [workPackages]);
+  const leaves = roster.leaves;
+  const [lens, setLens] = useState<Lens>(() => defaultLens(role, roster.adopted));
   // Action lens: which triage band is filtered (null = all bands).
   const [bandFilter, setBandFilter] = useState<ActionBand | null>(null);
   // Action lens: the done band is collapsed until asked for.
   const [showDone, setShowDone] = useState(false);
-  // Deliverable lens: opened group keys (empty = all collapsed).
+  // Deliverable + งาน lens: opened section keys (empty = all collapsed).
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 
   const deliverableNameById = useMemo(() => {
@@ -118,32 +135,35 @@ export function WorkPackageList({
     };
   }
 
-  // ---- action-lens derivation ------------------------------------------
-  const bands = useMemo(() => groupByActionBand(workPackages), [workPackages]);
+  // ---- action-lens derivation (leaves only — spec 270) ------------------
+  const bands = useMemo(() => groupByActionBand(leaves), [leaves]);
   const countByBand = useMemo(() => {
     const m: Record<ActionBand, number> = { todo: 0, held: 0, review: 0, done: 0 };
-    for (const wp of workPackages) m[deriveActionBand(wp.status)] += 1;
+    for (const wp of leaves) m[deriveActionBand(wp.status)] += 1;
     return m;
-  }, [workPackages]);
+  }, [leaves]);
 
   if (workPackages.length === 0) {
     return <EmptyNotice>ยังไม่มีรายการงาน</EmptyNotice>;
   }
 
+  const lensOptions: ReadonlyArray<{ value: Lens; label: string }> = [
+    // งาน lens exists only once the project adopted the two-level model.
+    ...(roster.adopted ? [{ value: "group" as const, label: `ตาม${WP_GROUP_LABEL}` }] : []),
+    { value: "action", label: "ตามสถานะ" },
+    { value: "deliverable", label: "ตามงวดงาน" },
+  ];
+
   return (
     <div className="flex flex-col gap-4">
-      {/* Lens toggle — segmented, 44px. Action = สถานะ, deliverable = งวดงาน. */}
+      {/* Lens toggle — segmented, 44px. งาน = hierarchy (adopted projects),
+          action = สถานะ, deliverable = งวดงาน. */}
       <div
         role="radiogroup"
         aria-label="มุมมองรายการงาน"
         className="rounded-control border-edge bg-sunk flex gap-1 border p-1"
       >
-        {(
-          [
-            { value: "action", label: "ตามสถานะ" },
-            { value: "deliverable", label: "ตามงวดงาน" },
-          ] as const
-        ).map((opt) => {
+        {lensOptions.map((opt) => {
           const on = lens === opt.value;
           return (
             <button
@@ -162,7 +182,24 @@ export function WorkPackageList({
         })}
       </div>
 
-      {lens === "action" ? (
+      {lens === "group" ? (
+        <GroupLens
+          projectId={projectId}
+          sections={roster.sections}
+          ungrouped={roster.ungrouped}
+          expanded={expanded}
+          onToggle={(key) =>
+            setExpanded((prev) => {
+              const next = new Set(prev);
+              if (next.has(key)) next.delete(key);
+              else next.add(key);
+              return next;
+            })
+          }
+          toRowItem={toRowItem}
+          canOpen={canOpen}
+        />
+      ) : lens === "action" ? (
         <ActionLens
           projectId={projectId}
           bands={bands}
@@ -177,7 +214,7 @@ export function WorkPackageList({
       ) : (
         <DeliverableLens
           projectId={projectId}
-          workPackages={workPackages}
+          workPackages={leaves}
           deliverables={deliverables}
           expanded={expanded}
           onToggle={(key) =>
@@ -192,6 +229,151 @@ export function WorkPackageList({
           canOpen={canOpen}
         />
       )}
+    </div>
+  );
+}
+
+// ======================================================================
+// งาน LENS (spec 270 U3) — collapsible งาน sections, งานย่อย rows inside
+// ======================================================================
+interface GroupLensProps {
+  projectId: string;
+  sections: ReadonlyArray<GroupSection<WorkPackageListItem>>;
+  ungrouped: ReadonlyArray<WorkPackageListItem>;
+  expanded: ReadonlySet<string>;
+  onToggle: (key: string) => void;
+  toRowItem: (wp: WorkPackageListItem) => WorklistRowItem;
+  canOpen: boolean;
+}
+
+function GroupLens({
+  projectId,
+  sections,
+  ungrouped,
+  expanded,
+  onToggle,
+  toRowItem,
+  canOpen,
+}: GroupLensProps) {
+  return (
+    <div className="flex flex-col gap-3">
+      {sections.map(({ group, children, completeCount, totalCount, percent }) => {
+        const isOpen = expanded.has(group.id);
+        const contentId = `wp-gan-${group.id}`;
+        return (
+          <section
+            key={group.id}
+            className="rounded-card border-edge bg-card shadow-card overflow-hidden border"
+          >
+            {/* The งาน header is an expand/collapse control, NOT a WP link —
+                groups are grouping entities; all work happens on งานย่อย.
+                U4: a SIBLING link (never nested — a11y) opens the งาน
+                oversight page (children + rollup + read-only aggregates). */}
+            <div className="border-ink bg-sunk flex items-stretch border-l-4">
+              {canOpen ? (
+                <Link
+                  href={workPackageHref(projectId, group.id)}
+                  aria-label={`รายละเอียดงาน ${group.code} ${group.name}`}
+                  className="text-ink-secondary hover:text-ink focus-visible:ring-action order-2 flex w-11 shrink-0 items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-inset"
+                >
+                  <ChevronRight aria-hidden className="h-5 w-5" />
+                </Link>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => onToggle(group.id)}
+                aria-expanded={isOpen}
+                aria-controls={contentId}
+                className="focus-visible:ring-action order-1 flex min-h-12 min-w-0 flex-1 cursor-pointer flex-col gap-2 py-3 pl-4 text-left transition-colors hover:brightness-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset"
+              >
+                <span className="flex w-full items-center gap-3">
+                  <ChevronRight
+                    aria-hidden
+                    className={`text-ink-secondary size-4 shrink-0 transition-transform motion-reduce:transition-none ${
+                      isOpen ? "rotate-90" : ""
+                    }`}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="text-meta text-ink-secondary font-mono font-semibold">
+                      {group.code}
+                    </span>
+                    <span className="text-heading text-ink line-clamp-2 block font-bold tracking-tight break-words">
+                      {group.name}
+                    </span>
+                  </span>
+                  <span className="flex shrink-0 flex-col items-end gap-1">
+                    {/* Rollup pill — the group row's own status IS the derived truth. */}
+                    <StatusPill
+                      pillClasses={workPackageStatusPillClasses(group.status)}
+                      icon={workPackageStatusIcon(group.status)}
+                    >
+                      {WORK_PACKAGE_STATUS_LABEL[group.status]}
+                    </StatusPill>
+                    <span className="text-meta text-ink-secondary">
+                      {completeCount}/{totalCount} เสร็จ
+                    </span>
+                  </span>
+                </span>
+                <span
+                  role="progressbar"
+                  aria-valuenow={percent}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`${group.name} — เสร็จแล้ว ${percent}%`}
+                  className="bg-edge block h-1.5 w-full overflow-hidden rounded-full"
+                >
+                  <span
+                    className="bg-done block h-full rounded-full transition-[width] motion-reduce:transition-none"
+                    style={{ width: `${percent}%` }}
+                  />
+                </span>
+              </button>
+            </div>
+            {isOpen ? (
+              <ul id={contentId} className="border-edge flex flex-col gap-2.5 border-t p-3">
+                {children.length === 0 ? (
+                  <li>
+                    <EmptyNotice>
+                      ยังไม่มี{WP_LEAF_LABEL}ใน{WP_GROUP_LABEL}นี้
+                    </EmptyNotice>
+                  </li>
+                ) : (
+                  children.map((wp, i) => (
+                    <li key={wp.id}>
+                      <WorklistRow
+                        projectId={projectId}
+                        wp={toRowItem(wp)}
+                        spine={ACTION_BAND_META[deriveActionBand(wp.status)].spine}
+                        compact
+                        enterIndex={i}
+                        canOpen={canOpen}
+                      />
+                    </li>
+                  ))
+                )}
+              </ul>
+            ) : null}
+          </section>
+        );
+      })}
+      {/* Legacy remnants inside an adopted project (should be rare — the
+          import leaves none) stay reachable rather than silently hidden. */}
+      {ungrouped.length > 0 ? (
+        <section className="flex flex-col gap-2.5">
+          <h3 className="text-section text-ink px-0.5 font-extrabold">ยังไม่จัดกลุ่ม</h3>
+          {ungrouped.map((wp, i) => (
+            <WorklistRow
+              key={wp.id}
+              projectId={projectId}
+              wp={toRowItem(wp)}
+              spine={ACTION_BAND_META[deriveActionBand(wp.status)].spine}
+              compact
+              enterIndex={i}
+              canOpen={canOpen}
+            />
+          ))}
+        </section>
+      ) : null}
     </div>
   );
 }

@@ -15,8 +15,10 @@ import {
   AlertTriangle,
   Archive,
   Ban,
+  Banknote,
   Check,
   Circle,
+  CircleDashed,
   Clock,
   FileText,
   Flame,
@@ -31,7 +33,6 @@ import {
   Send,
   ShoppingCart,
   Truck,
-  Wallet,
   X,
 } from "lucide-react";
 import type {
@@ -103,7 +104,9 @@ const PURCHASE_REQUEST_STATUS_ICON: Record<PurchaseRequestStatus, LucideIcon> = 
   purchased: ShoppingCart,
   on_route: Truck,
   delivered: PackageCheck,
-  site_purchased: Wallet,
+  // Banknote (cash paid at the site), NOT Wallet — Wallet is the KPI glyph for
+  // 'outstanding' (money still OWED), the opposite of a completed cash purchase.
+  site_purchased: Banknote,
 };
 export function purchaseRequestStatusIcon(status: PurchaseRequestStatus): LucideIcon {
   return PURCHASE_REQUEST_STATUS_ICON[status];
@@ -111,9 +114,10 @@ export function purchaseRequestStatusIcon(status: PurchaseRequestStatus): Lucide
 
 // PO roll-up: 'ordered' uses a document glyph (the PO is ISSUED — "ออกใบสั่งซื้อ"),
 // distinct from a PR line's ShoppingCart 'purchased', while in_transit/received
-// share the shipping/received glyphs with the line flow.
+// share the shipping/received glyphs with the line flow. 'open' (draft, not yet
+// issued) uses a DASHED circle — a bare Circle reads as an empty placeholder.
 const PURCHASE_ORDER_STATUS_ICON: Record<PurchaseOrderStatus, LucideIcon> = {
-  open: Circle,
+  open: CircleDashed,
   ordered: FileText,
   in_transit: Truck,
   partially_received: PackageOpen,

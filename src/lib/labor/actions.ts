@@ -13,6 +13,7 @@ import { revalidatePath } from "next/cache";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import type { Database } from "@/lib/db/database.types";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
+import { applyAssumedRole } from "@/lib/auth/apply-assumed-role";
 import { PM_ROLES } from "@/lib/auth/role-home";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { bangkokTodayIso } from "./dates";
@@ -60,10 +61,12 @@ export async function logLaborDays(input: {
 
   const { data: me } = await supabase.from("users").select("role").eq("id", user.id).maybeSingle();
   if (!me) return { ok: false, error: GENERIC_ERROR };
+  // Spec 274 U3: view-as — apply the assumed role to the back-date-limit check.
+  const effectiveRole = await applyAssumedRole(me.role);
 
   const validation = validateLaborEntry(
     { workDate: input.workDate, workerIds: input.entries.map((e) => e.workerId) },
-    { today: bangkokTodayIso(), role: me.role },
+    { today: bangkokTodayIso(), role: effectiveRole },
   );
   if (validation) return { ok: false, error: validation };
 
@@ -146,7 +149,8 @@ export async function refreezeWpLaborCost(input: {
   const { supabase, user } = auth;
 
   const { data: me } = await supabase.from("users").select("role").eq("id", user.id).maybeSingle();
-  if (!me || !PM_ROLES.includes(me.role)) {
+  const effectiveRole = await applyAssumedRole(me?.role);
+  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
     return { ok: false, error: "เฉพาะผู้จัดการโครงการเท่านั้นที่ตรึงค่าแรงได้" };
   }
 
@@ -182,7 +186,8 @@ export async function setWpLaborBudget(input: {
   const { supabase, user } = auth;
 
   const { data: me } = await supabase.from("users").select("role").eq("id", user.id).maybeSingle();
-  if (!me || !PM_ROLES.includes(me.role)) {
+  const effectiveRole = await applyAssumedRole(me?.role);
+  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
     return { ok: false, error: "เฉพาะ PM หรือ PD เท่านั้นที่ตั้งงบค่าแรงได้" };
   }
 
@@ -232,7 +237,8 @@ export async function recordWagePayment(input: {
   const { supabase, user } = auth;
 
   const { data: me } = await supabase.from("users").select("role").eq("id", user.id).maybeSingle();
-  if (!me || !PM_ROLES.includes(me.role)) {
+  const effectiveRole = await applyAssumedRole(me?.role);
+  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
     return { ok: false, error: "เฉพาะผู้จัดการโครงการเท่านั้นที่บันทึกการจ่ายเงินได้" };
   }
 

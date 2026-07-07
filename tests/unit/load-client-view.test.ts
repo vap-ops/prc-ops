@@ -18,6 +18,7 @@ vi.mock("@/lib/storage/signed-urls", () => ({ mintSignedUrls }));
 import { loadClientView } from "@/lib/client-portal/load-client-view";
 
 const selects: Record<string, string> = {};
+const eqCalls: Record<string, Array<[string, unknown]>> = {};
 
 function makeSupabase(rows: {
   project: unknown;
@@ -31,7 +32,8 @@ function makeSupabase(rows: {
         selects[table] = cols;
         return builder;
       },
-      eq() {
+      eq(col: string, val: unknown) {
+        (eqCalls[table] ??= []).push([col, val]);
         return builder;
       },
       order() {
@@ -69,6 +71,7 @@ const PROJECT = {
 
 beforeEach(() => {
   for (const k of Object.keys(selects)) delete selects[k];
+  for (const k of Object.keys(eqCalls)) delete eqCalls[k];
   mintSignedUrls.mockClear();
 });
 
@@ -76,6 +79,17 @@ describe("loadClientView", () => {
   it("returns null when there is no live-access project", async () => {
     const supabase = makeSupabase({ project: null, workPackages: [], photos: [], reports: [] });
     expect(await loadClientView(supabase as never, "p1")).toBeNull();
+  });
+
+  it("counts งานย่อย only — the WP progress list excludes group rows (spec 270 U5)", async () => {
+    const supabase = makeSupabase({
+      project: PROJECT,
+      workPackages: [],
+      photos: [],
+      reports: [],
+    });
+    await loadClientView(supabase as never, "p1");
+    expect(eqCalls["work_packages"]).toContainEqual(["is_group", false]);
   });
 
   it("selects NO money columns on any surface", async () => {

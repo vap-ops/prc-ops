@@ -19,6 +19,7 @@ import {
   PROCUREMENT_MANAGER_ROLES,
   type UserRole,
 } from "@/lib/auth/role-home";
+import { applyAssumedRole } from "@/lib/auth/apply-assumed-role";
 import { crossesBlacklistBoundary } from "@/lib/contacts/blacklist";
 import type { Database } from "@/lib/db/database.types";
 import { Constants } from "@/lib/db/database.types";
@@ -66,10 +67,13 @@ async function roleSession(allowed: ReadonlyArray<string>, denyMsg: string): Pro
     .select("role")
     .eq("id", auth.user.id)
     .maybeSingle();
-  if (!userRow || !allowed.includes(userRow.role)) {
+  // Spec 274 U3: honor a super_admin's "view as" — both the gate AND the role
+  // returned to callers use the assumed role.
+  const effectiveRole = await applyAssumedRole(userRow?.role);
+  if (!effectiveRole || !allowed.includes(effectiveRole)) {
     return { ok: false, error: denyMsg };
   }
-  return { ok: true, supabase: auth.supabase, userId: auth.user.id, role: userRow.role };
+  return { ok: true, supabase: auth.supabase, userId: auth.user.id, role: effectiveRole };
 }
 
 const pmSession = () => roleSession(PM_ROLES, PM_ONLY);
