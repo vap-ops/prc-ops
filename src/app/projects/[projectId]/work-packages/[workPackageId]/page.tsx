@@ -48,6 +48,8 @@ import {
 } from "@/lib/status-colors";
 import { approvalDecisionIcon, workPackageStatusIcon } from "@/lib/status-icons";
 import { loadWorkPackageDetail } from "@/lib/work-packages/load-detail";
+import { wpWalkFrom } from "@/lib/work-packages/wp-walk";
+import { WpWalkBar } from "@/components/features/work-packages/wp-walk-bar";
 import { loadGroupChildren, loadGroupMoney } from "@/lib/work-packages/load-group-detail";
 import { GroupDetailView } from "@/components/features/work-packages/group-detail-view";
 import { WpParentCrumb } from "@/components/features/work-packages/wp-parent-crumb";
@@ -178,6 +180,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     { data: eqUsageRows },
     laborBudget,
     { data: parentRow },
+    { data: walkRows },
   ] = await Promise.all([
     loadWorkPackageDetail(supabase, { workPackageId, projectId, isPlanner }),
     isPlanner
@@ -263,10 +266,19 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           .eq("id", pre.parent_id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
+    // Spec 278 U1: the project's leaf WPs feed the "งานถัดไป" walk (id/code/status,
+    // RLS-scoped to the SA's project); the pure wpWalkFrom orders + resolves them.
+    supabase
+      .from("work_packages")
+      .select("id, code, status")
+      .eq("project_id", projectId)
+      .eq("is_group", false),
   ]);
   if (!data.wp) {
     notFound();
   }
+  // Spec 278 U1: prev/next in the work walk, so a photo→next-WP move is one tap.
+  const walk = wpWalkFrom(walkRows ?? [], workPackageId);
   const wp = data.wp;
   const {
     contractors,
@@ -825,6 +837,9 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           </StatusPill>
         </div>
       </DetailHeader>
+
+      {/* Spec 278 U1: walk to the prev/next งาน without backing out to the list. */}
+      <WpWalkBar projectId={projectId} walk={walk} from={from} />
 
       <div className="border-edge bg-card border-b px-5 py-3">
         <div className={`mx-auto ${PAGE_MAX_W}`}>
