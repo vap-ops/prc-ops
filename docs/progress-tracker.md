@@ -6,6 +6,25 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 275 U4 — rental variance roll-up (committed vs charged-to-WP vs paid-to-vendor) — ✅ SHIPPED (2026-07-08, code-only, no schema)
+
+Read-only variance roll-up on `/equipment/rentals` (money, back office; the page gate keeps site_admin out). Mirrors the subcontracts "Σ agreed vs Σ paid" pattern. Code-only — auto-merges on green.
+
+- **Pure helper** `src/lib/equipment/rental-variance.ts` (`computeRentalVariance`, `inclusiveDays`; TDD 10 tests). Per agreement:
+  - **charged-to-WP** = Σ over the agreement's items' CURRENT usage logs of `inclusiveDays(checked_out, checked_in ?? today) × daily_rate_snapshot` — the `wp_equipment_sell` basis (spec 146 U3): inclusive days (same-day = 1), an open checkout accrues to today, non-superseded only (reuses `currentSettlements` anti-join).
+  - **paid-to-vendor** = Σ `net_amount` over the agreement's CURRENT settlements (supersede anti-join).
+  - **committed** = the batch rate × period (daily: rate × inclusive days; monthly: rate × days/30 — a display **estimate**, labelled ประมาณ).
+  - **flag** compares charged vs paid: `over_recovery` (charged > paid → PRC margin), `under_recovery` (charged < paid → PRC loss), `balanced`. Compared on `round2` values (no float noise).
+- **Display** `RentalVarianceList` (Server Component, read-only): per agreement the three figures + a token-trio flag chip (done/danger/neutral). `labels.ts` variance block.
+- **Page**: two zero-grant admin reads behind the gate — `equipment_items` (item→agreement map) and `equipment_usage_logs` **scoped via `.in(item_id, rentalItemIds)`** (usage_logs scales with every field check-out — never scan the whole table; skip the query when there are no rental items). Charged-out `daily_rate_snapshot` (WP charge, ADR 0055 Case A) is deliberately a different rate from the batch's vendor `monthly_rate`.
+- **Verify**: lint + typecheck + vitest **3056** green; adversarial review. No schema, no migration.
+
+**Open questions:** (a) committed monthly proration (days/30) is a rough estimate — a monthly rental bills whole months in practice; revisit if the operator wants whole-month or min_rental_days-floored committed. (b) The roll-up lists every agreement (batch), including inactive ones (0 charged / 0 paid → balanced); revisit filtering to active-only if the list grows noisy.
+
+**Spec 275 status:** U0–U5 + U3 UI + U4 all shipped. Remaining deferred v2: with-operator/fuel cost case, per-item deposit grain, metered-hourly overtime, auto plan-vs-actual (needs spec 271 classification lib).
+
+---
+
 ## Spec 275 U3 — rental settlement (vendor invoice: deposit / VAT / WHT) — ✅ SHIPPED (schema+GL #360 `d8ab88d8`; UI code-only, 2026-07-08)
 
 ### UI slice — ✅ SHIPPED (2026-07-08, code-only, no schema)

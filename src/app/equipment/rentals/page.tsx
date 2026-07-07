@@ -15,12 +15,21 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { RentalManager } from "@/components/features/equipment/rental-manager";
 import { RentalSettlementManager } from "@/components/features/equipment/rental-settlement-manager";
+import {
+  RentalVarianceList,
+  type AgreementVariance,
+} from "@/components/features/equipment/rental-variance-list";
 import { buildRentalView, type RentalRatePeriod } from "@/lib/equipment/rental-view";
 import {
   buildAgreementOptions,
   currentSettlements,
   type SettlementListItem,
 } from "@/lib/equipment/rental-settlement-view";
+import {
+  computeRentalVariance,
+  type RentalVarianceSettlementRow,
+  type RentalVarianceUsageRow,
+} from "@/lib/equipment/rental-variance";
 import { bangkokTodayISO } from "@/lib/work-packages/schedule-today";
 import { EQUIPMENT_RENTAL_LABEL } from "@/lib/i18n/labels";
 
@@ -37,6 +46,7 @@ export default async function EquipmentRentalsPage() {
     { data: batchRows },
     { data: allocationRows },
     { data: settlementRows },
+    { data: itemRows },
   ] = await Promise.all([
     supabase.from("suppliers").select("id, name").order("name", { ascending: true }),
     supabase.from("projects").select("id, name").order("name", { ascending: true }),
@@ -54,7 +64,25 @@ export default async function EquipmentRentalsPage() {
       .select(
         "id, agreement_id, invoice_no, invoice_date, base_amount, overtime_amount, fees_amount, net_amount, vat_amount, deposit_refunded, deposit_forfeited, method, note, superseded_by, created_at",
       ),
+    // Spec 275 U4 — which items belong to which rental agreement (zero-grant money
+    // read behind the gate). The usage logs are fetched next, scoped to these items.
+    admin.from("equipment_items").select("id, rental_agreement_id"),
   ]);
+
+  // Spec 275 U4 — the charged-to-WP basis. equipment_usage_logs scales with every
+  // field check-out, so scope the read to items on a rental agreement rather than
+  // scanning the whole table (skip the query entirely when there are none).
+  const batchByItem = new Map<string, string>();
+  for (const it of itemRows ?? []) {
+    if (it.rental_agreement_id) batchByItem.set(it.id, it.rental_agreement_id);
+  }
+  const rentalItemIds = [...batchByItem.keys()];
+  const { data: usageRows } = rentalItemIds.length
+    ? await admin
+        .from("equipment_usage_logs")
+        .select("id, item_id, checked_out_on, checked_in_on, daily_rate_snapshot, superseded_by")
+        .in("item_id", rentalItemIds)
+    : { data: [] };
 
   const suppliers = supplierRows ?? [];
   const projects = projectRows ?? [];
@@ -117,6 +145,52 @@ export default async function EquipmentRentalsPage() {
 
   const today = bangkokTodayISO();
 
+  // Spec 275 U4 — per-agreement variance roll-up. Charged-to-WP = the agreement's
+  // items' current usage × daily_rate_snapshot; paid-to-vendor = its current
+  // settlements' net; committed = the batch rate × period. computeRentalVariance
+  // does the supersede anti-joins + the flag.
+  const usageByBatch = new Map<string, RentalVarianceUsageRow[]>();
+  for (const u of usageRows ?? []) {
+    const batchId = batchByItem.get(u.item_id);
+    if (!batchId) continue;
+    const row: RentalVarianceUsageRow = {
+      id: u.id,
+      supersededBy: u.superseded_by,
+      checkedOutOn: u.checked_out_on,
+      checkedInOn: u.checked_in_on,
+      dailyRateSnapshot: u.daily_rate_snapshot,
+    };
+    const list = usageByBatch.get(batchId);
+    if (list) list.push(row);
+    else usageByBatch.set(batchId, [row]);
+  }
+  const settlementsByAgreement = new Map<string, RentalVarianceSettlementRow[]>();
+  for (const r of settlementRows ?? []) {
+    const row: RentalVarianceSettlementRow = {
+      id: r.id,
+      supersededBy: r.superseded_by,
+      netAmount: r.net_amount,
+    };
+    const list = settlementsByAgreement.get(r.agreement_id);
+    if (list) list.push(row);
+    else settlementsByAgreement.set(r.agreement_id, [row]);
+  }
+  const agreementVariances: AgreementVariance[] = (batchRows ?? []).map((b) => ({
+    id: b.id,
+    label: agreementLabelById.get(b.id) ?? "—",
+    variance: computeRentalVariance({
+      usage: usageByBatch.get(b.id) ?? [],
+      settlements: settlementsByAgreement.get(b.id) ?? [],
+      committed: {
+        rate: b.monthly_rate,
+        ratePeriod: b.rate_period as RentalRatePeriod,
+        startsOn: b.starts_on,
+        endsOn: b.ends_on,
+      },
+      today,
+    }),
+  }));
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -136,6 +210,9 @@ export default async function EquipmentRentalsPage() {
             settlements={settlements}
             defaultDate={today}
           />
+        </div>
+        <div className="mt-8">
+          <RentalVarianceList agreements={agreementVariances} />
         </div>
       </div>
     </PageShell>
