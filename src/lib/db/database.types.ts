@@ -1758,6 +1758,7 @@ export type Database = {
           name: string
           owner_id: string
           quantity: number | null
+          rental_agreement_id: string | null
           status: Database["public"]["Enums"]["equipment_status"]
           supplier_id: string | null
           tracking: Database["public"]["Enums"]["equipment_tracking"]
@@ -1774,6 +1775,7 @@ export type Database = {
           name: string
           owner_id: string
           quantity?: number | null
+          rental_agreement_id?: string | null
           status?: Database["public"]["Enums"]["equipment_status"]
           supplier_id?: string | null
           tracking?: Database["public"]["Enums"]["equipment_tracking"]
@@ -1790,6 +1792,7 @@ export type Database = {
           name?: string
           owner_id?: string
           quantity?: number | null
+          rental_agreement_id?: string | null
           status?: Database["public"]["Enums"]["equipment_status"]
           supplier_id?: string | null
           tracking?: Database["public"]["Enums"]["equipment_tracking"]
@@ -1814,6 +1817,13 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "equipment_owners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_items_rental_agreement_id_fkey"
+            columns: ["rental_agreement_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_rental_batches"
             referencedColumns: ["id"]
           },
           {
@@ -1974,37 +1984,49 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string
+          deposit_amount: number
+          deposit_paid_date: string | null
           ends_on: string | null
           id: string
+          min_rental_days: number | null
           monthly_rate: number
           note: string | null
-          owner_id: string
+          owner_id: string | null
           rate_period: Database["public"]["Enums"]["equipment_rate_period"]
           starts_on: string
+          status: Database["public"]["Enums"]["rental_agreement_status"]
           supplier_id: string | null
         }
         Insert: {
           created_at?: string
           created_by: string
+          deposit_amount?: number
+          deposit_paid_date?: string | null
           ends_on?: string | null
           id?: string
+          min_rental_days?: number | null
           monthly_rate: number
           note?: string | null
-          owner_id: string
+          owner_id?: string | null
           rate_period?: Database["public"]["Enums"]["equipment_rate_period"]
           starts_on: string
+          status?: Database["public"]["Enums"]["rental_agreement_status"]
           supplier_id?: string | null
         }
         Update: {
           created_at?: string
           created_by?: string
+          deposit_amount?: number
+          deposit_paid_date?: string | null
           ends_on?: string | null
           id?: string
+          min_rental_days?: number | null
           monthly_rate?: number
           note?: string | null
-          owner_id?: string
+          owner_id?: string | null
           rate_period?: Database["public"]["Enums"]["equipment_rate_period"]
           starts_on?: string
+          status?: Database["public"]["Enums"]["rental_agreement_status"]
           supplier_id?: string | null
         }
         Relationships: [
@@ -7188,12 +7210,15 @@ export type Database = {
       }
       create_equipment_rental_batch: {
         Args: {
+          p_deposit_amount?: number
+          p_deposit_paid_date?: string
           p_ends_on?: string
+          p_min_rental_days?: number
           p_monthly_rate: number
           p_note?: string
-          p_owner_id: string
           p_rate_period?: Database["public"]["Enums"]["equipment_rate_period"]
           p_starts_on: string
+          p_supplier_id: string
         }
         Returns: string
       }
@@ -8710,6 +8735,7 @@ export type Database = {
       quotation_status: "draft" | "sent" | "accepted" | "rejected"
       receipt_method: "bank_transfer" | "cheque" | "cash"
       registration_status: "pending" | "approved" | "rejected"
+      rental_agreement_status: "active" | "returned" | "settled" | "cancelled"
       report_status: "requested" | "processing" | "complete" | "failed"
       retention_status: "held" | "due" | "released" | "forfeited"
       rework_source: "internal" | "client"
@@ -9117,6 +9143,7 @@ export const Constants = {
       quotation_status: ["draft", "sent", "accepted", "rejected"],
       receipt_method: ["bank_transfer", "cheque", "cash"],
       registration_status: ["pending", "approved", "rejected"],
+      rental_agreement_status: ["active", "returned", "settled", "cancelled"],
       report_status: ["requested", "processing", "complete", "failed"],
       retention_status: ["held", "due", "released", "forfeited"],
       rework_source: ["internal", "client"],
