@@ -31,10 +31,18 @@ import {
   EQUIPMENT_RENTAL_ALLOCATE_LABEL,
   EQUIPMENT_RENTAL_CUSTOM_PERIOD_LABEL,
   EQUIPMENT_RENTAL_DEPOSIT_LABEL,
+  EQUIPMENT_RENTAL_LABEL,
   EQUIPMENT_RENTAL_MIN_DAYS_LABEL,
   EQUIPMENT_RENTAL_RECORD_LABEL,
   EQUIPMENT_RENTAL_WHOLE_PROJECT_LABEL,
 } from "@/lib/i18n/labels";
+
+// Spec 275 U5 follow-up — the partial-outcome recovery hint for the
+// project-LOCKED recorder. createRentalBatch's default error tells the user to
+// re-allocate from the per-card ผูกโครงการ control, but that control (and the
+// unallocated batch's card) is hidden on the locked surface — recovery there
+// lives on the settings cross-project overview (ตั้งค่า › เช่าอุปกรณ์) instead.
+export const EQUIPMENT_RENTAL_PARTIAL_LOCKED_MESSAGE = `บันทึกการเช่าแล้ว แต่ผูกโครงการไม่สำเร็จ — ไปที่ ตั้งค่า › ${EQUIPMENT_RENTAL_LABEL} เพื่อผูกโครงการอีกครั้ง`;
 
 interface NamedRow {
   id: string;
@@ -125,7 +133,15 @@ export function RentalManager({
         minRentalDays: minDaysNumber,
       });
       if (!result.ok) {
-        setError(result.error);
+        // Spec 275 U5 follow-up: on the locked surface the default "re-allocate
+        // from the card" hint is unreachable (card + control hidden) — point at
+        // the settings overview instead. Only for the partial-outcome result;
+        // every other error shows verbatim.
+        setError(
+          lockedProject && result.code === "allocation_failed"
+            ? EQUIPMENT_RENTAL_PARTIAL_LOCKED_MESSAGE
+            : result.error,
+        );
         return;
       }
       resetForm();
