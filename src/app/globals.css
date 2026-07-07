@@ -125,6 +125,23 @@
   --color-danger-edge: oklch(0.8 0.1 20); /* ≈ #fca5a5 red-300 */
   --color-danger-ink: oklch(0.4 0.13 25); /* ≈ #7f1d1d red-900 */
 
+  /* --- Category identity (spec 277) — the 9 global work-categories -- */
+  /* Theme-INVARIANT brand hues (a category's colour is its identity, so */
+  /* it does not flip with light/dark like the semantic tokens above).   */
+  /* Self-contained tiles carry white ink; each hue is kept dark enough  */
+  /* (L ≈ 0.50–0.54) for ≥4.5:1 white text, and spaced off the reserved  */
+  /* attn-amber / done-emerald / action-blue so a category never reads   */
+  /* as a status. Consumed as bg-cat-w0x / text-cat-w0x (never raw hue). */
+  --color-cat-w01: oklch(0.5 0.03 256); /* slate  — P เตรียมการ/รื้อถอน */
+  --color-cat-w02: oklch(0.51 0.19 274); /* indigo — S โครงสร้าง */
+  --color-cat-w03: oklch(0.49 0.1 182); /* teal   — A สถาปัตยกรรม */
+  --color-cat-w04: oklch(0.52 0.16 248); /* blue   — W ประปา/สุขาภิบาล */
+  --color-cat-w05: oklch(0.53 0.11 85); /* gold   — E ไฟฟ้า/สื่อสาร */
+  --color-cat-w06: oklch(0.53 0.11 210); /* cyan   — C ปรับ/ระบายอากาศ */
+  --color-cat-w07: oklch(0.55 0.19 358); /* pink   — G ป้าย */
+  --color-cat-w08: oklch(0.52 0.13 150); /* green  — X ภายนอก/ผังบริเวณ */
+  --color-cat-w09: oklch(0.5 0.2 300); /* purple — F ครุภัณฑ์/เพิ่มเติม */
+
   /* --- Radii ------------------------------------------------------ */
   --radius-card: 1rem; /* 16px → rounded-card (worklist rows, panels) */
   --radius-control: 0.75rem; /* 12px → rounded-control (inputs/buttons/chips) */

@@ -6,6 +6,22 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 277 U1 — work-category visual identity: SSOT + `CategoryChip` — ✅ SHIPPED (2026-07-07, code-only, no schema)
+
+- The reusable identity primitive for the 9 global work-categories. Letter · color · icon per
+  `W01`–`W09`, mirroring the `status-colors.ts` + `status-icons.ts` + `StatusPill` pattern.
+- New `src/lib/work-categories/identity.ts` — exhaustive letter/icon/tile/accent maps +
+  `workCategoryIdentity(code)` resolver (5-char subsection → parent top via first 3 chars,
+  matching spec 226 `left(code,3)`; blank/unknown → null).
+- New `src/components/features/work-packages/category-chip.tsx` — `<CategoryChip code label? />`,
+  a colored letter tile + icon + label; renders null for uncategorised.
+- New `--color-cat-w01..w09` tokens in globals.css `@theme` (theme-invariant brand hues, white
+  text ≥ 4.5:1; spaced off the reserved attn/done/action hues → no doctrine allowlist edit).
+- TDD: `work-category-identity.test.ts` (resolver + exhaustive maps) + `category-chip.test.tsx`
+  (render) written RED first.
+- Scope fence: does NOT wire into WP surfaces (all 390 WPs uncategorised — nothing to show yet),
+  no DB column, no editor. Those are U2+. Design + unit plan in `docs/feature-specs/277-*.md`.
+
 ## Spec 275 U5 — relocate rental recording to the project detail — ✅ SHIPPED (2026-07-07, code-only, no schema)
 
 - Relocates spec 268's `/equipment/rentals` recorder INTO the project. Reuses U1's
