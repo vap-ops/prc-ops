@@ -142,6 +142,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
     memberNames,
     workPackages,
     deliverables,
+    categoryCodeById,
     criticalIds,
     onboarding,
     sourceProjects,
@@ -337,6 +338,8 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
             // head sections and are excluded from the other lenses.
             isGroup: wp.is_group,
             parentId: wp.parent_id,
+            // Spec 277 — reconciled global work-category code for the row's chip.
+            categoryCode: wp.category_id ? (categoryCodeById.get(wp.category_id) ?? null) : null,
           }))}
           deliverables={(deliverables ?? []).map((d) => ({
             id: d.id,

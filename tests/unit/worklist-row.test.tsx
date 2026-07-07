@@ -45,6 +45,27 @@ describe("WorklistRow canOpen", () => {
   });
 });
 
+// Spec 277: the row shows the category identity — a colored icon + the category
+// letter-code (WP-12 → E-12) — when the WP reconciles to a global work-category.
+describe("WorklistRow category identity (spec 277)", () => {
+  it("replaces the WP code with the category letter-code when categorised", () => {
+    render(
+      <WorklistRow
+        projectId={PROJECT_ID}
+        wp={{ ...WP, code: "WP-12", categoryCode: "W05" }}
+        spine="bg-attn"
+      />,
+    );
+    expect(screen.getByText("E-12")).toBeInTheDocument();
+    expect(screen.queryByText("WP-12")).toBeNull();
+  });
+
+  it("keeps the raw code when the WP is uncategorised", () => {
+    render(<WorklistRow projectId={PROJECT_ID} wp={{ ...WP, code: "WP-12" }} spine="bg-attn" />);
+    expect(screen.getByText("WP-12")).toBeInTheDocument();
+  });
+});
+
 // Spec 243: every WorklistRow carries content-visibility:auto + contain-intrinsic-size
 // so off-screen rows skip style/layout/paint. A long worklist (a project with hundreds
 // of ungrouped WPs) otherwise mounts every row at once — a >100 ms main-thread long task

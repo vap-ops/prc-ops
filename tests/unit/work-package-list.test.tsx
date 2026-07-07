@@ -29,6 +29,7 @@ const WPS: WorkPackageListItem[] = [
     isCritical: false,
     isGroup: false,
     parentId: null,
+    categoryCode: null,
   },
 ];
 
@@ -41,6 +42,7 @@ function groupedFixture(): WorkPackageListItem[] {
     priority: "normal" as const,
     priorityRank: 2,
     isCritical: false,
+    categoryCode: null,
   };
   return [
     {
