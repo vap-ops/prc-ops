@@ -160,4 +160,50 @@ describe("RentalManager", () => {
     renderManager([]);
     expect(screen.getByText(/ยังไม่มีการเช่า/)).toBeInTheDocument();
   });
+
+  // Spec 275 U5 — project-locked recorder (surfaced on /projects/[id]/rentals).
+  // The project is fixed to this page, so the โครงการ pick is hidden and every
+  // recorded rental auto-allocates to lockedProject.
+
+  it("hides the project select and auto-allocates to the locked project on record", async () => {
+    render(
+      <RentalManager
+        suppliers={suppliers}
+        projects={projects}
+        rentals={[]}
+        defaultDate="2026-07-05"
+        lockedProject={{ id: "p1", name: "โครงการ A" }}
+      />,
+    );
+    expect(screen.queryByLabelText("โครงการ")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("เช่าจาก"), { target: { value: "o1" } });
+    fireEvent.change(screen.getByLabelText(/ค่าเช่า/), { target: { value: "90000" } });
+    fireEvent.click(screen.getByRole("button", { name: "บันทึกการเช่า" }));
+    await waitFor(() =>
+      expect(mockCreateBatch).toHaveBeenCalledWith({
+        supplierId: "o1",
+        rate: 90000,
+        ratePeriod: "monthly",
+        startsOn: "2026-07-05",
+        endsOn: null,
+        note: "",
+        projectId: "p1",
+        depositAmount: 0,
+        minRentalDays: null,
+      }),
+    );
+  });
+
+  it("hides the per-card ผูกโครงการ re-allocate control when project-locked", () => {
+    render(
+      <RentalManager
+        suppliers={suppliers}
+        projects={projects}
+        rentals={rentals}
+        defaultDate="2026-07-05"
+        lockedProject={{ id: "p1", name: "โครงการ A" }}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "ผูกโครงการ" })).not.toBeInTheDocument();
+  });
 });

@@ -74,6 +74,7 @@ WP transfer price.
 | **U2** | **One-time fees.** New `rental_charges` (type delivery/pickup/cleaning/insurance/other, amount, vat_rate) mirroring `purchase_order_charges` (spec 260) + `add_rental_charge` / `void_rental_charge` RPCs + GL poster.                                                                                                                                                                                                                                                                                                                     | **Yes**            | U1                   |
 | **U3** | **Settlement (VAT/WHT/deposit).** New append-only + supersede `rental_settlements` (vendor invoice: base + overtime + fees = net, VAT, WHT, method; deposit resolved separately as an asset) + `record_rental_settlement` / `supersede_rental_settlement` RPCs. GL poster: Dr WIP + Dr Input VAT (1300) / Cr AP (2100) or Bank, Cr WHT; deposit Dr 1320 at inception → released/forfeited at settlement; wire `record_wht_certificate` (rent 5%); seed account 1320 if absent.                                                             | **Yes**            | U1 (U2 for fees leg) |
 | **U4** | **Variance roll-up.** Agreement detail (admin-read): Σ charged-to-WP (`wp_equipment_sell` over the agreement's items) vs Σ paid-to-vendor (settlements) + committed (agreement rate); overpay/under-recovery flag. Read-only, subcontract-roll-up pattern.                                                                                                                                                                                                                                                                                 | **No**             | U3                   |
+| **U5** | **Relocate rental recording to the project.** Surface the U1 recorder on the PROJECT detail page — a money-gated เช่าอุปกรณ์ entry (`BACK_OFFICE_ROLES`, never site_admin) → new `/projects/[id]/rentals` route rendering `RentalManager` **project-locked** (hides the โครงการ pick + the per-card re-allocate; auto-allocates every recorded rental to this project). Keeps the settings `/equipment/rentals` page as procurement's cross-project overview. Placement-only.                                                              | **No**             | U1                   |
 
 WP check-out/check-in (the field value driver) is **already live** (spec 202 U2/U3) —
 this spec adds no field surface. U0 is first and riskiest (a live-table migration); it
@@ -370,6 +371,75 @@ vs paid vs committed with the correct flag.
 ### Seams
 
 - Auto plan-vs-actual classification (spec 271) — v2.
+
+---
+
+## U5 — Relocate rental recording to the project detail
+
+**No schema** — a placement change that reuses U1's `RentalManager` /
+`createRentalBatch` / `create_equipment_project_allocation` / `rental-view` unchanged.
+
+**Why.** Spec 268 put the recorder in the SETTINGS hub (`/equipment/rentals`), but a
+rental is project-driven — "we wouldn't make any rentals without a related WP" (operator,
+2026-07-07). The three grains stay as ADR 0055 set them: **batch** (the vendor deal —
+procurement-level, can span projects) → **allocation** (PROJECT-grain — a rented set
+serves many WPs, not one) → **usage** (WP-grain check-out, already on WP detail). The gap
+this closes: recording the batch+allocation lived in a global settings page instead of at
+the project. This surfaces the recorder **at the project**, auto-allocating to it.
+
+### What ships
+
+- **`RentalManager` — optional project lock.** New optional prop `lockedProject?: {id,
+name}`. When set: the record form **hides the โครงการ select** and forces
+  `createRentalBatch` `projectId = lockedProject.id` (every recorded rental auto-allocates
+  to this project on the same submit, via 268's allocate-on-create path); the per-card
+  **ผูกโครงการ re-allocate control is hidden** (the project is fixed here — cross-project
+  re-allocation stays on the settings overview). Unlocked (settings page) behaviour is
+  **unchanged**.
+- **New route `/projects/[id]/rentals`** (`page.tsx` + `loading.tsx`), mirroring
+  `/projects/[id]/supply-plan`: `requireRole(BACK_OFFICE_ROLES)` (the money audience =
+  the create-RPC gate; RLS scopes the project/supplier reads); reads the project +
+  suppliers via the RLS client and **THIS project's rentals** via the admin client
+  (`equipment_project_allocations` filtered to `project_id` → the referenced
+  `equipment_rental_batches`, both zero-grant money tables); `DetailHeader`
+  `backHref = projectHref(id)`; renders `RentalManager` with `lockedProject`. A `rentalsHref`
+  is added to `src/lib/nav/project-paths.ts`.
+- **Project-detail entry.** A money-gated เช่าอุปกรณ์ chip on `/projects/[id]` (mirrors the
+  store / supply-plan header chips) shown only to `BACK_OFFICE_ROLES` — **never site_admin**
+  (money surface, spec 46 / ADR 0055 decision 6).
+- **Keep** the settings `/equipment/rentals` page as procurement's cross-project overview
+  (unchanged — it renders `RentalManager` unlocked, with all projects + all rentals).
+
+### Scope
+
+- **IN:** the `RentalManager` `lockedProject` prop; the `/projects/[id]/rentals` route +
+  loading; the `rentalsHref` helper; the project-detail entry chip; extend
+  `tests/unit/rental-manager.test.tsx`; spec/tracker.
+- **OUT:** any schema/RPC change; removing or demoting the settings `/equipment/rentals`
+  page (kept as the cross-project overview); fees (U2); settlement (U3); variance (U4).
+
+### Money posture
+
+`BACK_OFFICE_ROLES`-gated, exactly like the settings page; batches/allocations read via
+the admin client (zero-grant), supplier/project names via the RLS client; site_admin never
+sees the entry or the route.
+
+### Tests
+
+- **TDD (RED first):** extend `tests/unit/rental-manager.test.tsx` — with `lockedProject`
+  set, the โครงการ select is absent and a recorded rental calls `createRentalBatch` with
+  `projectId = lockedProject.id`; the per-card ผูกโครงการ control is absent.
+
+### Verification
+
+`pnpm lint && pnpm typecheck && pnpm test` green (code-only — no DB). Operator on-device:
+from a project as PM/procurement, open เช่าอุปกรณ์, record a rental with no project pick,
+and confirm it lists under this project; a site_admin sees no เช่าอุปกรณ์ entry.
+
+### Seams
+
+- The settings `/equipment/rentals` page could later be narrowed to a pure read-only
+  cross-project overview (drop its record form) — deferred; it stays fully functional now.
 
 ---
 

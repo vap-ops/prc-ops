@@ -53,3 +53,12 @@ export function storeHref(projectId: string): string {
 export function storeItemHref(projectId: string, catalogItemId: string): string {
   return `/projects/${projectId}/store/items/${catalogItemId}`;
 }
+
+// Spec 275 U5: the equipment-rental recorder relocated from the settings hub
+// (spec 268) into the project — a rental is project-driven, so it records + lists
+// THIS project's rentals and auto-allocates each to it. Money-gated
+// (BACK_OFFICE_ROLES). The settings /equipment/rentals page stays as
+// procurement's cross-project overview.
+export function rentalsHref(projectId: string): string {
+  return `/projects/${projectId}/rentals`;
+}

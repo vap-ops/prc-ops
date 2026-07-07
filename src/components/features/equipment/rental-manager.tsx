@@ -46,11 +46,17 @@ export function RentalManager({
   projects,
   rentals,
   defaultDate,
+  lockedProject,
 }: {
   suppliers: NamedRow[];
   projects: NamedRow[];
   rentals: RentalCard[];
   defaultDate: string;
+  // Spec 275 U5: when set (the /projects/[id]/rentals surface), the recorder is
+  // fixed to this project — the โครงการ pick is hidden and every recorded rental
+  // auto-allocates here; the per-card re-allocate control is hidden. Unset (the
+  // settings /equipment/rentals overview) keeps the cross-project behaviour.
+  lockedProject?: { id: string; name: string };
 }) {
   const router = useRouter();
   const [supplierId, setSupplierId] = useState("");
@@ -112,7 +118,9 @@ export function RentalManager({
         startsOn,
         endsOn: wholeProject || endsOn.trim() === "" ? null : endsOn,
         note,
-        projectId: projectId === "" ? null : projectId,
+        // Spec 275 U5: a locked project forces the binding (auto-allocate here);
+        // otherwise the form's optional โครงการ pick decides.
+        projectId: lockedProject ? lockedProject.id : projectId === "" ? null : projectId,
         depositAmount: depositNumber,
         minRentalDays: minDaysNumber,
       });
@@ -233,21 +241,25 @@ export function RentalManager({
             </label>
           )}
 
-          <label className="text-ink-secondary mt-2 block text-sm">
-            โครงการ
-            <select
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              className={`${FIELD_SELECT} mt-1`}
-            >
-              <option value="">— ยังไม่ผูกโครงการ —</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          {/* Spec 275 U5: on the project surface the binding is fixed — hide the
+              pick; handleRecord forces projectId = lockedProject.id. */}
+          {!lockedProject && (
+            <label className="text-ink-secondary mt-2 block text-sm">
+              โครงการ
+              <select
+                value={projectId}
+                onChange={(e) => setProjectId(e.target.value)}
+                className={`${FIELD_SELECT} mt-1`}
+              >
+                <option value="">— ยังไม่ผูกโครงการ —</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
 
           <label className="text-ink-secondary mt-2 block text-sm">
             หมายเหตุ
@@ -287,6 +299,9 @@ export function RentalManager({
                 card={card}
                 projects={projects}
                 defaultDate={defaultDate}
+                // Spec 275 U5: the locked project surface fixes the binding —
+                // no cross-project re-allocation from a card here.
+                allowAllocate={!lockedProject}
                 onChanged={() => router.refresh()}
               />
             ))}
@@ -301,11 +316,13 @@ function RentalCardRow({
   card,
   projects,
   defaultDate,
+  allowAllocate,
   onChanged,
 }: {
   card: RentalCard;
   projects: NamedRow[];
   defaultDate: string;
+  allowAllocate: boolean;
   onChanged: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -363,73 +380,74 @@ function RentalCardRow({
         </ul>
       )}
 
-      {open ? (
-        <div className="border-edge mt-3 border-t pt-3">
-          <label className="text-ink-secondary block text-sm">
-            โครงการที่ผูก
-            <select
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              className={`${FIELD_SELECT} mt-1`}
-            >
-              <option value="">— เลือกโครงการ —</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-ink-secondary mt-2 block text-sm">
-            วันเริ่มผูก
-            <input
-              type="date"
-              value={startsOn}
-              onChange={(e) => setStartsOn(e.target.value)}
-              className={FIELD_STACKED}
-            />
-          </label>
-          <label className="text-ink-secondary mt-2 block text-sm">
-            วันสิ้นสุดผูก (เว้นว่าง = ตลอดโครงการ)
-            <input
-              type="date"
-              value={endsOn}
-              onChange={(e) => setEndsOn(e.target.value)}
-              className={FIELD_STACKED}
-            />
-          </label>
-          {error && (
-            <span role="alert" className={`${INLINE_ERROR} mt-2 block`}>
-              {error}
-            </span>
-          )}
-          <div className="mt-2 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={handleAllocate}
-              disabled={saving}
-              className={BUTTON_PRIMARY_COMPACT}
-            >
-              {saving ? "กำลังบันทึก…" : "ยืนยันผูกโครงการ"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className={BUTTON_SECONDARY_COMPACT}
-            >
-              ยกเลิก
-            </button>
+      {allowAllocate &&
+        (open ? (
+          <div className="border-edge mt-3 border-t pt-3">
+            <label className="text-ink-secondary block text-sm">
+              โครงการที่ผูก
+              <select
+                value={projectId}
+                onChange={(e) => setProjectId(e.target.value)}
+                className={`${FIELD_SELECT} mt-1`}
+              >
+                <option value="">— เลือกโครงการ —</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-ink-secondary mt-2 block text-sm">
+              วันเริ่มผูก
+              <input
+                type="date"
+                value={startsOn}
+                onChange={(e) => setStartsOn(e.target.value)}
+                className={FIELD_STACKED}
+              />
+            </label>
+            <label className="text-ink-secondary mt-2 block text-sm">
+              วันสิ้นสุดผูก (เว้นว่าง = ตลอดโครงการ)
+              <input
+                type="date"
+                value={endsOn}
+                onChange={(e) => setEndsOn(e.target.value)}
+                className={FIELD_STACKED}
+              />
+            </label>
+            {error && (
+              <span role="alert" className={`${INLINE_ERROR} mt-2 block`}>
+                {error}
+              </span>
+            )}
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleAllocate}
+                disabled={saving}
+                className={BUTTON_PRIMARY_COMPACT}
+              >
+                {saving ? "กำลังบันทึก…" : "ยืนยันผูกโครงการ"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className={BUTTON_SECONDARY_COMPACT}
+              >
+                ยกเลิก
+              </button>
+            </div>
           </div>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className={`${BUTTON_SECONDARY_COMPACT} mt-3`}
-        >
-          {EQUIPMENT_RENTAL_ALLOCATE_LABEL}
-        </button>
-      )}
+        ) : (
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className={`${BUTTON_SECONDARY_COMPACT} mt-3`}
+          >
+            {EQUIPMENT_RENTAL_ALLOCATE_LABEL}
+          </button>
+        ))}
     </li>
   );
 }

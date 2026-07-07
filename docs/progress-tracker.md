@@ -6,6 +6,31 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 275 U5 — relocate rental recording to the project detail — ✅ SHIPPED (2026-07-07, code-only, no schema)
+
+- Relocates spec 268's `/equipment/rentals` recorder INTO the project. Reuses U1's
+  `RentalManager` / `createRentalBatch` / `create_equipment_project_allocation` /
+  `rental-view` unchanged — placement-only, NO schema/RPC.
+- `RentalManager` gains optional `lockedProject?: {id,name}`: hides the โครงการ select +
+  forces `createRentalBatch` `projectId = lockedProject.id` (auto-allocate on create) +
+  hides the per-card ผูกโครงการ re-allocate (new `allowAllocate` on `RentalCardRow`).
+  Unlocked (settings) behaviour unchanged.
+- New route `/projects/[id]/rentals` (`page.tsx` + `loading.tsx`) mirrors
+  `/projects/[id]/supply-plan`: `requireRole(BACK_OFFICE_ROLES)`; project + suppliers via
+  RLS client; THIS project's rentals via admin client (`equipment_project_allocations`
+  filtered to `project_id` → the referenced `equipment_rental_batches`, money);
+  `rentalsHref` added to project-paths; `RentalManager` rendered project-locked.
+- Money-gated เช่าอุปกรณ์ chip (Forklift icon) on `/projects/[id]` — `BACK_OFFICE_ROLES`
+  only, never site_admin (mirrors the store / supply-plan header chips).
+- Settings `/equipment/rentals` KEPT as procurement's cross-project overview.
+- TDD: extended `tests/unit/rental-manager.test.tsx` (lockedProject hides select + forces
+  projectId `p1`; hides re-allocate control) — RED first, then GREEN.
+- Verify: `pnpm lint` + `typecheck` clean; `pnpm test` 435 files / 2974 tests green. The
+  new dynamic route auto-classifies as DETAIL (renders `DetailHeader`) → nav-back-affordance
+  guard passes with no edit.
+- Open questions: the settings `/equipment/rentals` page could later be narrowed to a pure
+  read-only overview (drop its record form) — deferred; it stays fully functional now.
+
 ## Spec 270 U5 — exclusion sweep: every WP picker/list/count offers งานย่อย only — ✅ SHIPPED (2026-07-06, code-only, PR #333)
 
 - Swept: supply-plan per-line WP picker (งานย่อย under native งาน `<optgroup>` headings via NEW pure
