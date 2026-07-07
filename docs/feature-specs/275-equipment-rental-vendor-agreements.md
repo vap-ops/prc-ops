@@ -294,6 +294,34 @@ procurement, procurement_manager, project_director)` — identical to the spec-2
 **Schema** (additive; change-management gate). The load-bearing new object — no
 vendor-invoice record exists today (ADR 0078 decision 7).
 
+> **⚠️ BUILD AMENDMENT (2026-07-07, operator-approved "thin settlement").** The
+> original leg design below ("Dr 1400 net = base+overtime+fees … Cr WHT payable")
+> would DOUBLE-COUNT: the rent is already posted at batch creation
+> (`post_rental_batch_to_gl` → Dr 1400 / Cr 2100) and each fee at charge time
+> (`post_rental_charge_to_gl`). So the built poster is **thin** — it books ONLY the
+> not-yet-booked legs:
+>
+> - **overtime** → Dr 1400 / Cr 2100 (supplier);
+> - **deposit release** → refunded Dr 1110 / Cr 1320, forfeited Dr 1400 / Cr 1320.
+>
+> It does **not** re-post base/fees/VAT, and does **not** post a WHT leg — the
+> issued `wht_certificate` reclassifies WHT itself (Dr 2100 / Cr 2210). VAT and WHT
+> are stored on the settlement as **data** (the invoice figures + the U4 variance
+> basis). A settlement with no overtime and no deposit movement posts no entry.
+>
+> Two more build decisions: (1) the **deposit-paid** leg (Dr 1320 / Cr 1110, off
+> `deposit_paid_date`) is enqueued under a **synthetic `source_table`
+> `rental_deposits`** — the drain routes by `source_table` and
+> `equipment_rental_batches` already routes to the rent poster, so a batch-level
+> deposit event needs its own routing key. (2) The settlement RPC **inserts the
+> `wht_certificate` row directly** rather than calling `record_wht_certificate`
+> (which re-gates to `is_manager` — pm/super/PD — and would 42501 a `procurement`
+> caller mid-transaction); the cert's own AFTER-INSERT trigger still enqueues its
+> GL. WHT is issued only when the supplier has a valid 13-digit `tax_id` and
+> `base > 0`; it is **not** re-issued on a settlement supersede (certs are
+> immutable — a base correction that changes withholding is a manual WHT action).
+> Gate: pm/super/procurement (project_director is NOT admitted here).
+
 ### What ships
 
 - **New `rental_settlements`** (append-only + supersede) — `(id, agreement_id FK,
