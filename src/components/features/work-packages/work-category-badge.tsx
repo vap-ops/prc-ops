@@ -6,8 +6,24 @@
 // WP_DETAIL_ROLES viewer (read-only safe).
 
 import { PROJECT_CATEGORY_LABEL, WORK_CATEGORY_UNSET_LABEL } from "@/lib/i18n/labels";
+import { CategoryChip } from "@/components/features/work-packages/category-chip";
+import { workCategoryIdentity } from "@/lib/work-categories/identity";
 
-export function WorkCategoryBadge({ name }: { name: string | null }) {
+export function WorkCategoryBadge({
+  name,
+  code,
+}: {
+  name: string | null;
+  /**
+   * Spec 277 — the reconciled GLOBAL work-category code (W01–W09) when the WP's
+   * project-category maps to one. Given → the letter·color·icon chip; absent /
+   * unknown → the plain name pill or unset nudge below.
+   */
+  code?: string | null;
+}) {
+  if (code && workCategoryIdentity(code)) {
+    return <CategoryChip code={code} {...(name ? { label: name } : {})} />;
+  }
   if (!name) {
     return (
       <span className="border-edge text-ink-muted text-meta inline-flex max-w-full items-center rounded-full border border-dashed px-2.5 py-0.5">
