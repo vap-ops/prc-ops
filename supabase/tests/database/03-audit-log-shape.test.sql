@@ -35,7 +35,9 @@ select enum_has_labels(
         -- Spec 275 U2: one-time rental fees.
         'rental_charge_add', 'rental_charge_void',
         -- Spec 275 U3: rental settlement (vendor invoice).
-        'rental_settlement_record', 'rental_settlement_supersede'],
+        'rental_settlement_record', 'rental_settlement_supersede',
+        -- Spec 279 U1: self-governance crew onboarding.
+        'crew_change'],
   'audit_action has the expected v1+profile_update+purchasing+labor+equipment+accounting labels'
 );
 
