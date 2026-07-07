@@ -18,4 +18,18 @@ describe("WorkCategoryBadge (spec 229 / S8)", () => {
     render(<WorkCategoryBadge name={null} />);
     expect(screen.getByText("ยังไม่ระบุหมวดงาน")).toBeInTheDocument();
   });
+
+  // Spec 277 U1b — when the WP's project-category reconciles to a GLOBAL
+  // work-category, the badge shows the letter·color·icon CategoryChip.
+  it("renders the category chip (letter + name) when a work-category code is given", () => {
+    render(<WorkCategoryBadge name="งานระบบไฟฟ้า" code="W05" />);
+    expect(screen.getByText("E")).toBeInTheDocument();
+    expect(screen.getByText("งานระบบไฟฟ้า")).toBeInTheDocument();
+  });
+
+  it("falls back to the plain name pill when there is no work-category code", () => {
+    render(<WorkCategoryBadge name="เฉพาะโปรเจกต์" />);
+    expect(screen.getByText(/เฉพาะโปรเจกต์/)).toBeInTheDocument();
+    expect(screen.queryByText("E")).toBeNull();
+  });
 });

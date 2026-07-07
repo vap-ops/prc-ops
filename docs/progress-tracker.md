@@ -6,6 +6,22 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 277 U1b — wire `CategoryChip` into the WP-detail badge + apply the 379 tags — ✅ SHIPPED (2026-07-07, code-only, no schema)
+
+- **Data (prod, operator-approved):** Typhoon (`typhoon-v2.5-30b-a3b-instruct`, temp 0) classified
+  the 59 parent งาน; cross-checked against the hand-map — **57/59 agree** (48 building WPs 100%; the
+  only 2 diffs were solar-003 edge cases). Applied to **PRC-2026-004 + 005 only** (379 WPs; solar 003
+  held for a manual pass): created 9 `project_categories` reconciled to the global library +
+  `set category_id` on all 379 (parents mapped, children inherited) via service-role (definer RPCs
+  can't be called headless; tagging is benign metadata per spec 207). Verified 379/379.
+- **Code:** `WorkCategoryBadge` gains optional `code` → renders `<CategoryChip>` (letter·color·icon +
+  name) when the WP's project-category reconciles to a global work-category; else the old name pill /
+  unset nudge. WP-detail loader (`[workPackageId]/page.tsx`) extended to fetch the reconciled
+  `work_categories(code)` alongside the name it already read.
+- TDD: 2 new `work-category-badge.test.tsx` cases RED→GREEN. Full suite 437 files / 2992 green;
+  lint + typecheck clean. Runtime data-path verified by SQL (WP→proj-cat→global code resolves).
+- Scope fence: WP-detail badge only. Worklist/WP-list chip + settings editor + `letter_code` = U2.
+
 ## Spec 277 U1 — work-category visual identity: SSOT + `CategoryChip` — ✅ SHIPPED (2026-07-07, code-only, no schema)
 
 - The reusable identity primitive for the 9 global work-categories. Letter · color · icon per

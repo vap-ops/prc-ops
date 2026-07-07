@@ -410,15 +410,20 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
   // badge shows the nudge. project_categories is membership-readable, so this works
   // for every WP_DETAIL_ROLES viewer.
   let workCategoryName: string | null = null;
+  // Spec 277 — the reconciled GLOBAL work-category code (W01–W09), for the badge's
+  // letter·color·icon chip. NULL when the project-category isn't reconciled.
+  let workCategoryCode: string | null = null;
   let scopedRelation: Awaited<ReturnType<typeof resolveScopedCategories>> = [];
   if (wp.category_id) {
     const { data: wpCategory } = await supabase
       .from("project_categories")
-      .select("name, work_category_id")
+      .select("name, work_category_id, work_categories(code)")
       .eq("id", wp.category_id)
       .maybeSingle();
     workCategoryName = wpCategory?.name ?? null;
     if (wpCategory?.work_category_id) {
+      const wcRel = wpCategory.work_categories;
+      workCategoryCode = (Array.isArray(wcRel) ? wcRel[0]?.code : wcRel?.code) ?? null;
       scopedRelation = await resolveScopedCategories(supabase, wpCategory.work_category_id);
     }
   }
@@ -807,7 +812,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
             {/* Spec 229 (ADR 0066 / S8): the WP's หมวดงาน (work-category) — the same
                 binding that scopes the PR + เบิก pickers below. */}
             <div className="mt-1.5">
-              <WorkCategoryBadge name={workCategoryName} />
+              <WorkCategoryBadge name={workCategoryName} code={workCategoryCode} />
             </div>
           </div>
           <StatusPill
