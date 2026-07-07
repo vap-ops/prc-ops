@@ -6,6 +6,7 @@
 // The chips drive the band axis added to ProcurementFilter (worklist-filter.ts); the raw
 // `status` axis stays an URL-only escape and is preserved across chip clicks.
 
+import { AlertTriangle, List, ShoppingCart, Truck, type LucideIcon } from "lucide-react";
 import {
   PROCUREMENT_BAND_LABEL,
   procurementBand,
@@ -21,6 +22,10 @@ export interface WorklistStatusChip {
   count: number;
   href: string;
   active: boolean;
+  /** Band glyph rendered left of the label — intuitive cue matching the status
+   * pills (Truck for กำลังจัดส่ง=in_transit, Cart for รอสั่งซื้อ=to_order). Band-level,
+   * so these are named here rather than sourced from the status-icons enum maps. */
+  icon: LucideIcon;
 }
 
 export function buildWorklistStatusChips(input: {
@@ -44,6 +49,7 @@ export function buildWorklistStatusChips(input: {
       count: all,
       href: buildWorklistQuery({ ...filter, band: null, overdue: false }),
       active: !filter.overdue && filter.band === null,
+      icon: List,
     },
     {
       key: "to_order",
@@ -51,6 +57,7 @@ export function buildWorklistStatusChips(input: {
       count: summary.toOrder,
       href: buildWorklistQuery({ ...filter, band: "to_order", overdue: false }),
       active: !filter.overdue && filter.band === "to_order",
+      icon: ShoppingCart,
     },
     {
       key: "in_transit",
@@ -58,6 +65,7 @@ export function buildWorklistStatusChips(input: {
       count: summary.inTransit,
       href: buildWorklistQuery({ ...filter, band: "in_transit", overdue: false }),
       active: !filter.overdue && filter.band === "in_transit",
+      icon: Truck,
     },
     {
       key: "overdue",
@@ -65,6 +73,7 @@ export function buildWorklistStatusChips(input: {
       count: summary.overdue,
       href: buildWorklistQuery({ ...filter, band: null, overdue: true }),
       active: filter.overdue,
+      icon: AlertTriangle,
     },
   ];
 }

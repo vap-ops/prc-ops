@@ -32,6 +32,7 @@ export function WorklistStatusChips({ chips }: WorklistStatusChipsProps) {
               : "border-edge-strong bg-card text-ink-secondary hover:bg-sunk"
           }`}
         >
+          <chip.icon aria-hidden className="size-4 shrink-0" />
           <span className="text-sm">{chip.label}</span>
           <span
             className={`text-meta inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 font-extrabold ${
