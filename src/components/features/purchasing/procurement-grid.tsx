@@ -16,7 +16,7 @@
 
 import { Fragment, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronLeft, ChevronRight, Info, ShoppingCart } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, FilePlus, Info } from "lucide-react";
 import { PoNumberTag } from "@/components/features/purchasing/po-number-tag";
 import { formatPrNumber } from "@/lib/purchasing/format-id";
 import { bahtWithSymbol as baht } from "@/lib/format";
@@ -732,7 +732,7 @@ function DrawerBody({
               onClick={() => onCreatePo(record.id)}
               className={`${BUTTON_PRIMARY} w-full`}
             >
-              <ShoppingCart aria-hidden className="mr-1.5 size-4" />
+              <FilePlus aria-hidden className="mr-1.5 size-4" />
               {CREATE_PO_LABEL}
             </button>
           ) : null}

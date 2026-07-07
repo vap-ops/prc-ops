@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Archive,
   Ban,
+  Banknote,
   Check,
   Circle,
   CircleDashed,
@@ -32,7 +33,6 @@ import {
   Send,
   ShoppingCart,
   Truck,
-  Wallet,
   X,
 } from "lucide-react";
 import type {
@@ -104,7 +104,9 @@ const PURCHASE_REQUEST_STATUS_ICON: Record<PurchaseRequestStatus, LucideIcon> = 
   purchased: ShoppingCart,
   on_route: Truck,
   delivered: PackageCheck,
-  site_purchased: Wallet,
+  // Banknote (cash paid at the site), NOT Wallet — Wallet is the KPI glyph for
+  // 'outstanding' (money still OWED), the opposite of a completed cash purchase.
+  site_purchased: Banknote,
 };
 export function purchaseRequestStatusIcon(status: PurchaseRequestStatus): LucideIcon {
   return PURCHASE_REQUEST_STATUS_ICON[status];

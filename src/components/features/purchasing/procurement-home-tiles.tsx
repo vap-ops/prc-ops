@@ -5,7 +5,7 @@
 // plain <Link> tiles, the WorklistKpiTile card pattern.
 
 import Link from "next/link";
-import { TrendingUp, TrendingDown, Truck, PackageSearch } from "lucide-react";
+import { ArrowUp, ArrowDown, Minus, Truck, PackageSearch } from "lucide-react";
 import type { MonthSpendTrend, PendingPoSummary } from "@/lib/purchasing/procurement-home-tiles";
 import { bahtCompact as baht } from "@/lib/format";
 
@@ -22,7 +22,10 @@ export function ProcurementHomeTiles({
   pendingPoSummary: PendingPoSummary;
   pendingStoreReceiptCount: number;
 }) {
-  const TrendIcon = (monthTrend.pctChange ?? 0) < 0 ? TrendingDown : TrendingUp;
+  // Plain directional arrows, not a growth-chart TrendingUp: this is a COST delta,
+  // and a rising-chart glyph reads as "up = good". null/0 = no meaningful move → dash.
+  const pct = monthTrend.pctChange;
+  const TrendIcon = pct === null || pct === 0 ? Minus : pct < 0 ? ArrowDown : ArrowUp;
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       <Link href="/requests/reports?preset=month" className={LINK_CARD}>
