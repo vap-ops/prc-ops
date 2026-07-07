@@ -28,6 +28,8 @@ describe("settings sections config (role → entries matrix)", () => {
       "/contacts/vendors",
       "/contacts/subcontractors",
       "/equipment",
+      // Spec 268: the rental recorder door (the page re-gates BACK_OFFICE_ROLES).
+      "/equipment/rentals",
       "/catalog",
       "/settings/ordering-templates",
     ]);
@@ -46,11 +48,12 @@ describe("settings sections config (role → entries matrix)", () => {
     expect(hrefs("labor-team", "procurement_manager")).toEqual(["/workers", "/payroll"]);
   });
 
-  it("project_manager master-data: customers first, 6 entries (ช่าง roster moved out)", () => {
+  it("project_manager master-data: customers first, 7 entries (ช่าง roster moved out)", () => {
     const list = hrefs("master-data", "project_manager");
     expect(list[0]).toBe("/contacts/customers");
     // Spec 266 U6: was 7; /workers moved to the ทีมช่าง section.
-    expect(list).toHaveLength(6);
+    // Spec 268: +1 — the เช่าอุปกรณ์ rental-recorder door.
+    expect(list).toHaveLength(7);
   });
 
   it("site_admin: field equipment only; master-data/labor-team/finance/admin empty", () => {

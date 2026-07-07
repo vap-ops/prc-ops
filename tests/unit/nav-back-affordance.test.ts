@@ -42,6 +42,8 @@ const STATIC_DETAIL = [
   "profile",
   "workers",
   "equipment",
+  // Spec 268: the rental recorder drills down from /equipment (back chip → /equipment).
+  "equipment/rentals",
   // Spec 175: the item catalog drills down from /settings (back chip).
   "catalog",
   // Spec 219 U2: the subcategory manage screen drills down from /catalog.
