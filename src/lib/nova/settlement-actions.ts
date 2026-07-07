@@ -10,6 +10,7 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
+import { applyAssumedRole } from "@/lib/auth/apply-assumed-role";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 
 const GENERIC_ERROR = "ดำเนินการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
@@ -25,7 +26,9 @@ async function gate(
   if (!auth) return { error: NOT_SIGNED_IN };
   const { supabase, user } = auth;
   const { data: me } = await supabase.from("users").select("role").eq("id", user.id).maybeSingle();
-  if (!me || !roles.includes(me.role)) return { error: GENERIC_ERROR };
+  // Spec 274 U3: honor a super_admin's "view as" — the assumed role gates settlement/distribution too.
+  const role = await applyAssumedRole(me?.role);
+  if (!role || !roles.includes(role)) return { error: GENERIC_ERROR };
   return { supabase };
 }
 

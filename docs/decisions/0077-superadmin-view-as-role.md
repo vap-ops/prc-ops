@@ -63,10 +63,12 @@ banner.
 
 - **Small, centralized enforcement for reads/nav/page-gates.** One resolver + two gate edits cover
   every `requireRole`/`requireActionRole` path.
-- **Write fidelity is partial in v1.** ~30 server actions read `users.role` inline (not via
-  `requireActionRole`); those keep super_admin write power regardless of the assumed role — a fidelity
-  gap, never an escalation. Migrating them to the shared resolver is a deliberate follow-up unit, not a
-  silent omission.
+- **Write fidelity closed at the TS gate (U3).** The ~32 server actions that read `users.role` inline
+  (not via `requireActionRole`) were migrated to `applyAssumedRole` (`src/lib/auth/apply-assumed-role.ts`),
+  so the assumed role gates those writes too. Safe by construction — the override is identity for every
+  non-super caller, so no real user's authorization changed. The DB layer still executes as super_admin
+  (the fidelity ceiling in Decision 3 stands); U3 only makes the TS gate — where the UI decision is made —
+  faithful.
 - **Danger-path.** Touches `src/lib/auth/**`; the PR is operator-held by the autonomous-build guard, as
   intended for an auth-doctrine change.
 - **No schema.** Cookie + TS only; does not take the schema lane. Assumed-role audit reuses `audit_log`.

@@ -1,6 +1,6 @@
 # Spec 274 — super_admin "View as role"
 
-**Status:** 🚧 **BUILD — U1 (backend core) + U2 (UI) complete 2026-07-07; U3 (write fidelity) optional/later.**
+**Status:** ✅ **COMPLETE — U1 (backend core) + U2 (UI) + U3 (write fidelity) all done 2026-07-07.**
 **ADR:** [0077-superadmin-view-as-role.md](../decisions/0077-superadmin-view-as-role.md)
 **Origin:** operator directive 2026-07-07 — "superadmin must be able to access every role's view."
 Clarified: **view-as-role** (keep own identity + RLS, not user-impersonation) · **fully active** (the
@@ -66,11 +66,22 @@ The resolver + cookie I/O + both gate wirings + enter/exit actions + logout-clea
 - **Deferred:** assumed-role `audit_log` write — no TS-layer audit path exists (audit is DB/RPC-driven);
   the toggle is low-stakes and grants no privilege, so a bespoke insert is out of proportion. Follow-up.
 
-### U3 — write fidelity (optional, later)
+### U3 — write fidelity ✅ (2026-07-07)
 
-Replace the ~30 inline `from("users").select("role")` role reads with a shared effective-role helper so
-the assumed role gates them too (also removes the copy-paste). Touches money/labor/nova/projects action
-files — land separately.
+`applyAssumedRole(realRole)` (`src/lib/auth/apply-assumed-role.ts`) applies the view-as override to a role
+an action fetched inline. Migrated **32 inline `from("users").select("role")` gate sites across 12 action
+files** to route through it: `projects/[projectId]/actions.ts` (11), `labor/actions.ts` (4), `nova/*` (5),
+`projects/[projectId]/settings/actions.ts` (3), `review/…/actions.ts` (2), `portal/actions.ts` (2),
+`reports/actions.ts` (2), `projects/actions.ts`, `contacts/actions.ts` (also returns the effective role to
+callers), `work-packages/[workPackageId]/actions.ts` (1 each). Now a super_admin "viewing as" a narrower role
+is faithfully blocked from actions outside it at the TS gate. **Safe by construction:** `resolveEffectiveRole`
+returns the real role for every non-super caller → zero behavior change for real users (proven by the full
+suite staying green). TDD `apply-assumed-role.test.ts` (identity for non-super + override for super).
+NB the DB still executes as super_admin if a call reaches an RPC — the fidelity ceiling stands; U3 makes the
+TS gate faithful, which is where the UI decision is made.
+
+Page/auth/dispatcher role reads (login, root dispatcher, LINE callback, handoff, telemetry, settings hub,
+profile, feedback pages) deliberately stay on the REAL role — routing/identity, not view-as surfaces.
 
 ## 5. Out of scope (v1)
 
