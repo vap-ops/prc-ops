@@ -7,6 +7,7 @@ import { ViewportScrollGuard } from "@/components/features/chrome/viewport-scrol
 import { KeyboardViewportFit } from "@/components/features/chrome/keyboard-viewport-fit";
 import { ToastProvider } from "@/components/features/common/toast-provider";
 import { ThemeScript } from "@/components/features/chrome/theme-script";
+import { ViewAsBanner } from "@/components/features/chrome/view-as-banner";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { TelemetryProvider } from "@/components/features/telemetry/telemetry-provider";
 import { THEME_COOKIE, parseThemeSetting } from "@/lib/ui/theme";
@@ -73,6 +74,10 @@ export default async function RootLayout({
       <body className="h-full overflow-hidden">
         {/* Spec 190: resolve theme before first paint (covers 'system'). */}
         <ThemeScript />
+        {/* Spec 274 U2: super_admin "view as role" exit banner — renders only for a
+            real super_admin mid-view-as (null for everyone else), fixed to the top
+            so exit is reachable from any page. */}
+        <ViewAsBanner />
         {/* Spec 76: the toast viewport wraps {children} so a toast fired just
             before a router.refresh() survives the RSC re-render. */}
         <ToastProvider>{children}</ToastProvider>

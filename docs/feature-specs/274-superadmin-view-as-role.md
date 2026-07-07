@@ -1,6 +1,6 @@
 # Spec 274 — super_admin "View as role"
 
-**Status:** 🚧 **BUILD — U1 (backend core) complete 2026-07-07; U2 (UI) not started.**
+**Status:** 🚧 **BUILD — U1 (backend core) + U2 (UI) complete 2026-07-07; U3 (write fidelity) optional/later.**
 **ADR:** [0077-superadmin-view-as-role.md](../decisions/0077-superadmin-view-as-role.md)
 **Origin:** operator directive 2026-07-07 — "superadmin must be able to access every role's view."
 Clarified: **view-as-role** (keep own identity + RLS, not user-impersonation) · **fully active** (the
@@ -51,16 +51,20 @@ The resolver + cookie I/O + both gate wirings + enter/exit actions + logout-clea
 `action-gate.test.ts` (gates honor the override; forge-guard), `roles-view-as-actions.test.ts`
 (enter/exit gate on real role), `logout-route.test.ts` (clears cookie). Full suite green.
 
-### U2 — UI (not started)
+### U2 — UI ✅ (2026-07-07)
 
-- Card "ดูมุมมองตาม role" in the Settings admin section (`src/app/settings/sections.ts`, `admin` key,
-  super_admin-only) → role picker over `ASSUMABLE_ROLES` (Thai labels via `labels.ts`) posting
-  `setAssumedRole`.
-- Persistent global exit banner in the root layout — shown only when real-role is super_admin AND a
-  cookie is active; posts `clearAssumedRole`. Global so exit works from any page (incl. empty/stub views).
-- "ไม่มีข้อมูลส่วนตัวในมุมมองนี้ (กำลังดูในฐานะ super_admin)" placeholder on `/technician`, `/portal`,
-  `/client` so identity-scoped emptiness reads as intentional.
-- Assumed-role `audit_log` write on enter/exit.
+- `getActiveViewAs()` (`src/lib/auth/view-as-state.server.ts`) — the real super_admin's active assumed
+  role or null; reads the REAL role (not the override), cheap (no DB unless the cookie is present).
+- Card "ดูมุมมองตาม role" in the Settings admin section (`sections.ts`, `admin` key) → picker page
+  `src/app/settings/view-as/page.tsx` (real-role gated): one `<form action={setAssumedRole.bind(null,r)}>`
+  per `ASSUMABLE_ROLES` (Thai labels via `USER_ROLE_LABEL`), current view highlighted + exit.
+- Persistent global exit banner `src/components/features/chrome/view-as-banner.tsx` in the root layout —
+  fixed top, shown only when `getActiveViewAs()` is truthy; posts `clearAssumedRole`. Global so exit
+  works from any page (incl. empty/stub views).
+- `ViewAsEmptyNote` placeholder on `/technician`, `/portal`, `/client` so identity-scoped emptiness reads
+  as intentional (the `/client` 0-projects redirect to access-ended is guarded to show the note instead).
+- **Deferred:** assumed-role `audit_log` write — no TS-layer audit path exists (audit is DB/RPC-driven);
+  the toggle is low-stakes and grants no privilege, so a bespoke insert is out of proportion. Follow-up.
 
 ### U3 — write fidelity (optional, later)
 

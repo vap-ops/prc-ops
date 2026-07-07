@@ -101,6 +101,8 @@ describe("settings sections config (role → entries matrix)", () => {
   it("admin tools are super_admin-only", () => {
     expect(hrefs("admin", "super_admin")).toEqual([
       "/settings/roles",
+      // Spec 274: super_admin "view as role" picker.
+      "/settings/view-as",
       "/settings/usage",
       "/settings/friction-map",
     ]);

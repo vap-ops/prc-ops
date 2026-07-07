@@ -24,8 +24,9 @@ async function isRealSuperAdmin(): Promise<boolean> {
 }
 
 /** Enter "view as": persist the assumed role and land on its home. Silent no-op
- * for a non-super caller or an unassumable role value. */
-export async function setAssumedRole(role: string): Promise<void> {
+ * for a non-super caller or an unassumable role value. The optional FormData arg
+ * lets this bind directly as a `<form action>` (via setAssumedRole.bind(null, r)). */
+export async function setAssumedRole(role: string, _formData?: FormData): Promise<void> {
   if (!(await isRealSuperAdmin())) return;
   if (!isAssumableRole(role)) return;
   await setAssumedRoleCookie(role);
@@ -33,8 +34,9 @@ export async function setAssumedRole(role: string): Promise<void> {
 }
 
 /** Exit "view as": clear the cookie and return to the super_admin home. Must
- * always work for a real super_admin regardless of the currently-assumed role. */
-export async function clearAssumedRole(): Promise<void> {
+ * always work for a real super_admin regardless of the currently-assumed role.
+ * Takes the optional FormData so it binds directly as a `<form action>`. */
+export async function clearAssumedRole(_formData?: FormData): Promise<void> {
   if (!(await isRealSuperAdmin())) return;
   await clearAssumedRoleCookie();
   redirect(roleHome("super_admin"));
