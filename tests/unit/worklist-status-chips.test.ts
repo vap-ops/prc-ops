@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { AlertTriangle, List, ShoppingCart, Truck } from "lucide-react";
 import { buildWorklistStatusChips } from "@/lib/purchasing/worklist-status-chips";
 import type { ProcurementFilter } from "@/lib/purchasing/worklist-filter";
 
@@ -46,6 +47,16 @@ describe("buildWorklistStatusChips", () => {
     expect(count("to_order")).toBe(2);
     expect(count("in_transit")).toBe(2);
     expect(count("overdue")).toBe(1);
+  });
+
+  it("carries the intuitive band glyph on every chip (truck on กำลังจัดส่ง)", () => {
+    const chips = buildWorklistStatusChips({ rows: ROWS, filter: NONE, todayIso: TODAY });
+    const icon = (k: string) => chips.find((c) => c.key === k)!.icon;
+    expect(chips.every((c) => c.icon)).toBe(true);
+    expect(icon("all")).toBe(List);
+    expect(icon("to_order")).toBe(ShoppingCart);
+    expect(icon("in_transit")).toBe(Truck);
+    expect(icon("overdue")).toBe(AlertTriangle);
   });
 
   it("builds each chip's href, band/overdue set per chip", () => {

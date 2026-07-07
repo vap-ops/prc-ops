@@ -11,9 +11,11 @@
 // (shared with the grid mini-bar). This component renders it with labels +
 // dates. data-stage / data-state attributes are the test contract (spec 22).
 
+import { X } from "lucide-react";
 import { formatThaiDate } from "@/lib/i18n/labels";
 import type { Database } from "@/lib/db/database.types";
 import { ORDER_STAGES, orderStageStates, type OrderStage } from "@/lib/purchasing/order-stages";
+import { purchaseRequestStatusIcon } from "@/lib/status-icons";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
 
@@ -78,6 +80,12 @@ export function PurchaseRequestTracker({
               : state === "done"
                 ? "text-ink"
                 : "text-ink-secondary";
+        // The stage's own SSOT glyph (Truck at กำลังจัดส่ง, Cart at สั่งซื้อ …) —
+        // OrderStage values are PurchaseRequestStatus values, so reuse the pill map.
+        // rejected shows an X. It previews (muted) on upcoming stages so the truck
+        // is visible at the จัดส่ง step regardless of progress.
+        const StageIcon = state === "rejected" ? X : purchaseRequestStatusIcon(stage);
+        const iconTone = state === "done" || state === "rejected" ? "text-white" : "text-ink-muted";
 
         return (
           <li
@@ -94,19 +102,11 @@ export function PurchaseRequestTracker({
               />
               <span
                 aria-hidden
-                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${dotClass} ${
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 ${dotClass} ${
                   ringCurrent ? "ring-done ring-2" : ""
                 }`}
               >
-                {state === "done" ? (
-                  <svg viewBox="0 0 10 10" className="h-2.5 w-2.5 fill-none stroke-white stroke-2">
-                    <path d="M2 5.2 4.2 7.4 8 3" />
-                  </svg>
-                ) : state === "rejected" ? (
-                  <svg viewBox="0 0 10 10" className="h-2.5 w-2.5 fill-none stroke-white stroke-2">
-                    <path d="M3 3l4 4M7 3l-4 4" />
-                  </svg>
-                ) : null}
+                <StageIcon className={`h-4 w-4 ${iconTone}`} />
               </span>
               <span
                 aria-hidden
