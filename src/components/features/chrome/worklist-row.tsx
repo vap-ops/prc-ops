@@ -20,6 +20,7 @@ import { listEnterProps } from "@/lib/ui/list-enter";
 import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import { workPackageStatusIcon } from "@/lib/status-icons";
+import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
 import {
   nextAction,
   type NextActionKind,
@@ -48,6 +49,12 @@ export interface WorklistRowItem {
   isCritical: boolean;
   /** Demoted deliverable label, or null in flat / ungrouped mode. */
   deliverableLabel: string | null;
+  /**
+   * Spec 277 — the reconciled GLOBAL work-category code (W01–W09) for the
+   * colored icon + letter-code (WP-12 → E-12). Optional so surfaces that don't
+   * yet thread it render the plain code (graceful degrade).
+   */
+  categoryCode?: string | null;
 }
 
 interface WorklistRowProps {
@@ -127,7 +134,7 @@ export function WorklistRow({
               {wp.deliverableLabel}
             </span>
           )}
-          <span className="font-mono">{wp.code}</span>
+          <WpCategoryCode code={wp.code} categoryCode={wp.categoryCode ?? null} />
         </span>
       </span>
       <span className="flex shrink-0 flex-col items-end justify-center gap-1 py-3 pr-2 pl-1">

@@ -28,6 +28,7 @@ import { workPackageHref } from "@/lib/nav/project-paths";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { WorklistRow, type WorklistRowItem } from "@/components/features/chrome/worklist-row";
+import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
 import type { Database } from "@/lib/db/database.types";
 import { deriveDeliverableProgress } from "@/lib/deliverables/derive-progress";
 import {
@@ -67,6 +68,8 @@ export interface WorkPackageListItem {
   isGroup: boolean;
   /** Spec 270: the งานย่อย's parent งาน id (null on groups + legacy rows). */
   parentId: string | null;
+  /** Spec 277: reconciled GLOBAL work-category code (W0x), or null if uncategorised. */
+  categoryCode: string | null;
 }
 
 type Lens = "group" | "action" | "deliverable";
@@ -132,6 +135,7 @@ export function WorkPackageList({
       deliverableLabel: wp.deliverableId
         ? (deliverableNameById.get(wp.deliverableId) ?? null)
         : null,
+      categoryCode: wp.categoryCode,
     };
   }
 
@@ -294,9 +298,11 @@ function GroupLens({
                     }`}
                   />
                   <span className="min-w-0 flex-1">
-                    <span className="text-meta text-ink-secondary font-mono font-semibold">
-                      {group.code}
-                    </span>
+                    <WpCategoryCode
+                      code={group.code}
+                      categoryCode={group.categoryCode}
+                      className="text-meta font-semibold"
+                    />
                     <span className="text-heading text-ink line-clamp-2 block font-bold tracking-tight break-words">
                       {group.name}
                     </span>

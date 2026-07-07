@@ -30,6 +30,7 @@ type WpListRow = Pick<
   | "planned_end"
   | "is_group"
   | "parent_id"
+  | "category_id"
 >;
 type DeliverableRow = Pick<Tbl["deliverables"]["Row"], "id" | "code" | "name" | "sort_order">;
 // Spec 207 U3 — the project's work-category taxonomy (หมวดงาน) for the manager.
@@ -54,6 +55,8 @@ export interface ProjectDetailData {
   workPackages: WpListRow[];
   deliverables: DeliverableRow[];
   categories: ProjectCategoryRow[];
+  /** Spec 277 — project_category id → reconciled GLOBAL work-category code (W0x). */
+  categoryCodeById: Map<string, string>;
   criticalIds: Set<string>;
   onboarding: OnboardingStatusRow | null;
   sourceProjects: SourceProjectRow[];
@@ -83,7 +86,7 @@ export async function loadProjectDetail(
     supabase
       .from("work_packages")
       .select(
-        "id, code, name, status, deliverable_id, contractor_id, priority, planned_start, planned_end, is_group, parent_id",
+        "id, code, name, status, deliverable_id, contractor_id, priority, planned_start, planned_end, is_group, parent_id, category_id",
       )
       .eq("project_id", project.id)
       .order("code", { ascending: true }),
@@ -94,7 +97,7 @@ export async function loadProjectDetail(
       .order("sort_order", { ascending: true }),
     supabase
       .from("project_categories")
-      .select("id, code, name, sort_order, is_active")
+      .select("id, code, name, sort_order, is_active, work_categories(code)")
       .eq("project_id", project.id)
       .order("sort_order", { ascending: true }),
     isPmRole
@@ -144,6 +147,15 @@ export async function loadProjectDetail(
     })),
   );
 
+  // Spec 277 — map each project-category to its reconciled GLOBAL work-category
+  // code (W0x), so the WP list can render the category letter·color·icon.
+  const categoryCodeById = new Map<string, string>();
+  for (const c of categories ?? []) {
+    const wc = c.work_categories;
+    const code = (Array.isArray(wc) ? wc[0]?.code : wc?.code) ?? null;
+    if (code) categoryCodeById.set(c.id, code);
+  }
+
   return {
     clientName,
     leadName,
@@ -151,6 +163,7 @@ export async function loadProjectDetail(
     workPackages: wpRows,
     deliverables: deliverables ?? [],
     categories: categories ?? [],
+    categoryCodeById,
     criticalIds,
     onboarding: onbRes.data?.[0] ?? null,
     sourceProjects: srcRes.data ?? [],
