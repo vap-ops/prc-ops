@@ -102,4 +102,18 @@ describe("DailyPlanWorklist", () => {
     renderList([]);
     expect(screen.queryByText("6 กรกฎาคม 2569")).toBeNull();
   });
+
+  it("shows the work-category letter-code (WP → letter) when categorised", () => {
+    renderList([
+      {
+        id: "it3",
+        workPackageId: "wp3",
+        code: "WP-12",
+        name: "งานระบบไฟฟ้า",
+        categoryCode: "W05", // Electrical → letter E
+        crew: [{ workerId: "w9", name: "สมชาย", present: true }],
+      },
+    ]);
+    expect(within(row("it3")).getByText("E-12")).toBeInTheDocument();
+  });
 });

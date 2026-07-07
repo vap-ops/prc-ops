@@ -5,10 +5,13 @@
 // the planned crew's labor through the EXISTING logLaborDays action (log_labor_day
 // stays the source of truth; the board only pre-fills the tap targets). Workers
 // already logged today show มาแล้ว. Renders nothing when there is no board for today.
+//
+// Spec 277 P0 — each งานย่อย now carries its work-category identity (color · icon ·
+// letter-code, WP-12 → E-12) via the shared <WpCategoryCode>, and the มาทำ logging
+// is the shared useMarkPresent hook (same action the muster's ทั้งหมดมาทำ uses).
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { logLaborDays } from "@/lib/labor/actions";
+import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
+import { useMarkPresent } from "@/lib/labor/use-mark-present";
 import { BUTTON_PRIMARY_COMPACT, BUTTON_SECONDARY_COMPACT, CARD } from "@/lib/ui/classes";
 
 export type WorklistCrew = { workerId: string; name: string; present: boolean };
@@ -18,6 +21,8 @@ export type WorklistItem = {
   code: string;
   name: string;
   projectLabel?: string;
+  /** Spec 277 — reconciled GLOBAL work-category code (W0x), or null if uncategorised. */
+  categoryCode?: string | null;
   crew: WorklistCrew[];
 };
 
@@ -30,26 +35,9 @@ export function DailyPlanWorklist({
   dateLabel: string;
   items: WorklistItem[];
 }) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
+  const { busy, mark } = useMarkPresent(dateIso);
 
   if (items.length === 0) return null;
-
-  async function mark(workPackageId: string, workerIds: string[]) {
-    if (workerIds.length === 0) return;
-    setBusy(true);
-    try {
-      const r = await logLaborDays({
-        workPackageId,
-        revalidate: "/sa",
-        workDate: dateIso,
-        entries: workerIds.map((workerId) => ({ workerId, fraction: "full" as const })),
-      });
-      if (r.ok) router.refresh();
-    } finally {
-      setBusy(false);
-    }
-  }
 
   return (
     <section className="flex flex-col gap-3">
@@ -68,7 +56,12 @@ export function DailyPlanWorklist({
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <span className="text-body text-ink min-w-40 flex-1 font-medium">
-                  {it.code} {it.name}
+                  <WpCategoryCode
+                    code={it.code}
+                    categoryCode={it.categoryCode ?? null}
+                    className="text-body"
+                  />{" "}
+                  {it.name}
                   {it.projectLabel ? (
                     <span className="text-meta text-ink-muted"> · {it.projectLabel}</span>
                   ) : null}
@@ -78,7 +71,7 @@ export function DailyPlanWorklist({
                     type="button"
                     className={`${BUTTON_SECONDARY_COMPACT} shrink-0`}
                     disabled={busy}
-                    onClick={() => mark(it.workPackageId, pending)}
+                    onClick={() => mark([{ workPackageId: it.workPackageId, workerIds: pending }])}
                   >
                     ทั้งหมดมาทำ
                   </button>
@@ -96,7 +89,9 @@ export function DailyPlanWorklist({
                         className={`${BUTTON_PRIMARY_COMPACT} shrink-0`}
                         aria-label={`มาทำ ${c.name}`}
                         disabled={busy}
-                        onClick={() => mark(it.workPackageId, [c.workerId])}
+                        onClick={() =>
+                          mark([{ workPackageId: it.workPackageId, workerIds: [c.workerId] }])
+                        }
                       >
                         มาทำ
                       </button>

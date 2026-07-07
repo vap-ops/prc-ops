@@ -11,7 +11,7 @@ const projectsById = new Map([
 ]);
 
 function wp(id: string, status: MyWorkWp["status"], project_id = "pr1"): MyWorkWp {
-  return { id, code: id.toUpperCase(), name: `งาน ${id}`, status, project_id };
+  return { id, code: id.toUpperCase(), name: `งาน ${id}`, status, project_id, category_id: null };
 }
 
 describe("buildSaActionList", () => {

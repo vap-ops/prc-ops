@@ -1,13 +1,15 @@
-// Spec 192 U4 — the site-admin daily home. The SA used to land on the project hub
-// (/projects), so the daily loop (log labor / photos / PR) was buried 3–4 taps deep
-// in a WP tab. This lands them straight on "งานของฉัน": their visible, not-done work
-// packages (WP-centric — the WP is the unit of daily work), each one tap to its
-// detail and a tap to the labor / photo / PR tab via the WP-detail hash deep-links.
-// The full project hub stays a bottom tab. (Standalone hero/quick actions need a
-// global "pick a งาน" step — a later unit.)
+// Spec 192 U4 → Spec 277 P0 — the site-admin daily home, rebuilt as ONE stable
+// scrollable column whose structure never reshuffles by clock:
+//   ต้องแก้ (bounced/rework, conditional) → คำขอสมัครรอตรวจ (conditional) →
+//   ทีมงานวันนี้ muster → แผนวันนี้ (default surface) → งานของฉัน → เครื่องมือ tiles,
+//   with a floating ถ่ายรูป capture FAB.
+// Everything here is a shipped feature surfaced in place — no new backend. The
+// muster + plan share today's board; the tools tile row un-buries the store,
+// schedule, purchase-request and end-of-day surfaces the SA otherwise reaches only
+// through the project hub or a settings gear.
 
 import Link from "next/link";
-import { CalendarPlus, Camera, HardHat, Pencil, ShoppingCart } from "lucide-react";
+import { Camera, ClipboardList, HardHat, ShoppingCart } from "lucide-react";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
@@ -17,21 +19,20 @@ import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { workPackageHref } from "@/lib/nav/project-paths";
 import { withBackFrom } from "@/lib/nav/back-href";
-import {
-  DAILY_WORK_PLAN_LABEL,
-  TODAY_LABEL,
-  WORK_PACKAGE_STATUS_LABEL,
-  formatThaiDate,
-} from "@/lib/i18n/labels";
-import { BUTTON_SECONDARY } from "@/lib/ui/classes";
+import { WORK_PACKAGE_STATUS_LABEL, formatThaiDate } from "@/lib/i18n/labels";
 import { currentLaborLogs } from "@/lib/labor/current-logs";
 import { DailyPlanWorklist, type WorklistItem } from "@/components/features/sa/daily-plan-worklist";
+import { MusterStrip } from "@/components/features/sa/muster-strip";
+import { SaTools } from "@/components/features/sa/sa-tools";
+import { CameraFab } from "@/components/features/sa/camera-fab";
+import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
-import { bangkokTodayIso } from "@/lib/dates";
+import { bangkokHour, bangkokTodayIso } from "@/lib/dates";
+import { summarizeMuster } from "@/lib/sa/muster";
 import { buildSaActionList, type BouncedWp, type ReworkInfo } from "@/lib/sa/action-list";
 import { getLatestDecisionsForWorkPackages } from "@/lib/approvals/latest-decision";
+import { listVisibleTechnicianRegistrations } from "@/lib/register/admin-registrations";
 import { SaActionSection } from "@/components/features/sa/action-section";
-import { DailyHero } from "@/components/features/sa/daily-hero";
 import type { ReworkSource } from "@/lib/db/enums";
 
 export const metadata = { title: "หน้าหลัก" };
@@ -39,6 +40,7 @@ export const metadata = { title: "หน้าหลัก" };
 export default async function SaHomePage() {
   const ctx = await requireRole(["site_admin", "super_admin"]);
   const supabase = await createClient();
+  const today = bangkokTodayIso();
 
   // RLS scopes work_packages to the SA's member projects (can_see_wp / ADR 0056),
   // so this is already "my" work. Spec 218: keep pending_approval (drop only
@@ -46,32 +48,56 @@ export default async function SaHomePage() {
   // but is back on the SA's plate; we surface it from its latest decision.
   const { data: wpRows } = await supabase
     .from("work_packages")
-    .select("id, code, name, status, project_id, rework_round")
+    .select("id, code, name, status, project_id, category_id, rework_round")
     // Spec 270 U5: งาน grouping rows are never actionable — leaves only.
     .eq("is_group", false)
     .neq("status", "complete");
   const wps = wpRows ?? [];
 
   const projectIds = Array.from(new Set(wps.map((w) => w.project_id)));
-  const { data: projects } = projectIds.length
-    ? await supabase.from("projects").select("id, code, name").in("id", projectIds)
-    : { data: [] };
-  const projectsById = new Map((projects ?? []).map((p) => [p.id, { code: p.code, name: p.name }]));
+
+  // These four reads depend only on projectIds (or nothing) — batch them (specs
+  // 147/148). Today's boards, the projects, the work-category taxonomy (to render
+  // category identity), and the SA's pending technician-registration queue.
+  const [projectRes, planRes, categoryRes, pendingRegistrations] = await Promise.all([
+    projectIds.length
+      ? supabase.from("projects").select("id, code, name").in("id", projectIds)
+      : Promise.resolve({ data: null }),
+    projectIds.length
+      ? supabase
+          .from("daily_work_plans")
+          .select("id, project_id")
+          .eq("plan_date", today)
+          .in("project_id", projectIds)
+      : Promise.resolve({ data: null }),
+    projectIds.length
+      ? supabase
+          .from("project_categories")
+          .select("id, work_categories(code)")
+          .in("project_id", projectIds)
+      : Promise.resolve({ data: null }),
+    // /sa/registrations is a site_admin surface; super_admin uses /registrations.
+    ctx.role === "site_admin" ? listVisibleTechnicianRegistrations(supabase) : Promise.resolve([]),
+  ]);
+
+  const projects = projectRes.data ?? [];
+  const projectsById = new Map(projects.map((p) => [p.id, { code: p.code, name: p.name }]));
+  const plans = planRes.data ?? [];
+  const planProject = new Map(plans.map((p) => [p.id, p.project_id]));
+  const pendingRegCount = pendingRegistrations.length;
+
+  // Spec 277 — project_category id → reconciled GLOBAL work-category code (W0x),
+  // so the plan + งานของฉัน cards can render the category letter·color·icon.
+  const categoryCodeById = new Map<string, string>();
+  for (const c of categoryRes.data ?? []) {
+    const wc = c.work_categories;
+    const code = (Array.isArray(wc) ? wc[0]?.code : wc?.code) ?? null;
+    if (code) categoryCodeById.set(c.id, code);
+  }
 
   // Spec 273 U3 — TODAY's แผนวันนี้ worklist: today's board(s) for the SA's
   // projects, each item's crew, and who is already logged today (present). All
   // reads RLS-scoped (can_see_project); logging is the existing log_labor_day.
-  const today = bangkokTodayIso();
-  const { data: planRows } = projectIds.length
-    ? await supabase
-        .from("daily_work_plans")
-        .select("id, project_id")
-        .eq("plan_date", today)
-        .in("project_id", projectIds)
-    : { data: [] };
-  const plans = planRows ?? [];
-  const planProject = new Map(plans.map((p) => [p.id, p.project_id]));
-
   let worklistItems: WorklistItem[] = [];
   if (plans.length > 0) {
     const { data: planItemRows } = await supabase
@@ -97,9 +123,17 @@ export default async function SaHomePage() {
     const crewWorkerIds = Array.from(new Set(crew.map((c) => c.worker_id)));
 
     const { data: labelRows } = planWpIds.length
-      ? await supabase.from("work_packages").select("id, code, name").in("id", planWpIds)
+      ? await supabase
+          .from("work_packages")
+          .select("id, code, name, category_id")
+          .in("id", planWpIds)
       : { data: [] };
-    const labelById = new Map((labelRows ?? []).map((w) => [w.id, { code: w.code, name: w.name }]));
+    const labelById = new Map(
+      (labelRows ?? []).map((w) => [
+        w.id,
+        { code: w.code, name: w.name, categoryId: w.category_id },
+      ]),
+    );
     const { data: crewWorkerRows } = crewWorkerIds.length
       ? await supabase.from("workers").select("id, name").in("id", crewWorkerIds)
       : { data: [] };
@@ -124,11 +158,13 @@ export default async function SaHomePage() {
     worklistItems = planItems.map((i) => {
       const label = labelById.get(i.work_package_id);
       const projectCode = projectsById.get(planProject.get(i.plan_id) ?? "")?.code;
+      const categoryId = label?.categoryId ?? null;
       return {
         id: i.id,
         workPackageId: i.work_package_id,
         code: label?.code ?? "",
         name: label?.name ?? "",
+        categoryCode: (categoryId && categoryCodeById.get(categoryId)) || null,
         ...(multiProject && projectCode ? { projectLabel: projectCode } : {}),
         crew: crew
           .filter((c) => c.item_id === i.id)
@@ -186,9 +222,25 @@ export default async function SaHomePage() {
   }
 
   const inPlay = wps.filter((w) => w.status !== "pending_approval");
-  const { actions, rest } = buildSaActionList({ inPlay, bounced, reworkInfo, projectsById });
+  const { actions, rest } = buildSaActionList({
+    inPlay,
+    bounced,
+    reworkInfo,
+    projectsById,
+    categoryCodeById,
+  });
   const items = rest;
   const hubItems = hubNavForRole(ctx.role);
+
+  const muster = summarizeMuster(worklistItems);
+  const showCloseNudge = bangkokHour() >= 16;
+  const primaryProjectId = projectIds.length === 1 ? projectIds[0]! : null;
+  const captureWps = items.map((it) => ({
+    id: it.id,
+    projectId: it.projectId,
+    code: it.code,
+    name: it.name,
+  }));
 
   return (
     <PageShell>
@@ -196,52 +248,47 @@ export default async function SaHomePage() {
       {hubItems ? (
         <HubNav maxWidthClass={PAGE_MAX_W} items={hubItems} currentHref="/sa" role={ctx.role} />
       ) : null}
-      <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-6 px-5 py-6`}>
+      {/* pb clears the floating capture FAB (fixed, bottom-right) so the last
+          tile stays tappable when scrolled to the end. */}
+      <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-6 px-5 pt-6 pb-28`}>
         <div>
-          <p className="text-ink-secondary text-meta">{formatThaiDate(bangkokTodayIso())}</p>
+          <p className="text-ink-secondary text-meta">{formatThaiDate(today)}</p>
           <h1 className="text-title text-ink font-bold tracking-tight">
             สวัสดี{ctx.fullName ? ` ${ctx.fullName}` : ""}
           </h1>
         </div>
 
-        {/* Spec 273 U2 — entry to the next-day work board (แผนพรุ่งนี้). */}
-        <Link href="/sa/plan" className={`${BUTTON_SECONDARY} w-full gap-2`}>
-          <CalendarPlus aria-hidden className="size-4 shrink-0" />
-          {DAILY_WORK_PLAN_LABEL}
-        </Link>
+        {/* 1 · ต้องแก้ไข — WPs the PM/defect bounced back (spec 218), pinned top,
+            color-coded, one tap to the capture. Renders nothing when empty. */}
+        <SaActionSection items={actions} />
 
-        {/* Spec 273 U3 — today's แผนวันนี้ worklist (one-tap มาทำ → log_labor_day). */}
+        {/* คำขอสมัครรอตรวจ — surfaces the otherwise-orphan /sa/registrations queue
+            with a live count. Only for site_admin (super_admin uses /registrations). */}
+        {pendingRegCount > 0 ? (
+          <Link
+            href="/sa/registrations"
+            className="rounded-card border-edge bg-card shadow-card focus-visible:ring-action hover:bg-sunk flex items-center gap-3 border px-4 py-3 transition-colors focus:outline-none focus-visible:ring-2"
+          >
+            <ClipboardList aria-hidden className="text-action size-5 shrink-0" />
+            <span className="text-body text-ink min-w-0 flex-1 font-medium">มีคำขอสมัครรอตรวจ</span>
+            <span className="bg-action text-on-fill text-meta shrink-0 rounded-full px-2 py-0.5 font-bold">
+              {pendingRegCount}
+            </span>
+          </Link>
+        ) : null}
+
+        {/* 2 · ทีมงานวันนี้ muster — the plan's crew folded to one line. Above the
+            plan; renders nothing on a day with no board. */}
+        <MusterStrip summary={muster} dateIso={today} />
+
+        {/* 3 · แผนวันนี้ (default surface) — today's board, one-tap มาทำ. */}
         <DailyPlanWorklist
           dateIso={today}
           dateLabel={formatThaiDate(today)}
           items={worklistItems}
         />
 
-        {/* Spec 273 U5 — edit today's board (the builder is date-navigable). Shown
-            only when there's a today board to edit; the button above plans พรุ่งนี้. */}
-        {worklistItems.length > 0 && (
-          <Link href={`/sa/plan?date=${today}`} className={`${BUTTON_SECONDARY} w-full gap-2`}>
-            <Pencil aria-hidden className="size-4 shrink-0" />
-            แก้ไขแผน{TODAY_LABEL}
-          </Link>
-        )}
-
-        {/* Spec 218: WPs the PM/defect bounced back — pinned above everything,
-            color-coded (amber = fix, red = rejected), one tap to the capture. */}
-        <SaActionSection items={actions} />
-
-        {/* Spec 192 U4b: the daily-action hero — one tap to log labour / add a
-            photo (direct when there's a single active WP, else a เลือกงาน
-            picker). Renders nothing when there's no active work. */}
-        <DailyHero
-          wps={items.map((it) => ({
-            id: it.id,
-            projectId: it.projectId,
-            code: it.code,
-            name: it.name,
-          }))}
-        />
-
+        {/* 4 · งานของฉัน — active leaf WPs, each with its category identity. */}
         <div className="flex flex-col gap-3">
           <h2 className="text-meta text-ink-secondary font-semibold">งานของฉัน</h2>
           {items.length === 0 ? (
@@ -266,7 +313,7 @@ export default async function SaHomePage() {
                       <div className="min-w-0">
                         <p className="text-ink text-body font-semibold break-words">{it.name}</p>
                         <p className="text-ink-muted text-meta">
-                          <span className="font-mono">{it.code}</span>
+                          <WpCategoryCode code={it.code} categoryCode={it.categoryCode} />
                           {it.projectCode ? ` · ${it.projectCode} ${it.projectName}` : ""}
                         </p>
                       </div>
@@ -306,7 +353,14 @@ export default async function SaHomePage() {
             </ul>
           )}
         </div>
+
+        {/* 5 · เครื่องมือ — un-buried destinations (store / schedule / requests /
+            end-of-day). Store + schedule deep-link the SA's single project. */}
+        <SaTools primaryProjectId={primaryProjectId} showCloseNudge={showCloseNudge} />
       </section>
+
+      {/* Floating ถ่ายรูป capture — always reachable, never scrolls away. */}
+      <CameraFab wps={captureWps} />
     </PageShell>
   );
 }
