@@ -20,6 +20,7 @@ import { UUID_REGEX } from "@/lib/validate/uuid";
 import { validateRentalBatch } from "@/lib/equipment/validate-rental-batch";
 import { validateAllocation } from "@/lib/equipment/validate-allocation";
 import type { RentalRatePeriod } from "@/lib/equipment/rental-view";
+import type { ReceiptMethod } from "@/lib/equipment/rental-settlement-view";
 
 const GENERIC_ERROR = "บันทึกการเช่าไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 const NO_PERMISSION = "ไม่มีสิทธิ์บันทึกการเช่าอุปกรณ์";
@@ -108,6 +109,143 @@ export async function createRentalBatch(input: {
       };
     }
   }
+
+  revalidatePath("/equipment/rentals");
+  return { ok: true };
+}
+
+// Spec 275 U3 — the rental SETTLEMENT (vendor invoice) writes. A settlement is a
+// back-office vendor invoice against a rental agreement: base + overtime + fees =
+// net (the deposit is resolved separately, never netted), plus VAT/WHT stored as
+// data and a payment method. Both writes go through the two spec-275 SECURITY
+// DEFINER RPCs (the real 5-role gate + net/deposit validation + audit + GL live
+// in the DB); rental_settlements is a zero-grant table with no other write path.
+const SETTLEMENT_GENERIC_ERROR = "บันทึกการชำระค่าเช่าไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+const SETTLEMENT_NO_PERMISSION = "ไม่มีสิทธิ์บันทึกการชำระค่าเช่า";
+// P0001 from either RPC = a business-rule failure: net ≠ base+overtime+fees, the
+// deposit release exceeds the agreement's deposit, or the agreement was not found.
+const SETTLEMENT_INVALID =
+  "ข้อมูลการชำระไม่ถูกต้อง (ยอดสุทธิหรือเงินมัดจำไม่สอดคล้อง) หรือไม่พบสัญญาเช่า";
+
+const RECEIPT_METHODS: ReadonlyArray<ReceiptMethod> = ["bank_transfer", "cheque", "cash"];
+
+export interface RentalSettlementInput {
+  agreementId: string;
+  invoiceNo: string;
+  invoiceDate: string;
+  base: number;
+  overtime: number;
+  fees: number;
+  vat: number;
+  depositRefunded: number;
+  depositForfeited: number;
+  method: string;
+  note: string;
+}
+
+type SettlementArgs = {
+  p_invoice_no: string;
+  p_invoice_date: string;
+  p_base: number;
+  p_overtime: number;
+  p_fees: number;
+  p_vat: number;
+  p_deposit_refunded: number;
+  p_deposit_forfeited: number;
+  p_method: ReceiptMethod;
+  p_note?: string;
+};
+
+// Shared payload validation + arg shaping for both record and supersede. Agreement
+// id (record) and settlement id + correction reason (supersede) are checked by the
+// callers — they diverge between the two RPCs.
+function buildSettlementArgs(
+  input: RentalSettlementInput,
+): { ok: true; args: SettlementArgs } | { ok: false; error: string } {
+  const invoiceNo = input.invoiceNo.trim();
+  if (invoiceNo === "") return { ok: false, error: "กรุณาระบุเลขที่ใบแจ้งหนี้" };
+  if (invoiceNo.length > 100) return { ok: false, error: SETTLEMENT_GENERIC_ERROR };
+  if (input.invoiceDate.trim() === "") return { ok: false, error: "กรุณาระบุวันที่ใบแจ้งหนี้" };
+
+  const amounts = [
+    input.base,
+    input.overtime,
+    input.fees,
+    input.vat,
+    input.depositRefunded,
+    input.depositForfeited,
+  ];
+  if (amounts.some((n) => !Number.isFinite(n) || n < 0)) {
+    return { ok: false, error: SETTLEMENT_GENERIC_ERROR };
+  }
+  if (!RECEIPT_METHODS.includes(input.method as ReceiptMethod)) {
+    return { ok: false, error: SETTLEMENT_GENERIC_ERROR };
+  }
+  const note = input.note.trim();
+  if (note.length > 2000) return { ok: false, error: SETTLEMENT_GENERIC_ERROR };
+
+  return {
+    ok: true,
+    args: {
+      p_invoice_no: invoiceNo,
+      p_invoice_date: input.invoiceDate,
+      p_base: input.base,
+      p_overtime: input.overtime,
+      p_fees: input.fees,
+      p_vat: input.vat,
+      p_deposit_refunded: input.depositRefunded,
+      p_deposit_forfeited: input.depositForfeited,
+      p_method: input.method as ReceiptMethod,
+      ...(note.length > 0 ? { p_note: note } : {}),
+    },
+  };
+}
+
+function mapSettlementError(code: string | undefined): string {
+  if (code === "42501") return SETTLEMENT_NO_PERMISSION;
+  if (code === "P0001") return SETTLEMENT_INVALID;
+  return SETTLEMENT_GENERIC_ERROR;
+}
+
+export async function recordRentalSettlement(
+  input: RentalSettlementInput,
+): Promise<RentalActionResult> {
+  await requireRole(BACK_OFFICE_ROLES);
+
+  if (!UUID_REGEX.test(input.agreementId)) return { ok: false, error: "กรุณาเลือกสัญญาเช่า" };
+  const built = buildSettlementArgs(input);
+  if (!built.ok) return built;
+
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("record_rental_settlement", {
+    p_agreement_id: input.agreementId,
+    ...built.args,
+  });
+  if (error || !data) return { ok: false, error: mapSettlementError(error?.code) };
+
+  revalidatePath("/equipment/rentals");
+  return { ok: true };
+}
+
+export async function supersedeRentalSettlement(
+  input: RentalSettlementInput & { settlementId: string; correctionReason: string },
+): Promise<RentalActionResult> {
+  await requireRole(BACK_OFFICE_ROLES);
+
+  if (!UUID_REGEX.test(input.settlementId)) return { ok: false, error: SETTLEMENT_GENERIC_ERROR };
+  const reason = input.correctionReason.trim();
+  if (reason === "") return { ok: false, error: "กรุณาระบุเหตุผลการแก้ไข" };
+  if (reason.length > 2000) return { ok: false, error: SETTLEMENT_GENERIC_ERROR };
+  const built = buildSettlementArgs(input);
+  if (!built.ok) return built;
+
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("supersede_rental_settlement", {
+    p_settlement_id: input.settlementId,
+    p_correction_reason: reason,
+    ...built.args,
+  });
+  if (error || !data) return { ok: false, error: mapSettlementError(error?.code) };
 
   revalidatePath("/equipment/rentals");
   return { ok: true };
