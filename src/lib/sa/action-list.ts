@@ -49,8 +49,11 @@ export function buildSaActionList(input: {
   /** wpId → reopen context (spec 216/217), for the rework rows. */
   reworkInfo: ReadonlyMap<string, ReworkInfo>;
   projectsById: ReadonlyMap<string, { code: string; name: string }>;
+  /** Spec 277 — project_category id → GLOBAL work-category code (W0x), for the
+   *  "งานของฉัน" (rest) cards. Omitted → cards render uncategorised. */
+  categoryCodeById?: ReadonlyMap<string, string>;
 }): { actions: SaActionItem[]; rest: MyWorkItem[] } {
-  const { inPlay, bounced, reworkInfo, projectsById } = input;
+  const { inPlay, bounced, reworkInfo, projectsById, categoryCodeById } = input;
 
   const project = (id: string) => projectsById.get(id);
 
@@ -96,6 +99,7 @@ export function buildSaActionList(input: {
   const rest = buildMyWorkList(
     inPlay.filter((w) => w.status !== "rework"),
     projectsById,
+    categoryCodeById,
   );
 
   return { actions, rest };

@@ -29,7 +29,8 @@ const ALLOWED_DOMAINS = [
   "dashboard",
   // Spec 193: the in-app feedback (bug/feature report) form.
   "feedback",
-  // Spec 192 U4b: the site-admin daily home (/sa) feature components (DailyHero).
+  // Spec 192 U4 / 273 / 277 P0: the site-admin daily home (/sa) feature components
+  // (daily-plan worklist, muster strip, tools grid, camera FAB, action section).
   "sa",
   // Spec 212: the SA daily report (LINE Flex preview button, capture screen).
   "daily-report",

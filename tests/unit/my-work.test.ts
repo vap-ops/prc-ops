@@ -2,6 +2,9 @@
 // SA's visible, not-done work packages joined to their project name, sorted by
 // project then WP code (a stable field order). The page does the RLS-scoped read;
 // this is the view-model assembly, unit-testable without Supabase.
+//
+// Spec 277 P0 — each item also carries its reconciled GLOBAL work-category code
+// (project_category id → W0x) so the card can render the category letter·color·icon.
 
 import { describe, it, expect } from "vitest";
 import { buildMyWorkList, type MyWorkWp } from "@/lib/sa/my-work";
@@ -12,7 +15,7 @@ const PROJECTS = new Map([
 ]);
 
 function wp(p: Partial<MyWorkWp> & Pick<MyWorkWp, "id" | "code" | "project_id">): MyWorkWp {
-  return { name: "งาน", status: "in_progress", ...p };
+  return { name: "งาน", status: "in_progress", category_id: null, ...p };
 }
 
 describe("buildMyWorkList", () => {
@@ -36,6 +39,7 @@ describe("buildMyWorkList", () => {
       projectId: "p1",
       projectCode: "PRJ-001",
       projectName: "อาคารสำนักงาน",
+      categoryCode: null,
     });
   });
 
@@ -43,5 +47,21 @@ describe("buildMyWorkList", () => {
     const result = buildMyWorkList([wp({ id: "x", code: "WP-09", project_id: "ghost" })], PROJECTS);
     expect(result[0]?.projectName).toBe("—");
     expect(result[0]?.projectCode).toBe("");
+  });
+
+  it("resolves each WP's category_id to its GLOBAL work-category code", () => {
+    const categoryCodeById = new Map([["cat-elec", "W05"]]);
+    const result = buildMyWorkList(
+      [
+        wp({ id: "a", code: "WP-01", project_id: "p1", category_id: "cat-elec" }),
+        wp({ id: "b", code: "WP-02", project_id: "p1", category_id: "cat-missing" }),
+        wp({ id: "c", code: "WP-03", project_id: "p1", category_id: null }),
+      ],
+      PROJECTS,
+      categoryCodeById,
+    );
+    expect(result.find((r) => r.id === "a")?.categoryCode).toBe("W05");
+    expect(result.find((r) => r.id === "b")?.categoryCode).toBeNull();
+    expect(result.find((r) => r.id === "c")?.categoryCode).toBeNull();
   });
 });
