@@ -1527,6 +1527,113 @@ export type Database = {
           },
         ]
       }
+      crew_members: {
+        Row: {
+          added_at: string
+          added_by: string
+          crew_id: string
+          id: string
+          removed_at: string | null
+          worker_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by: string
+          crew_id: string
+          id?: string
+          removed_at?: string | null
+          worker_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string
+          crew_id?: string
+          id?: string
+          removed_at?: string | null
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crew_members_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crew_members_crew_id_fkey"
+            columns: ["crew_id"]
+            isOneToOne: false
+            referencedRelation: "crews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crew_members_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crews: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string
+          default_day_rate: number | null
+          id: string
+          kind: string
+          lead_worker_id: string | null
+          name: string
+          project_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by: string
+          default_day_rate?: number | null
+          id?: string
+          kind?: string
+          lead_worker_id?: string | null
+          name: string
+          project_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string
+          default_day_rate?: number | null
+          id?: string
+          kind?: string
+          lead_worker_id?: string | null
+          name?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crews_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crews_lead_worker_id_fkey"
+            columns: ["lead_worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crews_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_work_plan_crew: {
         Row: {
           created_at: string
@@ -7337,6 +7444,16 @@ export type Database = {
         Args: { p_contractor_id: string }
         Returns: string
       }
+      create_crew: {
+        Args: {
+          p_default_day_rate?: number
+          p_kind?: string
+          p_lead_worker?: string
+          p_name: string
+          p_project: string
+        }
+        Returns: string
+      }
       create_deliverable: {
         Args: { p_code: string; p_name: string; p_project_id: string }
         Returns: string
@@ -7456,6 +7573,7 @@ export type Database = {
       }
       create_worker_invite: { Args: { p_worker: string }; Returns: string }
       current_user_contractor_id: { Args: never; Returns: string }
+      current_user_led_crew_ids: { Args: never; Returns: string[] }
       current_user_role: {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]
@@ -7863,6 +7981,10 @@ export type Database = {
       reap_stale_reports: {
         Args: { p_max_age_minutes?: number }
         Returns: number
+      }
+      reassign_crew_lead: {
+        Args: { p_crew: string; p_new_lead: string }
+        Returns: undefined
       }
       receive_po_lines: {
         Args: {
@@ -8777,6 +8899,7 @@ export type Database = {
         | "rental_charge_void"
         | "rental_settlement_record"
         | "rental_settlement_supersede"
+        | "crew_change"
       boq_line_status: "draft" | "frozen" | "superseded"
       boq_variation_type: "standard" | "added" | "omitted" | "provisional_sum"
       catalog_fulfillment_mode: "off_shelf" | "made_to_order"
@@ -9176,6 +9299,7 @@ export const Constants = {
         "rental_charge_void",
         "rental_settlement_record",
         "rental_settlement_supersede",
+        "crew_change",
       ],
       boq_line_status: ["draft", "frozen", "superseded"],
       boq_variation_type: ["standard", "added", "omitted", "provisional_sum"],
