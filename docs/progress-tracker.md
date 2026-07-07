@@ -6,12 +6,12 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 275 U2 — one-time rental fees (rental_charges + GL) — 🔨 IN PROGRESS (2026-07-07, additive schema + money/GL, operator-held)
+## Spec 275 U2 — one-time rental fees (rental_charges + GL) — ✅ SHIPPED (2026-07-07, additive schema + money/GL, PR #358 held for operator merge)
 
 - New `rental_charges` (delivery|pickup|cleaning|insurance|other, amount, vat_rate, note, on
   delete cascade → `equipment_rental_batches`) + `add_rental_charge`/`void_rental_charge` RPCs +
   `post_rental_charge_to_gl` poster + drain arm. Mirrors `purchase_order_charges` (spec 260).
-  Migs `20260813074300`–`074600` (4-file split, mirrors spec 260's).
+  Migs `20260813074300`–`074600` APPLIED to remote via db:push (operator OK).
 - **Build decisions (locked, all consistent with spec §U2):**
   - **Zero-grant money table** (mirror `equipment_rental_batches`, NOT the readable PO-charge
     posture): RLS on + `revoke all from anon, authenticated`, no policy/grant, admin-read only.
@@ -27,12 +27,47 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
     money is manager-tier + procmgr, not plain procurement). Void = reverse posted entry / skip
     pending job, then DELETE (no supersede column).
   - **drain** re-sourced from the LATEST def (`071700` spec266 — carries `wage_payments`, NOT the
-    older `dc_payments`; copying `070700` would regress that) + one `rental_charges` arm; reconcile
-    vs LIVE `pg_get_functiondef` at db:push.
-- DB-only (no UI/TS per spec). db:types regen after db:push adds the types (no consumer yet).
-- TDD: `supabase/tests/database/275-rental-charges.test.sql` (pgTAP, RED before db:push). No vitest
-  change.
-- **Ends at operator db:push gate** (money/GL — will NOT self-push). PR held for operator merge.
+    older `dc_payments`) + one `rental_charges` arm; reconciled vs LIVE `pg_get_functiondef` = +1 arm.
+- DB-only (no UI/TS consumer). db:types regen (src + worker) after db:push.
+- TDD: `275-rental-charges.test.sql` (55 assertions) RED→GREEN on the linked DB. Zero-grant charge
+  ids resolved as OWNER via a session GUC before the gated void calls (authenticated cannot SELECT the
+  zero-grant table — the naive subselect raised its own 42501, masking the gate). Collateral
+  `audit_action` pins (03/18) updated. pgTAP 240/242 (the 2 reds = pre-existing 200/221). Adversarial
+  4-lens review: 0 confirmed defects. lint + typecheck + vitest 2974 green.
+- **Ship:** review + drain diff → **db:push (operator OK)** → db:test GREEN → db:types → PR #358
+  (danger-path HELD for operator merge). NOT self-pushed (money/GL). Next schema unit claims `074700+`.
+
+## Spec 277 U1b — wire `CategoryChip` into the WP-detail badge + apply the 379 tags — ✅ SHIPPED (2026-07-07, code-only, no schema)
+
+- **Data (prod, operator-approved):** Typhoon (`typhoon-v2.5-30b-a3b-instruct`, temp 0) classified
+  the 59 parent งาน; cross-checked against the hand-map — **57/59 agree** (48 building WPs 100%; the
+  only 2 diffs were solar-003 edge cases). Applied to **PRC-2026-004 + 005 only** (379 WPs; solar 003
+  held for a manual pass): created 9 `project_categories` reconciled to the global library +
+  `set category_id` on all 379 (parents mapped, children inherited) via service-role (definer RPCs
+  can't be called headless; tagging is benign metadata per spec 207). Verified 379/379.
+- **Code:** `WorkCategoryBadge` gains optional `code` → renders `<CategoryChip>` (letter·color·icon +
+  name) when the WP's project-category reconciles to a global work-category; else the old name pill /
+  unset nudge. WP-detail loader (`[workPackageId]/page.tsx`) extended to fetch the reconciled
+  `work_categories(code)` alongside the name it already read.
+- TDD: 2 new `work-category-badge.test.tsx` cases RED→GREEN. Full suite 437 files / 2992 green;
+  lint + typecheck clean. Runtime data-path verified by SQL (WP→proj-cat→global code resolves).
+- Scope fence: WP-detail badge only. Worklist/WP-list chip + settings editor + `letter_code` = U2.
+
+## Spec 277 U1 — work-category visual identity: SSOT + `CategoryChip` — ✅ SHIPPED (2026-07-07, code-only, no schema)
+
+- The reusable identity primitive for the 9 global work-categories. Letter · color · icon per
+  `W01`–`W09`, mirroring the `status-colors.ts` + `status-icons.ts` + `StatusPill` pattern.
+- New `src/lib/work-categories/identity.ts` — exhaustive letter/icon/tile/accent maps +
+  `workCategoryIdentity(code)` resolver (5-char subsection → parent top via first 3 chars,
+  matching spec 226 `left(code,3)`; blank/unknown → null).
+- New `src/components/features/work-packages/category-chip.tsx` — `<CategoryChip code label? />`,
+  a colored letter tile + icon + label; renders null for uncategorised.
+- New `--color-cat-w01..w09` tokens in globals.css `@theme` (theme-invariant brand hues, white
+  text ≥ 4.5:1; spaced off the reserved attn/done/action hues → no doctrine allowlist edit).
+- TDD: `work-category-identity.test.ts` (resolver + exhaustive maps) + `category-chip.test.tsx`
+  (render) written RED first.
+- Scope fence: does NOT wire into WP surfaces (all 390 WPs uncategorised — nothing to show yet),
+  no DB column, no editor. Those are U2+. Design + unit plan in `docs/feature-specs/277-*.md`.
 
 ## Spec 275 U5 — relocate rental recording to the project detail — ✅ SHIPPED (2026-07-07, code-only, no schema)
 

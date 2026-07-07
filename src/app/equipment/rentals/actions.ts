@@ -24,7 +24,13 @@ import type { RentalRatePeriod } from "@/lib/equipment/rental-view";
 const GENERIC_ERROR = "บันทึกการเช่าไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 const NO_PERMISSION = "ไม่มีสิทธิ์บันทึกการเช่าอุปกรณ์";
 
-export type RentalActionResult = { ok: true } | { ok: false; error: string };
+export type RentalActionResult =
+  | { ok: true }
+  // `code` discriminates the partial outcome (batch saved, allocation RPC
+  // failed) so a caller can localize the recovery hint to its surface — the
+  // default `error` text points at the per-card control, which only exists on
+  // the settings overview, not the project-locked recorder.
+  | { ok: false; error: string; code?: "allocation_failed" };
 
 const RATE_PERIODS: ReadonlyArray<RentalRatePeriod> = ["monthly", "daily"];
 
@@ -98,6 +104,7 @@ export async function createRentalBatch(input: {
       return {
         ok: false,
         error: "บันทึกการเช่าแล้ว แต่ผูกโครงการไม่สำเร็จ — กดผูกโครงการที่รายการอีกครั้ง",
+        code: "allocation_failed",
       };
     }
   }
