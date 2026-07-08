@@ -14,6 +14,7 @@ import { DETAIL_TITLE } from "@/lib/ui/classes";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { clientEnv } from "@/lib/env";
+import { technicianOnboardUrl } from "@/lib/register/onboard-link";
 import { listVisibleTechnicianRegistrations } from "@/lib/register/admin-registrations";
 import { CrewRosterList, type CrewRosterRow } from "@/components/features/sa/crew-roster-list";
 import { AddWorkerForm } from "@/components/features/sa/add-worker-form";
@@ -35,7 +36,7 @@ export default async function SaCrewPage() {
 
   const [projectRes, workerRes, pendingRegistrations] = await Promise.all([
     projectIds.length
-      ? supabase.from("projects").select("id, code").in("id", projectIds)
+      ? supabase.from("projects").select("id, code, name").in("id", projectIds)
       : Promise.resolve({ data: null }),
     projectIds.length
       ? supabase
@@ -49,7 +50,11 @@ export default async function SaCrewPage() {
     ctx.role === "site_admin" ? listVisibleTechnicianRegistrations(supabase) : Promise.resolve([]),
   ]);
 
-  const projectList = (projectRes.data ?? []).map((p) => ({ id: p.id, code: p.code }));
+  const projectList = (projectRes.data ?? []).map((p) => ({
+    id: p.id,
+    code: p.code,
+    name: p.name,
+  }));
   const projectCode = new Map(projectList.map((p) => [p.id, p.code]));
   const multiProject = projectIds.length > 1;
   const workers: CrewRosterRow[] = (workerRes.data ?? []).map((w) => {
@@ -63,14 +68,28 @@ export default async function SaCrewPage() {
   });
   const pendingRegCount = pendingRegistrations.length;
 
-  // Absolute URL so the QR resolves from the ช่าง's own device.
-  const onboardUrl = `${clientEnv.NEXT_PUBLIC_APP_URL}/register/technician`;
-  const qrSvg = await QRCode.toString(onboardUrl, {
-    type: "svg",
-    margin: 1,
-    width: 208,
-    color: { dark: "#000000", light: "#ffffff" },
-  });
+  // One QR per project the SA runs. Each carries its own project (+ the inviting
+  // SA's id), so a ช่าง scanning the QR at a given site lands on
+  // /register/technician already told WHICH project they're joining — they can
+  // bail if they scanned the wrong site's code. Absolute URL so the QR resolves
+  // from the ช่าง's own device. `by=ctx.id` rides along for F2b's invited-by
+  // attribution (schema not landed yet; the QR is final now so it need not change).
+  const qrCards = await Promise.all(
+    projectList.map(async (project) => {
+      const url = technicianOnboardUrl(clientEnv.NEXT_PUBLIC_APP_URL, {
+        projectId: project.id,
+        siteLabel: project.name,
+        inviterId: ctx.id,
+      });
+      const svg = await QRCode.toString(url, {
+        type: "svg",
+        margin: 1,
+        width: 208,
+        color: { dark: "#000000", light: "#ffffff" },
+      });
+      return { project, url, svg };
+    }),
+  );
 
   return (
     <PageShell>
@@ -103,24 +122,31 @@ export default async function SaCrewPage() {
           ) : null}
         </Link>
 
-        {/* Onboarding QR — the ช่าง scans this to self-register. */}
-        <div className="rounded-card border-edge bg-card shadow-card flex flex-col items-center gap-3 border p-5">
-          <div className="flex items-center gap-2 self-start">
-            <ScanLine aria-hidden className="text-cat-w06 size-5 shrink-0" />
-            <h2 className="text-body text-ink font-semibold">เพิ่มช่างใหม่</h2>
-          </div>
-          <p className="text-ink-secondary text-center text-sm">
-            ให้ช่างสแกน QR นี้ด้วยกล้องมือถือ เพื่อสมัครเข้าระบบด้วยตัวเอง
-            แล้วมาอนุมัติในคำขอสมัครด้านบน
-          </p>
-          {/* qrcode → black-on-white SVG; wrapped white so it scans in any theme. */}
+        {/* Onboarding QR — one per project. The ช่าง scans the QR for the site
+            they're at to self-register into THAT project. */}
+        {qrCards.map(({ project, url, svg }) => (
           <div
-            className="rounded-lg bg-white p-3"
-            aria-label="QR สมัครเป็นช่าง"
-            dangerouslySetInnerHTML={{ __html: qrSvg }}
-          />
-          <p className="text-ink-muted text-meta text-center break-all">{onboardUrl}</p>
-        </div>
+            key={project.id}
+            className="rounded-card border-edge bg-card shadow-card flex flex-col items-center gap-3 border p-5"
+          >
+            <div className="flex items-center gap-2 self-start">
+              <ScanLine aria-hidden className="text-cat-w06 size-5 shrink-0" />
+              <h2 className="text-body text-ink font-semibold">เพิ่มช่างใหม่ — {project.name}</h2>
+            </div>
+            <p className="text-ink-secondary text-center text-sm">
+              ให้ช่างสแกน QR นี้ด้วยกล้องมือถือ เพื่อสมัครเข้าโครงการ{" "}
+              <span className="text-ink font-medium">{project.name}</span> ด้วยตัวเอง
+              แล้วมาอนุมัติในคำขอสมัครด้านบน
+            </p>
+            {/* qrcode → black-on-white SVG; wrapped white so it scans in any theme. */}
+            <div
+              className="rounded-lg bg-white p-3"
+              aria-label={`QR สมัครเป็นช่าง — ${project.name}`}
+              dangerouslySetInnerHTML={{ __html: svg }}
+            />
+            <p className="text-ink-muted text-meta text-center break-all">{url}</p>
+          </div>
+        ))}
       </section>
     </PageShell>
   );
