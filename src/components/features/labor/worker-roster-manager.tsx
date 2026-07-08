@@ -38,19 +38,17 @@ import {
   FIELD_STACKED,
 } from "@/lib/ui/classes";
 import { NOTES_MAX } from "@/lib/notes/validate";
+import { EMPLOYMENT_TYPE_LABEL, type EmploymentType } from "@/lib/workers/employment";
 
 type PayType = Database["public"]["Enums"]["pay_type"];
-type EmploymentType = Database["public"]["Enums"]["employment_type"];
 
 // Spec 266 U3 (ADR 0073): การจ่าย (pay_type) and สถานะ (employment_type) are two
 // orthogonal axes on every ช่าง; these label maps drive the two add-form selectors.
+// EMPLOYMENT_TYPE_LABEL is single-sourced in @/lib/workers/employment (also used by
+// the SA team view).
 const PAY_TYPE_LABEL: Record<PayType, string> = {
   monthly: "รายเดือน",
   daily: "รายวัน",
-};
-const EMPLOYMENT_TYPE_LABEL: Record<EmploymentType, string> = {
-  permanent: "ประจำ",
-  temporary: "ชั่วคราว",
 };
 
 export type ManagedWorker = {

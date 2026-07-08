@@ -1,21 +1,32 @@
-// Spec 279 U7b — the /sa/crew roster grouped by CREW (team). Sits alongside the
-// U7 onboarding progress tracker and gives the SA the team structure the operator
-// asked for (idea #1): each crew with its name + lead, its members grouped under
-// it, plus a "ยังไม่ได้จัดทีม" bucket for workers not yet on a crew. VIEW-ONLY —
-// the SA cannot move anyone from here (crew moves are U5, PM-owned), so this
-// renders no action controls. Pure presentation; the crew reads that feed it are
-// RLS-scoped to the SA's projects by the U7b read-grant (mig 075460). Money
-// (default_day_rate) is never read here.
+// Spec 279 U7b + U6 — the /sa/crew roster grouped by CREW (team). Each crew shows
+// its name + lead + members, plus a "ยังไม่ได้จัดทีม" bucket for workers not yet on
+// a crew (U7b). U6 adds two glances the operator asked for: an employment badge on
+// each member (ประจำ = internal / ชั่วคราว = day-hired), and a งาน row listing the
+// งานย่อย the crew is scheduled on (from แผนพรุ่งนี้, with the spec-277 category
+// tile). VIEW-ONLY — no move controls (crew moves are U5, PM-owned). Pure
+// presentation; the reads that feed it are RLS-scoped to the SA's projects.
 
 import { Users } from "lucide-react";
 import { EmptyNotice } from "@/components/features/common/notices";
+import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
 import { WORKER_LEVEL_LABEL, type WorkerLevel } from "@/lib/nova/dials";
+import { EMPLOYMENT_TYPE_LABEL, type EmploymentType } from "@/lib/workers/employment";
+
+export interface CrewWorkPackage {
+  id: string;
+  code: string;
+  name: string;
+  /** Reconciled GLOBAL work-category code (W0x) for the category tile, or null. */
+  categoryCode: string | null;
+}
 
 export interface CrewTeamMember {
   id: string;
   name: string;
   /** null until a PM confirms the worker's cost/level. */
   level: WorkerLevel | null;
+  /** ประจำ (internal) vs ชั่วคราว (day-hired). */
+  employmentType?: EmploymentType;
 }
 
 export interface CrewTeam {
@@ -24,6 +35,8 @@ export interface CrewTeam {
   /** The crew lead's rendered name; null when no lead is bound. */
   leadName: string | null;
   members: CrewTeamMember[];
+  /** งานย่อย the crew is scheduled on (from แผนพรุ่งนี้); omitted/empty → no row. */
+  workPackages?: CrewWorkPackage[];
 }
 
 export interface CrewTeamData {
@@ -40,15 +53,36 @@ function CountBadge({ n }: { n: number }) {
   );
 }
 
-function MemberRow({ name, level }: { name: string; level: WorkerLevel | null }) {
+function EmploymentBadge({ type }: { type: EmploymentType }) {
+  // ชั่วคราว (day-hired) is the notable case → attention tint; ประจำ stays neutral.
+  const cls = type === "temporary" ? "bg-attn-soft text-attn-ink" : "bg-sunk text-ink-secondary";
+  return (
+    <span className={`text-meta shrink-0 rounded-full px-2 py-0.5 ${cls}`}>
+      {EMPLOYMENT_TYPE_LABEL[type]}
+    </span>
+  );
+}
+
+function MemberRow({
+  name,
+  level,
+  employmentType,
+}: {
+  name: string;
+  level: WorkerLevel | null;
+  employmentType?: EmploymentType;
+}) {
   return (
     <li className="border-edge text-ink flex min-h-11 items-center justify-between gap-3 border-b py-2.5 text-sm last:border-b-0">
       <span className="min-w-0 truncate font-medium">{name}</span>
-      {level ? (
-        <span className="border-edge bg-sunk text-ink-secondary text-meta shrink-0 rounded-full border px-2 py-0.5">
-          {WORKER_LEVEL_LABEL[level]}
-        </span>
-      ) : null}
+      <span className="flex shrink-0 items-center gap-2">
+        {employmentType ? <EmploymentBadge type={employmentType} /> : null}
+        {level ? (
+          <span className="border-edge bg-sunk text-ink-secondary text-meta rounded-full border px-2 py-0.5">
+            {WORKER_LEVEL_LABEL[level]}
+          </span>
+        ) : null}
+      </span>
     </li>
   );
 }
@@ -60,9 +94,31 @@ function MemberList({ members }: { members: CrewTeamMember[] }) {
   return (
     <ul className="flex flex-col">
       {members.map((m) => (
-        <MemberRow key={m.id} name={m.name} level={m.level} />
+        <MemberRow
+          key={m.id}
+          name={m.name}
+          level={m.level}
+          {...(m.employmentType ? { employmentType: m.employmentType } : {})}
+        />
       ))}
     </ul>
+  );
+}
+
+function GaanRow({ workPackages }: { workPackages: CrewWorkPackage[] }) {
+  return (
+    <div className="border-edge flex flex-wrap items-center gap-2 border-t pt-2.5">
+      <span className="text-ink-muted text-meta shrink-0">งาน</span>
+      {workPackages.map((wp) => (
+        <span
+          key={wp.id}
+          className="bg-sunk text-ink flex max-w-full items-center gap-1 rounded-md px-2 py-0.5 text-xs"
+        >
+          <WpCategoryCode code={wp.code} categoryCode={wp.categoryCode} className="text-xs" />
+          <span className="min-w-0 truncate">{wp.name}</span>
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -94,6 +150,9 @@ export function CrewTeamRoster({ data }: { data: CrewTeamData }) {
             )}
           </p>
           <MemberList members={team.members} />
+          {team.workPackages && team.workPackages.length > 0 ? (
+            <GaanRow workPackages={team.workPackages} />
+          ) : null}
         </section>
       ))}
 

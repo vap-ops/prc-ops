@@ -6,6 +6,19 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 279 U6 — team-view enrichments: crew↔งาน label + employment badge — 🔨 SHIPPING (code-only, auto-merge) (2026-07-08)
+
+The display half of §8-U6 (money/muster machinery stays deferred). Two operator asks folded onto the U7b `/sa/crew` team cards, both CODE-ONLY (all reads granted):
+
+1. **งาน chips per crew.** `buildCrewTeams` refactored to an object signature; it now derives, per crew, the งานย่อย its roster (members ∪ lead) is scheduled on across the SA's upcoming `daily_work_plans` (`plan_date >= bangkokTodayIso()`) → items → `daily_work_plan_crew`. Rendered with the spec-277 `<WpCategoryCode>` tile (category resolved via `project_categories → work_categories.code`). Distinct, ordered by WP code; a crew with no board shows no งาน row.
+2. **ประจำ/ชั่วคราว badge** on each member row from `workers.employment_type` (granted spec 266). `EMPLOYMENT_TYPE_LABEL` + `EmploymentType` extracted to `@/lib/workers/employment` (ui-term SSOT); `worker-roster-manager` now imports it too (removed its local dup). ชั่วคราว = `attn` tint (the notable day-hired case), ประจำ = neutral.
+
+**Files:** `src/lib/sa/crew-teams.ts` (refactor + งาน derivation) · `src/components/features/sa/crew-team-roster.tsx` (badge + งาน row + `CrewWorkPackage` type) · `src/lib/workers/employment.ts` (new SSOT) · `worker-roster-manager.tsx` (import SSOT) · `src/app/sa/crew/page.tsx` (employment_type + plan/category reads + derived workPackages).
+
+**TDD:** vitest `crew-teams` (12: grouping + employment passthrough + งาน derivation — member/lead match, dedupe, order, empty) + `crew-team-roster` (11: + employment badge, งาน chips, omit-when-empty). RED-first (helper rewritten to fail on old signature). typecheck + lint green.
+
+**Deferred to a separate "SA site team board" spec (money-adjacent, danger-path):** the fluid internal/external-TEAM classification (who pays/charges per person per WP per day — spans `workers` vs `subcontract_crew_members`, incl. our-tech-in-subcon cross-charge + subcon-as-our-day-labor); expandable cards; total-on-site headcount buckets; the ฝ่ายไซต์ (SA/owner) bucket (needs a definer read — `users` role/name is own-row-only for an SA).
+
 ## Spec 279 U7b — team/crew grouping on the /sa/crew view — 🔨 SHIPPING (danger-path, operator-held) (2026-07-08)
 
 The deferred half of U7 (operator idea #1: group the roster by crew, read as teams-under-a-หัวหน้า). SA is VIEW-ONLY — no move authority (that's U5, PM-owned).
