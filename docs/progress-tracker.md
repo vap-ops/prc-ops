@@ -6842,3 +6842,37 @@ Open / deferred: status-change control deferred (create defaults active; transit
 U3 settlement). rental_rate_tiers DROPPED (268's rate_period is the rate model).
 DEPLOY NOTE: dropping the 6-arg RPC briefly breaks /equipment/rentals in prod between db:push and
 the PR deploy — near-zero risk (new page, 0 rentals, back-office); merge promptly after push.
+
+## Spec 284 U0 — departments (open-data org table) — DONE / db:push'd, PR held (2026-07-08)
+
+Worktree ../prc-ops-spec284-u0, branch spec284-u0. ADR 0080. **Two migrations** (numbered around a
+concurrent-session collision — spec 282 db:push'd 075490 mid-build):
+
+- `20260813075500_spec284u0_departments.sql` (ADDITIVE): `departments` open-data table
+  (id/key/name_th/name_en/is_active/head_user_id/sort_order + partial active-sort index);
+  `users.department_id` FK (nullable, ON DELETE SET NULL); RLS = authenticated-read
+  (`departments_select using(true)`) + `revoke all from anon,authenticated` + `grant select`;
+  seed 6 active (executive/pmo/procurement/accounting/site/legal) + 2 inactive (hr/subcon_mgmt);
+  3 super_admin DEFINER RPCs `create_department`/`set_department_head`/`set_user_department`,
+  FAIL-CLOSED via `v_role is distinct from 'super_admin'` (avoids the rls-self-check-coalesce
+  null-gate trap).
+- `20260813075510_spec284u0_lock_definer_anon.sql` (ADDITIVE): `revoke execute ... from public, anon`
+  on the 3 RPCs. **REQUIRED** — Supabase default-privileges grant EXECUTE to `anon` directly, so
+  075500's `revoke ... from public` alone left anon able to call them (pgTAP 229 caught it: have 3→0).
+  Mirrors spec 273's 073700/073800 lock. (075500 already applied → separate lock migration, not an edit.)
+
+**Verification (all green):** pgTAP `285-spec284u0-departments.test.sql` **12/12** (schema · seed 8/6-active/
+legal · LABEL-ONLY invariant no-policy-keys-off-department_id · anon-no-SELECT · anon-no-EXECUTE ×3 ·
+null-role gate raises 42501 ×2). Full db:test **248/251**; 3 reds = **200 · 221** (known pre-existing) +
+**282-project-site-management** (inherited from #394 spec 282, NOT this unit). typecheck 0 · lint 0 ·
+vitest **3159/3159**. db:types clean (only departments + users.department_id + both worker/ + src/ types).
+
+Open questions (out of scope — NOT implemented):
+
+- Dept-write RPCs do NOT write `audit_log` (would need a new `audit_log.action` enum value; non-gating
+  low-stakes org labels). Crews-style auditing = a follow-up.
+- `users.department_id` backfill = a later super_admin data task via `set_user_department`, not a migration.
+- ⚠️ Flag: `282-project-site-management` pgTAP is red on main (from #394) — spec 282's to fix, not U0.
+
+NEXT (own sessions): U1 legal role (danger-path) · U2 org-chart read + registrations dept filter (code) ·
+U3 contracts · U4 document_approvals · U5 /legal surfaces.

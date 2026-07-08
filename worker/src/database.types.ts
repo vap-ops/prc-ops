@@ -1871,6 +1871,47 @@ export type Database = {
           },
         ]
       }
+      departments: {
+        Row: {
+          created_at: string
+          head_user_id: string | null
+          id: string
+          is_active: boolean
+          key: string
+          name_en: string
+          name_th: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          head_user_id?: string | null
+          id?: string
+          is_active?: boolean
+          key: string
+          name_en: string
+          name_th: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          head_user_id?: string | null
+          id?: string
+          is_active?: boolean
+          key?: string
+          name_en?: string
+          name_th?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "departments_head_user_id_fkey"
+            columns: ["head_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_id_counters: {
         Row: {
           next_val: number
@@ -6043,6 +6084,7 @@ export type Database = {
       users: {
         Row: {
           created_at: string
+          department_id: string | null
           full_name: string | null
           id: string
           line_avatar_url: string | null
@@ -6055,6 +6097,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          department_id?: string | null
           full_name?: string | null
           id: string
           line_avatar_url?: string | null
@@ -6067,6 +6110,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          department_id?: string | null
           full_name?: string | null
           id?: string
           line_avatar_url?: string | null
@@ -6077,7 +6121,15 @@ export type Database = {
           telegram_chat_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "users_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       variance_snapshots: {
         Row: {
@@ -7631,6 +7683,15 @@ export type Database = {
         Args: { p_code: string; p_name: string; p_project_id: string }
         Returns: string
       }
+      create_department: {
+        Args: {
+          p_key: string
+          p_name_en: string
+          p_name_th: string
+          p_sort_order?: number
+        }
+        Returns: string
+      }
       create_equipment_project_allocation: {
         Args: {
           p_batch_id: string
@@ -8505,6 +8566,10 @@ export type Database = {
         Args: { p_deliverable_id: string; p_name: string }
         Returns: boolean
       }
+      set_department_head: {
+        Args: { p_department: string; p_head_user: string }
+        Returns: undefined
+      }
       set_equipment_daily_rate: {
         Args: { p_id: string; p_rate: number }
         Returns: undefined
@@ -8555,6 +8620,10 @@ export type Database = {
       }
       set_subcontract_wps: {
         Args: { p_subcontract: string; p_wp_ids: string[] }
+        Returns: undefined
+      }
+      set_user_department: {
+        Args: { p_department: string; p_user: string }
         Returns: undefined
       }
       set_user_role: {
