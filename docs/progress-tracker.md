@@ -6,6 +6,16 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 279 U7b — team/crew grouping on the /sa/crew view — 🔨 SHIPPING (danger-path, operator-held) (2026-07-08)
+
+The deferred half of U7 (operator idea #1: group the roster by crew, read as teams-under-a-หัวหน้า). SA is VIEW-ONLY — no move authority (that's U5, PM-owned).
+
+**Schema (RLS read-grant, DANGER-PATH → operator merge).** mig `075460`: new `SECURITY DEFINER` helper `current_user_sa_visible_crew_ids()` = the crew ids a `site_admin` may see (role = `site_admin` **AND** `can_see_project(crews.project_id)` — the SAME visibility the page already derives its worker roster from: `work_packages` RLS = `can_see_project`; `workers` "readable by staff" is role-only + app-filtered to that project set). Added as a third disjunct to `crews_select`/`crew_members_select` (mirrors `current_user_led_crew_ids()` → keeps the policy a hoistable `<col> in (select …)` for rls-eval-once; `anon` EXECUTE revoked per the 229 class). `default_day_rate` (money) stays a **zero** authenticated grant — this arm never widens it; no write path opened.
+
+**UI (code).** New **ทีม** section (`CrewTeamRoster`) below the U7 progress tracker: each crew card = name + `หัวหน้า: <lead>` (or `ยังไม่มีหัวหน้า`) + member rows (level badge) + count; a `ยังไม่ได้จัดทีม` bucket for workers on no crew. Grouping shaped by the pure `buildCrewTeams(workers, crews, members)` helper (members follow roster name-order; a lead is never shown as loose even without a member row; lead resolved by name). Page wires two RLS-scoped reads into the existing `Promise.all` (`crews` sans `default_day_rate`; active `crew_members`).
+
+**TDD.** pgTAP `283-crew-sa-team-read` (SA sees own-project crews, NOT other projects'; visitor sees none; back-office regression intact; `default_day_rate` still zero-grant) — RED-first, GREEN after db:push. vitest `crew-team-roster` (8) + `crew-teams` (9). Migration additive → self-db:push'd; PR HELD for operator merge (RLS = danger-path). Depends U1 (crew entity, shipped).
+
 ## Spec 279 U2 — crew-lead add-member + staging + PM confirm + cost gate — 🔨 IN PROGRESS (2026-07-08)
 
 Second unit of the self-governance onboarding epic (ADR 0079). The crew-lead captures a member into staging; a disinterested PM/PD/super promotes them into a real worker + sets the money-adjacent attributes; super_admin confirms the level, which makes the worker cost-loggable. TDD (pgTAP-first), **danger-path → operator-held merge**.
