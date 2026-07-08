@@ -2,7 +2,7 @@
 // and submits { supplierId, eta, lines } to the createPurchaseOrder action.
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 vi.mock("next/navigation", async () => await import("../helpers/router-refresh"));
 const { createPurchaseOrderMock, createSupplierMock } = vi.hoisted(() => ({
@@ -54,6 +54,30 @@ describe("CreatePurchaseOrderSheet", () => {
     fireEvent.change(prices[0]!, { target: { value: "100" } });
     fireEvent.change(prices[1]!, { target: { value: "200" } });
     expect(screen.getByText("฿300.00")).toBeInTheDocument();
+  });
+
+  // Spec 280 U1: derive-first vendor suggestion.
+  it("groups vendors who supplied the PO's category before above the full list", () => {
+    const SUP2 = "22222222-2222-4222-8222-222222222222";
+    setup({
+      suppliers: [
+        { id: SUP, name: "ร้าน A", phone: null },
+        { id: SUP2, name: "ร้าน B", phone: null },
+      ],
+      suggestedSupplierIds: [SUP2],
+    });
+    const suggested = screen.getByRole("group", { name: "เคยส่งหมวดนี้" });
+    expect(within(suggested).getByRole("option", { name: /ร้าน B/ })).toBeInTheDocument();
+    const all = screen.getByRole("group", { name: "ผู้ขายทั้งหมด" });
+    expect(within(all).getByRole("option", { name: /ร้าน A/ })).toBeInTheDocument();
+    // the suggested vendor is not duplicated into the full-list group
+    expect(within(all).queryByRole("option", { name: /ร้าน B/ })).not.toBeInTheDocument();
+  });
+
+  it("falls back to a flat supplier list (no groups) when there are no suggestions", () => {
+    setup();
+    expect(screen.queryByRole("group", { name: "เคยส่งหมวดนี้" })).not.toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /ร้าน A/ })).toBeInTheDocument();
   });
 
   it("submits { supplierId, eta, lines } and calls onCreated on success", async () => {

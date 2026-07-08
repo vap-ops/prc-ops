@@ -62,6 +62,7 @@ import { buildWorklistStatusChips } from "@/lib/purchasing/worklist-status-chips
 import { WorklistStatusChips } from "@/components/features/purchasing/worklist-status-chips";
 import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
 import type { SupplierOption } from "@/components/features/purchasing/purchase-record-form";
+import { loadCategoryVendors } from "@/lib/purchasing/load-category-vendors";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { ProcurementFilters } from "@/components/features/purchasing/procurement-filters";
 import {
@@ -520,6 +521,9 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // both read under the user session (RLS admits procurement: suppliers SELECT
   // spec 33, attachments via the parent-row policy).
   let supplierRecords: SupplierOption[] = [];
+  // Spec 280 U1: categoryId → vendors who've supplied it before (ranked), from
+  // committed purchase history — feeds the create-PO picker's "เคยส่งหมวดนี้" group.
+  let categoryVendors: Record<string, string[]> = {};
   const docCountById = new Map<string, number>();
   if (isProcurement) {
     const { data: supplierRows } = await supabase
@@ -527,6 +531,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
       .select("id, name, phone")
       .order("name", { ascending: true });
     supplierRecords = supplierRows ?? [];
+    categoryVendors = await loadCategoryVendors(supabase);
     if (myRequests.length > 0) {
       const { data: attachmentRows } = await supabase
         .from("purchase_request_attachments_current")
@@ -785,7 +790,11 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                           </span>
                         </div>
                         {meta.band === "to_order" && canBundlePhone ? (
-                          <PhonePoBasket records={toOrderGridItems} suppliers={supplierRecords} />
+                          <PhonePoBasket
+                            records={toOrderGridItems}
+                            suppliers={supplierRecords}
+                            categoryVendors={categoryVendors}
+                          />
                         ) : meta.band === "in_transit" && inTransitGrouped.poGroups.length > 0 ? (
                           /* Spec 134 U2: bundled tickets → one PO card, loose
                              tickets keep their own card. */
@@ -822,6 +831,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                       suppliers={supplierRecords}
                       userId={ctx.id}
                       poFacts={poFacts}
+                      categoryVendors={categoryVendors}
                     />
                   </div>
                 </>
