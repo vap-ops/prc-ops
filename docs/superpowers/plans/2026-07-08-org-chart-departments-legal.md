@@ -12,8 +12,8 @@
 
 - **One unit per session.** Each Task below is one PR / one session. Do NOT start the next Task in the same session (CLAUDE.md "Feature workflow" §7).
 - **Worktree off fresh `origin/main`.** Local `main` is behind; each Task runs in its own worktree: `git worktree add ../prc-ops-spec284-uN -b spec284-uN origin/main`. Append a line to `../../../LANES.md` before schema work; schema is single-lane.
-- **Next migration number `20260813075470+`** (main↔DB synced thru `075460`). Increment per schema Task; never reuse. Timestamped `.sql` under `supabase/migrations/`.
-- **DB workflow (schema Tasks):** add migration → `pnpm db:push` → `pnpm db:types` → `pnpm db:test`. pgTAP files are `begin; select plan(N); … select * from finish(); rollback;` under `supabase/tests/database/`; confirm the next free `NN-` prefix against `origin/main` at build.
+- **Next migration number `20260813075490+`** (main↔DB synced thru `075480` — spec-283 integrity console took `075470`/`075480`, #392). **Re-confirm the live claimant in `LANES.md` at build**; increment per schema Task; never reuse. Timestamped `.sql` under `supabase/migrations/`.
+- **DB workflow (schema Tasks):** add migration → `pnpm db:push` → `pnpm db:types` → `pnpm db:test`. pgTAP files are `begin; select plan(N); … select * from finish(); rollback;` under `supabase/tests/database/`; confirm the next free `NN-` prefix against `origin/main` at build (spec-283 used `284`; start at `285`).
 - **TDD, non-negotiable.** First artifact of every Task is the failing test. State "Writing failing test first."
 - **Every table has RLS.** Every new SECURITY DEFINER function does `revoke execute … from anon, public;` (the 073700/073800 anon-close idiom). Status fields are Postgres enums, never free text. FKs are typed — no mixed-content reference columns.
 - **Money/document posture (binding).** `contracts`, `contract_attachments`, `document_approvals` are zero-authenticated-grant: read via the admin client behind `requireRole(LEGAL_ROLES)`, never on a site_admin-reachable screen, audited.
@@ -32,10 +32,10 @@
 
 ## File structure
 
-- `supabase/migrations/20260813075470_spec284u0_departments.sql` — departments table, `users.department_id`, RLS, seed, RPCs.
-- `supabase/migrations/20260813075480_spec284u1_legal_role.sql` — `ADD VALUE 'legal'` (own migration).
-- `supabase/migrations/20260813075490_spec284u3_contracts.sql` — contracts + attachments + enums + RLS + RPCs.
-- `supabase/migrations/20260813075500_spec284u4_document_approvals.sql` — document_approvals + enum + RLS + RPC.
+- `supabase/migrations/20260813075490_spec284u0_departments.sql` — departments table, `users.department_id`, RLS, seed, RPCs.
+- `supabase/migrations/20260813075500_spec284u1_legal_role.sql` — `ADD VALUE 'legal'` (own migration).
+- `supabase/migrations/20260813075510_spec284u3_contracts.sql` — contracts + attachments + enums + RLS + RPCs.
+- `supabase/migrations/20260813075520_spec284u4_document_approvals.sql` — document_approvals + enum + RLS + RPC.
 - `supabase/tests/database/<NN>-spec284-*.test.sql` — one pgTAP file per schema Task.
 - `src/lib/auth/role-home.ts` — `LEGAL_ROLES`, `DOC_APPROVAL_ROLES`, `roleHome`, `LEGAL_HUB_NAV`, `LEGAL_TABS` (U1).
 - `src/lib/i18n/labels.ts` — `USER_ROLE_LABEL.legal`, static org strings (U1/U2).
@@ -49,7 +49,7 @@
 
 **Files:**
 
-- Create: `supabase/migrations/20260813075470_spec284u0_departments.sql`
+- Create: `supabase/migrations/20260813075490_spec284u0_departments.sql`
 - Create: `supabase/tests/database/<NN>-spec284u0-departments.test.sql`
 - Modify: `src/lib/i18n/labels.ts` (static strings แผนก / หัวหน้าแผนก only)
 
@@ -96,7 +96,7 @@ Expected: FAIL (`departments` missing).
 - [ ] **Step 3: Write the migration**
 
 ```sql
--- 20260813075470_spec284u0_departments.sql
+-- 20260813075490_spec284u0_departments.sql
 -- Spec 284 U0 / ADR 0080 — departments as open, non-gating org data.
 create table public.departments (
   id           uuid primary key default gen_random_uuid(),
@@ -173,7 +173,7 @@ Expected: the new pgTAP file PASSES 7/7; full suite green except the known pre-e
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20260813075470_spec284u0_departments.sql \
+git add supabase/migrations/20260813075490_spec284u0_departments.sql \
         supabase/tests/database/*spec284u0*.sql src/lib/db/database.types.ts src/lib/i18n/labels.ts
 git commit -m "feat: departments as open org data (spec 284 U0)"
 ```
@@ -186,7 +186,7 @@ Ship via `scripts/ship-pr.sh` → **operator-held** (additive migration = danger
 
 **Files:**
 
-- Create: `supabase/migrations/20260813075480_spec284u1_legal_role.sql`
+- Create: `supabase/migrations/20260813075500_spec284u1_legal_role.sql`
 - Modify: `supabase/tests/database/01-users.test.sql` (enum pin 16 → 17)
 - Modify: `src/lib/auth/role-home.ts`, `src/lib/i18n/labels.ts`
 - Modify/Test: `tests/unit/role-sets.test.ts`
@@ -221,7 +221,7 @@ Expected: FAIL (`LEGAL_ROLES` undefined; `roleHome('legal')` not `/legal`).
 - [ ] **Step 3: Write the enum migration (own migration, committed before use)**
 
 ```sql
--- 20260813075480_spec284u1_legal_role.sql
+-- 20260813075500_spec284u1_legal_role.sql
 -- Spec 284 U1 / ADR 0080 dec 5 — the ONE new auth-role for the Legal department.
 -- OWN migration: Postgres forbids USING a new enum value in the txn that ADDs it.
 alter type public.user_role add value if not exists 'legal';
@@ -254,7 +254,7 @@ Expected: enum pin PASSES 17 values; role-sets PASS; lint/typecheck green.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add supabase/migrations/20260813075480_spec284u1_legal_role.sql \
+git add supabase/migrations/20260813075500_spec284u1_legal_role.sql \
         supabase/tests/database/01-users.test.sql src/lib/auth/role-home.ts \
         src/lib/i18n/labels.ts src/lib/db/database.types.ts tests/unit/role-sets.test.ts
 git commit -m "feat: add legal auth-role + LEGAL_ROLES/nav (spec 284 U1)"
@@ -372,7 +372,7 @@ Code-only → **auto-merges on green**. Run design-doctrine + nav-back guards lo
 
 **Files:**
 
-- Create: `supabase/migrations/20260813075490_spec284u3_contracts.sql`, `supabase/tests/database/<NN>-spec284u3-contracts.test.sql`
+- Create: `supabase/migrations/20260813075510_spec284u3_contracts.sql`, `supabase/tests/database/<NN>-spec284u3-contracts.test.sql`
 - Create: `src/lib/legal/contracts.ts` (server actions)
 
 **Interfaces:**
@@ -407,7 +407,7 @@ Expected: FAIL (`contracts` missing).
 - [ ] **Step 3: Write the migration (enums, table, attachments, RLS, RPCs)**
 
 ```sql
--- 20260813075490_spec284u3_contracts.sql — Spec 284 U3 / ADR 0080 dec 10.
+-- 20260813075510_spec284u3_contracts.sql — Spec 284 U3 / ADR 0080 dec 10.
 create type public.contract_counterparty_type as enum ('client','contractor','supplier','other');
 create type public.contract_type as enum ('client_agreement','subcontract','supply','nda','other');
 create type public.contract_status as enum ('draft','active','expired','terminated','void');
@@ -470,7 +470,7 @@ Expected: `spec284u3` PASSES 5/5. Write `src/lib/legal/contracts.ts` server acti
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20260813075490_spec284u3_contracts.sql \
+git add supabase/migrations/20260813075510_spec284u3_contracts.sql \
         supabase/tests/database/*spec284u3*.sql src/lib/db/database.types.ts src/lib/legal/contracts.ts
 git commit -m "feat: contracts table + RPCs on Legal money posture (spec 284 U3)"
 ```
@@ -483,7 +483,7 @@ Ship → **operator-held** (schema + money).
 
 **Files:**
 
-- Create: `supabase/migrations/20260813075500_spec284u4_document_approvals.sql`, `supabase/tests/database/<NN>-spec284u4-document-approvals.test.sql`
+- Create: `supabase/migrations/20260813075520_spec284u4_document_approvals.sql`, `supabase/tests/database/<NN>-spec284u4-document-approvals.test.sql`
 - Create: `src/lib/legal/approvals.ts`
 
 **Interfaces:**
@@ -515,7 +515,7 @@ Run: `pnpm db:test` → FAIL (`document_approvals` missing).
 - [ ] **Step 3: Write the migration**
 
 ```sql
--- 20260813075500_spec284u4_document_approvals.sql — Spec 284 U4.
+-- 20260813075520_spec284u4_document_approvals.sql — Spec 284 U4.
 create type public.document_target_type as enum ('contract');   -- widen (+ typed FK) when a 2nd target appears
 create type public.document_decision as enum ('approve','reject','needs_revision');
 
@@ -564,7 +564,7 @@ Expected: `spec284u4` PASSES 4/4. Add `src/lib/legal/approvals.ts` server action
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20260813075500_spec284u4_document_approvals.sql \
+git add supabase/migrations/20260813075520_spec284u4_document_approvals.sql \
         supabase/tests/database/*spec284u4*.sql src/lib/db/database.types.ts src/lib/legal/approvals.ts
 git commit -m "feat: document_approvals + submit_document_decision (spec 284 U4)"
 ```
