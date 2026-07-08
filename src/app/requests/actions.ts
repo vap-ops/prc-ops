@@ -45,7 +45,6 @@ import {
   isPurchaseDecision,
   type PurchaseDecision,
 } from "@/lib/purchasing/validate-purchase-request";
-import { validateRecordPurchase } from "@/lib/purchasing/validate-record-purchase";
 import { validateCreatePurchaseOrder } from "@/lib/purchasing/validate-create-purchase-order";
 import { voidPurchaseOrderErrorMessage } from "@/lib/purchasing/purchase-order";
 import { validateSitePurchase } from "@/lib/purchasing/validate-site-purchase";
@@ -1350,44 +1349,7 @@ export async function addQuoteAttachment(
   return { ok: true };
 }
 
-export interface RecordPurchaseInput {
-  requestId: string;
-  supplierId: string;
-  orderRef: string;
-  amount: number | null;
-  eta: string | null;
-}
-
 export type RecordActionResult = { ok: true } | { ok: false; error: string };
-
-export async function recordPurchase(input: RecordPurchaseInput): Promise<RecordActionResult> {
-  const validated = validateRecordPurchase(input);
-  if (!validated.ok) return validated;
-
-  const auth = await getActionUser();
-  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
-  const { supabase } = auth;
-
-  const { error } = await supabase.rpc("record_purchase", {
-    p_purchase_request_id: validated.value.requestId,
-    p_supplier_id: validated.value.supplierId,
-    ...(validated.value.orderRef !== null ? { p_order_ref: validated.value.orderRef } : {}),
-    ...(validated.value.amount !== null ? { p_amount: validated.value.amount } : {}),
-    ...(validated.value.eta !== null ? { p_eta: validated.value.eta } : {}),
-  });
-  if (error) {
-    if (error.code === "42501") {
-      return { ok: false, error: "ไม่มีสิทธิ์บันทึกการสั่งซื้อ" };
-    }
-    if (error.code === "P0001") {
-      return { ok: false, error: "คำขอนี้ไม่อยู่ในสถานะที่บันทึกการสั่งซื้อได้" };
-    }
-    return { ok: false, error: "บันทึกการสั่งซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
-  }
-
-  revalidatePath("/requests");
-  return { ok: true };
-}
 
 export interface CreatePurchaseOrderInput {
   supplierId: string;
