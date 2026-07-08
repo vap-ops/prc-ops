@@ -43,7 +43,10 @@ type WpRow = Pick<
   // Spec 216: the current rework cycle — the หลังแก้ไข tile captures into it.
   | "rework_round"
 >;
-type ContractorRow = Pick<Tbl["contractors"]["Row"], "id" | "name" | "phone" | "status">;
+type ContractorRow = Pick<
+  Tbl["contractors"]["Row"],
+  "id" | "name" | "phone" | "status" | "contractor_category"
+>;
 type ApprovalRow = Pick<
   Tbl["approvals"]["Row"],
   "id" | "decision" | "comment" | "decided_by" | "decided_at"
@@ -139,7 +142,7 @@ export async function loadWorkPackageDetail(
   ] = await Promise.all([
     supabase
       .from("contractors")
-      .select("id, name, phone, status")
+      .select("id, name, phone, status, contractor_category")
       .order("name", { ascending: true }),
     supabase
       .from("approvals")
