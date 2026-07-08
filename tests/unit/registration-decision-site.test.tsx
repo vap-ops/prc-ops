@@ -84,3 +84,25 @@ describe("RegistrationDecision — site assignment selector", () => {
     expect(screen.getByLabelText("มอบหมายให้ไซต์งาน (ถ้ามี)")).toBeInTheDocument();
   });
 });
+
+describe("RegistrationDecision — role selector (self-onboard: 2 field roles)", () => {
+  it("offers only technician + site_admin, defaulting to technician", () => {
+    render(<RegistrationDecision registrationId="reg-1" projects={PROJECTS} />);
+    const roleSelect = screen.getByLabelText("มอบหมายบทบาท") as HTMLSelectElement;
+    expect(Array.from(roleSelect.options).map((o) => o.value)).toEqual([
+      "technician",
+      "site_admin",
+    ]);
+    expect(roleSelect.value).toBe("technician");
+  });
+
+  it("approves as technician by default", async () => {
+    render(<RegistrationDecision registrationId="reg-1" projects={PROJECTS} />);
+    fireEvent.click(screen.getByRole("button", { name: "อนุมัติ" }));
+    await waitFor(() =>
+      expect(mockApprove).toHaveBeenCalledWith(
+        expect.objectContaining({ registrationId: "reg-1", role: "technician" }),
+      ),
+    );
+  });
+});
