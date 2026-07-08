@@ -1,12 +1,11 @@
-// Temporary — SA-assisted technician onboarding. Surfaces the crew roster (the
-// SA's project workers, RLS-scoped, name only) and a self-onboard QR: the SA
-// shows it, the ช่าง scans it with their phone camera → opens /register/technician
-// → self-registers → the SA approves in /sa/registrations → they appear in the
-// roster above. No new backend; reuses the shipped spec-264 self-onboarding.
+// Spec 279 — SA-assisted technician onboarding. The roster is a staged progress
+// tracker (U7): รอตรวจ (pending self-registrations) → รอยืนยัน (added, but a PM
+// hasn't confirmed pay/level) → พร้อม (cost-confirmed). Below it: the SA's direct
+// add (เพิ่มเอง, U4) + a per-project self-onboard QR (spec 264). Reads are
+// RLS-scoped; money columns are zero-grant and never read here.
 
-import Link from "next/link";
 import QRCode from "qrcode";
-import { ClipboardList, ScanLine } from "lucide-react";
+import { ScanLine } from "lucide-react";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
@@ -16,18 +15,24 @@ import { createClient } from "@/lib/db/server";
 import { clientEnv } from "@/lib/env";
 import { technicianOnboardUrl } from "@/lib/register/onboard-link";
 import { listVisibleTechnicianRegistrations } from "@/lib/register/admin-registrations";
-import { CrewRosterList, type CrewRosterRow } from "@/components/features/sa/crew-roster-list";
+import {
+  CrewProgressRoster,
+  type CrewProgressData,
+  type CrewProgressMember,
+} from "@/components/features/sa/crew-progress-roster";
 import { AddWorkerForm } from "@/components/features/sa/add-worker-form";
 
 export const metadata = { title: "ทีมงาน" };
+
+const NO_NAME = "ยังไม่กรอกชื่อ";
 
 export default async function SaCrewPage() {
   const ctx = await requireRole(["site_admin", "super_admin"]);
   const supabase = await createClient();
 
   // The SA's projects (RLS-scoped via their visible work packages, ADR 0056) →
-  // the active workers on those projects (name + project only; money columns are
-  // zero-grant and never read here).
+  // the active workers on those projects (name + project + the non-money
+  // onboarding discriminators cost_confirmed_at/level, all granted reads).
   const { data: wpRows } = await supabase
     .from("work_packages")
     .select("project_id")
@@ -41,12 +46,13 @@ export default async function SaCrewPage() {
     projectIds.length
       ? supabase
           .from("workers")
-          .select("id, name, project_id, cost_confirmed_at")
+          .select("id, name, project_id, cost_confirmed_at, level")
           .eq("active", true)
           .in("project_id", projectIds)
           .order("name")
       : Promise.resolve({ data: null }),
-    // /sa/registrations is the site_admin queue; super_admin uses /registrations.
+    // /sa/registrations is the site_admin queue (RLS returns pending only);
+    // super_admin uses /registrations, so it gets nothing here.
     ctx.role === "site_admin" ? listVisibleTechnicianRegistrations(supabase) : Promise.resolve([]),
   ]);
 
@@ -57,23 +63,31 @@ export default async function SaCrewPage() {
   }));
   const projectCode = new Map(projectList.map((p) => [p.id, p.code]));
   const multiProject = projectIds.length > 1;
-  const workers: CrewRosterRow[] = (workerRes.data ?? []).map((w) => {
+
+  const toMember = (w: {
+    id: string;
+    name: string;
+    project_id: string | null;
+    level: CrewProgressMember["level"];
+  }): CrewProgressMember => {
     const label = multiProject && w.project_id ? projectCode.get(w.project_id) : undefined;
-    return {
-      id: w.id,
-      name: w.name,
-      pending: w.cost_confirmed_at === null,
-      ...(label ? { projectLabel: label } : {}),
-    };
-  });
-  const pendingRegCount = pendingRegistrations.length;
+    return { id: w.id, name: w.name, level: w.level, ...(label ? { projectLabel: label } : {}) };
+  };
+
+  const workerRows = workerRes.data ?? [];
+  const crewData: CrewProgressData = {
+    needsReview: pendingRegistrations.map((r) => ({
+      id: r.id,
+      name: r.full_name?.trim() ? r.full_name : NO_NAME,
+    })),
+    awaitingConfirm: workerRows.filter((w) => w.cost_confirmed_at === null).map(toMember),
+    ready: workerRows.filter((w) => w.cost_confirmed_at !== null).map(toMember),
+  };
 
   // One QR per project the SA runs. Each carries its own project (+ the inviting
-  // SA's id), so a ช่าง scanning the QR at a given site lands on
-  // /register/technician already told WHICH project they're joining — they can
-  // bail if they scanned the wrong site's code. Absolute URL so the QR resolves
-  // from the ช่าง's own device. `by=ctx.id` rides along for F2b's invited-by
-  // attribution (schema not landed yet; the QR is final now so it need not change).
+  // SA's id) so a ช่าง scanning at a given site lands on /register/technician
+  // already told WHICH project they're joining. Absolute URL so the QR resolves
+  // from the ช่าง's own device.
   const qrCards = await Promise.all(
     projectList.map(async (project) => {
       const url = technicianOnboardUrl(clientEnv.NEXT_PUBLIC_APP_URL, {
@@ -97,30 +111,13 @@ export default async function SaCrewPage() {
         <h1 className={DETAIL_TITLE}>ทีมงาน</h1>
       </DetailHeader>
       <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-6 px-5 py-6`}>
-        {/* Roster — the SA's project workers. Empty now (closes the loop with the QR). */}
-        <div className="flex flex-col gap-3">
-          <h2 className="text-meta text-ink-secondary font-semibold">ช่างในโครงการ</h2>
-          <CrewRosterList workers={workers} />
-        </div>
+        {/* The onboarding pipeline the SA follows up on: รอตรวจ → รอยืนยัน → พร้อม (U7). */}
+        <CrewProgressRoster data={crewData} registrationsHref="/sa/registrations" />
 
         {/* เพิ่มเอง (phoneless) — the SA types a ช่าง in directly (name + national-ID +
-            DOB → sa_add_project_worker). The PRIMARY path for the no-phone majority;
+            DOB → sa_add_project_worker, U4). The primary path for the no-phone majority;
             the QR below is only for LINE-owning ช่าง. Shown where the SA has a project. */}
         {projectList.length > 0 ? <AddWorkerForm projects={projectList} /> : null}
-
-        {/* Approve queue — the pending self-registrations the SA acts on. */}
-        <Link
-          href="/sa/registrations"
-          className="rounded-card border-edge bg-card shadow-card focus-visible:ring-action hover:bg-sunk flex items-center gap-3 border px-4 py-3 transition-colors focus:outline-none focus-visible:ring-2"
-        >
-          <ClipboardList aria-hidden className="text-action size-5 shrink-0" />
-          <span className="text-body text-ink min-w-0 flex-1 font-medium">คำขอสมัครรอตรวจ</span>
-          {pendingRegCount > 0 ? (
-            <span className="bg-action text-on-fill text-meta shrink-0 rounded-full px-2 py-0.5 font-bold">
-              {pendingRegCount}
-            </span>
-          ) : null}
-        </Link>
 
         {/* Onboarding QR — one per project. The ช่าง scans the QR for the site
             they're at to self-register into THAT project. */}
