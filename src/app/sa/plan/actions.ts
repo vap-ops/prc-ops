@@ -94,6 +94,68 @@ export async function reorderDailyPlanItems(
   return { ok: true };
 }
 
+/**
+ * Spec 281 U2 — commit an approved แนะนำแผนพรุ่งนี้ draft. Each still-selected row
+ * is one `add_daily_plan_item` (idempotent — the RPC returns the item id whether it
+ * created the row or it was already on the board), followed, when the SA kept the
+ * suggested crew, by one `set_daily_plan_item_crew`. Nothing is written until the SA
+ * approves (D5); this reuses the existing 273 RPCs unchanged — the engine only
+ * proposes, the SA's session does every write.
+ */
+export type PlanSelection = {
+  wp: string;
+  crew: { workerIds: string[]; lead: string | null } | null;
+};
+
+export async function applyPlanSuggestions(
+  project: string,
+  date: string,
+  selections: PlanSelection[],
+): Promise<PlanActionResult> {
+  if (!UUID_REGEX.test(project) || !ISO_DATE_REGEX.test(date)) {
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  for (const s of selections) {
+    if (!UUID_REGEX.test(s.wp)) return { ok: false, error: GENERIC_ERROR };
+    if (s.crew) {
+      if (s.crew.workerIds.some((id) => !UUID_REGEX.test(id))) {
+        return { ok: false, error: GENERIC_ERROR };
+      }
+      if (s.crew.lead !== null && !UUID_REGEX.test(s.crew.lead)) {
+        return { ok: false, error: GENERIC_ERROR };
+      }
+    }
+  }
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  for (const s of selections) {
+    const { data: itemId, error: addError } = await auth.supabase.rpc("add_daily_plan_item", {
+      p_project: project,
+      p_date: date,
+      p_wp: s.wp,
+    });
+    if (addError) {
+      revalidatePath(PLAN_PATH);
+      return { ok: false, error: rpcErrorToThai(addError.message) };
+    }
+    if (s.crew && typeof itemId === "string") {
+      const { error: crewError } = await auth.supabase.rpc("set_daily_plan_item_crew", {
+        p_item: itemId,
+        p_worker_ids: s.crew.workerIds,
+        // Nullable at the DB (the RPC coalesces); the generated Args type is non-null.
+        p_lead: s.crew.lead as unknown as string,
+      });
+      if (crewError) {
+        revalidatePath(PLAN_PATH);
+        return { ok: false, error: rpcErrorToThai(crewError.message) };
+      }
+    }
+  }
+  revalidatePath(PLAN_PATH);
+  return { ok: true };
+}
+
 export async function setDailyPlanItemCrew(
   item: string,
   workerIds: string[],
