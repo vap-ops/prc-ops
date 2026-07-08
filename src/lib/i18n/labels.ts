@@ -62,6 +62,17 @@ export const APPLY_SELECTED_LABEL = "ใช้ที่เลือก";
 export const CLEAR_CREW_LABEL = "ล้างทีม";
 export const PICK_CREW_SELF_LABEL = "เลือกทีมเอง";
 
+// Spec 282 U2 — the SA site team board: on-site headcount split into team-nature
+// buckets + a site-access bucket, with per-member cross-charge exception badges
+// (approach A). SSOT'd — the board + its badges are the only users.
+export const SITE_HEADCOUNT_LABEL = "คนหน้างาน";
+export const TEAM_INTERNAL_LABEL = "ทีมภายใน";
+export const TEAM_EXTERNAL_LABEL = "ทีมภายนอก";
+export const SITE_ACCESS_LABEL = "ฝ่ายไซต์";
+export const UNASSIGNED_TEAM_LABEL = "ยังไม่ได้จัดทีม";
+export const EXCEPTION_OUR_TECH_EXTERNAL_LABEL = "ช่างเราในทีมนอก";
+export const EXCEPTION_SUBCON_INTERNAL_LABEL = "ช่างนอกในทีมเรา";
+
 // Spec 207 — a project work-category (หมวดงาน): the per-project trade/scope
 // taxonomy a WP belongs to (exactly one). Distinct from งวดงาน (deliverable,
 // billing milestone) and ประเภทโครงการ (project_type). Single-sourced (used on

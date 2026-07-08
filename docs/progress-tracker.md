@@ -6,6 +6,19 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 282 U2 — SA site team board (approach A) — 🔨 SHIPPING (code; stacked on U1, operator-held) (2026-07-08)
+
+The board itself (§4/§5-U2). Upgrades the `/sa/crew` ทีม view into a bucketed, collapsible, headcount-topped board.
+
+- **Pure builder** `src/lib/sa/site-team-board.ts` — takes the `buildCrewTeams` output + each crew's `kind` + each worker's `contractor_id` + the U1 ฝ่ายไซต์ members and produces `{ total, internal, external, siteAccess, unassigned }`. Buckets teams by nature (ทีมภายใน = non-subcon crews · ทีมภายนอก = `kind='subcon'`), and per **approach A** annotates (never reclassifies) the two cross-charges as per-member exception badges: `our_tech_external` (our worker — null contractor_id — on a subcon team) · `subcon_internal` (a subcontractor's worker on our team). Total = crew members + loose + ฝ่ายไซต์.
+- **Component** `src/components/features/sa/site-team-board.tsx` (`'use client'` — the one interaction: collapsible crew cards; justified in PR). Total headcount header; four bucket sections with subtotals; crew cards collapse (glance = name + lead + count + U6 งาน chips; tap → members with level + employment + exception badge). ฝ่ายไซต์ + loose render as flat name lists. VIEW-ONLY.
+- **Page** `/sa/crew` — crews select `+kind`, workers `+contractor_id`, and a `project_site_management` RPC per project (unioned/deduped) → `buildSiteTeamBoard` → `<SiteTeamBoard>` replaces `<CrewTeamRoster>` in the ทีม section. Reuses `buildCrewTeams`, `WpCategoryCode`, the employment SSOT, and the exported `CountBadge`/`EmploymentBadge`.
+- **§6.3 external-source choice:** v1 uses `crews(kind='subcon')` (the workers-crew model, consistent with `buildCrewTeams`). `subcontract_crew_members` (spec 258, the subcontractor's own free-text register) is **deferred** — it is a different person-model, keyed by `subcontract_id` and not linked to a project, so unioning it needs a subcontract→project bridge + RLS work (follow-up).
+- **Labels** SSOT'd: `SITE_HEADCOUNT` / `TEAM_INTERNAL` / `TEAM_EXTERNAL` / `SITE_ACCESS` / `UNASSIGNED_TEAM` / the two exception labels.
+- **Degrades (§6.5):** empty roster → total 0 → empty notice. PRC-2026-004 roster is EMPTY firm-wide → the board renders near-empty until เล็ก's crew lands.
+- **TDD:** `site-team-board.test.ts` (9 — bucketing, unknown-kind→internal, total, exception matrix, งาน/lead preserved) + `site-team-board-view.test.tsx` (7 — total, buckets, collapse-by-default, expand-reveals-members+badge, ฝ่ายไซต์/loose, empty). lint + typecheck + full vitest green. Browser preview not run (no `.env.local` in the worktree; server component composes unit-tested pure logic + prod-proven `/sa/crew` read patterns; typecheck validates the RPC + selects against the live DB types).
+- **Open question (out of scope, follow-up):** `CrewTeamRoster` component is now unused (its `/sa/crew` usage was replaced; its types + the two exported badges are still used). Candidate for the dead-code sweep — not removed here per scope discipline.
+
 ## Spec 282 U1 — ฝ่ายไซต์ read (`project_site_management`) — 🔨 SHIPPING (schema/danger-path, operator-held) (2026-07-08)
 
 Approach A approved (operator 2026-07-08). U1 = the scoped read behind the board's site-access (ฝ่ายไซต์) bucket. An SA can read `project_members` but NOT other users' role/name (`users` RLS = own-row-only), so resolving a project's `site_admin`/`site_owner` members needs a `SECURITY DEFINER` read gated on `can_see_project`.

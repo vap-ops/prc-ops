@@ -45,7 +45,7 @@ export interface CrewTeamData {
   unassigned: CrewTeamMember[];
 }
 
-function CountBadge({ n }: { n: number }) {
+export function CountBadge({ n }: { n: number }) {
   return (
     <span className="bg-sunk text-ink-secondary text-meta shrink-0 rounded-full px-2 py-0.5 font-bold tabular-nums">
       {n}
@@ -53,7 +53,7 @@ function CountBadge({ n }: { n: number }) {
   );
 }
 
-function EmploymentBadge({ type }: { type: EmploymentType }) {
+export function EmploymentBadge({ type }: { type: EmploymentType }) {
   // ชั่วคราว (day-hired) is the notable case → attention tint; ประจำ stays neutral.
   const cls = type === "temporary" ? "bg-attn-soft text-attn-ink" : "bg-sunk text-ink-secondary";
   return (

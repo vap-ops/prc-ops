@@ -21,8 +21,9 @@ import {
   type CrewProgressData,
   type CrewProgressMember,
 } from "@/components/features/sa/crew-progress-roster";
-import { CrewTeamRoster } from "@/components/features/sa/crew-team-roster";
+import { SiteTeamBoard } from "@/components/features/sa/site-team-board";
 import { buildCrewTeams } from "@/lib/sa/crew-teams";
+import { buildSiteTeamBoard, type SiteAccessMember } from "@/lib/sa/site-team-board";
 import { AddWorkerForm } from "@/components/features/sa/add-worker-form";
 
 export const metadata = { title: "ทีมงาน" };
@@ -51,7 +52,9 @@ export default async function SaCrewPage() {
       projectIds.length
         ? supabase
             .from("workers")
-            .select("id, name, project_id, cost_confirmed_at, level, employment_type")
+            .select(
+              "id, name, project_id, cost_confirmed_at, level, employment_type, contractor_id",
+            )
             .eq("active", true)
             .in("project_id", projectIds)
             .order("name")
@@ -61,7 +64,7 @@ export default async function SaCrewPage() {
       projectIds.length
         ? supabase
             .from("crews")
-            .select("id, name, lead_worker_id")
+            .select("id, name, lead_worker_id, kind")
             .eq("active", true)
             .in("project_id", projectIds)
         : Promise.resolve({ data: null }),
@@ -175,6 +178,34 @@ export default async function SaCrewPage() {
     workPackages: teamWorkPackages,
   });
 
+  // Spec 282 U2 — the site team board. The ฝ่ายไซต์ (site-access) bucket = each
+  // project's site_admin/site_owner members, via the U1 scoped definer read (an SA
+  // can't read other users' role/name directly). Unioned across the SA's projects,
+  // deduped by user. buildSiteTeamBoard then buckets the crews by nature (internal
+  // workers crews vs external subcon crews) + annotates the cross-charges (approach A).
+  const siteAccessResults = await Promise.all(
+    projectIds.map((pid) => supabase.rpc("project_site_management", { p_project: pid })),
+  );
+  const siteAccessByUser = new Map<string, string | null>();
+  for (const res of siteAccessResults) {
+    for (const row of res.data ?? []) siteAccessByUser.set(row.user_id, row.display_name);
+  }
+  const siteAccess: SiteAccessMember[] = [...siteAccessByUser].map(([userId, name]) => ({
+    userId,
+    name,
+  }));
+
+  const crewKindById = new Map((crewRes.data ?? []).map((c) => [c.id, c.kind]));
+  const contractorByWorker = new Map(workerRows.map((w) => [w.id, w.contractor_id]));
+
+  const siteBoard = buildSiteTeamBoard({
+    teams: teamData.teams,
+    unassigned: teamData.unassigned,
+    crewKindById,
+    contractorByWorker,
+    siteAccess,
+  });
+
   // One QR per project the SA runs. Each carries its own project (+ the inviting
   // SA's id) so a ช่าง scanning at a given site lands on /register/technician
   // already told WHICH project they're joining. Absolute URL so the QR resolves
@@ -205,11 +236,12 @@ export default async function SaCrewPage() {
         {/* The onboarding pipeline the SA follows up on: รอตรวจ → รอยืนยัน → พร้อม (U7). */}
         <CrewProgressRoster data={crewData} registrationsHref="/sa/registrations" />
 
-        {/* The team lens (U7b) — the same roster grouped by crew (name + lead + members),
-            so it reads as teams-under-a-หัวหน้า. View-only; moves are PM-owned (U5). */}
+        {/* Spec 282 U2 — the site team board (approach A): on-site headcount split into
+            ทีมภายใน / ทีมภายนอก / ฝ่ายไซต์ / ยังไม่ได้จัดทีม, crew cards collapse to their
+            members + cross-charge badges. View-only; moves are PM-owned (spec 279 U5). */}
         <div className="flex flex-col gap-3">
-          <h2 className="text-body text-ink font-semibold">ทีม</h2>
-          <CrewTeamRoster data={teamData} />
+          <h2 className="text-body text-ink font-semibold">ทีมหน้างาน</h2>
+          <SiteTeamBoard board={siteBoard} />
         </div>
 
         {/* เพิ่มเอง (phoneless) — the SA types a ช่าง in directly (name + national-ID +
