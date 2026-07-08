@@ -13,7 +13,8 @@ function base() {
     itemDescription: "ปูนถุง 50 กก.",
     quantity: 10,
     unit: "ถุง",
-    amount: null as number | null,
+    // Spec 285 U1: amount is REQUIRED — an expense must carry a cost.
+    amount: 1500 as number | null,
     // Spec 176 U4: reactive-reason tag — required on the on-site path too.
     reasonCode: "unplanned_miss" as string | null,
   };
@@ -53,19 +54,19 @@ describe("validateSitePurchase", () => {
         itemDescription: "ทราย",
         quantity: 10,
         unit: "คิว",
-        amount: null,
+        amount: 1500,
         reasonCode: "unplanned_miss",
         vatRate: 0,
       });
     }
   });
 
-  // Spec 103: optional purchase amount.
-  it("accepts an optional positive amount and rejects non-positive/non-finite", () => {
+  // Spec 285 U1: amount is REQUIRED — an expense must carry a cost.
+  it("requires a positive amount and rejects null/non-positive/non-finite", () => {
     const ok = validateSitePurchase({ ...base(), amount: 1500 });
     expect(ok.ok).toBe(true);
     if (ok.ok) expect(ok.value.amount).toBe(1500);
-    expect(validateSitePurchase({ ...base(), amount: null }).ok).toBe(true);
+    expect(validateSitePurchase({ ...base(), amount: null }).ok).toBe(false);
     expect(validateSitePurchase({ ...base(), amount: 0 }).ok).toBe(false);
     expect(validateSitePurchase({ ...base(), amount: -5 }).ok).toBe(false);
     expect(validateSitePurchase({ ...base(), amount: Number.NaN }).ok).toBe(false);

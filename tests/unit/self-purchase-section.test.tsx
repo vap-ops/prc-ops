@@ -54,10 +54,10 @@ describe("SelfPurchaseSection (spec 211 U11c-B)", () => {
     expect(screen.getByText("ซื้อเอง")).toBeInTheDocument();
   });
 
-  it("renders the unified form's item-source toggle (catalog OR free-text)", () => {
+  it("is catalog-only — offers the material picker, no free-text toggle (spec 285 U1)", () => {
     renderSection();
-    expect(screen.getByRole("button", { name: "เลือกจากทะเบียนวัสดุ" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "พิมพ์เอง" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "เลือกวัสดุจากแคตตาล็อก" })).toBeInTheDocument();
+    expect(screen.queryByText("พิมพ์เอง")).toBeNull();
   });
 
   it("offers the record submit by default (no catalog item picked yet)", () => {
