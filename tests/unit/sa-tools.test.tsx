@@ -29,6 +29,11 @@ describe("SaTools", () => {
     expect(screen.getByRole("link", { name: /ตารางงาน/ })).toHaveAttribute("href", "/projects");
   });
 
+  it("links the ทีมงาน tile to the crew/onboarding page", () => {
+    render(<SaTools primaryProjectId="p1" showCloseNudge={false} />);
+    expect(screen.getByRole("link", { name: /ทีมงาน/ })).toHaveAttribute("href", "/sa/crew");
+  });
+
   it("pulses ปิดวัน only after hours", () => {
     const { rerender } = render(<SaTools primaryProjectId="p1" showCloseNudge={false} />);
     expect(screen.queryByTestId("close-pulse")).toBeNull();

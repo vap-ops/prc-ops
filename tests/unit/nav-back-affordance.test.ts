@@ -128,6 +128,9 @@ const STATIC_DETAIL = [
   // Spec 273 U2: the SA next-day work board (แผนพรุ่งนี้) drills down from /sa
   // (back chip → /sa). A separate daily-plan layer, not the master schedule.
   "sa/plan",
+  // Temporary — the SA crew/onboarding page drills down from /sa (back chip → /sa):
+  // the project roster + the technician self-onboard QR.
+  "sa/crew",
 ].map((r) => `${r}/page.tsx`);
 // Spec 234: the external /client tree is bespoke (own header + logout, no app
 // DetailHeader — like /portal), so its dynamic drill (/client/[projectId]) is
