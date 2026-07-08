@@ -19,7 +19,7 @@ import {
   CreatePurchaseOrderSheet,
   type CreatePoLine,
 } from "@/components/features/purchasing/create-purchase-order-sheet";
-import type { SupplierOption } from "@/components/features/purchasing/purchase-record-form";
+import type { SupplierOption } from "@/lib/purchasing/supplier-option";
 
 export type PurchaseQuote = {
   id: string;

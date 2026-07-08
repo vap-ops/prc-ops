@@ -19,7 +19,7 @@ import { purchaseRequestStatusIcon } from "@/lib/status-icons";
 import { PURCHASE_REQUEST_STATUS_LABEL } from "@/lib/i18n/labels";
 import { formatPrNumber } from "@/lib/purchasing/format-id";
 import { BUTTON_SECONDARY } from "@/lib/ui/classes";
-import type { SupplierOption } from "@/components/features/purchasing/purchase-record-form";
+import type { SupplierOption } from "@/lib/purchasing/supplier-option";
 import type { ProcurementGridRecord } from "@/components/features/purchasing/procurement-grid";
 import {
   CreatePurchaseOrderSheet,

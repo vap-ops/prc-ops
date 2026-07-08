@@ -53,7 +53,7 @@ import {
 } from "@/lib/purchasing/category-facet";
 import { rowHealth, rowHealthLabel, type RowHealth } from "@/lib/purchasing/row-health";
 import { procurementDrawerActions } from "@/lib/purchasing/drawer-actions";
-import type { SupplierOption } from "@/components/features/purchasing/purchase-record-form";
+import type { SupplierOption } from "@/lib/purchasing/supplier-option";
 import { suggestVendorsForCategories } from "@/lib/purchasing/vendor-suggestion";
 import { PurchaseRequestShip } from "@/components/features/purchasing/purchase-request-ship";
 import { InvoiceUploader } from "@/components/features/purchasing/invoice-uploader";

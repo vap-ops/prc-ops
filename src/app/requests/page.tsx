@@ -56,7 +56,7 @@ import { WorklistKpiTile } from "@/components/features/purchasing/worklist-kpi-t
 import { buildWorklistStatusChips } from "@/lib/purchasing/worklist-status-chips";
 import { WorklistStatusChips } from "@/components/features/purchasing/worklist-status-chips";
 import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
-import type { SupplierOption } from "@/components/features/purchasing/purchase-record-form";
+import type { SupplierOption } from "@/lib/purchasing/supplier-option";
 import { loadCategoryVendors } from "@/lib/purchasing/load-category-vendors";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { ProcurementFilters } from "@/components/features/purchasing/procurement-filters";
