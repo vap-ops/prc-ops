@@ -160,7 +160,10 @@ select is(
       and target_id = 'd0000001-0000-4000-8000-000000000146'),
   2::bigint, 'two equipment_rate_change audit rows (pm + procurement)');
 select is(
-  (select count(*) from public.audit_log where action = 'equipment_batch_create'),
+  (select count(*) from public.audit_log
+    where action = 'equipment_batch_create'
+      and actor_id in ('11111111-1111-1111-1111-111111110146',
+                       '44444444-4444-4444-4444-444444440146')),
   2::bigint, 'two equipment_batch_create audit rows (pm + procurement)');
 select is(
   (select count(*) from public.equipment_rental_batches

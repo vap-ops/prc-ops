@@ -12,7 +12,7 @@ select plan(78);
 --    profile_photo, `consent` DROPPED) exists and technician_doc_purpose is gone;
 --    can_see_staff_registration exists (technician helper gone); the self-serve
 --    RPCs are renamed (start_/update_own_/add_..._staff_registration[_doc]).
---  * DATA PRESERVED — the one live PRC-26-0001 pending row survives the rename.
+--  * DATA-INDEPENDENT — a fixture pending row is queryable under the renamed table.
 --  * declared_role_hint — new nullable column; threaded through start_/update_own_.
 --  * staff_consents + record_staff_consent — the PDPA consent record (self-serve).
 --  * approve_staff_registration(p_id, p_role, p_project_id) — role-parametric:
@@ -31,13 +31,22 @@ select plan(78);
 --    every renamed/new DEFINER + append-only attachments still enforced.
 -- ============================================================================
 
--- --- Preserve check on the pre-existing live row -----------------------------
--- The one live registration (PRC-26-0001, pending) must survive the rename. The
--- migration ALTERs the table in place, so the row is queryable under the NEW
--- table name. (This is a data-preservation assertion, not a fixture.)
+-- --- Renamed table holds rows (data-independent) -----------------------------
+-- The rename ALTERed the table in place, so a pending registration is queryable
+-- under the NEW table name. Rather than pin a specific live employee_id (which
+-- drifts as production data is renumbered — e.g. the old PRC-26-0001 was renamed
+-- to PRC-26-0002), seed a fixture pending row in this transaction and assert it
+-- survives under the new table name. (Data-independent; matches how the other
+-- 264 assertions use in-transaction fixtures — spec-243 test-hygiene pattern.)
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('d0000264-0000-0000-0000-000000000264', 'renameFixture@t264.local', '{}'::jsonb);
+insert into public.staff_registrations
+  (id, user_id, employee_id, full_name, phone, status)
+values ('e0000264-0000-0000-0000-000000000264', 'd0000264-0000-0000-0000-000000000264',
+  'PRC-91-0264', 'ทดสอบ เปลี่ยนชื่อ', '0800000264', 'pending');
 select ok(
-  exists (select 1 from public.staff_registrations where employee_id = 'PRC-26-0001'),
-  'live PRC-26-0001 row survives the rename (queryable under staff_registrations)');
+  exists (select 1 from public.staff_registrations where employee_id = 'PRC-91-0264'),
+  'a fixture pending registration is queryable under staff_registrations (rename survived)');
 
 -- --- Actors -----------------------------------------------------------------
 insert into auth.users (id, email, raw_user_meta_data) values

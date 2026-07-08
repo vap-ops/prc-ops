@@ -125,7 +125,10 @@ select lives_ok(
 -- ============================================================================
 reset role;
 select is(
-  (select count(*) from public.audit_log where action = 'equipment_allocation_create'),
+  (select count(*) from public.audit_log
+    where action = 'equipment_allocation_create'
+      and actor_id in ('11111111-1111-1111-1111-111111110246',
+                       '44444444-4444-4444-4444-444444440246')),
   2::bigint, 'two equipment_allocation_create audit rows (pm + procurement)');
 select is(
   (select count(*) from public.equipment_project_allocations
