@@ -8343,6 +8343,15 @@ export type Database = {
         Returns: undefined
       }
       revoke_contractor_consent: { Args: { p_id: string }; Returns: undefined }
+      sa_add_project_worker: {
+        Args: {
+          p_dob: string
+          p_name: string
+          p_national_id: string
+          p_project: string
+        }
+        Returns: string
+      }
       set_accounting_period_status: {
         Args: {
           p_month: string
