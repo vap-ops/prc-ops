@@ -6,6 +6,51 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 284 U4 — document_approvals (generalized decision-log) — DONE / db:push'd, PR held (2026-07-09)
+
+The Legal department's approval ledger (spec §U4 / ADR 0080 dec 10). An append-only, immutable
+record of decisions (approve / reject / needs_revision) with a mandatory reason; an `approve`
+transitions the contract draft→active in the SAME txn (mirrors how `approvals` drives WP state).
+
+- **Migration `20260813075540_spec284u4_document_approvals.sql` (ADDITIVE):**
+  - 2 enums — `document_target_type` (`'contract'` — a forward **discriminator**; a 2nd document
+    kind adds its OWN typed nullable FK + widens, never a polymorphic column) + `document_decision`
+    (`approve` / `reject` / `needs_revision`).
+  - `document_approvals` — `contract_id uuid not null references contracts(id)` (**TYPED FK, NO
+    mixed-content `target_id`** — CLAUDE.md L22), `target_type` (default `'contract'`), `decision`,
+    `comment text not null` (nonblank + ≤2000), `actor_id → users(id)`, `created_at`. RLS on;
+    **zero authenticated grant** (`revoke all from anon, authenticated`) — admin-client reads only.
+  - **Append-only freeze trigger** (`document_approvals_freeze`, mirrors `contract_attachments_block_write`):
+    UPDATE/DELETE (per-row) + TRUNCATE (per-stmt) raise **P0001** for every role incl. the definer.
+    This immutability IS the "audited" guarantee.
+  - RPC `submit_document_decision(p_contract_id, p_decision, p_comment)` — SECURITY DEFINER, gated
+    `DOC_APPROVAL_ROLES` (= `LEGAL_ROLES`: legal, super_admin) **FAIL-CLOSED via `is distinct from`**
+    (a null-role unbound caller → 42501, never falls through — the rls-self-check-coalesce trap);
+    `revoke execute from public, anon` + `grant execute to authenticated` INLINE (brand-new fn → no
+    separate lock mig; the 229 anon-default-priv invariant covers it). Inserts the decision, then
+    `update contracts set status='active' where id=? and status='draft'` on `approve` (same txn).
+- **`src/lib/db/enums.ts`** — `DocumentTargetType` + `DocumentDecision` aliases.
+- **`src/lib/legal/approvals.ts`** (`"use server"`) — `submitDocumentDecision` relays the RPC on
+  `requireActionRole(DOC_APPROVAL_ROLES).auth.supabase` — **NOT the admin client** (a service-role
+  null role would 42501 the DEFINER gate; the contracts/contact-docs lesson).
+- **Verification (all green):** pgTAP `287-spec284u4-document-approvals.test.sql` **17/17** (schema ·
+  no-mixed-content target_id · comment/contract_id NOT NULL · zero-grant · null-role & visitor
+  fail-closed 42501 · anon no-EXECUTE · approve→active & reject-no-transition · append-only P0001).
+  Only stable reds = pre-existing **200/221** (NOT mine); the transient ECIRCUITBREAKER files vary
+  per run (pooler auth-throttle flake) — **zero collateral**. `legal-approvals-actions.test.ts` 4/4
+  (gate-before-RPC + arg mapping + reject path + error path). lint + typecheck + full vitest
+  **3205/3205**. db:types regen (document_approvals + 2 enums + RPC). mig `075540` db:push'd.
+- **AUDITED-posture call (open Q from U3, resolved):** spec §U4 says the RPC is "audited". No
+  **separate** `audit_log` row is written — `document_approvals` **IS** the audit trail (append-only,
+  immutable, actor + reason + timestamp + contract FK). Matches U3 (no audit_log; #404 merged) and
+  the plan's reference impl; a duplicate audit_log row would be redundant + out of scope.
+- **Danger-path** (schema + RLS + DEFINER) → **PR operator-held**. `roleHome('legal')` still
+  `/coming-soon` (deferred to U5). The approvals **queue UI** consuming this is U5.
+- NEXT (own session): U5 `/legal` home + contracts + approvals queue (where `roleHome('legal')→/legal`
+  - LEGAL nav finally land) — the last unit.
+
+---
+
 ## Spec 284 U3 — contracts (Legal money/document posture) — DONE / db:push'd, PR held (2026-07-09)
 
 The Legal department's first money/document entity (spec §U3 / ADR 0080 dec 10). Clones the
