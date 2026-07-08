@@ -15,11 +15,21 @@ const { mockRecord, mockUseNow, mockRefresh } = vi.hoisted(() => ({
 vi.mock("@/app/requests/actions", () => ({ recordSitePurchase: mockRecord }));
 vi.mock("@/app/store/actions", () => ({ sitePurchaseUseNow: mockUseNow }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
+// Spec 285 U2 — mock the uploaders as buttons that fire onUploaded on click, so
+// the form's completeness gate can be driven from the test.
 vi.mock("@/components/features/purchasing/item-photo-uploader", () => ({
-  ItemPhotoUploader: () => <div data-testid="item-photo-uploader" />,
+  ItemPhotoUploader: ({ onUploaded }: { onUploaded?: () => void }) => (
+    <button type="button" data-testid="item-photo-uploader" onClick={() => onUploaded?.()}>
+      photo
+    </button>
+  ),
 }));
 vi.mock("@/components/features/purchasing/invoice-uploader", () => ({
-  InvoiceUploader: () => <div data-testid="invoice-uploader" />,
+  InvoiceUploader: ({ onUploaded }: { onUploaded?: () => void }) => (
+    <button type="button" data-testid="invoice-uploader" onClick={() => onUploaded?.()}>
+      doc
+    </button>
+  ),
 }));
 
 import { SelfPurchaseForm } from "@/components/features/purchasing/self-purchase-form";
@@ -111,6 +121,34 @@ describe("SelfPurchaseForm (spec 285 U1 — catalog-only expense)", () => {
     await user.click(screen.getByRole("button", { name: "บันทึกการซื้อ" }));
     expect(mockRecord).not.toHaveBeenCalled();
     expect(screen.getByRole("alert")).toBeInTheDocument();
+  });
+
+  it("stays 'ยังไม่สมบูรณ์' until BOTH an item photo and an accounting doc are attached (spec 285 U2)", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await pickItem(user);
+    await user.type(screen.getByLabelText("จำนวน"), "5");
+    await user.type(screen.getByLabelText("จำนวนเงิน (บาท)"), "107");
+    await user.selectOptions(screen.getByLabelText("เหตุผลที่ต้องซื้อ"), "unplanned_miss");
+    await user.click(screen.getByRole("button", { name: "บันทึกการซื้อ" }));
+
+    // recorded, no evidence yet → incomplete, not done
+    await waitFor(() =>
+      expect(screen.getByText("ยังไม่สมบูรณ์ (รอรูปสินค้า + เอกสาร)")).toBeInTheDocument(),
+    );
+    expect(screen.queryByText("บันทึกค่าใช้จ่ายครบถ้วนแล้ว")).toBeNull();
+
+    // item photo only → still incomplete
+    await user.click(screen.getByTestId("item-photo-uploader"));
+    expect(screen.getByText("ยังไม่สมบูรณ์ (รอรูปสินค้า + เอกสาร)")).toBeInTheDocument();
+    expect(screen.queryByText("บันทึกค่าใช้จ่ายครบถ้วนแล้ว")).toBeNull();
+
+    // + accounting doc → now complete
+    await user.click(screen.getByTestId("invoice-uploader"));
+    await waitFor(() =>
+      expect(screen.getByText("บันทึกค่าใช้จ่ายครบถ้วนแล้ว")).toBeInTheDocument(),
+    );
+    expect(screen.queryByText("ยังไม่สมบูรณ์ (รอรูปสินค้า + เอกสาร)")).toBeNull();
   });
 
   it("labels a picked catalog item with its managed category name (spec 221)", async () => {

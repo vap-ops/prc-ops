@@ -13,6 +13,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { recordSitePurchase } from "@/app/requests/actions";
 import { validateSitePurchase } from "@/lib/purchasing/validate-site-purchase";
+import { isExpenseComplete } from "@/lib/purchasing/expense-completeness";
 import { PURCHASE_REASON_CODES } from "@/lib/purchasing/reason-code";
 import { CATALOG_LABEL, PURCHASE_REQUEST_REASON_CODE_LABEL } from "@/lib/i18n/labels";
 import { ScopedCatalogItemPicker } from "@/components/features/purchasing/catalog-item-picker";
@@ -48,6 +49,10 @@ export function SelfPurchaseForm({
   const [reasonCode, setReasonCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [recordedId, setRecordedId] = useState<string | null>(null);
+  // Spec 285 U2 — an expense is only complete once BOTH kinds of evidence are
+  // attached; the uploaders report each successful save via onUploaded.
+  const [hasItemPhoto, setHasItemPhoto] = useState(false);
+  const [hasAccountingDoc, setHasAccountingDoc] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const selected = catalogItems.find((c) => c.id === catalogItemId) ?? null;
@@ -97,14 +102,35 @@ export function SelfPurchaseForm({
   }
 
   if (recordedId) {
-    // Record path success — a self-purchase carries the item photo + the docs (U11b).
+    // Spec 285 U2 — the recorded expense stays "ยังไม่สมบูรณ์" until BOTH an item
+    // photo (reference) and an accounting doc (invoice) are attached. Attachments
+    // are post-create (they FK the row), so completeness is gated here at the
+    // form layer from the uploaders' onUploaded signals — not atomically.
+    const complete = isExpenseComplete({ hasItemPhoto, hasAccountingDoc });
     return (
       <div className="flex flex-col gap-3">
-        <p role="status" className="text-done-strong text-sm font-medium">
-          บันทึกการซื้อแล้ว — แนบรูปสินค้า และใบส่งของ / ใบเสร็จ
-        </p>
-        <ItemPhotoUploader purchaseRequestId={recordedId} projectId={projectId} />
-        <InvoiceUploader purchaseRequestId={recordedId} projectId={projectId} />
+        {complete ? (
+          <p role="status" className="text-done-strong text-sm font-medium">
+            บันทึกค่าใช้จ่ายครบถ้วนแล้ว
+          </p>
+        ) : (
+          <p
+            role="status"
+            className="bg-attn-soft text-attn-ink rounded-md px-3 py-2 text-sm font-medium"
+          >
+            ยังไม่สมบูรณ์ (รอรูปสินค้า + เอกสาร)
+          </p>
+        )}
+        <ItemPhotoUploader
+          purchaseRequestId={recordedId}
+          projectId={projectId}
+          onUploaded={() => setHasItemPhoto(true)}
+        />
+        <InvoiceUploader
+          purchaseRequestId={recordedId}
+          projectId={projectId}
+          onUploaded={() => setHasAccountingDoc(true)}
+        />
       </div>
     );
   }

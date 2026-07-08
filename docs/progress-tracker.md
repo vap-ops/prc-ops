@@ -6,6 +6,18 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 285 U2 — expense stays "ยังไม่สมบูรณ์" until item photo + accounting doc — ✅ COMPLETE (code-only, 2026-07-09)
+
+The evidence-completion gate (spec §Design U2). A recorded site expense (ซื้อเอง, `source='site_purchase'`) is only complete once it carries BOTH an item photo (`reference`, `addReferenceAttachment`) AND an accounting doc (`invoice`, `addInvoiceAttachment`). Attachments FK the parent row → architecturally post-create, so completeness is derived at the form/completion layer (no schema; the DB hard-gate is Phase 2).
+
+- **Pure helper** `src/lib/purchasing/expense-completeness.ts` — `isExpenseComplete({ hasItemPhoto, hasAccountingDoc })` = both-present. Later reused by U3's list badge.
+- **Uploader signal** `invoice-uploader.tsx` gains `onUploaded?: (() => void) | undefined` fired on each SUCCESSFUL save (after `result.ok`, before the loop continues); NOT fired on failure. `item-photo-uploader.tsx` forwards it (`| undefined` explicit for `exactOptionalPropertyTypes`).
+- **Form gate** `self-purchase-form.tsx` — the `recordedId` success block tracks `hasItemPhoto`/`hasAccountingDoc` (set by the two uploaders' `onUploaded`) and renders the pending notice **"ยังไม่สมบูรณ์ (รอรูปสินค้า + เอกสาร)"** (`bg-attn-soft text-attn-ink`) until `isExpenseComplete(...)`, then **"บันทึกค่าใช้จ่ายครบถ้วนแล้ว"** (`text-done-strong`). Replaces the old always-"done" copy.
+- **TDD:** `expense-completeness.test.ts` (4 — 0/1/both matrix) · `invoice-uploader-on-uploaded.test.tsx` (2 — fires on success, silent on save-fail; storage+action mocked, file fired) · `self-purchase-form.test.tsx` (+1 — stays incomplete after record, still incomplete with photo-only, complete once both fire; uploader mocks now forward `onUploaded`). RED-first each. lint + typecheck + full vitest **3183/3183 green**.
+- **Operator defaults held (flag if wrong):** (1) `use_now` already out of the expense flow (U1); (2) "accounting doc" = one invoice attachment satisfies `hasAccountingDoc`; (3) GL account untouched (WIP 1400 — 5xxx is Phase 2). No schema/GL/RLS/notification/labels touched.
+- **Not done here (scope):** the incomplete badge on the shared list (where a `site_purchased` row surfaces) lands in **U3** with the split/relabel; the DB hard-gate + atomic insert-then-attach RPC are **Phase 2**.
+- **Browser preview not run:** no `.env.local` in the worktree; the change is a client-component completion gate over unit-tested pure logic + the prod-proven uploader state machine; typecheck + RTL cover the wiring.
+
 ## Spec 282 U2 — SA site team board (approach A) — 🔨 SHIPPING (code; stacked on U1, operator-held) (2026-07-08)
 
 The board itself (§4/§5-U2). Upgrades the `/sa/crew` ทีม view into a bucketed, collapsible, headcount-topped board.

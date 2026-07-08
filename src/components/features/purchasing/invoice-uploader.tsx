@@ -35,6 +35,11 @@ interface InvoiceUploaderProps {
   /** Save action — defaults to addInvoiceAttachment; PaymentProofUploader passes
    *  addPaymentProofAttachment (same input/result contract, different purpose). */
   action?: typeof addInvoiceAttachment;
+  /** Spec 285 U2 — fired on each SUCCESSFUL save so a parent (the site-expense
+   *  form) can track evidence presence and derive completeness. Not fired on
+   *  failure. (`| undefined` explicit so ItemPhotoUploader can forward it under
+   *  exactOptionalPropertyTypes.) */
+  onUploaded?: (() => void) | undefined;
 }
 
 type UploadPhase = "idle" | "uploading" | "saving" | "error";
@@ -44,6 +49,7 @@ export function InvoiceUploader({
   projectId,
   label,
   action = addInvoiceAttachment,
+  onUploaded,
 }: InvoiceUploaderProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -106,6 +112,7 @@ export function InvoiceUploader({
         continue;
       }
       setPhase("idle");
+      onUploaded?.();
     }
 
     if (fileInputRef.current) fileInputRef.current.value = "";
