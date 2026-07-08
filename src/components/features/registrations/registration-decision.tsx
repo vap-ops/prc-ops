@@ -30,7 +30,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { approveStaffRegistration, rejectStaffRegistration } from "@/app/registrations/actions";
-import { STAFF_ONBOARDABLE_ROLES, type UserRole } from "@/lib/auth/role-home";
+import type { UserRole } from "@/lib/auth/role-home";
 import {
   USER_ROLE_LABEL,
   REGISTRATION_SITE_ASSIGN_LABEL,
@@ -52,10 +52,11 @@ export interface RegistrationProjectOption {
   name: string;
 }
 
-// Default the selection to technician — the common case and the current open
-// entry link (/register/technician). STAFF_ONBOARDABLE_ROLES lists it first, so
-// this stays in step with the selector's default option.
-const DEFAULT_ROLE: UserRole = STAFF_ONBOARDABLE_ROLES[0] ?? "technician";
+// The self-onboard entry (/register/technician) yields only field roles, so the
+// approver picks between just ช่าง and ผู้ดูแลไซต์ — not the full staff-onboard list
+// (operator directive, 2026-07-08). Default = ช่าง (technician), the common case.
+const QR_ROLE_OPTIONS: readonly UserRole[] = ["technician", "site_admin"];
+const DEFAULT_ROLE: UserRole = "technician";
 
 export function RegistrationDecision({
   registrationId,
@@ -118,6 +119,7 @@ export function RegistrationDecision({
     <div className="flex flex-col gap-3">
       {!showReject ? (
         <>
+          {/* Role: only the two self-onboard field roles — ช่าง (default) or ผู้ดูแลไซต์. */}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="approve-role" className="text-ink text-sm font-medium">
               มอบหมายบทบาท
@@ -129,7 +131,7 @@ export function RegistrationDecision({
               onChange={(e) => setRole(e.target.value as UserRole)}
               className={FIELD_STACKED}
             >
-              {STAFF_ONBOARDABLE_ROLES.map((r) => (
+              {QR_ROLE_OPTIONS.map((r) => (
                 <option key={r} value={r}>
                   {USER_ROLE_LABEL[r]}
                 </option>
