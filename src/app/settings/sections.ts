@@ -11,6 +11,7 @@ import {
   HeartPulse,
   Inbox,
   MessageSquarePlus,
+  Network,
   Package,
   ShieldCheck,
   Sparkles,
@@ -286,6 +287,14 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         icon: ShieldCheck,
         label: "จัดการสิทธิ์ผู้ใช้",
         hint: "กำหนด/เปลี่ยน role ของผู้ใช้ในระบบ",
+      },
+      {
+        // Spec 284 / ADR 0080: the org chart — departments (U0) → head → members.
+        kind: "link",
+        href: "/settings/org-chart",
+        icon: Network,
+        label: "โครงสร้างองค์กร",
+        hint: "แผนก · หัวหน้าแผนก · สมาชิก (อ่านอย่างเดียว)",
       },
       {
         // Spec 274: view the app as any role (see what they see) without impersonating a person.

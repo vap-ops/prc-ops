@@ -91,6 +91,8 @@ const STATIC_DETAIL = [
   "feedback/mine",
   // Spec 220 (G63): the super_admin role-admin drills down from /settings (back chip).
   "settings/roles",
+  // Spec 284 / ADR 0080: the org-chart read drills down from /settings (back chip).
+  "settings/org-chart",
   // Spec 274: the super_admin "view as role" picker drills down from /settings (back chip).
   "settings/view-as",
   // Spec 244 U1b-2: the super_admin SA app-usage read drills down from /settings (back chip).

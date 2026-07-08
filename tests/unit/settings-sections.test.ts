@@ -106,6 +106,8 @@ describe("settings sections config (role → entries matrix)", () => {
       // Spec 283: System Integrity Console (ตรวจระบบ).
       "/settings/integrity",
       "/settings/roles",
+      // Spec 284 / ADR 0080: the org chart (departments → head → members).
+      "/settings/org-chart",
       // Spec 274: super_admin "view as role" picker.
       "/settings/view-as",
       "/settings/usage",
