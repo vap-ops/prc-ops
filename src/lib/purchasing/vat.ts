@@ -25,6 +25,22 @@ export function grossFromEntry(value: number, mode: VatMode, rate: number): numb
   return round2(value);
 }
 
+/**
+ * Spec 280 — a SOFT mismatch worth a non-blocking warning: the chosen supplier is
+ * explicitly NOT VAT-registered (`is_vat_registered === false`) yet a VAT rate is
+ * being applied. Input VAT (acct 1300) is only claimable from a VAT-registered
+ * supplier's tax invoice (ใบกำกับภาษี), so the pairing is likely a mistake — but
+ * the per-invoice rate stays authoritative, so this only WARNS, never blocks.
+ * Unknown VAT status (null/undefined) does NOT warn (avoid false alarms on
+ * incomplete master data).
+ */
+export function isNonVatVatMismatch(
+  supplierIsVatRegistered: boolean | null | undefined,
+  rate: number,
+): boolean {
+  return supplierIsVatRegistered === false && rate > 0;
+}
+
 export interface VatBreakdown {
   net: number;
   vat: number;

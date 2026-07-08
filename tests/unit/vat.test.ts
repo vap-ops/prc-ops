@@ -4,7 +4,13 @@
 // (net / VAT / gross) is derived for display; net + VAT always sum back to gross.
 
 import { describe, expect, it } from "vitest";
-import { VAT_RATE, rateForMode, grossFromEntry, deriveVatBreakdown } from "@/lib/purchasing/vat";
+import {
+  VAT_RATE,
+  rateForMode,
+  grossFromEntry,
+  deriveVatBreakdown,
+  isNonVatVatMismatch,
+} from "@/lib/purchasing/vat";
 
 describe("rateForMode", () => {
   it("maps the VAT mode to the stored rate", () => {
@@ -42,5 +48,22 @@ describe("deriveVatBreakdown", () => {
     expect(b.net + b.vat).toBeCloseTo(100, 2);
     expect(b.net).toBe(93.46);
     expect(b.vat).toBe(6.54);
+  });
+});
+
+// Spec 280 — soft mismatch: a non-VAT-registered supplier paired with a VAT rate.
+describe("isNonVatVatMismatch", () => {
+  it("warns when the supplier is explicitly non-VAT and a VAT rate applies", () => {
+    expect(isNonVatVatMismatch(false, 7)).toBe(true);
+  });
+  it("does NOT warn when there is no VAT rate", () => {
+    expect(isNonVatVatMismatch(false, 0)).toBe(false);
+  });
+  it("does NOT warn for a VAT-registered supplier", () => {
+    expect(isNonVatVatMismatch(true, 7)).toBe(false);
+  });
+  it("does NOT warn when the VAT status is unknown (null/undefined — avoid false alarms)", () => {
+    expect(isNonVatVatMismatch(null, 7)).toBe(false);
+    expect(isNonVatVatMismatch(undefined, 7)).toBe(false);
   });
 });
