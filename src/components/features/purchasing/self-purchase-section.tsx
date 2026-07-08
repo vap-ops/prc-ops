@@ -1,15 +1,15 @@
+import { Receipt } from "lucide-react";
 import { SelfPurchaseForm } from "@/components/features/purchasing/self-purchase-form";
 import type { PurchaseRequestCatalogItem } from "@/components/features/purchasing/purchase-request-form";
-import { CATALOG_LABEL } from "@/lib/i18n/labels";
+import { CATALOG_LABEL, SITE_EXPENSE_HEADING } from "@/lib/i18n/labels";
 import { CARD } from "@/lib/ui/classes";
 
-// Spec 211 U11a→U11c-B — self-purchase, ONE guided ซื้อเอง form. U11a first put
-// the two self-purchase actions in one place; U11c unified them into a single
-// form: item (catalog OR free-text), จำนวนเงิน, มีใบกำกับภาษี? (Input VAT split),
-// and — catalog items only — ซื้อใช้ที่งานนี้เลย (receive into store + เบิก, the
-// VAT-aware site_purchase_use_now). Free-text routes to the record path
-// (books the WP). The ask-procurement PR form (สร้างคำขอซื้อ) stays its own
-// affordance above. Server-safe wrapper (no 'use client') over the client form.
+// Spec 285 U3 — the self-purchase surface is an EXPENSE (จ่ายเงินไปแล้ว), split
+// out of the "คำขอซื้อ" tab into its own "ค่าใช้จ่ายหน้างาน" tab. Distinct chrome —
+// expense heading + a Receipt icon (vs the request's ShoppingCart) — so the money-
+// already-spent expense never reads like a ขอซื้อ (ask-procurement) request. The
+// form itself is catalog-only + amount-required (U1) and evidence-gated (U2).
+// Server-safe wrapper (no 'use client') over the client form.
 export function SelfPurchaseSection({
   projectId,
   workPackageId,
@@ -26,10 +26,12 @@ export function SelfPurchaseSection({
   return (
     <section className="flex flex-col gap-2">
       <div>
-        <h3 className="text-body text-ink font-semibold">ซื้อเอง</h3>
+        <h3 className="text-body text-ink flex items-center gap-1.5 font-semibold">
+          <Receipt aria-hidden className="size-4 shrink-0" />
+          {SITE_EXPENSE_HEADING}
+        </h3>
         <p className="text-meta text-ink-secondary mt-0.5">
-          จ่ายเงินเองหน้างาน — เลือกจาก{CATALOG_LABEL}หรือพิมพ์เอง ระบุว่ามีใบกำกับภาษีไหม
-          และจะใช้ที่งานนี้เลยหรือเก็บไว้เป็นบันทึก
+          จ่ายเงินไปแล้ว — เลือกจาก{CATALOG_LABEL} ระบุจำนวนเงิน แล้วแนบรูปสินค้าและใบเสร็จ
         </p>
       </div>
       <div className={CARD}>

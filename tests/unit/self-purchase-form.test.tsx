@@ -94,7 +94,7 @@ describe("SelfPurchaseForm (spec 285 U1 — catalog-only expense)", () => {
     await user.type(screen.getByLabelText("จำนวนเงิน (บาท)"), "107");
     await user.click(screen.getByLabelText("มีใบกำกับภาษี (แยกภาษีซื้อ)"));
     await user.selectOptions(screen.getByLabelText("เหตุผลที่ต้องซื้อ"), "unplanned_miss");
-    await user.click(screen.getByRole("button", { name: "บันทึกการซื้อ" }));
+    await user.click(screen.getByRole("button", { name: "บันทึกค่าใช้จ่าย" }));
 
     await waitFor(() => expect(mockRecord).toHaveBeenCalledTimes(1));
     expect(mockRecord).toHaveBeenCalledWith(
@@ -118,7 +118,7 @@ describe("SelfPurchaseForm (spec 285 U1 — catalog-only expense)", () => {
     await pickItem(user);
     await user.type(screen.getByLabelText("จำนวน"), "5");
     await user.selectOptions(screen.getByLabelText("เหตุผลที่ต้องซื้อ"), "unplanned_miss");
-    await user.click(screen.getByRole("button", { name: "บันทึกการซื้อ" }));
+    await user.click(screen.getByRole("button", { name: "บันทึกค่าใช้จ่าย" }));
     expect(mockRecord).not.toHaveBeenCalled();
     expect(screen.getByRole("alert")).toBeInTheDocument();
   });
@@ -130,7 +130,7 @@ describe("SelfPurchaseForm (spec 285 U1 — catalog-only expense)", () => {
     await user.type(screen.getByLabelText("จำนวน"), "5");
     await user.type(screen.getByLabelText("จำนวนเงิน (บาท)"), "107");
     await user.selectOptions(screen.getByLabelText("เหตุผลที่ต้องซื้อ"), "unplanned_miss");
-    await user.click(screen.getByRole("button", { name: "บันทึกการซื้อ" }));
+    await user.click(screen.getByRole("button", { name: "บันทึกค่าใช้จ่าย" }));
 
     // recorded, no evidence yet → incomplete, not done
     await waitFor(() =>

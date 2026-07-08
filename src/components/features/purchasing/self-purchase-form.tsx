@@ -15,7 +15,11 @@ import { recordSitePurchase } from "@/app/requests/actions";
 import { validateSitePurchase } from "@/lib/purchasing/validate-site-purchase";
 import { isExpenseComplete } from "@/lib/purchasing/expense-completeness";
 import { PURCHASE_REASON_CODES } from "@/lib/purchasing/reason-code";
-import { CATALOG_LABEL, PURCHASE_REQUEST_REASON_CODE_LABEL } from "@/lib/i18n/labels";
+import {
+  CATALOG_LABEL,
+  PURCHASE_REQUEST_REASON_CODE_LABEL,
+  SITE_EXPENSE_SUBMIT,
+} from "@/lib/i18n/labels";
 import { ScopedCatalogItemPicker } from "@/components/features/purchasing/catalog-item-picker";
 import type { PurchaseRequestCatalogItem } from "@/components/features/purchasing/purchase-request-form";
 import { ItemPhotoUploader } from "@/components/features/purchasing/item-photo-uploader";
@@ -243,7 +247,7 @@ export function SelfPurchaseForm({
         </div>
       ) : null}
       <button type="button" onClick={submit} disabled={pending} className={BUTTON_PRIMARY}>
-        {pending ? "กำลังบันทึก…" : "บันทึกการซื้อ"}
+        {pending ? "กำลังบันทึก…" : SITE_EXPENSE_SUBMIT}
       </button>
     </div>
   );

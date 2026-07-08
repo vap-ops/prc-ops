@@ -33,6 +33,7 @@ import {
   WORK_PACKAGE_STATUS_LABEL,
   EQUIPMENT_TAB_LABEL,
   PHOTO_PHASE_LABEL,
+  SITE_EXPENSE_TAB_LABEL,
   reworkSourceLabel,
   formatThaiDateTime,
   formatThaiTime,
@@ -560,19 +561,10 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               />
             </div>
           </details>
-          {/* Spec 211 U11a: self-purchase (จ่ายเงินเองหน้างาน) consolidated in ONE
-              place — บันทึกการซื้อหน้างาน (off-catalog + invoice) AND ซื้อเงินสด
-              ใช้ที่งานนี้เลย (catalogued cash, was in the เบิกของ tab). Both calls'
-              RPC gates exclude procurement → hidden for the read-only viewer. The PR
-              path (สร้างคำขอซื้อ, above) stays its own affordance — "PR is PR". */}
-          {!readOnly ? (
-            <SelfPurchaseSection
-              projectId={wp.project_id}
-              workPackageId={wp.id}
-              catalogItems={catalogItems}
-              categories={catalogCategoryList}
-            />
-          ) : null}
+          {/* Spec 285 U3 — the self-purchase EXPENSE surface moved OUT of this
+              "คำขอซื้อ" request tab into its own "ค่าใช้จ่ายหน้างาน" tab (below), so an
+              expense (money already spent) is never confused with a ขอซื้อ request.
+              This tab now holds only สร้างคำขอซื้อ + the request list. */}
           {(wpRequests ?? []).length > 0 ? (
             <ul className="flex flex-col gap-2">
               {(wpRequests ?? []).map((r) => (
@@ -609,6 +601,25 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
         </>
       ),
     },
+    // Spec 285 U3 — the on-site EXPENSE (ซื้อเอง → บันทึกค่าใช้จ่าย) gets its own
+    // clearly-labeled tab, separate from the คำขอซื้อ request tab above. Hidden for
+    // the read-only viewer (the RPC gate excludes them anyway).
+    ...(!readOnly
+      ? [
+          {
+            key: "expenses",
+            label: SITE_EXPENSE_TAB_LABEL,
+            panel: (
+              <SelfPurchaseSection
+                projectId={wp.project_id}
+                workPackageId={wp.id}
+                catalogItems={catalogItems}
+                categories={catalogCategoryList}
+              />
+            ),
+          },
+        ]
+      : []),
     {
       key: "labor",
       label: "ทีมงาน",
