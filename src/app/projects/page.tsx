@@ -13,7 +13,7 @@ import {
 import { EmptyNotice, ErrorNotice } from "@/components/features/common/notices";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
-import { PROJECT_VIEW_ROLES, isManagerRole } from "@/lib/auth/role-home";
+import { PROJECT_VIEW_ROLES, isManagerRole, isProcurementWorklist } from "@/lib/auth/role-home";
 import { projectHref } from "@/lib/nav/project-paths";
 import { NewProjectSheet } from "./new-project-sheet";
 import { createClient } from "@/lib/db/server";
@@ -62,7 +62,11 @@ export default async function ProjectsHubPage({ searchParams }: ProjectsHubPageP
   const query = parseProjectQuery(pick(sp.q));
 
   const isPm = isManagerRole(ctx.role);
-  const isProcurement = ctx.role === "procurement";
+  // Spec 261 / ADR 0070: procurement_manager shares procurement's purchase-context
+  // view here — isProcurementWorklist covers both, so it gets the จัดซื้อ kicker +
+  // procurement hub set (not the SA/หน้างาน else-branch it falls into with a bare
+  // `=== "procurement"`).
+  const isProcurement = isProcurementWorklist(ctx.role);
   // Spec 143 U2: project_coordinator is the see-all oversight role.
   const isCoordinator = ctx.role === "project_coordinator";
 
