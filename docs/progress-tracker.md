@@ -6,7 +6,23 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 279 U1 — self-governance worker onboarding: crew entity + dedup key — 🔨 IN PROGRESS (2026-07-08)
+## Spec 279 U2 — crew-lead add-member + staging + PM confirm + cost gate — 🔨 IN PROGRESS (2026-07-08)
+
+Second unit of the self-governance onboarding epic (ADR 0079). The crew-lead captures a member into staging; a disinterested PM/PD/super promotes them into a real worker + sets the money-adjacent attributes; super_admin confirms the level, which makes the worker cost-loggable. TDD (pgTAP-first), **danger-path → operator-held merge**.
+
+- **New `crew_registration_status` enum** + **`crew_registrations`** staging table (decoupled from `auth.uid()` — a phoneless worker is onboarded by proxy; service-role/owner-only reads, PII sealed).
+- **`workers.cost_confirmed_at` / `cost_confirmed_by`** — the cost-loggable discriminator (an unconfirmed worker is on the roster + payable at the crew default but stays OUT of the cost engine).
+- **`is_valid_thai_national_id()`** — mod-11 checksum validator.
+- **`crew_lead_add_member`** — own-crew predicate (`current_user_worker_id() = crews.lead_worker_id`); **NO money params** (structurally can't set level/rate); Thai-ID checksum + age≥18 + firm-wide dedup (vs `workers.tax_id` and pending regs); mints `PRC-YY-NNNN` (`employee_id_counters`, Bangkok `YY`). Refuses a `subcon` crew (D3).
+- **`approve_crew_registration`** (STAFF_APPROVAL_ROLES) — **INLINES** the worker insert + `crew_members` + project move; **never nests** `create_worker` / `assign_worker_to_project` (both re-resolve the caller under DEFINER and would 42501 a `procurement_manager` approver — verified `assign` gate excludes it). `day_rate := coalesce(p_day_rate, crews.default_day_rate)`; `user_id` NULL (phoneless until self-claim).
+- **`reject_crew_registration`** + **`confirm_worker_cost`** (super_admin sets `level` → stamps `cost_confirmed_at` once level+rate+pay+tenure all set).
+- All new DEFINER fns `revoke execute from anon` (U1 lesson). **Verify:** pgTAP `280-crew-add-member` 22/22 GREEN; suite 241/245 (4 = pre-existing 200/221/77/78); lint + typecheck + vitest 3065 green.
+
+**Open questions:** the SA proxy-operator path (add-member on behalf of a phoneless-led crew) is deferred to U4 (needs `crews.operator_user_id` + the surface); consent/PDPA (the basis floor into approve) is U3 (⚖️ counsel); migrant work-permit IDs (non-Thai) are refused by the checksum — a follow-up branch.
+
+---
+
+## Spec 279 U1 — self-governance worker onboarding: crew entity + dedup key — ✅ SHIPPED (#365 `3c8730aa`, 2026-07-08)
 
 The roster prerequisite for spec 278's attendance muster (the muster's ANALYZE-FIRST found `workers` EMPTY firm-wide → dead-on-arrival; real blocker = onboarding). Operator chose **self-governance** onboarding (ADR 0079). U1 = the schema spine, TDD (pgTAP RED-first), **danger-path → operator-held db:push + merge**.
 

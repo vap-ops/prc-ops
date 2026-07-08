@@ -1576,6 +1576,79 @@ export type Database = {
           },
         ]
       }
+      crew_registrations: {
+        Row: {
+          created_at: string
+          crew_id: string
+          date_of_birth: string
+          employee_id: string
+          full_name: string
+          id: string
+          national_id: string
+          onboarded_by_worker: string | null
+          phone: string | null
+          reject_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["crew_registration_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          crew_id: string
+          date_of_birth: string
+          employee_id: string
+          full_name: string
+          id?: string
+          national_id: string
+          onboarded_by_worker?: string | null
+          phone?: string | null
+          reject_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["crew_registration_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          crew_id?: string
+          date_of_birth?: string
+          employee_id?: string
+          full_name?: string
+          id?: string
+          national_id?: string
+          onboarded_by_worker?: string | null
+          phone?: string | null
+          reject_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["crew_registration_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crew_registrations_crew_id_fkey"
+            columns: ["crew_id"]
+            isOneToOne: false
+            referencedRelation: "crews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crew_registrations_onboarded_by_worker_fkey"
+            columns: ["onboarded_by_worker"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crew_registrations_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crews: {
         Row: {
           active: boolean
@@ -6635,6 +6708,8 @@ export type Database = {
           bank_account_number: string | null
           bank_name: string | null
           contractor_id: string | null
+          cost_confirmed_at: string | null
+          cost_confirmed_by: string | null
           created_at: string
           created_by: string
           date_of_birth: string | null
@@ -6661,6 +6736,8 @@ export type Database = {
           bank_account_number?: string | null
           bank_name?: string | null
           contractor_id?: string | null
+          cost_confirmed_at?: string | null
+          cost_confirmed_by?: string | null
           created_at?: string
           created_by: string
           date_of_birth?: string | null
@@ -6687,6 +6764,8 @@ export type Database = {
           bank_account_number?: string | null
           bank_name?: string | null
           contractor_id?: string | null
+          cost_confirmed_at?: string | null
+          cost_confirmed_by?: string | null
           created_at?: string
           created_by?: string
           date_of_birth?: string | null
@@ -6713,6 +6792,13 @@ export type Database = {
             columns: ["contractor_id"]
             isOneToOne: false
             referencedRelation: "contractors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workers_cost_confirmed_by_fkey"
+            columns: ["cost_confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
@@ -7253,6 +7339,15 @@ export type Database = {
         Returns: boolean
       }
       apply_wp_template: { Args: { p_project_id: string }; Returns: number }
+      approve_crew_registration: {
+        Args: {
+          p_day_rate?: number
+          p_employment_type?: Database["public"]["Enums"]["employment_type"]
+          p_id: string
+          p_pay_type: Database["public"]["Enums"]["pay_type"]
+        }
+        Returns: string
+      }
       approve_plan_baseline: {
         Args: { p_proposal_id: string }
         Returns: string
@@ -7340,6 +7435,13 @@ export type Database = {
       confirm_stock_issue: { Args: { p_issue_id: string }; Returns: undefined }
       confirm_stock_issue_on_behalf: {
         Args: { p_issue_id: string }
+        Returns: undefined
+      }
+      confirm_worker_cost: {
+        Args: {
+          p_level: Database["public"]["Enums"]["worker_level"]
+          p_worker: string
+        }
         Returns: undefined
       }
       confiscate_coins: {
@@ -7572,6 +7674,16 @@ export type Database = {
         Returns: string
       }
       create_worker_invite: { Args: { p_worker: string }; Returns: string }
+      crew_lead_add_member: {
+        Args: {
+          p_crew: string
+          p_dob: string
+          p_name: string
+          p_national_id: string
+          p_phone: string
+        }
+        Returns: string
+      }
       current_user_contractor_id: { Args: never; Returns: string }
       current_user_led_crew_ids: { Args: never; Returns: string[] }
       current_user_role: {
@@ -7775,6 +7887,7 @@ export type Database = {
         Args: { p_role: Database["public"]["Enums"]["user_role"] }
         Returns: boolean
       }
+      is_valid_thai_national_id: { Args: { p_id: string }; Returns: boolean }
       issue_stock: {
         Args: {
           p_catalog_item_id: string
@@ -8142,6 +8255,10 @@ export type Database = {
         Returns: string
       }
       refresh_usage_daily: { Args: { p_day?: string }; Returns: number }
+      reject_crew_registration: {
+        Args: { p_id: string; p_reason: string }
+        Returns: undefined
+      }
       reject_staff_registration: {
         Args: { p_id: string; p_reason: string }
         Returns: undefined
@@ -8948,6 +9065,7 @@ export type Database = {
         | "dc_regular"
         | "dc_temporary"
       crew_doc_purpose: "id_card" | "work_permit"
+      crew_registration_status: "pending" | "approved" | "rejected"
       day_fraction: "full" | "half"
       employment_type: "permanent" | "temporary"
       equipment_movement_kind:
@@ -9355,6 +9473,7 @@ export const Constants = {
         "dc_temporary",
       ],
       crew_doc_purpose: ["id_card", "work_permit"],
+      crew_registration_status: ["pending", "approved", "rejected"],
       day_fraction: ["full", "half"],
       employment_type: ["permanent", "temporary"],
       equipment_movement_kind: [
