@@ -527,10 +527,16 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
       // Spec 280 P2b: a blacklisted supplier (spec 275 U0 contact_status) is not an
       // option for a NEW purchase — drop it from the create-PO picker. History and
       // the worklist supplier filter (distinctSuppliers) are unaffected.
-      .select("id, name, phone")
+      // Spec 280: is_vat_registered feeds the create-PO sheet's non-VAT soft warning.
+      .select("id, name, phone, is_vat_registered")
       .neq("contact_status", "blacklisted")
       .order("name", { ascending: true });
-    supplierRecords = supplierRows ?? [];
+    supplierRecords = (supplierRows ?? []).map((r) => ({
+      id: r.id,
+      name: r.name,
+      phone: r.phone,
+      isVatRegistered: r.is_vat_registered,
+    }));
     categoryVendors = await loadCategoryVendors(supabase);
     if (myRequests.length > 0) {
       const { data: attachmentRows } = await supabase

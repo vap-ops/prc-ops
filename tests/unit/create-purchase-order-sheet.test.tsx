@@ -177,4 +177,27 @@ describe("CreatePurchaseOrderSheet", () => {
     );
     expect(screen.getByText("ร้านใหม่")).toBeInTheDocument();
   });
+
+  // Spec 280 — soft non-VAT warning.
+  const NON_VAT = [{ id: SUP, name: "ร้าน A", phone: null, isVatRegistered: false }];
+  const warn = () => screen.queryByText(/ไม่ได้จดทะเบียน VAT/);
+
+  it("warns when a non-VAT supplier is paired with a VAT rate (default exclusive)", () => {
+    setup({ suppliers: NON_VAT, defaultSupplierId: SUP });
+    expect(warn()).toBeInTheDocument();
+  });
+
+  it("drops the warning when VAT mode is ไม่มี VAT", () => {
+    setup({ suppliers: NON_VAT, defaultSupplierId: SUP });
+    fireEvent.click(screen.getByRole("radio", { name: "ไม่มี VAT" }));
+    expect(warn()).not.toBeInTheDocument();
+  });
+
+  it("does not warn for a VAT-registered supplier", () => {
+    setup({
+      suppliers: [{ id: SUP, name: "ร้าน A", phone: null, isVatRegistered: true }],
+      defaultSupplierId: SUP,
+    });
+    expect(warn()).not.toBeInTheDocument();
+  });
 });

@@ -7,4 +7,8 @@ export interface SupplierOption {
   id: string;
   name: string;
   phone: string | null;
+  // Spec 280: the supplier's VAT-registration flag, when known — lets the create-PO
+  // sheet soft-warn on a non-VAT supplier + VAT rate. Optional: pickers that don't
+  // load it (or freshly inline-created suppliers) leave it undefined = no warning.
+  isVatRegistered?: boolean | null;
 }

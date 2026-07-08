@@ -60,6 +60,7 @@ import {
   rateForMode,
   grossFromEntry,
   deriveVatBreakdown,
+  isNonVatVatMismatch,
 } from "@/lib/purchasing/vat";
 import type { SupplierOption } from "@/lib/purchasing/supplier-option";
 import { splitSupplierOptions } from "@/lib/purchasing/vendor-suggestion";
@@ -638,6 +639,16 @@ export function CreatePurchaseOrderSheet({
                 />
               </div>
             </fieldset>
+
+            {/* Spec 280: non-blocking warning — non-VAT supplier + VAT rate. */}
+            {isNonVatVatMismatch(
+              allSuppliers.find((s) => s.id === supplierId)?.isVatRegistered,
+              rate,
+            ) ? (
+              <p role="alert" className={INLINE_ALERT_TEXT}>
+                ผู้ขายรายนี้ไม่ได้จดทะเบียน VAT — ตรวจสอบใบกำกับภาษีก่อนบันทึกภาษีซื้อ
+              </p>
+            ) : null}
 
             <label htmlFor="po-order-ref" className="text-ink text-xs font-medium">
               เลขอ้างอิงผู้ขาย (ไม่บังคับ)
