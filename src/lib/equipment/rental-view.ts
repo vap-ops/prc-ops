@@ -97,3 +97,33 @@ export function buildRentalView(
       allocations: chipsByBatch.get(b.id) ?? [],
     }));
 }
+
+// Spec 280 — which suppliers PRC has rented from before, ranked, so the rental
+// recorder can surface them above the full supplier list (show-all fallback keeps
+// everyone reachable). Derived from equipment_rental_batches — no declared tags.
+// Rank: batch count desc, then most-recent batch (created_at) desc, nulls last.
+export function rankRentalVendors(
+  batches: ReadonlyArray<{ supplier_id: string | null; created_at: string | null }>,
+): string[] {
+  const stat = new Map<string, { count: number; last: string | null }>();
+  for (const b of batches) {
+    if (!b.supplier_id) continue;
+    const cur = stat.get(b.supplier_id) ?? { count: 0, last: null };
+    cur.count += 1;
+    if (b.created_at !== null && (cur.last === null || b.created_at > cur.last)) {
+      cur.last = b.created_at;
+    }
+    stat.set(b.supplier_id, cur);
+  }
+  return [...stat.entries()]
+    .sort(([, a], [, b]) => {
+      if (b.count !== a.count) return b.count - a.count;
+      const at = a.last;
+      const bt = b.last;
+      if (at === bt) return 0;
+      if (at === null) return 1;
+      if (bt === null) return -1;
+      return at > bt ? -1 : 1;
+    })
+    .map(([id]) => id);
+}

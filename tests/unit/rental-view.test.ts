@@ -7,7 +7,12 @@
 
 import { describe, expect, it } from "vitest";
 import { formatThaiDate } from "@/lib/i18n/labels";
-import { buildRentalView, rentalPeriodLabel, rentalRateLabel } from "@/lib/equipment/rental-view";
+import {
+  buildRentalView,
+  rankRentalVendors,
+  rentalPeriodLabel,
+  rentalRateLabel,
+} from "@/lib/equipment/rental-view";
 
 describe("rentalRateLabel", () => {
   it("labels a monthly rate with the ฿ format SSOT and /เดือน", () => {
@@ -92,5 +97,47 @@ describe("buildRentalView", () => {
     );
     expect(cards[0]?.supplierName).toBe("—");
     expect(cards[0]?.allocations[0]?.projectName).toBe("—");
+  });
+});
+
+// Spec 280 — which suppliers have been RENTED from before (equipment_rental_batches
+// .supplier_id), ranked, so the rental recorder can surface them above the full list.
+describe("rankRentalVendors", () => {
+  it("ranks rental vendors by batch count desc", () => {
+    expect(
+      rankRentalVendors([
+        { supplier_id: "often", created_at: "2026-01-01T00:00:00Z" },
+        { supplier_id: "often", created_at: "2026-02-01T00:00:00Z" },
+        { supplier_id: "rare", created_at: "2026-03-01T00:00:00Z" },
+      ]),
+    ).toEqual(["often", "rare"]);
+  });
+
+  it("breaks count ties by most-recent batch (desc)", () => {
+    expect(
+      rankRentalVendors([
+        { supplier_id: "old", created_at: "2025-01-01T00:00:00Z" },
+        { supplier_id: "new", created_at: "2026-06-01T00:00:00Z" },
+      ]),
+    ).toEqual(["new", "old"]);
+  });
+
+  it("dedupes a vendor with many batches into one id", () => {
+    expect(
+      rankRentalVendors([
+        { supplier_id: "v", created_at: "2026-01-01T00:00:00Z" },
+        { supplier_id: "v", created_at: "2026-02-01T00:00:00Z" },
+      ]),
+    ).toEqual(["v"]);
+  });
+
+  it("skips batches with no supplier", () => {
+    expect(rankRentalVendors([{ supplier_id: null, created_at: "2026-01-01T00:00:00Z" }])).toEqual(
+      [],
+    );
+  });
+
+  it("empty → empty", () => {
+    expect(rankRentalVendors([])).toEqual([]);
   });
 });

@@ -78,6 +78,30 @@ describe("RentalManager", () => {
     expect(screen.getByLabelText("วันสิ้นสุด")).toBeInTheDocument();
   });
 
+  // Spec 280: rented-from-before vendors surface above the full list.
+  it("groups previously-rented vendors above the full list", () => {
+    render(
+      <RentalManager
+        suppliers={suppliers}
+        suggestedSupplierIds={["o2"]}
+        projects={projects}
+        rentals={rentals}
+        defaultDate="2026-07-05"
+      />,
+    );
+    const suggested = screen.getByRole("group", { name: "เคยให้เช่า" });
+    expect(within(suggested).getByRole("option", { name: "บ.นั่งร้านสยาม" })).toBeInTheDocument();
+    const all = screen.getByRole("group", { name: "ผู้ให้เช่าทั้งหมด" });
+    expect(within(all).getByRole("option", { name: "บ.เครนไทย" })).toBeInTheDocument();
+    expect(within(all).queryByRole("option", { name: "บ.นั่งร้านสยาม" })).not.toBeInTheDocument();
+  });
+
+  it("falls back to a flat vendor list when there are no suggestions", () => {
+    renderManager();
+    expect(screen.queryByRole("group", { name: "เคยให้เช่า" })).not.toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "บ.เครนไทย" })).toBeInTheDocument();
+  });
+
   it("submits a monthly whole-project rental with no project binding", async () => {
     renderManager();
     fireEvent.change(screen.getByLabelText("เช่าจาก"), { target: { value: "o1" } });
