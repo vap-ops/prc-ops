@@ -19,7 +19,11 @@ import {
   RentalVarianceList,
   type AgreementVariance,
 } from "@/components/features/equipment/rental-variance-list";
-import { buildRentalView, type RentalRatePeriod } from "@/lib/equipment/rental-view";
+import {
+  buildRentalView,
+  rankRentalVendors,
+  type RentalRatePeriod,
+} from "@/lib/equipment/rental-view";
 import {
   buildAgreementOptions,
   currentSettlements,
@@ -48,7 +52,12 @@ export default async function EquipmentRentalsPage() {
     { data: settlementRows },
     { data: itemRows },
   ] = await Promise.all([
-    supabase.from("suppliers").select("id, name").order("name", { ascending: true }),
+    // Spec 280: a blacklisted supplier is not an option for a new rental.
+    supabase
+      .from("suppliers")
+      .select("id, name")
+      .neq("contact_status", "blacklisted")
+      .order("name", { ascending: true }),
     supabase.from("projects").select("id, name").order("name", { ascending: true }),
     admin
       .from("equipment_rental_batches")
@@ -86,6 +95,8 @@ export default async function EquipmentRentalsPage() {
 
   const suppliers = supplierRows ?? [];
   const projects = projectRows ?? [];
+  // Spec 280: surface suppliers PRC has rented from before, above the full list.
+  const rentalVendorIds = rankRentalVendors(batchRows ?? []);
   const rentals = buildRentalView(
     (batchRows ?? []).map((b) => ({
       id: b.id,
@@ -200,6 +211,7 @@ export default async function EquipmentRentalsPage() {
       <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
         <RentalManager
           suppliers={suppliers}
+          suggestedSupplierIds={rentalVendorIds}
           projects={projects}
           rentals={rentals}
           defaultDate={today}

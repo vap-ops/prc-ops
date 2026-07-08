@@ -26,6 +26,7 @@ import {
 } from "@/lib/ui/classes";
 import { createRentalAllocation, createRentalBatch } from "@/app/equipment/rentals/actions";
 import type { RentalCard, RentalRatePeriod } from "@/lib/equipment/rental-view";
+import { splitSupplierOptions } from "@/lib/purchasing/vendor-suggestion";
 import {
   EQUIPMENT_RATE_PERIOD_LABEL,
   EQUIPMENT_RENTAL_ALLOCATE_LABEL,
@@ -55,11 +56,15 @@ export function RentalManager({
   rentals,
   defaultDate,
   lockedProject,
+  suggestedSupplierIds = [],
 }: {
   suppliers: NamedRow[];
   projects: NamedRow[];
   rentals: RentalCard[];
   defaultDate: string;
+  // Spec 280: ids of suppliers PRC has rented from before (ranked), surfaced in a
+  // "เคยให้เช่า" group above the full list. Empty → plain flat list (show-all).
+  suggestedSupplierIds?: string[];
   // Spec 275 U5: when set (the /projects/[id]/rentals surface), the recorder is
   // fixed to this project — the โครงการ pick is hidden and every recorded rental
   // auto-allocates here; the per-card re-allocate control is hidden. Unset (the
@@ -79,6 +84,13 @@ export function RentalManager({
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, startSave] = useTransition();
+
+  // Spec 280: rented-from-before vendors rise to a "เคยให้เช่า" group; the full
+  // supplier list stays below (show-all fallback). Suggestion only re-orders.
+  const { suggested: suggestedSuppliers, rest: otherSuppliers } = splitSupplierOptions(
+    suppliers,
+    suggestedSupplierIds,
+  );
 
   function resetForm() {
     setSupplierId("");
@@ -162,11 +174,30 @@ export function RentalManager({
               className={`${FIELD_SELECT} mt-1`}
             >
               <option value="">— เลือกผู้ให้เช่า —</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
+              {suggestedSuppliers.length > 0 ? (
+                <>
+                  <optgroup label="เคยให้เช่า">
+                    {suggestedSuppliers.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="ผู้ให้เช่าทั้งหมด">
+                    {otherSuppliers.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                </>
+              ) : (
+                otherSuppliers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))
+              )}
             </select>
           </label>
 

@@ -20,7 +20,11 @@ import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { RentalManager } from "@/components/features/equipment/rental-manager";
-import { buildRentalView, type RentalRatePeriod } from "@/lib/equipment/rental-view";
+import {
+  buildRentalView,
+  rankRentalVendors,
+  type RentalRatePeriod,
+} from "@/lib/equipment/rental-view";
 import { bangkokTodayISO } from "@/lib/work-packages/schedule-today";
 import { projectHref } from "@/lib/nav/project-paths";
 import { EQUIPMENT_RENTAL_LABEL } from "@/lib/i18n/labels";
@@ -57,7 +61,12 @@ export default async function ProjectRentalsPage({ params }: PageProps) {
   const batchIds = [...new Set((allocationRows ?? []).map((a) => a.batch_id))];
 
   const [{ data: supplierRows }, { data: batchRows }] = await Promise.all([
-    supabase.from("suppliers").select("id, name").order("name", { ascending: true }),
+    // Spec 280: a blacklisted supplier is not an option for a new rental.
+    supabase
+      .from("suppliers")
+      .select("id, name")
+      .neq("contact_status", "blacklisted")
+      .order("name", { ascending: true }),
     batchIds.length > 0
       ? admin
           .from("equipment_rental_batches")
@@ -70,6 +79,8 @@ export default async function ProjectRentalsPage({ params }: PageProps) {
 
   const suppliers = supplierRows ?? [];
   const project1 = [{ id: project.id, name: project.name }];
+  // Spec 280: surface suppliers PRC has rented from before, above the full list.
+  const rentalVendorIds = rankRentalVendors(batchRows ?? []);
   const rentals = buildRentalView(
     (batchRows ?? []).map((b) => ({
       id: b.id,
@@ -106,6 +117,7 @@ export default async function ProjectRentalsPage({ params }: PageProps) {
       <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
         <RentalManager
           suppliers={suppliers}
+          suggestedSupplierIds={rentalVendorIds}
           projects={project1}
           rentals={rentals}
           defaultDate={bangkokTodayISO()}
