@@ -61,7 +61,7 @@ import {
   grossFromEntry,
   deriveVatBreakdown,
 } from "@/lib/purchasing/vat";
-import type { SupplierOption } from "@/components/features/purchasing/purchase-record-form";
+import type { SupplierOption } from "@/lib/purchasing/supplier-option";
 import { splitSupplierOptions } from "@/lib/purchasing/vendor-suggestion";
 
 export interface CreatePoLine {
