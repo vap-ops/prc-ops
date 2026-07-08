@@ -4994,6 +4994,8 @@ export type Database = {
           employee_id: string
           full_name: string | null
           id: string
+          invited_by: string | null
+          invited_project_id: string | null
           phone: string | null
           reject_reason: string | null
           reviewed_at: string | null
@@ -5012,6 +5014,8 @@ export type Database = {
           employee_id: string
           full_name?: string | null
           id?: string
+          invited_by?: string | null
+          invited_project_id?: string | null
           phone?: string | null
           reject_reason?: string | null
           reviewed_at?: string | null
@@ -5030,6 +5034,8 @@ export type Database = {
           employee_id?: string
           full_name?: string | null
           id?: string
+          invited_by?: string | null
+          invited_project_id?: string | null
           phone?: string | null
           reject_reason?: string | null
           reviewed_at?: string | null
@@ -5038,7 +5044,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "staff_registrations_invited_project_id_fkey"
+            columns: ["invited_project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stock_counts: {
         Row: {
@@ -8577,6 +8591,8 @@ export type Database = {
         Args: {
           p_declared_role_hint?: string
           p_full_name: string
+          p_invited_by?: string
+          p_invited_project_id?: string
           p_phone: string
         }
         Returns: string

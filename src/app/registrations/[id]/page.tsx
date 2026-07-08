@@ -31,7 +31,8 @@ import {
 } from "@/lib/register/admin-registrations";
 import { getLineIdentityByUserId } from "@/lib/identity/admin-line-identity";
 import { LineIdentityBlock } from "@/components/features/identity/line-identity-block";
-import { formatThaiDateTime } from "@/lib/i18n/labels";
+import { fetchDisplayNames } from "@/lib/users/display-names";
+import { formatThaiDateTime, REGISTRATION_INVITED_BY_LABEL } from "@/lib/i18n/labels";
 
 export const metadata = { title: "รายละเอียดคำขอสมัคร" };
 
@@ -57,6 +58,16 @@ export default async function StaffRegistrationDetailPage({
   // their RLS session — same exposure model as the doc signed-URL mint above).
   // Visible to all three approvers (STAFF_APPROVAL_ROLES already gates this page).
   const lineIdentity = await getLineIdentityByUserId(registration.user_id);
+
+  // Spec 279 F2b — who invited this applicant (the SA whose per-project QR they
+  // scanned). Advisory context only. Resolved via the admin-client name helper
+  // (same exposure model as the LINE-identity block above — an approver can't read
+  // another user's row on their own RLS session).
+  const inviterName = registration.invited_by
+    ? ((await fetchDisplayNames([registration.invited_by], "staff-registration-approval")).get(
+        registration.invited_by,
+      ) ?? null)
+    : null;
 
   // RLS-scoped read (never admin) — mirrors /workers' project picker. Active
   // only: the operator's ask is "active projects", and an approver has no
@@ -100,6 +111,9 @@ export default async function StaffRegistrationDetailPage({
             <Row label="ความสัมพันธ์" value={registration.emergency_contact_relation} />
             <Row label="เบอร์ติดต่อฉุกเฉิน" value={registration.emergency_contact_phone} />
             <Row label="ส่งคำขอเมื่อ" value={formatThaiDateTime(registration.created_at)} />
+            {registration.invited_by ? (
+              <Row label={REGISTRATION_INVITED_BY_LABEL} value={inviterName} />
+            ) : null}
             {registration.status === "rejected" && registration.reject_reason ? (
               <Row label="เหตุผลที่ปฏิเสธ" value={registration.reject_reason} />
             ) : null}
@@ -113,6 +127,7 @@ export default async function StaffRegistrationDetailPage({
             registrationId={registration.id}
             declaredRoleHint={registration.declared_role_hint}
             projects={projectRows ?? []}
+            invitedProjectId={registration.invited_project_id}
           />
         ) : null}
       </section>

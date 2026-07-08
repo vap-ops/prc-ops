@@ -62,18 +62,31 @@ export function RegistrationDecision({
   registrationId,
   declaredRoleHint,
   projects = [],
+  invitedProjectId = null,
 }: {
   registrationId: string;
   declaredRoleHint?: string | null;
   /** Active projects the approver may assign as the site. Optional (harmless
    *  default []) — the selector still renders with just the empty option. */
   projects?: ReadonlyArray<RegistrationProjectOption>;
+  /** Spec 279 F2b — the project the applicant's QR was for; pre-selects the site
+   *  so the approver can one-tap approve. Advisory + VISITOR-SUPPLIED: honored ONLY
+   *  when it matches one of the approver's RLS-scoped active `projects` options.
+   *  A cross-project / non-active / forged id falls back to empty (unassigned) so
+   *  the visible selection and the submitted p_project_id never diverge — an
+   *  unverified ref must never silently drive the binding. */
+  invitedProjectId?: string | null;
 }) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [role, setRole] = useState<UserRole>(DEFAULT_ROLE);
-  const [projectId, setProjectId] = useState("");
+  // Pre-select the invited project ONLY if it's a selectable option (see prop
+  // docs) — a controlled <select> whose value matches no <option> renders blank
+  // yet keeps the value in state, which would submit a hidden, unconfirmed id.
+  const [projectId, setProjectId] = useState(
+    invitedProjectId && projects.some((p) => p.id === invitedProjectId) ? invitedProjectId : "",
+  );
   const [showReject, setShowReject] = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
