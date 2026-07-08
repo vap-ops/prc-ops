@@ -1,7 +1,11 @@
 // Spec 107 — per-supplier spend aggregation.
 
 import { describe, expect, it } from "vitest";
-import { aggregateSupplierSpend, buildSupplierSpendBadges } from "@/lib/purchasing/supplier-spend";
+import {
+  aggregateSupplierSpend,
+  aggregateSupplierCategorySpend,
+  buildSupplierSpendBadges,
+} from "@/lib/purchasing/supplier-spend";
 
 describe("aggregateSupplierSpend", () => {
   it("sums committed spend and counts open (in-transit) POs per supplier", () => {
@@ -27,6 +31,49 @@ describe("aggregateSupplierSpend", () => {
 
   it("empty → empty map", () => {
     expect(aggregateSupplierSpend([]).size).toBe(0);
+  });
+});
+
+// Spec 280: per-vendor spend-by-category for the vendor detail page — the same
+// committed-band basis as aggregateSupplierSpend, grouped by material category.
+describe("aggregateSupplierCategorySpend", () => {
+  it("groups committed spend + count by category, sorted by spend desc", () => {
+    const rows = aggregateSupplierCategorySpend([
+      { amount: 1000, status: "purchased", categoryId: "elec" },
+      { amount: 500, status: "delivered", categoryId: "elec" },
+      { amount: 2000, status: "on_route", categoryId: "concrete" },
+      { amount: 999, status: "approved", categoryId: "elec" }, // not committed → ignored
+    ]);
+    expect(rows).toEqual([
+      { categoryId: "concrete", spend: 2000, count: 1 },
+      { categoryId: "elec", spend: 1500, count: 2 },
+    ]);
+  });
+
+  it("counts an amount-less committed PR but adds nothing to spend", () => {
+    expect(
+      aggregateSupplierCategorySpend([{ amount: null, status: "on_route", categoryId: "elec" }]),
+    ).toEqual([{ categoryId: "elec", spend: 0, count: 1 }]);
+  });
+
+  it("buckets uncatalogued PRs under a null category", () => {
+    expect(
+      aggregateSupplierCategorySpend([{ amount: 300, status: "delivered", categoryId: null }]),
+    ).toEqual([{ categoryId: null, spend: 300, count: 1 }]);
+  });
+
+  it("ignores non-committed statuses", () => {
+    expect(
+      aggregateSupplierCategorySpend([
+        { amount: 100, status: "rejected", categoryId: "x" },
+        { amount: 100, status: "requested", categoryId: "x" },
+        { amount: 100, status: "cancelled", categoryId: "x" },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("empty → empty", () => {
+    expect(aggregateSupplierCategorySpend([])).toEqual([]);
   });
 });
 

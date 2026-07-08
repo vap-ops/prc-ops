@@ -18,6 +18,9 @@ import { ContactCrewSection } from "@/components/features/contacts/contact-crew-
 import { ContactDocumentsBlock } from "@/components/features/contacts/contact-documents-block";
 import { getContactBank, type ContactKind } from "@/lib/contacts/bank";
 import { getContactDocuments } from "@/lib/contacts/documents";
+import { loadCatalogCategories, categoryNameById } from "@/lib/catalog/categories";
+import { aggregateSupplierCategorySpend } from "@/lib/purchasing/supplier-spend";
+import { baht } from "@/lib/format";
 import { BankChangeDecision } from "@/components/features/portal/bank-change-decision";
 import { ContractorInviteBlock } from "@/components/features/portal/contractor-invite-block";
 import {
@@ -109,6 +112,45 @@ export default async function ContactDetailPage({
   const admin = kind ? createAdminSupabase() : null;
   const bank = kind && admin ? await getContactBank(admin, kind, id) : null;
   const documents = kind && admin ? await getContactDocuments(admin, kind, id) : null;
+
+  // Spec 280: for a supplier, what it has supplied by material category — derived
+  // from committed purchase history (pr → catalog_item → category). Money read,
+  // same admin client + gate as the bank block. Keyed on pr.supplier_id like the
+  // vendors-list spend badge, so a PO-bundled PR (null supplier_id) doesn't count.
+  const categorySpend: Array<{ name: string; spend: number; count: number }> = [];
+  if (type === "suppliers" && admin) {
+    const { data: spendRows } = await admin
+      .from("purchase_requests")
+      .select("amount, status, catalog_item_id")
+      .eq("supplier_id", id)
+      .in("status", ["purchased", "on_route", "delivered"]);
+    const rows = spendRows ?? [];
+    const itemIds = [
+      ...new Set(rows.map((r) => r.catalog_item_id).filter((x): x is string => x != null)),
+    ];
+    const itemCategory = new Map<string, string | null>();
+    if (itemIds.length > 0) {
+      const { data: items } = await admin
+        .from("catalog_items")
+        .select("id, category_id")
+        .in("id", itemIds);
+      for (const it of items ?? []) itemCategory.set(it.id, it.category_id);
+    }
+    const catName = categoryNameById(await loadCatalogCategories(admin));
+    for (const row of aggregateSupplierCategorySpend(
+      rows.map((r) => ({
+        amount: r.amount,
+        status: r.status,
+        categoryId: r.catalog_item_id ? (itemCategory.get(r.catalog_item_id) ?? null) : null,
+      })),
+    )) {
+      categorySpend.push({
+        name: row.categoryId ? (catName.get(row.categoryId) ?? "ไม่ระบุหมวด") : "ไม่ระบุหมวด",
+        spend: row.spend,
+        count: row.count,
+      });
+    }
+  }
 
   // Spec 90: a contractor's crew = the DC workers parented by it (names only;
   // rates stay on /workers). Only the contractors route has crew.
@@ -214,6 +256,27 @@ export default async function ContactDetailPage({
             </p>
           )}
         </section>
+
+        {/* Spec 280: per-vendor spend by material category (derived from committed
+            purchase history — no declared tags). Suppliers only, when there's data. */}
+        {type === "suppliers" && categorySpend.length > 0 ? (
+          <section className={CARD}>
+            <p className="text-ink text-sm font-semibold">ยอดซื้อตามหมวด</p>
+            <ul className="mt-2 flex flex-col gap-2">
+              {categorySpend.map((c) => (
+                <li key={c.name} className="flex items-baseline justify-between gap-3">
+                  <span className="text-ink text-sm">{c.name}</span>
+                  <span className="text-ink-muted text-sm whitespace-nowrap tabular-nums">
+                    {baht(c.spend)} · {c.count} ครั้ง
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-ink-muted mt-2 text-xs">
+              ยอดสั่งซื้อที่บันทึกราคาแล้ว (บางรายการยังไม่ได้ระบุราคา)
+            </p>
+          </section>
+        ) : null}
 
         {isPmTier && pendingBankChanges.length > 0 ? (
           <section className={`${CARD} border-attn bg-attn-soft border-l-4`}>
