@@ -29,6 +29,9 @@ export const ROLE_GROUP_ORDER: readonly UserRole[] = [
   "hr",
   "subcon_manager",
   "accounting",
+  // Spec 284 / ADR 0080: the Legal department's auth-role, grouped with the other
+  // back-office departments.
+  "legal",
   "contractor", // external — DC workforce
   "client", // external — read-only customer logins
 ];

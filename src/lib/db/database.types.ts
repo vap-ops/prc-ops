@@ -9379,6 +9379,7 @@ export type Database = {
         | "procurement_manager"
         | "site_owner"
         | "auditor"
+        | "legal"
       variance_class:
         | "unplanned"
         | "no_evidence"
@@ -9800,6 +9801,7 @@ export const Constants = {
         "procurement_manager",
         "site_owner",
         "auditor",
+        "legal",
       ],
       variance_class: [
         "unplanned",

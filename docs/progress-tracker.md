@@ -6888,3 +6888,28 @@ Open questions (out of scope — NOT implemented):
 
 NEXT (own sessions): U1 legal role (danger-path) · U2 org-chart read + registrations dept filter (code) ·
 U3 contracts · U4 document_approvals · U5 /legal surfaces.
+
+## Spec 284 U1 — legal auth-role — DONE / db:push'd, PR held (2026-07-09)
+
+Worktree ../prc-ops-spec284-u1, branch spec284-u1 off main `1191a426`. ADR 0080. DANGER-PATH
+(enum + `src/lib/auth/**`). Migration `20260813075520_spec284u1_legal_role.sql` (ADDITIVE):
+`alter type public.user_role add value if not exists 'legal'` (own migration; committed-before-use).
+
+- **TS wiring** (`role-home.ts`): `LEGAL_ROLES = ["legal","super_admin"]` (mirrors ACCOUNTING_ROLES) +
+  `DOC_APPROVAL_ROLES = LEGAL_ROLES` (named separately, widens later). `labels.ts`:
+  `USER_ROLE_LABEL.legal = "ฝ่ายกฎหมาย"` (also makes the super_admin role picker offer it).
+- **Three exhaustiveness guards updated** by the enum add (typecheck + tests caught them):
+  `USER_ROLE_LABEL` (label), `role-home.test.ts` roleHome fixture (`legal → /coming-soon`),
+  `ROLE_GROUP_ORDER` (group-users, `legal` with back-office depts), plus pgTAP `01-users` pin
+  (16→17) and `231-sql-role-predicates` (count 16→17 + explicit `legal`-denied for
+  is_manager/is_back_office/is_site_staff — `legal` is in NONE; its access is the LEGAL_ROLES TS gate).
+- **Plan deviation (justified):** `roleHome('legal')` + LEGAL nav sets **deferred to U5** (when
+  `/legal` exists). `legal` falls through `roleHome()` → `/coming-soon` (house unbuilt-role pattern;
+  no 404; no legal users exist yet). U5 flips it to `/legal`.
+
+**Verification (all green):** `role-sets.test.ts` (+LEGAL_ROLES/DOC_APPROVAL_ROLES pins) + full vitest
+**3178/3178**; typecheck 0 · lint 0; db:test 248/251 — enum pin **"seventeen expected values"** + `231`
+30/30; 3 reds = 200/221 known + 282 inherited (NOT this unit).
+
+NEXT: U2 org-chart read (code, auto-merge) · U3 contracts · U4 document_approvals · U5 /legal surfaces
+(where roleHome('legal')→/legal + LEGAL nav land).

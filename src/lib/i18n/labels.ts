@@ -473,6 +473,10 @@ export const USER_ROLE_LABEL: Record<Enums["user_role"], string> = {
   hr: "ฝ่ายบุคคล",
   subcon_manager: "ผู้จัดการผู้รับเหมาช่วง",
   accounting: "ฝ่ายบัญชี",
+  // Spec 284 / ADR 0080: the Legal department's auth-role. Lands here so the
+  // super_admin user-admin role picker (renders Object.entries(USER_ROLE_LABEL))
+  // offers "promote to ฝ่ายกฎหมาย".
+  legal: "ฝ่ายกฎหมาย",
   visitor: "ผู้เยี่ยมชม",
   // Spec 266 U7 (ADR 0073): `contractor` is the subcontractor portal only —
   // "ผู้รับเหมา" (the "(DC)" suffix is dropped; ช่าง are `technician` now).

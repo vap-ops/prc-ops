@@ -302,6 +302,15 @@ export const PROJECT_VIEW_ROLES: ReadonlyArray<UserRole> = [
  */
 export const ACCOUNTING_ROLES: ReadonlyArray<UserRole> = ["accounting", "super_admin"];
 
+// Spec 284 / ADR 0080: the Legal department's auth-role — the one new role the
+// org-chart epic adds. Dept role + super_admin (mirrors ACCOUNTING_ROLES). Gates
+// the Legal domain (contracts, document_approvals) in U3/U4. The Legal head is a
+// field (departments.head_user_id), NOT a role — no legal_manager.
+export const LEGAL_ROLES: ReadonlyArray<UserRole> = ["legal", "super_admin"];
+// Who may act on document_approvals (U4). = LEGAL_ROLES in v1; named separately so
+// it can widen (e.g. + a dedicated reviewer) without touching the Legal-domain gates.
+export const DOC_APPROVAL_ROLES: ReadonlyArray<UserRole> = LEGAL_ROLES;
+
 /**
  * Spec 211 U9b: who may OPEN the purchase-order detail (`/requests/orders/[poId]`).
  * = PURCHASING_ROLES PLUS `accounting`, so the accounting voucher's PO can be a
