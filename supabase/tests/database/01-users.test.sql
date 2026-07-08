@@ -8,8 +8,8 @@ select plan(12);
 select has_type('public', 'user_role', 'user_role enum exists');
 select enum_has_labels(
   'public', 'user_role',
-  array['site_admin', 'project_manager', 'super_admin', 'project_coordinator', 'procurement', 'technician', 'hr', 'subcon_manager', 'accounting', 'visitor', 'contractor', 'project_director', 'client', 'procurement_manager', 'site_owner', 'auditor'],
-  'user_role has the sixteen expected values'
+  array['site_admin', 'project_manager', 'super_admin', 'project_coordinator', 'procurement', 'technician', 'hr', 'subcon_manager', 'accounting', 'visitor', 'contractor', 'project_director', 'client', 'procurement_manager', 'site_owner', 'auditor', 'legal'],
+  'user_role has the seventeen expected values'
 );
 
 -- table shape

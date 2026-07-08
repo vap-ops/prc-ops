@@ -1,5 +1,5 @@
 begin;
-select plan(27);
+select plan(30);
 
 -- ============================================================================
 -- Architecture-quality audit rank 5 (sql-role-helpers), stage 1 — the SQL role
@@ -13,17 +13,20 @@ select plan(27);
 -- plus an explicit true for every member and a representative denial.
 -- ============================================================================
 
--- Enum-completeness guard: 16 roles today. If someone ADDs a user_role value,
+-- Enum-completeness guard: 17 roles today. If someone ADDs a user_role value,
 -- this fails until they decide which predicate(s) admit it (kills silent drift).
 -- 'client' (spec 233 / ADR 0067) is an EXTERNAL read-only audience admitted by
 -- NONE of the staff predicates below. 'procurement_manager' (spec 261 / ADR 0070)
 -- is a superset of procurement — is_back_office YES, is_manager/is_site_staff NO.
 -- 'site_owner' + 'auditor' (spec 263 / ADR 0071) are behavior-free forward-compat
 -- field roles — admitted by NONE of the staff predicates below (they do nothing yet).
+-- 'legal' (spec 284 / ADR 0080) is the Legal department's role — its access is the
+-- LEGAL_ROLES TS gate (contracts + document_approvals, U3/U4), admitted by NONE of
+-- these SQL staff predicates in v1.
 select is(
   (select count(*)::int from unnest(enum_range(null::public.user_role))),
-  16,
-  'user_role enum has 16 values (add one => classify it in the predicates)');
+  17,
+  'user_role enum has 17 values (add one => classify it in the predicates)');
 
 -- --- is_manager = PM_ROLES (project_manager, super_admin, project_director) ---
 select is(
@@ -62,6 +65,12 @@ select is(public.is_site_staff('procurement'::public.user_role), false, 'is_site
 select is(public.is_site_staff('procurement_manager'::public.user_role), false, 'is_site_staff: procurement_manager denied (dept manager, not site staff)');
 select is(public.is_site_staff('site_owner'::public.user_role), false, 'is_site_staff: site_owner denied (behavior-free, spec 263)');
 select is(public.is_site_staff('auditor'::public.user_role), false, 'is_site_staff: auditor denied (behavior-free, spec 263)');
+
+-- --- 'legal' (spec 284 / ADR 0080): admitted by NONE of the staff predicates in v1
+-- (its access is the LEGAL_ROLES TS gate, not these SQL financial/site predicates).
+select is(public.is_manager('legal'::public.user_role), false, 'is_manager: legal denied (spec 284)');
+select is(public.is_back_office('legal'::public.user_role), false, 'is_back_office: legal denied — access is the LEGAL_ROLES TS gate (spec 284)');
+select is(public.is_site_staff('legal'::public.user_role), false, 'is_site_staff: legal denied (spec 284)');
 
 select * from finish();
 rollback;

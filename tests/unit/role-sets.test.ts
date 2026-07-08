@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 import {
   ACCOUNTING_ROLES,
   BACK_OFFICE_ROLES,
+  DOC_APPROVAL_ROLES,
+  LEGAL_ROLES,
   PAYROLL_ROLES,
   PM_ROLES,
   PO_DETAIL_VIEW_ROLES,
@@ -37,6 +39,20 @@ describe("role sets", () => {
     expect([...ACCOUNTING_ROLES]).toEqual(["accounting", "super_admin"]);
     expect(ACCOUNTING_ROLES).not.toContain("project_manager");
     expect(ACCOUNTING_ROLES).not.toContain("project_director");
+  });
+
+  // Spec 284 / ADR 0080: the Legal department's auth-role — the ONE new role the
+  // org-chart epic adds (Legal needs new surfaces + isolation). Mirrors
+  // ACCOUNTING_ROLES (dept role + super_admin). DOC_APPROVAL_ROLES = LEGAL_ROLES in
+  // v1 (named separately so it can widen without touching Legal gates). U3/U4 gate
+  // contracts + document_approvals on these. Head is a field, not a role — no legal_manager.
+  it("LEGAL_ROLES is legal + super_admin only (spec 284 / ADR 0080)", () => {
+    expect([...LEGAL_ROLES]).toEqual(["legal", "super_admin"]);
+    expect(LEGAL_ROLES).not.toContain("accounting");
+  });
+
+  it("DOC_APPROVAL_ROLES equals LEGAL_ROLES in v1", () => {
+    expect([...DOC_APPROVAL_ROLES]).toEqual(["legal", "super_admin"]);
   });
 
   // Spec 152 / ADR 0058: project_director is a see-all project_manager — it

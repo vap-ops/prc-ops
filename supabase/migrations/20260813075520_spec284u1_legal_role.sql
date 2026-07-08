@@ -1,0 +1,18 @@
+-- ============================================================================
+-- Spec 284 U1 / ADR 0080 — add the `legal` auth-role (the Legal department's login).
+--
+-- The ONE new role the org-chart epic adds: Legal needs new feature surfaces
+-- (contracts, document approval) AND data isolation, so it earns a role (the rule:
+-- a new department reuses roles by default; a new role only for genuinely new
+-- capability + isolation). Enum ordering is not load-bearing (ADR 0008); appended
+-- last. OWN migration by necessity — Postgres forbids USING a new enum value in
+-- the txn that ADDs it; U3/U4 reference `legal` in RLS/RPCs, committed after this.
+--
+-- This unit adds the value + wires the TS role-sets (LEGAL_ROLES/DOC_APPROVAL_ROLES),
+-- the Thai label (ฝ่ายกฎหมาย), and the enum pin. roleHome + nav are deferred to U5
+-- (when /legal exists); until then `legal` falls through roleHome() → /coming-soon,
+-- the house pattern for a still-unbuilt role surface (hr/subcon_manager/site_owner/
+-- auditor do the same). The Legal head is a field (departments.head_user_id, U0),
+-- NOT a role — no legal_manager.
+-- ============================================================================
+alter type public.user_role add value if not exists 'legal';
