@@ -6927,3 +6927,36 @@ Worktree ../prc-ops-spec284-u1, branch spec284-u1 off main `1191a426`. ADR 0080.
 
 NEXT: U2 org-chart read (code, auto-merge) · U3 contracts · U4 document_approvals · U5 /legal surfaces
 (where roleHome('legal')→/legal + LEGAL nav land).
+
+## Spec 284 U2 — org-chart read + settings card — DONE (2026-07-09)
+
+Worktree ../prc-ops-spec284-u2, branch spec284-u2 off main `541da4a0`. ADR 0080. **CODE-ONLY** (no
+schema) → auto-merges on green.
+
+- **`src/lib/org/org-chart.ts`** — pure `buildOrgChart(departments, users): OrgChartDept[]`: filters
+  active depts, orders by `sort_order`, groups members by `users.department_id`, resolves head from
+  `head_user_id`, `full_name`→`(ไม่มีชื่อ)` fallback; users with NULL department_id placed nowhere.
+- **`/settings/org-chart/page.tsx`** — `requireRole(["super_admin"])` (the users RLS "super_admin full
+  access" is what permits the all-users read — same reason as `/settings/roles`; non-super would see
+  only self), reads `departments` + `users` via the RLS session client, renders one card per dept
+  (name · head or "ยังไม่กำหนด" · members or "ยังไม่มีสมาชิก"). Mirrors the `/settings/integrity` card
+  pattern (`border-edge bg-card rounded-xl`). Read-only.
+- **`sections.ts`** — `โครงสร้างองค์กร` card in the super_admin `admin` section (Network icon).
+
+**Scope decisions:**
+
+- **Registrations dept-filter (planned in U2) DEFERRED/surfaced** — ADR 0080 puts department on
+  `users.department_id`, but registrations are pre-user + role-based and there is NO role→dept map
+  (deliberately — "a new dept reuses roles"). A dept filter on `/registrations` would need an un-specced
+  role→dept mapping. The org-chart card alone is the "real consumer" that prevents dept-table rot.
+- **super_admin-only** (not the plan's "back-office + super_admin") — back-office viewing needs the admin
+  client for the all-users read (RLS gives non-super only self). Broadening = a follow-up.
+- **Read-only** — assign UI (set_user_department / set_department_head) is a later unit; members render
+  empty until the operator assigns departments (backfill = an operator data task).
+
+**Verification:** `org-chart.test.ts` (4) + updated pins (`settings-sections` admin-hrefs,
+`nav-back-affordance` STATIC_DETAIL classify) + design-doctrine guard; full vitest **3193/3193**;
+typecheck 0 · lint 0. Live render not browser-checked (preview targets main dir + super-admin auth
+friction) — page clones the working `/settings/integrity` pattern; eyeball post-deploy.
+
+NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
