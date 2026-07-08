@@ -30,12 +30,25 @@ export async function startStaffRegistration(input: {
   fullName: string;
   phone: string;
   declaredRoleHint?: string;
+  // Spec 279 F2b — carried by the SA's per-project QR (?by / ?project). Read off
+  // a URL, so attacker-controllable: gate on UUID SHAPE here and DROP anything
+  // malformed (the RPC args are typed `uuid` — a non-uuid would 22P02 and block a
+  // legitimate applicant). A well-formed-but-forged uuid still reaches the RPC,
+  // which existence-coerces it to NULL. Never an authz signal (advisory only).
+  invitedBy?: string;
+  invitedProjectId?: string;
 }): Promise<StartResult> {
   const fullName = input.fullName.trim();
   const phone = input.phone.trim();
   const declaredRoleHint = input.declaredRoleHint?.trim() ?? "";
   if (!fullName) return { ok: false, error: "กรุณาระบุชื่อ-นามสกุล" };
   if (!phone) return { ok: false, error: "กรุณาระบุเบอร์โทร" };
+
+  const invitedBy = input.invitedBy && isValidUuid(input.invitedBy) ? input.invitedBy : undefined;
+  const invitedProjectId =
+    input.invitedProjectId && isValidUuid(input.invitedProjectId)
+      ? input.invitedProjectId
+      : undefined;
 
   const auth = await getActionUser();
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
@@ -44,6 +57,8 @@ export async function startStaffRegistration(input: {
     p_full_name: fullName,
     p_phone: phone,
     ...(declaredRoleHint ? { p_declared_role_hint: declaredRoleHint } : {}),
+    ...(invitedBy ? { p_invited_by: invitedBy } : {}),
+    ...(invitedProjectId ? { p_invited_project_id: invitedProjectId } : {}),
   });
   if (error) return { ok: false, error: registrationErrorToThai(error.message) };
   if (!data) return { ok: false, error: GENERIC };

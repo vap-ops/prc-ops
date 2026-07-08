@@ -81,8 +81,8 @@ select has_function('public', 'can_see_staff_registration', array['uuid'],
   'can_see_staff_registration helper exists');
 select hasnt_function('public', 'can_see_technician_registration', array['uuid'],
   'can_see_technician_registration is GONE');
-select has_function('public', 'start_staff_registration', array['text','text','text'],
-  'start_staff_registration(text,text,text) exists (declared_role_hint threaded)');
+select has_function('public', 'start_staff_registration', array['text','text','text','uuid','uuid'],
+  'start_staff_registration(text,text,text,uuid,uuid) exists (declared_role_hint + spec-279-F2b invite refs)');
 select has_function('public', 'update_own_staff_registration',
   array['text','text','date','text','text','text','text'],
   'update_own_staff_registration exists (declared_role_hint threaded)');

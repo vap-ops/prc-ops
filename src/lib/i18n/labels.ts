@@ -80,6 +80,10 @@ export const REGISTRATION_SITE_ASSIGN_HINT =
   "เลือกไซต์ที่ช่างคนนี้จะไปประจำ — เว้นว่างได้ถ้ายังไม่ทราบ";
 export const REGISTRATION_SITE_ASSIGN_EMPTY_OPTION = "— ไม่ระบุไซต์งาน (ถ้ามี) —";
 
+// Spec 279 F2b — the applicant scanned a specific SA's per-project QR; the
+// approval detail shows who invited them (เชิญโดย: <SA>) as advisory context.
+export const REGISTRATION_INVITED_BY_LABEL = "เชิญโดย";
+
 export const WORK_PACKAGE_STATUS_LABEL: Record<Enums["work_package_status"], string> = {
   not_started: "ยังไม่เริ่ม",
   in_progress: "กำลังดำเนินการ",

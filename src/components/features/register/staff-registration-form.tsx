@@ -72,6 +72,11 @@ export interface StaffRegistrationFormProps {
   uid: string | null;
   docUrls: Partial<Record<StaffDocPurpose, string>>;
   consentedAt: string | null;
+  /** Spec 279 F2b — the SA's per-project QR params (?by / ?project), forwarded to
+   *  the mint so the approver later sees เชิญโดย + the pre-filled site. Advisory:
+   *  the action UUID-gates them and the RPC existence-coerces. Mint-time only. */
+  invitedBy?: string | null;
+  invitedProjectId?: string | null;
 }
 
 export function StaffRegistrationForm({
@@ -80,6 +85,8 @@ export function StaffRegistrationForm({
   uid,
   docUrls,
   consentedAt,
+  invitedBy = null,
+  invitedProjectId = null,
 }: StaffRegistrationFormProps) {
   const router = useRouter();
   const toast = useToast();
@@ -118,7 +125,13 @@ export function StaffRegistrationForm({
     startTransition(async () => {
       const result = registrationExists
         ? await updateOwnStaffRegistration({ ...payload, declaredRoleHint })
-        : await startStaffRegistration({ fullName, phone, declaredRoleHint });
+        : await startStaffRegistration({
+            fullName,
+            phone,
+            declaredRoleHint,
+            ...(invitedBy ? { invitedBy } : {}),
+            ...(invitedProjectId ? { invitedProjectId } : {}),
+          });
       if (!result.ok) {
         setError(result.error);
         return;

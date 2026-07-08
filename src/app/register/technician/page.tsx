@@ -29,14 +29,16 @@ export const metadata = { title: "สมัครเป็นช่าง" };
 export default async function RegisterTechnicianPage({
   searchParams,
 }: {
-  // Spec 279 F2a — the SA's per-project QR carries `?site=<label>` (plus
-  // `project`/`by`, read later by F2b). `site` is a display-only, untrusted label
-  // (the SA minted the QR) shown so the applicant can confirm they scanned the
-  // right project's code before registering. React escapes it as text content.
-  searchParams: Promise<{ site?: string }>;
+  // Spec 279 F2a/F2b — the SA's per-project QR carries `?site=<label>` (display),
+  // `?project=<id>` and `?by=<sa_uid>` (attribution). `site` is a display-only,
+  // untrusted label shown so the applicant can confirm they scanned the right
+  // project's code (React escapes it). `project`/`by` are forwarded to the mint
+  // (F2b): the action UUID-gates them and the RPC existence-coerces — they are
+  // advisory, never an authz signal.
+  searchParams: Promise<{ site?: string; project?: string; by?: string }>;
 }) {
   const supabase = await createClient();
-  const { site } = await searchParams;
+  const { site, project, by } = await searchParams;
 
   const { data } = await supabase.auth.getClaims();
   // spec 263 follow-up — thread a return path so a logged-out technician who
@@ -76,6 +78,8 @@ export default async function RegisterTechnicianPage({
             uid={null}
             docUrls={{}}
             consentedAt={null}
+            invitedBy={by ?? null}
+            invitedProjectId={project ?? null}
             initial={{
               fullName: "",
               phone: "",

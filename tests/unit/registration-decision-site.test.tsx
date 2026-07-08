@@ -106,3 +106,66 @@ describe("RegistrationDecision — role selector (self-onboard: 2 field roles)",
     );
   });
 });
+
+describe("RegistrationDecision — invited project pre-select (spec 279 F2b)", () => {
+  it("pre-selects the invited project id so the approver can one-tap approve", () => {
+    render(
+      <RegistrationDecision registrationId="reg-1" projects={PROJECTS} invitedProjectId="p2" />,
+    );
+    expect((screen.getByLabelText("มอบหมายให้ไซต์งาน (ถ้ามี)") as HTMLSelectElement).value).toBe(
+      "p2",
+    );
+  });
+
+  it("defaults to empty when there is no invited project", () => {
+    render(<RegistrationDecision registrationId="reg-1" projects={PROJECTS} />);
+    expect((screen.getByLabelText("มอบหมายให้ไซต์งาน (ถ้ามี)") as HTMLSelectElement).value).toBe(
+      "",
+    );
+  });
+
+  it("approves with the pre-selected invited project id", async () => {
+    render(
+      <RegistrationDecision registrationId="reg-1" projects={PROJECTS} invitedProjectId="p2" />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "อนุมัติ" }));
+    await waitFor(() =>
+      expect(mockApprove).toHaveBeenCalledWith(
+        expect.objectContaining({ registrationId: "reg-1", projectId: "p2" }),
+      ),
+    );
+  });
+
+  // Trust-model guard: a mis-scanned / cross-project / non-active (RLS-filtered)
+  // invited id is NOT a selectable option, so it must fall back to empty — the
+  // visible selection and the submitted value must never diverge (else a one-tap
+  // approve would silently bind the worker to an unconfirmed, visitor-supplied id).
+  it("falls back to empty when the invited project is not a selectable option", () => {
+    render(
+      <RegistrationDecision
+        registrationId="reg-1"
+        projects={PROJECTS}
+        invitedProjectId="p-ghost"
+      />,
+    );
+    expect((screen.getByLabelText("มอบหมายให้ไซต์งาน (ถ้ามี)") as HTMLSelectElement).value).toBe(
+      "",
+    );
+  });
+
+  it("approves with projectId null for an out-of-scope invited project (never a hidden bind)", async () => {
+    render(
+      <RegistrationDecision
+        registrationId="reg-1"
+        projects={PROJECTS}
+        invitedProjectId="p-ghost"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "อนุมัติ" }));
+    await waitFor(() =>
+      expect(mockApprove).toHaveBeenCalledWith(
+        expect.objectContaining({ registrationId: "reg-1", projectId: null }),
+      ),
+    );
+  });
+});
