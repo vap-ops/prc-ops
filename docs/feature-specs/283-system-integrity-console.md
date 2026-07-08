@@ -1,7 +1,8 @@
-# Spec 281 — System Integrity Console (`ตรวจระบบ`)
+# Spec 283 — System Integrity Console (`ตรวจระบบ`)
 
 **Status:** 🟡 **DESIGN — awaiting spec review.** Not started.
-**ADR:** 0080 to be authored (check-registry pattern + scheduled integrity runner + 2-tier config + super_admin console).
+**Number:** originally drafted as 281; renumbered to **283** after a concurrent session merged a different spec 281 (`281-tomorrow-work-recommender`) and claimed 282.
+**ADR:** a new ADR to be authored — number TBD (check-registry pattern + scheduled integrity runner + 2-tier config + super_admin console).
 **Origin:** operator directive 2026-07-08 — "design the feature that must be available to superadmin."
 Chosen from a ranked menu of three god-mode surfaces (① Integrity Console — recommended; ② Privileged-Action
 Ledger + Undo; ③ Automation Control Center). ① picked.
