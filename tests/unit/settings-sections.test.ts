@@ -103,6 +103,8 @@ describe("settings sections config (role → entries matrix)", () => {
 
   it("admin tools are super_admin-only", () => {
     expect(hrefs("admin", "super_admin")).toEqual([
+      // Spec 283: System Integrity Console (ตรวจระบบ).
+      "/settings/integrity",
       "/settings/roles",
       // Spec 274: super_admin "view as role" picker.
       "/settings/view-as",

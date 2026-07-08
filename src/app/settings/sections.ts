@@ -8,6 +8,7 @@ import {
   Files,
   Hammer,
   HardHat,
+  HeartPulse,
   Inbox,
   MessageSquarePlus,
   Package,
@@ -271,6 +272,14 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     title: "ผู้ดูแลระบบ",
     visible: (role) => role === "super_admin",
     entries: [
+      {
+        // Spec 283: System Integrity Console — scheduled invariant board.
+        kind: "link",
+        href: "/settings/integrity",
+        icon: HeartPulse,
+        label: "ตรวจระบบ",
+        hint: "สถานะความถูกต้องของระบบ (บัญชี/สิทธิ์/ข้อมูล) — ตรวจอัตโนมัติทุกชั่วโมง",
+      },
       {
         kind: "link",
         href: "/settings/roles",

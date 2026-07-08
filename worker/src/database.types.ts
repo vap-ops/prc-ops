@@ -2603,6 +2603,48 @@ export type Database = {
           },
         ]
       }
+      integrity_check_runs: {
+        Row: {
+          domain: string
+          drift: number | null
+          id: number
+          key: string
+          offending_count: number | null
+          ran_at: string
+          run_id: string
+          sample: Json | null
+          severity: string
+          status: string
+          trigger: string
+        }
+        Insert: {
+          domain: string
+          drift?: number | null
+          id?: never
+          key: string
+          offending_count?: number | null
+          ran_at?: string
+          run_id: string
+          sample?: Json | null
+          severity: string
+          status: string
+          trigger: string
+        }
+        Update: {
+          domain?: string
+          drift?: number | null
+          id?: never
+          key?: string
+          offending_count?: number | null
+          ran_at?: string
+          run_id?: string
+          sample?: Json | null
+          severity?: string
+          status?: string
+          trigger?: string
+        }
+        Relationships: []
+      }
       interaction_events: {
         Row: {
           actor_id: string
@@ -7208,6 +7250,21 @@ export type Database = {
       }
     }
     Functions: {
+      _integrity_check_results: {
+        Args: never
+        Returns: {
+          domain: string
+          drift: number
+          implemented: boolean
+          key: string
+          offending_count: number
+          sample: Json
+          severity: string
+          status: string
+          title: string
+          unit: string
+        }[]
+      }
       acknowledge_site_purchase: { Args: { p_id: string }; Returns: undefined }
       add_assembly_component: {
         Args: {
@@ -7889,6 +7946,7 @@ export type Database = {
         Args: { p_project_id: string; p_rows: Json }
         Returns: Json
       }
+      integrity_scan: { Args: never; Returns: string }
       invoke_notification_drain: { Args: never; Returns: undefined }
       is_back_office: {
         Args: { p_role: Database["public"]["Enums"]["user_role"] }
@@ -8358,6 +8416,22 @@ export type Database = {
         Returns: undefined
       }
       revoke_contractor_consent: { Args: { p_id: string }; Returns: undefined }
+      run_and_record_integrity: { Args: never; Returns: string }
+      run_integrity_checks: {
+        Args: never
+        Returns: {
+          domain: string
+          drift: number
+          implemented: boolean
+          key: string
+          offending_count: number
+          sample: Json
+          severity: string
+          status: string
+          title: string
+          unit: string
+        }[]
+      }
       sa_add_project_worker: {
         Args: {
           p_dob: string
