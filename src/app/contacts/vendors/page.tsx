@@ -27,7 +27,7 @@ export default async function ContactsVendorsPage() {
   const suppliersRes = await supabase
     .from("suppliers")
     .select(
-      "id, name, phone, contact_person, email, mailing_address, tax_id, payment_terms, is_vat_registered, note",
+      "id, name, phone, contact_person, email, mailing_address, tax_id, payment_terms, is_vat_registered, note, contact_status",
     )
     .order("name", { ascending: true });
 
@@ -44,6 +44,9 @@ export default async function ContactsVendorsPage() {
       // Spec 191 U2: the VAT segmented toggle reads/writes "true"/"false".
       isVatRegistered: r.is_vat_registered ? "true" : "false",
       note: r.note,
+      // Spec 280 P2: the suppliers column is contact_status (spec 275 U0), surfaced
+      // under the shared "status" value key that drives the chip + sub-filter.
+      status: r.contact_status,
     },
   }));
 

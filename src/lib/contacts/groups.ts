@@ -1,7 +1,8 @@
 // Spec 99 — Contacts split into three groups (operator: "ติดต่อ is packed").
 // The pure tab-map: ContactsTabs renders from it and the group pages fetch per
-// group. Clients+suppliers are office orgs (no status); contractors/dc/service
-// are rated field crews (status/blacklist) — STATUS_TABS marks the latter.
+// group. Clients are office orgs (no status). Contractors/service — and, since
+// spec 275 U0 gave suppliers a contact_status, suppliers too (spec 280 P2) —
+// carry status/blacklist; STATUS_TABS marks them.
 
 // Spec 101: "suppliers" is a procurement-only subset of the vendors group —
 // procurement curates suppliers but cannot read service providers.
@@ -24,5 +25,9 @@ export const CONTACT_GROUP_TABS: Record<ContactGroup, readonly ContactTab[]> = {
 };
 
 // The tabs that carry a status (active/probation/blacklist) and thus the status
-// sub-filter. The others (clients, suppliers) are plain business orgs.
-export const STATUS_TABS: ReadonlySet<ContactTab> = new Set<ContactTab>(["contractors", "service"]);
+// sub-filter. Clients stay a plain business org.
+export const STATUS_TABS: ReadonlySet<ContactTab> = new Set<ContactTab>([
+  "contractors",
+  "service",
+  "suppliers",
+]);

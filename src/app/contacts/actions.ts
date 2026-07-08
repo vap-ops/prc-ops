@@ -217,6 +217,7 @@ export async function createSupplierRecord(input: {
   taxId?: string;
   paymentTerms?: string;
   isVatRegistered?: string;
+  status?: string;
 }): Promise<RecordActionResult> {
   const gate = await backOfficeSession();
   if (!gate.ok) return gate;
@@ -233,6 +234,18 @@ export async function createSupplierRecord(input: {
   // Spec 191 U2: a VAT-registered supplier must carry the 13-digit tax id.
   const isVat = input.isVatRegistered === "true";
   if (isVat && taxRes.value === null) return { ok: false, error: VAT_NEEDS_TAX_ID };
+  // Spec 280 P2: suppliers gained contact_status (spec 275 U0) — mirror the
+  // contractor/service blacklist gate. Creating a supplier directly AS blacklisted
+  // is manager-tier only.
+  const st = checkEnum(E.contact_status, input.status);
+  if (!st.ok) return { ok: false, error: GENERIC };
+  if (
+    st.value !== undefined &&
+    crossesBlacklistBoundary(null, st.value) &&
+    !PROCUREMENT_MANAGER_ROLES.includes(gate.role)
+  ) {
+    return { ok: false, error: BLACKLIST_MANAGER_ONLY };
+  }
 
   const { error } = await gate.supabase.from("suppliers").insert({
     name: input.name.trim(),
@@ -245,6 +258,7 @@ export async function createSupplierRecord(input: {
     payment_terms: norm(input.paymentTerms),
     is_vat_registered: isVat,
     created_by: gate.userId,
+    ...(st.value !== undefined ? { contact_status: st.value } : {}),
   });
   if (error) return { ok: false, error: GENERIC };
   revalidatePath(CONTACTS_PATH);
@@ -262,6 +276,7 @@ export async function updateSupplierRecord(input: {
   taxId?: string;
   paymentTerms?: string;
   isVatRegistered?: string;
+  status?: string;
 }): Promise<RecordActionResult> {
   const gate = await backOfficeSession();
   if (!gate.ok) return gate;
@@ -295,6 +310,25 @@ export async function updateSupplierRecord(input: {
   if (input.paymentTerms !== undefined) patch.payment_terms = norm(input.paymentTerms);
   if (input.isVatRegistered !== undefined) {
     patch.is_vat_registered = input.isVatRegistered === "true";
+  }
+  if (input.status !== undefined) {
+    const st = checkEnum(E.contact_status, input.status);
+    if (!st.ok || st.value === undefined) return { ok: false, error: GENERIC };
+    patch.contact_status = st.value;
+  }
+  // Spec 280 P2 (mirrors spec 261 / ADR 0070 item 4): crossing the blacklist
+  // boundary is manager-tier only; ordinary edits (active↔probation) stay
+  // back-office. Read the current status under the caller session so an unblacklist
+  // is gated too. Managers skip the read. (Suppliers' column is contact_status.)
+  if (patch.contact_status !== undefined && !PROCUREMENT_MANAGER_ROLES.includes(gate.role)) {
+    const { data: current } = await gate.supabase
+      .from("suppliers")
+      .select("contact_status")
+      .eq("id", input.id)
+      .maybeSingle();
+    if (crossesBlacklistBoundary(current?.contact_status, patch.contact_status)) {
+      return { ok: false, error: BLACKLIST_MANAGER_ONLY };
+    }
   }
   if (Object.keys(patch).length === 0) return { ok: true };
 

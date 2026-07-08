@@ -66,6 +66,9 @@ const CLIENT_FIELDS: RecordFieldDef[] = [
 
 const SUPPLIER_FIELDS: RecordFieldDef[] = [
   { key: "name", label: "ชื่อผู้ขาย", type: "text", maxLength: 200 },
+  // Spec 280 P2: suppliers carry contact_status (spec 275 U0) — blacklist gate is
+  // manager-tier (enforced in updateSupplierRecord), same as contractors/service.
+  { key: "status", label: "สถานะ", type: "select", options: STATUS_OPTIONS },
   { key: "phone", label: "เบอร์โทร", type: "phone", maxLength: 50 },
   { key: "contactPerson", label: "ผู้ติดต่อ", type: "text", maxLength: 120 },
   { key: "email", label: "อีเมล", type: "email", maxLength: 200 },
@@ -160,6 +163,7 @@ function clientUpdate(id: string, v: Record<string, string>) {
 function supplierCreate(v: Record<string, string>) {
   return createSupplierRecord({
     name: v.name ?? "",
+    ...pick(v, "status"),
     ...pick(v, "phone"),
     ...pick(v, "contactPerson"),
     ...pick(v, "email"),
@@ -174,6 +178,7 @@ function supplierUpdate(id: string, v: Record<string, string>) {
   return updateSupplierRecord({
     id,
     ...pick(v, "name"),
+    ...pick(v, "status"),
     ...pick(v, "phone"),
     ...pick(v, "contactPerson"),
     ...pick(v, "email"),
@@ -369,7 +374,7 @@ export function ContactsTabs({
           onUpdate={supplierUpdate}
           addInSheet
           {...(linkDetails ? { rowHref: (r: RecordRow) => `/contacts/suppliers/${r.id}` } : {})}
-          {...(supplierBadges ? { rowBadge: (r: RecordRow) => supplierBadges[r.id] ?? null } : {})}
+          rowBadge={(r: RecordRow) => statusBadge(r) ?? supplierBadges?.[r.id] ?? null}
         />
       ) : null}
       {tab === "contractors" ? (
