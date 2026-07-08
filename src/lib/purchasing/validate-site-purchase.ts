@@ -15,8 +15,8 @@ export interface ValidatedSitePurchase {
   itemDescription: string;
   quantity: number;
   unit: string;
-  // Spec 103: optional purchase amount (THB) — feeds dashboard material spend.
-  amount: number | null;
+  // Spec 285 U1: required purchase amount (THB) — an expense must have a cost.
+  amount: number;
   // Spec 176 U4: the reactive-reason tag — required, no default.
   reasonCode: PurchaseReasonCode;
   // Spec 211 U11c-B: VAT rate (%) of a tax-invoiced buy; 0 = cash / no invoice.
@@ -57,8 +57,11 @@ export function validateSitePurchase(input: {
   if (!Number.isFinite(input.quantity) || input.quantity <= 0) {
     return { ok: false, error: "จำนวนต้องเป็นตัวเลขมากกว่าศูนย์" };
   }
-  if (input.amount !== null && (!Number.isFinite(input.amount) || input.amount <= 0)) {
-    return { ok: false, error: "จำนวนเงินต้องเป็นตัวเลขมากกว่าศูนย์" };
+  // Spec 285 U1: amount is REQUIRED — a site expense must carry a cost (this
+  // is what blocks the ขอซื้อ-meant-as-ซื้อเอง misfire: a would-be requester has
+  // no amount yet, so an expense won't save and they are pushed to the request).
+  if (input.amount === null || !Number.isFinite(input.amount) || input.amount <= 0) {
+    return { ok: false, error: "กรุณาระบุจำนวนเงินที่จ่าย" };
   }
   // Spec 176 U4: required reactive-reason tag — the on-site path is reactive too.
   if (!isPurchaseReasonCode(input.reasonCode)) {

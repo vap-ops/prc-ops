@@ -1,7 +1,6 @@
-// Spec 211 U11c-B — the unified self-purchase form. Load-bearing contracts: a
-// free-text buy routes to recordSitePurchase (and its success reveals the item +
-// docs uploaders); a catalog item with "ใช้ที่งานนี้เลย" routes to
-// sitePurchaseUseNow; and a tax-invoice toggle passes the VAT rate either way.
+// Spec 285 U1 — the self-purchase is now a catalog-only, amount-required expense.
+// No free-text (พิมพ์เอง), no ใช้ที่งานนี้เลย (use-now); it always records via
+// recordSitePurchase (the attachable path) and reveals the item + docs uploaders.
 
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -58,13 +57,29 @@ function renderForm() {
   );
 }
 
-describe("SelfPurchaseForm (spec 211 U11c-B)", () => {
-  it("records a free-text VAT buy and reveals the uploaders", async () => {
+async function pickItem(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: "เลือกวัสดุจากแคตตาล็อก" }));
+  await user.click(screen.getByRole("button", { name: /สายไฟ/ }));
+}
+
+describe("SelfPurchaseForm (spec 285 U1 — catalog-only expense)", () => {
+  it("is catalog-only — no พิมพ์เอง (free-text) toggle", () => {
+    renderForm();
+    expect(screen.queryByText("พิมพ์เอง")).toBeNull();
+    expect(screen.queryByLabelText("รายการที่ซื้อ")).toBeNull();
+  });
+
+  it("has no ใช้ที่งานนี้เลย (use-now) toggle", async () => {
     const user = userEvent.setup();
     renderForm();
-    await user.click(screen.getByRole("button", { name: "พิมพ์เอง" }));
-    await user.type(screen.getByLabelText("รายการที่ซื้อ"), "ปูน");
-    await user.type(screen.getByLabelText("หน่วย"), "ถุง");
+    await pickItem(user);
+    expect(screen.queryByLabelText(/ใช้ที่งานนี้เลย/)).toBeNull();
+  });
+
+  it("records a catalog expense (amount required) and reveals the uploaders", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await pickItem(user);
     await user.type(screen.getByLabelText("จำนวน"), "5");
     await user.type(screen.getByLabelText("จำนวนเงิน (บาท)"), "107");
     await user.click(screen.getByLabelText("มีใบกำกับภาษี (แยกภาษีซื้อ)"));
@@ -75,8 +90,8 @@ describe("SelfPurchaseForm (spec 211 U11c-B)", () => {
     expect(mockRecord).toHaveBeenCalledWith(
       expect.objectContaining({
         workPackageId: WP,
-        itemDescription: "ปูน",
-        unit: "ถุง",
+        itemDescription: "สายไฟ 3x6",
+        unit: "ม้วน",
         quantity: 5,
         amount: 107,
         vatRate: 7,
@@ -87,44 +102,21 @@ describe("SelfPurchaseForm (spec 211 U11c-B)", () => {
     expect(screen.getByTestId("invoice-uploader")).toBeInTheDocument();
   });
 
-  it("buys-&-uses a catalog item now (routes to sitePurchaseUseNow at gross unit cost)", async () => {
+  it("blocks recording when no amount is entered (amount required)", async () => {
     const user = userEvent.setup();
     renderForm();
-    // Catalog selection is the same search picker as สร้างคำขอซื้อ (CatalogItemPicker):
-    // open the sheet, pick the result row.
-    await user.click(screen.getByRole("button", { name: "เลือกวัสดุจากแคตตาล็อก" }));
-    await user.click(screen.getByRole("button", { name: /สายไฟ/ }));
-    await user.click(screen.getByLabelText("ซื้อเข้าคลังแล้วใช้ที่งานนี้เลย"));
-    await user.type(screen.getByLabelText("จำนวน"), "2");
-    await user.type(screen.getByLabelText("จำนวนเงิน (บาท)"), "200");
-    await user.click(screen.getByRole("button", { name: "ซื้อใช้ที่งานนี้เลย" }));
-
-    await waitFor(() => expect(mockUseNow).toHaveBeenCalledTimes(1));
-    expect(mockUseNow).toHaveBeenCalledWith(
-      expect.objectContaining({
-        projectId: PROJECT,
-        workPackageId: WP,
-        catalogItemId: "ci-1",
-        qty: 2,
-        unitCost: 100,
-        vatRate: 0,
-      }),
-    );
+    await pickItem(user);
+    await user.type(screen.getByLabelText("จำนวน"), "5");
+    await user.selectOptions(screen.getByLabelText("เหตุผลที่ต้องซื้อ"), "unplanned_miss");
+    await user.click(screen.getByRole("button", { name: "บันทึกการซื้อ" }));
     expect(mockRecord).not.toHaveBeenCalled();
-  });
-
-  it("offers ใช้ที่งานนี้เลย only for a catalog item, not free-text", async () => {
-    const user = userEvent.setup();
-    renderForm();
-    await user.click(screen.getByRole("button", { name: "พิมพ์เอง" }));
-    expect(screen.queryByLabelText("ซื้อเข้าคลังแล้วใช้ที่งานนี้เลย")).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toBeInTheDocument();
   });
 
   it("labels a picked catalog item with its managed category name (spec 221)", async () => {
     const user = userEvent.setup();
     renderForm();
-    await user.click(screen.getByRole("button", { name: "เลือกวัสดุจากแคตตาล็อก" }));
-    await user.click(screen.getByRole("button", { name: /สายไฟ/ }));
+    await pickItem(user);
     // The chosen chip shows "<managed category name> · <unit>", not an enum label.
     expect(screen.getByText(/งานไฟฟ้า · ม้วน/)).toBeInTheDocument();
   });
