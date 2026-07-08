@@ -16,7 +16,6 @@ import {
 import type { AccountingActionResult } from "@/lib/accounting/billing-actions";
 import type { Database } from "@/lib/db/database.types";
 
-type QuotationStatus = Database["public"]["Enums"]["quotation_status"];
 type ReceiptMethod = Database["public"]["Enums"]["receipt_method"];
 
 function drillPath(projectId: string): string {
@@ -49,22 +48,6 @@ export async function createQuotation(input: {
   };
   if (input.note) args.p_note = input.note;
   const { error } = await g.auth.supabase.rpc("create_quotation", args);
-  if (error) return { ok: false, error: GENERIC };
-  revalidatePath(drillPath(input.projectId));
-  return { ok: true };
-}
-
-export async function setQuotationStatus(input: {
-  projectId: string;
-  quotationId: string;
-  status: QuotationStatus;
-}): Promise<AccountingActionResult> {
-  const g = await requireActionRole(BILLING_WRITE_ROLES, GENERIC);
-  if ("error" in g) return { ok: false, error: g.error };
-  const { error } = await g.auth.supabase.rpc("update_quotation", {
-    p_id: input.quotationId,
-    p_status: input.status,
-  });
   if (error) return { ok: false, error: GENERIC };
   revalidatePath(drillPath(input.projectId));
   return { ok: true };
@@ -187,29 +170,6 @@ export async function addInstallment(input: {
   return { ok: true };
 }
 
-export async function removeInstallment(input: {
-  projectId: string;
-  installmentId: string;
-}): Promise<AccountingActionResult> {
-  const g = await requireActionRole(BILLING_WRITE_ROLES, GENERIC);
-  if ("error" in g) return { ok: false, error: g.error };
-  const { error } = await g.auth.supabase.rpc("remove_contract_installment", {
-    p_id: input.installmentId,
-  });
-  // 23503 = a billing references the งวด — surface a specific, actionable message.
-  if (error) {
-    return {
-      ok: false,
-      error:
-        error.code === "23503"
-          ? "ลบไม่ได้ — มีงวดวางบิลอ้างถึงงวดนี้อยู่ (ยกเลิกการเชื่อมก่อน)"
-          : GENERIC,
-    };
-  }
-  revalidatePath(drillPath(input.projectId));
-  return { ok: true };
-}
-
 // Advance receipt — money before billing/contract (the recurring real case).
 export async function recordAdvanceReceipt(input: {
   projectId: string;
@@ -237,31 +197,5 @@ export async function recordAdvanceReceipt(input: {
   const { error } = await g.auth.supabase.rpc("record_client_receipt", args);
   if (error) return { ok: false, error: GENERIC };
   revalidatePath(drillPath(input.projectId));
-  return { ok: true };
-}
-
-// Re-allocate an advance onto a billing (supersede with full replacement).
-export async function reallocateAdvance(input: {
-  projectId: string;
-  receiptId: string;
-  billingId: string;
-  amount: number;
-  receivedDate: string;
-  method: string;
-}): Promise<AccountingActionResult> {
-  const g = await requireActionRole(BILLING_WRITE_ROLES, GENERIC);
-  if ("error" in g) return { ok: false, error: g.error };
-  if (!(input.amount > 0)) return { ok: false, error: GENERIC };
-  const { error } = await g.auth.supabase.rpc("supersede_client_receipt", {
-    p_receipt_id: input.receiptId,
-    p_amount: input.amount,
-    p_received_date: input.receivedDate,
-    p_method: input.method as ReceiptMethod,
-    p_billing_id: input.billingId,
-    p_note: "",
-  });
-  if (error) return { ok: false, error: GENERIC };
-  revalidatePath(drillPath(input.projectId));
-  revalidatePath("/accounting/billings");
   return { ok: true };
 }
