@@ -29,6 +29,34 @@ export function aggregateSupplierSpend(
   return bySupplier;
 }
 
+// Spec 280 — per-vendor spend BY material category, for the vendor detail page.
+// Same committed basis as aggregateSupplierSpend (in-transit + received) but the
+// rows are already scoped to one supplier by the caller and pre-resolved to a
+// category (catalog_item → category). count includes amount-less PRs (a committed
+// purchase happened); spend sums only captured amounts (often null → partial).
+export interface CategorySpendRow {
+  categoryId: string | null;
+  spend: number;
+  count: number;
+}
+
+export function aggregateSupplierCategorySpend(
+  prs: ReadonlyArray<{ amount: number | null; status: string; categoryId: string | null }>,
+): CategorySpendRow[] {
+  const byCategory = new Map<string | null, { spend: number; count: number }>();
+  for (const pr of prs) {
+    const band = procurementBand(pr.status);
+    if (band !== "in_transit" && band !== "received") continue;
+    const cur = byCategory.get(pr.categoryId) ?? { spend: 0, count: 0 };
+    if (pr.amount != null) cur.spend += pr.amount;
+    cur.count += 1;
+    byCategory.set(pr.categoryId, cur);
+  }
+  return [...byCategory.entries()]
+    .map(([categoryId, v]) => ({ categoryId, ...v }))
+    .sort((a, b) => b.spend - a.spend || b.count - a.count);
+}
+
 // Build the per-supplier spend chips as a SERIALIZABLE map (supplier id → badge),
 // so a Server Component can pass it across the RSC boundary to the client
 // ContactsTabs. A function prop throws there (spec 109 lesson); the client makes
