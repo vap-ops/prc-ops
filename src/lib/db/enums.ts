@@ -18,3 +18,7 @@ export type PurchaseRequestStatus = Enums["purchase_request_status"];
 export type PurchaseRequestPriority = Enums["purchase_request_priority"];
 export type ReworkSource = Enums["rework_source"];
 export type ClientAccessTier = Enums["client_access_tier"];
+// Spec 284 U3 / ADR 0080 — Legal contracts.
+export type ContractCounterpartyType = Enums["contract_counterparty_type"];
+export type ContractType = Enums["contract_type"];
+export type ContractStatus = Enums["contract_status"];

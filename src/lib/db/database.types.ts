@@ -1202,6 +1202,55 @@ export type Database = {
           },
         ]
       }
+      contract_attachments: {
+        Row: {
+          contract_id: string
+          created_at: string
+          id: string
+          storage_path: string
+          superseded_by: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          id?: string
+          storage_path: string
+          superseded_by?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          id?: string
+          storage_path?: string
+          superseded_by?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_attachments_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_attachments_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "contract_attachments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contract_installments: {
         Row: {
           amount: number
@@ -1523,6 +1572,78 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contracts: {
+        Row: {
+          agreed_amount: number | null
+          contract_type: Database["public"]["Enums"]["contract_type"]
+          counterparty_name: string
+          counterparty_type: Database["public"]["Enums"]["contract_counterparty_type"]
+          created_at: string
+          created_by: string | null
+          currency: string
+          document_path: string | null
+          effective_date: string | null
+          expiry_date: string | null
+          id: string
+          project_id: string | null
+          sign_date: string | null
+          status: Database["public"]["Enums"]["contract_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          agreed_amount?: number | null
+          contract_type: Database["public"]["Enums"]["contract_type"]
+          counterparty_name: string
+          counterparty_type: Database["public"]["Enums"]["contract_counterparty_type"]
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          document_path?: string | null
+          effective_date?: string | null
+          expiry_date?: string | null
+          id?: string
+          project_id?: string | null
+          sign_date?: string | null
+          status?: Database["public"]["Enums"]["contract_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          agreed_amount?: number | null
+          contract_type?: Database["public"]["Enums"]["contract_type"]
+          counterparty_name?: string
+          counterparty_type?: Database["public"]["Enums"]["contract_counterparty_type"]
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          document_path?: string | null
+          effective_date?: string | null
+          expiry_date?: string | null
+          id?: string
+          project_id?: string | null
+          sign_date?: string | null
+          status?: Database["public"]["Enums"]["contract_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -7361,6 +7482,10 @@ export type Database = {
         }
         Returns: string
       }
+      add_contract_attachment: {
+        Args: { p_contract_id: string; p_storage_path: string }
+        Returns: string
+      }
       add_contract_installment: {
         Args: {
           p_amount: number
@@ -7662,6 +7787,17 @@ export type Database = {
           p_po_no: string
           p_project_id: string
           p_quotation_id?: string
+        }
+        Returns: string
+      }
+      create_contract: {
+        Args: {
+          p_agreed_amount?: number
+          p_contract_type: Database["public"]["Enums"]["contract_type"]
+          p_counterparty_name: string
+          p_counterparty_type: Database["public"]["Enums"]["contract_counterparty_type"]
+          p_project_id?: string
+          p_title: string
         }
         Returns: string
       }
@@ -8930,6 +9066,21 @@ export type Database = {
         }
         Returns: string
       }
+      update_contract: {
+        Args: {
+          p_agreed_amount?: number
+          p_counterparty_name?: string
+          p_document_path?: string
+          p_effective_date?: string
+          p_expiry_date?: string
+          p_id: string
+          p_project_id?: string
+          p_sign_date?: string
+          p_status?: Database["public"]["Enums"]["contract_status"]
+          p_title?: string
+        }
+        Returns: undefined
+      }
       update_contract_installment: {
         Args: {
           p_amount: number
@@ -9109,6 +9260,7 @@ export type Database = {
         }
         Returns: string
       }
+      void_contract: { Args: { p_id: string }; Returns: undefined }
       void_purchase_order: { Args: { p_po_id: string }; Returns: undefined }
       void_purchase_order_charge: {
         Args: { p_charge_id: string }
@@ -9232,6 +9384,14 @@ export type Database = {
         | "vat_cert"
         | "contract"
       contact_status: "active" | "probation" | "blacklisted"
+      contract_counterparty_type: "client" | "contractor" | "supplier" | "other"
+      contract_status: "draft" | "active" | "expired" | "terminated" | "void"
+      contract_type:
+        | "client_agreement"
+        | "subcontract"
+        | "supply"
+        | "nda"
+        | "other"
       contractor_category: "contractor" | "dc"
       contractor_change_status: "pending" | "approved" | "rejected"
       contractor_consent_kind: "pdpa_data" | "background_check"
@@ -9640,6 +9800,15 @@ export const Constants = {
         "contract",
       ],
       contact_status: ["active", "probation", "blacklisted"],
+      contract_counterparty_type: ["client", "contractor", "supplier", "other"],
+      contract_status: ["draft", "active", "expired", "terminated", "void"],
+      contract_type: [
+        "client_agreement",
+        "subcontract",
+        "supply",
+        "nda",
+        "other",
+      ],
       contractor_category: ["contractor", "dc"],
       contractor_change_status: ["pending", "approved", "rejected"],
       contractor_consent_kind: ["pdpa_data", "background_check"],

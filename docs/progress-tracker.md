@@ -6,6 +6,50 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 284 U3 — contracts (Legal money/document posture) — DONE / db:push'd, PR held (2026-07-09)
+
+The Legal department's first money/document entity (spec §U3 / ADR 0080 dec 10). Clones the
+`subcontracts` shape + the `contact_attachments` append-only pattern on the binding zero-grant posture.
+
+- **Migration `20260813075530_spec284u3_contracts.sql` (ADDITIVE):**
+  - 3 enums — `contract_counterparty_type` (client|contractor|supplier|other) · `contract_type`
+    (client_agreement|subcontract|supply|nda|other) · `contract_status` (draft|active|expired|terminated|void).
+  - `contracts` — `counterparty_type` + `counterparty_name text not null` (denormalized display; **NO
+    mixed-content `counterparty_id`**, CLAUDE.md L22), optional `project_id` FK, `contract_type`, `title`,
+    nullable `agreed_amount numeric(14,2)`, `currency` (default THB), `sign/effective/expiry_date`, `status`
+    enum (default draft), `document_path`, `created_by`/`created_at`/`updated_at` (+ `set_updated_at` trigger).
+    Zero-grant: RLS on, NO policies, `revoke all from anon, authenticated`.
+  - `contract_attachments` — append-only + supersede (`superseded_by` self-FK), block trigger raises P0001
+    on UPDATE/DELETE/TRUNCATE for every role (incl. definer). Zero-grant.
+  - 4 SECURITY DEFINER RPCs `create_contract` / `update_contract` / `void_contract` / `add_contract_attachment`
+    — gated `LEGAL_ROLES` (legal, super_admin) **FAIL-CLOSED** via `v_role is distinct from 'legal' and …
+'super_admin'` (a null/unbound role raises 42501, never falls through — the rls-self-check-coalesce trap);
+    `revoke all … from public, anon` + `grant execute … to authenticated` INLINE (brand-new fns → no separate
+    anon-lock migration; the 229 invariant). `void_contract` SETS `status='void'` (never DELETE).
+  - **create_contract param reorder** (post-push, applied out-of-band to the live DB to match the file):
+    required fields first, `p_project_id`/`p_agreed_amount` trail WITH defaults so the generated rpc arg types
+    make them optional (a project-less NDA is valid). Postgres forbids a defaulted param before a non-defaulted one.
+- **`src/lib/db/enums.ts`** — `ContractCounterpartyType` / `ContractType` / `ContractStatus` aliases (SSOT).
+- **`src/lib/legal/contracts.ts`** (`"use server"`) — `createContract` / `updateContract` / `voidContract` /
+  `addContractAttachment` relay the RPCs on `requireActionRole(LEGAL_ROLES).auth.supabase` (NEVER the admin
+  client — its service-role null role would 42501 the gate; the billing/contact-docs lesson). Reads (via the
+  admin client behind requireRole) are U5's page concern.
+- **Verification (all green):** pgTAP `286-spec284u3-contracts.test.sql` **25/25** (schema · no-mixed-content
+  `counterparty_id` · zero-grant anon+authenticated · 4 RPCs fail-closed for a null-role caller · non-Legal
+  visitor session denied · anon has no EXECUTE on any RPC · Legal happy path create+attach+void · void sets
+  status≠DELETE · attachments append-only). Suite 252 files, only the pre-existing 200 (GL 1500 ties) + 221
+  (enum seed) reds — **zero collateral**. `legal-contracts-actions.test.ts` 8/8 (gate-before-RPC + arg mapping).
+  lint + typecheck + full vitest **3201/3201**. db:types regen (contracts + contract_attachments + 3 enums + 4 RPCs).
+- **Scope note (deferred, open Q):** NO `audit_log` writes this unit — the named `contact_attachments` template
+  - the plan's migration sketch are un-audited, and auditing would need `audit_action` enum values (own migration)
+  - the tests 03/18 enum pins. The money posture wants "audited"; surfaced as a follow-up rather than expanding
+    the operator's explicit single-`075530` deliverable. No GL posting (contracts record the deal + documents;
+    money movement stays in the payment entities).
+- **Danger-path (schema + money):** operator-held PR via `scripts/ship-pr.sh`. `075530` DB-AHEAD until merge; next
+  schema claims `075540+`.
+- NEXT (own sessions): U4 `document_approvals` (typed `contract_id` FK, append-only, approve→active) · U5 `/legal`
+  home + contracts + approvals queue (where `roleHome('legal')→/legal` + LEGAL nav finally land).
+
 ## Spec 285 U3 — split + relabel the expense out of the คำขอซื้อ tracker — ✅ COMPLETE (code-only, 2026-07-09)
 
 The de-commingle (spec §Design U3). Pulls the on-site self-purchase (ซื้อเอง) out of the shared "คำขอซื้อ" request tab and reframes it as a visibly separate **EXPENSE**, so a would-be requester can't mistake the two (closes the original misfire at the UX layer). No enum change — the row stays `source='site_purchase'`.
