@@ -20,6 +20,8 @@ import {
   type CrewProgressData,
   type CrewProgressMember,
 } from "@/components/features/sa/crew-progress-roster";
+import { CrewTeamRoster } from "@/components/features/sa/crew-team-roster";
+import { buildCrewTeams } from "@/lib/sa/crew-teams";
 import { AddWorkerForm } from "@/components/features/sa/add-worker-form";
 
 export const metadata = { title: "ทีมงาน" };
@@ -39,7 +41,7 @@ export default async function SaCrewPage() {
     .eq("is_group", false);
   const projectIds = Array.from(new Set((wpRows ?? []).map((w) => w.project_id)));
 
-  const [projectRes, workerRes, pendingRegistrations] = await Promise.all([
+  const [projectRes, workerRes, crewRes, memberRes, pendingRegistrations] = await Promise.all([
     projectIds.length
       ? supabase.from("projects").select("id, code, name").in("id", projectIds)
       : Promise.resolve({ data: null }),
@@ -50,6 +52,20 @@ export default async function SaCrewPage() {
           .eq("active", true)
           .in("project_id", projectIds)
           .order("name")
+      : Promise.resolve({ data: null }),
+    // Crews on the SA's projects (team dimension, U7b — readable via the site_admin
+    // project-scoped read arm). default_day_rate is NOT selected (money zero-grant).
+    projectIds.length
+      ? supabase
+          .from("crews")
+          .select("id, name, lead_worker_id")
+          .eq("active", true)
+          .in("project_id", projectIds)
+      : Promise.resolve({ data: null }),
+    // Active membership (RLS-scoped to the SA's visible crews). Worker↔crew derives
+    // from here (the SSOT); removed_at IS NULL = the current roster.
+    projectIds.length
+      ? supabase.from("crew_members").select("crew_id, worker_id").is("removed_at", null)
       : Promise.resolve({ data: null }),
     // /sa/registrations is the site_admin queue (RLS returns pending only);
     // super_admin uses /registrations, so it gets nothing here.
@@ -84,6 +100,10 @@ export default async function SaCrewPage() {
     ready: workerRows.filter((w) => w.cost_confirmed_at !== null).map(toMember),
   };
 
+  // The crew (team) lens (U7b) — the same roster grouped by crew: each crew's lead
+  // + members, plus the workers not yet on a crew. View-only for the SA.
+  const teamData = buildCrewTeams(workerRows, crewRes.data ?? [], memberRes.data ?? []);
+
   // One QR per project the SA runs. Each carries its own project (+ the inviting
   // SA's id) so a ช่าง scanning at a given site lands on /register/technician
   // already told WHICH project they're joining. Absolute URL so the QR resolves
@@ -113,6 +133,13 @@ export default async function SaCrewPage() {
       <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-6 px-5 py-6`}>
         {/* The onboarding pipeline the SA follows up on: รอตรวจ → รอยืนยัน → พร้อม (U7). */}
         <CrewProgressRoster data={crewData} registrationsHref="/sa/registrations" />
+
+        {/* The team lens (U7b) — the same roster grouped by crew (name + lead + members),
+            so it reads as teams-under-a-หัวหน้า. View-only; moves are PM-owned (U5). */}
+        <div className="flex flex-col gap-3">
+          <h2 className="text-body text-ink font-semibold">ทีม</h2>
+          <CrewTeamRoster data={teamData} />
+        </div>
 
         {/* เพิ่มเอง (phoneless) — the SA types a ช่าง in directly (name + national-ID +
             DOB → sa_add_project_worker, U4). The primary path for the no-phone majority;

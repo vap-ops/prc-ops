@@ -7704,6 +7704,7 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      current_user_sa_visible_crew_ids: { Args: never; Returns: string[] }
       current_user_worker_id: { Args: never; Returns: string }
       daily_work_plan_assert_writer: {
         Args: { p_project: string }
