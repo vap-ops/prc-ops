@@ -48,6 +48,7 @@ import {
 } from "@/lib/status-colors";
 import { approvalDecisionIcon, workPackageStatusIcon } from "@/lib/status-icons";
 import { loadWorkPackageDetail } from "@/lib/work-packages/load-detail";
+import { pickableContractors } from "@/lib/work-packages/contractor-picker";
 import { wpWalkFrom } from "@/lib/work-packages/wp-walk";
 import { WpWalkBar } from "@/components/features/work-packages/wp-walk-bar";
 import { loadGroupChildren, loadGroupMoney } from "@/lib/work-packages/load-group-detail";
@@ -299,9 +300,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
   const assignedContractor = wp.contractor_id
     ? (contractors.find((c) => c.id === wp.contractor_id) ?? null)
     : null;
-  const pickerContractors = contractors
-    .filter((c) => c.status !== "blacklisted" || c.id === wp.contractor_id)
-    .map(({ id, name, phone }) => ({ id, name, phone }));
+  const pickerContractors = pickableContractors(contractors, wp.contractor_id);
 
   const latestDecision = approvals[0] ?? null;
   const attention =
@@ -884,7 +883,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
                 <WpAssignmentPanel
                   projectId={wp.project_id}
                   workPackageId={wp.id}
-                  contractors={contractors}
+                  contractors={pickerContractors}
                   contractorId={wp.contractor_id}
                 />
               </div>
