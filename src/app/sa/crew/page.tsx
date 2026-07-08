@@ -12,6 +12,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { DETAIL_TITLE } from "@/lib/ui/classes";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
+import { bangkokTodayIso } from "@/lib/dates";
 import { clientEnv } from "@/lib/env";
 import { technicianOnboardUrl } from "@/lib/register/onboard-link";
 import { listVisibleTechnicianRegistrations } from "@/lib/register/admin-registrations";
@@ -40,37 +41,95 @@ export default async function SaCrewPage() {
     .select("project_id")
     .eq("is_group", false);
   const projectIds = Array.from(new Set((wpRows ?? []).map((w) => w.project_id)));
+  const today = bangkokTodayIso();
 
-  const [projectRes, workerRes, crewRes, memberRes, pendingRegistrations] = await Promise.all([
-    projectIds.length
-      ? supabase.from("projects").select("id, code, name").in("id", projectIds)
+  const [projectRes, workerRes, crewRes, memberRes, planRes, categoryRes, pendingRegistrations] =
+    await Promise.all([
+      projectIds.length
+        ? supabase.from("projects").select("id, code, name").in("id", projectIds)
+        : Promise.resolve({ data: null }),
+      projectIds.length
+        ? supabase
+            .from("workers")
+            .select("id, name, project_id, cost_confirmed_at, level, employment_type")
+            .eq("active", true)
+            .in("project_id", projectIds)
+            .order("name")
+        : Promise.resolve({ data: null }),
+      // Crews on the SA's projects (team dimension, U7b — readable via the site_admin
+      // project-scoped read arm). default_day_rate is NOT selected (money zero-grant).
+      projectIds.length
+        ? supabase
+            .from("crews")
+            .select("id, name, lead_worker_id")
+            .eq("active", true)
+            .in("project_id", projectIds)
+        : Promise.resolve({ data: null }),
+      // Active membership (RLS-scoped to the SA's visible crews). Worker↔crew derives
+      // from here (the SSOT); removed_at IS NULL = the current roster.
+      projectIds.length
+        ? supabase.from("crew_members").select("crew_id, worker_id").is("removed_at", null)
+        : Promise.resolve({ data: null }),
+      // Upcoming แผนพรุ่งนี้ boards (today onward) — the source of the U6 per-crew งาน
+      // label. Spec 273 grants SELECT + RLS-scopes via can_see_project.
+      projectIds.length
+        ? supabase
+            .from("daily_work_plans")
+            .select("id")
+            .gte("plan_date", today)
+            .in("project_id", projectIds)
+        : Promise.resolve({ data: null }),
+      // project_category id → GLOBAL work-category code (W0x) for the งาน category tile
+      // (spec 277, same resolution the /sa home uses).
+      projectIds.length
+        ? supabase
+            .from("project_categories")
+            .select("id, work_categories(code)")
+            .in("project_id", projectIds)
+        : Promise.resolve({ data: null }),
+      // /sa/registrations is the site_admin queue (RLS returns pending only);
+      // super_admin uses /registrations, so it gets nothing here.
+      ctx.role === "site_admin"
+        ? listVisibleTechnicianRegistrations(supabase)
+        : Promise.resolve([]),
+    ]);
+
+  // The งาน edge (U6): the SA's upcoming boards → their items → who is on each item
+  // → the งานย่อย detail. Fetched after the plans resolve (each read narrows the next
+  // by id, so RLS never full-scans). buildCrewTeams then maps items↔crew↔WP per crew.
+  const planIds = (planRes.data ?? []).map((p) => p.id);
+  const itemRes = planIds.length
+    ? await supabase
+        .from("daily_work_plan_items")
+        .select("id, work_package_id")
+        .in("plan_id", planIds)
+    : { data: null };
+  const planItems = itemRes.data ?? [];
+  const itemIds = planItems.map((i) => i.id);
+  const wpIds = Array.from(new Set(planItems.map((i) => i.work_package_id)));
+
+  const [planCrewRes, wpRes] = await Promise.all([
+    itemIds.length
+      ? supabase.from("daily_work_plan_crew").select("item_id, worker_id").in("item_id", itemIds)
       : Promise.resolve({ data: null }),
-    projectIds.length
-      ? supabase
-          .from("workers")
-          .select("id, name, project_id, cost_confirmed_at, level")
-          .eq("active", true)
-          .in("project_id", projectIds)
-          .order("name")
+    wpIds.length
+      ? supabase.from("work_packages").select("id, code, name, category_id").in("id", wpIds)
       : Promise.resolve({ data: null }),
-    // Crews on the SA's projects (team dimension, U7b — readable via the site_admin
-    // project-scoped read arm). default_day_rate is NOT selected (money zero-grant).
-    projectIds.length
-      ? supabase
-          .from("crews")
-          .select("id, name, lead_worker_id")
-          .eq("active", true)
-          .in("project_id", projectIds)
-      : Promise.resolve({ data: null }),
-    // Active membership (RLS-scoped to the SA's visible crews). Worker↔crew derives
-    // from here (the SSOT); removed_at IS NULL = the current roster.
-    projectIds.length
-      ? supabase.from("crew_members").select("crew_id, worker_id").is("removed_at", null)
-      : Promise.resolve({ data: null }),
-    // /sa/registrations is the site_admin queue (RLS returns pending only);
-    // super_admin uses /registrations, so it gets nothing here.
-    ctx.role === "site_admin" ? listVisibleTechnicianRegistrations(supabase) : Promise.resolve([]),
   ]);
+  const planCrew = planCrewRes.data ?? [];
+
+  const categoryCodeById = new Map<string, string>();
+  for (const c of categoryRes.data ?? []) {
+    const wc = c.work_categories;
+    const code = (Array.isArray(wc) ? wc[0]?.code : wc?.code) ?? null;
+    if (code) categoryCodeById.set(c.id, code);
+  }
+  const teamWorkPackages = (wpRes.data ?? []).map((wp) => ({
+    id: wp.id,
+    code: wp.code,
+    name: wp.name,
+    categoryCode: (wp.category_id && categoryCodeById.get(wp.category_id)) || null,
+  }));
 
   const projectList = (projectRes.data ?? []).map((p) => ({
     id: p.id,
@@ -100,9 +159,21 @@ export default async function SaCrewPage() {
     ready: workerRows.filter((w) => w.cost_confirmed_at !== null).map(toMember),
   };
 
-  // The crew (team) lens (U7b) — the same roster grouped by crew: each crew's lead
-  // + members, plus the workers not yet on a crew. View-only for the SA.
-  const teamData = buildCrewTeams(workerRows, crewRes.data ?? [], memberRes.data ?? []);
+  // The crew (team) lens (U7b + U6) — the roster grouped by crew: each crew's lead +
+  // members (with ประจำ/ชั่วคราว from employment_type) + the งาน it runs (U6). View-only.
+  const teamData = buildCrewTeams({
+    workers: workerRows.map((w) => ({
+      id: w.id,
+      name: w.name,
+      level: w.level,
+      employmentType: w.employment_type,
+    })),
+    crews: crewRes.data ?? [],
+    members: memberRes.data ?? [],
+    planItems,
+    planCrew,
+    workPackages: teamWorkPackages,
+  });
 
   // One QR per project the SA runs. Each carries its own project (+ the inviting
   // SA's id) so a ช่าง scanning at a given site lands on /register/technician

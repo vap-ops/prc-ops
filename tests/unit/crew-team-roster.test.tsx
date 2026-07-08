@@ -143,4 +143,68 @@ describe("CrewTeamRoster", () => {
     render(<CrewTeamRoster data={EMPTY} />);
     expect(screen.getByText(/ยังไม่มีทีม/)).toBeInTheDocument();
   });
+
+  // U6 — employment badge (internal vs day-hired).
+  it("badges a member's employment type — ประจำ vs ชั่วคราว", () => {
+    render(
+      <CrewTeamRoster
+        data={{
+          teams: [
+            {
+              id: "c1",
+              name: "ทีม A",
+              leadName: "หัวหน้า A",
+              members: [
+                { id: "w1", name: "คนประจำ", level: null, employmentType: "permanent" },
+                { id: "w2", name: "คนรายวัน", level: null, employmentType: "temporary" },
+              ],
+            },
+          ],
+          unassigned: [],
+        }}
+      />,
+    );
+    const team = screen.getByLabelText("ทีม A");
+    expect(within(team).getByText("ประจำ")).toBeInTheDocument();
+    expect(within(team).getByText("ชั่วคราว")).toBeInTheDocument();
+  });
+
+  // U6 — งาน row: the งานย่อย the crew is scheduled on.
+  it("shows the crew's งาน from แผนพรุ่งนี้", () => {
+    render(
+      <CrewTeamRoster
+        data={{
+          teams: [
+            {
+              id: "c1",
+              name: "ทีม A",
+              leadName: "หัวหน้า A",
+              members: [{ id: "w1", name: "ลูกทีม", level: null }],
+              workPackages: [
+                { id: "wp1", code: "F-02", name: "ฐานราก", categoryCode: "W01" },
+                { id: "wp2", code: "S-01", name: "เสาเอ็น", categoryCode: null },
+              ],
+            },
+          ],
+          unassigned: [],
+        }}
+      />,
+    );
+    const team = screen.getByLabelText("ทีม A");
+    expect(within(team).getByText("งาน")).toBeInTheDocument();
+    expect(within(team).getByText("ฐานราก")).toBeInTheDocument();
+    expect(within(team).getByText("เสาเอ็น")).toBeInTheDocument();
+  });
+
+  it("omits the งาน row when the crew has no scheduled งาน", () => {
+    render(
+      <CrewTeamRoster
+        data={{
+          teams: [{ id: "c1", name: "ทีม A", leadName: null, members: [], workPackages: [] }],
+          unassigned: [],
+        }}
+      />,
+    );
+    expect(within(screen.getByLabelText("ทีม A")).queryByText("งาน")).toBeNull();
+  });
 });
