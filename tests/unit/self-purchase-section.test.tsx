@@ -48,10 +48,26 @@ function renderSection() {
   );
 }
 
-describe("SelfPurchaseSection (spec 211 U11c-B)", () => {
-  it("frames the unified self-purchase form under one ซื้อเอง heading", () => {
+describe("SelfPurchaseSection (spec 285 U3 — the site-expense surface)", () => {
+  it("frames the form as an EXPENSE, not ซื้อเอง — expense heading, no legacy copy", () => {
     renderSection();
-    expect(screen.getByText("ซื้อเอง")).toBeInTheDocument();
+    expect(screen.getByText("บันทึกค่าใช้จ่าย (จ่ายเงินไปแล้ว)")).toBeInTheDocument();
+    // The old ซื้อเอง framing + the dropped free-text/use-now copy are gone.
+    expect(screen.queryByText("ซื้อเอง")).toBeNull();
+    expect(screen.queryByText(/พิมพ์เอง/)).toBeNull();
+    expect(screen.queryByText(/ใช้ที่งานนี้เลย/)).toBeNull();
+  });
+
+  it("carries a Receipt icon to distinguish the expense from a ขอซื้อ request", () => {
+    const { container } = render(
+      <SelfPurchaseSection
+        projectId={PROJECT_ID}
+        workPackageId={WP_ID}
+        catalogItems={catalogItems}
+        categories={categories}
+      />,
+    );
+    expect(container.querySelector("svg.lucide-receipt")).not.toBeNull();
   });
 
   it("is catalog-only — offers the material picker, no free-text toggle (spec 285 U1)", () => {
@@ -60,8 +76,8 @@ describe("SelfPurchaseSection (spec 211 U11c-B)", () => {
     expect(screen.queryByText("พิมพ์เอง")).toBeNull();
   });
 
-  it("offers the record submit by default (no catalog item picked yet)", () => {
+  it("offers the expense submit verb by default (no catalog item picked yet)", () => {
     renderSection();
-    expect(screen.getByRole("button", { name: "บันทึกการซื้อ" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "บันทึกค่าใช้จ่าย" })).toBeInTheDocument();
   });
 });

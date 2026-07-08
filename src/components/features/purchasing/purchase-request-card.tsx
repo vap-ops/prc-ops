@@ -6,12 +6,13 @@
 // single-anchor surface.
 
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Receipt } from "lucide-react";
 import { StatusIconBadge, StatusPill } from "@/components/features/common/status-pill";
 import { PurchaseRequestTracker } from "@/components/features/purchasing/purchase-request-tracker";
 import {
   PURCHASE_REQUEST_PRIORITY_LABEL,
   PURCHASE_REQUEST_STATUS_LABEL,
+  SITE_EXPENSE_BADGE,
   formatThaiDate,
 } from "@/lib/i18n/labels";
 import {
@@ -67,6 +68,15 @@ export function PurchaseRequestCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-0.5">
+          {/* Spec 285 U3 — a site_purchased row is an EXPENSE (money already
+              spent), not a pending request. A distinct badge de-commingles it
+              from the ขอซื้อ requests it shares this list with. */}
+          {request.status === "site_purchased" ? (
+            <span className="border-attn bg-attn-soft text-attn-ink inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold">
+              <Receipt aria-hidden className="size-3" />
+              {SITE_EXPENSE_BADGE}
+            </span>
+          ) : null}
           {workPackage ? (
             <p className="text-ink-secondary truncate text-xs">
               <span className="font-mono">{workPackage.code}</span>

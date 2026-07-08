@@ -6,6 +6,20 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 285 U3 — split + relabel the expense out of the คำขอซื้อ tracker — ✅ COMPLETE (code-only, 2026-07-09)
+
+The de-commingle (spec §Design U3). Pulls the on-site self-purchase (ซื้อเอง) out of the shared "คำขอซื้อ" request tab and reframes it as a visibly separate **EXPENSE**, so a would-be requester can't mistake the two (closes the original misfire at the UX layer). No enum change — the row stays `source='site_purchase'`.
+
+- **Labels (SSOT, additive disjoint region)** `src/lib/i18n/labels.ts` — `SITE_EXPENSE_TAB_LABEL = "ค่าใช้จ่ายหน้างาน"` · `SITE_EXPENSE_HEADING = "บันทึกค่าใช้จ่าย (จ่ายเงินไปแล้ว)"` · `SITE_EXPENSE_SUBMIT = "บันทึกค่าใช้จ่าย"` · `SITE_EXPENSE_BADGE = "ค่าใช้จ่าย"`. Pinned in `i18n-labels.test.ts`.
+- **Section** `self-purchase-section.tsx` — reframed from the stale "ซื้อเอง" heading (+ dropped free-text/use-now sub-copy) to `SITE_EXPENSE_HEADING` + a lucide **Receipt** icon + sub-copy "จ่ายเงินไปแล้ว — เลือกจาก{CATALOG_LABEL} ระบุจำนวนเงิน แล้วแนบรูปสินค้าและใบเสร็จ".
+- **Form submit** `self-purchase-form.tsx` — button verb relabelled `บันทึกการซื้อ` → `SITE_EXPENSE_SUBMIT` ("บันทึกค่าใช้จ่าย"); the U1/U2 form tests updated to the new verb.
+- **WP page** `work-packages/[workPackageId]/page.tsx` — `SelfPurchaseSection` moved OUT of the `purchases` (คำขอซื้อ) panel into its **own `expenses` tab** (`SITE_EXPENSE_TAB_LABEL`, gated `!readOnly` via a conditional spread) inserted right after `purchases`; that tab now holds only สร้างคำขอซื้อ + the request list.
+- **Card badge (de-commingle)** `purchase-request-card.tsx` — a `site_purchased` row renders a distinct **"ค่าใช้จ่าย"** chip (Receipt glyph, `bg-attn-soft`) so it never reads as a pending request in the shared list; other statuses show no chip. Tested both ways.
+- **TDD:** `i18n-labels.test.ts` (+1 pin) · `self-purchase-section.test.tsx` (heading/no-legacy-copy/Receipt-icon/submit-verb) · `purchase-request-card.test.tsx` (+1 badge on/off) · `self-purchase-form.test.tsx` (submit-verb relabel). RED-first. lint + typecheck + full vitest **3186/3186 green**.
+- **Scope note (deferred, not built):** the plan's "surface U2's incomplete state on the shared list" would need attachment-count plumbing from `loadWorkPackageDetail` into `PurchaseRequestCardRequest` — a data-plumbing change beyond U3's SSOT/relabel scope. Built only the `SITE_EXPENSE_BADGE` (per plan Task 3 interfaces). The incomplete-on-list badge is a follow-up.
+- **Spec 285 Phase-1 COMPLETE (U1+U2+U3).** Phase-2 still deferred (schema/danger-path): RPC hard-gate amount, `site_purchase_use_now` fate, GL account WIP 1400 → 5xxx.
+- **Browser preview not run:** no `.env.local` in the worktree; the WP page is a heavy server component (auth+DB) — verified via unit tests + typecheck (established practice for page-composition moves), the moved/relabelled pieces are all unit-tested.
+
 ## Spec 285 U2 — expense stays "ยังไม่สมบูรณ์" until item photo + accounting doc — ✅ COMPLETE (code-only, 2026-07-09)
 
 The evidence-completion gate (spec §Design U2). A recorded site expense (ซื้อเอง, `source='site_purchase'`) is only complete once it carries BOTH an item photo (`reference`, `addReferenceAttachment`) AND an accounting doc (`invoice`, `addInvoiceAttachment`). Attachments FK the parent row → architecturally post-create, so completeness is derived at the form/completion layer (no schema; the DB hard-gate is Phase 2).

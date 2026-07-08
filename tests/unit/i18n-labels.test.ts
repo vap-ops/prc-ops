@@ -150,3 +150,16 @@ describe("WP hierarchy term SSOT (spec 270 D2)", () => {
     expect(labels.WP_LEAF_LABEL).toBe("งานย่อย");
   });
 });
+
+// Spec 285 U3 — the on-site self-purchase is an EXPENSE (จ่ายเงินไปแล้ว), split
+// from the ขอซื้อ (ask-procurement) request. Its own tab + heading + submit verb +
+// list badge so the two never read alike. Pin so the expense vocabulary can't drift.
+describe("site-expense term SSOT (spec 285 U3)", () => {
+  it("pins the expense tab / heading / submit / badge terms", async () => {
+    const labels = await import("@/lib/i18n/labels");
+    expect(labels.SITE_EXPENSE_TAB_LABEL).toBe("ค่าใช้จ่ายหน้างาน");
+    expect(labels.SITE_EXPENSE_HEADING).toBe("บันทึกค่าใช้จ่าย (จ่ายเงินไปแล้ว)");
+    expect(labels.SITE_EXPENSE_SUBMIT).toBe("บันทึกค่าใช้จ่าย");
+    expect(labels.SITE_EXPENSE_BADGE).toBe("ค่าใช้จ่าย");
+  });
+});

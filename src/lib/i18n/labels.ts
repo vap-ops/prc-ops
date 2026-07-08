@@ -137,6 +137,15 @@ export const PURCHASE_REQUEST_STATUS_LABEL: Record<Enums["purchase_request_statu
   site_purchased: "ซื้อหน้างาน",
 };
 
+// Spec 285 U3 — the on-site self-purchase (ซื้อเอง) is an EXPENSE: money already
+// spent, catalog-only, evidence-required (U1/U2). It gets its own tab, heading,
+// submit verb, and list badge so it never reads like a ขอซื้อ (ask-procurement)
+// request. Disjoint additive region; no enum change (row stays source='site_purchase').
+export const SITE_EXPENSE_TAB_LABEL = "ค่าใช้จ่ายหน้างาน";
+export const SITE_EXPENSE_HEADING = "บันทึกค่าใช้จ่าย (จ่ายเงินไปแล้ว)";
+export const SITE_EXPENSE_SUBMIT = "บันทึกค่าใช้จ่าย";
+export const SITE_EXPENSE_BADGE = "ค่าใช้จ่าย";
+
 // Spec 175 — the item catalog (on-site storage / inventory foundation). Single
 // source for the catalog term + category labels; item_category enum values are
 // storage keys, these are presentation. base_item carries identity, not location.

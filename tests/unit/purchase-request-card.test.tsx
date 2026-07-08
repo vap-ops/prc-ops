@@ -124,6 +124,30 @@ describe("PurchaseRequestCard (spec 47)", () => {
     expect(container.querySelector("button")).toBeNull();
   });
 
+  // Spec 285 U3 — de-commingle: a site_purchased row is an EXPENSE, not a pending
+  // request. It must carry a distinct "ค่าใช้จ่าย" badge so it never reads as a
+  // request in the shared คำขอซื้อ list; other statuses show no such badge.
+  it("badges a site_purchased row as ค่าใช้จ่าย, and only that status", () => {
+    const { rerender } = render(
+      <PurchaseRequestCard
+        request={{ ...BASE_REQUEST, status: "site_purchased" }}
+        workPackage={null}
+        requesterName="สมชาย"
+        isMine={false}
+      />,
+    );
+    expect(screen.getByText("ค่าใช้จ่าย")).toBeInTheDocument();
+    rerender(
+      <PurchaseRequestCard
+        request={{ ...BASE_REQUEST, status: "requested" }}
+        workPackage={null}
+        requesterName="สมชาย"
+        isMine={false}
+      />,
+    );
+    expect(screen.queryByText("ค่าใช้จ่าย")).not.toBeInTheDocument();
+  });
+
   // Spec 211 U5 — PO membership must be visible in every band, not only the
   // in_transit PO group. A request that belongs to an order shows a PO chip; a
   // loose request shows none.
