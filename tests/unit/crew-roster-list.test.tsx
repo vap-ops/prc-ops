@@ -29,4 +29,9 @@ describe("CrewRosterList", () => {
     render(<CrewRosterList workers={[]} />);
     expect(screen.getByText(/ยังไม่มีช่าง/)).toBeInTheDocument();
   });
+
+  it("marks an unconfirmed worker รอยืนยัน", () => {
+    render(<CrewRosterList workers={[{ id: "1", name: "สมชาย", pending: true }]} />);
+    expect(screen.getByText(/รอยืนยัน/)).toBeInTheDocument();
+  });
 });

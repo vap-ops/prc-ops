@@ -16,6 +16,7 @@ import { createClient } from "@/lib/db/server";
 import { clientEnv } from "@/lib/env";
 import { listVisibleTechnicianRegistrations } from "@/lib/register/admin-registrations";
 import { CrewRosterList, type CrewRosterRow } from "@/components/features/sa/crew-roster-list";
+import { AddWorkerForm } from "@/components/features/sa/add-worker-form";
 
 export const metadata = { title: "ทีมงาน" };
 
@@ -39,7 +40,7 @@ export default async function SaCrewPage() {
     projectIds.length
       ? supabase
           .from("workers")
-          .select("id, name, project_id")
+          .select("id, name, project_id, cost_confirmed_at")
           .eq("active", true)
           .in("project_id", projectIds)
           .order("name")
@@ -48,11 +49,17 @@ export default async function SaCrewPage() {
     ctx.role === "site_admin" ? listVisibleTechnicianRegistrations(supabase) : Promise.resolve([]),
   ]);
 
-  const projectCode = new Map((projectRes.data ?? []).map((p) => [p.id, p.code]));
+  const projectList = (projectRes.data ?? []).map((p) => ({ id: p.id, code: p.code }));
+  const projectCode = new Map(projectList.map((p) => [p.id, p.code]));
   const multiProject = projectIds.length > 1;
   const workers: CrewRosterRow[] = (workerRes.data ?? []).map((w) => {
     const label = multiProject && w.project_id ? projectCode.get(w.project_id) : undefined;
-    return { id: w.id, name: w.name, ...(label ? { projectLabel: label } : {}) };
+    return {
+      id: w.id,
+      name: w.name,
+      pending: w.cost_confirmed_at === null,
+      ...(label ? { projectLabel: label } : {}),
+    };
   });
   const pendingRegCount = pendingRegistrations.length;
 
@@ -77,6 +84,11 @@ export default async function SaCrewPage() {
           <CrewRosterList workers={workers} />
         </div>
 
+        {/* เพิ่มเอง (phoneless) — the SA types a ช่าง in directly (name + national-ID +
+            DOB → sa_add_project_worker). The PRIMARY path for the no-phone majority;
+            the QR below is only for LINE-owning ช่าง. Shown where the SA has a project. */}
+        {projectList.length > 0 ? <AddWorkerForm projects={projectList} /> : null}
+
         {/* Approve queue — the pending self-registrations the SA acts on. */}
         <Link
           href="/sa/registrations"
@@ -98,7 +110,8 @@ export default async function SaCrewPage() {
             <h2 className="text-body text-ink font-semibold">เพิ่มช่างใหม่</h2>
           </div>
           <p className="text-ink-secondary text-center text-sm">
-            ให้ช่างสแกน QR นี้ด้วยกล้องมือถือ เพื่อสมัครเข้าระบบด้วยตัวเอง แล้วมาอนุมัติในคำขอสมัครด้านบน
+            ให้ช่างสแกน QR นี้ด้วยกล้องมือถือ เพื่อสมัครเข้าระบบด้วยตัวเอง
+            แล้วมาอนุมัติในคำขอสมัครด้านบน
           </p>
           {/* qrcode → black-on-white SVG; wrapped white so it scans in any theme. */}
           <div
@@ -106,7 +119,7 @@ export default async function SaCrewPage() {
             aria-label="QR สมัครเป็นช่าง"
             dangerouslySetInnerHTML={{ __html: qrSvg }}
           />
-          <p className="text-ink-muted text-meta break-all text-center">{onboardUrl}</p>
+          <p className="text-ink-muted text-meta text-center break-all">{onboardUrl}</p>
         </div>
       </section>
     </PageShell>
