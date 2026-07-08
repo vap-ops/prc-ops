@@ -6,6 +6,15 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 282 U1 — ฝ่ายไซต์ read (`project_site_management`) — 🔨 SHIPPING (schema/danger-path, operator-held) (2026-07-08)
+
+Approach A approved (operator 2026-07-08). U1 = the scoped read behind the board's site-access (ฝ่ายไซต์) bucket. An SA can read `project_members` but NOT other users' role/name (`users` RLS = own-row-only), so resolving a project's `site_admin`/`site_owner` members needs a `SECURITY DEFINER` read gated on `can_see_project`.
+
+- **Migration `075490`** (`supabase/migrations/20260813075490_spec282u1_project_site_management.sql`): `project_site_management(p_project uuid) returns table(user_id uuid, display_name text)` — `language sql stable security definer`, joins `project_members ⋈ users` filtered to `role in ('site_admin','site_owner')`, gated by `and public.can_see_project(p_project)` in the WHERE (no rows when the caller can't see the project). `display_name = coalesce(full_name, line_display_name)`. `revoke execute from public, anon` (229 class) + grant to `authenticated`. Read-only (moves = spec 279 U5).
+- **db:push** applied `075490` (additive definer, no borrow — `075470/075480` already in main post-#392). **db:types** regenerated (RPC now typed → unblocks U2).
+- **TDD:** `supabase/tests/database/282-project-site-management.test.sql` — 10 assertions, RED-first (proved `fn_count=0` on remote before push): catalog + anon-revoked/authenticated-granted; SA member sees exactly the site_admin+site_owner members (PM member excluded by role); name from full_name + line_display_name fallback; non-member site_admin + visitor gated to 0; PM member reads; project-scoping (P2 site member absent from P1); super_admin reads.
+- **Danger-path** (definer + auth) → PR shipped HELD; 🔔 operator merges. ⚠️ `075490` DB-AHEAD until the PR merges; next schema claims `075500+` + borrows.
+
 ## Spec 281 U2 — แนะนำแผนพรุ่งนี้ surface on /sa/plan — 🔨 SHIPPING (code-only, auto-merge) (2026-07-08)
 
 The surface half of spec 281 (§4/§6-U2). The /sa/plan board computes the U1 draft for the selected date and offers a "แนะนำแผนพรุ่งนี้" panel: draft rows **pre-checked (D4)**, each with its tier reason + suggested crew; **ใช้ที่เลือก** commits only the still-selected rows through the existing 273 RPCs; **nothing writes until the SA approves (D5)**.

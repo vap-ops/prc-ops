@@ -1,9 +1,10 @@
 # Spec 282 — SA site team board: on-site headcount + team structure at a glance
 
-**Status:** 🎨 **DESIGN — OPEN DECISIONS (money-adjacent; needs an operator call, possibly counsel, on
-the classification).** Build not started. Emerged from the spec-279 U6 brainstorm (2026-07-08) and was
-deliberately split out of U6 because it is not a rendering change — it is a labor-cost/charge-attribution
-feature.
+**Status:** 🔨 **BUILDING — approach A approved (operator, 2026-07-08).** §3 resolved to **A** (team-nature
+buckets + person-level exception badges; the true who-pays-whom split waits for the ADR-0060 cost ledger).
+U1 (`project_site_management` ฝ่ายไซต์ definer read) built. Emerged from the spec-279 U6 brainstorm
+(2026-07-08) and was deliberately split out of U6 because it is not a rendering change — it is a
+labor-cost/charge-attribution feature.
 **ADR:** TBD by §3 — approach A is code-only (no ADR); approach B introduces an arrangement-level billing
 flag (schema + likely an ADR under 0060/0073).
 **Origin:** operator, 2026-07-08 — "SA should tell at a glance the amount of people on site, separating
