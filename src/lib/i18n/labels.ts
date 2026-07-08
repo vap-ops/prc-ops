@@ -129,7 +129,6 @@ export const CATALOG_LABEL = "ทะเบียนวัสดุ";
 // for the manage screen, the cascading picker on the item form, and (U3) the
 // drill filter. SUBCATEGORY = the named sub level; MANAGE = the /catalog drill.
 export const CATALOG_SUBCATEGORY_LABEL = "หมวดย่อย";
-export const MANAGE_SUBCATEGORIES_LABEL = "จัดการหมวดย่อย";
 
 // Spec 221 — the managed MAIN category (catalog_categories). Term SSOT for the
 // taxonomy manage screen + the U3 add/edit-category controls.
@@ -147,15 +146,7 @@ export const ORDERING_TEMPLATES_LABEL = "เทมเพลตแผนจัด
 // /catalog discoverability link, the line table headers, and the totals. The
 // variation_type/line_status enum option labels are presentation for the form.
 export const BOQ_TEMPLATES_LABEL = "แม่แบบ BOQ";
-export const MANAGE_BOQ_TEMPLATES_LABEL = "จัดการแม่แบบ BOQ";
-export const BOQ_LINE_LABEL = "รายการ";
-export const BOQ_LINE_TOTAL_LABEL = "รวมรายการ";
 export const BOQ_TEMPLATE_TOTAL_LABEL = "รวมทั้งหมด";
-export const BOQ_MATERIAL_RATE_LABEL = "ค่าวัสดุ/หน่วย";
-export const BOQ_LABOR_RATE_LABEL = "ค่าแรง/หน่วย";
-export const BOQ_VARIATION_TYPE_LABEL = "ประเภทรายการ";
-export const BOQ_STANDARD_LABEL = "รายการมาตรฐาน";
-export const BOQ_EXCLUSIVITY_GROUP_LABEL = "กลุ่มทางเลือก (ถ้ามี)";
 export const BOQ_FREE_TEXT_ITEM_LABEL = "รายการอิสระ (ไม่ผูกวัสดุ)";
 
 export const BOQ_VARIATION_TYPE_OPTION_LABEL: Record<Enums["boq_variation_type"], string> = {

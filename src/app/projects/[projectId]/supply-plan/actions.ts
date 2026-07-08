@@ -129,51 +129,6 @@ export async function deletePlan(input: {
   return { ok: true };
 }
 
-export async function addPlanLine(input: {
-  projectId: string;
-  planId: string;
-  catalogItemId: string;
-  workPackageId: string;
-  qty: number;
-  note: string;
-}): Promise<SupplyPlanResult> {
-  if (
-    !UUID_REGEX.test(input.projectId) ||
-    !UUID_REGEX.test(input.planId) ||
-    !UUID_REGEX.test(input.catalogItemId) ||
-    !UUID_REGEX.test(input.workPackageId)
-  ) {
-    return { ok: false, error: FAILED };
-  }
-  if (!Number.isFinite(input.qty) || input.qty <= 0) {
-    return { ok: false, error: "จำนวนต้องมากกว่า 0" };
-  }
-
-  const auth = await getActionUser();
-  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
-  const { supabase } = auth;
-
-  // Spec 189: lines target the explicit plan (the page picks/creates it).
-  const { error } = await supabase.rpc("add_supply_plan_line", {
-    p_plan_id: input.planId,
-    p_catalog_item_id: input.catalogItemId,
-    p_work_package_id: input.workPackageId,
-    p_qty: input.qty,
-    p_note: input.note,
-  });
-  if (error) {
-    if (error.code === "23505") {
-      return { ok: false, error: "วางแผนวัสดุนี้สำหรับงานนี้แล้ว (แก้จำนวนแทน)" };
-    }
-    if (error.code === "42501") return { ok: false, error: NO_PERMISSION };
-    if (error.code === "22023") return { ok: false, error: "ข้อมูลไม่ถูกต้อง หรือแผนถูกล็อกแล้ว" };
-    return { ok: false, error: FAILED };
-  }
-
-  revalidatePath(supplyPlanHref(input.projectId));
-  return { ok: true };
-}
-
 // Spec 181 U2 — the inline grid saves many lines at once. Get-or-create the
 // plan, then bulk-insert via add_supply_plan_lines (atomic — any bad line rolls
 // the whole batch back). work_package_id is optional (null = whole-project).
