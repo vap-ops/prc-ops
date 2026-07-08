@@ -8121,6 +8121,13 @@ export type Database = {
           work_packages_added: boolean
         }[]
       }
+      project_site_management: {
+        Args: { p_project: string }
+        Returns: {
+          display_name: string
+          user_id: string
+        }[]
+      }
       propose_plan_baseline: {
         Args: {
           p_kind: Database["public"]["Enums"]["plan_baseline_kind"]
