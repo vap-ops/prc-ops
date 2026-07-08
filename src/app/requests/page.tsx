@@ -528,7 +528,11 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   if (isProcurement) {
     const { data: supplierRows } = await supabase
       .from("suppliers")
+      // Spec 280 P2b: a blacklisted supplier (spec 275 U0 contact_status) is not an
+      // option for a NEW purchase — drop it from the create-PO picker. History and
+      // the worklist supplier filter (distinctSuppliers) are unaffected.
       .select("id, name, phone")
+      .neq("contact_status", "blacklisted")
       .order("name", { ascending: true });
     supplierRecords = supplierRows ?? [];
     categoryVendors = await loadCategoryVendors(supabase);
