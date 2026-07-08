@@ -118,6 +118,20 @@ export function isReadOnlyWpViewer(role: UserRole): boolean {
 }
 
 /**
+ * Spec 280 (ADR 0070 parity): who sees the PROCUREMENT worklist view on /requests
+ * — the buyer surface (KPI hero, status-chip bands, supplier/project filters, the
+ * dense grid + create-PO flow), as opposed to the requester's card list. Plain
+ * procurement PLUS procurement_manager, which ADR 0070 makes a full-parity buyer.
+ * The single predicate the page branches on. Deliberately distinct from
+ * PROCUREMENT_MANAGER_ROLES (the DESTRUCTIVE-authority tier — PM set + procurement
+ * manager, NOT plain procurement) and named for its own meaning even though its
+ * membership coincides with isReadOnlyWpViewer today.
+ */
+export function isProcurementWorklist(role: UserRole): boolean {
+  return role === "procurement" || role === "procurement_manager";
+}
+
+/**
  * Spec 101: back-office processors — the PM set PLUS procurement. Matches the
  * suppliers RLS write posture (pm/procurement/super) and the record/ship RPC
  * isBackOfficeRole gate. Gates the suppliers-master screen + supplier writes.

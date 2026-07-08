@@ -20,6 +20,7 @@ import {
   isManagerRole,
   isProcurementManagerTier,
   isReadOnlyWpViewer,
+  isProcurementWorklist,
   isStaffApprover,
   isStaffOnboardableRole,
   roleHome,
@@ -43,6 +44,18 @@ describe("role sets", () => {
   // order is preserved.
   it("PM_ROLES is project_manager + super_admin + project_director", () => {
     expect([...PM_ROLES]).toEqual(["project_manager", "super_admin", "project_director"]);
+  });
+
+  // Spec 280 (ADR 0070 parity): the procurement WORKLIST audience — plain
+  // procurement PLUS procurement_manager. Distinct from PROCUREMENT_MANAGER_ROLES
+  // (the destructive-authority tier, which EXCLUDES plain procurement).
+  it("isProcurementWorklist is procurement + procurement_manager only", () => {
+    expect(isProcurementWorklist("procurement")).toBe(true);
+    expect(isProcurementWorklist("procurement_manager")).toBe(true);
+    expect(isProcurementWorklist("project_manager")).toBe(false);
+    expect(isProcurementWorklist("super_admin")).toBe(false);
+    expect(isProcurementWorklist("site_admin")).toBe(false);
+    expect(isProcurementWorklist("accounting")).toBe(false);
   });
 
   it("SITE_STAFF_ROLES is site_admin + the PM set", () => {

@@ -2,14 +2,9 @@ import { PageShell } from "@/components/features/chrome/page-shell";
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { AppHeader } from "@/components/features/chrome/app-header";
-import {
-  HubNav,
-  PM_HUB_NAV,
-  SA_HUB_NAV,
-  PROCUREMENT_HUB_NAV,
-} from "@/components/features/chrome/hub-nav";
+import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
 import { EmptyNotice, ErrorNotice } from "@/components/features/common/notices";
-import { PURCHASING_ROLES, isManagerRole } from "@/lib/auth/role-home";
+import { PURCHASING_ROLES, isProcurementWorklist } from "@/lib/auth/role-home";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { PR_LIST_COLUMNS } from "@/lib/purchasing/columns";
@@ -151,13 +146,11 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // procurement its own strip (worklist + suppliers + settings). The contextual
   // spec-12 back-bar (below) only renders when pinned — arriving from a WP to
   // raise a request is a drill-down, so it returns to that WP.
-  const hubItems = isManagerRole(ctx.role)
-    ? PM_HUB_NAV
-    : ctx.role === "site_admin"
-      ? SA_HUB_NAV
-      : ctx.role === "procurement"
-        ? PROCUREMENT_HUB_NAV
-        : null;
+  // Spec 153: the single role→strip selector (mirrors the bottom tab bar) — the
+  // SAME strip as every other hub page. Spec 280 (ADR 0070): this fixes the
+  // hand-rolled selector that returned null for procurement_manager, so it now
+  // gets its own PROCUREMENT_MANAGER_HUB_NAV strip on the worklist.
+  const hubItems = hubNavForRole(ctx.role);
 
   // The SELECT policy (ADR 0022, widened by ADR 0026) admits the whole
   // row, so the decision + back-office fact columns are readable here.
@@ -251,7 +244,10 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // A WP-less PR (null work_package_id) is project-level / store-bound.
   const wpFor = (id: string | null) => (id ? wpById.get(id) : undefined);
 
-  const isProcurement = ctx.role === "procurement";
+  // Spec 280 (ADR 0070): procurement_manager is a full-parity buyer — it sees the
+  // same procurement worklist view (KPI hero, band chips, filters, grid, PO flow)
+  // as plain procurement, not the requester's card list.
+  const isProcurement = isProcurementWorklist(ctx.role);
   const today = bangkokTodayISO();
 
   // Spec 137: the site list groups into action-state bands; the view filter (active
@@ -677,8 +673,8 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
       <AppHeader kicker="จัดซื้อ" fullName={ctx.fullName} maxWidthClass={PAGE_MAX_W} />
 
       {/* Primary-tab nav: the desktop HubNav strip like the sibling hubs
-          (/review, /projects); phones leave via the bottom tab bar.
-          procurement (hubItems null) gets none — /requests is its only stop. */}
+          (/review, /projects); phones leave via the bottom tab bar. A role with
+          no served strip (hubNavForRole → null) renders none. */}
       {hubItems ? (
         <HubNav
           maxWidthClass={PAGE_MAX_W}
