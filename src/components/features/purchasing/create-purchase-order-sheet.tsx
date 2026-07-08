@@ -62,6 +62,7 @@ import {
   deriveVatBreakdown,
 } from "@/lib/purchasing/vat";
 import type { SupplierOption } from "@/components/features/purchasing/purchase-record-form";
+import { splitSupplierOptions } from "@/lib/purchasing/vendor-suggestion";
 
 export interface CreatePoLine {
   id: string;
@@ -107,6 +108,7 @@ export function CreatePurchaseOrderSheet({
   onRemoveLine,
   defaultSupplierId,
   defaultAmounts,
+  suggestedSupplierIds = [],
 }: {
   open: boolean;
   lines: ReadonlyArray<CreatePoLine>;
@@ -119,6 +121,9 @@ export function CreatePurchaseOrderSheet({
   // Seeded into the initial state — the caller remounts (key) on a new pick.
   defaultSupplierId?: string | undefined;
   defaultAmounts?: Record<string, string> | undefined;
+  // Spec 280 U1: ids of vendors who've supplied this PO's line categories before
+  // (ranked union), surfaced above the full list. Empty → plain flat list.
+  suggestedSupplierIds?: string[];
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -166,6 +171,13 @@ export function CreatePurchaseOrderSheet({
     ...suppliers,
     ...createdSuppliers.filter((c) => !suppliers.some((s) => s.id === c.id)),
   ];
+
+  // Spec 280 U1: vendors who've supplied this PO's line categories before rise to
+  // a "เคยส่งหมวดนี้" group; the full list stays below (show-all fallback).
+  const { suggested: suggestedSuppliers, rest: otherSuppliers } = splitSupplierOptions(
+    allSuppliers,
+    suggestedSupplierIds,
+  );
 
   // Spec 119: one VAT mode for the whole PO (one supplier). Each line's entered
   // price resolves to the GROSS via the mode; the total breaks down for display.
@@ -521,12 +533,33 @@ export function CreatePurchaseOrderSheet({
               className={FIELD_SELECT}
             >
               <option value="">— เลือกผู้ขาย —</option>
-              {allSuppliers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                  {s.phone ? ` · ${s.phone}` : ""}
-                </option>
-              ))}
+              {suggestedSuppliers.length > 0 ? (
+                <>
+                  <optgroup label="เคยส่งหมวดนี้">
+                    {suggestedSuppliers.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                        {s.phone ? ` · ${s.phone}` : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="ผู้ขายทั้งหมด">
+                    {otherSuppliers.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                        {s.phone ? ` · ${s.phone}` : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                </>
+              ) : (
+                otherSuppliers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                    {s.phone ? ` · ${s.phone}` : ""}
+                  </option>
+                ))
+              )}
             </select>
 
             <details>

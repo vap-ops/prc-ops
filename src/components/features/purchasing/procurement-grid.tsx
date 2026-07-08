@@ -54,6 +54,7 @@ import {
 import { rowHealth, rowHealthLabel, type RowHealth } from "@/lib/purchasing/row-health";
 import { procurementDrawerActions } from "@/lib/purchasing/drawer-actions";
 import type { SupplierOption } from "@/components/features/purchasing/purchase-record-form";
+import { suggestVendorsForCategories } from "@/lib/purchasing/vendor-suggestion";
 import { PurchaseRequestShip } from "@/components/features/purchasing/purchase-request-ship";
 import { InvoiceUploader } from "@/components/features/purchasing/invoice-uploader";
 import { PaymentProofUploader } from "@/components/features/purchasing/payment-proof-uploader";
@@ -157,6 +158,7 @@ export function ProcurementGrid({
   suppliers = [],
   userId,
   poFacts = {},
+  categoryVendors = {},
 }: {
   groups: ReadonlyArray<Group>;
   // Bangkok civil date (from the server) — drives the spec-112 health color.
@@ -168,6 +170,9 @@ export function ProcurementGrid({
   userId?: string;
   // Spec 134 U2b: PO-header facts keyed by purchase_order_id (in_transit grouping).
   poFacts?: Record<string, PoHeaderFacts>;
+  // Spec 280 U1: categoryId → vendors who've supplied it before (ranked). Used to
+  // suggest suppliers in the create-PO sheet from the selected lines' categories.
+  categoryVendors?: Record<string, string[]>;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -244,6 +249,17 @@ export function ProcurementGrid({
           wp_code: r.wp_code,
         })),
     [order, selectedForPO],
+  );
+
+  // Spec 280 U1: suggest suppliers for the create-PO sheet from the material
+  // categories of the currently-selected lines (union, ranked by coverage).
+  const poSuggestedSupplierIds = useMemo(
+    () =>
+      suggestVendorsForCategories(
+        categoryVendors,
+        order.filter((r) => selectedForPO.has(r.id)).map((r) => r.category_id),
+      ),
+    [categoryVendors, order, selectedForPO],
   );
 
   const selected = selectedId ? (byId.get(selectedId) ?? null) : null;
@@ -343,6 +359,7 @@ export function ProcurementGrid({
           open={poOpen}
           lines={poLines}
           suppliers={suppliers}
+          suggestedSupplierIds={poSuggestedSupplierIds}
           onClose={() => setPoOpen(false)}
           onCreated={() => {
             setPoOpen(false);

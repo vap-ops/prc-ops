@@ -25,6 +25,7 @@ import {
   CreatePurchaseOrderSheet,
   type CreatePoLine,
 } from "@/components/features/purchasing/create-purchase-order-sheet";
+import { suggestVendorsForCategories } from "@/lib/purchasing/vendor-suggestion";
 
 const IN_BASKET_BTN =
   "inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-control border border-action bg-action-soft px-4 text-body font-semibold text-action transition-colors active:translate-y-px";
@@ -32,9 +33,12 @@ const IN_BASKET_BTN =
 export function PhonePoBasket({
   records,
   suppliers,
+  categoryVendors = {},
 }: {
   records: ReadonlyArray<ProcurementGridRecord>;
   suppliers: ReadonlyArray<SupplierOption>;
+  // Spec 280 U1: categoryId → vendors who've supplied it before (ranked).
+  categoryVendors?: Record<string, string[]>;
 }) {
   const [basket, setBasket] = useState<ReadonlySet<string>>(new Set());
   const [open, setOpen] = useState(false);
@@ -69,6 +73,17 @@ export function PhonePoBasket({
           wp_code: r.wp_code,
         })),
     [records, basket],
+  );
+
+  // Spec 280 U1: suggest suppliers for the checkout sheet from the material
+  // categories of the basketed lines (union, ranked by coverage).
+  const suggestedSupplierIds = useMemo(
+    () =>
+      suggestVendorsForCategories(
+        categoryVendors,
+        records.filter((r) => basket.has(r.id)).map((r) => r.category_id),
+      ),
+    [categoryVendors, records, basket],
   );
 
   return (
@@ -153,6 +168,7 @@ export function PhonePoBasket({
         open={open}
         lines={lines}
         suppliers={suppliers}
+        suggestedSupplierIds={suggestedSupplierIds}
         onClose={() => setOpen(false)}
         onRemoveLine={removeLine}
         onCreated={() => {
