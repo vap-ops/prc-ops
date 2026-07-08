@@ -49,6 +49,12 @@ insert into public.project_members (project_id, user_id, added_by) values
   ('a2a20282-0282-0282-0282-a2a2a2a20282', '99999999-9999-9999-9999-999999990282',
    '11111111-1111-1111-1111-111111110282');
 
+-- The behaviour block below asserts while `set local role authenticated`, so
+-- the collector role needs write access to the runner's temp buffer.
+grant insert on _tap_buf to authenticated, anon;
+grant select on _tap_buf to authenticated, anon;
+grant usage  on sequence _tap_buf_ord_seq to authenticated, anon;
+
 -- --------------------------------------------------------------- A. Catalog
 select has_function('public', 'project_site_management', array['uuid'],
   'project_site_management(uuid) exists');
