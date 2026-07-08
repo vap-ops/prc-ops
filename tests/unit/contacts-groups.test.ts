@@ -32,9 +32,11 @@ describe("contact groups", () => {
     expect(new Set(all).size).toBe(all.length);
   });
 
-  it("flags exactly the statused tabs (contractors/service — DC removed)", () => {
-    expect([...STATUS_TABS].sort()).toEqual(["contractors", "service"]);
+  it("flags exactly the statused tabs (contractors/service/suppliers)", () => {
+    // Spec 280 P2: suppliers gained contact_status (spec 275 U0) — the blacklist is
+    // now wired into the contacts UI, so the suppliers tab carries the status filter.
+    expect([...STATUS_TABS].sort()).toEqual(["contractors", "service", "suppliers"]);
     expect(STATUS_TABS.has("clients")).toBe(false);
-    expect(STATUS_TABS.has("suppliers")).toBe(false);
+    expect(STATUS_TABS.has("suppliers")).toBe(true);
   });
 });
