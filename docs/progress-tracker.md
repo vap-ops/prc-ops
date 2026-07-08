@@ -6,6 +6,19 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 281 U1 — แนะนำแผนพรุ่งนี้ recommender engine — 🔨 SHIPPING (code-only, auto-merge) (2026-07-08)
+
+The pure heuristic scorer behind the "แนะนำแผนพรุ่งนี้" draft board (spec 281 §3/§6-U1). `recommendTomorrowBoard(input)` → `DraftItem[]`, deterministic, over already-fetched rows — no fetch, no writes (U2 owns both; nothing writes until the SA approves, D5). Phase-2 swaps this scorer for an LLM behind the same `DraftItem[]` contract.
+
+- **File:** `src/lib/sa/recommend-board.ts` (new). Reuses `rankFromPriority` (worklist SSOT) + `WorkPackageStatus`/`WorkPackagePriority` enums.
+- **Tiers (highest default rank first), each with a Thai reason** — every not-done leaf lands at its HIGHEST-qualifying tier, union, ordered, top-N (default 12; rest stay addable via the existing picker):
+  1. `carry_forward` "ต่อจากวันนี้ — ยังไม่เสร็จ" — started (status ∈ in_progress/rework **OR** on any recent board — D3 aggressive carry-forward).
+  2. `behind_schedule` "ช้ากว่าแผน" — `baselineFinish ≤ planDate` (past/near the spec-271 baseline). Ordered most-overdue first.
+  3. `priority` "ลำดับความสำคัญ" — the rest, by the shared worklist priority rank (critical→urgent→normal).
+- **Crew pre-assign per งาน** (fallback chain, each with its own reason): recent-continuity `recentCrewByWp` ("ทีมที่ทำงานนี้ล่าสุด") → spec-277 category-match ("ทีมตรงหมวดงาน") → blank (null → SA picks). Output `DraftCrew.workerIds = members ∪ lead` (deduped) + `leadWorkerId` so U2 feeds `set_daily_plan_item_crew` directly. Empty crews / stale recentCrew ids are skipped.
+- **Degrades gracefully (§7):** no 271 baselines → the behind tier is simply empty (finish null never qualifies); no crews / no board history → blank crews; `complete` + `is_group` excluded (not-done-leaf = `status !== complete`, matches the /sa/plan picker rule).
+- **TDD:** `tests/unit/recommend-board.test.ts` — 21 assertions RED-first (tiers, union-at-highest, overdue ordering, priority rank, group/complete exclusion, tier-block order, topN cap; crew recent-wins-over-category, category fallback, blank, workerIds union/dedup, empty-crew skip, stale-recent fallthrough; degradation). lint + typecheck + full vitest green.
+
 ## Spec 279 U6 — team-view enrichments: crew↔งาน label + employment badge — 🔨 SHIPPING (code-only, auto-merge) (2026-07-08)
 
 The display half of §8-U6 (money/muster machinery stays deferred). Two operator asks folded onto the U7b `/sa/crew` team cards, both CODE-ONLY (all reads granted):
