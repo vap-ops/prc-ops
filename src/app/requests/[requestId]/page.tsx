@@ -100,8 +100,10 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
   // procurement_manager (a separate predicate so it never widens the approve gate;
   // the DB backs this with a transition-scoped approved→cancelled RLS policy).
   const canCancel = isProcurementManagerTier(ctx.role);
-  // Spec 70: the WP detail route is SITE_STAFF_ROLES-gated and would bounce
-  // procurement, so the WP reference renders as plain text (not a link) for it.
+  // Spec 261 / ADR 0070: the WP detail route is WP_DETAIL_ROLES-gated, which now
+  // admits both procurement and procurement_manager — so the link works for them.
+  // The plain-text (non-link) treatment for plain procurement below is a
+  // deliberately over-conservative UX choice, not a gate bounce.
   const isProcurement = ctx.role === "procurement";
   // Spec 33 / ADR 0038 gate; suppliers fetched only when the form renders.
   const isBackOffice = isBackOfficeRole(ctx.role);
