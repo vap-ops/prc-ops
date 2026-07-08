@@ -6,6 +6,18 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 281 U2 — แนะนำแผนพรุ่งนี้ surface on /sa/plan — 🔨 SHIPPING (code-only, auto-merge) (2026-07-08)
+
+The surface half of spec 281 (§4/§6-U2). The /sa/plan board computes the U1 draft for the selected date and offers a "แนะนำแผนพรุ่งนี้" panel: draft rows **pre-checked (D4)**, each with its tier reason + suggested crew; **ใช้ที่เลือก** commits only the still-selected rows through the existing 273 RPCs; **nothing writes until the SA approves (D5)**.
+
+- **Pure assembler** `src/lib/sa/tomorrow-draft.ts` (new) — turns the page's RLS-scoped reads into the U1 `RecommendInput` and returns `DraftItem[]`. Derives the two board-history signals the engine needs: the **recent-continuity crew per งาน** (newest board wins) and each **crew's spec-277 categories** (from what งาน it has run — §7.1 leans on the thin 273 history). Resolves `category_id → W0x` + the 271 baseline finish onto each WP. Fully unit-tested.
+- **Server action** `applyPlanSuggestions(project, date, selections)` (`src/app/sa/plan/actions.ts`) — each selected row = one `add_daily_plan_item` (returns the item id, idempotent) → when the crew was kept, one `set_daily_plan_item_crew`. Reuses the 273 RPCs **unchanged**; the SA's session does every write.
+- **Client component** `daily-plan-suggestions.tsx` (new, `'use client'` — local review state before the commit; justified in PR) — the trigger + pre-checked draft rows (reason chips, crew chip with ล้างทีม to clear), ใช้ที่เลือก. Renders in-flow inside `DailyPlanBoard` (new optional `suggestions` prop, default `[]`).
+- **Page wiring** `src/app/sa/plan/page.tsx` — parallel RLS-scoped reads (crews + crew_members, recent 14-day boards newest-first + their items/crew, project_categories, latest 271 baseline + items) → `buildTomorrowDraft` → `<DailyPlanBoard suggestions=…>`. Reuses `bangkokTodayIso`, the /sa category-resolution, the 273 plan reads.
+- **Labels** (SSOT): `SUGGEST_PLAN_LABEL` / `APPLY_SELECTED_LABEL` / `CLEAR_CREW_LABEL` / `PICK_CREW_SELF_LABEL`.
+- **Degrades gracefully (§7):** empty roster → priority-tier, blank-crew rows; unbound 271 baselines → the ช้ากว่าแผน tier is simply empty. PRC-2026-004 roster is EMPTY firm-wide → the panel renders near-empty until เล็ก's crew is added (intended — ship the frame).
+- **TDD:** `tomorrow-draft.test.ts` (6 — WP resolution + crew derivation from board history, newest-wins, lead-not-member) + `daily-plan-suggestions.test.tsx` (6 — pre-checked reveal, commit-only-selected, clear-crew→null, no-op when nothing selected, empty-draft disabled). lint + typecheck + full vitest green. Browser preview not run (no `.env.local` in the worktree; the page composes unit-tested pure logic + the /sa/crew read patterns already in prod, and typecheck validates the selects against the live DB types).
+
 ## Spec 281 U1 — แนะนำแผนพรุ่งนี้ recommender engine — 🔨 SHIPPING (code-only, auto-merge) (2026-07-08)
 
 The pure heuristic scorer behind the "แนะนำแผนพรุ่งนี้" draft board (spec 281 §3/§6-U1). `recommendTomorrowBoard(input)` → `DraftItem[]`, deterministic, over already-fetched rows — no fetch, no writes (U2 owns both; nothing writes until the SA approves, D5). Phase-2 swaps this scorer for an LLM behind the same `DraftItem[]` contract.

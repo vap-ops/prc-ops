@@ -18,6 +18,8 @@ import {
 } from "@/lib/i18n/labels";
 import { addDaysIso } from "@/lib/work-packages/calendar-grid";
 import type { WpPickerGroups } from "@/lib/work-packages/picker-options";
+import type { DraftItem } from "@/lib/sa/recommend-board";
+import { DailyPlanSuggestions } from "@/components/features/sa/daily-plan-suggestions";
 import {
   addDailyPlanItem,
   removeDailyPlanItem,
@@ -53,6 +55,7 @@ export function DailyPlanBoard({
   leafOptions,
   workers,
   items,
+  suggestions = [],
 }: {
   projects: ProjectOption[];
   selectedProjectId: string;
@@ -63,6 +66,7 @@ export function DailyPlanBoard({
   leafOptions: WpPickerGroups;
   workers: Worker[];
   items: DailyPlanItemView[];
+  suggestions?: DraftItem[];
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -222,6 +226,10 @@ export function DailyPlanBoard({
           เพิ่ม
         </button>
       </div>
+
+      {/* Spec 281 U2 — the แนะนำแผนพรุ่งนี้ recommender: a draft the SA reviews +
+          one-taps into this board (its own selected rows), in place. */}
+      <DailyPlanSuggestions projectId={selectedProjectId} dateIso={dateIso} draft={suggestions} />
 
       {items.length === 0 ? (
         <p className="text-body text-ink-muted">ยังไม่มี{WP_LEAF_LABEL}ในแผน</p>

@@ -18,6 +18,8 @@ import { resolvePlanDate } from "@/app/sa/plan/plan-date";
 import { DAILY_WORK_PLAN_LABEL, formatThaiDate } from "@/lib/i18n/labels";
 import { buildWpPickerGroups, type WpPickerRow } from "@/lib/work-packages/picker-options";
 import { UUID_REGEX } from "@/lib/validate/uuid";
+import { addDaysIso } from "@/lib/work-packages/calendar-grid";
+import { buildTomorrowDraft } from "@/lib/sa/tomorrow-draft";
 import { DailyPlanBoard, type DailyPlanItemView } from "@/components/features/sa/daily-plan-board";
 
 export const metadata = { title: DAILY_WORK_PLAN_LABEL };
@@ -62,7 +64,7 @@ export default async function SaPlanPage({
   // leaves below. Both levels come from one project-scoped read.
   const { data: wpRows } = await supabase
     .from("work_packages")
-    .select("id, code, name, status, is_group, parent_id")
+    .select("id, code, name, status, is_group, parent_id, priority, category_id")
     .eq("project_id", selectedProjectId);
   const wps = wpRows ?? [];
 
@@ -128,6 +130,100 @@ export default async function SaPlanPage({
     }));
   const leafOptions = buildWpPickerGroups(pickerRows);
 
+  // Spec 281 U2 — the แนะนำแผนพรุ่งนี้ draft for the selected board date. Every read is
+  // RLS-scoped to this project (can_see_project); the draft is ephemeral (in-memory) —
+  // nothing is written until the SA approves it via <DailyPlanSuggestions> (D5). The
+  // recommender leans on this thin 273 board history for crew continuity (§7.1) and the
+  // latest 271 baseline for the ช้ากว่าแผน tier, both degrading to empty when unbound.
+  const recentWindowStart = addDaysIso(today, -14);
+  const [crewRes, memberRes, recentPlanRes, categoryRes, baselineRes] = await Promise.all([
+    supabase
+      .from("crews")
+      .select("id, name, lead_worker_id")
+      .eq("active", true)
+      .eq("project_id", selectedProjectId),
+    supabase.from("crew_members").select("crew_id, worker_id").is("removed_at", null),
+    supabase
+      .from("daily_work_plans")
+      .select("id, plan_date")
+      .eq("project_id", selectedProjectId)
+      .gte("plan_date", recentWindowStart)
+      .lte("plan_date", today)
+      .order("plan_date", { ascending: false }),
+    supabase
+      .from("project_categories")
+      .select("id, work_categories(code)")
+      .eq("project_id", selectedProjectId),
+    supabase
+      .from("plan_baselines")
+      .select("id")
+      .eq("project_id", selectedProjectId)
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const recentPlans = recentPlanRes.data ?? [];
+  const planDateById = new Map(recentPlans.map((p) => [p.id, p.plan_date]));
+  const recentPlanIds = recentPlans.map((p) => p.id);
+  const baselineId = baselineRes.data?.id ?? null;
+
+  const [recentItemRes, baselineItemRes] = await Promise.all([
+    recentPlanIds.length
+      ? supabase
+          .from("daily_work_plan_items")
+          .select("id, work_package_id, plan_id")
+          .in("plan_id", recentPlanIds)
+      : Promise.resolve({ data: null }),
+    baselineId
+      ? supabase
+          .from("plan_baseline_items")
+          .select("work_package_id, planned_end")
+          .eq("baseline_id", baselineId)
+      : Promise.resolve({ data: null }),
+  ]);
+
+  // Order items newest-board-first so the recent-continuity crew per งาน resolves to
+  // the most recent board (the assembler's newest-first contract).
+  const recentPlanItems = (recentItemRes.data ?? [])
+    .map((i) => ({
+      id: i.id,
+      work_package_id: i.work_package_id,
+      planDate: planDateById.get(i.plan_id) ?? "",
+    }))
+    .sort((a, b) => (a.planDate < b.planDate ? 1 : a.planDate > b.planDate ? -1 : 0))
+    .map(({ id, work_package_id }) => ({ id, work_package_id }));
+  const recentItemIds = recentPlanItems.map((i) => i.id);
+
+  const { data: recentCrewRows } = recentItemIds.length
+    ? await supabase
+        .from("daily_work_plan_crew")
+        .select("item_id, worker_id")
+        .in("item_id", recentItemIds)
+    : { data: null };
+
+  const categoryCodeById = new Map<string, string>();
+  for (const c of categoryRes.data ?? []) {
+    const wc = c.work_categories;
+    const code = (Array.isArray(wc) ? wc[0]?.code : wc?.code) ?? null;
+    if (code) categoryCodeById.set(c.id, code);
+  }
+  const baselineFinishByWp = new Map<string, string>();
+  for (const b of baselineItemRes.data ?? []) {
+    baselineFinishByWp.set(b.work_package_id, b.planned_end);
+  }
+
+  const draft = buildTomorrowDraft({
+    planDate: selectedDate,
+    workPackages: wps,
+    categoryCodeById,
+    baselineFinishByWp,
+    crews: crewRes.data ?? [],
+    crewMembers: memberRes.data ?? [],
+    recentPlanItems,
+    recentPlanCrew: recentCrewRows ?? [],
+  });
+
   return shell(
     <DailyPlanBoard
       projects={projects}
@@ -139,6 +235,7 @@ export default async function SaPlanPage({
       leafOptions={leafOptions}
       workers={workers}
       items={items}
+      suggestions={draft}
     />,
   );
 }
