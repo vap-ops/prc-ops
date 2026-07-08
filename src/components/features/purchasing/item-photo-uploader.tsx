@@ -11,9 +11,12 @@ import { addReferenceAttachment } from "@/app/requests/actions";
 export function ItemPhotoUploader({
   purchaseRequestId,
   projectId,
+  onUploaded,
 }: {
   purchaseRequestId: string;
   projectId: string;
+  // Spec 285 U2 — forwarded to InvoiceUploader; fired on a successful item-photo save.
+  onUploaded?: () => void;
 }) {
   return (
     <InvoiceUploader
@@ -21,6 +24,7 @@ export function ItemPhotoUploader({
       projectId={projectId}
       action={addReferenceAttachment}
       label="แนบรูปสินค้า"
+      onUploaded={onUploaded}
     />
   );
 }
