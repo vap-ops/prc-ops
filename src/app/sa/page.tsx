@@ -288,7 +288,12 @@ export default async function SaHomePage() {
           items={worklistItems}
         />
 
-        {/* 4 · งานของฉัน — active leaf WPs, each with its category identity. */}
+        {/* 4 · เครื่องมือ — moved ABOVE งานของฉัน (temporary): the long WP list was
+            burying the tool tiles, so the menu (incl. the new ทีมงาน onboarding tile)
+            now sits right under the plan, always reachable without scrolling the list. */}
+        <SaTools primaryProjectId={primaryProjectId} showCloseNudge={showCloseNudge} />
+
+        {/* 5 · งานของฉัน — active leaf WPs, each with its category identity. */}
         <div className="flex flex-col gap-3">
           <h2 className="text-meta text-ink-secondary font-semibold">งานของฉัน</h2>
           {items.length === 0 ? (
@@ -353,10 +358,6 @@ export default async function SaHomePage() {
             </ul>
           )}
         </div>
-
-        {/* 5 · เครื่องมือ — un-buried destinations (store / schedule / requests /
-            end-of-day). Store + schedule deep-link the SA's single project. */}
-        <SaTools primaryProjectId={primaryProjectId} showCloseNudge={showCloseNudge} />
       </section>
 
       {/* Floating ถ่ายรูป capture — always reachable, never scrolls away. */}

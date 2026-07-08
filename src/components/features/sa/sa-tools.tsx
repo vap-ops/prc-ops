@@ -7,7 +7,14 @@
 // several. Server component — pure Links, no client state.
 
 import Link from "next/link";
-import { Box, CalendarDays, ClipboardCheck, ShoppingCart, type LucideIcon } from "lucide-react";
+import {
+  Box,
+  CalendarDays,
+  ClipboardCheck,
+  ShoppingCart,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import { scheduleHref, storeHref } from "@/lib/nav/project-paths";
 
 export function SaTools({
@@ -55,6 +62,16 @@ export function SaTools({
           subtitle="รายงาน · แผนพรุ่งนี้"
           pulse={showCloseNudge}
         />
+        {/* Temporary — SA-assisted onboarding: the crew roster + the technician
+            self-onboard QR. Full-width row below the 2×2. */}
+        <Tile
+          href="/sa/crew"
+          icon={Users}
+          accent="text-cat-w06"
+          title="ทีมงาน"
+          subtitle="ช่างในโครงการ · เพิ่มช่างใหม่"
+          fullWidth
+        />
       </div>
     </section>
   );
@@ -67,6 +84,7 @@ function Tile({
   title,
   subtitle,
   pulse = false,
+  fullWidth = false,
 }: {
   href: string;
   icon: LucideIcon;
@@ -74,11 +92,14 @@ function Tile({
   title: string;
   subtitle: string;
   pulse?: boolean;
+  fullWidth?: boolean;
 }) {
   return (
     <Link
       href={href}
-      className="rounded-card border-edge bg-card shadow-card focus-visible:ring-action hover:bg-sunk relative flex min-h-20 flex-col gap-2 border p-4 transition-colors focus:outline-none focus-visible:ring-2"
+      className={`rounded-card border-edge bg-card shadow-card focus-visible:ring-action hover:bg-sunk relative flex min-h-20 flex-col gap-2 border p-4 transition-colors focus:outline-none focus-visible:ring-2 ${
+        fullWidth ? "col-span-2" : ""
+      }`}
     >
       {pulse ? (
         <span
