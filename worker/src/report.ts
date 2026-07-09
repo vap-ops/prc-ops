@@ -13,9 +13,13 @@
 //     expected to filter, but this is also enforced here so an empty
 //     WP section never appears in the PDF).
 //   - Empty project (no WPs, or every WP skipped) → header-only PDF.
+//   - Optional on-demand watermark (ADR 0003): when `input.watermark` is set,
+//     a translucent tiled diagonal mark is composited over EVERY rendered
+//     page. Drawn onto the PDF output only — the mark never touches the photos,
+//     so the stored originals and the caller's input photo bytes are left
+//     unmodified. One template in v1; fields beyond the text are ADR-0003-deferred.
 //
 // Deferred to v2 (NOT in scope this unit):
-//   - Watermarks (originals only, per ADR 0003).
 //   - Before / During photos.
 //   - PM image curation per report.
 //   - Deliverable-grouping of WPs.
@@ -46,9 +50,20 @@ export interface ReportInputWorkPackage {
   afterPhotos: Buffer[];
 }
 
+export interface ReportWatermark {
+  // The text stamped as the tiled mark. Rendered through the same embedded
+  // Sarabun face as the body, so Thai is safe (never the WinAnsi Helvetica
+  // that garbles it — spec 13). The worker passes the project code.
+  text: string;
+}
+
 export interface ReportInput {
   project: ReportInputProject;
   workPackages: ReportInputWorkPackage[];
+  // Optional: when present, the report PDF is watermarked on demand (ADR 0003).
+  // Absent → no mark. The worker sets this so client-facing reports are marked
+  // (ADR 0067); leaving it optional keeps an un-watermarked render available.
+  watermark?: ReportWatermark;
 }
 
 // "24 May 2026" — date only, day / full month name / year, no time, no
@@ -76,8 +91,51 @@ function streamToBuffer(doc: PDFKit.PDFDocument): Promise<Buffer> {
   });
 }
 
+// Watermark template (ADR 0003, "one watermark template in v1"): a faint,
+// tiled, diagonal mark. Constants kept together so the single template is easy
+// to read and tune; exact fields beyond the text string are ADR-0003-deferred.
+const WATERMARK_ANGLE_DEG = -45;
+const WATERMARK_FONT_SIZE = 42;
+const WATERMARK_COLOR = "#808080";
+const WATERMARK_OPACITY = 0.1;
+const WATERMARK_STEP_X = 300;
+const WATERMARK_STEP_Y = 170;
+
+// Composite the watermark over every already-rendered page. MUST run as the
+// terminal draw (after all content, right before doc.end()): it only draws text
+// on top of each page and never touches the source photo bytes, so the stored
+// originals and the input buffers stay unmodified (ADR 0003 / CLAUDE.md
+// invariant). It leaves font/size set to the watermark's — harmless only because
+// nothing draws after it (PDFKit tracks font in JS state, outside the q/Q the
+// save/restore below balances). Requires `bufferPages: true` so finished pages
+// can be revisited via switchToPage.
+function stampWatermark(doc: PDFKit.PDFDocument, text: string): void {
+  const range = doc.bufferedPageRange();
+  for (let i = range.start; i < range.start + range.count; i++) {
+    doc.switchToPage(i);
+    const { width, height } = doc.page;
+    doc.save();
+    doc
+      .font("Sarabun")
+      .fontSize(WATERMARK_FONT_SIZE)
+      .fillColor(WATERMARK_COLOR)
+      .fillOpacity(WATERMARK_OPACITY)
+      .rotate(WATERMARK_ANGLE_DEG, { origin: [width / 2, height / 2] });
+    // Tile over an area larger than the page so the rotated grid still covers
+    // the corners. lineBreak:false keeps each draw a single positioned line
+    // (no reflow, no accidental page growth).
+    for (let y = -height; y < height * 2; y += WATERMARK_STEP_Y) {
+      for (let x = -width; x < width * 2; x += WATERMARK_STEP_X) {
+        doc.text(text, x, y, { lineBreak: false });
+      }
+    }
+    doc.restore();
+  }
+}
+
 export async function buildReportPdf(input: ReportInput): Promise<Buffer> {
-  const doc = new PDFDocument({ size: "A4", margin: 50 });
+  // bufferPages so stampWatermark can revisit every page after layout.
+  const doc = new PDFDocument({ size: "A4", margin: 50, bufferPages: true });
   doc.registerFont("Sarabun", SARABUN_REGULAR);
   doc.font("Sarabun");
   const done = streamToBuffer(doc);
@@ -109,6 +167,12 @@ export async function buildReportPdf(input: ReportInput): Promise<Buffer> {
       doc.image(photo, { fit: [500, 500], align: "center", valign: "center" });
       doc.moveDown(1);
     }
+  }
+
+  // On-demand watermark (ADR 0003): composite the mark over every rendered
+  // page. Absent → no mark. Never applied to the source photos, only the output.
+  if (input.watermark) {
+    stampWatermark(doc, input.watermark.text);
   }
 
   doc.end();

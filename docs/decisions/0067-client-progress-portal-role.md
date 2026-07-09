@@ -45,8 +45,12 @@ conflated).
    (approved only) and the reports surface — each gated on
    `current_user_role() = 'client' AND client_has_live_access(<owning project>)`.
    No existing staff/PM policy is widened. **No money columns** are selected in
-   any client query; column grants are the backstop. Photos and report PDFs are
-   served as watermarked signed URLs through the RLS server client.
+   any client query; column grants are the backstop. Report PDFs are served as
+   signed URLs through the RLS server client and are **watermarked at generation**
+   by the PDF worker (ADR 0003 — the mark is composited onto the rendered output
+   on demand; the stored photo originals are never modified). Progress **photos
+   are served un-watermarked** for now; per-image watermarking on serve is a
+   tracked follow-up (ADR 0003 provides for it, rendered on demand server-side).
 
 5. **Routing.** `roleHome('client') → /client`. An expired/revoked client keeps
    role `client`; the `/client` gate forwards it to `/client/access-ended` (a
@@ -66,3 +70,9 @@ conflated).
 - Out of scope (YAGNI, surface as follow-up specs if wanted): multi-project
   client accounts, client-side comments/approvals, email/password auth, client
   notifications, self-serve renewal, white-label branding.
+- **Correction (2026-07-09).** An earlier draft of decision (4) claimed _photos
+  and report PDFs_ are served as watermarked signed URLs. That over-stated
+  reality: report-PDF watermarking only landed later, with the PDF worker
+  (ADR 0003, on demand at generation, originals untouched). **Individual progress
+  photos are still served un-watermarked** — per-image watermarking remains a
+  follow-up unit. Decision (4) above was reworded to match what is actually built.

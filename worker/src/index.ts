@@ -114,7 +114,10 @@ async function processJob(
     reportWps.push({ code: wp.code, name: wp.name, afterPhotos: buffers });
   }
 
-  // 4. Build the PDF.
+  // 4. Build the PDF. Reports are client-facing (ADR 0067), so they are
+  //    watermarked on demand at generation (ADR 0003) — the mark is composited
+  //    onto the rendered output only; the stored source photos are untouched.
+  //    The project code is the v1 template text.
   const pdf = await buildReportPdf({
     project: {
       code: project.code,
@@ -122,6 +125,7 @@ async function processJob(
       generatedAt: new Date(),
     },
     workPackages: reportWps,
+    watermark: { text: project.code },
   });
 
   // 5. Upload to the 'reports' bucket.
