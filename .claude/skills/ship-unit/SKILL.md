@@ -55,13 +55,17 @@ fail. (CLAUDE.md project rule; restated here because it is the most-skipped gate
 2. Schema units: `pnpm db:push` then `pnpm db:types` then `pnpm db:test` — new file
    green, ZERO collateral (known pre-existing reds are 200/221 ONLY; anything else
    is yours).
-3. **Real-browser verify the ACTUAL flow** — not just tests. Start the dev server
-   on your worktree branch, sign in as the dev-preview user, and click through the
-   user journey the unit changes (create → see → act). Recipe (memory
-   `dev-preview-login`): generate a magiclink token via the auth admin API, then in
-   `preview_eval` use `@supabase/ssr` `verifyOtp({type:'email', token_hash})` to
-   mint the session cookies; navigate and drive the flow; require zero console
-   errors. The dev server serves the CHECKED-OUT branch — confirm you're on yours.
+3. **Real-flow verify the ACTUAL change** — not just tests. UI/route units: start
+   the dev server on your worktree branch, sign in as the dev-preview user, and
+   click through the user journey the unit changes (create → see → act). Recipe
+   (memory `dev-preview-login`): generate a magiclink token via the auth admin
+   API, then in `preview_eval` use `@supabase/ssr`
+   `verifyOtp({type:'email', token_hash})` to mint the session cookies; navigate
+   and drive the flow; require zero console errors. The dev server serves the
+   CHECKED-OUT branch — confirm you're on yours. Units with NO browser surface
+   (hooks, scripts, worker, schema-only, docs): execute the changed artifact
+   end-to-end instead and show its real output (run the hook on crafted stdin,
+   exercise the script's new branch, query the live DB object).
 4. New/changed UI: run the guard suites locally before pushing
    (design-doctrine, nav-back-affordance, ui-class-contracts) — they fail CI otherwise.
 
@@ -82,10 +86,12 @@ operator — that hold is BY DESIGN, never override without the standing grant
 
 ## Gate 6 — Release + record
 
-1. Update your `../LANES.md` entry: merged/held state, main↔DB sync watermark if
-   schema, worktree fate. Remove the worktree + branch once merged.
+1. Update `../LANES.md`: while the PR is open/held, annotate your entry; once
+   MERGED, MOVE the whole block to `LANES.archive.md` (append there, delete
+   here) and refresh the STATUS line (main HEAD + schema watermark) — LANES.md
+   stays live-only. Remove the worktree + branch once merged.
 2. Update memory: the spec's topic file (outcome + gotchas, one line in the index)
-   + the ▶ NEXT UP line. Memory is single-writer — check no other session is live.
+   - the ▶ NEXT UP line. Memory is single-writer — check no other session is live.
 3. Report per memory `report-format-for-use`: STATUS line → single NEXT ACTION →
    fenced copy-paste artifacts → short FYI. Telegram only per memory
    `telegram-progress-updates` (attended → in-chat only).

@@ -59,14 +59,22 @@ function main() {
   }
 
   // Resolve branch + repo root from the file's own directory (the session may run
-  // from a wrapper cwd outside the repo). Any git failure — fail open.
+  // from a wrapper cwd outside the repo). Unlike infra errors elsewhere in this
+  // hook, a failed resolution here fails CLOSED: the path already matched the
+  // protected migration class, and allowing it on "couldn't tell which branch"
+  // (e.g. a relative path resolved against a non-repo cwd) is the exact bypass
+  // this gate exists to stop. The env override remains the escape hatch.
   let branch, toplevel;
   try {
     const dir = path.dirname(path.resolve(filePath));
     branch = git("rev-parse --abbrev-ref HEAD", dir);
     toplevel = git("rev-parse --show-toplevel", dir);
   } catch {
-    return 0;
+    process.stderr.write(
+      "Blocked: could not resolve the git branch for this migration path (is the path absolute and inside a checkout?).\n" +
+        "Retry with an absolute path from a git worktree, or set CLAUDE_ALLOW_UNCLAIMED_MIGRATION=1 for an operator-approved exception.\n",
+    );
+    return 2;
   }
 
   if (branch === "main" || branch === "HEAD") {
@@ -86,7 +94,10 @@ function main() {
     return 0; // no whiteboard here (CI, fresh clone) — fail open
   }
 
-  if (lanes.includes(branch)) {
+  // Word-boundary match, not substring: a short/numeric branch name must not
+  // ride on incidental prose or spec numbers elsewhere in the whiteboard.
+  const escaped = branch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (new RegExp(`(^|[^A-Za-z0-9_-])${escaped}($|[^A-Za-z0-9_-])`).test(lanes)) {
     return 0; // lane claimed
   }
 

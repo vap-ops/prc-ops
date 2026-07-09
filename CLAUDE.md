@@ -34,7 +34,7 @@ Every unit passes these gates in order — each with evidence (real command outp
 1. **Lane claim.** Read the WHOLE `../LANES.md` + `git status` before starting; claim your lane (branch named) before touching shared surfaces. Migration writes are hook-blocked without a claim.
 2. **Dependency gate-check.** Before building ON anything (RPC, table, component, route, spec assumption), read its LIVE form — DB objects from the live database, code at your branch's HEAD — and confirm the contract. Mismatch → stop and re-plan.
 3. **RED first.** The failing test exists and was seen to fail before any production code.
-4. **Real-browser verify.** Tests green is not "works" — drive the actual user flow in a browser (dev-preview login) with zero console errors before claiming done.
+4. **Real-flow verify.** Tests green is not "works" — exercise the changed artifact for real before claiming done. UI/route units: drive the actual user flow in a browser (dev-preview login), zero console errors. Units with no browser surface (hooks, scripts, worker, schema-only, docs): execute the changed artifact end-to-end and show its real output (e.g. run the hook against crafted stdin, run the script's new path).
 5. **Fresh-eyes review.** A reviewer subagent reads the full diff; findings addressed or answered.
 6. **Prove the merge.** `scripts/ship-pr.sh` refuses a branch that conflicts with origin/main — never assert "merges clean" without it.
 
@@ -77,7 +77,7 @@ Every feature unit follows this loop:
 2. **Progress tracker.** Update `/docs/progress-tracker.md`: mark the unit as in progress, note the start time.
 3. **Test first.** Write the failing test. State "Writing failing test first."
 4. **Implement.** Make the test pass. Nothing more.
-5. **Verify.** Run the spec's verification checklist. Run `pnpm lint && pnpm typecheck && pnpm test`. All must pass.
+5. **Verify.** Run the spec's verification checklist. Run `pnpm lint && pnpm typecheck && pnpm test`. All must pass. Then satisfy Unit gate 4 (real-flow verification) — for UI units that means the browser, not just tests.
 6. **Update tracker.** Mark unit complete in `/docs/progress-tracker.md`. Note decisions made, open questions surfaced.
 7. **Stop or continue per the standing grant.** The default is stop after one unit. Under the operator's standing autonomy grant (memory `autonomy-grant-backlog-execution`), sessions continue unit-to-unit unattended and stop only at the grant's gates (genuine judgment, external blocker, destructive migration).
 

@@ -42,11 +42,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect-audit-log.js\""
+            "command": "node .claude/hooks/protect-audit-log.js"
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/require-lane-claim.js\""
+            "command": "node .claude/hooks/require-lane-claim.js"
           }
         ]
       }
