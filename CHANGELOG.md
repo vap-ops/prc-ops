@@ -1,3 +1,9 @@
+# [0.5.0](https://github.com/VAP-Solution/prc-ops/compare/v0.4.0...v0.5.0) (2026-07-09)
+
+### Features
+
+- **accounting:** journal CSV export for accountant (spec 288 U1) ([#418](https://github.com/VAP-Solution/prc-ops/issues/418)) ([a73a08e](https://github.com/VAP-Solution/prc-ops/commit/a73a08e1994a5463bd32cccc39c7a861a331be95))
+
 # [0.4.0](https://github.com/VAP-Solution/prc-ops/compare/v0.3.1...v0.4.0) (2026-07-09)
 
 ### Features
