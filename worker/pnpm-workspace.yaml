@@ -1,0 +1,9 @@
+# Marks the worker as its own pnpm workspace root, isolated from the repo-root
+# workspace. Without this, `pnpm install` run from worker/ walks UP to the root
+# pnpm-workspace.yaml and installs the ROOT project instead of the worker —
+# so the worker's own dependencies (e.g. googleapis) never land in
+# worker/node_modules, and only deps that happen to overlap with the root app
+# (supabase-js, pdfkit) resolve. CI runs `pnpm install --frozen-lockfile` here
+# without --ignore-workspace, so this file is what makes that install correct.
+# Empty packages list = install just this package (the worker) standalone.
+packages: []
