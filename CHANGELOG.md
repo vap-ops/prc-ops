@@ -1,3 +1,9 @@
+## [0.3.1](https://github.com/VAP-Solution/prc-ops/compare/v0.3.0...v0.3.1) (2026-07-09)
+
+### Performance Improvements
+
+- **pgtap:** batch db:test into few CLI invocations ([#414](https://github.com/VAP-Solution/prc-ops/issues/414)) ([be6dc15](https://github.com/VAP-Solution/prc-ops/commit/be6dc15bda69518997fffa86088b180222c5e8be))
+
 # [0.3.0](https://github.com/VAP-Solution/prc-ops/compare/v0.2.0...v0.3.0) (2026-07-09)
 
 ### Features
