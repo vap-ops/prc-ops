@@ -26,8 +26,11 @@ the dashboard SQL editor, not dashboard toggles, not ad-hoc `psql`.
   as a PR, never a direct push. `supabase/migrations/` is a protected path, so
   **both destructive _and_ additive** migration PRs are HELD by the guard for
   the operator's review and merge — the agent authors and self-reviews against
-  green pgTAP, but a human merges. (Once pgTAP is a required CI check, additive
-  migrations may auto-merge again, mechanically gated — see the tiers below.)
+  green pgTAP. Once pgTAP is a required CI check (ADR 0081 — pending the
+  `SUPABASE_ACCESS_TOKEN` secret + the branch-protection flip), the guard still
+  flags every migration PR, but the agent may admin-merge its own **additive**
+  migration under the standing grant while a **destructive** one still waits for
+  a human — see the tiers below.
 - `supabase db pull` is not a substitute for committing the migration —
   the migration file is the artifact of record.
 
@@ -40,9 +43,10 @@ the dashboard SQL editor, not dashboard toggles, not ad-hoc `psql`.
   protected path, the danger-path guard **holds** the PR — the operator reviews
   and merges it. The agent then `supabase db push`es the merged migration and
   verifies post-apply (`db:test` / targeted check) and reports. This supersedes
-  the 2026-06-25 direct-`ff-merge`-to-`main` grant: the human gates the merge
-  until pgTAP is a required CI check, after which additive migrations may
-  auto-merge again.
+  the 2026-06-25 direct-`ff-merge`-to-`main` grant: once pgTAP is a required CI
+  check (ADR 0081 — pending the secret + the branch-protection flip), an additive
+  migration self-merges under the standing grant (agent admin-merge on green
+  substantive checks; memory `autonomous-build-fence`) rather than by direct push.
 - **Destructive / irreversible** (DROP, destructive ALTER incl. column-type
   change, mass DELETE, TRUNCATE — `break-glass.md` Procedure B):
   operator-gated. The operator owns the merge and `git push` and runs the
