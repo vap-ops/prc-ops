@@ -27,6 +27,17 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Before any append-only bypass (surgically correcting an `audit_log` / `photo_logs` / `approvals` row) or any destructive/irreversible migration (DROP, destructive ALTER, mass DELETE, TRUNCATE), read `/docs/break-glass.md` — binding. These are operator-only emergency procedures (guarded trigger-disable transaction + mandatory `audit_log` row; verified `pg_dump` floor + preview-branch rehearsal); never improvise them.
 - Commit messages follow Conventional Commits (feat:, fix:, test:, docs:, refactor:, chore:).
 
+## Unit gates (binding)
+
+Every unit passes these gates in order — each with evidence (real command output), none skippable. The step-by-step commands live in the `ship-unit` skill.
+
+1. **Lane claim.** Read the WHOLE `../LANES.md` + `git status` before starting; claim your lane (branch named) before touching shared surfaces. Migration writes are hook-blocked without a claim.
+2. **Dependency gate-check.** Before building ON anything (RPC, table, component, route, spec assumption), read its LIVE form — DB objects from the live database, code at your branch's HEAD — and confirm the contract. Mismatch → stop and re-plan.
+3. **RED first.** The failing test exists and was seen to fail before any production code.
+4. **Real-browser verify.** Tests green is not "works" — drive the actual user flow in a browser (dev-preview login) with zero console errors before claiming done.
+5. **Fresh-eyes review.** A reviewer subagent reads the full diff; findings addressed or answered.
+6. **Prove the merge.** `scripts/ship-pr.sh` refuses a branch that conflicts with origin/main — never assert "merges clean" without it.
+
 ## Scope discipline
 
 - **Implement exactly what the spec requests. Do not add fields, helpers, error handlers, validation, or "while I'm here" improvements.** Out-of-scope additions are rejected in review regardless of perceived value.
@@ -50,7 +61,7 @@ Do not improvise. Output:
 3. What you'd do next if approved
 4. Confidence percentage on the proposed next step
 
-Then wait. Do not proceed without explicit acknowledgement.
+Then wait. Do not proceed without explicit acknowledgement. (Under the standing autonomy grant: first exhaust self-service diagnosis — read the live DB/app state, reproduce, search the repo and memory; flag 🔔 via Telegram only when the block is genuinely operator-gated.)
 
 ## Communication
 
@@ -68,24 +79,19 @@ Every feature unit follows this loop:
 4. **Implement.** Make the test pass. Nothing more.
 5. **Verify.** Run the spec's verification checklist. Run `pnpm lint && pnpm typecheck && pnpm test`. All must pass.
 6. **Update tracker.** Mark unit complete in `/docs/progress-tracker.md`. Note decisions made, open questions surfaced.
-7. **Stop.** Do not start the next unit in the same session.
+7. **Stop or continue per the standing grant.** The default is stop after one unit. Under the operator's standing autonomy grant (memory `autonomy-grant-backlog-execution`), sessions continue unit-to-unit unattended and stop only at the grant's gates (genuine judgment, external blocker, destructive migration).
+
+The gate-by-gate procedure for this loop — lane claim, dependency gate-check, RED-first, real-browser verification, fresh-reviewer pass, gated ship — is the `ship-unit` skill (`.claude/skills/ship-unit/`); load it for every unit.
 
 ## Roles
 
-The `users.role` enum contains 10 values — 9 PRC roles plus a `visitor` default state for new signups:
+Do NOT trust any hardcoded role list — the enum grows. The SSOTs are:
 
-- `site_admin` (SA) — v1 ✅
-- `project_manager` (PM) — v1 ✅
-- `super_admin` — v1 ✅ — full-access operator role; admitted to every v1 surface, lands on `/pm`
-- `project_coordinator` (PC) — v2
-- `procurement` — v1 ✅ — onboarded onto the purchasing worklist (`/requests`) in spec 70
-- `technician` — v2 or v3
-- `hr` — v3
-- `subcon_manager` — v3
-- `accounting` — v3
-- `visitor` — v1 — default for new signups; awaits manual promotion to a real role (see ADR 0010)
+- **Enum values:** the live `user_role` Postgres enum (verify: `select unnest(enum_range(null::public.user_role))` via `pnpm exec supabase db query --linked`).
+- **Routing + role sets:** `src/lib/auth/role-home.ts` — `roleHome()` maps each role to its home; the exported role-set constants (PM_ROLES, LEGAL_ROLES, …) are the only place membership is defined. Roles without a built surface route to `/coming-soon`.
+- **Labels:** `USER_ROLE_LABEL` in `src/lib/i18n/labels.ts`.
 
-Do not add or remove enum values without an ADR. After LINE login, `roleHome()` (`src/lib/auth/role-home.ts`) routes by role: `site_admin`→`/sa`, `project_manager`/`super_admin`→`/pm`, `procurement`→`/requests`; every other role (incl. `visitor`) → `/coming-soon`, a static page that acknowledges the account exists and says tools for that role are not yet live. v2 work removes the redirect for whichever role is being served.
+Do not add or remove enum values without an ADR. New-signup default is `visitor` (ADR 0010). Adding an enum value trips exhaustiveness guards on purpose (roleHome fixture, ROLE_GROUP_ORDER, pgTAP enum pins) — update them deliberately, never by weakening the guard.
 
 ## Operating environment
 
@@ -108,8 +114,8 @@ Multiple sessions may run against this repo, but two in the SAME working dir clo
 
 ## Skills, agents, and hooks
 
-- Skills at `.claude/skills/` provide procedural knowledge. Currently installed: `supersede-pattern`; `bug-fix-flow` (the autonomous bug-fix pipeline — discover→triage→fix→ship→reply→complete, driven by CC, flagging the operator only at genuine decision points; runs scheduled daily + on demand); `triage-feedback` (spec 201 — the queue/message/status mechanics `bug-fix-flow` builds on: CC investigates reports, sets status off `ใหม่`, and replies tiered — auto-publishes low-risk replies, stages a draft + flags the operator for anything that declines/commits/is uncertain). Load them when touching matching areas.
-- Hooks at `.claude/hooks/` enforce constraints automatically. Currently installed: `protect-audit-log.js` (blocks edits to audit_log migrations unless `CLAUDE_ALLOW_AUDIT_LOG_EDIT=1` is set). Do not attempt to bypass.
+- Skills at `.claude/skills/` provide procedural knowledge. Currently installed: `ship-unit` (the gated unit loop — load for EVERY unit); `supersede-pattern`; `bug-fix-flow` (the autonomous bug-fix pipeline — discover→triage→fix→ship→reply→complete, driven by CC, flagging the operator only at genuine decision points; runs scheduled daily + on demand); `triage-feedback` (spec 201 — the queue/message/status mechanics `bug-fix-flow` builds on: CC investigates reports, sets status off `ใหม่`, and replies tiered — auto-publishes low-risk replies, stages a draft + flags the operator for anything that declines/commits/is uncertain). Load them when touching matching areas.
+- Hooks at `.claude/hooks/` enforce constraints automatically. Currently installed: `protect-audit-log.js` (blocks edits to audit_log migrations unless `CLAUDE_ALLOW_AUDIT_LOG_EDIT=1` is set); `require-lane-claim.js` (blocks migration writes unless the current branch is claimed in `../LANES.md`; always blocks migrations on `main`). Do not attempt to bypass.
 - Subagents are not yet installed. Add when a recurring specialized review need emerges (e.g., RLS reviews across many tables).
 
 ## Commands
@@ -130,7 +136,7 @@ Package manager is **pnpm** (`pnpm@10.x`, Node 22+). All commands run from the r
 
 **Run a single unit test:** `pnpm test tests/unit/env.test.ts`, or filter by name with `pnpm exec vitest run -t "rejects invalid"`.
 
-**CI** (`.github/workflows/ci.yml`) runs only `lint`, `typecheck`, and `test`. It does **not** run `test:e2e`, `db:test`, or the spike suite — run those locally when touching the relevant code. A husky pre-commit hook runs `lint-staged` (eslint + prettier on staged files).
+**CI** (`.github/workflows/ci.yml` — the workflow file is the SSOT) runs `lint` + `typecheck` + `test`, the secret scan, the worker check, and the **danger-path guard** (see Operating environment). It does **not** run `test:e2e`, `db:test`, or the spike suite — run those locally when touching the relevant code. A husky pre-commit hook runs `lint-staged` (eslint + prettier on staged files).
 
 ### Database workflow
 
@@ -190,4 +196,4 @@ Tests are pgTAP `.sql` files in `supabase/tests/database/`, run via `scripts/run
 
 ### Architecture Decision Records
 
-`docs/decisions/` holds the ADRs — they override defaults. **The full, current list with one-line titles is `docs/decisions/README.md`** (40 ADRs, numbered through 0043 — 0023, 0024, 0029 were never authored). Scan that index and read the ones relevant to your change in full; don't rely on memory of the numbering.
+`docs/decisions/` holds the ADRs — they override defaults. **The full, current list with one-line titles is `docs/decisions/README.md`** (do not trust any remembered count — the index is the SSOT). Scan that index and read the ones relevant to your change in full; don't rely on memory of the numbering.
