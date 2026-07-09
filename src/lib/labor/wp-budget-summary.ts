@@ -16,19 +16,22 @@ export async function fetchWpLaborBudgetSummary(
 ): Promise<LaborBudgetSummary> {
   const admin = createAdminClient();
 
-  const { data: costRows } = await admin
-    .from("labor_logs")
-    .select(
-      "id, worker_id, work_date, day_fraction, day_rate_snapshot, pay_type_snapshot, worker_name_snapshot, self_logged, superseded_by",
-    )
-    .eq("work_package_id", workPackageId);
+  // Spec 289 U2: both reads key on work_package_id only — no dependency, so
+  // they run together instead of in series.
+  const [{ data: costRows }, { data: econRow }] = await Promise.all([
+    admin
+      .from("labor_logs")
+      .select(
+        "id, worker_id, work_date, day_fraction, day_rate_snapshot, pay_type_snapshot, worker_name_snapshot, self_logged, superseded_by",
+      )
+      .eq("work_package_id", workPackageId),
+    admin
+      .from("wp_economics")
+      .select("labor_budget")
+      .eq("work_package_id", workPackageId)
+      .maybeSingle(),
+  ]);
   const total = aggregateLaborCost((costRows ?? []) as CostInputRow[]).total;
-
-  const { data: econRow } = await admin
-    .from("wp_economics")
-    .select("labor_budget")
-    .eq("work_package_id", workPackageId)
-    .maybeSingle();
 
   return laborBudgetSummary(econRow?.labor_budget ?? null, total);
 }

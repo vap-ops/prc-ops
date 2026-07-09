@@ -174,7 +174,6 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     { data: ohRows },
     { data: issueRows },
     { data: returnRows },
-    { data: wkRows },
     catalogData,
     catalogCategories,
     { data: eqItemRows },
@@ -225,13 +224,6 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     // Spec 209 U2: returns booked against this WP's issues — to show the
     // remaining-returnable per issued line (issued − Σ returns).
     supabase.from("stock_returns").select("issue_id, qty").eq("work_package_id", workPackageId),
-    // Spec 177 U7: the project's active workers — the receiver picker for เบิก.
-    supabase
-      .from("workers")
-      .select("id, name")
-      .eq("project_id", projectId)
-      .eq("active", true)
-      .order("name", { ascending: true }),
     // Spec 179: the active catalog master feeds the คำขอซื้อ item picker
     // (project-agnostic reference data; readable by any authenticated user).
     // Spec 180: image_path rides along for the picker's thumbnails.
@@ -391,8 +383,10 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     };
   });
 
-  // Spec 177 U5/U7: shape the store reads for the WP เบิก control.
-  const wpWorkers = (wkRows ?? []).map((w) => ({ id: w.id, name: w.name }));
+  // Spec 177 U5/U7: shape the store reads for the WP เบิก control. Spec 289 U2:
+  // the receiver list comes from the labor zone's workers read (same filter,
+  // same order) — the page's own workers query is gone.
+  const wpWorkers = labor.projectWorkers;
   const workerNames = new Map(wpWorkers.map((w) => [w.id, w.name]));
   const wpOnHand: WpStockRow[] = (ohRows ?? []).map((r) => ({
     catalogItemId: r.catalog_item_id,
