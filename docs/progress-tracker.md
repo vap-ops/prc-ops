@@ -51,6 +51,53 @@ transitions the contract draft→active in the SAME txn (mirrors how `approvals`
 
 ---
 
+## Spec 286 U1 — office-role self-onboard door (QR parity) — DONE / code-only, auto-merge (2026-07-09)
+
+The self-registration flow (form, docs, `/registrations` queue, `approve_staff_registration` RPC) is
+already role-neutral (spec 263/264); only the FRONT DOOR was technician-branded. U1 adds an
+office-labeled, QR-able door. Worktree `../prc-ops-spec286office`, branch `spec286-office-onboarding`
+off origin/main `8a7ba934`. **CODE-ONLY** (no `supabase/migrations`, no `src/lib/auth/**`) → auto-merges
+on green.
+
+- **`src/lib/register/register-entry.ts`** (new, pure) — SSOT for the two entry variants: `RegisterVariant`
+  (`field` | `office`), `staffRegisterCopy(variant)` → `{ heading, path, loginNext }`, `REGISTER_FIELD_PATH`
+  (= `REGISTER_WORKSPACE_PATH`, the post-submit redirect target) / `REGISTER_OFFICE_PATH`,
+  `VISITOR_REGISTER_ENTRIES` (on-site first, office second).
+- **`src/components/features/register/staff-register-workspace.tsx`** (new) — the workspace body extracted
+  from `/register/technician`, parameterized by `variant`. Variant drives ONLY the fresh-form heading + the
+  logged-out return path. Once a registration exists (the pending/rejected view every registered visitor is
+  redirected into, regardless of door) the heading is the neutral `REGISTER_STATUS_HEADING`. The
+  approved-redirect now uses `roleHome(userRow.role)` (was hard-coded `technician`) so an approved office
+  hire lands on their real home — byte-identical for the technician case.
+- **`src/app/register/technician/page.tsx`** — thin wrapper: `variant="field"` + forwards the spec 279 QR
+  attribution (`?site`/`?project`/`?by`). Existing on-site QR keeps working unchanged.
+- **`src/app/register/office/page.tsx`** (new) — thin wrapper: `variant="office"`, no QR attribution
+  (office roles are not project-scoped, get no `workers` row). This URL is the office QR target.
+- **`src/components/features/register/visitor-landing.tsx`** (new) — the `/coming-soon` organic-visitor
+  landing, extracted (so it is unit-testable) + given a SECOND door CTA (office). `coming-soon/page.tsx`
+  now imports it.
+- **`labels.ts`** — `REGISTER_FIELD_HEADING`/`REGISTER_OFFICE_HEADING`/`REGISTER_STATUS_HEADING`; neutralized
+  `REGISTRATION_PENDING_NOTICE_BODY` (`หน้าช่างของคุณเอง`→`หน้าหลักของคุณเอง`).
+- **Verification:** `register-entry.test.ts` + `visitor-landing.test.tsx` (both doors) + updated
+  `registration-pending-notice`/`coming-soon-router`/`nav-back-affordance` pins; typecheck 0 · lint 0 · full
+  vitest green. Live visitor flow not browser-checked (reaching `/register/office` needs a fresh `visitor`
+  session; the dev-preview user is super_admin) — the page is a thin wrapper over prod-proven workspace code.
+
+**Open questions / deferred:**
+
+- **U2 (admit `legal` to staff onboarding)** — `legal` (spec 284) is the one office role NOT in
+  `STAFF_ONBOARDABLE_ROLES` / the `approve_staff_registration` allowlist, so an approver cannot assign it
+  yet. Needs `role-home.ts` (danger-path) + a migration re-`create-or-replace`ing the RPC with `legal`
+  added. **Blocked on the schema lane** (held by spec 284 U4 PR #405, DB-AHEAD `075540`). The other 6
+  office roles (procurement, procurement_manager, accounting, hr, project_coordinator, site_admin) are
+  onboardable through the office door TODAY.
+- The optional on-site share-card courtesy (`ShareCardButton` label "หัวหน้าที่หน้างาน" + share text
+  "สมัครเป็นช่าง") still reads on-site-flavored on an office applicant's pending view — left as-is (optional
+  "ถ้ามี" courtesy); revisit if office onboarding volume grows.
+- No stored track/department self-declaration (operator: label-only) — the shared queue stays undifferentiated.
+
+---
+
 ## Spec 284 U3 — contracts (Legal money/document posture) — DONE / db:push'd, PR held (2026-07-09)
 
 The Legal department's first money/document entity (spec §U3 / ADR 0080 dec 10). Clones the

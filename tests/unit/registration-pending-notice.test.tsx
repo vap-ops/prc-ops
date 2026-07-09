@@ -15,9 +15,17 @@ describe("RegistrationPendingNotice", () => {
     expect(screen.getByText("ส่งใบสมัครแล้ว รอการอนุมัติ")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "ทีมงานได้รับใบสมัครของคุณแล้ว ไม่ต้องส่งบัตรให้ใครเพิ่ม เมื่ออนุมัติแล้ว หน้านี้จะกลายเป็นหน้าช่างของคุณเอง — เปิดแอปอีกครั้งเพื่อดูสถานะได้ตลอด",
+        "ทีมงานได้รับใบสมัครของคุณแล้ว ไม่ต้องส่งบัตรให้ใครเพิ่ม เมื่ออนุมัติแล้ว หน้านี้จะกลายเป็นหน้าหลักของคุณเอง — เปิดแอปอีกครั้งเพื่อดูสถานะได้ตลอด",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("stays role-neutral so an office applicant sees no 'ช่าง' wording (spec 286)", () => {
+    // The post-submit visitor is redirected to the shared workspace regardless of
+    // which door they entered, so the pending copy must not claim they applied as
+    // a ช่าง (craftsman).
+    render(<RegistrationPendingNotice employeeId="PRC-26-0042" />);
+    expect(screen.queryByText(/ช่าง/)).not.toBeInTheDocument();
   });
 
   it("shows the employee id as plain selectable reference text", () => {

@@ -599,11 +599,23 @@ export function formatThaiTime(iso: string): string {
 // every pending registration; nothing further is required of the applicant).
 // Copy-only fix — no new state.
 export const REGISTRATION_PENDING_NOTICE_HEADING = "ส่งใบสมัครแล้ว รอการอนุมัติ";
+// Spec 286 U1: role-neutral ("หน้าหลักของคุณเอง", was "หน้าช่างของคุณเอง") — the
+// post-submit visitor is redirected to this shared workspace regardless of which
+// door (on-site / office) they entered, so the pending copy must not claim ช่าง.
 export const REGISTRATION_PENDING_NOTICE_BODY =
-  "ทีมงานได้รับใบสมัครของคุณแล้ว ไม่ต้องส่งบัตรให้ใครเพิ่ม เมื่ออนุมัติแล้ว หน้านี้จะกลายเป็นหน้าช่างของคุณเอง — เปิดแอปอีกครั้งเพื่อดูสถานะได้ตลอด";
+  "ทีมงานได้รับใบสมัครของคุณแล้ว ไม่ต้องส่งบัตรให้ใครเพิ่ม เมื่ออนุมัติแล้ว หน้านี้จะกลายเป็นหน้าหลักของคุณเอง — เปิดแอปอีกครั้งเพื่อดูสถานะได้ตลอด";
 export function registrationPendingEmployeeIdLine(employeeId: string): string {
   return `รหัสพนักงานของคุณ: ${employeeId} — เก็บไว้อ้างอิง`;
 }
+
+// Spec 286 U1 — the two self-onboard door headings. The staff self-registration
+// flow is role-neutral (spec 263/264); these label the two entry variants. The
+// STATUS heading is the neutral heading shown once a registration exists (the
+// pending/rejected view an office applicant is redirected into on the shared
+// workspace) — so that view never re-shows the on-site "สมัครเป็นช่าง".
+export const REGISTER_FIELD_HEADING = "สมัครเป็นช่าง";
+export const REGISTER_OFFICE_HEADING = "สมัครงานสำนักงาน";
+export const REGISTER_STATUS_HEADING = "ใบสมัครของคุณ";
 
 // Spec 264 follow-up (Handoff Unit A) — the Web Share/clipboard-fallback
 // button on the same page. Operator: the receiving SA had no idea what was

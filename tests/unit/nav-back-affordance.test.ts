@@ -191,6 +191,10 @@ const EXCLUDED_ROUTES = [
   // single-card-stack layout (neither header), reachable by a freshly
   // logged-in visitor before registering, mirrors portal/claim/page.tsx.
   "register/technician/page.tsx",
+  // Spec 286 U1: the office-role self-onboard door — same bespoke workspace
+  // (StaffRegisterWorkspace, no header), the office-labeled sibling of
+  // register/technician.
+  "register/office/page.tsx",
   // Spec 233 / ADR 0067: the client invite-claim entry mirrors /portal/claim —
   // a bespoke single-card layout (neither header), reached by a freshly
   // logged-in visitor before binding.
