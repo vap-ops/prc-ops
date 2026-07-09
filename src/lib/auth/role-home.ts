@@ -52,6 +52,24 @@ export function isProcurementManagerTier(role: UserRole): boolean {
 }
 
 /**
+ * Spec 286 (amends ADR 0070 item 3) — who may DECIDE a purchase request
+ * (requested → approved | rejected). Was PM-tier only (isManagerRole); spec 286
+ * delegates it to procurement_manager too, unconditionally in Phase 1 (a
+ * super_admin-configurable amount cap is the deferred Phase 2). Kept a DISTINCT
+ * named set from PROCUREMENT_MANAGER_ROLES ("members coincide, meaning differs":
+ * this is "who decides a PR", that is "who holds procurement-destructive
+ * authority"). Deliberately NOT a widen of isManagerRole — that gates /dashboard,
+ * /review and money surfaces procurement_manager must not reach. The DB backs
+ * this with the transition-scoped "purchase_requests decide by procurement_manager"
+ * RLS policy (spec 286 U1); that policy gates role + old-state, while the exact
+ * transition is app-enforced (the decision action pins .eq(status,'requested')).
+ */
+export const PR_DECIDER_ROLES: ReadonlyArray<UserRole> = [...PM_ROLES, "procurement_manager"];
+export function isPurchaseDecider(role: UserRole): boolean {
+  return PR_DECIDER_ROLES.includes(role);
+}
+
+/**
  * Spec 233 / ADR 0067: who may ISSUE or REVOKE a temporary client portal login —
  * project_director + super_admin ONLY. Deliberately NOT PM_ROLES: that set also
  * contains project_manager, and the operator scoped client access to the director
