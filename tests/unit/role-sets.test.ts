@@ -506,6 +506,9 @@ describe("STAFF_ONBOARDABLE_ROLES / isStaffOnboardableRole (spec 264 G4)", () =>
       "hr",
       "project_coordinator",
       "site_admin",
+      // Spec 286 U2: the Legal department's office role (spec 284) — onboardable
+      // through the office door; assigned as an OFFICE role (no workers row).
+      "legal",
     ]);
   });
 
