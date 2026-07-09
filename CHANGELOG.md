@@ -1,3 +1,9 @@
+# [0.3.0](https://github.com/VAP-Solution/prc-ops/compare/v0.2.0...v0.3.0) (2026-07-09)
+
+### Features
+
+- **worker:** on-demand watermark on report PDFs (G7 / ADR 0003) ([#415](https://github.com/VAP-Solution/prc-ops/issues/415)) ([85541f2](https://github.com/VAP-Solution/prc-ops/commit/85541f21535b42d5f7e93959c514279f43f2d0b3))
+
 # [0.2.0](https://github.com/VAP-Solution/prc-ops/compare/v0.1.0...v0.2.0) (2026-07-09)
 
 ### Bug Fixes
