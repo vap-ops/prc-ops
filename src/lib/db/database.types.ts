@@ -2033,6 +2033,51 @@ export type Database = {
           },
         ]
       }
+      document_approvals: {
+        Row: {
+          actor_id: string | null
+          comment: string
+          contract_id: string
+          created_at: string
+          decision: Database["public"]["Enums"]["document_decision"]
+          id: string
+          target_type: Database["public"]["Enums"]["document_target_type"]
+        }
+        Insert: {
+          actor_id?: string | null
+          comment: string
+          contract_id: string
+          created_at?: string
+          decision: Database["public"]["Enums"]["document_decision"]
+          id?: string
+          target_type?: Database["public"]["Enums"]["document_target_type"]
+        }
+        Update: {
+          actor_id?: string | null
+          comment?: string
+          contract_id?: string
+          created_at?: string
+          decision?: Database["public"]["Enums"]["document_decision"]
+          id?: string
+          target_type?: Database["public"]["Enums"]["document_target_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_approvals_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_approvals_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_id_counters: {
         Row: {
           next_val: number
@@ -8903,6 +8948,14 @@ export type Database = {
         }
         Returns: string
       }
+      submit_document_decision: {
+        Args: {
+          p_comment: string
+          p_contract_id: string
+          p_decision: Database["public"]["Enums"]["document_decision"]
+        }
+        Returns: string
+      }
       submit_feedback: {
         Args: {
           p_app_version?: string
@@ -9403,6 +9456,8 @@ export type Database = {
       crew_doc_purpose: "id_card" | "work_permit"
       crew_registration_status: "pending" | "approved" | "rejected"
       day_fraction: "full" | "half"
+      document_decision: "approve" | "reject" | "needs_revision"
+      document_target_type: "contract"
       employment_type: "permanent" | "temporary"
       equipment_movement_kind:
         | "received"
@@ -9821,6 +9876,8 @@ export const Constants = {
       crew_doc_purpose: ["id_card", "work_permit"],
       crew_registration_status: ["pending", "approved", "rejected"],
       day_fraction: ["full", "half"],
+      document_decision: ["approve", "reject", "needs_revision"],
+      document_target_type: ["contract"],
       employment_type: ["permanent", "temporary"],
       equipment_movement_kind: [
         "received",
