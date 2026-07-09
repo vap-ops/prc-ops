@@ -403,9 +403,12 @@ export function isStaffApprover(role: UserRole): boolean {
  *   - and of course `visitor` / `contractor` / `client` / `super_admin`, which
  *     the RPC itself refuses.
  * `technician` is first — the common case and the current open entry link
- * (`/register/technician`) — so it is the selector's sensible default. This set
- * is a starting point the operator may tune; pinned by role-sets.test.ts so a
- * widen (or a future enum add) is a deliberate in/out decision, not a silent drift.
+ * (`/register/technician`) — so it is the selector's sensible default. `legal`
+ * (spec 286 U2 / spec 284) is the Legal department's office role, onboardable
+ * through the office door (`/register/office`) — added to the RPC's assignable
+ * allowlist in the same unit's migration. This set is a starting point the
+ * operator may tune; pinned by role-sets.test.ts so a widen (or a future enum
+ * add) is a deliberate in/out decision, not a silent drift.
  */
 export const STAFF_ONBOARDABLE_ROLES: ReadonlyArray<UserRole> = [
   "technician",
@@ -415,6 +418,7 @@ export const STAFF_ONBOARDABLE_ROLES: ReadonlyArray<UserRole> = [
   "hr",
   "project_coordinator",
   "site_admin",
+  "legal",
 ];
 export function isStaffOnboardableRole(role: UserRole): boolean {
   return STAFF_ONBOARDABLE_ROLES.includes(role);
