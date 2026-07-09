@@ -41,6 +41,10 @@ export const FIRM_WIDE_MONEY_READ_SITES: readonly string[] = [
   "src/lib/accounting/load-payables.ts",
   "src/lib/accounting/load-registers.ts",
   "src/lib/accounting/load-voucher.ts",
+  // Spec 288 U1: the GL journal CSV export for the external accountant reads the
+  // whole firm's posted journal over a date window (no project filter — the
+  // accountant audits the firm). Admin client behind requireRole(ACCOUNTING_ROLES).
+  "src/lib/accounting/load-journal-export.ts",
   // Spec 253: the finance project LIST aggregates billings + receipts across
   // every project (one funnel line per project) behind requireRole(MONEY_VIEW_ROLES).
   "src/app/accounting/projects/page.tsx",
