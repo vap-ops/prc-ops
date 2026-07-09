@@ -7,6 +7,7 @@ import { StatusPill } from "@/components/features/common/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
 import {
   PURCHASING_ROLES,
+  isManagerRole,
   isProcurementManagerTier,
   isPurchaseDecider,
 } from "@/lib/auth/role-home";
@@ -101,6 +102,10 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
   // ADR 0070 item 3) delegates it to procurement_manager too — via isPurchaseDecider,
   // NOT by widening isManagerRole (which gates /dashboard + money surfaces).
   const isDecider = isPurchaseDecider(ctx.role);
+  // Spec 66 / ADR 0043: acknowledging a site purchase stays PM-tier (project-side).
+  // Spec 286 widened only the requested→approved/rejected decision to
+  // procurement_manager, NOT this ack — keep it on isManagerRole (unchanged).
+  const canAckSitePurchase = isManagerRole(ctx.role);
   // Spec 261 / ADR 0070 item 3: cancelling an APPROVED PR is manager-tier PLUS
   // procurement_manager (a separate predicate so it never widens the approve gate;
   // the DB backs this with a transition-scoped approved→cancelled RLS policy).
@@ -351,7 +356,7 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
         {isSitePurchase && !ackAt ? (
           <AttentionCard tone="amber" title="ซื้อหน้างาน — รอ PM รับทราบ">
             <p>บันทึกการซื้อที่หน้างานแล้ว รอผู้จัดการโครงการรับทราบ</p>
-            {isDecider ? (
+            {canAckSitePurchase ? (
               <div className="mt-2">
                 <SitePurchaseAcknowledge requestId={request.id} />
               </div>
