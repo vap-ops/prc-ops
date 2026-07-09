@@ -1,23 +1,49 @@
 // pgTAP runner for the linked Supabase project. Substitutes for
 // `supabase test db --linked` which requires Docker. See ADR 0006.
 //
-// Strategy: for each test file under supabase/tests/database/*.test.sql,
-// transform `select <pgtap_call>;` statements into
-// `insert into _tap_buf(line) select <pgtap_call>;`, prefix the transaction
-// with a temp collector table, and finalize with one
-// `select line from _tap_buf order by ord;` so the Supabase Management API
-// (which returns only the last result set) hands us the full TAP stream.
+// Strategy (batched — ADR 0081 follow-up): the Supabase Management API
+// (`supabase db query --linked`) spawns the CLI cold once per invocation, so the
+// old one-file-per-invocation design cost ~30 min on CI for 255 files. We now pack
+// many files into ONE invocation. Each file is wrapped in a pg_temp plpgsql
+// function that buffers its TAP, RETURN QUERYs it, then RAISEs a sentinel to roll
+// back its own data — the returned rows survive the subtransaction rollback, so
+// every file's TAP lands in one `_tap_out` collector and the single final result
+// set the API returns. Per-file begin…rollback isolation and the "no data may
+// persist" guarantee are preserved (see scripts/pgtap-batch.ts).
+//
+// Files with a top-level DO block (illegal inside a plpgsql body) run on the
+// unchanged per-file path, as does any file a chunk fails to cleanly account for —
+// so the worst case is exactly the pre-batch behaviour. The count-based known-red
+// allowlist verdict (scripts/pgtap-report.ts) is unchanged.
 
 import { spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import {
+  assertSafe,
+  buildChunkSql,
+  buildRawFileSql,
+  hasTopLevelDo,
+  parseChunkRows,
+  splitStatements,
+  type ChunkEntry,
+} from "./pgtap-batch";
 import { loadKnownRed, partitionResults, type FileResult } from "./pgtap-report";
 
 const TESTS_DIR = "supabase/tests/database";
 // Pinned pre-existing reds tolerated in CI (see scripts/pgtap-report.ts + ADR 0081).
 const KNOWN_RED_MANIFEST = "supabase/tests/known-red.json";
+
+// Files per batched CLI invocation. Bigger amortizes more cold-spawn overhead but
+// grows the single API request (payload + runtime), which must stay under the
+// Management API's per-request timeout. Tunable via env for the shared-DB gate.
+const CHUNK_SIZE = (() => {
+  const n = Number.parseInt(process.env.PGTAP_CHUNK_SIZE ?? "", 10);
+  return Number.isInteger(n) && n > 0 ? n : 20;
+})();
 
 interface QueryResult {
   rows: Array<Record<string, unknown>>;
@@ -37,7 +63,7 @@ function runSupabaseQuery(args: string[]): CliResult {
     {
       encoding: "utf8",
       shell: process.platform === "win32",
-      maxBuffer: 32 * 1024 * 1024,
+      maxBuffer: 64 * 1024 * 1024,
     },
   );
   return {
@@ -96,100 +122,11 @@ function parseResultJson(stdout: string): QueryResult | null {
   }
 }
 
-// Split SQL into top-level statements, respecting `$$ ... $$` dollar quotes
-// and `-- line` comments. Adequate for the pgTAP test idioms we use.
-function splitStatements(sql: string): string[] {
-  const out: string[] = [];
-  let buf = "";
-  let inDollar = false;
-  let i = 0;
-  while (i < sql.length) {
-    const ch = sql[i];
-    if (sql.slice(i, i + 2) === "$$") {
-      inDollar = !inDollar;
-      buf += "$$";
-      i += 2;
-      continue;
-    }
-    if (!inDollar && ch === "-" && sql[i + 1] === "-") {
-      const nl = sql.indexOf("\n", i);
-      if (nl < 0) {
-        buf += sql.slice(i);
-        i = sql.length;
-      } else {
-        buf += sql.slice(i, nl + 1);
-        i = nl + 1;
-      }
-      continue;
-    }
-    if (!inDollar && ch === ";") {
-      buf += ";";
-      const t = buf.trim();
-      if (t.length > 0) out.push(t);
-      buf = "";
-      i++;
-      continue;
-    }
-    buf += ch;
-    i++;
-  }
-  const tail = buf.trim();
-  if (tail.length > 0) out.push(tail);
-  return out;
-}
-
-function normalizeForKeyword(stmt: string): string {
-  return stmt.replace(/--.*$/gm, "").replace(/\s+/g, " ").trim().toLowerCase();
-}
-
-function transformPgtap(sql: string): string {
-  const stmts = splitStatements(sql);
-  const out: string[] = [];
-  let beginSeen = false;
-  let rollbackSeen = false;
-  for (const stmt of stmts) {
-    const k = normalizeForKeyword(stmt);
-    // Safety: a stray COMMIT (or SAVEPOINT/RELEASE that could end the
-    // test transaction) would let test data persist. Refuse the file.
-    if (k === "commit;" || k.startsWith("commit ")) {
-      throw new Error(
-        "Test file contains COMMIT — test transactions must end with ROLLBACK so no data persists.",
-      );
-    }
-    if (
-      k === "begin;" ||
-      k === "begin transaction;" ||
-      k.startsWith("begin ") ||
-      k === "start transaction;"
-    ) {
-      if (beginSeen) {
-        throw new Error("Test file has more than one BEGIN statement.");
-      }
-      out.push(stmt);
-      out.push("create temp table if not exists _tap_buf (ord serial primary key, line text);");
-      beginSeen = true;
-      continue;
-    }
-    if (k === "rollback;" || k.startsWith("rollback ")) {
-      out.push("select line from _tap_buf order by ord;");
-      out.push(stmt);
-      rollbackSeen = true;
-      continue;
-    }
-    if (k.startsWith("select ")) {
-      const body = stmt.replace(/;\s*$/, "");
-      out.push(`insert into _tap_buf(line) ${body};`);
-      continue;
-    }
-    out.push(stmt);
-  }
-  if (!beginSeen) {
-    throw new Error("Test file must start with begin;");
-  }
-  if (!rollbackSeen) {
-    throw new Error("Test file must end with rollback; (no commit, no implicit close).");
-  }
-  return out.join("\n") + "\n";
+function rowsToLines(rows: Array<Record<string, unknown>>): string[] {
+  return rows.map((row) => {
+    const v = Object.values(row)[0];
+    return typeof v === "string" ? v : "";
+  });
 }
 
 interface TestRunResult {
@@ -201,11 +138,14 @@ interface TestRunResult {
   error?: string;
 }
 
-function runTest(file: string, tmpDir: string): TestRunResult {
-  const original = readFileSync(join(TESTS_DIR, file), "utf8");
+// The unchanged single-file path: one CLI invocation for one file. Used for
+// DO-block files and as the fallback for any file a chunk did not cleanly account
+// for. Behaviour matches the pre-batch runner.
+function runTestRaw(file: string): TestRunResult {
   let transformed: string;
   try {
-    transformed = transformPgtap(original);
+    const original = readFileSync(join(TESTS_DIR, file), "utf8");
+    transformed = buildRawFileSql(splitStatements(original));
   } catch (e) {
     return {
       file,
@@ -216,11 +156,10 @@ function runTest(file: string, tmpDir: string): TestRunResult {
       error: e instanceof Error ? e.message : String(e),
     };
   }
-  const tmpPath = join(tmpDir, file);
+  const tmpPath = join(mkdtempSync(join(tmpdir(), "pgtap-raw-")), file);
   writeFileSync(tmpPath, transformed);
 
   const r = runSupabaseQuery(["--file", tmpPath]);
-
   if (r.code !== 0) {
     const errMsg =
       (r.stderr + r.stdout)
@@ -230,14 +169,7 @@ function runTest(file: string, tmpDir: string): TestRunResult {
         )
         .slice(0, 8)
         .join("\n") || `${r.stderr}${r.stdout}`.trim();
-    return {
-      file,
-      passed: false,
-      assertions: 0,
-      failures: 1,
-      output: [],
-      error: errMsg,
-    };
+    return { file, passed: false, assertions: 0, failures: 1, output: [], error: errMsg };
   }
 
   const parsed = parseResultJson(r.stdout);
@@ -255,9 +187,8 @@ function runTest(file: string, tmpDir: string): TestRunResult {
   const lines: string[] = [];
   let assertions = 0;
   let failures = 0;
-  for (const row of parsed.rows) {
-    const v = Object.values(row)[0];
-    if (typeof v !== "string") continue;
+  for (const v of rowsToLines(parsed.rows)) {
+    if (v.length === 0) continue;
     lines.push(v);
     if (v.startsWith("ok ")) assertions++;
     else if (v.startsWith("not ok ")) {
@@ -265,13 +196,68 @@ function runTest(file: string, tmpDir: string): TestRunResult {
       failures++;
     }
   }
-  return {
-    file,
-    passed: failures === 0,
-    assertions,
-    failures,
-    output: lines,
-  };
+  return { file, passed: failures === 0, assertions, failures, output: lines };
+}
+
+interface Fallback {
+  file: string;
+  reason: string;
+}
+
+// Run one chunk in a single CLI invocation. Returns the files it cleanly resolved
+// plus the files that must fall back to per-file (chunk aborted, markers missing,
+// or the file hit a real SQL error the raw path should re-adjudicate).
+function runChunk(
+  entries: ChunkEntry[],
+  tmpDir: string,
+  chunkIdx: number,
+  nonce: string,
+): {
+  accepted: TestRunResult[];
+  fallback: Fallback[];
+} {
+  const files = entries.map((e) => e.file);
+  const tmpPath = join(tmpDir, `chunk-${chunkIdx}.sql`);
+  writeFileSync(tmpPath, buildChunkSql(entries, nonce));
+
+  const r = runSupabaseQuery(["--file", tmpPath]);
+  if (r.code !== 0) {
+    const snippet =
+      (r.stderr + r.stdout)
+        .split("\n")
+        .filter((l) => l.includes("ERROR") || l.includes("error"))
+        .slice(0, 3)
+        .join(" | ") || "non-zero exit";
+    console.log(
+      `# chunk ${chunkIdx} failed (${snippet}) — re-running its ${files.length} files individually`,
+    );
+    return { accepted: [], fallback: files.map((file) => ({ file, reason: "chunk-error" })) };
+  }
+
+  const parsed = parseResultJson(r.stdout);
+  if (!parsed || !Array.isArray(parsed.rows)) {
+    console.log(
+      `# chunk ${chunkIdx} unparseable — re-running its ${files.length} files individually`,
+    );
+    return { accepted: [], fallback: files.map((file) => ({ file, reason: "unparseable" })) };
+  }
+
+  const accepted: TestRunResult[] = [];
+  const fallback: Fallback[] = [];
+  for (const pf of parseChunkRows(rowsToLines(parsed.rows), files, nonce)) {
+    if (!pf.accounted || pf.errored) {
+      fallback.push({ file: pf.file, reason: pf.errored ? "errored" : "unaccounted" });
+      continue;
+    }
+    accepted.push({
+      file: pf.file,
+      passed: pf.failures === 0,
+      assertions: pf.assertions,
+      failures: pf.failures,
+      output: pf.lines,
+    });
+  }
+  return { accepted, fallback };
 }
 
 function main(): void {
@@ -293,14 +279,62 @@ function main(): void {
     process.exit(0);
   }
 
+  // Classify: files failing the safety envelope error out immediately; DO-block
+  // files take the raw per-file path; the rest are batchable.
   const results: TestRunResult[] = [];
+  const rawFiles: string[] = [];
+  const batchEntries: ChunkEntry[] = [];
+  let fnIdx = 0;
   for (const file of files) {
-    console.log(`# ${file}`);
-    const r = runTest(file, tmp);
-    results.push(r);
+    let statements: string[];
+    try {
+      statements = splitStatements(readFileSync(join(TESTS_DIR, file), "utf8"));
+      assertSafe(statements);
+    } catch (e) {
+      results.push({
+        file,
+        passed: false,
+        assertions: 0,
+        failures: 1,
+        output: [],
+        error: e instanceof Error ? e.message : String(e),
+      });
+      continue;
+    }
+    if (hasTopLevelDo(statements)) rawFiles.push(file);
+    else batchEntries.push({ fnName: `pg_temp._prc_f${fnIdx++}`, file, statements });
+  }
+
+  // Batched fast path. A per-run nonce makes the per-file markers unforgeable by
+  // any test's own output (see parseChunkRows).
+  const nonce = randomUUID().replace(/-/g, "");
+  const fallbacks: Fallback[] = [];
+  let chunkIdx = 0;
+  const chunkCount = Math.ceil(batchEntries.length / CHUNK_SIZE);
+  for (let i = 0; i < batchEntries.length; i += CHUNK_SIZE) {
+    const chunk = batchEntries.slice(i, i + CHUNK_SIZE);
+    const { accepted, fallback } = runChunk(chunk, tmp, chunkIdx++, nonce);
+    results.push(...accepted);
+    fallbacks.push(...fallback);
+  }
+
+  // Per-file path: DO-block files + anything the batches did not resolve.
+  for (const file of [...rawFiles, ...fallbacks.map((f) => f.file)]) results.push(runTestRaw(file));
+
+  console.log(
+    `# Batched ${batchEntries.length} files in ${chunkCount} chunk(s) of ≤${CHUNK_SIZE}; ` +
+      `${rawFiles.length} DO-block + ${fallbacks.length} fallback ran per-file.`,
+  );
+  if (fallbacks.length > 0) {
+    console.log(`# Fallback: ${fallbacks.map((f) => `${f.file} (${f.reason})`).join(", ")}`);
+  }
+
+  results.sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : 0));
+  for (const r of results) {
+    console.log(`# ${r.file}`);
     if (r.error) {
       console.log(`# ERROR: ${r.error}`);
-      console.log(`not ok - ${file}`);
+      console.log(`not ok - ${r.file}`);
     } else {
       for (const line of r.output) console.log(line);
     }
