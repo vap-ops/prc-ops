@@ -55,6 +55,9 @@ const ALLOWED_DOMAINS = [
   // Spec 265 U2: the shared super_admin LINE-identity verification block
   // (LineIdentityBlock) reused by /registrations/[id] and /settings/roles/[id].
   "identity",
+  // Spec 284 U5 / ADR 0080: the Legal department surfaces (home cards, contract
+  // create form, void control, document-decision form).
+  "legal",
 ] as const;
 
 describe("feature components are grouped into domain folders", () => {

@@ -444,6 +444,10 @@ export function roleHome(role: UserRole): string {
   if (role === "contractor") return "/portal";
   // Spec 149 U9: the accounting role is onboarded onto the read-only ledger surface.
   if (role === "accounting") return "/accounting";
+  // Spec 284 U5 / ADR 0080: the Legal department role lands on its own /legal home
+  // (contracts + the document-approval queue). U1 added the role but deferred the
+  // landing (it fell through to /coming-soon); U5 flips it now the surfaces exist.
+  if (role === "legal") return "/legal";
   // Spec 233 / ADR 0067: the external client lands on the read-only progress
   // portal. An expired/revoked client still has role 'client'; the /client page
   // gate sends it on to /client/access-ended (not /coming-soon).

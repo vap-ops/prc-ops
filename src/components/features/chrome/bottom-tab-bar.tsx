@@ -25,6 +25,7 @@ import {
   FolderKanban,
   Home,
   LayoutDashboard,
+  Scale,
   Settings,
   ShoppingCart,
   Store,
@@ -169,6 +170,16 @@ export const ACCOUNTING_TABS: ReadonlyArray<TabItem> = [
   SETTINGS_TAB,
 ];
 
+// Spec 284 U5 / ADR 0080: the Legal role's bottom bar — its /legal home
+// (contracts + document approvals) + the universal settings hub. A lean two-tab
+// set like ACCOUNTING_TABS; the home tab href lights on every /legal/* screen
+// (longest-prefix), so contracts + the approval queue keep it lit. Short label
+// (กฎหมาย) for the tight bottom-bar space — the page itself is titled ฝ่ายกฎหมาย.
+export const LEGAL_TABS: ReadonlyArray<TabItem> = [
+  { label: "กฎหมาย", href: "/legal", icon: Scale },
+  SETTINGS_TAB,
+];
+
 function tabsForRole(role: string): ReadonlyArray<TabItem> | null {
   if (role === "site_admin") return SA_TABS;
   // Spec 152 / ADR 0058: project_director gets the PM tab set (see-all PM).
@@ -180,6 +191,8 @@ function tabsForRole(role: string): ReadonlyArray<TabItem> | null {
   if (role === "procurement") return PROCUREMENT_TABS;
   if (role === "project_coordinator") return COORDINATOR_TABS;
   if (role === "accounting") return ACCOUNTING_TABS;
+  // Spec 284 U5 / ADR 0080: the Legal department tab set.
+  if (role === "legal") return LEGAL_TABS;
   return null;
 }
 
