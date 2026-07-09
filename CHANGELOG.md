@@ -1,3 +1,9 @@
+# [0.4.0](https://github.com/VAP-Solution/prc-ops/compare/v0.3.1...v0.4.0) (2026-07-09)
+
+### Features
+
+- **worker:** nightly storage-bucket backup to Google Drive (G1) ([#417](https://github.com/VAP-Solution/prc-ops/issues/417)) ([ddf8aeb](https://github.com/VAP-Solution/prc-ops/commit/ddf8aeba13a7519b9fd2ebfc5ce13260154e03c5))
+
 ## [0.3.1](https://github.com/VAP-Solution/prc-ops/compare/v0.3.0...v0.3.1) (2026-07-09)
 
 ### Performance Improvements
