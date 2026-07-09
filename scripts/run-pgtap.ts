@@ -13,7 +13,11 @@ import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { loadKnownRed, partitionResults, type FileResult } from "./pgtap-report";
+
 const TESTS_DIR = "supabase/tests/database";
+// Pinned pre-existing reds tolerated in CI (see scripts/pgtap-report.ts + ADR 0081).
+const KNOWN_RED_MANIFEST = "supabase/tests/known-red.json";
 
 interface QueryResult {
   rows: Array<Record<string, unknown>>;
@@ -312,7 +316,37 @@ function main(): void {
   );
   console.log(`# Assertions: ${totalAssertions} (${totalFailures} failures)`);
 
-  process.exit(results.every((r) => r.passed) ? 0 : 1);
+  // A CI run passes iff EXACTLY the allowlisted pre-existing reds fail. Any other
+  // red file fails the check; an allowlisted file that now passes is surfaced so
+  // the quarantine list can be pruned. Fail-closed: a missing manifest tolerates
+  // nothing.
+  const knownRed = loadKnownRed(KNOWN_RED_MANIFEST);
+  const fileResults: FileResult[] = results.map((r) => ({
+    file: r.file,
+    // A runner ERROR (transform/connection blip) is not a normal assertion red
+    // and must never be masked by a file's budget — count it as infinite
+    // failures so an allowlisted file cannot swallow it.
+    failures: r.error ? Number.POSITIVE_INFINITY : r.failures,
+  }));
+  const verdict = partitionResults(fileResults, knownRed);
+
+  if (verdict.expectedFailures.length > 0) {
+    console.log(
+      `# Known-red (tolerated ${verdict.expectedFailures.length}): ${verdict.expectedFailures.join(", ")}`,
+    );
+  }
+  if (verdict.unexpectedPasses.length > 0) {
+    console.log(
+      `# Allowlisted but now PASSING — remove from ${KNOWN_RED_MANIFEST}: ${verdict.unexpectedPasses.join(", ")}`,
+    );
+  }
+  if (verdict.unexpectedFailures.length > 0) {
+    console.log(
+      `# FAIL — unexpected red (${verdict.unexpectedFailures.length}): ${verdict.unexpectedFailures.join(", ")}`,
+    );
+  }
+
+  process.exit(verdict.ok ? 0 : 1);
 }
 
 main();

@@ -118,16 +118,24 @@ jobs:
           fi
           echo "OK — no protected paths touched; safe to auto-merge."
 
-  # Tier C (ADR 0048): pgTAP against the linked SHARED remote. Inert by default —
-  # runs only on a manual dispatch AND when the operator has opted in via the
-  # `ENABLE_DB_TEST` repository variable, so no automatic run ever references a
-  # missing secret. On enable, the operator provisions the `SUPABASE_ACCESS_TOKEN`
-  # secret (and confirms `supabase link` needs no extra interactive input in CI).
-  # See docs/decisions/0048-ci-test-tier-policy.md.
+  # pgTAP — Tier C elevated to a REQUIRED PR gate (ADR 0081, superseding ADR 0048's
+  # manual-only stance). Runs on every PR so the RLS / append-only / money
+  # invariants the pgTAP suite encodes are enforced in CI, not just locally.
+  #
+  # It hits the ONE shared remote DB, so the job SERIALIZES on a global concurrency
+  # group — only one pgTAP run touches the DB at a time; concurrent PR runs queue
+  # (cancel-in-progress: false). Tests are transactional (begin…rollback) and the
+  # runner refuses any file without a closing ROLLBACK (ADR 0006), so a run leaves
+  # NO residue — which is why the shared DB is safe here without per-PR preview
+  # branches. Pre-existing reds are pinned in supabase/tests/known-red.json; the
+  # runner fails the check on ANY other red. Needs the SUPABASE_ACCESS_TOKEN repo
+  # secret (the project ref is non-secret, in package.json).
   db-test:
-    name: Database (pgTAP) — manual
+    name: Database (pgTAP)
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' && vars.ENABLE_DB_TEST == 'true' }}
+    concurrency:
+      group: pgtap-shared-db
+      cancel-in-progress: false
 
     steps:
       - uses: actions/checkout@v4
@@ -151,3 +159,36 @@ jobs:
         run: pnpm db:test
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+  # Build (ADR 0081): `next build` catches compile/build breaks that lint +
+  # typecheck miss — CI could previously pass while the Vercel production build
+  # failed. Secret-free: env.ts / env.server.ts validate + throw on missing vars at
+  # import, so the build needs the full env shape, but these are dummy build-time
+  # placeholders (mirroring vitest.config.ts), never real secrets. App routes are
+  # dynamic (cookies()-driven), so the build compiles without reaching Supabase.
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: next build
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://test.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+          LINE_CHANNEL_ID: test-line-channel-id
+          LINE_CHANNEL_SECRET: test-line-channel-secret
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
