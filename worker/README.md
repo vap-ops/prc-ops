@@ -58,6 +58,30 @@ populated.
 
 The worker throws clearly on startup if either is missing.
 
+For the **storage backup job** (`pnpm backup`, see below) two more vars are
+read. They are optional: unset either and the backup logs a skip and no-ops.
+
+| Var                | Purpose                                                      |
+| ------------------ | ----------------------------------------------------------- |
+| `GDRIVE_SA_KEY`    | Google service-account JSON — raw JSON **or** base64 of it. |
+| `GDRIVE_FOLDER_ID` | Target Drive folder id (may be a Workspace Shared Drive; the service account must be a member of that Shared Drive). |
+
+## Storage backup to Google Drive (G1)
+
+`src/backup-drive.ts` mirrors every object in the five Storage buckets
+(`photos`, `reports`, `po-attachments`, `pr-attachments`,
+`feedback-attachments`) into `GDRIVE_FOLDER_ID`, preserving
+`<bucket>/<object path>` structure. It uploads objects that are missing or
+size-changed (**add/update only — never deletes**), and writes
+`<FOLDER_ID>/last-run.json` as the operator-visible heartbeat. Supabase's DB
+backup does **not** include Storage objects, so this is the off-Supabase copy of
+the photos.
+
+Same run-once-and-exit shape as `src/index.ts`: it is invoked by a **separate**
+nightly Railway cron — schedule `30 0 * * *` (00:30 UTC), start command
+`pnpm backup`. Locally: `pnpm backup:dev` (reads `../.env.local`). Registered in
+`docs/automations.md` as `AUT-G1`.
+
 ## Tests
 
 ```sh
@@ -74,6 +98,9 @@ against the linked Supabase project, not by these unit tests.
 
 - `src/index.ts` — entry point. The run-once loop, DB queries,
   Storage downloads, PDF assembly, and Storage upload.
+- `src/backup-drive.ts` — the G1 storage-bucket backup to Google
+  Drive (separate run-once entry, `pnpm backup`). Unit-tested in
+  `tests/unit/backup-drive.test.ts`.
 - `src/report.ts` — pure PDFKit composition. No I/O. Takes already-
   fetched data + already-downloaded photo bytes, returns a PDF
   buffer. Unit-tested in `tests/unit/report.test.ts`.
