@@ -6,9 +6,9 @@ import { AvatarSurface } from "@/components/features/common/avatar-surface";
 import { DisplayNameForm } from "@/components/features/common/display-name-form";
 import { createClient } from "@/lib/db/server";
 import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
-import { BUTTON_PRIMARY } from "@/lib/ui/classes";
-import { comingSoonDecision, REGISTER_WORKSPACE_PATH } from "@/lib/auth/visitor-router";
+import { comingSoonDecision } from "@/lib/auth/visitor-router";
 import { getOwnTechnicianRegistration } from "@/lib/register/own-registration";
+import { VisitorLanding } from "@/components/features/register/visitor-landing";
 
 export const metadata = { title: "เร็ว ๆ นี้" };
 
@@ -207,39 +207,5 @@ function OperatorHub({
   );
 }
 
-// Spec 264 G3 / ADR 0072 §8 — the organic-visitor landing. A real destination,
-// not a dead wall: a primary CTA to self-register as a technician (the open
-// self-serve entry, the only open one — external audiences arrive by invite, ADR
-// 0072 §1), plus a secondary note for someone who was INVITED as a
-// subcontractor/client to open the link they were sent (no self-select of
-// client/subcon here — those relationships are invite-gated, not self-declared).
-interface VisitorLandingProps {
-  greeting: string;
-  lineAvatarUrl: string | null;
-  fullName: string | null;
-}
-
-function VisitorLanding({ greeting, lineAvatarUrl, fullName }: VisitorLandingProps) {
-  return (
-    <PageShell variant="card">
-      <div className="w-full max-w-md space-y-6 text-center">
-        <div className="flex justify-center">
-          <AvatarSurface lineUrl={lineAvatarUrl} fullName={fullName} size={72} />
-        </div>
-        <h1 className="text-3xl font-semibold tracking-tight">{greeting}</h1>
-        <p className="text-ink-secondary text-lg">ยินดีต้อนรับสู่ PRC Ops</p>
-        <div className="space-y-3">
-          <Link href={REGISTER_WORKSPACE_PATH} className={`${BUTTON_PRIMARY} w-full`}>
-            สมัครเป็นช่าง
-          </Link>
-          <p className="text-ink-secondary text-sm">
-            ได้รับลิงก์เชิญเป็นผู้รับเหมา/ลูกค้า? เปิดลิงก์ที่ได้รับ
-          </p>
-        </div>
-        <div className="flex justify-center pt-2">
-          <LogoutButton />
-        </div>
-      </div>
-    </PageShell>
-  );
-}
+// Spec 286 U1 — the organic-visitor landing (with both self-onboard doors) is
+// now the shared, unit-tested VisitorLanding component (imported above).

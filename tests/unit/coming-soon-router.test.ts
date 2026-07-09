@@ -38,18 +38,18 @@ describe("/coming-soon visitor router (spec 264 G3)", () => {
     expect(page).toContain('if (role === "project_director") redirect("/review")');
   });
 
-  it("renders the organic CTA + the invite note for a bare visitor (a real landing, not a wall)", () => {
-    // The primary self-serve CTA links to the open register workspace.
-    expect(page).toContain("สมัครเป็นช่าง");
-    expect(page).toContain("/register/technician");
-    // The secondary invite note (no self-select of client/subcon — relationship-gated).
-    expect(page).toContain("ได้รับลิงก์เชิญ");
+  it("delegates the bare-visitor landing to the shared VisitorLanding (spec 286 U1)", () => {
+    // The organic CTA(s) + invite note now live in the extracted, unit-tested
+    // VisitorLanding component (visitor-landing.test.tsx pins both self-onboard
+    // doors + the invite note) — the page just renders it for the visitor arm.
+    expect(page).toContain("VisitorLanding");
+    expect(page).toContain('from "@/components/features/register/visitor-landing"');
   });
 
-  it("only ever redirects a visitor to the register workspace (loop-safe)", () => {
-    // The visitor arm's sole redirect target is the register workspace path
-    // (from the pure module's REGISTER_WORKSPACE_PATH). It must not redirect a
-    // visitor to /coming-soon or /login (that would loop).
-    expect(page).toContain("REGISTER_WORKSPACE_PATH");
+  it("only ever redirects a visitor via the pure decision (loop-safe)", () => {
+    // The visitor arm's sole redirect uses the pure module's decision (whose only
+    // redirect target is REGISTER_WORKSPACE_PATH, proven loop-safe in
+    // visitor-router.test.ts) — never a hard-coded /coming-soon or /login.
+    expect(page).toContain("redirect(decision.to)");
   });
 });
