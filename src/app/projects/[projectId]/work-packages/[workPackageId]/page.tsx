@@ -17,13 +17,12 @@ import {
   loadCatalogItemMemberships,
   membershipsByItem,
 } from "@/lib/catalog/categories";
-import { resolveScopedCategories } from "@/lib/catalog/scoped-categories";
+import { loadWpCategoryScope } from "@/lib/catalog/wp-category-scope";
 import { latestCreatedAt, PHASES } from "@/lib/photos/phases";
 import { groupAfterFixByRound, afterFixRoundHeading } from "@/lib/photos/rework-round";
 import { pairDefectPhotos } from "@/lib/photos/defect-pairing";
 import { derivePhaseProgress } from "@/lib/photos/phase-progress";
 import { submitGateReason, TRANSITIONABLE_FROM_STATUSES } from "@/lib/photos/transitions";
-import { fetchDisplayNames } from "@/lib/users/display-names";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { WorkPackageInfoButton } from "@/components/features/work-packages/work-package-info-button";
@@ -115,7 +114,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
   // branch; the leaf path also reads its parent for the breadcrumb.
   const { data: pre } = await supabase
     .from("work_packages")
-    .select("id, code, name, status, project_id, is_group, parent_id")
+    .select("id, code, name, status, project_id, is_group, parent_id, category_id")
     .eq("id", workPackageId)
     .maybeSingle();
   if (!pre || pre.project_id !== projectId) notFound();
@@ -176,13 +175,15 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     { data: issueRows },
     { data: returnRows },
     { data: wkRows },
-    { data: catalogRows },
+    catalogData,
     catalogCategories,
     { data: eqItemRows },
     { data: eqUsageRows },
     laborBudget,
     { data: parentRow },
     { data: walkRows },
+    categoryScope,
+    membershipRows,
   ] = await Promise.all([
     loadWorkPackageDetail(supabase, { workPackageId, projectId, isPlanner }),
     isPlanner
@@ -236,11 +237,21 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     // Spec 180: image_path rides along for the picker's thumbnails.
     // Spec 214: product_code rides along so the picker searches by code.
     // Spec 221 cleanup: read category_id (the managed FK), not the vestigial enum.
+    // Spec 289 U1: the picker's signed thumbnail URLs chain directly onto the
+    // catalog read so the Storage round trip overlaps the rest of the batch
+    // (was a post-batch serial await).
     supabase
       .from("catalog_items")
       .select("id, category_id, base_item, spec_attrs, unit, image_path, product_code")
       .eq("is_active", true)
-      .order("base_item", { ascending: true }),
+      .order("base_item", { ascending: true })
+      .then(async (res) => ({
+        rows: res.data ?? [],
+        thumbs: await mintSignedUrls(
+          CATALOG_IMAGES_BUCKET,
+          (res.data ?? []).map((r) => ({ id: r.id, storage_path: r.image_path })),
+        ),
+      })),
     // Spec 221 cleanup: the managed main categories (id + name + order) for the
     // picker's grouping; rides the Promise.all (no waterfall).
     loadCatalogCategories(supabase),
@@ -275,6 +286,16 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
       .select("id, code, status")
       .eq("project_id", projectId)
       .eq("is_group", false),
+    // Spec 289 U1: the WP-category chain (name/code badge + Relation-R scope)
+    // keys off the pre-read's category_id, so it rides the batch instead of
+    // running as a 2-deep serial tail after it. Same reads/fallbacks (226/229/277).
+    // Known window: pre and load-detail read the WP row at different instants,
+    // so a concurrent category edit can skew badge vs WpCategoryControl for one
+    // render (self-heals on next load) — accepted for the round-trip saving.
+    loadWpCategoryScope(supabase, pre.category_id),
+    // Spec 289 U1: the canonical∪secondary membership union (S4) depends on
+    // nothing — batch member, not a post-batch await.
+    loadCatalogItemMemberships(supabase),
   ]);
   if (!data.wp) {
     notFound();
@@ -350,20 +371,10 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           answerUrl: p.answers[0] ? (signedUrls.get(p.answers[0].id) ?? null) : null,
         }))
       : null;
-  // Feedback a6037564: a PD wants to know who uploaded each photo. uploaded_by
-  // is already on every photo_logs row; resolve the names once (admin read,
-  // same pattern as photo-markups) and surface them in the lightbox.
-  const uploaderNames = await fetchDisplayNames(
-    Array.from(
-      new Set([
-        ...PHASES.flatMap(({ phase }) => photosByPhase[phase].map((p) => p.uploaded_by)),
-        // Spec 248 — PHASES deliberately excludes defect (not an SA capture
-        // phase); its uploaders still need names for the banner/gallery.
-        ...photosByPhase.defect.map((p) => p.uploaded_by),
-      ]),
-    ),
-    "[wp-photos]",
-  );
+  // Feedback a6037564: a PD wants to know who uploaded each photo. Spec 289 U1:
+  // uploader names resolve in load-detail's single display-names tail read
+  // (union with approval/request actors) — no second serial users read here.
+  const uploaderNames = displayNames;
   const phaseData = PHASES.map(({ phase, label }) => {
     const rows = photosByPhase[phase];
     const latest = latestCreatedAt(rows);
@@ -394,11 +405,8 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
   }));
   // Spec 179/180: the catalog master for the คำขอซื้อ item picker, with signed
   // thumbnail URLs (private bucket → service-role signed URLs; rows already read
-  // under the user's RLS).
-  const catalogThumbs = await mintSignedUrls(
-    CATALOG_IMAGES_BUCKET,
-    (catalogRows ?? []).map((r) => ({ id: r.id, storage_path: r.image_path })),
-  );
+  // under the user's RLS). Spec 289 U1: both arrive together from the batch.
+  const { rows: catalogRows, thumbs: catalogThumbs } = catalogData;
   // Spec 221 cleanup: read the managed category (id + name) so user-created
   // categories group + label correctly; the item_category enum is no longer read.
   const categoryName = categoryNameById(catalogCategories);
@@ -421,27 +429,12 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
   // scope → the pickers fall back to the full catalog/on-hand (D8 show-all) and the
   // badge shows the nudge. project_categories is membership-readable, so this works
   // for every WP_DETAIL_ROLES viewer.
-  let workCategoryName: string | null = null;
-  // Spec 277 — the reconciled GLOBAL work-category code (W01–W09), for the badge's
-  // letter·color·icon chip. NULL when the project-category isn't reconciled.
-  let workCategoryCode: string | null = null;
-  let scopedRelation: Awaited<ReturnType<typeof resolveScopedCategories>> = [];
-  if (wp.category_id) {
-    const { data: wpCategory } = await supabase
-      .from("project_categories")
-      .select("name, work_category_id, work_categories(code)")
-      .eq("id", wp.category_id)
-      .maybeSingle();
-    workCategoryName = wpCategory?.name ?? null;
-    if (wpCategory?.work_category_id) {
-      const wcRel = wpCategory.work_categories;
-      workCategoryCode = (Array.isArray(wcRel) ? wcRel[0]?.code : wcRel?.code) ?? null;
-      scopedRelation = await resolveScopedCategories(supabase, wpCategory.work_category_id);
-    }
-  }
+  // Spec 289 U1: the whole chain resolved inside the batch (loadWpCategoryScope,
+  // keyed on the pre-read's category_id — the same row load-detail returns).
+  const { workCategoryName, workCategoryCode, scopedRelation } = categoryScope;
   const scopedCategoryIds = [...new Set(scopedRelation.map((r) => r.categoryId))];
   // The canonical∪secondary membership union (S4) both scoped pickers read.
-  const itemMembershipMap = membershipsByItem(await loadCatalogItemMemberships(supabase));
+  const itemMembershipMap = membershipsByItem(membershipRows);
 
   // Spec 209 U2: Σ returned qty per issue, to derive the remaining-returnable.
   const returnedByIssue = new Map<string, number>();

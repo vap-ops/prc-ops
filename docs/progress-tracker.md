@@ -7096,3 +7096,11 @@ typecheck 0 · lint 0. Live render not browser-checked (preview targets main dir
 friction) — page clones the working `/settings/integrity` pattern; eyeball post-deploy.
 
 NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
+
+## Spec 289 U1 — WP-detail serial-tail fold + users-read merge — IN PROGRESS (2026-07-10)
+
+- Perf lane (`perf/wp-detail-query-cleanup`). Spec `289-wp-detail-query-cleanup.md`.
+- U1 scope: page.tsx post-batch serial tail (uploader names, catalog thumbs,
+  category chain, memberships) folds into the big Promise.all; photo-uploader ids
+  merge into load-detail's existing display-names tail read. Behavior-preserving.
+- U2 (labor dedupe) follows as its own held PR — `src/lib/labor/` is a guarded path.
