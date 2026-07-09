@@ -46,46 +46,43 @@ photo" step at the end is what proves they line up.
 
 ---
 
-## ⚠️ Current state: the project is on the Supabase FREE tier
+## ✅ Current state: the project is on the Supabase PRO tier (upgraded 2026-06-21)
 
 This changes what Part 1 will find, so know it going in (confirm exact current
 limits at supabase.com/pricing — they shift):
 
-- **No managed DB backups.** Free tier has **no PITR** (paid add-on) and **no
-  scheduled daily backups** (those begin at Pro). So Part 1 will almost certainly
-  show _nothing_ to restore from on the platform side.
-- **No Storage backup.** The `photos` / `reports` buckets have no managed backup
-  on any tier, and Free adds nothing.
-- **Auto-pause.** Free projects pause after ~7 days of inactivity (the app then
-  errors until you resume it), and prolonged inactivity risks deletion. For a
-  **live** pilot holding real client data, that alone is a production risk.
+- **Managed daily DB backups exist.** Pro includes **scheduled daily backups**, so
+  Part 1 will show dated snapshots — your DB **RPO is up to ~24 h** (you can lose a
+  day between snapshots). Note the retention (how many are kept).
+- **PITR is a separate, optional add-on** (~US$100/mo) for sub-day recovery. For an
+  internal pilot, daily snapshots are usually enough — skip PITR unless you need to
+  recover to a specific minute.
+- **Storage still has NO managed backup — on any tier.** The `photos` / `reports`
+  buckets are **not** in the daily DB snapshot; Pro does nothing for them. The
+  manual/automated **Storage export (Part 3) is your ONLY photo backup.**
+- **No auto-pause** on Pro (Free paused after ~7 days idle; that risk is gone).
 
-**What this means concretely:** on Free tier, **the manual dump (Part 2) and the
-manual Storage export (Part 3) are your ONLY backups — and only if you actually
-run them on a schedule.** There is no automatic safety net behind a destructive
-migration; `break-glass.md` Procedure B's "fresh dump first" is not optional, it
-is the entire floor.
+**What this means concretely:** the DB now has a managed floor (daily snapshots),
+but **the photos do not** — so the Storage export (Part 3) and proving you can
+actually restore (Part 4) are the load-bearing steps. `break-glass.md` Procedure
+B's "fresh dump first" still applies before any destructive migration.
 
-### Decision (2026-06-19): defer Pro, back up to Google Drive (interim)
+### Backup posture (supersedes the 2026-06-19 "defer Pro" decision — Pro is now on)
 
-Operator's call: stay on Free until after 1–2 more projects, then reconsider
-**Pro (~US$25/mo)** (daily backups + PITR + no auto-pause — the eventual target
-for live client data). Interim floor = a **weekly manual backup to the team
-Google Drive folder** (folder URL kept in the operator's vault, NOT in git).
-Drive is off-Supabase, so a project pause/deletion can't take the backups with
-it.
+The earlier call to stay on Free and defer Pro is **done**: the project was upgraded
+to **Pro** on 2026-06-21 (daily backups + no auto-pause). What remains of the floor:
+**(a)** prove a restore actually works (this drill, never yet run), and **(b)** back
+up the Storage buckets, which Pro does not cover — keep an **off-Supabase copy**
+(team Google Drive folder, URL in the operator's vault, NOT in git) so a
+project-level incident can't take the photos with it.
 
-Three caveats that gate the "reconsider" trigger:
+Two things worth watching:
 
-- **Storage capacity, not backups, is the likely upgrade-forcer.** Free Storage
-  is ~1 GB; construction photos fill it fast (even downscaled, spec 34). If the
-  `photos` bucket fills, **uploads start failing** — worse than the backup gap.
-  Watch Storage % (dashboard → **Settings → Usage**); it may force the decision
-  before "1–2 projects" does.
-- **Auto-pause is probably already moot** — the Railway worker queries the DB
-  every ~5 min, which keeps the project active. Confirm, but don't worry.
-- **Photos > DB.** Photos are the irreplaceable site evidence and have NO managed
-  backup on any tier; the Storage export (Part 3) matters more than the dump.
+- **Photos > DB.** Photos are the irreplaceable site evidence and have **no managed
+  backup on any tier**; the Storage export (Part 3) matters more than the DB dump.
+- **Storage capacity.** Construction photos fill a bucket fast (even downscaled,
+  spec 34). If the `photos` bucket nears its limit, **uploads start failing** —
+  watch Storage % (dashboard → **Settings → Usage**).
 
 ### Interim weekly procedure (every week until automated)
 
@@ -104,9 +101,8 @@ Three caveats that gate the "reconsider" trigger:
 > weekly-memory dependency — build it when the manual cadence proves annoying or
 > the project count grows.
 
-> Free tier also caps projects per org, so the Part 4 scratch target may need to
-> be a **local Postgres** or a temporarily-created project rather than a second
-> free project.
+> Your org's project cap may mean the Part 4 scratch target is a **local Postgres**
+> or a temporarily-created throwaway project rather than a second paid one.
 
 ---
 
