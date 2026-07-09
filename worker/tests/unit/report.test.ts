@@ -29,6 +29,21 @@ function inflatedStreams(pdf: Buffer): string[] {
   return streams;
 }
 
+// Page objects are plain bytes (only *content streams* are Flate-compressed),
+// so `/Type /Page` is countable directly. The negative lookahead skips the
+// `/Type /Pages` tree node.
+function pageCount(pdf: Buffer): number {
+  return (pdf.toString("latin1").match(/\/Type\s*\/Page(?![a-z])/g) ?? []).length;
+}
+
+// Number of page content streams that invoke a translucent ExtGState
+// (`/GsN gs`). The watermark is the only thing that ever sets fill-opacity, so
+// this equals the number of watermarked pages. Font-program and CMap streams
+// never contain the graphics-state operator, so they don't inflate the count.
+function pagesWithWatermarkOverlay(pdf: Buffer): number {
+  return inflatedStreams(pdf).filter((s) => /\/Gs\d+\s+gs/.test(s)).length;
+}
+
 // PDFKit inspects the image bytes to identify the format (PNG/JPEG), so a
 // stub like "stub-image-bytes" throws "Unknown image format". This is the
 // minimum-viable real PNG — a 1×1 transparent pixel, decoded from base64.
@@ -169,6 +184,70 @@ describe("buildReportPdf", () => {
     expect(Buffer.isBuffer(pdf)).toBe(true);
     expect(pdf.length).toBeGreaterThan(100);
     expect(pdf.subarray(0, 4).toString("ascii")).toBe(PDF_MAGIC);
+  });
+});
+
+describe("buildReportPdf watermark (ADR 0003 — on-demand, originals untouched)", () => {
+  const base: ReportInput = {
+    project: {
+      code: "PRC-2026-777",
+      name: "โครงการทดสอบลายน้ำ",
+      generatedAt: new Date("2026-05-24T00:00:00Z"),
+    },
+    workPackages: [{ code: "WP-01", name: "งานทดสอบ", afterPhotos: [makeBuffer()] }],
+  };
+
+  it("composites a translucent overlay onto the rendered output, adding no page", async () => {
+    const plain = await buildReportPdf(base);
+    const marked = await buildReportPdf({ ...base, watermark: { text: base.project.code } });
+
+    // The report body never sets fill-opacity, so a plain render has no
+    // overlay; the watermark render stamps EVERY page (one overlay per page).
+    expect(pagesWithWatermarkOverlay(plain)).toBe(0);
+    expect(pagesWithWatermarkOverlay(marked)).toBe(pageCount(marked));
+    // Extra content was drawn...
+    expect(marked.length).toBeGreaterThan(plain.length);
+    // ...onto the existing pages — never an appended watermark page.
+    expect(pageCount(marked)).toBe(pageCount(plain));
+    expect(marked.subarray(0, 4).toString("ascii")).toBe(PDF_MAGIC);
+  });
+
+  it("stamps every page of a multi-section report", async () => {
+    // header page + two WP pages = three pages, all must carry the mark.
+    const multi: ReportInput = {
+      ...base,
+      workPackages: [
+        { code: "WP-01", name: "งานหนึ่ง", afterPhotos: [makeBuffer()] },
+        { code: "WP-02", name: "งานสอง", afterPhotos: [makeBuffer()] },
+      ],
+    };
+    const marked = await buildReportPdf({ ...multi, watermark: { text: base.project.code } });
+
+    expect(pageCount(marked)).toBe(3);
+    expect(pagesWithWatermarkOverlay(marked)).toBe(3);
+  });
+
+  it("stamps a header-only report (empty project → single page)", async () => {
+    // index.ts always sets a watermark and empty projects render header-only,
+    // so the single-page path is a real production case worth covering.
+    const marked = await buildReportPdf({
+      project: base.project,
+      workPackages: [],
+      watermark: { text: base.project.code },
+    });
+    expect(pageCount(marked)).toBe(1);
+    expect(pagesWithWatermarkOverlay(marked)).toBe(1);
+  });
+
+  it("never mutates the caller's input photo buffer (input bytes untouched)", async () => {
+    const photo = makeBuffer();
+    const snapshot = Buffer.from(photo); // byte copy captured before rendering
+    await buildReportPdf({
+      project: base.project,
+      workPackages: [{ code: "WP-01", name: "งานทดสอบ", afterPhotos: [photo] }],
+      watermark: { text: base.project.code },
+    });
+    expect(photo.equals(snapshot)).toBe(true);
   });
 });
 
