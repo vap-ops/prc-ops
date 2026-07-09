@@ -11,6 +11,7 @@ import {
   PM_ROLES,
   PO_DETAIL_VIEW_ROLES,
   PROCUREMENT_MANAGER_ROLES,
+  PR_DECIDER_ROLES,
   PURCHASING_ROLES,
   SCHEDULE_VIEW_ROLES,
   SITE_STAFF_ROLES,
@@ -21,6 +22,7 @@ import {
   WP_DETAIL_ROLES,
   isManagerRole,
   isProcurementManagerTier,
+  isPurchaseDecider,
   isReadOnlyWpViewer,
   isProcurementWorklist,
   isStaffApprover,
@@ -421,6 +423,22 @@ describe("PROCUREMENT_MANAGER_ROLES / isProcurementManagerTier (spec 261)", () =
     for (const role of ["site_admin", "accounting", "visitor", "contractor"] as const) {
       expect(isProcurementManagerTier(role)).toBe(false);
     }
+  });
+});
+
+describe("PR_DECIDER_ROLES / isPurchaseDecider (spec 286)", () => {
+  it("= PM tier + procurement_manager (walks back ADR 0070 item 3)", () => {
+    expect([...PR_DECIDER_ROLES]).toEqual([...PM_ROLES, "procurement_manager"]);
+  });
+
+  it("isPurchaseDecider is true for the PM tier and procurement_manager", () => {
+    for (const role of PM_ROLES) expect(isPurchaseDecider(role)).toBe(true);
+    expect(isPurchaseDecider("procurement_manager")).toBe(true);
+  });
+
+  it("is FALSE for plain procurement and site_admin (they never decide a PR)", () => {
+    expect(isPurchaseDecider("procurement")).toBe(false);
+    expect(isPurchaseDecider("site_admin")).toBe(false);
   });
 });
 

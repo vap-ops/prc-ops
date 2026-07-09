@@ -10,7 +10,8 @@ select plan(22);
 --   * Helper behaviour: is_back_office admits it; is_manager does NOT (it is a
 --     procurement-dept manager, not a project-manager tier member).
 --   * Manager-only set: void PO (tightened OFF plain procurement), void PO charge,
---     and the approved→cancelled PR transition (but NOT the approve transition).
+--     the approved→cancelled PR transition, AND (spec 286) the requested→
+--     approved|rejected decide transition — approval is no longer PM-tier-only.
 -- ============================================================================
 
 insert into auth.users (id, email, raw_user_meta_data) values
@@ -158,10 +159,11 @@ select throws_ok(
 reset role;
 
 -- ============================================================================
--- H. Item 3 — procurement_manager may CANCEL an approved PR but may NOT APPROVE a
---    requested one. Enforced at RLS: the transition-scoped policy admits only
---    approved→cancelled; no policy admits procurement_manager for requested→
---    approved, so that UPDATE silently affects 0 rows (approval stays PM-tier).
+-- H. Item 3 — procurement_manager may CANCEL an approved PR AND (spec 286) may
+--    now DECIDE (approve/reject) a requested one. Enforced at RLS: the
+--    transition-scoped cancel policy admits approved→cancelled, and the spec-286
+--    decide policy admits requested→approved|rejected — approval is no longer
+--    PM-tier-only.
 -- ============================================================================
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "a3000261-0000-4000-8000-000000000003"}';
@@ -180,15 +182,15 @@ with u_approve as (
          decided_at = now()
    where id = 'fa000261-0000-4000-8000-000000000003' and status = 'requested'
   returning 1)
-select is((select count(*)::int from u_approve), 0,
-  'procurement_manager CANNOT approve a requested PR (RLS blocks; approval stays PM-tier)');
+select is((select count(*)::int from u_approve), 1,
+  'procurement_manager CAN approve a requested PR (spec 286 amends ADR 0070 item 3)');
 reset role;
 
--- the blocked PR is untouched (still requested).
+-- the PR procurement_manager approved is now approved.
 select is(
   (select status::text from public.purchase_requests
     where id = 'fa000261-0000-4000-8000-000000000003'),
-  'requested', 'the requested PR procurement_manager tried to approve is unchanged');
+  'approved', 'the PR procurement_manager approved is now approved (spec 286)');
 
 -- PM approval path is unbroken.
 set local role authenticated;

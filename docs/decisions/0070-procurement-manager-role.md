@@ -56,22 +56,42 @@ asserts that every function/policy admitting `procurement` also admits
 
 ### Manager-only set (v1)
 
-| #   | Capability                        | Change                                                                                                                                                                                                                                                                                                                                                                           |
-| --- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **Void PO**                       | `void_purchase_order` gate TIGHTENS: plain `procurement` is **removed**, `procurement_manager` added → `project_manager \| project_director \| super_admin \| procurement_manager`. Deliberately walks back half of spec 259's grant (operator directive). UI button follows.                                                                                                    |
-| 2   | **Void PO charge** (spec 260)     | `void_purchase_order_charge` gate widened from `is_manager()` to `is_manager() OR procurement_manager`.                                                                                                                                                                                                                                                                          |
-| 3   | **Cancel an approved PR**         | a new transition-scoped RLS UPDATE policy admits `procurement_manager` to the `approved → cancelled` transition ONLY (USING old.status='approved', WITH CHECK new.status='cancelled'). The PM-tier `approved/rejected` decision path is untouched, so approval stays DB-blocked for `procurement_manager` (see below). UI cancel button follows via a cancel-specific predicate. |
-| 4   | **Supplier/contractor blacklist** | flipping a contact's status to/from `blacklisted` is gated to the manager set (`PM_ROLES + procurement_manager`) at the server action; plain `procurement` keeps read + ordinary edits (name/phone/active↔probation) but not the blacklist boundary.                                                                                                                             |
+| #   | Capability                        | Change                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| --- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | **Void PO**                       | `void_purchase_order` gate TIGHTENS: plain `procurement` is **removed**, `procurement_manager` added → `project_manager \| project_director \| super_admin \| procurement_manager`. Deliberately walks back half of spec 259's grant (operator directive). UI button follows.                                                                                                                                                                    |
+| 2   | **Void PO charge** (spec 260)     | `void_purchase_order_charge` gate widened from `is_manager()` to `is_manager() OR procurement_manager`.                                                                                                                                                                                                                                                                                                                                          |
+| 3   | **Cancel an approved PR**         | a new transition-scoped RLS UPDATE policy admits `procurement_manager` to the `approved → cancelled` transition ONLY (USING old.status='approved', WITH CHECK new.status='cancelled'). The PM-tier `approved/rejected` decision path was untouched here. **AMENDED by spec 286 (2026-07-09): approval is now also delegated to `procurement_manager` — see the amendment note below.** UI cancel button follows via a cancel-specific predicate. |
+| 4   | **Supplier/contractor blacklist** | flipping a contact's status to/from `blacklisted` is gated to the manager set (`PM_ROLES + procurement_manager`) at the server action; plain `procurement` keeps read + ordinary edits (name/phone/active↔probation) but not the blacklist boundary.                                                                                                                                                                                             |
 
 ### Explicitly NOT granted (v1)
 
-- **PR approval** (`requested → approved/rejected`) stays PM-tier only. Spend
-  authorization is project-side; the procurement manager runs buying execution.
-  The `approve/reject` transition is enforced by the unchanged PM-tier RLS UPDATE
-  policy and the `isDecider` UI predicate; `procurement_manager` is added to
-  neither, so its approval attempt is refused at the database, not just the UI.
+- **PR approval** (`requested → approved/rejected`) — **v1: PM-tier only. SUPERSEDED
+  by spec 286 (2026-07-09): now delegated to `procurement_manager`** (see amendment
+  note below). v1 rationale kept for the record: spend authorization is project-side;
+  the procurement manager runs buying execution.
 - **Supply-plan approval** stays PD/super (`approve_supply_plan`).
 - Any accounting surface (`/accounting/*`, GL RPCs) — unchanged.
+
+### Amendment — spec 286 (2026-07-09): PR approval delegated to procurement_manager
+
+Reverses the "PR approval stays PM-tier only" line above. `procurement_manager` may
+now DECIDE (`requested → approved | rejected`) a purchase request — Phase 1,
+unconditional. Mechanics:
+
+- **DB:** a second additive, transition-scoped RLS UPDATE policy
+  `"purchase_requests decide by procurement_manager"` (USING old.status='requested';
+  WITH CHECK new.status IN ('approved','rejected')) — mirrors item 3's cancel policy.
+  The PM/super `"update by pm or super"` policy is untouched.
+- **UI:** a distinct `PR_DECIDER_ROLES` / `isPurchaseDecider` predicate (PM tier +
+  procurement_manager) gates the decision component; `isManagerRole` is NOT widened
+  (it still gates /dashboard, /review, money surfaces, and the site-purchase ack).
+- **Accepted posture:** because the decide and cancel policies are both permissive,
+  Postgres OR-combines their USING (old) and WITH CHECK (new) independently, so a raw
+  `requested → cancelled` / `approved → rejected` is reachable via the API. Accepted
+  (operator decision 2026-07-09): consistent with pm/super — RLS gates role + old-state;
+  the app enforces the exact transition (`decidePurchaseRequest` pins
+  `.eq('status','requested')`).
+- **Deferred (Phase 2):** a super_admin-configurable amount cap on the delegation.
 
 ### Deferred, NOT v1
 
