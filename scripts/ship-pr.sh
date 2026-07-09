@@ -28,6 +28,32 @@ token="$(sed -n 's/^GITHUB_TOKEN=//p' "$env_file" | head -1)"
 branch="$(git rev-parse --abbrev-ref HEAD)"
 [ "$branch" != "main" ] || { echo "refusing to open a PR from main — work on a branch" >&2; exit 1; }
 
+# Conflict probe (2026-07-09): a PR must PROVE it merges clean before shipping —
+# "merges clean" is a mechanical fact, not a claim. git merge-tree --write-tree
+# exits non-zero and lists conflicted paths when the merge would conflict.
+if [ -z "${SHIP_SKIP_CONFLICT_PROBE:-}" ]; then
+  if ! git fetch origin main --quiet; then
+    echo "conflict probe: could not fetch origin/main (network/auth?) — fix connectivity or set SHIP_SKIP_CONFLICT_PROBE=1" >&2
+    exit 1
+  fi
+  # merge-tree exits 1 for a real conflict; anything else non-zero is a probe error.
+  set +e
+  git merge-tree --write-tree FETCH_HEAD HEAD >/dev/null 2>&1
+  probe=$?
+  set -e
+  if [ "$probe" -eq 1 ]; then
+    {
+      echo "CONFLICT vs origin/main — this branch does not merge clean."
+      echo "Rebase first (git rebase FETCH_HEAD) or set SHIP_SKIP_CONFLICT_PROBE=1 to override. Conflicted output:"
+      git merge-tree --write-tree --no-messages FETCH_HEAD HEAD 2>/dev/null | tail -n +2 || true
+    } >&2
+    exit 1
+  elif [ "$probe" -ne 0 ]; then
+    echo "conflict probe: git merge-tree failed (exit $probe) — not a conflict; investigate or set SHIP_SKIP_CONFLICT_PROBE=1" >&2
+    exit 1
+  fi
+fi
+
 # Push the branch (deploy key); idempotent.
 git push -u origin "$branch" >/dev/null 2>&1 || git push origin "$branch"
 
