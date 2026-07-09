@@ -165,15 +165,10 @@ export async function loadWorkPackageDetail(
   const approvals = approvalRows ?? [];
   const wpRequests = requestRows ?? [];
 
-  // Dependent tail: display names need the ids from approvals+requests; signed
-  // URLs need the photo rows. Both batch.
-  const nameIds = Array.from(
-    new Set(
-      [...approvals.map((a) => a.decided_by), ...wpRequests.map((r) => r.requested_by)].filter(
-        (id): id is string => typeof id === "string",
-      ),
-    ),
-  );
+  // Dependent tail: display names need the ids from approvals+requests+photo
+  // uploaders (spec 289 U1 — one users read serves the lightbox uploader line
+  // too, replacing the page's second serial fetchDisplayNames); signed URLs
+  // need the photo rows. Both batch.
   const allPhotos: PhotoLogRow[] = [
     ...photosByPhase.before,
     ...photosByPhase.during,
@@ -183,6 +178,15 @@ export async function loadWorkPackageDetail(
     // phase missing here ships broken (un-signed) images.
     ...photosByPhase.defect,
   ];
+  const nameIds = Array.from(
+    new Set(
+      [
+        ...approvals.map((a) => a.decided_by),
+        ...wpRequests.map((r) => r.requested_by),
+        ...allPhotos.map((p) => p.uploaded_by),
+      ].filter((id): id is string => typeof id === "string"),
+    ),
+  );
   const [displayNames, signedUrls] = await Promise.all([
     fetchDisplayNames(nameIds, "[wp-detail]"),
     mintSignedUrlsForPhotos(allPhotos),

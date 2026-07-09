@@ -32,6 +32,8 @@ vi.mock("@/lib/users/display-names", () => ({
 }));
 
 import { loadWorkPackageDetail } from "@/lib/work-packages/load-detail";
+import { getCurrentPhotosForWorkPackage } from "@/lib/photos/current-photos";
+import { fetchDisplayNames } from "@/lib/users/display-names";
 
 // --- in-flight-tracking supabase stub ---
 let inFlight = 0;
@@ -152,6 +154,31 @@ describe("loadWorkPackageDetail", () => {
       isPlanner: false,
     });
     expect(other.wp).toBeNull();
+  });
+
+  // Spec 289 U1: photo-uploader names resolve in the SAME tail read as the
+  // approval/request actor names — one users query, not a second serial one
+  // on the page.
+  it("resolves photo-uploader ids in the single display-names tail read", async () => {
+    const photo = (id: string, uploaded_by: string) =>
+      ({ id, uploaded_by, captured_at_client: null, created_at: "2026-07-10" }) as never;
+    vi.mocked(getCurrentPhotosForWorkPackage).mockResolvedValueOnce({
+      before: [photo("p1", "u9")],
+      during: [],
+      after: [],
+      after_fix: [],
+      defect: [photo("p2", "u10")],
+    });
+    vi.mocked(fetchDisplayNames).mockClear();
+    await loadWorkPackageDetail(supabase, {
+      workPackageId: "wp1",
+      projectId: "proj1",
+      isPlanner: true,
+    });
+    expect(vi.mocked(fetchDisplayNames)).toHaveBeenCalledTimes(1);
+    const ids = vi.mocked(fetchDisplayNames).mock.calls[0]![0];
+    // actor id from approvals/requests AND both uploader ids (incl. defect phase)
+    expect(ids).toEqual(expect.arrayContaining(["u1", "u9", "u10"]));
   });
 
   it("skips planner queries when isPlanner is false", async () => {
