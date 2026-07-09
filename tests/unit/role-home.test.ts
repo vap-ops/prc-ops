@@ -62,10 +62,10 @@ describe("roleHome", () => {
       subcon_manager: "/coming-soon",
       site_owner: "/coming-soon",
       auditor: "/coming-soon",
-      // Spec 284 U1 / ADR 0080: the `legal` role is added, but its /legal surface
-      // lands in U5 — until then it falls through to /coming-soon (the house
-      // unbuilt-role pattern; no legal users exist yet). U5 flips this to /legal.
-      legal: "/coming-soon",
+      // Spec 284 U5 / ADR 0080: the `legal` role now lands on its own /legal home
+      // (contracts + document-approval queue). U1 added the role but deferred the
+      // landing (fell through to /coming-soon); U5 flips it now the surfaces exist.
+      legal: "/legal",
     };
     for (const [role, home] of Object.entries(EXPECTED)) {
       expect(roleHome(role as UserRole)).toBe(home);

@@ -112,6 +112,16 @@ export const ACCOUNTING_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "ตั้งค่า", href: "/settings" },
 ];
 
+// Spec 284 U5 / ADR 0080: the Legal role's desktop strip — its /legal home + the
+// universal settings hub. Mirrors LEGAL_TABS (bottom bar) and the lean two-set
+// shape of ACCOUNTING_HUB_NAV; every entry a live destination. Contracts + the
+// approval queue are reached via the entry cards on /legal (not their own strip
+// items), keeping the strip to the role's two top-level surfaces.
+export const LEGAL_HUB_NAV: ReadonlyArray<HubNavItem> = [
+  { label: "ฝ่ายกฎหมาย", href: "/legal" },
+  { label: "ตั้งค่า", href: "/settings" },
+];
+
 // Spec 153: the single role→strip selector — mirrors bottom-tab-bar's tabsForRole
 // exactly, so the SAME strip renders on every hub page (incl. /settings +
 // /dashboard, which previously rendered none). An unserved role gets null and the
@@ -126,6 +136,8 @@ export function hubNavForRole(role: string): ReadonlyArray<HubNavItem> | null {
   if (role === "procurement") return PROCUREMENT_HUB_NAV;
   if (role === "project_coordinator") return COORDINATOR_HUB_NAV;
   if (role === "accounting") return ACCOUNTING_HUB_NAV;
+  // Spec 284 U5 / ADR 0080: the Legal department strip.
+  if (role === "legal") return LEGAL_HUB_NAV;
   return null;
 }
 
