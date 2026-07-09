@@ -1,3 +1,9 @@
+## [0.5.1](https://github.com/VAP-Solution/prc-ops/compare/v0.5.0...v0.5.1) (2026-07-09)
+
+### Performance Improvements
+
+- **wp-detail:** fold post-batch serial tail into the batch + single users read (spec 289 U1) ([#419](https://github.com/VAP-Solution/prc-ops/issues/419)) ([0b3178f](https://github.com/VAP-Solution/prc-ops/commit/0b3178fa78ea8c02430b0ccabcafce3554f7f07a))
+
 # [0.5.0](https://github.com/VAP-Solution/prc-ops/compare/v0.4.0...v0.5.0) (2026-07-09)
 
 ### Features
