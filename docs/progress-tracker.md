@@ -7104,3 +7104,9 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
   category chain, memberships) folds into the big Promise.all; photo-uploader ids
   merge into load-detail's existing display-names tail read. Behavior-preserving.
 - U2 (labor dedupe) follows as its own held PR — `src/lib/labor/` is a guarded path.
+
+## Spec 290 U1 — SW static-asset warm — IN PROGRESS (2026-07-10)
+
+- Perf lane (branch perf/sw-precache-warm after 289 U2 ships). Spec `290-sw-precache-warm.md`.
+- Manifest script + sw.js warmStaticCache + sw-register nudge. PR guard-held via
+  package.json build line — expected.

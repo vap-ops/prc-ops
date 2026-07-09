@@ -41,7 +41,7 @@ function bootSw(existingCaches: string[] = ["prc-static-v0-stale", "prc-static-v
   const keys = vi.fn(async () => existingCaches);
   const caches = { open, keys, delete: del, match: vi.fn() };
   const networkResponse: CachedResponse = { ok: true, status: 200, clone: () => networkResponse };
-  const fetchMock = vi.fn(async () => networkResponse);
+  const fetchMock = vi.fn(async (_input?: unknown, _init?: unknown) => networkResponse);
   const self = {
     addEventListener: (type: string, cb: Listener) => {
       listeners[type] = cb;
@@ -143,5 +143,142 @@ describe("sw.js static-asset cache policy (spec 241)", () => {
     expect(sw.del).toHaveBeenCalledWith("prc-static-v0-stale");
     expect(sw.del).toHaveBeenCalledWith("unrelated");
     expect(sw.del).not.toHaveBeenCalledWith("prc-static-v1");
+  });
+});
+
+// ---- Spec 290 — warm the static cache from the build's precache manifest ----
+
+interface MessageEvent {
+  data: unknown;
+  waitUntil(p: Promise<unknown>): void;
+}
+
+/** Point the fetch mock at a manifest + 200 assets. Returns the list of fetched URLs. */
+function stubManifestFetch(
+  sw: ReturnType<typeof bootSw>,
+  manifestBody: unknown,
+  opts: { manifestStatus?: number; reject?: boolean } = {},
+) {
+  const fetched: string[] = [];
+  sw.fetchMock.mockImplementation(async (input: unknown) => {
+    const url =
+      typeof input === "string" ? input : String((input as { url?: string }).url ?? input);
+    fetched.push(url);
+    if (url.endsWith("/precache-manifest.json")) {
+      if (opts.reject) throw new Error("network down");
+      return {
+        ok: (opts.manifestStatus ?? 200) === 200,
+        status: opts.manifestStatus ?? 200,
+        json: async () => manifestBody,
+        clone: () => ({ ok: true }) as CachedResponse,
+      } as never;
+    }
+    const res: CachedResponse = { ok: true, status: 200, clone: () => res };
+    return res as never;
+  });
+  return fetched;
+}
+
+function fireWarm(sw: ReturnType<typeof bootSw>) {
+  let done: Promise<unknown> | undefined;
+  const event: MessageEvent = {
+    data: { type: "WARM_STATIC_CACHE" },
+    waitUntil: (p) => {
+      done = p;
+    },
+  };
+  (sw.listeners.message as (e: MessageEvent) => void)(event);
+  return done ?? Promise.resolve();
+}
+
+describe("sw.js precache warm (spec 290)", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("WARM_STATIC_CACHE message fetches the manifest and caches missing static assets", async () => {
+    const sw = bootSw();
+    const fetched = stubManifestFetch(sw, {
+      assets: ["/_next/static/chunks/a.js", "/_next/static/css/b.css"],
+    });
+    await fireWarm(sw);
+    expect(fetched[0]).toContain("/precache-manifest.json");
+    expect(fetched).toContain(`${ORIGIN}/_next/static/chunks/a.js`);
+    expect(fetched).toContain(`${ORIGIN}/_next/static/css/b.css`);
+    expect(sw.put).toHaveBeenCalledTimes(2);
+  });
+
+  it("re-enforces the PDPA allowlist — non-/_next/static entries are NEVER fetched or cached", async () => {
+    const sw = bootSw();
+    const fetched = stubManifestFetch(sw, {
+      assets: [
+        "/api/health",
+        "https://evil.example/x.js",
+        "/dashboard",
+        123,
+        null,
+        // path-traversal attempts: startsWith on the RAW string passes, but URL
+        // normalization would resolve these OUTSIDE /_next/static/ — the guard
+        // must gate on the RESOLVED pathname (reviewer-caught bypass).
+        "/_next/static/../../api/secrets",
+        "/_next/static/..\\..\\auth/line/callback",
+        "/_next/static/chunks/ok.js",
+      ],
+    });
+    await fireWarm(sw);
+    const assetFetches = fetched.filter((u) => !u.endsWith("/precache-manifest.json"));
+    expect(assetFetches).toEqual([`${ORIGIN}/_next/static/chunks/ok.js`]);
+    expect(sw.put).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips assets already in the cache", async () => {
+    const sw = bootSw();
+    sw.match.mockResolvedValue({ ok: true, clone: () => ({ ok: true }) as CachedResponse });
+    const fetched = stubManifestFetch(sw, { assets: ["/_next/static/chunks/cached.js"] });
+    await fireWarm(sw);
+    expect(fetched.filter((u) => !u.endsWith("/precache-manifest.json"))).toEqual([]);
+    expect(sw.put).not.toHaveBeenCalled();
+  });
+
+  it("is fail-open: a manifest fetch failure never throws and caches nothing", async () => {
+    const sw = bootSw();
+    stubManifestFetch(sw, null, { reject: true });
+    await expect(fireWarm(sw)).resolves.toBeUndefined();
+    expect(sw.put).not.toHaveBeenCalled();
+  });
+
+  it("is fail-open on a non-200 or malformed manifest", async () => {
+    const sw = bootSw();
+    stubManifestFetch(sw, { nope: true }, { manifestStatus: 503 });
+    await fireWarm(sw);
+    expect(sw.put).not.toHaveBeenCalled();
+    vi.clearAllMocks();
+    const sw2 = bootSw();
+    stubManifestFetch(sw2, { assets: "not-an-array" });
+    await fireWarm(sw2);
+    expect(sw2.put).not.toHaveBeenCalled();
+  });
+
+  it("ignores unrelated message types", async () => {
+    const sw = bootSw();
+    const fetched = stubManifestFetch(sw, { assets: ["/_next/static/chunks/a.js"] });
+    const event: MessageEvent = { data: { type: "OTHER" }, waitUntil: () => {} };
+    (sw.listeners.message as (e: MessageEvent) => void)(event);
+    await Promise.resolve();
+    expect(fetched).toEqual([]);
+  });
+
+  it("activate also warms (covers SW-update deploys)", async () => {
+    const sw = bootSw();
+    const fetched = stubManifestFetch(sw, { assets: ["/_next/static/chunks/a.js"] });
+    let done: Promise<unknown> | undefined;
+    const event: ExtendableEvent = {
+      waitUntil: (p) => {
+        done = p;
+      },
+    };
+    (sw.listeners.activate as (e: ExtendableEvent) => void)(event);
+    await (done ?? Promise.resolve());
+    expect(fetched.some((u) => u.endsWith("/precache-manifest.json"))).toBe(true);
+    // prune behavior unchanged
+    expect(sw.del).toHaveBeenCalledWith("prc-static-v0-stale");
   });
 });
