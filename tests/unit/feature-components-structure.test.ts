@@ -58,6 +58,8 @@ const ALLOWED_DOMAINS = [
   // Spec 284 U5 / ADR 0080: the Legal department surfaces (home cards, contract
   // create form, void control, document-decision form).
   "legal",
+  // Spec 291 U2: the /profile digital employee-ID card.
+  "profile",
 ] as const;
 
 describe("feature components are grouped into domain folders", () => {
