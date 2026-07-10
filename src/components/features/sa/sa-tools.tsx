@@ -3,8 +3,9 @@
 // (biggest reachability fix — everything routes through the SA's คลัง), the
 // project schedule, the purchase-request worklist, and ปิดวัน (end-of-day: today's
 // report + tomorrow's plan). Store + schedule are per-project, so they deep-link
-// into the SA's single project or fall back to the project picker when they run
-// several. Server component — pure Links, no client state.
+// to the SA's resolved current project (spec 292 U3) and fall back to the project
+// picker only when the SA has no visible project. Server component — pure Links,
+// no client state.
 
 import Link from "next/link";
 import {
@@ -21,7 +22,7 @@ export function SaTools({
   primaryProjectId,
   showCloseNudge = false,
 }: {
-  /** The SA's single active project (deep-link target), or null → the picker. */
+  /** The SA's resolved current project (deep-link target), or null → the picker. */
   primaryProjectId: string | null;
   /** ปิดวัน gentle pulse — passed true only after ~16:00 (bangkokHour). */
   showCloseNudge?: boolean;
