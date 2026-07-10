@@ -8,7 +8,7 @@ import { PURCHASING_ROLES, isProcurementWorklist } from "@/lib/auth/role-home";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { PR_LIST_COLUMNS } from "@/lib/purchasing/columns";
-import { loadCatalogCategories, categoryNameById } from "@/lib/catalog/categories";
+import { loadRequestsData } from "@/lib/purchasing/load-requests-data";
 
 // /requests — THE purchasing worklist for every role (spec 19 §4 merged
 // the PM decision queue here; spec 16 A1 / ADR 0026 made the list
@@ -33,13 +33,10 @@ import {
 import {
   groupByProcurementBand,
   procurementSummary,
-  procurementBand,
-  sumOutstanding,
   PROCUREMENT_BANDS,
   type ProcurementBand,
 } from "@/lib/purchasing/procurement-pipeline";
 import { bangkokTodayISO } from "@/lib/work-packages/schedule-today";
-import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { PurchaseRequestCard } from "@/components/features/purchasing/purchase-request-card";
 import {
   ProcurementGrid,
@@ -48,7 +45,6 @@ import {
 import { PhonePoBasket } from "@/components/features/purchasing/phone-po-basket";
 import { PoGroupCard } from "@/components/features/purchasing/po-group-card";
 import { groupByPurchaseOrder } from "@/lib/purchasing/po-grouping";
-import { buildPoDetailView } from "@/lib/purchasing/po-detail";
 import { selectOverdueFollowUp } from "@/lib/purchasing/overdue-attention";
 import { OverdueFollowUpPanel } from "@/components/features/purchasing/overdue-follow-up-panel";
 import { buildWorklistKpis } from "@/lib/purchasing/worklist-kpis";
@@ -56,9 +52,6 @@ import { WorklistKpiTile } from "@/components/features/purchasing/worklist-kpi-t
 import { buildWorklistStatusChips } from "@/lib/purchasing/worklist-status-chips";
 import { WorklistStatusChips } from "@/components/features/purchasing/worklist-status-chips";
 import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
-import type { SupplierOption } from "@/lib/purchasing/supplier-option";
-import { loadCategoryVendors } from "@/lib/purchasing/load-category-vendors";
-import { fetchDisplayNames } from "@/lib/users/display-names";
 import { ProcurementFilters } from "@/components/features/purchasing/procurement-filters";
 import {
   matchesProcurementFilter,
@@ -216,37 +209,8 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     return qs ? `/requests?${qs}` : "/requests";
   };
 
-  // Site-wide visibility (A1): every viewer sees requester names now —
-  // the operator-sanctioned name exposure recorded in ADR 0026.
-  const requesterNames = await fetchDisplayNames(
-    Array.from(
-      new Set(
-        myRequests.map((r) => r.requested_by).filter((id): id is string => typeof id === "string"),
-      ),
-    ),
-    "[requests]",
-  );
-
-  // Resolve WP code/name for the list. PostgREST's foreign-table
-  // inflection would also work, but a separate query mirrors the
-  // pm/page.tsx + current-photos.ts convention and keeps the typed shape
-  // legible to readers.
-  // Spec 195 P1: a PR's work package is optional — drop null ids before the WP
-  // lookup (a null in the `.in(...)` list matches nothing and is noise).
-  const wpIdsInRequests = Array.from(
-    new Set(myRequests.map((r) => r.work_package_id).filter((id): id is string => id !== null)),
-  );
-  const { data: wpForRequests } = await supabase
-    .from("work_packages")
-    .select("id, code, name, project_id")
-    .in("id", wpIdsInRequests);
-  const wpById = new Map((wpForRequests ?? []).map((wp) => [wp.id, wp]));
-  // A WP-less PR (null work_package_id) is project-level / store-bound.
-  const wpFor = (id: string | null) => (id ? wpById.get(id) : undefined);
-
-  // Spec 280 (ADR 0070): procurement_manager is a full-parity buyer — it sees the
-  // same procurement worklist view (KPI hero, band chips, filters, grid, PO flow)
-  // as plain procurement, not the requester's card list.
+  // Spec 280 (ADR 0070): procurement_manager is a full-parity buyer — same worklist
+  // view (KPI hero, band chips, filters, grid, PO flow) as plain procurement.
   const isProcurement = isProcurementWorklist(ctx.role);
   const today = bangkokTodayISO();
 
@@ -254,46 +218,15 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // default) hides received/closed. `today` flags overdue arrivals (the chase signal).
   const requestBands = groupRequestsByBand(myRequests, requestView, today);
 
-  // Spec 110: project names for the project filter (procurement reads projects
-  // read-only since spec 102 — RLS admits it, no migration). Procurement-only.
-  const projectNameById = new Map<string, string>();
-  if (isProcurement) {
-    // Spec 195 P1: resolve names from the PR's own project_id (covers WP-less
-    // PRs, whose project is not in the WP lookup above).
-    const projectIds = Array.from(new Set(myRequests.map((r) => r.project_id)));
-    if (projectIds.length > 0) {
-      const { data: projectRows } = await supabase
-        .from("projects")
-        .select("id, name")
-        .in("id", projectIds);
-      for (const p of projectRows ?? []) projectNameById.set(p.id, p.name);
-    }
-  }
-  // Spec 110: filter picker options come from the UNFILTERED set so the filter
-  // can always be changed.
-  const supplierOptions = isProcurement ? distinctSuppliers(myRequests) : [];
-  const projectOptions = isProcurement
-    ? distinctProjects(
-        myRequests.map((r) => {
-          const pid = r.project_id;
-          return { projectId: pid, projectName: pid ? (projectNameById.get(pid) ?? null) : null };
-        }),
-      )
-    : [];
-
-  // Spec 110: apply the filter, then group. Bands segment stage (spec 104); the
-  // status filter overrides banding with a single flat group so it can surface
-  // rejected/cancelled (which procurementBand drops). Priority sort runs within
-  // every band (critical first).
+  // Spec 110: apply the filter, then group into procurement bands (procurement only).
+  // The status filter overrides banding with a single flat group so it can surface
+  // rejected/cancelled (which procurementBand drops); priority sort runs within every
+  // band. Computed here (pure, from the loaded rows) so the in-transit PO ids can feed
+  // the batched read below.
   const filteredRequests = isProcurement
     ? myRequests.filter((r) =>
         matchesProcurementFilter(
-          {
-            status: r.status,
-            eta: r.eta,
-            supplier: r.supplier,
-            projectId: r.project_id,
-          },
+          { status: r.status, eta: r.eta, supplier: r.supplier, projectId: r.project_id },
           filter,
           today,
         ),
@@ -325,6 +258,50 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
           items: sortByPriority(items),
         }));
 
+  // Spec 134 U2: the in_transit band's rows collapse into PO cards; derive those PO
+  // groups here so their ids feed the PO-facts read in the concurrent batch below.
+  const inTransitGrouped = groupByPurchaseOrder(
+    procurementGroups.find((g) => g.meta.band === "in_transit")?.items ?? [],
+  );
+
+  // Perf (RUM-aimed TTFB, 2026-07-10): every list-enrichment read is independent —
+  // each depends only on the loaded request rows — so load them in ONE concurrent wave
+  // (loadRequestsData) instead of the ~10 serial round-trips this page used to run.
+  // Output is byte-identical to the former inline reads (pinned by load-requests-data.test).
+  const {
+    requesterNames,
+    wpById,
+    projectNameById,
+    amountById,
+    outstanding,
+    deliveredSpend,
+    prCategory,
+    poFactsById,
+    poNumberById,
+    supplierRecords,
+    categoryVendors,
+    docCountById,
+  } = await loadRequestsData({
+    supabase,
+    myRequests,
+    isProcurement,
+    inTransitPoIds: inTransitGrouped.poGroups.map((g) => g.poId),
+  });
+
+  // A WP-less PR (null work_package_id) is project-level / store-bound.
+  const wpFor = (id: string | null) => (id ? wpById.get(id) : undefined);
+  // Spec 110: filter picker options come from the UNFILTERED set so the filter
+  // can always be changed.
+  const supplierOptions = isProcurement ? distinctSuppliers(myRequests) : [];
+  const projectOptions = isProcurement
+    ? distinctProjects(
+        myRequests.map((r) => {
+          const pid = r.project_id;
+          return { projectId: pid, projectName: pid ? (projectNameById.get(pid) ?? null) : null };
+        }),
+      )
+    : [];
+
   // Spec 105: buyer's summary strip — the FULL workload (unfiltered), a stable
   // glance that doesn't jump as filters change.
   const buyerSummary = isProcurement ? procurementSummary(myRequests, today) : null;
@@ -354,78 +331,6 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
       })
     : [];
 
-  // Spec 106/108: amount is money → ONE admin read of all visible rows' amounts
-  // (gated to procurement — back-office, it enters them; never runs for SA/PM
-  // here). Feeds the ค้างจ่าย tile + the desktop grid's จำนวนเงิน column.
-  const amountById = new Map<string, number | null>();
-  let outstanding = 0;
-  if (isProcurement && myRequests.length > 0) {
-    const admin = createAdminSupabase();
-    const { data: amountRows } = await admin
-      .from("purchase_requests")
-      .select("id, amount")
-      .in(
-        "id",
-        myRequests.map((r) => r.id),
-      );
-    for (const a of amountRows ?? []) amountById.set(a.id, a.amount);
-    outstanding = sumOutstanding(
-      myRequests
-        .filter((r) => procurementBand(r.status) === "in_transit")
-        .map((r) => ({ amount: amountById.get(r.id) ?? null })),
-    );
-  }
-
-  // Feedback e4c02550: once every PR reaches delivered, the four active-work tiles
-  // all read 0 and the landing looked "broken". Surface the cumulative delivered
-  // spend so the money stays visible (a figure, not a metric redefinition — ค้างจ่าย
-  // is unchanged). Reuses the back-office amounts already read above.
-  let deliveredSpend = 0;
-  if (isProcurement) {
-    for (const r of myRequests) {
-      if (r.status === "delivered") deliveredSpend += amountById.get(r.id) ?? 0;
-    }
-  }
-
-  // Spec 230 (ADR 0066 / S9): resolve each PR's managed material category — the
-  // category of its catalog item — for the desktop grid's category facet + per-row
-  // badge. Procurement only (the grid is procurement-only); read under the user
-  // session (RLS admits procurement to purchase_requests + the catalog). catalog_item_id
-  // is not in PR_LIST_COLUMNS, so fetch the item links separately rather than widen the
-  // shared SSOT (the detail page does not need them).
-  const prCategory = new Map<string, { id: string | null; name: string | null }>();
-  if (isProcurement && myRequests.length > 0) {
-    const { data: itemLinks } = await supabase
-      .from("purchase_requests")
-      .select("id, catalog_item_id")
-      .in(
-        "id",
-        myRequests.map((r) => r.id),
-      );
-    const itemIds = [
-      ...new Set(
-        (itemLinks ?? []).map((l) => l.catalog_item_id).filter((x): x is string => x != null),
-      ),
-    ];
-    const itemCategory = new Map<string, string | null>();
-    if (itemIds.length > 0) {
-      const { data: itemRows } = await supabase
-        .from("catalog_items")
-        .select("id, category_id")
-        .in("id", itemIds);
-      for (const it of itemRows ?? []) itemCategory.set(it.id, it.category_id);
-    }
-    const nameById = categoryNameById(await loadCatalogCategories(supabase));
-    for (const l of itemLinks ?? []) {
-      const catId = l.catalog_item_id ? (itemCategory.get(l.catalog_item_id) ?? null) : null;
-      const name = catId ? (nameById.get(catId) ?? null) : null;
-      // Keep id + name consistent: a category with no resolvable name (deactivated →
-      // absent from active-only loadCatalogCategories) is treated as uncategorised, so
-      // the grid's facet bucket and row filter agree (and no raw uuid ever shows).
-      prCategory.set(l.id, { id: name ? catId : null, name });
-    }
-  }
-
   // Spec 138 U1: the ต้องติดตามด่วน panel — the actual overdue in-transit
   // deliveries (the items behind the เกินกำหนด count), most-overdue first. Reads
   // the same unfiltered set as the KPI so the two agree; amount is the back-
@@ -444,118 +349,6 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         today,
       )
     : [];
-
-  // Spec 134 U2: in the กำลังจัดส่ง band, bundled tickets collapse into one PO
-  // card linking to the PO detail (U1). Split that band's rows into PO groups +
-  // loose rows; the card's derived status + line count come from the PO's FULL
-  // member set (not just the in-transit rows visible here), so it reads the same
-  // roll-up the detail page shows. Desktop grid grouping is a later unit (2b).
-  const inTransitGrouped = groupByPurchaseOrder(
-    procurementGroups.find((g) => g.meta.band === "in_transit")?.items ?? [],
-  );
-  const poFactsById = new Map<
-    string,
-    {
-      poNumber: number;
-      supplier: string;
-      eta: string | null;
-      status: PurchaseOrderStatus;
-      lineCount: number;
-    }
-  >();
-  if (isProcurement && inTransitGrouped.poGroups.length > 0) {
-    const poIds = inTransitGrouped.poGroups.map((g) => g.poId);
-    const [poRes, memberRes] = await Promise.all([
-      supabase.from("purchase_orders").select("id, po_number, supplier, eta").in("id", poIds),
-      supabase
-        .from("purchase_requests")
-        .select("id, status, purchase_order_id")
-        .in("purchase_order_id", poIds),
-    ]);
-    const memberStatusesByPo = new Map<string, PurchaseRequestStatus[]>();
-    for (const m of memberRes.data ?? []) {
-      if (!m.purchase_order_id) continue;
-      const arr = memberStatusesByPo.get(m.purchase_order_id) ?? [];
-      arr.push(m.status);
-      memberStatusesByPo.set(m.purchase_order_id, arr);
-    }
-    for (const po of poRes.data ?? []) {
-      const view = buildPoDetailView(
-        (memberStatusesByPo.get(po.id) ?? []).map((status) => ({ status, amount: null })),
-      );
-      poFactsById.set(po.id, {
-        poNumber: po.po_number,
-        supplier: po.supplier,
-        eta: po.eta,
-        status: view.status,
-        lineCount: view.activeLineCount,
-      });
-    }
-  }
-
-  // Spec 211 U5: PO membership must be visible in EVERY band (not just the
-  // in_transit PO group header), so fetch the human PO number for every PO any
-  // row belongs to and bake it onto the grid row / phone card as a PO chip.
-  const poNumberById = new Map<string, number>();
-  if (isProcurement) {
-    const allPoIds = [
-      ...new Set(
-        myRequests.map((r) => r.purchase_order_id).filter((id): id is string => id != null),
-      ),
-    ];
-    if (allPoIds.length > 0) {
-      const { data: poNumRows } = await supabase
-        .from("purchase_orders")
-        .select("id, po_number")
-        .in("id", allPoIds);
-      for (const po of poNumRows ?? []) poNumberById.set(po.id, po.po_number);
-    }
-  }
-
-  // Spec 114: suppliers feed the in-drawer record-purchase form; a per-request
-  // attachment count feeds the drawer's document indicator. Procurement only —
-  // both read under the user session (RLS admits procurement: suppliers SELECT
-  // spec 33, attachments via the parent-row policy).
-  let supplierRecords: SupplierOption[] = [];
-  // Spec 280 U1: categoryId → vendors who've supplied it before (ranked), from
-  // committed purchase history — feeds the create-PO picker's "เคยส่งหมวดนี้" group.
-  let categoryVendors: Record<string, string[]> = {};
-  const docCountById = new Map<string, number>();
-  if (isProcurement) {
-    const { data: supplierRows } = await supabase
-      .from("suppliers")
-      // Spec 280 P2b: a blacklisted supplier (spec 275 U0 contact_status) is not an
-      // option for a NEW purchase — drop it from the create-PO picker. History and
-      // the worklist supplier filter (distinctSuppliers) are unaffected.
-      // Spec 280: is_vat_registered feeds the create-PO sheet's non-VAT soft warning.
-      .select("id, name, phone, is_vat_registered")
-      .neq("contact_status", "blacklisted")
-      .order("name", { ascending: true });
-    supplierRecords = (supplierRows ?? []).map((r) => ({
-      id: r.id,
-      name: r.name,
-      phone: r.phone,
-      isVatRegistered: r.is_vat_registered,
-    }));
-    categoryVendors = await loadCategoryVendors(supabase);
-    if (myRequests.length > 0) {
-      const { data: attachmentRows } = await supabase
-        .from("purchase_request_attachments_current")
-        .select("purchase_request_id")
-        .in(
-          "purchase_request_id",
-          myRequests.map((r) => r.id),
-        );
-      for (const a of attachmentRows ?? []) {
-        if (a.purchase_request_id) {
-          docCountById.set(
-            a.purchase_request_id,
-            (docCountById.get(a.purchase_request_id) ?? 0) + 1,
-          );
-        }
-      }
-    }
-  }
 
   // Spec 109: the desktop grid + its review drawer is a client component, so the
   // page bakes wp name/code + amount into serializable records (a client boundary
