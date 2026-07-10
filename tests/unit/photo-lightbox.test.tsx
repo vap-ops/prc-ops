@@ -104,6 +104,69 @@ describe("ZoomablePhoto", () => {
   });
 });
 
+// Feedback 87004dc1 "Images are there but not loading" — the schedule photo
+// strips mint thumbnails through the Supabase image-TRANSFORM API, which is
+// capped at a monthly origin-image quota; once exceeded, a not-yet-cached
+// photo's thumbnail 403s and the <img> shows broken while the photo itself is
+// perfectly readable through the plain (quota-free) object URL. ZoomablePhoto
+// takes an optional fallbackSrc (the full object URL) and swaps to it when the
+// thumbnail fails to load, so a quota 403 (or any thumbnail fetch failure)
+// degrades to the full image instead of a broken tile.
+describe("ZoomablePhoto thumbnail fallback (feedback 87004dc1)", () => {
+  const THUMB = "https://example.test/render/thumb-1.jpg";
+  const FULL = "https://example.test/object/full-1.jpg";
+
+  function thumbImg() {
+    return screen
+      .getByRole("button", { name: "ดูรูปขยาย" })
+      .querySelector("img") as HTMLImageElement;
+  }
+
+  it("swaps to fallbackSrc when the thumbnail fails to load", () => {
+    render(<ZoomablePhoto src={THUMB} fallbackSrc={FULL} />);
+    const img = thumbImg();
+    expect(img.getAttribute("src")).toBe(THUMB);
+    fireEvent.error(img);
+    expect(thumbImg().getAttribute("src")).toBe(FULL);
+  });
+
+  it("does not loop — a failure on the fallback itself is not re-swapped", () => {
+    render(<ZoomablePhoto src={THUMB} fallbackSrc={FULL} />);
+    fireEvent.error(thumbImg());
+    expect(thumbImg().getAttribute("src")).toBe(FULL);
+    // The fallback (full object URL) is quota-free and should load; but even if
+    // it errors, we must not thrash back to the broken thumbnail.
+    fireEvent.error(thumbImg());
+    expect(thumbImg().getAttribute("src")).toBe(FULL);
+  });
+
+  it("leaves src unchanged on error when no fallbackSrc is given (backward compatible)", () => {
+    render(<ZoomablePhoto src={SRC} />);
+    const img = thumbImg();
+    fireEvent.error(img);
+    expect(thumbImg().getAttribute("src")).toBe(SRC);
+  });
+
+  it("opens the enlarged single-photo view on the quota-free full URL, not the thumbnail", async () => {
+    render(<ZoomablePhoto src={THUMB} fallbackSrc={FULL} photoId="p1" />);
+    fireEvent.click(screen.getByRole("button", { name: "ดูรูปขยาย" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.querySelector("img")?.getAttribute("src")).toBe(FULL);
+  });
+
+  it("resets to the thumbnail when the src prop changes (signed-URL refresh)", () => {
+    const { rerender } = render(<ZoomablePhoto src={THUMB} fallbackSrc={FULL} />);
+    fireEvent.error(thumbImg());
+    expect(thumbImg().getAttribute("src")).toBe(FULL);
+    // Spec 257 refreshes signed URLs every ~100s; a fresh thumb should be tried
+    // again, not stay pinned to the previous fallback.
+    const THUMB2 = "https://example.test/render/thumb-1-v2.jpg";
+    const FULL2 = "https://example.test/object/full-1-v2.jpg";
+    rerender(<ZoomablePhoto src={THUMB2} fallbackSrc={FULL2} />);
+    expect(thumbImg().getAttribute("src")).toBe(THUMB2);
+  });
+});
+
 // Spec 50 — swipe/arrow navigation inside a photo group. Load-bearing
 // rules: the dialog opens on the TAPPED photo, navigation is
 // non-wrapping (buttons disable at the ends), arrow keys work, and a

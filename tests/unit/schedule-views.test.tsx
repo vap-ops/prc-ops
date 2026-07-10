@@ -256,6 +256,24 @@ describe("ScheduleViews photo thumbnails (spec 257)", () => {
     expect(screen.getByText(THUMB.uploaderName)).toBeInTheDocument();
   });
 
+  // Feedback 87004dc1 — a thumbnail whose transform URL 403s (image-transform
+  // quota exceeded) must fall back to the quota-free full object URL, not show
+  // a broken tile. The day strip wires ZoomablePhoto's fallbackSrc to fullUrl.
+  it("falls back to the full URL when a day-strip thumbnail fails to load", async () => {
+    mockGetSchedulePhotos.mockResolvedValue({ ok: true, days: { "2026-07-02": [THUMB] } });
+    renderViews();
+    fireEvent.click(screen.getByRole("button", { name: /^2 ก\.ค\./ }));
+    const trigger = await screen.findByRole("button", { name: "ดูรูปขยาย" });
+    const img = trigger.querySelector("img") as HTMLImageElement;
+    expect(img.getAttribute("src")).toBe(THUMB.thumbUrl);
+    fireEvent.error(img);
+    expect(
+      (
+        screen.getByRole("button", { name: "ดูรูปขยาย" }).querySelector("img") as HTMLImageElement
+      ).getAttribute("src"),
+    ).toBe(THUMB.fullUrl);
+  });
+
   it("refreshes photos periodically so signed URLs never fully expire while viewing", async () => {
     vi.useFakeTimers();
     mockGetSchedulePhotos.mockResolvedValue({ ok: true, days: {} });
