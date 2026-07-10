@@ -17,6 +17,7 @@ import { EmptyNotice } from "@/components/features/common/notices";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
+import { getSaCurrentProject } from "@/lib/sa/current-project.server";
 import { workPackageHref } from "@/lib/nav/project-paths";
 import { withBackFrom } from "@/lib/nav/back-href";
 import { WORK_PACKAGE_STATUS_LABEL, formatThaiDate } from "@/lib/i18n/labels";
@@ -63,48 +64,58 @@ export default async function SaHomePage() {
   // the latest approval decision per pending WP (bounce detection), and the rework-reopen
   // audit rows. (latestDecisions + the reopen rows used to run serially AFTER the
   // worklist block; they depend only on wps, so they ride the batch now.)
-  const [projectRes, planRes, categoryRes, pendingRegistrations, latestDecisions, reopenRes] =
-    await Promise.all([
-      projectIds.length
-        ? supabase.from("projects").select("id, code, name").in("id", projectIds)
-        : Promise.resolve({ data: null }),
-      projectIds.length
-        ? supabase
-            .from("daily_work_plans")
-            .select("id, project_id")
-            .eq("plan_date", today)
-            .in("project_id", projectIds)
-        : Promise.resolve({ data: null }),
-      projectIds.length
-        ? supabase
-            .from("project_categories")
-            .select("id, work_categories(code)")
-            .in("project_id", projectIds)
-        : Promise.resolve({ data: null }),
-      // /sa/registrations is a site_admin surface; super_admin uses /registrations.
-      ctx.role === "site_admin"
-        ? listVisibleTechnicianRegistrations(supabase)
-        : Promise.resolve([]),
-      // pending_approval WPs whose LATEST decision is negative = the PM bounced them
-      // back to the SA (spec 218). The helper returns an empty Map for an empty id set.
-      getLatestDecisionsForWorkPackages(
-        supabase,
-        pendingWps.map((w) => w.id),
-      ),
-      // rework WPs: the latest reopen audit row carries the current reason + source
-      // (spec 216/217), newest first.
-      reworkWps.length
-        ? supabase
-            .from("audit_log")
-            .select("target_id, payload")
-            .in(
-              "target_id",
-              reworkWps.map((w) => w.id),
-            )
-            .eq("payload->>event", "wp_reopened_for_defect")
-            .order("created_at", { ascending: false })
-        : Promise.resolve({ data: null }),
-    ]);
+  const [
+    projectRes,
+    planRes,
+    categoryRes,
+    pendingRegistrations,
+    latestDecisions,
+    reopenRes,
+    saCurrent,
+  ] = await Promise.all([
+    projectIds.length
+      ? supabase.from("projects").select("id, code, name").in("id", projectIds)
+      : Promise.resolve({ data: null }),
+    projectIds.length
+      ? supabase
+          .from("daily_work_plans")
+          .select("id, project_id")
+          .eq("plan_date", today)
+          .in("project_id", projectIds)
+      : Promise.resolve({ data: null }),
+    projectIds.length
+      ? supabase
+          .from("project_categories")
+          .select("id, work_categories(code)")
+          .in("project_id", projectIds)
+      : Promise.resolve({ data: null }),
+    // /sa/registrations is a site_admin surface; super_admin uses /registrations.
+    ctx.role === "site_admin" ? listVisibleTechnicianRegistrations(supabase) : Promise.resolve([]),
+    // pending_approval WPs whose LATEST decision is negative = the PM bounced them
+    // back to the SA (spec 218). The helper returns an empty Map for an empty id set.
+    getLatestDecisionsForWorkPackages(
+      supabase,
+      pendingWps.map((w) => w.id),
+    ),
+    // rework WPs: the latest reopen audit row carries the current reason + source
+    // (spec 216/217), newest first.
+    reworkWps.length
+      ? supabase
+          .from("audit_log")
+          .select("target_id, payload")
+          .in(
+            "target_id",
+            reworkWps.map((w) => w.id),
+          )
+          .eq("payload->>event", "wp_reopened_for_defect")
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: null }),
+    // Spec 292 U3 — the SA's resolved current project (override > primary >
+    // derived-most-recent-membership), from project_members, independent of the
+    // WP-derived projectIds above. Feeds the scoped SaTools tiles below; the
+    // aggregate home reads are unchanged.
+    getSaCurrentProject(supabase, ctx.id),
+  ]);
 
   const projects = projectRes.data ?? [];
   const projectsById = new Map(projects.map((p) => [p.id, { code: p.code, name: p.name }]));
@@ -172,7 +183,10 @@ export default async function SaHomePage() {
 
   const muster = summarizeMuster(worklistItems);
   const showCloseNudge = bangkokHour() >= 16;
-  const primaryProjectId = projectIds.length === 1 ? projectIds[0]! : null;
+  // Spec 292 U3 — the scoped tiles deep-link to the resolved current project for
+  // ANY SA (single- or multi-project), not just the single-project case. null only
+  // when the SA has zero visible projects → SaTools keeps its /projects fallback.
+  const primaryProjectId = saCurrent.current.projectId;
   const captureWps = items.map((it) => ({
     id: it.id,
     projectId: it.projectId,

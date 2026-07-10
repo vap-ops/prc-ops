@@ -13,6 +13,7 @@ import { EmptyNotice } from "@/components/features/common/notices";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
+import { getSaCurrentProject } from "@/lib/sa/current-project.server";
 import { bangkokTodayIso } from "@/lib/dates";
 import { resolvePlanDate } from "@/app/sa/plan/plan-date";
 import { DAILY_WORK_PLAN_LABEL, formatThaiDate } from "@/lib/i18n/labels";
@@ -43,20 +44,23 @@ export default async function SaPlanPage({
     </PageShell>
   );
 
-  // RLS scopes projects to the SA's memberships (can_see_project).
-  const { data: projectRows } = await supabase
-    .from("projects")
-    .select("id, code, name")
-    .order("code");
-  const projects = projectRows ?? [];
+  // Spec 292 U3 — one RLS-scoped read (same can_see_project scope, superset
+  // projection) yields both the visible project list AND the resolved current
+  // project. Precedence: a valid+visible ?project= (view-only for this render) >
+  // the sa_active_project override cookie > primary > derived-most-recent. The
+  // resolver validates ?project= against the visible list internally, so the old
+  // inline UUID/visibility check is folded in.
+  const { current, visibleProjects } = await getSaCurrentProject(supabase, ctx.id, {
+    queryProjectId: qProject && UUID_REGEX.test(qProject) ? qProject : null,
+  });
+  const projects = visibleProjects;
   if (projects.length === 0) {
     return shell(<EmptyNotice>ยังไม่มีโครงการที่ดูแล</EmptyNotice>);
   }
 
-  const selectedProjectId =
-    qProject && UUID_REGEX.test(qProject) && projects.some((p) => p.id === qProject)
-      ? qProject
-      : projects[0]!.id;
+  // projects is non-empty here, so the resolver never returns null; the ?? keeps
+  // the type honest (SaCurrentProject.projectId is string | null).
+  const selectedProjectId = current.projectId ?? projects[0]!.id;
   const today = bangkokTodayIso();
   const selectedDate = resolvePlanDate(qDate, today);
 
