@@ -67,6 +67,9 @@ interface PhotoCaptureZoneProps {
   /** Spec 216: the WP's current rework cycle (≥1 once reopened); the หลังแก้ไข tile
    *  captures into this round and is labelled with it. */
   currentReworkRound: number;
+  /** Spec 291 U1 — passed to the CaptureSheet: false once the WP is submitted
+   *  for approval or complete, so the in-detail delete is not offered. */
+  canDelete: boolean;
   /** Spec 248 U3 — the current round's defect photos + answer state; null
    *  outside a rework with defect photos. While any is unanswered, free
    *  after_fix capture redirects to the first open slot. */
@@ -81,6 +84,7 @@ export function PhotoCaptureZone({
   currentPhase,
   showAfterFix,
   currentReworkRound,
+  canDelete,
   defectPairs = null,
 }: PhotoCaptureZoneProps) {
   const [open, setOpen] = useState(false);
@@ -376,6 +380,7 @@ export function PhotoCaptureZone({
           count: p.photos.length,
         }))}
         photos={(active.photos as ReadonlyArray<SheetPhoto>) ?? []}
+        canDelete={canDelete}
       />
     </div>
   );

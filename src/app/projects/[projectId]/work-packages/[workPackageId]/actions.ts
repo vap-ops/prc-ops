@@ -43,6 +43,7 @@ import {
   type PhotoExt,
 } from "@/lib/photos/path";
 import { buildTombstoneRow } from "@/lib/photos/tombstone";
+import { isPhotoWpDeletable, PHOTO_DELETE_LOCKED_ERROR } from "@/lib/photos/deletable";
 import { PAIRING_REJECTED_MESSAGE } from "@/lib/photos/upload-queue";
 import { photoReworkRoundFor } from "@/lib/photos/rework-round";
 import type { ReworkSource } from "@/lib/db/enums";
@@ -321,6 +322,21 @@ export async function removePhoto(input: RemovePhotoInput): Promise<RemovePhotoR
     return { ok: false, error: "รูปนี้ถูกลบไปแล้ว" };
   }
 
+  // Spec 291 U1: a progress photo is per-WP approval evidence — deletion is
+  // locked once the WP is submitted for approval or complete, so a submitted
+  // set cannot be altered. Read the WP status first and refuse with a friendly
+  // message; the photo_logs WITH CHECK (migration 075630) is the RLS backstop.
+  // project_id doubles as the revalidatePath key below — one WP read, not two.
+  const { data: wp } = await supabase
+    .from("work_packages")
+    .select("project_id, status")
+    .eq("id", target.work_package_id)
+    .maybeSingle();
+  if (!wp) return { ok: false, error: "ไม่พบงาน" };
+  if (!isPhotoWpDeletable(wp.status)) {
+    return { ok: false, error: PHOTO_DELETE_LOCKED_ERROR };
+  }
+
   // Anti-join guard: refuse if some other row already supersedes
   // this one (defends against double-remove racing the page refresh).
   const { data: supersedingRows, error: supersededError } = await supabase
@@ -347,17 +363,7 @@ export async function removePhoto(input: RemovePhotoInput): Promise<RemovePhotoR
     return { ok: false, error: "ลบรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }
 
-  // Look up the WP's project_id only for revalidatePath — the
-  // tombstone insert itself doesn't need it.
-  const { data: wp } = await supabase
-    .from("work_packages")
-    .select("project_id")
-    .eq("id", target.work_package_id)
-    .maybeSingle();
-  if (wp) {
-    revalidatePath(workPackageHref(wp.project_id, target.work_package_id));
-  }
-
+  revalidatePath(workPackageHref(wp.project_id, target.work_package_id));
   return { ok: true };
 }
 

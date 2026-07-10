@@ -49,6 +49,7 @@ function renderZone(defectPairs: ReadonlyArray<DefectPairSlot> | null) {
       currentPhase="after"
       showAfterFix
       currentReworkRound={2}
+      canDelete
       defectPairs={defectPairs}
     />,
   );

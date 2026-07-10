@@ -39,7 +39,7 @@ vi.mock("@/app/photo-markups/actions", () => ({
 import { CaptureSheet } from "@/app/projects/[projectId]/work-packages/[workPackageId]/capture-sheet";
 import type { SheetPhoto } from "@/app/projects/[projectId]/work-packages/[workPackageId]/capture-sheet";
 
-function renderSheet(photos: ReadonlyArray<SheetPhoto> = []) {
+function renderSheet(photos: ReadonlyArray<SheetPhoto> = [], canDelete = true) {
   return render(
     <CaptureSheet
       open
@@ -55,6 +55,7 @@ function renderSheet(photos: ReadonlyArray<SheetPhoto> = []) {
         { phase: "after", label: "เสร็จงาน", count: 0 },
       ]}
       photos={photos}
+      canDelete={canDelete}
     />,
   );
 }
@@ -117,5 +118,25 @@ describe("CaptureSheet delete relocation (feedback 7c3347b3)", () => {
       }),
     );
     expect(mockHandleRemoveConfirmed).toHaveBeenCalledWith("photo-1-id");
+  });
+});
+
+// Spec 291 U1 — the CaptureSheet delete is gated by the WP status. The page
+// passes canDelete = isPhotoWpDeletable(wp.status); once the WP is submitted for
+// approval or complete it is false, so the in-detail "ลบรูป" affordance is not
+// offered at all (the photo_logs WITH CHECK / migration 075630 is the backstop).
+describe("CaptureSheet submit gate (spec 291 U1)", () => {
+  it("offers the in-detail delete while the WP is deletable (canDelete=true)", async () => {
+    renderSheet([LOADED], true);
+    fireEvent.click(screen.getByRole("button", { name: "ดูรูปขยาย" }));
+    expect(await screen.findByRole("button", { name: "ลบรูป" })).toBeInTheDocument();
+  });
+
+  it("hides the in-detail delete once the WP is locked (canDelete=false)", async () => {
+    renderSheet([LOADED], false);
+    fireEvent.click(screen.getByRole("button", { name: "ดูรูปขยาย" }));
+    // Await the overlay chunk (its dialog), then assert the delete is absent.
+    await screen.findByRole("dialog", { name: "รูปขยาย" });
+    expect(screen.queryByRole("button", { name: "ลบรูป" })).not.toBeInTheDocument();
   });
 });
