@@ -90,4 +90,21 @@ describe("CrewProgressRoster", () => {
     render(<CrewProgressRoster data={EMPTY} registrationsHref="/sa/registrations" />);
     expect(screen.getByText(/ยังไม่มีช่าง/)).toBeInTheDocument();
   });
+
+  it("never says อนุมัติ — the SA reviews registrations, the PM approves (view-only)", () => {
+    // Empty-state onboarding hint carries no approve verb.
+    const { rerender } = render(
+      <CrewProgressRoster data={EMPTY} registrationsHref="/sa/registrations" />,
+    );
+    expect(screen.queryByText(/อนุมัติ/)).toBeNull();
+    // With a pending registration the CTA is a review link (ตรวจ, not อนุมัติ).
+    rerender(
+      <CrewProgressRoster
+        data={{ ...EMPTY, needsReview: [{ id: "r1", name: "ก" }] }}
+        registrationsHref="/sa/registrations"
+      />,
+    );
+    expect(screen.queryByText(/อนุมัติ/)).toBeNull();
+    expect(screen.getByRole("link", { name: /ตรวจคำขอสมัคร/ })).toBeInTheDocument();
+  });
 });

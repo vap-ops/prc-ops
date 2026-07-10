@@ -1,8 +1,9 @@
 // Spec 277 P0 — the SA-home tools grid. A stable 2×2 of shipped destinations that
 // were buried a project-hub tap (or a settings gear) away: the on-site store
 // (biggest reachability fix — everything routes through the SA's คลัง), the
-// project schedule, the purchase-request worklist, and ปิดวัน (end-of-day: today's
-// report + tomorrow's plan). Store + schedule are per-project, so they deep-link
+// project schedule, the purchase-request worklist, and ปิดวัน (end-of-day:
+// tomorrow's plan — the day report is spec 212, not yet built). Store + schedule
+// are per-project, so they deep-link
 // to the SA's resolved current project (spec 292 U3) and fall back to the project
 // picker only when the SA has no visible project. Server component — pure Links,
 // no client state.
@@ -39,7 +40,7 @@ export function SaTools({
           icon={Box}
           accent="text-cat-w05"
           title="คลัง & ของเข้า"
-          subtitle="รับเข้า · เบิก"
+          subtitle="รับเข้า · ตรวจนับ"
         />
         <Tile
           href={projectScoped(scheduleHref)}
@@ -53,14 +54,14 @@ export function SaTools({
           icon={ShoppingCart}
           accent="text-cat-w02"
           title="คำขอซื้อ"
-          subtitle="ขอวัสดุ · ติดตาม"
+          subtitle="ติดตามคำขอ"
         />
         <Tile
           href="/sa/plan"
           icon={ClipboardCheck}
           accent="text-done"
           title="ปิดวัน"
-          subtitle="รายงาน · แผนพรุ่งนี้"
+          subtitle="แผนพรุ่งนี้"
           pulse={showCloseNudge}
         />
         {/* Temporary — SA-assisted onboarding: the crew roster + the technician

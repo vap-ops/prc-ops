@@ -37,4 +37,12 @@ describe("CameraFab (spec 277 P0)", () => {
     const { container } = render(<CameraFab wps={[]} />);
     expect(container.firstChild).toBeNull();
   });
+
+  it("names itself via aria-label only — drops the sub-13px visible caption", () => {
+    render(<CameraFab wps={one} />);
+    // Accessible name still resolves (aria-label on the control)…
+    expect(screen.getByRole("link", { name: /ถ่ายรูป/ })).toBeInTheDocument();
+    // …but the tiny 8px visible label is gone — the icon + aria-label carry it.
+    expect(screen.queryByText("ถ่ายรูป")).toBeNull();
+  });
 });

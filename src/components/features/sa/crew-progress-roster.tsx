@@ -102,7 +102,7 @@ export function CrewProgressRoster({
       {total === 0 ? (
         <EmptyNotice>
           ยังไม่มีช่างในระบบ — เพิ่มเองด้านล่าง หรือให้ช่างสแกน QR เพื่อสมัคร
-          แล้วอนุมัติในหน้าคำขอสมัคร
+          แล้วตรวจในหน้าคำขอสมัคร
         </EmptyNotice>
       ) : null}
 
@@ -118,7 +118,7 @@ export function CrewProgressRoster({
               href={registrationsHref}
               className="text-action focus-visible:ring-action inline-flex items-center gap-1 self-start rounded-md text-sm font-medium focus:outline-none focus-visible:ring-2"
             >
-              ตรวจและอนุมัติคำขอสมัคร
+              ตรวจคำขอสมัคร
               <ArrowRight aria-hidden className="size-4" />
             </Link>
           </>
