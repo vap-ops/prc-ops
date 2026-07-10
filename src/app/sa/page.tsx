@@ -20,8 +20,7 @@ import { createClient } from "@/lib/db/server";
 import { workPackageHref } from "@/lib/nav/project-paths";
 import { withBackFrom } from "@/lib/nav/back-href";
 import { WORK_PACKAGE_STATUS_LABEL, formatThaiDate } from "@/lib/i18n/labels";
-import { currentLaborLogs } from "@/lib/labor/current-logs";
-import { DailyPlanWorklist, type WorklistItem } from "@/components/features/sa/daily-plan-worklist";
+import { DailyPlanWorklist } from "@/components/features/sa/daily-plan-worklist";
 import { MusterStrip } from "@/components/features/sa/muster-strip";
 import { SaTools } from "@/components/features/sa/sa-tools";
 import { CameraFab } from "@/components/features/sa/camera-fab";
@@ -30,6 +29,7 @@ import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import { bangkokHour, bangkokTodayIso } from "@/lib/dates";
 import { summarizeMuster } from "@/lib/sa/muster";
 import { buildSaActionList, type BouncedWp, type ReworkInfo } from "@/lib/sa/action-list";
+import { buildTodayWorklist } from "@/lib/sa/today-worklist";
 import { getLatestDecisionsForWorkPackages } from "@/lib/approvals/latest-decision";
 import { listVisibleTechnicianRegistrations } from "@/lib/register/admin-registrations";
 import { SaActionSection } from "@/components/features/sa/action-section";
@@ -55,30 +55,56 @@ export default async function SaHomePage() {
   const wps = wpRows ?? [];
 
   const projectIds = Array.from(new Set(wps.map((w) => w.project_id)));
+  const pendingWps = wps.filter((w) => w.status === "pending_approval");
+  const reworkWps = wps.filter((w) => w.status === "rework");
 
-  // These four reads depend only on projectIds (or nothing) — batch them (specs
-  // 147/148). Today's boards, the projects, the work-category taxonomy (to render
-  // category identity), and the SA's pending technician-registration queue.
-  const [projectRes, planRes, categoryRes, pendingRegistrations] = await Promise.all([
-    projectIds.length
-      ? supabase.from("projects").select("id, code, name").in("id", projectIds)
-      : Promise.resolve({ data: null }),
-    projectIds.length
-      ? supabase
-          .from("daily_work_plans")
-          .select("id, project_id")
-          .eq("plan_date", today)
-          .in("project_id", projectIds)
-      : Promise.resolve({ data: null }),
-    projectIds.length
-      ? supabase
-          .from("project_categories")
-          .select("id, work_categories(code)")
-          .in("project_id", projectIds)
-      : Promise.resolve({ data: null }),
-    // /sa/registrations is a site_admin surface; super_admin uses /registrations.
-    ctx.role === "site_admin" ? listVisibleTechnicianRegistrations(supabase) : Promise.resolve([]),
-  ]);
+  // Perf: every read that keys only off wps/projectIds loads in ONE wave — today's
+  // boards, the projects, the work-category taxonomy, the SA's pending registrations,
+  // the latest approval decision per pending WP (bounce detection), and the rework-reopen
+  // audit rows. (latestDecisions + the reopen rows used to run serially AFTER the
+  // worklist block; they depend only on wps, so they ride the batch now.)
+  const [projectRes, planRes, categoryRes, pendingRegistrations, latestDecisions, reopenRes] =
+    await Promise.all([
+      projectIds.length
+        ? supabase.from("projects").select("id, code, name").in("id", projectIds)
+        : Promise.resolve({ data: null }),
+      projectIds.length
+        ? supabase
+            .from("daily_work_plans")
+            .select("id, project_id")
+            .eq("plan_date", today)
+            .in("project_id", projectIds)
+        : Promise.resolve({ data: null }),
+      projectIds.length
+        ? supabase
+            .from("project_categories")
+            .select("id, work_categories(code)")
+            .in("project_id", projectIds)
+        : Promise.resolve({ data: null }),
+      // /sa/registrations is a site_admin surface; super_admin uses /registrations.
+      ctx.role === "site_admin"
+        ? listVisibleTechnicianRegistrations(supabase)
+        : Promise.resolve([]),
+      // pending_approval WPs whose LATEST decision is negative = the PM bounced them
+      // back to the SA (spec 218). The helper returns an empty Map for an empty id set.
+      getLatestDecisionsForWorkPackages(
+        supabase,
+        pendingWps.map((w) => w.id),
+      ),
+      // rework WPs: the latest reopen audit row carries the current reason + source
+      // (spec 216/217), newest first.
+      reworkWps.length
+        ? supabase
+            .from("audit_log")
+            .select("target_id, payload")
+            .in(
+              "target_id",
+              reworkWps.map((w) => w.id),
+            )
+            .eq("payload->>event", "wp_reopened_for_defect")
+            .order("created_at", { ascending: false })
+        : Promise.resolve({ data: null }),
+    ]);
 
   const projects = projectRes.data ?? [];
   const projectsById = new Map(projects.map((p) => [p.id, { code: p.code, name: p.name }]));
@@ -95,97 +121,21 @@ export default async function SaHomePage() {
     if (code) categoryCodeById.set(c.id, code);
   }
 
-  // Spec 273 U3 — TODAY's แผนวันนี้ worklist: today's board(s) for the SA's
-  // projects, each item's crew, and who is already logged today (present). All
-  // reads RLS-scoped (can_see_project); logging is the existing log_labor_day.
-  let worklistItems: WorklistItem[] = [];
-  if (plans.length > 0) {
-    const { data: planItemRows } = await supabase
-      .from("daily_work_plan_items")
-      .select("id, plan_id, work_package_id, sort_order")
-      .in(
-        "plan_id",
-        plans.map((p) => p.id),
-      )
-      .order("sort_order");
-    const planItems = planItemRows ?? [];
-    const { data: crewRows } = planItems.length
-      ? await supabase
-          .from("daily_work_plan_crew")
-          .select("item_id, worker_id, is_lead")
-          .in(
-            "item_id",
-            planItems.map((i) => i.id),
-          )
-      : { data: [] };
-    const crew = crewRows ?? [];
-    const planWpIds = Array.from(new Set(planItems.map((i) => i.work_package_id)));
-    const crewWorkerIds = Array.from(new Set(crew.map((c) => c.worker_id)));
+  // Spec 273 U3 — TODAY's แผนวันนี้ worklist (the SA home's default surface). Its leaf
+  // reads (labels / worker names / today's labor) load concurrently inside the loader.
+  const multiProject = projectIds.length > 1;
+  const worklistItems = await buildTodayWorklist({
+    supabase,
+    plans,
+    planProject,
+    projectsById,
+    categoryCodeById,
+    multiProject,
+    today,
+  });
 
-    const { data: labelRows } = planWpIds.length
-      ? await supabase
-          .from("work_packages")
-          .select("id, code, name, category_id")
-          .in("id", planWpIds)
-      : { data: [] };
-    const labelById = new Map(
-      (labelRows ?? []).map((w) => [
-        w.id,
-        { code: w.code, name: w.name, categoryId: w.category_id },
-      ]),
-    );
-    const { data: crewWorkerRows } = crewWorkerIds.length
-      ? await supabase.from("workers").select("id, name").in("id", crewWorkerIds)
-      : { data: [] };
-    const workerNameById = new Map((crewWorkerRows ?? []).map((w) => [w.id, w.name]));
-
-    const { data: laborRows } =
-      planWpIds.length && crewWorkerIds.length
-        ? await supabase
-            .from("labor_logs")
-            .select(
-              "id, work_package_id, worker_id, work_date, day_fraction, worker_name_snapshot, pay_type_snapshot, entered_by, self_logged, superseded_by, correction_reason, created_at, note",
-            )
-            .eq("work_date", today)
-            .in("work_package_id", planWpIds)
-            .in("worker_id", crewWorkerIds)
-        : { data: [] };
-    const present = new Set(
-      currentLaborLogs(laborRows ?? []).map((l) => `${l.work_package_id}:${l.worker_id}`),
-    );
-
-    const multiProject = projectIds.length > 1;
-    worklistItems = planItems.map((i) => {
-      const label = labelById.get(i.work_package_id);
-      const projectCode = projectsById.get(planProject.get(i.plan_id) ?? "")?.code;
-      const categoryId = label?.categoryId ?? null;
-      return {
-        id: i.id,
-        workPackageId: i.work_package_id,
-        code: label?.code ?? "",
-        name: label?.name ?? "",
-        categoryCode: (categoryId && categoryCodeById.get(categoryId)) || null,
-        ...(multiProject && projectCode ? { projectLabel: projectCode } : {}),
-        crew: crew
-          .filter((c) => c.item_id === i.id)
-          .map((c) => ({
-            workerId: c.worker_id,
-            name: workerNameById.get(c.worker_id) ?? "",
-            present: present.has(`${i.work_package_id}:${c.worker_id}`),
-          })),
-      };
-    });
-  }
-
-  // pending_approval WPs whose LATEST decision is negative = the PM bounced them
-  // back to the SA (spec 218). One read per the latest-decision pattern.
-  const pendingWps = wps.filter((w) => w.status === "pending_approval");
-  const latestDecisions = pendingWps.length
-    ? await getLatestDecisionsForWorkPackages(
-        supabase,
-        pendingWps.map((w) => w.id),
-      )
-    : new Map();
+  // pending_approval WPs whose LATEST decision is negative = the PM bounced them back
+  // to the SA (spec 218). latestDecisions was read in the batch above.
   const bounced: BouncedWp[] = pendingWps.flatMap((w) => {
     const dec = latestDecisions.get(w.id);
     if (dec?.decision === "needs_revision" || dec?.decision === "rejected") {
@@ -195,30 +145,18 @@ export default async function SaHomePage() {
   });
 
   // rework WPs: the latest reopen audit row carries the current reason + source
-  // (spec 216/217); the round is on the WP itself.
-  const reworkWps = wps.filter((w) => w.status === "rework");
+  // (spec 216/217); the round is on the WP itself. reopenRes was read in the batch.
   const reworkInfo = new Map<string, ReworkInfo>();
-  if (reworkWps.length) {
-    const { data: reopenRows } = await supabase
-      .from("audit_log")
-      .select("target_id, payload")
-      .in(
-        "target_id",
-        reworkWps.map((w) => w.id),
-      )
-      .eq("payload->>event", "wp_reopened_for_defect")
-      .order("created_at", { ascending: false });
-    for (const w of reworkWps) {
-      const p = (reopenRows ?? []).find((r) => r.target_id === w.id)?.payload as {
-        reason?: string;
-        source?: ReworkSource;
-      } | null;
-      reworkInfo.set(w.id, {
-        reason: p?.reason ?? null,
-        source: p?.source === "client" || p?.source === "internal" ? p.source : null,
-        round: w.rework_round,
-      });
-    }
+  for (const w of reworkWps) {
+    const p = (reopenRes.data ?? []).find((r) => r.target_id === w.id)?.payload as {
+      reason?: string;
+      source?: ReworkSource;
+    } | null;
+    reworkInfo.set(w.id, {
+      reason: p?.reason ?? null,
+      source: p?.source === "client" || p?.source === "internal" ? p.source : null,
+      round: w.rework_round,
+    });
   }
 
   const inPlay = wps.filter((w) => w.status !== "pending_approval");
