@@ -1,3 +1,9 @@
+## [0.5.6](https://github.com/VAP-Solution/prc-ops/compare/v0.5.5...v0.5.6) (2026-07-10)
+
+### Performance Improvements
+
+- **dashboard:** collapse the portfolio money rollup into one DEFINER RPC ([#426](https://github.com/VAP-Solution/prc-ops/issues/426)) ([ac125da](https://github.com/VAP-Solution/prc-ops/commit/ac125da7c90f3233bf2db46f18b7003d5196db30))
+
 ## [0.5.5](https://github.com/VAP-Solution/prc-ops/compare/v0.5.4...v0.5.5) (2026-07-10)
 
 ### Performance Improvements
