@@ -58,16 +58,21 @@ export const metadata = { title: "รายการงาน" };
 
 export default async function ProjectWorkPackagesPage({ params }: PageProps) {
   const { projectId } = await params;
-  const ctx = await requireRole(PROJECT_VIEW_ROLES);
+  // Perf (RUM-aimed TTFB): requireRole (its own users read) and the project read are
+  // independent — the project fetch needs only projectId, and a wrong-role redirect just
+  // discards its result — so run them in one wave instead of serially (−1 serial layer on
+  // the highest-traffic mobile route).
   const supabase = await createClient();
-
-  const { data: project } = await supabase
-    .from("projects")
-    .select(
-      "id, code, name, status, site_address, gmap_url, start_date, planned_completion_date, client_id, project_lead_id, project_type",
-    )
-    .eq("id", projectId)
-    .maybeSingle();
+  const [ctx, { data: project }] = await Promise.all([
+    requireRole(PROJECT_VIEW_ROLES),
+    supabase
+      .from("projects")
+      .select(
+        "id, code, name, status, site_address, gmap_url, start_date, planned_completion_date, client_id, project_lead_id, project_type",
+      )
+      .eq("id", projectId)
+      .maybeSingle(),
+  ]);
 
   if (!project) {
     // Spec 192 U3: the user session can't see it — but is it RLS-hidden (the
