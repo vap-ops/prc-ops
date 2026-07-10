@@ -1,5 +1,5 @@
 begin;
-select plan(19);
+select plan(21);
 
 -- ============================================================================
 -- Spec 277 P1a — site-issue log (แจ้งปัญหา).
@@ -130,6 +130,14 @@ select throws_ok(
        'ff000000-0000-0000-0000-000000000293', 'other', null) $$,
   'P0001', null, 'a WP from another project is rejected P0001 (WP must match project)');
 
+-- B.6 (defaults) the optional params (p_work_package_id / p_note) carry DEFAULT NULL
+--     so a project-level report can omit them (still the member SA).
+select lives_ok(
+  $$ select public.report_site_issue(
+       p_project_id => 'aa000000-0000-0000-0000-000000000293',
+       p_issue_type => 'other') $$,
+  'a project-level report omits the optional WP + note (DEFAULT NULL params)');
+
 -- ============================================================================
 -- C. add_site_issue_attachment — owner-only (mirrors add_feedback_attachment).
 -- ============================================================================
@@ -147,6 +155,16 @@ select throws_ok(
        'c1000000-0000-0000-0000-000000000293',
        'issue/c1000000-0000-0000-0000-000000000293/intruder.jpg') $$,
   '42501', null, 'a non-owner cannot attach to someone else''s issue (42501)');
+
+-- C.3 (F1 path-guard) even the OWNER cannot record a path outside this issue's own
+--     folder — the stored path must sit under issue/<thisIssueId>/ (mirrors the
+--     owner-bound storage upload policy). Back to the owner (sa_member).
+set local "request.jwt.claims" = '{"sub": "15151515-1515-1515-1515-000000000293"}';
+select throws_ok(
+  $$ select public.add_site_issue_attachment(
+       'c1000000-0000-0000-0000-000000000293',
+       'issue/ffffffff-ffff-ffff-ffff-ffffffffffff/elsewhere.jpg') $$,
+  '22023', null, 'owner cannot record a path outside the issue folder (F1 guard)');
 
 -- ============================================================================
 -- D. RLS read scope + resolve_site_issue.
