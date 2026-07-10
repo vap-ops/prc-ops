@@ -10,3 +10,5 @@ export const REPORTS_BUCKET = "reports";
 export const CONTACT_DOCS_BUCKET = "contact-docs";
 // Spec 175 U4 — one reference image per catalog item (private; back-office upload).
 export const CATALOG_IMAGES_BUCKET = "catalog-images";
+// Spec 277 P1a — site-issue (แจ้งปัญหา) photos, private, owner-bound upload.
+export const SITE_ISSUES_BUCKET = "site-issues";

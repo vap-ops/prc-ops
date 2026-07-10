@@ -8760,10 +8760,10 @@ export type Database = {
       }
       report_site_issue: {
         Args: {
-          p_issue_type: Database["public"]["Enums"]["site_issue_type"]
-          p_note: string
+          p_issue_type?: Database["public"]["Enums"]["site_issue_type"]
+          p_note?: string
           p_project_id: string
-          p_work_package_id: string
+          p_work_package_id?: string
         }
         Returns: string
       }

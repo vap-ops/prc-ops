@@ -25,6 +25,9 @@ import { DailyPlanWorklist } from "@/components/features/sa/daily-plan-worklist"
 import { MusterStrip } from "@/components/features/sa/muster-strip";
 import { SaTools } from "@/components/features/sa/sa-tools";
 import { CameraFab } from "@/components/features/sa/camera-fab";
+import { ReportIssueFab } from "@/components/features/sa/report-issue-fab";
+import { TodayIssuesSection } from "@/components/features/sa/today-issues-section";
+import { loadTodayIssues } from "@/lib/site-issues/load-today-issues";
 import { CurrentProjectSwitcher } from "@/components/features/sa/current-project-switcher";
 import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
@@ -136,15 +139,22 @@ export default async function SaHomePage() {
   // Spec 273 U3 — TODAY's แผนวันนี้ worklist (the SA home's default surface). Its leaf
   // reads (labels / worker names / today's labor) load concurrently inside the loader.
   const multiProject = projectIds.length > 1;
-  const worklistItems = await buildTodayWorklist({
-    supabase,
-    plans,
-    planProject,
-    projectsById,
-    categoryCodeById,
-    multiProject,
-    today,
-  });
+  // Spec 277 P1a — today's ปัญหา (RLS-scoped to visible projects) loads alongside the
+  // worklist. Names come from the SA's visible-project list (an issue may sit on a
+  // project with no active WPs, so projectsById above isn't enough).
+  const projectNameById = new Map(saCurrent.visibleProjects.map((p) => [p.id, p.name]));
+  const [worklistItems, todayIssues] = await Promise.all([
+    buildTodayWorklist({
+      supabase,
+      plans,
+      planProject,
+      projectsById,
+      categoryCodeById,
+      multiProject,
+      today,
+    }),
+    loadTodayIssues(supabase, { todayIso: today, projectNameById }),
+  ]);
 
   // pending_approval WPs whose LATEST decision is negative = the PM bounced them back
   // to the SA (spec 218). latestDecisions was read in the batch above.
@@ -219,6 +229,10 @@ export default async function SaHomePage() {
         {/* 1 · ต้องแก้ไข — WPs the PM/defect bounced back (spec 218), pinned top,
             color-coded, one tap to the capture. Renders nothing when empty. */}
         <SaActionSection items={actions} />
+
+        {/* ปัญหาวันนี้ — today's reported site issues (spec 277 P1a). Renders nothing
+            when the day has no issues (conditional-section idiom). */}
+        <TodayIssuesSection issues={todayIssues} />
 
         {/* คำขอสมัครรอตรวจ — surfaces the otherwise-orphan /sa/registrations queue
             with a live count. Only for site_admin (super_admin uses /registrations). */}
@@ -320,6 +334,8 @@ export default async function SaHomePage() {
 
       {/* Floating ถ่ายรูป capture — always reachable, never scrolls away. */}
       <CameraFab wps={captureWps} />
+      {/* Red แจ้งปัญหา FAB, stacked directly above the camera (spec 277 P1a). */}
+      <ReportIssueFab projectId={primaryProjectId} />
     </PageShell>
   );
 }

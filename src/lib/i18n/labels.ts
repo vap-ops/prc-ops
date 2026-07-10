@@ -132,6 +132,26 @@ export const WORK_PACKAGE_PRIORITY_LABEL: Record<Enums["work_package_priority"],
   critical: "วิกฤต",
 };
 
+// Spec 277 P1a — the site-issue log (แจ้งปัญหา). Type = the cause of a site problem
+// / work pause (the reporter's "what information to put"); status = open → resolved.
+export const SITE_ISSUE_TYPE_LABEL: Record<Enums["site_issue_type"], string> = {
+  weather: "สภาพอากาศ/ฝน",
+  equipment: "เครื่องจักร/อุปกรณ์เสีย",
+  safety: "ความปลอดภัย/อุบัติเหตุ",
+  access: "เข้าพื้นที่ไม่ได้",
+  other: "อื่น ๆ",
+};
+export const SITE_ISSUE_STATUS_LABEL: Record<Enums["site_issue_status"], string> = {
+  open: "เปิดอยู่",
+  resolved: "แก้ไขแล้ว",
+};
+// UI strings for the แจ้งปัญหา surface (SSOT — used by the FAB, the sheet and the section).
+export const REPORT_ISSUE_LABEL = "แจ้งปัญหา";
+export const TODAY_ISSUES_LABEL = "ปัญหาวันนี้";
+export const ISSUE_NOTE_PLACEHOLDER = "รายละเอียดเพิ่มเติม (ถ้ามี)";
+export const ISSUE_ADD_PHOTO_LABEL = "เพิ่มรูป";
+export const ISSUE_SUBMIT_LABEL = "ส่ง";
+
 export const PROJECT_STATUS_LABEL: Record<Enums["project_status"], string> = {
   active: "กำลังดำเนินการ",
   on_hold: "พักชั่วคราว",
