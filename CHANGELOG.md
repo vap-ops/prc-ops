@@ -1,3 +1,10 @@
+## [0.5.2](https://github.com/VAP-Solution/prc-ops/compare/v0.5.1...v0.5.2) (2026-07-10)
+
+### Performance Improvements
+
+- **sw:** warm static cache from a per-deploy precache manifest (spec 290) ([#421](https://github.com/VAP-Solution/prc-ops/issues/421)) ([08c83f1](https://github.com/VAP-Solution/prc-ops/commit/08c83f1634c467bf2078362044983fce330dca7e))
+- **wp-detail:** dedupe contractors/workers reads + parallel budget pair (spec 289 U2) ([#420](https://github.com/VAP-Solution/prc-ops/issues/420)) ([1b88bab](https://github.com/VAP-Solution/prc-ops/commit/1b88bab5cd4cf0991636969f7c33aab8f43bdc75))
+
 ## [0.5.1](https://github.com/VAP-Solution/prc-ops/compare/v0.5.0...v0.5.1) (2026-07-09)
 
 ### Performance Improvements
