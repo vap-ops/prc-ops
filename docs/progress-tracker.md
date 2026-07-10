@@ -7110,3 +7110,20 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
 - Perf lane (branch perf/sw-precache-warm after 289 U2 ships). Spec `290-sw-precache-warm.md`.
 - Manifest script + sw.js warmStaticCache + sw-register nudge. PR guard-held via
   package.json build line — expected.
+
+## Spec 292 U1 — SA primary site: is_primary flag + both setter RPCs — IN PROGRESS (2026-07-10, session 6)
+
+- Schema lane (`feat/spec292-u1-primary-flag`, worktree `../prc-ops-sap-u1`), migration
+  `20260813075600_spec292u1_sa_primary_project.sql`. Spec `292-sa-primary-site.md`
+  (5 open decisions CONFIRMED by operator 2026-07-10; spec reconciled this session —
+  PM-sets pulled from U5 into v1: RPC in U1, UI in U4).
+- Scope: `project_members.is_primary` (bool not null default false) + partial-unique
+  index `project_members_primary_per_user_idx (user_id) where is_primary` + two
+  DEFINER setters — `set_primary_project(uuid)` (self-serve, member-gated) and
+  `set_primary_project_for(uuid,uuid)` (PM_ROLES + can_see_project + target-is-
+  site_admin-member gated). Both clear-then-set; `revoke from public,anon` /
+  `grant to authenticated`.
+- RED first: pgTAP `292-sa-primary-project.test.sql` (27 assertions) seen failing
+  (`function public.set_primary_project(uuid) does not exist`) before the migration.
+- Danger-path (migration + DEFINER) → PR HELD for operator merge. U2–U4 strictly
+  after U1 is LIVE (U2 types against is_primary).
