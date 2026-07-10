@@ -87,6 +87,8 @@ describe("loadProfileCard", () => {
       "day_rate",
       "date_of_birth",
       "emergency_contact",
+      "phone",
+      "salary",
     ]) {
       expect(src, `module source must never mention "${forbidden}"`).not.toContain(forbidden);
     }

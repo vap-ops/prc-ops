@@ -14,20 +14,18 @@
 // - pending/approved -> the full card WITH the registration badge.
 
 import { AvatarSurface } from "@/components/features/common/avatar-surface";
-import { registrationStatusBadge, type BadgeTone } from "@/lib/register/card-view";
+import { registrationStatusBadge, BADGE_TONE_CLASSES } from "@/lib/register/card-view";
 import { USER_ROLE_LABEL, formatThaiDate } from "@/lib/i18n/labels";
 import { BANNER_ERROR } from "@/lib/ui/classes";
 import type { ProfileCard } from "@/lib/profile/load-profile-card";
 
-const BADGE_TONE_CLASSES: Record<BadgeTone, string> = {
-  pending: "border-attn-edge bg-attn-soft text-attn-ink",
-  approved: "border-done-edge bg-done-soft text-done-ink",
-  rejected: "border-danger-edge bg-danger-soft text-danger-ink",
-};
-
 export function EmployeeIdCard({ card }: { card: ProfileCard }) {
   if (card.registration?.status === "rejected") {
-    return <div className={BANNER_ERROR}>การลงทะเบียนไม่ผ่าน โปรดติดต่อผู้ดูแล</div>;
+    return (
+      <div role="alert" className={BANNER_ERROR}>
+        การลงทะเบียนไม่ผ่าน โปรดติดต่อผู้ดูแล
+      </div>
+    );
   }
 
   const roleLabel = USER_ROLE_LABEL[card.role];

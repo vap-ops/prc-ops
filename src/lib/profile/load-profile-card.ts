@@ -81,6 +81,7 @@ export async function loadProfileCard(
     .from("staff_consents")
     .select("consented_at, revoked_at")
     .eq("user_id", userId)
+    .eq("kind", "pdpa_data")
     .order("consented_at", { ascending: false })
     .limit(1)
     .maybeSingle();
