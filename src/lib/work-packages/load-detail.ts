@@ -79,7 +79,12 @@ export interface WorkPackageDetailData {
   wpRequests: RequestRow[];
   siblingWps: SiblingRow[];
   predecessorIds: string[];
-  labor: { roster: GroupedRoster; projectWorkerIds: string[]; rows: LaborDisplayRow[] };
+  labor: {
+    roster: GroupedRoster;
+    projectWorkerIds: string[];
+    projectWorkers: { id: string; name: string }[];
+    rows: LaborDisplayRow[];
+  };
   photosByPhase: CurrentPhotosByPhase;
   signedUrls: Map<string, string>;
   displayNames: Map<string, string>;
@@ -118,7 +123,7 @@ export async function loadWorkPackageDetail(
       wpRequests: [],
       siblingWps: [],
       predecessorIds: [],
-      labor: { roster: groupRoster([], []), projectWorkerIds: [], rows: [] },
+      labor: { roster: groupRoster([], []), projectWorkerIds: [], projectWorkers: [], rows: [] },
       photosByPhase: { before: [], during: [], after: [], after_fix: [], defect: [] },
       signedUrls: new Map(),
       displayNames: new Map(),
@@ -131,8 +136,15 @@ export async function loadWorkPackageDetail(
 
   // The fan: every read here depends only on the work package, never on a
   // sibling read — so they run together instead of in series.
+  // Spec 289 U2: ONE contractors read serves both this loader's superset rows
+  // and the labor zone's roster grouping (was a duplicate id+name read).
+  const contractorsShared = supabase
+    .from("contractors")
+    .select("id, name, phone, status, contractor_category")
+    .order("name", { ascending: true })
+    .then((r) => r.data ?? []);
   const [
-    { data: contractorRows },
+    contractorRows,
     { data: approvalRows },
     { data: requestRows },
     planner,
@@ -140,10 +152,7 @@ export async function loadWorkPackageDetail(
     photosByPhase,
     reworkData,
   ] = await Promise.all([
-    supabase
-      .from("contractors")
-      .select("id, name, phone, status, contractor_category")
-      .order("name", { ascending: true }),
+    contractorsShared,
     supabase
       .from("approvals")
       .select("id, decision, comment, decided_by, decided_at")
@@ -157,7 +166,7 @@ export async function loadWorkPackageDetail(
       .eq("work_package_id", wp.id)
       .order("requested_at", { ascending: false }),
     loadPlanner(supabase, wp.id, wp.project_id, isPlanner),
-    fetchLaborZoneData(supabase, wp.id, wp.project_id),
+    fetchLaborZoneData(supabase, wp.id, wp.project_id, contractorsShared),
     getCurrentPhotosForWorkPackage(supabase, wp.id),
     loadReworkData(supabase, wp.id, wp.status),
   ]);
@@ -194,7 +203,7 @@ export async function loadWorkPackageDetail(
 
   return {
     wp,
-    contractors: contractorRows ?? [],
+    contractors: contractorRows,
     approvals,
     wpRequests,
     siblingWps: planner.siblingWps,

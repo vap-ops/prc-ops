@@ -12,6 +12,7 @@ vi.mock("@/lib/labor/fetch-zone-data", () => ({
   fetchLaborZoneData: vi.fn(async () => ({
     roster: { groups: [] },
     projectWorkerIds: [],
+    projectWorkers: [{ id: "w1", name: "สมชาย" }],
     rows: [],
   })),
 }));
@@ -145,6 +146,8 @@ describe("loadWorkPackageDetail", () => {
     expect(data.predecessorIds).toEqual(["wp2"]);
     expect(data.defectReason).toBeNull();
     expect(data.displayNames.get("u1")).toBe("ชื่อ");
+    // spec 289 U2: the zone's projectWorkers passes through untouched
+    expect(data.labor.projectWorkers).toEqual([{ id: "w1", name: "สมชาย" }]);
   });
 
   it("returns wp=null when the row is missing or the project mismatches", async () => {

@@ -20,14 +20,30 @@ export async function fetchLaborZoneData(
   // Spec 158 U2: the WP's project, to surface its assigned crew first. The
   // picker still lists everyone (prioritize, don't hide), so this only orders.
   projectId: string,
-): Promise<{ roster: GroupedRoster; projectWorkerIds: string[]; rows: LaborDisplayRow[] }> {
-  const [{ data: workers }, { data: contractors }, { data: logs }] = await Promise.all([
+  // Spec 289 U2: the WP-detail loader already reads a superset of contractors
+  // (id, name, phone, status, contractor_category) in the same batch — sharing
+  // that promise here removes a duplicate read. Callers without one (the
+  // /review WP page) keep the original self-read.
+  sharedContractors?: PromiseLike<{ id: string; name: string }[]>,
+): Promise<{
+  roster: GroupedRoster;
+  projectWorkerIds: string[];
+  /** Spec 289 U2: the project's active crew ({id, name}, read order) — the
+   *  WP-detail เบิก receiver picker reads this instead of its own workers query. */
+  projectWorkers: { id: string; name: string }[];
+  rows: LaborDisplayRow[];
+}> {
+  const [{ data: workers }, contractors, { data: logs }] = await Promise.all([
     supabase
       .from("workers")
       // project_id is not money (spec 160 U1) — covered by the column grant.
       .select("id, name, pay_type, contractor_id, active, project_id")
       .order("name", { ascending: true }),
-    supabase.from("contractors").select("id, name"),
+    sharedContractors ??
+      supabase
+        .from("contractors")
+        .select("id, name")
+        .then((r) => r.data ?? []),
     supabase
       .from("labor_logs")
       .select(
@@ -62,11 +78,13 @@ export async function fetchLaborZoneData(
       contractor_id: w.contractor_id,
       active: w.active,
     })),
-    contractors ?? [],
+    contractors,
   );
-  // Spec 158 U2: ids of the active crew assigned to this WP's project.
-  const projectWorkerIds = (workers ?? [])
+  // Spec 158 U2: the active crew assigned to this WP's project (ids for the
+  // labor zone, {id,name} for the เบิก receiver picker — spec 289 U2).
+  const projectWorkers = (workers ?? [])
     .filter((w) => w.active && w.project_id === projectId)
-    .map((w) => w.id);
-  return { roster, projectWorkerIds, rows };
+    .map((w) => ({ id: w.id, name: w.name }));
+  const projectWorkerIds = projectWorkers.map((w) => w.id);
+  return { roster, projectWorkerIds, projectWorkers, rows };
 }
