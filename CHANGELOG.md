@@ -1,3 +1,9 @@
+# [0.7.0](https://github.com/VAP-Solution/prc-ops/compare/v0.6.0...v0.7.0) (2026-07-10)
+
+### Features
+
+- **sa:** spec 292 U1 — project_members.is_primary + primary-site setter RPCs ([#432](https://github.com/VAP-Solution/prc-ops/issues/432)) ([22c09e8](https://github.com/VAP-Solution/prc-ops/commit/22c09e890d8f06220c909d2079897327a5ae2dbb))
+
 # [0.6.0](https://github.com/VAP-Solution/prc-ops/compare/v0.5.9...v0.6.0) (2026-07-10)
 
 ### Features
