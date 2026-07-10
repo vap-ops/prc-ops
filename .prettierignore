@@ -16,3 +16,7 @@ src/lib/db/database.types.ts
 # very wide evidence/fix cells; prettier table-alignment would balloon the file
 # for no readability gain (it renders fine on GitHub as-is).
 docs/procurement-uxui-audit-2026-06.md
+# Same wide-table balloon as above — the SA workflow-authority audit's §1/§2
+# authority tables carry very wide gate cells; prettier alignment adds ~75 lines
+# of churn for no readability gain (renders fine on GitHub as-is).
+docs/sa-workflow-authority-audit-2026-07.md

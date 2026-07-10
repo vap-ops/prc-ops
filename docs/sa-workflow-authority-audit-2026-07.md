@@ -236,6 +236,10 @@ The ranked fix decision (effort, danger-path, order) is in the S2 session report
   but cannot approve/reject (that is procurement_manager / project_director /
   super_admin). Working-as-designed, not a gap.
 
+### F3 resolution (2026-07-10)
+
+`check_out_equipment` / `check_in_equipment` are now **membership-gated** (role-narrowed `can_see_wp` for `site_admin`/`project_manager`, placed after the WP-existence check) — PR #430, migration `075590`. `equipment_movements` is left **pool-level (ungated)** by operator decision: it is the shared-pool custody log with no money column and low blast radius (F3 = LOW).
+
 ---
 
 *Verified vs live prod DB (S1); code confirmations + authorship (S2). This is a
