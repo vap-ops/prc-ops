@@ -54,6 +54,9 @@ interface CaptureSheetProps {
   phaseSummaries: ReadonlyArray<PhaseSummary>;
   /** Loaded photos for the ACTIVE phase (server data). */
   photos: ReadonlyArray<SheetPhoto>;
+  /** Spec 291 U1 — false once the WP is submitted for approval or complete:
+   *  the in-detail delete affordance is not offered (RLS is the backstop). */
+  canDelete: boolean;
   /** Spec 248 U3 — set when answering a defect photo: locks the sheet to
    *  after_fix, shows the reference, stamps answers_photo_id on the rows. */
   pairing?: CapturePairing | null;
@@ -69,6 +72,7 @@ export function CaptureSheet({
   onPhaseChange,
   phaseSummaries,
   photos,
+  canDelete,
   pairing = null,
 }: CaptureSheetProps) {
   if (!open) return null;
@@ -160,6 +164,7 @@ export function CaptureSheet({
           phase={pairing ? "after_fix" : activePhase}
           answersPhotoId={pairing?.defectPhotoId ?? null}
           photos={photos}
+          canDelete={canDelete}
         />
       </div>
     </div>
@@ -173,6 +178,7 @@ interface SheetCaptureProps {
   phase: PhotoPhase;
   answersPhotoId?: string | null;
   photos: ReadonlyArray<SheetPhoto>;
+  canDelete: boolean;
 }
 
 function SheetCapture({
@@ -182,6 +188,7 @@ function SheetCapture({
   phase,
   answersPhotoId = null,
   photos,
+  canDelete,
 }: SheetCaptureProps) {
   const {
     pending,
@@ -227,6 +234,7 @@ function SheetCapture({
                   groupIndex={loadedIndexById.get(p.id) ?? 0}
                   removingId={removingId}
                   onDelete={handleRemoveConfirmed}
+                  canDelete={canDelete}
                 />
               ))}
             </ul>
@@ -324,6 +332,7 @@ function LoadedTile({
   groupIndex,
   removingId,
   onDelete,
+  canDelete,
 }: {
   photo: SheetPhoto;
   group: ReadonlyArray<string>;
@@ -331,6 +340,7 @@ function LoadedTile({
   groupIndex: number;
   removingId: string | null;
   onDelete: (photoId: string) => void;
+  canDelete: boolean;
 }) {
   const isRemoving = removingId === photo.id;
   return (
@@ -346,7 +356,7 @@ function LoadedTile({
           groupPhotoIds={groupPhotoIds}
           groupIndex={groupIndex}
           photoId={photo.id}
-          canDelete
+          canDelete={canDelete}
           onDeletePhoto={onDelete}
           deletingPhotoId={removingId}
         />

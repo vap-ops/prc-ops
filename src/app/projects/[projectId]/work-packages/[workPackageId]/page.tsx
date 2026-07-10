@@ -76,6 +76,7 @@ import {
   type WpStockRow,
 } from "@/components/features/store/wp-issue-stock";
 import { PhaseGallery } from "@/components/features/photos/phase-gallery";
+import { isPhotoWpDeletable } from "@/lib/photos/deletable";
 import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
 import { LaborLogZone } from "@/components/features/labor/labor-log-zone";
 import { LaborBudgetCard } from "@/components/features/labor/labor-budget-card";
@@ -524,6 +525,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           showAfterFix={showAfterFix}
           currentReworkRound={wp.rework_round}
           defectPairs={defectPairSlots}
+          canDelete={isPhotoWpDeletable(wp.status)}
         />
       ),
     },

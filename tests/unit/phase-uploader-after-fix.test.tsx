@@ -45,6 +45,7 @@ function renderZone(props: { showAfterFix?: boolean; currentReworkRound?: number
       currentPhase="before"
       showAfterFix={props.showAfterFix ?? true}
       currentReworkRound={props.currentReworkRound ?? 1}
+      canDelete
     />,
   );
 }

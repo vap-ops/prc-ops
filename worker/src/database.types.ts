@@ -8259,6 +8259,7 @@ export type Database = {
         Args: { p_photo_log_id: string; p_superseded_by: string }
         Returns: boolean
       }
+      photo_wp_deletable: { Args: { p_wp: string }; Returns: boolean }
       post_client_billing_to_gl: {
         Args: { p_source_id: string }
         Returns: string
