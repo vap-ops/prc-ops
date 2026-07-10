@@ -1,3 +1,9 @@
+# [0.12.0](https://github.com/VAP-Solution/prc-ops/compare/v0.11.0...v0.12.0) (2026-07-10)
+
+### Features
+
+- **spec277:** P1a site-issue log schema (site_issues + attachments + RPCs) ([#438](https://github.com/VAP-Solution/prc-ops/issues/438)) ([86e3f63](https://github.com/VAP-Solution/prc-ops/commit/86e3f633347d613f1e51c3793a63618a916d41e9))
+
 # [0.11.0](https://github.com/VAP-Solution/prc-ops/compare/v0.10.0...v0.11.0) (2026-07-10)
 
 ### Features
