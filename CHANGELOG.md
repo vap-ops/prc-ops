@@ -1,3 +1,9 @@
+## [0.12.1](https://github.com/VAP-Solution/prc-ops/compare/v0.12.0...v0.12.1) (2026-07-10)
+
+### Bug Fixes
+
+- **sa:** make SA-home menu copy truthful ([#440](https://github.com/VAP-Solution/prc-ops/issues/440)) ([0e0d6e3](https://github.com/VAP-Solution/prc-ops/commit/0e0d6e34ee841d59aa9521b985c0bc8e98fdf677))
+
 # [0.12.0](https://github.com/VAP-Solution/prc-ops/compare/v0.11.0...v0.12.0) (2026-07-10)
 
 ### Features
