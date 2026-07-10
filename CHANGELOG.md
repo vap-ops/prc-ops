@@ -1,3 +1,9 @@
+## [0.5.3](https://github.com/VAP-Solution/prc-ops/compare/v0.5.2...v0.5.3) (2026-07-10)
+
+### Bug Fixes
+
+- **photos:** fall back to the full object URL when a thumbnail 403s ([#422](https://github.com/VAP-Solution/prc-ops/issues/422)) ([8013542](https://github.com/VAP-Solution/prc-ops/commit/8013542e50d4469976e91c0af2e535ece6671350))
+
 ## [0.5.2](https://github.com/VAP-Solution/prc-ops/compare/v0.5.1...v0.5.2) (2026-07-10)
 
 ### Performance Improvements
