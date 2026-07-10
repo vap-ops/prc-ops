@@ -3,32 +3,24 @@ import "server-only";
 // Spec 291 U2 (TASK 6) — a pure, RLS-scoped loader for the /profile employee-ID
 // card: identity + STATUSES ONLY, never any PDPA-sensitive value (see spec
 // 291 "Never rendered on profile" list). Mirrors the own-registration.ts idiom
-// (src/lib/register/own-registration.ts): the
-// caller's own RLS session does every read — never the admin/service-role
-// client — so a missing row is just "not visible to me", not an error.
+// (src/lib/register/own-registration.ts): the caller's own RLS session does
+// every read — never the admin/service-role client — so a missing row is just
+// "not visible to me", not an error.
 //
-// Gate-check findings (live schema, 2026-07-10) vs the original contract:
-// - departments has no `name` column — only `name_th`/`name_en`. Uses
-//   `name_th`, matching the app-wide convention (src/lib/org/org-chart.ts,
-//   src/lib/accounting/load-dashboard.ts both surface `name_th` as the
-//   display name).
-// - crew_registrations has NO `user_id` column at all (it links to `crews`,
-//   not to a user) and `revoke all ... from anon, authenticated` seals the
-//   table entirely — it's staged/read only via the crew-lead + approval
-//   DEFINER RPCs (supabase/migrations/20260813075430_spec279u2_crew_add_member.sql).
-//   So a `user_id` filter isn't even expressible against the generated types,
-//   and any select is denied at the grant layer (not just RLS) for every
-//   authenticated caller today. The fallback query below still runs (forward
-//   compatible if a future migration adds an own-row path) but currently
-//   always resolves to null — a fail-closed, not a broken, outcome.
-// - contractor_consents has NO `user_id` column either — ownership is scoped
-//   by `contractor_id = current_user_contractor_id()` OR
-//   `worker_id = current_user_worker_id()` (supabase/migrations/
-//   20260709000100_contractor_consents.sql, 20260787000000_polymorphic_consents.sql).
-//   There is no correct `.eq(userId)` predicate for this table, so the read
-//   below is unfiltered and relies entirely on RLS to scope it to the
-//   caller's own row(s) — the same "RLS's own-row policy scopes it further"
-//   pattern own-registration.ts already uses.
+// EMPLOYEES ONLY. This card renders for internal roles; the external roles
+// (client/contractor) and pre-role visitor never see it (spec 291 §Unit 2). An
+// employee's identity records are `staff_registrations` + `staff_consents`, so
+// this loader reads exactly those. There are deliberately NO crew/contractor
+// fallbacks: crew_registrations has no `user_id` and is revoked from
+// `authenticated` entirely (DEFINER-RPC-only staging data) → an own-row read is
+// neither expressible nor granted, and contractor_consents belongs to external
+// contractors who never get a card. Both would be dead (and the unfiltered crew
+// query a latent risk if grants ever changed).
+//
+// Gate-check finding (live schema, 2026-07-10): departments has no `name`
+// column — only `name_th`/`name_en`. Uses `name_th`, matching the app-wide
+// convention (src/lib/org/org-chart.ts, src/lib/accounting/load-dashboard.ts
+// both surface `name_th` as the display name).
 
 import type { UserRole } from "@/lib/db/enums";
 
@@ -44,65 +36,6 @@ export interface ProfileCard {
   employeeId: string | null;
   registration: { status: RegistrationStatus } | null;
   pdpaConsent: { status: "given" | "revoked"; at: string } | null;
-}
-
-interface RegistrationRow {
-  employeeId: string;
-  status: RegistrationStatus;
-}
-
-async function loadRegistration(
-  supabase: ServerClient,
-  userId: string,
-): Promise<RegistrationRow | null> {
-  const { data: staff } = await supabase
-    .from("staff_registrations")
-    .select("employee_id, status")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (staff) {
-    return { employeeId: staff.employee_id, status: staff.status };
-  }
-
-  // See the crew_registrations gate-check note above — unfiltered because
-  // `user_id` does not exist on this table; currently always denied by grant.
-  const { data: crew } = await supabase
-    .from("crew_registrations")
-    .select("employee_id, status")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return crew ? { employeeId: crew.employee_id, status: crew.status } : null;
-}
-
-async function loadPdpaConsent(
-  supabase: ServerClient,
-  userId: string,
-): Promise<{ status: "given" | "revoked"; at: string } | null> {
-  const { data: staff } = await supabase
-    .from("staff_consents")
-    .select("consented_at, revoked_at")
-    .eq("user_id", userId)
-    .order("consented_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (staff) {
-    return { status: staff.revoked_at === null ? "given" : "revoked", at: staff.consented_at };
-  }
-
-  // See the contractor_consents gate-check note above — unfiltered because
-  // there is no `user_id` column; RLS alone scopes the visible row(s).
-  const { data: other } = await supabase
-    .from("contractor_consents")
-    .select("consented_at, revoked_at")
-    .order("consented_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return other
-    ? { status: other.revoked_at === null ? "given" : "revoked", at: other.consented_at }
-    : null;
 }
 
 export async function loadProfileCard(
@@ -132,16 +65,35 @@ export async function loadProfileCard(
     departmentName = dept?.name_th ?? null;
   }
 
-  const registration = await loadRegistration(supabase, userId);
-  const pdpaConsent = await loadPdpaConsent(supabase, userId);
+  // Registration = the employee's own staff_registrations row (most recent).
+  // RLS's own-row policy scopes it to the caller (user_id = auth.uid()).
+  const { data: registration } = await supabase
+    .from("staff_registrations")
+    .select("employee_id, status")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  // PDPA consent = the employee's latest staff_consents row. RLS's own-row
+  // policy scopes it to the caller (user_id = auth.uid()).
+  const { data: consent } = await supabase
+    .from("staff_consents")
+    .select("consented_at, revoked_at")
+    .eq("user_id", userId)
+    .order("consented_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   return {
     fullName: user.full_name,
     role: user.role,
     avatarUrl: user.line_avatar_url,
     departmentName,
-    employeeId: registration?.employeeId ?? null,
+    employeeId: registration?.employee_id ?? null,
     registration: registration ? { status: registration.status } : null,
-    pdpaConsent,
+    pdpaConsent: consent
+      ? { status: consent.revoked_at === null ? "given" : "revoked", at: consent.consented_at }
+      : null,
   };
 }

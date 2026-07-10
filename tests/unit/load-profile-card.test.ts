@@ -56,9 +56,7 @@ describe("loadProfileCard", () => {
     const supabase = makeSupabase({
       users: { ...USER, department_id: null },
       staff_registrations: null,
-      crew_registrations: null,
       staff_consents: null,
-      contractor_consents: null,
     });
 
     const card = await loadProfileCard(supabase as never, "u1");
