@@ -1,3 +1,9 @@
+## [0.9.1](https://github.com/VAP-Solution/prc-ops/compare/v0.9.0...v0.9.1) (2026-07-10)
+
+### Bug Fixes
+
+- grant authenticated INSERT on suppliers.contact_status ([#435](https://github.com/VAP-Solution/prc-ops/issues/435)) ([0cd8fbb](https://github.com/VAP-Solution/prc-ops/commit/0cd8fbbd26419353e35d853e02b4d9a233a8f62a))
+
 # [0.9.0](https://github.com/VAP-Solution/prc-ops/compare/v0.8.0...v0.9.0) (2026-07-10)
 
 ### Features
