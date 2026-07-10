@@ -1,3 +1,9 @@
+# [0.11.0](https://github.com/VAP-Solution/prc-ops/compare/v0.10.0...v0.11.0) (2026-07-10)
+
+### Features
+
+- **photos:** gate photo delete at WP submit (spec 291 U1) ([#437](https://github.com/VAP-Solution/prc-ops/issues/437)) ([79241a6](https://github.com/VAP-Solution/prc-ops/commit/79241a68d31f4c3279ae9a07422e61af31e60922))
+
 # [0.10.0](https://github.com/VAP-Solution/prc-ops/compare/v0.9.1...v0.10.0) (2026-07-10)
 
 ### Features
