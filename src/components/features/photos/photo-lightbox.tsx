@@ -26,6 +26,14 @@ const PhotoLightboxOverlay = dynamic(
 
 interface ZoomablePhotoProps {
   src: string;
+  /** Quota-free full object URL to show if `src` fails to load (feedback
+   *  87004dc1). The schedule strips mint their thumbnails through the
+   *  Supabase image-transform API, which is capped at a monthly origin-image
+   *  quota; once exceeded a not-yet-cached thumbnail 403s. Falling back to the
+   *  plain object URL (which carries no transform, so no quota) keeps the
+   *  photo visible. Omit on surfaces whose `src` is already a plain object URL
+   *  (WP detail, portal, attachments) — they never 403 on transform quota. */
+  fallbackSrc?: string;
   /** Ordered full-size URLs of the surrounding strip (spec 50). Groups
    *  never span sections — the caller passes one strip's URLs only. */
   group?: ReadonlyArray<string>;
@@ -58,6 +66,7 @@ interface ZoomablePhotoProps {
 
 export function ZoomablePhoto({
   src,
+  fallbackSrc,
   group,
   groupIndex,
   photoId,
@@ -69,9 +78,25 @@ export function ZoomablePhoto({
   deletingPhotoId,
 }: ZoomablePhotoProps) {
   const [open, setOpen] = useState(false);
+  // Thumbnail source with quota-403 fallback (feedback 87004dc1). Reset when
+  // `src` changes so the spec-257 signed-URL refresh (~100s) re-tries the fresh
+  // thumbnail and, critically, adopts the fresh fallback — the previous
+  // fallback URL is a signed URL that expires in 120s, so pinning to it would
+  // itself break after expiry. Reset happens during render (React's
+  // "adjust state on prop change" pattern) rather than in an effect.
+  const [thumbSrc, setThumbSrc] = useState(src);
+  const [thumbSrcFor, setThumbSrcFor] = useState(src);
+  if (thumbSrcFor !== src) {
+    setThumbSrcFor(src);
+    setThumbSrc(src);
+  }
 
   const hasGroup = group !== undefined && group.length > 0;
-  const photos = hasGroup ? group : [src];
+  // Single-photo enlarged view: prefer the quota-free full URL when a caller
+  // supplied one (feedback 87004dc1) — otherwise the week-strip lightbox would
+  // open the same transform URL that 403'd in the thumbnail. Grouped callers
+  // already pass `group` as full object URLs, so they're unaffected.
+  const photos = hasGroup ? group : [fallbackSrc ?? src];
   // Align ids/names to `photos` for the overlay — the single-photo case
   // wraps the scalar props so the overlay indexes uniformly.
   const photoIds = hasGroup ? photos.map((_, i) => groupPhotoIds?.[i] ?? null) : [photoId ?? null];
@@ -91,9 +116,19 @@ export function ZoomablePhoto({
         className="focus-visible:ring-action block h-full w-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-inset"
       >
         {/* Plain <img> — signed Supabase URLs; same call as the existing
-            thumbnails (next/image would need a remotePatterns entry). */}
+            thumbnails (next/image would need a remotePatterns entry). On a
+            load failure (e.g. an image-transform quota 403 on the schedule
+            strips) swap to the quota-free full object URL if one was given. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt="" className="h-full w-full object-cover" loading="lazy" />
+        <img
+          src={thumbSrc}
+          alt=""
+          className="h-full w-full object-cover"
+          loading="lazy"
+          onError={() => {
+            if (fallbackSrc && thumbSrc !== fallbackSrc) setThumbSrc(fallbackSrc);
+          }}
+        />
       </button>
       {open && (
         <PhotoLightboxOverlay

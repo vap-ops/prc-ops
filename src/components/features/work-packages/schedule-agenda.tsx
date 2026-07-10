@@ -91,6 +91,7 @@ function ThumbStrip({ photos }: { photos: ReadonlyArray<SchedulePhotoEntry> }) {
         >
           <ZoomablePhoto
             src={p.thumbUrl}
+            fallbackSrc={p.fullUrl}
             group={fullUrls}
             groupIndex={i}
             photoId={p.photoId}
@@ -273,6 +274,7 @@ export function ScheduleWeekView({
                           <div className="border-edge h-10 w-10 shrink-0 overflow-hidden rounded-md border">
                             <ZoomablePhoto
                               src={first.thumbUrl}
+                              fallbackSrc={first.fullUrl}
                               photoId={first.photoId}
                               uploaderName={first.uploaderName}
                             />
