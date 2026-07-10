@@ -7,16 +7,10 @@
 
 import { User } from "lucide-react";
 import { CARD } from "@/lib/ui/classes";
-import { registrationStatusBadge, type BadgeTone } from "@/lib/register/card-view";
+import { registrationStatusBadge, BADGE_TONE_CLASSES } from "@/lib/register/card-view";
 import type { Database } from "@/lib/db/database.types";
 
 type RegistrationStatus = Database["public"]["Enums"]["registration_status"];
-
-const BADGE_TONE_CLASSES: Record<BadgeTone, string> = {
-  pending: "border-attn-edge bg-attn-soft text-attn-ink",
-  approved: "border-done-edge bg-done-soft text-done-ink",
-  rejected: "border-danger-edge bg-danger-soft text-danger-ink",
-};
 
 export interface EmployeeCardProps {
   employeeId: string;
