@@ -1,3 +1,9 @@
+# [0.13.0](https://github.com/VAP-Solution/prc-ops/compare/v0.12.2...v0.13.0) (2026-07-10)
+
+### Features
+
+- **spec277:** P1a site-issue log SA UI — ปัญหาวันนี้ + แจ้งปัญหา FAB ([#442](https://github.com/VAP-Solution/prc-ops/issues/442)) ([b8e04a1](https://github.com/VAP-Solution/prc-ops/commit/b8e04a1c1b09bb917ed68b077a1e6e10a45e57d7))
+
 ## [0.12.2](https://github.com/VAP-Solution/prc-ops/compare/v0.12.1...v0.12.2) (2026-07-10)
 
 ### Bug Fixes
