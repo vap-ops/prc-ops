@@ -1,3 +1,9 @@
+# [0.10.0](https://github.com/VAP-Solution/prc-ops/compare/v0.9.1...v0.10.0) (2026-07-10)
+
+### Features
+
+- **sa:** spec 292 U4 — SA current-site switcher + pin + plan-picker rewire + PM set-primary ([#436](https://github.com/VAP-Solution/prc-ops/issues/436)) ([eefd7ca](https://github.com/VAP-Solution/prc-ops/commit/eefd7ca36223ca0a16e2d37a9e9032dc66ab42e2))
+
 ## [0.9.1](https://github.com/VAP-Solution/prc-ops/compare/v0.9.0...v0.9.1) (2026-07-10)
 
 ### Bug Fixes
