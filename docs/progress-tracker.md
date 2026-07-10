@@ -6,6 +6,33 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 277 P1a — Site-issue log (แจ้งปัญหา) — 🔨 IN PROGRESS (2026-07-11)
+
+SA-home unit (sibling of P0 #361), unblocked now the schema lane is free. Closes feedback
+`3d66bb37` #2130 ("work pauses — machines breaking / rain — nowhere to upload photos + info").
+Build-ready spec = the **P1a addendum** in `docs/feature-specs/277-work-category-visual-identity.md`.
+Shipped as a **3-PR chain**:
+
+- **PR 1 — schema (migration `20260813075640`):** enums `site_issue_type`
+  (`weather`/`equipment`/`safety`/`access`/`other`) + `site_issue_status` (`open`/`resolved`);
+  tables `site_issues` (project-scoped, optional WP) + `site_issue_attachments` (clone of
+  `feedback_attachments`, append-only); private bucket `site-issues` (owner-bound upload); RLS
+  (member SELECT via `can_see_project`, writes RPC-only); DEFINER RPCs `report_site_issue` /
+  `add_site_issue_attachment` / `resolve_site_issue` (clone `record_site_purchase` /
+  `add_feedback_attachment` — null-safe role gate + membership gate-after-existence). pgTAP
+  `293-site-issues.sql` RED→GREEN. Danger-path (migration) → HELD for operator.
+- **PR 2 — SA UI (code-only):** ปัญหาวันนี้ conditional section on `/sa` + red แจ้งปัญหา FAB
+  (stacked above `CameraFab`) + report sheet (type picker · note · photo attach reusing the
+  capture/upload-queue). RTL + browser.
+- **PR 3 — PM-alert (AUTOMATION #1, danger-path):** serious types `{safety,access,equipment}`
+  → notify project PM via the app's existing pathway; creates `docs/automations.md` registry.
+  HELD.
+
+Open questions surfaced: FAB placement (P0 mockup silent → stacked-above-CameraFab, flagged);
+serious-set membership (operator-tunable later); `acknowledged` middle status (deferred).
+
+---
+
 ## Spec 284 U4 — document_approvals (generalized decision-log) — DONE / db:push'd, PR held (2026-07-09)
 
 The Legal department's approval ledger (spec §U4 / ADR 0080 dec 10). An append-only, immutable

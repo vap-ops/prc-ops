@@ -5149,6 +5149,113 @@ export type Database = {
           },
         ]
       }
+      site_issue_attachments: {
+        Row: {
+          created_at: string
+          id: string
+          site_issue_id: string
+          storage_path: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          site_issue_id: string
+          storage_path: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          site_issue_id?: string
+          storage_path?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_issue_attachments_site_issue_id_fkey"
+            columns: ["site_issue_id"]
+            isOneToOne: false
+            referencedRelation: "site_issues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_issue_attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      site_issues: {
+        Row: {
+          created_at: string
+          id: string
+          issue_type: Database["public"]["Enums"]["site_issue_type"]
+          note: string | null
+          project_id: string
+          reported_by: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: Database["public"]["Enums"]["site_issue_status"]
+          work_package_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          issue_type: Database["public"]["Enums"]["site_issue_type"]
+          note?: string | null
+          project_id: string
+          reported_by: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["site_issue_status"]
+          work_package_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          issue_type?: Database["public"]["Enums"]["site_issue_type"]
+          note?: string | null
+          project_id?: string
+          reported_by?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["site_issue_status"]
+          work_package_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_issues_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_issues_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_issues_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_issues_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_consents: {
         Row: {
           consented_at: string
@@ -7601,6 +7708,10 @@ export type Database = {
         }
         Returns: string
       }
+      add_site_issue_attachment: {
+        Args: { p_site_issue_id: string; p_storage_path: string }
+        Returns: string
+      }
       add_staff_registration_doc: {
         Args: {
           p_purpose: Database["public"]["Enums"]["staff_doc_purpose"]
@@ -8647,7 +8758,17 @@ export type Database = {
         Args: { p_ids: string[]; p_project_id: string }
         Returns: undefined
       }
+      report_site_issue: {
+        Args: {
+          p_issue_type: Database["public"]["Enums"]["site_issue_type"]
+          p_note: string
+          p_project_id: string
+          p_work_package_id: string
+        }
+        Returns: string
+      }
       resolve_posting_period: { Args: { p_date: string }; Returns: string }
+      resolve_site_issue: { Args: { p_site_issue_id: string }; Returns: string }
       return_stock_to_store: {
         Args: { p_issue_id: string; p_note?: string; p_qty: number }
         Returns: string
@@ -9584,6 +9705,8 @@ export type Database = {
       retention_status: "held" | "due" | "released" | "forfeited"
       rework_source: "internal" | "client"
       service_subtype: "transport"
+      site_issue_status: "open" | "resolved"
+      site_issue_type: "weather" | "equipment" | "safety" | "access" | "other"
       staff_consent_kind: "pdpa_data"
       staff_doc_purpose: "id_card" | "profile_photo"
       subcontract_payment_kind: "advance" | "progress" | "final"
@@ -10017,6 +10140,8 @@ export const Constants = {
       retention_status: ["held", "due", "released", "forfeited"],
       rework_source: ["internal", "client"],
       service_subtype: ["transport"],
+      site_issue_status: ["open", "resolved"],
+      site_issue_type: ["weather", "equipment", "safety", "access", "other"],
       staff_consent_kind: ["pdpa_data"],
       staff_doc_purpose: ["id_card", "profile_photo"],
       subcontract_payment_kind: ["advance", "progress", "final"],
