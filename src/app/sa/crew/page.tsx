@@ -263,7 +263,7 @@ export default async function SaCrewPage() {
             <p className="text-ink-secondary text-center text-sm">
               ให้ช่างสแกน QR นี้ด้วยกล้องมือถือ เพื่อสมัครเข้าโครงการ{" "}
               <span className="text-ink font-medium">{project.name}</span> ด้วยตัวเอง
-              แล้วมาอนุมัติในคำขอสมัครด้านบน
+              แล้วมาตรวจในคำขอสมัครด้านบน
             </p>
             {/* qrcode → black-on-white SVG; wrapped white so it scans in any theme. */}
             <div

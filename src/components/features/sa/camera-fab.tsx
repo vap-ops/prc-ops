@@ -37,7 +37,6 @@ export function CameraFab({ wps }: { wps: CameraFabWp[] }) {
       {single ? (
         <Link href={photoTarget(single)} aria-label={LABEL} className={FAB_CLASS}>
           <Camera aria-hidden className="size-6 shrink-0" />
-          <span className="text-[0.5rem] font-extrabold">{LABEL}</span>
         </Link>
       ) : (
         <button
@@ -47,7 +46,6 @@ export function CameraFab({ wps }: { wps: CameraFabWp[] }) {
           className={FAB_CLASS}
         >
           <Camera aria-hidden className="size-6 shrink-0" />
-          <span className="text-[0.5rem] font-extrabold">{LABEL}</span>
         </button>
       )}
 

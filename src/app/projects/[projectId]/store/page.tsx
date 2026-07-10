@@ -5,7 +5,9 @@
 // scopes the viewer. Gated to WP_DETAIL_ROLES — the same set that can open a
 // project's WPs — which finally admits site_admin (the on-site storekeeper),
 // the headline access change. Within the page each action keeps its own gate
-// (เบิก = site staff, รับเข้า = the record_stock_in RPC, P&L = super/director).
+// (รับเข้า = the record_stock_in RPC, ตรวจนับ = site staff, P&L = super/director;
+// เบิก is no longer a store-console action — spec 208 moved it to the WP-detail
+// เบิกของ tab).
 
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";

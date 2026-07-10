@@ -40,4 +40,17 @@ describe("SaTools", () => {
     rerender(<SaTools primaryProjectId="p1" showCloseNudge />);
     expect(screen.getByTestId("close-pulse")).toBeInTheDocument();
   });
+
+  it("shows truthful tile subtitles — promises no action the destination lacks", () => {
+    render(<SaTools primaryProjectId="p1" showCloseNudge={false} />);
+    // คลัง: spec 208 relocated เบิก to the WP-detail เบิกของ tab; the store console
+    // now offers รับเข้า + ตรวจนับ only.
+    expect(screen.getByText("รับเข้า · ตรวจนับ")).toBeInTheDocument();
+    expect(screen.queryByText(/เบิก/)).toBeNull();
+    // คำขอซื้อ: /requests is track-only — PR creation lives on the WP detail.
+    expect(screen.getByText("ติดตามคำขอ")).toBeInTheDocument();
+    // ปิดวัน: /sa/plan carries no report yet (spec 212 unbuilt) — plan only.
+    expect(screen.getByText("แผนพรุ่งนี้")).toBeInTheDocument();
+    expect(screen.queryByText(/รายงาน/)).toBeNull();
+  });
 });
