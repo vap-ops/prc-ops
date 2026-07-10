@@ -16,6 +16,7 @@ import { PartialReceiveControl } from "@/components/features/purchasing/partial-
 import { BUTTON_PRIMARY, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
 import { formatPrNumber } from "@/lib/purchasing/format-id";
 import { RECEIVE_TO_STORE_LABEL } from "@/lib/i18n/labels";
+import { withBackFrom } from "@/lib/nav/back-href";
 
 export interface ReceivableLine {
   id: string;
@@ -27,7 +28,18 @@ export interface ReceivableLine {
   amount: number | null;
 }
 
-export function PoReceiveSection({ lines }: { lines: ReceivableLine[] }) {
+export function PoReceiveSection({
+  lines,
+  backFrom,
+}: {
+  lines: ReceivableLine[];
+  /**
+   * Back-nav sweep 2026-07-11: the PO page's own path, threaded as ?from so a
+   * checklist line's request detail backs to the PO — matching the sibling
+   * member-list links on the same page.
+   */
+  backFrom?: string;
+}) {
   const router = useRouter();
   const [checked, setChecked] = useState<ReadonlySet<string>>(
     () => new Set(lines.map((l) => l.id)),
@@ -84,7 +96,9 @@ export function PoReceiveSection({ lines }: { lines: ReceivableLine[] }) {
               />
               <div className="min-w-0 flex-1">
                 <Link
-                  href={`/requests/${l.id}`}
+                  href={
+                    backFrom ? withBackFrom(`/requests/${l.id}`, backFrom) : `/requests/${l.id}`
+                  }
                   className="hover:underline focus:outline-none focus-visible:underline"
                 >
                   <span className="text-ink-muted mr-1.5 font-mono text-xs">

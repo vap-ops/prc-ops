@@ -31,6 +31,15 @@ describe("safeBackHref", () => {
     );
   });
 
+  // Back-nav sweep 2026-07-11 review: a crafted duplicate param
+  // (?from=/a&from=/b) reaches the page as string[], which used to TypeError
+  // (500). The helper takes the first entry — same validation applies.
+  it("coalesces a duplicate-param array to its first entry", () => {
+    expect(safeBackHref(["/sa", "/evil"], FALLBACK)).toBe("/sa");
+    expect(safeBackHref(["//evil.com", "/sa"], FALLBACK)).toBe(FALLBACK);
+    expect(safeBackHref([], FALLBACK)).toBe(FALLBACK);
+  });
+
   it("rejects off-app and malicious values, falling back", () => {
     expect(safeBackHref("//evil.com", FALLBACK)).toBe(FALLBACK); // protocol-relative
     expect(safeBackHref("https://evil.com", FALLBACK)).toBe(FALLBACK);

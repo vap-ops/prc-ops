@@ -32,6 +32,7 @@ import { deliveryOrdinalLabel } from "@/lib/purchasing/po-deliveries";
 import { DeliveryProofBlock } from "@/components/features/purchasing/delivery-proof-block";
 import { DeliveryDispatchControl } from "@/components/features/purchasing/delivery-dispatch-control";
 import { poDetailHref } from "@/lib/nav/order-paths";
+import { withBackFrom } from "@/lib/nav/back-href";
 import { formatPrNumber } from "@/lib/purchasing/format-id";
 import { PoNumberTag } from "@/components/features/purchasing/po-number-tag";
 
@@ -173,7 +174,10 @@ export default async function DeliveryDetailPage({ params }: PageProps) {
             {lines.map((m) => (
               <li key={m.id}>
                 <Link
-                  href={`/requests/${m.id}`}
+                  href={withBackFrom(
+                    `/requests/${m.id}`,
+                    `/requests/orders/${poId}/deliveries/${deliveryId}`,
+                  )}
                   className="rounded-card border-edge bg-card shadow-card hover:bg-sunk focus-visible:ring-action block border p-3 transition-colors focus:outline-none focus-visible:ring-2"
                 >
                   <div className="flex items-start justify-between gap-3">

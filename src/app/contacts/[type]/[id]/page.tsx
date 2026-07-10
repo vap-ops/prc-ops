@@ -29,6 +29,8 @@ import {
 } from "@/components/features/contacts/contact-consent-block";
 import { contractorPacketStatus, dcTypeOfSubtype, type DcPacket } from "@/lib/contacts/packet";
 import { SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
+import { safeBackHref } from "@/lib/nav/back-href";
+import { contactListPath } from "@/lib/contacts/list-path";
 
 const TYPE_CONFIG = {
   clients: { table: "clients", kind: null, label: "ลูกค้า" },
@@ -80,10 +82,13 @@ function displayValue(key: string, value: string): string {
 
 export default async function ContactDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ type: string; id: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
   const { type, id } = await params;
+  const { from } = await searchParams;
   const cfg = TYPE_CONFIG[type as keyof typeof TYPE_CONFIG];
   if (!cfg) notFound();
 
@@ -221,7 +226,13 @@ export default async function ContactDetailPage({
 
   return (
     <PageShell>
-      <DetailHeader backHref="/contacts" backLabel="กลับไปรายชื่อติดต่อ">
+      {/* Back-nav sweep 2026-07-11: the old hardcoded "/contacts" is a redirect
+          stub (→ customers), so 3 of 4 types backed to the WRONG list. Referrer
+          first, then the list page that owns this type. */}
+      <DetailHeader
+        backHref={safeBackHref(from, contactListPath(type))}
+        backLabel="กลับไปรายชื่อติดต่อ"
+      >
         <p className="text-ink-muted text-xs font-medium">{cfg.label}</p>
         <h1 className={DETAIL_TITLE}>{name}</h1>
       </DetailHeader>

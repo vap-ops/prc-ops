@@ -51,9 +51,12 @@ describe("GroupDetailView", () => {
     );
     expect(screen.getByText("งาน")).toBeInTheDocument(); // the group chip
     expect(screen.getByText("1/2 เสร็จ")).toBeInTheDocument();
+    // Back-nav sweep 2026-07-11: child rows thread ?from=<this งาน page> so the
+    // child WP's back chip returns HERE, not two levels up to the project.
+    const from = encodeURIComponent("/projects/proj-1/work-packages/g-1");
     const links = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
-    expect(links).toContain("/projects/proj-1/work-packages/c-1");
-    expect(links).toContain("/projects/proj-1/work-packages/c-2");
+    expect(links).toContain(`/projects/proj-1/work-packages/c-1?from=${from}`);
+    expect(links).toContain(`/projects/proj-1/work-packages/c-2?from=${from}`);
     // oversight only — no capture affordance ever renders here
     expect(screen.queryByText(/ถ่ายรูป/)).not.toBeInTheDocument();
   });

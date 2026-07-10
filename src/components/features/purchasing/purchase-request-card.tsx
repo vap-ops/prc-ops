@@ -22,6 +22,7 @@ import {
 } from "@/lib/status-colors";
 import { purchaseRequestPriorityIcon, purchaseRequestStatusIcon } from "@/lib/status-icons";
 import { formatPrNumber } from "@/lib/purchasing/format-id";
+import { withBackFrom } from "@/lib/nav/back-href";
 import { PoNumberTag } from "@/components/features/purchasing/po-number-tag";
 import type { Database } from "@/lib/db/database.types";
 
@@ -52,6 +53,12 @@ interface PurchaseRequestCardProps {
   // Spec 211 U5: the PO this request belongs to (null = loose). Shown as a chip so
   // PO membership is visible in every band, not only the in_transit PO group.
   poNumber?: number | null;
+  /**
+   * Back-nav sweep 2026-07-11: the caller's own path, threaded as ?from so the
+   * request detail's back chip returns to the arrival surface (the WP detail
+   * page passes itself). Omit on /requests — the fallback already lands there.
+   */
+  backFrom?: string;
 }
 
 export function PurchaseRequestCard({
@@ -60,10 +67,12 @@ export function PurchaseRequestCard({
   requesterName,
   isMine,
   poNumber = null,
+  backFrom,
 }: PurchaseRequestCardProps) {
+  const href = `/requests/${request.id}`;
   return (
     <Link
-      href={`/requests/${request.id}`}
+      href={backFrom ? withBackFrom(href, backFrom) : href}
       className="rounded-card border-edge bg-card shadow-card hover:bg-page focus-visible:ring-action active:bg-sunk block border px-4 py-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset"
     >
       <div className="flex items-start justify-between gap-3">

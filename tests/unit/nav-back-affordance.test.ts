@@ -237,6 +237,32 @@ describe("nav back-affordance (spec 63)", () => {
   });
 });
 
+// Back-nav sweep 2026-07-11: a detail page reachable from 2+ surfaces must
+// resolve its chip via safeBackHref(?from, hierarchicalFallback) — a hardcoded
+// backHref on a multi-parent detail is exactly the "back jumps to a weird
+// page" bug the referrer-aware standard (src/lib/nav/back-href.ts) exists to
+// kill. Source-string invariant, same style as the buckets above. Single-parent
+// details may keep hardcoded chips; list here only pages with 2+ real arrival
+// surfaces.
+describe("referrer-aware back chips (multi-parent details use safeBackHref)", () => {
+  const MULTI_PARENT_DETAILS = [
+    // lists: customers/vendors/subcontractors — 4 types, 3 different parents
+    "contacts/[type]/[id]/page.tsx",
+    // arrived at from /legal/contracts AND /legal/approvals
+    "legal/contracts/[contractId]/page.tsx",
+    // arrived at from /projects AND the dashboard project cards
+    "projects/[projectId]/page.tsx",
+    // already adopted — pinned so they cannot regress
+    "projects/[projectId]/work-packages/[workPackageId]/page.tsx",
+    "requests/[requestId]/page.tsx",
+    "requests/orders/[poId]/page.tsx",
+  ];
+
+  it.each(MULTI_PARENT_DETAILS)("%s resolves its back chip via safeBackHref", (route) => {
+    expect(reads(join(APP, route))).toContain("safeBackHref");
+  });
+});
+
 // Spec 153: the desktop HubNav strip is the counterpart of the no-back-chip rule
 // above — a hub has no back chip, so on desktop (where the bottom tab bar is
 // sm:hidden) the strip is its only nav affordance. Every primary-tab hub must

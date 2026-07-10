@@ -24,6 +24,7 @@ import {
   CONTRACT_COUNTERPARTY_LABEL,
 } from "@/lib/i18n/labels";
 import { DocumentDecisionForm } from "@/components/features/legal/document-decision-form";
+import { withBackFrom } from "@/lib/nav/back-href";
 
 export const metadata = { title: "เอกสารรออนุมัติ" };
 
@@ -54,7 +55,7 @@ export default async function LegalApprovalsPage() {
             {drafts.map((c) => (
               <li key={c.id} className={`${CARD} flex flex-col gap-3`}>
                 <Link
-                  href={`/legal/contracts/${c.id}`}
+                  href={withBackFrom(`/legal/contracts/${c.id}`, "/legal/approvals")}
                   className="hover:bg-sunk focus-visible:ring-action -mx-2 flex items-center gap-3 rounded-md px-2 py-1 transition-colors focus:outline-none focus-visible:ring-2"
                 >
                   <span className="min-w-0 flex-1">

@@ -13,6 +13,7 @@ import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
 import { PM_ROLES, DASHBOARD_VIEW_ROLES, MONEY_VIEW_ROLES } from "@/lib/auth/role-home";
+import { withBackFrom } from "@/lib/nav/back-href";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
@@ -269,7 +270,7 @@ export default async function DashboardPage() {
               {items.map((it) => (
                 <li key={it.id}>
                   <Link
-                    href={`/projects/${it.id}`}
+                    href={withBackFrom(`/projects/${it.id}`, "/dashboard")}
                     className="group border-edge bg-card shadow-card hover:bg-sunk focus-visible:ring-action rounded-card block border p-4 transition-colors focus:outline-none focus-visible:ring-2"
                   >
                     <div className="flex items-start justify-between gap-3">

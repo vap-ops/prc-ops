@@ -27,6 +27,7 @@ import {
   storeHref,
   supplyPlanHref,
 } from "@/lib/nav/project-paths";
+import { safeBackHref } from "@/lib/nav/back-href";
 import { BUTTON_SECONDARY, ICON_CHIP_MUTED } from "@/lib/ui/classes";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { ProjectInfoButton } from "@/components/features/work-packages/project-info-button";
@@ -52,12 +53,17 @@ import { ImportWorkPackagesSheet } from "./import-work-packages-sheet";
 
 interface PageProps {
   params: Promise<{ projectId: string }>;
+  searchParams: Promise<{ from?: string }>;
 }
 
 export const metadata = { title: "รายการงาน" };
 
-export default async function ProjectWorkPackagesPage({ params }: PageProps) {
+export default async function ProjectWorkPackagesPage({ params, searchParams }: PageProps) {
   const { projectId } = await params;
+  // Back-nav sweep 2026-07-11: reached from /projects AND the dashboard project
+  // cards — referrer first, the projects hub as the hierarchical fallback.
+  const { from } = await searchParams;
+  const backHref = safeBackHref(from, "/projects");
   // Perf (RUM-aimed TTFB): requireRole (its own users read) and the project read are
   // independent — the project fetch needs only projectId, and a wrong-role redirect just
   // discards its result — so run them in one wave instead of serially (−1 serial layer on
@@ -89,7 +95,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
     return (
       <PageShell>
         <BottomTabBar role={ctx.role} />
-        <DetailHeader backHref="/projects" backLabel="กลับไปรายการโครงการ">
+        <DetailHeader backHref={backHref} backLabel="กลับไปรายการโครงการ">
           <h1 className="text-ink text-xl font-semibold tracking-tight">ไม่มีสิทธิ์เข้าถึง</h1>
         </DetailHeader>
         <NoAccessNotice />
@@ -167,7 +173,7 @@ export default async function ProjectWorkPackagesPage({ params }: PageProps) {
       {/* Spec 63 shell; spec 82: back goes to the folded /projects hub.
           PM/super get reports + gear chips; SA never sees the gear. */}
       <DetailHeader
-        backHref="/projects"
+        backHref={backHref}
         backLabel="กลับไปโครงการ"
         actions={
           <>

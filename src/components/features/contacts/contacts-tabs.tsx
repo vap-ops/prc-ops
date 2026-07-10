@@ -26,6 +26,7 @@ import {
   type RecordRow,
 } from "@/components/features/purchasing/record-manager";
 import { SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
+import { withBackFrom } from "@/lib/nav/back-href";
 import {
   createClientRecord,
   updateClientRecord,
@@ -362,7 +363,7 @@ export function ContactsTabs({
           onCreate={clientCreate}
           onUpdate={clientUpdate}
           addInSheet
-          rowHref={(r) => `/contacts/clients/${r.id}`}
+          rowHref={(r) => withBackFrom(`/contacts/clients/${r.id}`, "/contacts/customers")}
         />
       ) : null}
       {tab === "suppliers" ? (
@@ -373,7 +374,12 @@ export function ContactsTabs({
           onCreate={supplierCreate}
           onUpdate={supplierUpdate}
           addInSheet
-          {...(linkDetails ? { rowHref: (r: RecordRow) => `/contacts/suppliers/${r.id}` } : {})}
+          {...(linkDetails
+            ? {
+                rowHref: (r: RecordRow) =>
+                  withBackFrom(`/contacts/suppliers/${r.id}`, "/contacts/vendors"),
+              }
+            : {})}
           rowBadge={(r: RecordRow) => statusBadge(r) ?? supplierBadges?.[r.id] ?? null}
         />
       ) : null}
@@ -386,7 +392,7 @@ export function ContactsTabs({
           onUpdate={contractorUpdate}
           addInSheet
           rowBadge={statusBadge}
-          rowHref={(r) => `/contacts/contractors/${r.id}`}
+          rowHref={(r) => withBackFrom(`/contacts/contractors/${r.id}`, "/contacts/subcontractors")}
         />
       ) : null}
       {tab === "service" ? (
@@ -398,7 +404,7 @@ export function ContactsTabs({
           onUpdate={serviceUpdate}
           addInSheet
           rowBadge={statusBadge}
-          rowHref={(r) => `/contacts/service-providers/${r.id}`}
+          rowHref={(r) => withBackFrom(`/contacts/service-providers/${r.id}`, "/contacts/vendors")}
         />
       ) : null}
     </div>
