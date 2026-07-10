@@ -424,6 +424,24 @@ export function isStaffOnboardableRole(role: UserRole): boolean {
   return STAFF_ONBOARDABLE_ROLES.includes(role);
 }
 
+/**
+ * Spec 291 U2: the external-facing / pre-role carve-out — a client viewer, a
+ * contractor partner, or an unonboarded visitor. Every other role is an
+ * internal employee. Kept as a small explicit set (not derived from the full
+ * UserRole enum) so a future enum add defaults to "employee" rather than
+ * needing an update here.
+ */
+export const EXTERNAL_ROLES: ReadonlyArray<UserRole> = ["client", "contractor", "visitor"];
+
+/**
+ * The single predicate for "internal employee" — the complement of
+ * EXTERNAL_ROLES. Gates the /profile employee-ID card (spec 291 U2): it
+ * renders only for staff, never for a client/contractor/visitor account.
+ */
+export function isEmployeeRole(role: UserRole): boolean {
+  return !EXTERNAL_ROLES.includes(role);
+}
+
 export function roleHome(role: UserRole): string {
   // Spec 192 U4: site_admin lands on the daily home /sa — their not-done work
   // packages, one tap from the labor/photo/PR actions (the daily loop was buried
