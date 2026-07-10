@@ -1,7 +1,17 @@
 # Spec 292 — SA primary site + project switcher
 
-**Status:** Design drafted 2026-07-10 (SA-audit → feature, session 5). **Investigate + spec only this session — NO build, NO schema, NO migration.** Units U1–U4 below are sized one-per-session TDD; **U1 is schema-lane-gated + operator-held**. The Open decisions at the end must be confirmed before build.
+**Status:** Design drafted 2026-07-10 (SA-audit → feature, session 5). **The 5 Open decisions are CONFIRMED (operator, 2026-07-10) — build unblocked; see "Confirmed decisions" below.** U1 (schema) in build as of session 6. Units U1–U4 are sized one-per-session TDD; **U1 is schema-lane-gated + operator-held**.
 **Related:** spec 274 (super*admin \_View-as-role* — the TS-layer nav-override precedent, `src/lib/auth/effective-role.ts`), spec 273 (SA next-day work board, `/sa/plan`), spec 279 (self-gov onboarding — self-governance doctrine), spec 282/283 (SA site surfaces). The primary-site flag lives on the same `project_members` row `can_see_project` already trusts.
+
+## Confirmed decisions (operator, 2026-07-10)
+
+The five Open decisions at the end are **CONFIRMED** — build unblocked:
+
+1. **Derived fallback = most-recently-added membership** (`added_at` desc; deterministic total order per Precedence #4). Not the today's-plan signal.
+2. **Setter authority: BOTH self-serve AND PM-sets-for-SA in v1.** The old U5 is **pulled into v1** — `set_primary_project_for` ships in **U1** (alongside `set_primary_project`); the PM-side UI control ships in **U4**. U5 is **absorbed** (no longer a separate deferred unit).
+3. **"See past projects" — OUT of scope, and NO follow-up scheduled.** 292 is current-projects-only; the ended-membership visibility change is not planned.
+4. **Role scope: `site_admin`-only** for v1.
+5. **Chip label under a derived default: show the derived project's name with a subtle "auto" hint** (the chip must name whatever the tiles point at).
 
 ## Problem
 
@@ -49,7 +59,7 @@ Trade-off: setting a new primary is a **two-row change** (clear the old, set the
 Therefore:
 
 - This spec scopes the switcher to **currently-visible** projects (current memberships + any led project) — the same RLS **scope** as the `projects` select the plan page already runs (`plan/page.tsx:47–51`), though the resolver needs a wider **projection** (the self-filtered membership annotation — see The resolver).
-- **"See PAST projects"** (ended memberships) is a distinct visibility-scope change: it needs the membership model to gain a soft-delete (`ended_at`), `can_see_project` to admit ended memberships **read-only**, plus a PDPA/scoping review. **Out of scope here; recorded as a follow-up** (see Non-goals + Open decisions). It is **not** silently folded in.
+- **"See PAST projects"** (ended memberships) is a distinct visibility-scope change: it needs the membership model to gain a soft-delete (`ended_at`), `can_see_project` to admit ended memberships **read-only**, plus a PDPA/scoping review. **Out of scope here; NOT scheduled as a follow-up** (confirmed decision #3 — see Non-goals). It is **not** silently folded in.
 
 ### Precedents
 
@@ -90,7 +100,7 @@ A single helper every consumer calls, split like `effective-role.ts`:
 - **The pin's server action also CLEARS the `sa_active_project` override cookie.** Precedence puts override above primary, so pinning A while an override still points at B would visibly change nothing (every surface keeps rendering B) — pin means "make this my site now and henceforth," so it clears the transient view in the same action.
 - The app relay maps the rejects (`42501` / `P0001`, plus the rare `23505` — two concurrent set calls racing the partial-unique index, e.g. a double-tap) to a friendly Thai message.
 - **Accepted edge:** a concurrent membership DELETE between the gate check and the set statement leaves the caller with zero `is_primary` rows (old cleared, new matched nothing). Graceful — the resolver falls to the derived default; no corruption, no error surface needed.
-- **PM/PD-sets-for-an-SA** is a _separate_ signature (`set_primary_project_for(p_user_id, p_project_id)`, gated to `project_manager`/`project_director`/`super_admin` sharing the project) — **deferred to U5**; v1 is self-serve. See Open decision #2.
+- **PM/PD-sets-for-an-SA** is a _separate_ signature (`set_primary_project_for(p_user_id, p_project_id)`, gated to `project_manager`/`project_director`/`super_admin` sharing the project **AND** the target being a `site_admin` member of it) — **pulled into v1** (confirmed decision #2): the RPC ships in **U1** next to `set_primary_project`; the PM-side UI ships in **U4**. Same clear-then-set body, keyed on the target `p_user_id` rather than `auth.uid()`. See Open decision #2.
 
 ### Consumers
 
@@ -111,8 +121,8 @@ A single helper every consumer calls, split like `effective-role.ts`:
 
 Ordered; each independently shippable + verifiable. Schema tag noted.
 
-- **U1 — schema: `is_primary` + `set_primary_project` · SCHEMA, operator-held.**
-  Migration: `alter table project_members add column is_primary boolean not null default false`; `create unique index … on project_members (user_id) where is_primary`; `create or replace function set_primary_project(uuid)` (DEFINER, self-membership-gated, **clear-then-set** two-statement body — see The setter) + grants. **RED first — pgTAP:** a member sets → exactly one `is_primary` flips true and all others false (including the switch-from-an-existing-primary case, which the clear-then-set body must survive without a unique-index violation); a non-member is rejected (`42501`); the grant posture holds (`anon` has no EXECUTE, `authenticated` does). `db:types` regen picks up the column. **Schema-lane-gated** (single migration lane — take the next free timestamp at build time, after spec 291-U1's `075600`) and **danger-path** (migration + DEFINER) → operator-merged.
+- **U1 — schema: `is_primary` + BOTH setters (`set_primary_project` + `set_primary_project_for`) · SCHEMA, operator-held.**
+  Migration: `alter table project_members add column is_primary boolean not null default false`; `create unique index … on project_members (user_id) where is_primary`; `create function set_primary_project(uuid)` (DEFINER, self-membership-gated, **clear-then-set** two-statement body — see The setter) + `create function set_primary_project_for(uuid, uuid)` (DEFINER, gated: caller ∈ `PM_ROLES` `AND can_see_project(p_project)` `AND` target is a `site_admin` member — clear-then-set on the target) + grants (`revoke … from public, anon; grant execute … to authenticated` on both). **RED first — pgTAP:** a member sets → exactly one `is_primary` flips true and all others false (including the switch-from-an-existing-primary case, which the clear-then-set body must survive without a unique-index violation); a non-member is rejected (`42501`) by `set_primary_project`; `set_primary_project_for` — a non-PM caller is rejected (`42501`), a PM-tier caller with `can_see_project` sets the **target's** primary (clearing the target's prior), a target that is not a member is rejected (`42501`); the grant posture holds (`anon` has no EXECUTE, `authenticated` does) on both. `db:types` regen picks up the column. **Schema-lane-gated** (single migration lane — take the next free timestamp at build time) and **danger-path** (migration + DEFINER) → operator-merged.
 
 - **U2 — resolver SSOT · code-only (auto-merge), builds AFTER U1 is LIVE.**
   `current-project.ts` (pure resolver) + `current-project.server.ts` (cookie + self-filtered membership reader) + `SA_ACTIVE_PROJECT_COOKIE`. **Sequencing:** the `.server` reader types against `is_primary` from U1's `db:types` — shipping U2 before U1 is live fails typecheck against a nonexistent column, so U2 starts only once U1 is merged + pushed (the pure resolver itself has no DB dependency). **RED first — Vitest:** the full precedence table (override > primary > derived > none; a non-visible override/primary is dropped; the derived order is deterministic under ties **including lead-only null-`addedAt` rows sorting last**; the cookie is validated against the visible list — the forge-check is the one load-bearing line).
@@ -120,21 +130,20 @@ Ordered; each independently shippable + verifiable. Schema tag noted.
 - **U3 — consumer wiring · code-only.**
   `sa/page.tsx` computes the resolved id (server reader) → passes to `SaTools`; `plan/page.tsx` default via the resolver (keeping `?project=`). **RED first:** a multi-project SA's tiles/plan default to the primary/derived project, not `projects[0]`. **Real-flow verify** in the browser (dev-preview login) — multi-project SA, zero console errors.
 
-- **U4 — switcher chip + sheet · code-only.**
-  Chip on `/sa` + the sheet; the view-override server action (set/clear the cookie); the pin action calling `set_primary_project` + clearing the override; **rewire the plan's project picker through the view-override action** (selection persists across surfaces; a bare `?project=` URL stays view-only). **RED first:** chip renders the resolved project; view sets the cookie + re-scopes; pin calls the RPC **and clears the override**; pin hidden on non-`hasMembership` rows; clear reverts; plan-picker selection persists. **Real-flow verify** in the browser. Home aggregate body **unchanged**. Code-only (a server action calling the RPC is not a danger-path file).
+- **U4 — switcher chip + sheet + PM-side control · code-only.**
+  Chip on `/sa` + the sheet; the view-override server action (set/clear the cookie); the pin action calling `set_primary_project` + clearing the override; **rewire the plan's project picker through the view-override action** (selection persists across surfaces; a bare `?project=` URL stays view-only). **PLUS the PM-side control** (confirmed decision #2): a PM/PD/super surface that calls `set_primary_project_for(target_sa, project)` to set an SA's primary. **RED first:** chip renders the resolved project; view sets the cookie + re-scopes; pin calls the RPC **and clears the override**; pin hidden on non-`hasMembership` rows; clear reverts; plan-picker selection persists; the PM control sets a target SA's primary. **Real-flow verify** in the browser. Home aggregate body **unchanged**. Code-only (a server action calling the RPC is not a danger-path file).
 
-- **U5 — PM sets an SA's primary · deferred / optional (schema + UI).**
-  `set_primary_project_for(p_user_id, p_project_id)` + a PM surface. **Only if** the operator wants PM-driven pinning in addition to self-serve (Open decision #2). Flagged, not scheduled.
+- **~~U5 — PM sets an SA's primary~~ · ABSORBED into v1 (confirmed decision #2).**
+  `set_primary_project_for` ships in **U1** (RPC) + **U4** (UI). No longer a separate deferred unit.
 
 **Build dependency:** strictly ordered U1 → U2 → U3 → U4 (U2 types against U1's column; U3/U4 consume U2; U4's pin needs U1 live). The schema lane serializes U1.
 
 ## Non-goals / out of scope
 
-- **PAST (ended-membership) project visibility** — needs a `project_members` soft-delete + `can_see_project` widening + PDPA review. Follow-up spec.
-- **Generalizing primary-site to `project_manager`** or other multi-project roles — **SA-scoped for v1** (PMs have their own multi-project nav).
+- **PAST (ended-membership) project visibility** — needs a `project_members` soft-delete + `can_see_project` widening + PDPA review. **OUT of scope and NOT scheduled** (confirmed decision #3) — no follow-up spec planned; would be its own future spec if ever wanted.
+- **Generalizing primary-site to `project_manager`** or other multi-project roles — **`site_admin`-scoped for v1** (confirmed decision #4; PMs have their own multi-project nav).
 - **Changing the aggregate `/sa` home body.**
-- **PM-sets-for-SA** (unless the operator elects U5).
-- **today's-plan as the derived signal** (unless the operator elects it — Open decision #1).
+- **today's-plan as the derived signal** — not chosen; the derived signal is most-recently-added membership (confirmed decision #1).
 - Any **impersonation / privilege change** — the override is a TS-layer _view_ only, exactly like `assumed_role`; it never alters RLS or `auth.uid()`.
 
 ## Open decisions for operator (confirm before build)

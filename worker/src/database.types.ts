@@ -3811,18 +3811,21 @@ export type Database = {
         Row: {
           added_at: string
           added_by: string
+          is_primary: boolean
           project_id: string
           user_id: string
         }
         Insert: {
           added_at?: string
           added_by: string
+          is_primary?: boolean
           project_id: string
           user_id: string
         }
         Update: {
           added_at?: string
           added_by?: string
+          is_primary?: boolean
           project_id?: string
           user_id?: string
         }
@@ -8772,6 +8775,11 @@ export type Database = {
       }
       set_nova_dial: {
         Args: { p_key: string; p_value: number }
+        Returns: undefined
+      }
+      set_primary_project: { Args: { p_project: string }; Returns: undefined }
+      set_primary_project_for: {
+        Args: { p_project: string; p_user: string }
         Returns: undefined
       }
       set_project_category_active: {
