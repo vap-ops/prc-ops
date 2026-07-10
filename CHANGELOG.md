@@ -1,3 +1,9 @@
+# [0.6.0](https://github.com/VAP-Solution/prc-ops/compare/v0.5.9...v0.6.0) (2026-07-10)
+
+### Features
+
+- **profile:** digital employee ID card on /profile — statuses only (spec 291 U2) ([#429](https://github.com/VAP-Solution/prc-ops/issues/429)) ([e90275e](https://github.com/VAP-Solution/prc-ops/commit/e90275ef4b2b0a41440e651ce857a61e8a9d8870))
+
 ## [0.5.9](https://github.com/VAP-Solution/prc-ops/compare/v0.5.8...v0.5.9) (2026-07-10)
 
 ### Bug Fixes
