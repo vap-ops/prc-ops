@@ -41,6 +41,28 @@ export async function readSaActiveProjectCookie(): Promise<string | null> {
   }
 }
 
+/** Persist the transient view-override (spec 292 U4). SESSION cookie — no maxAge,
+ * so a transient view never outlives the browser session and shadows the primary —
+ * httpOnly + secure + lax + path=/, mirroring assumed_role (spec 274). Called ONLY
+ * from a Server Action: a Server Component render cannot set cookies (Next.js). The
+ * caller (setActiveProjectOverride) validates projectId against the visible list
+ * first, and the resolver re-validates on read, so a stale cookie is inert. */
+export async function setSaActiveProjectCookie(projectId: string): Promise<void> {
+  const jar = await cookies();
+  jar.set(SA_ACTIVE_PROJECT_COOKIE, projectId, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+  });
+}
+
+/** Clear the view-override → scoped surfaces revert to primary/derived. Idempotent. */
+export async function clearSaActiveProjectCookie(): Promise<void> {
+  const jar = await cookies();
+  jar.delete(SA_ACTIVE_PROJECT_COOKIE);
+}
+
 /** The caller's RLS-visible projects (member OR led), each annotated with the
  * caller's OWN membership row (self-filtered embed — see module note). A
  * lead-only project comes back with an empty embed → hasMembership false. */

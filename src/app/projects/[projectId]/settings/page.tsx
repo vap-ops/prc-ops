@@ -13,6 +13,7 @@ import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
 import { projectStatusPillClasses } from "@/lib/status-colors";
 import { projectStatusIcon } from "@/lib/status-icons";
 import { SettingsForm } from "./settings-form";
+import { ProjectPrimarySiteAdmins, type PrimarySiteAdmin } from "./primary-site-admins";
 import { DeliverablesManager } from "../deliverables-manager";
 import { CategoriesManager } from "../categories-manager";
 import {
@@ -72,11 +73,12 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
     supabase.from("clients").select("id, name").order("name"),
     admin
       .from("users")
-      .select("id, full_name")
+      .select("id, full_name, role")
       .in("role", [...SITE_STAFF_ROLES])
       .order("full_name", { nullsFirst: false }),
-    // Spec 80: current team members (staff SELECT allows the user session).
-    supabase.from("project_members").select("user_id").eq("project_id", projectId),
+    // Spec 80: current team members (staff SELECT allows the user session). Spec 292
+    // U4: is_primary rides along so the PM's set-primary control can mark it.
+    supabase.from("project_members").select("user_id, is_primary").eq("project_id", projectId),
     // Feedback f625f04d — the config blocks' data (same queries the project
     // page's loader ran for them before the move).
     supabase
@@ -102,6 +104,17 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
     id: m.user_id,
     name: staffName.get(m.user_id) ?? null,
   }));
+
+  // Spec 292 U4 — the project's site_admin members (role via the admin staff read;
+  // users RLS is read-self) + their is_primary flag, for the PM set-primary control.
+  const staffRole = new Map((staff ?? []).map((u) => [u.id, u.role]));
+  const siteAdmins: PrimarySiteAdmin[] = (members ?? [])
+    .filter((m) => staffRole.get(m.user_id) === "site_admin")
+    .map((m) => ({
+      id: m.user_id,
+      name: staffName.get(m.user_id) ?? null,
+      isPrimary: m.is_primary,
+    }));
 
   // Spec 145 mirror: seeding-type config only on an open project (same gate the
   // blocks had on the project page).
@@ -190,6 +203,12 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
           members={memberList}
           currentUserId={ctx.id}
         />
+
+        {/* Spec 292 U4 (U5 absorbed) — PM/PD/super sets an SA member's primary site.
+            Renders only when the project has site_admin members. */}
+        {siteAdmins.length > 0 && (
+          <ProjectPrimarySiteAdmins projectId={project.id} siteAdmins={siteAdmins} />
+        )}
 
         {/* Feedback f625f04d — per-project config, moved off the WP list page. */}
         {projectOpen && (

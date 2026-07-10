@@ -27,6 +27,7 @@ import {
   reorderDailyPlanItems,
   setDailyPlanItemCrew,
 } from "@/app/sa/plan/actions";
+import { setActiveProjectOverride } from "@/app/sa/current-project-actions";
 
 export type DailyPlanItemView = {
   id: string;
@@ -139,6 +140,24 @@ export function DailyPlanBoard({
     await run(() => reorderDailyPlanItems(planId, order));
   }
 
+  // Spec 292 U4 — the picker's choice PERSISTS as the sa_active_project view-override
+  // (not just a ?project= URL param), so the /sa tiles and the plan agree on the site
+  // (closes the split-brain). The URL still carries ?project= (a view-only override
+  // for anyone opening the link without the cookie).
+  async function onPickProject(id: string) {
+    setBusy(true);
+    try {
+      // Best-effort persist so the /sa tiles agree with the plan.
+      await setActiveProjectOverride(id);
+    } catch {
+      // A transient persist failure must not strand the picker — the override is a
+      // convenience; ?project= is a view-only override that renders regardless.
+    } finally {
+      router.push(`/sa/plan?project=${id}&date=${dateIso}`);
+      setBusy(false);
+    }
+  }
+
   const hasPicker = projects.length > 1;
   const anyLeaves = leafOptions.sections.length > 0 || leafOptions.ungrouped.length > 0;
 
@@ -181,7 +200,7 @@ export function DailyPlanBoard({
             aria-label="เลือกโครงการ"
             className={FIELD_SELECT}
             value={selectedProjectId}
-            onChange={(e) => router.push(`/sa/plan?project=${e.target.value}&date=${dateIso}`)}
+            onChange={(e) => void onPickProject(e.target.value)}
           >
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
