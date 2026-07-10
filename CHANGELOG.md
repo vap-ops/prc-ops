@@ -1,3 +1,9 @@
+## [0.5.7](https://github.com/VAP-Solution/prc-ops/compare/v0.5.6...v0.5.7) (2026-07-10)
+
+### Performance Improvements
+
+- **projects:** parallelize the auth + project reads on the project page ([#427](https://github.com/VAP-Solution/prc-ops/issues/427)) ([23dad4c](https://github.com/VAP-Solution/prc-ops/commit/23dad4c6d5910162082e0bd0f03d8e989e2e6065))
+
 ## [0.5.6](https://github.com/VAP-Solution/prc-ops/compare/v0.5.5...v0.5.6) (2026-07-10)
 
 ### Performance Improvements
