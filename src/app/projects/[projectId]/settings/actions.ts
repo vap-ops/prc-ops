@@ -301,3 +301,32 @@ export async function removeProjectMember(
   revalidatePath(projectSettingsHref(projectId));
   return { ok: true };
 }
+
+// Spec 292 U4 (U5 absorbed) — a PM/PD/super sets an SA's primary site. Thin relay of
+// the DEFINER RPC set_primary_project_for(p_user, p_project): the DB enforces the
+// caller role + can_see_project + target-is-site_admin-member gate; the action only
+// validates shape, confirms a session, maps the 42501 reject, and revalidates.
+export async function setPrimaryProjectFor(
+  userId: string,
+  projectId: string,
+): Promise<MemberResult> {
+  if (!isValidUuid(userId) || !isValidUuid(projectId)) {
+    return { ok: false, error: "ข้อมูลไม่ถูกต้อง" };
+  }
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("set_primary_project_for", {
+    p_user: userId,
+    p_project: projectId,
+  });
+  if (error) {
+    console.error("[setPrimaryProjectFor] RPC failed", { projectId, error: error.message });
+    return {
+      ok: false,
+      error: "ตั้งไซต์หลักให้ผู้ใช้นี้ไม่สำเร็จ (สิทธิ์ไม่พอ หรือไม่ใช่ช่างผู้ดูแลของโครงการ)",
+    };
+  }
+  revalidatePath(projectSettingsHref(projectId));
+  return { ok: true };
+}

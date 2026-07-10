@@ -25,6 +25,7 @@ import { DailyPlanWorklist } from "@/components/features/sa/daily-plan-worklist"
 import { MusterStrip } from "@/components/features/sa/muster-strip";
 import { SaTools } from "@/components/features/sa/sa-tools";
 import { CameraFab } from "@/components/features/sa/camera-fab";
+import { CurrentProjectSwitcher } from "@/components/features/sa/current-project-switcher";
 import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import { bangkokHour, bangkokTodayIso } from "@/lib/dates";
@@ -209,6 +210,11 @@ export default async function SaHomePage() {
             สวัสดี{ctx.fullName ? ` ${ctx.fullName}` : ""}
           </h1>
         </div>
+
+        {/* Spec 292 U4 — the current-site chip: names the project the scoped tiles/
+            plan below point at, and switches (view-override) / pins (primary). The
+            home body stays AGGREGATE; renders nothing for an SA with <2 projects. */}
+        <CurrentProjectSwitcher current={saCurrent.current} projects={saCurrent.visibleProjects} />
 
         {/* 1 · ต้องแก้ไข — WPs the PM/defect bounced back (spec 218), pinned top,
             color-coded, one tap to the capture. Renders nothing when empty. */}

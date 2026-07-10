@@ -14,6 +14,7 @@ const {
   setDailyPlanItemCrew,
   mockRefresh,
   mockPush,
+  mockSetOverride,
 } = vi.hoisted(() => ({
   addDailyPlanItem: vi.fn(),
   removeDailyPlanItem: vi.fn(),
@@ -22,6 +23,7 @@ const {
   setDailyPlanItemCrew: vi.fn(),
   mockRefresh: vi.fn(),
   mockPush: vi.fn(),
+  mockSetOverride: vi.fn(() => Promise.resolve({ ok: true })),
 }));
 
 vi.mock("@/app/sa/plan/actions", () => ({
@@ -30,6 +32,10 @@ vi.mock("@/app/sa/plan/actions", () => ({
   setDailyPlanItemNote,
   reorderDailyPlanItems,
   setDailyPlanItemCrew,
+}));
+// Spec 292 U4 — the picker rewire relays through this view-override action.
+vi.mock("@/app/sa/current-project-actions", () => ({
+  setActiveProjectOverride: mockSetOverride,
 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: mockRefresh, push: mockPush }),
@@ -163,8 +169,10 @@ describe("DailyPlanBoard", () => {
     );
   });
 
-  it("switches project via the picker, keeping the current date", () => {
-    // With one project the picker may be hidden; render with two to test navigation.
+  it("switches project via the picker: persists the view-override, then navigates", async () => {
+    // Spec 292 U4 — with two projects the picker persists the choice as the
+    // sa_active_project override (so the /sa tiles agree with the plan) BEFORE it
+    // navigates; ?project= still rides the URL as a view-only override.
     render(
       <DailyPlanBoard
         projects={[...projects, { id: "p2", code: "PRC-006", name: "โครงการสอง" }]}
@@ -179,7 +187,10 @@ describe("DailyPlanBoard", () => {
       />,
     );
     fireEvent.change(screen.getByLabelText("เลือกโครงการ"), { target: { value: "p2" } });
-    expect(mockPush).toHaveBeenCalledWith("/sa/plan?project=p2&date=2026-07-07");
+    expect(mockSetOverride).toHaveBeenCalledWith("p2");
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith("/sa/plan?project=p2&date=2026-07-07"),
+    );
   });
 
   // ── Spec 273 U5: date stepper ──────────────────────────────────────────────

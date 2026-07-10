@@ -60,3 +60,16 @@ describe("spec 292 U3 — sa/plan/page.tsx default via the resolver", () => {
     expect(src()).not.toMatch(/projects\.some\(\s*\(p\)\s*=>\s*p\.id\s*===\s*qProject/);
   });
 });
+
+describe("spec 292 U4 — sa/page.tsx renders the current-site switcher", () => {
+  const src = () => code("src/app/sa/page.tsx");
+
+  it("renders the CurrentProjectSwitcher chip", () => {
+    expect(src()).toContain("CurrentProjectSwitcher");
+  });
+
+  it("feeds the resolver's current + visible list into the chip", () => {
+    expect(src()).toMatch(/current=\{saCurrent\.current\}/);
+    expect(src()).toMatch(/projects=\{saCurrent\.visibleProjects\}/);
+  });
+});
