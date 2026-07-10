@@ -4,6 +4,16 @@ Audited 2026-06-13 (current through spec 70). Every route, its gate, how
 users arrive, and where "back" goes. **Nav changes must update this doc in
 the same unit** (same contract as ui-conventions.md).
 
+> **Refresh note (2026-07-11):** the roleHome + bottom-tabs/hub-strip sections
+> below were refreshed to current (spec 291-era); canonical nav-surface names +
+> nav law now live in ui-conventions.md §12. The ROUTE TABLES further down are
+> still the 2026-06-13 audit — routes added since (`/sa` daily home, `/sa/plan`,
+> `/sa/crew`, `/sa/registrations`, `/registrations`, `/legal`, `/accounting`,
+> `/equipment`, `/catalog`, `/requests/reports`, `/requests/orders`, project
+> `store`/`supply-plan`/`rentals`, settings sub-pages, `/portal`, `/client`,
+> `/technician`, `/feedback`) are NOT yet tabled. Full route re-audit = its own
+> unit.
+
 Principle: the WP list at `/projects/[id]` is THE project page for
 every role (WP-centric doctrine). Round-trip rule: entering a detail
 surface from a hub, the back affordance returns to that same hub.
@@ -32,27 +42,39 @@ spec-19 `/pm/requests` → `/requests` legacy 308 (out of scope; Unit 5 candidat
 | `/profile`                                  | session     | display name, avatar, logout (reached via ตั้งค่า)                                                                                                                                                                                                                                                                                        |
 | `/settings`                                 | session     | ตั้งค่า hub (spec 93): บัญชี (→ /profile + logout, all roles) · ข้อมูลหลัก (→ /contacts, /workers) + การเงิน (→ /payroll), PM/super only · เร็วๆนี้ (Nova, คลังเอกสาร — greyed coming-soon, spec 98). **Spec 153: renders the desktop HubNav (the role's strip via `hubNavForRole`, current = ตั้งค่า) — previously a desktop dead-end.** |
 
-`roleHome`: site_admin → `/projects` · pm/super → `/review` · procurement →
-`/requests` (spec 70) · others → `/coming-soon`. (spec 82)
+`roleHome` (role-home.ts, the SSOT — refreshed 2026-07-11): site_admin → `/sa`
+(spec 192 U4) · PM tier (pm/super/director) → `/dashboard` (spec 183) ·
+procurement + procurement_manager → `/requests` · project_coordinator →
+`/projects` · accounting → `/accounting` · legal → `/legal` · contractor →
+`/portal` · client → `/client` · technician → `/technician` · others →
+`/coming-soon`.
 
-## Bottom tabs (phones)
+## Bottom tabs (phones) — refreshed 2026-07-11
 
-Spec 93: the bar holds daily-decision surfaces only; contacts/workers/payroll +
-the account (profile + logout) moved into the **ตั้งค่า** (`/settings`) hub. The
-ตั้งค่า tab lights on `/profile`, `/contacts`, `/workers`, `/payroll` too (match).
-Desktop HubNav mirrors this (deciders + ตั้งค่า).
+Per-role sets: `SA_TABS`, `PM_TABS`, `PROCUREMENT_TABS`,
+`PROCUREMENT_MANAGER_TABS`, `COORDINATOR_TABS`, `ACCOUNTING_TABS`, `LEGAL_TABS`
+in `bottom-tab-bar.tsx` — **the code is the SSOT**; this is a dated snapshot.
+The desktop hub strip (`hub-nav.tsx` `*_HUB_NAV`) carries every bottom-tab
+destination per role and may add reference surfaces the phone bar omits
+(PM: + ทีมงาน `/workers`; procurement tiers: + subcontractors + `/workers`) —
+nav law §12, ui-conventions.md.
 
-- SA: โครงการ `/projects` · คำขอซื้อ `/requests` · ภาพรวม `/dashboard` · ตั้งค่า `/settings`
-- PM/super: รอตรวจ `/review` · โครงการ `/projects` · คำขอซื้อ `/requests` · ภาพรวม `/dashboard` ·
-  ตั้งค่า `/settings`
-- procurement (spec 70, 101, 102): คำขอซื้อ `/requests` · โครงการ `/projects` (read-only, spec 102) ·
-  ผู้ขาย `/contacts/vendors` (suppliers-only) · ตั้งค่า `/settings` (not a decider, no ภาพรวม).
-  Desktop: PROCUREMENT_HUB_NAV mirrors it.
+- SA (spec 192 U4): หน้าหลัก `/sa` · โครงการ `/projects` · จัดซื้อ `/requests` ·
+  ตั้งค่า `/settings` — ภาพรวม dropped (the daily home supersedes it).
+- PM tier (pm/super/director): โครงการ · จัดซื้อ · ภาพรวม `/dashboard` (claims
+  `/review`, spec 183) · คำขอสมัคร `/registrations` (spec 263/264) · ตั้งค่า.
+- procurement: จัดซื้อ · รายงาน `/requests/reports` (claims `/requests/orders`,
+  spec 262) · โครงการ (read-only) · ผู้ขาย `/contacts/vendors` · ตั้งค่า.
+- procurement_manager: the procurement set + คำขอสมัคร `/registrations`.
+- project_coordinator: โครงการ · ตั้งค่า.
+- accounting: บัญชี `/accounting` · ตั้งค่า.
+- legal (spec 284 U5): กฎหมาย `/legal` · ตั้งค่า.
 
-**Spec 100 — ภาพรวม is now live** (`/dashboard`, role-aware overview), graduating the spec-98
-coming-soon placeholder. Desktop HubNav mirrors it (SA + PM, before ตั้งค่า). The bottom-bar/hub
-coming-soon mechanism was retired (ภาพรวม was its only user). The coming-soon concept remains for the
-ตั้งค่า hub's เร็วๆนี้ rows: `Nova` + `คลังเอกสาร` (greyed, via `ComingSoonBadge`).
+The ตั้งค่า tab lights (match) on `/profile`, `/contacts`, `/workers`,
+`/equipment`, `/catalog`, `/payroll`, `/accounting` (spec 197 moved
+`/store` + `/stock-count` to the projects tab). The หน้าหลัก tab carries the
+SA rework badge (spec 218); จัดซื้อ + ภาพรวม carry the PM-tier decision badges
+(specs 183/184).
 
 - **Exception (Field-First reskin Unit 1):** the WP detail page
   (`/projects/[id]/work-packages/[id]`) renders NO bottom tab bar — the fixed

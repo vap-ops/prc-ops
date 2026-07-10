@@ -180,15 +180,17 @@ shadow-sm` (rows min-h-16).
   amber-400, white heading (สวัสดี คุณ{fullName}), desktop-only โปรไฟล์
   link, dark-variant logout. Hub pages only — detail screens keep light
   breadcrumb headers (they are content, not chrome).
-- **HubNav** ([hub-nav.tsx](../src/components/features/hub-nav.tsx)) —
+- **HubNav** ([hub-nav.tsx](../src/components/features/chrome/hub-nav.tsx)) —
   desktop only (`hidden sm:block`), `bg-zinc-100` strip; active item
   `border-b-2 border-blue-700 font-semibold`.
 - **BottomTabBar**
-  ([bottom-tab-bar.tsx](../src/components/features/bottom-tab-bar.tsx)) —
+  ([bottom-tab-bar.tsx](../src/components/features/chrome/bottom-tab-bar.tsx)) —
   phone only (`sm:hidden`), fixed bottom, `bg-white/95 backdrop-blur` +
   `pb-[env(safe-area-inset-bottom)]`; active tab `text-blue-700` with top
-  indicator bar; longest-prefix-wins matching. SA tabs: โครงการ / คำขอซื้อ /
-  โปรไฟล์. PM tabs: รอตรวจ / โครงการ / คำขอซื้อ / โปรไฟล์.
+  indicator bar; longest-prefix-wins matching. Per-role tab sets are the code
+  constants (`SA_TABS`, `PM_TABS`, … — bottom-tab-bar.tsx is the SSOT; the old
+  lists this doc pinned drifted twice, so it stopped pinning them). Canonical
+  surface names + nav law: §12.
   **Rendered on every screen EXCEPT WP detail** (Field-First reskin Unit 1),
   where the fixed capture bar takes the thumb zone instead.
 
@@ -276,3 +278,61 @@ naming the change.
   recurrence: `window.confirm(`, off-palette `green-*`, `min-h-9`, group-header
   `truncate`, missing `DETAIL_TITLE` leading, the blue progress fill. The
   doctrine is now enforced by a test, not by one operator's eye.
+
+## 12. Nav surfaces — canonical names + rules (2026-07-11)
+
+One name per navigation surface — used in specs, feedback triage, and operator
+chat, so "the home tiles over-promise" is a complete sentence. This table names
+the SURFACES; the current items live in code (the SSOT column) — read the
+component for today's contents, never trust a doc-pinned list (see §6 note).
+
+| Canonical name | What it is                                                                 | Code SSOT                                                                                                              |
+| -------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| bottom tabs    | phone bar, fixed bottom; per-role sets (`SA_TABS`, `PM_TABS`, …)           | [bottom-tab-bar.tsx](../src/components/features/chrome/bottom-tab-bar.tsx)                                             |
+| hub strip      | desktop-only top strip; per-role sets (`*_HUB_NAV`) mirror the bottom tabs | [hub-nav.tsx](../src/components/features/chrome/hub-nav.tsx)                                                           |
+| home tiles     | เครื่องมือ quick-action grid on a role home (today: `/sa`)                 | [sa-tools.tsx](../src/components/features/sa/sa-tools.tsx)                                                             |
+| settings hub   | grouped section rows on `/settings`                                        | [sections.ts](../src/app/settings/sections.ts)                                                                         |
+| FAB            | floating action button — THE primary action of a screen (today: ถ่ายรูป)   | [camera-fab.tsx](../src/components/features/sa/camera-fab.tsx)                                                         |
+| card chips     | inline quick-action row on a list card (e.g. รูปถ่าย · ทีมงาน · คำขอซื้อ)  | `ActionChip` in [sa/page.tsx](../src/app/sa/page.tsx)                                                                  |
+| detail tabs    | segmented tab row inside a detail page                                     | [wp-detail-tabs.tsx](../src/components/features/work-packages/wp-detail-tabs.tsx)                                      |
+| back chip      | the ← up affordance in every `DetailHeader`                                | [detail-header.tsx](../src/components/features/chrome/detail-header.tsx) + [back-href.ts](../src/lib/nav/back-href.ts) |
+| switcher chip  | context switcher chip + sheet (today: ไซต์ปัจจุบัน on `/sa`, spec 292)     | [current-project-switcher.tsx](../src/components/features/sa/current-project-switcher.tsx)                             |
+| nudge          | conditional entry banner — renders only while actionable (count > 0)       | e.g. the คำขอสมัคร nudge in [sa/page.tsx](../src/app/sa/page.tsx)                                                      |
+
+Role variants read "SA bottom tabs", "PM hub strip" — matching the code
+constants (`SA_TABS`, `PM_HUB_NAV`).
+
+### Nav law (violations are review rejects)
+
+1. **Bottom tabs hold GLOBAL destinations, never actions** — as few as the
+   role's daily decisions need (lean 2-tab sets are deliberate;
+   `PROCUREMENT_MANAGER_TABS`' 6 is the current ceiling — don't grow a set past
+   it without a spec). Every tab is first-layer: tapping the ACTIVE tab returns
+   to its section top (operator 2026-06-21; spec 169 mirrors this on the hub
+   strip).
+2. **The hub strip carries every bottom-tab destination** — desktop never
+   omits a phone tab (labels may shorten for tab-bar space, e.g. กฎหมาย vs
+   ฝ่ายกฎหมาย). The strip MAY add reference surfaces the tight phone bar
+   omits (today: ทีมงาน `/workers` on the PM strip; `/workers` +
+   subcontractors on the procurement strips) — supersets allowed, never
+   subsets.
+3. **One home per role** (`roleHome` in role-home.ts), and the home is always
+   one of that role's tabs.
+4. **Home tiles are shortcuts, never the only path.** A tile may duplicate a
+   tab; removing a tile must not orphan a page — some persistent path (tab,
+   strip, settings hub, or parent page) must remain.
+5. **A menu label matches its destination's own title, and a tile subtitle
+   lists ONLY actions that exist at the destination.** The recorded violation
+   class: the 2026-07-11 SA-home menu audit found three tile subtitles
+   promising actions their target page does not offer.
+6. **Nouns name places, verbs name actions.** รูปถ่าย = the photos section
+   (chip/tab); ถ่ายรูป = the capture action (FAB). Deliberate — keep the split.
+7. **One term per concept app-wide**, single-sourced in `labels.ts` when used
+   in 2+ files (§1).
+8. **Settings hub = reference data + account, never daily decisions**
+   (spec 93). Daily decisions live on tabs / home surfaces.
+9. **One FAB per screen**, reserved for that screen's primary action.
+10. **Every nav change updates `site-map.md` in the same unit** (that doc's own
+    contract) — its route tables carry the per-route "Back →" mapping; the
+    back chip resolves it via `safeBackHref(?from, hierarchical parent)`
+    (back-href.ts).
