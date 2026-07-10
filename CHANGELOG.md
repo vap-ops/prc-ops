@@ -1,3 +1,9 @@
+# [0.8.0](https://github.com/VAP-Solution/prc-ops/compare/v0.7.0...v0.8.0) (2026-07-10)
+
+### Features
+
+- **sa:** spec 292 U2 — SA current-project resolver SSOT ([#433](https://github.com/VAP-Solution/prc-ops/issues/433)) ([d75cdff](https://github.com/VAP-Solution/prc-ops/commit/d75cdffbcf92e7d640e93682e294188d570b8285))
+
 # [0.7.0](https://github.com/VAP-Solution/prc-ops/compare/v0.6.0...v0.7.0) (2026-07-10)
 
 ### Features
