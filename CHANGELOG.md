@@ -1,3 +1,9 @@
+## [0.5.5](https://github.com/VAP-Solution/prc-ops/compare/v0.5.4...v0.5.5) (2026-07-10)
+
+### Performance Improvements
+
+- **sa:** parallelize worklist reads + batch the bounce/rework reads (RUM-aimed TTFB) ([#424](https://github.com/VAP-Solution/prc-ops/issues/424)) ([4122f20](https://github.com/VAP-Solution/prc-ops/commit/4122f2076b0b61ec4c3707b8ccadd2311443799d))
+
 ## [0.5.4](https://github.com/VAP-Solution/prc-ops/compare/v0.5.3...v0.5.4) (2026-07-10)
 
 ### Performance Improvements
