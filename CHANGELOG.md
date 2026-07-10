@@ -1,3 +1,9 @@
+## [0.5.8](https://github.com/VAP-Solution/prc-ops/compare/v0.5.7...v0.5.8) (2026-07-10)
+
+### Bug Fixes
+
+- **purchasing:** scope record_site_purchase to WP membership (SA audit F2) ([#428](https://github.com/VAP-Solution/prc-ops/issues/428)) ([1410139](https://github.com/VAP-Solution/prc-ops/commit/14101395140b66c222313346503cbe9aef05018a))
+
 ## [0.5.7](https://github.com/VAP-Solution/prc-ops/compare/v0.5.6...v0.5.7) (2026-07-10)
 
 ### Performance Improvements
