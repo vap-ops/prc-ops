@@ -27,6 +27,7 @@ import {
   ContractCreateForm,
   type ProjectOption,
 } from "@/components/features/legal/contract-create-form";
+import { withBackFrom } from "@/lib/nav/back-href";
 
 export const metadata = { title: "สัญญา" };
 
@@ -109,7 +110,7 @@ export default async function ContractsPage({ searchParams }: ContractsPageProps
             {shown.map((c) => (
               <li key={c.id}>
                 <Link
-                  href={`/legal/contracts/${c.id}`}
+                  href={withBackFrom(`/legal/contracts/${c.id}`, "/legal/contracts")}
                   className="border-edge bg-card hover:bg-sunk focus-visible:ring-action rounded-card shadow-card flex items-center gap-3 border p-4 transition-colors focus:outline-none focus-visible:ring-2"
                 >
                   <span className="min-w-40 flex-1">

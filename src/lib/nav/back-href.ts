@@ -30,7 +30,10 @@ function hasWhitespaceOrControl(s: string): boolean {
  * any absent / off-app / malformed value yields the hierarchical `fallback`, so
  * back can never navigate off the application (no open-redirect surface).
  */
-export function safeBackHref(from: string | undefined, fallback: string): string {
+export function safeBackHref(rawFrom: string | string[] | undefined, fallback: string): string {
+  // A crafted duplicate param (?from=/a&from=/b) reaches Next pages as
+  // string[] — coalesce to the first entry (then validate) instead of throwing.
+  const from = Array.isArray(rawFrom) ? rawFrom[0] : rawFrom;
   if (!from) return fallback;
   const safe =
     from.startsWith("/") && // root-relative

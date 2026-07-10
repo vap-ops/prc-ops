@@ -13,6 +13,7 @@ import { requireRole } from "@/lib/auth/require-role";
 import { LEGAL_ROLES } from "@/lib/auth/role-home";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
+import { safeBackHref } from "@/lib/nav/back-href";
 import { CARD, SECTION_HEADING } from "@/lib/ui/classes";
 import { baht } from "@/lib/format";
 import { formatThaiDate } from "@/lib/i18n/labels";
@@ -27,6 +28,7 @@ export const metadata = { title: "รายละเอียดสัญญา"
 
 interface ContractDetailPageProps {
   params: Promise<{ contractId: string }>;
+  searchParams: Promise<{ from?: string }>;
 }
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
@@ -38,9 +40,13 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-export default async function ContractDetailPage({ params }: ContractDetailPageProps) {
+export default async function ContractDetailPage({
+  params,
+  searchParams,
+}: ContractDetailPageProps) {
   const ctx = await requireRole(LEGAL_ROLES);
   const { contractId } = await params;
+  const { from } = await searchParams;
 
   const admin = createAdminClient();
   const { data: contract } = await admin
@@ -70,7 +76,9 @@ export default async function ContractDetailPage({ params }: ContractDetailPageP
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <DetailHeader backHref="/legal/contracts" backLabel="สัญญา">
+      {/* Back-nav sweep 2026-07-11: reached from the contracts list AND the
+          approvals queue — referrer first, contracts list as the fallback. */}
+      <DetailHeader backHref={safeBackHref(from, "/legal/contracts")} backLabel="สัญญา">
         <div className="flex flex-col gap-1">
           <h1 className="text-title text-ink font-bold tracking-tight">{contract.title}</h1>
           <span className="border-edge text-ink-secondary w-fit rounded-full border px-2 py-0.5 text-xs">

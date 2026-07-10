@@ -9,6 +9,7 @@
 import { EmptyNotice } from "@/components/features/common/notices";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { WorklistRow } from "@/components/features/chrome/worklist-row";
+import { workPackageHref } from "@/lib/nav/project-paths";
 import { deriveDeliverableProgress } from "@/lib/deliverables/derive-progress";
 import type { WorkPackageStatus } from "@/lib/db/enums";
 import { baht } from "@/lib/format";
@@ -152,6 +153,7 @@ export function GroupDetailView({
               compact
               enterIndex={i}
               canOpen={canOpenChildren}
+              backFrom={workPackageHref(projectId, group.id)}
             />
           ))
         )}

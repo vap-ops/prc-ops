@@ -14,6 +14,7 @@
 import Link from "next/link";
 import { ChevronRight, Camera, UserPlus, PauseCircle, AlertTriangle, Flame } from "lucide-react";
 import { workPackageHref } from "@/lib/nav/project-paths";
+import { withBackFrom } from "@/lib/nav/back-href";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { CRITICAL_BADGE } from "@/lib/ui/classes";
 import { listEnterProps } from "@/lib/ui/list-enter";
@@ -73,6 +74,13 @@ interface WorklistRowProps {
    * read-only project_coordinator view, which can't reach the SITE_STAFF WP detail.
    */
   canOpen?: boolean;
+  /**
+   * Back-nav sweep 2026-07-11: the caller's own path, threaded as ?from so the
+   * WP detail's back chip returns to the arrival surface (the งาน group page
+   * passes itself). Omit where the WP page's fallback (the project) already IS
+   * the arrival surface — the project WP list.
+   */
+  backFrom?: string;
 }
 
 export function WorklistRow({
@@ -82,6 +90,7 @@ export function WorklistRow({
   compact = false,
   enterIndex,
   canOpen = true,
+  backFrom,
 }: WorklistRowProps) {
   const action = compact ? null : nextAction(wp.status, wp.hasContractor);
   const ActionIcon = action ? ACTION_ICON[action.kind] : null;
@@ -163,9 +172,10 @@ export function WorklistRow({
     );
   }
 
+  const href = workPackageHref(projectId, wp.id);
   return (
     <Link
-      href={workPackageHref(projectId, wp.id)}
+      href={backFrom ? withBackFrom(href, backFrom) : href}
       className={`rounded-card border-edge bg-card shadow-card hover:bg-sunk focus-visible:ring-action active:bg-sunk flex items-stretch gap-0 overflow-hidden border transition-colors [content-visibility:auto] focus:outline-none focus-visible:ring-2 [contain-intrinsic-size:auto_96px]${
         enter ? ` ${enter.className}` : ""
       }`}

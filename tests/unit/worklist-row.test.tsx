@@ -45,6 +45,26 @@ describe("WorklistRow canOpen", () => {
   });
 });
 
+// Back-nav sweep 2026-07-11: an optional `backFrom` wraps the row link in
+// withBackFrom so the WP detail's back chip returns to the arrival surface
+// (the งาน group page passes its own path). Omitted → plain href, the
+// project fallback stays correct on the project WP list.
+describe("WorklistRow backFrom", () => {
+  it("threads ?from into the WP link when backFrom is set", () => {
+    const backFrom = "/projects/proj-1/work-packages/group-9";
+    render(<WorklistRow projectId={PROJECT_ID} wp={WP} spine="bg-attn" backFrom={backFrom} />);
+    expect(screen.getByRole("link")).toHaveAttribute(
+      "href",
+      `${HREF}?from=${encodeURIComponent(backFrom)}`,
+    );
+  });
+
+  it("keeps the plain href when backFrom is omitted", () => {
+    render(<WorklistRow projectId={PROJECT_ID} wp={WP} spine="bg-attn" />);
+    expect(screen.getByRole("link")).toHaveAttribute("href", HREF);
+  });
+});
+
 // Spec 277: the row shows the category identity — a colored icon + the category
 // letter-code (WP-12 → E-12) — when the WP reconciles to a global work-category.
 describe("WorklistRow category identity (spec 277)", () => {

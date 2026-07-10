@@ -559,6 +559,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               {(wpRequests ?? []).map((r) => (
                 <li key={r.id}>
                   <PurchaseRequestCard
+                    backFrom={workPackageHref(projectId, workPackageId)}
                     request={{
                       id: r.id,
                       pr_number: r.pr_number,

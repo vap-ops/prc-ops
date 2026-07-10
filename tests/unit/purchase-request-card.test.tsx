@@ -39,6 +39,26 @@ describe("PurchaseRequestCard (spec 47)", () => {
     expect(link).toHaveAttribute("href", `/requests/${BASE_REQUEST.id}`);
   });
 
+  // Back-nav sweep 2026-07-11: on the WP detail page the card threads ?from so
+  // the request detail's back chip returns to the WP, not the /requests
+  // worklist. The worklist call site omits the prop (fallback correct there).
+  it("threads ?from into the link when backFrom is set", () => {
+    const backFrom = "/projects/proj-1/work-packages/wp-9";
+    render(
+      <PurchaseRequestCard
+        request={BASE_REQUEST}
+        workPackage={{ code: "WP-001", name: "งานเทพื้น" }}
+        requesterName="สมชาย"
+        isMine={false}
+        backFrom={backFrom}
+      />,
+    );
+    expect(screen.getByRole("link")).toHaveAttribute(
+      "href",
+      `/requests/${BASE_REQUEST.id}?from=${encodeURIComponent(backFrom)}`,
+    );
+  });
+
   // Feedback 30a1a520 — the text status pill crushed the item name and
   // duplicated the tracker below. Status is now an icon-only badge (colored
   // trio + glyph, Thai label kept for screen readers via aria-label); the

@@ -236,7 +236,7 @@ export default async function PurchaseOrderDetailPage({ params, searchParams }: 
         {/* Spec 134 U5 + spec 208 Q3: the receive checklist — site staff PLUS
             procurement (the off-site team may confirm arrival on the site's behalf). */}
         {inTransitLines.length > 0 && canReceive ? (
-          <PoReceiveSection lines={inTransitLines} />
+          <PoReceiveSection lines={inTransitLines} backFrom={`/requests/orders/${po.id}`} />
         ) : null}
 
         <div>
