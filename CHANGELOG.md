@@ -1,3 +1,9 @@
+## [0.5.4](https://github.com/VAP-Solution/prc-ops/compare/v0.5.3...v0.5.4) (2026-07-10)
+
+### Performance Improvements
+
+- **requests:** load enrichment reads in one concurrent wave (RUM-aimed TTFB) ([#423](https://github.com/VAP-Solution/prc-ops/issues/423)) ([6d994e4](https://github.com/VAP-Solution/prc-ops/commit/6d994e4e782ddc0924010e59523da54a1cdf05a0))
+
 ## [0.5.3](https://github.com/VAP-Solution/prc-ops/compare/v0.5.2...v0.5.3) (2026-07-10)
 
 ### Bug Fixes
