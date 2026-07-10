@@ -38,6 +38,12 @@ insert into public.work_packages (id, project_id, code, name, status) values
   ('ed0d0104-0104-0104-0104-ed0ded0d0104', 'ca0a0104-0104-0104-0104-ca0aca0a0104',
    'WP-D', 'งานแยก', 'in_progress');
 
+-- SA audit F3 (mig 075590): the site_admin field caller must be a project member
+-- to check equipment out/in. Bind it so the site_admin arm below stays a member.
+insert into public.project_members (project_id, user_id, added_by) values
+  ('ca0a0104-0104-0104-0104-ca0aca0a0104', '22222222-2222-2222-2222-222222220104',
+   '11111111-1111-1111-1111-111111110104');
+
 -- WP-A budget so wp_profit is computable (no labor/materials seeded → 0 each).
 insert into public.wp_economics (work_package_id, budget) values
   ('ea0a0104-0104-0104-0104-ea0aea0a0104', 20000);

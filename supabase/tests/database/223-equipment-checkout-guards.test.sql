@@ -33,6 +33,12 @@ insert into public.work_packages (id, project_id, code, name, status) values
   ('bc020202-0202-0202-0202-cccccc020202', 'aa020202-0202-0202-0202-aaaaaa020202',
    'WP-C', 'งานปิดแล้ว', 'complete');
 
+-- SA audit F3 (mig 075590): the site_admin field caller must be a project member
+-- to check equipment out/in. Bind it so the site_admin check-out arm stays a member.
+insert into public.project_members (project_id, user_id, added_by) values
+  ('aa020202-0202-0202-0202-aaaaaa020202', '22222222-2222-2222-2222-222222220202',
+   '11111111-1111-1111-1111-111111110202');
+
 insert into public.equipment_owners (id, name, created_by) values
   ('0a020202-0202-0202-0202-0a0a0a020202', 'บริษัทพี่น้อง',
    '11111111-1111-1111-1111-111111110202');
