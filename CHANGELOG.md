@@ -1,3 +1,9 @@
+## [0.5.9](https://github.com/VAP-Solution/prc-ops/compare/v0.5.8...v0.5.9) (2026-07-10)
+
+### Bug Fixes
+
+- **equipment:** scope check-out/in to project membership (SA audit F3) ([#430](https://github.com/VAP-Solution/prc-ops/issues/430)) ([10fb5ce](https://github.com/VAP-Solution/prc-ops/commit/10fb5ce89b580339f8c6a59e96e48c2ac23ec5fb)), closes [#428](https://github.com/VAP-Solution/prc-ops/issues/428)
+
 ## [0.5.8](https://github.com/VAP-Solution/prc-ops/compare/v0.5.7...v0.5.8) (2026-07-10)
 
 ### Bug Fixes
