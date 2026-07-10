@@ -1,3 +1,9 @@
+## [0.12.2](https://github.com/VAP-Solution/prc-ops/compare/v0.12.1...v0.12.2) (2026-07-10)
+
+### Bug Fixes
+
+- **nav:** adopt referrer-aware back chips on multi-parent details (7 gaps) ([#441](https://github.com/VAP-Solution/prc-ops/issues/441)) ([726a29e](https://github.com/VAP-Solution/prc-ops/commit/726a29e85c6f2e0070dbec1446c2cc7244c74e48))
+
 ## [0.12.1](https://github.com/VAP-Solution/prc-ops/compare/v0.12.0...v0.12.1) (2026-07-10)
 
 ### Bug Fixes
