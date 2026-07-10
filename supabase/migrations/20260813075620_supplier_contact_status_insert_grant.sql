@@ -1,0 +1,15 @@
+-- Bug 551d85ef — "กดบันทึกการเพิ่มผู้จำหน่ายไม่ได้": creating a supplier via
+-- /contacts/vendors 42501'd for every back-office user. createSupplierRecord()
+-- (src/app/contacts/actions.ts) inserts as the USER (role `authenticated`) and always
+-- includes contact_status, because the add-supplier form defaults its status select to
+-- 'active'. Spec 275 U0 vendor unification (20260813074000_spec275u0_vendor_unification.sql)
+-- added the contact_status column and granted authenticated only UPDATE(contact_status) —
+-- never INSERT. Postgres denies the whole INSERT at the column-privilege layer (before RLS),
+-- and the action swallows it as a generic error, so the row never saves.
+--
+-- Additive fix: grant the missing INSERT column privilege, mirroring the sibling
+-- vendor-parity columns (name / phone / tax_id / is_vat_registered / payment_terms / … are
+-- already INSERT-granted to authenticated). Row-level authority is still enforced by the
+-- suppliers RLS INSERT policy + the createSupplierRecord role gate; this only unblocks the
+-- column the app already writes.
+grant insert (contact_status) on public.suppliers to authenticated;
