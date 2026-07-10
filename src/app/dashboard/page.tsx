@@ -25,10 +25,6 @@ import { getPendingWorkerBankChangeCount } from "@/lib/approvals/pending-worker-
 import { Landmark } from "lucide-react";
 import { rollupProgress } from "@/lib/dashboard/overview";
 import {
-  sumMaterials,
-  sumStoreIssues,
-  sumStoreReturns,
-  sumStorePool,
   spendBreakdown,
   spendBarSegments,
   spendByWorkCategory,
@@ -38,7 +34,6 @@ import {
   type SpendBarSegments,
   type WorkCategorySpend,
 } from "@/lib/dashboard/spend";
-import { aggregateLaborCost, type CostInputRow } from "@/lib/labor/cost";
 import { WORK_CATEGORY_UNSET_LABEL } from "@/lib/i18n/labels";
 import { bahtCompact as baht } from "@/lib/format";
 
@@ -66,7 +61,9 @@ export default async function DashboardPage() {
   // finance reading.
   const showMoney = MONEY_VIEW_ROLES.includes(ctx.role);
   const supabase = await createServerSupabase();
-  const admin = showMoney ? createAdminSupabase() : null;
+  // Only accounting needs the admin client now (its project/WP LIST reads — can_see_project
+  // has no accounting arm). Money aggregation moved to the DEFINER RPC (via the user client).
+  const admin = ctx.role === "accounting" ? createAdminSupabase() : null;
   // accounting has no can_see_project arm — its project/WP lists read via admin
   // behind this page gate.
   const listDb = ctx.role === "accounting" && admin ? admin : supabase;
@@ -110,10 +107,6 @@ export default async function DashboardPage() {
     : { data: [] };
   const wps = wpRows ?? [];
 
-  const wpProject = new Map(wps.map((w) => [w.id, w.project_id]));
-  // Spec 230 (ADR 0066 / S9): each WP's bound project-category, for the
-  // spend-by-หมวดงาน card. Resolved to a global work_category below.
-  const wpCategory = new Map(wps.map((w) => [w.id, w.category_id]));
   const wpsByProject = new Map<string, { status: string }[]>();
   for (const w of wps) {
     const arr = wpsByProject.get(w.project_id) ?? [];
@@ -121,236 +114,82 @@ export default async function DashboardPage() {
     wpsByProject.set(w.project_id, arr);
   }
 
-  // Spec 230 (ADR 0066 / S9): the spend-by-หมวดงาน breakdown (PM/super only). Rows
-  // partition the SAME `total` the cards already show — no new figure, no double-count.
+  // Spec 230 (ADR 0066 / S9): the spend-by-หมวดงาน breakdown (PM tier ∨ accounting). Rows
+  // partition the SAME `total` the cards show — no new figure, no double-count.
   let categorySpend: WorkCategorySpend[] = [];
 
-  // Money — PM/super only, admin client (RLS-bypass for the zero-grant cols).
+  // Money — PM tier ∨ accounting (spec 252). Perf (U3): the whole portfolio rollup (per
+  // project: labor + WP materials + เบิก − returns + store pool; per work-category: the same
+  // atoms) is ONE SECURITY DEFINER round-trip — the netting + sort stay in JS. The DEFINER
+  // reads the zero-grant cost columns, so this goes via the user-session client.
   const budgetById = new Map<string, number | null>();
-  const laborByProject = new Map<string, CostInputRow[]>();
-  const materialsByProject = new Map<
+  const spendByProjectId = new Map<
     string,
-    { id: string; status: string; amount: number | null }[]
+    {
+      labor: number;
+      materials_purchase: number;
+      store_issues: number;
+      store_returns: number;
+      store_pool: number;
+    }
   >();
-  // Spec 195 follow-up — store-issued (เบิก) cost, grouped by project. Disjoint
-  // from materialsByProject (WP-less store-bound PRs are excluded there).
-  const storeIssuesByProject = new Map<string, { total_cost: number | null }[]>();
-  // PD money split — project store pool (stock currently on hand), at cost via
-  // stock_on_hand.total_value, grouped by project. Issued material has left
-  // stock_on_hand, so this is disjoint from storeIssuesByProject — PROVIDED returns
-  // are netted out of the WP level (see storeReturnsByProject).
-  const storePoolByProject = new Map<string, { total_value: number | null }[]>();
-  // PD money split — WP→store returns (spec 209), grouped by project. A return
-  // restores on-hand value (→ storePoolByProject) but leaves its issue non-reversed
-  // (→ still in storeIssuesByProject), so its cost must be netted OUT of the WP level
-  // to avoid double-counting. Mirrors wp_profit's return netting.
-  const storeReturnsByProject = new Map<string, { total_cost: number | null }[]>();
-  // Store-first U4 — PR ids whose goods entered the store (a stock_receipt links
-  // back to them). Their cost is counted at เบิก (sumStoreIssues), so they are
-  // excluded from sumMaterials to avoid a double-count once U1 auto-stocks
-  // WP-bound receives. Empty today (the trigger only stocks WP-less PRs).
-  const storedPrIds = new Set<string>();
-  if (showMoney && admin && projectIds.length) {
-    const wpIds = wps.map((w) => w.id);
-    const [
-      { data: budgetRows },
-      laborRes,
-      prRes,
-      issuesRes,
-      reversalsRes,
-      receiptsRes,
-      poolRes,
-      returnsRes,
-      projCatsRes,
-      workCatsRes,
-    ] = await Promise.all([
-      admin.from("projects").select("id, budget_amount_thb").in("id", projectIds),
-      wpIds.length
-        ? admin
-            .from("labor_logs")
-            .select(
-              "id, worker_id, work_date, day_fraction, day_rate_snapshot, pay_type_snapshot, worker_name_snapshot, self_logged, superseded_by, work_package_id",
-            )
-            .in("work_package_id", wpIds)
-        : Promise.resolve({ data: [] as (CostInputRow & { work_package_id: string })[] }),
-      wpIds.length
-        ? admin
-            .from("purchase_requests")
-            .select("id, work_package_id, status, amount")
-            .in("work_package_id", wpIds)
-        : Promise.resolve({
-            data: [] as {
-              id: string;
-              work_package_id: string;
-              status: string;
-              amount: number | null;
-            }[],
-          }),
-      // Store issues are project-scoped (project_id is set + WP-in-project
-      // validated by issue_stock), so group by project_id directly. work_package_id
-      // (spec 230) tags the issue's WP for the spend-by-หมวดงาน card.
-      admin
-        .from("stock_issues")
-        .select("id, project_id, total_cost, work_package_id")
-        .in("project_id", projectIds),
-      // Reversed issues never charged a WP — exclude them (matches wp_profit). A
-      // stock_reversals row may target a receipt OR an issue; issue_id is null for
-      // receipt reversals, so filter to the issue-reversal rows.
-      admin.from("stock_reversals").select("issue_id").not("issue_id", "is", null),
-      // Store-first U4 — receipts that link back to a PR mark goods that entered
-      // the store; those PRs are counted at เบิก, not here. (No-op pre-U1.)
-      admin
-        .from("stock_receipts")
-        .select("purchase_request_id")
-        .in("project_id", projectIds)
-        .not("purchase_request_id", "is", null),
-      // PD money split — store stock currently on hand, at cost. total_value is the
-      // live maintained balance (receipts/returns add, issues subtract, reversals
-      // restore), so summing it per project gives the pool value with no separate
-      // reversal handling needed.
-      admin.from("stock_on_hand").select("project_id, total_value").in("project_id", projectIds),
-      // PD money split — WP→store returns, netted out of the WP level so returned
-      // material (which restores on-hand value above) is not also counted via its
-      // still-non-reversed issue. Mirrors wp_profit's return netting. work_package_id
-      // (spec 230) tags the originating WP for the spend-by-หมวดงาน card.
-      admin
-        .from("stock_returns")
-        .select("project_id, total_cost, work_package_id")
-        .in("project_id", projectIds),
-      // Spec 230: WP → project-category → global work-category, for the
-      // spend-by-หมวดงาน card (name resolved firm-wide so categories aggregate across
-      // projects). Not money — but read here alongside the money so the card is built
-      // only for the manager tier.
-      admin.from("project_categories").select("id, work_category_id").in("project_id", projectIds),
-      admin.from("work_categories").select("id, name_th"),
-    ]);
-    for (const b of budgetRows ?? []) budgetById.set(b.id, b.budget_amount_thb);
-    for (const r of receiptsRes.data ?? []) {
-      if (r.purchase_request_id) storedPrIds.add(r.purchase_request_id);
-    }
-    const reversedIssueIds = new Set(
-      (reversalsRes.data ?? []).map((r) => r.issue_id).filter((id): id is string => id != null),
-    );
-    for (const si of issuesRes.data ?? []) {
-      if (reversedIssueIds.has(si.id)) continue;
-      const arr = storeIssuesByProject.get(si.project_id) ?? [];
-      arr.push({ total_cost: si.total_cost });
-      storeIssuesByProject.set(si.project_id, arr);
-    }
-    for (const soh of poolRes.data ?? []) {
-      const arr = storePoolByProject.get(soh.project_id) ?? [];
-      arr.push({ total_value: soh.total_value });
-      storePoolByProject.set(soh.project_id, arr);
-    }
-    for (const rt of returnsRes.data ?? []) {
-      const arr = storeReturnsByProject.get(rt.project_id) ?? [];
-      arr.push({ total_cost: rt.total_cost });
-      storeReturnsByProject.set(rt.project_id, arr);
-    }
-    for (const r of laborRes.data ?? []) {
-      const pid = wpProject.get(r.work_package_id);
-      if (!pid) continue;
-      const arr = laborByProject.get(pid) ?? [];
-      arr.push(r);
-      laborByProject.set(pid, arr);
-    }
-    for (const pr of prRes.data ?? []) {
-      // Spec 195 P1: a WP-less PR has no WP to attribute to here (its cost lands
-      // at เบิก, not purchase, ADR 0063) — skip it from WP-grouped materials.
-      const pid = pr.work_package_id ? wpProject.get(pr.work_package_id) : undefined;
-      if (!pid) continue;
-      const arr = materialsByProject.get(pid) ?? [];
-      arr.push({ id: pr.id, status: pr.status, amount: pr.amount });
-      materialsByProject.set(pid, arr);
-    }
-
-    // Spec 230: tag each WP-level spend atom with its work-category. The atoms are
-    // exactly the pieces of the portfolio total below (per WP: labor + WP materials +
-    // เบิก − returns; plus the project store pool, which has no WP), so the card
-    // partitions the SAME total — a true breakdown, no double-count.
-    const projCatToWorkCat = new Map<string, string | null>();
-    for (const pc of projCatsRes.data ?? []) projCatToWorkCat.set(pc.id, pc.work_category_id);
-    const workCatName = new Map<string, string>();
-    for (const wc of workCatsRes.data ?? []) workCatName.set(wc.id, wc.name_th);
-    const wpWorkCat = (wpId: string): string | null => {
-      const pc = wpCategory.get(wpId);
-      return pc ? (projCatToWorkCat.get(pc) ?? null) : null;
+  if (showMoney && projectIds.length) {
+    // ONE round-trip: the DEFINER RPC aggregates the whole live portfolio (per project +
+    // per work-category) server-side, replacing the former 10-read admin batch + per-WP JS
+    // fold. It reads the zero-grant cost columns as definer, gated to MONEY_VIEW_ROLES.
+    const { data: spend } = await supabase.rpc("dashboard_portfolio_spend", {
+      p_project_ids: projectIds,
+    });
+    const rollup = (spend ?? { projects: [], categories: [] }) as {
+      projects: Array<{
+        project_id: string;
+        budget: number | null;
+        labor: number;
+        materials_purchase: number;
+        store_issues: number;
+        store_returns: number;
+        store_pool: number;
+      }>;
+      categories: Array<{ work_category_id: string | null; name: string | null; amount: number }>;
     };
-
-    const atoms: { workCategoryId: string | null; amount: number }[] = [];
-    // labor, per WP (supersession is within-WP, so per-WP sums match the project sum).
-    const laborByWp = new Map<string, CostInputRow[]>();
-    for (const r of laborRes.data ?? []) {
-      const arr = laborByWp.get(r.work_package_id) ?? [];
-      arr.push(r);
-      laborByWp.set(r.work_package_id, arr);
+    for (const p of rollup.projects) {
+      budgetById.set(p.project_id, p.budget);
+      spendByProjectId.set(p.project_id, {
+        labor: p.labor,
+        materials_purchase: p.materials_purchase,
+        store_issues: p.store_issues,
+        store_returns: p.store_returns,
+        store_pool: p.store_pool,
+      });
     }
-    for (const [wpId, rows] of laborByWp) {
-      atoms.push({ workCategoryId: wpWorkCat(wpId), amount: aggregateLaborCost(rows).total });
+    // Spec 230: the per-work-category atoms partition the SAME portfolio total. Resolve
+    // names + sort in JS — spendByWorkCategory folds the unset bucket, drops zero rows,
+    // and sorts (amount desc, unset last).
+    const nameById = new Map<string, string>();
+    for (const c of rollup.categories) {
+      if (c.work_category_id && c.name) nameById.set(c.work_category_id, c.name);
     }
-    // WP-bound material purchases, per WP (store-routed PRs excluded — counted at เบิก).
-    const matByWp = new Map<string, { id: string; status: string; amount: number | null }[]>();
-    for (const pr of prRes.data ?? []) {
-      // The query is WP-bound (.in work_package_id), but the column is nullable —
-      // skip any WP-less row (its cost lands at เบิก, not here; matches above).
-      if (!pr.work_package_id) continue;
-      const arr = matByWp.get(pr.work_package_id) ?? [];
-      arr.push({ id: pr.id, status: pr.status, amount: pr.amount });
-      matByWp.set(pr.work_package_id, arr);
-    }
-    for (const [wpId, rows] of matByWp) {
-      atoms.push({ workCategoryId: wpWorkCat(wpId), amount: sumMaterials(rows, storedPrIds) });
-    }
-    // เบิก (store issues), per WP, excluding reversed issues (matches the project sum).
-    const issByWp = new Map<string, { total_cost: number | null }[]>();
-    for (const si of issuesRes.data ?? []) {
-      if (reversedIssueIds.has(si.id)) continue;
-      const arr = issByWp.get(si.work_package_id) ?? [];
-      arr.push({ total_cost: si.total_cost });
-      issByWp.set(si.work_package_id, arr);
-    }
-    for (const [wpId, rows] of issByWp) {
-      atoms.push({ workCategoryId: wpWorkCat(wpId), amount: sumStoreIssues(rows) });
-    }
-    // WP→store returns, per WP — a NEGATIVE atom, netted out of the WP level (wp_profit).
-    const retByWp = new Map<string, { total_cost: number | null }[]>();
-    for (const rt of returnsRes.data ?? []) {
-      const arr = retByWp.get(rt.work_package_id) ?? [];
-      arr.push({ total_cost: rt.total_cost });
-      retByWp.set(rt.work_package_id, arr);
-    }
-    for (const [wpId, rows] of retByWp) {
-      atoms.push({ workCategoryId: wpWorkCat(wpId), amount: -sumStoreReturns(rows) });
-    }
-    // The project store pool has no WP → the unset bucket.
-    let poolTotal = 0;
-    for (const rows of storePoolByProject.values()) poolTotal += sumStorePool(rows);
-    if (poolTotal !== 0) atoms.push({ workCategoryId: null, amount: poolTotal });
-
-    categorySpend = spendByWorkCategory(atoms, workCatName, WORK_CATEGORY_UNSET_LABEL);
+    categorySpend = spendByWorkCategory(
+      rollup.categories.map((c) => ({ workCategoryId: c.work_category_id, amount: c.amount })),
+      nameById,
+      WORK_CATEGORY_UNSET_LABEL,
+    );
   }
 
   const items: ProjectVM[] = projects.map((p) => {
     const progress = rollupProgress(wpsByProject.get(p.id) ?? []);
     let money: ProjectVM["money"] = null;
     if (showMoney) {
-      const labor = aggregateLaborCost(laborByProject.get(p.id) ?? []).total;
-      // Materials = direct WP-bound purchases (at supplier amount) + store-issued
-      // material (เบิก at cost). Disjoint sources, so additive — no double-count:
-      // store-routed PRs (storedPrIds) are dropped from the purchase sum since
-      // their cost is counted via the เบิก sum instead.
-      const materials =
-        sumMaterials(materialsByProject.get(p.id) ?? [], storedPrIds) +
-        sumStoreIssues(storeIssuesByProject.get(p.id) ?? []);
-      // wpLevel = cost that reached a WP and stayed there: the old figure (labor +
-      // materials) NET of WP→store returns (returned material moved back into the
-      // store pool below, so it must leave the WP level or it double-counts).
-      // projectPool = store stock currently on hand. Disjoint, so the two add to a
-      // no-double-count total that also corrects the old understated number.
-      const returns = sumStoreReturns(storeReturnsByProject.get(p.id) ?? []);
-      const wpLevel = labor + materials - returns;
-      const projectPool = sumStorePool(storePoolByProject.get(p.id) ?? []);
-      const breakdown = spendBreakdown(wpLevel, projectPool);
+      const s = spendByProjectId.get(p.id);
+      // wpLevel = cost that reached a WP and stayed there: labor + WP materials + เบิก, NET
+      // of WP→store returns. projectPool = store stock on hand. Disjoint → the two add to a
+      // no-double-count total. The sums come from dashboard_portfolio_spend (above).
+      const wpLevel =
+        (s?.labor ?? 0) +
+        (s?.materials_purchase ?? 0) +
+        (s?.store_issues ?? 0) -
+        (s?.store_returns ?? 0);
+      const breakdown = spendBreakdown(wpLevel, s?.store_pool ?? 0);
       money = {
         breakdown,
         status: budgetStatus(budgetById.get(p.id) ?? null, breakdown.total),

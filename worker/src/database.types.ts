@@ -8009,6 +8009,10 @@ export type Database = {
         Args: { p_project: string }
         Returns: undefined
       }
+      dashboard_portfolio_spend: {
+        Args: { p_project_ids: string[] }
+        Returns: Json
+      }
       decide_contractor_bank_change: {
         Args: { p_approve: boolean; p_id: string }
         Returns: undefined
