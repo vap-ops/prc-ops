@@ -1,5 +1,5 @@
 begin;
-select plan(22);
+select plan(23);
 
 -- ============================================================================
 -- Spec 298 U1 — SA-assisted onboarding: capture-blind bank for phoneless workers.
@@ -100,6 +100,14 @@ select throws_ok(
        '73000000-0298-0298-0298-730000000298', 'ผู้เยี่ยม', '3400000000001', '1990-01-01',
        'sa-bank-capture/2026/22222222-2222-2222-2222-222222222222.jpg') $$,
   '42501', null, 'a non-SA is refused (role gate)');
+
+-- a site_admin who is NOT a member of the project is refused (can_see_project gate).
+set local "request.jwt.claims" = '{"sub": "71000000-0298-0298-0298-710000000298"}';
+select throws_ok(
+  $$ select public.sa_add_project_worker_with_bank(
+       '73000000-0298-0298-0298-730000000298', 'ไม่ใช่สมาชิก', '3400000000001', '1990-01-01',
+       'sa-bank-capture/2026/55555555-5555-5555-5555-555555555555.jpg') $$,
+  '42501', null, 'a non-member site_admin is refused (can_see_project gate)');
 
 -- duplicate national-ID (already on a worker) is refused.
 set local "request.jwt.claims" = '{"sub": "70000000-0298-0298-0298-700000000298"}';
