@@ -1,3 +1,9 @@
+## [0.14.1](https://github.com/VAP-Solution/prc-ops/compare/v0.14.0...v0.14.1) (2026-07-11)
+
+### Bug Fixes
+
+- **notifications:** harden outbox drainer against unknown/future event types ([#445](https://github.com/VAP-Solution/prc-ops/issues/445)) ([008d1e0](https://github.com/VAP-Solution/prc-ops/commit/008d1e0470d0e451c5acb7fe1e74cf67ac2958ab)), closes [#443](https://github.com/VAP-Solution/prc-ops/issues/443)
+
 # [0.14.0](https://github.com/VAP-Solution/prc-ops/compare/v0.13.0...v0.14.0) (2026-07-11)
 
 ### Features
