@@ -1,3 +1,9 @@
+# [0.20.0](https://github.com/VAP-Solution/prc-ops/compare/v0.19.0...v0.20.0) (2026-07-11)
+
+### Features
+
+- **onboarding:** approver display of applicant bank (spec 296 U3) ([#453](https://github.com/VAP-Solution/prc-ops/issues/453)) ([d63604b](https://github.com/VAP-Solution/prc-ops/commit/d63604b5aeab7c16487259f939b4879d6c9836ae))
+
 # [0.19.0](https://github.com/VAP-Solution/prc-ops/compare/v0.18.0...v0.19.0) (2026-07-11)
 
 ### Features
