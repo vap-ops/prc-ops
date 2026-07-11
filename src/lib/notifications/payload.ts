@@ -29,6 +29,12 @@ export interface NotificationPayload {
   feedbackTitle?: string;
   roleSnapshot?: string;
   submittedBy?: string;
+  // site_issue_reported (spec 277 P1a) — the WP rides on the outbox row's
+  // work_package_id (like wp_pending_approval), so only project/type/reporter
+  // ride in payload.
+  projectId?: string;
+  issueType?: string;
+  reportedBy?: string;
 }
 
 function str(value: unknown): string | undefined {
@@ -96,5 +102,11 @@ export function parseNotificationPayload(json: unknown): NotificationPayload {
   if (roleSnapshot !== undefined) payload.roleSnapshot = roleSnapshot;
   const submittedBy = str(record["submitted_by"]);
   if (submittedBy !== undefined) payload.submittedBy = submittedBy;
+  const projectId = str(record["project_id"]);
+  if (projectId !== undefined) payload.projectId = projectId;
+  const issueType = str(record["issue_type"]);
+  if (issueType !== undefined) payload.issueType = issueType;
+  const reportedBy = str(record["reported_by"]);
+  if (reportedBy !== undefined) payload.reportedBy = reportedBy;
   return payload;
 }

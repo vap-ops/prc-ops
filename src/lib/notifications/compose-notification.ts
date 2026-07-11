@@ -7,6 +7,7 @@ import {
   PURCHASE_REQUEST_STATUS_LABEL,
   FEEDBACK_TYPE_LABEL,
   USER_ROLE_LABEL,
+  SITE_ISSUE_TYPE_LABEL,
 } from "@/lib/i18n/labels";
 import { formatPoNumber, formatPrNumber } from "@/lib/purchasing/format-id";
 import type { Database } from "@/lib/db/database.types";
@@ -20,6 +21,12 @@ export interface ComposeContext {
   // (the drain enriches it from purchase_request_id → purchase_order). Absent for
   // a PR with no PO yet.
   poNumber?: number;
+  // Spec 277 P1a — site_issue_reported context, enriched by the drain from the
+  // payload's project_id / reported_by: the project's name, the reporter's
+  // display name, and a deep link into the project.
+  projectName?: string;
+  issueReporterName?: string;
+  issueDeepLink?: string;
 }
 
 function label(map: Record<string, string>, value: string | undefined): string {
@@ -88,6 +95,21 @@ export function composeNotification(
       const type = label(FEEDBACK_TYPE_LABEL, payload.feedbackType);
       const role = label(USER_ROLE_LABEL, payload.roleSnapshot);
       return `ข้อเสนอแนะใหม่ (${type}) จาก${role}: ${payload.feedbackTitle ?? ""}`;
+    }
+
+    // Spec 277 P1a — a SERIOUS site issue (safety/access/equipment), to the project
+    // PM + the director/procurement pool. Names the issue type + project (· WP when
+    // scoped) + reporter, then a deep link into the project to act.
+    case "site_issue_reported": {
+      const type = label(SITE_ISSUE_TYPE_LABEL, payload.issueType);
+      // project · WP, dropping either part when absent (no dangling separator).
+      const scope = [context.projectName, context.wpCode]
+        .filter((part): part is string => Boolean(part))
+        .join(" · ");
+      const lines = [`⚠️ ปัญหาหน้างาน (${type}): ${scope}`.trim()];
+      if (context.issueReporterName) lines.push(`แจ้งโดย ${context.issueReporterName}`);
+      if (context.issueDeepLink) lines.push(context.issueDeepLink);
+      return lines.join("\n");
     }
   }
 }

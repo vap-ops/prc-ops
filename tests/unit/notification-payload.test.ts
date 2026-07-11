@@ -85,4 +85,20 @@ describe("parseNotificationPayload", () => {
     expect(parseNotificationPayload("x")).toEqual({});
     expect(parseNotificationPayload(7)).toEqual({});
   });
+
+  // Spec 277 P1a — site_issue_reported snapshot fields (project_id, issue_type,
+  // reported_by) map to camelCase.
+  it("parses the site_issue_reported snapshot fields", () => {
+    expect(
+      parseNotificationPayload({
+        project_id: "51700000-0000-4000-8000-000000000001",
+        issue_type: "safety",
+        reported_by: "51700000-0000-4000-8000-000000000003",
+      }),
+    ).toEqual({
+      projectId: "51700000-0000-4000-8000-000000000001",
+      issueType: "safety",
+      reportedBy: "51700000-0000-4000-8000-000000000003",
+    });
+  });
 });

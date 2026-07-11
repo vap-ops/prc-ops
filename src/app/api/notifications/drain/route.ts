@@ -13,7 +13,13 @@ import { createClient as createAdminClient } from "@/lib/db/admin";
 import { composeNotification, type ComposeContext } from "@/lib/notifications/compose-notification";
 import { parseNotificationPayload } from "@/lib/notifications/payload";
 import { resolveRecipients } from "@/lib/notifications/resolve-recipients";
+import {
+  projectPmRecipients,
+  SITE_ISSUE_ALERT_ROLE_POOL,
+} from "@/lib/notifications/site-issue-recipients";
 import { PM_ROLES } from "@/lib/auth/role-home";
+import { clientEnv } from "@/lib/env";
+import type { UserRole } from "@/lib/db/enums";
 import {
   DRAIN_BATCH_SIZE,
   expiryCutoffIso,
@@ -267,6 +273,122 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
+  // --- Site-issue enrichment (spec 277 P1a — serious-issue alert) -----------
+  // Recipients = the issue's project PMs (lead + PM-tier members, resolved
+  // per-project) + the role-wide project_director / procurement_manager pool.
+  // Resolved here so every recipient's contacts are in the maps before the
+  // delivery loop. Entirely gated on site_issue_reported rows — no other event
+  // type touches any of these queries (the shared drainer stays unchanged).
+  const siteIssueRows = parsed.filter(({ row }) => row.event_type === "site_issue_reported");
+  const projectPmIdsByProject = new Map<string, string[]>();
+  const projectNameById = new Map<string, string>();
+  const reporterNameById = new Map<string, string>();
+  let siteIssueRolePoolIds: string[] = [];
+
+  if (siteIssueRows.length > 0) {
+    const siteIssueProjectIds = [
+      ...new Set(
+        siteIssueRows
+          .map(({ payload }) => payload.projectId)
+          .filter((id): id is string => id !== undefined),
+      ),
+    ];
+    const reporterIds = [
+      ...new Set(
+        siteIssueRows
+          .map(({ payload }) => payload.reportedBy)
+          .filter((id): id is string => id !== undefined),
+      ),
+    ];
+
+    const [projectsRes, membersRes, rolePoolRes] = await Promise.all([
+      siteIssueProjectIds.length > 0
+        ? admin.from("projects").select("id, name, project_lead_id").in("id", siteIssueProjectIds)
+        : Promise.resolve({ data: [], error: null }),
+      siteIssueProjectIds.length > 0
+        ? admin
+            .from("project_members")
+            .select("project_id, user_id")
+            .in("project_id", siteIssueProjectIds)
+        : Promise.resolve({ data: [], error: null }),
+      admin
+        .from("users")
+        .select("id, line_user_id, telegram_chat_id")
+        .in("role", [...SITE_ISSUE_ALERT_ROLE_POOL]),
+    ]);
+    if (projectsRes.error || membersRes.error || rolePoolRes.error) {
+      console.error("[notifications/drain] site-issue enrichment failed", {
+        projects: projectsRes.error?.message,
+        members: membersRes.error?.message,
+        rolePool: rolePoolRes.error?.message,
+      });
+      return NextResponse.json({ error: "enrichment_failed" }, { status: 500 });
+    }
+
+    // Role-wide pool — every director + procurement_manager, alerted regardless
+    // of project (no per-project PD/proc binding exists).
+    for (const u of rolePoolRes.data ?? []) {
+      if (u.line_user_id) lineIdByUser.set(u.id, u.line_user_id);
+      if (u.telegram_chat_id) telegramChatByUser.set(u.id, u.telegram_chat_id);
+    }
+    siteIssueRolePoolIds = (rolePoolRes.data ?? []).map((u) => u.id);
+
+    const leadByProject = new Map<string, string>();
+    for (const p of projectsRes.data ?? []) {
+      if (p.name) projectNameById.set(p.id, p.name);
+      if (p.project_lead_id) leadByProject.set(p.id, p.project_lead_id);
+    }
+    const memberIdsByProject = new Map<string, string[]>();
+    for (const m of membersRes.data ?? []) {
+      const list = memberIdsByProject.get(m.project_id) ?? [];
+      list.push(m.user_id);
+      memberIdsByProject.set(m.project_id, list);
+    }
+
+    // Candidate users = every project lead + member + reporter. One query yields
+    // their role (the PM filter for project PMs), display name (the reporter
+    // line), and contacts (LINE / Telegram push targets).
+    const candidateIds = [
+      ...new Set([
+        ...leadByProject.values(),
+        ...[...memberIdsByProject.values()].flat(),
+        ...reporterIds,
+      ]),
+    ];
+    const roleById = new Map<string, UserRole>();
+    if (candidateIds.length > 0) {
+      const { data: candidates, error: candidatesError } = await admin
+        .from("users")
+        .select("id, role, full_name, line_display_name, line_user_id, telegram_chat_id")
+        .in("id", candidateIds);
+      if (candidatesError) {
+        console.error(
+          "[notifications/drain] site-issue user lookup failed",
+          candidatesError.message,
+        );
+        return NextResponse.json({ error: "enrichment_failed" }, { status: 500 });
+      }
+      for (const u of candidates ?? []) {
+        roleById.set(u.id, u.role);
+        const name = u.full_name ?? u.line_display_name;
+        if (name) reporterNameById.set(u.id, name);
+        if (u.line_user_id) lineIdByUser.set(u.id, u.line_user_id);
+        if (u.telegram_chat_id) telegramChatByUser.set(u.id, u.telegram_chat_id);
+      }
+    }
+
+    for (const projectId of siteIssueProjectIds) {
+      projectPmIdsByProject.set(
+        projectId,
+        projectPmRecipients({
+          leadId: leadByProject.get(projectId) ?? null,
+          memberIds: memberIdsByProject.get(projectId) ?? [],
+          roleById,
+        }),
+      );
+    }
+  }
+
   // --- Deliver --------------------------------------------------------------
 
   let sent = 0;
@@ -278,6 +400,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       pmIds,
       wpUploaderIds: row.work_package_id ? (uploaderIdsByWp.get(row.work_package_id) ?? []) : [],
       superIds,
+      siteIssueProjectPmIds: payload.projectId
+        ? (projectPmIdsByProject.get(payload.projectId) ?? [])
+        : [],
+      siteIssueRolePoolIds,
     });
     const lineTargets = recipients
       .map((id) => lineIdByUser.get(id))
@@ -296,6 +422,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       ...(wpCode !== undefined ? { wpCode } : {}),
       ...(poNumber !== undefined ? { poNumber } : {}),
     };
+    // Spec 277 P1a — project name, reporter name, and a deep link into the
+    // project, resolved from the site_issue payload's project_id / reported_by.
+    if (row.event_type === "site_issue_reported") {
+      const projectId = payload.projectId;
+      if (projectId !== undefined) {
+        const projectName = projectNameById.get(projectId);
+        if (projectName !== undefined) composeContext.projectName = projectName;
+        composeContext.issueDeepLink = `${clientEnv.NEXT_PUBLIC_APP_URL}/projects/${projectId}`;
+      }
+      if (payload.reportedBy !== undefined) {
+        const reporterName = reporterNameById.get(payload.reportedBy);
+        if (reporterName !== undefined) composeContext.issueReporterName = reporterName;
+      }
+    }
     const text = composeNotification(row.event_type, payload, composeContext);
 
     let anySuccess = false;
