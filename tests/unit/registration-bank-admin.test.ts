@@ -14,7 +14,10 @@ vi.mock("@/lib/db/admin", () => ({
   createClient: mockCreateClient,
 }));
 
-import { getRegistrationBank } from "@/lib/register/admin-registration-bank";
+import {
+  getRegistrationBank,
+  listRegistrationsWithBank,
+} from "@/lib/register/admin-registration-bank";
 
 function clientReturning(result: { data: unknown; error: unknown }) {
   const maybeSingleFn = vi.fn().mockResolvedValue(result);
@@ -56,5 +59,41 @@ describe("getRegistrationBank", () => {
 
     const result = await getRegistrationBank("reg-2");
     expect(result).toBeNull();
+  });
+});
+
+// Spec 296 U4 — bank-PRESENCE (not the data) for a batch of registrations, so the
+// back-office queue can flag which applicants actually meet the approval floor.
+function clientReturningList(result: { data: unknown; error: unknown }) {
+  const inFn = vi.fn().mockResolvedValue(result);
+  const selectFn = vi.fn().mockReturnValue({ in: inFn });
+  const fromFn = vi.fn().mockReturnValue({ select: selectFn });
+  return { client: { from: fromFn }, fromFn, selectFn, inFn };
+}
+
+describe("listRegistrationsWithBank", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns the set of registration ids that have a bank row", async () => {
+    const { client, fromFn, inFn } = clientReturningList({
+      data: [{ registration_id: "r1" }, { registration_id: "r3" }],
+      error: null,
+    });
+    mockCreateClient.mockReturnValue(client);
+
+    const result = await listRegistrationsWithBank(["r1", "r2", "r3"]);
+    expect(fromFn).toHaveBeenCalledWith("staff_registration_bank");
+    expect(inFn).toHaveBeenCalledWith("registration_id", ["r1", "r2", "r3"]);
+    expect(result.has("r1")).toBe(true);
+    expect(result.has("r2")).toBe(false);
+    expect(result.has("r3")).toBe(true);
+  });
+
+  it("returns an empty set for empty input without creating a client", async () => {
+    const result = await listRegistrationsWithBank([]);
+    expect(result.size).toBe(0);
+    expect(mockCreateClient).not.toHaveBeenCalled();
   });
 });

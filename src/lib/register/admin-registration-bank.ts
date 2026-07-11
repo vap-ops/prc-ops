@@ -38,3 +38,21 @@ export async function getRegistrationBank(
       }
     : null;
 }
+
+// Spec 296 U4 — bank PRESENCE (not the data) for a batch of registrations, so the
+// back-office queue can flag which applicants actually meet the approval floor
+// WITHOUT exposing any bank PII (only "has a bank row or not" leaves this module).
+// Reads the zero-grant staff_registration_bank via the service-role admin client;
+// returns the set of registration ids that have a bank row. Short-circuits on
+// empty input (no client, no query) — mirrors fetchDisplayNames.
+export async function listRegistrationsWithBank(
+  registrationIds: readonly string[],
+): Promise<Set<string>> {
+  if (registrationIds.length === 0) return new Set();
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("staff_registration_bank")
+    .select("registration_id")
+    .in("registration_id", registrationIds as string[]);
+  return new Set((data ?? []).map((r) => r.registration_id));
+}

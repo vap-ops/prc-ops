@@ -22,6 +22,7 @@ import {
   listLiveAttachmentPurposes,
 } from "@/lib/register/admin-registrations";
 import { buildRegistrationQueueRow } from "@/lib/register/registration-queue-view";
+import { listRegistrationsWithBank } from "@/lib/register/admin-registration-bank";
 
 export const metadata = { title: "คำขอสมัคร (ดูอย่างเดียว)" };
 
@@ -32,10 +33,11 @@ export default async function SaStaffRegistrationsPage() {
   // RLS already scopes this to the pending queue for site_admin
   // (can_see_technician_registration — migration 20260813071300).
   const registrations = await listVisibleTechnicianRegistrations(supabase);
-  const purposesByRegistration = await listLiveAttachmentPurposes(
-    supabase,
-    registrations.map((r) => r.id),
-  );
+  const ids = registrations.map((r) => r.id);
+  const [purposesByRegistration, bankByRegistration] = await Promise.all([
+    listLiveAttachmentPurposes(supabase, ids),
+    listRegistrationsWithBank(ids),
+  ]);
 
   const rows = registrations.map((r) =>
     buildRegistrationQueueRow({
@@ -45,6 +47,7 @@ export default async function SaStaffRegistrationsPage() {
       status: r.status,
       createdAt: r.created_at,
       uploadedPurposes: purposesByRegistration.get(r.id) ?? [],
+      hasBank: bankByRegistration.has(r.id),
     }),
   );
 
