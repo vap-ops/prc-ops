@@ -152,8 +152,12 @@ export default async function ProjectStorePage({ params, searchParams }: PagePro
       .eq("project_id", project.id)
       .in("status", ["purchased", "on_route"])
       .is("work_package_id", null)
-      .order("eta", { ascending: true, nullsFirst: false })
-      .limit(50),
+      // selectStoreIncoming re-sorts for display (due-first, null-ETA last); this order is
+      // only to make the cap deterministic. Cap high — the null-ETA rows are the "today"
+      // pile and must not be truncated first (review 🟡); >200 open store orders on one
+      // project is not a real state.
+      .order("eta", { ascending: true })
+      .limit(200),
   ]);
 
   const onHand: StockRow[] = (ohRows ?? [])

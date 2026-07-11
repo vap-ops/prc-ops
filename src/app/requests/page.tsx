@@ -65,7 +65,12 @@ import {
   buildWorklistQuery,
   type ProcurementFilter,
 } from "@/lib/purchasing/worklist-filter";
-import { PURCHASE_REQUEST_STATUS_LABEL, INCOMING_LENS_LABEL } from "@/lib/i18n/labels";
+import {
+  PURCHASE_REQUEST_STATUS_LABEL,
+  INCOMING_LENS_LABEL,
+  DELIVERY_LENS_FILTER_ARIA,
+  DELIVERY_OVERDUE_FLAG,
+} from "@/lib/i18n/labels";
 import { bahtCompact as baht } from "@/lib/format";
 import type { Database } from "@/lib/db/database.types";
 
@@ -690,7 +695,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                     </span>
                     {group.overdue > 0 ? (
                       <span className="bg-danger text-on-fill text-meta inline-flex h-5 items-center rounded-full px-2 font-bold">
-                        เลยกำหนด {group.overdue}
+                        {DELIVERY_OVERDUE_FLAG} {group.overdue}
                       </span>
                     ) : null}
                   </div>
@@ -699,7 +704,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                     <div
                       className="flex flex-wrap items-center gap-1 text-xs"
                       role="group"
-                      aria-label="ตัวกรองการจัดส่ง"
+                      aria-label={DELIVERY_LENS_FILTER_ARIA}
                     >
                       {INCOMING_LENSES.map((lens) => (
                         <Link

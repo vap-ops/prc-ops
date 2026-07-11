@@ -12,6 +12,8 @@ import {
   STORE_INCOMING_HEADING,
   STORE_INCOMING_SUBTITLE,
   STORE_INCOMING_EMPTY,
+  DELIVERY_LENS_FILTER_ARIA,
+  DELIVERY_OVERDUE_FLAG,
   formatThaiDate,
 } from "@/lib/i18n/labels";
 import type { StoreIncomingRow } from "@/lib/store/incoming";
@@ -42,7 +44,11 @@ export function StoreIncomingList({ rows, lens, hrefFor }: StoreIncomingListProp
         </span>
       </div>
       <p className="text-ink-secondary text-xs">{STORE_INCOMING_SUBTITLE}</p>
-      <div className="flex flex-wrap gap-1 text-xs" role="group" aria-label="ตัวกรองการจัดส่ง">
+      <div
+        className="flex flex-wrap gap-1 text-xs"
+        role="group"
+        aria-label={DELIVERY_LENS_FILTER_ARIA}
+      >
         {INCOMING_LENSES.map((l) => (
           <Link
             key={l}
@@ -84,7 +90,7 @@ export function StoreIncomingList({ rows, lens, hrefFor }: StoreIncomingListProp
                     <span
                       className={`text-meta ${r.overdue ? "text-danger font-bold" : "text-ink-secondary"}`}
                     >
-                      {r.overdue ? "เลยกำหนด " : ""}
+                      {r.overdue ? `${DELIVERY_OVERDUE_FLAG} ` : ""}
                       {formatThaiDate(r.eta)}
                     </span>
                   ) : null}
