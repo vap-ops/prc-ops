@@ -346,16 +346,16 @@ describe("SupplyPlanManager scoped picker wiring (spec 228)", () => {
     );
   }
 
-  it("scopes the picker to the chosen WP's work-category, the rest still reachable", () => {
+  it("shows the full catalog by default for the chosen WP, narrowable to ตรงกับงาน", () => {
     renderScoped();
     fireEvent.change(screen.getByLabelText("งาน"), { target: { value: "wp1" } });
     fireEvent.click(screen.getByRole("button", { name: "เลือกวัสดุจากแคตตาล็อก" }));
-    // The in-scope (งานไฟฟ้า) item surfaces; the steel item is pre-filtered out.
+    // Spec 297 U2: default = show-all incl. off-category — both surface.
     expect(screen.getByRole("button", { name: /สายไฟ NYY/ })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeNull();
-    // Never hides — the แสดงทั้งหมด escape reveals the full catalog.
-    fireEvent.click(screen.getByRole("button", { name: /แสดงทั้งหมด/ }));
     expect(screen.getByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeInTheDocument();
+    // The เฉพาะที่ตรงกับงาน toggle narrows to the WP's งานไฟฟ้า set.
+    fireEvent.click(screen.getByRole("button", { name: /เฉพาะที่ตรงกับงาน/ }));
+    expect(screen.queryByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeNull();
   });
 
   it("shows the full catalog for a whole-project row (no WP → no scope)", () => {

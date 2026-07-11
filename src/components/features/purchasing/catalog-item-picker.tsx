@@ -104,8 +104,10 @@ export function ScopedCatalogItemPicker({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>(ALL);
-  // Spec 228: clears the scope pre-filter (the แสดงทั้งหมด escape).
-  const [showAll, setShowAll] = useState(false);
+  // Spec 297 U2 (operator): DEFAULT to show-all, off-category included — so a PR
+  // can pick outside the WP work-category without first toggling. The เฉพาะที่ตรงกับงาน
+  // toggle narrows to the in-scope set (inverts the spec-228 pre-filter-by-default).
+  const [showAll, setShowAll] = useState(true);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const selected = selectedId ? (items.find((i) => i.id === selectedId) ?? null) : null;
@@ -162,7 +164,7 @@ export function ScopedCatalogItemPicker({
     setOpen(false);
     setQuery("");
     setCategory(ALL);
-    setShowAll(false);
+    setShowAll(true);
   }
   function choose(id: string) {
     onSelect(id);

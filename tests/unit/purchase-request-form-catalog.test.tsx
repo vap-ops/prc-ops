@@ -178,17 +178,17 @@ describe("PurchaseRequestForm catalog picker — WP work-category scope (spec 22
     );
   }
 
-  it("surfaces the WP work-category's materials first + flags them, hiding nothing", async () => {
+  it("shows all materials by default (off-category flagged), narrowable to ตรงกับงาน", async () => {
     const user = userEvent.setup();
     renderScopedForm([CAT_PAINT]); // this WP's work-category buys งานสี
     await user.click(screen.getByRole("button", { name: TRIGGER }));
-    // the paint item is pre-surfaced and flagged ตรงกับงาน.
-    expect(screen.getByRole("button", { name: /สีเคลือบ/ })).toBeInTheDocument();
-    expect(screen.getByText(/ตรงกับงาน/)).toBeInTheDocument();
-    // pre-filtered: the out-of-scope steel is not shown — but an escape exists.
-    expect(screen.queryByRole("button", { name: /เหล็กข้ออ้อย/ })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /แสดงทั้งหมด/ }));
+    // Spec 297 U2: everything shows by default — paint (flagged ตรงกับงาน) + off-scope steel.
+    const paintRow = screen.getByRole("button", { name: /สีเคลือบ/ });
+    expect(paintRow).toHaveTextContent("ตรงกับงาน");
     expect(screen.getByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeInTheDocument();
+    // Narrowing to เฉพาะที่ตรงกับงาน hides the off-scope item.
+    await user.click(screen.getByRole("button", { name: /เฉพาะที่ตรงกับงาน/ }));
+    expect(screen.queryByRole("button", { name: /เหล็กข้ออ้อย/ })).not.toBeInTheDocument();
   });
 
   it("falls back to the full catalog when the WP has no work-category scope", async () => {
