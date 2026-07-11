@@ -1,3 +1,9 @@
+# [0.22.0](https://github.com/VAP-Solution/prc-ops/compare/v0.21.0...v0.22.0) (2026-07-11)
+
+### Features
+
+- **sandbox:** spec 294 U4 — preview-safe reusable sandbox login picker ([#455](https://github.com/VAP-Solution/prc-ops/issues/455)) ([46ba17b](https://github.com/VAP-Solution/prc-ops/commit/46ba17b5dcc00fc1c0e514ee78c8c86d56e62074))
+
 # [0.21.0](https://github.com/VAP-Solution/prc-ops/compare/v0.20.0...v0.21.0) (2026-07-11)
 
 ### Features
