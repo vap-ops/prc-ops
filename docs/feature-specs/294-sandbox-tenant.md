@@ -74,11 +74,28 @@ reset — acceptable by design.
    enable "Automatically expose System Environment Variables" (commit sha for
    the banner).
 3. **Logins**: LINE OAuth needs a callback registration per origin (no
-   wildcards), so sandbox logins are minted magiclinks against the seeded
-   personas (`sandbox-admin@prc-ops.test` = super_admin, `sandbox-sa1@` =
-   site_admin, `sandbox-pm@` = PM, …) — same recipe as memory
-   `dev-preview-login`, pointed at the sandbox project. Optional later: register
-   the stable sandbox URL in a separate LINE dev channel.
+   wildcards). Two sandbox-only paths (both 404 unless `NEXT_PUBLIC_APP_ENV=sandbox`):
+   - **U4 picker (preferred, reusable):** forward the **stable, tokenless** link
+     `https://prc-ops-sandbox.vercel.app/auth/sandbox-link`. The GET renders a
+     role-picker that mints nothing (so chat-app link-preview crawlers can't
+     consume it — the defect U2 hit); the human's button POST mints a session
+     server-side for the chosen seed persona. Reusable forever, survives
+     forwarding. `?as=<personaKey>` deep-links one role.
+   - **U2 token (direct):** `?token_hash=<minted>` for a CLI-minted one-time
+     login (still used by the re-mint recipe). One-time — a preview crawler
+     consumes it, so prefer the picker for anything forwarded.
+   - Both allowlist to `SEED_PERSONAS` only (`sandbox-admin@` = super_admin,
+     `sandbox-sa1@` = site_admin, …). Optional later: register the stable URL in
+     a separate LINE dev channel.
+
+   **Accepted risk (U4):** the POST is unauthenticated + CSRF-tokenless and mints
+   a session for a fixed sandbox persona (incl. super_admin). Login-CSRF is
+   possible but negligible — synthetic data, sandbox-only cookies, prod is 404.
+   Holds ONLY while the sandbox is never pointed at a real tenant/DB.
+   **Follow-up flagged:** the danger-path CI guard's deny-regex covers
+   `src/lib/db/admin.ts` + `src/lib/auth/**` but NOT `src/app/auth/**`, so a
+   session-minting route under `/app/auth` auto-merges without an operator gate.
+   Widen the guard (own governance-file unit).
 
 ## v1 limits (deliberate)
 
