@@ -201,6 +201,19 @@ select is((select count(*)::int from public.staff_registrations where user_id='f
   'applicant A cannot read B registration (cross-user read denied)');
 reset role;
 
+-- Spec 295: the SA/site_owner pending-read seam is now PROJECT-SCOPED (an SA sees
+-- only pending applicants referred — invited_project_id — to a project they can
+-- see). Refer both applicants to a project the read-only SA + site_owner are
+-- members of, so the read-only-seam assertions below still hold under the scoped
+-- rule. (295's own test owns the cross-project / unreferred negative cases.)
+insert into public.projects (id, code, name) values
+  ('f9000000-0000-0000-0000-00000000f264', 'TAP-264B', 'Spec 264b fixture project');
+insert into public.project_members (project_id, user_id, added_by) values
+  ('f9000000-0000-0000-0000-00000000f264', 'f4444444-4444-4444-4444-44444444f264', 'f3333333-3333-3333-3333-33333333f264'),
+  ('f9000000-0000-0000-0000-00000000f264', 'f6666666-6666-6666-6666-66666666f264', 'f3333333-3333-3333-3333-33333333f264');
+update public.staff_registrations set invited_project_id='f9000000-0000-0000-0000-00000000f264'
+  where user_id in ('f1111111-1111-1111-1111-11111111f264','f2222222-2222-2222-2222-22222222f264');
+
 -- Back-office (procurement_manager) reads ALL of these applicants' registrations.
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "f3333333-3333-3333-3333-33333333f264"}';
