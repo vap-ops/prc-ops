@@ -1,3 +1,9 @@
+# [0.21.0](https://github.com/VAP-Solution/prc-ops/compare/v0.20.0...v0.21.0) (2026-07-11)
+
+### Features
+
+- **onboarding:** queue "ready" hint reflects the book-bank floor (spec 296 U4) ([#454](https://github.com/VAP-Solution/prc-ops/issues/454)) ([a290008](https://github.com/VAP-Solution/prc-ops/commit/a290008489f9feefcb4f59fadbcdd43633a18983))
+
 # [0.20.0](https://github.com/VAP-Solution/prc-ops/compare/v0.19.0...v0.20.0) (2026-07-11)
 
 ### Features
