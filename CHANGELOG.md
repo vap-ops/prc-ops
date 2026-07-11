@@ -1,3 +1,9 @@
+# [0.27.0](https://github.com/VAP-Solution/prc-ops/compare/v0.26.1...v0.27.0) (2026-07-11)
+
+### Features
+
+- **requests:** spec 300 U2 — receive card = รับเข้าคลังแล้ว indicator + receipt photo co-located ([#462](https://github.com/VAP-Solution/prc-ops/issues/462)) ([54ee46e](https://github.com/VAP-Solution/prc-ops/commit/54ee46e1569577119177891ba7851524ba2b1a46))
+
 ## [0.26.1](https://github.com/VAP-Solution/prc-ops/compare/v0.26.0...v0.26.1) (2026-07-11)
 
 ### Bug Fixes
