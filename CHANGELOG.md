@@ -1,3 +1,9 @@
+## [0.15.2](https://github.com/VAP-Solution/prc-ops/compare/v0.15.1...v0.15.2) (2026-07-11)
+
+### Bug Fixes
+
+- **rls:** scope SA pending-applicant queue to the SA's project (spec 295) ([#449](https://github.com/VAP-Solution/prc-ops/issues/449)) ([19cd19e](https://github.com/VAP-Solution/prc-ops/commit/19cd19e684ae2c79c2b4234a7468d15c44442f40))
+
 ## [0.15.1](https://github.com/VAP-Solution/prc-ops/compare/v0.15.0...v0.15.1) (2026-07-11)
 
 ### Bug Fixes
