@@ -1,3 +1,9 @@
+# [0.14.0](https://github.com/VAP-Solution/prc-ops/compare/v0.13.0...v0.14.0) (2026-07-11)
+
+### Features
+
+- **notifications:** serious site-issue PM alert (spec 277 P1a) ([#443](https://github.com/VAP-Solution/prc-ops/issues/443)) ([310cef0](https://github.com/VAP-Solution/prc-ops/commit/310cef0b0850037e8f4f1b7631d708b6821b7814))
+
 # [0.13.0](https://github.com/VAP-Solution/prc-ops/compare/v0.12.2...v0.13.0) (2026-07-10)
 
 ### Features

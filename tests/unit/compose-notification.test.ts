@@ -139,4 +139,45 @@ describe("composeNotification", () => {
       ),
     ).toBe("ข้อเสนอแนะใหม่ (ฟีเจอร์) จากผู้จัดการโครงการ: ขอกลุ่มวัสดุ");
   });
+
+  // Spec 277 P1a — serious site-issue alert: type label + project/WP scope +
+  // reporter + a deep link into the project (enriched by the drain).
+  it("composes site_issue_reported with the type label, project · WP scope, reporter, and deep link", () => {
+    expect(
+      composeNotification(
+        "site_issue_reported",
+        { issueType: "safety" },
+        {
+          projectName: "PRC-2026-004",
+          wpCode: "WP-012",
+          issueReporterName: "สมชาย ใจดี",
+          issueDeepLink: "https://ops.example.app/projects/p1",
+        },
+      ),
+    ).toBe(
+      "⚠️ ปัญหาหน้างาน (ความปลอดภัย/อุบัติเหตุ): PRC-2026-004 · WP-012\nแจ้งโดย สมชาย ใจดี\nhttps://ops.example.app/projects/p1",
+    );
+  });
+
+  it("composes site_issue_reported with a WP but no project name (no dangling separator)", () => {
+    expect(
+      composeNotification("site_issue_reported", { issueType: "equipment" }, { wpCode: "WP-012" }),
+    ).toBe("⚠️ ปัญหาหน้างาน (เครื่องจักร/อุปกรณ์เสีย): WP-012");
+  });
+
+  it("composes site_issue_reported without a WP (project scope only)", () => {
+    expect(
+      composeNotification(
+        "site_issue_reported",
+        { issueType: "access" },
+        {
+          projectName: "PRC-2026-004",
+          issueReporterName: "สมชาย ใจดี",
+          issueDeepLink: "https://ops.example.app/projects/p1",
+        },
+      ),
+    ).toBe(
+      "⚠️ ปัญหาหน้างาน (เข้าพื้นที่ไม่ได้): PRC-2026-004\nแจ้งโดย สมชาย ใจดี\nhttps://ops.example.app/projects/p1",
+    );
+  });
 });
