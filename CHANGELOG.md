@@ -1,3 +1,9 @@
+# [0.26.0](https://github.com/VAP-Solution/prc-ops/compare/v0.25.0...v0.26.0) (2026-07-11)
+
+### Features
+
+- **requests:** spec 300 U1 — SA delivery lens (today/on-route/all) ([#460](https://github.com/VAP-Solution/prc-ops/issues/460)) ([fe37e58](https://github.com/VAP-Solution/prc-ops/commit/fe37e587c687db4a086a0260a9e180d07084ea02))
+
 # [0.25.0](https://github.com/VAP-Solution/prc-ops/compare/v0.24.0...v0.25.0) (2026-07-11)
 
 ### Features
