@@ -98,3 +98,22 @@ export async function getOwnStaffConsent(
     .maybeSingle();
   return data ? { consentedAt: data.consented_at } : null;
 }
+
+// Spec 296 — the applicant's own declared bank fields. The zero-grant
+// staff_registration_bank table is unreadable by `authenticated` directly (bank
+// PII is walled from in-project site_admins, ADR 0079); the DEFINER
+// get_own_staff_bank returns only the caller's own row (keyed on auth.uid()).
+// Feeds the form prefill + the approval-floor `hasBankFields`.
+export async function getOwnStaffBank(
+  supabase: ServerClient,
+): Promise<{ bankName: string; accountNumber: string; accountName: string } | null> {
+  const { data } = await supabase.rpc("get_own_staff_bank");
+  const row = Array.isArray(data) ? data[0] : null;
+  return row
+    ? {
+        bankName: row.bank_name,
+        accountNumber: row.bank_account_number,
+        accountName: row.bank_account_name,
+      }
+    : null;
+}

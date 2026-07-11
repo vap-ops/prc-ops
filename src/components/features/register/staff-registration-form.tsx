@@ -30,8 +30,10 @@ import {
   updateOwnStaffRegistration,
   addStaffRegistrationDoc,
   recordOwnStaffConsent,
+  recordOwnStaffBank,
 } from "@/lib/register/actions";
 import { validateRegistrationProfile } from "@/lib/register/registration-profile";
+import { validateRegistrationBank } from "@/lib/register/registration-bank";
 import { registrationApprovalFloor } from "@/lib/register/registration-floor";
 import { createClient } from "@/lib/db/browser";
 import { PHOTO_ACCEPT_MIME, photoExtToMime } from "@/lib/photos/path";
@@ -62,6 +64,9 @@ export interface StaffRegistrationFormInitial {
   emergencyRelation: string;
   emergencyPhone: string;
   declaredRoleHint: string;
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
 }
 
 export interface StaffRegistrationFormProps {
@@ -98,11 +103,27 @@ export function StaffRegistrationForm({
   const [emergencyRelation, setEmergencyRelation] = useState(initial.emergencyRelation);
   const [emergencyPhone, setEmergencyPhone] = useState(initial.emergencyPhone);
   const [declaredRoleHint, setDeclaredRoleHint] = useState(initial.declaredRoleHint);
+  const [bankName, setBankName] = useState(initial.bankName);
+  const [accountNumber, setAccountNumber] = useState(initial.accountNumber);
+  const [accountName, setAccountName] = useState(initial.accountName);
   const [error, setError] = useState<string | null>(null);
+
+  // hasBankFields mirrors the OTHER floor inputs (docUrls / consentedAt): it reflects
+  // the PERSISTED bank (from `initial`, refreshed by router.refresh() after a save),
+  // NOT the unsaved typed state — so typing without pressing "บันทึกบัญชีธนาคาร" does
+  // not falsely satisfy the floor while the DB still has no staff_registration_bank row.
+  const bankSaved =
+    validateRegistrationBank({
+      bankName: initial.bankName,
+      accountNumber: initial.accountNumber,
+      accountName: initial.accountName,
+    }) === null;
 
   const floor = registrationApprovalFloor({
     fullName,
     hasIdCard: Boolean(docUrls.id_card),
+    hasBookBank: Boolean(docUrls.book_bank),
+    hasBankFields: bankSaved,
     hasConsent: Boolean(consentedAt),
   });
 
@@ -260,6 +281,16 @@ export function StaffRegistrationForm({
           <hr className="border-edge my-4" />
           <StaffDocuments uid={uid} urls={docUrls} />
           <hr className="border-edge my-4" />
+          <StaffBankFields
+            bankName={bankName}
+            accountNumber={accountNumber}
+            accountName={accountName}
+            setBankName={setBankName}
+            setAccountNumber={setAccountNumber}
+            setAccountName={setAccountName}
+            saved={bankSaved}
+          />
+          <hr className="border-edge my-4" />
           <StaffConsentCheckbox consentedAt={consentedAt} floorMet={floor.met} />
         </>
       ) : (
@@ -362,7 +393,7 @@ function DocRow({
   }
 
   const busy = phase === "uploading" || phase === "saving";
-  const required = purpose === "id_card";
+  const required = purpose === "id_card" || purpose === "book_bank";
 
   return (
     <div className="flex flex-col gap-2">
@@ -415,6 +446,115 @@ function DocRow({
   );
 }
 
+// Spec 296 — the applicant's declared bank fields. Stored in the zero-grant
+// staff_registration_bank via recordOwnStaffBank (own + pending). The parent owns
+// the values (they drive the approval-floor `hasBankFields`); this child renders
+// the inputs and handles the save.
+function StaffBankFields({
+  bankName,
+  accountNumber,
+  accountName,
+  setBankName,
+  setAccountNumber,
+  setAccountName,
+  saved,
+}: {
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  setBankName: (v: string) => void;
+  setAccountNumber: (v: string) => void;
+  setAccountName: (v: string) => void;
+  /** True once a bank row is persisted (from `initial`) — drives the floor. */
+  saved: boolean;
+}) {
+  const router = useRouter();
+  const toast = useToast();
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function save() {
+    setError(null);
+    const v = validateRegistrationBank({ bankName, accountNumber, accountName });
+    if (v) {
+      setError(v);
+      return;
+    }
+    startTransition(async () => {
+      const result = await recordOwnStaffBank({ bankName, accountNumber, accountName });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      toast.success("บันทึกบัญชีธนาคารแล้ว");
+      router.refresh();
+    });
+  }
+
+  return (
+    <div>
+      <p className="text-ink text-sm font-semibold">
+        บัญชีธนาคาร
+        <span className="text-attn-ink ml-1.5 text-xs font-normal">(จำเป็นสำหรับการอนุมัติ)</span>
+      </p>
+      <p className="text-ink-muted mt-0.5 text-xs">
+        สำหรับการจ่ายค่าจ้าง เฉพาะบริษัทและท่านเท่านั้นที่เห็น
+      </p>
+      <label className="text-ink-secondary mt-2 block text-sm">
+        ธนาคาร
+        <input
+          value={bankName}
+          maxLength={80}
+          disabled={pending}
+          onChange={(e) => setBankName(e.target.value)}
+          className={FIELD_STACKED}
+        />
+      </label>
+      <label className="text-ink-secondary mt-3 block text-sm">
+        เลขที่บัญชี
+        <input
+          value={accountNumber}
+          maxLength={30}
+          inputMode="numeric"
+          disabled={pending}
+          onChange={(e) => setAccountNumber(e.target.value)}
+          className={FIELD_STACKED}
+        />
+      </label>
+      <label className="text-ink-secondary mt-3 block text-sm">
+        ชื่อบัญชี
+        <input
+          value={accountName}
+          maxLength={120}
+          disabled={pending}
+          onChange={(e) => setAccountName(e.target.value)}
+          className={FIELD_STACKED}
+        />
+      </label>
+      {error ? (
+        <p role="alert" className={`mt-2 ${INLINE_ALERT_TEXT}`}>
+          {error}
+        </p>
+      ) : null}
+      <button
+        type="button"
+        disabled={pending}
+        onClick={save}
+        className={`mt-3 w-full ${BUTTON_SECONDARY_MUTED}`}
+      >
+        {pending ? "กำลังบันทึก…" : "บันทึกบัญชีธนาคาร"}
+      </button>
+      {saved ? (
+        <p className="text-done-strong mt-1.5 text-xs">✓ บันทึกบัญชีธนาคารแล้ว</p>
+      ) : (
+        <p className="text-ink-muted mt-1.5 text-xs">
+          ยังไม่ได้บันทึก — กด “บันทึกบัญชีธนาคาร” เพื่อบันทึก
+        </p>
+      )}
+    </div>
+  );
+}
+
 function StaffConsentCheckbox({
   consentedAt,
   floorMet,
@@ -457,6 +597,7 @@ function StaffConsentCheckbox({
         />
         <span className="text-ink-secondary text-sm">
           ยินยอมตาม PDPA ให้บริษัทเก็บและใช้ข้อมูลส่วนบุคคลของท่านเพื่อการสมัครและว่าจ้างงาน
+          รวมถึงข้อมูลบัญชีธนาคารเพื่อการจ่ายค่าจ้าง
         </span>
       </label>
       {consentedAt ? (
@@ -473,7 +614,8 @@ function StaffConsentCheckbox({
       ) : null}
       {!floorMet && !consentedAt ? (
         <p className="text-ink-muted mt-2 text-xs">
-          ต้องกรอกชื่อ-นามสกุล อัปโหลดบัตรประชาชน และให้ความยินยอมนี้ ก่อนที่จะได้รับการอนุมัติ
+          ต้องกรอกชื่อ-นามสกุล อัปโหลดบัตรประชาชน อัปโหลดสมุดบัญชีธนาคาร กรอกบัญชีธนาคาร
+          และให้ความยินยอมนี้ ก่อนที่จะได้รับการอนุมัติ
         </p>
       ) : null}
     </div>

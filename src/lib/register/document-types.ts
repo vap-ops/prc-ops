@@ -10,11 +10,13 @@ export type StaffDocPurpose = Database["public"]["Enums"]["staff_doc_purpose"];
 
 export const STAFF_DOC_PURPOSES = [
   "id_card",
+  "book_bank",
   "profile_photo",
 ] as const satisfies readonly StaffDocPurpose[];
 
 export const STAFF_DOC_LABELS: Record<StaffDocPurpose, string> = {
   id_card: "บัตรประชาชน",
+  book_bank: "สมุดบัญชีธนาคาร",
   profile_photo: "รูปโปรไฟล์",
 };
 

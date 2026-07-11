@@ -5342,6 +5342,41 @@ export type Database = {
           },
         ]
       }
+      staff_registration_bank: {
+        Row: {
+          bank_account_name: string
+          bank_account_number: string
+          bank_name: string
+          registration_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          bank_account_name: string
+          bank_account_number: string
+          bank_name: string
+          registration_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          bank_account_name?: string
+          bank_account_number?: string
+          bank_name?: string
+          registration_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_registration_bank_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: true
+            referencedRelation: "staff_registrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_registrations: {
         Row: {
           created_at: string
@@ -8272,6 +8307,14 @@ export type Database = {
           tax_id: string
         }[]
       }
+      get_own_staff_bank: {
+        Args: never
+        Returns: {
+          bank_account_name: string
+          bank_account_number: string
+          bank_name: string
+        }[]
+      }
       gl_reconciliation: {
         Args: never
         Returns: {
@@ -8570,6 +8613,14 @@ export type Database = {
           p_kind: Database["public"]["Enums"]["contractor_consent_kind"]
         }
         Returns: string
+      }
+      record_own_staff_bank: {
+        Args: {
+          p_account_name: string
+          p_account_number: string
+          p_bank_name: string
+        }
+        Returns: undefined
       }
       record_purchase: {
         Args: {
@@ -9709,7 +9760,7 @@ export type Database = {
       site_issue_status: "open" | "resolved"
       site_issue_type: "weather" | "equipment" | "safety" | "access" | "other"
       staff_consent_kind: "pdpa_data"
-      staff_doc_purpose: "id_card" | "profile_photo"
+      staff_doc_purpose: "id_card" | "profile_photo" | "book_bank"
       subcontract_payment_kind: "advance" | "progress" | "final"
       subcontract_status: "active" | "completed" | "cancelled"
       supply_plan_status: "draft" | "submitted" | "approved" | "rejected"
@@ -10145,7 +10196,7 @@ export const Constants = {
       site_issue_status: ["open", "resolved"],
       site_issue_type: ["weather", "equipment", "safety", "access", "other"],
       staff_consent_kind: ["pdpa_data"],
-      staff_doc_purpose: ["id_card", "profile_photo"],
+      staff_doc_purpose: ["id_card", "profile_photo", "book_bank"],
       subcontract_payment_kind: ["advance", "progress", "final"],
       subcontract_status: ["active", "completed", "cancelled"],
       supply_plan_status: ["draft", "submitted", "approved", "rejected"],

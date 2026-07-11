@@ -13,6 +13,7 @@ import { isValidPhotoExt } from "@/lib/photos/path";
 import { isValidUuid } from "@/lib/validate/uuid";
 import { registrationErrorToThai } from "./registration-error";
 import { validateRegistrationProfile } from "./registration-profile";
+import { validateRegistrationBank, normalizeAccountNumber } from "./registration-bank";
 import { buildTechnicianDocPath } from "./technician-path";
 import { isStaffDocPurpose } from "./document-types";
 
@@ -155,6 +156,33 @@ export async function recordOwnStaffConsent(): Promise<ActionResult> {
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
 
   const { error } = await auth.supabase.rpc("record_staff_consent", {});
+  if (error) return { ok: false, error: registrationErrorToThai(error.message) };
+
+  revalidatePath(REGISTER_PATH);
+  return { ok: true };
+}
+
+// Spec 296 — the applicant records their own declared bank (name / account no /
+// account holder) on their pending registration. Stored in the zero-grant
+// staff_registration_bank via record_own_staff_bank (own + pending guard). The
+// account number is normalized to digits before the RPC (which re-validates and
+// is the authoritative gate). Visitor-reachable → RLS session only, never admin.
+export async function recordOwnStaffBank(input: {
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+}): Promise<ActionResult> {
+  const validation = validateRegistrationBank(input);
+  if (validation) return { ok: false, error: validation };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("record_own_staff_bank", {
+    p_bank_name: input.bankName.trim(),
+    p_account_number: normalizeAccountNumber(input.accountNumber),
+    p_account_name: input.accountName.trim(),
+  });
   if (error) return { ok: false, error: registrationErrorToThai(error.message) };
 
   revalidatePath(REGISTER_PATH);
