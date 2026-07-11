@@ -1,7 +1,7 @@
-// Spec 263 U2 / spec 264 G1+G2 — the applicant-uploadable staff_doc_purpose set:
-// exactly the two enum values (id_card / profile_photo). `consent` was dropped —
-// PDPA consent is now an in-app record (staff_consents), not a document upload.
-// Pure; mirrors portal/document-types.ts's shape.
+// Spec 263 U2 / spec 264 G1+G2 / spec 296 — the applicant-uploadable
+// staff_doc_purpose set: id_card / book_bank / profile_photo. `consent` was
+// dropped (PDPA consent is an in-app staff_consents record); book_bank (bank
+// passbook photo) was added by spec 296. Pure; mirrors portal/document-types.ts.
 
 import { describe, it, expect } from "vitest";
 import {
@@ -11,8 +11,8 @@ import {
 } from "@/lib/register/document-types";
 
 describe("staff registration document types", () => {
-  it("offers exactly the two purposes (consent dropped)", () => {
-    expect([...STAFF_DOC_PURPOSES]).toEqual(["id_card", "profile_photo"]);
+  it("offers exactly the three purposes (consent dropped, book_bank added)", () => {
+    expect([...STAFF_DOC_PURPOSES]).toEqual(["id_card", "book_bank", "profile_photo"]);
   });
 
   it("has a non-empty Thai label for every purpose", () => {
@@ -23,6 +23,7 @@ describe("staff registration document types", () => {
 
   it("guards the staff-uploadable purposes", () => {
     expect(isStaffDocPurpose("id_card")).toBe(true);
+    expect(isStaffDocPurpose("book_bank")).toBe(true);
     expect(isStaffDocPurpose("profile_photo")).toBe(true);
   });
 

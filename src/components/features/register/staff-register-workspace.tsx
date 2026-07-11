@@ -29,6 +29,7 @@ import {
   getOwnTechnicianRegistration,
   getOwnRegistrationDocuments,
   getOwnStaffConsent,
+  getOwnStaffBank,
 } from "@/lib/register/own-registration";
 import { staffRegisterCopy, type RegisterVariant } from "@/lib/register/register-entry";
 import { REGISTER_STATUS_HEADING } from "@/lib/i18n/labels";
@@ -100,6 +101,9 @@ export async function StaffRegisterWorkspace({
               emergencyRelation: "",
               emergencyPhone: "",
               declaredRoleHint: "",
+              bankName: "",
+              accountNumber: "",
+              accountName: "",
             }}
           />
         ) : (
@@ -124,9 +128,10 @@ async function RegistrationWorkspace({
   lineAvatarUrl: string | null;
 }) {
   const supabase = await createClient();
-  const [{ urls }, consent] = await Promise.all([
+  const [{ urls }, consent, bank] = await Promise.all([
     getOwnRegistrationDocuments(supabase, registration.id),
     getOwnStaffConsent(supabase, registration.id),
+    getOwnStaffBank(supabase),
   ]);
 
   return (
@@ -164,6 +169,9 @@ async function RegistrationWorkspace({
             emergencyRelation: registration.emergency_contact_relation ?? "",
             emergencyPhone: registration.emergency_contact_phone ?? "",
             declaredRoleHint: registration.declared_role_hint ?? "",
+            bankName: bank?.bankName ?? "",
+            accountNumber: bank?.accountNumber ?? "",
+            accountName: bank?.accountName ?? "",
           }}
         />
       ) : null}

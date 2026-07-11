@@ -81,7 +81,7 @@ select hasnt_table('public', 'technician_registration_attachments', 'technician_
 
 select has_type('public', 'staff_doc_purpose', 'staff_doc_purpose enum exists');
 select enum_has_labels('public', 'staff_doc_purpose',
-  array['id_card','profile_photo'], 'staff_doc_purpose = (id_card, profile_photo) — consent dropped');
+  array['id_card','profile_photo','book_bank'], 'staff_doc_purpose = (id_card, profile_photo, book_bank) — consent dropped, book_bank added (spec 296)');
 select hasnt_type('public', 'technician_doc_purpose', 'technician_doc_purpose enum is GONE');
 select col_type_is('public', 'staff_registration_attachments', 'purpose', 'staff_doc_purpose',
   'attachments.purpose is staff_doc_purpose');
@@ -198,6 +198,12 @@ values ('e0000001-0000-0000-0000-0000000000d1', 'id_card',
   'technician/d1111111-1111-1111-1111-11111111d264/id_card/v1.jpg', 'd1111111-1111-1111-1111-11111111d264');
 insert into public.staff_consents (registration_id, user_id, kind, recorded_by)
 values ('e0000001-0000-0000-0000-0000000000d1', 'd1111111-1111-1111-1111-11111111d264', 'pdpa_data', 'd1111111-1111-1111-1111-11111111d264');
+-- Spec 296: approval floor now also requires a book_bank photo + a bank row.
+insert into public.staff_registration_attachments (registration_id, purpose, storage_path, uploaded_by)
+values ('e0000001-0000-0000-0000-0000000000d1', 'book_bank',
+  'technician/d1111111-1111-1111-1111-11111111d264/book_bank/v1.jpg', 'd1111111-1111-1111-1111-11111111d264');
+insert into public.staff_registration_bank (registration_id, bank_name, bank_account_number, bank_account_name, updated_by)
+values ('e0000001-0000-0000-0000-0000000000d1', 'ธ.กสิกรไทย', '2640000001', 'ช่าง สนาม', 'd1111111-1111-1111-1111-11111111d264');
 
 -- appAcct (→ accounting, office): complete.
 insert into public.staff_registrations (id, user_id, employee_id, full_name, phone, status)
@@ -208,6 +214,12 @@ values ('e0000002-0000-0000-0000-0000000000a2', 'id_card',
   'technician/d2222222-2222-2222-2222-22222222d264/id_card/v1.jpg', 'd2222222-2222-2222-2222-22222222d264');
 insert into public.staff_consents (registration_id, user_id, kind, recorded_by)
 values ('e0000002-0000-0000-0000-0000000000a2', 'd2222222-2222-2222-2222-22222222d264', 'pdpa_data', 'd2222222-2222-2222-2222-22222222d264');
+-- Spec 296: approval floor now also requires a book_bank photo + a bank row (office too).
+insert into public.staff_registration_attachments (registration_id, purpose, storage_path, uploaded_by)
+values ('e0000002-0000-0000-0000-0000000000a2', 'book_bank',
+  'technician/d2222222-2222-2222-2222-22222222d264/book_bank/v1.jpg', 'd2222222-2222-2222-2222-22222222d264');
+insert into public.staff_registration_bank (registration_id, bank_name, bank_account_number, bank_account_name, updated_by)
+values ('e0000002-0000-0000-0000-0000000000a2', 'ธ.ไทยพาณิชย์', '2640000002', 'บัญชี สำนักงาน', 'd2222222-2222-2222-2222-22222222d264');
 
 -- appGuard (→ assignable-role guard): complete.
 insert into public.staff_registrations (id, user_id, employee_id, full_name, phone, status)

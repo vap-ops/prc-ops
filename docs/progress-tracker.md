@@ -6,6 +6,45 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 296 U1+U2 — Book-bank capture at staff signup — ✅ BUILT (2026-07-11), 🔔 operator-held merge
+
+Every staff applicant provides a bank-passbook photo + declared bank fields (bank name /
+account no / account holder) at signup; both join the approval floor alongside id*card +
+PDPA (operator: required, all staff). Typed fields live in a dedicated **zero-grant** table
+`staff_registration_bank` (mirrors `contact_bank`) so in-project site_admins never see
+applicant bank PII — the spec-295 `can_see_staff_registration` SA arm reads the registration
+row and RLS can't hide columns, so bank is a separate table. Owner reads via DEFINER
+`get_own_staff_bank`, approver via service-role; on approval into a worker-creating role the
+bank copies onto `workers.bank*\*` (ADR 0079 money-governance: applicant declares, approver
+confirms).
+
+Danger-path (migration + new table + RLS/grants + payroll-adjacent copy) — operator-held.
+**U1+U2 folded into one PR:** the DB floor is coupled to the capture UI — U1 alone bricks
+approvals until the form exists (the 3 live pending regs have no bank yet). U3 (approver
+display of the 3 declared bank rows on `/registrations/[id]`) follows separately.
+
+migs `20260813075690` (enum `+book_bank`) + `075700` (table + `record_own_staff_bank` /
+`get_own_staff_bank` + storage RLS `+book_bank` on both staff-doc policies + `approve_staff_registration`
+floor+copy + `add_staff_registration_doc` purpose↔path hardening). pgTAP `296-book-bank-onboarding`
+(27) green; `264`/`288` floor fixtures updated. Vitest `register-floor`(7) + `register-bank`(9) +
+`document-types`/`queue-view` pins updated. Full suite + typecheck + lint + `next build` green.
+
+**Two reviewer findings, both fixed:** (1) the "zero-grant on columns" model was impossible
+(authenticated has table-level SELECT; would break owner/approver reads) → dedicated zero-grant
+TABLE (operator decision); (2) `hasBankFields` derived from typed state flipped `floor.met`
+before the applicant pressed Save → derived from persisted `initial` (like `consentedAt`/`docUrls`)
+
+- a "✓ บันทึกบัญชีธนาคารแล้ว" saved indicator.
+
+Open questions: (a) U3 = approver display of the declared bank rows (next unit); (b) the queue
+`meetsApprovalFloor` hint (`registration-queue-view.ts`) still mirrors only name+id_card — it
+can't see the zero-grant bank row, so it under-reports; candidate U3 refinement; (c) no RTL form
+test for the `StaffBankFields` save/prefill wiring — interactive verify limited by the prod-linked
+DB + visitor-scoped form (real applicants; no test pollution), covered instead by unit tests +
+live-RPC pgTAP + `next build`.
+
+---
+
 ## Spec 295 U1 — Scope SA pending-applicant queue to the SA's project — ✅ DONE (2026-07-11)
 
 Closes feedback `b0ff6cea` (site_admin): every SA saw the whole firm-wide pending-applicant

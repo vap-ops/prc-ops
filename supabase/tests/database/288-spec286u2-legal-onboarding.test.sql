@@ -33,6 +33,13 @@ values ('e0000286-0000-0000-0000-0000000006e1', 'id_card',
   'technician/d1111111-1111-1111-1111-1111111286a1/id_card/v1.jpg', 'd1111111-1111-1111-1111-1111111286a1');
 insert into public.staff_consents (registration_id, user_id, kind, recorded_by)
 values ('e0000286-0000-0000-0000-0000000006e1', 'd1111111-1111-1111-1111-1111111286a1', 'pdpa_data', 'd1111111-1111-1111-1111-1111111286a1');
+-- Spec 296: the approval floor now requires a book_bank photo + a bank row for ALL
+-- staff (field + office), so the legal (office) fixture must carry both to approve.
+insert into public.staff_registration_attachments (registration_id, purpose, storage_path, uploaded_by)
+values ('e0000286-0000-0000-0000-0000000006e1', 'book_bank',
+  'technician/d1111111-1111-1111-1111-1111111286a1/book_bank/v1.jpg', 'd1111111-1111-1111-1111-1111111286a1');
+insert into public.staff_registration_bank (registration_id, bank_name, bank_account_number, bank_account_name, updated_by)
+values ('e0000286-0000-0000-0000-0000000006e1', 'ธ.กรุงไทย', '2860000001', 'ทนาย สำนักงาน', 'd1111111-1111-1111-1111-1111111286a1');
 
 insert into public.staff_registrations (id, user_id, employee_id, full_name, phone, status)
 values ('e0000286-0000-0000-0000-0000000006e2', 'd2222222-2222-2222-2222-2222222286a2',
