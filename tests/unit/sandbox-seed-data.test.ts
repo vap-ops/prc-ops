@@ -5,6 +5,9 @@ import {
   SEED_PROJECTS,
   SEED_SITE_ISSUES,
   SEED_WORKERS,
+  buildDailyPlan,
+  buildDeliverables,
+  buildPurchaseRequests,
   buildLaborPlan,
   buildPhotoPlan,
   buildWorkPackages,
@@ -121,6 +124,60 @@ describe("sandbox seed dataset (spec 294)", () => {
       expect(wpCodes.has(`${p.projectCode}:${p.wpCode}`)).toBe(true);
       expect(VALID_PHASES.has(p.phase), `phase ${p.phase}`).toBe(true);
       expect(p.colorHex).toMatch(/^#[0-9a-f]{6}$/);
+    }
+  });
+
+  // ——— v1.1 (spec 294 U3): deliverables · purchase requests · daily plans ———
+
+  it("deliverables: >=4 per project, unique codes per project", () => {
+    const dels = buildDeliverables();
+    for (const project of SEED_PROJECTS) {
+      const codes = dels.filter((d) => d.projectCode === project.code).map((d) => d.code);
+      expect(codes.length).toBeGreaterThanOrEqual(4);
+      expect(new Set(codes).size).toBe(codes.length);
+    }
+  });
+
+  it("several WPs bind to a deliverable that exists", () => {
+    const delCodes = new Set(buildDeliverables().map((d) => `${d.projectCode}:${d.code}`));
+    const bound = buildWorkPackages().filter((w) => w.deliverableCode);
+    expect(bound.length).toBeGreaterThanOrEqual(8);
+    for (const w of bound) {
+      expect(delCodes.has(`${w.projectCode}:${w.deliverableCode}`)).toBe(true);
+    }
+  });
+
+  it("purchase requests: >=6, valid project/WP refs, GL-safe states only", () => {
+    const wpCodes = new Set(buildWorkPackages().map((w) => `${w.projectCode}:${w.code}`));
+    const prs = buildPurchaseRequests();
+    expect(prs.length).toBeGreaterThanOrEqual(6);
+    for (const pr of prs) {
+      expect(SEED_PROJECTS.some((p) => p.code === pr.projectCode)).toBe(true);
+      if (pr.wpCode) expect(wpCodes.has(`${pr.projectCode}:${pr.wpCode}`)).toBe(true);
+      // requested/approved never touch GL (posting happens at receipt)
+      expect(["requested", "approved"]).toContain(pr.status);
+      expect(pr.quantity).toBeGreaterThan(0);
+      expect(pr.itemDescription.length).toBeGreaterThan(0);
+      expect(pr.unit.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("daily plan: tomorrow's plan per project with >=3 workable WP items", () => {
+    const base = new Date("2026-07-01T00:00:00Z");
+    const wps = buildWorkPackages();
+    const workable = new Set(
+      wps
+        .filter((w) => w.status === "in_progress" || w.status === "not_started")
+        .map((w) => `${w.projectCode}:${w.code}`),
+    );
+    const plans = buildDailyPlan(base);
+    expect(plans.length).toBe(SEED_PROJECTS.length);
+    for (const plan of plans) {
+      expect(plan.planDate).toBe("2026-07-02"); // baseDate + 1 day
+      expect(plan.wpCodes.length).toBeGreaterThanOrEqual(3);
+      for (const code of plan.wpCodes) {
+        expect(workable.has(`${plan.projectCode}:${code}`)).toBe(true);
+      }
     }
   });
 });

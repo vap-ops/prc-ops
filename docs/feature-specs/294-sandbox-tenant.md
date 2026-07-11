@@ -86,7 +86,10 @@ reset — acceptable by design.
   cron workers do not run against the sandbox, so money flows would sit
   half-posted. Money screens show zeros. Follow-up if testers need GL flows:
   point a second worker instance at the sandbox.
-- No deliverable↔WP binding, daily plans, or PR seeding yet — extend
-  `seed-data.ts` as designer/tester needs surface.
+- ~~No deliverable↔WP binding, daily plans, or PR seeding~~ — **U3 (v1.1) added
+  all three**: deliverables D01–D04 per project with 18 WP bindings
+  (null-guarded so tester edits survive re-seeds), 10 purchase requests in
+  GL-safe states (requested/approved — posting happens at receipt), and
+  tomorrow's daily work plans (spec 273 board). Extend further as needs surface.
 - Notifications accumulate in `notification_outbox` unsent (no drainer) —
   harmless, visible for testing.
