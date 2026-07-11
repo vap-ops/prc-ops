@@ -1,3 +1,9 @@
+# [0.29.0](https://github.com/VAP-Solution/prc-ops/compare/v0.28.0...v0.29.0) (2026-07-11)
+
+### Features
+
+- **store:** spec 300 U3 — ของเข้า incoming deliveries on the store page (คลัง & ของเข้า) ([#466](https://github.com/VAP-Solution/prc-ops/issues/466)) ([39c2cae](https://github.com/VAP-Solution/prc-ops/commit/39c2cae6f30893c6ab993511ca796521c3b3efac))
+
 # [0.28.0](https://github.com/VAP-Solution/prc-ops/compare/v0.27.0...v0.28.0) (2026-07-11)
 
 ### Features
