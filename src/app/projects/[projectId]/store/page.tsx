@@ -37,15 +37,23 @@ import {
 import { toDivertLines } from "@/lib/store/divert-lines";
 import { loadCatalogCategories, categoryNameById } from "@/lib/catalog/categories";
 import { STORE_LABEL } from "@/lib/i18n/labels";
+import { bangkokTodayISO } from "@/lib/work-packages/schedule-today";
+import { parseIncomingLens, type IncomingLens } from "@/lib/purchasing/request-bands";
+import { selectStoreIncoming } from "@/lib/store/incoming";
+import { StoreIncomingList } from "@/components/features/store/store-incoming-list";
 
 interface PageProps {
   params: Promise<{ projectId: string }>;
+  // Spec 300 U3: the delivery lens over the incoming section (today | onroute | all).
+  searchParams: Promise<{ incoming?: string | string[] }>;
 }
 
 export const metadata = { title: STORE_LABEL };
 
-export default async function ProjectStorePage({ params }: PageProps) {
+export default async function ProjectStorePage({ params, searchParams }: PageProps) {
   const { projectId } = await params;
+  const { incoming } = await searchParams;
+  const incomingLens = parseIncomingLens(typeof incoming === "string" ? incoming : null);
   const ctx = await requireRole(WP_DETAIL_ROLES);
   const supabase = await createClient();
 
@@ -89,6 +97,8 @@ export default async function ProjectStorePage({ params }: PageProps) {
     { data: prRows },
     // Store P&L rows — only for the roles that may see them (canSeePnl gate above).
     { data: pnl },
+    // Spec 300 U3: the project's incoming store-bound deliveries (still on the way).
+    { data: incomingRows },
   ] = await Promise.all([
     supabase
       .from("stock_on_hand")
@@ -131,6 +141,19 @@ export default async function ProjectStorePage({ params }: PageProps) {
     canSeePnl
       ? supabase.rpc("store_pnl", { p_project_id: project.id })
       : Promise.resolve({ data: null }),
+    // Spec 300 U3: incoming store-bound deliveries — still `purchased`/`on_route` and
+    // WP-less; once delivered the spec-195-P3 trigger auto-books them into the store, so
+    // they drop off this list. RLS scopes to the project the viewer can see.
+    supabase
+      .from("purchase_requests")
+      .select(
+        "id, item_description, quantity, unit, eta, status, supplier, catalog_items ( base_item, spec_attrs )",
+      )
+      .eq("project_id", project.id)
+      .in("status", ["purchased", "on_route"])
+      .is("work_package_id", null)
+      .order("eta", { ascending: true, nullsFirst: false })
+      .limit(50),
   ]);
 
   const onHand: StockRow[] = (ohRows ?? [])
@@ -218,6 +241,13 @@ export default async function ProjectStorePage({ params }: PageProps) {
       .sort((a, b) => a.baseItem.localeCompare(b.baseItem, "th"));
   }
 
+  // Spec 300 U3: incoming deliveries for this project, lens-filtered + due-first.
+  const today = bangkokTodayISO();
+  const incomingDeliveries = selectStoreIncoming(incomingRows ?? [], incomingLens, today);
+  const storePath = `/projects/${project.id}/store`;
+  const storeIncomingHref = (l: IncomingLens) =>
+    l === "today" ? storePath : `${storePath}?incoming=${l}`;
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -230,6 +260,13 @@ export default async function ProjectStorePage({ params }: PageProps) {
         </div>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-5 px-5 py-6`}>
+        {/* Spec 300 U3: what's on the way into the store — the SA's "ของเข้า" view, each
+            row linking to its receive card. Renders above รับเข้า/on-hand (incoming first). */}
+        <StoreIncomingList
+          rows={incomingDeliveries}
+          lens={incomingLens}
+          hrefFor={storeIncomingHref}
+        />
         <StoreManager
           projects={[{ id: project.id, code: project.code, name: project.name }]}
           selectedProjectId={project.id}
