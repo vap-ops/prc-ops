@@ -32,10 +32,20 @@ describe("/coming-soon visitor router (spec 264 G3)", () => {
     expect(page).not.toContain("createAdminClient");
   });
 
-  it("keeps the existing non-visitor bounces (must not break other roles)", () => {
-    expect(page).toContain('if (role === "site_admin") redirect("/projects")');
-    expect(page).toContain('if (role === "project_manager") redirect("/review")');
-    expect(page).toContain('if (role === "project_director") redirect("/review")');
+  it("bounces the served non-visitor roles through roleHome, not stale hard-coded targets", () => {
+    // 2026-07-11 site-map re-audit (#444): the old hard-coded bounces
+    // (site_admin→/projects, pm/director→/review) had drifted from roleHome
+    // (/sa, /dashboard). Route the safety-net bounce through roleHome (the SSOT)
+    // so these targets can never drift from the login landing again.
+    expect(page).toContain('from "@/lib/auth/role-home"');
+    expect(page).toContain("redirect(roleHome(role))");
+    // still covers all three served non-visitor roles the page bounces
+    expect(page).toContain('role === "site_admin"');
+    expect(page).toContain('role === "project_manager"');
+    expect(page).toContain('role === "project_director"');
+    // and must NOT resurrect the stale targets
+    expect(page).not.toContain('redirect("/projects")');
+    expect(page).not.toContain('redirect("/review")');
   });
 
   it("delegates the bare-visitor landing to the shared VisitorLanding (spec 286 U1)", () => {

@@ -7,6 +7,7 @@ import { DisplayNameForm } from "@/components/features/common/display-name-form"
 import { createClient } from "@/lib/db/server";
 import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
 import { comingSoonDecision } from "@/lib/auth/visitor-router";
+import { roleHome } from "@/lib/auth/role-home";
 import { getOwnTechnicianRegistration } from "@/lib/register/own-registration";
 import { VisitorLanding } from "@/components/features/register/visitor-landing";
 
@@ -36,13 +37,17 @@ export default async function ComingSoonPage() {
 
   const role = row.role;
 
-  // Bounce served roles to their proper home. Each branch ends in redirect()
-  // which returns `never`, so after these two lines `role` is narrowed to the
-  // unserved-role union — exactly the keys of UNSERVED_ROLE_LABEL.
-  if (role === "site_admin") redirect("/projects");
-  if (role === "project_manager") redirect("/review");
-  // Spec 152 / ADR 0058: project_director is served (see-all PM) — same home.
-  if (role === "project_director") redirect("/review");
+  // Bounce a served role that lands here (deep-link / stale nav) to its real
+  // home. Route through roleHome() — the SSOT for each role's landing — so the
+  // safety-net target can never drift from the login landing again. (2026-07-11
+  // site-map re-audit #444: these were hard-coded to /projects and /review and
+  // had gone stale vs roleHome's /sa (spec 192) and /dashboard (spec 183).)
+  // super_admin is deliberately NOT bounced — it renders the OperatorHub below;
+  // visitor + the still-unbuilt roles keep their own paths further down. Each
+  // redirect() returns `never`, so `role` narrows past these three afterward.
+  if (role === "site_admin" || role === "project_manager" || role === "project_director") {
+    redirect(roleHome(role));
+  }
 
   // Spec 264 G3 / ADR 0072 §8 — the context-aware visitor router. For a `visitor`
   // this page is a routing hub, not a dead wall: a visitor who already holds a
