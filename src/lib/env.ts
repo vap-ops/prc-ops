@@ -13,6 +13,12 @@ const clientSchema = z.object({
   // Usage-telemetry kill switch (spec 244). Defaults on; set to "false" to stop
   // client capture app-wide without a deploy of the feature itself.
   NEXT_PUBLIC_TELEMETRY_ENABLED: z.string().optional().default("true"),
+  // Spec 294: set to "sandbox" ONLY on the sandbox Vercel project — turns on
+  // the persistent SandboxBanner. Unset everywhere else.
+  NEXT_PUBLIC_APP_ENV: z.enum(["sandbox"]).optional(),
+  // Vercel system var (auto-exposed when system env vars are enabled); the
+  // sandbox banner shows its first 7 chars as the deployed-commit marker.
+  NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA: z.string().optional(),
 });
 
 export type ClientEnv = z.infer<typeof clientSchema>;
@@ -35,4 +41,6 @@ export const clientEnv = parseClientEnv({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
   NEXT_PUBLIC_TELEMETRY_ENABLED: process.env.NEXT_PUBLIC_TELEMETRY_ENABLED,
+  NEXT_PUBLIC_APP_ENV: process.env.NEXT_PUBLIC_APP_ENV,
+  NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
 });

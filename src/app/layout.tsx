@@ -8,6 +8,7 @@ import { KeyboardViewportFit } from "@/components/features/chrome/keyboard-viewp
 import { ToastProvider } from "@/components/features/common/toast-provider";
 import { ThemeScript } from "@/components/features/chrome/theme-script";
 import { ViewAsBanner } from "@/components/features/chrome/view-as-banner";
+import { SandboxBanner } from "@/components/features/chrome/sandbox-banner";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { TelemetryProvider } from "@/components/features/telemetry/telemetry-provider";
 import { THEME_COOKIE, parseThemeSetting } from "@/lib/ui/theme";
@@ -78,6 +79,9 @@ export default async function RootLayout({
             real super_admin mid-view-as (null for everyone else), fixed to the top
             so exit is reachable from any page. */}
         <ViewAsBanner />
+        {/* Spec 294: sandbox-tenant environment banner — bottom-fixed, renders
+            only when NEXT_PUBLIC_APP_ENV=sandbox (inert on production). */}
+        <SandboxBanner />
         {/* Spec 76: the toast viewport wraps {children} so a toast fired just
             before a router.refresh() survives the RSC re-render. */}
         <ToastProvider>{children}</ToastProvider>
