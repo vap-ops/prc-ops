@@ -31,6 +31,9 @@ import {
   PURCHASE_REQUEST_STATUS_LABEL,
   formatThaiDate,
   formatThaiDateTime,
+  RECEIVED_INTO_STORE_LABEL,
+  RECEIVED_INTO_STORE_HINT,
+  RECEIPT_PAPER_PROMPT,
 } from "@/lib/i18n/labels";
 import {
   purchaseRequestPriorityPillClasses,
@@ -57,6 +60,7 @@ import { mintSignedUrlsForAttachments } from "@/lib/purchasing/attachment-signed
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { AttentionCard } from "@/components/features/common/attention-card";
 import { InvoiceUploader } from "@/components/features/purchasing/invoice-uploader";
+import { isReceivedIntoStore } from "@/lib/purchasing/store-receive";
 import { PaymentProofUploader } from "@/components/features/purchasing/payment-proof-uploader";
 import { AttachmentPdf } from "@/components/features/purchasing/attachment-pdf";
 import { SitePurchaseAcknowledge } from "@/components/features/purchasing/site-purchase-acknowledge";
@@ -95,6 +99,9 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
   }
 
   const status = request.status;
+  // Spec 300 U2 / spec 195 P3: a delivered store-bound (WP-less) PR has its stock_receipt
+  // auto-booked — tell the SA the goods landed in the store.
+  const receivedIntoStore = isReceivedIntoStore(status, request.work_package_id);
   const priority = request.priority;
   const isMine = request.requested_by === ctx.id;
 
@@ -500,11 +507,24 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
                   </ul>
                 </div>
               ) : null}
+              {receivedIntoStore ? (
+                <p className="text-done-strong text-xs font-medium" role="status">
+                  {RECEIVED_INTO_STORE_LABEL}
+                  <span className="text-ink-secondary ml-1 font-normal">
+                    {RECEIVED_INTO_STORE_HINT}
+                  </span>
+                </p>
+              ) : null}
               <DeliveryPhotoUploader
                 purchaseRequestId={request.id}
                 projectId={request.project_id}
                 userId={ctx.id}
               />
+              {/* Spec 300 U2: capture the paper receipt (ใบส่งของ/ใบเสร็จ) at the receive moment */}
+              <div className="border-edge flex flex-col gap-1 border-t pt-2">
+                <p className="text-ink-secondary text-xs font-medium">{RECEIPT_PAPER_PROMPT}</p>
+                <InvoiceUploader purchaseRequestId={request.id} projectId={request.project_id} />
+              </div>
             </div>
           </div>
         ) : null}
@@ -601,7 +621,11 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
               {invoiceImages.length === 0 && invoicePdfs.length === 0 ? (
                 <p className="text-ink-secondary text-xs">ยังไม่มีเอกสาร</p>
               ) : null}
-              <InvoiceUploader purchaseRequestId={request.id} projectId={request.project_id} />
+              {/* Spec 300 U2: for on_route/delivered the uploader lives in the รับของ card
+                  above; keep it here only for the pre-delivery states (purchased/site_purchased). */}
+              {status !== "on_route" && status !== "delivered" ? (
+                <InvoiceUploader purchaseRequestId={request.id} projectId={request.project_id} />
+              ) : null}
             </div>
           </div>
         ) : null}

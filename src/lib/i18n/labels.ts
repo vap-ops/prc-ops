@@ -184,6 +184,11 @@ export const INCOMING_LENS_LABEL: Record<IncomingLens, string> = {
   all: "ทั้งหมด",
 };
 
+// Spec 300 U2 — the receive card: store-receipt confirmation + receipt-paper prompt.
+export const RECEIVED_INTO_STORE_LABEL = "✓ รับเข้าคลังแล้ว";
+export const RECEIVED_INTO_STORE_HINT = "รูปยืนยันการรับของบันทึกของเข้าคลังให้อัตโนมัติ";
+export const RECEIPT_PAPER_PROMPT = "ใบส่งของ / ใบเสร็จ (ถ้ามากับของ)";
+
 // Spec 285 U3 — the on-site self-purchase (ซื้อเอง) is an EXPENSE: money already
 // spent, catalog-only, evidence-required (U1/U2). It gets its own tab, heading,
 // submit verb, and list badge so it never reads like a ขอซื้อ (ask-procurement)
