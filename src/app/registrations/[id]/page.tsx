@@ -29,6 +29,7 @@ import {
   getTechnicianRegistrationById,
   getRegistrationDocumentUrls,
 } from "@/lib/register/admin-registrations";
+import { getRegistrationBank } from "@/lib/register/admin-registration-bank";
 import { getLineIdentityByUserId } from "@/lib/identity/admin-line-identity";
 import { LineIdentityBlock } from "@/components/features/identity/line-identity-block";
 import { fetchDisplayNames } from "@/lib/users/display-names";
@@ -51,6 +52,13 @@ export default async function StaffRegistrationDetailPage({
   if (!registration) notFound();
 
   const { urls } = await getRegistrationDocumentUrls(supabase, id);
+
+  // Spec 296 U3 — the applicant's declared bank (name / account no / holder). The
+  // zero-grant staff_registration_bank table is unreadable on the approver's RLS
+  // session, so this read uses the service-role admin client scoped to the ONE
+  // registration this approver already cleared (same exposure model as the LINE
+  // identity + inviter-name reads below). Displayed for typed-vs-passbook check.
+  const bank = await getRegistrationBank(id);
 
   // Spec 265 U2 — the applicant's LINE ground-truth identity (anti-impersonation
   // verification at approval time). Read via the admin client scoped to the ONE
@@ -110,6 +118,9 @@ export default async function StaffRegistrationDetailPage({
             <Row label="ผู้ติดต่อฉุกเฉิน" value={registration.emergency_contact_name} />
             <Row label="ความสัมพันธ์" value={registration.emergency_contact_relation} />
             <Row label="เบอร์ติดต่อฉุกเฉิน" value={registration.emergency_contact_phone} />
+            <Row label="ธนาคาร" value={bank?.bankName ?? null} />
+            <Row label="เลขที่บัญชี" value={bank?.accountNumber ?? null} />
+            <Row label="ชื่อบัญชี" value={bank?.accountName ?? null} />
             <Row label="ส่งคำขอเมื่อ" value={formatThaiDateTime(registration.created_at)} />
             {registration.invited_by ? (
               <Row label={REGISTRATION_INVITED_BY_LABEL} value={inviterName} />
