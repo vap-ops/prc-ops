@@ -6955,6 +6955,44 @@ export type Database = {
           },
         ]
       }
+      worker_bank_capture: {
+        Row: {
+          captured_at: string
+          captured_by: string
+          completed_at: string | null
+          completed_by: string | null
+          photo_path: string
+          status: Database["public"]["Enums"]["worker_bank_capture_status"]
+          worker_id: string
+        }
+        Insert: {
+          captured_at?: string
+          captured_by: string
+          completed_at?: string | null
+          completed_by?: string | null
+          photo_path: string
+          status?: Database["public"]["Enums"]["worker_bank_capture_status"]
+          worker_id: string
+        }
+        Update: {
+          captured_at?: string
+          captured_by?: string
+          completed_at?: string | null
+          completed_by?: string | null
+          photo_path?: string
+          status?: Database["public"]["Enums"]["worker_bank_capture_status"]
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "worker_bank_capture_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: true
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       worker_bank_change_requests: {
         Row: {
           bank_account_name: string | null
@@ -7874,6 +7912,15 @@ export type Database = {
       coin_spendable_balance: { Args: { p_worker: string }; Returns: number }
       coin_unvested_balance: { Args: { p_worker: string }; Returns: number }
       coin_vested_balance: { Args: { p_worker: string }; Returns: number }
+      complete_worker_bank: {
+        Args: {
+          p_account_name: string
+          p_account_number: string
+          p_bank_name: string
+          p_worker_id: string
+        }
+        Returns: undefined
+      }
       confirm_stock_issue: { Args: { p_issue_id: string }; Returns: undefined }
       confirm_stock_issue_on_behalf: {
         Args: { p_issue_id: string }
@@ -8870,6 +8917,23 @@ export type Database = {
         }
         Returns: string
       }
+      sa_add_project_worker_with_bank: {
+        Args: {
+          p_dob: string
+          p_name: string
+          p_national_id: string
+          p_photo_path: string
+          p_project: string
+        }
+        Returns: string
+      }
+      sa_worker_bank_status: {
+        Args: { p_project: string }
+        Returns: {
+          status: Database["public"]["Enums"]["worker_bank_capture_status"]
+          worker_id: string
+        }[]
+      }
       set_accounting_period_status: {
         Args: {
           p_month: string
@@ -9804,6 +9868,7 @@ export type Database = {
         | "complete"
         | "pending_approval"
         | "rework"
+      worker_bank_capture_status: "pending_pm" | "on_file"
       worker_level: "senior" | "mid" | "junior" | "apprentice"
     }
     CompositeTypes: {
@@ -10243,6 +10308,7 @@ export const Constants = {
         "pending_approval",
         "rework",
       ],
+      worker_bank_capture_status: ["pending_pm", "on_file"],
       worker_level: ["senior", "mid", "junior", "apprentice"],
     },
   },
