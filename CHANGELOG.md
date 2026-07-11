@@ -1,3 +1,9 @@
+# [0.25.0](https://github.com/VAP-Solution/prc-ops/compare/v0.24.0...v0.25.0) (2026-07-11)
+
+### Features
+
+- **onboarding:** capture-blind bank DB contract + spec (298 U1) ([#459](https://github.com/VAP-Solution/prc-ops/issues/459)) ([69bcd0b](https://github.com/VAP-Solution/prc-ops/commit/69bcd0bc9676959b305a941ae983854022de5f1d)), closes [#456](https://github.com/VAP-Solution/prc-ops/issues/456)
+
 # [0.24.0](https://github.com/VAP-Solution/prc-ops/compare/v0.23.0...v0.24.0) (2026-07-11)
 
 ### Features
