@@ -14,6 +14,18 @@ export interface RecipientContext {
   wpUploaderIds: ReadonlyArray<string>;
   /** Every super_admin user id — the operator pool for feedback (spec 201 A4). */
   superIds: ReadonlyArray<string>;
+  /**
+   * Spec 277 P1a — the issue's PROJECT PMs (lead + PM-tier members), resolved
+   * per-row in the drain from the payload's project_id. Empty when the project
+   * has no PM (the zero-PM fallback: only the role pool is alerted).
+   */
+  siteIssueProjectPmIds: ReadonlyArray<string>;
+  /**
+   * Spec 277 P1a — the role-wide alert pool (every project_director +
+   * procurement_manager). Always alerted for a serious issue, deduped against
+   * the project PMs.
+   */
+  siteIssueRolePoolIds: ReadonlyArray<string>;
 }
 
 function unique(ids: ReadonlyArray<string>): string[] {
@@ -50,5 +62,13 @@ export function resolveRecipients(
     // A super filing their own report is excluded (no self-notification).
     case "feedback_submitted":
       return without(context.superIds, payload.submittedBy);
+    // Spec 277 P1a — a serious site issue pings the project's PMs (lead + PM
+    // members) plus the role-wide director/procurement pool, deduped, minus the
+    // reporter (a PM/director filing their own issue is not self-pinged).
+    case "site_issue_reported":
+      return without(
+        [...context.siteIssueProjectPmIds, ...context.siteIssueRolePoolIds],
+        payload.reportedBy,
+      );
   }
 }

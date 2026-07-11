@@ -9649,6 +9649,7 @@ export type Database = {
         | "pr_cancelled"
         | "feedback_submitted"
         | "wp_reopened"
+        | "site_issue_reported"
       notification_status: "pending" | "sending" | "sent" | "failed" | "expired"
       pay_type: "monthly" | "daily"
       peak_doc_type: "contact" | "expense"
@@ -10075,6 +10076,7 @@ export const Constants = {
         "pr_cancelled",
         "feedback_submitted",
         "wp_reopened",
+        "site_issue_reported",
       ],
       notification_status: ["pending", "sending", "sent", "failed", "expired"],
       pay_type: ["monthly", "daily"],
