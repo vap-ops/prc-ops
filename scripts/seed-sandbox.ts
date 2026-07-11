@@ -21,8 +21,11 @@ import {
   SEED_PROJECTS,
   SEED_SITE_ISSUES,
   SEED_WORKERS,
+  buildDailyPlan,
+  buildDeliverables,
   buildLaborPlan,
   buildPhotoPlan,
+  buildPurchaseRequests,
   buildWorkPackages,
 } from "@/lib/sandbox/seed-data";
 
@@ -421,6 +424,140 @@ async function ensurePhotos(wpIds: Map<string, string>, users: Map<string, strin
   }
 }
 
+// ——— v1.1 (spec 294 U3): deliverables · purchase requests · daily plans ———
+
+async function ensureDeliverables(
+  projects: Map<string, string>,
+  wpIds: Map<string, string>,
+): Promise<void> {
+  const delIds = new Map<string, string>();
+  for (const d of buildDeliverables()) {
+    const projectId = projects.get(d.projectCode)!;
+    const existing = assertOk(
+      `read deliverable ${d.code}`,
+      await db.from("deliverables").select("id").eq("project_id", projectId).eq("code", d.code),
+    );
+    let id = (existing ?? [])[0]?.id;
+    if (!id) {
+      const inserted = assertOk(
+        `insert deliverable ${d.code}`,
+        await db
+          .from("deliverables")
+          .insert({ project_id: projectId, code: d.code, name: d.name, sort_order: d.sortOrder })
+          .select("id")
+          .single(),
+      );
+      if (!inserted) fail(`insert deliverable ${d.code}: no row returned`);
+      id = inserted.id;
+      console.log(`deliverable + ${d.projectCode}/${d.code}`);
+    }
+    delIds.set(`${d.projectCode}:${d.code}`, id);
+  }
+  // Bind template WPs whose deliverable_id is still NULL (idempotent: never
+  // overwrites a binding a tester may have changed).
+  for (const wp of buildWorkPackages()) {
+    if (!wp.deliverableCode) continue;
+    const wpId = wpIds.get(`${wp.projectCode}:${wp.code}`)!;
+    const delId = delIds.get(`${wp.projectCode}:${wp.deliverableCode}`)!;
+    assertOk(
+      `bind wp ${wp.code} deliverable`,
+      await db
+        .from("work_packages")
+        .update({ deliverable_id: delId })
+        .eq("id", wpId)
+        .is("deliverable_id", null),
+    );
+  }
+  console.log("deliverables ensured + WPs bound");
+}
+
+async function ensurePurchaseRequests(
+  projects: Map<string, string>,
+  wpIds: Map<string, string>,
+  users: Map<string, string>,
+): Promise<void> {
+  for (const pr of buildPurchaseRequests()) {
+    const projectId = projects.get(pr.projectCode)!;
+    const existing = assertOk(
+      "read purchase request",
+      await db
+        .from("purchase_requests")
+        .select("id")
+        .eq("project_id", projectId)
+        .eq("item_description", pr.itemDescription),
+    );
+    if ((existing ?? []).length > 0) continue;
+    const wpId = pr.wpCode ? wpIds.get(`${pr.projectCode}:${pr.wpCode}`) : undefined;
+    if (pr.wpCode && !wpId) fail(`PR ${pr.itemDescription}: unknown WP ${pr.wpCode}`);
+    assertOk(
+      `insert purchase request ${pr.itemDescription}`,
+      await db.from("purchase_requests").insert({
+        project_id: projectId,
+        item_description: pr.itemDescription,
+        quantity: pr.quantity,
+        unit: pr.unit,
+        status: pr.status,
+        requested_by: users.get("sa1")!,
+        ...(wpId ? { work_package_id: wpId } : {}),
+      }),
+    );
+    console.log(`purchase request + ${pr.projectCode}/${pr.itemDescription}`);
+  }
+}
+
+async function ensureDailyPlans(
+  projects: Map<string, string>,
+  wpIds: Map<string, string>,
+  users: Map<string, string>,
+): Promise<void> {
+  for (const plan of buildDailyPlan(new Date())) {
+    const projectId = projects.get(plan.projectCode)!;
+    const existing = assertOk(
+      "read daily plan",
+      await db
+        .from("daily_work_plans")
+        .select("id")
+        .eq("project_id", projectId)
+        .eq("plan_date", plan.planDate),
+    );
+    let planId = (existing ?? [])[0]?.id;
+    if (!planId) {
+      const inserted = assertOk(
+        `insert daily plan ${plan.planDate}`,
+        await db
+          .from("daily_work_plans")
+          .insert({
+            project_id: projectId,
+            plan_date: plan.planDate,
+            created_by: users.get("sa1")!,
+          })
+          .select("id")
+          .single(),
+      );
+      if (!inserted) fail(`insert daily plan ${plan.planDate}: no row returned`);
+      planId = inserted.id;
+      console.log(`daily plan + ${plan.projectCode}/${plan.planDate}`);
+    }
+    for (const code of plan.wpCodes) {
+      const wpId = wpIds.get(`${plan.projectCode}:${code}`)!;
+      const item = assertOk(
+        "read plan item",
+        await db
+          .from("daily_work_plan_items")
+          .select("plan_id")
+          .eq("plan_id", planId)
+          .eq("work_package_id", wpId),
+      );
+      if ((item ?? []).length > 0) continue;
+      assertOk(
+        `insert plan item ${code}`,
+        await db.from("daily_work_plan_items").insert({ plan_id: planId, work_package_id: wpId }),
+      );
+    }
+  }
+  console.log("daily plans ensured");
+}
+
 async function main(): Promise<void> {
   console.log(`seeding sandbox at ${url}`);
   await ensureBuckets();
@@ -433,6 +570,9 @@ async function main(): Promise<void> {
   await ensureSiteIssues(projects, users);
   await ensureLabor(wpIds, workerIds, users);
   await ensurePhotos(wpIds, users);
+  await ensureDeliverables(projects, wpIds);
+  await ensurePurchaseRequests(projects, wpIds, users);
+  await ensureDailyPlans(projects, wpIds, users);
   console.log("seed complete ✅");
 }
 

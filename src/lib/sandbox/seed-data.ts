@@ -102,6 +102,7 @@ export type SeedWorkPackage = {
   categoryCode: string;
   status: "not_started" | "in_progress" | "pending_approval" | "rework" | "complete" | "on_hold";
   priority: "normal" | "urgent" | "critical";
+  deliverableCode?: string; // v1.1: binds the WP to a seeded deliverable
 };
 
 // Status spread mirrors a live site: mostly in_progress/not_started with a
@@ -113,6 +114,7 @@ const WP_TEMPLATE: Array<Omit<SeedWorkPackage, "projectCode" | "code"> & { n: nu
     categoryCode: "W0105",
     status: "complete",
     priority: "normal",
+    deliverableCode: "D01",
   },
   {
     n: 2,
@@ -120,15 +122,31 @@ const WP_TEMPLATE: Array<Omit<SeedWorkPackage, "projectCode" | "code"> & { n: nu
     categoryCode: "W0102",
     status: "complete",
     priority: "normal",
+    deliverableCode: "D01",
   },
-  { n: 3, name: "เสาเข็มตอกโซน A", categoryCode: "W0201", status: "complete", priority: "urgent" },
-  { n: 4, name: "ฐานรากโซน A", categoryCode: "W0202", status: "in_progress", priority: "urgent" },
+  {
+    n: 3,
+    name: "เสาเข็มตอกโซน A",
+    categoryCode: "W0201",
+    status: "complete",
+    priority: "urgent",
+    deliverableCode: "D02",
+  },
+  {
+    n: 4,
+    name: "ฐานรากโซน A",
+    categoryCode: "W0202",
+    status: "in_progress",
+    priority: "urgent",
+    deliverableCode: "D03",
+  },
   {
     n: 5,
     name: "ตอม่อและเสาชั้น 1",
     categoryCode: "W0203",
     status: "in_progress",
     priority: "critical",
+    deliverableCode: "D04",
   },
   {
     n: 6,
@@ -136,6 +154,7 @@ const WP_TEMPLATE: Array<Omit<SeedWorkPackage, "projectCode" | "code"> & { n: nu
     categoryCode: "W0201",
     status: "in_progress",
     priority: "normal",
+    deliverableCode: "D02",
   },
   {
     n: 7,
@@ -143,6 +162,7 @@ const WP_TEMPLATE: Array<Omit<SeedWorkPackage, "projectCode" | "code"> & { n: nu
     categoryCode: "W0202",
     status: "pending_approval",
     priority: "normal",
+    deliverableCode: "D03",
   },
   {
     n: 8,
@@ -159,8 +179,22 @@ const WP_TEMPLATE: Array<Omit<SeedWorkPackage, "projectCode" | "code"> & { n: nu
     status: "not_started",
     priority: "normal",
   },
-  { n: 11, name: "ฐานรากโซน C", categoryCode: "W0202", status: "not_started", priority: "normal" },
-  { n: 12, name: "ตอม่อและเสาชั้น 2", categoryCode: "W0203", status: "rework", priority: "urgent" },
+  {
+    n: 11,
+    name: "ฐานรากโซน C",
+    categoryCode: "W0202",
+    status: "not_started",
+    priority: "normal",
+    deliverableCode: "D03",
+  },
+  {
+    n: 12,
+    name: "ตอม่อและเสาชั้น 2",
+    categoryCode: "W0203",
+    status: "rework",
+    priority: "urgent",
+    deliverableCode: "D04",
+  },
 ];
 
 export function buildWorkPackages(): SeedWorkPackage[] {
@@ -172,6 +206,7 @@ export function buildWorkPackages(): SeedWorkPackage[] {
       categoryCode: t.categoryCode,
       status: t.status,
       priority: t.priority,
+      ...(t.deliverableCode ? { deliverableCode: t.deliverableCode } : {}),
     })),
   );
 }
@@ -284,4 +319,108 @@ export function buildPhotoPlan(): SeedPhoto[] {
     i++;
   }
   return photos;
+}
+
+// ——— v1.1 (spec 294 U3) ———
+
+export type SeedDeliverable = {
+  projectCode: string;
+  code: string;
+  name: string;
+  sortOrder: number;
+};
+
+// Per-project deliverable groups the WP template's deliverableCode binds to.
+const DELIVERABLE_TEMPLATE: Array<Omit<SeedDeliverable, "projectCode">> = [
+  { code: "D01", name: "งานเตรียมการและรื้อถอน", sortOrder: 1 },
+  { code: "D02", name: "งานเสาเข็ม", sortOrder: 2 },
+  { code: "D03", name: "งานฐานราก", sortOrder: 3 },
+  { code: "D04", name: "งานโครงสร้าง คสล.", sortOrder: 4 },
+];
+
+export function buildDeliverables(): SeedDeliverable[] {
+  return SEED_PROJECTS.flatMap((project) =>
+    DELIVERABLE_TEMPLATE.map((d) => ({ projectCode: project.code, ...d })),
+  );
+}
+
+export type SeedPurchaseRequest = {
+  projectCode: string;
+  wpCode?: string;
+  itemDescription: string;
+  quantity: number;
+  unit: string;
+  status: "requested" | "approved"; // GL-safe: posting happens at receipt, never here
+};
+
+const PR_TEMPLATE: Array<Omit<SeedPurchaseRequest, "projectCode">> = [
+  {
+    wpCode: "@4",
+    itemDescription: "ปูนซีเมนต์ปอร์ตแลนด์ 50 กก.",
+    quantity: 40,
+    unit: "ถุง",
+    status: "approved",
+  },
+  {
+    wpCode: "@4",
+    itemDescription: "เหล็กเส้น DB16",
+    quantity: 120,
+    unit: "เส้น",
+    status: "requested",
+  },
+  {
+    wpCode: "@5",
+    itemDescription: "ไม้แบบ 1x8 นิ้ว",
+    quantity: 60,
+    unit: "แผ่น",
+    status: "approved",
+  },
+  { wpCode: "@6", itemDescription: "ลวดผูกเหล็ก", quantity: 20, unit: "กก.", status: "requested" },
+  {
+    itemDescription: "น้ำมันดีเซลสำหรับเครื่องจักร",
+    quantity: 200,
+    unit: "ลิตร",
+    status: "requested",
+  },
+];
+
+// "@n" in the template = bind to that WP number's per-project code.
+export function buildPurchaseRequests(): SeedPurchaseRequest[] {
+  return SEED_PROJECTS.flatMap((project, pi) =>
+    PR_TEMPLATE.map((t) => ({
+      projectCode: project.code,
+      itemDescription: t.itemDescription,
+      quantity: t.quantity,
+      unit: t.unit,
+      status: t.status,
+      ...(t.wpCode ? { wpCode: `SBX-${pi + 1}${t.wpCode.slice(1).padStart(2, "0")}` } : {}),
+    })),
+  );
+}
+
+export type SeedDailyPlan = {
+  projectCode: string;
+  planDate: string; // yyyy-mm-dd (tomorrow relative to seed run)
+  wpCodes: string[];
+};
+
+// Tomorrow's work board (spec 273 แผนพรุ่งนี้): the in-progress/not-started
+// WPs an SA would realistically queue for the next day.
+export function buildDailyPlan(baseDate: Date): SeedDailyPlan[] {
+  // "Tomorrow" in Asia/Bangkok (UTC+7) — the board's audience timezone; a UTC
+  // date flips a day early around local midnight.
+  const planDate = new Date(baseDate.getTime() + (24 + 7) * 3_600_000).toISOString().slice(0, 10);
+  const wps = buildWorkPackages();
+  return SEED_PROJECTS.map((project) => ({
+    projectCode: project.code,
+    planDate,
+    wpCodes: wps
+      .filter(
+        (w) =>
+          w.projectCode === project.code &&
+          (w.status === "in_progress" || w.status === "not_started"),
+      )
+      .slice(0, 4)
+      .map((w) => w.code),
+  }));
 }

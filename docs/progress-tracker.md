@@ -7202,3 +7202,17 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
   LINE dev-channel registration for the stable sandbox URL.
 - Operator steps owed: 2 GitHub secrets + sandbox Vercel project (runbook in
   the spec §Operator runbook).
+
+## Spec 294 U3 — Sandbox seed v1.1 — 2026-07-11
+
+- DONE: deliverables (4/project, D01–D04) + 18 WP bindings (null-guarded, never
+  overwrites tester edits) · 10 purchase requests (requested/approved only —
+  GL-safe, posting happens at receipt) · tomorrow's daily work plans (spec 273
+  board) per project. Idempotent (verified 2 runs); live-verified on the
+  deployed sandbox as sandbox-sa2 (แผนพรุ่งนี้ board + จัดซื้อ list render seeded rows).
+- Open questions: GL/money flows still need a sandbox worker instance (v2);
+  catalog items not seeded (PRs are description-only, matching table shape).
+- Review note (by design): daily plans accrue one per project per calendar day
+  on nightly re-seeds — same accrual model as the sliding labor window; a
+  full_reset clears both. Bangkok-TZ tomorrow fix + loud WP-miss guard applied
+  from review.
