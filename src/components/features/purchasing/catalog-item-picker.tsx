@@ -18,12 +18,16 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, ImageIcon, Search } from "lucide-react";
+import { AlertTriangle, Check, ImageIcon, Search } from "lucide-react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { RadioChip } from "@/components/features/common/radio-chip";
 import { FIELD_INPUT } from "@/lib/ui/classes";
 import { scopeCatalogItems } from "@/lib/catalog/scoped-picker";
-import { WORK_CATEGORY_MATCH_LABEL } from "@/lib/i18n/labels";
+import {
+  WORK_CATEGORY_MATCH_LABEL,
+  WORK_CATEGORY_MISMATCH_LABEL,
+  WORK_CATEGORY_MISMATCH_WARNING,
+} from "@/lib/i18n/labels";
 import type { PurchaseRequestCatalogItem } from "./purchase-request-form";
 
 const ALL = "all";
@@ -127,6 +131,14 @@ export function ScopedCatalogItemPicker({
   const baseEntries =
     scopeActive && !showAll ? scoped.entries.filter((e) => e.inScope) : scoped.entries;
 
+  // Spec 297 — passive off-category warning: the selected item falls outside the
+  // WP work-category's material scope. Only meaningful while a scope is active
+  // (an uncategorised WP / unscoped form never warns).
+  const selectedEntry = selectedId
+    ? scoped.entries.find((e) => e.item.id === selectedId)
+    : undefined;
+  const selectedOffScope = scopeActive && selectedEntry != null && !selectedEntry.inScope;
+
   const matches = baseEntries.filter(
     ({ item: i }) =>
       (category === ALL ||
@@ -162,27 +174,38 @@ export function ScopedCatalogItemPicker({
       <span className="text-ink text-sm font-medium">{label}</span>
 
       {selected ? (
-        <div className="rounded-control border-edge-strong bg-card flex items-center gap-3 border px-3 py-2">
-          <Thumb url={selected.thumbnailUrl} />
-          <span className="min-w-0 flex-1">
-            <span className="text-ink block text-sm font-medium">{itemLabel(selected)}</span>
-            <span className="text-ink-secondary text-meta block">
-              {selected.categoryId ? `${selected.categoryName} · ` : ""}
-              {selected.unit}
+        <>
+          <div className="rounded-control border-edge-strong bg-card flex items-center gap-3 border px-3 py-2">
+            <Thumb url={selected.thumbnailUrl} />
+            <span className="min-w-0 flex-1">
+              <span className="text-ink block text-sm font-medium">{itemLabel(selected)}</span>
+              <span className="text-ink-secondary text-meta block">
+                {selected.categoryId ? `${selected.categoryName} · ` : ""}
+                {selected.unit}
+              </span>
             </span>
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              onClear();
-              setOpen(true);
-            }}
-            disabled={disabled}
-            className="text-action focus-visible:ring-action shrink-0 rounded text-sm font-medium underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2"
-          >
-            เปลี่ยน
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => {
+                onClear();
+                setOpen(true);
+              }}
+              disabled={disabled}
+              className="text-action focus-visible:ring-action shrink-0 rounded text-sm font-medium underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2"
+            >
+              เปลี่ยน
+            </button>
+          </div>
+          {/* Spec 297: passive off-category warning — the picked item is not in
+              the WP work-category's material scope. Non-blocking; persists after
+              the sheet closes so the requester + a later approver both see it. */}
+          {selectedOffScope ? (
+            <div className="rounded-control border-attn bg-attn-soft text-attn-ink mt-1 flex items-start gap-2 border px-3 py-2">
+              <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0" />
+              <span className="text-meta">{WORK_CATEGORY_MISMATCH_WARNING}</span>
+            </div>
+          ) : null}
+        </>
       ) : (
         <button
           type="button"
@@ -262,7 +285,7 @@ export function ScopedCatalogItemPicker({
               onClick={() => setShowAll((v) => !v)}
               className="text-action text-meta focus-visible:ring-action self-start rounded font-medium underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2"
             >
-              {showAll ? "เฉพาะที่ตรงกับงาน" : "แสดงทั้งหมด"}
+              {showAll ? "เฉพาะที่ตรงกับงาน" : "แสดงทั้งหมด (นอกหมวดงานด้วย)"}
             </button>
           ) : null}
 
@@ -293,6 +316,13 @@ export function ScopedCatalogItemPicker({
                         {inScope ? (
                           <span className="text-done-strong ml-1.5 inline-flex items-center gap-0.5 font-medium">
                             <Check aria-hidden className="size-3.5" /> {WORK_CATEGORY_MATCH_LABEL}
+                          </span>
+                        ) : scopeActive ? (
+                          // Spec 297: the amber mirror — this item is outside the
+                          // WP work-category's scope (only shown via แสดงทั้งหมด).
+                          <span className="text-attn-press ml-1.5 inline-flex items-center gap-0.5 font-medium">
+                            <AlertTriangle aria-hidden className="size-3.5" />{" "}
+                            {WORK_CATEGORY_MISMATCH_LABEL}
                           </span>
                         ) : null}
                       </span>
