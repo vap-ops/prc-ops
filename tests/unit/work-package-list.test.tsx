@@ -185,3 +185,51 @@ describe("WorkPackageList grouped roster (spec 270 U3)", () => {
     expect(links).not.toContain("/projects/proj-1/work-packages/g-1");
   });
 });
+
+describe("WorkPackageList search (spec 293)", () => {
+  function renderGrouped() {
+    return render(
+      <WorkPackageList
+        projectId={PROJECT_ID}
+        role="project_manager"
+        workPackages={groupedFixture()}
+        deliverables={[]}
+      />,
+    );
+  }
+  const searchBox = () => screen.getByRole("textbox", { name: /ค้นหา/ });
+
+  it("a non-empty query replaces the lens with a flat hit list (surfaces a collapsed leaf)", () => {
+    renderGrouped();
+    // Adopted default = ตามงาน, sections collapsed → the leaf is hidden.
+    expect(screen.queryByText("งานโครงหลังคา")).not.toBeInTheDocument();
+    fireEvent.change(searchBox(), { target: { value: "WP-05-01" } });
+    // The leaf surfaces flat; the lens toggle is gone while searching.
+    expect(screen.getByText("งานโครงหลังคา")).toBeInTheDocument();
+    expect(screen.queryByText("งานมุงกระเบื้อง")).not.toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "มุมมองรายการงาน" })).not.toBeInTheDocument();
+  });
+
+  it("matches on name substring", () => {
+    renderGrouped();
+    fireEvent.change(searchBox(), { target: { value: "มุงกระเบื้อง" } });
+    expect(screen.getByText("งานมุงกระเบื้อง")).toBeInTheDocument();
+    expect(screen.queryByText("งานโครงหลังคา")).not.toBeInTheDocument();
+  });
+
+  it("never surfaces a งาน group even when its code matches", () => {
+    renderGrouped();
+    fireEvent.change(searchBox(), { target: { value: "WP-05" } });
+    expect(screen.queryByText("งานหลังคา")).not.toBeInTheDocument(); // the group
+    expect(screen.getByText("งานโครงหลังคา")).toBeInTheDocument();
+    expect(screen.getByText("งานมุงกระเบื้อง")).toBeInTheDocument();
+  });
+
+  it("shows an empty notice when nothing matches, and clearing restores the lens", () => {
+    renderGrouped();
+    fireEvent.change(searchBox(), { target: { value: "zzzzz" } });
+    expect(screen.getByText(/ไม่พบ/)).toBeInTheDocument();
+    fireEvent.change(searchBox(), { target: { value: "" } });
+    expect(screen.getByRole("radiogroup", { name: "มุมมองรายการงาน" })).toBeInTheDocument();
+  });
+});

@@ -6,6 +6,23 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 293 U1 — WP search on the project work-list — ✅ DONE (2026-07-11)
+
+Closes feedback `ca5c871b` (procurement_manager): a project with 288+ งาน forced scrolling to
+find one WP. Code-only, no schema. A type-to-find search box atop `work-package-list.tsx`
+(all WPs already in-memory) matches WP **code + name** (case-insensitive substring, งาน groups
+excluded); a non-empty query replaces the lens with a flat, `priorityRank`-ordered hit list
+(+ ✕ clear + empty-state), empty query = the normal lens. Pure `filterWorkPackages` helper
+(`src/lib/work-packages/filter-work-packages.ts`) + reused `FIELD_INPUT`. TDD: helper unit test
+(6) + component interaction tests (4) in `work-package-list.test.tsx`. SSR render browser-verified
+on PRC-2026-004; interaction driven in jsdom (the heavy streamed page can't hydrate in the hidden
+preview pane — cloud-PC quirk). Guards (design-doctrine/ui-class-contracts/nav-back) green.
+
+Open questions: search across category/status/contractor, server-side/cross-project search, and
+recent-search memory all deferred (out of scope v1).
+
+---
+
 ## Spec 277 P1a — Site-issue log (แจ้งปัญหา) — 🔨 IN PROGRESS (2026-07-11)
 
 SA-home unit (sibling of P0 #361), unblocked now the schema lane is free. Closes feedback
