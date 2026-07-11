@@ -34,9 +34,9 @@ function html(body: string): NextResponse {
   return new NextResponse(
     `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
       `<title>เข้าสู่ระบบ (แซนด์บ็อกซ์)</title>` +
-      `<style>body{font-family:system-ui,sans-serif;max-width:24rem;margin:3rem auto;padding:0 1rem}` +
+      `<style>:root{color-scheme:light}body{font-family:system-ui,sans-serif;max-width:24rem;margin:3rem auto;padding:0 1rem;color:#111;background:#fff}` +
       `h1{font-size:1.1rem}form{margin:0}button{display:block;width:100%;margin:.4rem 0;padding:.7rem;` +
-      `font-size:1rem;border:1px solid #ccc;border-radius:.5rem;background:#fff;cursor:pointer}` +
+      `font-size:1rem;border:1px solid #ccc;border-radius:.5rem;color:#111;background:#fff;cursor:pointer}` +
       `button:hover{background:#f4f4f4}.meta{color:#666;font-size:.85rem}</style>${body}`,
     { status: 200, headers: { "content-type": "text/html; charset=utf-8" } },
   );

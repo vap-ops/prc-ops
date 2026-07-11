@@ -112,6 +112,18 @@ describe("GET /auth/sandbox-link — picker (spec 294 U4, preview-safe)", () => 
     const res = await get("https://x.test/auth/sandbox-link?as=hacker");
     expect(res.status).toBe(400);
   });
+
+  it("is readable in dark mode — pins a light color-scheme and explicit button text color", async () => {
+    // Repro 2026-07-12: the page is a STANDALONE HTML doc with white button
+    // backgrounds. With no pinned color-scheme, a dark-mode UA flips the default
+    // text colour to light → white text on white buttons (invisible). Guard both
+    // the scheme pin and an explicit button colour so nothing inherits a UA default.
+    envState.NEXT_PUBLIC_APP_ENV = "sandbox";
+    const res = await get("https://x.test/auth/sandbox-link");
+    const html = await res.text();
+    expect(html).toMatch(/color-scheme:\s*light/);
+    expect(html).toMatch(/button\{[^}]*\bcolor:\s*#/);
+  });
 });
 
 describe("POST /auth/sandbox-link — mint on click (spec 294 U4)", () => {
