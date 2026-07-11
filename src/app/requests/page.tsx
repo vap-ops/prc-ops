@@ -29,6 +29,10 @@ import {
   REQUEST_VIEWS,
   REQUEST_VIEW_LABEL,
   type RequestView,
+  parseIncomingLens,
+  filterIncomingLens,
+  INCOMING_LENSES,
+  type IncomingLens,
 } from "@/lib/purchasing/request-bands";
 import {
   groupByProcurementBand,
@@ -61,7 +65,7 @@ import {
   buildWorklistQuery,
   type ProcurementFilter,
 } from "@/lib/purchasing/worklist-filter";
-import { PURCHASE_REQUEST_STATUS_LABEL } from "@/lib/i18n/labels";
+import { PURCHASE_REQUEST_STATUS_LABEL, INCOMING_LENS_LABEL } from "@/lib/i18n/labels";
 import { bahtCompact as baht } from "@/lib/format";
 import type { Database } from "@/lib/db/database.types";
 
@@ -85,6 +89,8 @@ interface RequestsPageProps {
     overdue?: string | string[];
     // Spec 138 U3: the status-chip band filter (to_order | in_transit | ...).
     band?: string | string[];
+    // Spec 300 U1: the SA delivery lens over the incoming band (today | onroute | all).
+    incoming?: string | string[];
   }>;
 }
 
@@ -112,6 +118,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     status: statusParam,
     overdue: overdueParam,
     band: bandParam,
+    incoming: incomingParam,
   } = await searchParams;
 
   // Spec 110: parse the worklist filter (procurement only — SA/PM ignore it).
@@ -197,14 +204,22 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // Spec 137: the site list (non-procurement) groups into action-state bands; the view
   // filter (active default) hides received/closed — the operator's "filter out received".
   const requestView = parseRequestView(singleParam(viewParam));
-  // Build a /requests URL preserving the other filter axis; omit defaults (view=active,
-  // mine off) for clean links.
-  const reqHref = (next: { view?: RequestView; mine?: boolean }): string => {
+  // Spec 300 U1: the delivery lens over the incoming band (default วันนี้ = due-or-overdue).
+  const incomingLens = parseIncomingLens(singleParam(incomingParam));
+  // Build a /requests URL preserving the other filter axes; omit defaults (view=active,
+  // mine off, incoming=today) for clean links.
+  const reqHref = (next: {
+    view?: RequestView;
+    mine?: boolean;
+    incoming?: IncomingLens;
+  }): string => {
     const v = next.view ?? requestView;
     const m = next.mine ?? mineOnly;
+    const inc = next.incoming ?? incomingLens;
     const params = new URLSearchParams();
     if (v !== "active") params.set("view", v);
     if (m) params.set("mine", "1");
+    if (inc !== "today") params.set("incoming", inc);
     const qs = params.toString();
     return qs ? `/requests?${qs}` : "/requests";
   };
@@ -217,6 +232,17 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // Spec 137: the site list groups into action-state bands; the view filter (active
   // default) hides received/closed. `today` flags overdue arrivals (the chase signal).
   const requestBands = groupRequestsByBand(myRequests, requestView, today);
+  // Spec 300 U1: the delivery lens narrows ONLY the incoming (in_transit / กำลังจัดส่ง)
+  // band; other bands pass through. Recompute overdue on the filtered items (so the
+  // เลยกำหนด badge can't over-count). The band is KEPT even when the lens empties it, so
+  // the lens chips stay reachable (else "วันนี้" with nothing due would hide the way back
+  // to "ทั้งหมด") — an empty-note renders instead of the list.
+  const siteBands = requestBands.map((g) => {
+    if (g.band !== "in_transit") return g;
+    const items = filterIncomingLens(g.items, incomingLens, today);
+    const overdue = today ? items.filter((r) => r.eta != null && r.eta < today).length : 0;
+    return { ...g, items, overdue };
+  });
 
   // Spec 110: apply the filter, then group into procurement bands (procurement only).
   // The status filter overrides banding with a single flat group so it can surface
@@ -638,14 +664,14 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
             </div>
           ) : myRequests.length === 0 ? (
             <EmptyNotice>{mineOnly ? "คุณยังไม่เคยสร้างคำขอซื้อ" : "ยังไม่มีคำขอซื้อ"}</EmptyNotice>
-          ) : requestBands.length === 0 ? (
+          ) : siteBands.length === 0 ? (
             <EmptyNotice>ไม่มีคำขอซื้อในมุมมองนี้</EmptyNotice>
           ) : (
             // Spec 137: action-state bands — most-actionable first. Styled like the
             // procurement pipeline (hot band amber); the hot band here is กำลังจัดส่ง
             // (incoming → what site receives). Overdue arrivals get a เลยกำหนด flag.
             <div className="flex flex-col gap-6">
-              {requestBands.map((group) => (
+              {siteBands.map((group) => (
                 <section key={group.band} className="flex flex-col gap-2.5">
                   <div className="flex items-center gap-2">
                     <h3
@@ -668,9 +694,32 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                       </span>
                     ) : null}
                   </div>
-                  <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
-                    {group.items.map(cardFor)}
-                  </ul>
+                  {/* Spec 300 U1: delivery lens over the incoming band */}
+                  {group.band === "in_transit" ? (
+                    <div
+                      className="flex flex-wrap items-center gap-1 text-xs"
+                      role="group"
+                      aria-label="ตัวกรองการจัดส่ง"
+                    >
+                      {INCOMING_LENSES.map((lens) => (
+                        <Link
+                          key={lens}
+                          href={reqHref({ incoming: lens })}
+                          aria-current={incomingLens === lens ? "true" : undefined}
+                          className={worklistChipClass(incomingLens === lens)}
+                        >
+                          {INCOMING_LENS_LABEL[lens]}
+                        </Link>
+                      ))}
+                    </div>
+                  ) : null}
+                  {group.items.length === 0 ? (
+                    <p className="text-ink-secondary text-xs">ไม่มีรายการจัดส่งในตัวกรองนี้</p>
+                  ) : (
+                    <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
+                      {group.items.map(cardFor)}
+                    </ul>
+                  )}
                 </section>
               ))}
             </div>
