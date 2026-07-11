@@ -6,6 +6,7 @@
 import type { Database } from "@/lib/db/database.types";
 import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
 import type { PurchaseReasonCode } from "@/lib/purchasing/reason-code";
+import type { IncomingLens } from "@/lib/purchasing/request-bands";
 import type { FrictionEventType } from "@/lib/telemetry/session";
 
 type Enums = Database["public"]["Enums"];
@@ -174,6 +175,13 @@ export const PURCHASE_REQUEST_STATUS_LABEL: Record<Enums["purchase_request_statu
   on_route: "กำลังจัดส่ง",
   delivered: "ได้รับของแล้ว",
   site_purchased: "ซื้อหน้างาน",
+};
+
+// Spec 300 U1 — the SA delivery lens over the incoming (กำลังจัดส่ง) band.
+export const INCOMING_LENS_LABEL: Record<IncomingLens, string> = {
+  today: "วันนี้",
+  onroute: "กำลังมา",
+  all: "ทั้งหมด",
 };
 
 // Spec 285 U3 — the on-site self-purchase (ซื้อเอง) is an EXPENSE: money already
