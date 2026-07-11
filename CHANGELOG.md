@@ -1,3 +1,9 @@
+# [0.16.0](https://github.com/VAP-Solution/prc-ops/compare/v0.15.2...v0.16.0) (2026-07-11)
+
+### Features
+
+- **sandbox:** spec 294 U1 — sandbox tenant seed + sync + banner ([#448](https://github.com/VAP-Solution/prc-ops/issues/448)) ([89ed482](https://github.com/VAP-Solution/prc-ops/commit/89ed482aa61829154b37e36eb3f55d9321bcb2d1))
+
 ## [0.15.2](https://github.com/VAP-Solution/prc-ops/compare/v0.15.1...v0.15.2) (2026-07-11)
 
 ### Bug Fixes
