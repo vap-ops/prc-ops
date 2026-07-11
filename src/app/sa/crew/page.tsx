@@ -5,7 +5,6 @@
 // RLS-scoped; money columns are zero-grant and never read here.
 
 import QRCode from "qrcode";
-import { ScanLine } from "lucide-react";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
@@ -24,7 +23,7 @@ import {
 import { SiteTeamBoard } from "@/components/features/sa/site-team-board";
 import { buildCrewTeams } from "@/lib/sa/crew-teams";
 import { buildSiteTeamBoard, type SiteAccessMember } from "@/lib/sa/site-team-board";
-import { AddWorkerForm } from "@/components/features/sa/add-worker-form";
+import { AddTechnicianSheet } from "@/components/features/sa/add-technician-sheet";
 
 export const metadata = { title: "ทีมงาน" };
 
@@ -142,6 +141,17 @@ export default async function SaCrewPage() {
   const projectCode = new Map(projectList.map((p) => [p.id, p.code]));
   const multiProject = projectIds.length > 1;
 
+  // Spec 298 U2 — active workers awaiting a PM's bank transcription (a phoneless
+  // SA-add captured the passbook; status-only projection — the SA never sees the
+  // photo or the bank fields). Drives the roster's "รอ PM กรอกบัญชี" chip.
+  const bankStatuses = await Promise.all(
+    projectIds.map((pid) => supabase.rpc("sa_worker_bank_status", { p_project: pid })),
+  );
+  const bankPending = new Set<string>();
+  for (const res of bankStatuses)
+    for (const row of res.data ?? [])
+      if (row.status === "pending_pm") bankPending.add(row.worker_id);
+
   const toMember = (w: {
     id: string;
     name: string;
@@ -149,7 +159,13 @@ export default async function SaCrewPage() {
     level: CrewProgressMember["level"];
   }): CrewProgressMember => {
     const label = multiProject && w.project_id ? projectCode.get(w.project_id) : undefined;
-    return { id: w.id, name: w.name, level: w.level, ...(label ? { projectLabel: label } : {}) };
+    return {
+      id: w.id,
+      name: w.name,
+      level: w.level,
+      ...(label ? { projectLabel: label } : {}),
+      ...(bankPending.has(w.id) ? { bankPending: true } : {}),
+    };
   };
 
   const workerRows = workerRes.data ?? [];
@@ -233,6 +249,14 @@ export default async function SaCrewPage() {
         <h1 className={DETAIL_TITLE}>ทีมงาน</h1>
       </DetailHeader>
       <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-6 px-5 py-6`}>
+        {/* Spec 298 U2 — the crew page body is EXISTING-member management (roster +
+            team board); adding a new ช่าง is this one deliberate "เพิ่มช่างใหม่" button,
+            which opens the onboarding sheet (มีมือถือ = self-serve QR / ไม่มีมือถือ =
+            capture-blind add). Absorbs the old inline add form + per-project QR cards. */}
+        {projectList.length > 0 ? (
+          <AddTechnicianSheet projects={projectList} qrCards={qrCards} />
+        ) : null}
+
         {/* The onboarding pipeline the SA follows up on: รอตรวจ → รอยืนยัน → พร้อม (U7). */}
         <CrewProgressRoster data={crewData} registrationsHref="/sa/registrations" />
 
@@ -243,37 +267,6 @@ export default async function SaCrewPage() {
           <h2 className="text-body text-ink font-semibold">ทีมหน้างาน</h2>
           <SiteTeamBoard board={siteBoard} />
         </div>
-
-        {/* เพิ่มเอง (phoneless) — the SA types a ช่าง in directly (name + national-ID +
-            DOB → sa_add_project_worker, U4). The primary path for the no-phone majority;
-            the QR below is only for LINE-owning ช่าง. Shown where the SA has a project. */}
-        {projectList.length > 0 ? <AddWorkerForm projects={projectList} /> : null}
-
-        {/* Onboarding QR — one per project. The ช่าง scans the QR for the site
-            they're at to self-register into THAT project. */}
-        {qrCards.map(({ project, url, svg }) => (
-          <div
-            key={project.id}
-            className="rounded-card border-edge bg-card shadow-card flex flex-col items-center gap-3 border p-5"
-          >
-            <div className="flex items-center gap-2 self-start">
-              <ScanLine aria-hidden className="text-cat-w06 size-5 shrink-0" />
-              <h2 className="text-body text-ink font-semibold">เพิ่มช่างใหม่ — {project.name}</h2>
-            </div>
-            <p className="text-ink-secondary text-center text-sm">
-              ให้ช่างสแกน QR นี้ด้วยกล้องมือถือ เพื่อสมัครเข้าโครงการ{" "}
-              <span className="text-ink font-medium">{project.name}</span> ด้วยตัวเอง
-              แล้วมาตรวจในคำขอสมัครด้านบน
-            </p>
-            {/* qrcode → black-on-white SVG; wrapped white so it scans in any theme. */}
-            <div
-              className="rounded-lg bg-white p-3"
-              aria-label={`QR สมัครเป็นช่าง — ${project.name}`}
-              dangerouslySetInnerHTML={{ __html: svg }}
-            />
-            <p className="text-ink-muted text-meta text-center break-all">{url}</p>
-          </div>
-        ))}
       </section>
     </PageShell>
   );

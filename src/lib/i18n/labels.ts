@@ -123,6 +123,20 @@ export const CURRENT_SITE_AUTO_HINT = "อัตโนมัติ";
 export const VIEWING_SITE_LABEL = "กำลังดู";
 export const CLEAR_SITE_OVERRIDE_LABEL = "กลับไซต์หลัก";
 
+// Spec 298 U2 — SA onboarding front door on /sa/crew: one "add new" button opens an
+// onboarding sheet branching มีมือถือ (self-serve QR + coaching) / ไม่มีมือถือ
+// (capture-blind add: identity + a REQUIRED passbook photo). The bank-pending chip
+// marks a roster worker awaiting a PM's bank transcription (spec 298 U3).
+export const ADD_TECHNICIAN_LABEL = "เพิ่มช่างใหม่";
+export const ADD_TECHNICIAN_HAS_PHONE_LABEL = "มีมือถือ";
+export const ADD_TECHNICIAN_NO_PHONE_LABEL = "ไม่มีมือถือ";
+export const ADD_TECHNICIAN_HAS_PHONE_HINT =
+  "ให้ช่างสแกน QR ของโครงการด้วยมือถือตัวเอง แล้วกรอกข้อมูลและบัญชีธนาคารเอง";
+export const ADD_TECHNICIAN_NO_PHONE_HINT =
+  "กรอกชื่อ–เลขบัตรประชาชน–วันเกิด แล้วถ่ายรูปสมุดบัญชี (ผู้จัดการจะกรอกเลขบัญชีให้ภายหลัง)";
+export const PASSBOOK_PHOTO_LABEL = "รูปสมุดบัญชีธนาคาร";
+export const BANK_PENDING_CHIP_LABEL = "รอ PM กรอกบัญชี";
+
 export const WORK_PACKAGE_STATUS_LABEL: Record<Enums["work_package_status"], string> = {
   not_started: "ยังไม่เริ่ม",
   in_progress: "กำลังดำเนินการ",
