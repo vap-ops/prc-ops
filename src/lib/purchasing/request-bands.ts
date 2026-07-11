@@ -130,3 +130,23 @@ export function groupRequestsByBand<
   }
   return groups;
 }
+
+// Spec 300 U1 — a delivery lens over the incoming (in_transit) band. Pure.
+export type IncomingLens = "today" | "onroute" | "all";
+export const INCOMING_LENSES: ReadonlyArray<IncomingLens> = ["today", "onroute", "all"];
+
+export function parseIncomingLens(value: string | null | undefined): IncomingLens {
+  return value === "onroute" || value === "all" ? value : "today";
+}
+
+// today = due-or-overdue (eta <= todayIso) OR unknown ETA (eta null) — the SA's real
+// receive pile. onroute = the shipped subset. all = every incoming row. String compare
+// is correct for YYYY-MM-DD. A null todayIso can never mark a row "due" → only null-eta
+// rows survive "today" (no false positives).
+export function filterIncomingLens<
+  T extends { status: PurchaseRequestStatus; eta?: string | null },
+>(items: ReadonlyArray<T>, lens: IncomingLens, todayIso: string | null): T[] {
+  if (lens === "all") return [...items];
+  if (lens === "onroute") return items.filter((i) => i.status === "on_route");
+  return items.filter((i) => i.eta == null || (todayIso != null && i.eta <= todayIso));
+}
