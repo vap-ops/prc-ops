@@ -1,3 +1,9 @@
+# [0.18.0](https://github.com/VAP-Solution/prc-ops/compare/v0.17.0...v0.18.0) (2026-07-11)
+
+### Features
+
+- **onboarding:** book-bank capture at staff signup (spec 296 U1+U2) ([#451](https://github.com/VAP-Solution/prc-ops/issues/451)) ([38ff0d9](https://github.com/VAP-Solution/prc-ops/commit/38ff0d96671558da58cb953a8f9244c54bb16e45))
+
 # [0.17.0](https://github.com/VAP-Solution/prc-ops/compare/v0.16.0...v0.17.0) (2026-07-11)
 
 ### Features
