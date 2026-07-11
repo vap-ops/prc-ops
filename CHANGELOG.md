@@ -1,3 +1,9 @@
+## [0.22.1](https://github.com/VAP-Solution/prc-ops/compare/v0.22.0...v0.22.1) (2026-07-11)
+
+### Bug Fixes
+
+- **purchasing:** delivery-photo upload RLS denied store-bound (WP-less) PRs ([#456](https://github.com/VAP-Solution/prc-ops/issues/456)) ([d4024bb](https://github.com/VAP-Solution/prc-ops/commit/d4024bb653b9850a1eac0908c8fa78a660aeb3ab))
+
 # [0.22.0](https://github.com/VAP-Solution/prc-ops/compare/v0.21.0...v0.22.0) (2026-07-11)
 
 ### Features
