@@ -6,6 +6,28 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 297 — Off-category warning in the ขอซื้อ picker — ✅ BUILT (2026-07-11), code-only
+
+Passive amber flag when a purchase-request material is picked outside the WP work-category's
+material scope. Premise (already built, NOT touched): materials multi-category (spec 225) + the
+picker's soft scope / show-all (spec 228). Gap closed: an off-scope pick was silent — only a
+positive ตรงกับงาน check existed. Approach A (symmetric): amber นอกหมวดงาน row flag (mirror of the
+green ตรงกับงาน, seen via แสดงทั้งหมด) + a non-blocking warning strip under the selected item +
+a "แสดงทั้งหมด (นอกหมวดงานด้วย)" toggle-label nudge. No schema, no PR column — recomputed at render
+from the scope props already passed to the picker.
+
+2 files: `src/lib/i18n/labels.ts` (+`WORK_CATEGORY_MISMATCH_LABEL` / `_WARNING`) +
+`src/components/features/purchasing/catalog-item-picker.tsx`. The selected-item warning lives IN
+the picker (it owns the chosen chip) so `purchase-request-form.tsx` was NOT touched (spec assumed
+3 files; live code = 2). The warning auto-covers the scoped supply-plan grid; the unscoped
+self-purchase form stays silent. TDD: 5 new tests in `catalog-item-picker.test.tsx` (17/17 green).
+
+Open questions: (a) approver-side warning — category isn't stored on the PR, would need recompute
+(deferred); (b) `equipment_items` asset-registry multi-category (out of scope). Spec:
+`docs/feature-specs/297-off-category-purchase-request-warning.md`.
+
+---
+
 ## Spec 296 U1+U2 — Book-bank capture at staff signup — ✅ BUILT (2026-07-11), 🔔 operator-held merge
 
 Every staff applicant provides a bank-passbook photo + declared bank fields (bank name /

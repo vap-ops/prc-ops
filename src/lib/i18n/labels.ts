@@ -84,6 +84,12 @@ export const PROJECT_CATEGORY_LABEL = "หมวดงาน";
 // that falls in the WP work-category's material scope (Relation R). Used by the
 // PR/supply-plan catalog picker AND the เบิก on-hand select → SSOT here.
 export const WORK_CATEGORY_MATCH_LABEL = "ตรงกับงาน";
+// Spec 297 — the negative counterpart of WORK_CATEGORY_MATCH_LABEL: the passive
+// flag shown on a scoped-picker row (via แสดงทั้งหมด) or the selected item when
+// it falls OUTSIDE the WP work-category's material scope. Never blocks the pick.
+export const WORK_CATEGORY_MISMATCH_LABEL = "นอกหมวดงาน";
+export const WORK_CATEGORY_MISMATCH_WARNING =
+  "วัสดุนี้ไม่อยู่ในหมวดงานของงานนี้ — เลือกได้ แต่โปรดตรวจสอบ";
 // Spec 229 — the nudge when a WP is not yet bound to a หมวดงาน. Used by the WP
 // work-category badge AND the WpCategoryControl select → SSOT here.
 export const WORK_CATEGORY_UNSET_LABEL = "ยังไม่ระบุหมวดงาน";

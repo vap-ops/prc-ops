@@ -188,3 +188,57 @@ describe("ScopedCatalogItemPicker scope (spec 228 / ADR 0066 D8)", () => {
     expect(screen.getByRole("button", { name: /สายไฟ NYY/ })).toBeInTheDocument();
   });
 });
+
+describe("ScopedCatalogItemPicker off-category warning (spec 297)", () => {
+  function renderSelected(selectedId: string, scopedCategoryIds?: string[]) {
+    render(
+      <ScopedCatalogItemPicker
+        items={items}
+        categories={categories}
+        selectedId={selectedId}
+        onSelect={vi.fn()}
+        onClear={vi.fn()}
+        {...(scopedCategoryIds ? { scopedCategoryIds } : {})}
+      />,
+    );
+  }
+
+  it("marks an OFF-scope row (visible via แสดงทั้งหมด) as นอกหมวดงาน", () => {
+    // Scope to {ELEC}: the steel row is off-scope. Reveal it via the escape.
+    openPicker({ scopedCategoryIds: [ELEC] });
+    fireEvent.click(screen.getByRole("button", { name: /แสดงทั้งหมด/ }));
+
+    const steelRow = screen.getByRole("button", { name: /เหล็กข้ออ้อย/ });
+    const elecRow = screen.getByRole("button", { name: /สายไฟ NYY/ });
+    // Off-scope steel → the amber mismatch flag (mirror of ตรงกับงาน).
+    expect(steelRow).toHaveTextContent("นอกหมวดงาน");
+    // In-scope elec → the positive flag, never the mismatch one.
+    expect(elecRow).toHaveTextContent("ตรงกับงาน");
+    expect(elecRow).not.toHaveTextContent("นอกหมวดงาน");
+  });
+
+  it("shows NO row flag (positive or negative) when there is no scope", () => {
+    openPicker({ scopedCategoryIds: [] });
+    const steelRow = screen.getByRole("button", { name: /เหล็กข้ออ้อย/ });
+    const elecRow = screen.getByRole("button", { name: /สายไฟ NYY/ });
+    expect(steelRow).not.toHaveTextContent("นอกหมวดงาน");
+    expect(elecRow).not.toHaveTextContent("นอกหมวดงาน");
+    expect(elecRow).not.toHaveTextContent("ตรงกับงาน");
+  });
+
+  it("warns on the SELECTED item when it is off the WP work-category", () => {
+    // Steel picked while the WP is scoped to {ELEC} → passive off-category warning.
+    renderSelected("s1", [ELEC]);
+    expect(screen.getByText(/ไม่อยู่ในหมวดงาน/)).toBeInTheDocument();
+  });
+
+  it("does NOT warn when the selected item IS in the work-category", () => {
+    renderSelected("e1", [ELEC]);
+    expect(screen.queryByText(/ไม่อยู่ในหมวดงาน/)).toBeNull();
+  });
+
+  it("does NOT warn on the selected item when the WP has no work-category scope", () => {
+    renderSelected("s1");
+    expect(screen.queryByText(/ไม่อยู่ในหมวดงาน/)).toBeNull();
+  });
+});

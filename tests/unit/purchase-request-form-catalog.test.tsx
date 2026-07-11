@@ -187,7 +187,7 @@ describe("PurchaseRequestForm catalog picker — WP work-category scope (spec 22
     expect(screen.getByText(/ตรงกับงาน/)).toBeInTheDocument();
     // pre-filtered: the out-of-scope steel is not shown — but an escape exists.
     expect(screen.queryByRole("button", { name: /เหล็กข้ออ้อย/ })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "แสดงทั้งหมด" }));
+    await user.click(screen.getByRole("button", { name: /แสดงทั้งหมด/ }));
     expect(screen.getByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeInTheDocument();
   });
 
