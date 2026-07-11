@@ -1,3 +1,9 @@
+# [0.24.0](https://github.com/VAP-Solution/prc-ops/compare/v0.23.0...v0.24.0) (2026-07-11)
+
+### Features
+
+- **purchasing:** default the ขอซื้อ item picker to show-all, off-category included (spec 297 U2) ([#458](https://github.com/VAP-Solution/prc-ops/issues/458)) ([e0e50c5](https://github.com/VAP-Solution/prc-ops/commit/e0e50c56ccf8622e5a019fa4334e40b7680be870))
+
 # [0.23.0](https://github.com/VAP-Solution/prc-ops/compare/v0.22.1...v0.23.0) (2026-07-11)
 
 ### Features
