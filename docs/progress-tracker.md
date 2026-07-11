@@ -6,6 +6,24 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 295 U1 — Scope SA pending-applicant queue to the SA's project — ✅ DONE (2026-07-11)
+
+Closes feedback `b0ff6cea` (site_admin): every SA saw the whole firm-wide pending-applicant
+queue, incl. other projects' applicants. Danger-path (RLS helper), operator-merged.
+**Key finding:** the project edge already exists (`staff_registrations.invited_project_id`,
+stamped from the SA per-project QR, spec 279 F2a/F2b) — only the read arm never consulted
+it. Fix = mig `20260813075680` CREATE OR REPLACE `can_see_staff_registration`: SA/site_owner
+arm narrowed to `status='pending' AND invited_project_id IS NOT NULL AND
+can_see_project(invited_project_id)`. Unreferred (NULL) pending → back-office only (option A,
+least-privilege); multi-project SA = union; back-office arm unchanged. No new schema. pgTAP
+`295-*.sql` (10) proves the full scope matrix; `264b` updated to the scoped seam; behaviour
+confirmed against the live function.
+
+Open questions: an `/sa/registrations` empty-state nudge (optional follow-up); options B/C
+(applicant-picks-project / invite-only) declined.
+
+---
+
 ## Spec 293 U1 — WP search on the project work-list — ✅ DONE (2026-07-11)
 
 Closes feedback `ca5c871b` (procurement_manager): a project with 288+ งาน forced scrolling to
