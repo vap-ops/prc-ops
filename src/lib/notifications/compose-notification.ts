@@ -12,6 +12,7 @@ import {
 import { formatPoNumber, formatPrNumber } from "@/lib/purchasing/format-id";
 import type { Database } from "@/lib/db/database.types";
 import type { NotificationPayload } from "./payload";
+import { warnUnknownNotificationEvent } from "./unknown-event";
 
 export type NotificationEventType = Database["public"]["Enums"]["notification_event_type"];
 
@@ -111,5 +112,13 @@ export function composeNotification(
       if (context.issueDeepLink) lines.push(context.issueDeepLink);
       return lines.join("\n");
     }
+
+    default:
+      // Runtime-only: an event type this deploy predates (see unknown-event).
+      // `eventType` is `never` here at compile time; at runtime compose to a
+      // neutral empty string instead of returning `undefined` and crashing the
+      // drain. The row resolves to zero recipients, so this text is never sent.
+      warnUnknownNotificationEvent(eventType);
+      return "";
   }
 }

@@ -396,104 +396,153 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   let failed = 0;
 
   for (const { row, payload } of parsed) {
-    const recipients = resolveRecipients(row.event_type, payload, {
-      pmIds,
-      wpUploaderIds: row.work_package_id ? (uploaderIdsByWp.get(row.work_package_id) ?? []) : [],
-      superIds,
-      siteIssueProjectPmIds: payload.projectId
-        ? (projectPmIdsByProject.get(payload.projectId) ?? [])
-        : [],
-      siteIssueRolePoolIds,
-    });
-    const lineTargets = recipients
-      .map((id) => lineIdByUser.get(id))
-      .filter((lineId): lineId is string => lineId !== undefined);
-    const telegramTargets = telegramToken
-      ? recipients
-          .map((id) => telegramChatByUser.get(id))
-          .filter((chatId): chatId is string => chatId !== undefined)
-      : [];
+    try {
+      const recipients = resolveRecipients(row.event_type, payload, {
+        pmIds,
+        wpUploaderIds: row.work_package_id ? (uploaderIdsByWp.get(row.work_package_id) ?? []) : [],
+        superIds,
+        siteIssueProjectPmIds: payload.projectId
+          ? (projectPmIdsByProject.get(payload.projectId) ?? [])
+          : [],
+        siteIssueRolePoolIds,
+      });
+      const lineTargets = recipients
+        .map((id) => lineIdByUser.get(id))
+        .filter((lineId): lineId is string => lineId !== undefined);
+      const telegramTargets = telegramToken
+        ? recipients
+            .map((id) => telegramChatByUser.get(id))
+            .filter((chatId): chatId is string => chatId !== undefined)
+        : [];
 
-    const wpCode = row.work_package_id ? wpCodeById.get(row.work_package_id) : undefined;
-    const poNumber = row.purchase_request_id
-      ? poNumberByPrId.get(row.purchase_request_id)
-      : undefined;
-    const composeContext: ComposeContext = {
-      ...(wpCode !== undefined ? { wpCode } : {}),
-      ...(poNumber !== undefined ? { poNumber } : {}),
-    };
-    // Spec 277 P1a — project name, reporter name, and a deep link into the
-    // project, resolved from the site_issue payload's project_id / reported_by.
-    if (row.event_type === "site_issue_reported") {
-      const projectId = payload.projectId;
-      if (projectId !== undefined) {
-        const projectName = projectNameById.get(projectId);
-        if (projectName !== undefined) composeContext.projectName = projectName;
-        composeContext.issueDeepLink = `${clientEnv.NEXT_PUBLIC_APP_URL}/projects/${projectId}`;
+      const wpCode = row.work_package_id ? wpCodeById.get(row.work_package_id) : undefined;
+      const poNumber = row.purchase_request_id
+        ? poNumberByPrId.get(row.purchase_request_id)
+        : undefined;
+      const composeContext: ComposeContext = {
+        ...(wpCode !== undefined ? { wpCode } : {}),
+        ...(poNumber !== undefined ? { poNumber } : {}),
+      };
+      // Spec 277 P1a — project name, reporter name, and a deep link into the
+      // project, resolved from the site_issue payload's project_id / reported_by.
+      if (row.event_type === "site_issue_reported") {
+        const projectId = payload.projectId;
+        if (projectId !== undefined) {
+          const projectName = projectNameById.get(projectId);
+          if (projectName !== undefined) composeContext.projectName = projectName;
+          composeContext.issueDeepLink = `${clientEnv.NEXT_PUBLIC_APP_URL}/projects/${projectId}`;
+        }
+        if (payload.reportedBy !== undefined) {
+          const reporterName = reporterNameById.get(payload.reportedBy);
+          if (reporterName !== undefined) composeContext.issueReporterName = reporterName;
+        }
       }
-      if (payload.reportedBy !== undefined) {
-        const reporterName = reporterNameById.get(payload.reportedBy);
-        if (reporterName !== undefined) composeContext.issueReporterName = reporterName;
-      }
-    }
-    const text = composeNotification(row.event_type, payload, composeContext);
+      const text = composeNotification(row.event_type, payload, composeContext);
 
-    let anySuccess = false;
-    let lastError: string | null = null;
-    for (const to of lineTargets) {
-      const result = await pushLineMessage({ token, to, text });
-      if (result.ok) {
-        anySuccess = true;
-      } else {
-        lastError = `LINE ${result.status}: ${result.body}`.slice(0, 500);
-      }
-    }
-    // Second channel: Telegram (only recipients with a telegram_chat_id, and only
-    // when the bot token is configured). A delivery counts as success if EITHER
-    // channel reached the recipient; the row is only retried if every push failed.
-    if (telegramToken) {
-      for (const chatId of telegramTargets) {
-        const result = await pushTelegramMessage({ token: telegramToken, chatId, text });
+      let anySuccess = false;
+      let lastError: string | null = null;
+      for (const to of lineTargets) {
+        const result = await pushLineMessage({ token, to, text });
         if (result.ok) {
           anySuccess = true;
         } else {
-          lastError = `Telegram ${result.status}: ${result.body}`.slice(0, 500);
+          lastError = `LINE ${result.status}: ${result.body}`.slice(0, 500);
         }
       }
-    }
+      // Second channel: Telegram (only recipients with a telegram_chat_id, and only
+      // when the bot token is configured). A delivery counts as success if EITHER
+      // channel reached the recipient; the row is only retried if every push failed.
+      if (telegramToken) {
+        for (const chatId of telegramTargets) {
+          const result = await pushTelegramMessage({ token: telegramToken, chatId, text });
+          if (result.ok) {
+            anySuccess = true;
+          } else {
+            lastError = `Telegram ${result.status}: ${result.body}`.slice(0, 500);
+          }
+        }
+      }
 
-    const outcome = rowOutcomeAfterPushes({
-      attempts: row.attempts,
-      anySuccess,
-      recipientCount: lineTargets.length + telegramTargets.length,
-      lastError,
-      nowMs,
-    });
-
-    const { error: updateError } =
-      outcome.status === "sent"
-        ? await admin
-            .from("notification_outbox")
-            .update({ status: "sent", sent_at: outcome.sentAt })
-            .eq("id", row.id)
-        : await admin
-            .from("notification_outbox")
-            .update({
-              status: outcome.status,
-              attempts: outcome.attempts,
-              last_error: outcome.lastError,
-            })
-            .eq("id", row.id);
-    if (updateError) {
-      console.error("[notifications/drain] outbox row update failed", {
-        id: row.id,
-        error: updateError.message,
+      const outcome = rowOutcomeAfterPushes({
+        attempts: row.attempts,
+        anySuccess,
+        recipientCount: lineTargets.length + telegramTargets.length,
+        lastError,
+        nowMs,
       });
-    }
 
-    if (outcome.status === "sent") sent += 1;
-    else if (outcome.status === "pending") retried += 1;
-    else failed += 1;
+      const { error: updateError } =
+        outcome.status === "sent"
+          ? await admin
+              .from("notification_outbox")
+              .update({ status: "sent", sent_at: outcome.sentAt })
+              .eq("id", row.id)
+          : await admin
+              .from("notification_outbox")
+              .update({
+                status: outcome.status,
+                attempts: outcome.attempts,
+                last_error: outcome.lastError,
+              })
+              .eq("id", row.id);
+      if (updateError) {
+        console.error("[notifications/drain] outbox row update failed", {
+          id: row.id,
+          error: updateError.message,
+        });
+      }
+
+      if (outcome.status === "sent") sent += 1;
+      else if (outcome.status === "pending") retried += 1;
+      else failed += 1;
+    } catch (rowError) {
+      // A single row's delivery threw — an event type this deploy predates, a
+      // malformed payload, a push helper that rejected. It must NEVER abort the
+      // batch: the outbox is drained as one shared queue (approvals, PRs,
+      // feedback), so one poisoned row would stall them ALL until it expired
+      // (24 h). Mark just this row (retry via the normal attempt cap) and move
+      // on to the next.
+      const message = rowError instanceof Error ? rowError.message : String(rowError);
+      console.error("[notifications/drain] row delivery threw — marking row, continuing batch", {
+        id: row.id,
+        event_type: row.event_type,
+        error: message,
+      });
+      // recipientCount 1 + anySuccess false → always the pending/failed branch
+      // (attempts + 1, terminal "failed" at MAX_ATTEMPTS), never "sent".
+      const outcome = rowOutcomeAfterPushes({
+        attempts: row.attempts,
+        anySuccess: false,
+        recipientCount: 1,
+        lastError: `row threw: ${message}`.slice(0, 500),
+        nowMs,
+      });
+      if (outcome.status !== "sent") {
+        // This mark-update is deliberately NOT wrapped: like every other query
+        // in this handler, a Supabase call resolves with `{ error }` rather than
+        // throwing, so a genuine throw here is a SYSTEMIC client/DB failure, not
+        // a per-row poison — and it SHOULD propagate to a 500 so pg_cron retries
+        // the whole batch next minute, not be swallowed into a false "failed"
+        // that burns a delivery attempt. Delivery poison (the bug we fix) throws
+        // ABOVE, inside resolve/compose/push, and is caught here.
+        const { error: updateError } = await admin
+          .from("notification_outbox")
+          .update({
+            status: outcome.status,
+            attempts: outcome.attempts,
+            last_error: outcome.lastError,
+          })
+          .eq("id", row.id);
+        if (updateError) {
+          console.error("[notifications/drain] failed-row update failed", {
+            id: row.id,
+            error: updateError.message,
+          });
+        }
+        if (outcome.status === "pending") retried += 1;
+        else failed += 1;
+      }
+    }
   }
 
   return NextResponse.json({ expired, processed: parsed.length, sent, retried, failed });
