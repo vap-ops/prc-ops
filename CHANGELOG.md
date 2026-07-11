@@ -1,3 +1,9 @@
+# [0.17.0](https://github.com/VAP-Solution/prc-ops/compare/v0.16.0...v0.17.0) (2026-07-11)
+
+### Features
+
+- **sandbox:** spec 294 U2 — one-click sandbox login route ([#450](https://github.com/VAP-Solution/prc-ops/issues/450)) ([a18beb8](https://github.com/VAP-Solution/prc-ops/commit/a18beb8db0f9666719f5f85e7198102c9fc0e1da))
+
 # [0.16.0](https://github.com/VAP-Solution/prc-ops/compare/v0.15.2...v0.16.0) (2026-07-11)
 
 ### Features
