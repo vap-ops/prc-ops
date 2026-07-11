@@ -1,0 +1,80 @@
+# Spec 294 — keeps the sandbox tenant fresh, automatically.
+#
+# Freshness model (docs/feature-specs/294-sandbox-tenant.md):
+#   code    — the sandbox Vercel project deploys main on every merge (Vercel side)
+#   schema  — this workflow replays committed migrations on every push to main
+#   data    — the idempotent seeder runs on every sync (each main push + a
+#             nightly 02:30 ICT tick); the labor window slides daily, so the
+#             sandbox accrues realistic labor history between full resets
+#   reset   — manual dispatch with full_reset=true drops the sandbox schema and
+#             replays everything from migrations before re-seeding (sandbox ONLY)
+#
+# Safety: SANDBOX_REF is hardcoded below and every db command runs against the
+# link made with that ref — this workflow cannot reach production. Secrets:
+# SUPABASE_ACCESS_TOKEN (exists for pgTAP), SANDBOX_DB_PASSWORD,
+# SANDBOX_SERVICE_ROLE_KEY (new; sandbox project only).
+
+name: Sandbox Sync
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "30 19 * * *" # 02:30 Asia/Bangkok
+  workflow_dispatch:
+    inputs:
+      full_reset:
+        description: "Sandbox-only: DROP schema + replay all migrations before re-seeding"
+        type: boolean
+        default: false
+
+concurrency:
+  group: sandbox-sync
+  cancel-in-progress: false
+
+env:
+  SANDBOX_REF: mvozffwvkruzariteosf
+
+jobs:
+  sync:
+    name: Migrate + seed sandbox
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Link CLI to the sandbox project
+        run: pnpm exec supabase link --project-ref "$SANDBOX_REF"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SANDBOX_DB_PASSWORD }}
+
+      # printf (not `yes`): under the runner's pipefail shell, `yes` dies by
+      # SIGPIPE (141) when the CLI exits and fails the step spuriously.
+      - name: Full reset (manual dispatch only)
+        if: github.event_name == 'workflow_dispatch' && inputs.full_reset
+        run: printf 'y\n' | pnpm exec supabase db reset --linked
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SANDBOX_DB_PASSWORD }}
+
+      - name: Push migrations
+        run: printf 'Y\n' | pnpm exec supabase db push
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SANDBOX_DB_PASSWORD }}
+
+      - name: Seed demo data (idempotent)
+        run: pnpm seed:sandbox
+        env:
+          SANDBOX_URL: https://mvozffwvkruzariteosf.supabase.co
+          SANDBOX_SERVICE_ROLE_KEY: ${{ secrets.SANDBOX_SERVICE_ROLE_KEY }}

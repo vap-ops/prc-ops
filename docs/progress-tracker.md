@@ -7189,3 +7189,16 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
   (`function public.set_primary_project(uuid) does not exist`) before the migration.
 - Danger-path (migration + DEFINER) → PR HELD for operator merge. U2–U4 strictly
   after U1 is LIVE (U2 types against is_primary).
+
+## Spec 294 — Sandbox tenant (U1) — 2026-07-11
+
+- DONE (this session): sandbox Supabase project created + linked (worktree-only
+  link; main dir stays prod); 476 migrations replayed; seed lib + tests (7) +
+  idempotent seeder run twice against sandbox (12 users · 24 WPs · 8 workers ·
+  5 issues · 54 labor · 30 photos · 9 buckets); sandbox-sync workflow; bottom
+  SandboxBanner (3 tests) + env schema entries.
+- Open questions / follow-ups: GL/money seed needs a sandbox worker instance
+  (v1 shows zeros); deliverable binding + PR seeding when testers ask; optional
+  LINE dev-channel registration for the stable sandbox URL.
+- Operator steps owed: 2 GitHub secrets + sandbox Vercel project (runbook in
+  the spec §Operator runbook).
