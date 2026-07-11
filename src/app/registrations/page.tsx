@@ -6,6 +6,8 @@
 // equal the page gate, the anti-pattern named on that constant's comment).
 // Drilled down from the PM hub strip (back chip → /dashboard, the PM_ROLES home).
 
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
@@ -20,6 +22,7 @@ import {
 } from "@/lib/register/admin-registrations";
 import { buildRegistrationQueueRow } from "@/lib/register/registration-queue-view";
 import { listRegistrationsWithBank } from "@/lib/register/admin-registration-bank";
+import { AWAITING_BANK_TITLE } from "@/lib/i18n/labels";
 
 export const metadata = { title: "คำขอสมัคร" };
 
@@ -53,7 +56,15 @@ export default async function StaffRegistrationQueuePage() {
         <h1 className="text-ink text-xl font-semibold tracking-tight">คำขอสมัคร</h1>
       </DetailHeader>
 
-      <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
+      <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-4 px-5 py-6`}>
+        {/* Spec 298 U3 — jump to the phoneless-worker bank-completion queue. */}
+        <Link
+          href="/registrations/awaiting-bank"
+          className="text-action focus-visible:ring-action inline-flex items-center gap-1 self-start rounded-md text-sm font-medium focus:outline-none focus-visible:ring-2"
+        >
+          {AWAITING_BANK_TITLE}
+          <ArrowRight aria-hidden className="size-4" />
+        </Link>
         <RegistrationQueueList
           rows={rows}
           detailHrefFor={(id) => `/registrations/${id}`}
