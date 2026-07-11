@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { composeNotification } from "@/lib/notifications/compose-notification";
+import {
+  composeNotification,
+  type NotificationEventType,
+} from "@/lib/notifications/compose-notification";
 
 describe("composeNotification", () => {
   it("composes wp_pending_approval from the payload snapshot", () => {
@@ -179,5 +182,14 @@ describe("composeNotification", () => {
     ).toBe(
       "⚠️ ปัญหาหน้างาน (เข้าพื้นที่ไม่ได้): PRC-2026-004\nแจ้งโดย สมชาย ใจดี\nhttps://ops.example.app/projects/p1",
     );
+  });
+
+  // Hardening (2026-07-11) — an event type the compiled code predates must
+  // compose to a neutral empty string: a safe skip, never `undefined` that
+  // crashes the drain loop. Exhaustiveness for KNOWN events is preserved.
+  it("composes a neutral empty string for an unrecognized (future) event type", () => {
+    expect(
+      composeNotification("some_future_event" as unknown as NotificationEventType, {}, {}),
+    ).toBe("");
   });
 });

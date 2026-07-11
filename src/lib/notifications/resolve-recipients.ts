@@ -6,6 +6,7 @@
 
 import type { NotificationEventType } from "./compose-notification";
 import type { NotificationPayload } from "./payload";
+import { warnUnknownNotificationEvent } from "./unknown-event";
 
 export interface RecipientContext {
   /** Every PM-tier user id (project_manager / super_admin / project_director). */
@@ -70,5 +71,12 @@ export function resolveRecipients(
         [...context.siteIssueProjectPmIds, ...context.siteIssueRolePoolIds],
         payload.reportedBy,
       );
+    default:
+      // Runtime-only: an event type this deploy predates (see unknown-event).
+      // `eventType` is `never` here at compile time, so a new union member
+      // forces a case above; at runtime skip safely — a missing recipient rule
+      // must never crash the shared drain batch.
+      warnUnknownNotificationEvent(eventType);
+      return [];
   }
 }

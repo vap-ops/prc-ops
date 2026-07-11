@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveRecipients } from "@/lib/notifications/resolve-recipients";
+import type { NotificationEventType } from "@/lib/notifications/compose-notification";
 
 const PM_A = "aaaaaaaa-0000-4000-8000-000000000001";
 const PM_B = "aaaaaaaa-0000-4000-8000-000000000002";
@@ -147,5 +148,17 @@ describe("resolveRecipients", () => {
         ),
       ).toEqual([DIR_1]);
     });
+  });
+
+  // Hardening (2026-07-11) — an event type the compiled code predates (a DB enum
+  // value written to the outbox ahead of this deploy) must resolve to NO
+  // recipients: a safe skip, never `undefined` that crashes the shared drain
+  // loop for every other notification. The switch stays exhaustive for KNOWN
+  // events at compile time (a new union member breaks the build); the default
+  // only catches runtime values the compiled code predates.
+  it("returns no recipients for an unrecognized (future) event type", () => {
+    expect(
+      resolveRecipients("some_future_event" as unknown as NotificationEventType, {}, ctx),
+    ).toEqual([]);
   });
 });
