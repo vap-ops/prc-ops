@@ -1,3 +1,9 @@
+## [0.15.1](https://github.com/VAP-Solution/prc-ops/compare/v0.15.0...v0.15.1) (2026-07-11)
+
+### Bug Fixes
+
+- **nav:** route /coming-soon served-role bounces through roleHome (no drift) ([#447](https://github.com/VAP-Solution/prc-ops/issues/447)) ([f1c6e86](https://github.com/VAP-Solution/prc-ops/commit/f1c6e86791dc75778a9592ac2c699f1cacfd3f43)), closes [#444](https://github.com/VAP-Solution/prc-ops/issues/444)
+
 # [0.15.0](https://github.com/VAP-Solution/prc-ops/compare/v0.14.1...v0.15.0) (2026-07-11)
 
 ### Features
