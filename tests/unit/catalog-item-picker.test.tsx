@@ -152,18 +152,16 @@ describe("ScopedCatalogItemPicker scope (spec 228 / ADR 0066 D8)", () => {
     expect(screen.queryByRole("button", { name: /แสดงทั้งหมด/ })).toBeNull();
   });
 
-  it("pre-filters to the in-scope items but NEVER hides the rest (แสดงทั้งหมด escape)", () => {
-    // Scope to {ELEC}: the elec item surfaces; the steel item is pre-filtered out
-    // by default but reachable via the always-present แสดงทั้งหมด escape.
+  it("shows the full catalog by default (off-category included), narrowable to ตรงกับงาน", () => {
+    // Spec 297 U2: the default is show-all incl. off-category — both items
+    // visible; the เฉพาะที่ตรงกับงาน toggle narrows to the in-scope set.
     openPicker({ scopedCategoryIds: [ELEC] });
     expect(screen.getByRole("button", { name: /สายไฟ NYY/ })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeNull();
-
-    // The escape is always present while scoped — clicking it reveals everything.
-    const showAll = screen.getByRole("button", { name: /แสดงทั้งหมด/ });
-    fireEvent.click(showAll);
     expect(screen.getByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /เฉพาะที่ตรงกับงาน/ }));
     expect(screen.getByRole("button", { name: /สายไฟ NYY/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeNull();
   });
 
   it("flags an in-scope row as relevant to the งาน", () => {
@@ -172,12 +170,14 @@ describe("ScopedCatalogItemPicker scope (spec 228 / ADR 0066 D8)", () => {
     expect(elecRow).toHaveTextContent("ตรงกับงาน");
   });
 
-  it("counts a SECONDARY membership as in-scope (canonical∪secondary union)", () => {
-    // The steel item is also a secondary member of ELEC → surfaces under {ELEC}.
+  it("counts a SECONDARY membership as in-scope (survives the ตรงกับงาน narrow)", () => {
+    // The steel item is also a secondary member of ELEC → in-scope, so it stays
+    // even when narrowed to เฉพาะที่ตรงกับงาน (canonical∪secondary union).
     openPicker({
       scopedCategoryIds: [ELEC],
       membershipsByItem: new Map([["s1", new Set([ELEC])]]),
     });
+    fireEvent.click(screen.getByRole("button", { name: /เฉพาะที่ตรงกับงาน/ }));
     expect(screen.getByRole("button", { name: /สายไฟ NYY/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /เหล็กข้ออ้อย/ })).toBeInTheDocument();
   });
@@ -203,10 +203,9 @@ describe("ScopedCatalogItemPicker off-category warning (spec 297)", () => {
     );
   }
 
-  it("marks an OFF-scope row (visible via แสดงทั้งหมด) as นอกหมวดงาน", () => {
-    // Scope to {ELEC}: the steel row is off-scope. Reveal it via the escape.
+  it("marks an OFF-scope row as นอกหมวดงาน (shown by default)", () => {
+    // Spec 297 U2: off-scope rows are visible by default (show-all).
     openPicker({ scopedCategoryIds: [ELEC] });
-    fireEvent.click(screen.getByRole("button", { name: /แสดงทั้งหมด/ }));
 
     const steelRow = screen.getByRole("button", { name: /เหล็กข้ออ้อย/ });
     const elecRow = screen.getByRole("button", { name: /สายไฟ NYY/ });

@@ -26,6 +26,12 @@ Open questions: (a) approver-side warning — category isn't stored on the PR, w
 (deferred); (b) `equipment_items` asset-registry multi-category (out of scope). Spec:
 `docs/feature-specs/297-off-category-purchase-request-warning.md`.
 
+**U2 (operator follow-up, 2026-07-12):** DEFAULT the picker to show-all (off-category included)
+— `showAll` inits `true` + `close()` resets `true`; the toggle now narrows (เฉพาะที่ตรงกับงาน)
+instead of revealing. So a PR can pick outside the WP work-category without first toggling. Prod
+change = 2 lines in `catalog-item-picker.tsx`; 5 tests updated (picker / form-catalog / supply-plan)
+to the new default. Code-only.
+
 ---
 
 ## Spec 296 U1+U2 — Book-bank capture at staff signup — ✅ BUILT (2026-07-11), 🔔 operator-held merge
