@@ -1,3 +1,9 @@
+## [0.26.1](https://github.com/VAP-Solution/prc-ops/compare/v0.26.0...v0.26.1) (2026-07-11)
+
+### Bug Fixes
+
+- **sandbox:** pin light color-scheme so login picker reads in dark mode ([#461](https://github.com/VAP-Solution/prc-ops/issues/461)) ([1e21273](https://github.com/VAP-Solution/prc-ops/commit/1e21273accd57a897553f5c2dd07fbeac228f07c)), closes [#111](https://github.com/VAP-Solution/prc-ops/issues/111)
+
 # [0.26.0](https://github.com/VAP-Solution/prc-ops/compare/v0.25.0...v0.26.0) (2026-07-11)
 
 ### Features
