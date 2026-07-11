@@ -100,6 +100,8 @@ describe("sandbox seed dataset (spec 294)", () => {
     for (const row of rows) {
       // labor_logs_tombstone_is_correction: live rows need day_fraction (enum)
       expect(["full", "half"]).toContain(row.dayFraction);
+      // pay model: monthly staff are payroll, never daily labor_logs
+      expect(SEED_WORKERS[row.workerIndex]?.payType).toBe("daily");
       expect(row.workerIndex).toBeGreaterThanOrEqual(0);
       expect(row.workerIndex).toBeLessThan(SEED_WORKERS.length);
       expect(wpCodes.has(`${row.projectCode}:${row.wpCode}`)).toBe(true);

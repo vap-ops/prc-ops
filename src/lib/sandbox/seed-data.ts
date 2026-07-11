@@ -236,6 +236,8 @@ export function buildLaborPlan(baseDate: Date): SeedLaborRow[] {
     const d = new Date(baseDate.getTime() - day * 86_400_000);
     const workDate = d.toISOString().slice(0, 10);
     for (let wi = 0; wi < SEED_WORKERS.length; wi++) {
+      // pay model: monthly staff are payroll, never daily labor_logs
+      if (SEED_WORKERS[wi]?.payType !== "daily") continue;
       if ((wi + day) % 3 === 0) continue; // day off — keep the grid uneven
       const wp = activeWps[(wi + day) % activeWps.length];
       if (!wp) continue; // unreachable: modulo of a non-empty list

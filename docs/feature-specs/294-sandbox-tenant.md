@@ -52,10 +52,13 @@ writes; a read-only role serves only the designer and over-exposes PII.
 ### Reset semantics
 
 Append-only tables (labor_logs, photo_logs, …) block UPDATE/DELETE even for
-service_role, so the nightly seeder only ever tops up canonical rows. A true
-clean slate = run the workflow dispatch with `full_reset=true` (sandbox-only
-schema drop + full migration replay + re-seed). Tester-created rows otherwise
-persist until the next full reset — acceptable by design.
+service_role, so the nightly seeder only ever tops up canonical rows. The
+labor plan's 10-day window slides with the calendar, so each nightly run adds
+that day's rows — the sandbox accrues realistic labor history (~40 rows/day,
+daily-paid workers only) between resets. A true clean slate = run the workflow
+dispatch with `full_reset=true` (sandbox-only schema drop + full migration
+replay + re-seed). Tester-created rows otherwise persist until the next full
+reset — acceptable by design.
 
 ## Operator runbook (one-time)
 

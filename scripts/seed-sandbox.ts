@@ -26,8 +26,10 @@ import {
   buildWorkPackages,
 } from "@/lib/sandbox/seed-data";
 
-// Refuse to ever run against production, whatever the env says.
-const PROD_REF = "btbfzhnvzruvxlgbeqnl";
+// Allowlist, not denylist: this script writes with the service key, so it may
+// only ever run against the known sandbox project — never prod, never any
+// other real project a mis-set env might point at.
+const SANDBOX_REF = "mvozffwvkruzariteosf";
 
 const BUCKETS = [
   "catalog-images",
@@ -49,7 +51,8 @@ function fail(msg: string): never {
 const url = process.env.SANDBOX_URL;
 const serviceKey = process.env.SANDBOX_SERVICE_ROLE_KEY;
 if (!url || !serviceKey) fail("SANDBOX_URL and SANDBOX_SERVICE_ROLE_KEY are required");
-if (url.includes(PROD_REF)) fail(`refusing to run against production (${PROD_REF})`);
+if (new URL(url).hostname !== `${SANDBOX_REF}.supabase.co`)
+  fail(`refusing to run against ${url} — only the sandbox project ${SANDBOX_REF} is allowed`);
 
 const db = createClient<Database>(url, serviceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
@@ -119,10 +122,17 @@ async function ensureBuckets(): Promise<void> {
 
 async function ensureUsers(): Promise<Map<string, string>> {
   const byKey = new Map<string, string>();
-  const listedRes = await db.auth.admin.listUsers({ page: 1, perPage: 200 });
-  if (listedRes.error) fail(`list auth users: ${listedRes.error.message}`);
+  // Paginate the whole pool — an existing persona missed on page 1 would make
+  // createUser fail on duplicate email and abort the nightly seed.
+  const allUsers: { id: string; email?: string }[] = [];
+  for (let page = 1; ; page++) {
+    const listedRes = await db.auth.admin.listUsers({ page, perPage: 1000 });
+    if (listedRes.error) fail(`list auth users: ${listedRes.error.message}`);
+    allUsers.push(...listedRes.data.users);
+    if (listedRes.data.users.length < 1000) break;
+  }
   for (const persona of SEED_PERSONAS) {
-    let user = listedRes.data.users.find((u) => u.email === persona.email);
+    let user = allUsers.find((u) => u.email === persona.email);
     if (!user) {
       const createdRes = await db.auth.admin.createUser({
         email: persona.email,

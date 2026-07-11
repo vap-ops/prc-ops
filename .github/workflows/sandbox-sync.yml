@@ -3,7 +3,9 @@
 # Freshness model (docs/feature-specs/294-sandbox-tenant.md):
 #   code    — the sandbox Vercel project deploys main on every merge (Vercel side)
 #   schema  — this workflow replays committed migrations on every push to main
-#   data    — this workflow re-runs the idempotent seeder nightly (02:30 ICT)
+#   data    — the idempotent seeder runs on every sync (each main push + a
+#             nightly 02:30 ICT tick); the labor window slides daily, so the
+#             sandbox accrues realistic labor history between full resets
 #   reset   — manual dispatch with full_reset=true drops the sandbox schema and
 #             replays everything from migrations before re-seeding (sandbox ONLY)
 #
@@ -56,15 +58,17 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SANDBOX_DB_PASSWORD }}
 
+      # printf (not `yes`): under the runner's pipefail shell, `yes` dies by
+      # SIGPIPE (141) when the CLI exits and fails the step spuriously.
       - name: Full reset (manual dispatch only)
         if: github.event_name == 'workflow_dispatch' && inputs.full_reset
-        run: yes | pnpm exec supabase db reset --linked
+        run: printf 'y\n' | pnpm exec supabase db reset --linked
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SANDBOX_DB_PASSWORD }}
 
       - name: Push migrations
-        run: yes | pnpm exec supabase db push
+        run: printf 'Y\n' | pnpm exec supabase db push
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SANDBOX_DB_PASSWORD }}

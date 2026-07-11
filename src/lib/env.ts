@@ -14,8 +14,9 @@ const clientSchema = z.object({
   // client capture app-wide without a deploy of the feature itself.
   NEXT_PUBLIC_TELEMETRY_ENABLED: z.string().optional().default("true"),
   // Spec 294: set to "sandbox" ONLY on the sandbox Vercel project — turns on
-  // the persistent SandboxBanner. Unset everywhere else.
-  NEXT_PUBLIC_APP_ENV: z.enum(["sandbox"]).optional(),
+  // the persistent SandboxBanner. "production" is accepted (and means nothing)
+  // so setting it on prod for symmetry can never crash the boot-time parse.
+  NEXT_PUBLIC_APP_ENV: z.enum(["sandbox", "production"]).optional(),
   // Vercel system var (auto-exposed when system env vars are enabled); the
   // sandbox banner shows its first 7 chars as the deployed-commit marker.
   NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA: z.string().optional(),
