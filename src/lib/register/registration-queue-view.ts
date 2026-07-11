@@ -20,6 +20,9 @@ export interface RegistrationQueueInput {
   createdAt: string;
   /** The live (current, supersede-head) attachment purposes on this registration. */
   uploadedPurposes: readonly StaffDocPurpose[];
+  /** Spec 296 — whether a staff_registration_bank row exists (the bank data is
+   *  zero-grant, so the data layer supplies only this presence boolean). */
+  hasBank: boolean;
 }
 
 export interface RegistrationQueueRow {
@@ -62,10 +65,22 @@ export function buildRegistrationQueueRow(input: RegistrationQueueInput): Regist
 }
 
 /**
- * Mirrors approve_technician_registration's floor exactly: full_name present
+ * Mirrors approve_staff_registration's floor: full_name present
  * (nullif(btrim(...)) — blank/whitespace-only counts as absent) AND a live
- * id_card attachment. UI hint only; the RPC is still the authoritative gate.
+ * id_card attachment AND a live book_bank passbook photo AND a saved bank row
+ * (spec 296). UI hint only; the RPC is still the authoritative gate.
+ *
+ * NOTE: the RPC floor ALSO requires a live PDPA consent record, which this queue
+ * hint does NOT check (it has never been fed the consent state — a pre-spec-296
+ * omission). So `meetsFloor` can read true for an applicant who still owes
+ * consent; the detail page + the RPC remain authoritative. Feeding consent
+ * presence here is a follow-up (see progress-tracker open questions).
  */
 export function meetsApprovalFloor(input: RegistrationQueueInput): boolean {
-  return isNonBlank(input.fullName) && input.uploadedPurposes.includes("id_card");
+  return (
+    isNonBlank(input.fullName) &&
+    input.uploadedPurposes.includes("id_card") &&
+    input.uploadedPurposes.includes("book_bank") &&
+    input.hasBank
+  );
 }

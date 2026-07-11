@@ -22,6 +22,15 @@ const BASE: RegistrationQueueInput = {
   status: "pending",
   createdAt: "2026-07-01T03:00:00.000Z",
   uploadedPurposes: [],
+  hasBank: false,
+};
+
+// A registration that satisfies the full mirrored floor (spec 296): name +
+// a live id_card + a live book_bank passbook photo + a saved bank row.
+const FLOOR_MET: RegistrationQueueInput = {
+  ...BASE,
+  uploadedPurposes: ["id_card", "book_bank"],
+  hasBank: true,
 };
 
 describe("buildRegistrationQueueRow", () => {
@@ -76,34 +85,36 @@ describe("buildRegistrationQueueRow", () => {
 
   it("carries meetsFloor on the row (mirrors meetsApprovalFloor)", () => {
     expect(buildRegistrationQueueRow(BASE).meetsFloor).toBe(false);
-    expect(buildRegistrationQueueRow({ ...BASE, uploadedPurposes: ["id_card"] }).meetsFloor).toBe(
-      true,
-    );
+    expect(buildRegistrationQueueRow(FLOOR_MET).meetsFloor).toBe(true);
   });
 });
 
-describe("meetsApprovalFloor (mirrors the U1c RPC floor exactly)", () => {
-  it("is false with no name and no id_card", () => {
+describe("meetsApprovalFloor (mirrors the DB floor: name + id_card + book_bank + bank)", () => {
+  it("is false with nothing provided", () => {
     expect(meetsApprovalFloor(BASE)).toBe(false);
   });
 
   it("is false with a name but no id_card", () => {
-    expect(meetsApprovalFloor({ ...BASE, fullName: "สมชาย ใจดี" })).toBe(false);
+    expect(meetsApprovalFloor({ ...FLOOR_MET, uploadedPurposes: ["book_bank"] })).toBe(false);
   });
 
   it("is false with an id_card but no name", () => {
-    expect(meetsApprovalFloor({ ...BASE, fullName: null, uploadedPurposes: ["id_card"] })).toBe(
-      false,
-    );
+    expect(meetsApprovalFloor({ ...FLOOR_MET, fullName: null })).toBe(false);
   });
 
-  it("is true with both a name and a live id_card", () => {
-    expect(meetsApprovalFloor({ ...BASE, uploadedPurposes: ["id_card"] })).toBe(true);
+  it("is false without a book_bank passbook photo (spec 296)", () => {
+    expect(meetsApprovalFloor({ ...FLOOR_MET, uploadedPurposes: ["id_card"] })).toBe(false);
+  });
+
+  it("is false without a saved bank row (spec 296)", () => {
+    expect(meetsApprovalFloor({ ...FLOOR_MET, hasBank: false })).toBe(false);
+  });
+
+  it("is true with name + id_card + book_bank + a saved bank row", () => {
+    expect(meetsApprovalFloor(FLOOR_MET)).toBe(true);
   });
 
   it("treats a blank/whitespace-only name the same as no name (mirrors the RPC's nullif(btrim(...)))", () => {
-    expect(meetsApprovalFloor({ ...BASE, fullName: "   ", uploadedPurposes: ["id_card"] })).toBe(
-      false,
-    );
+    expect(meetsApprovalFloor({ ...FLOOR_MET, fullName: "   " })).toBe(false);
   });
 });

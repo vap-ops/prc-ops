@@ -19,6 +19,7 @@ import {
   listLiveAttachmentPurposes,
 } from "@/lib/register/admin-registrations";
 import { buildRegistrationQueueRow } from "@/lib/register/registration-queue-view";
+import { listRegistrationsWithBank } from "@/lib/register/admin-registration-bank";
 
 export const metadata = { title: "คำขอสมัคร" };
 
@@ -27,10 +28,11 @@ export default async function StaffRegistrationQueuePage() {
   const supabase = await createClient();
 
   const registrations = await listVisibleTechnicianRegistrations(supabase);
-  const purposesByRegistration = await listLiveAttachmentPurposes(
-    supabase,
-    registrations.map((r) => r.id),
-  );
+  const ids = registrations.map((r) => r.id);
+  const [purposesByRegistration, bankByRegistration] = await Promise.all([
+    listLiveAttachmentPurposes(supabase, ids),
+    listRegistrationsWithBank(ids),
+  ]);
 
   const rows = registrations.map((r) =>
     buildRegistrationQueueRow({
@@ -40,6 +42,7 @@ export default async function StaffRegistrationQueuePage() {
       status: r.status,
       createdAt: r.created_at,
       uploadedPurposes: purposesByRegistration.get(r.id) ?? [],
+      hasBank: bankByRegistration.has(r.id),
     }),
   );
 
