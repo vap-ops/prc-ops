@@ -1,3 +1,9 @@
+# [0.15.0](https://github.com/VAP-Solution/prc-ops/compare/v0.14.1...v0.15.0) (2026-07-11)
+
+### Features
+
+- **work-packages:** add type-to-find search to the project work-list ([#446](https://github.com/VAP-Solution/prc-ops/issues/446)) ([2cd3bb9](https://github.com/VAP-Solution/prc-ops/commit/2cd3bb9f0cd59f82505a1251f720ceac477b4d17))
+
 ## [0.14.1](https://github.com/VAP-Solution/prc-ops/compare/v0.14.0...v0.14.1) (2026-07-11)
 
 ### Bug Fixes
