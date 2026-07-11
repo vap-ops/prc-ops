@@ -14,6 +14,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { WORKER_LEVEL_LABEL, type WorkerLevel } from "@/lib/nova/dials";
+import { BANK_PENDING_CHIP_LABEL } from "@/lib/i18n/labels";
 
 export interface CrewProgressMember {
   id: string;
@@ -22,6 +23,8 @@ export interface CrewProgressMember {
   level: WorkerLevel | null;
   /** Shown only when the SA runs more than one project. */
   projectLabel?: string;
+  /** Spec 298 U2 — a phoneless SA-added worker awaiting a PM's bank transcription. */
+  bankPending?: boolean;
 }
 
 export interface CrewProgressData {
@@ -45,15 +48,22 @@ function MemberRow({
   name,
   level,
   projectLabel,
+  bankPending,
 }: {
   name: string;
   level?: WorkerLevel | null;
   projectLabel?: string;
+  bankPending?: boolean;
 }) {
   return (
     <li className="border-edge text-ink flex min-h-11 items-center justify-between gap-3 border-b py-2.5 text-sm last:border-b-0">
       <span className="min-w-0 truncate font-medium">{name}</span>
       <span className="flex shrink-0 items-center gap-2">
+        {bankPending ? (
+          <span className="border-edge bg-sunk text-ink-secondary text-meta rounded-full border px-2 py-0.5">
+            {BANK_PENDING_CHIP_LABEL}
+          </span>
+        ) : null}
         {level ? (
           <span className="border-edge bg-sunk text-ink-secondary text-meta rounded-full border px-2 py-0.5">
             {WORKER_LEVEL_LABEL[level]}
@@ -133,6 +143,7 @@ export function CrewProgressRoster({
                 key={m.id}
                 name={m.name}
                 {...(m.projectLabel ? { projectLabel: m.projectLabel } : {})}
+                {...(m.bankPending ? { bankPending: true } : {})}
               />
             ))}
           </ul>
