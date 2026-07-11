@@ -1,3 +1,9 @@
+# [0.19.0](https://github.com/VAP-Solution/prc-ops/compare/v0.18.0...v0.19.0) (2026-07-11)
+
+### Features
+
+- **sandbox:** spec 294 U3 — seed v1.1 (deliverables, PRs, daily plans) ([#452](https://github.com/VAP-Solution/prc-ops/issues/452)) ([0827cea](https://github.com/VAP-Solution/prc-ops/commit/0827cea2e75a8ae2151e924d2187846647139e2f))
+
 # [0.18.0](https://github.com/VAP-Solution/prc-ops/compare/v0.17.0...v0.18.0) (2026-07-11)
 
 ### Features
