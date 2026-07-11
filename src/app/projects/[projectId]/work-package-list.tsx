@@ -23,8 +23,10 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Search, X } from "lucide-react";
 import { workPackageHref } from "@/lib/nav/project-paths";
+import { FIELD_INPUT } from "@/lib/ui/classes";
+import { filterWorkPackages } from "@/lib/work-packages/filter-work-packages";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { WorklistRow, type WorklistRowItem } from "@/components/features/chrome/worklist-row";
@@ -110,6 +112,12 @@ export function WorkPackageList({
   const roster = useMemo(() => buildGroupedRoster(workPackages), [workPackages]);
   const leaves = roster.leaves;
   const [lens, setLens] = useState<Lens>(() => defaultLens(role, roster.adopted));
+  // Spec 293: type-to-find over the whole in-memory roster. A non-empty
+  // query replaces the lens with a flat, priority-ranked hit list — "find
+  // the one งาน I need" beats hunting inside collapsed sections.
+  const [query, setQuery] = useState("");
+  const isSearching = query.trim() !== "";
+  const searchResults = useMemo(() => filterWorkPackages(leaves, query), [leaves, query]);
   // Action lens: which triage band is filtered (null = all bands).
   const [bandFilter, setBandFilter] = useState<ActionBand | null>(null);
   // Action lens: the done band is collapsed until asked for.
@@ -160,78 +168,128 @@ export function WorkPackageList({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Lens toggle — segmented, 44px. งาน = hierarchy (adopted projects),
-          action = สถานะ, deliverable = งวดงาน. */}
-      <div
-        role="radiogroup"
-        aria-label="มุมมองรายการงาน"
-        className="rounded-control border-edge bg-sunk flex gap-1 border p-1"
-      >
-        {lensOptions.map((opt) => {
-          const on = lens === opt.value;
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              onClick={() => setLens(opt.value)}
-              className={`text-body focus-visible:ring-action min-h-11 flex-1 rounded-[0.625rem] font-bold transition-colors focus:outline-none focus-visible:ring-2 ${
-                on ? "bg-card text-ink shadow-card" : "text-ink-secondary hover:text-ink"
-              }`}
-            >
-              {opt.label}
-            </button>
-          );
-        })}
+      {/* Spec 293: type-to-find search over the whole roster (code or name). */}
+      <div className="relative">
+        <Search
+          aria-hidden
+          className="text-ink-muted pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2"
+        />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className={`${FIELD_INPUT} pl-10 ${query ? "pr-11" : ""}`}
+          placeholder={`ค้นหา${WP_LEAF_LABEL} (รหัสหรือชื่อ)`}
+          aria-label={`ค้นหา${WP_LEAF_LABEL}`}
+          autoComplete="off"
+        />
+        {query ? (
+          <button
+            type="button"
+            onClick={() => setQuery("")}
+            aria-label="ล้างคำค้น"
+            className="text-ink-muted hover:text-ink focus-visible:ring-action absolute top-1/2 right-2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2"
+          >
+            <X aria-hidden className="size-5" />
+          </button>
+        ) : null}
       </div>
 
-      {lens === "group" ? (
-        <GroupLens
-          projectId={projectId}
-          sections={roster.sections}
-          ungrouped={roster.ungrouped}
-          expanded={expanded}
-          onToggle={(key) =>
-            setExpanded((prev) => {
-              const next = new Set(prev);
-              if (next.has(key)) next.delete(key);
-              else next.add(key);
-              return next;
-            })
-          }
-          toRowItem={toRowItem}
-          canOpen={canOpen}
-        />
-      ) : lens === "action" ? (
-        <ActionLens
-          projectId={projectId}
-          bands={bands}
-          countByBand={countByBand}
-          bandFilter={bandFilter}
-          onBandFilter={setBandFilter}
-          showDone={showDone}
-          onToggleDone={() => setShowDone((v) => !v)}
-          toRowItem={toRowItem}
-          canOpen={canOpen}
-        />
+      {isSearching ? (
+        // Search active: flat, priority-ranked hit list across every lens.
+        <div className="flex flex-col gap-2.5">
+          {searchResults.length === 0 ? (
+            <EmptyNotice>ไม่พบ{WP_LEAF_LABEL}ที่ตรงกับคำค้น</EmptyNotice>
+          ) : (
+            searchResults.map((wp, i) => (
+              <WorklistRow
+                key={wp.id}
+                projectId={projectId}
+                wp={toRowItem(wp)}
+                spine={ACTION_BAND_META[deriveActionBand(wp.status)].spine}
+                compact
+                enterIndex={i}
+                canOpen={canOpen}
+              />
+            ))
+          )}
+        </div>
       ) : (
-        <DeliverableLens
-          projectId={projectId}
-          workPackages={leaves}
-          deliverables={deliverables}
-          expanded={expanded}
-          onToggle={(key) =>
-            setExpanded((prev) => {
-              const next = new Set(prev);
-              if (next.has(key)) next.delete(key);
-              else next.add(key);
-              return next;
-            })
-          }
-          toRowItem={toRowItem}
-          canOpen={canOpen}
-        />
+        <>
+          {/* Lens toggle — segmented, 44px. งาน = hierarchy (adopted projects),
+          action = สถานะ, deliverable = งวดงาน. */}
+          <div
+            role="radiogroup"
+            aria-label="มุมมองรายการงาน"
+            className="rounded-control border-edge bg-sunk flex gap-1 border p-1"
+          >
+            {lensOptions.map((opt) => {
+              const on = lens === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => setLens(opt.value)}
+                  className={`text-body focus-visible:ring-action min-h-11 flex-1 rounded-[0.625rem] font-bold transition-colors focus:outline-none focus-visible:ring-2 ${
+                    on ? "bg-card text-ink shadow-card" : "text-ink-secondary hover:text-ink"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {lens === "group" ? (
+            <GroupLens
+              projectId={projectId}
+              sections={roster.sections}
+              ungrouped={roster.ungrouped}
+              expanded={expanded}
+              onToggle={(key) =>
+                setExpanded((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(key)) next.delete(key);
+                  else next.add(key);
+                  return next;
+                })
+              }
+              toRowItem={toRowItem}
+              canOpen={canOpen}
+            />
+          ) : lens === "action" ? (
+            <ActionLens
+              projectId={projectId}
+              bands={bands}
+              countByBand={countByBand}
+              bandFilter={bandFilter}
+              onBandFilter={setBandFilter}
+              showDone={showDone}
+              onToggleDone={() => setShowDone((v) => !v)}
+              toRowItem={toRowItem}
+              canOpen={canOpen}
+            />
+          ) : (
+            <DeliverableLens
+              projectId={projectId}
+              workPackages={leaves}
+              deliverables={deliverables}
+              expanded={expanded}
+              onToggle={(key) =>
+                setExpanded((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(key)) next.delete(key);
+                  else next.add(key);
+                  return next;
+                })
+              }
+              toRowItem={toRowItem}
+              canOpen={canOpen}
+            />
+          )}
+        </>
       )}
     </div>
   );
