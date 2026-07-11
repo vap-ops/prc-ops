@@ -1,3 +1,9 @@
+# [0.28.0](https://github.com/VAP-Solution/prc-ops/compare/v0.27.0...v0.28.0) (2026-07-11)
+
+### Features
+
+- **onboarding:** SA add-technician front door + capture-blind add (spec 298 U2) ([#464](https://github.com/VAP-Solution/prc-ops/issues/464)) ([ccb9e25](https://github.com/VAP-Solution/prc-ops/commit/ccb9e25446e3a302e645737c1ec6611080321ad5))
+
 # [0.27.0](https://github.com/VAP-Solution/prc-ops/compare/v0.26.1...v0.27.0) (2026-07-11)
 
 ### Features
