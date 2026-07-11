@@ -18,7 +18,7 @@ The SA receive workflow is scattered, and its automation is invisible:
    no way to focus on what is **due or overdue** — spec 137 explicitly left "overdue filters
    for site" as a seam. An overwhelmed SA cannot see "what should be here by now."
 2. **Accept-to-store already works, but is invisible.** A trigger
-   (`purchase_requests_stock_in_on_receive`, spec 195 P3 / ADR 0063) fires on *every* WP-less
+   (`purchase_requests_stock_in_on_receive`, spec 195 P3 / ADR 0063) fires on _every_ WP-less
    PR reaching `delivered` and auto-books the `stock_receipt` (goods into store, Dr Inventory
    1500 / Cr AP). The delivery-confirmation photo is what flips `on_route → delivered` (spec
    24). So **the delivery photo already IS the accept-to-store** — proven live: 205 of 206
@@ -32,8 +32,9 @@ The SA receive workflow is scattered, and its automation is invisible:
 
 ## Change
 
-Two code-only units. No new server action, no RPC, no migration — the accept-to-store
-trigger already exists (Problem 2); this only surfaces and filters it.
+Three code-only units (U3 added after operator feedback). No new server action, no RPC, no
+migration — the accept-to-store trigger already exists (Problem 2); this only surfaces and
+filters it.
 
 ### U1 — Delivery "today" lens (code-only, no schema)
 
@@ -69,6 +70,24 @@ On a `delivered` / `on_route` PR, merge the two separate cards (`การรั
 Both uploaders already exist and now succeed for SA on store-bound PRs (post-#456). Photos are
 optional-but-prompted.
 
+### U3 — "ของเข้า" incoming section on the store page (code-only, added 2026-07-12)
+
+Operator feedback after U1/U2 shipped: the SA looks for deliveries in the **คลัง & ของเข้า**
+tile (the store page `/projects/[projectId]/store`), not the **คำขอซื้อ** (`/requests`) tab
+where U1's lens + U2's card landed. So the incoming pipeline was invisible where the SA
+actually receives. U3 surfaces it there:
+
+- A new **ของเข้า** section at the top of the store page listing the project's incoming
+  store-bound deliveries (`purchase_requests` with `status IN (purchased, on_route)` and
+  `work_package_id IS NULL` — once `delivered`, the spec-195-P3 trigger auto-books them into
+  the store, so they drop off). Read under the viewer's RLS (the store page already admits
+  site_admin via `can_see_project`).
+- Filtered by the **same** U1 lens (`วันนี้` default / `กำลังมา` / `ทั้งหมด`, via `?incoming=`),
+  ordered due-first, with an `เลยกำหนด` flag. Each row links to `/requests/[id]` — the U2
+  receive card, where the delivery photo completes the (auto) store receipt.
+- Pure `selectStoreIncoming` (`src/lib/store/incoming.ts`, TDD) + server component
+  `StoreIncomingList`; no new write, no schema, no RPC.
+
 ## Out of scope / seams
 
 - **No receive action / RPC.** Accept-to-store is the existing spec-195-P3 trigger; building a
@@ -78,7 +97,7 @@ optional-but-prompted.
 - **Photo-always** (operator decision): the delivery photo is the only accept — no photo-less
   one-tap "received" (keeps the photo proof, the SA adoption bet, memory
   `sa-real-usage-photos-2026-07`).
-- **Store-first stays** (ADR 0065): goods belong to the store; only the *paper* is captured at
+- **Store-first stays** (ADR 0065): goods belong to the store; only the _paper_ is captured at
   site. Site-destination deliveries, per-line qty edits, split-delivery reconciliation,
   keyset paging of the lens, and the procurement view are all out of scope.
 
@@ -91,6 +110,10 @@ optional-but-prompted.
   **✓ รับเข้าคลังแล้ว** (the auto-receipt) → add the `ใบส่งของ/ใบเสร็จ` receipt photo in the same
   card; zero console errors. Confirm against the live DB that the `stock_receipt` exists for
   that PR (the trigger fired).
+- **U3:** unit tests for `selectStoreIncoming` (lens filter, due-first sort, overdue flag,
+  `item_description` fallback). Live-DB check that the incoming query returns the project's
+  `purchased`/`on_route` WP-less PRs. App-only → no `db:push`; live store-page render is an
+  operator-device eyeball (auth-gated project route, spec-137 standard).
 
 ## References
 
