@@ -1,3 +1,9 @@
+# [0.23.0](https://github.com/VAP-Solution/prc-ops/compare/v0.22.1...v0.23.0) (2026-07-11)
+
+### Features
+
+- **purchasing:** warn when a purchase-request item is off the WP work-category (spec 297) ([#457](https://github.com/VAP-Solution/prc-ops/issues/457)) ([10c60ee](https://github.com/VAP-Solution/prc-ops/commit/10c60eefc0663b51e97f794a2098e43035f31e8b))
+
 ## [0.22.1](https://github.com/VAP-Solution/prc-ops/compare/v0.22.0...v0.22.1) (2026-07-11)
 
 ### Bug Fixes
