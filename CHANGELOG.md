@@ -1,3 +1,9 @@
+# [0.60.0](https://github.com/VAP-Solution/prc-ops/compare/v0.59.0...v0.60.0) (2026-07-12)
+
+### Features
+
+- **310:** office-expense card = 1 per user (U8) ([#506](https://github.com/VAP-Solution/prc-ops/issues/506)) ([73bf1ab](https://github.com/VAP-Solution/prc-ops/commit/73bf1ab994489820eae71c0cefe1f4a1e284f049))
+
 # [0.59.0](https://github.com/VAP-Solution/prc-ops/compare/v0.58.0...v0.59.0) (2026-07-12)
 
 ### Features
