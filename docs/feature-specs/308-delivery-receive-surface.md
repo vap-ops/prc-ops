@@ -50,28 +50,30 @@ page (reached from the spec-305 delivery cards; ของเข้า tile → c
   should keep the arrival card visible (state รับแล้ว) same-day so the SA can
   reopen it — decide exact retention at plan time.
 
-## Gate-1 investigation list (next session, BEFORE code)
+## Gate-1 findings (verified LIVE 2026-07-12 — NO schema unit needed)
 
-1. **RLS/storage for SA writes to delivery-scoped proof** — the
-   `purchase_order_attachments` insert path + its storage bucket policy are
-   BO-shaped today; SA needs insert on proof for deliveries of projects they
-   can see. Likely an RLS/storage-policy migration → **danger-path, operator
-   one-tap** — plan it as its own schema unit (U1) like #456.
-2. `receivePoLines` callable by site_admin? (RLS transition policy + action
-   gate — verify live.)
-3. `purchase_order_deliveries` SELECT for SA (can_see_project scope?).
-4. Attachment-path/idempotency contracts for the delivery-scoped uploader
-   (reuse ProofOfDeliveryUploader vs a capture-bracketed variant with the
-   spec-37 offline queue).
+1. ✅ `receive_po_lines` RPC already admits **site_admin** ("Receiving is a
+   site action" — site_admin/PM/super/director + procurement, spec 208 Q3).
+2. ✅ `purchase_order_attachments` INSERT policy already includes site_admin
+   (+ created_by=self + parent-PO-exists; the policy NAME says "back office"
+   but the role array is wider — stale name only).
+3. ✅ storage `po-attachments` upload policy already includes site_admin
+   (single-folder = poId path enforced).
+4. ✅ `purchase_order_deliveries` SELECT already includes site_admin (role-only
+   scope — pool-level read, same accepted grain as equipment_movements).
 
-## Unit sketch
+**Spec 308 is therefore CODE-ONLY** — no migration, no guard-held PR. The
+original U1 assumption is refuted by evidence; units renumber:
 
-- **U1 (schema/RLS, guard-held):** whatever gate-1 finds — SA grants for
-  delivery proof + deliveries read + receive transition.
-- **U2 (code):** the receive page (header + checklist + truck capture +
+- **U1 (code):** the receive page (header + checklist + truck capture +
   paper capture) + ของเข้า card links → here + nav-back-affordance guard.
-- **U3 (code):** PR-page receive card shrink-to-link + per-item exception
+  Uploader contract (ProofOfDeliveryUploader reuse vs a capture-bracketed
+  variant with the spec-37 offline queue) decided at plan time.
+- **U2 (code):** PR-page receive card shrink-to-link + per-item exception
   photo affordance + retention polish.
+- ⚠️ Coordinate with the spec-307 arrival-grouping lane (day×supplier card
+  grain, in flight) — the card→receive-page links land on whichever card
+  shape merged first; whoever merges second resolves.
 
 ## Out of scope
 
