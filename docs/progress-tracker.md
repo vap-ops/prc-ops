@@ -7307,3 +7307,16 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
   one-liner, no card/button) + invoiceMissingFlag (amber, BO+delivered+no-docs).
   TDD RED 3 new -> 12/12; full suite green; browser-verified both roles (flip
   reverted); fresh-eyes clean (1 intent Q answered).
+
+## Spec 303 — Goods-photo integrity — COMPLETE (2026-07-12)
+
+- Operator: real-time photo proof of receiving, full coverage, multiple shots,
+  amount traceable. AskUserQuestion unanswered -> recommended options (force
+  camera + amber flag all roles), both derived from operator wording.
+- TDD RED 6 -> 18/18 (with 302 suite); capture=environment + coverage hint on
+  DeliveryPhotoUploader; deliveredQtyCaption on photo group at delivered;
+  deliveryPhotoMissingFlag amber on photo-less delivered (BO checklist path gap).
+- Browser-verified: bare delivered PR = amber + hint + capture attr; photo-rich
+  PR = caption, no amber; zero console errors. Fresh-eyes: clean, 1 nit accepted.
+- Seam: AI coverage-check of photos = future agent job; no EXIF verification
+  (impossible honestly in-browser).

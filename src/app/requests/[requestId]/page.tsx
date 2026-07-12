@@ -38,6 +38,8 @@ import {
   PO_DOCS_FROM_PROCUREMENT_LABEL,
   PAYMENT_PROOF_MISSING_LABEL,
   INVOICE_PAPER_MISSING_LABEL,
+  DELIVERY_PHOTO_MISSING_LABEL,
+  deliveredQtyCaption,
 } from "@/lib/i18n/labels";
 import {
   purchaseRequestPriorityPillClasses,
@@ -175,6 +177,7 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
     isBackOffice,
     hasPaymentDocs: paymentImages.length > 0 || paymentPdfs.length > 0,
     hasInvoiceDocs: invoiceImages.length > 0 || invoicePdfs.length > 0,
+    hasDeliveryPhotos: confirmations.length > 0,
   });
 
   // Spec 182 U1: supplier quotes for price comparison — only on an approved PR,
@@ -502,9 +505,24 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
           <div className="rounded-card border-edge bg-card shadow-card border p-4">
             <h2 className="text-ink text-base font-semibold">การรับของ</h2>
             <div className="mt-2 flex flex-col gap-2">
+              {/* Spec 303: photo-less delivered = no receive proof (the BO
+                  checklist path can produce this) — amber, every role. */}
+              {docPlan.deliveryPhotoMissingFlag ? (
+                <p className="text-attn-ink text-xs font-medium">{DELIVERY_PHOTO_MISSING_LABEL}</p>
+              ) : null}
               {confirmations.length > 0 ? (
                 <div>
-                  <p className="text-ink-secondary text-xs font-medium">รูปยืนยันการรับของ</p>
+                  <p className="text-ink-secondary text-xs font-medium">
+                    รูปยืนยันการรับของ
+                    {/* Spec 303: the photos↔amount pairing, per PR row (แบ่งรับ
+                        splits are separate rows, so this is per-event exact). */}
+                    {status === "delivered" ? (
+                      <span className="text-ink-muted font-normal">
+                        {" · "}
+                        {deliveredQtyCaption(request.quantity, request.unit)}
+                      </span>
+                    ) : null}
+                  </p>
                   <ul className="mt-1 flex flex-wrap gap-2">
                     {confirmations.map((photo, idx, arr) => {
                       const url = photo.id ? attachmentUrls.get(photo.id) : undefined;

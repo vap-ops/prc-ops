@@ -30,6 +30,12 @@ export interface RequestDocSectionPlan {
    * before the goods arrive.
    */
   invoiceMissingFlag: boolean;
+  /**
+   * Spec 303: a delivered PR with ZERO confirmation photos has no receive
+   * proof (the BO checklist path can produce this) — amber flag for EVERY
+   * role; the goods photo is the core evidence.
+   */
+  deliveryPhotoMissingFlag: boolean;
 }
 
 export function planRequestDocSections(input: {
@@ -37,8 +43,15 @@ export function planRequestDocSections(input: {
   isBackOffice: boolean;
   hasPaymentDocs: boolean;
   hasInvoiceDocs?: boolean;
+  hasDeliveryPhotos?: boolean;
 }): RequestDocSectionPlan {
-  const { status, isBackOffice, hasPaymentDocs, hasInvoiceDocs = false } = input;
+  const {
+    status,
+    isBackOffice,
+    hasPaymentDocs,
+    hasInvoiceDocs = false,
+    hasDeliveryPhotos = false,
+  } = input;
   const atReceive = RECEIVE_CARD_STATUSES.includes(status);
 
   const paymentSection: PaymentSectionMode =
@@ -53,5 +66,6 @@ export function planRequestDocSections(input: {
     showStandaloneInvoiceCard: !atReceive,
     paymentSection,
     invoiceMissingFlag: isBackOffice && status === "delivered" && !hasInvoiceDocs,
+    deliveryPhotoMissingFlag: status === "delivered" && !hasDeliveryPhotos,
   };
 }
