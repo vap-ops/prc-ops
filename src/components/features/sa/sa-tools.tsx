@@ -1,6 +1,7 @@
-// Spec 277 P0 — the SA-home tools grid. A stable 2×2 of shipped destinations that
-// were buried a project-hub tap (or a settings gear) away: the on-site store
-// (biggest reachability fix — everything routes through the SA's คลัง), the
+// Spec 277 P0 — the SA-home tools grid. A 2-col grid of shipped destinations that
+// were buried a project-hub tap (or a settings gear) away: the ของเข้า receiving
+// queue + the on-site store คลัง (spec 300 U4 split them; the store was the biggest
+// reachability fix — everything routes through the SA's คลัง), the
 // project schedule, the purchase-request worklist, and ปิดวัน (end-of-day:
 // tomorrow's plan — the day report is spec 212, not yet built). Store + schedule
 // are per-project, so they deep-link
@@ -15,10 +16,12 @@ import {
   CalendarDays,
   ClipboardCheck,
   ShoppingCart,
+  Truck,
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { scheduleHref, storeHref } from "@/lib/nav/project-paths";
+import { scheduleHref, storeHref, incomingHref } from "@/lib/nav/project-paths";
+import { STORE_LABEL, STORE_INCOMING_HEADING } from "@/lib/i18n/labels";
 
 export function SaTools({
   primaryProjectId,
@@ -36,12 +39,21 @@ export function SaTools({
     <section className="flex flex-col gap-3">
       <h2 className="text-meta text-ink-secondary font-semibold">เครื่องมือ</h2>
       <div className="grid grid-cols-2 gap-3">
+        {/* Spec 300 U4: ของเข้า (incoming deliveries) is its own surface, split from คลัง
+            (inventory) — a time-sensitive receiving queue ≠ static stock. Receiving first. */}
+        <Tile
+          href={projectScoped(incomingHref)}
+          icon={Truck}
+          accent="text-cat-w03"
+          title={STORE_INCOMING_HEADING}
+          subtitle="กำลังมา · รับของ"
+        />
         <Tile
           href={projectScoped(storeHref)}
           icon={Box}
           accent="text-cat-w05"
-          title="คลัง & ของเข้า"
-          subtitle="รับเข้า · ตรวจนับ"
+          title={STORE_LABEL}
+          subtitle="สต๊อก · ตรวจนับ"
         />
         <Tile
           href={projectScoped(scheduleHref)}
@@ -66,7 +78,7 @@ export function SaTools({
           pulse={showCloseNudge}
         />
         {/* Temporary — SA-assisted onboarding: the crew roster + the technician
-            self-onboard QR. Full-width row below the 2×2. */}
+            self-onboard QR. Full-width row below the tools grid. */}
         <Tile
           href="/sa/crew"
           icon={Users}

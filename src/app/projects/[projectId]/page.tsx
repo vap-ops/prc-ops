@@ -9,6 +9,7 @@ import {
   FileText,
   Forklift,
   Settings,
+  Truck,
   Warehouse,
 } from "lucide-react";
 import {
@@ -25,6 +26,7 @@ import {
   reportsHref,
   scheduleHref,
   storeHref,
+  incomingHref,
   supplyPlanHref,
 } from "@/lib/nav/project-paths";
 import { safeBackHref } from "@/lib/nav/back-href";
@@ -37,6 +39,7 @@ import {
   EQUIPMENT_RENTAL_LABEL,
   PROJECT_STATUS_LABEL,
   STORE_LABEL,
+  STORE_INCOMING_HEADING,
 } from "@/lib/i18n/labels";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
@@ -214,6 +217,18 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
                 className={ICON_CHIP_MUTED}
               >
                 <ClipboardList aria-hidden className="h-5 w-5" />
+              </Link>
+            ) : null}
+            {/* Spec 300 U4: the ของเข้า (incoming deliveries) chip — same gate as คลัง
+                (WP_DETAIL_ROLES), so procurement + site_admin reach the receiving view from
+                the project too, not only the SA-home tile. Before คลัง (receiving first). */}
+            {canSeeStore ? (
+              <Link
+                href={incomingHref(project.id)}
+                aria-label={STORE_INCOMING_HEADING}
+                className={ICON_CHIP_MUTED}
+              >
+                <Truck aria-hidden className="h-5 w-5" />
               </Link>
             ) : null}
             {/* Spec 197 U1: the คลัง (store) chip — after แผนจัดหา (plan → hold
