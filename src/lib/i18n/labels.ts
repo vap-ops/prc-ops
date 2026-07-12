@@ -133,7 +133,7 @@ export const ADD_TECHNICIAN_NO_PHONE_LABEL = "ไม่มีมือถือ"
 export const ADD_TECHNICIAN_HAS_PHONE_HINT =
   "ให้ช่างสแกน QR ของโครงการด้วยมือถือตัวเอง แล้วกรอกข้อมูลและบัญชีธนาคารเอง";
 export const ADD_TECHNICIAN_NO_PHONE_HINT =
-  "กรอกชื่อ–เลขบัตรประชาชน–วันเกิด แล้วถ่ายรูปสมุดบัญชี (ผู้จัดการจะกรอกเลขบัญชีให้ภายหลัง)";
+  "กรอกชื่อ–เลขบัตรประชาชน–วันเกิด แล้วถ่ายรูปหรือแนบรูปสมุดบัญชี (ผู้จัดการจะกรอกเลขบัญชีให้ภายหลัง)";
 export const PASSBOOK_PHOTO_LABEL = "รูปสมุดบัญชีธนาคาร";
 export const BANK_PENDING_CHIP_LABEL = "รอ PM กรอกบัญชี";
 

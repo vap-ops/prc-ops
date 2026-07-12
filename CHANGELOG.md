@@ -1,3 +1,33 @@
+## [0.42.1](https://github.com/VAP-Solution/prc-ops/compare/v0.42.0...v0.42.1) (2026-07-12)
+
+### Bug Fixes
+
+- **sa:** allow passbook photo upload from gallery, not camera-only ([#483](https://github.com/VAP-Solution/prc-ops/issues/483)) ([3f99cdb](https://github.com/VAP-Solution/prc-ops/commit/3f99cdb4256d96809892e7a381a1311687bff69f))
+
+# [0.42.0](https://github.com/VAP-Solution/prc-ops/compare/v0.41.1...v0.42.0) (2026-07-12)
+
+### Features
+
+- **muster:** spec 306 U2 — scan-muster schema + DEFINER RPCs ([#484](https://github.com/VAP-Solution/prc-ops/issues/484)) ([8453b86](https://github.com/VAP-Solution/prc-ops/commit/8453b86c6dd2664b8cda8e8df803dd23f53120bd))
+
+## [0.41.1](https://github.com/VAP-Solution/prc-ops/compare/v0.41.0...v0.41.1) (2026-07-12)
+
+### Bug Fixes
+
+- **purchasing:** capture the raising WP as PR provenance (spec 301 U2 gap) ([#482](https://github.com/VAP-Solution/prc-ops/issues/482)) ([f529304](https://github.com/VAP-Solution/prc-ops/commit/f529304c48e769e776e8e0cbabb246a21f4fab98))
+
+# [0.41.0](https://github.com/VAP-Solution/prc-ops/compare/v0.40.0...v0.41.0) (2026-07-12)
+
+### Features
+
+- **purchasing:** spec 301f — project name on PR card + request detail header ([#481](https://github.com/VAP-Solution/prc-ops/issues/481)) ([f4feac7](https://github.com/VAP-Solution/prc-ops/commit/f4feac78e39a8d777d2c34752ec9f92a9a713ba6))
+
+# [0.40.0](https://github.com/VAP-Solution/prc-ops/compare/v0.39.0...v0.40.0) (2026-07-12)
+
+### Features
+
+- **sa:** spec 306 U1 — printable QR badges for scan check-in ([#479](https://github.com/VAP-Solution/prc-ops/issues/479)) ([c47da8f](https://github.com/VAP-Solution/prc-ops/commit/c47da8f39c331c1e0425e15caa073563ac6988e5))
+
 # [0.39.0](https://github.com/VAP-Solution/prc-ops/compare/v0.38.0...v0.39.0) (2026-07-12)
 
 ### Features

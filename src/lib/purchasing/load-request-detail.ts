@@ -34,6 +34,7 @@ type RequestInput = Pick<
   | "purchase_order_id"
   | "status"
   | "catalog_item_id"
+  | "project_id"
 >;
 
 export async function loadRequestDetail(
@@ -56,6 +57,7 @@ export async function loadRequestDetail(
     suppliers,
     { data: catalogItem },
     { data: itemMembershipRows },
+    { data: projectRow },
   ] = await Promise.all([
     // Spec 195 P1: a fully WP-less PR has no anchor (no WP chip).
     // Spec 301 U1/U2a: + category_id for the letter-code reconcile below;
@@ -100,6 +102,11 @@ export async function loadRequestDetail(
           .from("catalog_item_categories")
           .select("catalog_item_id, category_id")
           .eq("catalog_item_id", request.catalog_item_id)
+      : Promise.resolve({ data: null }),
+    // Spec 301f: the project name for the header — procurement spans projects,
+    // so the WP line alone doesn't say where this PR belongs.
+    request.project_id
+      ? supabase.from("projects").select("id, name").eq("id", request.project_id).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
 
@@ -151,6 +158,7 @@ export async function loadRequestDetail(
     wp,
     wpCategoryCode,
     categoryMatch,
+    projectName: projectRow?.name ?? null,
     requesterName,
     attachments,
     attachmentUrls,

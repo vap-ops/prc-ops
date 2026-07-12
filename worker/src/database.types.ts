@@ -3223,6 +3223,167 @@ export type Database = {
         }
         Relationships: []
       }
+      muster_attendance: {
+        Row: {
+          id: string
+          in_at: string
+          in_method: Database["public"]["Enums"]["muster_method"]
+          note: string | null
+          ot_hours: number | null
+          out_at: string | null
+          out_auto: boolean
+          out_method: Database["public"]["Enums"]["muster_method"] | null
+          scanned_by: string
+          team_id: string
+          work_date: string
+          worker_id: string
+        }
+        Insert: {
+          id?: string
+          in_at?: string
+          in_method: Database["public"]["Enums"]["muster_method"]
+          note?: string | null
+          ot_hours?: number | null
+          out_at?: string | null
+          out_auto?: boolean
+          out_method?: Database["public"]["Enums"]["muster_method"] | null
+          scanned_by: string
+          team_id: string
+          work_date: string
+          worker_id: string
+        }
+        Update: {
+          id?: string
+          in_at?: string
+          in_method?: Database["public"]["Enums"]["muster_method"]
+          note?: string | null
+          ot_hours?: number | null
+          out_at?: string | null
+          out_auto?: boolean
+          out_method?: Database["public"]["Enums"]["muster_method"] | null
+          scanned_by?: string
+          team_id?: string
+          work_date?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "muster_attendance_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "muster_teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "muster_attendance_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      muster_day_closures: {
+        Row: {
+          closed_at: string
+          closed_by: string
+          project_id: string
+          work_date: string
+        }
+        Insert: {
+          closed_at?: string
+          closed_by: string
+          project_id: string
+          work_date: string
+        }
+        Update: {
+          closed_at?: string
+          closed_by?: string
+          project_id?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "muster_day_closures_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      muster_team_wps: {
+        Row: {
+          team_id: string
+          work_package_id: string
+        }
+        Insert: {
+          team_id: string
+          work_package_id: string
+        }
+        Update: {
+          team_id?: string
+          work_package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "muster_team_wps_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "muster_teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "muster_team_wps_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      muster_teams: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          lead_worker_id: string
+          project_id: string
+          work_date: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          lead_worker_id: string
+          project_id: string
+          work_date: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          lead_worker_id?: string
+          project_id?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "muster_teams_lead_worker_id_fkey"
+            columns: ["lead_worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "muster_teams_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_outbox: {
         Row: {
           attempts: number
@@ -7918,6 +8079,10 @@ export type Database = {
         Args: { p_dst_project_id: string; p_src_project_id: string }
         Returns: number
       }
+      close_muster_day: {
+        Args: { p_date: string; p_project: string }
+        Returns: undefined
+      }
       coin_balance: { Args: { p_worker: string }; Returns: number }
       coin_spendable_balance: { Args: { p_worker: string }; Returns: number }
       coin_unvested_balance: { Args: { p_worker: string }; Returns: number }
@@ -8464,8 +8629,32 @@ export type Database = {
         Args: { p_due_date: string; p_id: string }
         Returns: string
       }
+      move_muster_worker: {
+        Args: { p_date: string; p_to_team: string; p_worker: string }
+        Returns: string
+      }
+      muster_scan_in: {
+        Args: {
+          p_method: Database["public"]["Enums"]["muster_method"]
+          p_team: string
+          p_worker: string
+        }
+        Returns: string
+      }
+      muster_scan_out: {
+        Args: {
+          p_method: Database["public"]["Enums"]["muster_method"]
+          p_team: string
+          p_worker: string
+        }
+        Returns: string
+      }
       my_contact_bank_present: { Args: never; Returns: boolean }
       open_accounting_period: { Args: { p_month: string }; Returns: string }
+      open_muster_team: {
+        Args: { p_date: string; p_lead_worker: string; p_project: string }
+        Returns: string
+      }
       photo_markup_tombstone_target_ok: {
         Args: { p_photo_log_id: string; p_superseded_by: string }
         Returns: boolean
@@ -9018,6 +9207,10 @@ export type Database = {
       }
       set_item_sell_rate: {
         Args: { p_catalog_item_id: string; p_sell_rate: number }
+        Returns: undefined
+      }
+      set_muster_team_wps: {
+        Args: { p_team: string; p_wp_ids: string[] }
         Returns: undefined
       }
       set_nova_dial: {
@@ -9765,6 +9958,7 @@ export type Database = {
         | "custom_fabrication"
       journal_entry_status: "draft" | "posted" | "reversed"
       login_handoff_status: "pending" | "approved" | "consumed"
+      muster_method: "qr" | "manual"
       notification_event_type:
         | "wp_pending_approval"
         | "wp_decision"
@@ -10193,6 +10387,7 @@ export const Constants = {
       ],
       journal_entry_status: ["draft", "posted", "reversed"],
       login_handoff_status: ["pending", "approved", "consumed"],
+      muster_method: ["qr", "manual"],
       notification_event_type: [
         "wp_pending_approval",
         "wp_decision",

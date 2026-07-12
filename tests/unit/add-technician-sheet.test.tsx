@@ -67,6 +67,15 @@ describe("AddTechnicianSheet — spec 298 U2 front door", () => {
     expect(submit).toBeEnabled();
   });
 
+  it("passbook input accepts gallery/file uploads, not camera-only (spec 298 §5 camera/upload)", () => {
+    const dialog = openSheet();
+    fireEvent.click(within(dialog).getByRole("button", { name: ADD_TECHNICIAN_NO_PHONE_LABEL }));
+    const input = within(dialog).getByLabelText(PASSBOOK_PHOTO_LABEL);
+    // `capture` forces the camera on mobile and hides the gallery/file picker.
+    expect(input).not.toHaveAttribute("capture");
+    expect(input).toHaveAttribute("accept", "image/*");
+  });
+
   it("never renders a bank-account field on the SA surface (capture-blind)", () => {
     const dialog = openSheet();
     fireEvent.click(within(dialog).getByRole("button", { name: ADD_TECHNICIAN_NO_PHONE_LABEL }));

@@ -59,6 +59,9 @@ const SINGLE: Record<string, unknown> = {
   purchase_orders: PO,
   project_categories: PROJECT_CATEGORY,
   catalog_items: CATALOG_ITEM,
+  // Spec 301f: the header shows which project the PR belongs to (procurement
+  // spans projects; the WP line alone doesn't say).
+  projects: { id: "p1", name: "โครงการอัลฟ่า" },
 };
 const LIST: Record<string, unknown[]> = {
   purchase_request_attachments_current: ATTACHMENTS,
@@ -101,6 +104,7 @@ const REQUEST = {
   purchase_order_id: "po1",
   status: "approved",
   catalog_item_id: "ci1",
+  project_id: "p1",
 };
 
 beforeEach(() => {
@@ -111,9 +115,9 @@ beforeEach(() => {
 describe("loadRequestDetail", () => {
   it("runs the independent fan concurrently (not a serial waterfall)", async () => {
     await loadRequestDetail(supabase, REQUEST as never, { isBackOffice: true });
-    // wp + attachments + purchase_orders + po-docs + suppliers = 5 reads that
-    // depend only on the request → must overlap. Serial would peak at 1.
-    expect(maxInFlight).toBeGreaterThanOrEqual(5);
+    // wp + attachments + purchase_orders + po-docs + suppliers + projects = 6
+    // request-dependent reads that must overlap. Serial would peak at 1.
+    expect(maxInFlight).toBeGreaterThanOrEqual(6);
   });
 
   it("assembles the correct shape", async () => {
@@ -122,6 +126,8 @@ describe("loadRequestDetail", () => {
     expect(data.wpCategoryCode).toBe("W04");
     // Spec 301 U2: catA (the item's canonical category) ∈ Relation-R scope → match.
     expect(data.categoryMatch).toBe("match");
+    // Spec 301f: the PR's project name for the header line.
+    expect(data.projectName).toBe("โครงการอัลฟ่า");
     expect(data.requesterName).toBe("คุณขอ");
     expect(data.attachments).toEqual(ATTACHMENTS);
     expect(data.attachmentUrls.get("at1")).toBe("signed-at1");
