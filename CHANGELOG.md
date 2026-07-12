@@ -1,3 +1,9 @@
+# [0.53.0](https://github.com/VAP-Solution/prc-ops/compare/v0.52.0...v0.53.0) (2026-07-12)
+
+### Features
+
+- **310:** company-card registry (U2) ([#498](https://github.com/VAP-Solution/prc-ops/issues/498)) ([963bbe8](https://github.com/VAP-Solution/prc-ops/commit/963bbe863e6301fb45221c5f016db9e8fe56dbc5))
+
 # [0.52.0](https://github.com/VAP-Solution/prc-ops/compare/v0.51.0...v0.52.0) (2026-07-12)
 
 ### Features
