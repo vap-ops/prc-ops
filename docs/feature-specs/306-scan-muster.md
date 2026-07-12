@@ -29,6 +29,7 @@ Why this design is strong (and why we build it as stated):
 | Plan coupling | **Plan = pre-fill, scan = truth.** No plan → scan works standalone. Deviation recorded as variance, never blocks |
 | Architecture | **A: scan layer (raw truth) + derived money** — chosen over writing `labor_logs` directly at scan time |
 | Multi-WP cost | Even-split 1/N at derive (already the documented 279 money model); per-WP precision = later upgrade |
+| WP grain (added 2026-07-12) | **Main WPs only** for the first two projects — teams assign per main WP (`parent_id IS NULL`), sub WPs inherit the team; labor cost lands at main-WP grain; main→sub distribution estimated from man-days later (mechanism TBD) |
 
 ## What already exists (verified LIVE 2026-07-12)
 
@@ -71,7 +72,7 @@ Presence is never blocked by money state. A scanned worker without `cost_confirm
 New tables (all RLS-on; reads/writes scoped `can_see_project`; role gate `site_admin`/`super_admin` for writes — PM/PD/back-office get read):
 
 - `muster_teams` — id, project_id, work_date, lead_worker_id, created_by, created_at. Unique (project_id, work_date, lead_worker_id).
-- `muster_team_wps` — team_id, work_package_id. Unique pair. WP must belong to the same project.
+- `muster_team_wps` — team_id, work_package_id. Unique pair. WP must belong to the same project and be a **main WP** (`parent_id IS NULL`); sub WPs inherit the team from their parent (computed at read, never stored). A sub-WP row is permitted only as an explicit **override** for special cases (e.g. rejected work redone by a different team) and excludes that sub WP from parent inheritance.
 - `muster_attendance` — id, team_id, worker_id, work_date (denormalized), in_at, in_method (`qr|manual`), out_at, out_method, ot_hours numeric null, scanned_by, note. **Unique (worker_id, work_date)** — one attendance row per worker per day; moving teams updates team_id (audit-logged), not a second row.
 
 SECURITY DEFINER RPCs (229/279 lessons baked in: `revoke execute … from anon` on every one; helper predicates wrapped `(select …)` for eval-once; gates `is distinct from` style null-safe):
@@ -103,7 +104,8 @@ pgTAP suite: role gates (SA yes / visitor+technician no / anon revoked), project
 
 On `close_muster_day` (+ nightly cron backstop for unclosed days, integrity-console pattern):
 
-- Per present worker-day: one `labor_logs` row **per WP of their team that day**, fraction = 1/N (even-split — the documented 279 money model; the operator's stated temporary fix).
+- Per present worker-day: one `labor_logs` row **per MAIN WP of their team that day**, fraction = 1/N over the team's main WPs (even-split — the documented 279 money model; the operator's stated temporary fix). Labor cost lands at **main-WP grain** for the first two projects; distribution down to sub WPs is a later estimate from man-days (mechanism TBD — operator).
+- ⚠️ **Build-time verify:** `labor_logs` anchored on an `is_group` WP is new territory — the cost engine, WP-detail cost views, and the dashboard spend model (group-vs-children **disjointness invariant**, see dashboard-spend-model memory) must count a group-anchored row exactly once. Also check `daily_work_plan_items` / plan board for group-WP handling before wiring pre-fill.
 - `labor_logs` additive columns: `day_fraction_num numeric` (enum `full|half` can't hold 1/3; existing rows map full→1.0, half→0.5; cost engine reads `coalesce(day_fraction_num, enum-mapped)`), `level_snapshot` (fixes 271-U0 bug #1), `source_muster_id` (idempotency key — the GL re-drain lesson: derive is an upsert keyed on the attendance row; re-running a close never double-posts).
 - **Cost gate:** no `cost_confirmed_at` → NO labor_logs rows; the worker lands in a PM "pending cost" queue (extends the U7-tracker รอยืนยัน state); on confirm, derive backfills their held days. Also refuses day_rate=0 into cost (fixes 271-U0 bug #2).
 - Corrections: muster edits after close re-run the derive; replaced rows use the existing supersede pattern (`superseded_by` + `correction_reason='muster_rederive'`).
@@ -111,12 +113,13 @@ On `close_muster_day` (+ nightly cron backstop for unclosed days, integrity-cons
 
 ### U6 — Plan pre-fill + variance (code-only)
 
-- Pre-fill is already wired in U3; this unit adds the **variance surface**: planned-vs-scanned per WP/day — planned-not-present, present-not-planned, team-changed — as a chip on the plan board + a feed row for spec 271 snapshots.
+- Plan pre-assignment follows the same grain: **teams are planned per main WP**; sub WPs inherit the planned team (display-level, unless a special-case override exists).
+- Pre-fill is already wired in U3; this unit adds the **variance surface**: planned-vs-scanned per main WP/day — planned-not-present, present-not-planned, team-changed — as a chip on the plan board + a feed row for spec 271 snapshots.
 - Computed (view or query), no new tables.
 
-### Per-WP precision — the upgrade path (not built now)
+### Finer cost precision — the upgrade path (not built now)
 
-The scan layer already holds team + WPs + hours. When precision is wanted: at ปิดวัน the SA (or later the lead) allocates percentages across the team's WPs (default = even); the derive swaps 1/N for the weights. Zero rework of the scan flow, one derive-rule change. This answers the operator's "ideally cost per WP, but I cannot see how yet."
+Operator direction (2026-07-12): first two projects cost at **main-WP grain only**; distribution from main WP down to sub WPs will be **estimated from man-days later** — mechanism not yet decided. The scan layer already holds team + main WPs + hours, so any future rule (man-day weights per sub WP, % allocation at ปิดวัน, or lead-entered splits) is a derive-rule change only; the scan flow never changes.
 
 ## Non-goals / boundaries
 
