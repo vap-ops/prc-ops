@@ -7288,3 +7288,17 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
 
 - Operator-approved in-chat (AskUserQuestion): full sweep + flag; flag detail+grid only.
 - Lane 301prcode, worktree ../prc-ops-301, branch spec301-pr-wp-code. Code-only.
+
+## Spec 302 — Receive-flow document clarity — IN PROGRESS (2026-07-12)
+
+- Operator-approved design (AskUserQuestion, all 3 recommended options).
+- Lane 302receive, worktree ../prc-ops-302, branch spec302-receive-doc-clarity. Code-only.
+- TDD: tests/unit/request-doc-sections.test.tsx RED first (module-unresolved), then
+  planRequestDocSections + InvoiceDocsDisplay + labels + page wiring. 10/10 green.
+- COMPLETE (2026-07-12): full suite 3572 green; browser-verified BOTH roles
+  (super_admin uploader view + temp site_admin flip: view-only slip w/ procurement
+  provenance, hidden-when-empty, single receive card, details collapsed; flip
+  reverted, temp membership deleted). Fresh-eyes: 1 a11y fix applied (h2 in
+  summary), 3 nits answered. Open questions: heading literals on the PR page
+  (หลักฐานการชำระเงิน/เอกสาร) still raw strings not labels.ts — pre-existing,
+  candidate for a labels sweep unit.

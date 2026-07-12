@@ -34,6 +34,8 @@ import {
   RECEIVED_INTO_STORE_LABEL,
   RECEIVED_INTO_STORE_HINT,
   RECEIPT_PAPER_PROMPT,
+  PAYMENT_PROOF_FROM_PROCUREMENT_LABEL,
+  PO_DOCS_FROM_PROCUREMENT_LABEL,
 } from "@/lib/i18n/labels";
 import {
   purchaseRequestPriorityPillClasses,
@@ -56,6 +58,8 @@ import { PurchaseRequestAttachmentStager } from "@/components/features/purchasin
 import { AttachmentRemoveButton } from "@/components/features/purchasing/attachment-remove-button";
 import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
 import { loadRequestDetail } from "@/lib/purchasing/load-request-detail";
+import { planRequestDocSections } from "@/lib/purchasing/request-doc-sections";
+import { InvoiceDocsDisplay } from "@/components/features/purchasing/invoice-docs-display";
 import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
 import { mintSignedUrlsForAttachments } from "@/lib/purchasing/attachment-signed-urls";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
@@ -161,6 +165,14 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
   const referenceLinks = attachments.filter(
     (row) => row.purpose === "reference" && row.kind === "link",
   );
+
+  // Spec 302: the document-section visibility plan — ownership-aware, so the
+  // SA's paper-capture job and procurement's paperwork stop reading alike.
+  const docPlan = planRequestDocSections({
+    status,
+    isBackOffice,
+    hasPaymentDocs: paymentImages.length > 0 || paymentPdfs.length > 0,
+  });
 
   // Spec 182 U1: supplier quotes for price comparison — only on an approved PR,
   // back-office only (unit_price is money; RLS hides the table from site staff).
@@ -530,9 +542,20 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
                 projectId={request.project_id}
                 userId={ctx.id}
               />
-              {/* Spec 300 U2: capture the paper receipt (ใบส่งของ/ใบเสร็จ) at the receive moment */}
-              <div className="border-edge flex flex-col gap-1 border-t pt-2">
+              {/* Spec 300 U2 + 302: capture the paper receipt (ใบส่งของ/ใบเสร็จ) at the
+                  receive moment — uploads now display right here too, so the SA's
+                  paper job lives in ONE card (the standalone เอกสาร card is gone at
+                  these statuses). */}
+              <div className="border-edge flex flex-col gap-2 border-t pt-2">
                 <p className="text-ink-secondary text-xs font-medium">{RECEIPT_PAPER_PROMPT}</p>
+                {docPlan.invoiceDocsInReceiveCard ? (
+                  <InvoiceDocsDisplay
+                    images={invoiceImages}
+                    pdfs={invoicePdfs}
+                    urls={attachmentUrls}
+                    viewerId={ctx.id}
+                  />
+                ) : null}
                 <InvoiceUploader purchaseRequestId={request.id} projectId={request.project_id} />
               </div>
             </div>
@@ -540,10 +563,14 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
         ) : null}
 
         {poDocs.length > 0 ? (
-          <div className="rounded-card border-edge bg-card shadow-card border p-4">
-            <h2 className="text-ink text-base font-semibold">
-              เอกสารใบสั่งซื้อ (ใบเสนอราคา / ใบแจ้งหนี้)
-            </h2>
+          /* Spec 302: procurement's PO paperwork collapses out of the SA's action
+             path — visible on demand, provenance in the heading. */
+          <details className="rounded-card border-edge bg-card shadow-card border p-4">
+            <summary className="cursor-pointer">
+              <h2 className="text-ink inline text-base font-semibold">
+                {PO_DOCS_FROM_PROCUREMENT_LABEL}
+              </h2>
+            </summary>
             <div className="mt-2 flex flex-col gap-2">
               {poDocs.some((d) => d.kind === "image") ? (
                 <ul className="flex flex-wrap gap-2">
@@ -576,122 +603,64 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
                   return <AttachmentPdf key={doc.id} src={url} />;
                 })}
             </div>
-          </div>
+          </details>
         ) : null}
 
-        {status === "purchased" ||
-        status === "on_route" ||
-        status === "delivered" ||
-        status === "site_purchased" ? (
+        {/* Spec 302: at on_route/delivered this whole card folds into the การรับของ
+            card above (docPlan) — no second "ยังไม่มีเอกสาร" task for the SA. It
+            remains for the pre-delivery states (purchased/site_purchased). */}
+        {(status === "purchased" || status === "site_purchased") &&
+        docPlan.showStandaloneInvoiceCard ? (
           <div className="rounded-card border-edge bg-card shadow-card border p-4">
             <h2 className="text-ink text-base font-semibold">เอกสาร (ใบส่งของ / ใบเสร็จ)</h2>
             <div className="mt-2 flex flex-col gap-2">
-              {invoiceImages.length > 0 ? (
-                <ul className="flex flex-wrap gap-2">
-                  {invoiceImages.map((doc, idx, arr) => {
-                    const url = doc.id ? attachmentUrls.get(doc.id) : undefined;
-                    if (!doc.id || !url) return null;
-                    /* Spec 50: invoice images form their own lightbox group. */
-                    const groupUrls = arr.flatMap((a) =>
-                      a.id && attachmentUrls.get(a.id) ? [attachmentUrls.get(a.id) as string] : [],
-                    );
-                    const groupIndex = arr
-                      .slice(0, idx)
-                      .filter((a) => a.id && attachmentUrls.get(a.id)).length;
-                    return (
-                      <li key={doc.id} className="flex flex-col items-center gap-0.5">
-                        <span className="border-edge block h-20 w-20 overflow-hidden rounded-lg border">
-                          <ZoomablePhoto src={url} group={groupUrls} groupIndex={groupIndex} />
-                        </span>
-                        {doc.created_by === ctx.id ? (
-                          <AttachmentRemoveButton attachmentId={doc.id} />
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : null}
-              {/* Spec 121: invoice PDFs render in the iframe viewer. */}
-              {invoicePdfs.length > 0 ? (
-                <ul className="flex flex-col gap-2">
-                  {invoicePdfs.map((doc) => {
-                    const url = doc.id ? attachmentUrls.get(doc.id) : undefined;
-                    if (!doc.id || !url) return null;
-                    return (
-                      <li key={doc.id} className="flex flex-col gap-0.5">
-                        <AttachmentPdf src={url} />
-                        {doc.created_by === ctx.id ? (
-                          <AttachmentRemoveButton attachmentId={doc.id} />
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : null}
+              <InvoiceDocsDisplay
+                images={invoiceImages}
+                pdfs={invoicePdfs}
+                urls={attachmentUrls}
+                viewerId={ctx.id}
+              />
               {invoiceImages.length === 0 && invoicePdfs.length === 0 ? (
                 <p className="text-ink-secondary text-xs">ยังไม่มีเอกสาร</p>
               ) : null}
-              {/* Spec 300 U2: for on_route/delivered the uploader lives in the รับของ card
-                  above; keep it here only for the pre-delivery states (purchased/site_purchased). */}
-              {status !== "on_route" && status !== "delivered" ? (
-                <InvoiceUploader purchaseRequestId={request.id} projectId={request.project_id} />
-              ) : null}
+              <InvoiceUploader purchaseRequestId={request.id} projectId={request.project_id} />
             </div>
           </div>
         ) : null}
 
-        {/* Bug 2: proof of payment (สลิปโอน) — its own section + uploader. */}
-        {status === "purchased" ||
-        status === "on_route" ||
-        status === "delivered" ||
-        status === "site_purchased" ? (
+        {/* Bug 2 + spec 302: proof of payment (สลิปโอน) is the BUYER's document.
+            Back-office (and site-purchase, where the SA paid) keep the uploader;
+            everyone else sees the slip view-only with procurement provenance —
+            or nothing at all, never an empty section implying a job. */}
+        {(status === "purchased" ||
+          status === "on_route" ||
+          status === "delivered" ||
+          status === "site_purchased") &&
+        docPlan.paymentSection !== "hidden" ? (
           <div className="rounded-card border-edge bg-card shadow-card border p-4">
-            <h2 className="text-ink text-base font-semibold">หลักฐานการชำระเงิน</h2>
+            <h2 className="text-ink text-base font-semibold">
+              {docPlan.paymentSection === "view-only"
+                ? PAYMENT_PROOF_FROM_PROCUREMENT_LABEL
+                : "หลักฐานการชำระเงิน"}
+            </h2>
             <div className="mt-2 flex flex-col gap-2">
-              {paymentImages.length > 0 ? (
-                <ul className="flex flex-wrap gap-2">
-                  {paymentImages.map((doc, idx, arr) => {
-                    const url = doc.id ? attachmentUrls.get(doc.id) : undefined;
-                    if (!doc.id || !url) return null;
-                    const groupUrls = arr.flatMap((a) =>
-                      a.id && attachmentUrls.get(a.id) ? [attachmentUrls.get(a.id) as string] : [],
-                    );
-                    const groupIndex = arr
-                      .slice(0, idx)
-                      .filter((a) => a.id && attachmentUrls.get(a.id)).length;
-                    return (
-                      <li key={doc.id} className="flex flex-col items-center gap-0.5">
-                        <span className="border-edge block h-20 w-20 overflow-hidden rounded-lg border">
-                          <ZoomablePhoto src={url} group={groupUrls} groupIndex={groupIndex} />
-                        </span>
-                        {doc.created_by === ctx.id ? (
-                          <AttachmentRemoveButton attachmentId={doc.id} />
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ul>
+              <InvoiceDocsDisplay
+                images={paymentImages}
+                pdfs={paymentPdfs}
+                urls={attachmentUrls}
+                viewerId={ctx.id}
+              />
+              {docPlan.paymentSection === "uploader" ? (
+                <>
+                  {paymentImages.length === 0 && paymentPdfs.length === 0 ? (
+                    <p className="text-ink-secondary text-xs">ยังไม่มีหลักฐานการชำระเงิน</p>
+                  ) : null}
+                  <PaymentProofUploader
+                    purchaseRequestId={request.id}
+                    projectId={request.project_id}
+                  />
+                </>
               ) : null}
-              {paymentPdfs.length > 0 ? (
-                <ul className="flex flex-col gap-2">
-                  {paymentPdfs.map((doc) => {
-                    const url = doc.id ? attachmentUrls.get(doc.id) : undefined;
-                    if (!doc.id || !url) return null;
-                    return (
-                      <li key={doc.id} className="flex flex-col gap-0.5">
-                        <AttachmentPdf src={url} />
-                        {doc.created_by === ctx.id ? (
-                          <AttachmentRemoveButton attachmentId={doc.id} />
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : null}
-              {paymentImages.length === 0 && paymentPdfs.length === 0 ? (
-                <p className="text-ink-secondary text-xs">ยังไม่มีหลักฐานการชำระเงิน</p>
-              ) : null}
-              <PaymentProofUploader purchaseRequestId={request.id} projectId={request.project_id} />
             </div>
           </div>
         ) : null}
