@@ -22,10 +22,14 @@ import {
   BUTTON_SECONDARY,
 } from "@/lib/ui/classes";
 import { bangkokTodayIso } from "@/lib/dates";
-import { formatThaiDate } from "@/lib/i18n/labels";
+import { formatThaiDate, PAYROLL_PAYMENT_PERIOD_WIDE_NOTE } from "@/lib/i18n/labels";
 import { parsePayrollRange } from "@/lib/labor/payroll";
 import { fetchPayrollReport } from "@/lib/labor/fetch-payroll";
-import { annotatePayrollPayments, WAGE_PAYMENT_METHOD_LABELS } from "@/lib/labor/payments";
+import {
+  reconcilePayroll,
+  WAGE_PAYMENT_METHOD_LABELS,
+  type PaymentStatus,
+} from "@/lib/labor/payments";
 import { fetchPeriodPayments, fetchWorkerBanks } from "@/lib/labor/fetch-payments";
 import { RecordPaymentSheet } from "@/components/features/labor/record-payment-sheet";
 import { bahtUnit as baht } from "@/lib/format";
@@ -65,12 +69,22 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
   const report = await fetchPayrollReport(admin, range, projectId);
 
   // Spec 127 U2 / spec 170 U3 — annotate each worker with their recorded payment
-  // for this exact period (paid/outstanding/drift). Worker banks for the record
-  // sheet's transfer target are batch-read (admin client; PM-gated page).
-  const payments = await fetchPeriodPayments(admin, range);
+  // for this exact period (paid/outstanding/drift). Spec 311 U5: reconciliation
+  // is period-wide (wage_payments has no project dimension), so under a project
+  // filter it is suppressed — skip the payment/bank reads and render a note.
+  const reconciliation =
+    projectId === undefined
+      ? reconcilePayroll(report, await fetchPeriodPayments(admin, range), range, undefined)
+      : reconcilePayroll(report, [], range, projectId);
+  const annotated = reconciliation.scoped ? null : reconciliation.report;
   const workerIds = report.workers.map((w) => w.workerId);
-  const banks = await fetchWorkerBanks(admin, workerIds);
-  const annotated = annotatePayrollPayments(report, payments, range);
+  // Worker banks feed the record sheet's transfer target — only needed where the
+  // record affordance renders (the unfiltered view).
+  const banks = annotated ? await fetchWorkerBanks(admin, workerIds) : new Map<string, never>();
+  // Spec 311 U5: per-worker payment lookup — populated only in the unfiltered
+  // (all-projects) view; empty under a project filter.
+  const paymentByWorker = new Map<string, PaymentStatus | null>();
+  if (annotated) for (const w of annotated.workers) paymentByWorker.set(w.workerId, w.payment);
   const todayIso = bangkokTodayIso();
 
   const exportHref = `/payroll/export?from=${range.from}&to=${range.to}${
@@ -146,12 +160,18 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
                 <p className="text-ink-secondary text-xs">
                   {report.workerCount} คน · {formatDays(report.totalDays)} วัน
                 </p>
-                <p className="text-ink-secondary mt-0.5 text-xs">
-                  จ่ายแล้ว {annotated.paidCount} ราย · ค้างจ่าย {annotated.unpaidCount} ราย
-                  {annotated.outstandingAmount > 0
-                    ? ` · ยอดค้าง ${baht(annotated.outstandingAmount)}`
-                    : ""}
-                </p>
+                {annotated ? (
+                  <p className="text-ink-secondary mt-0.5 text-xs">
+                    จ่ายแล้ว {annotated.paidCount} ราย · ค้างจ่าย {annotated.unpaidCount} ราย
+                    {annotated.outstandingAmount > 0
+                      ? ` · ยอดค้าง ${baht(annotated.outstandingAmount)}`
+                      : ""}
+                  </p>
+                ) : (
+                  <p className="text-ink-secondary mt-0.5 text-xs">
+                    {PAYROLL_PAYMENT_PERIOD_WIDE_NOTE}
+                  </p>
+                )}
               </div>
               {/* Plain <a download>, NOT next/link — a prefetch must not fire
                   the export route. */}
@@ -161,50 +181,59 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
             </div>
 
             <ul className="flex flex-col gap-4">
-              {annotated.workers.map((w) => (
-                <li key={w.workerId} className={CARD}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-ink truncate font-semibold">{w.name}</p>
-                      <p className="text-ink-secondary text-xs">{formatDays(w.days)} วัน</p>
-                    </div>
-                    <p className="text-ink shrink-0 text-sm font-bold">{baht(w.amount)}</p>
-                  </div>
-
-                  {/* Spec 127 U2 / spec 170 U3 — payment status: paid badge
-                      (+ drift note) or the record affordance, per worker. */}
-                  <div className="border-edge mt-2 border-t pt-3">
-                    {w.payment ? (
-                      <div className="flex flex-col gap-1.5">
-                        <p className="text-done-strong text-xs font-medium">
-                          จ่ายแล้ว {baht(w.payment.paidAmount)} · {formatThaiDate(w.payment.paidAt)}{" "}
-                          · {WAGE_PAYMENT_METHOD_LABELS[w.payment.method]}
-                        </p>
-                        {w.payment.drifted ? (
-                          <p className="rounded-control border-attn bg-attn-soft text-attn-ink border-l-4 px-3 py-2 text-xs font-medium">
-                            ยอดค่าแรงเปลี่ยนไปหลังบันทึกการจ่าย (ยอดที่จ่ายอ้างอิง{" "}
-                            {baht(w.payment.computedAmount)})
-                          </p>
-                        ) : null}
+              {report.workers.map((w) => {
+                // Spec 311 U5: the per-worker payment block renders only in the
+                // all-projects (unfiltered) view, where the roll-up and the
+                // period-wide payment share scope.
+                const payment = paymentByWorker.get(w.workerId) ?? null;
+                return (
+                  <li key={w.workerId} className={CARD}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-ink truncate font-semibold">{w.name}</p>
+                        <p className="text-ink-secondary text-xs">{formatDays(w.days)} วัน</p>
                       </div>
-                    ) : canRecord ? (
-                      <RecordPaymentSheet
-                        workerId={w.workerId}
-                        workerName={w.name}
-                        from={range.from}
-                        to={range.to}
-                        computedAmount={w.amount}
-                        computedDays={w.days}
-                        bank={banks.get(w.workerId) ?? null}
-                        todayIso={todayIso}
-                        revalidate="/payroll"
-                      />
-                    ) : (
-                      <p className="text-ink-muted text-xs">ยังไม่บันทึกการจ่าย</p>
-                    )}
-                  </div>
-                </li>
-              ))}
+                      <p className="text-ink shrink-0 text-sm font-bold">{baht(w.amount)}</p>
+                    </div>
+
+                    {/* Spec 127 U2 / spec 170 U3 — payment status: paid badge
+                        (+ drift note) or the record affordance, per worker.
+                        Suppressed under a project filter (spec 311 U5). */}
+                    {annotated ? (
+                      <div className="border-edge mt-2 border-t pt-3">
+                        {payment ? (
+                          <div className="flex flex-col gap-1.5">
+                            <p className="text-done-strong text-xs font-medium">
+                              จ่ายแล้ว {baht(payment.paidAmount)} · {formatThaiDate(payment.paidAt)}{" "}
+                              · {WAGE_PAYMENT_METHOD_LABELS[payment.method]}
+                            </p>
+                            {payment.drifted ? (
+                              <p className="rounded-control border-attn bg-attn-soft text-attn-ink border-l-4 px-3 py-2 text-xs font-medium">
+                                ยอดค่าแรงเปลี่ยนไปหลังบันทึกการจ่าย (ยอดที่จ่ายอ้างอิง{" "}
+                                {baht(payment.computedAmount)})
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : canRecord ? (
+                          <RecordPaymentSheet
+                            workerId={w.workerId}
+                            workerName={w.name}
+                            from={range.from}
+                            to={range.to}
+                            computedAmount={w.amount}
+                            computedDays={w.days}
+                            bank={banks.get(w.workerId) ?? null}
+                            todayIso={todayIso}
+                            revalidate="/payroll"
+                          />
+                        ) : (
+                          <p className="text-ink-muted text-xs">ยังไม่บันทึกการจ่าย</p>
+                        )}
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ul>
           </>
         )}

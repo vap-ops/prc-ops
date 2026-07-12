@@ -232,6 +232,11 @@ export const DELIVERY_OVERDUE_FLAG = "เลยกำหนด";
 // the /requests site chip row and the procurement filter bar (UI-term SSOT).
 export const ALL_PROJECTS_OPTION_LABEL = "ทุกโครงการ";
 export const PROJECT_FILTER_ARIA = "กรองตามโครงการ";
+// Spec 311 U5 — shown on /payroll when a project filter is active: payment
+// recording/status is period-wide (wage_payments has no project dimension), so
+// the paid/drift reconciliation is only meaningful in the ทุกโครงการ view.
+export const PAYROLL_PAYMENT_PERIOD_WIDE_NOTE =
+  "การจ่ายค่าแรงบันทึกรวมทุกโครงการต่อรอบ — ดูและบันทึกสถานะการจ่ายที่มุมมองทุกโครงการ";
 // Spec 307 — ของเข้า day headers (arrival grain: one card per day × supplier).
 export const STORE_INCOMING_DAY_TODAY = "วันนี้";
 export const STORE_INCOMING_DAY_UNSCHEDULED = "ยังไม่ระบุกำหนดส่ง";
