@@ -1,3 +1,9 @@
+# [0.34.0](https://github.com/VAP-Solution/prc-ops/compare/v0.33.0...v0.34.0) (2026-07-12)
+
+### Features
+
+- **purchasing:** spec 302 refinement — hide empty doc sections but flag the gap, both directions ([#471](https://github.com/VAP-Solution/prc-ops/issues/471)) ([425d01b](https://github.com/VAP-Solution/prc-ops/commit/425d01b453d58f92a31add156eb1cb83c637eea1))
+
 # [0.33.0](https://github.com/VAP-Solution/prc-ops/compare/v0.32.0...v0.33.0) (2026-07-12)
 
 ### Features
