@@ -92,9 +92,12 @@ const MY_REQUESTS = [
 ] as const;
 
 const USER_FIXTURES: Record<string, Row[]> = {
-  "work_packages|id, code, name, project_id": [
-    { id: "wp1", code: "WP-1", name: "Foundation", project_id: "proj1" },
+  // Spec 301 U1: the WP read carries category_id so the letter-code reconcile
+  // (project_categories → work_categories.code) can run beside it.
+  "work_packages|id, code, name, project_id, category_id": [
+    { id: "wp1", code: "WP-1", name: "Foundation", project_id: "proj1", category_id: "pc1" },
   ],
+  "project_categories|id, work_categories(code)": [{ id: "pc1", work_categories: { code: "W05" } }],
   "projects|id, name": [
     { id: "proj1", name: "Alpha" },
     { id: "proj2", name: "Beta" },
@@ -159,6 +162,11 @@ describe("loadRequestsData — procurement", () => {
     expect(d.requesterNames.get("u1")).toBe("Alice");
     expect(d.requesterNames.get("u2")).toBe("Bob");
     expect(d.wpById.get("wp1")).toMatchObject({ code: "WP-1", name: "Foundation" });
+  });
+
+  it("reconciles each WP's category to its work-category code (spec 301 U1)", async () => {
+    const d = await run();
+    expect(d.wpById.get("wp1")?.categoryCode).toBe("W05");
   });
 
   it("resolves project names for the procurement filter", async () => {

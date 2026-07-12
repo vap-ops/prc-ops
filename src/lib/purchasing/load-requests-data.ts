@@ -16,6 +16,7 @@ import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { loadCategoryVendors } from "@/lib/purchasing/load-category-vendors";
 import { loadCatalogCategories, categoryNameById } from "@/lib/catalog/categories";
+import { loadCategoryCodeById } from "@/lib/work-categories/load-category-codes";
 import { procurementBand, sumOutstanding } from "@/lib/purchasing/procurement-pipeline";
 import { buildPoDetailView } from "@/lib/purchasing/po-detail";
 import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
@@ -39,6 +40,9 @@ export type WpLabel = {
   code: string;
   name: string;
   project_id: string | null;
+  /** Spec 301 U1: reconciled global work-category code (W0x) for the spec-277
+   *  letter-code render; null for an uncategorised/unreconciled WP. */
+  categoryCode: string | null;
 };
 
 export interface PoFacts {
@@ -92,16 +96,34 @@ export async function loadRequestsData(args: LoadRequestsDataArgs): Promise<Requ
     return fetchDisplayNames(ids, "[requests]");
   }
 
-  // #6 WP code/name/project for the list rows — always-on.
+  // #6 WP code/name/project for the list rows — always-on. Spec 301 U1: also
+  // carries category_id → the reconciled work-category code (a genuine serial
+  // tail inside this thunk: the reconcile needs the fetched category_ids).
   async function loadWpById(): Promise<Map<string, WpLabel>> {
     const wpIds = Array.from(
       new Set(myRequests.map((r) => r.work_package_id).filter((id): id is string => id !== null)),
     );
     const { data } = await supabase
       .from("work_packages")
-      .select("id, code, name, project_id")
+      .select("id, code, name, project_id, category_id")
       .in("id", wpIds);
-    return new Map((data ?? []).map((wp) => [wp.id, wp]));
+    const wps = data ?? [];
+    const codeById = await loadCategoryCodeById(
+      supabase,
+      wps.map((wp) => wp.category_id).filter((id): id is string => id !== null),
+    );
+    return new Map(
+      wps.map((wp) => [
+        wp.id,
+        {
+          id: wp.id,
+          code: wp.code,
+          name: wp.name,
+          project_id: wp.project_id,
+          categoryCode: wp.category_id ? (codeById.get(wp.category_id) ?? null) : null,
+        },
+      ]),
+    );
   }
 
   // #7 Project names for the procurement project filter — procurement only (spec 110).

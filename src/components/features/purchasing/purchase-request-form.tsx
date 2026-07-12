@@ -35,6 +35,7 @@ import {
   PURCHASE_REQUEST_REASON_CODE_LABEL,
 } from "@/lib/i18n/labels";
 import { bangkokTodayIso } from "@/lib/dates";
+import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
 
 // Spec 179/180: a catalog master item the requester picks (search + thumbnail).
 export interface PurchaseRequestCatalogItem {
@@ -67,6 +68,9 @@ export interface PurchaseRequestFormWorkPackage {
   id: string;
   code: string;
   name: string;
+  /** Spec 301 U1: reconciled W0x code for the letter-code chip (null/omitted →
+   *  plain mono code). */
+  categoryCode?: string | null;
 }
 
 interface PurchaseRequestFormProps {
@@ -274,7 +278,12 @@ export function PurchaseRequestForm({
         <p className="border-edge-strong bg-card mt-1 truncate rounded-md border px-3 py-2 text-sm">
           <span className="text-ink-muted">จากงาน</span>
           <span className="text-ink-muted mx-1">·</span>
-          <span className="text-ink-secondary font-mono">{workPackage.code}</span>
+          <span className="text-ink-secondary">
+            <WpCategoryCode
+              code={workPackage.code}
+              categoryCode={workPackage.categoryCode ?? null}
+            />
+          </span>
           <span className="text-ink-muted mx-1">·</span>
           <span className="text-ink">{workPackage.name}</span>
         </p>

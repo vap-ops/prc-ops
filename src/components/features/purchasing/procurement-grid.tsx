@@ -18,6 +18,7 @@ import { Fragment, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ChevronLeft, ChevronRight, FilePlus, Info } from "lucide-react";
 import { PoNumberTag } from "@/components/features/purchasing/po-number-tag";
+import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
 import { formatPrNumber } from "@/lib/purchasing/format-id";
 import { bahtWithSymbol as baht } from "@/lib/format";
 import { StatusPill } from "@/components/features/common/status-pill";
@@ -115,6 +116,9 @@ export interface ProcurementGridRecord {
   work_package_id: string | null;
   wp_code: string | null;
   wp_name: string | null;
+  // Spec 301 U1: reconciled W0x code for the spec-277 letter-code render
+  // (null = uncategorised → plain mono code).
+  wp_category_code: string | null;
   // Spec 114 drawer enrichment.
   project_id: string | null;
   requested_by: string | null;
@@ -247,6 +251,7 @@ export function ProcurementGrid({
           quantity: r.quantity,
           unit: r.unit,
           wp_code: r.wp_code,
+          wp_category_code: r.wp_category_code,
         })),
     [order, selectedForPO],
   );
@@ -472,6 +477,12 @@ function BandRows({
                       {r.po_number != null && meta.band !== "in_transit" ? (
                         <PoNumberTag poNumber={r.po_number} />
                       ) : null}
+                      {/* Spec 301 U1: the WP letter-code — the phone-callable WP
+                          identity procurement asked for, same render as SA/PM
+                          surfaces (spec 277). */}
+                      {r.wp_code ? (
+                        <WpCategoryCode code={r.wp_code} categoryCode={r.wp_category_code} />
+                      ) : null}
                       {r.wp_name ? <span>· {r.wp_name}</span> : null}
                       {/* Spec 230: the material-category badge — which managed
                           category this PR buys (its catalog item's category). */}
@@ -681,7 +692,9 @@ function DrawerBody({
         </Fact>
         {record.wp_code || record.wp_name ? (
           <Fact label="งาน">
-            {record.wp_code ? <span className="font-mono">{record.wp_code}</span> : null}
+            {record.wp_code ? (
+              <WpCategoryCode code={record.wp_code} categoryCode={record.wp_category_code} />
+            ) : null}
             {record.wp_code && record.wp_name ? <span className="mx-1">·</span> : null}
             {record.wp_name}
           </Fact>

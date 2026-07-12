@@ -64,6 +64,7 @@ import {
 } from "@/lib/purchasing/vat";
 import type { SupplierOption } from "@/lib/purchasing/supplier-option";
 import { splitSupplierOptions } from "@/lib/purchasing/vendor-suggestion";
+import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
 
 export interface CreatePoLine {
   id: string;
@@ -72,6 +73,8 @@ export interface CreatePoLine {
   quantity: number;
   unit: string;
   wp_code: string | null;
+  // Spec 301 U1: reconciled W0x code for the letter-code render (null OK).
+  wp_category_code: string | null;
 }
 
 // Spec 260 — a draft PO-level charge row in the create sheet (its own VAT mode,
@@ -672,7 +675,12 @@ export function CreatePurchaseOrderSheet({
                       {l.pr_number ? (
                         <span className="font-mono">{formatPrNumber(l.pr_number)} · </span>
                       ) : null}
-                      {l.wp_code ? <span className="font-mono">{l.wp_code} · </span> : null}
+                      {l.wp_code ? (
+                        <>
+                          <WpCategoryCode code={l.wp_code} categoryCode={l.wp_category_code} />
+                          <span> · </span>
+                        </>
+                      ) : null}
                       {l.quantity} {l.unit}
                     </p>
                   </div>

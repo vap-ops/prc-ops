@@ -7283,3 +7283,8 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
   on nightly re-seeds — same accrual model as the sliding labor window; a
   full_reset clears both. Bangkok-TZ tomorrow fix + loud WP-miss guard applied
   from review.
+
+## Spec 301 U1 — PR-flow WP letter-code sweep (purchasing surfaces) — IN PROGRESS (2026-07-12)
+
+- Operator-approved in-chat (AskUserQuestion): full sweep + flag; flag detail+grid only.
+- Lane 301prcode, worktree ../prc-ops-301, branch spec301-pr-wp-code. Code-only.

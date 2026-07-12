@@ -18,6 +18,7 @@ import { purchaseRequestStatusPillClasses } from "@/lib/status-colors";
 import { purchaseRequestStatusIcon } from "@/lib/status-icons";
 import { PURCHASE_REQUEST_STATUS_LABEL } from "@/lib/i18n/labels";
 import { formatPrNumber } from "@/lib/purchasing/format-id";
+import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
 import { BUTTON_SECONDARY } from "@/lib/ui/classes";
 import type { SupplierOption } from "@/lib/purchasing/supplier-option";
 import type { ProcurementGridRecord } from "@/components/features/purchasing/procurement-grid";
@@ -71,6 +72,7 @@ export function PhonePoBasket({
           quantity: r.quantity,
           unit: r.unit,
           wp_code: r.wp_code,
+          wp_category_code: r.wp_category_code,
         })),
     [records, basket],
   );
@@ -104,8 +106,13 @@ export function PhonePoBasket({
                   {r.pr_number ? (
                     <span className="font-mono">{formatPrNumber(r.pr_number)}</span>
                   ) : null}
-                  {r.wp_code ? <span className="font-mono"> · {r.wp_code}</span> : null} ·{" "}
-                  {r.quantity} {r.unit}
+                  {r.wp_code ? (
+                    <span>
+                      {" · "}
+                      <WpCategoryCode code={r.wp_code} categoryCode={r.wp_category_code} />
+                    </span>
+                  ) : null}{" "}
+                  · {r.quantity} {r.unit}
                 </span>
                 <span className="mt-0.5">
                   <StatusPill
