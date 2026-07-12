@@ -1,3 +1,9 @@
+# [0.52.0](https://github.com/VAP-Solution/prc-ops/compare/v0.51.0...v0.52.0) (2026-07-12)
+
+### Features
+
+- **payroll:** spec 311 U5 — suppress payment reconciliation under a project filter ([#497](https://github.com/VAP-Solution/prc-ops/issues/497)) ([33fa8a2](https://github.com/VAP-Solution/prc-ops/commit/33fa8a2d434567803ebe95cb577a0eaba3d5671b))
+
 # [0.51.0](https://github.com/VAP-Solution/prc-ops/compare/v0.50.0...v0.51.0) (2026-07-12)
 
 ### Features
