@@ -1,3 +1,9 @@
+## [0.42.1](https://github.com/VAP-Solution/prc-ops/compare/v0.42.0...v0.42.1) (2026-07-12)
+
+### Bug Fixes
+
+- **sa:** allow passbook photo upload from gallery, not camera-only ([#483](https://github.com/VAP-Solution/prc-ops/issues/483)) ([3f99cdb](https://github.com/VAP-Solution/prc-ops/commit/3f99cdb4256d96809892e7a381a1311687bff69f))
+
 # [0.42.0](https://github.com/VAP-Solution/prc-ops/compare/v0.41.1...v0.42.0) (2026-07-12)
 
 ### Features
