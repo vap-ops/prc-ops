@@ -12,12 +12,12 @@
 import Link from "next/link";
 import {
   BookOpen,
-  Box,
   CalendarDays,
   ClipboardCheck,
   ShoppingCart,
   Truck,
   Users,
+  Warehouse,
   type LucideIcon,
 } from "lucide-react";
 import { scheduleHref, storeHref, incomingHref } from "@/lib/nav/project-paths";
@@ -50,7 +50,7 @@ export function SaTools({
         />
         <Tile
           href={projectScoped(storeHref)}
-          icon={Box}
+          icon={Warehouse}
           accent="text-cat-w05"
           title={STORE_LABEL}
           subtitle="สต๊อก · ตรวจนับ"

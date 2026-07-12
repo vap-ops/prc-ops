@@ -7,11 +7,12 @@
 // Spec 307 U2: รับของ is the ONLY action — item rows are a plain manifest (no
 // deep-link into the จัดซื้อ /requests page, procurement's surface). Spec 307
 // follow-up: the ของเข้า heading carries the Truck (its tile identity) and the
-// รับของ action pairs Truck → store Box (a delivery heading into the คลัง).
+// รับของ action pairs Truck → store Warehouse (a delivery heading into the คลัง —
+// Warehouse is the store/คลัง symbol, matching the project-page คลัง chip).
 // Presentational server component — links only, no 'use client'.
 
 import Link from "next/link";
-import { Box, Truck } from "lucide-react";
+import { Truck, Warehouse } from "lucide-react";
 import { INCOMING_LENSES, type IncomingLens } from "@/lib/purchasing/request-bands";
 import {
   INCOMING_LENS_LABEL,
@@ -33,8 +34,8 @@ import type { IncomingDayGroup, StoreIncomingRow } from "@/lib/store/incoming";
 
 // Spec 307 follow-up — ของเข้า = delivery incoming, so its heading carries the
 // Truck, matching its own SA tile (sa-tools marks ของเข้า with lucide `Truck`).
-// The store `Box` is the คลัง surface's symbol; on ของเข้า it read as a lone
-// "storage unit". Decorative (aria-hidden): the heading text already says "ของเข้า".
+// The store symbol (lucide `Warehouse`, the คลัง chip's icon) belongs to the คลัง
+// surface, not here. Decorative (aria-hidden): the heading text already says "ของเข้า".
 function IncomingSymbol({ className = "" }: { className?: string }) {
   return (
     <Truck
@@ -46,14 +47,14 @@ function IncomingSymbol({ className = "" }: { className?: string }) {
 }
 
 // The รับของ action stocks the คลัง — a delivery truck heading INTO the store.
-// Pairing the Truck with the store Box (truck → box) teaches "goods become store
-// stock" while keeping the truck that names ของเข้า. Decorative (aria-hidden on the
-// wrapper hides the whole pair) so the link still reads exactly "รับของ →".
+// Pairing the Truck with the store Warehouse (truck → warehouse) teaches "goods
+// become store stock" while keeping the truck that names ของเข้า. Decorative
+// (aria-hidden on the wrapper hides the whole pair) so the link reads "รับของ →".
 function ReceiveSymbol({ className = "" }: { className?: string }) {
   return (
     <span aria-hidden className="inline-flex shrink-0 items-center gap-0.5">
       <Truck data-testid="incoming-truck-symbol" className={`text-cat-w05 ${className}`} />
-      <Box data-testid="incoming-store-symbol" className={`text-cat-w05 ${className}`} />
+      <Warehouse data-testid="incoming-store-symbol" className={`text-cat-w05 ${className}`} />
     </span>
   );
 }
