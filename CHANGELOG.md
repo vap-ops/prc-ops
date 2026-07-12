@@ -1,3 +1,9 @@
+# [0.37.0](https://github.com/VAP-Solution/prc-ops/compare/v0.36.0...v0.37.0) (2026-07-12)
+
+### Features
+
+- **purchasing:** spec 301 U2 — PR provenance WP + approver-side off-category flag ([#472](https://github.com/VAP-Solution/prc-ops/issues/472)) ([e91ac5d](https://github.com/VAP-Solution/prc-ops/commit/e91ac5ddea8a2bbe9727876c3cac4f594c094b91)), closes [#435](https://github.com/VAP-Solution/prc-ops/issues/435)
+
 # [0.36.0](https://github.com/VAP-Solution/prc-ops/compare/v0.35.0...v0.36.0) (2026-07-12)
 
 ### Features
