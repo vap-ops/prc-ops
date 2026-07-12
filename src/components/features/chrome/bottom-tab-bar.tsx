@@ -30,6 +30,7 @@ import {
   ShoppingCart,
   Store,
   UserPlus,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 
@@ -135,6 +136,10 @@ export const PROCUREMENT_TABS: ReadonlyArray<TabItem> = [
   // renders suppliers-only for procurement). Longest-prefix wins over the
   // ตั้งค่า /contacts match, so this tab lights on the suppliers screen.
   { label: "ผู้ขาย", href: "/contacts/vendors", icon: Store },
+  // Spec 309 follow-up: ค่าแรง on the phone bar too. Spec 309 surfaced it in the
+  // desktop hub-nav, but that strip is desktop-only — so procurement on a phone
+  // still reached the per-project wage roll-up only via ตั้งค่า → ทีมช่าง.
+  { label: "ค่าแรง", href: "/payroll", icon: Wallet },
   SETTINGS_TAB,
 ];
 
@@ -149,6 +154,8 @@ export const PROCUREMENT_MANAGER_TABS: ReadonlyArray<TabItem> = [
   { label: "รายงาน", href: "/requests/reports", icon: FileText, match: ["/requests/orders"] },
   { label: "โครงการ", href: "/projects", icon: FolderKanban },
   { label: "ผู้ขาย", href: "/contacts/vendors", icon: Store },
+  // Spec 309 follow-up: mirrors PROCUREMENT_TABS — ค่าแรง on the phone bar.
+  { label: "ค่าแรง", href: "/payroll", icon: Wallet },
   REGISTRATIONS_TAB,
   SETTINGS_TAB,
 ];
