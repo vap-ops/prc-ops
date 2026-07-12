@@ -5,10 +5,13 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
+import { buildExpenseAttachmentPath } from "@/lib/expenses/attachment-path";
 import {
   validateOfficeExpense,
   type OfficeExpenseInput,
 } from "@/lib/expenses/validate-office-expense";
+import { isValidAttachmentExt } from "@/lib/purchasing/attachment-file";
+import { UUID_REGEX } from "@/lib/validate/uuid";
 
 export type RecordExpenseResult = { ok: true; id: string } | { ok: false; error: string };
 
@@ -35,4 +38,55 @@ export async function recordOfficeExpense(input: OfficeExpenseInput): Promise<Re
 
   revalidatePath("/expenses");
   return { ok: true, id: data };
+}
+
+const ERR_RECEIPT = "แนบใบเสร็จไม่สำเร็จ กรุณาลองใหม่";
+
+export interface AddExpenseReceiptInput {
+  officeExpenseId: string;
+  attachmentId: string;
+  ext: string;
+}
+export type ReceiptResult = { ok: true } | { ok: false; error: string };
+
+// Record a receipt attachment for an office expense. The bytes were already
+// uploaded to the expense-attachments bucket by the client; this only writes the
+// metadata row (server rebuilds the path). Authorization = the row is visible to
+// the caller under RLS (submitter or finance). Idempotent on replay (23505).
+export async function addExpenseReceipt(input: AddExpenseReceiptInput): Promise<ReceiptResult> {
+  if (!UUID_REGEX.test(input.officeExpenseId) || !UUID_REGEX.test(input.attachmentId)) {
+    return { ok: false, error: ERR_RECEIPT };
+  }
+  if (!isValidAttachmentExt(input.ext)) return { ok: false, error: ERR_RECEIPT };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { supabase, user } = auth;
+
+  const storagePath = buildExpenseAttachmentPath(
+    input.officeExpenseId,
+    input.attachmentId,
+    input.ext,
+  );
+  if (!storagePath) return { ok: false, error: ERR_RECEIPT };
+
+  // Authorization: the caller must be able to see the parent expense (RLS =
+  // submitter or finance). If not visible, refuse.
+  const { data: parent } = await supabase
+    .from("office_expenses")
+    .select("id")
+    .eq("id", input.officeExpenseId)
+    .maybeSingle();
+  if (!parent) return { ok: false, error: ERR_RECEIPT };
+
+  const { error } = await supabase.from("office_expense_attachments").insert({
+    id: input.attachmentId,
+    office_expense_id: input.officeExpenseId,
+    storage_path: storagePath,
+    created_by: user.id,
+  });
+  if (error && error.code !== "23505") return { ok: false, error: ERR_RECEIPT };
+
+  revalidatePath("/expenses");
+  return { ok: true };
 }
