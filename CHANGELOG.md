@@ -1,3 +1,9 @@
+## [0.41.1](https://github.com/VAP-Solution/prc-ops/compare/v0.41.0...v0.41.1) (2026-07-12)
+
+### Bug Fixes
+
+- **purchasing:** capture the raising WP as PR provenance (spec 301 U2 gap) ([#482](https://github.com/VAP-Solution/prc-ops/issues/482)) ([f529304](https://github.com/VAP-Solution/prc-ops/commit/f529304c48e769e776e8e0cbabb246a21f4fab98))
+
 # [0.41.0](https://github.com/VAP-Solution/prc-ops/compare/v0.40.0...v0.41.0) (2026-07-12)
 
 ### Features
