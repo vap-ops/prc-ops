@@ -1,3 +1,9 @@
+# [0.31.0](https://github.com/VAP-Solution/prc-ops/compare/v0.30.0...v0.31.0) (2026-07-12)
+
+### Features
+
+- **store:** spec 300 U4 — split ของเข้า off the store page into its own /incoming surface ([#468](https://github.com/VAP-Solution/prc-ops/issues/468)) ([4d91c23](https://github.com/VAP-Solution/prc-ops/commit/4d91c23a0b84d95a124433c27e93f080ab438f65))
+
 # [0.30.0](https://github.com/VAP-Solution/prc-ops/compare/v0.29.0...v0.30.0) (2026-07-12)
 
 ### Features
