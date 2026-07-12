@@ -192,7 +192,9 @@ select enum_has_labels(
     -- Spec 275 U3: rental settlement (vendor invoice).
     'rental_settlement_record', 'rental_settlement_supersede',
     -- Spec 279 U1: self-governance crew onboarding.
-    'crew_change'
+    'crew_change',
+    -- Spec 310: non-WP office expenses.
+    'office_expense_record', 'office_expense_reimburse'
   ],
   'audit_action enum includes purchase_request_purchase + purchase_request_delivery'
 );
