@@ -1,3 +1,9 @@
+# [0.33.0](https://github.com/VAP-Solution/prc-ops/compare/v0.32.0...v0.33.0) (2026-07-12)
+
+### Features
+
+- **purchasing:** spec 302 — ownership-aware document sections on the PR receive flow ([#470](https://github.com/VAP-Solution/prc-ops/issues/470)) ([f9e46b4](https://github.com/VAP-Solution/prc-ops/commit/f9e46b4b08eb45cbc380760135bfb20015656bc8))
+
 # [0.32.0](https://github.com/VAP-Solution/prc-ops/compare/v0.31.0...v0.32.0) (2026-07-12)
 
 ### Features
