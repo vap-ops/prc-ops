@@ -19,7 +19,7 @@ import type {
 } from "@/lib/expenses/load-office-expenses";
 import {
   EXPENSE_AMOUNT_LABEL,
-  EXPENSE_CARD_PICK_LABEL,
+  EXPENSE_CARD_USING_PREFIX,
   EXPENSE_CATEGORY_LABEL,
   EXPENSE_CATEGORY_PLACEHOLDER,
   EXPENSE_DATE_LABEL,
@@ -58,11 +58,13 @@ function chipClass(active: boolean): string {
 export function OfficeExpenseForm({
   categories,
   projects,
-  cards,
+  myCard,
 }: {
   categories: ExpenseCategory[];
   projects: ProjectOption[];
-  cards: CompanyCard[];
+  // Spec 310 U8 — a user holds at most one card. null = they hold none, so the
+  // company-card source is hidden; otherwise it's auto-used (no picker).
+  myCard: CompanyCard | null;
 }) {
   const router = useRouter();
   const [categoryId, setCategoryId] = useState("");
@@ -72,21 +74,21 @@ export function OfficeExpenseForm({
   const [expenseDate, setExpenseDate] = useState(bangkokTodayIso);
   const [projectId, setProjectId] = useState("");
   const [paymentSource, setPaymentSource] = useState<PaymentSource>("own_money");
-  const [companyCardId, setCompanyCardId] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [recordedId, setRecordedId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const selectedCard = cards.find((c) => c.id === companyCardId) ?? null;
+  // Only offer the company-card source if the user actually holds a card.
+  const sources = myCard ? SOURCES : SOURCES.filter((s) => s.value !== "company_card");
 
   const reimburseHint =
     paymentSource === "own_money"
       ? EXPENSE_REIMBURSE_SELF
       : paymentSource === "company_direct"
         ? EXPENSE_REIMBURSE_NONE
-        : selectedCard
-          ? `${EXPENSE_REIMBURSE_TO_PREFIX}: ${selectedCard.holderName ?? "—"}`
+        : myCard
+          ? `${EXPENSE_REIMBURSE_TO_PREFIX}: ${myCard.holderName ?? "—"}`
           : null;
 
   function submit() {
@@ -98,8 +100,7 @@ export function OfficeExpenseForm({
       expenseDate,
       paymentSource,
       projectId: projectId === "" ? null : projectId,
-      companyCardId:
-        paymentSource === "company_card" && companyCardId !== "" ? companyCardId : null,
+      companyCardId: paymentSource === "company_card" && myCard ? myCard.id : null,
     });
     if (!parsed.ok) {
       setError(parsed.error);
@@ -117,7 +118,6 @@ export function OfficeExpenseForm({
       setCategoryId("");
       setAmount("");
       setProjectId("");
-      setCompanyCardId("");
       setDescription("");
       setPaymentSource("own_money");
       router.refresh();
@@ -207,14 +207,11 @@ export function OfficeExpenseForm({
         <div className="flex flex-col gap-1">
           <span className="text-ink text-sm font-medium">{EXPENSE_PAYMENT_SOURCE_LABEL}</span>
           <div className="flex flex-wrap gap-2">
-            {SOURCES.map((s) => (
+            {sources.map((s) => (
               <button
                 key={s.value}
                 type="button"
-                onClick={() => {
-                  setPaymentSource(s.value);
-                  if (s.value !== "company_card") setCompanyCardId("");
-                }}
+                onClick={() => setPaymentSource(s.value)}
                 disabled={pending}
                 aria-pressed={paymentSource === s.value}
                 className={chipClass(paymentSource === s.value)}
@@ -225,26 +222,11 @@ export function OfficeExpenseForm({
           </div>
         </div>
 
-        {paymentSource === "company_card" && (
-          <label className={LABEL}>
-            {EXPENSE_CARD_PICK_LABEL}
-            <select
-              value={companyCardId}
-              onChange={(e) => setCompanyCardId(e.target.value)}
-              disabled={pending}
-              className={SELECT}
-            >
-              <option value="" disabled>
-                {EXPENSE_CARD_PICK_LABEL}
-              </option>
-              {cards.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                  {c.last4 ? ` ·${c.last4}` : ""} · {c.holderName ?? "—"}
-                </option>
-              ))}
-            </select>
-          </label>
+        {paymentSource === "company_card" && myCard && (
+          <p className="text-ink-soft text-sm">
+            {EXPENSE_CARD_USING_PREFIX}: {myCard.label}
+            {myCard.last4 ? ` ·${myCard.last4}` : ""}
+          </p>
         )}
 
         <label className={LABEL}>

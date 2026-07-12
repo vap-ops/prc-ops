@@ -14,10 +14,10 @@ import { OFFICE_EXPENSE_FINANCE_ROLES, OFFICE_EXPENSE_ROLES } from "@/lib/auth/r
 import { createClient } from "@/lib/db/server";
 import {
   listActiveProjectsForExpense,
-  listCompanyCards,
   listExpenseCategories,
   listMyExpenses,
   listReimbursableExpenses,
+  loadMyActiveCard,
   loadMyExpenseSummary,
 } from "@/lib/expenses/load-office-expenses";
 import { EXPENSE_ADD_HEADING, OFFICE_EXPENSE_NAV_LABEL } from "@/lib/i18n/labels";
@@ -30,11 +30,11 @@ export default async function ExpensesPage() {
   const supabase = await createClient();
   const isFinance = OFFICE_EXPENSE_FINANCE_ROLES.includes(ctx.role);
 
-  const [summary, categories, projects, cards, myExpenses, reimbursable] = await Promise.all([
+  const [summary, categories, projects, myCard, myExpenses, reimbursable] = await Promise.all([
     loadMyExpenseSummary(supabase, ctx.id),
     listExpenseCategories(supabase),
     listActiveProjectsForExpense(supabase),
-    listCompanyCards(supabase),
+    loadMyActiveCard(supabase, ctx.id),
     listMyExpenses(supabase, ctx.id),
     isFinance ? listReimbursableExpenses(supabase) : Promise.resolve([]),
   ]);
@@ -54,11 +54,7 @@ export default async function ExpensesPage() {
         {isFinance && <ReimburseQueue rows={reimbursable} />}
         <div className="flex flex-col gap-2">
           <h2 className="text-ink text-sm font-semibold">{EXPENSE_ADD_HEADING}</h2>
-          <OfficeExpenseForm
-            categories={categories}
-            projects={projects}
-            cards={cards.filter((c) => c.isActive)}
-          />
+          <OfficeExpenseForm categories={categories} projects={projects} myCard={myCard} />
         </div>
       </section>
     </PageShell>
