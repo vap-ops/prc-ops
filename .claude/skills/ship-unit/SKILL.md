@@ -77,6 +77,12 @@ caught real holes (hidden-bind, returns double-count) — it is not ceremony.
 
 ## Gate 5 — Ship through the gate
 
+**COMMIT FIRST.** `ship-pr.sh` opens a PR for the CURRENT COMMIT — it does NOT
+commit for you. `git add` without `git commit` → the branch pushes at its base sha
+→ `gh pr create` fails "Validation Failed" (no commits between main and branch).
+Always `git commit` (let the husky/lint-staged hook run) and confirm `git log -1`
+is your change before calling ship-pr.sh.
+
 `scripts/ship-pr.sh "<conventional-commit title>" "<body>"` — it pushes, opens the
 PR, requests auto-merge, and REFUSES a branch that does not merge clean against
 origin/main (merge-tree probe; do not bypass with SHIP_SKIP_CONFLICT_PROBE unless
