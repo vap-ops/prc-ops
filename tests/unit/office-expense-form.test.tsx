@@ -32,16 +32,14 @@ const CARD = "22222222-2222-2222-2222-222222222222";
 const PROJ = "33333333-3333-3333-3333-333333333333";
 const categories: ExpenseCategory[] = [{ id: CAT, labelTh: "น้ำมัน" }];
 const projects: ProjectOption[] = [{ id: PROJ, name: "โครงการ A", code: "PA" }];
-const cards: CompanyCard[] = [
-  {
-    id: CARD,
-    label: "PD Visa",
-    holderUserId: "44444444-4444-4444-4444-444444444444",
-    holderName: "Pattrawut",
-    last4: "4821",
-    isActive: true,
-  },
-];
+const myCard: CompanyCard = {
+  id: CARD,
+  label: "PD Visa",
+  holderUserId: "44444444-4444-4444-4444-444444444444",
+  holderName: "Pattrawut",
+  last4: "4821",
+  isActive: true,
+};
 
 beforeEach(() => {
   recordOfficeExpense.mockClear();
@@ -50,7 +48,7 @@ beforeEach(() => {
 
 describe("OfficeExpenseForm", () => {
   it("records an own_money expense with the entered fields (reimburse resolved server-side)", async () => {
-    render(<OfficeExpenseForm categories={categories} projects={projects} cards={cards} />);
+    render(<OfficeExpenseForm categories={categories} projects={projects} myCard={myCard} />);
     fireEvent.change(screen.getByLabelText(EXPENSE_CATEGORY_LABEL), { target: { value: CAT } });
     fireEvent.change(screen.getByLabelText(EXPENSE_AMOUNT_LABEL), { target: { value: "250" } });
     fireEvent.change(screen.getByLabelText(EXPENSE_DESCRIPTION_LABEL), {
@@ -74,21 +72,15 @@ describe("OfficeExpenseForm", () => {
     await waitFor(() => expect(screen.getByText(EXPENSE_RECORDED_ATTACH)).toBeTruthy());
   });
 
-  it("blocks a company_card expense with no card picked, then shows the holder + records it", async () => {
-    render(<OfficeExpenseForm categories={categories} projects={projects} cards={cards} />);
+  it("company_card auto-uses the holder's one card (no picker) and reimburses the holder", async () => {
+    render(<OfficeExpenseForm categories={categories} projects={projects} myCard={myCard} />);
     fireEvent.change(screen.getByLabelText(EXPENSE_CATEGORY_LABEL), { target: { value: CAT } });
     fireEvent.change(screen.getByLabelText(EXPENSE_AMOUNT_LABEL), { target: { value: "500" } });
     fireEvent.change(screen.getByLabelText(EXPENSE_DESCRIPTION_LABEL), {
       target: { value: "น้ำมัน" },
     });
-    // switch to company_card (a button), submit without a card → blocked
+    // pick the company-card source (a button) — no picker; the holder shows as the target
     fireEvent.click(screen.getByRole("button", { name: PAYMENT_SOURCE_CARD_LABEL }));
-    fireEvent.click(screen.getByRole("button", { name: EXPENSE_SUBMIT_LABEL }));
-    expect(recordOfficeExpense).not.toHaveBeenCalled();
-
-    // pick the card → holder shows as reimburse-target → records
-    fireEvent.change(screen.getByLabelText("เลือกบัตร"), { target: { value: CARD } });
-    // the reimburse hint (not the <option>) names the holder
     expect(screen.getByText(/คืนเงินให้.*Pattrawut/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: EXPENSE_SUBMIT_LABEL }));
     await waitFor(() =>
@@ -98,8 +90,13 @@ describe("OfficeExpenseForm", () => {
     );
   });
 
+  it("hides the company-card source when the user holds no card", () => {
+    render(<OfficeExpenseForm categories={categories} projects={projects} myCard={null} />);
+    expect(screen.queryByRole("button", { name: PAYMENT_SOURCE_CARD_LABEL })).toBeNull();
+  });
+
   it("blocks submit with an empty amount", () => {
-    render(<OfficeExpenseForm categories={categories} projects={projects} cards={cards} />);
+    render(<OfficeExpenseForm categories={categories} projects={projects} myCard={myCard} />);
     fireEvent.change(screen.getByLabelText(EXPENSE_CATEGORY_LABEL), { target: { value: CAT } });
     fireEvent.change(screen.getByLabelText(EXPENSE_DESCRIPTION_LABEL), {
       target: { value: "x" },

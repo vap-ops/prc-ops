@@ -46,6 +46,31 @@ export async function listCompanyCards(supabase: DB): Promise<CompanyCard[]> {
   }));
 }
 
+// Spec 310 U8 — a user holds at most one active card. The /expenses form shows
+// the company-card source only if this returns non-null, and auto-uses it (no
+// picker). Returns the caller's active card, if any.
+export async function loadMyActiveCard(supabase: DB, userId: string): Promise<CompanyCard | null> {
+  const { data } = await supabase
+    .from("company_cards")
+    .select(
+      "id, label, holder_user_id, last4, is_active, holder:users!company_cards_holder_user_id_fkey(full_name)",
+    )
+    .eq("holder_user_id", userId)
+    .eq("is_active", true)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+  return {
+    id: data.id,
+    label: data.label,
+    holderUserId: data.holder_user_id,
+    holderName: (data.holder as { full_name: string | null } | null)?.full_name ?? null,
+    last4: data.last4,
+    isActive: data.is_active,
+  };
+}
+
 // Candidate card holders — the office/HQ roles that carry a company card.
 export async function listAssignableHolders(supabase: DB): Promise<HolderOption[]> {
   const { data } = await supabase
