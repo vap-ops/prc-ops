@@ -60,7 +60,23 @@ Tests: pure map/threading unit tests + RTL render asserts (letter-code shown whe
 categoryCode present, raw code fallback when null) per surface. Respect the RTL
 accessible-name collision noted in spec 297 U2 (scope text asserts to the row).
 
-## U2 — off-category flag on detail + grid (code-only PR)
+## U2 — PR provenance WP + off-category flag on detail + grid
+
+**Build discovery (2026-07-12, operator-approved):** ADR 0065 store-only NULLs
+`work_package_id` on every modern PR and discarded the raising WP entirely —
+zero live PRs had both an item and a WP, so the flag as originally scoped could
+never fire, and procurement saw no WP on any new request. Fix folded into U2:
+
+- **U2a schema** — migs `20260813075730` (additive
+  `purchase_requests.requested_from_work_package_id` uuid FK + explicit
+  column-level INSERT grant to authenticated — the table grants INSERT per
+  column, #435 lesson) and `20260813075740` (FK → `on delete set null` + index;
+  fresh-eyes finding: `delete_work_package`'s empty-guard checks only the
+  binding column, provenance must never block a WP delete). pgTAP `301-*.sql`.
+- **U2b stamp** — `createPurchaseRequest` records the raising WP in the new
+  column; `work_package_id` stays NULL (receipt/custody unchanged).
+- **U2c anchor** — list/detail/grid WP display + the verdict anchor on
+  `work_package_id ?? requested_from_work_package_id`.
 
 Match semantics = EXACTLY the picker's: `scopeCatalogItems` fed one item
 (`{id, categoryId}` from `catalog_items.category_id`) + `membershipsByItem(loadCatalogItemMemberships(...))`

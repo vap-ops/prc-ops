@@ -7330,3 +7330,15 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
 - Browser: SA on slip-bearing PR = zero payment/PO-doc surfaces; BO unchanged.
 - Fresh-eyes 1 yellow answered (RLS deliberately allows payment reads via
   parent — UX asymmetry not security wall, seam noted in spec), 2 nits fixed/ok.
+
+## Spec 301 U1+U2 — PR WP letter-code + provenance + off-category flag (2026-07-12)
+
+- U1 MERGED #469 (letter-code on purchasing surfaces, loadCategoryCodeById; RLS
+  finding: project_categories denies procurement -> admin-client reconcile).
+- U2 discovery: ADR 0065 discarded the raising WP on every modern PR (0 live
+  rows with item+WP) -> operator approved provenance column. Migs 075730+075740
+  LIVE; stamp + binding-or-provenance anchor + prCategoryMatch (picker parity)
+  - amber flag on detail/grid/drawer.
+- Open: U3 supply-plan/store letter-code sweep; refactor 4 inline
+  categoryCodeById page copies onto the shared helper; project name absent on
+  PR card/detail.
