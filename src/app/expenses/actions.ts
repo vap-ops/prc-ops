@@ -5,6 +5,7 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
+import type { Database } from "@/lib/db/database.types";
 import { buildExpenseAttachmentPath } from "@/lib/expenses/attachment-path";
 import {
   validateOfficeExpense,
@@ -42,10 +43,12 @@ export async function recordOfficeExpense(input: OfficeExpenseInput): Promise<Re
 
 const ERR_RECEIPT = "แนบใบเสร็จไม่สำเร็จ กรุณาลองใหม่";
 
+export type ExpenseDocPurpose = Database["public"]["Enums"]["office_expense_doc_purpose"];
 export interface AddExpenseReceiptInput {
   officeExpenseId: string;
   attachmentId: string;
   ext: string;
+  purpose: ExpenseDocPurpose;
 }
 export type ReceiptResult = { ok: true } | { ok: false; error: string };
 
@@ -58,6 +61,9 @@ export async function addExpenseReceipt(input: AddExpenseReceiptInput): Promise<
     return { ok: false, error: ERR_RECEIPT };
   }
   if (!isValidAttachmentExt(input.ext)) return { ok: false, error: ERR_RECEIPT };
+  if (input.purpose !== "payment_slip" && input.purpose !== "tax_invoice") {
+    return { ok: false, error: ERR_RECEIPT };
+  }
 
   const auth = await getActionUser();
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
@@ -84,6 +90,7 @@ export async function addExpenseReceipt(input: AddExpenseReceiptInput): Promise<
     office_expense_id: input.officeExpenseId,
     storage_path: storagePath,
     created_by: user.id,
+    purpose: input.purpose,
   });
   if (error && error.code !== "23505") return { ok: false, error: ERR_RECEIPT };
 
