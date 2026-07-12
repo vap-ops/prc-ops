@@ -4,6 +4,7 @@
 // add (เพิ่มเอง, U4) + a per-project self-onboard QR (spec 264). Reads are
 // RLS-scoped; money columns are zero-grant and never read here.
 
+import Link from "next/link";
 import QRCode from "qrcode";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
@@ -255,6 +256,16 @@ export default async function SaCrewPage() {
             capture-blind add). Absorbs the old inline add form + per-project QR cards. */}
         {projectList.length > 0 ? (
           <AddTechnicianSheet projects={projectList} qrCards={qrCards} />
+        ) : null}
+
+        {/* Spec 306 U1 — printable QR badges for the morning-talk scan check-in. */}
+        {projectList.length > 0 ? (
+          <Link
+            href="/sa/crew/badges"
+            className="border-edge bg-surface text-ink flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-semibold"
+          >
+            พิมพ์บัตรช่าง (QR)
+          </Link>
         ) : null}
 
         {/* The onboarding pipeline the SA follows up on: รอตรวจ → รอยืนยัน → พร้อม (U7). */}

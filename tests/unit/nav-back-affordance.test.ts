@@ -145,6 +145,9 @@ const STATIC_DETAIL = [
   "sa/crew",
   // Spec 299: the SA help hub (คู่มือ) drills down from /sa (back chip → /sa).
   "sa/help",
+  // Spec 306 U1: the printable QR badge sheet drills down from /sa/crew
+  // (back chip → /sa/crew).
+  "sa/crew/badges",
 ].map((r) => `${r}/page.tsx`);
 // Spec 234: the external /client tree is bespoke (own header + logout, no app
 // DetailHeader — like /portal), so its dynamic drill (/client/[projectId]) is

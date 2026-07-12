@@ -666,7 +666,7 @@ typecheck green; `db:types` regen = zero drift from this change (spec-268's in-f
 excluded — its own PR #325 carries it). Full-suite reds that remain are NOT this change:
 200-store (pre-existing GL data-drift), 221-catalog (pre-existing user-data flake),
 100-anon-exec (spec-268 signature widen, fixed by #325). Adversarial reviewer pass: clean.
-=======
+
 
 ## Spec 270 U1 — งาน+งานย่อย hierarchy: schema + rollup + guards — ✅ BUILT (2026-07-06, schema, HELD)
 
@@ -7352,3 +7352,22 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
 - Fresh-eyes 4 yellow addressed (badge=deliveries; count un-truncated; 44px
   targets; test gaps filled) + 2 nits fixed (comparator reuse, label SSOT);
   line-cap seam documented in query + spec. 304 README index row backfilled.
+
+## Spec 306 U1 — Printable QR badges (scan-muster) — COMPLETE (2026-07-12)
+
+- Design session same day: morning-talk scan check-in + team forming (spec doc
+  #474 + main-WP grain refinement #475). U1 = the physical badge the scans read.
+- New /sa/crew/badges (SA/super): per-project cards — name + PRC code + QR
+  (payload = worker uuid, opaque; grants nothing). ?worker= single reprint (URL
+  mechanism; per-card affordance deferred to the muster UI units). Browser
+  print dialog, print: variants, break-inside-avoid.
+- employee_id is service-role-walled -> badge-codes.ts admin seam (296-U3
+  model: RLS read authorizes, admin fetches ONLY id+employee_id), seam pinned
+  by tests (select-shape, empty short-circuit, error throw).
+- TDD RED first (builder + sheet); full suite 3588 green (2 first-run fails =
+  load flakes, re-run clean); guards green; browser-verified: /sa/crew CTA +
+  badges page 200 + correct empty state (live workers are project_id NULL —
+  older staff rows; SA-added/QR-bound crew will render); QR SVG generation
+  executed with a real uuid.
+- Open: per-card reprint affordance (muster units); badge physical format
+  (operator ops).
