@@ -31,6 +31,7 @@ export interface ReceivableLine {
 export function PoReceiveSection({
   lines,
   backFrom,
+  submitBlockedReason,
 }: {
   lines: ReceivableLine[];
   /**
@@ -39,6 +40,12 @@ export function PoReceiveSection({
    * member-list links on the same page.
    */
   backFrom?: string;
+  /**
+   * Spec 308: the delivery receive page gates confirm on the required truck
+   * photo — when set, the submit button disables and this reason renders.
+   * Undefined = the original PO-page behavior, untouched.
+   */
+  submitBlockedReason?: string;
 }) {
   const router = useRouter();
   const [checked, setChecked] = useState<ReadonlySet<string>>(
@@ -139,10 +146,13 @@ export function PoReceiveSection({
           {error}
         </p>
       ) : null}
+      {submitBlockedReason ? (
+        <p className="text-attn-ink mt-2 text-xs font-medium">{submitBlockedReason}</p>
+      ) : null}
       <button
         type="button"
         onClick={submit}
-        disabled={pending || count === 0}
+        disabled={pending || count === 0 || submitBlockedReason != null}
         className={`${BUTTON_PRIMARY} mt-3 w-full`}
       >
         {pending ? "กำลังบันทึก…" : `${RECEIVE_TO_STORE_LABEL}ที่เลือก (${count})`}

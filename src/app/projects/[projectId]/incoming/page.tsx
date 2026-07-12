@@ -78,7 +78,13 @@ export default async function ProjectIncomingPage({ params, searchParams }: Page
         </div>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-5 px-5 py-6`}>
-        <StoreIncomingList deliveries={incomingDeliveries} lens={incomingLens} hrefFor={hrefFor} />
+        {/* Spec 308: each delivery card carries a รับของ link to its receive page. */}
+        <StoreIncomingList
+          deliveries={incomingDeliveries}
+          lens={incomingLens}
+          hrefFor={hrefFor}
+          receiveHrefFor={(deliveryId) => `${path}/${deliveryId}`}
+        />
       </div>
     </PageShell>
   );

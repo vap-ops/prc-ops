@@ -15,11 +15,17 @@ export function DeliveryProofBlock({
   deliveryId,
   docs,
   urls,
+  captureUploader = false,
+  uploaderLabel,
 }: {
   purchaseOrderId: string;
   deliveryId: string;
   docs: ProofDeliveryDoc[];
   urls: Map<string, string>;
+  /** Spec 308: the SA receive page takes the proof LIVE (rear camera) and
+   *  names the button; the BO งวด page keeps the defaults. */
+  captureUploader?: boolean;
+  uploaderLabel?: string;
 }) {
   const images = docs.filter((d) => d.kind === "image");
   const pdfs = docs.filter((d) => d.kind === "pdf");
@@ -53,7 +59,12 @@ export function DeliveryProofBlock({
       {docs.length === 0 ? (
         <p className="text-ink-secondary text-xs">ยังไม่มี{PROOF_OF_DELIVERY_LABEL}</p>
       ) : null}
-      <ProofOfDeliveryUploader purchaseOrderId={purchaseOrderId} deliveryId={deliveryId} />
+      <ProofOfDeliveryUploader
+        purchaseOrderId={purchaseOrderId}
+        deliveryId={deliveryId}
+        capture={captureUploader}
+        {...(uploaderLabel != null ? { label: uploaderLabel } : {})}
+      />
     </div>
   );
 }

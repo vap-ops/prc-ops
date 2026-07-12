@@ -32,6 +32,11 @@ interface ProofOfDeliveryUploaderProps {
   purchaseOrderId: string;
   // Spec 135 U4: the proof attaches to a specific delivery (งวด).
   deliveryId: string;
+  /** Spec 308: the SA receive page takes the truck photo LIVE — forces the
+   *  rear camera on mobile. BO chooser (default) unchanged. */
+  capture?: boolean;
+  /** Idle button label override (the receive page names the truck photo). */
+  label?: string;
 }
 
 type UploadPhase = "idle" | "uploading" | "saving" | "error";
@@ -39,6 +44,8 @@ type UploadPhase = "idle" | "uploading" | "saving" | "error";
 export function ProofOfDeliveryUploader({
   purchaseOrderId,
   deliveryId,
+  capture = false,
+  label,
 }: ProofOfDeliveryUploaderProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -121,6 +128,7 @@ export function ProofOfDeliveryUploader({
         type="file"
         accept={ATTACHMENT_ACCEPT_MIME}
         multiple
+        {...(capture ? { capture: "environment" as const } : {})}
         className="sr-only"
         onChange={(e) => void handleFiles(e.target.files)}
         disabled={busy}
@@ -135,7 +143,7 @@ export function ProofOfDeliveryUploader({
           ? "กำลังอัปโหลด…"
           : phase === "saving"
             ? "กำลังบันทึก…"
-            : `แนบ${PROOF_OF_DELIVERY_LABEL}`}
+            : (label ?? `แนบ${PROOF_OF_DELIVERY_LABEL}`)}
       </button>
       {error ? (
         <p role="alert" className={INLINE_ALERT_TEXT}>
