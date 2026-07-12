@@ -1,3 +1,9 @@
+# [0.41.0](https://github.com/VAP-Solution/prc-ops/compare/v0.40.0...v0.41.0) (2026-07-12)
+
+### Features
+
+- **purchasing:** spec 301f — project name on PR card + request detail header ([#481](https://github.com/VAP-Solution/prc-ops/issues/481)) ([f4feac7](https://github.com/VAP-Solution/prc-ops/commit/f4feac78e39a8d777d2c34752ec9f92a9a713ba6))
+
 # [0.40.0](https://github.com/VAP-Solution/prc-ops/compare/v0.39.0...v0.40.0) (2026-07-12)
 
 ### Features
