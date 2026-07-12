@@ -14,6 +14,7 @@ import {
   MessageSquarePlus,
   Network,
   Package,
+  Receipt,
   ShieldCheck,
   Sparkles,
   Store,
@@ -22,12 +23,19 @@ import {
   Wallet,
   Wrench,
 } from "lucide-react";
-import { ACCOUNTING_ROLES, isManagerRole, type UserRole } from "@/lib/auth/role-home";
+import {
+  ACCOUNTING_ROLES,
+  isManagerRole,
+  OFFICE_EXPENSE_ROLES,
+  type UserRole,
+} from "@/lib/auth/role-home";
 import {
   CARD_REGISTRY_HINT,
   CARD_REGISTRY_LABEL,
   CATALOG_LABEL,
   EQUIPMENT_RENTAL_LABEL,
+  OFFICE_EXPENSE_HINT,
+  OFFICE_EXPENSE_NAV_LABEL,
   ORDERING_TEMPLATES_LABEL,
   SUBCONTRACTOR_LABEL,
   WORKER_TEAM_LABEL,
@@ -216,6 +224,24 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         label: "Nova",
         hint: "เหรียญรางวัลทีมงาน · มอบเหรียญ",
         visible: (role) => role === "super_admin",
+      },
+    ],
+  },
+
+  // Spec 310: non-WP office expenses. Its own section (not nested under การเงิน,
+  // which excludes accounting) so every OFFICE_EXPENSE_ROLES member — including
+  // accounting — reaches it via ตั้งค่า.
+  {
+    key: "office-expenses",
+    title: "ค่าใช้จ่าย",
+    visible: (role) => OFFICE_EXPENSE_ROLES.includes(role),
+    entries: [
+      {
+        kind: "link",
+        href: "/expenses",
+        icon: Receipt,
+        label: OFFICE_EXPENSE_NAV_LABEL,
+        hint: OFFICE_EXPENSE_HINT,
       },
     ],
   },
