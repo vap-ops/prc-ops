@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { selectStoreIncoming, selectIncomingDeliveries } from "@/lib/store/incoming";
+import {
+  selectStoreIncoming,
+  selectIncomingDeliveries,
+  selectIncomingArrivals,
+} from "@/lib/store/incoming";
 
 const TODAY = "2026-07-12";
 // Minimal raw purchase_requests rows (only the fields the selector reads).
@@ -10,6 +14,7 @@ const raw = (
   base: string | null = "ปูน",
   qty = 10,
   deliveryId: string | null = null,
+  supplier: string | null = "ร้านวัสดุ",
 ) =>
   ({
     id,
@@ -18,7 +23,7 @@ const raw = (
     unit: "ถุง",
     eta,
     status,
-    supplier: "ร้านวัสดุ",
+    supplier,
     delivery_id: deliveryId,
     catalog_items: base == null ? null : { base_item: base, spec_attrs: null },
   }) as never;
@@ -173,5 +178,133 @@ describe("selectIncomingDeliveries", () => {
       TODAY,
     );
     expect(groups[0]?.supplier).toBe("ร้านวัสดุ");
+  });
+});
+
+// Spec 307 — one-line quick POs made 1 card/PR; the arrival grain is (ETA day ×
+// supplier) under day headers so the SA can count packages/day. Composed with
+// spec 308: items stay sub-grouped by delivery so each keeps a receive link.
+describe("selectIncomingArrivals", () => {
+  it("groups by day, then supplier — merging same-supplier-same-day deliveries into one arrival", () => {
+    const days = selectIncomingArrivals(
+      [
+        // Three one-line POs (distinct deliveries), same supplier + day → ONE arrival.
+        raw("a", "on_route", "2026-07-13", "ปูน", 10, "d1"),
+        raw("b", "on_route", "2026-07-13", "ทราย", 5, "d2"),
+        raw("c", "purchased", "2026-07-13", "อิฐ", 200, "d3"),
+        // Different supplier, same day → its own arrival.
+        raw("x", "purchased", "2026-07-13", "เหล็ก", 12, "d4", "ร้านเหล็กไทย"),
+        // Same supplier, next day → different day group.
+        raw("y", "purchased", "2026-07-14", "ปูน", 4, "d5"),
+      ],
+      "all",
+      TODAY,
+    );
+    expect(days.map((d) => d.day)).toEqual(["2026-07-13", "2026-07-14"]);
+    const day13 = days[0]!;
+    expect(day13.arrivals.length).toBe(2);
+    const a0 = day13.arrivals[0]!;
+    expect(a0).toMatchObject({ supplier: "ร้านวัสดุ", status: "on_route", itemCount: 3 });
+    expect(day13.arrivals[1]).toMatchObject({ supplier: "ร้านเหล็กไทย", status: "purchased" });
+    expect(days[1]!.arrivals[0]!.itemCount).toBe(1);
+  });
+
+  it("sub-groups an arrival's items by delivery (spec 308 receive unit)", () => {
+    const days = selectIncomingArrivals(
+      [
+        raw("a", "on_route", "2026-07-13", "ปูน", 10, "d1"),
+        raw("b", "on_route", "2026-07-13", "ทราย", 5, "d1"),
+        raw("c", "purchased", "2026-07-13", "อิฐ", 200, "d2"),
+      ],
+      "all",
+      TODAY,
+    );
+    const arrival = days[0]!.arrivals[0]!;
+    expect(arrival.deliveries.map((d) => d.deliveryId)).toEqual(["d1", "d2"]);
+    expect(arrival.deliveries[0]!.items.map((i) => i.id)).toEqual(["a", "b"]);
+    expect(arrival.deliveries[1]!.items.map((i) => i.id)).toEqual(["c"]);
+  });
+
+  it("delivery-less items collect in a null sub-group (no receive link, links to /requests)", () => {
+    const days = selectIncomingArrivals(
+      [
+        raw("a", "purchased", "2026-07-13", "ปูน", 10, null),
+        raw("b", "purchased", "2026-07-13", "ทราย", 5, null),
+      ],
+      "all",
+      TODAY,
+    );
+    const arrival = days[0]!.arrivals[0]!;
+    expect(arrival.deliveries.length).toBe(1);
+    expect(arrival.deliveries[0]!.deliveryId).toBeNull();
+    expect(arrival.deliveries[0]!.items.length).toBe(2);
+  });
+
+  it("unknown-ETA items form the LAST day group (day null), split by supplier", () => {
+    const days = selectIncomingArrivals(
+      [
+        raw("later", "purchased", "2026-07-20", "ปูน", 10, null),
+        raw("mystery", "purchased", null, "ทราย", 5, null),
+        raw("mystery2", "purchased", null, "อิฐ", 7, null, null),
+      ],
+      "all",
+      TODAY,
+    );
+    expect(days.map((d) => d.day)).toEqual(["2026-07-20", null]);
+    expect(days[1]!.arrivals.map((a) => a.supplier)).toEqual(["ร้านวัสดุ", null]);
+  });
+
+  it("marks today and overdue at day + arrival level", () => {
+    const days = selectIncomingArrivals(
+      [
+        raw("late", "on_route", "2026-07-11", "ปูน", 10, null),
+        raw("now", "on_route", "2026-07-12", "ทราย", 5, null),
+      ],
+      "today",
+      TODAY,
+    );
+    expect(days.map((d) => d.day)).toEqual(["2026-07-11", "2026-07-12"]);
+    expect(days[0]).toMatchObject({ isToday: false, overdue: true });
+    expect(days[0]!.arrivals[0]?.overdue).toBe(true);
+    expect(days[1]).toMatchObject({ isToday: true, overdue: false });
+    expect(days[1]!.arrivals[0]?.overdue).toBe(false);
+  });
+
+  it("lens filters items BEFORE grouping (spec 300 U1 semantics unchanged)", () => {
+    const days = selectIncomingArrivals(
+      [
+        raw("a", "on_route", "2026-07-30", "ปูน", 10, null), // future → out under today
+        raw("b", "purchased", "2026-07-11", "ทราย", 5, null), // overdue → in
+        raw("c", "purchased", null, "อิฐ", 7, null), // unknown → in
+      ],
+      "today",
+      TODAY,
+    );
+    expect(days.map((d) => d.day)).toEqual(["2026-07-11", null]);
+  });
+
+  it("a supplier literally named 'none' does not merge into the null-supplier arrival", () => {
+    const days = selectIncomingArrivals(
+      [
+        raw("a", "purchased", "2026-07-13", "ปูน", 10, null, "none"),
+        raw("b", "purchased", "2026-07-13", "ทราย", 5, null, null),
+      ],
+      "all",
+      TODAY,
+    );
+    expect(days[0]!.arrivals.length).toBe(2);
+  });
+
+  it("arrival keys are unique across null suppliers and days", () => {
+    const days = selectIncomingArrivals(
+      [
+        raw("a", "purchased", "2026-07-13", "ปูน", 10, null, null),
+        raw("b", "purchased", null, "ทราย", 5, null, null),
+      ],
+      "all",
+      TODAY,
+    );
+    const keys = days.flatMap((d) => d.arrivals.map((a) => a.key));
+    expect(new Set(keys).size).toBe(keys.length);
   });
 });

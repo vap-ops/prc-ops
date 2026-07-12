@@ -15,7 +15,7 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { projectHref, incomingHref } from "@/lib/nav/project-paths";
 import { StoreIncomingList } from "@/components/features/store/store-incoming-list";
-import { selectIncomingDeliveries } from "@/lib/store/incoming";
+import { selectIncomingArrivals } from "@/lib/store/incoming";
 import { parseIncomingLens, type IncomingLens } from "@/lib/purchasing/request-bands";
 import { bangkokTodayISO } from "@/lib/work-packages/schedule-today";
 import { STORE_INCOMING_HEADING } from "@/lib/i18n/labels";
@@ -61,8 +61,9 @@ export default async function ProjectIncomingPage({ params, searchParams }: Page
     .limit(200);
 
   const today = bangkokTodayISO();
-  // Spec 305: group the surviving lines by delivery (งวดส่ง) — one card per arrival.
-  const incomingDeliveries = selectIncomingDeliveries(incomingRows ?? [], incomingLens, today);
+  // Spec 307: group the surviving lines by arrival (ETA day × supplier) under day
+  // headers — one card per expected package, however procurement filed the POs.
+  const incomingDays = selectIncomingArrivals(incomingRows ?? [], incomingLens, today);
   const path = incomingHref(project.id);
   const hrefFor = (l: IncomingLens) => (l === "today" ? path : `${path}?incoming=${l}`);
 
@@ -78,9 +79,10 @@ export default async function ProjectIncomingPage({ params, searchParams }: Page
         </div>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-5 px-5 py-6`}>
-        {/* Spec 308: each delivery card carries a รับของ link to its receive page. */}
+        {/* Spec 307/308: arrival cards grouped by day; each delivery inside carries
+            a รับของ link to its receive page. */}
         <StoreIncomingList
-          deliveries={incomingDeliveries}
+          days={incomingDays}
           lens={incomingLens}
           hrefFor={hrefFor}
           receiveHrefFor={(deliveryId) => `${path}/${deliveryId}`}

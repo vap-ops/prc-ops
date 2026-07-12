@@ -7444,3 +7444,27 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
   page captures paper as purpose='proof_of_delivery' (delivery-scoped). If
   procurement's payment flow needs purpose='invoice' specifically, the receive
   page's paper uploader should write that purpose — a follow-up decision.
+
+## Spec 307 — ของเข้า arrival grouping (day × supplier) — COMPLETE (2026-07-12)
+
+- Operator: "ของเข้า does not group PR items — confusing how many packages
+  arrive that day." Root cause: spec-305 delivery grain + spec-120 quick
+  one-line POs = one delivery per item (live: ~half of deliveries singleton).
+- Fix: selectIncomingArrivals — day (item's own ETA) → arrival (supplier) →
+  delivery-subgroups → items; unknown-ETA day last; day headers วันนี้/เลยกำหนด
+  - arrival-count chips; top badge counts arrival cards.
+- ⭐ Composed with spec 308 (shipped #486 MID-SESSION): 308 built a per-delivery
+  receive page + รับของ link on delivery cards. 307 regroups to (day × supplier),
+  which can span deliveries. Operator asked for my rec → keep arrival grain for
+  counting AND preserve 308's per-delivery receiving by sub-grouping each
+  arrival's items by delivery (one รับของ link per delivery). Single-delivery
+  arrival = visually 308 + a day header; multi-delivery = one link each.
+- Rebased onto 308 (README add/add + page/component 3-way); squashed to 1 commit
+  before rebase to avoid a two-commit conflict replay.
+- TDD RED first (seam + component); 23/23 on the two files.
+- Fresh-eyes (round 1, pre-rebase): null-supplier key collision → key now
+  prefixes real suppliers `s:` (source-safe, no control char); count-chip
+  aria-label via storeIncomingCountAria.
+- Open questions: (a) selectIncomingDeliveries now unused in prod — kept exported
+  for spec-305 tests; removal = follow-up cleanup unit; (b) PO-builder nudge
+  (offer same-supplier approved PRs when pre-seeding the one-line PO) — follow-up.
