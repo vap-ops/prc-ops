@@ -1,3 +1,9 @@
+# [0.32.0](https://github.com/VAP-Solution/prc-ops/compare/v0.31.0...v0.32.0) (2026-07-12)
+
+### Features
+
+- **purchasing:** spec 301 U1 — WP letter-code on purchasing surfaces ([#469](https://github.com/VAP-Solution/prc-ops/issues/469)) ([a7d14d4](https://github.com/VAP-Solution/prc-ops/commit/a7d14d44b707515aa3899f39d60d95642614e0d3))
+
 # [0.31.0](https://github.com/VAP-Solution/prc-ops/compare/v0.30.0...v0.31.0) (2026-07-12)
 
 ### Features
