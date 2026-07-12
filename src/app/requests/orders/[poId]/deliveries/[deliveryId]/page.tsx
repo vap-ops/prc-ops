@@ -90,7 +90,7 @@ export default async function DeliveryDetailPage({ params }: PageProps) {
     const { data: prRows } = await supabase
       .from("purchase_requests")
       .select(
-        "id, quantity, unit, amount, catalog_items ( base_item, spec_attrs ), work_packages ( code, name )",
+        "id, quantity, unit, amount, catalog_items ( base_item, spec_attrs ), work_packages!work_package_id ( code, name )",
       )
       .eq("purchase_order_id", poId)
       .eq("delivery_id", deliveryId)

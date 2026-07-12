@@ -76,6 +76,7 @@ function gridRow(
     po_number: null,
     category_id: null,
     category_name: null,
+    category_match: null,
     ...over,
   } satisfies ProcurementGridRecord;
 }
@@ -119,6 +120,28 @@ describe("spec 301 U1 — WP letter-code on purchasing surfaces", () => {
     render(<ProcurementGrid groups={groupByProcurementBand(rows)} today="2026-06-15" />);
     expect(screen.getByText("E-12")).toBeInTheDocument();
     expect(screen.queryByText("WP-12")).not.toBeInTheDocument();
+  });
+
+  it("grid row flags an off-category PR with นอกหมวดงาน (amber only — spec 301 U2)", () => {
+    const rows = [
+      gridRow({
+        id: "a",
+        status: "approved",
+        wp_code: "WP-12",
+        wp_category_code: "W05",
+        category_match: "mismatch",
+      }),
+      gridRow({
+        id: "b",
+        status: "approved",
+        item_description: "ปูนถูกหมวด",
+        category_match: "match",
+      }),
+    ];
+    render(<ProcurementGrid groups={groupByProcurementBand(rows)} today="2026-06-15" />);
+    // amber flag on the mismatching row; the grid stays quiet about matches.
+    expect(screen.getByText("นอกหมวดงาน")).toBeInTheDocument();
+    expect(screen.queryByText("ตรงกับงาน")).not.toBeInTheDocument();
   });
 
   it("raise-PR form chip renders the letter-code for the pinned WP", () => {

@@ -4425,6 +4425,7 @@ export type Database = {
           requested_at: string
           requested_by: string | null
           requested_by_email: string | null
+          requested_from_work_package_id: string | null
           shipped_at: string | null
           source: string
           split_from_request_id: string | null
@@ -4473,6 +4474,7 @@ export type Database = {
           requested_at?: string
           requested_by?: string | null
           requested_by_email?: string | null
+          requested_from_work_package_id?: string | null
           shipped_at?: string | null
           source?: string
           split_from_request_id?: string | null
@@ -4521,6 +4523,7 @@ export type Database = {
           requested_at?: string
           requested_by?: string | null
           requested_by_email?: string | null
+          requested_from_work_package_id?: string | null
           shipped_at?: string | null
           source?: string
           split_from_request_id?: string | null
@@ -4595,6 +4598,13 @@ export type Database = {
             columns: ["requested_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_requests_requested_from_work_package_id_fkey"
+            columns: ["requested_from_work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_packages"
             referencedColumns: ["id"]
           },
           {
