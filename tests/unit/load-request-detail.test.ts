@@ -115,9 +115,9 @@ beforeEach(() => {
 describe("loadRequestDetail", () => {
   it("runs the independent fan concurrently (not a serial waterfall)", async () => {
     await loadRequestDetail(supabase, REQUEST as never, { isBackOffice: true });
-    // wp + attachments + purchase_orders + po-docs + suppliers = 5 reads that
-    // depend only on the request → must overlap. Serial would peak at 1.
-    expect(maxInFlight).toBeGreaterThanOrEqual(5);
+    // wp + attachments + purchase_orders + po-docs + suppliers + projects = 6
+    // request-dependent reads that must overlap. Serial would peak at 1.
+    expect(maxInFlight).toBeGreaterThanOrEqual(6);
   });
 
   it("assembles the correct shape", async () => {

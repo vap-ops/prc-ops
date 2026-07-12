@@ -256,10 +256,11 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
       <BottomTabBar role={ctx.role} />
       {/* Spec 63: the consolidated shell. */}
       <DetailHeader backHref={safeBackHref(from, "/requests")} backLabel="กลับไปจัดซื้อ">
-        {/* Spec 301f: name the project — procurement spans projects, and the
-            WP line alone doesn't say where this PR belongs. */}
+        {/* Spec 301f: name the project — procurement spans projects, and the WP
+            line alone doesn't say where this PR belongs. Best-effort: a viewer
+            whose RLS can't read the projects row just gets no line. */}
         {projectName ? (
-          <p className="text-ink-muted w-fit truncate text-[11px] font-medium">{projectName}</p>
+          <p className="text-ink-muted w-fit truncate text-[10px] font-medium">{projectName}</p>
         ) : null}
         {wp ? (
           isProcurement ? (
