@@ -223,7 +223,6 @@ export function AddTechnicianSheet({
                 <input
                   type="file"
                   accept="image/*"
-                  capture="environment"
                   aria-label={PASSBOOK_PHOTO_LABEL}
                   onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
                   className={FIELD_STACKED}
