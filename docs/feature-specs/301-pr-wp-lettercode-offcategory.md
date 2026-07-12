@@ -111,10 +111,19 @@ grid-width short form, add ONE key (labels.ts is shared-SSOT; note in LANES).
 
 ## U3 — letter-code on supply-plan + store surfaces (code-only PR)
 
-Same treatment as U1 for: `supply-plan-manager.tsx` (raw `w.code` ×4),
-`supply-plan-accuracy.tsx`, `store-manager.tsx`, `store-count-manager.tsx`,
-`material-log-view.tsx`. Each surface's loader threads `categoryCode` (batch
-`loadCategoryCodeById`). Read each loader's live shape at build time.
+**Build corrections:** `store-manager.tsx` / `store-count-manager.tsx` render
+PROJECT codes (โครงการ picker), not WP codes — DESCOPED. The supply-plan WP
+picker is a native `<select>` — options/optgroup labels carry no markup, so
+those letter-code as TEXT via the new pure `wpDisplayCode(code, categoryCode)`
+(`format-code.ts`; same graceful degrade to the raw code).
+
+Shipped surfaces: `supply-plan-manager.tsx` (options ×3 + multi-WP checklist +
+aria-labels, via `wpDisplayCode`; `WpPickerRow`/`WpPickerOption` gain
+`categoryCode` — optional on rows, so `sa/plan`'s builder keeps compiling and
+degrades to raw), saved-line `wpLabel` (embed + page wpId→W0x map),
+`supply-plan-accuracy.tsx` (`<WpCategoryCode>`), `material-log-view.tsx`
+(`<WpCategoryCode>`; the store item page batch-reconciles via
+`loadCategoryCodeById` on the user client — member-visible page).
 
 ## Verification checklist
 

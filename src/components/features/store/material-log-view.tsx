@@ -20,6 +20,7 @@ import {
   STORE_FIX_WRONG_ENTRY_LABEL,
 } from "@/lib/i18n/labels";
 import type { MaterialLogEntry, MaterialLogKind } from "@/lib/store/material-log";
+import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
 
 // Each kind reuses its existing store-action label (SSOT) + a glyph. The icon
 // hue follows on-hand direction: inflow lifts stock, outflow draws it down.
@@ -72,7 +73,12 @@ export function MaterialLogView({ entries, unit }: { entries: MaterialLogEntry[]
                 {e.cost != null ? <span>· {baht(e.cost)}</span> : null}
                 {e.workPackage ? (
                   <span>
-                    · {e.workPackage.code} {e.workPackage.name}
+                    ·{" "}
+                    <WpCategoryCode
+                      code={e.workPackage.code}
+                      categoryCode={e.workPackage.categoryCode ?? null}
+                    />{" "}
+                    {e.workPackage.name}
                   </span>
                 ) : null}
                 {e.supplierName ? <span>· {e.supplierName}</span> : null}

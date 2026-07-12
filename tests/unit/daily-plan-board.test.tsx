@@ -51,7 +51,10 @@ const workers = [
 ];
 const leafOptions: WpPickerGroups = {
   sections: [
-    { label: "WP-01 งานกลุ่ม", options: [{ id: "wp3", code: "WP-01-03", name: "ปูกระเบื้อง" }] },
+    {
+      label: "WP-01 งานกลุ่ม",
+      options: [{ id: "wp3", code: "WP-01-03", name: "ปูกระเบื้อง", categoryCode: null }],
+    },
   ],
   ungrouped: [],
 };

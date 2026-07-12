@@ -31,6 +31,7 @@ import {
 } from "@/components/features/supply-plan/supply-plan-manager";
 import { NewPlanButton } from "@/components/features/supply-plan/new-plan-button";
 import { buildWpPickerGroups } from "@/lib/work-packages/picker-options";
+import { wpDisplayCode } from "@/lib/work-packages/format-code";
 import {
   CloneTemplateButton,
   type TemplatePick,
@@ -120,7 +121,10 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
       .from("work_packages")
       // Spec 270 U5: hierarchy fields ride along — the picker offers งานย่อย
       // only, grouped under งาน optgroup headings.
-      .select("id, code, name, is_group, parent_id, project_categories ( work_category_id )")
+      // Spec 301 U3: + the reconciled W0x code for the text letter-code.
+      .select(
+        "id, code, name, is_group, parent_id, project_categories ( work_category_id, work_categories ( code ) )",
+      )
       .eq("project_id", project.id)
       .order("code", { ascending: true }),
     isPlanner
@@ -153,9 +157,15 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
   // then fanned onto every WP. WPs with no work-category resolve to nothing →
   // their picker shows the full catalog.
   const wpWorkCategory = new Map<string, string>();
+  // Spec 301 U3: wpId → reconciled W0x code (letter-code display). The embed
+  // arrives object- or array-shaped depending on FK inference — accept both.
+  const wpCategoryCode = new Map<string, string>();
   for (const w of wpRows ?? []) {
     const workCatId = w.project_categories?.work_category_id;
     if (workCatId) wpWorkCategory.set(w.id, workCatId);
+    const wcRel = w.project_categories?.work_categories;
+    const code = (Array.isArray(wcRel) ? wcRel[0]?.code : wcRel?.code) ?? null;
+    if (code) wpCategoryCode.set(w.id, code);
   }
 
   // Second batch: everything that needs a first-batch result (plan ids, the
@@ -182,8 +192,10 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
         if (!selectedPlan) return [];
         const { data: lineRows } = await supabase
           .from("supply_plan_lines")
+          // Spec 301 U3: + the WP id so the saved-line label letter-codes too
+          // (via the page's wpId → W0x map).
           .select(
-            "id, qty, catalog_items ( category_id, base_item, spec_attrs, unit ), work_packages ( code, name )",
+            "id, qty, catalog_items ( category_id, base_item, spec_attrs, unit ), work_packages ( id, code, name )",
           )
           .eq("supply_plan_id", selectedPlan.id)
           .order("created_at", { ascending: true });
@@ -195,7 +207,12 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
           specAttrs: r.catalog_items?.spec_attrs ?? null,
           unit: r.catalog_items?.unit ?? "",
           qty: Number(r.qty),
-          wpLabel: r.work_packages ? `${r.work_packages.code} ${r.work_packages.name}` : null,
+          wpLabel: r.work_packages
+            ? `${wpDisplayCode(
+                r.work_packages.code,
+                wpCategoryCode.get(r.work_packages.id) ?? null,
+              )} ${r.work_packages.name}`
+            : null,
         }));
         // Spec 181 U4: a line already converted to a PR shows "สร้าง PR แล้ว" and is
         // excluded from selection (idempotent).
@@ -249,11 +266,17 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
       name: w.name,
       isGroup: w.is_group,
       parentId: w.parent_id,
+      categoryCode: wpCategoryCode.get(w.id) ?? null,
     })),
   );
   const workPackages = (wpRows ?? [])
     .filter((w) => !w.is_group)
-    .map((w) => ({ id: w.id, code: w.code, name: w.name }));
+    .map((w) => ({
+      id: w.id,
+      code: w.code,
+      name: w.name,
+      categoryCode: wpCategoryCode.get(w.id) ?? null,
+    }));
   const wpScopedCategories: Record<string, string[]> = {};
   for (const [wpId, workCatId] of wpWorkCategory) {
     const catIds = scopeByWorkCat.get(workCatId);
@@ -264,6 +287,7 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
     workPackageId: r.work_package_id,
     wpCode: r.wp_code,
     wpName: r.wp_name,
+    categoryCode: r.work_package_id ? (wpCategoryCode.get(r.work_package_id) ?? null) : null,
     plannedLines: r.planned_lines,
     plannedQty: Number(r.planned_qty),
     unplannedMiss: r.unplanned_miss,
