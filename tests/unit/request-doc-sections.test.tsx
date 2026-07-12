@@ -20,13 +20,11 @@ import { planRequestDocSections } from "@/lib/purchasing/request-doc-sections";
 import { InvoiceDocsDisplay } from "@/components/features/purchasing/invoice-docs-display";
 import {
   RECEIPT_PAPER_PROMPT,
-  PAYMENT_PROOF_FROM_PROCUREMENT_LABEL,
   PO_DOCS_FROM_PROCUREMENT_LABEL,
-  PAYMENT_PROOF_MISSING_LABEL,
   INVOICE_PAPER_MISSING_LABEL,
 } from "@/lib/i18n/labels";
 
-describe("planRequestDocSections (spec 302)", () => {
+describe("planRequestDocSections (specs 302/304)", () => {
   it("at delivery statuses the invoice docs fold into the receive card and the standalone card disappears — all roles", () => {
     for (const status of ["on_route", "delivered"] as const) {
       for (const isBackOffice of [true, false]) {
@@ -61,16 +59,28 @@ describe("planRequestDocSections (spec 302)", () => {
     expect(plan.paymentSection).toBe("uploader");
   });
 
-  it("non-back-office on a procurement-bought PR: missing-flag when empty, view-only when filled", () => {
+  it("non-back-office on a procurement-bought PR sees NO payment surface at all (spec 304)", () => {
+    // Operator doctrine: procurement's docs are not the SA's concern — not even
+    // view-only, not even a missing one-liner. Docs present or absent, hidden.
     for (const status of ["purchased", "on_route", "delivered"] as const) {
+      for (const hasPaymentDocs of [false, true]) {
+        expect(
+          planRequestDocSections({ status, isBackOffice: false, hasPaymentDocs }).paymentSection,
+        ).toBe("hidden");
+      }
+    }
+  });
+
+  it("PO-docs section is back-office only (spec 304)", () => {
+    for (const status of ["purchased", "on_route", "delivered", "site_purchased"] as const) {
+      expect(
+        planRequestDocSections({ status, isBackOffice: true, hasPaymentDocs: false })
+          .showPoDocsSection,
+      ).toBe(true);
       expect(
         planRequestDocSections({ status, isBackOffice: false, hasPaymentDocs: false })
-          .paymentSection,
-      ).toBe("missing-flag");
-      expect(
-        planRequestDocSections({ status, isBackOffice: false, hasPaymentDocs: true })
-          .paymentSection,
-      ).toBe("view-only");
+          .showPoDocsSection,
+      ).toBe(false);
     }
   });
 
@@ -107,13 +117,11 @@ describe("spec 302 labels (ui-term SSOT)", () => {
     expect(RECEIPT_PAPER_PROMPT).toBe("ถ่ายรูปใบส่งของ / ใบเสร็จที่มากับของ (ถ้ามี)");
   });
 
-  it("procurement-provenance headings exist", () => {
-    expect(PAYMENT_PROOF_FROM_PROCUREMENT_LABEL).toBe("สลิปโอนจากฝ่ายจัดซื้อ");
+  it("procurement-provenance heading exists (BO-only surface, spec 304)", () => {
     expect(PO_DOCS_FROM_PROCUREMENT_LABEL).toBe("เอกสารจากฝ่ายจัดซื้อ (ใบเสนอราคา / ใบแจ้งหนี้)");
   });
 
-  it("missing-doc flag copy exists (hide the section, flag the gap)", () => {
-    expect(PAYMENT_PROOF_MISSING_LABEL).toBe("สลิปโอนจากฝ่ายจัดซื้อ — ยังไม่มี");
+  it("missing-doc flag copy exists (procurement sees the site's gap)", () => {
     expect(INVOICE_PAPER_MISSING_LABEL).toBe("ยังไม่มีใบส่งของ / ใบเสร็จจากหน้างาน");
   });
 });
