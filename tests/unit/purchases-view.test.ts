@@ -87,6 +87,17 @@ describe("attachment purpose policy", () => {
     expect(attachmentPurposeLabel("invoice")).toBe("ใบแจ้งหนี้/ใบกำกับภาษี");
   });
 
+  // Spec 308 follow-up: the delivery-scoped receive paper (purchase_order_attachments
+  // purpose='proof_of_delivery') now surfaces on the accounting voucher — auditable
+  // (not price/quote evidence) and it needs its own Thai label, not the raw enum.
+  it("admits proof_of_delivery (the delivery receive paper) as auditable evidence", () => {
+    expect(isAuditableAttachmentPurpose("proof_of_delivery")).toBe(true);
+  });
+
+  it("labels proof_of_delivery in Thai", () => {
+    expect(attachmentPurposeLabel("proof_of_delivery")).toBe("เอกสารส่งของ / หลักฐานการรับของ");
+  });
+
   it("falls back to the raw purpose for an unknown kind", () => {
     expect(attachmentPurposeLabel("future_kind")).toBe("future_kind");
   });

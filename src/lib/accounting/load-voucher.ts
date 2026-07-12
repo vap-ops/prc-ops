@@ -9,6 +9,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/database.types";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { mintSignedUrlsForAttachments } from "@/lib/purchasing/attachment-signed-urls";
+import { mintSignedUrls } from "@/lib/storage/signed-urls";
+import { PO_ATTACHMENTS_BUCKET } from "@/lib/storage/buckets";
 import { isAuditableAttachmentPurpose } from "@/lib/accounting/purchases-view";
 
 type Admin = SupabaseClient<Database>;
@@ -54,7 +56,7 @@ export async function loadPurchaseVoucher(admin: Admin, id: string): Promise<Pur
   const { data: pr } = await admin
     .from("purchase_requests")
     .select(
-      "id, supplier_id, supplier, amount, vat_rate, status, purchased_at, requested_at, requested_by, approved_by, work_package_id, project_id, purchase_order_id",
+      "id, supplier_id, supplier, amount, vat_rate, status, purchased_at, requested_at, requested_by, approved_by, work_package_id, project_id, purchase_order_id, delivery_id",
     )
     .eq("id", id)
     .maybeSingle();
@@ -67,6 +69,7 @@ export async function loadPurchaseVoucher(admin: Admin, id: string): Promise<Pur
     { data: poRow },
     names,
     { data: attachmentRows },
+    { data: proofRows },
     glLines,
   ] = await Promise.all([
     pr.supplier_id
@@ -94,6 +97,18 @@ export async function loadPurchaseVoucher(admin: Admin, id: string): Promise<Pur
       .select("id, kind, purpose, storage_path, url")
       .eq("purchase_request_id", id)
       .order("created_at", { ascending: true }),
+    // Spec 308 follow-up: a delivery-backed PR's receive paper (ใบส่งของ/ใบเสร็จ)
+    // + truck proof live on the delivery, not the PR — purchase_order_attachments
+    // purpose='proof_of_delivery', scoped by the delivery this PR rode in on.
+    // delivery_id is unique per delivery so it alone pins the right proof set.
+    pr.delivery_id
+      ? admin
+          .from("purchase_order_attachments_current")
+          .select("id, kind, storage_path, delivery_id")
+          .eq("delivery_id", pr.delivery_id)
+          .eq("purpose", "proof_of_delivery")
+          .order("created_at", { ascending: true })
+      : Promise.resolve({ data: [] }),
     loadVoucherGlLines(admin, id),
   ]);
 
@@ -106,12 +121,26 @@ export async function loadPurchaseVoucher(admin: Admin, id: string): Promise<Pur
   const signed = await mintSignedUrlsForAttachments(
     auditable.map((a) => ({ id: a.id, storage_path: a.storage_path })),
   );
-  const attachments: VoucherAttachment[] = auditable.map((a) => ({
+  const prAttachments: VoucherAttachment[] = auditable.map((a) => ({
     id: a.id,
     kind: a.kind ?? "image",
     purpose: a.purpose,
     href: a.kind === "link" ? a.url : (signed.get(a.id) ?? null),
   }));
+
+  // Spec 308 follow-up: sign the delivery proof docs (PO bucket, never 'link')
+  // and append them so the voucher's source-doc gallery includes the receive
+  // paper for delivery-backed purchases. Drop null ids (the view types nullable).
+  const proof = (proofRows ?? []).flatMap((d) => (d.id == null ? [] : [{ ...d, id: d.id }]));
+  const proofSigned = await mintSignedUrls(PO_ATTACHMENTS_BUCKET, proof);
+  const proofAttachments: VoucherAttachment[] = proof.map((d) => ({
+    id: d.id,
+    kind: d.kind ?? "image",
+    purpose: "proof_of_delivery",
+    href: proofSigned.get(d.id) ?? null,
+  }));
+
+  const attachments: VoucherAttachment[] = [...prAttachments, ...proofAttachments];
 
   const header: VoucherHeader = {
     id: pr.id,
