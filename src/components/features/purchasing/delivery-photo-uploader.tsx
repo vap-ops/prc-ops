@@ -31,6 +31,7 @@ import {
 } from "@/lib/photos/upload-queue";
 import { notifyQueueChanged, safeQueuePut, safeQueueRemove } from "@/lib/photos/upload-queue-idb";
 import { BUTTON_SECONDARY_MUTED, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
+import { DELIVERY_PHOTO_COVERAGE_HINT } from "@/lib/i18n/labels";
 
 interface DeliveryPhotoUploaderProps {
   purchaseRequestId: string;
@@ -145,6 +146,9 @@ export function DeliveryPhotoUploader({
         type="file"
         accept={PHOTO_ACCEPT_MIME}
         multiple
+        // Spec 303: the receive proof is taken LIVE — capture forces the rear
+        // camera on mobile (the SA's device); repeat taps add more shots.
+        capture="environment"
         className="sr-only"
         onChange={(e) => void handleFiles(e.target.files)}
         disabled={busy}
@@ -161,6 +165,7 @@ export function DeliveryPhotoUploader({
             ? "กำลังบันทึก…"
             : "ยืนยันการรับของด้วยรูป"}
       </button>
+      <p className="text-ink-secondary text-xs">{DELIVERY_PHOTO_COVERAGE_HINT}</p>
       {error ? (
         <p role="alert" className={INLINE_ALERT_TEXT}>
           {error}

@@ -210,6 +210,13 @@ export const PO_DOCS_FROM_PROCUREMENT_LABEL = "เอกสารจากฝ่
 // gone, the gap stays visible — each side sees what the other still owes.
 export const PAYMENT_PROOF_MISSING_LABEL = "สลิปโอนจากฝ่ายจัดซื้อ — ยังไม่มี";
 export const INVOICE_PAPER_MISSING_LABEL = "ยังไม่มีใบส่งของ / ใบเสร็จจากหน้างาน";
+// Spec 303 — goods-photo integrity: the receive proof is taken live (capture),
+// must cover everything received, and pairs with the row's delivered amount.
+export const DELIVERY_PHOTO_COVERAGE_HINT = "ถ่ายให้เห็นของที่รับครบทุกรายการ — ถ่ายได้หลายรูป";
+export const DELIVERY_PHOTO_MISSING_LABEL = "ยังไม่มีรูปยืนยันการรับของ";
+export function deliveredQtyCaption(quantity: number, unit: string): string {
+  return `จำนวนที่รับ ${quantity} ${unit}`;
+}
 
 // Spec 300 U3 — the store's incoming-delivery section (คลัง & ของเข้า).
 export const STORE_INCOMING_HEADING = "ของเข้า";
