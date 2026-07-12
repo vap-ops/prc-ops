@@ -14,10 +14,12 @@ import {
   CalendarDays,
   ClipboardCheck,
   ShoppingCart,
+  Truck,
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { scheduleHref, storeHref } from "@/lib/nav/project-paths";
+import { scheduleHref, storeHref, incomingHref } from "@/lib/nav/project-paths";
+import { STORE_LABEL, STORE_INCOMING_HEADING } from "@/lib/i18n/labels";
 
 export function SaTools({
   primaryProjectId,
@@ -35,12 +37,21 @@ export function SaTools({
     <section className="flex flex-col gap-3">
       <h2 className="text-meta text-ink-secondary font-semibold">เครื่องมือ</h2>
       <div className="grid grid-cols-2 gap-3">
+        {/* Spec 300 U4: ของเข้า (incoming deliveries) is its own surface, split from คลัง
+            (inventory) — a time-sensitive receiving queue ≠ static stock. Receiving first. */}
+        <Tile
+          href={projectScoped(incomingHref)}
+          icon={Truck}
+          accent="text-cat-w02"
+          title={STORE_INCOMING_HEADING}
+          subtitle="กำลังมา · รับของ"
+        />
         <Tile
           href={projectScoped(storeHref)}
           icon={Box}
           accent="text-cat-w05"
-          title="คลัง & ของเข้า"
-          subtitle="รับเข้า · ตรวจนับ"
+          title={STORE_LABEL}
+          subtitle="สต๊อก · ตรวจนับ"
         />
         <Tile
           href={projectScoped(scheduleHref)}

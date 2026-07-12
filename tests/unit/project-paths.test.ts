@@ -16,6 +16,7 @@ import {
   projectSettingsHref,
   reportsHref,
   workPackageHref,
+  incomingHref,
 } from "@/lib/nav/project-paths";
 
 describe("project-paths builders", () => {
@@ -35,6 +36,12 @@ describe("project-paths builders", () => {
   // home for the content-named /projects/[id]/reports.
   it("reportsHref nests reports under the project (no /pm)", () => {
     expect(reportsHref("p1")).toBe("/projects/p1/reports");
+  });
+
+  // Spec 300 U4: the ของเข้า incoming-deliveries surface is its own per-project route,
+  // split off the store page (deliveries ≠ inventory).
+  it("incomingHref nests the incoming-deliveries page under the project", () => {
+    expect(incomingHref("p1")).toBe("/projects/p1/incoming");
   });
 
   it("never emits the old role-named /sa/projects or /pm/projects prefix", () => {
