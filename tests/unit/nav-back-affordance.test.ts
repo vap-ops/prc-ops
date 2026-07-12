@@ -114,6 +114,8 @@ const STATIC_DETAIL = [
   "settings/wp-grouping-import",
   // Spec 283: the System Integrity Console (ตรวจระบบ) drills down from /settings (back chip).
   "settings/integrity",
+  // Spec 310: the company-card registry drills down from /settings (back chip).
+  "settings/cards",
   // Spec 162: the Nova operator console drills down from /settings (back chip).
   "nova",
   // Spec 161 U7: the dials calibration console drills down from /nova.

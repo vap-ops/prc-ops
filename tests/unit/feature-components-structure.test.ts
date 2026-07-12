@@ -60,6 +60,8 @@ const ALLOWED_DOMAINS = [
   "legal",
   // Spec 291 U2: the /profile digital employee-ID card.
   "profile",
+  // Spec 310: non-WP office expenses (card registry + expense form/list/queue).
+  "expenses",
 ] as const;
 
 describe("feature components are grouped into domain folders", () => {

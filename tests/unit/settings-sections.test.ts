@@ -105,6 +105,8 @@ describe("settings sections config (role → entries matrix)", () => {
     expect(hrefs("admin", "super_admin")).toEqual([
       // Spec 283: System Integrity Console (ตรวจระบบ).
       "/settings/integrity",
+      // Spec 310: company-card registry.
+      "/settings/cards",
       "/settings/roles",
       // Spec 284 / ADR 0080: the org chart (departments → head → members).
       "/settings/org-chart",
