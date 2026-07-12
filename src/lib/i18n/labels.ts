@@ -216,6 +216,11 @@ export function deliveredQtyCaption(quantity: number, unit: string): string {
   return `จำนวนที่รับ ${quantity} ${unit}`;
 }
 
+// Spec 305 — supplier-unknown fallback on the delivery cards. The same literal
+// predates this in 4 money-lib files (load-voucher/purchases/payables/po-list);
+// sweeping those onto this constant = follow-up (money paths are danger-gated).
+export const UNKNOWN_SUPPLIER_LABEL = "ไม่ระบุผู้ขาย";
+
 // Spec 300 U3 — the store's incoming-delivery section (คลัง & ของเข้า).
 export const STORE_INCOMING_HEADING = "ของเข้า";
 export const STORE_INCOMING_SUBTITLE = "ของที่กำลังจะเข้าคลัง — กดเพื่อดูและรับของ";

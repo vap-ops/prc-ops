@@ -15,7 +15,7 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { projectHref, incomingHref } from "@/lib/nav/project-paths";
 import { StoreIncomingList } from "@/components/features/store/store-incoming-list";
-import { selectStoreIncoming } from "@/lib/store/incoming";
+import { selectIncomingDeliveries } from "@/lib/store/incoming";
 import { parseIncomingLens, type IncomingLens } from "@/lib/purchasing/request-bands";
 import { bangkokTodayISO } from "@/lib/work-packages/schedule-today";
 import { STORE_INCOMING_HEADING } from "@/lib/i18n/labels";
@@ -48,17 +48,21 @@ export default async function ProjectIncomingPage({ params, searchParams }: Page
   const { data: incomingRows } = await supabase
     .from("purchase_requests")
     .select(
-      "id, item_description, quantity, unit, eta, status, supplier, catalog_items ( base_item, spec_attrs )",
+      "id, item_description, quantity, unit, eta, status, supplier, delivery_id, catalog_items ( base_item, spec_attrs )",
     )
     .eq("project_id", project.id)
     .in("status", ["purchased", "on_route"])
     .is("work_package_id", null)
     // selectStoreIncoming re-sorts for display; this order only makes the cap deterministic.
+    // ⚠ Spec 305 seam: the 200 cap counts PR LINES — a delivery straddling the cap
+    // would render with some items missing. Harmless at current volume (single
+    // digits); make the cap delivery-aware if incoming ever approaches it.
     .order("eta", { ascending: true })
     .limit(200);
 
   const today = bangkokTodayISO();
-  const incomingDeliveries = selectStoreIncoming(incomingRows ?? [], incomingLens, today);
+  // Spec 305: group the surviving lines by delivery (งวดส่ง) — one card per arrival.
+  const incomingDeliveries = selectIncomingDeliveries(incomingRows ?? [], incomingLens, today);
   const path = incomingHref(project.id);
   const hrefFor = (l: IncomingLens) => (l === "today" ? path : `${path}?incoming=${l}`);
 
@@ -74,7 +78,7 @@ export default async function ProjectIncomingPage({ params, searchParams }: Page
         </div>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-5 px-5 py-6`}>
-        <StoreIncomingList rows={incomingDeliveries} lens={incomingLens} hrefFor={hrefFor} />
+        <StoreIncomingList deliveries={incomingDeliveries} lens={incomingLens} hrefFor={hrefFor} />
       </div>
     </PageShell>
   );
