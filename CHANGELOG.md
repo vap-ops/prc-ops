@@ -1,3 +1,9 @@
+## [0.49.2](https://github.com/VAP-Solution/prc-ops/compare/v0.49.1...v0.49.2) (2026-07-12)
+
+### Bug Fixes
+
+- **store:** use Warehouse (not Box) for the คลัง store symbol (spec 307 follow-up 2) ([#494](https://github.com/VAP-Solution/prc-ops/issues/494)) ([c886f2c](https://github.com/VAP-Solution/prc-ops/commit/c886f2cc49d876abacafe424754824bf5e9d46e4))
+
 ## [0.49.1](https://github.com/VAP-Solution/prc-ops/compare/v0.49.0...v0.49.1) (2026-07-12)
 
 ### Bug Fixes
