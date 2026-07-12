@@ -7302,3 +7302,8 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
   summary), 3 nits answered. Open questions: heading literals on the PR page
   (หลักฐานการชำระเงิน/เอกสาร) still raw strings not labels.ts — pre-existing,
   candidate for a labels sweep unit.
+- REFINEMENT (operator, same day): "hide when empty, but flag as missing" — both
+  directions (AskUserQuestion). paymentSection 'hidden' -> 'missing-flag' (muted
+  one-liner, no card/button) + invoiceMissingFlag (amber, BO+delivered+no-docs).
+  TDD RED 3 new -> 12/12; full suite green; browser-verified both roles (flip
+  reverted); fresh-eyes clean (1 intent Q answered).
