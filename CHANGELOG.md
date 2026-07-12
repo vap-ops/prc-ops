@@ -1,3 +1,9 @@
+# [0.40.0](https://github.com/VAP-Solution/prc-ops/compare/v0.39.0...v0.40.0) (2026-07-12)
+
+### Features
+
+- **sa:** spec 306 U1 — printable QR badges for scan check-in ([#479](https://github.com/VAP-Solution/prc-ops/issues/479)) ([c47da8f](https://github.com/VAP-Solution/prc-ops/commit/c47da8f39c331c1e0425e15caa073563ac6988e5))
+
 # [0.39.0](https://github.com/VAP-Solution/prc-ops/compare/v0.38.0...v0.39.0) (2026-07-12)
 
 ### Features
