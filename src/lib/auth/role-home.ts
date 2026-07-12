@@ -329,6 +329,14 @@ export const OFFICE_EXPENSE_ROLES: ReadonlyArray<UserRole> = [
   "procurement",
   "procurement_manager",
   "accounting",
+  // Spec 310 U6 (operator 2026-07-13): PM/PD + site owner/admin + auditor also
+  // record office expenses. They see their OWN; finance-see-all + mark stays
+  // OFFICE_EXPENSE_FINANCE_ROLES. Keep the record_office_expense RPC gate in sync.
+  "project_manager",
+  "project_director",
+  "site_owner",
+  "site_admin",
+  "auditor",
 ];
 export const OFFICE_EXPENSE_FINANCE_ROLES: ReadonlyArray<UserRole> = ["super_admin", "accounting"];
 
