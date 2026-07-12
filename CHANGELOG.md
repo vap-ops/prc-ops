@@ -1,3 +1,9 @@
+# [0.59.0](https://github.com/VAP-Solution/prc-ops/compare/v0.58.0...v0.59.0) (2026-07-12)
+
+### Features
+
+- **310:** personal expense dashboard on /expenses (U7) ([#503](https://github.com/VAP-Solution/prc-ops/issues/503)) ([e1e340f](https://github.com/VAP-Solution/prc-ops/commit/e1e340f9a38aaa7e8845d5aa295c5b6394df5b08))
+
 # [0.58.0](https://github.com/VAP-Solution/prc-ops/compare/v0.57.0...v0.58.0) (2026-07-12)
 
 ### Features
