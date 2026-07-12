@@ -1,3 +1,9 @@
+# [0.30.0](https://github.com/VAP-Solution/prc-ops/compare/v0.29.0...v0.30.0) (2026-07-12)
+
+### Features
+
+- **sa:** SA help hub — in-app text-first manual (spec 299) ([#467](https://github.com/VAP-Solution/prc-ops/issues/467)) ([b00ad51](https://github.com/VAP-Solution/prc-ops/commit/b00ad5152d08181b35e71f0dfe3a50afb6f98080))
+
 # [0.29.0](https://github.com/VAP-Solution/prc-ops/compare/v0.28.0...v0.29.0) (2026-07-11)
 
 ### Features
