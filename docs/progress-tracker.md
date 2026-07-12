@@ -7342,3 +7342,13 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
 - Open: U3 supply-plan/store letter-code sweep; refactor 4 inline
   categoryCodeById page copies onto the shared helper; project name absent on
   PR card/detail.
+
+## Spec 305 — Incoming by delivery — COMPLETE (2026-07-12)
+
+- Operator: today's delivery items should come from the delivery table; a
+  delivery naturally includes many PR items. selectIncomingDeliveries groups
+  lens-filtered lines by delivery_id (null = singleton); card per arrival,
+  items link to receive cards. TDD 5 RED -> 11/11 green (with review-gap adds).
+- Fresh-eyes 4 yellow addressed (badge=deliveries; count un-truncated; 44px
+  targets; test gaps filled) + 2 nits fixed (comparator reuse, label SSOT);
+  line-cap seam documented in query + spec. 304 README index row backfilled.
