@@ -1,3 +1,9 @@
+# [0.47.0](https://github.com/VAP-Solution/prc-ops/compare/v0.46.0...v0.47.0) (2026-07-12)
+
+### Features
+
+- **nav:** surface ค่าแรง on procurement's mobile bottom bar (spec 309 follow-up) ([#490](https://github.com/VAP-Solution/prc-ops/issues/490)) ([f22ffd0](https://github.com/VAP-Solution/prc-ops/commit/f22ffd0dee4f0077b2c37d4c7edca56b530ec540)), closes [#487](https://github.com/VAP-Solution/prc-ops/issues/487)
+
 # [0.46.0](https://github.com/VAP-Solution/prc-ops/compare/v0.45.0...v0.46.0) (2026-07-12)
 
 ### Features
