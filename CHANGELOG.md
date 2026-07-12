@@ -1,3 +1,9 @@
+## [0.49.1](https://github.com/VAP-Solution/prc-ops/compare/v0.49.0...v0.49.1) (2026-07-12)
+
+### Bug Fixes
+
+- **store:** ของเข้า heading = Truck, รับของ = Truck→store box (spec 307 follow-up) ([#493](https://github.com/VAP-Solution/prc-ops/issues/493)) ([3eb3b9c](https://github.com/VAP-Solution/prc-ops/commit/3eb3b9caeae77455ce47992a7bf8b5739c168aac)), closes [#492](https://github.com/VAP-Solution/prc-ops/issues/492)
+
 # [0.49.0](https://github.com/VAP-Solution/prc-ops/compare/v0.48.0...v0.49.0) (2026-07-12)
 
 ### Features
