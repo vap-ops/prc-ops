@@ -201,7 +201,11 @@ export const INCOMING_LENS_LABEL: Record<IncomingLens, string> = {
 // Spec 300 U2 — the receive card: store-receipt confirmation + receipt-paper prompt.
 export const RECEIVED_INTO_STORE_LABEL = "✓ รับเข้าคลังแล้ว";
 export const RECEIVED_INTO_STORE_HINT = "รูปยืนยันการรับของบันทึกของเข้าคลังให้อัตโนมัติ";
-export const RECEIPT_PAPER_PROMPT = "ใบส่งของ / ใบเสร็จ (ถ้ามากับของ)";
+export const RECEIPT_PAPER_PROMPT = "ถ่ายรูปใบส่งของ / ใบเสร็จที่มากับของ (ถ้ามี)";
+// Spec 302 — ownership-aware document sections on the PR page: provenance
+// headings so the SA can tell procurement's paperwork from their own job.
+export const PAYMENT_PROOF_FROM_PROCUREMENT_LABEL = "สลิปโอนจากฝ่ายจัดซื้อ";
+export const PO_DOCS_FROM_PROCUREMENT_LABEL = "เอกสารจากฝ่ายจัดซื้อ (ใบเสนอราคา / ใบแจ้งหนี้)";
 
 // Spec 300 U3 — the store's incoming-delivery section (คลัง & ของเข้า).
 export const STORE_INCOMING_HEADING = "ของเข้า";
