@@ -1,3 +1,9 @@
+# [0.62.0](https://github.com/VAP-Solution/prc-ops/compare/v0.61.0...v0.62.0) (2026-07-12)
+
+### Features
+
+- **310:** labeled slip/tax-invoice uploads (U9) ([#508](https://github.com/VAP-Solution/prc-ops/issues/508)) ([3270ffd](https://github.com/VAP-Solution/prc-ops/commit/3270ffd890d8a8686c17daa6fc45eea4ed607b6b))
+
 # [0.61.0](https://github.com/VAP-Solution/prc-ops/compare/v0.60.0...v0.61.0) (2026-07-12)
 
 ### Features
