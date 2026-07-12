@@ -830,6 +830,12 @@ export const EXPENSE_LIST_EMPTY = "ยังไม่มีรายการ";
 export const EXPENSE_RECEIPT_UPLOAD_LABEL = "แนบใบเสร็จ";
 export const EXPENSE_RECORDED_ATTACH = "บันทึกแล้ว — แนบใบเสร็จได้เลย";
 export const EXPENSE_RECORD_ANOTHER = "บันทึกรายการใหม่";
+// Spec 310 U7 — personal expense dashboard (summary + category chart).
+export const EXPENSE_MONTH_TOTAL_LABEL = "ใช้จ่ายเดือนนี้";
+export const EXPENSE_PENDING_TOTAL_LABEL = "รอคืนเงิน (ของคุณ)";
+export const EXPENSE_CHART_HEADING = "ค่าใช้จ่ายตามประเภท (เดือนนี้)";
+export const EXPENSE_MONTH_EMPTY = "ยังไม่มีค่าใช้จ่ายเดือนนี้";
+export const EXPENSE_ADD_HEADING = "บันทึกค่าใช้จ่ายใหม่";
 // Spec 310 U5 — finance reimburse queue.
 export const REIMBURSE_QUEUE_HEADING = "รายการรอคืนเงิน";
 export const REIMBURSE_QUEUE_EMPTY = "ไม่มีรายการรอคืนเงิน";
