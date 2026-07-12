@@ -24,7 +24,6 @@ import {
   DELIVERY_OVERDUE_FLAG,
   UNKNOWN_SUPPLIER_LABEL,
   DELIVERY_RECEIVE_PAGE_TITLE,
-  STORE_LABEL,
   storeIncomingCountAria,
   storeIncomingDayCountAria,
   formatThaiDate,
@@ -33,16 +32,13 @@ import type { IncomingDayGroup, StoreIncomingRow } from "@/lib/store/incoming";
 
 // Spec 307 U2 — the store (คลัง) symbol. The SA's store tile (sa-tools) marks คลัง
 // with lucide `Box` + the text-cat-w05 accent; reusing it here teaches the SA that
-// ของเข้า feeds คลัง — received goods become store stock. Labelled คลัง (not
-// aria-hidden) so the symbol is announced, not silent.
+// ของเข้า feeds คลัง — received goods become store stock. Decorative (aria-hidden):
+// the teaching is VISUAL, and both placements already carry the text that labels
+// them ("ของเข้า" heading, "รับของ" action) — a repeated "คลัง" would only pollute
+// the accessible name.
 function StoreSymbol({ className = "" }: { className?: string }) {
   return (
-    <Box
-      role="img"
-      aria-label={STORE_LABEL}
-      data-testid="incoming-store-symbol"
-      className={`text-cat-w05 ${className}`}
-    />
+    <Box aria-hidden data-testid="incoming-store-symbol" className={`text-cat-w05 ${className}`} />
   );
 }
 
@@ -168,7 +164,11 @@ export function StoreIncomingList({ days, lens, hrefFor, receiveHrefFor }: Store
                   </div>
                   {/* Spec 308: receiving is per delivery. Each real delivery in the
                       arrival gets its own รับของ link (one for the common single
-                      delivery, more when a supplier ships several the same day). */}
+                      delivery, more when a supplier ships several the same day).
+                      Spec 307 U2 seam: a delivery-less item (deliveryId null — 0 live)
+                      has NO รับของ here by design; it is not yet a delivery, so it
+                      becomes receivable only once procurement assigns one. The old
+                      /requests fallback is intentionally gone (SA ≠ procurement). */}
                   {g.deliveries.map((d, i) => (
                     <div key={d.deliveryId ?? `nodelivery-${i}`}>
                       {receiveHrefFor && d.deliveryId ? (
