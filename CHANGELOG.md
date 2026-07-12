@@ -1,3 +1,9 @@
+# [0.54.0](https://github.com/VAP-Solution/prc-ops/compare/v0.53.0...v0.54.0) (2026-07-12)
+
+### Features
+
+- **310:** office-expense form + list at /expenses (U3) ([#499](https://github.com/VAP-Solution/prc-ops/issues/499)) ([a94cc49](https://github.com/VAP-Solution/prc-ops/commit/a94cc4995200292333b99647c7f5e86e19754417))
+
 # [0.53.0](https://github.com/VAP-Solution/prc-ops/compare/v0.52.0...v0.53.0) (2026-07-12)
 
 ### Features
