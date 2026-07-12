@@ -1,3 +1,9 @@
+# [0.45.0](https://github.com/VAP-Solution/prc-ops/compare/v0.44.0...v0.45.0) (2026-07-12)
+
+### Features
+
+- **purchasing:** spec 308 U2 — PR-page receive card shrinks to a รับของ link ([#488](https://github.com/VAP-Solution/prc-ops/issues/488)) ([7b68c60](https://github.com/VAP-Solution/prc-ops/commit/7b68c606fa9803ba4c4c055066181c0790e2b36b))
+
 # [0.44.0](https://github.com/VAP-Solution/prc-ops/compare/v0.43.0...v0.44.0) (2026-07-12)
 
 ### Features
