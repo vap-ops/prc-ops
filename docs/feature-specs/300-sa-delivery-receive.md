@@ -32,7 +32,7 @@ The SA receive workflow is scattered, and its automation is invisible:
 
 ## Change
 
-Three code-only units (U3 added after operator feedback). No new server action, no RPC, no
+Four code-only units (U3/U4 added after operator feedback on placement). No new server action, no RPC, no
 migration — the accept-to-store trigger already exists (Problem 2); this only surfaces and
 filters it.
 
@@ -87,6 +87,25 @@ actually receives. U3 surfaces it there:
   receive card, where the delivery photo completes the (auto) store receipt.
 - Pure `selectStoreIncoming` (`src/lib/store/incoming.ts`, TDD) + server component
   `StoreIncomingList`; no new write, no schema, no RPC.
+
+### U4 — Split ของเข้า off the store page into its own surface (code-only, 2026-07-12)
+
+Operator, on seeing U3: **"deliveries today should not be on the same page as items in
+store."** Correct — a time-sensitive receiving queue (ของเข้า) and static inventory (คลัง:
+on-hand / รับเข้า / ตรวจนับ / P&L) are two different intents and shouldn't share a page. U4
+separates them:
+
+- **Revert** the ของเข้า section OFF `/projects/[projectId]/store` — the store page is
+  inventory only again.
+- **New dedicated route** `/projects/[projectId]/incoming` (`incomingHref`) rendering the same
+  `StoreIncomingList` + lens + query. One intent per page.
+- **Split the SA tile** "คลัง & ของเข้า" (`sa-tools.tsx`) into two: **ของเข้า** (→ the new route,
+  receiving-first) and **คลัง** (→ the store page). The selector + list component from U3 are
+  reused verbatim — only their host route changes.
+
+Supersedes U3's placement (the code is reused, the surface moves). Lesson: pin the user's
+actual navigation surface — U1/U2 built on the right data but the wrong _tab_ (คำขอซื้อ vs the
+SA's receiving tile), and U3 then over-corrected onto the inventory page.
 
 ## Out of scope / seams
 
