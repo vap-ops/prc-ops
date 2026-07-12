@@ -61,7 +61,9 @@ export default async function EquipmentRentalsPage() {
     supabase.from("projects").select("id, name").order("name", { ascending: true }),
     admin
       .from("equipment_rental_batches")
-      .select("id, supplier_id, monthly_rate, rate_period, starts_on, ends_on, note, created_at"),
+      .select(
+        "id, supplier_id, monthly_rate, rate_period, starts_on, ends_on, note, status, created_at",
+      ),
     admin
       .from("equipment_project_allocations")
       .select("id, batch_id, project_id, starts_on, ends_on")
@@ -95,10 +97,13 @@ export default async function EquipmentRentalsPage() {
 
   const suppliers = supplierRows ?? [];
   const projects = projectRows ?? [];
+  // Spec 312: a voided (cancelled) batch is hidden from every surface — the
+  // reversed GL + audit row are the history, not a stale card / vendor / agreement.
+  const visibleBatches = (batchRows ?? []).filter((b) => b.status !== "cancelled");
   // Spec 280: surface suppliers PRC has rented from before, above the full list.
-  const rentalVendorIds = rankRentalVendors(batchRows ?? []);
+  const rentalVendorIds = rankRentalVendors(visibleBatches);
   const rentals = buildRentalView(
-    (batchRows ?? []).map((b) => ({
+    visibleBatches.map((b) => ({
       id: b.id,
       supplierId: b.supplier_id ?? "",
       rate: b.monthly_rate,
@@ -106,6 +111,7 @@ export default async function EquipmentRentalsPage() {
       startsOn: b.starts_on,
       endsOn: b.ends_on,
       note: b.note,
+      status: b.status,
       createdAt: b.created_at,
     })),
     (allocationRows ?? []).map((a) => ({
@@ -123,7 +129,7 @@ export default async function EquipmentRentalsPage() {
   // live settlements (supersede anti-join, newest first) for the history/correct.
   const supplierNameById = new Map(suppliers.map((s) => [s.id, s.name]));
   const agreementOptions = buildAgreementOptions(
-    (batchRows ?? []).map((b) => ({
+    visibleBatches.map((b) => ({
       id: b.id,
       supplierName: supplierNameById.get(b.supplier_id ?? "") ?? "—",
       rate: b.monthly_rate,
@@ -186,7 +192,7 @@ export default async function EquipmentRentalsPage() {
     if (list) list.push(row);
     else settlementsByAgreement.set(r.agreement_id, [row]);
   }
-  const agreementVariances: AgreementVariance[] = (batchRows ?? []).map((b) => ({
+  const agreementVariances: AgreementVariance[] = visibleBatches.map((b) => ({
     id: b.id,
     label: agreementLabelById.get(b.id) ?? "—",
     variance: computeRentalVariance({
