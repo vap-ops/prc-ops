@@ -34,6 +34,11 @@ describe("SaTools", () => {
     expect(screen.getByRole("link", { name: /ทีมงาน/ })).toHaveAttribute("href", "/sa/crew");
   });
 
+  it("links the คู่มือ tile to the in-app help hub (spec 299 U1)", () => {
+    render(<SaTools primaryProjectId="p1" showCloseNudge={false} />);
+    expect(screen.getByRole("link", { name: /คู่มือ/ })).toHaveAttribute("href", "/sa/help");
+  });
+
   it("pulses ปิดวัน only after hours", () => {
     const { rerender } = render(<SaTools primaryProjectId="p1" showCloseNudge={false} />);
     expect(screen.queryByTestId("close-pulse")).toBeNull();
