@@ -1,3 +1,9 @@
+# [0.38.0](https://github.com/VAP-Solution/prc-ops/compare/v0.37.0...v0.38.0) (2026-07-12)
+
+### Features
+
+- **supply-plan,store:** spec 301 U3 — WP letter-code on supply-plan + store surfaces ([#477](https://github.com/VAP-Solution/prc-ops/issues/477)) ([a11b45d](https://github.com/VAP-Solution/prc-ops/commit/a11b45d4c1e171904c1bca9d29a890899413a345))
+
 # [0.37.0](https://github.com/VAP-Solution/prc-ops/compare/v0.36.0...v0.37.0) (2026-07-12)
 
 ### Features
