@@ -56,8 +56,11 @@ describe("StoreIncomingList (spec 307 day sections)", () => {
     );
     render(<StoreIncomingList days={days} lens="all" hrefFor={hrefFor} />);
 
-    // 4 arrivals total: overdue(1) + today(2) + unscheduled(1).
-    expect(screen.getByText("4")).toHaveAccessibleName("จำนวนของเข้า: 4");
+    // 4 arrivals total: overdue(1) + today(2) + unscheduled(1). The top badge and
+    // day chips carry DISTINCT accessible names (total vs a single day's shipments).
+    expect(screen.getByText("4")).toHaveAccessibleName("จำนวนของเข้าทั้งหมด: 4");
+    // Today has 2 arrivals — its day chip reads the day-shipment name, not the total.
+    expect(screen.getByLabelText("จำนวนเที่ยวส่ง: 2")).toBeInTheDocument();
 
     const headers = screen.getAllByRole("heading", { level: 3 });
     expect(headers.length).toBe(3);

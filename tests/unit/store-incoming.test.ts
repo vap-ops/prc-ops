@@ -209,6 +209,18 @@ describe("selectIncomingArrivals", () => {
     expect(days[1]!.arrivals[0]!.itemCount).toBe(1);
   });
 
+  it("rolls an arrival to on_route when a later line shipped (purchased-first order)", () => {
+    const days = selectIncomingArrivals(
+      [
+        raw("first", "purchased", "2026-07-13", "ปูน", 10, "d1"),
+        raw("second", "on_route", "2026-07-13", "ทราย", 5, "d2"),
+      ],
+      "all",
+      TODAY,
+    );
+    expect(days[0]!.arrivals[0]!.status).toBe("on_route");
+  });
+
   it("sub-groups an arrival's items by delivery (spec 308 receive unit)", () => {
     const days = selectIncomingArrivals(
       [

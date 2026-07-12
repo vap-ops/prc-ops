@@ -179,6 +179,13 @@ export function selectIncomingArrivals(
   const items = selectStoreIncoming(rows, lens, todayIso);
   const days = new Map<string | null, IncomingDayGroup>();
   for (const item of items) {
+    // ⚠ Seam: the arrival's day/supplier come from the PR line, not the delivery.
+    // A delivery is atomic per (eta, supplier) — set together at create_purchase_order
+    // (whole PO → one delivery, one eta) — so all of a delivery's lines land in ONE
+    // arrival (verified live: 0 of 55 deliveries vary in eta or supplier). No DB
+    // constraint pins it, so a future per-line eta edit could split a delivery across
+    // two arrival cards (duplicate รับของ + double day-count). Add a delivery-keyed
+    // guard if per-line eta editing ever ships.
     const day = item.eta;
     let dayGroup = days.get(day);
     if (!dayGroup) {
@@ -213,11 +220,6 @@ export function selectIncomingArrivals(
     if (sub) sub.items.push(item);
     else arrival.deliveries.push({ deliveryId: item.deliveryId, items: [item] });
   }
-  // Days ascending, unknown-ETA last — same null-last rule as byEtaDueFirst.
-  return [...days.values()].sort((a, b) => {
-    if (a.day == null && b.day == null) return 0;
-    if (a.day == null) return 1;
-    if (b.day == null) return -1;
-    return a.day.localeCompare(b.day);
-  });
+  // Days ascending, unknown-ETA last — reuse byEtaDueFirst's null-last rule.
+  return [...days.values()].sort((a, b) => byEtaDueFirst({ eta: a.day }, { eta: b.day }));
 }

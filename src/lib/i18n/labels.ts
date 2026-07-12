@@ -231,10 +231,14 @@ export const DELIVERY_OVERDUE_FLAG = "เลยกำหนด";
 // Spec 307 — ของเข้า day headers (arrival grain: one card per day × supplier).
 export const STORE_INCOMING_DAY_TODAY = "วันนี้";
 export const STORE_INCOMING_DAY_UNSCHEDULED = "ยังไม่ระบุกำหนดส่ง";
-// The count chips (top badge + day headers) carry an accessible name — a bare
-// number is meaningless to a screen reader.
+// The count chips carry an accessible name — a bare number is meaningless to a
+// screen reader. The top badge counts all incoming; a day header counts that
+// day's arrivals — distinct names so they don't read as the same quantity.
 export function storeIncomingCountAria(n: number): string {
-  return `จำนวนของเข้า: ${n}`;
+  return `จำนวนของเข้าทั้งหมด: ${n}`;
+}
+export function storeIncomingDayCountAria(n: number): string {
+  return `จำนวนเที่ยวส่ง: ${n}`;
 }
 
 // Spec 285 U3 — the on-site self-purchase (ซื้อเอง) is an EXPENSE: money already

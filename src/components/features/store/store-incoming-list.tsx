@@ -22,6 +22,7 @@ import {
   UNKNOWN_SUPPLIER_LABEL,
   DELIVERY_RECEIVE_PAGE_TITLE,
   storeIncomingCountAria,
+  storeIncomingDayCountAria,
   formatThaiDate,
 } from "@/lib/i18n/labels";
 import type { IncomingDayGroup, StoreIncomingRow } from "@/lib/store/incoming";
@@ -35,12 +36,13 @@ function chipClass(active: boolean): string {
   }`;
 }
 
-// The count chip both the top badge and the day headers reuse. A bare number is
-// meaningless to a screen reader — the aria-label says what it counts.
-function countChip(n: number) {
+// The count chip the top badge and the day headers reuse. A bare number is
+// meaningless to a screen reader, so the caller passes a distinct accessible name
+// (total incoming vs a single day's shipments).
+function countChip(n: number, ariaLabel: string) {
   return (
     <span
-      aria-label={storeIncomingCountAria(n)}
+      aria-label={ariaLabel}
       className="text-meta bg-sunk text-ink-secondary inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 font-extrabold"
     >
       {n}
@@ -93,7 +95,7 @@ export function StoreIncomingList({ days, lens, hrefFor, receiveHrefFor }: Store
     <section className="flex flex-col gap-2.5">
       <div className="flex items-center gap-2">
         <h2 className="text-section text-ink font-bold">{STORE_INCOMING_HEADING}</h2>
-        {countChip(totalArrivals)}
+        {countChip(totalArrivals, storeIncomingCountAria(totalArrivals))}
       </div>
       <p className="text-ink-secondary text-xs">{STORE_INCOMING_SUBTITLE}</p>
       <div
@@ -122,7 +124,7 @@ export function StoreIncomingList({ days, lens, hrefFor, receiveHrefFor }: Store
                 {dayLabel(day)}
               </h3>
               {/* How many packages that day — the number the operator asked for. */}
-              {countChip(day.arrivals.length)}
+              {countChip(day.arrivals.length, storeIncomingDayCountAria(day.arrivals.length))}
             </div>
             <ul className="flex flex-col gap-2">
               {day.arrivals.map((g) => (
