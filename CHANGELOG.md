@@ -1,3 +1,9 @@
+# [0.42.0](https://github.com/VAP-Solution/prc-ops/compare/v0.41.1...v0.42.0) (2026-07-12)
+
+### Features
+
+- **muster:** spec 306 U2 — scan-muster schema + DEFINER RPCs ([#484](https://github.com/VAP-Solution/prc-ops/issues/484)) ([8453b86](https://github.com/VAP-Solution/prc-ops/commit/8453b86c6dd2664b8cda8e8df803dd23f53120bd))
+
 ## [0.41.1](https://github.com/VAP-Solution/prc-ops/compare/v0.41.0...v0.41.1) (2026-07-12)
 
 ### Bug Fixes
