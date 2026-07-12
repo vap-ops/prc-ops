@@ -7408,3 +7408,21 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
   span into the U5 derive; (MED) added an exact-value OT assert pinning the 17:00
   anchor; (LOW) added an empty-array-clear assert.
 - Open: OT rate rule (operator, at U5+); standard-day window constant 08:00–17:00.
+
+## Spec 308 U1 — delivery receive page — COMPLETE (2026-07-12)
+
+- Operator IA root-cause: จัดซื้อ = orders from WPs, ของเข้า = deliveries.
+  Gate-1 LIVE reads: ALL SA grants already exist → spec is CODE-ONLY (schema
+  claim released, 075760 still free).
+- New /projects/[id]/incoming/[deliveryId]: header + all-ticked checklist
+  (receive_po_lines) + REQUIRED live-camera truck photo (photoGateOpen gate,
+  kind='image' only) + paper capture (chooser, PDFs allowed) + ของเข้า card
+  รับของ links. planDeliveryReceive pure seam. Reuses PoReceiveSection
+  (submitBlockedReason) + DeliveryProofBlock/ProofOfDeliveryUploader (capture
+  props; BO defaults untouched).
+- TDD RED 8→11 (+all-cancelled + paper-PDF-gate + BO-default coverage from
+  fresh-eyes); full suite 3633 green; browser-verified as SA (temp flip,
+  reverted) — page renders under real RLS, gate blocks, truck=camera /
+  paper=chooser. Fresh-eyes 3🟡 all fixed (paper capture removed, all-cancelled
+  guard, photo-only gate).
+- ▶ U2 = PR-page receive-card shrink-to-link.

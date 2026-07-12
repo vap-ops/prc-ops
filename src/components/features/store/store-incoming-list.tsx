@@ -16,6 +16,7 @@ import {
   DELIVERY_LENS_FILTER_ARIA,
   DELIVERY_OVERDUE_FLAG,
   UNKNOWN_SUPPLIER_LABEL,
+  DELIVERY_RECEIVE_PAGE_TITLE,
   formatThaiDate,
 } from "@/lib/i18n/labels";
 import type { IncomingDeliveryGroup } from "@/lib/store/incoming";
@@ -34,9 +35,17 @@ interface StoreIncomingListProps {
   lens: IncomingLens;
   /** Builds a store-page href that sets ?incoming=<lens>, preserving the route. */
   hrefFor: (lens: IncomingLens) => string;
+  /** Spec 308: builds the delivery-receive-page href — when set, a รับของ
+   *  action renders on each delivery-backed card. */
+  receiveHrefFor?: (deliveryId: string) => string;
 }
 
-export function StoreIncomingList({ deliveries, lens, hrefFor }: StoreIncomingListProps) {
+export function StoreIncomingList({
+  deliveries,
+  lens,
+  hrefFor,
+  receiveHrefFor,
+}: StoreIncomingListProps) {
   return (
     <section className="flex flex-col gap-2.5">
       <div className="flex items-center gap-2">
@@ -96,6 +105,15 @@ export function StoreIncomingList({ deliveries, lens, hrefFor }: StoreIncomingLi
                   ) : null}
                 </div>
               </div>
+              {/* Spec 308: receiving happens on the delivery page — ของเข้า owns it. */}
+              {receiveHrefFor && g.deliveryId ? (
+                <Link
+                  href={receiveHrefFor(g.deliveryId)}
+                  className="text-action mt-1 inline-flex min-h-11 items-center text-sm font-medium underline-offset-2 hover:underline"
+                >
+                  {DELIVERY_RECEIVE_PAGE_TITLE} →
+                </Link>
+              ) : null}
               <ul className="border-edge divide-edge mt-2 flex flex-col divide-y border-t">
                 {g.items.map((r) => (
                   <li key={r.id}>

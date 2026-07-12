@@ -454,6 +454,10 @@ export const ETA_LABEL = "กำหนดรับของ";
 // and the PO stepper's received stage. Date/needed-by labels keep "รับของ" (they
 // name a date, not the action).
 export const RECEIVE_TO_STORE_LABEL = "รับเข้าคลัง";
+// Spec 308 — the dedicated delivery receive page (ของเข้า owns receiving; จัดซื้อ
+// = orders). Page title + the required-truck-photo confirm gate copy.
+export const DELIVERY_RECEIVE_PAGE_TITLE = "รับของ";
+export const TRUCK_PHOTO_REQUIRED_HINT = "ถ่ายรูปของที่มาส่งอย่างน้อย 1 รูป ก่อนยืนยันรับเข้าคลัง";
 
 // Spec 211 U10d — ONE label for the create-purchase-order action (was "สร้าง PO" /
 // "สร้างใบสั่งซื้อ (PO)" across the bundle bar, drawer, sheet title, single-PR button
