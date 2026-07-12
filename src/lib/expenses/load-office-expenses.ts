@@ -2,7 +2,13 @@ import "server-only";
 
 import type { createClient } from "@/lib/db/server";
 import { OFFICE_EXPENSE_ROLES } from "@/lib/auth/role-home";
+import { bangkokTodayIso } from "@/lib/dates";
 import type { ReimbursableRow } from "@/lib/expenses/reimburse-group";
+import {
+  aggregateCategorySpend,
+  sumAmounts,
+  type CategorySpend,
+} from "@/lib/expenses/expense-summary";
 
 type DB = Awaited<ReturnType<typeof createClient>>;
 
@@ -158,4 +164,52 @@ export async function listReimbursableExpenses(supabase: DB): Promise<Reimbursab
       description: r.description,
     };
   });
+}
+
+export interface MyExpenseSummary {
+  monthLabel: string; // "YYYY-MM" (Asia/Bangkok)
+  monthTotal: number;
+  pendingReimburse: number;
+  byCategory: CategorySpend[];
+}
+
+// The caller's personal dashboard: this (Bangkok) month's spend by category +
+// the month total + the amount still owed back to them (pending reimbursement).
+export async function loadMyExpenseSummary(
+  supabase: DB,
+  userId: string,
+): Promise<MyExpenseSummary> {
+  const monthLabel = bangkokTodayIso().slice(0, 7); // YYYY-MM
+  const monthStart = `${monthLabel}-01`;
+  // Upper-bound the month so a future-dated expense can't leak into "this month".
+  const [y, m] = monthLabel.split("-").map(Number) as [number, number];
+  const nextMonthStart = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+
+  const [monthRes, pendRes] = await Promise.all([
+    supabase
+      .from("office_expenses")
+      .select(
+        "amount, category:office_expense_categories!office_expenses_category_id_fkey(label_th)",
+      )
+      .eq("submitted_by", userId)
+      .gte("expense_date", monthStart)
+      .lt("expense_date", nextMonthStart),
+    supabase
+      .from("office_expenses")
+      .select("amount")
+      .eq("reimburse_to_user_id", userId)
+      .is("reimbursed_at", null),
+  ]);
+
+  const monthRows = (monthRes.data ?? []).map((r) => ({
+    label: one(r.category as OneOrArray<{ label_th: string }>)?.label_th ?? null,
+    amount: r.amount,
+  }));
+
+  return {
+    monthLabel,
+    monthTotal: sumAmounts(monthRows),
+    pendingReimburse: sumAmounts((pendRes.data ?? []).map((r) => ({ amount: r.amount }))),
+    byCategory: aggregateCategorySpend(monthRows),
+  };
 }
