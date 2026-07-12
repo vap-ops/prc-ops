@@ -803,3 +803,26 @@ export const CARD_DEACTIVATE_PENDING = "กำลังปิด…";
 export const CARD_DEACTIVATE_CONFIRM = "ปิดใช้งานบัตรนี้? (เพิ่มใหม่ได้ภายหลัง)";
 export const CARD_INACTIVE_BADGE = "ปิดใช้งานแล้ว";
 export const CARD_EMPTY = "ยังไม่มีบัตร";
+
+// Spec 310 U3 — the office-expense form + list at /expenses (reached via ตั้งค่า).
+export const OFFICE_EXPENSE_NAV_LABEL = "ค่าใช้จ่ายสำนักงาน";
+export const OFFICE_EXPENSE_HINT = "บันทึกค่าใช้จ่ายที่ไม่ผูกกับงาน (เช่น น้ำมัน ค่ารับรอง)";
+export const EXPENSE_CATEGORY_LABEL = "ประเภทค่าใช้จ่าย";
+export const EXPENSE_CATEGORY_PLACEHOLDER = "เลือกประเภท";
+export const EXPENSE_AMOUNT_LABEL = "จำนวนเงิน (บาท)";
+export const EXPENSE_DATE_LABEL = "วันที่จ่าย";
+export const EXPENSE_PROJECT_LABEL = "โครงการ (ถ้ามี)";
+export const EXPENSE_PROJECT_NONE = "— ไม่ระบุโครงการ —";
+export const EXPENSE_DESCRIPTION_LABEL = "รายละเอียด";
+export const EXPENSE_PAYMENT_SOURCE_LABEL = "จ่ายจาก";
+export const PAYMENT_SOURCE_CARD_LABEL = "บัตรเครดิตบริษัท";
+export const PAYMENT_SOURCE_OWN_LABEL = "จ่ายเงินตัวเอง";
+export const PAYMENT_SOURCE_DIRECT_LABEL = "บริษัทจ่ายตรง";
+export const EXPENSE_CARD_PICK_LABEL = "เลือกบัตร";
+export const EXPENSE_SUBMIT_LABEL = "บันทึกค่าใช้จ่าย";
+export const EXPENSE_REIMBURSE_TO_PREFIX = "คืนเงินให้";
+export const EXPENSE_REIMBURSE_SELF = "คืนเงินให้คุณเอง";
+export const EXPENSE_REIMBURSE_NONE = "ไม่ต้องคืนเงิน";
+export const EXPENSE_AWAITING_RECEIPT = "รอใบเสร็จ";
+export const EXPENSE_REIMBURSED_BADGE = "คืนแล้ว";
+export const EXPENSE_LIST_EMPTY = "ยังไม่มีรายการ";
