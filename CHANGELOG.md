@@ -1,3 +1,9 @@
+# [0.44.0](https://github.com/VAP-Solution/prc-ops/compare/v0.43.0...v0.44.0) (2026-07-12)
+
+### Features
+
+- **payroll:** per-project filter + surface ค่าแรง in procurement nav (spec 309) ([#487](https://github.com/VAP-Solution/prc-ops/issues/487)) ([9da891d](https://github.com/VAP-Solution/prc-ops/commit/9da891d70beef8e6f9f9fc928b44730dd8ead647))
+
 # [0.43.0](https://github.com/VAP-Solution/prc-ops/compare/v0.42.1...v0.43.0) (2026-07-12)
 
 ### Features
