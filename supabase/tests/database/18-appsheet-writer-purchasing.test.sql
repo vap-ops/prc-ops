@@ -194,7 +194,9 @@ select enum_has_labels(
     -- Spec 279 U1: self-governance crew onboarding.
     'crew_change',
     -- Spec 310: non-WP office expenses.
-    'office_expense_record', 'office_expense_reimburse'
+    'office_expense_record', 'office_expense_reimburse',
+    -- Spec 312: void an equipment-rental batch.
+    'equipment_batch_void'
   ],
   'audit_action enum includes purchase_request_purchase + purchase_request_delivery'
 );

@@ -9993,6 +9993,10 @@ export type Database = {
         Returns: string
       }
       void_contract: { Args: { p_id: string }; Returns: undefined }
+      void_equipment_rental_batch: {
+        Args: { p_batch_id: string; p_reason?: string }
+        Returns: undefined
+      }
       void_purchase_order: { Args: { p_po_id: string }; Returns: undefined }
       void_purchase_order_charge: {
         Args: { p_charge_id: string }
@@ -10079,6 +10083,7 @@ export type Database = {
         | "crew_change"
         | "office_expense_record"
         | "office_expense_reimburse"
+        | "equipment_batch_void"
       boq_line_status: "draft" | "frozen" | "superseded"
       boq_variation_type: "standard" | "added" | "omitted" | "provisional_sum"
       catalog_fulfillment_mode: "off_shelf" | "made_to_order"
@@ -10499,6 +10504,7 @@ export const Constants = {
         "crew_change",
         "office_expense_record",
         "office_expense_reimburse",
+        "equipment_batch_void",
       ],
       boq_line_status: ["draft", "frozen", "superseded"],
       boq_variation_type: ["standard", "added", "omitted", "provisional_sum"],

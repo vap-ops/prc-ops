@@ -10,9 +10,10 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockCreateBatch, mockCreateAllocation, mockRefresh } = vi.hoisted(() => ({
+const { mockCreateBatch, mockCreateAllocation, mockVoid, mockRefresh } = vi.hoisted(() => ({
   mockCreateBatch: vi.fn(),
   mockCreateAllocation: vi.fn(),
+  mockVoid: vi.fn(),
   mockRefresh: vi.fn(),
 }));
 
@@ -22,12 +23,14 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/app/equipment/rentals/actions", () => ({
   createRentalBatch: mockCreateBatch,
   createRentalAllocation: mockCreateAllocation,
+  voidRentalBatch: mockVoid,
 }));
 
 import {
   EQUIPMENT_RENTAL_PARTIAL_LOCKED_MESSAGE,
   RentalManager,
 } from "@/components/features/equipment/rental-manager";
+import type { RentalCard } from "@/lib/equipment/rental-view";
 
 const suppliers = [
   { id: "o1", name: "บ.เครนไทย" },
@@ -41,11 +44,12 @@ const rentals = [
     rateLabel: "฿90,000.00/เดือน",
     periodLabel: "เริ่ม 1 ก.ค. 2569 · ตลอดโครงการ (จนกว่าจะคืน)",
     note: null,
+    voidable: false,
     allocations: [{ id: "a1", projectName: "โครงการ A", periodLabel: "ตลอดโครงการ" }],
   },
 ];
 
-function renderManager(cards = rentals) {
+function renderManager(cards: RentalCard[] = rentals) {
   return render(
     <RentalManager
       suppliers={suppliers}
@@ -61,8 +65,10 @@ describe("RentalManager", () => {
     mockCreateBatch.mockReset();
     mockCreateAllocation.mockReset();
     mockRefresh.mockReset();
+    mockVoid.mockReset();
     mockCreateBatch.mockResolvedValue({ ok: true });
     mockCreateAllocation.mockResolvedValue({ ok: true });
+    mockVoid.mockResolvedValue({ ok: true });
   });
 
   it("defaults to monthly rate + whole-project duration (no end-date input)", () => {
@@ -299,5 +305,47 @@ describe("RentalManager", () => {
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("ข้อมูลการเช่าไม่ถูกต้อง หรือไม่พบผู้ให้เช่า");
     expect(alert).not.toHaveTextContent(EQUIPMENT_RENTAL_PARTIAL_LOCKED_MESSAGE);
+  });
+
+  // Spec 312 — void a rental batch from its card.
+  const voidableCard = {
+    id: "vb",
+    supplierName: "บ.เครนไทย",
+    rateLabel: "฿11,000.00/วัน",
+    periodLabel: "8 ก.ค. 2569 – 8 ก.ค. 2569",
+    note: "รถแม็คโคร PC 140",
+    voidable: true,
+    allocations: [],
+  };
+
+  it("hides the void control for a non-voidable batch", () => {
+    renderManager(); // the default card has voidable: false
+    expect(screen.queryByRole("button", { name: "ยกเลิกการเช่า" })).not.toBeInTheDocument();
+  });
+
+  it("voids a batch after a reason is entered, then refreshes", async () => {
+    renderManager([voidableCard]);
+    fireEvent.click(screen.getByRole("button", { name: "ยกเลิกการเช่า" }));
+    // the confirm is disabled until a reason is typed
+    expect(screen.getByRole("button", { name: "ยืนยันยกเลิก" })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("เหตุผลการยกเลิก"), {
+      target: { value: "ทดสอบระบบ" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "ยืนยันยกเลิก" }));
+    await waitFor(() =>
+      expect(mockVoid).toHaveBeenCalledWith({ batchId: "vb", reason: "ทดสอบระบบ" }),
+    );
+    expect(mockRefresh).toHaveBeenCalled();
+  });
+
+  it("surfaces a void error and does not refresh", async () => {
+    mockVoid.mockResolvedValue({ ok: false, error: "ยกเลิกไม่ได้" });
+    renderManager([voidableCard]);
+    fireEvent.click(screen.getByRole("button", { name: "ยกเลิกการเช่า" }));
+    fireEvent.change(screen.getByLabelText("เหตุผลการยกเลิก"), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: "ยืนยันยกเลิก" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("ยกเลิกไม่ได้");
+    expect(mockRefresh).not.toHaveBeenCalled();
   });
 });

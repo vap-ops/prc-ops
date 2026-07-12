@@ -53,6 +53,7 @@ describe("buildRentalView", () => {
       startsOn: "2026-07-01",
       endsOn: null,
       note: null,
+      status: "active",
       createdAt: "2026-07-01T02:00:00Z",
     },
     {
@@ -63,6 +64,7 @@ describe("buildRentalView", () => {
       startsOn: "2026-07-10",
       endsOn: "2026-07-20",
       note: "ปั๊มคอนกรีต",
+      status: "active",
       createdAt: "2026-07-05T02:00:00Z",
     },
   ];
@@ -97,6 +99,34 @@ describe("buildRentalView", () => {
     );
     expect(cards[0]?.supplierName).toBe("—");
     expect(cards[0]?.allocations[0]?.projectName).toBe("—");
+  });
+
+  // Spec 312 — void surfacing + hiding.
+  it("marks an active batch voidable and a settled batch not", () => {
+    const cards = buildRentalView(
+      [
+        { ...batches[0]!, id: "act", status: "active" },
+        { ...batches[1]!, id: "set", status: "settled" },
+      ],
+      [],
+      suppliers,
+      projects,
+    );
+    expect(cards.find((c) => c.id === "act")?.voidable).toBe(true);
+    expect(cards.find((c) => c.id === "set")?.voidable).toBe(false);
+  });
+
+  it("drops a cancelled (voided) batch from the list", () => {
+    const cards = buildRentalView(
+      [
+        { ...batches[0]!, id: "keep", status: "active" },
+        { ...batches[1]!, id: "gone", status: "cancelled" },
+      ],
+      [],
+      suppliers,
+      projects,
+    );
+    expect(cards.map((c) => c.id)).toEqual(["keep"]);
   });
 });
 
