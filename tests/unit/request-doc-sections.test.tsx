@@ -22,6 +22,8 @@ import {
   RECEIPT_PAPER_PROMPT,
   PAYMENT_PROOF_FROM_PROCUREMENT_LABEL,
   PO_DOCS_FROM_PROCUREMENT_LABEL,
+  PAYMENT_PROOF_MISSING_LABEL,
+  INVOICE_PAPER_MISSING_LABEL,
 } from "@/lib/i18n/labels";
 
 describe("planRequestDocSections (spec 302)", () => {
@@ -59,17 +61,44 @@ describe("planRequestDocSections (spec 302)", () => {
     expect(plan.paymentSection).toBe("uploader");
   });
 
-  it("non-back-office on a procurement-bought PR: hidden when empty, view-only when filled", () => {
+  it("non-back-office on a procurement-bought PR: missing-flag when empty, view-only when filled", () => {
     for (const status of ["purchased", "on_route", "delivered"] as const) {
       expect(
         planRequestDocSections({ status, isBackOffice: false, hasPaymentDocs: false })
           .paymentSection,
-      ).toBe("hidden");
+      ).toBe("missing-flag");
       expect(
         planRequestDocSections({ status, isBackOffice: false, hasPaymentDocs: true })
           .paymentSection,
       ).toBe("view-only");
     }
+  });
+
+  it("flags the missing paper doc to back-office on a delivered PR only", () => {
+    // The reverse-direction flag (operator 2026-07-12): back-office sees what
+    // the site still owes — only once goods arrived, only when nothing attached.
+    expect(
+      planRequestDocSections({ status: "delivered", isBackOffice: true, hasPaymentDocs: false })
+        .invoiceMissingFlag,
+    ).toBe(true);
+    expect(
+      planRequestDocSections({
+        status: "delivered",
+        isBackOffice: true,
+        hasPaymentDocs: false,
+        hasInvoiceDocs: true,
+      }).invoiceMissingFlag,
+    ).toBe(false);
+    // Not the SA's nag — their own task already has the prompt + button.
+    expect(
+      planRequestDocSections({ status: "delivered", isBackOffice: false, hasPaymentDocs: false })
+        .invoiceMissingFlag,
+    ).toBe(false);
+    // Paper can't exist before the goods arrive.
+    expect(
+      planRequestDocSections({ status: "on_route", isBackOffice: true, hasPaymentDocs: false })
+        .invoiceMissingFlag,
+    ).toBe(false);
   });
 });
 
@@ -81,6 +110,11 @@ describe("spec 302 labels (ui-term SSOT)", () => {
   it("procurement-provenance headings exist", () => {
     expect(PAYMENT_PROOF_FROM_PROCUREMENT_LABEL).toBe("สลิปโอนจากฝ่ายจัดซื้อ");
     expect(PO_DOCS_FROM_PROCUREMENT_LABEL).toBe("เอกสารจากฝ่ายจัดซื้อ (ใบเสนอราคา / ใบแจ้งหนี้)");
+  });
+
+  it("missing-doc flag copy exists (hide the section, flag the gap)", () => {
+    expect(PAYMENT_PROOF_MISSING_LABEL).toBe("สลิปโอนจากฝ่ายจัดซื้อ — ยังไม่มี");
+    expect(INVOICE_PAPER_MISSING_LABEL).toBe("ยังไม่มีใบส่งของ / ใบเสร็จจากหน้างาน");
   });
 });
 

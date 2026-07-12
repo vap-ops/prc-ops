@@ -59,6 +59,17 @@ Sharpen the capture prompt to an action verb: `ถ่ายรูปใบส่
 The server action stays ungated (idempotent-replay contract untouched); this is a
 UI-ownership fix, not a security change.
 
+**Refinement (operator, 2026-07-12, after #470): hide when empty, but flag as
+missing — both directions.** The hidden section leaves a visible gap instead of
+silence:
+
+- Non-back-office, procurement-bought, no slip → a bare muted one-liner
+  `สลิปโอนจากฝ่ายจัดซื้อ — ยังไม่มี` (no card, no button) where the section would be.
+- Back-office, `delivered`, no ใบส่งของ/ใบเสร็จ photo → an amber one-liner
+  `ยังไม่มีใบส่งของ / ใบเสร็จจากหน้างาน` inside the การรับของ card — what the site still
+  owes. Never shown to the SA (their own task already has the prompt + button),
+  never before `delivered` (the paper can't exist until the goods arrive).
+
 ### ③ PO-docs card collapses
 
 `เอกสารใบสั่งซื้อ (ใบเสนอราคา / ใบแจ้งหนี้)` wraps in a native `<details>` (collapsed by

@@ -36,6 +36,8 @@ import {
   RECEIPT_PAPER_PROMPT,
   PAYMENT_PROOF_FROM_PROCUREMENT_LABEL,
   PO_DOCS_FROM_PROCUREMENT_LABEL,
+  PAYMENT_PROOF_MISSING_LABEL,
+  INVOICE_PAPER_MISSING_LABEL,
 } from "@/lib/i18n/labels";
 import {
   purchaseRequestPriorityPillClasses,
@@ -172,6 +174,7 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
     status,
     isBackOffice,
     hasPaymentDocs: paymentImages.length > 0 || paymentPdfs.length > 0,
+    hasInvoiceDocs: invoiceImages.length > 0 || invoicePdfs.length > 0,
   });
 
   // Spec 182 U1: supplier quotes for price comparison — only on an approved PR,
@@ -556,6 +559,9 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
                     viewerId={ctx.id}
                   />
                 ) : null}
+                {docPlan.invoiceMissingFlag ? (
+                  <p className="text-attn-ink text-xs font-medium">{INVOICE_PAPER_MISSING_LABEL}</p>
+                ) : null}
                 <InvoiceUploader purchaseRequestId={request.id} projectId={request.project_id} />
               </div>
             </div>
@@ -631,12 +637,20 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
         {/* Bug 2 + spec 302: proof of payment (สลิปโอน) is the BUYER's document.
             Back-office (and site-purchase, where the SA paid) keep the uploader;
             everyone else sees the slip view-only with procurement provenance —
-            or nothing at all, never an empty section implying a job. */}
+            or, when procurement hasn't attached one yet, a bare one-line missing
+            flag instead of an empty section implying a job. */}
         {(status === "purchased" ||
           status === "on_route" ||
           status === "delivered" ||
           status === "site_purchased") &&
-        docPlan.paymentSection !== "hidden" ? (
+        docPlan.paymentSection === "missing-flag" ? (
+          <p className="text-ink-secondary px-1 text-xs">{PAYMENT_PROOF_MISSING_LABEL}</p>
+        ) : null}
+        {(status === "purchased" ||
+          status === "on_route" ||
+          status === "delivered" ||
+          status === "site_purchased") &&
+        docPlan.paymentSection !== "missing-flag" ? (
           <div className="rounded-card border-edge bg-card shadow-card border p-4">
             <h2 className="text-ink text-base font-semibold">
               {docPlan.paymentSection === "view-only"
