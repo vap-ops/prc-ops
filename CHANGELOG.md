@@ -1,3 +1,9 @@
+# [0.35.0](https://github.com/VAP-Solution/prc-ops/compare/v0.34.0...v0.35.0) (2026-07-12)
+
+### Features
+
+- **purchasing:** spec 303 — goods-photo integrity: live capture, coverage hint, amount trace, photo-gap flag ([#473](https://github.com/VAP-Solution/prc-ops/issues/473)) ([6e1dea9](https://github.com/VAP-Solution/prc-ops/commit/6e1dea9190f1031403c3efdf9151520019405de0))
+
 # [0.34.0](https://github.com/VAP-Solution/prc-ops/compare/v0.33.0...v0.34.0) (2026-07-12)
 
 ### Features
