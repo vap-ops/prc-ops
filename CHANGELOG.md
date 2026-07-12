@@ -1,3 +1,9 @@
+# [0.57.0](https://github.com/VAP-Solution/prc-ops/compare/v0.56.1...v0.57.0) (2026-07-12)
+
+### Features
+
+- **equipment:** void an equipment-rental batch (spec 312) ([#504](https://github.com/VAP-Solution/prc-ops/issues/504)) ([01c5da5](https://github.com/VAP-Solution/prc-ops/commit/01c5da51945afbf9d531225df04928605b5eb2d1))
+
 ## [0.56.1](https://github.com/VAP-Solution/prc-ops/compare/v0.56.0...v0.56.1) (2026-07-12)
 
 ### Bug Fixes
