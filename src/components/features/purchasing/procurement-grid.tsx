@@ -16,7 +16,7 @@
 
 import { Fragment, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronLeft, ChevronRight, FilePlus, Info } from "lucide-react";
+import { AlertTriangle, ArrowRight, ChevronLeft, ChevronRight, FilePlus, Info } from "lucide-react";
 import { PoNumberTag } from "@/components/features/purchasing/po-number-tag";
 import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
 import { formatPrNumber } from "@/lib/purchasing/format-id";
@@ -31,6 +31,7 @@ import {
   PURCHASE_ORDER_STATUS_LABEL,
   PURCHASE_REQUEST_PRIORITY_LABEL,
   PURCHASE_REQUEST_STATUS_LABEL,
+  WORK_CATEGORY_MISMATCH_LABEL,
   formatThaiDate,
 } from "@/lib/i18n/labels";
 import {
@@ -133,6 +134,9 @@ export interface ProcurementGridRecord {
   // has no catalog item (free-text) or its item is uncategorised.
   category_id: string | null;
   category_name: string | null;
+  // Spec 301 U2: the approver-side off-category verdict (picker semantics).
+  // The grid renders the amber mismatch only — matches stay quiet.
+  category_match: "match" | "mismatch" | null;
 }
 
 // Structural group meta — a real pipeline band (ProcurementBandMeta) OR a
@@ -491,6 +495,14 @@ function BandRows({
                           <span className="truncate">{r.category_name}</span>
                         </span>
                       ) : null}
+                      {/* Spec 301 U2: passive off-category flag (amber only —
+                          the same verdict the picker showed at pick time). */}
+                      {r.category_match === "mismatch" ? (
+                        <span className="text-attn-press inline-flex items-center gap-0.5 font-medium">
+                          <AlertTriangle aria-hidden className="size-3.5" />
+                          {WORK_CATEGORY_MISMATCH_LABEL}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -697,6 +709,14 @@ function DrawerBody({
             ) : null}
             {record.wp_code && record.wp_name ? <span className="mx-1">·</span> : null}
             {record.wp_name}
+            {/* Spec 301 U2: the off-category flag repeats where the review
+                decision is made (the drawer). Amber only. */}
+            {record.category_match === "mismatch" ? (
+              <span className="text-attn-press ml-1.5 inline-flex items-center gap-0.5 font-medium">
+                <AlertTriangle aria-hidden className="size-3.5" />
+                {WORK_CATEGORY_MISMATCH_LABEL}
+              </span>
+            ) : null}
           </Fact>
         ) : null}
         {record.requester_name ? (

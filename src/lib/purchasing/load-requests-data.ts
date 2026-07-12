@@ -15,8 +15,14 @@ import type { PurchaseRequestStatus } from "@/lib/db/enums";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { loadCategoryVendors } from "@/lib/purchasing/load-category-vendors";
-import { loadCatalogCategories, categoryNameById } from "@/lib/catalog/categories";
+import {
+  loadCatalogCategories,
+  categoryNameById,
+  membershipsByItem,
+} from "@/lib/catalog/categories";
 import { loadCategoryCodeById } from "@/lib/work-categories/load-category-codes";
+import { resolveWorkCategoryScopes } from "@/lib/catalog/scoped-categories";
+import { prCategoryMatch, type PrCategoryMatch } from "@/lib/purchasing/pr-category-match";
 import { procurementBand, sumOutstanding } from "@/lib/purchasing/procurement-pipeline";
 import { buildPoDetailView } from "@/lib/purchasing/po-detail";
 import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
@@ -30,6 +36,9 @@ export interface RequestRowForData {
   id: string;
   requested_by: string | null;
   work_package_id: string | null;
+  /** Spec 301 U2a: provenance — the WP the request was raised from. Modern
+   *  store-bound PRs carry the WP here (work_package_id stays null, ADR 0065). */
+  requested_from_work_package_id: string | null;
   project_id: string | null;
   purchase_order_id: string | null;
   status: PurchaseRequestStatus;
@@ -43,6 +52,9 @@ export type WpLabel = {
   /** Spec 301 U1: reconciled global work-category code (W0x) for the spec-277
    *  letter-code render; null for an uncategorised/unreconciled WP. */
   categoryCode: string | null;
+  /** Spec 301 U2: the WP's project-category id — the off-category verdict's
+   *  first hop (project_categories → work_category → Relation R). */
+  categoryId: string | null;
 };
 
 export interface PoFacts {
@@ -66,6 +78,8 @@ export interface RequestsData {
   supplierRecords: SupplierOption[];
   categoryVendors: Record<string, string[]>;
   docCountById: Map<string, number>;
+  /** Spec 301 U2: per-PR off-category verdict (picker semantics); null = no flag. */
+  categoryMatchById: Map<string, PrCategoryMatch>;
 }
 
 export interface LoadRequestsDataArgs {
@@ -104,8 +118,14 @@ export async function loadRequestsData(args: LoadRequestsDataArgs): Promise<Requ
   // procurement is this page's audience. The resolved W0x code is non-sensitive
   // display metadata — same enrichment posture as display names (ADR 0026).
   async function loadWpById(): Promise<Map<string, WpLabel>> {
+    // Spec 301 U2a: union of the binding AND the provenance WP ids — a modern
+    // store-bound PR references its WP only via requested_from_work_package_id.
     const wpIds = Array.from(
-      new Set(myRequests.map((r) => r.work_package_id).filter((id): id is string => id !== null)),
+      new Set(
+        myRequests
+          .flatMap((r) => [r.work_package_id, r.requested_from_work_package_id])
+          .filter((id): id is string => id !== null),
+      ),
     );
     const { data } = await supabase
       .from("work_packages")
@@ -125,6 +145,7 @@ export async function loadRequestsData(args: LoadRequestsDataArgs): Promise<Requ
           name: wp.name,
           project_id: wp.project_id,
           categoryCode: wp.category_id ? (codeById.get(wp.category_id) ?? null) : null,
+          categoryId: wp.category_id,
         },
       ]),
     );
@@ -175,11 +196,15 @@ export async function loadRequestsData(args: LoadRequestsDataArgs): Promise<Requ
 
   // #9 Each PR's managed material category (spec 230) — procurement only. itemLinks →
   // catalog_items is a genuine serial dependency; catalog categories runs beside it.
-  async function loadPrCategory(): Promise<
-    Map<string, { id: string | null; name: string | null }>
-  > {
+  // Spec 301 U2: also exposes each PR's raw catalog item (id + canonical category)
+  // so the off-category verdict below reuses these reads instead of re-issuing them.
+  async function loadPrCategory(): Promise<{
+    prCategory: Map<string, { id: string | null; name: string | null }>;
+    rawItemByPr: Map<string, { id: string; categoryId: string | null } | null>;
+  }> {
     const prCategory = new Map<string, { id: string | null; name: string | null }>();
-    if (!isProcurement || myRequests.length === 0) return prCategory;
+    const rawItemByPr = new Map<string, { id: string; categoryId: string | null } | null>();
+    if (!isProcurement || myRequests.length === 0) return { prCategory, rawItemByPr };
     const { data: itemLinks } = await supabase
       .from("purchase_requests")
       .select("id, catalog_item_id")
@@ -203,8 +228,12 @@ export async function loadRequestsData(args: LoadRequestsDataArgs): Promise<Requ
       const name = catId ? (nameById.get(catId) ?? null) : null;
       // Keep id + name consistent: a category with no resolvable name is uncategorised.
       prCategory.set(l.id, { id: name ? catId : null, name });
+      rawItemByPr.set(
+        l.id,
+        l.catalog_item_id ? { id: l.catalog_item_id, categoryId: catId } : null,
+      );
     }
-    return prCategory;
+    return { prCategory, rawItemByPr };
   }
 
   // #10 PO facts for the in-transit PO groups (spec 134 U2) — procurement only.
@@ -298,24 +327,87 @@ export async function loadRequestsData(args: LoadRequestsDataArgs): Promise<Requ
     return { supplierRecords, categoryVendors, docCountById };
   }
 
+  // Spec 301 U2: the off-category verdict chains off the WP + item reads (a
+  // genuine dependency), so those two thunks are started once and shared.
+  const wpByIdPromise = loadWpById();
+  const prCategoryPromise = loadPrCategory();
+
+  // #13 The approver-side off-category verdict per PR (spec 301 U2) — procurement
+  // only. Picker semantics (prCategoryMatch): the item's canonical∪secondary
+  // categories vs the WP work-category's Relation-R scope; no active scope or no
+  // item → null (no flag). The project_categories hop reads via the ADMIN client
+  // (its RLS denies procurement — see loadWpById); the Relation-R bridge and the
+  // membership junction are authenticated-readable, so they stay on the user client.
+  async function loadCategoryMatch(): Promise<Map<string, PrCategoryMatch>> {
+    const out = new Map<string, PrCategoryMatch>();
+    if (!isProcurement || myRequests.length === 0) return out;
+    const [wpById, { rawItemByPr }] = await Promise.all([wpByIdPromise, prCategoryPromise]);
+    const categoryIds = [
+      ...new Set(
+        [...wpById.values()].map((wp) => wp.categoryId).filter((id): id is string => id !== null),
+      ),
+    ];
+    const { data: pcRows } =
+      categoryIds.length > 0
+        ? await createAdminSupabase()
+            .from("project_categories")
+            .select("id, work_category_id")
+            .in("id", categoryIds)
+        : { data: [] as { id: string; work_category_id: string | null }[] };
+    const workCatByCategory = new Map<string, string>();
+    for (const pc of pcRows ?? []) {
+      if (pc.work_category_id) workCatByCategory.set(pc.id, pc.work_category_id);
+    }
+    const itemIds = [
+      ...new Set([...rawItemByPr.values()].filter((it) => it !== null).map((it) => it.id)),
+    ];
+    const [scopeByWorkCat, memRes] = await Promise.all([
+      resolveWorkCategoryScopes(supabase, workCatByCategory.values()),
+      itemIds.length > 0
+        ? supabase
+            .from("catalog_item_categories")
+            .select("catalog_item_id, category_id")
+            .in("catalog_item_id", itemIds)
+        : Promise.resolve({ data: [] as { catalog_item_id: string; category_id: string }[] }),
+    ]);
+    const memberships = membershipsByItem(
+      (memRes.data ?? []).map((r) => ({
+        catalogItemId: r.catalog_item_id,
+        categoryId: r.category_id,
+      })),
+    );
+    for (const r of myRequests) {
+      // Spec 301 U2a: the verdict anchors on the binding WP when present
+      // (legacy rows), else the provenance WP (modern store-bound rows).
+      const anchorWpId = r.work_package_id ?? r.requested_from_work_package_id;
+      const wp = anchorWpId ? wpById.get(anchorWpId) : undefined;
+      const workCatId = wp?.categoryId ? workCatByCategory.get(wp.categoryId) : undefined;
+      const scope = workCatId ? (scopeByWorkCat.get(workCatId) ?? []) : [];
+      out.set(r.id, prCategoryMatch(rawItemByPr.get(r.id) ?? null, memberships, scope));
+    }
+    return out;
+  }
+
   const [
     requesterNames,
     wpById,
     projectNameById,
     amounts,
-    prCategory,
+    prCategoryOut,
     poFactsById,
     poNumberById,
     extras,
+    categoryMatchById,
   ] = await Promise.all([
     loadRequesterNames(),
-    loadWpById(),
+    wpByIdPromise,
     loadProjectNames(),
     loadAmounts(),
-    loadPrCategory(),
+    prCategoryPromise,
     loadPoFacts(),
     loadPoNumbers(),
     loadProcurementExtras(),
+    loadCategoryMatch(),
   ]);
 
   return {
@@ -325,11 +417,12 @@ export async function loadRequestsData(args: LoadRequestsDataArgs): Promise<Requ
     amountById: amounts.amountById,
     outstanding: amounts.outstanding,
     deliveredSpend: amounts.deliveredSpend,
-    prCategory,
+    prCategory: prCategoryOut.prCategory,
     poFactsById,
     poNumberById,
     supplierRecords: extras.supplierRecords,
     categoryVendors: extras.categoryVendors,
     docCountById: extras.docCountById,
+    categoryMatchById,
   };
 }

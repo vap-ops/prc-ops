@@ -26,10 +26,18 @@ import { loadRequestDetail } from "@/lib/purchasing/load-request-detail";
 let inFlight = 0;
 let maxInFlight = 0;
 
-// Spec 301 U1: the WP read carries category_id; the reconcile tail resolves it
-// to the global work-category code for the letter-code header render.
+// Spec 301 U1/U2: the WP read carries category_id; the dependent tail resolves
+// the whole category chain (loadWpCategoryScope on the ADMIN client) — the
+// letter-code for the header AND the Relation-R scope for the off-category
+// verdict on the PR's catalog item.
 const WP = { id: "w1", code: "WP-01", name: "งาน", project_id: "p1", category_id: "pc1" };
-const PROJECT_CATEGORIES = [{ id: "pc1", work_categories: { code: "W04" } }];
+const PROJECT_CATEGORY = {
+  name: "งานประปา",
+  work_category_id: "wc4",
+  work_categories: { code: "W04" },
+};
+const CATALOG_ITEM = { id: "ci1", category_id: "catA" };
+const RELATION_R = [{ category_id: "catA", kind_filter: null }];
 const ATTACHMENTS = [
   {
     id: "at1",
@@ -46,12 +54,18 @@ const PO = { po_number: 5 };
 const PO_DOCS = [{ id: "pd1", kind: "pdf", storage_path: "po/path", created_at: "2026-06-02" }];
 const SUPPLIERS = [{ id: "s1", name: "ผู้ขาย", phone: "08" }];
 
-const SINGLE: Record<string, unknown> = { work_packages: WP, purchase_orders: PO };
+const SINGLE: Record<string, unknown> = {
+  work_packages: WP,
+  purchase_orders: PO,
+  project_categories: PROJECT_CATEGORY,
+  catalog_items: CATALOG_ITEM,
+};
 const LIST: Record<string, unknown[]> = {
   purchase_request_attachments_current: ATTACHMENTS,
   purchase_order_attachments_current: PO_DOCS,
   suppliers: SUPPLIERS,
-  project_categories: PROJECT_CATEGORIES,
+  work_category_material_categories: RELATION_R,
+  catalog_item_categories: [],
 };
 
 function makeQuery(table: string) {
@@ -81,10 +95,12 @@ const supabase = { from: (table: string) => makeQuery(table) } as never;
 const REQUEST = {
   id: "pr1",
   work_package_id: "w1",
+  requested_from_work_package_id: null,
   requested_by: "u1",
   requested_by_email: "a@b.c",
   purchase_order_id: "po1",
   status: "approved",
+  catalog_item_id: "ci1",
 };
 
 beforeEach(() => {
@@ -104,6 +120,8 @@ describe("loadRequestDetail", () => {
     const data = await loadRequestDetail(supabase, REQUEST as never, { isBackOffice: true });
     expect(data.wp?.code).toBe("WP-01");
     expect(data.wpCategoryCode).toBe("W04");
+    // Spec 301 U2: catA (the item's canonical category) ∈ Relation-R scope → match.
+    expect(data.categoryMatch).toBe("match");
     expect(data.requesterName).toBe("คุณขอ");
     expect(data.attachments).toEqual(ATTACHMENTS);
     expect(data.attachmentUrls.get("at1")).toBe("signed-at1");
@@ -135,5 +153,33 @@ describe("loadRequestDetail", () => {
     );
     expect(data.poRow).toBeNull();
     expect(data.poDocs).toEqual([]);
+  });
+
+  it("returns categoryMatch=null for a free-text PR (no catalog item)", async () => {
+    const data = await loadRequestDetail(supabase, { ...REQUEST, catalog_item_id: null } as never, {
+      isBackOffice: true,
+    });
+    expect(data.categoryMatch).toBeNull();
+    // the letter-code chain still resolves (header render is independent).
+    expect(data.wpCategoryCode).toBe("W04");
+  });
+
+  it("returns categoryMatch=null for a WP-less PR (no scope)", async () => {
+    const data = await loadRequestDetail(supabase, { ...REQUEST, work_package_id: null } as never, {
+      isBackOffice: true,
+    });
+    expect(data.categoryMatch).toBeNull();
+    expect(data.wpCategoryCode).toBeNull();
+  });
+
+  it("anchors a modern store-bound PR on its provenance WP (spec 301 U2a)", async () => {
+    const data = await loadRequestDetail(
+      supabase,
+      { ...REQUEST, work_package_id: null, requested_from_work_package_id: "w1" } as never,
+      { isBackOffice: true },
+    );
+    expect(data.wp?.code).toBe("WP-01");
+    expect(data.wpCategoryCode).toBe("W04");
+    expect(data.categoryMatch).toBe("match");
   });
 });

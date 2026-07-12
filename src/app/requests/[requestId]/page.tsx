@@ -38,7 +38,10 @@ import {
   INVOICE_PAPER_MISSING_LABEL,
   DELIVERY_PHOTO_MISSING_LABEL,
   deliveredQtyCaption,
+  WORK_CATEGORY_MATCH_LABEL,
+  WORK_CATEGORY_MISMATCH_LABEL,
 } from "@/lib/i18n/labels";
+import { AlertTriangle, Check } from "lucide-react";
 import {
   purchaseRequestPriorityPillClasses,
   purchaseRequestStatusPillClasses,
@@ -137,6 +140,7 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
   const {
     wp,
     wpCategoryCode,
+    categoryMatch,
     requesterName,
     attachments,
     attachmentUrls,
@@ -276,6 +280,18 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
             </p>
             {/* Spec 57: the page's subject never truncates. */}
             <h1 className={DETAIL_TITLE}>{request.item_description}</h1>
+            {/* Spec 301 U2: the approver-side off-category verdict — the same
+                passive flag the picker showed at pick time (spec 297), recomputed
+                here where the approve/PO decision happens. Never blocks. */}
+            {categoryMatch === "match" ? (
+              <p className="text-done-strong mt-0.5 inline-flex items-center gap-0.5 text-xs font-medium">
+                <Check aria-hidden className="size-3.5" /> {WORK_CATEGORY_MATCH_LABEL}
+              </p>
+            ) : categoryMatch === "mismatch" ? (
+              <p className="text-attn-press mt-0.5 inline-flex items-center gap-0.5 text-xs font-medium">
+                <AlertTriangle aria-hidden className="size-3.5" /> {WORK_CATEGORY_MISMATCH_LABEL}
+              </p>
+            ) : null}
           </div>
           <span className="mt-1 flex shrink-0 flex-col items-end gap-1">
             <StatusPill

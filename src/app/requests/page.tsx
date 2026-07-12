@@ -312,6 +312,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     supplierRecords,
     categoryVendors,
     docCountById,
+    categoryMatchById,
   } = await loadRequestsData({
     supabase,
     myRequests,
@@ -321,6 +322,12 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
 
   // A WP-less PR (null work_package_id) is project-level / store-bound.
   const wpFor = (id: string | null) => (id ? wpById.get(id) : undefined);
+  // Spec 301 U2a: display anchor — the binding WP (legacy rows) or the
+  // provenance WP (modern store-bound rows; ADR 0065 nulls work_package_id).
+  const wpAnchorFor = (r: {
+    work_package_id: string | null;
+    requested_from_work_package_id: string | null;
+  }) => wpFor(r.work_package_id ?? r.requested_from_work_package_id);
   // Spec 110: filter picker options come from the UNFILTERED set so the filter
   // can always be changed.
   const supplierOptions = isProcurement ? distinctSuppliers(myRequests) : [];
@@ -396,7 +403,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         })()
       : items
     ).map((r): ProcurementGridRecord => {
-      const wp = wpFor(r.work_package_id);
+      const wp = wpAnchorFor(r);
       return {
         id: r.id,
         purchase_order_id: r.purchase_order_id,
@@ -436,6 +443,8 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         // Spec 230: the PR's managed material category (its catalog item's category).
         category_id: prCategory.get(r.id)?.id ?? null,
         category_name: prCategory.get(r.id)?.name ?? null,
+        // Spec 301 U2: the approver-side off-category verdict (amber flag).
+        category_match: categoryMatchById.get(r.id) ?? null,
       };
     }),
   }));
@@ -464,7 +473,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
 
   type RequestRow = (typeof myRequests)[number];
   const cardFor = (r: RequestRow) => {
-    const wp = wpFor(r.work_package_id);
+    const wp = wpAnchorFor(r);
     // Spec 47: a slim tappable summary linking to /requests/[id].
     return (
       <li key={r.id}>

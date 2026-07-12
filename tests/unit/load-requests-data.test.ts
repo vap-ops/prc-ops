@@ -23,11 +23,12 @@ const { fetchDisplayNames, loadCategoryVendors, loadCatalogCategories, createAdm
 
 vi.mock("@/lib/users/display-names", () => ({ fetchDisplayNames }));
 vi.mock("@/lib/purchasing/load-category-vendors", () => ({ loadCategoryVendors }));
-vi.mock("@/lib/catalog/categories", () => ({
-  loadCatalogCategories,
-  categoryNameById: (cats: { id: string; name: string }[]) =>
-    new Map(cats.map((c) => [c.id, c.name])),
-}));
+vi.mock(import("@/lib/catalog/categories"), async (importOriginal) => {
+  // Partial mock: the read helper is stubbed; the pure helpers (categoryNameById,
+  // membershipsByItem — needed by the spec-301 U2 verdict) run for real.
+  const actual = await importOriginal();
+  return { ...actual, loadCatalogCategories };
+});
 vi.mock("@/lib/db/admin", () => ({ createClient: createAdmin }));
 
 import { loadRequestsData } from "@/lib/purchasing/load-requests-data";
@@ -63,12 +64,15 @@ function fakeClient(fixtures: Record<string, Row[]>) {
   return { from, calls };
 }
 
-// Three PRs: pr1 in-transit (on_route, PO po1), pr2 delivered (WP-less), pr3 to_order (PO po1).
+// Four PRs: pr1 in-transit (on_route, PO po1), pr2 delivered (WP-less), pr3
+// to_order (PO po1), pr4 a MODERN store-bound PR (spec 301 U2a: work_package_id
+// null by ADR 0065, provenance carried in requested_from_work_package_id).
 const MY_REQUESTS = [
   {
     id: "pr1",
     requested_by: "u1",
     work_package_id: "wp1",
+    requested_from_work_package_id: null,
     project_id: "proj1",
     purchase_order_id: "po1",
     status: "on_route",
@@ -77,6 +81,7 @@ const MY_REQUESTS = [
     id: "pr2",
     requested_by: "u2",
     work_package_id: null,
+    requested_from_work_package_id: null,
     project_id: "proj1",
     purchase_order_id: null,
     status: "delivered",
@@ -85,9 +90,19 @@ const MY_REQUESTS = [
     id: "pr3",
     requested_by: null,
     work_package_id: "wp1",
+    requested_from_work_package_id: null,
     project_id: "proj2",
     purchase_order_id: "po1",
     status: "approved",
+  },
+  {
+    id: "pr4",
+    requested_by: "u1",
+    work_package_id: null,
+    requested_from_work_package_id: "wp2",
+    project_id: "proj1",
+    purchase_order_id: null,
+    status: "requested",
   },
 ] as const;
 
@@ -96,6 +111,7 @@ const USER_FIXTURES: Record<string, Row[]> = {
   // (project_categories → work_categories.code) can run beside it.
   "work_packages|id, code, name, project_id, category_id": [
     { id: "wp1", code: "WP-1", name: "Foundation", project_id: "proj1", category_id: "pc1" },
+    { id: "wp2", code: "WP-2", name: "Wiring", project_id: "proj1", category_id: "pc2" },
   ],
   "projects|id, name": [
     { id: "proj1", name: "Alpha" },
@@ -105,6 +121,7 @@ const USER_FIXTURES: Record<string, Row[]> = {
     { id: "pr1", catalog_item_id: "item1" },
     { id: "pr2", catalog_item_id: null },
     { id: "pr3", catalog_item_id: "item1" },
+    { id: "pr4", catalog_item_id: "item1" },
   ],
   "catalog_items|id, category_id": [{ id: "item1", category_id: "cat1" }],
   "purchase_orders|id, po_number, supplier, eta": [
@@ -135,8 +152,22 @@ const ADMIN_FIXTURES: Record<string, Row[]> = {
   // ADMIN client — its RLS is membership-gated (can_see_project) and returns
   // false for procurement roles, who are exactly this page's audience. The
   // resolved W0x code is non-sensitive display metadata (ADR 0026 pattern).
-  "project_categories|id, work_categories(code)": [{ id: "pc1", work_categories: { code: "W05" } }],
+  "project_categories|id, work_categories(code)": [
+    { id: "pc1", work_categories: { code: "W05" } },
+    { id: "pc2", work_categories: { code: "W03" } },
+  ],
+  // Spec 301 U2: the off-category verdict's work-category hop (admin, same RLS wall).
+  "project_categories|id, work_category_id": [
+    { id: "pc1", work_category_id: "wc1" },
+    { id: "pc2", work_category_id: "wc1" },
+  ],
 };
+
+// Spec 301 U2: Relation R scopes wc1 to catX only → item1 (cat1) is OFF-scope.
+USER_FIXTURES["work_category_material_categories|category_id, kind_filter"] = [
+  { category_id: "catX", kind_filter: null },
+];
+USER_FIXTURES["catalog_item_categories|catalog_item_id, category_id"] = [];
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -173,6 +204,24 @@ describe("loadRequestsData — procurement", () => {
     expect(d.wpById.get("wp1")?.categoryCode).toBe("W05");
   });
 
+  it("derives the off-category verdict per PR (spec 301 U2 — picker semantics)", async () => {
+    const d = await run();
+    // pr1/pr3 buy item1 (cat1); wp1's work-category scope = [catX] → mismatch.
+    expect(d.categoryMatchById.get("pr1")).toBe("mismatch");
+    expect(d.categoryMatchById.get("pr3")).toBe("mismatch");
+    // pr2 is a free-text, WP-less PR → no verdict.
+    expect(d.categoryMatchById.get("pr2")).toBeNull();
+  });
+
+  it("anchors a MODERN store-bound PR on its provenance WP (spec 301 U2a)", async () => {
+    const d = await run();
+    // wp2 is referenced ONLY via requested_from_work_package_id — the WP read
+    // must union both id sources so the display + verdict can resolve it.
+    expect(d.wpById.get("wp2")).toMatchObject({ code: "WP-2", categoryCode: "W03" });
+    // pr4: item1 (cat1) vs wp2 → wc1 scope [catX] → mismatch via provenance.
+    expect(d.categoryMatchById.get("pr4")).toBe("mismatch");
+  });
+
   it("runs the letter-code reconcile on the ADMIN client (project_categories RLS walls procurement)", async () => {
     const client = fakeClient(USER_FIXTURES);
     const admin = fakeClient(ADMIN_FIXTURES);
@@ -187,7 +236,7 @@ describe("loadRequestsData — procurement", () => {
     expect(admin.calls).toContainEqual({
       table: "project_categories",
       method: "in",
-      args: ["id", ["pc1"]],
+      args: ["id", ["pc1", "pc2"]],
     });
     expect(client.calls.some((c) => c.table === "project_categories")).toBe(false);
   });
@@ -297,7 +346,7 @@ describe("loadRequestsData — read scoping (regression guards)", () => {
     expect(admin.calls).toContainEqual({
       table: "purchase_requests",
       method: "in",
-      args: ["id", ["pr1", "pr2", "pr3"]],
+      args: ["id", ["pr1", "pr2", "pr3", "pr4"]],
     });
   });
 });

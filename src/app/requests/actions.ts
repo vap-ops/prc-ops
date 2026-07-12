@@ -103,8 +103,12 @@ export async function createPurchaseRequest(
     .insert({
       // Spec 208 U4a / ADR 0065: every purchase is store-bound — work_package_id
       // is forced NULL so the material lands in the project store at receipt and
-      // is เบิก'd to a WP later (the WP intent, if any, is no longer recorded here).
+      // is เบิก'd to a WP later.
       work_package_id: null,
+      // Spec 301 U2a: but the ORIGIN is recorded now — the WP this was raised
+      // from (display + advisory off-category flag; never a delivery/custody
+      // binding, receipt paths still key on the NULL above).
+      requested_from_work_package_id: validated.value.workPackageId,
       project_id: storeBound.value.projectId,
       item_description: validated.value.itemDescription,
       quantity: validated.value.quantity,
@@ -242,7 +246,7 @@ export async function cancelPurchaseRequest(
 async function readPrParent(supabase: ActionAuth["supabase"], purchaseRequestId: string) {
   return await supabase
     .from("purchase_requests")
-    .select("id, status, project_id, work_packages ( project_id )")
+    .select("id, status, project_id, work_packages!work_package_id ( project_id )")
     .eq("id", purchaseRequestId)
     .maybeSingle();
 }
