@@ -95,6 +95,31 @@ describe("spec 301 U1 — WP letter-code on purchasing surfaces", () => {
     expect(screen.queryByText("WP-001")).not.toBeInTheDocument();
   });
 
+  it("request card: shows the project name when provided (spec 301f)", () => {
+    render(
+      <PurchaseRequestCard
+        request={BASE_REQUEST}
+        workPackage={{ code: "WP-001", name: "งานไฟฟ้า", categoryCode: "W05" }}
+        requesterName="สมชาย"
+        isMine={false}
+        projectName="โครงการอัลฟ่า"
+      />,
+    );
+    expect(screen.getByText(/โครงการอัลฟ่า/)).toBeInTheDocument();
+  });
+
+  it("request card: no project line when projectName absent (site roles stay lean)", () => {
+    render(
+      <PurchaseRequestCard
+        request={BASE_REQUEST}
+        workPackage={{ code: "WP-001", name: "งานไฟฟ้า", categoryCode: "W05" }}
+        requesterName="สมชาย"
+        isMine={false}
+      />,
+    );
+    expect(screen.queryByText(/โครงการอัลฟ่า/)).not.toBeInTheDocument();
+  });
+
   it("request card: uncategorised WP degrades to the plain mono code", () => {
     render(
       <PurchaseRequestCard
