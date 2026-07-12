@@ -1,3 +1,9 @@
+# [0.39.0](https://github.com/VAP-Solution/prc-ops/compare/v0.38.0...v0.39.0) (2026-07-12)
+
+### Features
+
+- **store:** spec 305 — ของเข้า lists deliveries (งวดส่ง), not PR lines ([#478](https://github.com/VAP-Solution/prc-ops/issues/478)) ([a446e56](https://github.com/VAP-Solution/prc-ops/commit/a446e56e3892fe75362db4f2199bd5d4e689dfef))
+
 # [0.38.0](https://github.com/VAP-Solution/prc-ops/compare/v0.37.0...v0.38.0) (2026-07-12)
 
 ### Features
