@@ -16,6 +16,7 @@ import {
   STORE_INCOMING_DAY_UNSCHEDULED,
   DELIVERY_OVERDUE_FLAG,
   DELIVERY_RECEIVE_PAGE_TITLE,
+  STORE_LABEL,
 } from "@/lib/i18n/labels";
 
 const TODAY = "2026-07-12";
@@ -96,9 +97,12 @@ describe("StoreIncomingList (spec 307 day sections)", () => {
     expect(receiveLinks.map((l) => l.getAttribute("href"))).toEqual(["/recv/d1", "/recv/d2"]);
   });
 
-  it("no รับของ link for a delivery-less arrival; items still link to /requests", () => {
+  it("spec 307 U2 — items are a plain manifest, NOT deep-links into procurement (/requests)", () => {
     const days = selectIncomingArrivals(
-      [raw("pr9", "2026-07-12", "ร้านวัสดุ", null)],
+      [
+        raw("a", "2026-07-12", "ร้านวัสดุ", "d1"), // delivery-backed
+        raw("b", "2026-07-12", "ร้านวัสดุ", null), // delivery-less
+      ],
       "all",
       TODAY,
     );
@@ -110,10 +114,51 @@ describe("StoreIncomingList (spec 307 day sections)", () => {
         receiveHrefFor={receiveHrefFor}
       />,
     );
+    // The item text renders...
+    expect(screen.getAllByText(/ปูน/).length).toBeGreaterThanOrEqual(2);
+    // ...but NO link points into /requests (จัดซื้อ) — receiving is the only navigation.
+    const links = screen.getAllByRole("link");
+    expect(links.every((l) => !(l.getAttribute("href") ?? "").startsWith("/requests"))).toBe(true);
+  });
+
+  it("spec 307 U2 — receiving is the only action: รับของ present, no /requests link", () => {
+    const days = selectIncomingArrivals([raw("a", "2026-07-12", "ร้านวัสดุ", "d1")], "all", TODAY);
+    render(
+      <StoreIncomingList
+        days={days}
+        lens="all"
+        hrefFor={hrefFor}
+        receiveHrefFor={receiveHrefFor}
+      />,
+    );
     expect(
-      screen.queryByRole("link", { name: new RegExp(DELIVERY_RECEIVE_PAGE_TITLE) }),
-    ).toBeNull();
-    expect(screen.getByRole("link", { name: /ปูน/ })).toHaveAttribute("href", "/requests/pr9");
+      screen.getByRole("link", { name: new RegExp(DELIVERY_RECEIVE_PAGE_TITLE) }),
+    ).toHaveAttribute("href", "/recv/d1");
+    expect(screen.queryByRole("link", { name: /ปูน/ })).toBeNull();
+  });
+
+  it("spec 307 U2 — shows the store (คลัง) symbol on the heading + the รับของ action", () => {
+    const days = selectIncomingArrivals([raw("a", "2026-07-12", "ร้านวัสดุ", "d1")], "all", TODAY);
+    render(
+      <StoreIncomingList
+        days={days}
+        lens="all"
+        hrefFor={hrefFor}
+        receiveHrefFor={receiveHrefFor}
+      />,
+    );
+    // The store symbol appears at least on the heading and on the receive action,
+    // labelled คลัง so it teaches the SA the store surface's icon.
+    const symbols = screen.getAllByTestId("incoming-store-symbol");
+    expect(symbols.length).toBeGreaterThanOrEqual(2);
+    // The heading carries it (surface identity)...
+    const heading = screen.getByRole("heading", { level: 2 });
+    expect(within(heading).getByTestId("incoming-store-symbol")).toBeInTheDocument();
+    // ...and the รับของ action carries it (receiving → store).
+    const receiveLink = screen.getByRole("link", { name: new RegExp(DELIVERY_RECEIVE_PAGE_TITLE) });
+    expect(within(receiveLink).getByTestId("incoming-store-symbol")).toBeInTheDocument();
+    // Labelled คลัง for screen readers (the same word the store tile uses).
+    expect(symbols[0]).toHaveAccessibleName(STORE_LABEL);
   });
 
   it("empty state renders when no arrivals survive the lens", () => {

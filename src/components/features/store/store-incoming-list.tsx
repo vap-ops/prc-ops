@@ -3,11 +3,14 @@
 // spec-305 delivery grain degenerate to one card per PR item. Day sections carry
 // the date + how many packages arrive that day; a card ≈ one expected truck. Spec
 // 308: receiving is a per-delivery action, so an arrival keeps its items grouped
-// by delivery — each real delivery shows a รับของ link to its receive page; a
-// delivery-less line just links to its receive card (/requests/[id]).
+// by delivery — each real delivery shows a รับของ link to its receive page.
+// Spec 307 U2: รับของ is the ONLY action — item rows are a plain manifest (no
+// deep-link into the จัดซื้อ /requests page, procurement's surface), and the store
+// (คลัง) symbol marks the surface + the action so the SA learns ของเข้า → คลัง.
 // Presentational server component — links only, no 'use client'.
 
 import Link from "next/link";
+import { Box } from "lucide-react";
 import { INCOMING_LENSES, type IncomingLens } from "@/lib/purchasing/request-bands";
 import {
   INCOMING_LENS_LABEL,
@@ -21,11 +24,27 @@ import {
   DELIVERY_OVERDUE_FLAG,
   UNKNOWN_SUPPLIER_LABEL,
   DELIVERY_RECEIVE_PAGE_TITLE,
+  STORE_LABEL,
   storeIncomingCountAria,
   storeIncomingDayCountAria,
   formatThaiDate,
 } from "@/lib/i18n/labels";
 import type { IncomingDayGroup, StoreIncomingRow } from "@/lib/store/incoming";
+
+// Spec 307 U2 — the store (คลัง) symbol. The SA's store tile (sa-tools) marks คลัง
+// with lucide `Box` + the text-cat-w05 accent; reusing it here teaches the SA that
+// ของเข้า feeds คลัง — received goods become store stock. Labelled คลัง (not
+// aria-hidden) so the symbol is announced, not silent.
+function StoreSymbol({ className = "" }: { className?: string }) {
+  return (
+    <Box
+      role="img"
+      aria-label={STORE_LABEL}
+      data-testid="incoming-store-symbol"
+      className={`text-cat-w05 ${className}`}
+    />
+  );
+}
 
 // Mirrors requests/page.tsx worklistChipClass (token-only; no raw palette).
 function chipClass(active: boolean): string {
@@ -58,22 +77,19 @@ function dayLabel(day: IncomingDayGroup): string {
   return date;
 }
 
-// One PR line row — links to its receive card (spec 300/303 photo lives there).
+// Spec 307 U2 — a PR line row is a plain MANIFEST entry, NOT a link. Receiving is
+// the only action on ของเข้า (the รับของ link); the SA never deep-links into the
+// จัดซื้อ page (/requests) — that is procurement's surface (spec 304/308 doctrine).
 function ItemRow({ r }: { r: StoreIncomingRow }) {
   return (
-    <li>
-      <Link
-        href={`/requests/${r.id}`}
-        className="hover:bg-sunk flex min-h-11 items-center justify-between gap-3 py-2 transition-colors"
-      >
-        <p className="text-ink min-w-0 truncate text-sm">
-          {r.baseItem}
-          {r.specAttrs ? <span className="text-ink-secondary"> {r.specAttrs}</span> : null}
-        </p>
-        <span className="text-ink-secondary shrink-0 text-xs">
-          {r.qty} {r.unit}
-        </span>
-      </Link>
+    <li className="flex min-h-11 items-center justify-between gap-3 py-2">
+      <p className="text-ink min-w-0 truncate text-sm">
+        {r.baseItem}
+        {r.specAttrs ? <span className="text-ink-secondary"> {r.specAttrs}</span> : null}
+      </p>
+      <span className="text-ink-secondary shrink-0 text-xs">
+        {r.qty} {r.unit}
+      </span>
     </li>
   );
 }
@@ -94,7 +110,11 @@ export function StoreIncomingList({ days, lens, hrefFor, receiveHrefFor }: Store
   return (
     <section className="flex flex-col gap-2.5">
       <div className="flex items-center gap-2">
-        <h2 className="text-section text-ink font-bold">{STORE_INCOMING_HEADING}</h2>
+        {/* Spec 307 U2: the store symbol marks ของเข้า as part of the คลัง world. */}
+        <h2 className="text-section text-ink flex items-center gap-1.5 font-bold">
+          <StoreSymbol className="size-5 shrink-0" />
+          {STORE_INCOMING_HEADING}
+        </h2>
         {countChip(totalArrivals, storeIncomingCountAria(totalArrivals))}
       </div>
       <p className="text-ink-secondary text-xs">{STORE_INCOMING_SUBTITLE}</p>
@@ -154,8 +174,10 @@ export function StoreIncomingList({ days, lens, hrefFor, receiveHrefFor }: Store
                       {receiveHrefFor && d.deliveryId ? (
                         <Link
                           href={receiveHrefFor(d.deliveryId)}
-                          className="text-action mt-1 inline-flex min-h-11 items-center text-sm font-medium underline-offset-2 hover:underline"
+                          className="text-action mt-1 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium underline-offset-2 hover:underline"
                         >
+                          {/* The store symbol on the action: รับของ stocks the คลัง. */}
+                          <StoreSymbol className="size-4 shrink-0" />
                           {DELIVERY_RECEIVE_PAGE_TITLE} →
                         </Link>
                       ) : null}
