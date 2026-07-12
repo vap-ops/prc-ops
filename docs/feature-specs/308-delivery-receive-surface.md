@@ -1,4 +1,4 @@
-# Spec 307 — The delivery receive surface: ของเข้า owns receiving end-to-end
+# Spec 308 — The delivery receive surface: ของเข้า owns receiving end-to-end
 
 - Status: Approved direction (2026-07-12, AskUserQuestion) — **build next session**.
   Operator root-cause insight: "Reusing จัดซื้อ page maybe the root cause of this
