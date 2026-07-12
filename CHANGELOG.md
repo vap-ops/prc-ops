@@ -1,3 +1,9 @@
+# [0.46.0](https://github.com/VAP-Solution/prc-ops/compare/v0.45.0...v0.46.0) (2026-07-12)
+
+### Features
+
+- **store:** group ของเข้า by arrival day × supplier, composed with spec 308 receiving (spec 307) ([#489](https://github.com/VAP-Solution/prc-ops/issues/489)) ([50297be](https://github.com/VAP-Solution/prc-ops/commit/50297be5dfb69d0e389b6edb5b0b98dfb85149cb)), closes [#486](https://github.com/VAP-Solution/prc-ops/issues/486)
+
 # [0.45.0](https://github.com/VAP-Solution/prc-ops/compare/v0.44.0...v0.45.0) (2026-07-12)
 
 ### Features
