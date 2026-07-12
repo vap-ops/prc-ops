@@ -149,6 +149,25 @@ describe("PurchaseRequestForm catalog picker — pro-max (spec 180)", () => {
     );
   });
 
+  // Spec 301 U2 regression (feedback 40cbd3cc/475d5454, 2026-07-12): the raising WP
+  // must reach createPurchaseRequest as provenance context. The server forces the
+  // BINDING null (ADR 0065 store-only); a form that nulls the WP client-side starves
+  // requested_from_work_package_id for every PR — the WP chip and the off-category
+  // flag then never render (verified live: 0 post-deploy PRs carried provenance).
+  it("submits the raising WP id as provenance context (never null from a WP page)", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await openAndSearch(user, "เหล็ก");
+    await user.click(screen.getByRole("button", { name: /เหล็กข้ออ้อย/ }));
+    await user.type(screen.getByLabelText("จำนวน"), "5");
+    await user.selectOptions(screen.getByLabelText("เหตุผลที่ต้องสั่งซื้อ"), "unplanned_miss");
+    await user.click(screen.getByRole("button", { name: "ส่งคำขอซื้อ" }));
+
+    expect(vi.mocked(createPurchaseRequest)).toHaveBeenCalledWith(
+      expect.objectContaining({ workPackageId: WP.id }),
+    );
+  });
+
   it("points a no-match search at ตั้งค่า → แคตตาล็อก (register first, no inline add)", async () => {
     const user = userEvent.setup();
     renderForm();
