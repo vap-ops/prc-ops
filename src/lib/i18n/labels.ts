@@ -778,3 +778,19 @@ export const DOCUMENT_DECISION_LABEL: Record<Enums["document_decision"], string>
   reject: "ไม่อนุมัติ",
   needs_revision: "ขอแก้ไข",
 };
+
+// Spec 310 — company-card registry (superadmin manages who holds which card).
+export const CARD_REGISTRY_LABEL = "บัตรเครดิตบริษัท";
+export const CARD_REGISTRY_HINT = "จัดการบัตรและผู้ถือบัตร (ไม่เก็บเลขบัตรเต็ม)";
+export const CARD_NAME_LABEL = "ชื่อบัตร";
+export const CARD_HOLDER_LABEL = "ผู้ถือบัตร";
+export const CARD_LAST4_LABEL = "เลข 4 ตัวท้าย (ถ้ามี)";
+export const CARD_ADD_LABEL = "เพิ่มบัตร";
+export const CARD_SAVE_LABEL = "บันทึก";
+export const CARD_CANCEL_LABEL = "ยกเลิก";
+export const CARD_EDIT_LABEL = "แก้ไข";
+export const CARD_DEACTIVATE_LABEL = "ปิดใช้งาน";
+export const CARD_DEACTIVATE_PENDING = "กำลังปิด…";
+export const CARD_DEACTIVATE_CONFIRM = "ปิดใช้งานบัตรนี้? (เพิ่มใหม่ได้ภายหลัง)";
+export const CARD_INACTIVE_BADGE = "ปิดใช้งานแล้ว";
+export const CARD_EMPTY = "ยังไม่มีบัตร";

@@ -4,6 +4,7 @@ import {
   Banknote,
   Calculator,
   ClipboardList,
+  CreditCard,
   Eye,
   Files,
   Hammer,
@@ -23,6 +24,8 @@ import {
 } from "lucide-react";
 import { ACCOUNTING_ROLES, isManagerRole, type UserRole } from "@/lib/auth/role-home";
 import {
+  CARD_REGISTRY_HINT,
+  CARD_REGISTRY_LABEL,
   CATALOG_LABEL,
   EQUIPMENT_RENTAL_LABEL,
   ORDERING_TEMPLATES_LABEL,
@@ -280,6 +283,14 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         icon: HeartPulse,
         label: "ตรวจระบบ",
         hint: "สถานะความถูกต้องของระบบ (บัญชี/สิทธิ์/ข้อมูล) — ตรวจอัตโนมัติทุกชั่วโมง",
+      },
+      {
+        // Spec 310: company-card registry — who holds which card (drives expense reimbursement).
+        kind: "link",
+        href: "/settings/cards",
+        icon: CreditCard,
+        label: CARD_REGISTRY_LABEL,
+        hint: CARD_REGISTRY_HINT,
       },
       {
         kind: "link",
