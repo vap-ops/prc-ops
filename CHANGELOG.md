@@ -1,3 +1,9 @@
+# [0.48.0](https://github.com/VAP-Solution/prc-ops/compare/v0.47.0...v0.48.0) (2026-07-12)
+
+### Features
+
+- **accounting:** spec 308 follow-up — voucher surfaces the delivery's receive paper ([#491](https://github.com/VAP-Solution/prc-ops/issues/491)) ([869eb0a](https://github.com/VAP-Solution/prc-ops/commit/869eb0ab791cc31b16b974901df2018156d96885))
+
 # [0.47.0](https://github.com/VAP-Solution/prc-ops/compare/v0.46.0...v0.47.0) (2026-07-12)
 
 ### Features
