@@ -8,6 +8,7 @@
 
 import { useRouter } from "next/navigation";
 import { FIELD_SELECT } from "@/lib/ui/classes";
+import { PROJECT_FILTER_ARIA } from "@/lib/i18n/labels";
 import {
   buildWorklistQuery,
   type ProcurementFilter,
@@ -55,7 +56,7 @@ export function ProcurementFilters({
         <label className="flex flex-col gap-1">
           <span className="text-ink-secondary text-meta font-medium">โครงการ</span>
           <select
-            aria-label="กรองตามโครงการ"
+            aria-label={PROJECT_FILTER_ARIA}
             className={`${FIELD_SELECT} w-44`}
             value={filter.projectId ?? ""}
             onChange={(e) => go({ ...filter, projectId: e.target.value || null })}

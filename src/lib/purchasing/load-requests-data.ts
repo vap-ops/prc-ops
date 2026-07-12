@@ -151,10 +151,12 @@ export async function loadRequestsData(args: LoadRequestsDataArgs): Promise<Requ
     );
   }
 
-  // #7 Project names for the procurement project filter — procurement only (spec 110).
+  // #7 Project names — every role (spec 110 procurement filter; spec 311 U1
+  // widened it to the site worklist so rows can be labeled and filtered per
+  // project at 2+ concurrent actives). User client: RLS scopes which names
+  // resolve, and the ids come from rows the caller already read.
   async function loadProjectNames(): Promise<Map<string, string>> {
     const out = new Map<string, string>();
-    if (!isProcurement) return out;
     const projectIds = Array.from(
       new Set(myRequests.map((r) => r.project_id).filter((id): id is string => id !== null)),
     );
