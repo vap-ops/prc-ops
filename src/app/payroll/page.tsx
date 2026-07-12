@@ -13,6 +13,7 @@ import { EmptyNotice } from "@/components/features/common/notices";
 import { requireRole } from "@/lib/auth/require-role";
 import { PAYROLL_ROLES, PAYROLL_VIEW_ROLES } from "@/lib/auth/role-home";
 import { createClient as createAdminClient } from "@/lib/db/admin";
+import { createClient as createServerClient } from "@/lib/db/server";
 import {
   SECTION_HEADING,
   CARD,
@@ -36,7 +37,7 @@ function formatDays(n: number): string {
 }
 
 interface PayrollPageProps {
-  searchParams: Promise<{ from?: string; to?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; project?: string }>;
 }
 
 export default async function PayrollPage({ searchParams }: PayrollPageProps) {
@@ -47,11 +48,21 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
   // record_wage_payment RPC refuses accounting regardless.
   const ctx = await requireRole(PAYROLL_VIEW_ROLES);
   const canRecord = PAYROLL_ROLES.includes(ctx.role);
-  const { from, to } = await searchParams;
+  const { from, to, project } = await searchParams;
   const range = parsePayrollRange(from, to, bangkokTodayIso());
+  const projectId = project || undefined;
+
+  // Spec 309 — project options for the filter dropdown. Server RLS client:
+  // project names are not money, and visibility mirrors the /workers assigner
+  // (procurement sees all). The wage roll-up itself stays on the admin client.
+  const supabase = await createServerClient();
+  const { data: projectOptions } = await supabase
+    .from("projects")
+    .select("id, code, name")
+    .order("code");
 
   const admin = createAdminClient();
-  const report = await fetchPayrollReport(admin, range);
+  const report = await fetchPayrollReport(admin, range, projectId);
 
   // Spec 127 U2 / spec 170 U3 — annotate each worker with their recorded payment
   // for this exact period (paid/outstanding/drift). Worker banks for the record
@@ -62,7 +73,9 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
   const annotated = annotatePayrollPayments(report, payments, range);
   const todayIso = bangkokTodayIso();
 
-  const exportHref = `/payroll/export?from=${range.from}&to=${range.to}`;
+  const exportHref = `/payroll/export?from=${range.from}&to=${range.to}${
+    projectId ? `&project=${projectId}` : ""
+  }`;
 
   return (
     <PageShell>
@@ -96,6 +109,24 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
               defaultValue={range.to}
               className={`${FIELD_INPUT} mt-1 max-w-full appearance-none`}
             />
+          </label>
+          {/* Spec 309 — scope the per-worker roll-up to one project (empty =
+              every project, the original behaviour). Zero-JS: submits with the
+              period on the same GET form. */}
+          <label className="text-ink-secondary flex min-w-0 flex-col text-xs">
+            โครงการ
+            <select
+              name="project"
+              defaultValue={projectId ?? ""}
+              className={`${FIELD_INPUT} mt-1 max-w-full`}
+            >
+              <option value="">ทุกโครงการ</option>
+              {projectOptions?.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.code ? `${p.code} · ${p.name}` : p.name}
+                </option>
+              ))}
+            </select>
           </label>
           <button type="submit" className={BUTTON_PRIMARY}>
             ดูข้อมูล

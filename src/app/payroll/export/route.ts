@@ -25,9 +25,11 @@ export async function GET(request: NextRequest) {
     searchParams.get("to") ?? undefined,
     bangkokTodayIso(),
   );
+  // Spec 309 — honour the same project scope as the page so the CSV matches.
+  const projectId = searchParams.get("project") || undefined;
 
   const admin = createAdminClient();
-  const report = await fetchPayrollReport(admin, range);
+  const report = await fetchPayrollReport(admin, range, projectId);
   const csv = payrollToCsv(report, range);
 
   return new NextResponse(csv, {

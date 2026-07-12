@@ -55,6 +55,8 @@ describe("canonical nav sets", () => {
   // Spec 101: procurement's desktop strip — worklist + suppliers + settings.
   // Spec 172 Phase B added ผู้รับเหมาช่วง (subcontractor curation); Phase C added
   // ทีมงาน → /workers (DC onboarding). Both back-office domains procurement owns.
+  // Spec 309 added ค่าแรง → /payroll (lifted out of ตั้งค่า → ทีมช่าง; procurement
+  // summarises wages per person), placed after ทีมงาน.
   it("pins the procurement set's destinations and order", () => {
     expect(PROCUREMENT_HUB_NAV).toEqual([
       { label: "จัดซื้อ", href: "/requests" },
@@ -65,6 +67,7 @@ describe("canonical nav sets", () => {
       { label: "ผู้ขาย", href: "/contacts/vendors" },
       { label: "ผู้รับเหมาช่วง", href: "/contacts/subcontractors" },
       { label: "ทีมงาน", href: "/workers" },
+      { label: "ค่าแรง", href: "/payroll" },
       { label: "ตั้งค่า", href: "/settings" },
     ]);
   });
@@ -91,6 +94,7 @@ describe("canonical nav sets", () => {
       { label: "ผู้ขาย", href: "/contacts/vendors" },
       { label: "ผู้รับเหมาช่วง", href: "/contacts/subcontractors" },
       { label: "ทีมงาน", href: "/workers" },
+      { label: "ค่าแรง", href: "/payroll" },
       { label: "คำขอสมัคร", href: "/registrations" },
       { label: "ตั้งค่า", href: "/settings" },
     ]);
