@@ -830,3 +830,10 @@ export const EXPENSE_LIST_EMPTY = "ยังไม่มีรายการ";
 export const EXPENSE_RECEIPT_UPLOAD_LABEL = "แนบใบเสร็จ";
 export const EXPENSE_RECORDED_ATTACH = "บันทึกแล้ว — แนบใบเสร็จได้เลย";
 export const EXPENSE_RECORD_ANOTHER = "บันทึกรายการใหม่";
+// Spec 310 U5 — finance reimburse queue.
+export const REIMBURSE_QUEUE_HEADING = "รายการรอคืนเงิน";
+export const REIMBURSE_QUEUE_EMPTY = "ไม่มีรายการรอคืนเงิน";
+export const REIMBURSE_TOTAL_PREFIX = "รวม";
+export const REIMBURSE_MARK_LABEL = "คืนเงินแล้ว";
+export const REIMBURSE_MARK_PENDING = "กำลังบันทึก…";
+export const REIMBURSE_MARK_CONFIRM = "ยืนยันว่าคืนเงินรายการนี้แล้ว?";
