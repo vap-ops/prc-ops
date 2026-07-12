@@ -419,6 +419,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         work_package_id: r.work_package_id,
         wp_code: wp?.code ?? null,
         wp_name: wp?.name ?? null,
+        wp_category_code: wp?.categoryCode ?? null,
         // Spec 114 drawer enrichment. Spec 195 P1: the PR's own project_id
         // (covers WP-less PRs, where there is no WP to derive it from).
         project_id: r.project_id,
@@ -484,7 +485,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
             delivered_at: r.delivered_at,
             eta: r.eta,
           }}
-          workPackage={wp ? { code: wp.code, name: wp.name } : null}
+          workPackage={wp ? { code: wp.code, name: wp.name, categoryCode: wp.categoryCode } : null}
           requesterName={
             (r.requested_by ? requesterNames.get(r.requested_by) : null) ??
             r.requested_by_email ??

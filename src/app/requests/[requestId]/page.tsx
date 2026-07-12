@@ -56,6 +56,7 @@ import { PurchaseRequestAttachmentStager } from "@/components/features/purchasin
 import { AttachmentRemoveButton } from "@/components/features/purchasing/attachment-remove-button";
 import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
 import { loadRequestDetail } from "@/lib/purchasing/load-request-detail";
+import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
 import { mintSignedUrlsForAttachments } from "@/lib/purchasing/attachment-signed-urls";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { AttentionCard } from "@/components/features/common/attention-card";
@@ -127,8 +128,17 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
 
   // Spec 147 U3: one loader batches the request-detail reads (was a serial
   // waterfall). Same queries/columns/results — only the scheduling changes.
-  const { wp, requesterName, attachments, attachmentUrls, poRow, poDocs, poDocUrls, suppliers } =
-    await loadRequestDetail(supabase, request, { isBackOffice });
+  const {
+    wp,
+    wpCategoryCode,
+    requesterName,
+    attachments,
+    attachmentUrls,
+    poRow,
+    poDocs,
+    poDocUrls,
+    suppliers,
+  } = await loadRequestDetail(supabase, request, { isBackOffice });
 
   // Attachment splits (spec 23/16 P2, spec 66/121): pure filters over the
   // current-state rows. Links are exactly kind 'link' (a pdf is not a link).
@@ -228,7 +238,7 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
         {wp ? (
           isProcurement ? (
             <span className="text-ink-secondary w-fit truncate text-xs">
-              <span className="font-mono">{wp.code}</span>
+              <WpCategoryCode code={wp.code} categoryCode={wpCategoryCode} />
               <span className="mx-1">·</span>
               {wp.name}
             </span>
@@ -237,7 +247,7 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
               href={withBackFrom(workPackageHref(wp.project_id, wp.id), `/requests/${requestId}`)}
               className="text-ink-secondary w-fit truncate text-xs hover:underline focus:outline-none focus-visible:underline"
             >
-              <span className="font-mono">{wp.code}</span>
+              <WpCategoryCode code={wp.code} categoryCode={wpCategoryCode} />
               <span className="mx-1">·</span>
               {wp.name}
             </Link>
@@ -710,6 +720,7 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
                   quantity: request.quantity,
                   unit: request.unit,
                   wp_code: wp?.code ?? null,
+                  wp_category_code: wpCategoryCode,
                 }}
               />
             ) : null}

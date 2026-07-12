@@ -15,6 +15,8 @@ import { fetchDisplayNames } from "@/lib/users/display-names";
 import { mintSignedUrlsForAttachments } from "@/lib/purchasing/attachment-signed-urls";
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { PO_ATTACHMENTS_BUCKET } from "@/lib/storage/buckets";
+import { loadCategoryCodeById } from "@/lib/work-categories/load-category-codes";
+import { createClient as createAdminSupabase } from "@/lib/db/admin";
 
 type Tbl = Database["public"]["Tables"];
 type Db = SupabaseClient<Database>;
@@ -42,10 +44,11 @@ export async function loadRequestDetail(
     suppliers,
   ] = await Promise.all([
     // Spec 195 P1: a WP-less PR has a null work_package_id (no WP chip).
+    // Spec 301 U1: + category_id for the letter-code reconcile below.
     request.work_package_id
       ? supabase
           .from("work_packages")
-          .select("id, code, name, project_id")
+          .select("id, code, name, project_id, category_id")
           .eq("id", request.work_package_id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
@@ -74,8 +77,9 @@ export async function loadRequestDetail(
   const poDocs = poDocRows ?? [];
 
   // Dependent tail: the signed-URL mints need the rows fetched above. Links carry
-  // no storage path, so only image/pdf rows are minted.
-  const [attachmentUrls, poDocUrls] = await Promise.all([
+  // no storage path, so only image/pdf rows are minted. Spec 301 U1: the WP's
+  // work-category code reconcile rides the same tail (needs wp.category_id).
+  const [attachmentUrls, poDocUrls, categoryCodeById] = await Promise.all([
     mintSignedUrlsForAttachments(
       attachments
         .filter((row) => row.kind === "image" || row.kind === "pdf")
@@ -85,6 +89,10 @@ export async function loadRequestDetail(
       PO_ATTACHMENTS_BUCKET,
       poDocs.map((row) => ({ id: row.id ?? "", storage_path: row.storage_path })),
     ),
+    // Spec 301 U1: reconcile via the ADMIN client — project_categories RLS is
+    // membership-gated and denies procurement (this page's reviewer). W0x code
+    // = non-sensitive display metadata (same posture as display names).
+    loadCategoryCodeById(createAdminSupabase(), wp?.category_id ? [wp.category_id] : []),
   ]);
 
   const requesterName =
@@ -92,7 +100,19 @@ export async function loadRequestDetail(
     request.requested_by_email ??
     "—";
 
-  return { wp, requesterName, attachments, attachmentUrls, poRow, poDocs, poDocUrls, suppliers };
+  const wpCategoryCode = wp?.category_id ? (categoryCodeById.get(wp.category_id) ?? null) : null;
+
+  return {
+    wp,
+    wpCategoryCode,
+    requesterName,
+    attachments,
+    attachmentUrls,
+    poRow,
+    poDocs,
+    poDocUrls,
+    suppliers,
+  };
 }
 
 // Spec 33 / ADR 0038: suppliers feed the record-purchase form, shown only when

@@ -15,13 +15,21 @@ vi.mock("@/lib/purchasing/attachment-signed-urls", () => ({
 vi.mock("@/lib/storage/signed-urls", () => ({
   mintSignedUrls: vi.fn(async () => new Map<string, string>([["pd1", "signed-pd1"]])),
 }));
+// Spec 301 U1: the letter-code reconcile runs on the ADMIN client (RLS walls
+// procurement off project_categories). The admin fake serves that one read.
+vi.mock("@/lib/db/admin", () => ({
+  createClient: () => ({ from: (table: string) => makeQuery(table) }),
+}));
 
 import { loadRequestDetail } from "@/lib/purchasing/load-request-detail";
 
 let inFlight = 0;
 let maxInFlight = 0;
 
-const WP = { id: "w1", code: "WP-01", name: "งาน", project_id: "p1" };
+// Spec 301 U1: the WP read carries category_id; the reconcile tail resolves it
+// to the global work-category code for the letter-code header render.
+const WP = { id: "w1", code: "WP-01", name: "งาน", project_id: "p1", category_id: "pc1" };
+const PROJECT_CATEGORIES = [{ id: "pc1", work_categories: { code: "W04" } }];
 const ATTACHMENTS = [
   {
     id: "at1",
@@ -43,6 +51,7 @@ const LIST: Record<string, unknown[]> = {
   purchase_request_attachments_current: ATTACHMENTS,
   purchase_order_attachments_current: PO_DOCS,
   suppliers: SUPPLIERS,
+  project_categories: PROJECT_CATEGORIES,
 };
 
 function makeQuery(table: string) {
@@ -94,6 +103,7 @@ describe("loadRequestDetail", () => {
   it("assembles the correct shape", async () => {
     const data = await loadRequestDetail(supabase, REQUEST as never, { isBackOffice: true });
     expect(data.wp?.code).toBe("WP-01");
+    expect(data.wpCategoryCode).toBe("W04");
     expect(data.requesterName).toBe("คุณขอ");
     expect(data.attachments).toEqual(ATTACHMENTS);
     expect(data.attachmentUrls.get("at1")).toBe("signed-at1");
