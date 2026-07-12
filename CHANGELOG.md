@@ -1,3 +1,9 @@
+# [0.36.0](https://github.com/VAP-Solution/prc-ops/compare/v0.35.0...v0.36.0) (2026-07-12)
+
+### Features
+
+- **purchasing:** spec 304 — asymmetric doc visibility: SA sees no procurement docs, procurement sees all SA doc statuses ([#476](https://github.com/VAP-Solution/prc-ops/issues/476)) ([19555b0](https://github.com/VAP-Solution/prc-ops/commit/19555b008d125186c8ad8d24a455b046e21f2b7c)), closes [#471](https://github.com/VAP-Solution/prc-ops/issues/471) [#471](https://github.com/VAP-Solution/prc-ops/issues/471) [#473](https://github.com/VAP-Solution/prc-ops/issues/473)
+
 # [0.35.0](https://github.com/VAP-Solution/prc-ops/compare/v0.34.0...v0.35.0) (2026-07-12)
 
 ### Features
