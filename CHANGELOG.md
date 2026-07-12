@@ -1,3 +1,9 @@
+## [0.56.1](https://github.com/VAP-Solution/prc-ops/compare/v0.56.0...v0.56.1) (2026-07-12)
+
+### Bug Fixes
+
+- **310:** render the office-expenses (+labor-team) settings sections ([#502](https://github.com/VAP-Solution/prc-ops/issues/502)) ([09f681b](https://github.com/VAP-Solution/prc-ops/commit/09f681bc82c0e1a15bf4d64ecf12a8a25e57db1e))
+
 # [0.56.0](https://github.com/VAP-Solution/prc-ops/compare/v0.55.0...v0.56.0) (2026-07-12)
 
 ### Features
