@@ -143,6 +143,8 @@ const STATIC_DETAIL = [
   // Temporary — the SA crew/onboarding page drills down from /sa (back chip → /sa):
   // the project roster + the technician self-onboard QR.
   "sa/crew",
+  // Spec 299: the SA help hub (คู่มือ) drills down from /sa (back chip → /sa).
+  "sa/help",
 ].map((r) => `${r}/page.tsx`);
 // Spec 234: the external /client tree is bespoke (own header + logout, no app
 // DetailHeader — like /portal), so its dynamic drill (/client/[projectId]) is

@@ -10,6 +10,7 @@
 
 import Link from "next/link";
 import {
+  BookOpen,
   Box,
   CalendarDays,
   ClipboardCheck,
@@ -72,6 +73,15 @@ export function SaTools({
           accent="text-cat-w06"
           title="ทีมงาน"
           subtitle="ช่างในโครงการ · เพิ่มช่างใหม่"
+          fullWidth
+        />
+        {/* Spec 299 U1 — the in-app help hub (คู่มือ): how to use the app day-to-day. */}
+        <Tile
+          href="/sa/help"
+          icon={BookOpen}
+          accent="text-cat-w01"
+          title="คู่มือ"
+          subtitle="วิธีใช้งานแอป"
           fullWidth
         />
       </div>
