@@ -1,3 +1,9 @@
+# [0.55.0](https://github.com/VAP-Solution/prc-ops/compare/v0.54.0...v0.55.0) (2026-07-12)
+
+### Features
+
+- **310:** receipt upload for office expenses (U4) ([#500](https://github.com/VAP-Solution/prc-ops/issues/500)) ([5fa8a3c](https://github.com/VAP-Solution/prc-ops/commit/5fa8a3cd570e4e1333a30aceef606f3b6afef031))
+
 # [0.54.0](https://github.com/VAP-Solution/prc-ops/compare/v0.53.0...v0.54.0) (2026-07-12)
 
 ### Features
