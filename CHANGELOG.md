@@ -1,3 +1,9 @@
+# [0.43.0](https://github.com/VAP-Solution/prc-ops/compare/v0.42.1...v0.43.0) (2026-07-12)
+
+### Features
+
+- **store:** spec 308 U1 — delivery receive page (ของเข้า owns receiving) ([#486](https://github.com/VAP-Solution/prc-ops/issues/486)) ([a5da13d](https://github.com/VAP-Solution/prc-ops/commit/a5da13dd4aa568e756be2ba1f32d9db0abd1f57b)), closes [#483](https://github.com/VAP-Solution/prc-ops/issues/483)
+
 ## [0.42.1](https://github.com/VAP-Solution/prc-ops/compare/v0.42.0...v0.42.1) (2026-07-12)
 
 ### Bug Fixes
