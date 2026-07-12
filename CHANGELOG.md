@@ -1,3 +1,9 @@
+# [0.49.0](https://github.com/VAP-Solution/prc-ops/compare/v0.48.0...v0.49.0) (2026-07-12)
+
+### Features
+
+- **store:** ของเข้า receiving is the only action + show the store symbol (spec 307 U2) ([#492](https://github.com/VAP-Solution/prc-ops/issues/492)) ([53400f9](https://github.com/VAP-Solution/prc-ops/commit/53400f9fb3c51d3f2914d49d08195f6f96dc972f))
+
 # [0.48.0](https://github.com/VAP-Solution/prc-ops/compare/v0.47.0...v0.48.0) (2026-07-12)
 
 ### Features
