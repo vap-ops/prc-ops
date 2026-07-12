@@ -83,17 +83,14 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
     notFound();
   }
 
-  const categoryCodeById = await loadCategoryCodeById(
-    supabase,
-    wp.category_id ? [wp.category_id] : [],
-  );
+  // Spec 301 U1: the letter-code reconcile rides beside the project read (both
+  // depend only on wp) instead of adding a serial round-trip. User client is
+  // fine here — the PM_ROLES gate implies project membership for the RLS arm.
+  const [categoryCodeById, { data: project }] = await Promise.all([
+    loadCategoryCodeById(supabase, wp.category_id ? [wp.category_id] : []),
+    supabase.from("projects").select("id, code, name").eq("id", wp.project_id).maybeSingle(),
+  ]);
   const wpCategoryCode = wp.category_id ? (categoryCodeById.get(wp.category_id) ?? null) : null;
-
-  const { data: project } = await supabase
-    .from("projects")
-    .select("id, code, name")
-    .eq("id", wp.project_id)
-    .maybeSingle();
 
   if (!project) {
     notFound();

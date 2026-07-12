@@ -16,6 +16,7 @@ import { mintSignedUrlsForAttachments } from "@/lib/purchasing/attachment-signed
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { PO_ATTACHMENTS_BUCKET } from "@/lib/storage/buckets";
 import { loadCategoryCodeById } from "@/lib/work-categories/load-category-codes";
+import { createClient as createAdminSupabase } from "@/lib/db/admin";
 
 type Tbl = Database["public"]["Tables"];
 type Db = SupabaseClient<Database>;
@@ -88,7 +89,10 @@ export async function loadRequestDetail(
       PO_ATTACHMENTS_BUCKET,
       poDocs.map((row) => ({ id: row.id ?? "", storage_path: row.storage_path })),
     ),
-    loadCategoryCodeById(supabase, wp?.category_id ? [wp.category_id] : []),
+    // Spec 301 U1: reconcile via the ADMIN client — project_categories RLS is
+    // membership-gated and denies procurement (this page's reviewer). W0x code
+    // = non-sensitive display metadata (same posture as display names).
+    loadCategoryCodeById(createAdminSupabase(), wp?.category_id ? [wp.category_id] : []),
   ]);
 
   const requesterName =

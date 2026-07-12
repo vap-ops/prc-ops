@@ -97,7 +97,6 @@ const USER_FIXTURES: Record<string, Row[]> = {
   "work_packages|id, code, name, project_id, category_id": [
     { id: "wp1", code: "WP-1", name: "Foundation", project_id: "proj1", category_id: "pc1" },
   ],
-  "project_categories|id, work_categories(code)": [{ id: "pc1", work_categories: { code: "W05" } }],
   "projects|id, name": [
     { id: "proj1", name: "Alpha" },
     { id: "proj2", name: "Beta" },
@@ -132,6 +131,11 @@ const ADMIN_FIXTURES: Record<string, Row[]> = {
     { id: "pr2", amount: 250 },
     { id: "pr3", amount: 50 },
   ],
+  // Spec 301 U1: the letter-code reconcile reads project_categories via the
+  // ADMIN client — its RLS is membership-gated (can_see_project) and returns
+  // false for procurement roles, who are exactly this page's audience. The
+  // resolved W0x code is non-sensitive display metadata (ADR 0026 pattern).
+  "project_categories|id, work_categories(code)": [{ id: "pc1", work_categories: { code: "W05" } }],
 };
 
 beforeEach(() => {
@@ -167,6 +171,25 @@ describe("loadRequestsData — procurement", () => {
   it("reconciles each WP's category to its work-category code (spec 301 U1)", async () => {
     const d = await run();
     expect(d.wpById.get("wp1")?.categoryCode).toBe("W05");
+  });
+
+  it("runs the letter-code reconcile on the ADMIN client (project_categories RLS walls procurement)", async () => {
+    const client = fakeClient(USER_FIXTURES);
+    const admin = fakeClient(ADMIN_FIXTURES);
+    createAdmin.mockReturnValue(admin as never);
+    const d = await loadRequestsData({
+      supabase: client as never,
+      myRequests: MY_REQUESTS as never,
+      isProcurement: true,
+      inTransitPoIds: ["po1"],
+    });
+    expect(d.wpById.get("wp1")?.categoryCode).toBe("W05");
+    expect(admin.calls).toContainEqual({
+      table: "project_categories",
+      method: "in",
+      args: ["id", ["pc1"]],
+    });
+    expect(client.calls.some((c) => c.table === "project_categories")).toBe(false);
   });
 
   it("resolves project names for the procurement filter", async () => {
@@ -228,9 +251,9 @@ describe("loadRequestsData — non-procurement", () => {
       isProcurement: false,
       inTransitPoIds: [],
     });
-    // always-on
+    // always-on (the letter-code reconcile is always-on too — spec 301 U1)
     expect(d.requesterNames.get("u1")).toBe("Alice");
-    expect(d.wpById.get("wp1")).toMatchObject({ code: "WP-1" });
+    expect(d.wpById.get("wp1")).toMatchObject({ code: "WP-1", categoryCode: "W05" });
     // procurement-only — untouched
     expect(d.projectNameById.size).toBe(0);
     expect(d.amountById.size).toBe(0);
@@ -242,9 +265,14 @@ describe("loadRequestsData — non-procurement", () => {
     expect(d.supplierRecords).toEqual([]);
     expect(d.categoryVendors).toEqual({});
     expect(d.docCountById.size).toBe(0);
-    // the procurement-only helpers must not run
+    // the procurement-only helpers must not run. The admin client IS created for
+    // the always-on letter-code reconcile (spec 301 U1) — the guard here is that
+    // no admin MONEY read (purchase_requests amount) fires for non-procurement.
     expect(loadCategoryVendors).not.toHaveBeenCalled();
-    expect(createAdmin).not.toHaveBeenCalled();
+    const adminCalls = (createAdmin.mock.results ?? [])
+      .flatMap((r) => (r.value as { calls?: FakeCall[] } | undefined)?.calls ?? [])
+      .filter((c) => c.table === "purchase_requests");
+    expect(adminCalls).toEqual([]);
   });
 });
 

@@ -98,7 +98,11 @@ export async function loadRequestsData(args: LoadRequestsDataArgs): Promise<Requ
 
   // #6 WP code/name/project for the list rows — always-on. Spec 301 U1: also
   // carries category_id → the reconciled work-category code (a genuine serial
-  // tail inside this thunk: the reconcile needs the fetched category_ids).
+  // tail inside this thunk: the reconcile needs the fetched category_ids). The
+  // reconcile reads project_categories via the ADMIN client: its RLS is
+  // membership-gated (can_see_project → false for procurement roles), yet
+  // procurement is this page's audience. The resolved W0x code is non-sensitive
+  // display metadata — same enrichment posture as display names (ADR 0026).
   async function loadWpById(): Promise<Map<string, WpLabel>> {
     const wpIds = Array.from(
       new Set(myRequests.map((r) => r.work_package_id).filter((id): id is string => id !== null)),
@@ -109,7 +113,7 @@ export async function loadRequestsData(args: LoadRequestsDataArgs): Promise<Requ
       .in("id", wpIds);
     const wps = data ?? [];
     const codeById = await loadCategoryCodeById(
-      supabase,
+      createAdminSupabase(),
       wps.map((wp) => wp.category_id).filter((id): id is string => id !== null),
     );
     return new Map(

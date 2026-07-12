@@ -15,6 +15,11 @@ vi.mock("@/lib/purchasing/attachment-signed-urls", () => ({
 vi.mock("@/lib/storage/signed-urls", () => ({
   mintSignedUrls: vi.fn(async () => new Map<string, string>([["pd1", "signed-pd1"]])),
 }));
+// Spec 301 U1: the letter-code reconcile runs on the ADMIN client (RLS walls
+// procurement off project_categories). The admin fake serves that one read.
+vi.mock("@/lib/db/admin", () => ({
+  createClient: () => ({ from: (table: string) => makeQuery(table) }),
+}));
 
 import { loadRequestDetail } from "@/lib/purchasing/load-request-detail";
 
