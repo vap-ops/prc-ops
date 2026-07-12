@@ -7320,3 +7320,13 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
   PR = caption, no amber; zero console errors. Fresh-eyes: clean, 1 nit accepted.
 - Seam: AI coverage-check of photos = future agent job; no EXIF verification
   (impossible honestly in-browser).
+
+## Spec 304 — Asymmetric doc visibility — COMPLETE (2026-07-12)
+
+- Operator: SA needs zero procurement docs; procurement needs all SA doc
+  statuses. paymentSection -> uploader|hidden (view-only + missing-flag modes
+  and their labels REMOVED, supersedes #471 SA-direction); showPoDocsSection
+  BO-only. BO-side amber gap flags kept. TDD 2 RED -> 13/13 (+6 303) green.
+- Browser: SA on slip-bearing PR = zero payment/PO-doc surfaces; BO unchanged.
+- Fresh-eyes 1 yellow answered (RLS deliberately allows payment reads via
+  parent — UX asymmetry not security wall, seam noted in spec), 2 nits fixed/ok.

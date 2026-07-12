@@ -34,9 +34,7 @@ import {
   RECEIVED_INTO_STORE_LABEL,
   RECEIVED_INTO_STORE_HINT,
   RECEIPT_PAPER_PROMPT,
-  PAYMENT_PROOF_FROM_PROCUREMENT_LABEL,
   PO_DOCS_FROM_PROCUREMENT_LABEL,
-  PAYMENT_PROOF_MISSING_LABEL,
   INVOICE_PAPER_MISSING_LABEL,
   DELIVERY_PHOTO_MISSING_LABEL,
   deliveredQtyCaption,
@@ -586,9 +584,9 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
           </div>
         ) : null}
 
-        {poDocs.length > 0 ? (
-          /* Spec 302: procurement's PO paperwork collapses out of the SA's action
-             path — visible on demand, provenance in the heading. */
+        {poDocs.length > 0 && docPlan.showPoDocsSection ? (
+          /* Spec 302/304: procurement's PO paperwork — back-office only now
+             (spec 304 asymmetry), collapsed out of the action path. */
           <details className="rounded-card border-edge bg-card shadow-card border p-4">
             <summary className="cursor-pointer">
               <h2 className="text-ink inline text-base font-semibold">
@@ -652,29 +650,17 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
           </div>
         ) : null}
 
-        {/* Bug 2 + spec 302: proof of payment (สลิปโอน) is the BUYER's document.
-            Back-office (and site-purchase, where the SA paid) keep the uploader;
-            everyone else sees the slip view-only with procurement provenance —
-            or, when procurement hasn't attached one yet, a bare one-line missing
-            flag instead of an empty section implying a job. */}
+        {/* Bug 2 + spec 302/304: proof of payment (สลิปโอน) is the BUYER's document.
+            Back-office (and site-purchase, where the SA paid) get the uploader;
+            everyone else gets NOTHING — procurement's docs are not the SA's
+            concern (spec 304 asymmetry). */}
         {(status === "purchased" ||
           status === "on_route" ||
           status === "delivered" ||
           status === "site_purchased") &&
-        docPlan.paymentSection === "missing-flag" ? (
-          <p className="text-ink-secondary px-1 text-xs">{PAYMENT_PROOF_MISSING_LABEL}</p>
-        ) : null}
-        {(status === "purchased" ||
-          status === "on_route" ||
-          status === "delivered" ||
-          status === "site_purchased") &&
-        docPlan.paymentSection !== "missing-flag" ? (
+        docPlan.paymentSection === "uploader" ? (
           <div className="rounded-card border-edge bg-card shadow-card border p-4">
-            <h2 className="text-ink text-base font-semibold">
-              {docPlan.paymentSection === "view-only"
-                ? PAYMENT_PROOF_FROM_PROCUREMENT_LABEL
-                : "หลักฐานการชำระเงิน"}
-            </h2>
+            <h2 className="text-ink text-base font-semibold">หลักฐานการชำระเงิน</h2>
             <div className="mt-2 flex flex-col gap-2">
               <InvoiceDocsDisplay
                 images={paymentImages}
@@ -682,17 +668,10 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
                 urls={attachmentUrls}
                 viewerId={ctx.id}
               />
-              {docPlan.paymentSection === "uploader" ? (
-                <>
-                  {paymentImages.length === 0 && paymentPdfs.length === 0 ? (
-                    <p className="text-ink-secondary text-xs">ยังไม่มีหลักฐานการชำระเงิน</p>
-                  ) : null}
-                  <PaymentProofUploader
-                    purchaseRequestId={request.id}
-                    projectId={request.project_id}
-                  />
-                </>
+              {paymentImages.length === 0 && paymentPdfs.length === 0 ? (
+                <p className="text-ink-secondary text-xs">ยังไม่มีหลักฐานการชำระเงิน</p>
               ) : null}
+              <PaymentProofUploader purchaseRequestId={request.id} projectId={request.project_id} />
             </div>
           </div>
         ) : null}

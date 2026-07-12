@@ -204,11 +204,9 @@ export const RECEIVED_INTO_STORE_HINT = "รูปยืนยันการร
 export const RECEIPT_PAPER_PROMPT = "ถ่ายรูปใบส่งของ / ใบเสร็จที่มากับของ (ถ้ามี)";
 // Spec 302 — ownership-aware document sections on the PR page: provenance
 // headings so the SA can tell procurement's paperwork from their own job.
-export const PAYMENT_PROOF_FROM_PROCUREMENT_LABEL = "สลิปโอนจากฝ่ายจัดซื้อ";
+// Spec 304 asymmetry: procurement's docs are BO-only surfaces; the SA never
+// sees them. Procurement DOES see every SA-doc gap (the ยังไม่มี flags below).
 export const PO_DOCS_FROM_PROCUREMENT_LABEL = "เอกสารจากฝ่ายจัดซื้อ (ใบเสนอราคา / ใบแจ้งหนี้)";
-// Hide-when-empty + flag-as-missing (operator refinement): the section stays
-// gone, the gap stays visible — each side sees what the other still owes.
-export const PAYMENT_PROOF_MISSING_LABEL = "สลิปโอนจากฝ่ายจัดซื้อ — ยังไม่มี";
 export const INVOICE_PAPER_MISSING_LABEL = "ยังไม่มีใบส่งของ / ใบเสร็จจากหน้างาน";
 // Spec 303 — goods-photo integrity: the receive proof is taken live (capture),
 // must cover everything received, and pairs with the row's delivered amount.
