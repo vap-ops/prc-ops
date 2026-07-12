@@ -137,7 +137,7 @@ describe("StoreIncomingList (spec 307 day sections)", () => {
     expect(screen.queryByRole("link", { name: /ปูน/ })).toBeNull();
   });
 
-  it("spec 307 U2 — shows the store (คลัง) symbol on the heading + the รับของ action (decorative)", () => {
+  it("spec 307 follow-up — ของเข้า heading carries the Truck (its tile identity); รับของ = Truck → store box", () => {
     const days = selectIncomingArrivals([raw("a", "2026-07-12", "ร้านวัสดุ", "d1")], "all", TODAY);
     render(
       <StoreIncomingList
@@ -147,17 +147,19 @@ describe("StoreIncomingList (spec 307 day sections)", () => {
         receiveHrefFor={receiveHrefFor}
       />,
     );
-    // The store symbol appears on the heading (surface identity) AND on the รับของ
-    // action (receiving → store) so the SA learns the store icon — visually.
-    const symbols = screen.getAllByTestId("incoming-store-symbol");
-    expect(symbols.length).toBeGreaterThanOrEqual(2);
+    // ของเข้า = delivery incoming: the heading carries the Truck, matching its own
+    // SA tile (sa-tools) — NOT the store Box (Box is the คลัง surface's symbol, which
+    // is why it read as "a storage unit" on this surface).
     const heading = screen.getByRole("heading", { level: 2 });
-    expect(within(heading).getByTestId("incoming-store-symbol")).toBeInTheDocument();
+    expect(within(heading).getByTestId("incoming-truck-symbol")).toBeInTheDocument();
+    expect(within(heading).queryByTestId("incoming-store-symbol")).toBeNull();
+    // รับของ stocks the คลัง: the action pairs the Truck with the store Box — a
+    // delivery truck heading INTO the store — so the SA sees "goods → คลัง".
     const receiveLink = screen.getByRole("link", { name: `${DELIVERY_RECEIVE_PAGE_TITLE} →` });
+    expect(within(receiveLink).getByTestId("incoming-truck-symbol")).toBeInTheDocument();
     expect(within(receiveLink).getByTestId("incoming-store-symbol")).toBeInTheDocument();
-    // Decorative: aria-hidden, so it contributes no accessible name — the heading
-    // reads exactly "ของเข้า", not "คลัง ของเข้า".
-    expect(symbols[0]).toHaveAttribute("aria-hidden");
+    // Decorative: aria-hidden, so the heading reads exactly "ของเข้า".
+    expect(within(heading).getByTestId("incoming-truck-symbol")).toHaveAttribute("aria-hidden");
     expect(heading).toHaveAccessibleName("ของเข้า");
   });
 

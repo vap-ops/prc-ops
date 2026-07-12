@@ -5,12 +5,13 @@
 // 308: receiving is a per-delivery action, so an arrival keeps its items grouped
 // by delivery — each real delivery shows a รับของ link to its receive page.
 // Spec 307 U2: รับของ is the ONLY action — item rows are a plain manifest (no
-// deep-link into the จัดซื้อ /requests page, procurement's surface), and the store
-// (คลัง) symbol marks the surface + the action so the SA learns ของเข้า → คลัง.
+// deep-link into the จัดซื้อ /requests page, procurement's surface). Spec 307
+// follow-up: the ของเข้า heading carries the Truck (its tile identity) and the
+// รับของ action pairs Truck → store Box (a delivery heading into the คลัง).
 // Presentational server component — links only, no 'use client'.
 
 import Link from "next/link";
-import { Box } from "lucide-react";
+import { Box, Truck } from "lucide-react";
 import { INCOMING_LENSES, type IncomingLens } from "@/lib/purchasing/request-bands";
 import {
   INCOMING_LENS_LABEL,
@@ -30,15 +31,30 @@ import {
 } from "@/lib/i18n/labels";
 import type { IncomingDayGroup, StoreIncomingRow } from "@/lib/store/incoming";
 
-// Spec 307 U2 — the store (คลัง) symbol. The SA's store tile (sa-tools) marks คลัง
-// with lucide `Box` + the text-cat-w05 accent; reusing it here teaches the SA that
-// ของเข้า feeds คลัง — received goods become store stock. Decorative (aria-hidden):
-// the teaching is VISUAL, and both placements already carry the text that labels
-// them ("ของเข้า" heading, "รับของ" action) — a repeated "คลัง" would only pollute
-// the accessible name.
-function StoreSymbol({ className = "" }: { className?: string }) {
+// Spec 307 follow-up — ของเข้า = delivery incoming, so its heading carries the
+// Truck, matching its own SA tile (sa-tools marks ของเข้า with lucide `Truck`).
+// The store `Box` is the คลัง surface's symbol; on ของเข้า it read as a lone
+// "storage unit". Decorative (aria-hidden): the heading text already says "ของเข้า".
+function IncomingSymbol({ className = "" }: { className?: string }) {
   return (
-    <Box aria-hidden data-testid="incoming-store-symbol" className={`text-cat-w05 ${className}`} />
+    <Truck
+      aria-hidden
+      data-testid="incoming-truck-symbol"
+      className={`text-cat-w05 ${className}`}
+    />
+  );
+}
+
+// The รับของ action stocks the คลัง — a delivery truck heading INTO the store.
+// Pairing the Truck with the store Box (truck → box) teaches "goods become store
+// stock" while keeping the truck that names ของเข้า. Decorative (aria-hidden on the
+// wrapper hides the whole pair) so the link still reads exactly "รับของ →".
+function ReceiveSymbol({ className = "" }: { className?: string }) {
+  return (
+    <span aria-hidden className="inline-flex shrink-0 items-center gap-0.5">
+      <Truck data-testid="incoming-truck-symbol" className={`text-cat-w05 ${className}`} />
+      <Box data-testid="incoming-store-symbol" className={`text-cat-w05 ${className}`} />
+    </span>
   );
 }
 
@@ -106,9 +122,9 @@ export function StoreIncomingList({ days, lens, hrefFor, receiveHrefFor }: Store
   return (
     <section className="flex flex-col gap-2.5">
       <div className="flex items-center gap-2">
-        {/* Spec 307 U2: the store symbol marks ของเข้า as part of the คลัง world. */}
+        {/* Spec 307 follow-up: ของเข้า = delivery incoming → the Truck (its tile). */}
         <h2 className="text-section text-ink flex items-center gap-1.5 font-bold">
-          <StoreSymbol className="size-5 shrink-0" />
+          <IncomingSymbol className="size-5 shrink-0" />
           {STORE_INCOMING_HEADING}
         </h2>
         {countChip(totalArrivals, storeIncomingCountAria(totalArrivals))}
@@ -176,8 +192,8 @@ export function StoreIncomingList({ days, lens, hrefFor, receiveHrefFor }: Store
                           href={receiveHrefFor(d.deliveryId)}
                           className="text-action mt-1 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium underline-offset-2 hover:underline"
                         >
-                          {/* The store symbol on the action: รับของ stocks the คลัง. */}
-                          <StoreSymbol className="size-4 shrink-0" />
+                          {/* Truck → store box: the delivery stocks the คลัง. */}
+                          <ReceiveSymbol className="size-4 shrink-0" />
                           {DELIVERY_RECEIVE_PAGE_TITLE} →
                         </Link>
                       ) : null}
