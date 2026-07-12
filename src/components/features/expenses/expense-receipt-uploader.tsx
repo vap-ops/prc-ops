@@ -21,16 +21,20 @@ import {
   type AttachmentExt,
 } from "@/lib/purchasing/attachment-file";
 import { classifyStorageUploadError } from "@/lib/photos/upload-queue";
-import { EXPENSE_RECEIPT_UPLOAD_LABEL } from "@/lib/i18n/labels";
+import type { ExpenseDocPurpose } from "@/app/expenses/actions";
 import { BUTTON_SECONDARY_MUTED, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
 
 type UploadPhase = "idle" | "uploading" | "saving" | "error";
 
 export function ExpenseReceiptUploader({
   officeExpenseId,
+  purpose,
+  label,
   onUploaded,
 }: {
   officeExpenseId: string;
+  purpose: ExpenseDocPurpose;
+  label: string;
   onUploaded?: (() => void) | undefined;
 }) {
   const router = useRouter();
@@ -81,7 +85,7 @@ export function ExpenseReceiptUploader({
       setPhase("saving");
       let result: Awaited<ReturnType<typeof addExpenseReceipt>>;
       try {
-        result = await addExpenseReceipt({ officeExpenseId, attachmentId, ext });
+        result = await addExpenseReceipt({ officeExpenseId, attachmentId, ext, purpose });
       } catch (err) {
         console.error("[expense-receipt-uploader] action invocation failed", err);
         result = { ok: false, error: "แนบใบเสร็จไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
@@ -118,11 +122,7 @@ export function ExpenseReceiptUploader({
         disabled={busy}
         className={BUTTON_SECONDARY_MUTED}
       >
-        {phase === "uploading"
-          ? "กำลังอัปโหลด…"
-          : phase === "saving"
-            ? "กำลังบันทึก…"
-            : EXPENSE_RECEIPT_UPLOAD_LABEL}
+        {phase === "uploading" ? "กำลังอัปโหลด…" : phase === "saving" ? "กำลังบันทึก…" : label}
       </button>
       {error ? (
         <p role="alert" className={INLINE_ALERT_TEXT}>

@@ -821,6 +821,9 @@ export const PAYMENT_SOURCE_DIRECT_LABEL = "บริษัทจ่ายตร
 export const EXPENSE_CARD_PICK_LABEL = "เลือกบัตร";
 // Spec 310 U8 — a user holds one card; no picker, the form shows which card auto-applies.
 export const EXPENSE_CARD_USING_PREFIX = "จ่ายด้วยบัตร";
+// Spec 310 U9 — two labeled upload slots (accounting needs slip + tax invoice apart).
+export const EXPENSE_SLIP_UPLOAD_LABEL = "แนบสลิปการโอน/จ่าย";
+export const EXPENSE_INVOICE_UPLOAD_LABEL = "แนบใบกำกับภาษี/ใบเสร็จ";
 export const EXPENSE_SUBMIT_LABEL = "บันทึกค่าใช้จ่าย";
 export const EXPENSE_REIMBURSE_TO_PREFIX = "คืนเงินให้";
 export const EXPENSE_REIMBURSE_SELF = "คืนเงินให้คุณเอง";

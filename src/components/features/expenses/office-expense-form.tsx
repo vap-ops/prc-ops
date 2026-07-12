@@ -27,8 +27,10 @@ import {
   EXPENSE_PAYMENT_SOURCE_LABEL,
   EXPENSE_PROJECT_LABEL,
   EXPENSE_PROJECT_NONE,
+  EXPENSE_INVOICE_UPLOAD_LABEL,
   EXPENSE_RECORD_ANOTHER,
   EXPENSE_RECORDED_ATTACH,
+  EXPENSE_SLIP_UPLOAD_LABEL,
   EXPENSE_REIMBURSE_NONE,
   EXPENSE_REIMBURSE_SELF,
   EXPENSE_REIMBURSE_TO_PREFIX,
@@ -131,6 +133,14 @@ export function OfficeExpenseForm({
           <span className="text-sm font-medium">{EXPENSE_RECORDED_ATTACH}</span>
           <ExpenseReceiptUploader
             officeExpenseId={recordedId}
+            purpose="payment_slip"
+            label={EXPENSE_SLIP_UPLOAD_LABEL}
+            onUploaded={() => router.refresh()}
+          />
+          <ExpenseReceiptUploader
+            officeExpenseId={recordedId}
+            purpose="tax_invoice"
+            label={EXPENSE_INVOICE_UPLOAD_LABEL}
             onUploaded={() => router.refresh()}
           />
           <button

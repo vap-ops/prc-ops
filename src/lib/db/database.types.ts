@@ -3517,6 +3517,9 @@ export type Database = {
           created_by: string
           id: string
           office_expense_id: string
+          purpose:
+            | Database["public"]["Enums"]["office_expense_doc_purpose"]
+            | null
           storage_path: string
         }
         Insert: {
@@ -3524,6 +3527,9 @@ export type Database = {
           created_by: string
           id: string
           office_expense_id: string
+          purpose?:
+            | Database["public"]["Enums"]["office_expense_doc_purpose"]
+            | null
           storage_path: string
         }
         Update: {
@@ -3531,6 +3537,9 @@ export type Database = {
           created_by?: string
           id?: string
           office_expense_id?: string
+          purpose?:
+            | Database["public"]["Enums"]["office_expense_doc_purpose"]
+            | null
           storage_path?: string
         }
         Relationships: [
@@ -10204,6 +10213,7 @@ export type Database = {
         | "wp_reopened"
         | "site_issue_reported"
       notification_status: "pending" | "sending" | "sent" | "failed" | "expired"
+      office_expense_doc_purpose: "payment_slip" | "tax_invoice"
       pay_type: "monthly" | "daily"
       payment_source: "company_card" | "own_money" | "company_direct"
       peak_doc_type: "contact" | "expense"
@@ -10638,6 +10648,7 @@ export const Constants = {
         "site_issue_reported",
       ],
       notification_status: ["pending", "sending", "sent", "failed", "expired"],
+      office_expense_doc_purpose: ["payment_slip", "tax_invoice"],
       pay_type: ["monthly", "daily"],
       payment_source: ["company_card", "own_money", "company_direct"],
       peak_doc_type: ["contact", "expense"],

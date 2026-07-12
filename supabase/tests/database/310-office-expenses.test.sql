@@ -1,5 +1,5 @@
 begin;
-select plan(19);
+select plan(20);
 
 -- principals
 insert into auth.users (id, email, raw_user_meta_data) values
@@ -28,6 +28,7 @@ insert into public.company_cards (id, label, holder_user_id, created_by) values
 select has_table('public','company_cards','company_cards exists');
 select has_table('public','office_expenses','office_expenses exists');
 select has_table('public','office_expense_attachments','attachments table exists');
+select has_column('public','office_expense_attachments','purpose','U9: attachments carry a doc purpose (slip/tax-invoice)');
 
 -- allow role switches to write TAP
 grant insert on _tap_buf to authenticated, anon;
