@@ -1,3 +1,9 @@
+# [0.58.0](https://github.com/VAP-Solution/prc-ops/compare/v0.57.0...v0.58.0) (2026-07-12)
+
+### Features
+
+- **310:** widen office-expense roles — +PM/PD/site_owner/site_admin/auditor (U6) ([#505](https://github.com/VAP-Solution/prc-ops/issues/505)) ([136c3bb](https://github.com/VAP-Solution/prc-ops/commit/136c3bb93b7394d439ef55cca1944aa39337c504))
+
 # [0.57.0](https://github.com/VAP-Solution/prc-ops/compare/v0.56.1...v0.57.0) (2026-07-12)
 
 ### Features
