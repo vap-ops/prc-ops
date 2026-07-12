@@ -106,6 +106,10 @@ const PURPOSE_LABEL: Record<string, string> = {
   delivery_confirmation: "หลักฐานการรับของ",
   payment: "หลักฐานการชำระเงิน",
   quote: "ใบเสนอราคา",
+  // Spec 308 follow-up: the delivery-scoped receive paper (ใบส่งของ/ใบเสร็จ) +
+  // truck proof captured on the ของเข้า receive page — a purchase_order_attachments
+  // purpose, surfaced on the voucher for delivery-backed PRs.
+  proof_of_delivery: "เอกสารส่งของ / หลักฐานการรับของ",
 };
 
 // Price evidence (quote) is confidential to procurement; everything else is part
