@@ -2,6 +2,7 @@ import "server-only";
 
 import type { createClient } from "@/lib/db/server";
 import { OFFICE_EXPENSE_ROLES } from "@/lib/auth/role-home";
+import type { ReimbursableRow } from "@/lib/expenses/reimburse-group";
 
 type DB = Awaited<ReturnType<typeof createClient>>;
 
@@ -127,6 +128,34 @@ export async function listMyExpenses(supabase: DB, userId: string): Promise<Offi
       reimburseToName: reimburse?.full_name ?? null,
       reimbursedAt: r.reimbursed_at,
       awaitingReceipt: attachments.length === 0,
+    };
+  });
+}
+
+// Expenses awaiting reimbursement (target set, not yet reimbursed). RLS restricts
+// rows to finance (accounting/super_admin) — the /expenses page gates the queue to
+// OFFICE_EXPENSE_FINANCE_ROLES, and a submitter only ever sees their own here.
+export async function listReimbursableExpenses(supabase: DB): Promise<ReimbursableRow[]> {
+  const { data } = await supabase
+    .from("office_expenses")
+    .select(
+      "id, amount, expense_date, description, reimburse_to_user_id, category:office_expense_categories!office_expenses_category_id_fkey(label_th), reimburse:users!office_expenses_reimburse_to_user_id_fkey(full_name)",
+    )
+    .not("reimburse_to_user_id", "is", null)
+    .is("reimbursed_at", null)
+    .order("expense_date", { ascending: true });
+
+  return (data ?? []).map((r) => {
+    const category = one(r.category as OneOrArray<{ label_th: string }>);
+    const reimburse = one(r.reimburse as OneOrArray<{ full_name: string | null }>);
+    return {
+      id: r.id,
+      reimburseToUserId: r.reimburse_to_user_id as string,
+      reimburseToName: reimburse?.full_name ?? null,
+      amount: r.amount,
+      categoryLabel: category?.label_th ?? null,
+      expenseDate: r.expense_date,
+      description: r.description,
     };
   });
 }

@@ -90,3 +90,24 @@ export async function addExpenseReceipt(input: AddExpenseReceiptInput): Promise<
   revalidatePath("/expenses");
   return { ok: true };
 }
+
+export type MarkReimbursedResult = { ok: true } | { ok: false; error: string };
+
+// Mark an expense reimbursed (finance only — the DEFINER RPC gates + is
+// concurrent-safe). Idempotent guard lives in the RPC.
+export async function markExpenseReimbursed(id: string): Promise<MarkReimbursedResult> {
+  if (!UUID_REGEX.test(id)) return { ok: false, error: "ทำเครื่องหมายคืนเงินไม่สำเร็จ" };
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { error } = await auth.supabase.rpc("mark_expense_reimbursed", { p_expense_id: id });
+  if (error) {
+    // The realistic failure is a race / double-click on an already-settled row —
+    // surface that specific case in Thai (the raw RPC message is English).
+    if (error.message?.includes("already reimbursed")) {
+      return { ok: false, error: "รายการนี้ถูกทำเครื่องหมายคืนเงินแล้ว" };
+    }
+    return { ok: false, error: "ทำเครื่องหมายคืนเงินไม่สำเร็จ" };
+  }
+  revalidatePath("/expenses");
+  return { ok: true };
+}

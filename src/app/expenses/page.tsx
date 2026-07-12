@@ -7,14 +7,16 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { ExpenseList } from "@/components/features/expenses/expense-list";
 import { OfficeExpenseForm } from "@/components/features/expenses/office-expense-form";
+import { ReimburseQueue } from "@/components/features/expenses/reimburse-queue";
 import { requireRole } from "@/lib/auth/require-role";
-import { OFFICE_EXPENSE_ROLES } from "@/lib/auth/role-home";
+import { OFFICE_EXPENSE_FINANCE_ROLES, OFFICE_EXPENSE_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import {
   listActiveProjectsForExpense,
   listCompanyCards,
   listExpenseCategories,
   listMyExpenses,
+  listReimbursableExpenses,
 } from "@/lib/expenses/load-office-expenses";
 import { OFFICE_EXPENSE_NAV_LABEL } from "@/lib/i18n/labels";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
@@ -24,12 +26,14 @@ export const metadata = { title: OFFICE_EXPENSE_NAV_LABEL };
 export default async function ExpensesPage() {
   const ctx = await requireRole(OFFICE_EXPENSE_ROLES);
   const supabase = await createClient();
+  const isFinance = OFFICE_EXPENSE_FINANCE_ROLES.includes(ctx.role);
 
-  const [categories, projects, cards, myExpenses] = await Promise.all([
+  const [categories, projects, cards, myExpenses, reimbursable] = await Promise.all([
     listExpenseCategories(supabase),
     listActiveProjectsForExpense(supabase),
     listCompanyCards(supabase),
     listMyExpenses(supabase, ctx.id),
+    isFinance ? listReimbursableExpenses(supabase) : Promise.resolve([]),
   ]);
 
   return (
@@ -45,6 +49,7 @@ export default async function ExpensesPage() {
           projects={projects}
           cards={cards.filter((c) => c.isActive)}
         />
+        {isFinance && <ReimburseQueue rows={reimbursable} />}
         <ExpenseList expenses={myExpenses} />
       </section>
     </PageShell>
