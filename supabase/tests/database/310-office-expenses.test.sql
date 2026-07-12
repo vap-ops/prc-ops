@@ -1,5 +1,5 @@
 begin;
-select plan(18);
+select plan(19);
 
 -- principals
 insert into auth.users (id, email, raw_user_meta_data) values
@@ -7,12 +7,14 @@ insert into auth.users (id, email, raw_user_meta_data) values
   ('00000000-0000-0000-0000-0000000000a2','acct@t.local','{}'::jsonb),
   ('00000000-0000-0000-0000-0000000000a3','proc@t.local','{}'::jsonb),
   ('00000000-0000-0000-0000-0000000000a4','site@t.local','{}'::jsonb),
-  ('00000000-0000-0000-0000-0000000000a5','holder@t.local','{}'::jsonb);
+  ('00000000-0000-0000-0000-0000000000a5','holder@t.local','{}'::jsonb),
+  ('00000000-0000-0000-0000-0000000000a6','tech@t.local','{}'::jsonb);
 update public.users set role='super_admin' where id='00000000-0000-0000-0000-0000000000a1';
 update public.users set role='accounting'  where id='00000000-0000-0000-0000-0000000000a2';
 update public.users set role='procurement' where id='00000000-0000-0000-0000-0000000000a3';
 update public.users set role='site_admin'  where id='00000000-0000-0000-0000-0000000000a4';
 update public.users set role='procurement' where id='00000000-0000-0000-0000-0000000000a5';
+update public.users set role='technician'  where id='00000000-0000-0000-0000-0000000000a6';
 
 -- fixtures created as table owner (bypass RLS for setup)
 insert into public.projects (id, name, code) values
@@ -65,12 +67,17 @@ select throws_ok($$
     '00000000-0000-0000-0000-0000000000c1','x',10,'2026-07-12','company_card'::public.payment_source,null,null)
 $$, 'P0001', null, 'card source requires a card');
 
--- ===== site_admin denied (42501) =====
+-- ===== U6: site_admin now records (widened); technician still denied =====
 set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000000a4"}';
+select lives_ok($$
+  select public.record_office_expense(
+    '00000000-0000-0000-0000-0000000000c1','ค่าเดินทาง',10,'2026-07-12','own_money'::public.payment_source,null,null)
+$$, 'site_admin can record office expense (U6 widen)');
+set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000000a6"}';
 select throws_ok($$
   select public.record_office_expense(
     '00000000-0000-0000-0000-0000000000c1','x',10,'2026-07-12','own_money'::public.payment_source,null,null)
-$$, '42501', null, 'site_admin cannot record office expense');
+$$, '42501', null, 'technician (not an office role) cannot record');
 
 -- ===== finance marks reimbursed; procurement cannot =====
 set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000000a3"}';

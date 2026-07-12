@@ -91,17 +91,22 @@ describe("settings sections config (role → entries matrix)", () => {
     expect(hrefs("finance", "accounting")).toEqual([]);
   });
 
-  it("office-expenses: its own section reaches every office role incl accounting, not site/PM (spec 310)", () => {
+  it("office-expenses: reaches every OFFICE_EXPENSE_ROLES incl PM/PD/site/auditor (spec 310 U6), not field-only roles", () => {
     for (const role of [
       "super_admin",
       "procurement",
       "procurement_manager",
       "accounting",
+      "project_manager",
+      "project_director",
+      "site_owner",
+      "site_admin",
+      "auditor",
     ] as const) {
       expect(hrefs("office-expenses", role)).toEqual(["/expenses"]);
     }
-    expect(hrefs("office-expenses", "site_admin")).toEqual([]);
-    expect(hrefs("office-expenses", "project_manager")).toEqual([]);
+    expect(hrefs("office-expenses", "technician")).toEqual([]);
+    expect(hrefs("office-expenses", "visitor")).toEqual([]);
   });
 
   it("help: everyone files feedback; only super_admin sees the triage inbox", () => {
