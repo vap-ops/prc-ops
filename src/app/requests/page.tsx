@@ -502,6 +502,9 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
           }
           isMine={r.requested_by === ctx.id}
           poNumber={r.purchase_order_id ? (poNumberById.get(r.purchase_order_id) ?? null) : null}
+          // Spec 301f: projectNameById is loaded for procurement only (spec 110
+          // read #7) — site roles get an empty map, so their card stays lean.
+          projectName={r.project_id ? (projectNameById.get(r.project_id) ?? null) : null}
         />
       </li>
     );

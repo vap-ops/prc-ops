@@ -62,6 +62,9 @@ interface PurchaseRequestCardProps {
    * page passes itself). Omit on /requests — the fallback already lands there.
    */
   backFrom?: string;
+  /** Spec 301f: shown for procurement (spans projects). Site callers omit it —
+   *  their card stays lean (they work one project). */
+  projectName?: string | null;
 }
 
 export function PurchaseRequestCard({
@@ -71,6 +74,7 @@ export function PurchaseRequestCard({
   isMine,
   poNumber = null,
   backFrom,
+  projectName = null,
 }: PurchaseRequestCardProps) {
   const href = `/requests/${request.id}`;
   return (
@@ -88,6 +92,11 @@ export function PurchaseRequestCard({
               <Receipt aria-hidden className="size-3" />
               {SITE_EXPENSE_BADGE}
             </span>
+          ) : null}
+          {/* Spec 301f: procurement spans projects — name the project when the
+              caller provides it (site callers omit; their card stays lean). */}
+          {projectName ? (
+            <p className="text-ink-muted truncate text-[10px] font-medium">{projectName}</p>
           ) : null}
           {workPackage ? (
             <p className="text-ink-secondary truncate text-xs">
