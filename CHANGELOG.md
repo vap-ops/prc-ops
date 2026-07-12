@@ -1,3 +1,9 @@
+# [0.51.0](https://github.com/VAP-Solution/prc-ops/compare/v0.50.0...v0.51.0) (2026-07-12)
+
+### Features
+
+- **requests:** spec 311 U1 — project context on the site worklist ([#495](https://github.com/VAP-Solution/prc-ops/issues/495)) ([3d481f8](https://github.com/VAP-Solution/prc-ops/commit/3d481f8afe22bceba3e9bd7436b1bb4457feed57))
+
 # [0.50.0](https://github.com/VAP-Solution/prc-ops/compare/v0.49.2...v0.50.0) (2026-07-12)
 
 ### Features
