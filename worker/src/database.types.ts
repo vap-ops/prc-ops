@@ -1075,6 +1075,47 @@ export type Database = {
           },
         ]
       }
+      company_cards: {
+        Row: {
+          created_at: string
+          created_by: string
+          holder_user_id: string
+          id: string
+          is_active: boolean
+          label: string
+          last4: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          holder_user_id: string
+          id?: string
+          is_active?: boolean
+          label: string
+          last4?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          holder_user_id?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          last4?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_cards_holder_user_id_fkey"
+            columns: ["holder_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_attachments: {
         Row: {
           contractor_id: string | null
@@ -3464,6 +3505,166 @@ export type Database = {
           {
             foreignKeyName: "nova_dials_updated_by_fkey"
             columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      office_expense_attachments: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          office_expense_id: string
+          storage_path: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id: string
+          office_expense_id: string
+          storage_path: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          office_expense_id?: string
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "office_expense_attachments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "office_expense_attachments_office_expense_id_fkey"
+            columns: ["office_expense_id"]
+            isOneToOne: false
+            referencedRelation: "office_expenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      office_expense_categories: {
+        Row: {
+          created_at: string
+          gl_account_code: string | null
+          id: string
+          is_active: boolean
+          label_en: string | null
+          label_th: string
+          sort: number
+        }
+        Insert: {
+          created_at?: string
+          gl_account_code?: string | null
+          id?: string
+          is_active?: boolean
+          label_en?: string | null
+          label_th: string
+          sort?: number
+        }
+        Update: {
+          created_at?: string
+          gl_account_code?: string | null
+          id?: string
+          is_active?: boolean
+          label_en?: string | null
+          label_th?: string
+          sort?: number
+        }
+        Relationships: []
+      }
+      office_expenses: {
+        Row: {
+          amount: number
+          category_id: string
+          company_card_id: string | null
+          created_at: string
+          description: string
+          expense_date: string
+          id: string
+          payment_source: Database["public"]["Enums"]["payment_source"]
+          project_id: string | null
+          reimburse_to_user_id: string | null
+          reimbursed_at: string | null
+          reimbursed_by: string | null
+          submitted_by: string
+        }
+        Insert: {
+          amount: number
+          category_id: string
+          company_card_id?: string | null
+          created_at?: string
+          description: string
+          expense_date: string
+          id?: string
+          payment_source: Database["public"]["Enums"]["payment_source"]
+          project_id?: string | null
+          reimburse_to_user_id?: string | null
+          reimbursed_at?: string | null
+          reimbursed_by?: string | null
+          submitted_by: string
+        }
+        Update: {
+          amount?: number
+          category_id?: string
+          company_card_id?: string | null
+          created_at?: string
+          description?: string
+          expense_date?: string
+          id?: string
+          payment_source?: Database["public"]["Enums"]["payment_source"]
+          project_id?: string | null
+          reimburse_to_user_id?: string | null
+          reimbursed_at?: string | null
+          reimbursed_by?: string | null
+          submitted_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "office_expenses_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "office_expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "office_expenses_company_card_id_fkey"
+            columns: ["company_card_id"]
+            isOneToOne: false
+            referencedRelation: "company_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "office_expenses_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "office_expenses_reimburse_to_user_id_fkey"
+            columns: ["reimburse_to_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "office_expenses_reimbursed_by_fkey"
+            columns: ["reimbursed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "office_expenses_submitted_by_fkey"
+            columns: ["submitted_by"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -8384,6 +8585,7 @@ export type Database = {
         Args: { p_project_ids: string[] }
         Returns: Json
       }
+      deactivate_company_card: { Args: { p_id: string }; Returns: undefined }
       decide_contractor_bank_change: {
         Args: { p_approve: boolean; p_id: string }
         Returns: undefined
@@ -8621,6 +8823,10 @@ export type Database = {
         Returns: string
       }
       mark_client_billing_invoiced: { Args: { p_id: string }; Returns: string }
+      mark_expense_reimbursed: {
+        Args: { p_expense_id: string }
+        Returns: undefined
+      }
       mark_feedback_viewed: {
         Args: { p_feedback_id: string }
         Returns: undefined
@@ -8857,6 +9063,18 @@ export type Database = {
           p_contractor: string
           p_document_id?: string
           p_kind: Database["public"]["Enums"]["contractor_consent_kind"]
+        }
+        Returns: string
+      }
+      record_office_expense: {
+        Args: {
+          p_amount: number
+          p_category_id: string
+          p_company_card_id?: string
+          p_description: string
+          p_expense_date: string
+          p_payment_source: Database["public"]["Enums"]["payment_source"]
+          p_project_id?: string
         }
         Returns: string
       }
@@ -9725,6 +9943,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      upsert_company_card: {
+        Args: {
+          p_holder_user_id: string
+          p_id: string
+          p_label: string
+          p_last4?: string
+        }
+        Returns: string
+      }
       upsert_gl_account: {
         Args: {
           p_account_type: Database["public"]["Enums"]["gl_account_type"]
@@ -9850,6 +10077,8 @@ export type Database = {
         | "rental_settlement_record"
         | "rental_settlement_supersede"
         | "crew_change"
+        | "office_expense_record"
+        | "office_expense_reimburse"
       boq_line_status: "draft" | "frozen" | "superseded"
       boq_variation_type: "standard" | "added" | "omitted" | "provisional_sum"
       catalog_fulfillment_mode: "off_shelf" | "made_to_order"
@@ -9971,6 +10200,7 @@ export type Database = {
         | "site_issue_reported"
       notification_status: "pending" | "sending" | "sent" | "failed" | "expired"
       pay_type: "monthly" | "daily"
+      payment_source: "company_card" | "own_money" | "company_direct"
       peak_doc_type: "contact" | "expense"
       peak_entity_type: "contact" | "expense"
       peak_sync_operation: "create" | "void"
@@ -10267,6 +10497,8 @@ export const Constants = {
         "rental_settlement_record",
         "rental_settlement_supersede",
         "crew_change",
+        "office_expense_record",
+        "office_expense_reimburse",
       ],
       boq_line_status: ["draft", "frozen", "superseded"],
       boq_variation_type: ["standard", "added", "omitted", "provisional_sum"],
@@ -10401,6 +10633,7 @@ export const Constants = {
       ],
       notification_status: ["pending", "sending", "sent", "failed", "expired"],
       pay_type: ["monthly", "daily"],
+      payment_source: ["company_card", "own_money", "company_direct"],
       peak_doc_type: ["contact", "expense"],
       peak_entity_type: ["contact", "expense"],
       peak_sync_operation: ["create", "void"],

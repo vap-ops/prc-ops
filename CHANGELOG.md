@@ -1,3 +1,9 @@
+# [0.50.0](https://github.com/VAP-Solution/prc-ops/compare/v0.49.2...v0.50.0) (2026-07-12)
+
+### Features
+
+- **310:** office-expense schema (U1) ([#496](https://github.com/VAP-Solution/prc-ops/issues/496)) ([f2e420d](https://github.com/VAP-Solution/prc-ops/commit/f2e420daf808f9b773884ee84e46dc6f46887d11))
+
 ## [0.49.2](https://github.com/VAP-Solution/prc-ops/compare/v0.49.1...v0.49.2) (2026-07-12)
 
 ### Bug Fixes
