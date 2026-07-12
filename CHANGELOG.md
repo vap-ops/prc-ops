@@ -1,3 +1,9 @@
+# [0.56.0](https://github.com/VAP-Solution/prc-ops/compare/v0.55.0...v0.56.0) (2026-07-12)
+
+### Features
+
+- **310:** finance reimburse queue at /expenses (U5) ([#501](https://github.com/VAP-Solution/prc-ops/issues/501)) ([4332a12](https://github.com/VAP-Solution/prc-ops/commit/4332a12559a22a869b70722652b4ad934db8ebe7)), closes [#496](https://github.com/VAP-Solution/prc-ops/issues/496) [#498](https://github.com/VAP-Solution/prc-ops/issues/498) [#499](https://github.com/VAP-Solution/prc-ops/issues/499) [#500](https://github.com/VAP-Solution/prc-ops/issues/500)
+
 # [0.55.0](https://github.com/VAP-Solution/prc-ops/compare/v0.54.0...v0.55.0) (2026-07-12)
 
 ### Features
