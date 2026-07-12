@@ -7492,3 +7492,25 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
   today); nit className dup of worklistChipClass = known mirrored pattern.
 - Open follow-up (own unit): accounting page inline ทุกโครงการ could adopt
   ALL_PROJECTS_OPTION_LABEL (pre-existing, out of scope here).
+
+### U5 — /payroll reconciliation guard under project filter (DONE, code-only)
+
+- Interim guard: wage_payments has no project dimension, so spec-309's per-project
+  roll-up reconciled against project-blind payments → false drift + misattributed
+  "จ่ายแล้ว" + blocked 2nd-project payment for a shared worker. New pure
+  reconcilePayroll() suppresses reconciliation when a project filter is active
+  (returns {scoped:true}); the all-projects view keeps full annotatePayrollPayments.
+  Page: skips the payment/bank reads + renders PAYROLL_PAYMENT_PERIOD_WIDE_NOTE
+  under a filter; per-worker payment block hidden. Full fix (project dimension on
+  wage_payments) is gated on the shared-worker decision — this is the interim.
+- TDD RED first (reconcilePayroll 3/3); annotate regression 9/9 green; tsc/lint
+  clean. Browser: filtered URL renders clean (no console err); populated view
+  not data-drivable live (labor_logs empty), decision covered by the unit test.
+- Stacked on U1 (spec311-requests-project-context) for labels.ts adjacency.
+- Fresh-eyes (opus) 1yellow/1blue: FIXED blue (guard now truthiness `if (projectId)`
+  so a stray "" reconciles instead of silently suppressing; +test). yellow KNOWN
+  GAP: the page-level suppression (record affordance / paid badge hidden under
+  filter) has no DOM test — /payroll is an async server component and live
+  labor_logs is empty so the populated+filtered view can't be data-driven; the
+  reconcilePayroll decision (scoped→no report) is unit-tested and the page gate is
+  a direct {annotated ? ... : null} on it. Accepted as documented.
