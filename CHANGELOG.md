@@ -1,3 +1,9 @@
+# [0.61.0](https://github.com/VAP-Solution/prc-ops/compare/v0.60.0...v0.61.0) (2026-07-12)
+
+### Features
+
+- **muster:** worker check-in QR on their phone (spec 306 U3a) ([#507](https://github.com/VAP-Solution/prc-ops/issues/507)) ([a79e7ec](https://github.com/VAP-Solution/prc-ops/commit/a79e7ec187348064117e8ab7a361c1eb9b7eb0d0))
+
 # [0.60.0](https://github.com/VAP-Solution/prc-ops/compare/v0.59.0...v0.60.0) (2026-07-12)
 
 ### Features
