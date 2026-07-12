@@ -117,9 +117,11 @@ export function PurchaseRequestForm({
   const router = useRouter();
   // Spec 208 U4a / ADR 0065: store-only procurement — every purchase is
   // store-bound. The WP-vs-project scope toggle is gone; a PR always lands in the
-  // project store (work_package_id null) and is เบิก'd to a WP later. The pinned
-  // WP is now context only (the page you raised it from), not a binding.
-  const effectiveWorkPackageId = null;
+  // project store (the server forces work_package_id null) and is เบิก'd to a WP
+  // later. The pinned WP still travels as CONTEXT: spec 301 U2 records it in
+  // requested_from_work_package_id (provenance — WP chip + off-category flag),
+  // so it must NOT be nulled here.
+  const effectiveWorkPackageId = workPackage.id;
   // Spec 180: the PR item is catalog-only — catalogItemId is the chosen item
   // ("" = none yet). The search/category/sheet state lives in CatalogItemPicker;
   // the description + unit are DERIVED here from the chosen item (no free text).
