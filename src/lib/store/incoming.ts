@@ -127,3 +127,99 @@ export function selectIncomingDeliveries(
   // sort is stable, so equal-ETA groups keep the item ordering.
   return [...groups.values()].sort(byEtaDueFirst);
 }
+
+// ---------------------------------------------------------------------------
+// Spec 307 — the ARRIVAL grain, composed with spec 308's per-delivery receiving.
+// Grouping by delivery_id alone (spec 305) degenerated to one card per PR line,
+// because the quick "บันทึกซื้อ" flow (spec 120) mints a one-line PO — and so one
+// delivery — per item (live: ~half of deliveries are singletons). What the SA
+// counts is physical arrivals: (ETA day × supplier). Day headers carry the date +
+// how many packages arrive that day; a card is one expected truck. Receiving is
+// still a spec-308 per-delivery action, so each arrival keeps its items sub-grouped
+// by delivery — the common single-delivery arrival shows one รับของ link, a
+// supplier that ships several deliveries the same day shows one per delivery.
+
+export interface IncomingArrivalDelivery {
+  /** null = items with no งวดส่ง yet → no receive page, items link to /requests. */
+  deliveryId: string | null;
+  items: StoreIncomingRow[];
+}
+
+export interface IncomingArrivalGroup {
+  /** Stable render key — day + supplier. A real supplier is prefixed `s:`, the
+   *  null case `none`, so no free-text supplier name can collide with the null key. */
+  key: string;
+  supplier: string | null;
+  /** on_route once any member shipped, else purchased. */
+  status: PurchaseRequestStatus;
+  /** Any member is late. */
+  overdue: boolean;
+  /** Total items across the arrival's deliveries — the "· N รายการ" signal. */
+  itemCount: number;
+  /** Items sub-grouped by delivery (the spec-308 receive unit); first-seen order,
+   *  the null-delivery bucket keeps its natural position. */
+  deliveries: IncomingArrivalDelivery[];
+}
+
+export interface IncomingDayGroup {
+  /** YYYY-MM-DD, or null for items with no ETA (always the last group). */
+  day: string | null;
+  isToday: boolean;
+  /** The whole day is past due (day < today). */
+  overdue: boolean;
+  /** First-seen order within the day (due-first upstream keeps it stable). */
+  arrivals: IncomingArrivalGroup[];
+}
+
+export function selectIncomingArrivals(
+  rows: ReadonlyArray<RawStoreIncoming>,
+  lens: IncomingLens,
+  todayIso: string | null,
+): IncomingDayGroup[] {
+  const items = selectStoreIncoming(rows, lens, todayIso);
+  const days = new Map<string | null, IncomingDayGroup>();
+  for (const item of items) {
+    // ⚠ Seam: the arrival's day/supplier come from the PR line, not the delivery.
+    // A delivery is atomic per (eta, supplier) — set together at create_purchase_order
+    // (whole PO → one delivery, one eta) — so all of a delivery's lines land in ONE
+    // arrival (verified live: 0 of 55 deliveries vary in eta or supplier). No DB
+    // constraint pins it, so a future per-line eta edit could split a delivery across
+    // two arrival cards (duplicate รับของ + double day-count). Add a delivery-keyed
+    // guard if per-line eta editing ever ships.
+    const day = item.eta;
+    let dayGroup = days.get(day);
+    if (!dayGroup) {
+      dayGroup = {
+        day,
+        isToday: day != null && day === todayIso,
+        overdue: day != null && todayIso != null && day < todayIso,
+        arrivals: [],
+      };
+      days.set(day, dayGroup);
+    }
+    const key = `${day ?? "noeta"}|${item.supplier == null ? "none" : `s:${item.supplier}`}`;
+    let arrival = dayGroup.arrivals.find((a) => a.key === key);
+    if (!arrival) {
+      arrival = {
+        key,
+        supplier: item.supplier,
+        status: item.status,
+        overdue: item.overdue,
+        itemCount: 0,
+        deliveries: [],
+      };
+      dayGroup.arrivals.push(arrival);
+    } else {
+      if (item.status === "on_route") arrival.status = "on_route";
+      arrival.overdue = arrival.overdue || item.overdue;
+    }
+    arrival.itemCount += 1;
+    // Sub-group by delivery so each keeps a spec-308 receive link. A null-delivery
+    // bucket (unscheduled) collects every ETA-day-shared line with no งวดส่ง.
+    const sub = arrival.deliveries.find((d) => d.deliveryId === item.deliveryId);
+    if (sub) sub.items.push(item);
+    else arrival.deliveries.push({ deliveryId: item.deliveryId, items: [item] });
+  }
+  // Days ascending, unknown-ETA last — reuse byEtaDueFirst's null-last rule.
+  return [...days.values()].sort((a, b) => byEtaDueFirst({ eta: a.day }, { eta: b.day }));
+}
