@@ -1,5 +1,5 @@
 begin;
-select plan(16);
+select plan(18);
 
 -- principals
 insert into auth.users (id, email, raw_user_meta_data) values
@@ -100,6 +100,21 @@ set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000000a1"}
 select lives_ok($$
   select public.upsert_company_card(null,'X card','00000000-0000-0000-0000-0000000000a5','1234')
 $$, 'super_admin can upsert card');
+
+-- ===== U4: office_expense_attachments INSERT policy =====
+set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000000a3"}';
+select lives_ok($$
+  insert into public.office_expense_attachments (id, office_expense_id, storage_path, created_by)
+  values (gen_random_uuid(),
+          (select id from public.office_expenses where submitted_by='00000000-0000-0000-0000-0000000000a3' limit 1),
+          'p/'||gen_random_uuid(), '00000000-0000-0000-0000-0000000000a3')
+$$, 'submitter can attach a receipt to own expense');
+select throws_ok($$
+  insert into public.office_expense_attachments (id, office_expense_id, storage_path, created_by)
+  values (gen_random_uuid(),
+          (select id from public.office_expenses where submitted_by='00000000-0000-0000-0000-0000000000a3' limit 1),
+          'p/'||gen_random_uuid(), '00000000-0000-0000-0000-0000000000a5')
+$$, '42501', null, 'cannot attach with a forged created_by');
 
 -- ===== anon cannot exec =====
 reset role;

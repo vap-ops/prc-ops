@@ -22,6 +22,7 @@ import {
   EXPENSE_AMOUNT_LABEL,
   EXPENSE_CATEGORY_LABEL,
   EXPENSE_DESCRIPTION_LABEL,
+  EXPENSE_RECORDED_ATTACH,
   EXPENSE_SUBMIT_LABEL,
   PAYMENT_SOURCE_CARD_LABEL,
 } from "@/lib/i18n/labels";
@@ -69,6 +70,8 @@ describe("OfficeExpenseForm", () => {
         }),
       ),
     );
+    // after recording, the receipt uploader block appears for the new expense (U4)
+    await waitFor(() => expect(screen.getByText(EXPENSE_RECORDED_ATTACH)).toBeTruthy());
   });
 
   it("blocks a company_card expense with no card picked, then shows the holder + records it", async () => {
