@@ -17,6 +17,7 @@ import {
   reportsHref,
   workPackageHref,
   incomingHref,
+  deliveryReceiveHref,
 } from "@/lib/nav/project-paths";
 
 describe("project-paths builders", () => {
@@ -42,6 +43,12 @@ describe("project-paths builders", () => {
   // split off the store page (deliveries ≠ inventory).
   it("incomingHref nests the incoming-deliveries page under the project", () => {
     expect(incomingHref("p1")).toBe("/projects/p1/incoming");
+  });
+
+  // Spec 308 U2: a PR that rides a delivery links to the delivery receive page
+  // (ของเข้า owns receiving) instead of receiving inline on the จัดซื้อ page.
+  it("deliveryReceiveHref nests the receive page under the incoming route", () => {
+    expect(deliveryReceiveHref("p1", "d9")).toBe("/projects/p1/incoming/d9");
   });
 
   it("never emits the old role-named /sa/projects or /pm/projects prefix", () => {

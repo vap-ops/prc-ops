@@ -61,6 +61,13 @@ export function incomingHref(projectId: string): string {
   return `/projects/${projectId}/incoming`;
 }
 
+// Spec 308 U2: the per-delivery receive page (ของเข้า owns receiving). A PR
+// riding a delivery links here from the จัดซื้อ detail instead of receiving
+// inline — จัดซื้อ = orders, ของเข้า = deliveries.
+export function deliveryReceiveHref(projectId: string, deliveryId: string): string {
+  return `/projects/${projectId}/incoming/${deliveryId}`;
+}
+
 // Spec 275 U5: the equipment-rental recorder relocated from the settings hub
 // (spec 268) into the project — a rental is project-driven, so it records + lists
 // THIS project's rentals and auto-allocates each to it. Money-gated

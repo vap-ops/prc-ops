@@ -11,7 +11,7 @@ import {
   isProcurementManagerTier,
   isPurchaseDecider,
 } from "@/lib/auth/role-home";
-import { workPackageHref } from "@/lib/nav/project-paths";
+import { workPackageHref, deliveryReceiveHref } from "@/lib/nav/project-paths";
 import { safeBackHref, withBackFrom } from "@/lib/nav/back-href";
 import { createClient } from "@/lib/db/server";
 import { isValidUuid } from "@/lib/photos/path";
@@ -37,6 +37,7 @@ import {
   PO_DOCS_FROM_PROCUREMENT_LABEL,
   INVOICE_PAPER_MISSING_LABEL,
   DELIVERY_PHOTO_MISSING_LABEL,
+  DELIVERY_RECEIVE_PAGE_TITLE,
   deliveredQtyCaption,
   WORK_CATEGORY_MATCH_LABEL,
   WORK_CATEGORY_MISMATCH_LABEL,
@@ -100,7 +101,7 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
   const supabase = await createClient();
   const { data: request } = await supabase
     .from("purchase_requests")
-    .select(`${PR_LIST_COLUMNS}, notes, source, acknowledged_at, catalog_item_id`)
+    .select(`${PR_LIST_COLUMNS}, notes, source, acknowledged_at, catalog_item_id, delivery_id`)
     .eq("id", requestId)
     .maybeSingle();
 
@@ -112,6 +113,12 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
   // Spec 300 U2 / spec 195 P3: a delivered store-bound (WP-less) PR has its stock_receipt
   // auto-booked — tell the SA the goods landed in the store.
   const receivedIntoStore = isReceivedIntoStore(status, request.work_package_id);
+  // Spec 308 U2: a PR that rides a delivery receives on the dedicated ของเข้า
+  // receive page — the จัดซื้อ card shrinks to a link there. A delivery-less PR
+  // keeps the full inline receive card (fallback).
+  const deliveryReceivePath = request.delivery_id
+    ? deliveryReceiveHref(request.project_id, request.delivery_id)
+    : null;
   const priority = request.priority;
   const isMine = request.requested_by === ctx.id;
 
@@ -579,30 +586,48 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
                   </span>
                 </p>
               ) : null}
-              <DeliveryPhotoUploader
-                purchaseRequestId={request.id}
-                projectId={request.project_id}
-                userId={ctx.id}
-              />
-              {/* Spec 300 U2 + 302: capture the paper receipt (ใบส่งของ/ใบเสร็จ) at the
-                  receive moment — uploads now display right here too, so the SA's
-                  paper job lives in ONE card (the standalone เอกสาร card is gone at
-                  these statuses). */}
-              <div className="border-edge flex flex-col gap-2 border-t pt-2">
-                <p className="text-ink-secondary text-xs font-medium">{RECEIPT_PAPER_PROMPT}</p>
-                {docPlan.invoiceDocsInReceiveCard ? (
-                  <InvoiceDocsDisplay
-                    images={invoiceImages}
-                    pdfs={invoicePdfs}
-                    urls={attachmentUrls}
-                    viewerId={ctx.id}
+              {/* Spec 308 U2: receiving happens on the delivery page (ของเข้า owns it);
+                  the จัดซื้อ card keeps status + photos-as-view + flags and links there.
+                  A delivery-less PR keeps the full inline uploaders (fallback). */}
+              {deliveryReceivePath ? (
+                <Link
+                  href={withBackFrom(deliveryReceivePath, `/requests/${requestId}`)}
+                  className="text-action inline-flex min-h-11 items-center text-sm font-medium underline-offset-2 hover:underline"
+                >
+                  {DELIVERY_RECEIVE_PAGE_TITLE}ที่หน้าของเข้า →
+                </Link>
+              ) : (
+                <>
+                  <DeliveryPhotoUploader
+                    purchaseRequestId={request.id}
+                    projectId={request.project_id}
+                    userId={ctx.id}
                   />
-                ) : null}
-                {docPlan.invoiceMissingFlag ? (
-                  <p className="text-attn-ink text-xs font-medium">{INVOICE_PAPER_MISSING_LABEL}</p>
-                ) : null}
-                <InvoiceUploader purchaseRequestId={request.id} projectId={request.project_id} />
-              </div>
+                  {/* Spec 300 U2 + 302: capture the paper receipt (ใบส่งของ/ใบเสร็จ) at
+                      the receive moment — the SA's paper job lives in ONE card (the
+                      standalone เอกสาร card is gone at these statuses). */}
+                  <div className="border-edge flex flex-col gap-2 border-t pt-2">
+                    <p className="text-ink-secondary text-xs font-medium">{RECEIPT_PAPER_PROMPT}</p>
+                    {docPlan.invoiceDocsInReceiveCard ? (
+                      <InvoiceDocsDisplay
+                        images={invoiceImages}
+                        pdfs={invoicePdfs}
+                        urls={attachmentUrls}
+                        viewerId={ctx.id}
+                      />
+                    ) : null}
+                    {docPlan.invoiceMissingFlag ? (
+                      <p className="text-attn-ink text-xs font-medium">
+                        {INVOICE_PAPER_MISSING_LABEL}
+                      </p>
+                    ) : null}
+                    <InvoiceUploader
+                      purchaseRequestId={request.id}
+                      projectId={request.project_id}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </div>
         ) : null}

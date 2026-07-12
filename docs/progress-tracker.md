@@ -7426,3 +7426,21 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
   paper=chooser. Fresh-eyes 3🟡 all fixed (paper capture removed, all-cancelled
   guard, photo-only gate).
 - ▶ U2 = PR-page receive-card shrink-to-link.
+
+## Spec 308 U2 — PR-page receive-card shrink-to-link — COMPLETE (2026-07-12)
+
+- A PR riding a delivery (delivery_id != null) shows a รับของ link to the U1
+  receive page instead of the inline DeliveryPhotoUploader + paper capture;
+  delivery-less PRs keep the full inline card (fallback). Status/photos/flags
+  retained — only the ACTION moved. deliveryReceiveHref helper + delivery_id on
+  the detail read.
+- Fresh-eyes fixes: receive page now honors ?from via safeBackHref (round-trip
+  back to the PR); removed redundant double null-check.
+- TDD (helper RED→green); full suite 3634 green; browser-verified the link path
+  - back-nav round-trip on the live server. Fresh-build re-verify blocked by a
+    dev-preview SSR-cookie auth quirk (no server error → build clean).
+- ⚠️ OPERATOR FLAG (fresh-eyes ❓): on delivery-backed PRs the SA-side
+  purpose='invoice' paper capture+view is gone from the จัดซื้อ page; the receive
+  page captures paper as purpose='proof_of_delivery' (delivery-scoped). If
+  procurement's payment flow needs purpose='invoice' specifically, the receive
+  page's paper uploader should write that purpose — a follow-up decision.

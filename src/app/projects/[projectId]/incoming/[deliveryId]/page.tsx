@@ -19,6 +19,7 @@ import { isValidUuid } from "@/lib/photos/path";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { incomingHref } from "@/lib/nav/project-paths";
+import { safeBackHref } from "@/lib/nav/back-href";
 import { planDeliveryReceive } from "@/lib/purchasing/delivery-receive";
 import { PoReceiveSection } from "@/components/features/purchasing/po-receive-section";
 import { DeliveryProofBlock } from "@/components/features/purchasing/delivery-proof-block";
@@ -38,12 +39,16 @@ import { bangkokTodayISO } from "@/lib/work-packages/schedule-today";
 
 interface PageProps {
   params: Promise<{ projectId: string; deliveryId: string }>;
+  // Spec 308 U2: a PR-detail รับของ link threads ?from so back returns to the PR;
+  // direct loads / the ของเข้า card fall back to the incoming list.
+  searchParams: Promise<{ from?: string }>;
 }
 
 export const metadata = { title: DELIVERY_RECEIVE_PAGE_TITLE };
 
-export default async function DeliveryReceivePage({ params }: PageProps) {
+export default async function DeliveryReceivePage({ params, searchParams }: PageProps) {
   const { projectId, deliveryId } = await params;
+  const { from } = await searchParams;
   const ctx = await requireRole(WP_DETAIL_ROLES);
   if (!isValidUuid(projectId) || !isValidUuid(deliveryId)) notFound();
 
@@ -103,7 +108,10 @@ export default async function DeliveryReceivePage({ params }: PageProps) {
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <DetailHeader backHref={incomingHref(project.id)} backLabel="กลับไปของเข้า">
+      <DetailHeader
+        backHref={safeBackHref(from, incomingHref(project.id))}
+        backLabel="กลับไปของเข้า"
+      >
         <div>
           <p className="text-meta text-ink-secondary font-mono">{project.code}</p>
           <h1 className="text-title text-ink font-bold tracking-tight">
