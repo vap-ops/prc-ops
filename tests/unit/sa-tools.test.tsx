@@ -21,6 +21,11 @@ describe("SaTools", () => {
       "href",
       "/projects/p1/store",
     );
+    // Spec 307 follow-up 2: the คลัง (store) tile uses the Warehouse icon — the same
+    // store symbol as the project-page คลัง chip (page.tsx) — not a Box.
+    expect(
+      screen.getByRole("link", { name: /คลัง/ }).querySelector("svg.lucide-warehouse"),
+    ).not.toBeNull();
     expect(screen.getByRole("link", { name: /ตารางงาน/ })).toHaveAttribute(
       "href",
       "/projects/p1/schedule",

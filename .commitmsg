@@ -1,15 +1,13 @@
-fix(store): ของเข้า heading = Truck, รับของ = Truck→store box (spec 307 follow-up)
+fix(store): use Warehouse (not Box) for the คลัง store symbol (spec 307 follow-up 2)
 
-Spec 307 U2 (#492) put the store คลัง Box icon on the ของเข้า heading and the
-รับของ action. But ของเข้า's own SA tile (sa-tools) already uses a Truck, and
-Box is the คลัง surface's symbol — so on ของเข้า it mismatched and read as a
-lone storage unit (operator feedback).
+The project-page คลัง chip already uses lucide Warehouse (projects/[id]/page.tsx),
+but the SA คลัง tile (sa-tools) and the รับของ pairing used Box — two different
+icons for the same store. Operator: the warehouse reads more intuitively.
 
-- ของเข้า heading now uses Truck (matches its tile; ของเข้า = delivery incoming)
-- รับของ action pairs Truck with the store Box (a delivery heading INTO the
-  คลัง) — keeps spec 307's receiving-stocks-the-store teaching but with the
-  truck it dropped
+- sa-tools: คลัง tile icon Box -> Warehouse
+- store-incoming-list: รับของ pairing is now Truck -> Warehouse (delivery heading
+  into the warehouse), matching the project-page store chip
 
-Box stays the คลัง symbol. Code-only, no schema, no labels.
+Warehouse is now the single store/คลัง symbol app-wide. Code-only, no schema.
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>

@@ -158,6 +158,11 @@ describe("StoreIncomingList (spec 307 day sections)", () => {
     const receiveLink = screen.getByRole("link", { name: `${DELIVERY_RECEIVE_PAGE_TITLE} →` });
     expect(within(receiveLink).getByTestId("incoming-truck-symbol")).toBeInTheDocument();
     expect(within(receiveLink).getByTestId("incoming-store-symbol")).toBeInTheDocument();
+    // Spec 307 follow-up 2: the store half of the pair is the Warehouse (คลัง symbol,
+    // matching the project-page chip) — Truck → Warehouse, not Truck → Box.
+    expect(within(receiveLink).getByTestId("incoming-store-symbol")).toHaveClass(
+      "lucide-warehouse",
+    );
     // Decorative: aria-hidden, so the heading reads exactly "ของเข้า".
     expect(within(heading).getByTestId("incoming-truck-symbol")).toHaveAttribute("aria-hidden");
     expect(heading).toHaveAccessibleName("ของเข้า");
