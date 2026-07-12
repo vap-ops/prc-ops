@@ -7468,3 +7468,27 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
 - Open questions: (a) selectIncomingDeliveries now unused in prod — kept exported
   for spec-305 tests; removal = follow-up cleanup unit; (b) PO-builder nudge
   (offer same-supplier approved PRs when pre-seeding the one-line PO) — follow-up.
+
+## Spec 311 — Multi-project readiness pack (2026-07-12)
+
+### U1 — /requests site-branch project context (DONE)
+
+- Started 2026-07-12 evening. Source: multi-project readiness audit (operator "go").
+- Scope: loadProjectNames for every role; project chip row + ?project= narrowing
+  on the site bands; card projectName gated on >1 distinct project in the loaded
+  rows (both branches — supersedes 301f's procurement-only rule); labels SSOT
+  (ALL_PROJECTS_OPTION_LABEL, PROJECT_FILTER_ARIA).
+- New: buildSiteProjectChips (pure) + SiteProjectChips (server-safe row), mirroring
+  the spec-138 U3 status-chip split.
+- Verified: lint/tsc clean; full suite 3661 green; guards 118 green; browser
+  (dev-preview super_admin) — ?project= narrows live bands, chips preserve
+  view/mine/incoming axes, single-project view unchanged (no chips), 0 console err.
+- Fresh-eyes (opus) 2\*/1?/1nit: FIXED the real one — an own PR in a non-member
+  project (PR SELECT own-row branch, verified live in pg_policies) resolves no
+  name via the membership-scoped projects read → was a blank clickable chip +
+  false >1 card-label trip; buildSiteProjectChips now drops empty-name projects
+  (unit-tested). Page-compose covered by browser evidence (server component, not
+  RTL-testable); ? moot post-fix + prod has 1 project (edge unreachable in data
+  today); nit className dup of worklistChipClass = known mirrored pattern.
+- Open follow-up (own unit): accounting page inline ทุกโครงการ could adopt
+  ALL_PROJECTS_OPTION_LABEL (pre-existing, out of scope here).

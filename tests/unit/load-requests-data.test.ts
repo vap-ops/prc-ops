@@ -300,11 +300,14 @@ describe("loadRequestsData — non-procurement", () => {
       isProcurement: false,
       inTransitPoIds: [],
     });
-    // always-on (the letter-code reconcile is always-on too — spec 301 U1)
+    // always-on (the letter-code reconcile is always-on too — spec 301 U1;
+    // spec 311 U1: project names are always-on so the SITE worklist can label
+    // and filter rows per project at 2+ concurrent actives)
     expect(d.requesterNames.get("u1")).toBe("Alice");
     expect(d.wpById.get("wp1")).toMatchObject({ code: "WP-1", categoryCode: "W05" });
+    expect(d.projectNameById.get("proj1")).toBe("Alpha");
+    expect(d.projectNameById.get("proj2")).toBe("Beta");
     // procurement-only — untouched
-    expect(d.projectNameById.size).toBe(0);
     expect(d.amountById.size).toBe(0);
     expect(d.outstanding).toBe(0);
     expect(d.deliveredSpend).toBe(0);
