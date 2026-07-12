@@ -25,6 +25,7 @@ export type PayrollInputRow = Pick<
   | "day_rate_snapshot"
   | "superseded_by"
   | "work_date"
+  | "work_package_id"
 >;
 
 export interface WorkerPay {
@@ -62,11 +63,23 @@ function fractionDays(f: DayFraction): number {
   return f === "full" ? 1 : 0.5;
 }
 
-export function aggregatePayroll(rows: ReadonlyArray<PayrollInputRow>): PayrollReport {
+export function aggregatePayroll(
+  rows: ReadonlyArray<PayrollInputRow>,
+  opts?: { workPackageIds?: ReadonlySet<string> },
+): PayrollReport {
   // Filter to current state across ALL pay types FIRST, then keep daily-pay
   // (daily ช่าง): a supersede correction re-snapshots pay_type, so a DB-level type
   // filter could drop a superseding row and miscount the stale one (spec 69).
-  const current = currentRows(rows).filter((r) => r.pay_type_snapshot === "daily");
+  const daily = currentRows(rows).filter((r) => r.pay_type_snapshot === "daily");
+
+  // Spec 309 — project scope. Keep only rows on the given work packages, applied
+  // HERE (after the current-state + daily pass) for the SAME reason as the
+  // pay-type filter above: a supersede correction can re-snapshot work_package_id
+  // onto a different project, so a DB-level WP filter could drop a superseding row
+  // and leave the stale one uncancelled. undefined set = all projects.
+  const current = opts?.workPackageIds
+    ? daily.filter((r) => opts.workPackageIds!.has(r.work_package_id))
+    : daily;
 
   // worker_id -> rolled-up pay line (the worker is the payee, ADR 0062).
   const byWorker = new Map<string, WorkerPay>();

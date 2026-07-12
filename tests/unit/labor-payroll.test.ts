@@ -26,6 +26,7 @@ function row(overrides: Partial<PayrollInputRow>): PayrollInputRow {
     day_rate_snapshot: 500,
     superseded_by: null,
     work_date: "2026-06-10",
+    work_package_id: "wp1",
     ...overrides,
   };
 }
@@ -125,6 +126,58 @@ describe("aggregatePayroll", () => {
       totalAmount: 0,
       workerCount: 0,
     });
+  });
+});
+
+// Spec 309 — project scope. When a work-package set is passed, the per-worker
+// roll-up keeps only rows on those WPs — but the scope is applied AFTER the
+// current-state + daily pass (a supersede correction can re-snapshot a row onto
+// a different WP/project, so a DB-level filter could miscount, spec 69 caution).
+describe("aggregatePayroll project scope", () => {
+  it("keeps only rows whose work_package_id is in the set", () => {
+    const r = aggregatePayroll(
+      [
+        row({ id: "a", worker_id: "w1", work_package_id: "wpA", day_rate_snapshot: 500 }),
+        row({
+          id: "b",
+          worker_id: "w2",
+          worker_name_snapshot: "ช่าง ข",
+          work_package_id: "wpB",
+          day_rate_snapshot: 500,
+        }),
+      ],
+      { workPackageIds: new Set(["wpA"]) },
+    );
+    expect(r.workerCount).toBe(1);
+    expect(r.workers.map((w) => w.workerId)).toEqual(["w1"]);
+    expect(r.totalAmount).toBe(500);
+  });
+
+  it("applies the scope AFTER the supersede anti-join (correction moved the WP)", () => {
+    // orig on wpA is superseded by corr, which moved the day to wpB. The
+    // anti-join runs over the FULL set first, so orig is dropped; only corr (wpB)
+    // survives. Scoping to wpA must NOT resurrect orig → project A sees nothing.
+    const rows = [
+      row({ id: "orig", worker_id: "w1", work_package_id: "wpA", day_rate_snapshot: 500 }),
+      row({
+        id: "corr",
+        worker_id: "w1",
+        work_package_id: "wpB",
+        superseded_by: "orig",
+        day_rate_snapshot: 500,
+      }),
+    ];
+    expect(aggregatePayroll(rows, { workPackageIds: new Set(["wpA"]) }).totalAmount).toBe(0);
+    expect(aggregatePayroll(rows, { workPackageIds: new Set(["wpB"]) }).totalAmount).toBe(500);
+  });
+
+  it("includes every row when no set is given (all projects)", () => {
+    const rows = [
+      row({ id: "a", worker_id: "w1", work_package_id: "wpA" }),
+      row({ id: "b", worker_id: "w2", work_package_id: "wpB" }),
+    ];
+    expect(aggregatePayroll(rows).workerCount).toBe(2);
+    expect(aggregatePayroll(rows, {}).workerCount).toBe(2);
   });
 });
 
