@@ -8,6 +8,7 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { LevelRatesForm, type LevelRateRow } from "@/components/features/labor/level-rates-form";
+import { PayModelExplainer } from "@/components/features/labor/pay-model-explainer";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import type { WhtBasis } from "@/lib/db/enums";
@@ -69,6 +70,7 @@ export default async function LaborRatesPage() {
 
       <section className={`mx-auto flex w-full ${PAGE_MAX_W} flex-col gap-5 px-5 py-6`}>
         <p className="text-ink-soft text-meta">{LABOR_RATES_HINT}</p>
+        <PayModelExplainer />
         <LevelRatesForm rows={rows} whtPct={whtPct} />
       </section>
     </PageShell>
