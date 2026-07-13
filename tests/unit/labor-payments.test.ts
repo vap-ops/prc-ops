@@ -1,9 +1,10 @@
 // Spec 127 U1 / spec 170 U3 / spec 266 U4 — wage payment reconciliation.
 // annotatePayrollPayments maps a payroll report (spec 69) against recorded
 // wage_payments rows: per ช่าง, is there a CURRENT (non-superseded, non-tombstone)
-// payment for this exact period? "drifted" = the live owed (worker.amount) has
+// payment for this exact period? "drifted" = the live owed (worker.gross) has
 // moved away from the computed snapshot taken at record time (same frozen-vs-live
-// idea as the cost-freeze drift, spec 68). Pure — no I/O.
+// idea as the cost-freeze drift, spec 68). Reconciliation is on GROSS (spec 314
+// U4 kept the pre-314 basis). Pure — no I/O.
 
 import { describe, it, expect } from "vitest";
 import { annotatePayrollPayments, type WagePaymentRow } from "@/lib/labor/payments";
@@ -12,11 +13,14 @@ import type { WorkerPay, PayrollReport, PayrollRange } from "@/lib/labor/payroll
 const RANGE: PayrollRange = { from: "2026-06-01", to: "2026-06-30" };
 
 function worker(over: Partial<WorkerPay> = {}): WorkerPay {
+  const gross = over.gross ?? 1900;
   return {
     workerId: "w1",
     name: "ช่าง ก",
     days: 5,
-    amount: 1900,
+    gross,
+    wht: 0,
+    net: gross,
     ...over,
   };
 }
@@ -25,7 +29,9 @@ function report(workers: WorkerPay[]): PayrollReport {
   return {
     workers,
     totalDays: workers.reduce((s, w) => s + w.days, 0),
-    totalAmount: workers.reduce((s, w) => s + w.amount, 0),
+    totalGross: workers.reduce((s, w) => s + w.gross, 0),
+    totalWht: workers.reduce((s, w) => s + w.wht, 0),
+    totalNet: workers.reduce((s, w) => s + w.net, 0),
     workerCount: workers.length,
   };
 }
@@ -116,7 +122,7 @@ describe("annotatePayrollPayments", () => {
   it("flags drift when live owed moved away from the computed snapshot", () => {
     // recorded computed 1900, but a later labor correction pushed live to 2100.
     const r = annotatePayrollPayments(
-      report([worker({ amount: 2100 })]),
+      report([worker({ gross: 2100 })]),
       [pay({ computed_amount: 1900 })],
       RANGE,
     );
@@ -125,7 +131,7 @@ describe("annotatePayrollPayments", () => {
 
   it("does not flag drift for sub-cent differences (2-dp compare)", () => {
     const r = annotatePayrollPayments(
-      report([worker({ amount: 1900.004 })]),
+      report([worker({ gross: 1900.004 })]),
       [pay({ computed_amount: 1900 })],
       RANGE,
     );
@@ -135,8 +141,8 @@ describe("annotatePayrollPayments", () => {
   it("rolls up counts and outstanding across mixed paid/unpaid workers", () => {
     const r = annotatePayrollPayments(
       report([
-        worker({ workerId: "w1", amount: 1900 }),
-        worker({ workerId: "w2", name: "ช่าง ข", amount: 800 }),
+        worker({ workerId: "w1", gross: 1900 }),
+        worker({ workerId: "w2", name: "ช่าง ข", gross: 800 }),
       ]),
       [pay({ worker_id: "w1", paid_amount: 1900 })],
       RANGE,

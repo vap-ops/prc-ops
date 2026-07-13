@@ -1,10 +1,13 @@
-// Spec 69 / spec 170 U3 — DC payroll aggregation + CSV export. Pure helpers
-// over labor_logs rows read via the admin client (money columns present).
+// Spec 69 / spec 170 U3 / spec 314 U4 — DC payroll aggregation + CSV export. Pure
+// helpers over labor_logs rows read via the admin client (money columns present).
 // DC only (own crew are salaried, out of scope). Current-state filter
 // (supersede anti-join + tombstone) runs inside, so callers pass raw rows.
-// Amount = Σ (day fraction × per-row rate snapshot) — mid-period rate
-// changes honoured, same rule as spec 68 cost.ts. ADR 0062: a DC is a worker,
-// so payroll rolls up per WORKER (the payee), no contractor grouping.
+// Gross = Σ (day fraction × per-row gross rate snapshot) — mid-period rate
+// changes honoured, same rule as spec 68 cost.ts. Spec 314 U4: each row also
+// carries a frozen WHT % (wht_pct_snapshot); wht = round2(gross × pct/100) per
+// row, net = gross − wht. A null snapshot means 0% (no withholding). ADR 0062:
+// a DC is a worker, so payroll rolls up per WORKER (the payee), no contractor
+// grouping.
 
 import { describe, it, expect } from "vitest";
 import {
@@ -24,6 +27,7 @@ function row(overrides: Partial<PayrollInputRow>): PayrollInputRow {
     pay_type_snapshot: "daily",
     day_fraction: "full",
     day_rate_snapshot: 500,
+    wht_pct_snapshot: null,
     superseded_by: null,
     work_date: "2026-06-10",
     work_package_id: "wp1",
@@ -44,7 +48,7 @@ describe("aggregatePayroll", () => {
       }),
     ]);
     expect(r.workerCount).toBe(1);
-    expect(r.totalAmount).toBe(500);
+    expect(r.totalGross).toBe(500);
     expect(r.workers.map((w) => w.workerId)).toEqual(["w1"]);
   });
 
@@ -61,7 +65,7 @@ describe("aggregatePayroll", () => {
       row({ id: "tomb", worker_id: "w2", day_fraction: null, superseded_by: "x" }),
     ]);
     // orig superseded → corr (half×500=250); tomb excluded.
-    expect(r.totalAmount).toBe(250);
+    expect(r.totalGross).toBe(250);
     expect(r.workerCount).toBe(1);
   });
 
@@ -81,10 +85,10 @@ describe("aggregatePayroll", () => {
     const w1 = r.workers.find((w) => w.workerId === "w1")!;
     expect(w1.name).toBe("ช่าง ก");
     expect(w1.days).toBe(1.5);
-    expect(w1.amount).toBe(750);
+    expect(w1.gross).toBe(750);
     const w2 = r.workers.find((w) => w.workerId === "w2")!;
     expect(w2.days).toBe(1);
-    expect(w2.amount).toBe(500);
+    expect(w2.gross).toBe(500);
   });
 
   it("honours each row's own rate snapshot (mid-period rate change)", () => {
@@ -98,7 +102,7 @@ describe("aggregatePayroll", () => {
         day_rate_snapshot: 600,
       }),
     ]);
-    expect(r.workers[0]!.amount).toBe(1100);
+    expect(r.workers[0]!.gross).toBe(1100);
   });
 
   it("sorts workers by name (th)", () => {
@@ -109,13 +113,13 @@ describe("aggregatePayroll", () => {
     expect(r.workers.map((w) => w.name)).toEqual(["ช่าง ก", "ช่าง ข"]);
   });
 
-  it("totals days and amount across all workers", () => {
+  it("totals days and gross across all workers", () => {
     const r = aggregatePayroll([
       row({ id: "a", worker_id: "w1", day_rate_snapshot: 500 }),
       row({ id: "b", worker_id: "w2", day_fraction: "half", day_rate_snapshot: 400 }),
     ]);
     expect(r.totalDays).toBe(1.5);
-    expect(r.totalAmount).toBe(700);
+    expect(r.totalGross).toBe(700);
     expect(r.workerCount).toBe(2);
   });
 
@@ -123,9 +127,111 @@ describe("aggregatePayroll", () => {
     expect(aggregatePayroll([])).toEqual({
       workers: [],
       totalDays: 0,
-      totalAmount: 0,
+      totalGross: 0,
+      totalWht: 0,
+      totalNet: 0,
       workerCount: 0,
     });
+  });
+});
+
+// Spec 314 U4 — WHT (หัก ณ ที่จ่าย) split. Each row freezes the firm WHT % at log
+// time (wht_pct_snapshot); wht = round2(gross × pct/100) per row, net = gross − wht.
+describe("aggregatePayroll WHT / net", () => {
+  it("splits gross into wht and net for a single worker", () => {
+    const r = aggregatePayroll([
+      row({
+        id: "a",
+        worker_id: "w1",
+        day_fraction: "full",
+        day_rate_snapshot: 1000,
+        wht_pct_snapshot: 3,
+      }),
+    ]);
+    const w1 = r.workers[0]!;
+    expect(w1.gross).toBe(1000);
+    expect(w1.wht).toBe(30);
+    expect(w1.net).toBe(970);
+    expect(r.totalGross).toBe(1000);
+    expect(r.totalWht).toBe(30);
+    expect(r.totalNet).toBe(970);
+  });
+
+  it("treats a null wht snapshot as 0% (no withholding)", () => {
+    const r = aggregatePayroll([
+      row({ id: "a", worker_id: "w1", day_rate_snapshot: 800, wht_pct_snapshot: null }),
+    ]);
+    const w1 = r.workers[0]!;
+    expect(w1.gross).toBe(800);
+    expect(w1.wht).toBe(0);
+    expect(w1.net).toBe(800);
+  });
+
+  it("withholds per row on a half day", () => {
+    const r = aggregatePayroll([
+      row({
+        id: "a",
+        worker_id: "w1",
+        day_fraction: "half",
+        day_rate_snapshot: 1000,
+        wht_pct_snapshot: 3,
+      }),
+    ]);
+    const w1 = r.workers[0]!;
+    expect(w1.gross).toBe(500);
+    expect(w1.wht).toBe(15);
+    expect(w1.net).toBe(485);
+  });
+
+  it("rounds the per-row withholding to 2dp (both directions)", () => {
+    // Pin round2 actually rounding a fractional product, not just exact 2dp values.
+    // up: half day 666.66 → gross 333.33; 333.33×3% = 9.9999 → 10.00; net 323.33.
+    const up = aggregatePayroll([
+      row({
+        id: "u",
+        worker_id: "w1",
+        day_fraction: "half",
+        day_rate_snapshot: 666.66,
+        wht_pct_snapshot: 3,
+      }),
+    ]).workers[0]!;
+    expect(up.gross).toBe(333.33);
+    expect(up.wht).toBe(10);
+    expect(up.net).toBe(323.33);
+    // down: full day 100.10 → gross 100.10; 100.10×3% = 3.003 → 3.00; net 97.10.
+    const down = aggregatePayroll([
+      row({
+        id: "d",
+        worker_id: "w2",
+        day_fraction: "full",
+        day_rate_snapshot: 100.1,
+        wht_pct_snapshot: 3,
+      }),
+    ]).workers[0]!;
+    expect(down.gross).toBe(100.1);
+    expect(down.wht).toBe(3);
+    expect(down.net).toBe(97.1);
+  });
+
+  it("sums wht/net across rows with DIFFERENT frozen % (mid-period % change)", () => {
+    // A firm WHT %-change between the two logged days: each row keeps its own
+    // frozen snapshot, so the withholding is computed per row and summed.
+    const r = aggregatePayroll([
+      row({ id: "a", worker_id: "w1", day_rate_snapshot: 1000, wht_pct_snapshot: 3 }),
+      row({
+        id: "b",
+        worker_id: "w1",
+        work_date: "2026-06-11",
+        day_rate_snapshot: 1000,
+        wht_pct_snapshot: 5,
+      }),
+    ]);
+    const w1 = r.workers[0]!;
+    expect(w1.gross).toBe(2000);
+    expect(w1.wht).toBe(80); // 30 + 50
+    expect(w1.net).toBe(1920);
+    expect(r.totalWht).toBe(80);
+    expect(r.totalNet).toBe(1920);
   });
 });
 
@@ -150,7 +256,7 @@ describe("aggregatePayroll project scope", () => {
     );
     expect(r.workerCount).toBe(1);
     expect(r.workers.map((w) => w.workerId)).toEqual(["w1"]);
-    expect(r.totalAmount).toBe(500);
+    expect(r.totalGross).toBe(500);
   });
 
   it("applies the scope AFTER the supersede anti-join (correction moved the WP)", () => {
@@ -167,8 +273,8 @@ describe("aggregatePayroll project scope", () => {
         day_rate_snapshot: 500,
       }),
     ];
-    expect(aggregatePayroll(rows, { workPackageIds: new Set(["wpA"]) }).totalAmount).toBe(0);
-    expect(aggregatePayroll(rows, { workPackageIds: new Set(["wpB"]) }).totalAmount).toBe(500);
+    expect(aggregatePayroll(rows, { workPackageIds: new Set(["wpA"]) }).totalGross).toBe(0);
+    expect(aggregatePayroll(rows, { workPackageIds: new Set(["wpB"]) }).totalGross).toBe(500);
   });
 
   it("includes every row when no set is given (all projects)", () => {
@@ -187,7 +293,7 @@ describe("payrollToCsv", () => {
   it("starts with a UTF-8 BOM and the per-worker header row", () => {
     const csv = payrollToCsv(aggregatePayroll([]), range);
     expect(csv.startsWith("﻿")).toBe(true);
-    expect(csv.split("\n")[0]).toBe("﻿ช่าง,จำนวนวัน,ค่าแรง (บาท)");
+    expect(csv.split("\n")[0]).toBe("﻿ช่าง,จำนวนวัน,ค่าแรง (บาท),หัก ณ ที่จ่าย,สุทธิ");
   });
 
   it("escapes fields containing comma or quote (RFC 4180)", () => {
@@ -198,21 +304,32 @@ describe("payrollToCsv", () => {
     expect(csv).toContain('"ช่าง, ""เอก"""');
   });
 
-  it("writes amount at 2dp, days raw, and a trailing total row", () => {
+  it("writes gross/wht/net at 2dp, days raw, and a trailing total row", () => {
     const report = aggregatePayroll([
-      row({ id: "a", worker_id: "w1", day_fraction: "half", day_rate_snapshot: 500 }),
+      row({
+        id: "a",
+        worker_id: "w1",
+        day_fraction: "full",
+        day_rate_snapshot: 1000,
+        wht_pct_snapshot: 3,
+      }),
       row({
         id: "b",
         worker_id: "w2",
         worker_name_snapshot: "ช่าง ข",
-        day_fraction: "full",
-        day_rate_snapshot: 380,
+        day_fraction: "half",
+        day_rate_snapshot: 1000,
+        wht_pct_snapshot: 3,
       }),
     ]);
     const csv = payrollToCsv(report, range);
     const lines = csv.trimEnd().split("\n");
-    expect(lines).toContain("ช่าง ก,0.5,250.00");
-    expect(lines[lines.length - 1]).toBe("รวม,1.5,630.00");
+    // w1: gross 1000, wht 30, net 970
+    expect(lines).toContain("ช่าง ก,1,1000.00,30.00,970.00");
+    // w2: half day → gross 500, wht 15, net 485
+    expect(lines).toContain("ช่าง ข,0.5,500.00,15.00,485.00");
+    // total: gross 1500, wht 45, net 1455
+    expect(lines[lines.length - 1]).toBe("รวม,1.5,1500.00,45.00,1455.00");
   });
 });
 

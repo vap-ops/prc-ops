@@ -1,13 +1,18 @@
-// Spec 69 / spec 170 U3 — ค่าแรง (wage) payroll aggregation + CSV export. Runs over
-// labor_logs rows read via the admin client (day_rate_snapshot present —
-// authenticated sessions can never read it, by column grant). daily ช่าง only:
-// own crew are salaried, out of scope. amount = Σ (day fraction × per-row rate snapshot),
-// the same rule as spec 68 cost.ts. The current-state filter (supersede
+// Spec 69 / spec 170 U3 / spec 314 U4 — ค่าแรง (wage) payroll aggregation + CSV
+// export. Runs over labor_logs rows read via the admin client (day_rate_snapshot +
+// wht_pct_snapshot present — authenticated sessions can never read either, by
+// column grant). daily ช่าง only: own crew are salaried, out of scope.
+// gross = Σ (day fraction × per-row gross rate snapshot), the same rule as spec 68
+// cost.ts. Spec 314: each row also freezes the firm WHT % at log time
+// (wht_pct_snapshot); wht = round2(gross × pct/100) computed PER ROW (a mid-period
+// %-change keeps each worked day on its own frozen %), net = gross − wht; a null
+// snapshot means 0% (no withholding). The current-state filter (supersede
 // anti-join + tombstone, ADR 0009/0015) runs here so callers pass raw rows.
 // Pure — no UI, no I/O. Money is rendered only on the PM payroll surfaces
 // (requireRole-gated). ADR 0062: a ช่าง binds on workers.user_id (the payee), so payroll rolls
 // up per worker — there is no contractor grouping.
 
+import { round2 } from "@/lib/format";
 import type { Database } from "@/lib/db/database.types";
 
 type Row = Database["public"]["Tables"]["labor_logs"]["Row"];
@@ -23,22 +28,29 @@ export type PayrollInputRow = Pick<
   | "pay_type_snapshot"
   | "day_fraction"
   | "day_rate_snapshot"
+  | "wht_pct_snapshot"
   | "superseded_by"
   | "work_date"
   | "work_package_id"
 >;
 
+// gross = the firm's labor cost (Σ day-fraction × gross rate snapshot).
+// wht = withholding-at-source remitted for the worker. net = worker take-home.
 export interface WorkerPay {
   workerId: string;
   name: string;
   days: number;
-  amount: number;
+  gross: number;
+  wht: number;
+  net: number;
 }
 
 export interface PayrollReport {
   workers: WorkerPay[];
   totalDays: number;
-  totalAmount: number;
+  totalGross: number;
+  totalWht: number;
+  totalNet: number;
   workerCount: number;
 }
 
@@ -84,32 +96,45 @@ export function aggregatePayroll(
   // worker_id -> rolled-up pay line (the worker is the payee, ADR 0062).
   const byWorker = new Map<string, WorkerPay>();
   let totalDays = 0;
-  let totalAmount = 0;
+  let totalGross = 0;
+  let totalWht = 0;
+  let totalNet = 0;
 
   for (const r of current) {
     const days = fractionDays(r.day_fraction as DayFraction);
-    const amount = days * r.day_rate_snapshot;
+    // Round per row so each worked day carries its own frozen % (a mid-period
+    // %-change never restates an earlier day); the line + grand totals are the
+    // sums of these already-rounded rows.
+    const gross = round2(days * r.day_rate_snapshot);
+    const wht = round2((gross * (r.wht_pct_snapshot ?? 0)) / 100);
+    const net = round2(gross - wht);
 
     const line = byWorker.get(r.worker_id);
     if (line) {
       line.days += days;
-      line.amount += amount;
+      line.gross += gross;
+      line.wht += wht;
+      line.net += net;
     } else {
       byWorker.set(r.worker_id, {
         workerId: r.worker_id,
         name: r.worker_name_snapshot,
         days,
-        amount,
+        gross,
+        wht,
+        net,
       });
     }
 
     totalDays += days;
-    totalAmount += amount;
+    totalGross += gross;
+    totalWht += wht;
+    totalNet += net;
   }
 
   const workers = Array.from(byWorker.values()).sort((a, b) => a.name.localeCompare(b.name, "th"));
 
-  return { workers, totalDays, totalAmount, workerCount: workers.length };
+  return { workers, totalDays, totalGross, totalWht, totalNet, workerCount: workers.length };
 }
 
 // RFC 4180: quote a field that contains a quote, comma, or newline; double
@@ -118,14 +143,33 @@ function csvCell(value: string): string {
   return /[",\n\r]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
 }
 
-const CSV_HEADER = ["ช่าง", "จำนวนวัน", "ค่าแรง (บาท)"];
+// Export-format contract (pinned by the labor-payroll test); the on-screen labels
+// live in labels.ts (PAYROLL_WHT_LABEL / PAYROLL_NET_LABEL) — kept separate so a
+// UI copy change never silently reshapes the CSV columns downstream consumers read.
+const CSV_HEADER = ["ช่าง", "จำนวนวัน", "ค่าแรง (บาท)", "หัก ณ ที่จ่าย", "สุทธิ"];
 
 export function payrollToCsv(report: PayrollReport, _range: PayrollRange): string {
   const lines: string[] = [CSV_HEADER.join(",")];
   for (const w of report.workers) {
-    lines.push([csvCell(w.name), String(w.days), w.amount.toFixed(2)].join(","));
+    lines.push(
+      [
+        csvCell(w.name),
+        String(w.days),
+        w.gross.toFixed(2),
+        w.wht.toFixed(2),
+        w.net.toFixed(2),
+      ].join(","),
+    );
   }
-  lines.push(["รวม", String(report.totalDays), report.totalAmount.toFixed(2)].join(","));
+  lines.push(
+    [
+      "รวม",
+      String(report.totalDays),
+      report.totalGross.toFixed(2),
+      report.totalWht.toFixed(2),
+      report.totalNet.toFixed(2),
+    ].join(","),
+  );
   // UTF-8 BOM so Excel reads Thai correctly.
   return "﻿" + lines.join("\n") + "\n";
 }

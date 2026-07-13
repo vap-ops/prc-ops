@@ -40,6 +40,14 @@ export const WHT_BASIS_BEFORE_LABEL = "ก่อนหักภาษี";
 export const WHT_BASIS_AFTER_LABEL = "หลังหักภาษี";
 export const WHT_PCT_LABEL = "ภาษีหัก ณ ที่จ่าย (%)";
 
+// Spec 314 U4 — payroll withholding/net display terms (the /payroll roll-up + the
+// per-worker cards). The gross figure is the standalone headline (unlabeled, as the
+// pre-314 total was); these two label the WHT/net split beneath it. Single-sourced
+// here so the page never drifts; the CSV export pins its own column headers in
+// payroll.ts.
+export const PAYROLL_WHT_LABEL = "หัก ณ ที่จ่าย";
+export const PAYROLL_NET_LABEL = "สุทธิ";
+
 // Feedback bc6df601 — neutral fallback shown when a display name can't be
 // resolved from its id (e.g. a role that can't read `public.clients` sees a
 // project's client but not its name). The UI must NEVER echo the raw id/UUID;

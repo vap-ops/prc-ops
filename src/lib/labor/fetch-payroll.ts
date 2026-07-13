@@ -33,7 +33,7 @@ export async function fetchPayrollReport(
   const { data: rows, error } = await admin
     .from("labor_logs")
     .select(
-      "id, worker_id, worker_name_snapshot, pay_type_snapshot, day_fraction, day_rate_snapshot, superseded_by, work_date, work_package_id",
+      "id, worker_id, worker_name_snapshot, pay_type_snapshot, day_fraction, day_rate_snapshot, wht_pct_snapshot, superseded_by, work_date, work_package_id",
     )
     .gte("work_date", range.from)
     .lte("work_date", range.to);
