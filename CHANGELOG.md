@@ -1,3 +1,9 @@
+# [0.76.0](https://github.com/VAP-Solution/prc-ops/compare/v0.75.0...v0.76.0) (2026-07-13)
+
+### Features
+
+- **labor:** spec 314 U3 — default daily + derive day_rate + freeze WHT snapshot (ADR 0082) ([#525](https://github.com/VAP-Solution/prc-ops/issues/525)) ([f24b9d1](https://github.com/VAP-Solution/prc-ops/commit/f24b9d10dbfd2dc58867358fe963137ccd8ab495))
+
 # [0.75.0](https://github.com/VAP-Solution/prc-ops/compare/v0.74.0...v0.75.0) (2026-07-13)
 
 ### Features
