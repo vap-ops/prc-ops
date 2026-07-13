@@ -1,3 +1,9 @@
+# [0.71.0](https://github.com/VAP-Solution/prc-ops/compare/v0.70.0...v0.71.0) (2026-07-13)
+
+### Features
+
+- **workers:** DC edit matrix — pay/employment/payee editing in the roster edit sheet ([#520](https://github.com/VAP-Solution/prc-ops/issues/520)) ([b1b881a](https://github.com/VAP-Solution/prc-ops/commit/b1b881a5f5280c395e4f9e5469c1bb9ffa757c12))
+
 # [0.70.0](https://github.com/VAP-Solution/prc-ops/compare/v0.69.0...v0.70.0) (2026-07-13)
 
 ### Features
