@@ -58,12 +58,13 @@ export default async function ProfilePage() {
   // that redirect; this is an additional, narrower read.
   const employeeCard = isEmployeeRole(role) ? await loadProfileCard(supabase, userId) : null;
 
-  // Spec 306 U3a — the caller's own muster check-in QR. current_user_worker_id()
-  // (SECURITY DEFINER, self-scoped to workers.user_id = auth.uid()) returns the
-  // worker id for a bound worker (technician) and null for office staff, so only
-  // people who actually get scanned at the morning muster see the QR.
+  // Spec 306 U3a + operator 2026-07-13 ("QR for every user, for consistency"):
+  // every authenticated user's card shows a QR. Payload = the caller's workers.id
+  // for on-site crew (current_user_worker_id, matches their printed badge + the
+  // muster scanner), else their own account id (identity only, not muster-scannable
+  // — office/external accounts don't muster). userId is always present here.
   const { data: workerId } = await supabase.rpc("current_user_worker_id");
-  const badgeSvg = workerId ? await toWorkerBadgeQrSvg(workerId) : null;
+  const badgeSvg = await toWorkerBadgeQrSvg(workerId ?? userId);
 
   return (
     <PageShell>
@@ -79,7 +80,7 @@ export default async function ProfilePage() {
       </DetailHeader>
       <div className="mx-auto flex w-full max-w-md flex-col gap-6 px-6 py-10">
         {employeeCard ? <EmployeeIdCard card={employeeCard} /> : null}
-        {badgeSvg ? <WorkerBadgeQr svg={badgeSvg} /> : null}
+        <WorkerBadgeQr svg={badgeSvg} />
 
         <DisplayNameForm initialName={initialName} />
 
