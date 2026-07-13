@@ -818,8 +818,11 @@ export const EXPENSE_PROJECT_LABEL = "โครงการ (ถ้ามี)";
 export const EXPENSE_PROJECT_NONE = "— ไม่ระบุโครงการ —";
 export const EXPENSE_DESCRIPTION_LABEL = "รายละเอียด";
 export const EXPENSE_PAYMENT_SOURCE_LABEL = "จ่ายจาก";
-export const PAYMENT_SOURCE_CARD_LABEL = "บัตรเครดิตบริษัท";
-export const PAYMENT_SOURCE_OWN_LABEL = "จ่ายเงินตัวเอง";
+// Spec 310 U11 — short chip labels so จ่ายจาก fits one line (operator 2026-07-13);
+// each pairs with an icon + the คืนเงิน hint below carries the reimburse meaning.
+// สำรองจ่าย (front the money) reads clearer than "จ่ายเงินตัวเอง".
+export const PAYMENT_SOURCE_CARD_LABEL = "บัตรเครดิต";
+export const PAYMENT_SOURCE_OWN_LABEL = "สำรองจ่าย";
 export const PAYMENT_SOURCE_DIRECT_LABEL = "บริษัทจ่ายตรง";
 export const EXPENSE_CARD_PICK_LABEL = "เลือกบัตร";
 // Spec 310 U8 — a user holds one card; no picker, the form shows which card auto-applies.
