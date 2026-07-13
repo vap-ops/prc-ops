@@ -1,3 +1,9 @@
+# [0.65.0](https://github.com/VAP-Solution/prc-ops/compare/v0.64.0...v0.65.0) (2026-07-13)
+
+### Features
+
+- **muster:** ปิดวัน close-day + auto-out display (spec 306 U4) ([#511](https://github.com/VAP-Solution/prc-ops/issues/511)) ([1022349](https://github.com/VAP-Solution/prc-ops/commit/1022349c50b9a2541b758e7fc0b950274d4d4ab0))
+
 # [0.64.0](https://github.com/VAP-Solution/prc-ops/compare/v0.63.0...v0.64.0) (2026-07-13)
 
 ### Features
