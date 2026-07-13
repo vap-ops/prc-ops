@@ -834,7 +834,6 @@ export const EXPENSE_LIST_EMPTY = "ยังไม่มีรายการ";
 // Spec 310 U4 — receipt upload.
 export const EXPENSE_RECEIPT_UPLOAD_LABEL = "แนบใบเสร็จ";
 export const EXPENSE_RECORDED_ATTACH = "บันทึกแล้ว — แนบใบเสร็จได้เลย";
-export const EXPENSE_RECORD_ANOTHER = "บันทึกรายการใหม่";
 // Spec 310 U7 — personal expense dashboard (summary + category chart).
 export const EXPENSE_MONTH_TOTAL_LABEL = "ใช้จ่ายเดือนนี้";
 export const EXPENSE_PENDING_TOTAL_LABEL = "รอคืนเงิน (ของคุณ)";

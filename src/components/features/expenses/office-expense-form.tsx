@@ -101,7 +101,11 @@ function HeldFilePicker({
           <span className="text-ink truncate">{file.name}</span>
           <button
             type="button"
-            onClick={() => onPick(null)}
+            onClick={() => {
+              onPick(null);
+              // Clear the input so re-selecting the SAME file still fires change.
+              if (ref.current) ref.current.value = "";
+            }}
             disabled={disabled}
             aria-label="เอาไฟล์ออก"
             className="text-ink-muted hover:text-ink -mr-1 inline-flex size-8 shrink-0 items-center justify-center rounded-md"
@@ -185,6 +189,12 @@ export function OfficeExpenseForm({
     // row is self-describing (DB requires 1–500 chars).
     const categoryLabel = categories.find((c) => c.id === categoryId)?.labelTh ?? "";
     const effectiveDescription = description.trim() === "" ? categoryLabel : description;
+    // A selected category with no usable label can't self-describe the row — ask
+    // for a description rather than letting the RPC's 1–500 CHECK reject it.
+    if (categoryId !== "" && effectiveDescription.trim() === "") {
+      setError("กรุณาระบุรายละเอียด");
+      return;
+    }
     const parsed = validateOfficeExpense({
       categoryId,
       description: effectiveDescription,
@@ -229,25 +239,25 @@ export function OfficeExpenseForm({
     });
   }
 
-  // A retry slot resolved — drop it; when none remain, close.
+  // A retry slot resolved — drop it; when none remain, close. Side effects run
+  // AFTER the state set (never inside the updater — that would update the parent
+  // sheet mid-render).
   function onRetried(purpose: ExpenseDocPurpose) {
-    setFailedPurposes((prev) => {
-      const next = prev.filter((p) => p !== purpose);
-      if (next.length === 0) {
-        setRecordedId(null);
-        setError(null);
-        resetFields();
-        onDone?.();
-      }
-      return next;
-    });
+    const next = failedPurposes.filter((p) => p !== purpose);
+    setFailedPurposes(next);
     router.refresh();
+    if (next.length === 0) {
+      setRecordedId(null);
+      setError(null);
+      resetFields();
+      onDone?.();
+    }
   }
 
   if (recordedId) {
     return (
-      <div className="border-done-edge bg-done-soft text-done-ink flex flex-col items-start gap-2 rounded-xl border p-4">
-        <span className="text-sm font-medium">{EXPENSE_RECORDED_ATTACH}</span>
+      <div className="border-attn-edge bg-attn-soft text-attn-ink flex flex-col items-start gap-2 rounded-xl border p-4">
+        <span className="text-sm font-medium">{error ?? EXPENSE_RECORDED_ATTACH}</span>
         {failedPurposes.includes("payment_slip") && (
           <ExpenseReceiptUploader
             officeExpenseId={recordedId}
