@@ -1,3 +1,9 @@
+# [0.75.0](https://github.com/VAP-Solution/prc-ops/compare/v0.74.0...v0.75.0) (2026-07-13)
+
+### Features
+
+- **settings:** spec 314 U2 — PM labor-rate editor (/settings/labor-rates) ([#524](https://github.com/VAP-Solution/prc-ops/issues/524)) ([27ea7a2](https://github.com/VAP-Solution/prc-ops/commit/27ea7a27c1a21e8e84d7008a584bbdeb2a770338))
+
 # [0.74.0](https://github.com/VAP-Solution/prc-ops/compare/v0.73.1...v0.74.0) (2026-07-13)
 
 ### Features
