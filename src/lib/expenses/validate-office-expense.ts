@@ -29,8 +29,8 @@ export function validateOfficeExpense(input: OfficeExpenseInput): ValidateResult
   if (!UUID_REGEX.test(input.categoryId)) {
     return { ok: false, error: "กรุณาเลือกประเภทค่าใช้จ่าย" };
   }
+  // Spec 310 U10 — รายละเอียด is optional now (operator 2026-07-13). Empty is fine.
   const description = input.description.trim();
-  if (description.length === 0) return { ok: false, error: "กรุณาระบุรายละเอียด" };
   if (description.length > 500) return { ok: false, error: "รายละเอียดต้องไม่เกิน 500 ตัวอักษร" };
 
   if (!Number.isFinite(input.amount) || input.amount <= 0) {

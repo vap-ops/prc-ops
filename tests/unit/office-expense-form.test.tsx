@@ -1,6 +1,7 @@
-// Spec 310 U3 — behavior coverage for the office-expense form: own_money records
-// straight through; company_card requires a card + shows the holder as the
-// reimburse-target; empty amount blocks.
+// Spec 310 U3/U10 — behavior coverage for the office-expense form: own_money
+// records straight through and closes the sheet (onDone); company_card auto-uses
+// the holder's card; a blank รายละเอียด falls back to the category label; a held
+// attachment uploads on submit; empty amount blocks.
 
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -8,6 +9,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const recordOfficeExpense = vi.fn(async (_i: unknown) => ({ ok: true, id: "e1" }) as const);
 vi.mock("@/app/expenses/actions", () => ({
   recordOfficeExpense: (i: unknown) => recordOfficeExpense(i),
+}));
+const uploadExpenseReceiptFile = vi.fn(async () => ({ ok: true }) as const);
+vi.mock("@/lib/expenses/upload-expense-receipt", () => ({
+  uploadExpenseReceiptFile: (...a: unknown[]) => uploadExpenseReceiptFile(...(a as [])),
 }));
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
@@ -22,7 +27,6 @@ import {
   EXPENSE_AMOUNT_LABEL,
   EXPENSE_CATEGORY_LABEL,
   EXPENSE_DESCRIPTION_LABEL,
-  EXPENSE_RECORDED_ATTACH,
   EXPENSE_SUBMIT_LABEL,
   PAYMENT_SOURCE_CARD_LABEL,
 } from "@/lib/i18n/labels";
@@ -43,12 +47,21 @@ const myCard: CompanyCard = {
 
 beforeEach(() => {
   recordOfficeExpense.mockClear();
+  uploadExpenseReceiptFile.mockClear();
   refresh.mockClear();
 });
 
 describe("OfficeExpenseForm", () => {
-  it("records an own_money expense with the entered fields (reimburse resolved server-side)", async () => {
-    render(<OfficeExpenseForm categories={categories} projects={projects} myCard={myCard} />);
+  it("records an own_money expense and closes the sheet (onDone) on a clean save", async () => {
+    const onDone = vi.fn();
+    render(
+      <OfficeExpenseForm
+        categories={categories}
+        projects={projects}
+        myCard={myCard}
+        onDone={onDone}
+      />,
+    );
     fireEvent.change(screen.getByLabelText(EXPENSE_CATEGORY_LABEL), { target: { value: CAT } });
     fireEvent.change(screen.getByLabelText(EXPENSE_AMOUNT_LABEL), { target: { value: "250" } });
     fireEvent.change(screen.getByLabelText(EXPENSE_DESCRIPTION_LABEL), {
@@ -68,17 +81,63 @@ describe("OfficeExpenseForm", () => {
         }),
       ),
     );
-    // after recording, the receipt uploader block appears for the new expense (U4)
-    await waitFor(() => expect(screen.getByText(EXPENSE_RECORDED_ATTACH)).toBeTruthy());
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+  });
+
+  it("falls back to the category label when รายละเอียด is left blank", async () => {
+    render(
+      <OfficeExpenseForm
+        categories={categories}
+        projects={projects}
+        myCard={myCard}
+        onDone={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText(EXPENSE_CATEGORY_LABEL), { target: { value: CAT } });
+    fireEvent.change(screen.getByLabelText(EXPENSE_AMOUNT_LABEL), { target: { value: "100" } });
+    // description left empty
+    fireEvent.click(screen.getByRole("button", { name: EXPENSE_SUBMIT_LABEL }));
+
+    await waitFor(() =>
+      expect(recordOfficeExpense).toHaveBeenCalledWith(
+        expect.objectContaining({ description: "น้ำมัน" }),
+      ),
+    );
+  });
+
+  it("uploads a held slip attachment on submit", async () => {
+    const { container } = render(
+      <OfficeExpenseForm
+        categories={categories}
+        projects={projects}
+        myCard={myCard}
+        onDone={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText(EXPENSE_CATEGORY_LABEL), { target: { value: CAT } });
+    fireEvent.change(screen.getByLabelText(EXPENSE_AMOUNT_LABEL), { target: { value: "300" } });
+    // pick a slip into the first (slip) held-file input
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["x"], "slip.jpg", { type: "image/jpeg" });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    fireEvent.click(screen.getByRole("button", { name: EXPENSE_SUBMIT_LABEL }));
+
+    await waitFor(() =>
+      expect(uploadExpenseReceiptFile).toHaveBeenCalledWith("e1", expect.any(File), "payment_slip"),
+    );
   });
 
   it("company_card auto-uses the holder's one card (no picker) and reimburses the holder", async () => {
-    render(<OfficeExpenseForm categories={categories} projects={projects} myCard={myCard} />);
+    render(
+      <OfficeExpenseForm
+        categories={categories}
+        projects={projects}
+        myCard={myCard}
+        onDone={vi.fn()}
+      />,
+    );
     fireEvent.change(screen.getByLabelText(EXPENSE_CATEGORY_LABEL), { target: { value: CAT } });
     fireEvent.change(screen.getByLabelText(EXPENSE_AMOUNT_LABEL), { target: { value: "500" } });
-    fireEvent.change(screen.getByLabelText(EXPENSE_DESCRIPTION_LABEL), {
-      target: { value: "น้ำมัน" },
-    });
     // pick the company-card source (a button) — no picker; the holder shows as the target
     fireEvent.click(screen.getByRole("button", { name: PAYMENT_SOURCE_CARD_LABEL }));
     expect(screen.getByText(/คืนเงินให้.*Pattrawut/)).toBeTruthy();
@@ -91,12 +150,26 @@ describe("OfficeExpenseForm", () => {
   });
 
   it("hides the company-card source when the user holds no card", () => {
-    render(<OfficeExpenseForm categories={categories} projects={projects} myCard={null} />);
+    render(
+      <OfficeExpenseForm
+        categories={categories}
+        projects={projects}
+        myCard={null}
+        onDone={vi.fn()}
+      />,
+    );
     expect(screen.queryByRole("button", { name: PAYMENT_SOURCE_CARD_LABEL })).toBeNull();
   });
 
   it("blocks submit with an empty amount", () => {
-    render(<OfficeExpenseForm categories={categories} projects={projects} myCard={myCard} />);
+    render(
+      <OfficeExpenseForm
+        categories={categories}
+        projects={projects}
+        myCard={myCard}
+        onDone={vi.fn()}
+      />,
+    );
     fireEvent.change(screen.getByLabelText(EXPENSE_CATEGORY_LABEL), { target: { value: CAT } });
     fireEvent.change(screen.getByLabelText(EXPENSE_DESCRIPTION_LABEL), {
       target: { value: "x" },

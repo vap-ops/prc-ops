@@ -10,17 +10,8 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { addExpenseReceipt } from "@/app/expenses/actions";
-import { createClient } from "@/lib/db/browser";
-import { buildExpenseAttachmentPath } from "@/lib/expenses/attachment-path";
-import { preparePhotoForUpload } from "@/lib/photos/downscale";
-import {
-  ATTACHMENT_ACCEPT_MIME,
-  attachmentExtToMime,
-  isPdfMime,
-  type AttachmentExt,
-} from "@/lib/purchasing/attachment-file";
-import { classifyStorageUploadError } from "@/lib/photos/upload-queue";
+import { ATTACHMENT_ACCEPT_MIME } from "@/lib/purchasing/attachment-file";
+import { uploadExpenseReceiptFile } from "@/lib/expenses/upload-expense-receipt";
 import type { ExpenseDocPurpose } from "@/app/expenses/actions";
 import { BUTTON_SECONDARY_MUTED, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
 
@@ -48,48 +39,8 @@ export function ExpenseReceiptUploader({
     setError(null);
 
     for (const file of Array.from(files)) {
-      let blob: Blob;
-      let ext: AttachmentExt;
-      if (isPdfMime(file.type)) {
-        blob = file;
-        ext = "pdf";
-      } else {
-        const prepared = await preparePhotoForUpload(file);
-        if (!prepared) {
-          setPhase("error");
-          setError("ไฟล์นี้ไม่รองรับ กรุณาเลือกรูปภาพหรือ PDF");
-          continue;
-        }
-        blob = prepared.blob;
-        ext = prepared.ext;
-      }
-      const attachmentId = crypto.randomUUID();
-      const path = buildExpenseAttachmentPath(officeExpenseId, attachmentId, ext);
-      if (!path) {
-        setPhase("error");
-        setError("แนบใบเสร็จไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
-        continue;
-      }
-
       setPhase("uploading");
-      const supabase = createClient();
-      const { error: uploadError } = await supabase.storage
-        .from("expense-attachments")
-        .upload(path, blob, { upsert: false, contentType: attachmentExtToMime(ext) });
-      if (uploadError && !classifyStorageUploadError(uploadError).alreadyExists) {
-        setPhase("error");
-        setError("ส่งใบเสร็จไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
-        continue;
-      }
-
-      setPhase("saving");
-      let result: Awaited<ReturnType<typeof addExpenseReceipt>>;
-      try {
-        result = await addExpenseReceipt({ officeExpenseId, attachmentId, ext, purpose });
-      } catch (err) {
-        console.error("[expense-receipt-uploader] action invocation failed", err);
-        result = { ok: false, error: "แนบใบเสร็จไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
-      }
+      const result = await uploadExpenseReceiptFile(officeExpenseId, file, purpose);
       if (!result.ok) {
         setPhase("error");
         setError(result.error);
