@@ -3163,6 +3163,7 @@ export type Database = {
           pay_type_snapshot: Database["public"]["Enums"]["pay_type"]
           self_logged: boolean
           superseded_by: string | null
+          wht_pct_snapshot: number | null
           work_date: string
           work_package_id: string
           worker_id: string
@@ -3179,6 +3180,7 @@ export type Database = {
           pay_type_snapshot: Database["public"]["Enums"]["pay_type"]
           self_logged?: boolean
           superseded_by?: string | null
+          wht_pct_snapshot?: number | null
           work_date: string
           work_package_id: string
           worker_id: string
@@ -3195,6 +3197,7 @@ export type Database = {
           pay_type_snapshot?: Database["public"]["Enums"]["pay_type"]
           self_logged?: boolean
           superseded_by?: string | null
+          wht_pct_snapshot?: number | null
           work_date?: string
           work_package_id?: string
           worker_id?: string
@@ -8269,7 +8272,7 @@ export type Database = {
           p_day_rate?: number
           p_employment_type?: Database["public"]["Enums"]["employment_type"]
           p_id: string
-          p_pay_type: Database["public"]["Enums"]["pay_type"]
+          p_pay_type?: Database["public"]["Enums"]["pay_type"]
         }
         Returns: string
       }

@@ -7,8 +7,10 @@
 import type { Database } from "@/lib/db/database.types";
 
 type Row = Database["public"]["Tables"]["labor_logs"]["Row"];
-// Everything the column-scoped grant exposes (no rate snapshot).
-export type LaborLogRow = Omit<Row, "day_rate_snapshot">;
+// Everything the column-scoped grant exposes — the money snapshots
+// (day_rate_snapshot, wht_pct_snapshot — spec 314 U3) are zero-grant, so the
+// authenticated read never carries them.
+export type LaborLogRow = Omit<Row, "day_rate_snapshot" | "wht_pct_snapshot">;
 
 export function currentLaborLogs(rows: LaborLogRow[]): LaborLogRow[] {
   const supersededIds = new Set(
