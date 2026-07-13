@@ -1,3 +1,9 @@
+# [0.64.0](https://github.com/VAP-Solution/prc-ops/compare/v0.63.0...v0.64.0) (2026-07-13)
+
+### Features
+
+- **expenses:** FAB + bottom-sheet record form, attachments-on-top (spec 310 U10) ([#510](https://github.com/VAP-Solution/prc-ops/issues/510)) ([cc3baf5](https://github.com/VAP-Solution/prc-ops/commit/cc3baf544a8b758bbc6652f17e29346eb9e1d7a9))
+
 # [0.63.0](https://github.com/VAP-Solution/prc-ops/compare/v0.62.0...v0.63.0) (2026-07-13)
 
 ### Features
