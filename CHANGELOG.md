@@ -1,3 +1,9 @@
+# [0.63.0](https://github.com/VAP-Solution/prc-ops/compare/v0.62.0...v0.63.0) (2026-07-13)
+
+### Features
+
+- **muster:** SA scan check-in/out cockpit (spec 306 U3) ([#509](https://github.com/VAP-Solution/prc-ops/issues/509)) ([aadc47a](https://github.com/VAP-Solution/prc-ops/commit/aadc47ae63e7f679cd2da95a1f0b1f3e35e4a65e))
+
 # [0.62.0](https://github.com/VAP-Solution/prc-ops/compare/v0.61.0...v0.62.0) (2026-07-12)
 
 ### Features
