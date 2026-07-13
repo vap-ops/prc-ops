@@ -1,3 +1,9 @@
+# [0.70.0](https://github.com/VAP-Solution/prc-ops/compare/v0.69.0...v0.70.0) (2026-07-13)
+
+### Features
+
+- **313:** /team people hub + /sa/crew\* redirects (U1) ([#518](https://github.com/VAP-Solution/prc-ops/issues/518)) ([82bb442](https://github.com/VAP-Solution/prc-ops/commit/82bb442b19de8c509bd41b79639ab2f5f39fcfb7))
+
 # [0.69.0](https://github.com/VAP-Solution/prc-ops/compare/v0.68.0...v0.69.0) (2026-07-13)
 
 ### Features
