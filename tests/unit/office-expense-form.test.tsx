@@ -29,6 +29,8 @@ import {
   EXPENSE_DESCRIPTION_LABEL,
   EXPENSE_SUBMIT_LABEL,
   PAYMENT_SOURCE_CARD_LABEL,
+  PAYMENT_SOURCE_OWN_LABEL,
+  PAYMENT_SOURCE_DIRECT_LABEL,
 } from "@/lib/i18n/labels";
 
 const CAT = "11111111-1111-1111-1111-111111111111";
@@ -159,6 +161,25 @@ describe("OfficeExpenseForm", () => {
       />,
     );
     expect(screen.queryByRole("button", { name: PAYMENT_SOURCE_CARD_LABEL })).toBeNull();
+  });
+
+  it("shows an icon on each payment-source chip", () => {
+    render(
+      <OfficeExpenseForm
+        categories={categories}
+        projects={projects}
+        myCard={myCard}
+        onDone={vi.fn()}
+      />,
+    );
+    for (const name of [
+      PAYMENT_SOURCE_CARD_LABEL,
+      PAYMENT_SOURCE_OWN_LABEL,
+      PAYMENT_SOURCE_DIRECT_LABEL,
+    ]) {
+      const chip = screen.getByRole("button", { name });
+      expect(chip.querySelector("svg")).toBeTruthy();
+    }
   });
 
   it("blocks submit with an empty amount", () => {

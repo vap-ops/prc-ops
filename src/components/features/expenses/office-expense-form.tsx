@@ -11,7 +11,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Paperclip, X } from "lucide-react";
+import { Building2, CreditCard, Paperclip, Wallet, X, type LucideIcon } from "lucide-react";
 
 import { recordOfficeExpense } from "@/app/expenses/actions";
 import type { ExpenseDocPurpose } from "@/app/expenses/actions";
@@ -60,16 +60,20 @@ const SELECT =
   "rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action h-11 w-full min-w-0 border px-2 text-sm shadow-xs focus:outline-none focus-visible:ring-2";
 const LABEL = "text-ink flex flex-col gap-1 text-sm font-medium";
 
-const SOURCES: { value: PaymentSource; label: string }[] = [
-  { value: "company_card", label: PAYMENT_SOURCE_CARD_LABEL },
-  { value: "own_money", label: PAYMENT_SOURCE_OWN_LABEL },
-  { value: "company_direct", label: PAYMENT_SOURCE_DIRECT_LABEL },
+const SOURCES: { value: PaymentSource; label: string; Icon: LucideIcon }[] = [
+  { value: "company_card", label: PAYMENT_SOURCE_CARD_LABEL, Icon: CreditCard },
+  { value: "own_money", label: PAYMENT_SOURCE_OWN_LABEL, Icon: Wallet },
+  { value: "company_direct", label: PAYMENT_SOURCE_DIRECT_LABEL, Icon: Building2 },
 ];
 
 function chipClass(active: boolean): string {
+  // Equal-width tiles (flex-1) with the icon above a short label — one row at any
+  // width (never wraps), symbol carries the type (spec 310 U11).
+  const base =
+    "flex flex-1 flex-col items-center gap-1 rounded-control border px-1.5 py-2 text-center text-xs leading-tight font-medium";
   return active
-    ? "border-action bg-action-soft text-action rounded-control border px-3 py-2 text-sm font-medium"
-    : "border-edge bg-card text-ink-soft rounded-control border px-3 py-2 text-sm font-medium";
+    ? `border-action bg-action-soft text-action ${base}`
+    : `border-edge bg-card text-ink-soft ${base}`;
 }
 
 // A held file slot — pick a file into local state (uploaded on submit), or clear
@@ -373,7 +377,7 @@ export function OfficeExpenseForm({
 
         <div className="flex flex-col gap-1">
           <span className="text-ink text-sm font-medium">{EXPENSE_PAYMENT_SOURCE_LABEL}</span>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex gap-2">
             {sources.map((s) => (
               <button
                 key={s.value}
@@ -383,7 +387,8 @@ export function OfficeExpenseForm({
                 aria-pressed={paymentSource === s.value}
                 className={chipClass(paymentSource === s.value)}
               >
-                {s.label}
+                <s.Icon aria-hidden className="size-5 shrink-0" />
+                <span>{s.label}</span>
               </button>
             ))}
           </div>
