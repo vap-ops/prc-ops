@@ -144,14 +144,12 @@ const STATIC_DETAIL = [
   // Spec 273 U2: the SA next-day work board (แผนพรุ่งนี้) drills down from /sa
   // (back chip → /sa). A separate daily-plan layer, not the master schedule.
   "sa/plan",
-  // Temporary — the SA crew/onboarding page drills down from /sa (back chip → /sa):
-  // the project roster + the technician self-onboard QR.
-  "sa/crew",
   // Spec 299: the SA help hub (คู่มือ) drills down from /sa (back chip → /sa).
   "sa/help",
-  // Spec 306 U1: the printable QR badge sheet drills down from /sa/crew
-  // (back chip → /sa/crew).
-  "sa/crew/badges",
+  // Spec 313 U1: the printable QR badge sheet moved with its /team parent
+  // (back chip → /team). Its former /sa/crew/badges route is now a thin redirect
+  // (EXCLUDED below).
+  "team/badges",
 ].map((r) => `${r}/page.tsx`);
 // Spec 234: the external /client tree is bespoke (own header + logout, no app
 // DetailHeader — like /portal), so its dynamic drill (/client/[projectId]) is
@@ -169,6 +167,8 @@ const DETAIL_ROUTES = [...dynamicDetail, ...STATIC_DETAIL];
 // + HubNav, no back chip), like /projects.
 const NON_DETAIL_ROUTES = [
   "sa",
+  // Spec 313 U1: the /team people hub — BottomTabBar + HubNav chrome, no back chip.
+  "team",
   "review",
   "projects",
   "settings",
@@ -226,6 +226,10 @@ const EXCLUDED_ROUTES = [
   // Client WP-detail drill: bespoke (ClientWpDetailView's own header + logout
   // + back chip, no app DetailHeader), same as client/[projectId]/page.tsx.
   "client/[projectId]/wp/[wpId]/page.tsx",
+  // Spec 313 U1: the /sa/crew* surfaces moved to /team* — these are now thin
+  // redirects (neither header), like the store/stock-count redirects above.
+  "sa/crew/page.tsx",
+  "sa/crew/badges/page.tsx",
 ];
 
 describe("nav back-affordance (spec 63)", () => {
@@ -277,9 +281,16 @@ describe("referrer-aware back chips (multi-parent details use safeBackHref)", ()
 // sm:hidden) the strip is its only nav affordance. Every primary-tab hub must
 // render it; /portal is the documented exception (its own header + logout).
 describe("desktop hub-strip coverage (spec 153)", () => {
-  const HUB_STRIP_ROUTES = ["sa", "review", "projects", "requests", "settings", "dashboard"].map(
-    (r) => `${r}/page.tsx`,
-  );
+  const HUB_STRIP_ROUTES = [
+    "sa",
+    // Spec 313 U1: the /team people hub renders the desktop HubNav strip.
+    "team",
+    "review",
+    "projects",
+    "requests",
+    "settings",
+    "dashboard",
+  ].map((r) => `${r}/page.tsx`);
 
   it.each(HUB_STRIP_ROUTES)("hub route %s renders HubNav", (route) => {
     expect(reads(join(APP, route))).toContain("HubNav");

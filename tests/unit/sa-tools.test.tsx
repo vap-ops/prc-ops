@@ -40,9 +40,9 @@ describe("SaTools", () => {
     expect(screen.getByRole("link", { name: /ตารางงาน/ })).toHaveAttribute("href", "/projects");
   });
 
-  it("links the ทีมงาน tile to the crew/onboarding page", () => {
+  it("links the ทีมงาน tile to the /team people hub (spec 313 U1)", () => {
     render(<SaTools primaryProjectId="p1" showCloseNudge={false} />);
-    expect(screen.getByRole("link", { name: /ทีมงาน/ })).toHaveAttribute("href", "/sa/crew");
+    expect(screen.getByRole("link", { name: /ทีมงาน/ })).toHaveAttribute("href", "/team");
   });
 
   it("links the คู่มือ tile to the in-app help hub (spec 299 U1)", () => {

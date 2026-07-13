@@ -80,7 +80,7 @@ export function SaTools({
         {/* Temporary — SA-assisted onboarding: the crew roster + the technician
             self-onboard QR. Full-width row below the tools grid. */}
         <Tile
-          href="/sa/crew"
+          href="/team"
           icon={Users}
           accent="text-cat-w06"
           title="ทีมงาน"
