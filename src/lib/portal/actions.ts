@@ -167,8 +167,13 @@ export async function decideWorkerBankChange(input: {
     .maybeSingle();
   // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
   const effectiveRole = await applyAssumedRole(me?.role);
-  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
-    return { ok: false, error: "เฉพาะผู้จัดการโครงการเท่านั้นที่อนุมัติได้" };
+  // DC edit matrix (2026-07-13): procurement_manager joins the WORKER bank-change
+  // deciders — it owns ช่าง onboarding (spec 261 / ADR 0070; completes the
+  // capture-blind bank transcribe, spec 298 U3), mirroring the widened
+  // decide_worker_bank_change RPC gate. Plain procurement stays OUT (buyer, not an
+  // approver of worker money). The CONTRACTOR path (decideBankChange) is unchanged.
+  if (!effectiveRole || ![...PM_ROLES, "procurement_manager"].includes(effectiveRole)) {
+    return { ok: false, error: "คุณไม่มีสิทธิ์อนุมัติการเปลี่ยนบัญชี" };
   }
 
   const { error } = await auth.supabase.rpc("decide_worker_bank_change", {

@@ -2,8 +2,14 @@
 // behind the dashboard's bank-change awareness card: every pending change in one
 // place with an inline approve/reject, instead of hunting through the contractor
 // list. Bank fields are money (zero authenticated grant) → admin-read behind the
-// requireRole(PM_ROLES) gate, exactly like the contractor detail page. Deciders
-// are pm/super/director (the decide RPC gate); procurement is excluded.
+// requireRole gate, exactly like the contractor detail page.
+//
+// DC edit matrix (2026-07-13): the gate widens to PM_ROLES + procurement_manager so
+// procurement_manager can approve WORKER bank changes (it owns ช่าง onboarding) —
+// matching the widened decide_worker_bank_change RPC. CONTRACTOR deciders stay
+// pm/super/director (decideBankChange + its RPC unchanged), so a procurement_manager
+// sees contractor rows here too but a contractor decide returns 42501 (the RPC
+// refuses). Plain procurement remains excluded from the page entirely.
 
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
@@ -25,7 +31,7 @@ export const metadata = { title: "การเปลี่ยนบัญชี�
 const REVALIDATE = "/contacts/bank-changes";
 
 export default async function BankChangeQueuePage() {
-  const ctx = await requireRole(PM_ROLES);
+  const ctx = await requireRole([...PM_ROLES, "procurement_manager"]);
   const admin = createAdminSupabase();
 
   // Both queues at once: contractor changes (→ contact_bank) and worker changes
