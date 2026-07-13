@@ -1,3 +1,9 @@
+# [0.68.0](https://github.com/VAP-Solution/prc-ops/compare/v0.67.0...v0.68.0) (2026-07-13)
+
+### Features
+
+- **expenses:** payment-source สำรองจ่าย icon → cash (Banknote) (spec 310 U12) ([#514](https://github.com/VAP-Solution/prc-ops/issues/514)) ([7197cae](https://github.com/VAP-Solution/prc-ops/commit/7197cae88df38b4b9a09951311858c7dd72cf29d))
+
 # [0.67.0](https://github.com/VAP-Solution/prc-ops/compare/v0.66.0...v0.67.0) (2026-07-13)
 
 ### Features
