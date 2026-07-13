@@ -35,6 +35,11 @@ grant insert on _tap_buf to authenticated, anon;
 grant select on _tap_buf to authenticated, anon;
 grant usage  on sequence _tap_buf_ord_seq to authenticated, anon;
 
+-- office_expenses is a real table with committed production rows; the finance-role
+-- (accounting) asserts below see ALL of them under RLS. Every "where
+-- payment_source='company_card'" probe is therefore scoped to the fixture submitter
+-- (a3) so it selects THIS test's card expense, never a real committed one.
+
 -- ===== procurement records an own_money expense -> reimburse = caller =====
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000000a3"}';
@@ -46,7 +51,7 @@ $$, 'procurement can record own_money expense');
 
 -- control: no card expense yet
 select is(
-  (select reimburse_to_user_id from public.office_expenses where payment_source='company_card' limit 1),
+  (select reimburse_to_user_id from public.office_expenses where payment_source='company_card' and submitted_by = '00000000-0000-0000-0000-0000000000a3' limit 1),
   null::uuid, 'no card expense yet (control)');
 
 -- ===== card source resolves holder =====
@@ -58,7 +63,7 @@ select lives_ok($$
 $$, 'card expense records');
 
 select is(
-  (select reimburse_to_user_id from public.office_expenses where payment_source='company_card' limit 1),
+  (select reimburse_to_user_id from public.office_expenses where payment_source='company_card' and submitted_by = '00000000-0000-0000-0000-0000000000a3' limit 1),
   '00000000-0000-0000-0000-0000000000a5'::uuid,
   'company_card reimburse-target = card holder');
 
@@ -84,20 +89,20 @@ $$, '42501', null, 'technician (not an office role) cannot record');
 set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000000a3"}';
 select throws_ok($$
   select public.mark_expense_reimbursed(
-    (select id from public.office_expenses where payment_source='company_card' limit 1))
+    (select id from public.office_expenses where payment_source='company_card' and submitted_by = '00000000-0000-0000-0000-0000000000a3' limit 1))
 $$, '42501', null, 'non-finance cannot mark reimbursed');
 
 set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000000a2"}';
 select lives_ok($$
   select public.mark_expense_reimbursed(
-    (select id from public.office_expenses where payment_source='company_card' limit 1))
+    (select id from public.office_expenses where payment_source='company_card' and submitted_by = '00000000-0000-0000-0000-0000000000a3' limit 1))
 $$, 'accounting can mark reimbursed');
 select isnt(
-  (select reimbursed_at from public.office_expenses where payment_source='company_card' limit 1),
+  (select reimbursed_at from public.office_expenses where payment_source='company_card' and submitted_by = '00000000-0000-0000-0000-0000000000a3' limit 1),
   null, 'reimbursed_at set');
 select throws_ok($$
   select public.mark_expense_reimbursed(
-    (select id from public.office_expenses where payment_source='company_card' limit 1))
+    (select id from public.office_expenses where payment_source='company_card' and submitted_by = '00000000-0000-0000-0000-0000000000a3' limit 1))
 $$, 'P0001', null, 'cannot double-mark an already-reimbursed expense');
 
 -- ===== upsert_company_card gated to super_admin =====
