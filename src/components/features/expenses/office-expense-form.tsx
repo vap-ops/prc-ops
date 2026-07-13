@@ -11,7 +11,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, CreditCard, Paperclip, Wallet, X, type LucideIcon } from "lucide-react";
+import { Banknote, Building2, CreditCard, Paperclip, X, type LucideIcon } from "lucide-react";
 
 import { recordOfficeExpense } from "@/app/expenses/actions";
 import type { ExpenseDocPurpose } from "@/app/expenses/actions";
@@ -62,7 +62,7 @@ const LABEL = "text-ink flex flex-col gap-1 text-sm font-medium";
 
 const SOURCES: { value: PaymentSource; label: string; Icon: LucideIcon }[] = [
   { value: "company_card", label: PAYMENT_SOURCE_CARD_LABEL, Icon: CreditCard },
-  { value: "own_money", label: PAYMENT_SOURCE_OWN_LABEL, Icon: Wallet },
+  { value: "own_money", label: PAYMENT_SOURCE_OWN_LABEL, Icon: Banknote },
   { value: "company_direct", label: PAYMENT_SOURCE_DIRECT_LABEL, Icon: Building2 },
 ];
 
