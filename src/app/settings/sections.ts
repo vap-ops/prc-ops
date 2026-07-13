@@ -7,6 +7,7 @@ import {
   CreditCard,
   Eye,
   Files,
+  Coins,
   Hammer,
   HardHat,
   HeartPulse,
@@ -34,6 +35,8 @@ import {
   CARD_REGISTRY_LABEL,
   CATALOG_LABEL,
   EQUIPMENT_RENTAL_LABEL,
+  LABOR_RATES_HINT,
+  LABOR_RATES_LABEL,
   OFFICE_EXPENSE_HINT,
   OFFICE_EXPENSE_NAV_LABEL,
   ORDERING_TEMPLATES_LABEL,
@@ -193,6 +196,18 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         icon: Wallet,
         label: "ค่าแรง",
         hint: "สรุปค่าแรงรายวัน · ส่งออก CSV",
+      },
+      // Spec 314 / ADR 0082: the firm-wide standard day-rate per skill level + WHT.
+      // Money-set (writes to worker_level_rates / labor_wht_config via DEFINER RPCs)
+      // — gated NARROWER than the section: procurement_manager + super_admin only,
+      // matching the RPCs' exact gate. project_manager/procurement keep roster+payroll.
+      {
+        kind: "link",
+        href: "/settings/labor-rates",
+        icon: Coins,
+        label: LABOR_RATES_LABEL,
+        hint: LABOR_RATES_HINT,
+        visible: (role) => role === "procurement_manager" || role === "super_admin",
       },
     ],
   },
