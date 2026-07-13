@@ -116,6 +116,8 @@ const STATIC_DETAIL = [
   "settings/integrity",
   // Spec 310: the company-card registry drills down from /settings (back chip).
   "settings/cards",
+  // Spec 314 U2: the level-standard labor-rate editor drills down from /settings (back chip).
+  "settings/labor-rates",
   // Spec 310: the office-expense surface drills down from /settings (back chip).
   "expenses",
   // Spec 162: the Nova operator console drills down from /settings (back chip).

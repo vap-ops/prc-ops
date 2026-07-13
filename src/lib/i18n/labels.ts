@@ -24,6 +24,22 @@ export const SUBCONTRACTOR_LABEL = "ผู้รับเหมาช่วง";
 export const WORKER_LABEL = "ช่าง";
 export const WORKER_TEAM_LABEL = "ทีมช่าง";
 
+// Spec 314 / ADR 0082 — the firm-wide standard day-rate per skill level + WHT.
+// PM-maintained (procurement_manager/super_admin); the /settings/labor-rates door.
+// (The worker-level Thai labels reuse WORKER_LEVEL_LABEL from src/lib/nova/dials.ts
+// — the established SSOT used by the roster/nova/SA surfaces; don't re-declare it.)
+export const LABOR_RATES_LABEL = "ค่าแรงมาตรฐาน";
+export const LABOR_RATES_HINT = "อัตราค่าแรงมาตรฐานต่อระดับฝีมือ · ภาษีหัก ณ ที่จ่าย";
+export const LABOR_RATE_INPUT_LABEL = "อัตรา/วัน (บาท)";
+export const LABOR_RATE_GROSS_LABEL = "ค่าแรงเต็ม";
+export const LABOR_RATE_UNSET = "ยังไม่กำหนด";
+export const LABOR_RATE_SAVE_LABEL = "บันทึก";
+export const LABOR_RATE_NUMBER_ERROR = "กรอกเป็นตัวเลขเท่านั้น (ไม่ใส่จุลภาค)";
+export const WHT_BASIS_LABEL = "ฐานภาษี";
+export const WHT_BASIS_BEFORE_LABEL = "ก่อนหักภาษี";
+export const WHT_BASIS_AFTER_LABEL = "หลังหักภาษี";
+export const WHT_PCT_LABEL = "ภาษีหัก ณ ที่จ่าย (%)";
+
 // Feedback bc6df601 — neutral fallback shown when a display name can't be
 // resolved from its id (e.g. a role that can't read `public.clients` sees a
 // project's client but not its name). The UI must NEVER echo the raw id/UUID;
