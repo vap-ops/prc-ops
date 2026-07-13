@@ -1,3 +1,9 @@
+# [0.73.0](https://github.com/VAP-Solution/prc-ops/compare/v0.72.0...v0.73.0) (2026-07-13)
+
+### Features
+
+- **workers:** admit procurement_manager to decide_worker_bank_change gate ([#519](https://github.com/VAP-Solution/prc-ops/issues/519)) ([3ef02ca](https://github.com/VAP-Solution/prc-ops/commit/3ef02ca53c166ed8640b3ad1431bc5f0ee885423))
+
 # [0.72.0](https://github.com/VAP-Solution/prc-ops/compare/v0.71.0...v0.72.0) (2026-07-13)
 
 ### Features
