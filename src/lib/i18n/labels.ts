@@ -49,6 +49,9 @@ export const WP_LEAF_LABEL = "งานย่อย";
 // (U2) and the morning worklist (U3) can't drift. Button microcopy (มาทำ /
 // ทั้งหมดมาทำ / เพิ่ม+งานย่อย) is composed where used.
 export const DAILY_WORK_PLAN_LABEL = "แผนพรุ่งนี้";
+// Spec 306 U3 — the morning-talk muster (check-in). SSOT'd because the project
+// cockpit CTA, the /projects/[id]/muster page title + header all name it.
+export const MUSTER_LABEL = "เช็คชื่อ";
 export const SUBWP_RESPONSIBLE_LABEL = "ผู้รับผิดชอบงานย่อย";
 // Spec 273 U5 — relative-day qualifiers for the date-navigable board stepper (and
 // the /sa "แก้ไขแผนวันนี้" deep-link). SSOT'd because both surfaces use them.

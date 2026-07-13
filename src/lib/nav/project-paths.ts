@@ -68,6 +68,13 @@ export function deliveryReceiveHref(projectId: string, deliveryId: string): stri
   return `/projects/${projectId}/incoming/${deliveryId}`;
 }
 
+// Spec 306 U3: the morning-talk muster cockpit — where the SA forms teams and
+// scans/taps ช่าง in (and out) for the day. Site-facing (site_admin/super_admin),
+// on the project cockpit where SAs actually live (not the dead /sa).
+export function musterHref(projectId: string): string {
+  return `/projects/${projectId}/muster`;
+}
+
 // Spec 275 U5: the equipment-rental recorder relocated from the settings hub
 // (spec 268) into the project — a rental is project-driven, so it records + lists
 // THIS project's rentals and auto-allocates each to it. Money-gated

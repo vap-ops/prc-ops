@@ -8,6 +8,7 @@ import {
   ClipboardList,
   FileText,
   Forklift,
+  ScanLine,
   Settings,
   Truck,
   Warehouse,
@@ -22,6 +23,7 @@ import {
 } from "@/lib/auth/role-home";
 import {
   projectSettingsHref,
+  musterHref,
   rentalsHref,
   reportsHref,
   scheduleHref,
@@ -37,6 +39,7 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import {
   DAILY_WORK_PLAN_LABEL,
   EQUIPMENT_RENTAL_LABEL,
+  MUSTER_LABEL,
   PROJECT_STATUS_LABEL,
   STORE_LABEL,
   STORE_INCOMING_HEADING,
@@ -282,6 +285,18 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
       </DetailHeader>
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
+        {/* Spec 306 U3: the morning-talk muster (เช็คชื่อ) — the SA's daily
+            check-in action, so it leads the site actions (before the next-day
+            board). Same site gate (site_admin/super_admin). */}
+        {canPlanTomorrow ? (
+          <Link
+            href={musterHref(project.id)}
+            className="bg-accent text-on-accent mb-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold"
+          >
+            <ScanLine aria-hidden className="size-4 shrink-0" />
+            {MUSTER_LABEL}
+          </Link>
+        ) : null}
         {/* Spec 273: SA next-day board entry — reachable straight from the project
             (a single-project SA lands here). Opens the board for THIS project. */}
         {canPlanTomorrow ? (
