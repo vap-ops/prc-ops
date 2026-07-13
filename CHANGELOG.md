@@ -1,3 +1,9 @@
+# [0.74.0](https://github.com/VAP-Solution/prc-ops/compare/v0.73.1...v0.74.0) (2026-07-13)
+
+### Features
+
+- **labor:** spec 314 U1 — level-standard rate + WHT config schema (ADR 0082) ([#522](https://github.com/VAP-Solution/prc-ops/issues/522)) ([593794f](https://github.com/VAP-Solution/prc-ops/commit/593794f7e417bf258fdad35ba2be5e817bb06a5a))
+
 ## [0.73.1](https://github.com/VAP-Solution/prc-ops/compare/v0.73.0...v0.73.1) (2026-07-13)
 
 ### Bug Fixes
