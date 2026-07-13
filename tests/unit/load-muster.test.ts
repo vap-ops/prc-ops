@@ -83,6 +83,43 @@ describe("shapeMusterBoard", () => {
     expect(t2.leadName).toBe("ก้อง");
   });
 
+  it("maps the day closure and each member's auto-out flag (spec 306 U4)", () => {
+    const board = shapeMusterBoard({
+      teams: [{ id: "t1", lead_worker_id: "w1" }],
+      attendance: [
+        { team_id: "t1", worker_id: "w1", in_at: "x", out_at: "y", ot_hours: null, out_auto: true },
+        {
+          team_id: "t1",
+          worker_id: "w2",
+          in_at: "x",
+          out_at: "z",
+          ot_hours: null,
+          out_auto: false,
+        },
+      ],
+      teamWps: [],
+      workers: WORKERS,
+      wps: WPS,
+      closure: { closed_at: "2026-07-13T10:00:00Z" },
+    });
+    expect(board.closure).toEqual({ closedAt: "2026-07-13T10:00:00Z" });
+    const [m1, m2] = board.teams[0]!.members;
+    expect(m1!.outAuto).toBe(true);
+    expect(m2!.outAuto).toBe(false);
+  });
+
+  it("closure is null when the day is open", () => {
+    const board = shapeMusterBoard({
+      teams: [],
+      attendance: [],
+      teamWps: [],
+      workers: [],
+      wps: [],
+      closure: null,
+    });
+    expect(board.closure).toBeNull();
+  });
+
   it("falls back to — for a worker id missing from the workers list", () => {
     const board = shapeMusterBoard({
       teams: [{ id: "t1", lead_worker_id: "ghost" }],
