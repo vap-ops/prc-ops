@@ -21,6 +21,7 @@ export interface MusterMember {
   inAt: string | null;
   outAt: string | null;
   otHours: number | null;
+  outAuto: boolean;
 }
 export interface MusterTeam {
   id: string;
@@ -42,6 +43,8 @@ export interface MusterBoard {
   teams: MusterTeam[];
   workers: MusterWorker[];
   wps: MusterWp[];
+  // Spec 306 U4 — the day's closure (ปิดวัน), null while the day is still open.
+  closure: { closedAt: string } | null;
 }
 
 interface RawTeam {
@@ -54,6 +57,7 @@ interface RawAttendance {
   in_at: string | null;
   out_at: string | null;
   ot_hours: number | null;
+  out_auto?: boolean;
 }
 interface RawTeamWp {
   team_id: string;
@@ -66,6 +70,7 @@ export function shapeMusterBoard(raw: {
   teamWps: RawTeamWp[];
   workers: MusterWorker[];
   wps: MusterWp[];
+  closure?: { closed_at: string } | null;
 }): MusterBoard {
   const nameById = new Map(raw.workers.map((w) => [w.id, w.name]));
   const nameOf = (id: string) => nameById.get(id) ?? "—";
@@ -82,11 +87,17 @@ export function shapeMusterBoard(raw: {
         inAt: a.in_at,
         outAt: a.out_at,
         otHours: a.ot_hours,
+        outAuto: a.out_auto ?? false,
       })),
     wpIds: raw.teamWps.filter((x) => x.team_id === t.id).map((x) => x.work_package_id),
   }));
 
-  return { teams, workers: raw.workers, wps: raw.wps };
+  return {
+    teams,
+    workers: raw.workers,
+    wps: raw.wps,
+    closure: raw.closure ? { closedAt: raw.closure.closed_at } : null,
+  };
 }
 
 export async function loadMusterBoard(
@@ -101,11 +112,11 @@ export async function loadMusterBoard(
     .eq("work_date", date);
   const teamIds = (teams ?? []).map((t) => t.id);
 
-  const [attendanceRes, teamWpsRes, workersRes, wpsRes] = await Promise.all([
+  const [attendanceRes, teamWpsRes, workersRes, wpsRes, closureRes] = await Promise.all([
     teamIds.length
       ? supabase
           .from("muster_attendance")
-          .select("team_id, worker_id, in_at, out_at, ot_hours")
+          .select("team_id, worker_id, in_at, out_at, ot_hours, out_auto")
           .in("team_id", teamIds)
       : Promise.resolve({ data: [] as RawAttendance[] }),
     teamIds.length
@@ -125,6 +136,12 @@ export async function loadMusterBoard(
       .eq("project_id", projectId)
       .is("parent_id", null)
       .order("code"),
+    supabase
+      .from("muster_day_closures")
+      .select("closed_at")
+      .eq("project_id", projectId)
+      .eq("work_date", date)
+      .maybeSingle(),
   ]);
 
   return shapeMusterBoard({
@@ -133,5 +150,6 @@ export async function loadMusterBoard(
     teamWps: teamWpsRes.data ?? [],
     workers: workersRes.data ?? [],
     wps: wpsRes.data ?? [],
+    closure: closureRes.data ?? null,
   });
 }

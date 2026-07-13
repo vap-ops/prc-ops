@@ -118,3 +118,31 @@ export async function setMusterTeamWps(input: {
   revalidatePath(input.revalidate);
   return { ok: true };
 }
+
+// Spec 306 U4 — ปิดวัน (close the muster day). close_muster_day auto-outs any
+// still-in worker at the 17:00 day-end (out_auto=true, never before their in_at)
+// and records the closure; it is idempotent (a re-close after a late scan
+// re-stamps). Money (labor cost derivation) is U5 and keys off this closure.
+export async function closeMusterDay(input: {
+  projectId: string;
+  date: string;
+  revalidate: string;
+}): Promise<MusterVoidResult> {
+  if (
+    !UUID_REGEX.test(input.projectId) ||
+    !ISO_DATE_REGEX.test(input.date) ||
+    !input.revalidate.startsWith("/")
+  ) {
+    return { ok: false, error: GENERIC };
+  }
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("close_muster_day", {
+    p_project: input.projectId,
+    p_date: input.date,
+  });
+  if (error) return { ok: false, error: scanErrorToThai(error.message) };
+  revalidatePath(input.revalidate);
+  return { ok: true };
+}

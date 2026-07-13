@@ -17,10 +17,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const openMusterTeam = vi.fn();
 const musterScan = vi.fn();
 const setMusterTeamWps = vi.fn();
+const closeMusterDay = vi.fn();
 vi.mock("@/lib/muster/actions", () => ({
   openMusterTeam: (...a: unknown[]) => openMusterTeam(...a),
   musterScan: (...a: unknown[]) => musterScan(...a),
   setMusterTeamWps: (...a: unknown[]) => setMusterTeamWps(...a),
+  closeMusterDay: (...a: unknown[]) => closeMusterDay(...a),
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
@@ -41,7 +43,14 @@ const BOARD: MusterBoard = {
       leadWorkerId: W1,
       leadName: "ลี",
       members: [
-        { workerId: W1, name: "ลี", inAt: "2026-07-13T01:00:00Z", outAt: null, otHours: null },
+        {
+          workerId: W1,
+          name: "ลี",
+          inAt: "2026-07-13T01:00:00Z",
+          outAt: null,
+          otHours: null,
+          outAuto: false,
+        },
       ],
       wpIds: [],
     },
@@ -52,6 +61,7 @@ const BOARD: MusterBoard = {
     { id: W3, name: "ก้อง" },
   ],
   wps: [{ id: WPA, code: "A", name: "งานเอ" }],
+  closure: null,
 };
 
 function renderCockpit(board: MusterBoard = BOARD) {
@@ -69,6 +79,7 @@ beforeEach(() => {
   openMusterTeam.mockResolvedValue({ ok: true, id: "new" });
   musterScan.mockResolvedValue({ ok: true, id: "att" });
   setMusterTeamWps.mockResolvedValue({ ok: true });
+  closeMusterDay.mockResolvedValue({ ok: true });
 });
 
 describe("MusterCockpit", () => {
@@ -110,6 +121,21 @@ describe("MusterCockpit", () => {
     expect(musterScan).toHaveBeenCalledWith(
       expect.objectContaining({ teamId: T1, workerId: W1, mode: "out", method: "manual" }),
     );
+  });
+
+  it("closes the day after an inline confirm", async () => {
+    const user = userEvent.setup();
+    renderCockpit();
+    await user.click(screen.getByRole("button", { name: "ปิดวัน" }));
+    await user.click(screen.getByRole("button", { name: "ยืนยันปิดวัน" }));
+    expect(closeMusterDay).toHaveBeenCalledWith(
+      expect.objectContaining({ projectId: PROJECT, date: "2026-07-13" }),
+    );
+  });
+
+  it("shows the closed banner when the day is already closed", () => {
+    renderCockpit({ ...BOARD, closure: { closedAt: "2026-07-13T10:00:00Z" } });
+    expect(screen.getByText(/ปิดวันแล้ว/)).toBeInTheDocument();
   });
 
   it("saves an edited WP set for a team", async () => {

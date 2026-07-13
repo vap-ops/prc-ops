@@ -11,7 +11,7 @@
 import { useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatThaiDate } from "@/lib/i18n/labels";
-import { openMusterTeam, musterScan, setMusterTeamWps } from "@/lib/muster/actions";
+import { openMusterTeam, musterScan, setMusterTeamWps, closeMusterDay } from "@/lib/muster/actions";
 import type { MusterBoard, MusterTeam, MusterWp } from "@/lib/muster/load-muster";
 import { MusterCamera } from "./muster-camera";
 
@@ -52,6 +52,7 @@ export function MusterCockpit({
   const [leadPick, setLeadPick] = useState("");
   const [scanTeamId, setScanTeamId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [confirmClose, setConfirmClose] = useState(false);
   const [pending, startTransition] = useTransition();
   const hasCamera = useSyncExternalStore(subscribeNoop, hasBarcodeDetector, () => false);
 
@@ -94,6 +95,11 @@ export function MusterCockpit({
   const saveWps = (teamId: string, wpIds: string[]) =>
     run(() => setMusterTeamWps({ teamId, wpIds, revalidate }));
 
+  const closeDay = () => {
+    setConfirmClose(false);
+    run(() => closeMusterDay({ projectId, date, revalidate }));
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
@@ -115,6 +121,12 @@ export function MusterCockpit({
           </button>
         </div>
       </div>
+
+      {board.closure ? (
+        <p className="border-edge bg-sunk text-ink-secondary rounded-card border px-3 py-2 text-sm font-semibold">
+          ปิดวันแล้ว · {bangkokTime(board.closure.closedAt)}
+        </p>
+      ) : null}
 
       {message ? (
         <p role="alert" className="bg-danger-soft text-danger-ink rounded-card px-3 py-2 text-sm">
@@ -164,6 +176,39 @@ export function MusterCockpit({
           />
         ))
       )}
+
+      {board.teams.length > 0 ? (
+        <div className="pt-2">
+          {confirmClose ? (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={closeDay}
+                disabled={pending}
+                className="bg-danger text-on-fill hover:bg-danger-strong min-h-11 flex-1 rounded-lg px-4 text-sm font-bold disabled:opacity-50"
+              >
+                ยืนยันปิดวัน
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmClose(false)}
+                className="bg-sunk text-ink min-h-11 rounded-lg px-4 text-sm font-bold"
+              >
+                ยกเลิก
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmClose(true)}
+              disabled={pending}
+              className="bg-sunk text-ink min-h-11 w-full rounded-lg px-4 text-sm font-bold disabled:opacity-50"
+            >
+              {board.closure ? "ปิดวันอีกครั้ง" : "ปิดวัน"}
+            </button>
+          )}
+        </div>
+      ) : null}
 
       {scanTeamId ? (
         <MusterCamera
@@ -287,6 +332,7 @@ function TeamCard({
                 <span className="text-ink-muted text-meta tabular-nums">
                   {bangkokTime(m.inAt)}
                   {m.outAt ? ` – ${bangkokTime(m.outAt)}` : ""}
+                  {m.outAt && m.outAuto ? " (อัตโนมัติ)" : ""}
                   {m.otHours ? ` · OT ${m.otHours} ชม.` : ""}
                 </span>
                 {mode === "out" && m.inAt && !m.outAt ? (
