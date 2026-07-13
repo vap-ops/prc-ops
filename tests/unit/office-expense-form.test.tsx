@@ -69,6 +69,8 @@ describe("OfficeExpenseForm", () => {
     fireEvent.change(screen.getByLabelText(EXPENSE_DESCRIPTION_LABEL), {
       target: { value: "พิมพ์เอกสาร" },
     });
+    // card is the default when a card is held, so pick สำรองจ่าย explicitly
+    fireEvent.click(screen.getByRole("button", { name: PAYMENT_SOURCE_OWN_LABEL }));
     fireEvent.click(screen.getByRole("button", { name: EXPENSE_SUBMIT_LABEL }));
 
     await waitFor(() =>
@@ -84,6 +86,46 @@ describe("OfficeExpenseForm", () => {
       ),
     );
     await waitFor(() => expect(onDone).toHaveBeenCalled());
+  });
+
+  it("defaults to the company card when the user holds one", async () => {
+    render(
+      <OfficeExpenseForm
+        categories={categories}
+        projects={projects}
+        myCard={myCard}
+        onDone={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText(EXPENSE_CATEGORY_LABEL), { target: { value: CAT } });
+    fireEvent.change(screen.getByLabelText(EXPENSE_AMOUNT_LABEL), { target: { value: "400" } });
+    // submit WITHOUT touching the source picker — the default should be the card
+    fireEvent.click(screen.getByRole("button", { name: EXPENSE_SUBMIT_LABEL }));
+    await waitFor(() =>
+      expect(recordOfficeExpense).toHaveBeenCalledWith(
+        expect.objectContaining({ paymentSource: "company_card", companyCardId: CARD }),
+      ),
+    );
+  });
+
+  it("puts the card source in the center of the row", () => {
+    render(
+      <OfficeExpenseForm
+        categories={categories}
+        projects={projects}
+        myCard={myCard}
+        onDone={vi.fn()}
+      />,
+    );
+    const labels = screen
+      .getAllByRole("button")
+      .filter((b) => b.getAttribute("aria-pressed") !== null)
+      .map((b) => b.querySelector("span")?.textContent?.trim());
+    expect(labels).toEqual([
+      PAYMENT_SOURCE_OWN_LABEL,
+      PAYMENT_SOURCE_CARD_LABEL,
+      PAYMENT_SOURCE_DIRECT_LABEL,
+    ]);
   });
 
   it("falls back to the category label when รายละเอียด is left blank", async () => {

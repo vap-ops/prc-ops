@@ -60,9 +60,11 @@ const SELECT =
   "rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action h-11 w-full min-w-0 border px-2 text-sm shadow-xs focus:outline-none focus-visible:ring-2";
 const LABEL = "text-ink flex flex-col gap-1 text-sm font-medium";
 
+// Card is the CENTER option (operator 2026-07-13); when the user holds no card
+// it's filtered out and own/direct remain.
 const SOURCES: { value: PaymentSource; label: string; Icon: LucideIcon }[] = [
-  { value: "company_card", label: PAYMENT_SOURCE_CARD_LABEL, Icon: CreditCard },
   { value: "own_money", label: PAYMENT_SOURCE_OWN_LABEL, Icon: Banknote },
+  { value: "company_card", label: PAYMENT_SOURCE_CARD_LABEL, Icon: CreditCard },
   { value: "company_direct", label: PAYMENT_SOURCE_DIRECT_LABEL, Icon: Building2 },
 ];
 
@@ -153,7 +155,11 @@ export function OfficeExpenseForm({
   // fixed TZ ⇒ same value on server + client, no hydration mismatch).
   const [expenseDate, setExpenseDate] = useState(bangkokTodayIso);
   const [projectId, setProjectId] = useState("");
-  const [paymentSource, setPaymentSource] = useState<PaymentSource>("own_money");
+  // Default to the company card when the user holds one (operator 2026-07-13),
+  // else own-money. Re-inits per sheet open (the form unmounts on close).
+  const [paymentSource, setPaymentSource] = useState<PaymentSource>(
+    myCard ? "company_card" : "own_money",
+  );
   const [description, setDescription] = useState("");
   // Attachments held until submit (uploaded once the expense row exists).
   const [slipFile, setSlipFile] = useState<File | null>(null);
@@ -182,7 +188,7 @@ export function OfficeExpenseForm({
     setAmount("");
     setProjectId("");
     setDescription("");
-    setPaymentSource("own_money");
+    setPaymentSource(myCard ? "company_card" : "own_money");
     setSlipFile(null);
     setInvoiceFile(null);
   }
