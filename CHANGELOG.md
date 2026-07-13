@@ -1,3 +1,9 @@
+## [0.73.1](https://github.com/VAP-Solution/prc-ops/compare/v0.73.0...v0.73.1) (2026-07-13)
+
+### Bug Fixes
+
+- **test:** isolate 310-office-expenses company_card probes to the fixture ([#523](https://github.com/VAP-Solution/prc-ops/issues/523)) ([aee4263](https://github.com/VAP-Solution/prc-ops/commit/aee426391e210fedeb209150392b061fb61272a4))
+
 # [0.73.0](https://github.com/VAP-Solution/prc-ops/compare/v0.72.0...v0.73.0) (2026-07-13)
 
 ### Features
