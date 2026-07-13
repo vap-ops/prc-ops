@@ -1,3 +1,9 @@
+# [0.67.0](https://github.com/VAP-Solution/prc-ops/compare/v0.66.0...v0.67.0) (2026-07-13)
+
+### Features
+
+- **expenses:** payment-source chips = short labels + icon tiles (spec 310 U11) ([#513](https://github.com/VAP-Solution/prc-ops/issues/513)) ([df8ebf1](https://github.com/VAP-Solution/prc-ops/commit/df8ebf17b4285c68c748c234695001312123b011))
+
 # [0.66.0](https://github.com/VAP-Solution/prc-ops/compare/v0.65.0...v0.66.0) (2026-07-13)
 
 ### Features
