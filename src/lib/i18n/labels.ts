@@ -837,13 +837,17 @@ export const EXPENSE_LIST_EMPTY = "ยังไม่มีรายการ";
 // Spec 310 U4 — receipt upload.
 export const EXPENSE_RECEIPT_UPLOAD_LABEL = "แนบใบเสร็จ";
 export const EXPENSE_RECORDED_ATTACH = "บันทึกแล้ว — แนบใบเสร็จได้เลย";
-export const EXPENSE_RECORD_ANOTHER = "บันทึกรายการใหม่";
 // Spec 310 U7 — personal expense dashboard (summary + category chart).
 export const EXPENSE_MONTH_TOTAL_LABEL = "ใช้จ่ายเดือนนี้";
 export const EXPENSE_PENDING_TOTAL_LABEL = "รอคืนเงิน (ของคุณ)";
 export const EXPENSE_CHART_HEADING = "ค่าใช้จ่ายตามประเภท (เดือนนี้)";
 export const EXPENSE_MONTH_EMPTY = "ยังไม่มีค่าใช้จ่ายเดือนนี้";
 export const EXPENSE_ADD_HEADING = "บันทึกค่าใช้จ่ายใหม่";
+// Spec 310 U10 — form moved into a FAB + bottom sheet; attachments on top (so an
+// LLM can later prefill fields from them); รายละเอียด optional with a hint.
+export const EXPENSE_ADD_LABEL = "เพิ่มค่าใช้จ่าย";
+export const EXPENSE_ATTACH_HEADING = "แนบเอกสาร (ถ้ามี)";
+export const EXPENSE_DESCRIPTION_HELP = "ไม่บังคับ — เช่น จ่ายค่าอะไร / ซื้อจากที่ไหน";
 // Spec 310 U5 — finance reimburse queue.
 export const REIMBURSE_QUEUE_HEADING = "รายการรอคืนเงิน";
 export const REIMBURSE_QUEUE_EMPTY = "ไม่มีรายการรอคืนเงิน";

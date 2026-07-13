@@ -27,8 +27,9 @@ describe("validateOfficeExpense", () => {
     expect(validateOfficeExpense({ ...base, amount: -5 }).ok).toBe(false);
   });
 
-  it("rejects empty description", () => {
-    expect(validateOfficeExpense({ ...base, description: "   " }).ok).toBe(false);
+  it("accepts an empty description (optional — spec 310 U10)", () => {
+    const r = validateOfficeExpense({ ...base, description: "   " });
+    expect(r.ok && r.value.description).toBe("");
   });
 
   it("requires a card for the company_card source", () => {
