@@ -68,6 +68,15 @@ export type ManagedWorker = {
   project_id: string | null;
   // Spec 272 U1 / ADR 0060: skill grade (null = ยังไม่ประเมิน; super_admin sets).
   level: WorkerLevel | null;
+  // DC edit matrix: payee fields, editable from the row's edit sheet. Money/PII —
+  // reach this gated page via the admin client. bank_* is null for a portal-bound
+  // worker (the loader withholds it — a bound worker owns their bank via the portal
+  // request/approval flow, not a direct back-office edit).
+  phone: string | null;
+  tax_id: string | null;
+  bank_name: string | null;
+  bank_account_number: string | null;
+  bank_account_name: string | null;
 };
 
 // Spec 200: a project the assigner can put a worker on. Spec 272 U2: its current
@@ -318,6 +327,15 @@ function WorkerRow({
   const [project, setProject] = useState(worker.project_id ?? "");
   // Spec 272 U1: the grade selector value ("" = still ungraded).
   const [level, setLevel] = useState<string>(worker.level ?? "");
+  // DC edit matrix: การจ่าย × สถานะ + payee fields. Bank prefills only for an
+  // unbound worker (the loader withholds a bound worker's bank).
+  const [payType, setPayType] = useState<PayType>(worker.pay_type);
+  const [employmentType, setEmploymentType] = useState<EmploymentType>(worker.employment_type);
+  const [phone, setPhone] = useState(worker.phone ?? "");
+  const [taxId, setTaxId] = useState(worker.tax_id ?? "");
+  const [bankName, setBankName] = useState(worker.bank_name ?? "");
+  const [bankAccountNumber, setBankAccountNumber] = useState(worker.bank_account_number ?? "");
+  const [bankAccountName, setBankAccountName] = useState(worker.bank_account_name ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [htBusy, setHtBusy] = useState(false);
@@ -339,16 +357,45 @@ function WorkerRow({
     setError(null);
     const nameChanged = name.trim() !== worker.name;
     const noteChanged = note !== (worker.note ?? "");
-    // One update call carries any name/note change (the RPC coalesce-preserves
+    // DC edit matrix: pay_type × employment_type + payee fields. Bank is only
+    // editable (and only forwarded) for an unbound worker — a bound worker's bank
+    // routes through the portal request/approval flow, so it is never sent here.
+    const payTypeChanged = payType !== worker.pay_type;
+    const employmentTypeChanged = employmentType !== worker.employment_type;
+    const phoneChanged = phone !== (worker.phone ?? "");
+    const taxIdChanged = taxId !== (worker.tax_id ?? "");
+    const bankEditable = !worker.portalBound;
+    const bankNameChanged = bankEditable && bankName !== (worker.bank_name ?? "");
+    const bankAccountNumberChanged =
+      bankEditable && bankAccountNumber !== (worker.bank_account_number ?? "");
+    const bankAccountNameChanged =
+      bankEditable && bankAccountName !== (worker.bank_account_name ?? "");
+    // One update call carries any changed field (the RPC coalesce-preserves
     // omitted fields; note "" clears).
-    const nameResult: WorkerActionResult =
-      nameChanged || noteChanged
-        ? await updateWorker({
-            id: worker.id,
-            ...(nameChanged ? { name } : {}),
-            ...(noteChanged ? { note } : {}),
-          })
-        : { ok: true };
+    const anyUpdate =
+      nameChanged ||
+      noteChanged ||
+      payTypeChanged ||
+      employmentTypeChanged ||
+      phoneChanged ||
+      taxIdChanged ||
+      bankNameChanged ||
+      bankAccountNumberChanged ||
+      bankAccountNameChanged;
+    const nameResult: WorkerActionResult = anyUpdate
+      ? await updateWorker({
+          id: worker.id,
+          ...(nameChanged ? { name } : {}),
+          ...(noteChanged ? { note } : {}),
+          ...(payTypeChanged ? { payType } : {}),
+          ...(employmentTypeChanged ? { employmentType } : {}),
+          ...(phoneChanged ? { phone } : {}),
+          ...(taxIdChanged ? { taxId } : {}),
+          ...(bankNameChanged ? { bankName } : {}),
+          ...(bankAccountNumberChanged ? { bankAccountNumber } : {}),
+          ...(bankAccountNameChanged ? { bankAccountName } : {}),
+        })
+      : { ok: true };
     const newRate = Number(rate);
     const rateResult: WorkerActionResult =
       newRate !== worker.day_rate
@@ -505,6 +552,98 @@ function WorkerRow({
               className={FIELD_STACKED}
             />
           </label>
+          {/* DC edit matrix: การจ่าย (pay_type) × สถานะ (employment_type) — the two
+              orthogonal axes (spec 266 U3), editable per row. */}
+          <div className="mt-2">
+            <p className="text-ink-secondary text-sm">การจ่าย</p>
+            <div className="mt-1 flex flex-wrap gap-2" role="radiogroup" aria-label="การจ่าย">
+              {(["monthly", "daily"] as const).map((value) => (
+                <RadioChip
+                  key={value}
+                  name={`edit-pay-type-${worker.id}`}
+                  label={PAY_TYPE_LABEL[value]}
+                  checked={payType === value}
+                  onSelect={() => setPayType(value)}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="mt-2">
+            <p className="text-ink-secondary text-sm">สถานะ</p>
+            <div className="mt-1 flex flex-wrap gap-2" role="radiogroup" aria-label="สถานะ">
+              {(["permanent", "temporary"] as const).map((value) => (
+                <RadioChip
+                  key={value}
+                  name={`edit-employment-type-${worker.id}`}
+                  label={EMPLOYMENT_TYPE_LABEL[value]}
+                  checked={employmentType === value}
+                  onSelect={() => setEmploymentType(value)}
+                />
+              ))}
+            </div>
+          </div>
+          {/* DC edit matrix: payee fields (money/PII, admin-client behind the page
+              gate). phone/tax editable for every worker; bank is bind-gated below. */}
+          <label className="text-ink-secondary mt-2 block text-sm">
+            เบอร์โทร
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              inputMode="tel"
+              maxLength={50}
+              className={FIELD_STACKED}
+            />
+          </label>
+          <label className="text-ink-secondary mt-2 block text-sm">
+            เลขผู้เสียภาษี
+            <input
+              value={taxId}
+              onChange={(e) => setTaxId(e.target.value)}
+              maxLength={50}
+              className={FIELD_STACKED}
+            />
+          </label>
+          {/* Bank: editable ONLY for an unbound worker. Once the ช่าง binds a portal
+              login they own their bank via the request → PM-approval flow, so a
+              back-office edit here would bypass that trail — show a notice instead.
+              (update_worker's direct-bank write is intentionally left unchanged.) */}
+          {worker.portalBound ? (
+            <div className="mt-2">
+              <p className="text-ink-secondary text-sm">ธนาคาร</p>
+              <p className="text-ink-muted mt-1 text-sm">รออนุมัติจากคำขอของช่าง</p>
+            </div>
+          ) : (
+            <>
+              <label className="text-ink-secondary mt-2 block text-sm">
+                ธนาคาร
+                <input
+                  value={bankName}
+                  onChange={(e) => setBankName(e.target.value)}
+                  maxLength={120}
+                  className={FIELD_STACKED}
+                />
+              </label>
+              <label className="text-ink-secondary mt-2 block text-sm">
+                เลขบัญชีธนาคาร
+                <input
+                  value={bankAccountNumber}
+                  onChange={(e) => setBankAccountNumber(e.target.value)}
+                  inputMode="numeric"
+                  maxLength={50}
+                  className={FIELD_STACKED}
+                />
+              </label>
+              <label className="text-ink-secondary mt-2 block text-sm">
+                ชื่อบัญชี
+                <input
+                  value={bankAccountName}
+                  onChange={(e) => setBankAccountName(e.target.value)}
+                  maxLength={120}
+                  className={FIELD_STACKED}
+                />
+              </label>
+            </>
+          )}
           {/* Spec 200: assign the worker to a project (one at a time). */}
           <label className="text-ink-secondary mt-2 block text-sm">
             โครงการ

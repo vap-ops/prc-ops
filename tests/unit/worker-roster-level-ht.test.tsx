@@ -57,6 +57,11 @@ const DAILY: ManagedWorker = {
   portalBound: false,
   project_id: "p1",
   level: null,
+  phone: null,
+  tax_id: null,
+  bank_name: null,
+  bank_account_number: null,
+  bank_account_name: null,
 };
 
 const P1: AssignableProject = {
