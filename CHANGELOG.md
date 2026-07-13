@@ -1,3 +1,9 @@
+# [0.69.0](https://github.com/VAP-Solution/prc-ops/compare/v0.68.0...v0.69.0) (2026-07-13)
+
+### Features
+
+- **expenses:** default to the company card + card as center option (spec 310 U13) ([#515](https://github.com/VAP-Solution/prc-ops/issues/515)) ([5542b1d](https://github.com/VAP-Solution/prc-ops/commit/5542b1de8118ba629ac012e889daa6c4a2a24b01))
+
 # [0.68.0](https://github.com/VAP-Solution/prc-ops/compare/v0.67.0...v0.68.0) (2026-07-13)
 
 ### Features
