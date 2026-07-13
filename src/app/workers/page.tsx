@@ -39,7 +39,9 @@ export default async function WorkersPage() {
         .from("workers")
         .select(
           // Spec 272 U1: + level (a readable category, ADR 0060 — not money).
-          "id, name, pay_type, employment_type, contractor_id, day_rate, active, note, user_id, project_id, level",
+          // DC edit matrix: + phone/tax_id/bank_* so the row edit sheet can prefill
+          // and edit them (money/PII — authorized by the requireRole gate above).
+          "id, name, pay_type, employment_type, contractor_id, day_rate, active, note, user_id, project_id, level, phone, tax_id, bank_name, bank_account_number, bank_account_name",
         )
         .order("name", { ascending: true }),
       // Spec 89: status + category let WorkerRosterManager hide blacklisted/non-ช่าง
@@ -62,10 +64,21 @@ export default async function WorkersPage() {
 
   // ADR 0062 U4a: derive portalBound from user_id (the LINE binding); user_id
   // itself stays server-side — only the boolean reaches the client roster.
-  const workers: ManagedWorker[] = (workerRows ?? []).map(({ user_id, ...w }) => ({
-    ...w,
-    portalBound: user_id !== null,
-  }));
+  // DC edit matrix: withhold a bound worker's bank from the client entirely — once
+  // bound, the ช่าง owns their bank via the portal request/approval flow, and the
+  // edit sheet won't render it, so it must not ship in the props either.
+  const workers: ManagedWorker[] = (workerRows ?? []).map(
+    ({ user_id, bank_name, bank_account_number, bank_account_name, ...w }) => {
+      const portalBound = user_id !== null;
+      return {
+        ...w,
+        portalBound,
+        bank_name: portalBound ? null : bank_name,
+        bank_account_number: portalBound ? null : bank_account_number,
+        bank_account_name: portalBound ? null : bank_account_name,
+      };
+    },
+  );
 
   return (
     <PageShell>
