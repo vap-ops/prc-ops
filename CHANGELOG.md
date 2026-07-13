@@ -1,3 +1,9 @@
+# [0.77.0](https://github.com/VAP-Solution/prc-ops/compare/v0.76.0...v0.77.0) (2026-07-13)
+
+### Features
+
+- **labor-rates:** spec 314 pay-model explainer on /settings/labor-rates ([#527](https://github.com/VAP-Solution/prc-ops/issues/527)) ([5c19c1e](https://github.com/VAP-Solution/prc-ops/commit/5c19c1e287c0ebcc5621e4f430016f48aa1d8c34))
+
 # [0.76.0](https://github.com/VAP-Solution/prc-ops/compare/v0.75.0...v0.76.0) (2026-07-13)
 
 ### Features
