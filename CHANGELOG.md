@@ -1,3 +1,9 @@
+# [0.72.0](https://github.com/VAP-Solution/prc-ops/compare/v0.71.0...v0.72.0) (2026-07-13)
+
+### Features
+
+- **workers:** reach procurement_manager into the worker bank-change approval queue ([#521](https://github.com/VAP-Solution/prc-ops/issues/521)) ([c649f18](https://github.com/VAP-Solution/prc-ops/commit/c649f18c6f964b0bccdf85b191655d8565c54ed8)), closes [#519](https://github.com/VAP-Solution/prc-ops/issues/519) [#519](https://github.com/VAP-Solution/prc-ops/issues/519)
+
 # [0.71.0](https://github.com/VAP-Solution/prc-ops/compare/v0.70.0...v0.71.0) (2026-07-13)
 
 ### Features
