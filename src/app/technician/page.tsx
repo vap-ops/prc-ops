@@ -80,8 +80,9 @@ export default async function TechnicianHomePage() {
   ]);
 
   // Spec 306 U3a — present the QR on their home so they can show it at the morning
-  // talk instead of carrying a printed badge (payload = the caller's workers.id).
-  const badgeSvg = workerId ? await toWorkerBadgeQrSvg(workerId) : null;
+  // talk instead of carrying a printed badge. Payload = the caller's workers.id
+  // (a technician is always a bound worker; uid fallback is defensive).
+  const badgeSvg = await toWorkerBadgeQrSvg(workerId ?? uid);
   const receipts: PortalReceipt[] = (receiptRows ?? []).map((r) => ({
     id: r.id,
     baseItem: r.catalog_items?.base_item ?? "",
@@ -116,7 +117,7 @@ export default async function TechnicianHomePage() {
           />
         ) : null}
 
-        {badgeSvg ? <WorkerBadgeQr svg={badgeSvg} /> : null}
+        <WorkerBadgeQr svg={badgeSvg} />
 
         <div className={CARD}>
           <div className="flex items-center gap-2">
