@@ -20,7 +20,7 @@ Today the app does **neither**:
 **Goals**
 
 - A firm-wide **standard day-rate per skill level** (4 rows), maintained by the procurement manager. Rates are **never hardcoded** — seeded blank, PM fills them.
-- Each level's standard rate is entered as **before** or **after** withholding tax (WHT), defaulting to **after**.
+- Each level's standard rate is entered as **before** or **after** withholding tax (WHT). Seed default is **per level**: senior + mid → **before_wht** (gross); junior + apprentice → **after_wht** (net). PM can change any.
 - A single firm-wide, PM-editable **WHT %**, seeded **3.00** (Thai service-labor default; PM can change).
 - New technicians **default to `daily`** pay (overridable to `monthly`).
 - At the cost-confirm gate, a worker's `day_rate` **auto-fills from the standard for their level** (gross), unless overridden afterward.
@@ -48,7 +48,16 @@ Everywhere a rate is stored on a worker or snapshotted on a labor log, it is **g
 
 ### D3 — WHT basis per level; WHT % firm-wide
 
-`wht_basis` (`before_wht | after_wht`, default `after_wht`) lives **per row** on `worker_level_rates` (operator chose per-level). The WHT **percentage** is a single firm-wide value in a `labor_wht_config` singleton (operator chose one firm %). Both PM-editable, both seeded blank/default.
+`wht_basis` (`before_wht | after_wht`) lives **per row** on `worker_level_rates` (operator chose per-level). The column default is `after_wht` (a safe fallback for any future `worker_level` value), but the **seed sets each current level explicitly** (operator, 2026-07-13):
+
+| level        | seed `wht_basis`      |
+| ------------ | --------------------- |
+| `senior`     | `before_wht` (gross)  |
+| `mid`        | `before_wht` (gross)  |
+| `junior`     | `after_wht` (net)     |
+| `apprentice` | `after_wht` (net)     |
+
+The WHT **percentage** is a single firm-wide value in a `labor_wht_config` singleton (operator chose one firm %), seeded `3.00`. Both PM-editable.
 
 ### D4 — Derivation fires once, at the cost-confirm gate
 
@@ -80,7 +89,7 @@ New enum: `public.wht_basis` = `('before_wht', 'after_wht')`.
 | -------------- | ----------------- | ------------------------------------------------------------ |
 | `level`        | `worker_level` PK | one row per enum value; seeded for all 4 current values      |
 | `entered_rate` | `numeric(10,2)`   | nullable — seeded NULL; the figure the PM typed; **money**   |
-| `wht_basis`    | `wht_basis`       | not null, default `after_wht`                                |
+| `wht_basis`    | `wht_basis`       | not null, column default `after_wht`; **seed sets per level** (D3: senior/mid `before_wht`, junior/apprentice `after_wht`) |
 | `active`       | `boolean`         | not null, default true                                       |
 | `updated_by`   | `uuid → users.id` | nullable                                                     |
 | `updated_at`   | `timestamptz`     | not null, default now()                                      |
@@ -144,3 +153,4 @@ Roll up per worker: `gross`, `wht`, `net` (all × days). `day_rate_snapshot` sta
 1. **WHT default value** → seed `wht_pct = 3.00` (Thai service-labor default), PM-editable.
 2. **Re-level re-pricing** → confirmed: `set_worker_level` leaves `day_rate` untouched; only `confirm_worker_cost` derives.
 3. **Existing workers' rate basis** → roster currently empty (mock crew deleted, awaiting real crew), so no legacy rate data; rates entered going forward are gross (full/pre-tax). No data migration.
+4. **Per-level basis seed** → senior + mid seed `before_wht` (gross); junior + apprentice seed `after_wht` (net). Column default stays `after_wht` for future enum values. PM can change any per level.
