@@ -3231,6 +3231,35 @@ export type Database = {
           },
         ]
       }
+      labor_wht_config: {
+        Row: {
+          id: boolean
+          updated_at: string
+          updated_by: string | null
+          wht_pct: number | null
+        }
+        Insert: {
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          wht_pct?: number | null
+        }
+        Update: {
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          wht_pct?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "labor_wht_config_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       login_handoffs: {
         Row: {
           created_at: string
@@ -7490,6 +7519,41 @@ export type Database = {
           },
         ]
       }
+      worker_level_rates: {
+        Row: {
+          active: boolean
+          entered_rate: number | null
+          level: Database["public"]["Enums"]["worker_level"]
+          updated_at: string
+          updated_by: string | null
+          wht_basis: Database["public"]["Enums"]["wht_basis"]
+        }
+        Insert: {
+          active?: boolean
+          entered_rate?: number | null
+          level: Database["public"]["Enums"]["worker_level"]
+          updated_at?: string
+          updated_by?: string | null
+          wht_basis?: Database["public"]["Enums"]["wht_basis"]
+        }
+        Update: {
+          active?: boolean
+          entered_rate?: number | null
+          level?: Database["public"]["Enums"]["worker_level"]
+          updated_at?: string
+          updated_by?: string | null
+          wht_basis?: Database["public"]["Enums"]["wht_basis"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "worker_level_rates_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       worker_project_moves: {
         Row: {
           id: string
@@ -8821,6 +8885,10 @@ export type Database = {
           supplier_name: string
         }[]
       }
+      level_gross_rate: {
+        Args: { p_level: Database["public"]["Enums"]["worker_level"] }
+        Returns: number
+      }
       log_labor_day: {
         Args: {
           p_date: string
@@ -9434,6 +9502,15 @@ export type Database = {
       }
       set_item_sell_rate: {
         Args: { p_catalog_item_id: string; p_sell_rate: number }
+        Returns: undefined
+      }
+      set_labor_wht_pct: { Args: { p_pct: number }; Returns: undefined }
+      set_level_rate: {
+        Args: {
+          p_basis: Database["public"]["Enums"]["wht_basis"]
+          p_entered_rate: number
+          p_level: Database["public"]["Enums"]["worker_level"]
+        }
         Returns: undefined
       }
       set_muster_team_wps: {
@@ -10307,6 +10384,7 @@ export type Database = {
         | "at_risk"
         | "on_track"
       wage_payment_method: "bank_transfer" | "cash" | "cheque"
+      wht_basis: "before_wht" | "after_wht"
       wht_direction: "deducted" | "suffered"
       wht_form: "pnd3" | "pnd53" | "pnd1"
       work_package_priority: "normal" | "urgent" | "critical"
@@ -10752,6 +10830,7 @@ export const Constants = {
         "on_track",
       ],
       wage_payment_method: ["bank_transfer", "cash", "cheque"],
+      wht_basis: ["before_wht", "after_wht"],
       wht_direction: ["deducted", "suffered"],
       wht_form: ["pnd3", "pnd53", "pnd1"],
       work_package_priority: ["normal", "urgent", "critical"],
