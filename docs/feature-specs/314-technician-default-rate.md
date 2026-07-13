@@ -21,7 +21,7 @@ Today the app does **neither**:
 
 - A firm-wide **standard day-rate per skill level** (4 rows), maintained by the procurement manager. Rates are **never hardcoded** — seeded blank, PM fills them.
 - Each level's standard rate is entered as **before** or **after** withholding tax (WHT), defaulting to **after**.
-- A single firm-wide, PM-editable **WHT %** (seeded blank).
+- A single firm-wide, PM-editable **WHT %**, seeded **3.00** (Thai service-labor default; PM can change).
 - New technicians **default to `daily`** pay (overridable to `monthly`).
 - At the cost-confirm gate, a worker's `day_rate` **auto-fills from the standard for their level** (gross), unless overridden afterward.
 - Payroll **computes and displays** gross / WHT / net, from a **WHT % frozen at log time**.
@@ -92,11 +92,11 @@ RLS on. `select (level, wht_basis, active, updated_at)` to authenticated; **no g
 | column       | type              | notes                                                            |
 | ------------ | ----------------- | ---------------------------------------------------------------- |
 | `id`         | `boolean` PK      | `default true check (id)` — classic single-row guard             |
-| `wht_pct`    | `numeric(5,2)`    | nullable — seeded NULL; percent, e.g. `3.00`; `check 0 ≤ x < 100`; **money-adjacent, no auth grant** |
+| `wht_pct`    | `numeric(5,2)`    | nullable; percent, e.g. `3.00`; `check 0 ≤ x < 100`; **money-adjacent, no auth grant** |
 | `updated_by` | `uuid → users.id` | nullable                                                         |
 | `updated_at` | `timestamptz`     | not null, default now()                                          |
 
-Seeded with one row (`id = true`, `wht_pct = NULL`).
+Seeded with one row (`id = true`, **`wht_pct = 3.00`** — the Thai service-labor default; PM-editable). Kept nullable so the PM can clear it; a NULL `wht_pct` degrades to 0% gross-up per D2.
 
 ### `labor_logs` — additive column
 
@@ -139,8 +139,8 @@ Roll up per worker: `gross`, `wht`, `net` (all × days). `day_rate_snapshot` sta
 - Worker = payee (ADR 0062); ADR 0079 crew staging untouched; ADR 0060 anti-self-dealing preserved (rate authored by PM table).
 - `worker_level` is the SSOT for levels; `worker_level_rates` seed must track the enum — growing the enum (via ADR) must seed a new rate row (guard in U1 pgTAP).
 
-## Open questions
+## Resolved (operator, 2026-07-13)
 
-1. **WHT default value.** PM fills `wht_pct` in-app; no value hardcoded. If the operator wants a starting value seeded (e.g. 3.00), say so — default is blank.
-2. **Re-level re-pricing.** D4 leaves `day_rate` untouched on `set_worker_level` (re-level). If re-leveling should re-apply the new level's standard, that is a one-line change — flag if wanted.
-3. **Existing workers' rate basis.** Pre-feature `day_rate` values are assumed gross. If any were entered net, they read as gross here (no data migration in scope).
+1. **WHT default value** → seed `wht_pct = 3.00` (Thai service-labor default), PM-editable.
+2. **Re-level re-pricing** → confirmed: `set_worker_level` leaves `day_rate` untouched; only `confirm_worker_cost` derives.
+3. **Existing workers' rate basis** → roster currently empty (mock crew deleted, awaiting real crew), so no legacy rate data; rates entered going forward are gross (full/pre-tax). No data migration.
