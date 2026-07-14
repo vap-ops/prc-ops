@@ -76,7 +76,7 @@ function LevelRow({ row }: { row: LevelRateRow }) {
     <div className="border-edge bg-card flex flex-col gap-2 rounded-xl border p-3">
       <div className="flex items-center justify-between gap-2">
         <span className="text-ink text-body font-semibold">{levelLabel}</span>
-        <span className="text-ink-soft text-meta">
+        <span className="text-ink-secondary text-meta">
           {LABOR_RATE_GROSS_LABEL}:{" "}
           <span className="text-ink font-semibold">
             {row.grossRate === null ? LABOR_RATE_UNSET : bahtWithSymbol(row.grossRate)}
@@ -84,7 +84,7 @@ function LevelRow({ row }: { row: LevelRateRow }) {
         </span>
       </div>
       <div className="flex flex-wrap items-end gap-2">
-        <label className="text-ink-soft text-meta flex flex-1 flex-col gap-1">
+        <label className="text-ink-secondary text-meta flex flex-1 flex-col gap-1">
           {LABOR_RATE_INPUT_LABEL}
           <input
             type="text"
@@ -96,7 +96,7 @@ function LevelRow({ row }: { row: LevelRateRow }) {
             className={FIELD_INPUT}
           />
         </label>
-        <label className="text-ink-soft text-meta flex flex-col gap-1">
+        <label className="text-ink-secondary text-meta flex flex-col gap-1">
           {WHT_BASIS_LABEL}
           <select
             aria-label={`${levelLabel} ${WHT_BASIS_LABEL}`}
@@ -154,7 +154,7 @@ function WhtRow({ whtPct }: { whtPct: number | null }) {
   return (
     <div className="border-edge bg-card flex flex-col gap-2 rounded-xl border p-3">
       <div className="flex flex-wrap items-end gap-2">
-        <label className="text-ink-soft text-meta flex flex-1 flex-col gap-1">
+        <label className="text-ink-secondary text-meta flex flex-1 flex-col gap-1">
           {WHT_PCT_LABEL}
           <input
             type="text"

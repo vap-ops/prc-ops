@@ -100,7 +100,7 @@ export function OnboardingChecklist({
             <li key={r.key} className="text-ink-muted flex items-center gap-2 px-3 py-2 text-sm">
               <span
                 aria-label="เสร็จแล้ว"
-                className="text-success inline-flex size-5 shrink-0 items-center justify-center"
+                className="text-done inline-flex size-5 shrink-0 items-center justify-center"
               >
                 <Check aria-hidden className="size-4" />
               </span>

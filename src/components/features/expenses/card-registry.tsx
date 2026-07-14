@@ -91,7 +91,7 @@ export function CardRegistry({
     <div className="flex flex-col gap-5">
       {/* existing cards */}
       <ul className="flex flex-col gap-2">
-        {cards.length === 0 && <li className="text-ink-soft text-sm">{CARD_EMPTY}</li>}
+        {cards.length === 0 && <li className="text-ink-secondary text-sm">{CARD_EMPTY}</li>}
         {cards.map((card) => (
           <li
             key={card.id}
@@ -104,10 +104,10 @@ export function CardRegistry({
                 {card.label}
                 {card.last4 ? ` ·${card.last4}` : ""}
                 {!card.isActive && (
-                  <span className="text-ink-soft ml-2 text-xs">({CARD_INACTIVE_BADGE})</span>
+                  <span className="text-ink-secondary ml-2 text-xs">({CARD_INACTIVE_BADGE})</span>
                 )}
               </span>
-              <span className="text-ink-soft truncate text-xs">
+              <span className="text-ink-secondary truncate text-xs">
                 {CARD_HOLDER_LABEL}: {card.holderName ?? "—"}
               </span>
             </div>
@@ -126,7 +126,7 @@ export function CardRegistry({
                   pendingLabel={CARD_DEACTIVATE_PENDING}
                   confirmMessage={CARD_DEACTIVATE_CONFIRM}
                   confirmLabel={CARD_DEACTIVATE_LABEL}
-                  buttonClassName="border-edge text-ink-soft rounded-control border px-3 py-1.5 text-xs font-medium"
+                  buttonClassName="border-edge text-ink-secondary rounded-control border px-3 py-1.5 text-xs font-medium"
                   action={() => deactivateCompanyCard(card.id)}
                 />
               </div>

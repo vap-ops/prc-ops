@@ -75,7 +75,7 @@ function chipClass(active: boolean): string {
     "flex flex-1 flex-col items-center gap-1 rounded-control border px-1.5 py-2 text-center text-xs leading-tight font-medium";
   return active
     ? `border-action bg-action-soft text-action ${base}`
-    : `border-edge bg-card text-ink-soft ${base}`;
+    : `border-edge bg-card text-ink-secondary ${base}`;
 }
 
 // A held file slot — pick a file into local state (uploaded on submit), or clear
@@ -292,7 +292,7 @@ export function OfficeExpenseForm({
             resetFields();
             onDone?.();
           }}
-          className="text-ink-soft text-xs font-medium underline"
+          className="text-ink-secondary text-xs font-medium underline"
         >
           เสร็จสิ้น
         </button>
@@ -401,7 +401,7 @@ export function OfficeExpenseForm({
         </div>
 
         {paymentSource === "company_card" && myCard && (
-          <p className="text-ink-soft text-sm">
+          <p className="text-ink-secondary text-sm">
             {EXPENSE_CARD_USING_PREFIX}: {myCard.label}
             {myCard.last4 ? ` ·${myCard.last4}` : ""}
           </p>
@@ -421,7 +421,7 @@ export function OfficeExpenseForm({
           <span className="text-ink-muted text-xs">{EXPENSE_DESCRIPTION_HELP}</span>
         </div>
 
-        {reimburseHint && <p className="text-ink-soft text-sm">→ {reimburseHint}</p>}
+        {reimburseHint && <p className="text-ink-secondary text-sm">→ {reimburseHint}</p>}
         {error && (
           <p role="alert" className={INLINE_ERROR}>
             {error}

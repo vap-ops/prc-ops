@@ -57,7 +57,7 @@ export default async function WpGroupingImportPage({
       <section className={`mx-auto flex w-full ${PAGE_MAX_W} flex-col gap-5 px-5 py-6`}>
         <form method="GET" className="flex flex-wrap items-end gap-2">
           <label className="flex flex-col gap-1">
-            <span className="text-ink-soft text-xs">โครงการ</span>
+            <span className="text-ink-secondary text-xs">โครงการ</span>
             <select
               name="project"
               defaultValue={selected?.id ?? ""}
@@ -87,7 +87,7 @@ export default async function WpGroupingImportPage({
               <p className="text-ink text-sm">
                 {selected.code} มีงานทั้งหมด {wpCount} รายการ (งานกลุ่ม {groupCount})
               </p>
-              <p className="text-ink-soft text-xs">
+              <p className="text-ink-secondary text-xs">
                 1) ดาวน์โหลดเทมเพลต → ทีมวิศวกรกรอก SubOf / รหัสใหม่ / ชื่อ (ห้ามลบแถว — คอลัมน์
                 OldCode คือกุญแจจับคู่) → 2) วางกลับที่นี่ → ตรวจสอบ → นำเข้าจริง
               </p>

@@ -96,9 +96,9 @@ export default async function IntegrityPage() {
               <span className={red > 0 ? "text-danger" : "text-done"}>
                 {red > 0 ? `⛔ ${red} รายการผิดปกติ` : "✅ ปกติทั้งหมด"}
               </span>
-              {amber > 0 && <span className="text-ink-soft">🟡 {amber} เฝ้าระวัง</span>}
+              {amber > 0 && <span className="text-ink-secondary">🟡 {amber} เฝ้าระวัง</span>}
             </div>
-            <p className="text-ink-soft text-xs">
+            <p className="text-ink-secondary text-xs">
               ตรวจแล้ว {green + red + amber} รายการ · รอเปิดใช้อีก {pending} · อัปเดตล่าสุด{" "}
               {lastScan}
             </p>
@@ -116,7 +116,7 @@ export default async function IntegrityPage() {
         {/* board — one card per domain */}
         {byDomain.map(({ domain, checks }) => (
           <section key={domain} className="flex flex-col gap-2">
-            <h2 className="text-ink-soft px-1 text-xs font-semibold tracking-wide uppercase">
+            <h2 className="text-ink-secondary px-1 text-xs font-semibold tracking-wide uppercase">
               {DOMAIN_LABEL[domain] ?? domain}
             </h2>
             <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">

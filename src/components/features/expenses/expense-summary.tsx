@@ -16,7 +16,7 @@ import {
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="border-edge bg-card flex flex-col gap-1 rounded-xl border p-4">
-      <span className="text-ink-soft text-xs font-medium">{label}</span>
+      <span className="text-ink-secondary text-xs font-medium">{label}</span>
       <span className="text-ink text-lg font-semibold">{value}</span>
     </div>
   );
@@ -36,11 +36,11 @@ export function ExpenseSummary({ summary }: { summary: MyExpenseSummary }) {
       </div>
 
       <div className="flex flex-col gap-2">
-        <h2 className="text-ink-soft px-1 text-xs font-semibold tracking-wide uppercase">
+        <h2 className="text-ink-secondary px-1 text-xs font-semibold tracking-wide uppercase">
           {EXPENSE_CHART_HEADING}
         </h2>
         {summary.byCategory.length === 0 ? (
-          <p className="text-ink-soft text-sm">{EXPENSE_MONTH_EMPTY}</p>
+          <p className="text-ink-secondary text-sm">{EXPENSE_MONTH_EMPTY}</p>
         ) : (
           <ul className="border-edge bg-card flex flex-col gap-2.5 rounded-xl border p-4">
             {summary.byCategory.map((c) => (

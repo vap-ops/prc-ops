@@ -69,7 +69,7 @@ export default async function LaborRatesPage() {
       </DetailHeader>
 
       <section className={`mx-auto flex w-full ${PAGE_MAX_W} flex-col gap-5 px-5 py-6`}>
-        <p className="text-ink-soft text-meta">{LABOR_RATES_HINT}</p>
+        <p className="text-ink-secondary text-meta">{LABOR_RATES_HINT}</p>
         <PayModelExplainer />
         <LevelRatesForm rows={rows} whtPct={whtPct} />
       </section>

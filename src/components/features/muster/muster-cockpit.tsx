@@ -26,7 +26,7 @@ function bangkokTime(iso: string | null): string {
   }).format(new Date(iso));
 }
 
-const TOGGLE_ON = "bg-accent text-on-accent";
+const TOGGLE_ON = "bg-fill text-on-fill";
 const TOGGLE_OFF = "bg-sunk text-ink-secondary";
 const CHIP = "bg-sunk text-ink-secondary text-meta rounded-full px-2.5 py-1 font-semibold";
 
@@ -139,7 +139,7 @@ export function MusterCockpit({
           aria-label="เลือกหัวหน้าทีม"
           value={leadPick}
           onChange={(e) => setLeadPick(e.target.value)}
-          className="border-edge bg-surface text-ink min-h-11 flex-1 rounded-lg border px-3 text-sm"
+          className="border-edge bg-card text-ink min-h-11 flex-1 rounded-lg border px-3 text-sm"
         >
           <option value="">เลือกหัวหน้าทีม…</option>
           {availableLeads.map((w) => (
@@ -152,7 +152,7 @@ export function MusterCockpit({
           type="button"
           onClick={openTeam}
           disabled={!leadPick || pending}
-          className="bg-accent text-on-accent min-h-11 rounded-lg px-4 text-sm font-bold disabled:opacity-50"
+          className="bg-fill text-on-fill min-h-11 rounded-lg px-4 text-sm font-bold disabled:opacity-50"
         >
           เปิดทีม
         </button>
@@ -317,7 +317,7 @@ function TeamCard({
                 setEditOpen(false);
               }}
               disabled={pending}
-              className="bg-accent text-on-accent mt-3 min-h-11 rounded-lg px-3 text-sm font-bold disabled:opacity-50"
+              className="bg-fill text-on-fill mt-3 min-h-11 rounded-lg px-3 text-sm font-bold disabled:opacity-50"
             >
               บันทึกงาน
             </button>
@@ -364,7 +364,7 @@ function TeamCard({
                 <button
                   type="button"
                   onClick={onOpenCamera}
-                  className="bg-accent text-on-accent min-h-11 rounded-lg px-3 text-sm font-bold"
+                  className="bg-fill text-on-fill min-h-11 rounded-lg px-3 text-sm font-bold"
                 >
                   สแกน QR
                 </button>

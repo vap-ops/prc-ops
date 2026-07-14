@@ -77,7 +77,7 @@ export async function StaffRegisterWorkspace({
       <section className={`mx-auto flex flex-col gap-4 ${PAGE_MAX_W} px-5 py-10`}>
         <h1 className={SECTION_HEADING}>{registration ? REGISTER_STATUS_HEADING : copy.heading}</h1>
         {site ? (
-          <div className={`${CARD} border-action-edge bg-action-soft`}>
+          <div className={`${CARD} border-action bg-action-soft`}>
             <p className="text-ink-secondary text-sm">สมัครเข้าโครงการ</p>
             <p className="text-ink mt-0.5 text-base font-semibold">{site}</p>
             <p className="text-ink-muted mt-1 text-xs">

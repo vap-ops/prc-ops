@@ -87,7 +87,7 @@ export function BillingReceipts({
             <>
               {" · ค้างรับ "}
               <span
-                className={`font-semibold tabular-nums ${outstanding > 0 ? "text-attn-strong" : "text-done-strong"}`}
+                className={`font-semibold tabular-nums ${outstanding > 0 ? "text-attn-ink" : "text-done-strong"}`}
               >
                 {baht(outstanding)}
               </span>

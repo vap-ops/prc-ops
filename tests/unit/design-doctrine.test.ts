@@ -58,6 +58,68 @@ describe("design doctrine (Field-First)", () => {
     expect(offenders.map((f) => f.rel)).toEqual([]);
   });
 
+  // Phantom-token guard (spec 316 U3 review, 2026-07-14). Tailwind v4 emits
+  // NO CSS for a colour utility whose token is not in @theme — `bg-surface` /
+  // `text-on-accent` silently style nothing and the element falls back to
+  // inherited colours (the spec-306 badge sheet shipped that way). The
+  // RAW_HUE guard above can't catch these (they aren't palette hues), so:
+  // every colour-capable utility class in src must resolve to a --color-*
+  // token (or --text-* for the type ramp), a Tailwind colour keyword, or a
+  // structural non-colour form of the same prefix. Raw palette hues are
+  // skipped here — RAW_HUE owns them (with its file allowlist). Only string
+  // literals are scanned so prose in comments ("text-first") can't trip it.
+  it("every colour-utility class resolves to a globals.css token (no phantom tokens)", () => {
+    const css = readFileSync(join(SRC, "app", "globals.css"), "utf8");
+    const colorTokens = new Set([...css.matchAll(/--color-([a-z0-9-]+)\s*:/g)].map((m) => m[1]));
+    // --text-display--line-height style subkeys don't match ([a-z]+ then `:`).
+    const textRamp = new Set([...css.matchAll(/--text-([a-z]+)\s*:/g)].map((m) => m[1]));
+    const KEYWORDS = new Set(["white", "black", "transparent", "current", "inherit"]);
+    const PALETTE_HUE =
+      /^(?:red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|slate|gray|zinc|neutral|stone)-\d+$/;
+    // Structural (non-colour) suffixes each prefix legitimately takes. SVG/CSS
+    // property names that appear inside markup strings (fill-rule, text-align)
+    // are listed too — they're prose, not utility classes.
+    const STRUCTURAL: Record<string, RegExp> = {
+      text: /^(?:xs|sm|base|lg|[2-9]?xl|left|center|right|justify|start|end|wrap|nowrap|balance|pretty|clip|ellipsis|align|anchor|decoration|transform|overflow|indent)$|^shadow(?:-|$)/,
+      bg: /^(?:none|cover|contain|auto|fixed|local|scroll|top|bottom|left|right|center|no-repeat)$|^repeat(?:-[xy]|-round|-space)?$|^(?:gradient|linear|radial|conic|clip|origin|blend|position|size|image)(?:-|$)/,
+      border:
+        /^(?:\d+|none|hidden|solid|dashed|dotted|double|collapse|separate|radius|width|style|spacing)(?:-|$)/,
+      ring: /^(?:\d+|inset)$/,
+      outline: /^(?:\d+|none|hidden|solid|dashed|dotted|double)$|^offset(?:-|$)/,
+      fill: /^(?:none|rule|opacity)$/,
+      stroke: /^(?:\d+|none|width|linecap|linejoin|dasharray|dashoffset|miterlimit|opacity)$/,
+      divide: /^(?:[xy]$|[xy]-|none|solid|dashed|dotted|double)/,
+      decoration: /^(?:\d+|auto|from-font|solid|dashed|dotted|double|wavy|none)$/,
+      caret: /^(?!)/,
+      accent: /^auto$/,
+    };
+    const CANDIDATE = new RegExp(
+      `\\b(${Object.keys(STRUCTURAL).join("|")})-([a-z][a-z0-9-]*)`,
+      "g",
+    );
+    const STRINGS = /"[^"\n]*"|'[^'\n]*'|`[^`]*`/g;
+
+    const offenders: string[] = [];
+    for (const f of sources) {
+      for (const sm of f.text.matchAll(STRINGS)) {
+        for (const m of sm[0].matchAll(CANDIDATE)) {
+          const prefix = m[1]!;
+          let suffix = m[2]!.replace(/\/\d+$/, ""); // strip opacity modifier
+          // Side/offset forms: border-t-card → card, ring-offset-2 → 2.
+          if (prefix === "border") suffix = suffix.replace(/^[tbrlxyse](?:-|$)/, "");
+          if (prefix === "ring") suffix = suffix.replace(/^offset(?:-|$)/, "");
+          if (suffix === "") continue; // bare side (border-b) or a dynamic `${...}` tail
+          if (colorTokens.has(suffix) || KEYWORDS.has(suffix)) continue;
+          if (prefix === "text" && textRamp.has(suffix)) continue;
+          if (PALETTE_HUE.test(suffix)) continue; // RAW_HUE's jurisdiction
+          if (STRUCTURAL[prefix]!.test(suffix)) continue;
+          offenders.push(`${f.rel}: ${prefix}-${m[2]!}`);
+        }
+      }
+    }
+    expect([...new Set(offenders)].sort()).toEqual([]);
+  });
+
   // Gloved-hands tap floor (spec 18/36): no sub-44px min-h-9 interactive
   // control anywhere in src. Restored — the reskin had dropped this pin,
   // letting the capture-sheet retry/remove buttons shrink to 36px.

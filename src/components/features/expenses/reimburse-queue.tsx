@@ -23,11 +23,11 @@ export function ReimburseQueue({ rows }: { rows: ReimbursableRow[] }) {
 
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="text-ink-soft px-1 text-xs font-semibold tracking-wide uppercase">
+      <h2 className="text-ink-secondary px-1 text-xs font-semibold tracking-wide uppercase">
         {REIMBURSE_QUEUE_HEADING}
       </h2>
       {groups.length === 0 ? (
-        <p className="text-ink-soft text-sm">{REIMBURSE_QUEUE_EMPTY}</p>
+        <p className="text-ink-secondary text-sm">{REIMBURSE_QUEUE_EMPTY}</p>
       ) : (
         groups.map((g) => (
           <div
@@ -50,7 +50,7 @@ export function ReimburseQueue({ rows }: { rows: ReimbursableRow[] }) {
                     <span className="text-ink truncate text-sm">
                       {it.categoryLabel ?? "—"} · {bahtWithSymbol(it.amount)}
                     </span>
-                    <span className="text-ink-soft truncate text-xs">
+                    <span className="text-ink-secondary truncate text-xs">
                       {it.expenseDate}
                       {it.description ? ` · ${it.description}` : ""}
                     </span>
