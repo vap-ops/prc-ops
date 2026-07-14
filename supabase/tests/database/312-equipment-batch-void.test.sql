@@ -1,5 +1,5 @@
 begin;
-select plan(14);
+select plan(19);
 
 -- ============================================================================
 -- Spec 312 — void_equipment_rental_batch. Pins: the back-office role gate
@@ -69,6 +69,61 @@ select public.post_rental_batch_to_gl(
 select public.post_rental_deposit_to_gl(
   (select id from public.equipment_rental_batches
      where supplier_id = '5a000001-0000-4000-8000-000000000312' and starts_on = date '2026-09-01'));
+
+-- Batch D → a LIVE nonzero settlement (money not yet unwound) — void must refuse.
+-- Batch E → settled, then the settlement superseded down to zero (the unwind
+-- path the RPC's own comment promises): void must SUCCEED. The original 075781
+-- gate blocked on ANY rental_settlements row — settlements are append-only, so
+-- a once-settled batch could never be voided (hit live 2026-07-14); 075799
+-- blocks only a chain head (no successor row) that still carries money. E gets
+-- a posted GL leg so the void has something real to reverse.
+set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111110312"}';
+select public.create_equipment_rental_batch(
+  '5a000001-0000-4000-8000-000000000312', 30000, date '2026-10-01');  -- batch D
+select public.create_equipment_rental_batch(
+  '5a000001-0000-4000-8000-000000000312', 20000, date '2026-11-01');  -- batch E
+select public.record_rental_settlement(
+  (select id from public.equipment_rental_batches
+     where supplier_id = '5a000001-0000-4000-8000-000000000312' and starts_on = date '2026-10-01'),
+  'INV-D1', date '2026-10-31', 1000, 0, 0, 0, 0, 0, 'cash');
+select public.record_rental_settlement(
+  (select id from public.equipment_rental_batches
+     where supplier_id = '5a000001-0000-4000-8000-000000000312' and starts_on = date '2026-11-01'),
+  'INV-E1', date '2026-11-30', 500, 0, 0, 0, 0, 0, 'cash');
+select public.supersede_rental_settlement(
+  (select id from public.rental_settlements where invoice_no = 'INV-E1'),
+  'INV-E1-VOID', date '2026-12-01', 0, 0, 0, 0, 0, 0, 'cash',
+  'settlement zeroed for void test');
+set local "request.jwt.claims" = '{}';
+
+-- Batch F → a WHT-bearing settlement superseded to zero NET. supersede carries
+-- wht_amount over from the target row by design (the WHT certificate exists),
+-- so the chain head still has wht <> 0 and the void must STILL refuse — pins
+-- that "zeroed" means all five money columns, not just net. Needs a supplier
+-- with a 13-digit tax id so record_rental_settlement computes WHT (rent 5%).
+insert into public.suppliers (id, name, tax_id, created_by) values
+  ('5a000002-0000-4000-8000-000000000312', 'Void Vendor WHT 312', '1234567890123',
+   '11111111-1111-1111-1111-111111110312');
+set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111110312"}';
+select public.create_equipment_rental_batch(
+  '5a000002-0000-4000-8000-000000000312', 10000, date '2026-12-01');  -- batch F
+select public.record_rental_settlement(
+  (select id from public.equipment_rental_batches
+     where supplier_id = '5a000002-0000-4000-8000-000000000312' and starts_on = date '2026-12-01'),
+  'INV-F1', date '2026-12-31', 1000, 0, 0, 0, 0, 0, 'cash');
+select public.supersede_rental_settlement(
+  (select id from public.rental_settlements where invoice_no = 'INV-F1'),
+  'INV-F1-VOID', date '2027-01-05', 0, 0, 0, 0, 0, 0, 'cash',
+  'net zeroed but WHT already certificated');
+set local "request.jwt.claims" = '{}';
+select public.post_rental_batch_to_gl(
+  (select id from public.equipment_rental_batches
+     where supplier_id = '5a000001-0000-4000-8000-000000000312' and starts_on = date '2026-11-01'));
+update public.gl_posting_outbox
+   set status = 'posted'
+ where source_table = 'equipment_rental_batches'
+   and source_id = (select id from public.equipment_rental_batches
+                      where supplier_id = '5a000001-0000-4000-8000-000000000312' and starts_on = date '2026-11-01');
 
 -- ============================================================================
 -- A. Role gate — site_admin and visitor refused (money).
@@ -211,6 +266,57 @@ select is(
       group by l.account_id
       having sum(l.debit - l.credit) <> 0) x),
   0::bigint, 'every account touched by deposit-paid batch C nets to zero after void');
+
+-- ============================================================================
+-- E. Settlement gate (075799) — a chain head still carrying money blocks the
+--    void; a chain superseded down to zero does not.
+-- ============================================================================
+set local "request.jwt.claims" = '{"sub": "44444444-4444-4444-4444-444444440312"}';
+select throws_ok(
+  $$ select public.void_equipment_rental_batch(
+       (select id from public.equipment_rental_batches
+          where supplier_id = '5a000001-0000-4000-8000-000000000312' and starts_on = date '2026-10-01')) $$,
+  'RB409', 'void_equipment_rental_batch: batch has a live settlement',
+  'a batch whose live settlement carries money cannot be voided → RB409');
+select throws_ok(
+  $$ select public.void_equipment_rental_batch(
+       (select id from public.equipment_rental_batches
+          where supplier_id = '5a000002-0000-4000-8000-000000000312' and starts_on = date '2026-12-01')) $$,
+  'RB409', 'void_equipment_rental_batch: batch has a live settlement',
+  'a zero-net supersede that still carries WHT keeps blocking the void → RB409');
+select lives_ok(
+  $$ select public.void_equipment_rental_batch(
+       (select id from public.equipment_rental_batches
+          where supplier_id = '5a000001-0000-4000-8000-000000000312' and starts_on = date '2026-11-01'),
+       'settled-then-zeroed test') $$,
+  'a batch whose settlements are superseded to zero CAN be voided');
+
+set local "request.jwt.claims" = '{}';
+select is(
+  (select status::text from public.equipment_rental_batches
+     where supplier_id = '5a000001-0000-4000-8000-000000000312' and starts_on = date '2026-11-01'),
+  'cancelled', 'the zero-settled batch E is cancelled');
+select is(
+  (select count(*) from (
+     select l.account_id
+       from public.journal_lines l
+      where l.entry_id in (
+        select id from public.journal_entries
+          where source_table in ('equipment_rental_batches', 'rental_deposits')
+            and source_id = (select id from public.equipment_rental_batches
+                               where supplier_id = '5a000001-0000-4000-8000-000000000312'
+                                 and starts_on = date '2026-11-01')
+        union
+        select id from public.journal_entries
+          where reversal_of in (
+            select id from public.journal_entries
+              where source_table in ('equipment_rental_batches', 'rental_deposits')
+                and source_id = (select id from public.equipment_rental_batches
+                                   where supplier_id = '5a000001-0000-4000-8000-000000000312'
+                                     and starts_on = date '2026-11-01')))
+      group by l.account_id
+      having sum(l.debit - l.credit) <> 0) x),
+  0::bigint, 'every batch-sourced account for batch E nets to zero after void');
 
 select * from finish();
 rollback;
