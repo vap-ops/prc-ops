@@ -32,6 +32,8 @@ type PoolUser = { id: string; line_user_id: string | null; telegram_chat_id: str
 // Mutable fixtures the admin mock closes over; reset each test (beforeEach).
 let outboxRows: OutboxRow[] = [];
 let superUsers: PoolUser[] = [];
+// Spec 318 U3 — enabled=false preference rows served to the drain's mute fetch.
+let mutedPrefRows: Array<{ user_id: string; event_type: string }> = [];
 let rowUpdates: Array<{ id: unknown; values: Record<string, unknown> }> = [];
 
 const pushLineMessageMock = vi.fn();
@@ -98,6 +100,14 @@ vi.mock("@/lib/db/admin", () => ({
           }),
         };
       }
+      // Spec 318 U3 — per-user mutes (enabled=false rows only).
+      if (table === "notification_preferences") {
+        return {
+          select: () => ({
+            eq: async () => ({ data: mutedPrefRows, error: null }),
+          }),
+        };
+      }
       throw new Error(`unexpected table ${table}`);
     },
   }),
@@ -120,6 +130,7 @@ function drainRequest(): NextRequest {
 
 beforeEach(() => {
   rowUpdates = [];
+  mutedPrefRows = [];
   superUsers = [{ id: SUPER_ID, line_user_id: "Lsuper", telegram_chat_id: null }];
   outboxRows = [
     // (1) event type the deployed code doesn't know → safe skip, not a crash.
@@ -181,5 +192,54 @@ describe("POST /api/notifications/drain — one poisoned row never stalls the ba
     expect(byId.get(UNKNOWN_ID)).toMatchObject({ status: "sent" });
     expect(byId.get(BOOM_ID)).toMatchObject({ status: "failed" });
     expect(byId.get(OK_ID)).toMatchObject({ status: "sent" });
+  });
+
+  // Spec 318 U3 — a muted recipient is dropped before contact mapping; the
+  // row completes as sent (an intentional drop, not a delivery failure).
+  it("mutes drop the recipient: no push, row consumed as sent", async () => {
+    mutedPrefRows = [{ user_id: SUPER_ID, event_type: "feedback_submitted" }];
+    outboxRows = [
+      {
+        id: OK_ID,
+        event_type: "feedback_submitted",
+        work_package_id: null,
+        purchase_request_id: null,
+        payload: {
+          feedback_type: "feature",
+          role_snapshot: "project_manager",
+          feedback_title: "OK",
+        },
+        attempts: 0,
+      },
+    ];
+
+    const response = await POST(drainRequest());
+
+    expect(await response.json()).toMatchObject({ processed: 1, sent: 1, failed: 0 });
+    expect(pushLineMessageMock).not.toHaveBeenCalled();
+    const byId = new Map(rowUpdates.map((u) => [u.id, u.values]));
+    expect(byId.get(OK_ID)).toMatchObject({ status: "sent" });
+  });
+
+  it("a mute for a DIFFERENT event does not suppress delivery", async () => {
+    mutedPrefRows = [{ user_id: SUPER_ID, event_type: "pr_progress" }];
+    outboxRows = [
+      {
+        id: OK_ID,
+        event_type: "feedback_submitted",
+        work_package_id: null,
+        purchase_request_id: null,
+        payload: {
+          feedback_type: "feature",
+          role_snapshot: "project_manager",
+          feedback_title: "OK",
+        },
+        attempts: 0,
+      },
+    ];
+
+    await POST(drainRequest());
+
+    expect(pushLineMessageMock).toHaveBeenCalledTimes(1);
   });
 });

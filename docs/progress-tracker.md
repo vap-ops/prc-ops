@@ -7539,3 +7539,16 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
   labor_logs is empty so the populated+filtered view can't be data-driven; the
   reconcilePayroll decision (scoped→no report) is unit-tested and the page gate is
   a direct {annotated ? ... : null} on it. Accepted as documented.
+
+- U3 preferences + catalog + drain filter — COMPLETE (this PR). New
+  notification_preferences (mig 075797, LIVE; absence=ON; own-rows read; writes
+  RPC-only via set_notification_preference — refuses locked site_issue_reported
+  22023, anon revoked). Catalog SSOT notification-catalog.ts (satisfies-Record
+  enum lockstep, role sets from role-home) + pure filterMutedRecipients (locked
+  bypass); drain fetches enabled=false rows scoped to the batch's event types
+  (1000-row-cap warn) and filters recipients pre contact-mapping. pgTAP 15/15
+  incl cross-user isolation; drain vitest +2 mute cases. Fresh-eyes: 1 yellow
+  fixed (bounded prefs fetch), 1 blue fixed (cross-user assert), 1 blue DEFERRED
+  (partial index where enabled=false — applied-mig edit is a no-op; add in a
+  future mig if prefs volume grows). NOTE: carries U1's mig file 075796 (shared
+  DB history requires it locally; #546 unmerged) — same content, no conflict.

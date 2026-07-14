@@ -3568,6 +3568,35 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          enabled: boolean
+          event_type: Database["public"]["Enums"]["notification_event_type"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          enabled: boolean
+          event_type: Database["public"]["Enums"]["notification_event_type"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          enabled?: boolean
+          event_type?: Database["public"]["Enums"]["notification_event_type"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       nova_dials: {
         Row: {
           dial_key: string
@@ -6931,6 +6960,8 @@ export type Database = {
           id: string
           line_avatar_url: string | null
           line_display_name: string | null
+          line_oa_friend: boolean | null
+          line_oa_friend_checked_at: string | null
           line_synced_at: string | null
           line_user_id: string | null
           role: Database["public"]["Enums"]["user_role"]
@@ -6944,6 +6975,8 @@ export type Database = {
           id: string
           line_avatar_url?: string | null
           line_display_name?: string | null
+          line_oa_friend?: boolean | null
+          line_oa_friend_checked_at?: string | null
           line_synced_at?: string | null
           line_user_id?: string | null
           role?: Database["public"]["Enums"]["user_role"]
@@ -6957,6 +6990,8 @@ export type Database = {
           id?: string
           line_avatar_url?: string | null
           line_display_name?: string | null
+          line_oa_friend?: boolean | null
+          line_oa_friend_checked_at?: string | null
           line_synced_at?: string | null
           line_user_id?: string | null
           role?: Database["public"]["Enums"]["user_role"]
@@ -9654,6 +9689,13 @@ export type Database = {
       }
       set_muster_team_wps: {
         Args: { p_team: string; p_wp_ids: string[] }
+        Returns: undefined
+      }
+      set_notification_preference: {
+        Args: {
+          p_enabled: boolean
+          p_event: Database["public"]["Enums"]["notification_event_type"]
+        }
         Returns: undefined
       }
       set_nova_dial: {

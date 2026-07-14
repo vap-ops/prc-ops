@@ -26,6 +26,7 @@ import {
   reclaimCutoffIso,
   rowOutcomeAfterPushes,
 } from "@/lib/notifications/drain-policy";
+import { filterMutedRecipients, mutedKey } from "@/lib/notifications/preference-filter";
 import { pushLineMessage } from "@/lib/notifications/line-push";
 import { pushTelegramMessage } from "@/lib/notifications/telegram-push";
 
@@ -223,6 +224,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
+  // Spec 318 U3 — per-user mutes. Only deviations are stored (enabled=false
+  // rows; absence = ON); scoped to the batch's event types so the read stays
+  // bounded as the table grows.
+  const batchEventTypes = [...new Set(rows.map((r) => r.event_type))];
+  const { data: mutedRows, error: mutedError } = await admin
+    .from("notification_preferences")
+    .select("user_id, event_type")
+    .eq("enabled", false)
+    .in("event_type", batchEventTypes);
+  if (mutedError) {
+    console.error("[notifications/drain] preference fetch failed", mutedError.message);
+    return NextResponse.json({ error: "enrichment_failed" }, { status: 500 });
+  }
+  // Same PostgREST 1000-row cap failure mode as the uploader query above —
+  // silent truncation here would UN-mute users. Log loudly if it ever nears.
+  if ((mutedRows ?? []).length >= 1000) {
+    console.warn("[notifications/drain] preference query hit the 1000-row cap");
+  }
+  const mutedKeys = new Set((mutedRows ?? []).map((r) => mutedKey(r.user_id, r.event_type)));
+
   const wpCodeById = new Map<string, string>();
   for (const wp of wpResult.data ?? []) {
     wpCodeById.set(wp.id, wp.code);
@@ -406,11 +427,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           : [],
         siteIssueRolePoolIds,
       });
-      const lineTargets = recipients
+      // Spec 318 U3 — apply per-user mutes before contact mapping. A muted
+      // recipient is an intentional drop; locked events bypass the filter.
+      const deliverable = filterMutedRecipients(recipients, row.event_type, mutedKeys);
+      const lineTargets = deliverable
         .map((id) => lineIdByUser.get(id))
         .filter((lineId): lineId is string => lineId !== undefined);
       const telegramTargets = telegramToken
-        ? recipients
+        ? deliverable
             .map((id) => telegramChatByUser.get(id))
             .filter((chatId): chatId is string => chatId !== undefined)
         : [];
