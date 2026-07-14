@@ -1,3 +1,9 @@
+# [0.91.0](https://github.com/VAP-Solution/prc-ops/compare/v0.90.1...v0.91.0) (2026-07-14)
+
+### Features
+
+- **settings:** /settings/my-info — the all-roles self-service door (spec 317 U2) ([#543](https://github.com/VAP-Solution/prc-ops/issues/543)) ([0e6d1dd](https://github.com/VAP-Solution/prc-ops/commit/0e6d1dde9e5ef2c9b838a659d49192c879eb16a9))
+
 ## [0.90.1](https://github.com/VAP-Solution/prc-ops/compare/v0.90.0...v0.90.1) (2026-07-14)
 
 ### Bug Fixes
