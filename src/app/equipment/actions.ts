@@ -80,6 +80,9 @@ export async function createEquipment(input: EquipmentInput): Promise<EquipmentA
     name: item.value.name,
     category_id: input.categoryId,
     owner_id: input.ownerId,
+    // Spec 275: owners are id-mirrored into suppliers — dual-write keeps the
+    // supplier edge (GL party, 274 invariant) in step. Fix 2026-07-14.
+    supplier_id: input.ownerId,
     tracking: item.value.tracking,
     asset_tag: item.value.assetTag,
     quantity: item.value.quantity,
@@ -114,6 +117,8 @@ export async function updateEquipment(
       name: item.value.name,
       category_id: input.categoryId,
       owner_id: input.ownerId,
+      // Spec 275 dual-write (see createEquipment).
+      supplier_id: input.ownerId,
       tracking: item.value.tracking,
       asset_tag: item.value.assetTag,
       quantity: item.value.quantity,
