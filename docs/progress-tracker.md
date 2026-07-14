@@ -7540,6 +7540,18 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
   reconcilePayroll decision (scoped→no report) is unit-tested and the page gate is
   a direct {annotated ? ... : null} on it. Accepted as documented.
 
+## Spec 318 — notification onboarding + settings (design #541, plan #545)
+
+- U1 friendship detection — COMPLETE (this PR). bot_prompt=aggressive on the
+  shared authorize builder (browser + handoff starts); exchangeLineCode exposes
+  the user access token; callback probes friendship/v1/status (2.5s abort,
+  null = keep stored value, never blocks login) and refresh-writes
+  users.line_oa_friend + line_oa_friend_checked_at (mig 075796, service-role
+  write, grants unchanged). pgTAP 318-line-oa-friend (5). Fresh-eyes: 2 yellow
+  fixed (probe timeout + callback-level probe coverage). OPERATOR STEP at merge:
+  LINE console → PRC_Ops_Login → link OA @070vkizw (no env changes — 2026-06-25
+  incident guard). Real LINE login exercises the write path post-deploy.
+
 - U3 preferences + catalog + drain filter — COMPLETE (this PR). New
   notification_preferences (mig 075797, LIVE; absence=ON; own-rows read; writes
   RPC-only via set_notification_preference — refuses locked site_issue_reported
@@ -7563,3 +7575,15 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
   false→banner+CTA on /dashboard+/profile; null→absent; dev-preview row
   reverted). NOTE: readiness.ts sits in src/lib/notifications/\*\* → danger-path
   HOLD expected (reviewer-confirmed); operator merges with #546.
+
+- U5 fanout scoping — COMPLETE (this PR). wp_pending_approval + pr_created now
+  project-scoped: event project's PMs (spec-277 projectPmRecipients machinery,
+  generalized enrichment union) + org-wide PD/super pool; unresolvable project
+  (pre-318 queue rows, WP-less PRs) → legacy full-pool fallback (transition
+  safety, drain-tested). notify_pr_created re-created FROM LIVE + project_id
+  payload (mig 075798, LIVE). Closes multi-project audit P1 cluster E. pgTAP
+  318-pr-created-payload 2/2; drain vitest +2 glue cases; resolve-recipients
+  21/21. Fresh-eyes: 2 yellow addressed (glue coverage added; PM-membership
+  invariant verified live — sole active project has PD lead + 3 PM-tier
+  members; PD/super backstop regardless — WATCH: project creation should keep
+  seeding PM-tier lead/member), 1 blue fixed (enrichmentProjectIds rename).

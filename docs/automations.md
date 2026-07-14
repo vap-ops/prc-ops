@@ -96,3 +96,50 @@ bytes}}, errors }`. Per-file errors are logged and counted, not fatal.
   `src/lib/notifications/{resolve-recipients,compose-notification,site-issue-recipients,payload}.ts`
   · `src/app/api/notifications/drain/route.ts` · pgTAP
   `supabase/tests/database/294-site-issue-notify.test.sql`.
+
+---
+
+## AUT-N1…N8 — outbox notification events (spec 32 / ADR 0037 family)
+
+The eight event-driven LINE notifications that ride the shared
+`notification_outbox` → drain pipeline (AUT-SI1 is the ninth and has its own
+entry above). **Shared shape** — each row below is a DB `AFTER INSERT/UPDATE`
+capture trigger (SECURITY DEFINER, failure-swallowed: a notification can never
+block the originating write) enqueuing one outbox row; `POST
+/api/notifications/drain` (pg_cron → pg_net, every minute) resolves recipients
+(`src/lib/notifications/resolve-recipients.ts`), applies per-user mutes, and
+pushes via LINE (+ Telegram for users with `telegram_chat_id`).
+
+**Shared config:** `LINE_MESSAGING_CHANNEL_ACCESS_TOKEN` +
+`NOTIFICATION_DRAIN_SECRET` (unset → drain answers 503, rows queue),
+`TELEGRAM_BOT_TOKEN` (optional), `NEXT_PUBLIC_APP_URL`. Recipients need
+`users.line_user_id` (auto at LINE login) AND OA friendship (`@070vkizw`,
+detected + prompted at login — spec 318 U1) to actually receive.
+
+**Toggleable?** All eight: **per-user mute** via `/settings/notifications`
+(spec 318 U3/U4 — `notification_preferences`, absence = ON; catalog SSOT
+`src/lib/notifications/notification-catalog.ts` names labels/categories/
+audiences). Site-wide pause = unset the drainer env vars. Per-event pause (no
+deploy) = `alter table <source> disable trigger <trigger>`.
+
+**Status:** all live. **Backing spec:** 32 (pipeline) · 318 (preferences +
+project scoping); Thai copy in `src/lib/notifications/compose-notification.ts`.
+
+| id     | event                 | trigger (table · when)                                                                                                     | recipients (post-spec-318-U5)                                                            |
+| ------ | --------------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| AUT-N1 | `wp_pending_approval` | `work_packages_notify_pending_approval` — WP status → `pending_approval` (mig 20260615000100)                              | the WP project's PMs (lead-if-PM + PM-tier members) + every project_director/super_admin |
+| AUT-N2 | `wp_decision`         | `approvals_notify_decision` — AFTER INSERT on `approvals` (mig 20260615000100)                                             | the WP's photo uploaders (tombstones excluded), minus the decider                        |
+| AUT-N3 | `wp_reopened`         | `work_packages_notify_reopened` — complete → rework (spec 218 U5, mig 20260813011000)                                      | the WP's photo uploaders, minus the reopener                                             |
+| AUT-N4 | `pr_created`          | `purchase_requests_notify_created` — AFTER INSERT at `requested` (migs 20260615000100 + 20260813075798 payload project_id) | the PR project's PMs + PD/super pool, minus the requester                                |
+| AUT-N5 | `pr_decision`         | `purchase_requests_notify_status_change` — requested → approved/rejected (mig 20260615000100)                              | the requester, minus the decider (self-decision = no ping)                               |
+| AUT-N6 | `pr_progress`         | same trigger — status → purchased/on_route/delivered                                                                       | the requester                                                                            |
+| AUT-N7 | `pr_cancelled`        | same trigger — status → cancelled                                                                                          | the requester, minus the canceller                                                       |
+| AUT-N8 | `feedback_submitted`  | `feedback_notify_submitted` — AFTER INSERT on `feedback` (spec 201 A4, migs 20260813001700/1800)                           | every super_admin, minus the submitter                                                   |
+
+**Transition note (spec 318 U5):** an outbox row whose project cannot be
+resolved (queued before the project_id payload existed, or a WP-less PR) falls
+back to the legacy org-wide PM pool — nothing is dropped across the deploy.
+
+**AUT-SI1 addendum (spec 318 U3):** `site_issue_reported` is **locked** against
+per-user mute — `set_notification_preference` refuses it (22023) and the drain
+filter bypasses locked events; the safety alert always delivers.

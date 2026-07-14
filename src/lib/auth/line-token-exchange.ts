@@ -8,7 +8,10 @@ import { verifyLineIdToken, type LineIdTokenClaims } from "./verify-line-id-toke
 const LINE_TOKEN_URL = "https://api.line.me/oauth2/v2.1/token";
 
 export type LineExchangeResult =
-  | { ok: true; claims: LineIdTokenClaims }
+  // accessToken (spec 318 U1): the USER's login access token, used by the
+  // callback for the OA-friendship probe. null when LINE omits it — the
+  // probe is skipped, login proceeds.
+  | { ok: true; claims: LineIdTokenClaims; accessToken: string | null }
   | { ok: false; reason: string; detail?: string };
 
 export async function exchangeLineCode(args: {
@@ -47,14 +50,15 @@ export async function exchangeLineCode(args: {
     };
   }
 
-  const json = (await response.json()) as { id_token?: unknown };
+  const json = (await response.json()) as { id_token?: unknown; access_token?: unknown };
   if (typeof json.id_token !== "string") {
     return { ok: false, reason: "missing_id_token" };
   }
+  const accessToken = typeof json.access_token === "string" ? json.access_token : null;
 
   try {
     const claims = verifyLineIdToken(json.id_token, args.channelSecret, args.channelId);
-    return { ok: true, claims };
+    return { ok: true, claims, accessToken };
   } catch (err) {
     return {
       ok: false,
