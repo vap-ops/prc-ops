@@ -9,8 +9,8 @@ import { PageShell } from "@/components/features/chrome/page-shell";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { EmptyNotice } from "@/components/features/common/notices";
-import { RoleAdminList, type RoleUserVM } from "@/components/features/roles/role-admin-list";
-import { groupUsersByRole } from "@/lib/roles/group-users";
+import { type RoleUserVM } from "@/components/features/roles/role-admin-list";
+import { RoleDirectory } from "@/components/features/roles/role-directory";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
@@ -34,10 +34,6 @@ export default async function RolesPage() {
     isSelf: u.id === ctx.id,
   }));
 
-  // Feedback d00c3d0e: grouped by role — visitors lead (the promotion queue),
-  // internal tiers next, external audiences last. Empty groups don't render.
-  const groups = groupUsersByRole(vms);
-
   const visitorCount = users.filter((u) => u.role === "visitor").length;
 
   return (
@@ -56,15 +52,9 @@ export default async function RolesPage() {
         {users.length === 0 ? (
           <EmptyNotice>ยังไม่มีผู้ใช้</EmptyNotice>
         ) : (
-          groups.map((g) => (
-            <section key={g.role} aria-label={g.label}>
-              <h2 className="text-ink-secondary mb-2 flex items-baseline gap-1.5 text-sm font-semibold">
-                {g.role === "visitor" ? "รอกำหนดสิทธิ์" : g.label}
-                <span className="text-ink-muted text-xs font-normal">{g.users.length} คน</span>
-              </h2>
-              <RoleAdminList users={g.users} />
-            </section>
-          ))
+          // Spec 316 U2: name search + the grouped sections (visitor promotion
+          // queue first, feedback d00c3d0e) live in the RoleDirectory island.
+          <RoleDirectory users={vms} />
         )}
       </section>
     </PageShell>
