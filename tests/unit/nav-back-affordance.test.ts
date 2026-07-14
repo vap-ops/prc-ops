@@ -117,6 +117,8 @@ const STATIC_DETAIL = [
   "settings/wp-grouping-import",
   // Spec 283: the System Integrity Console (ตรวจระบบ) drills down from /settings (back chip).
   "settings/integrity",
+  // Spec 317 U2: the all-roles self-service door drills down from /settings (back chip).
+  "settings/my-info",
   // Spec 310: the company-card registry drills down from /settings (back chip).
   "settings/cards",
   // Spec 314 U2: the level-standard labor-rate editor drills down from /settings (back chip).

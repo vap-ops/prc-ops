@@ -109,6 +109,7 @@ export default async function SettingsPage() {
           </div>
         </div>
 
+        {configSection("my-info")}
         {configSection("field")}
         {configSection("master-data")}
         {configSection("labor-team")}
