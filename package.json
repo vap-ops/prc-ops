@@ -75,7 +75,7 @@
     "prettier-plugin-tailwindcss": "^0.8.0",
     "semantic-release": "^25.0.5",
     "sharp": "^0.34.5",
-    "supabase": "^2.98.1",
+    "supabase": "^2.109.1",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5",
