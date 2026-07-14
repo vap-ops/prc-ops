@@ -87,7 +87,11 @@ set local "request.jwt.claims" = '{"sub": "51000000-0000-4000-8000-000000000201"
 select is((select count(*) from public.worker_bank_change_requests),
   0::bigint, 'site_admin sees no bank-change requests (money hidden)');
 set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111110201"}';
-select is((select count(*) from public.worker_bank_change_requests),
+-- Scoped to the fixture workers: real prod requests exist since spec 315 went
+-- live (2026-07-14), so an absolute table count is a live-data flake.
+select is((select count(*) from public.worker_bank_change_requests
+    where worker_id in ('aa000000-0000-4000-8000-000000000201',
+                        'bb000000-0000-4000-8000-000000000201')),
   2::bigint, 'pm sees the full queue (A + B)');
 
 -- D. decide — pm/super/director only; approve applies to workers.bank_*, reject does not.

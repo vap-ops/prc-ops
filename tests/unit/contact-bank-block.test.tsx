@@ -7,15 +7,22 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockSet, mockRefresh } = vi.hoisted(() => ({ mockSet: vi.fn(), mockRefresh: vi.fn() }));
+const { mockSet, mockRefresh, mockRpc } = vi.hoisted(() => ({
+  mockSet: vi.fn(),
+  mockRefresh: vi.fn(),
+  mockRpc: vi.fn(),
+}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
 vi.mock("@/app/contacts/actions", () => ({ setContactBank: mockSet }));
+// Spec 317 U7 — the embedded BankSelect fetches usage counts on mount.
+vi.mock("@/lib/db/browser", () => ({ createClient: () => ({ rpc: mockRpc }) }));
 
 import { ContactBankBlock } from "@/components/features/contacts/contact-bank-block";
 
 beforeEach(() => {
   mockSet.mockReset().mockResolvedValue({ ok: true });
   mockRefresh.mockReset();
+  mockRpc.mockReset().mockResolvedValue({ data: [], error: null });
 });
 
 describe("ContactBankBlock", () => {
@@ -33,13 +40,12 @@ describe("ContactBankBlock", () => {
 
   it("saves via setContactBank with the kind + id", async () => {
     render(<ContactBankBlock kind="supplier" id="s1" initial={null} />);
-    fireEvent.change(screen.getByLabelText("ชื่อธนาคาร"), {
-      target: { value: "ธ.ไทยพาณิชย์" },
-    });
+    // Spec 317 U7 — bank name comes from the canonical picker, not free text.
+    fireEvent.click(screen.getByRole("button", { name: /ไทยพาณิชย์/ }));
     fireEvent.click(screen.getByRole("button", { name: "บันทึกข้อมูลธนาคาร" }));
     await waitFor(() =>
       expect(mockSet).toHaveBeenCalledWith(
-        expect.objectContaining({ kind: "supplier", id: "s1", bankName: "ธ.ไทยพาณิชย์" }),
+        expect.objectContaining({ kind: "supplier", id: "s1", bankName: "ไทยพาณิชย์" }),
       ),
     );
   });

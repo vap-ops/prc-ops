@@ -29,6 +29,7 @@ import {
 } from "@/app/workers/actions";
 import type { Database } from "@/lib/db/database.types";
 import { WORKER_LEVEL_LABEL, WORKER_LEVEL_ORDER, type WorkerLevel } from "@/lib/nova/dials";
+import { BankSelect } from "@/components/features/common/bank-select";
 import { RadioChip } from "@/components/features/common/radio-chip";
 import { WorkerInviteBlock } from "@/components/features/portal/worker-invite-block";
 import {
@@ -226,15 +227,8 @@ function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
               className={FIELD_STACKED}
             />
           </label>
-          <label className="text-ink-secondary mt-2 block text-sm">
-            ธนาคาร
-            <input
-              value={bankName}
-              onChange={(e) => setBankName(e.target.value)}
-              maxLength={120}
-              className={FIELD_STACKED}
-            />
-          </label>
+          <p className="text-ink-secondary mt-2 text-sm">ธนาคาร</p>
+          <BankSelect value={bankName} onChange={setBankName} />
           <label className="text-ink-secondary mt-2 block text-sm">
             เลขบัญชีธนาคาร
             <input
@@ -614,15 +608,8 @@ function WorkerRow({
             </div>
           ) : (
             <>
-              <label className="text-ink-secondary mt-2 block text-sm">
-                ธนาคาร
-                <input
-                  value={bankName}
-                  onChange={(e) => setBankName(e.target.value)}
-                  maxLength={120}
-                  className={FIELD_STACKED}
-                />
-              </label>
+              <p className="text-ink-secondary mt-2 text-sm">ธนาคาร</p>
+              <BankSelect value={bankName} onChange={setBankName} />
               <label className="text-ink-secondary mt-2 block text-sm">
                 เลขบัญชีธนาคาร
                 <input
