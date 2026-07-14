@@ -1,3 +1,9 @@
+# [0.79.0](https://github.com/VAP-Solution/prc-ops/compare/v0.78.0...v0.79.0) (2026-07-14)
+
+### Features
+
+- **payroll:** spec 314 U4 — gross/WHT/net roll-up + CSV ([#526](https://github.com/VAP-Solution/prc-ops/issues/526)) ([e0b8636](https://github.com/VAP-Solution/prc-ops/commit/e0b863654d1cadc4b6eb412b96461dddebd72208))
+
 # [0.78.0](https://github.com/VAP-Solution/prc-ops/compare/v0.77.0...v0.78.0) (2026-07-14)
 
 ### Features
