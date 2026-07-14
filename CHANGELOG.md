@@ -1,3 +1,9 @@
+## [0.84.1](https://github.com/VAP-Solution/prc-ops/compare/v0.84.0...v0.84.1) (2026-07-14)
+
+### Bug Fixes
+
+- **design:** replace phantom Tailwind token classes with real tokens + guard ([#535](https://github.com/VAP-Solution/prc-ops/issues/535)) ([df9b0a7](https://github.com/VAP-Solution/prc-ops/commit/df9b0a7f3f209e2a6c3a547ebcf4dbfedee1006c))
+
 # [0.84.0](https://github.com/VAP-Solution/prc-ops/compare/v0.83.0...v0.84.0) (2026-07-14)
 
 ### Features
