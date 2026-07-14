@@ -56,6 +56,24 @@ export interface NotificationCatalogEntry {
   locked: boolean;
 }
 
+/**
+ * The serializable half of a catalog entry (no `audience` function) — the shape
+ * a Server Component may hand to the client toggle form. Passing the full entry
+ * across the RSC boundary throws ("Functions cannot be passed to Client
+ * Components"); the server filters by `audience` then maps to this.
+ */
+export type NotificationToggleEntry = Omit<NotificationCatalogEntry, "audience">;
+
+export function toToggleEntry(entry: NotificationCatalogEntry): NotificationToggleEntry {
+  return {
+    event: entry.event,
+    label: entry.label,
+    description: entry.description,
+    category: entry.category,
+    locked: entry.locked,
+  };
+}
+
 const pmTier = (role: UserRole) => PM_ROLES.includes(role);
 const uploaderTier = (role: UserRole) => SITE_STAFF_ROLES.includes(role);
 const requesterTier = (role: UserRole) => PURCHASING_ROLES.includes(role);

@@ -123,6 +123,8 @@ const STATIC_DETAIL = [
   "settings/cards",
   // Spec 314 U2: the level-standard labor-rate editor drills down from /settings (back chip).
   "settings/labor-rates",
+  // Spec 318 U4: the per-user notification settings drill down from /settings (back chip).
+  "settings/notifications",
   // Spec 310: the office-expense surface drills down from /settings (back chip).
   "expenses",
   // Spec 162: the Nova operator console drills down from /settings (back chip).
