@@ -1,3 +1,9 @@
+## [0.92.1](https://github.com/VAP-Solution/prc-ops/compare/v0.92.0...v0.92.1) (2026-07-14)
+
+### Bug Fixes
+
+- **register:** bank picker on the PM passbook-transcription form ([#547](https://github.com/VAP-Solution/prc-ops/issues/547)) ([36caba6](https://github.com/VAP-Solution/prc-ops/commit/36caba62c0446d90186511ec293740ffc9cd160a)), closes [#465](https://github.com/VAP-Solution/prc-ops/issues/465)
+
 # [0.92.0](https://github.com/VAP-Solution/prc-ops/compare/v0.91.1...v0.92.0) (2026-07-14)
 
 ### Features
