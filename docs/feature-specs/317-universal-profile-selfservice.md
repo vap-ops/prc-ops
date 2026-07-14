@@ -81,6 +81,17 @@ p_emergency_relation, p_emergency_phone)` — own registration, `pending OR appr
   re-signature + photo column + queue render (315 U2 pattern on the contractor table;
   storage path = the contractor docs convention, verified at build).
 - **U6 (deferred):** outbox notifications for submits/decisions.
+- **U7 (schema + code, operator ask 2026-07-14 mid-epic):** ชื่อธนาคาร becomes a
+  SELECTION sorted by usage frequency, with icons. SSOT `src/lib/banks/thai-banks.ts`
+  (canonical short names + brand-color monogram chips — no trademark image assets);
+  shared `BankSelect` chip picker (อื่นๆ free-text escape; a stored non-canonical
+  value opens prefilled in อื่นๆ mode so legacy rows stay editable); order = live
+  `bank_name_usage()` DEFINER aggregate (names+counts only across
+  workers/contact_bank/staff_registration_bank — zero-grant walls intact; mig
+  `075789`) with market-share rank as tiebreak. Wired into all 5 bank-name forms
+  (worker change · contractor change · staff signup · PM contact bank · PM roster
+  add/edit). Follow-up: the PR-#465 transcription form gets the picker once that
+  rescued PR lands.
 
 ## U1 accepted seams (fresh-eyes review, 2026-07-14)
 

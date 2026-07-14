@@ -9,6 +9,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { submitBankChange } from "@/lib/portal/actions";
 import { validateBankChange } from "@/lib/portal/bank-change";
+import { BankSelect } from "@/components/features/common/bank-select";
 import { useToast } from "@/lib/ui/use-toast";
 import { BUTTON_PRIMARY, CARD, FIELD_STACKED, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
 
@@ -58,19 +59,15 @@ export function BankChangeForm({ hasPending }: { hasPending: boolean }) {
     <div className={CARD}>
       <p className="text-ink text-sm font-semibold">แจ้งเปลี่ยนบัญชีธนาคาร</p>
       <p className="text-ink-muted mt-0.5 text-xs">ผู้จัดการจะตรวจสอบก่อนใช้งานจริง</p>
-      <label className="text-ink-secondary mt-3 block text-sm">
-        ชื่อธนาคาร
-        <input
-          value={bankName}
-          maxLength={200}
-          disabled={pending}
-          onChange={(e) => {
-            setBankName(e.target.value);
-            setError(null);
-          }}
-          className={FIELD_STACKED}
-        />
-      </label>
+      <p className="text-ink-secondary mt-3 text-sm">ชื่อธนาคาร</p>
+      <BankSelect
+        value={bankName}
+        disabled={pending}
+        onChange={(name) => {
+          setBankName(name);
+          setError(null);
+        }}
+      />
       <label className="text-ink-secondary mt-3 block text-sm">
         เลขที่บัญชี
         <input

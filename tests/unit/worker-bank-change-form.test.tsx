@@ -21,7 +21,11 @@ const { submitWorkerBankChange, mockRefresh, mockUpload, mockPrepare } = vi.hois
 vi.mock("@/lib/portal/actions", () => ({ submitWorkerBankChange }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
 vi.mock("@/lib/db/browser", () => ({
-  createClient: () => ({ storage: { from: () => ({ upload: mockUpload }) } }),
+  createClient: () => ({
+    storage: { from: () => ({ upload: mockUpload }) },
+    // Spec 317 U7 — the embedded BankSelect fetches usage counts on mount.
+    rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+  }),
 }));
 vi.mock("@/lib/photos/downscale", () => ({ preparePhotoForUpload: mockPrepare }));
 vi.mock("@/lib/ui/use-toast", () => ({
@@ -39,8 +43,9 @@ import { WorkerBankChangeForm } from "@/components/features/portal/worker-bank-c
 const UID = "11111111-1111-1111-1111-111111111111";
 
 function fillFields() {
-  const [bank, acctNo, acctName] = screen.getAllByRole("textbox");
-  fireEvent.change(bank!, { target: { value: "กสิกรไทย" } });
+  // Spec 317 U7 — bank name comes from the canonical picker chip, not free text.
+  fireEvent.click(screen.getByRole("button", { name: /กสิกรไทย/ }));
+  const [acctNo, acctName] = screen.getAllByRole("textbox");
   fireEvent.change(acctNo!, { target: { value: "1112223334" } });
   fireEvent.change(acctName!, { target: { value: "ช่าง หนึ่ง" } });
 }

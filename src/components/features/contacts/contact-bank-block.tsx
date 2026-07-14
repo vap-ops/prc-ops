@@ -10,6 +10,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { setContactBank } from "@/app/contacts/actions";
+import { BankSelect } from "@/components/features/common/bank-select";
 import type { ContactBank, ContactKind } from "@/lib/contacts/bank";
 import { BUTTON_PRIMARY_COMPACT, CARD, FIELD_STACKED, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
 import { useToast } from "@/lib/ui/use-toast";
@@ -48,19 +49,15 @@ export function ContactBankBlock({
     <section className={CARD}>
       <p className="text-ink text-sm font-semibold">ข้อมูลธนาคาร</p>
       <p className="text-ink-muted mt-0.5 text-xs">เฉพาะผู้จัดการเห็นข้อมูลนี้</p>
-      <label className="text-ink-secondary mt-2 block text-sm">
-        ชื่อธนาคาร
-        <input
-          value={bankName}
-          maxLength={200}
-          disabled={busy}
-          onChange={(e) => {
-            setBankName(e.target.value);
-            setError(null);
-          }}
-          className={FIELD_STACKED}
-        />
-      </label>
+      <p className="text-ink-secondary mt-2 text-sm">ชื่อธนาคาร</p>
+      <BankSelect
+        value={bankName}
+        disabled={busy}
+        onChange={(name) => {
+          setBankName(name);
+          setError(null);
+        }}
+      />
       <label className="text-ink-secondary mt-2 block text-sm">
         เลขที่บัญชี
         <input
