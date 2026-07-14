@@ -7,7 +7,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { decideBankChange, decideWorkerBankChange } from "@/lib/portal/actions";
+import {
+  decideBankChange,
+  decideIdentityChange,
+  decideWorkerBankChange,
+} from "@/lib/portal/actions";
 import { useToast } from "@/lib/ui/use-toast";
 import {
   BUTTON_PRIMARY_COMPACT,
@@ -26,7 +30,7 @@ export function BankChangeDecision({
 }: {
   requestId: string;
   revalidate: string;
-  kind?: "contractor" | "worker";
+  kind?: "contractor" | "worker" | "identity";
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -37,9 +41,11 @@ export function BankChangeDecision({
     setError(null);
     startTransition(async () => {
       const result =
-        kind === "worker"
-          ? await decideWorkerBankChange({ id: requestId, approve, revalidate })
-          : await decideBankChange({ id: requestId, approve, revalidate });
+        kind === "identity"
+          ? await decideIdentityChange({ id: requestId, approve, revalidate })
+          : kind === "worker"
+            ? await decideWorkerBankChange({ id: requestId, approve, revalidate })
+            : await decideBankChange({ id: requestId, approve, revalidate });
       if (!result.ok) {
         setError(result.error);
         return;

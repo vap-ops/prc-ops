@@ -6,8 +6,10 @@
 import { describe, it, expect } from "vitest";
 import {
   buildBankChangeQueue,
+  buildIdentityChangeQueue,
   buildWorkerBankChangeQueue,
   type BankChangeRequestRow,
+  type IdentityChangeRequestRow,
   type WorkerBankChangeRequestRow,
 } from "@/lib/approvals/bank-change-queue";
 
@@ -104,5 +106,57 @@ describe("buildWorkerBankChangeQueue", () => {
       WORKER_NAMES,
     );
     expect(result[0]?.name).toBe("—");
+  });
+});
+
+// Spec 317 U3 — identity change requests join the same queue page.
+const USER_NAMES = new Map([["u-1", "ชื่อเก่า ทดสอบ"]]);
+
+function identityRow(
+  p: Partial<IdentityChangeRequestRow> & Pick<IdentityChangeRequestRow, "id" | "user_id">,
+): IdentityChangeRequestRow {
+  return {
+    proposed_full_name: "ชื่อใหม่ ทดสอบ",
+    proposed_national_id: "3101200000670",
+    proposed_dob: "1990-02-20",
+    created_at: "2026-07-14T08:00:00Z",
+    ...p,
+  };
+}
+
+describe("buildIdentityChangeQueue", () => {
+  it("joins the requester's current name and carries the proposed fields", () => {
+    const result = buildIdentityChangeQueue(
+      [identityRow({ id: "ir1", user_id: "u-1" })],
+      USER_NAMES,
+    );
+    expect(result).toEqual([
+      {
+        id: "ir1",
+        kind: "identity",
+        name: "ชื่อเก่า ทดสอบ",
+        proposedFullName: "ชื่อใหม่ ทดสอบ",
+        proposedNationalId: "3101200000670",
+        proposedDob: "1990-02-20",
+        createdAt: "2026-07-14T08:00:00Z",
+      },
+    ]);
+  });
+
+  it("falls back to — for an unknown requester and nulls stay null", () => {
+    const result = buildIdentityChangeQueue(
+      [
+        identityRow({
+          id: "ir2",
+          user_id: "ghost",
+          proposed_national_id: null,
+          proposed_dob: null,
+        }),
+      ],
+      USER_NAMES,
+    );
+    expect(result[0]?.name).toBe("—");
+    expect(result[0]?.proposedNationalId).toBeNull();
+    expect(result[0]?.proposedDob).toBeNull();
   });
 });

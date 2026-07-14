@@ -9,7 +9,7 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
-import { PM_ROLES } from "@/lib/auth/role-home";
+import { PM_ROLES, STAFF_APPROVAL_ROLES } from "@/lib/auth/role-home";
 import { applyAssumedRole } from "@/lib/auth/apply-assumed-role";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { isValidPhotoExt } from "@/lib/photos/path";
@@ -192,6 +192,41 @@ export async function decideWorkerBankChange(input: {
   }
 
   const { error } = await auth.supabase.rpc("decide_worker_bank_change", {
+    p_id: input.id,
+    p_approve: input.approve,
+  });
+  if (error) return { ok: false, error: GENERIC_BANK };
+  revalidatePath(input.revalidate);
+  return { ok: true };
+}
+
+// Spec 317 U3 — decide an identity change (legal name / national ID / DOB).
+// STAFF_APPROVAL_ROLES only ("who admits you approves your changes") — narrower
+// than the bank deciders; a PM tapping approve on the shared queue gets a clear
+// refusal here and a 42501 from the RPC. On approve the RPC applies the change
+// to users + workers + the approved registration in one txn.
+export async function decideIdentityChange(input: {
+  id: string;
+  approve: boolean;
+  revalidate: string;
+}): Promise<ActionResult> {
+  if (!UUID_REGEX.test(input.id) || !input.revalidate.startsWith("/")) {
+    return { ok: false, error: GENERIC_BANK };
+  }
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { data: me } = await auth.supabase
+    .from("users")
+    .select("role")
+    .eq("id", auth.user.id)
+    .maybeSingle();
+  const effectiveRole = await applyAssumedRole(me?.role);
+  if (!effectiveRole || !STAFF_APPROVAL_ROLES.includes(effectiveRole)) {
+    return { ok: false, error: "คุณไม่มีสิทธิ์อนุมัติการเปลี่ยนข้อมูลตัวตน" };
+  }
+
+  const { error } = await auth.supabase.rpc("decide_identity_change", {
     p_id: input.id,
     p_approve: input.approve,
   });

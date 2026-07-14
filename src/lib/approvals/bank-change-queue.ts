@@ -67,3 +67,46 @@ export function buildWorkerBankChangeQueue(
     createdAt: r.created_at,
   }));
 }
+
+// ----------------------------------------------------------------------------
+// Spec 317 U3 — identity change requests (legal name / national ID / DOB) join
+// the same approval queue. Kind "identity" routes the decision to
+// decide_identity_change (STAFF_APPROVAL_ROLES; a PM viewing the page gets a
+// clear refusal from the action, same posture as procurement_manager on
+// contractor rows).
+// ----------------------------------------------------------------------------
+
+export interface IdentityChangeRequestRow {
+  id: string;
+  user_id: string;
+  proposed_full_name: string | null;
+  proposed_national_id: string | null;
+  proposed_dob: string | null;
+  created_at: string;
+}
+
+export interface IdentityQueueItem {
+  id: string;
+  kind: "identity";
+  /** The requester's CURRENT display name (what the change moves away from). */
+  name: string;
+  proposedFullName: string | null;
+  proposedNationalId: string | null;
+  proposedDob: string | null;
+  createdAt: string;
+}
+
+export function buildIdentityChangeQueue(
+  rows: ReadonlyArray<IdentityChangeRequestRow>,
+  usersById: ReadonlyMap<string, string>,
+): IdentityQueueItem[] {
+  return rows.map((r) => ({
+    id: r.id,
+    kind: "identity",
+    name: usersById.get(r.user_id) ?? "—",
+    proposedFullName: r.proposed_full_name,
+    proposedNationalId: r.proposed_national_id,
+    proposedDob: r.proposed_dob,
+    createdAt: r.created_at,
+  }));
+}
