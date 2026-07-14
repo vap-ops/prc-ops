@@ -1337,6 +1337,7 @@ export type Database = {
         Row: {
           bank_account_name: string | null
           bank_account_no: string | null
+          bank_book_path: string | null
           bank_name: string | null
           contractor_id: string
           created_at: string
@@ -1349,6 +1350,7 @@ export type Database = {
         Insert: {
           bank_account_name?: string | null
           bank_account_no?: string | null
+          bank_book_path?: string | null
           bank_name?: string | null
           contractor_id: string
           created_at?: string
@@ -1361,6 +1363,7 @@ export type Database = {
         Update: {
           bank_account_name?: string | null
           bank_account_no?: string | null
+          bank_book_path?: string | null
           bank_name?: string | null
           contractor_id?: string
           created_at?: string
@@ -9836,6 +9839,7 @@ export type Database = {
         Args: {
           p_bank_account_name: string
           p_bank_account_no: string
+          p_bank_book_path: string
           p_bank_name: string
         }
         Returns: string

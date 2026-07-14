@@ -143,11 +143,16 @@ export default async function PortalPage() {
           </div>
         ) : null}
 
-        {/* Bank — self-service change request (staged → PM approval) */}
-        <h2 className={SECTION_HEADING}>บัญชีธนาคาร</h2>
-        <div className="mb-6">
-          <BankChangeForm hasPending={!!pendingChange} />
-        </div>
+        {/* Bank — self-service change request (staged → PM approval). Needs the
+            bound contractor id for the passbook upload path (spec 317 U5). */}
+        {profile?.id ? (
+          <>
+            <h2 className={SECTION_HEADING}>บัญชีธนาคาร</h2>
+            <div className="mb-6">
+              <BankChangeForm contractorId={profile.id} hasPending={!!pendingChange} />
+            </div>
+          </>
+        ) : null}
 
         {/* Crew */}
         <h2 className={SECTION_HEADING}>ทีมช่าง</h2>
