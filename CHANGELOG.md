@@ -1,3 +1,9 @@
+# [0.94.0](https://github.com/VAP-Solution/prc-ops/compare/v0.93.0...v0.94.0) (2026-07-14)
+
+### Features
+
+- **auth:** detect OA friendship at LINE login (spec 318 U1) ([#546](https://github.com/VAP-Solution/prc-ops/issues/546)) ([058c5f5](https://github.com/VAP-Solution/prc-ops/commit/058c5f5101e448108753905181cee43282795ff3))
+
 # [0.93.0](https://github.com/VAP-Solution/prc-ops/compare/v0.92.1...v0.93.0) (2026-07-14)
 
 ### Features
