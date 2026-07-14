@@ -9942,6 +9942,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      update_own_staff_contact: {
+        Args: {
+          p_emergency_contact_name?: string
+          p_emergency_contact_phone?: string
+          p_emergency_contact_relation?: string
+          p_phone?: string
+        }
+        Returns: undefined
+      }
       update_own_staff_registration: {
         Args: {
           p_date_of_birth?: string
@@ -9956,7 +9965,6 @@ export type Database = {
       }
       update_own_worker_profile: {
         Args: {
-          p_dob?: string
           p_email?: string
           p_emergency_name?: string
           p_emergency_phone?: string

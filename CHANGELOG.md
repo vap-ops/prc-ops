@@ -1,3 +1,9 @@
+# [0.82.0](https://github.com/VAP-Solution/prc-ops/compare/v0.81.0...v0.82.0) (2026-07-14)
+
+### Features
+
+- **profile:** staff contact self-edit + DOB out of worker instant tier (spec 317 U1) ([#533](https://github.com/VAP-Solution/prc-ops/issues/533)) ([1c8673e](https://github.com/VAP-Solution/prc-ops/commit/1c8673e075abb48b12c2b6dbba6fb6a0b321de04))
+
 # [0.81.0](https://github.com/VAP-Solution/prc-ops/compare/v0.80.0...v0.81.0) (2026-07-14)
 
 ### Features
