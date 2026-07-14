@@ -1,3 +1,9 @@
+# [0.85.0](https://github.com/VAP-Solution/prc-ops/compare/v0.84.1...v0.85.0) (2026-07-14)
+
+### Features
+
+- **onboarding:** PM bank-completion queue (spec 298 U3) ([#465](https://github.com/VAP-Solution/prc-ops/issues/465)) ([ba12f88](https://github.com/VAP-Solution/prc-ops/commit/ba12f888bad561edfc3ed9b440b3c758a58d2597))
+
 ## [0.84.1](https://github.com/VAP-Solution/prc-ops/compare/v0.84.0...v0.84.1) (2026-07-14)
 
 ### Bug Fixes
