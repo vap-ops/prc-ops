@@ -11,8 +11,14 @@ const SU_2 = "cccccccc-0000-4000-8000-000000000002";
 const DIR_1 = "dddddddd-0000-4000-8000-000000000001";
 const PROC_1 = "eeeeeeee-0000-4000-8000-000000000001";
 
+// Spec 318 U5 — the PM-approval events are project-scoped: the event's own
+// project PMs + the org-wide PD/super pool. eventProjectPmIds === null means
+// the project could NOT be resolved (pre-318 queue rows, WP-less PRs) →
+// legacy full-pool fallback so nothing is dropped mid-transition.
 const ctx = {
-  pmIds: [PM_A, PM_B],
+  eventProjectPmIds: [PM_A] as ReadonlyArray<string> | null,
+  orgWidePmIds: [DIR_1, SU_1],
+  legacyPmPoolIds: [PM_A, PM_B, DIR_1, SU_1],
   wpUploaderIds: [SA_1, SA_2],
   superIds: [SU_1, SU_2],
   siteIssueProjectPmIds: [],
@@ -20,12 +26,34 @@ const ctx = {
 };
 
 describe("resolveRecipients", () => {
-  it("sends wp_pending_approval to every PM/super", () => {
-    expect(resolveRecipients("wp_pending_approval", {}, ctx)).toEqual([PM_A, PM_B]);
+  it("sends wp_pending_approval to the event project's PMs + the org-wide PD/super pool", () => {
+    expect(resolveRecipients("wp_pending_approval", {}, ctx)).toEqual([PM_A, DIR_1, SU_1]);
   });
 
-  it("sends pr_created to PMs but never to the requester (self-notification)", () => {
-    expect(resolveRecipients("pr_created", { requestedBy: PM_A }, ctx)).toEqual([PM_B]);
+  it("wp_pending_approval does NOT reach a PM scoped to another project", () => {
+    expect(resolveRecipients("wp_pending_approval", {}, ctx)).not.toContain(PM_B);
+  });
+
+  it("falls back to the legacy full pool when the project is unresolvable (null)", () => {
+    expect(
+      resolveRecipients("wp_pending_approval", {}, { ...ctx, eventProjectPmIds: null }),
+    ).toEqual([PM_A, PM_B, DIR_1, SU_1]);
+  });
+
+  it("zero-PM project ([]) still alerts the org-wide pool", () => {
+    expect(resolveRecipients("wp_pending_approval", {}, { ...ctx, eventProjectPmIds: [] })).toEqual(
+      [DIR_1, SU_1],
+    );
+  });
+
+  it("sends pr_created to the project's PMs + org pool but never the requester", () => {
+    expect(resolveRecipients("pr_created", { requestedBy: PM_A }, ctx)).toEqual([DIR_1, SU_1]);
+  });
+
+  it("pr_created falls back to the legacy pool (minus requester) when unresolvable", () => {
+    expect(
+      resolveRecipients("pr_created", { requestedBy: PM_A }, { ...ctx, eventProjectPmIds: null }),
+    ).toEqual([PM_B, DIR_1, SU_1]);
   });
 
   it("sends wp_decision to the WP's photo uploaders, excluding the decider", () => {
@@ -71,7 +99,9 @@ describe("resolveRecipients", () => {
         "wp_decision",
         {},
         {
-          pmIds: [],
+          eventProjectPmIds: [],
+          orgWidePmIds: [],
+          legacyPmPoolIds: [],
           wpUploaderIds: [SA_1, SA_1, SA_2],
           superIds: [],
           siteIssueProjectPmIds: [],

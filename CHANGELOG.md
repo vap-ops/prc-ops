@@ -1,3 +1,27 @@
+# [0.93.0](https://github.com/VAP-Solution/prc-ops/compare/v0.92.1...v0.93.0) (2026-07-14)
+
+### Features
+
+- **notifications:** project-scoped PM fanout for approval events (spec 318 U5) ([#550](https://github.com/VAP-Solution/prc-ops/issues/550)) ([dff5fd4](https://github.com/VAP-Solution/prc-ops/commit/dff5fd40db1c3b36aff3e6ea3e579227d111cd37))
+
+## [0.92.1](https://github.com/VAP-Solution/prc-ops/compare/v0.92.0...v0.92.1) (2026-07-14)
+
+### Bug Fixes
+
+- **register:** bank picker on the PM passbook-transcription form ([#547](https://github.com/VAP-Solution/prc-ops/issues/547)) ([36caba6](https://github.com/VAP-Solution/prc-ops/commit/36caba62c0446d90186511ec293740ffc9cd160a)), closes [#465](https://github.com/VAP-Solution/prc-ops/issues/465)
+
+# [0.92.0](https://github.com/VAP-Solution/prc-ops/compare/v0.91.1...v0.92.0) (2026-07-14)
+
+### Features
+
+- **notifications:** per-user mute preferences + catalog SSOT + drain filter (spec 318 U3) ([#548](https://github.com/VAP-Solution/prc-ops/issues/548)) ([75b8b0f](https://github.com/VAP-Solution/prc-ops/commit/75b8b0fca28bda9d12342695c96c1aed5234ab17))
+
+## [0.91.1](https://github.com/VAP-Solution/prc-ops/compare/v0.91.0...v0.91.1) (2026-07-14)
+
+### Bug Fixes
+
+- **banks:** normalize pre-picker legacy bank names to the canonical SSOT ([#544](https://github.com/VAP-Solution/prc-ops/issues/544)) ([98ae2b7](https://github.com/VAP-Solution/prc-ops/commit/98ae2b7eb648aa01a1fdb29db48dfd82c2fb5d7e))
+
 # [0.91.0](https://github.com/VAP-Solution/prc-ops/compare/v0.90.1...v0.91.0) (2026-07-14)
 
 ### Features

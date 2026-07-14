@@ -32,6 +32,17 @@ type PoolUser = { id: string; line_user_id: string | null; telegram_chat_id: str
 // Mutable fixtures the admin mock closes over; reset each test (beforeEach).
 let outboxRows: OutboxRow[] = [];
 let superUsers: PoolUser[] = [];
+// Spec 318 U3 — enabled=false preference rows served to the drain's mute fetch.
+let mutedPrefRows: Array<{ user_id: string; event_type: string }> = [];
+// Spec 318 U5 — project-scoped PM fanout fixtures.
+type PoolUserWithRole = PoolUser & { role: string };
+let pmPoolUsers: PoolUserWithRole[] = [];
+let candidateUsers: Array<
+  PoolUserWithRole & { full_name: string | null; line_display_name: string | null }
+> = [];
+let wpTableRows: Array<{ id: string; code: string; project_id: string | null }> = [];
+let projectRows: Array<{ id: string; name: string; project_lead_id: string | null }> = [];
+let memberRows: Array<{ project_id: string; user_id: string }> = [];
 let rowUpdates: Array<{ id: unknown; values: Record<string, unknown> }> = [];
 
 const pushLineMessageMock = vi.fn();
@@ -90,11 +101,58 @@ vi.mock("@/lib/db/admin", () => ({
       }
       if (table === "users") {
         return {
-          select: () => ({
-            // super_admin pool (feedback_submitted)
+          // Branch on the selected columns (spec 318 U5): the PM pool reads
+          // role+contacts, the enrichment candidates read names too, the
+          // extra-user lookup reads contacts only, the super pool uses .eq.
+          select: (cols: string) => ({
             eq: async () => ({ data: superUsers, error: null }),
-            // extra-user / role-pool lookups — not exercised by this batch
-            in: async () => ({ data: [], error: null }),
+            in: async () => ({
+              data: cols.includes("full_name")
+                ? candidateUsers
+                : cols.includes("role")
+                  ? pmPoolUsers
+                  : [],
+              error: null,
+            }),
+          }),
+        };
+      }
+      if (table === "work_packages") {
+        return {
+          select: () => ({ in: async () => ({ data: wpTableRows, error: null }) }),
+        };
+      }
+      if (table === "projects") {
+        return {
+          select: () => ({ in: async () => ({ data: projectRows, error: null }) }),
+        };
+      }
+      if (table === "project_members") {
+        return {
+          select: () => ({ in: async () => ({ data: memberRows, error: null }) }),
+        };
+      }
+      // PR→PO number enrichment (spec 211 U8) — no PO in these fixtures.
+      if (table === "purchase_requests") {
+        return {
+          select: () => ({
+            in: async () => ({
+              data: outboxRows
+                .filter((r) => r.purchase_request_id !== null)
+                .map((r) => ({ id: r.purchase_request_id, purchase_order_id: null })),
+              error: null,
+            }),
+          }),
+        };
+      }
+      // Spec 318 U3 — per-user mutes (enabled=false rows, scoped .in on the
+      // batch's event types).
+      if (table === "notification_preferences") {
+        return {
+          select: () => ({
+            eq: () => ({
+              in: async () => ({ data: mutedPrefRows, error: null }),
+            }),
           }),
         };
       }
@@ -120,6 +178,12 @@ function drainRequest(): NextRequest {
 
 beforeEach(() => {
   rowUpdates = [];
+  mutedPrefRows = [];
+  pmPoolUsers = [];
+  candidateUsers = [];
+  wpTableRows = [];
+  projectRows = [];
+  memberRows = [];
   superUsers = [{ id: SUPER_ID, line_user_id: "Lsuper", telegram_chat_id: null }];
   outboxRows = [
     // (1) event type the deployed code doesn't know → safe skip, not a crash.
@@ -181,5 +245,125 @@ describe("POST /api/notifications/drain — one poisoned row never stalls the ba
     expect(byId.get(UNKNOWN_ID)).toMatchObject({ status: "sent" });
     expect(byId.get(BOOM_ID)).toMatchObject({ status: "failed" });
     expect(byId.get(OK_ID)).toMatchObject({ status: "sent" });
+  });
+
+  // Spec 318 U3 — a muted recipient is dropped before contact mapping; the
+  // row completes as sent (an intentional drop, not a delivery failure).
+  it("mutes drop the recipient: no push, row consumed as sent", async () => {
+    mutedPrefRows = [{ user_id: SUPER_ID, event_type: "feedback_submitted" }];
+    outboxRows = [
+      {
+        id: OK_ID,
+        event_type: "feedback_submitted",
+        work_package_id: null,
+        purchase_request_id: null,
+        payload: {
+          feedback_type: "feature",
+          role_snapshot: "project_manager",
+          feedback_title: "OK",
+        },
+        attempts: 0,
+      },
+    ];
+
+    const response = await POST(drainRequest());
+
+    expect(await response.json()).toMatchObject({ processed: 1, sent: 1, failed: 0 });
+    expect(pushLineMessageMock).not.toHaveBeenCalled();
+    const byId = new Map(rowUpdates.map((u) => [u.id, u.values]));
+    expect(byId.get(OK_ID)).toMatchObject({ status: "sent" });
+  });
+
+  // Spec 318 U5 — the per-row project→PM glue: scoped delivery + the
+  // unresolvable-project legacy fallback (transition safety).
+  it("wp_pending_approval reaches the WP project's PM + org pool, not other-project PMs", async () => {
+    const PM_A = "aaaaaaaa-0000-4000-8000-00000000000a";
+    const PM_B = "aaaaaaaa-0000-4000-8000-00000000000b";
+    const PD_1 = "dddddddd-0000-4000-8000-00000000000d";
+    const W1 = "eeeeeeee-0000-4000-8000-00000000000e";
+    const P1 = "ffffffff-0000-4000-8000-00000000000f";
+    pmPoolUsers = [
+      { id: PM_A, role: "project_manager", line_user_id: "LpmA", telegram_chat_id: null },
+      { id: PM_B, role: "project_manager", line_user_id: "LpmB", telegram_chat_id: null },
+      { id: PD_1, role: "project_director", line_user_id: "Lpd", telegram_chat_id: null },
+    ];
+    wpTableRows = [{ id: W1, code: "P-01", project_id: P1 }];
+    projectRows = [{ id: P1, name: "โครงการทดสอบ", project_lead_id: PM_A }];
+    memberRows = [{ project_id: P1, user_id: PM_A }];
+    candidateUsers = [
+      {
+        id: PM_A,
+        role: "project_manager",
+        line_user_id: "LpmA",
+        telegram_chat_id: null,
+        full_name: "พีเอ็มเอ",
+        line_display_name: null,
+      },
+    ];
+    outboxRows = [
+      {
+        id: OK_ID,
+        event_type: "wp_pending_approval",
+        work_package_id: W1,
+        purchase_request_id: null,
+        payload: { code: "P-01", name: "งานทดสอบ" },
+        attempts: 0,
+      },
+    ];
+
+    await POST(drainRequest());
+
+    const targets = pushLineMessageMock.mock.calls.map((c) => (c[0] as { to: string }).to);
+    expect(targets.sort()).toEqual(["Lpd", "LpmA"]);
+    expect(targets).not.toContain("LpmB");
+  });
+
+  it("pr_created without a project payload falls back to the FULL legacy pool", async () => {
+    const PM_A = "aaaaaaaa-0000-4000-8000-00000000000a";
+    const PM_B = "aaaaaaaa-0000-4000-8000-00000000000b";
+    const PD_1 = "dddddddd-0000-4000-8000-00000000000d";
+    pmPoolUsers = [
+      { id: PM_A, role: "project_manager", line_user_id: "LpmA", telegram_chat_id: null },
+      { id: PM_B, role: "project_manager", line_user_id: "LpmB", telegram_chat_id: null },
+      { id: PD_1, role: "project_director", line_user_id: "Lpd", telegram_chat_id: null },
+    ];
+    outboxRows = [
+      {
+        id: OK_ID,
+        event_type: "pr_created",
+        work_package_id: null,
+        purchase_request_id: "99999999-0000-4000-8000-000000000009",
+        // pre-318 queue row: NO project_id in payload → legacy full pool.
+        payload: { item_description: "ปูน", quantity: 1, unit: "ถุง", pr_number: 9 },
+        attempts: 0,
+      },
+    ];
+
+    await POST(drainRequest());
+
+    const targets = pushLineMessageMock.mock.calls.map((c) => (c[0] as { to: string }).to);
+    expect(targets.sort()).toEqual(["Lpd", "LpmA", "LpmB"]);
+  });
+
+  it("a mute for a DIFFERENT event does not suppress delivery", async () => {
+    mutedPrefRows = [{ user_id: SUPER_ID, event_type: "pr_progress" }];
+    outboxRows = [
+      {
+        id: OK_ID,
+        event_type: "feedback_submitted",
+        work_package_id: null,
+        purchase_request_id: null,
+        payload: {
+          feedback_type: "feature",
+          role_snapshot: "project_manager",
+          feedback_title: "OK",
+        },
+        attempts: 0,
+      },
+    ];
+
+    await POST(drainRequest());
+
+    expect(pushLineMessageMock).toHaveBeenCalledTimes(1);
   });
 });

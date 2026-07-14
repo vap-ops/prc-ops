@@ -9,8 +9,19 @@ import type { NotificationPayload } from "./payload";
 import { warnUnknownNotificationEvent } from "./unknown-event";
 
 export interface RecipientContext {
-  /** Every PM-tier user id (project_manager / super_admin / project_director). */
-  pmIds: ReadonlyArray<string>;
+  /**
+   * Spec 318 U5 — the EVENT's project-scoped PM-tier recipients (project lead +
+   * PM-tier project_members), resolved per-row in the drain. `null` means the
+   * project could NOT be resolved (pre-318 queue rows without a project payload,
+   * WP-less PRs) → the legacy full-pool fallback applies so nothing is dropped
+   * mid-transition. `[]` means the project is known but has no PM (the org-wide
+   * pool still fires).
+   */
+  eventProjectPmIds: ReadonlyArray<string> | null;
+  /** Org-wide approval pool: every project_director + super_admin (see-all tiers). */
+  orgWidePmIds: ReadonlyArray<string>;
+  /** The pre-318 org-wide PM_ROLES pool — fallback only (unresolvable project). */
+  legacyPmPoolIds: ReadonlyArray<string>;
   /** Distinct photo uploader ids for the event's work package. */
   wpUploaderIds: ReadonlyArray<string>;
   /** Every super_admin user id — the operator pool for feedback (spec 201 A4). */
@@ -42,11 +53,19 @@ export function resolveRecipients(
   payload: NotificationPayload,
   context: RecipientContext,
 ): string[] {
+  // Spec 318 U5 — PM-approval events are project-scoped (audit P1 cluster E):
+  // the event project's PMs + the org-wide PD/super pool; legacy full pool only
+  // when the project is unresolvable.
+  const approvalPool =
+    context.eventProjectPmIds === null
+      ? context.legacyPmPoolIds
+      : [...context.eventProjectPmIds, ...context.orgWidePmIds];
+
   switch (eventType) {
     case "wp_pending_approval":
-      return unique(context.pmIds);
+      return unique(approvalPool);
     case "pr_created":
-      return without(context.pmIds, payload.requestedBy);
+      return without(approvalPool, payload.requestedBy);
     case "wp_decision":
       return without(context.wpUploaderIds, payload.decidedBy);
     // Spec 218 U5 — a defect reopened the WP; ping the SAs who shot it (minus the

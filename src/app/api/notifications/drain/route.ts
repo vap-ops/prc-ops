@@ -26,6 +26,7 @@ import {
   reclaimCutoffIso,
   rowOutcomeAfterPushes,
 } from "@/lib/notifications/drain-policy";
+import { filterMutedRecipients, mutedKey } from "@/lib/notifications/preference-filter";
 import { pushLineMessage } from "@/lib/notifications/line-push";
 import { pushTelegramMessage } from "@/lib/notifications/telegram-push";
 
@@ -150,15 +151,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const [wpResult, pmResult, uploaderResult, superResult] = await Promise.all([
     wpIds.length > 0
-      ? admin.from("work_packages").select("id, code").in("id", wpIds)
+      ? // + project_id (spec 318 U5): wp_pending_approval scopes its PM fanout
+        // to the WP's project.
+        admin.from("work_packages").select("id, code, project_id").in("id", wpIds)
       : Promise.resolve({ data: [], error: null }),
     needsPmPool
       ? admin
           .from("users")
-          .select("id, line_user_id, telegram_chat_id")
-          // The PM-tier pool = PM_ROLES (incl. project_director, a see-all PM —
-          // ADR 0058) so the director receives pending-approval / PR pings too
-          // (operator confirmed 2026-06-26). SSOT'd to role-home, not re-listed.
+          // + role (spec 318 U5): the pool splits into the org-wide PD/super
+          // tier vs the project-scoped PMs; legacy full pool kept as the
+          // unresolvable-project fallback. SSOT'd to role-home, not re-listed.
+          .select("id, role, line_user_id, telegram_chat_id")
           .in("role", [...PM_ROLES])
       : Promise.resolve({ data: [], error: null }),
     decisionWpIds.length > 0
@@ -223,11 +226,38 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
+  // Spec 318 U3 — per-user mutes. Only deviations are stored (enabled=false
+  // rows; absence = ON); scoped to the batch's event types so the read stays
+  // bounded as the table grows.
+  const batchEventTypes = [...new Set(rows.map((r) => r.event_type))];
+  const { data: mutedRows, error: mutedError } = await admin
+    .from("notification_preferences")
+    .select("user_id, event_type")
+    .eq("enabled", false)
+    .in("event_type", batchEventTypes);
+  if (mutedError) {
+    console.error("[notifications/drain] preference fetch failed", mutedError.message);
+    return NextResponse.json({ error: "enrichment_failed" }, { status: 500 });
+  }
+  // Same PostgREST 1000-row cap failure mode as the uploader query above —
+  // silent truncation here would UN-mute users. Log loudly if it ever nears.
+  if ((mutedRows ?? []).length >= 1000) {
+    console.warn("[notifications/drain] preference query hit the 1000-row cap");
+  }
+  const mutedKeys = new Set((mutedRows ?? []).map((r) => mutedKey(r.user_id, r.event_type)));
+
   const wpCodeById = new Map<string, string>();
+  const wpProjectById = new Map<string, string>();
   for (const wp of wpResult.data ?? []) {
     wpCodeById.set(wp.id, wp.code);
+    if (wp.project_id) wpProjectById.set(wp.id, wp.project_id);
   }
-  const pmIds = (pmResult.data ?? []).map((u) => u.id);
+  // Spec 318 U5 — legacy pool = every PM_ROLES user (fallback only);
+  // org-wide tier = PD + super (see-all, always alerted on approval events).
+  const legacyPmPoolIds = (pmResult.data ?? []).map((u) => u.id);
+  const orgWidePmIds = (pmResult.data ?? [])
+    .filter((u) => u.role === "project_director" || u.role === "super_admin")
+    .map((u) => u.id);
   const superIds = (superResult.data ?? []).map((u) => u.id);
 
   // Spec 211 U8 — a PR notification names its parent ใบสั่งซื้อ when it has one, so
@@ -285,13 +315,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const reporterNameById = new Map<string, string>();
   let siteIssueRolePoolIds: string[] = [];
 
-  if (siteIssueRows.length > 0) {
-    const siteIssueProjectIds = [
-      ...new Set(
-        siteIssueRows
+  // Spec 318 U5 — project-scoped PM resolution now serves BOTH the serious-issue
+  // alert (spec 277) and the approval events (wp_pending_approval via the WP's
+  // project, pr_created via payload.project_id): one union, one query wave.
+  const approvalProjectIds = parsed.flatMap(({ row, payload }) => {
+    if (row.event_type === "wp_pending_approval" && row.work_package_id) {
+      const pid = wpProjectById.get(row.work_package_id);
+      return pid ? [pid] : [];
+    }
+    if (row.event_type === "pr_created" && payload.projectId) return [payload.projectId];
+    return [];
+  });
+
+  if (siteIssueRows.length > 0 || approvalProjectIds.length > 0) {
+    const enrichmentProjectIds = [
+      ...new Set([
+        ...siteIssueRows
           .map(({ payload }) => payload.projectId)
           .filter((id): id is string => id !== undefined),
-      ),
+        ...approvalProjectIds,
+      ]),
     ];
     const reporterIds = [
       ...new Set(
@@ -302,19 +345,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     ];
 
     const [projectsRes, membersRes, rolePoolRes] = await Promise.all([
-      siteIssueProjectIds.length > 0
-        ? admin.from("projects").select("id, name, project_lead_id").in("id", siteIssueProjectIds)
+      enrichmentProjectIds.length > 0
+        ? admin.from("projects").select("id, name, project_lead_id").in("id", enrichmentProjectIds)
         : Promise.resolve({ data: [], error: null }),
-      siteIssueProjectIds.length > 0
+      enrichmentProjectIds.length > 0
         ? admin
             .from("project_members")
             .select("project_id, user_id")
-            .in("project_id", siteIssueProjectIds)
+            .in("project_id", enrichmentProjectIds)
         : Promise.resolve({ data: [], error: null }),
-      admin
-        .from("users")
-        .select("id, line_user_id, telegram_chat_id")
-        .in("role", [...SITE_ISSUE_ALERT_ROLE_POOL]),
+      siteIssueRows.length > 0
+        ? admin
+            .from("users")
+            .select("id, line_user_id, telegram_chat_id")
+            .in("role", [...SITE_ISSUE_ALERT_ROLE_POOL])
+        : Promise.resolve({ data: [], error: null }),
     ]);
     if (projectsRes.error || membersRes.error || rolePoolRes.error) {
       console.error("[notifications/drain] site-issue enrichment failed", {
@@ -377,7 +422,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     }
 
-    for (const projectId of siteIssueProjectIds) {
+    for (const projectId of enrichmentProjectIds) {
       projectPmIdsByProject.set(
         projectId,
         projectPmRecipients({
@@ -397,8 +442,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   for (const { row, payload } of parsed) {
     try {
+      // Spec 318 U5 — the approval events' project, per-row: wp_pending_approval
+      // from its WP, pr_created from payload. null = unresolvable → legacy pool.
+      let eventProjectPmIds: string[] | null = null;
+      if (row.event_type === "wp_pending_approval") {
+        const pid = row.work_package_id ? wpProjectById.get(row.work_package_id) : undefined;
+        eventProjectPmIds = pid ? (projectPmIdsByProject.get(pid) ?? []) : null;
+      } else if (row.event_type === "pr_created") {
+        eventProjectPmIds = payload.projectId
+          ? (projectPmIdsByProject.get(payload.projectId) ?? [])
+          : null;
+      }
       const recipients = resolveRecipients(row.event_type, payload, {
-        pmIds,
+        eventProjectPmIds,
+        orgWidePmIds,
+        legacyPmPoolIds,
         wpUploaderIds: row.work_package_id ? (uploaderIdsByWp.get(row.work_package_id) ?? []) : [],
         superIds,
         siteIssueProjectPmIds: payload.projectId
@@ -406,11 +464,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           : [],
         siteIssueRolePoolIds,
       });
-      const lineTargets = recipients
+      // Spec 318 U3 — apply per-user mutes before contact mapping. A muted
+      // recipient is an intentional drop; locked events bypass the filter.
+      const deliverable = filterMutedRecipients(recipients, row.event_type, mutedKeys);
+      const lineTargets = deliverable
         .map((id) => lineIdByUser.get(id))
         .filter((lineId): lineId is string => lineId !== undefined);
       const telegramTargets = telegramToken
-        ? recipients
+        ? deliverable
             .map((id) => telegramChatByUser.get(id))
             .filter((chatId): chatId is string => chatId !== undefined)
         : [];
