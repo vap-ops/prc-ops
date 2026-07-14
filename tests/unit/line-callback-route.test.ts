@@ -325,3 +325,65 @@ describe("GET /auth/line/callback — LINE identity write (spec 265 U1)", () => 
     expect(written.line_user_id).toBe("Uhandoff1");
   });
 });
+
+describe("GET /auth/line/callback — OA friendship probe (spec 318 U1)", () => {
+  beforeEach(() => {
+    stateCookieValue = JSON.stringify({ s: "st1" });
+  });
+
+  it("persists line_oa_friend + checked_at when the probe answers", async () => {
+    exchangeMock.mockResolvedValue({
+      ok: true,
+      claims: { sub: "Uhandoff1", name: "สมชาย", picture: null },
+      accessToken: "user-access-tok",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(new Response(JSON.stringify({ friendFlag: true }), { status: 200 })),
+    );
+
+    await GET(makeRequest("?code=abc&state=st1"));
+
+    const written = adminUsersUpdateMock.mock.calls[0]![0] as Record<string, unknown>;
+    expect(written.line_oa_friend).toBe(true);
+    expect(typeof written.line_oa_friend_checked_at).toBe("string");
+    vi.unstubAllGlobals();
+  });
+
+  it("null probe (LINE error) keeps the stored flag — neither column written, login proceeds", async () => {
+    exchangeMock.mockResolvedValue({
+      ok: true,
+      claims: { sub: "Uhandoff1", name: "สมชาย", picture: null },
+      accessToken: "user-access-tok",
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("nope", { status: 500 })));
+
+    const response = await GET(makeRequest("?code=abc&state=st1"));
+
+    const written = adminUsersUpdateMock.mock.calls[0]![0] as Record<string, unknown>;
+    expect(written).not.toHaveProperty("line_oa_friend");
+    expect(written).not.toHaveProperty("line_oa_friend_checked_at");
+    // Probe failure never blocks login.
+    expect(response.headers.get("location")).toBe("https://app.example.com/sa");
+    vi.unstubAllGlobals();
+  });
+
+  it("missing access token skips the probe entirely (no fetch call)", async () => {
+    exchangeMock.mockResolvedValue({
+      ok: true,
+      claims: { sub: "Uhandoff1", name: "สมชาย", picture: null },
+      accessToken: null,
+    });
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await GET(makeRequest("?code=abc&state=st1"));
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    const written = adminUsersUpdateMock.mock.calls[0]![0] as Record<string, unknown>;
+    expect(written).not.toHaveProperty("line_oa_friend");
+    vi.unstubAllGlobals();
+  });
+});

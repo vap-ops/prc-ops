@@ -67,6 +67,29 @@ describe("exchangeLineCode", () => {
     expect(body.get("redirect_uri")).toBe(PARAMS.redirectUri);
   });
 
+  // Spec 318 U1 — the callback needs the user access token for the OA
+  // friendship probe; expose it from the same exchange (null when absent).
+  it("exposes the access token alongside the claims", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({ id_token: makeToken(VALID_PAYLOAD), access_token: "user-access-tok" }),
+        { status: 200 },
+      ),
+    );
+    const result = await exchangeLineCode(PARAMS);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.accessToken).toBe("user-access-tok");
+  });
+
+  it("returns accessToken null when the response lacks access_token", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ id_token: makeToken(VALID_PAYLOAD) }), { status: 200 }),
+    );
+    const result = await exchangeLineCode(PARAMS);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.accessToken).toBeNull();
+  });
+
   it("reports token_fetch_failed when the endpoint is unreachable", async () => {
     fetchMock.mockRejectedValue(new Error("network down"));
     const result = await exchangeLineCode(PARAMS);

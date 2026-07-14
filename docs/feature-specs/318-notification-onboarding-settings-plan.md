@@ -23,6 +23,7 @@
 ### Task 0: Plan + index housekeeping (this PR)
 
 **Files:**
+
 - Create: `docs/feature-specs/318-notification-onboarding-settings-plan.md` (this file)
 - Modify: `docs/feature-specs/README.md` (append index rows for 318 + 318-plan)
 
@@ -33,6 +34,7 @@
 ### Task 1 (U1): Friendship detection — mig + bot_prompt + callback check
 
 **Files:**
+
 - Create: `supabase/migrations/20260813075795_spec318u1_line_oa_friend.sql`
 - Create: `src/lib/auth/line-friendship.ts`
 - Modify: `src/lib/auth/line-authorize-url.ts` (add bot_prompt)
@@ -41,6 +43,7 @@
 - Test: `tests/unit/line-friendship.test.ts`, `tests/unit/line-token-exchange.test.ts` (extend), `supabase/tests/database/318-line-oa-friend.test.sql`
 
 **Interfaces:**
+
 - Produces: `users.line_oa_friend boolean | null`, `users.line_oa_friend_checked_at timestamptz | null` (read-self via existing RLS); `fetchLineFriendFlag(accessToken: string): Promise<boolean | null>`; `LineExchangeResult` ok-variant gains `accessToken: string | null`.
 - Consumed by: U2 reader, U4 readiness card.
 
@@ -56,9 +59,12 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("fetchLineFriendFlag", () => {
   it("returns true when LINE says friendFlag true", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ friendFlag: true }), { status: 200 }),
-    ));
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(new Response(JSON.stringify({ friendFlag: true }), { status: 200 })),
+    );
     await expect(fetchLineFriendFlag("tok")).resolves.toBe(true);
   });
   it("returns null on non-200 (never throws into login)", async () => {
@@ -70,9 +76,12 @@ describe("fetchLineFriendFlag", () => {
     await expect(fetchLineFriendFlag("tok")).resolves.toBeNull();
   });
   it("returns null on malformed body", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ friendFlag: "yes" }), { status: 200 }),
-    ));
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(new Response(JSON.stringify({ friendFlag: "yes" }), { status: 200 })),
+    );
     await expect(fetchLineFriendFlag("tok")).resolves.toBeNull();
   });
 });
@@ -109,10 +118,10 @@ export async function fetchLineFriendFlag(accessToken: string): Promise<boolean 
 `line-authorize-url.ts` — after the `scope` param:
 
 ```ts
-  // Spec 318 U1 — LINE renders an add-friend screen for the linked OA
-  // (@070vkizw) to non-friends only; friends never see it. Requires the
-  // OA linked to this Login channel in the LINE console (operator step).
-  url.searchParams.set("bot_prompt", "aggressive");
+// Spec 318 U1 — LINE renders an add-friend screen for the linked OA
+// (@070vkizw) to non-friends only; friends never see it. Requires the
+// OA linked to this Login channel in the LINE console (operator step).
+url.searchParams.set("bot_prompt", "aggressive");
 ```
 
 `line-token-exchange.ts` — ok-variant `{ ok: true; claims: LineIdTokenClaims; accessToken: string | null }`; parse:
@@ -127,15 +136,13 @@ export async function fetchLineFriendFlag(accessToken: string): Promise<boolean 
 `callback/route.ts` — extend the step-6 select with `line_oa_friend, line_oa_friend_checked_at`; extend the step-7 `updates` type with `line_oa_friend?: boolean; line_oa_friend_checked_at?: string;` and after the `line_synced_at` line:
 
 ```ts
-  // Spec 318 U1 — OA-friendship refresh-on-login (linked-OA probe). null =
-  // probe failed → keep the stored value (never degrade a known state).
-  const friendFlag = exchange.accessToken
-    ? await fetchLineFriendFlag(exchange.accessToken)
-    : null;
-  if (friendFlag !== null) {
-    updates.line_oa_friend = friendFlag;
-    updates.line_oa_friend_checked_at = new Date().toISOString();
-  }
+// Spec 318 U1 — OA-friendship refresh-on-login (linked-OA probe). null =
+// probe failed → keep the stored value (never degrade a known state).
+const friendFlag = exchange.accessToken ? await fetchLineFriendFlag(exchange.accessToken) : null;
+if (friendFlag !== null) {
+  updates.line_oa_friend = friendFlag;
+  updates.line_oa_friend_checked_at = new Date().toISOString();
+}
 ```
 
 Migration:
@@ -162,6 +169,7 @@ pgTAP `318-line-oa-friend.test.sql` (plan(4)): both columns exist with correct t
 ### Task 2 (U2): Readiness banner (code-only; builds after U1 mig is LIVE — needs db:types)
 
 **Files:**
+
 - Create: `src/lib/notifications/readiness.ts`
 - Create: `src/components/features/notifications/readiness-banner.tsx`
 - Modify: `src/app/profile/page.tsx`, `src/app/sa/page.tsx`, `src/app/technician/page.tsx`, `src/app/dashboard/page.tsx` (render banner near top of body)
@@ -170,6 +178,7 @@ pgTAP `318-line-oa-friend.test.sql` (plan(4)): both columns exist with correct t
 - Test: `tests/unit/notification-readiness-banner.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `users.line_oa_friend` (U1).
 - Produces: `loadNotificationReadiness(supabase): Promise<{ lineLinked: boolean; friendFlag: boolean | null; checkedAt: string | null }>` (own-row read, best-effort null on error); `OA_ADD_FRIEND_URL = "https://line.me/R/ti/p/@070vkizw"`; `<NotificationReadinessBanner readiness={...} />` — renders **only when `friendFlag === false`** (null = unknown → render nothing).
 
@@ -184,6 +193,7 @@ pgTAP `318-line-oa-friend.test.sql` (plan(4)): both columns exist with correct t
 ### Task 3 (U3): Preferences — table + RPC + catalog SSOT + drain filter
 
 **Files:**
+
 - Create: `supabase/migrations/20260813075796_spec318u3_notification_preferences.sql`
 - Create: `src/lib/notifications/notification-catalog.ts`
 - Create: `src/lib/notifications/preference-filter.ts`
@@ -191,6 +201,7 @@ pgTAP `318-line-oa-friend.test.sql` (plan(4)): both columns exist with correct t
 - Test: `tests/unit/notification-catalog.test.ts`, `tests/unit/preference-filter.test.ts`, `supabase/tests/database/318-notification-preferences.test.sql`
 
 **Interfaces:**
+
 - Produces: table `notification_preferences(user_id, event_type, enabled, updated_at, pk(user_id,event_type))`; RPC `set_notification_preference(p_event notification_event_type, p_enabled boolean)`; `NOTIFICATION_CATALOG: readonly NotificationCatalogEntry[]` where `NotificationCatalogEntry = { event; label; description; category; audience(role): boolean; locked }`; `LOCKED_NOTIFICATION_EVENTS`; `filterMutedRecipients(recipients: string[], eventType: NotificationEventType, mutedKeys: ReadonlySet<string>): string[]` (locked events bypass the filter); muted key format `` `${userId}:${eventType}` ``.
 - Consumed by: U4 page.
 
@@ -241,23 +252,23 @@ pgTAP `318-notification-preferences.test.sql` (fixture-scoped, ~14 asserts): tab
 - [ ] **Step 5: drain wiring.** In enrichment (once per batch):
 
 ```ts
-  // Spec 318 U3 — per-user mutes. Only deviations are stored (enabled=false
-  // rows); absence = ON, so one small unconditional read covers the batch.
-  const { data: mutedRows, error: mutedError } = await admin
-    .from("notification_preferences")
-    .select("user_id, event_type")
-    .eq("enabled", false);
-  if (mutedError) {
-    console.error("[notifications/drain] preference fetch failed", mutedError.message);
-    return NextResponse.json({ error: "enrichment_failed" }, { status: 500 });
-  }
-  const mutedKeys = new Set((mutedRows ?? []).map((r) => `${r.user_id}:${r.event_type}`));
+// Spec 318 U3 — per-user mutes. Only deviations are stored (enabled=false
+// rows); absence = ON, so one small unconditional read covers the batch.
+const { data: mutedRows, error: mutedError } = await admin
+  .from("notification_preferences")
+  .select("user_id, event_type")
+  .eq("enabled", false);
+if (mutedError) {
+  console.error("[notifications/drain] preference fetch failed", mutedError.message);
+  return NextResponse.json({ error: "enrichment_failed" }, { status: 500 });
+}
+const mutedKeys = new Set((mutedRows ?? []).map((r) => `${r.user_id}:${r.event_type}`));
 ```
 
 In the deliver loop, immediately after `resolveRecipients(...)`:
 
 ```ts
-  const deliverable = filterMutedRecipients(recipients, row.event_type, mutedKeys);
+const deliverable = filterMutedRecipients(recipients, row.event_type, mutedKeys);
 ```
 
 …and `lineTargets`/`telegramTargets` map over `deliverable` instead of `recipients`.
@@ -270,6 +281,7 @@ In the deliver loop, immediately after `resolveRecipients(...)`:
 ### Task 4 (U4): `/settings/notifications` page
 
 **Files:**
+
 - Create: `src/app/settings/notifications/page.tsx`, `src/app/settings/notifications/actions.ts`, `src/components/features/notifications/preferences-form.tsx` (client island — toggle interactivity)
 - Modify: `src/app/settings/page.tsx` (การแจ้งเตือน row in the account block, after the /profile Link)
 - Modify: `src/lib/i18n/labels.ts` (page labels)
@@ -277,6 +289,7 @@ In the deliver loop, immediately after `resolveRecipients(...)`:
 - Test: `tests/unit/notification-preferences-form.test.tsx`, `tests/unit/settings-notifications-actions.test.ts`
 
 **Interfaces:**
+
 - Consumes: U2 `loadNotificationReadiness` + banner pieces; U3 catalog + RPC + prefs select.
 - Produces: server actions `saveNotificationPreference(event, enabled)` (calls RPC, revalidates `/settings/notifications`) and `sendTestNotification()` (reads own `line_user_id`; `pushLineMessage` direct — spec-212 sample-push precedent; Thai error strings when token unset / no line_user_id / push fails).
 
@@ -291,12 +304,14 @@ In the deliver loop, immediately after `resolveRecipients(...)`:
 ### Task 5 (U5): Fanout scoping — project-scoped PM resolution
 
 **Files:**
+
 - Create: `supabase/migrations/20260813075797_spec318u5_pr_created_project_payload.sql` (replace `purchase_requests_notify_created` fn FROM LIVE, payload + `'project_id', new.project_id`)
 - Modify: `src/lib/notifications/resolve-recipients.ts` (context: `pmIds` → `orgWidePmIds` (PD + super only) + new `eventProjectPmIds`; wp_pending_approval/pr_created union them; empty project-PM list falls back to the FULL legacy pool via new context field `legacyPmPoolIds` — see transition note)
 - Modify: `src/app/api/notifications/drain/route.ts` (WP select adds `project_id`; generalize the project-PM resolution beyond site-issue rows: union of site-issue payload projectIds + wp_pending_approval WP projects + pr_created payload projectIds; org-wide pool query = PD + super roles)
 - Test: `tests/unit/resolve-recipients.test.ts` (extend), `supabase/tests/database/318-pr-created-payload.test.sql`
 
 **Interfaces:**
+
 - Consumes: existing `projectPmRecipients` machinery (spec 277, `site-issue-recipients.ts`).
 - Produces: `RecipientContext` = `{ orgWidePmIds; eventProjectPmIds; legacyPmPoolIds; wpUploaderIds; superIds; siteIssueProjectPmIds; siteIssueRolePoolIds }`.
 
@@ -313,6 +328,7 @@ In the deliver loop, immediately after `resolveRecipients(...)`:
 ### Task 6 (U6): automations.md registry fill
 
 **Files:**
+
 - Modify: `docs/automations.md` — add **AUT-N1…AUT-N8** (wp_pending_approval, wp_decision, wp_reopened, pr_created, pr_decision, pr_progress, pr_cancelled, feedback_submitted) in the AUT-SI1 shape; content from the catalog SSOT; each entry's **toggleable** = "per-user mute via /settings/notifications (spec 318 U3/U4); site-wide pause = drainer env vars"; AUT-SI1 gains a note: locked against per-user mute.
 
 - [ ] **Step 1:** write entries (trigger = the exact DB trigger + migration ref from spec §investigation; recipients = post-U5 scoped rules). Docs-only PR, auto-merge. Update progress-tracker; archive lane when all units merged.
