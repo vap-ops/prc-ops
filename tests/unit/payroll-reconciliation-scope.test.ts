@@ -2,7 +2,7 @@
 //
 // Spec 311 U5 — payment reconciliation is period-wide, not per-project.
 // wage_payments carries no project dimension, so under the spec-309 project
-// filter the project-scoped roll-up (worker.amount = one project's days) would
+// filter the project-scoped roll-up (worker.gross = one project's days) would
 // be reconciled against a project-BLIND payment (the whole period's paid amount)
 // — false drift, misattributed "จ่ายแล้ว", and a blocked 2nd-project payment.
 // reconcilePayroll suppresses reconciliation when a project filter is active
@@ -17,9 +17,11 @@ import type { WagePaymentRow } from "@/lib/labor/payments";
 const RANGE: PayrollRange = { from: "2026-07-01", to: "2026-07-31" };
 
 const REPORT: PayrollReport = {
-  workers: [{ workerId: "w1", name: "สมชาย", days: 5, amount: 5000 }],
+  workers: [{ workerId: "w1", name: "สมชาย", days: 5, gross: 5000, wht: 150, net: 4850 }],
   totalDays: 5,
-  totalAmount: 5000,
+  totalGross: 5000,
+  totalWht: 150,
+  totalNet: 4850,
   workerCount: 1,
 };
 

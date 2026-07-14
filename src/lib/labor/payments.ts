@@ -140,20 +140,23 @@ export function annotatePayrollPayments(
           paidAt: match.paid_at,
           method: match.method,
           computedAmount: match.computed_amount,
-          drifted: round2(worker.amount) !== round2(match.computed_amount),
+          // Reconcile against gross (spec 314 U4 kept the pre-314 basis: the
+          // recorded wage payment compares to the gross roll-up; net/WHT are a
+          // display split, and settlement-against-net is deferred GL work).
+          drifted: round2(worker.gross) !== round2(match.computed_amount),
         },
       };
     }
 
     unpaidCount += 1;
-    outstandingAmount += worker.amount;
+    outstandingAmount += worker.gross;
     return { ...worker, payment: null };
   });
 
   return {
     workers,
     totalDays: report.totalDays,
-    totalAmount: report.totalAmount,
+    totalAmount: report.totalGross,
     workerCount: report.workerCount,
     paidCount,
     unpaidCount,

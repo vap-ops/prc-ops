@@ -22,7 +22,12 @@ import {
   BUTTON_SECONDARY,
 } from "@/lib/ui/classes";
 import { bangkokTodayIso } from "@/lib/dates";
-import { formatThaiDate, PAYROLL_PAYMENT_PERIOD_WIDE_NOTE } from "@/lib/i18n/labels";
+import {
+  formatThaiDate,
+  PAYROLL_PAYMENT_PERIOD_WIDE_NOTE,
+  PAYROLL_WHT_LABEL,
+  PAYROLL_NET_LABEL,
+} from "@/lib/i18n/labels";
 import { parsePayrollRange } from "@/lib/labor/payroll";
 import { fetchPayrollReport } from "@/lib/labor/fetch-payroll";
 import {
@@ -156,7 +161,15 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
                 <p className="text-ink-secondary text-xs">
                   {formatThaiDate(range.from)} – {formatThaiDate(range.to)}
                 </p>
-                <p className="text-ink text-xl font-bold">{baht(report.totalAmount)}</p>
+                <p className="text-ink text-xl font-bold">{baht(report.totalGross)}</p>
+                {/* Spec 314 U4 — WHT / net breakdown, shown only when there is
+                    withholding (all rows null-% → gross === net, no need). */}
+                {report.totalWht > 0 ? (
+                  <p className="text-ink-secondary text-xs">
+                    {PAYROLL_WHT_LABEL} {baht(report.totalWht)} · {PAYROLL_NET_LABEL}{" "}
+                    {baht(report.totalNet)}
+                  </p>
+                ) : null}
                 <p className="text-ink-secondary text-xs">
                   {report.workerCount} คน · {formatDays(report.totalDays)} วัน
                 </p>
@@ -193,7 +206,15 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
                         <p className="text-ink truncate font-semibold">{w.name}</p>
                         <p className="text-ink-secondary text-xs">{formatDays(w.days)} วัน</p>
                       </div>
-                      <p className="text-ink shrink-0 text-sm font-bold">{baht(w.amount)}</p>
+                      <div className="shrink-0 text-right">
+                        <p className="text-ink text-sm font-bold">{baht(w.gross)}</p>
+                        {/* Spec 314 U4 — per-worker WHT / net split when withheld. */}
+                        {w.wht > 0 ? (
+                          <p className="text-ink-secondary text-xs">
+                            {PAYROLL_WHT_LABEL} {baht(w.wht)} · {PAYROLL_NET_LABEL} {baht(w.net)}
+                          </p>
+                        ) : null}
+                      </div>
                     </div>
 
                     {/* Spec 127 U2 / spec 170 U3 — payment status: paid badge
@@ -220,7 +241,7 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
                             workerName={w.name}
                             from={range.from}
                             to={range.to}
-                            computedAmount={w.amount}
+                            computedAmount={w.gross}
                             computedDays={w.days}
                             bank={banks.get(w.workerId) ?? null}
                             todayIso={todayIso}
