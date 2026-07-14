@@ -6,13 +6,19 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 315 — Technician document self-service — 🔨 IN PROGRESS (2026-07-14)
+## Spec 315 — Technician document self-service — ✅ BUILT (2026-07-14)
 
-- Started 2026-07-14. Lane `315docs`, worktree `../prc-ops-315`, migs `075786` (U1) + `075787` (U2).
-- U1: ID-card re-submit on approved registration (self-serve supersede) + `/technician` upload section.
-- U2: required passbook photo on worker bank-change (submit re-signature + decide chain-write + queue photo).
-- Operator decisions captured in the spec (self-serve ID card; photo REQUIRED).
-- Open questions: profile_photo self-update + contractor photo-evidence deferred (spec §Out of scope).
+- U1 ✅ MERGED #529 (mig `075786`): ID-card re-submit on approved registration (self-serve
+  supersede, operator decision) + `WorkerIdCardUpdate` on `/technician`. pgTAP 9/9; browser-verified
+  end-to-end (real upload → supersede chain).
+- U2 PR #530 (mig `075787`): REQUIRED passbook photo on the worker bank change — 4-arg submit
+  re-signature (old dropped; accepted deploy window) + own-folder pin + storage-existence check;
+  decide-approve chains the photo into the registration book_bank; queue renders admin-signed photo
+  (+ amber marker when unsignable). pgTAP 26/26 + 201 updated; browser-verified end-to-end.
+- Fresh-eyes both units: all 🔴/🟡 fixed or documented in the spec's Accepted-seams section.
+- Open questions: profile_photo self-update + contractor photo-evidence deferred (spec §Out of scope);
+  DocRow in the registration form shares U1's (fixed) double-upload race — follow-up candidate;
+  ▶ operator ask 2026-07-14: technician MENU PORTAL (split the one-pager) — spec-313 family.
 
 ---
 

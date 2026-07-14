@@ -139,6 +139,7 @@ export default async function TechnicianHomePage() {
         {wp ? (
           <div>
             <WorkerPortalSections
+              uid={uid}
               wp={wp}
               payments={workerPayments ?? []}
               consents={(workerConsentRows ?? []) as PortalConsent[]}

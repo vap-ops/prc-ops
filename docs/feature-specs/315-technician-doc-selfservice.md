@@ -97,6 +97,19 @@ deployed form calls the dropped 3-arg signature and errors — bank-change submi
 brick for minutes. Same class as spec 279 F2b's re-signature; surface is
 low-traffic. Noted in the PR body.
 
+## U2 hardening (fresh-eyes review, 2026-07-14)
+
+- **Existence check:** `submit_worker_bank_change` refuses a well-formed path whose
+  object was never uploaded (P0001) — a dangling path could otherwise ride an
+  approve into the evidence chain. Applicants have no storage DELETE policy, so
+  existence at submit holds thereafter.
+- **Approved-registration filter** on the decide chain-write (a bound worker could
+  carry a rejected registration via `claim_worker_invite`).
+- **Queue marker:** a declared-but-unsignable photo renders an explicit amber
+  warning, never a silent no-photo card.
+- Accepted: orphaned storage objects on failed/retried submits (owner-only folder,
+  no DELETE policy — evidence-friendly litter).
+
 ## Accepted seams (fresh-eyes review, 2026-07-14)
 
 - **Role-agnostic renewal:** ANY approved staff registration (office roles too, spec
