@@ -1,3 +1,9 @@
+# [0.80.0](https://github.com/VAP-Solution/prc-ops/compare/v0.79.0...v0.80.0) (2026-07-14)
+
+### Features
+
+- **technician:** id-card renewal on approved registration (spec 315 U1) ([#529](https://github.com/VAP-Solution/prc-ops/issues/529)) ([198a38d](https://github.com/VAP-Solution/prc-ops/commit/198a38d0fddbfddf29a1e05e9f8c9a2ebd80ed46))
+
 # [0.79.0](https://github.com/VAP-Solution/prc-ops/compare/v0.78.0...v0.79.0) (2026-07-14)
 
 ### Features
