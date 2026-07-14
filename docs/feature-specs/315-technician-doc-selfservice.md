@@ -97,6 +97,18 @@ deployed form calls the dropped 3-arg signature and errors — bank-change submi
 brick for minutes. Same class as spec 279 F2b's re-signature; surface is
 low-traffic. Noted in the PR body.
 
+## Accepted seams (fresh-eyes review, 2026-07-14)
+
+- **Role-agnostic renewal:** ANY approved staff registration (office roles too, spec
+  286 is role-neutral) may renew their own id_card via the RPC. Self-scoped +
+  append-only + no status change — intended; only `/technician` surfaces the UI today.
+- **Orphaned blob on action failure:** storage upload succeeds → record action fails
+  → unreferenced photo stays in the private, owner-scoped bucket. Parity with the
+  registration form's DocRow; retry mints a new path.
+- **Concurrent-renewal double-head:** two devices re-submitting simultaneously can
+  each chain onto the same prior (no serialization in the RPC; pre-existing spec-296
+  seam). Readers already fall back to newest `created_at`, so display survives.
+
 ## Out of scope (surfaced, not built)
 
 - `profile_photo` self-update on an approved registration.

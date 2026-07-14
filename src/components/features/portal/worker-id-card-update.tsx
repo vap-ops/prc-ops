@@ -31,6 +31,10 @@ export function WorkerIdCardUpdate({
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
+  // Synchronous re-entry guard: phase state only lands after a re-render, so a
+  // second change event during a slow prepare (HEIC downscale) would double-run
+  // the whole upload → two attachment rows. The ref closes that window.
+  const inFlightRef = useRef(false);
   const [phase, setPhase] = useState<UploadPhase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [, startRefresh] = useTransition();
@@ -38,8 +42,19 @@ export function WorkerIdCardUpdate({
   async function handleFile(files: FileList | null) {
     const file = files?.[0];
     if (!file) return;
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     setError(null);
+    setPhase("uploading");
 
+    try {
+      await runUpload(file);
+    } finally {
+      inFlightRef.current = false;
+    }
+  }
+
+  async function runUpload(file: File) {
     const prepared = await preparePhotoForUpload(file);
     if (!prepared) {
       setPhase("error");
@@ -55,7 +70,6 @@ export function WorkerIdCardUpdate({
       return;
     }
 
-    setPhase("uploading");
     const supabase = createClient();
     const { error: uploadError } = await supabase.storage
       .from(CONTACT_DOCS_BUCKET)

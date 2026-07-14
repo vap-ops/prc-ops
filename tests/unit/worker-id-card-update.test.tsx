@@ -60,6 +60,15 @@ describe("WorkerIdCardUpdate", () => {
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
   });
 
+  it("surfaces a storage upload failure and never calls the record action", async () => {
+    mockUpload.mockResolvedValue({ error: { message: "boom", statusCode: "500" } });
+    render(<WorkerIdCardUpdate uid={UID} currentUrl={null} />);
+    pickFile();
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("ส่งเอกสารไม่สำเร็จ"));
+    expect(mockAdd).not.toHaveBeenCalled();
+    expect(mockRefresh).not.toHaveBeenCalled();
+  });
+
   it("surfaces the action error and does not refresh", async () => {
     mockAdd.mockResolvedValue({ ok: false, error: "บันทึกเอกสารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
     render(<WorkerIdCardUpdate uid={UID} currentUrl={null} />);
