@@ -1,3 +1,9 @@
+# [0.93.0](https://github.com/VAP-Solution/prc-ops/compare/v0.92.1...v0.93.0) (2026-07-14)
+
+### Features
+
+- **notifications:** project-scoped PM fanout for approval events (spec 318 U5) ([#550](https://github.com/VAP-Solution/prc-ops/issues/550)) ([dff5fd4](https://github.com/VAP-Solution/prc-ops/commit/dff5fd40db1c3b36aff3e6ea3e579227d111cd37))
+
 ## [0.92.1](https://github.com/VAP-Solution/prc-ops/compare/v0.92.0...v0.92.1) (2026-07-14)
 
 ### Bug Fixes
