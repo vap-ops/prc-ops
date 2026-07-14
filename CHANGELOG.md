@@ -1,3 +1,9 @@
+# [0.84.0](https://github.com/VAP-Solution/prc-ops/compare/v0.83.0...v0.84.0) (2026-07-14)
+
+### Features
+
+- **roles:** spec 316 U1 capability registry + coverage guards ([#532](https://github.com/VAP-Solution/prc-ops/issues/532)) ([127c3cd](https://github.com/VAP-Solution/prc-ops/commit/127c3cd34f5af9331ecfe4e83fe6af7f2f4da8de))
+
 # [0.83.0](https://github.com/VAP-Solution/prc-ops/compare/v0.82.0...v0.83.0) (2026-07-14)
 
 ### Features
