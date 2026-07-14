@@ -103,6 +103,16 @@ p_emergency_relation, p_emergency_phone)` — own registration, `pending OR appr
   the sibling's `is distinct from` idiom is the belt-and-suspenders form — noted,
   not re-pushed for a nit.
 
+## U5 notes (fresh-eyes review, 2026-07-14)
+
+- procurement_manager (a page viewer for the worker kinds) sees contractor
+  passbook photos it cannot decide — consistent with the dcedit posture (it
+  already saw the typed contractor bank fields); accepted, not decider-scoped.
+- Duplicate-key (23505) from the atomic one-pending index maps to the same
+  friendly มีคำขอที่รออนุมัติอยู่แล้ว message in the submit actions.
+- bank_book_path length check aligned to contact_attachments' 400-char cap so a
+  decide-time insert can never abort on length.
+
 ## Out of scope
 
 - Address/phone for office staff beyond the registration fields (no structured address

@@ -89,7 +89,7 @@ export async function submitBankChange(input: {
     p_bank_book_path: path,
   });
   if (error) {
-    if (error.message.includes("already exists")) {
+    if (error.message.includes("already exists") || error.message.includes("duplicate key")) {
       return { ok: false, error: "มีคำขอที่รออนุมัติอยู่แล้ว" };
     }
     return { ok: false, error: GENERIC_BANK };
@@ -135,7 +135,7 @@ export async function submitWorkerBankChange(input: {
     p_book_bank_path: path,
   });
   if (error) {
-    if (error.message.includes("already exists")) {
+    if (error.message.includes("already exists") || error.message.includes("duplicate key")) {
       return { ok: false, error: "มีคำขอที่รออนุมัติอยู่แล้ว" };
     }
     return { ok: false, error: GENERIC_BANK };

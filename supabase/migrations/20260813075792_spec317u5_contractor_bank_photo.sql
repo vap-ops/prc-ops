@@ -13,7 +13,7 @@
 
 alter table public.contractor_bank_change_requests
   add column bank_book_path text
-  constraint cbcr_bank_book_path_len check (bank_book_path is null or length(bank_book_path) <= 500);
+  constraint cbcr_bank_book_path_len check (bank_book_path is null or length(bank_book_path) <= 400);
 
 -- One pending per contractor, enforced atomically (parity with staff_bank_change_requests).
 create unique index cbcr_one_pending_idx on public.contractor_bank_change_requests (contractor_id)
