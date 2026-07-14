@@ -1,3 +1,9 @@
+# [0.90.0](https://github.com/VAP-Solution/prc-ops/compare/v0.89.0...v0.90.0) (2026-07-14)
+
+### Features
+
+- **portal:** contractor bank change gains required passbook photo (spec 317 U5) ([#540](https://github.com/VAP-Solution/prc-ops/issues/540)) ([28034bf](https://github.com/VAP-Solution/prc-ops/commit/28034bfb9c4a11f6536031de3d53f040dcee1624))
+
 # [0.89.0](https://github.com/VAP-Solution/prc-ops/compare/v0.88.0...v0.89.0) (2026-07-14)
 
 ### Features
