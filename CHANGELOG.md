@@ -1,3 +1,9 @@
+## [0.91.1](https://github.com/VAP-Solution/prc-ops/compare/v0.91.0...v0.91.1) (2026-07-14)
+
+### Bug Fixes
+
+- **banks:** normalize pre-picker legacy bank names to the canonical SSOT ([#544](https://github.com/VAP-Solution/prc-ops/issues/544)) ([98ae2b7](https://github.com/VAP-Solution/prc-ops/commit/98ae2b7eb648aa01a1fdb29db48dfd82c2fb5d7e))
+
 # [0.91.0](https://github.com/VAP-Solution/prc-ops/compare/v0.90.1...v0.91.0) (2026-07-14)
 
 ### Features
