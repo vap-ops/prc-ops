@@ -1,3 +1,9 @@
+# [0.86.0](https://github.com/VAP-Solution/prc-ops/compare/v0.85.0...v0.86.0) (2026-07-14)
+
+### Features
+
+- **roles:** spec 316 U2 user search + guided 2-step role picker ([#536](https://github.com/VAP-Solution/prc-ops/issues/536)) ([5630ec5](https://github.com/VAP-Solution/prc-ops/commit/5630ec53fbe2122f2ab45d1b1f7262a63c8658a6))
+
 # [0.85.0](https://github.com/VAP-Solution/prc-ops/compare/v0.84.1...v0.85.0) (2026-07-14)
 
 ### Features
